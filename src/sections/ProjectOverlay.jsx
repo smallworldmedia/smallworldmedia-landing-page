@@ -20,8 +20,12 @@ const FORM_FIELDS = [
  * Animation sequence (gsap-swm "Controlled Chaos"):
  * 1. Overlay clips in from bottom
  * 2. Header Flip-animates from the hero CTA's position into the overlay
- * 3. Form fields stagger in with x-offset + opacity
- * 4. Submit button slides in (overlaps fields tightly)
+ * 3. Form body fades up after header lands
+ * 4. Submit button follows
+ *
+ * Layout: The header is position: absolute inside the form (bottom: 100%),
+ * so it never participates in flexbox flow. This prevents Flip's absolute
+ * mode from causing layout recalculations that shift the form.
  */
 export default function ProjectOverlay({ isOpen, onClose, flipState }) {
     const overlayRef = useRef(null);
@@ -39,13 +43,13 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             hasAnimatedRef.current = false;
             setStatus('idle');
 
-            const form = el.querySelector('.project-overlay__form');
-            const fields = el.querySelectorAll('.project-overlay__field');
+            const formBody = el.querySelector('.project-overlay__body');
             const submit = el.querySelector('.project-overlay__submit');
             const header = headerRef.current;
 
-            // Immediately hide form content — it reveals after the header lands
-            gsap.set([fields, submit], { opacity: 0 });
+            // Hide form body + submit immediately — revealed after Flip header lands
+            if (formBody) gsap.set(formBody, { opacity: 0, y: 12 });
+            if (submit) gsap.set(submit, { opacity: 0, y: 8 });
 
             const tl = gsap.timeline();
 
@@ -68,7 +72,6 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                         targets: header,
                         duration: 0.5,
                         ease: 'power3.out',
-                        absolute: true,
                     });
                 }, '-=0.1');
             } else {
@@ -80,27 +83,21 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                 );
             }
 
-            // 3. Form fields stagger — delayed to let header land first
-            tl.fromTo(
-                fields,
-                { x: -16, opacity: 0 },
-                {
-                    x: 0,
-                    opacity: 1,
-                    duration: 0.4,
-                    ease: 'power3.out',
-                    stagger: { each: 0.02, from: 'start' },
-                },
-                '+=0.15'
-            );
+            // 3. Form body (fields wrapper) — fades up as a single block after header lands
+            if (formBody) {
+                tl.to(formBody,
+                    { opacity: 1, y: 0, duration: 0.4, ease: 'power3.out' },
+                    '+=0.1'
+                );
+            }
 
-            // 4. Submit button — tight overlap with fields
-            tl.fromTo(
-                submit,
-                { y: 8, opacity: 0 },
-                { y: 0, opacity: 1, duration: 0.3, ease: 'power3.out' },
-                '-=0.3'
-            );
+            // 4. Submit button — follows form body
+            if (submit) {
+                tl.to(submit,
+                    { opacity: 1, y: 0, duration: 0.3, ease: 'power3.out' },
+                    '-=0.2'
+                );
+            }
 
             hasAnimatedRef.current = true;
         } else if (hasAnimatedRef.current) {
@@ -123,7 +120,6 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
 
         const form = e.target;
         const formData = new FormData(form);
-        // Netlify uses the 'replyto' field as the Reply-To header on email notifications
         formData.set('replyto', formData.get('email') || '');
 
         try {
@@ -136,7 +132,6 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             if (response.ok) {
                 setStatus('success');
                 form.reset();
-                // Hold confirmation for 2.5s, then clip upward out of view
                 setTimeout(() => {
                     const el = overlayRef.current;
                     if (el) {
@@ -166,7 +161,7 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             data-open={isOpen}
             aria-hidden={!isOpen}
         >
-            {/* Globe logo — top left (only rendered when open to avoid GIF decoding while hidden) */}
+            {/* Globe logo — top left */}
             {isOpen && (
                 <img
                     className="project-overlay__globe"
@@ -187,25 +182,12 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                 </button>
             )}
 
-            {/* Header — hidden after success */}
-            {status !== 'success' && (
-                <div
-                    className="project-overlay__header"
-                    ref={headerRef}
-                    data-flip-id="start-project"
-                >
-                    ↳start a project
-                </div>
-            )}
-
             {status === 'success' ? (
-                /* ---- Success confirmation ---- */
                 <div className="project-overlay__confirmation">
                     <span>thanks for reaching out,</span>
                     <span>we'll be in touch soon.</span>
                 </div>
             ) : (
-                /* ---- Contact form — Netlify Forms ---- */
                 <form
                     className="project-overlay__form"
                     name="contact"
@@ -214,6 +196,15 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                     netlify-honeypot="bot-field"
                     onSubmit={handleSubmit}
                 >
+                    {/* Header — absolutely positioned above form (bottom: 100%) */}
+                    <div
+                        className="project-overlay__header"
+                        ref={headerRef}
+                        data-flip-id="start-project"
+                    >
+                        ↳start a project
+                    </div>
+
                     {/* Hidden fields required by Netlify */}
                     <input type="hidden" name="form-name" value="contact" />
                     <div hidden>
@@ -222,42 +213,45 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                         </label>
                     </div>
 
-                    {FORM_FIELDS.map((field) => (
-                        <div className="project-overlay__field" key={field.name}>
+                    {/* Form body — animated as a single unit */}
+                    <div className="project-overlay__body">
+                        {FORM_FIELDS.map((field) => (
+                            <div className="project-overlay__field" key={field.name}>
+                                <label
+                                    className="project-overlay__label"
+                                    htmlFor={`field-${field.name}`}
+                                >
+                                    {field.label}
+                                </label>
+                                <input
+                                    className="project-overlay__input"
+                                    type={field.type}
+                                    id={`field-${field.name}`}
+                                    name={field.name}
+                                    required={field.required}
+                                    autoComplete={field.type === 'email' ? 'email' : 'off'}
+                                    disabled={status === 'sending'}
+                                />
+                            </div>
+                        ))}
+
+                        {/* Message textarea */}
+                        <div className="project-overlay__field">
                             <label
                                 className="project-overlay__label"
-                                htmlFor={`field-${field.name}`}
+                                htmlFor="field-message"
                             >
-                                {field.label}
+                                Message
                             </label>
-                            <input
-                                className="project-overlay__input"
-                                type={field.type}
-                                id={`field-${field.name}`}
-                                name={field.name}
-                                required={field.required}
-                                autoComplete={field.type === 'email' ? 'email' : 'off'}
+                            <textarea
+                                className="project-overlay__input project-overlay__textarea"
+                                id="field-message"
+                                name="message"
+                                rows="4"
+                                required
                                 disabled={status === 'sending'}
                             />
                         </div>
-                    ))}
-
-                    {/* Message textarea */}
-                    <div className="project-overlay__field">
-                        <label
-                            className="project-overlay__label"
-                            htmlFor="field-message"
-                        >
-                            Message
-                        </label>
-                        <textarea
-                            className="project-overlay__input project-overlay__textarea"
-                            id="field-message"
-                            name="message"
-                            rows="4"
-                            required
-                            disabled={status === 'sending'}
-                        />
                     </div>
 
                     <button

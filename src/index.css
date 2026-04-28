@@ -558,12 +558,15 @@ button.cta {
 }
 
 .project-overlay__header {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
   font-family: var(--font-ui);
   font-size: 1.571vw;
   font-weight: 400;
   color: var(--color-cream);
-  margin-bottom: 2vw;
   white-space: nowrap;
+  padding-bottom: 2vw;
 }
 
 .project-overlay__form {
@@ -571,6 +574,13 @@ button.cta {
   flex-direction: column;
   gap: 1.2vw;
   width: min(100%, 32rem);
+  position: relative;
+}
+
+.project-overlay__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vw;
 }
 
 .project-overlay__field {
@@ -788,12 +798,15 @@ button.cta {
 
   .project-overlay__header {
     font-size: 1.143rem;
-    margin-bottom: 1.429rem;
   }
 
   .project-overlay__form {
     gap: 1.143rem;
     width: 100%;
+  }
+
+  .project-overlay__body {
+    gap: 1.143rem;
   }
 
   .project-overlay__label {
