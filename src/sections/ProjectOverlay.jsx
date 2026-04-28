@@ -132,6 +132,19 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             if (response.ok) {
                 setStatus('success');
                 form.reset();
+                // Hold confirmation for 2.5s, then clip upward out of view
+                setTimeout(() => {
+                    const el = overlayRef.current;
+                    if (el) {
+                        gsap.to(el, {
+                            clipPath: 'inset(0 0 100% 0)',
+                            duration: 0.5,
+                            ease: 'power3.inOut',
+                            overwrite: true,
+                            onComplete: () => onClose(),
+                        });
+                    }
+                }, 2500);
             } else {
                 console.error('[ProjectOverlay] Submission failed:', response.status);
                 setStatus('error');
@@ -156,25 +169,30 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                 alt="Small World Media"
             />
 
-            {/* Close button */}
-            <button
-                className="project-overlay__close"
-                onClick={onClose}
-                aria-label="Close"
-                type="button"
-            >
-                ×
-            </button>
+            {/* Close button — hidden after success */}
+            {status !== 'success' && (
+                <button
+                    className="project-overlay__close"
+                    onClick={onClose}
+                    aria-label="Close"
+                    type="button"
+                >
+                    ×
+                </button>
+            )}
 
-            {/* Header — mirrors the CTA button text */}
-            <div className="project-overlay__header">
-                ↳start a project
-            </div>
+            {/* Header — hidden after success */}
+            {status !== 'success' && (
+                <div className="project-overlay__header">
+                    ↳start a project
+                </div>
+            )}
 
             {status === 'success' ? (
                 /* ---- Success confirmation ---- */
                 <div className="project-overlay__confirmation">
-                    thanks for reaching out, we'll be in touch soon.
+                    <span>thanks for reaching out,</span>
+                    <span>we'll be in touch soon.</span>
                 </div>
             ) : (
                 /* ---- Contact form — Netlify Forms ---- */
