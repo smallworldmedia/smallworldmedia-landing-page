@@ -1,3 +1,7 @@
+import { useRef } from 'react';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
+
 /**
  * CtaButton — Reusable CTA component.
  *
@@ -22,6 +26,32 @@ export default function CtaButton({
     className = '',
     ...rest
 }) {
+    const btnRef = useRef(null);
+
+    const { contextSafe } = useGSAP({ scope: btnRef });
+
+    const handleMouseEnter = contextSafe(() => {
+        if (variant === 'primary') {
+            gsap.to(btnRef.current, {
+                y: -2,
+                duration: 0.22,
+                ease: 'power4.out',
+                overwrite: 'auto'
+            });
+        }
+    });
+
+    const handleMouseLeave = contextSafe(() => {
+        if (variant === 'primary') {
+            gsap.to(btnRef.current, {
+                y: 0,
+                duration: 0.22,
+                ease: 'power4.out',
+                overwrite: 'auto'
+            });
+        }
+    });
+
     const classes = [
         'cta',
         variant === 'primary' ? 'cta--primary' : '',
@@ -32,8 +62,11 @@ export default function CtaButton({
     if (onClick && !href) {
         return (
             <button
+                ref={btnRef}
                 className={classes}
                 onClick={onClick}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
                 type="button"
                 {...rest}
             >
@@ -45,11 +78,14 @@ export default function CtaButton({
     // Otherwise render as anchor
     return (
         <a
+            ref={btnRef}
             className={classes}
             href={href}
             target={target}
             rel={target === '_blank' ? 'noopener noreferrer' : rel}
             onClick={onClick}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             {...rest}
         >
             {children}

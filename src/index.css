@@ -176,28 +176,52 @@ button {
 .info-pill {
   position: relative;
   z-index: 50;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.429rem;
   width: 5.143rem;
   height: 1.643rem;
-  padding: 0 0.571rem 0 0.429rem;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--color-electric-blue);
   background: transparent;
-  color: var(--color-cream);
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Open state border */
+.info-pill--open {
+  border-color: var(--color-cream);
+}
+
+/* Shared layer — fills the pill, holds icon + label side-by-side */
+.info-pill__layer {
+  display: flex;
+  align-items: center;
+  gap: 0.429rem;
+  position: absolute;
+  inset: 0;
+  padding: 0 0.571rem 0 0.429rem;
   font-family: var(--font-ui);
   font-size: var(--text-ui);
   font-weight: 400;
   line-height: var(--lh-ui);
-  cursor: pointer;
-  overflow: hidden;
+  white-space: nowrap;
 }
 
-/* Open state */
-.info-pill--open {
-  border-color: var(--color-black);
-  color: var(--color-black);
+/* White variant: white fill, blue content */
+.info-pill__layer--white {
+  background: var(--color-cream);
+  color: var(--color-electric-blue);
+}
+
+/* Blue variant: blue fill, white content */
+.info-pill__layer--blue {
+  background: var(--color-electric-blue);
+  color: var(--color-cream);
+}
+
+/* Hover overlay — stacked on top, initially clip-hidden */
+.info-pill__hover {
+  z-index: 1;
+  will-change: clip-path;
 }
 
 .info-pill__icon {
@@ -301,9 +325,9 @@ button {
 
 .description__text {
   font-family: var(--font-headline, var(--font-body));
-  font-size: 1.57vw;
-  letter-spacing: var(--tracking-tight);
-  line-height: var(--lh-secondary);
+  font-size: 2.6vw;
+  letter-spacing: -.02em;
+  line-height: 1.0;
   color: var(--color-electric-blue);
   font-weight: 400;
 }
@@ -324,7 +348,7 @@ button {
 
 .clients__header {
   font-family: var(--font-mono);
-  font-size: 0.857vw;
+  font-size: .95vw;
   font-weight: 400;
   line-height: 1.0;
   color: var(--color-black);
@@ -351,15 +375,14 @@ button {
 
 .clients__item {
   font-family: var(--font-body);
-  font-size: 1.286vw;
-  line-height: 1.0;
+  font-size: 2.4vw;
+  letter-spacing: -.02em;
+  line-height: 0.8;
   font-weight: 400;
   color: var(--color-electric-blue);
   cursor: pointer;
   text-decoration: none;
   transition: text-decoration-color 160ms ease;
-  /* GSAP entrance — will-change for stagger animation */
-  will-change: transform, clip-path;
 }
 
 .clients__item:hover {
@@ -432,7 +455,7 @@ button {
   position: absolute;
   bottom: 8%;
   left: 50%;
-  transform: translateX(-50%);
+  /* Transform removed to avoid GSAP baking it into explicit pixel offsets */
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -459,10 +482,6 @@ button {
 
 .cta:hover {
   text-decoration: underline;
-}
-
-.cta--primary:hover {
-  transform: translateY(-0.143rem);
 }
 
 /* Drag handle */
@@ -538,7 +557,6 @@ button.cta {
   font-weight: 400;
   color: var(--color-cream);
   margin-bottom: 2vw;
-  will-change: transform, clip-path;
 }
 
 .project-overlay__form {
@@ -552,7 +570,6 @@ button.cta {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  will-change: transform, clip-path;
 }
 
 .project-overlay__label {
@@ -603,7 +620,6 @@ button.cta {
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: transform var(--duration-micro) var(--ease-micro);
-  will-change: transform, clip-path;
 }
 
 .project-overlay__submit:hover {
@@ -620,19 +636,34 @@ button.cta {
 }
 
 @media (max-width: 768px) {
+
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
+  /* --- Info Panel: 2-column equal-width layout --- */
+  .info-panel {
+    max-height: calc(100dvh - 2.857rem);
+    padding-top: 1.429rem;
+    overflow: clip;
+  }
+
   .info-panel__layout {
-    flex-direction: column;
+    display: block;
+    position: relative;
   }
 
+  /* Left column: info blurb defines height of the panel */
   .info-panel__left {
-    flex: none;
-    width: 100%;
-    flex-direction: row;
-    gap: 1.143rem;
+    width: calc(50% - 0.571rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
   }
 
+  /* Embed placeholder — square on mobile */
   .info-panel__embed {
-    flex: 0 0 8.571rem;
     aspect-ratio: 1;
   }
 
@@ -640,8 +671,67 @@ button.cta {
     flex: 1;
   }
 
+  .description__text {
+    font-size: 1.714rem;
+    line-height: 1.0;
+    letter-spacing: -.02em;
+  }
+
+  /* Right column: scrollable client list, height matched to left column */
+  .clients {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: calc(50% - 0.571rem);
+
+    overflow-y: auto;
+    overflow-x: hidden;
+    pointer-events: auto;
+    padding-bottom: 2rem;
+    overscroll-behavior: none;
+
+    /* --- Brand-blue scrollbar (webkit) --- */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .clients:hover,
+  .clients.is-scrolling {
+    scrollbar-color: var(--color-electric-blue) transparent;
+  }
+
+  .clients::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .clients::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .clients::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: var(--radius-pill);
+    transition: background 0.3s ease;
+  }
+
+  .clients:hover::-webkit-scrollbar-thumb,
+  .clients.is-scrolling::-webkit-scrollbar-thumb {
+    background: var(--color-electric-blue);
+  }
+
+  .clients__header {
+    font-size: 0.786rem;
+    position: sticky;
+    top: 0;
+    background: var(--color-cream);
+    padding-bottom: var(--space-2);
+    z-index: 1;
+  }
+
   .clients__grid {
     flex-direction: column;
+    gap: 0;
   }
 
   .clients__col {
@@ -649,12 +739,12 @@ button.cta {
     width: 100%;
   }
 
-  .info-panel {
-    max-height: calc(100dvh - 2.857rem);
-    padding-top: 1.429rem;
-    overflow: auto;
+  .clients__item {
+    font-size: 1.571rem;
+    line-height: 0.9;
   }
 
+  /* --- Hero & overlay mobile overrides --- */
   .hero__fg {
     display: flex;
     flex-direction: column;
@@ -665,11 +755,13 @@ button.cta {
   }
 
   .hero__cta {
-    position: static;
-    transform: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    bottom: auto;
     flex-direction: column;
     gap: var(--space-4);
-    margin-top: 1.714rem;
+    margin-top: 0;
   }
 
   .project-overlay {
@@ -701,25 +793,5 @@ button.cta {
 
   .project-overlay__globe {
     width: 2.5rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .info-panel__left {
-    flex-direction: column;
-  }
-
-  .info-panel__embed {
-    flex: none;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-  }
-
-  .description__text {
-    font-size: 1.143rem;
-  }
-
-  .clients__item {
-    font-size: 1.143rem;
   }
 }

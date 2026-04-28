@@ -54,6 +54,7 @@ export default function InfoPanel({ isOpen, onToggle }) {
                 clipPath: 'inset(0 0% 0 0)',
                 duration: 0.6,
                 ease: 'power3.out',
+                clearProps: 'clipPath',
             }
         );
 
@@ -65,6 +66,7 @@ export default function InfoPanel({ isOpen, onToggle }) {
                 clipPath: 'inset(0 0% 0 0)',
                 duration: 0.4,
                 ease: 'power3.out',
+                clearProps: 'clipPath',
             },
             '-=0.3'
         );
@@ -82,6 +84,7 @@ export default function InfoPanel({ isOpen, onToggle }) {
                 clipPath: 'inset(0 0% 0 0)',
                 duration: 0.5,
                 ease: 'power3.out',
+                clearProps: 'clipPath,transform',
                 stagger: {
                     each: 0.02,
                     from: 'start',
@@ -89,6 +92,46 @@ export default function InfoPanel({ isOpen, onToggle }) {
             },
             '-=0.2'
         );
+    }, { scope: panelRef, dependencies: [isOpen] });
+
+    // Scrollbar reveal: toggle .is-scrolling on the clients container
+    useGSAP(() => {
+        const panel = panelRef.current;
+        if (!panel) return;
+
+        const clientsEl = panel.querySelector('.clients');
+        if (!clientsEl) return;
+
+        let scrollTimer = null;
+        const HIDE_DELAY = 1200; // ms before scrollbar fades
+
+        const handleScroll = () => {
+            clientsEl.classList.add('is-scrolling');
+            clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => {
+                clientsEl.classList.remove('is-scrolling');
+            }, HIDE_DELAY);
+        };
+
+        // Only attach on mobile viewports
+        const mql = window.matchMedia('(max-width: 768px)');
+        const attach = () => {
+            if (mql.matches) {
+                clientsEl.addEventListener('scroll', handleScroll, { passive: true });
+            } else {
+                clientsEl.removeEventListener('scroll', handleScroll);
+                clientsEl.classList.remove('is-scrolling');
+            }
+        };
+
+        attach();
+        mql.addEventListener('change', attach);
+
+        return () => {
+            clearTimeout(scrollTimer);
+            clientsEl.removeEventListener('scroll', handleScroll);
+            mql.removeEventListener('change', attach);
+        };
     }, { scope: panelRef, dependencies: [isOpen] });
 
     return (

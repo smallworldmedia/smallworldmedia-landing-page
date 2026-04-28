@@ -47,19 +47,55 @@ export default function App() {
     };
   }, [isInfoOpen]);
 
-  // GSAP-driven panel slide animation
+  // Track open state in a ref to avoid stale closures in event listeners/observers
+  const isOpenRef = useRef(isInfoOpen);
+  useEffect(() => {
+    isOpenRef.current = isInfoOpen;
+  }, [isInfoOpen]);
+
+  // GSAP-driven panel slide animation + Resize handling
   useGSAP(() => {
     const wrapper = shellRef.current?.querySelector('.info-wrapper');
-    if (!wrapper) return;
+    const panelContent = wrapper?.querySelector('.info-panel');
+    if (!wrapper || !panelContent) return;
 
-    const panelContent = wrapper.querySelector('.info-panel');
-    if (!panelContent) return;
+    let currentHeight = panelContent.getBoundingClientRect().height;
 
-    // Sub-pixel accurate height measurement
-    const contentHeight = panelContent.getBoundingClientRect().height;
+    // Set initial closed position instantly
+    if (!isOpenRef.current) {
+      gsap.set(wrapper, { y: -(currentHeight + 1) });
+    }
+
+    // ResizeObserver ensures the closed state stays perfectly hidden off-screen
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const accurateHeight = panelContent.getBoundingClientRect().height;
+
+        if (Math.abs(currentHeight - accurateHeight) > 0.5) {
+          currentHeight = accurateHeight;
+
+          if (!isOpenRef.current) {
+            // Snaps to new height instantly without animation to prevent it leaking into view
+            gsap.set(wrapper, { y: -(currentHeight + 1), overwrite: true });
+          }
+        }
+      }
+    });
+
+    resizeObserver.observe(panelContent);
+
+    return () => resizeObserver.disconnect();
+  }, { scope: shellRef }); // Runs once, handles own state via refs
+
+  // Handle open/close animations independently triggered by state changes
+  useGSAP(() => {
+    const wrapper = shellRef.current?.querySelector('.info-wrapper');
+    const panelContent = wrapper?.querySelector('.info-panel');
+    if (!wrapper || !panelContent) return;
+
+    const currentHeight = panelContent.getBoundingClientRect().height;
 
     if (isInfoOpen) {
-      // Open: slide wrapper down to reveal content
       gsap.to(wrapper, {
         y: 0,
         duration: 0.6,
@@ -67,28 +103,14 @@ export default function App() {
         overwrite: true,
       });
     } else {
-      // Closed: translate wrapper up by content height
       gsap.to(wrapper, {
-        y: -(contentHeight + 1),
+        y: -(currentHeight + 1),
         duration: 0.48,
         ease: 'power2.inOut',
         overwrite: true,
       });
     }
   }, { scope: shellRef, dependencies: [isInfoOpen] });
-
-  // Set initial position (closed, no animation)
-  // Uses rAF + getBoundingClientRect for sub-pixel accuracy (offsetHeight rounds to int)
-  useGSAP(() => {
-    const wrapper = shellRef.current?.querySelector('.info-wrapper');
-    const panelContent = wrapper?.querySelector('.info-panel');
-    if (!wrapper || !panelContent) return;
-
-    requestAnimationFrame(() => {
-      const contentH = panelContent.getBoundingClientRect().height;
-      gsap.set(wrapper, { y: -(contentH + 1) });
-    });
-  }, { scope: shellRef });
 
   return (
     <div className="page-shell" ref={shellRef}>

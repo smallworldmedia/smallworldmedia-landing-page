@@ -10,13 +10,43 @@ import UnicornScene from 'unicornstudio-react';
  * published design data (bypasses browser HTTP cache).
  *
  * Manual reload: Ctrl+Shift+U
+ *
+ * Performance:
+ * - Desktop: dpi=2, fps=30
+ * - Mobile (≤768px): dpi=1.5, fps=30 — lower pixel density for lighter GPU load
  */
+
+const MOBILE_MQ = '(max-width: 768px)';
+
 export default function UnicornBg() {
   const [sceneKey, setSceneKey] = useState(() => Date.now());
+  const [dpi, setDpi] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia(MOBILE_MQ).matches ? 1.5 : 2
+  );
 
   const reloadScene = useCallback(() => {
     setSceneKey(Date.now());
     console.log('[UnicornBg] Scene reloaded —', new Date().toLocaleTimeString());
+  }, []);
+
+  // Responsive DPI — remounts scene on breakpoint change
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_MQ);
+
+    const handleChange = (e) => {
+      const next = e.matches ? 1.5 : 2;
+      setDpi((prev) => {
+        if (prev !== next) {
+          // Force scene remount so the new DPI takes effect
+          setSceneKey(Date.now());
+          return next;
+        }
+        return prev;
+      });
+    };
+
+    mql.addEventListener('change', handleChange);
+    return () => mql.removeEventListener('change', handleChange);
   }, []);
 
   useEffect(() => {
@@ -76,7 +106,8 @@ export default function UnicornBg() {
       width="100%"
       height="100%"
       scale={1}
-      dpi={2}
+      dpi={dpi}
+      fps={30}
       sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@2.1.9/dist/unicornStudio.umd.js"
     />
   );
