@@ -563,6 +563,7 @@ button.cta {
   font-weight: 400;
   color: var(--color-cream);
   margin-bottom: 2vw;
+  white-space: nowrap;
 }
 
 .project-overlay__form {

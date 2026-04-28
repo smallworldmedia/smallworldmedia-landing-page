@@ -39,9 +39,17 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             hasAnimatedRef.current = false;
             setStatus('idle');
 
+            const form = el.querySelector('.project-overlay__form');
+            const fields = el.querySelectorAll('.project-overlay__field');
+            const submit = el.querySelector('.project-overlay__submit');
+            const header = headerRef.current;
+
+            // Immediately hide form content — it reveals after the header lands
+            gsap.set([fields, submit], { opacity: 0 });
+
             const tl = gsap.timeline();
 
-            // 1. Overlay clip reveal from bottom (single element — clip-path OK)
+            // 1. Overlay clip reveal from bottom
             tl.fromTo(el,
                 { clipPath: 'inset(100% 0 0 0)' },
                 {
@@ -51,10 +59,8 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                 }
             );
 
-            // 2. Header — Flip from hero CTA position, or fallback to slide-down
-            const header = headerRef.current;
+            // 2. Header — Flip from hero CTA position, or fallback slide-down
             if (flipState && header) {
-                // Give the header a matching data-flip-id so Flip can correlate
                 header.setAttribute('data-flip-id', 'start-project');
 
                 tl.add(() => {
@@ -64,18 +70,17 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                         ease: 'power3.out',
                         absolute: true,
                     });
-                }, '-=0.15');
+                }, '-=0.1');
             } else {
-                // Fallback: simple slide-down if no flip state available
+                // Fallback: simple slide-down if no flip state
                 tl.fromTo(header,
                     { y: -20, opacity: 0 },
                     { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
-                    '-=0.25'
+                    '-=0.2'
                 );
             }
 
-            // 3. Form fields stagger
-            const fields = el.querySelectorAll('.project-overlay__field');
+            // 3. Form fields stagger — delayed to let header land first
             tl.fromTo(
                 fields,
                 { x: -16, opacity: 0 },
@@ -86,12 +91,12 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                     ease: 'power3.out',
                     stagger: { each: 0.02, from: 'start' },
                 },
-                '-=0.15'
+                '+=0.15'
             );
 
-            // 4. Submit button — tight overlap with fields, no dead time
+            // 4. Submit button — tight overlap with fields
             tl.fromTo(
-                el.querySelector('.project-overlay__submit'),
+                submit,
                 { y: 8, opacity: 0 },
                 { y: 0, opacity: 1, duration: 0.3, ease: 'power3.out' },
                 '-=0.3'
