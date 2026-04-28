@@ -418,9 +418,11 @@ button {
 }
 
 .hero__scene>* {
-  width: 100% !important;
-  height: 100% !important;
-  /* Keep canvas on its own GPU layer */
+  /* SDK container already sizes itself via CSS custom properties.
+     Use absolute positioning instead of forced dimensions to prevent
+     the SDK's internal ResizeObserver from firing on viewport changes. */
+  position: absolute;
+  inset: 0;
   transform: translateZ(0);
 }
 
@@ -521,7 +523,8 @@ button.cta {
   padding: 5vw;
   /* Initial state: clipped away */
   clip-path: inset(100% 0 0 0);
-  will-change: clip-path;
+  /* will-change applied by GSAP during animation only —
+     permanent promotion wastes GPU memory on full-viewport layer */
 }
 
 .project-overlay__close {

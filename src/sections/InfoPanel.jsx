@@ -73,6 +73,8 @@ export default function InfoPanel({ isOpen, onToggle }) {
 
         // 3. Client items — staggered with horizontal slide
         const items = panel.querySelectorAll('.clients__item');
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+
         tl.fromTo(
             items,
             {
@@ -86,7 +88,7 @@ export default function InfoPanel({ isOpen, onToggle }) {
                 ease: 'power3.out',
                 clearProps: 'clipPath,transform',
                 stagger: {
-                    each: 0.02,
+                    each: isMobile ? 0.04 : 0.02,
                     from: 'start',
                 },
             },

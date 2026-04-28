@@ -162,12 +162,14 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             data-open={isOpen}
             aria-hidden={!isOpen}
         >
-            {/* Globe logo — top left */}
-            <img
-                className="project-overlay__globe"
-                src={globeGif}
-                alt="Small World Media"
-            />
+            {/* Globe logo — top left (only rendered when open to avoid GIF decoding while hidden) */}
+            {isOpen && (
+                <img
+                    className="project-overlay__globe"
+                    src={globeGif}
+                    alt="Small World Media"
+                />
+            )}
 
             {/* Close button — hidden after success */}
             {status !== 'success' && (

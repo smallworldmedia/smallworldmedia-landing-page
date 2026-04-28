@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import UnicornScene from 'unicornstudio-react';
 
 /**
@@ -9,30 +9,32 @@ import UnicornScene from 'unicornstudio-react';
  *
  * Performance:
  * - Desktop: dpi=2, fps=30
- * - Mobile (≤768px at mount): dpi=1.5 — lighter GPU load on small screens
+ * - Mobile (≤768px at mount): dpi=1 — lighter GPU load on small screens
  *
  * Dev tools:
- * - Ctrl+Shift+U: force-reload the scene (cache-busted fetch)
+ * - Ctrl+Shift+U: force-reload the scene (destroys + re-inits via sceneRef)
  * - Fetch interceptor adds cache-bust param to Unicorn Studio API calls (dev only)
  */
 
 const INITIAL_DPI =
   typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
-    ? 1.5
+    ? 1
     : 2;
 
 export default function UnicornBg() {
-  const [sceneKey, setSceneKey] = useState(() => Date.now());
+  const sceneRef = useRef(null);
   const mountedRef = useRef(true);
 
   const reloadScene = useCallback(() => {
-    if (mountedRef.current) {
-      setSceneKey(Date.now());
-      console.log('[UnicornBg] Scene reloaded —', new Date().toLocaleTimeString());
+    if (mountedRef.current && sceneRef.current?.destroy) {
+      sceneRef.current.destroy();
+      sceneRef.current = null;
+      console.log('[UnicornBg] Scene destroyed for reload —', new Date().toLocaleTimeString());
     }
   }, []);
 
   // Fetch interceptor — cache-bust Unicorn Studio API calls (dev convenience)
+  // Dependency: [] — scene-agnostic, install once
   useEffect(() => {
     if (!import.meta.env.DEV) return; // Skip in production builds
 
@@ -52,7 +54,7 @@ export default function UnicornBg() {
     return () => {
       window.fetch = originalFetch;
     };
-  }, [sceneKey]);
+  }, []);
 
   // Manual reload: Ctrl+Shift+U (dev convenience — no auto-reload on tab switch)
   useEffect(() => {
@@ -72,13 +74,13 @@ export default function UnicornBg() {
 
   return (
     <UnicornScene
-      key={sceneKey}
       projectId="HwSXxV0hK7lEV8Xjg0wV"
       width="100%"
       height="100%"
       scale={1}
       dpi={INITIAL_DPI}
       fps={30}
+      sceneRef={sceneRef}
       sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@2.1.9/dist/unicornStudio.umd.js"
     />
   );

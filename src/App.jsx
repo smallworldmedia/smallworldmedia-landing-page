@@ -67,8 +67,8 @@ export default function App() {
     }
 
     // ResizeObserver ensures the closed state stays perfectly hidden off-screen
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
         const accurateHeight = panelContent.getBoundingClientRect().height;
 
         if (Math.abs(currentHeight - accurateHeight) > 0.5) {
@@ -79,7 +79,7 @@ export default function App() {
             gsap.set(wrapper, { y: -(currentHeight + 1), overwrite: true });
           }
         }
-      }
+      });
     });
 
     resizeObserver.observe(panelContent);
