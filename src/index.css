@@ -1,0 +1,559 @@
+/* ============================================
+   SMALL WORLD MEDIA — Design System
+   ============================================ */
+
+/* — Font Faces — */
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('./assets/fonts/PPNeueMontreal-Book.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('./assets/fonts/PPNeueMontreal-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('./assets/fonts/PPNeueMontreal-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('./assets/fonts/PPNeueMontreal-Thin.otf') format('opentype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* OT Neue Montreal Squeezed */
+@font-face {
+  font-family: 'OT Neue Montreal Squeezed';
+  src: url('./assets/fonts/OTNeueMontreal-MediumExtraSqueezed.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OT Neue Montreal Squeezed';
+  src: url('./assets/fonts/OTNeueMontreal-BoldExtraSqueezed.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* — Custom Properties — */
+:root {
+  /* Colors */
+  --color-electric-blue: rgb(0, 0, 255);
+  --color-cream: rgb(250, 250, 250);
+  --color-black: #000000;
+  --color-blue-link: #0000EE;
+  --color-white: #FFFFFF;
+  --color-dark-gray: rgb(18, 18, 18);
+
+  /* Typography — font stacks */
+  --font-display: 'OT Neue Montreal Squeezed', 'PP Neue Montreal', 'Inter', sans-serif;
+  --font-headline: 'PP Neue Montreal', sans-serif;
+  /* Regular weight — 26.4px headlines */
+  --font-secondary: 'PP Neue Montreal', sans-serif;
+  /* Book weight — 21.6px sub-headings */
+  --font-mono: 'Geist Mono', ui-monospace, 'Departure Mono', monospace;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-body: 'PP Neue Montreal', 'Inter', system-ui, sans-serif;
+
+  /* Typography — sizes (rem, base 14px) */
+  --text-headline: 2rem;
+  /* 26.4px */
+  --lh-headline: 2rem;
+  --text-secondary: 1.543rem;
+  /* 21.6px */
+  --lh-secondary: 1.543rem;
+  --text-mono: 0.9141rem;
+  /* 12.8px */
+  --lh-mono: 1.2rem;
+  /* 15.6px */
+  --text-ui: 1.143rem;
+  /* 16px */
+  --lh-ui: 1.4rem;
+  /* 19.2px */
+
+  /* Spacing (rem, base 14px) */
+  --space-1: 0.143rem;
+  /* 2px */
+  --space-2: 0.286rem;
+  /* 4px */
+  --space-3: 0.429rem;
+  /* 6px */
+  --space-4: 0.571rem;
+  /* 8px */
+  --space-5: 0.714rem;
+  /* 10px */
+  --space-6: 0.857rem;
+  /* 12px */
+
+  /* Radii */
+  --radius-pill: 3.571rem;
+  /* 50px */
+  --radius-none: 0;
+
+  /* Transitions — GSAP-aligned */
+  --ease-panel: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-panel: 600ms;
+  --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-micro: 220ms;
+}
+
+/* — Reset — */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--color-electric-blue);
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+/* — Page Shell — */
+.page-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: clip;
+  background: var(--color-electric-blue);
+}
+
+/* ============================================
+   INFO PILL
+   ============================================ */
+.info-pill {
+  position: relative;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.429rem;
+  width: 5.143rem;
+  height: 1.643rem;
+  padding: 0 0.571rem 0 0.429rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: transparent;
+  color: var(--color-cream);
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  font-weight: 400;
+  line-height: var(--lh-ui);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+/* Open state */
+.info-pill--open {
+  border-color: var(--color-black);
+  color: var(--color-black);
+}
+
+.info-pill__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.714rem;
+  height: 0.714rem;
+  flex-shrink: 0;
+}
+
+.info-pill__label {
+  white-space: nowrap;
+}
+
+/* ============================================
+   INFO PANEL — Slide-down overlay
+   ============================================
+   Architecture:
+   ┌──────────────────────────────┐
+   │  .info-panel (cream content) │  ← clipped when closed
+   │  (description + clients)     │
+   ├──────────────────────────────┤
+   │  .info-nav (blue 40px bar)   │  ← always visible, contains pill
+   └──────────────────────────────┘
+
+   Closed: wrapper y = -contentHeight (only nav bar visible at top)
+   Open: wrapper y = 0 (content revealed below nav bar)
+   ============================================ */
+.info-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  /* Start fully hidden — GSAP measures content height on mount and sets precise y */
+  transform: translateY(-100%);
+}
+
+.info-wrapper[data-open="true"] {
+  pointer-events: auto;
+}
+
+/* Nav bar — sits at bottom of wrapper, always visible */
+.info-nav {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 2.857rem;
+  padding: var(--space-3) var(--space-4);
+  /* 6px top/bottom — matches Framer .framer-zzk8m8 */
+  background: var(--color-electric-blue);
+  flex-shrink: 0;
+}
+
+/* Content panel — cream bg, sits above the nav bar */
+.info-panel {
+  width: 100%;
+  background: var(--color-cream);
+  /* Match horizontal padding to nav bar's var(--space-4) = 8px */
+  padding: var(--space-4);
+  overflow: clip;
+  flex-shrink: 0;
+}
+
+/* Horizontal 2-column layout: left (embed + desc), right (clients) */
+.info-panel__layout {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: clamp(0.571rem, 1.5vw, 1.143rem);
+  width: 100%;
+}
+
+/* Left column — placeholder box + description stacked vertically */
+.info-panel__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 0 0 clamp(14.286rem, 22vw, 22.857rem);
+}
+
+/* Placeholder box for Unicorn Studio embed */
+.info-panel__embed {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--color-electric-blue);
+  background: transparent;
+}
+
+/* Description */
+.description {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.description__text {
+  font-family: var(--font-headline, var(--font-body));
+  font-size: clamp(1.143rem, 1.5vw, 1.571rem);
+  line-height: 1.0;
+  color: var(--color-electric-blue);
+  font-weight: 400;
+}
+
+.description__text strong {
+  color: var(--color-electric-blue);
+  font-weight: 400;
+}
+
+/* Clients — fills remaining space to the right */
+.clients {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.clients__header {
+  font-family: var(--font-mono);
+  font-size: clamp(0.714rem, 0.85vw, 0.857rem);
+  font-weight: 400;
+  line-height: 1.0;
+  color: var(--color-black);
+  letter-spacing: -.07em;
+  padding: 0;
+}
+
+.clients__grid {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: clamp(0.571rem, 2vw, 1.714rem);
+  flex-wrap: nowrap;
+}
+
+.clients__col {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.clients__item {
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 1.2vw, 1.286rem);
+  line-height: 1.0;
+  font-weight: 400;
+  color: var(--color-electric-blue);
+  cursor: pointer;
+  text-decoration: none;
+  transition: text-decoration-color 160ms ease;
+  /* GSAP entrance — will-change for stagger animation */
+  will-change: transform, clip-path;
+}
+
+.clients__item:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   HERO
+   ============================================ */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100dvh;
+  min-height: 42.857rem;
+  overflow: clip;
+  background: var(--color-electric-blue);
+  flex-shrink: 0;
+}
+
+.hero__scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.hero__scene>* {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.hero__fg {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+}
+
+/* Taglines */
+.tagline {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  letter-spacing: 0.067em;
+  color: var(--color-cream);
+  white-space: pre-line;
+  z-index: 2;
+}
+
+.tagline--left {
+  top: 50%;
+  left: 19%;
+  transform: translateY(-50%);
+}
+
+.tagline--right {
+  top: 50%;
+  right: 16%;
+  transform: translateY(-50%);
+  text-align: right;
+}
+
+/* Bottom CTA — percentage-based bottom spacing */
+.hero__cta {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1.143rem;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+/* UI / Utility — Framer: Inter 16px/19.2px, white */
+.cta {
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  font-weight: 400;
+  line-height: var(--lh-ui);
+  color: var(--color-cream);
+  text-decoration: none;
+  padding: var(--space-2) var(--space-1);
+  transition: transform var(--duration-micro) var(--ease-micro);
+}
+
+.cta--primary {
+  background: var(--color-electric-blue);
+}
+
+.cta:hover {
+  text-decoration: underline;
+}
+
+.cta--primary:hover {
+  transform: translateY(-0.143rem);
+}
+
+/* Drag handle */
+.hero__handle {
+  position: absolute;
+  bottom: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1.714rem;
+  height: 0.143rem;
+  border-bottom: 2px dashed var(--color-cream);
+  opacity: 0.5;
+  z-index: 2;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+  .info-panel__left {
+    flex: 0 0 clamp(12.857rem, 20vw, 18.571rem);
+  }
+}
+
+@media (max-width: 768px) {
+  .info-panel__layout {
+    flex-direction: column;
+  }
+
+  .info-panel__left {
+    flex: none;
+    width: 100%;
+    flex-direction: row;
+    gap: 1.143rem;
+  }
+
+  .info-panel__embed {
+    flex: 0 0 8.571rem;
+    aspect-ratio: 1;
+  }
+
+  .description {
+    flex: 1;
+  }
+
+  .clients__grid {
+    flex-direction: column;
+  }
+
+  .clients__col {
+    flex: none;
+    width: 100%;
+  }
+
+  .info-panel {
+    max-height: calc(100dvh - 2.857rem);
+    padding-top: 1.429rem;
+    overflow: auto;
+  }
+
+  .hero__fg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.143rem;
+    padding: 1.429rem;
+  }
+
+  .hero__cta {
+    position: static;
+    transform: none;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-top: 1.714rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .info-panel__left {
+    flex-direction: column;
+  }
+
+  .info-panel__embed {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  .description__text {
+    font-size: 1.143rem;
+  }
+
+  .clients__item {
+    font-size: 1.143rem;
+  }
+}
