@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
+import globeGif from '../assets/swm-globe.gif';
 
 const FORM_FIELDS = [
     { name: 'name', label: 'Name', type: 'text', required: true },
@@ -39,8 +40,8 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                 { clipPath: 'inset(100% 0 0 0)' },
                 {
                     clipPath: 'inset(0 0 0 0)',
-                    duration: 0.6,
-                    ease: 'power3.out',
+                    duration: 0.35,
+                    ease: 'power4.out',
                 }
             );
 
@@ -135,6 +136,13 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             data-open={isOpen}
             aria-hidden={!isOpen}
         >
+            {/* Globe logo — top left */}
+            <img
+                className="project-overlay__globe"
+                src={globeGif}
+                alt="Small World Media"
+            />
+
             {/* Close button */}
             <button
                 className="project-overlay__close"

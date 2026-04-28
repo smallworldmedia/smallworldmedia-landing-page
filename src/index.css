@@ -522,6 +522,16 @@ button.cta {
   transform: rotate(90deg);
 }
 
+.project-overlay__globe {
+  position: absolute;
+  top: var(--space-6);
+  left: var(--space-6);
+  width: 3vw;
+  height: auto;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .project-overlay__header {
   font-family: var(--font-ui);
   font-size: 1.571vw;
@@ -687,6 +697,10 @@ button.cta {
   .project-overlay__submit {
     font-size: 1rem;
     margin-top: 1.143rem;
+  }
+
+  .project-overlay__globe {
+    width: 2.5rem;
   }
 }
 
