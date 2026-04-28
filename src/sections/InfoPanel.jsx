@@ -69,16 +69,16 @@ export default function InfoPanel({ isOpen, onToggle }) {
             '-=0.3'
         );
 
-        // 3. Client items — staggered with alternating slight y offset
+        // 3. Client items — staggered with horizontal slide
         const items = panel.querySelectorAll('.clients__item');
         tl.fromTo(
             items,
             {
-                y: (i) => (i % 2 === 0 ? 8 : -8),
+                x: -12,
                 clipPath: 'inset(0 100% 0 0)',
             },
             {
-                y: 0,
+                x: 0,
                 clipPath: 'inset(0 0% 0 0)',
                 duration: 0.5,
                 ease: 'power3.out',

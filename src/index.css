@@ -301,8 +301,8 @@ button {
 
 .description__text {
   font-family: var(--font-headline, var(--font-body));
-  font-size: 1.571vw;
-  line-height: 1.0;
+  font-size: 1.57vw;
+  line-height: .8;
   color: var(--color-electric-blue);
   font-weight: 400;
 }
