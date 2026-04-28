@@ -302,7 +302,8 @@ button {
 .description__text {
   font-family: var(--font-headline, var(--font-body));
   font-size: 1.57vw;
-  line-height: .8;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-secondary);
   color: var(--color-electric-blue);
   font-weight: 400;
 }
@@ -477,6 +478,128 @@ button {
   z-index: 2;
 }
 
+/* Button reset for CtaButton */
+button.cta {
+  border: none;
+  cursor: pointer;
+}
+
+/* ============================================
+   PROJECT OVERLAY — Full-screen contact form
+   ============================================ */
+.project-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-electric-blue);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5vw;
+  /* Initial state: clipped away */
+  clip-path: inset(100% 0 0 0);
+  will-change: clip-path;
+}
+
+.project-overlay__close {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 1.714rem;
+  color: var(--color-cream);
+  cursor: pointer;
+  line-height: 1;
+  padding: var(--space-4);
+  z-index: 2;
+  transition: transform var(--duration-micro) var(--ease-micro);
+}
+
+.project-overlay__close:hover {
+  transform: rotate(90deg);
+}
+
+.project-overlay__header {
+  font-family: var(--font-ui);
+  font-size: 1.571vw;
+  font-weight: 400;
+  color: var(--color-cream);
+  margin-bottom: 2vw;
+  will-change: transform, clip-path;
+}
+
+.project-overlay__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vw;
+  width: min(100%, 32rem);
+}
+
+.project-overlay__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  will-change: transform, clip-path;
+}
+
+.project-overlay__label {
+  font-family: var(--font-mono);
+  font-size: 0.857vw;
+  color: var(--color-cream);
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.project-overlay__input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-cream);
+  color: var(--color-cream);
+  font-family: var(--font-body);
+  font-size: 1.286vw;
+  line-height: 1;
+  padding: var(--space-3) 0;
+  outline: none;
+  transition: border-color var(--duration-micro) var(--ease-micro);
+}
+
+.project-overlay__input:focus {
+  border-bottom-color: var(--color-cream);
+  border-bottom-width: 2px;
+}
+
+.project-overlay__input::placeholder {
+  color: rgba(250, 250, 250, 0.4);
+}
+
+.project-overlay__textarea {
+  resize: vertical;
+  min-height: 4rem;
+}
+
+.project-overlay__submit {
+  align-self: flex-start;
+  margin-top: 1vw;
+  background: var(--color-cream);
+  color: var(--color-electric-blue);
+  border: none;
+  font-family: var(--font-ui);
+  font-size: 1.143vw;
+  font-weight: 400;
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: transform var(--duration-micro) var(--ease-micro);
+  will-change: transform, clip-path;
+}
+
+.project-overlay__submit:hover {
+  transform: translateY(-0.143rem);
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */
@@ -537,6 +660,33 @@ button {
     flex-direction: column;
     gap: var(--space-4);
     margin-top: 1.714rem;
+  }
+
+  .project-overlay {
+    padding: 1.429rem;
+  }
+
+  .project-overlay__header {
+    font-size: 1.143rem;
+    margin-bottom: 1.429rem;
+  }
+
+  .project-overlay__form {
+    gap: 1.143rem;
+    width: 100%;
+  }
+
+  .project-overlay__label {
+    font-size: 0.857rem;
+  }
+
+  .project-overlay__input {
+    font-size: 1.143rem;
+  }
+
+  .project-overlay__submit {
+    font-size: 1rem;
+    margin-top: 1.143rem;
   }
 }
 

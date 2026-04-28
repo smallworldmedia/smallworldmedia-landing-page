@@ -2,8 +2,9 @@ import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import UnicornBg from '../components/UnicornBg';
+import CtaButton from '../components/CtaButton';
 
-export default function Hero() {
+export default function Hero({ onStartProject }) {
     const fgRef = useRef(null);
 
     // Entrance animation — staggered reveal using clip-path (no opacity per gsap-swm)
@@ -42,20 +43,18 @@ export default function Hero() {
             <div className="hero__fg" ref={fgRef}>
 
                 <nav className="hero__cta">
-                    <a
-                        className="cta cta--primary"
-                        href="mailto:hello@smallworldmedia.com"
+                    <CtaButton
+                        variant="primary"
+                        onClick={onStartProject}
                     >
                         ↳start a project
-                    </a>
-                    <a
-                        className="cta"
+                    </CtaButton>
+                    <CtaButton
                         href="https://instagram.com/smallworldmedia"
                         target="_blank"
-                        rel="noopener noreferrer"
                     >
                         follow us
-                    </a>
+                    </CtaButton>
                 </nav>
                 <div className="hero__handle" />
             </div>

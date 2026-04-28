@@ -1,9 +1,10 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
 import InfoPanel from './sections/InfoPanel';
 import Hero from './sections/Hero';
+import ProjectOverlay from './sections/ProjectOverlay';
 
 /**
  * App — Page shell.
@@ -14,11 +15,37 @@ import Hero from './sections/Hero';
  */
 export default function App() {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const shellRef = useRef(null);
 
   const handleToggle = useCallback(() => {
     setIsInfoOpen((prev) => !prev);
   }, []);
+
+  const handleOpenOverlay = useCallback(() => {
+    setIsOverlayOpen(true);
+  }, []);
+
+  const handleCloseOverlay = useCallback(() => {
+    setIsOverlayOpen(false);
+  }, []);
+
+  // Scroll → open info panel (one-shot)
+  useEffect(() => {
+    if (isInfoOpen) return; // Already open, no need
+
+    const handler = () => {
+      setIsInfoOpen(true);
+    };
+
+    window.addEventListener('wheel', handler, { once: true, passive: true });
+    window.addEventListener('touchmove', handler, { once: true, passive: true });
+
+    return () => {
+      window.removeEventListener('wheel', handler);
+      window.removeEventListener('touchmove', handler);
+    };
+  }, [isInfoOpen]);
 
   // GSAP-driven panel slide animation
   useGSAP(() => {
@@ -69,7 +96,10 @@ export default function App() {
       <InfoPanel isOpen={isInfoOpen} onToggle={handleToggle} />
 
       {/* Hero — always visible behind */}
-      <Hero />
+      <Hero onStartProject={handleOpenOverlay} />
+
+      {/* Project inquiry overlay */}
+      <ProjectOverlay isOpen={isOverlayOpen} onClose={handleCloseOverlay} />
     </div>
   );
 }
