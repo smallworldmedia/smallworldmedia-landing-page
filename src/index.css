@@ -632,6 +632,15 @@ button.cta {
   transform: translateY(-0.143rem);
 }
 
+.project-overlay__confirmation {
+  font-family: var(--font-ui);
+  font-size: 1.571vw;
+  font-weight: 400;
+  color: var(--color-cream);
+  text-align: center;
+  line-height: 1.4;
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */
@@ -797,5 +806,9 @@ button.cta {
 
   .project-overlay__globe {
     width: 2.5rem;
+  }
+
+  .project-overlay__confirmation {
+    font-size: 1.143rem;
   }
 }

@@ -130,8 +130,6 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             if (response.ok) {
                 setStatus('success');
                 form.reset();
-                // Auto-close after showing confirmation
-                setTimeout(() => onClose(), 2400);
             } else {
                 console.error('[ProjectOverlay] Submission failed:', response.status);
                 setStatus('error');
@@ -171,72 +169,78 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                 ↳start a project
             </div>
 
-            {/* Contact form — Netlify Forms */}
-            <form
-                className="project-overlay__form"
-                name="contact"
-                method="POST"
-                data-netlify="true"
-                netlify-honeypot="bot-field"
-                onSubmit={handleSubmit}
-            >
-                {/* Hidden fields required by Netlify */}
-                <input type="hidden" name="form-name" value="contact" />
-                <div hidden>
-                    <label>
-                        Don't fill this out: <input name="bot-field" />
-                    </label>
+            {status === 'success' ? (
+                /* ---- Success confirmation ---- */
+                <div className="project-overlay__confirmation">
+                    thanks for reaching out, we'll be in touch soon.
                 </div>
+            ) : (
+                /* ---- Contact form — Netlify Forms ---- */
+                <form
+                    className="project-overlay__form"
+                    name="contact"
+                    method="POST"
+                    data-netlify="true"
+                    netlify-honeypot="bot-field"
+                    onSubmit={handleSubmit}
+                >
+                    {/* Hidden fields required by Netlify */}
+                    <input type="hidden" name="form-name" value="contact" />
+                    <div hidden>
+                        <label>
+                            Don't fill this out: <input name="bot-field" />
+                        </label>
+                    </div>
 
-                {FORM_FIELDS.map((field) => (
-                    <div className="project-overlay__field" key={field.name}>
+                    {FORM_FIELDS.map((field) => (
+                        <div className="project-overlay__field" key={field.name}>
+                            <label
+                                className="project-overlay__label"
+                                htmlFor={`field-${field.name}`}
+                            >
+                                {field.label}
+                            </label>
+                            <input
+                                className="project-overlay__input"
+                                type={field.type}
+                                id={`field-${field.name}`}
+                                name={field.name}
+                                required={field.required}
+                                autoComplete={field.type === 'email' ? 'email' : 'off'}
+                                disabled={status === 'sending'}
+                            />
+                        </div>
+                    ))}
+
+                    {/* Message textarea */}
+                    <div className="project-overlay__field">
                         <label
                             className="project-overlay__label"
-                            htmlFor={`field-${field.name}`}
+                            htmlFor="field-message"
                         >
-                            {field.label}
+                            Message
                         </label>
-                        <input
-                            className="project-overlay__input"
-                            type={field.type}
-                            id={`field-${field.name}`}
-                            name={field.name}
-                            required={field.required}
-                            autoComplete={field.type === 'email' ? 'email' : 'off'}
-                            disabled={status === 'sending' || status === 'success'}
+                        <textarea
+                            className="project-overlay__input project-overlay__textarea"
+                            id="field-message"
+                            name="message"
+                            rows="4"
+                            required
+                            disabled={status === 'sending'}
                         />
                     </div>
-                ))}
 
-                {/* Message textarea */}
-                <div className="project-overlay__field">
-                    <label
-                        className="project-overlay__label"
-                        htmlFor="field-message"
+                    <button
+                        className="project-overlay__submit"
+                        type="submit"
+                        disabled={status === 'sending'}
                     >
-                        Message
-                    </label>
-                    <textarea
-                        className="project-overlay__input project-overlay__textarea"
-                        id="field-message"
-                        name="message"
-                        rows="4"
-                        required
-                        disabled={status === 'sending' || status === 'success'}
-                    />
-                </div>
-
-                <button
-                    className="project-overlay__submit"
-                    type="submit"
-                    disabled={status === 'sending' || status === 'success'}
-                >
-                    {status === 'idle' && 'Send Inquiry →'}
-                    {status === 'sending' && 'Sending…'}
-                    {status === 'success' && '✓ Sent'}
-                    {status === 'error' && 'Try Again →'}
-                </button>
-            </form>
+                        {status === 'idle' && 'Send Inquiry →'}
+                        {status === 'sending' && 'Sending…'}
+                        {status === 'error' && 'Try Again →'}
+                    </button>
+                </form>
+            )}
         </div>
     );
 }
