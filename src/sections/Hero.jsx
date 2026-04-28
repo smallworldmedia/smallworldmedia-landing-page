@@ -9,16 +9,8 @@ export default function Hero({ onStartProject }) {
 
     // Entrance animation — staggered reveal using clip-path (no opacity per gsap-swm)
     useGSAP(() => {
-        // ALWAYS use GSAP for centering transforms so percentages are respected on resize
-        let mm = gsap.matchMedia();
-
-        mm.add("(max-width: 768px)", () => {
-            gsap.set('.hero__cta', { xPercent: -50, yPercent: -50 });
-        });
-
-        mm.add("(min-width: 769px)", () => {
-            gsap.set('.hero__cta', { xPercent: -50, yPercent: 0 });
-        });
+        // Horizontal centering: left: 50% + xPercent: -50 (both breakpoints)
+        gsap.set('.hero__cta', { xPercent: -50 });
 
         const tl = gsap.timeline({ delay: 0.3 });
 
@@ -45,7 +37,6 @@ export default function Hero({ onStartProject }) {
             '-=0.2'
         );
 
-        return () => mm.revert();
     }, { scope: fgRef });
 
     return (

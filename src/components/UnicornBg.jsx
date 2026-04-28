@@ -1,69 +1,49 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import UnicornScene from 'unicornstudio-react';
 
 /**
- * UnicornBg — Responsive wrapper for the Unicorn Studio WebGL scene.
+ * UnicornBg — Persistent wrapper for the Unicorn Studio WebGL scene.
  *
- * Hot-reload behavior:
- * When you publish in Unicorn Studio and switch back to this browser tab,
- * the component remounts AND forces a cache-busted fetch of your latest
- * published design data (bypasses browser HTTP cache).
- *
- * Manual reload: Ctrl+Shift+U
+ * The scene stays mounted across viewport resizes — the SDK's own canvas
+ * handles resize internally via its CSS 100%×100% sizing.
  *
  * Performance:
  * - Desktop: dpi=2, fps=30
- * - Mobile (≤768px): dpi=1.5, fps=30 — lower pixel density for lighter GPU load
+ * - Mobile (≤768px at mount): dpi=1.5 — lighter GPU load on small screens
+ *
+ * Dev tools:
+ * - Ctrl+Shift+U: force-reload the scene (cache-busted fetch)
+ * - Fetch interceptor adds cache-bust param to Unicorn Studio API calls (dev only)
  */
 
-const MOBILE_MQ = '(max-width: 768px)';
+const INITIAL_DPI =
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+    ? 1.5
+    : 2;
 
 export default function UnicornBg() {
   const [sceneKey, setSceneKey] = useState(() => Date.now());
-  const [dpi, setDpi] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia(MOBILE_MQ).matches ? 1.5 : 2
-  );
+  const mountedRef = useRef(true);
 
   const reloadScene = useCallback(() => {
-    setSceneKey(Date.now());
-    console.log('[UnicornBg] Scene reloaded —', new Date().toLocaleTimeString());
+    if (mountedRef.current) {
+      setSceneKey(Date.now());
+      console.log('[UnicornBg] Scene reloaded —', new Date().toLocaleTimeString());
+    }
   }, []);
 
-  // Responsive DPI — remounts scene on breakpoint change
+  // Fetch interceptor — cache-bust Unicorn Studio API calls (dev convenience)
   useEffect(() => {
-    const mql = window.matchMedia(MOBILE_MQ);
+    if (!import.meta.env.DEV) return; // Skip in production builds
 
-    const handleChange = (e) => {
-      const next = e.matches ? 1.5 : 2;
-      setDpi((prev) => {
-        if (prev !== next) {
-          // Force scene remount so the new DPI takes effect
-          setSceneKey(Date.now());
-          return next;
-        }
-        return prev;
-      });
-    };
-
-    mql.addEventListener('change', handleChange);
-    return () => mql.removeEventListener('change', handleChange);
-  }, []);
-
-  useEffect(() => {
-    // Intercept fetch to bust cache on Unicorn Studio API calls
     const originalFetch = window.fetch;
     window.fetch = function (input, init) {
       let url = typeof input === 'string' ? input : input instanceof Request ? input.url : '';
 
-      // If this is a Unicorn Studio project data request, bypass cache
       if (url.includes('unicornstudio') || url.includes('unicorn')) {
         const separator = url.includes('?') ? '&' : '?';
         const bustUrl = `${url}${separator}_t=${Date.now()}`;
-
-        return originalFetch.call(this, bustUrl, {
-          ...init,
-          cache: 'no-store',
-        });
+        return originalFetch.call(this, bustUrl, { ...init, cache: 'no-store' });
       }
 
       return originalFetch.call(this, input, init);
@@ -72,17 +52,10 @@ export default function UnicornBg() {
     return () => {
       window.fetch = originalFetch;
     };
-  }, [sceneKey]); // Re-apply interceptor on each remount
+  }, [sceneKey]);
 
+  // Manual reload: Ctrl+Shift+U (dev convenience — no auto-reload on tab switch)
   useEffect(() => {
-    // Auto-reload when tab becomes visible (returning from Unicorn Studio)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        reloadScene();
-      }
-    };
-
-    // Manual reload: Ctrl+Shift+U
     const handleKeydown = (e) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'U') {
         e.preventDefault();
@@ -90,11 +63,9 @@ export default function UnicornBg() {
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
     document.addEventListener('keydown', handleKeydown);
-
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      mountedRef.current = false;
       document.removeEventListener('keydown', handleKeydown);
     };
   }, [reloadScene]);
@@ -106,7 +77,7 @@ export default function UnicornBg() {
       width="100%"
       height="100%"
       scale={1}
-      dpi={dpi}
+      dpi={INITIAL_DPI}
       fps={30}
       sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@2.1.9/dist/unicornStudio.umd.js"
     />

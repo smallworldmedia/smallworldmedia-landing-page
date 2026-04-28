@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import globeGif from '../assets/swm-globe.gif';
@@ -12,6 +12,10 @@ const FORM_FIELDS = [
 /**
  * ProjectOverlay — Full-screen blue contact form.
  *
+ * Submissions are handled by Netlify Forms — no backend code needed.
+ * Netlify detects the hidden HTML form in index.html at deploy time,
+ * then this component POSTs to the same endpoint via fetch.
+ *
  * Animation sequence (gsap-swm "Controlled Chaos"):
  * 1. Overlay clips in from bottom
  * 2. Header slides down from top
@@ -23,6 +27,7 @@ const FORM_FIELDS = [
 export default function ProjectOverlay({ isOpen, onClose }) {
     const overlayRef = useRef(null);
     const hasAnimatedRef = useRef(false);
+    const [status, setStatus] = useState('idle'); // idle | sending | success | error
 
     // Entrance animation — runs when overlay opens
     useGSAP(() => {
@@ -30,8 +35,9 @@ export default function ProjectOverlay({ isOpen, onClose }) {
         if (!el) return;
 
         if (isOpen) {
-            // Reset animation flag if re-opening
+            // Reset animation flag and form status when re-opening
             hasAnimatedRef.current = false;
+            setStatus('idle');
 
             const tl = gsap.timeline();
 
@@ -107,26 +113,33 @@ export default function ProjectOverlay({ isOpen, onClose }) {
         }
     }, { scope: overlayRef, dependencies: [isOpen] });
 
-    const handleSubmit = useCallback((e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
+        setStatus('sending');
+
         const form = e.target;
-        const data = new FormData(form);
+        const formData = new FormData(form);
 
-        // Build mailto body
-        const name = data.get('name') || '';
-        const email = data.get('email') || '';
-        const project = data.get('project') || '';
-        const message = data.get('message') || '';
+        try {
+            const response = await fetch('/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(formData).toString(),
+            });
 
-        const subject = encodeURIComponent(`Project Inquiry from ${name}`);
-        const body = encodeURIComponent(
-            `Name: ${name}\nEmail: ${email}\nProject Type: ${project}\n\nMessage:\n${message}`
-        );
-
-        window.location.href = `mailto:hello@smallworld.media?subject=${subject}&body=${body}`;
-
-        // Close overlay after short delay
-        setTimeout(() => onClose(), 600);
+            if (response.ok) {
+                setStatus('success');
+                form.reset();
+                // Auto-close after showing confirmation
+                setTimeout(() => onClose(), 2400);
+            } else {
+                console.error('[ProjectOverlay] Submission failed:', response.status);
+                setStatus('error');
+            }
+        } catch (err) {
+            console.error('[ProjectOverlay] Network error:', err);
+            setStatus('error');
+        }
     }, [onClose]);
 
     return (
@@ -158,8 +171,23 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                 ↳start a project
             </div>
 
-            {/* Contact form */}
-            <form className="project-overlay__form" onSubmit={handleSubmit}>
+            {/* Contact form — Netlify Forms */}
+            <form
+                className="project-overlay__form"
+                name="contact"
+                method="POST"
+                data-netlify="true"
+                netlify-honeypot="bot-field"
+                onSubmit={handleSubmit}
+            >
+                {/* Hidden fields required by Netlify */}
+                <input type="hidden" name="form-name" value="contact" />
+                <div hidden>
+                    <label>
+                        Don't fill this out: <input name="bot-field" />
+                    </label>
+                </div>
+
                 {FORM_FIELDS.map((field) => (
                     <div className="project-overlay__field" key={field.name}>
                         <label
@@ -175,6 +203,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                             name={field.name}
                             required={field.required}
                             autoComplete={field.type === 'email' ? 'email' : 'off'}
+                            disabled={status === 'sending' || status === 'success'}
                         />
                     </div>
                 ))}
@@ -193,11 +222,19 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                         name="message"
                         rows="4"
                         required
+                        disabled={status === 'sending' || status === 'success'}
                     />
                 </div>
 
-                <button className="project-overlay__submit" type="submit">
-                    Send Inquiry →
+                <button
+                    className="project-overlay__submit"
+                    type="submit"
+                    disabled={status === 'sending' || status === 'success'}
+                >
+                    {status === 'idle' && 'Send Inquiry →'}
+                    {status === 'sending' && 'Sending…'}
+                    {status === 'success' && '✓ Sent'}
+                    {status === 'error' && 'Try Again →'}
                 </button>
             </form>
         </div>

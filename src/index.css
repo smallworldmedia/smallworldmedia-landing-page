@@ -411,11 +411,17 @@ button {
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  /* Isolate from layout recalcs — prevents resize flicker */
+  contain: strict;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .hero__scene>* {
   width: 100% !important;
   height: 100% !important;
+  /* Keep canvas on its own GPU layer */
+  transform: translateZ(0);
 }
 
 .hero__fg {
@@ -756,12 +762,10 @@ button.cta {
 
   .hero__cta {
     position: absolute;
-    top: 50%;
+    bottom: 8%;
     left: 50%;
-    bottom: auto;
     flex-direction: column;
     gap: var(--space-4);
-    margin-top: 0;
   }
 
   .project-overlay {
