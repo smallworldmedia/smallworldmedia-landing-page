@@ -39,7 +39,6 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             hasAnimatedRef.current = false;
             setStatus('idle');
 
-            const isMobile = window.matchMedia('(max-width: 768px)').matches;
             const tl = gsap.timeline();
 
             // 1. Overlay clip reveal from bottom (single element — clip-path OK)
@@ -53,69 +52,35 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             );
 
             // 2. Header slides down
-            if (isMobile) {
-                tl.fromTo(
-                    el.querySelector('.project-overlay__header'),
-                    { y: -20, opacity: 0 },
-                    { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
-                    '-=0.25'
-                );
-            } else {
-                tl.fromTo(
-                    el.querySelector('.project-overlay__header'),
-                    { y: -30, clipPath: 'inset(0 0 100% 0)' },
-                    { y: 0, clipPath: 'inset(0 0 0 0)', duration: 0.5, ease: 'power3.out' },
-                    '-=0.3'
-                );
-            }
+            tl.fromTo(
+                el.querySelector('.project-overlay__header'),
+                { y: -20, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
+                '-=0.25'
+            );
 
             // 3. Form fields stagger
             const fields = el.querySelectorAll('.project-overlay__field');
-            if (isMobile) {
-                // Mobile: transform + opacity (GPU-compositable)
-                tl.fromTo(
-                    fields,
-                    { x: -16, opacity: 0 },
-                    {
-                        x: 0,
-                        opacity: 1,
-                        duration: 0.35,
-                        ease: 'power3.out',
-                        stagger: { each: 0.02, from: 'start' },
-                    },
-                    '-=0.15'
-                );
-            } else {
-                tl.fromTo(
-                    fields,
-                    { x: -12, clipPath: 'inset(0 100% 0 0)' },
-                    {
-                        x: 0,
-                        clipPath: 'inset(0 0% 0 0)',
-                        duration: 0.5,
-                        ease: 'power3.out',
-                        stagger: { each: 0.02, from: 'start' },
-                    },
-                    '-=0.2'
-                );
-            }
+            tl.fromTo(
+                fields,
+                { x: -16, opacity: 0 },
+                {
+                    x: 0,
+                    opacity: 1,
+                    duration: 0.4,
+                    ease: 'power3.out',
+                    stagger: { each: 0.02, from: 'start' },
+                },
+                '-=0.15'
+            );
 
             // 4. Submit button
-            if (isMobile) {
-                tl.fromTo(
-                    el.querySelector('.project-overlay__submit'),
-                    { x: -12, opacity: 0 },
-                    { x: 0, opacity: 1, duration: 0.3, ease: 'power3.out' },
-                    '-=0.2'
-                );
-            } else {
-                tl.fromTo(
-                    el.querySelector('.project-overlay__submit'),
-                    { x: -12, clipPath: 'inset(0 100% 0 0)' },
-                    { x: 0, clipPath: 'inset(0 0% 0 0)', duration: 0.4, ease: 'power3.out' },
-                    '-=0.3'
-                );
-            }
+            tl.fromTo(
+                el.querySelector('.project-overlay__submit'),
+                { x: -12, opacity: 0 },
+                { x: 0, opacity: 1, duration: 0.35, ease: 'power3.out' },
+                '-=0.2'
+            );
 
             hasAnimatedRef.current = true;
         } else if (hasAnimatedRef.current) {

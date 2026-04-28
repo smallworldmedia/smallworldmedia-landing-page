@@ -44,77 +44,38 @@ export default function InfoPanel({ isOpen, onToggle }) {
         const panel = panelRef.current;
         if (!panel) return;
 
-        const isMobile = window.matchMedia('(max-width: 768px)').matches;
         const tl = gsap.timeline({ delay: 0.15 });
 
         // 1. Description reveal from left
-        if (isMobile) {
-            // Mobile: transform + opacity (GPU-compositable, no CPU rasterization)
-            tl.fromTo(
-                panel.querySelector('.description'),
-                { x: -20, opacity: 0 },
-                { x: 0, opacity: 1, duration: 0.45, ease: 'power3.out', clearProps: 'transform,opacity' }
-            );
-        } else {
-            // Desktop: clip-path (sharper visual, GPU headroom)
-            tl.fromTo(
-                panel.querySelector('.description'),
-                { clipPath: 'inset(0 100% 0 0)' },
-                { clipPath: 'inset(0 0% 0 0)', duration: 0.6, ease: 'power3.out', clearProps: 'clipPath' }
-            );
-        }
+        tl.fromTo(
+            panel.querySelector('.description'),
+            { x: -20, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.5, ease: 'power3.out', clearProps: 'transform,opacity' }
+        );
 
         // 2. Clients header
-        if (isMobile) {
-            tl.fromTo(
-                panel.querySelector('.clients__header'),
-                { x: -16, opacity: 0 },
-                { x: 0, opacity: 1, duration: 0.3, ease: 'power3.out', clearProps: 'transform,opacity' },
-                '-=0.25'
-            );
-        } else {
-            tl.fromTo(
-                panel.querySelector('.clients__header'),
-                { clipPath: 'inset(0 100% 0 0)' },
-                { clipPath: 'inset(0 0% 0 0)', duration: 0.4, ease: 'power3.out', clearProps: 'clipPath' },
-                '-=0.3'
-            );
-        }
+        tl.fromTo(
+            panel.querySelector('.clients__header'),
+            { x: -16, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.35, ease: 'power3.out', clearProps: 'transform,opacity' },
+            '-=0.3'
+        );
 
         // 3. Client items — staggered with horizontal slide
         const items = panel.querySelectorAll('.clients__item');
-
-        if (isMobile) {
-            // Mobile: transform + opacity — fully GPU-composited, fast stagger
-            tl.fromTo(
-                items,
-                { x: -16, opacity: 0 },
-                {
-                    x: 0,
-                    opacity: 1,
-                    duration: 0.3,
-                    ease: 'power3.out',
-                    clearProps: 'transform,opacity',
-                    stagger: { each: 0.02, from: 'start' },
-                },
-                '-=0.15'
-            );
-        } else {
-            // Desktop: clip-path stagger
-            tl.fromTo(
-                items,
-                { x: -12, clipPath: 'inset(0 100% 0 0)' },
-                {
-                    x: 0,
-                    clipPath: 'inset(0 0% 0 0)',
-                    duration: 0.5,
-                    ease: 'power3.out',
-                    clearProps: 'clipPath,transform',
-                    stagger: { each: 0.02, from: 'start' },
-                },
-                '-=0.2'
-            );
-        }
+        tl.fromTo(
+            items,
+            { x: -16, opacity: 0 },
+            {
+                x: 0,
+                opacity: 1,
+                duration: 0.35,
+                ease: 'power3.out',
+                clearProps: 'transform,opacity',
+                stagger: { each: 0.02, from: 'start' },
+            },
+            '-=0.15'
+        );
     }, { scope: panelRef, dependencies: [isOpen] });
 
     // Scrollbar reveal: toggle .is-scrolling on the clients container

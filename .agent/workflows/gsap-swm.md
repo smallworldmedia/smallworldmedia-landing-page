@@ -13,8 +13,7 @@ Animation philosophy: **"Controlled Chaos"** — Swiss grid discipline containin
 3. **Momentum Carries Forward** — Exit animations faster than entrances; content "throws" into next section
 4. **Typography is Choreography** — Text reveals have rhythm and pacing
 5. **Performance is Non-Negotiable** — 60fps or optimize until achieved
-6. **No Opacity Animations** — NEVER animate opacity by default. Use transform-based animations (translate, scale, rotate, clip-path) for all reveals and transitions. Elements should always remain at full opacity.
-7. **Playful Motion** — When animating groups of elements (nav items, cards, list items), use staggered timing with alternating rotation for a playful, organic feel. Alternate rotation direction per item (e.g., `rotate: i % 2 === 0 ? 3 : -3`) combined with translate creates dynamic, characterful entrances.
+6. **Playful Motion** — When animating groups of elements (nav items, cards, list items), use staggered timing with alternating rotation for a playful, organic feel. Alternate rotation direction per item (e.g., `rotate: i % 2 === 0 ? 3 : -3`) combined with translate creates dynamic, characterful entrances.
 
 ## ⚠️ Project Resource Verification (MANDATORY)
 
@@ -129,8 +128,8 @@ Each section should contrast with its neighbors. Options:
 ### 3. Implement with Performance Patterns
 Always follow `.claude/skills/gsap-swm/references/performance-checklist.md`:
 - Use `will-change` sparingly, remove after animation
-- Use `transform` properties only (translate, scale, rotate) — **never animate opacity**
-- Use `clip-path` for reveal effects instead of fade-ins
+- Prefer `transform` properties (translate, scale, rotate) and `opacity` for GPU-compositable animations
+- Use `clip-path` sparingly — it forces CPU rasterization on mobile and can clip text descenders
 - Clean up ScrollTriggers on unmount via `useGSAP()` context
 - Test on throttled CPU in DevTools
 
@@ -166,7 +165,6 @@ export function AnimatedComponent() {
   const container = useRef<HTMLDivElement>(null);
   
   useGSAP(() => {
-    // Transform-only animation (no opacity)
     gsap.from('.element', {
       y: 50,
       duration: 0.8,
