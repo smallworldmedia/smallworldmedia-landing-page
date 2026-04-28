@@ -12,7 +12,7 @@ import gsap from 'gsap';
  */
 export default function InfoPill({ isOpen, onToggle }) {
     const pillRef = useRef(null);
-    const bgRef = useRef(null);
+
 
     useGSAP(() => {
         const pill = pillRef.current;

@@ -3,19 +3,13 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import InfoPill from '../components/InfoPill';
 
-const CLIENTS_COL_1 = [
+const CLIENTS = [
     'Andhera Records', 'Annabel Englund', 'Audiojack', 'Bedouin', 'Bellaire',
     'Calussa', 'CID', 'Circus Music', 'COCO Records', 'DJ Tennis',
     "D'Witches", 'Easier Said', 'Fletch', 'Friends & Disco',
-];
-
-const CLIENTS_COL_2 = [
     'Front Left', 'Heavy House Society', 'Helix Records', 'Home//Grwxn.',
     'Hurry Up Slowly', 'James Wyler', 'Jonas Blue', 'Kamino', 'Kyle Walker',
     'Ky William', 'Malóne', 'LE YORA', 'Momentum Records', 'Munchietown',
-];
-
-const CLIENTS_COL_3 = [
     'Nusonido', 'One Of Us', 'Paige Tomlinson', 'Panorama360', 'Rossi.',
     'Salomé Le Chat', 'Sidney Charles', 'Short Circuit', 'Sosa',
     'Sunday Brunch', 'TOBEHONEST', 'Ultra Records', 'WIKKA',
@@ -121,21 +115,17 @@ export default function InfoPanel({ isOpen, onToggle }) {
                     <div className="clients">
                         <span className="clients__header">clients</span>
                         <div className="clients__grid">
-                            <div className="clients__col">
-                                {CLIENTS_COL_1.map((name) => (
-                                    <span className="clients__item" key={name}>{name}</span>
-                                ))}
-                            </div>
-                            <div className="clients__col">
-                                {CLIENTS_COL_2.map((name) => (
-                                    <span className="clients__item" key={name}>{name}</span>
-                                ))}
-                            </div>
-                            <div className="clients__col">
-                                {CLIENTS_COL_3.map((name) => (
-                                    <span className="clients__item" key={name}>{name}</span>
-                                ))}
-                            </div>
+                            {Array.from({ length: 3 }).map((_, colIndex) => {
+                                const chunkSize = Math.ceil(CLIENTS.length / 3);
+                                const colClients = CLIENTS.slice(colIndex * chunkSize, (colIndex + 1) * chunkSize);
+                                return (
+                                    <div className="clients__col" key={`col-${colIndex}`}>
+                                        {colClients.map((name) => (
+                                            <span className="clients__item" key={name}>{name}</span>
+                                        ))}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

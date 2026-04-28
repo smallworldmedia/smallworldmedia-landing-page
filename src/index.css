@@ -271,7 +271,7 @@ button {
 .info-panel__layout {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
   gap: clamp(0.571rem, 1.5vw, 1.143rem);
   width: 100%;
 }
@@ -301,7 +301,7 @@ button {
 
 .description__text {
   font-family: var(--font-headline, var(--font-body));
-  font-size: clamp(1.143rem, 1.5vw, 1.571rem);
+  font-size: 1.571vw;
   line-height: 1.0;
   color: var(--color-electric-blue);
   font-weight: 400;
@@ -323,7 +323,7 @@ button {
 
 .clients__header {
   font-family: var(--font-mono);
-  font-size: clamp(0.714rem, 0.85vw, 0.857rem);
+  font-size: 0.857vw;
   font-weight: 400;
   line-height: 1.0;
   color: var(--color-black);
@@ -334,21 +334,23 @@ button {
 .clients__grid {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
   gap: clamp(0.571rem, 2vw, 1.714rem);
   flex-wrap: nowrap;
+  flex: 1;
 }
 
 .clients__col {
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 0;
 }
 
 .clients__item {
   font-family: var(--font-body);
-  font-size: clamp(1rem, 1.2vw, 1.286rem);
+  font-size: 1.286vw;
   line-height: 1.0;
   font-weight: 400;
   color: var(--color-electric-blue);
