@@ -4,7 +4,7 @@ import gsap from 'gsap';
 import UnicornBg from '../components/UnicornBg';
 import CtaButton from '../components/CtaButton';
 
-export default function Hero({ onStartProject }) {
+export default function Hero({ onStartProject, scenePaused = false }) {
     const fgRef = useRef(null);
 
     // Entrance animation — staggered reveal using clip-path (no opacity per gsap-swm)
@@ -42,7 +42,7 @@ export default function Hero({ onStartProject }) {
     return (
         <section className="hero">
             <div className="hero__scene" aria-hidden="true">
-                <UnicornBg />
+                <UnicornBg paused={scenePaused} />
             </div>
             <div className="hero__fg" ref={fgRef}>
 

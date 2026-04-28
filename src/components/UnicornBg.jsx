@@ -21,7 +21,7 @@ const INITIAL_DPI =
     ? 1
     : 2;
 
-export default function UnicornBg() {
+export default function UnicornBg({ paused = false }) {
   const sceneRef = useRef(null);
   const mountedRef = useRef(true);
 
@@ -80,6 +80,7 @@ export default function UnicornBg() {
       scale={1}
       dpi={INITIAL_DPI}
       fps={30}
+      paused={paused}
       sceneRef={sceneRef}
       sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@2.1.9/dist/unicornStudio.umd.js"
     />

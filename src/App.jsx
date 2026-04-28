@@ -16,7 +16,12 @@ import ProjectOverlay from './sections/ProjectOverlay';
 export default function App() {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  const [sceneAnimPaused, setSceneAnimPaused] = useState(false);
   const shellRef = useRef(null);
+  const animTimerRef = useRef(null);
+
+  // Pause scene when overlay covers it OR during entrance animations
+  const scenePaused = sceneAnimPaused || isOverlayOpen;
 
   const handleToggle = useCallback(() => {
     setIsInfoOpen((prev) => !prev);
@@ -96,6 +101,11 @@ export default function App() {
     const currentHeight = panelContent.getBoundingClientRect().height;
 
     if (isInfoOpen) {
+      // Pause WebGL scene during entrance animation — frees GPU for GSAP
+      setSceneAnimPaused(true);
+      clearTimeout(animTimerRef.current);
+      animTimerRef.current = setTimeout(() => setSceneAnimPaused(false), 1500);
+
       gsap.to(wrapper, {
         y: 0,
         duration: 0.6,
@@ -118,7 +128,7 @@ export default function App() {
       <InfoPanel isOpen={isInfoOpen} onToggle={handleToggle} />
 
       {/* Hero — always visible behind */}
-      <Hero onStartProject={handleOpenOverlay} />
+      <Hero onStartProject={handleOpenOverlay} scenePaused={scenePaused} />
 
       {/* Project inquiry overlay */}
       <ProjectOverlay isOpen={isOverlayOpen} onClose={handleCloseOverlay} />

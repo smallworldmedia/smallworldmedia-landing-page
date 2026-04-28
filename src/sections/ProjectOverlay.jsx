@@ -39,9 +39,10 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             hasAnimatedRef.current = false;
             setStatus('idle');
 
+            const isMobile = window.matchMedia('(max-width: 768px)').matches;
             const tl = gsap.timeline();
 
-            // 1. Overlay clip reveal from bottom
+            // 1. Overlay clip reveal from bottom (single element — clip-path OK)
             tl.fromTo(el,
                 { clipPath: 'inset(100% 0 0 0)' },
                 {
@@ -52,51 +53,69 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             );
 
             // 2. Header slides down
-            tl.fromTo(
-                el.querySelector('.project-overlay__header'),
-                { y: -30, clipPath: 'inset(0 0 100% 0)' },
-                {
-                    y: 0,
-                    clipPath: 'inset(0 0 0 0)',
-                    duration: 0.5,
-                    ease: 'power3.out',
-                },
-                '-=0.3'
-            );
+            if (isMobile) {
+                tl.fromTo(
+                    el.querySelector('.project-overlay__header'),
+                    { y: -20, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
+                    '-=0.25'
+                );
+            } else {
+                tl.fromTo(
+                    el.querySelector('.project-overlay__header'),
+                    { y: -30, clipPath: 'inset(0 0 100% 0)' },
+                    { y: 0, clipPath: 'inset(0 0 0 0)', duration: 0.5, ease: 'power3.out' },
+                    '-=0.3'
+                );
+            }
 
-            // 3. Form fields stagger (same tokens as client list)
+            // 3. Form fields stagger
             const fields = el.querySelectorAll('.project-overlay__field');
-            tl.fromTo(
-                fields,
-                {
-                    x: -12,
-                    clipPath: 'inset(0 100% 0 0)',
-                },
-                {
-                    x: 0,
-                    clipPath: 'inset(0 0% 0 0)',
-                    duration: 0.5,
-                    ease: 'power3.out',
-                    stagger: {
-                        each: 0.02,
-                        from: 'start',
+            if (isMobile) {
+                // Mobile: transform + opacity (GPU-compositable)
+                tl.fromTo(
+                    fields,
+                    { x: -16, opacity: 0 },
+                    {
+                        x: 0,
+                        opacity: 1,
+                        duration: 0.35,
+                        ease: 'power3.out',
+                        stagger: { each: 0.02, from: 'start' },
                     },
-                },
-                '-=0.2'
-            );
+                    '-=0.15'
+                );
+            } else {
+                tl.fromTo(
+                    fields,
+                    { x: -12, clipPath: 'inset(0 100% 0 0)' },
+                    {
+                        x: 0,
+                        clipPath: 'inset(0 0% 0 0)',
+                        duration: 0.5,
+                        ease: 'power3.out',
+                        stagger: { each: 0.02, from: 'start' },
+                    },
+                    '-=0.2'
+                );
+            }
 
             // 4. Submit button
-            tl.fromTo(
-                el.querySelector('.project-overlay__submit'),
-                { x: -12, clipPath: 'inset(0 100% 0 0)' },
-                {
-                    x: 0,
-                    clipPath: 'inset(0 0% 0 0)',
-                    duration: 0.4,
-                    ease: 'power3.out',
-                },
-                '-=0.3'
-            );
+            if (isMobile) {
+                tl.fromTo(
+                    el.querySelector('.project-overlay__submit'),
+                    { x: -12, opacity: 0 },
+                    { x: 0, opacity: 1, duration: 0.3, ease: 'power3.out' },
+                    '-=0.2'
+                );
+            } else {
+                tl.fromTo(
+                    el.querySelector('.project-overlay__submit'),
+                    { x: -12, clipPath: 'inset(0 100% 0 0)' },
+                    { x: 0, clipPath: 'inset(0 0% 0 0)', duration: 0.4, ease: 'power3.out' },
+                    '-=0.3'
+                );
+            }
 
             hasAnimatedRef.current = true;
         } else if (hasAnimatedRef.current) {
