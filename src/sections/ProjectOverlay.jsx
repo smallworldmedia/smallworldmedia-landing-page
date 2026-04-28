@@ -119,6 +119,8 @@ export default function ProjectOverlay({ isOpen, onClose }) {
 
         const form = e.target;
         const formData = new FormData(form);
+        // Netlify uses the 'replyto' field as the Reply-To header on email notifications
+        formData.set('replyto', formData.get('email') || '');
 
         try {
             const response = await fetch('/', {
