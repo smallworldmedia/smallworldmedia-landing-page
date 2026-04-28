@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
+import { Flip } from 'gsap/Flip';
 
 import InfoPanel from './sections/InfoPanel';
 import Hero from './sections/Hero';
@@ -19,6 +20,7 @@ export default function App() {
   const [sceneAnimPaused, setSceneAnimPaused] = useState(false);
   const shellRef = useRef(null);
   const animTimerRef = useRef(null);
+  const flipStateRef = useRef(null);
 
   // Pause scene when overlay covers it OR during entrance animations
   const scenePaused = sceneAnimPaused || isOverlayOpen;
@@ -27,11 +29,16 @@ export default function App() {
     setIsInfoOpen((prev) => !prev);
   }, []);
 
-  const handleOpenOverlay = useCallback(() => {
+  const handleOpenOverlay = useCallback((ctaElement) => {
+    // Capture Flip state of the hero CTA button before overlay opens
+    if (ctaElement) {
+      flipStateRef.current = Flip.getState(ctaElement);
+    }
     setIsOverlayOpen(true);
   }, []);
 
   const handleCloseOverlay = useCallback(() => {
+    flipStateRef.current = null;
     setIsOverlayOpen(false);
   }, []);
 
@@ -131,7 +138,11 @@ export default function App() {
       <Hero onStartProject={handleOpenOverlay} scenePaused={scenePaused} />
 
       {/* Project inquiry overlay */}
-      <ProjectOverlay isOpen={isOverlayOpen} onClose={handleCloseOverlay} />
+      <ProjectOverlay
+        isOpen={isOverlayOpen}
+        onClose={handleCloseOverlay}
+        flipState={flipStateRef.current}
+      />
     </div>
   );
 }

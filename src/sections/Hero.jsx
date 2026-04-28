@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import UnicornBg from '../components/UnicornBg';
@@ -6,8 +6,14 @@ import CtaButton from '../components/CtaButton';
 
 export default function Hero({ onStartProject, scenePaused = false }) {
     const fgRef = useRef(null);
+    const ctaRef = useRef(null);
 
-    // Entrance animation — staggered reveal using clip-path (no opacity per gsap-swm)
+    const handleStartProject = useCallback(() => {
+        // Pass the CTA element so App can capture its Flip state
+        onStartProject(ctaRef.current);
+    }, [onStartProject]);
+
+    // Entrance animation — staggered reveal
     useGSAP(() => {
         // Horizontal centering: left: 50% + xPercent: -50 (both breakpoints)
         gsap.set('.hero__cta', { xPercent: -50 });
@@ -48,8 +54,10 @@ export default function Hero({ onStartProject, scenePaused = false }) {
 
                 <nav className="hero__cta">
                     <CtaButton
+                        ref={ctaRef}
                         variant="primary"
-                        onClick={onStartProject}
+                        onClick={handleStartProject}
+                        data-flip-id="start-project"
                     >
                         ↳start a project
                     </CtaButton>

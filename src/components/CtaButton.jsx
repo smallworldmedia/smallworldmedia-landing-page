@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, forwardRef, useImperativeHandle } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
@@ -15,18 +15,26 @@ import gsap from 'gsap';
  * - onClick: if provided, renders as <button>
  * - target: for external links
  * - children: button label
+ *
+ * Forwards ref to the underlying DOM element for GSAP Flip integration.
  */
-export default function CtaButton({
-    variant = 'default',
-    href,
-    onClick,
-    target,
-    rel,
-    children,
-    className = '',
-    ...rest
-}) {
+const CtaButton = forwardRef(function CtaButton(
+    {
+        variant = 'default',
+        href,
+        onClick,
+        target,
+        rel,
+        children,
+        className = '',
+        ...rest
+    },
+    ref
+) {
     const btnRef = useRef(null);
+
+    // Expose the DOM node to both the internal ref and the forwarded ref
+    useImperativeHandle(ref, () => btnRef.current, []);
 
     const { contextSafe } = useGSAP({ scope: btnRef });
 
@@ -91,4 +99,6 @@ export default function CtaButton({
             {children}
         </a>
     );
-}
+});
+
+export default CtaButton;

@@ -4,8 +4,9 @@ import App from './App.jsx'
 
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { Flip } from 'gsap/Flip';
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(useGSAP, Flip);
 
 createRoot(document.getElementById('root')).render(
   <App />,

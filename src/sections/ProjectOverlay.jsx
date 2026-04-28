@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
+import { Flip } from 'gsap/Flip';
 import globeGif from '../assets/swm-globe.gif';
 
 const FORM_FIELDS = [
@@ -18,14 +19,13 @@ const FORM_FIELDS = [
  *
  * Animation sequence (gsap-swm "Controlled Chaos"):
  * 1. Overlay clips in from bottom
- * 2. Header slides down from top
- * 3. Form fields stagger in with x-offset + clip-path (matching client list)
- * 4. Submit button clips in last
- *
- * All animations use transform + clip-path only (no opacity).
+ * 2. Header Flip-animates from the hero CTA's position into the overlay
+ * 3. Form fields stagger in with x-offset + opacity
+ * 4. Submit button slides in (overlaps fields tightly)
  */
-export default function ProjectOverlay({ isOpen, onClose }) {
+export default function ProjectOverlay({ isOpen, onClose, flipState }) {
     const overlayRef = useRef(null);
+    const headerRef = useRef(null);
     const hasAnimatedRef = useRef(false);
     const [status, setStatus] = useState('idle'); // idle | sending | success | error
 
@@ -51,13 +51,28 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                 }
             );
 
-            // 2. Header slides down
-            tl.fromTo(
-                el.querySelector('.project-overlay__header'),
-                { y: -20, opacity: 0 },
-                { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
-                '-=0.25'
-            );
+            // 2. Header — Flip from hero CTA position, or fallback to slide-down
+            const header = headerRef.current;
+            if (flipState && header) {
+                // Give the header a matching data-flip-id so Flip can correlate
+                header.setAttribute('data-flip-id', 'start-project');
+
+                tl.add(() => {
+                    Flip.from(flipState, {
+                        targets: header,
+                        duration: 0.5,
+                        ease: 'power3.out',
+                        absolute: true,
+                    });
+                }, '-=0.15');
+            } else {
+                // Fallback: simple slide-down if no flip state available
+                tl.fromTo(header,
+                    { y: -20, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
+                    '-=0.25'
+                );
+            }
 
             // 3. Form fields stagger
             const fields = el.querySelectorAll('.project-overlay__field');
@@ -74,12 +89,12 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                 '-=0.15'
             );
 
-            // 4. Submit button
+            // 4. Submit button — tight overlap with fields, no dead time
             tl.fromTo(
                 el.querySelector('.project-overlay__submit'),
-                { x: -12, opacity: 0 },
-                { x: 0, opacity: 1, duration: 0.35, ease: 'power3.out' },
-                '-=0.2'
+                { y: 8, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.3, ease: 'power3.out' },
+                '-=0.3'
             );
 
             hasAnimatedRef.current = true;
@@ -169,7 +184,11 @@ export default function ProjectOverlay({ isOpen, onClose }) {
 
             {/* Header — hidden after success */}
             {status !== 'success' && (
-                <div className="project-overlay__header">
+                <div
+                    className="project-overlay__header"
+                    ref={headerRef}
+                    data-flip-id="start-project"
+                >
                     ↳start a project
                 </div>
             )}
