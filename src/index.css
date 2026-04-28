@@ -479,11 +479,8 @@ button {
   color: var(--color-cream);
   text-decoration: none;
   padding: var(--space-2) var(--space-1);
-  transition: transform var(--duration-micro) var(--ease-micro);
-}
-
-.cta--primary {
   background: var(--color-electric-blue);
+  transition: transform var(--duration-micro) var(--ease-micro);
 }
 
 .cta:hover {
