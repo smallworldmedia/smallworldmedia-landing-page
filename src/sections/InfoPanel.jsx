@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import InfoPill from '../components/InfoPill';
@@ -78,33 +78,59 @@ export default function InfoPanel({ isOpen, onToggle }) {
         );
     }, { scope: panelRef, dependencies: [isOpen] });
 
-    // Scrollbar reveal: toggle .is-scrolling on the clients container
+    // Custom GSAP-animated scrollbar for mobile
+    const thumbRef = useRef(null);
+    const trackRef = useRef(null);
+
+    const syncThumbPosition = useCallback(() => {
+        const clientsEl = panelRef.current?.querySelector('.clients');
+        const thumb = thumbRef.current;
+        const track = trackRef.current;
+        if (!clientsEl || !thumb || !track) return;
+
+        const { scrollTop, scrollHeight, clientHeight } = clientsEl;
+        if (scrollHeight <= clientHeight) return; // no overflow
+
+        const trackHeight = track.clientHeight;
+        // Thumb size = proportion of visible area
+        const thumbHeight = Math.max((clientHeight / scrollHeight) * trackHeight, 20);
+        // Thumb position
+        const scrollRatio = scrollTop / (scrollHeight - clientHeight);
+        const thumbY = scrollRatio * (trackHeight - thumbHeight);
+
+        gsap.set(thumb, {
+            height: thumbHeight,
+            y: thumbY,
+        });
+    }, []);
+
     useGSAP(() => {
         const panel = panelRef.current;
         if (!panel) return;
 
         const clientsEl = panel.querySelector('.clients');
-        if (!clientsEl) return;
+        const thumb = thumbRef.current;
+        if (!clientsEl || !thumb) return;
 
-        let scrollTimer = null;
-        const HIDE_DELAY = 1200; // ms before scrollbar fades
+        let rafId = null;
 
         const handleScroll = () => {
-            clientsEl.classList.add('is-scrolling');
-            clearTimeout(scrollTimer);
-            scrollTimer = setTimeout(() => {
-                clientsEl.classList.remove('is-scrolling');
-            }, HIDE_DELAY);
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(syncThumbPosition);
         };
 
-        // Only attach on mobile viewports
+        // Start hidden — entrance animation reveals it
+        gsap.set(thumb, { scaleY: 0, transformOrigin: 'center top' });
+        syncThumbPosition();
+
+        // Only attach on mobile
         const mql = window.matchMedia('(max-width: 768px)');
         const attach = () => {
             if (mql.matches) {
                 clientsEl.addEventListener('scroll', handleScroll, { passive: true });
+                syncThumbPosition();
             } else {
                 clientsEl.removeEventListener('scroll', handleScroll);
-                clientsEl.classList.remove('is-scrolling');
             }
         };
 
@@ -112,11 +138,34 @@ export default function InfoPanel({ isOpen, onToggle }) {
         mql.addEventListener('change', attach);
 
         return () => {
-            clearTimeout(scrollTimer);
+            if (rafId) cancelAnimationFrame(rafId);
             clientsEl.removeEventListener('scroll', handleScroll);
             mql.removeEventListener('change', attach);
         };
-    }, { scope: panelRef, dependencies: [isOpen] });
+    }, { scope: panelRef, dependencies: [syncThumbPosition] });
+
+    // Scrollbar entrance/exit — scaleY from top center
+    useGSAP(() => {
+        const thumb = thumbRef.current;
+        if (!thumb) return;
+
+        if (isOpen) {
+            // In: scaleY 0 → 1 (0.3s, after client stagger)
+            gsap.to(thumb, {
+                scaleY: 1,
+                duration: 0.3,
+                ease: 'power3.out',
+                delay: 0.6,
+            });
+        } else {
+            // Out: scaleY 1 → 0 (~65% of entrance = 0.2s, snappy)
+            gsap.to(thumb, {
+                scaleY: 0,
+                duration: 0.2,
+                ease: 'power3.inOut',
+            });
+        }
+    }, { dependencies: [isOpen] });
 
     return (
         <div className="info-wrapper" data-open={isOpen}>
@@ -154,6 +203,11 @@ export default function InfoPanel({ isOpen, onToggle }) {
                                 );
                             })}
                         </div>
+                    </div>
+
+                    {/* Custom scrollbar — outside .clients so it doesn't scroll with content */}
+                    <div className="clients__scrollbar-track" ref={trackRef}>
+                        <div className="clients__scrollbar-thumb" ref={thumbRef} />
                     </div>
                 </div>
             </div>

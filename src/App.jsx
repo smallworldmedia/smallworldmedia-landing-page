@@ -120,10 +120,12 @@ export default function App() {
         overwrite: true,
       });
     } else {
+      // Slight delay lets scrollbar scaleY exit play first
       gsap.to(wrapper, {
         y: -(currentHeight + 1),
         duration: 0.48,
         ease: 'power2.inOut',
+        delay: 0.15,
         overwrite: true,
       });
     }

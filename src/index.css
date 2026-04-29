@@ -721,32 +721,32 @@ button.cta {
     padding-bottom: 2rem;
     overscroll-behavior: none;
 
-    /* --- Brand-blue scrollbar (webkit) --- */
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-  }
-
-  .clients:hover,
-  .clients.is-scrolling {
-    scrollbar-color: var(--color-electric-blue) transparent;
+    /* Hide native scrollbar — replaced by custom GSAP-animated scrollbar */
+    scrollbar-width: none;
   }
 
   .clients::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Custom animated scrollbar track — right edge of .clients */
+  .clients__scrollbar-track {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
     width: 4px;
+    pointer-events: none;
+    z-index: 2;
   }
 
-  .clients::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .clients::-webkit-scrollbar-thumb {
-    background: transparent;
+  /* Custom scrollbar thumb — persistent on mobile, GSAP entrance scaleY */
+  .clients__scrollbar-thumb {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
     border-radius: var(--radius-pill);
-    transition: background 0.3s ease;
-  }
-
-  .clients:hover::-webkit-scrollbar-thumb,
-  .clients.is-scrolling::-webkit-scrollbar-thumb {
     background: var(--color-electric-blue);
   }
 
