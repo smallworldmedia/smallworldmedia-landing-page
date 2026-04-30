@@ -51,7 +51,6 @@ export default function InfoPill({ isOpen, onToggle }) {
         gsap.set(hoverLayer, { clipPath: 'inset(0 100% 0 0)' });
 
         const handleEnter = () => {
-            // Kill any in-flight tween
             if (tweenRef.current) tweenRef.current.kill();
 
             tweenRef.current = gsap.to(hoverLayer, {
@@ -105,7 +104,7 @@ export default function InfoPill({ isOpen, onToggle }) {
     return (
         <button
             ref={pillRef}
-            className={`info-pill ${isOpen ? 'info-pill--open' : ''}`}
+            className="info-pill"
             onClick={onToggle}
             aria-label={isOpen ? 'Close info panel' : 'Open info panel'}
             aria-expanded={isOpen}

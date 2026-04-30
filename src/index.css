@@ -52,6 +52,15 @@
   font-display: swap;
 }
 
+/* Departure Mono — hero taglines (was rendered by Unicorn Studio) */
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('./assets/fonts/DepartureMono-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* — Custom Properties — */
 :root {
   /* Colors */
@@ -68,7 +77,7 @@
   /* Regular weight — 26.4px headlines */
   --font-secondary: 'PP Neue Montreal', sans-serif;
   /* Book weight — 21.6px sub-headings */
-  --font-mono: 'Geist Mono', ui-monospace, 'Departure Mono', monospace;
+  --font-mono: 'Departure Mono', 'Geist Mono', ui-monospace, monospace;
   --font-ui: 'Inter', system-ui, sans-serif;
   --font-body: 'PP Neue Montreal', 'Inter', system-ui, sans-serif;
 
@@ -179,19 +188,14 @@ button {
   width: 5.143rem;
   height: 1.643rem;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--color-electric-blue);
+  border: none;
   background: transparent;
   cursor: pointer;
-  overflow: hidden;
   padding: 0;
 }
 
-/* Open state border */
-.info-pill--open {
-  border-color: var(--color-cream);
-}
-
-/* Shared layer — fills the pill, holds icon + label side-by-side */
+/* Shared layer — fills the pill, holds icon + label side-by-side.
+   Border lives on each layer so clip-path wipes it with the fill. */
 .info-pill__layer {
   display: flex;
   align-items: center;
@@ -204,24 +208,31 @@ button {
   font-weight: 400;
   line-height: var(--lh-ui);
   white-space: nowrap;
+  border-radius: inherit;
+  overflow: hidden;
 }
 
-/* White variant: white fill, blue content */
+/* White variant: white fill, blue content, blue stroke */
 .info-pill__layer--white {
   background: var(--color-cream);
   color: var(--color-electric-blue);
+  border: 1px solid var(--color-electric-blue);
 }
 
-/* Blue variant: blue fill, white content */
+/* Blue variant: blue fill, white content, white stroke */
 .info-pill__layer--blue {
   background: var(--color-electric-blue);
   color: var(--color-cream);
+  border: 1px solid var(--color-cream);
 }
 
-/* Hover overlay — stacked on top, initially clip-hidden */
+/* Hover overlay — stacked on top, initially clip-hidden.
+   clip-path wipes border + fill together for hard-edge transition.
+   All hover states get a white stroke. */
 .info-pill__hover {
   z-index: 1;
   will-change: clip-path;
+  border-color: var(--color-white);
 }
 
 .info-pill__icon {
@@ -426,6 +437,13 @@ button {
   transform: translateZ(0);
 }
 
+.hero__text {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .hero__fg {
   position: absolute;
   inset: 0;
@@ -433,30 +451,52 @@ button {
   display: block;
 }
 
-/* Taglines */
+/* Taglines — extracted from Unicorn Studio text layers */
 .tagline {
   position: absolute;
-  font-family: var(--font-mono);
-  font-size: var(--text-mono);
-  line-height: var(--lh-mono);
+  font-family: 'Departure Mono', var(--font-mono);
+  font-size: 18px;
+  line-height: calc(17 / 18);
   letter-spacing: 0.067em;
   color: var(--color-cream);
   white-space: pre-line;
-  z-index: 2;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+  width: 180px;
 }
 
 .tagline--left {
+  left: 24%;
   top: 50%;
-  left: 19%;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .tagline--right {
+  left: 76%;
   top: 50%;
-  right: 16%;
-  transform: translateY(-50%);
-  text-align: right;
+  transform: translate(-50%, -50%);
 }
+
+/* Hero title — SMALL WORLD MEDIA™ */
+.hero__title {
+  position: absolute;
+  left: 50%;
+  top: 76.7%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-size: 104px;
+  font-weight: 500;
+  line-height: calc(113 / 104);
+  letter-spacing: 0;
+  color: var(--color-cream);
+  text-align: center;
+  white-space: nowrap;
+  z-index: 1;
+  pointer-events: none;
+  width: max-content;
+}
+
 
 /* Bottom CTA — percentage-based bottom spacing */
 .hero__cta {
@@ -665,6 +705,32 @@ button.cta {
   }
 }
 
+/* Tablet — Unicorn breakpoint: 576–991px */
+@media (max-width: 991px) {
+  .tagline {
+    font-size: 15px;
+    line-height: calc(16 / 15);
+    letter-spacing: 0.038em;
+    width: 144px;
+  }
+
+  .tagline--left {
+    left: 13%;
+  }
+
+  .tagline--right {
+    left: 87%;
+  }
+
+  .hero__title {
+    font-size: 90px;
+    line-height: calc(170.4 / 90);
+    left: 50%;
+    top: 70.7%;
+    transform: translateX(-50%);
+  }
+}
+
 @media (max-width: 768px) {
 
   html,
@@ -775,6 +841,34 @@ button.cta {
   }
 
   /* --- Hero & overlay mobile overrides --- */
+
+  /* Reposition shared taglines for mobile X-axis drift */
+  .tagline--left {
+    left: 50%;
+    top: 31%;
+    font-size: 12px;
+    line-height: calc(13 / 12);
+    letter-spacing: 0.038em;
+    width: auto;
+  }
+
+  .tagline--right {
+    left: 50%;
+    top: 68%;
+    font-size: 12px;
+    line-height: calc(13 / 12);
+    letter-spacing: 0.038em;
+    width: auto;
+  }
+
+  .hero__title {
+    font-size: 58px;
+    line-height: calc(90.5 / 58);
+    left: 50%;
+    top: 72%;
+    transform: translateX(-50%);
+  }
+
   .hero__fg {
     display: flex;
     flex-direction: column;

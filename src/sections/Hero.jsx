@@ -2,6 +2,7 @@ import { useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import UnicornBg from '../components/UnicornBg';
+import HeroText from '../components/HeroText';
 import CtaButton from '../components/CtaButton';
 
 export default function Hero({ onStartProject, scenePaused = false }) {
@@ -50,6 +51,7 @@ export default function Hero({ onStartProject, scenePaused = false }) {
             <div className="hero__scene" aria-hidden="true">
                 <UnicornBg paused={scenePaused} />
             </div>
+            <HeroText />
             <div className="hero__fg" ref={fgRef}>
 
                 <nav className="hero__cta">
