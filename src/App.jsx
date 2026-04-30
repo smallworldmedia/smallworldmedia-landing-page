@@ -42,20 +42,26 @@ export default function App() {
     setIsOverlayOpen(false);
   }, []);
 
-  // Scroll → open info panel (one-shot)
+  // Desktop only: scroll down → open info panel, scroll up → close
   useEffect(() => {
-    if (isInfoOpen) return; // Already open, no need
+    const DESKTOP_MIN = 1025; // matches CSS breakpoint (max-width: 1024px)
+    const DELTA_THRESHOLD = 4; // ignore tiny trackpad noise
 
-    const handler = () => {
-      setIsInfoOpen(true);
+    const handler = (e) => {
+      if (window.innerWidth < DESKTOP_MIN) return;
+      if (Math.abs(e.deltaY) < DELTA_THRESHOLD) return;
+
+      if (e.deltaY > 0 && !isInfoOpen) {
+        setIsInfoOpen(true);
+      } else if (e.deltaY < 0 && isInfoOpen) {
+        setIsInfoOpen(false);
+      }
     };
 
-    window.addEventListener('wheel', handler, { once: true, passive: true });
-    window.addEventListener('touchmove', handler, { once: true, passive: true });
+    window.addEventListener('wheel', handler, { passive: true });
 
     return () => {
       window.removeEventListener('wheel', handler);
-      window.removeEventListener('touchmove', handler);
     };
   }, [isInfoOpen]);
 
@@ -120,6 +126,10 @@ export default function App() {
         overwrite: true,
       });
     } else {
+      // Cancel any lingering pause timer from the open animation
+      clearTimeout(animTimerRef.current);
+      setSceneAnimPaused(false);
+
       // Slight delay lets scrollbar scaleY exit play first
       gsap.to(wrapper, {
         y: -(currentHeight + 1),
