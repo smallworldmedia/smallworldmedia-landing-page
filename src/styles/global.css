@@ -1,0 +1,925 @@
+/* ============================================
+   SMALL WORLD MEDIA — Design System
+   ============================================ */
+
+/* — Font Faces — */
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('../assets/fonts/PPNeueMontreal-Book.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('../assets/fonts/PPNeueMontreal-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('../assets/fonts/PPNeueMontreal-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Neue Montreal';
+  src: url('../assets/fonts/PPNeueMontreal-Thin.otf') format('opentype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* OT Neue Montreal Squeezed */
+@font-face {
+  font-family: 'OT Neue Montreal Squeezed';
+  src: url('../assets/fonts/OTNeueMontreal-MediumExtraSqueezed.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OT Neue Montreal Squeezed';
+  src: url('../assets/fonts/OTNeueMontreal-BoldExtraSqueezed.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Departure Mono — hero taglines (was rendered by Unicorn Studio) */
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('../assets/fonts/DepartureMono-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* — Custom Properties — */
+:root {
+  /* Colors */
+  --color-electric-blue: rgb(0, 0, 255);
+  --color-cream: rgb(250, 250, 250);
+  --color-black: #000000;
+  --color-blue-link: #0000EE;
+  --color-white: #FFFFFF;
+  --color-dark-gray: rgb(18, 18, 18);
+
+  /* Typography — font stacks */
+  --font-display: 'OT Neue Montreal Squeezed', 'PP Neue Montreal', 'Inter', sans-serif;
+  --font-headline: 'PP Neue Montreal', sans-serif;
+  /* Regular weight — 26.4px headlines */
+  --font-secondary: 'PP Neue Montreal', sans-serif;
+  /* Book weight — 21.6px sub-headings */
+  --font-mono: 'Departure Mono', 'Geist Mono', ui-monospace, monospace;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-body: 'PP Neue Montreal', 'Inter', system-ui, sans-serif;
+
+  /* Typography — sizes (rem, base 14px) */
+  --text-headline: 2rem;
+  /* 26.4px */
+  --lh-headline: 2rem;
+  --text-secondary: 1.543rem;
+  /* 21.6px */
+  --lh-secondary: 1.543rem;
+  --text-mono: 0.9141rem;
+  /* 12.8px */
+  --lh-mono: 1.2rem;
+  /* 15.6px */
+  --text-ui: 1.143rem;
+  /* 16px */
+  --lh-ui: 1.4rem;
+  /* 19.2px */
+
+  /* Spacing (rem, base 14px) */
+  --space-1: 0.143rem;
+  /* 2px */
+  --space-2: 0.286rem;
+  /* 4px */
+  --space-3: 0.429rem;
+  /* 6px */
+  --space-4: 0.571rem;
+  /* 8px */
+  --space-5: 0.714rem;
+  /* 10px */
+  --space-6: 0.857rem;
+  /* 12px */
+
+  /* Radii */
+  --radius-pill: 3.571rem;
+  /* 50px */
+  --radius-none: 0;
+
+  /* Transitions — GSAP-aligned */
+  --ease-panel: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-panel: 600ms;
+  --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-micro: 220ms;
+}
+
+/* — Reset — */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--color-electric-blue);
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+/* — Page Shell — */
+.page-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: clip;
+  background: var(--color-electric-blue);
+}
+
+/* ============================================
+   INFO PILL
+   ============================================ */
+.info-pill {
+  position: relative;
+  z-index: 50;
+  width: 5.143rem;
+  height: 1.643rem;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Shared layer — fills the pill, holds icon + label side-by-side.
+   Border lives on each layer so clip-path wipes it with the fill. */
+.info-pill__layer {
+  display: flex;
+  align-items: center;
+  gap: 0.429rem;
+  position: absolute;
+  inset: 0;
+  padding: 0 0.571rem 0 0.429rem;
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  font-weight: 400;
+  line-height: var(--lh-ui);
+  white-space: nowrap;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* White variant: white fill, blue content, blue stroke */
+.info-pill__layer--white {
+  background: var(--color-cream);
+  color: var(--color-electric-blue);
+  border: 1px solid var(--color-electric-blue);
+}
+
+/* Blue variant: blue fill, white content, white stroke */
+.info-pill__layer--blue {
+  background: var(--color-electric-blue);
+  color: var(--color-cream);
+  border: 1px solid var(--color-cream);
+}
+
+/* Hover overlay — stacked on top, initially clip-hidden.
+   clip-path wipes border + fill together for hard-edge transition.
+   All hover states get a white stroke. */
+.info-pill__hover {
+  z-index: 1;
+  will-change: clip-path;
+  border-color: var(--color-white);
+}
+
+.info-pill__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.714rem;
+  height: 0.714rem;
+  flex-shrink: 0;
+}
+
+.info-pill__label {
+  white-space: nowrap;
+}
+
+/* ============================================
+   INFO PANEL — Slide-down overlay
+   ============================================
+   Architecture:
+   ┌──────────────────────────────┐
+   │  .info-panel (cream content) │  ← clipped when closed
+   │  (description + clients)     │
+   ├──────────────────────────────┤
+   │  .info-nav (blue 40px bar)   │  ← always visible, contains pill
+   └──────────────────────────────┘
+
+   Closed: wrapper y = -contentHeight (only nav bar visible at top)
+   Open: wrapper y = 0 (content revealed below nav bar)
+   ============================================ */
+.info-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  /* Start fully hidden — GSAP measures content height on mount and sets precise y */
+  transform: translateY(-100%);
+}
+
+.info-wrapper[data-open="true"] {
+  pointer-events: auto;
+}
+
+/* Nav bar — sits at bottom of wrapper, always visible */
+.info-nav {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+  height: 2.857rem;
+  padding: var(--space-3) var(--space-4);
+  /* 6px top/bottom — matches Framer .framer-zzk8m8 */
+  background: var(--color-electric-blue);
+  flex-shrink: 0;
+}
+
+/* Content panel — cream bg, sits above the nav bar */
+.info-panel {
+  width: 100%;
+  background: var(--color-cream);
+  /* Match horizontal padding to nav bar's var(--space-4) = 8px */
+  padding: var(--space-4);
+  overflow: clip;
+  flex-shrink: 0;
+}
+
+/* Horizontal 2-column layout: left (embed + desc), right (clients) */
+.info-panel__layout {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: clamp(0.571rem, 1.5vw, 1.143rem);
+  width: 100%;
+}
+
+/* Left column — placeholder box + description stacked vertically */
+.info-panel__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 0 0 clamp(14.286rem, 22vw, 22.857rem);
+}
+
+/* Placeholder box for Unicorn Studio embed */
+.info-panel__embed {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--color-electric-blue);
+  background: transparent;
+}
+
+/* Description */
+.description {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.description__text {
+  font-family: var(--font-headline, var(--font-body));
+  font-size: 2.6vw;
+  letter-spacing: -.02em;
+  line-height: 1.0;
+  color: var(--color-electric-blue);
+  font-weight: 400;
+}
+
+.description__text strong {
+  color: var(--color-electric-blue);
+  font-weight: 400;
+}
+
+/* Clients — fills remaining space to the right */
+.clients {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.clients__header {
+  font-family: var(--font-mono);
+  font-size: .95vw;
+  font-weight: 400;
+  line-height: 1.0;
+  color: var(--color-black);
+  letter-spacing: -.07em;
+  padding: 0;
+}
+
+.clients__grid {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: clamp(0.571rem, 2vw, 1.714rem);
+  flex-wrap: nowrap;
+  flex: 1;
+}
+
+.clients__col {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0;
+}
+
+.clients__item {
+  font-family: var(--font-body);
+  font-size: 2.4vw;
+  letter-spacing: -.02em;
+  line-height: 0.8;
+  font-weight: 400;
+  color: var(--color-electric-blue);
+  cursor: pointer;
+  text-decoration: none;
+  transition: text-decoration-color 160ms ease;
+}
+
+.clients__item:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   HERO
+   ============================================ */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100dvh;
+  min-height: 42.857rem;
+  overflow: clip;
+  background: var(--color-electric-blue);
+  flex-shrink: 0;
+}
+
+.hero__scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Isolate from layout recalcs — prevents resize flicker */
+  contain: strict;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.hero__scene>* {
+  /* SDK container already sizes itself via CSS custom properties.
+     Use absolute positioning instead of forced dimensions to prevent
+     the SDK's internal ResizeObserver from firing on viewport changes. */
+  position: absolute;
+  inset: 0;
+  transform: translateZ(0);
+}
+
+.hero__text {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero__fg {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+}
+
+/* Taglines — extracted from Unicorn Studio text layers */
+.tagline {
+  position: absolute;
+  font-family: 'Departure Mono', var(--font-mono);
+  font-size: 18px;
+  line-height: calc(17 / 18);
+  letter-spacing: 0.067em;
+  color: var(--color-cream);
+  white-space: pre-line;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+  width: 180px;
+}
+
+.tagline--left {
+  left: 24%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.tagline--right {
+  left: 76%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Hero title — SMALL WORLD MEDIA™ */
+.hero__title {
+  position: absolute;
+  left: 50%;
+  top: 76.7%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-size: 104px;
+  font-weight: 500;
+  line-height: calc(113 / 104);
+  letter-spacing: 0;
+  color: var(--color-cream);
+  text-align: center;
+  white-space: nowrap;
+  z-index: 1;
+  pointer-events: none;
+  width: max-content;
+}
+
+
+/* Bottom CTA — percentage-based bottom spacing */
+.hero__cta {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  /* Transform removed to avoid GSAP baking it into explicit pixel offsets */
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1.143rem;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+/* UI / Utility — Framer: Inter 16px/19.2px, white */
+.cta {
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  font-weight: 400;
+  line-height: var(--lh-ui);
+  color: var(--color-cream);
+  text-decoration: none;
+  padding: var(--space-2) var(--space-1);
+  background: var(--color-electric-blue);
+  transition: transform var(--duration-micro) var(--ease-micro);
+}
+
+.cta:hover {
+  text-decoration: underline;
+}
+
+/* Drag handle */
+.hero__handle {
+  position: absolute;
+  bottom: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1.714rem;
+  height: 0.143rem;
+  border-bottom: 2px dashed var(--color-cream);
+  opacity: 0.5;
+  z-index: 2;
+}
+
+/* Button reset for CtaButton */
+button.cta {
+  border: none;
+  cursor: pointer;
+}
+
+/* ============================================
+   PROJECT OVERLAY — Full-screen contact form
+   ============================================ */
+.project-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-electric-blue);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5vw;
+  /* Initial state: clipped away */
+  clip-path: inset(100% 0 0 0);
+  /* will-change applied by GSAP during animation only —
+     permanent promotion wastes GPU memory on full-viewport layer */
+}
+
+.project-overlay__close {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 1.714rem;
+  color: var(--color-cream);
+  cursor: pointer;
+  line-height: 1;
+  padding: var(--space-4);
+  z-index: 2;
+  transition: transform var(--duration-micro) var(--ease-micro);
+}
+
+.project-overlay__close:hover {
+  transform: rotate(90deg);
+}
+
+.project-overlay__globe {
+  position: absolute;
+  top: var(--space-6);
+  left: var(--space-6);
+  width: 3vw;
+  height: auto;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.project-overlay__header {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  font-family: var(--font-ui);
+  font-size: 1.571vw;
+  font-weight: 400;
+  color: var(--color-cream);
+  white-space: nowrap;
+  padding-bottom: 2vw;
+}
+
+.project-overlay__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vw;
+  width: min(100%, 32rem);
+  position: relative;
+}
+
+.project-overlay__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vw;
+}
+
+.project-overlay__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.project-overlay__label {
+  font-family: var(--font-mono);
+  font-size: 0.857vw;
+  color: var(--color-cream);
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.project-overlay__input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-cream);
+  color: var(--color-cream);
+  font-family: var(--font-body);
+  font-size: 1.286vw;
+  line-height: 1;
+  padding: var(--space-3) 0;
+  outline: none;
+  transition: border-color var(--duration-micro) var(--ease-micro);
+}
+
+.project-overlay__input:focus {
+  border-bottom-color: var(--color-cream);
+  border-bottom-width: 2px;
+}
+
+.project-overlay__input::placeholder {
+  color: rgba(250, 250, 250, 0.4);
+}
+
+.project-overlay__textarea {
+  resize: vertical;
+  min-height: 4rem;
+}
+
+.project-overlay__submit {
+  align-self: flex-start;
+  margin-top: 1vw;
+  background: var(--color-cream);
+  color: var(--color-electric-blue);
+  border: none;
+  font-family: var(--font-ui);
+  font-size: 1.143vw;
+  font-weight: 400;
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: transform var(--duration-micro) var(--ease-micro);
+}
+
+.project-overlay__submit:hover {
+  transform: translateY(-0.143rem);
+}
+
+.project-overlay__confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+  font-family: var(--font-ui);
+  font-size: 1.571vw;
+  font-weight: 400;
+  color: var(--color-cream);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+  .info-panel__left {
+    flex: 0 0 clamp(12.857rem, 20vw, 18.571rem);
+  }
+}
+
+/* Tablet — Unicorn breakpoint: 576–991px */
+@media (max-width: 991px) {
+  .tagline {
+    font-size: 15px;
+    line-height: calc(16 / 15);
+    letter-spacing: 0.038em;
+    width: 144px;
+  }
+
+  .tagline--left {
+    left: 13%;
+  }
+
+  .tagline--right {
+    left: 87%;
+  }
+
+  .hero__title {
+    font-size: 90px;
+    line-height: calc(170.4 / 90);
+    left: 50%;
+    top: 70.7%;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 768px) {
+
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
+  /* --- Info Panel: 2-column equal-width layout --- */
+  .info-panel {
+    max-height: calc(100dvh - 2.857rem);
+    padding-top: 1.429rem;
+    overflow: clip;
+  }
+
+  .info-panel__layout {
+    display: block;
+    position: relative;
+  }
+
+  /* Left column: info blurb defines height of the panel */
+  .info-panel__left {
+    width: calc(50% - 0.571rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  /* Embed placeholder — square on mobile */
+  .info-panel__embed {
+    aspect-ratio: 1;
+  }
+
+  .description {
+    flex: 1;
+  }
+
+  .description__text {
+    font-size: 1.714rem;
+    line-height: 1.0;
+    letter-spacing: -.02em;
+  }
+
+  /* Right column: scrollable client list, height matched to left column */
+  .clients {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: calc(50% - 0.571rem);
+
+    overflow-y: auto;
+    overflow-x: hidden;
+    pointer-events: auto;
+    padding-bottom: 2rem;
+    overscroll-behavior: none;
+
+    /* Hide native scrollbar — replaced by custom GSAP-animated scrollbar */
+    scrollbar-width: none;
+  }
+
+  .clients::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Custom animated scrollbar track — right edge of .clients */
+  .clients__scrollbar-track {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 4px;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* Custom scrollbar thumb — persistent on mobile, GSAP entrance scaleY */
+  .clients__scrollbar-thumb {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--color-electric-blue);
+  }
+
+  .clients__header {
+    font-size: 0.786rem;
+    position: sticky;
+    top: 0;
+    background: var(--color-cream);
+    padding-bottom: var(--space-2);
+    z-index: 1;
+  }
+
+  .clients__grid {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .clients__col {
+    flex: none;
+    width: 100%;
+  }
+
+  .clients__item {
+    font-size: 1.571rem;
+    line-height: 0.9;
+  }
+
+  /* --- Hero & overlay mobile overrides --- */
+
+  /* Reposition shared taglines for mobile X-axis drift */
+  .tagline--left {
+    left: 50%;
+    top: 31%;
+    font-size: 12px;
+    line-height: calc(13 / 12);
+    letter-spacing: 0.038em;
+    width: auto;
+  }
+
+  .tagline--right {
+    left: 50%;
+    top: 68%;
+    font-size: 12px;
+    line-height: calc(13 / 12);
+    letter-spacing: 0.038em;
+    width: auto;
+  }
+
+  .hero__title {
+    font-size: 58px;
+    line-height: calc(90.5 / 58);
+    left: 50%;
+    top: 72%;
+    transform: translateX(-50%);
+  }
+
+  .hero__fg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.143rem;
+    padding: 1.429rem;
+  }
+
+  .hero__cta {
+    position: absolute;
+    bottom: 8%;
+    left: 50%;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .project-overlay {
+    padding: 1.429rem;
+  }
+
+  .project-overlay__header {
+    font-size: 1.143rem;
+  }
+
+  .project-overlay__form {
+    gap: 1.143rem;
+    width: 100%;
+  }
+
+  .project-overlay__body {
+    gap: 1.143rem;
+  }
+
+  .project-overlay__label {
+    font-size: 0.857rem;
+  }
+
+  .project-overlay__input {
+    font-size: 1.143rem;
+  }
+
+  .project-overlay__submit {
+    font-size: 1rem;
+    margin-top: 1.143rem;
+  }
+
+  .project-overlay__globe {
+    width: 2.5rem;
+  }
+
+  .project-overlay__confirmation {
+    font-size: 1.143rem;
+  }
+}

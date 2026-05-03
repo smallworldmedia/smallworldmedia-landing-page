@@ -1,0 +1,20 @@
+---
+/**
+ * Landing Page — SWM homepage.
+ *
+ * The entire interactive surface is a single React island
+ * (client:only="react") because the GSAP orchestration
+ * (Flip states, scroll→panel, overlay↔hero) requires
+ * a unified React tree.
+ *
+ * Static pages added in the full site build (case studies,
+ * about, etc.) will be pure .astro with zero client JS.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import '../styles/global.css';
+import LandingPage from '../components/LandingPage.jsx';
+---
+
+<BaseLayout>
+  <LandingPage client:only="react" />
+</BaseLayout>
