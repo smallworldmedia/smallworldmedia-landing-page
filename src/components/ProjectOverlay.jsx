@@ -1,15 +1,89 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { Flip } from 'gsap/Flip';
+import { SERVICE_TAGS } from '../lib/constants';
 
 const globeGif = '/swm-globe.gif';
 
 const FORM_FIELDS = [
     { name: 'name', label: 'Name', type: 'text', required: true },
     { name: 'email', label: 'Email', type: 'email', required: true },
-    { name: 'project', label: 'Project Type', type: 'text', required: false },
 ];
+
+/* ── SVG check indicator ─────────────────────────────────────────────
+ * Open circle → animated checkmark fill.
+ * Uses stroke-dashoffset animation via GSAP (DrawSVG-style without plugin).
+ */
+const CheckIndicator = ({ checked }) => {
+    const checkRef = useRef(null);
+    const circleRef = useRef(null);
+
+    useGSAP(() => {
+        const check = checkRef.current;
+        const circle = circleRef.current;
+        if (!check || !circle) return;
+
+        if (checked) {
+            // Circle shrinks opacity slightly, check draws in
+            gsap.to(circle, {
+                stroke: 'rgba(250,250,250,1)',
+                duration: 0.2,
+                ease: 'power3.out',
+            });
+            gsap.fromTo(check,
+                { strokeDashoffset: 14 },
+                {
+                    strokeDashoffset: 0,
+                    duration: 0.35,
+                    ease: 'power3.out',
+                }
+            );
+        } else {
+            gsap.to(circle, {
+                stroke: 'rgba(250,250,250,0.35)',
+                duration: 0.2,
+                ease: 'power2.inOut',
+            });
+            gsap.to(check, {
+                strokeDashoffset: 14,
+                duration: 0.2,
+                ease: 'power2.inOut',
+            });
+        }
+    }, { dependencies: [checked] });
+
+    return (
+        <svg
+            className="project-overlay__check"
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+        >
+            <circle
+                ref={circleRef}
+                cx="8"
+                cy="8"
+                r="7"
+                stroke="rgba(250,250,250,0.35)"
+                strokeWidth="1.25"
+                fill="none"
+            />
+            <path
+                ref={checkRef}
+                d="M4.5 8.2L7 10.5L11.5 5.5"
+                stroke="var(--color-cream)"
+                strokeWidth="1.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="14"
+                strokeDashoffset="14"
+            />
+        </svg>
+    );
+};
 
 /**
  * ProjectOverlay — Full-screen blue contact form.
@@ -31,8 +105,74 @@ const FORM_FIELDS = [
 export default function ProjectOverlay({ isOpen, onClose, flipState }) {
     const overlayRef = useRef(null);
     const headerRef = useRef(null);
+    const submitRef = useRef(null);
+    const hoverLayerRef = useRef(null);
+    const hoverTweenRef = useRef(null);
     const hasAnimatedRef = useRef(false);
     const [status, setStatus] = useState('idle'); // idle | sending | success | error
+    const [selectedTags, setSelectedTags] = useState([]);
+    const [fieldValues, setFieldValues] = useState({ name: '', email: '', message: '' });
+
+    // Validation — all text fields filled + at least 1 tag
+    const isFormValid =
+        fieldValues.name.trim() !== '' &&
+        fieldValues.email.trim() !== '' &&
+        fieldValues.message.trim() !== '' &&
+        selectedTags.length > 0;
+
+    const handleFieldChange = useCallback((fieldName, value) => {
+        setFieldValues((prev) => ({ ...prev, [fieldName]: value }));
+    }, []);
+
+    const toggleTag = useCallback((tag) => {
+        setSelectedTags((prev) =>
+            prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+        );
+    }, []);
+
+    // Submit button dual-layer hover (InfoPill-style clip-path wipe)
+    useEffect(() => {
+        const btn = submitRef.current;
+        const hoverLayer = hoverLayerRef.current;
+        if (!btn || !hoverLayer) return;
+
+        const handleEnter = () => {
+            if (!isFormValid) return;
+            if (hoverTweenRef.current) hoverTweenRef.current.kill();
+            hoverTweenRef.current = gsap.to(hoverLayer, {
+                clipPath: 'inset(0 0% 0 0)',
+                duration: 0.28,
+                ease: 'power3.out',
+                overwrite: true,
+            });
+        };
+
+        const handleLeave = () => {
+            if (hoverTweenRef.current) hoverTweenRef.current.kill();
+            hoverTweenRef.current = gsap.to(hoverLayer, {
+                clipPath: 'inset(0 100% 0 0)',
+                duration: 0.22,
+                ease: 'power2.inOut',
+                overwrite: true,
+            });
+        };
+
+        btn.addEventListener('mouseenter', handleEnter);
+        btn.addEventListener('mouseleave', handleLeave);
+
+        return () => {
+            btn.removeEventListener('mouseenter', handleEnter);
+            btn.removeEventListener('mouseleave', handleLeave);
+        };
+    }, [isFormValid]);
+
+    // Reset hover layer when form validity changes
+    useEffect(() => {
+        const hoverLayer = hoverLayerRef.current;
+        if (hoverLayer) {
+            gsap.set(hoverLayer, { clipPath: 'inset(0 100% 0 0)' });
+        }
+    }, [isFormValid]);
 
     // Entrance animation — runs when overlay opens
     useGSAP(() => {
@@ -43,6 +183,8 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             // Reset animation flag and form status when re-opening
             hasAnimatedRef.current = false;
             setStatus('idle');
+            setSelectedTags([]);
+            setFieldValues({ name: '', email: '', message: '' });
 
             const formBody = el.querySelector('.project-overlay__body');
             const submit = el.querySelector('.project-overlay__submit');
@@ -117,6 +259,7 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
 
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
+        if (!isFormValid) return;
         setStatus('sending');
 
         const form = e.target;
@@ -153,7 +296,12 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             console.error('[ProjectOverlay] Network error:', err);
             setStatus('error');
         }
-    }, [onClose]);
+    }, [onClose, isFormValid]);
+
+    const submitLabel =
+        status === 'sending' ? 'Sending…' :
+        status === 'error' ? 'Try Again →' :
+        'Send Inquiry →';
 
     return (
         <div
@@ -216,53 +364,111 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
 
                     {/* Form body — animated as a single unit */}
                     <div className="project-overlay__body">
+                        {/* Text fields: name, email */}
                         {FORM_FIELDS.map((field) => (
-                            <div className="project-overlay__field" key={field.name}>
-                                <label
-                                    className="project-overlay__label"
-                                    htmlFor={`field-${field.name}`}
-                                >
-                                    {field.label}
-                                </label>
-                                <input
-                                    className="project-overlay__input"
-                                    type={field.type}
-                                    id={`field-${field.name}`}
-                                    name={field.name}
-                                    required={field.required}
-                                    autoComplete={field.type === 'email' ? 'email' : 'off'}
-                                    disabled={status === 'sending'}
-                                />
+                            <div
+                                className={`project-overlay__field${fieldValues[field.name]?.trim() ? ' project-overlay__field--filled' : ''}`}
+                                key={field.name}
+                            >
+                                <CheckIndicator checked={fieldValues[field.name]?.trim() !== ''} />
+                                <div className="project-overlay__field-content">
+                                    <label
+                                        className="project-overlay__label"
+                                        htmlFor={`field-${field.name}`}
+                                    >
+                                        {field.label}
+                                    </label>
+                                    <input
+                                        className="project-overlay__input"
+                                        type={field.type}
+                                        id={`field-${field.name}`}
+                                        name={field.name}
+                                        required={field.required}
+                                        autoComplete={field.type === 'email' ? 'email' : 'off'}
+                                        disabled={status === 'sending'}
+                                        placeholder=" "
+                                        onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                                        value={fieldValues[field.name] || ''}
+                                    />
+                                </div>
                             </div>
                         ))}
 
+                        {/* Project type — multi-select tag pills */}
+                        <div className={`project-overlay__field${selectedTags.length > 0 ? ' project-overlay__field--filled' : ''}`}>
+                            <CheckIndicator checked={selectedTags.length > 0} />
+                            <div className="project-overlay__field-content">
+                                <span className={`project-overlay__label${selectedTags.length > 0 ? ' project-overlay__label--active' : ''}`}>
+                                    Project Type
+                                    <span className="project-overlay__hint">choose all that apply</span>
+                                </span>
+                                {/* Hidden input sends comma-separated tags to Netlify */}
+                                <input
+                                    type="hidden"
+                                    name="project"
+                                    value={selectedTags.join(', ')}
+                                />
+                                <div className="project-overlay__tags">
+                                    {SERVICE_TAGS.map((tag) => (
+                                        <button
+                                            key={tag}
+                                            type="button"
+                                            className={`project-overlay__tag${
+                                                selectedTags.includes(tag) ? ' project-overlay__tag--active' : ''
+                                            }`}
+                                            onClick={() => toggleTag(tag)}
+                                            disabled={status === 'sending'}
+                                            aria-pressed={selectedTags.includes(tag)}
+                                        >
+                                            {tag}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Message textarea */}
-                        <div className="project-overlay__field">
-                            <label
-                                className="project-overlay__label"
-                                htmlFor="field-message"
-                            >
-                                Message
-                            </label>
-                            <textarea
-                                className="project-overlay__input project-overlay__textarea"
-                                id="field-message"
-                                name="message"
-                                rows="4"
-                                required
-                                disabled={status === 'sending'}
-                            />
+                        <div className={`project-overlay__field${fieldValues.message?.trim() ? ' project-overlay__field--filled' : ''}`}>
+                            <CheckIndicator checked={fieldValues.message?.trim() !== ''} />
+                            <div className="project-overlay__field-content">
+                                <label
+                                    className="project-overlay__label"
+                                    htmlFor="field-message"
+                                >
+                                    Message
+                                </label>
+                                <textarea
+                                    className="project-overlay__input project-overlay__textarea"
+                                    id="field-message"
+                                    name="message"
+                                    rows="4"
+                                    required
+                                    disabled={status === 'sending'}
+                                    onChange={(e) => handleFieldChange('message', e.target.value)}
+                                    value={fieldValues.message || ''}
+                                />
+                            </div>
                         </div>
                     </div>
 
+                    {/* Submit — dual-layer hover wipe (InfoPill pattern) */}
                     <button
-                        className="project-overlay__submit"
+                        className={`project-overlay__submit${!isFormValid ? ' project-overlay__submit--disabled' : ''}`}
+                        ref={submitRef}
                         type="submit"
-                        disabled={status === 'sending'}
+                        disabled={status === 'sending' || !isFormValid}
                     >
-                        {status === 'idle' && 'Send Inquiry →'}
-                        {status === 'sending' && 'Sending…'}
-                        {status === 'error' && 'Try Again →'}
+                        {/* Base layer — always visible */}
+                        <span className="project-overlay__submit-base">
+                            {submitLabel}
+                        </span>
+                        {/* Hover layer — clip-path wipe from left */}
+                        <span
+                            ref={hoverLayerRef}
+                            className="project-overlay__submit-hover"
+                        >
+                            {submitLabel}
+                        </span>
                     </button>
                 </form>
             )}

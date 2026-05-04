@@ -24,15 +24,13 @@ export default function HeroText() {
     const title = container.querySelector('.hero__title');
 
     // --- Hero title: one-shot slide-up + fade ---
-    // xPercent: -50 mirrors CSS translateX(-50%) but is GSAP-managed,
-    // preventing HMR/soft-refresh from losing the centering offset
-    // (stale inline transform overwrites CSS transform on re-mount)
+    // Centering is CSS layout-based (left:0 + width:100% + text-align:center),
+    // so GSAP only needs to animate y and opacity — no transform centering needed.
     if (title) {
-      gsap.set(title, { opacity: 0, y: 40, xPercent: -50 });
+      gsap.set(title, { opacity: 0, y: 40 });
       gsap.to(title, {
         opacity: 1,
         y: 0,
-        xPercent: -50,
         duration: 0.85,
         ease: 'expo.out',
         delay: 0.675,

@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Raw font packages — only woff2 files are tracked
+PkgTTC-SGr-IosevkaTerm-34.4.0/
+*.ttc
+*.ttf
