@@ -359,7 +359,7 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                     <input
                         type="hidden"
                         name="subject"
-                        value={`New Project Inquiry from ${fieldValues.name || 'Someone'} — ${selectedTags.join(', ') || 'General'}`}
+                        value="New Project Inquiry — %{submissionId}"
                     />
                     <div hidden>
                         <label>
