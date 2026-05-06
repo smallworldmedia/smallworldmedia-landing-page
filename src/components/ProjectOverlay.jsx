@@ -356,6 +356,11 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
 
                     {/* Hidden fields required by Netlify */}
                     <input type="hidden" name="form-name" value="contact" />
+                    <input
+                        type="hidden"
+                        name="subject"
+                        value={`New Project Inquiry from ${fieldValues.name || 'Someone'} — ${selectedTags.join(', ') || 'General'}`}
+                    />
                     <div hidden>
                         <label>
                             Don't fill this out: <input name="bot-field" />

@@ -1,0 +1,23 @@
+---
+/**
+ * Font Specimen Page — /specimen
+ *
+ * Standalone Astro page rendering the TOBEHONEST font specimen
+ * as a React island. Uses the same BaseLayout shell as the
+ * landing page but imports specimen-specific styles.
+ *
+ * This page can be used as a product page for selling
+ * custom SWM typefaces.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import '../styles/global.css';
+import '../styles/specimen.css';
+import FontSpecimen from '../components/specimen/FontSpecimen.jsx';
+---
+
+<BaseLayout
+  title="TOBEHONEST — Font Specimen · Small World Media™"
+  description="TOBEHONEST Bold — A custom display typeface designed by Small World Media. Explore the complete specimen: glyph set, interactive tester, and character grid."
+>
+  <FontSpecimen client:only="react" />
+</BaseLayout>

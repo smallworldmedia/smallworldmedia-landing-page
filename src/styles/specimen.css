@@ -1,0 +1,623 @@
+/* ============================================
+   FONT SPECIMEN — SWM Design System Integration
+   ============================================
+   All values mapped to SWM tokens from global.css.
+   Zero hardcoded CSS values permitted.
+   ============================================ */
+
+/* — TOBEHONEST @font-face — */
+@font-face {
+  font-family: 'TOBEHONEST';
+  src: url('../assets/fonts/TOBEHONEST-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* — Specimen custom properties — */
+:root {
+  --specimen-font: 'TOBEHONEST', 'PP Neue Montreal', sans-serif;
+  --specimen-fallback: var(--font-body);
+}
+
+/* — Color modes — */
+.specimen-page {
+  --sp-text: var(--color-cream);
+  --sp-bg: var(--color-electric-blue);
+  --sp-muted: rgba(250, 250, 250, 0.45);
+  --sp-border: rgba(250, 250, 250, 0.2);
+  --sp-surface: rgba(250, 250, 250, 0.06);
+  --sp-accent: var(--color-cream);
+  --sp-accent-inv: var(--color-electric-blue);
+}
+
+.specimen-page[data-mode="light"] {
+  --sp-text: var(--color-black);
+  --sp-bg: var(--color-cream);
+  --sp-muted: rgba(0, 0, 0, 0.4);
+  --sp-border: rgba(0, 0, 0, 0.15);
+  --sp-surface: rgba(0, 0, 0, 0.04);
+  --sp-accent: var(--color-electric-blue);
+  --sp-accent-inv: var(--color-cream);
+}
+
+/* — Override global scroll lock —
+   global.css sets overflow:hidden on html/body for the
+   100dvh landing page. The specimen page needs natural scroll. */
+html:has(.specimen-page),
+html:has(.specimen-page) body {
+  overflow: auto;
+  height: auto;
+  min-height: 100dvh;
+}
+
+/* — Page shell — */
+.specimen-page {
+  width: 100%;
+  min-height: 100dvh;
+  max-width: 100vw;
+  background: var(--sp-bg);
+  color: var(--sp-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-y: auto;
+  overflow-x: clip;
+  transition: background 320ms ease, color 320ms ease;
+}
+
+/* — Navigation bar — */
+.specimen-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--sp-bg);
+  transition: background 320ms ease;
+  border-bottom: 1px solid var(--sp-border);
+}
+
+.specimen-nav__home {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: -0.07em;
+  text-transform: uppercase;
+  color: var(--sp-muted);
+  text-decoration: none;
+  transition: color var(--duration-micro) var(--ease-micro);
+}
+
+.specimen-nav__home:hover {
+  color: var(--sp-text);
+}
+
+.specimen-nav__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: -0.07em;
+  text-transform: uppercase;
+  color: var(--sp-muted);
+  background: none;
+  border: 1px solid var(--sp-border);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-5);
+  cursor: pointer;
+  transition:
+    color var(--duration-micro) var(--ease-micro),
+    border-color var(--duration-micro) var(--ease-micro);
+}
+
+.specimen-nav__toggle:hover {
+  color: var(--sp-text);
+  border-color: var(--sp-text);
+}
+
+.specimen-nav__toggle-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sp-text);
+  transition: background 320ms ease;
+}
+
+/* — Shared container — */
+.specimen-container {
+  border-top: 1px solid var(--sp-border);
+  padding: 0;
+  max-width: 90rem;
+  margin: 0 auto;
+  padding-left: 3vw;
+  padding-right: 3vw;
+}
+
+/* — Section meta labels — */
+.specimen-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  text-transform: uppercase;
+  letter-spacing: -0.07em;
+  color: var(--sp-muted);
+  line-height: var(--lh-mono);
+}
+
+/* ============================================
+   MASTHEAD
+   ============================================ */
+.specimen-masthead {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  grid-template-rows: 1fr;
+  gap: 1px;
+  grid-template-areas: "title meta";
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-6);
+}
+
+.specimen-masthead__title-area {
+  grid-area: title;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.specimen-masthead__poster {
+  font-family: var(--specimen-font);
+  font-size: clamp(2.5rem, 11vw, 12rem);
+  font-weight: 700;
+  line-height: 0.85;
+  letter-spacing: -0.02em;
+  color: var(--sp-text);
+  padding: 0;
+  margin: 0;
+}
+
+.specimen-masthead__meta-area {
+  grid-area: meta;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  padding-left: 1vw;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.specimen-masthead__meta-label {
+  color: var(--sp-muted);
+  text-transform: uppercase;
+  letter-spacing: -0.07em;
+  font-size: 0.75rem;
+  margin-bottom: var(--space-1);
+}
+
+.specimen-masthead__meta-value {
+  color: var(--sp-text);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.specimen-masthead__about {
+  color: var(--sp-text);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  max-width: 28ch;
+}
+
+.specimen-masthead__cta {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: var(--text-mono);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--sp-accent-inv);
+  background: var(--sp-text);
+  border: 1px solid var(--sp-text);
+  border-radius: var(--radius-pill);
+  padding: var(--space-3) var(--space-6);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--duration-micro) var(--ease-micro),
+    color var(--duration-micro) var(--ease-micro);
+}
+
+.specimen-masthead__cta:hover {
+  background: transparent;
+  color: var(--sp-text);
+}
+
+/* ============================================
+   INTERACTIVE TESTER
+   ============================================ */
+.specimen-tester {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  grid-template-rows: 1fr;
+  gap: 1px;
+  grid-template-areas: "preview controls";
+  min-height: 14rem;
+}
+
+.specimen-tester__preview {
+  grid-area: preview;
+  padding: var(--space-6) var(--space-6) var(--space-6) 0;
+}
+
+.specimen-tester__text {
+  font-family: var(--specimen-font);
+  font-weight: 700;
+  color: var(--sp-text);
+  outline: none;
+  word-break: break-word;
+  caret-color: var(--sp-accent);
+  transition: font-size 80ms ease, line-height 80ms ease;
+}
+
+.specimen-tester__controls {
+  grid-area: controls;
+  border-left: 1px solid var(--sp-border);
+  padding: var(--space-6) 0 var(--space-6) 1vw;
+  font-family: var(--font-mono);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.specimen-tester__control-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.specimen-tester__label {
+  font-size: var(--text-mono);
+  color: var(--sp-muted);
+  text-transform: uppercase;
+  letter-spacing: -0.07em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.specimen-tester__label-value {
+  color: var(--sp-text);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+}
+
+/* Range slider — SWM palette */
+.specimen-tester__slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2em;
+  background: transparent;
+}
+
+.specimen-tester__slider:focus {
+  outline: none;
+}
+
+.specimen-tester__slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 1px;
+  cursor: pointer;
+  background: var(--sp-border);
+}
+
+.specimen-tester__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  border: 3px solid var(--sp-bg);
+  height: 15px;
+  width: 15px;
+  border-radius: 50%;
+  background: var(--sp-text);
+  cursor: pointer;
+  margin-top: -7px;
+  transition: border-color 320ms ease;
+}
+
+.specimen-tester__slider::-moz-range-track {
+  width: 100%;
+  height: 1px;
+  cursor: pointer;
+  background: var(--sp-border);
+}
+
+.specimen-tester__slider::-moz-range-thumb {
+  border: 3px solid var(--sp-bg);
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: var(--sp-text);
+  cursor: pointer;
+}
+
+/* Alignment buttons */
+.specimen-tester__align-group {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.specimen-tester__align-btn {
+  padding: var(--space-2);
+  color: var(--sp-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--space-1);
+  transition:
+    color var(--duration-micro) var(--ease-micro),
+    background var(--duration-micro) var(--ease-micro);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.specimen-tester__align-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.specimen-tester__align-btn:hover {
+  color: var(--sp-text);
+}
+
+.specimen-tester__align-btn--active {
+  color: var(--sp-text);
+  background: var(--sp-surface);
+}
+
+/* ============================================
+   SHOWCASE
+   ============================================ */
+.specimen-showcase {
+  padding: var(--space-6) 0;
+}
+
+.specimen-showcase__line {
+  font-family: var(--specimen-font);
+  font-weight: 700;
+  color: var(--sp-text);
+  text-align: center;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  outline: none;
+  padding: var(--space-2) 0;
+}
+
+.specimen-8xl { font-size: clamp(4rem, 18vw, 17rem); }
+.specimen-6xl { font-size: clamp(3rem, 12vw, 12rem); }
+.specimen-3xl { font-size: clamp(1.6rem, 4vw, 5rem); }
+.specimen-xl  { font-size: clamp(1.2rem, 2vw, 2.6rem); }
+
+/* ============================================
+   SETTING
+   ============================================ */
+.specimen-setting {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-gap: 2rem;
+  padding: var(--space-6) 0;
+}
+
+.specimen-setting__block {
+  font-family: var(--specimen-font);
+  font-weight: 700;
+  color: var(--sp-text);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.specimen-setting__label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--sp-muted);
+  text-transform: uppercase;
+  letter-spacing: -0.07em;
+  margin-bottom: var(--space-2);
+}
+
+.setting-xxxl { font-size: clamp(2.4rem, 4vw, 4.5rem); }
+.setting-xxl  { font-size: clamp(1.8rem, 3vw, 3.4rem); }
+.setting-l    { font-size: clamp(1.3rem, 1.8vw, 1.8rem); }
+.setting-m    { font-size: clamp(1.1rem, 1.4vw, 1.5rem); }
+.setting-body { font-size: 1rem; }
+.setting-s    { font-size: 0.85rem; }
+
+/* ============================================
+   CHARACTER GRID
+   ============================================ */
+.specimen-chargrid {
+  padding: var(--space-6) 0;
+}
+
+.specimen-chargrid__section {
+  margin-bottom: var(--space-6);
+}
+
+.specimen-chargrid__heading {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--sp-muted);
+  text-transform: uppercase;
+  letter-spacing: -0.07em;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--sp-border);
+  padding-bottom: var(--space-2);
+}
+
+.specimen-chargrid__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.5rem, 1fr));
+  gap: 1px;
+}
+
+.specimen-chargrid__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  font-family: var(--specimen-font);
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: var(--sp-text);
+  background: var(--sp-surface);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background var(--duration-micro) var(--ease-micro),
+    border-color var(--duration-micro) var(--ease-micro),
+    transform 160ms var(--ease-micro);
+  user-select: none;
+}
+
+.specimen-chargrid__cell:hover {
+  background: var(--sp-border);
+  border-color: var(--sp-text);
+  transform: scale(1.05);
+}
+
+/* Preview panel */
+.specimen-chargrid__preview {
+  position: sticky;
+  top: 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  min-height: 12rem;
+}
+
+.specimen-chargrid__preview-glyph {
+  font-family: var(--specimen-font);
+  font-weight: 700;
+  font-size: clamp(6rem, 14vw, 14rem);
+  line-height: 1;
+  color: var(--sp-text);
+  transition: all 160ms var(--ease-micro);
+}
+
+.specimen-chargrid__preview-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--sp-muted);
+  text-transform: uppercase;
+  letter-spacing: -0.07em;
+}
+
+/* Chargrid layout — preview + grid side by side */
+.specimen-chargrid__layout {
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+/* ============================================
+   LANGUAGE
+   ============================================ */
+.specimen-languages {
+  padding: var(--space-6) 0;
+}
+
+.specimen-languages__list {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--sp-muted);
+  max-width: 60rem;
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+.specimen-footer {
+  padding: var(--space-6) 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.specimen-footer__text {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--sp-muted);
+  letter-spacing: -0.07em;
+  text-transform: uppercase;
+}
+
+.specimen-footer__link {
+  color: var(--sp-text);
+  text-decoration: none;
+  transition: color var(--duration-micro) var(--ease-micro);
+}
+
+.specimen-footer__link:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   RESPONSIVE — 768px mobile breakpoint
+   ============================================ */
+@media (max-width: 768px) {
+  .specimen-masthead {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .specimen-masthead__meta-area {
+    padding-left: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-5);
+  }
+
+  .specimen-tester {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .specimen-tester__controls {
+    border-left: none;
+    border-top: 1px solid var(--sp-border);
+    padding-left: 0;
+    padding-top: var(--space-4);
+  }
+
+  .specimen-setting {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .specimen-chargrid__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .specimen-chargrid__preview {
+    position: relative;
+    top: 0;
+  }
+
+  .specimen-chargrid__grid {
+    grid-template-columns: repeat(auto-fill, minmax(2.8rem, 1fr));
+  }
+
+  .specimen-footer {
+    flex-direction: column;
+    gap: var(--space-3);
+    text-align: center;
+  }
+}

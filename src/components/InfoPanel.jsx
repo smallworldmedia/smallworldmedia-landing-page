@@ -2,18 +2,7 @@ import { useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import InfoPill from './InfoPill';
-
-const CLIENTS = [
-    'Andhera Records', 'Annabel Englund', 'Audiojack', 'Bedouin', 'Bellaire',
-    'Calussa', 'CID', 'Circus Music', 'COCO Records', 'DJ Tennis',
-    "D'Witches", 'Easier Said', 'Fletch', 'Friends & Disco',
-    'Front Left', 'Heavy House Society', 'Helix Records', 'Home//Grwxn.',
-    'Hurry Up Slowly', 'James Wyler', 'Jonas Blue', 'Kamino', 'Kyle Walker',
-    'Ky William', 'Malóne', 'LE YORA', 'Momentum Records', 'Munchietown',
-    'Nusonido', 'One Of Us', 'Paige Tomlinson', 'Panorama360', 'Rossi.',
-    'Salomé Le Chat', 'Sidney Charles', 'Short Circuit', 'Sosa',
-    'Sunday Brunch', 'TOBEHONEST', 'Ultra Records', 'WIKKA',
-];
+import { CLIENTS } from '../lib/constants';
 
 /**
  * InfoPanel — slide-down overlay.
