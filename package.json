@@ -10,12 +10,17 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/react": "^4.2.1",
-    "astro": "^5.8.0",
+    "@astrojs/react": "^4.4.2",
     "@gsap/react": "^2.1.2",
+    "@sanity/astro": "^3.4.0",
+    "@sanity/icons": "^3.7.4",
+    "@sanity/vision": "^5.26.0",
+    "astro": "^5.8.0",
     "gsap": "^3.15.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "sanity": "^5.26.0",
+    "sanity-plugin-mux-input": "^2.19.0",
     "unicornstudio-react": "^2.1.4-1"
   }
 }
