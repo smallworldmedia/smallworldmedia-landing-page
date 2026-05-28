@@ -38,26 +38,26 @@ Project Directory (Dropbox)
 
 ---
 
-## Phase 8: Ingestion Pipeline Hardening
+## Phase 8: Ingestion Pipeline Hardening ✅
 
-> **Goal:** Ensure `ingest.mjs` correctly resolves both manifest modes.
+> Completed 2026-05-27
 
-- [ ] 8.1: Update `ingest.mjs` to parse the `serviceType` column (per-row)
-- [ ] 8.2: Implement fallback logic: row `serviceType` → header `services:` → skip
-- [ ] 8.3: Resolve service names to `serviceTag` document references via GROQ
-- [ ] 8.4: Dry-run all 12 manifests against production dataset
-- [ ] 8.5: Verify `mediaAsset.services` references populate correctly in Studio
+- [x] 8.1: Update `ingest.mjs` to parse the `serviceType` column (per-row)
+- [x] 8.2: Implement fallback logic: row `serviceType` → header `services:` → skip
+- [x] 8.3: Resolve service names to `serviceTag` document references via GROQ
+- [x] 8.4: Dry-run all 12 manifests against production dataset
+- [x] 8.5: Verify `mediaAsset.services` references populate correctly in Studio
 
 ---
 
-## Phase 9: Folder Flattening & Physical Migration
+## Phase 9: Folder Flattening & Physical Migration ✅
 
-> **Goal:** Execute the 3 confirmed flattening operations.
+> Completed 2026-05-27
 
-- [ ] 9.1: Execute `bash scripts/restructure-folders.sh` (Andhera, Bedouin, COCO)
-- [ ] 9.2: Verify Bedouin root manifest still resolves after SA Tour files land
-- [ ] 9.3: Verify COCO root manifest accounts for flattened visuals
-- [ ] 9.4: Remove empty subdirectories
+- [x] 9.1: Execute `bash scripts/restructure-folders.sh` (Andhera, Bedouin, COCO) — 39 files flattened
+- [x] 9.2: Verify Bedouin root manifest still resolves after SA Tour files land
+- [x] 9.3: Verify COCO root manifest accounts for flattened visuals
+- [x] 9.4: Remove empty subdirectories
 
 ---
 
@@ -159,15 +159,15 @@ Each root manifest requires human curation of the `serviceType` column.
 
 ---
 
-## Phase 12: Full Ingestion Run
+## Phase 12: Full Ingestion Run ✅
 
-> **Goal:** Push all manifests to Sanity production.
+> Completed 2026-05-27 — 169 assets across 12 manifests, zero failures
 
-- [ ] 12.1: Validate all manifests with `ingest.mjs --dry-run --all`
-- [ ] 12.2: Resolve any missing serviceTag references
-- [ ] 12.3: Execute full ingestion in batches (Tier 1 → Tier 2 → Tier 3)
-- [ ] 12.4: Verify asset counts in Sanity Studio match manifest totals
-- [ ] 12.5: Spot-check serviceType filtering via GROQ queries
+- [x] 12.1: Validate all manifests with `ingest.mjs --dry-run --all`
+- [x] 12.2: Resolve any missing serviceTag references
+- [x] 12.3: Execute full ingestion in batches (all 12 manifests)
+- [x] 12.4: Verify asset counts in Sanity Studio match manifest totals (169)
+- [x] 12.5: Spot-check serviceType filtering via GROQ queries
 
 ---
 
@@ -210,10 +210,12 @@ Each root manifest requires human curation of the `serviceType` column.
 
 | Metric | Current | Target |
 |--------|---------|--------|
-| Clients seeded | 57 | 57 |
+| Clients seeded | 59 | 59 |
+| Service tags | 14 | 14 |
 | Artwork manifests | 5 | 5 |
 | Featured project manifests | 6 | 6+ |
 | Root manifests (Mode 2) | 1 (Bedouin) | 48 |
-| Total assets cataloged | ~126 | ~600+ |
-| Assets ingested to Sanity | 0 | ~600+ |
+| Total manifests | 12 | ~60+ |
+| Assets ingested to Sanity | 169 | ~600+ |
+| Image uploads to CDN | 0 | ~600+ |
 | Affiliations wired | 0 | 10+ |
