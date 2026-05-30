@@ -80,28 +80,25 @@
 
 ## Folder Structure
 
-```
-Small World Media - Project Directory/
-└── {client-slug}/                  # kebab-case of client name
-    └── {project-slug}/             # kebab-case of project title
-        ├── _manifest.md            # Metadata file for ingest script
-        └── ...media files...
-```
-
-### Example
+> See [CONTEXT.md](../CONTEXT.md) for the full domain glossary.
 
 ```
-heavy-house-society/
-├── hhs-branding-2024/
-│   ├── _manifest.md
-│   ├── hhs-brand-01_logo-primary.png
-│   ├── hhs-brand-02_logo-mark.png
-│   └── hhs-brand-03_color-palette.jpg
-└── hhs-album-art/
-    ├── _manifest.md
-    ├── hhs-art-01_deep-dive-ep.jpg
-    └── hhs-art-02_late-night.jpg
+media/                                  # gitignored (except _manifest.md files)
+└── {Client Name}/                      # Display name, not kebab-case
+    ├── _manifest.md                    # Root manifest (Mode 2 — per-row serviceType)
+    ├── ...root media files...          # Flat — no organizational subfolders
+    ├── Artwork/                        # Artwork Catalog (canonical name)
+    │   ├── _manifest.md               # Mode 1 — services: album art
+    │   └── ...album art JPEGs...
+    └── {Featured Project}/             # Featured Project (any other subfolder)
+        ├── _manifest.md               # Mode 1 — project-specific services
+        └── ...project media files...
 ```
+
+### Rules
+- **Root level is flat.** All files at the client root belong to the root manifest.
+- **Subfolders = Curated Collections.** A subfolder named `Artwork` is an Artwork Catalog. Any other subfolder is a Featured Project.
+- **No nesting beyond one level.** Curated Collections do not contain sub-subfolders.
 
 ---
 

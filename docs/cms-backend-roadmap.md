@@ -1,13 +1,13 @@
 # SWM CMS Backend Roadmap
 
-> The single source of truth for getting all media assets from the Project Directory into Sanity.
+> The single source of truth for getting all media assets from the `media/` directory into Sanity.
 
 ---
 
 ## Architecture Overview
 
 ```
-Project Directory (Dropbox)
+media/ (Dropbox-synced, gitignored)
   └─ 48 client folders
        ├─ _manifest.md (Mode 2: per-row serviceType)   ← root assets
        └─ Artwork/ or Featured Project/
@@ -61,6 +61,23 @@ Project Directory (Dropbox)
 
 ---
 
+## Phase 9.5: Media Architecture Restructure ✅
+
+> Completed 2026-05-28
+
+- [x] Move Project Directory into workspace as `media/`
+- [x] Configure `.gitignore` — media files ignored, `_manifest.md` tracked
+- [x] Update script paths (`restructure-folders.sh`, `grab-gruuv-art.sh`)
+- [x] Create `CONTEXT.md` — domain glossary (folder rules, content roles, exclusions)
+- [x] Build `scripts/generate-manifests.mjs` — structural scaffolding (69 manifests detected)
+- [x] Create `/media-import` workflow (ongoing new client setup)
+- [x] Create `/media-curate` workflow (batch classification with Gemini visual analysis)
+- [x] Update `docs/naming-conventions.md` — folder structure aligned with CONTEXT.md
+- [x] Add `contentRole` field to mediaAsset schema (`process` / `supporting`)
+- [x] Update `ingest.mjs` to parse contentRole from manifests
+
+---
+
 ## Phase 10: Root Manifest Curation (Batch 1 — High Priority)
 
 > **Goal:** Create Mode 2 root manifests for clients with the most assets.
@@ -77,11 +94,11 @@ Each root manifest requires human curation of the `serviceType` column.
 | COCO | 23 | 5 | Will grow to ~47 after flattening |
 | One Of Us | 23 | 0 | All flat — needs full curation |
 
-- [ ] 10.1: Create `Heavy House Society/_manifest.md` root
-- [ ] 10.2: Create `Andhera/_manifest.md` root
-- [ ] 10.3: Create `Front Left/_manifest.md` root
-- [ ] 10.4: Create `COCO/_manifest.md` root
-- [ ] 10.5: Create `One Of Us/_manifest.md` root
+- [x] 10.1: Create `Heavy House Society/_manifest.md` root
+- [x] 10.2: Create `Andhera/_manifest.md` root
+- [x] 10.3: Create `Front Left/_manifest.md` root
+- [x] 10.4: Create `COCO/_manifest.md` root
+- [x] 10.5: Create `One Of Us/_manifest.md` root
 
 ### Tier 2: Medium clients (10-19 root files)
 
@@ -96,7 +113,7 @@ Each root manifest requires human curation of the `serviceType` column.
 | Munchietown | 12 | 0 |
 | MOONLGHT | 11 | 1 |
 
-- [ ] 10.6: Create root manifests for all Tier 2 clients (8 manifests)
+- [x] 10.6: Create root manifests for all Tier 2 clients (8 manifests)
 
 ### Tier 3: Small clients (1-9 root files)
 
@@ -132,42 +149,48 @@ Each root manifest requires human curation of the `serviceType` column.
 | Lee Ann Roberts | 1 | 0 |
 | Panorama360 | 1 | 0 |
 
-- [ ] 10.7: Create root manifests for all Tier 3 clients (29 manifests)
+- [x] 10.7: Create root manifests for all Tier 3 clients (28 curated; Panorama360 excluded — PDF only)
 
 ### Edge Cases: Clients with subdirs but no root files
 
 | Client | Root Files | Subdirs | Notes |
 |--------|-----------|---------|-------|
-| Jamback | 0 | 1 | Subdir needs investigation |
-| Sosa | 0 | 2 | Subdir needs investigation |
-| Jeff Sorkowitz | 1 | 2 | Subdirs need investigation |
-| Offstage | 1 | 1 | Subdir needs investigation |
-| Paige Tomlinson | 1 | 1 | Subdir needs investigation |
+| Jamback | 0 | 1 | ✅ Subdir curated (Jampacked Tour) |
+| Sosa | 0 | 2 | ✅ Both subdirs curated (Framework LA, Yuma Coachella) |
+| Jeff Sorkowitz | 1 | 2 | ✅ Root + 2 subdirs curated (Too Deep, Real Close) |
+| Offstage | 0 | 1 | ⚠️ Logo files in nested structure — Phase 11 |
+| Paige Tomlinson | 1 | 1 | ✅ Root + subdir curated (Social Pleasure ADE) |
 
-- [ ] 10.8: Audit and resolve edge-case client directories
+- [x] 10.8: Audit and resolve edge-case client directories (4/5 resolved; Offstage deferred to Phase 11)
 
 ---
 
-## Phase 11: Subdirectory Manifests (Non-Artwork)
+## Phase 11: Subdirectory Manifests (Non-Artwork) ✅
 
 > **Goal:** Create manifests for remaining client subdirectories that aren't artwork catalogs.
+> Completed 2026-05-28
 
-- [ ] 11.1: Audit all remaining subdirectories across 48 clients
-- [ ] 11.2: Determine which are featured projects vs. organizational folders
-- [ ] 11.3: Create Mode 1 manifests for featured project subdirectories
-- [ ] 11.4: Flatten organizational-only subdirectories (no manifest needed)
+- [x] 11.1: Audit all remaining subdirectories across 48 clients
+- [x] 11.2: Determine which are featured projects vs. organizational folders
+- [x] 11.3: Create Mode 1 manifests for featured project subdirectories
+- [x] 11.4: Flatten organizational-only subdirectories (no manifest needed)
 
 ---
 
 ## Phase 12: Full Ingestion Run ✅
 
-> Completed 2026-05-27 — 169 assets across 12 manifests, zero failures
+> Completed 2026-05-29 — 681 assets across 83 manifests, 201 Mux videos wired
 
 - [x] 12.1: Validate all manifests with `ingest.mjs --dry-run --all`
 - [x] 12.2: Resolve any missing serviceTag references
-- [x] 12.3: Execute full ingestion in batches (all 12 manifests)
-- [x] 12.4: Verify asset counts in Sanity Studio match manifest totals (169)
+- [x] 12.3: Execute full ingestion in batches (all 83 manifests via `ingest-all.mjs`)
+- [x] 12.4: Verify asset counts in Sanity Studio match manifest totals (681)
 - [x] 12.5: Spot-check serviceType filtering via GROQ queries
+- [x] 12.6: Upload all images to Sanity CDN (83/83 manifests)
+- [x] 12.7: Deploy Mux video integration (`sanity-plugin-mux-input` + `@mux/mux-node`)
+- [x] 12.8: Upload 178 videos to Mux (Batch 1: files under 100 MB)
+- [x] 12.9: Compress 23 large videos and upload to Mux (Batch 2)
+- [x] 12.10: Wire all 201 `mux.videoAsset` documents to `mediaAsset` references
 
 ---
 
@@ -211,11 +234,17 @@ Each root manifest requires human curation of the `serviceType` column.
 | Metric | Current | Target |
 |--------|---------|--------|
 | Clients seeded | 59 | 59 |
-| Service tags | 14 | 14 |
+| Service tags | 15 | 15 |
 | Artwork manifests | 5 | 5 |
-| Featured project manifests | 6 | 6+ |
-| Root manifests (Mode 2) | 1 (Bedouin) | 48 |
-| Total manifests | 12 | ~60+ |
-| Assets ingested to Sanity | 169 | ~600+ |
-| Image uploads to CDN | 0 | ~600+ |
+| Featured project manifests | 16 | 8+ |
+| Root manifests (Mode 2) | 43 (Bedouin + T1 + T2 + T3 + Edge) | 48 |
+| Total manifests (curated) | 83 | ~79 |
+| Manifests uncurated (root) | 0 | 0 |
+| Subdirectory manifests pending | 0 | 0 |
+| Assets ingested to Sanity | 681 | ~600+ |
+| Image uploads to CDN | 681 | ~600+ |
+| Mux video assets | 201 | ~200+ |
+| Videos wired to mediaAssets | 201 | ~200+ |
 | Affiliations wired | 0 | 10+ |
+| Workflows created | 2 | — |
+

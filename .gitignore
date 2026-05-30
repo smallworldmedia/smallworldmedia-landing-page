@@ -28,3 +28,9 @@ dist-ssr
 PkgTTC-SGr-IosevkaTerm-34.4.0/
 *.ttc
 *.ttf
+
+# Media library — 28GB+ of client assets (Dropbox-synced)
+# Only manifest metadata files are tracked in git
+media/**
+!media/**/
+!media/**/_manifest.md

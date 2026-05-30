@@ -49,10 +49,11 @@ function toSlug(str) {
     .replace(/^-|-$/g, '')
 }
 
-// ── SERVICE TAGS (14) ──
+// ── SERVICE TAGS (15) ──
 // Ordered as they should appear in the inquiry form.
 const SERVICE_TAGS = [
   'Branding',
+  'Merch Design',
   'Live Visuals',
   'Album Art',
   'Event / Tour Creative',

@@ -212,6 +212,7 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
     year: header.year ? parseInt(header.year, 10) : undefined,
     isHero: row.ishero === 'true',
     sortOrder: row.sortorder ? parseInt(row.sortorder, 10) : undefined,
+    contentRole: row.contentrole || row['contentRole'] || undefined,
     sourceFolder: manifestDir,
     sourceManifest: path.basename(manifestDir),
   }

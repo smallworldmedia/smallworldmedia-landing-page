@@ -1,0 +1,1704 @@
+
+🔍 Found 83 manifests
+
+
+── [1/83] Andhera/Andhera Logo/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/Andhera Logo/_manifest.md
+   Title:    Andhera — Andhera Logo
+   Client:   Andhera Records
+   Services: Logo Design
+   Year:     2026
+   Assets:   2
+  📤 Uploading andhera-logo_black.png...
+  📤 Uploading andhera-logo_yellow-cutout_black-bg.png...
+  ✅ Batch 1: 2 docs (txn: fi3CU380OsQCYNp8iganpH)
+
+✨ Done — 2 media assets ingested.
+
+── [2/83] Andhera/Apparel/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/Apparel/_manifest.md
+   Title:    Andhera — Apparel
+   Client:   Andhera Records
+   Services: merch design, web design, branding, promo video
+   Year:     2026
+   Assets:   13
+  📤 Uploading _0000_andhera never not awake 01.jpg...
+  📤 Uploading _0001_andhera never asleep 02.jpg...
+  📤 Uploading _0002_andhera never asleep 01.jpg...
+  ⏭  Skipping non-image: Andhera Website - Homepage, Shop.mov
+  ⏭  Skipping non-image: andhera shop item pages.mp4
+  📤 Uploading andhera-raw-cuts-robertas-pizza-shirt-back.jpg...
+  📤 Uploading andhera-raw-cuts-robertas-pizza-shirt-front.jpg...
+  📤 Uploading apparel_homepage-banner.png...
+  📤 Uploading apparel_homepage-banner_16x9.jpg...
+  ⏭  Skipping non-image: hear-no-evil_promo_v1.mp4
+  ⏭  Skipping non-image: never-asleep_full-cut_for-audio.mp4
+  📤 Uploading pizza-carousel_post.jpg...
+  📤 Uploading pizza-carousel_post_web.jpg...
+  ✅ Batch 1: 13 docs (txn: ghCA0iPFLNDLy0OmrzXq6I)
+
+✨ Done — 13 media assets ingested.
+
+── [3/83] Andhera/Artwork/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/Artwork/_manifest.md
+   Title:    Andhera Records — Album Art Catalog
+   Client:   Andhera Records
+   Services: album art
+   Year:     2024
+   Assets:   14
+  📤 Uploading alves_koolaid.jpg...
+  📤 Uploading anatta_galo_otherside.jpg...
+  📤 Uploading Andhera-Summer-VAcation.jpg...
+  📤 Uploading caleb-jackson_shake-shack.jpg...
+  📤 Uploading cour-t_linkage_epopeia.jpg...
+  📤 Uploading dames-house_marchisio_freak.jpg...
+  📤 Uploading jeff-sorkowitz_desire.jpg...
+  📤 Uploading ky-william_aint-it.jpg...
+  📤 Uploading ky-william_come-to-me.jpg...
+  📤 Uploading ky-william_glo-in-the-dark-ep.jpg...
+  📤 Uploading ky-william_james-poole_baila-le-diego.jpg...
+  📤 Uploading ky-william_kamino_gravity_v3.jpg...
+  📤 Uploading Ky William Freak On - Twist It.png...
+  📤 Uploading ky-william_teka-teka_v1.jpg...
+  ✅ Batch 1: 14 docs (txn: ghCA0iPFLNDLy0OmrzXtRn)
+
+✨ Done — 14 media assets ingested.
+
+── [4/83] Andhera/Branding/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/Branding/_manifest.md
+   Title:    Andhera Records — Branding
+   Client:   Andhera Records
+   Services: branding, logo design
+   Year:     2024
+   Assets:   15
+  ⚠️  Project not found: "andhera-branding"
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/andhera_label-artwork.jpg
+  📤 Uploading andhera-logo_black.png...
+  📤 Uploading andhera-logo_yellow-cutout_black-bg.png...
+  📤 Uploading andhera_eyes-on_template.jpg...
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/Andhera Website - Homepage, Shop.mov
+  📤 Uploading andhera-raw-cuts-robertas-pizza-shirt-front.jpg...
+  📤 Uploading andhera-raw-cuts-robertas-pizza-shirt-back.jpg...
+  📤 Uploading _0000_andhera never not awake 01.jpg...
+  📤 Uploading _0001_andhera never asleep 02.jpg...
+  📤 Uploading _0002_andhera never asleep 01.jpg...
+  ⏭  Skipping non-image: andhera shop item pages.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/apparel_homepage-banner.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/apparel_homepage-banner_16x9.jpg
+  📤 Uploading andhera_apparel-sheet.jpg...
+  📤 Uploading andhera_yellow-logo_sticker_2-75x2-75_trimmed.jpg...
+  ✅ Batch 1: 15 docs (txn: ghCA0iPFLNDLy0OmrzY11g)
+
+✨ Done — 15 media assets ingested.
+
+── [5/83] Andhera/DEVELOPED Artist Workshop/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/DEVELOPED Artist Workshop/_manifest.md
+   Title:    Andhera — DEVELOPED Artist Workshop
+   Client:   Andhera Records
+   Services: branding, web design, 2d animation
+   Year:     2024
+   Assets:   9
+  ⚠️  Project not found: "andhera-developed-artist-workshop"
+  📤 Uploading developed-frame.jpg...
+  ⏭  Skipping non-image: Andhera Website - Developed.mov
+  ⏭  Skipping non-image: developed-la_badge-loop.mp4
+  ⏭  Skipping non-image: developed_LA_promo.mov
+  ⏭  Skipping non-image: Animated Flyer.mov
+  ⏭  Skipping non-image: developed-loop_v2_trackstack.mp4
+  📤 Uploading developed-badge_small-vert.jpg...
+  📤 Uploading developed-sd_3x4.jpg...
+  📤 Uploading developed-la_email-banner-2.jpg...
+  ✅ Batch 1: 9 docs (txn: ghCA0iPFLNDLy0OmrzY3UI)
+
+✨ Done — 9 media assets ingested.
+
+── [6/83] Andhera/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Andhera/_manifest.md
+   Title:    Andhera — Root Assets
+   Client:   Andhera Records
+   Services: 
+   Year:     2026
+   Assets:   31
+  📤 Uploading 4x5_v2.jpg...
+  📤 Uploading ABBY.jpg...
+  ⏭  Skipping non-image: Chase the Ace Loop with Audio.mov
+  📤 Uploading DESTA TOMAIN.jpg...
+  📤 Uploading GAB SIO.jpg...
+  📤 Uploading GRACE NAEF.jpg...
+  📤 Uploading JULIA FUGAZY.jpg...
+  📤 Uploading MANDIZ.jpg...
+  📤 Uploading MAXINNE.jpg...
+  📤 Uploading MMW 2025 4x5.jpg...
+  ⏭  Skipping non-image: MMW 2025 4x5.mp4
+  📤 Uploading MS MADA.jpg...
+  📤 Uploading OLIVIA MANCUSO.jpg...
+  📤 Uploading afterrr-ep_SC-banner.png...
+  📤 Uploading afterrr-tracklisting_square.png...
+  ⏭  Skipping non-image: alves kool aid promo.mp4
+  ⏭  Skipping non-image: amnesia_preview_story.mp4
+  📤 Uploading andhera_apparel-sheet.jpg...
+  📤 Uploading andhera_eyes-on_template.jpg...
+  📤 Uploading andhera_yellow-logo_sticker_2-75x2-75_trimmed.jpg...
+  ⏭  Skipping non-image: baila-le-digo_montage-story.mp4
+  📤 Uploading black-friday_hero.png...
+  ⏭  Skipping non-image: elsewhere-promo_v2.mp4
+  📤 Uploading elsewhere-still-1.png...
+  📤 Uploading elsewhere-still-2.jpg...
+  ⏭  Skipping non-image: freak_reel.mp4
+  ⏭  Skipping non-image: in-the-dark-preview_4x5.mp4
+  ⏭  Skipping non-image: maestro-preview.mp4
+  ⏭  Skipping non-image: mailer-bag-rising-ocean-1.mp4
+  📤 Uploading makers-market.jpg...
+  ⏭  Skipping non-image: teka-teka_preview_4x5.mp4
+  ✅ Batch 1: 31 docs (txn: fi3CU380OsQCYNp8igbaK3)
+
+✨ Done — 31 media assets ingested.
+
+── [7/83] Bedouin/Bedouin Promo Videos/BKC Promo/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/BKC Promo/_manifest.md
+   Title:    Bedouin — Brooklyn Knockdown Center Promo
+   Client:   Bedouin
+   Services: promo video
+   Year:     2024
+   Assets:   1
+  ⚠️  Project not found: "bedouin-bkc-promo"
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/bedouin-saga_promo_v2-beat_story.mp4
+  ✅ Batch 1: 1 docs (txn: ghCA0iPFLNDLy0OmrzYHeU)
+
+✨ Done — 1 media assets ingested.
+
+── [8/83] Bedouin/Bedouin Promo Videos/Tulum Saga/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/Tulum Saga/_manifest.md
+   Title:    Bedouin — Tulum Saga Promos
+   Client:   Bedouin
+   Services: promo video
+   Year:     2024
+   Assets:   7
+  ⚠️  Project not found: "bedouin-tulum-saga"
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/saga-tulum_bedouin-account_v1.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/saga-tulum_saga-account_v3.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/saga_tulum_trailer_final.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/saga-tulum_frames.jpg
+  📤 Uploading saga_la-frames.jpg...
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/saga_nyc_frames-1.jpg
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/saga_nyc_frames-2.jpg
+  ✅ Batch 1: 7 docs (txn: fi3CU380OsQCYNp8igbjLt)
+
+✨ Done — 7 media assets ingested.
+
+── [9/83] Bedouin/Bedouin Promo Videos/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/Bedouin Promo Videos/_manifest.md
+   Title:    Bedouin — Bedouin Promo Videos
+   Client:   Bedouin
+   Services: promo video
+   Year:     2026
+   Assets:   3
+  ⏭  Skipping non-image: bedouin_spotify-promo_v2.mp4
+  ⏭  Skipping non-image: dear-miami_promo_1_v1.mp4
+  📤 Uploading saga_la-frames.jpg...
+  ✅ Batch 1: 3 docs (txn: ghCA0iPFLNDLy0OmrzYKPq)
+
+✨ Done — 3 media assets ingested.
+
+── [10/83] Bedouin/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bedouin/_manifest.md
+   Title:    Bedouin — Root Assets
+   Client:   Bedouin
+   Services: 
+   Year:     2024
+   Assets:   6
+  📤 Uploading 01_bedouin_costa-rica_122724.jpg...
+  📤 Uploading 02_bedouin_rio_122924.jpg...
+  📤 Uploading 03_bedouin_tamandare_123024.jpg...
+  📤 Uploading 04_bedouin_punta-del-este_123124.jpg...
+  📤 Uploading 05_bedouin_tulum_010725.jpg...
+  📤 Uploading tour-listing.jpg...
+  ✅ Batch 1: 6 docs (txn: fi3CU380OsQCYNp8igbyQ0)
+
+✨ Done — 6 media assets ingested.
+
+── [11/83] Bellaire/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Bellaire/_manifest.md
+   Title:    Bellaire — Root Assets
+   Client:   Bellaire
+   Services: 
+   Year:     2026
+   Assets:   3
+  ⏭  Skipping non-image: Bellaire Funky Adventure Tour 3x4.mp4
+  ⏭  Skipping non-image: Dive In Promo.mp4
+  ⏭  Skipping non-image: Full Loop Textured.mp4
+  ✅ Batch 1: 3 docs (txn: ghCA0iPFLNDLy0OmrzYRTb)
+
+✨ Done — 3 media assets ingested.
+
+── [12/83] CID/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/CID/_manifest.md
+   Title:    CID — Root Assets
+   Client:   CID
+   Services: 
+   Year:     2026
+   Assets:   3
+  📤 Uploading buzzin-lettering.png...
+  📤 Uploading nso084_cid_pass-out.jpg...
+  📤 Uploading shiba-san_cid_all-u-need_buzzin-ep.jpg...
+  ✅ Batch 1: 3 docs (txn: fi3CU380OsQCYNp8igcCyf)
+
+✨ Done — 3 media assets ingested.
+
+── [13/83] COCO/COCO Branding 2026/Brand Deck Pages/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/Brand Deck Pages/_manifest.md
+   Title:    COCO — Branding 2026
+   Client:   COCO
+   Services: branding, event / tour creative
+   Year:     2025
+   Assets:   32
+  ⚠️  Project not found: "coco-rebrand"
+  📤 Uploading 1.jpg...
+  📤 Uploading 2.jpg...
+  📤 Uploading 3.jpg...
+  📤 Uploading 4.jpg...
+  📤 Uploading 5.jpg...
+  📤 Uploading 6.jpg...
+  📤 Uploading 7.jpg...
+  📤 Uploading 8.jpg...
+  📤 Uploading 9.jpg...
+  📤 Uploading 10.jpg...
+  📤 Uploading 11.jpg...
+  📤 Uploading 12.jpg...
+  📤 Uploading 13.jpg...
+  📤 Uploading 14.jpg...
+  📤 Uploading 15.jpg...
+  📤 Uploading 16.jpg...
+  📤 Uploading 17.jpg...
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Announce/16x9.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Announce/1x1.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Announce/4x5.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Announce/4x5.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Announce/9x16.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Announce/9x16.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Lineup/1x1.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Lineup/3x4.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/COCO The Cause 050226/Lineup/9x16.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/Coco @ The Cause, London 050226/16x9.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/Coco @ The Cause, London 050226/1x1.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/Coco @ The Cause, London 050226/4x5.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/Coco @ The Cause, London 050226/4x5.png
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/Coco @ The Cause, London 050226/9x16.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/Coco @ The Cause, London 050226/9x16.png
+  ✅ Batch 1: 32 docs (txn: fi3CU380OsQCYNp8igcscq)
+
+✨ Done — 32 media assets ingested.
+
+── [14/83] COCO/COCO Branding 2026/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Branding 2026/_manifest.md
+   Title:    COCO Branding 2026
+   Client:   COCO
+   Services: Branding, Logo Design, Event / Tour Creative
+   Year:     2026
+   Assets:   0
+
+⚠️  No assets to ingest.
+
+── [15/83] COCO/COCO Live Visuals 2025/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Live Visuals 2025/_manifest.md
+   Title:    COCO Live Visuals 2025
+   Client:   COCO
+   Services: Live Visuals, 3D Animation
+   Year:     2025
+   Assets:   0
+
+⚠️  No assets to ingest.
+
+── [16/83] COCO/COCO UK Tour 2024/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO UK Tour 2024/_manifest.md
+   Title:    COCO — COCO UK Tour 2024
+   Client:   COCO
+   Services: event / tour creative
+   Year:     2026
+   Assets:   6
+  ⏭  Skipping non-image: birmingham.mp4
+  ⏭  Skipping non-image: cardiff.mp4
+  ⏭  Skipping non-image: coco-uk-tour_24_liverpool-tba_4x5.mp4
+  ⏭  Skipping non-image: liverpool.mp4
+  📤 Uploading liverpool_settimes.jpg...
+  ⏭  Skipping non-image: newcastle.mp4
+  ✅ Batch 1: 6 docs (txn: ghCA0iPFLNDLy0OmrzZ12S)
+
+✨ Done — 6 media assets ingested.
+
+── [17/83] COCO/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/_manifest.md
+   Title:    COCO — Root Assets
+   Client:   COCO
+   Services: 
+   Year:     2026
+   Assets:   43
+  📤 Uploading 3x4_v2.png...
+  📤 Uploading 3x4_v5.png...
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/BG_Abstract_Cloud-Drip.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/BG_Brick-Ruins.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/BG_Cloud-Timelapse.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/BG_Mirror-Clouds.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/BG_Northern-Lights.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/BG_Room-With-A-View.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/BG_Sidewalk.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/BG_UK-Countryside.mp4
+  ⏭  Skipping non-image: COCO 3Peat.mp4
+  ⏭  Skipping non-image: COCO DVD Bounce.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Label Art Sheet (pre-2026).jpg
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Logo White.png
+  ⏭  Skipping non-image: COCO Rotating Instances.mp4
+  ⏭  Skipping non-image: COCO Sliding Instances.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO Template 2026.jpg
+  ⏭  Skipping non-image: COCO-Logo_1.mp4
+  ⏭  Skipping non-image: COCO-Logo_2.mp4
+  ⏭  Skipping non-image: COCO-Logo_3_Tile-Fall.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO-Logo_Cloud-Cube.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO-Logo_Clouds.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/COCO-Logo_Mirror-Clouds.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/Cloud-Cube.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/Clouds.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/Morph-Cube.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/Vinyl_Earth-Zoom.mp4
+  ⏭  Skipping non-image: coco-manchester.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/coco-sticker_1.jpg
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/coco-visuals_1.MP4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/coco-visuals_2.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/coco-visuals_3.mp4
+  ⚠️  File not found: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/COCO/coco-visuals_4.mp4
+  📤 Uploading coco_cause-01.jpg...
+  📤 Uploading coco_cause-02.jpg...
+  📤 Uploading coco_cause-03.jpg...
+  📤 Uploading coco_cause_01.jpg...
+  📤 Uploading coco_cause_06.jpg...
+  ⏭  Skipping non-image: coco_mmw.mp4
+  ⏭  Skipping non-image: coco_nyc.mp4
+  ⏭  Skipping non-image: coco_offbcn.mp4
+  ⏭  Skipping non-image: sosa 1.mp4
+  ⏭  Skipping non-image: sosa 2.mp4
+  ✅ Batch 1: 43 docs (txn: ghCA0iPFLNDLy0OmrzZ7kn)
+
+✨ Done — 43 media assets ingested.
+
+── [18/83] Calussa/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Calussa/_manifest.md
+   Title:    Calussa — Root Assets
+   Client:   Calussa
+   Services: 
+   Year:     2026
+   Assets:   1
+  ⏭  Skipping non-image: no-pare-promo_final.mp4
+  ✅ Batch 1: 1 docs (txn: usPbImjoC2LtIOcJn8HFqG)
+
+✨ Done — 1 media assets ingested.
+
+── [19/83] Detlef/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Detlef/_manifest.md
+   Title:    Detlef — Root Assets
+   Client:   Detlef
+   Services: 
+   Year:     2026
+   Assets:   1
+  ⏭  Skipping non-image: detlef_mau-p_elrow_recap_v1.mp4
+  ✅ Batch 1: 1 docs (txn: usPbImjoC2LtIOcJn8HJCu)
+
+✨ Done — 1 media assets ingested.
+
+── [20/83] Facu Baez/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Facu Baez/_manifest.md
+   Title:    Facu Baez — Root Assets
+   Client:   Facu Baez
+   Services: 
+   Year:     2026
+   Assets:   2
+  📤 Uploading Facu Baez USA Tour 2025 4x5.jpg...
+  ⏭  Skipping non-image: Facu Baez USA Tour 2025 4x5.mp4
+  ✅ Batch 1: 2 docs (txn: fi3CU380OsQCYNp8igdI5i)
+
+✨ Done — 2 media assets ingested.
+
+── [21/83] Fletch/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Fletch/_manifest.md
+   Title:    Fletch — Root Assets
+   Client:   Fletch
+   Services: 
+   Year:     2026
+   Assets:   2
+  📤 Uploading Fletch World Tour 2025 4x5.jpg...
+  ⏭  Skipping non-image: Fletch World Tour 2025 4x5.mp4
+  ✅ Batch 1: 2 docs (txn: fi3CU380OsQCYNp8igdL8Q)
+
+✨ Done — 2 media assets ingested.
+
+── [22/83] Friends & Disco/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Friends & Disco/_manifest.md
+   Title:    Friends & Disco — Root Assets
+   Client:   Friends & Disco
+   Services: 
+   Year:     2026
+   Assets:   2
+  📤 Uploading friends-and-disco_not-no-bar_071725.jpg...
+  📤 Uploading friends-and-disco_sauced_051425.jpg...
+  ✅ Batch 1: 2 docs (txn: ghCA0iPFLNDLy0OmrzZF3H)
+
+✨ Done — 2 media assets ingested.
+
+── [23/83] Front Left/Artwork/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Front Left/Artwork/_manifest.md
+   Title:    Front Left Records — Album Art Catalog
+   Client:   Front Left
+   Services: album art
+   Year:     2024
+   Assets:   22
+  📤 Uploading FLR001-FLETCH-Deeper-EP.jpg...
+  📤 Uploading FLR002-Ray-Mono-Equalizer-EP.jpg...
+  📤 Uploading FLR003-Marco-Roberto-Patrick-Loda-Back-In-Business-EP.jpg...
+  📤 Uploading FLR004-Matt-Egbert-Wizard-Pepper-EP.jpg...
+  📤 Uploading FLR005-Kawaii-San-Ghost-Town-EP.jpg...
+  📤 Uploading FLR006-Lucho-OnLock-EP.jpg...
+  📤 Uploading FLR007-Omari-Cut-This-Break-EP.jpg...
+  📤 Uploading FLR008-Overworked-Kept-Secret-EP.jpg...
+  📤 Uploading flr009_nate-katz_twos-ep.jpg...
+  📤 Uploading flr010_matt-egbert_green-grass-led-skies.jpg...
+  📤 Uploading flr011_nonduallity_low-earth-orbit-ep.jpg...
+  📤 Uploading flr012_elayas_south-central-ep.jpg...
+  📤 Uploading flr013_kreed_funki-ep.jpg...
+  📤 Uploading flr014_semprini_bandwidth-ep.jpg...
+  📤 Uploading flr015_overworked-us_play-at-your-own-risk-ep.jpg...
+  📤 Uploading flr016_callum-ashton_makes-you-move-ep.jpg...
+  📤 Uploading flr017_matt-egbert_ignition-sequence-ep.jpg...
+  📤 Uploading FLR019-Vitus.-Bit-More-EP.jpg...
+  📤 Uploading FLR020-Niken-Chapter-Two-EP.jpg...
+  📤 Uploading FLR022-Suadi-Functional-Frequency-EP.jpg...
+  📤 Uploading FLR023-Vitali.-Next-Step-EP.jpg...
+  📤 Uploading fl_wildfire-relief-va_v2.jpg...
+  ✅ Batch 1: 22 docs (txn: fi3CU380OsQCYNp8igeLAx)
+
+✨ Done — 22 media assets ingested.
+
+── [24/83] Front Left/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Front Left/_manifest.md
+   Title:    Front Left — Root Assets
+   Client:   Front Left
+   Services: 
+   Year:     2026
+   Assets:   27
+  ⏭  Skipping non-image: All Around_4x5.mp4
+  📤 Uploading fletch-stream_promo_now-on-youtube_4x5.png...
+  ⏭  Skipping non-image: fletch_stream_promo_4x5.mp4
+  📤 Uploading front-left_052723_4x5.png...
+  ⏭  Skipping non-image: front-left_052723_promo_v2_4x5.mp4
+  📤 Uploading front-left_052723_support-added_4x5.png...
+  📤 Uploading front-left_and-friends_101923_4x5.png...
+  📤 Uploading front-left_and-friends_110423_4x5.png...
+  📤 Uploading front-left_blind-tiger_052723_afterparty_4x5.png...
+  ⏭  Skipping non-image: front-left_janeret_062423_ad_4x5.mp4
+  📤 Uploading front-left_label-showcase_031724_4x5.png...
+  📤 Uploading front-left_lauren-lo-sun_110923_4x5.png...
+  📤 Uploading front-left_logo_white.png...
+  📤 Uploading front-left_past-events-icon.png...
+  📤 Uploading front-left_past-events_icon_1.png...
+  📤 Uploading front-left_sidney-charles_072723_4x5.png...
+  📤 Uploading front-left_sidney-charles_072723_drawing-variant_4x5.png...
+  📤 Uploading front-left_socials_background-1.png...
+  📤 Uploading front-left_socials_pfp_IG-1.png...
+  📤 Uploading front-left_submit-demos-story.png...
+  ⏭  Skipping non-image: front-left_sydney-charles_072723_collab-promo_4x5_full.mp4
+  📤 Uploading front-left_upcoming-events_2023_4x5.png...
+  ⏭  Skipping non-image: janeret_day-of-show_4x5.mp4
+  ⏭  Skipping non-image: janeret_montage_4x5.mp4
+  ⏭  Skipping non-image: next-step_4x5.mp4
+  📤 Uploading sidney-charles_day-of-show_4x5_no-text.png...
+  ⏭  Skipping non-image: you-should-be-dancing_4x5.mp4
+  ✅ Batch 1: 27 docs (txn: fi3CU380OsQCYNp8igeQCK)
+
+✨ Done — 27 media assets ingested.
+
+── [25/83] Front Left/fletch label launch IAAs/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Front Left/fletch label launch IAAs/_manifest.md
+   Title:    Front Left — fletch label launch IAAs
+   Client:   Front Left
+   Services: event / tour creative, branding
+   Year:     2026
+   Assets:   3
+  ⏭  Skipping non-image: fletch_spotlight_4x5.mp4
+  ⏭  Skipping non-image: matt-egbert_spotlight_4x5.mp4
+  ⏭  Skipping non-image: swingers_spotlight_4x5.mp4
+  ✅ Batch 1: 3 docs (txn: usPbImjoC2LtIOcJn8IsZO)
+
+✨ Done — 3 media assets ingested.
+
+── [26/83] Front Left/janaret event IAAs spotlights/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Front Left/janaret event IAAs spotlights/_manifest.md
+   Title:    Front Left — janaret event IAAs spotlights
+   Client:   Front Left
+   Services: event / tour creative, branding
+   Year:     2026
+   Assets:   3
+  📤 Uploading janeret_spotlight_062423_story.png...
+  📤 Uploading les-disctrict_spotlight_062423_story.png...
+  📤 Uploading wyatt-marshall_spotlight_062423_story.png...
+  ✅ Batch 1: 3 docs (txn: usPbImjoC2LtIOcJn8IudQ)
+
+✨ Done — 3 media assets ingested.
+
+── [27/83] Front Left/second home venue preview carousel/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Front Left/second home venue preview carousel/_manifest.md
+   Title:    Front Left — second home venue preview carousel
+   Client:   Front Left
+   Services: event / tour creative, branding
+   Year:     2026
+   Assets:   5
+  📤 Uploading second-home_carousel_1.png...
+  📤 Uploading second-home_carousel_2.png...
+  📤 Uploading second-home_carousel_3.png...
+  📤 Uploading second-home_carousel_4.png...
+  📤 Uploading second-home_carousel_5.png...
+  ✅ Batch 1: 5 docs (txn: usPbImjoC2LtIOcJn8IxJO)
+
+✨ Done — 5 media assets ingested.
+
+── [28/83] Front Left/you should be dancing Carousel/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Front Left/you should be dancing Carousel/_manifest.md
+   Title:    Front Left — you should be dancing Carousel
+   Client:   Front Left
+   Services: event / tour creative, branding
+   Year:     2026
+   Assets:   7
+  📤 Uploading 1.png...
+  📤 Uploading 2.png...
+  📤 Uploading 3.png...
+  📤 Uploading 4.png...
+  📤 Uploading 5.png...
+  📤 Uploading 6.png...
+  📤 Uploading 7.png...
+  ✅ Batch 1: 7 docs (txn: fi3CU380OsQCYNp8igeWXT)
+
+✨ Done — 7 media assets ingested.
+
+── [29/83] Gio Lucca/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Gio Lucca/_manifest.md
+   Title:    Gio Lucca — Root Assets
+   Client:   Gio Lucca
+   Services: 
+   Year:     2026
+   Assets:   7
+  📤 Uploading gio-lucca_SC-banner_v2.png...
+  📤 Uploading gio-lucca_logo_fill_white.png...
+  📤 Uploading gio-lucca_press-kit_cover_1.png...
+  📤 Uploading gio-lucca_press-kit_cover_2.png...
+  📤 Uploading gio-lucca_sc-PFP_v2.png...
+  📤 Uploading gio-lucca_spotify-banner_v1.png...
+  📤 Uploading gio-luccas-lineup_v2.jpg...
+  ✅ Batch 1: 7 docs (txn: ghCA0iPFLNDLy0OmrzZXvJ)
+
+✨ Done — 7 media assets ingested.
+
+── [30/83] Gruuv/Artwork/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Gruuv/Artwork/_manifest.md
+   Title:    Gruuv — Album Art Catalog
+   Client:   Gruuv
+   Services: album art
+   Year:     2024
+   Assets:   14
+  📤 Uploading 90s_Dreamin_Audiojack.jpg...
+  📤 Uploading Become_Clear_Josh_Butler.jpg...
+  📤 Uploading Coming_For_Ya_nocapz.jpg...
+  📤 Uploading Dizzy_Heights_Audiojack_Aleya_Mae.jpg...
+  📤 Uploading Forward_Motion_Audiojack.jpg...
+  📤 Uploading Humans_Audiojack_Jake_The_Rapper.jpg...
+  📤 Uploading Machine_House_Jordan_Peak.jpg...
+  📤 Uploading More_Or_Less_Kody.jpg...
+  📤 Uploading Move_Your_Feet_PWE.jpg...
+  📤 Uploading Night_Move_Deefo.jpg...
+  📤 Uploading Raw_Manifesto_Qubiko.jpg...
+  📤 Uploading Release_Yourself_Audiojack.jpg...
+  📤 Uploading Sky_Somersault.jpg...
+  📤 Uploading Visions_Hauswerks.jpg...
+  ✅ Batch 1: 14 docs (txn: ghCA0iPFLNDLy0OmrzZZbj)
+
+✨ Done — 14 media assets ingested.
+
+── [31/83] Gruuv/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Gruuv/_manifest.md
+   Title:    Gruuv — Root Assets
+   Client:   Gruuv
+   Services: 
+   Year:     2026
+   Assets:   1
+  ⏭  Skipping non-image: REDRUM.mp4
+  ✅ Batch 1: 1 docs (txn: fi3CU380OsQCYNp8igeeOy)
+
+✨ Done — 1 media assets ingested.
+
+── [32/83] HOMEGRWXN./Tote Promo/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/HOMEGRWXN./Tote Promo/_manifest.md
+   Title:    HOMEGRWXN. — Tote Pool Promo
+   Client:   HOMEGRWXN
+   Services: promo video, 3d animation
+   Year:     2025
+   Assets:   2
+  ⚠️  Project not found: "homegrwxn-tote-promo"
+  ⏭  Skipping non-image: Homegrown Tote Promo v2.mp4
+  ⏭  Skipping non-image: Homegrown Tote Promo v1.mp4
+  ✅ Batch 1: 2 docs (txn: usPbImjoC2LtIOcJn8JEDM)
+
+✨ Done — 2 media assets ingested.
+
+── [33/83] HOMEGRWXN./_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/HOMEGRWXN./_manifest.md
+   Title:    HOMEGRWXN. — Root Assets
+   Client:   HOMEGRWXN.
+   Services: 
+   Year:     2026
+   Assets:   4
+  ⏭  Skipping non-image: homegrown_koko_4x5.mp4
+  ⏭  Skipping non-image: homegrown_thermal_reel.mp4
+  ⏭  Skipping non-image: homegrown_thermal_static.mp4
+  ⏭  Skipping non-image: homegrwn_OFFBCN_promo_v1.mp4
+  ✅ Batch 1: 4 docs (txn: ghCA0iPFLNDLy0OmrzZa6W)
+
+✨ Done — 4 media assets ingested.
+
+── [34/83] Heavy House Society/Album Art/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Heavy House Society/Album Art/_manifest.md
+   Title:    Heavy House Society — Album Art Catalog
+   Client:   Heavy House Society
+   Services: album art
+   Year:     2024
+   Assets:   17
+  📤 Uploading HHS038 Hidde Van Wee - Fantasy EP.webp...
+  📤 Uploading HHS039 Hector Cuoto Flufly's House.webp...
+  📤 Uploading HHS040 Korey Shake N Break EP.jpg...
+  📤 Uploading HHS041 Sidney Charles Reso Riddim EP.jpeg...
+  📤 Uploading HHS042 Dan Fresco Planet Bass EP.jpeg...
+  📤 Uploading HHS043 Robbie Doherty Del Boy Disco EP.jpeg...
+  📤 Uploading HHS043 Us Two Breaking Dollars EP.jpeg...
+  📤 Uploading hhs045_sidney-charles_trip-advisor-ep.jpg...
+  📤 Uploading hhs046_tim-taylor_what-do-you-see-ep.jpg...
+  📤 Uploading HHS047 Dec Duffy Heaven EP.jpeg...
+  📤 Uploading HHS048 DXNBY Places & Faces EP.jpeg...
+  📤 Uploading hhs049_sidney-charles_kolter_lets-pardey-ep.jpg...
+  📤 Uploading hhs050_ranger-trucco_terrace-trip.jpg...
+  📤 Uploading hhs051_sidney-charles-vs-bugs_trip-advisor_warp-mix.jpg...
+  📤 Uploading HHS056 Vitess - Louder EP.jpg...
+  📤 Uploading HHS057-DAETOR-Eclipse-EP.jpg...
+  📤 Uploading HHS059-Ozzie-Guven-Zero-Degrees-EP.jpg...
+  ✅ Batch 1: 17 docs (txn: usPbImjoC2LtIOcJn8JVV2)
+
+✨ Done — 17 media assets ingested.
+
+── [35/83] Heavy House Society/Live Visuals 2026/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Heavy House Society/Live Visuals 2026/_manifest.md
+   Title:    HHS Live Visuals 2026
+   Client:   Heavy House Society
+   Services: 
+   Year:     2026
+   Assets:   11
+  ⚠️  Project not found: "hhs-live-visuals-2026"
+  ⏭  Skipping non-image: Logo 01 - Graffiti Indigo.mp4
+  ⏭  Skipping non-image: Logo 01 - Graffiti Mirrored.mp4
+  ⏭  Skipping non-image: Logo 01 - Graffiti Pink.mp4
+  ⏭  Skipping non-image: Logo 01 - Neon Palms.mp4
+  ⏭  Skipping non-image: Logo 02 - Halftone Stroke.mp4
+  ⏭  Skipping non-image: Logo 02 - Pattern BG 01.mp4
+  ⏭  Skipping non-image: Logo 02 - Pattern BG 02 Memphis Colors.mp4
+  ⏭  Skipping non-image: Logos Falling Color Dither.mp4
+  📤 Uploading Visuals-Live-Photo-Crowd.jpg...
+  ⏭  Skipping non-image: Resolume-Export.mp4
+  ⏭  Skipping non-image: hhs_viewport-view.mp4
+  ✅ Batch 1: 11 docs (txn: fi3CU380OsQCYNp8igeugZ)
+
+✨ Done — 11 media assets ingested.
+
+── [36/83] Heavy House Society/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Heavy House Society/_manifest.md
+   Title:    Heavy House Society — Root Assets
+   Client:   Heavy House Society
+   Services: 
+   Year:     2026
+   Assets:   60
+  ⏭  Skipping non-image: Bass Rider Youtube.mp4
+  ⏭  Skipping non-image: HHS Invisible Wind Factory - Liverpool 022826.mp4
+  📤 Uploading HHS Manchester Day to Night 021426.jpg...
+  📤 Uploading HHS OFFBCN 062025.png...
+  📤 Uploading HHS Shelter - Amsterdam 041826.png...
+  📤 Uploading HHS USA listing 2026.png...
+  📤 Uploading HHS-patch-hat.jpg...
+  📤 Uploading HHS047 SC Banner.png...
+  📤 Uploading HHS059 Banner.png...
+  ⏭  Skipping non-image: Jump_4x5.mp4
+  📤 Uploading RSB_faded-bone_back.jpg...
+  📤 Uploading RSB_faded-bone_front.jpg...
+  📤 Uploading RSB_faded-charcoal_back.jpg...
+  📤 Uploading RSB_faded-charcoal_front.jpg...
+  ⏭  Skipping non-image: Sidney Charles02023569.mov
+  ⏭  Skipping non-image: Sidney Charles02036541.mov
+  ⏭  Skipping non-image: Sidney Charles02067817.mov
+  ⏭  Skipping non-image: Use Ya Head Youtube.mp4
+  📤 Uploading heavy-house-society_logo_white.png...
+  ⏭  Skipping non-image: heavy-house-society_visuals_6mbps_1920x1080.mp4
+  📤 Uploading hhs)barcelona_112324_set-times.jpg...
+  ⏭  Skipping non-image: hhs-logo-hoodie-live.mp4
+  ⏭  Skipping non-image: hhs_528-ibiza_010625.mp4
+  ⏭  Skipping non-image: hhs_after-caposile_070925.mp4
+  ⏭  Skipping non-image: hhs_barcelona_160324_1080x1350.mp4
+  ⏭  Skipping non-image: hhs_barcelona_231124_lineup-added_4x5.mp4
+  ⏭  Skipping non-image: hhs_cardiff_070625.mp4
+  ⏭  Skipping non-image: hhs_cities_4x5.mp4
+  📤 Uploading hhs_europe-tour-2025_listing.jpg...
+  ⏭  Skipping non-image: hhs_fabric_210924_4x5.mp4
+  ⏭  Skipping non-image: hhs_floyd-miami_280225.mp4
+  ⏭  Skipping non-image: hhs_house-calls_chicago_120425.mp4
+  ⏭  Skipping non-image: hhs_london_200424_1080x1350.mp4
+  ⏭  Skipping non-image: hhs_manchester_060424_1080x1350.mp4
+  📤 Uploading hhs_mint-warehouse_100425.jpg...
+  ⏭  Skipping non-image: hhs_mint-warehouse_lp-rhythm_4x5.mp4
+  ⏭  Skipping non-image: hhs_off-week_bcn_150625.mp4
+  📤 Uploading hhs_rhythm-bass-snare_black_v2.jpg...
+  ⏭  Skipping non-image: hhs_rimini_4x5.mp4
+  📤 Uploading hhs_secret-warehouse-manchester_031524.jpg...
+  ⏭  Skipping non-image: hhs_shelter_210625.mp4
+  ⏭  Skipping non-image: hhs_silo-brooklyn_220225_updated.mp4
+  📤 Uploading hhs_straight-from-the-underground_charcoal-back.jpg...
+  📤 Uploading hhs_straight-from-the-underground_white-back.jpg...
+  ⏭  Skipping non-image: hhs_the-cut_austin_050425.mp4
+  ⏭  Skipping non-image: hhs_tour-listing_2024_pt-2_4x5.mp4
+  📤 Uploading hhs_usa-tour-25.jpg...
+  ⏭  Skipping non-image: hhs_venice_after-caposile_021124_4x5.mp4
+  ⏭  Skipping non-image: hhs_watergate_050924_4x5.mp4
+  ⏭  Skipping non-image: hhs_watergate_110724_4x5.mp4
+  📤 Uploading hhs_watergate_both-dates_v1.png...
+  📤 Uploading hoodie-.jpg...
+  📤 Uploading hoodie-BACK-FADED-BONE.jpg...
+  📤 Uploading hoodie-FRONT-BLACK.jpg...
+  📤 Uploading hoodie-FRONT-FADED-BONE.jpg...
+  ⏭  Skipping non-image: portrait-hhs-manchester-rhythm-snare-bass.mp4
+  ⏭  Skipping non-image: pure-perfection_4x5.mp4
+  ⏭  Skipping non-image: rhythm-snare-bass-tee.mp4
+  📤 Uploading shirt-1.jpg...
+  📤 Uploading shirt-2.jpg...
+  ✅ Batch 1: 50 docs (txn: ghCA0iPFLNDLy0OmrzZgYn)
+  ✅ Batch 2: 10 docs (txn: fi3CU380OsQCYNp8igezP4)
+
+✨ Done — 60 media assets ingested.
+
+── [37/83] Hurry Up Slowly/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Hurry Up Slowly/_manifest.md
+   Title:    Hurry Up Slowly — Root Assets
+   Client:   Hurry Up Slowly
+   Services: 
+   Year:     2026
+   Assets:   14
+  📤 Uploading HUS MMW Full Program 3x4.png...
+  📤 Uploading HUS MMWThurs 0323 Marten Lou 3x4.png...
+  📤 Uploading HUS-frames.jpg...
+  📤 Uploading HUS_logo-sheet.jpg...
+  📤 Uploading back-2-color_20x24.jpg...
+  📤 Uploading back-3-color_1_20x24.jpg...
+  📤 Uploading back-3-color_2_20x24.jpg...
+  📤 Uploading back-3-color_3_20x24.jpg...
+  ⏭  Skipping non-image: butch_4x5.mp4
+  📤 Uploading butch_IAA_4x5.jpg...
+  📤 Uploading front.jpg...
+  ⏭  Skipping non-image: hus-launch_promo.mp4
+  ⏭  Skipping non-image: nic-fanciulli_4x5.mp4
+  📤 Uploading nic-fanciulli_IAA_4x5.jpg...
+  ✅ Batch 1: 14 docs (txn: usPbImjoC2LtIOcJn8JgCu)
+
+✨ Done — 14 media assets ingested.
+
+── [38/83] Imperfect Records/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Imperfect Records/_manifest.md
+   Title:    Imperfect Records — Root Assets
+   Client:   Imperfect Records
+   Services: 
+   Year:     2026
+   Assets:   8
+  📤 Uploading IMP010.jpg...
+  📤 Uploading Imperfect Club Kids Club Character Sheet.png...
+  📤 Uploading Imperfect Records Logo Color BG.png...
+  📤 Uploading Imperfect Records Logo Color Black Box.png...
+  📤 Uploading Imperfect Records Logo Color.png...
+  📤 Uploading Imperfect Records Logo White Fill.png...
+  📤 Uploading Imperfect Stacked Black.png...
+  📤 Uploading Imperfect Stacked Color.png...
+  ✅ Batch 1: 8 docs (txn: usPbImjoC2LtIOcJn8JkKy)
+
+✨ Done — 8 media assets ingested.
+
+── [39/83] Jade Bern/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Jade Bern/_manifest.md
+   Title:    Jade Bern — Root Assets
+   Client:   Jade Bern
+   Services: 
+   Year:     2026
+   Assets:   4
+  ⏭  Skipping non-image: Jade Bern Collab - Adidas Main Sequence.mp4
+  ⏭  Skipping non-image: billboard-comp_v1.mp4
+  ⏭  Skipping non-image: digital-billboard_1.mp4
+  ⏭  Skipping non-image: digital-billboard_2.mp4
+  ✅ Batch 1: 4 docs (txn: fi3CU380OsQCYNp8igf2ke)
+
+✨ Done — 4 media assets ingested.
+
+── [40/83] Jamback/Jamback Jampacked Tour 2026/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Jamback/Jamback Jampacked Tour 2026/_manifest.md
+   Title:    Jamback — Jamback Jampacked Tour 2026
+   Client:   Jamback
+   Services: event / tour creative
+   Year:     2026
+   Assets:   7
+  📤 Uploading 01.png...
+  📤 Uploading 02-MAY.png...
+  📤 Uploading 03-JUNE.png...
+  📤 Uploading 04-JULY.png...
+  📤 Uploading 05-AUG.png...
+  📤 Uploading 06-SEP.png...
+  📤 Uploading 07-TBA.png...
+  ✅ Batch 1: 7 docs (txn: fi3CU380OsQCYNp8igf41H)
+
+✨ Done — 7 media assets ingested.
+
+── [41/83] James Wyler/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/James Wyler/_manifest.md
+   Title:    James Wyler — Root Assets
+   Client:   James Wyler
+   Services: 
+   Year:     2026
+   Assets:   1
+  📤 Uploading james-wyler_logo_v3.png...
+  ✅ Batch 1: 1 docs (txn: ghCA0iPFLNDLy0OmrzZjXX)
+
+✨ Done — 1 media assets ingested.
+
+── [42/83] Jeff Sorkowitz/Jeff Sorkowitz - Too Deep/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Jeff Sorkowitz/Jeff Sorkowitz - Too Deep/_manifest.md
+   Title:    Jeff Sorkowitz — Jeff Sorkowitz - Too Deep
+   Client:   Jeff Sorkowitz
+   Services: album art
+   Year:     2026
+   Assets:   2
+  📤 Uploading 3x4.jpg...
+  ⏭  Skipping non-image: Too Deep Interactive WebGL.mp4
+  ✅ Batch 1: 2 docs (txn: ghCA0iPFLNDLy0OmrzZjja)
+
+✨ Done — 2 media assets ingested.
+
+── [43/83] Jeff Sorkowitz/Jeff Sorkowitz, Braydon Terzo - Real Close/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Jeff Sorkowitz/Jeff Sorkowitz, Braydon Terzo - Real Close/_manifest.md
+   Title:    Jeff Sorkowitz — Jeff Sorkowitz, Braydon Terzo - Real Close
+   Client:   Jeff Sorkowitz
+   Services: album art
+   Year:     2026
+   Assets:   1
+  📤 Uploading real-close.gif...
+  ✅ Batch 1: 1 docs (txn: usPbImjoC2LtIOcJn8JpNw)
+
+✨ Done — 1 media assets ingested.
+
+── [44/83] Jeff Sorkowitz/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Jeff Sorkowitz/_manifest.md
+   Title:    Jeff Sorkowitz — Root Assets
+   Client:   Jeff Sorkowitz
+   Services: 
+   Year:     2026
+   Assets:   1
+  ⏭  Skipping non-image: jeff-sorkowitz_s-america_2023_square.mp4
+  ✅ Batch 1: 1 docs (txn: usPbImjoC2LtIOcJn8JpqO)
+
+✨ Done — 1 media assets ingested.
+
+── [45/83] Jonas Blue/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Jonas Blue/_manifest.md
+   Title:    Jonas Blue — Root Assets
+   Client:   Jonas Blue
+   Services: 
+   Year:     2026
+   Assets:   1
+  📤 Uploading Jonas Blue Fall 2025 Tour 4x5.jpg...
+  ✅ Batch 1: 1 docs (txn: fi3CU380OsQCYNp8igf5am)
+
+✨ Done — 1 media assets ingested.
+
+── [46/83] Kamino/Kamino Rebrand 2026/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Kamino/Kamino Rebrand 2026/_manifest.md
+   Title:    Kamino — Kamino Rebrand 2026
+   Client:   Kamino
+   Services: branding, logo design
+   Year:     2026
+   Assets:   11
+  ⏭  Skipping non-image: 01 Kamino Rebrand Launch Promo.mp4
+  📤 Uploading 360_text.gif...
+  📤 Uploading Kamino Logo ROYGBIV.png...
+  ⏭  Skipping non-image: Kamino Soundcloud Times Square Billboard.mp4
+  ⏭  Skipping non-image: Vibe Check Sequence 1 Drop 1.mp4
+  📤 Uploading kamino-free-dl.jpg...
+  📤 Uploading kamino-smiley_YOYGBIV.jpg...
+  📤 Uploading kamino_lowercase.gif...
+  ⏭  Skipping non-image: kamino_wall-jump_1.mp4
+  ⏭  Skipping non-image: warp-tool_audio-reactive_2.mp4
+  ⏭  Skipping non-image: winamp-slide_v1.mp4
+  ✅ Batch 1: 11 docs (txn: fi3CU380OsQCYNp8igf6l7)
+
+✨ Done — 11 media assets ingested.
+
+── [47/83] Kamino/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Kamino/_manifest.md
+   Title:    Kamino — Root Assets
+   Client:   Kamino
+   Services: 
+   Year:     2026
+   Assets:   17
+  📤 Uploading Anabel-Englund-Kamino-Belong-To-Me.jpg...
+  ⏭  Skipping non-image: Belong-To-Me_4x5.mp4
+  ⏭  Skipping non-image: DLMT_Kamino_Body-Music_YouTube.mp4
+  📤 Uploading Kamino, Kyra Mastro - Vertigo.png...
+  📤 Uploading dlmt_kamino_body-music_casablana-records.jpg...
+  ⏭  Skipping non-image: kamino-stencil-white.mp4
+  📤 Uploading kamino_fall-tour_1.jpg...
+  📤 Uploading kamino_fall-tour_2.jpg...
+  📤 Uploading kamino_ids.png...
+  ⏭  Skipping non-image: kamino_solid-blue_highlight.mp4
+  ⏭  Skipping non-image: kamino_stencil-blue.mp4
+  📤 Uploading take-the-pill_frames-1.jpg...
+  📤 Uploading take-the-pill_frames-2.jpg...
+  📤 Uploading take-the-pill_mockup_back-1.jpg...
+  📤 Uploading take-the-pill_mockup_back-2.jpg...
+  📤 Uploading take-the-pill_mockup_front.jpg...
+  ⏭  Skipping non-image: take-the-pill_visualizer_4x5.mp4
+  ✅ Batch 1: 17 docs (txn: ghCA0iPFLNDLy0OmrzZmSG)
+
+✨ Done — 17 media assets ingested.
+
+── [48/83] Ky William/Outdoor Activities/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Ky William/Outdoor Activities/_manifest.md
+   Title:    Ky William — Outdoor Activities
+   Client:   Ky William
+   Services: Promo Video
+   Year:     2026
+   Assets:   5
+  📤 Uploading magazines_3.jpg...
+  📤 Uploading oa_buckets_v1.png...
+  📤 Uploading oa_tv-ad_v1.jpg...
+  📤 Uploading outdoor-activities_083124_v4_story.png...
+  📤 Uploading outdoor-activities_main-tour_v1.png...
+  ✅ Batch 1: 5 docs (txn: usPbImjoC2LtIOcJn8K014)
+
+✨ Done — 5 media assets ingested.
+
+── [49/83] Ky William/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Ky William/_manifest.md
+   Title:    Ky William — Root Assets
+   Client:   Ky William
+   Services: 
+   Year:     2026
+   Assets:   4
+  📤 Uploading ky-william_365-playlist.jpg...
+  📤 Uploading ky-william_logo_inline_white.png...
+  📤 Uploading ky_fall-winter-2024_4x5.jpg...
+  📤 Uploading ky_solo-to_banner_v1.png...
+  ✅ Batch 1: 4 docs (txn: fi3CU380OsQCYNp8igfFq6)
+
+✨ Done — 4 media assets ingested.
+
+── [50/83] Kyle Walker/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Kyle Walker/_manifest.md
+   Title:    Kyle Walker — Root Assets
+   Client:   Kyle Walker
+   Services: 
+   Year:     2026
+   Assets:   12
+  📤 Uploading 303.png...
+  📤 Uploading arizona.jpg...
+  📤 Uploading billboard.jpg...
+  📤 Uploading bulls.jpg...
+  📤 Uploading bus.jpg...
+  📤 Uploading hollywood-sign.jpg...
+  📤 Uploading im-the-one.jpg...
+  ⏭  Skipping non-image: intro-scene.mp4
+  ⏭  Skipping non-image: kyle-walker-tour.mp4
+  📤 Uploading kyle-walker_dub-drawings.jpg...
+  📤 Uploading macys-float.jpg...
+  📤 Uploading notorious-miami.jpg...
+  ✅ Batch 1: 12 docs (txn: usPbImjoC2LtIOcJn8KBwo)
+
+✨ Done — 12 media assets ingested.
+
+── [51/83] Le Yora/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Le Yora/_manifest.md
+   Title:    Le Yora — Root Assets
+   Client:   Le Yora
+   Services: 
+   Year:     2026
+   Assets:   1
+  ⏭  Skipping non-image: Le Yora 3D Liquid Logo.mp4
+  ✅ Batch 1: 1 docs (txn: fi3CU380OsQCYNp8igfKM1)
+
+✨ Done — 1 media assets ingested.
+
+── [52/83] Lee Ann Roberts/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Lee Ann Roberts/_manifest.md
+   Title:    Lee Ann Roberts — Root Assets
+   Client:   Lee Ann Roberts
+   Services: 
+   Year:     2026
+   Assets:   1
+  ⏭  Skipping non-image: lee-ann-roberts_techno-bklyn_recap_v4.mp4
+  ✅ Batch 1: 1 docs (txn: fi3CU380OsQCYNp8igfKYb)
+
+✨ Done — 1 media assets ingested.
+
+── [53/83] Louder Than Silence/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Louder Than Silence/_manifest.md
+   Title:    Louder Than Silence — Root Assets
+   Client:   Louder Than Silence
+   Services: 
+   Year:     2026
+   Assets:   3
+  📤 Uploading Louder Than Silence Handwritten.png...
+  ⏭  Skipping non-image: Louder Than Silence Promo.mp4
+  📤 Uploading Louder Than Sliece Logo 01.jpg...
+  ✅ Batch 1: 3 docs (txn: usPbImjoC2LtIOcJn8KE5a)
+
+✨ Done — 3 media assets ingested.
+
+── [54/83] MOONLGHT/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/MOONLGHT/_manifest.md
+   Title:    MOONLGHT — Root Assets
+   Client:   MOONLGHT
+   Services: 
+   Year:     2026
+   Assets:   17
+  📤 Uploading moonlght_cocaine_vip.jpg...
+  📤 Uploading moonlght_cody-ko_cruel-summer.jpg...
+  📤 Uploading moonlght_come-get-her.jpg...
+  📤 Uploading moonlght_drunken-sailor_v2.jpg...
+  📤 Uploading moonlght_fortunate-son.jpg...
+  📤 Uploading moonlght_freebird-remix.jpg...
+  📤 Uploading moonlght_freebird_v3.jpg...
+  📤 Uploading moonlght_prada.jpg...
+  📤 Uploading moonlght_stuck-in-the-middle-with-you.jpg...
+  📤 Uploading moonlght_what-do-djs-do.jpg...
+  ⏭  Skipping non-image: Liquid LED.mp4
+  ⏭  Skipping non-image: Logo 3D Explode.mp4
+  ⏭  Skipping non-image: Logo Stacked Pulse.mp4
+  ⏭  Skipping non-image: Logo Static Chrome.mp4
+  ⏭  Skipping non-image: Logo Static Light Rays.mp4
+  ⏭  Skipping non-image: Moon Phases Stacked Pulse.mp4
+  ⏭  Skipping non-image: Moon Phases Tiles.mp4
+  ✅ Batch 1: 17 docs (txn: ghCA0iPFLNDLy0OmrzZsPk)
+
+✨ Done — 17 media assets ingested.
+
+── [55/83] Maximo/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Maximo/_manifest.md
+   Title:    Maximo — Root Assets
+   Client:   Maximo
+   Services: 
+   Year:     2026
+   Assets:   2
+  📤 Uploading maximo_do-you-feel-it.jpg...
+  📤 Uploading maximo_logo.png...
+  ✅ Batch 1: 2 docs (txn: usPbImjoC2LtIOcJn8KOZE)
+
+✨ Done — 2 media assets ingested.
+
+── [56/83] Momentum Records/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Momentum Records/_manifest.md
+   Title:    Momentum Records — Root Assets
+   Client:   Momentum Records
+   Services: 
+   Year:     2026
+   Assets:   7
+  📤 Uploading 01.png...
+  📤 Uploading 02.png...
+  📤 Uploading 03.png...
+  📤 Uploading 04.png...
+  📤 Uploading 05.png...
+  📤 Uploading 06.png...
+  📤 Uploading mtm001_malcolm-zeller_time-after-time-ep.jpg...
+  ✅ Batch 1: 7 docs (txn: fi3CU380OsQCYNp8igfWd9)
+
+✨ Done — 7 media assets ingested.
+
+── [57/83] Munchietown/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Munchietown/_manifest.md
+   Title:    Munchietown — Root Assets
+   Client:   Munchietown
+   Services: 
+   Year:     2026
+   Assets:   12
+  📤 Uploading 3x4.jpg...
+  📤 Uploading 4x5.jpg...
+  ⏭  Skipping non-image: EOxMT Timelapse v1.mp4
+  📤 Uploading Experts Only x MT Drinks_3x4.png...
+  📤 Uploading Experts Only x MT Food_3x4.png...
+  📤 Uploading Experts Only x MT MMW 2026 3x4.png...
+  📤 Uploading POST.jpg...
+  📤 Uploading munchietown_cdmx_111324_4x5.jpg...
+  📤 Uploading munchietown_character-flash-sheet.png...
+  📤 Uploading munchietown_character-sheet.png...
+  📤 Uploading munchietown_gin-ling_la_072024_4x5.jpg...
+  📤 Uploading munchietown_puerto-rico_art-only.png...
+  ✅ Batch 1: 12 docs (txn: usPbImjoC2LtIOcJn8KYCi)
+
+✨ Done — 12 media assets ingested.
+
+── [58/83] Mungo Sound Machine/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Mungo Sound Machine/_manifest.md
+   Title:    Mungo Sound Machine — Root Assets
+   Client:   Mungo Sound Machine
+   Services: 
+   Year:     2026
+   Assets:   2
+  ⏭  Skipping non-image: Mungo Sound Machine Intro 1.mp4
+  ⏭  Skipping non-image: mungo_BTS_square.mp4
+  ✅ Batch 1: 2 docs (txn: fi3CU380OsQCYNp8igfZpI)
+
+✨ Done — 2 media assets ingested.
+
+── [59/83] Nusonido/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Nusonido/_manifest.md
+   Title:    Nusonido — Root Assets
+   Client:   Nusonido
+   Services: 
+   Year:     2026
+   Assets:   8
+  ⏭  Skipping non-image: 8-bit_visualizer.mp4
+  ⏭  Skipping non-image: Nusonido Promo 1-1 Trimmed.mp4
+  ⏭  Skipping non-image: Nusonido Promo 2.mp4
+  ⏭  Skipping non-image: nusonido_mmw-promo.mp4
+  ⏭  Skipping non-image: nusonido_visualizer_16x9.mp4
+  ⏭  Skipping non-image: nusonido_wynwood_teaser_no-text.mp4
+  ⏭  Skipping non-image: pixel-diffuse.mov
+  ⏭  Skipping non-image: pixel-loop_metallic.mov
+  ✅ Batch 1: 8 docs (txn: fi3CU380OsQCYNp8igfaNt)
+
+✨ Done — 8 media assets ingested.
+
+── [60/83] Offstage/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Offstage/_manifest.md
+   Title:    Offstage — Root Assets
+   Client:   Offstage
+   Services: 
+   Year:     2026
+   Assets:   1
+  📤 Uploading offstage_logo_white.png...
+  ✅ Batch 1: 1 docs (txn: usPbImjoC2LtIOcJn8Ka7G)
+
+✨ Done — 1 media assets ingested.
+
+── [61/83] One Of Us/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/One Of Us/_manifest.md
+   Title:    One Of Us — Root Assets
+   Client:   One Of Us
+   Services: 
+   Year:     2026
+   Assets:   22
+  ⏭  Skipping non-image: 5 Year Ann 081525 Mita Gami.mp4
+  📤 Uploading Archie Hamilton IAA 4x5.png...
+  ⏭  Skipping non-image: First Friday Hot Since 82.mp4
+  📤 Uploading Hot Since 82 IAA 4x5.png...
+  ⏭  Skipping non-image: Miss Monique 050925 4x5.mp4
+  ⏭  Skipping non-image: Miss Monique Ticket Update 050925 4x5.mp4
+  📤 Uploading Moon Landing 2025 Carl Cox IAA 4x5.jpg...
+  📤 Uploading Moon Landing 2025 Enamour IAA 4x5.jpg...
+  ⏭  Skipping non-image: Moon Landing 2025 Full Lineup 4x5.mp4
+  📤 Uploading Moon Landing 2025 Save the Date 4x5.jpg...
+  📤 Uploading Moon Landing 2025 Set Times Main Stage.jpg...
+  📤 Uploading Moon Landing 2025 Set Times Outdoor Stage 4x5.jpg...
+  ⏭  Skipping non-image: Moon Landing 2025 Tickets Sold Out 4x5.mp4
+  ⏭  Skipping non-image: OOU ThereAfter Loco Dice 041726.mp4
+  📤 Uploading ThereAfter 2025 Latmun IAA 4x5.jpg...
+  📤 Uploading ThereAfter 2025 Malone IAA 4x5.jpg...
+  ⏭  Skipping non-image: ThereAfter Malone Latmun 042525 041726.mp4
+  ⏭  Skipping non-image: high-tide_andrea_042024_4x5.mp4
+  ⏭  Skipping non-image: high-tide_francis-mercier_031624_4x5.mp4
+  ⏭  Skipping non-image: high-tide_gordo_072724_square.mp4
+  ⏭  Skipping non-image: high-tide_launch-video_story.mp4
+  ⏭  Skipping non-image: oou_coco-breezy_051824_4x5.mp4
+  ✅ Batch 1: 22 docs (txn: usPbImjoC2LtIOcJn8KdYe)
+
+✨ Done — 22 media assets ingested.
+
+── [62/83] Paige Tomlinson/Social Pleasure ADE 2025/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Paige Tomlinson/Social Pleasure ADE 2025/_manifest.md
+   Title:    Paige Tomlinson — Social Pleasure ADE 2025
+   Client:   Paige Tomlinson
+   Services: event / tour creative
+   Year:     2025
+   Assets:   7
+  📤 Uploading 1.jpg...
+  📤 Uploading 2.jpg...
+  📤 Uploading 3.jpg...
+  ⏭  Skipping non-image: 3x4.mp4
+  📤 Uploading 4.jpg...
+  📤 Uploading 5.jpg...
+  📤 Uploading 6.jpg...
+  ✅ Batch 1: 7 docs (txn: fi3CU380OsQCYNp8igfdw3)
+
+✨ Done — 7 media assets ingested.
+
+── [63/83] Paige Tomlinson/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Paige Tomlinson/_manifest.md
+   Title:    Paige Tomlinson — Root Assets
+   Client:   Paige Tomlinson
+   Services: 
+   Year:     2026
+   Assets:   1
+  ⏭  Skipping non-image: Social Pleasure Hide & Seek Takeover 072426 4x5.mp4
+  ✅ Batch 1: 1 docs (txn: usPbImjoC2LtIOcJn8KgXa)
+
+✨ Done — 1 media assets ingested.
+
+── [64/83] Pulse Artists/Sliced into 3 - v1/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Pulse Artists/Sliced into 3 - v1/_manifest.md
+   Title:    Pulse Artists — Sliced into 3 - v1
+   Client:   Pulse Artists
+   Services: Promo Video
+   Year:     2026
+   Assets:   3
+  ⏭  Skipping non-image: pulse_splitin3_1.mp4
+  ⏭  Skipping non-image: pulse_splitin3_2.mp4
+  ⏭  Skipping non-image: pulse_splitin3_3.mp4
+  ✅ Batch 1: 3 docs (txn: fi3CU380OsQCYNp8igfeXn)
+
+✨ Done — 3 media assets ingested.
+
+── [65/83] Pulse Artists/Sliced into 3 - v2/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Pulse Artists/Sliced into 3 - v2/_manifest.md
+   Title:    Pulse Artists — Sliced into 3 - v2
+   Client:   Pulse Artists
+   Services: Promo Video
+   Year:     2026
+   Assets:   3
+  ⏭  Skipping non-image: pulse_splitin3_inverse_1.mp4
+  ⏭  Skipping non-image: pulse_splitin3_inverse_2.mp4
+  ⏭  Skipping non-image: pulse_splitin3_inverse_3.mp4
+  ✅ Batch 1: 3 docs (txn: fi3CU380OsQCYNp8igfenW)
+
+✨ Done — 3 media assets ingested.
+
+── [66/83] Pulse Artists/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Pulse Artists/_manifest.md
+   Title:    Pulse Artists — Root Assets
+   Client:   Pulse Artists
+   Services: 
+   Year:     2026
+   Assets:   9
+  📤 Uploading pulse_artists_logo_beige.png...
+  📤 Uploading pulse_artists_spotify_banner.png...
+  📤 Uploading pulse_icon_transparent_beige.png...
+  📤 Uploading pulse_logo_white.png...
+  📤 Uploading pulse_portfolio_logo-options.png...
+  ⏭  Skipping non-image: pulse_splitin3_story.mp4
+  📤 Uploading pulsecheck_cover.png...
+  📤 Uploading pulsecheck_cover_color.jpg...
+  ⏭  Skipping non-image: pulsecheck_withaudio.mp4
+  ✅ Batch 1: 9 docs (txn: usPbImjoC2LtIOcJn8KoZU)
+
+✨ Done — 9 media assets ingested.
+
+── [67/83] Rossi/Rossi Coachella Set Promo/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Rossi/Rossi Coachella Set Promo/_manifest.md
+   Title:    Rossi — Rossi Coachella Set Promo
+   Client:   Rossi
+   Services: Promo Video
+   Year:     2026
+   Assets:   8
+  📤 Uploading 01.jpg...
+  📤 Uploading 02.jpg...
+  📤 Uploading 03.jpg...
+  📤 Uploading 04.jpg...
+  📤 Uploading 3x4.png...
+  📤 Uploading 9x16_HI-RES.jpg...
+  ⏭  Skipping non-image: Rossi_Timelapse.mp4
+  📤 Uploading printed.jpg...
+  ✅ Batch 1: 8 docs (txn: usPbImjoC2LtIOcJn8L26o)
+
+✨ Done — 8 media assets ingested.
+
+── [68/83] Rossi/Rossi Homecoming Tour Spring Summer 2026/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Rossi/Rossi Homecoming Tour Spring Summer 2026/_manifest.md
+   Title:    Rossi — Rossi Homecoming Tour Spring Summer 2026
+   Client:   Rossi
+   Services: event / tour creative
+   Year:     2026
+   Assets:   3
+  📤 Uploading 01.png...
+  📤 Uploading 02.png...
+  📤 Uploading 03.png...
+  ✅ Batch 1: 3 docs (txn: ghCA0iPFLNDLy0Omrza3xx)
+
+✨ Done — 3 media assets ingested.
+
+── [69/83] Rossi/Rossi In The Park 071826/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Rossi/Rossi In The Park 071826/_manifest.md
+   Title:    Rossi — Rossi In The Park 071826
+   Client:   Rossi
+   Services: event / tour creative
+   Year:     2026
+   Assets:   4
+  📤 Uploading 3x4.jpg...
+  ⏭  Skipping non-image: 3x4.mp4
+  📤 Uploading 9x16.jpg...
+  ⏭  Skipping non-image: 9x16.mp4
+  ✅ Batch 1: 4 docs (txn: ghCA0iPFLNDLy0Omrza5SK)
+
+✨ Done — 4 media assets ingested.
+
+── [70/83] Rossi/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Rossi/_manifest.md
+   Title:    Rossi — Root Assets
+   Client:   Rossi
+   Services: 
+   Year:     2026
+   Assets:   6
+  ⏭  Skipping non-image: dusk-till-dawn_afters.mp4
+  ⏭  Skipping non-image: dusk-till-dawn_flyer-main.mp4
+  📤 Uploading dusk-till-dawn_frames.png...
+  📤 Uploading dusk-till-dawn_movie-poster_sign-up.jpg...
+  ⏭  Skipping non-image: rossi_+++-tour_4x5.mp4
+  ⏭  Skipping non-image: rossi_across-the-pond_4x5.mp4
+  ✅ Batch 1: 6 docs (txn: usPbImjoC2LtIOcJn8LXOG)
+
+✨ Done — 6 media assets ingested.
+
+── [71/83] Salomé Le Chat/Minimal Logo/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Salomé Le Chat/Minimal Logo/_manifest.md
+   Title:    Salomé Le Chat — Minimal Logo
+   Client:   Salomé Le Chat
+   Services: Logo Design
+   Year:     2026
+   Assets:   2
+  📤 Uploading aint-nobody_logo_minimal_black.png...
+  📤 Uploading aint-nobody_logo_minimal_white.png...
+  ✅ Batch 1: 2 docs (txn: ghCA0iPFLNDLy0Omrza8N3)
+
+✨ Done — 2 media assets ingested.
+
+── [72/83] Salomé Le Chat/Salome Le Chat Presents/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Salomé Le Chat/Salome Le Chat Presents/_manifest.md
+   Title:    Salomé Le Chat — Salome Le Chat Presents
+   Client:   Salomé Le Chat
+   Services: branding
+   Year:     2026
+   Assets:   2
+  📤 Uploading salome-le-chat-presents_black.png...
+  📤 Uploading salome-le-chat-presents_white.png...
+  ✅ Batch 1: 2 docs (txn: fi3CU380OsQCYNp8igh8JO)
+
+✨ Done — 2 media assets ingested.
+
+── [73/83] Salomé Le Chat/Tagline/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Salomé Le Chat/Tagline/_manifest.md
+   Title:    Salomé Le Chat — Tagline
+   Client:   Salomé Le Chat
+   Services: branding
+   Year:     2026
+   Assets:   2
+  📤 Uploading tagline_black.png...
+  📤 Uploading tagline_white.png...
+  ✅ Batch 1: 2 docs (txn: usPbImjoC2LtIOcJn8LjAW)
+
+✨ Done — 2 media assets ingested.
+
+── [74/83] Salomé Le Chat/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Salomé Le Chat/_manifest.md
+   Title:    Salomé Le Chat — Root Assets
+   Client:   Salomé Le Chat
+   Services: 
+   Year:     2026
+   Assets:   2
+  📤 Uploading aint-nobody_logo_black.png...
+  📤 Uploading aint-nobody_logo_white.png...
+  ✅ Batch 1: 2 docs (txn: ghCA0iPFLNDLy0OmrzaCO3)
+
+✨ Done — 2 media assets ingested.
+
+── [75/83] Sam Wolfe/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Sam Wolfe/_manifest.md
+   Title:    Sam Wolfe — Root Assets
+   Client:   Sam Wolfe
+   Services: 
+   Year:     2026
+   Assets:   2
+  ⏭  Skipping non-image: sam-wolfe_june-2024_tour_4x5.mp4
+  📤 Uploading sam-wolfe_june-2024_tour_4x5.png...
+  ✅ Batch 1: 2 docs (txn: usPbImjoC2LtIOcJn8Lpaq)
+
+✨ Done — 2 media assets ingested.
+
+── [76/83] Short Circuit/Artwork/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Short Circuit/Artwork/_manifest.md
+   Title:    Short Circuit — Album Art Catalog
+   Client:   Short Circuit
+   Services: album art
+   Year:     2024
+   Assets:   31
+  📤 Uploading sc18_summer-cutz_va.jpg...
+  📤 Uploading sc19_jeff-sorkowitz_hey-lucy.jpg...
+  📤 Uploading sc20_giants_touch-it.jpg...
+  📤 Uploading sc21_ekoboy_the-dub.jpg...
+  📤 Uploading sc22_jeff-sorkowitz_gucci-prada.jpg...
+  📤 Uploading sc23_james-wyler_playin-games.jpg...
+  📤 Uploading sc24_havoc-lawn_amused.jpg...
+  📤 Uploading sc25_gio-lucca_kieran-san-jose_her.jpg...
+  📤 Uploading sc26_jeff-sorkowitz_nice-girl.jpg...
+  📤 Uploading sc27_zeth-b_rydm-inside.jpg...
+  📤 Uploading sc28_sc-summer-cutz.jpg...
+  📤 Uploading sc29_kevin-corral_blood-ep.jpg...
+  📤 Uploading sc30_julio-bravo_braydon-terzo_get-up.jpg...
+  📤 Uploading sc31_white-off_red-tape.jpg...
+  📤 Uploading sc32_jeff-sorkowitz_javi-miramontes_disco-baby.jpg...
+  📤 Uploading sc33_the-beatboys_the-jump-off-ep.jpg...
+  📤 Uploading sc34_jeff-sorkowitz_damelo_on-screen-off-screen.jpg...
+  📤 Uploading sc35_havoc-lawn_lezzdoe-ep.jpg...
+  📤 Uploading sc36_aitor-astiz_4motion-ep.jpg...
+  📤 Uploading sc37_carvalho_sxy-ep.jpg...
+  📤 Uploading sc38_carvalho_sxy_ky-william-remix.jpg...
+  📤 Uploading sc39_summer-cutz-vol-3.jpg...
+  📤 Uploading sc40_ruggier_gentle.jpg...
+  📤 Uploading sc41_jeff-sorkowitz_bunzzz.jpg...
+  📤 Uploading SC42-Max-Mash-Girls-And-Boys.jpg...
+  📤 Uploading sc43_havoc-lawn_from-l-to-r.jpg...
+  📤 Uploading sc44_balanka_i-like-stats.jpg...
+  📤 Uploading sc45_the-beatboys_blow-a-kiss.jpg...
+  📤 Uploading sc46_jeff-sorkowitz_how-does-it-feel.jpg...
+  📤 Uploading SC49 Mattia Scolaro - Mami.jpg...
+  📤 Uploading SC51-Summer-Cutz-Vol-4.jpg...
+  ✅ Batch 1: 31 docs (txn: fi3CU380OsQCYNp8igilVz)
+
+✨ Done — 31 media assets ingested.
+
+── [77/83] Short Circuit/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Short Circuit/_manifest.md
+   Title:    Short Circuit — Root Assets
+   Client:   Short Circuit
+   Services: 
+   Year:     2026
+   Assets:   17
+  ⏭  Skipping non-image: SCTV_1_ORIGINS.mp4
+  ⏭  Skipping non-image: SCTV_2_EVENTS.mp4
+  ⏭  Skipping non-image: Short Circuit Logo Loop RGB_1.mp4
+  ⏭  Skipping non-image: sc tour 4x5.mp4
+  ⏭  Skipping non-image: sc tour brookyln 4x5.mp4
+  ⏭  Skipping non-image: sc tour la 4x5.mp4
+  ⏭  Skipping non-image: sc tour miami 4x5.mp4
+  📤 Uploading sc-sound_art.png...
+  📤 Uploading sc18_summercutz_FB_banner.png...
+  📤 Uploading sc18_summercutz_SC_banner.png...
+  📤 Uploading sc49  PHOTO_4x5.png...
+  ⏭  Skipping non-image: sc49 4x5.mp4
+  📤 Uploading sc50 PHOTO_4x5.png...
+  ⏭  Skipping non-image: sc50_preview_4x5.mp4
+  📤 Uploading sc_sc-banner.jpg...
+  ⏭  Skipping non-image: short-circuit-sound.mp4
+  📤 Uploading shortcircuit_logo_full_gradient_white_transparent_bg.png...
+  ✅ Batch 1: 17 docs (txn: ghCA0iPFLNDLy0Omrzakea)
+
+✨ Done — 17 media assets ingested.
+
+── [78/83] Sidney Charles/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Sidney Charles/_manifest.md
+   Title:    Sidney Charles — Root Assets
+   Client:   Sidney Charles
+   Services: 
+   Year:     2026
+   Assets:   3
+  📤 Uploading Sidney Charles Ibiza Summer 2024 4x5.jpg...
+  📤 Uploading Sidney Charles Summer 2024 4x5.png...
+  📤 Uploading sidney-charles-logo-01.svg...
+  ✅ Batch 1: 3 docs (txn: ghCA0iPFLNDLy0OmrzamUN)
+
+✨ Done — 3 media assets ingested.
+
+── [79/83] Sosa/SOSA Framework LA 071826/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Sosa/SOSA Framework LA 071826/_manifest.md
+   Title:    Sosa — SOSA Framework LA 071826
+   Client:   Sosa
+   Services: event / tour creative
+   Year:     2026
+   Assets:   7
+  📤 Uploading 1x1.png...
+  ⏭  Skipping non-image: 3x4.mp4
+  📤 Uploading 3x4.png...
+  ⏭  Skipping non-image: 4x5.mp4
+  📤 Uploading 4x5.png...
+  ⏭  Skipping non-image: 9x16.mp4
+  📤 Uploading 9x16.png...
+  ✅ Batch 1: 7 docs (txn: ghCA0iPFLNDLy0OmrzaqCd)
+
+✨ Done — 7 media assets ingested.
+
+── [80/83] Sosa/Sosa Yuma Coachella 2026/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Sosa/Sosa Yuma Coachella 2026/_manifest.md
+   Title:    Sosa — Sosa Yuma Coachella 2026
+   Client:   Sosa
+   Services: event / tour creative
+   Year:     2026
+   Assets:   7
+  📤 Uploading sosa_yuma_1.jpg...
+  📤 Uploading sosa_yuma_3.jpg...
+  📤 Uploading sosa_yuma_5.jpg...
+  📤 Uploading sosa_yuma_7.jpg...
+  📤 Uploading sosa_yuma_8.jpg...
+  📤 Uploading sosa_yuma_9.jpg...
+  📤 Uploading sosa_yuma_10.jpg...
+  ✅ Batch 1: 7 docs (txn: ghCA0iPFLNDLy0Omrzaspx)
+
+✨ Done — 7 media assets ingested.
+
+── [81/83] Sunday Brunch/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/Sunday Brunch/_manifest.md
+   Title:    Sunday Brunch — Root Assets
+   Client:   Sunday Brunch
+   Services: 
+   Year:     2026
+   Assets:   15
+  📤 Uploading 3x4.jpg...
+  📤 Uploading 4x5.jpg...
+  📤 Uploading SB-logo_double-stack_color.png...
+  📤 Uploading SB-logo_double-stack_white.png...
+  📤 Uploading SB-logo_single-stack_color.png...
+  📤 Uploading SB-logo_single-stack_white.png...
+  📤 Uploading sb002_max-coletto.jpg...
+  📤 Uploading sb003_choice.jpg...
+  📤 Uploading sb_001_pedro-borlado.jpg...
+  📤 Uploading sunday-brunch_logo-concepts_1.png...
+  📤 Uploading sunday-brunch_post_4x5_1.jpg...
+  📤 Uploading tile-1.jpg...
+  📤 Uploading tile-2.jpg...
+  📤 Uploading tile-3.jpg...
+  📤 Uploading tile-4.jpg...
+  ✅ Batch 1: 15 docs (txn: ghCA0iPFLNDLy0Omrzb4Io)
+
+✨ Done — 15 media assets ingested.
+
+── [82/83] TOBEHONEST/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/TOBEHONEST/_manifest.md
+   Title:    TOBEHONEST — Root Assets
+   Client:   TOBEHONEST
+   Services: 
+   Year:     2026
+   Assets:   14
+  📤 Uploading TBH Logo White.png...
+  ⏭  Skipping non-image: TBH-logo-live_1.mp4
+  ⏭  Skipping non-image: TBH-logo-live_2.mp4
+  📤 Uploading TOBEHONEST - Tour 2026.png...
+  ⏭  Skipping non-image: TOBEHONEST x Welker - Too Bright Youtube.mov
+  📤 Uploading TOBEHONEST-x-Welker_Too-Bright_3000x3000.jpg...
+  📤 Uploading admat_3x4.png...
+  📤 Uploading evil-ways.jpg...
+  ⏭  Skipping non-image: evil-ways_animation.mp4
+  ⏭  Skipping non-image: menace_animation.mp4
+  ⏭  Skipping non-image: no-lames.mp4
+  📤 Uploading tbh-font_1.jpg...
+  📤 Uploading tbh-font_2.jpg...
+  📤 Uploading tobehonest_menace_3000x3000.jpg...
+  ✅ Batch 1: 14 docs (txn: ghCA0iPFLNDLy0Omrzb7CC)
+
+✨ Done — 14 media assets ingested.
+
+── [83/83] WIKKA/_manifest.md ──
+
+📋 Manifest: /Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/smallworldmedia_landing-page/media/WIKKA/_manifest.md
+   Title:    WIKKA — Root Assets
+   Client:   WIKKA
+   Services: 
+   Year:     2026
+   Assets:   3
+  ⏭  Skipping non-image: WIKKA Launch Promo.mp4
+  📤 Uploading WIKKA Tulum PPP 4x5.png...
+  📤 Uploading WIKKA Tulum PPP Lineup 4x5.png...
+  ✅ Batch 1: 3 docs (txn: ghCA0iPFLNDLy0Omrzb83k)
+
+✨ Done — 3 media assets ingested.
+
+══════════════════════════════════════════════════
+✅ Success: 83/83
+══════════════════════════════════════════════════
+

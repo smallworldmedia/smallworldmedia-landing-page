@@ -39,7 +39,7 @@ console.log(JSON.stringify({ clients, serviceTags: tags, mediaAssets: assets }))
 MANIFEST COUNT:
 
 ```
-!`find "/Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/Small World Media - Project Directory" -name "_manifest.md" -type f 2>/dev/null | wc -l | tr -d ' '`
+!`find media -name "_manifest.md" -type f 2>/dev/null | wc -l | tr -d ' '`
 ```
 
 ## Step 2: Read Existing Context
@@ -108,7 +108,7 @@ Phase [N]: [Name]
 
 - Sanity Project: `b60h4u7o` / dataset: `production`
 - Token: loaded from `.env.local` (`SANITY_WRITE_TOKEN`)
-- Project Directory: `/Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/Small World Media - Project Directory`
+- Project Directory: `media/` (relative to workspace root, gitignored)
 
 ## Decisions & Context
 

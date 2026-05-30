@@ -1,0 +1,131 @@
+
+🎬 Video Ingestion Pipeline
+══════════════════════════════════════════════════
+📊 Found 51 video assets needing Mux upload
+
+  📤 Uploading to Mux: Andhera Website - Homepage, Shop.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: z01M2Hn00lyXkfeITrZDIbmlPIixO4e2Cv3e9Rvgg8Xc4 | Playback: YbkNOR71Yf40000OYP5rXoQsuVUm6CgM8aGiwCNRybezQ
+  🔗 Wired mediaAsset-andhera-records-andhera-website-homepage-shop → muxAsset-z01M2Hn00lyXkfeITrZDIbmlPIixO4e2Cv3e9Rvgg8Xc4
+  ⏭  Skip: Andhera Website Walkthrough — file not found
+  📤 Uploading to Mux: Andhera Website - Developed.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: N3yRzBkZGzFJT47VWOeLIEXN5300P8CcPCTjDCpkfKN8 | Playback: a4gjflPwBfMALw2PgZIPrppOXExiYjkCrnmOcLNxWg00
+  🔗 Wired mediaAsset-andhera-records-developed-website-walkthrough → muxAsset-N3yRzBkZGzFJT47VWOeLIEXN5300P8CcPCTjDCpkfKN8
+  📤 Uploading to Mux: in-the-dark-preview_4x5.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: 6J02900TU95s7pu6uq3Nk9fKKCoTfIlmu00lQy00hZ5dV68 | Playback: 00qEXtQZWptB4ak9aNhQifInDeUyjca2vGzH8wR1WknE
+  🔗 Wired mediaAsset-andhera-records-in-the-dark-preview-4x5 → muxAsset-6J02900TU95s7pu6uq3Nk9fKKCoTfIlmu00lQy00hZ5dV68
+  ⏭  Skip: Brooklyn Knockdown Center Promo — file not found
+  ⏭  Skip: Saga Tulum — Bedouin Account — file not found
+  ⏭  Skip: Saga Tulum — Saga Account — file not found
+  ⏭  Skip: Saga Tulum — Trailer Final — file not found
+  ⏭  Skip: BG Abstract Cloud Drip — file not found
+  ⏭  Skip: BG Brick Ruins — file not found
+  ⏭  Skip: BG Cloud Timelapse — file not found
+  ⏭  Skip: BG Mirror Clouds — file not found
+  ⏭  Skip: BG Northern Lights — file not found
+  ⏭  Skip: BG Room With A View — file not found
+  ⏭  Skip: BG Sidewalk — file not found
+  ⏭  Skip: BG UK Countryside — file not found
+  ⏭  Skip: Cloud Cube — file not found
+  ⏭  Skip: Clouds — file not found
+  📤 Uploading to Mux: COCO DVD Bounce.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: 2pFdRy8unUsupJzZJ8U02RFS1BDzTyHCiZEczSFDgxuA | Playback: bBxNF41NZIkGBrXzGA1C8rFb7J88elLXsnWUzYMrGGI
+  🔗 Wired mediaAsset-coco-coco-dvd-bounce → muxAsset-2pFdRy8unUsupJzZJ8U02RFS1BDzTyHCiZEczSFDgxuA
+  ⏭  Skip: COCO Logo Cloud Cube — file not found
+  ⏭  Skip: COCO Logo Clouds — file not found
+  ⏭  Skip: COCO Logo Mirror Clouds — file not found
+  ⏭  Skip: coco visuals 1 — file not found
+  ⏭  Skip: coco visuals 2 — file not found
+  ⏭  Skip: coco visuals 3 — file not found
+  ⏭  Skip: coco visuals 4 — file not found
+  ⏭  Skip: Morph Cube — file not found
+  ⏭  Skip: The Cause — Announce Video 4x5 — file not found
+  ⏭  Skip: The Cause — Announce Video 9x16 — file not found
+  ⏭  Skip: The Cause London — Video 4x5 — file not found
+  ⏭  Skip: The Cause London — Video 9x16 — file not found
+  ⏭  Skip: Vinyl Earth Zoom — file not found
+  📤 Uploading to Mux: REDRUM.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: IDsJ005QA02cXH007cZp277LmDjqfH2f93K9DaPIBjfow00 | Playback: koOPM3GgzYM5ZwLcjRnwwoaT4CfNowZynXb00TxktxBg
+  🔗 Wired mediaAsset-gruuv-redrum → muxAsset-IDsJ005QA02cXH007cZp277LmDjqfH2f93K9DaPIBjfow00
+  📤 Uploading to Mux: Bass Rider Youtube.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: OfWiW4Khjd23m702EDzEfk6ukX4TXL00KqosOaixtVevk | Playback: GzoL7WvXTanNbR017UWuPdE01d02JRHMKlF5IuJRfEGVLs
+  🔗 Wired mediaAsset-heavy-house-society-bass-rider-youtube → muxAsset-OfWiW4Khjd23m702EDzEfk6ukX4TXL00KqosOaixtVevk
+  📤 Uploading to Mux: heavy-house-society_visuals_6mbps_1920x1080.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: fq028OhWUFZaSOAH24YTgz5sKOQOP5N6lP26WZqHOMaE | Playback: zNq4h02hTvZlXIcy1BSTkCDRaek8gcM402jqjIeXkrfEw
+  🔗 Wired mediaAsset-heavy-house-society-heavy-house-society-visuals-6mbps-1920x1080 → muxAsset-fq028OhWUFZaSOAH24YTgz5sKOQOP5N6lP26WZqHOMaE
+  📤 Uploading to Mux: Resolume-Export.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: TH58iCWmVMJ5fYitxDPrk3i1VYgglBcvK1mKOaQ27Ew | Playback: 9ulSEkUnbsOotmG1yAQ6aw4ImSfwyTCAw00GaGrpJUWY
+  🔗 Wired mediaAsset-heavy-house-society-resolume-composition-export → muxAsset-TH58iCWmVMJ5fYitxDPrk3i1VYgglBcvK1mKOaQ27Ew
+  📤 Uploading to Mux: Sidney Charles02023569.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: qqrRwNoOJ5U201VwDP20171xfL8JyiFJN00sv1ETrsuZGY | Playback: Audi02w35Vq2XjISWRct02GF00piUxrAQW8XpCsMfoaKhk
+  🔗 Wired mediaAsset-heavy-house-society-sidney-charles02023569 → muxAsset-qqrRwNoOJ5U201VwDP20171xfL8JyiFJN00sv1ETrsuZGY
+  📤 Uploading to Mux: Sidney Charles02036541.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: i7Pupi3kspcMEWVBHTc4FsXk502pdAWPd6LNHfKKLvn8 | Playback: V1xfKMT2nNbUE0101uEkDR82pddhvcBR1NnVfPRp5ELi8
+  🔗 Wired mediaAsset-heavy-house-society-sidney-charles02036541 → muxAsset-i7Pupi3kspcMEWVBHTc4FsXk502pdAWPd6LNHfKKLvn8
+  📤 Uploading to Mux: Use Ya Head Youtube.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: T4dswaG01pZyBrTB78rXlh02DWnJDa01016o01m6jCEPfTWA | Playback: 00TImV5lql3u01tuLCyJiaJUzT75vfIPgs02WymUW2zrrE
+  🔗 Wired mediaAsset-heavy-house-society-use-ya-head-youtube → muxAsset-T4dswaG01pZyBrTB78rXlh02DWnJDa01016o01m6jCEPfTWA
+  📤 Uploading to Mux: homegrwn_OFFBCN_promo_v1.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: af5yxzJ0058SS7z3k00YDT1XIMAoB00RMleo0202N9xg5jTs | Playback: uwRmXqpQHPhbqdJtq7BOEMeyvwJC2itzxzCwzJd2ND00
+  🔗 Wired mediaAsset-homegrwxn-homegrwxn-off-bcn-promo → muxAsset-af5yxzJ0058SS7z3k00YDT1XIMAoB00RMleo0202N9xg5jTs
+  📤 Uploading to Mux: DLMT_Kamino_Body-Music_YouTube.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: 5ynBPw7C6p28f01u01TBWuBdlFQlmcIeJVF766T02alk6s | Playback: jewrKhXzaIzc9Mj9YfBDuTASjf7w5t015Wx1xM5VW2hw
+  🔗 Wired mediaAsset-kamino-dlmt-kamino-body-music-youtube → muxAsset-5ynBPw7C6p28f01u01TBWuBdlFQlmcIeJVF766T02alk6s
+  📤 Uploading to Mux: Le Yora 3D Liquid Logo.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: p00yh02M500RpEl1OTsrJlEHr3l7gaByEHPT4hEMC4L00JY | Playback: m2HXfqazd7TXL7gaHxLPQOO4mMf5MAM4DDzpB96R25c
+  🔗 Wired mediaAsset-le-yora-le-yora-3d-liquid-logo → muxAsset-p00yh02M500RpEl1OTsrJlEHr3l7gaByEHPT4hEMC4L00JY
+  📤 Uploading to Mux: Mungo Sound Machine Intro 1.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: YWFNvQZMYm18Y7wI7nxOwzZoiujBWMURDexraaOz6vM | Playback: lBV3krYt02ng6g67sLRCeyRutZh94bEsrMxZ02MHaG9oQ
+  🔗 Wired mediaAsset-mungo-sound-machine-mungo-sound-machine-intro-1 → muxAsset-YWFNvQZMYm18Y7wI7nxOwzZoiujBWMURDexraaOz6vM
+  📤 Uploading to Mux: 8-bit_visualizer.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: bjv700jmFonol001CbSzSNjSzlqfumdtYdfBA02xjw3xo8 | Playback: iYkHH8HX1BcDYtivjJG0101aghktqtiOloaHVwISUYLuE
+  🔗 Wired mediaAsset-nusonido-8-bit-visualizer → muxAsset-bjv700jmFonol001CbSzSNjSzlqfumdtYdfBA02xjw3xo8
+  📤 Uploading to Mux: nusonido_visualizer_16x9.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: hDSYE5SAykuSebnmdrF4bddTAWjXtp02JfZ01Tn7aLsCo | Playback: 02V01cPuDECgXLu6QPpSOjF6ybd1BnK201QS975oLAyUkM
+  🔗 Wired mediaAsset-nusonido-nusonido-visualizer-16x9 → muxAsset-hDSYE5SAykuSebnmdrF4bddTAWjXtp02JfZ01Tn7aLsCo
+  📤 Uploading to Mux: pixel-diffuse.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: SGukSNzMTE002154V02OTe4oXDQryopp5uaLzr8DGIkrc | Playback: qRA02wweZarjx00o021El2TAWULZhubhpQ00M2rueRiwO004
+  🔗 Wired mediaAsset-nusonido-pixel-diffuse → muxAsset-SGukSNzMTE002154V02OTe4oXDQryopp5uaLzr8DGIkrc
+  📤 Uploading to Mux: pixel-loop_metallic.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: bNaCZorEKaEtR02vxVqMFo02Q4eZybajPt353tQtSiOu4 | Playback: Wga4WsRSiWuROAfrGXIvA2WCL3jGkpwfVrzWtKUJRxI
+  🔗 Wired mediaAsset-nusonido-pixel-loop-metallic → muxAsset-bNaCZorEKaEtR02vxVqMFo02Q4eZybajPt353tQtSiOu4
+  📤 Uploading to Mux: SCTV_1_ORIGINS.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: 012Hq95gzI01H4aGXWsygflTEbUTnwkD8FqgFpQxju7fE | Playback: ln1T4wQqAuTDZd9G51IGPKcc02X1Rd01g8S7mrs7Qj7Vc
+  🔗 Wired mediaAsset-short-circuit-sctv-1-origins → muxAsset-012Hq95gzI01H4aGXWsygflTEbUTnwkD8FqgFpQxju7fE
+  📤 Uploading to Mux: SCTV_2_EVENTS.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: LNPJCVDGy55KbCg02at01neeFJkrF018kZxjMHGCCN61QA | Playback: fxYq4nHdChF9tc501EPrDZuiJqwjQNscIgDQYuaJoAA8
+  🔗 Wired mediaAsset-short-circuit-sctv-2-events → muxAsset-LNPJCVDGy55KbCg02at01neeFJkrF018kZxjMHGCCN61QA
+  📤 Uploading to Mux: menace_animation.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: FYd43BqK56Mct01zfmkkJfFuuvc4hR00fBENEsbhLxfRo | Playback: 2HWxkFMSZ2z3mFwZrtxhk019YA3ykWmX85olUsjRPKaM
+  🔗 Wired mediaAsset-tobehonest-menace-animation → muxAsset-FYd43BqK56Mct01zfmkkJfFuuvc4hR00fBENEsbhLxfRo
+  📤 Uploading to Mux: TOBEHONEST x Welker - Too Bright Youtube.mp4
+  ⏳ Waiting for Mux to process...
+  ✅ Mux Asset: QRkIUcNXudQ57gFdv2PFYwtsEcS02wvgSYr2Z7KR9My8 | Playback: 02TduvukC6jnEQ5aa01FSNvwg6uMO300fKKnWSLT01T4fhI
+  🔗 Wired mediaAsset-tobehonest-tobehonest-x-welker-too-bright-youtube → muxAsset-QRkIUcNXudQ57gFdv2PFYwtsEcS02wvgSYr2Z7KR9My8
+
+══════════════════════════════════════════════════
+✅ Uploaded: 23
+⏭  Skipped: 28
+══════════════════════════════════════════════════
+

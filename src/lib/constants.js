@@ -9,20 +9,21 @@
  * To add/remove a service, edit this array only.
  */
 export const SERVICE_TAGS = [
-  'branding',
-  'visuals',
-  'album art',
-  'event/tour creative',
-  'illustration',
-  'character design',
-  '2D animation',
-  '3D animation',
-  'logo design',
-  'web design',
-  'audio reactive media',
-  'promo video',
+  'Branding',
+  'Merch Design',
+  'Live Visuals',
+  'Album Art',
+  'Event / Tour Creative',
+  'Illustration',
+  'Character Design',
+  '2D Animation',
+  '3D Animation',
+  'Logo Design',
+  'Web Design',
+  'Audio Reactive Media',
+  'Promo Video',
   'VFX',
-  'generative media',
+  'Generative Media',
 ];
 
 /**

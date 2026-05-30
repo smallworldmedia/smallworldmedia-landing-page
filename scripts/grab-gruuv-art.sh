@@ -2,7 +2,7 @@
 # Download Gruuv album artworks from Bandcamp
 # Saves to the Gruuv folder in the Project Directory
 
-DEST="/Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/Small World Media - Project Directory/Gruuv/Artwork"
+DEST="$(cd "$(dirname "$0")/.." && pwd)/media/Gruuv/Artwork"
 mkdir -p "$DEST"
 
 # Album slugs and filenames

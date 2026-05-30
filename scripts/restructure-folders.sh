@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-BASE="/Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/Small World Media - Project Directory"
+BASE="$(cd "$(dirname "$0")/.." && pwd)/media"
 DRY_RUN=false
 
 if [[ "${1:-}" == "--dry-run" ]]; then

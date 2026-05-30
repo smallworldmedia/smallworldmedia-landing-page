@@ -72,9 +72,20 @@ year: 2024
 | `file`        | ✅       | Filename (same directory) or relative path (`../subfolder/file.jpg`) |
 | `mediaType`   | ✅       | Asset format/shape — drives the renderer (video player vs lightbox) |
 | `serviceType` | Mode 2 ✅ / Mode 1 ❌ | Per-asset service classification — drives portfolio filtering |
+| `contentRole` | ❌       | `process` or `supporting` — leave empty for showcase (default). See below. |
 | `title`       | ✅       | Display name in the CMS and frontend |
 | `isHero`      | ❌       | `true` = project thumbnail (default: `false`) |
 | `sortOrder`   | ❌       | Display order (lower = first) |
+
+### Content Roles
+
+Most assets are **showcase** content (polished deliverables) — this is the default when `contentRole` is not set. Only tag the exceptions:
+
+| Value | When to use | Frontend behavior |
+|-------|-------------|-------------------|
+| *(empty)* | Polished deliverables — the default | Appears in portfolio grid + project page |
+| `process` | BTS, screen recordings, WIPs | Project page only (e.g., "Behind the Scenes" section) |
+| `supporting` | Contextual assets — event photos, reference shots | Project page only, not in main portfolio grid |
 
 ### Valid `mediaType` values
 
@@ -92,8 +103,10 @@ These must match existing `serviceTag` documents in Sanity:
 |-------|-------------|
 | `album art` | Cover artwork for music releases |
 | `branding` | Identity systems, brand guidelines |
+| `merch design` | Merchandise, apparel, product mockups |
 | `logo design` | Standalone logo/mark work |
 | `web design` | Website design and development |
+| `live visuals` | Real-time visual content for live performances |
 | `2d animation` | Motion graphics, animated flyers |
 | `3d animation` | 3D renders, visualizers |
 | `promo video` | Promotional video content |

@@ -213,6 +213,20 @@ export const mediaAsset = defineType({
         'The representative thumbnail for its parent project.',
     }),
     defineField({
+      name: 'contentRole',
+      title: 'Content Role',
+      type: 'string',
+      description:
+        'Leave empty for showcase content (default). Set to "process" for BTS/screen recordings, or "supporting" for contextual assets like event photos. Non-showcase content is excluded from the main portfolio grid.',
+      options: {
+        list: [
+          { title: 'Process (BTS / behind-the-scenes)', value: 'process' },
+          { title: 'Supporting (contextual / event photos)', value: 'supporting' },
+        ],
+        layout: 'radio',
+      },
+    }),
+    defineField({
       name: 'sourceFolder',
       type: 'string',
       readOnly: true,
