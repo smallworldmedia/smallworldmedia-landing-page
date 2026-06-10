@@ -1,0 +1,23 @@
+---
+/**
+ * /work/featured — Featured Projects page.
+ *
+ * Fetches hero-flagged assets at build time,
+ * then hydrates the FeaturedProjects React island.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/global.css';
+import '../../styles/work.css';
+import { sanityFetch } from '../../lib/sanityClient.js';
+import { FEATURED_PROJECTS_QUERY } from '../../lib/queries.js';
+import FeaturedProjects from '../../components/work/FeaturedProjects.jsx';
+
+const projects = await sanityFetch(FEATURED_PROJECTS_QUERY);
+---
+
+<BaseLayout
+  title="Featured Projects — Small World Media™"
+  description="Curated showcase of Small World Media's featured projects — sizzle reels, case studies, and creative direction highlights."
+>
+  <FeaturedProjects client:load projects={projects} />
+</BaseLayout>

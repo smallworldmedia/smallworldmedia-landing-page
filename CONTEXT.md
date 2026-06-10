@@ -83,3 +83,30 @@ Only web-ready media is ingested. The generator script and ingestion pipeline sk
 ## Folder Flattening
 
 The one-time process of collapsing organizational subfolders (that are not Artwork Catalogs or Featured Projects) into the client root. Completed in Phase 9. After flattening, the only subfolders that remain are intentional Curated Collections.
+
+---
+
+## Frontend Component Vocabulary
+
+Canonical names for UI components. All implementation work **must** use these terms. When building or iterating on a component, verify it against this table before naming files or variables.
+
+| Component | Role | Data Source |
+|---|---|---|
+| **ProjectDirectory** | Top-level orchestrator for the `/work` route. Manages filter state, progressive loading, and lightbox. | All `mediaAsset` documents (excluding `album-art`) |
+| **MediaGrid** | Responsive, aspect-ratio-aware CSS grid container. Uses `grid-auto-flow: dense` for packing. | Filtered asset array from ProjectDirectory |
+| **MediaCard** | Individual grid cell. Handles image display and auto-playing Mux video previews. Duotone hover overlay with dynamic metadata. | Single `mediaAsset` document |
+| **AlbumArtTicker** | Horizontal auto-scrolling ticker for album art collections. Populates inline within the MediaGrid. | `album-art` mediaType assets, grouped by client |
+| **FilterBar** | Horizontal scrollable strip of service tag pills. Sticky below header while scrolling. | `serviceTag` documents |
+| **Lightbox** | Full-screen overlay for detailed asset viewing. Video mode with sound; image mode with full resolution. | Single `mediaAsset` (triggered from MediaCard) |
+| **FeaturedProjects** | Dedicated page for showcasing Featured Project collections. Pulls metadata from Featured Project curated collections. | Featured Project subfolders (`isHero: true`, sizzle reels) |
+
+> **Procedure**: Before creating any new component, check this table. If the component doesn't have a canonical name, propose one here first, get it approved, then implement.
+
+## Route Map
+
+| Route | Page | Component |
+|---|---|---|
+| `/` | Landing page | `LandingPage` |
+| `/work` | Project Directory (full media grid) | `ProjectDirectory` |
+| `/work/featured` | Featured Projects (curated showcase) | `FeaturedProjects` |
+| `/work/[slug]` | Single Project Page (editorial layout) | *TBD — future implementation* |

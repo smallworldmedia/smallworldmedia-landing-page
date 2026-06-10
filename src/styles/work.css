@@ -1,0 +1,531 @@
+/* ============================================
+   WORK — Project Directory & Featured Projects
+   Scoped to /work and /work/featured routes.
+   ============================================ */
+
+/* --- Override global scroll lock for work pages --- */
+html:has(.work-page),
+html:has(.work-page) body {
+  overflow: auto;
+  height: auto;
+  background: var(--color-black);
+}
+
+/* --- Page Shell --- */
+.work-page {
+  width: 100%;
+  min-height: 100dvh;
+  background: var(--color-black);
+  color: var(--color-cream);
+}
+
+.work-page__inner {
+  width: 100%;
+  padding: 0 0 6rem;
+}
+
+/* --- Fixed Chrome (header + filters) --- */
+.work-chrome {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--color-black);
+}
+
+/* --- Page Header --- */
+.work-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 2rem var(--space-6);
+}
+
+.work-header__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 3.2rem;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--color-cream);
+}
+
+.work-header__featured-link {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-cream);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--duration-micro) var(--ease-micro);
+}
+
+.work-header__featured-link:hover {
+  border-bottom-color: var(--color-cream);
+}
+
+/* --- FilterBar --- */
+.filter-bar__wrapper {
+  /* No padding — inner stretches full viewport width for edge-to-edge arrows */
+}
+
+.filter-bar__inner {
+  position: relative;
+  overflow: hidden; /* clip arrow slide-out */
+}
+
+.filter-bar {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  padding-left: var(--space-6);  /* align first pill with work header */
+  padding-right: 3.5rem; /* reserve space for right arrow */
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-bar__pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--color-cream);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-cream);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--duration-micro) var(--ease-micro),
+    color var(--duration-micro) var(--ease-micro),
+    border-color var(--duration-micro) var(--ease-micro);
+}
+
+.filter-bar__pill:hover {
+  background: var(--color-cream);
+  color: var(--color-black);
+}
+
+/* --- "All" pill: brand blue by default --- */
+.filter-bar__pill--all {
+  background: transparent;
+  color: var(--color-electric-blue);
+  border-color: var(--color-electric-blue);
+}
+
+.filter-bar__pill--all:hover {
+  background: var(--color-electric-blue);
+  color: var(--color-black);
+}
+
+/* "All" active (no tags selected): filled blue, black text */
+.filter-bar__pill--all-active {
+  background: var(--color-electric-blue);
+  color: var(--color-black);
+  border-color: var(--color-electric-blue);
+}
+
+.filter-bar__pill--all-active:hover {
+  background: var(--color-electric-blue);
+  color: var(--color-black);
+}
+
+/* --- Active service tag pills --- */
+.filter-bar__pill--active {
+  background: var(--color-cream);
+  color: var(--color-black);
+}
+
+.filter-bar__pill--active:hover .filter-bar__x {
+  color: var(--color-dark-gray);
+}
+
+/* --- × icon (left of text) --- */
+.filter-bar__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.35em;
+  font-size: 1.1em;
+  line-height: 1;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+/* --- Scroll arrows (absolutely positioned, brand blue) --- */
+.filter-bar__arrow-container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-electric-blue);
+  z-index: 2;
+}
+
+.filter-bar__arrow-container--right {
+  right: 0;
+}
+
+.filter-bar__arrow-container--left {
+  left: 0;
+}
+
+.filter-bar__arrow {
+  display: block;
+  font-size: 1.2rem;
+  color: var(--color-black);
+  will-change: transform;
+}
+
+/* --- MediaGrid --- */
+.media-grid {
+  columns: 4;
+  column-gap: var(--space-1);
+  padding-top: var(--space-3);
+  line-height: 0; /* kill inline-block whitespace */
+}
+
+.media-grid > * {
+  break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: var(--space-1);
+  vertical-align: top;
+  line-height: normal; /* restore for card content */
+}
+
+/* Wide/tall modifiers no longer needed — columns handle packing */
+.media-grid__cell--wide,
+.media-grid__cell--tall {
+  /* intentionally empty — kept for selector compatibility */
+}
+
+/* --- MediaCard --- */
+.media-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+  cursor: pointer;
+  background: var(--color-dark-gray);
+
+  /* Entrance animation — fade up on appear */
+  animation: card-enter 0.4s var(--ease-panel) both;
+}
+
+.media-card__media {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.media-card__media--loaded {
+  opacity: 1;
+}
+
+/* Duotone hover overlay — fade-in via opacity.
+   Black → black, brand blue → light tones (mix-blend-mode: multiply). */
+.media-card__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-5);
+  background: var(--color-electric-blue);
+  mix-blend-mode: multiply;
+  opacity: 0;
+  transition: opacity var(--duration-panel) var(--ease-panel);
+}
+
+.media-card:hover .media-card__overlay {
+  opacity: 1;
+}
+
+.media-card__client {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: var(--text-secondary);
+  line-height: var(--lh-secondary);
+  color: var(--color-cream);
+}
+
+.media-card__title {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  color: var(--color-cream);
+  margin-top: var(--space-1);
+}
+
+.media-card__services {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.media-card__service-pill {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-cream);
+  border-radius: var(--radius-pill);
+  color: var(--color-cream);
+}
+
+/* --- AlbumArtCard (per-client crossfade cards) --- */
+.album-card {
+  position: relative;
+  border-radius: 0;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  background: var(--color-charcoal);
+}
+
+.album-card__stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.album-card__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.album-card__img--active {
+  opacity: 1;
+}
+
+
+
+/* --- Lightbox --- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-black);
+}
+
+.lightbox__close {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-cream);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-micro) var(--ease-micro);
+  z-index: 201;
+}
+
+.lightbox__close:hover {
+  background: var(--color-cream);
+  color: var(--color-black);
+}
+
+.lightbox__media {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+}
+
+.lightbox__video {
+  width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+}
+
+.lightbox__meta {
+  position: absolute;
+  bottom: var(--space-6);
+  left: var(--space-6);
+}
+
+.lightbox__client {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: var(--text-headline);
+  line-height: var(--lh-headline);
+  color: var(--color-cream);
+}
+
+.lightbox__title {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-cream);
+  margin-top: var(--space-2);
+}
+
+/* --- FeaturedProjects --- */
+.featured-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  padding-top: var(--space-6);
+}
+
+.featured-card {
+  position: relative;
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
+  aspect-ratio: 16 / 9;
+  background: var(--color-dark-gray);
+}
+
+.featured-card__media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.featured-card__info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2rem var(--space-6);
+  background: linear-gradient(transparent, var(--color-black));
+}
+
+.featured-card__client {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.4rem;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--color-cream);
+}
+
+.featured-card__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-cream);
+  margin-top: var(--space-2);
+}
+
+/* --- Empty State --- */
+.work-empty {
+  text-align: center;
+  padding: 6rem 0;
+}
+
+.work-empty__heading {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  font-size: var(--text-headline);
+  color: var(--color-cream);
+}
+
+.work-empty__body {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-cream);
+  margin-top: var(--space-4);
+}
+
+/* --- Infinite Scroll Sentinel --- */
+.work-sentinel {
+  height: 1px;
+  width: 100%;
+}
+
+/* --- End-of-Grid Footer --- */
+.work-end {
+  text-align: center;
+  padding: 6rem 0 4rem;
+  animation: card-enter 0.6s var(--ease-panel) both;
+}
+
+.work-end__mark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-electric-blue);
+}
+
+.work-end__text {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-cream);
+  opacity: 0.5;
+  margin-top: var(--space-3);
+}
+
+/* --- Card Entrance Animation --- */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Responsive --- */
+@media (max-width: 1024px) {
+  .media-grid {
+    columns: 3;
+  }
+
+  .work-header__title {
+    font-size: 2.4rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .media-grid {
+    columns: 2;
+  }
+
+  .work-header {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .work-header__title {
+    font-size: 2rem;
+  }
+
+
+
+  .featured-card__client {
+    font-size: 1.6rem;
+  }
+}
