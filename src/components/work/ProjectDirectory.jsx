@@ -126,7 +126,7 @@ export default function ProjectDirectory({ assets, albumArt, serviceTags }) {
       {/* Fixed chrome: header + filter bar */}
       <div ref={fixedRef} className="work-chrome">
         <header className="work-header">
-          <h1 className="work-header__title">Work</h1>
+          <h1 className="work-header__title">project_directory</h1>
           <a href="/work/featured" className="work-header__featured-link">
             Featured Projects ↗
           </a>
