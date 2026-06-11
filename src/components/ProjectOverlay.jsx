@@ -319,17 +319,6 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                 />
             )}
 
-            {/* Close button — hidden after success */}
-            {status !== 'success' && (
-                <button
-                    className="project-overlay__close"
-                    onClick={onClose}
-                    aria-label="Close"
-                    type="button"
-                >
-                    ×
-                </button>
-            )}
 
             {status === 'success' ? (
                 <div className="project-overlay__confirmation">
@@ -353,6 +342,20 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                     >
                         ↳start a project
                     </div>
+
+                    {/* Close pill — top right of form, matches info pill style */}
+                    <button
+                        className="project-overlay__close"
+                        onClick={onClose}
+                        aria-label="Close"
+                        type="button"
+                    >
+                        <svg className="project-overlay__close-icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                            <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                        close
+                    </button>
 
                     {/* Hidden fields required by Netlify */}
                     <input type="hidden" name="form-name" value="contact" />
@@ -418,7 +421,7 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                                         <button
                                             key={tag}
                                             type="button"
-                                            className={`project-overlay__tag${
+                                            className={`stag project-overlay__tag${
                                                 selectedTags.includes(tag) ? ' project-overlay__tag--active' : ''
                                             }`}
                                             onClick={() => toggleTag(tag)}

@@ -1,13 +1,13 @@
 import { useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
-import InfoPill from './InfoPill';
+import SiteNav from './SiteNav';
 import { CLIENTS } from '../lib/constants';
 
 /**
- * InfoPanel — slide-down overlay.
+ * InfoPanel — slide-down overlay with SiteNav at its bottom edge.
  *
- * Layout (matches Framer screenshot):
+ * Architecture:
  * ┌──────────────────┬─────────────────────────────┐
  * │  ┌────────────┐  │  clients                    │
  * │  │ Placeholder │  │  Col 1      Col 2    Col 3  │
@@ -15,13 +15,20 @@ import { CLIENTS } from '../lib/constants';
  * │  └────────────┘  │                              │
  * │  Description...   │                              │
  * ├──────────────────┴─────────────────────────────┤
- * │  Nav bar (blue, 40px)  [ info pill ]            │
+ * │  SiteNav (blue bar) [globe] [info/close pill]  │
  * └─────────────────────────────────────────────────┘
+ *
+ * Closed: wrapper y = -(panelHeight) — only SiteNav visible at top
+ * Open: wrapper y = 0 — content revealed, SiteNav at bottom of drawer
  *
  * GSAP: On first open, description clip-reveals in,
  * then client items stagger in with slight y-offset.
  */
-export default function InfoPanel({ isOpen, onToggle }) {
+export default function InfoPanel({
+    isOpen,
+    onToggle,
+    onStartProject,
+}) {
     const panelRef = useRef(null);
     const hasAnimatedRef = useRef(false);
 
@@ -201,10 +208,12 @@ export default function InfoPanel({ isOpen, onToggle }) {
                 </div>
             </div>
 
-            {/* Nav bar — anchored at bottom of container, always visible */}
-            <div className="info-nav">
-                <InfoPill isOpen={isOpen} onToggle={onToggle} />
-            </div>
+            {/* SiteNav — anchored at bottom of wrapper, always visible */}
+            <SiteNav
+                isInfoOpen={isOpen}
+                onInfoToggle={onToggle}
+                onStartProject={onStartProject}
+            />
         </div>
     );
 }

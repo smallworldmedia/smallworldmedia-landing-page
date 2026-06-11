@@ -164,7 +164,7 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
         {visibleServices.length > 0 && (
           <div className="media-card__services">
             {visibleServices.map((s) => (
-              <span key={s.slug} className="media-card__service-pill">
+              <span key={s.slug} className="stag media-card__service-pill">
                 {s.name}
               </span>
             ))}

@@ -5,9 +5,15 @@
    ============================================ */
 
 /* --- Override global scroll lock for detail pages --- */
-html:has(.project-detail),
-html:has(.project-detail) body {
+html:has(.project-detail) {
   overflow: auto;
+  height: auto;
+  overscroll-behavior: none;
+  background: var(--color-black);
+}
+
+html:has(.project-detail) body {
+  overflow: visible;
   height: auto;
   background: var(--color-black);
 }
@@ -30,118 +36,27 @@ html:has(.project-detail) body {
 }
 
 /* ============================================
-   SITE NAV — fixed black bar
-   ============================================ */
-.site-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 2.929rem; /* 41px */
-  padding: 0.214rem 1.143rem; /* 3px 16px */
-  background: var(--color-black);
-}
-
-.site-nav__brand {
-  display: flex;
-  align-items: center;
-  gap: 0.714rem;
-}
-
-.site-nav__logo {
-  display: flex;
-  align-items: center;
-}
-
-.site-nav__logo img {
-  width: 2.714rem; /* 38px */
-  height: 2.714rem;
-  object-fit: cover;
-}
-
-.site-nav__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.571rem;
-  padding: 0.214rem 0.929rem; /* 3px 13px */
-  border: 1px solid var(--color-white);
-  border-radius: 1.714rem; /* 24px */
-  background: var(--color-electric-blue);
-  color: var(--color-white);
-  font-family: var(--font-body);
-  font-size: 1.286rem; /* 18px */
-  line-height: 1.571rem; /* 22px */
-  letter-spacing: -0.005em;
-  transition: background var(--duration-micro) var(--ease-micro);
-}
-
-.site-nav__pill:hover {
-  background: var(--color-black);
-}
-
-.site-nav__pill-icon {
-  width: 0.714rem; /* 10px */
-  height: 0.857rem;
-}
-
-.site-nav__links {
-  display: flex;
-  align-items: center;
-  gap: 1.714rem; /* 24px */
-}
-
-.site-nav__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.143rem; /* 2px */
-  font-family: var(--font-body);
-  font-size: 1.143rem; /* 16px */
-  line-height: 1.571rem; /* 22px */
-  letter-spacing: -0.005em;
-  color: var(--color-white);
-  white-space: nowrap;
-}
-
-.site-nav__link:hover {
-  text-decoration: underline;
-}
-
-.site-nav__glyph {
-  display: inline-block;
-}
-
-.site-nav__icon {
-  width: 1.429rem; /* 20px */
-  height: 1.429rem;
-}
-
-.site-nav__icon--sm {
-  width: 1.143rem; /* 16px */
-  height: 1.143rem;
-}
-
-/* ============================================
    CLIENT PANEL — blue info band
    ============================================ */
 .client-panel {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem; /* 21px */
+  justify-content: left;
+  gap: 1.5rem;
+  /* 21px */
   width: 100%;
-  padding: 3.5rem 0.571rem 1rem; /* 49px (clears fixed nav) 8px 14px */
+  padding: 3.5rem 0.571rem 1rem;
+  /* 49px (clears fixed nav) 8px 14px */
   background: var(--color-electric-blue);
 }
 
 .client-panel__title {
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(2.4rem, 5.33vw, 6.857rem); /* 96px @ 1800w */
-  line-height: 0.78; /* 74/96 */
+  font-weight: var(--weight-semi);
+  font-size: clamp(2.4rem, 5.33vw, 6.857rem);
+  /* 96px @ 1800w */
+  line-height: 0.78;
+  /* 74/96 */
   letter-spacing: -0.005em;
   text-transform: uppercase;
   color: var(--color-white);
@@ -159,17 +74,21 @@ html:has(.project-detail) body {
 .client-panel__chips {
   display: flex;
   flex-direction: column;
-  gap: 0.143rem; /* 2px */
+  gap: 0.143rem;
+  /* 2px */
 }
 
 .client-chip {
   display: flex;
   align-items: center;
-  gap: 0.857rem; /* 12px */
-  padding: 0.143rem 0.571rem; /* 2px 8px */
+  gap: 0.857rem;
+  /* 12px */
+  padding: 0.143rem 0.571rem;
+  /* 2px 8px */
   background: var(--color-near-black);
   font-family: var(--font-mono);
-  font-size: 1rem; /* 14px */
+  font-size: 1rem;
+  /* 14px */
   line-height: 1.571rem;
   letter-spacing: -0.024em;
   color: var(--color-white);
@@ -179,19 +98,23 @@ html:has(.project-detail) body {
 .client-chip__glyph {
   display: inline-flex;
   justify-content: center;
-  width: 0.571rem; /* 8px */
+  width: 0.571rem;
+  /* 8px */
 }
 
 .client-panel__socials {
   display: flex;
   align-items: center;
-  gap: 0.857rem; /* 12px */
-  padding: 0.571rem 0; /* 8px */
+  gap: 0.857rem;
+  /* 12px */
+  padding: 0.571rem 0;
+  /* 8px */
 }
 
 .client-panel__social img {
   display: block;
-  height: 1.286rem; /* 18px */
+  height: 1.286rem;
+  /* 18px */
   width: auto;
 }
 
@@ -237,22 +160,66 @@ html:has(.project-detail) body {
 }
 
 /* ============================================
+   HERO BAND — side-by-side layout for portrait heroes
+   When the hero asset is portrait-oriented (ratio < 1.2),
+   the video and editorial blurb sit side-by-side, filling
+   the full viewport height. Narrow ratios (9:16) are
+   cropped up to 3:4 via object-fit:cover; wider portraits
+   (4:5, 1:1) display near-native.
+   --hero-ratio is injected as an inline CSS custom prop.
+   ============================================ */
+.hero-band {
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  background: var(--color-near-black);
+  overflow: hidden;
+}
+
+/* Video slot: at least 3:4 wide, never skinnier than that */
+.hero-band > .media-slot {
+  flex-shrink: 0;
+  width: auto;
+  height: 100%;
+  aspect-ratio: max(var(--hero-ratio), 0.75);
+  background: var(--color-black);
+}
+
+/* Blurb sidebar: fills remaining width, vertically centered */
+.hero-band > .project-blurb {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+  padding: 2rem 2.5rem 2rem 2rem;
+}
+
+/* Details stack vertically in the narrow sidebar context */
+.hero-band > .project-blurb .project-blurb__details {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+/* ============================================
    PROJECT BLURB — overview + details band
    ============================================ */
 .project-blurb {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.571rem; /* 8px */
+  gap: 0.571rem;
+  /* 8px */
   width: 100%;
-  padding: 0.857rem 0.571rem 2.571rem; /* 12px 8px 36px */
+  padding: 0.857rem 0.571rem 2.571rem;
+  /* 12px 8px 36px */
   background: var(--color-near-black);
 }
 
 .project-blurb__text {
   font-family: var(--font-body);
   font-weight: 400;
-  font-size: clamp(1.5rem, 2.78vw, 3.571rem); /* 50px @ 1800w */
+  font-size: clamp(1.5rem, 2.78vw, 3.571rem);
+  /* 50px @ 1800w */
   line-height: 1;
   letter-spacing: -0.005em;
   color: var(--color-white);
@@ -261,7 +228,8 @@ html:has(.project-detail) body {
 .project-blurb__details {
   display: flex;
   align-items: flex-end;
-  gap: 1.714rem; /* 24px */
+  gap: 1.714rem;
+  /* 24px */
 }
 
 .detail-field {
@@ -272,7 +240,8 @@ html:has(.project-detail) body {
 
 .detail-field__label {
   font-family: var(--font-mono);
-  font-size: 1rem; /* 14px */
+  font-size: 1rem;
+  /* 14px */
   line-height: 1;
   letter-spacing: -0.024em;
   color: var(--color-white);
@@ -280,8 +249,10 @@ html:has(.project-detail) body {
 
 .detail-field__value {
   font-family: var(--font-body);
-  font-size: 1.714rem; /* 24px */
-  line-height: 1.571rem; /* 22px */
+  font-size: 1.714rem;
+  /* 24px */
+  line-height: 1.571rem;
+  /* 22px */
   letter-spacing: -0.005em;
   color: var(--color-white);
 }
@@ -290,53 +261,59 @@ html:has(.project-detail) body {
   display: flex;
   align-items: flex-end;
   flex-wrap: wrap;
-  gap: 0.571rem; /* 8px */
+  gap: 0.571rem;
+  /* 8px */
 }
 
 /* ============================================
-   SERVICE TAG — canonical pill (shared)
+   SERVICE TAG — blue-fill display variant
+   Extends .stag base (global.css)
    ============================================ */
 .service-tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.143rem 0.857rem; /* 2px 12px */
-  border-radius: 1.214rem; /* 17px */
+  /* Overrides: blue fill, black text, detail-page sizing */
   background: var(--color-electric-blue);
-  font-family: var(--font-mono);
-  font-size: 1rem; /* 14px */
-  line-height: 1;
-  letter-spacing: -0.024em;
-  text-transform: lowercase;
   color: var(--color-black);
-  white-space: nowrap;
+  border: none;
+  font-size: 1rem;
+  /* 14px */
+  letter-spacing: -0.024em;
+  padding: 0.143rem 0.857rem;
+  /* 2px 12px */
+  text-transform: lowercase;
 }
 
 /* ============================================
    SITE FOOTER — simple variant
    ============================================ */
 .site-footer {
-  padding: 3.5rem 0.571rem 0.571rem; /* 49px 8px 8px */
+  padding: 3.5rem 0.571rem 0.571rem;
+  /* 49px 8px 8px */
   background: var(--color-black);
 }
 
 .site-footer__bar {
   display: flex;
   flex-direction: column;
-  gap: 0.857rem; /* 12px */
-  padding: 0.571rem 1.143rem; /* 8px 16px */
+  gap: 0.857rem;
+  /* 12px */
+  padding: 0.571rem 1.143rem;
+  /* 8px 16px */
   background: var(--color-near-black);
 }
 
 .site-footer__globe {
-  width: 3.071rem; /* 43px */
-  height: 2.929rem; /* 41px */
+  width: 3.071rem;
+  /* 43px */
+  height: 2.929rem;
+  /* 41px */
 }
 
 .site-footer__copy {
   font-family: var(--font-body);
-  font-size: 1.143rem; /* 16px */
-  line-height: 1.571rem; /* 22px */
+  font-size: 1.143rem;
+  /* 16px */
+  line-height: 1.571rem;
+  /* 22px */
   letter-spacing: -0.005em;
   color: var(--color-white);
 }
@@ -344,17 +321,7 @@ html:has(.project-detail) body {
 /* ============================================
    RESPONSIVE
    ============================================ */
-@media (max-width: 1024px) {
-  .site-nav__links {
-    gap: 1rem;
-  }
-}
-
 @media (max-width: 768px) {
-  .site-nav__links {
-    display: none; /* mobile nav pattern TBD — pill + logo only for now */
-  }
-
   .client-panel {
     flex-direction: column;
     gap: 1rem;
@@ -366,6 +333,27 @@ html:has(.project-detail) body {
 
   .media-row--split {
     flex-direction: column;
+  }
+
+  /* Hero band collapses to stacked on mobile */
+  .hero-band {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .hero-band > .media-slot {
+    width: 100%;
+    height: auto;
+  }
+
+  .hero-band > .project-blurb {
+    padding: 0.857rem 0.571rem 2.571rem;
+  }
+
+  .hero-band > .project-blurb .project-blurb__details {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
   }
 
   .project-blurb__text {

@@ -4,9 +4,15 @@
    ============================================ */
 
 /* --- Override global scroll lock for work pages --- */
-html:has(.work-page),
-html:has(.work-page) body {
+html:has(.work-page) {
   overflow: auto;
+  height: auto;
+  overscroll-behavior: none;
+  background: var(--color-black);
+}
+
+html:has(.work-page) body {
+  overflow: visible;
   height: auto;
   background: var(--color-black);
 }
@@ -27,7 +33,7 @@ html:has(.work-page) body {
 /* --- Fixed Chrome (header + filters) --- */
 .work-chrome {
   position: fixed;
-  top: 0;
+  top: 2.929rem; /* clears persistent SiteNav bar height */
   left: 0;
   right: 0;
   z-index: 50;
@@ -281,12 +287,12 @@ html:has(.work-page) body {
 }
 
 .media-card__service-pill {
-  font-family: var(--font-mono);
+  /* Extends .stag — overlay-context overrides */
   font-size: 0.7rem;
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--color-cream);
-  border-radius: var(--radius-pill);
   color: var(--color-cream);
+  background: transparent;
 }
 
 /* --- AlbumArtCard (per-client crossfade cards) --- */
@@ -423,7 +429,7 @@ html:has(.work-page) body {
 
 .featured-card__client {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: var(--weight-semi);
   font-size: 2.4rem;
   letter-spacing: -0.02em;
   text-transform: uppercase;
@@ -472,7 +478,7 @@ html:has(.work-page) body {
 
 .work-end__mark {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: var(--weight-semi);
   font-size: 2rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;

@@ -11,5 +11,5 @@
  * @param {string} props.name - Service tag display name (e.g. "Live Visuals")
  */
 export default function ServiceTag({ name }) {
-  return <span className="service-tag">{name.toLowerCase()}</span>;
+  return <span className="stag service-tag">{name.toLowerCase()}</span>;
 }

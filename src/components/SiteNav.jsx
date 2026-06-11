@@ -1,12 +1,13 @@
 /**
- * SiteNav — Fixed top navigation bar (Figma "Navigation").
+ * SiteNav — Fixed top navigation bar (shared site-wide).
  *
- * Black bar: rotating SWM globe + info pill on the left,
+ * Blue bar: rotating SWM globe + info pill on the left,
  * sitemap links with glyph prefixes on the right.
  *
- * The info pill is a static link back to the landing page for now —
- * the landing page's animated InfoPill/InfoPanel pairing stays
- * landing-only until a shared site chrome pass.
+ * Props (all optional — when omitted, links fall back to navigation):
+ *   onStartProject  — callback for "start_project" click
+ *   onInfoToggle    — callback for info pill click
+ *   isInfoOpen      — controls info pill label ("info" vs "close")
  */
 
 /** Minimal inline glyph icons (Figma uses Simple Design System icons) */
@@ -56,21 +57,63 @@ function EjectIcon() {
   );
 }
 
-export default function SiteNav() {
+function CloseIcon() {
+  return (
+    <svg className="site-nav__pill-icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export default function SiteNav({
+  onStartProject,
+  onInfoToggle,
+  isInfoOpen = false,
+}) {
+  const pillLabel = isInfoOpen ? 'close' : 'info';
+  const PillIcon = isInfoOpen ? CloseIcon : EjectIcon;
+
+  const handleStartProject = (e) => {
+    if (onStartProject) {
+      e.preventDefault();
+      onStartProject();
+    }
+    // Otherwise let the <a href="/"> navigate normally
+  };
+
+  const handleInfoClick = (e) => {
+    if (onInfoToggle) {
+      e.preventDefault();
+      onInfoToggle();
+    }
+    // Otherwise let the <a href="/"> navigate normally
+  };
+
   return (
     <nav className="site-nav">
       <div className="site-nav__brand">
         <a href="/" className="site-nav__logo" aria-label="Small World Media home">
           <img src="/swm-globe.gif" alt="" width="38" height="38" />
         </a>
-        <a href="/" className="site-nav__pill">
-          info
-          <EjectIcon />
-        </a>
+        <button
+          className="site-nav__pill"
+          onClick={handleInfoClick}
+          aria-label={isInfoOpen ? 'Close info panel' : 'Open info panel'}
+          aria-expanded={isInfoOpen}
+          type="button"
+        >
+          {pillLabel}
+          <PillIcon />
+        </button>
       </div>
 
       <div className="site-nav__links">
-        <a href="/" className="site-nav__link">
+        <a
+          href="/"
+          className="site-nav__link"
+          onClick={handleStartProject}
+        >
           <span className="site-nav__glyph">↳</span>
           start_project
         </a>
@@ -82,7 +125,12 @@ export default function SiteNav() {
           <FolderIcon />
           project_directory
         </a>
-        <a href="#" className="site-nav__link">
+        <a
+          href="https://instagram.com/smallworldmedia"
+          className="site-nav__link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <HeartIcon />
           follow_us
         </a>

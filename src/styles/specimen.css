@@ -44,9 +44,15 @@
 /* — Override global scroll lock —
    global.css sets overflow:hidden on html/body for the
    100dvh landing page. The specimen page needs natural scroll. */
-html:has(.specimen-page),
-html:has(.specimen-page) body {
+html:has(.specimen-page) {
   overflow: auto;
+  height: auto;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+html:has(.specimen-page) body {
+  overflow: visible;
   height: auto;
   min-height: 100dvh;
 }

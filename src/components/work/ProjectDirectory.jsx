@@ -49,7 +49,9 @@ export default function ProjectDirectory({ assets, albumArt, serviceTags }) {
 
     const syncPadding = () => {
       const h = fixedEl.getBoundingClientRect().height;
-      contentEl.style.paddingTop = `${h}px`;
+      // Add SiteNav bar height (2.929rem = 41px) since chrome starts below the persistent nav
+      const navHeight = parseFloat(getComputedStyle(document.documentElement).fontSize) * 2.929;
+      contentEl.style.paddingTop = `${h + navHeight}px`;
     };
 
     // Initial measurement

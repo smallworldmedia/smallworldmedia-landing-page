@@ -46,6 +46,14 @@
 
 @font-face {
   font-family: 'OT Neue Montreal Squeezed';
+  src: url('../assets/fonts/OTNeueMontreal-SemiBoldSqueezed.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OT Neue Montreal Squeezed';
   src: url('../assets/fonts/OTNeueMontreal-BoldExtraSqueezed.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
@@ -80,6 +88,9 @@
   --font-mono: 'Iosevka Term', 'Geist Mono', ui-monospace, monospace;
   --font-ui: 'Inter', system-ui, sans-serif;
   --font-body: 'PP Neue Montreal', 'Inter', system-ui, sans-serif;
+
+  /* Typography — font weights */
+  --weight-semi: 600;
 
   /* Typography — sizes (rem, base 14px) */
   --text-headline: 2rem;
@@ -116,11 +127,35 @@
   /* 50px */
   --radius-none: 0;
 
+
   /* Transitions — GSAP-aligned */
   --ease-panel: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-panel: 600ms;
   --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-micro: 220ms;
+}
+
+/* ============================================
+   SERVICE TAG (.stag) — Canonical pill primitive
+   ============================================
+   Base shape extracted from the project-inquiry overlay.
+   Every service-tag surface composes on top of this class:
+
+     .project-overlay__tag   — cream / ghost border (interactive)
+     .service-tag            — blue fill (detail page)
+     .media-card__service-pill — cream / ghost border (card overlay)
+   ============================================ */
+.stag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: lowercase;
 }
 
 /* — Reset — */
@@ -134,6 +169,7 @@
 
 html {
   font-size: 14px;
+  scrollbar-gutter: stable; /* prevent layout shift when scrollbar appears/disappears */
 }
 
 html,
@@ -248,6 +284,145 @@ button {
 }
 
 /* ============================================
+   SITE NAV — navigation bar (lives inside info-wrapper)
+   ============================================
+   The nav sits at the BOTTOM of .info-wrapper so it's
+   always visible when the wrapper is closed (translated up).
+   When open, it slides down to the bottom of the drawer.
+   ============================================ */
+.site-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 2.929rem;
+  /* 41px */
+  padding: 0.214rem 1.143rem;
+  /* 3px 16px */
+  background: var(--color-electric-blue);
+  flex-shrink: 0;
+}
+
+.site-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.714rem;
+}
+
+.site-nav__logo {
+  display: flex;
+  align-items: center;
+}
+
+.site-nav__logo img {
+  width: 2.714rem;
+  /* 38px */
+  height: 2.714rem;
+  object-fit: cover;
+}
+
+.site-nav__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.571rem;
+  padding: 0.214rem 0.929rem;
+  /* 3px 13px */
+  border: 1px solid var(--color-white);
+  border-radius: 1.714rem;
+  /* 24px */
+  background: var(--color-electric-blue);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: 1.286rem;
+  /* 18px */
+  line-height: 1.571rem;
+  /* 22px */
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: background var(--duration-micro) var(--ease-micro);
+}
+
+.site-nav__pill:hover {
+  background: var(--color-black);
+}
+
+.site-nav__pill-icon {
+  width: 0.714rem;
+  /* 10px */
+  height: 0.857rem;
+}
+
+.site-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 1.714rem;
+  /* 24px */
+}
+
+.site-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.143rem;
+  /* 2px */
+  font-family: var(--font-body);
+  font-size: 1.143rem;
+  /* 16px */
+  line-height: 1.571rem;
+  /* 22px */
+  letter-spacing: -0.005em;
+  color: var(--color-white);
+  white-space: nowrap;
+}
+
+.site-nav__link:hover {
+  text-decoration: underline;
+}
+
+.site-nav__glyph {
+  display: inline-block;
+}
+
+.site-nav__icon {
+  width: 1.429rem;
+  /* 20px */
+  height: 1.429rem;
+}
+
+.site-nav__icon--sm {
+  width: 1.143rem;
+  /* 16px */
+  height: 1.143rem;
+}
+
+/* ============================================
+   SITE SHELL — Persistent fixed wrapper
+   ============================================
+   Survives page navigations (transition:persist).
+   Contains info-wrapper (drawer + nav) and ProjectOverlay.
+   ============================================ */
+.site-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+
+  pointer-events: none; /* let clicks pass through to page content */
+}
+
+/* Prevent Astro View Transitions from fading the persisted shell */
+::view-transition-old(site-shell),
+::view-transition-new(site-shell) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Re-enable pointer events on interactive children */
+.site-shell .info-wrapper,
+.site-shell .project-overlay {
+  pointer-events: auto;
+}
+
+/* ============================================
    INFO PANEL — Slide-down overlay
    ============================================
    Architecture:
@@ -255,18 +430,14 @@ button {
    │  .info-panel (cream content) │  ← clipped when closed
    │  (description + clients)     │
    ├──────────────────────────────┤
-   │  .info-nav (blue 40px bar)   │  ← always visible, contains pill
+   │  SiteNav (blue nav bar)      │  ← always visible, sits at bottom
    └──────────────────────────────┘
 
-   Closed: wrapper y = -contentHeight (only nav bar visible at top)
-   Open: wrapper y = 0 (content revealed below nav bar)
+   Closed: wrapper y = -contentHeight (only SiteNav visible at top)
+   Open: wrapper y = 0 (content revealed, SiteNav at bottom of drawer)
    ============================================ */
 .info-wrapper {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 30;
+  position: relative;
   display: flex;
   flex-direction: column;
   will-change: transform;
@@ -278,19 +449,6 @@ button {
   pointer-events: auto;
 }
 
-/* Nav bar — sits at bottom of wrapper, always visible */
-.info-nav {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  width: 100%;
-  height: 2.857rem;
-  padding: var(--space-3) var(--space-4);
-  /* 6px top/bottom — matches Framer .framer-zzk8m8 */
-  background: var(--color-electric-blue);
-  flex-shrink: 0;
-}
-
 /* Content panel — cream bg, sits above the nav bar */
 .info-panel {
   width: 100%;
@@ -300,6 +458,7 @@ button {
   overflow: clip;
   flex-shrink: 0;
 }
+
 
 /* Horizontal 2-column layout: left (embed + desc), right (clients) */
 .info-panel__layout {
@@ -570,30 +729,43 @@ button.cta {
 }
 
 .project-overlay__close {
-  position: absolute;
-  top: var(--space-6);
-  right: var(--space-6);
-  background: none;
-  border: none;
-  font-family: var(--font-body);
-  font-size: 1.714rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.571rem;
+  padding: 0.214rem 0.929rem;
+  /* 3px 13px — matches info pill */
+  border: 1px solid var(--color-cream);
+  border-radius: 1.714rem;
+  /* 24px pill */
+  background: transparent;
   color: var(--color-cream);
+  font-family: var(--font-body);
+  font-size: 1.286rem;
+  /* 18px */
+  line-height: 1.571rem;
+  letter-spacing: -0.005em;
   cursor: pointer;
-  line-height: 1;
-  padding: var(--space-4);
+  transition: background var(--duration-micro) var(--ease-micro);
+  margin-left: auto; /* push to right edge of form */
+  position: relative;
   z-index: 2;
-  transition: transform var(--duration-micro) var(--ease-micro);
 }
 
 .project-overlay__close:hover {
-  transform: rotate(90deg);
+  background: rgba(250, 250, 250, 0.12);
+}
+
+.project-overlay__close-icon {
+  width: 0.714rem;
+  /* 10px — matches pill-icon */
+  height: 0.714rem;
 }
 
 .project-overlay__globe {
   position: absolute;
-  top: var(--space-6);
-  left: var(--space-6);
-  width: 3vw;
+  top: 0.214rem; /* matches SiteNav padding-top */
+  left: 1.143rem; /* matches SiteNav padding-left */
+  width: 2.714rem; /* 38px — matches SiteNav globe */
   height: auto;
   z-index: 2;
   pointer-events: none;
@@ -820,6 +992,10 @@ button.cta {
    RESPONSIVE
    ============================================ */
 @media (max-width: 1024px) {
+  .site-nav__links {
+    gap: 1rem;
+  }
+
   .info-panel__left {
     flex: 0 0 clamp(12.857rem, 20vw, 18.571rem);
   }
@@ -851,6 +1027,11 @@ button.cta {
 
 @media (max-width: 768px) {
 
+  .site-nav__links {
+    display: none;
+    /* mobile nav component TBD — pill + logo only for now */
+  }
+
   html,
   body {
     overscroll-behavior: none;
@@ -858,7 +1039,7 @@ button.cta {
 
   /* --- Info Panel: 2-column equal-width layout --- */
   .info-panel {
-    max-height: calc(100dvh - 2.857rem);
+    max-height: calc(100dvh - 2.929rem); /* subtract SiteNav bar at bottom */
     padding-top: 1.429rem;
     overflow: clip;
   }
