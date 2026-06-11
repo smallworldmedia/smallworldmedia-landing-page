@@ -78,3 +78,59 @@ export const FEATURED_PROJECTS_QUERY = `
     "projectAssetCount": count(*[_type == "mediaAsset" && client._ref == ^.client._ref])
   }
 `;
+
+/**
+ * FEATURED_PROJECT_PATHS_QUERY — One row per Featured Project collection.
+ * Heroes (isHero) mark each curated collection; sourceFolder is the
+ * grouping key that ties every asset back to its project directory.
+ * Used by /work/[slug] getStaticPaths to enumerate detail pages.
+ */
+export const FEATURED_PROJECT_PATHS_QUERY = `
+  *[_type == "mediaAsset" && isHero == true && !(_id in path("drafts.**"))] {
+    "sourceFolder": sourceFolder,
+    "collection": sourceManifest,
+    "clientName": client->name,
+    "clientSlug": client->slug.current
+  }
+`;
+
+/**
+ * FEATURED_PROJECT_DETAIL_QUERY — Everything one Featured Project page needs.
+ *
+ * $sourceFolder — the project directory path shared by the collection's assets.
+ * $slug         — the route slug; matches an optional `project` document that
+ *                 carries editorial copy (overview blurb, display title).
+ *
+ * Assets come back in manifest row order (sortOrder) — the Content
+ * Population Hierarchy (see CONTEXT.md) turns that order into the layout.
+ */
+export const FEATURED_PROJECT_DETAIL_QUERY = `{
+  "assets": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))] | order(sortOrder asc) {
+    _id,
+    title,
+    mediaType,
+    isHero,
+    contentRole,
+    sortOrder,
+    year,
+    "imageUrl": image.asset->url,
+    "imageDimensions": image.asset->metadata.dimensions,
+    "playbackId": video.asset->playbackId,
+    "videoAspectRatio": video.asset->data.aspect_ratio,
+    "services": services[]->{ name, "slug": slug.current }
+  },
+  "client": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))][0].client->{
+    name,
+    "slug": slug.current,
+    clientType,
+    description,
+    city,
+    country,
+    links
+  },
+  "project": *[_type == "project" && slug.current == $slug && !(_id in path("drafts.**"))][0]{
+    title,
+    description,
+    year
+  }
+}`;

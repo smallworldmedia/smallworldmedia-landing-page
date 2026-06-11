@@ -1,0 +1,62 @@
+---
+/**
+ * /work/[slug] — Featured Project detail page.
+ *
+ * One page per Featured Project curated collection. Paths are
+ * enumerated from hero-flagged assets (one sizzle reel per collection);
+ * the page fetches the full collection by sourceFolder and hydrates
+ * the FeaturedProjectDetail island.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/global.css';
+import '../../styles/project-detail.css';
+import { sanityFetch } from '../../lib/sanityClient.js';
+import {
+  FEATURED_PROJECT_PATHS_QUERY,
+  FEATURED_PROJECT_DETAIL_QUERY,
+} from '../../lib/queries.js';
+import { toProjectSlug } from '../../lib/projectSlug.js';
+import FeaturedProjectDetail from '../../components/work/detail/FeaturedProjectDetail.jsx';
+
+export async function getStaticPaths() {
+  const heroes = await sanityFetch(FEATURED_PROJECT_PATHS_QUERY);
+
+  // One path per collection; sourceFolder is the grouping key.
+  // Dedupe defensively in case a collection ever carries two heroes.
+  const seen = new Set();
+  return heroes
+    .filter((h) => h.sourceFolder && h.collection && h.clientSlug)
+    .filter((h) => !seen.has(h.sourceFolder) && seen.add(h.sourceFolder))
+    .map((h) => ({
+      params: { slug: toProjectSlug(h.clientSlug, h.collection) },
+      props: {
+        sourceFolder: h.sourceFolder,
+        collection: h.collection,
+        clientName: h.clientName,
+      },
+    }));
+}
+
+const { slug } = Astro.params;
+const { sourceFolder, collection, clientName } = Astro.props;
+
+const { assets, client, project } = await sanityFetch(
+  FEATURED_PROJECT_DETAIL_QUERY,
+  { sourceFolder, slug }
+);
+
+const pageTitle = `${clientName} — ${project?.title ?? collection} — Small World Media™`;
+const description =
+  project?.description ??
+  `${project?.title ?? collection} for ${clientName} — a featured project by Small World Media.`;
+---
+
+<BaseLayout title={pageTitle} description={description}>
+  <FeaturedProjectDetail
+    client:load
+    assets={assets}
+    client={client}
+    project={project}
+    collection={collection}
+  />
+</BaseLayout>

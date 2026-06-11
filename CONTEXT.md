@@ -31,7 +31,7 @@ A curated collection of album art covers for a record label client. Uses a Mode 
 A curated collection representing a specific scope of creative work. Uses a Mode 1 manifest with project-specific service tags. Gets its own project page (`/work/[slug]`) with a sizzle reel as hero and editorial layout.
 
 - **Example:** `media/Heavy House Society/Live Visuals 2026/`
-- **Frontend destination:** Single Project Page (`/work/[slug]`) with Sub-Nav, hero, and AdaptiveGallery
+- **Frontend destination:** Single Project Page (`/work/[slug]`) — `FeaturedProjectDetail`, laid out by the Content Population Hierarchy (see below)
 - **Hero:** The user creates sizzle reels for featured projects; these are marked `isHero: true`
 
 ## Root Manifest
@@ -99,8 +99,33 @@ Canonical names for UI components. All implementation work **must** use these te
 | **FilterBar** | Horizontal scrollable strip of service tag pills. Sticky below header while scrolling. | `serviceTag` documents |
 | **Lightbox** | Full-screen overlay for detailed asset viewing. Video mode with sound; image mode with full resolution. | Single `mediaAsset` (triggered from MediaCard) |
 | **FeaturedProjects** | Dedicated page for showcasing Featured Project collections. Pulls metadata from Featured Project curated collections. | Featured Project subfolders (`isHero: true`, sizzle reels) |
+| **FeaturedProjectDetail** | Orchestrator for the `/work/[slug]` Single Project Page. Renders one Featured Project collection as an editorial page via the Content Population Hierarchy. | All `mediaAsset` docs sharing one `sourceFolder` + optional `project` doc |
+| **SiteNav** | Fixed top navigation bar — globe, info pill, sitemap links. | Static |
+| **ClientPanel** | Full-width blue info band below the nav: squeezed project title, client metadata chips (client_type, based_in), social links. | `client` document |
+| **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. | Single `mediaAsset` document |
+| **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only (FilterBar pills are the interactive variant). | Single `serviceTag` reference |
+| **SiteFooter** | Simple footer — near-black bar with SWM globe mark + copyright. Expanded variant with footer nav is a future iteration. | Static |
+| **AlbumArtOrbit** | *Future* — orbiting album art component, populated only when a project directory carries album-art assets. | `album-art` assets within a collection |
+| **NextProjectCard** | *Future* — scroll-to-next-project transition at the bottom of FeaturedProjectDetail (three scroll states mocked in Figma). | Next Featured Project hero |
 
 > **Procedure**: Before creating any new component, check this table. If the component doesn't have a canonical name, propose one here first, get it approved, then implement.
+
+## Content Population Hierarchy
+
+The system that turns a Featured Project directory's contents into a page layout. **Pages are populated, not authored** — the manifest/tagging metadata set at ingestion is the layout instruction set. This is why the manifest system records `sortOrder`, `isHero`, `mediaType`, and `contentRole` on every asset.
+
+| Metadata | Layout role |
+|---|---|
+| `sourceFolder` / `sourceManifest` | Grouping key — defines which assets belong to the project page |
+| `isHero` | The sizzle reel — always the first full-bleed slot |
+| `sortOrder` | Manifest row order — the sequence assets flow into slots |
+| `mediaType` / aspect ratio | Slot sizing — landscape can go full-bleed; portrait/square always pairs into split rows |
+| `contentRole` | Flow membership — showcase (empty) populates the main flow; `process`/`supporting` reserved for the future BTS section |
+| `album-art` mediaType | Held out of the flow — populates the future AlbumArtOrbit when present in the directory |
+
+**Flow algorithm** (`buildContentFlow.js`): after the hero and blurb, showcase assets alternate full-bleed → split pair → full-bleed →… Portrait assets never render full-bleed. Projects with more videos naturally get more full-bleed slots; still-heavy projects pair into split rows. Media-type-specific components populate based on presence in the directory.
+
+**Editorial copy layer**: an optional `project` document (slug = `{client-slug}-{collection-slug}`, e.g. `heavy-house-society-live-visuals-2026`) supplies the overview blurb and display title. Without it the page falls back to the collection name and omits the blurb. The `project.contentBlocks` page-builder remains available as a manual override for hand-curated layouts (not yet wired).
 
 ## Route Map
 
@@ -109,4 +134,4 @@ Canonical names for UI components. All implementation work **must** use these te
 | `/` | Landing page | `LandingPage` |
 | `/work` | Project Directory (full media grid) | `ProjectDirectory` |
 | `/work/featured` | Featured Projects (curated showcase) | `FeaturedProjects` |
-| `/work/[slug]` | Single Project Page (editorial layout) | *TBD — future implementation* |
+| `/work/[slug]` | Single Project Page (editorial layout) | `FeaturedProjectDetail` |
