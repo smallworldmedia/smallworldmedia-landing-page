@@ -7,8 +7,8 @@ year: 2026
 
 | file | mediaType | serviceType | title | isHero | sortOrder |
 |------|-----------|-------------|-------|--------|-----------|
-| 3x4_v2.png | static_4x5 | event / tour creative | 3x4 | false | 1 |
-| 3x4_v5.png | static_4x5 | event / tour creative | 3x4 | false | 2 |
+| 3x4_v2.png | static_4x5 | event / tour creative | 3x4 v2 | false | 1 |
+| 3x4_v5.png | static_4x5 | event / tour creative | 3x4 v5 | false | 2 |
 | BG_Abstract_Cloud-Drip.mp4 | motion_other | live visuals | BG Abstract Cloud Drip | false | 3 |
 | BG_Brick-Ruins.mp4 | motion_other | live visuals | BG Brick Ruins | false | 4 |
 | BG_Cloud-Timelapse.mp4 | motion_other | live visuals | BG Cloud Timelapse | false | 5 |
@@ -43,7 +43,7 @@ year: 2026
 | coco_cause-01.jpg | static_other | event / tour creative | coco cause 01 | false | 34 |
 | coco_cause-02.jpg | static_other | event / tour creative | coco cause 02 | false | 35 |
 | coco_cause-03.jpg | static_other | event / tour creative | coco cause 03 | false | 36 |
-| coco_cause_01.jpg | static_other | event / tour creative | coco cause 01 | false | 37 |
+| coco_cause_01.jpg | static_other | event / tour creative | coco cause 01 v2 | false | 37 |
 | coco_cause_06.jpg | static_other | event / tour creative | coco cause 06 | false | 38 |
 | coco_mmw.mp4 | motion_other | event / tour creative | coco mmw | false | 39 |
 | coco_nyc.mp4 | motion_other | event / tour creative | coco nyc | false | 40 |

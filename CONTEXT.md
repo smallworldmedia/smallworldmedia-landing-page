@@ -77,8 +77,25 @@ Only web-ready media is ingested. The generator script and ingestion pipeline sk
 - Source/project files: `.psd`, `.ai`, `.aep`, `.prproj`, `.blend`, `.indd`
 - RAW photos: `.arw`, `.cr2`, `.dng`, `.nef`, `.orf`
 - Audio: `.wav`, `.mp3`, `.aif`, `.flac`
-- Documents: `.pdf` (export deck pages as individual JPGs instead)
+- Documents: `.pdf` (export deck pages as individual JPGs — see **PDF → JPEG Pipeline** below)
 - Archives: `.zip`, `.rar`, `.7z`, `.dmg`
+
+## PDF → JPEG Pipeline
+
+Brand decks and pitch decks are delivered as PDFs but cannot be ingested directly (PDFs are excluded). Instead, each PDF must be **separated into per-page JPEGs** before ingestion.
+
+**Workflow (pending):**
+1. Identify all brand deck / pitch deck PDFs in the media directory
+2. Export each page as a standalone JPEG (e.g., `bedouin-brand-guidelines_01.jpg`, `_02.jpg`, …)
+3. Create or update the manifest with one row per page, using `mediaType: brand-deck`
+4. Ingest normally — the **BrandDeckViewer** component renders the pages as an accordion
+
+**Known PDFs awaiting conversion:**
+- `Andhera/DEVELOPED Artist Workshop/` — DEVELOPED Pitch Deck
+- `Andhera/Branding/` — Step & Repeat Pattern
+- `Bedouin/` — Bedouin Brand Guidelines, Human By Default Brand Guidelines, Saga Brand Guidelines
+
+> The 5 orphan `mediaAsset` docs that were created from these PDFs in a legacy ingestion were deleted on 2026-06-11.
 
 ## Folder Flattening
 
@@ -105,6 +122,7 @@ Canonical names for UI components. All implementation work **must** use these te
 | **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. | Single `mediaAsset` document |
 | **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only (FilterBar pills are the interactive variant). | Single `serviceTag` reference |
 | **SiteFooter** | Simple footer — near-black bar with SWM globe mark + copyright. Expanded variant with footer nav is a future iteration. | Static |
+| **BrandDeckViewer** | *Future* — accordion-style expanding component that renders brand deck / pitch deck pages as a vertical scroll of full-width images. Used inside `FeaturedProjectDetail` and as an inline module in `FeaturedProjects`. Populated from `brand-deck` mediaType assets sorted by `sortOrder`. | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
 | **AlbumArtOrbit** | *Future* — orbiting album art component, populated only when a project directory carries album-art assets. | `album-art` assets within a collection |
 | **NextProjectCard** | *Future* — scroll-to-next-project transition at the bottom of FeaturedProjectDetail (three scroll states mocked in Figma). | Next Featured Project hero |
 

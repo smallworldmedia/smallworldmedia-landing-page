@@ -8,6 +8,6 @@ year: 2026
 
 | file | mediaType | title | isHero | sortOrder |
 |------|-----------|-------|--------|-----------|
-| 01.png | static_other | 01 | false | 1 |
-| 02.png | static_other | 02 | false | 2 |
-| 03.png | static_other | 03 | false | 3 |
+| 01.png | static_other | Homecoming Tour 01 | false | 1 |
+| 02.png | static_other | Homecoming Tour 02 | false | 2 |
+| 03.png | static_other | Homecoming Tour 03 | false | 3 |

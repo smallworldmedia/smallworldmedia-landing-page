@@ -241,8 +241,8 @@ Each root manifest requires human curation of the `serviceType` column.
 | Total manifests (curated) | 83 | ~79 |
 | Manifests uncurated (root) | 0 | 0 |
 | Subdirectory manifests pending | 0 | 0 |
-| Assets ingested to Sanity | 681 | ~600+ |
-| Image uploads to CDN | 681 | ~600+ |
+| Assets ingested to Sanity | 675 | ~600+ |
+| Image uploads to CDN | 675 | ~600+ |
 | Mux video assets | 201 | ~200+ |
 | Videos wired to mediaAssets | 201 | ~200+ |
 | Affiliations wired | 0 | 10+ |

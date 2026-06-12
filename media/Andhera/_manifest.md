@@ -16,8 +16,8 @@ year: 2026
 | JULIA FUGAZY.jpg | static_other | event / tour creative | JULIA FUGAZY | false | 7 |
 | MANDIZ.jpg | static_other | event / tour creative | MANDIZ | false | 8 |
 | MAXINNE.jpg | static_other | event / tour creative | MAXINNE | false | 9 |
-| MMW 2025 4x5.jpg | static_4x5 | event / tour creative | MMW 2025 4x5 | false | 10 |
-| MMW 2025 4x5.mp4 | motion_4x5 | event / tour creative | MMW 2025 4x5 | false | 11 |
+| MMW 2025 4x5.jpg | static_4x5 | event / tour creative | MMW 2025 4x5 (Still) | false | 10 |
+| MMW 2025 4x5.mp4 | motion_4x5 | event / tour creative | MMW 2025 4x5 (Animated) | false | 11 |
 | MS MADA.jpg | static_other | event / tour creative | MS MADA | false | 12 |
 | OLIVIA MANCUSO.jpg | static_other | event / tour creative | OLIVIA MANCUSO | false | 13 |
 | afterrr-ep_SC-banner.png | static_16x9 | branding | afterrr ep SC banner | false | 14 |
