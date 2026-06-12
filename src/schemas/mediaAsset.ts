@@ -194,6 +194,16 @@ export const mediaAsset = defineType({
       hidden: ({ parent }) => parent?.mediaType !== 'brand-deck',
     }),
 
+    // ── HOMEPAGE GLOBE SLOT (conditional) ──
+    defineField({
+      name: 'globeOrder',
+      type: 'number',
+      title: 'Globe Slot Order',
+      description:
+        'Optional: lower = more prominent on the homepage video globe. Leave empty to let the globe auto-fill.',
+      hidden: ({ parent }) => !isVideoType(parent?.mediaType),
+    }),
+
     // ── GENERAL METADATA ──
     defineField({
       name: 'year',

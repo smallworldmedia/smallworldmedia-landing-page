@@ -1,0 +1,111 @@
+/* ============================================
+   LAB / VIDEO GLOBE — /lab/globe prototype
+   Page keeps the global electric-blue lock-scroll
+   shell; the globe canvas fills the viewport
+   beneath the persistent SiteShell (z-100).
+   ============================================ */
+
+.lab-globe-page {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow: clip;
+  background: linear-gradient(to top,
+      var(--color-cream) 20%,
+      var(--color-electric-blue) 80%);
+}
+
+.lab-globe-page__canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  /* pointer drag owns the gesture */
+}
+
+.lab-globe-page__canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* --- Hidden video slot pool ---
+   Near-invisible offscreen positioning, NOT display:none —
+   Safari throttles decoding of display:none videos. */
+.lab-globe-pool {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 2px;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
+.lab-globe-pool video {
+  width: 2px;
+  height: 2px;
+}
+
+/* --- Debug panel (lab only) --- */
+.lab-globe-debug {
+  position: fixed;
+  left: var(--space-6);
+  bottom: var(--space-6);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 15rem;
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+}
+
+.lab-globe-debug__row {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.lab-globe-debug__btn {
+  appearance: none;
+  border: 1px solid var(--color-cream);
+  background: transparent;
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  text-transform: lowercase;
+}
+
+.lab-globe-debug__btn.is-active {
+  background: var(--color-cream);
+  color: var(--color-black);
+}
+
+.lab-globe-debug__slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-transform: lowercase;
+}
+
+.lab-globe-debug__slider input[type='range'] {
+  width: 100%;
+  accent-color: var(--color-electric-blue);
+}
+
+.lab-globe-debug__stats {
+  display: flex;
+  gap: var(--space-5);
+}
+
+.lab-globe-debug__panels {
+  opacity: 0.6;
+  word-break: break-all;
+}

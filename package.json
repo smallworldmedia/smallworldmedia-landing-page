@@ -23,6 +23,7 @@
     "react-dom": "^19.2.5",
     "sanity": "^5.26.0",
     "sanity-plugin-mux-input": "^2.19.0",
+    "three": "^0.184.0",
     "unicornstudio-react": "^2.1.4-1"
   }
 }

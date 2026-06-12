@@ -1,0 +1,25 @@
+---
+/**
+ * /lab/globe — CMS Video Globe prototype (hidden, unlinked).
+ *
+ * Panelized sphere textured from the hybrid asset pool (curated globeOrder
+ * picks + breadth-interleaved auto-fill), live low-res video on prominent
+ * panels, ambient rotation + drag, power-on cascade. Append ?debug for the
+ * tuning panel in production builds.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/lab-globe.css';
+import { sanityFetch } from '../../lib/sanityClient.js';
+import { GLOBE_ASSETS_QUERY } from '../../lib/queries.js';
+import buildAssetPool from '../../components/lab/globe/buildAssetPool.js';
+import VideoGlobeLab from '../../components/lab/VideoGlobeLab.jsx';
+
+const assets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));
+---
+
+<BaseLayout
+  title="Lab / Video Globe — Small World Media™"
+  description="Internal prototype — CMS-driven video globe."
+>
+  <VideoGlobeLab client:only="react" assets={assets} />
+</BaseLayout>

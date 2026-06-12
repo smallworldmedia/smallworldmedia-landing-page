@@ -95,6 +95,49 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
 `;
 
 /**
+ * GLOBE_ASSETS_QUERY — Hybrid asset pool for the homepage video globe.
+ *
+ * curated  — assets hand-ranked via globeOrder; they fill the most
+ *            prominent panels first.
+ * autoFill — showcase motion assets with a ready Mux playback ID, newest
+ *            first. buildAssetPool.js interleaves these across clients /
+ *            client types / services so the breadth story is automatic.
+ */
+export const GLOBE_ASSETS_QUERY = `{
+  "curated": *[_type == "mediaAsset"
+      && defined(globeOrder)
+      && defined(video.asset->playbackId)
+      && video.asset->data.status == "ready"
+      && !(_id in path("drafts.**"))]
+    | order(globeOrder asc) {
+    _id,
+    title,
+    globeOrder,
+    "playbackId": video.asset->playbackId,
+    "videoAspectRatio": video.asset->data.aspect_ratio,
+    "clientName": client->name,
+    "clientSlug": client->slug.current
+  },
+  "autoFill": *[_type == "mediaAsset"
+      && !defined(globeOrder)
+      && !defined(contentRole)
+      && mediaType match "motion_*"
+      && defined(video.asset->playbackId)
+      && video.asset->data.status == "ready"
+      && !(_id in path("drafts.**"))]
+    | order(_createdAt desc) [0...96] {
+    _id,
+    title,
+    "playbackId": video.asset->playbackId,
+    "videoAspectRatio": video.asset->data.aspect_ratio,
+    "clientName": client->name,
+    "clientSlug": client->slug.current,
+    "clientType": client->clientType,
+    "services": services[]->slug.current
+  }
+}`;
+
+/**
  * FEATURED_PROJECT_DETAIL_QUERY — Everything one Featured Project page needs.
  *
  * $sourceFolder — the project directory path shared by the collection's assets.
