@@ -21,21 +21,6 @@ export default function HeroText() {
 
     const leftTag = container.querySelector('.tagline--left');
     const rightTag = container.querySelector('.tagline--right');
-    const title = container.querySelector('.hero__title');
-
-    // --- Hero title: one-shot slide-up + fade ---
-    // Centering is CSS layout-based (left:0 + width:100% + text-align:center),
-    // so GSAP only needs to animate y and opacity — no transform centering needed.
-    if (title) {
-      gsap.set(title, { opacity: 0, y: 40 });
-      gsap.to(title, {
-        opacity: 1,
-        y: 0,
-        duration: 0.85,
-        ease: 'expo.out',
-        delay: 0.675,
-      });
-    }
 
     // --- Responsive tagline animations via matchMedia ---
     const mm = gsap.matchMedia();
@@ -149,10 +134,9 @@ export default function HeroText() {
         {'VISUAL_WORLDS\nFOR THE MUSIC\nINDUSTRY'}
       </span>
 
-      {/* Hero title — primary heading for SEO */}
-      <h1 className="hero__title">
-        SMALL WORLD MEDIA™
-      </h1>
+      {/* Visually-hidden h1 — the wordmark moved to the persistent nav,
+          but the page keeps its primary heading for SEO/a11y */}
+      <h1 className="sr-only">SMALL WORLD MEDIA™</h1>
     </div>
   );
 }

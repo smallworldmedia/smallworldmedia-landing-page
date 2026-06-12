@@ -20,12 +20,17 @@ import { computeCoverUv } from './TextureManager.js';
 import { getPlaceholderTexture } from './panelMaterial.js';
 import {
   MAX_LIVE,
+  RADIUS,
   PROMOTE_SCORE,
   DEMOTE_SCORE,
   SWAP_SCORE,
   MIN_LIVE_DWELL_SECONDS,
   CROSSFADE_SECONDS,
 } from './globeConfig.js';
+
+// NDC margin for "on screen" — matters in mobile cover-overscan, where a
+// panel can face the camera yet sit cropped outside the viewport
+const VIEWPORT_NDC_LIMIT = 1.05;
 
 const MAX_SWAPS_PER_UPDATE = 4; // spread thumbnail fetches out over time
 
@@ -56,42 +61,50 @@ export default class LivePanelScheduler {
     this.slots = Array(MAX_LIVE).fill(null);
 
     this.scoreVec = new THREE.Vector3();
+    this.projVec = new THREE.Vector3();
     this.now = 0;
-  }
-
-  score(panel, rotation) {
-    return this.scoreVec.copy(panel.centerDir).applyEuler(rotation).z;
+    this.lastVisibleCount = 0;
   }
 
   /**
    * @param {THREE.Euler} rotation - current globe rotation
    * @param {number} now - seconds since scene start
+   * @param {THREE.Camera} camera - for viewport visibility (overscan crop)
    */
-  update(rotation, now) {
+  update(rotation, now, camera) {
     if (this.disposed || !this.assets.length) return;
     this.now = now;
 
-    const scored = this.panels.map((panel) => ({
-      panel,
-      score: this.score(panel, rotation),
-    }));
+    const scored = this.panels.map((panel) => {
+      const dir = this.scoreVec.copy(panel.centerDir).applyEuler(rotation);
+      const score = dir.z;
+      let visible = score > 0;
+      if (visible && camera) {
+        this.projVec.copy(dir).multiplyScalar(RADIUS).project(camera);
+        visible =
+          Math.abs(this.projVec.x) <= VIEWPORT_NDC_LIMIT &&
+          Math.abs(this.projVec.y) <= VIEWPORT_NDC_LIMIT;
+      }
+      return { panel, score, visible };
+    });
+    this.lastVisibleCount = scored.filter((s) => s.visible).length;
 
-    for (const { panel, score } of scored) {
+    for (const { panel, score, visible } of scored) {
       // Reset the per-trip swap latch once the panel comes around front
       if (score > 0) panel.swappedWhileHidden = false;
 
       if (
         panel.liveState === 'live' &&
-        score < DEMOTE_SCORE &&
+        (score < DEMOTE_SCORE || !visible) &&
         now - panel.liveSince > MIN_LIVE_DWELL_SECONDS
       ) {
         this.demote(panel);
       }
     }
 
-    // Promote the most prominent eligible panels into free slots
+    // Promote the most prominent eligible on-screen panels into free slots
     const candidates = scored
-      .filter(({ panel, score }) => !panel.liveState && score > PROMOTE_SCORE)
+      .filter(({ panel, score, visible }) => !panel.liveState && visible && score > PROMOTE_SCORE)
       .sort((a, b) => b.score - a.score);
     for (const { panel } of candidates) {
       const slot = this.slots.indexOf(null);
@@ -215,6 +228,7 @@ export default class LivePanelScheduler {
     return {
       live: this.slots.filter((p) => p?.liveState === 'live').length,
       pending: this.slots.filter((p) => p?.liveState === 'pending').length,
+      visible: this.lastVisibleCount,
       cursor: this.cursor,
     };
   }

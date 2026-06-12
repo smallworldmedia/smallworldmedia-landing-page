@@ -25,7 +25,7 @@ import {
   createRef,
 } from 'react';
 import useHls from '../work/useHls.js';
-import { MAX_LIVE, GLOBE_PREVIEW_SECONDS } from './globe/globeConfig.js';
+import { MAX_LIVE, GLOBE_PREVIEW_SECONDS, STREAM_PARAMS } from './globeConfig.js';
 
 /** hls.js config for globe panels — lowest rendition, short buffer */
 const POOL_HLS_CONFIG = {
@@ -33,9 +33,10 @@ const POOL_HLS_CONFIG = {
 };
 
 function streamUrl(playbackId) {
-  // max_resolution caps the manifest's renditions; preferMinQuality locks
-  // the lowest level regardless, so the param is belt-and-suspenders.
-  return `https://stream.mux.com/${playbackId}.m3u8?max_resolution=270p`;
+  // STREAM_PARAMS shapes the manifest server-side (single 540p rendition
+  // on mobile, 270p cap on desktop); preferMinQuality locks the lowest
+  // remaining level, so the two always agree.
+  return `https://stream.mux.com/${playbackId}.m3u8?${STREAM_PARAMS}`;
 }
 
 function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
@@ -129,7 +130,7 @@ const VideoSlotPool = forwardRef(function VideoSlotPool(_props, ref) {
   }), []);
 
   return (
-    <div className="lab-globe-pool" aria-hidden="true">
+    <div className="video-globe-pool" aria-hidden="true">
       {videoRefs.current.map((videoRef, i) => (
         <PoolSlot
           key={i}

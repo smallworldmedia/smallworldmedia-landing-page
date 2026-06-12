@@ -7,13 +7,23 @@
  * (Flip states, scroll→panel, overlay↔hero) requires
  * a unified React tree.
  *
+ * The hero background is the CMS video globe — its asset pool
+ * (curated globeOrder picks + breadth-interleaved auto-fill) is
+ * fetched from Sanity at build time and passed through the island.
+ *
  * Static pages added in the full site build (case studies,
  * about, etc.) will be pure .astro with zero client JS.
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
+import '../styles/video-globe.css';
+import { sanityFetch } from '../lib/sanityClient.js';
+import { GLOBE_ASSETS_QUERY } from '../lib/queries.js';
+import buildAssetPool from '../components/globe/buildAssetPool.js';
 import LandingPage from '../components/LandingPage.jsx';
+
+const globeAssets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));
 ---
 
 <BaseLayout>
-  <LandingPage client:only="react" />
+  <LandingPage client:only="react" globeAssets={globeAssets} />
 </BaseLayout>

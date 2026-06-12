@@ -572,28 +572,20 @@ button {
   height: 100dvh;
   min-height: 42.857rem;
   overflow: clip;
-  background: var(--color-electric-blue);
+  /* Globe-approved backdrop — matches /lab/globe tuning */
+  background: linear-gradient(to top,
+      var(--color-electric-blue) 0%,
+      var(--color-black) 40%);
   flex-shrink: 0;
 }
 
-.hero__scene {
+/* Video globe layer — replaced the Unicorn Studio .hero__scene.
+   Pointer events stay ON: drag-to-spin reaches the canvas anywhere
+   the pointer-events:none text layer above doesn't intercept. */
+.hero__globe {
   position: absolute;
   inset: 0;
   z-index: 0;
-  pointer-events: none;
-  /* Isolate from layout recalcs — prevents resize flicker */
-  contain: strict;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-}
-
-.hero__scene>* {
-  /* SDK container already sizes itself via CSS custom properties.
-     Use absolute positioning instead of forced dimensions to prevent
-     the SDK's internal ResizeObserver from firing on viewport changes. */
-  position: absolute;
-  inset: 0;
-  transform: translateZ(0);
 }
 
 .hero__text {
@@ -603,14 +595,20 @@ button {
   pointer-events: none;
 }
 
-.hero__fg {
+/* Screen-reader-only — keeps semantic content without visual presence */
+.sr-only {
   position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: block;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
-/* Taglines — extracted from Unicorn Studio text layers */
+/* Taglines — hero text overlay */
 .tagline {
   position: absolute;
   font-family: var(--font-mono);
@@ -638,41 +636,6 @@ button {
   transform: translate(-50%, -50%);
 }
 
-/* Hero title — SMALL WORLD MEDIA™ */
-.hero__title {
-  position: absolute;
-  /* Layout-based centering — immune to GSAP transform overrides */
-  left: 0;
-  width: 100%;
-  top: 76.7%;
-  opacity: 0;
-  font-family: var(--font-display);
-  font-size: 104px;
-  font-weight: 500;
-  line-height: calc(113 / 104);
-  letter-spacing: 0;
-  color: var(--color-cream);
-  text-align: center;
-  white-space: nowrap;
-  z-index: 1;
-  pointer-events: none;
-}
-
-
-/* Bottom CTA — percentage-based bottom spacing */
-.hero__cta {
-  position: absolute;
-  bottom: 8%;
-  left: 50%;
-  /* Transform removed to avoid GSAP baking it into explicit pixel offsets */
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 1.143rem;
-  z-index: 2;
-  white-space: nowrap;
-}
-
 /* UI / Utility — Framer: Inter 16px/19.2px, white */
 .cta {
   font-family: var(--font-ui);
@@ -688,19 +651,6 @@ button {
 
 .cta:hover {
   text-decoration: underline;
-}
-
-/* Drag handle */
-.hero__handle {
-  position: absolute;
-  bottom: 4%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 1.714rem;
-  height: 0.143rem;
-  border-bottom: 2px dashed var(--color-cream);
-  opacity: 0.5;
-  z-index: 2;
 }
 
 /* Button reset for CtaButton */
@@ -1018,11 +968,6 @@ button.cta {
     left: 87%;
   }
 
-  .hero__title {
-    font-size: 90px;
-    line-height: calc(170.4 / 90);
-    top: 70.7%;
-  }
 }
 
 @media (max-width: 768px) {
@@ -1158,29 +1103,6 @@ button.cta {
     line-height: calc(13 / 12);
     letter-spacing: 0.038em;
     width: auto;
-  }
-
-  .hero__title {
-    font-size: 58px;
-    line-height: calc(90.5 / 58);
-    top: 72%;
-  }
-
-  .hero__fg {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1.143rem;
-    padding: 1.429rem;
-  }
-
-  .hero__cta {
-    position: absolute;
-    bottom: 8%;
-    left: 50%;
-    flex-direction: column;
-    gap: var(--space-4);
   }
 
   .project-overlay {

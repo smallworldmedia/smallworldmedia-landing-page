@@ -8,10 +8,11 @@
  * tuning panel in production builds.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/video-globe.css';
 import '../../styles/lab-globe.css';
 import { sanityFetch } from '../../lib/sanityClient.js';
 import { GLOBE_ASSETS_QUERY } from '../../lib/queries.js';
-import buildAssetPool from '../../components/lab/globe/buildAssetPool.js';
+import buildAssetPool from '../../components/globe/buildAssetPool.js';
 import VideoGlobeLab from '../../components/lab/VideoGlobeLab.jsx';
 
 const assets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));

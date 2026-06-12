@@ -1,0 +1,107 @@
+/* ============================================
+   VIDEO GLOBE — production component styles
+   Used by the home hero and /lab/globe.
+   The component fills its nearest positioned
+   ancestor; the parent owns framing/background.
+   ============================================ */
+
+.video-globe {
+  position: absolute;
+  inset: 0;
+}
+
+.video-globe__canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  /* pointer drag owns the gesture */
+}
+
+.video-globe__canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* --- Hidden video slot pool ---
+   Near-invisible offscreen positioning, NOT display:none —
+   Safari throttles decoding of display:none videos. */
+.video-globe-pool {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 2px;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
+.video-globe-pool video {
+  width: 2px;
+  height: 2px;
+}
+
+/* --- Debug panel (dev / ?debug only) --- */
+.video-globe-debug {
+  position: fixed;
+  left: var(--space-6);
+  bottom: var(--space-6);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 15rem;
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  pointer-events: auto;
+}
+
+.video-globe-debug__row {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.video-globe-debug__btn {
+  appearance: none;
+  border: 1px solid var(--color-cream);
+  background: transparent;
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  text-transform: lowercase;
+}
+
+.video-globe-debug__btn.is-active {
+  background: var(--color-cream);
+  color: var(--color-black);
+}
+
+.video-globe-debug__slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-transform: lowercase;
+}
+
+.video-globe-debug__slider input[type='range'] {
+  width: 100%;
+  accent-color: var(--color-electric-blue);
+}
+
+.video-globe-debug__stats {
+  display: flex;
+  gap: var(--space-5);
+}
+
+.video-globe-debug__panels {
+  opacity: 0.6;
+  word-break: break-all;
+}

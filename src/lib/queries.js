@@ -95,19 +95,33 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
 `;
 
 /**
- * GLOBE_ASSETS_QUERY — Hybrid asset pool for the homepage video globe.
+ * GLOBE_ASSETS_QUERY — Asset pool for the homepage video globe, sourced
+ * from the Featured Project hierarchy (see CONTEXT.md § Content
+ * Population Hierarchy). buildAssetPool.js turns this into the final
+ * pool order: globeOrder picks → featured sizzle reels (editorial
+ * project rank) → featured-collection showcase → general showcase.
  *
- * curated  — assets hand-ranked via globeOrder; they fill the most
- *            prominent panels first.
- * autoFill — showcase motion assets with a ready Mux playback ID, newest
- *            first. buildAssetPool.js interleaves these across clients /
- *            client types / services so the breadth story is automatic.
+ * curated          — assets hand-ranked via globeOrder (manual override;
+ *                    they fill the most prominent panels first)
+ * featuredProjects — editorial rank layer: project docs matched to
+ *                    assets via toProjectSlug(clientSlug, sourceManifest)
+ * heroes           — every sizzle reel, uncapped (heroes must never fall
+ *                    off the autoFill recency cap). Playable ones become
+ *                    tier-2 panels; all of them mark their sourceFolder
+ *                    as a featured collection for tier 3
+ * autoFill         — non-hero showcase motion, newest first, carrying
+ *                    the hierarchy fields buildAssetPool needs
+ *
+ * Video status: "preparing" is accepted alongside "ready" — the Mux
+ * status snapshots in Sanity went stale after re-ingestion (streams
+ * verified serving) and most hero reels are still marked preparing.
+ * Tighten to ready-only once the statuses re-sync.
  */
 export const GLOBE_ASSETS_QUERY = `{
   "curated": *[_type == "mediaAsset"
       && defined(globeOrder)
       && defined(video.asset->playbackId)
-      && video.asset->data.status == "ready"
+      && video.asset->data.status in ["ready", "preparing"]
       && !(_id in path("drafts.**"))]
     | order(globeOrder asc) {
     _id,
@@ -118,16 +132,40 @@ export const GLOBE_ASSETS_QUERY = `{
     "clientName": client->name,
     "clientSlug": client->slug.current
   },
+  "featuredProjects": *[_type == "project"
+      && isFeatured == true
+      && !(_id in path("drafts.**"))] {
+    "slug": slug.current,
+    sortOrder
+  },
+  "heroes": *[_type == "mediaAsset"
+      && isHero == true
+      && !defined(globeOrder)
+      && !(_id in path("drafts.**"))] {
+    _id,
+    title,
+    sourceFolder,
+    "collection": sourceManifest,
+    "playbackId": video.asset->playbackId,
+    "videoStatus": video.asset->data.status,
+    "videoAspectRatio": video.asset->data.aspect_ratio,
+    "clientName": client->name,
+    "clientSlug": client->slug.current,
+    "clientType": client->clientType
+  },
   "autoFill": *[_type == "mediaAsset"
+      && isHero != true
       && !defined(globeOrder)
       && !defined(contentRole)
       && mediaType match "motion_*"
       && defined(video.asset->playbackId)
-      && video.asset->data.status == "ready"
+      && video.asset->data.status in ["ready", "preparing"]
       && !(_id in path("drafts.**"))]
-    | order(_createdAt desc) [0...96] {
+    | order(_createdAt desc) [0...128] {
     _id,
     title,
+    sourceFolder,
+    "collection": sourceManifest,
     "playbackId": video.asset->playbackId,
     "videoAspectRatio": video.asset->data.aspect_ratio,
     "clientName": client->name,

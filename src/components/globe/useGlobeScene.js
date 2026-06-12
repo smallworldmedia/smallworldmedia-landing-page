@@ -26,6 +26,7 @@ import {
   RADIUS,
   INNER_SPHERE_SCALE,
   CAMERA_FOV,
+  FIT_COVER,
   FILL_FRACTION,
   INITIAL_PITCH_DEG,
   FPS_CAP,
@@ -68,11 +69,13 @@ export default function useGlobeScene(containerRef, assets, gapDeg, capDeg, vari
       const h = container.clientHeight || 1;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
-      // Fit the sphere to FILL_FRACTION of the limiting (smaller) fov axis
-      const fovV = THREE.MathUtils.degToRad(CAMERA_FOV);
-      const fovH = 2 * Math.atan(Math.tan(fovV / 2) * camera.aspect);
-      const fitFov = Math.min(fovV, fovH);
-      camera.position.z = RADIUS / Math.sin((FILL_FRACTION * fitFov) / 2);
+      // Tan-space fit: contain (desktop) sizes the globe against the
+      // smaller fov axis; cover (mobile overscan) against the larger one,
+      // so FILL_FRACTION > 1 crops the globe's edges past the viewport.
+      const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
+      const tanH = tanV * camera.aspect;
+      const tanFit = FIT_COVER ? Math.max(tanV, tanH) : Math.min(tanV, tanH);
+      camera.position.z = RADIUS / Math.sin(Math.atan(FILL_FRACTION * tanFit));
       camera.updateProjectionMatrix();
     };
     frameCamera();
@@ -191,7 +194,7 @@ export default function useGlobeScene(containerRef, assets, gapDeg, capDeg, vari
 
       schedClock += step;
       if (scheduler && schedClock >= 0.5) {
-        scheduler.update(globeGroup.rotation, sceneTime);
+        scheduler.update(globeGroup.rotation, sceneTime, camera);
         schedClock = 0;
       }
 

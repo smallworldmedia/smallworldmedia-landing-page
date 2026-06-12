@@ -7,7 +7,7 @@
  * mark rendered as negative space.
  */
 
-/** Mobile detection at module load — same convention as UnicornBg INITIAL_DPI */
+/** Mobile detection at module load — breakpoint frozen for the session */
 export const IS_MOBILE =
   typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
@@ -26,32 +26,47 @@ export const INNER_SPHERE_SCALE = 0.99; // gap-color sphere; also occludes rear 
 
 /* — Camera — */
 export const CAMERA_FOV = 35;        // degrees, vertical
-export const FILL_FRACTION = 0.8;    // globe diameter as fraction of the limiting viewport axis
+// Desktop: contain-fit — whole globe visible at FILL_FRACTION of the
+// limiting axis. Mobile: cover-overscan — the globe overflows the viewport
+// (top/bottom/sides crop, background peeks only in the corners) so fewer,
+// much larger panels are on screen. Offscreen panels are frustum-culled
+// by three.js automatically.
+export const FIT_COVER = IS_MOBILE;
+export const FILL_FRACTION = IS_MOBILE ? 1.22 : .85;
 export const INITIAL_PITCH_DEG = 40; // top pole tips toward viewer, matching the brand mark
 
 /* — Render budget — */
-export const FPS_CAP = 60;           // matches the UnicornBg scene budget
-export const DPR_MAX = IS_MOBILE ? 1 : 2;
+export const FPS_CAP = 60;           // render-loop cap (gated locally, never via gsap.ticker.fps)
+export const DPR_MAX = IS_MOBILE ? 1.5 : 2;
 
 /* — Textures — */
-export const THUMB_WIDTH = IS_MOBILE ? 320 : 512; // Mux thumbnail request size (square, smartcrop)
+export const THUMB_WIDTH = IS_MOBILE ? 384 : 512; // Mux thumbnail request size (square, smartcrop)
+
+/* — Stream quality —
+   Mobile overscan shows few, large panels → pin a single 540p rendition
+   (min+max together collapse the manifest to one choice, which also
+   overrides iOS native-HLS ABR that would otherwise pick low for a
+   hidden video element). Desktop runs 6 small panels → cheapest 270p. */
+export const STREAM_PARAMS = IS_MOBILE
+  ? 'min_resolution=540p&max_resolution=540p'
+  : 'max_resolution=270p';
 
 /* — Live video tier (Stage 2) — */
-export const MAX_LIVE = IS_MOBILE ? 2 : 6;     // concurrent video decode budget
+export const MAX_LIVE = IS_MOBILE ? 4 : 7;     // concurrent video decode budget
 export const GLOBE_PREVIEW_SECONDS = 3;        // abbreviated loop, MediaCard convention
 export const CROSSFADE_SECONDS = 0.6;          // thumbnail ↔ video uMix tween
-export const PROMOTE_SCORE = 0.6;              // facing-camera threshold to go live
-export const DEMOTE_SCORE = 0.4;               // hysteresis — below this, fade back to still
+export const PROMOTE_SCORE = 0.4;              // facing-camera threshold to go live
+export const DEMOTE_SCORE = 0.2;               // hysteresis — below this, fade back to still
 export const SWAP_SCORE = -0.25;               // hidden-hemisphere texture cycling threshold
 export const MIN_LIVE_DWELL_SECONDS = 4;       // no promote/demote thrash during drag
 
 /* — Interaction — */
 export const AUTO_ROTATE_SPEED = 0.12;   // rad/s ambient drift
 export const PITCH_LIMIT_DEG = 40;
-export const DRAG_SENSITIVITY = 0.005;   // rad per px of pointer travel
-export const MAX_FLICK_SPEED = 3;        // rad/s cap on release velocity
-export const INERTIA_SECONDS = 1.8;      // decay back to ambient drift
+export const DRAG_SENSITIVITY = 0.001;   // rad per px of pointer travel
+export const MAX_FLICK_SPEED = 1;        // rad/s cap on release velocity
+export const INERTIA_SECONDS = .2;      // decay back to ambient drift
 
 /* — Colors (match global.css custom properties) — */
-export const GAP_COLOR = 0x000000;            // black — the lat/long lines + occluding inner sphere
+export const GAP_COLOR = 0x0000ff;            // black — the lat/long lines + occluding inner sphere
 export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-texture state
