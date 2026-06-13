@@ -36,7 +36,7 @@ export default function MediaGrid({ assets, albumArt, activeSlugs, onSelect }) {
     : null;
 
   return (
-    <div className="media-grid">
+    <div className="masonry-grid media-grid">
       {assets.map((asset, i) => (
         <Fragment key={asset._id}>
           {/* Inject album art cards at the configured index */}

@@ -88,8 +88,8 @@ function parseManifest(raw, manifestDir) {
       continue
     }
 
-    // Table separator
-    if (trimmed.startsWith('|') && trimmed.includes('---')) continue
+    // Table separator (all cells must be dashes/colons only, e.g. |---|---|)
+    if (trimmed.startsWith('|') && /^\|[\s:-]+(\|[\s:-]+)+\|?$/.test(trimmed)) continue
 
     // Table data row
     if (trimmed.startsWith('|') && inTable) {
@@ -213,8 +213,14 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
     isHero: row.ishero === 'true',
     sortOrder: row.sortorder ? parseInt(row.sortorder, 10) : undefined,
     contentRole: row.contentrole || row['contentRole'] || undefined,
+    displayGroup: row.displaygroup || row['displayGroup'] || undefined,
+    brandDeckOrder: row.branddeckorder || row['brandDeckOrder']
+      ? parseInt(row.branddeckorder || row['brandDeckOrder'], 10)
+      : undefined,
     sourceFolder: manifestDir,
     sourceManifest: path.basename(manifestDir),
+    fileName: row.file,
+    aspectRatio: row.aspectratio || row['aspectRatio'] || undefined,
   }
 
   if (imageField) {

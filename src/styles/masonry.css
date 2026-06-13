@@ -1,0 +1,45 @@
+/* ============================================
+   MASONRY GRID — Canonical CSS column layout
+   ============================================
+   Shared between Project Directory (4-col) and
+   Featured Project detail pages (3-col).
+
+   Uses CSS `columns` for true masonry packing —
+   items flow into the shortest column, respecting
+   their natural aspect ratios with zero wasted space.
+
+   Usage:
+     <div class="masonry-grid">              → 4-col (directory)
+     <div class="masonry-grid masonry-grid--detail">  → 3-col (detail)
+   ============================================ */
+
+.masonry-grid {
+  columns: 4;
+  column-gap: var(--space-1);
+  line-height: 0; /* kill inline-block whitespace */
+}
+
+.masonry-grid > * {
+  break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: var(--space-1);
+  vertical-align: top;
+  line-height: normal; /* restore for child content */
+}
+
+/* Detail pages: tighter column count for editorial weight */
+.masonry-grid--detail {
+  columns: 3;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .masonry-grid { columns: 3; }
+  .masonry-grid--detail { columns: 2; }
+}
+
+@media (max-width: 768px) {
+  .masonry-grid { columns: 2; }
+  .masonry-grid--detail { columns: 1; }
+}

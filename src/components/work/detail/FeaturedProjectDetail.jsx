@@ -8,7 +8,7 @@
  *   1. ClientPanel — blue info band (title, client meta, socials)
  *   2. Hero slot — the collection's sizzle reel (isHero), full-bleed
  *   3. Project blurb — overview copy + client/date fields + ServiceTags
- *   4. Content flow — remaining showcase assets in full/split rhythm
+ *   4. Masonry grid — remaining showcase assets in a 3-col masonry flow
  *   5. SiteFooter
  *
  * SiteNav, info drawer, and project overlay are handled by the
@@ -24,26 +24,28 @@ import ClientPanel from './ClientPanel.jsx';
 import MediaSlot from './MediaSlot.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import ServiceTag from '../ServiceTag.jsx';
-import { buildContentFlow, ratioOf } from './buildContentFlow.js';
-
-/** Portrait threshold — same constant used in buildContentFlow. */
-const PORTRAIT_THRESHOLD = 1.2;
+import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 
 export default function FeaturedProjectDetail({ assets, client, project, collection }) {
   const hero = assets.find((a) => a.isHero) ?? assets[0];
-  const { rows } = buildContentFlow(assets);
+  const { showcase } = buildContentFlow(assets);
 
   const isPortraitHero = hero && ratioOf(hero) < PORTRAIT_THRESHOLD;
 
-  // Union of service tags across the collection, deduped by slug
-  const services = [
-    ...new Map(
-      assets.flatMap((a) => a.services ?? []).map((s) => [s.slug, s])
-    ).values(),
-  ];
+  // Service tags — prefer project-level tags, fall back to asset-derived union
+  const services =
+    project?.services?.length > 0
+      ? project.services
+      : [
+          ...new Map(
+            assets.flatMap((a) => a.services ?? []).map((s) => [s.slug, s])
+          ).values(),
+        ];
 
-  // Project date: newest asset year in the collection
-  const year = assets.reduce((max, a) => Math.max(max, a.year ?? 0), 0) || null;
+  // Project date — prefer project doc, fall back to newest asset year
+  const year =
+    project?.year ??
+    (assets.reduce((max, a) => Math.max(max, a.year ?? 0), 0) || null);
 
   // Editorial copy comes from the optional project document
   const displayTitle = project?.title ?? collection;
@@ -78,7 +80,12 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
 
   return (
     <div className="project-detail">
-      <ClientPanel client={client} displayTitle={displayTitle} />
+      <ClientPanel
+        client={client}
+        displayTitle={displayTitle}
+        year={year}
+        services={services}
+      />
 
       <main className="project-detail__flow">
         {/* Portrait hero → side-by-side band; landscape → stacked full-bleed */}
@@ -87,26 +94,23 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
             className="hero-band"
             style={{ '--hero-ratio': ratioOf(hero) }}
           >
-            <MediaSlot asset={hero} variant="full" />
+            <MediaSlot asset={hero} />
             {blurbSection}
           </div>
         ) : (
           <>
-            {hero && <MediaSlot asset={hero} variant="full" />}
+            {hero && <MediaSlot asset={hero} />}
             {blurbSection}
           </>
         )}
 
-        {rows.map((row, i) =>
-          row.type === 'split' ? (
-            <div className="media-row media-row--split" key={row.assets[0]._id ?? i}>
-              {row.assets.map((a) => (
-                <MediaSlot key={a._id} asset={a} variant="split" />
-              ))}
-            </div>
-          ) : (
-            <MediaSlot key={row.assets[0]._id} asset={row.assets[0]} variant="full" />
-          )
+        {/* Masonry content flow — 3-col grid of showcase assets */}
+        {showcase.length > 0 && (
+          <div className="masonry-grid masonry-grid--detail">
+            {showcase.map((a) => (
+              <MediaSlot key={a._id} asset={a} />
+            ))}
+          </div>
         )}
       </main>
 

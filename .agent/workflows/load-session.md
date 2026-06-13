@@ -61,7 +61,7 @@ console.log('Clients: ' + clients + ' | Service Tags: ' + tags + ' | Media Asset
 MANIFEST COUNT:
 
 ```
-!`echo "Manifests:" && find "/Users/nathangorey/Library/CloudStorage/Dropbox/Small World Media/Website/Small World Media - Project Directory" -name "_manifest.md" -type f 2>/dev/null | wc -l | tr -d ' '`
+!`echo "Manifests:" && find media -name "_manifest.md" -type f 2>/dev/null | wc -l | tr -d ' '`
 ```
 
 ## Step 4: Reconcile & Flag Drift

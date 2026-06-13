@@ -43,6 +43,8 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
 
   /**
    * Compute the actual aspect ratio from asset dimensions.
+   * Uses the same resolution cascade as the detail page:
+   *   Mux data → Sanity image dims → title hint → mediaType map → 16:9
    */
   const dimensions = useMemo(() => {
     if (isVideo && asset.videoAspectRatio) {
@@ -53,8 +55,15 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
       const { width, height } = asset.imageDimensions;
       return { ratio: width / height, w: width, h: height };
     }
-    return { ratio: 1, w: 1, h: 1 };
-  }, [isVideo, asset.videoAspectRatio, asset.imageDimensions]);
+    // Title-hint parsing: "…3x4…", "…9x16…" etc.
+    const titleMatch = asset.title?.match(/\b(\d{1,2})\s*[xX×]\s*(\d{1,2})\b/);
+    if (titleMatch) {
+      const w = Number(titleMatch[1]);
+      const h = Number(titleMatch[2]);
+      if (w && h) return { ratio: w / h, w, h };
+    }
+    return { ratio: 16 / 9, w: 16, h: 9 };
+  }, [isVideo, asset.videoAspectRatio, asset.imageDimensions, asset.title]);
 
   /**
    * Grid span classes based on aspect ratio.

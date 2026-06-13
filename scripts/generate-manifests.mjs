@@ -127,7 +127,7 @@ function generateProjectManifest(clientName, projectName, files) {
   const rows = files.map((f, i) => {
     const mediaType = inferMediaType(f, false)
     const title = generateTitle(f)
-    return `| ${f} | ${mediaType} | ${title} | false | ${i + 1} |`
+    return `| ${f} | ${mediaType} | ${title} | false | ${i + 1} | |`
   })
 
   return `# ${clientName} — ${projectName}
@@ -138,8 +138,8 @@ year: ${year}
 
 ## Assets
 
-| file | mediaType | title | isHero | sortOrder |
-|------|-----------|-------|--------|-----------|
+| file | mediaType | title | isHero | sortOrder | displayGroup |
+|------|-----------|-------|--------|-----------|--------------|
 ${rows.join('\n')}
 `
 }

@@ -48,7 +48,7 @@ html:has(.specimen-page) {
   overflow: auto;
   height: auto;
   min-height: 100dvh;
-  overscroll-behavior: none;
+  overscroll-behavior-y: none;
 }
 
 html:has(.specimen-page) body {

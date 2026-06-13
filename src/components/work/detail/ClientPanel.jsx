@@ -6,20 +6,14 @@
  * (client_type, based_in) and social links on the right.
  *
  * Chips and socials render only when the client document carries the
- * data — city/country/links are still being wired in Sanity (Phase 13+),
- * so the panel degrades gracefully.
+ * data — city/country/links are populated per client in Sanity.
  *
  * @param {Object} props
  * @param {Object} props.client       - client doc (name, clientType, city, country, links)
  * @param {string} props.displayTitle - collection name or project doc title
  */
 
-/** Social platforms with icons available in /public/icons */
-const SOCIAL_ICONS = {
-  Spotify: '/icons/spotify.svg',
-  Instagram: '/icons/instagram.svg',
-  Beatport: '/icons/beatport.svg',
-};
+import SocialButton, { SOCIAL_ICONS } from '../../ui/SocialButton.jsx';
 
 export default function ClientPanel({ client, displayTitle }) {
   const basedIn = [client?.city, client?.country].filter(Boolean).join(', ');
@@ -28,7 +22,9 @@ export default function ClientPanel({ client, displayTitle }) {
   return (
     <section className="client-panel">
       <h1 className="client-panel__title">
-        {client?.name} / {displayTitle}
+        {client?.name?.toLowerCase() === displayTitle?.toLowerCase()
+          ? displayTitle
+          : <>{client?.name} / {displayTitle}</>}
       </h1>
 
       <div className="client-panel__meta">
@@ -50,16 +46,12 @@ export default function ClientPanel({ client, displayTitle }) {
         {socials.length > 0 && (
           <div className="client-panel__socials">
             {socials.map((link) => (
-              <a
+              <SocialButton
                 key={link.platform}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="client-panel__social"
-                aria-label={`${client.name} on ${link.platform}`}
-              >
-                <img src={SOCIAL_ICONS[link.platform]} alt="" />
-              </a>
+                platform={link.platform}
+                url={link.url}
+                clientName={client.name}
+              />
             ))}
           </div>
         )}

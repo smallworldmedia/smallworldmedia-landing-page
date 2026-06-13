@@ -7,7 +7,7 @@
 html:has(.work-page) {
   overflow: auto;
   height: auto;
-  overscroll-behavior: none;
+  overscroll-behavior-y: none;
   background: var(--color-black);
 }
 
@@ -196,21 +196,11 @@ html:has(.work-page) body {
   will-change: transform;
 }
 
-/* --- MediaGrid --- */
+/* --- MediaGrid ---
+   Extends .masonry-grid (masonry.css) with directory-specific padding.
+   The HTML now uses class="masonry-grid media-grid". */
 .media-grid {
-  columns: 4;
-  column-gap: var(--space-1);
   padding-top: var(--space-3);
-  line-height: 0; /* kill inline-block whitespace */
-}
-
-.media-grid > * {
-  break-inside: avoid;
-  display: inline-block;
-  width: 100%;
-  margin-bottom: var(--space-1);
-  vertical-align: top;
-  line-height: normal; /* restore for card content */
 }
 
 /* Wide/tall modifiers no longer needed — columns handle packing */
@@ -404,11 +394,14 @@ html:has(.work-page) body {
 
 .featured-card {
   position: relative;
+  display: block;
   border-radius: 2px;
   overflow: hidden;
   cursor: pointer;
   aspect-ratio: 16 / 9;
   background: var(--color-dark-gray);
+  color: inherit;
+  text-decoration: none;
 }
 
 .featured-card__media {
@@ -436,10 +429,11 @@ html:has(.work-page) body {
   color: var(--color-cream);
 }
 
-.featured-card__count {
+.featured-card__title {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   color: var(--color-cream);
+  opacity: 0.7;
   margin-top: var(--space-2);
 }
 
@@ -506,19 +500,7 @@ html:has(.work-page) body {
 }
 
 /* --- Responsive --- */
-@media (max-width: 1024px) {
-  .media-grid {
-    columns: 3;
-  }
-
-
-}
-
 @media (max-width: 768px) {
-  .media-grid {
-    columns: 2;
-  }
-
   .work-header {
     flex-direction: column;
     gap: var(--space-4);

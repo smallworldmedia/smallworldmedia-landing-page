@@ -74,8 +74,8 @@ export const FEATURED_PROJECTS_QUERY = `
     "videoStatus": video.asset->data.status,
     "clientName": client->name,
     "clientSlug": client->slug.current,
-    "services": services[]->{ name, "slug": slug.current },
-    "projectAssetCount": count(*[_type == "mediaAsset" && client._ref == ^.client._ref])
+    "collection": sourceManifest,
+    "services": services[]->{ name, "slug": slug.current }
   }
 `;
 
@@ -193,6 +193,8 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     isHero,
     contentRole,
     sortOrder,
+    displayGroup,
+    brandDeckOrder,
     year,
     "imageUrl": image.asset->url,
     "imageDimensions": image.asset->metadata.dimensions,
@@ -212,6 +214,7 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
   "project": *[_type == "project" && slug.current == $slug && !(_id in path("drafts.**"))][0]{
     title,
     description,
-    year
+    year,
+    "services": services[]->{ name, "slug": slug.current }
   }
 }`;

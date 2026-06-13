@@ -1,9 +1,9 @@
 /**
  * MediaSlot — A single media container on the Featured Project page.
  *
- * Two variants, both 16:9 with cover-cropped media per the Figma:
- *  - "full"  — full viewport width (hero, solo showcase assets)
- *  - "split" — half width, paired inside a .media-row--split
+ * Renders as a masonry grid child — each slot sizes itself via
+ * aspect-ratio from the asset's native dimensions. Portrait assets
+ * are clamped to a 3:4 minimum container with object-fit: cover.
  *
  * Videos stream the full Mux HLS loop (no preview cap — these are
  * sizzle reels and showcase loops). HLS attaches lazily when the slot
@@ -11,17 +11,17 @@
  * the Sanity CDN. Both fade in via the shared load-gate pattern.
  *
  * @param {Object} props
- * @param {Object}  props.asset    - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY
- * @param {'full'|'split'} [props.variant='full']
+ * @param {Object}  props.asset - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY
  */
 import { useRef, useEffect, useState } from 'react';
 import useHls from '../useHls.js';
 import { IMG_FORMAT } from '../imageConfig.js';
+import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 
-/** Sanity image width params per slot variant */
-const SLOT_IMG_WIDTH = { full: 2000, split: 1200 };
+/** Sanity image width for detail page slots */
+const SLOT_IMG_WIDTH = 1400;
 
-export default function MediaSlot({ asset, variant = 'full' }) {
+export default function MediaSlot({ asset }) {
   const slotRef = useRef(null);
   const videoRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -34,11 +34,12 @@ export default function MediaSlot({ asset, variant = 'full' }) {
 
   useHls(videoRef, hlsSrc);
 
-  const imageWidth = SLOT_IMG_WIDTH[variant] ?? SLOT_IMG_WIDTH.full;
-
   const posterUrl = isVideo
-    ? `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=${imageWidth}&fit_mode=preserve`
+    ? `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=${SLOT_IMG_WIDTH}&fit_mode=preserve`
     : null;
+
+  const ratio = ratioOf(asset);
+  const isPortrait = ratio < PORTRAIT_THRESHOLD;
 
   useEffect(() => {
     if (!slotRef.current) return;
@@ -60,7 +61,9 @@ export default function MediaSlot({ asset, variant = 'full' }) {
   return (
     <figure
       ref={slotRef}
-      className={`media-slot media-slot--${variant}`}
+      className="media-slot"
+      data-portrait={isPortrait || undefined}
+      style={{ '--slot-ratio': ratio }}
       aria-label={asset.title || undefined}
     >
       {isVideo ? (
@@ -77,7 +80,7 @@ export default function MediaSlot({ asset, variant = 'full' }) {
       ) : asset.imageUrl ? (
         <img
           className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}
-          src={`${asset.imageUrl}?w=${imageWidth}&${IMG_FORMAT}`}
+          src={`${asset.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
           alt={asset.title || ''}
           loading="lazy"
           onLoad={() => setIsLoaded(true)}

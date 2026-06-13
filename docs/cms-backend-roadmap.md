@@ -238,13 +238,13 @@ Each root manifest requires human curation of the `serviceType` column.
 | Artwork manifests | 5 | 5 |
 | Featured project manifests | 16 | 8+ |
 | Root manifests (Mode 2) | 43 (Bedouin + T1 + T2 + T3 + Edge) | 48 |
-| Total manifests (curated) | 83 | ~79 |
+| Total manifests (curated) | 82 | ~79 |
 | Manifests uncurated (root) | 0 | 0 |
 | Subdirectory manifests pending | 0 | 0 |
-| Assets ingested to Sanity | 690 | ~600+ |
-| Image uploads to CDN | 690 | ~600+ |
-| Mux video assets | 201 | ~200+ |
-| Videos wired to mediaAssets | 201 | ~200+ |
+| Assets ingested to Sanity | 784 | ~600+ |
+| Image uploads to CDN | 784 | ~600+ |
+| Mux video assets | 215 | ~200+ |
+| Videos wired to mediaAssets | 215 | ~200+ |
 | Affiliations wired | 0 | 10+ |
 | Workflows created | 2 | — |
 

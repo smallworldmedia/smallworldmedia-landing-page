@@ -2,21 +2,14 @@
  * FeaturedProjects — Dedicated page component for /work/featured.
  *
  * Showcases curated Featured Project collections with large cards.
- * Each card links to the future single-project page (/work/[slug]).
+ * Each card links to its single-project detail page (/work/[slug]).
  *
  * @param {Object} props
- * @param {Array<Object>} props.projects - Featured project assets (isHero: true)
+ * @param {Array<Object>} props.projects - Featured project hero assets
  */
-import { useState, useCallback } from 'react';
-import Lightbox from './Lightbox.jsx';
+import { toProjectSlug } from '../../lib/projectSlug.js';
 
 export default function FeaturedProjects({ projects }) {
-  const [lightboxAsset, setLightboxAsset] = useState(null);
-
-  const handleSelect = useCallback((project) => {
-    setLightboxAsset(project);
-  }, []);
-
   if (!projects?.length) {
     return (
       <div className="work-page">
@@ -57,13 +50,16 @@ export default function FeaturedProjects({ projects }) {
                 ? `${project.imageUrl}?w=1280&auto=format`
                 : null;
 
+            const slug =
+              project.clientSlug && project.collection
+                ? toProjectSlug(project.clientSlug, project.collection)
+                : null;
+
             return (
-              <div
+              <a
                 key={project._id}
                 className="featured-card"
-                onClick={() => handleSelect(project)}
-                role="button"
-                tabIndex={0}
+                href={slug ? `/work/${slug}` : undefined}
               >
                 {thumbnailUrl ? (
                   <img
@@ -79,22 +75,19 @@ export default function FeaturedProjects({ projects }) {
                   <div className="featured-card__client">
                     {project.clientName}
                   </div>
-                  {project.projectAssetCount && (
-                    <div className="featured-card__count">
-                      {project.projectAssetCount} assets
+                  {project.collection &&
+                    project.collection.toLowerCase().replace(/[^a-z0-9]/g, '') !==
+                      project.clientName?.toLowerCase().replace(/[^a-z0-9]/g, '') && (
+                    <div className="featured-card__title">
+                      {project.collection}
                     </div>
                   )}
                 </div>
-              </div>
+              </a>
             );
           })}
         </div>
       </div>
-
-      <Lightbox
-        asset={lightboxAsset}
-        onClose={() => setLightboxAsset(null)}
-      />
     </div>
   );
 }

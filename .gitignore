@@ -34,3 +34,8 @@ PkgTTC-SGr-IosevkaTerm-34.4.0/
 media/**
 !media/**/
 !media/**/_manifest.md
+
+# Local-only artifacts
+.sanity/
+.scratch/
+schema.json

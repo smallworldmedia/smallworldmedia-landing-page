@@ -43,6 +43,8 @@ export const mediaAsset = defineType({
             value: 'featured-project-reel',
           },
           { title: 'Brand Deck Page', value: 'brand-deck' },
+          { title: 'Carousel Slide', value: 'carousel-slide' },
+          { title: 'Carousel Slide', value: 'carousel-slide' },
           // Static format types
           { title: 'Static — 1:1', value: 'static_1x1' },
           { title: 'Static — 3:4', value: 'static_3x4' },
@@ -235,6 +237,13 @@ export const mediaAsset = defineType({
         ],
         layout: 'radio',
       },
+    }),
+    defineField({
+      name: 'displayGroup',
+      title: 'Display Group',
+      type: 'string',
+      description:
+        'Sub-group within a featured project (e.g., "Coachella Set Promo", "Brand Guidelines"). Assets sharing a displayGroup render adjacent on the detail page. Leave empty for ungrouped assets.',
     }),
     defineField({
       name: 'sourceFolder',

@@ -45,9 +45,27 @@ year: 2024
 | file | mediaType | serviceType | title | isHero | sortOrder |
 |------|-----------|-------------|-------|--------|-----------|
 | spotify-promo_v2.mp4 | motion_9x16 | promo video | Spotify Promo | false | 1 |
-| brand-guidelines.pdf | brand-deck | branding | Brand Guidelines | false | 2 |
+| Brand Guidelines/brand-guidelines_page_01.jpg | brand-deck | branding | Brand Guidelines Page 01 | false | 2 |
 | tour-poster.jpg | static_16x9 | event / tour creative | Tour Poster | false | 3 |
 ```
+
+> **Optional columns** — append `displayGroup` and `brandDeckOrder` columns when a
+> manifest contains brand decks or carousels (the ingestion script parses them by
+> header name; leave cells empty on rows that don't need them):
+>
+> - **Brand decks**: per-page JPEGs in a subfolder (source PDF stays unmanifested).
+>   `mediaType: brand-deck`, `displayGroup` = kebab-case deck slug
+>   (e.g. `developed-pitch-deck`), `brandDeckOrder` = 1-based page sequence.
+> - **Carousels**: one image per slide in a subfolder. `mediaType: carousel-slide`,
+>   `displayGroup` = kebab-case carousel slug (e.g. `womens-day-carousel`),
+>   slide sequence via `sortOrder`.
+>
+> ```markdown
+> | file | mediaType | title | isHero | aspectRatio | sortOrder | displayGroup | brandDeckOrder |
+> |------|-----------|-------|--------|-------------|-----------|--------------|----------------|
+> | Pitch Deck/deck_page_01.jpg | brand-deck | Deck Page 01 | false | 16:9 | 10 | client-pitch-deck | 1 |
+> | IWD Carousel/slide-1.jpg | carousel-slide | IWD Slide 1 | false | 4:5 | 20 | iwd-carousel | |
+> ```
 
 > **Fallback rule:** If a row has a `serviceType` value, the ingestion script uses it.
 > If `serviceType` is missing or blank, it falls back to the header `services:` field.
@@ -89,7 +107,7 @@ Most assets are **showcase** content (polished deliverables) — this is the def
 
 ### Valid `mediaType` values
 
-**Layout types:** `album-art`, `logo`, `featured-project-reel`, `brand-deck`
+**Layout types:** `album-art`, `logo`, `featured-project-reel`, `brand-deck`, `carousel-slide`
 
 **Static formats:** `static_1x1`, `static_3x4`, `static_4x5`, `static_9x16`, `static_16x9`, `static_other`
 

@@ -8,6 +8,7 @@
  * the FeaturedProjectDetail island.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/masonry.css';
 import '../../styles/project-detail.css';
 import { sanityFetch } from '../../lib/sanityClient.js';
 import {
@@ -44,10 +45,16 @@ const { assets, client, project } = await sanityFetch(
   { sourceFolder, slug }
 );
 
-const pageTitle = `${clientName} — ${project?.title ?? collection} — Small World Media™`;
+const resolvedTitle = project?.title ?? collection;
+const isSameAsClient = clientName.toLowerCase() === resolvedTitle.toLowerCase();
+const pageTitle = isSameAsClient
+  ? `${resolvedTitle} — Small World Media™`
+  : `${clientName} — ${resolvedTitle} — Small World Media™`;
 const description =
   project?.description ??
-  `${project?.title ?? collection} for ${clientName} — a featured project by Small World Media.`;
+  (isSameAsClient
+    ? `${resolvedTitle} — a featured project by Small World Media.`
+    : `${resolvedTitle} for ${clientName} — a featured project by Small World Media.`);
 ---
 
 <BaseLayout title={pageTitle} description={description}>

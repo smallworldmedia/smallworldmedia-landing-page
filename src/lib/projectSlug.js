@@ -24,5 +24,9 @@ export function slugify(value) {
 
 /** Build the /work/[slug] param for a featured project collection. */
 export function toProjectSlug(clientSlug, collection) {
-  return `${clientSlug}-${slugify(collection)}`;
+  const collSlug = slugify(collection);
+  // Collapse when the collection name is the same as the client name
+  // (e.g. Bellaire → "bellaire" not "bellaire-bellaire")
+  if (collSlug === clientSlug) return clientSlug;
+  return `${clientSlug}-${collSlug}`;
 }

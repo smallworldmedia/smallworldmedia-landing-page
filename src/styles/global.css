@@ -169,7 +169,8 @@
 
 html {
   font-size: 14px;
-  scrollbar-gutter: stable; /* prevent layout shift when scrollbar appears/disappears */
+  scrollbar-gutter: stable;
+  /* prevent layout shift when scrollbar appears/disappears */
 }
 
 html,
@@ -406,7 +407,8 @@ button {
   right: 0;
   z-index: 100;
 
-  pointer-events: none; /* let clicks pass through to page content */
+  pointer-events: none;
+  /* let clicks pass through to page content */
 }
 
 /* Prevent Astro View Transitions from fading the persisted shell */
@@ -696,7 +698,8 @@ button.cta {
   letter-spacing: -0.005em;
   cursor: pointer;
   transition: background var(--duration-micro) var(--ease-micro);
-  margin-left: auto; /* push to right edge of form */
+  margin-left: auto;
+  /* push to right edge of form */
   position: relative;
   z-index: 2;
 }
@@ -713,9 +716,12 @@ button.cta {
 
 .project-overlay__globe {
   position: absolute;
-  top: 0.214rem; /* matches SiteNav padding-top */
-  left: 1.143rem; /* matches SiteNav padding-left */
-  width: 2.714rem; /* 38px — matches SiteNav globe */
+  top: 0.214rem;
+  /* matches SiteNav padding-top */
+  left: 1.143rem;
+  /* matches SiteNav padding-left */
+  width: 2.714rem;
+  /* 38px — matches SiteNav globe */
   height: auto;
   z-index: 2;
   pointer-events: none;
@@ -764,7 +770,7 @@ button.cta {
 }
 
 /* Check sits at top of the field row, aligned with the label */
-.project-overlay__field > .project-overlay__check {
+.project-overlay__field>.project-overlay__check {
   margin-top: 0.1em;
 }
 
@@ -979,12 +985,13 @@ button.cta {
 
   html,
   body {
-    overscroll-behavior: none;
+    overscroll-behavior-y: none;
   }
 
   /* --- Info Panel: 2-column equal-width layout --- */
   .info-panel {
-    max-height: calc(100dvh - 2.929rem); /* subtract SiteNav bar at bottom */
+    max-height: calc(100dvh - 2.929rem);
+    /* subtract SiteNav bar at bottom */
     padding-top: 1.429rem;
     overflow: clip;
   }

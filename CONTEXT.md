@@ -130,7 +130,7 @@ Canonical names for UI components. All implementation work **must** use these te
 
 ## Content Population Hierarchy
 
-The system that turns a Featured Project directory's contents into a page layout. **Pages are populated, not authored** — the manifest/tagging metadata set at ingestion is the layout instruction set. This is why the manifest system records `sortOrder`, `isHero`, `mediaType`, and `contentRole` on every asset.
+The system that turns a Featured Project directory's contents into a page layout. **Pages are populated, not authored** — the manifest/tagging metadata set at ingestion is the layout instruction set. This is why the manifest system records `sortOrder`, `isHero`, `mediaType`, `contentRole`, and `displayGroup` on every asset.
 
 | Metadata | Layout role |
 |---|---|
@@ -139,9 +139,62 @@ The system that turns a Featured Project directory's contents into a page layout
 | `sortOrder` | Manifest row order — the sequence assets flow into slots |
 | `mediaType` / aspect ratio | Slot sizing — landscape can go full-bleed; portrait/square always pairs into split rows |
 | `contentRole` | Flow membership — showcase (empty) populates the main flow; `process`/`supporting` reserved for the future BTS section |
-| `album-art` mediaType | Held out of the flow — populates the future AlbumArtOrbit when present in the directory |
+| `displayGroup` | Sub-grouping — assets sharing a `displayGroup` value render adjacent on the detail page (controlled adjacency) |
+| `album-art` mediaType | **Dual-feed rule** — populates both the AlbumArtOrbit (detail page) and AlbumArtTicker (project directory) |
+| `brand-deck` mediaType | **Dual-feed rule** — held out of the flow; populates the BrandDeckViewer accordion (detail page) and a grouped deck presence (project directory), sorted by `brandDeckOrder` |
+| `carousel-slide` mediaType | Held out of the flow — populates the to-be-built Carousel component, one carousel per `displayGroup`, slides in `sortOrder` |
 
-**Flow algorithm** (`buildContentFlow.js`): after the hero and blurb, showcase assets alternate full-bleed → split pair → full-bleed →… Portrait assets never render full-bleed. Projects with more videos naturally get more full-bleed slots; still-heavy projects pair into split rows. Media-type-specific components populate based on presence in the directory.
+### Aspect Ratio Resolution Rules
+
+Every asset MUST carry enough metadata for the renderer to compute its native aspect ratio. The resolution cascade (defined in `buildContentFlow.js → ratioOf()`) is:
+
+| Priority | Source | Example |
+|---|---|---|
+| 1 | **Mux `data.aspect_ratio`** | `"16:9"`, `"9:16"`, `"4:5"` — authoritative for video |
+| 2 | **Sanity image `metadata.dimensions`** | `{ width: 3000, height: 4000 }` — authoritative for images |
+| 3 | **Title-hint parsing** | Asset title containing "3x4", "9x16", "4x5" etc. |
+| 4 | **`mediaType` lookup** | `static_3x4` → 3/4, `motion_9x16` → 9/16, `album-art` → 1 |
+| 5 | **Fallback** | 16 / 9 (landscape default) |
+
+**Ingestion rules:**
+- Videos uploaded to Mux **must** have `data.aspect_ratio` back-synced to the `mux.videoAsset` doc. Run the Mux backfill script after any bulk video ingestion.
+- Images uploaded to Sanity CDN carry dimensions automatically via `metadata.dimensions`.
+- Assets with generic `mediaType` values (`motion_other`, `static_other`) **must** include a ratio hint in the title (e.g. "Framework LA 3x4") or be re-typed to a ratio-encoding value (e.g. `static_3x4`).
+- The `data-portrait` attribute is applied when `ratio < 1.2` (PORTRAIT_THRESHOLD), which clamps the container to `max(ratio, 3/4)` via CSS.
+
+### Display Group (Controlled Adjacency)
+
+Assets within a Featured Project can be sub-grouped by setting the `displayGroup` field. All assets sharing the same `displayGroup` value render adjacent in the detail page layout — groups are ordered by the lowest `sortOrder` member within each group, and assets within a group maintain their individual `sortOrder`.
+
+- No group headers or visual dividers are rendered — this is **controlled adjacency**, not sectioning.
+- Assets with no `displayGroup` form a single implicit "ungrouped" cluster.
+- The `displayGroup` value is a **kebab-case slug** set in the manifest (e.g., `coachella-set-promo`, `developed-pitch-deck`, `womens-day-carousel`) — production data uses slugs, never display strings.
+
+### Album Art Dual-Feed Rule
+
+Any `album-art` asset within a Featured Project collection feeds into **two** components:
+1. **AlbumArtOrbit** — the orbiting component on the project detail page
+2. **AlbumArtTicker** — the horizontal scrolling ticker on the project directory page
+
+This is automatic — the `album-art` mediaType is the trigger; no additional tagging is needed.
+
+### Brand Deck Dual-Feed Rule
+
+Mirrors album art: any `brand-deck` asset feeds **two** contexts:
+1. **BrandDeckViewer** — the expandable accordion on the Featured Project detail page / Featured Projects page
+2. **Project Directory** — a grouped deck presence (one card per deck, not per page)
+
+`mediaType: brand-deck` is the trigger; `displayGroup` (kebab-case deck slug) bounds the deck; `brandDeckOrder` sequences pages. *(Until the directory deck component exists, deck pages surface in the directory grid as individual cards.)*
+
+### Carousel Convention
+
+Social/editorial carousels (multi-slide posts) live in a subfolder, one image per slide. Each slide row uses `mediaType: carousel-slide`, `displayGroup` = the kebab-case slug of the carousel name (e.g. `womens-day-carousel`), and `sortOrder` sequences the slides. `buildContentFlow` holds carousel slides out of the masonry flow — reserved for the to-be-built Carousel component, which renders one carousel per `displayGroup`.
+
+### Brand Deck Convention
+
+Brand and pitch decks must be exported as per-page JPEGs and placed in a subfolder. The subfolder name becomes the `displayGroup`, each page uses `mediaType: brand-deck`, and `brandDeckOrder` controls page sequence. The BrandDeckViewer component renders these as an expandable accordion.
+
+**Flow algorithm** (`buildContentFlow.js`): after the hero and blurb, showcase assets are first clustered by `displayGroup`, then within each group they alternate full-bleed → split pair → full-bleed →… Portrait assets never render full-bleed. Projects with more videos naturally get more full-bleed slots; still-heavy projects pair into split rows. Media-type-specific components (`album-art`, `brand-deck`) are separated from the flow and routed to their dedicated components.
 
 **Editorial copy layer**: an optional `project` document (slug = `{client-slug}-{collection-slug}`, e.g. `heavy-house-society-live-visuals-2026`) supplies the overview blurb and display title. Without it the page falls back to the collection name and omits the blurb. The `project.contentBlocks` page-builder remains available as a manual override for hand-curated layouts (not yet wired).
 
