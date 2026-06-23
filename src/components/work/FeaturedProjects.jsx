@@ -12,21 +12,13 @@
  * @param {Array<Object>} props.worlds - one entry per featured project
  */
 import { useEffect, useRef, useState } from 'react';
-
-const muxThumb = (id, w = 640) =>
-  `https://image.mux.com/${id}/thumbnail.jpg?width=${w}&fit_mode=smartcrop`;
-
-const tileSrc = (a, w = 640) =>
-  a.playbackId
-    ? muxThumb(a.playbackId, w)
-    : a.imageUrl
-      ? `${a.imageUrl}?w=${w}&auto=format&fit=max`
-      : null;
+import WorldScene from './world/WorldScene.jsx';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 
 export default function FeaturedProjects({ worlds = [] }) {
   const [active, setActive] = useState(0);
+  const [hovered, setHovered] = useState(null);
   const sectionRefs = useRef([]);
 
   // Track the in-view World to drive the pager (placeholder for the World Turn).
@@ -49,6 +41,18 @@ export default function FeaturedProjects({ worlds = [] }) {
   const goTo = (i) =>
     sectionRefs.current[i]?.scrollIntoView({ behavior: 'smooth' });
 
+  // Pager scale: a base fisheye centred on the active number, plus a stronger
+  // additive bump centred on the hovered number.
+  const falloff = (d, spread) => Math.max(0, 1 - d / spread);
+  const PAGER_BASE_GAIN = 1.6; // active dot scale = 1 + this
+  const PAGER_HOVER_GAIN = 1.8; // extra, additive, on the hovered dot
+  const dotScale = (i) =>
+    1 +
+    PAGER_BASE_GAIN * falloff(Math.abs(i - active), 3) +
+    (hovered === null
+      ? 0
+      : PAGER_HOVER_GAIN * falloff(Math.abs(i - hovered), 2.5));
+
   if (!worlds.length) {
     return (
       <div className="fp-empty">
@@ -59,6 +63,8 @@ export default function FeaturedProjects({ worlds = [] }) {
 
   return (
     <main className="fp" aria-label="Featured projects">
+      <WorldScene world={worlds[active]} />
+
       <nav className="fp-pager" aria-label="Featured project pager">
         {worlds.map((w, i) => (
           <button
@@ -68,6 +74,11 @@ export default function FeaturedProjects({ worlds = [] }) {
             aria-current={i === active ? 'true' : undefined}
             aria-label={`Go to ${w.clientName}`}
             onClick={() => goTo(i)}
+            onPointerEnter={() => setHovered(i)}
+            onPointerLeave={() => setHovered(null)}
+            onFocus={() => setHovered(i)}
+            onBlur={() => setHovered(null)}
+            style={{ fontSize: `calc(var(--text-mono) * ${dotScale(i).toFixed(3)})` }}
           >
             {pad2(i)}
           </button>
@@ -83,50 +94,36 @@ export default function FeaturedProjects({ worlds = [] }) {
             ref={(el) => (sectionRefs.current[i] = el)}
             aria-labelledby={`fp-world-${i}-title`}
           >
-            {/* Placeholder media field — replaced by the WebGL World in P2. */}
-            <div className="fp-world__field" aria-hidden="true">
-              {w.showcase.slice(0, 14).map((a) => {
-                const src = tileSrc(a);
-                return src ? (
-                  <img
-                    key={a._id}
-                    className="fp-tile"
-                    src={src}
-                    alt=""
-                    loading="lazy"
-                  />
-                ) : null;
-              })}
-            </div>
-
-            <div className="fp-card">
-              <p className="fp-card__index">{`PROJECT_${pad2(i)}`}</p>
-              <h2 id={`fp-world-${i}-title`} className="fp-card__client">
-                {w.clientName}
-              </h2>
-              {(w.title || w.year) && (
-                <p className="fp-card__meta">
-                  {[w.title, w.year].filter(Boolean).join(', ')}
-                </p>
-              )}
-              <a className="fp-card__cta" href={`/work/${w.slug}`}>
-                enter_world
-              </a>
-              {w.services.length > 0 && (
-                <ul className="fp-card__tags">
-                  {w.services.map((s) => (
-                    <li key={s.slug} className="fp-tag">
-                      {s.name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {(w.hasAlbumArt || w.hasBrandDeck) && (
-                <p className="fp-card__sockets">
-                  {w.hasAlbumArt && <span>album_art</span>}
-                  {w.hasBrandDeck && <span>brand_deck</span>}
-                </p>
-              )}
+            <div className="fp-card-wrap">
+              <span className="fp-card__tab">{`PROJECT_${pad2(i)}`}</span>
+              <div className="fp-card">
+                <h2 id={`fp-world-${i}-title`} className="fp-card__client">
+                  {w.clientName}
+                </h2>
+                {(w.title || w.year) && (
+                  <p className="fp-card__meta">
+                    {[w.title, w.year].filter(Boolean).join(', ')}
+                  </p>
+                )}
+                <a className="fp-card__cta" href={`/work/${w.slug}`}>
+                  enter_world
+                </a>
+                {w.services.length > 0 && (
+                  <ul className="fp-card__tags">
+                    {w.services.map((s) => (
+                      <li key={s.slug} className="fp-tag">
+                        {s.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {(w.hasAlbumArt || w.hasBrandDeck) && (
+                  <p className="fp-card__sockets">
+                    {w.hasAlbumArt && <span>album_art</span>}
+                    {w.hasBrandDeck && <span>brand_deck</span>}
+                  </p>
+                )}
+              </div>
             </div>
 
             {i < worlds.length - 1 && (

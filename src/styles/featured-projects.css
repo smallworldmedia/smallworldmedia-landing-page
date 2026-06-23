@@ -4,8 +4,23 @@
 
 .fp {
   position: relative;
-  background: var(--color-black);
-  color: var(--color-white);
+  background: var(--color-cream);
+  /* fallback under the WebGL canvas */
+  color: var(--color-black);
+}
+
+/* WebGL World canvas — fixed behind the scrolling cards. */
+.fp-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.fp-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .fp-empty {
@@ -18,6 +33,8 @@
 
 /* Vertical paging via native scroll-snap (the World Turn lands in P3). */
 .fp-scroller {
+  position: relative;
+  z-index: 1;
   height: 100vh;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
@@ -33,31 +50,23 @@
   overflow: hidden;
 }
 
-/* Placeholder media field — a faint scatter behind the card, standing in for
-   the floating Tiles until the WebGL World replaces it. */
-.fp-world__field {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  justify-content: center;
-  gap: 1.5vw;
-  padding: 6vh 6vw;
-  opacity: 0.26;
-  pointer-events: none;
+/* Card wrapper — holds the PROJECT_# tab above the card, right-aligned. */
+.fp-card-wrap {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
-.fp-tile {
-  width: 12vw;
-  height: 12vw;
-  object-fit: cover;
-  border-radius: 2px;
-}
-.fp-tile:nth-child(3n) {
-  transform: rotate(-4deg) translateY(-2vh);
-}
-.fp-tile:nth-child(3n + 1) {
-  transform: rotate(3deg) translateY(1.5vh);
+
+/* PROJECT_# tab — sits above the card's top-right edge. */
+.fp-card__tab {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-white);
+  background: var(--color-electric-blue);
+  padding: var(--space-2) var(--space-4);
 }
 
 /* Identity card */
@@ -65,34 +74,51 @@
   position: relative;
   z-index: 2;
   background: var(--color-electric-blue);
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0rem;
   color: var(--color-white);
-  padding: clamp(1.5rem, 3vw, 3rem);
-  max-width: min(90vw, 560px);
+  padding: clamp(1rem, 3vw, 1rem);
+  max-width: min(90vw, 500px);
+  min-width: 400px;
   text-align: center;
 }
+
 .fp-card__index {
-  font-family: ui-monospace, monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
-  opacity: 0.8;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  opacity: 1.0;
   margin: 0 0 0.5rem;
 }
+
 .fp-card__client {
-  font-size: clamp(2.5rem, 7vw, 5rem);
-  line-height: 0.95;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tight);
+  font-size: clamp(2.5rem, 7vw, 8rem);
+  line-height: .8;
   margin: 0;
   font-weight: 600;
 }
+
 .fp-card__meta {
-  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-family: var(--font-body);
+  letter-spacing: -0.03rem;
+  line-height: var(--lh-body);
+  font-size: clamp(1rem, 2vw, 3rem);
   margin: 0.5rem 0 1.25rem;
-  opacity: 0.92;
+  opacity: 1.0;
 }
+
 .fp-card__cta {
-  display: inline-block;
-  font-family: ui-monospace, monospace;
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: var(--text-secondary);
+  letter-spacing: var(--tracking-tight);
   color: var(--color-white);
   border: 1px solid currentColor;
   border-radius: 999px;
@@ -100,37 +126,46 @@
   text-decoration: none;
   transition: background 0.2s, color 0.2s;
 }
+
 .fp-card__cta:hover {
   background: var(--color-white);
   color: var(--color-electric-blue);
 }
+
 .fp-card__tags {
   list-style: none;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.35rem;
+  gap: var(--space-4);
   padding: 0;
-  margin: 1.25rem 0 0;
+  margin: 1rem 1rem 1rem;
 }
+
 .fp-tag {
-  font-family: ui-monospace, monospace;
-  font-size: 0.65rem;
-  letter-spacing: 0.03em;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  border: 1px solid var(--color-white);
+  color: var(--color-electric-blue);
+  background: var(--color-white);
   border-radius: 999px;
-  padding: 0.2rem 0.6rem;
+  padding: var(--space-2) var(--space-4);
 }
+
 .fp-card__sockets {
   display: flex;
   gap: 0.5rem;
   justify-content: center;
   font-family: ui-monospace, monospace;
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
   opacity: 0.85;
   margin: 0.9rem 0 0;
 }
+
 .fp-card__sockets span::before {
   content: '◆ ';
 }
@@ -144,47 +179,81 @@
   z-index: 5;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0rem;
 }
+
 .fp-pager__dot {
-  background: none;
+  position: relative;
+  background: var(--color-white);
   border: none;
   cursor: pointer;
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
-  color: var(--color-white);
-  opacity: 0.4;
+  font-family: var(--font-mono);
+  font-size: var(--font-mono);
+  color: var(--color-black);
+  opacity: 1.0;
   padding: 0.1rem 0.3rem;
-  transition: opacity 0.2s, background 0.2s;
+  transition: opacity 0.2s, background 0.2s, color 0.2s, font-size 0.25s;
 }
+
 .fp-pager__dot.is-active {
   opacity: 1;
+  color: var(--color-white);
   background: var(--color-electric-blue);
+}
+
+/* Hover effector — strongest state: inverts to white-on-black. */
+.fp-pager__dot:hover {
+  color: var(--color-white);
+  background: var(--color-black);
+}
+
+/* White marker triangle to the left of the active number, point toward it. */
+.fp-pager__dot.is-active::before {
+  content: '';
+  position: absolute;
+  left: -0.55em;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 0.28em solid transparent;
+  border-bottom: 0.28em solid transparent;
+  border-left: 0.4em solid var(--color-white);
 }
 
 /* Scroll cue */
 .fp-more {
+  font-family: var(--font-mono);
+  font-size: var(--font-ui);
   position: absolute;
   bottom: 4vh;
   left: 50%;
   transform: translateX(-50%);
+  background: var(--color-white);
   z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-family: ui-monospace, monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
-  opacity: 0.7;
+  letter-spacing: var(--tracking-tight);
+  line-height: 0.8rem;
+  opacity: 1.0;
+  padding: var(--space-6) var(--space-6);
 }
+
 .fp-more__chevron {
   animation: fp-bob 1.8s ease-in-out infinite;
+  font-family: var(--font-mono);
+  font-size: var(--text-secondary);
+
 }
+
 @keyframes fp-bob {
+
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(4px);
   }
@@ -194,6 +263,7 @@
   .fp-scroller {
     scroll-behavior: auto;
   }
+
   .fp-more__chevron {
     animation: none;
   }
