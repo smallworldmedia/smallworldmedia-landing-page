@@ -1,34 +1,77 @@
 ---
 /**
- * /work — Project Directory page.
+ * /work — Featured Projects experience (primary work destination).
  *
- * Fetches all non-album-art media assets, album art, and service tags
- * at build time, then hydrates the ProjectDirectory React island.
+ * Project-doc-first immersive sphere experience. See CONTEXT.md §
+ * "Featured Projects Preview — concepts" and docs/featured-projects-preview-plan.md.
+ *
+ * P1: a data-driven, vertical-paging skeleton (real DOM, crawlable). The WebGL
+ * WorldScene replaces the placeholder media field in P2.
+ *
+ * The exhaustive grid moved to /work/directory.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import '../../styles/masonry.css';
-import '../../styles/work.css';
+import '../../styles/featured-projects.css';
 import { sanityFetch } from '../../lib/sanityClient.js';
+import { FEATURED_WORLDS_QUERY } from '../../lib/queries.js';
 import {
-  MEDIA_GRID_QUERY,
-  ALBUM_ART_QUERY,
-  SERVICE_TAGS_QUERY,
-} from '../../lib/queries.js';
-import ProjectDirectory from '../../components/work/ProjectDirectory.jsx';
+  buildContentFlow,
+  ratioOf,
+} from '../../components/work/detail/buildContentFlow.js';
+import FeaturedProjects from '../../components/work/FeaturedProjects.jsx';
 
-const assets = await sanityFetch(MEDIA_GRID_QUERY);
-const albumArt = await sanityFetch(ALBUM_ART_QUERY);
-const serviceTags = await sanityFetch(SERVICE_TAGS_QUERY);
+const projects = await sanityFetch(FEATURED_WORLDS_QUERY);
+
+// Build one "World" per featured project: partition its media via the same
+// Content Population Hierarchy the detail page uses, then hand the orchestrator
+// just what it renders (hero, showcase Tiles, socket presence, card copy).
+const worlds = projects.map((p) => {
+  const assets = p.assets || [];
+  const hero = assets.find((a) => a.isHero) || null;
+  const flow = buildContentFlow(assets);
+
+  const showcase = flow.showcase.map((a) => ({
+    _id: a._id,
+    title: a.title,
+    mediaType: a.mediaType,
+    playbackId: a.playbackId || null,
+    imageUrl: a.imageUrl || null,
+    ratio: ratioOf(a),
+  }));
+
+  // Service tags: prefer the project doc, else union of the assets' tags.
+  let services = p.services || [];
+  if (!services.length) {
+    const seen = new Map();
+    for (const a of assets)
+      for (const s of a.services || [])
+        if (s?.slug && !seen.has(s.slug)) seen.set(s.slug, s);
+    services = [...seen.values()];
+  }
+
+  return {
+    slug: p.slug,
+    clientName: p.clientName,
+    title: p.title || null,
+    year: p.year || null,
+    services,
+    hero: hero
+      ? {
+          _id: hero._id,
+          playbackId: hero.playbackId || null,
+          imageUrl: hero.imageUrl || null,
+        }
+      : null,
+    showcase,
+    hasAlbumArt: flow.albumArt.length > 0,
+    hasBrandDeck: flow.brandDecks.length > 0,
+  };
+});
 ---
 
 <BaseLayout
-  title="Work — Small World Media™"
-  description="The complete project directory for Small World Media. Explore our work across branding, motion design, live visuals, and digital experiences for the music industry."
+  title="Featured Projects — Small World Media™"
+  description="Step inside Small World Media's featured projects — immersive worlds of branding, motion design, live visuals, and release artwork for the music industry."
 >
-  <ProjectDirectory
-    client:load
-    assets={assets}
-    albumArt={albumArt}
-    serviceTags={serviceTags}
-  />
+  <FeaturedProjects client:load worlds={worlds} />
 </BaseLayout>

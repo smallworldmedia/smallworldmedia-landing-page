@@ -218,3 +218,43 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     "services": services[]->{ name, "slug": slug.current }
   }
 }`;
+
+/**
+ * FEATURED_WORLDS_QUERY — Drives the Featured Projects experience at /work.
+ *
+ * Project-doc-first (docs/adr/0001): one row per `project` with
+ * isFeatured == true, ordered by orderRank (set via the orderable plugin;
+ * client name breaks ties until ranks are assigned). Each project carries its
+ * editorial copy + its media, joined via the `mediaAsset.project` reference.
+ * buildContentFlow() partitions the assets into the World's Tiles + sockets
+ * at build time (see src/pages/work/index.astro).
+ */
+export const FEATURED_WORLDS_QUERY = `
+  *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))]
+    | order(orderRank asc, client->name asc) {
+    "slug": slug.current,
+    title,
+    year,
+    orderRank,
+    "clientName": client->name,
+    "clientSlug": client->slug.current,
+    "services": services[]->{ name, "slug": slug.current },
+    "assets": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
+      | order(sortOrder asc) {
+      _id,
+      title,
+      mediaType,
+      isHero,
+      contentRole,
+      sortOrder,
+      displayGroup,
+      brandDeckOrder,
+      "imageUrl": image.asset->url,
+      "imageDimensions": image.asset->metadata.dimensions,
+      "playbackId": video.asset->playbackId,
+      "videoAspectRatio": video.asset->data.aspect_ratio,
+      "videoStatus": video.asset->data.status,
+      "services": services[]->{ name, "slug": slug.current }
+    }
+  }
+`;

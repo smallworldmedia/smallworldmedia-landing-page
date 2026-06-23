@@ -1,0 +1,200 @@
+/* featured-projects.css — /work Featured Projects experience (P1 skeleton).
+   The WebGL WorldScene replaces `.fp-world__field` in P2; the World Turn
+   replaces native scroll-snap in P3. Colours from global.css tokens. */
+
+.fp {
+  position: relative;
+  background: var(--color-black);
+  color: var(--color-white);
+}
+
+.fp-empty {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--color-black);
+  color: var(--color-cream);
+}
+
+/* Vertical paging via native scroll-snap (the World Turn lands in P3). */
+.fp-scroller {
+  height: 100vh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+
+.fp-world {
+  position: relative;
+  height: 100vh;
+  scroll-snap-align: start;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* Placeholder media field — a faint scatter behind the card, standing in for
+   the floating Tiles until the WebGL World replaces it. */
+.fp-world__field {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 1.5vw;
+  padding: 6vh 6vw;
+  opacity: 0.26;
+  pointer-events: none;
+}
+.fp-tile {
+  width: 12vw;
+  height: 12vw;
+  object-fit: cover;
+  border-radius: 2px;
+}
+.fp-tile:nth-child(3n) {
+  transform: rotate(-4deg) translateY(-2vh);
+}
+.fp-tile:nth-child(3n + 1) {
+  transform: rotate(3deg) translateY(1.5vh);
+}
+
+/* Identity card */
+.fp-card {
+  position: relative;
+  z-index: 2;
+  background: var(--color-electric-blue);
+  color: var(--color-white);
+  padding: clamp(1.5rem, 3vw, 3rem);
+  max-width: min(90vw, 560px);
+  text-align: center;
+}
+.fp-card__index {
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  opacity: 0.8;
+  margin: 0 0 0.5rem;
+}
+.fp-card__client {
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  line-height: 0.95;
+  margin: 0;
+  font-weight: 600;
+}
+.fp-card__meta {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  margin: 0.5rem 0 1.25rem;
+  opacity: 0.92;
+}
+.fp-card__cta {
+  display: inline-block;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: var(--color-white);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.6rem 1.4rem;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+.fp-card__cta:hover {
+  background: var(--color-white);
+  color: var(--color-electric-blue);
+}
+.fp-card__tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0;
+  margin: 1.25rem 0 0;
+}
+.fp-tag {
+  font-family: ui-monospace, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.03em;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+.fp-card__sockets {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  font-family: ui-monospace, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+  margin: 0.9rem 0 0;
+}
+.fp-card__sockets span::before {
+  content: '◆ ';
+}
+
+/* Pager */
+.fp-pager {
+  position: fixed;
+  left: clamp(0.75rem, 2vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.fp-pager__dot {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: var(--color-white);
+  opacity: 0.4;
+  padding: 0.1rem 0.3rem;
+  transition: opacity 0.2s, background 0.2s;
+}
+.fp-pager__dot.is-active {
+  opacity: 1;
+  background: var(--color-electric-blue);
+}
+
+/* Scroll cue */
+.fp-more {
+  position: absolute;
+  bottom: 4vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+.fp-more__chevron {
+  animation: fp-bob 1.8s ease-in-out infinite;
+}
+@keyframes fp-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-scroller {
+    scroll-behavior: auto;
+  }
+  .fp-more__chevron {
+    animation: none;
+  }
+}

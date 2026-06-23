@@ -1,0 +1,35 @@
+---
+/**
+ * /work/directory — Project Directory (full media grid).
+ *
+ * The exhaustive, filterable catalogue. The curated Featured Projects
+ * experience lives at /work; this is the "see everything" destination
+ * (nav: project_directory). Relocated here from /work in P1.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/masonry.css';
+import '../../styles/work.css';
+import { sanityFetch } from '../../lib/sanityClient.js';
+import {
+  MEDIA_GRID_QUERY,
+  ALBUM_ART_QUERY,
+  SERVICE_TAGS_QUERY,
+} from '../../lib/queries.js';
+import ProjectDirectory from '../../components/work/ProjectDirectory.jsx';
+
+const assets = await sanityFetch(MEDIA_GRID_QUERY);
+const albumArt = await sanityFetch(ALBUM_ART_QUERY);
+const serviceTags = await sanityFetch(SERVICE_TAGS_QUERY);
+---
+
+<BaseLayout
+  title="Project Directory — Small World Media™"
+  description="The complete project directory for Small World Media. Explore our work across branding, motion design, live visuals, and digital experiences for the music industry."
+>
+  <ProjectDirectory
+    client:load
+    assets={assets}
+    albumArt={albumArt}
+    serviceTags={serviceTags}
+  />
+</BaseLayout>

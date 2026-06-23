@@ -117,11 +117,11 @@ export default function SiteNav({
           <span className="site-nav__glyph">↳</span>
           start_project
         </a>
-        <a href="/work/featured" className="site-nav__link">
+        <a href="/work" className="site-nav__link">
           <span className="site-nav__glyph">⁕</span>
           featured_projects
         </a>
-        <a href="/work" className="site-nav__link">
+        <a href="/work/directory" className="site-nav__link">
           <FolderIcon />
           project_directory
         </a>
