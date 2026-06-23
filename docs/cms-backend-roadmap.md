@@ -194,6 +194,20 @@ Each root manifest requires human curation of the `serviceType` column.
 
 ---
 
+## Phase 12.5: Motion Asset Backfill ✅
+
+> Completed 2026-06-20 — uploaded the 20 deferred motion assets to Mux, closing the last video gap in the featured-projects collections.
+
+These 20 were staged (files + manifests ready) but left pending after the Phase 12 run (awaiting re-export/compression). Uploaded + wired via `scripts/ingest-videos.mjs --manifest <path>`, which queries Sanity for `motion_*` mediaAssets with no `video`, matches each by title to its source file, uploads to Mux (Direct Upload), creates the `mux.videoAsset` doc, and patches the `video` ref onto the existing mediaAsset.
+
+- [x] Backfill 15 motion assets — `Andhera/Andhera Branding`
+- [x] Backfill 5 motion assets — `Andhera/DEVELOPED Artist Workshop`
+- [x] Verify all 20 wired with playback IDs (11 `ready`, 9 `preparing` at run time — both serve)
+
+Result: Mux video assets 215 → 235; zero `motion_*` mediaAssets without video in these two collections.
+
+---
+
 ## Phase 13: Affiliation Wiring
 
 > **Goal:** Connect the client relationship graph in Sanity.
@@ -243,8 +257,8 @@ Each root manifest requires human curation of the `serviceType` column.
 | Subdirectory manifests pending | 0 | 0 |
 | Assets ingested to Sanity | 784 | ~600+ |
 | Image uploads to CDN | 784 | ~600+ |
-| Mux video assets | 215 | ~200+ |
-| Videos wired to mediaAssets | 215 | ~200+ |
+| Mux video assets | 235 | ~200+ |
+| Videos wired to mediaAssets | 235 | ~200+ |
 | Affiliations wired | 0 | 10+ |
 | Workflows created | 2 | — |
 

@@ -28,11 +28,14 @@ A curated collection of album art covers for a record label client. Uses a Mode 
 
 ### Featured Project
 
-A curated collection representing a specific scope of creative work. Uses a Mode 1 manifest with project-specific service tags. Gets its own project page (`/work/[slug]`) with a sizzle reel as hero and editorial layout.
+A curated collection elevated to a first-class showcase by a `project` document with `isFeatured == true`. The **project doc is the control surface**: it owns membership in the Featured Projects experience, display order, and editorial copy — its media is the backing collection's assets.
 
-- **Example:** `media/Heavy House Society/Live Visuals 2026/`
-- **Frontend destination:** Single Project Page (`/work/[slug]`) — `FeaturedProjectDetail`, laid out by the Content Population Hierarchy (see below)
-- **Hero:** The user creates sizzle reels for featured projects; these are marked `isHero: true`
+- **Definition source:** `project.isFeatured` (membership) + `project.sortOrder` (order), authored in Sanity. *Not* derived from assets.
+- **Invariant:** every Featured Project collection must have a `project` doc carrying its blurb/editorial copy. *(Some are currently missing — backfill required.)*
+- **Hero:** the collection's sizzle reel (`isHero: true`) is the project's hero media — it is no longer what *defines* "featured".
+- **Example collection:** `media/Heavy House Society/Branding 2026/`
+- **Frontend destination:** the Featured Projects experience + Single Project Page (`/work/[slug]`) — `FeaturedProjectDetail`, laid out by the Content Population Hierarchy (see below)
+- _Avoid_: defining "featured" by the existence of an isHero sizzle reel (the legacy collection-first model, now superseded)
 
 ## Root Manifest
 
@@ -115,18 +118,29 @@ Canonical names for UI components. All implementation work **must** use these te
 | **AlbumArtTicker** | Horizontal auto-scrolling ticker for album art collections. Populates inline within the MediaGrid. | `album-art` mediaType assets, grouped by client |
 | **FilterBar** | Horizontal scrollable strip of service tag pills. Sticky below header while scrolling. | `serviceTag` documents |
 | **Lightbox** | Full-screen overlay for detailed asset viewing. Video mode with sound; image mode with full resolution. | Single `mediaAsset` (triggered from MediaCard) |
-| **FeaturedProjects** | Dedicated page for showcasing Featured Project collections. Pulls metadata from Featured Project curated collections. | Featured Project subfolders (`isHero: true`, sizzle reels) |
+| **FeaturedProjects** | Page orchestrator for the immersive Featured Projects experience: paginates vertically through featured projects, owns the shared WebGL canvas + pager, and receives the Envelopment hand-off from the home globe. *(Supersedes the legacy isHero-driven showcase.)* | `project` docs where `isFeatured == true`, ordered by `sortOrder` |
+| **FeaturedProjectsPreview** | The instanced, full-bleed (100vw×100vh) component that renders one featured project's **World** — the **World Shell**, floating **Tiles** across 3 depth tiers, and the identity card with the `enter_world` CTA. One instance per featured project. | One `project` + its showcase media (joined via `mediaAsset.project`) |
 | **FeaturedProjectDetail** | Orchestrator for the `/work/[slug]` Single Project Page. Renders one Featured Project collection as an editorial page via the Content Population Hierarchy. | All `mediaAsset` docs sharing one `sourceFolder` + optional `project` doc |
 | **SiteNav** | Fixed top navigation bar — globe, info pill, sitemap links. | Static |
 | **ClientPanel** | Full-width blue info band below the nav: squeezed project title, client metadata chips (client_type, based_in), social links. | `client` document |
 | **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. | Single `mediaAsset` document |
 | **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only (FilterBar pills are the interactive variant). | Single `serviceTag` reference |
 | **SiteFooter** | Simple footer — near-black bar with SWM globe mark + copyright. Expanded variant with footer nav is a future iteration. | Static |
-| **BrandDeckViewer** | *Future* — accordion-style expanding component that renders brand deck / pitch deck pages as a vertical scroll of full-width images. Used inside `FeaturedProjectDetail` and as an inline module in `FeaturedProjects`. Populated from `brand-deck` mediaType assets sorted by `sortOrder`. | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
-| **AlbumArtOrbit** | *Future* — orbiting album art component, populated only when a project directory carries album-art assets. | `album-art` assets within a collection |
+| **BrandDeckViewer** | Renders a project's brand/pitch-deck pages (`brand-deck`, ordered by `brandDeckOrder`). In the World it floats as a single composite element (depth tier + procedural position like a Tile; in-World visual TBD); on the `/work/[slug]` detail page it renders as an expanding accordion / vertical scroll. *(Build deferred — the socket contract lands with the World.)* | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
+| **AlbumArtOrbit** | A 3D elliptical ring/carousel of a project's album-art covers, slowly auto-rotating. Floats in the World as a single composite element (depth tier + procedural position like a Tile) when the project has album art; also embeds in the `/work/[slug]` detail page. *(Build deferred — the socket contract lands with the World.)* | `album-art` assets within a collection |
 | **NextProjectCard** | *Future* — scroll-to-next-project transition at the bottom of FeaturedProjectDetail (three scroll states mocked in Figma). | Next Featured Project hero |
 
 > **Procedure**: Before creating any new component, check this table. If the component doesn't have a canonical name, propose one here first, get it approved, then implement.
+
+### Featured Projects Preview — concepts
+
+- **World** — one featured project's immersive scene: its World Shell, floating Tiles, and identity card. `enter_world` leaves the World for the project's detail page.
+- **World Shell** — the faint, dense inverse-sphere backdrop the camera sits inside (denser lat/long than the home globe). Environment only — media does not live on it.
+- **Tile** — a floating media piece (a showcase asset) suspended in the World's volume. Its spherical bend is a function of radial distance from view-center (edge Tiles curve to follow the Shell).
+- **Composite element** — a media-type collection that floats in the World as a *single* element instead of many Tiles: a project's album art becomes one **AlbumArtOrbit**, its brand deck one **BrandDeckViewer**. Each occupies a depth tier and procedural position exactly like a Tile, and mounts only when the project has that media type. (No hover/overlay state — it lives in the field like any other element.)
+- **Depth tier** — one of 3 discrete depth positions (Near / Mid / Far) a Tile occupies. Determines its scale, scroll parallax, and whether it can play live video (Near only). Exact Z values are tuned by live testing; X/Y within a tier is procedural (seeded per project, center kept clear for the card).
+- **World Turn** — the vertical paging transition between Worlds: the current World (Shell + Tiles, as one rigid body) pitches about the X-axis, rolling up and out the top of the viewport as the next World rolls in from the bottom, with the spherical distortion exaggerated so it reads as physically travelling between Worlds. A pull-down meets elastic resistance before snapping to the next.
+- **Envelopment** — the scroll transition from the home globe into the Featured Projects experience: the globe scales up to fill the viewport, fades through a solid blue/white fill, and the camera emerges inside the first World.
 
 ## Content Population Hierarchy
 
@@ -196,13 +210,15 @@ Brand and pitch decks must be exported as per-page JPEGs and placed in a subfold
 
 **Flow algorithm** (`buildContentFlow.js`): after the hero and blurb, showcase assets are first clustered by `displayGroup`, then within each group they alternate full-bleed → split pair → full-bleed →… Portrait assets never render full-bleed. Projects with more videos naturally get more full-bleed slots; still-heavy projects pair into split rows. Media-type-specific components (`album-art`, `brand-deck`) are separated from the flow and routed to their dedicated components.
 
-**Editorial copy layer**: an optional `project` document (slug = `{client-slug}-{collection-slug}`, e.g. `heavy-house-society-live-visuals-2026`) supplies the overview blurb and display title. Without it the page falls back to the collection name and omits the blurb. The `project.contentBlocks` page-builder remains available as a manual override for hand-curated layouts (not yet wired).
+**Editorial copy layer**: an optional `project` document (slug = `{client-slug}-{collection-slug}`, e.g. `heavy-house-society-branding-2026`) supplies the overview blurb and display title. Without it the page falls back to the collection name and omits the blurb. The `project.contentBlocks` page-builder remains available as a manual override for hand-curated layouts (not yet wired).
 
 ## Route Map
 
 | Route | Page | Component |
 |---|---|---|
-| `/` | Landing page | `LandingPage` |
-| `/work` | Project Directory (full media grid) | `ProjectDirectory` |
-| `/work/featured` | Featured Projects (curated showcase) | `FeaturedProjects` |
+| `/` | Landing page — home globe; scroll triggers **Envelopment** into `/work` | `LandingPage` |
+| `/work` | **Featured Projects** — immersive sphere experience (primary work destination) | `FeaturedProjects` |
+| `/work/directory` | Project Directory — full media grid + filters | `ProjectDirectory` |
 | `/work/[slug]` | Single Project Page (editorial layout) | `FeaturedProjectDetail` |
+
+> The legacy `/work/featured` (isHero-driven showcase) is retired — superseded by the project-doc-first experience at `/work`.
