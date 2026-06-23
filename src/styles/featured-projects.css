@@ -4,9 +4,34 @@
 
 .fp {
   position: relative;
+  height: 100vh;
+  overflow: hidden;
+  /* paging is CTA/scroll-driven, not native scroll */
   background: var(--color-cream);
   /* fallback under the WebGL canvas */
   color: var(--color-black);
+}
+
+/* Centred card stage (the active World's card sits here). */
+.fp-stage {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+/* Screen-reader/crawler fallback list of all featured projects. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* WebGL World canvas — fixed behind the scrolling cards. */
@@ -176,6 +201,7 @@
   left: clamp(0.75rem, 2vw, 2rem);
   top: 50%;
   transform: translateY(-50%);
+  align-items: start;
   z-index: 5;
   display: flex;
   flex-direction: column;
@@ -185,14 +211,15 @@
 .fp-pager__dot {
   position: relative;
   background: var(--color-white);
+  align-items: start;
   border: none;
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--font-mono);
   color: var(--color-black);
   opacity: 1.0;
-  padding: 0.1rem 0.3rem;
-  transition: opacity 0.2s, background 0.2s, color 0.2s, font-size 0.25s;
+  padding: 0.3rem 0.35rem;
+  transition: cubic-bezier(0.2, 0.50, 0.35, 1) opacity 0.2s, background 0.12s, color 0.2s, font-size 0.12s;
 }
 
 .fp-pager__dot.is-active {
@@ -211,7 +238,7 @@
 .fp-pager__dot.is-active::before {
   content: '';
   position: absolute;
-  left: -0.55em;
+  left: -0.45em;
   top: 50%;
   transform: translateY(-50%);
   width: 0;
@@ -219,6 +246,48 @@
   border-top: 0.28em solid transparent;
   border-bottom: 0.28em solid transparent;
   border-left: 0.4em solid var(--color-white);
+}
+
+/* Singular, fixed scroll-advance control (NEXT_PROJECT / MORE_WORK).
+   Scales up with scroll fill (--next-scale) and on hover; grows from its base. */
+.fp-next,
+.fp-prev {
+  position: fixed;
+  bottom: 4vh;
+  left: 50%;
+  transform: translateX(-50%) scale(var(--cta-scale, 1));
+  transform-origin: center;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0rem;
+  border: none;
+  cursor: pointer;
+  background: var(--color-white);
+  color: var(--color-black);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui);
+  letter-spacing: var(--tracking-tight);
+  padding: var(--space-3) var(--space-6);
+  transition: transform 0.18s ease-out, background 0.2s, color 0.2s;
+}
+
+/* Previous-project control pinned to the top. */
+.fp-prev {
+  top: 4vh;
+  bottom: auto;
+}
+
+.fp-next:hover,
+.fp-prev:hover {
+  background: var(--color-black);
+  color: var(--color-white);
+}
+
+.fp-next__chevron {
+  font-size: var(--text-secondary);
+  line-height: 0.8;
 }
 
 /* Scroll cue */
