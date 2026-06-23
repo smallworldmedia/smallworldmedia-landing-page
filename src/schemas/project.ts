@@ -1,5 +1,6 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { DocumentsIcon } from '@sanity/icons'
+import { orderRankField, orderRankOrdering } from '@sanity/orderable-document-list'
 
 export const project = defineType({
   name: 'project',
@@ -157,8 +158,13 @@ export const project = defineType({
       type: 'number',
       description: 'Lower = first in directory',
     }),
+    // Drag-orderable rank (managed by @sanity/orderable-document-list).
+    // Powers the Featured Projects experience order at /work — set it by
+    // dragging in the Studio's "Featured Projects (drag to order)" list.
+    orderRankField({ type: 'project' }),
   ],
   orderings: [
+    orderRankOrdering,
     {
       title: 'Sort Order',
       name: 'sortOrder',
