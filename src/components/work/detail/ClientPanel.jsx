@@ -22,8 +22,8 @@ export default function ClientPanel({ client, displayTitle }) {
   return (
     <section className="client-panel">
       <h1 className="client-panel__title">
-        {client?.name?.toLowerCase() === displayTitle?.toLowerCase()
-          ? displayTitle
+        {!displayTitle || client?.name?.toLowerCase() === displayTitle?.toLowerCase()
+          ? (client?.name ?? displayTitle)
           : <>{client?.name} / {displayTitle}</>}
       </h1>
 

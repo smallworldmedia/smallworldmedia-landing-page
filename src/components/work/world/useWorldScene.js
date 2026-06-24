@@ -1,27 +1,35 @@
 /**
- * useWorldScene.js — three.js for one Featured Project World at a time.
+ * useWorldScene.js — three.js for the Featured Project Worlds.
  *
- * A persistent renderer/scene/camera sits inside the World Shell; only the
- * Tiles swap when the active project changes (cheap — no context churn).
+ * A persistent renderer/scene/camera sits inside the World Shell. Tiles live in
+ * one of two render **slots** (slotA / slotB): normally only the active slot is
+ * populated, but during a **World Turn** both are briefly co-present — the
+ * outgoing World rolls out while the incoming rolls in — then the outgoing slot
+ * is torn down (cheap; no context churn).
+ *
+ * Each slot is a roll **pivot** (rotated around the X axis for the Turn) holding
+ * one Group per depth tier. The Shell is shared room and never turns.
  *
  * Distortion is a single post-process LENS pass (ycw/three-lens-distortion,
  * vendored, XY-controllable) over the whole composited frame, so Tiles and the
  * Shell grid warp by the *same* function — negative = the inside-a-sphere pull.
- * Tiles are placed flat at real Z depths (layering before the warp).
+ * The Turn spikes that distortion at its midpoint for a cohesive "whoosh".
  *
  * Parallax is layered, not a camera rotation: pointer movement translates each
  * depth tier by an amount that scales with how close it is (nearest tier moves
  * most), with the World Shell on the smallest, base amount. That staggered
  * motion is what sells the depth/sphere on top of the lens.
  *
- * P2 = stills only. Live video (Near tier) and the World Turn land in P3.
+ * P3 here = the World Turn. Live video (Near tier) lands next.
  *
  * @param {React.RefObject<HTMLElement>} containerRef
  * @param {Object|null} world - the active World ({ slug, showcase: [...] })
+ * @param {number} index - the active World's index (drives Turn direction)
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
+import { CustomEase } from 'gsap/CustomEase';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
@@ -44,8 +52,26 @@ import {
   TILE_FALLBACK_COLOR,
   LENS_DISTORTION_X,
   LENS_DISTORTION_Y,
+  TURN_DURATION,
+  TURN_EXIT_ANGLE,
+  TURN_ENTER_ANGLE,
+  TURN_LENS_SPIKE,
+  TURN_RECEDE,
+  TURN_EASE_PATH,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
+
+gsap.registerPlugin(CustomEase);
+
+// The single ease that shapes the whole World Turn (roll + recede + lens).
+// Authored as a GSAP CustomEase path in worldConfig (?ease= to override live).
+const turnRollEase = CustomEase.create('fpTurnRoll', TURN_EASE_PATH);
+
+/** Hermite smoothstep over [a,b]. */
+const smoothstep = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
 
 const tileSrc = (t) =>
   t.playbackId
@@ -71,8 +97,9 @@ function applyCover(material, texture, planeAspect, texAspect) {
   material.needsUpdate = true;
 }
 
-export default function useWorldScene(containerRef, world) {
+export default function useWorldScene(containerRef, world, index) {
   const apiRef = useRef(null);
+  const prevIndexRef = useRef(null);
 
   // ── Setup: renderer / composer / scene / camera / shell / loop (mount once) ──
   useEffect(() => {
@@ -92,14 +119,27 @@ export default function useWorldScene(containerRef, world) {
     const shell = buildShell();
     scene.add(shell);
 
-    // One group per depth tier — parallax translates each by a tier-scaled amount.
-    const tierGroups = DEPTH_TIERS.map(() => {
-      const g = new THREE.Group();
-      scene.add(g);
-      return g;
-    });
     // Nearest tier (smallest |z|) gets the largest parallax; the Shell is the base (1×).
     const tierGain = DEPTH_TIERS.map((z) => SHELL_RADIUS / Math.abs(z));
+
+    // Two render slots so two Worlds can co-exist during a Turn. Each slot is a
+    // roll pivot (X-axis rotation) holding one Group per depth tier; parallax
+    // translates the tier groups *inside* the pivot, so it composes with a roll.
+    const makeSlot = () => {
+      const pivot = new THREE.Group();
+      scene.add(pivot);
+      const tierGroups = DEPTH_TIERS.map(() => {
+        const g = new THREE.Group();
+        pivot.add(g);
+        return g;
+      });
+      return { pivot, tierGroups, tiles: [] }; // tiles: { mesh, texture, tierIndex, baseX, baseY, drift* }
+    };
+    const slotA = makeSlot();
+    const slotB = makeSlot();
+    let activeSlot = slotA;
+    let idleSlot = slotB;
+    let currentSlug = null;
 
     // Post-processing: scene → lens distortion → sRGB output.
     const composer = new EffectComposer(renderer);
@@ -116,9 +156,15 @@ export default function useWorldScene(containerRef, world) {
     const outputPass = new OutputPass();
     composer.addPass(outputPass);
 
+    // Lens spike (0..1) added to the base distortion during a Turn.
+    const lensSpike = { v: 0 };
+    const applyLens = () => {
+      lensPass.distortion.x = LENS_DISTORTION_X + TURN_LENS_SPIKE * lensSpike.v;
+      lensPass.distortion.y = LENS_DISTORTION_Y + TURN_LENS_SPIKE * 1.1 * lensSpike.v;
+    };
+
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
-    let tiles = []; // { mesh, texture, tierIndex }
 
     const resize = () => {
       const w = container.clientWidth || 1;
@@ -130,18 +176,23 @@ export default function useWorldScene(containerRef, world) {
     };
     resize();
 
-    const clearTiles = () => {
-      for (const t of tiles) {
-        tierGroups[t.tierIndex].remove(t.mesh);
+    const setSlotOpacity = (slot, o) => {
+      for (const t of slot.tiles) t.mesh.material.opacity = o;
+    };
+
+    const clearSlot = (slot) => {
+      for (const t of slot.tiles) {
+        slot.tierGroups[t.tierIndex].remove(t.mesh);
         t.mesh.geometry.dispose();
         t.mesh.material.dispose();
         if (t.texture) t.texture.dispose();
       }
-      tiles = [];
+      slot.tiles = [];
     };
 
-    const buildTiles = (w) => {
-      clearTiles();
+    // Build a World's Tiles into a slot (replacing whatever it held).
+    const buildSlot = (slot, w) => {
+      clearSlot(slot);
       const pool = w?.showcase || [];
       if (!pool.length) return;
       // Cycle the available showcase up to a minimum density so sparse
@@ -159,6 +210,7 @@ export default function useWorldScene(containerRef, world) {
         const material = new THREE.MeshBasicMaterial({
           color: TILE_FALLBACK_COLOR,
           toneMapped: false,
+          transparent: true, // so the Turn can crossfade the slot (opacity 1 = identical to opaque)
         });
         const mesh = new THREE.Mesh(
           new THREE.PlaneGeometry(pl.width, pl.height),
@@ -166,7 +218,7 @@ export default function useWorldScene(containerRef, world) {
         );
         // Flat (faces the camera) — the lens pass provides cohesive distortion.
         mesh.position.set(pl.x, pl.y, pl.z);
-        tierGroups[tierIndex].add(mesh);
+        slot.tierGroups[tierIndex].add(mesh);
 
         const rec = {
           mesh,
@@ -178,14 +230,14 @@ export default function useWorldScene(containerRef, world) {
           driftSign: pl.driftSign,
           driftAmp: pl.driftAmp,
         };
-        tiles.push(rec);
+        slot.tiles.push(rec);
 
         const src = tileSrc(tile);
         if (!src) return;
         loader.load(
           src,
           (texture) => {
-            if (disposed || !tiles.includes(rec)) {
+            if (disposed || !slot.tiles.includes(rec)) {
               texture.dispose();
               return;
             }
@@ -201,6 +253,89 @@ export default function useWorldScene(containerRef, world) {
       });
     };
 
+    // ── World Turn — the two Worlds roll as one rigid pair ──
+    // One eased progress `e` (the CustomEase `turnRollEase`) drives everything:
+    // the roll, the recede, the lens spike and the crossfade. Because the curve
+    // is flat (zero velocity) at both ends, every effect keyed off `e` glides
+    // into rest with it — no separate easing/window per effect.
+    let turnTween = null;
+
+    // Settle any in-flight Turn to its end state (slots swapped, outgoing cleared).
+    const finishTurnInstant = () => {
+      const tw = turnTween;
+      if (!tw) return;
+      tw.progress(1); // fires onComplete: swaps slots + clears the outgoing one
+      tw.kill();
+    };
+
+    const goToWorld = (w, direction) => {
+      // direction: +1 forward (roll up/out top), -1 back (roll down/out bottom),
+      // 0 = initial/instant. Reduced motion always swaps instantly.
+      if (!currentSlug || direction === 0 || PREFERS_REDUCED_MOTION || !w) {
+        finishTurnInstant();
+        buildSlot(activeSlot, w);
+        activeSlot.pivot.rotation.x = 0;
+        activeSlot.pivot.position.z = 0;
+        setSlotOpacity(activeSlot, 1);
+        lensSpike.v = 0;
+        applyLens();
+        currentSlug = w?.slug ?? null;
+        return;
+      }
+
+      finishTurnInstant(); // collapse a prior Turn before starting a new one
+
+      const outgoing = activeSlot;
+      const incoming = idleSlot;
+      buildSlot(incoming, w);
+
+      // Both pivots rotate the same direction, kept a fixed angle apart, so the
+      // field reads as one continuous roll: outgoing center→off, incoming off→center.
+      const s = direction > 0 ? 1 : -1; // forward rolls up (+), back rolls down (−)
+      incoming.pivot.rotation.x = -s * TURN_ENTER_ANGLE; // staged off-center
+      incoming.pivot.position.z = 0;
+      setSlotOpacity(incoming, 0);
+      setSlotOpacity(outgoing, 1);
+
+      // `e` is the eased progress (the tween applies turnRollEase), so the roll
+      // and the recede/lens pulse all ride the same curve and settle with it.
+      const apply = (e) => {
+        outgoing.pivot.rotation.x = s * TURN_EXIT_ANGLE * e;
+        incoming.pivot.rotation.x = -s * TURN_ENTER_ANGLE * (1 - e);
+        // There-and-back pulse for depth + distortion. Keyed off the eased `e`
+        // (not raw time), so it inherits the curve's zero-velocity ends → glides
+        // into rest with the roll instead of cutting off (the old abrupt stop).
+        const pulse = Math.sin(Math.PI * e); // 0→1→0
+        const z = -TURN_RECEDE * pulse;
+        outgoing.pivot.position.z = z;
+        incoming.pivot.position.z = z;
+        lensSpike.v = pulse;
+        applyLens();
+        // Crossfade follows the roll so the leaving World dims as it rolls away.
+        setSlotOpacity(outgoing, 1 - smoothstep(0.4, 0.95, e));
+        setSlotOpacity(incoming, smoothstep(0.05, 0.6, e));
+      };
+
+      const prog = { p: 0 };
+      turnTween = gsap.to(prog, {
+        p: 1,
+        duration: TURN_DURATION,
+        ease: turnRollEase, // the CustomEase shapes the whole gesture
+        onUpdate: () => apply(prog.p),
+        onComplete: () => {
+          clearSlot(outgoing);
+          outgoing.pivot.rotation.x = 0;
+          outgoing.pivot.position.z = 0;
+          lensSpike.v = 0;
+          applyLens();
+          activeSlot = incoming;
+          idleSlot = outgoing;
+          currentSlug = w.slug;
+          turnTween = null;
+        },
+      });
+    };
+
     // ── Pointer parallax (listen on window so DOM overlays don't swallow it) ──
     const target = { x: 0, y: 0 };
     const eased = { x: 0, y: 0 };
@@ -210,6 +345,21 @@ export default function useWorldScene(containerRef, world) {
       target.y = (e.clientY / window.innerHeight) * 2 - 1;
     };
     window.addEventListener('pointermove', onPointer);
+
+    const applyParallax = (slot) => {
+      for (let i = 0; i < slot.tierGroups.length; i++) {
+        const amp = PARALLAX * tierGain[i];
+        slot.tierGroups[i].position.set(eased.x * amp, -eased.y * amp, 0);
+      }
+      // Per-tile micro-drift — subtle individual motion on one seeded axis.
+      for (const t of slot.tiles) {
+        if (t.driftAxis === 'x') {
+          t.mesh.position.x = t.baseX + eased.x * t.driftSign * t.driftAmp;
+        } else {
+          t.mesh.position.y = t.baseY + eased.y * t.driftSign * t.driftAmp;
+        }
+      }
+    };
 
     // ── Render loop (gsap.ticker, internally FPS-gated; shared with SiteShell) ──
     let accumulated = 0;
@@ -221,24 +371,11 @@ export default function useWorldScene(containerRef, world) {
       eased.x += (target.x - eased.x) * PARALLAX_LERP;
       eased.y += (target.y - eased.y) * PARALLAX_LERP;
 
-      // Depth parallax — continuous, tethered to pointer position.
       // Base layer: the World Shell / grid moves the least.
       shell.position.set(eased.x * PARALLAX, -eased.y * PARALLAX, 0);
-      // Staggered layers: nearest tier moves most (tierGain), far less.
-      for (let i = 0; i < tierGroups.length; i++) {
-        const amp = PARALLAX * tierGain[i];
-        tierGroups[i].position.set(eased.x * amp, -eased.y * amp, 0);
-      }
-
-      // Per-tile micro-drift — subtle individual motion on one seeded axis,
-      // tethered to pointer position.
-      for (const t of tiles) {
-        if (t.driftAxis === 'x') {
-          t.mesh.position.x = t.baseX + eased.x * t.driftSign * t.driftAmp;
-        } else {
-          t.mesh.position.y = t.baseY + eased.y * t.driftSign * t.driftAmp;
-        }
-      }
+      // Both slots get parallax (idle is empty outside a Turn — negligible).
+      applyParallax(slotA);
+      applyParallax(slotB);
 
       composer.render();
     };
@@ -269,18 +406,21 @@ export default function useWorldScene(containerRef, world) {
     ro.observe(container);
     syncTicker();
 
-    apiRef.current = { buildTiles };
+    apiRef.current = { goToWorld };
 
     return () => {
       disposed = true;
       apiRef.current = null;
+      finishTurnInstant();
       io.disconnect();
       ro.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pointermove', onPointer);
       if (tickerActive) gsap.ticker.remove(tick);
-      clearTiles();
-      tierGroups.forEach((g) => scene.remove(g));
+      clearSlot(slotA);
+      clearSlot(slotB);
+      scene.remove(slotA.pivot);
+      scene.remove(slotB.pivot);
       shell.geometry.dispose();
       shell.material.dispose();
       lensPass.dispose();
@@ -292,8 +432,12 @@ export default function useWorldScene(containerRef, world) {
     };
   }, []);
 
-  // ── Swap Tiles when the active World changes ──
+  // ── Drive the World Turn when the active World changes ──
   useEffect(() => {
-    apiRef.current?.buildTiles(world);
-  }, [world?.slug]);
+    if (!apiRef.current) return;
+    const prev = prevIndexRef.current;
+    const direction = prev == null ? 0 : Math.sign(index - prev);
+    prevIndexRef.current = index;
+    apiRef.current.goToWorld(world, direction);
+  }, [world?.slug, index]);
 }

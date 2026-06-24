@@ -25,6 +25,7 @@ import MediaSlot from './MediaSlot.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import { formatYearRange } from '../../../lib/formatYearRange.js';
 
 export default function FeaturedProjectDetail({ assets, client, project, collection }) {
   const hero = assets.find((a) => a.isHero) ?? assets[0];
@@ -42,13 +43,13 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           ).values(),
         ];
 
-  // Project date — prefer project doc, fall back to newest asset year
-  const year =
-    project?.year ??
-    (assets.reduce((max, a) => Math.max(max, a.year ?? 0), 0) || null);
+  // Project date — prefer project doc, fall back to newest asset yearStart
+  const yearDisplay =
+    formatYearRange(project?.yearStart, project?.yearEnd, project?.isOngoing) ??
+    (assets.reduce((max, a) => Math.max(max, a.yearStart ?? 0), 0) || null);
 
   // Editorial copy comes from the optional project document
-  const displayTitle = project?.title ?? collection;
+  const displayTitle = project?.title || null;
   const overview = project?.description ?? null;
 
   /* ---- Blurb section (shared between portrait & landscape layouts) ---- */
@@ -61,10 +62,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           <span className="detail-field__label">client</span>
           <span className="detail-field__value">{client?.name}</span>
         </div>
-        {year && (
+        {yearDisplay && (
           <div className="detail-field">
             <span className="detail-field__label">date</span>
-            <span className="detail-field__value">{year}</span>
+            <span className="detail-field__value">{yearDisplay}</span>
           </div>
         )}
         {services.length > 0 && (
@@ -83,7 +84,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       <ClientPanel
         client={client}
         displayTitle={displayTitle}
-        year={year}
+        year={yearDisplay}
         services={services}
       />
 

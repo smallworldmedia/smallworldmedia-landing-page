@@ -16,26 +16,76 @@
  * @param {Array<Object>} props.worlds - one entry per featured project
  */
 import { useEffect, useRef, useState } from 'react';
+import gsap from 'gsap';
 import WorldScene from './world/WorldScene.jsx';
+import WorldCard from './WorldCard.jsx';
+import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
+import { formatYearRange } from '../../lib/formatYearRange.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 const falloff = (d, spread) => Math.max(0, 1 - d / spread);
 
+// Live tuning (?key=value) — matches the WorldScene knobs convention.
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+
+/**
+ * CtaArrows — a clipped strip of carets translating at a constant rate, masked
+ * so it feathers to 0% opacity on the side nearest the label. `direction`:
+ * 'down' (NEXT) or 'up' (PREVIOUS).
+ */
+function CtaArrows({ direction }) {
+  const trackRef = useRef(null);
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || PREFERS_REDUCED_MOTION) return undefined;
+    // 16 identical carets; translating by half the track (8 carets) loops seamlessly.
+    const tween =
+      direction === 'down'
+        ? gsap.fromTo(track, { yPercent: -50 }, { yPercent: 0, duration: 1.6, ease: 'none', repeat: -1 })
+        : gsap.fromTo(track, { yPercent: 0 }, { yPercent: -50, duration: 1.6, ease: 'none', repeat: -1 });
+    return () => tween.kill();
+  }, [direction]);
+
+  const glyph = direction === 'down' ? '⌄' : '⌃';
+  return (
+    <span className={`fp-cta__arrows fp-cta__arrows--${direction}`} aria-hidden="true">
+      <span className="fp-cta__arrows-track" ref={trackRef}>
+        {Array.from({ length: 16 }, (_, i) => (
+          <i key={i}>{glyph}</i>
+        ))}
+      </span>
+    </span>
+  );
+}
+
 const PAGER_BASE_GAIN = 1.6; // active dot scale = 1 + this
 const PAGER_HOVER_GAIN = 1.8; // additive, centred on the cursor
-const SCROLL_TRIGGER = 600; // wheel/touch px to fill a CTA and advance
+// Wheel/touch px to fill a CTA and advance — higher = more scroll resistance
+// before a World Turn fires. Tune live with ?scroll=900.
+const SCROLL_TRIGGER = PARAM('scroll', 600);
 const CTA_MAX_EXTRA = 0.3; // CTA scale at full fill / hover = 1 + this
 
 export default function FeaturedProjects({ worlds = [] }) {
   const [active, setActive] = useState(0);
+  const [dir, setDir] = useState(1); // last Turn direction: +1 forward, −1 back (drives the card slide)
   const [hoverIndex, setHoverIndex] = useState(null); // continuous (float) cursor position over the pager
   const [fill, setFill] = useState(0); // signed: + toward next, − toward previous
+  const [ctaMode, setCtaMode] = useState('drag'); // 'drag' tracks scroll | 'release' rubber-bands back | 'commit' eases back over a Turn
   const [hoverNext, setHoverNext] = useState(false);
   const [hoverPrev, setHoverPrev] = useState(false);
+  // Co-present cards during a Turn: the incoming (phase 'enter') + the outgoing
+  // (phase 'exit'), so the card rides in/out with the media. Each is keyed by index.
+  const [cards, setCards] = useState([{ index: 0, dir: 1, phase: 'enter' }]);
 
   const mainRef = useRef(null);
   const accumRef = useRef(0);
   const lockRef = useRef(0);
+  const idleRef = useRef(null); // pending rubber-band-back timer
+  const cardTimerRef = useRef(null); // removes the exited card after a Turn
   const activeRef = useRef(0);
   activeRef.current = active;
 
@@ -43,22 +93,66 @@ export default function FeaturedProjects({ worlds = [] }) {
   const atEnd = active >= lastIndex;
   const atStart = active <= 0;
 
-  const goTo = (i) => {
+  const TURN_MS = TURN_DURATION * 1000;
+  const clearIdle = () => {
+    if (idleRef.current) {
+      clearTimeout(idleRef.current);
+      idleRef.current = null;
+    }
+  };
+
+  // Scroll stalled below the threshold → rubber-band the partly-filled CTA back
+  // to rest (you didn't commit, so it relaxes).
+  const scheduleRelease = () => {
+    clearIdle();
+    idleRef.current = setTimeout(() => {
+      accumRef.current = 0;
+      setCtaMode('release');
+      setFill(0);
+    }, 160);
+  };
+
+  // Threshold crossed → fire the Turn and hold the triggering CTA at full, then
+  // ease it back to rest timed to the World Turn settling. `from` is the CTA's
+  // current signed fill so it eases down from wherever the scroll left it.
+  const commitTurn = (nextActive, direction) => {
+    const clamped = Math.max(0, Math.min(lastIndex, nextActive));
+    if (clamped === activeRef.current) return;
+    clearIdle();
     accumRef.current = 0;
+    lockRef.current = performance.now() + TURN_MS + 60; // one Turn at a time
+    setDir(direction);
+    setActive(clamped);
+    setCtaMode('commit-pin'); // pin full *instantly* (0s), even from a fast flick
+    setFill(direction); // …toward the trigger edge
+    // Double rAF: let the pinned frame paint before starting the glide, so the
+    // CSS transition animates *from* full (a single rAF gets batched away).
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        setCtaMode('commit'); // long eased return that matches the roll
+        setFill(0); // …glide the CTA back as the World Turn settles
+      })
+    );
+    setTimeout(() => setCtaMode('drag'), TURN_MS + 80);
+  };
+
+  // Pager-dot / button jumps: turn without the scroll-fill choreography.
+  const goTo = (i) => {
+    const clamped = Math.max(0, Math.min(lastIndex, i));
+    if (clamped === activeRef.current) return;
+    clearIdle();
+    lockRef.current = performance.now() + TURN_MS + 60;
+    setDir(Math.sign(clamped - activeRef.current));
+    accumRef.current = 0;
+    setCtaMode('drag');
     setFill(0);
-    setActive(Math.max(0, Math.min(lastIndex, i)));
+    setActive(clamped);
   };
 
   // Wheel/touch accumulator → fills a CTA, then advances forward/back.
   useEffect(() => {
     const el = mainRef.current;
     if (!el || !worlds.length) return undefined;
-
-    const reset = () => {
-      accumRef.current = 0;
-      setFill(0);
-      lockRef.current = performance.now() + 700; // avoid momentum skipping Worlds
-    };
 
     const addDelta = (dy) => {
       if (performance.now() < lockRef.current) return;
@@ -67,21 +161,22 @@ export default function FeaturedProjects({ worlds = [] }) {
       accumRef.current = a;
 
       if (a >= SCROLL_TRIGGER) {
-        if (activeRef.current >= lastIndex) {
-          window.location.href = '/work/directory';
-        } else {
-          reset();
-          setActive(activeRef.current + 1);
-        }
+        if (activeRef.current >= lastIndex) window.location.href = '/work/directory';
+        else commitTurn(activeRef.current + 1, 1);
       } else if (a <= -SCROLL_TRIGGER) {
         if (activeRef.current > 0) {
-          reset();
-          setActive(activeRef.current - 1);
+          commitTurn(activeRef.current - 1, -1);
         } else {
-          reset();
+          accumRef.current = 0;
+          setCtaMode('release');
+          setFill(0);
         }
       } else {
+        // Building the fill — track the scroll, and arm a rubber-band-back in
+        // case the user stops short of committing.
+        setCtaMode('drag');
         setFill(a / SCROLL_TRIGGER);
+        scheduleRelease();
       }
     };
 
@@ -102,6 +197,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     };
     const onTouchEnd = () => {
       touchY = null;
+      scheduleRelease(); // finger up below threshold → relax the CTA
     };
 
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -109,12 +205,32 @@ export default function FeaturedProjects({ worlds = [] }) {
     el.addEventListener('touchmove', onTouchMove, { passive: false });
     el.addEventListener('touchend', onTouchEnd);
     return () => {
+      clearIdle();
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
     };
   }, [worlds.length, lastIndex]);
+
+  // On World change, stage the outgoing card (exit) under the incoming (enter);
+  // drop the exited card once the Turn finishes.
+  useEffect(() => {
+    setCards((prev) => {
+      const top = prev.find((c) => c.phase === 'enter') || prev[prev.length - 1];
+      if (!top || top.index === active) return prev;
+      const d = Math.sign(active - top.index) || 1;
+      return [
+        { index: top.index, dir: d, phase: 'exit' },
+        { index: active, dir: d, phase: 'enter' },
+      ];
+    });
+    clearTimeout(cardTimerRef.current);
+    cardTimerRef.current = setTimeout(() => {
+      setCards((prev) => prev.filter((c) => c.phase !== 'exit'));
+    }, TURN_MS + 120);
+    return () => clearTimeout(cardTimerRef.current);
+  }, [active]);
 
   const onNext = () => {
     if (atEnd) window.location.href = '/work/directory';
@@ -134,6 +250,42 @@ export default function FeaturedProjects({ worlds = [] }) {
   const nextScale = 1 + CTA_MAX_EXTRA * Math.max(Math.max(0, fill), hoverNext ? 1 : 0);
   const prevScale = 1 + CTA_MAX_EXTRA * Math.max(Math.max(0, -fill), hoverPrev ? 1 : 0);
 
+  // CTA return choreography: snappy while dragging (tracks the scroll), a quick
+  // spring-back on release, and a long eased glide on commit (lands as the
+  // World Turn settles, sharing its curve).
+  const ctaReturn =
+    ctaMode === 'commit-pin'
+      ? '0s'
+      : ctaMode === 'commit'
+        ? `${TURN_DURATION}s`
+        : ctaMode === 'release'
+          ? '0.4s'
+          : '0.12s';
+  const ctaEase =
+    ctaMode === 'commit'
+      ? 'cubic-bezier(0.65, 0, 0.35, 1)' // hold high, then settle to default as the Turn finishes
+      : ctaMode === 'release'
+        ? 'cubic-bezier(0.16, 1, 0.3, 1)' // quick spring back
+        : 'ease-out'; // drag / pin
+  const ctaVars = { '--cta-return': ctaReturn, '--cta-ease': ctaEase };
+
+  // CTA colour states: default black/white → lerps to white/black as the fill
+  // grows (scrolling toward the threshold) → flashes blue/white the instant the
+  // threshold is crossed (commit-pin) → eases back to black/white over the Turn.
+  // `committing` is true only for the CTA in the direction that was triggered.
+  const ctaColor = (f, committing) => {
+    if (committing && ctaMode === 'commit-pin') {
+      return { '--cta-bg': 'var(--color-electric-blue)', '--cta-fg': 'var(--color-white)' };
+    }
+    const pct = Math.round(Math.min(1, Math.max(0, f)) * 100);
+    return {
+      '--cta-bg': `color-mix(in srgb, var(--color-black), var(--color-white) ${pct}%)`,
+      '--cta-fg': `color-mix(in srgb, var(--color-white), var(--color-black) ${pct}%)`,
+    };
+  };
+  const nextColor = ctaColor(Math.max(0, fill), dir > 0);
+  const prevColor = ctaColor(Math.max(0, -fill), dir < 0);
+
   if (!worlds.length) {
     return (
       <div className="fp-empty">
@@ -146,7 +298,7 @@ export default function FeaturedProjects({ worlds = [] }) {
 
   return (
     <main className="fp" aria-label="Featured projects" ref={mainRef}>
-      <WorldScene world={w} />
+      <WorldScene world={w} index={active} />
 
       <nav
         className="fp-pager"
@@ -177,64 +329,44 @@ export default function FeaturedProjects({ worlds = [] }) {
       {!atStart && (
         <button
           type="button"
-          className="fp-prev"
-          style={{ '--cta-scale': prevScale.toFixed(3) }}
+          className="fp-prev fp-cta"
+          style={{ '--cta-scale': prevScale.toFixed(3), ...ctaVars, ...prevColor }}
           onClick={onPrev}
           onPointerEnter={() => setHoverPrev(true)}
           onPointerLeave={() => setHoverPrev(false)}
           aria-label="Previous project"
         >
-          <span className="fp-next__chevron">⌃</span>
-          <span className="fp-next__label">PREVIOUS_PROJECT</span>
+          <CtaArrows direction="up" />
+          <span className="fp-cta__label">[PREVIOUS]</span>
         </button>
       )}
 
       <div className="fp-stage">
-        <div className="fp-card-wrap">
-          <span className="fp-card__tab">{`PROJECT_${pad2(active)}`}</span>
-          <div className="fp-card">
-            <h2 className="fp-card__client">{w.clientName}</h2>
-            {(w.title || w.year) && (
-              <p className="fp-card__meta">
-                {[w.title, w.year].filter(Boolean).join(', ')}
-              </p>
-            )}
-            <a className="fp-card__cta" href={`/work/${w.slug}`}>
-              enter_world
-            </a>
-            {w.services.length > 0 && (
-              <ul className="fp-card__tags">
-                {w.services.map((s) => (
-                  <li key={s.slug} className="fp-tag">
-                    {s.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {(w.hasAlbumArt || w.hasBrandDeck) && (
-              <p className="fp-card__sockets">
-                {w.hasAlbumArt && <span>album_art</span>}
-                {w.hasBrandDeck && <span>brand_deck</span>}
-              </p>
-            )}
-          </div>
-        </div>
+        {cards.map((c) =>
+          worlds[c.index] ? (
+            <WorldCard
+              key={c.index}
+              world={worlds[c.index]}
+              index={c.index}
+              phase={c.phase}
+              dir={c.dir}
+            />
+          ) : null
+        )}
       </div>
 
-      {/* Bottom: next-project control (becomes MORE_WORK on the last project). */}
+      {/* Bottom: next-project control (becomes [MORE] on the last project). */}
       <button
         type="button"
-        className="fp-next"
-        style={{ '--cta-scale': nextScale.toFixed(3) }}
+        className="fp-next fp-cta"
+        style={{ '--cta-scale': nextScale.toFixed(3), ...ctaVars, ...nextColor }}
         onClick={onNext}
         onPointerEnter={() => setHoverNext(true)}
         onPointerLeave={() => setHoverNext(false)}
         aria-label={atEnd ? 'More work — project directory' : 'Next project'}
       >
-        <span className="fp-next__label">
-          {atEnd ? 'MORE_WORK' : 'NEXT_PROJECT'}
-        </span>
-        <span className="fp-next__chevron">⌄</span>
+        <span className="fp-cta__label">{atEnd ? '[MORE]' : '[NEXT]'}</span>
+        <CtaArrows direction="down" />
       </button>
 
       {/* Crawlable fallback — every featured project + link to its detail page. */}
@@ -243,7 +375,7 @@ export default function FeaturedProjects({ worlds = [] }) {
           <li key={world.slug}>
             <a href={`/work/${world.slug}`}>
               {world.clientName} —{' '}
-              {[world.title, world.year].filter(Boolean).join(', ')}
+              {[world.title, formatYearRange(world.yearStart, world.yearEnd, world.isOngoing)].filter(Boolean).join(', ')}
             </a>
           </li>
         ))}

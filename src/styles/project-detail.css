@@ -320,15 +320,16 @@ html:has(.project-detail) body {
    ============================================ */
 .service-tag {
   /* Overrides: blue fill, black text, detail-page sizing */
-  background: var(--color-electric-blue);
-  color: var(--color-black);
-  border: none;
-  font-size: 1rem;
-  /* 14px */
-  letter-spacing: -0.024em;
-  padding: 0.143rem 0.857rem;
-  /* 2px 12px */
-  text-transform: lowercase;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  border: 1px solid var(--color-white);
+  color: var(--color-white);
+  background: var(--color-black);
+  border-radius: 999px;
+  padding: var(--space-2) var(--space-4);
 }
 
 /* ============================================

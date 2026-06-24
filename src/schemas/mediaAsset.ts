@@ -208,9 +208,25 @@ export const mediaAsset = defineType({
 
     // ── GENERAL METADATA ──
     defineField({
-      name: 'year',
+      name: 'yearStart',
+      title: 'Year (Start)',
       type: 'number',
       validation: (r) => r.min(2015).max(2030),
+    }),
+    defineField({
+      name: 'yearEnd',
+      title: 'Year (End)',
+      type: 'number',
+      description: 'Optional — leave empty for a single-year asset.',
+      validation: (r) => r.min(2015).max(2030),
+      hidden: ({ parent }) => !!parent?.isOngoing,
+    }),
+    defineField({
+      name: 'isOngoing',
+      title: 'Ongoing?',
+      type: 'boolean',
+      initialValue: false,
+      description: 'When true, displays "current" instead of an end year.',
     }),
     defineField({
       name: 'sortOrder',
@@ -265,7 +281,7 @@ export const mediaAsset = defineType({
     {
       title: 'Year (Newest)',
       name: 'yearDesc',
-      by: [{ field: 'year', direction: 'desc' }],
+      by: [{ field: 'yearStart', direction: 'desc' }],
     },
   ],
   preview: {

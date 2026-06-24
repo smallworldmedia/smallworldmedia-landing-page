@@ -195,7 +195,9 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     sortOrder,
     displayGroup,
     brandDeckOrder,
-    year,
+    "yearStart": coalesce(yearStart, year),
+    yearEnd,
+    isOngoing,
     "imageUrl": image.asset->url,
     "imageDimensions": image.asset->metadata.dimensions,
     "playbackId": video.asset->playbackId,
@@ -214,7 +216,9 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
   "project": *[_type == "project" && slug.current == $slug && !(_id in path("drafts.**"))][0]{
     title,
     description,
-    year,
+    "yearStart": coalesce(yearStart, year),
+    yearEnd,
+    isOngoing,
     "services": services[]->{ name, "slug": slug.current }
   }
 }`;
@@ -234,7 +238,9 @@ export const FEATURED_WORLDS_QUERY = `
     | order(orderRank asc, client->name asc) {
     "slug": slug.current,
     title,
-    year,
+    "yearStart": coalesce(yearStart, year),
+    yearEnd,
+    isOngoing,
     orderRank,
     "clientName": client->name,
     "clientSlug": client->slug.current,

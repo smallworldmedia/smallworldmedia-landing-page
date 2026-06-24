@@ -11,7 +11,8 @@ export const project = defineType({
     defineField({
       name: 'title',
       type: 'string',
-      validation: (r) => r.required(),
+      description:
+        'Optional — leave empty if the project is known only by its client name.',
     }),
     defineField({
       name: 'slug',
@@ -31,9 +32,25 @@ export const project = defineType({
       rows: 4,
     }),
     defineField({
-      name: 'year',
+      name: 'yearStart',
+      title: 'Year (Start)',
       type: 'number',
       validation: (r) => r.min(2015).max(2030),
+    }),
+    defineField({
+      name: 'yearEnd',
+      title: 'Year (End)',
+      type: 'number',
+      description: 'Optional — leave empty for a single-year project.',
+      validation: (r) => r.min(2015).max(2030),
+      hidden: ({ parent }) => !!parent?.isOngoing,
+    }),
+    defineField({
+      name: 'isOngoing',
+      title: 'Ongoing?',
+      type: 'boolean',
+      initialValue: false,
+      description: 'When true, displays "current" instead of an end year.',
     }),
     defineField({
       name: 'services',
@@ -173,19 +190,20 @@ export const project = defineType({
     {
       title: 'Year (Newest)',
       name: 'yearDesc',
-      by: [{ field: 'year', direction: 'desc' }],
+      by: [{ field: 'yearStart', direction: 'desc' }],
     },
   ],
   preview: {
     select: {
       title: 'title',
-      subtitle: 'client.name',
+      clientName: 'client.name',
       featured: 'isFeatured',
     },
-    prepare({ title, subtitle, featured }) {
+    prepare({ title, clientName, featured }) {
+      const label = title || clientName || 'Untitled';
       return {
-        title: featured ? `⭐ ${title}` : title,
-        subtitle,
+        title: featured ? `⭐ ${label}` : label,
+        subtitle: title ? clientName : undefined,
       }
     },
   },
