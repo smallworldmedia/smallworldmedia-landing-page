@@ -46,6 +46,14 @@ export const OVERLAP_JITTER = num('jitter', 0.04); // seeded XY offset over the 
 export const CURVE_STRENGTH = 0.42; // (superseded by LENS_DISTORTION post-process — no longer applied per-tile)
 export const TILE_FALLBACK_COLOR = 0xe6e6ea;
 
+/* — Tile appear (load-gated push-out) — a Tile stays hidden until its texture
+   has loaded, then fades in near the center and pushes out to its resting
+   sunflower position, riding an instance of the same World-Turn F-curve. */
+export const TILE_SPAWN_FRAC = num('spawn', 0.12); // start position as a fraction of the resting radius (0 = dead center)
+export const TILE_SPAWN_SCALE = num('spawnscale', 0.72); // start scale (grows to 1 as it pushes out)
+export const TILE_APPEAR_DURATION = num('appearms', 1100) / 1000; // seconds of the appear/push-out
+export const TILE_APPEAR_FADE = num('appearfade', 0.35); // fraction of progress over which opacity ramps to full (rest is the settle)
+
 /* — Lens distortion (post-process) — applied to the whole composited scene so
    Tiles + Shell warp cohesively. NEGATIVE = pincushion / inward "inside-a-sphere". */
 export const LENS_DISTORTION = num('lens', -0.15); // uniform default for both axes
@@ -82,6 +90,9 @@ export const SHELL_MERIDIANS = 250; // longitude lines
 export const SHELL_PARALLELS = 230; // latitude lines
 export const SHELL_LINE_COLOR = 0x020098;
 export const SHELL_OPACITY = 1.0;
+export const SHELL_SPIN = num('spin', 0.012); // rad/sec — slow Y-spin so the grid drifts left→right (negate ?spin to flip)
 
-/* — Environment — */
-export const BG_COLOR = 0x0000ff;
+/* — Environment — the canvas renders transparent; the vertical gradient backdrop
+   (black top → electric blue bottom, matching the home hero) lives on the DOM
+   (.fp-canvas in featured-projects.css) so the lens pass can't warp it. */
+export const BG_COLOR = 0x0000ff; // legacy solid fallback (unused by the transparent canvas)

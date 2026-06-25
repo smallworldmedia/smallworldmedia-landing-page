@@ -1,5 +1,6 @@
 import { defineType, defineField, defineArrayMember } from 'sanity'
 import { ImageIcon } from '@sanity/icons'
+import { orderRankField, orderRankOrdering } from '@sanity/orderable-document-list'
 
 /**
  * Helper: determines if the current mediaType is a video/motion type.
@@ -271,8 +272,14 @@ export const mediaAsset = defineType({
       type: 'string',
       readOnly: true,
     }),
+    // Drag-orderable rank (managed by @sanity/orderable-document-list).
+    // Powers per-project asset ordering — set it by dragging in the
+    // Studio's nested "Media Assets (drag to order)" list under each
+    // Featured Project.
+    orderRankField({ type: 'mediaAsset' }),
   ],
   orderings: [
+    orderRankOrdering,
     {
       title: 'Sort Order',
       name: 'sortOrder',

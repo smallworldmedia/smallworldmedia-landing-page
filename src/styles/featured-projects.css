@@ -34,12 +34,17 @@
   border: 0;
 }
 
-/* WebGL World canvas — fixed behind the scrolling cards. */
+/* WebGL World canvas — fixed behind the scrolling cards. The canvas itself
+   renders transparent; this layer carries the black→blue gradient backdrop
+   (matching the home hero) so the grid + tiles composite over a clean gradient. */
 .fp-canvas {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  background: linear-gradient(to top,
+      var(--color-electric-blue) 0%,
+      var(--color-black) 40%);
 }
 
 .fp-canvas canvas {
@@ -99,7 +104,7 @@
   display: block;
 }
 
-/* PROJECT_# tab — sits above the card's top-right edge. */
+/* PROJECT_## tab — a small solid-blue rectangle at the card's top-left edge. */
 .fp-card__tab {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
@@ -109,11 +114,13 @@
   padding: var(--space-2) var(--space-4);
 }
 
-/* Identity card */
+/* Identity card — the "middle text container". Transparent: the text + CTA +
+   tags sit directly over the World, with the media spacing the layout. (A blue
+   tone/gradient-map backdrop was tried here but read better fully transparent.) */
 .fp-card {
   position: relative;
   z-index: 2;
-  background: var(--color-electric-blue);
+  background: transparent;
   min-height: 400px;
   display: flex;
   flex-direction: column;
@@ -234,7 +241,13 @@
   color: var(--color-black);
   opacity: 1.0;
   padding: 0.3rem 0.35rem;
-  transition: cubic-bezier(0.2, 0.50, 0.35, 1) opacity 0.2s, background 0.12s, color 0.2s, font-size 0.12s;
+  /* font-size + colour glide on --pager-dur/--pager-ease so a committing Turn
+     moves the active number in sync with the CTA scaling back to rest. */
+  transition:
+    font-size var(--pager-dur, 0.16s) var(--pager-ease, ease-out),
+    background var(--pager-dur, 0.16s) var(--pager-ease, ease-out),
+    color var(--pager-dur, 0.16s) var(--pager-ease, ease-out),
+    opacity 0.2s cubic-bezier(0.2, 0.5, 0.35, 1);
 }
 
 .fp-pager__dot.is-active {
@@ -249,18 +262,25 @@
   background: var(--color-black);
 }
 
-/* White marker triangle to the left of the active number, point toward it. */
-.fp-pager__dot.is-active::before {
-  content: '';
+/* White marker triangle, pointing right toward the numbers. It's a single
+   standalone element (not a per-dot ::before) so it can slide/ease between
+   numbers — JS sets its translateY to the active dot's centre each frame. */
+.fp-pager__marker {
   position: absolute;
-  left: -0.45em;
-  top: 50%;
-  transform: translateY(-50%);
+  /* em sizes are relative to this; matching the active number's resting scale
+     (1 + PAGER_BASE_GAIN) restores the triangle to its old ::before size. */
+  font-size: calc(var(--text-mono) * 2.6);
+  left: -0.35em;
+  top: 0;
+  margin-top: -0.28em;
   width: 0;
   height: 0;
   border-top: 0.28em solid transparent;
   border-bottom: 0.28em solid transparent;
   border-left: 0.4em solid var(--color-white);
+  pointer-events: none;
+  z-index: 6;
+  will-change: transform;
 }
 
 /* Fixed scroll-advance controls ([NEXT]/[MORE] bottom, [PREVIOUS] top).
@@ -285,7 +305,7 @@
   font-family: var(--font-mono);
   font-size: var(--font-ui);
   letter-spacing: var(--tracking-tight);
-  padding: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-4);
   transition:
     transform var(--cta-return, 0.18s) var(--cta-ease, ease-out),
     background-color var(--cta-return, 0.18s) var(--cta-ease, ease-out),
@@ -297,7 +317,7 @@
 }
 
 .fp-prev {
-  top: 4vh;
+  top: 8vh;
 }
 
 .fp-cta__label {
@@ -311,31 +331,32 @@
 .fp-cta__arrows {
   position: relative;
   display: block;
-  width: 1.2em;
-  height: 1.5em;
-  overflow: hidden;
+  width: 60px;
+  height: 20px;
 }
 
+/* Feather only the side nearest the label; the carets stay fully visible all the
+   way to the far edge of the container (no padding clipping them early). */
 .fp-cta__arrows--down {
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 65%);
-  mask-image: linear-gradient(to bottom, transparent, #000 65%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 70%, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 70%, #000 100%);
 }
 
 .fp-cta__arrows--up {
-  -webkit-mask-image: linear-gradient(to top, transparent, #000 65%);
-  mask-image: linear-gradient(to top, transparent, #000 65%);
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 70%, #000 100%);
+  mask-image: linear-gradient(to top, transparent 0%, #000 70%, #000 100%);
 }
 
 .fp-cta__arrows-track {
   display: flex;
   flex-direction: column;
   align-items: center;
-  line-height: 0.7;
+  line-height: 1.1rem;
 }
 
 .fp-cta__arrows-track i {
   font-style: normal;
-  font-size: 0.95em;
+  font-size: 3.5em;
 }
 
 /* Scroll cue */
@@ -352,9 +373,9 @@
   flex-direction: column;
   align-items: center;
   letter-spacing: var(--tracking-tight);
-  line-height: 0.8rem;
+  line-height: 0.35rem;
   opacity: 1.0;
-  padding: var(--space-6) var(--space-6);
+  padding: var(--space-2) var(--space-6);
 }
 
 .fp-more__chevron {

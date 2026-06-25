@@ -6,12 +6,12 @@
  * (forward) / top (back) and out the opposite edge, on the same CustomEase +
  * duration as the WebGL World Turn, so card and field move as one gesture.
  *
- * On enter, an OS-window sequence plays:
- *   1. PROJECT_## reveals with a unicode scramble (dancing symbols).
- *   2. The card panel wipes open top→bottom to full height.
- *   3. Client + meta text reveals line-by-line, top→bottom (SplitText).
- *   4. enter_world fades in and then pulses persistently (primary CTA).
- *   5. Service tags populate one-by-one, lifting up into place.
+ * On enter, the boot sequence plays:
+ *   1. PROJECT_## reveals with a unicode scramble (dancing symbols), in place
+ *      at the card's top-left.
+ *   2. Client + meta text reveals line-by-line, top→bottom (SplitText).
+ *   3. enter_world fades in and then pulses persistently (primary CTA).
+ *   4. Service tags populate one-by-one, lifting up into place.
  *
  * Rendered twice during a Turn: the incoming card (phase="enter") and the
  * outgoing card (phase="exit", which just rides out + fades).
@@ -80,7 +80,6 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       }
 
       const tab = q('.fp-card__tab')[0];
-      const panel = q('.fp-card')[0];
       const cta = q('.fp-card__cta')[0];
       const tags = q('.fp-tag');
       const lineTargets = q('.fp-card__client, .fp-card__meta');
@@ -95,7 +94,6 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       // Initial hidden states (set synchronously, pre-paint → no flash).
       gsap.set(wrap, { autoAlpha: 1 });
       gsap.set(tab, { autoAlpha: 0 });
-      gsap.set(panel, { clipPath: 'inset(0% 0% 100% 0%)' });
       gsap.set(cta, { autoAlpha: 0, scale: 0.9 });
       gsap.set(tags, { autoAlpha: 0, y: 14 });
       gsap.set(split.lines, { yPercent: 110 });
@@ -107,9 +105,8 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         { yPercent: 0, duration: TURN_DURATION, ease: cardRollEase }
       );
 
-      // OS-window boot — runs alongside the ride so the card is a visible
-      // "booting window" rising into place (not an empty gap mid-Turn):
-      // tab scrambles → panel wipes open → text lines → CTA (then pulse) → tags.
+      // Entrance: PROJECT_## scrambles in place at the top-left, then the rest of
+      // the card reveals — text lines → CTA (then pulse) → service tags.
       const tl = gsap.timeline({ delay: 0.08 });
 
       tl.set(tab, { autoAlpha: 1 })
@@ -127,8 +124,6 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
           },
           0
         )
-        // panel wipe open, top → bottom (early, so the window rides in visible)
-        .to(panel, { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.5, ease: 'power3.inOut' }, 0.16)
         // text lines reveal top → bottom
         .to(split.lines, { yPercent: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }, 0.58)
         // enter_world in, then persistent pulse

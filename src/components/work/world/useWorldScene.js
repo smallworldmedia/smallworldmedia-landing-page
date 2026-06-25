@@ -48,8 +48,11 @@ import {
   SHELL_RADIUS,
   PARALLAX,
   PARALLAX_LERP,
-  BG_COLOR,
   TILE_FALLBACK_COLOR,
+  TILE_SPAWN_FRAC,
+  TILE_SPAWN_SCALE,
+  TILE_APPEAR_DURATION,
+  TILE_APPEAR_FADE,
   LENS_DISTORTION_X,
   LENS_DISTORTION_Y,
   TURN_DURATION,
@@ -58,6 +61,7 @@ import {
   TURN_LENS_SPIKE,
   TURN_RECEDE,
   TURN_EASE_PATH,
+  SHELL_SPIN,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -107,12 +111,16 @@ export default function useWorldScene(containerRef, world, index) {
     if (!container) return undefined;
     let disposed = false;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Transparent canvas: the black→blue gradient lives on the DOM (.fp-canvas)
+    // so it stays clean/monotonic like the home hero (the lens pass would warp a
+    // WebGL background). The grid + tiles composite over it.
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
+    renderer.setClearColor(0x000000, 0);
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(BG_COLOR);
+    scene.background = null;
     const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 100);
     camera.position.set(0, 0, 0);
 
@@ -133,13 +141,20 @@ export default function useWorldScene(containerRef, world, index) {
         pivot.add(g);
         return g;
       });
-      return { pivot, tierGroups, tiles: [] }; // tiles: { mesh, texture, tierIndex, baseX, baseY, drift* }
+      // opacity = crossfade multiplier for the whole slot (the Turn drives it);
+      // each Tile's own load-in `appear` (0..1) multiplies on top of it.
+      // tiles: { mesh, texture, tierIndex, baseX, baseY, appear, drift* }
+      return { pivot, tierGroups, tiles: [], opacity: 1 };
     };
     const slotA = makeSlot();
     const slotB = makeSlot();
     let activeSlot = slotA;
     let idleSlot = slotB;
     let currentSlug = null;
+    // Projects whose push-out reveal has already played. The push-out is a
+    // per-project *first-view* reveal, not tied to texture-load timing: a World
+    // seen before just snaps its tiles to rest (revisits don't re-animate).
+    const seenWorlds = new Set();
 
     // Post-processing: scene → lens distortion → sRGB output.
     const composer = new EffectComposer(renderer);
@@ -176,12 +191,15 @@ export default function useWorldScene(containerRef, world, index) {
     };
     resize();
 
+    // Slot-level crossfade multiplier (final tile opacity = appear × slot.opacity,
+    // composited every frame in applyParallax).
     const setSlotOpacity = (slot, o) => {
-      for (const t of slot.tiles) t.mesh.material.opacity = o;
+      slot.opacity = o;
     };
 
     const clearSlot = (slot) => {
       for (const t of slot.tiles) {
+        gsap.killTweensOf(t); // stop any in-flight appear/push-out
         slot.tierGroups[t.tierIndex].remove(t.mesh);
         t.mesh.geometry.dispose();
         t.mesh.material.dispose();
@@ -195,6 +213,10 @@ export default function useWorldScene(containerRef, world, index) {
       clearSlot(slot);
       const pool = w?.showcase || [];
       if (!pool.length) return;
+      // First time this World is shown → its tiles push out from center; on any
+      // later visit they just resolve at rest (no re-run of the reveal).
+      const firstView = w?.slug != null && !seenWorlds.has(w.slug);
+      if (w?.slug != null) seenWorlds.add(w.slug);
       // Cycle the available showcase up to a minimum density so sparse
       // Worlds still fill the field (the globe's autoFill convention).
       const count = Math.min(MAX_TILES, Math.max(MIN_TILES, pool.length));
@@ -211,6 +233,7 @@ export default function useWorldScene(containerRef, world, index) {
           color: TILE_FALLBACK_COLOR,
           toneMapped: false,
           transparent: true, // so the Turn can crossfade the slot (opacity 1 = identical to opaque)
+          opacity: 0, // load-gated: stays hidden until its texture arrives (no blank tile)
         });
         const mesh = new THREE.Mesh(
           new THREE.PlaneGeometry(pl.width, pl.height),
@@ -226,6 +249,7 @@ export default function useWorldScene(containerRef, world, index) {
           tierIndex,
           baseX: pl.x,
           baseY: pl.y,
+          appear: 0, // 0 = hidden at spawn (near center) → 1 = visible at rest
           driftAxis: pl.driftAxis,
           driftSign: pl.driftSign,
           driftAmp: pl.driftAmp,
@@ -246,9 +270,23 @@ export default function useWorldScene(containerRef, world, index) {
             // ~identity and the image shows proportionately without cropping.
             const texAspect = tile.ratio || 1;
             applyCover(material, texture, pl.width / pl.height, texAspect);
+            // First-view → play the push-out (from near-center to rest on the
+            // Turn F-curve; applyParallax reads rec.appear each frame). Revisit
+            // or reduced-motion → resolve at rest with no travel.
+            if (firstView && !PREFERS_REDUCED_MOTION) {
+              rec.appear = 0;
+              gsap.to(rec, {
+                appear: 1,
+                duration: TILE_APPEAR_DURATION,
+                ease: turnRollEase,
+                overwrite: true,
+              });
+            } else {
+              rec.appear = 1;
+            }
           },
           undefined,
-          () => { } // failed load → tile keeps fallback color
+          () => { } // failed load → tile stays hidden (appear 0)
         );
       });
     };
@@ -351,13 +389,24 @@ export default function useWorldScene(containerRef, world, index) {
         const amp = PARALLAX * tierGain[i];
         slot.tierGroups[i].position.set(eased.x * amp, -eased.y * amp, 0);
       }
-      // Per-tile micro-drift — subtle individual motion on one seeded axis.
+      // Per tile: lerp spawn(near-center) → rest(+drift) by `appear`, scale up
+      // out of the center, and composite its load-in over the slot crossfade.
       for (const t of slot.tiles) {
-        if (t.driftAxis === 'x') {
-          t.mesh.position.x = t.baseX + eased.x * t.driftSign * t.driftAmp;
-        } else {
-          t.mesh.position.y = t.baseY + eased.y * t.driftSign * t.driftAmp;
-        }
+        const k = t.appear;
+        // resting position incl. the subtle per-tile micro-drift on one seeded axis
+        let restX = t.baseX;
+        let restY = t.baseY;
+        if (t.driftAxis === 'x') restX += eased.x * t.driftSign * t.driftAmp;
+        else restY += eased.y * t.driftSign * t.driftAmp;
+        const spawnX = t.baseX * TILE_SPAWN_FRAC;
+        const spawnY = t.baseY * TILE_SPAWN_FRAC;
+        t.mesh.position.x = spawnX + (restX - spawnX) * k;
+        t.mesh.position.y = spawnY + (restY - spawnY) * k;
+        t.mesh.scale.setScalar(TILE_SPAWN_SCALE + (1 - TILE_SPAWN_SCALE) * k);
+        // Opacity ramps to full over the first TILE_APPEAR_FADE of the push-out,
+        // then holds while it settles; multiplied by the slot's Turn crossfade.
+        const fade = TILE_APPEAR_FADE > 0 ? Math.min(1, k / TILE_APPEAR_FADE) : 1;
+        t.mesh.material.opacity = fade * slot.opacity;
       }
     };
 
@@ -366,12 +415,15 @@ export default function useWorldScene(containerRef, world, index) {
     const tick = (_t, deltaMs) => {
       accumulated += deltaMs / 1000;
       if (accumulated < 1 / FPS_CAP) return;
+      const dt = accumulated; // seconds since last render (for time-based motion)
       accumulated = 0;
 
       eased.x += (target.x - eased.x) * PARALLAX_LERP;
       eased.y += (target.y - eased.y) * PARALLAX_LERP;
 
-      // Base layer: the World Shell / grid moves the least.
+      // Base layer: the World Shell / grid moves the least; a slow Y-spin drifts
+      // the grid lines left→right.
+      if (!PREFERS_REDUCED_MOTION) shell.rotation.y += SHELL_SPIN * dt;
       shell.position.set(eased.x * PARALLAX, -eased.y * PARALLAX, 0);
       // Both slots get parallax (idle is empty outside a Turn — negligible).
       applyParallax(slotA);

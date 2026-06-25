@@ -37,6 +37,8 @@ const PARAM = (key, fallback) => {
  * so it feathers to 0% opacity on the side nearest the label. `direction`:
  * 'down' (NEXT) or 'up' (PREVIOUS).
  */
+// Seconds for one caret to travel one slot — higher = slower drift. ?caret= to tune.
+const ARROW_LOOP_SECONDS = PARAM('caret', 3.6);
 function CtaArrows({ direction }) {
   const trackRef = useRef(null);
   useEffect(() => {
@@ -45,8 +47,8 @@ function CtaArrows({ direction }) {
     // 16 identical carets; translating by half the track (8 carets) loops seamlessly.
     const tween =
       direction === 'down'
-        ? gsap.fromTo(track, { yPercent: -50 }, { yPercent: 0, duration: 1.6, ease: 'none', repeat: -1 })
-        : gsap.fromTo(track, { yPercent: 0 }, { yPercent: -50, duration: 1.6, ease: 'none', repeat: -1 });
+        ? gsap.fromTo(track, { yPercent: -50 }, { yPercent: 0, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 })
+        : gsap.fromTo(track, { yPercent: 0 }, { yPercent: -50, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 });
     return () => tween.kill();
   }, [direction]);
 
@@ -82,6 +84,8 @@ export default function FeaturedProjects({ worlds = [] }) {
   const [cards, setCards] = useState([{ index: 0, dir: 1, phase: 'enter' }]);
 
   const mainRef = useRef(null);
+  const pagerRef = useRef(null);
+  const markerRef = useRef(null);
   const accumRef = useRef(0);
   const lockRef = useRef(0);
   const idleRef = useRef(null); // pending rubber-band-back timer
@@ -232,6 +236,29 @@ export default function FeaturedProjects({ worlds = [] }) {
     return () => clearTimeout(cardTimerRef.current);
   }, [active]);
 
+  // Pager marker: one triangle that eases to the active number instead of
+  // teleporting. It tracks the active dot's *live* centre each frame, so on a
+  // Turn it inherits the dots' ease-in-out glide, and it stays glued to the
+  // number through hover-wobble. A damped follow (k<1) smooths the hand-off.
+  useEffect(() => {
+    const nav = pagerRef.current;
+    const marker = markerRef.current;
+    if (!nav || !marker || worlds.length < 1) return undefined;
+    const k = PREFERS_REDUCED_MOTION ? 1 : 0.06;
+    let y = null;
+    const follow = () => {
+      const dot = nav.querySelectorAll('.fp-pager__dot')[activeRef.current];
+      if (!dot) return;
+      const navTop = nav.getBoundingClientRect().top;
+      const r = dot.getBoundingClientRect();
+      const target = r.top - navTop + r.height / 2;
+      y = y === null ? target : y + (target - y) * k;
+      marker.style.transform = `translateY(${y}px)`;
+    };
+    gsap.ticker.add(follow);
+    return () => gsap.ticker.remove(follow);
+  }, [worlds.length]);
+
   const onNext = () => {
     if (atEnd) window.location.href = '/work/directory';
     else goTo(active + 1);
@@ -269,6 +296,15 @@ export default function FeaturedProjects({ worlds = [] }) {
         : 'ease-out'; // drag / pin
   const ctaVars = { '--cta-return': ctaReturn, '--cta-ease': ctaEase };
 
+  // Pager ↔ CTA link: when a Turn commits, the left rail glides its active
+  // number into place over the same window (and curve) as the triggering CTA
+  // scaling back to rest, so the two read as one linked motion. Drag/click snap.
+  const committing = ctaMode === 'commit' || ctaMode === 'commit-pin';
+  const pagerVars = {
+    '--pager-dur': committing ? `${TURN_DURATION}s` : '0.16s',
+    '--pager-ease': committing ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'ease-out',
+  };
+
   // CTA colour states: default black/white → lerps to white/black as the fill
   // grows (scrolling toward the threshold) → flashes blue/white the instant the
   // threshold is crossed (commit-pin) → eases back to black/white over the Turn.
@@ -303,8 +339,11 @@ export default function FeaturedProjects({ worlds = [] }) {
       <nav
         className="fp-pager"
         aria-label="Featured project pager"
+        ref={pagerRef}
+        style={pagerVars}
         onPointerLeave={() => setHoverIndex(null)}
       >
+        <span className="fp-pager__marker" ref={markerRef} aria-hidden="true" />
         {worlds.map((world, i) => (
           <button
             key={world.slug}

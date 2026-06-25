@@ -95,14 +95,13 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
 `;
 
 /**
- * GLOBE_ASSETS_QUERY — Asset pool for the homepage video globe, sourced
- * from the Featured Project hierarchy (see CONTEXT.md § Content
- * Population Hierarchy). buildAssetPool.js turns this into the final
- * pool order: globeOrder picks → featured sizzle reels (editorial
- * project rank) → featured-collection showcase → general showcase.
+ * GLOBE_ASSETS_QUERY — Asset pool for the homepage video globe.
  *
- * curated          — assets hand-ranked via globeOrder (manual override;
- *                    they fill the most prominent panels first)
+ * Tier system (buildAssetPool.js merges these in priority order):
+ *
+ * picks            — hand-curated in the Globe Settings singleton;
+ *                    array position = panel prominence (position 0 is
+ *                    the most visible panel). Drag-to-order in Studio.
  * featuredProjects — editorial rank layer: project docs matched to
  *                    assets via toProjectSlug(clientSlug, sourceManifest)
  * heroes           — every sizzle reel, uncapped (heroes must never fall
@@ -118,17 +117,12 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
  * Tighten to ready-only once the statuses re-sync.
  */
 export const GLOBE_ASSETS_QUERY = `{
-  "curated": *[_type == "mediaAsset"
-      && defined(globeOrder)
-      && defined(video.asset->playbackId)
-      && video.asset->data.status in ["ready", "preparing"]
-      && !(_id in path("drafts.**"))]
-    | order(globeOrder asc) {
+  "picks": *[_type == "globeSettings" && _id == "globeSettings"][0].picks[]->{
     _id,
     title,
-    globeOrder,
     "playbackId": video.asset->playbackId,
     "videoAspectRatio": video.asset->data.aspect_ratio,
+    "videoStatus": video.asset->data.status,
     "clientName": client->name,
     "clientSlug": client->slug.current
   },
@@ -140,7 +134,6 @@ export const GLOBE_ASSETS_QUERY = `{
   },
   "heroes": *[_type == "mediaAsset"
       && isHero == true
-      && !defined(globeOrder)
       && !(_id in path("drafts.**"))] {
     _id,
     title,
@@ -155,7 +148,6 @@ export const GLOBE_ASSETS_QUERY = `{
   },
   "autoFill": *[_type == "mediaAsset"
       && isHero != true
-      && !defined(globeOrder)
       && !defined(contentRole)
       && mediaType match "motion_*"
       && defined(video.asset->playbackId)
@@ -182,11 +174,12 @@ export const GLOBE_ASSETS_QUERY = `{
  * $slug         — the route slug; matches an optional `project` document that
  *                 carries editorial copy (overview blurb, display title).
  *
- * Assets come back in manifest row order (sortOrder) — the Content
- * Population Hierarchy (see CONTEXT.md) turns that order into the layout.
+ * Assets come back in drag-rank order (orderRank) with manifest row
+ * order (sortOrder) as fallback — the Content Population Hierarchy
+ * (see CONTEXT.md) turns that order into the layout.
  */
 export const FEATURED_PROJECT_DETAIL_QUERY = `{
-  "assets": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))] | order(sortOrder asc) {
+  "assets": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))] | order(orderRank asc, sortOrder asc) {
     _id,
     title,
     mediaType,
@@ -246,7 +239,7 @@ export const FEATURED_WORLDS_QUERY = `
     "clientSlug": client->slug.current,
     "services": services[]->{ name, "slug": slug.current },
     "assets": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
-      | order(sortOrder asc) {
+      | order(orderRank asc, sortOrder asc) {
       _id,
       title,
       mediaType,

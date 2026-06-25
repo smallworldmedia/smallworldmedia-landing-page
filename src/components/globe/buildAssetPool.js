@@ -7,7 +7,9 @@
  * same order — so this IS the first-impression curation.
  *
  * Tiers:
- *  1. globeOrder picks       — manual override, hand-ranked in Studio
+ *  1. Globe picks         — hand-curated in the Globe Settings singleton;
+ *                           array position = panel prominence (drag-to-order
+ *                           in Studio)
  *  2. Featured sizzle reels  — isHero assets, ordered by their project
  *                              doc's editorial sortOrder (unranked last)
  *  3. Featured-collection showcase — remaining motion assets from
@@ -15,6 +17,9 @@
  *                              collection (collections in rank order)
  *  4. General showcase       — everything else, round-robin per client
  *                              so no client's work clusters
+ *
+ * Assets that appear in the picks array are excluded from tiers 2–4
+ * to prevent duplicates.
  *
  * Assets join project docs via toProjectSlug(clientSlug, sourceManifest)
  * — the same derivation the /work/[slug] routes use.
@@ -52,11 +57,18 @@ function interleave(assets, keyOf, compareGroups = null) {
 }
 
 export default function buildAssetPool({
-  curated = [],
+  picks = [],
   featuredProjects = [],
   heroes = [],
   autoFill = [],
 } = {}) {
+  // Tier 1 — curated globe picks from the singleton (array order preserved).
+  // Filter out any that lack a playback ID (can't render on the globe).
+  const validPicks = (picks || []).filter(
+    (a) => a && a.playbackId && (!a.videoStatus || ['ready', 'preparing'].includes(a.videoStatus))
+  );
+  const pickIds = new Set(validPicks.map((a) => a._id));
+
   // Editorial rank layer: project slug → sortOrder
   const projectRank = new Map(
     featuredProjects.map((p) => [p.slug, p.sortOrder ?? UNRANKED])
@@ -73,13 +85,16 @@ export default function buildAssetPool({
   );
 
   // Tier 2 — playable sizzle reels in editorial project order ("preparing"
-  // accepted: Mux statuses in Sanity are stale snapshots, streams verified)
+  // accepted: Mux statuses in Sanity are stale snapshots, streams verified).
+  // Exclude any already in picks.
   const heroPanels = heroes
     .filter((a) => a.playbackId && (!a.videoStatus || ['ready', 'preparing'].includes(a.videoStatus)))
+    .filter((a) => !pickIds.has(a._id))
     .sort((a, b) => rankOf(a) - rankOf(b));
 
   // Tier 3 — the featured collections' showcase motion, one per
-  // collection per pass, collections in rank order
+  // collection per pass, collections in rank order.
+  // Exclude any already in picks.
   const folderRank = new Map();
   for (const asset of autoFill) {
     if (!asset.sourceFolder || !featuredFolders.has(asset.sourceFolder)) continue;
@@ -88,7 +103,7 @@ export default function buildAssetPool({
     if (prev === undefined || rank < prev) folderRank.set(asset.sourceFolder, rank);
   }
   const featuredRest = interleave(
-    autoFill.filter((a) => a.sourceFolder && featuredFolders.has(a.sourceFolder)),
+    autoFill.filter((a) => a.sourceFolder && featuredFolders.has(a.sourceFolder) && !pickIds.has(a._id)),
     (a) => a.sourceFolder,
     (g1, g2) =>
       (folderRank.get(g1[0].sourceFolder) ?? UNRANKED) -
@@ -97,9 +112,10 @@ export default function buildAssetPool({
   const featuredIds = new Set(featuredRest.map((a) => a._id));
 
   // Tier 4 — general showcase backstop, round-robin per client with a
-  // light clientType pass so adjacent panels diversify
+  // light clientType pass so adjacent panels diversify.
+  // Exclude picks and tier-3 assets.
   const rest = interleave(
-    autoFill.filter((a) => !featuredIds.has(a._id)),
+    autoFill.filter((a) => !featuredIds.has(a._id) && !pickIds.has(a._id)),
     (a) => a.clientSlug,
     (g1, g2) => {
       const typeA = g1[0].clientType || '';
@@ -108,5 +124,5 @@ export default function buildAssetPool({
     }
   );
 
-  return [...curated, ...heroPanels, ...featuredRest, ...rest];
+  return [...validPicks, ...heroPanels, ...featuredRest, ...rest];
 }

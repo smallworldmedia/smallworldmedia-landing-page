@@ -53,9 +53,9 @@ export const STREAM_PARAMS = IS_MOBILE
 
 /* — Live video tier (Stage 2) — */
 export const MAX_LIVE = IS_MOBILE ? 4 : 7;     // concurrent video decode budget
-export const GLOBE_PREVIEW_SECONDS = 3;        // abbreviated loop, MediaCard convention
+export const GLOBE_PREVIEW_SECONDS = 4;        // abbreviated loop, MediaCard convention
 export const CROSSFADE_SECONDS = 0.6;          // thumbnail ↔ video uMix tween
-export const PROMOTE_SCORE = 0.4;              // facing-camera threshold to go live
+export const PROMOTE_SCORE = 0.12;              // facing-camera threshold to go live
 export const DEMOTE_SCORE = 0.2;               // hysteresis — below this, fade back to still
 export const SWAP_SCORE = -0.25;               // hidden-hemisphere texture cycling threshold
 export const MIN_LIVE_DWELL_SECONDS = 4;       // no promote/demote thrash during drag
@@ -65,7 +65,7 @@ export const AUTO_ROTATE_SPEED = 0.12;   // rad/s ambient drift
 export const PITCH_LIMIT_DEG = 40;
 export const DRAG_SENSITIVITY = 0.001;   // rad per px of pointer travel
 export const MAX_FLICK_SPEED = 1;        // rad/s cap on release velocity
-export const INERTIA_SECONDS = .2;      // decay back to ambient drift
+export const INERTIA_SECONDS = .35;      // decay back to ambient drift
 
 /* — Colors (match global.css custom properties) — */
 export const GAP_COLOR = 0x0000ff;            // black — the lat/long lines + occluding inner sphere

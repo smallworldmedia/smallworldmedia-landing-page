@@ -257,7 +257,7 @@ Result: Mux video assets 215 → 235; zero `motion_*` mediaAssets without video 
 | Subdirectory manifests pending | 0 | 0 |
 | Assets ingested to Sanity | 784 | ~600+ |
 | Image uploads to CDN | 784 | ~600+ |
-| Mux video assets | 235 | ~200+ |
+| Mux video assets | 313 | ~200+ |
 | Videos wired to mediaAssets | 235 | ~200+ |
 | Affiliations wired | 0 | 10+ |
 | Workflows created | 2 | — |
