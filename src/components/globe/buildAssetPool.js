@@ -12,7 +12,7 @@
  *                           in Studio)
  *  2. Featured sizzle reels  — first-ranked asset per featured project
  *                              (first in orderRank = hero), ordered by their
- *                              project doc's editorial sortOrder (unranked last)
+ *                              project doc's drag-order (project orderRank)
  *  3. Featured-collection showcase — remaining motion assets from
  *                              featured collections, round-robin per
  *                              collection (collections in rank order)
@@ -70,9 +70,10 @@ export default function buildAssetPool({
   );
   const pickIds = new Set(validPicks.map((a) => a._id));
 
-  // Editorial rank layer: project slug → sortOrder
+  // Editorial rank layer: project slug → Studio drag-order index
+  // (featuredProjects arrives ordered by orderRank; array position = rank).
   const projectRank = new Map(
-    featuredProjects.map((p) => [p.slug, p.sortOrder ?? UNRANKED])
+    featuredProjects.map((p, i) => [p.slug, i])
   );
   const rankOf = (asset) => {
     if (!asset.clientSlug || !asset.collection) return UNRANKED;

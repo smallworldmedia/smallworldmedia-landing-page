@@ -85,7 +85,6 @@ export default defineConfig({
             S.documentTypeListItem('mediaAsset').title('Media Assets'),
             S.documentTypeListItem('client').title('Clients'),
             S.documentTypeListItem('serviceTag').title('Service Tags'),
-            S.documentTypeListItem('collaborator').title('Collaborators'),
           ]),
     }),
     visionTool(),

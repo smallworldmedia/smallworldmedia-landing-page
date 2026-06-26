@@ -106,8 +106,9 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
  * picks            — hand-curated in the Globe Settings singleton;
  *                    array position = panel prominence (position 0 is
  *                    the most visible panel). Drag-to-order in Studio.
- * featuredProjects — editorial rank layer: project docs matched to
- *                    assets via toProjectSlug(clientSlug, sourceManifest)
+ * featuredProjects — editorial rank layer: project docs in orderRank
+ *                    (Studio drag) order, matched to assets via
+ *                    toProjectSlug(clientSlug, sourceManifest)
  * heroes           — first-ranked asset per featured collection (first
  *                    in orderRank = hero, no flags needed). Playable
  *                    ones become tier-2 panels; all of them mark their
@@ -132,9 +133,9 @@ export const GLOBE_ASSETS_QUERY = `{
   },
   "featuredProjects": *[_type == "project"
       && isFeatured == true
-      && !(_id in path("drafts.**"))] {
-    "slug": slug.current,
-    sortOrder
+      && !(_id in path("drafts.**"))]
+    | order(orderRank asc) {
+    "slug": slug.current
   },
   "heroes": *[_type == "project"
       && isFeatured == true

@@ -45,7 +45,6 @@ export const mediaAsset = defineType({
           },
           { title: 'Brand Deck Page', value: 'brand-deck' },
           { title: 'Carousel Slide', value: 'carousel-slide' },
-          { title: 'Carousel Slide', value: 'carousel-slide' },
           // Static format types
           { title: 'Static — 1:1', value: 'static_1x1' },
           { title: 'Static — 3:4', value: 'static_3x4' },
@@ -101,20 +100,6 @@ export const mediaAsset = defineType({
           to: [{ type: 'serviceTag' }],
         }),
       ],
-    }),
-
-    // ── COLLABORATOR CREDITS (optional) ──
-    defineField({
-      name: 'collaborators',
-      title: 'Credits',
-      type: 'array',
-      of: [
-        defineArrayMember({
-          type: 'reference',
-          to: [{ type: 'collaborator' }],
-        }),
-      ],
-      description: 'Optional: credit videographers, photographers, etc.',
     }),
 
     // ── RELATIONSHIPS ──
@@ -195,16 +180,6 @@ export const mediaAsset = defineType({
       type: 'number',
       title: 'Brand Deck Page Number',
       hidden: ({ parent }) => parent?.mediaType !== 'brand-deck',
-    }),
-
-    // ── HOMEPAGE GLOBE SLOT (conditional) ──
-    defineField({
-      name: 'globeOrder',
-      type: 'number',
-      title: 'Globe Slot Order',
-      description:
-        'Optional: lower = more prominent on the homepage video globe. Leave empty to let the globe auto-fill.',
-      hidden: ({ parent }) => !isVideoType(parent?.mediaType),
     }),
 
     // ── GENERAL METADATA ──

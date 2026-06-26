@@ -236,7 +236,6 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
     sourceFolder: manifestDir,
     sourceManifest: path.basename(manifestDir),
     fileName: row.file,
-    aspectRatio: row.aspectratio || row['aspectRatio'] || undefined,
   }
 
   if (imageField) {
