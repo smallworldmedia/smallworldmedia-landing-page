@@ -1,8 +1,8 @@
 /**
  * buildContentFlow — Content Population Hierarchy for Featured Project pages.
  *
- * Turns a featured project's asset collection (already sorted by orderRank
- * / sortOrder) into categorised asset buckets. The masonry grid handles
+ * Turns a featured project's asset collection (already sorted by orderRank,
+ * set via drag-to-order in Studio) into categorised asset buckets. The masonry grid handles
  * visual layout — this module just separates asset categories:
  *
  *  1. The hero is always assets[0] (first in drag-to-order ranking).
@@ -13,13 +13,13 @@
  *  3. `brand-deck` assets are held out — reserved for the
  *     BrandDeckViewer component, sorted by brandDeckOrder.
  *  4. `carousel-slide` assets are held out — reserved for the
- *     Carousel component, grouped by displayGroup in sortOrder.
+ *     Carousel component, grouped by displayGroup (orderRank within group).
  *  5. process/supporting assets (contentRole) are excluded —
  *     reserved for the future BTS section.
  *  6. Everything else is `showcase` — rendered in the masonry grid
- *     in sortOrder.
+ *     in orderRank order.
  *
- * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank / sortOrder
+ * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
  * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<Object>, carousels: Array<Object>, bts: Array<Object>}}
  */
 
@@ -145,10 +145,10 @@ export function buildContentFlow(assets) {
   // Sort brand decks by brandDeckOrder within each displayGroup
   brandDecks.sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0));
 
-  // Carousels keep manifest order (sortOrder) within each displayGroup
+  // Group carousels by displayGroup; the sort is stable so within each group
+  // assets keep their incoming order (orderRank, set via drag-to-order).
   carousels.sort((a, b) =>
-    (a.displayGroup ?? '').localeCompare(b.displayGroup ?? '') ||
-    (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    (a.displayGroup ?? '').localeCompare(b.displayGroup ?? '')
   );
 
   return { showcase, albumArt, brandDecks, carousels, bts };

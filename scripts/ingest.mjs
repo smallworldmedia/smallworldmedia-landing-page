@@ -213,6 +213,8 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
   // Normalize mediaType column (handles both 'mediatype' and 'mediaType' from headers)
   const mediaType = row.mediatype || row['mediaType'] || 'static_other'
 
+  // Manifest row order seeds the initial orderRank only — it is not persisted
+  // as a field (retired; drag-to-order in Studio is the source of truth).
   const sortOrder = row.sortorder ? parseInt(row.sortorder, 10) : undefined
 
   const doc = {
@@ -225,7 +227,6 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
     services: serviceRefs.length > 0 ? serviceRefs : undefined,
     project: projectRef,
     year: header.year ? parseInt(header.year, 10) : undefined,
-    sortOrder,
     orderRank: sortOrderToRank(sortOrder),
     contentRole: row.contentrole || row['contentRole'] || undefined,
     displayGroup: row.displaygroup || row['displayGroup'] || undefined,

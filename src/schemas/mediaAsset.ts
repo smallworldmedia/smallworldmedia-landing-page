@@ -230,11 +230,6 @@ export const mediaAsset = defineType({
       description: 'When true, displays "current" instead of an end year.',
     }),
     defineField({
-      name: 'sortOrder',
-      type: 'number',
-      description: 'Lower = first (for Logo Wall, album art sequence, etc.)',
-    }),
-    defineField({
       name: 'contentRole',
       title: 'Content Role',
       type: 'string',
@@ -273,11 +268,6 @@ export const mediaAsset = defineType({
   ],
   orderings: [
     orderRankOrdering,
-    {
-      title: 'Sort Order',
-      name: 'sortOrder',
-      by: [{ field: 'sortOrder', direction: 'asc' }],
-    },
     {
       title: 'Year (Newest)',
       name: 'yearDesc',

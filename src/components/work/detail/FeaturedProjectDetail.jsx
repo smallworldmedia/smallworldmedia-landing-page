@@ -15,7 +15,7 @@
  * persistent SiteShell in BaseLayout (transition:persist).
  *
  * @param {Object} props
- * @param {Array<Object>} props.assets    - collection assets (sortOrder asc)
+ * @param {Array<Object>} props.assets    - collection assets (orderRank asc)
  * @param {Object}        props.client    - client document
  * @param {Object|null}   props.project   - optional project doc (editorial copy)
  * @param {string}        props.collection - curated collection name (sourceManifest)

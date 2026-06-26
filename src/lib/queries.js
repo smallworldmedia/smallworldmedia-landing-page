@@ -67,7 +67,7 @@ export const SERVICE_TAGS_QUERY = `
 export const FEATURED_PROJECTS_QUERY = `
   *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))] {
     "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
-      | order(orderRank asc, sortOrder asc) [0] {
+      | order(orderRank asc) [0] {
       _id,
       title,
       "imageUrl": image.asset->url,
@@ -140,7 +140,7 @@ export const GLOBE_ASSETS_QUERY = `{
       && isFeatured == true
       && !(_id in path("drafts.**"))] {
     "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
-      | order(orderRank asc, sortOrder asc) [0] {
+      | order(orderRank asc) [0] {
       _id,
       title,
       sourceFolder,
@@ -180,17 +180,15 @@ export const GLOBE_ASSETS_QUERY = `{
  * $slug         — the route slug; matches an optional `project` document that
  *                 carries editorial copy (overview blurb, display title).
  *
- * Assets come back in drag-rank order (orderRank) with manifest row
- * order (sortOrder) as fallback — the Content Population Hierarchy
- * (see CONTEXT.md) turns that order into the layout.
+ * Assets come back in drag-rank order (orderRank, set in Studio) — the
+ * Content Population Hierarchy (see CONTEXT.md) turns that order into the layout.
  */
 export const FEATURED_PROJECT_DETAIL_QUERY = `{
-  "assets": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))] | order(orderRank asc, sortOrder asc) {
+  "assets": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))] | order(orderRank asc) {
     _id,
     title,
     mediaType,
     contentRole,
-    sortOrder,
     displayGroup,
     brandDeckOrder,
     "yearStart": coalesce(yearStart, year),
@@ -245,12 +243,11 @@ export const FEATURED_WORLDS_QUERY = `
     "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
     "services": services[]->{ name, "slug": slug.current },
     "assets": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
-      | order(orderRank asc, sortOrder asc) {
+      | order(orderRank asc) {
       _id,
       title,
       mediaType,
       contentRole,
-      sortOrder,
       displayGroup,
       brandDeckOrder,
       "imageUrl": image.asset->url,
