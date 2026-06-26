@@ -15,7 +15,6 @@ export const MEDIA_GRID_QUERY = `
     _id,
     title,
     mediaType,
-    isHero,
     contentRole,
 
     // Image resolution
@@ -61,34 +60,39 @@ export const SERVICE_TAGS_QUERY = `
 `;
 
 /**
- * FEATURED_PROJECTS_QUERY — Hero assets for the FeaturedProjects page.
- * Each result represents a Featured Project curated collection with its sizzle reel.
+ * FEATURED_PROJECTS_QUERY — First-ranked asset per Featured Project collection.
+ * Each result represents a Featured Project with its top-ranked asset acting
+ * as the hero (first in drag-to-order = hero, no flags needed).
  */
 export const FEATURED_PROJECTS_QUERY = `
-  *[_type == "mediaAsset" && isHero == true && !(_id in path("drafts.**"))] {
-    _id,
-    title,
-    "imageUrl": image.asset->url,
-    "playbackId": video.asset->playbackId,
-    "videoAspectRatio": video.asset->data.aspect_ratio,
-    "videoStatus": video.asset->data.status,
+  *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))] {
+    "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
+      | order(orderRank asc, sortOrder asc) [0] {
+      _id,
+      title,
+      "imageUrl": image.asset->url,
+      "playbackId": video.asset->playbackId,
+      "videoAspectRatio": video.asset->data.aspect_ratio,
+      "videoStatus": video.asset->data.status,
+      "services": services[]->{ name, "slug": slug.current }
+    },
     "clientName": client->name,
     "clientSlug": client->slug.current,
-    "collection": sourceManifest,
-    "services": services[]->{ name, "slug": slug.current }
+    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest
   }
 `;
 
 /**
  * FEATURED_PROJECT_PATHS_QUERY — One row per Featured Project collection.
- * Heroes (isHero) mark each curated collection; sourceFolder is the
- * grouping key that ties every asset back to its project directory.
+ * Driven by project docs with isFeatured == true; sourceFolder is resolved
+ * from the first asset in the collection. No isHero flags needed —
+ * first-in-order IS the hero.
  * Used by /work/[slug] getStaticPaths to enumerate detail pages.
  */
 export const FEATURED_PROJECT_PATHS_QUERY = `
-  *[_type == "mediaAsset" && isHero == true && !(_id in path("drafts.**"))] {
-    "sourceFolder": sourceFolder,
-    "collection": sourceManifest,
+  *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))] {
+    "sourceFolder": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceFolder,
+    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
     "clientName": client->name,
     "clientSlug": client->slug.current
   }
@@ -104,11 +108,11 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
  *                    the most visible panel). Drag-to-order in Studio.
  * featuredProjects — editorial rank layer: project docs matched to
  *                    assets via toProjectSlug(clientSlug, sourceManifest)
- * heroes           — every sizzle reel, uncapped (heroes must never fall
- *                    off the autoFill recency cap). Playable ones become
- *                    tier-2 panels; all of them mark their sourceFolder
- *                    as a featured collection for tier 3
- * autoFill         — non-hero showcase motion, newest first, carrying
+ * heroes           — first-ranked asset per featured collection (first
+ *                    in orderRank = hero, no flags needed). Playable
+ *                    ones become tier-2 panels; all of them mark their
+ *                    sourceFolder as a featured collection for tier 3.
+ * autoFill         — showcase motion assets, newest first, carrying
  *                    the hierarchy fields buildAssetPool needs
  *
  * Video status: "preparing" is accepted alongside "ready" — the Mux
@@ -132,22 +136,24 @@ export const GLOBE_ASSETS_QUERY = `{
     "slug": slug.current,
     sortOrder
   },
-  "heroes": *[_type == "mediaAsset"
-      && isHero == true
+  "heroes": *[_type == "project"
+      && isFeatured == true
       && !(_id in path("drafts.**"))] {
-    _id,
-    title,
-    sourceFolder,
-    "collection": sourceManifest,
-    "playbackId": video.asset->playbackId,
-    "videoStatus": video.asset->data.status,
-    "videoAspectRatio": video.asset->data.aspect_ratio,
-    "clientName": client->name,
-    "clientSlug": client->slug.current,
-    "clientType": client->clientType
-  },
+    "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
+      | order(orderRank asc, sortOrder asc) [0] {
+      _id,
+      title,
+      sourceFolder,
+      "collection": sourceManifest,
+      "playbackId": video.asset->playbackId,
+      "videoStatus": video.asset->data.status,
+      "videoAspectRatio": video.asset->data.aspect_ratio,
+      "clientName": client->name,
+      "clientSlug": client->slug.current,
+      "clientType": client->clientType
+    }
+  }.hero,
   "autoFill": *[_type == "mediaAsset"
-      && isHero != true
       && !defined(contentRole)
       && mediaType match "motion_*"
       && defined(video.asset->playbackId)
@@ -183,7 +189,6 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     _id,
     title,
     mediaType,
-    isHero,
     contentRole,
     sortOrder,
     displayGroup,
@@ -206,7 +211,7 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     country,
     links
   },
-  "project": *[_type == "project" && slug.current == $slug && !(_id in path("drafts.**"))][0]{
+  "project": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))][0].project->{
     title,
     description,
     "yearStart": coalesce(yearStart, year),
@@ -237,13 +242,13 @@ export const FEATURED_WORLDS_QUERY = `
     orderRank,
     "clientName": client->name,
     "clientSlug": client->slug.current,
+    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
     "services": services[]->{ name, "slug": slug.current },
     "assets": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
       | order(orderRank asc, sortOrder asc) {
       _id,
       title,
       mediaType,
-      isHero,
       contentRole,
       sortOrder,
       displayGroup,

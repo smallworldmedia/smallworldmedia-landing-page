@@ -21,7 +21,7 @@ import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 /** Sanity image width for detail page slots */
 const SLOT_IMG_WIDTH = 1400;
 
-export default function MediaSlot({ asset }) {
+export default function MediaSlot({ asset, style, ...rest }) {
   const slotRef = useRef(null);
   const videoRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -63,8 +63,9 @@ export default function MediaSlot({ asset }) {
       ref={slotRef}
       className="media-slot"
       data-portrait={isPortrait || undefined}
-      style={{ '--slot-ratio': ratio }}
+      style={{ '--slot-ratio': ratio, ...style }}
       aria-label={asset.title || undefined}
+      {...rest}
     >
       {isVideo ? (
         <video

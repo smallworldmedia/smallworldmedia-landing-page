@@ -1,3 +1,7 @@
+---
+description: Batch-classify service types and media types across existing client folders using Gemini visual analysis. Use for first-pass bulk curation of manifests with placeholder values.
+---
+
 # Media Curate — Batch Root Manifest Classification
 
 Use this workflow for the first pass of classifying service types across all

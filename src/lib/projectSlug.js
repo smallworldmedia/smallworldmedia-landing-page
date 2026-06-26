@@ -28,5 +28,10 @@ export function toProjectSlug(clientSlug, collection) {
   // Collapse when the collection name is the same as the client name
   // (e.g. Bellaire → "bellaire" not "bellaire-bellaire")
   if (collSlug === clientSlug) return clientSlug;
+  // Strip client-name prefix from the collection when the folder is named
+  // "{Client} {Qualifier}" (e.g. "COCO Branding 2026" under client "coco"
+  // should produce "coco-branding-2026" not "coco-coco-branding-2026").
+  const prefix = `${clientSlug}-`;
+  if (collSlug.startsWith(prefix)) return collSlug;
   return `${clientSlug}-${collSlug}`;
 }

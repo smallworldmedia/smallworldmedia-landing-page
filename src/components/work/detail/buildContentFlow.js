@@ -1,12 +1,13 @@
 /**
  * buildContentFlow — Content Population Hierarchy for Featured Project pages.
  *
- * Turns a featured project's asset collection (already in manifest row
- * order via sortOrder) into categorised asset buckets. The masonry grid
- * handles visual layout — this module just separates asset categories:
+ * Turns a featured project's asset collection (already sorted by orderRank
+ * / sortOrder) into categorised asset buckets. The masonry grid handles
+ * visual layout — this module just separates asset categories:
  *
- *  1. The hero (isHero — the sizzle reel) is excluded; it always
- *     occupies the hero band above the project blurb.
+ *  1. The hero is always assets[0] (first in drag-to-order ranking).
+ *     It is excluded from the flow and rendered in the hero band above
+ *     the project blurb.
  *  2. `album-art` assets are held out — reserved for the
  *     AlbumArtOrbit component and the AlbumArtTicker.
  *  3. `brand-deck` assets are held out — reserved for the
@@ -18,7 +19,7 @@
  *  6. Everything else is `showcase` — rendered in the masonry grid
  *     in sortOrder.
  *
- * @param {Array<Object>} assets - mediaAsset docs ordered by sortOrder
+ * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank / sortOrder
  * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<Object>, carousels: Array<Object>, bts: Array<Object>}}
  */
 
@@ -26,19 +27,22 @@
 const PORTRAIT_THRESHOLD = 1.2;
 
 /**
- * Fallback ratios inferred from the mediaType format suffix.
+ * Ratios encoded directly in the mediaType suffix.
+ * These are explicitly set during ingestion and represent the
+ * editorial classification — they take priority over Mux metadata,
+ * which can be stale or incorrect for assets still "preparing".
  *
  * ASPECT RATIO RESOLUTION ORDER (used by ratioOf):
- *   1. Mux `data.aspect_ratio` (e.g. "16:9") — authoritative for video
- *   2. Sanity image `metadata.dimensions` — authoritative for images
- *   3. Title-hint parsing (e.g. "…3x4…" or "…9x16…") — naming convention
- *   4. mediaType lookup from this map
+ *   1. mediaType-encoded ratio (e.g. motion_9x16 → 9/16) — editorial truth
+ *   2. Mux `data.aspect_ratio` (e.g. "25:32") — authoritative for _other types
+ *   3. Sanity image `metadata.dimensions` — authoritative for images
+ *   4. Title-hint parsing (e.g. "…3x4…" or "…9x16…") — naming convention
  *   5. Ultimate fallback: 16 / 9
  *
  * INGESTION RULE: Every mediaAsset MUST have either:
+ *   - A ratio-encoding mediaType (e.g. static_3x4, motion_9x16), OR
  *   - A Mux video with `data.aspect_ratio` back-synced, OR
  *   - A Sanity image with metadata dimensions, OR
- *   - A ratio-encoding mediaType (e.g. static_3x4, motion_9x16), OR
  *   - A ratio hint in the title (e.g. "Promo 3x4", "Reel 9x16")
  */
 const MEDIA_TYPE_RATIOS = {
@@ -80,19 +84,37 @@ function ratioFromTitle(title) {
  * Best-known aspect ratio for an asset.
  *
  * Resolution cascade:
- *   Mux data → Sanity image dims → title hint → mediaType map → 16:9
+ *   mediaType map → Mux data → Sanity image dims → title hint → 16:9
+ *
+ * The mediaType is checked first because it represents the editorial
+ * classification set during ingestion. Mux `data.aspect_ratio` can be
+ * stale or incorrect — especially when status is "preparing" — leading
+ * to orientation mismatches (e.g. 9:16 assets reported as 16:9).
+ * For generic types (motion_other, static_other), Mux data is the
+ * primary source.
  */
 export function ratioOf(asset) {
+  // 1. mediaType-encoded ratio — editorial truth
+  const typeRatio = MEDIA_TYPE_RATIOS[asset.mediaType];
+  if (typeRatio != null) return typeRatio;
+
+  // 2. Mux data — authoritative for _other types with processed video
   if (asset.videoAspectRatio) {
     const [w, h] = asset.videoAspectRatio.split(':').map(Number);
     if (w && h) return w / h;
   }
+
+  // 3. Sanity image dimensions — authoritative for static images
   if (asset.imageDimensions?.width && asset.imageDimensions?.height) {
     return asset.imageDimensions.width / asset.imageDimensions.height;
   }
+
+  // 4. Title hint — naming convention fallback
   const titleRatio = ratioFromTitle(asset.title);
   if (titleRatio) return titleRatio;
-  return MEDIA_TYPE_RATIOS[asset.mediaType] ?? 16 / 9;
+
+  // 5. Ultimate fallback
+  return 16 / 9;
 }
 
 export { PORTRAIT_THRESHOLD };
@@ -104,8 +126,9 @@ export function buildContentFlow(assets) {
   const bts = [];
   const showcase = [];
 
-  for (const asset of assets) {
-    if (asset.isHero) continue;
+  // assets[0] is the hero (first in drag-to-order ranking) — skip it.
+  for (let i = 1; i < assets.length; i++) {
+    const asset = assets[i];
 
     // Skip empty shells — assets with no uploaded media can't render
     const hasMedia = !!asset.playbackId || !!asset.imageUrl;

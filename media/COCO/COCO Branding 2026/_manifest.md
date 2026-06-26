@@ -26,3 +26,6 @@ services: Branding, Logo Design, Event / Tour Creative
 | coco_cause-01.jpg | COCO @ The Cause — Recap 1 | static_9x16 | false | 19 | Event / Tour Creative | 9:16 |
 | coco_cause-02.jpg | COCO @ The Cause — Recap 2 | static_9x16 | false | 20 | Event / Tour Creative | 9:16 |
 | coco_cause-03.jpg | COCO @ The Cause — Recap 3 | static_9x16 | false | 21 | Event / Tour Creative | 9:16 |
+| COCO050_9x16.mp4 | COCO50 Dale Howard - On Lock Track Preview 9x16 | motion_9x16 | false | 22 | 3d animation | 9:16 |
+| COCO050_CANVAS.mp4 | COCO50 Dale Howard - On Lock Track Preview Spotify Canvas | motion_1x1 | false | 23 | 3d animation | 1:1 |
+| COCO050_YOUTUBE.mp4 | COCO50 Dale Howard - On Lock Full Track YouTube | motion_16x9 | false | 24 | 3d animation | 16:9 |

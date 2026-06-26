@@ -18,6 +18,7 @@ import {
   buildContentFlow,
   ratioOf,
 } from '../../components/work/detail/buildContentFlow.js';
+import { toProjectSlug } from '../../lib/projectSlug.js';
 import FeaturedProjects from '../../components/work/FeaturedProjects.jsx';
 
 const projects = await sanityFetch(FEATURED_WORLDS_QUERY);
@@ -25,9 +26,11 @@ const projects = await sanityFetch(FEATURED_WORLDS_QUERY);
 // Build one "World" per featured project: partition its media via the same
 // Content Population Hierarchy the detail page uses, then hand the orchestrator
 // just what it renders (hero, showcase Tiles, socket presence, card copy).
-const worlds = projects.map((p) => {
+const worlds = projects
+  .filter((p) => p.clientSlug && p.collection) // skip projects without a linked client or collection
+  .map((p) => {
   const assets = p.assets || [];
-  const hero = assets.find((a) => a.isHero) || null;
+  const hero = assets[0] || null;
   const flow = buildContentFlow(assets);
 
   const showcase = flow.showcase.map((a) => ({
@@ -50,7 +53,7 @@ const worlds = projects.map((p) => {
   }
 
   return {
-    slug: p.slug,
+    slug: toProjectSlug(p.clientSlug, p.collection),
     clientName: p.clientName,
     title: p.title || null,
     year: p.year || null,

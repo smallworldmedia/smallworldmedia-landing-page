@@ -85,7 +85,7 @@ function generateRootManifest(clientName, files) {
   const rows = files.map((f, i) => {
     const mediaType = inferMediaType(f, false)
     const title = generateTitle(f)
-    return `| ${f} | ${mediaType} | <!-- serviceType --> | ${title} | false | ${i + 1} |`
+    return `| ${f} | ${mediaType} | <!-- serviceType --> | ${title} | ${i + 1} |`
   })
 
   return `# ${clientName} — Root Assets
@@ -95,8 +95,8 @@ year: ${year}
 
 ## Assets
 
-| file | mediaType | serviceType | title | isHero | sortOrder |
-|------|-----------|-------------|-------|--------|-----------|
+| file | mediaType | serviceType | title | sortOrder |
+|------|-----------|-------------|-------|-----------|
 ${rows.join('\n')}
 `
 }
@@ -105,7 +105,7 @@ function generateArtworkManifest(clientName, files) {
   const year = new Date().getFullYear()
   const rows = files.map((f, i) => {
     const title = generateTitle(f)
-    return `| ${f} | album-art | ${title} | false | ${i + 1} |`
+    return `| ${f} | album-art | ${title} | ${i + 1} |`
   })
 
   return `# ${clientName} — Artwork
@@ -116,8 +116,8 @@ year: ${year}
 
 ## Assets
 
-| file | mediaType | title | isHero | sortOrder |
-|------|-----------|-------|--------|-----------|
+| file | mediaType | title | sortOrder |
+|------|-----------|-------|-----------|
 ${rows.join('\n')}
 `
 }
@@ -127,7 +127,7 @@ function generateProjectManifest(clientName, projectName, files) {
   const rows = files.map((f, i) => {
     const mediaType = inferMediaType(f, false)
     const title = generateTitle(f)
-    return `| ${f} | ${mediaType} | ${title} | false | ${i + 1} | |`
+    return `| ${f} | ${mediaType} | ${title} | ${i + 1} | |`
   })
 
   return `# ${clientName} — ${projectName}
@@ -138,8 +138,8 @@ year: ${year}
 
 ## Assets
 
-| file | mediaType | title | isHero | sortOrder | displayGroup |
-|------|-----------|-------|--------|-----------|--------------|
+| file | mediaType | title | sortOrder | displayGroup |
+|------|-----------|-------|-----------|--------------|
 ${rows.join('\n')}
 `
 }

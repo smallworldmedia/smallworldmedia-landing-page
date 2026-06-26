@@ -235,13 +235,6 @@ export const mediaAsset = defineType({
       description: 'Lower = first (for Logo Wall, album art sequence, etc.)',
     }),
     defineField({
-      name: 'isHero',
-      type: 'boolean',
-      initialValue: false,
-      description:
-        'The representative thumbnail for its parent project.',
-    }),
-    defineField({
       name: 'contentRole',
       title: 'Content Role',
       type: 'string',
@@ -296,11 +289,10 @@ export const mediaAsset = defineType({
       title: 'title',
       subtitle: 'mediaType',
       media: 'image',
-      hero: 'isHero',
     },
-    prepare({ title, subtitle, media, hero }) {
+    prepare({ title, subtitle, media }) {
       return {
-        title: hero ? `⭐ ${title}` : title,
+        title,
         subtitle,
         media,
       }

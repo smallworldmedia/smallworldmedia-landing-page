@@ -10,10 +10,11 @@
  *  1. Globe picks         — hand-curated in the Globe Settings singleton;
  *                           array position = panel prominence (drag-to-order
  *                           in Studio)
- *  2. Featured sizzle reels  — isHero assets, ordered by their project
- *                              doc's editorial sortOrder (unranked last)
+ *  2. Featured sizzle reels  — first-ranked asset per featured project
+ *                              (first in orderRank = hero), ordered by their
+ *                              project doc's editorial sortOrder (unranked last)
  *  3. Featured-collection showcase — remaining motion assets from
- *                              hero-marked collections, round-robin per
+ *                              featured collections, round-robin per
  *                              collection (collections in rank order)
  *  4. General showcase       — everything else, round-robin per client
  *                              so no client's work clusters
@@ -78,7 +79,7 @@ export default function buildAssetPool({
     return projectRank.get(toProjectSlug(asset.clientSlug, asset.collection)) ?? UNRANKED;
   };
 
-  // Every hero marks its collection as featured — including static/deck
+  // Every hero's collection is featured — including static/deck
   // heroes whose collections contribute motion assets to tier 3
   const featuredFolders = new Set(
     heroes.filter((a) => a.sourceFolder).map((a) => a.sourceFolder)

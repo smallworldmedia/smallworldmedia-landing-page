@@ -1,3 +1,7 @@
+---
+description: Add new media assets to an existing featured project. Scans for unmanifested files, proposes classifications for confirmation, then runs the full ingest pipeline (ingest → ingest-videos → backfill). Use when you've dropped new files into a project's media folder.
+---
+
 # Media Add — Add Assets to an Existing Project
 
 Add new media files to a project that has already been ingested into Sanity.
@@ -84,8 +88,10 @@ Manifest header context:
   - Are the mediaTypes correct? (see valid types below)
   - Are the serviceTypes correct?
   - Any title adjustments?
-  - Should any be marked isHero: true?
   - Any contentRole tags? (leave empty = showcase, or: process, supporting)
+
+Note: Hero is determined by sort order — the first asset (sortOrder 1) is
+automatically the hero. No isHero flag is needed.
 ```
 
 **DO NOT PROCEED until the user confirms.** This is the quality gate.
@@ -96,13 +102,17 @@ After confirmation, append the new rows to the existing manifest table.
 Assign `sortOrder` values continuing from the highest existing value.
 
 For Mode 1 manifests (curated collection — shared `services:` header):
-- Append rows with: `file`, `mediaType`, `title`, `isHero`, `sortOrder`
+- Append rows with: `file`, `mediaType`, `title`, `sortOrder`
 - Do NOT add a `serviceType` column (the header `services:` applies to all)
 
 For Mode 2 manifests (client root — per-row `serviceType`):
-- Append rows with: `file`, `mediaType`, `serviceType`, `title`, `isHero`, `sortOrder`
+- Append rows with: `file`, `mediaType`, `serviceType`, `title`, `sortOrder`
 
 **Preserve the exact existing table format** — match column order and widths.
+
+> **Hero = first in sort order.** There is no `isHero` column. The asset with
+> `sortOrder: 1` is automatically treated as the hero on the detail page.
+> To change the hero, reorder assets in Sanity Studio (drag-and-drop).
 
 ### 5. Run the ingest pipeline
 
@@ -171,6 +181,7 @@ git commit -m "feat(media): add {N} assets to {ProjectFolder}"
 | Value | Description |
 |-------|-------------|
 | `album art` | Cover artwork for music releases |
+| `audio-reactive-media` | Audio-reactive visuals, generative music-driven content |
 | `branding` | Identity systems, brand guidelines |
 | `merch design` | Merchandise, apparel, product mockups |
 | `logo design` | Standalone logo/mark work |

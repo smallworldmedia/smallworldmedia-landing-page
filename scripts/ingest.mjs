@@ -190,6 +190,19 @@ async function uploadImage(filePath) {
   }
 }
 
+// ── ORDER RANK GENERATION ──
+// The @sanity/orderable-document-list plugin uses a lexicographic `orderRank`
+// string to persist drag-to-order positions.  We generate a deterministic rank
+// from the manifest sortOrder so that newly ingested assets appear in the
+// correct position without requiring a manual "Reset Order" in Studio.
+function sortOrderToRank(sortOrder) {
+  if (sortOrder == null) return undefined
+  // Pad the sort order to 6 hex digits and wrap in LexoRank format.
+  // This gives room for ~16M positions and keeps lexicographic order intact.
+  const hex = Math.max(0, sortOrder).toString(16).padStart(6, '0')
+  return `0|${hex}:`
+}
+
 // ── BUILD DOCUMENT ──
 function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, manifestDir) {
   const fileName = row.file
@@ -199,6 +212,8 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
 
   // Normalize mediaType column (handles both 'mediatype' and 'mediaType' from headers)
   const mediaType = row.mediatype || row['mediaType'] || 'static_other'
+
+  const sortOrder = row.sortorder ? parseInt(row.sortorder, 10) : undefined
 
   const doc = {
     _id: docId,
@@ -210,8 +225,8 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
     services: serviceRefs.length > 0 ? serviceRefs : undefined,
     project: projectRef,
     year: header.year ? parseInt(header.year, 10) : undefined,
-    isHero: row.ishero === 'true',
-    sortOrder: row.sortorder ? parseInt(row.sortorder, 10) : undefined,
+    sortOrder,
+    orderRank: sortOrderToRank(sortOrder),
     contentRole: row.contentrole || row['contentRole'] || undefined,
     displayGroup: row.displaygroup || row['displayGroup'] || undefined,
     brandDeckOrder: row.branddeckorder || row['brandDeckOrder']
@@ -300,7 +315,23 @@ async function main() {
       console.log(`  📝 ${doc.title} → ${doc._id} (${doc.mediaType}) ${svcLabel}`)
     }
 
-    mutations.push({ createOrReplace: doc })
+    // Two-step mutation strategy:
+    //  1. createIfNotExists — creates the full doc (with orderRank) only if new
+    //  2. patch — updates all content fields WITHOUT touching orderRank,
+    //     so manually-dragged positions in Studio are preserved on re-ingest
+    const { orderRank, ...patchFields } = doc
+    // Remove _id and _type from patchFields (they can't be patched)
+    delete patchFields._id
+    delete patchFields._type
+    mutations.push({ createIfNotExists: doc })
+    mutations.push({
+      patch: {
+        id: doc._id,
+        set: patchFields,
+        // Only set orderRank if the asset doesn't already have one
+        setIfMissing: { orderRank: orderRank || undefined },
+      },
+    })
   }
 
   if (DRY_RUN) {

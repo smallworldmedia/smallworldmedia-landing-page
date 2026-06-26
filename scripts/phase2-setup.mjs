@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * phase2-setup.mjs — Set heroes and create project documents for Phase 2
+ * phase2-setup.mjs — Create project documents for Phase 2
  */
 import { createClient } from '@sanity/client'
 import fs from 'fs'
@@ -26,24 +26,7 @@ const client = createClient({
 async function main() {
   const mutations = []
 
-  // ── 1. Set heroes for Kamino and TOBEHONEST ──
-  // Kamino: Use "01 Kamino Rebrand Launch Promo" (motion) as hero
-  mutations.push({
-    patch: {
-      id: 'mediaAsset-kamino-01-kamino-rebrand-launch-promo',
-      set: { isHero: true },
-    },
-  })
-
-  // TOBEHONEST: Use "Menace Animation" as hero
-  mutations.push({
-    patch: {
-      id: 'mediaAsset-tobehonest-menace-animation',
-      set: { isHero: true },
-    },
-  })
-
-  // ── 2. Create project documents ──
+  // ── 1. Create project documents ──
 
   // Kamino
   mutations.push({
@@ -133,8 +116,6 @@ async function main() {
   
   const result = await client.mutate(mutations)
   console.log(`✅ Done (txn: ${result.transactionId})`)
-  console.log('   - Set hero: Kamino → 01 Kamino Rebrand Launch Promo')
-  console.log('   - Set hero: TOBEHONEST → Menace Animation')
   console.log('   - Created project: Kamino')
   console.log('   - Created project: TOBEHONEST')
   console.log('   - Created project: Hurry Up Slowly')

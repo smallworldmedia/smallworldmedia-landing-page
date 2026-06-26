@@ -1,3 +1,7 @@
+---
+description: Set up a new client folder for media ingestion. Scaffolds manifest files, detects curated collections, and prepares the folder for the Sanity ingest pipeline. Use when a new client folder has been added to media/.
+---
+
 # Media Import — New Client Folder Setup
 
 Use this workflow when a new client folder has been added to `media/`.
@@ -90,7 +94,7 @@ After confirmation, update the manifest with the classified service types.
 For each non-Artwork subfolder:
 - Ask the user what services the project covers
 - Update the `services:` header field
-- Note: Do NOT set `isHero: true` — the user handles sizzle reels manually
+- Note: Hero is implicit — the first asset in sort order is the hero. No `isHero` flag needed.
 
 ### 6. Verify and commit
 

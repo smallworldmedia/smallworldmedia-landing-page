@@ -27,7 +27,6 @@ export default defineConfig({
             // ── Globe Settings (singleton) ──
             S.listItem()
               .title('Globe Settings')
-              .icon(() => '🌐')
               .child(
                 S.document()
                   .schemaType('globeSettings')
@@ -49,7 +48,6 @@ export default defineConfig({
             // ── Per-project asset ordering ──
             S.listItem()
               .title('Featured Project Assets')
-              .icon(() => '🎬')
               .child(async () => {
                 // Fetch all featured projects to build a nested list
                 const client = context.getClient({ apiVersion: '2024-01-01' })
@@ -62,23 +60,21 @@ export default defineConfig({
                   }`
                 )
 
+                // Each orderableDocumentListDeskItem returns a complete ListItem,
+                // so use them directly as items in the nested list.
                 return S.list()
                   .title('Featured Project Assets')
                   .items(
                     projects.map((project: { _id: string; title?: string; clientName?: string }) =>
-                      S.listItem()
-                        .title(project.title || project.clientName || 'Untitled')
-                        .id(`project-assets-${project._id}`)
-                        .child(
-                          orderableDocumentListDeskItem({
-                            type: 'mediaAsset',
-                            filter: `project._ref == $projectId && !(mediaType in ["brand-deck", "carousel-slide", "album-art"]) && !defined(contentRole)`,
-                            params: { projectId: project._id },
-                            title: `${project.title || project.clientName} — Assets`,
-                            S,
-                            context,
-                          }).child
-                        )
+                      orderableDocumentListDeskItem({
+                        type: 'mediaAsset',
+                        filter: `project._ref == $projectId && !(mediaType in ["brand-deck", "carousel-slide", "album-art"]) && !defined(contentRole)`,
+                        params: { projectId: project._id },
+                        title: `${project.title || project.clientName || 'Untitled'} — Assets`,
+                        id: `project-assets-${project._id}`,
+                        S,
+                        context,
+                      })
                     )
                   )
               }),
