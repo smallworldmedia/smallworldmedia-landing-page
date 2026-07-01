@@ -1,3 +1,11 @@
 [build]
   command = "npm run build"
   publish = "dist"
+
+# v1 launch: directory disabled — CDN-level redirect (force overrides the
+# meta-refresh page Astro.redirect emits for the static route).
+[[redirects]]
+  from = "/work/directory"
+  to = "/work"
+  status = 302
+  force = true

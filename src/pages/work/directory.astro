@@ -17,6 +17,12 @@ import {
 } from '../../lib/queries.js';
 import ProjectDirectory from '../../components/work/ProjectDirectory.jsx';
 
+// v1 launch: directory disabled — the site ships with the Featured Projects
+// experience + detail pages only. To re-enable: remove this redirect, restore
+// the SiteNav project_directory link, and restore the end-of-paging hand-off
+// in FeaturedProjects (clamp + hidden [NEXT] at the last World).
+return Astro.redirect('/work');
+
 const assets = await sanityFetch(MEDIA_GRID_QUERY);
 const albumArt = await sanityFetch(ALBUM_ART_QUERY);
 const serviceTags = await sanityFetch(SERVICE_TAGS_QUERY);

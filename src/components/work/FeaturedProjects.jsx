@@ -162,11 +162,11 @@ export default function FeaturedProjects({ worlds = [] }) {
       if (performance.now() < lockRef.current) return;
       let a = accumRef.current + dy;
       if (activeRef.current <= 0) a = Math.max(0, a); // no previous at the first World
+      if (activeRef.current >= lastIndex) a = Math.min(0, a); // no next at the last World (v1: directory disabled)
       accumRef.current = a;
 
       if (a >= SCROLL_TRIGGER) {
-        if (activeRef.current >= lastIndex) window.location.href = '/work/directory';
-        else commitTurn(activeRef.current + 1, 1);
+        commitTurn(activeRef.current + 1, 1);
       } else if (a <= -SCROLL_TRIGGER) {
         if (activeRef.current > 0) {
           commitTurn(activeRef.current - 1, -1);
@@ -260,8 +260,7 @@ export default function FeaturedProjects({ worlds = [] }) {
   }, [worlds.length]);
 
   const onNext = () => {
-    if (atEnd) window.location.href = '/work/directory';
-    else goTo(active + 1);
+    if (!atEnd) goTo(active + 1);
   };
   const onPrev = () => goTo(active - 1);
 
@@ -394,19 +393,21 @@ export default function FeaturedProjects({ worlds = [] }) {
         )}
       </div>
 
-      {/* Bottom: next-project control (becomes [MORE] on the last project). */}
-      <button
-        type="button"
-        className="fp-next fp-cta"
-        style={{ '--cta-scale': nextScale.toFixed(3), ...ctaVars, ...nextColor }}
-        onClick={onNext}
-        onPointerEnter={() => setHoverNext(true)}
-        onPointerLeave={() => setHoverNext(false)}
-        aria-label={atEnd ? 'More work — project directory' : 'Next project'}
-      >
-        <span className="fp-cta__label">{atEnd ? '[MORE]' : '[NEXT]'}</span>
-        <CtaArrows direction="down" />
-      </button>
+      {/* Bottom: next-project control — hidden on the last World (v1: directory disabled). */}
+      {!atEnd && (
+        <button
+          type="button"
+          className="fp-next fp-cta"
+          style={{ '--cta-scale': nextScale.toFixed(3), ...ctaVars, ...nextColor }}
+          onClick={onNext}
+          onPointerEnter={() => setHoverNext(true)}
+          onPointerLeave={() => setHoverNext(false)}
+          aria-label="Next project"
+        >
+          <span className="fp-cta__label">[NEXT]</span>
+          <CtaArrows direction="down" />
+        </button>
+      )}
 
       {/* Crawlable fallback — every featured project + link to its detail page. */}
       <ul className="sr-only">

@@ -121,10 +121,6 @@ export default function SiteNav({
           <span className="site-nav__glyph">⁕</span>
           featured_projects
         </a>
-        <a href="/work/directory" className="site-nav__link">
-          <FolderIcon />
-          project_directory
-        </a>
         <a
           href="https://instagram.com/smallworldmedia"
           className="site-nav__link"
