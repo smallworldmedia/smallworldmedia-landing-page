@@ -34,14 +34,14 @@ import {
   PREFERS_REDUCED_MOTION,
 } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
+// Dancing-symbol set for the PROJECT_## scramble reveal (chrome kit).
+import { SCRAMBLE_CHARS } from '../../lib/scramble.js';
 
 gsap.registerPlugin(useGSAP, SplitText, ScrambleTextPlugin, CustomEase);
 
 // Same curve the World Turn rolls on, so the card tracks the field.
 const cardRollEase = CustomEase.create('fpCardRoll', TURN_EASE_PATH);
 
-// Dancing-symbol set for the PROJECT_## scramble reveal.
-const SCRAMBLE_CHARS = '01<>[]{}/\\|=+*#%░▒▓█—';
 const CARD_TRAVEL = 70; // yPercent the card rides in/out (mirrors the media roll)
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
