@@ -199,7 +199,14 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     "imageDimensions": image.asset->metadata.dimensions,
     "playbackId": video.asset->playbackId,
     "videoAspectRatio": video.asset->data.aspect_ratio,
-    "services": services[]->{ name, "slug": slug.current }
+    "services": services[]->{ name, "slug": slug.current },
+    releaseInfo{
+      releaseArtist,
+      releaseTitle,
+      catalogNumber,
+      releaseDate,
+      streamLinks[]{ platform, url }
+    }
   },
   "client": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))][0].client->{
     name,

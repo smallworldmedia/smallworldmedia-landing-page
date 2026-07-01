@@ -117,25 +117,6 @@
   will-change: transform;
 }
 
-/* Scaffolding placeholder — replaced by the real occupants */
-.socket-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background: var(--color-near-black, #0a0a0a);
-  outline: 1px dashed color-mix(in srgb, var(--color-electric-blue, #0037ff) 45%, transparent);
-  outline-offset: -1px;
-}
-
-.socket-placeholder__label {
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  letter-spacing: -0.024em;
-  color: var(--color-electric-blue, #0037ff);
-}
-
 /* ── Responsive ── */
 @media (max-width: 1024px) {
   .masonry-grid { columns: 3; }
@@ -155,9 +136,6 @@
     position: static;
     transform: none !important;
     will-change: auto;
-  }
-  .socket-placeholder {
-    min-height: 40vh; /* scaffolding only — occupants set their own height */
   }
   /* Landscape tiles: clamp to available cols */
   .masonry-grid--detail > [data-tile="landscape"] {

@@ -138,8 +138,7 @@ export function createMomentum({
     /** Additive velocity impulse (scroll-kick). Snap retargets from it. */
     kick(impulse) {
       if (dragging) return;
-      if (target != null && mode === 'snap') return; // don't derail a landing
-      target = null;
+      if (target != null) return; // never derail an active seek/landing
       v += impulse;
       if (mode === 'snap') settleSnap();
     },

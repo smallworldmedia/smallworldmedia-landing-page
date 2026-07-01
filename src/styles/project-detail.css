@@ -450,6 +450,203 @@ html:has(.project-detail) body {
 }
 
 /* ============================================
+   ALBUM ART ORBIT — Grid Socket occupant
+   Tilted CSS-3D ring (ringMath.js records →
+   transforms; preserve-3d z-sorts). Painted
+   imperatively per frame by AlbumArtOrbit.jsx.
+   ============================================ */
+.album-orbit {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.album-orbit__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  perspective: 1400px;
+  transform-style: preserve-3d;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.album-orbit__stage:active {
+  cursor: grabbing;
+}
+
+.orbit-cover {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  padding: 0;
+  border: 0;
+  background: var(--color-near-black);
+  opacity: 0; /* first paint reveals */
+  cursor: pointer;
+  will-change: transform, opacity;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.orbit-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.orbit-cover:focus-visible {
+  outline: 1px dashed var(--color-electric-blue);
+  outline-offset: 3px;
+}
+
+/* Dim veil while a cover is pulled — above the ring, below the pull */
+.album-orbit__dim {
+  position: absolute;
+  inset: -48px;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  transform: translateZ(160px);
+}
+
+.album-orbit__dim--on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.album-orbit__card {
+  position: absolute;
+  left: 56%;
+  top: 50%;
+  max-width: 38%;
+  min-width: 260px;
+  transform: translate3d(0, -50%, 321px);
+  animation: releaseCardIn 0.45s cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+
+@keyframes releaseCardIn {
+  from {
+    opacity: 0;
+    transform: translate3d(26px, -50%, 321px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, -50%, 321px);
+  }
+}
+
+.album-orbit__caption {
+  align-self: center;
+  margin-top: 0.3rem;
+  padding: 0.143rem 0.571rem;
+  min-height: 1.86rem;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  color: var(--color-electric-blue);
+}
+
+/* In-flow fallback (socket collapses ≤1024px) needs its own height */
+@media (max-width: 1024px) {
+  .album-orbit {
+    min-height: min(88vw, 560px);
+  }
+
+  .album-orbit__card {
+    left: 50%;
+    max-width: 88%;
+    transform: translate3d(-50%, -50%, 321px);
+  }
+
+  @keyframes releaseCardIn {
+    from {
+      opacity: 0;
+      transform: translate3d(calc(-50% + 26px), -50%, 321px);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 321px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-orbit__card {
+    animation: none;
+  }
+}
+
+/* ============================================
+   RELEASE CARD — Pull-out chip panel
+   ClientPanel family: blue band, squeezed
+   title, mono metadata chips. Conditional
+   chips only — never placeholders.
+   ============================================ */
+.release-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.571rem;
+  filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.6));
+}
+
+.release-card__band {
+  display: flex;
+  flex-direction: column;
+  gap: 0.286rem;
+  padding: 0.857rem 0.857rem 1rem;
+  background: var(--color-electric-blue);
+}
+
+.release-card__artist {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.2;
+  letter-spacing: -0.024em;
+  text-transform: uppercase;
+  color: var(--color-white);
+}
+
+.release-card__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-semi);
+  font-size: clamp(1.6rem, 2vw, 2.6rem);
+  line-height: 0.9;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--color-white);
+}
+
+.release-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.571rem;
+}
+
+.release-chip {
+  padding: 0.143rem 0.571rem;
+  background: var(--color-near-black);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  color: var(--color-white);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+a.release-chip--link:hover {
+  background: var(--color-electric-blue);
+}
+
+/* ============================================
    SITE FOOTER — simple variant
    ============================================ */
 .site-footer {

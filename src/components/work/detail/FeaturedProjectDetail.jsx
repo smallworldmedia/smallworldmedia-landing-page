@@ -29,28 +29,21 @@ import MediaSlot from './MediaSlot.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import GridSocket from './GridSocket.jsx';
 import BrandDeckViewer from './BrandDeckViewer.jsx';
+import AlbumArtOrbit from './AlbumArtOrbit.jsx';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid } from './flushGrid.js';
 import { formatYearRange } from '../../../lib/formatYearRange.js';
 
 /* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
-   Orbit: 2 of 3 columns × ~2 portrait units, directly below the blurb —
-   for label projects the catalog is the centerpiece. Right side default;
-   flip colStart for page balance. Deck: full-width band, px-fixed height
-   (~65vh on a laptop) so the reserved region stays rigid. Final visual
-   tuning lands with the occupants (build stages 5–6). */
-const ORBIT_REGION = { id: 'orbit', colStart: 1, colSpan: 2, rowSpan: 96, anchor: 'top' };
+   Orbit: 2 of 3 columns × one portrait unit (48 rows ≈ 856px) directly
+   below the blurb — sized so the adaptive ring (ringMath.ringParams)
+   fills the rect: at 20 covers the ellipse + caption land within ~5% of
+   the region bounds. Right side default; flip colStart for page balance.
+   Deck: full-width band, px-fixed height (~65vh on a laptop) so the
+   reserved region stays rigid. */
+const ORBIT_REGION = { id: 'orbit', colStart: 1, colSpan: 2, rowSpan: 48, anchor: 'top' };
 const DECK_REGION_ROWS = 34;
-
-/** Scaffolding occupant — replaced by BrandDeckViewer / AlbumArtOrbit. */
-function SocketPlaceholder({ label }) {
-  return (
-    <div className="socket-placeholder">
-      <span className="socket-placeholder__label">{label}</span>
-    </div>
-  );
-}
 
 
 export default function FeaturedProjectDetail({ assets, client, project, collection }) {
@@ -109,7 +102,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         {s.id === 'deck' ? (
           <BrandDeckViewer decks={brandDecks} />
         ) : (
-          <SocketPlaceholder label="ALBUM_ART_ORBIT" />
+          <AlbumArtOrbit covers={albumArt} />
         )}
       </GridSocket>
     ));
