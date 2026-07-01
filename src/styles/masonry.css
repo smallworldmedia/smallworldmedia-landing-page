@@ -92,11 +92,72 @@
   aspect-ratio: 1 / 1;
 }
 
+/* ============================================
+   GRID SOCKET — reserved-region layer
+   ============================================
+   A socket is a grid child pinned to a flushGrid reserved region
+   (explicit grid-column/row inline styles, like tiles). The inner
+   layer floats the composite occupant (AlbumArtOrbit /
+   BrandDeckViewer) above the tiles and carries the parallax
+   transform (GridSocket.jsx). Occupants may overhang neighboring
+   tiles — bounded — hence overflow: visible.
+   ============================================ */
+.masonry-grid--detail > .grid-socket {
+  break-inside: unset;
+  display: block;
+  margin-bottom: 0;
+  position: relative;
+  overflow: visible;
+  z-index: 2;
+}
+
+.grid-socket__layer {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+/* Scaffolding placeholder — replaced by the real occupants */
+.socket-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-near-black, #0a0a0a);
+  outline: 1px dashed color-mix(in srgb, var(--color-electric-blue, #0037ff) 45%, transparent);
+  outline-offset: -1px;
+}
+
+.socket-placeholder__label {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  letter-spacing: -0.024em;
+  color: var(--color-electric-blue, #0037ff);
+}
+
 /* ── Responsive ── */
 @media (max-width: 1024px) {
   .masonry-grid { columns: 3; }
   .masonry-grid--detail {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Sockets degrade to plain full-width in-flow bands: explicit
+     placement dies at this width (span overrides below), so the
+     layered treatment — overlap + parallax — goes with it. Height
+     comes from the occupant. */
+  .masonry-grid--detail > .grid-socket {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+  .grid-socket__layer {
+    position: static;
+    transform: none !important;
+    will-change: auto;
+  }
+  .socket-placeholder {
+    min-height: 40vh; /* scaffolding only — occupants set their own height */
   }
   /* Landscape tiles: clamp to available cols */
   .masonry-grid--detail > [data-tile="landscape"] {

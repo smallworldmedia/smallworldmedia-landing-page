@@ -8,7 +8,11 @@
  *   1. ClientPanel — blue info band (title, client meta, socials)
  *   2. Hero slot — the collection's first-ranked asset (assets[0]), full-bleed
  *   3. Project blurb — overview copy + client/date fields + ServiceTags
- *   4. Dense grid — remaining showcase assets in a flush 3-col grid
+ *   4. Dense grid — remaining showcase assets in a flush 3-col grid,
+ *      flowing around Grid Socket reserved regions (flushGrid.js) that
+ *      float the composite occupants: AlbumArtOrbit (2-col, top anchor)
+ *      and BrandDeckViewer (full-width; top when alone, mid when an
+ *      orbit outranks it) — docs/orbit-deck-viewer-spec.md.
  *   5. SiteFooter
  *
  * SiteNav, info drawer, and project overlay are handled by the
@@ -23,98 +27,49 @@
 import ClientPanel from './ClientPanel.jsx';
 import MediaSlot from './MediaSlot.jsx';
 import SiteFooter from './SiteFooter.jsx';
+import GridSocket from './GridSocket.jsx';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import { computeFlushGrid } from './flushGrid.js';
 import { formatYearRange } from '../../../lib/formatYearRange.js';
 
-/* ── Tessellating tile sizes ──
-   Designed so 1 portrait = 2 squares = 2 landscapes (stacked),
-   guaranteeing the grid can always back-fill with zero gaps. */
-const TILE_SIZES = {
-  portrait:  { colSpan: 1, rowSpan: 48 },
-  square:    { colSpan: 1, rowSpan: 24 },
-  landscape: { colSpan: 2, rowSpan: 24 },
-};
+/* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
+   Orbit: 2 of 3 columns × ~2 portrait units, directly below the blurb —
+   for label projects the catalog is the centerpiece. Right side default;
+   flip colStart for page balance. Deck: full-width band, px-fixed height
+   (~65vh on a laptop) so the reserved region stays rigid. Final visual
+   tuning lands with the occupants (build stages 5–6). */
+const ORBIT_REGION = { id: 'orbit', colStart: 1, colSpan: 2, rowSpan: 96, anchor: 'top' };
+const DECK_REGION_ROWS = 34;
 
-function classifyTile(ratio) {
-  if (ratio >= PORTRAIT_THRESHOLD) return 'landscape';
-  if (ratio >= 0.9) return 'square';
-  return 'portrait';
-}
-
-/**
- * Simulate CSS Grid dense placement, then stretch the bottom row
- * so every column ends at the same height → flush bottom edge.
- *
- * Algorithm:
- *   1. For each asset in order, find the earliest grid position
- *      where the tile fits (mimics grid-auto-flow: dense).
- *   2. Track each column's free-row pointer.
- *   3. After all items are placed, find the global max row.
- *   4. Stretch the last item in each column to reach that max row.
- */
-function computeFlushGrid(showcase, cols = 3) {
-  const colFreeAt = new Array(cols).fill(0);
-
-  const placements = showcase.map((asset) => {
-    const ratio = ratioOf(asset);
-    const type = classifyTile(ratio);
-    const { colSpan, rowSpan } = TILE_SIZES[type];
-
-    // Dense placement: earliest position where colSpan adjacent columns are free
-    let bestRow = Infinity;
-    let bestCol = 0;
-
-    for (let c = 0; c <= cols - colSpan; c++) {
-      let earliest = 0;
-      for (let j = 0; j < colSpan; j++) {
-        earliest = Math.max(earliest, colFreeAt[c + j]);
-      }
-      if (earliest < bestRow) {
-        bestRow = earliest;
-        bestCol = c;
-      }
-    }
-
-    const rowStart = bestRow;
-    const rowEnd = rowStart + rowSpan;
-
-    // Update column pointers
-    for (let j = 0; j < colSpan; j++) {
-      colFreeAt[bestCol + j] = rowEnd;
-    }
-
-    return { col: bestCol, colSpan, rowStart, rowEnd, type };
-  });
-
-  // ── Flush bottom: stretch last item in each column to max row ──
-  const maxRow = Math.max(...colFreeAt);
-
-  for (let c = 0; c < cols; c++) {
-    let lastIdx = -1;
-    let latestEnd = 0;
-
-    for (let i = 0; i < placements.length; i++) {
-      const p = placements[i];
-      // Does this placement occupy column c?
-      if (p.col <= c && p.col + p.colSpan > c && p.rowEnd >= latestEnd) {
-        latestEnd = p.rowEnd;
-        lastIdx = i;
-      }
-    }
-
-    if (lastIdx >= 0 && placements[lastIdx].rowEnd < maxRow) {
-      placements[lastIdx].rowEnd = maxRow;
-    }
-  }
-
-  return placements;
+/** Scaffolding occupant — replaced by BrandDeckViewer / AlbumArtOrbit. */
+function SocketPlaceholder({ label }) {
+  return (
+    <div className="socket-placeholder">
+      <span className="socket-placeholder__label">{label}</span>
+    </div>
+  );
 }
 
 
 export default function FeaturedProjectDetail({ assets, client, project, collection }) {
   const hero = assets[0] ?? null;
-  const { showcase } = buildContentFlow(assets);
+  const { showcase, albumArt, brandDecks } = buildContentFlow(assets);
+
+  // ── Socket regions from the content flow ──
+  // Orbit outranks deck: a lone deck takes the top anchor, a deck sharing
+  // the page with an orbit inserts mid-grid (spec § Placement).
+  const regions = [];
+  if (albumArt.length > 0) regions.push(ORBIT_REGION);
+  if (brandDecks.length > 0) {
+    regions.push({
+      id: 'deck',
+      colStart: 0,
+      colSpan: 3,
+      rowSpan: DECK_REGION_ROWS,
+      anchor: albumArt.length > 0 ? 'mid' : 'top',
+    });
+  }
 
   const isPortraitHero = hero && ratioOf(hero) < PORTRAIT_THRESHOLD;
 
@@ -137,8 +92,22 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const displayTitle = project?.title || null;
   const overview = project?.description ?? null;
 
-  // ── Compute flush grid placements ──
-  const placements = computeFlushGrid(showcase);
+  // ── Compute flush grid placements around the reserved regions ──
+  const { placements, regions: sockets } = computeFlushGrid(showcase, { regions });
+
+  // Sockets interleave with tiles at their domIndex so single-column
+  // (in-flow) layouts read in the right order.
+  const socketsAt = new Map();
+  for (const s of sockets) {
+    if (!socketsAt.has(s.domIndex)) socketsAt.set(s.domIndex, []);
+    socketsAt.get(s.domIndex).push(s);
+  }
+  const socketNodes = (i) =>
+    (socketsAt.get(i) ?? []).map((s) => (
+      <GridSocket key={`socket-${s.id}`} region={s}>
+        <SocketPlaceholder label={s.id === 'orbit' ? 'ALBUM_ART_ORBIT' : 'BRAND_DECK_VIEWER'} />
+      </GridSocket>
+    ));
 
   /* ---- Blurb section (shared between portrait & landscape layouts) ---- */
   const blurbSection = (
@@ -193,12 +162,14 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           </>
         )}
 
-        {/* Dense grid — flush bottom via explicit placement */}
-        {showcase.length > 0 && (
+        {/* Dense grid — flush bottom via explicit placement; sockets float
+            their occupants over the reserved regions */}
+        {(showcase.length > 0 || sockets.length > 0) && (
           <div className="masonry-grid masonry-grid--detail">
-            {showcase.map((a, i) => {
+            {showcase.flatMap((a, i) => {
               const p = placements[i];
-              return (
+              return [
+                ...socketNodes(i),
                 <MediaSlot
                   key={a._id}
                   asset={a}
@@ -206,10 +177,13 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
                   style={{
                     gridColumn: `${p.col + 1} / span ${p.colSpan}`,
                     gridRow: `${p.rowStart + 1} / ${p.rowEnd + 1}`,
+                    // Forced-fill tiles paint beneath intact neighbors
+                    zIndex: p.underlay ? 0 : 1,
                   }}
-                />
-              );
+                />,
+              ];
             })}
+            {socketNodes(showcase.length)}
           </div>
         )}
       </main>
