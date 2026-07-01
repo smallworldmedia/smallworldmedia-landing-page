@@ -8,10 +8,14 @@
  *  1. The hero is always assets[0] (first in drag-to-order ranking).
  *     It is excluded from the flow and rendered in the hero band above
  *     the project blurb.
- *  2. `album-art` assets are held out — reserved for the
- *     AlbumArtOrbit component and the AlbumArtTicker.
- *  3. `brand-deck` assets are held out — reserved for the
- *     BrandDeckViewer component, sorted by brandDeckOrder.
+ *  2. `album-art` assets are held out for the AlbumArtOrbit (and the
+ *     AlbumArtTicker) — but only when the collection clears ORBIT_MIN.
+ *     Below the gate the covers fold back into the showcase flow at
+ *     their original orderRank positions (they tessellate as squares).
+ *  3. `brand-deck` assets are held out for the BrandDeckViewer, grouped
+ *     by displayGroup: group order = first appearance (lowest-orderRank
+ *     member, per the controlled-adjacency convention), pages sequenced
+ *     by brandDeckOrder within each group.
  *  4. `carousel-slide` assets are held out — reserved for the
  *     Carousel component, grouped by displayGroup (orderRank within group).
  *  5. process/supporting assets (contentRole) are excluded —
@@ -20,11 +24,19 @@
  *     in orderRank order.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
- * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<Object>, carousels: Array<Object>, bts: Array<Object>}}
+ * @param {{orbitMin?: number}} [opts] - ORBIT_MIN override (live tuning)
+ * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<Object>, bts: Array<Object>}}
  */
 
 /** Ratio below which an asset is considered portrait/square. */
 const PORTRAIT_THRESHOLD = 1.2;
+
+/**
+ * Minimum covers for an AlbumArtOrbit — a ring of 1–2 covers is nonsense,
+ * and duplicating covers would read as fake in a portfolio. Below the gate,
+ * covers fold back into the showcase flow instead of vanishing.
+ */
+export const ORBIT_MIN = 6;
 
 /**
  * Ratios encoded directly in the mediaType suffix.
@@ -119,14 +131,18 @@ export function ratioOf(asset) {
 
 export { PORTRAIT_THRESHOLD };
 
-export function buildContentFlow(assets) {
+export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
   const albumArt = [];
-  const brandDecks = [];
   const carousels = [];
   const bts = [];
   const showcase = [];
+  // Map preserves insertion order → group order = first appearance =
+  // lowest-orderRank member (controlled-adjacency convention).
+  const deckGroups = new Map();
 
   // assets[0] is the hero (first in drag-to-order ranking) — skip it.
+  // showcase/albumArt entries carry their loop index so a gate fold-back
+  // can restore the original orderRank interleaving.
   for (let i = 1; i < assets.length; i++) {
     const asset = assets[i];
 
@@ -134,16 +150,31 @@ export function buildContentFlow(assets) {
     const hasMedia = !!asset.playbackId || !!asset.imageUrl;
     if (!hasMedia) continue;
 
-    if (asset.mediaType === 'album-art') albumArt.push(asset);
-    else if (asset.mediaType === 'brand-deck' || asset.mediaType === 'brand-deck-page')
-      brandDecks.push(asset);
-    else if (asset.mediaType === 'carousel-slide') carousels.push(asset);
+    if (asset.mediaType === 'album-art') albumArt.push({ i, asset });
+    else if (asset.mediaType === 'brand-deck' || asset.mediaType === 'brand-deck-page') {
+      const key = asset.displayGroup ?? 'deck';
+      if (!deckGroups.has(key)) deckGroups.set(key, []);
+      deckGroups.get(key).push(asset);
+    } else if (asset.mediaType === 'carousel-slide') carousels.push(asset);
     else if (asset.contentRole) bts.push(asset);
-    else showcase.push(asset);
+    else showcase.push({ i, asset });
   }
 
-  // Sort brand decks by brandDeckOrder within each displayGroup
-  brandDecks.sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0));
+  // ORBIT_MIN gate — below it, covers fold back into the showcase flow.
+  const orbits = albumArt.length >= orbitMin;
+  const showcaseOut = (orbits ? showcase : [...showcase, ...albumArt])
+    .sort((a, b) => a.i - b.i)
+    .map((e) => e.asset);
+  const albumArtOut = orbits ? albumArt.map((e) => e.asset) : [];
+
+  // Decks: pages sequence by brandDeckOrder within each group (stable sort
+  // keeps orderRank order for ties).
+  const brandDecks = [...deckGroups.entries()].map(([group, pages]) => ({
+    group,
+    pages: [...pages].sort(
+      (a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0)
+    ),
+  }));
 
   // Group carousels by displayGroup; the sort is stable so within each group
   // assets keep their incoming order (orderRank, set via drag-to-order).
@@ -151,5 +182,5 @@ export function buildContentFlow(assets) {
     (a.displayGroup ?? '').localeCompare(b.displayGroup ?? '')
   );
 
-  return { showcase, albumArt, brandDecks, carousels, bts };
+  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, bts };
 }
