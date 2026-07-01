@@ -63,5 +63,11 @@ const {
     <SiteShell client:load transition:persist="site-shell" transition:animate="none" />
 
     <slot />
+
+    {/* Lenis smooth scroll — per-route start/stop (off on /work + reduced motion) */}
+    <script>
+      import { syncRoute } from '../lib/smoothScroll.js';
+      document.addEventListener('astro:page-load', () => syncRoute());
+    </script>
   </body>
 </html>
