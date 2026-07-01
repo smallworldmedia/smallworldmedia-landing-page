@@ -91,7 +91,7 @@ Brand decks and pitch decks are delivered as PDFs but cannot be ingested directl
 1. Identify all brand deck / pitch deck PDFs in the media directory
 2. Export each page as a standalone JPEG (e.g., `bedouin-brand-guidelines_01.jpg`, `_02.jpg`, …)
 3. Create or update the manifest with one row per page, using `mediaType: brand-deck`
-4. Ingest normally — the **BrandDeckViewer** component renders the pages as an accordion
+4. Ingest normally — the **BrandDeckViewer** component renders the pages as a horizontal deck pager
 
 **Known PDFs awaiting conversion:**
 - `Andhera/DEVELOPED Artist Workshop/` — DEVELOPED Pitch Deck
@@ -126,8 +126,9 @@ Canonical names for UI components. All implementation work **must** use these te
 | **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. | Single `mediaAsset` document |
 | **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only (FilterBar pills are the interactive variant). | Single `serviceTag` reference |
 | **SiteFooter** | Simple footer — near-black bar with SWM globe mark + copyright. Expanded variant with footer nav is a future iteration. | Static |
-| **BrandDeckViewer** | Renders a project's brand/pitch-deck pages (`brand-deck`, ordered by `brandDeckOrder`). In the World it floats as a single composite element (depth tier + procedural position like a Tile; in-World visual TBD); on the `/work/[slug]` detail page it renders as an expanding accordion / vertical scroll. *(Build deferred — the socket contract lands with the World.)* | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
-| **AlbumArtOrbit** | A 3D elliptical ring/carousel of a project's album-art covers, slowly auto-rotating. Floats in the World as a single composite element (depth tier + procedural position like a Tile) when the project has album art; also embeds in the `/work/[slug]` detail page. *(Build deferred — the socket contract lands with the World.)* | `album-art` assets within a collection |
+| **BrandDeckViewer** | Renders a project's brand/pitch-deck pages (`brand-deck`, ordered by `brandDeckOrder`). On the `/work/[slug]` detail page it is a fixed-height **horizontal deck pager** — pages at a slight isometric angle, never a vertical unroll — floating as a full-width layered band over the masonry grid. In the World it floats as a single composite element (depth tier + procedural position like a Tile; in-World visual TBD). *(World mount deferred — the socket contract lands with the World.)* | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
+| **AlbumArtOrbit** | A 3D elliptical ring of a project's album-art covers — idle auto-rotation, drag/flick spin, scroll-coupled kick. On the `/work/[slug]` detail page it embeds as a layered region below the blurb, overlapping the masonry grid with subtle parallax (pseudo-3D); clicking the front cover pulls it out of the rotation and reveals its release metadata. Mounts only when the collection clears a minimum cover count — below it, covers fold back into the masonry flow. In the World it floats as a single composite element (depth tier + procedural position like a Tile). *(World mount deferred.)* | `album-art` assets within a collection |
+| **ReleaseCard** | Metadata chip panel for one album-art release — artist, release title, catalog number, stream-link chips. Chips render conditionally per field (no placeholders); with no `releaseInfo` at all it degrades to the asset title alone. Styled in the ClientPanel visual family. Revealed by the AlbumArtOrbit Pull-out; the future Record Crate (Phase 14) reuses it verbatim. | `mediaAsset.releaseInfo` on one `album-art` asset |
 | **NextProjectCard** | *Future* — scroll-to-next-project transition at the bottom of FeaturedProjectDetail (three scroll states mocked in Figma). | Next Featured Project hero |
 
 > **Procedure**: Before creating any new component, check this table. If the component doesn't have a canonical name, propose one here first, get it approved, then implement.
@@ -141,6 +142,11 @@ Canonical names for UI components. All implementation work **must** use these te
 - **Depth tier** — one of 3 discrete depth positions (Near / Mid / Far) a Tile occupies. Determines its scale, scroll parallax, and whether it can play live video (Near only). Exact Z values are tuned by live testing; X/Y within a tier is procedural (seeded per project, center kept clear for the card).
 - **World Turn** — the vertical paging transition between Worlds: the current World (Shell + Tiles, as one rigid body) pitches about the X-axis, rolling up and out the top of the viewport as the next World rolls in from the bottom, with the spherical distortion exaggerated so it reads as physically travelling between Worlds. A pull-down meets elastic resistance before snapping to the next.
 - **Envelopment** — the scroll transition from the home globe into the Featured Projects experience: the globe scales up to fill the viewport, fades through a solid blue/white fill, and the camera emerges inside the first World.
+
+### Single Project Page — concepts
+
+- **Grid Socket** — a reserved rectangular region in the detail-page masonry grid that dense placement flows around, occupied by a component floating on a layer *above* the grid plane with bounded overlap of neighboring tiles and subtle scroll parallax (pseudo-3D). The detail-page counterpart of the World's composite-element socket. Occupants: AlbumArtOrbit (2-column embedded region below the blurb) and BrandDeckViewer (full-width band). Precedence when both are present: the orbit takes the prime top slot and the deck band is inserted mid-grid; a lone deck takes the top slot.
+- **Pull-out** — the AlbumArtOrbit focus state: the front cover translates out of the ring (which keeps idling, leaving a traveling gap at its slot) while its ReleaseCard animates in beside it. Dismissing returns the cover to wherever its slot has drifted.
 
 ## Content Population Hierarchy
 
@@ -192,10 +198,12 @@ Any `album-art` asset within a Featured Project collection feeds into **two** co
 
 This is automatic — the `album-art` mediaType is the trigger; no additional tagging is needed.
 
+**Minimum-count gate:** the orbit mounts only when the collection clears a tunable minimum cover count (`ORBIT_MIN`, ~6). Below the gate, the covers fold back into the showcase masonry flow (they tessellate as square tiles) rather than vanishing — real work stays on the page, it just doesn't earn an orbit.
+
 ### Brand Deck Dual-Feed Rule
 
 Mirrors album art: any `brand-deck` asset feeds **two** contexts:
-1. **BrandDeckViewer** — the expandable accordion on the Featured Project detail page / Featured Projects page
+1. **BrandDeckViewer** — the horizontal deck pager on the Featured Project detail page / Featured Projects page
 2. **Project Directory** — a grouped deck presence (one card per deck, not per page)
 
 `mediaType: brand-deck` is the trigger; `displayGroup` (kebab-case deck slug) bounds the deck; `brandDeckOrder` sequences pages. *(Until the directory deck component exists, deck pages surface in the directory grid as individual cards.)*
@@ -206,7 +214,7 @@ Social/editorial carousels (multi-slide posts) live in a subfolder, one image pe
 
 ### Brand Deck Convention
 
-Brand and pitch decks must be exported as per-page JPEGs and placed in a subfolder. The subfolder name becomes the `displayGroup`, each page uses `mediaType: brand-deck`, and `brandDeckOrder` controls page sequence. The BrandDeckViewer component renders these as an expandable accordion.
+Brand and pitch decks must be exported as per-page JPEGs and placed in a subfolder. The subfolder name becomes the `displayGroup`, each page uses `mediaType: brand-deck`, and `brandDeckOrder` controls page sequence. The BrandDeckViewer component renders these as a horizontal deck pager.
 
 **Flow algorithm** (`buildContentFlow.js`): after the hero and blurb, showcase assets are first clustered by `displayGroup`, then within each group they alternate full-bleed → split pair → full-bleed →… Portrait assets never render full-bleed. Projects with more videos naturally get more full-bleed slots; still-heavy projects pair into split rows. Media-type-specific components (`album-art`, `brand-deck`) are separated from the flow and routed to their dedicated components.
 

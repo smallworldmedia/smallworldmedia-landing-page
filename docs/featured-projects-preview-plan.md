@@ -31,7 +31,7 @@
 - **P5 — Transitions:** Envelopment from home (`/` → `/work`, persistent solid-fill overlay + `ClientRouter`); `enter_world` → `/work/[slug]` via the same fill bridge.
 
 ### Later (out of this build)
-- Build the real `AlbumArtOrbit` (rotating elliptical ring — see `orbit-mockup.jpg`) and `BrandDeckViewer`.
+- ~~Build the real `AlbumArtOrbit` and `BrandDeckViewer`~~ → **spec'd & activated 2026-07-01** as its own detail-page build (Lenis + Grid Socket + momentum engine + both components): see `docs/orbit-deck-viewer-spec.md` + ADR-0003. World composite mounts remain deferred.
 - Relocate the masonry grid to `/work/directory`; retire `/work/featured`.
 - Wire the directory dual-feed for decks/carousels.
 
