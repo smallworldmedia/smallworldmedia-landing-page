@@ -124,16 +124,20 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
-  /* Sockets degrade to plain full-width in-flow bands: explicit
-     placement dies at this width (span overrides below), so the
-     layered treatment — overlap + parallax — goes with it. Height
-     comes from the occupant. */
+  /* Sockets degrade to plain full-width bands: explicit placement dies
+     at this width (span overrides below), so the layered treatment —
+     overlap + parallax — goes with it. Rows are 10px implicit tracks,
+     so `auto` would collapse to one track; a fixed span (like every
+     mobile tile) gives the anchor real height and the occupant keeps
+     filling it. */
   .masonry-grid--detail > .grid-socket {
     grid-column: 1 / -1 !important;
-    grid-row: auto !important;
+    grid-row: span 26 !important;
+  }
+  .masonry-grid--detail > .grid-socket[data-socket='orbit'] {
+    grid-row: span 32 !important;
   }
   .grid-socket__layer {
-    position: static;
     transform: none !important;
     will-change: auto;
   }

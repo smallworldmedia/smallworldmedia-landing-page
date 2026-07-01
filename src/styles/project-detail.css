@@ -449,6 +449,15 @@ html:has(.project-detail) body {
   pointer-events: none;
 }
 
+/* Collapsed sockets (≤1024px) keep the anchor-fill model — the socket
+   spans fixed rows (masonry.css) — but the overlap treatment goes away
+   with the layered placement. */
+@media (max-width: 1024px) {
+  .deck-viewer {
+    --deck-overhang: 0px;
+  }
+}
+
 /* ============================================
    ALBUM ART ORBIT — Grid Socket occupant
    Tilted CSS-3D ring (ringMath.js records →
@@ -553,12 +562,8 @@ html:has(.project-detail) body {
   color: var(--color-electric-blue);
 }
 
-/* In-flow fallback (socket collapses ≤1024px) needs its own height */
+/* Collapsed socket (≤1024px): the pulled card centers over the band */
 @media (max-width: 1024px) {
-  .album-orbit {
-    min-height: min(88vw, 560px);
-  }
-
   .album-orbit__card {
     left: 50%;
     max-width: 88%;
