@@ -28,6 +28,7 @@ import ClientPanel from './ClientPanel.jsx';
 import MediaSlot from './MediaSlot.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import GridSocket from './GridSocket.jsx';
+import BrandDeckViewer from './BrandDeckViewer.jsx';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid } from './flushGrid.js';
@@ -105,7 +106,11 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const socketNodes = (i) =>
     (socketsAt.get(i) ?? []).map((s) => (
       <GridSocket key={`socket-${s.id}`} region={s}>
-        <SocketPlaceholder label={s.id === 'orbit' ? 'ALBUM_ART_ORBIT' : 'BRAND_DECK_VIEWER'} />
+        {s.id === 'deck' ? (
+          <BrandDeckViewer decks={brandDecks} />
+        ) : (
+          <SocketPlaceholder label="ALBUM_ART_ORBIT" />
+        )}
       </GridSocket>
     ));
 
