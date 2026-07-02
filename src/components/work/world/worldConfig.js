@@ -79,6 +79,22 @@ export const TURN_EASE_PATH =
   PARAMS?.get('ease') ||
   'M0,0 C0,0 -0.011,-0.003 0.018,0 0.129,0.011 0.128,0.098 0.216,0.494 0.324,0.982 0.304,1 0.987,1 1.015,1 1,1 1,1';
 
+/* — Live-video Near tier (P3 remainder) — only Near (tier 0) Tiles with a
+   playbackId promote to live HLS, crossfading up over their stills; everything
+   else stays a thumbnail. The pool size is the hard decode budget. Live video
+   suspends back to stills during a World Turn — the Turn is the incoming
+   World's preload window. Reduced motion = stills only (no pool mounted). */
+export const WORLD_MAX_LIVE = Math.max(0, Math.round(num('live', IS_MOBILE ? 2 : 3)));
+export const LIVE_DWELL_SECONDS = num('livedwell', 9); // min time live before rotating to a waiting Near tile
+export const LIVE_CROSSFADE_SECONDS = num('livefade', 0.6); // still ↔ video crossfade (globe convention)
+export const LIVE_SUSPEND_SECONDS = 0.3; // fast fade back to stills when a Turn starts
+// Near Tiles are large on screen (unlike globe panels), so pin a single hi-res
+// rendition: min+max together collapse the Mux manifest to one choice — no ABR
+// decision, no quality jump, and the 4s loop replays from buffer so delivery
+// cost stays a few MB per promotion. ?liveres=1080p etc. to experiment.
+const LIVE_RES = PARAMS?.get('liveres') || (IS_MOBILE ? '540p' : '720p');
+export const WORLD_STREAM_PARAMS = `min_resolution=${LIVE_RES}&max_resolution=${LIVE_RES}`;
+
 /* — Pointer parallax — */
 export const PARALLAX = num('parallax', -0.02); // camera tilt amplitude (radians)
 export const PARALLAX_LERP = 0.075;

@@ -53,6 +53,25 @@
   height: 100%;
 }
 
+/* Hidden HLS slot pool for the live Near tier (VideoSlotPool reuse — same
+   rules as video-globe.css: near-invisible offscreen positioning, NOT
+   display:none, which makes Safari throttle decoding). */
+.video-globe-pool {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 2px;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
+.video-globe-pool video {
+  width: 2px;
+  height: 2px;
+}
+
 .fp-empty {
   min-height: 100vh;
   display: grid;

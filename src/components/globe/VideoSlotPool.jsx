@@ -27,16 +27,17 @@ import {
 import useHls from '../work/useHls.js';
 import { MAX_LIVE, GLOBE_PREVIEW_SECONDS, STREAM_PARAMS } from './globeConfig.js';
 
-/** hls.js config for globe panels — lowest rendition, short buffer */
+/** hls.js config for pool slots — locked rendition, short buffer */
 const POOL_HLS_CONFIG = {
   maxBufferLength: 10, // ≥ GLOBE_PREVIEW_SECONDS — the whole loop stays buffered
+  startFragPrefetch: true, // fetch the first fragment alongside manifest parsing
 };
 
-function streamUrl(playbackId) {
-  // STREAM_PARAMS shapes the manifest server-side (single 540p rendition
-  // on mobile, 270p cap on desktop); preferMinQuality locks the lowest
-  // remaining level, so the two always agree.
-  return `https://stream.mux.com/${playbackId}.m3u8?${STREAM_PARAMS}`;
+function streamUrl(playbackId, params) {
+  // `params` shapes the manifest server-side (globe: single 540p rendition on
+  // mobile, 270p cap on desktop; World Near tier: one pinned hi-res rendition);
+  // preferMinQuality locks the lowest remaining level, so the two always agree.
+  return `https://stream.mux.com/${playbackId}.m3u8?${params}`;
 }
 
 function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
@@ -74,15 +75,23 @@ function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
   );
 }
 
-const VideoSlotPool = forwardRef(function VideoSlotPool(_props, ref) {
+// `size` fixes the slot count at mount (the decode budget) and `streamParams`
+// shapes the Mux manifests; both default to the globe's values. The World
+// mounts a smaller, higher-resolution pool for its Near tier.
+const VideoSlotPool = forwardRef(function VideoSlotPool(
+  { size = MAX_LIVE, streamParams = STREAM_PARAMS },
+  ref
+) {
   const videoRefs = useRef(
-    Array.from({ length: MAX_LIVE }, () => createRef())
+    Array.from({ length: size }, () => createRef())
   );
-  const [srcs, setSrcs] = useState(() => Array(MAX_LIVE).fill(null));
-  // Ref mirror of srcs so the imperative handle stays identity-stable
-  const srcsRef = useRef(Array(MAX_LIVE).fill(null));
+  const [srcs, setSrcs] = useState(() => Array(size).fill(null));
+  // Ref mirrors so the imperative handle stays identity-stable
+  const srcsRef = useRef(Array(size).fill(null));
+  const streamParamsRef = useRef(streamParams);
+  streamParamsRef.current = streamParams;
   // Per-slot waiter: { resolve, reject } for the in-flight assign()
-  const waitersRef = useRef(Array(MAX_LIVE).fill(null));
+  const waitersRef = useRef(Array(size).fill(null));
 
   const onFirstFrame = useCallback((slot, _via) => {
     const waiter = waitersRef.current[slot];
@@ -103,7 +112,7 @@ const VideoSlotPool = forwardRef(function VideoSlotPool(_props, ref) {
         const prev = waitersRef.current[slot];
         if (prev) prev.reject(new Error('slot reassigned'));
         waitersRef.current[slot] = { resolve, reject };
-        srcsRef.current[slot] = streamUrl(playbackId);
+        srcsRef.current[slot] = streamUrl(playbackId, streamParamsRef.current);
         const el = videoRefs.current[slot].current;
         if (el) el.dataset.playbackId = playbackId; // debug traceability
         setSrcs([...srcsRef.current]);

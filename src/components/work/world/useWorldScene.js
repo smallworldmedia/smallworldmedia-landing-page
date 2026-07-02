@@ -20,11 +20,16 @@
  * most), with the World Shell on the smallest, base amount. That staggered
  * motion is what sells the depth/sphere on top of the lens.
  *
- * P3 here = the World Turn. Live video (Near tier) lands next.
+ * Live-video Near tier: WorldLiveScheduler promotes Near (tier 0) Tiles into
+ * the VideoSlotPool's HLS slots at ~2Hz; each live Tile carries a video overlay
+ * plane parented to its mesh, whose opacity is composited per frame here
+ * (liveMix × appear-fade × slot crossfade). A World Turn suspends everything
+ * back to stills — the Turn is the incoming World's still-preload window.
  *
  * @param {React.RefObject<HTMLElement>} containerRef
  * @param {Object|null} world - the active World ({ slug, showcase: [...] })
  * @param {number} index - the active World's index (drives Turn direction)
+ * @param {React.RefObject} poolRef - VideoSlotPool imperative handle (live tier)
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -37,6 +42,7 @@ import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js'
 import { LensDistortionPassGen } from './vendor/lensDistortion.js';
 import { buildShell } from './buildShell.js';
 import { placeTiles } from './seededLayout.js';
+import WorldLiveScheduler from './worldLive.js';
 import {
   CAMERA_FOV,
   DPR_MAX,
@@ -62,6 +68,7 @@ import {
   TURN_RECEDE,
   TURN_EASE_PATH,
   SHELL_SPIN,
+  WORLD_MAX_LIVE,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -101,7 +108,7 @@ function applyCover(material, texture, planeAspect, texAspect) {
   material.needsUpdate = true;
 }
 
-export default function useWorldScene(containerRef, world, index) {
+export default function useWorldScene(containerRef, world, index, poolRef) {
   const apiRef = useRef(null);
   const prevIndexRef = useRef(null);
 
@@ -181,6 +188,18 @@ export default function useWorldScene(containerRef, world, index) {
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
 
+    // Live-video Near tier — same eligibility rule as the globe: no pool under
+    // reduced motion (stills only), and ?live=0 turns the tier off entirely.
+    // The scheduler holds the ref, not the handle: the pool mounts a render
+    // after hydration (see WorldScene) and updates no-op until it exists.
+    const scheduler =
+      poolRef && WORLD_MAX_LIVE > 0 && !PREFERS_REDUCED_MOTION
+        ? new WorldLiveScheduler(poolRef)
+        : null;
+    if (scheduler && new URLSearchParams(window.location.search).has('debug')) {
+      window.__worldLiveStats = () => scheduler.getStats();
+    }
+
     const resize = () => {
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
@@ -200,6 +219,7 @@ export default function useWorldScene(containerRef, world, index) {
     const clearSlot = (slot) => {
       for (const t of slot.tiles) {
         gsap.killTweensOf(t); // stop any in-flight appear/push-out
+        scheduler?.freeTile(t, { releasePool: true }); // overlay + pool slot, if live
         slot.tierGroups[t.tierIndex].remove(t.mesh);
         t.mesh.geometry.dispose();
         t.mesh.material.dispose();
@@ -253,6 +273,15 @@ export default function useWorldScene(containerRef, world, index) {
           driftAxis: pl.driftAxis,
           driftSign: pl.driftSign,
           driftAmp: pl.driftAmp,
+          // Live tier (WorldLiveScheduler-managed; Near tier only)
+          playbackId: tile.playbackId || null,
+          liveState: null,
+          liveMix: 0, // 0 = still → 1 = video overlay fully up
+          liveSlot: null,
+          liveSince: 0,
+          lastLiveAt: 0, // round-robin recency for slot rotation
+          videoMesh: null,
+          videoTexture: null,
         };
         slot.tiles.push(rec);
 
@@ -318,10 +347,18 @@ export default function useWorldScene(containerRef, world, index) {
         lensSpike.v = 0;
         applyLens();
         currentSlug = w?.slug ?? null;
+        if (scheduler) {
+          scheduler.attach(activeSlot.tiles);
+          schedClock = 1; // next frame runs a scheduler beat immediately
+        }
         return;
       }
 
       finishTurnInstant(); // collapse a prior Turn before starting a new one
+
+      // Live video suspends to stills for the Turn: overlays fade fast and
+      // free their HLS slots, so the incoming World's stills own the network.
+      scheduler?.suspend();
 
       const outgoing = activeSlot;
       const incoming = idleSlot;
@@ -370,6 +407,12 @@ export default function useWorldScene(containerRef, world, index) {
           idleSlot = outgoing;
           currentSlug = w.slug;
           turnTween = null;
+          // Turn settled → the new World's Near tier may go live again. Its
+          // stills preloaded during the Turn, so promote on the next frame.
+          if (scheduler) {
+            scheduler.attach(incoming.tiles);
+            schedClock = 1;
+          }
         },
       });
     };
@@ -407,16 +450,29 @@ export default function useWorldScene(containerRef, world, index) {
         // then holds while it settles; multiplied by the slot's Turn crossfade.
         const fade = TILE_APPEAR_FADE > 0 ? Math.min(1, k / TILE_APPEAR_FADE) : 1;
         t.mesh.material.opacity = fade * slot.opacity;
+        // Live overlay rides the same composite, scaled by its own crossfade.
+        if (t.videoMesh) t.videoMesh.material.opacity = t.liveMix * fade * slot.opacity;
       }
     };
 
     // ── Render loop (gsap.ticker, internally FPS-gated; shared with SiteShell) ──
     let accumulated = 0;
+    let sceneTime = 0; // for the scheduler's dwell clocks
+    let schedClock = 0; // ~2Hz live-tier cadence, globe convention
     const tick = (_t, deltaMs) => {
       accumulated += deltaMs / 1000;
       if (accumulated < 1 / FPS_CAP) return;
       const dt = accumulated; // seconds since last render (for time-based motion)
       accumulated = 0;
+      sceneTime += dt;
+
+      if (scheduler) {
+        schedClock += dt;
+        if (schedClock >= 0.5) {
+          scheduler.update(sceneTime);
+          schedClock = 0;
+        }
+      }
 
       eased.x += (target.x - eased.x) * PARALLAX_LERP;
       eased.y += (target.y - eased.y) * PARALLAX_LERP;
@@ -439,9 +495,11 @@ export default function useWorldScene(containerRef, world, index) {
       if (run && !tickerActive) {
         gsap.ticker.add(tick);
         tickerActive = true;
+        if (scheduler) poolRef.current?.resumeAll();
       } else if (!run && tickerActive) {
         gsap.ticker.remove(tick);
         tickerActive = false;
+        if (scheduler) poolRef.current?.pauseAll(); // no decode while not rendering
       }
     };
     const io = new IntersectionObserver(
@@ -469,6 +527,7 @@ export default function useWorldScene(containerRef, world, index) {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pointermove', onPointer);
       if (tickerActive) gsap.ticker.remove(tick);
+      scheduler?.dispose();
       clearSlot(slotA);
       clearSlot(slotB);
       scene.remove(slotA.pivot);
