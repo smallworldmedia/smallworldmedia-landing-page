@@ -262,6 +262,14 @@
   background: var(--color-black);
 }
 
+/* Click/tap: `active` moves to the clicked number immediately (goTo sets
+   it synchronously), and its blue must win over the hover black while the
+   cursor is still parked on it. */
+.fp-pager__dot.is-active:hover {
+  color: var(--color-white);
+  background: var(--color-electric-blue);
+}
+
 /* Client-name token — fixed-size mono tag right of the scaling number, so
    visitors can read what client each featured project is for. The absolute
    position keeps it out of the button's box (fisheye + marker unaffected);
@@ -281,13 +289,14 @@
   padding: 0.071rem 0.429rem;
   background: var(--color-near-black, #0a0a0a);
   font-size: var(--text-mono);
+  text-transform: uppercase;
   line-height: 1.4;
   color: var(--color-white);
   white-space: nowrap;
   pointer-events: none;
   transition:
-    opacity 0.18s ease-out 0.07s,
-    transform 0.18s ease-out 0.07s,
+    opacity 0.3s ease-out 0.05s,
+    transform 0.4s ease-out 0.1s,
     background var(--pager-dur, 0.16s) var(--pager-ease, ease-out);
 }
 
