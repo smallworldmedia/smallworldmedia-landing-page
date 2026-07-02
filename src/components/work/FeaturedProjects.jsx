@@ -97,6 +97,35 @@ export default function FeaturedProjects({ worlds = [] }) {
   const atEnd = active >= lastIndex;
   const atStart = active <= 0;
 
+  // ── Return-position restore ──
+  // Detail pages breadcrumb back to /work; reopen the World the visitor
+  // left from instead of resetting to the first one. The index persists
+  // per tab (sessionStorage) and the restore jumps straight to the World
+  // (normal card entrance, no Turn).
+  useEffect(() => {
+    let saved = NaN;
+    try {
+      saved = parseInt(sessionStorage.getItem('swm:worldIndex') ?? '', 10);
+    } catch {
+      /* storage unavailable → first World */
+    }
+    if (!Number.isFinite(saved)) return;
+    const idx = Math.max(0, Math.min(lastIndex, saved));
+    if (idx !== activeRef.current) {
+      setActive(idx);
+      setCards([{ index: idx, dir: 1, phase: 'enter' }]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('swm:worldIndex', String(active));
+    } catch {
+      /* storage unavailable — nothing to persist */
+    }
+  }, [active]);
+
   const TURN_MS = TURN_DURATION * 1000;
   const clearIdle = () => {
     if (idleRef.current) {

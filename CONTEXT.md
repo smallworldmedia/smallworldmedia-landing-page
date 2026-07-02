@@ -126,9 +126,10 @@ Canonical names for UI components. All implementation work **must** use these te
 | **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. | Single `mediaAsset` document |
 | **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only (FilterBar pills are the interactive variant). | Single `serviceTag` reference |
 | **SiteFooter** | Simple footer — near-black bar with SWM globe mark + copyright. Expanded variant with footer nav is a future iteration. | Static |
-| **BrandDeckViewer** | Renders a project's brand/pitch-deck pages (`brand-deck`, ordered by `brandDeckOrder`). On the `/work/[slug]` detail page it is a fixed-height **horizontal deck pager** — pages at a slight isometric angle, never a vertical unroll — floating as a full-width layered band over the masonry grid. In the World it floats as a single composite element (depth tier + procedural position like a Tile; in-World visual TBD). *(World mount deferred — the socket contract lands with the World.)* | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
-| **AlbumArtOrbit** | A 3D elliptical ring of a project's album-art covers — idle auto-rotation, drag/flick spin, scroll-coupled kick. On the `/work/[slug]` detail page it embeds as a layered region below the blurb, overlapping the masonry grid with subtle parallax (pseudo-3D); clicking the front cover pulls it out of the rotation and reveals its release metadata. Mounts only when the collection clears a minimum cover count — below it, covers fold back into the masonry flow. In the World it floats as a single composite element (depth tier + procedural position like a Tile). *(World mount deferred.)* | `album-art` assets within a collection |
-| **ReleaseCard** | Metadata chip panel for one album-art release — artist, release title, catalog number, stream-link chips. Chips render conditionally per field (no placeholders); with no `releaseInfo` at all it degrades to the asset title alone. Styled in the ClientPanel visual family. Revealed by the AlbumArtOrbit Pull-out; the future Record Crate (Phase 14) reuses it verbatim. | `mediaAsset.releaseInfo` on one `album-art` asset |
+| **BandPager** | The shared band core both viewers assemble on (`BandPager.jsx`): fixed-height full-width Grid Socket occupant, pages at a slight isometric angle stacked right-of-center, transitions on the **World Turn curve** (same CustomEase + duration as Featured Project paging — one page per gesture, flicks never carry past the neighbor), idle auto-advance at the orbit cadence, depth as darkening (never opacity), top-right side column (counter + per-item content). | assets array + per-viewer side content |
+| **BrandDeckViewer** | Brand/pitch-deck pages (`brand-deck`, ordered by `brandDeckOrder`) on the BandPager. Multi-deck projects get mono tab chips top-left (group order = orderRank, first tab default); the active deck's name sits under the counter in the side column. In the World it floats as a single composite element. *(World mount deferred.)* | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
+| **AlbumArtViewer** | A project's album-art covers on the BandPager — covers page exactly like deck pages (structure/animation cohesion by design; supersedes the retired 3D ring "AlbumArtOrbit", 2026-07-01). The focused cover's **ReleaseMeta** rises in the side column. Mounts only when the collection clears `ORBIT_MIN` — below it, covers fold back into the masonry flow. In the World it floats as a single composite element. *(World mount deferred.)* | `album-art` assets within a collection |
+| **ReleaseMeta** | The focused cover's metadata chip stack in the AlbumArtViewer side column — scrambling artist—title headline, catalog number, date, Beatport/Spotify link buttons. Black mono chips mirroring the ClientPanel `base_in`/`client_type` family. Chips render conditionally per field; with no `releaseInfo` the asset title stands alone. (Replaces the retired Pull-out ReleaseCard panel.) | `mediaAsset.releaseInfo` on one `album-art` asset |
 | **NextProjectCard** | *Future* — scroll-to-next-project transition at the bottom of FeaturedProjectDetail (three scroll states mocked in Figma). | Next Featured Project hero |
 
 > **Procedure**: Before creating any new component, check this table. If the component doesn't have a canonical name, propose one here first, get it approved, then implement.
@@ -145,8 +146,9 @@ Canonical names for UI components. All implementation work **must** use these te
 
 ### Single Project Page — concepts
 
-- **Grid Socket** — a reserved rectangular region in the detail-page masonry grid that dense placement flows around, occupied by a component floating on a layer *above* the grid plane with bounded overlap of neighboring tiles and subtle scroll parallax (pseudo-3D). The detail-page counterpart of the World's composite-element socket. Occupants: AlbumArtOrbit (2-column embedded region below the blurb) and BrandDeckViewer (full-width band). Precedence when both are present: the orbit takes the prime top slot and the deck band is inserted mid-grid; a lone deck takes the top slot.
-- **Pull-out** — the AlbumArtOrbit focus state: the front cover translates out of the ring (which keeps idling, leaving a traveling gap at its slot) while its ReleaseCard animates in beside it. Dismissing returns the cover to wherever its slot has drifted.
+- **Grid Socket** — a reserved rectangular region in the detail-page masonry grid that dense placement flows around, occupied by a component floating on a layer *above* the grid plane with bounded overlap of neighboring tiles and subtle scroll parallax (pseudo-3D). The detail-page counterpart of the World's composite-element socket. Occupants: AlbumArtViewer and BrandDeckViewer — both full-width bands on the shared footprint. Precedence when both are present: the album band takes the prime top slot and the deck band is inserted mid-grid; a lone deck takes the top slot.
+- **Pull-out** *(retired 2026-07-01 with the ring presentation)* — metadata now lives permanently in the AlbumArtViewer side column (ReleaseMeta) instead of behind a focus state.
+- **Breadcrumb** — the `featured_projects` chip on every detail page; returns to `/work` and restores the World the visitor entered from (index persisted per tab in `sessionStorage`, key `swm:worldIndex`).
 
 ## Content Population Hierarchy
 
@@ -160,7 +162,7 @@ The system that turns a Featured Project directory's contents into a page layout
 | `mediaType` / aspect ratio | Slot sizing — landscape can go full-bleed; portrait/square always pairs into split rows |
 | `contentRole` | Flow membership — showcase (empty) populates the main flow; `process`/`supporting` reserved for the future BTS section |
 | `displayGroup` | Sub-grouping — assets sharing a `displayGroup` value render adjacent on the detail page (controlled adjacency) |
-| `album-art` mediaType | **Dual-feed rule** — populates both the AlbumArtOrbit (detail page) and AlbumArtTicker (project directory) |
+| `album-art` mediaType | **Dual-feed rule** — populates both the AlbumArtViewer (detail page) and AlbumArtTicker (project directory) |
 | `brand-deck` mediaType | **Dual-feed rule** — held out of the flow; populates the BrandDeckViewer accordion (detail page) and a grouped deck presence (project directory), sorted by `brandDeckOrder` |
 | `carousel-slide` mediaType | Held out of the flow — populates the to-be-built Carousel component, one carousel per `displayGroup`, slides in `sortOrder` |
 
@@ -193,7 +195,7 @@ Assets within a Featured Project can be sub-grouped by setting the `displayGroup
 ### Album Art Dual-Feed Rule
 
 Any `album-art` asset within a Featured Project collection feeds into **two** components:
-1. **AlbumArtOrbit** — the orbiting component on the project detail page
+1. **AlbumArtViewer** — the album-art band on the project detail page
 2. **AlbumArtTicker** — the horizontal scrolling ticker on the project directory page
 
 This is automatic — the `album-art` mediaType is the trigger; no additional tagging is needed.

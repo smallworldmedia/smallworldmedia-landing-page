@@ -23,6 +23,7 @@ html:has(.project-detail) body {
   /* Figma bands use near-black (#0a0a0a) on the pure-black page */
   --color-near-black: #0a0a0a;
 
+  position: relative; /* anchors the breadcrumb chip */
   width: 100%;
   min-height: 100dvh;
   background: var(--color-black);
@@ -333,35 +334,34 @@ html:has(.project-detail) body {
 }
 
 /* ============================================
-   BRAND DECK VIEWER — Grid Socket occupant
+   BAND PAGER — shared composite band core
+   (BrandDeckViewer + AlbumArtViewer)
    Fixed-height horizontal pager; pages ride an
-   isometric angle on the momentum engine (snap).
-   Transforms are painted imperatively per frame
-   by BrandDeckViewer.jsx.
+   isometric angle and transitions ride the
+   World Turn curve. Transforms painted
+   imperatively per frame by BandPager.jsx.
    ============================================ */
-.deck-viewer {
+.band-pager {
   /* Vertical-only overhang: the band floats past its reserved region
      into the blurb whitespace above / tile rows below (bounded). */
-  --deck-overhang: 28px;
+  --band-overhang: 28px;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.571rem;
-  height: calc(100% + 2 * var(--deck-overhang));
-  margin-top: calc(-1 * var(--deck-overhang));
+  height: calc(100% + 2 * var(--band-overhang));
+  margin-top: calc(-1 * var(--band-overhang));
   width: 100%;
 }
 
-.deck-viewer__chrome {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.857rem;
-  /* Breathing room off the reserved-region edges */
-  padding: 0 1.143rem;
-  min-height: 2rem;
+/* Tab chips float top-left over the stage */
+.band-pager__chrome {
+  position: absolute;
+  top: 0.571rem;
+  left: 1.143rem;
+  z-index: 3;
 }
 
-.deck-viewer__tabs {
+.band-pager__tabs {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -391,15 +391,25 @@ html:has(.project-detail) body {
   color: var(--color-white);
 }
 
-.deck-viewer__title {
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  letter-spacing: -0.024em;
-  color: var(--color-white);
+/* Side column — counter with per-item content beneath, top-right */
+.band-pager__side {
+  position: absolute;
+  top: 0.571rem;
+  right: 1.143rem;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.429rem;
+  max-width: 42%;
+  pointer-events: none;
 }
 
-.deck-viewer__counter {
-  margin-left: auto;
+.band-pager__side a {
+  pointer-events: auto;
+}
+
+.band-pager__counter {
   padding: 0.143rem 0.571rem;
   background: var(--color-near-black);
   font-family: var(--font-mono);
@@ -410,7 +420,17 @@ html:has(.project-detail) body {
   font-variant-numeric: tabular-nums;
 }
 
-.deck-viewer__stage {
+.band-pager__name {
+  padding: 0.143rem 0.571rem;
+  background: var(--color-near-black);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  color: var(--color-white);
+}
+
+.band-pager__stage {
   position: relative;
   flex: 1;
   min-height: 0;
@@ -423,16 +443,16 @@ html:has(.project-detail) body {
   transform-style: preserve-3d;
 }
 
-.deck-viewer__stage:active {
+.band-pager__stage:active {
   cursor: grabbing;
 }
 
-.deck-viewer__stage:focus-visible {
+.band-pager__stage:focus-visible {
   outline: 1px dashed var(--color-electric-blue);
   outline-offset: 4px;
 }
 
-.deck-page {
+.band-page {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -442,7 +462,7 @@ html:has(.project-detail) body {
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
 }
 
-.deck-page img {
+.band-page img {
   width: 100%;
   height: 100%;
   display: block;
@@ -454,188 +474,41 @@ html:has(.project-detail) body {
    spans fixed rows (masonry.css) — but the overlap treatment goes away
    with the layered placement. */
 @media (max-width: 1024px) {
-  .deck-viewer {
-    --deck-overhang: 0px;
+  .band-pager {
+    --band-overhang: 0px;
   }
 }
 
 /* ============================================
-   ALBUM ART ORBIT — Grid Socket occupant
-   Tilted CSS-3D ring (ringMath.js records →
-   transforms; preserve-3d z-sorts). Painted
-   imperatively per frame by AlbumArtOrbit.jsx.
+   RELEASE META — focused cover's metadata
+   Black mono chips in the band's side column,
+   mirroring the ClientPanel base_in /
+   client_type family. Conditional chips only —
+   never placeholders.
    ============================================ */
-.album-orbit {
+.release-meta {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  height: 100%;
+  align-items: flex-end;
+  gap: 0.429rem;
+  animation: metaIn 0.4s ease both;
 }
 
-.album-orbit__stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  perspective: 1400px;
-  transform-style: preserve-3d;
-  touch-action: pan-y;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.album-orbit__stage:active {
-  cursor: grabbing;
-}
-
-.orbit-cover {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  padding: 0;
-  border: 0;
-  background: var(--color-near-black);
-  opacity: 0; /* first paint reveals */
-  cursor: pointer;
-  will-change: transform, opacity;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-}
-
-.orbit-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  pointer-events: none;
-}
-
-.orbit-cover:focus-visible {
-  outline: 1px dashed var(--color-electric-blue);
-  outline-offset: 3px;
-}
-
-/* Dim veil while a cover is pulled — above the ring, below the pull */
-.album-orbit__dim {
-  position: absolute;
-  inset: -48px;
-  background: rgba(0, 0, 0, 0.55);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.35s ease;
-  transform: translateZ(160px);
-}
-
-.album-orbit__dim--on {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.album-orbit__card {
-  position: absolute;
-  left: 56%;
-  top: 50%;
-  max-width: 38%;
-  min-width: 260px;
-  transform: translate3d(0, -50%, 321px);
-  animation: releaseCardIn 0.45s cubic-bezier(0.22, 0.9, 0.3, 1) both;
-}
-
-@keyframes releaseCardIn {
+@keyframes metaIn {
   from {
     opacity: 0;
-    transform: translate3d(26px, -50%, 321px);
+    transform: translateX(14px);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, -50%, 321px);
-  }
-}
-
-.album-orbit__caption {
-  align-self: center;
-  margin-top: 0.3rem;
-  /* Breathing room off the reserved-region bottom edge */
-  margin-bottom: 0.857rem;
-  padding: 0.143rem 0.571rem;
-  min-height: 1.86rem;
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  line-height: 1.571rem;
-  letter-spacing: -0.024em;
-  color: var(--color-white);
-}
-
-/* Collapsed socket (≤1024px): the pulled card centers over the band */
-@media (max-width: 1024px) {
-  .album-orbit__card {
-    left: 50%;
-    max-width: 88%;
-    transform: translate3d(-50%, -50%, 321px);
-  }
-
-  @keyframes releaseCardIn {
-    from {
-      opacity: 0;
-      transform: translate3d(calc(-50% + 26px), -50%, 321px);
-    }
-    to {
-      opacity: 1;
-      transform: translate3d(-50%, -50%, 321px);
-    }
+    transform: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .album-orbit__card {
+  .release-meta {
     animation: none;
   }
-}
-
-/* ============================================
-   RELEASE CARD — Pull-out chip panel
-   ClientPanel family: blue band, squeezed
-   title, mono metadata chips. Conditional
-   chips only — never placeholders.
-   ============================================ */
-.release-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.571rem;
-  filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.6));
-}
-
-.release-card__band {
-  display: flex;
-  flex-direction: column;
-  gap: 0.286rem;
-  padding: 0.857rem 0.857rem 1rem;
-  background: var(--color-electric-blue);
-}
-
-.release-card__artist {
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  line-height: 1.2;
-  letter-spacing: -0.024em;
-  text-transform: uppercase;
-  color: var(--color-white);
-}
-
-.release-card__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: var(--weight-semi);
-  font-size: clamp(1.6rem, 2vw, 2.6rem);
-  line-height: 0.9;
-  letter-spacing: -0.005em;
-  text-transform: uppercase;
-  color: var(--color-white);
-}
-
-.release-card__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.571rem;
 }
 
 .release-chip {
@@ -650,8 +523,51 @@ html:has(.project-detail) body {
   text-decoration: none;
 }
 
+.release-chip--headline {
+  white-space: normal;
+  text-align: right;
+  max-width: 100%;
+}
+
+a.release-chip--link {
+  pointer-events: auto;
+}
+
 a.release-chip--link:hover {
   background: var(--color-electric-blue);
+}
+
+/* ============================================
+   BREADCRUMB — back to Featured Projects
+   Black chip over the ClientPanel, top-right;
+   /work restores the World you entered from.
+   ============================================ */
+.detail-breadcrumb {
+  position: absolute;
+  top: 3.5rem;
+  right: 0.571rem;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.429rem;
+  padding: 0.143rem 0.571rem;
+  background: var(--color-near-black);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  color: var(--color-white);
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.detail-breadcrumb:hover {
+  background: var(--color-electric-blue);
+}
+
+.detail-breadcrumb__glyph {
+  font-size: 1.1em;
+  line-height: 1;
 }
 
 /* ============================================

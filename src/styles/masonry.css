@@ -134,9 +134,6 @@
     grid-column: 1 / -1 !important;
     grid-row: span 26 !important;
   }
-  .masonry-grid--detail > .grid-socket[data-socket='orbit'] {
-    grid-row: span 32 !important;
-  }
   .grid-socket__layer {
     transform: none !important;
     will-change: auto;
