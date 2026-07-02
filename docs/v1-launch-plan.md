@@ -5,14 +5,14 @@
 
 ## v1 ships
 
-| # | Workstream | Notes |
-|---|---|---|
-| 1 | **Lenis foundation** | Smooth scroll on document routes; `/work` excluded (owns wheel physics). |
-| 2 | **Orbit/deck build** | Full `docs/orbit-deck-viewer-spec.md` build order: buildContentFlow → Grid Socket → momentum engine → BrandDeckViewer → AlbumArtOrbit + ReleaseCard. |
-| 3 | **Content pass** | `releaseInfo` for Andhera + HHS Pre-2026 (35 assets, real metadata, Nathan reviews); saga → lead deck (Studio drag); finish year migration for the 5 featured projects still on legacy `year`. |
-| 4 | **Live-video Near tier** on `/work` | P3 remainder — Near Tiles promote to live HLS (globe `LivePanelScheduler` reuse, ≤3 concurrent), suspend to stills during a World Turn. |
-| 5 | **P5 Envelopment** | Home globe → `/work` route swap under the persistent fill (ADR-0002); `enter_world` → detail via the same bridge. ClientRouter already active in BaseLayout. |
-| 6 | **Mobile + reduced-motion audit** | Device gate on `/work` + detail (globe baseline 42–44fps iPhone); RM = stills, no idle motion, native scroll. |
+| # | Workstream | Status | Notes |
+|---|---|---|---|
+| 1 | **Lenis foundation** | ✅ `1efaa37` | Smooth scroll on document routes; `/work` excluded (owns wheel physics). |
+| 2 | **Composite bands build** | ✅ `cf1c4b5`→`b769935` | Shipped, then redesigned 2026-07-01 per Nathan: the 3D orbit ring is retired — one shared **BandPager** (World-Turn curve, one page per gesture) serves BrandDeckViewer + **AlbumArtViewer** (ReleaseMeta chips). Plus: sticky breadcrumb w/ gated World restore, pager client tokens. Emulated mobile + RM verified; real-device pass pending (ws 6). |
+| 3 | **Content pass** | ◐ | HHS Pre-2026 `releaseInfo` ×15 **published** (all real dates; placeholder `HHS0XX` catalogs ×10 + store-search links per Nathan — accuracy pass owed; catalogs readable on the artwork). Remaining: Andhera ×20; resolve "Del Boy Disco EP" = shipped "Go Deeper EP"; saga → lead deck (Studio drag); year migration ×5. |
+| 4 | **Live-video Near tier** on `/work` | ☐ | P3 remainder — Near Tiles promote to live HLS (globe `LivePanelScheduler` reuse, ≤3 concurrent), suspend to stills during a World Turn. |
+| 5 | **P5 Envelopment** | ☐ | Home globe → `/work` route swap under the persistent fill (ADR-0002); `enter_world` → detail via the same bridge. ClientRouter already active in BaseLayout. |
+| 6 | **Mobile + reduced-motion audit** | ☐ | Device gate on `/work` + detail (globe baseline 42–44fps iPhone); RM = stills, no idle motion, native scroll. Emulated RM/mobile already green — this is the real-hardware pass. |
 
 ## v1 cuts (deliberate)
 
