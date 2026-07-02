@@ -270,23 +270,45 @@ export default function FeaturedProjects({ worlds = [] }) {
   }, [active]);
 
   // Pager marker: one triangle that eases to the active number instead of
-  // teleporting. It tracks the active dot's *live* centre each frame, so on a
-  // Turn it inherits the dots' ease-in-out glide, and it stays glued to the
-  // number through hover-wobble. A damped follow (k<1) smooths the hand-off.
+  // teleporting. Two damping modes, because the target moves for two
+  // different reasons: when `active` CHANGES the marker glides dot-to-dot
+  // (the designed hand-off, k≈0.06); once it has arrived it switches to a
+  // tight follow (k≈0.45) so layout shifts — the hover fisheye collapsing,
+  // the viewport-centred rail recentring — carry the marker WITH its number
+  // instead of letting it detach and jut toward a neighbour. Damping runs
+  // in screen space (the rail's own top moves during those shifts); the
+  // nav offset is applied at write time.
   useEffect(() => {
     const nav = pagerRef.current;
     const marker = markerRef.current;
     if (!nav || !marker || worlds.length < 1) return undefined;
-    const k = PREFERS_REDUCED_MOTION ? 1 : 0.06;
-    let y = null;
-    const follow = () => {
-      const dot = nav.querySelectorAll('.fp-pager__dot')[activeRef.current];
+    // Time constants (s) — dt-based so the feel is refresh-rate-invariant
+    // (the old per-frame k glided twice as slow at 30fps, twice as fast
+    // at 120Hz). 0.27s ≈ the original 60fps glide.
+    const TAU_GLIDE = 0.27;
+    const TAU_TRACK = 0.03;
+    let y = null; // marker centre, screen space
+    let lastIdx = null;
+    let gliding = false;
+    const follow = (_t, dtMs) => {
+      const idx = activeRef.current;
+      const dot = nav.querySelectorAll('.fp-pager__dot')[idx];
       if (!dot) return;
-      const navTop = nav.getBoundingClientRect().top;
+      if (idx !== lastIdx) {
+        lastIdx = idx;
+        gliding = true;
+      }
       const r = dot.getBoundingClientRect();
-      const target = r.top - navTop + r.height / 2;
-      y = y === null ? target : y + (target - y) * k;
-      marker.style.transform = `translateY(${y}px)`;
+      const target = r.top + r.height / 2;
+      if (y === null || PREFERS_REDUCED_MOTION) {
+        y = target;
+      } else {
+        const dt = Math.min(dtMs, 100) / 1000;
+        const tau = gliding ? TAU_GLIDE : TAU_TRACK;
+        y += (target - y) * (1 - Math.exp(-dt / tau));
+        if (gliding && Math.abs(target - y) < 1.5) gliding = false;
+      }
+      marker.style.transform = `translateY(${y - nav.getBoundingClientRect().top}px)`;
     };
     gsap.ticker.add(follow);
     return () => gsap.ticker.remove(follow);
