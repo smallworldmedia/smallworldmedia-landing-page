@@ -539,17 +539,22 @@ a.release-chip--link:hover {
 
 /* ============================================
    BREADCRUMB — back to Featured Projects
-   Black chip over the ClientPanel, top-right;
-   /work restores the World you entered from.
+   Black chip under the client panel, left.
+   Sticky: rides in flow until the panel
+   scrolls away, then pins just under the
+   fixed nav (2.929rem) with a small gap.
+   Height-neutral in flow (negative bottom
+   margin) so it floats over the content top.
    ============================================ */
 .detail-breadcrumb {
-  position: absolute;
-  top: 3.5rem;
-  right: 0.571rem;
-  z-index: 5;
+  position: sticky;
+  top: calc(2.929rem + 0.857rem);
+  z-index: 20; /* above sockets/tiles, below the fixed nav */
   display: inline-flex;
   align-items: center;
   gap: 0.429rem;
+  width: max-content;
+  margin: 0.571rem 0 calc(-1.857rem - 0.571rem) 0.571rem;
   padding: 0.143rem 0.571rem;
   background: var(--color-near-black);
   font-family: var(--font-mono);

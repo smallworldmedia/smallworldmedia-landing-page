@@ -134,19 +134,31 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
 
   return (
     <div className="project-detail">
-      {/* Breadcrumb back to the Featured Projects experience — /work
-          restores the World you entered from (sessionStorage). */}
-      <a href="/work" className="detail-breadcrumb">
-        <span className="detail-breadcrumb__glyph" aria-hidden="true">↩</span>
-        featured_projects
-      </a>
-
       <ClientPanel
         client={client}
         displayTitle={displayTitle}
         year={yearDisplay}
         services={services}
       />
+
+      {/* Breadcrumb back to the Featured Projects experience. Sits under
+          the client panel on the left, rides sticky under the nav once the
+          panel scrolls away. Clicking arms the return-restore — /work
+          reopens the World you entered from (nav link starts fresh). */}
+      <a
+        href="/work"
+        className="detail-breadcrumb"
+        onClick={() => {
+          try {
+            sessionStorage.setItem('swm:returnToWork', '1');
+          } catch {
+            /* storage unavailable */
+          }
+        }}
+      >
+        <span className="detail-breadcrumb__glyph" aria-hidden="true">↩</span>
+        featured_projects
+      </a>
 
       <main className="project-detail__flow">
         {/* Portrait hero → side-by-side band; landscape → stacked full-bleed */}

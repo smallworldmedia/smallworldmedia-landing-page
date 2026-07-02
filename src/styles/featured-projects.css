@@ -262,6 +262,29 @@
   background: var(--color-black);
 }
 
+/* Client-name token — fixed-size mono tag right of the scaling number, so
+   visitors can read what client each featured project is for. The absolute
+   position keeps it out of the button's box (fisheye + marker unaffected);
+   the explicit font-size breaks the inherited fisheye scale. */
+.fp-pager__label {
+  position: absolute;
+  left: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.071rem 0.429rem;
+  background: var(--color-near-black, #0a0a0a);
+  font-size: var(--text-mono);
+  line-height: 1.4;
+  color: var(--color-white);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: background var(--pager-dur, 0.16s) var(--pager-ease, ease-out);
+}
+
+.fp-pager__dot.is-active .fp-pager__label {
+  background: var(--color-electric-blue);
+}
+
 /* White marker triangle, pointing right toward the numbers. It's a single
    standalone element (not a per-dot ::before) so it can slide/ease between
    numbers — JS sets its translateY to the active dot's centre each frame. */

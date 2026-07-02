@@ -98,23 +98,27 @@ export default function FeaturedProjects({ worlds = [] }) {
   const atStart = active <= 0;
 
   // ── Return-position restore ──
-  // Detail pages breadcrumb back to /work; reopen the World the visitor
-  // left from instead of resetting to the first one. The index persists
-  // per tab (sessionStorage) and the restore jumps straight to the World
-  // (normal card entrance, no Turn).
+  // Only an explicit return from a detail page reopens the World you left:
+  // the breadcrumb arms `swm:returnToWork` on click, and BaseLayout's
+  // popstate tracker arms it for browser back/forward. Any other entry —
+  // the nav's featured_projects link, a direct load — starts at the first
+  // World. Restore sets `active` only: the card-staging effect rolls the
+  // restored card in through the normal exit/enter choreography (setting
+  // cards directly here raced that effect and left the entrance reverted —
+  // the "card never loads" bug).
   useEffect(() => {
+    let armed = false;
     let saved = NaN;
     try {
+      armed = sessionStorage.getItem('swm:returnToWork') === '1';
+      sessionStorage.removeItem('swm:returnToWork');
       saved = parseInt(sessionStorage.getItem('swm:worldIndex') ?? '', 10);
     } catch {
       /* storage unavailable → first World */
     }
-    if (!Number.isFinite(saved)) return;
+    if (!armed || !Number.isFinite(saved)) return;
     const idx = Math.max(0, Math.min(lastIndex, saved));
-    if (idx !== activeRef.current) {
-      setActive(idx);
-      setCards([{ index: idx, dir: 1, phase: 'enter' }]);
-    }
+    if (idx !== activeRef.current) setActive(idx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -388,6 +392,10 @@ export default function FeaturedProjects({ worlds = [] }) {
             style={{ fontSize: `calc(var(--text-mono) * ${dotScale(i).toFixed(3)})` }}
           >
             {pad2(i)}
+            {/* Fixed-size mono token — sits right of the scaling number */}
+            <span className="fp-pager__label" aria-hidden="true">
+              {world.clientName}
+            </span>
           </button>
         ))}
       </nav>

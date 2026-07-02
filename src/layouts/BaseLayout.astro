@@ -68,6 +68,29 @@ const {
     <script>
       import { syncRoute } from '../lib/smoothScroll.js';
       document.addEventListener('astro:page-load', () => syncRoute());
+
+      // Arm the /work return-restore for browser back/forward out of a
+      // detail page. `route` lags one navigation behind (astro:page-load
+      // hasn't fired yet when popstate lands), so it identifies the page
+      // being LEFT while location already points at the destination —
+      // the flag arms only for detail → /work traversals. The detail
+      // breadcrumb arms the same flag on click; the nav link never does.
+      let route = window.location.pathname;
+      document.addEventListener('astro:page-load', () => {
+        route = window.location.pathname;
+      });
+      window.addEventListener('popstate', () => {
+        if (
+          /^\/work\/.+/.test(route) &&
+          window.location.pathname.replace(/\/+$/, '') === '/work'
+        ) {
+          try {
+            sessionStorage.setItem('swm:returnToWork', '1');
+          } catch {
+            /* storage unavailable */
+          }
+        }
+      });
     </script>
   </body>
 </html>
