@@ -13,14 +13,21 @@
  * buildContentFlow group order; default tab = first — position is
  * prominence), deck title scrambles on switch, `NN / NN` counter.
  *
+ * Idle: the deck mirrors the orbit's quiet catalog tick — pages
+ * auto-advance at the orbit's per-cover cadence (~2.6s) with the same
+ * leisurely arrival curve, wrapping back to the cover; any interaction
+ * resets the clock with a double dwell. Depth reads as darkening, never
+ * transparency: fan pages darken toward the orbit's rear floor, passed
+ * pages darken out entirely as they exit.
+ *
  * Inputs: pointer drag with capture (≈5px travel discriminates click from
  * flick), tap zones (left/right thirds page ±1), arrow keys when focused.
  * Housekeeping: the engine ticks on gsap.ticker only while the band is
- * near the viewport, the tab is visible, and motion is live; page images
- * lazy-load in a ±2 window. Reduced motion: instant page swaps, drag and
+ * near the viewport and the tab visible; page images lazy-load in a ±2
+ * window. Reduced motion: no auto-advance, instant page swaps, drag and
  * tabs still work.
  *
- * Live tuning: ?deckangle=<deg> ?deckfan=<px>
+ * Live tuning: ?deckangle=<deg> ?deckfan=<px> ?deckcycle=<s>
  *
  * @param {Object} props
  * @param {Array<{group: string, pages: Array<Object>}>} props.decks
@@ -43,8 +50,13 @@ const FAN_Z = 46; // recession per upcoming page (perspective scales)
 const FAN_DEPTH = 3.5; // pages visible in the resting fan
 const EXIT_Z = 40; // passed pages lift toward the viewer
 const EXIT_X = 0.92; // × pageW travel for passed pages
-const FADE_IN = 0.24; // opacity taper per upcoming page
-const FADE_OUT = 0.6; // opacity loss per passed page
+const DARK_IN = 0.2; // brightness drop per upcoming page (fan)
+const DARK_FLOOR = 0.35; // fan brightness floor — mirrors the orbit's rear
+const DARK_OUT = 0.9; // brightness loss per passed page (darkens out)
+
+/* Idle cycle — mirrors the orbit's per-cover cadence (?deckcycle) */
+const CYCLE_S = 2.6; // ≈ orbit REV_PERIOD / cover count
+const CYCLE_TAU = 0.55; // arrival curve of the auto-advance (orbit seek)
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 
@@ -82,20 +94,22 @@ export default function BrandDeckViewer({ decks }) {
         continue;
       }
 
-      let x, z, opacity;
+      let x, z, brightness;
       if (d >= 0) {
         const dc = Math.min(d, FAN_DEPTH);
         x = dc * fan;
         z = -dc * FAN_Z;
-        opacity = Math.max(0, 1 - Math.max(dc - 0.35, 0) * FADE_IN);
+        brightness = Math.max(DARK_FLOOR, 1 - Math.max(dc - 0.35, 0) * DARK_IN);
       } else {
         x = d * pageW * EXIT_X;
         z = -d * EXIT_Z;
-        opacity = Math.max(0, 1 + d * FADE_OUT);
+        brightness = Math.max(0, 1 + d * DARK_OUT);
       }
 
-      el.style.visibility = opacity <= 0.02 ? 'hidden' : 'visible';
-      el.style.opacity = opacity.toFixed(3);
+      // Depth = darkness, never transparency; exits darken fully out.
+      el.style.visibility = d < 0 && brightness <= 0.04 ? 'hidden' : 'visible';
+      el.style.filter = `brightness(${brightness.toFixed(3)})`;
+      el.style.opacity = '1';
       el.style.transform = `translate3d(${x.toFixed(2)}px, 0, ${z.toFixed(2)}px) rotateY(${angle}deg)`;
     }
   }, []);
@@ -112,17 +126,20 @@ export default function BrandDeckViewer({ decks }) {
     const params = new URLSearchParams(window.location.search);
     const qa = parseFloat(params.get('deckangle'));
     const qf = parseFloat(params.get('deckfan'));
+    const qc = parseFloat(params.get('deckcycle'));
     tuning.current = {
       angle: Number.isFinite(qa) ? qa : DECK_ANGLE,
       fan: Number.isFinite(qf) ? qf : FAN_X,
     };
+    const cycleS = Number.isFinite(qc) ? qc : CYCLE_S;
+    const cycling = !reducedMotion.current && cycleS > 0 && pages.length > 1;
 
     const engine = createMomentum({
       mode: 'snap',
       min: 0,
       max: pages.length - 1,
       flickTau: 0.45,
-      seekTau: 0.3,
+      seekTau: CYCLE_TAU,
     });
     engineRef.current = engine;
     setCurrent(0);
@@ -147,14 +164,37 @@ export default function BrandDeckViewer({ decks }) {
       });
     };
 
-    /* Ticker — runs only while visible + moving */
+    /* Ticker — runs while visible; with the idle cycle armed it stays
+       alive at rest (like the orbit's drift) to clock the auto-advance */
     let inView = false;
     let ticking = false;
+    let cycleClock = 0; // seconds settled on the current page
     const tick = (_t, dtMs) => {
-      engine.step(Math.min(dtMs, 100) / 1000);
+      const dt = Math.min(dtMs, 100) / 1000;
+      engine.step(dt);
       paint(engine.phase);
       syncPage(engine.phase);
-      if (engine.isResting()) stopTick();
+      if (engine.isResting()) {
+        if (!cycling) {
+          stopTick();
+          return;
+        }
+        cycleClock += dt;
+        if (cycleClock >= cycleS) {
+          cycleClock = 0;
+          const cur = Math.round(engine.phase);
+          // Mirror the orbit's endless tick: wrap back to the cover.
+          engine.goTo(cur >= pages.length - 1 ? 0 : cur + 1, CYCLE_TAU);
+        }
+      } else {
+        // Zero the dwell during motion but keep a user-set double-dwell
+        // hold (negative clock) intact.
+        cycleClock = Math.min(cycleClock, 0);
+      }
+    };
+    // Interactions push the next auto-advance out a double dwell.
+    const holdCycle = () => {
+      cycleClock = -cycleS;
     };
     const startTick = () => {
       if (ticking || !inView || document.hidden) return;
@@ -170,7 +210,7 @@ export default function BrandDeckViewer({ decks }) {
     const io = new IntersectionObserver(
       ([entry]) => {
         inView = entry.isIntersecting;
-        if (inView && !engine.isResting()) startTick();
+        if (inView && (cycling || !engine.isResting())) startTick();
         if (!inView) stopTick();
       },
       { rootMargin: '120px' }
@@ -179,7 +219,7 @@ export default function BrandDeckViewer({ decks }) {
 
     const onVisibility = () => {
       if (document.hidden) stopTick();
-      else if (!engine.isResting()) startTick();
+      else if (cycling || !engine.isResting()) startTick();
     };
     document.addEventListener('visibilitychange', onVisibility);
 
@@ -219,6 +259,7 @@ export default function BrandDeckViewer({ decks }) {
       dragging = true;
       startX = lastX = e.clientX;
       maxTravel = 0;
+      holdCycle();
       stage.setPointerCapture(e.pointerId);
       engine.beginDrag(performance.now());
       startTick();
@@ -253,9 +294,11 @@ export default function BrandDeckViewer({ decks }) {
     const onKeyDown = (e) => {
       if (e.key === 'ArrowRight') {
         e.preventDefault();
+        holdCycle();
         goToPage(Math.round(engine.phase) + 1);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
+        holdCycle();
         goToPage(Math.round(engine.phase) - 1);
       }
     };

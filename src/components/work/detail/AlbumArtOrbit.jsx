@@ -60,6 +60,10 @@ export default function AlbumArtOrbit({ covers }) {
   const suppressClick = useRef(false);
   const reducedMotion = useRef(false);
   const wakeRef = useRef(() => {});
+  // Travel direction fed to the ring's departure bump: target ±1 from the
+  // velocity/drag sign, low-passed so the bump side never pops.
+  const dirTarget = useRef(1);
+  const dirSmooth = useRef(0);
 
   const [geo, setGeo] = useState(null); // triggers cover re-render on resize
   const [pulledIndex, setPulledIndex] = useState(-1);
@@ -76,13 +80,18 @@ export default function AlbumArtOrbit({ covers }) {
     const engine = engineRef.current;
     if (!g || !engine) return;
 
-    const layout = ringLayout(count, engine.phase, g);
+    // Low-pass the bump direction (paint runs at frame rate).
+    const v = engine.velocity;
+    if (Math.abs(v) > 0.02) dirTarget.current = v > 0 ? 1 : -1;
+    dirSmooth.current += (dirTarget.current - dirSmooth.current) * 0.12;
+
+    const layout = ringLayout(count, engine.phase, g, dirSmooth.current);
     const pl = pull.current;
 
     for (let i = 0; i < count; i++) {
       const el = coverEls.current[i];
       if (!el) continue;
-      let { x, y, z, scale, opacity } = layout[i];
+      let { x, y, z, scale, brightness } = layout[i];
       // Center the ring band vertically: layout y runs [−yRange, 0]
       // (front low, rear high), so shift down by half its travel.
       y += g.yRange / 2;
@@ -93,11 +102,14 @@ export default function AlbumArtOrbit({ covers }) {
         y += (-g.coverSize * 0.08 - y) * k;
         z += (PULL_Z - z) * k;
         scale += (PULL_SCALE - scale) * k;
-        opacity = 1;
+        brightness += (1 - brightness) * k;
       }
 
       el.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, ${z.toFixed(2)}px) scale(${scale.toFixed(4)})`;
-      el.style.opacity = opacity.toFixed(3);
+      // Depth reads as darkening, never transparency — stacked
+      // translucent covers looked like a rendering artifact.
+      el.style.filter = `brightness(${brightness.toFixed(3)})`;
+      el.style.opacity = '1';
     }
 
     // Caption follows the front meridian (quiet while a cover is pulled).
@@ -208,6 +220,8 @@ export default function AlbumArtOrbit({ covers }) {
       const dx = e.clientX - lastX;
       lastX = e.clientX;
       maxTravel = Math.max(maxTravel, Math.abs(e.clientX - startX));
+      // Engine velocity is frozen during a drag — steer the bump here.
+      if (dx !== 0) dirTarget.current = dx > 0 ? -1 : 1;
       engine.dragBy(-dx / pxPerSlot(), performance.now());
       paint();
     };

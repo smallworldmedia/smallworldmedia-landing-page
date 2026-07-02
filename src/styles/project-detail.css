@@ -356,7 +356,8 @@ html:has(.project-detail) body {
   flex-direction: row;
   align-items: center;
   gap: 0.857rem;
-  padding: 0 0.571rem;
+  /* Breathing room off the reserved-region edges */
+  padding: 0 1.143rem;
   min-height: 2rem;
 }
 
@@ -394,7 +395,7 @@ html:has(.project-detail) body {
   font-family: var(--font-mono);
   font-size: 1rem;
   letter-spacing: -0.024em;
-  color: var(--color-electric-blue);
+  color: var(--color-white);
 }
 
 .deck-viewer__counter {
@@ -553,13 +554,15 @@ html:has(.project-detail) body {
 .album-orbit__caption {
   align-self: center;
   margin-top: 0.3rem;
+  /* Breathing room off the reserved-region bottom edge */
+  margin-bottom: 0.857rem;
   padding: 0.143rem 0.571rem;
   min-height: 1.86rem;
   font-family: var(--font-mono);
   font-size: 1rem;
   line-height: 1.571rem;
   letter-spacing: -0.024em;
-  color: var(--color-electric-blue);
+  color: var(--color-white);
 }
 
 /* Collapsed socket (≤1024px): the pulled card centers over the band */
