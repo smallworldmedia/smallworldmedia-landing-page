@@ -369,7 +369,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       <WorldScene world={w} index={active} />
 
       <nav
-        className="fp-pager"
+        className={`fp-pager${hoverIndex !== null ? ' is-hovered' : ''}`}
         aria-label="Featured project pager"
         ref={pagerRef}
         style={pagerVars}
@@ -388,6 +388,7 @@ export default function FeaturedProjects({ worlds = [] }) {
               const r = e.currentTarget.getBoundingClientRect();
               setHoverIndex(i + (e.clientY - r.top) / r.height - 0.5);
             }}
+            onPointerDown={() => setHoverIndex(i)} /* touch tap reveals the tokens */
             onFocus={() => setHoverIndex(i)}
             style={{ fontSize: `calc(var(--text-mono) * ${dotScale(i).toFixed(3)})` }}
           >

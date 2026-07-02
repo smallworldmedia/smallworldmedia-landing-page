@@ -265,12 +265,19 @@
 /* Client-name token — fixed-size mono tag right of the scaling number, so
    visitors can read what client each featured project is for. The absolute
    position keeps it out of the button's box (fisheye + marker unaffected);
-   the explicit font-size breaks the inherited fisheye scale. */
+   the explicit font-size breaks the inherited fisheye scale.
+
+   Choreography: at rest only the current project's token shows (varied
+   name lengths read as clutter). Hover/tap/focus over the rail slides
+   the rest in from the left, trailing the number scale-up by 70ms; on
+   leave the scale snaps back in sync while the tokens ease out on the
+   same 70ms lag (the one transition declaration governs both ways). */
 .fp-pager__label {
   position: absolute;
   left: calc(100% + 0.5rem);
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate(-0.5rem, -50%);
+  opacity: 0;
   padding: 0.071rem 0.429rem;
   background: var(--color-near-black, #0a0a0a);
   font-size: var(--text-mono);
@@ -278,10 +285,21 @@
   color: var(--color-white);
   white-space: nowrap;
   pointer-events: none;
-  transition: background var(--pager-dur, 0.16s) var(--pager-ease, ease-out);
+  transition:
+    opacity 0.18s ease-out 0.07s,
+    transform 0.18s ease-out 0.07s,
+    background var(--pager-dur, 0.16s) var(--pager-ease, ease-out);
 }
 
+.fp-pager.is-hovered .fp-pager__label {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+/* The current project's token stays readable at rest */
 .fp-pager__dot.is-active .fp-pager__label {
+  opacity: 1;
+  transform: translate(0, -50%);
   background: var(--color-electric-blue);
 }
 
