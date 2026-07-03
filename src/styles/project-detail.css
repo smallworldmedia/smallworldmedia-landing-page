@@ -575,41 +575,8 @@ a.release-chip--link:hover {
   line-height: 1;
 }
 
-/* ============================================
-   SITE FOOTER — simple variant
-   ============================================ */
-.site-footer {
-  padding: 3.5rem 0.571rem 0.571rem;
-  /* 49px 8px 8px */
-  background: var(--color-black);
-}
-
-.site-footer__bar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.857rem;
-  /* 12px */
-  padding: 0.571rem 1.143rem;
-  /* 8px 16px */
-  background: var(--color-near-black);
-}
-
-.site-footer__globe {
-  width: 3.071rem;
-  /* 43px */
-  height: 2.929rem;
-  /* 41px */
-}
-
-.site-footer__copy {
-  font-family: var(--font-body);
-  font-size: 1.143rem;
-  /* 16px */
-  line-height: 1.571rem;
-  /* 22px */
-  letter-spacing: -0.005em;
-  color: var(--color-white);
-}
+/* SITE FOOTER — moved to global.css (shared site chrome; the home hero
+   renders the --nofill variant). */
 
 /* ============================================
    RESPONSIVE

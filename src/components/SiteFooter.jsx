@@ -2,12 +2,14 @@
  * SiteFooter — Simple site footer (Figma "Footer", simple variant).
  *
  * Near-black bar with the SWM globe mark and the copyright line.
- * The expanded variant with footer nav links exists in the Figma
- * (hidden layer "links footer") — future iteration.
+ * `noFill` drops both background fills for overlay use (the home hero
+ * bookends its transparent nav with it). The expanded variant with
+ * footer nav links exists in the Figma (hidden layer "links footer")
+ * — future iteration.
  */
-export default function SiteFooter() {
+export default function SiteFooter({ noFill = false }) {
   return (
-    <footer className="site-footer">
+    <footer className={`site-footer${noFill ? ' site-footer--nofill' : ''}`}>
       <div className="site-footer__bar">
         <img
           className="site-footer__globe"

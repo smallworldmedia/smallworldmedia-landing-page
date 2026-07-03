@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
+import CtaArrows from './CtaArrows.jsx';
 import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 
@@ -31,38 +32,6 @@ const PARAM = (key, fallback) => {
   const n = parseFloat(new URLSearchParams(window.location.search).get(key));
   return Number.isFinite(n) ? n : fallback;
 };
-
-/**
- * CtaArrows — a clipped strip of carets translating at a constant rate, masked
- * so it feathers to 0% opacity on the side nearest the label. `direction`:
- * 'down' (NEXT) or 'up' (PREVIOUS).
- */
-// Seconds for one caret to travel one slot — higher = slower drift. ?caret= to tune.
-const ARROW_LOOP_SECONDS = PARAM('caret', 3.6);
-function CtaArrows({ direction }) {
-  const trackRef = useRef(null);
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track || PREFERS_REDUCED_MOTION) return undefined;
-    // 16 identical carets; translating by half the track (8 carets) loops seamlessly.
-    const tween =
-      direction === 'down'
-        ? gsap.fromTo(track, { yPercent: -50 }, { yPercent: 0, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 })
-        : gsap.fromTo(track, { yPercent: 0 }, { yPercent: -50, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 });
-    return () => tween.kill();
-  }, [direction]);
-
-  const glyph = direction === 'down' ? '⌄' : '⌃';
-  return (
-    <span className={`fp-cta__arrows fp-cta__arrows--${direction}`} aria-hidden="true">
-      <span className="fp-cta__arrows-track" ref={trackRef}>
-        {Array.from({ length: 16 }, (_, i) => (
-          <i key={i}>{glyph}</i>
-        ))}
-      </span>
-    </span>
-  );
-}
 
 const PAGER_BASE_GAIN = 1.6; // active dot scale = 1 + this
 const PAGER_HOVER_GAIN = 1.8; // additive, centred on the cursor
@@ -120,6 +89,13 @@ export default function FeaturedProjects({ worlds = [] }) {
     const idx = Math.max(0, Math.min(lastIndex, saved));
     if (idx !== activeRef.current) setActive(idx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Scene is mounting — release the Envelopment fill if this arrival came
+  // through it (home → /work under the persistent RouteFill, ADR-0002).
+  // No-op on direct loads: the fill is only ever up mid-passage.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('swm:fill-release'));
   }, []);
 
   useEffect(() => {

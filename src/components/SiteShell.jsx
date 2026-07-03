@@ -28,6 +28,7 @@ import { Flip } from 'gsap/Flip';
 
 import InfoPanel from './InfoPanel';
 import ProjectOverlay from './ProjectOverlay';
+import RouteFill from './RouteFill';
 
 gsap.registerPlugin(useGSAP, Flip);
 
@@ -117,6 +118,10 @@ export default function SiteShell() {
 
   return (
     <div className="site-shell" ref={shellRef}>
+      {/* Envelopment bridge — persists across route swaps (ADR-0002).
+          First in the shell so the nav chrome paints above the fill. */}
+      <RouteFill />
+
       <InfoPanel
         isOpen={isInfoOpen}
         onToggle={handleToggle}

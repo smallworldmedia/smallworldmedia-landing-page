@@ -24,9 +24,10 @@
  * @param {Object|null}   props.project   - optional project doc (editorial copy)
  * @param {string}        props.collection - curated collection name (sourceManifest)
  */
+import { useEffect } from 'react';
 import ClientPanel from './ClientPanel.jsx';
 import MediaSlot from './MediaSlot.jsx';
-import SiteFooter from './SiteFooter.jsx';
+import SiteFooter from '../../SiteFooter.jsx';
 import GridSocket from './GridSocket.jsx';
 import BrandDeckViewer from './BrandDeckViewer.jsx';
 import AlbumArtViewer from './AlbumArtViewer.jsx';
@@ -45,6 +46,12 @@ const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: DECK_REGIO
 
 
 export default function FeaturedProjectDetail({ assets, client, project, collection }) {
+  // Release the Envelopment fill if this arrival came through the
+  // enter_world bridge (ADR-0002). No-op on direct loads.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+  }, []);
+
   const hero = assets[0] ?? null;
   const { showcase, albumArt, brandDecks } = buildContentFlow(assets);
 

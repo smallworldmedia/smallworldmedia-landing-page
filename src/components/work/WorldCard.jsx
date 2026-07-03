@@ -28,6 +28,7 @@ import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin';
 import { CustomEase } from 'gsap/CustomEase';
+import { navigate } from 'astro:transitions/client';
 import {
   TURN_DURATION,
   TURN_EASE_PATH,
@@ -43,6 +44,29 @@ gsap.registerPlugin(useGSAP, SplitText, ScrambleTextPlugin, CustomEase);
 const cardRollEase = CustomEase.create('fpCardRoll', TURN_EASE_PATH);
 
 const CARD_TRAVEL = 70; // yPercent the card rides in/out (mirrors the media roll)
+
+// enter_world rides the Envelopment bridge (ADR-0002): cover with the
+// persistent RouteFill, then client-navigate; the detail page releases it.
+// ?entercover=<ms> tunes the cover live.
+const ENTER_COVER_SECONDS = (() => {
+  if (typeof window === 'undefined') return 0.04;
+  const n = parseFloat(new URLSearchParams(window.location.search).get('entercover'));
+  return Number.isFinite(n) ? n / 1000 : 0.04; // near-instant blue snap, per feel-pass
+})();
+let departing = false;
+function enterWorld(e, slug) {
+  if (PREFERS_REDUCED_MOTION) return; // plain ClientRouter navigation
+  e.preventDefault();
+  if (departing) return;
+  departing = true;
+  window.dispatchEvent(
+    new CustomEvent('swm:envelop', { detail: { duration: ENTER_COVER_SECONDS } })
+  );
+  setTimeout(() => {
+    departing = false;
+    navigate(`/work/${slug}`);
+  }, ENTER_COVER_SECONDS * 1000 + 60);
+}
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 
@@ -126,9 +150,8 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         )
         // text lines reveal top → bottom
         .to(split.lines, { yPercent: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }, 0.58)
-        // enter_world in, then persistent pulse
+        // enter_world in — no looping pulse (primary buttons rest still)
         .to(cta, { autoAlpha: 1, scale: 1, duration: 0.4, ease: 'back.out(1.6)' }, 0.92)
-        .to(cta, { scale: 1.05, duration: 0.85, ease: 'sine.inOut', repeat: -1, yoyo: true }, '>-0.05')
         // service tags lift in, one by one
         .to(tags, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out' }, 1.0);
 
@@ -149,7 +172,11 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
             {[world.title, formatYearRange(world.yearStart, world.yearEnd, world.isOngoing)].filter(Boolean).join(', ')}
           </p>
         )}
-        <a className="fp-card__cta" href={`/work/${world.slug}`}>
+        <a
+          className="fp-card__cta cta-primary"
+          href={`/work/${world.slug}`}
+          onClick={(e) => enterWorld(e, world.slug)}
+        >
           enter_world
         </a>
         {world.services?.length > 0 && (

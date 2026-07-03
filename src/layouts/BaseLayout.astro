@@ -22,6 +22,11 @@ const {
   title = 'Small World Media™',
   description = 'Small World Media — Visual worlds for the music industry. Multi-disciplinary creative studio specializing in visual identity, motion design, and digital experiences.',
 } = Astro.props;
+
+// Globe-page chrome variant (transparent nav, black info pill) keys off this
+// body class. Set server-side so there's no hydration flash; the ClientRouter
+// swaps body attributes on navigation, so leaving `/` restores the blue nav.
+const isHome = Astro.url.pathname === '/';
 ---
 
 <!doctype html>
@@ -49,7 +54,7 @@ const {
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   </head>
 
-  <body>
+  <body class:list={[isHome && 'route-home']}>
     {/* Hidden form for Netlify's deploy parser (SPA detection) */}
     <form name="contact" netlify netlify-honeypot="bot-field" hidden>
       <input name="bot-field" />

@@ -180,23 +180,9 @@
   opacity: 1.0;
 }
 
-.fp-card__cta {
-  font-family: var(--font-ui);
-  font-weight: 500;
-  font-size: var(--text-secondary);
-  letter-spacing: var(--tracking-tight);
-  color: var(--color-white);
-  border: 1.5px solid currentColor;
-  border-radius: 999px;
-  padding: 0.6rem 1.4rem;
-  text-decoration: none;
-  transition: background 0.2s, color 0.2s;
-}
-
-.fp-card__cta:hover {
-  background: var(--color-white);
-  color: var(--color-electric-blue);
-}
+/* enter_world skin now comes from the shared PRIMARY button component
+   (.cta-primary in global.css — white/blue → hover blue/white, borderless);
+   .fp-card__cta remains as the card's layout/GSAP hook only. */
 
 .fp-card__tags {
   list-style: none;
@@ -352,80 +338,15 @@
   will-change: transform;
 }
 
-/* Fixed scroll-advance controls ([NEXT]/[MORE] bottom, [PREVIOUS] top).
-   Scale up with scroll fill (--cta-scale); colour shifts via --cta-bg/--cta-fg
-   (black/white default → white/black on fill → blue/white at threshold). The
-   transition timing (--cta-return / --cta-ease) is set per interaction mode:
-   drag tracks the scroll, release springs back, commit glides back over the Turn. */
-.fp-cta {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%) scale(var(--cta-scale, 1));
-  transform-origin: center;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.1rem;
-  border: none;
-  cursor: pointer;
-  background: var(--cta-bg, var(--color-black));
-  color: var(--cta-fg, var(--color-white));
-  font-family: var(--font-mono);
-  font-size: var(--font-ui);
-  letter-spacing: var(--tracking-tight);
-  padding: var(--space-3) var(--space-4);
-  transition:
-    transform var(--cta-return, 0.18s) var(--cta-ease, ease-out),
-    background-color var(--cta-return, 0.18s) var(--cta-ease, ease-out),
-    color var(--cta-return, 0.18s) var(--cta-ease, ease-out);
-}
-
+/* .fp-cta base chip + .fp-cta__arrows moved to global.css (shared CTA chip
+   family — the home hero's SCROLL_TO_ENTER reuses them). /work keeps only
+   its route-specific positioning below. */
 .fp-next {
   bottom: 4vh;
 }
 
 .fp-prev {
   top: 8vh;
-}
-
-.fp-cta__label {
-  font-weight: 500;
-  line-height: 1;
-}
-
-/* Looping caret strip — a tall track of identical carets translating at a
-   constant rate, clipped to the container and feathered to 0 opacity on the
-   side nearest the label. */
-.fp-cta__arrows {
-  position: relative;
-  display: block;
-  width: 60px;
-  height: 20px;
-}
-
-/* Feather only the side nearest the label; the carets stay fully visible all the
-   way to the far edge of the container (no padding clipping them early). */
-.fp-cta__arrows--down {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 70%, #000 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 70%, #000 100%);
-}
-
-.fp-cta__arrows--up {
-  -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 70%, #000 100%);
-  mask-image: linear-gradient(to top, transparent 0%, #000 70%, #000 100%);
-}
-
-.fp-cta__arrows-track {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.1rem;
-}
-
-.fp-cta__arrows-track i {
-  font-style: normal;
-  font-size: 3.5em;
 }
 
 /* Scroll cue */

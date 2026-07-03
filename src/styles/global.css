@@ -167,10 +167,13 @@
   box-sizing: border-box;
 }
 
+/* No scrollbar-gutter here: with the global overflow:hidden scroll-lock,
+   `stable` reserved a permanently-empty gutter (hidden boxes are still
+   scroll containers) that rendered as a full-height blue band on every
+   route. Nav stability against scrollbars is handled by sizing the
+   persistent .site-shell to 100vw instead. */
 html {
   font-size: 14px;
-  scrollbar-gutter: stable;
-  /* prevent layout shift when scrollbar appears/disappears */
 }
 
 html,
@@ -299,8 +302,29 @@ button {
   /* 41px */
   padding: 0.214rem 1.143rem;
   /* 3px 16px */
+  /* extra right clearance: the shell spans 100vw, so a classic scrollbar
+     overlays this edge on scrollable routes — the token keeps the last
+     nav item clear of it (and geometry identical on every route) */
+  padding-right: calc(1.143rem + var(--space-4));
   background: var(--color-electric-blue);
   flex-shrink: 0;
+}
+
+/* ── Globe-page nav variant ──
+   BaseLayout sets body.route-home server-side (no hydration flash); the
+   ClientRouter swaps body attributes on navigation, so leaving the globe
+   restores the blue variant automatically. On the globe: no background
+   fill, and the info pill's blue accents go black. */
+body.route-home .site-nav {
+  background: transparent;
+}
+
+body.route-home .site-nav__pill {
+  background: var(--color-black);
+}
+
+body.route-home .site-nav__pill:hover {
+  background: var(--color-electric-blue);
 }
 
 .site-nav__brand {
@@ -404,7 +428,12 @@ button {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
+  /* 100vw, not right:0 — the classic-scrollbar viewport is ~15px narrower
+     than the windowed one, so right-anchored nav items would shift between
+     scrollable and locked routes. 100vw always includes the scrollbar area,
+     keeping nav geometry identical whether a scrollbar is present or not
+     (fixed boxes don't create document overflow, so no sideways scroll). */
+  width: 100vw;
   z-index: 100;
 
   pointer-events: none;
@@ -422,6 +451,18 @@ button {
 .site-shell .info-wrapper,
 .site-shell .project-overlay {
   pointer-events: auto;
+}
+
+/* Envelopment bridge (ADR-0002) — solid passage fill under the nav chrome.
+   GSAP drives autoAlpha; RouteFill toggles pointer-events on while covered
+   so stray input can't reach the routes swapping underneath. */
+.route-fill {
+  position: fixed;
+  inset: 0;
+  background: var(--color-electric-blue);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ============================================
@@ -581,6 +622,17 @@ button {
   flex-shrink: 0;
 }
 
+/* Loom start-state — solid black over the gradient; the entrance thins it
+   away on the same curve as the globe's approach, so the blue horizon
+   arrives with the planet. Sits under the globe canvas (DOM order). */
+.hero__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--color-black);
+  pointer-events: none;
+}
+
 /* Video globe layer — replaced the Unicorn Studio .hero__scene.
    Pointer events stay ON: drag-to-spin reaches the canvas anywhere
    the pointer-events:none text layer above doesn't intercept. */
@@ -588,6 +640,229 @@ button {
   position: absolute;
   inset: 0;
   z-index: 0;
+  will-change: transform;
+}
+
+/* ============================================
+   BUTTON COMPONENTS — shared site chrome
+   ============================================
+   PRIMARY — high-impact pill (UI face): enter_world on the World cards and
+   scroll_to_enter on the globe. White fill + blue text at rest; hover flips
+   to blue fill + white text, borderless. Variants may drive the colours
+   through --cta-bg/--cta-fg (the globe's scroll-fill does). */
+.cta-primary {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: var(--text-secondary);
+  letter-spacing: var(--tracking-tight);
+  background: var(--cta-bg, var(--color-white));
+  color: var(--cta-fg, var(--color-electric-blue));
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.4rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.cta-primary:hover {
+  background: var(--cta-bg, var(--color-electric-blue));
+  color: var(--cta-fg, var(--color-white));
+}
+
+/* SECONDARY — the mono CTA chip family.
+   [NEXT]/[PREVIOUS] on /work (breadcrumb/secondary-type use of the mono face).
+   Scale via --cta-scale; colour shifts via --cta-bg/--cta-fg; /work sets
+   its interaction-mode transition timing through --cta-return/--cta-ease. */
+.fp-cta {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%) scale(var(--cta-scale, 1));
+  transform-origin: center;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  border: none;
+  cursor: pointer;
+  background: var(--cta-bg, var(--color-black));
+  color: var(--cta-fg, var(--color-white));
+  font-family: var(--font-mono);
+  font-size: var(--font-ui);
+  letter-spacing: var(--tracking-tight);
+  padding: var(--space-3) var(--space-4);
+  transition:
+    transform var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    background-color var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    color var(--cta-return, 0.18s) var(--cta-ease, ease-out);
+}
+
+.fp-cta__label {
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Looping caret strip — a tall track of identical thin chevrons translating
+   at a constant rate through this window. The mask feathers to 0% opacity
+   ONLY on the side nearest the label (no-repeat, sized to the window), so
+   carets stay fully visible all the way to the far edge — never clipped
+   early. Chevron weight lives in CtaArrows.jsx (1.5px SVG strokes). */
+.fp-cta__arrows {
+  position: relative;
+  display: block;
+  width: 60px;
+  height: 34px;
+  overflow: hidden;
+}
+
+/* Each direction extends its window through the chip's own padding (negative
+   margin), so carets stay visible until they exit at the chip's true edge —
+   the padding no longer clips them early. */
+.fp-cta__arrows--down {
+  margin-bottom: calc(-1 * var(--space-3));
+  height: calc(34px + var(--space-3));
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 65%, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 65%, #000 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.fp-cta__arrows--up {
+  margin-top: calc(-1 * var(--space-3));
+  height: calc(34px + var(--space-3));
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 65%, #000 100%);
+  mask-image: linear-gradient(to top, transparent 0%, #000 65%, #000 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.fp-cta__arrows-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fp-cta__arrows-track svg {
+  display: block;
+  flex: none;
+  margin: 2.5px 0;
+}
+
+/* scroll_to_enter — the envelopment cue: the PRIMARY button, centered in the
+   viewport over the resting planet, caret strip below it. Hidden until the
+   loom settles (GSAP fades the wrap in — opacity only, no motion). Scale and
+   colour states are driven by React through --cta-* vars, running the same
+   scroll-fill choreography as /work's secondary chips (white/blue at rest →
+   fills toward blue/white → pinned blue at the threshold). */
+.hero__enter-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.hero__enter {
+  position: relative;
+  /* above the caret strip, so carets read as emerging from behind it */
+  z-index: 1;
+  transform: scale(var(--cta-scale, 1));
+  transform-origin: center;
+  transition:
+    transform var(--cta-return, 0.12s) var(--cta-ease, ease-out),
+    background 0.2s,
+    color 0.2s;
+}
+
+/* Caret strip outside/below the button: opacity falls off at BOTH ends —
+   carets surface from behind the button and dissolve before the far edge. */
+.hero__enter-wrap .fp-cta__arrows {
+  margin-top: -0.25rem;
+  /* tucked slightly under the pill's bottom edge */
+  margin-bottom: 0;
+  height: 52px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+/* Legibility over arbitrary globe tiles: the thin white strokes carry a soft
+   dark shadow (the chip variants don't need this — their carets sit on the
+   chip's own fill). */
+.hero__enter-wrap .fp-cta__arrows-track svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
+}
+
+/* No-fill footer over the hero gradient — bookends the transparent nav */
+.hero__footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* ============================================
+   SITE FOOTER — shared (moved from project-detail.css)
+   ============================================
+   Simple variant: near-black bar, globe mark + copyright.
+   `--nofill` drops both fills for overlay use (home hero). */
+.site-footer {
+  padding: 3.5rem 0.571rem 0.571rem;
+  /* 49px 8px 8px */
+  background: var(--color-black);
+}
+
+.site-footer__bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.857rem;
+  /* 12px */
+  padding: 0.571rem 1.143rem;
+  /* 8px 16px */
+  background: var(--color-near-black);
+}
+
+.site-footer--nofill {
+  padding-top: 0.571rem;
+  background: transparent;
+}
+
+.site-footer--nofill .site-footer__bar {
+  background: transparent;
+}
+
+.site-footer__globe {
+  width: 3.071rem;
+  /* 43px */
+  height: 2.929rem;
+  /* 41px */
+}
+
+.site-footer__copy {
+  font-family: var(--font-body);
+  font-size: 1.143rem;
+  /* 16px */
+  line-height: 1.571rem;
+  /* 22px */
+  letter-spacing: -0.005em;
+  color: var(--color-white);
 }
 
 .hero__text {
