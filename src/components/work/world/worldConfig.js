@@ -95,6 +95,19 @@ export const LIVE_SUSPEND_SECONDS = 0.3; // fast fade back to stills when a Turn
 const LIVE_RES = PARAMS?.get('liveres') || (IS_MOBILE ? '540p' : '720p');
 export const WORLD_STREAM_PARAMS = `min_resolution=${LIVE_RES}&max_resolution=${LIVE_RES}`;
 
+/* — Composite bands (World-side deck/album mounts, ADR-0003) —
+   Display-only bodies: the shared bandLayout brain poses textured planes
+   inside the framebuffer (pre-distortion, so the lens warps them with the
+   scene) and the stack idle-cycles on the Turn curve. The interactive
+   pager lives on the detail page. ?bands=0 kills them; ?bandh ?bandcycle
+   ?bandpages tune live. */
+export const BANDS_ENABLED = num('bands', 1) !== 0;
+export const BAND_TIER = 1; // Mid tier — behind the live Near tier, ahead of Far
+export const BAND_HEIGHT = num('bandh', TILE_HEIGHT * 1.7); // body reads bigger than a tile (world units, longest side)
+export const BAND_CYCLE_S = num('bandcycle', 3.2); // rest dwell between auto-advances
+export const BAND_MAX_PAGES = Math.max(2, Math.round(num('bandpages', 8))); // planes per band (memory cap)
+export const BAND_TEX_WIDTH = 800; // band texture request (px)
+
 /* — Pointer parallax — */
 export const PARALLAX = num('parallax', -0.02); // camera tilt amplitude (radians)
 export const PARALLAX_LERP = 0.075;

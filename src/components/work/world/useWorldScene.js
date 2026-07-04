@@ -42,6 +42,7 @@ import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js'
 import { LensDistortionPassGen } from './vendor/lensDistortion.js';
 import { buildShell } from './buildShell.js';
 import { placeTiles } from './seededLayout.js';
+import { createWorldBand } from './worldBands.js';
 import WorldLiveScheduler from './worldLive.js';
 import {
   CAMERA_FOV,
@@ -69,6 +70,8 @@ import {
   TURN_EASE_PATH,
   SHELL_SPIN,
   WORLD_MAX_LIVE,
+  BANDS_ENABLED,
+  BAND_TIER,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -151,7 +154,8 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // opacity = crossfade multiplier for the whole slot (the Turn drives it);
       // each Tile's own load-in `appear` (0..1) multiplies on top of it.
       // tiles: { mesh, texture, tierIndex, baseX, baseY, appear, drift* }
-      return { pivot, tierGroups, tiles: [], opacity: 1 };
+      // bands: composite deck/album bodies (worldBands.js records)
+      return { pivot, tierGroups, tiles: [], bands: [], opacity: 1 };
     };
     const slotA = makeSlot();
     const slotB = makeSlot();
@@ -199,6 +203,17 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     if (scheduler && new URLSearchParams(window.location.search).has('debug')) {
       window.__worldLiveStats = () => scheduler.getStats();
     }
+    if (new URLSearchParams(window.location.search).has('debug')) {
+      window.__worldBandStats = () =>
+        [slotA, slotB].map((s) =>
+          s.bands.map((b) => ({
+            phase: Number(b.phase.toFixed(2)),
+            appear: Number(b.appear.toFixed(2)),
+            planes: b.group.children.length,
+            visible: b.group.children.filter((m) => m.visible).length,
+          }))
+        );
+    }
 
     const resize = () => {
       const w = container.clientWidth || 1;
@@ -226,6 +241,8 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         if (t.texture) t.texture.dispose();
       }
       slot.tiles = [];
+      for (const b of slot.bands) b.dispose();
+      slot.bands = [];
     };
 
     // Build a World's Tiles into a slot (replacing whatever it held).
@@ -241,10 +258,28 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // Worlds still fill the field (the globe's autoFill convention).
       const count = Math.min(MAX_TILES, Math.max(MIN_TILES, pool.length));
       const chosen = Array.from({ length: count }, (_, i) => pool[i % pool.length]);
-      const placements = placeTiles(chosen, {
-        seed: w.slug,
-        aspect: camera.aspect || 1,
-      });
+      // Composite bands (deck / album stacks) claim seeded positions in the
+      // same field so tiles space around them; their depth is pinned to the
+      // band tier afterwards.
+      const bandDefs = BANDS_ENABLED
+        ? [
+            w?.brandDecks?.length && {
+              items: w.brandDecks,
+              ratio: w.brandDecks[0].ratio || 16 / 9,
+            },
+            w?.albumArt?.length && {
+              items: w.albumArt,
+              ratio: w.albumArt[0].ratio || 1,
+            },
+          ].filter(Boolean)
+        : [];
+      const placements = placeTiles(
+        [...chosen, ...bandDefs.map((b) => ({ ratio: b.ratio }))],
+        {
+          seed: w.slug,
+          aspect: camera.aspect || 1,
+        }
+      );
 
       chosen.forEach((tile, i) => {
         const pl = placements[i];
@@ -317,6 +352,33 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
           undefined,
           () => { } // failed load → tile stays hidden (appear 0)
         );
+      });
+
+      // Composite bands — pinned to the band tier; the seeded position is
+      // rescaled from its placement depth so the angular spot is preserved.
+      bandDefs.forEach((def, j) => {
+        const pl = placements[count + j];
+        const z = DEPTH_TIERS[BAND_TIER] + (j === 0 ? -0.18 : 0.18);
+        const fit = Math.abs(z / pl.z);
+        const band = createWorldBand({
+          items: def.items,
+          ratio: def.ratio,
+          placement: { x: pl.x * fit, y: pl.y * fit, z },
+          parent: slot.tierGroups[BAND_TIER],
+          loader,
+          ease: turnRollEase,
+        });
+        slot.bands.push(band);
+        if (firstView && !PREFERS_REDUCED_MOTION) {
+          gsap.to(band, {
+            appear: 1,
+            duration: TILE_APPEAR_DURATION,
+            ease: turnRollEase,
+            overwrite: true,
+          });
+        } else {
+          band.appear = 1;
+        }
       });
     };
 
@@ -452,6 +514,16 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         t.mesh.material.opacity = fade * slot.opacity;
         // Live overlay rides the same composite, scaled by its own crossfade.
         if (t.videoMesh) t.videoMesh.material.opacity = t.liveMix * fade * slot.opacity;
+      }
+      // Composite bands: same spawn→rest push-out and load-fade compositing
+      // as a Tile, applied to the whole body; page poses come from the band.
+      for (const b of slot.bands) {
+        const k = b.appear;
+        b.group.position.x = b.baseX * TILE_SPAWN_FRAC + b.baseX * (1 - TILE_SPAWN_FRAC) * k;
+        b.group.position.y = b.baseY * TILE_SPAWN_FRAC + b.baseY * (1 - TILE_SPAWN_FRAC) * k;
+        b.group.scale.setScalar(TILE_SPAWN_SCALE + (1 - TILE_SPAWN_SCALE) * k);
+        const fade = TILE_APPEAR_FADE > 0 ? Math.min(1, k / TILE_APPEAR_FADE) : 1;
+        b.paint(fade * slot.opacity);
       }
     };
 

@@ -188,12 +188,6 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
             ))}
           </ul>
         )}
-        {(world.hasAlbumArt || world.hasBrandDeck) && (
-          <p className="fp-card__sockets">
-            {world.hasAlbumArt && <span>album_art</span>}
-            {world.hasBrandDeck && <span>brand_deck</span>}
-          </p>
-        )}
       </div>
     </div>
   );

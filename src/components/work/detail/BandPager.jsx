@@ -37,6 +37,7 @@ import {
   TURN_DURATION,
   TURN_EASE_PATH,
 } from '../world/worldConfig.js';
+import { bandPose, BAND_ANGLE, FAN_X } from '../bandLayout.js';
 import { IMG_FORMAT } from '../imageConfig.js';
 
 gsap.registerPlugin(CustomEase);
@@ -49,16 +50,7 @@ const TAP_MAX_PX = 5; // pointer travel below this = click, not drag
 const FLICK_V = 0.9; // pages/s — release velocity that counts as a flick
 const DRAG_WINDOW_MS = 100; // velocity estimate looks back this far
 
-/* Stack geometry (px / deg) */
-const BAND_ANGLE = -8; // isometric rotateY
-const FAN_X = 30; // horizontal peek per upcoming page
-const FAN_Z = 46; // recession per upcoming page (perspective scales)
-const FAN_DEPTH = 3.5; // pages visible in the resting fan
-const EXIT_Z = 40; // passed pages lift toward the viewer
-const EXIT_X = 0.92; // × pageW travel for passed pages
-const DARK_IN = 0.2; // brightness drop per upcoming page (fan)
-const DARK_FLOOR = 0.35; // fan brightness floor
-const DARK_OUT = 0.9; // brightness loss per passed page (darkens out)
+/* Stack geometry lives in bandLayout.js (shared with the World mount) */
 const STACK_SHIFT = 0.05; // × stage width, stack sits right of center
 
 /* Idle cycle — rest dwell before the next auto-advance (?deckcycle) */
@@ -100,30 +92,17 @@ export default function BandPager({
     for (let i = 0; i < els.length; i++) {
       const el = els[i];
       if (!el) continue;
-      const d = i - phase;
 
-      if (d > FAN_DEPTH + 1) {
+      const pose = bandPose(i, phase, pageW, { fan });
+      if (pose.hidden) {
         el.style.visibility = 'hidden';
         continue;
       }
 
-      let x, z, brightness;
-      if (d >= 0) {
-        const dc = Math.min(d, FAN_DEPTH);
-        x = dc * fan;
-        z = -dc * FAN_Z;
-        brightness = Math.max(DARK_FLOOR, 1 - Math.max(dc - 0.35, 0) * DARK_IN);
-      } else {
-        x = d * pageW * EXIT_X;
-        z = -d * EXIT_Z;
-        brightness = Math.max(0, 1 + d * DARK_OUT);
-      }
-
-      // Depth = darkness, never transparency; exits darken fully out.
-      el.style.visibility = d < 0 && brightness <= 0.04 ? 'hidden' : 'visible';
-      el.style.filter = `brightness(${brightness.toFixed(3)})`;
+      el.style.visibility = 'visible';
+      el.style.filter = `brightness(${pose.brightness.toFixed(3)})`;
       el.style.opacity = '1';
-      el.style.transform = `translate3d(${(x + shiftPx).toFixed(2)}px, 0, ${z.toFixed(2)}px) rotateY(${angle}deg)`;
+      el.style.transform = `translate3d(${(pose.x + shiftPx).toFixed(2)}px, 0, ${pose.z.toFixed(2)}px) rotateY(${angle}deg)`;
     }
   }, []);
 

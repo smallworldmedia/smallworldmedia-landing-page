@@ -23,6 +23,16 @@ import FeaturedProjects from '../../components/work/FeaturedProjects.jsx';
 
 const projects = await sanityFetch(FEATURED_WORLDS_QUERY);
 
+// Composite-band page shape (the World mount needs only art + aspect).
+const BAND_PAGE_CAP = 8; // matches BAND_MAX_PAGES client-side
+const bandPage = (a) => ({
+  _id: a._id,
+  title: a.title || null,
+  imageUrl: a.imageUrl || null,
+  playbackId: a.playbackId || null,
+  ratio: ratioOf(a),
+});
+
 // Build one "World" per featured project: partition its media via the same
 // Content Population Hierarchy the detail page uses, then hand the orchestrator
 // just what it renders (hero, showcase Tiles, socket presence, card copy).
@@ -66,8 +76,13 @@ const worlds = projects
         }
       : null,
     showcase,
-    hasAlbumArt: flow.albumArt.length > 0,
-    hasBrandDeck: flow.brandDecks.length > 0,
+    // World-side composite bands (ADR-0003): the lead deck's pages + the
+    // album-art covers, capped — display bodies among the Tiles. Empty
+    // arrays = no band (the ORBIT_MIN gate already ran in buildContentFlow).
+    brandDecks: flow.brandDecks.length
+      ? flow.brandDecks[0].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
+      : [],
+    albumArt: flow.albumArt.slice(0, BAND_PAGE_CAP).map(bandPage),
   };
 });
 ---
