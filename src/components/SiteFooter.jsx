@@ -25,6 +25,8 @@ export default function SiteFooter({ noFill = false, tagline }) {
         )}
         <p className="site-footer__copy">
           ©{new Date().getFullYear()} Small World Media LLC. All Rights Reserved.
+          {' · '}
+          <a className="site-footer__privacy" href="/privacy">privacy</a>
         </p>
       </div>
     </footer>

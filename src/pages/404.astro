@@ -1,0 +1,70 @@
+---
+/**
+ * 404 — brand-styled not-found page. Netlify serves dist/404.html
+ * automatically for unmatched routes.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="404 — Small World Media™"
+  description="This page doesn't exist. Return to Small World Media."
+>
+  <main class="notfound">
+    <p class="notfound__code">404</p>
+    <h1 class="notfound__title">This world doesn't exist.</h1>
+    <div class="notfound__actions">
+      <a class="cta-primary" href="/">return_home</a>
+      <a class="notfound__link" href="/work">featured_projects</a>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .notfound {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-6);
+    background: linear-gradient(to top,
+        var(--color-electric-blue) 0%,
+        var(--color-black) 40%);
+    text-align: center;
+    padding: var(--space-6);
+  }
+
+  .notfound__code {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono);
+    color: var(--color-white);
+    letter-spacing: 0.08em;
+  }
+
+  .notfound__title {
+    font-family: var(--font-headline);
+    font-weight: 400;
+    font-size: clamp(2rem, 6vw, 4.286rem);
+    letter-spacing: -0.02em;
+    color: var(--color-white);
+  }
+
+  .notfound__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-6);
+    margin-top: var(--space-6);
+  }
+
+  .notfound__link {
+    font-family: var(--font-body);
+    font-size: var(--text-ui);
+    color: var(--color-white);
+  }
+
+  .notfound__link:hover {
+    text-decoration: underline;
+  }
+</style>

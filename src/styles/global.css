@@ -967,11 +967,40 @@ body.route-home .site-nav__links {
   color: var(--color-white);
 }
 
+.site-footer__privacy {
+  color: var(--color-white);
+}
+
+.site-footer__privacy:hover {
+  text-decoration: underline;
+}
+
 .hero__text {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
+}
+
+/* Skip link — hidden until keyboard-focused, then a pill over the nav */
+.skip-link {
+  position: fixed;
+  top: 0.214rem;
+  left: 50%;
+  transform: translate(-50%, -250%);
+  z-index: 200;
+  padding: 0.214rem 0.929rem;
+  border-radius: 1.714rem;
+  background: var(--color-black);
+  border: 1px solid var(--color-white);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: 1.143rem;
+  transition: transform 160ms var(--ease-micro);
+}
+
+.skip-link:focus-visible {
+  transform: translate(-50%, 0);
 }
 
 /* Screen-reader-only — keeps semantic content without visual presence */

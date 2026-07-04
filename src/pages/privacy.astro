@@ -1,0 +1,130 @@
+---
+/**
+ * /privacy — plain-language privacy notice.
+ *
+ * The site sets no cookies and runs no tracking scripts, so no consent
+ * banner is required; this page states that plainly and covers the one
+ * place personal data is handled (the project inquiry form → Netlify
+ * Forms → studio email). Revisit if analytics or any cookie-setting
+ * service is ever added.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Privacy — Small World Media™"
+  description="How Small World Media handles your data: no cookies, no tracking, and inquiry-form details used only to reply to you."
+>
+  <main class="privacy">
+    <h1 class="privacy__title">Privacy</h1>
+    <p class="privacy__updated">Last updated: July 2026</p>
+
+    <section class="privacy__section">
+      <h2>No cookies, no tracking</h2>
+      <p>
+        This site sets no cookies and runs no advertising or cross-site
+        tracking. A few values are kept in your browser's session storage
+        purely to make animations and navigation behave (they never leave
+        your device and disappear when the tab closes).
+      </p>
+    </section>
+
+    <section class="privacy__section">
+      <h2>The project inquiry form</h2>
+      <p>
+        When you send a project inquiry, the name, email address, selected
+        services, and message you provide are delivered to us via Netlify
+        Forms (our hosting provider's form service) and arrive in our
+        studio inbox. We use them only to reply to you about your project.
+        We don't sell or share them, and we don't add you to any mailing
+        list.
+      </p>
+    </section>
+
+    <section class="privacy__section">
+      <h2>Hosting</h2>
+      <p>
+        The site is hosted on Netlify, which — like any web host — keeps
+        standard server logs (IP address, requested page, time) for
+        security and operations.
+      </p>
+    </section>
+
+    <section class="privacy__section">
+      <h2>Questions</h2>
+      <p>
+        Ask us anything about your data through the project inquiry form,
+        or via <a href="https://instagram.com/smallworldmedia" target="_blank" rel="noopener noreferrer">Instagram</a>.
+      </p>
+    </section>
+
+    <a class="privacy__home" href="/">← return_home</a>
+  </main>
+</BaseLayout>
+
+<style>
+  .privacy {
+    min-height: 100dvh;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 8rem var(--space-6) 6rem;
+    background: var(--color-black);
+    color: var(--color-white);
+  }
+
+  /* full-bleed black behind the measure */
+  :global(body:has(.privacy)) {
+    background: var(--color-black);
+  }
+
+  .privacy__title {
+    font-family: var(--font-headline);
+    font-weight: 400;
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    letter-spacing: -0.02em;
+  }
+
+  .privacy__updated {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono);
+    margin-top: var(--space-2);
+    opacity: 0.7;
+  }
+
+  .privacy__section {
+    margin-top: 2.5rem;
+  }
+
+  .privacy__section h2 {
+    font-family: var(--font-secondary);
+    font-weight: 400;
+    font-size: var(--text-secondary);
+    /* white, not electric blue — pure #00f on black fails contrast for
+       running document headings */
+    color: var(--color-white);
+  }
+
+  .privacy__section p {
+    margin-top: var(--space-4);
+    font-family: var(--font-body);
+    font-size: var(--text-ui);
+    line-height: 1.5;
+  }
+
+  .privacy__section a {
+    color: var(--color-white);
+    text-decoration: underline;
+  }
+
+  .privacy__home {
+    display: inline-block;
+    margin-top: 3.5rem;
+    font-family: var(--font-body);
+    font-size: var(--text-ui);
+    color: var(--color-white);
+  }
+
+  .privacy__home:hover {
+    text-decoration: underline;
+  }
+</style>
