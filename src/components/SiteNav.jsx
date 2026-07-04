@@ -1,14 +1,29 @@
 /**
  * SiteNav — Fixed top navigation bar (shared site-wide).
  *
- * Blue bar: rotating SWM globe + info pill on the left,
- * sitemap links with glyph prefixes on the right.
+ * Blue bar: SWM globe mark + info pill on the left, sitemap links with
+ * glyph prefixes on the right.
+ *
+ * Home (globe) variant — `body.route-home` drives the steady states in CSS,
+ * so there is no hydration flash and the ClientRouter body-attribute swap
+ * restores the standard bar automatically:
+ *   - the sitemap links hide; a `start_project` pill takes the top-right
+ *     slot and a `follow_us` pill sits fixed at the bottom-right (portaled
+ *     to the site shell so the drawer transform can't capture its fixed
+ *     positioning).
+ *   - on Envelopment (`swm:envelop` while home) the pills translate out of
+ *     the viewport and the standard links slide down into place, so /work
+ *     arrives with the bar already seated. Arriving back home eases the
+ *     pills in. Reduced motion: steady states only, no choreography.
  *
  * Props (all optional — when omitted, links fall back to navigation):
  *   onStartProject  — callback for "start_project" click
  *   onInfoToggle    — callback for info pill click
  *   isInfoOpen      — controls info pill label ("info" vs "close")
  */
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import gsap from 'gsap';
 
 /** Minimal inline glyph icons (Figma uses Simple Design System icons) */
 function HeartIcon() {
@@ -49,6 +64,16 @@ export default function SiteNav({
   const pillLabel = isInfoOpen ? 'close' : 'info';
   const PillIcon = isInfoOpen ? CloseIcon : EjectIcon;
 
+  const linksRef = useRef(null);
+  const startRef = useRef(null);
+  const followRef = useRef(null);
+  const envTlRef = useRef(null);
+  // Portal target for the fixed follow pill — client-only (island is SSR'd)
+  const [shellEl, setShellEl] = useState(null);
+  useEffect(() => {
+    setShellEl(document.querySelector('.site-shell'));
+  }, []);
+
   const handleStartProject = (e) => {
     if (onStartProject) {
       e.preventDefault();
@@ -64,6 +89,75 @@ export default function SiteNav({
     }
     // Otherwise let the <a href="/"> navigate normally
   };
+
+  // ── Home ↔ site choreography ──
+  useEffect(() => {
+    const isHome = () => document.body.classList.contains('route-home');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const allEls = () =>
+      [
+        linksRef.current,
+        startRef.current,
+        followRef.current,
+        ...(linksRef.current ? [...linksRef.current.children] : []),
+      ].filter(Boolean);
+
+    // Envelopment: pills exit through the viewport edges while the standard
+    // links drop in from above — riding the passage, so /work lands seated.
+    const onEnvelop = () => {
+      if (!isHome() || reducedMotion) return;
+      const tl = gsap.timeline();
+      envTlRef.current = tl;
+      if (startRef.current) {
+        tl.to(startRef.current, { y: -64, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
+      }
+      if (followRef.current) {
+        tl.to(followRef.current, { y: 90, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
+      }
+      if (linksRef.current) {
+        gsap.set(linksRef.current, { visibility: 'visible' });
+        tl.fromTo(
+          linksRef.current.children,
+          { y: -34, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.5, stagger: 0.07, ease: 'power3.out' },
+          0.18
+        );
+      }
+    };
+
+    // Route landed: restore CSS steady states — unless the envelop
+    // choreography is still gliding the links in over the swap (it ends on
+    // the same values the site steady state uses; its inline styles are
+    // cleared on the next swap instead).
+    const onSwap = () => {
+      const els = allEls();
+      if (isHome()) {
+        envTlRef.current?.kill();
+        envTlRef.current = null;
+        gsap.killTweensOf(els);
+        gsap.set(els, { clearProps: 'all' });
+        if (!reducedMotion) {
+          const pills = [startRef.current, followRef.current].filter(Boolean);
+          gsap.fromTo(
+            pills,
+            { autoAlpha: 0, y: (i, el) => (el === startRef.current ? -18 : 22) },
+            { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' }
+          );
+        }
+      } else if (!envTlRef.current?.isActive()) {
+        gsap.killTweensOf(els);
+        gsap.set(els, { clearProps: 'all' });
+      }
+    };
+
+    window.addEventListener('swm:envelop', onEnvelop);
+    document.addEventListener('astro:after-swap', onSwap);
+    return () => {
+      envTlRef.current?.kill();
+      window.removeEventListener('swm:envelop', onEnvelop);
+      document.removeEventListener('astro:after-swap', onSwap);
+    };
+  }, []);
 
   return (
     <nav className="site-nav">
@@ -83,30 +177,61 @@ export default function SiteNav({
         </button>
       </div>
 
-      <div className="site-nav__links">
-        <a
-          href="/"
-          className="site-nav__link"
-          onClick={handleStartProject}
-        >
-          <span className="site-nav__glyph">↳</span>
-          start_project
-        </a>
-        <a href="/work" className="site-nav__link">
-          <span className="site-nav__glyph">⁕</span>
-          featured_projects
-        </a>
-        <a
-          href="https://instagram.com/smallworldmedia"
-          className="site-nav__link"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <HeartIcon />
-          follow_us
-        </a>
-        {/* process link removed for v1 — the process page is a v2 workstream */}
+      <div className="site-nav__right">
+        <div className="site-nav__links" ref={linksRef}>
+          <a
+            href="/"
+            className="site-nav__link"
+            onClick={handleStartProject}
+          >
+            <span className="site-nav__glyph">↳</span>
+            start_project
+          </a>
+          <a href="/work" className="site-nav__link">
+            <span className="site-nav__glyph">⁕</span>
+            featured_projects
+          </a>
+          <a
+            href="https://instagram.com/smallworldmedia"
+            className="site-nav__link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <HeartIcon />
+            follow_us
+          </a>
+          {/* process link removed for v1 — the process page is a v2 workstream */}
+        </div>
+
+        {/* Home variant: primary actions as pills (steady state via
+            body.route-home in CSS) */}
+        <div className="site-nav__start-slot">
+          <button
+            type="button"
+            className="site-nav__pill site-nav__home-cta site-nav__home-start"
+            ref={startRef}
+            onClick={handleStartProject}
+          >
+            <span className="site-nav__glyph">↳</span>
+            start_project
+          </button>
+        </div>
       </div>
+
+      {shellEl &&
+        createPortal(
+          <a
+            href="https://instagram.com/smallworldmedia"
+            className="site-nav__pill site-nav__home-cta site-nav__home-follow"
+            ref={followRef}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <HeartIcon />
+            follow_us
+          </a>,
+          shellEl
+        )}
     </nav>
   );
 }

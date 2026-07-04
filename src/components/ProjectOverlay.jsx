@@ -1,7 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
-import { Flip } from 'gsap/Flip';
 import { SERVICE_TAGS } from '../lib/constants';
 
 const globeMark = '/icons/SWM-globe_white.svg';
@@ -92,17 +91,20 @@ const CheckIndicator = ({ checked }) => {
  * Netlify detects the hidden HTML form in index.html at deploy time,
  * then this component POSTs to the same endpoint via fetch.
  *
- * Animation sequence (gsap-swm "Controlled Chaos"):
- * 1. Overlay clips in from bottom
- * 2. Header Flip-animates from the hero CTA's position into the overlay
+ * Animation sequence:
+ * 1. Overlay fades in (the blue arrives gradually, sitewide convention)
+ * 2. Header slides down into place
  * 3. Form body fades up after header lands
  * 4. Submit button follows
  *
+ * The globe mark stays mounted across open/close — it's the same static
+ * SVG the nav renders at the same coordinates, so the brand mark reads as
+ * persistent through the whole overlay lifecycle.
+ *
  * Layout: The header is position: absolute inside the form (bottom: 100%),
- * so it never participates in flexbox flow. This prevents Flip's absolute
- * mode from causing layout recalculations that shift the form.
+ * so it never participates in flexbox flow.
  */
-export default function ProjectOverlay({ isOpen, onClose, flipState }) {
+export default function ProjectOverlay({ isOpen, onClose }) {
     const overlayRef = useRef(null);
     const headerRef = useRef(null);
     const submitRef = useRef(null);
@@ -196,35 +198,23 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
 
             const tl = gsap.timeline();
 
-            // 1. Overlay clip reveal from bottom
+            // 1. Overlay fades in — the blue arrives, never snaps
             tl.fromTo(el,
-                { clipPath: 'inset(100% 0 0 0)' },
+                { autoAlpha: 0 },
                 {
-                    clipPath: 'inset(0 0 0 0)',
+                    autoAlpha: 1,
                     duration: 0.35,
-                    ease: 'power4.out',
+                    ease: 'power2.out',
+                    overwrite: true,
                 }
             );
 
-            // 2. Header — Flip from hero CTA position, or fallback slide-down
-            if (flipState && header) {
-                header.setAttribute('data-flip-id', 'start-project');
-
-                tl.add(() => {
-                    Flip.from(flipState, {
-                        targets: header,
-                        duration: 0.5,
-                        ease: 'power3.out',
-                    });
-                }, '-=0.1');
-            } else {
-                // Fallback: simple slide-down if no flip state
-                tl.fromTo(header,
-                    { y: -20, opacity: 0 },
-                    { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
-                    '-=0.2'
-                );
-            }
+            // 2. Header slides down into place
+            tl.fromTo(header,
+                { y: -20, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
+                '-=0.2'
+            );
 
             // 3. Form body (fields wrapper) — fades up as a single block after header lands
             if (formBody) {
@@ -244,18 +234,28 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
 
             hasAnimatedRef.current = true;
         } else if (hasAnimatedRef.current) {
-            // Close — reverse clip out (exit = 60-70% of entrance duration)
+            // Close — fade out (exit = 60-70% of entrance duration)
             gsap.to(el, {
-                clipPath: 'inset(0 0 100% 0)',
-                duration: 0.4,
+                autoAlpha: 0,
+                duration: 0.3,
                 ease: 'power2.inOut',
                 overwrite: true,
             });
         } else {
             // Initial hidden state
-            gsap.set(el, { clipPath: 'inset(100% 0 0 0)' });
+            gsap.set(el, { autoAlpha: 0 });
         }
     }, { scope: overlayRef, dependencies: [isOpen] });
+
+    // Escape closes the overlay
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isOpen, onClose]);
 
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
@@ -280,7 +280,7 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                     const el = overlayRef.current;
                     if (el) {
                         gsap.to(el, {
-                            clipPath: 'inset(0 0 100% 0)',
+                            autoAlpha: 0,
                             duration: 0.5,
                             ease: 'power3.inOut',
                             overwrite: true,
@@ -310,14 +310,13 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             data-open={isOpen}
             aria-hidden={!isOpen}
         >
-            {/* Globe logo — top left */}
-            {isOpen && (
-                <img
-                    className="project-overlay__globe"
-                    src={globeMark}
-                    alt="Small World Media"
-                />
-            )}
+            {/* Globe logo — top left; stays mounted so the mark never blinks
+                (same static SVG + coordinates as the SiteNav globe below) */}
+            <img
+                className="project-overlay__globe"
+                src={globeMark}
+                alt="Small World Media"
+            />
 
 
             {status === 'success' ? (

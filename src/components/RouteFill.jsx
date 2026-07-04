@@ -6,8 +6,11 @@
  * it, and the arriving route releases it once its scene is mounted.
  *
  * Cross-island protocol (CustomEvents, house convention):
- *   - `swm:envelop`      → cover. detail.duration overrides the fade-in.
- *   - `swm:fill-release` → uncover. Dispatched by the destination on mount.
+ *   - `swm:envelop`       → cover. detail.duration overrides the fade-in.
+ *   - `swm:fill-release`  → uncover. Dispatched by the destination on mount.
+ *   - `swm:fill-progress` → partial opacity tracking a live gesture
+ *     (detail.value 0..1, detail.duration optional). Input stays live —
+ *     this is the scroll-anchored pre-cover, not the passage itself.
  *
  * Safety valve: if a page loads while covered and nothing asks for a release
  * (a failed navigation, a route without the handshake), the fill lets go on
@@ -72,6 +75,20 @@ export default function RouteFill() {
       });
     };
 
+    // Scroll-anchored pre-cover: opacity follows the gesture while the scene
+    // underneath stays fully interactive. A commit (`swm:envelop`) takes over
+    // from whatever opacity the drag reached — never the other way around.
+    const progress = (e) => {
+      if (covered || reducedMotion) return;
+      const value = Math.min(1, Math.max(0, e?.detail?.value ?? 0));
+      gsap.to(fill, {
+        autoAlpha: value,
+        duration: e?.detail?.duration ?? 0.12,
+        ease: 'power2.out',
+        overwrite: true,
+      });
+    };
+
     // A navigation landed while covered: give the destination a moment to
     // claim the release itself, then let go regardless.
     const onPageLoad = () => {
@@ -82,11 +99,13 @@ export default function RouteFill() {
 
     window.addEventListener('swm:envelop', cover);
     window.addEventListener('swm:fill-release', release);
+    window.addEventListener('swm:fill-progress', progress);
     document.addEventListener('astro:page-load', onPageLoad);
     return () => {
       clearTimeout(safetyTimer);
       window.removeEventListener('swm:envelop', cover);
       window.removeEventListener('swm:fill-release', release);
+      window.removeEventListener('swm:fill-progress', progress);
       document.removeEventListener('astro:page-load', onPageLoad);
     };
   }, []);

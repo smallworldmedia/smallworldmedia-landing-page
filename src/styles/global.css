@@ -376,11 +376,50 @@ body.route-home .site-nav__pill:hover {
   height: 0.857rem;
 }
 
+.site-nav__right {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .site-nav__links {
   display: flex;
   align-items: center;
   gap: 1.714rem;
   /* 24px */
+}
+
+/* ── Home (globe) nav variant — steady states ──
+   The sitemap links hide (visibility keeps the bar's geometry) and the two
+   primary-action pills appear: start_project overlaying the top-right slot,
+   follow_us fixed at the bottom-right of the viewport (portaled to the
+   shell — the drawer's translateY would otherwise capture its fixed box).
+   SiteNav's swm:envelop choreography animates between the two states. */
+.site-nav__start-slot {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.site-nav__home-cta {
+  visibility: hidden;
+  pointer-events: auto;
+}
+
+body.route-home .site-nav__home-cta {
+  visibility: visible;
+}
+
+body.route-home .site-nav__links {
+  visibility: hidden;
+}
+
+.site-nav__home-follow {
+  position: fixed;
+  right: calc(1.143rem + var(--space-4));
+  bottom: 0.571rem;
 }
 
 .site-nav__link {
@@ -946,8 +985,10 @@ button.cta {
   align-items: center;
   justify-content: center;
   padding: 5vw;
-  /* Initial state: clipped away */
-  clip-path: inset(100% 0 0 0);
+  /* Initial state: hidden — GSAP autoAlpha drives the fade in/out
+     (visibility also gates pointer events while closed) */
+  opacity: 0;
+  visibility: hidden;
   /* will-change applied by GSAP during animation only —
      permanent promotion wastes GPU memory on full-viewport layer */
 }

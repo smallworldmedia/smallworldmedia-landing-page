@@ -131,7 +131,6 @@ export default function SiteShell() {
       <ProjectOverlay
         isOpen={isOverlayOpen}
         onClose={handleCloseOverlay}
-        flipState={null}
       />
     </div>
   );

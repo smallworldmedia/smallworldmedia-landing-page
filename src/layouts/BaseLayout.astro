@@ -55,12 +55,15 @@ const isHome = Astro.url.pathname === '/';
   </head>
 
   <body class:list={[isHome && 'route-home']}>
-    {/* Hidden form for Netlify's deploy parser (SPA detection) */}
+    {/* Hidden form for Netlify's deploy parser (SPA detection) — field set
+        must mirror ProjectOverlay's live form or Netlify drops fields */}
     <form name="contact" netlify netlify-honeypot="bot-field" hidden>
       <input name="bot-field" />
       <input name="name" />
       <input name="email" />
       <input name="project" />
+      <input name="subject" />
+      <input name="replyto" />
       <textarea name="message"></textarea>
     </form>
 

@@ -13,6 +13,13 @@
  * stalling rubber-bands it back, and crossing the threshold pins it blue and
  * fires the Envelopment (?scroll tunes the resistance, /work convention).
  *
+ * The gesture is weighted like the pager: while dragging, the globe itself
+ * leans toward the viewer (scale up to 1 + ?envlean) and the RouteFill blue
+ * pre-covers on a power curve (up to ?envpre % at the threshold) — video
+ * keeps playing under it. Stalling returns both on the release curve;
+ * committing continues from wherever the drag left them, so the blue is
+ * already rising when the passage takes over and is solid at navigation.
+ *
  * Envelopment (ADR-0002): the globe scales up through the viewport on the
  * house Turn curve while the persistent RouteFill covers, then client-
  * navigates to /work, which releases the fill over its World. Reduced motion:
@@ -62,6 +69,10 @@ const SCROLL_TRIGGER = PARAM('scroll', 600); // px of wheel/touch to commit
 const CTA_MAX_EXTRA = 0.3; // CTA scale at full fill / hover = 1 + this
 const RM_WHEEL_THRESHOLD = 60; // reduced motion: modest intent → plain nav
 
+/* — Drag weight: what the gesture moves before it commits — */
+const ENV_LEAN = PARAM('envlean', 25) / 100; // globe scale extra at full drag
+const ENV_PRE_COVER = PARAM('envpre', 45) / 100; // blue opacity at full drag (f² curve)
+
 export default function Hero({ globeAssets }) {
   const heroRef = useRef(null);
   const globeWrapRef = useRef(null);
@@ -95,7 +106,9 @@ export default function Hero({ globeAssets }) {
     );
     tl.to(
       globeWrapRef.current,
-      { scale: ENV_SCALE, duration: ENV_SECONDS, ease: envEase },
+      // overwrite kills a live drag-lean tween — the passage continues the
+      // scale from wherever the gesture left it
+      { scale: ENV_SCALE, duration: ENV_SECONDS, ease: envEase, overwrite: 'auto' },
       0
     );
     // Cover from the very first frame of the passage: the fill's power2.in
@@ -158,18 +171,47 @@ export default function Hero({ globeAssets }) {
       clearTimeout(idleRef.current);
       idleRef.current = null;
     };
-    // Stalled below the threshold → rubber-band the partly-filled CTA back.
+
+    // Drag weight: the globe leans toward the viewer and the blue pre-covers
+    // with the gesture (f² keeps the fade subtle early). overwrite takes the
+    // scale over from a still-settling loom on the first tick.
+    const dragTo = (f) => {
+      gsap.to(globeWrapRef.current, {
+        scale: 1 + ENV_LEAN * f,
+        duration: 0.25,
+        ease: 'power3.out',
+        overwrite: 'auto',
+      });
+      window.dispatchEvent(
+        new CustomEvent('swm:fill-progress', { detail: { value: ENV_PRE_COVER * f * f } })
+      );
+    };
+
+    // Stalled below the threshold → rubber-band CTA, globe and blue back
+    // on the shared release curve.
     const scheduleRelease = () => {
       clearIdle();
       idleRef.current = setTimeout(() => {
         accumRef.current = 0;
         setCtaMode('release');
         setFill(0);
+        gsap.to(globeWrapRef.current, {
+          scale: 1,
+          duration: 0.4,
+          ease: 'expo.out',
+          overwrite: 'auto',
+        });
+        window.dispatchEvent(
+          new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: 0.4 } })
+        );
       }, 160);
     };
 
     const addDelta = (dy) => {
       if (!armedRef.current || departingRef.current) return;
+      // The inquiry overlay owns the screen — scrolling under it must not
+      // arm the envelopment (wheel events bubble to window regardless)
+      if (document.querySelector('.project-overlay')?.dataset.open === 'true') return;
       const a = Math.max(0, accumRef.current + dy); // downward intent only
       accumRef.current = a;
 
@@ -183,8 +225,10 @@ export default function Hero({ globeAssets }) {
         setFill(1);
         beginEnvelopment();
       } else {
+        const f = a / SCROLL_TRIGGER;
         setCtaMode('drag');
-        setFill(a / SCROLL_TRIGGER);
+        setFill(f);
+        dragTo(f);
         scheduleRelease();
       }
     };
