@@ -15,6 +15,10 @@ import { GLOBE_ASSETS_QUERY } from '../../lib/queries.js';
 import buildAssetPool from '../../components/globe/buildAssetPool.js';
 import VideoGlobeLab from '../../components/lab/VideoGlobeLab.jsx';
 
+// v1 launch: internal prototype disabled — remove this redirect (and the
+// matching forced 302 in netlify.toml) to bring the lab back.
+return Astro.redirect('/');
+
 const assets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));
 ---
 

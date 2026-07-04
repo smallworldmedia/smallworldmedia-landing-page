@@ -4,7 +4,7 @@ import gsap from 'gsap';
 import { Flip } from 'gsap/Flip';
 import { SERVICE_TAGS } from '../lib/constants';
 
-const globeGif = '/swm-globe.gif';
+const globeMark = '/icons/SWM-globe_white.svg';
 
 const FORM_FIELDS = [
     { name: 'name', label: 'Name', type: 'text', required: true },
@@ -314,7 +314,7 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             {isOpen && (
                 <img
                     className="project-overlay__globe"
-                    src={globeGif}
+                    src={globeMark}
                     alt="Small World Media"
                 />
             )}

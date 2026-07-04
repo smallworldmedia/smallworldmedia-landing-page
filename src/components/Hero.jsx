@@ -264,7 +264,7 @@ export default function Hero({ globeAssets }) {
         <CtaArrows direction="down" />
       </div>
       <div className="hero__footer">
-        <SiteFooter noFill />
+        <SiteFooter noFill tagline="Visual Worlds for the Music Industry" />
       </div>
     </section>
   );

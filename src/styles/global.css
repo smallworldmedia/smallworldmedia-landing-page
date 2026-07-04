@@ -470,7 +470,7 @@ body.route-home .site-nav__pill:hover {
    ============================================
    Architecture:
    ┌──────────────────────────────┐
-   │  .info-panel (cream content) │  ← clipped when closed
+   │  .info-panel (black content) │  ← clipped when closed
    │  (description + clients)     │
    ├──────────────────────────────┤
    │  SiteNav (blue nav bar)      │  ← always visible, sits at bottom
@@ -492,10 +492,10 @@ body.route-home .site-nav__pill:hover {
   pointer-events: auto;
 }
 
-/* Content panel — cream bg, sits above the nav bar */
+/* Content panel — brand black, sits above the nav bar */
 .info-panel {
   width: 100%;
-  background: var(--color-cream);
+  background: var(--color-black);
   /* Match horizontal padding to nav bar's var(--space-4) = 8px */
   padding: var(--space-4);
   overflow: clip;
@@ -520,14 +520,6 @@ body.route-home .site-nav__pill:hover {
   flex: 0 0 clamp(14.286rem, 22vw, 22.857rem);
 }
 
-/* Placeholder box for Unicorn Studio embed */
-.info-panel__embed {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  border: 1px solid var(--color-electric-blue);
-  background: transparent;
-}
-
 /* Description */
 .description {
   display: flex;
@@ -540,7 +532,7 @@ body.route-home .site-nav__pill:hover {
   font-size: 2.6vw;
   letter-spacing: -.02em;
   line-height: 1.0;
-  color: var(--color-electric-blue);
+  color: var(--color-white);
   font-weight: 400;
 }
 
@@ -563,7 +555,7 @@ body.route-home .site-nav__pill:hover {
   font-size: .95vw;
   font-weight: 400;
   line-height: 1.0;
-  color: var(--color-black);
+  color: var(--color-white);
   letter-spacing: -.07em;
   text-transform: uppercase;
   padding: 0;
@@ -586,20 +578,15 @@ body.route-home .site-nav__pill:hover {
   gap: 0;
 }
 
+/* Plain labels — the full project database is disabled for v1, so no
+   click affordance (no pointer cursor, no hover underline). */
 .clients__item {
   font-family: var(--font-body);
   font-size: 2.4vw;
   letter-spacing: -.02em;
   line-height: 0.8;
   font-weight: 400;
-  color: var(--color-electric-blue);
-  cursor: pointer;
-  text-decoration: none;
-  transition: text-decoration-color 160ms ease;
-}
-
-.clients__item:hover {
-  text-decoration: underline;
+  color: var(--color-white);
 }
 
 /* ============================================
@@ -853,6 +840,16 @@ body.route-home .site-nav__pill:hover {
   /* 43px */
   height: 2.929rem;
   /* 41px */
+}
+
+/* Tagline variant — replaces the globe mark (home hero). Body face by
+   design call: not the condensed display. */
+.site-footer__tagline {
+  font-family: var(--font-body);
+  font-size: var(--text-secondary);
+  line-height: var(--lh-secondary);
+  letter-spacing: -0.005em;
+  color: var(--color-white);
 }
 
 .site-footer__copy {
@@ -1284,11 +1281,6 @@ button.cta {
     gap: var(--space-4);
   }
 
-  /* Embed placeholder — square on mobile */
-  .info-panel__embed {
-    aspect-ratio: 1;
-  }
-
   .description {
     flex: 1;
   }
@@ -1346,7 +1338,7 @@ button.cta {
     font-size: 0.786rem;
     position: sticky;
     top: 0;
-    background: var(--color-cream);
+    background: var(--color-black);
     padding-bottom: var(--space-2);
     z-index: 1;
   }

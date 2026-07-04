@@ -9,11 +9,9 @@ import { CLIENTS } from '../lib/constants';
  *
  * Architecture:
  * ┌──────────────────┬─────────────────────────────┐
- * │  ┌────────────┐  │  clients                    │
- * │  │ Placeholder │  │  Col 1      Col 2    Col 3  │
- * │  │ (US embed)  │  │  ...        ...      ...    │
- * │  └────────────┘  │                              │
- * │  Description...   │                              │
+ * │  Description...   │  clients                    │
+ * │                   │  Col 1      Col 2    Col 3  │
+ * │                   │  ...        ...      ...    │
  * ├──────────────────┴─────────────────────────────┤
  * │  SiteNav (blue bar) [globe] [info/close pill]  │
  * └─────────────────────────────────────────────────┘
@@ -168,12 +166,8 @@ export default function InfoPanel({
             {/* Content area — sits above the nav bar, clipped when closed */}
             <div className="info-panel" ref={panelRef}>
                 <div className="info-panel__layout">
-                    {/* Left column: placeholder box + description */}
+                    {/* Left column: description */}
                     <div className="info-panel__left">
-                        {/* Placeholder for Unicorn Studio component */}
-                        <div className="info-panel__embed" aria-label="Unicorn Studio embed placeholder" />
-
-                        {/* Description */}
                         <div className="description">
                             <p className="description__text">
                                 <strong>Small World Media</strong> is a multi-disciplinary creative

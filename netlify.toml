@@ -9,3 +9,16 @@
   to = "/work"
   status = 302
   force = true
+
+# v1 launch: internal prototype + font specimen disabled (same pattern).
+[[redirects]]
+  from = "/lab/globe"
+  to = "/"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/specimen"
+  to = "/"
+  status = 302
+  force = true

@@ -11,6 +11,14 @@
 export const IS_MOBILE =
   typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
+/** URL knob — numeric query-param override for feel passes (?promote=0.05) */
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const raw = new URLSearchParams(window.location.search).get(key);
+  const num = raw === null ? NaN : Number(raw);
+  return Number.isFinite(num) ? num : fallback;
+};
+
 /** Reduced motion: no auto-rotate/inertia, instant power-on, stills only */
 export const PREFERS_REDUCED_MOTION =
   typeof window !== 'undefined' &&
@@ -51,14 +59,23 @@ export const STREAM_PARAMS = IS_MOBILE
   ? 'min_resolution=540p&max_resolution=540p'
   : 'max_resolution=270p';
 
-/* — Live video tier (Stage 2) — */
+/* — Live video tier (Stage 2) —
+   Camera sits at ~3.9R (desktop), so the visible horizon is at score ≈ 0.26;
+   panel half-height ≈ 13° puts a panel's leading edge on the rim at score
+   ≈ 0.03. Promote there so video is already playing as the panel rotates in.
+   Pole-adjacent panels never drop below any low demote threshold (yaw-only
+   ambient spin keeps their score high), so slot fairness comes from
+   MAX_LIVE_DWELL rotation + a re-live cooldown, not from demote alone.
+   Knobs: ?promote ?demote ?dwellmax ?cooldown */
 export const MAX_LIVE = IS_MOBILE ? 4 : 7;     // concurrent video decode budget
 export const GLOBE_PREVIEW_SECONDS = 4;        // abbreviated loop, MediaCard convention
 export const CROSSFADE_SECONDS = 0.6;          // thumbnail ↔ video uMix tween
-export const PROMOTE_SCORE = 0.12;              // facing-camera threshold to go live
-export const DEMOTE_SCORE = 0.2;               // hysteresis — below this, fade back to still
+export const PROMOTE_SCORE = PARAM('promote', 0.03);  // leading edge crests the rim
+export const DEMOTE_SCORE = PARAM('demote', 0.06);    // hysteresis — below this, fade back to still
 export const SWAP_SCORE = -0.25;               // hidden-hemisphere texture cycling threshold
 export const MIN_LIVE_DWELL_SECONDS = 4;       // no promote/demote thrash during drag
+export const MAX_LIVE_DWELL_SECONDS = PARAM('dwellmax', 12); // rotate slots off prominent panels
+export const RELIVE_COOLDOWN_SECONDS = PARAM('cooldown', 6); // keep rotated-off panels from re-winning at once
 
 /* — Interaction — */
 export const AUTO_ROTATE_SPEED = 0.12;   // rad/s ambient drift

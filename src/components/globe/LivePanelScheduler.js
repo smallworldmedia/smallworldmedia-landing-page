@@ -25,6 +25,8 @@ import {
   DEMOTE_SCORE,
   SWAP_SCORE,
   MIN_LIVE_DWELL_SECONDS,
+  MAX_LIVE_DWELL_SECONDS,
+  RELIVE_COOLDOWN_SECONDS,
   CROSSFADE_SECONDS,
 } from './globeConfig.js';
 
@@ -93,10 +95,15 @@ export default class LivePanelScheduler {
       // Reset the per-trip swap latch once the panel comes around front
       if (score > 0) panel.swappedWhileHidden = false;
 
+      // Pole-adjacent panels never fall below the (low) demote threshold, so
+      // a hard max dwell rotates every slot; the cooldown below stops the
+      // same prominent panel from immediately re-winning it. Dwell is
+      // jittered per promote (±25%) so slots filled together don't all
+      // fade in one synchronized wave.
       if (
         panel.liveState === 'live' &&
-        (score < DEMOTE_SCORE || !visible) &&
-        now - panel.liveSince > MIN_LIVE_DWELL_SECONDS
+        (((score < DEMOTE_SCORE || !visible) && now - panel.liveSince > MIN_LIVE_DWELL_SECONDS) ||
+          now - panel.liveSince > (panel.liveMaxDwell ?? MAX_LIVE_DWELL_SECONDS))
       ) {
         this.demote(panel);
       }
@@ -104,7 +111,13 @@ export default class LivePanelScheduler {
 
     // Promote the most prominent eligible on-screen panels into free slots
     const candidates = scored
-      .filter(({ panel, score, visible }) => !panel.liveState && visible && score > PROMOTE_SCORE)
+      .filter(
+        ({ panel, score, visible }) =>
+          !panel.liveState &&
+          visible &&
+          score > PROMOTE_SCORE &&
+          now - (panel.lastLiveEnd ?? -Infinity) > RELIVE_COOLDOWN_SECONDS
+      )
       .sort((a, b) => b.score - a.score);
     for (const { panel } of candidates) {
       const slot = this.slots.indexOf(null);
@@ -153,6 +166,7 @@ export default class LivePanelScheduler {
 
         panel.liveState = 'live';
         panel.liveSince = this.now;
+        panel.liveMaxDwell = MAX_LIVE_DWELL_SECONDS * (0.75 + Math.random() * 0.5);
         gsap.to(uniforms.uMix, {
           value: 1,
           duration: CROSSFADE_SECONDS,
@@ -193,6 +207,7 @@ export default class LivePanelScheduler {
       panel.videoTexture = null;
     }
     panel.liveSlot = null;
+    if (panel.liveState) panel.lastLiveEnd = this.now;
     panel.liveState = null;
   }
 

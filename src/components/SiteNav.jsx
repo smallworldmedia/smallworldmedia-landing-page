@@ -11,18 +11,6 @@
  */
 
 /** Minimal inline glyph icons (Figma uses Simple Design System icons) */
-function FolderIcon() {
-  return (
-    <svg className="site-nav__icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path
-        d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 2h7.5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-9Z"
-        stroke="currentColor"
-        strokeWidth="1.2"
-      />
-    </svg>
-  );
-}
-
 function HeartIcon() {
   return (
     <svg className="site-nav__icon site-nav__icon--sm" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -31,19 +19,6 @@ function HeartIcon() {
         stroke="currentColor"
         strokeWidth="1.2"
       />
-    </svg>
-  );
-}
-
-function EyeIcon() {
-  return (
-    <svg className="site-nav__icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path
-        d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z"
-        stroke="currentColor"
-        strokeWidth="1.2"
-      />
-      <circle cx="10" cy="10" r="2.4" stroke="currentColor" strokeWidth="1.2" />
     </svg>
   );
 }
@@ -94,7 +69,7 @@ export default function SiteNav({
     <nav className="site-nav">
       <div className="site-nav__brand">
         <a href="/" className="site-nav__logo" aria-label="Small World Media home">
-          <img src="/swm-globe.gif" alt="" width="38" height="38" />
+          <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
         </a>
         <button
           className="site-nav__pill"
@@ -130,10 +105,7 @@ export default function SiteNav({
           <HeartIcon />
           follow_us
         </a>
-        <a href="#" className="site-nav__link">
-          <EyeIcon />
-          process
-        </a>
+        {/* process link removed for v1 — the process page is a v2 workstream */}
       </div>
     </nav>
   );
