@@ -372,6 +372,16 @@
   }
 }
 
+@media (max-width: 768px) {
+
+  /* Pager client names were pinned to the desktop mono size (~12.8px) and
+     read too small on phones; give them a real lift beyond the token bump. */
+  .fp-pager__label {
+    font-size: 1.143rem;
+    /* 16px */
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fp-scroller {
     scroll-behavior: auto;

@@ -68,7 +68,10 @@ export default function SiteNav({
   const startRef = useRef(null);
   const followRef = useRef(null);
   const envTlRef = useRef(null);
-  // Portal target for the fixed follow pill — client-only (island is SSR'd)
+  const menuRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Portal target for the fixed follow pill + mobile menu — client-only
+  // (island is SSR'd)
   const [shellEl, setShellEl] = useState(null);
   useEffect(() => {
     setShellEl(document.querySelector('.site-shell'));
@@ -77,10 +80,57 @@ export default function SiteNav({
   const handleStartProject = (e) => {
     if (onStartProject) {
       e.preventDefault();
+      setMenuOpen(false);
       onStartProject();
     }
     // Otherwise let the <a href="/"> navigate normally
   };
+
+  // ── Mobile menu (≤768px full-screen takeover) — fade + item stagger ──
+  useEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return undefined;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (menuOpen) {
+      if (reducedMotion) {
+        gsap.set(menu, { autoAlpha: 1 });
+        gsap.set(menu.querySelectorAll('.mobile-menu__item'), { clearProps: 'all' });
+      } else {
+        const tl = gsap.timeline();
+        tl.fromTo(menu, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: 'power2.out', overwrite: true });
+        tl.fromTo(
+          menu.querySelectorAll('.mobile-menu__item'),
+          { y: 26, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.45, stagger: 0.07, ease: 'power3.out' },
+          0.08
+        );
+      }
+    } else {
+      gsap.to(menu, {
+        autoAlpha: 0,
+        duration: reducedMotion ? 0 : 0.25,
+        ease: 'power2.inOut',
+        overwrite: true,
+      });
+    }
+    return undefined;
+  }, [menuOpen, shellEl]);
+
+  // Escape closes; any route swap closes (navigation from a menu item).
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    const onSwap = () => setMenuOpen(false);
+    window.addEventListener('keydown', onKeyDown);
+    document.addEventListener('astro:after-swap', onSwap);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('astro:after-swap', onSwap);
+    };
+  }, [menuOpen]);
 
   const handleInfoClick = (e) => {
     if (onInfoToggle) {
@@ -216,6 +266,18 @@ export default function SiteNav({
             start_project
           </button>
         </div>
+
+        {/* Mobile: links collapse into a full-screen menu (≤768px, CSS-gated) */}
+        <button
+          type="button"
+          className="site-nav__pill site-nav__menu-pill"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? 'close' : 'menu'}
+          {menuOpen ? <CloseIcon /> : <EjectIcon />}
+        </button>
       </div>
 
       {shellEl &&
@@ -230,6 +292,52 @@ export default function SiteNav({
             <HeartIcon />
             follow_us
           </a>,
+          shellEl
+        )}
+
+      {/* Mobile menu panel — portaled to the shell (the drawer's translateY
+          would capture a fixed box); brand black takeover, its own top row
+          mirrors the nav geometry so close sits where menu was */}
+      {shellEl &&
+        createPortal(
+          <div
+            className="mobile-menu"
+            ref={menuRef}
+            data-open={menuOpen}
+            aria-hidden={!menuOpen}
+          >
+            <div className="mobile-menu__bar">
+              <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
+              <button
+                type="button"
+                className="site-nav__pill mobile-menu__close"
+                onClick={() => setMenuOpen(false)}
+              >
+                close
+                <CloseIcon />
+              </button>
+            </div>
+            <nav className="mobile-menu__items" aria-label="Site menu">
+              <a href="/" className="mobile-menu__item" onClick={handleStartProject}>
+                <span className="site-nav__glyph">↳</span>
+                start_project
+              </a>
+              <a href="/work" className="mobile-menu__item">
+                <span className="site-nav__glyph">⁕</span>
+                featured_projects
+              </a>
+              <a
+                href="https://instagram.com/smallworldmedia"
+                className="mobile-menu__item"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuOpen(false)}
+              >
+                <HeartIcon />
+                follow_us
+              </a>
+            </nav>
+          </div>,
           shellEl
         )}
     </nav>

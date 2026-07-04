@@ -422,6 +422,72 @@ body.route-home .site-nav__links {
   bottom: 0.571rem;
 }
 
+/* ── Mobile menu (≤768px full-screen takeover) ──
+   The menu pill replaces the collapsed links row; the panel is portaled to
+   the shell (brand-black takeover) with its own top row mirroring the nav
+   geometry, so `close` sits where `menu` was. GSAP drives the fade +
+   item stagger; data-open gates pointer events. */
+.site-nav__menu-pill {
+  display: none;
+}
+
+.mobile-menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-black);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.mobile-menu[data-open="true"] {
+  pointer-events: auto;
+}
+
+.mobile-menu__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 2.929rem;
+  padding: 0.214rem 1.143rem;
+  padding-right: calc(1.143rem + var(--space-4));
+}
+
+.mobile-menu__bar img {
+  width: 2.714rem;
+  height: 2.714rem;
+}
+
+/* Close pill keeps the standard blue pill skin — it pops on the black
+   panel and matches the nav's pill language (black on route-home). */
+
+.mobile-menu__items {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(1.143rem, 4vh, 2.286rem);
+  padding: 0 1.143rem;
+  margin: auto 0;
+}
+
+.mobile-menu__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.571rem;
+  font-family: var(--font-headline);
+  font-size: clamp(2.286rem, 9vw, 3.429rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+}
+
+.mobile-menu__item .site-nav__icon {
+  width: 0.9em;
+  height: 0.9em;
+}
+
 .site-nav__link {
   display: inline-flex;
   align-items: center;
@@ -1291,9 +1357,27 @@ button.cta {
 
 @media (max-width: 768px) {
 
+  /* Type tokens — the fixed 14px root keeps rem sizes constant across
+     breakpoints, so the smallest tokens need a lift on phones. */
+  :root {
+    --text-mono: 1rem;
+    /* 14px (12.8 desktop) */
+    --lh-mono: 1.286rem;
+    /* 18px */
+  }
+
   .site-nav__links {
     display: none;
-    /* mobile nav component TBD — pill + logo only for now */
+    /* links collapse into the full-screen mobile menu */
+  }
+
+  .site-nav__menu-pill {
+    display: inline-flex;
+  }
+
+  /* start_project reaches mobile through the menu, not the home pill */
+  .site-nav__start-slot {
+    display: none;
   }
 
   html,
