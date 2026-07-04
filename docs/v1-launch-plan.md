@@ -20,29 +20,30 @@ Full implementation notes in the session plan; this is the tracking list. Order:
 
 | # | Item | Status | Notes |
 |---|---|---|---|
-| F1 | Info panel restyle | ☐ | Cream → brand black, white text; remove client-name click affordance (they're spans, not links); delete Unicorn Studio embed placeholder box. |
-| F2 | Remove `process` nav link | ☐ | Dead `href="#"` in SiteNav. Process page = v2 workstream, planned separately on its own branch. |
-| F3 | Home footer tagline | ☐ | "Visual Worlds for the Music Industry", white, `--font-body`, in place of the footer globe mark — home only. |
-| F4 | Disable `/lab/globe` + `/specimen` | ☐ | Same redirect pattern as `/work/directory`. |
-| F5 | Static SVG nav globe | ☐ | `SWM-globe_white.svg` replaces the 1.1MB gif in nav + inquiry overlay; delete gif copies. |
-| F6 | Globe video cue tuning | ☐ | `PROMOTE_SCORE` 0.12 too late; lower rows (40° pitch) never cross it. Earlier promote + fairness check. |
-| F7 | Progressive scroll-to-enter | ☐ | Globe scale + RouteFill blue track the scroll accumulator pre-threshold (mirror /work pager resistance); solid fill exactly at navigate. |
-| F8 | Home nav pills + envelopment nav choreography | ☐ | `start_project` pill top-right, `follow_us` pill bottom-right on home; pills exit / navbar items slide in on commit. |
-| F9 | Inquiry overlay pass | ☐ | Clip-wipe → opacity fade; strip inert GSAP Flip; persistent top-left globe (no blink on close); Netlify Forms parity + real submission test. |
-| F10 | Mobile menu | ☐ | Full-screen takeover off a `menu` pill at ≤768px (links currently just `display:none`). |
-| F11 | Type-token breakpoint pass | ☐ | No responsive token overrides exist; `.fp-pager__label` (client names) ~12.8px at mobile. Pairs with F10. |
-| F12 | SEO/social baseline | ☐ | **Launch blocker.** OG/Twitter tags, og:image (1200×630), homepage title/description props, canonical, `@astrojs/sitemap`, robots.txt, theme-color. |
-| F13 | 404 page | ☐ | `src/pages/404.astro`, brand-styled. |
-| F14 | Privacy page | ☐ | Replaces cookie pop-up — site sets zero cookies, no consent banner legally required. Covers form-data usage; footer link. |
-| F15 | Pageview analytics | ☐ | Cookieless only (Netlify Analytics or Plausible) — keeps F14 true. Dashboard/one-script; decide at deploy. |
-| F16 | Hygiene | ☐ | Skip link, font preload, `.env.example`, focus-visible pass on new chrome. |
+| F1 | Info panel restyle | ✅ `8fe42e8` | Brand black, white text, client-name affordance removed, embed placeholder deleted. |
+| F2 | Remove `process` nav link | ✅ `8fe42e8` | Removed. Process page = v2 workstream, planned separately on its own branch. |
+| F3 | Home footer tagline | ✅ `8fe42e8` | `SiteFooter tagline` prop; white `--font-body`, home only. |
+| F4 | Disable `/lab/globe` + `/specimen` | ✅ `8fe42e8` | Astro.redirect + forced Netlify 302, `/work/directory` pattern. |
+| F5 | Static SVG nav globe | ✅ `8fe42e8` | `SWM-globe_white.svg` in nav + overlay; both gif copies deleted (−1.1MB). |
+| F6 | Globe video cue tuning | ✅ `8fe42e8` | Promote at the rim (0.03) not near-center (0.12); jittered max-dwell rotation + re-live cooldown ends pole-panel slot monopoly. Knobs `?promote ?demote ?dwellmax ?cooldown`. |
+| F7 | Progressive scroll-to-enter | ✅ `f99be98` | Globe lean (`?envlean`) + RouteFill pre-cover (`?envpre`, f² curve) ride the accumulator; rubber-band release; commit continues from the drag. New `swm:fill-progress` channel. |
+| F8 | Home nav pills + envelopment nav choreography | ✅ `f99be98` | Pills per spec (follow_us portaled to the shell); exit + link-stagger on envelop; reverse on back-nav; steady states via `body.route-home` CSS. |
+| F9 | Inquiry overlay pass | ✅ `f99be98` | Fade both ways; Flip stripped; globe mark persistent; Escape closes; wheel-under-overlay guard; hidden-form field parity (subject/replyto). **Real submission test on a deploy preview still owed.** |
+| F10 | Mobile menu | ✅ `68d9a35` | Full-screen brand-black takeover off a `menu` pill at ≤768px; start_project routes through the overlay. |
+| F11 | Type-token breakpoint pass | ✅ `68d9a35` | `--text-mono` 12.8→14px at ≤768px; `.fp-pager__label` lifted to 16px. |
+| F12 | SEO/social baseline | ✅ `9277e27` | OG/Twitter + canonical + theme-color sitewide; brand og-image; homepage title/description; `@astrojs/sitemap` (redirect stubs + /studio filtered); robots.txt. |
+| F13 | 404 page | ✅ `9277e27` | Brand gradient, return_home primary CTA. |
+| F14 | Privacy page | ✅ `9277e27` | `/privacy` plain-language notice; linked from the footer copy line. |
+| F15 | Pageview analytics | ☐ | Cookieless only (Netlify Analytics or Plausible) — keeps F14 true. Dashboard toggle / one script; **decide at deploy** (no code in repo yet). |
+| F16 | Hygiene | ✅ `9277e27` | Skip link + `#main`, brand-font preloads (hashed via `?url` imports), `.env.example`. Focus-visible sweep rides ws6. |
+| F17 | World-side deck/album mounts | ✅ `c9f15f3` | Pulled into v1 (was a cut): shared `bandLayout` geometry brain (ADR-0003) + `worldBands` WebGL consumer — display-only stacks among the Tiles, idle-cycling on the Turn curve; placeholder card badges removed. Knobs `?bands ?bandh ?bandcycle ?bandpages`. |
 
 Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sessionStorage only; revisit only if cookie-based tracking lands).
 
 ## v1 cuts (deliberate)
 
 - **`/work/directory` disabled** (committed `adc06ab`): route redirects to `/work` (Astro meta-refresh + forced Netlify 302), nav link removed, World paging clamps at the last World. Re-enable notes live in `directory.astro`.
-- World-side composite mounts (orbit/deck in the World) — deferred, ADR-0003 keeps them cheap.
+- ~~World-side composite mounts (orbit/deck in the World)~~ — **un-cut 2026-07-03**, shipped as F17 (`c9f15f3`).
 - Carousel component, BTS section, NextProjectCard, directory dual-feeds — unchanged/deferred.
 - Full year-field retirement (`mediaAsset.year` behind `coalesce`, 716 docs) — only the 5 featured projects are launch-relevant.
 
