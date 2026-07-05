@@ -384,10 +384,67 @@ roughly in half and sharpens 2× desktops. Mux posters can request
   with default `startLevel`, `useHls.js:108–113`) — on fast connections
   hls.js's estimator may start high and mask it. Measure on the ws6 device
   pass before investing in §5.2 option 3.
-- The uncommitted `BandPager.jsx` working-tree change (dealer-deck width cap)
+- The dealer-deck width-cap change (landed as `0cb7823` while this audit ran)
   was not audited; recommendations don't account for it.
 - `linear()` easing support is baseline-2023; the cubic-bezier fallback keeps
   older Safari correct but won't carry the exact house settle there.
 - Recommendations deliberately respect standing decisions: no idle animation
   on primary CTAs, no overshoot, no `scrollbar-gutter`, serialized startups,
   `/work` owns its wheel physics (Lenis stays off there).
+
+---
+
+## 8. Recommended next steps
+
+The sequencing question is really "what belongs inside the v1 launch vs.
+after it." The launch gate (ws6 → PR → `main`) should stay the priority;
+audit work slots around it in three tranches:
+
+### Now, on `feature/v1-launch`, before the device pass
+
+1. **Finish the deck tuning pass** — it was the declared active priority
+   (`24f21a1` commit message) and is mid-flight; don't let audit work
+   preempt it.
+2. **Land P0 as one small commit** (§6 items 1–3): define
+   `--tracking-tight`/`--lh-body`, hoist `--color-near-black` to `:root`,
+   fix the three font-stack-as-size slots, add `::selection`, delete
+   `InfoPill`/`CtaButton`/`.fp-more`/duplicate `.sr-only`. These are bug
+   fixes, not scope — ~30–60 min, and the tracking-token fix subtly
+   improves type sitewide. Eyeball the type surfaces after, since tight
+   tracking will *newly apply* where it silently never did.
+3. **Add `capLevelToPlayerSize: true` to the detail slots** (P3 item 13,
+   one line) so the ws6 device pass validates it for free.
+
+### During ws6 (the launch gate, unchanged in scope)
+
+4. Run the planned real-device pass — and while instrumented, answer the
+   two audit questions that need hardware: does the detail hero band
+   visibly quality-pop, and how many concurrent decoders does Bedouin
+   actually spin up. Those measurements decide how much of §5 is v1.1
+   vs. v2.
+5. Focus-visible sweep rides ws6 as already planned (F16) — use the §3.3
+   recipe so it's mechanical.
+6. Unchanged launch items: F9 real-submission test on the deploy preview,
+   F15 analytics decision at deploy, ws3 content pass in parallel.
+
+### Post-launch (v1.1 fast-follow, roughly a week of evenings)
+
+7. **File §6 as GitHub issues** (the repo's tracker per
+   `docs/agents/issue-tracker.md`), one issue per roadmap line, labeled
+   `ready-for-agent` where mechanical (P1 items 4–8) and
+   `ready-for-human` where they're design calls (arrival choreography,
+   hover-language decisions). The audit doc stays the reference; issues
+   carry the work.
+8. **P1 token consolidation first** (motion scale, `.chip` primitive,
+   `params.js`, woff2/Inter) — it makes every subsequent P2 change
+   smaller.
+9. **Then the flagship P2 win: detail-page arrival choreography** (§3.1),
+   plus RM for the chrome trio and the hover/case sweeps.
+10. **P3 video work last, measurement-gated**: pinned poster-hold for the
+    hero band + np-band and the `srcset` helper are safe wins; build the
+    detail-page decode scheduler only if the ws6 numbers say Bedouin
+    needs it.
+
+The one thing *not* to do: start the P1/P2 refactors on the launch branch
+now. Token consolidation touches every stylesheet — exactly the wrong
+churn while the branch is trying to converge on a PR to `main`.
