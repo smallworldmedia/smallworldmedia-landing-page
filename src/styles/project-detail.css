@@ -579,6 +579,164 @@ a.release-chip--link:hover {
    renders the --nofill variant). */
 
 /* ============================================
+   NEXT-PROJECT BAND — continuation card
+   (NextProjectBand.jsx; Figma "next project card"
+   states 15:385/401/417 @ 1800w canvas)
+
+   CSS holds the END composition: text at the left
+   gutter, media window at its full 4:3 size with its
+   right edge pinned. The engine translates text right
+   and clips the window back to compose the rest state
+   — so the no-JS / reduced-motion paint is the
+   readable intermediate composition, a plain link.
+   ============================================ */
+.np-band {
+  display: block;
+  position: relative;
+  width: 100%;
+  /* 503/1800 canvas */
+  height: clamp(320px, 27.94vw, 60vh);
+  background: var(--color-black);
+  color: var(--color-white);
+  text-decoration: none;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.np-band__text {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.np-band__label-wrap {
+  display: block;
+}
+
+.np-band__label {
+  font-family: var(--font-body);
+  /* 24px @ 1800w */
+  font-size: clamp(1rem, 1.333vw, 1.714rem);
+  line-height: 0.92;
+  letter-spacing: -0.005em;
+}
+
+.np-band__rule {
+  display: block;
+  width: 100%;
+  height: 1px;
+  margin: var(--space-4) 0;
+  background: var(--color-white);
+  transform-origin: left center;
+  transition: background 0.12s ease-out;
+}
+
+.np-band__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-semi);
+  /* 96px @ 1800w, client-panel title family */
+  font-size: clamp(2.2rem, 5.333vw, 6.857rem);
+  line-height: 0.78;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 0.12s ease-out;
+}
+
+.np-band__tags {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  white-space: nowrap;
+}
+
+/* The pinned-blue moment: threshold crossed, held through the passage. */
+.np-band.is-pinned .np-band__title {
+  color: var(--color-electric-blue);
+}
+
+.np-band.is-pinned .np-band__rule {
+  background: var(--color-electric-blue);
+}
+
+/* Media window — right edge pinned, height locked, sized by the COMPONENT
+   (4:3 landscape at full open), never by the asset: whatever populates it
+   (16:9, 3:4, 9:16) best-fits via object-fit. The scroll pulls the window
+   open leftward — a clip reveal, compositor-only, no scaling. */
+.np-band__media {
+  position: absolute;
+  right: var(--space-4);
+  /* 49/503, 446/503 canvas */
+  top: 9.74%;
+  height: 88.67%;
+  aspect-ratio: 4 / 3;
+  z-index: 2;
+  overflow: hidden;
+  /* rest reveal: 57% of the full window */
+  clip-path: inset(0% 0% 0% 43%);
+}
+
+/* Zoom target for the commit passage only (push INTO the next world's
+   media as the blue covers); rests untransformed. */
+.np-band__media-inner {
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+}
+
+.np-band__media-el {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: var(--color-near-black);
+}
+
+/* ── Stacked mobile band: text block above, media full-width below.
+   Same physics — the engine zeroes the text shifts; the media reveal,
+   pre-cover, and commit passage carry the gesture. ── */
+@media (max-width: 768px) {
+  .np-band {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 1.143rem 0 0;
+  }
+
+  .np-band__text {
+    position: static;
+    transform: none;
+    padding: 0 var(--space-4);
+  }
+
+  .np-band__title {
+    font-size: clamp(2rem, 9vw, 3.5rem);
+    white-space: normal;
+  }
+
+  .np-band__tags {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .np-band__media {
+    position: static;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    margin-top: 0.857rem;
+  }
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 

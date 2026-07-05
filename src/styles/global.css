@@ -940,15 +940,8 @@ body.route-home .site-nav__links {
   background: transparent;
 }
 
-.site-footer__globe {
-  width: 3.071rem;
-  /* 43px */
-  height: 2.929rem;
-  /* 41px */
-}
-
-/* Tagline variant — replaces the globe mark (home hero). Body face by
-   design call: not the condensed display. */
+/* Studio tagline — the canonical footer line site-wide (globe-mark variant
+   retired). Body face by design call: not the condensed display. */
 .site-footer__tagline {
   font-family: var(--font-body);
   font-size: var(--text-secondary);

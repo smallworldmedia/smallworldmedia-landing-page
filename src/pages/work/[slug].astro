@@ -23,22 +23,42 @@ export async function getStaticPaths() {
 
   // One path per collection; sourceFolder is the grouping key.
   // Dedupe defensively in case a collection ever carries two heroes.
+  // Row order == the /work World order (orderRank in the query), so
+  // adjacency defines the next-project chain, wrapping last → first.
   const seen = new Set();
-  return heroes
+  const rows = heroes
     .filter((h) => h.sourceFolder && h.collection && h.clientSlug)
-    .filter((h) => !seen.has(h.sourceFolder) && seen.add(h.sourceFolder))
-    .map((h) => ({
+    .filter((h) => !seen.has(h.sourceFolder) && seen.add(h.sourceFolder));
+
+  return rows.map((h, i) => {
+    const nextIndex = (i + 1) % rows.length;
+    const n = rows[nextIndex];
+    return {
       params: { slug: toProjectSlug(h.clientSlug, h.collection) },
       props: {
         sourceFolder: h.sourceFolder,
         collection: h.collection,
         clientName: h.clientName,
+        // NextProjectBand card — omitted when this is the only project
+        // (a band pointing at the page it's on would be noise).
+        nextProject:
+          rows.length > 1
+            ? {
+                slug: toProjectSlug(n.clientSlug, n.collection),
+                clientName: n.clientName,
+                title: n.title ?? n.collection,
+                services: n.services ?? [],
+                hero: n.hero ?? null,
+                index: nextIndex,
+              }
+            : null,
       },
-    }));
+    };
+  });
 }
 
 const { slug } = Astro.params;
-const { sourceFolder, collection, clientName } = Astro.props;
+const { sourceFolder, collection, clientName, nextProject } = Astro.props;
 
 const { assets, client, project } = await sanityFetch(
   FEATURED_PROJECT_DETAIL_QUERY,
@@ -64,5 +84,6 @@ const description =
     client={client}
     project={project}
     collection={collection}
+    nextProject={nextProject}
   />
 </BaseLayout>

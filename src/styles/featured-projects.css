@@ -380,6 +380,23 @@
     font-size: 1.143rem;
     /* 16px */
   }
+
+  /* PROJECT_## tab collides with the left pager rail on phones — the pager
+     already carries the index; drop the chip. */
+  .fp-card__tab {
+    display: none;
+  }
+
+  /* Central text area: narrower container (clears the pager rail), with the
+     client name lifted back up — the desktop clamp scaled it away on phones. */
+  .fp-card {
+    max-width: 76vw;
+    min-width: 0;
+  }
+
+  .fp-card__client {
+    font-size: clamp(3rem, 11.5vw, 4.75rem);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

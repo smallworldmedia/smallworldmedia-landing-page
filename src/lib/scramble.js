@@ -13,11 +13,22 @@ gsap.registerPlugin(ScrambleTextPlugin);
 /** Dancing-symbol set for scramble reveals. */
 export const SCRAMBLE_CHARS = '01<>[]{}/\\|=+*#%░▒▓█—';
 
+/* House scramble pace — deliberately unhurried, the cadence of a terminal
+   working-indicator (per Nathan: the Claude Code ascii shimmer): characters
+   cycle at a readable rate and the reveal takes its time. One token pair,
+   consumed by every scramble site-wide (scrambleTo + WorldCard's tab). */
+export const SCRAMBLE_DURATION = 1.4; // s, full reveal
+export const SCRAMBLE_SPEED = 0.25; // char refresh rate (gsap scrambleText)
+
 /**
  * Scramble `el`'s text to `text` in place. Returns the tween (or null
  * under reduced motion, where the text just snaps).
  */
-export function scrambleTo(el, text, { duration = 0.5, speed = 0.8 } = {}) {
+export function scrambleTo(
+  el,
+  text,
+  { duration = SCRAMBLE_DURATION, speed = SCRAMBLE_SPEED } = {}
+) {
   if (
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches

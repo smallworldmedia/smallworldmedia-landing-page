@@ -23,10 +23,12 @@
  * @param {Object}        props.client    - client document
  * @param {Object|null}   props.project   - optional project doc (editorial copy)
  * @param {string}        props.collection - curated collection name (sourceManifest)
+ * @param {Object|null}   props.nextProject - next-in-chain card data (NextProjectBand)
  */
 import { useEffect } from 'react';
 import ClientPanel from './ClientPanel.jsx';
 import MediaSlot from './MediaSlot.jsx';
+import NextProjectBand from './NextProjectBand.jsx';
 import SiteFooter from '../../SiteFooter.jsx';
 import GridSocket from './GridSocket.jsx';
 import BrandDeckViewer from './BrandDeckViewer.jsx';
@@ -45,7 +47,7 @@ const DECK_REGION_ROWS = 34;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: DECK_REGION_ROWS, anchor: 'top' };
 
 
-export default function FeaturedProjectDetail({ assets, client, project, collection }) {
+export default function FeaturedProjectDetail({ assets, client, project, collection, nextProject }) {
   // Release the Envelopment fill if this arrival came through the
   // enter_world bridge (ADR-0002). No-op on direct loads.
   useEffect(() => {
@@ -209,6 +211,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           </div>
         )}
       </main>
+
+      {/* Continuation: the next project's card + the resistance gesture
+          that carries the user into it (chain wraps last → first). */}
+      {nextProject && <NextProjectBand next={nextProject} />}
 
       <SiteFooter />
     </div>

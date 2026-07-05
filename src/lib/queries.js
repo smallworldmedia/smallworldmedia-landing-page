@@ -87,14 +87,31 @@ export const FEATURED_PROJECTS_QUERY = `
  * Driven by project docs with isFeatured == true; sourceFolder is resolved
  * from the first asset in the collection. No isHero flags needed —
  * first-in-order IS the hero.
- * Used by /work/[slug] getStaticPaths to enumerate detail pages.
+ *
+ * Ordered identically to FEATURED_WORLDS_QUERY (orderRank, client-name
+ * tiebreak) so the row order IS the /work World order — /work/[slug]
+ * getStaticPaths derives each page's next-project chain (NextProjectBand)
+ * from adjacency in this list, wrapping last → first.
+ *
+ * title/services/hero feed the band's populated card: the next project's
+ * display copy, tag chips, and first-order media asset.
  */
 export const FEATURED_PROJECT_PATHS_QUERY = `
-  *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))] {
+  *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))]
+    | order(orderRank asc, client->name asc) {
+    title,
     "sourceFolder": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceFolder,
     "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
     "clientName": client->name,
-    "clientSlug": client->slug.current
+    "clientSlug": client->slug.current,
+    "services": services[]->{ name, "slug": slug.current },
+    "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
+      | order(orderRank asc) [0] {
+      "imageUrl": image.asset->url,
+      "imageDimensions": image.asset->metadata.dimensions,
+      "playbackId": video.asset->playbackId,
+      "videoAspectRatio": video.asset->data.aspect_ratio
+    }
   }
 `;
 

@@ -35,8 +35,8 @@ import {
   PREFERS_REDUCED_MOTION,
 } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
-// Dancing-symbol set for the PROJECT_## scramble reveal (chrome kit).
-import { SCRAMBLE_CHARS } from '../../lib/scramble.js';
+// House scramble tokens for the PROJECT_## reveal (chrome kit).
+import { SCRAMBLE_CHARS, SCRAMBLE_DURATION, SCRAMBLE_SPEED } from '../../lib/scramble.js';
 
 gsap.registerPlugin(useGSAP, SplitText, ScrambleTextPlugin, CustomEase);
 
@@ -137,12 +137,12 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         .to(
           tab,
           {
-            duration: 0.7,
+            duration: SCRAMBLE_DURATION,
             ease: 'none',
             scrambleText: {
               text: `PROJECT_${pad2(index)}`,
               chars: SCRAMBLE_CHARS,
-              speed: 0.7,
+              speed: SCRAMBLE_SPEED,
               revealDelay: 0.1,
             },
           },
