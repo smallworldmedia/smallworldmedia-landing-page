@@ -19,7 +19,8 @@
  * the band is in-viewport and the document visible. Reduced motion: no
  * idle cycle, instant page swaps, drag still works.
  *
- * Live tuning: ?deckangle ?deckfan ?deckcycle ?deckshift
+ * Live tuning: ?deckangle ?deckfan ?deckfany ?deckexitx ?deckexity
+ * ?deckcycle ?deckshift ?deckshifty
  *
  * @param {Object} props
  * @param {Array<Object>} props.items    - assets, one per page
@@ -37,7 +38,14 @@ import {
   TURN_DURATION,
   TURN_EASE_PATH,
 } from '../world/worldConfig.js';
-import { bandPose, BAND_ANGLE, FAN_X } from '../bandLayout.js';
+import {
+  bandPose,
+  BAND_ANGLE,
+  FAN_X,
+  FAN_Y,
+  EXIT_X,
+  EXIT_Y,
+} from '../bandLayout.js';
 import { IMG_FORMAT } from '../imageConfig.js';
 
 gsap.registerPlugin(CustomEase);
@@ -51,7 +59,8 @@ const FLICK_V = 0.9; // pages/s — release velocity that counts as a flick
 const DRAG_WINDOW_MS = 100; // velocity estimate looks back this far
 
 /* Stack geometry lives in bandLayout.js (shared with the World mount) */
-const STACK_SHIFT = 0.05; // × stage width, stack sits right of center
+const STACK_SHIFT = 0.09; // × stage width, source stack rides right (top-right)
+const STACK_LIFT = -0.05; // × stage height, composition rides high
 
 /* Idle cycle — rest dwell before the next auto-advance (?deckcycle) */
 const CYCLE_S = 2.6;
@@ -74,7 +83,15 @@ export default function BandPager({
   const stageRef = useRef(null);
   const pageEls = useRef([]);
   const metricsRef = useRef(metrics);
-  const tuning = useRef({ angle: BAND_ANGLE, fan: FAN_X, shift: STACK_SHIFT });
+  const tuning = useRef({
+    angle: BAND_ANGLE,
+    fan: FAN_X,
+    fanY: FAN_Y,
+    exitX: EXIT_X,
+    exitY: EXIT_Y,
+    shift: STACK_SHIFT,
+    lift: STACK_LIFT,
+  });
   const reducedMotion = useRef(false);
 
   const phaseRef = useRef(0);
@@ -84,16 +101,17 @@ export default function BandPager({
   const paint = useCallback(() => {
     const phase = phaseRef.current;
     const { pageW } = metricsRef.current;
-    const { angle, fan, shift } = tuning.current;
+    const { angle, fan, fanY, exitX, exitY, shift, lift } = tuning.current;
     const stage = stageRef.current;
     const shiftPx = stage ? stage.clientWidth * shift : 0;
+    const liftPx = stage ? stage.clientHeight * lift : 0;
     const els = pageEls.current;
 
     for (let i = 0; i < els.length; i++) {
       const el = els[i];
       if (!el) continue;
 
-      const pose = bandPose(i, phase, pageW, { fan });
+      const pose = bandPose(i, phase, pageW, { fan, fanY, exitX, exitY });
       if (pose.hidden) {
         el.style.visibility = 'hidden';
         continue;
@@ -102,7 +120,7 @@ export default function BandPager({
       el.style.visibility = 'visible';
       el.style.filter = `brightness(${pose.brightness.toFixed(3)})`;
       el.style.opacity = '1';
-      el.style.transform = `translate3d(${(pose.x + shiftPx).toFixed(2)}px, 0, ${pose.z.toFixed(2)}px) rotateY(${angle}deg)`;
+      el.style.transform = `translate3d(${(pose.x + shiftPx).toFixed(2)}px, ${(pose.y + liftPx).toFixed(2)}px, ${pose.z.toFixed(2)}px) rotateY(${angle}deg)`;
     }
   }, []);
 
@@ -123,7 +141,11 @@ export default function BandPager({
     tuning.current = {
       angle: qNum('deckangle', BAND_ANGLE),
       fan: qNum('deckfan', FAN_X),
+      fanY: qNum('deckfany', FAN_Y),
+      exitX: qNum('deckexitx', EXIT_X),
+      exitY: qNum('deckexity', EXIT_Y),
       shift: qNum('deckshift', STACK_SHIFT),
+      lift: qNum('deckshifty', STACK_LIFT),
     };
     const cycleS = qNum('deckcycle', CYCLE_S);
     const cycling =

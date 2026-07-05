@@ -343,8 +343,10 @@ html:has(.project-detail) body {
    ============================================ */
 .band-pager {
   /* Vertical-only overhang: the band floats past its reserved region
-     into the blurb whitespace above / tile rows below (bounded). */
-  --band-overhang: 28px;
+     into the blurb whitespace above / tile rows below (bounded). Sized
+     for the dealer composition's upward travel (exit + arc + pile creep,
+     bandLayout.js). */
+  --band-overhang: 44px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -620,11 +622,13 @@ a.release-chip--link:hover {
 }
 
 .np-band__label {
-  font-family: var(--font-body);
+  /* Mono, like every scrambling label site-wide — fixed advance width is
+     what keeps the house scramble reading clean (no reflow while cycling). */
+  font-family: var(--font-mono);
   /* 24px @ 1800w */
   font-size: clamp(1rem, 1.333vw, 1.714rem);
   line-height: 0.92;
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-tight);
 }
 
 .np-band__rule {

@@ -18,7 +18,20 @@
  */
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { bandPose, BAND_ANGLE, FAN_X, FAN_Z, EXIT_Z, REF_PAGE_W } from '../bandLayout.js';
+import {
+  bandPose,
+  BAND_ANGLE,
+  FAN_X,
+  FAN_Y,
+  FAN_Z,
+  EXIT_Y,
+  EXIT_Z,
+  ARC_LIFT,
+  PARK_DX,
+  PARK_DY,
+  PARK_DZ,
+  REF_PAGE_W,
+} from '../bandLayout.js';
 import {
   BAND_HEIGHT,
   BAND_CYCLE_S,
@@ -56,8 +69,19 @@ export function createWorldBand({ items, ratio, placement, parent, loader, ease 
   const pageW = ratio >= 1 ? BAND_HEIGHT : BAND_HEIGHT * ratio;
   const pageH = ratio >= 1 ? BAND_HEIGHT / ratio : BAND_HEIGHT;
   // px-tuned stack distances → world units, proportional to page width.
+  // (exitX is a pageW fraction — unitless, bandPose default applies.)
   const unit = pageW / REF_PAGE_W;
-  const dist = { fan: FAN_X * unit, fanZ: FAN_Z * unit, exitZ: EXIT_Z * unit };
+  const dist = {
+    fan: FAN_X * unit,
+    fanY: FAN_Y * unit,
+    fanZ: FAN_Z * unit,
+    exitY: EXIT_Y * unit,
+    exitZ: EXIT_Z * unit,
+    arc: ARC_LIFT * unit,
+    parkX: PARK_DX * unit,
+    parkY: PARK_DY * unit,
+    parkZ: PARK_DZ * unit,
+  };
 
   const group = new THREE.Group();
   group.position.set(placement.x, placement.y, placement.z);
@@ -73,8 +97,9 @@ export function createWorldBand({ items, ratio, placement, parent, loader, ease 
     });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(pageW, pageH), material);
     mesh.rotation.y = BAND_ANGLE * DEG2RAD;
-    // Stagger renderOrder so the fan overlaps draw front-to-back correctly
-    // despite transparent materials (same-depth-ish planes).
+    // renderOrder is set per frame from pose depth (paint) — the dealer
+    // model reorders cards live: dealt cards ride over the front page and
+    // land newest-on-top in the pile.
     mesh.renderOrder = pages.length - i;
     group.add(mesh);
     brightness[i] = 1;
@@ -121,7 +146,11 @@ export function createWorldBand({ items, ratio, placement, parent, loader, ease 
       const visible = !pose.hidden && loaded && opacity > 0.01;
       mesh.visible = visible;
       if (!visible) continue;
-      mesh.position.set(pose.x, 0, pose.z);
+      // bandPose y is screen-positive-down (DOM convention) — flip for world.
+      mesh.position.set(pose.x, -pose.y, pose.z);
+      // Transparent planes draw in z order (matches CSS preserve-3d): dealt
+      // cards over the front page, pile newest-on-top.
+      mesh.renderOrder = 100 + Math.round((pose.z / unit) * 10);
       // Depth = darkening (never transparency): brightness scales the map.
       if (brightness[i] !== pose.brightness) {
         brightness[i] = pose.brightness;

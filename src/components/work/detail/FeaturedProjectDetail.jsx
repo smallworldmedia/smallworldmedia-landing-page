@@ -10,9 +10,10 @@
  *   3. Project blurb — overview copy + client/date fields + ServiceTags
  *   4. Dense grid — remaining showcase assets in a flush 3-col grid,
  *      flowing around Grid Socket reserved regions (flushGrid.js) that
- *      float the composite occupants: AlbumArtOrbit (2-col, top anchor)
- *      and BrandDeckViewer (full-width; top when alone, mid when an
- *      orbit outranks it) — docs/orbit-deck-viewer-spec.md.
+ *      float the composite occupants: AlbumArtViewer (full-width, top
+ *      anchor) and BrandDeckViewer (right two-thirds — tiles flow beside
+ *      its dealer composition; top when alone, mid when an orbit outranks
+ *      it) — docs/orbit-deck-viewer-spec.md.
  *   5. SiteFooter
  *
  * SiteNav, info drawer, and project overlay are handled by the
@@ -39,10 +40,13 @@ import { computeFlushGrid } from './flushGrid.js';
 import { formatYearRange } from '../../../lib/formatYearRange.js';
 
 /* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
-   Both composite bands share one footprint: full-width, px-fixed height
-   (~65vh on a laptop) so the reserved region stays rigid. The album band
-   mirrors the deck band by design (cohesion of structure and weight);
-   orbit still outranks deck for the top slot when a page has both. */
+   Px-fixed height (~65vh on a laptop) so the reserved region stays rigid.
+   The ORBIT keeps the full-width band. The DECK reserves only the right
+   two-thirds: its dealer composition (source fan top-right, landed stack
+   upper-center — bandLayout.js) leaves the band's left edge empty, so the
+   grid tiles reclaim that column and flow beside it (flushGrid places
+   above/beside/below regions). Orbit still outranks deck for the top slot
+   when a page has both. */
 const DECK_REGION_ROWS = 34;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: DECK_REGION_ROWS, anchor: 'top' };
 
@@ -65,8 +69,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   if (brandDecks.length > 0) {
     regions.push({
       id: 'deck',
-      colStart: 0,
-      colSpan: 3,
+      colStart: 1,
+      colSpan: 2,
       rowSpan: DECK_REGION_ROWS,
       anchor: albumArt.length > 0 ? 'mid' : 'top',
     });
