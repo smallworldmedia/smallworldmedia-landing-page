@@ -20,7 +20,7 @@
  * idle cycle, instant page swaps, drag still works.
  *
  * Live tuning: ?deckangle ?deckfan ?deckfany ?deckexitx ?deckexity
- * ?deckcycle ?deckshift ?deckshifty
+ * ?deckcycle ?deckshift ?deckshifty ?deckw
  *
  * @param {Object} props
  * @param {Array<Object>} props.items    - assets, one per page
@@ -59,8 +59,12 @@ const FLICK_V = 0.9; // pages/s — release velocity that counts as a flick
 const DRAG_WINDOW_MS = 100; // velocity estimate looks back this far
 
 /* Stack geometry lives in bandLayout.js (shared with the World mount) */
-const STACK_SHIFT = 0.09; // × stage width, source stack rides right (top-right)
-const STACK_LIFT = -0.05; // × stage height, composition rides high
+const STACK_SHIFT = 0.18; // × stage width, source stack rides right (top-right)
+const STACK_LIFT = -0.12; // × stage height, composition rides high
+/* Page width cap (× stage width) — sized so the full dealer composition
+   (landed pile + travel + front page + fan array) sits in the upper-right
+   quadrant of the tile area instead of sprawling the whole band. ?deckw */
+const WIDTH_CAP = 0.44;
 
 /* Idle cycle — rest dwell before the next auto-advance (?deckcycle) */
 const CYCLE_S = 2.6;
@@ -234,11 +238,14 @@ export default function BandPager({
     };
     document.addEventListener('visibilitychange', onVisibility);
 
-    /* Measure the stage → uniform page rects (fit-contained) */
+    /* Measure the stage → uniform page rects. The box follows the page
+       aspect exactly (height derives from the capped width — no letterbox
+       bars from the near-black page background). */
+    const widthCap = qNum('deckw', WIDTH_CAP);
     const measure = () => {
       const r = stage.getBoundingClientRect();
-      const pageH = r.height;
-      const pageW = Math.min(pageH * ratio, r.width * 0.72);
+      const pageW = Math.min(r.height * ratio, r.width * widthCap);
+      const pageH = pageW / ratio;
       metricsRef.current = { pageW, pageH };
       setMetrics({ pageW, pageH });
       paint();
