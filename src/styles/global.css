@@ -78,6 +78,7 @@
   --color-blue-link: #0000EE;
   --color-white: #FFFFFF;
   --color-dark-gray: rgb(18, 18, 18);
+  --color-near-black: #0a0a0a;
 
   /* Typography — font stacks */
   --font-display: 'OT Neue Montreal Squeezed', 'PP Neue Montreal', 'Inter', sans-serif;
@@ -107,6 +108,11 @@
   /* 16px */
   --lh-ui: 1.4rem;
   /* 19.2px */
+  --lh-body: 1.4;
+  /* unitless — body/meta copy at fluid sizes */
+
+  /* Typography — tracking */
+  --tracking-tight: -0.02em;
 
   /* Spacing (rem, base 14px) */
   --space-1: 0.143rem;
@@ -165,6 +171,12 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* Brand selection — electric blue behind white, everywhere */
+::selection {
+  background: var(--color-electric-blue);
+  color: var(--color-white);
 }
 
 /* No scrollbar-gutter here: with the global overflow:hidden scroll-lock,
@@ -782,7 +794,7 @@ body.route-home .site-nav__links {
   background: var(--cta-bg, var(--color-black));
   color: var(--cta-fg, var(--color-white));
   font-family: var(--font-mono);
-  font-size: var(--font-ui);
+  font-size: var(--text-ui);
   letter-spacing: var(--tracking-tight);
   padding: var(--space-3) var(--space-4);
   transition:

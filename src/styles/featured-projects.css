@@ -227,7 +227,7 @@
   border: none;
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: var(--font-mono);
+  font-size: var(--text-mono);
   color: var(--color-black);
   opacity: 1.0;
   padding: 0.3rem 0.35rem;
@@ -277,7 +277,7 @@
   transform: translate(-0.5rem, -50%);
   opacity: 0;
   padding: 0.071rem 0.429rem;
-  background: var(--color-near-black, #0a0a0a);
+  background: var(--color-near-black);
   font-size: var(--text-mono);
   text-transform: uppercase;
   line-height: 1.4;
