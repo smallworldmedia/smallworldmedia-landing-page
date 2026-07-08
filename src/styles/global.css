@@ -231,75 +231,6 @@ button {
 }
 
 /* ============================================
-   INFO PILL
-   ============================================ */
-.info-pill {
-  position: relative;
-  z-index: 50;
-  width: 5.143rem;
-  height: 1.643rem;
-  border-radius: var(--radius-pill);
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-}
-
-/* Shared layer — fills the pill, holds icon + label side-by-side.
-   Border lives on each layer so clip-path wipes it with the fill. */
-.info-pill__layer {
-  display: flex;
-  align-items: center;
-  gap: 0.429rem;
-  position: absolute;
-  inset: 0;
-  padding: 0 0.571rem 0 0.429rem;
-  font-family: var(--font-ui);
-  font-size: var(--text-ui);
-  font-weight: 400;
-  line-height: var(--lh-ui);
-  white-space: nowrap;
-  border-radius: inherit;
-  overflow: hidden;
-}
-
-/* White variant: white fill, blue content, blue stroke */
-.info-pill__layer--white {
-  background: var(--color-cream);
-  color: var(--color-electric-blue);
-  border: 1px solid var(--color-electric-blue);
-}
-
-/* Blue variant: blue fill, white content, white stroke */
-.info-pill__layer--blue {
-  background: var(--color-electric-blue);
-  color: var(--color-cream);
-  border: 1px solid var(--color-cream);
-}
-
-/* Hover overlay — stacked on top, initially clip-hidden.
-   clip-path wipes border + fill together for hard-edge transition.
-   All hover states get a white stroke. */
-.info-pill__hover {
-  z-index: 1;
-  will-change: clip-path;
-  border-color: var(--color-white);
-}
-
-.info-pill__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 0.714rem;
-  height: 0.714rem;
-  flex-shrink: 0;
-}
-
-.info-pill__label {
-  white-space: nowrap;
-}
-
-/* ============================================
    SITE NAV — navigation bar (lives inside info-wrapper)
    ============================================
    The nav sits at the BOTTOM of .info-wrapper so it's
@@ -1047,29 +978,6 @@ body.route-home .site-nav__links {
   left: 76%;
   top: 50%;
   transform: translate(-50%, -50%);
-}
-
-/* UI / Utility — Framer: Inter 16px/19.2px, white */
-.cta {
-  font-family: var(--font-ui);
-  font-size: var(--text-ui);
-  font-weight: 400;
-  line-height: var(--lh-ui);
-  color: var(--color-cream);
-  text-decoration: none;
-  padding: var(--space-2) var(--space-1);
-  background: var(--color-electric-blue);
-  transition: transform var(--duration-micro) var(--ease-micro);
-}
-
-.cta:hover {
-  text-decoration: underline;
-}
-
-/* Button reset for CtaButton */
-button.cta {
-  border: none;
-  cursor: pointer;
 }
 
 /* ============================================
