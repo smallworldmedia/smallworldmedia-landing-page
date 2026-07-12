@@ -5,17 +5,22 @@
  * ProcessScene performs them on the fixed canvas behind this copy column.
  * Spec: docs/process-page-spec.md · plan: docs/process-page-plan.md.
  *
- * P0 scaffold: semantic copy in source order (hero → five Stages → CTA),
- * the fixed canvas layer the scene will own, and the fill-release arrival
- * insurance. Scroll driver lands in P1, the scene in P2/P3, entrances +
- * debug chrome in P4.
+ * Semantic copy in source order (hero → five Stages → CTA), the fixed
+ * canvas layer the scene owns, the scroll driver firing the stage machine
+ * at section boundaries, and the fill-release arrival insurance. The
+ * scene lands in P2/P3, entrances + debug chrome in P4.
  */
 import { useEffect, useRef } from 'react';
 import SiteFooter from '../SiteFooter.jsx';
 import { HERO, STAGES, CTA } from './processContent.js';
+import useProcessScene from './useProcessScene.js';
+import useProcessScrollDriver from './useProcessScrollDriver.js';
 
 export default function ProcessPage() {
+  const rootRef = useRef(null);
   const canvasRef = useRef(null);
+  const sceneRef = useProcessScene(canvasRef);
+  useProcessScrollDriver(rootRef, sceneRef);
 
   // Release the Envelopment fill on arrival (RouteFill insurance — no-op on
   // direct loads; the detail-page convention, FeaturedProjectDetail.jsx).
@@ -28,7 +33,7 @@ export default function ProcessPage() {
   };
 
   return (
-    <div className="process-page">
+    <div className="process-page" ref={rootRef}>
       {/* Full-viewport scene layer — the ProcessScene mounts here (P2) */}
       <div className="process-page__canvas" ref={canvasRef} aria-hidden="true" />
 
