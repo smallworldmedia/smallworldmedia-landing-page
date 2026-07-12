@@ -22,13 +22,19 @@ The process page walks a prospective client through how SWM builds a visual worl
 
 | # | Workstream | Status | Notes |
 |---|---|---|---|
-| P0 | **Route scaffold + gate** | ☐ | `process.astro` (redirect stub, `v2:` re-enable comment) + netlify forced 302 + `SITEMAP_EXCLUDE` entry + `ProcessPage.jsx` island + `route-process` body class + `processContent.js` stub + token-gap fixes. Page exists, is dark in production. |
-| P1 | **Scroll-driver skeleton** | ☐ | ScrollTrigger registration (island-only) + Lenis bridge (`getLenis()?.on('scroll', ScrollTrigger.update)`, refresh on `astro:page-load`/fonts) + 5 stub sections + stage machine stub logging `goTo` states. De-risks the one novel integration before any WebGL exists. |
-| P2 | **Scene core (S3–S5)** | ☐ | `useProcessScene` on the full 84-mesh globe: blue light-up (`uFallbackColor` + `uPower` cascade, `?cascade`), emanation (`mesh.scale` staggered `rows`, `?emanate`), rhythm loops (`?bpm`, equator-out delay model). The page's loudest beats land first. |
-| P3 | **Fragments + Thread + assembly (S1–S2)** | ☐ | Seeded belt scatter + drift (`seededLayout.js` PRNG reuse), Thread chain draw + `s2.captions` pings, drift damping on connect, pull-in assembly (scatter→home transforms, inner-sphere reveal), S2→S3 headline-in-silhouette + zoom-out. |
-| P4 | **Copy & chrome** | ☐ | Full copy deck render, per-section OS-boot entrances, arrival choreography (`swm:fill-release` + hero sequence), CTA section (`swm:open-overlay` primary, `/work` secondary), `?debug` panel. |
-| P5 | **RM / mobile / a11y / perf gate** | ☐ | `setStageInstant` stills path, native-scroll verification, device pass (≥ home-globe 42–44fps iPhone baseline), draw-call/idle budgets, focus-visible + heading audit. |
+| P0 | **Route scaffold + gate** | ✅ `4fd1e4f` | `process.astro` (redirect stub, `v2:` re-enable comment; dev stays viewable for tuning) + netlify forced 302 + `SITEMAP_EXCLUDE` entry + `ProcessPage.jsx` island + `route-process` body class + full `processContent.js` deck + token-gap fixes (values mirror PR #13 — either merge order resolves identical). Page exists, is dark in production. |
+| P1 | **Scroll-driver skeleton** | ✅ `83be9e3` | ScrollTrigger registration (island-only) + Lenis bridge (`getLenis()?.on('scroll', ScrollTrigger.update)`, refresh on `astro:page-load`/fonts) + symmetric `[top 60%, bottom 60%]` section boundaries + mid-page arrival sync + stage machine stub logging `goTo` states. |
+| P2 | **Scene core (S3–S5)** | ✅ `80d6553` | `useProcessScene` on the full 84-mesh globe: blue light-up (`uFallbackColor` + `uPower` cascade, `?cascade`), emanation (`?emanate` on `?emanateorder`), rhythm loops (`?bpm`, equator-out delay model). `panelDelay` exported from `cascade.js` per spec §3. See Build notes: `PULSE_MIN` deviation. |
+| P3 | **Fragments + Thread + assembly (S1–S2)** | ✅ `f88e958` | Seeded belt scatter + drift (`seededLayout.js` PRNG exports), Thread chain draw + `s2.captions` pings, drift damping on connect, pull-in assembly (scatter→home transforms, inner-sphere reveal), zoom-out. Shard geometry re-baked to local origin (position/quaternion = placement/tumble; home = `centerDir·R·k`). RM stage-02 still = connected belt, Thread pre-drawn. |
+| P4 | **Copy & chrome** | ✅ `8d321b3` | Full copy deck render, per-section OS-boot entrances (0.7× leave-back exits), arrival choreography (`swm:fill-release` + hero sequence + `materializeBelt`), CTA section (`swm:open-overlay` primary, `/work` secondary), `?debug` panel (stage jumps, fps/draw stats, knob readout). |
+| P5 | **RM / mobile / a11y / perf gate** | ☐ | `setStageInstant` stills path, native-scroll verification, device pass (≥ home-globe 42–44fps iPhone baseline), draw-call/idle budgets, focus-visible + heading audit. RM paths + ≤90 draw calls (84–85 measured) already verified headless; **the real-device pass needs local hardware**. |
 | P6 | **Launch (un-gate)** | ☐ | Nav re-add (desktop `.site-nav__links` slot at `SiteNav.jsx:253` + mobile menu item), un-gate as **one 3-file commit** (redirect line, netlify block, sitemap entry), SEO verify, acceptance checklist run. |
+
+## Build notes (2026-07-12, P0–P4)
+
+- Built on `claude/load-session-rkxhn0` — based on the PR #14 docs branch tip (`feature/v1-launch` + these docs; v1 had not merged to `main` at build time). Each phase verified with headless-WebGL Playwright suites (pixel-sampled stage states, boundary walks both directions, RM stills, teardown context release).
+- **Deviation — S5 pulse dips (`PULSE_MIN` 0.7):** spec §3's `uPower 1.0 ↔ 1.12` over-brighten pulse is invisible on lit panels — pure `0x0000ff` saturates blue at power 1 (textures gave the home flicker its headroom). The pulse dips first (the visible traveling wave), keeping 1.12 as the peak.
+- **Review flag — S3 rest reads as a solid orb:** lit panel color == gap/inner-sphere color, so the settled Core is a featureless blue disc — arguably the literal "goes solid" beat. If grading wants structure separated, the spec's documented `uTintColor/uTintMix` fallback stands.
 
 ## Cuts (deliberate)
 
