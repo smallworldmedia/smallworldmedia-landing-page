@@ -131,6 +131,8 @@ Canonical names for UI components. All implementation work **must** use these te
 | **AlbumArtViewer** | A project's album-art covers on the BandPager — covers page exactly like deck pages (structure/animation cohesion by design; supersedes the retired 3D ring "AlbumArtOrbit", 2026-07-01). The focused cover's **ReleaseMeta** rises in the side column. Mounts only when the collection clears `ORBIT_MIN` — below it, covers fold back into the masonry flow. In the World it floats as a single composite element. *(World mount deferred.)* | `album-art` assets within a collection |
 | **ReleaseMeta** | The focused cover's metadata chip stack in the AlbumArtViewer side column — scrambling artist—title headline, catalog number, date, Beatport/Spotify link buttons. Black mono chips mirroring the ClientPanel `base_in`/`client_type` family. Chips render conditionally per field; with no `releaseInfo` the asset title stands alone. (Replaces the retired Pull-out ReleaseCard panel.) | `mediaAsset.releaseInfo` on one `album-art` asset |
 | **NextProjectCard** | *Future* — scroll-to-next-project transition at the bottom of FeaturedProjectDetail (three scroll states mocked in Figma). | Next Featured Project hero |
+| **ProcessPage** | Route orchestrator island for `/process` — owns the Stage sections, scroll driver (ScrollTrigger, ADR-0004), copy render, and arrival choreography. *(v2 — spec'd, not built; `docs/process-page-spec.md`.)* | `processContent.js` (static) |
+| **ProcessScene** | The process page's route-scoped canvas + stage machine (`useProcessScene`): 84 panel meshes morphing Fragment belt → Core → lit → expanded → rhythmic, built from the home globe primitives (ADR-0003 grammar). *(v2 — spec'd, not built.)* | none (untextured) |
 
 > **Procedure**: Before creating any new component, check this table. If the component doesn't have a canonical name, propose one here first, get it approved, then implement.
 
@@ -150,7 +152,14 @@ Canonical names for UI components. All implementation work **must** use these te
 - **Pull-out** *(retired 2026-07-01 with the ring presentation)* — metadata now lives permanently in the AlbumArtViewer side column (ReleaseMeta) instead of behind a focus state.
 - **Breadcrumb** — the `featured_projects` chip on every detail page; returns to `/work` and restores the World the visitor entered from (index persisted per tab in `sessionStorage`, key `swm:worldIndex`).
 
-## Content Population Hierarchy
+### Process Page — concepts
+
+> Disambiguation: process-page terms never use bare **World** — that word is reserved for a featured project's `/work` scene (above). Here "world" appears only in copy, never as a concept name.
+
+- **Fragment** — one of the 84 globe panels while it drifts unassembled in the Stage-1 belt: a gathered reference before it belongs to the world. Every Fragment carries its home `row`/`lonIndex` identity from birth. _Avoid_: shard, mote, particle.
+- **the Thread** — the drawn stroke that shoots from the Core's center-to-be and connects Fragments dot-to-dot (trim-path draw; screen-space SVG). _Avoid_: stroke, trace, connector, line.
+- **the Core** — the globe the connected Fragments pull inward to construct: the single unified concept the client's world is built from. Stage 3 gives it its identity (the blue light-up). _Avoid_: Chosen World, Seed World (retired term), winner, seed.
+- **Stage** — one of the five scroll-triggered scene states (`STAGE_01 discovery` → `STAGE_05 living_world`), each an authored time-domain transition fired at a section boundary. _Avoid_: phase (reserved for build plans), step, section (the DOM element, not the state).
 
 The system that turns a Featured Project directory's contents into a page layout. **Pages are populated, not authored** — the manifest/tagging metadata set at ingestion is the layout instruction set. This is why the manifest system records `sortOrder`, `isHero`, `mediaType`, `contentRole`, and `displayGroup` on every asset.
 
@@ -230,5 +239,6 @@ Brand and pitch decks must be exported as per-page JPEGs and placed in a subfold
 | `/work` | **Featured Projects** — immersive sphere experience (primary work destination) | `FeaturedProjects` |
 | `/work/directory` | Project Directory — full media grid + filters | `ProjectDirectory` |
 | `/work/[slug]` | Single Project Page (editorial layout) | `FeaturedProjectDetail` |
+| `/process` | Process page — five-Stage globe narrative (v2; gated by the disabled-route pattern until launch) | `ProcessPage` |
 
 > The legacy `/work/featured` (isHero-driven showcase) is retired — superseded by the project-doc-first experience at `/work`.
