@@ -26,7 +26,12 @@ const FLICKER_KEYFRAMES = [
   { value: 1.0, duration: 0.18, ease: 'sine.out' },
 ];
 
-function panelDelay(panel, variant, totalRows) {
+/**
+ * The cascade family's delay model — exported as the sequencing reference
+ * for the process scene's Stage 3–5 beats (spec §3), which ride the same
+ * orderings with their own tweens.
+ */
+export function panelDelay(panel, variant, totalRows) {
   const jitter = Math.random() * 0.05; // controlled chaos — breaks mechanical lockstep
   switch (variant) {
     case 'poles': {
