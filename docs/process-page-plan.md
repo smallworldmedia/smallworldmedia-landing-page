@@ -1,6 +1,6 @@
 # Process Page — Build Plan
 
-> DRAFT — grill pending.
+> Grilled & solidified 2026-07-12.
 > Phased implementation plan for the `/process` page — the v2 workstream deferred at launch (`docs/v1-launch-plan.md` F2).
 > **Vocabulary:** `CONTEXT.md` § "Process Page — concepts". **Spec:** `docs/process-page-spec.md`. **Decisions:** `docs/adr/0004-process-scroll-driver.md` (+ lineage ADR-0002, ADR-0003).
 

@@ -1,32 +1,9 @@
 # Process Page — Build Spec
 
-> DRAFT — grill pending.
+> Grilled & solidified 2026-07-12.
 > **Vocabulary:** `CONTEXT.md` § "Process Page — concepts" — Fragments, the Thread, the Core, Stages.
-> **Decision record:** `docs/adr/0004-process-scroll-driver.md` *(written after grill round 1)*; lineage: ADR-0002 (route-scoped canvas), ADR-0003 (pure geometry brains, thin renderers).
-> **Reference:** the home globe system (`src/components/globe/`) — the process scene is built from its primitives, not from a fork of it.
-
-## Open decisions (grill)
-
-Resolved answers replace the strawman inline; struck rows are settled. Every question ships with a recommendation.
-
-| # | Question | Recommendation |
-|---|---|---|
-| G1 | Scroll→state driver | ✅ **Resolved 2026-07-12:** ScrollTrigger, discrete boundary triggers — no scrub, no pin, no snap → ADR-0004 |
-| G2 | Page composition | ✅ **Resolved:** full-viewport fixed canvas behind a scrolling copy column (~40ch); globe biased right-of-center per stage |
-| G3 | Time-based vs scrubbed | ✅ **Resolved:** authored time-domain timelines fired at boundaries |
-| G4 | Copy storage | ✅ **Resolved:** single `src/components/process/processContent.js` module |
-| G5 | Name for the experience | ✅ **Resolved:** plainly **"Process"** — the worlds motif lives in the visuals and copy, not the experience name (Nathan) |
-| G6 | The three candidate globes | ⛔ **Superseded by G13** — the trio itself was cut; "Seed Worlds" retired unused |
-| G7 | The winning concept globe | ✅ **Resolved:** **the Core** (Nathan's term) — the globe the connected Fragments construct; ties Stage 2's selection into Stage 3's `core_identity` |
-| G8 | The stroke + the steps | ✅ **Resolved:** **the Thread**; steps = **Stages**, tokens `STAGE_01…STAGE_05` |
-| G9 | H1 register | ✅ **Resolved:** token + display H1; Nathan's direction "from core concept to full world, building from the inside out" → H1 `FROM CORE TO WORLD` (final line sign-off at solidify) |
-| G10 | Stage headline register | ✅ **Resolved:** short declaratives — the chip carries the label register |
-| G11 | Nav label + glyph | ✅ **Resolved:** `process` + `⊙` (matches the removed v1 link's label; `⊙` = a core inside a world, unclaimed in the glyph set) |
-| G12 | CTA section | ✅ **Resolved:** `↳ start_project` primary + `⁕ featured_projects` secondary |
-| G13 | Stage-1 visual (unspecified in the brief) | ✅ **Resolved — REDESIGN (Nathan):** the three-globe trio is cut (it implies SWM always pitches three concepts). S1 = ~84 panel **Fragments** drifting unconnected, "almost like an asteroid belt"; S2 = **the Thread** shoots from the would-be globe's center, chains Fragment to Fragment ("connecting the dots"), and the connected Fragments are **pulled inward to construct the Core** — one unified concept assembled from what the client gives us, then the foundation is added |
-| G14 | Stage-3 light-up cascade variant | ✅ **Resolved:** `rows` (pole-to-pole waterfall) — the home hero keeps `sweep`; shipped as `?cascade` |
-| G15 | Stage-5 rhythm | ✅ **Resolved:** loop cadence anchored to `?bpm` (default 122) |
-| G16 | Mobile strategy | ✅ **Resolved:** full live scene (contain-fit); stills are reduced-motion-only |
+> **Decision record:** `docs/adr/0004-process-scroll-driver.md`; lineage: ADR-0002 (route-scoped canvas), ADR-0003 (pure geometry brains, thin renderers).
+> **Reference:** the home globe system (`src/components/globe/`) — the process scene is built from its primitives, not from a fork of it. Grill record: this branch's `docs(process)` commit history.
 
 ## Purpose & goals
 
@@ -110,7 +87,7 @@ A new `useProcessScene` hook (`src/components/process/useProcessScene.js`) compo
 All transition eases: the house curve — `CustomEase` from `TURN_EASE_PATH` (`src/components/work/world/worldConfig.js:78`; steep launch, long settle, never overshoot). Exits/reversals run ≈0.7× their entrance durations.
 
 ### S1 — discovery (the Fragment belt)
-No globe yet. The 84 panels drift as unconnected **Fragments** on a loose annulus right-of-center — "almost like an asteroid belt": seeded positions and orientations (`?scatter` governs spread), slow individual drift and tumble (`?drift`), no inner sphere. Visibility treatment: on the black field, dark panels at `uPower 0` would vanish — Fragments idle at a low shard glow (`uPower` ~0.35 against the `0x121212` fallback, reading as barely-lit slate), enough to register as material, not yet as light. The belt is the gathered raw references before they belong to anything.
+No globe yet. The 84 panels drift as unconnected **Fragments** on a loose annulus right-of-center — "almost like an asteroid belt": seeded positions and orientations (`?scatter` governs spread), slow individual drift and tumble (`?drift`), no inner sphere. Visibility treatment: on the black field, dark panels at `uPower 0` would vanish — Fragments idle at a low glow (`uPower` ~0.35 against the `0x121212` fallback, reading as barely-lit slate), enough to register as material, not yet as light. The belt is the gathered raw references before they belong to anything.
 
 ### S2 — visual_language (the Thread + the assembly)
 Two beats. **Connect:** the Thread (see §4) shoots out from the belt's empty center — the point where the globe *will* be — hits the nearest Fragment, then chains Fragment to Fragment through `?threadhops` (default 10) hops, trim-path style. Each hop pings: a scramble caption beat and a brief `uPower` blip on the struck Fragment, whose drift then damps to a gentle hold — claimed. **Assemble:** as the final dot connects (`dots_connected`), every Fragment is pulled inward: per-panel position + quaternion tweens from scatter transform to home `row`/`lonIndex` slot (`?assemble`, ~1.6s total, cascade-family stagger so the sphere closes in a visible order), while the electric-blue inner sphere scales in behind them — the foundation surfacing as the shell closes. The Thread's segments ride their endpoints inward and fade as the construction completes: **the Core** stands assembled (`core_assembled`) — one unified concept built from what was scattered, dark-panelled, blue structure in its gaps.
