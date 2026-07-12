@@ -20,6 +20,12 @@
  * Core over the surfacing inner sphere → S3 zoom-out + the ?cascade
  * light-up → S4 per-panel emanation → S5 ?bpm rhythm loops.
  *
+ * Live tuning: every knob is read from the mutable TUNING object at
+ * use-time (framing, the drift tick, transition build), so the ?debug
+ * panel applies changes without a reload — applyTuning() re-seeds the
+ * belt / re-frames / rebuilds a running loop, replay() re-runs the
+ * current stage's transition from the previous rest pose.
+ *
  * API (spec §3): goTo(stageId) — one active transition at a time; an
  * interrupting goTo kills the running timeline and plays a compressed
  * catch-up morph. setStageInstant(stageId) — reduced-motion path: jump to
@@ -55,24 +61,9 @@ import { TURN_EASE_PATH } from '../work/world/worldConfig.js';
 import {
   IS_MOBILE,
   DEBUG,
-  STAGE_SECONDS,
-  SCATTER,
-  DRIFT,
-  THREAD_HOPS,
-  THREAD_HOP_SECONDS,
-  ASSEMBLE_SECONDS,
-  ZOOM_OUT_SECONDS,
-  EMANATE_SCALE,
-  EMANATE_ORDER,
-  BPM,
-  CASCADE_VARIANT,
-  FILL_FRACTION,
+  TUNING,
   LIT_COLOR,
-  IDLE_POWER,
   PULSE_MAX,
-  PULSE_MIN,
-  S3_FILL,
-  S45_FILL,
   DESKTOP_OFFSET_X,
   EXIT_RATIO,
   PASS_BEATS,
@@ -86,27 +77,47 @@ const NOOP_API = {
   getStage: () => null,
   materializeBelt: () => {},
   getStats: () => ({ fps: 0, calls: 0, stage: null }),
+  applyTuning: () => {},
+  replay: () => {},
 };
 const TOTAL_ROWS = LAT_BANDS + 2;
 const STAGE_IDS = ['stage-01', 'stage-02', 'stage-03', 'stage-04', 'stage-05'];
 const IDENTITY_QUAT = new THREE.Quaternion();
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
-/* The belt's framing radius: annulus outer edge + shard half-extent. */
-const BELT_FRAME_R = SCATTER * 1.15 + 0.45;
-
-/* Per-stage rest poses. form: 'belt' (scattered Fragments, no inner
-   sphere) or 'core' (assembled globe). frameR = effective radius the
-   contain fit frames; panelScale = emanation; power/color = the two
-   uniforms that are this page's entire visual language (spec §3).
-   Reduced motion keeps stage-02 as the connected belt (Thread pre-drawn,
-   static) so the narrative survives as stills. */
-const POSES = {
-  'stage-01': { form: 'belt', frameR: BELT_FRAME_R, fill: FILL_FRACTION, panelScale: 1, power: IDLE_POWER, color: PANEL_FALLBACK_COLOR, loops: false },
-  'stage-02': { form: PREFERS_REDUCED_MOTION ? 'belt' : 'core', frameR: PREFERS_REDUCED_MOTION ? BELT_FRAME_R : 1, fill: FILL_FRACTION, panelScale: 1, power: IDLE_POWER, color: PANEL_FALLBACK_COLOR, loops: false },
-  'stage-03': { form: 'core', frameR: 1, fill: S3_FILL, panelScale: 1, power: 1, color: LIT_COLOR, loops: false },
-  'stage-04': { form: 'core', frameR: EMANATE_SCALE, fill: S45_FILL, panelScale: EMANATE_SCALE, power: 1, color: LIT_COLOR, loops: false },
-  'stage-05': { form: 'core', frameR: EMANATE_SCALE, fill: S45_FILL, panelScale: EMANATE_SCALE, power: 1, color: LIT_COLOR, loops: true },
+/* Per-stage rest poses, computed fresh from TUNING at every use so live
+   tuning applies. form: 'belt' (scattered Fragments, no inner sphere) or
+   'core' (assembled globe). frameR = effective radius the contain fit
+   frames; panelScale = emanation; power/color = the two uniforms that are
+   this page's entire visual language (spec §3). Reduced motion keeps
+   stage-02 as the connected belt (Thread pre-drawn, static) so the
+   narrative survives as stills. */
+const beltPose = () => ({
+  form: 'belt',
+  frameR: TUNING.scatter * 1.15 + 0.45,
+  fill: TUNING.fillFraction,
+  panelScale: 1,
+  power: TUNING.idlePower,
+  color: PANEL_FALLBACK_COLOR,
+  loops: false,
+});
+const getPose = (id) => {
+  switch (id) {
+    case 'stage-01':
+      return beltPose();
+    case 'stage-02':
+      return PREFERS_REDUCED_MOTION
+        ? beltPose()
+        : { form: 'core', frameR: 1, fill: TUNING.fillFraction, panelScale: 1, power: TUNING.idlePower, color: PANEL_FALLBACK_COLOR, loops: false };
+    case 'stage-03':
+      return { form: 'core', frameR: 1, fill: TUNING.s3Fill, panelScale: 1, power: 1, color: LIT_COLOR, loops: false };
+    case 'stage-04':
+      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, color: LIT_COLOR, loops: false };
+    case 'stage-05':
+      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, color: LIT_COLOR, loops: true };
+    default:
+      return null;
+  }
 };
 
 /* Equator-out radiation — the trivial third delay model beside
@@ -148,45 +159,51 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       capDeg: CAP_DEG,
       radius: RADIUS,
     });
-
-    /* Seeded belt: even annulus spread (phyllotaxis + jitter, the
-       seededLayout idiom) with an empty center — the Core's center-to-be,
-       where the Thread fires from. Same belt every visit. */
-    const rand = mulberry32(hashSeed('process-belt'));
-    const innerR = SCATTER * 0.55;
-    const outerR = SCATTER * 1.15;
-    panels.forEach((panel, i) => {
+    panels.forEach((panel) => {
       // Re-bake the shard to its own local origin (see header note).
       panel.homeOffset = panel.centerDir.clone().multiplyScalar(RADIUS);
       panel.geometry.translate(-panel.homeOffset.x, -panel.homeOffset.y, -panel.homeOffset.z);
-
-      const t = (i + 0.5) / panels.length;
-      const r = Math.sqrt(innerR * innerR + t * (outerR * outerR - innerR * innerR));
-      const ang = i * GOLDEN_ANGLE + rand() * 0.5;
-      panel.beltPos = new THREE.Vector3(
-        Math.cos(ang) * r,
-        Math.sin(ang) * r,
-        (rand() - 0.5) * SCATTER * 0.5
-      );
-      panel.beltQuat = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(rand() * Math.PI * 2, rand() * Math.PI * 2, rand() * Math.PI * 2)
-      );
-      panel.drift = {
-        axis: new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize(),
-        speed: DRIFT * (0.6 + rand() * 0.8),          // rad/s tumble
-        wobbleDir: new THREE.Vector3(rand() - 0.5, rand() - 0.5, (rand() - 0.5) * 0.4).normalize(),
-        amp: 0.05 + rand() * 0.09,                     // world-unit wobble
-        freq: 0.25 + rand() * 0.35,
-        phase: rand() * Math.PI * 2,
-      };
       panel.driftFactor = 1; // 1 free-drifting → damped on claim → 0 assembled
-
       panel.mesh = new THREE.Mesh(
         panel.geometry,
         createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR })
       );
       globeGroup.add(panel.mesh);
     });
+
+    /* Seeded belt: even annulus spread (phyllotaxis + jitter, the
+       seededLayout idiom) with an empty center — the Core's center-to-be,
+       where the Thread fires from. Deterministic for a given ?scatter, so
+       live re-seeding through applyTuning keeps the same belt shape. The
+       drift tick reads beltPos live — a re-seed re-spreads the belt in
+       place without snapping tumble orientations. */
+    const seedBelt = () => {
+      const rand = mulberry32(hashSeed('process-belt'));
+      const innerR = TUNING.scatter * 0.55;
+      const outerR = TUNING.scatter * 1.15;
+      panels.forEach((panel, i) => {
+        const t = (i + 0.5) / panels.length;
+        const r = Math.sqrt(innerR * innerR + t * (outerR * outerR - innerR * innerR));
+        const ang = i * GOLDEN_ANGLE + rand() * 0.5;
+        panel.beltPos = new THREE.Vector3(
+          Math.cos(ang) * r,
+          Math.sin(ang) * r,
+          (rand() - 0.5) * TUNING.scatter * 0.5
+        );
+        panel.beltQuat = new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(rand() * Math.PI * 2, rand() * Math.PI * 2, rand() * Math.PI * 2)
+        );
+        panel.drift = {
+          axis: new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize(),
+          speedRatio: 0.6 + rand() * 0.8, // × TUNING.drift at tick time
+          wobbleDir: new THREE.Vector3(rand() - 0.5, rand() - 0.5, (rand() - 0.5) * 0.4).normalize(),
+          amp: 0.05 + rand() * 0.09,
+          freq: 0.25 + rand() * 0.35,
+          phase: rand() * Math.PI * 2,
+        };
+      });
+    };
+    seedBelt();
 
     const innerMaterial = new THREE.MeshBasicMaterial({ color: GAP_COLOR });
     const innerSphere = new THREE.Mesh(innerSphereGeometry, innerMaterial);
@@ -273,7 +290,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       const pool = [...panels];
       const chain = [];
       const cursor = new THREE.Vector3(0, 0, 0);
-      for (let i = 0; i < Math.min(THREAD_HOPS, pool.length); i++) {
+      for (let i = 0; i < Math.min(TUNING.threadHops, pool.length); i++) {
         let best = 0;
         let bestDist = Infinity;
         pool.forEach((p, idx) => {
@@ -303,7 +320,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       camera.updateProjectionMatrix();
       threadRef?.current?.ownerSVGElement?.setAttribute('viewBox', `0 0 ${w} ${h}`);
       if (!activeTl) {
-        const { z, offsetX } = framingFor(POSES[stage ?? 'stage-01']);
+        const { z, offsetX } = framingFor(getPose(stage ?? 'stage-01'));
         camera.position.z = z;
         globeGroup.position.x = offsetX;
         if (PREFERS_REDUCED_MOTION) {
@@ -318,13 +335,13 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       loopTl = null;
     };
 
-    /* — S5 rhythm loops (see P2 notes: the dip is the visible half —
-       pure 0x0000ff saturates blue at uPower 1) — */
+    /* — S5 rhythm loops. The dip is the visible half — pure 0x0000ff
+       saturates blue at uPower 1 (see TUNING_DEFAULTS.pulseMin) — */
     const buildRhythmLoop = () => {
-      const beat = 60 / BPM;
+      const beat = 60 / TUNING.bpm;
       const pass = PASS_BEATS * beat;
       const pulse = [
-        { value: PULSE_MIN, duration: beat * 0.5, ease: 'sine.in' },
+        { value: TUNING.pulseMin, duration: beat * 0.5, ease: 'sine.in' },
         { value: PULSE_MAX, duration: beat * 0.5, ease: 'sine.inOut' },
         { value: 1.0, duration: beat * 0.5, ease: 'sine.out' },
       ];
@@ -407,9 +424,10 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
 
       // Connect: hop-by-hop trim-path draw; each strike blips the
       // Fragment's power and damps its drift to a gentle hold — claimed.
+      const hopSeconds = TUNING.threadHopSeconds;
       threadChain.forEach((panel, i) => {
-        const at = i * THREAD_HOP_SECONDS;
-        tl.to(threadDraw, { frac: (i + 1) / threadChain.length, duration: THREAD_HOP_SECONDS, ease: turnEase }, at);
+        const at = i * hopSeconds;
+        tl.to(threadDraw, { frac: (i + 1) / threadChain.length, duration: hopSeconds, ease: turnEase }, at);
         tl.call(
           () => {
             gsap.to(panel, { driftFactor: 0.12, duration: 0.6, ease: 'power2.out' });
@@ -418,17 +436,18 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
               .to(panel.mesh.material.uniforms.uPower, { value: 0.45, duration: 0.5, ease: 'sine.out' });
           },
           null,
-          at + THREAD_HOP_SECONDS
+          at + hopSeconds
         );
       });
 
-      const connectEnd = threadChain.length * THREAD_HOP_SECONDS;
+      const connectEnd = threadChain.length * hopSeconds;
       tl.call(() => fireCaption('dots_connected'), null, connectEnd);
 
       // Assemble: every Fragment pulls inward to its home row/lonIndex
       // slot (cascade-family stagger — the sphere closes in a visible
       // order) while the blue foundation surfaces behind the shell and
       // the Thread rides its endpoints inward and fades.
+      const assembleSeconds = TUNING.assembleSeconds;
       const at0 = connectEnd + 0.15;
       tl.call(() => {
         beltDrifting = false;
@@ -438,11 +457,11 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         });
       }, null, at0);
 
-      const perDur = ASSEMBLE_SECONDS * 0.55;
-      const delays = panels.map((p) => panelDelay(p, CASCADE_VARIANT, TOTAL_ROWS));
+      const perDur = assembleSeconds * 0.55;
+      const delays = panels.map((p) => panelDelay(p, TUNING.cascadeVariant, TOTAL_ROWS));
       const spread = Math.max(...delays) || 1;
       panels.forEach((p, i) => {
-        const at = at0 + (delays[i] / spread) * (ASSEMBLE_SECONDS - perDur);
+        const at = at0 + (delays[i] / spread) * (assembleSeconds - perDur);
         tl.to(p.mesh.position, { x: p.homeOffset.x, y: p.homeOffset.y, z: p.homeOffset.z, duration: perDur }, at);
         tweenQuat(tl, p.mesh, IDENTITY_QUAT, perDur, at);
       });
@@ -450,25 +469,25 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       tl.call(() => {
         innerSphere.visible = true;
       }, null, at0);
-      tl.to(innerSphere.scale, { x: INNER_SPHERE_SCALE, y: INNER_SPHERE_SCALE, z: INNER_SPHERE_SCALE, duration: ASSEMBLE_SECONDS * 0.8 }, at0 + ASSEMBLE_SECONDS * 0.15);
-      tl.to(threadDraw, { alpha: 0, duration: ASSEMBLE_SECONDS * 0.7, ease: 'power2.in' }, at0 + ASSEMBLE_SECONDS * 0.25);
+      tl.to(innerSphere.scale, { x: INNER_SPHERE_SCALE, y: INNER_SPHERE_SCALE, z: INNER_SPHERE_SCALE, duration: assembleSeconds * 0.8 }, at0 + assembleSeconds * 0.15);
+      tl.to(threadDraw, { alpha: 0, duration: assembleSeconds * 0.7, ease: 'power2.in' }, at0 + assembleSeconds * 0.25);
 
       // The Core holds center-frame, large.
       const { z, offsetX } = framingFor(pose);
-      tl.to(camera.position, { z, duration: ASSEMBLE_SECONDS }, at0);
-      tl.to(globeGroup.position, { x: offsetX, duration: ASSEMBLE_SECONDS }, at0);
+      tl.to(camera.position, { z, duration: assembleSeconds }, at0);
+      tl.to(globeGroup.position, { x: offsetX, duration: assembleSeconds }, at0);
 
       tl.call(() => {
         clearThread();
         fireCaption('core_assembled');
-      }, null, at0 + ASSEMBLE_SECONDS);
+      }, null, at0 + assembleSeconds);
       return tl;
     };
 
     /* — Generic transitions: discrete, time-domain, house curve; exits
        ≈0.7×. Form-aware — also the compressed catch-up for interrupts. — */
     const buildTransition = (from, to, compressed) => {
-      const pose = POSES[to];
+      const pose = getPose(to);
       const reversing = STAGE_IDS.indexOf(to) < STAGE_IDS.indexOf(from);
 
       if (to === 'stage-02' && from === 'stage-01' && !compressed) {
@@ -493,13 +512,13 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
 
       const { z, offsetX } = framingFor(pose);
       const isLightUp = to === 'stage-03' && !reversing && !compressed;
-      const frameDur = (isLightUp ? ZOOM_OUT_SECONDS : STAGE_SECONDS) * durMult;
+      const frameDur = (isLightUp ? TUNING.zoomOutSeconds : TUNING.stageSeconds) * durMult;
       tl.to(camera.position, { z, duration: frameDur }, 0);
       tl.to(globeGroup.position, { x: offsetX, duration: frameDur }, 0);
 
       const color = new THREE.Color(pose.color);
       const toBelt = pose.form === 'belt';
-      const fromBelt = POSES[from]?.form === 'belt';
+      const fromBelt = getPose(from)?.form === 'belt';
 
       if (fromBelt || toBelt) {
         // The tick hands the belt to gsap until onComplete re-arms it.
@@ -516,22 +535,22 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         // the cascade timeline verbatim (flicker), color riding the same
         // delay model. Nothing else animates during it.
         const at = frameDur * 0.7;
-        tl.add(buildCascadeTimeline(panels, CASCADE_VARIANT, TOTAL_ROWS), at);
+        tl.add(buildCascadeTimeline(panels, TUNING.cascadeVariant, TOTAL_ROWS), at);
         panels.forEach((p) => {
           tl.to(
             p.mesh.material.uniforms.uFallbackColor.value,
             { r: color.r, g: color.g, b: color.b, duration: 0.35, ease: 'power2.out' },
-            at + panelDelay(p, CASCADE_VARIANT, TOTAL_ROWS)
+            at + panelDelay(p, TUNING.cascadeVariant, TOTAL_ROWS)
           );
         });
       } else {
         // Pose morph. Emanation (panel-scale change) staggers on its own
         // order; form changes tween shard transforms scatter ↔ home.
         const emanating = !toBelt && Math.abs(pose.panelScale - panels[0].mesh.scale.x) > 1e-3;
-        const dur = STAGE_SECONDS * 0.6 * durMult;
+        const dur = TUNING.stageSeconds * 0.6 * durMult;
         panels.forEach((p) => {
           const u = p.mesh.material.uniforms;
-          const at = emanating ? panelDelay(p, EMANATE_ORDER, TOTAL_ROWS) * 0.55 * durMult : 0;
+          const at = emanating ? panelDelay(p, TUNING.emanateOrder, TOTAL_ROWS) * 0.55 * durMult : 0;
           const target = toBelt
             ? p.beltPos
             : { x: p.homeOffset.x * pose.panelScale, y: p.homeOffset.y * pose.panelScale, z: p.homeOffset.z * pose.panelScale };
@@ -558,16 +577,16 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
     };
 
     const setStageInstant = (next) => {
-      if (!POSES[next] || next === stage || disposed) return;
+      if (!getPose(next) || next === stage || disposed) return;
       if (DEBUG) console.info(`[ProcessScene] setStageInstant ${stage ?? '∅'} → ${next}`);
       if (activeTl) activeTl.kill();
       activeTl = null;
       stopLoops();
       panels.forEach((p) => gsap.killTweensOf(p));
-      applyPose(POSES[next]);
+      applyPose(getPose(next));
       // RM narrative still for stage-02: the connected belt, Thread drawn,
       // caption snapped to its final text (scramble degrades, spec §7).
-      if (next === 'stage-02' && POSES['stage-02'].form === 'belt') {
+      if (next === 'stage-02' && PREFERS_REDUCED_MOTION) {
         threadChain = buildChain();
         threadDraw = { frac: 1, alpha: 1 };
         threadActive = true;
@@ -580,13 +599,13 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         clearThread();
       }
       stage = next;
-      if (POSES[next].loops) startLoops();
+      if (getPose(next).loops) startLoops();
       updateThread();
       renderFrame();
     };
 
     const goTo = (next) => {
-      if (!POSES[next] || next === stage || disposed) return;
+      if (!getPose(next) || next === stage || disposed) return;
       if (PREFERS_REDUCED_MOTION) {
         setStageInstant(next);
         return;
@@ -596,7 +615,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         // Scrolled ahead of the arrival's materialize beat — surface the
         // shards instantly; the Thread must never chain invisible targets.
         beltHidden = false;
-        panels.forEach((p) => p.mesh.scale.setScalar(POSES[stage ?? 'stage-01'].panelScale));
+        panels.forEach((p) => p.mesh.scale.setScalar(getPose(stage ?? 'stage-01').panelScale));
       }
       const interrupted = Boolean(activeTl);
       if (activeTl) activeTl.kill();
@@ -621,6 +640,50 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
           ease: turnEase,
         });
       });
+    };
+
+    /* — Live tuning (the ?debug panel): re-seed the belt (the drift tick
+       reads beltPos, so the spread updates in place), re-frame the
+       resting camera, rebuild a running rhythm loop, refresh idle glow.
+       Duration/order/hops knobs apply to the NEXT transition — jump or
+       replay a stage to hear them. — */
+    const applyTuning = () => {
+      if (disposed) return;
+      seedBelt();
+      const pose = getPose(stage ?? 'stage-01');
+      if (!activeTl) {
+        const { z, offsetX } = framingFor(pose);
+        camera.position.z = z;
+        globeGroup.position.x = offsetX;
+        if (pose.form === 'belt' && !threadActive) {
+          panels.forEach((p) => {
+            if (p.driftFactor > 0.5) p.mesh.material.uniforms.uPower.value = TUNING.idlePower;
+          });
+        }
+      }
+      if (loopTl) startLoops(); // rebuild on the new bpm/pulse grid
+      if (PREFERS_REDUCED_MOTION) {
+        applyPose(pose);
+        updateThread();
+        renderFrame();
+      }
+    };
+
+    /* — Replay the current stage's transition from the previous rest
+       pose — the tuning loop's ear: hear duration/order changes without
+       scrolling back and forth. — */
+    const replay = () => {
+      if (disposed || !stage) return;
+      const current = stage;
+      const idx = STAGE_IDS.indexOf(current);
+      const prev = STAGE_IDS[Math.max(idx - 1, 0)];
+      if (activeTl) activeTl.kill();
+      activeTl = null;
+      stopLoops();
+      clearThread();
+      stage = null; // force both calls through the dedupe
+      setStageInstant(prev);
+      if (prev !== current) goTo(current);
     };
 
     /* — Render loop: shared gsap.ticker, local FPS gate (never
@@ -649,7 +712,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
           p.mesh.position
             .copy(p.beltPos)
             .addScaledVector(d.wobbleDir, Math.sin(sceneTime * d.freq * Math.PI * 2 + d.phase) * d.amp * p.driftFactor);
-          p.mesh.rotateOnAxis(d.axis, d.speed * step * p.driftFactor);
+          p.mesh.rotateOnAxis(d.axis, d.speedRatio * TUNING.drift * step * p.driftFactor);
         });
       }
       if (threadActive) updateThread();
@@ -689,7 +752,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
 
     // Rest pose up before the driver's arrival sync (same layout phase):
     // no globe yet — the drifting Fragment belt.
-    applyPose(POSES['stage-01']);
+    applyPose(getPose('stage-01'));
     renderFrame();
 
     const getStats = () => {
@@ -700,7 +763,15 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       return { fps, calls: renderer.info.render.calls, stage };
     };
 
-    apiRef.current = { goTo, setStageInstant, getStage: () => stage, materializeBelt, getStats };
+    apiRef.current = {
+      goTo,
+      setStageInstant,
+      getStage: () => stage,
+      materializeBelt,
+      getStats,
+      applyTuning,
+      replay,
+    };
 
     /* — Teardown (ADR-0002): full release, context loss included — */
     return () => {
@@ -714,6 +785,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       stopLoops();
       panels.forEach((panel) => {
         gsap.killTweensOf(panel);
+        gsap.killTweensOf(panel.mesh.scale);
         gsap.killTweensOf(panel.mesh.material.uniforms.uPower);
         panel.geometry.dispose();
         panel.mesh.material.dispose();

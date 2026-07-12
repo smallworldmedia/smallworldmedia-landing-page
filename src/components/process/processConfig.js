@@ -1,8 +1,13 @@
 /**
  * processConfig.js — every tunable for the /process ProcessScene (spec §9).
  *
- * Query-knob convention (globeConfig.js PARAM): read once at init, baked
- * defaults. Live tuning on the gated route: /process?debug + this set.
+ * Knobs initialize from the URL (the PARAM convention) into the mutable
+ * TUNING object. The scene reads TUNING at use-time — framing, the drift
+ * tick, transition build — so the ?debug panel can live-tune without a
+ * reload: instant for framing/drift/glow, next-beat for durations/orders
+ * (jump or ↻ replay a stage to hear the change). The panel's copy_url
+ * serializes non-default values back into the query string so a
+ * dialed-in feel can be reloaded or shared.
  */
 
 export const IS_MOBILE =
@@ -18,31 +23,54 @@ const num = (key, fallback) => {
 };
 const str = (key, fallback) => PARAMS?.get(key) || fallback;
 
-/* — Spec §9 knob table — */
-export const STAGE_SECONDS = num('stagems', 1200) / 1000; // base stage-transition duration
-export const SCATTER = num('scatter', 1.8); // Fragment-belt spread (annulus radius, world units)
-export const DRIFT = num('drift', 0.05); // Fragment drift/tumble rate
-export const THREAD_HOPS = num('threadhops', 10); // Fragments the Thread chains before assembly
-export const THREAD_HOP_SECONDS = num('threadms', 900) / 1000; // Thread draw per hop
-export const ASSEMBLE_SECONDS = num('assemble', 1.6); // assembly, scatter → home
-export const ZOOM_OUT_SECONDS = num('zoomout', 1.0); // S2→S3 dolly-back
-export const EMANATE_SCALE = num('emanate', 1.35); // S4 per-panel scale target
-export const EMANATE_ORDER = str('emanateorder', 'sweep'); // S4 stagger (contrasts S3's rows)
-export const BPM = num('bpm', 122); // S5 pattern-loop tempo
-export const CASCADE_VARIANT = str('cascade', 'rows'); // S3 light-up (home hero keeps sweep)
-export const FILL_FRACTION = num('fillfrac', IS_MOBILE ? 0.7 : 0.85); // contain fit — the belt fits whole
-export const DEBUG = PARAMS?.has('debug') ?? false; // tuning panel (P4)
+export const DEBUG = PARAMS?.has('debug') ?? false;
 
-/* — Stage poses — */
+/* — Baked defaults (spec §9 + feel extras). The panel's URL builder
+   serializes only values that differ from these. — */
+export const TUNING_DEFAULTS = {
+  stageSeconds: 1.2, // ?stagems — base stage-transition duration
+  scatter: 1.8, // ?scatter — Fragment-belt spread (annulus radius, world units)
+  drift: 0.05, // ?drift — Fragment drift/tumble rate
+  threadHops: 10, // ?threadhops — Fragments the Thread chains before assembly
+  threadHopSeconds: 0.9, // ?threadms — Thread draw per hop
+  assembleSeconds: 1.6, // ?assemble — assembly, scatter → home
+  zoomOutSeconds: 1.0, // ?zoomout — S2→S3 dolly-back
+  emanateScale: 1.35, // ?emanate — S4 per-panel scale target
+  emanateOrder: 'sweep', // ?emanateorder — S4 stagger (contrasts S3's rows)
+  bpm: 122, // ?bpm — S5 pattern-loop tempo
+  cascadeVariant: 'rows', // ?cascade — S3 light-up (home hero keeps sweep)
+  fillFraction: IS_MOBILE ? 0.7 : 0.85, // ?fillfrac — contain fit; the belt fits whole
+  s3Fill: 0.6, // ?s3fill — post-zoom-out: the Core small, in the distance
+  s45Fill: 0.92, // ?s45fill — build-out: outgrows the frame, stays contained
+  idlePower: 0.35, // ?idlepower — Fragments idle: barely-lit slate
+  pulseMin: 0.7, // ?pulsemin — S5 dip: the visible half of the heartbeat
+  // (pure 0x0000ff saturates blue at uPower 1, so the over-brighten peak
+  // is a no-op on lit panels — the traveling dim wave carries the pulse)
+};
+
+/* — The live knob set — mutate through the ?debug panel — */
+export const TUNING = {
+  stageSeconds: num('stagems', TUNING_DEFAULTS.stageSeconds * 1000) / 1000,
+  scatter: num('scatter', TUNING_DEFAULTS.scatter),
+  drift: num('drift', TUNING_DEFAULTS.drift),
+  threadHops: num('threadhops', TUNING_DEFAULTS.threadHops),
+  threadHopSeconds: num('threadms', TUNING_DEFAULTS.threadHopSeconds * 1000) / 1000,
+  assembleSeconds: num('assemble', TUNING_DEFAULTS.assembleSeconds),
+  zoomOutSeconds: num('zoomout', TUNING_DEFAULTS.zoomOutSeconds),
+  emanateScale: num('emanate', TUNING_DEFAULTS.emanateScale),
+  emanateOrder: str('emanateorder', TUNING_DEFAULTS.emanateOrder),
+  bpm: num('bpm', TUNING_DEFAULTS.bpm),
+  cascadeVariant: str('cascade', TUNING_DEFAULTS.cascadeVariant),
+  fillFraction: num('fillfrac', TUNING_DEFAULTS.fillFraction),
+  s3Fill: num('s3fill', TUNING_DEFAULTS.s3Fill),
+  s45Fill: num('s45fill', TUNING_DEFAULTS.s45Fill),
+  idlePower: num('idlepower', TUNING_DEFAULTS.idlePower),
+  pulseMin: num('pulsemin', TUNING_DEFAULTS.pulseMin),
+};
+
+/* — Fixed constants — */
 export const LIT_COLOR = 0x0000ff; // electric blue — the identity moment
-export const IDLE_POWER = 0.35; // Fragments idle: barely-lit slate, material not yet light
 export const PULSE_MAX = 1.12; // S5 rhythm ceiling (the flicker ceiling — heartbeat, not strobe)
-export const PULSE_MIN = 0.7; // S5 dip — the visible half: pure 0x0000ff saturates blue at
-// uPower 1, so spec §3's over-brighten peak reads as a no-op on lit panels;
-// the traveling dim wave carries the pulse instead (peak kept for headroom
-// if panels ever carry graded/textured states).
-export const S3_FILL = 0.6; // post-zoom-out: the Core small again, the last step in the distance
-export const S45_FILL = 0.92; // build-out/living world: outgrows the old frame, stays contained
 export const DESKTOP_OFFSET_X = 0.28; // globe right-of-center (fraction of visible half-width)
 export const EXIT_RATIO = 0.7; // exits/reversals ≈0.7× their entrance durations
 export const PASS_BEATS = 8; // S5: one pattern pass per 8 beats
