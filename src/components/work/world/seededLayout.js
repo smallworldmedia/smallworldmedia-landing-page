@@ -28,7 +28,11 @@ import {
 
 const DEG2RAD = Math.PI / 180;
 
-function hashSeed(str) {
+/**
+ * Seeded-PRNG utilities — exported for the process page's Fragment-belt
+ * scatter (same belt every visit, no Math.random in the scene).
+ */
+export function hashSeed(str) {
   const s = String(str);
   let h = 1779033703 ^ s.length;
   for (let i = 0; i < s.length; i++) {
@@ -38,7 +42,7 @@ function hashSeed(str) {
   return h >>> 0;
 }
 
-function mulberry32(a) {
+export function mulberry32(a) {
   return function next() {
     a |= 0;
     a = (a + 0x6d2b79f5) | 0;

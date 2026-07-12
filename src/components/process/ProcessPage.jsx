@@ -19,7 +19,9 @@ import useProcessScrollDriver from './useProcessScrollDriver.js';
 export default function ProcessPage() {
   const rootRef = useRef(null);
   const canvasRef = useRef(null);
-  const sceneRef = useProcessScene(canvasRef);
+  const threadRef = useRef(null);
+  const captionRef = useRef(null);
+  const sceneRef = useProcessScene(canvasRef, threadRef, captionRef);
   useProcessScrollDriver(rootRef, sceneRef);
 
   // Release the Envelopment fill on arrival (RouteFill insurance — no-op on
@@ -34,8 +36,14 @@ export default function ProcessPage() {
 
   return (
     <div className="process-page" ref={rootRef}>
-      {/* Full-viewport scene layer — the ProcessScene mounts here (P2) */}
+      {/* Full-viewport scene layer — the ProcessScene mounts here */}
       <div className="process-page__canvas" ref={canvasRef} aria-hidden="true" />
+
+      {/* The Thread — screen-space annotation layer above the canvas,
+          below the copy (spec §4); the scene drives the path per frame */}
+      <svg className="process-thread" aria-hidden="true">
+        <path className="process-thread__path" ref={threadRef} />
+      </svg>
 
       <div className="process-page__copy">
         <header className="process-section process-hero" data-stage="hero">
@@ -58,6 +66,9 @@ export default function ProcessPage() {
             </p>
             <h2 className="process-stage__headline">{stage.headline}</h2>
             <p className="process-stage__blurb">{stage.blurb}</p>
+            {stage.captions && (
+              <p className="process-stage__caption" ref={captionRef} aria-hidden="true" />
+            )}
           </section>
         ))}
 
