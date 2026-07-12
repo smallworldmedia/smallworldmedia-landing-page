@@ -11,18 +11,18 @@ Resolved answers replace the strawman inline; struck rows are settled. Every que
 
 | # | Question | Recommendation |
 |---|---|---|
-| G1 | Scroll→state driver | ScrollTrigger, discrete boundary triggers — no scrub, no pin, no snap |
-| G2 | Page composition | Full-viewport fixed canvas behind a scrolling copy column (~40ch); globe biased right-of-center per stage |
-| G3 | Time-based vs scrubbed | Authored time-domain timelines fired at boundaries — scrubbing hands the clock to the user and destroys the house curves |
-| G4 | Copy storage | Single `src/components/process/processContent.js` module — copy deck and stage map never diverge |
+| G1 | Scroll→state driver | ✅ **Resolved 2026-07-12:** ScrollTrigger, discrete boundary triggers — no scrub, no pin, no snap → ADR-0004 |
+| G2 | Page composition | ✅ **Resolved:** full-viewport fixed canvas behind a scrolling copy column (~40ch); globe biased right-of-center per stage |
+| G3 | Time-based vs scrubbed | ✅ **Resolved:** authored time-domain timelines fired at boundaries |
+| G4 | Copy storage | ✅ **Resolved:** single `src/components/process/processContent.js` module |
 | G5 | Name for the experience | **Worldbuilding** |
 | G6 | The three candidate globes | **Seed Worlds** (qualified — never bare "Worlds"; see CONTEXT.md disambiguation) |
 | G7 | The winning concept globe | **the Chosen World** |
 | G8 | The stroke + the steps | **the Thread**; steps = **Stages**, tokens `STAGE_01…STAGE_05` |
-| G9 | H1 register | Scramble-token H1 + sentence-case subline |
-| G10 | Stage headline register | Short declaratives ("The world expands.") — the chip carries the label register |
-| G11 | Nav label + glyph | `our_process` + `⌖` |
-| G12 | CTA section | `↳ start_project` primary + `⁕ featured_projects` secondary |
+| G9 | H1 register | ✅ **Resolved:** token + display H1; Nathan's direction "from core concept to full world, building from the inside out" → H1 `FROM CORE TO WORLD` (final line sign-off at solidify) |
+| G10 | Stage headline register | ✅ **Resolved:** short declaratives — the chip carries the label register |
+| G11 | Nav label + glyph | ✅ **Resolved:** `process` + `⊙` (matches the removed v1 link's label; `⊙` = a core inside a world, unclaimed in the glyph set) |
+| G12 | CTA section | ✅ **Resolved:** `↳ start_project` primary + `⁕ featured_projects` secondary |
 | G13 | Stage-1 visual (unspecified in the brief) | Single small dark globe — panels unlit, electric-blue structure through the gaps ("the chassis before the screens") |
 | G14 | Stage-3 light-up cascade variant | `sweep` (home continuity — `DEFAULT_CASCADE_VARIANT`, "Nathan's pick"), shipped as `?cascade` |
 | G15 | Stage-5 rhythm | Loop cadence anchored to `?bpm` (default 122) — the world literally moves with the music |
@@ -65,10 +65,10 @@ Registers (brand-polish audit rule §4.4): **chrome = lowercase snake_case mono 
 |---|---|---|
 | meta.title | — | `Process — Small World Media™` |
 | meta.description | prose | `How Small World Media builds visual worlds for the music industry — discovery, visual language, core identity, build-out, and a living brand world.` |
-| nav.label | chrome | `our_process` (glyph `⌖`) |
+| nav.label | chrome | `process` (glyph `⊙`) |
 | hero.token | token | `THE_PROCESS` |
-| hero.h1 | display | `EVERY WORLD STARTS SMALL` |
-| hero.sub | prose | `How a brand becomes a world — five stages from first reference to fully realized.` |
+| hero.h1 | display | `FROM CORE TO WORLD` |
+| hero.sub | prose | `Five stages, built from the inside out — from first signal to a fully realized world.` |
 | hero.cue | chrome | `scroll_to_begin` |
 | s1.token / s1.chip | token/chrome | `STAGE_01` / `discovery` |
 | s1.headline | display-sm | `First, we listen.` |
@@ -152,7 +152,7 @@ A screen-space SVG overlay above the canvas (below copy), electric-blue stroke ~
   2. `netlify.toml`: `[[redirects]] from = "/process" to = "/" status = 302 force = true` (force overrides the meta-refresh page Astro emits for static routes — same blocks as `netlify.toml:7-24`).
   3. `astro.config.mjs:8`: add `'/process'` to `SITEMAP_EXCLUDE`.
 - **No `/lab/process`:** the `?debug` tuning panel mounts on the gated route itself (the `VideoGlobe` `?debug` convention without a second route to maintain).
-- **Nav re-add at un-gate:** one `<a href="/process">` in `.site-nav__links` at the marked slot (`src/components/SiteNav.jsx:253` — `{/* process link removed for v1 — the process page is a v2 workstream */}`) + one `.mobile-menu__item` in the mobile menu block; label `our_process`, glyph `⌖` inline-SVG/text in the existing icon family (the old EyeIcon was deleted in `8fe42e8`).
+- **Nav re-add at un-gate:** one `<a href="/process">` in `.site-nav__links` at the marked slot (`src/components/SiteNav.jsx:253` — `{/* process link removed for v1 — the process page is a v2 workstream */}`) + one `.mobile-menu__item` in the mobile menu block; label `process`, glyph `⊙` inline-glyph/text in the existing icon family (the old EyeIcon was deleted in `8fe42e8`; `⊙` is unclaimed — a core inside a world).
 - **Un-gate = 3 files in ONE commit** (redirect line + netlify block + sitemap entry) — forgetting the forced 302 is the canonical launch bug; it overrides the page even after the redirect line is gone.
 - **SEO:** `BaseLayout` props per copy deck; OG uses the standing brand `og-image.png` (a Stage-5 render is a nice-to-have, not a gate).
 
