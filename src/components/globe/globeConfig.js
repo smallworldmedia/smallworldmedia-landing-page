@@ -85,5 +85,5 @@ export const MAX_FLICK_SPEED = 1;        // rad/s cap on release velocity
 export const INERTIA_SECONDS = .35;      // decay back to ambient drift
 
 /* — Colors (match global.css custom properties) — */
-export const GAP_COLOR = 0x0000ff;            // black — the lat/long lines + occluding inner sphere
+export const GAP_COLOR = 0x0000ff;            // electric blue — the lat/long lines + occluding inner sphere
 export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-texture state

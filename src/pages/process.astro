@@ -1,0 +1,26 @@
+---
+/**
+ * Process Page — /process (v2 workstream).
+ *
+ * The sales narrative the work pages assume: one persistent scene morphs
+ * through five Stages (Fragment belt → Thread/assembly → light-up →
+ * emanation → rhythm) behind a left-anchored copy column, on a normal
+ * Lenis document route. The entire interactive surface is a single React
+ * island (the index.astro mold) because the island owns the GSAP + scene
+ * orchestration. Spec: docs/process-page-spec.md.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import '../styles/process.css';
+import ProcessPage from '../components/process/ProcessPage.jsx';
+import { PROCESS_META } from '../components/process/processContent.js';
+
+// v2: process page gated until launch — un-gate is ONE 3-file commit:
+// remove this redirect, the matching forced 302 in netlify.toml, and the
+// SITEMAP_EXCLUDE entry in astro.config.mjs. Dev stays viewable for the
+// build + live tuning (/process?debug, spec §9 knobs).
+if (!import.meta.env.DEV) return Astro.redirect('/');
+---
+
+<BaseLayout title={PROCESS_META.title} description={PROCESS_META.description}>
+  <ProcessPage client:only="react" />
+</BaseLayout>

@@ -78,6 +78,9 @@
   --color-blue-link: #0000EE;
   --color-white: #FFFFFF;
   --color-dark-gray: rgb(18, 18, 18);
+  /* Figma bands use near-black on the pure-black page — root-scoped so
+     site-wide consumers (footer bar, np-band) resolve on every route */
+  --color-near-black: #0a0a0a;
 
   /* Typography — font stacks */
   --font-display: 'OT Neue Montreal Squeezed', 'PP Neue Montreal', 'Inter', sans-serif;
@@ -91,6 +94,10 @@
 
   /* Typography — font weights */
   --weight-semi: 600;
+
+  /* Typography — tracking + body leading */
+  --tracking-tight: -0.02em;
+  --lh-body: 1.4;
 
   /* Typography — sizes (rem, base 14px) */
   --text-headline: 2rem;

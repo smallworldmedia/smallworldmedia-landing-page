@@ -22,3 +22,11 @@
   to = "/"
   status = 302
   force = true
+
+# v2: process page gated until launch (same pattern) — remove with the
+# redirect in process.astro + the sitemap exclude, one 3-file commit.
+[[redirects]]
+  from = "/process"
+  to = "/"
+  status = 302
+  force = true

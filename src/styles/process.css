@@ -1,0 +1,220 @@
+/* ============================================
+   PROCESS PAGE — /process (v2 workstream)
+   Scroll-told narrative: the ProcessScene canvas
+   performs the five Stages behind a left-anchored
+   copy column on the brand-black field.
+   Spec: docs/process-page-spec.md.
+   ============================================ */
+
+/* --- Override the global scroll lock (detail-page pattern) ---
+   Keyed off body.route-process (server-set in BaseLayout) rather than the
+   island's DOM: the island is client:only, so a `:has(.process-page)` match
+   would leave the document locked until hydration. */
+html:has(body.route-process) {
+  overflow: auto;
+  height: auto;
+  overscroll-behavior-y: none;
+  background: var(--color-black);
+}
+
+body.route-process {
+  overflow: visible;
+  height: auto;
+  background: var(--color-black);
+}
+
+/* --- Chrome variant: transparent nav over the black field --- */
+body.route-process .site-nav {
+  background: transparent;
+}
+
+/* --- Page shell --- */
+.process-page {
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  background: var(--color-black);
+  color: var(--color-cream);
+}
+
+/* Fixed full-viewport scene layer behind the copy (spec §1). The scene
+   composes the globe right-of-center via group offset — the copy column
+   and the globe share the frame rather than splitting it. */
+.process-page__canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+/* --- Copy column: left-anchored, normal flow (spec §1) --- */
+.process-page__copy {
+  position: relative;
+  z-index: 1;
+  padding: 0 1.143rem;
+}
+
+/* Scroll runway per state: hero 100vh · Stages 140vh · CTA ~90vh */
+.process-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.process-hero {
+  min-height: 100vh;
+}
+
+.process-stage {
+  min-height: 140vh;
+  /* ~40ch measure at prose size — the overlay copy column */
+  font-size: var(--text-ui);
+  max-width: 40ch;
+}
+
+.process-cta {
+  min-height: 90vh;
+}
+
+/* --- Chrome register: lowercase snake_case mono --- */
+.process-hero__token,
+.process-hero__cue,
+.process-stage__chip {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+}
+
+.process-stage__token {
+  color: var(--color-electric-blue);
+}
+
+/* --- Display register: squeezed caps ---
+   Strings stay sentence case in the DOM (screen readers, search); the
+   register is applied visually — the client-panel__title convention. */
+.process-hero__title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semi);
+  font-size: clamp(3.4rem, 7.5vw, 8.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--color-white);
+  max-width: 60vw;
+  margin-top: var(--space-4);
+}
+
+.process-stage__headline {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semi);
+  font-size: clamp(2.2rem, 3.4vw, 3.4rem);
+  line-height: 0.9;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--color-white);
+  margin-top: var(--space-5);
+}
+
+.process-cta__display {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semi);
+  font-size: clamp(3rem, 6.5vw, 7rem);
+  line-height: 0.9;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--color-white);
+}
+
+/* --- Prose register: sentence case, body face --- */
+.process-hero__sub,
+.process-stage__blurb,
+.process-cta__line {
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  line-height: var(--lh-body);
+  letter-spacing: -0.005em;
+  color: var(--color-white);
+  max-width: 40ch;
+  margin-top: var(--space-6);
+}
+
+.process-hero__cue {
+  margin-top: 3.5rem;
+  opacity: 0.65;
+}
+
+/* --- Closing CTAs (base skin — the family treatment lands in P4) --- */
+.process-cta__actions {
+  display: flex;
+  align-items: center;
+  gap: 1.143rem;
+  margin-top: 2rem;
+}
+
+.process-cta__primary,
+.process-cta__secondary {
+  font-family: var(--font-mono);
+  font-size: var(--text-ui);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+}
+
+.process-cta__primary {
+  background: var(--color-white);
+  color: var(--color-electric-blue);
+  transition: background var(--duration-micro) var(--ease-micro),
+    color var(--duration-micro) var(--ease-micro);
+}
+
+.process-cta__primary:hover {
+  background: var(--color-electric-blue);
+  color: var(--color-white);
+}
+
+.process-cta__secondary {
+  background: var(--color-black);
+  color: var(--color-white);
+  border: 1px solid var(--color-white);
+  transition: background var(--duration-micro) var(--ease-micro),
+    color var(--duration-micro) var(--ease-micro);
+}
+
+.process-cta__secondary:hover {
+  background: var(--color-electric-blue);
+  border-color: var(--color-electric-blue);
+}
+
+/* Focus-visible — the house single recipe (spec §7) */
+.process-cta__primary:focus-visible,
+.process-cta__secondary:focus-visible {
+  outline: 1px dashed var(--color-electric-blue);
+  outline-offset: 4px;
+}
+
+/* --- Mobile (≤768px): copy full-width over a black scrim (spec §1) --- */
+@media (max-width: 768px) {
+  .process-stage {
+    max-width: none;
+  }
+
+  .process-hero__title {
+    max-width: none;
+  }
+
+  .process-section {
+    /* Three-color discipline: black surface behind white text — a scrim
+       band that fades at both ends keeps copy legible over the
+       contain-fit globe (tuned for real hardware in P5). */
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0.72) 18%,
+      rgba(0, 0, 0, 0.72) 82%,
+      rgba(0, 0, 0, 0) 100%
+    );
+  }
+}

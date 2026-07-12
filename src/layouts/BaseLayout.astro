@@ -37,6 +37,9 @@ const ogImage = new URL(image, Astro.site);
 // body class. Set server-side so there's no hydration flash; the ClientRouter
 // swaps body attributes on navigation, so leaving `/` restores the blue nav.
 const isHome = Astro.url.pathname === '/';
+// Process-page chrome variant (transparent nav over the brand-black field)
+// + the route's scroll unlock key off this one — same server-side rule.
+const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
 ---
 
 <!doctype html>
@@ -85,7 +88,7 @@ const isHome = Astro.url.pathname === '/';
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   </head>
 
-  <body class:list={[isHome && 'route-home']}>
+  <body class:list={[isHome && 'route-home', isProcess && 'route-process']}>
     <a class="skip-link" href="#main">Skip to content</a>
 
     {/* Hidden form for Netlify's deploy parser (SPA detection) — field set
