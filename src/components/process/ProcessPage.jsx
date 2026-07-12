@@ -13,8 +13,11 @@
 import { useEffect, useRef } from 'react';
 import SiteFooter from '../SiteFooter.jsx';
 import { HERO, STAGES, CTA } from './processContent.js';
+import { DEBUG } from './processConfig.js';
 import useProcessScene from './useProcessScene.js';
 import useProcessScrollDriver from './useProcessScrollDriver.js';
+import useProcessCopy from './useProcessCopy.js';
+import ProcessDebugPanel from './ProcessDebugPanel.jsx';
 
 export default function ProcessPage() {
   const rootRef = useRef(null);
@@ -23,6 +26,7 @@ export default function ProcessPage() {
   const captionRef = useRef(null);
   const sceneRef = useProcessScene(canvasRef, threadRef, captionRef);
   useProcessScrollDriver(rootRef, sceneRef);
+  useProcessCopy(rootRef, sceneRef);
 
   // Release the Envelopment fill on arrival (RouteFill insurance — no-op on
   // direct loads; the detail-page convention, FeaturedProjectDetail.jsx).
@@ -61,8 +65,7 @@ export default function ProcessPage() {
           >
             <p className="process-stage__chip">
               <span className="process-stage__token">{stage.token}</span>
-              {' / '}
-              {stage.chip}
+              <span className="process-stage__chipline">{`/ ${stage.chip}`}</span>
             </p>
             <h2 className="process-stage__headline">{stage.headline}</h2>
             <p className="process-stage__blurb">{stage.blurb}</p>
@@ -89,6 +92,8 @@ export default function ProcessPage() {
           </div>
         </section>
       </div>
+
+      {DEBUG && <ProcessDebugPanel sceneRef={sceneRef} />}
 
       <SiteFooter />
     </div>

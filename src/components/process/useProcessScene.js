@@ -80,7 +80,13 @@ import {
 
 gsap.registerPlugin(CustomEase);
 
-const NOOP_API = { goTo: () => {}, setStageInstant: () => {}, getStage: () => null };
+const NOOP_API = {
+  goTo: () => {},
+  setStageInstant: () => {},
+  getStage: () => null,
+  materializeBelt: () => {},
+  getStats: () => ({ fps: 0, calls: 0, stage: null }),
+};
 const TOTAL_ROWS = LAT_BANDS + 2;
 const STAGE_IDS = ['stage-01', 'stage-02', 'stage-03', 'stage-04', 'stage-05'];
 const IDENTITY_QUAT = new THREE.Quaternion();
@@ -207,6 +213,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
     let activeTl = null;
     let loopTl = null;
     let beltDrifting = false; // tick writes belt transforms only while true
+    let beltHidden = !PREFERS_REDUCED_MOTION; // arrival: shards absent until materializeBelt()
     let threadActive = false; // tick reprojects the Thread only while true
     let threadChain = [];     // claimed panels, hop order
     let threadDraw = { frac: 0, alpha: 1 };
@@ -348,11 +355,12 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       globeGroup.position.x = offsetX;
       const color = new THREE.Color(pose.color);
       const belt = pose.form === 'belt';
+      if (!belt) beltHidden = false; // past the belt narrative — never re-hide
       panels.forEach((p) => {
         const u = p.mesh.material.uniforms;
         u.uPower.value = pose.power;
         u.uFallbackColor.value.copy(color);
-        p.mesh.scale.setScalar(pose.panelScale);
+        p.mesh.scale.setScalar(belt && beltHidden ? 0 : pose.panelScale);
         if (belt) {
           p.mesh.position.copy(p.beltPos);
           p.mesh.quaternion.copy(p.beltQuat);
@@ -498,6 +506,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         beltDrifting = false;
         panels.forEach((p) => {
           gsap.killTweensOf(p);
+          gsap.killTweensOf(p.mesh.scale); // in-flight materialize
           if (!toBelt) p.driftFactor = 0;
         });
       }
@@ -583,11 +592,35 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         return;
       }
       if (DEBUG) console.info(`[ProcessScene] goTo ${stage ?? '∅'} → ${next}`);
+      if (beltHidden) {
+        // Scrolled ahead of the arrival's materialize beat — surface the
+        // shards instantly; the Thread must never chain invisible targets.
+        beltHidden = false;
+        panels.forEach((p) => p.mesh.scale.setScalar(POSES[stage ?? 'stage-01'].panelScale));
+      }
       const interrupted = Boolean(activeTl);
       if (activeTl) activeTl.kill();
       stopLoops();
       activeTl = buildTransition(stage ?? 'stage-01', next, interrupted);
       stage = next;
+    };
+
+    /* — Arrival beat (spec §5): the Fragment belt materializes —
+       per-Fragment scale 0→1, seeded stagger, house curve. — */
+    const materializeBelt = () => {
+      if (!beltHidden || disposed) return;
+      beltHidden = false;
+      panels.forEach((p) => {
+        const delay = (p.drift.phase / (Math.PI * 2)) * 0.5; // seeded
+        gsap.to(p.mesh.scale, {
+          x: 1,
+          y: 1,
+          z: 1,
+          duration: 0.9,
+          delay,
+          ease: turnEase,
+        });
+      });
     };
 
     /* — Render loop: shared gsap.ticker, local FPS gate (never
@@ -598,12 +631,15 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
     const pitch = THREE.MathUtils.degToRad(INITIAL_PITCH_DEG);
     let accumulated = 0;
     let sceneTime = 0;
+    let statFrames = 0;
+    let statStamp = typeof performance !== 'undefined' ? performance.now() : 0;
     const tick = (_time, deltaMs) => {
       accumulated += deltaMs / 1000;
       if (accumulated < 1 / FPS_CAP) return;
       const step = accumulated;
       accumulated = 0;
       sceneTime += step;
+      statFrames += 1;
       yaw += AUTO_ROTATE_SPEED * step;
       globeGroup.rotation.set(pitch, yaw, 0);
       if (beltDrifting) {
@@ -656,7 +692,15 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
     applyPose(POSES['stage-01']);
     renderFrame();
 
-    apiRef.current = { goTo, setStageInstant, getStage: () => stage };
+    const getStats = () => {
+      const now = performance.now();
+      const fps = Math.round((statFrames / Math.max(now - statStamp, 1)) * 1000);
+      statFrames = 0;
+      statStamp = now;
+      return { fps, calls: renderer.info.render.calls, stage };
+    };
+
+    apiRef.current = { goTo, setStageInstant, getStage: () => stage, materializeBelt, getStats };
 
     /* — Teardown (ADR-0002): full release, context loss included — */
     return () => {
