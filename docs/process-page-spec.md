@@ -21,7 +21,7 @@
 
 ## User flow narrative
 
-A visitor lands on `/process` from the nav (or a direct link). The RouteFill releases, `THE_PROCESS` scrambles in, the H1 resolves — and where the globe should be, there isn't one yet: ~84 dark panel **Fragments** drift unconnected right-of-center, almost an asteroid belt. Scrolling into **STAGE_01 / discovery**, the copy explains what we gather; the Fragments just drift — raw material, not yet a world. At **STAGE_02 / visual_language**, **the Thread** shoots out from the belt's empty center, hits a Fragment, then chains Fragment to Fragment, trim-path style — connecting the dots. As the last dot connects, the Fragments are pulled inward and construct a globe: **the Core** — one unified concept assembled from what the client gave us, the electric-blue foundation surfacing behind its panels as it closes. The Stage-3 headline arrives composed inside the Core's silhouette, then the camera pulls back, leaving the last step in the distance. At **STAGE_03 / core_identity**, the cascade fires: panel by panel, pole to pole, the Core lights up electric blue — the foundation goes solid. At **STAGE_04 / build_out**, panels emanate outward one by one and the whole world grows — assets extending the core. At **STAGE_05 / living_world**, the full-size globe runs rhythmic pattern loops — pole-to-pole cascades, equator-out radiation — a world with a pulse. The page closes on `YOUR WORLD NEXT`: `↳ start_project` opens the inquiry overlay in place; `⁕ featured_projects` exits to `/work`.
+A visitor lands on `/process` from the nav (or a direct link). The RouteFill releases onto a full-bleed electric-blue field, `THE_PROCESS` scrambles in, the H1 resolves — and where the globe should be, there isn't one yet: ~84 blue, black-inked panel **Fragments** drift unconnected right-of-center, blueprint shards on the blue field, almost an asteroid belt. Each swipe commits one section (the World-Turn gesture). Into **STAGE_01 / discovery**, the copy explains what we gather; the Fragments just drift — raw material, not yet a world. At **STAGE_02 / visual_language**, **the Thread** shoots out from the belt's empty center as straight black ink, hits a Fragment, then chains Fragment to Fragment — connecting the dots. As the last dot connects, the string pulls taut: its beads seat into a globe in the order they were strung, the rest swept up behind — **the Core**, one unified concept assembled from what the client gave us, the brand mark inked blue-on-blue. Then the camera pulls back and the whole blue field contracts into the Core's disc — the background becomes the core — revealing black. At **STAGE_03 / core_identity**, the cascade fires: panel by panel, pole to pole, the ink burns off and the Core flickers to solid light — the foundation goes solid. At **STAGE_04 / build_out**, panels emanate outward one by one over the dissolving core and the whole world grows — assets extending it, a clean black lattice between lit panels. At **STAGE_05 / living_world**, the home-hero gradient rises under the full-size globe and rhythmic pattern loops run — waterfalls, ripples, checker grooves — each hit holding on blue then falling off steep into the dark: a world with a pulse. The page closes on `YOUR WORLD NEXT`: `↳ start_project` opens the inquiry overlay in place; `⁕ featured_projects` exits to `/work`.
 
 ## 1. Page composition & layout
 
@@ -32,7 +32,7 @@ A visitor lands on `/process` from the nav (or a direct link). The RouteFill rel
 - **Copy column (desktop):** left-anchored, `max-width: ~40ch`, normal flow. Each Stage section: mono chip label → headline → blurb. Stage sections `min-height: 140vh` (scroll runway per state); hero `100vh`; CTA section `~90vh`.
 - **Mobile (≤768px):** copy blocks full-width above a black gradient scrim (three-color discipline: black surface / white text / electric-blue accent); globe contain-fit at reduced fill fraction (`?fillfrac`, ~0.7 — **not** the home globe's mobile cover-overscan: the Stage-1 Fragment belt must fit whole).
 - **Semantic fallback:** all copy is real DOM (`h1`/`h2`/`p`) in source order — the page reads completely with the canvas absent.
-- **Background:** brand black `--color-black` (the F1 info-panel surface family), not electric blue — the page begins as the void the world is built in, and blue arrives *as the story event* in Stage 3.
+- **Background (2026-07-13 revision — Nathan's brief):** STAGED, scene-owned, three DOM layers under the canvas. S1/S2 play on a full-bleed **electric-blue field** (the Fragments render blue-on-blue, differentiated by their black edge strokes — the blueprint read); at the S2→S3 zoom-out the field **contracts into the Core's screen-space disc** (clip-path circle re-projected per frame against the dolly, handing off seamlessly to the blue WebGL inner sphere) — the background literally becomes the core, revealing **black**; S5 crossfades in the **home-hero gradient** (`to top`, electric blue 0% → black 40%). Reversals expand the disc back out; stage jumps and compressed catch-ups crossfade instead (a contraction only reads against its dolly). `data-bg` on the island root re-skins DOM accents per field (the Thread inks black on blue; mono tokens/captions go white on blue). The original brand-black-void reading is superseded: blue is now the *material* the world is built from, and black arrives as the reveal when the core takes it all in.
 
 ## 2. Copy deck
 
@@ -77,7 +77,7 @@ A new `useProcessScene` hook (`src/components/process/useProcessScene.js`) compo
 
 - `buildGlobeGeometry({ lonSegments: 12, latBands: 5, gapDeg, capDeg, radius })` (`src/components/globe/buildGlobeGeometry.js:72`) — panel records `{ geometry, row 0–6, lonIndex 0–11, centerDir, isPole }`. **Do not reduce the 12×(5+2) grid — the density is the mark.** The Stage-1 Fragments are these same 84 panels with scattered start transforms, not a separate system: every panel keeps its home `row`/`lonIndex` identity from birth, which is exactly what makes the assembly legible.
 - Seeded scatter: Fragment belt transforms (position on a loose annulus, random orientation, drift phase) come from the deterministic PRNG utilities already in the codebase (`mulberry32`/`hashSeed`, `src/components/work/world/seededLayout.js`) — same belt every visit, tunable via `?scatter`/`?drift`.
-- `createPanelMaterial({ fallbackColor })` (`src/components/globe/panelMaterial.js:82`) — untextured, so the fragment reduces to `uFallbackColor * uPower` (`panelMaterial.js:58-59`). **The entire visual language of this page is two uniforms per panel.** No shader change required; a `uTintColor/uTintMix` addition is the documented fallback only if grading demands separating structure color from lit color.
+- `createPanelMaterial({ fallbackColor })` (`src/components/globe/panelMaterial.js`) — untextured, so the fragment reduces to `uFallbackColor * uPower` plus the edge stroke. **2026-07-13 revision:** panel color is `LIT_COLOR` blue from birth and never tweens — the page speaks through `uPower`, the black **edge stroke** (`uStrokeMix`/`uStrokeWidthPx`/`uStrokeColor`, screen-constant via `fwidth`), and the staged background. The stroke reads the `aEdgeUv` attribute — the panel's natural spherical param recovered per panel before the local-origin re-bake (pole wedges' planar UVs don't hug the wedge silhouette). The home globe is untouched (stroke mix 0, attribute absent → stroke resolves to nothing). This retires the `uTintColor/uTintMix` fallback: structure separation now comes from ink, not tint.
 - `buildCascadeTimeline(panels, variant, totalRows)` (`src/components/globe/cascade.js:50`) — panel-array-generic; used verbatim for the Stage-3 light-up and as the delay-model reference for Stage-4/5 sequencing (`panelDelay`, `cascade.js:29`).
 - Inner occlusion sphere per globe at `GAP_COLOR` electric blue (`src/components/globe/globeConfig.js:88` — note: the inline comment says black; the value `0x0000ff` is the truth. Fix the comment during build, cite the value meanwhile).
 - Conventions inherited from `useGlobeScene.js`: tan-space `frameCamera` fit, render loop on the shared `gsap.ticker` with a **local** FPS gate (never `gsap.ticker.fps()`), IntersectionObserver + `document.hidden` ticker pause, teardown with `renderer.forceContextLoss()` (route-scoped canvas, ADR-0002 — this page is the site's third scene).
@@ -87,38 +87,39 @@ A new `useProcessScene` hook (`src/components/process/useProcessScene.js`) compo
 All transition eases: the house curve — `CustomEase` from `TURN_EASE_PATH` (`src/components/work/world/worldConfig.js:78`; steep launch, long settle, never overshoot). Exits/reversals run ≈0.7× their entrance durations.
 
 ### S1 — discovery (the Fragment belt)
-No globe yet. The 84 panels drift as unconnected **Fragments** on a loose annulus right-of-center — "almost like an asteroid belt": seeded positions and orientations (`?scatter` governs spread), slow individual drift and tumble (`?drift`), no inner sphere. Visibility treatment: on the black field, dark panels at `uPower 0` would vanish — Fragments idle at a low glow (`uPower` ~0.35 against the `0x121212` fallback, reading as barely-lit slate), enough to register as material, not yet as light. The belt is the gathered raw references before they belong to anything.
+No globe yet. The 84 panels drift as unconnected **Fragments** on a loose annulus right-of-center — "almost like an asteroid belt": seeded positions and orientations (`?scatter` governs spread), slow individual drift and tumble (`?drift`), no inner sphere. Visibility treatment (2026-07-13): the Fragments are **brand blue with a black edge stroke** on the blue field — blueprint shards, differentiated by ink, idling a breath under field brightness (`?idlepower` ~0.92; `?stroke` width). The belt is the gathered raw references before they belong to anything.
 
 ### S2 — visual_language (the Thread + the assembly)
-Two beats. **Connect:** the Thread (see §4) shoots out from the belt's empty center — the point where the globe *will* be — hits the nearest Fragment, then chains Fragment to Fragment through `?threadhops` (default 10) hops, trim-path style. Each hop pings: a scramble caption beat and a brief `uPower` blip on the struck Fragment, whose drift then damps to a gentle hold — claimed. **Assemble:** as the final dot connects (`dots_connected`), every Fragment is pulled inward: per-panel position + quaternion tweens from scatter transform to home `row`/`lonIndex` slot (`?assemble`, ~1.6s total, cascade-family stagger so the sphere closes in a visible order), while the electric-blue inner sphere scales in behind them — the foundation surfacing as the shell closes. The Thread's segments ride their endpoints inward and fade as the construction completes: **the Core** stands assembled (`core_assembled`) — one unified concept built from what was scattered, dark-panelled, blue structure in its gaps.
+Two beats. **Connect:** the Thread (see §4) shoots out from the belt's empty center — the point where the globe *will* be — hits the nearest Fragment, then chains Fragment to Fragment through `?threadhops` (default 20) hops as **straight ink segments**, trim-path style. Each hop pings: a scramble caption beat and a claimed-stamp on the struck Fragment (a brief dip a shade *darker* — the blue-on-blue idiom), whose drift then damps to a gentle hold. **Assemble (2026-07-13 — the string pulled taut):** as the final dot connects (`dots_connected`), the pull-in stagger IS the hop order — chained beads seat first, in connection sequence, across the leading window; the unchained are swept up behind, nearest-to-center first (`?assemble` total). The electric-blue inner sphere scales in behind the closing shell, the string rides its beads inward and releases after they seat: **the Core** stands assembled (`core_assembled`) — the brand mark inked blue-on-blue, black lattice strokes carrying its structure.
 
-### S2→S3 — the zoom-out
-The Core holds center-frame, large. The Stage-3 section arrives; its headline enters as DOM text (SplitText masked lines) composed within the globe's silhouette — text *in* the world, never GL-rendered type. Then the camera dollies back (`?zoomout`, ~1.0s) / group scales down so the globe sits small again — "the last step in the distance" — before its foundation moment.
+### S2→S3 — the zoom-out (and the field contraction)
+The Core holds center-frame, large. The Stage-3 section arrives; its headline enters as DOM text (SplitText masked lines) composed within the globe's silhouette — text *in* the world, never GL-rendered type. Then the camera dollies back (`?zoomout`) while the blue field **contracts into the Core's live disc** (§1) — the background becomes the core, black revealed around it — leaving the last step small in the distance.
 
 ### S3 — core_identity (the light-up)
-The cascade fires: per-panel `gsap` tweens of `uniforms.uFallbackColor.value` (a `THREE.Color` — tween `r/g/b`) from near-black `0x121212` to electric blue `0x0000ff`, with the `uPower` CRT-flicker keyframes riding the same stagger (`FLICKER_KEYFRAMES`, `cascade.js:22`). Stagger variant: **`rows`** by default (pole-to-pole waterfall — Nathan's pick for this beat; the home hero keeps `sweep`, `DEFAULT_CASCADE_VARIANT`, `cascade.js:19`), switchable via `?cascade`. The globe settles center-frame at moderate size, now *solid*: a blue world where there was black structure. This is the page's single loudest beat — nothing else animates during it.
+The cascade fires on the fresh black field: the `uPower` CRT-flicker keyframes (`FLICKER_KEYFRAMES`, `cascade.js`) ride the `?cascade` stagger (**`rows`** default — pole-to-pole waterfall; the home hero keeps `sweep`) while the black edge strokes **burn off on the same delay model** — ink dissolving as each panel flickers to full blue. Color itself never tweens (panels are blue from birth); the "goes solid" beat is the structure leaving. The globe settles as a solid blue world on black. This is the page's single loudest beat — nothing else animates during it.
 
-### S4 — build_out (the emanation)
-Per-panel `mesh.scale.setScalar(k)`, 1→`?emanate` (default ~1.35), staggered by `?emanateorder` (default `sweep`, contrasting Stage 3's `rows` per the section-contrast rule): panel geometry is baked at radius with each mesh at the origin, so uniform mesh scale moves a panel outward along its own normal *and* enlarges it — the emanation is geometrically free. Simultaneously the globe group scales up (~1.6×) and the camera pulls back to keep contain-fit — the world visibly outgrows its old frame, each ring built off the one before.
+### S4 — build_out (the emanation, over the dissolving core)
+Per-panel `mesh.scale.setScalar(k)`, 1→`?emanate` (default 1.8), staggered by `?emanateorder` (default `sweep`, contrasting Stage 3's `rows`): panel geometry is baked at radius with each mesh at the origin, so uniform mesh scale moves a panel outward along its own normal *and* enlarges it — the emanation is geometrically free. The camera pulls back to keep contain-fit (`?s45fill`) and **the filled core dissolves under the lifting shell** (`pose.innerScale` → 0) — it was blocking the expanded world's gap-lattice (Nathan's occlusion flag, 2026-07-13); the built-out world reads as lit panels over a clean black lat/long lattice, returning on reverse.
 
-### S5 — living_world (the rhythm)
-Panels settle at the expanded radius; looping `uPower` pattern timelines run: the `rows` cascade (pole-to-pole waterfall) alternating with an **inverted `poles`** pattern (equator-out radiation — delay `= (maxRing − ring) · step`, a trivial third delay model beside `panelDelay`'s existing two). Loop cadence anchored to `?bpm` (default 122): one pattern pass per N beats, pulse amplitude modest (`uPower` 1.0 ↔ ~1.12, the flicker ceiling) — a heartbeat, not a strobe. Ambient yaw continues. This state idles indefinitely at the page's foot.
+### S5 — living_world (the rhythm — musical engine, 2026-07-13)
+Panels settle at the expanded radius; looping `uPower` pattern timelines run on a per-hit **musical envelope**: snap to full blue (attack ~60ms) → **hold on blue** (`?hold` beats) → **steep expo falloff** to a deep floor (`?pulsemin`, default 0.12 — the drama lives in how dark the wake gets). Patterns (`?pattern`): `rows` waterfall · `equator`-out radiation · `ripple` (radial from a central panel, angular-distance delays) · `checker` (per-beat parity alternation — the offbeat groove) · `random` (seeded shuffle, re-dealt per pass) · **`cycle`** (default — rotates the vocabulary, one pattern per `PASS_BEATS`-beat pass). Cadence anchored to `?bpm` (default 133). Between hits a panel rests dark — the waves are light. Ambient yaw continues; the loop idles indefinitely at the page's foot over the home-hero gradient.
 
 **Draw calls by stage:** ~85 throughout — the belt and the globe are the *same* 84 panel meshes (inner sphere joins at assembly), plus the SVG Thread overlay during S2. Home-globe parity with zero texture memory.
 
 ## 4. The Thread
 
-A screen-space SVG overlay above the canvas (below copy), electric-blue stroke ~2px:
+A screen-space SVG overlay above the canvas (below copy), ~2px stroke — **black ink on the blue field** (`data-bg` keyed; electric blue on any other field):
 
-- **Path:** origin at the belt's center — the Core's center-to-be — then through the chained Fragments' projected centers (`Vector3.project(camera)` → viewport px; `?threadhops`+1 points re-projected per frame during S2, since the targets drift until claimed), gentle curvature per segment.
-- **Draw-on:** `stroke-dasharray`/`stroke-dashoffset` tween — the house technique (`src/components/ProjectOverlay.jsx:15`, CheckIndicator: "stroke-dashoffset animation via GSAP (DrawSVG-style without plugin)"). Duration `?threadms` (900ms per hop), house curve, hop-by-hop with pings; a struck Fragment's drift damps so the drawn path holds its shape.
-- **Hand-off:** during the assembly, each segment's endpoints track their Fragments inward; segments fade as their Fragments seat into the Core.
+- **Path (2026-07-13 — straight, and a real mechanism):** origin at the belt's center — the Core's center-to-be — then through the chained Fragments' projected centers as **straight `L` segments** (`Vector3.project(camera)` → viewport px; `?threadhops`+1 points re-projected per frame during S2, since the targets drift until claimed). No curvature: the string must read as the thing that pulls, not an annotation — the old quadratic smoothing was the "pseudo-assembly" Nathan cut.
+- **Draw-on:** `stroke-dasharray`/`stroke-dashoffset` tween — the house technique (`src/components/ProjectOverlay.jsx:15`, CheckIndicator: "stroke-dashoffset animation via GSAP (DrawSVG-style without plugin)"). Duration `?threadms` (200ms per hop), house curve, hop-by-hop with pings; a struck Fragment's drift damps so the drawn path holds its shape.
+- **Hand-off (beads on the taut string):** the assembly stagger IS the hop order — the string's beads seat into the Core in connection sequence while the polyline tracks them inward, then the string releases (fades) once its beads have seated.
 - **Why not in-scene** (`THREE.Line`/tube): 1px line-width platform limits, per-frame tube rebuilds against drifting targets, and the After-Effects trim-path reference is an annotation-layer read — depth occlusion is the anti-goal.
 - **Reduced motion:** the Thread renders fully drawn, static.
 
 ## 5. Scroll choreography
 
-- **Driver:** ScrollTrigger — registered **in the island only** (first use in the codebase; precedent already blessed in `docs/orbit-deck-viewer-spec.md:44`: "`ScrollTrigger.update` on Lenis scroll (standard pattern)"). One trigger per Stage section: `start: 'top 60%'`, `onEnter`/`onEnterBack` → `scene.goTo(stage)` + that section's copy timeline. **No scrub** (authored time-domain curves own the clock), **no pin** (the canvas is CSS-fixed — zero pin-spacer/Lenis interactions), **no snap** (affordance honesty: it's a document; the scrollbar behaves).
+- **Driver:** ScrollTrigger — registered **in the island only** (first use in the codebase; precedent already blessed in `docs/orbit-deck-viewer-spec.md:44`: "`ScrollTrigger.update` on Lenis scroll (standard pattern)"). One trigger per Stage section: `start: 'top 60%'`, `onEnter`/`onEnterBack` → `scene.goTo(stage)` + that section's copy timeline. **No scrub** (authored time-domain curves own the clock), **no pin** (the canvas is CSS-fixed — zero pin-spacer/Lenis interactions).
+- **Gesture quantizer (2026-07-13 — supersedes the no-snap call; ADR-0004 amendment):** the house accumulator (`?scroll` px fill = 600, ×2 touch gain, 160ms stall rubber-band, one commitment per gesture — the World Turn / scroll-to-enter idiom) quantizes input into **one-section swipes**: a commit is a `lenis.scrollTo` glide to the next section's in-viewport rest on the Turn curve over `?swipems`, locked until it lands, so boundaries/copy/machine fire exactly as from a free scroll. Below threshold the copy column leans with the pull and rubber-bands back. Lenis free-wheel stops while the island owns input; chrome (tuning panel, overlay, nav, fields) stays native; keyboard steps the same grid; the footer is one extra step. `?swipe=off` restores free scroll; reduced motion never engages it.
 - **Lenis bridge:** `getLenis()?.on('scroll', ScrollTrigger.update)` with cleanup; `ScrollTrigger.refresh()` on `astro:page-load` and `document.fonts.ready`. Under reduced motion Lenis never exists and ScrollTrigger rides native scroll unchanged.
 - **Copy entrances** (per section, the WorldCard OS-boot family — `src/components/work/WorldCard.jsx:134-156`): `ScrambleLabel` chip (1.4s house cadence) → SplitText masked-line headline (0.6s, stagger 0.1, `power3.out`) → blurb rise (0.4s, `power2.out`), overlapped, never fully sequential. Leave-back exits at ≈0.7×.
 - **Arrival choreography** (mandatory — the brand-polish audit's #1 ethos gap is the detail page's missing arrival; this page does not repeat it): on island mount, dispatch `swm:fill-release` (the `src/components/work/detail/FeaturedProjectDetail.jsx:58` pattern; RouteFill's 2500ms safety valve covers pathological loads) → hero sequence: `THE_PROCESS` scramble → H1 SplitText lines → the Fragment belt materializes (per-Fragment scale 0→1, seeded stagger, house curve, ~0.9s) → scroll cue fade. Plays identically on direct load and client-side nav; once per mount.
@@ -155,23 +156,35 @@ A screen-space SVG overlay above the canvas (below copy), electric-blue stroke ~
 
 ## 9. Tunables
 
-`PARAM()` query-knob convention (`src/components/globe/globeConfig.js:15`), read once at init, baked defaults:
+`PARAM()` query-knob convention (`src/components/globe/globeConfig.js:15`), read once at init into the live-mutable `TUNING` object (the `?debug` panel applies changes without reload). Defaults below are **Nathan's 2026-07-13 dial-in**, baked from his `copy_url` (†two re-baked for the new visual language — see `processConfig.js` header):
 
 | Knob | Default | Governs |
 |---|---|---|
 | `?stagems` | 1200 | base stage-transition duration (ms) |
-| `?scatter` | 1.8 | Fragment-belt spread (annulus radius, world units) |
-| `?drift` | 0.05 | Fragment drift/tumble rate |
-| `?threadhops` | 10 | Fragments the Thread chains before assembly |
-| `?threadms` | 900 | Thread draw duration per hop (ms) |
-| `?assemble` | 1.6 | assembly duration, scatter→home (s) |
-| `?zoomout` | 1.0 | S2→S3 dolly-back (s) |
-| `?emanate` | 1.35 | S4 per-panel scale target |
+| `?scatter` | 2.45 | Fragment-belt spread (annulus radius, world units) |
+| `?drift` | 0.23 | Fragment drift/tumble rate |
+| `?stroke` | 1.5 | Fragment edge-stroke width (screen px; 0 = off) |
+| `?idlepower` | 0.92 † | belt idle brightness (a breath under the blue field) |
+| `?threadhops` | 20 | Fragments the Thread chains before assembly (≤84) |
+| `?threadms` | 200 | Thread draw duration per hop (ms) |
+| `?assemble` | 3 | assembly duration, scatter→home (s) |
+| `?zoomout` | 0.45 | S2→S3 dolly-back + field contraction (s) |
+| `?emanate` | 1.8 | S4 per-panel scale target |
 | `?emanateorder` | sweep | S4 emanation stagger (`rows`/`poles`/`sweep`) |
-| `?bpm` | 122 | S5 pattern-loop tempo |
 | `?cascade` | rows | S3 light-up variant (`rows`/`poles`/`sweep`) |
-| `?fillfrac` | 0.85 / 0.7 | camera fit fraction desktop / mobile |
-| `?debug` | off | tuning panel (stage jump buttons, knob sliders, fps/draw stats) |
+| `?bpm` | 133 | S5 pattern-loop tempo |
+| `?pattern` | cycle | S5 sequencing (`cycle`/`rows`/`equator`/`ripple`/`checker`/`random`) |
+| `?hold` | 0.4 | S5 envelope: beats held on full blue before the falloff |
+| `?decay` | 1.5 | S5 envelope: beats of steep (expo) falloff |
+| `?pulsemin` | 0.12 † | S5 floor — how dark the wake gets (0 = black) |
+| `?fillfrac` | 0.89 | camera contain-fit fraction (both breakpoints) |
+| `?s3fill` | 0.5 | post-zoom-out framing — the Core small, in the distance |
+| `?s45fill` | 1.1 | build-out framing — outgrows the frame, stays contained |
+| `?dropy` | 0.4 | phone: Core drop below the copy band (viewport fraction) |
+| `?swipe` | on | one-section-per-swipe quantizer (`off` = free scroll) |
+| `?scroll` | 600 | wheel/touch px to commit a swipe (house resistance) |
+| `?swipems` | 1100 | committed section glide duration (ms, Turn curve) |
+| `?debug` | off | tuning panel (stage jumps, live knobs, `↻ replay`, `copy_url`, fps/draw stats) |
 
 ## 10. Build order
 
