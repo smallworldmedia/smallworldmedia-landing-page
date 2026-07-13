@@ -10,35 +10,42 @@
  * TUNING_DEFAULTS once dialed).
  */
 import { useEffect, useState } from 'react';
-import { TUNING, TUNING_DEFAULTS } from './processConfig.js';
+import { TUNING, TUNING_DEFAULTS, RHYTHM_PATTERNS } from './processConfig.js';
 
 const STAGES = ['stage-01', 'stage-02', 'stage-03', 'stage-04', 'stage-05'];
 
 /* Slider knobs: key into TUNING, URL param name, range. `ms` knobs are
    stored in seconds but travel as milliseconds in the URL (spec §9). */
 const SLIDERS = [
-  { key: 'scatter', param: 'scatter', min: 0.8, max: 3, step: 0.05 },
-  { key: 'drift', param: 'drift', min: 0, max: 0.3, step: 0.005 },
-  { key: 'idlePower', param: 'idlepower', min: 0.05, max: 1, step: 0.05 },
-  { key: 'fillFraction', param: 'fillfrac', min: 0.4, max: 1.1, step: 0.01 },
-  { key: 's3Fill', param: 's3fill', min: 0.3, max: 1, step: 0.01 },
-  { key: 's45Fill', param: 's45fill', min: 0.5, max: 1.1, step: 0.01 },
+  { key: 'scatter', param: 'scatter', min: 0.8, max: 3.2, step: 0.05 },
+  { key: 'drift', param: 'drift', min: 0, max: 0.4, step: 0.005 },
+  { key: 'idlePower', param: 'idlepower', min: 0, max: 1, step: 0.02 },
+  { key: 'strokePx', param: 'stroke', min: 0, max: 4, step: 0.25 },
+  { key: 'fillFraction', param: 'fillfrac', min: 0.4, max: 1.2, step: 0.01 },
+  { key: 's3Fill', param: 's3fill', min: 0.2, max: 1, step: 0.01 },
+  { key: 's45Fill', param: 's45fill', min: 0.5, max: 1.3, step: 0.01 },
   { key: 'stageSeconds', param: 'stagems', min: 0.4, max: 3, step: 0.05, ms: true },
   { key: 'zoomOutSeconds', param: 'zoomout', min: 0.3, max: 2.5, step: 0.05 },
-  { key: 'threadHops', param: 'threadhops', min: 3, max: 20, step: 1 },
-  { key: 'threadHopSeconds', param: 'threadms', min: 0.2, max: 2, step: 0.05, ms: true },
-  { key: 'assembleSeconds', param: 'assemble', min: 0.5, max: 4, step: 0.1 },
-  { key: 'emanateScale', param: 'emanate', min: 1, max: 1.8, step: 0.05 },
+  { key: 'threadHops', param: 'threadhops', min: 3, max: 84, step: 1 },
+  { key: 'threadHopSeconds', param: 'threadms', min: 0.05, max: 2, step: 0.05, ms: true },
+  { key: 'assembleSeconds', param: 'assemble', min: 0.5, max: 5, step: 0.1 },
+  { key: 'emanateScale', param: 'emanate', min: 1, max: 2.2, step: 0.05 },
   { key: 'bpm', param: 'bpm', min: 60, max: 180, step: 1 },
-  { key: 'pulseMin', param: 'pulsemin', min: 0.3, max: 1, step: 0.05 },
-  { key: 'mobileDrop', param: 'dropy', min: 0, max: 0.4, step: 0.02 },
+  { key: 'pulseMin', param: 'pulsemin', min: 0, max: 1, step: 0.01 },
+  { key: 'holdBeats', param: 'hold', min: 0, max: 2, step: 0.05 },
+  { key: 'decayBeats', param: 'decay', min: 0.1, max: 4, step: 0.05 },
+  { key: 'mobileDrop', param: 'dropy', min: 0, max: 0.5, step: 0.02 },
+  { key: 'swipePx', param: 'scroll', min: 150, max: 1200, step: 25 },
+  { key: 'swipeSeconds', param: 'swipems', min: 0.4, max: 2.5, step: 0.05, ms: true },
 ];
 
-const SELECTS = [
-  { key: 'cascadeVariant', param: 'cascade' },
-  { key: 'emanateOrder', param: 'emanateorder' },
-];
 const VARIANTS = ['rows', 'poles', 'sweep'];
+const SELECTS = [
+  { key: 'cascadeVariant', param: 'cascade', options: VARIANTS },
+  { key: 'emanateOrder', param: 'emanateorder', options: VARIANTS },
+  { key: 'pattern', param: 'pattern', options: RHYTHM_PATTERNS },
+  { key: 'swipe', param: 'swipe', options: ['on', 'off'] },
+];
 
 const knobLabel = (def) => `?${def.param}`;
 const knobValue = (def) => {
@@ -154,7 +161,7 @@ export default function ProcessDebugPanel({ sceneRef }) {
               value={TUNING[def.key]}
               onChange={(e) => tune(def.key, e.target.value)}
             >
-              {VARIANTS.map((v) => (
+              {def.options.map((v) => (
                 <option key={v} value={v}>
                   {v}
                 </option>
