@@ -39,3 +39,6 @@ media/**
 .sanity/
 .scratch/
 schema.json
+
+# world-build carousel build output
+social/world-build/dist/
