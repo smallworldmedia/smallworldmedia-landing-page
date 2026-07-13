@@ -44,6 +44,8 @@ export const TUNING_DEFAULTS = {
   s45Fill: 0.92, // ?s45fill — build-out: outgrows the frame, stays contained
   idlePower: 0.35, // ?idlepower — Fragments idle: barely-lit slate
   pulseMin: 0.7, // ?pulsemin — S5 dip: the visible half of the heartbeat
+  mobileDrop: 0.22, // ?dropy — phone: Core sits low so the centered copy band gets clear air
+  // (the vertical analog of the desktop right-of-center offset; belt stays centered)
   // (pure 0x0000ff saturates blue at uPower 1, so the over-brighten peak
   // is a no-op on lit panels — the traveling dim wave carries the pulse)
 };
@@ -66,6 +68,7 @@ export const TUNING = {
   s45Fill: num('s45fill', TUNING_DEFAULTS.s45Fill),
   idlePower: num('idlepower', TUNING_DEFAULTS.idlePower),
   pulseMin: num('pulsemin', TUNING_DEFAULTS.pulseMin),
+  mobileDrop: num('dropy', TUNING_DEFAULTS.mobileDrop),
 };
 
 /* — Fixed constants — */

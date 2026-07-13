@@ -46,6 +46,15 @@ body.route-process .site-nav {
   z-index: 0;
 }
 
+/* three.js sets the buffer to css × DPR with updateStyle:false — the
+   element needs explicit CSS size or high-DPR phones render it 2–3× too
+   large (the video-globe / fp-canvas convention) */
+.process-page__canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* --- The Thread: annotation layer above the canvas, below the copy
    (spec §4). The scene drives the path geometry + trim-path draw. --- */
 .process-thread {
@@ -243,13 +252,42 @@ body.route-process .site-nav {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
-  width: 21rem;
+  width: min(21rem, calc(100vw - 2.286rem));
   max-height: calc(100dvh - 8rem);
   overflow-y: auto;
   background: rgba(0, 0, 0, 0.85);
   border: 1px solid var(--color-electric-blue);
   font-family: var(--font-mono);
   font-size: var(--text-mono);
+  color: var(--color-white);
+}
+
+/* Collapsed chip (phone default) — reopens the full panel */
+.process-debug--chip {
+  width: auto;
+  padding: 0;
+  overflow: visible;
+}
+
+.process-debug--chip button {
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-electric-blue);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.process-debug__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.process-debug__close {
+  padding: 0 var(--space-2);
+  font-family: inherit;
+  font-size: 1.143rem;
+  line-height: 1;
   color: var(--color-white);
 }
 
@@ -370,15 +408,25 @@ body.route-process .site-nav {
   }
 
   .process-section {
-    /* Three-color discipline: black surface behind white text — a scrim
-       band that fades at both ends keeps copy legible over the
-       contain-fit globe (tuned for real hardware in P5). */
+    /* Three-color discipline: black surface behind white text. The band
+       hugs the centered copy block only — blanketing the section buried
+       the scene under scrim for most of the scroll (tune in P5). */
     background: linear-gradient(
       to bottom,
-      rgba(0, 0, 0, 0) 0%,
-      rgba(0, 0, 0, 0.72) 18%,
-      rgba(0, 0, 0, 0.72) 82%,
-      rgba(0, 0, 0, 0) 100%
+      rgba(0, 0, 0, 0) 32%,
+      rgba(0, 0, 0, 0.6) 42%,
+      rgba(0, 0, 0, 0.6) 58%,
+      rgba(0, 0, 0, 0) 68%
     );
+  }
+
+  /* Legibility where copy overhangs the band edges over a lit globe */
+  .process-hero__title,
+  .process-hero__sub,
+  .process-stage__headline,
+  .process-stage__blurb,
+  .process-cta__display,
+  .process-cta__line {
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.7);
   }
 }

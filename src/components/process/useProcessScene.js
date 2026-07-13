@@ -222,7 +222,11 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       const tanFit = Math.min(tanV, tanH);
       const z = (RADIUS * pose.frameR) / Math.sin(Math.atan(pose.fill * tanFit));
       const offsetX = IS_MOBILE ? 0 : z * tanH * DESKTOP_OFFSET_X;
-      return { z, offsetX };
+      // Phone: the Core drops below the centered copy band (?dropy) — the
+      // vertical analog of the desktop offset. The sparse belt reads fine
+      // behind full-width copy and stays centered.
+      const offsetY = IS_MOBILE && pose.form === 'core' ? -(z * tanV * TUNING.mobileDrop) : 0;
+      return { z, offsetX, offsetY };
     };
 
     /* — Machine state — */
@@ -320,9 +324,10 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       camera.updateProjectionMatrix();
       threadRef?.current?.ownerSVGElement?.setAttribute('viewBox', `0 0 ${w} ${h}`);
       if (!activeTl) {
-        const { z, offsetX } = framingFor(getPose(stage ?? 'stage-01'));
+        const { z, offsetX, offsetY } = framingFor(getPose(stage ?? 'stage-01'));
         camera.position.z = z;
         globeGroup.position.x = offsetX;
+        globeGroup.position.y = offsetY;
         if (PREFERS_REDUCED_MOTION) {
           updateThread();
           renderFrame();
@@ -367,9 +372,10 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
 
     /* — Instant pose application (arrival sync + every RM boundary) — */
     const applyPose = (pose) => {
-      const { z, offsetX } = framingFor(pose);
+      const { z, offsetX, offsetY } = framingFor(pose);
       camera.position.z = z;
       globeGroup.position.x = offsetX;
+      globeGroup.position.y = offsetY;
       const color = new THREE.Color(pose.color);
       const belt = pose.form === 'belt';
       if (!belt) beltHidden = false; // past the belt narrative — never re-hide
@@ -472,10 +478,10 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       tl.to(innerSphere.scale, { x: INNER_SPHERE_SCALE, y: INNER_SPHERE_SCALE, z: INNER_SPHERE_SCALE, duration: assembleSeconds * 0.8 }, at0 + assembleSeconds * 0.15);
       tl.to(threadDraw, { alpha: 0, duration: assembleSeconds * 0.7, ease: 'power2.in' }, at0 + assembleSeconds * 0.25);
 
-      // The Core holds center-frame, large.
-      const { z, offsetX } = framingFor(pose);
+      // The Core holds large — dropping low on phones (?dropy).
+      const { z, offsetX, offsetY } = framingFor(pose);
       tl.to(camera.position, { z, duration: assembleSeconds }, at0);
-      tl.to(globeGroup.position, { x: offsetX, duration: assembleSeconds }, at0);
+      tl.to(globeGroup.position, { x: offsetX, y: offsetY, duration: assembleSeconds }, at0);
 
       tl.call(() => {
         clearThread();
@@ -510,15 +516,20 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         tl.call(clearThread, null, 0.26);
       }
 
-      const { z, offsetX } = framingFor(pose);
+      const { z, offsetX, offsetY } = framingFor(pose);
       const isLightUp = to === 'stage-03' && !reversing && !compressed;
       const frameDur = (isLightUp ? TUNING.zoomOutSeconds : TUNING.stageSeconds) * durMult;
       tl.to(camera.position, { z, duration: frameDur }, 0);
-      tl.to(globeGroup.position, { x: offsetX, duration: frameDur }, 0);
+      tl.to(globeGroup.position, { x: offsetX, y: offsetY, duration: frameDur }, 0);
 
       const color = new THREE.Color(pose.color);
       const toBelt = pose.form === 'belt';
-      const fromBelt = getPose(from)?.form === 'belt';
+      // The pose table alone lies mid-show: interrupting the S1→S2 Thread
+      // sequence arrives here with from='stage-02' (form core) while the
+      // belt is still live — the tick would keep stamping belt transforms
+      // over this morph's position tweens. Judge by actual state too.
+      const fromBelt =
+        getPose(from)?.form === 'belt' || beltDrifting || threadActive;
 
       if (fromBelt || toBelt) {
         // The tick hands the belt to gsap until onComplete re-arms it.
@@ -652,9 +663,10 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       seedBelt();
       const pose = getPose(stage ?? 'stage-01');
       if (!activeTl) {
-        const { z, offsetX } = framingFor(pose);
+        const { z, offsetX, offsetY } = framingFor(pose);
         camera.position.z = z;
         globeGroup.position.x = offsetX;
+        globeGroup.position.y = offsetY;
         if (pose.form === 'belt' && !threadActive) {
           panels.forEach((p) => {
             if (p.driftFactor > 0.5) p.mesh.material.uniforms.uPower.value = TUNING.idlePower;

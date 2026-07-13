@@ -31,6 +31,7 @@ const SLIDERS = [
   { key: 'emanateScale', param: 'emanate', min: 1, max: 1.8, step: 0.05 },
   { key: 'bpm', param: 'bpm', min: 60, max: 180, step: 1 },
   { key: 'pulseMin', param: 'pulsemin', min: 0.3, max: 1, step: 0.05 },
+  { key: 'mobileDrop', param: 'dropy', min: 0, max: 0.4, step: 0.02 },
 ];
 
 const SELECTS = [
@@ -61,11 +62,25 @@ export default function ProcessDebugPanel({ sceneRef }) {
   const [stats, setStats] = useState({ fps: 0, calls: 0, stage: null });
   const [, bump] = useState(0); // TUNING is the source of truth
   const [copied, setCopied] = useState(false);
+  // Phones start collapsed — the full panel devours a small viewport
+  const [open, setOpen] = useState(
+    () => !(typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches)
+  );
 
   useEffect(() => {
     const id = setInterval(() => setStats(sceneRef.current.getStats()), 500);
     return () => clearInterval(id);
   }, [sceneRef]);
+
+  if (!open) {
+    return (
+      <aside className="process-debug process-debug--chip">
+        <button type="button" onClick={() => setOpen(true)}>
+          {`⌁ tune · ${stats.stage ?? '∅'} · ${stats.fps}fps`}
+        </button>
+      </aside>
+    );
+  }
 
   const tune = (key, value) => {
     TUNING[key] = value;
@@ -82,9 +97,19 @@ export default function ProcessDebugPanel({ sceneRef }) {
 
   return (
     <aside className="process-debug">
-      <p className="process-debug__stats">
-        {`fps ${stats.fps} · draws ${stats.calls} · ${stats.stage ?? '∅'}`}
-      </p>
+      <div className="process-debug__head">
+        <p className="process-debug__stats">
+          {`fps ${stats.fps} · draws ${stats.calls} · ${stats.stage ?? '∅'}`}
+        </p>
+        <button
+          type="button"
+          className="process-debug__close"
+          aria-label="collapse tuning panel"
+          onClick={() => setOpen(false)}
+        >
+          ×
+        </button>
+      </div>
 
       <div className="process-debug__stages">
         {STAGES.map((id, i) => (
