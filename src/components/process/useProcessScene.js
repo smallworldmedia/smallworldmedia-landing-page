@@ -15,16 +15,28 @@
  * pose is position = centerDir·R·k with scale k — for k = ?emanate this is
  * exactly the baked-at-radius uniform-scale emanation, decomposed.
  *
+ * Visual language (2026-07-13 refinement round): the panel color is
+ * LIT_COLOR blue from birth and never tweens — the page speaks through
+ * uPower, the black edge stroke (uStrokeMix), and the STAGED BACKGROUND.
+ * S1/S2 play on a full-bleed electric-blue field (Fragments blue-on-blue,
+ * black-stroked); at the S3 zoom-out the field CONTRACTS into the Core's
+ * screen-space disc — the background literally becomes the core — and
+ * black is revealed; S5 crossfades to the home hero's black→blue gradient.
+ * The filled core dissolves during the S4 emanation so the expanded
+ * world's gap-lattice (its lat/long lines) reads clean through.
+ *
  * Stages: S1 drifting Fragment belt (seeded, empty center) → S2 the Thread
- * chains ?threadhops Fragments then the pull-in assembly constructs the
- * Core over the surfacing inner sphere → S3 zoom-out + the ?cascade
- * light-up → S4 per-panel emanation → S5 ?bpm rhythm loops.
+ * chains ?threadhops Fragments with STRAIGHT segments from the center,
+ * then the pull-in assembly seats beads in HOP ORDER (string pulled taut;
+ * the unchained swept up behind) → S3 field-contraction + cascade
+ * light-up (strokes burn off) → S4 per-panel emanation over the
+ * dissolving core → S5 musical rhythm loops (?pattern/?hold/?decay).
  *
  * Live tuning: every knob is read from the mutable TUNING object at
  * use-time (framing, the drift tick, transition build), so the ?debug
  * panel applies changes without a reload — applyTuning() re-seeds the
- * belt / re-frames / rebuilds a running loop, replay() re-runs the
- * current stage's transition from the previous rest pose.
+ * belt / re-frames / re-strokes / rebuilds a running loop, replay()
+ * re-runs the current stage's transition from the previous rest pose.
  *
  * API (spec §3): goTo(stageId) — one active transition at a time; an
  * interrupting goTo kills the running timeline and plays a compressed
@@ -54,7 +66,6 @@ import {
   AUTO_ROTATE_SPEED,
   INITIAL_PITCH_DEG,
   GAP_COLOR,
-  PANEL_FALLBACK_COLOR,
   PREFERS_REDUCED_MOTION,
 } from '../globe/globeConfig.js';
 import { TURN_EASE_PATH } from '../work/world/worldConfig.js';
@@ -63,7 +74,7 @@ import {
   DEBUG,
   TUNING,
   LIT_COLOR,
-  PULSE_MAX,
+  STROKE_COLOR,
   DESKTOP_OFFSET_X,
   EXIT_RATIO,
   PASS_BEATS,
@@ -88,17 +99,21 @@ const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 /* Per-stage rest poses, computed fresh from TUNING at every use so live
    tuning applies. form: 'belt' (scattered Fragments, no inner sphere) or
    'core' (assembled globe). frameR = effective radius the contain fit
-   frames; panelScale = emanation; power/color = the two uniforms that are
-   this page's entire visual language (spec §3). Reduced motion keeps
-   stage-02 as the connected belt (Thread pre-drawn, static) so the
-   narrative survives as stills. */
+   frames; panelScale = emanation; power/stroke = the panel language;
+   innerScale = the filled-core sphere (0 = dissolved — S4/S5, where it
+   would block the expanded world's gap-lattice); bg = the staged
+   background ('blue' field / 'black' void / 'gradient' home-hero).
+   Reduced motion keeps stage-02 as the connected belt (Thread pre-drawn,
+   static) so the narrative survives as stills. */
 const beltPose = () => ({
   form: 'belt',
   frameR: TUNING.scatter * 1.15 + 0.45,
   fill: TUNING.fillFraction,
   panelScale: 1,
   power: TUNING.idlePower,
-  color: PANEL_FALLBACK_COLOR,
+  stroke: 1,
+  innerScale: 0,
+  bg: 'blue',
   loops: false,
 });
 const getPose = (id) => {
@@ -108,13 +123,13 @@ const getPose = (id) => {
     case 'stage-02':
       return PREFERS_REDUCED_MOTION
         ? beltPose()
-        : { form: 'core', frameR: 1, fill: TUNING.fillFraction, panelScale: 1, power: TUNING.idlePower, color: PANEL_FALLBACK_COLOR, loops: false };
+        : { form: 'core', frameR: 1, fill: TUNING.fillFraction, panelScale: 1, power: TUNING.idlePower, stroke: 1, innerScale: INNER_SPHERE_SCALE, bg: 'blue', loops: false };
     case 'stage-03':
-      return { form: 'core', frameR: 1, fill: TUNING.s3Fill, panelScale: 1, power: 1, color: LIT_COLOR, loops: false };
+      return { form: 'core', frameR: 1, fill: TUNING.s3Fill, panelScale: 1, power: 1, stroke: 0, innerScale: INNER_SPHERE_SCALE, bg: 'black', loops: false };
     case 'stage-04':
-      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, color: LIT_COLOR, loops: false };
+      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'black', loops: false };
     case 'stage-05':
-      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, color: LIT_COLOR, loops: true };
+      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'gradient', loops: true };
     default:
       return null;
   }
@@ -128,7 +143,56 @@ const equatorOutDelay = (panel) => {
   return (maxRing - ring) * 0.22 + panel.lonIndex * 0.015 + Math.random() * 0.05;
 };
 
-export default function useProcessScene(containerRef, threadRef, captionRef) {
+/* Recover the panel's NATURAL spherical param as a 0..1 attribute for the
+   edge stroke — pole wedges replace `uv` with a planar projection whose
+   border doesn't hug the wedge silhouette (see panelMaterial.js). Must
+   run BEFORE the local-origin re-bake (positions still on the sphere).
+   The ±π seam panel unwraps by shifting negatives up a turn. */
+const bakeEdgeUv = (geometry) => {
+  const pos = geometry.attributes.position;
+  const n = pos.count;
+  const phi = new Float32Array(n);
+  const theta = new Float32Array(n);
+  for (let k = 0; k < n; k++) {
+    const x = pos.getX(k);
+    const y = pos.getY(k);
+    const z = pos.getZ(k);
+    const r = Math.sqrt(x * x + y * y + z * z) || 1;
+    theta[k] = Math.acos(Math.min(Math.max(y / r, -1), 1));
+    phi[k] = Math.atan2(z, -x); // x = −r·cosφ·sinθ, z = r·sinφ·sinθ
+  }
+  let phiMin = Infinity;
+  let phiMax = -Infinity;
+  for (let k = 0; k < n; k++) {
+    if (phi[k] < phiMin) phiMin = phi[k];
+    if (phi[k] > phiMax) phiMax = phi[k];
+  }
+  if (phiMax - phiMin > Math.PI) {
+    phiMin = Infinity;
+    phiMax = -Infinity;
+    for (let k = 0; k < n; k++) {
+      if (phi[k] < 0) phi[k] += Math.PI * 2;
+      if (phi[k] < phiMin) phiMin = phi[k];
+      if (phi[k] > phiMax) phiMax = phi[k];
+    }
+  }
+  let thMin = Infinity;
+  let thMax = -Infinity;
+  for (let k = 0; k < n; k++) {
+    if (theta[k] < thMin) thMin = theta[k];
+    if (theta[k] > thMax) thMax = theta[k];
+  }
+  const uv = new Float32Array(n * 2);
+  const phiRange = phiMax - phiMin || 1;
+  const thRange = thMax - thMin || 1;
+  for (let k = 0; k < n; k++) {
+    uv[k * 2] = (phi[k] - phiMin) / phiRange;
+    uv[k * 2 + 1] = (theta[k] - thMin) / thRange;
+  }
+  geometry.setAttribute('aEdgeUv', new THREE.BufferAttribute(uv, 2));
+};
+
+export default function useProcessScene(containerRef, threadRef, captionRef, chromeRefs) {
   const apiRef = useRef(NOOP_API);
 
   // Layout effect: the scroll driver's useGSAP (called after this hook)
@@ -159,15 +223,19 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       capDeg: CAP_DEG,
       radius: RADIUS,
     });
+    const strokeColor = new THREE.Color(STROKE_COLOR);
     panels.forEach((panel) => {
-      // Re-bake the shard to its own local origin (see header note).
+      // Edge-stroke UVs first (needs on-sphere positions), then re-bake
+      // the shard to its own local origin (see header note).
+      bakeEdgeUv(panel.geometry);
       panel.homeOffset = panel.centerDir.clone().multiplyScalar(RADIUS);
       panel.geometry.translate(-panel.homeOffset.x, -panel.homeOffset.y, -panel.homeOffset.z);
       panel.driftFactor = 1; // 1 free-drifting → damped on claim → 0 assembled
       panel.mesh = new THREE.Mesh(
         panel.geometry,
-        createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR })
+        createPanelMaterial({ fallbackColor: LIT_COLOR })
       );
+      panel.mesh.material.uniforms.uStrokeColor.value.copy(strokeColor);
       globeGroup.add(panel.mesh);
     });
 
@@ -241,10 +309,96 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
 
     const renderFrame = () => renderer.render(scene, camera);
 
+    /* — The staged background (this round's headline beat). Three DOM
+       layers under the canvas: the page's base black, the electric-blue
+       field (S1/S2), the home-hero gradient (S5). The scene owns them —
+       the S2→S3 zoom-out CONTRACTS the blue field into the Core's live
+       screen-space disc (clip-path circle tracking the dolly per frame),
+       revealing black; the reverse expands it back out. Stage jumps and
+       compressed catch-ups crossfade instead — a contraction only reads
+       against its dolly. data-bg on the island root re-skins the DOM
+       accents (Thread stroke, captions, tokens) per field. — */
+    const rootEl = chromeRefs?.rootRef?.current ?? null;
+    const blueEl = chromeRefs?.blueRef?.current ?? null;
+    const gradientEl = chromeRefs?.gradientRef?.current ?? null;
+
+    const setBgAttr = (bg) => {
+      rootEl?.setAttribute('data-bg', bg);
+    };
+
+    /* The Core's live screen-space disc — projected fresh so the
+       contraction chases the dolly exactly. render() hasn't run for this
+       frame yet, so refresh the camera's inverse ourselves. */
+    const projectedCenter = new THREE.Vector3();
+    const discPx = () => {
+      const w = container.clientWidth || 1;
+      const h = container.clientHeight || 1;
+      camera.updateMatrixWorld();
+      camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+      projectedCenter.set(globeGroup.position.x, globeGroup.position.y, 0).project(camera);
+      const cx = (projectedCenter.x * 0.5 + 0.5) * w;
+      const cy = (-projectedCenter.y * 0.5 + 0.5) * h;
+      const dist = Math.max(camera.position.z, 0.001);
+      const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
+      const r = (RADIUS / (tanV * dist)) * (h / 2);
+      return { cx, cy, r, w, h };
+    };
+
+    const bgInstant = (bg) => {
+      setBgAttr(bg);
+      if (blueEl) {
+        gsap.killTweensOf(blueEl);
+        gsap.set(blueEl, { autoAlpha: bg === 'blue' ? 1 : 0, clipPath: 'none' });
+      }
+      if (gradientEl) {
+        gsap.killTweensOf(gradientEl);
+        gsap.set(gradientEl, { autoAlpha: bg === 'gradient' ? 1 : 0 });
+      }
+    };
+
+    /* The contraction/expansion — the blue field becomes the Core (and
+       back). Rides the caller's window (the S2↔S3 dolly). Endpoints are
+       tl.call()s, NOT tl.set()s: a set is itself a tween of blueEl, and
+       any killTweensOf(blueEl) (bgInstant on a stage jump) would silently
+       eat it — the stuck-clipped-circle bug this note commemorates. */
+    const bgMorph = (tl, at, dur, expanding) => {
+      if (!blueEl) return;
+      const proxy = { t: expanding ? 1 : 0 };
+      const stamp = () => {
+        const { cx, cy, r, w, h } = discPx();
+        const cover = Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy));
+        const radius = cover + (r * 1.03 - cover) * proxy.t;
+        blueEl.style.clipPath = `circle(${radius.toFixed(1)}px at ${cx.toFixed(1)}px ${cy.toFixed(1)}px)`;
+      };
+      tl.call(() => {
+        stamp(); // no unclipped first frame on the expansion
+        gsap.set(blueEl, { autoAlpha: 1 });
+      }, null, at);
+      tl.to(proxy, { t: expanding ? 0 : 1, duration: dur, ease: turnEase, onUpdate: stamp }, at);
+      tl.call(() => {
+        // Contraction hands off to the WebGL core — same blue, seamless.
+        gsap.set(blueEl, expanding ? { clipPath: 'none' } : { autoAlpha: 0, clipPath: 'none' });
+      }, null, at + dur);
+    };
+
+    /* Generic background leg for every other from→to (jumps, compressed
+       catch-ups, the S5 gradient beats). */
+    const bgCrossfade = (tl, at, dur, toBg) => {
+      if (blueEl) {
+        tl.call(() => gsap.set(blueEl, { clipPath: 'none' }), null, at);
+        tl.to(blueEl, { autoAlpha: toBg === 'blue' ? 1 : 0, duration: dur, ease: 'power2.inOut' }, at);
+      }
+      if (gradientEl) {
+        tl.to(gradientEl, { autoAlpha: toBg === 'gradient' ? 1 : 0, duration: dur, ease: 'power2.inOut' }, at);
+      }
+    };
+
     /* — The Thread: screen-space SVG polyline through the chained
-       Fragments' projected centroids, drawn dashoffset-style (the house
-       CheckIndicator technique). Re-projected per frame while active —
-       the targets drift until claimed, then ride the assembly inward. — */
+       Fragments' projected centroids — STRAIGHT segments from the Core's
+       center-to-be (the string the beads ride), drawn dashoffset-style
+       (the house CheckIndicator technique). Re-projected per frame while
+       active — the targets drift until claimed, then ride the assembly
+       inward as the string pulls taut. — */
     const projected = new THREE.Vector3();
     const shardCentroid = (panel, out) =>
       globeGroup.localToWorld(out.copy(panel.mesh.position));
@@ -267,13 +421,9 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         px.push({ x: (projected.x * 0.5 + 0.5) * w, y: (-projected.y * 0.5 + 0.5) * h });
       });
       let d = `M ${px[0].x.toFixed(1)} ${px[0].y.toFixed(1)}`;
-      for (let i = 1; i < px.length - 1; i++) {
-        const mx = (px[i].x + px[i + 1].x) / 2;
-        const my = (px[i].y + px[i + 1].y) / 2;
-        d += ` Q ${px[i].x.toFixed(1)} ${px[i].y.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`;
+      for (let i = 1; i < px.length; i++) {
+        d += ` L ${px[i].x.toFixed(1)} ${px[i].y.toFixed(1)}`;
       }
-      const last = px[px.length - 1];
-      d += ` L ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
       path.setAttribute('d', d);
       const len = path.getTotalLength();
       path.style.strokeDasharray = `${len}`;
@@ -340,27 +490,91 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       loopTl = null;
     };
 
-    /* — S5 rhythm loops. The dip is the visible half — pure 0x0000ff
-       saturates blue at uPower 1 (see TUNING_DEFAULTS.pulseMin) — */
+    /* — S5 rhythm engine (the musical rework). Envelope per hit: snap to
+       full blue (attack) → HOLD on blue (?hold beats) → STEEP falloff
+       (expo — fast first, long tail) down to ?pulsemin. Patterns spread
+       one hit per panel per 8-beat pass (checker alternates per beat
+       instead); `cycle` rotates the whole vocabulary, one pattern per
+       pass. Between hits a panel rests dark — the waves are light. — */
+    const ripplePanel =
+      panels.find((p) => p.row === Math.floor(TOTAL_ROWS / 2) && p.lonIndex === 0) ?? panels[0];
+
+    const patternHits = (name, pi, beat, pass) => {
+      const envSpan = (TUNING.holdBeats + TUNING.decayBeats) * beat + 0.1;
+      const spreadWindow = Math.max(pass - envSpan, beat);
+      const single = (delays) => {
+        const max = Math.max(...delays) || 1;
+        return delays.map((d) => [(d / max) * spreadWindow]);
+      };
+      switch (name) {
+        case 'equator':
+          return single(panels.map(equatorOutDelay));
+        case 'ripple': {
+          const rand = mulberry32(hashSeed(`process-ripple-${pi}`));
+          return single(
+            panels.map((p) => p.centerDir.angleTo(ripplePanel.centerDir) + rand() * 0.12)
+          );
+        }
+        case 'random': {
+          const rand = mulberry32(hashSeed(`process-random-${pi}`));
+          const order = panels.map((_, i) => i);
+          for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+          }
+          const delays = new Array(panels.length);
+          order.forEach((panelIdx, rank) => {
+            delays[panelIdx] = rank;
+          });
+          return single(delays);
+        }
+        case 'checker':
+          // Per-beat alternation: the two parities trade flashes on the
+          // beat grid — each panel hits every 2 beats, all pass long.
+          return panels.map((p) => {
+            const parity = (p.row + p.lonIndex) % 2;
+            return Array.from(
+              { length: Math.max(1, Math.floor(PASS_BEATS / 2)) },
+              (_, k) => (k * 2 + parity) * beat
+            );
+          });
+        case 'rows':
+        default:
+          return single(panels.map((p) => panelDelay(p, 'rows', TOTAL_ROWS)));
+      }
+    };
+
     const buildRhythmLoop = () => {
       const beat = 60 / TUNING.bpm;
       const pass = PASS_BEATS * beat;
-      const pulse = [
-        { value: TUNING.pulseMin, duration: beat * 0.5, ease: 'sine.in' },
-        { value: PULSE_MAX, duration: beat * 0.5, ease: 'sine.inOut' },
-        { value: 1.0, duration: beat * 0.5, ease: 'sine.out' },
-      ];
+      const names =
+        TUNING.pattern === 'cycle'
+          ? ['rows', 'equator', 'ripple', 'checker', 'random']
+          : [TUNING.pattern];
+      const attack = Math.min(0.07, beat * 0.15);
       const tl = gsap.timeline({ repeat: -1 });
-      ['rows', 'equator'].forEach((pattern, pi) => {
-        const delays = panels.map((p) =>
-          pattern === 'equator' ? equatorOutDelay(p) : panelDelay(p, 'rows', TOTAL_ROWS)
-        );
-        const spread = Math.max(...delays) || 1;
-        const scale = (pass - beat * 1.5) / spread;
+      names.forEach((name, pi) => {
+        const hits = patternHits(name, pi, beat, pass);
         panels.forEach((p, i) => {
-          tl.to(p.mesh.material.uniforms.uPower, { keyframes: pulse }, pi * pass + delays[i] * scale);
+          const times = hits[i];
+          // Envelope must clear before the panel's next hit.
+          const cycleLen = times.length > 1 ? times[1] - times[0] : pass;
+          const hold = Math.min(TUNING.holdBeats * beat, cycleLen * 0.45);
+          const decay = Math.max(
+            Math.min(TUNING.decayBeats * beat, cycleLen - hold - attack * 1.5),
+            0.08
+          );
+          const keyframes = [
+            { value: 1.0, duration: attack, ease: 'power2.out' },
+            { value: 1.0, duration: hold, ease: 'none' },
+            { value: TUNING.pulseMin, duration: decay, ease: 'expo.out' },
+          ];
+          times.forEach((t) => {
+            tl.to(p.mesh.material.uniforms.uPower, { keyframes }, pi * pass + t);
+          });
         });
       });
+      tl.set({}, {}, names.length * pass); // exact loop length — passes stay on the grid
       return tl;
     };
 
@@ -376,13 +590,13 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       camera.position.z = z;
       globeGroup.position.x = offsetX;
       globeGroup.position.y = offsetY;
-      const color = new THREE.Color(pose.color);
       const belt = pose.form === 'belt';
       if (!belt) beltHidden = false; // past the belt narrative — never re-hide
       panels.forEach((p) => {
         const u = p.mesh.material.uniforms;
         u.uPower.value = pose.power;
-        u.uFallbackColor.value.copy(color);
+        u.uStrokeMix.value = pose.stroke;
+        u.uStrokeWidthPx.value = TUNING.strokePx;
         p.mesh.scale.setScalar(belt && beltHidden ? 0 : pose.panelScale);
         if (belt) {
           p.mesh.position.copy(p.beltPos);
@@ -394,8 +608,9 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
           p.driftFactor = 0;
         }
       });
-      innerSphere.visible = !belt;
-      innerSphere.scale.setScalar(belt ? 0.001 : INNER_SPHERE_SCALE);
+      innerSphere.visible = pose.innerScale > 0.001;
+      innerSphere.scale.setScalar(Math.max(pose.innerScale, 0.001));
+      bgInstant(pose.bg);
       beltDrifting = belt && !PREFERS_REDUCED_MOTION;
     };
 
@@ -414,7 +629,10 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       );
     };
 
-    /* — S1→S2 authored show: the Thread connects, then the assembly — */
+    /* — S1→S2 authored show: the Thread connects, then the assembly.
+       The string is the MECHANISM now, not an annotation: beads seat in
+       hop order (a string pulled taut), the unchained swept up behind
+       them ordered by how close they float to the center. — */
     const buildConnectAndAssemble = (pose) => {
       const tl = gsap.timeline({
         defaults: { ease: turnEase },
@@ -428,8 +646,9 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
 
       tl.call(() => fireCaption('references_folded'), null, 0);
 
-      // Connect: hop-by-hop trim-path draw; each strike blips the
-      // Fragment's power and damps its drift to a gentle hold — claimed.
+      // Connect: hop-by-hop trim-path draw; each strike stamps the
+      // Fragment a shade darker (claimed) and damps its drift to a
+      // gentle hold — the bead is on the string.
       const hopSeconds = TUNING.threadHopSeconds;
       threadChain.forEach((panel, i) => {
         const at = i * hopSeconds;
@@ -438,8 +657,8 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
           () => {
             gsap.to(panel, { driftFactor: 0.12, duration: 0.6, ease: 'power2.out' });
             gsap.timeline()
-              .to(panel.mesh.material.uniforms.uPower, { value: 0.9, duration: 0.12, ease: 'power1.in' })
-              .to(panel.mesh.material.uniforms.uPower, { value: 0.45, duration: 0.5, ease: 'sine.out' });
+              .to(panel.mesh.material.uniforms.uPower, { value: TUNING.idlePower * 0.55, duration: 0.1, ease: 'power2.in' })
+              .to(panel.mesh.material.uniforms.uPower, { value: TUNING.idlePower * 0.85, duration: 0.45, ease: 'sine.out' });
           },
           null,
           at + hopSeconds
@@ -449,10 +668,10 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       const connectEnd = threadChain.length * hopSeconds;
       tl.call(() => fireCaption('dots_connected'), null, connectEnd);
 
-      // Assemble: every Fragment pulls inward to its home row/lonIndex
-      // slot (cascade-family stagger — the sphere closes in a visible
-      // order) while the blue foundation surfaces behind the shell and
-      // the Thread rides its endpoints inward and fades.
+      // Assemble: the pull. Chained Fragments seat in HOP ORDER across
+      // the leading window (the taut-string read); the rest follow,
+      // nearest-to-center first, while the blue foundation surfaces
+      // behind the shell and the string rides its beads inward.
       const assembleSeconds = TUNING.assembleSeconds;
       const at0 = connectEnd + 0.15;
       tl.call(() => {
@@ -463,11 +682,24 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         });
       }, null, at0);
 
-      const perDur = assembleSeconds * 0.55;
-      const delays = panels.map((p) => panelDelay(p, TUNING.cascadeVariant, TOTAL_ROWS));
-      const spread = Math.max(...delays) || 1;
-      panels.forEach((p, i) => {
-        const at = at0 + (delays[i] / spread) * (assembleSeconds - perDur);
+      const perDur = Math.min(assembleSeconds * 0.45, 1.1);
+      const staggerWindow = assembleSeconds - perDur;
+      const chainShare = Math.min(0.75, threadChain.length / panels.length + 0.4);
+      const chainedWindow = staggerWindow * chainShare;
+      const chainSet = new Set(threadChain);
+      const rest = panels
+        .filter((p) => !chainSet.has(p))
+        .sort((a, b) => a.mesh.position.lengthSq() - b.mesh.position.lengthSq());
+      const delayFor = new Map();
+      threadChain.forEach((p, i) => {
+        delayFor.set(p, threadChain.length > 1 ? (i / (threadChain.length - 1)) * chainedWindow : 0);
+      });
+      rest.forEach((p, i) => {
+        const t = rest.length > 1 ? i / (rest.length - 1) : 0;
+        delayFor.set(p, chainedWindow * 0.55 + t * (staggerWindow - chainedWindow * 0.55));
+      });
+      panels.forEach((p) => {
+        const at = at0 + delayFor.get(p);
         tl.to(p.mesh.position, { x: p.homeOffset.x, y: p.homeOffset.y, z: p.homeOffset.z, duration: perDur }, at);
         tweenQuat(tl, p.mesh, IDENTITY_QUAT, perDur, at);
       });
@@ -476,7 +708,8 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         innerSphere.visible = true;
       }, null, at0);
       tl.to(innerSphere.scale, { x: INNER_SPHERE_SCALE, y: INNER_SPHERE_SCALE, z: INNER_SPHERE_SCALE, duration: assembleSeconds * 0.8 }, at0 + assembleSeconds * 0.15);
-      tl.to(threadDraw, { alpha: 0, duration: assembleSeconds * 0.7, ease: 'power2.in' }, at0 + assembleSeconds * 0.25);
+      // The string holds while the beads ride, then releases.
+      tl.to(threadDraw, { alpha: 0, duration: assembleSeconds * 0.35, ease: 'power2.in' }, at0 + assembleSeconds * 0.6);
 
       // The Core holds large — dropping low on phones (?dropy).
       const { z, offsetX, offsetY } = framingFor(pose);
@@ -494,6 +727,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
        ≈0.7×. Form-aware — also the compressed catch-up for interrupts. — */
     const buildTransition = (from, to, compressed) => {
       const pose = getPose(to);
+      const fromPose = getPose(from ?? 'stage-01');
       const reversing = STAGE_IDS.indexOf(to) < STAGE_IDS.indexOf(from);
 
       if (to === 'stage-02' && from === 'stage-01' && !compressed) {
@@ -522,14 +756,24 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       tl.to(camera.position, { z, duration: frameDur }, 0);
       tl.to(globeGroup.position, { x: offsetX, y: offsetY, duration: frameDur }, 0);
 
-      const color = new THREE.Color(pose.color);
+      // Background beat. The blue↔black boundary rides the S2↔S3 dolly as
+      // the contraction/expansion; every other pairing crossfades.
+      tl.call(() => setBgAttr(pose.bg), null, 0);
+      if (pose.bg !== fromPose.bg) {
+        const contract = isLightUp && fromPose.bg === 'blue';
+        const expand =
+          !compressed && reversing && pose.bg === 'blue' && fromPose.bg === 'black';
+        if (contract || expand) bgMorph(tl, 0, frameDur, expand);
+        else bgCrossfade(tl, 0, Math.max(frameDur * 0.6, 0.3), pose.bg);
+      }
+
       const toBelt = pose.form === 'belt';
       // The pose table alone lies mid-show: interrupting the S1→S2 Thread
       // sequence arrives here with from='stage-02' (form core) while the
       // belt is still live — the tick would keep stamping belt transforms
       // over this morph's position tweens. Judge by actual state too.
       const fromBelt =
-        getPose(from)?.form === 'belt' || beltDrifting || threadActive;
+        fromPose?.form === 'belt' || beltDrifting || threadActive;
 
       if (fromBelt || toBelt) {
         // The tick hands the belt to gsap until onComplete re-arms it.
@@ -542,15 +786,15 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       }
 
       if (isLightUp && !fromBelt) {
-        // S2→S3: dolly back first, then the page's single loudest beat —
-        // the cascade timeline verbatim (flicker), color riding the same
-        // delay model. Nothing else animates during it.
+        // S2→S3: the field contracts into the Core while the camera
+        // dollies back, then the page's single loudest beat — the cascade
+        // flicker with the black ink burning off on the same delay model.
         const at = frameDur * 0.7;
         tl.add(buildCascadeTimeline(panels, TUNING.cascadeVariant, TOTAL_ROWS), at);
         panels.forEach((p) => {
           tl.to(
-            p.mesh.material.uniforms.uFallbackColor.value,
-            { r: color.r, g: color.g, b: color.b, duration: 0.35, ease: 'power2.out' },
+            p.mesh.material.uniforms.uStrokeMix,
+            { value: 0, duration: 0.3, ease: 'power2.out' },
             at + panelDelay(p, TUNING.cascadeVariant, TOTAL_ROWS)
           );
         });
@@ -569,19 +813,27 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
           tweenQuat(tl, p.mesh, toBelt ? p.beltQuat : IDENTITY_QUAT, dur, at);
           tl.to(p.mesh.scale, { x: pose.panelScale, y: pose.panelScale, z: pose.panelScale, duration: dur }, at);
           tl.to(u.uPower, { value: pose.power, duration: dur }, at);
-          tl.to(u.uFallbackColor.value, { r: color.r, g: color.g, b: color.b, duration: dur }, at);
+          tl.to(u.uStrokeMix, { value: pose.stroke, duration: dur }, at);
           if (toBelt) tl.set(p, { driftFactor: 1 }, at + dur);
         });
-        if (toBelt) {
-          tl.to(innerSphere.scale, { x: 0.001, y: 0.001, z: 0.001, duration: dur * 0.5 }, 0);
-          tl.call(() => {
-            innerSphere.visible = false;
-          }, null, dur * 0.5 + 0.01);
-        } else if (!innerSphere.visible || innerSphere.scale.x < INNER_SPHERE_SCALE * 0.99) {
+      }
+
+      // The filled core tracks its pose scale — surfacing into S2/S3,
+      // DISSOLVING under the S4 emanation (it was blocking the expanded
+      // world's gap-lattice), returning on the way back.
+      const innerTarget = Math.max(pose.innerScale, 0.001);
+      if (Math.abs(innerSphere.scale.x - innerTarget) > 1e-4) {
+        const innerDur = TUNING.stageSeconds * 0.6 * durMult;
+        if (pose.innerScale > 0.001) {
           tl.call(() => {
             innerSphere.visible = true;
           }, null, 0);
-          tl.to(innerSphere.scale, { x: INNER_SPHERE_SCALE, y: INNER_SPHERE_SCALE, z: INNER_SPHERE_SCALE, duration: dur * 0.6 }, 0);
+        }
+        tl.to(innerSphere.scale, { x: innerTarget, y: innerTarget, z: innerTarget, duration: innerDur }, 0);
+        if (pose.innerScale <= 0.001) {
+          tl.call(() => {
+            innerSphere.visible = false;
+          }, null, innerDur + 0.01);
         }
       }
       return tl;
@@ -603,7 +855,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
         threadActive = true;
         threadChain.forEach((p) => {
           p.driftFactor = 0.12;
-          p.mesh.material.uniforms.uPower.value = 0.45;
+          p.mesh.material.uniforms.uPower.value = TUNING.idlePower * 0.85;
         });
         if (captionRef?.current) captionRef.current.textContent = 'dots_connected';
       } else {
@@ -655,12 +907,15 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
 
     /* — Live tuning (the ?debug panel): re-seed the belt (the drift tick
        reads beltPos, so the spread updates in place), re-frame the
-       resting camera, rebuild a running rhythm loop, refresh idle glow.
-       Duration/order/hops knobs apply to the NEXT transition — jump or
-       replay a stage to hear them. — */
+       resting camera, re-stroke, rebuild a running rhythm loop, refresh
+       idle glow. Duration/order/hops/pattern knobs apply to the NEXT
+       transition or loop pass — jump or replay a stage to hear them. — */
     const applyTuning = () => {
       if (disposed) return;
       seedBelt();
+      panels.forEach((p) => {
+        p.mesh.material.uniforms.uStrokeWidthPx.value = TUNING.strokePx;
+      });
       const pose = getPose(stage ?? 'stage-01');
       if (!activeTl) {
         const { z, offsetX, offsetY } = framingFor(pose);
@@ -673,7 +928,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
           });
         }
       }
-      if (loopTl) startLoops(); // rebuild on the new bpm/pulse grid
+      if (loopTl) startLoops(); // rebuild on the new bpm/pattern/envelope grid
       if (PREFERS_REDUCED_MOTION) {
         applyPose(pose);
         updateThread();
@@ -763,7 +1018,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
     resize();
 
     // Rest pose up before the driver's arrival sync (same layout phase):
-    // no globe yet — the drifting Fragment belt.
+    // no globe yet — the drifting Fragment belt on the blue field.
     applyPose(getPose('stage-01'));
     renderFrame();
 
@@ -795,10 +1050,13 @@ export default function useProcessScene(containerRef, threadRef, captionRef) {
       if (tickerActive) gsap.ticker.remove(tick);
       if (activeTl) activeTl.kill();
       stopLoops();
+      if (blueEl) gsap.killTweensOf(blueEl);
+      if (gradientEl) gsap.killTweensOf(gradientEl);
       panels.forEach((panel) => {
         gsap.killTweensOf(panel);
         gsap.killTweensOf(panel.mesh.scale);
         gsap.killTweensOf(panel.mesh.material.uniforms.uPower);
+        gsap.killTweensOf(panel.mesh.material.uniforms.uStrokeMix);
         panel.geometry.dispose();
         panel.mesh.material.dispose();
       });

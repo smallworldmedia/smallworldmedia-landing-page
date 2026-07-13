@@ -24,7 +24,13 @@ export default function ProcessPage() {
   const canvasRef = useRef(null);
   const threadRef = useRef(null);
   const captionRef = useRef(null);
-  const sceneRef = useProcessScene(canvasRef, threadRef, captionRef);
+  const blueRef = useRef(null);
+  const gradientRef = useRef(null);
+  const sceneRef = useProcessScene(canvasRef, threadRef, captionRef, {
+    rootRef,
+    blueRef,
+    gradientRef,
+  });
   useProcessScrollDriver(rootRef, sceneRef);
   useProcessCopy(rootRef, sceneRef);
 
@@ -39,7 +45,15 @@ export default function ProcessPage() {
   };
 
   return (
-    <div className="process-page" ref={rootRef}>
+    <div className="process-page" ref={rootRef} data-bg="blue">
+      {/* Staged background under the canvas: base black (the page), the
+          S5 home-hero gradient, the S1/S2 electric-blue field the scene
+          contracts into the Core at S3 (clip-path circle, scene-driven) */}
+      <div className="process-bg" aria-hidden="true">
+        <div className="process-bg__gradient" ref={gradientRef} />
+        <div className="process-bg__blue" ref={blueRef} />
+      </div>
+
       {/* Full-viewport scene layer — the ProcessScene mounts here */}
       <div className="process-page__canvas" ref={canvasRef} aria-hidden="true" />
 

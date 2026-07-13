@@ -37,6 +37,41 @@ body.route-process .site-nav {
   color: var(--color-cream);
 }
 
+/* --- Staged background (scene-driven) ---
+   Base black is the page itself. The blue field carries S1/S2 (the
+   scattered Fragments + connect-the-dots play blue-on-blue) and is
+   CONTRACTED into the Core's screen-space disc at the S3 zoom-out via a
+   scene-driven clip-path circle — the background becomes the core,
+   revealing black. S5 crossfades the home hero's gradient in. Layers sit
+   under the canvas (same z, earlier in DOM order). */
+.process-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.process-bg__blue,
+.process-bg__gradient {
+  position: absolute;
+  inset: 0;
+}
+
+.process-bg__blue {
+  background: var(--color-electric-blue);
+}
+
+.process-bg__gradient {
+  /* The home hero's globe-approved backdrop (global.css .hero) */
+  background: linear-gradient(
+    to top,
+    var(--color-electric-blue) 0%,
+    var(--color-black) 40%
+  );
+  opacity: 0;
+  visibility: hidden;
+}
+
 /* Fixed full-viewport scene layer behind the copy (spec §1). The scene
    composes the globe right-of-center via group offset — the copy column
    and the globe share the frame rather than splitting it. */
@@ -72,6 +107,27 @@ body.route-process .site-nav {
   stroke-width: 2px;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* --- Field-aware accents (data-bg, scene-set) ---
+   On the blue field the electric-blue accents vanish and the Thread
+   reads as ink: stroke goes black (the Fragments' edge-stroke family),
+   mono accents go white for contrast. Black/gradient fields keep the
+   house electric blue. */
+.process-page[data-bg='blue'] .process-thread__path {
+  stroke: var(--color-black);
+}
+
+.process-stage__token,
+.process-stage__caption,
+.process-hero__token {
+  transition: color 0.35s ease;
+}
+
+.process-page[data-bg='blue'] .process-stage__token,
+.process-page[data-bg='blue'] .process-stage__caption,
+.process-page[data-bg='blue'] .process-hero__token {
+  color: var(--color-white);
 }
 
 /* --- Copy column: left-anchored, normal flow (spec §1) --- */

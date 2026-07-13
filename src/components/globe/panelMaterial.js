@@ -1,11 +1,20 @@
 /**
  * panelMaterial.js — Unlit ShaderMaterial for globe panels.
  *
- * One material instance per panel. The shader owns three jobs:
+ * One material instance per panel. The shader owns four jobs:
  *  - cover-fit crop via per-texture uvScale/uvOffset
  *  - texA ↔ texB crossfade via uMix (Stage 2: thumbnail ↔ live video)
  *  - power-on cascade via uPower (0 = dark panel, 1 = full brightness;
  *    values >1 over-brighten for the CRT flicker)
+ *  - an optional edge stroke via uStrokeMix (0 = off — the home globe's
+ *    resting state; /process draws its Fragments blue-on-blue and lets a
+ *    black stroke separate them from the field). The stroke reads the
+ *    aEdgeUv attribute — the panel's NATURAL spherical param normalized
+ *    0..1 — because pole wedges replace `uv` with a planar projection
+ *    whose border does not hug the wedge silhouette. Consumers that
+ *    enable the stroke must provide aEdgeUv; without the attribute it
+ *    reads (0,0) and the stroke resolves to nothing even at mix 1.
+ *    Width is screen-constant via fwidth (WebGL2 — three r163+ floor).
  *
  * Panels stay opaque — crossfading inside the shader avoids the draw-order
  * artifacts that transparent overlapping meshes cause on a convex sphere.
@@ -13,9 +22,12 @@
 import * as THREE from 'three';
 
 const vertexShader = /* glsl */ `
+  attribute vec2 aEdgeUv;
   varying vec2 vUv;
+  varying vec2 vEdgeUv;
   void main() {
     vUv = uv;
+    vEdgeUv = aEdgeUv;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
@@ -41,7 +53,11 @@ const fragmentShader = /* glsl */ `
   uniform float uHasTexA;
   uniform float uVideoB;
   uniform vec3 uFallbackColor;
+  uniform float uStrokeMix;
+  uniform float uStrokeWidthPx;
+  uniform vec3 uStrokeColor;
   varying vec2 vUv;
+  varying vec2 vEdgeUv;
 
   vec3 srgbToLinear(vec3 c) {
     return mix(
@@ -57,6 +73,15 @@ const fragmentShader = /* glsl */ `
     colorB = mix(colorB, srgbToLinear(colorB), uVideoB);
     vec3 base = mix(uFallbackColor, colorA, uHasTexA);
     vec3 color = mix(base, colorB, uMix) * uPower;
+    // Edge stroke: distance to the nearest panel edge in aEdgeUv space,
+    // converted to pixels via fwidth so the width holds under any camera
+    // distance or panel scale. Applied after uPower — the stroke is ink,
+    // not light, and must not dim with the cascade.
+    float edge = min(min(vEdgeUv.x, 1.0 - vEdgeUv.x), min(vEdgeUv.y, 1.0 - vEdgeUv.y));
+    float edgePx = edge / max(fwidth(edge), 1e-6);
+    float stroke = (1.0 - smoothstep(uStrokeWidthPx - 0.6, uStrokeWidthPx + 0.6, edgePx))
+      * uStrokeMix * step(0.01, uStrokeWidthPx); // width 0 = fully off, no edge hairline
+    color = mix(color, uStrokeColor, stroke);
     gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
   }
@@ -96,6 +121,9 @@ export function createPanelMaterial({ fallbackColor }) {
       uHasTexA: { value: 0 },
       uVideoB: { value: 0 }, // 1 while texB holds a video (manual sRGB decode)
       uFallbackColor: { value: new THREE.Color(fallbackColor) },
+      uStrokeMix: { value: 0 }, // 0 = no stroke (home globe); /process drives it
+      uStrokeWidthPx: { value: 1.5 },
+      uStrokeColor: { value: new THREE.Color(0x000000) },
     },
   });
 }
