@@ -241,6 +241,10 @@ export default function SiteNav({
             <span className="site-nav__glyph">⁕</span>
             featured_projects
           </a>
+          <a href="/process" className="site-nav__link">
+            <span className="site-nav__glyph">⊙</span>
+            process
+          </a>
           <a
             href="https://instagram.com/smallworldmedia"
             className="site-nav__link"
@@ -250,7 +254,6 @@ export default function SiteNav({
             <HeartIcon />
             follow_us
           </a>
-          {/* process link removed for v1 — the process page is a v2 workstream */}
         </div>
 
         {/* Home variant: primary actions as pills (steady state via
@@ -325,6 +328,10 @@ export default function SiteNav({
               <a href="/work" className="mobile-menu__item">
                 <span className="site-nav__glyph">⁕</span>
                 featured_projects
+              </a>
+              <a href="/process" className="mobile-menu__item">
+                <span className="site-nav__glyph">⊙</span>
+                process
               </a>
               <a
                 href="https://instagram.com/smallworldmedia"

@@ -151,9 +151,10 @@ body.route-process .site-nav {
 
 .process-stage {
   min-height: 140vh;
-  /* ~40ch measure at prose size — the overlay copy column */
   font-size: var(--text-ui);
-  max-width: 40ch;
+  /* The section runs wide so the display register can escape the prose
+     measure — each register carries its own max-width below. */
+  max-width: none;
 }
 
 .process-cta {
@@ -185,49 +186,58 @@ body.route-process .site-nav {
 /* --- Display register: squeezed caps ---
    Strings stay sentence case in the DOM (screen readers, search); the
    register is applied visually — the client-panel__title convention. */
+/* 2026-07-15 scale round (Nathan): the old clamp read too safe — the
+   display register now runs at poster scale, deliberately outgrowing
+   the prose column and brushing the scene (the avant-garde read: type
+   as a surface, not a caption). Leading tightens to 0.85 to hold the
+   stacked-lines-as-block silhouette at size. */
 .process-hero__title {
   font-family: var(--font-display);
   font-weight: var(--weight-semi);
-  font-size: clamp(3.4rem, 7.5vw, 8.5rem);
-  line-height: 0.9;
-  letter-spacing: -0.005em;
+  font-size: clamp(4rem, 10.5vw, 12rem);
+  line-height: 0.85;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
   color: var(--color-white);
-  max-width: 60vw;
+  max-width: 92vw;
   margin-top: var(--space-4);
 }
 
 .process-stage__headline {
   font-family: var(--font-display);
   font-weight: var(--weight-semi);
-  font-size: clamp(2.2rem, 3.4vw, 3.4rem);
-  line-height: 0.9;
-  letter-spacing: -0.005em;
+  font-size: clamp(3rem, 6.2vw, 6.75rem);
+  line-height: 0.85;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
   color: var(--color-white);
+  max-width: 58vw;
   margin-top: var(--space-5);
 }
 
 .process-cta__display {
   font-family: var(--font-display);
   font-weight: var(--weight-semi);
-  font-size: clamp(3rem, 6.5vw, 7rem);
-  line-height: 0.9;
-  letter-spacing: -0.005em;
+  font-size: clamp(3.6rem, 8.5vw, 10rem);
+  line-height: 0.85;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
   color: var(--color-white);
 }
 
-/* --- Prose register: sentence case, body face --- */
+/* --- Prose register: sentence case, body face ---
+   The detail-page blurb voice verbatim (.project-blurb__text) — same
+   fluid size, unit leading and tracking, per Nathan's 07-15 note. */
 .process-hero__sub,
 .process-stage__blurb,
 .process-cta__line {
   font-family: var(--font-body);
-  font-size: var(--text-ui);
-  line-height: var(--lh-body);
+  font-weight: 400;
+  font-size: clamp(1.5rem, 2.78vw, 3.571rem);
+  line-height: 1;
   letter-spacing: -0.005em;
   color: var(--color-white);
-  max-width: 40ch;
+  max-width: min(26ch, 44vw);
   margin-top: var(--space-6);
 }
 
@@ -453,6 +463,95 @@ body.route-process .site-nav {
   word-break: break-all;
 }
 
+/* --- Walkthrough steppers: the /work CTA chip family, re-cut small,
+   subtle and left-aligned (Nathan 07-15). Same anatomy (mono label +
+   CtaArrows caret window), quieter voice: transparent at 0.65, filling
+   electric blue on hover (the house chip hover) — black on the blue
+   field where electric blue vanishes. --- */
+.process-stepnav {
+  position: fixed;
+  left: 1.143rem;
+  bottom: 1.143rem;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+/* ?debug only: the tuning panel owns the lower-left corner — the
+   steppers slide right of it so both stay clickable while dialing */
+.process-page:has(.process-debug) .process-stepnav {
+  left: calc(1.143rem + 300px);
+}
+
+.process-stepnav__cta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--color-white);
+  opacity: 0.65;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+  transition:
+    opacity 0.18s ease-out,
+    background-color 0.18s ease-out;
+}
+
+.process-stepnav__cta:hover,
+.process-stepnav__cta:focus-visible {
+  opacity: 1;
+  background: var(--color-electric-blue);
+}
+
+.process-page[data-bg='blue'] .process-stepnav__cta:hover,
+.process-page[data-bg='blue'] .process-stepnav__cta:focus-visible {
+  background: var(--color-black);
+}
+
+/* The /work caret window at 60×34 outweighs the small label — re-cut */
+.process-stepnav .fp-cta__arrows {
+  width: 34px;
+  height: 20px;
+}
+
+/* --- Walkthrough status meter: the carousel osboot boot-log block
+   meter, promoted to site chrome. Mono register; the cells carry the
+   osboot letterspacing; the step counter dims like the boot log. --- */
+.process-meter {
+  position: fixed;
+  right: 1.143rem;
+  bottom: 1.143rem;
+  z-index: 4;
+  display: flex;
+  align-items: baseline;
+  gap: 1ch;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+  pointer-events: none;
+}
+
+.process-meter__cells {
+  color: var(--color-electric-blue);
+  letter-spacing: 0.08em;
+  transition: color 0.35s ease;
+}
+
+.process-page[data-bg='blue'] .process-meter__cells {
+  color: var(--color-white);
+}
+
+.process-meter__step {
+  opacity: 0.55;
+}
+
 /* --- Mobile (≤768px): copy full-width over a black scrim (spec §1) --- */
 @media (max-width: 768px) {
   .process-stage {
@@ -461,6 +560,29 @@ body.route-process .site-nav {
 
   .process-hero__title {
     max-width: none;
+  }
+
+  .process-stage__headline {
+    max-width: none;
+  }
+
+  /* The detail-page blurb's own mobile cut */
+  .process-hero__sub,
+  .process-stage__blurb,
+  .process-cta__line {
+    font-size: clamp(1.4rem, 5.5vw, 2.2rem);
+    max-width: none;
+  }
+
+  /* One meter of chrome is enough on a phone — the steppers assume a
+     pointer anyway; swipe owns the walk. */
+  .process-stepnav {
+    display: none;
+  }
+
+  .process-meter {
+    left: 1.143rem;
+    right: auto;
   }
 
   .process-section {

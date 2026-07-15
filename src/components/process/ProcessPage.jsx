@@ -18,6 +18,8 @@ import useProcessScene from './useProcessScene.js';
 import useProcessScrollDriver from './useProcessScrollDriver.js';
 import useProcessCopy from './useProcessCopy.js';
 import ProcessDebugPanel from './ProcessDebugPanel.jsx';
+import ProcessStepCtas from './ProcessStepCtas.jsx';
+import ProcessMeter from './ProcessMeter.jsx';
 
 export default function ProcessPage() {
   const rootRef = useRef(null);
@@ -106,6 +108,10 @@ export default function ProcessPage() {
           </div>
         </section>
       </div>
+
+      {/* Fixed walkthrough chrome: left steppers, right status meter */}
+      <ProcessStepCtas />
+      <ProcessMeter />
 
       {DEBUG && <ProcessDebugPanel sceneRef={sceneRef} />}
 

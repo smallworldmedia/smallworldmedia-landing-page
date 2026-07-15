@@ -92,6 +92,7 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
       let bridged = null;
       let lockedLenis = false;
       let quantizerCleanup = null;
+      let stepFn = null; // set by attachQuantizer — ProcessStepCtas' entry point
 
       const swipeOn = () => TUNING.swipe !== 'off' && TUNING.swipe !== '0';
 
@@ -115,14 +116,34 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
         if (PREFERS_REDUCED_MOTION || quantizerCleanup) return;
         const copyEl = root.querySelector('.process-page__copy');
         const turnEase = CustomEase.create('processSwipe', TURN_EASE_PATH);
-        const peekTo = copyEl
-          ? gsap.quickTo(copyEl, 'y', { duration: 0.25, ease: 'power2.out' })
-          : () => {};
+
+        /* ONE owner for copy-column y. The peek (quickTo), the rubber-band
+           and the commit settle used to be three separate tweens that could
+           overlap on the same property — alternating writes for a beat, the
+           visible Y jitter. Every move now kills the incumbent first.
+           force3D keeps the column composited through the whole interaction
+           so glyphs don't re-rasterize (pop) each time a tween ends. */
+        let leanTween = null;
+        const leanTo = (y, duration, ease) => {
+          if (!copyEl) return;
+          leanTween?.kill();
+          leanTween = gsap.to(copyEl, { y, duration, ease, force3D: true });
+        };
 
         let accum = 0;
         let lockUntil = 0;
         let releaseTimer = null;
         let touchY = null;
+
+        /* Momentum-tail arming (the np-band ?nparm idiom): after a commit,
+           trackpad inertia keeps streaming same-direction deltas past the
+           glide lock — feeding them to the accumulator re-leans the column
+           for a blink before it rubber-bands (the jitter at rest). Disarm
+           at commit; re-arm on a quiet gap or a deliberate direction flip. */
+        const ARM_GAP_MS = 100;
+        let armed = true;
+        let lastDeltaTs = 0;
+        let lastDir = 0;
 
         /* Section rest positions, computed fresh per gesture (fonts,
            resizes and the CTA's runway all move them): each section
@@ -162,7 +183,7 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
           clearRelease();
           releaseTimer = setTimeout(() => {
             accum = 0;
-            if (copyEl) gsap.to(copyEl, { y: 0, duration: 0.45, ease: 'expo.out' });
+            leanTo(0, 0.45, 'expo.out');
           }, RELEASE_MS);
         };
 
@@ -171,7 +192,8 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
           const target = Math.min(Math.max(nearestIndex(stops) + dir, 0), stops.length - 1);
           clearRelease();
           accum = 0;
-          if (copyEl) gsap.to(copyEl, { y: 0, duration: 0.3, ease: 'power2.out' });
+          armed = false; // this gesture's inertia tail must not re-fill
+          leanTo(0, 0.3, 'power2.out');
           lockUntil = performance.now() + TUNING.swipeSeconds * 1000 + 80;
           const lenis = getLenis();
           if (lenis) {
@@ -195,7 +217,22 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
         };
 
         const addDelta = (dy) => {
-          if (performance.now() < lockUntil) return;
+          const now = performance.now();
+          const dir = Math.sign(dy);
+          if (now < lockUntil) {
+            lastDeltaTs = now;
+            if (dir) lastDir = dir;
+            return;
+          }
+          if (!armed) {
+            if (now - lastDeltaTs < ARM_GAP_MS && (dir === 0 || dir === lastDir)) {
+              lastDeltaTs = now; // still the old tail — swallow it
+              return;
+            }
+            armed = true;
+          }
+          lastDeltaTs = now;
+          if (dir) lastDir = dir;
           const stops = rests();
           const idx = nearestIndex(stops);
           let a = accum + dy;
@@ -208,7 +245,7 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
             // Building the fill — the copy column leans with the pull
             // (the CTA-fill tension, spelled as weight), and rubber-bands
             // back if the gesture stalls short of committing.
-            peekTo(-(a / TUNING.swipePx) * PEEK_PX);
+            leanTo(-(a / TUNING.swipePx) * PEEK_PX, 0.25, 'power2.out');
             scheduleRelease();
           }
         };
@@ -302,7 +339,16 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
         window.addEventListener('touchend', onTouchEnd);
         window.addEventListener('keydown', onKeyDown);
 
+        /* The [previous]/[next] steppers ride the same commit — a click is
+           explicit intent, so it skips the accumulator (but not the glide
+           lock). */
+        stepFn = (dir) => {
+          if (performance.now() < lockUntil) return;
+          commit(dir);
+        };
+
         quantizerCleanup = () => {
+          stepFn = null;
           clearRelease();
           window.removeEventListener('wheel', onWheel, { capture: true });
           window.removeEventListener('touchstart', onTouchStart);
@@ -335,6 +381,29 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
       attachLenis();
       if (!PREFERS_REDUCED_MOTION) attachQuantizer();
 
+      /* ProcessStepCtas → one section step. With the quantizer live the
+         commit glides on the Turn curve; under reduced motion (no Lenis,
+         no quantizer) the step is an instant centered jump — the same
+         still-per-boundary contract as native RM scrolling. */
+      const onStep = (e) => {
+        const dir = e.detail?.dir === -1 ? -1 : 1;
+        if (stepFn) {
+          stepFn(dir);
+          return;
+        }
+        const all = gsap.utils.toArray('.process-section', root);
+        if (!all.length) return;
+        const mid = window.innerHeight / 2;
+        const dist = all.map((el) => {
+          const r = el.getBoundingClientRect();
+          return Math.abs(r.top + r.height / 2 - mid);
+        });
+        const cur = dist.indexOf(Math.min(...dist));
+        const next = Math.min(Math.max(cur + dir, 0), all.length - 1);
+        all[next].scrollIntoView({ behavior: 'auto', block: 'center' });
+      };
+      window.addEventListener('swm:process-step', onStep);
+
       const onPageLoad = () => {
         attachLenis();
         ScrollTrigger.refresh();
@@ -349,6 +418,7 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
       return () => {
         disposed = true;
         document.removeEventListener('astro:page-load', onPageLoad);
+        window.removeEventListener('swm:process-step', onStep);
         quantizerCleanup?.();
         if (lockedLenis) getLenis()?.start(); // hand free scroll back to the site
         if (bridged) bridged.off('scroll', ScrollTrigger.update);
