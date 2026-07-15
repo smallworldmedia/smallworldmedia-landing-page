@@ -20,9 +20,8 @@ html:has(.project-detail) body {
 
 /* --- Page Shell --- */
 .project-detail {
-  /* --color-near-black hoisted to :root (global.css) — site-wide consumers
-     like the footer bar need it on every route, not just detail pages */
-
+  /* near-black (#0a0a0a) now lives in :root (global.css) — consumed here,
+     by the site footer bar, and by masonry on every route */
   position: relative; /* anchors the breadcrumb chip */
   width: 100%;
   min-height: 100dvh;

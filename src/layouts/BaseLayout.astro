@@ -14,8 +14,8 @@ import '../styles/global.css';
 import SiteShell from '../components/SiteShell.jsx';
 // ?url imports resolve to the same content-hashed asset the CSS @font-face
 // references, so these preloads hit the real built URLs.
-import fontBook from '../assets/fonts/PPNeueMontreal-Book.otf?url';
-import fontMedium from '../assets/fonts/PPNeueMontreal-Medium.otf?url';
+import fontBook from '../assets/fonts/PPNeueMontreal-Book.woff2?url';
+import fontMedium from '../assets/fonts/PPNeueMontreal-Medium.woff2?url';
 
 interface Props {
   title?: string;
@@ -71,8 +71,8 @@ const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
     <ClientRouter />
 
     {/* Brand faces used above the fold — preload beats the CSS discovery */}
-    <link rel="preload" href={fontBook} as="font" type="font/otf" crossorigin />
-    <link rel="preload" href={fontMedium} as="font" type="font/otf" crossorigin />
+    <link rel="preload" href={fontBook} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={fontMedium} as="font" type="font/woff2" crossorigin />
 
     {/* Google Fonts: Inter (UI font stack) */}
     <link rel="preconnect" href="https://fonts.googleapis.com" />

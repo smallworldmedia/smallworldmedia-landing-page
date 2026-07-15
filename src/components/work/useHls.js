@@ -68,6 +68,13 @@ export default function useHls(
         // clamps to the actual highest level.
         ...(preferMaxQuality ? { startLevel: 99 } : {}),
         ...(preferMinQuality ? { startLevel: 0 } : {}),
+        // Plain-ABR consumers (detail masonry/hero band, next-project band):
+        // never auto-select renditions above the rendered size × DPR. The
+        // quality-locked modes pin an explicit level, so the cap only
+        // applies where ABR is actually choosing.
+        ...(!preferMaxQuality && !preferMinQuality
+          ? { capLevelToPlayerSize: true }
+          : {}),
         ...hlsConfig,
       });
       hlsRef.current = hls;

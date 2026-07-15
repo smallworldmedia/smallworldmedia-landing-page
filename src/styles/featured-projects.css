@@ -21,18 +21,8 @@
   place-items: center;
 }
 
-/* Screen-reader/crawler fallback list of all featured projects. */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* Screen-reader/crawler fallback list of all featured projects
+   uses the global .sr-only utility (global.css). */
 
 /* WebGL World canvas — fixed behind the scrolling cards. The canvas itself
    renders transparent; this layer carries the black→blue gradient backdrop
@@ -227,7 +217,7 @@
   border: none;
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: var(--font-mono);
+  font-size: var(--text-mono);
   color: var(--color-black);
   opacity: 1.0;
   padding: 0.3rem 0.35rem;
@@ -277,7 +267,7 @@
   transform: translate(-0.5rem, -50%);
   opacity: 0;
   padding: 0.071rem 0.429rem;
-  background: var(--color-near-black, #0a0a0a);
+  background: var(--color-near-black);
   font-size: var(--text-mono);
   text-transform: uppercase;
   line-height: 1.4;
@@ -334,44 +324,6 @@
   top: 8vh;
 }
 
-/* Scroll cue */
-.fp-more {
-  font-family: var(--font-mono);
-  font-size: var(--font-ui);
-  position: absolute;
-  bottom: 4vh;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-white);
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  letter-spacing: var(--tracking-tight);
-  line-height: 0.35rem;
-  opacity: 1.0;
-  padding: var(--space-2) var(--space-6);
-}
-
-.fp-more__chevron {
-  animation: fp-bob 1.8s ease-in-out infinite;
-  font-family: var(--font-mono);
-  font-size: var(--text-secondary);
-
-}
-
-@keyframes fp-bob {
-
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(4px);
-  }
-}
-
 @media (max-width: 768px) {
 
   /* Pager client names were pinned to the desktop mono size (~12.8px) and
@@ -402,9 +354,5 @@
 @media (prefers-reduced-motion: reduce) {
   .fp-scroller {
     scroll-behavior: auto;
-  }
-
-  .fp-more__chevron {
-    animation: none;
   }
 }
