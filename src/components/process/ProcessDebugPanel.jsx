@@ -18,7 +18,7 @@ const STAGES = ['stage-01', 'stage-02', 'stage-03', 'stage-04', 'stage-05'];
    stored in seconds but travel as milliseconds in the URL (spec §9). */
 const SLIDERS = [
   { key: 'scatter', param: 'scatter', min: 0.8, max: 3.2, step: 0.05 },
-  { key: 'drift', param: 'drift', min: 0, max: 0.4, step: 0.005 },
+  { key: 'drift', param: 'drift', min: 0, max: 0.8, step: 0.005 },
   { key: 'idlePower', param: 'idlepower', min: 0, max: 1, step: 0.02 },
   { key: 'strokePx', param: 'stroke', min: 0, max: 4, step: 0.25 },
   { key: 'fillFraction', param: 'fillfrac', min: 0.4, max: 1.2, step: 0.01 },
