@@ -20,9 +20,8 @@ html:has(.project-detail) body {
 
 /* --- Page Shell --- */
 .project-detail {
-  /* Figma bands use near-black (#0a0a0a) on the pure-black page */
-  --color-near-black: #0a0a0a;
-
+  /* near-black (#0a0a0a) now lives in :root (global.css) — consumed here,
+     by the site footer bar, and by masonry on every route */
   position: relative; /* anchors the breadcrumb chip */
   width: 100%;
   min-height: 100dvh;
