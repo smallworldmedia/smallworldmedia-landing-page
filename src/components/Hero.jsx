@@ -37,6 +37,7 @@ import CtaArrows from './work/CtaArrows.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
 import { TURN_EASE_PATH } from './work/world/worldConfig.js';
+import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS } from '../lib/motion.js';
 
 gsap.registerPlugin(useGSAP, CustomEase);
 
@@ -65,7 +66,7 @@ const ENV_SCALE = PARAM('envscale', 3.0);
 const ENV_COVER_SECONDS = PARAM('envcover', 650) / 1000; // fade length from t=0; ≈ envms = solid at handoff
 
 /* — Scroll-fill (mirrors /work's CTA choreography + knobs) — */
-const SCROLL_TRIGGER = PARAM('scroll', 600); // px of wheel/touch to commit
+const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_HOME_PX); // px of wheel/touch to commit
 const CTA_MAX_EXTRA = 0.3; // CTA scale at full fill / hover = 1 + this
 const RM_WHEEL_THRESHOLD = 60; // reduced motion: modest intent → plain nav
 
@@ -204,7 +205,7 @@ export default function Hero({ globeAssets }) {
         window.dispatchEvent(
           new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: 0.4 } })
         );
-      }, 160);
+      }, RELEASE_MS);
     };
 
     const addDelta = (dy) => {
@@ -241,7 +242,7 @@ export default function Hero({ globeAssets }) {
     const onTouchMove = (e) => {
       if (touchY === null) return;
       const y = e.touches[0]?.clientY ?? touchY;
-      addDelta((touchY - y) * 2); // upward swipe = enter (the /work gain)
+      addDelta((touchY - y) * TOUCH_GAIN); // upward swipe = enter (the house gain)
       touchY = y;
     };
     const onTouchEnd = () => {

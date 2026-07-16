@@ -18,6 +18,7 @@
 import Lenis from 'lenis';
 import 'lenis/dist/lenis.css';
 import { gsap } from 'gsap';
+import { LENIS_TUNING } from './motion.js';
 
 let lenis = null;
 let tickerFn = null;
@@ -30,7 +31,9 @@ const ownsItsWheel = (pathname) => pathname.replace(/\/+$/, '') === '/work';
 
 function start() {
   if (lenis) return;
-  lenis = new Lenis({ autoRaf: false });
+  // House scroll feel: LENIS_TUNING (src/lib/motion.js) overlays the library
+  // defaults — empty today, filled by the A2 dial-in session.
+  lenis = new Lenis({ autoRaf: false, ...LENIS_TUNING });
   tickerFn = (time) => lenis.raf(time * 1000);
   gsap.ticker.add(tickerFn);
   gsap.ticker.lagSmoothing(0);
