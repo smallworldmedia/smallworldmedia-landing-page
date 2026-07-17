@@ -552,6 +552,632 @@ body.route-home .site-nav__links {
   height: 1.143rem;
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   NAV-2 fx lab — ?navfx=1..4 · data-navfx on .site-nav + .mobile-menu ·
+   remove losers at bake
+   ────────────────────────────────────────────────────────────────────────
+   Four nav micro-interaction variants + the net-new current-page state
+   (data-current / aria-current — maintained by SiteNav.jsx from
+   window.location on hydrate + astro:after-swap; only /work(/*) and
+   /process can ever be current). Everything is scoped under
+   [data-navfx="N"]: with no param zero data-navfx attributes exist, every
+   selector here is unmatched dead weight, and the nav renders EXACTLY as
+   today (the stock .site-nav__link:hover underline above stays
+   byte-identical — not one existing rule is edited).
+   CSS-FIRST by design: the choreography onSwap runs killTweensOf +
+   clearProps 'all' on the links row and its children on EVERY navigation
+   — the fx here are class/attribute-keyed CSS on inner spans and pseudo-
+   elements, immune to that wipe, and they ride the envelop stagger (which
+   animates y/autoAlpha on the anchors — no property collision).
+   The /process-keyed selectors are inert on this branch (process link +
+   page are a v2 workstream) — they light up when the link returns.
+   BAKE PATH: bless a winner, delete the other three sections + the NAVFX
+   param read in SiteNav.jsx, collapse the winner's [data-navfx="N"]
+   scoping into the base nav rules, promote --ease-draw into the token
+   block beside --ease-micro, and promote aria-current maintenance to
+   unconditional (a11y).
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Shared lab ease — steep launch, smooth decel into rest, mathematically
+   overshoot-free (the curve never exceeds 1). Namespaced to the lab until
+   a winner promotes it. */
+.site-nav[data-navfx],
+.mobile-menu[data-navfx] {
+  --ease-draw: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Variants 1/3/4 replace the stock binary text-decoration underline
+   (variant 2 keeps it as its persistent hover affordance). Specificity
+   (0,4,0) cleanly beats the stock .site-nav__link:hover (0,2,0) — no
+   !important anywhere in this block. */
+.site-nav[data-navfx="1"] .site-nav__link:hover,
+.site-nav[data-navfx="3"] .site-nav__link:hover,
+.site-nav[data-navfx="4"] .site-nav__link:hover {
+  text-decoration: none;
+}
+
+/* Net-new shared focus ring — and every variant's hover choreography is
+   additionally fired by :focus-visible (paired onto each :hover selector
+   below). */
+.site-nav[data-navfx] .site-nav__link:focus-visible,
+.mobile-menu[data-navfx] .mobile-menu__item:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* ── navfx=1 · "glyph awake" — underline draw + per-glyph micro-motion ──
+   Everything currentColor (white): identical on the blue bar and process
+   black; on home the links row is visibility:hidden until Envelopment, so
+   no home state exists. */
+.site-nav[data-navfx="1"] .site-nav__link {
+  position: relative;
+}
+
+/* Underline draw: in 240ms --ease-draw from the left; out retracts to the
+   left (same origin — no origin swap, no mid-flight jump), 180ms
+   --ease-micro. The current link RESTS drawn — and because the same
+   transition drives it, the underline draws in when data-current lands on
+   astro:after-swap (free landing choreography). */
+.site-nav[data-navfx="1"] .site-nav__link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 180ms var(--ease-micro);
+}
+
+.site-nav[data-navfx="1"] .site-nav__link:hover::after,
+.site-nav[data-navfx="1"] .site-nav__link:focus-visible::after,
+.site-nav[data-navfx="1"] .site-nav__link[data-current]::after {
+  transform: scaleX(1);
+  transition: transform 240ms var(--ease-draw);
+}
+
+/* Recession: when a current link exists every OTHER link's glyph sits
+   slightly receded; the :not(:hover):not(:focus-visible) guards lift it
+   while interacting (restore rides the base 220ms transition). No current
+   link (home, inquiry-only routes) → the :has() guard keeps every glyph
+   at full opacity — no phantom recession. */
+.site-nav[data-navfx="1"] .site-nav__glyph,
+.site-nav[data-navfx="1"] .site-nav__icon--sm {
+  transition: opacity 220ms var(--ease-micro);
+}
+
+.site-nav[data-navfx="1"] .site-nav__links:has([data-current]) .site-nav__link:not([data-current]):not(:hover):not(:focus-visible) .site-nav__glyph,
+.site-nav[data-navfx="1"] .site-nav__links:has([data-current]) .site-nav__link:not([data-current]):not(:hover):not(:focus-visible) .site-nav__icon--sm {
+  opacity: 0.7;
+}
+
+/* Per-glyph micro-motion — selectors carry the .site-nav__link class (not
+   bare [href]): the home-variant ⊙ process pill is also <a href="/process">
+   with a glyph inside .site-nav__right, and must not catch the beat.
+   Keyframe curves are literal (custom properties are unreliable inside
+   keyframes): 0.16,1,0.3,1 mirrors --ease-draw; 0.4,0,0.2,1 mirrors
+   --ease-micro. Hover-exit mid-flight hard-cuts the one-shots — check in
+   the demo; if it pops, convert to the ⁕ two-way-transition pattern. */
+
+/* ↳ start_project — one nudge along its pointing direction, once per
+   hover-enter (the animation restarts when :hover matches) */
+@keyframes navfx1-nudge {
+  0% {
+    transform: translateX(0);
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  45% {
+    transform: translateX(3px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.site-nav[data-navfx="1"] .site-nav__link[href="/"]:hover .site-nav__glyph,
+.site-nav[data-navfx="1"] .site-nav__link[href="/"]:focus-visible .site-nav__glyph {
+  animation: navfx1-nudge 360ms;
+}
+
+/* ⁕ featured_projects — ratchets one step (two-way transition: returns on
+   leave). If PP Neue Montreal renders ⁕ five-armed, prefer rotate(72deg)
+   so the step lands arm-on-arm — verify in the demo. Both states re-list
+   the opacity tween: a shorter transition shorthand would kill the
+   recession ease mid-flight. */
+.site-nav[data-navfx="1"] .site-nav__link[href="/work"] .site-nav__glyph {
+  transition: transform 260ms var(--ease-micro), opacity 220ms var(--ease-micro);
+}
+
+.site-nav[data-navfx="1"] .site-nav__link[href="/work"]:hover .site-nav__glyph,
+.site-nav[data-navfx="1"] .site-nav__link[href="/work"]:focus-visible .site-nav__glyph {
+  transform: rotate(45deg);
+  transition: transform 320ms var(--ease-draw), opacity 220ms var(--ease-micro);
+}
+
+/* ⊙ process — center pulse read as a scale beat, once per hover-enter */
+@keyframes navfx1-beat {
+  0% {
+    transform: scale(1);
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  40% {
+    transform: scale(1.22);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.site-nav[data-navfx="1"] .site-nav__link[href="/process"]:hover .site-nav__glyph,
+.site-nav[data-navfx="1"] .site-nav__link[href="/process"]:focus-visible .site-nav__glyph {
+  transform-origin: center;
+  animation: navfx1-beat 420ms;
+}
+
+/* ♡ follow_us — a single house dim beat: the HOUSE_PULSE_PATH envelope
+   (soft attack via the --ease-pulse curve, slight hold, linear fall)
+   normalized to one 600ms hit. Targets the SVG (.site-nav__icon--sm),
+   not .site-nav__glyph. */
+@keyframes navfx1-dim {
+  0% {
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.25, 1);
+  }
+  15% {
+    opacity: 0.62;
+    animation-timing-function: linear;
+  }
+  25% {
+    opacity: 0.62;
+    animation-timing-function: linear;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.site-nav[data-navfx="1"] .site-nav__link[href*="instagram"]:hover .site-nav__icon--sm,
+.site-nav[data-navfx="1"] .site-nav__link[href*="instagram"]:focus-visible .site-nav__icon--sm {
+  animation: navfx1-dim 600ms;
+}
+
+/* navfx=1 mobile — no hover exists: press feedback via :active (each
+   glyph performs its per-link move as a 120ms transition, releasing on
+   pointer-up); the current item carries a resting drawn underline (2px —
+   1px reads thin under the clamped headline type). */
+.mobile-menu[data-navfx="1"] .mobile-menu__item {
+  position: relative;
+}
+
+.mobile-menu[data-navfx="1"] .mobile-menu__item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 180ms var(--ease-micro);
+}
+
+.mobile-menu[data-navfx="1"] .mobile-menu__item[data-current]::after {
+  transform: scaleX(1);
+  transition: transform 240ms var(--ease-draw);
+}
+
+.mobile-menu[data-navfx="1"] .mobile-menu__item .site-nav__glyph,
+.mobile-menu[data-navfx="1"] .mobile-menu__item .site-nav__icon--sm {
+  transition: transform 120ms var(--ease-micro), opacity 120ms var(--ease-micro);
+}
+
+.mobile-menu[data-navfx="1"] .mobile-menu__item[href="/"]:active .site-nav__glyph {
+  transform: translateX(4px);
+}
+
+.mobile-menu[data-navfx="1"] .mobile-menu__item[href="/work"]:active .site-nav__glyph {
+  transform: rotate(45deg);
+}
+
+.mobile-menu[data-navfx="1"] .mobile-menu__item[href="/process"]:active .site-nav__glyph {
+  transform: scale(1.15);
+}
+
+.mobile-menu[data-navfx="1"] .mobile-menu__item[href*="instagram"]:active .site-nav__icon--sm {
+  opacity: 0.62;
+}
+
+.mobile-menu[data-navfx="1"] .mobile-menu__items:has([data-current]) .mobile-menu__item:not([data-current]):not(:active) .site-nav__glyph,
+.mobile-menu[data-navfx="1"] .mobile-menu__items:has([data-current]) .mobile-menu__item:not([data-current]):not(:active) .site-nav__icon--sm {
+  opacity: 0.7;
+}
+
+/* ── navfx=2 · "scramble pass" — one house scramble-resolve on enter ──
+   The JS half (SiteNav.jsx, gated NAVFX === '2') runs the pass and owns
+   the label span's cleanup; this CSS is the accent tint + the block-
+   cursor current marker. The stock text-decoration hover underline is
+   KEPT here as the persistent affordance — the scramble is additive. */
+.site-nav[data-navfx="2"] .site-nav__label {
+  transition: color 220ms var(--ease-micro);
+}
+
+/* While the pass runs: tint to the surface accent INSTANTLY, fade back
+   over 220ms when .is-scrambling drops on tween complete. Blue bar → the
+   pill-hover black; process black → electric blue (the np-band pinned
+   reading). Home: row hidden — falls back to the default if hovered
+   mid-envelop. */
+.site-nav[data-navfx="2"] .site-nav__link.is-scrambling .site-nav__label {
+  color: var(--color-black);
+  transition: none;
+}
+
+body.route-process .site-nav[data-navfx="2"] .site-nav__link.is-scrambling .site-nav__label {
+  color: var(--color-electric-blue);
+}
+
+/* Current link: a leading block cursor (a drawn box — crisper than a █
+   glyph at 16px) before the leading glyph, breathing on the house pulse
+   (the existing 3000ms dim-polarity keyframes — a slow terminal cursor,
+   not a hard blink). The one-time steady-state row shift when it lands is
+   accepted as variant identity; if it reads as chrome instability in the
+   demo, reserve the slot on all four links (::before always present,
+   opacity 0 unless current). */
+.site-nav[data-navfx="2"] .site-nav__link[data-current]::before {
+  content: '';
+  display: inline-block;
+  width: 0.45em;
+  height: 0.95em;
+  margin-right: 0.4em;
+  background: currentColor;
+  animation: house-pulse var(--duration-pulse) linear infinite;
+}
+
+body.route-process .site-nav[data-navfx="2"] .site-nav__link[data-current]::before {
+  background: var(--color-electric-blue);
+}
+
+/* navfx=2 mobile — no scramble on tap (a tap navigates immediately; a
+   cut-off pass is noise — the variant JS binds desktop links only).
+   :active flash: the label snaps to the technical accent on the black
+   panel and eases back over 220ms on release. */
+.mobile-menu[data-navfx="2"] .site-nav__label {
+  transition: color 220ms var(--ease-micro);
+}
+
+.mobile-menu[data-navfx="2"] .mobile-menu__item:active .site-nav__label {
+  color: var(--color-electric-blue);
+  transition: none;
+}
+
+.mobile-menu[data-navfx="2"] .mobile-menu__item[data-current]::before {
+  content: '';
+  display: inline-block;
+  width: 0.4em;
+  height: 0.8em;
+  background: currentColor;
+  animation: house-pulse var(--duration-pulse) linear infinite;
+}
+
+/* ── navfx=3 · "bracket carets" — the /work chip language in chrome ──
+   Mono [ ] brackets + a trailing looping feathered caret in the technical
+   register (Iosevka against the PP Neue Montreal label), all absolutely
+   positioned so hover NEVER reflows the row. The 0.65em label gutters are
+   reserved permanently; the links gap tightens to compensate (the gutters
+   now carry part of the spacing rhythm — stock inter-link air is roughly
+   preserved). Nothing here touches inline styles — immune to the
+   after-swap wipe; during the envelop stagger the pseudos ride their
+   anchor's tween. */
+.site-nav[data-navfx="3"] .site-nav__link {
+  position: relative;
+}
+
+.site-nav[data-navfx="3"] .site-nav__links {
+  gap: 1.286rem;
+  /* 18px (stock 24px) — see gutter note above */
+}
+
+.site-nav[data-navfx="3"] .site-nav__label {
+  position: relative;
+  margin: 0 0.65em;
+}
+
+/* At rest: invisible, offset outward. Pseudo-elements hit-test as part of
+   their element — pointer-events: none so brackets never extend/steal
+   hover in the gaps. */
+.site-nav[data-navfx="3"] .site-nav__label::before,
+.site-nav[data-navfx="3"] .site-nav__label::after {
+  position: absolute;
+  top: 50%;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease-micro), transform 150ms var(--ease-micro);
+}
+
+.site-nav[data-navfx="3"] .site-nav__label::before {
+  content: '[';
+  right: calc(100% + 0.12em);
+  transform: translate(-0.35em, -50%);
+}
+
+.site-nav[data-navfx="3"] .site-nav__label::after {
+  content: ']';
+  left: calc(100% + 0.12em);
+  transform: translate(0.35em, -50%);
+}
+
+/* Hover/focus: both brackets converge to their resting slots,
+   simultaneous, no stagger. The current link RESTS framed — the same
+   transition slides the brackets closed around the label when
+   data-current lands on astro:after-swap (the landing IS the
+   choreography). Hovering the current link adds only the caret. */
+.site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__label::before,
+.site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__label::after,
+.site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__label::before,
+.site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__label::after,
+.site-nav[data-navfx="3"] .site-nav__link[data-current] .site-nav__label::before,
+.site-nav[data-navfx="3"] .site-nav__link[data-current] .site-nav__label::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition: opacity 200ms var(--ease-draw), transform 200ms var(--ease-draw);
+}
+
+/* Trailing caret window — the fp-cta__arrows mask grammar rotated
+   horizontal: feathered to 0% only on the side nearest the label, fully
+   visible to the far edge. The span renders only under ?navfx=3
+   (SiteNav.jsx), inside each anchor. */
+.site-nav[data-navfx="3"] .site-nav__fxcaret {
+  position: absolute;
+  top: 50%;
+  right: -1.1em;
+  width: 0.9em;
+  height: 1em;
+  transform: translateY(-50%);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 65%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 65%, #000 100%);
+  transition: opacity 150ms var(--ease-micro);
+}
+
+.site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__fxcaret,
+.site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__fxcaret {
+  opacity: 1;
+  transition: opacity 200ms var(--ease-draw);
+}
+
+/* Four chevrons so the window never runs dry at any loop phase (Iosevka's
+   ~0.5em advance × 4 always covers the 0.9em window); shifting by exactly
+   1ch maps the pattern onto itself — seamless. Drift: 2.8s per ~8px slot
+   ≈ the /work strip's house drift rate (ARROW_LOOP_SECONDS 6s / 17px). */
+.site-nav[data-navfx="3"] .site-nav__fxcaret::before {
+  content: '››››';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translate(0, -50%);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  line-height: 1;
+  white-space: pre;
+}
+
+.site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__fxcaret::before,
+.site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__fxcaret::before {
+  animation: navfx3-drift 2.8s linear infinite;
+}
+
+@keyframes navfx3-drift {
+  from {
+    transform: translate(-1ch, -50%);
+  }
+  to {
+    transform: translate(0, -50%);
+  }
+}
+
+/* navfx=3 mobile — resting mono brackets frame the current item (static,
+   no caret); :active snaps them in at 90ms (press feedback must read
+   instantly under a finger — the 200ms draw is too slow). Label spans
+   exist in the items already — CSS-only. */
+.mobile-menu[data-navfx="3"] .site-nav__label {
+  position: relative;
+  margin: 0 0.35em;
+}
+
+.mobile-menu[data-navfx="3"] .site-nav__label::before,
+.mobile-menu[data-navfx="3"] .site-nav__label::after {
+  position: absolute;
+  top: 50%;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease-micro), transform 150ms var(--ease-micro);
+}
+
+.mobile-menu[data-navfx="3"] .site-nav__label::before {
+  content: '[';
+  right: calc(100% + 0.08em);
+  transform: translate(-0.3em, -50%);
+}
+
+.mobile-menu[data-navfx="3"] .site-nav__label::after {
+  content: ']';
+  left: calc(100% + 0.08em);
+  transform: translate(0.3em, -50%);
+}
+
+.mobile-menu[data-navfx="3"] .mobile-menu__item[data-current] .site-nav__label::before,
+.mobile-menu[data-navfx="3"] .mobile-menu__item[data-current] .site-nav__label::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+.mobile-menu[data-navfx="3"] .mobile-menu__item:active .site-nav__label::before,
+.mobile-menu[data-navfx="3"] .mobile-menu__item:active .site-nav__label::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition: opacity 90ms var(--ease-micro), transform 90ms var(--ease-micro);
+}
+
+/* ── navfx=4 · "kinetic rule" — one shared 1px rule (np-band vocabulary) ──
+   Positioned by JS (SiteNav.jsx, gated NAVFX === '4') via inline
+   transform/width; hover glides it under the pointed link, retargeting
+   mid-flight; rest = under the current link. White on both chromes (the
+   np-band's white-at-rest reading; the blue pinned state stays the band's
+   own). */
+.site-nav[data-navfx="4"] .site-nav__fxrule {
+  position: absolute;
+  top: calc(50% + 14px);
+  /* 3px below the 22px-line-height text block — verify optically */
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--color-white);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 340ms var(--ease-draw),
+    width 340ms var(--ease-draw),
+    opacity 180ms var(--ease-micro);
+}
+
+/* navfx=4 mobile — a shared traveling element makes no sense in a
+   vertical open/close menu: the identity translates to "the rule visits
+   what you touch" — drawn under the pressed item, resting under the
+   current one. Pure CSS, no JS in the portal. */
+.mobile-menu[data-navfx="4"] .mobile-menu__item {
+  position: relative;
+}
+
+.mobile-menu[data-navfx="4"] .mobile-menu__item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 160ms var(--ease-draw);
+}
+
+.mobile-menu[data-navfx="4"] .mobile-menu__item:active::after,
+.mobile-menu[data-navfx="4"] .mobile-menu__item[data-current]::after {
+  transform: scaleX(1);
+}
+
+/* ≤1024px: the base RESPONSIVE block tightens the links gap to 1rem — the
+   1.1em caret window would overlap the next anchor's glyph by ~3.6px (it
+   is NOT empty air at this width), so pull the window in flush with the
+   variant-3 gap; the variant gap tightens too so the reserved gutters
+   keep carrying the rhythm. */
+@media (max-width: 1024px) {
+  .site-nav[data-navfx="3"] .site-nav__links {
+    gap: 0.857rem;
+    /* 12px (stock 14px here) */
+  }
+
+  .site-nav[data-navfx="3"] .site-nav__fxcaret {
+    right: -0.75em;
+    width: 0.65em;
+  }
+}
+
+/* Reduced motion — one guard for all four variants. Static states remain
+   intact (underlines/brackets/cursor/rule still mark hover + current);
+   every glide, draw, loop and beat is removed. Selectors mirror the
+   motion rules above at equal specificity — this block sits later in the
+   cascade, so it wins without !important. */
+@media (prefers-reduced-motion: reduce) {
+  /* navfx=1 — no nudge/ratchet/beat/dim; instant underline + recession */
+  .site-nav[data-navfx="1"] .site-nav__link[href]:hover .site-nav__glyph,
+  .site-nav[data-navfx="1"] .site-nav__link[href]:focus-visible .site-nav__glyph,
+  .site-nav[data-navfx="1"] .site-nav__link[href]:hover .site-nav__icon--sm,
+  .site-nav[data-navfx="1"] .site-nav__link[href]:focus-visible .site-nav__icon--sm {
+    animation: none;
+    transform: none;
+    transition: none;
+  }
+
+  .site-nav[data-navfx="1"] .site-nav__glyph,
+  .site-nav[data-navfx="1"] .site-nav__icon--sm,
+  .site-nav[data-navfx="1"] .site-nav__link[href="/work"] .site-nav__glyph,
+  .mobile-menu[data-navfx="1"] .mobile-menu__item .site-nav__glyph,
+  .mobile-menu[data-navfx="1"] .mobile-menu__item .site-nav__icon--sm {
+    transition: none;
+  }
+
+  .site-nav[data-navfx="1"] .site-nav__link::after,
+  .site-nav[data-navfx="1"] .site-nav__link:hover::after,
+  .site-nav[data-navfx="1"] .site-nav__link:focus-visible::after,
+  .site-nav[data-navfx="1"] .site-nav__link[data-current]::after,
+  .mobile-menu[data-navfx="1"] .mobile-menu__item::after,
+  .mobile-menu[data-navfx="1"] .mobile-menu__item[data-current]::after {
+    transition: none;
+  }
+
+  /* navfx=2 — the static block remains as the current marker; accent
+     tints become instant (scrambleTo itself degrades to an instant text
+     set and the JS bails before adding .is-scrambling) */
+  .site-nav[data-navfx="2"] .site-nav__link[data-current]::before,
+  .mobile-menu[data-navfx="2"] .mobile-menu__item[data-current]::before {
+    animation: none;
+  }
+
+  .site-nav[data-navfx="2"] .site-nav__label,
+  .mobile-menu[data-navfx="2"] .site-nav__label {
+    transition: none;
+  }
+
+  /* navfx=3 — brackets + caret window appear/disappear instantly; the
+     caret keeps ONE static feathered chevron strip on hover (the
+     CtaArrows reduced-motion convention: static, not hidden) */
+  .site-nav[data-navfx="3"] .site-nav__label::before,
+  .site-nav[data-navfx="3"] .site-nav__label::after,
+  .site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__label::before,
+  .site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__label::after,
+  .site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__label::before,
+  .site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__label::after,
+  .site-nav[data-navfx="3"] .site-nav__link[data-current] .site-nav__label::before,
+  .site-nav[data-navfx="3"] .site-nav__link[data-current] .site-nav__label::after,
+  .site-nav[data-navfx="3"] .site-nav__fxcaret,
+  .site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__fxcaret,
+  .site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__fxcaret,
+  .mobile-menu[data-navfx="3"] .site-nav__label::before,
+  .mobile-menu[data-navfx="3"] .site-nav__label::after,
+  .mobile-menu[data-navfx="3"] .mobile-menu__item:active .site-nav__label::before,
+  .mobile-menu[data-navfx="3"] .mobile-menu__item:active .site-nav__label::after {
+    transition: none;
+  }
+
+  .site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__fxcaret::before,
+  .site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__fxcaret::before {
+    animation: none;
+  }
+
+  /* navfx=4 — the rule snaps between positions (still a functioning
+     hover/current indicator, it just doesn't glide); the mobile draw
+     snaps on :active and rests statically on current */
+  .site-nav[data-navfx="4"] .site-nav__fxrule,
+  .mobile-menu[data-navfx="4"] .mobile-menu__item::after {
+    transition: none;
+  }
+}
+
+/* ── end NAV-2 fx lab ─────────────────────────────────────────────────── */
+
 /* ============================================
    SITE SHELL — Persistent fixed wrapper
    ============================================
