@@ -351,10 +351,17 @@ export default function SiteNav({
       goHome();
     };
     // Re-seat to the new current link after a swap — navigation reads as
-    // the rule traveling to where you went. Deferred a microtask so it
-    // always runs after refreshCurrent's own after-swap listener has
-    // updated data-current, independent of listener registration order.
-    const onSwap = () => queueMicrotask(goHome);
+    // the rule traveling to where you went. Two frames, not a microtask:
+    // rAF still runs after refreshCurrent's after-swap listener updates
+    // data-current, but a microtask fires before the swapped-in page has
+    // laid out, so the rule glided to a pre-layout transient (~10px right
+    // of the current link). Double-rAF lets layout settle before we measure.
+    const onSwap = () =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (!disposed) goHome();
+        }),
+      );
     let raf = 0;
     const onResize = () => {
       if (raf) return;
