@@ -30,7 +30,7 @@ export async function getStaticPaths() {
   const seen = new Set();
   const rows = featured
     .filter((h) => h.collection && h.clientSlug)
-    .map((h) => ({ ...h, slug: toProjectSlug(h.clientSlug, h.collection) }))
+    .map((h) => ({ ...h, slug: h.slug || toProjectSlug(h.clientSlug, h.collection) }))
     .filter((h) => !seen.has(h.slug) && seen.add(h.slug));
 
   return rows.map((h, i) => {
