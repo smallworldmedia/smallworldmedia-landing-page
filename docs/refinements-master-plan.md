@@ -51,7 +51,7 @@
 |----|------|-------|--------|-------|
 | NAV-1 | Nav hugs viewport left | AGENT | ☐ | Retune `--nav-inset` (single token now, this PR); preserve right-edge `+var(--space-4)` scrollbar clearance + follow_us pill lockstep. Don't touch bar height (41px echoed in work.css / ProjectDirectory / info-panel calc). |
 | FT-1 | Footer matches nav inset | AGENT | ☐ | Footer inner bar already reads `--nav-inset` (this PR); retune the 8px outer pad against the new value so combined inset matches nav. |
-| INQ-3 | Inquiry SWM icon parity | AGENT | ☐ | Overlay globe ~1.5–2.5px low; fix `.project-overlay__globe`: explicit height + `object-fit:cover` + corrected top; drop ≤768 width override. Verify visually. |
+| INQ-3 | Inquiry SWM icon parity | AGENT | ⬆ PR #32 (Δ 0.02px) | Overlay globe ~1.5–2.5px low; fix `.project-overlay__globe`: explicit height + `object-fit:cover` + corrected top; drop ≤768 width override. Verify visually. |
 | NAV-2 | Nav micro-interactions ×4 | CREATIVE | ☐ | Own branch `refine/nav-microinteractions`, `?navfx=1..4` demo, desktop + mobile. Active/current state is fully net-new. Envelop choreography indexes nav children — careful. |
 | HP-1 | Homepage process button | AGENT + Nathan placement | ☐ | Executes in B10. Placement checkpoint: on-globe cluster vs fixed corner (bottom-right occupied by follow_us). Must join both envelopment fade lists. |
 
@@ -60,9 +60,9 @@
 | ID | Item | Class | Status | Notes |
 |----|------|-------|--------|-------|
 | FP-2 | Perceived-instant video | AGENT | ☐ | `startFragPrefetch`/`startLevel` via `useHls` `hlsConfig` for MediaSlot + NextProjectBand; raise IO rootMargin 200→~400px; `eager` prop for the hero slot; verify Mux poster `?time=` alignment. Measure first-frame before/after; don't multiply concurrent streams. |
-| FP-4a | Detail routing refactor | AGENT (own PR, FIRST) | ☐ | Detail grouping `sourceFolder` → `project._ref` (queries + `[slug].astro` paths/next-chain/slug). Verify against the FULL directory. |
+| FP-4a | Detail routing refactor | AGENT (own PR, FIRST) | ⬆ PR #30 | Detail grouping `sourceFolder` → `project._ref` (queries + `[slug].astro` paths/next-chain/slug). Verify against the FULL directory. |
 | FP-4b | rossi+homegrxwn merge, bellaire off | Nathan + AGENT | ☐ | AFTER FP-4a. CMS: re-point homegrxwn asset refs → rossi, unfeature; bellaire `isFeatured:false`. Old-slug redirect, ref snapshot for rollback, preview-deploy gate. Asset order sets hero+slug — Nathan confirms. Redeploy required. |
-| FP-3 | Scroll-up at /work top → home | AGENT | ☐ | Hook the `addDelta` upward clamp at first World; reverse envelopment → `navigate('/')`; RM fallback; keep RouteFill handshake. |
+| FP-3 | Scroll-up at /work top → home | AGENT | ⬆ PR #31 (+ home fill-release gap fix) | Hook the `addDelta` upward clamp at first World; reverse envelopment → `navigate('/')`; RM fallback; keep RouteFill handshake. |
 | FP-1 | enter_world pulse (dims) | CREATIVE | ☐ | Consumes A1, dim polarity, starts after the entrance rests. Supersedes "primaries rest still". |
 | DP-1 | Next-project transition rework | CREATIVE | ☐ | Blue fade confined to `.np-band__media`; media box animates to full viewport; reuse the `proxyRef.f` engine + `?np*` knobs; KEEP `swm:fill-release` handshake. |
 
@@ -70,8 +70,8 @@
 
 | ID | Item | Class | Status | Notes |
 |----|------|-------|--------|-------|
-| INQ-2 | Wipe in from top / out bottom-to-top | AGENT | ☐ | `clip-path` insets (both bottom-driven): in `inset(0 0 100% 0)→inset(0 0 0% 0)`; out `inset(0 0 0% 0)→inset(0 0 100% 0)`. Three sites (open / close / post-submit) + visibility gate + re-sequenced children, house curve. |
-| INQ-1 | Next-field pulse (brightens) | AGENT | ☐ | Consumes A1, brighten polarity. First-incomplete over name → email → tags(`length>0`) → message; pulse class on the field row; reset with open-reset; RM-gated. |
+| INQ-2 | Wipe in from top / out bottom-to-top | AGENT | ⬆ PR #32 | `clip-path` insets (both bottom-driven): in `inset(0 0 100% 0)→inset(0 0 0% 0)`; out `inset(0 0 0% 0)→inset(0 0 100% 0)`. Three sites (open / close / post-submit) + visibility gate + re-sequenced children, house curve. |
+| INQ-1 | Next-field pulse (brightens) | AGENT | ⬆ PR #32 | Consumes A1, brighten polarity. First-incomplete over name → email → tags(`length>0`) → message; pulse class on the field row; reset with open-reset; RM-gated. |
 
 ## Verification recipes
 
