@@ -24,11 +24,10 @@ import ProcessMeter from './ProcessMeter.jsx';
 export default function ProcessPage() {
   const rootRef = useRef(null);
   const canvasRef = useRef(null);
-  const threadRef = useRef(null);
   const captionRef = useRef(null);
   const blueRef = useRef(null);
   const gradientRef = useRef(null);
-  const sceneRef = useProcessScene(canvasRef, threadRef, captionRef, {
+  const sceneRef = useProcessScene(canvasRef, captionRef, {
     rootRef,
     blueRef,
     gradientRef,
@@ -56,14 +55,10 @@ export default function ProcessPage() {
         <div className="process-bg__blue" ref={blueRef} />
       </div>
 
-      {/* Full-viewport scene layer — the ProcessScene mounts here */}
+      {/* Full-viewport scene layer — the ProcessScene mounts here. The
+          Thread lives INSIDE the scene now (a depth-tested Line2, B3) —
+          the old screen-space SVG overlay is gone. */}
       <div className="process-page__canvas" ref={canvasRef} aria-hidden="true" />
-
-      {/* The Thread — screen-space annotation layer above the canvas,
-          below the copy (spec §4); the scene drives the path per frame */}
-      <svg className="process-thread" aria-hidden="true">
-        <path className="process-thread__path" ref={threadRef} />
-      </svg>
 
       <div className="process-page__copy">
         <header className="process-section process-hero" data-stage="hero">

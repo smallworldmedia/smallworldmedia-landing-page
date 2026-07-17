@@ -48,6 +48,9 @@ import { useRef, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import buildGlobeGeometry from '../globe/buildGlobeGeometry.js';
 import { createPanelMaterial } from '../globe/panelMaterial.js';
 import buildCascadeTimeline, { panelDelay } from '../globe/cascade.js';
@@ -192,7 +195,7 @@ const bakeEdgeUv = (geometry) => {
   geometry.setAttribute('aEdgeUv', new THREE.BufferAttribute(uv, 2));
 };
 
-export default function useProcessScene(containerRef, threadRef, captionRef, chromeRefs) {
+export default function useProcessScene(containerRef, captionRef, chromeRefs) {
   const apiRef = useRef(NOOP_API);
 
   // Layout effect: the scroll driver's useGSAP (called after this hook)
@@ -278,6 +281,31 @@ export default function useProcessScene(containerRef, threadRef, captionRef, chr
     innerSphere.scale.setScalar(0.001); // surfaces at the assembly
     innerSphere.visible = false;
     globeGroup.add(innerSphere);
+
+    /* — The Thread, promoted to a true in-scene line (v2 deck, B3). It
+       was a screen-space SVG overlay composited above the whole render —
+       impossible to occlude. Now a Line2 (screen-width wide line) child
+       of globeGroup with depthTest on: opaque Fragments in front of a
+       segment hide it, and as the shell assembles the surfacing inner
+       sphere swallows the interior chords — the string is obscured INTO
+       the globe instead of fading out on top of it. Segments stay
+       STRAIGHT (world-space chords; no intermediate vertices), and each
+       hop attaches via the shard's INSIDE normal — the concave side —
+       so a shard facing the camera hides its own connection point. Ink
+       black, the Fragment stroke's color on the blue field. — */
+    const ATTACH_DEPTH = RADIUS * 0.06;
+    const threadMaterial = new LineMaterial({
+      color: STROKE_COLOR,
+      linewidth: TUNING.strokePx,
+      transparent: true,
+      dashed: true,
+      gapSize: 1e6, // trim-path draw: dashSize = drawn length, one dash
+    });
+    const threadGeometry = new LineGeometry();
+    threadGeometry.setPositions([0, 0, 0, 0, 0, 0]);
+    const threadLine = new Line2(threadGeometry, threadMaterial);
+    threadLine.visible = false;
+    globeGroup.add(threadLine);
 
     /* — Framing: tan-space contain fit (mobile too — the belt must fit
        whole, spec §7; never the home cover-overscan). Right-of-center on
@@ -393,48 +421,45 @@ export default function useProcessScene(containerRef, threadRef, captionRef, chr
       }
     };
 
-    /* — The Thread: screen-space SVG polyline through the chained
-       Fragments' projected centroids — STRAIGHT segments from the Core's
-       center-to-be (the string the beads ride), drawn dashoffset-style
-       (the house CheckIndicator technique). Re-projected per frame while
-       active — the targets drift until claimed, then ride the assembly
-       inward as the string pulls taut. — */
-    const projected = new THREE.Vector3();
-    const shardCentroid = (panel, out) =>
-      globeGroup.localToWorld(out.copy(panel.mesh.position));
+    /* — The Thread update: rebuild the polyline through the chained
+       Fragments' live attachment points (group-local — the line rides
+       globeGroup's rotation for free). Targets drift until claimed, then
+       ride the assembly inward as the string pulls taut. The trim-path
+       draw is the dashed material: dashSize = drawn world-length. — */
+    const attachV = new THREE.Vector3();
+    const prevV = new THREE.Vector3();
+    const attachPoint = (panel, out) =>
+      out
+        .copy(panel.centerDir)
+        .multiplyScalar(-ATTACH_DEPTH)
+        .applyQuaternion(panel.mesh.quaternion)
+        .add(panel.mesh.position);
     const updateThread = () => {
-      const path = threadRef?.current;
-      if (!path) return;
       if (!threadActive || threadChain.length === 0) {
-        path.setAttribute('d', '');
+        threadLine.visible = false;
         return;
       }
-      const w = container.clientWidth || 1;
-      const h = container.clientHeight || 1;
-      const px = [];
       // Origin: the belt's empty center — the Core's center-to-be.
-      projected.set(0, 0, 0);
-      globeGroup.localToWorld(projected).project(camera);
-      px.push({ x: (projected.x * 0.5 + 0.5) * w, y: (-projected.y * 0.5 + 0.5) * h });
+      const pts = [0, 0, 0];
+      prevV.set(0, 0, 0);
+      let totalLen = 0;
       threadChain.forEach((panel) => {
-        shardCentroid(panel, projected).project(camera);
-        px.push({ x: (projected.x * 0.5 + 0.5) * w, y: (-projected.y * 0.5 + 0.5) * h });
+        attachPoint(panel, attachV);
+        totalLen += attachV.distanceTo(prevV);
+        pts.push(attachV.x, attachV.y, attachV.z);
+        prevV.copy(attachV);
       });
-      let d = `M ${px[0].x.toFixed(1)} ${px[0].y.toFixed(1)}`;
-      for (let i = 1; i < px.length; i++) {
-        d += ` L ${px[i].x.toFixed(1)} ${px[i].y.toFixed(1)}`;
-      }
-      path.setAttribute('d', d);
-      const len = path.getTotalLength();
-      path.style.strokeDasharray = `${len}`;
-      path.style.strokeDashoffset = `${(1 - threadDraw.frac) * len}`;
-      path.style.opacity = `${threadDraw.alpha}`;
+      threadGeometry.setPositions(pts);
+      threadLine.computeLineDistances();
+      threadMaterial.dashSize = Math.max(threadDraw.frac, 0.0001) * totalLen;
+      threadMaterial.opacity = threadDraw.alpha;
+      threadLine.visible = threadDraw.frac > 0.0001 && threadDraw.alpha > 0.0001;
     };
     const clearThread = () => {
       threadActive = false;
       threadChain = [];
       threadDraw = { frac: 0, alpha: 1 };
-      threadRef?.current?.setAttribute('d', '');
+      threadLine.visible = false;
     };
 
     /* Greedy nearest-neighbor chain from the belt center, computed at
@@ -472,7 +497,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef, chr
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      threadRef?.current?.ownerSVGElement?.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      threadMaterial.resolution.set(w, h); // Line2 screen-width lines need it
       if (!activeTl) {
         const { z, offsetX, offsetY } = framingFor(getPose(stage ?? 'stage-01'));
         camera.position.z = z;
@@ -708,8 +733,9 @@ export default function useProcessScene(containerRef, threadRef, captionRef, chr
         innerSphere.visible = true;
       }, null, at0);
       tl.to(innerSphere.scale, { x: INNER_SPHERE_SCALE, y: INNER_SPHERE_SCALE, z: INNER_SPHERE_SCALE, duration: assembleSeconds * 0.8 }, at0 + assembleSeconds * 0.15);
-      // The string holds while the beads ride, then releases.
-      tl.to(threadDraw, { alpha: 0, duration: assembleSeconds * 0.35, ease: 'power2.in' }, at0 + assembleSeconds * 0.6);
+      // No fade — the string is a real line in the scene now (B3): the
+      // closing shell and the surfacing inner sphere OCCLUDE it away, the
+      // beads swallowing their own string.
 
       // The Core holds large — dropping low on phones (?dropy).
       const { z, offsetX, offsetY } = framingFor(pose);
@@ -916,6 +942,7 @@ export default function useProcessScene(containerRef, threadRef, captionRef, chr
       panels.forEach((p) => {
         p.mesh.material.uniforms.uStrokeWidthPx.value = TUNING.strokePx;
       });
+      threadMaterial.linewidth = TUNING.strokePx; // the string shares the ink width
       const pose = getPose(stage ?? 'stage-01');
       if (!activeTl) {
         const { z, offsetX, offsetY } = framingFor(pose);
@@ -1062,6 +1089,8 @@ export default function useProcessScene(containerRef, threadRef, captionRef, chr
       });
       innerSphereGeometry.dispose();
       innerMaterial.dispose();
+      threadGeometry.dispose();
+      threadMaterial.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();

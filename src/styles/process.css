@@ -90,34 +90,14 @@ body.route-process .site-nav {
   height: 100%;
 }
 
-/* --- The Thread: annotation layer above the canvas, below the copy
-   (spec §4). The scene drives the path geometry + trim-path draw. --- */
-.process-thread {
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.process-thread__path {
-  fill: none;
-  stroke: var(--color-electric-blue);
-  stroke-width: 2px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
+/* (The Thread is a depth-tested line INSIDE the WebGL scene since B3 —
+   no DOM layer. It draws ink-black, the Fragment stroke's color on the
+   blue field, and only ever shows there.) */
 
 /* --- Field-aware accents (data-bg, scene-set) ---
-   On the blue field the electric-blue accents vanish and the Thread
-   reads as ink: stroke goes black (the Fragments' edge-stroke family),
-   mono accents go white for contrast. Black/gradient fields keep the
-   house electric blue. */
-.process-page[data-bg='blue'] .process-thread__path {
-  stroke: var(--color-black);
-}
-
+   On the blue field the electric-blue accents vanish: mono accents go
+   white for contrast. Black/gradient fields keep the house electric
+   blue. */
 .process-stage__token,
 .process-stage__caption,
 .process-hero__token {
