@@ -24,12 +24,20 @@
  * Stalling rubber-bands everything back TOGETHER — one unified return on the
  * release curve (direct-to-rest tweens), not the staggered mapping in reverse.
  *
- * Commit rides the Envelopment bridge (ADR-0002): fill pre-covers with the
- * drag (f², like the globe's lean), the threshold pins the title blue and
- * finishes the choreography on the house Turn curve while `swm:envelop`
- * ramps the RouteFill — solid exactly at navigate(); the arriving detail
- * page's mount dispatches `swm:fill-release`. `swm:worldIndex` is written at
- * commit so the breadcrumb returns /work to the World you rode into.
+ * Commit rides the Envelopment bridge (ADR-0002), staged inside the media
+ * window: the drag's blue pre-cover (f², like the globe's lean) is an
+ * in-band cover layer CONFINED to the window — the page around it stays
+ * clean while the gesture charges. The threshold pins the title blue,
+ * promotes the window to a fixed box at its measured rect, and one
+ * Turn-curve timeline finishes the choreography: the clip opens fully, the
+ * box grows to the full viewport, and the confined blue rises to solid —
+ * the window itself becomes the envelopment. `swm:envelop` fires only for
+ * the final snap window (?npcover), so the persistent RouteFill goes solid
+ * UNDER the by-then fullscreen, near-solid box for the swap frame — the
+ * covered guard, input swallow, 2.5s safety valve, and the arriving detail
+ * page's `swm:fill-release` all ride the unchanged shell contract.
+ * `swm:worldIndex` is written at commit so the breadcrumb returns /work to
+ * the World you rode into.
  *
  * Reduced motion: no engine at all — the band is a plain link in its
  * resting composition (CSS default; the shifts are JS-applied).
@@ -71,9 +79,14 @@ const NP_ARM_MS = PARAM('nparm', 250);
 
 /* — Passage (Envelopment family defaults) — */
 const NP_SECONDS = PARAM('npms', GLIDE_MS) / 1000; // commit choreography length (house glide)
-const NP_COVER_SECONDS = PARAM('npcover', GLIDE_MS) / 1000; // blue ramp from t=0
-const NP_PRE_COVER = PARAM('nppre', 30) / 100; // blue at full drag (f² curve)
-const NP_ZOOM = PARAM('npzoom', 1.35); // media push-in over the commit
+// RouteFill snap window: no longer a visible t=0 ramp — the shell goes
+// solid under the near-fullscreen, near-solid box just before the swap.
+const NP_COVER_SECONDS = PARAM('npcover', 120) / 1000;
+const NP_PRE_COVER = PARAM('nppre', 30) / 100; // in-window blue at full drag (f² curve)
+// Media push-in over the commit. The box itself now grows to the viewport,
+// so this rides ON TOP of that growth — the old 1.35 default double-zooms.
+// Keep it a breath (?npzoom still overrides for dialing).
+const NP_ZOOM = PARAM('npzoom', 1.08);
 
 /* — Stagger ramps (fractions of the fill) — */
 const NP_SPLIT = PARAM('npsplit', 0.55); // label run length; title reuses it
@@ -110,6 +123,7 @@ export default function NextProjectBand({ next }) {
   const tagsRef = useRef(null);
   const mediaRef = useRef(null);
   const innerRef = useRef(null);
+  const coverRef = useRef(null);
   const videoRef = useRef(null);
 
   const accumRef = useRef(0);
@@ -136,6 +150,10 @@ export default function NextProjectBand({ next }) {
     const band = bandRef.current;
     const media = mediaRef.current;
     if (!band || !media) return;
+    // Never measure mid-departure: commit promotes the media box to a
+    // fixed, viewport-bound rect, and a resize firing during the passage
+    // would read that promoted layout as if it were the resting one.
+    if (departingRef.current) return;
     const bandW = band.clientWidth;
     const stacked = window.matchMedia('(max-width: 768px)').matches;
     const restMediaLeft = bandW - GUTTER - REST_REVEAL * media.offsetWidth;
@@ -169,6 +187,9 @@ export default function NextProjectBand({ next }) {
       titleX: m.titleShift * (1 - titleP),
       tagsX: m.tagsShift * (1 - titleP),
       clip: `inset(0% 0% 0% ${(CLIP_MAX * (1 - mediaP)).toFixed(2)}%)`,
+      // In-window pre-cover: same f² curve + ?nppre knob the RouteFill
+      // pre-cover rode, now confined to the media window.
+      cover: NP_PRE_COVER * f * f,
       ruleX: 0,
       ruleScale: 1,
     };
@@ -190,6 +211,9 @@ export default function NextProjectBand({ next }) {
     gsap.set(tagsRef.current, { x: t.tagsX });
     gsap.set(mediaRef.current, { clipPath: t.clip });
     gsap.set(ruleRef.current, { x: t.ruleX, scaleX: t.ruleScale });
+    // During departure the commit timeline owns the cover (raising it to
+    // solid on the Turn curve); apply() only tracks the drag's f² curve.
+    if (!departingRef.current) gsap.set(coverRef.current, { opacity: t.cover });
   };
 
   const unified = () =>
@@ -198,6 +222,7 @@ export default function NextProjectBand({ next }) {
       titleRef.current,
       tagsRef.current,
       mediaRef.current,
+      coverRef.current,
       ruleRef.current,
     ].filter(Boolean);
 
@@ -218,14 +243,20 @@ export default function NextProjectBand({ next }) {
     gsap.to(titleRef.current, { x: t.titleX, ...cfg });
     gsap.to(tagsRef.current, { x: t.tagsX, ...cfg });
     gsap.to(mediaRef.current, { clipPath: t.clip, ...cfg });
+    gsap.to(coverRef.current, { opacity: t.cover, ...cfg });
     gsap.to(ruleRef.current, { x: t.ruleX, scaleX: t.ruleScale, ...cfg });
+    // The drag no longer feeds the RouteFill (the pre-cover is in-band now)
+    // — this zero is residual-safety only, so no stray shell opacity can
+    // outlive a gesture. Other fill-progress consumers are unaffected.
     window.dispatchEvent(
       new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: 0.4 } })
     );
   };
 
-  // ── Commit: finish the choreography on the Turn curve under the rising
-  // blue, then navigate. Continues from wherever the drag left off. ──
+  // ── Commit: the media window becomes the envelopment — promoted to a
+  // fixed box at its measured rect, it grows to the full viewport while its
+  // confined blue rises to solid, all on the Turn curve. Continues from
+  // wherever the drag left off; navigate() fires at arrival. ──
   const commit = () => {
     if (departingRef.current) return;
     departingRef.current = true;
@@ -243,8 +274,34 @@ export default function NextProjectBand({ next }) {
 
     setPinned(true); // title/rule flash blue, held through the passage
     killUnified(); // take over from a mid-flight unified return
+
+    // Promote the ORIGINAL media node (a clone would restart HLS) to a
+    // fixed box at its exact on-screen rect. z-index 90 keeps it under the
+    // z-100 site shell — the nav rides above the passage, as it always
+    // has. The band's height is frozen first so the box leaving the flow
+    // (mobile's static stacking) can't collapse the band and jolt the
+    // end-of-document scroll position. Margins are zeroed for the same
+    // reason: fixed + top must place the border box AT the rect (mobile's
+    // margin-top would otherwise push it below its measurement).
+    const media = mediaRef.current;
+    const rect = media.getBoundingClientRect();
+    gsap.set(bandRef.current, { height: bandRef.current.offsetHeight });
+    gsap.set(media, {
+      position: 'fixed',
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+      right: 'auto',
+      margin: 0,
+      aspectRatio: 'auto',
+      zIndex: 90,
+    });
+
     const ease = CustomEase.create('swmNextBand', TURN_EASE_PATH);
     const tl = gsap.timeline({ onComplete: () => navigate(`/work/${next.slug}`) });
+    // Finish the drag choreography — text completes its run to the left
+    // edge, the clip window opens fully off its pinned edge.
     tl.to(proxyRef.current, {
       f: 1,
       duration: NP_SECONDS,
@@ -252,16 +309,26 @@ export default function NextProjectBand({ next }) {
       overwrite: 'auto',
       onUpdate: apply,
     }, 0);
-    // Push INTO the next world's media as the blue swallows the screen —
-    // the globe envelopment's scale-through, on the band's own subject.
+    // The box grows from its band rect to the full viewport …
+    tl.to(
+      media,
+      { top: 0, left: 0, width: '100vw', height: '100vh', duration: NP_SECONDS, ease },
+      0
+    );
+    // … its confined blue rises to solid (the window IS the envelopment) …
+    tl.to(coverRef.current, { opacity: 1, duration: NP_SECONDS, ease }, 0);
+    // … while the subject pushes in. The growing box supplies the travel
+    // now, so this is a breath on top — not the old full-frame zoom.
     tl.to(innerRef.current, { scale: NP_ZOOM, duration: NP_SECONDS, ease }, 0);
-    // Cover from the first frame of the passage (power2.in inside RouteFill
-    // keeps it subtle early); solid exactly as navigation fires.
+    // Snap the persistent RouteFill solid UNDER the by-then fullscreen,
+    // near-solid box for the swap frame — keeps the covered guard, input
+    // swallow, 2.5s safety valve, and the arriving page's fill-release
+    // handshake with zero changes to the shell.
     tl.add(() => {
       window.dispatchEvent(
         new CustomEvent('swm:envelop', { detail: { duration: NP_COVER_SECONDS } })
       );
-    }, 0);
+    }, Math.max(0, NP_SECONDS - NP_COVER_SECONDS));
   };
 
   // ── Rest-state composition + resize handling (pre-paint, no flash) ──
@@ -298,6 +365,8 @@ export default function NextProjectBand({ next }) {
 
     const dragTo = (f) => {
       killUnified(); // a resumed drag takes over from a mid-flight return
+      // The blue pre-cover rides apply() now — confined to the media
+      // window's cover layer, not dispatched to the full-viewport shell.
       gsap.to(proxyRef.current, {
         f,
         duration: 0.25,
@@ -305,11 +374,6 @@ export default function NextProjectBand({ next }) {
         overwrite: 'auto',
         onUpdate: apply,
       });
-      window.dispatchEvent(
-        new CustomEvent('swm:fill-progress', {
-          detail: { value: NP_PRE_COVER * f * f },
-        })
-      );
     };
 
     // Stalled below the threshold → the unified snap-back.
@@ -465,6 +529,7 @@ export default function NextProjectBand({ next }) {
             <div className="np-band__media-el" aria-hidden="true" />
           )}
         </div>
+        <div className="np-band__cover" ref={coverRef} aria-hidden="true" />
       </div>
     </a>
   );

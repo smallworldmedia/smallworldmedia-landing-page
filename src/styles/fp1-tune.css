@@ -1,0 +1,143 @@
+/* fp1-tune.css — DEV-ONLY tuning bench for the house pulse curve (?fp1tune=1).
+   Mono, near-black chrome in the globe-debug voice (video-globe.css). Only the
+   .fp1-tune tree, which renders solely when Fp1TunePanel mounts, is styled — no
+   effect on the shipped /work surface. */
+
+.fp1-tune {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 17rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.78);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  text-transform: lowercase;
+  pointer-events: auto;
+}
+
+.fp1-tune__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  letter-spacing: 0.02em;
+}
+
+.fp1-tune__note {
+  margin: 0;
+  opacity: 0.6;
+}
+
+.fp1-tune__group {
+  margin-top: var(--space-3);
+  opacity: 0.55;
+  letter-spacing: 0.08em;
+  border-top: 1px solid rgba(250, 250, 250, 0.18);
+  padding-top: var(--space-3);
+}
+
+.fp1-tune__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fp1-tune__key {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.fp1-tune__val {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.fp1-tune__row input[type='range'] {
+  width: 100%;
+  accent-color: var(--color-electric-blue);
+}
+
+/* Curve plot */
+.fp1-tune__plot {
+  width: 100%;
+  height: auto;
+  background: rgba(250, 250, 250, 0.04);
+}
+
+.fp1-tune__plot-frame {
+  fill: none;
+  stroke: rgba(250, 250, 250, 0.22);
+  stroke-width: 1;
+}
+
+.fp1-tune__plot-guide {
+  stroke: rgba(250, 250, 250, 0.22);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.fp1-tune__plot-curve {
+  stroke: var(--color-electric-blue);
+  stroke-width: 2;
+}
+
+/* Generated path string */
+.fp1-tune__path {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  opacity: 0.85;
+}
+
+.fp1-tune__path textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid rgba(250, 250, 250, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  padding: var(--space-2) var(--space-3);
+  word-break: break-all;
+}
+
+.fp1-tune__actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.fp1-tune__btn {
+  appearance: none;
+  flex: 1 1 auto;
+  border: 1px solid var(--color-cream);
+  background: transparent;
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  text-transform: lowercase;
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+
+.fp1-tune__head .fp1-tune__btn {
+  flex: 0 0 auto;
+}
+
+.fp1-tune__btn:hover {
+  background: var(--color-cream);
+  color: var(--color-black);
+}

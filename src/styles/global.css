@@ -149,39 +149,37 @@
   --duration-panel: 600ms;
   --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-micro: 220ms;
+  /* Steep launch, smooth decel into rest — mathematically overshoot-free
+     (the curve never exceeds 1). Drives the nav kinetic rule glide and the
+     ?navfx=3 bracket converge. Promoted from the NAV-2 lab at bake. */
+  --ease-draw: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* House slow pulse — CSS approximation of HOUSE_PULSE_PATH in
-     src/lib/motion.js (the source of truth). --ease-pulse shapes the
-     softened attack segment; --duration-pulse is the FULL cycle
-     (hit + equal rest). */
+     src/lib/motion.js (the source of truth). The keyframes below carry the
+     shape via stops sampled from that curve (Nathan's 2026-07-17 dial), so
+     they run linear; --ease-pulse stays as the single-ease attack shorthand
+     for any lighter consumer. --duration-pulse is the FULL cycle (hit + rest,
+     HOUSE_PULSE_PERIOD_S). */
   --ease-pulse: cubic-bezier(0.3, 0, 0.25, 1);
-  --duration-pulse: 3000ms;
+  --duration-pulse: 2300ms;
 }
 
 /* House pulse envelope, dim polarity (the enter_world reading): rest → soft
-   dip → slight hold → essentially linear return, then an equal rest interval.
-   Brighten consumers (inquiry next-field) key the same stops on their own
-   property. Keyframe map: attack 0–7.5%, hold →12.5%, linear fall →50%,
-   rest →100%. */
+   swell to the dip's floor (0.3) near mid-hit → eased return, then a shorter
+   rest. Stops sampled from HOUSE_PULSE_PATH; the hit occupies 0–75% of the
+   cycle (HOUSE_PULSE_ON_RATIO 0.75), peak at ~33.75%, rest 75–100%. */
 @keyframes house-pulse {
-  0% {
-    opacity: 1;
-    animation-timing-function: var(--ease-pulse);
-  }
-  7.5% {
-    opacity: 0.62;
-    animation-timing-function: linear;
-  }
-  12.5% {
-    opacity: 0.62;
-    animation-timing-function: linear;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-  }
+  0%     { opacity: 1; }
+  7.5%   { opacity: 0.88; }
+  15%    { opacity: 0.66; }
+  22.5%  { opacity: 0.44; }
+  33.75% { opacity: 0.3; }
+  45%    { opacity: 0.43; }
+  52.5%  { opacity: 0.6; }
+  60%    { opacity: 0.79; }
+  67.5%  { opacity: 0.93; }
+  75%    { opacity: 1; }
+  100%   { opacity: 1; }
 }
 
 .house-pulse {
@@ -189,27 +187,21 @@
 }
 
 /* House pulse, brighten polarity — the inquiry next-field reading (INQ-1):
-   rest-dim → lift → slight hold → essentially linear fall back to rest,
-   then the equal rest interval. Same stop map as house-pulse above. */
+   rest-dim (0.5) → soft swell to full → eased fall back to rest, then the
+   shorter rest. Same sampled stop map as house-pulse above, mirrored onto
+   opacity 0.5→1. */
 @keyframes house-pulse-brighten {
-  0% {
-    opacity: 0.5;
-    animation-timing-function: var(--ease-pulse);
-  }
-  7.5% {
-    opacity: 1;
-    animation-timing-function: linear;
-  }
-  12.5% {
-    opacity: 1;
-    animation-timing-function: linear;
-  }
-  50% {
-    opacity: 0.5;
-  }
-  100% {
-    opacity: 0.5;
-  }
+  0%     { opacity: 0.5; }
+  7.5%   { opacity: 0.58; }
+  15%    { opacity: 0.75; }
+  22.5%  { opacity: 0.9; }
+  33.75% { opacity: 1; }
+  45%    { opacity: 0.91; }
+  52.5%  { opacity: 0.79; }
+  60%    { opacity: 0.65; }
+  67.5%  { opacity: 0.55; }
+  75%    { opacity: 0.5; }
+  100%   { opacity: 0.5; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -534,8 +526,11 @@ body.route-home .site-nav__links {
   white-space: nowrap;
 }
 
+/* Hover/focus affordance is the kinetic rule (JS-positioned
+   .site-nav__fxrule below), not the stock text underline; ?navfx=3 swaps
+   to brackets. Both suppress the underline — promoted from the NAV-2 lab. */
 .site-nav__link:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .site-nav__glyph {
@@ -553,6 +548,241 @@ body.route-home .site-nav__links {
   /* 16px */
   height: 1.143rem;
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   NAV micro-interaction — kinetic rule + current-page state (DEFAULT),
+   bracket alt behind ?navfx=3
+   ────────────────────────────────────────────────────────────────────────────
+   Promoted from the NAV-2 fx lab (was ?navfx=1..4). The DEFAULT nav — no URL
+   param — carries the current-page state (data-current / aria-current,
+   maintained unconditionally by SiteNav.jsx from window.location on hydrate +
+   astro:after-swap; only /work(/*) and /process can ever be current) and the
+   KINETIC RULE: one shared 1px .site-nav__fxrule, a SIBLING of the links row,
+   JS-positioned to glide under the hovered/focused link and rest under the
+   current one. ?navfx=3 swaps to the BRACKETS ALT (the /work chip [ ]
+   language) and the rule stays hidden.
+   CSS-FIRST by design: the choreography onSwap runs killTweensOf + clearProps
+   'all' on the links row and its children on every navigation — the fxrule is
+   a sibling (never collected) and the brackets are pseudo-elements on inner
+   spans, both immune to that wipe; both ride the envelop stagger (which
+   animates y/autoAlpha on the anchors — no property collision). The
+   /process-keyed current state is inert on this branch (process link + page
+   are a v2 workstream) — it lights up when the link returns.
+   ───────────────────────────────────────────────── */
+
+/* Focus-visible ring — the kinetic rule (and the ?navfx=3 brackets) also fire
+   on :focus-visible; this is the standard keyboard focus indicator. Promoted
+   unconditional from the NAV-2 lab (a11y). */
+.site-nav__link:focus-visible,
+.mobile-menu__item:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* ── default · "kinetic rule" — one shared 1px rule (np-band vocabulary) ──
+   Positioned by JS (SiteNav.jsx) via inline transform/width; hover glides it
+   under the pointed link, retargeting mid-flight; rest = under the current
+   link. White on both chromes (the np-band's white-at-rest reading; the blue
+   pinned state stays the band's own). Hidden under the ?navfx=3 alt (the
+   brackets are the affordance there). */
+.site-nav__fxrule {
+  position: absolute;
+  top: calc(50% + 14px);
+  /* 3px below the 22px-line-height text block — verify optically */
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--color-white);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 340ms var(--ease-draw),
+    width 340ms var(--ease-draw),
+    opacity 180ms var(--ease-micro);
+}
+
+.site-nav[data-navfx="3"] .site-nav__fxrule {
+  display: none;
+}
+
+/* default mobile — a shared traveling element makes no sense in a vertical
+   open/close menu: the identity translates to "the rule visits what you
+   touch" — drawn under the pressed item, resting under the current one. Pure
+   CSS, no JS in the portal. Suppressed under the ?navfx=3 alt (mobile there
+   is brackets-only). */
+.mobile-menu:not([data-navfx="3"]) .mobile-menu__item {
+  position: relative;
+}
+
+.mobile-menu:not([data-navfx="3"]) .mobile-menu__item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 160ms var(--ease-draw);
+}
+
+.mobile-menu:not([data-navfx="3"]) .mobile-menu__item:active::after,
+.mobile-menu:not([data-navfx="3"]) .mobile-menu__item[data-current]::after {
+  transform: scaleX(1);
+}
+
+/* ── alt · ?navfx=3 · "brackets" — the /work chip language in chrome ──
+   Mono [ ] brackets, absolutely positioned so hover NEVER reflows the row.
+   The 0.65em label gutters are reserved permanently; the links gap tightens
+   to compensate (the gutters now carry part of the spacing rhythm — stock
+   inter-link air is roughly preserved). Nothing here touches inline styles —
+   immune to the after-swap wipe; during the envelop stagger the pseudos ride
+   their anchor's tween. (The trailing looping caret was cut at bake —
+   brackets only.) */
+.site-nav[data-navfx="3"] .site-nav__link {
+  position: relative;
+}
+
+.site-nav[data-navfx="3"] .site-nav__links {
+  gap: 1.286rem;
+  /* 18px (stock 24px) — see gutter note above */
+}
+
+.site-nav[data-navfx="3"] .site-nav__label {
+  position: relative;
+  margin: 0 0.65em;
+}
+
+/* At rest: invisible, offset outward. Pseudo-elements hit-test as part of
+   their element — pointer-events: none so brackets never extend/steal hover
+   in the gaps. */
+.site-nav[data-navfx="3"] .site-nav__label::before,
+.site-nav[data-navfx="3"] .site-nav__label::after {
+  position: absolute;
+  top: 50%;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease-micro), transform 150ms var(--ease-micro);
+}
+
+.site-nav[data-navfx="3"] .site-nav__label::before {
+  content: '[';
+  right: calc(100% + 0.12em);
+  transform: translate(-0.35em, -50%);
+}
+
+.site-nav[data-navfx="3"] .site-nav__label::after {
+  content: ']';
+  left: calc(100% + 0.12em);
+  transform: translate(0.35em, -50%);
+}
+
+/* Hover/focus: both brackets converge to their resting slots, simultaneous,
+   no stagger. The current link RESTS framed — the same transition slides the
+   brackets closed around the label when data-current lands on
+   astro:after-swap (the landing IS the choreography). */
+.site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__label::before,
+.site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__label::after,
+.site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__label::before,
+.site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__label::after,
+.site-nav[data-navfx="3"] .site-nav__link[data-current] .site-nav__label::before,
+.site-nav[data-navfx="3"] .site-nav__link[data-current] .site-nav__label::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition: opacity 200ms var(--ease-draw), transform 200ms var(--ease-draw);
+}
+
+/* ?navfx=3 mobile — resting mono brackets frame the current item (static, no
+   caret); :active snaps them in at 90ms (press feedback must read instantly
+   under a finger — the 200ms draw is too slow). Label spans exist in the
+   items already — CSS-only. */
+.mobile-menu[data-navfx="3"] .site-nav__label {
+  position: relative;
+  margin: 0 0.35em;
+}
+
+.mobile-menu[data-navfx="3"] .site-nav__label::before,
+.mobile-menu[data-navfx="3"] .site-nav__label::after {
+  position: absolute;
+  top: 50%;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease-micro), transform 150ms var(--ease-micro);
+}
+
+.mobile-menu[data-navfx="3"] .site-nav__label::before {
+  content: '[';
+  right: calc(100% + 0.08em);
+  transform: translate(-0.3em, -50%);
+}
+
+.mobile-menu[data-navfx="3"] .site-nav__label::after {
+  content: ']';
+  left: calc(100% + 0.08em);
+  transform: translate(0.3em, -50%);
+}
+
+.mobile-menu[data-navfx="3"] .mobile-menu__item[data-current] .site-nav__label::before,
+.mobile-menu[data-navfx="3"] .mobile-menu__item[data-current] .site-nav__label::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+.mobile-menu[data-navfx="3"] .mobile-menu__item:active .site-nav__label::before,
+.mobile-menu[data-navfx="3"] .mobile-menu__item:active .site-nav__label::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition: opacity 90ms var(--ease-micro), transform 90ms var(--ease-micro);
+}
+
+/* ≤1024px: the base RESPONSIVE block tightens the links gap to 1rem — the
+   ?navfx=3 alt keeps its reserved bracket gutters carrying the rhythm, so
+   tighten its gap here too. */
+@media (max-width: 1024px) {
+  .site-nav[data-navfx="3"] .site-nav__links {
+    gap: 0.857rem;
+    /* 12px (stock 14px here) */
+  }
+}
+
+/* Reduced motion — static states remain intact (rule/brackets still mark
+   hover + current); every glide/draw is removed. Selectors mirror the motion
+   rules above at equal specificity — this block sits later in the cascade, so
+   it wins without !important. */
+@media (prefers-reduced-motion: reduce) {
+  /* default — the rule snaps between positions (still a functioning
+     hover/current indicator, it just doesn't glide); the mobile draw snaps on
+     :active and rests statically on current */
+  .site-nav__fxrule,
+  .mobile-menu:not([data-navfx="3"]) .mobile-menu__item::after {
+    transition: none;
+  }
+
+  /* ?navfx=3 — brackets appear/disappear instantly */
+  .site-nav[data-navfx="3"] .site-nav__label::before,
+  .site-nav[data-navfx="3"] .site-nav__label::after,
+  .site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__label::before,
+  .site-nav[data-navfx="3"] .site-nav__link:hover .site-nav__label::after,
+  .site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__label::before,
+  .site-nav[data-navfx="3"] .site-nav__link:focus-visible .site-nav__label::after,
+  .site-nav[data-navfx="3"] .site-nav__link[data-current] .site-nav__label::before,
+  .site-nav[data-navfx="3"] .site-nav__link[data-current] .site-nav__label::after,
+  .mobile-menu[data-navfx="3"] .site-nav__label::before,
+  .mobile-menu[data-navfx="3"] .site-nav__label::after,
+  .mobile-menu[data-navfx="3"] .mobile-menu__item:active .site-nav__label::before,
+  .mobile-menu[data-navfx="3"] .mobile-menu__item:active .site-nav__label::after {
+    transition: none;
+  }
+}
+
+/* ── end NAV micro-interaction ─────────────────────────────── */
 
 /* ============================================
    SITE SHELL — Persistent fixed wrapper

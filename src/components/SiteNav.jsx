@@ -25,6 +25,21 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 
+/* ── NAV micro-interaction (default = kinetic rule; ?navfx=3 = brackets) ──
+   The kinetic rule + current-page state are the DEFAULT nav — no param.
+   ?navfx=3 selects the BRACKETS ALT (the /work chip language), read ONCE at
+   hydration (the CtaArrows ?caret idiom). The island is client:load +
+   transition:persist and never remounts, so the const holds for the whole
+   session across client navs (the param drops off the URL after the first
+   swap — by design). Rendered as data-navfx="3" on both chrome roots
+   (.site-nav and the portaled .mobile-menu) when the alt is selected; the
+   alt's CSS lives in global.css scoped under [data-navfx="3"]. Any other
+   value (or none) → null → the promoted default. */
+const NAVFX = (() => {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('navfx') === '3' ? '3' : null;
+})();
+
 /** Minimal inline glyph icons (Figma uses Simple Design System icons) */
 function HeartIcon() {
   return (
@@ -70,6 +85,7 @@ export default function SiteNav({
   const followRef = useRef(null);
   const envTlRef = useRef(null);
   const menuRef = useRef(null);
+  const fxRuleRef = useRef(null); // kinetic rule (sibling of the links row)
   const [menuOpen, setMenuOpen] = useState(false);
   // Portal target for the fixed follow pill + mobile menu — client-only
   // (island is SSR'd)
@@ -77,6 +93,19 @@ export default function SiteNav({
   useEffect(() => {
     setShellEl(document.querySelector('.site-shell'));
   }, []);
+
+  // Two-pass activation for the ?navfx=3 alt: the island is SSR'd and React
+  // 19 hydration adopts the server DOM without patching attribute mismatches
+  // — so the data-navfx="3" attribute must land as a post-mount UPDATE
+  // (server render and first client render match). With no param the state
+  // stays null: zero re-render, DOM byte-identical. The kinetic rule element
+  // renders UNCONDITIONALLY now — it is in the server DOM too, so it hydrates
+  // clean.
+  const [navfx, setNavfx] = useState(null);
+  useEffect(() => {
+    if (NAVFX) setNavfx(NAVFX);
+  }, []);
+  const fxAttr = navfx ? { 'data-navfx': navfx } : {};
 
   const handleStartProject = (e) => {
     if (onStartProject) {
@@ -219,8 +248,160 @@ export default function SiteNav({
     };
   }, []);
 
+  // ── Current-page state (data-current + aria-current) ──
+  // Derived from window.location on hydrate and on every astro:after-swap
+  // (the island never remounts). Href-keyed by construction: start_project
+  // is an interception (never current) and follow_us is external (never
+  // current) — only featured_projects (/work, /work/*) and process
+  // (/process) can match. The attributes survive the choreography onSwap
+  // wipe (killTweensOf + clearProps strips inline STYLES only) and the
+  // envelop stagger (transforms, not attributes). UNCONDITIONAL: aria-current
+  // is a strict a11y win and data-current is the kinetic rule's resting seat
+  // — both run with no URL param. Deps [shellEl]: the portaled mobile items
+  // only exist after the setShellEl effect re-renders, so re-run once the
+  // portal lands and a hard load of /work also marks the menu items (desktop
+  // links refresh twice, harmlessly).
+  useEffect(() => {
+    const refreshCurrent = () => {
+      const path = window.location.pathname.replace(/\/$/, '') || '/';
+      const isCurrent = (href) =>
+        (href === '/work' && (path === '/work' || path.startsWith('/work/'))) ||
+        (href === '/process' && path === '/process');
+      [linksRef.current, menuRef.current].filter(Boolean).forEach((root) => {
+        root.querySelectorAll('a[href="/work"], a[href="/process"]').forEach((el) => {
+          if (isCurrent(el.getAttribute('href'))) {
+            el.setAttribute('data-current', 'true');
+            el.setAttribute('aria-current', 'page');
+          } else {
+            el.removeAttribute('data-current');
+            el.removeAttribute('aria-current');
+          }
+        });
+      });
+    };
+    refreshCurrent();
+    document.addEventListener('astro:after-swap', refreshCurrent);
+    return () => document.removeEventListener('astro:after-swap', refreshCurrent);
+  }, [shellEl]);
+
+  // ── Kinetic rule (desktop, default) ──
+  // One shared 1px rule gliding under the hovered link, resting under the
+  // current one. The fxrule is a SIBLING of the links row — invisible to
+  // the envelop stagger (which reads linksRef.children) and to onSwap's
+  // killTweensOf/clearProps (allEls() never collects it), so its inline
+  // transform/width/opacity are owned here and survive every swap. The
+  // anchors' offsetParent is .site-nav__right (position: relative), the
+  // same box the rule is absolute in — offsetLeft/offsetWidth map 1:1
+  // with no rect math, and the envelop tween only moves anchors in Y, so
+  // X measurements are always valid. Skipped under the ?navfx=3 brackets
+  // alt (the rule is display:none there). Deps [navfx]: the fxrule element
+  // renders unconditionally (ref populated at mount), and the effect tears
+  // down and stays dormant if the alt activates post-mount.
+  useEffect(() => {
+    if (navfx === '3') return undefined;
+    const rule = fxRuleRef.current;
+    const linksEl = linksRef.current;
+    if (!rule || !linksEl) return undefined;
+
+    let visible = false;
+    const suppressed = (fn) => {
+      rule.style.transition = 'none';
+      fn();
+      void rule.offsetWidth; // commit the suppressed move before restoring
+      rule.style.transition = '';
+    };
+    const place = (el) => {
+      rule.style.transform = `translateX(${el.offsetLeft}px)`;
+      rule.style.width = `${el.offsetWidth}px`;
+    };
+    const hide = () => {
+      rule.style.opacity = '0';
+      visible = false;
+    };
+    const moveTo = (el, { instant = false } = {}) => {
+      // Never seat a 0-width rule at x:0 — the row is display:none
+      // (≤768px) or visibility:hidden (route-home) and offsets read 0.
+      if (!el || el.offsetWidth === 0) {
+        hide();
+        return;
+      }
+      if (!visible || instant) {
+        // Materialize in place: position with transitions suppressed,
+        // then fade in — never fly in from x:0.
+        suppressed(() => place(el));
+      } else {
+        place(el);
+      }
+      rule.style.opacity = '1';
+      visible = true;
+    };
+    const currentLink = () => linksEl.querySelector('[data-current]');
+    const goHome = () => moveTo(currentLink());
+
+    const onEnter = (e) => moveTo(e.currentTarget);
+    const onLeave = () => goHome();
+    const onFocusIn = (e) => {
+      const link = e.target.closest('.site-nav__link');
+      if (link) moveTo(link);
+    };
+    const onFocusOut = (e) => {
+      // Intra-row Tab moves fire focusout+focusin per stop — only a true
+      // row exit sends the rule home (kills the per-stop flicker).
+      if (e.relatedTarget && linksEl.contains(e.relatedTarget)) return;
+      goHome();
+    };
+    // Re-seat to the new current link after a swap — navigation reads as
+    // the rule traveling to where you went. Two frames, not a microtask:
+    // rAF still runs after refreshCurrent's after-swap listener updates
+    // data-current, but a microtask fires before the swapped-in page has
+    // laid out, so the rule glided to a pre-layout transient (~10px right
+    // of the current link). Double-rAF lets layout settle before we measure.
+    const onSwap = () =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (!disposed) goHome();
+        }),
+      );
+    let raf = 0;
+    const onResize = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        moveTo(currentLink(), { instant: true });
+      });
+    };
+
+    const links = [...linksEl.querySelectorAll('.site-nav__link')];
+    links.forEach((l) => l.addEventListener('mouseenter', onEnter));
+    linksEl.addEventListener('mouseleave', onLeave);
+    linksEl.addEventListener('focusin', onFocusIn);
+    linksEl.addEventListener('focusout', onFocusOut);
+    document.addEventListener('astro:after-swap', onSwap);
+    window.addEventListener('resize', onResize);
+
+    // First seat: transition-suppressed under the current link
+    // (data-current is already fresh — the refresh effect ran at mount).
+    // Re-seat once metrics settle after the webfont swap.
+    moveTo(currentLink(), { instant: true });
+    let disposed = false;
+    document.fonts?.ready?.then(() => {
+      if (!disposed) moveTo(currentLink(), { instant: true });
+    });
+
+    return () => {
+      disposed = true;
+      if (raf) cancelAnimationFrame(raf);
+      links.forEach((l) => l.removeEventListener('mouseenter', onEnter));
+      linksEl.removeEventListener('mouseleave', onLeave);
+      linksEl.removeEventListener('focusin', onFocusIn);
+      linksEl.removeEventListener('focusout', onFocusOut);
+      document.removeEventListener('astro:after-swap', onSwap);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [navfx]);
+
   return (
-    <nav className="site-nav">
+    <nav className="site-nav" {...fxAttr}>
       <div className="site-nav__brand">
         <a href="/" className="site-nav__logo" aria-label="Small World Media home">
           <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
@@ -238,6 +419,12 @@ export default function SiteNav({
       </div>
 
       <div className="site-nav__right">
+        {/* The .site-nav__label spans wrap each link's text (the ?navfx=3
+            brackets target them). Styling-inert: the span is the same
+            flex-item box as the anonymous text node it wraps, event bubbling
+            for the start_project interception is unchanged, and
+            .site-nav__links still has the same direct children — the envelop
+            stagger's choreography input. */}
         <div className="site-nav__links" ref={linksRef}>
           <a
             href="/"
@@ -245,11 +432,11 @@ export default function SiteNav({
             onClick={handleStartProject}
           >
             <span className="site-nav__glyph">↳</span>
-            start_project
+            <span className="site-nav__label">start_project</span>
           </a>
           <a href="/work" className="site-nav__link">
             <span className="site-nav__glyph">⁕</span>
-            featured_projects
+            <span className="site-nav__label">featured_projects</span>
           </a>
           <a href="/process" className="site-nav__link">
             <span className="site-nav__glyph">⊙</span>
@@ -262,9 +449,17 @@ export default function SiteNav({
             rel="noopener noreferrer"
           >
             <HeartIcon />
-            follow_us
+            <span className="site-nav__label">follow_us</span>
           </a>
         </div>
+
+        {/* The kinetic rule (default) — a SIBLING of the links row, so it
+            escapes both the envelop stagger and onSwap's killTweensOf/
+            clearProps wipe (allEls() never collects it). Rendered
+            unconditionally (hydrates clean; hidden by CSS under ?navfx=3);
+            its inline transform/width/opacity are owned by the kinetic-rule
+            effect. */}
+        <span className="site-nav__fxrule" aria-hidden="true" ref={fxRuleRef} />
 
         {/* Home variant: primary actions as pills (steady state via
             body.route-home in CSS) */}
@@ -328,6 +523,7 @@ export default function SiteNav({
             ref={menuRef}
             data-open={menuOpen}
             aria-hidden={!menuOpen}
+            {...fxAttr}
           >
             <div className="mobile-menu__bar">
               <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
@@ -343,11 +539,11 @@ export default function SiteNav({
             <nav className="mobile-menu__items" aria-label="Site menu">
               <a href="/" className="mobile-menu__item" onClick={handleStartProject}>
                 <span className="site-nav__glyph">↳</span>
-                start_project
+                <span className="site-nav__label">start_project</span>
               </a>
               <a href="/work" className="mobile-menu__item">
                 <span className="site-nav__glyph">⁕</span>
-                featured_projects
+                <span className="site-nav__label">featured_projects</span>
               </a>
               <a href="/process" className="mobile-menu__item">
                 <span className="site-nav__glyph">⊙</span>
@@ -361,7 +557,7 @@ export default function SiteNav({
                 onClick={() => setMenuOpen(false)}
               >
                 <HeartIcon />
-                follow_us
+                <span className="site-nav__label">follow_us</span>
               </a>
             </nav>
           </div>,

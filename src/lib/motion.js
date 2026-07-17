@@ -4,13 +4,15 @@
  * One home for cross-surface motion primitives so GSAP, CSS, and the Three.js
  * scenes read the same values. Two things live here:
  *
- * 1. The house SLOW PULSE — an ADSR envelope (slightly softened attack →
- *    slight hold → essentially linear falloff) that loops with an equal-length
- *    rest between hits. The CustomEase path below is the source of truth;
- *    `--ease-pulse` / `--duration-pulse` / `@keyframes house-pulse` in
- *    global.css are its hand-matched CSS approximation. Polarity is
- *    per-consumer and deliberate: enter_world DIMS (bright → dip → return),
- *    the inquiry next-field BRIGHTENS (dim → lift → return).
+ * 1. The house SLOW PULSE — a slow-swell envelope (soft S-attack to a peak
+ *    just past mid-hit, then an eased S-fall that lingers high before easing
+ *    into rest) that loops with a shorter rest between hits. The CustomEase
+ *    path below is the source of truth; `--ease-pulse` / `--duration-pulse` /
+ *    `@keyframes house-pulse` in global.css are its hand-matched CSS
+ *    approximation (stops sampled from this curve). Polarity is per-consumer
+ *    and deliberate: enter_world DIMS (bright → dip → return), the inquiry
+ *    next-field BRIGHTENS (dim → lift → return). Curve dialed by Nathan
+ *    2026-07-17 via the ?fp1tune bench.
  *
  * 2. The house scroll-gesture constants — the wheel/touch accumulator idiom
  *    shared by the home Envelopment, the /work World Turn, the detail
@@ -24,17 +26,19 @@
 import { CustomEase } from 'gsap/CustomEase';
 
 /* ── House slow pulse ─────────────────────────────────────────────────────
-   Envelope, normalized to one HIT (not the full cycle):
-     attack  0 → 15%   softened ramp to peak (never a hard snap)
-     hold   15 → 25%   slight sit at peak
-     fall   25 → 100%  essentially linear back to rest
-   The loop then rests for HOUSE_PULSE_ON_RATIO of the period — equal time
-   on and off. Author/visualize: https://gsap.com/docs/v3/Eases/CustomEase */
-export const HOUSE_PULSE_PATH = 'M0,0 C0.04,0.02 0.09,0.82 0.15,1 L0.25,1 L1,0';
+   Envelope, normalized to one HIT (not the full cycle) — Nathan's 2026-07-17
+   dial (?fp1tune bench):
+     attack  0 → 45%    soft S-ramp swelling to the peak (no hard snap)
+     peak      45%      crest (zero-length hold)
+     fall   45 → 100%   eased S — lingers high, then eases down into rest
+   The loop then rests for (1 − HOUSE_PULSE_ON_RATIO) of the period. Author/
+   visualize: https://gsap.com/docs/v3/Eases/CustomEase */
+export const HOUSE_PULSE_PATH =
+  'M0,0 C0.12,0 0.27,1 0.45,1 L0.45,1 C0.6929,0.8833 0.7571,0.1167 1,0';
 
 export const HOUSE_PULSE_EASE = 'housePulse'; // canonical registered name
-export const HOUSE_PULSE_PERIOD_S = 3.0; // full cycle: hit + equal rest
-export const HOUSE_PULSE_ON_RATIO = 0.5; // hit occupies half the period
+export const HOUSE_PULSE_PERIOD_S = 2.3; // full cycle: hit + rest
+export const HOUSE_PULSE_ON_RATIO = 0.75; // hit occupies 3/4 of the period
 
 /** Register the canonical ease once; returns the ease name for tween vars. */
 export function ensureHousePulse() {
