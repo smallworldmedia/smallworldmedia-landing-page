@@ -90,14 +90,19 @@ export const GLIDE_MS = 800;
 export const GLIDE_SECONDS = GLIDE_MS / 1000;
 
 /* ── Lenis tuning ─────────────────────────────────────────────────────────
-   Spread into the Lenis constructor by smoothScroll.js. Empty = library
-   defaults (today's shipped feel). The A2b dial-in session fills this in
-   (lerp / duration / wheelMultiplier) — remember Lenis feeds Grid Socket
-   parallax + the orbit scroll-kick, so retunes need a regression pass on
-   document-scroll routes.
+   Spread into the Lenis constructor by smoothScroll.js. BAKED from the A2b
+   dial session (2026-07-17): lerp 0.165 (tighter/faster settle than the 0.1
+   library default) + wheelMultiplier 1.25 (less wheel effort per distance).
+   Re-dial live any time on a detail page via ?lenistune=1 (LenisTunePanel), or
+   the raw ?lerp/?wheelmult/?lenisdur params. Lenis feeds Grid Socket parallax +
+   the orbit scroll-kick, so retunes need a regression pass on document-scroll
+   routes.
+   ⚠ This bake MOVED lerp (0.1→0.165) + wheelMultiplier (1→1.25), so the two
+   calibration caveats below are now LIVE follow-ups, not hypotheticals.
 
-   A2b LIVE DIAL (smoothScroll.js start()) — URL params override this bake
-   on every Lenis document-scroll route; blessed values get baked HERE:
+   A2b LIVE DIAL (smoothScroll.js start() + ?lenistune=1 bench) — URL params
+   override this bake on every Lenis document-scroll route; blessed values get
+   baked HERE:
      ?lerp=0.1       Lenis lerp (library default 0.1 — smoothing per frame)
      ?wheelmult=1    wheelMultiplier (library default 1)
      ?lenisdur=0.9   duration in SECONDS — switches Lenis to duration mode,
@@ -116,4 +121,7 @@ export const GLIDE_SECONDS = GLIDE_MS / 1000;
      importers today) will read getLenis().velocity, whose magnitude scales
      with lerp/wheelMultiplier — record the baked values so ?orbitkick gets
      dialed against them. */
-export const LENIS_TUNING = {};
+export const LENIS_TUNING = {
+  lerp: 0.165,
+  wheelMultiplier: 1.25,
+};

@@ -29,6 +29,8 @@ import { Flip } from 'gsap/Flip';
 import InfoPanel from './InfoPanel';
 import ProjectOverlay from './ProjectOverlay';
 import RouteFill from './RouteFill';
+import LenisTunePanel from './LenisTunePanel.jsx';
+import { LENIS_TUNE_ACTIVE } from '../lib/lenisTune.js';
 
 gsap.registerPlugin(useGSAP, Flip);
 
@@ -36,6 +38,14 @@ export default function SiteShell() {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const shellRef = useRef(null);
+
+  // A2b Lenis tuning bench — mount only AFTER hydration. LENIS_TUNE_ACTIVE
+  // reads the URL, which must match server render; deferring to an effect keeps
+  // the first client render byte-identical to SSR (see fp1Tune's mount note).
+  const [lenisTuneOn, setLenisTuneOn] = useState(false);
+  useEffect(() => {
+    if (LENIS_TUNE_ACTIVE) setLenisTuneOn(true);
+  }, []);
 
   const handleToggle = useCallback(() => {
     setIsInfoOpen((prev) => !prev);
@@ -132,6 +142,8 @@ export default function SiteShell() {
         isOpen={isOverlayOpen}
         onClose={handleCloseOverlay}
       />
+
+      {lenisTuneOn && <LenisTunePanel />}
     </div>
   );
 }

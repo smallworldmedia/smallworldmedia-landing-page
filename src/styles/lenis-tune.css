@@ -1,0 +1,120 @@
+/* lenis-tune.css — DEV-ONLY tuning bench for the house scroll feel (?lenistune=1).
+   Mono, near-black chrome in the fp1Tune / globe-debug voice. Only the
+   .lenis-tune tree, which renders solely when LenisTunePanel mounts (gated),
+   is styled — no effect on shipped scroll. Sits bottom-LEFT so it never
+   overlaps the fp1Tune bench (bottom-right) if both are ever open. */
+
+.lenis-tune {
+  position: fixed;
+  left: var(--space-6);
+  bottom: var(--space-6);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 17rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.78);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  text-transform: lowercase;
+  pointer-events: auto;
+}
+
+.lenis-tune__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  letter-spacing: 0.02em;
+}
+
+.lenis-tune__note {
+  margin: 0;
+  opacity: 0.6;
+}
+
+.lenis-tune__group {
+  margin-top: var(--space-3);
+  opacity: 0.55;
+  letter-spacing: 0.08em;
+  border-top: 1px solid rgba(250, 250, 250, 0.18);
+  padding-top: var(--space-3);
+}
+
+.lenis-tune__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lenis-tune__key {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.lenis-tune__val {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.lenis-tune__row input[type='range'] {
+  width: 100%;
+  accent-color: var(--color-electric-blue);
+}
+
+/* Generated LENIS_TUNING block */
+.lenis-tune__path {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  opacity: 0.85;
+}
+
+.lenis-tune__path textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid rgba(250, 250, 250, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  padding: var(--space-2) var(--space-3);
+  word-break: break-all;
+}
+
+.lenis-tune__actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.lenis-tune__btn {
+  appearance: none;
+  flex: 1 1 auto;
+  border: 1px solid var(--color-cream);
+  background: transparent;
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  text-transform: lowercase;
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+
+.lenis-tune__head .lenis-tune__btn {
+  flex: 0 0 auto;
+}
+
+.lenis-tune__btn:hover {
+  background: var(--color-cream);
+  color: var(--color-black);
+}
