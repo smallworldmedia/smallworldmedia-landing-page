@@ -10,7 +10,8 @@
  *   1. PROJECT_## reveals with a unicode scramble (dancing symbols), in place
  *      at the card's top-left.
  *   2. Client + meta text reveals line-by-line, top→bottom (SplitText).
- *   3. enter_world fades in and then pulses persistently (primary CTA).
+ *   3. enter_world fades in, rests a beat, then dims persistently on the
+ *      house pulse (FP-1) — hover/focus holds it at full strength.
  *   4. Service tags populate one-by-one, lifting up into place.
  *
  * Rendered twice during a Turn: the incoming card (phase="enter") and the
@@ -34,6 +35,7 @@ import {
   TURN_EASE_PATH,
   PREFERS_REDUCED_MOTION,
 } from './world/worldConfig.js';
+import { housePulseLoop } from '../../lib/motion.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 // House scramble tokens for the PROJECT_## reveal (chrome kit).
 import { SCRAMBLE_CHARS, SCRAMBLE_DURATION, SCRAMBLE_SPEED } from '../../lib/scramble.js';
@@ -70,11 +72,36 @@ function enterWorld(e, slug) {
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 
+// Live tuning (?key=value) — matches the WorldScene knobs convention.
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+
+// FP-1: once the boot entrance rests, enter_world dims on the house pulse
+// (housePulseLoop's boomerang: bright → dip → return, equal rest between hits).
+const PULSE_PEAK_OPACITY = PARAM('fp1dim', 0.62); // opacity at the dip's deepest point
+const PULSE_PERIOD_S = PARAM('fp1period', 3); // full cycle: hit + equal rest
+const PULSE_REST_BEAT_S = PARAM('fp1rest', 0.4); // beat between boot-end and first dip
+
 export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
   const ref = useRef(null);
+  const pulseRef = useRef(null); // FP-1: this card's live housePulseLoop
+  const listenersRef = useRef(null); // FP-1: hover/focus listener teardown
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase; // a still-flying enter tl must see phase flips
 
   useGSAP(
-    () => {
+    (context, contextSafe) => {
+      // FP-1 per-run housekeeping: a pulse or hover listeners left over from a
+      // previous phase run must not survive into this one (the deferred-cleanup
+      // context only reverts on unmount, not on enter→exit flips).
+      pulseRef.current?.kill();
+      pulseRef.current = null;
+      listenersRef.current?.();
+      listenersRef.current = null;
+
       const wrap = ref.current;
       if (!wrap || !world) return;
       const q = gsap.utils.selector(wrap);
@@ -84,6 +111,11 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       const exitTo = dir > 0 ? -CARD_TRAVEL : CARD_TRAVEL;
 
       if (phase === 'exit') {
+        // FP-1: the pulse was killed above, which can strand the CTA's opacity
+        // mid-dip (the boomerang ease never rested at 1) — restore full
+        // strength so the card rides out uniform.
+        const exitCta = q('.fp-card__cta')[0];
+        if (exitCta) gsap.set(exitCta, { opacity: 1 });
         if (PREFERS_REDUCED_MOTION) {
           gsap.set(wrap, { autoAlpha: 0 });
           return;
@@ -129,6 +161,44 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         { yPercent: 0, duration: TURN_DURATION, ease: cardRollEase }
       );
 
+      // FP-1: the persistent enter_world dim. Created synchronously (so the
+      // gsap context captures it and kills it on unmount) but paused — the
+      // boot tl's end starts it after a rest beat, never before the entrance
+      // has settled. Reduced motion never reaches here (early return above).
+      const pulse = housePulseLoop(gsap, cta, { opacity: PULSE_PEAK_OPACITY }, PULSE_PERIOD_S);
+      pulse.pause();
+      pulseRef.current = pulse;
+
+      // Hover/focus reads as "ready": hold the CTA at full strength while the
+      // visitor is on it, then resume from a clean cycle start on leave. The
+      // pulse may only run once the boot tl has handed off (armed) AND the
+      // visitor is off the CTA — a leave during the entrance must not start
+      // it early, and an arm during a held hover must stay calm.
+      let armed = false;
+      let hovered = false;
+      let calmTween = null;
+      const calm = contextSafe(() => {
+        hovered = true;
+        pulse.pause();
+        calmTween = gsap.to(cta, { opacity: 1, duration: 0.15 });
+      });
+      const stir = contextSafe(() => {
+        hovered = false;
+        calmTween?.kill();
+        calmTween = null;
+        if (armed && phaseRef.current === 'enter') pulse.restart(true);
+      });
+      cta.addEventListener('mouseenter', calm);
+      cta.addEventListener('mouseleave', stir);
+      cta.addEventListener('focusin', calm);
+      cta.addEventListener('focusout', stir);
+      listenersRef.current = () => {
+        cta.removeEventListener('mouseenter', calm);
+        cta.removeEventListener('mouseleave', stir);
+        cta.removeEventListener('focusin', calm);
+        cta.removeEventListener('focusout', stir);
+      };
+
       // Entrance: PROJECT_## scrambles in place at the top-left, then the rest of
       // the card reveals — text lines → CTA (then pulse) → service tags.
       const tl = gsap.timeline({ delay: 0.08 });
@@ -150,12 +220,24 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         )
         // text lines reveal top → bottom
         .to(split.lines, { yPercent: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }, 0.58)
-        // enter_world in — no looping pulse (primary buttons rest still)
+        // enter_world in — its FP-1 house-pulse dim starts at the tl's end below
         .to(cta, { autoAlpha: 1, scale: 1, duration: 0.4, ease: 'back.out(1.6)' }, 0.92)
         // service tags lift in, one by one
-        .to(tags, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out' }, 1.0);
+        .to(tags, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out' }, 1.0)
+        // FP-1: entrance rests a beat, then the pulse takes over. A callback
+        // (not the repeat:-1 loop itself — an infinite tween inside the boot
+        // tl would make its duration infinite) started only if this card is
+        // still the entering one and the visitor isn't holding the CTA.
+        .add(() => {
+          armed = true;
+          if (!hovered && phaseRef.current === 'enter') pulse.play();
+        }, `+=${PULSE_REST_BEAT_S}`);
 
-      return () => split.revert();
+      return () => {
+        listenersRef.current?.();
+        listenersRef.current = null;
+        split.revert();
+      };
     },
     { scope: ref, dependencies: [phase] }
   );
