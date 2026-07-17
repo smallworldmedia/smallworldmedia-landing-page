@@ -88,6 +88,16 @@ const CLIP_MAX = (1 - REST_REVEAL) * 100; // clip-path inset % at rest
 const GUTTER = 8; // page edge + element gap (--space-4)
 const MEDIA_IMG_WIDTH = 1400;
 
+/* — hls.js config for the band's media window — prefetch the first fragment
+   alongside manifest parsing and start two rungs up the ladder (~720p on
+   Mux's typical ladder); ABR adapts from there (capLevelToPlayerSize stays
+   on inside useHls). maxBufferLength caps the forward buffer. — */
+const BAND_HLS_CONFIG = {
+  startFragPrefetch: true,
+  startLevel: 2,
+  maxBufferLength: 12,
+};
+
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 export default function NextProjectBand({ next }) {
@@ -115,7 +125,7 @@ export default function NextProjectBand({ next }) {
   const isVideo = !!next?.hero?.playbackId;
   const hlsSrc =
     isVideo && inView ? `https://stream.mux.com/${next.hero.playbackId}.m3u8` : null;
-  useHls(videoRef, hlsSrc);
+  useHls(videoRef, hlsSrc, BAND_HLS_CONFIG);
 
   // ── Measure the rest-state shifts (and re-measure on resize) ──
   // CSS lays everything at its END position (text at the left edge, media
@@ -393,8 +403,10 @@ export default function NextProjectBand({ next }) {
 
   if (!next) return null;
 
+  // time=0: the band video starts at frame 0, so the frame-0 poster is the
+  // aligned one — no poster→playback jump.
   const posterUrl = isVideo
-    ? `https://image.mux.com/${next.hero.playbackId}/thumbnail.jpg?width=${MEDIA_IMG_WIDTH}&fit_mode=preserve`
+    ? `https://image.mux.com/${next.hero.playbackId}/thumbnail.jpg?width=${MEDIA_IMG_WIDTH}&fit_mode=preserve&time=0`
     : null;
 
   const onClick = (e) => {
