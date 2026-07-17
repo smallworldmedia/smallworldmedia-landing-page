@@ -1,9 +1,27 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
+import { CustomEase } from 'gsap/CustomEase';
 import { SERVICE_TAGS } from '../lib/constants';
+import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from './work/world/worldConfig.js';
+
+gsap.registerPlugin(useGSAP, CustomEase);
 
 const globeMark = '/icons/SWM-globe_white.svg';
+
+/* INQ-2 — the overlay open/close rides the house Turn curve as a directional
+   clip-path wipe (in from the top edge, erased bottom-to-top on the way out).
+   CustomEase names are global; register the overlay's copy once. */
+const OVERLAY_WIPE_EASE = 'overlayWipe';
+const ensureOverlayWipe = () => {
+    if (!CustomEase.get(OVERLAY_WIPE_EASE)) {
+        CustomEase.create(OVERLAY_WIPE_EASE, TURN_EASE_PATH);
+    }
+    return OVERLAY_WIPE_EASE;
+};
+
+const CLIP_OPEN = 'inset(0 0 0% 0)';
+const CLIP_CLOSED = 'inset(0 0 100% 0)'; // hidden above: only the top edge line remains
 
 const FORM_FIELDS = [
     { name: 'name', label: 'Name', type: 'text', required: true },
@@ -92,10 +110,12 @@ const CheckIndicator = ({ checked }) => {
  * then this component POSTs to the same endpoint via fetch.
  *
  * Animation sequence:
- * 1. Overlay fades in (the blue arrives gradually, sitewide convention)
+ * 1. Overlay wipes in from the top edge on the house Turn curve
+ *    (clip-path reveal; closes bottom-to-top — INQ-2)
  * 2. Header slides down into place
  * 3. Form body fades up after header lands
  * 4. Submit button follows
+ * Reduced motion swaps the wipes for the original gentle fades.
  *
  * The globe mark stays mounted across open/close — it's the same static
  * SVG the nav renders at the same coordinates, so the brand mark reads as
@@ -121,6 +141,20 @@ export default function ProjectOverlay({ isOpen, onClose }) {
         fieldValues.email.trim() !== '' &&
         fieldValues.message.trim() !== '' &&
         selectedTags.length > 0;
+
+    // INQ-1 — the first incomplete step in completion order
+    // (name → email → project type → message) carries the pulsing
+    // next-field highlight; null once the form is valid, and never
+    // active while the overlay is closed.
+    const nextStep =
+        fieldValues.name.trim() === '' ? 'name' :
+        fieldValues.email.trim() === '' ? 'email' :
+        selectedTags.length === 0 ? 'project' :
+        fieldValues.message.trim() === '' ? 'message' :
+        null;
+    const highlightedStep = isOpen ? nextStep : null;
+    const nextClass = (step) =>
+        highlightedStep === step ? ' project-overlay__field--next' : '';
 
     const handleFieldChange = useCallback((fieldName, value) => {
         setFieldValues((prev) => ({ ...prev, [fieldName]: value }));
@@ -198,22 +232,37 @@ export default function ProjectOverlay({ isOpen, onClose }) {
 
             const tl = gsap.timeline();
 
-            // 1. Overlay fades in — the blue arrives, never snaps
-            tl.fromTo(el,
-                { autoAlpha: 0 },
-                {
-                    autoAlpha: 1,
-                    duration: 0.35,
-                    ease: 'power2.out',
-                    overwrite: true,
-                }
-            );
+            // 1. Overlay wipes in from the top edge — the blue arrives as a
+            //    directional reveal on the house Turn curve (INQ-2). autoAlpha
+            //    snaps to 1 first so `visibility` keeps gating pointer events
+            //    while closed — clip-path alone doesn't block them.
+            //    Reduced motion keeps the old gentle fade.
+            if (PREFERS_REDUCED_MOTION) {
+                tl.fromTo(el,
+                    { autoAlpha: 0 },
+                    {
+                        autoAlpha: 1,
+                        duration: 0.35,
+                        ease: 'power2.out',
+                        overwrite: true,
+                    }
+                );
+            } else {
+                tl.set(el, { autoAlpha: 1, clipPath: CLIP_CLOSED, overwrite: true });
+                tl.to(el, {
+                    clipPath: CLIP_OPEN,
+                    duration: 0.45,
+                    ease: ensureOverlayWipe(),
+                });
+            }
 
-            // 2. Header slides down into place
+            // 2. Header slides down into place — against the wipe, it starts
+            //    as the reveal front passes mid-viewport (the Turn curve
+            //    front-loads: most of the travel lands in the first ~40%)
             tl.fromTo(header,
                 { y: -20, opacity: 0 },
                 { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
-                '-=0.2'
+                PREFERS_REDUCED_MOTION ? '-=0.2' : '-=0.35'
             );
 
             // 3. Form body (fields wrapper) — fades up as a single block after header lands
@@ -234,13 +283,26 @@ export default function ProjectOverlay({ isOpen, onClose }) {
 
             hasAnimatedRef.current = true;
         } else if (hasAnimatedRef.current) {
-            // Close — fade out (exit = 60-70% of entrance duration)
-            gsap.to(el, {
-                autoAlpha: 0,
-                duration: 0.3,
-                ease: 'power2.inOut',
-                overwrite: true,
-            });
+            // Close — wiped away bottom-to-top on the house curve (INQ-2);
+            // exit stays shorter than the entrance. autoAlpha drops once the
+            // wipe lands so the closed overlay stays non-interactive.
+            if (PREFERS_REDUCED_MOTION) {
+                gsap.to(el, {
+                    autoAlpha: 0,
+                    duration: 0.3,
+                    ease: 'power2.inOut',
+                    overwrite: true,
+                });
+            } else {
+                gsap.timeline()
+                    .to(el, {
+                        clipPath: CLIP_CLOSED,
+                        duration: 0.35,
+                        ease: ensureOverlayWipe(),
+                        overwrite: true,
+                    })
+                    .set(el, { autoAlpha: 0 });
+            }
         } else {
             // Initial hidden state
             gsap.set(el, { autoAlpha: 0 });
@@ -279,13 +341,26 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                 setTimeout(() => {
                     const el = overlayRef.current;
                     if (el) {
-                        gsap.to(el, {
-                            autoAlpha: 0,
-                            duration: 0.5,
-                            ease: 'power3.inOut',
-                            overwrite: true,
-                            onComplete: () => onClose(),
-                        });
+                        // Post-submit close — same bottom-to-top wipe as the
+                        // manual close, a beat slower (INQ-2)
+                        if (PREFERS_REDUCED_MOTION) {
+                            gsap.to(el, {
+                                autoAlpha: 0,
+                                duration: 0.5,
+                                ease: 'power3.inOut',
+                                overwrite: true,
+                                onComplete: () => onClose(),
+                            });
+                        } else {
+                            gsap.timeline({ onComplete: () => onClose() })
+                                .to(el, {
+                                    clipPath: CLIP_CLOSED,
+                                    duration: 0.5,
+                                    ease: ensureOverlayWipe(),
+                                    overwrite: true,
+                                })
+                                .set(el, { autoAlpha: 0 });
+                        }
                     }
                 }, 2500);
             } else {
@@ -374,7 +449,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                         {/* Text fields: name, email */}
                         {FORM_FIELDS.map((field) => (
                             <div
-                                className={`project-overlay__field${fieldValues[field.name]?.trim() ? ' project-overlay__field--filled' : ''}`}
+                                className={`project-overlay__field${fieldValues[field.name]?.trim() ? ' project-overlay__field--filled' : ''}${nextClass(field.name)}`}
                                 key={field.name}
                             >
                                 <CheckIndicator checked={fieldValues[field.name]?.trim() !== ''} />
@@ -402,7 +477,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                         ))}
 
                         {/* Project type — multi-select tag pills */}
-                        <div className={`project-overlay__field${selectedTags.length > 0 ? ' project-overlay__field--filled' : ''}`}>
+                        <div className={`project-overlay__field${selectedTags.length > 0 ? ' project-overlay__field--filled' : ''}${nextClass('project')}`}>
                             <CheckIndicator checked={selectedTags.length > 0} />
                             <div className="project-overlay__field-content">
                                 <span className={`project-overlay__label${selectedTags.length > 0 ? ' project-overlay__label--active' : ''}`}>
@@ -435,7 +510,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                         </div>
 
                         {/* Message textarea */}
-                        <div className={`project-overlay__field${fieldValues.message?.trim() ? ' project-overlay__field--filled' : ''}`}>
+                        <div className={`project-overlay__field${fieldValues.message?.trim() ? ' project-overlay__field--filled' : ''}${nextClass('message')}`}>
                             <CheckIndicator checked={fieldValues.message?.trim() !== ''} />
                             <div className="project-overlay__field-content">
                                 <label
