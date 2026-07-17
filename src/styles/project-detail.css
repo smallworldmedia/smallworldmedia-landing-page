@@ -673,7 +673,9 @@ a.release-chip--link:hover {
 /* Media window — right edge pinned, height locked, sized by the COMPONENT
    (4:3 landscape at full open), never by the asset: whatever populates it
    (16:9, 3:4, 9:16) best-fits via object-fit. The scroll pulls the window
-   open leftward — a clip reveal, compositor-only, no scaling. */
+   open leftward — a clip reveal, compositor-only, no scaling. At commit the
+   engine promotes this node inline to position:fixed at its measured rect
+   (z-index 90, under the z-100 shell) and grows it to the full viewport. */
 .np-band__media {
   position: absolute;
   right: var(--space-4);
@@ -701,6 +703,20 @@ a.release-chip--link:hover {
   height: 100%;
   object-fit: cover;
   background: var(--color-near-black);
+}
+
+/* In-band pre-cover — the drag's blue, CONFINED to the media window (the
+   page around it stays clean; the full-viewport RouteFill no longer tracks
+   this gesture). The commit timeline raises it to solid while the promoted
+   window grows to the viewport — the window itself becomes the envelopment.
+   Opacity is engine-driven (f² of the fill, ?nppre). */
+.np-band__cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* above the (static) media-inner and its media el */
+  background: var(--color-electric-blue);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ── Stacked mobile band: text block above, media full-width below.
