@@ -180,12 +180,12 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
             className="hero-band"
             style={{ '--hero-ratio': ratioOf(hero) }}
           >
-            <MediaSlot asset={hero} />
+            <MediaSlot asset={hero} eager />
             {blurbSection}
           </div>
         ) : (
           <>
-            {hero && <MediaSlot asset={hero} />}
+            {hero && <MediaSlot asset={hero} eager />}
             {blurbSection}
           </>
         )}

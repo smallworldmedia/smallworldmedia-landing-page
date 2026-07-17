@@ -12,6 +12,7 @@
  *
  * @param {Object} props
  * @param {Object}  props.asset - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY
+ * @param {boolean} [props.eager=false] - Seed visibility at hydration (hero slot)
  */
 import { useRef, useEffect, useState } from 'react';
 import useHls from '../useHls.js';
@@ -21,10 +22,29 @@ import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 /** Sanity image width for detail page slots */
 const SLOT_IMG_WIDTH = 1400;
 
-export default function MediaSlot({ asset, style, ...rest }) {
+/** hls.js config for detail slots — prefetch the first fragment alongside
+    manifest parsing, and start two rungs up the ladder (~720p on Mux's
+    typical ladder) so the first painted frame is sharp; ABR adapts from
+    there (capLevelToPlayerSize stays on inside useHls). maxBufferLength
+    caps the forward buffer per active slot — the masonry can hold several
+    live streams at once (grid uses 8, pools use 10). */
+const DETAIL_HLS_CONFIG = {
+  startFragPrefetch: true,
+  startLevel: 2,
+  maxBufferLength: 12,
+};
+
+/** IO pre-load band — vertical-only; horizontal margin is inert on a
+    vertical page. Wide enough that scrolled-to slots already stream. */
+const IO_MARGIN = '400px 0px';
+
+export default function MediaSlot({ asset, style, eager = false, ...rest }) {
   const slotRef = useRef(null);
   const videoRef = useRef(null);
-  const [isVisible, setIsVisible] = useState(false);
+  // Eager slots (the hero) seed visibility at hydration — rootMargin alone
+  // still waits on the observer's first async callback; seeding starts the
+  // manifest fetch immediately. The observer still governs afterwards.
+  const [isVisible, setIsVisible] = useState(eager);
   const [isLoaded, setIsLoaded] = useState(false);
   const isVideo = !!asset.playbackId;
 
@@ -32,10 +52,12 @@ export default function MediaSlot({ asset, style, ...rest }) {
     ? `https://stream.mux.com/${asset.playbackId}.m3u8`
     : null;
 
-  useHls(videoRef, hlsSrc);
+  useHls(videoRef, hlsSrc, DETAIL_HLS_CONFIG);
 
+  // time=0: playback starts at frame 0 (native loop, no seek), so the
+  // frame-0 poster is the aligned one — no poster→playback jump.
   const posterUrl = isVideo
-    ? `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=${SLOT_IMG_WIDTH}&fit_mode=preserve`
+    ? `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=${SLOT_IMG_WIDTH}&fit_mode=preserve&time=0`
     : null;
 
   const ratio = ratioOf(asset);
@@ -51,7 +73,7 @@ export default function MediaSlot({ asset, style, ...rest }) {
           videoRef.current.pause();
         }
       },
-      { rootMargin: '200px', threshold: 0.05 }
+      { rootMargin: IO_MARGIN, threshold: 0.05 }
     );
 
     observer.observe(slotRef.current);

@@ -183,6 +183,9 @@ Panels settle at the expanded radius; looping `uPower` pattern timelines run on 
 | `?swipe` | on | one-section-per-swipe quantizer (`off` = free scroll) |
 | `?swipepx` | 500 | wheel/touch px to commit a swipe (house constant, motion.js; `?scroll` honored for old copy_urls) |
 | `?swipems` | 1100 | committed section glide duration (ms, Turn curve) |
+| `?lerp` | unset (Lenis 0.1) | site-wide Lenis smoothing lerp — every Lenis document-scroll route, `/process` included (A2b dial, read by `smoothScroll.js`; blessed values bake into `LENIS_TUNING`, `motion.js`) |
+| `?wheelmult` | unset (Lenis 1) | site-wide Lenis `wheelMultiplier` (A2b dial, same bake path) |
+| `?lenisdur` | unset | site-wide Lenis `duration` in SECONDS — duration mode overrides lerp (A2b dial, same bake path) |
 | `?debug` | off | tuning panel (stage jumps, live knobs, `↻ replay`, `copy_url`, fps/draw stats) |
 
 ## 10. Build order

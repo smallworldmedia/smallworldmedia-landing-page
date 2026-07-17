@@ -87,8 +87,29 @@ export const GLIDE_SECONDS = GLIDE_MS / 1000;
 
 /* ── Lenis tuning ─────────────────────────────────────────────────────────
    Spread into the Lenis constructor by smoothScroll.js. Empty = library
-   defaults (today's shipped feel). The A2 dial-in session fills this in
+   defaults (today's shipped feel). The A2b dial-in session fills this in
    (lerp / duration / wheelMultiplier) — remember Lenis feeds Grid Socket
    parallax + the orbit scroll-kick, so retunes need a regression pass on
-   document-scroll routes. */
+   document-scroll routes.
+
+   A2b LIVE DIAL (smoothScroll.js start()) — URL params override this bake
+   on every Lenis document-scroll route; blessed values get baked HERE:
+     ?lerp=0.1       Lenis lerp (library default 0.1 — smoothing per frame)
+     ?wheelmult=1    wheelMultiplier (library default 1)
+     ?lenisdur=0.9   duration in SECONDS — switches Lenis to duration mode,
+                     which OVERRIDES lerp (pair with an easing at bake time)
+   Candidate starting points for the dial session:
+     lerp 0.14       tighter / faster settle
+     lerp 0.075      heavier glide
+     wheelmult 1.2   less wheel effort per scroll distance
+     lenisdur ~0.9   fixed-length settle (+ easing) instead of lerp inertia
+   Calibration caveats:
+   - NextProjectBand's NP_ARM_MS=250 (?nparm) is tuned to the default
+     lerp-0.1 inertia tail — re-check flick tails at the band if lerp moves.
+   - TOUCH_GAIN=2 above encodes parity with the CURRENT touch feel — if the
+     Lenis bake shifts it (touchMultiplier default 1), re-check touch parity.
+   - The spec'd-but-dormant orbit scroll-kick (momentum.js kick(), zero
+     importers today) will read getLenis().velocity, whose magnitude scales
+     with lerp/wheelMultiplier — record the baked values so ?orbitkick gets
+     dialed against them. */
 export const LENIS_TUNING = {};
