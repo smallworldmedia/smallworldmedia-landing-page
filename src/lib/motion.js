@@ -67,11 +67,23 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
    touch deltas gain ×TOUCH_GAIN, and a stall of RELEASE_MS rubber-bands
    back to rest. Surfaces read their own trigger (live-tunable via ?scroll;
    /process gets its own param at rebase so surfaces dial independently). */
-export const SCROLL_TRIGGER_HOME_PX = 600; // home hero Envelopment
-export const SCROLL_TRIGGER_WORK_PX = 600; // /work World Turn
-export const SCROLL_TRIGGER_PROCESS_PX = 700; // /process quantizer (deliberately heavier)
+export const SCROLL_TRIGGER_HOME_PX = 500; // home hero Envelopment
+export const SCROLL_TRIGGER_WORK_PX = 500; // /work World Turn + detail next-project band
+export const SCROLL_TRIGGER_PROCESS_PX = 500; // /process quantizer
+// ^ unified at 500 per Nathan's 2026-07-16 dial (was 600/600/700) — the
+//   Notion "takes too much scroll power" note, answered. Per-surface
+//   exports stay so a future dial can split them again.
 export const TOUCH_GAIN = 2; // touch deltas 2× — parity with wheel feel
 export const RELEASE_MS = 160; // stall gap before the rubber-band release
+
+/* The house commit GLIDE — what a threshold-crossing gesture settles
+   into (Nathan's 2026-07-16 dial, baked from the /process ?swipems):
+   the /process section glide, the hero Envelopment, and the detail
+   next-project band all ride it. (The /work World-to-World TURN_DURATION
+   is a scene transition, not a commit glide — it keeps its own 1700ms
+   dial in worldConfig.js.) */
+export const GLIDE_MS = 800;
+export const GLIDE_SECONDS = GLIDE_MS / 1000;
 
 /* ── Lenis tuning ─────────────────────────────────────────────────────────
    Spread into the Lenis constructor by smoothScroll.js. Empty = library
