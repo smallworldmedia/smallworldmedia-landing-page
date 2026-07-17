@@ -1,14 +1,19 @@
 /**
- * useProcessCopy — copy entrances + the arrival choreography (spec §5).
+ * useProcessCopy — copy entrances + the arrival splash (spec §5, v2 deck).
  *
- * The WorldCard OS-boot family: scramble chip (house 1.4s cadence) →
- * SplitText masked-line headline (0.6s, stagger 0.1, power3.out) → blurb
- * rise (0.4s, power2.out), overlapped, never fully sequential; leave-back
- * exits run ≈0.7×. The arrival plays once per mount: THE_PROCESS scramble
- * → H1 lines → the Fragment belt materializes → scroll cue fade.
+ * Arrival (B9): the SWM globe alone on the brand-blue field → "PROCESS"
+ * chars in at RANDOM order → THE_PROCESS scramble → ~1.5s hold → chars
+ * out (random again) → the belt materializes and the page auto-glides
+ * into stage-01 (guarded: only if the user hasn't scrolled). The globe
+ * stands in for the O — glyph hidden, animated overlay tracks its box.
+ *
+ * Per-section entrances stay the WorldCard OS-boot family: scramble chip
+ * → SplitText masked-line headline (0.6s, stagger 0.1, power3.out) →
+ * blurb rise, overlapped; leave-back exits run ≈0.7×.
  *
  * Reduced motion: no entrance motion anywhere — copy simply appears
- * (nothing here runs; the DOM's resting state is fully visible).
+ * (nothing here runs; the DOM's resting state is fully visible, the real
+ * O glyph included).
  */
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
@@ -30,24 +35,80 @@ export default function useProcessCopy(rootRef, sceneRef) {
 
       /* — Arrival (once per mount; identical on direct load and
          client-side nav — this hook remounts with the island) — */
+      /* — The splash (v2 deck, B9): the animated globe alone on the
+         brand-blue field → "PROCESS" chars in, RANDOM order → hold 1.5s →
+         chars out (random again) → the belt materializes and the page
+         glides itself into stage-01. The globe is the O: the real glyph
+         stays hidden and an animated stand-in tracks its box (SVG
+         placeholder spinning slowly — the looping longitudinal-translation
+         Lottie is a separate asset task). — */
+      const heroSection = root.querySelector('.process-hero');
       const heroToken = root.querySelector('.process-hero__token');
       const heroTitle = root.querySelector('.process-hero__title');
 
       const titleSplit = SplitText.create(heroTitle, {
-        type: 'lines',
-        mask: 'lines',
-        linesClass: 'process-line',
+        type: 'chars',
+        charsClass: 'process-char',
       });
       splits.push(titleSplit);
+      const oChar = titleSplit.chars[2]; // P R [O] C E S S
+      const chars = titleSplit.chars.filter((c) => c !== oChar);
+
+      const globeWrap = document.createElement('span');
+      globeWrap.className = 'process-hero__globe-o';
+      globeWrap.setAttribute('aria-hidden', 'true');
+      globeWrap.innerHTML = '<img src="/icons/SWM-globe_white.svg" alt="" />';
+      heroTitle.appendChild(globeWrap);
+      const placeGlobe = () => {
+        const hb = heroTitle.getBoundingClientRect();
+        const ob = oChar.getBoundingClientRect();
+        globeWrap.style.left = `${ob.left - hb.left}px`;
+        globeWrap.style.top = `${ob.top - hb.top}px`;
+        globeWrap.style.width = `${ob.width}px`;
+        globeWrap.style.height = `${ob.height}px`;
+      };
+      placeGlobe();
+      document.fonts?.ready.then(placeGlobe);
+      window.addEventListener('resize', placeGlobe);
+
       const tokenText = heroToken.textContent;
       heroToken.textContent = '';
-      gsap.set(titleSplit.lines, { yPercent: 110 });
+      gsap.set(oChar, { autoAlpha: 0 }); // the globe IS the O, always
+      gsap.set(chars, { autoAlpha: 0 });
+      gsap.set(globeWrap, { autoAlpha: 0, scale: 0.92, transformOrigin: '50% 50%' });
 
-      gsap
-        .timeline({ delay: 0.15 })
-        .add(() => scrambleTo(heroToken, tokenText), 0)
-        .to(titleSplit.lines, { yPercent: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }, 0.55)
-        .add(() => sceneRef.current?.materializeBelt(), 1.05);
+      const splash = gsap
+        .timeline({ delay: 0.2 })
+        // the globe first, alone on the blue field
+        .to(globeWrap, { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'power2.out' }, 0)
+        // PROCESS in, random character order
+        .to(chars, { autoAlpha: 1, duration: 0.05, stagger: { each: 0.055, from: 'random' } }, 0.75)
+        .add(() => scrambleTo(heroToken, tokenText), 1.3)
+        // hold ~1.5s on the full lockup, then out — straight into stage-01
+        .add('out', 2.8)
+        .to(chars, { autoAlpha: 0, duration: 0.04, stagger: { each: 0.04, from: 'random' } }, 'out')
+        .to(heroToken, { autoAlpha: 0, duration: 0.25 }, 'out')
+        .to(globeWrap, { autoAlpha: 0, duration: 0.3 }, 'out+=0.25')
+        .add(() => sceneRef.current?.materializeBelt(), 'out+=0.35')
+        .add(() => {
+          // Auto-advance only if the user hasn't already taken the wheel.
+          if (window.scrollY < 40) {
+            window.dispatchEvent(new CustomEvent('swm:process-step', { detail: { dir: 1 } }));
+          }
+        }, 'out+=0.9');
+
+      // Scrolling back up to the hero later must not find a blank header —
+      // restore the lockup (no scramble; chrome scrambles once).
+      ScrollTrigger.create({
+        trigger: heroSection,
+        start: 'top 60%',
+        onEnterBack: () => {
+          splash.kill();
+          heroToken.textContent = tokenText;
+          gsap.to([...chars, heroToken], { autoAlpha: 1, duration: 0.3, overwrite: 'auto' });
+          gsap.to(globeWrap, { autoAlpha: 1, scale: 1, duration: 0.3, overwrite: 'auto' });
+        },
+      });
 
       /* — Per-section entrances: same boundary geometry as the stage
          driver, so copy and scene move on the same beat — */
@@ -109,7 +170,11 @@ export default function useProcessCopy(rootRef, sceneRef) {
         }
       });
 
-      return () => splits.forEach((s) => s.revert());
+      return () => {
+        window.removeEventListener('resize', placeGlobe);
+        globeWrap.remove();
+        splits.forEach((s) => s.revert());
+      };
     },
     { scope: rootRef }
   );

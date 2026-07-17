@@ -207,6 +207,38 @@ body.route-process .site-nav {
   color: var(--color-white);
   max-width: 92vw;
   margin-top: var(--space-4);
+  /* B9: the globe-O overlay tracks a glyph box inside this block */
+  position: relative;
+}
+
+/* --- The globe-O (B9): the SWM globe stands in for PROCESS's O —
+   placeholder = the flat mark spinning slowly; the production asset is
+   a Lottie looping one longitudinal translation (separate asset task).
+   Sized/positioned to the O glyph box by useProcessCopy. --- */
+.process-hero__globe-o {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.process-hero__globe-o img {
+  height: 96%;
+  width: auto;
+  animation: process-globe-spin 16s linear infinite;
+}
+
+@keyframes process-globe-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .process-hero__globe-o img {
+    animation: none;
+  }
 }
 
 .process-stage__headline {
