@@ -27,7 +27,7 @@
 |----|------|-------|--------|-------|
 | A1 | House slow-pulse f-curve | CREATIVE (curve) + AGENT (scaffold) | ✅ this PR | `src/lib/motion.js`: `HOUSE_PULSE_PATH` (softened attack 0–15% → hold →25% → linear fall →100%), `ensureHousePulse()`, `housePulseLoop()` (equal on/off via repeatDelay). CSS: `--ease-pulse`, `--duration-pulse: 3000ms`, `@keyframes house-pulse` + `.house-pulse` (RM-guarded) in `global.css`. Polarity per consumer: enter_world **dims**, inquiry field **brightens**. Curve shape = first authored draft — Nathan feel-pass pending. |
 | A2 | House scroll tension wiring | AGENT | ✅ PR #15 + #29 | Per-surface constants in `motion.js` + shared `TOUCH_GAIN`(2)/`RELEASE_MS`(160) consumed by `Hero.jsx`, `FeaturedProjects.jsx`, `NextProjectBand.jsx`, and the /process driver. **2026-07-16 (PR #29): triggers unified at 500** (was 600/600/700) and the new `GLIDE_MS = 800` house commit glide (hero envelopment + next-project band + /process swipe; the /work World-Turn 1700ms is a scene transition and keeps its own dial). `smoothScroll.js` spreads `LENIS_TUNING` (still empty). |
-| A2b | Scroll tension **dial-in** | CREATIVE | ◐ | Trigger (500) + glide (800) dialed by Nathan 2026-07-16 and promoted site-wide (PR #29). Remaining: `LENIS_TUNING` (lerp/wheelMultiplier — the smooth-scroll feel itself) ⚠️ Lenis feeds Grid Socket parallax + orbit scroll-kick — regression pass on document-scroll routes required. |
+| A2b | Scroll tension **dial-in** | CREATIVE | ◐ | Trigger (500) + glide (800) dialed by Nathan 2026-07-16 and promoted site-wide (PR #29). **2026-07-16 (PR #37, open): agent side done** — `?lerp`/`?wheelmult`/`?lenisdur` live dial in `smoothScroll.js` (unset = provable no-op; positive-finite gated), starting points in the `motion.js` comment, regression matrix green on the integration preview (socket drift clamped 40.00px/0 flips on all 5 presets; np-band `NP_ARM_MS` swallow held incl. lerp .075's 1.9s tail; /process quantizer byte-identical under `?lerp=.075`; orbit scroll-kick confirmed dormant — `momentum.js` has zero importers). Remaining: **Nathan dials on a preview URL, blessed values bake into `LENIS_TUNING`**. |
 | A3 | Motion-token adoption | AGENT (audit) + CREATIVE (sign-off) | ◐ started | `--nav-inset` token created + all 4 chrome literals re-pointed (this PR). Remaining: inventory hardcoded eases/durations across `src/` → migration list → rolling adoption inside each wave's touched files. |
 
 ## Phase B — Process page round 3 (process branch)
@@ -59,7 +59,7 @@
 
 | ID | Item | Class | Status | Notes |
 |----|------|-------|--------|-------|
-| FP-2 | Perceived-instant video | AGENT | ☐ | `startFragPrefetch`/`startLevel` via `useHls` `hlsConfig` for MediaSlot + NextProjectBand; raise IO rootMargin 200→~400px; `eager` prop for the hero slot; verify Mux poster `?time=` alignment. Measure first-frame before/after; don't multiply concurrent streams. |
+| FP-2 | Perceived-instant video | AGENT | ✅ PR #36 (open) | Shipped 2026-07-16: `{startFragPrefetch, startLevel:2, maxBufferLength:12}` on MediaSlot + NextProjectBand, `eager` hero (seeds `useState`, fetch at hydration), IO band `'400px 0px'` (band's own 200px kept), posters `&time=0`. **Measured:** rossi hero rVFC 1688→1142ms (−32%), stream max 9→8 ✅, 0 errors; initial 8s weight +5.2MB (the pre-load, reported) — mobile dial candidate for P5. ⚠️ Two near-black `time=0` posters flagged for Nathan (`y02EgA7x…` .073, `S029xcxq…` .080) — per-asset time or epsilon, his call. |
 | FP-4a | Detail routing refactor | AGENT (own PR, FIRST) | ✅ PR #30 | Detail grouping `sourceFolder` → `project._ref` (queries + `[slug].astro` paths/next-chain/slug). Verify against the FULL directory. |
 | FP-4b | rossi+homegrxwn merge, bellaire off | Nathan + AGENT | ✅ 2026-07-16 (CMS published, snapshot on #26; PR #34 = authored-slug routing + redirects; Studio reorder pass pending) | AFTER FP-4a. CMS: re-point homegrxwn asset refs → rossi, unfeature; bellaire `isFeatured:false`. Old-slug redirect, ref snapshot for rollback, preview-deploy gate. Asset order sets hero+slug — Nathan confirms. Redeploy required. |
 | FP-3 | Scroll-up at /work top → home | AGENT | ✅ PR #31 (+ home fill-release gap fix) | Hook the `addDelta` upward clamp at first World; reverse envelopment → `navigate('/')`; RM fallback; keep RouteFill handshake. |
@@ -77,6 +77,6 @@
 
 - Local: `npm run dev` (:4321); `/process?debug` knobs; headless = scratch `playwright-core` (`/tmp/pw-verify`) + cached `chromium_headless_shell-1228`, `waitUntil:'load'` (never `networkidle` on `/`).
 - Process probes after B-work: stage pixel-walk, swipe stepping, RM paths, translateY-jitter probe, draw calls ≤90 with decoys live.
-- A2b gate: parallax + orbit scroll-kick regression on document-scroll routes.
+- A2b gate: parallax + orbit scroll-kick regression on document-scroll routes — ✅ run 2026-07-16 (PR #37 matrix; scroll-kick dormant, re-gate when `momentum.js` gains importers).
 - Every new loop/wipe/pulse: reduced-motion path in both CSS and JS layers.
 - FP-2: first-frame timing measured; FP-4: preview deploy + old-slug redirect check; P5/P6 acceptance unchanged (spec §11).
