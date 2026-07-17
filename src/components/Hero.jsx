@@ -35,6 +35,7 @@ import { navigate } from 'astro:transitions/client';
 import VideoGlobe from './globe/VideoGlobe.jsx';
 import CtaArrows from './work/CtaArrows.jsx';
 import SiteFooter from './SiteFooter.jsx';
+import HeroText from './HeroText.jsx';
 import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
 import { TURN_EASE_PATH } from './work/world/worldConfig.js';
 import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS, GLIDE_MS } from '../lib/motion.js';
@@ -109,7 +110,7 @@ export default function Hero({ globeAssets }) {
     const envEase = CustomEase.create('swmEnvelop', TURN_EASE_PATH);
     const tl = gsap.timeline({ onComplete: () => navigate('/work') });
     tl.to(
-      heroRef.current.querySelectorAll('.hero__enter-wrap, .hero__footer'),
+      heroRef.current.querySelectorAll('.hero__enter-wrap, .hero__footer, .hero__text'),
       { autoAlpha: 0, duration: 0.2, ease: 'power2.out', overwrite: true },
       0
     );
@@ -135,7 +136,7 @@ export default function Hero({ globeAssets }) {
       const hero = heroRef.current;
       const globeWrap = globeWrapRef.current;
       const veil = hero.querySelector('.hero__veil');
-      const chrome = hero.querySelectorAll('.hero__enter-wrap, .hero__footer');
+      const chrome = hero.querySelectorAll('.hero__enter-wrap, .hero__footer, .hero__text');
 
       if (PREFERS_REDUCED_MOTION) {
         gsap.set(globeWrap, { scale: 1 });
@@ -316,8 +317,11 @@ export default function Hero({ globeAssets }) {
         </button>
         <CtaArrows direction="down" />
       </div>
+      {/* The statement lead — left-center, the /process prose voice
+          (2026-07-16 recomposition; the line moved out of the footer) */}
+      <HeroText />
       <div className="hero__footer">
-        <SiteFooter noFill tagline="Visual Worlds for the Music Industry" />
+        <SiteFooter noFill tagline={false} />
       </div>
     </section>
   );

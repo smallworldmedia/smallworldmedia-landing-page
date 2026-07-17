@@ -440,6 +440,17 @@ body.route-home .site-nav__links {
   bottom: 0.571rem;
 }
 
+/* 2026-07-16 home recomposition: start_project rides the right edge at
+   vertical center (portaled to the shell like follow_us); the top-right
+   slot hosts ⊙ process (HP-1). The envelop choreography exits start
+   through the RIGHT edge, process/follow through top/bottom. */
+.site-nav__home-start {
+  position: fixed;
+  right: calc(var(--nav-inset) + var(--space-4));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 /* ── Mobile menu (≤768px full-screen takeover) ──
    The menu pill replaces the collapsed links row; the panel is portaled to
    the shell (brand-black takeover) with its own top row mirroring the nav
@@ -1033,31 +1044,25 @@ body.route-home .site-nav__links {
 }
 
 /* Taglines — hero text overlay */
-.tagline {
+/* The hero lead — ONE statement block, vertically centered on the left
+   (2026-07-16 recomposition). Typography mirrors the /process prose
+   register verbatim (.process-stage__blurb — the detail-blurb voice):
+   the homepage and the process page speak the same language. The 16px
+   left inset mirrors the process copy column's edge. */
+.hero__lead {
   position: absolute;
-  font-family: var(--font-mono);
-  font-size: 18px;
-  line-height: calc(17 / 18);
-  letter-spacing: 0.067em;
-  color: var(--color-cream);
-  white-space: pre-line;
-  text-transform: uppercase;
+  left: 1.143rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(1.5rem, 2.78vw, 3.571rem);
+  line-height: 1;
+  letter-spacing: -0.005em;
+  color: var(--color-white);
+  max-width: min(26ch, 44vw);
   z-index: 1;
   pointer-events: none;
-  will-change: transform;
-  width: 180px;
-}
-
-.tagline--left {
-  left: 24%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.tagline--right {
-  left: 76%;
-  top: 50%;
-  transform: translate(-50%, -50%);
 }
 
 /* ============================================
@@ -1383,21 +1388,6 @@ body.route-home .site-nav__links {
 
 /* Tablet — Unicorn breakpoint: 576–991px */
 @media (max-width: 991px) {
-  .tagline {
-    font-size: 15px;
-    line-height: calc(16 / 15);
-    letter-spacing: 0.038em;
-    width: 144px;
-  }
-
-  .tagline--left {
-    left: 13%;
-  }
-
-  .tagline--right {
-    left: 87%;
-  }
-
 }
 
 @media (max-width: 768px) {
@@ -1420,8 +1410,9 @@ body.route-home .site-nav__links {
     display: inline-flex;
   }
 
-  /* start_project reaches mobile through the menu, not the home pill */
-  .site-nav__start-slot {
+  /* start_project + process reach mobile through the menu, not the pills */
+  .site-nav__start-slot,
+  .site-nav__home-start {
     display: none;
   }
 
@@ -1530,23 +1521,10 @@ body.route-home .site-nav__links {
 
   /* --- Hero & overlay mobile overrides --- */
 
-  /* Reposition shared taglines for mobile X-axis drift */
-  .tagline--left {
-    left: 50%;
-    top: 31%;
-    font-size: 12px;
-    line-height: calc(13 / 12);
-    letter-spacing: 0.038em;
-    width: auto;
-  }
-
-  .tagline--right {
-    left: 50%;
-    top: 68%;
-    font-size: 12px;
-    line-height: calc(13 / 12);
-    letter-spacing: 0.038em;
-    width: auto;
+  /* The hero lead's mobile cut mirrors the process prose mobile cut */
+  .hero__lead {
+    font-size: clamp(1.4rem, 5.5vw, 2.2rem);
+    max-width: 78vw;
   }
 
   .project-overlay {
