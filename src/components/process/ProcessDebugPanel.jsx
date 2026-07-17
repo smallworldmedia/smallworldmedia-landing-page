@@ -35,7 +35,7 @@ const SLIDERS = [
   { key: 'holdBeats', param: 'hold', min: 0, max: 2, step: 0.05 },
   { key: 'decayBeats', param: 'decay', min: 0.1, max: 4, step: 0.05 },
   { key: 'mobileDrop', param: 'dropy', min: 0, max: 0.5, step: 0.02 },
-  { key: 'swipePx', param: 'scroll', min: 150, max: 1200, step: 25 },
+  { key: 'swipePx', param: 'swipepx', min: 150, max: 1200, step: 25 },
   { key: 'swipeSeconds', param: 'swipems', min: 0.4, max: 2.5, step: 0.05, ms: true },
 ];
 

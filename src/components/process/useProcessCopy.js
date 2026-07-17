@@ -32,8 +32,6 @@ export default function useProcessCopy(rootRef, sceneRef) {
          client-side nav — this hook remounts with the island) — */
       const heroToken = root.querySelector('.process-hero__token');
       const heroTitle = root.querySelector('.process-hero__title');
-      const heroSub = root.querySelector('.process-hero__sub');
-      const heroCue = root.querySelector('.process-hero__cue');
 
       const titleSplit = SplitText.create(heroTitle, {
         type: 'lines',
@@ -44,16 +42,12 @@ export default function useProcessCopy(rootRef, sceneRef) {
       const tokenText = heroToken.textContent;
       heroToken.textContent = '';
       gsap.set(titleSplit.lines, { yPercent: 110 });
-      gsap.set(heroSub, { autoAlpha: 0, y: 14 });
-      gsap.set(heroCue, { autoAlpha: 0 });
 
       gsap
         .timeline({ delay: 0.15 })
         .add(() => scrambleTo(heroToken, tokenText), 0)
         .to(titleSplit.lines, { yPercent: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }, 0.55)
-        .to(heroSub, { autoAlpha: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 0.95)
-        .add(() => sceneRef.current?.materializeBelt(), 1.05)
-        .to(heroCue, { autoAlpha: 0.65, duration: 0.4, ease: 'power2.out' }, 1.7);
+        .add(() => sceneRef.current?.materializeBelt(), 1.05);
 
       /* — Per-section entrances: same boundary geometry as the stage
          driver, so copy and scene move on the same beat — */

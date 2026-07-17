@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { getLenis } from '../../lib/smoothScroll.js';
 
-const CELLS = 10;
+const CELLS = 20; // doubled 2026-07-16 (Nathan: wider bar + finer steps)
 
 function bar(frac) {
   const exact = Math.min(Math.max(frac, 0), 1) * CELLS;

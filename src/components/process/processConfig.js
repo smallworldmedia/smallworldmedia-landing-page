@@ -15,6 +15,8 @@
  * current blue-field system, so nothing needed re-interpretation.
  */
 
+import { SCROLL_TRIGGER_PROCESS_PX } from '../../lib/motion.js';
+
 export const IS_MOBILE =
   typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
@@ -55,7 +57,7 @@ export const TUNING_DEFAULTS = {
   strokePx: 2, // ?stroke — Fragment edge stroke width (screen px; 0 disables)
   mobileDrop: 0.4, // ?dropy — phone: Core sits low so the centered copy band gets clear air
   swipe: 'on', // ?swipe — one-section-per-swipe scroll (off = free document scroll)
-  swipePx: 700, // ?scroll — wheel/touch px to commit a swipe (the /work + hero resistance)
+  swipePx: SCROLL_TRIGGER_PROCESS_PX, // ?swipepx — wheel/touch px to commit a swipe (house constant; deliberately heavier than home//work's 600)
   swipeSeconds: 1.1, // ?swipems — the committed section glide (house Turn curve)
 };
 
@@ -83,7 +85,9 @@ export const TUNING = {
   strokePx: num('stroke', TUNING_DEFAULTS.strokePx),
   mobileDrop: num('dropy', TUNING_DEFAULTS.mobileDrop),
   swipe: str('swipe', TUNING_DEFAULTS.swipe),
-  swipePx: num('scroll', TUNING_DEFAULTS.swipePx),
+  // Own param (?swipepx) so /process dials independently of the ?scroll
+  // shared by the hero + /work; ?scroll still honored for old copy_urls.
+  swipePx: num('swipepx', num('scroll', TUNING_DEFAULTS.swipePx)),
   swipeSeconds: num('swipems', TUNING_DEFAULTS.swipeSeconds * 1000) / 1000,
 };
 

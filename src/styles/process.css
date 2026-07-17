@@ -163,7 +163,7 @@ body.route-process .site-nav {
 
 /* --- Chrome register: lowercase snake_case mono --- */
 .process-hero__token,
-.process-hero__cue,
+.process-tagline,
 .process-stage__chip {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
@@ -228,7 +228,6 @@ body.route-process .site-nav {
 /* --- Prose register: sentence case, body face ---
    The detail-page blurb voice verbatim (.project-blurb__text) — same
    fluid size, unit leading and tracking, per Nathan's 07-15 note. */
-.process-hero__sub,
 .process-stage__blurb,
 .process-cta__line {
   font-family: var(--font-body);
@@ -241,9 +240,18 @@ body.route-process .site-nav {
   margin-top: var(--space-6);
 }
 
-.process-hero__cue {
-  margin-top: 3.5rem;
+/* --- Persistent tagline: fixed bottom-right, the mono chrome voice
+   (v2 deck — replaces the retired hero sub/cue; the meter vacated this
+   corner for bottom-center). Measured so it never crowds the meter. --- */
+.process-tagline {
+  position: fixed;
+  right: var(--nav-inset);
+  bottom: var(--nav-inset);
+  z-index: 4;
+  max-width: 24ch;
+  text-align: right;
   opacity: 0.65;
+  pointer-events: none;
 }
 
 /* S2's Thread pings land here (references_folded → dots_connected →
@@ -467,11 +475,12 @@ body.route-process .site-nav {
    subtle and left-aligned (Nathan 07-15). Same anatomy (mono label +
    CtaArrows caret window), quieter voice: transparent at 0.65, filling
    electric blue on hover (the house chip hover) — black on the blue
-   field where electric blue vanishes. --- */
+   field where electric blue vanishes.
+   Placement (v2 deck): [previous] top-left below the nav (back is up),
+   [next] bottom-left (forward is down). --- */
 .process-stepnav {
   position: fixed;
-  left: 1.143rem;
-  bottom: 1.143rem;
+  left: var(--nav-inset);
   z-index: 4;
   display: flex;
   flex-direction: column;
@@ -479,10 +488,20 @@ body.route-process .site-nav {
   gap: 0.15rem;
 }
 
-/* ?debug only: the tuning panel owns the lower-left corner — the
-   steppers slide right of it so both stay clickable while dialing */
-.process-page:has(.process-debug) .process-stepnav {
-  left: calc(1.143rem + 300px);
+.process-stepnav--prev {
+  /* below the 2.929rem (41px) nav bar — the SiteNav height convention */
+  top: calc(2.929rem + var(--space-4));
+}
+
+.process-stepnav--next {
+  bottom: var(--nav-inset);
+}
+
+/* ?debug only: the tuning panel owns the lower-left corner — [next]
+   slides right of it so both stay clickable while dialing ([previous]
+   lives top-left now and clears the panel on its own) */
+.process-page:has(.process-debug) .process-stepnav--next {
+  left: calc(var(--nav-inset) + 300px);
 }
 
 .process-stepnav__cta {
@@ -525,8 +544,9 @@ body.route-process .site-nav {
    osboot letterspacing; the step counter dims like the boot log. --- */
 .process-meter {
   position: fixed;
-  right: 1.143rem;
-  bottom: 1.143rem;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--nav-inset);
   z-index: 4;
   display: flex;
   align-items: baseline;
@@ -567,7 +587,6 @@ body.route-process .site-nav {
   }
 
   /* The detail-page blurb's own mobile cut */
-  .process-hero__sub,
   .process-stage__blurb,
   .process-cta__line {
     font-size: clamp(1.4rem, 5.5vw, 2.2rem);
@@ -575,14 +594,17 @@ body.route-process .site-nav {
   }
 
   /* One meter of chrome is enough on a phone — the steppers assume a
-     pointer anyway; swipe owns the walk. */
-  .process-stepnav {
+     pointer anyway; swipe owns the walk. The tagline sits out too. */
+  .process-stepnav,
+  .process-tagline {
     display: none;
   }
 
   .process-meter {
-    left: 1.143rem;
+    left: var(--nav-inset);
     right: auto;
+    /* undo the desktop centering or the meter pulls half-offscreen */
+    transform: none;
   }
 
   .process-section {

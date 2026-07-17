@@ -69,8 +69,6 @@ export default function ProcessPage() {
         <header className="process-section process-hero" data-stage="hero">
           <p className="process-hero__token">{HERO.token}</p>
           <h1 className="process-hero__title">{HERO.h1}</h1>
-          <p className="process-hero__sub">{HERO.sub}</p>
-          <p className="process-hero__cue">{HERO.cue}</p>
         </header>
 
         {STAGES.map((stage) => (
@@ -109,9 +107,12 @@ export default function ProcessPage() {
         </section>
       </div>
 
-      {/* Fixed walkthrough chrome: left steppers, right status meter */}
+      {/* Fixed walkthrough chrome: [previous] top-left below the nav,
+          [next] bottom-left, status meter bottom-center, tagline
+          bottom-right (Nathan's Notion deck, confirmed 2026-07-16) */}
       <ProcessStepCtas />
       <ProcessMeter />
+      <p className="process-tagline">{HERO.tagline}</p>
 
       {DEBUG && <ProcessDebugPanel sceneRef={sceneRef} />}
 
