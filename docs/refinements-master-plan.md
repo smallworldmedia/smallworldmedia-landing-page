@@ -53,7 +53,7 @@
 | FT-1 | Footer matches nav inset | AGENT | ✅ PR #33 (bar full-bleed, content on the nav edges) | Footer inner bar already reads `--nav-inset` (this PR); retune the 8px outer pad against the new value so combined inset matches nav. |
 | INQ-3 | Inquiry SWM icon parity | AGENT | ✅ PR #32 (Δ 0.02px) | Overlay globe ~1.5–2.5px low; fix `.project-overlay__globe`: explicit height + `object-fit:cover` + corrected top; drop ≤768 width override. Verify visually. |
 | NAV-2 | Nav micro-interactions ×4 | CREATIVE | ☐ | Own branch `refine/nav-microinteractions`, `?navfx=1..4` demo, desktop + mobile. Active/current state is fully net-new. Envelop choreography indexes nav children — careful. |
-| HP-1 | Homepage process button | AGENT + Nathan placement | ☐ | Executes in B10. Placement checkpoint: on-globe cluster vs fixed corner (bottom-right occupied by follow_us). Must join both envelopment fade lists. |
+| HP-1 | Homepage process button | AGENT + Nathan placement | ✅ PR #35 (2026-07-16) | Nathan's call executed as a hero recomposition: ⊙ process top-right slot, start_project → right edge vertical-center (shell-portaled), "Visual worlds for the music industry." → left-center statement lead in the /process prose register (replaces the drifting taglines + hero footer tagline). All ride the envelop choreography. Link 302s in prod until P6 (unchanged). |
 
 ## Wave 3 — Featured projects + detail (`refine/work-detail`)
 
