@@ -102,6 +102,7 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
   *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))]
     | order(orderRank asc, client->name asc) {
     "projectId": _id,
+    "slug": slug.current,
     title,
     "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
     "clientName": client->name,

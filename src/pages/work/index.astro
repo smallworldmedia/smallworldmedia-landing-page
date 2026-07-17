@@ -63,7 +63,9 @@ const worlds = projects
   }
 
   return {
-    slug: toProjectSlug(p.clientSlug, p.collection),
+    // Authored doc slug is the route (Studio-editable, merge-proof);
+    // toProjectSlug stays as the fallback for docs without one.
+    slug: p.slug || toProjectSlug(p.clientSlug, p.collection),
     clientName: p.clientName,
     title: p.title || null,
     year: p.year || null,
