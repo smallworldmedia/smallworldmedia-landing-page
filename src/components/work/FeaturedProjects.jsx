@@ -22,6 +22,7 @@ import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
 import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
+import { SCROLL_TRIGGER_WORK_PX, TOUCH_GAIN, RELEASE_MS } from '../../lib/motion.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 const falloff = (d, spread) => Math.max(0, 1 - d / spread);
@@ -37,7 +38,7 @@ const PAGER_BASE_GAIN = 1.6; // active dot scale = 1 + this
 const PAGER_HOVER_GAIN = 1.8; // additive, centred on the cursor
 // Wheel/touch px to fill a CTA and advance — higher = more scroll resistance
 // before a World Turn fires. Tune live with ?scroll=900.
-const SCROLL_TRIGGER = PARAM('scroll', 600);
+const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_WORK_PX);
 const CTA_MAX_EXTRA = 0.3; // CTA scale at full fill / hover = 1 + this
 
 export default function FeaturedProjects({ worlds = [] }) {
@@ -122,7 +123,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       accumRef.current = 0;
       setCtaMode('release');
       setFill(0);
-    }, 160);
+    }, RELEASE_MS);
   };
 
   // Threshold crossed → fire the Turn and hold the triggering CTA at full, then
@@ -204,7 +205,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     const onTouchMove = (e) => {
       if (touchY === null) return;
       const y = e.touches[0].clientY;
-      addDelta((touchY - y) * 2); // upward swipe = forward
+      addDelta((touchY - y) * TOUCH_GAIN); // upward swipe = forward
       touchY = y;
       e.preventDefault();
     };
