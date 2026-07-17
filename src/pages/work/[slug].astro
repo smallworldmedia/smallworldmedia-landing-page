@@ -2,10 +2,10 @@
 /**
  * /work/[slug] — Featured Project detail page.
  *
- * One page per Featured Project curated collection. Paths are
- * enumerated from hero-flagged assets (one sizzle reel per collection);
- * the page fetches the full collection by sourceFolder and hydrates
- * the FeaturedProjectDetail island.
+ * One page per Featured Project doc (isFeatured == true) — the same
+ * project._ref grouping the /work Worlds use, so one project doc = one
+ * World = one detail page. The page fetches the full collection by
+ * project reference and hydrates the FeaturedProjectDetail island.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import '../../styles/masonry.css';
@@ -19,24 +19,27 @@ import { toProjectSlug } from '../../lib/projectSlug.js';
 import FeaturedProjectDetail from '../../components/work/detail/FeaturedProjectDetail.jsx';
 
 export async function getStaticPaths() {
-  const heroes = await sanityFetch(FEATURED_PROJECT_PATHS_QUERY);
+  const featured = await sanityFetch(FEATURED_PROJECT_PATHS_QUERY);
 
-  // One path per collection; sourceFolder is the grouping key.
-  // Dedupe defensively in case a collection ever carries two heroes.
+  // One path per featured project doc; project._id is the grouping key.
+  // The slug still derives from the first asset's sourceManifest
+  // (toProjectSlug) so existing URLs stay stable. Dedupe defensively in
+  // case two docs ever resolve to the same slug.
   // Row order == the /work World order (orderRank in the query), so
   // adjacency defines the next-project chain, wrapping last → first.
   const seen = new Set();
-  const rows = heroes
-    .filter((h) => h.sourceFolder && h.collection && h.clientSlug)
-    .filter((h) => !seen.has(h.sourceFolder) && seen.add(h.sourceFolder));
+  const rows = featured
+    .filter((h) => h.collection && h.clientSlug)
+    .map((h) => ({ ...h, slug: toProjectSlug(h.clientSlug, h.collection) }))
+    .filter((h) => !seen.has(h.slug) && seen.add(h.slug));
 
   return rows.map((h, i) => {
     const nextIndex = (i + 1) % rows.length;
     const n = rows[nextIndex];
     return {
-      params: { slug: toProjectSlug(h.clientSlug, h.collection) },
+      params: { slug: h.slug },
       props: {
-        sourceFolder: h.sourceFolder,
+        projectId: h.projectId,
         collection: h.collection,
         clientName: h.clientName,
         // NextProjectBand card — omitted when this is the only project
@@ -44,7 +47,7 @@ export async function getStaticPaths() {
         nextProject:
           rows.length > 1
             ? {
-                slug: toProjectSlug(n.clientSlug, n.collection),
+                slug: n.slug,
                 clientName: n.clientName,
                 title: n.title ?? n.collection,
                 services: n.services ?? [],
@@ -57,12 +60,11 @@ export async function getStaticPaths() {
   });
 }
 
-const { slug } = Astro.params;
-const { sourceFolder, collection, clientName, nextProject } = Astro.props;
+const { projectId, collection, clientName, nextProject } = Astro.props;
 
 const { assets, client, project } = await sanityFetch(
   FEATURED_PROJECT_DETAIL_QUERY,
-  { sourceFolder, slug }
+  { projectId }
 );
 
 const resolvedTitle = project?.title ?? collection;
