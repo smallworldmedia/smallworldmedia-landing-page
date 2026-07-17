@@ -82,6 +82,14 @@ export default function Hero({ globeAssets }) {
   const accumRef = useRef(0);
   const idleRef = useRef(null);
 
+  // Scene is mounting — release the Envelopment fill if this arrival came
+  // through it (/work first-World scroll-up home, FP-3 — the reverse passage
+  // under the persistent RouteFill, ADR-0002). No-op on direct loads: the
+  // fill is only ever up mid-passage.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+  }, []);
+
   // CTA fill state — same model as /work: fill 0..1, mode drag|release|commit-pin
   const [fill, setFill] = useState(0);
   const [ctaMode, setCtaMode] = useState('drag');
