@@ -9,6 +9,13 @@
  * left pager is a cursor-proximity "dock" — each number scales by how close the
  * cursor is, independently of its neighbours.
  *
+ * At the FIRST World, scrolling up mirrors the hero Envelopment in reverse
+ * (FP-3): upward deltas accumulate toward the house trigger while the
+ * persistent RouteFill pre-covers on the hero's f² curve; stalling
+ * rubber-bands the blue back, crossing the threshold commits — `swm:envelop`
+ * over the house glide, then a client-nav home, where Hero's mount releases
+ * the fill. Reduced motion: modest upward intent → plain navigation.
+ *
  * The WebGL WorldScene (P2) renders the active World behind the card. The World
  * Turn animation between Worlds lands in P3.
  *
@@ -17,12 +24,18 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
+import { navigate } from 'astro:transitions/client';
 import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
 import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
-import { SCROLL_TRIGGER_WORK_PX, TOUCH_GAIN, RELEASE_MS } from '../../lib/motion.js';
+import {
+  SCROLL_TRIGGER_WORK_PX,
+  TOUCH_GAIN,
+  RELEASE_MS,
+  GLIDE_MS,
+} from '../../lib/motion.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 const falloff = (d, spread) => Math.max(0, 1 - d / spread);
@@ -40,6 +53,10 @@ const PAGER_HOVER_GAIN = 1.8; // additive, centred on the cursor
 // before a World Turn fires. Tune live with ?scroll=900.
 const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_WORK_PX);
 const CTA_MAX_EXTRA = 0.3; // CTA scale at full fill / hover = 1 + this
+
+/* — Scroll-up-to-home (FP-3): the reverse Envelopment at the first World — */
+const HOME_PRE_COVER = 0.4; // blue opacity at full upward drag (Hero's f² idiom)
+const RM_WHEEL_THRESHOLD = 60; // reduced motion: modest upward intent → plain nav
 
 export default function FeaturedProjects({ worlds = [] }) {
   const [active, setActive] = useState(0);
@@ -60,6 +77,8 @@ export default function FeaturedProjects({ worlds = [] }) {
   const lockRef = useRef(0);
   const idleRef = useRef(null); // pending rubber-band-back timer
   const cardTimerRef = useRef(null); // removes the exited card after a Turn
+  const departingRef = useRef(false); // reverse Envelopment committed — no Turns, no double-fire
+  const homeFillRef = useRef(0); // last dispatched pre-cover value (upward drag at the first World)
   const activeRef = useRef(0);
   activeRef.current = active;
 
@@ -115,21 +134,56 @@ export default function FeaturedProjects({ worlds = [] }) {
     }
   };
 
+  // RouteFill pre-cover tracking the upward drag at the first World — the
+  // reverse of Hero's ENV_PRE_COVER: blue rises with the gesture, the scene
+  // underneath stays live (RouteFill's `swm:fill-progress` contract).
+  const setHomeFill = (value, duration) => {
+    homeFillRef.current = value;
+    window.dispatchEvent(
+      new CustomEvent('swm:fill-progress', {
+        detail: duration ? { value, duration } : { value },
+      })
+    );
+  };
+
   // Scroll stalled below the threshold → rubber-band the partly-filled CTA back
-  // to rest (you didn't commit, so it relaxes).
+  // to rest (you didn't commit, so it relaxes). Any upward-drag pre-cover
+  // relaxes with it on the same release curve.
   const scheduleRelease = () => {
     clearIdle();
     idleRef.current = setTimeout(() => {
       accumRef.current = 0;
       setCtaMode('release');
       setFill(0);
+      if (homeFillRef.current > 0) setHomeFill(0, 0.4);
     }, RELEASE_MS);
+  };
+
+  // Threshold crossed upward at the first World → commit the reverse
+  // Envelopment: cover with the persistent RouteFill over the house glide
+  // (continuing from wherever the drag's pre-cover left it), then client-nav
+  // home once the blue is solid. Hero's mount releases the fill (ADR-0002).
+  const beginReturnHome = () => {
+    if (departingRef.current) return;
+    departingRef.current = true;
+    clearIdle();
+    accumRef.current = 0;
+    lockRef.current = Number.POSITIVE_INFINITY; // no Turns mid-departure
+    if (PREFERS_REDUCED_MOTION) {
+      navigate('/'); // no theatrics — plain navigation home
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent('swm:envelop', { detail: { duration: GLIDE_MS / 1000 } })
+    );
+    setTimeout(() => navigate('/'), GLIDE_MS + 60); // cover ms + a settle beat
   };
 
   // Threshold crossed → fire the Turn and hold the triggering CTA at full, then
   // ease it back to rest timed to the World Turn settling. `from` is the CTA's
   // current signed fill so it eases down from wherever the scroll left it.
   const commitTurn = (nextActive, direction) => {
+    if (departingRef.current) return; // mid reverse Envelopment — no Turns
     const clamped = Math.max(0, Math.min(lastIndex, nextActive));
     if (clamped === activeRef.current) return;
     clearIdle();
@@ -152,6 +206,7 @@ export default function FeaturedProjects({ worlds = [] }) {
 
   // Pager-dot / button jumps: turn without the scroll-fill choreography.
   const goTo = (i) => {
+    if (departingRef.current) return; // mid reverse Envelopment — no Turns
     const clamped = Math.max(0, Math.min(lastIndex, i));
     if (clamped === activeRef.current) return;
     clearIdle();
@@ -160,6 +215,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     accumRef.current = 0;
     setCtaMode('drag');
     setFill(0);
+    if (homeFillRef.current > 0) setHomeFill(0, 0.4); // pager jump drops a live upward drag
     setActive(clamped);
   };
 
@@ -169,22 +225,42 @@ export default function FeaturedProjects({ worlds = [] }) {
     if (!el || !worlds.length) return undefined;
 
     const addDelta = (dy) => {
+      if (departingRef.current) return; // reverse Envelopment committed — input is done here
       if (performance.now() < lockRef.current) return;
       let a = accumRef.current + dy;
-      if (activeRef.current <= 0) a = Math.max(0, a); // no previous at the first World
       if (activeRef.current >= lastIndex) a = Math.min(0, a); // no next at the last World (v1: directory disabled)
+
+      // No previous at the first World — upward intent accumulates toward
+      // HOME instead (FP-3): the reverse of the hero Envelopment.
+      if (activeRef.current <= 0 && a < 0) {
+        accumRef.current = a;
+        if (PREFERS_REDUCED_MOTION) {
+          // Modest intent → plain navigation (Hero's RM_WHEEL_THRESHOLD idiom).
+          if (a <= -RM_WHEEL_THRESHOLD) beginReturnHome();
+          return;
+        }
+        if (a <= -SCROLL_TRIGGER) {
+          beginReturnHome();
+        } else {
+          // Building toward home — the blue pre-covers on the hero's gentle
+          // f² curve (no CTA renders at the first World; the fill IS the tell).
+          // Any [NEXT] fill from a flipped downward drag relaxes to rest.
+          const f = -a / SCROLL_TRIGGER;
+          setCtaMode('drag');
+          setFill(0);
+          setHomeFill(HOME_PRE_COVER * f * f);
+          scheduleRelease();
+        }
+        return;
+      }
+      // Direction flipped back downward — relax any upward-drag pre-cover.
+      if (homeFillRef.current > 0) setHomeFill(0, 0.4);
       accumRef.current = a;
 
       if (a >= SCROLL_TRIGGER) {
         commitTurn(activeRef.current + 1, 1);
       } else if (a <= -SCROLL_TRIGGER) {
-        if (activeRef.current > 0) {
-          commitTurn(activeRef.current - 1, -1);
-        } else {
-          accumRef.current = 0;
-          setCtaMode('release');
-          setFill(0);
-        }
+        commitTurn(activeRef.current - 1, -1);
       } else {
         // Building the fill — track the scroll, and arm a rubber-band-back in
         // case the user stops short of committing.
@@ -211,7 +287,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     };
     const onTouchEnd = () => {
       touchY = null;
-      scheduleRelease(); // finger up below threshold → relax the CTA
+      if (!departingRef.current) scheduleRelease(); // finger up below threshold → relax the CTA
     };
 
     el.addEventListener('wheel', onWheel, { passive: false });

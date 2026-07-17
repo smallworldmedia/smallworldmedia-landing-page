@@ -15,7 +15,7 @@ export default function SiteFooter({
   return (
     <footer className={`site-footer${noFill ? ' site-footer--nofill' : ''}`}>
       <div className="site-footer__bar">
-        <p className="site-footer__tagline">{tagline}</p>
+        {tagline && <p className="site-footer__tagline">{tagline}</p>}
         <p className="site-footer__copy">
           ©{new Date().getFullYear()} Small World Media LLC. All Rights Reserved.
           {' · '}

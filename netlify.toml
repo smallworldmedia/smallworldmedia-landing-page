@@ -30,3 +30,17 @@
   to = "/"
   status = 302
   force = true
+
+# FP-4b (2026-07-16): homegrwxn merged INTO rossi — permanent move; bellaire
+# unfeatured for now — soft redirect until it returns.
+[[redirects]]
+  from = "/work/homegrwxn"
+  to = "/work/rossi"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/work/bellaire"
+  to = "/work"
+  status = 302
+  force = true

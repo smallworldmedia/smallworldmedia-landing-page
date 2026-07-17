@@ -83,10 +83,12 @@ export const FEATURED_PROJECTS_QUERY = `
 `;
 
 /**
- * FEATURED_PROJECT_PATHS_QUERY — One row per Featured Project collection.
- * Driven by project docs with isFeatured == true; sourceFolder is resolved
- * from the first asset in the collection. No isHero flags needed —
- * first-in-order IS the hero.
+ * FEATURED_PROJECT_PATHS_QUERY — One row per Featured Project doc
+ * (isFeatured == true). The project doc _id is the grouping key the detail
+ * page fetches by (FEATURED_PROJECT_DETAIL_QUERY); `collection` is resolved
+ * from the first asset's sourceManifest purely to derive the route slug
+ * (toProjectSlug — must stay stable for existing URLs). No isHero flags
+ * needed — first-in-order IS the hero.
  *
  * Ordered identically to FEATURED_WORLDS_QUERY (orderRank, client-name
  * tiebreak) so the row order IS the /work World order — /work/[slug]
@@ -99,8 +101,9 @@ export const FEATURED_PROJECTS_QUERY = `
 export const FEATURED_PROJECT_PATHS_QUERY = `
   *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))]
     | order(orderRank asc, client->name asc) {
+    "projectId": _id,
+    "slug": slug.current,
     title,
-    "sourceFolder": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceFolder,
     "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
     "clientName": client->name,
     "clientSlug": client->slug.current,
@@ -194,15 +197,16 @@ export const GLOBE_ASSETS_QUERY = `{
 /**
  * FEATURED_PROJECT_DETAIL_QUERY — Everything one Featured Project page needs.
  *
- * $sourceFolder — the project directory path shared by the collection's assets.
- * $slug         — the route slug; matches an optional `project` document that
- *                 carries editorial copy (overview blurb, display title).
+ * $projectId — the `project` document _id driving this page. Assets join via
+ * the `mediaAsset.project` reference — the SAME grouping the /work Worlds use
+ * (FEATURED_WORLDS_QUERY), so one project doc = one World = one detail page.
+ * Client meta and editorial copy come straight off the project doc.
  *
  * Assets come back in drag-rank order (orderRank, set in Studio) — the
  * Content Population Hierarchy (see CONTEXT.md) turns that order into the layout.
  */
 export const FEATURED_PROJECT_DETAIL_QUERY = `{
-  "assets": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))] | order(orderRank asc) {
+  "assets": *[_type == "mediaAsset" && project._ref == $projectId && !(_id in path("drafts.**"))] | order(orderRank asc) {
     _id,
     title,
     mediaType,
@@ -225,7 +229,7 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
       streamLinks[]{ platform, url }
     }
   },
-  "client": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))][0].client->{
+  "client": *[_type == "project" && _id == $projectId][0].client->{
     name,
     "slug": slug.current,
     clientType,
@@ -234,7 +238,7 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     country,
     links
   },
-  "project": *[_type == "mediaAsset" && sourceFolder == $sourceFolder && !(_id in path("drafts.**"))][0].project->{
+  "project": *[_type == "project" && _id == $projectId][0]{
     title,
     description,
     "yearStart": coalesce(yearStart, year),

@@ -66,6 +66,7 @@ export default function SiteNav({
 
   const linksRef = useRef(null);
   const startRef = useRef(null);
+  const processRef = useRef(null); // home-variant ⊙ process pill (HP-1)
   const followRef = useRef(null);
   const envTlRef = useRef(null);
   const menuRef = useRef(null);
@@ -148,6 +149,7 @@ export default function SiteNav({
       [
         linksRef.current,
         startRef.current,
+        processRef.current,
         followRef.current,
         ...(linksRef.current ? [...linksRef.current.children] : []),
       ].filter(Boolean);
@@ -158,8 +160,11 @@ export default function SiteNav({
       if (!isHome() || reducedMotion) return;
       const tl = gsap.timeline();
       envTlRef.current = tl;
+      if (processRef.current) {
+        tl.to(processRef.current, { y: -64, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
+      }
       if (startRef.current) {
-        tl.to(startRef.current, { y: -64, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
+        tl.to(startRef.current, { x: 90, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
       }
       if (followRef.current) {
         tl.to(followRef.current, { y: 90, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
@@ -187,11 +192,16 @@ export default function SiteNav({
         gsap.killTweensOf(els);
         gsap.set(els, { clearProps: 'all' });
         if (!reducedMotion) {
-          const pills = [startRef.current, followRef.current].filter(Boolean);
+          const pills = [processRef.current, startRef.current, followRef.current].filter(Boolean);
           gsap.fromTo(
             pills,
-            { autoAlpha: 0, y: (i, el) => (el === startRef.current ? -18 : 22) },
-            { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' }
+            {
+              autoAlpha: 0,
+              x: (i, el) => (el === startRef.current ? 18 : 0),
+              y: (i, el) =>
+                el === processRef.current ? -18 : el === followRef.current ? 22 : 0,
+            },
+            { autoAlpha: 1, x: 0, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' }
           );
         }
       } else if (!envTlRef.current?.isActive()) {
@@ -259,15 +269,14 @@ export default function SiteNav({
         {/* Home variant: primary actions as pills (steady state via
             body.route-home in CSS) */}
         <div className="site-nav__start-slot">
-          <button
-            type="button"
-            className="site-nav__pill site-nav__home-cta site-nav__home-start"
-            ref={startRef}
-            onClick={handleStartProject}
+          <a
+            href="/process"
+            className="site-nav__pill site-nav__home-cta site-nav__home-process"
+            ref={processRef}
           >
-            <span className="site-nav__glyph">↳</span>
-            start_project
-          </button>
+            <span className="site-nav__glyph">⊙</span>
+            process
+          </a>
         </div>
 
         {/* Mobile: links collapse into a full-screen menu (≤768px, CSS-gated) */}
@@ -285,16 +294,27 @@ export default function SiteNav({
 
       {shellEl &&
         createPortal(
-          <a
-            href="https://instagram.com/smallworldmedia"
-            className="site-nav__pill site-nav__home-cta site-nav__home-follow"
-            ref={followRef}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <HeartIcon />
-            follow_us
-          </a>,
+          <>
+            <button
+              type="button"
+              className="site-nav__pill site-nav__home-cta site-nav__home-start"
+              ref={startRef}
+              onClick={handleStartProject}
+            >
+              <span className="site-nav__glyph">↳</span>
+              start_project
+            </button>
+            <a
+              href="https://instagram.com/smallworldmedia"
+              className="site-nav__pill site-nav__home-cta site-nav__home-follow"
+              ref={followRef}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <HeartIcon />
+              follow_us
+            </a>
+          </>,
           shellEl
         )}
 

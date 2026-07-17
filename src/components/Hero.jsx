@@ -35,6 +35,7 @@ import { navigate } from 'astro:transitions/client';
 import VideoGlobe from './globe/VideoGlobe.jsx';
 import CtaArrows from './work/CtaArrows.jsx';
 import SiteFooter from './SiteFooter.jsx';
+import HeroText from './HeroText.jsx';
 import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
 import { TURN_EASE_PATH } from './work/world/worldConfig.js';
 import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS, GLIDE_MS } from '../lib/motion.js';
@@ -82,6 +83,14 @@ export default function Hero({ globeAssets }) {
   const accumRef = useRef(0);
   const idleRef = useRef(null);
 
+  // Scene is mounting — release the Envelopment fill if this arrival came
+  // through it (/work first-World scroll-up home, FP-3 — the reverse passage
+  // under the persistent RouteFill, ADR-0002). No-op on direct loads: the
+  // fill is only ever up mid-passage.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+  }, []);
+
   // CTA fill state — same model as /work: fill 0..1, mode drag|release|commit-pin
   const [fill, setFill] = useState(0);
   const [ctaMode, setCtaMode] = useState('drag');
@@ -101,7 +110,7 @@ export default function Hero({ globeAssets }) {
     const envEase = CustomEase.create('swmEnvelop', TURN_EASE_PATH);
     const tl = gsap.timeline({ onComplete: () => navigate('/work') });
     tl.to(
-      heroRef.current.querySelectorAll('.hero__enter-wrap, .hero__footer'),
+      heroRef.current.querySelectorAll('.hero__enter-wrap, .hero__footer, .hero__text'),
       { autoAlpha: 0, duration: 0.2, ease: 'power2.out', overwrite: true },
       0
     );
@@ -127,7 +136,7 @@ export default function Hero({ globeAssets }) {
       const hero = heroRef.current;
       const globeWrap = globeWrapRef.current;
       const veil = hero.querySelector('.hero__veil');
-      const chrome = hero.querySelectorAll('.hero__enter-wrap, .hero__footer');
+      const chrome = hero.querySelectorAll('.hero__enter-wrap, .hero__footer, .hero__text');
 
       if (PREFERS_REDUCED_MOTION) {
         gsap.set(globeWrap, { scale: 1 });
@@ -308,8 +317,11 @@ export default function Hero({ globeAssets }) {
         </button>
         <CtaArrows direction="down" />
       </div>
+      {/* The statement lead — left-center, the /process prose voice
+          (2026-07-16 recomposition; the line moved out of the footer) */}
+      <HeroText />
       <div className="hero__footer">
-        <SiteFooter noFill tagline="Visual Worlds for the Music Industry" />
+        <SiteFooter noFill tagline={false} />
       </div>
     </section>
   );
