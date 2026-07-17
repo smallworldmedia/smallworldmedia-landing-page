@@ -28,6 +28,9 @@ import { navigate } from 'astro:transitions/client';
 import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
+// FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
+import Fp1TunePanel from './Fp1TunePanel.jsx';
+import { FP1_TUNE_ACTIVE } from './fp1Tune.js';
 import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 import {
@@ -66,6 +69,12 @@ export default function FeaturedProjects({ worlds = [] }) {
   const [ctaMode, setCtaMode] = useState('drag'); // 'drag' tracks scroll | 'release' rubber-bands back | 'commit' eases back over a Turn
   const [hoverNext, setHoverNext] = useState(false);
   const [hoverPrev, setHoverPrev] = useState(false);
+  // FP-1 bench: mount only AFTER hydration. FP1_TUNE_ACTIVE reads
+  // window.location.search (false during SSR, true on the client), so gating
+  // JSX on it directly hydration-mismatches (#418). Start false everywhere,
+  // flip on in an effect — SSR and first client render both emit nothing.
+  const [fp1TuneOn, setFp1TuneOn] = useState(false);
+  useEffect(() => { if (FP1_TUNE_ACTIVE) setFp1TuneOn(true); }, []);
   // Co-present cards during a Turn: the incoming (phase 'enter') + the outgoing
   // (phase 'exit'), so the card rides in/out with the media. Each is keyed by index.
   const [cards, setCards] = useState([{ index: 0, dir: 1, phase: 'enter' }]);
@@ -441,6 +450,7 @@ export default function FeaturedProjects({ worlds = [] }) {
 
   return (
     <main className="fp" aria-label="Featured projects" ref={mainRef}>
+      {fp1TuneOn && <Fp1TunePanel />}
       <WorldScene world={w} index={active} />
 
       <nav

@@ -12,6 +12,9 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import '../../styles/featured-projects.css';
+// FP-1 house-pulse tuning bench styles — only the .fp1-tune tree, which renders
+// solely under ?fp1tune=1; inert on the shipped surface.
+import '../../styles/fp1-tune.css';
 import { sanityFetch } from '../../lib/sanityClient.js';
 import { FEATURED_WORLDS_QUERY } from '../../lib/queries.js';
 import {
