@@ -13,10 +13,10 @@
  *    the inquiry next-field BRIGHTENS (dim → lift → return).
  *
  * 2. The house scroll-gesture constants — the wheel/touch accumulator idiom
- *    shared by the home Envelopment, the /work World Turn, and the /process
- *    quantizer. Per-surface trigger values are deliberate (700 on /process is
- *    heavier than 600 elsewhere — do not flatten them); the gain and release
- *    are the same everywhere and live here once.
+ *    shared by the home Envelopment, the /work World Turn, the detail
+ *    next-project band, and the /process quantizer: trigger 500px and the
+ *    800ms commit glide (Nathan's 2026-07-16 dial), gain and release —
+ *    all living here once.
  *
  * (The World Turn curve itself — TURN_EASE_PATH — stays in worldConfig.js
  * with its ?ease override; this module is for NEW cross-surface primitives.)
@@ -67,11 +67,23 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
    touch deltas gain ×TOUCH_GAIN, and a stall of RELEASE_MS rubber-bands
    back to rest. Surfaces read their own trigger (live-tunable via ?scroll;
    /process gets its own param at rebase so surfaces dial independently). */
-export const SCROLL_TRIGGER_HOME_PX = 600; // home hero Envelopment
-export const SCROLL_TRIGGER_WORK_PX = 600; // /work World Turn
-export const SCROLL_TRIGGER_PROCESS_PX = 500; // /process quantizer (Nathan's 2026-07-16 dial — lighter than home//work)
+export const SCROLL_TRIGGER_HOME_PX = 500; // home hero Envelopment
+export const SCROLL_TRIGGER_WORK_PX = 500; // /work World Turn + detail next-project band
+export const SCROLL_TRIGGER_PROCESS_PX = 500; // /process quantizer
+// ^ unified at 500 per Nathan's 2026-07-16 dial (was 600/600/700) — the
+//   Notion "takes too much scroll power" note, answered. Per-surface
+//   exports stay so a future dial can split them again.
 export const TOUCH_GAIN = 2; // touch deltas 2× — parity with wheel feel
 export const RELEASE_MS = 160; // stall gap before the rubber-band release
+
+/* The house commit GLIDE — what a threshold-crossing gesture settles
+   into (Nathan's 2026-07-16 dial, baked from the /process ?swipems):
+   the /process section glide, the hero Envelopment, and the detail
+   next-project band all ride it. (The /work World-to-World TURN_DURATION
+   is a scene transition, not a commit glide — it keeps its own 1700ms
+   dial in worldConfig.js.) */
+export const GLIDE_MS = 800;
+export const GLIDE_SECONDS = GLIDE_MS / 1000;
 
 /* ── Lenis tuning ─────────────────────────────────────────────────────────
    Spread into the Lenis constructor by smoothScroll.js. Empty = library

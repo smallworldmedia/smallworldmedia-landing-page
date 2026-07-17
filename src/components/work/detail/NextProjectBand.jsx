@@ -47,6 +47,7 @@ import { navigate } from 'astro:transitions/client';
 import useHls from '../useHls.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { scrambleTo } from '../../../lib/scramble.js';
+import { SCROLL_TRIGGER_WORK_PX, GLIDE_MS } from '../../../lib/motion.js';
 import { IMG_FORMAT } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 
@@ -59,7 +60,7 @@ const PARAM = (key, fallback) => {
 };
 
 /* — Resistance (the house accumulator constants) — */
-const SCROLL_TRIGGER = PARAM('scroll', 600); // px of wheel/touch to commit
+const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_WORK_PX); // px of wheel/touch to commit (house constant)
 const STALL_MS = 160; // scroll stalled this long → rubber-band back
 // Unlike / and /work (scroll-locked pages where every delta is deliberate),
 // the gesture here arrives mid-flight: a flick lands at the document end
@@ -69,8 +70,8 @@ const STALL_MS = 160; // scroll stalled this long → rubber-band back
 const NP_ARM_MS = PARAM('nparm', 250);
 
 /* — Passage (Envelopment family defaults) — */
-const NP_SECONDS = PARAM('npms', 650) / 1000; // commit choreography length
-const NP_COVER_SECONDS = PARAM('npcover', 650) / 1000; // blue ramp from t=0
+const NP_SECONDS = PARAM('npms', GLIDE_MS) / 1000; // commit choreography length (house glide)
+const NP_COVER_SECONDS = PARAM('npcover', GLIDE_MS) / 1000; // blue ramp from t=0
 const NP_PRE_COVER = PARAM('nppre', 30) / 100; // blue at full drag (f² curve)
 const NP_ZOOM = PARAM('npzoom', 1.35); // media push-in over the commit
 

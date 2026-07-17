@@ -37,7 +37,7 @@ import CtaArrows from './work/CtaArrows.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
 import { TURN_EASE_PATH } from './work/world/worldConfig.js';
-import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS } from '../lib/motion.js';
+import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS, GLIDE_MS } from '../lib/motion.js';
 
 gsap.registerPlugin(useGSAP, CustomEase);
 
@@ -61,9 +61,9 @@ const REPLAY_SCALE = 0.86;
    scale-up, reaching solid right as navigation fires — an early, gradual
    arrival of the blue rather than a late snap. Defaults per Nathan's
    feel-pass 2026-07-02. */
-const ENV_SECONDS = PARAM('envms', 650) / 1000;
+const ENV_SECONDS = PARAM('envms', GLIDE_MS) / 1000; // house commit glide (motion.js)
 const ENV_SCALE = PARAM('envscale', 3.0);
-const ENV_COVER_SECONDS = PARAM('envcover', 650) / 1000; // fade length from t=0; ≈ envms = solid at handoff
+const ENV_COVER_SECONDS = PARAM('envcover', GLIDE_MS) / 1000; // fade length from t=0; ≈ envms = solid at handoff
 
 /* — Scroll-fill (mirrors /work's CTA choreography + knobs) — */
 const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_HOME_PX); // px of wheel/touch to commit
