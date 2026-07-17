@@ -130,9 +130,11 @@
 
   /* Chrome inset — the shared horizontal hug for nav / mobile menu / footer.
      One token so they never drift apart; the right edge everywhere adds
-     var(--space-4) scrollbar clearance on top of this. */
-  --nav-inset: 1.143rem;
-  /* 16px */
+     var(--space-4) scrollbar clearance on top of this.
+     2026-07-16 (NAV-1, Nathan's pick): tightened 16px → 4px — the chrome
+     hugs the viewport. */
+  --nav-inset: var(--space-2);
+  /* 4px */
 
   /* Radii */
   --radius-pill: 3.571rem;
@@ -932,8 +934,11 @@ body.route-home .site-nav__links {
    Simple variant: near-black bar, globe mark + copyright.
    `--nofill` drops both fills for overlay use (home hero). */
 .site-footer {
-  padding: 3.5rem 0.571rem 0.571rem;
-  /* 49px 8px 8px */
+  /* FT-1: horizontal outer pad dropped — the bar runs full-bleed and its
+     INNER padding carries the shared --nav-inset, so footer content sits
+     exactly on the nav's edges. */
+  padding: 3.5rem 0 0.571rem;
+  /* 49px 0 8px */
   background: var(--color-black);
 }
 
@@ -943,7 +948,9 @@ body.route-home .site-nav__links {
   gap: 0.857rem;
   /* 12px */
   padding: 0.571rem var(--nav-inset);
-  /* 8px 16px */
+  /* 8px 4px — the nav's hug */
+  /* scrollbar clearance, the nav's right-edge idiom */
+  padding-right: calc(var(--nav-inset) + var(--space-4));
   background: var(--color-near-black);
 }
 
