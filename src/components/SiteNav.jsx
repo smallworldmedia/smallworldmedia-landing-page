@@ -24,21 +24,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
-import { scrambleTo } from '../lib/scramble.js';
 
-/* ── NAV-2 fx lab (?navfx=1..4) ──────────────────────────────────────────
-   Variant selector for the nav micro-interaction lab — read ONCE at
+/* ── NAV micro-interaction (default = kinetic rule; ?navfx=3 = brackets) ──
+   The kinetic rule + current-page state are the DEFAULT nav — no param.
+   ?navfx=3 selects the BRACKETS ALT (the /work chip language), read ONCE at
    hydration (the CtaArrows ?caret idiom). The island is client:load +
-   transition:persist and never remounts, so the module const holds for
-   the whole session across client navs (the param drops off the URL after
-   the first swap — by design). Rendered as data-navfx on both chrome
-   roots (.site-nav and the portaled .mobile-menu); all variant CSS lives
-   in global.css scoped under [data-navfx="N"]. No param → null → zero
-   DOM delta. Remove with the lab at bake. */
+   transition:persist and never remounts, so the const holds for the whole
+   session across client navs (the param drops off the URL after the first
+   swap — by design). Rendered as data-navfx="3" on both chrome roots
+   (.site-nav and the portaled .mobile-menu) when the alt is selected; the
+   alt's CSS lives in global.css scoped under [data-navfx="3"]. Any other
+   value (or none) → null → the promoted default. */
 const NAVFX = (() => {
   if (typeof window === 'undefined') return null;
-  const v = new URLSearchParams(window.location.search).get('navfx');
-  return v === '1' || v === '2' || v === '3' || v === '4' ? v : null;
+  return new URLSearchParams(window.location.search).get('navfx') === '3' ? '3' : null;
 })();
 
 /** Minimal inline glyph icons (Figma uses Simple Design System icons) */
@@ -86,7 +85,7 @@ export default function SiteNav({
   const followRef = useRef(null);
   const envTlRef = useRef(null);
   const menuRef = useRef(null);
-  const fxRuleRef = useRef(null); // NAV-2 variant 4 — kinetic rule (sibling of the links row)
+  const fxRuleRef = useRef(null); // kinetic rule (sibling of the links row)
   const [menuOpen, setMenuOpen] = useState(false);
   // Portal target for the fixed follow pill + mobile menu — client-only
   // (island is SSR'd)
@@ -95,11 +94,13 @@ export default function SiteNav({
     setShellEl(document.querySelector('.site-shell'));
   }, []);
 
-  // NAV-2 two-pass activation: the island is SSR'd and React 19 hydration
-  // adopts the server DOM without patching attribute mismatches — so
-  // data-navfx and the variant-3/4 conditional elements must land as a
-  // post-mount UPDATE (server render and first client render match). With
-  // no param the state stays null: zero re-render, DOM byte-identical.
+  // Two-pass activation for the ?navfx=3 alt: the island is SSR'd and React
+  // 19 hydration adopts the server DOM without patching attribute mismatches
+  // — so the data-navfx="3" attribute must land as a post-mount UPDATE
+  // (server render and first client render match). With no param the state
+  // stays null: zero re-render, DOM byte-identical. The kinetic rule element
+  // renders UNCONDITIONALLY now — it is in the server DOM too, so it hydrates
+  // clean.
   const [navfx, setNavfx] = useState(null);
   useEffect(() => {
     if (NAVFX) setNavfx(NAVFX);
@@ -247,22 +248,20 @@ export default function SiteNav({
     };
   }, []);
 
-  // ── NAV-2: current-page state (data-current + aria-current) ──
+  // ── Current-page state (data-current + aria-current) ──
   // Derived from window.location on hydrate and on every astro:after-swap
   // (the island never remounts). Href-keyed by construction: start_project
   // is an interception (never current) and follow_us is external (never
   // current) — only featured_projects (/work, /work/*) and process
   // (/process) can match. The attributes survive the choreography onSwap
   // wipe (killTweensOf + clearProps strips inline STYLES only) and the
-  // envelop stagger (transforms, not attributes). Lab-gated on NAVFX so
-  // the no-param DOM stays byte-identical — promote aria-current to
-  // unconditional at bake (a strict a11y win, deferred until a variant is
-  // blessed). Deps [shellEl]: the portaled mobile items only exist after
-  // the setShellEl effect re-renders, so re-run once the portal lands and
-  // a hard load of /work also marks the menu items (desktop links refresh
-  // twice, harmlessly).
+  // envelop stagger (transforms, not attributes). UNCONDITIONAL: aria-current
+  // is a strict a11y win and data-current is the kinetic rule's resting seat
+  // — both run with no URL param. Deps [shellEl]: the portaled mobile items
+  // only exist after the setShellEl effect re-renders, so re-run once the
+  // portal lands and a hard load of /work also marks the menu items (desktop
+  // links refresh twice, harmlessly).
   useEffect(() => {
-    if (!NAVFX) return undefined;
     const refreshCurrent = () => {
       const path = window.location.pathname.replace(/\/$/, '') || '/';
       const isCurrent = (href) =>
@@ -285,87 +284,7 @@ export default function SiteNav({
     return () => document.removeEventListener('astro:after-swap', refreshCurrent);
   }, [shellEl]);
 
-  // ── NAV-2 variant 2: scramble pass (desktop links only) ──
-  // One scramble-resolve of the label on hover-enter / keyboard focus, at
-  // a quicker chrome register than the unhurried 1.4s hero pace (chrome
-  // must answer fast). A running pass is never stacked and always lands on
-  // the canonical text; the label box is width-pinned during the pass (the
-  // SCRAMBLE_CHARS render proportional in PP Neue Montreal — the row must
-  // not jitter). Mobile items get no scramble (a tap navigates immediately
-  // — a cut-off pass is noise); their :active flash is pure CSS.
-  useEffect(() => {
-    if (navfx !== '2') return undefined;
-    const linksEl = linksRef.current;
-    if (!linksEl) return undefined;
-    const links = [...linksEl.querySelectorAll('.site-nav__link')];
-    const tweens = new WeakMap();
-    const labels = new Map();
-    links.forEach((link) => {
-      const label = link.querySelector('.site-nav__label');
-      if (!label) return;
-      // Canonical text — the restore source of truth for every cleanup.
-      label.dataset.label = label.textContent;
-      // AT stability: the scramble mutates the accessible name mid-
-      // announcement — pin the announced name so focus reads clean.
-      link.setAttribute('aria-label', label.dataset.label);
-      labels.set(link, label);
-    });
-
-    const run = (link) => {
-      const label = labels.get(link);
-      if (!label) return;
-      const prev = tweens.get(link);
-      if (prev && prev.isActive()) return; // no stacking — a pass completes
-      // scrambleTo FIRST: under reduced motion it degrades to an instant
-      // text set and returns null — bail entirely (no class, no width
-      // lock) so the accent tint can never stick.
-      const tween = scrambleTo(label, label.dataset.label, { duration: 0.45, speed: 0.3 });
-      if (!tween) return;
-      label.style.width = `${label.offsetWidth}px`; // pin the box, overflow stays visible
-      link.classList.add('is-scrambling');
-      tween.eventCallback('onComplete', () => {
-        label.style.width = '';
-        link.classList.remove('is-scrambling');
-      });
-      tweens.set(link, tween);
-    };
-
-    const onEnter = (e) => run(e.currentTarget);
-    const onFocusIn = (e) => {
-      if (e.currentTarget.matches(':focus-visible')) run(e.currentTarget);
-    };
-    links.forEach((link) => {
-      link.addEventListener('mouseenter', onEnter);
-      link.addEventListener('focusin', onFocusIn);
-    });
-
-    // Safety net: a label can never be left mid-cycle (or width-pinned, or
-    // tinted) across a navigation. onSwap's clearProps wipe targets the
-    // ANCHORS — this handler owns the label spans' cleanup.
-    const onSwap = () => {
-      links.forEach((link) => {
-        tweens.get(link)?.kill();
-        tweens.delete(link);
-        const label = labels.get(link);
-        if (label) {
-          label.textContent = label.dataset.label;
-          label.style.width = '';
-        }
-        link.classList.remove('is-scrambling');
-      });
-    };
-    document.addEventListener('astro:after-swap', onSwap);
-    return () => {
-      onSwap();
-      links.forEach((link) => {
-        link.removeEventListener('mouseenter', onEnter);
-        link.removeEventListener('focusin', onFocusIn);
-      });
-      document.removeEventListener('astro:after-swap', onSwap);
-    };
-  }, [navfx]);
-
-  // ── NAV-2 variant 4: kinetic rule (desktop) ──
+  // ── Kinetic rule (desktop, default) ──
   // One shared 1px rule gliding under the hovered link, resting under the
   // current one. The fxrule is a SIBLING of the links row — invisible to
   // the envelop stagger (which reads linksRef.children) and to onSwap's
@@ -374,11 +293,12 @@ export default function SiteNav({
   // anchors' offsetParent is .site-nav__right (position: relative), the
   // same box the rule is absolute in — offsetLeft/offsetWidth map 1:1
   // with no rect math, and the envelop tween only moves anchors in Y, so
-  // X measurements are always valid. Deps [navfx]: the fxrule span only
-  // renders on the post-mount activation pass — this effect runs in that
-  // same commit, after the ref is populated.
+  // X measurements are always valid. Skipped under the ?navfx=3 brackets
+  // alt (the rule is display:none there). Deps [navfx]: the fxrule element
+  // renders unconditionally (ref populated at mount), and the effect tears
+  // down and stays dormant if the alt activates post-mount.
   useEffect(() => {
-    if (navfx !== '4') return undefined;
+    if (navfx === '3') return undefined;
     const rule = fxRuleRef.current;
     const linksEl = linksRef.current;
     if (!rule || !linksEl) return undefined;
@@ -492,14 +412,12 @@ export default function SiteNav({
       </div>
 
       <div className="site-nav__right">
-        {/* NAV-2: the .site-nav__label spans are the lab's one unconditional
-            markup delta (variants 2 + 3 target them). Styling-inert: the
-            span is the same flex-item box as the anonymous text node it
-            wraps, event bubbling for the start_project interception is
-            unchanged, and .site-nav__links still has the same direct
-            children — the envelop stagger's choreography input. The
-            .site-nav__fxcaret spans render only under ?navfx=3, INSIDE the
-            anchors, so the stagger child list is untouched. */}
+        {/* The .site-nav__label spans wrap each link's text (the ?navfx=3
+            brackets target them). Styling-inert: the span is the same
+            flex-item box as the anonymous text node it wraps, event bubbling
+            for the start_project interception is unchanged, and
+            .site-nav__links still has the same direct children — the envelop
+            stagger's choreography input. */}
         <div className="site-nav__links" ref={linksRef}>
           <a
             href="/"
@@ -508,12 +426,10 @@ export default function SiteNav({
           >
             <span className="site-nav__glyph">↳</span>
             <span className="site-nav__label">start_project</span>
-            {navfx === '3' && <span className="site-nav__fxcaret" aria-hidden="true" />}
           </a>
           <a href="/work" className="site-nav__link">
             <span className="site-nav__glyph">⁕</span>
             <span className="site-nav__label">featured_projects</span>
-            {navfx === '3' && <span className="site-nav__fxcaret" aria-hidden="true" />}
           </a>
           <a
             href="https://instagram.com/smallworldmedia"
@@ -523,19 +439,17 @@ export default function SiteNav({
           >
             <HeartIcon />
             <span className="site-nav__label">follow_us</span>
-            {navfx === '3' && <span className="site-nav__fxcaret" aria-hidden="true" />}
           </a>
           {/* process link removed for v1 — the process page is a v2 workstream */}
         </div>
 
-        {/* NAV-2 variant 4: the kinetic rule — a SIBLING of the links row,
-            so it escapes both the envelop stagger and onSwap's
-            killTweensOf/clearProps wipe (allEls() never collects it). Its
-            inline transform/width/opacity are owned by the variant-4
+        {/* The kinetic rule (default) — a SIBLING of the links row, so it
+            escapes both the envelop stagger and onSwap's killTweensOf/
+            clearProps wipe (allEls() never collects it). Rendered
+            unconditionally (hydrates clean; hidden by CSS under ?navfx=3);
+            its inline transform/width/opacity are owned by the kinetic-rule
             effect. */}
-        {navfx === '4' && (
-          <span className="site-nav__fxrule" aria-hidden="true" ref={fxRuleRef} />
-        )}
+        <span className="site-nav__fxrule" aria-hidden="true" ref={fxRuleRef} />
 
         {/* Home variant: primary actions as pills (steady state via
             body.route-home in CSS) */}
