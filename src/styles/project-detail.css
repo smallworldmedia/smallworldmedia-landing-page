@@ -551,7 +551,14 @@ a.release-chip--link:hover {
   position: sticky;
   top: calc(2.929rem + 0.857rem);
   z-index: 20; /* above sockets/tiles, below the fixed nav */
-  display: inline-flex;
+  /* Block-level flex (NOT inline-flex): as an inline box the anonymous line
+     box reserved ~1.857rem of height and the negative margin-bottom below
+     could not pull the following .project-detail__flow up — leaving a black
+     gap under the client panel. Block-level + width:max-content keeps the
+     left-gutter chip while letting the net-zero margin math (mt 0.571 +
+     height 1.857 + mb -(1.857+0.571)) collapse the footprint to 0 so the
+     media sits flush. Do not revert to inline-flex. */
+  display: flex;
   align-items: center;
   gap: 0.429rem;
   width: max-content;
