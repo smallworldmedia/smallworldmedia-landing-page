@@ -23,6 +23,7 @@ import { CustomEase } from 'gsap/CustomEase';
 import {
   HOUSE_PULSE_PERIOD_S,
   HOUSE_PULSE_ON_RATIO,
+  ensureHousePulse,
 } from '../../lib/motion.js';
 
 export const FP1_TUNE_ACTIVE =
@@ -121,7 +122,13 @@ export function buildHousePulsePath(s = state) {
   const cp2x = peakX * CP2X_RATIO;
   const attack = `C${fmt(cp1x)},${fmt(cp1y)} ${fmt(cp2x)},${fmt(cp2y)} ${fmt(peakX)},1`;
 
-  const hold = `L${fmt(holdEndX)},1`;
+  // A CustomEase must be a function of x — the path's x has to march forward.
+  // The hold sits at the peak, so it can never start before peakX; clamp it
+  // (and keep it below 1 so the fall has room). Without this, a holdEndX slider
+  // dragged below peakX emits `L{holdEndX},1` running backwards → GSAP throws
+  // "Invalid CustomEase". A zero-length hold at peakX is valid.
+  const holdX = Math.min(0.999, Math.max(peakX, holdEndX));
+  const hold = `L${fmt(holdX)},1`;
 
   // Fall: a literal linear L (house) unless eased, so the default string stays
   // byte-identical to the house token. Bows from a straight line (f=0) to a
@@ -131,13 +138,13 @@ export function buildHousePulsePath(s = state) {
     fall = 'L1,0';
   } else {
     const f = Math.min(1, fallEase);
-    const segx = 1 - holdEndX;
-    const lin1x = holdEndX + segx / 3;
+    const segx = 1 - holdX;
+    const lin1x = holdX + segx / 3;
     const lin1y = 1 - 1 / 3;
-    const lin2x = holdEndX + (2 * segx) / 3;
+    const lin2x = holdX + (2 * segx) / 3;
     const lin2y = 1 - 2 / 3;
-    const soft1x = holdEndX + segx * 0.5;
-    const soft2x = holdEndX + segx * 0.5;
+    const soft1x = holdX + segx * 0.5;
+    const soft2x = holdX + segx * 0.5;
     const f1x = lerp(lin1x, soft1x, f);
     const f1y = lerp(lin1y, 1, f);
     const f2x = lerp(lin2x, soft2x, f);
@@ -170,9 +177,19 @@ export function getLivePulse() {
  * bench.) Caller owns play/kill.
  */
 let liveEaseSeq = 0;
+let lastGoodEase = null;
 export function liveHousePulseLoop(gsap, target) {
   const s = state;
-  const ease = CustomEase.create(`housePulseLive${++liveEaseSeq}`, buildHousePulsePath(s));
+  // buildHousePulsePath clamps to a valid monotonic curve, so this normally
+  // can't throw — but guard anyway: an unforeseen combo must never surface an
+  // uncaught error on the bench. Fall back to the last valid ease.
+  let ease;
+  try {
+    ease = CustomEase.create(`housePulseLive${++liveEaseSeq}`, buildHousePulsePath(s));
+    lastGoodEase = ease;
+  } catch {
+    ease = lastGoodEase || ensureHousePulse();
+  }
   const on = s.period * s.onRatio;
   return gsap.timeline({ repeat: -1, repeatDelay: s.period - on }).to(target, {
     opacity: s.dim,
