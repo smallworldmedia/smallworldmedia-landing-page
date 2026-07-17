@@ -54,6 +54,10 @@ export const TUNING_DEFAULTS = {
   holdBeats: 0.1, // ?hold — S5 envelope: beats held ON blue before the falloff
   decayBeats: 2, // ?decay — S5 envelope: beats of steep (expo) falloff to the floor
   pattern: 'cycle', // ?pattern — S5 sequencing (rows/equator/ripple/checker/random/cycle)
+  decayCurve: 'expo', // ?decaycurve — S5 falloff shape: expo (baked feel) | linear (house-pulse read) — A/B toggle, v2 deck
+  s5Zoom: 1.06, // ?s5zoom — S5 push-in over the S4 framing (world emphasized)
+  s5TiltDeg: 28, // ?s5tilt — S5 axis lean toward ~2:00, eased in on the house curve
+  s5Stroke: 0.85, // ?s5stroke — inner-stroke mix where the falloff lands (0 disables)
   strokePx: 2, // ?stroke — Fragment edge stroke width (screen px; 0 disables)
   mobileDrop: 0.4, // ?dropy — phone: Core sits low so the centered copy band gets clear air
   swipe: 'on', // ?swipe — one-section-per-swipe scroll (off = free document scroll)
@@ -82,6 +86,10 @@ export const TUNING = {
   holdBeats: num('hold', TUNING_DEFAULTS.holdBeats),
   decayBeats: num('decay', TUNING_DEFAULTS.decayBeats),
   pattern: str('pattern', TUNING_DEFAULTS.pattern),
+  decayCurve: str('decaycurve', TUNING_DEFAULTS.decayCurve),
+  s5Zoom: num('s5zoom', TUNING_DEFAULTS.s5Zoom),
+  s5TiltDeg: num('s5tilt', TUNING_DEFAULTS.s5TiltDeg),
+  s5Stroke: num('s5stroke', TUNING_DEFAULTS.s5Stroke),
   strokePx: num('stroke', TUNING_DEFAULTS.strokePx),
   mobileDrop: num('dropy', TUNING_DEFAULTS.mobileDrop),
   swipe: str('swipe', TUNING_DEFAULTS.swipe),
@@ -98,6 +106,11 @@ export const RHYTHM_PATTERNS = ['cycle', 'rows', 'equator', 'ripple', 'checker',
 /* — Fixed constants — */
 export const LIT_COLOR = 0x0000ff; // electric blue — panel fill AND field; strokes/power do the separating
 export const STROKE_COLOR = 0x000000; // Fragment edge stroke — black on the blue field
+/* S5 inner stroke: the "brown-blue" visible when panels go dark (v2 deck).
+   First swatches — Nathan confirms at the feel pass. A = the resting ink,
+   B = the warmer end of the per-panel offset color drift. */
+export const S5_STROKE_A = 0x3e3a52;
+export const S5_STROKE_B = 0x53402f;
 export const DESKTOP_OFFSET_X = 0.28; // globe right-of-center (fraction of visible half-width)
 export const EXIT_RATIO = 0.7; // exits/reversals ≈0.7× their entrance durations
 export const PASS_BEATS = 8; // S5: one pattern pass per 8 beats

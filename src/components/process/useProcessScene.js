@@ -78,6 +78,8 @@ import {
   TUNING,
   LIT_COLOR,
   STROKE_COLOR,
+  S5_STROKE_A,
+  S5_STROKE_B,
   DESKTOP_OFFSET_X,
   EXIT_RATIO,
   PASS_BEATS,
@@ -133,7 +135,9 @@ const getPose = (id) => {
     case 'stage-04':
       return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'black', loops: false };
     case 'stage-05':
-      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'gradient', loops: true };
+      // v2 deck (B8): slight push-in over the S4 framing (?s5zoom) and an
+      // axis lean toward ~2:00 (?s5tilt) — the world, emphasized, off-axis.
+      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill * TUNING.s5Zoom, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'gradient', loops: true, tilt: -THREE.MathUtils.degToRad(TUNING.s5TiltDeg) };
     default:
       return null;
   }
@@ -228,6 +232,8 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       radius: RADIUS,
     });
     const strokeColor = new THREE.Color(STROKE_COLOR);
+    const s5StrokeA = new THREE.Color(S5_STROKE_A);
+    const s5StrokeB = new THREE.Color(S5_STROKE_B);
     panels.forEach((panel) => {
       // Edge-stroke UVs first (needs on-sphere positions), then re-bake
       // the shard to its own local origin (see header note).
@@ -414,6 +420,10 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
     /* — Machine state — */
     let stage = null;
     let activeTl = null;
+    // S5 axis lean (v2 deck, B8). The tick re-asserts rotation every
+    // frame, so the tilt MUST live here and be read there — a tween on
+    // globeGroup.rotation directly would be overwritten next frame.
+    const tiltState = { z: 0 };
     let loopTl = null;
     let beltDrifting = false; // tick writes belt transforms only while true
     let beltHidden = !PREFERS_REDUCED_MOTION; // arrival: shards absent until materializeBelt()
@@ -726,8 +736,15 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
     };
 
     const stopLoops = () => {
-      if (loopTl) loopTl.kill();
+      if (!loopTl) return;
+      loopTl.kill();
       loopTl = null;
+      // Restore the belt/S2 ink: black stroke, color tweens dead. The
+      // caller's transition owns easing uStrokeMix to its pose value.
+      panels.forEach((p) => {
+        gsap.killTweensOf(p.mesh.material.uniforms.uStrokeColor.value);
+        p.mesh.material.uniforms.uStrokeColor.value.copy(strokeColor);
+      });
     };
 
     /* — S5 rhythm engine (the musical rework). Envelope per hit: snap to
@@ -792,7 +809,12 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
           ? ['rows', 'equator', 'ripple', 'checker', 'random']
           : [TUNING.pattern];
       const attack = Math.min(0.07, beat * 0.15);
+      // ?decaycurve (v2 deck, B8): the baked expo falloff vs. the house
+      // pulse's essentially-linear read — Nathan A/Bs without a code edit.
+      const decayEase = TUNING.decayCurve === 'linear' ? 'none' : 'expo.out';
+      const strokeOn = TUNING.s5Stroke > 0.01 && TUNING.strokePx > 0.01;
       const tl = gsap.timeline({ repeat: -1 });
+      const totalLen = names.length * pass;
       names.forEach((name, pi) => {
         const hits = patternHits(name, pi, beat, pass);
         panels.forEach((p, i) => {
@@ -807,20 +829,55 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
           const keyframes = [
             { value: 1.0, duration: attack, ease: 'power2.out' },
             { value: 1.0, duration: hold, ease: 'none' },
-            { value: TUNING.pulseMin, duration: decay, ease: 'expo.out' },
+            { value: TUNING.pulseMin, duration: decay, ease: decayEase },
+          ];
+          // B8: the brown-blue inner stroke surfaces as the light dies —
+          // uStrokeMix rides the envelope INVERSELY (lit = no ink, dark =
+          // inked lattice), same grid, same falloff shape.
+          const strokeKeyframes = [
+            { value: 0, duration: attack, ease: 'power2.out' },
+            { value: 0, duration: hold, ease: 'none' },
+            { value: TUNING.s5Stroke, duration: decay, ease: decayEase },
           ];
           times.forEach((t) => {
             tl.to(p.mesh.material.uniforms.uPower, { keyframes }, pi * pass + t);
+            if (strokeOn) {
+              tl.to(p.mesh.material.uniforms.uStrokeMix, { keyframes: strokeKeyframes }, pi * pass + t);
+            }
           });
         });
       });
-      tl.set({}, {}, names.length * pass); // exact loop length — passes stay on the grid
+      // B8: per-panel offset color drift — each shard's stroke wanders
+      // between the two brown-blues on its own phase (subtle, alive).
+      if (strokeOn) {
+        panels.forEach((p, i) => {
+          const phase = (i / panels.length) * pass * 0.5;
+          tl.fromTo(
+            p.mesh.material.uniforms.uStrokeColor.value,
+            { r: s5StrokeA.r, g: s5StrokeA.g, b: s5StrokeA.b },
+            {
+              r: s5StrokeB.r,
+              g: s5StrokeB.g,
+              b: s5StrokeB.b,
+              duration: Math.max((totalLen - phase) / 2, pass / 2),
+              ease: 'sine.inOut',
+              yoyo: true,
+              repeat: 1,
+            },
+            phase
+          );
+        });
+      }
+      tl.set({}, {}, totalLen); // exact loop length — passes stay on the grid
       return tl;
     };
 
     const startLoops = () => {
       if (PREFERS_REDUCED_MOTION) return; // stills: no idle motion anywhere
       stopLoops();
+      // The rhythm's ink is the S5 brown-blue; the belt's black returns
+      // with stopLoops (any transition away).
+      panels.forEach((p) => p.mesh.material.uniforms.uStrokeColor.value.copy(s5StrokeA));
       loopTl = buildRhythmLoop();
     };
 
@@ -850,6 +907,8 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       });
       innerSphere.visible = pose.innerScale > 0.001;
       innerSphere.scale.setScalar(Math.max(pose.innerScale, 0.001));
+      gsap.killTweensOf(tiltState);
+      tiltState.z = pose.tilt ?? 0;
       // Decoy pool snaps with the pose: full flood in stage-01, gone
       // everywhere else (RM stills included — stage-02's still is the
       // already-refined belt).
@@ -1019,6 +1078,14 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       tl.to(camera.position, { z, duration: frameDur }, 0);
       tl.to(globeGroup.position, { x: offsetX, y: offsetY, duration: frameDur }, 0);
 
+      // S5 axis lean rides the same window (house curve — "the same
+      // synced animation curve"); eases back to upright on the way out.
+      const tiltTarget = pose.tilt ?? 0;
+      if (Math.abs(tiltState.z - tiltTarget) > 1e-4) {
+        gsap.killTweensOf(tiltState);
+        tl.to(tiltState, { z: tiltTarget, duration: frameDur }, 0);
+      }
+
       // Background beat. The blue↔black boundary rides the S2↔S3 dolly as
       // the contraction/expansion; every other pairing crossfades.
       tl.call(() => setBgAttr(pose.bg), null, 0);
@@ -1073,11 +1140,17 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       } else {
         // Pose morph. Emanation (panel-scale change) staggers on its own
         // order; form changes tween shard transforms scatter ↔ home.
+        // v2 deck (B7): the emanation answers a beat AFTER the scroll
+        // commit (EMANATE_LAG — weight/tension), with a wider stagger
+        // spread and a seeded per-panel jitter for a livelier offset.
+        const EMANATE_LAG = 0.16;
         const emanating = !toBelt && Math.abs(pose.panelScale - panels[0].mesh.scale.x) > 1e-3;
         const dur = TUNING.stageSeconds * 0.6 * durMult;
         panels.forEach((p) => {
           const u = p.mesh.material.uniforms;
-          const at = emanating ? panelDelay(p, TUNING.emanateOrder, TOTAL_ROWS) * 0.55 * durMult : 0;
+          const at = emanating
+            ? (EMANATE_LAG + panelDelay(p, TUNING.emanateOrder, TOTAL_ROWS) * 0.85 + (p.drift.phase / (Math.PI * 2)) * 0.12) * durMult
+            : 0;
           const target = toBelt
             ? p.beltPos
             : { x: p.homeOffset.x * pose.panelScale, y: p.homeOffset.y * pose.panelScale, z: p.homeOffset.z * pose.panelScale };
@@ -1229,6 +1302,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         camera.position.z = z;
         globeGroup.position.x = offsetX;
         globeGroup.position.y = offsetY;
+        tiltState.z = pose.tilt ?? 0; // ?s5tilt applies live at rest
         if (pose.form === 'belt' && !threadActive) {
           panels.forEach((p) => {
             if (p.driftFactor > 0.5) {
@@ -1285,7 +1359,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       sceneTime += step;
       statFrames += 1;
       yaw += AUTO_ROTATE_SPEED * step;
-      globeGroup.rotation.set(pitch, yaw, 0);
+      globeGroup.rotation.set(pitch, yaw, tiltState.z);
       if (beltDrifting) {
         // Suspended point cloud (v2 deck): slow LINEAR self-rotation at
         // per-shard varied speeds; positions rest — the whole-cloud

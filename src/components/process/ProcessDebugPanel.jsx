@@ -34,6 +34,9 @@ const SLIDERS = [
   { key: 'pulseMin', param: 'pulsemin', min: 0, max: 1, step: 0.01 },
   { key: 'holdBeats', param: 'hold', min: 0, max: 2, step: 0.05 },
   { key: 'decayBeats', param: 'decay', min: 0.1, max: 4, step: 0.05 },
+  { key: 's5Zoom', param: 's5zoom', min: 1, max: 1.3, step: 0.01 },
+  { key: 's5TiltDeg', param: 's5tilt', min: 0, max: 60, step: 1 },
+  { key: 's5Stroke', param: 's5stroke', min: 0, max: 1, step: 0.05 },
   { key: 'mobileDrop', param: 'dropy', min: 0, max: 0.5, step: 0.02 },
   { key: 'swipePx', param: 'swipepx', min: 150, max: 1200, step: 25 },
   { key: 'swipeSeconds', param: 'swipems', min: 0.4, max: 2.5, step: 0.05, ms: true },
@@ -44,6 +47,7 @@ const SELECTS = [
   { key: 'cascadeVariant', param: 'cascade', options: VARIANTS },
   { key: 'emanateOrder', param: 'emanateorder', options: VARIANTS },
   { key: 'pattern', param: 'pattern', options: RHYTHM_PATTERNS },
+  { key: 'decayCurve', param: 'decaycurve', options: ['expo', 'linear'] },
   { key: 'swipe', param: 'swipe', options: ['on', 'off'] },
 ];
 
