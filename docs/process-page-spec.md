@@ -104,17 +104,16 @@ Per-panel `mesh.scale.setScalar(k)`, 1→`?emanate` (default 1.8), staggered by 
 ### S5 — living_world (the rhythm — musical engine, 2026-07-13)
 Panels settle at the expanded radius; looping `uPower` pattern timelines run on a per-hit **musical envelope**: snap to full blue (attack ~60ms) → **hold on blue** (`?hold` beats) → **steep expo falloff** to a deep floor (`?pulsemin`, default 0.12 — the drama lives in how dark the wake gets). Patterns (`?pattern`): `rows` waterfall · `equator`-out radiation · `ripple` (radial from a central panel, angular-distance delays) · `checker` (per-beat parity alternation — the offbeat groove) · `random` (seeded shuffle, re-dealt per pass) · **`cycle`** (default — rotates the vocabulary, one pattern per `PASS_BEATS`-beat pass). Cadence anchored to `?bpm` (default 133). Between hits a panel rests dark — the waves are light. Ambient yaw continues; the loop idles indefinitely at the page's foot over the home-hero gradient.
 
-**Draw calls by stage:** ~85 throughout — the belt and the globe are the *same* 84 panel meshes (inner sphere joins at assembly), plus the SVG Thread overlay during S2. Home-globe parity with zero texture memory.
+**Draw calls by stage:** ≤88 throughout — the belt and the globe are the *same* 84 panel meshes; the S1 decoy flood is ONE InstancedMesh (+1), the in-scene Thread +1 during S2, the inner sphere +1 from assembly. Home-globe parity with zero texture memory.
 
 ## 4. The Thread
 
-A screen-space SVG overlay above the canvas (below copy), ~2px stroke — **black ink on the blue field** (`data-bg` keyed; electric blue on any other field):
+**Amended 2026-07-16 (v2 revision deck, B3): the Thread is a true in-scene line now** — a `Line2` (three/examples wide-line: screen-constant width without the 1px platform limit) child of `globeGroup`, `depthTest` on, ink **black** (it only ever shows on the blue field). The 2026-07-13 "annotation layer / occlusion is the anti-goal" reading is superseded: Nathan's deck asks for the opposite — the string lives INSIDE the world and the world hides it.
 
-- **Path (2026-07-13 — straight, and a real mechanism):** origin at the belt's center — the Core's center-to-be — then through the chained Fragments' projected centers as **straight `L` segments** (`Vector3.project(camera)` → viewport px; `?threadhops`+1 points re-projected per frame during S2, since the targets drift until claimed). No curvature: the string must read as the thing that pulls, not an annotation — the old quadratic smoothing was the "pseudo-assembly" Nathan cut.
-- **Draw-on:** `stroke-dasharray`/`stroke-dashoffset` tween — the house technique (`src/components/ProjectOverlay.jsx:15`, CheckIndicator: "stroke-dashoffset animation via GSAP (DrawSVG-style without plugin)"). Duration `?threadms` (200ms per hop), house curve, hop-by-hop with pings; a struck Fragment's drift damps so the drawn path holds its shape.
-- **Hand-off (beads on the taut string):** the assembly stagger IS the hop order — the string's beads seat into the Core in connection sequence while the polyline tracks them inward, then the string releases (fades) once its beads have seated.
-- **Why not in-scene** (`THREE.Line`/tube): 1px line-width platform limits, per-frame tube rebuilds against drifting targets, and the After-Effects trim-path reference is an annotation-layer read — depth occlusion is the anti-goal.
-- **Reduced motion:** the Thread renders fully drawn, static.
+- **Path (straight, and a real mechanism):** origin at the belt's center — the Core's center-to-be — then through the chained Fragments as **straight world-space chords**, no intermediate vertices. Each hop attaches via the shard's **inside normal** (the concave side, `−centerDir` rotated by the live tumble): a shard facing the camera occludes its own connection point, and opaque Fragments in front of a segment hide it.
+- **Draw-on:** the dashed `LineMaterial` as trim path — `dashSize` = drawn world-length fraction, one huge gap. Duration `?threadms` per hop, house curve, hop-by-hop with pings; a struck Fragment's drift damps so the drawn path holds its shape. Width rides `?stroke` (the Fragment ink width).
+- **Hand-off (beads swallow their string):** the assembly stagger IS the hop order — the string's beads seat into the Core in connection sequence while the line tracks them inward; **no fade**: the closing shell and the surfacing inner sphere OCCLUDE the interior chords away — the string is obscured into the globe.
+- **Reduced motion:** the Thread renders fully drawn, static (with real occlusion where shards cross it).
 
 ## 5. Scroll choreography
 
