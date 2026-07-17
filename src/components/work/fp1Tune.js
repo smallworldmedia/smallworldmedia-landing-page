@@ -162,13 +162,17 @@ export function getLivePulse() {
 /**
  * Build a paused pulse loop on `target` from the CURRENT live state — the
  * live-tuning counterpart of motion.js housePulseLoop, specialised to the
- * enter_world opacity dim. Recreates the CustomEase under a stable temp name
- * (overwritten each call, so the registry never leaks) and passes the returned
- * function straight to the tween. Caller owns play/kill.
+ * enter_world opacity dim. Registers the CustomEase under a UNIQUE name each
+ * call and passes the returned function straight to the tween. (Reusing one
+ * name threw "Invalid CustomEase" when a rebuild landed while the prior
+ * pulse timeline was mid-render; a fresh name per rebuild can't collide.
+ * The stale entries are a negligible dev-only registry cost on this gated
+ * bench.) Caller owns play/kill.
  */
+let liveEaseSeq = 0;
 export function liveHousePulseLoop(gsap, target) {
   const s = state;
-  const ease = CustomEase.create('housePulseLive', buildHousePulsePath(s));
+  const ease = CustomEase.create(`housePulseLive${++liveEaseSeq}`, buildHousePulsePath(s));
   const on = s.period * s.onRatio;
   return gsap.timeline({ repeat: -1, repeatDelay: s.period - on }).to(target, {
     opacity: s.dim,
