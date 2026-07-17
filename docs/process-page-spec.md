@@ -171,6 +171,9 @@ A screen-space SVG overlay above the canvas (below copy), electric-blue stroke ~
 | `?bpm` | 122 | S5 pattern-loop tempo |
 | `?cascade` | rows | S3 light-up variant (`rows`/`poles`/`sweep`) |
 | `?fillfrac` | 0.85 / 0.7 | camera fit fraction desktop / mobile |
+| `?lerp` | unset (Lenis 0.1) | site-wide Lenis smoothing lerp — every Lenis document-scroll route, `/process` included (A2b dial, read by `smoothScroll.js`; blessed values bake into `LENIS_TUNING`, `motion.js`) |
+| `?wheelmult` | unset (Lenis 1) | site-wide Lenis `wheelMultiplier` (A2b dial, same bake path) |
+| `?lenisdur` | unset | site-wide Lenis `duration` in SECONDS — duration mode overrides lerp (A2b dial, same bake path) |
 | `?debug` | off | tuning panel (stage jump buttons, knob sliders, fps/draw stats) |
 
 ## 10. Build order

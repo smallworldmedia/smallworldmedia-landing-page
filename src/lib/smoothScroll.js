@@ -33,7 +33,26 @@ function start() {
   if (lenis) return;
   // House scroll feel: LENIS_TUNING (src/lib/motion.js) overlays the library
   // defaults — empty today, filled by the A2 dial-in session.
-  lenis = new Lenis({ autoRaf: false, ...LENIS_TUNING });
+  //
+  // A2b live dial — ?lerp (Lenis lerp), ?wheelmult (wheelMultiplier),
+  // ?lenisdur (Lenis duration, SECONDS — switches Lenis to duration mode,
+  // which overrides lerp). Only params present in the URL enter the
+  // constructor, so with none set the input is byte-identical to
+  // { autoRaf: false, ...LENIS_TUNING }. Blessed values from the dial
+  // session get baked into LENIS_TUNING (motion.js).
+  const overrides = {};
+  if (typeof window !== 'undefined') {
+    const search = new URLSearchParams(window.location.search);
+    for (const [param, option] of [
+      ['lerp', 'lerp'],
+      ['wheelmult', 'wheelMultiplier'],
+      ['lenisdur', 'duration'],
+    ]) {
+      const n = parseFloat(search.get(param));
+      if (Number.isFinite(n)) overrides[option] = n;
+    }
+  }
+  lenis = new Lenis({ autoRaf: false, ...LENIS_TUNING, ...overrides });
   tickerFn = (time) => lenis.raf(time * 1000);
   gsap.ticker.add(tickerFn);
   gsap.ticker.lagSmoothing(0);
