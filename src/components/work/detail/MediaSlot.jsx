@@ -23,12 +23,15 @@ import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 const SLOT_IMG_WIDTH = 1400;
 
 /** hls.js config for detail slots — prefetch the first fragment alongside
-    manifest parsing, and start at the 720p rendition so the first painted
-    frame is sharp; ABR adapts from there (capLevelToPlayerSize stays on
-    inside useHls). */
+    manifest parsing, and start two rungs up the ladder (~720p on Mux's
+    typical ladder) so the first painted frame is sharp; ABR adapts from
+    there (capLevelToPlayerSize stays on inside useHls). maxBufferLength
+    caps the forward buffer per active slot — the masonry can hold several
+    live streams at once (grid uses 8, pools use 10). */
 const DETAIL_HLS_CONFIG = {
   startFragPrefetch: true,
   startLevel: 2,
+  maxBufferLength: 12,
 };
 
 /** IO pre-load band — vertical-only; horizontal margin is inert on a

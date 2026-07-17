@@ -89,11 +89,13 @@ const GUTTER = 8; // page edge + element gap (--space-4)
 const MEDIA_IMG_WIDTH = 1400;
 
 /* — hls.js config for the band's media window — prefetch the first fragment
-   alongside manifest parsing and start at the 720p rendition; ABR adapts
-   from there (capLevelToPlayerSize stays on inside useHls). — */
+   alongside manifest parsing and start two rungs up the ladder (~720p on
+   Mux's typical ladder); ABR adapts from there (capLevelToPlayerSize stays
+   on inside useHls). maxBufferLength caps the forward buffer. — */
 const BAND_HLS_CONFIG = {
   startFragPrefetch: true,
   startLevel: 2,
+  maxBufferLength: 12,
 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
