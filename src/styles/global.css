@@ -130,6 +130,12 @@
   --space-6: 0.857rem;
   /* 12px */
 
+  /* Chrome inset — the shared horizontal hug for nav / mobile menu / footer.
+     One token so they never drift apart; the right edge everywhere adds
+     var(--space-4) scrollbar clearance on top of this. */
+  --nav-inset: 1.143rem;
+  /* 16px */
+
   /* Radii */
   --radius-pill: 3.571rem;
   /* 50px */
@@ -141,6 +147,49 @@
   --duration-panel: 600ms;
   --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-micro: 220ms;
+
+  /* House slow pulse — CSS approximation of HOUSE_PULSE_PATH in
+     src/lib/motion.js (the source of truth). --ease-pulse shapes the
+     softened attack segment; --duration-pulse is the FULL cycle
+     (hit + equal rest). */
+  --ease-pulse: cubic-bezier(0.3, 0, 0.25, 1);
+  --duration-pulse: 3000ms;
+}
+
+/* House pulse envelope, dim polarity (the enter_world reading): rest → soft
+   dip → slight hold → essentially linear return, then an equal rest interval.
+   Brighten consumers (inquiry next-field) key the same stops on their own
+   property. Keyframe map: attack 0–7.5%, hold →12.5%, linear fall →50%,
+   rest →100%. */
+@keyframes house-pulse {
+  0% {
+    opacity: 1;
+    animation-timing-function: var(--ease-pulse);
+  }
+  7.5% {
+    opacity: 0.62;
+    animation-timing-function: linear;
+  }
+  12.5% {
+    opacity: 0.62;
+    animation-timing-function: linear;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.house-pulse {
+  animation: house-pulse var(--duration-pulse) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .house-pulse {
+    animation: none;
+  }
 }
 
 /* ============================================
@@ -245,12 +294,12 @@ button {
   justify-content: space-between;
   height: 2.929rem;
   /* 41px */
-  padding: 0.214rem 1.143rem;
+  padding: 0.214rem var(--nav-inset);
   /* 3px 16px */
   /* extra right clearance: the shell spans 100vw, so a classic scrollbar
      overlays this edge on scrollable routes — the token keeps the last
      nav item clear of it (and geometry identical on every route) */
-  padding-right: calc(1.143rem + var(--space-4));
+  padding-right: calc(var(--nav-inset) + var(--space-4));
   background: var(--color-electric-blue);
   flex-shrink: 0;
 }
@@ -363,7 +412,7 @@ body.route-home .site-nav__links {
 
 .site-nav__home-follow {
   position: fixed;
-  right: calc(1.143rem + var(--space-4));
+  right: calc(var(--nav-inset) + var(--space-4));
   bottom: 0.571rem;
 }
 
@@ -396,8 +445,8 @@ body.route-home .site-nav__links {
   align-items: center;
   justify-content: space-between;
   height: 2.929rem;
-  padding: 0.214rem 1.143rem;
-  padding-right: calc(1.143rem + var(--space-4));
+  padding: 0.214rem var(--nav-inset);
+  padding-right: calc(var(--nav-inset) + var(--space-4));
 }
 
 .mobile-menu__bar img {
@@ -413,7 +462,7 @@ body.route-home .site-nav__links {
   flex-direction: column;
   align-items: flex-start;
   gap: clamp(1.143rem, 4vh, 2.286rem);
-  padding: 0 1.143rem;
+  padding: 0 var(--nav-inset);
   margin: auto 0;
 }
 
@@ -871,7 +920,7 @@ body.route-home .site-nav__links {
   flex-direction: column;
   gap: 0.857rem;
   /* 12px */
-  padding: 0.571rem 1.143rem;
+  padding: 0.571rem var(--nav-inset);
   /* 8px 16px */
   background: var(--color-near-black);
 }
