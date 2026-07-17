@@ -69,7 +69,7 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
    /process gets its own param at rebase so surfaces dial independently). */
 export const SCROLL_TRIGGER_HOME_PX = 600; // home hero Envelopment
 export const SCROLL_TRIGGER_WORK_PX = 600; // /work World Turn
-export const SCROLL_TRIGGER_PROCESS_PX = 700; // /process quantizer (deliberately heavier)
+export const SCROLL_TRIGGER_PROCESS_PX = 500; // /process quantizer (Nathan's 2026-07-16 dial — lighter than home//work)
 export const TOUCH_GAIN = 2; // touch deltas 2× — parity with wheel feel
 export const RELEASE_MS = 160; // stall gap before the rubber-band release
 
