@@ -34,13 +34,13 @@ export const FP1_TUNE_ACTIVE =
    These are the values the panel opens on, and the anchors copy_url diffs
    against (only non-defaults serialise). */
 export const FP1_DEFAULTS = Object.freeze({
-  peakX: 0.15, // attack: x where the value hits the peak (1)
-  attackSoft: 0.5, // attack softness 0 hard → 1 very soft; 0.5 = house cubics
-  holdEndX: 0.25, // hold: x where the flat sit at peak ends
-  fallEase: 0, // fall: 0 linear (house) → 1 fully eased return
-  period: HOUSE_PULSE_PERIOD_S, // full cycle seconds (hit + equal rest)
-  dim: 0.62, // enter_world peak dim opacity at the dip's deepest point
-  rest: 0.4, // rest beat before the first hit (entrance/Turn only)
+  peakX: 0.45, // attack: x where the value hits the peak (1)
+  attackSoft: 1, // attack softness 0 hard → 1 very soft; 1 = the baked house swell
+  holdEndX: 0.235, // hold end (< peakX → clamped to a zero-length crest at peakX)
+  fallEase: 0.65, // fall: 0 linear → 1 fully eased; 0.65 = the baked eased S-fall
+  period: HOUSE_PULSE_PERIOD_S, // full cycle seconds (hit + rest)
+  dim: 0.3, // enter_world peak dim opacity at the dip's deepest point
+  rest: 1.05, // rest beat before the first hit (entrance/Turn only)
   onRatio: HOUSE_PULSE_ON_RATIO, // hit occupies this fraction of the period
 });
 

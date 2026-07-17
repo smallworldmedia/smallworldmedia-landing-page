@@ -35,7 +35,7 @@ import {
   TURN_EASE_PATH,
   PREFERS_REDUCED_MOTION,
 } from './world/worldConfig.js';
-import { housePulseLoop } from '../../lib/motion.js';
+import { housePulseLoop, HOUSE_PULSE_PERIOD_S } from '../../lib/motion.js';
 // FP-1 house-pulse tuning bench (dev-only, ?fp1tune=1). Absent without the
 // param: FP1_TUNE_ACTIVE is false and the shipped pulse stays motion.js default.
 import {
@@ -89,9 +89,10 @@ const PARAM = (key, fallback) => {
 
 // FP-1: once the boot entrance rests, enter_world dims on the house pulse
 // (housePulseLoop's boomerang: bright → dip → return, equal rest between hits).
-const PULSE_PEAK_OPACITY = PARAM('fp1dim', 0.62); // opacity at the dip's deepest point
-const PULSE_PERIOD_S = PARAM('fp1period', 3); // full cycle: hit + equal rest
-const PULSE_REST_BEAT_S = PARAM('fp1rest', 0.4); // beat between boot-end and first dip
+// enter_world reading of the house pulse — Nathan's 2026-07-17 dial.
+const PULSE_PEAK_OPACITY = PARAM('fp1dim', 0.3); // opacity at the dip's deepest point
+const PULSE_PERIOD_S = PARAM('fp1period', HOUSE_PULSE_PERIOD_S); // full cycle: hit + rest
+const PULSE_REST_BEAT_S = PARAM('fp1rest', 1.05); // beat between boot-end and first dip
 
 export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
   const ref = useRef(null);

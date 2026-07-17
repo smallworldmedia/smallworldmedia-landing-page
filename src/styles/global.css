@@ -149,37 +149,31 @@
   --duration-micro: 220ms;
 
   /* House slow pulse — CSS approximation of HOUSE_PULSE_PATH in
-     src/lib/motion.js (the source of truth). --ease-pulse shapes the
-     softened attack segment; --duration-pulse is the FULL cycle
-     (hit + equal rest). */
+     src/lib/motion.js (the source of truth). The keyframes below carry the
+     shape via stops sampled from that curve (Nathan's 2026-07-17 dial), so
+     they run linear; --ease-pulse stays as the single-ease attack shorthand
+     for any lighter consumer. --duration-pulse is the FULL cycle (hit + rest,
+     HOUSE_PULSE_PERIOD_S). */
   --ease-pulse: cubic-bezier(0.3, 0, 0.25, 1);
-  --duration-pulse: 3000ms;
+  --duration-pulse: 2300ms;
 }
 
 /* House pulse envelope, dim polarity (the enter_world reading): rest → soft
-   dip → slight hold → essentially linear return, then an equal rest interval.
-   Brighten consumers (inquiry next-field) key the same stops on their own
-   property. Keyframe map: attack 0–7.5%, hold →12.5%, linear fall →50%,
-   rest →100%. */
+   swell to the dip's floor (0.3) near mid-hit → eased return, then a shorter
+   rest. Stops sampled from HOUSE_PULSE_PATH; the hit occupies 0–75% of the
+   cycle (HOUSE_PULSE_ON_RATIO 0.75), peak at ~33.75%, rest 75–100%. */
 @keyframes house-pulse {
-  0% {
-    opacity: 1;
-    animation-timing-function: var(--ease-pulse);
-  }
-  7.5% {
-    opacity: 0.62;
-    animation-timing-function: linear;
-  }
-  12.5% {
-    opacity: 0.62;
-    animation-timing-function: linear;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-  }
+  0%     { opacity: 1; }
+  7.5%   { opacity: 0.88; }
+  15%    { opacity: 0.66; }
+  22.5%  { opacity: 0.44; }
+  33.75% { opacity: 0.3; }
+  45%    { opacity: 0.43; }
+  52.5%  { opacity: 0.6; }
+  60%    { opacity: 0.79; }
+  67.5%  { opacity: 0.93; }
+  75%    { opacity: 1; }
+  100%   { opacity: 1; }
 }
 
 .house-pulse {
@@ -187,27 +181,21 @@
 }
 
 /* House pulse, brighten polarity — the inquiry next-field reading (INQ-1):
-   rest-dim → lift → slight hold → essentially linear fall back to rest,
-   then the equal rest interval. Same stop map as house-pulse above. */
+   rest-dim (0.5) → soft swell to full → eased fall back to rest, then the
+   shorter rest. Same sampled stop map as house-pulse above, mirrored onto
+   opacity 0.5→1. */
 @keyframes house-pulse-brighten {
-  0% {
-    opacity: 0.5;
-    animation-timing-function: var(--ease-pulse);
-  }
-  7.5% {
-    opacity: 1;
-    animation-timing-function: linear;
-  }
-  12.5% {
-    opacity: 1;
-    animation-timing-function: linear;
-  }
-  50% {
-    opacity: 0.5;
-  }
-  100% {
-    opacity: 0.5;
-  }
+  0%     { opacity: 0.5; }
+  7.5%   { opacity: 0.58; }
+  15%    { opacity: 0.75; }
+  22.5%  { opacity: 0.9; }
+  33.75% { opacity: 1; }
+  45%    { opacity: 0.91; }
+  52.5%  { opacity: 0.79; }
+  60%    { opacity: 0.65; }
+  67.5%  { opacity: 0.55; }
+  75%    { opacity: 0.5; }
+  100%   { opacity: 0.5; }
 }
 
 @media (prefers-reduced-motion: reduce) {
