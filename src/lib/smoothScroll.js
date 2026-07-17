@@ -49,7 +49,10 @@ function start() {
       ['lenisdur', 'duration'],
     ]) {
       const n = parseFloat(search.get(param));
-      if (Number.isFinite(n)) overrides[option] = n;
+      // > 0 only: a negative duration pins Lenis' eased progress at 0
+      // (unscrollable) and a negative lerp diverges; 0 is meaningless
+      // for both. Garbage parses NaN and falls through.
+      if (Number.isFinite(n) && n > 0) overrides[option] = n;
     }
   }
   lenis = new Lenis({ autoRaf: false, ...LENIS_TUNING, ...overrides });
