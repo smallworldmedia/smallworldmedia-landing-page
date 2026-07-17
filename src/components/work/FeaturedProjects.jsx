@@ -28,6 +28,9 @@ import { navigate } from 'astro:transitions/client';
 import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
+// FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
+import Fp1TunePanel from './Fp1TunePanel.jsx';
+import { FP1_TUNE_ACTIVE } from './fp1Tune.js';
 import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 import {
@@ -441,6 +444,7 @@ export default function FeaturedProjects({ worlds = [] }) {
 
   return (
     <main className="fp" aria-label="Featured projects" ref={mainRef}>
+      {FP1_TUNE_ACTIVE && <Fp1TunePanel />}
       <WorldScene world={w} index={active} />
 
       <nav

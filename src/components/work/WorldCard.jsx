@@ -36,6 +36,14 @@ import {
   PREFERS_REDUCED_MOTION,
 } from './world/worldConfig.js';
 import { housePulseLoop } from '../../lib/motion.js';
+// FP-1 house-pulse tuning bench (dev-only, ?fp1tune=1). Absent without the
+// param: FP1_TUNE_ACTIVE is false and the shipped pulse stays motion.js default.
+import {
+  FP1_TUNE_ACTIVE,
+  liveHousePulseLoop,
+  getLivePulse,
+  subscribeFp1,
+} from './fp1Tune.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 // House scramble tokens for the PROJECT_## reveal (chrome kit).
 import { SCRAMBLE_CHARS, SCRAMBLE_DURATION, SCRAMBLE_SPEED } from '../../lib/scramble.js';
@@ -89,6 +97,7 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
   const ref = useRef(null);
   const pulseRef = useRef(null); // FP-1: this card's live housePulseLoop
   const listenersRef = useRef(null); // FP-1: hover/focus listener teardown
+  const tuneUnsubRef = useRef(null); // FP-1 bench: fp1Tune subscription teardown
   const phaseRef = useRef(phase);
   phaseRef.current = phase; // a still-flying enter tl must see phase flips
 
@@ -101,6 +110,8 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       pulseRef.current = null;
       listenersRef.current?.();
       listenersRef.current = null;
+      tuneUnsubRef.current?.();
+      tuneUnsubRef.current = null;
 
       const wrap = ref.current;
       if (!wrap || !world) return;
@@ -165,9 +176,15 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       // gsap context captures it and kills it on unmount) but paused — the
       // boot tl's end starts it after a rest beat, never before the entrance
       // has settled. Reduced motion never reaches here (early return above).
-      const pulse = housePulseLoop(gsap, cta, { opacity: PULSE_PEAK_OPACITY }, PULSE_PERIOD_S);
+      // With the ?fp1tune bench live, the pulse reads the panel's curve/dim/
+      // period instead of the motion.js default; the closures below go through
+      // pulseRef.current so a bench rebuild is picked up transparently.
+      const pulse = FP1_TUNE_ACTIVE
+        ? liveHousePulseLoop(gsap, cta)
+        : housePulseLoop(gsap, cta, { opacity: PULSE_PEAK_OPACITY }, PULSE_PERIOD_S);
       pulse.pause();
       pulseRef.current = pulse;
+      const restBeat = FP1_TUNE_ACTIVE ? getLivePulse().rest : PULSE_REST_BEAT_S;
 
       // Hover/focus reads as "ready": hold the CTA at full strength while the
       // visitor is on it, then resume from a clean cycle start on leave. The
@@ -179,14 +196,14 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       let calmTween = null;
       const calm = contextSafe(() => {
         hovered = true;
-        pulse.pause();
+        pulseRef.current?.pause();
         calmTween = gsap.to(cta, { opacity: 1, duration: 0.15 });
       });
       const stir = contextSafe(() => {
         hovered = false;
         calmTween?.kill();
         calmTween = null;
-        if (armed && phaseRef.current === 'enter') pulse.restart(true);
+        if (armed && phaseRef.current === 'enter') pulseRef.current?.restart(true);
       });
       cta.addEventListener('mouseenter', calm);
       cta.addEventListener('mouseleave', stir);
@@ -198,6 +215,22 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         cta.removeEventListener('focusin', calm);
         cta.removeEventListener('focusout', stir);
       };
+
+      // FP-1 bench (?fp1tune): a slider move re-creates the live pulse on this
+      // CTA so the curve/dim/period change shows immediately. Kill the prior
+      // timeline (no leak), rebuild from the new state, and resume only if the
+      // CTA is armed and not held. Rest previews on the entrance/Turn, not here.
+      if (FP1_TUNE_ACTIVE) {
+        const rebuild = contextSafe(() => {
+          pulseRef.current?.kill();
+          gsap.set(cta, { opacity: 1 }); // clear any mid-dip strand
+          const next = liveHousePulseLoop(gsap, cta);
+          next.pause();
+          pulseRef.current = next;
+          if (armed && !hovered && phaseRef.current === 'enter') next.play();
+        });
+        tuneUnsubRef.current = subscribeFp1(rebuild);
+      }
 
       // Entrance: PROJECT_## scrambles in place at the top-left, then the rest of
       // the card reveals — text lines → CTA (then pulse) → service tags.
@@ -230,12 +263,14 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         // still the entering one and the visitor isn't holding the CTA.
         .add(() => {
           armed = true;
-          if (!hovered && phaseRef.current === 'enter') pulse.play();
-        }, `+=${PULSE_REST_BEAT_S}`);
+          if (!hovered && phaseRef.current === 'enter') pulseRef.current?.play();
+        }, `+=${restBeat}`);
 
       return () => {
         listenersRef.current?.();
         listenersRef.current = null;
+        tuneUnsubRef.current?.();
+        tuneUnsubRef.current = null;
         split.revert();
       };
     },
