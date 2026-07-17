@@ -21,6 +21,9 @@
  */
 import * as THREE from 'three';
 
+// USE_INSTANCING: three defines it (and declares instanceMatrix) when the
+// material renders on an InstancedMesh — the /process decoy pool. Regular
+// panel meshes compile the plain path; behavior there is unchanged.
 const vertexShader = /* glsl */ `
   attribute vec2 aEdgeUv;
   varying vec2 vUv;
@@ -28,7 +31,11 @@ const vertexShader = /* glsl */ `
   void main() {
     vUv = uv;
     vEdgeUv = aEdgeUv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec4 localPos = vec4(position, 1.0);
+    #ifdef USE_INSTANCING
+      localPos = instanceMatrix * localPos;
+    #endif
+    gl_Position = projectionMatrix * modelViewMatrix * localPos;
   }
 `;
 

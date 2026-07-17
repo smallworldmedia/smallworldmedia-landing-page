@@ -27,10 +27,12 @@ export default function ProcessPage() {
   const captionRef = useRef(null);
   const blueRef = useRef(null);
   const gradientRef = useRef(null);
+  const labelsRef = useRef(null);
   const sceneRef = useProcessScene(canvasRef, captionRef, {
     rootRef,
     blueRef,
     gradientRef,
+    labelsRef,
   });
   useProcessScrollDriver(rootRef, sceneRef);
   useProcessCopy(rootRef, sceneRef);
@@ -59,6 +61,9 @@ export default function ProcessPage() {
           Thread lives INSIDE the scene now (a depth-tested Line2, B3) —
           the old screen-space SVG overlay is gone. */}
       <div className="process-page__canvas" ref={canvasRef} aria-hidden="true" />
+
+      {/* S1 blob-tracking labels — the scene fills and drives this layer */}
+      <div className="process-labels" ref={labelsRef} aria-hidden="true" />
 
       <div className="process-page__copy">
         <header className="process-section process-hero" data-stage="hero">

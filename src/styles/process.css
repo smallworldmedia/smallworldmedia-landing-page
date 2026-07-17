@@ -94,6 +94,32 @@ body.route-process .site-nav {
    no DOM layer. It draws ink-black, the Fragment stroke's color on the
    blue field, and only ever shows there.) */
 
+/* --- S1 blob-tracking labels (B4): mono chips latched to drifting
+   shards, scrambling the rolling DISCOVERY vocabulary. The scene owns
+   the spans and projects their targets per frame. --- */
+.process-labels {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.process-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+  white-space: nowrap;
+}
+
 /* --- Field-aware accents (data-bg, scene-set) ---
    On the blue field the electric-blue accents vanish: mono accents go
    white for contrast. Black/gradient fields keep the house electric

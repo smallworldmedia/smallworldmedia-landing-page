@@ -118,6 +118,7 @@ const beltPose = () => ({
   innerScale: 0,
   bg: 'blue',
   loops: false,
+  decoys: true, // the S1 flood — culled at the refinement
 });
 const getPose = (id) => {
   switch (id) {
@@ -125,7 +126,7 @@ const getPose = (id) => {
       return beltPose();
     case 'stage-02':
       return PREFERS_REDUCED_MOTION
-        ? beltPose()
+        ? { ...beltPose(), decoys: false } // RM still: the REFINED belt — flood already culled
         : { form: 'core', frameR: 1, fill: TUNING.fillFraction, panelScale: 1, power: TUNING.idlePower, stroke: 1, innerScale: INNER_SPHERE_SCALE, bg: 'blue', loops: false };
     case 'stage-03':
       return { form: 'core', frameR: 1, fill: TUNING.s3Fill, panelScale: 1, power: 1, stroke: 0, innerScale: INNER_SPHERE_SCALE, bg: 'black', loops: false };
@@ -242,37 +243,122 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       globeGroup.add(panel.mesh);
     });
 
-    /* Seeded belt: even annulus spread (phyllotaxis + jitter, the
-       seededLayout idiom) with an empty center — the Core's center-to-be,
-       where the Thread fires from. Deterministic for a given ?scatter, so
-       live re-seeding through applyTuning keeps the same belt shape. The
-       drift tick reads beltPos live — a re-seed re-spreads the belt in
-       place without snapping tumble orientations. */
+    /* — Decoy pool (v2 deck, B4): stage-01 floods with MORE shards than
+       the final 84 — raw gathered material, culled at the refinement.
+       A separate pool so the panels array's invariants (cascade, thread
+       hops, assembly order, rhythm) never see them — and ONE InstancedMesh
+       so the whole flood costs a single draw call (the ≤90 budget).
+       Decoys never individuate: they flicker out at S1→S2. — */
+    const DECOY_COUNT = 36;
+    const decoyProto = panels.find((p) => p.row === Math.floor(TOTAL_ROWS / 2)) ?? panels[0];
+    const decoyGeometry = decoyProto.geometry.clone();
+    const decoyMaterial = createPanelMaterial({ fallbackColor: LIT_COLOR });
+    decoyMaterial.uniforms.uStrokeColor.value.copy(strokeColor);
+    const decoyMesh = new THREE.InstancedMesh(decoyGeometry, decoyMaterial, DECOY_COUNT);
+    decoyMesh.frustumCulled = false; // instances spread far beyond the proto's bounds
+    decoyMesh.visible = false;
+    globeGroup.add(decoyMesh);
+    const decoys = Array.from({ length: DECOY_COUNT }, () => ({
+      pos: new THREE.Vector3(),
+      quat: new THREE.Quaternion(),
+      axis: new THREE.Vector3(1, 0, 0),
+      speedRatio: 1,
+      scale: 1,
+      phase: 0,
+      s: 0, // flicker scale factor — gsap-driven, composed into the matrix
+    }));
+    const decoyM4 = new THREE.Matrix4();
+    const decoyScaleV = new THREE.Vector3();
+    const decoySpin = new THREE.Quaternion();
+    const composeDecoys = () => {
+      decoys.forEach((d, i) => {
+        decoyScaleV.setScalar(Math.max(d.scale * d.s, 0.0001));
+        decoyM4.compose(d.pos, d.quat, decoyScaleV);
+        decoyMesh.setMatrixAt(i, decoyM4);
+      });
+      decoyMesh.instanceMatrix.needsUpdate = true;
+    };
+
+    /* Seeded belt: one slot cloud for panels + decoys — phyllotaxis
+       annulus with an empty center (the Core's center-to-be, where the
+       Thread fires from), deterministically shuffled so decoys interleave
+       with the keepers instead of ringing the rim. Deterministic for a
+       given ?scatter, so live re-seeding through applyTuning keeps the
+       same belt shape.
+       v2 deck (B4): the cloud is SUSPENDED — zero collisions. A few
+       deterministic relaxation passes push near pairs apart in 3D (the
+       z spread does the heavy lifting where the annulus is dense), then
+       clamp back to the belt envelope. */
     const seedBelt = () => {
       const rand = mulberry32(hashSeed('process-belt'));
       const innerR = TUNING.scatter * 0.55;
       const outerR = TUNING.scatter * 1.15;
-      panels.forEach((panel, i) => {
-        const t = (i + 0.5) / panels.length;
+      const zMax = TUNING.scatter * 0.3;
+      const total = panels.length + decoys.length;
+      const slots = Array.from({ length: total }, (_, i) => {
+        const t = (i + 0.5) / total;
         const r = Math.sqrt(innerR * innerR + t * (outerR * outerR - innerR * innerR));
         const ang = i * GOLDEN_ANGLE + rand() * 0.5;
-        panel.beltPos = new THREE.Vector3(
+        return new THREE.Vector3(
           Math.cos(ang) * r,
           Math.sin(ang) * r,
-          (rand() - 0.5) * TUNING.scatter * 0.5
+          (rand() - 0.5) * 2 * zMax
         );
+      });
+      const MIN_SEP = 0.52 * (TUNING.scatter / 1.8); // tracks the spread knob
+      const push = new THREE.Vector3();
+      for (let iter = 0; iter < 8; iter++) {
+        for (let i = 0; i < total; i++) {
+          for (let j = i + 1; j < total; j++) {
+            push.subVectors(slots[i], slots[j]);
+            const dist = push.length();
+            if (dist > 0.0001 && dist < MIN_SEP) {
+              push.multiplyScalar(((MIN_SEP - dist) / dist) * 0.5);
+              slots[i].add(push);
+              slots[j].sub(push);
+            }
+          }
+        }
+        slots.forEach((s) => {
+          const r = Math.hypot(s.x, s.y);
+          const clamped = Math.min(Math.max(r, innerR * 0.9), outerR * 1.12);
+          if (r > 0.0001 && Math.abs(clamped - r) > 0.0001) {
+            s.x *= clamped / r;
+            s.y *= clamped / r;
+          }
+          s.z = Math.min(Math.max(s.z, -zMax * 1.4), zMax * 1.4);
+        });
+      }
+      const order = slots.map((_, i) => i);
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      panels.forEach((panel, i) => {
+        panel.beltPos = slots[order[i]];
         panel.beltQuat = new THREE.Quaternion().setFromEuler(
           new THREE.Euler(rand() * Math.PI * 2, rand() * Math.PI * 2, rand() * Math.PI * 2)
         );
         panel.drift = {
+          // Suspended point cloud: slow LINEAR self-rotation only (the
+          // whole-cloud rotation is globeGroup's yaw) — no positional
+          // wobble; positions rest at beltPos.
           axis: new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize(),
           speedRatio: 0.6 + rand() * 0.8, // × TUNING.drift at tick time
-          wobbleDir: new THREE.Vector3(rand() - 0.5, rand() - 0.5, (rand() - 0.5) * 0.4).normalize(),
-          amp: 0.05 + rand() * 0.09,
-          freq: 0.25 + rand() * 0.35,
-          phase: rand() * Math.PI * 2,
+          phase: rand() * Math.PI * 2, // seeded stagger for entrances
         };
       });
+      decoys.forEach((d, i) => {
+        d.pos.copy(slots[order[panels.length + i]]);
+        d.quat.setFromEuler(
+          new THREE.Euler(rand() * Math.PI * 2, rand() * Math.PI * 2, rand() * Math.PI * 2)
+        );
+        d.axis.set(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize();
+        d.speedRatio = 0.5 + rand() * 0.9;
+        d.scale = 0.72 + rand() * 0.26; // raw material reads slightly smaller
+        d.phase = rand() * Math.PI * 2;
+      });
+      composeDecoys();
     };
     seedBelt();
 
@@ -491,6 +577,135 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       if (el) scrambleTo(el, text);
     };
 
+    /* — Blob-tracking labels (v2 deck, B4): a handful of mono chips that
+       latch onto drifting shards, scramble a term from the rolling
+       DISCOVERY vocabulary, hold, release, retarget — the continuous
+       gathering of notes and references, annotated live. DOM overlay
+       (chromeRefs.labelsRef); the tick projects each latched shard to
+       screen px. S1 only; reduced motion never runs them. — */
+    const LABEL_TERMS = [
+      'image_references', 'brand_cadence', 'artist_personality', 'artist_interests',
+      'call_notes', 'inquiry_notes', 'preliminary_research', 'market_research',
+      'music_catalog', 'market_gaps', 'pop_culture', 'industry_analysis',
+      'genre_gaps', 'industry_opportunities', 'design_history', 'art_history',
+      'industry_trends',
+    ];
+    const labelsEl = chromeRefs?.labelsRef?.current ?? null;
+    let labelsActive = false;
+    let termCursor = 0;
+    const labelSlots = [];
+    if (labelsEl && !PREFERS_REDUCED_MOTION) {
+      for (let i = 0; i < 4; i++) {
+        const el = document.createElement('span');
+        el.className = 'process-label';
+        labelsEl.appendChild(el);
+        labelSlots.push({ el, target: null, tl: null });
+      }
+    }
+    const labelPool = () => {
+      const pool = [];
+      panels.forEach((p) => {
+        if (p.driftFactor > 0.5) pool.push(p.mesh.position);
+      });
+      if (decoyMesh.visible) {
+        decoys.forEach((d) => {
+          if (d.s > 0.5) pool.push(d.pos);
+        });
+      }
+      return pool;
+    };
+    const cycleSlot = (slot, delay = 0) => {
+      if (!labelsActive || disposed) return;
+      const taken = labelSlots.map((s) => s.target);
+      const pool = labelPool().filter((v) => !taken.includes(v));
+      if (!pool.length) return;
+      slot.target = pool[Math.floor(Math.random() * pool.length)];
+      const term = LABEL_TERMS[termCursor % LABEL_TERMS.length];
+      termCursor += 1;
+      slot.tl?.kill();
+      slot.tl = gsap
+        .timeline({ delay, onComplete: () => cycleSlot(slot, 0.2 + Math.random() * 0.6) })
+        .set(slot.el, { autoAlpha: 0 }, 0)
+        .call(() => scrambleTo(slot.el, term), null, 0.01)
+        .to(slot.el, { autoAlpha: 0.85, duration: 0.2, ease: 'power2.out' }, 0.01)
+        .to(slot.el, { autoAlpha: 0, duration: 0.3, ease: 'power2.in' }, 1.7 + Math.random() * 1.3);
+    };
+    const startLabels = (delay = 0) => {
+      if (PREFERS_REDUCED_MOTION || !labelSlots.length || labelsActive) return;
+      labelsActive = true;
+      labelSlots.forEach((slot, i) => cycleSlot(slot, delay + i * 0.45));
+    };
+    const stopLabels = () => {
+      if (!labelsActive) return;
+      labelsActive = false;
+      labelSlots.forEach((slot) => {
+        slot.tl?.kill();
+        slot.tl = null;
+        slot.target = null;
+        gsap.to(slot.el, { autoAlpha: 0, duration: 0.2, overwrite: 'auto' });
+      });
+    };
+    const labelV = new THREE.Vector3();
+    const updateLabels = () => {
+      const w = container.clientWidth || 1;
+      const h = container.clientHeight || 1;
+      labelSlots.forEach((slot) => {
+        if (!slot.target) return;
+        labelV.copy(slot.target);
+        globeGroup.localToWorld(labelV).project(camera);
+        const x = (labelV.x * 0.5 + 0.5) * w + 14;
+        const y = (-labelV.y * 0.5 + 0.5) * h - 6;
+        slot.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      });
+    };
+
+    /* — Decoy choreography: snappy randomized flickers in/out (the
+       gathered-material read). `s` rides gsap; the tick composes it. — */
+    const decoysOut = (tl, at, window) => {
+      if (!decoyMesh.visible) return;
+      decoys.forEach((d) => {
+        gsap.killTweensOf(d);
+        const jitter = (d.phase / (Math.PI * 2)) * window;
+        tl.to(
+          d,
+          {
+            keyframes: [
+              { s: d.s * 0.45, duration: 0.05 },
+              { s: d.s * 0.8, duration: 0.05 },
+              { s: 0, duration: 0.16, ease: 'power2.in' },
+            ],
+            ease: 'none',
+          },
+          at + jitter
+        );
+      });
+      tl.call(() => {
+        decoyMesh.visible = false;
+      }, null, at + window + 0.3);
+    };
+    const decoysIn = (tl, at, window) => {
+      tl.call(() => {
+        decoyMesh.visible = true;
+      }, null, at);
+      decoys.forEach((d) => {
+        gsap.killTweensOf(d);
+        const jitter = (d.phase / (Math.PI * 2)) * window;
+        tl.fromTo(
+          d,
+          { s: 0 },
+          {
+            keyframes: [
+              { s: 0.5, duration: 0.07 },
+              { s: 0.14, duration: 0.06 },
+              { s: 1, duration: 0.3, ease: 'power3.out' },
+            ],
+            ease: 'none',
+          },
+          at + jitter
+        );
+      });
+    };
+
     const resize = () => {
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
@@ -635,6 +850,18 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       });
       innerSphere.visible = pose.innerScale > 0.001;
       innerSphere.scale.setScalar(Math.max(pose.innerScale, 0.001));
+      // Decoy pool snaps with the pose: full flood in stage-01, gone
+      // everywhere else (RM stills included — stage-02's still is the
+      // already-refined belt).
+      decoyMaterial.uniforms.uPower.value = pose.power;
+      decoyMaterial.uniforms.uStrokeMix.value = pose.stroke;
+      decoyMaterial.uniforms.uStrokeWidthPx.value = TUNING.strokePx;
+      decoys.forEach((d) => {
+        gsap.killTweensOf(d);
+        d.s = pose.decoys && !(belt && beltHidden) ? 1 : 0;
+      });
+      decoyMesh.visible = Boolean(pose.decoys) && !(belt && beltHidden);
+      composeDecoys();
       bgInstant(pose.bg);
       beltDrifting = belt && !PREFERS_REDUCED_MOTION;
     };
@@ -659,6 +886,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
        hop order (a string pulled taut), the unchained swept up behind
        them ordered by how close they float to the center. — */
     const buildConnectAndAssemble = (pose) => {
+      stopLabels(); // the gathering annotation ends where the refinement begins
       const tl = gsap.timeline({
         defaults: { ease: turnEase },
         onComplete: () => {
@@ -671,12 +899,19 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
 
       tl.call(() => fireCaption('references_folded'), null, 0);
 
+      // B5 (v2 deck): push INTO the floating cloud while the flood sheds
+      // its decoys — zoom in, the extra material flickers out of frame,
+      // leaving the 84 keepers for the string to claim.
+      const HEAD = 0.55;
+      tl.to(camera.position, { z: camera.position.z * 0.82, duration: 0.75 }, 0);
+      decoysOut(tl, 0.05, 0.5);
+
       // Connect: hop-by-hop trim-path draw; each strike stamps the
       // Fragment a shade darker (claimed) and damps its drift to a
       // gentle hold — the bead is on the string.
       const hopSeconds = TUNING.threadHopSeconds;
       threadChain.forEach((panel, i) => {
-        const at = i * hopSeconds;
+        const at = HEAD + i * hopSeconds;
         tl.to(threadDraw, { frac: (i + 1) / threadChain.length, duration: hopSeconds, ease: turnEase }, at);
         tl.call(
           () => {
@@ -690,7 +925,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         );
       });
 
-      const connectEnd = threadChain.length * hopSeconds;
+      const connectEnd = HEAD + threadChain.length * hopSeconds;
       tl.call(() => fireCaption('dots_connected'), null, connectEnd);
 
       // Assemble: the pull. Chained Fragments seat in HOP ORDER across
@@ -761,12 +996,14 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       }
 
       const durMult = (compressed ? 0.65 : 1) * (reversing ? EXIT_RATIO : 1);
+      stopLabels();
       const tl = gsap.timeline({
         defaults: { ease: turnEase },
         onComplete: () => {
           activeTl = null;
           if (pose.loops) startLoops();
           if (pose.form === 'belt') beltDrifting = !PREFERS_REDUCED_MOTION;
+          if (pose.decoys) startLabels(0.15);
         },
       });
 
@@ -809,6 +1046,15 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
           gsap.killTweensOf(p.mesh.scale); // in-flight materialize
           if (!toBelt) p.driftFactor = 0;
         });
+      }
+
+      // The decoy flood follows the pose: flickers back with a belt
+      // return, sheds fast on any path that leaves stage-01 (interrupts
+      // included — buildConnectAndAssemble owns the authored cull).
+      if (pose.decoys && !decoyMesh.visible && !beltHidden) {
+        decoysIn(tl, frameDur * 0.25, TUNING.stageSeconds * durMult);
+      } else if (!pose.decoys && decoyMesh.visible) {
+        decoysOut(tl, 0, Math.min(0.4, frameDur));
       }
 
       if (isLightUp && !fromBelt) {
@@ -889,6 +1135,10 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       }
       stage = next;
       if (getPose(next).loops) startLoops();
+      // Instant non-RM arrivals (scroll restoration) get the annotation
+      // layer too; RM never runs it (startLabels self-gates).
+      stopLabels();
+      if (getPose(next).decoys && !beltHidden) startLabels(0.3);
       updateThread();
       renderFrame();
     };
@@ -904,7 +1154,16 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         // Scrolled ahead of the arrival's materialize beat — surface the
         // shards instantly; the Thread must never chain invisible targets.
         beltHidden = false;
-        panels.forEach((p) => p.mesh.scale.setScalar(getPose(stage ?? 'stage-01').panelScale));
+        const heldPose = getPose(stage ?? 'stage-01');
+        panels.forEach((p) => p.mesh.scale.setScalar(heldPose.panelScale));
+        if (heldPose.decoys) {
+          decoyMesh.visible = true;
+          decoys.forEach((d) => {
+            gsap.killTweensOf(d);
+            d.s = 1;
+          });
+          composeDecoys();
+        }
       }
       const interrupted = Boolean(activeTl);
       if (activeTl) activeTl.kill();
@@ -913,22 +1172,43 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       stage = next;
     };
 
-    /* — Arrival beat (spec §5): the Fragment belt materializes —
-       per-Fragment scale 0→1, seeded stagger, house curve. — */
+    /* — Arrival beat (spec §5, reworked v2 deck B4): the flood flickers
+       in — quick, snappy, slightly randomized offsets (blink to a
+       fraction, dip, land) — the continuous-gathering read. Panels and
+       decoys share the treatment; labels start once the cloud holds. — */
+    const FLICKER_IN = (delay) => ({
+      keyframes: [
+        { x: 0.6, y: 0.6, z: 0.6, duration: 0.07 },
+        { x: 0.18, y: 0.18, z: 0.18, duration: 0.06 },
+        { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power3.out' },
+      ],
+      delay,
+      ease: 'none',
+    });
     const materializeBelt = () => {
       if (!beltHidden || disposed) return;
       beltHidden = false;
       panels.forEach((p) => {
-        const delay = (p.drift.phase / (Math.PI * 2)) * 0.5; // seeded
-        gsap.to(p.mesh.scale, {
-          x: 1,
-          y: 1,
-          z: 1,
-          duration: 0.9,
-          delay,
-          ease: turnEase,
-        });
+        const delay = (p.drift.phase / (Math.PI * 2)) * 1.1; // seeded, snappy spread
+        gsap.to(p.mesh.scale, FLICKER_IN(delay));
       });
+      if (getPose(stage ?? 'stage-01').decoys) {
+        decoyMesh.visible = true;
+        decoys.forEach((d) => {
+          gsap.killTweensOf(d);
+          const delay = (d.phase / (Math.PI * 2)) * 1.1;
+          gsap.to(d, {
+            keyframes: [
+              { s: 0.5, duration: 0.07 },
+              { s: 0.14, duration: 0.06 },
+              { s: 1, duration: 0.3, ease: 'power3.out' },
+            ],
+            delay,
+            ease: 'none',
+          });
+        });
+      }
+      startLabels(0.7);
     };
 
     /* — Live tuning (the ?debug panel): re-seed the belt (the drift tick
@@ -951,8 +1231,15 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         globeGroup.position.y = offsetY;
         if (pose.form === 'belt' && !threadActive) {
           panels.forEach((p) => {
-            if (p.driftFactor > 0.5) p.mesh.material.uniforms.uPower.value = TUNING.idlePower;
+            if (p.driftFactor > 0.5) {
+              p.mesh.material.uniforms.uPower.value = TUNING.idlePower;
+              // The tick no longer stamps positions (suspended cloud) —
+              // a re-seed re-spreads the resting belt here instead.
+              p.mesh.position.copy(p.beltPos);
+            }
           });
+          decoyMaterial.uniforms.uPower.value = TUNING.idlePower;
+          decoyMaterial.uniforms.uStrokeWidthPx.value = TUNING.strokePx;
         }
       }
       if (loopTl) startLoops(); // rebuild on the new bpm/pattern/envelope grid
@@ -1000,15 +1287,20 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       yaw += AUTO_ROTATE_SPEED * step;
       globeGroup.rotation.set(pitch, yaw, 0);
       if (beltDrifting) {
+        // Suspended point cloud (v2 deck): slow LINEAR self-rotation at
+        // per-shard varied speeds; positions rest — the whole-cloud
+        // rotation is the group yaw above. No wobble.
         panels.forEach((p) => {
           if (p.driftFactor <= 0) return;
           const d = p.drift;
-          p.mesh.position
-            .copy(p.beltPos)
-            .addScaledVector(d.wobbleDir, Math.sin(sceneTime * d.freq * Math.PI * 2 + d.phase) * d.amp * p.driftFactor);
           p.mesh.rotateOnAxis(d.axis, d.speedRatio * TUNING.drift * step * p.driftFactor);
         });
+        decoys.forEach((d) => {
+          d.quat.multiply(decoySpin.setFromAxisAngle(d.axis, d.speedRatio * TUNING.drift * step));
+        });
       }
+      if (decoyMesh.visible) composeDecoys(); // flicker tweens + spin land here
+      if (labelsActive) updateLabels();
       if (threadActive) updateThread();
       renderFrame();
     };
@@ -1087,6 +1379,11 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         panel.geometry.dispose();
         panel.mesh.material.dispose();
       });
+      stopLabels();
+      labelSlots.forEach((slot) => slot.el.remove());
+      decoys.forEach((d) => gsap.killTweensOf(d));
+      decoyGeometry.dispose();
+      decoyMaterial.dispose();
       innerSphereGeometry.dispose();
       innerMaterial.dispose();
       threadGeometry.dispose();
