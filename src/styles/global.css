@@ -184,6 +184,30 @@
   animation: house-pulse var(--duration-pulse) linear infinite;
 }
 
+/* House pulse, brighten polarity — the inquiry next-field reading (INQ-1):
+   rest-dim → lift → slight hold → essentially linear fall back to rest,
+   then the equal rest interval. Same stop map as house-pulse above. */
+@keyframes house-pulse-brighten {
+  0% {
+    opacity: 0.5;
+    animation-timing-function: var(--ease-pulse);
+  }
+  7.5% {
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  12.5% {
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .house-pulse {
     animation: none;
@@ -1042,8 +1066,9 @@ body.route-home .site-nav__links {
   align-items: center;
   justify-content: center;
   padding: 5vw;
-  /* Initial state: hidden — GSAP autoAlpha drives the fade in/out
-     (visibility also gates pointer events while closed) */
+  /* Initial state: hidden — GSAP drives the open/close clip-path wipe
+     (INQ-2; reduced motion falls back to the fade). autoAlpha snaps in
+     tandem so `visibility` keeps gating pointer events while closed */
   opacity: 0;
   visibility: hidden;
   /* will-change applied by GSAP during animation only —
@@ -1086,13 +1111,16 @@ body.route-home .site-nav__links {
 
 .project-overlay__globe {
   position: absolute;
-  top: 0.214rem;
-  /* matches SiteNav padding-top */
+  top: 0.036rem;
+  /* 0.5px — the nav globe's RENDERED top, not the bar's padding: the 38px
+     img overflow-centers in the 41px bar's 35px content box (top 1.5px)
+     and SiteShell tucks the bar up 1px (INQ-3 icon parity) */
   left: 1.143rem;
   /* matches SiteNav padding-left */
   width: 2.714rem;
   /* 38px — matches SiteNav globe */
-  height: auto;
+  height: 2.714rem;
+  object-fit: cover;
   z-index: 2;
   pointer-events: none;
 }
@@ -1158,6 +1186,25 @@ body.route-home .site-nav__links {
 .project-overlay__field--filled .project-overlay__label,
 .project-overlay__field-content:has(.project-overlay__input:focus) .project-overlay__label {
   color: var(--color-cream);
+}
+
+/* INQ-1 — next-field highlight: the first incomplete step's label rests at
+   the dim label alpha and lifts to full cream on the house pulse (brighten
+   polarity — the twin of the enter_world dim). The row's className moves as
+   fields complete and drops once the form is valid. */
+.project-overlay__field--next .project-overlay__label {
+  color: var(--color-cream);
+  opacity: 0.5;
+  animation: house-pulse-brighten var(--duration-pulse) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  /* Static highlight — the next step reads bright, no loop */
+  .project-overlay__field--next .project-overlay__label {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 /* Input underline — full opacity when field is filled or focused */
@@ -1536,10 +1583,6 @@ body.route-home .site-nav__links {
   .project-overlay__tag {
     font-size: 0.786rem;
     padding: 0.35rem 0.65rem;
-  }
-
-  .project-overlay__globe {
-    width: 2.5rem;
   }
 
   .project-overlay__confirmation {
