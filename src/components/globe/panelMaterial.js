@@ -1,11 +1,18 @@
 /**
  * panelMaterial.js — Unlit ShaderMaterial for globe panels.
  *
- * One material instance per panel. The shader owns four jobs:
+ * One material instance per panel. The shader owns five jobs:
  *  - cover-fit crop via per-texture uvScale/uvOffset
  *  - texA ↔ texB crossfade via uMix (Stage 2: thumbnail ↔ live video)
  *  - power-on cascade via uPower (0 = dark panel, 1 = full brightness;
  *    values >1 over-brighten for the CRT flicker)
+ *  - the commit blue-fill via uBlueMix (home-hero chunk 4: 0 = untouched —
+ *    the resting state AND every fresh mount; 1 = the panel is flat field
+ *    blue). uBlueColor is set from GAP_COLOR — never a hand-picked hex —
+ *    the same value the inner sphere's material carries, so at mix 1 the
+ *    whole globe reads as one blue disc and colorspace_fragment lands it
+ *    exactly on the DOM --color-electric-blue (the process contraction
+ *    handoff proved that equivalence).
  *  - an optional edge stroke via uStrokeMix (0 = off — the home globe's
  *    resting state; /process draws its Fragments blue-on-blue and lets a
  *    black stroke separate them from the field). The stroke reads the
@@ -20,6 +27,7 @@
  * artifacts that transparent overlapping meshes cause on a convex sphere.
  */
 import * as THREE from 'three';
+import { GAP_COLOR } from './globeConfig.js';
 
 // USE_INSTANCING: three defines it (and declares instanceMatrix) when the
 // material renders on an InstancedMesh — the /process decoy pool. Regular
@@ -63,6 +71,8 @@ const fragmentShader = /* glsl */ `
   uniform float uStrokeMix;
   uniform float uStrokeWidthPx;
   uniform vec3 uStrokeColor;
+  uniform float uBlueMix;
+  uniform vec3 uBlueColor;
   varying vec2 vUv;
   varying vec2 vEdgeUv;
 
@@ -89,6 +99,10 @@ const fragmentShader = /* glsl */ `
     float stroke = (1.0 - smoothstep(uStrokeWidthPx - 0.6, uStrokeWidthPx + 0.6, edgePx))
       * uStrokeMix * step(0.01, uStrokeWidthPx); // width 0 = fully off, no edge hairline
     color = mix(color, uStrokeColor, stroke);
+    // Commit blue-fill (chunk 4): last mix before the colorspace output so
+    // at uBlueMix 1 the panel is exactly the inner sphere's blue — stroke,
+    // texture and power all submerged under the field.
+    color = mix(color, uBlueColor, uBlueMix);
     gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
   }
@@ -131,6 +145,8 @@ export function createPanelMaterial({ fallbackColor }) {
       uStrokeMix: { value: 0 }, // 0 = no stroke (home globe); /process drives it
       uStrokeWidthPx: { value: 1.5 },
       uStrokeColor: { value: new THREE.Color(0x000000) },
+      uBlueMix: { value: 0 }, // 0 = untouched — the commit blue-fill (useGlobeScene setBlueFill) drives it
+      uBlueColor: { value: new THREE.Color(GAP_COLOR) }, // the inner sphere's blue, never a hand-picked hex
     },
   });
 }

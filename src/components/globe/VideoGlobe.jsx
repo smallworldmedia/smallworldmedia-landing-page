@@ -15,6 +15,8 @@
  * @param {boolean} [props.debug=false] - force the debug panel on
  * @param {React.RefObject} [props.rigRef] - home-hero camera-rig handle (useGlobeScene)
  * @param {React.RefObject} [props.overlayRef] - home-hero overlay bridge (useGlobeScene)
+ * @param {React.RefObject} [props.sceneApiRef] - home-hero mirror of the scene api
+ *        ({ replayCascade, setBlueFill } — the chunk-4 commit drives setBlueFill)
  */
 import { useRef, useState } from 'react';
 import useGlobeScene from './useGlobeScene.js';
@@ -26,7 +28,13 @@ const hasDebugParam = () =>
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).has('debug');
 
-export default function VideoGlobe({ assets, debug = false, rigRef = null, overlayRef = null }) {
+export default function VideoGlobe({
+  assets,
+  debug = false,
+  rigRef = null,
+  overlayRef = null,
+  sceneApiRef = null,
+}) {
   const containerRef = useRef(null);
   const poolRef = useRef(null);
   const variantRef = useRef(DEFAULT_CASCADE_VARIANT);
@@ -44,6 +52,12 @@ export default function VideoGlobe({ assets, debug = false, rigRef = null, overl
     rigRef,
     overlayRef,
   });
+  // Home-hero commit bridge: mirror the scene api out to the owner (Hero
+  // drives setBlueFill from its master timeline). The hook mutates
+  // api.current's PROPERTIES in place — the object identity is stable — so
+  // this one-time alias stays live across scene rebuilds. Null-safe: lab
+  // and other callers pass nothing and are untouched (rigRef convention).
+  if (sceneApiRef && sceneApiRef.current !== api.current) sceneApiRef.current = api.current;
 
   const selectVariant = (v) => {
     variantRef.current = v;

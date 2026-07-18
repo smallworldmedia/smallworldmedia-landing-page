@@ -97,3 +97,19 @@
   background: var(--color-cream);
   color: var(--color-black);
 }
+
+/* Commit section — the mode selects, a segmented button row (the bench's
+   only non-slider inputs). The active option inverts like a hover held. */
+.hero-tune__seg {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.hero-tune__seg .hero-tune__btn {
+  padding: var(--space-2);
+}
+
+.hero-tune__btn.is-active {
+  background: var(--color-cream);
+  color: var(--color-black);
+}

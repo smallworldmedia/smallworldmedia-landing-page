@@ -1186,6 +1186,25 @@ body.route-home .site-nav__pill:hover {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
 }
 
+/* Commit blue-fill (home-hero chunk 4) — the envelopment surface: a fixed
+   electric-blue layer the master timeline unclips through the globe's own
+   disc (clip-path circle, stamped per frame off the overlay bridge).
+   Hidden at rest and on EVERY fresh mount (a reverse arrival from /work
+   included) — only the commit timeline reveals it, imperatively (gsap.set
+   fired from the running timeline, never tl.set — the bgMorph killTweensOf
+   trap). Sits above the ring/hit/text chrome so the spreading disc
+   swallows them, below the site shell (z 100): nav stays up and the
+   RouteFill owns the cross-route frame at the handoff. */
+.hero__fill {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  background: var(--color-electric-blue);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   /* Static white ring — no rotation (JS), no fill choreography (this is the

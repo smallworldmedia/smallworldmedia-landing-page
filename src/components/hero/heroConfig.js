@@ -1,6 +1,7 @@
 /**
- * heroConfig.js — live tuning state for the HOME HERO camera rig and the
- * scroll_to_enter ring (later chunks add the intro/commit/label choreography).
+ * heroConfig.js — live tuning state for the HOME HERO camera rig, the
+ * scroll_to_enter ring and the commit transition (chunk 4; later chunks add
+ * the intro/label choreography).
  *
  * The comp knobs initialize from the URL (the PARAM convention — always on,
  * like Hero's ?loomms family and processConfig's TUNING) into the mutable
@@ -23,6 +24,7 @@
  * (fp1Tune convention).
  */
 import { IS_MOBILE } from '../globe/globeConfig.js';
+import { TURN_EASE_PATH } from '../work/world/worldConfig.js';
 
 const search = () =>
   new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
@@ -39,14 +41,30 @@ export const RING_MOBILE = search().get('ringmobile') !== '0';
 export const RING_TEXT = search().get('ringtext') || 'scroll_to_enter';
 export const RING_SEPARATOR = '✳';
 
+/* — Commit ease — the envelopment master curve (chunk 4). Starts life as
+   the house Turn curve — steep launch that carries the gesture's momentum,
+   flat zero-velocity ends, no overshoot — imported as the literal default
+   so the two stay in step until the commit earns its own hand-authored
+   shape. ?commitease=<path> overrides live for a feel pass
+   (author/visualize at gsap.com/docs/v3/Eases/CustomEase). — */
+export const HERO_COMMIT_EASE_PATH = search().get('commitease') || TURN_EASE_PATH;
+
+/* — Commit mode vocabulary (URL seed validates against these; the bench
+   selects from them). fillMode: how the blue reaches the viewport — through
+   the globe's own panels (the cascade surge + a late disc bloom) or as one
+   disc-clipped circle. blueCascade: which panel-delay model the panels-mode
+   surge rides — cascade.js's variants, same names. — */
+export const FILL_MODES = ['panels', 'circle'];
+export const BLUE_CASCADES = ['sweep', 'rows', 'poles'];
+
 /* — Defaults, by section. The comp block is device/variant-resolved ONCE at
    module load (globeConfig's frozen-breakpoint convention). `fill: null` /
    `fitCover: null` mean "use the device FILL_FRACTION / FIT_COVER from
    globeConfig" — the rig falls back at use-time, so a reset stays honest on
    both breakpoints. SSR sees the desktop shape; nothing reads TUNING until
    the client rig effect runs. Later chunks append sections here (intro /
-   commit / label) — keep the section comments so the table stays legible as
-   it grows. — */
+   label — commit landed with chunk 4) — keep the section comments so the
+   table stays legible as it grows. — */
 /* Offset signs follow the rig's screen convention (applyRig negates into
    setViewOffset): +offsetX moves the globe RIGHT, +offsetY moves it DOWN.
    So the mobile up-bias — disc in the upper ~60%, ring clear of the footer
@@ -74,6 +92,14 @@ export const TUNING_DEFAULTS = Object.freeze({
   ringR: 1.12, // ?ringr — ring radius as a multiple of the globe disc radius
   ringSpeed: 4, // ?ringspeed — ambient rotation, deg/s (drag fill scales it up to ~3×)
   ringLean: 0.08, // ?ringlean — extra ring radius at full drag fill
+
+  /* commit — the envelopment master timeline (chunk 4; Hero reads these at
+     commit time, so the bench moves the NEXT commit/dry-run, not a live one) */
+  commitMs: 1200, // ?commitms — master timeline length, ms (ONE clock; every beat keys off its eased e)
+  fillMode: 'panels', // ?fillmode — panels | circle (FILL_MODES above)
+  blueCascade: 'sweep', // ?bluecascade — panels-mode delay model (BLUE_CASCADES above)
+  recenterEnd: 0.4, // ?recenterend — e where the recenter (offsets/elev → 0) completes
+  zoomStart: 0.25, // ?zoomstart — e where the dolly to ?envscale begins
 });
 
 /* URL param names for seed-on-load / copy_url, by section — NUMERIC knobs
@@ -90,8 +116,17 @@ const PARAM_KEYS = {
   ringR: 'ringr',
   ringSpeed: 'ringspeed',
   ringLean: 'ringlean',
+  /* commit */
+  commitMs: 'commitms',
+  recenterEnd: 'recenterend',
+  zoomStart: 'zoomstart',
 };
 const FIT_PARAM = 'herofit'; // contain | cover; anything else = device
+/* Commit string knobs — validated against the vocabulary lists (a typo
+   falls back to the default, the FIT_PARAM convention). The ease path
+   (?commitease) stays URL-only: CustomEase is created once per commit. */
+const FILL_MODE_PARAM = 'fillmode';
+const BLUE_CASCADE_PARAM = 'bluecascade';
 
 // Live, mutable tuning state (panel writes, Hero's rig effect reads).
 export const TUNING = { ...TUNING_DEFAULTS };
@@ -113,6 +148,10 @@ if (typeof window !== 'undefined') {
   const fit = p.get(FIT_PARAM);
   if (fit === 'contain') TUNING.fitCover = false;
   else if (fit === 'cover') TUNING.fitCover = true;
+  const fm = p.get(FILL_MODE_PARAM);
+  if (FILL_MODES.includes(fm)) TUNING.fillMode = fm;
+  const bc = p.get(BLUE_CASCADE_PARAM);
+  if (BLUE_CASCADES.includes(bc)) TUNING.blueCascade = bc;
 }
 
 /* pub/sub — Hero's rig effect subscribes to re-apply on any panel change. */
@@ -158,6 +197,14 @@ export function heroTuneCopyUrl() {
     p.set(FIT_PARAM, TUNING.fitCover ? 'cover' : 'contain');
   } else {
     p.delete(FIT_PARAM);
+  }
+  // Commit string knobs — serialized only off-default, same convention.
+  if (TUNING.fillMode !== TUNING_DEFAULTS.fillMode) p.set(FILL_MODE_PARAM, TUNING.fillMode);
+  else p.delete(FILL_MODE_PARAM);
+  if (TUNING.blueCascade !== TUNING_DEFAULTS.blueCascade) {
+    p.set(BLUE_CASCADE_PARAM, TUNING.blueCascade);
+  } else {
+    p.delete(BLUE_CASCADE_PARAM);
   }
   return `${window.location.origin}${window.location.pathname}?${p.toString()}`;
 }

@@ -7,11 +7,14 @@
  * effect stamps the values onto the live scene rig (rigRef.current.rig) and
  * re-applies — the framing moves on the next paint, no reload. The ring
  * sliders skip the rig entirely: ScrollRing reads TUNING live per frame, so
- * they move just as immediately. copy_url serializes only non-default
- * values (fp1Tune convention). Carries the comp section (fill / fit /
- * offset / elevation) and the ring section (radius / speed / lean, plus the
- * URL-only ringmobile / ringtext readouts); intro/commit/label sections
- * arrive with their chunks.
+ * they move just as immediately. The commit knobs are read by Hero AT
+ * commit time — they shape the next dry-run/commit, not a live one.
+ * copy_url serializes only non-default values (fp1Tune convention).
+ * Carries the comp section (fill / fit / offset / elevation), the ring
+ * section (radius / speed / lean, plus the URL-only ringmobile / ringtext
+ * readouts) and the commit section (length / fill mode / blue cascade /
+ * recenter / zoom windows + the dry-run trigger — Hero passes onDryRun);
+ * intro/label sections arrive with their chunks.
  *
  * Voice/chrome mirror the lenisTune bench (mono, near-black, lowercase).
  * Sits TOP-RIGHT — lenistune and the globe ?debug panel own bottom-left,
@@ -25,6 +28,8 @@ import {
   heroTuneCopyUrl,
   RING_MOBILE,
   RING_TEXT,
+  FILL_MODES,
+  BLUE_CASCADES,
 } from './heroConfig.js';
 import { FILL_FRACTION, FIT_COVER, IS_MOBILE } from '../globe/globeConfig.js';
 
@@ -50,9 +55,31 @@ function Row({ label, param, value, min, max, step, fmt, onChange }) {
   );
 }
 
+// One labeled segmented row — the commit modes (the bench's only
+// non-slider inputs). Same write path as Row.
+function Segmented({ label, param, value, options, onChange }) {
+  return (
+    <div className="hero-tune__row">
+      <span className="hero-tune__key">{label}</span>
+      <div className="hero-tune__seg">
+        {options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            className={`hero-tune__btn${opt === value ? ' is-active' : ''}`}
+            onClick={() => onChange(param, opt)}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const num3 = (n) => (Math.round(n * 1000) / 1000).toString();
 
-export default function HeroTunePanel({ rigRef }) {
+export default function HeroTunePanel({ rigRef, onDryRun }) {
   // Local mirror of the shared tuning state (seeded from it, incl. URL seed).
   const [s, setS] = useState(() => ({ ...TUNING }));
   const [copied, setCopied] = useState(false);
@@ -186,6 +213,61 @@ export default function HeroTunePanel({ rigRef }) {
         {IS_MOBILE ? '' : ' — desktop always rings'} · text: {RING_TEXT} — both
         URL-only (?ringmobile ?ringtext), reload to change.
       </p>
+
+      <div className="hero-tune__group">commit</div>
+      <Row
+        label="commit ms"
+        param="commitMs"
+        value={s.commitMs}
+        min={400}
+        max={3000}
+        step={50}
+        onChange={set}
+      />
+      <Segmented
+        label="fill mode"
+        param="fillMode"
+        value={s.fillMode}
+        options={FILL_MODES}
+        onChange={set}
+      />
+      <Segmented
+        label="blue cascade"
+        param="blueCascade"
+        value={s.blueCascade}
+        options={BLUE_CASCADES}
+        onChange={set}
+      />
+      <Row
+        label="recenter end"
+        param="recenterEnd"
+        value={s.recenterEnd}
+        min={0.05}
+        max={1}
+        step={0.05}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="zoom start"
+        param="zoomStart"
+        value={s.zoomStart}
+        min={0}
+        max={0.9}
+        step={0.05}
+        fmt={num3}
+        onChange={set}
+      />
+      <p className="hero-tune__note">
+        blue cascade drives fill mode panels only. ease: house turn curve —
+        ?commitease=&lt;path&gt; URL-only, reload to change. dry-run plays the
+        full commit then releases everything — no navigation.
+      </p>
+      <div className="hero-tune__actions">
+        <button type="button" className="hero-tune__btn" onClick={onDryRun}>
+          ▶ commit dry-run
+        </button>
+      </div>
 
       <div className="hero-tune__actions">
         <button type="button" className="hero-tune__btn" onClick={copyUrl}>

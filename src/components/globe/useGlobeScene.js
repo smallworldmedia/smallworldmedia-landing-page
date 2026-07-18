@@ -14,8 +14,9 @@
  * Home-hero hooks (optional, null-safe — lab passes neither): rigRef gets a
  * { rig, apply } camera-rig handle (fill/fitCover/offset/elevation/zoom
  * framing); overlayRef's .update runs post-render each frame (heroOverlay
- * bridge). At identity the rig is bit-identical to the old fixed framing —
- * see applyRig.
+ * bridge); the returned api carries setBlueFill alongside replayCascade
+ * (the chunk-4 commit's panel-by-panel blue). At identity the rig is
+ * bit-identical to the old fixed framing — see applyRig.
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -25,7 +26,7 @@ import { createPanelMaterial } from './panelMaterial.js';
 import TextureManager, { computeCoverUv } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import LivePanelScheduler from './LivePanelScheduler.js';
-import buildCascadeTimeline from './cascade.js';
+import buildCascadeTimeline, { panelDelay } from './cascade.js';
 import {
   LON_SEGMENTS,
   LAT_BANDS,
@@ -43,6 +44,32 @@ import {
   PREFERS_REDUCED_MOTION,
 } from './globeConfig.js';
 
+/* — Blue-fill surge (home-hero chunk 4) — the inverted-CRT two-beat, ONE
+   cheap shape per panel per frame. t is the panel's local 0..1 progress
+   through its surge window:
+     beat 1 (t < SURGE_DIP_END): brightness dips linearly 1 → 0.7 — the
+       screen "blinks", the power-on cascade's flicker inverted;
+     beat 2: the blue smoothsteps 0 → 1 while brightness returns on the
+       same curve (1 − depth·(1 − ss)), so the panel lands as flat field
+       blue at full brightness.
+   Continuous at the seam (both beats meet at 0.7), no overshoot at either
+   end. Writes both uniforms; t ≤ 0 leaves the panel untouched — the
+   setBlueFill(0) restore path owns that state. — */
+const SURGE_DIP_END = 0.35;
+const SURGE_DIP_DEPTH = 0.3; // brightness floor = 1 − depth = 0.7
+function surgePanel(uniforms, t) {
+  if (t <= 0) return;
+  if (t < SURGE_DIP_END) {
+    uniforms.uPower.value = 1 - SURGE_DIP_DEPTH * (t / SURGE_DIP_END);
+    uniforms.uBlueMix.value = 0;
+  } else {
+    const s = (t - SURGE_DIP_END) / (1 - SURGE_DIP_END);
+    const ss = s * s * (3 - 2 * s); // smoothstep — flat ends, no overshoot
+    uniforms.uPower.value = 1 - SURGE_DIP_DEPTH * (1 - ss);
+    uniforms.uBlueMix.value = ss;
+  }
+}
+
 /**
  * @param {React.RefObject<HTMLElement>} containerRef
  * @param {Array} assets - globe asset pool from GLOBE_ASSETS_QUERY
@@ -56,7 +83,8 @@ import {
  *        (fill/fitCover/offsetX/offsetY/elevDeg/zoom), then call .apply() to re-frame
  * @param {React.RefObject} [hero.overlayRef] - overlay bridge (heroOverlay);
  *        its .current.update(ctx) runs once per rendered frame, post-render
- * @returns {React.RefObject<{ replayCascade: (variant: string) => void }>}
+ * @returns {React.RefObject<{ replayCascade: (variant: string) => void,
+ *          setBlueFill: (p: number, variant?: string) => void }>}
  */
 export default function useGlobeScene(
   containerRef,
@@ -68,7 +96,7 @@ export default function useGlobeScene(
   poolRef,
   { rigRef = null, overlayRef = null } = {}
 ) {
-  const apiRef = useRef({ replayCascade: () => {} });
+  const apiRef = useRef({ replayCascade: () => {}, setBlueFill: () => {} });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -242,6 +270,64 @@ export default function useGlobeScene(
       if (!disposed) startCascade(variant);
     };
 
+    /* — Commit blue-fill (home-hero chunk 4) — p 0..1 sweeps the whole
+       cascade window: each panel's surge (surgePanel above) is delayed by
+       the SAME per-variant stagger model the power-on cascade uses
+       (panelDelay — sweep/rows/poles), so the blue arrives through the
+       globe's own choreography, never a flat fade. p is driven from
+       OUTSIDE per frame (Hero's master eased e — the no-second-clock
+       doctrine; nothing here ticks). Delays are baked once per variant
+       (jitter frozen, Float32Array — zero per-frame allocations).
+       setBlueFill(0) fully restores (uBlueMix 0, uPower 1) for the
+       dry-run release; a fresh mount never needs it — every material
+       initializes uBlueMix at 0 (panelMaterial). — */
+    const BLUE_SURGE = 0.15; // per-panel surge length, cascade delay-units
+    let blueDelays = null;
+    let blueVariant = null;
+    let blueWindow = 1;
+    let blueEngaged = false;
+    const bakeBlueDelays = (variant) => {
+      if (blueDelays && blueVariant === variant) return;
+      if (!blueDelays) blueDelays = new Float32Array(panels.length);
+      let max = 0;
+      for (let i = 0; i < panels.length; i += 1) {
+        const d = panelDelay(panels[i], variant, LAT_BANDS + 2);
+        blueDelays[i] = d;
+        if (d > max) max = d;
+      }
+      blueWindow = max + BLUE_SURGE; // the last panel completes exactly at p=1
+      blueVariant = variant;
+    };
+    apiRef.current.setBlueFill = (p, variant = variantRef.current) => {
+      if (disposed) return;
+      if (p <= 0) {
+        if (!blueEngaged) return; // never engaged — uniforms already clean
+        blueEngaged = false;
+        for (let i = 0; i < panels.length; i += 1) {
+          const u = panels[i].mesh.material.uniforms;
+          u.uBlueMix.value = 0;
+          u.uPower.value = 1;
+        }
+        return;
+      }
+      if (!blueEngaged) {
+        blueEngaged = true;
+        // The commit owns uPower now — a still-running entrance cascade
+        // would fight the surge writes (commit-during-cascade edge).
+        if (cascadeTl) {
+          cascadeTl.kill();
+          cascadeTl = null;
+        }
+      }
+      bakeBlueDelays(variant);
+      for (let i = 0; i < panels.length; i += 1) {
+        surgePanel(
+          panels[i].mesh.material.uniforms,
+          Math.min(Math.max((p * blueWindow - blueDelays[i]) / BLUE_SURGE, 0), 1)
+        );
+      }
+    };
+
     /* — Live video tier (Stage 2; stills only under reduced motion) — */
     const scheduler =
       poolRef?.current && assets?.length && !PREFERS_REDUCED_MOTION
@@ -350,6 +436,7 @@ export default function useGlobeScene(
     return () => {
       disposed = true;
       apiRef.current.replayCascade = () => {};
+      apiRef.current.setBlueFill = () => {};
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
