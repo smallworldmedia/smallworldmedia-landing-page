@@ -1064,116 +1064,43 @@ body.route-home .site-nav__pill:hover {
   margin: 2.5px 0;
 }
 
-/* scroll_to_enter — the circular ring CTA (home-hero rework, chunk 3;
-   retired the centered PRIMARY button): one fixed-viewBox SVG orbiting the
-   globe's screen disc. ScrollRing writes ONLY the wrapper transform
-   (translate to disc center · scale to ring radius · rotate) on the scene's
-   frame cadence, plus --ring-fill on the gesture — everything else here is
-   static, so the SVG never re-lays-out. Hidden until the entrance chrome
-   beat (ScrollRing fades itself in — opacity only, no motion). */
-.hero-ring {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 2;
+/* scroll_to_enter — the PRIMARY button, restored beneath the tagline in the
+   left statement column (the home-hero refine retired chunk 3's orbiting
+   ring). Scale + colour states are driven by React through --cta-* vars,
+   running the same scroll-fill choreography as /work's secondary chips
+   (white/blue at rest → fills toward blue/white → pinned solid blue at the
+   threshold). Hidden until the chrome beat (Hero fades the wrap in). */
+.hero__enter-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  will-change: transform;
+  /* only the button opts back in — the empty wrap lets drag-to-spin through */
 }
 
-/* The SVG centered on the wrapper's origin (fixed negative margins), so the
-   single wrapper transform scales and rotates about the disc center. */
-.hero-ring svg {
-  display: block;
-  width: 1000px;
-  height: 1000px;
-  margin: -500px 0 0 -500px;
-  overflow: visible;
+.hero__enter {
+  /* above the caret strip, so carets read as emerging from behind it */
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  transform: scale(var(--cta-scale, 1));
+  /* grows to the right off the left inset (left-anchored under the lead) */
+  transform-origin: left center;
+  transition:
+    transform var(--cta-return, 0.12s) var(--cta-ease, ease-out),
+    background 0.2s,
+    color 0.2s;
 }
 
-/* Ring copy — mono voice; the fill mixes white → electric blue by the drag
-   (--ring-fill from ScrollRing; CSS owns the per-mode return timing via the
-   --cta-return convention, keyed off data-mode). Font size is in viewBox
-   units — the wrapper scale sizes it on screen. */
-.hero-ring text {
-  font-family: var(--font-mono);
-  font-size: 30px;
-  fill: color-mix(in srgb, var(--color-white), var(--color-electric-blue) var(--ring-fill, 0%));
-  transition: fill var(--ring-return, 0.12s) var(--ring-ease, ease-out);
-}
-
-/* Stall → rubber-band back on the house release curve */
-.hero-ring[data-mode='release'] {
-  --ring-return: 0.4s;
-  --ring-ease: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Threshold → pin snaps solid blue (the spin decay lives in ScrollRing) */
-.hero-ring[data-mode='commit-pin'] {
-  --ring-return: 0.05s;
-}
-
-/* The a11y commit path — an invisible circular button the overlay pins to
-   the disc center with transform-only writes: 44px base (the hit-target
-   floor), scaled up to ≈ the disc radius. --hit-inv (1/scale, from the same
-   frame write) keeps the keyboard focus outline at a constant painted
-   weight under that scale. */
-.hero__enter-hit {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 2;
-  width: 44px;
-  height: 44px;
-  margin: -22px 0 0 -22px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  opacity: 0;
-  visibility: hidden;
-  will-change: transform;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.hero__enter-hit:focus-visible {
-  outline: calc(2px * var(--hit-inv, 1)) solid var(--color-white);
-  outline-offset: calc(2px * var(--hit-inv, 1));
-}
-
-/* Mobile ?ringmobile=0 — the micro scroll cue, bottom-center over the
-   overscan globe: mono label + the caret strip, no ring. Hidden until the
-   chrome beat (Hero fades it in). */
-.hero__micro-cta {
-  position: absolute;
-  bottom: 5.5rem;
-  /* clears the no-fill footer bar */
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.1rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-white);
-  font-family: var(--font-mono);
-  font-size: var(--text-ui);
-  letter-spacing: var(--tracking-tight);
-  cursor: pointer;
-  opacity: 0;
-  visibility: hidden;
-}
-
-/* Caret strip below the label: opacity falls off at BOTH ends — carets
-   surface from behind the label and dissolve before the far edge. */
-.hero__micro-cta .fp-cta__arrows {
+/* Caret strip below the button: opacity falls off at BOTH ends — carets
+   surface from behind the button and dissolve before the far edge. */
+.hero__enter-wrap .fp-cta__arrows {
+  margin-top: -0.25rem;
+  /* tucked slightly under the pill's bottom edge */
   margin-bottom: 0;
-  height: 44px;
+  height: 52px;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
   -webkit-mask-repeat: no-repeat;
@@ -1185,7 +1112,7 @@ body.route-home .site-nav__pill:hover {
 /* Legibility over arbitrary globe tiles: the thin white strokes carry a soft
    dark shadow (the chip variants don't need this — their carets sit on the
    chip's own fill). */
-.hero__micro-cta .fp-cta__arrows-track svg {
+.hero__enter-wrap .fp-cta__arrows-track svg {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
 }
 
@@ -1305,16 +1232,6 @@ body.route-home .site-nav__pill:hover {
   will-change: transform, opacity;
 }
 
-@media (prefers-reduced-motion: reduce) {
-
-  /* Static white ring — no rotation (JS), no fill choreography (this is the
-     CSS half of ScrollRing's dual guard) */
-  .hero-ring text {
-    fill: var(--color-white);
-    transition: none;
-  }
-}
-
 /* No-fill footer over the hero gradient — bookends the transparent nav */
 .hero__footer {
   position: absolute;
@@ -1389,11 +1306,34 @@ body.route-home .site-nav__pill:hover {
   text-decoration: underline;
 }
 
-.hero__text {
+/* Left statement column — the tagline and the scroll_to_enter button share
+   one left-anchored, vertically-centered column (home-hero refine: the ring
+   retired, the button returned beneath the lead). --lead-max is written by
+   Hero from the globe disc's LEFT edge (on the chrome beat / resize / bench
+   change, never per frame); the clamp floors it at 12rem and caps it at 46vw
+   so the copy never overlaps the globe and wraps when space is tight. Both
+   children inherit the width, so the button left-aligns under the wrapped
+   lead. Pointer-inert (drag-to-spin reaches the canvas); only the button
+   opts back in. Faded on the commit as .hero__lead-col in the chrome list. */
+.hero__lead-col {
   position: absolute;
-  inset: 0;
-  z-index: 1;
+  left: 1.143rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.143rem;
+  max-width: clamp(12rem, var(--lead-max, 46vw), 46vw);
   pointer-events: none;
+}
+
+/* HeroText's root is now just a passthrough — display:contents drops its box
+   so .hero__lead participates directly in the column flow (the sr-only h1 is
+   position:absolute, so it stays out of the flex layout). */
+.hero__text {
+  display: contents;
 }
 
 /* Skip link — hidden until keyboard-focused, then a pill over the nav */
@@ -1431,30 +1371,21 @@ body.route-home .site-nav__pill:hover {
 }
 
 /* Taglines — hero text overlay */
-/* The hero lead — ONE statement block, vertically centered on the left
-   (2026-07-16 recomposition). Typography mirrors the /process prose
-   register verbatim (.process-stage__blurb — the detail-blurb voice):
-   the homepage and the process page speak the same language. The 16px
-   left inset mirrors the process copy column's edge.
-   ⚠ Ring clearance is TIGHT at laptop aspect ratios: with the resting comp
-   (offsetX 0.55, fill 1.25, ringr 1.12) the ring's left arc crosses
-   mid-height at ≈ 77.5vw − 0.7·100vh — at 1440×900 that's ~486px, inside
-   this 44vw (~650px) line box. Fine at 1920×1080 (~732px vs ~706px), so
-   dial it on the ?herotune bench (herox/ringr) or trim max-width here
-   rather than assuming clearance. */
+/* The hero lead — ONE statement block, in flow inside the left column
+   (.hero__lead-col owns the left inset, vertical centering and the
+   globe-derived max-width now). Typography mirrors the /process prose
+   register verbatim (.process-stage__blurb — the detail-blurb voice): the
+   homepage and the process page speak the same language. max-width:100% lets
+   the column govern the wrap (its --lead-max keeps the copy clear of the
+   globe — the old static 44vw box could overlap it at laptop aspect ratios). */
 .hero__lead {
-  position: absolute;
-  left: 1.143rem;
-  top: 50%;
-  transform: translateY(-50%);
   font-family: var(--font-body);
   font-weight: 400;
   font-size: clamp(1.5rem, 2.78vw, 3.571rem);
   line-height: 1;
   letter-spacing: -0.005em;
   color: var(--color-white);
-  max-width: min(26ch, 44vw);
-  z-index: 1;
+  max-width: 100%;
   pointer-events: none;
 }
 
@@ -1908,10 +1839,15 @@ body.route-home .site-nav__pill:hover {
 
   /* --- Hero & overlay mobile overrides --- */
 
-  /* The hero lead's mobile cut mirrors the process prose mobile cut */
+  /* The hero lead's mobile cut mirrors the process prose mobile cut; the
+     column's cap relaxes to 78vw on mobile (still honoring --lead-max when
+     the globe crowds it), the lead fills it. */
   .hero__lead {
     font-size: clamp(1.4rem, 5.5vw, 2.2rem);
-    max-width: 78vw;
+  }
+
+  .hero__lead-col {
+    max-width: clamp(12rem, var(--lead-max, 78vw), 78vw);
   }
 
   .project-overlay {

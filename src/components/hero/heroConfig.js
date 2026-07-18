@@ -1,28 +1,26 @@
 /**
  * heroConfig.js — live tuning state for the HOME HERO camera rig, the
- * scroll_to_enter ring, the commit transition (chunk 4), the logo→globe
- * intro (chunk 5) and the blob-tracking labels (chunk 6; shipped OFF
- * behind the HERO_LABELS flag).
+ * scroll_to_enter button, the commit transition (chunk 4), the logo→globe
+ * intro (chunk 5) and the blob-tracking labels (chunk 6; shipped ON since
+ * the home-hero rework — the HERO_LABELS flag now defaults true).
  *
  * The comp knobs initialize from the URL (the PARAM convention — always on,
  * like Hero's ?introms family and processConfig's TUNING) into the mutable
- * TUNING object. Since chunk 3 the no-param state is the RESTING COMPOSITION
- * (Nathan's approved comp), not the old centered identity:
+ * TUNING object. The no-param state is the RESTING COMPOSITION (Nathan's
+ * dialed bench comp), not the old centered identity:
  *
- *   desktop            globe center ~72–78% vw, overflowing top/bottom
- *                      (grandeur), camera below the axis looking up
- *   mobile ?ringmobile=1  (DEFAULT) ring-friendly contain-fit — the whole
- *                      disc visible, biased to the upper ~60%, ring around it
- *   mobile ?ringmobile=0  the approved overscan (device fill/fit, centered)
- *                      with the micro CTA instead of the ring
+ *   desktop  globe huge, off to the right and overflowing top/bottom
+ *            (grandeur), camera well below the axis looking up at the
+ *            underside; a slight roll tilts the whole framing
+ *   mobile   the ring-era contain-fit (whole disc, biased upper ~60%) —
+ *            numbers untouched for now; the scroll_to_enter button sits
+ *            beneath the tagline as on desktop (the ring is retired)
  *
  * The ?herotune=1 panel (HeroTunePanel) writes TUNING through setHeroTune,
  * which publishes; Hero's rig effect subscribes and stamps the values onto
  * the live scene rig (rigRef.current.rig → apply()) — the framing moves on
- * the next paint, no reload. The ring knobs are read live by ScrollRing's
- * frame callback, so they move the same way. heroTuneCopyUrl() serializes
- * only non-default values so a dialed comp can be reloaded or shared
- * (fp1Tune convention).
+ * the next paint, no reload. heroTuneCopyUrl() serializes only non-default
+ * values so a dialed comp can be reloaded or shared (fp1Tune convention).
  */
 import { IS_MOBILE } from '../globe/globeConfig.js';
 import { TURN_EASE_PATH } from '../work/world/worldConfig.js';
@@ -31,16 +29,6 @@ const search = () =>
   new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
 
 export const HERO_TUNE_ACTIVE = search().get('herotune') === '1';
-
-/* — Mobile ring variant flag — ?ringmobile=1 (default) keeps the circular
-   ring CTA on phones over a contain-fit globe; =0 restores the approved
-   overscan comp with the bottom micro CTA. Desktop always rings. — */
-export const RING_MOBILE = search().get('ringmobile') !== '0';
-
-/* — Ring copy — the repeating CTA text; ?ringtext swaps the label for a
-   feel pass. The separator glyph sits between repeats. — */
-export const RING_TEXT = search().get('ringtext') || 'scroll_to_enter';
-export const RING_SEPARATOR = '✳';
 
 /* — Commit ease — the envelopment master curve (chunk 4). Starts life as
    the house Turn curve — steep launch that carries the gesture's momentum,
@@ -69,11 +57,11 @@ export const FILL_MODES = ['panels', 'circle'];
 export const BLUE_CASCADES = ['sweep', 'rows', 'poles'];
 
 /* — Labels flag (chunk 6) — the SHIPPED default for the blob-tracking
-   label layer: false = the layer never mounts. ?herolabels=1 forces it on
-   (the flag seeds TUNING.labels below, and the bench toggle flips it live
-   — Hero mounts/unmounts the layer off the published value). Judged on
-   the bench before it ever defaults on. — */
-export const HERO_LABELS = false;
+   label layer. Now TRUE: Nathan is designing the home hero with the chips
+   on, so the layer mounts by default (still ?herolabels-toggleable — =0
+   forces it off, and the bench toggle flips it live; Hero mounts/unmounts
+   the layer off the published value). — */
+export const HERO_LABELS = true;
 
 /* — Intro variant vocabulary (chunk 5). ?intro doubles as the MODE force
    (full/replay — Hero reads those) and the variant select: only a|c land
@@ -92,17 +80,16 @@ export const INTRO_VARIANTS = ['a', 'c'];
    so the table stays legible as it grows. — */
 /* Offset signs follow the rig's screen convention (applyRig negates into
    setViewOffset): +offsetX moves the globe RIGHT, +offsetY moves it DOWN.
-   So the mobile up-bias — disc in the upper ~60%, ring clear of the footer
-   chrome — is a NEGATIVE offsetY. */
+   So the mobile up-bias — disc in the upper ~60%, clear of the footer
+   chrome — is a NEGATIVE offsetY. roll is degrees about the view axis
+   (+ tilts the whole comp to the right; 0 = today's untilted framing). */
 const COMP_DEFAULTS = IS_MOBILE
-  ? RING_MOBILE
-    ? // ring-friendly: whole disc visible on a cover-fit device, biased to
-      // the upper ~60% of the viewport so the ring clears the chrome below
-      { fill: 0.95, fitCover: false, offsetX: 0, offsetY: -0.18, elevDeg: 8 }
-    : // approved overscan — the device framing, untouched
-      { fill: null, fitCover: null, offsetX: 0, offsetY: 0, elevDeg: 0 }
-  : // resting comp: center ~72–78% vw, overflow top/bottom, low camera
-    { fill: 1.25, fitCover: null, offsetX: 0.55, offsetY: -0.06, elevDeg: 12 };
+  ? // mobile: the ring-era contain-fit numbers, untouched for now — only the
+    // CTA changed (ring → the scroll_to_enter button beneath the tagline)
+    { fill: 0.95, fitCover: false, offsetX: 0, offsetY: -0.18, elevDeg: 8, roll: 0 }
+  : // resting comp — Nathan's dialed desktop bake: globe huge and off-right,
+    // camera well below the axis looking up at the underside
+    { fill: 1.26, fitCover: null, offsetX: 0.46, offsetY: -0.35, elevDeg: 70, roll: 0 };
 
 export const TUNING_DEFAULTS = Object.freeze({
   /* comp — camera rig */
@@ -111,20 +98,17 @@ export const TUNING_DEFAULTS = Object.freeze({
   offsetX: COMP_DEFAULTS.offsetX, // ?herox — view offset, fraction of the half-viewport (−1..1, + = right)
   offsetY: COMP_DEFAULTS.offsetY, // ?heroy — view offset, fraction of the half-viewport (−1..1, + = down)
   elevDeg: COMP_DEFAULTS.elevDeg, // ?heroelev — camera elevation off the equator plane, degrees (orbits, keeps facing center)
+  roll: COMP_DEFAULTS.roll, // ?heroroll — camera roll about the view axis, degrees (+ tilts the comp right); 0 = parity
   zoom: 1, // no param — dolly divisor on the fitted distance; gesture-owned (Hero's drag/release/envelop)
-
-  /* ring — the scroll_to_enter ring (ScrollRing reads these live per frame) */
-  ringR: 1.12, // ?ringr — ring radius as a multiple of the globe disc radius
-  ringSpeed: 4, // ?ringspeed — ambient rotation, deg/s (drag fill scales it up to ~3×)
-  ringLean: 0.08, // ?ringlean — extra ring radius at full drag fill
+  textGap: 32, // ?textgap — px gap between the globe disc's left edge and the tagline/CTA column (clearance)
 
   /* commit — the envelopment master timeline (chunk 4; Hero reads these at
      commit time, so the bench moves the NEXT commit/dry-run, not a live one) */
-  commitMs: 1200, // ?commitms — master timeline length, ms (ONE clock; every beat keys off its eased e)
+  commitMs: 2000, // ?commitms — master timeline length, ms (ONE clock; every beat keys off its eased e)
   fillMode: 'panels', // ?fillmode — panels | circle (FILL_MODES above)
-  blueCascade: 'sweep', // ?bluecascade — panels-mode delay model (BLUE_CASCADES above)
-  recenterEnd: 0.4, // ?recenterend — e where the recenter (offsets/elev → 0) completes
-  zoomStart: 0.25, // ?zoomstart — e where the dolly to ?envscale begins
+  blueCascade: 'poles', // ?bluecascade — panels-mode delay model (BLUE_CASCADES above)
+  recenterEnd: 1, // ?recenterend — e where the recenter (offsets/elev → 0) completes
+  zoomStart: 0.9, // ?zoomstart — e where the dolly to ?envscale begins
 
   /* intro — the logo→globe intro (chunk 5; HeroIntro reads these at mount,
      so the bench shapes the NEXT intro — use ↻ replay intro to see it).
@@ -132,17 +116,17 @@ export const TUNING_DEFAULTS = Object.freeze({
      the zoom fills the remainder of introMs); variant C keeps its own
      authored ~3.2s script. */
   intro: 'a', // ?intro — a | c (INTRO_VARIANTS; full/replay force the mode instead)
-  introMs: 5000, // ?introms — variant A total length, ms
-  introHoldMs: 800, // ?introhold — A2 hold after the chars land, ms
-  introCascadeMs: 1700, // ?introcascadeat — when the glyph-scale cascade fires, ms
-  heroInk: true, // ?heroink — 1|0: gap-lattice ink white → blue across the launch
+  introMs: 4700, // ?introms — variant A total length, ms
+  introHoldMs: 400, // ?introhold — A2 hold after the chars land, ms
+  introCascadeMs: 900, // ?introcascadeat — when the glyph-scale cascade fires, ms
+  heroInk: false, // ?heroink — 1|0: gap-lattice ink white → blue across the launch
 
   /* labels — blob-tracking chips on the LIVE panels (chunk 6; HeroLabels
      reads max at mount — Hero re-keys the layer on a change — and hold at
      each cycle) */
-  labels: HERO_LABELS, // ?herolabels — 1|0: mount the label layer (shipped OFF)
-  labelMax: IS_MOBILE ? 1 : 2, // ?labelmax — concurrent chips
-  labelHold: 2.5, // ?labelhold — seconds a chip holds before re-slotting
+  labels: HERO_LABELS, // ?herolabels — 1|0: mount the label layer (shipped ON)
+  labelMax: IS_MOBILE ? 1 : 6, // ?labelmax — concurrent chips
+  labelHold: 4.8, // ?labelhold — seconds a chip holds before re-slotting
 });
 
 /* URL param names for seed-on-load / copy_url, by section — NUMERIC knobs
@@ -155,10 +139,8 @@ const PARAM_KEYS = {
   offsetX: 'herox',
   offsetY: 'heroy',
   elevDeg: 'heroelev',
-  /* ring */
-  ringR: 'ringr',
-  ringSpeed: 'ringspeed',
-  ringLean: 'ringlean',
+  roll: 'heroroll',
+  textGap: 'textgap',
   /* commit */
   commitMs: 'commitms',
   recenterEnd: 'recenterend',

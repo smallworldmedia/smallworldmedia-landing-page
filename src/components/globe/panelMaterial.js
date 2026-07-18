@@ -73,6 +73,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uStrokeColor;
   uniform float uBlueMix;
   uniform vec3 uBlueColor;
+  uniform float uCornerR;
   varying vec2 vUv;
   varying vec2 vEdgeUv;
 
@@ -85,6 +86,31 @@ const fragmentShader = /* glsl */ `
   }
 
   void main() {
+    // — Rounded-corner tile mask (per-material, off unless uCornerR > 0) —
+    // Each panel renders as a rounded-rectangle tile (faithful to the corner
+    // radius on the panels in the SWM logo lockup) rather than a hard quad.
+    // A cut corner discards, revealing the blue inner sphere / gap lattice
+    // behind it — the lockup's blue-grid look. Standard rounded-box SDF over
+    // the interpolated panel UV (vUv, 0..1). uCornerR is the corner radius in
+    // UV units (the home globe sets ~0.12 = 12% of the shorter side; it must
+    // stay < 0.5 so the panel centre always survives). uCornerR defaults to 0
+    // — /process reuses this material and gets the branch skipped entirely, so
+    // its tiles stay hard-edged (byte-identical to before this change).
+    // Aspect: isotropic in UV — no per-panel aspect is available here, so on
+    // panels whose UV aspect != 1 the rounded corner reads as a slight ellipse
+    // rather than a true circle (mild: the lat-band aspects run ~0.69..1.14).
+    // Pole wedges carry planar-projected UVs whose silhouette reaches only the
+    // OUTER (equator-arc) UV corners while the converging apex normalizes to a
+    // narrow strip near u~0.5 at the far edge — so this mask rounds a wedge's
+    // outer corners only and leaves the apex untouched (no wedge-body clip).
+    float cornerD = -1.0; // <0 = inside (kept); recomputed only when enabled
+    if (uCornerR > 0.0) {
+      vec2 cornerC = abs(vUv - 0.5);                          // 0..0.5 from tile centre
+      vec2 cornerQ = max(cornerC - (0.5 - uCornerR), 0.0);
+      cornerD = length(cornerQ) - uCornerR;                   // rounded-box SDF, <0 inside
+      if (cornerD > 0.0) discard;                             // outside → inner sphere shows through blue
+    }
+
     vec3 colorA = texture2D(texA, vUv * uvScaleA + uvOffsetA).rgb;
     vec3 colorB = texture2D(texB, vUv * uvScaleB + uvOffsetB).rgb;
     colorB = mix(colorB, srgbToLinear(colorB), uVideoB);
@@ -103,6 +129,16 @@ const fragmentShader = /* glsl */ `
     // at uBlueMix 1 the panel is exactly the inner sphere's blue — stroke,
     // texture and power all submerged under the field.
     color = mix(color, uBlueColor, uBlueMix);
+    // Anti-alias the rounded corner (only when rounding is enabled): the pass
+    // is opaque (no alpha blend), so fade the innermost ~1px of the cut toward
+    // the gap/inner-sphere blue the discard reveals, so the arc reads smooth
+    // instead of jagged. uBlueColor IS that blue, so the fringe is seamless
+    // with what shows through; at commit (uBlueMix→1) the panel is already blue
+    // and this resolves to a no-op.
+    if (uCornerR > 0.0) {
+      float cornerAA = max(fwidth(cornerD), 1e-6);
+      color = mix(color, uBlueColor, smoothstep(-cornerAA, 0.0, cornerD));
+    }
     gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
   }
@@ -123,9 +159,12 @@ export function getPlaceholderTexture() {
 /**
  * @param {Object} opts
  * @param {number} opts.fallbackColor - hex color shown until the thumbnail lands
+ * @param {number} [opts.cornerRadius=0] - rounded-tile radius in UV units
+ *        (0 = hard edges, the /process default; the home globe passes ~0.12
+ *        for lockup fidelity). Must stay < 0.5.
  * @returns {THREE.ShaderMaterial}
  */
-export function createPanelMaterial({ fallbackColor }) {
+export function createPanelMaterial({ fallbackColor, cornerRadius = 0 }) {
   const placeholder = getPlaceholderTexture();
   return new THREE.ShaderMaterial({
     vertexShader,
@@ -147,6 +186,7 @@ export function createPanelMaterial({ fallbackColor }) {
       uStrokeColor: { value: new THREE.Color(0x000000) },
       uBlueMix: { value: 0 }, // 0 = untouched — the commit blue-fill (useGlobeScene setBlueFill) drives it
       uBlueColor: { value: new THREE.Color(GAP_COLOR) }, // the inner sphere's blue, never a hand-picked hex
+      uCornerR: { value: cornerRadius }, // rounded-tile radius; 0 = hard edges (/process); branch skipped when 0
     },
   });
 }

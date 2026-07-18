@@ -5,14 +5,11 @@
  *
  * Sliders write the shared heroConfig TUNING, which publishes → Hero's rig
  * effect stamps the values onto the live scene rig (rigRef.current.rig) and
- * re-applies — the framing moves on the next paint, no reload. The ring
- * sliders skip the rig entirely: ScrollRing reads TUNING live per frame, so
- * they move just as immediately. The commit knobs are read by Hero AT
- * commit time — they shape the next dry-run/commit, not a live one.
- * copy_url serializes only non-default values (fp1Tune convention).
- * Carries the comp section (fill / fit / offset / elevation), the ring
- * section (radius / speed / lean, plus the URL-only ringmobile / ringtext
- * readouts), the commit section (length / fill mode / blue cascade /
+ * re-applies — the framing moves on the next paint, no reload. The commit
+ * knobs are read by Hero AT commit time — they shape the next dry-run/commit,
+ * not a live one. copy_url serializes only non-default values (fp1Tune
+ * convention). Carries the comp section (fill / fit / offset / elevation /
+ * roll / text gap), the commit section (length / fill mode / blue cascade /
  * recenter / zoom windows + the dry-run trigger — Hero passes onDryRun)
  * and the intro section (chunk 5: variant / A-script timing / lattice ink
  * + ↻ replay intro — Hero passes onReplayIntro, which re-mounts the
@@ -31,13 +28,11 @@ import {
   setHeroTune,
   resetHeroTune,
   heroTuneCopyUrl,
-  RING_MOBILE,
-  RING_TEXT,
   FILL_MODES,
   BLUE_CASCADES,
   INTRO_VARIANTS,
 } from './heroConfig.js';
-import { FILL_FRACTION, FIT_COVER, IS_MOBILE } from '../globe/globeConfig.js';
+import { FILL_FRACTION, FIT_COVER } from '../globe/globeConfig.js';
 
 // One labeled slider row. Writes the shared state (which drives the live rig
 // via Hero's effect) and mirrors into local React state so the input stays
@@ -166,9 +161,28 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         param="elevDeg"
         value={s.elevDeg}
         min={0}
-        max={30}
+        max={90}
         step={0.5}
         fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="roll deg"
+        param="roll"
+        value={s.roll}
+        min={-20}
+        max={20}
+        step={0.5}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="text gap px"
+        param="textGap"
+        value={s.textGap}
+        min={0}
+        max={120}
+        step={2}
         onChange={set}
       />
       <p className="hero-tune__note">
@@ -178,46 +192,11 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
           : s.fitCover
             ? 'cover'
             : 'contain'}{' '}
-        — ?herofit=contain|cover. reset returns the resting-comp defaults for
-        this device/variant (device fill is {num3(FILL_FRACTION)}, fit{' '}
+        — ?herofit=contain|cover. roll (?heroroll) tilts the whole comp right
+        at +, 0 = parity. text gap (?textgap) is the tagline/CTA clearance from
+        the globe. reset returns the resting-comp defaults for this
+        device/variant (device fill is {num3(FILL_FRACTION)}, fit{' '}
         {FIT_COVER ? 'cover' : 'contain'} here).
-      </p>
-
-      <div className="hero-tune__group">ring</div>
-      <Row
-        label="radius ×disc"
-        param="ringR"
-        value={s.ringR}
-        min={0.9}
-        max={1.6}
-        step={0.01}
-        fmt={num3}
-        onChange={set}
-      />
-      <Row
-        label="speed °/s"
-        param="ringSpeed"
-        value={s.ringSpeed}
-        min={0}
-        max={15}
-        step={0.5}
-        fmt={num3}
-        onChange={set}
-      />
-      <Row
-        label="lean"
-        param="ringLean"
-        value={s.ringLean}
-        min={0}
-        max={0.3}
-        step={0.005}
-        fmt={num3}
-        onChange={set}
-      />
-      <p className="hero-tune__note">
-        ringmobile: {RING_MOBILE ? '1 (ring)' : '0 (micro cta)'}
-        {IS_MOBILE ? '' : ' — desktop always rings'} · text: {RING_TEXT} — both
-        URL-only (?ringmobile ?ringtext), reload to change.
       </p>
 
       <div className="hero-tune__group">commit</div>
@@ -343,7 +322,7 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         param="labelMax"
         value={s.labelMax}
         min={1}
-        max={4}
+        max={8}
         step={1}
         onChange={set}
       />
@@ -358,8 +337,8 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         onChange={set}
       />
       <p className="hero-tune__note">
-        shipped OFF — chips latch onto live panels between the chrome beat
-        and a commit (?herolabels=1 forces on). max rebuilds the layer;
+        on by default — chips latch onto live panels between the chrome beat
+        and a commit (?herolabels=0 forces off). max rebuilds the layer;
         hold applies from each chip&apos;s next cycle.
       </p>
 

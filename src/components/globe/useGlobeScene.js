@@ -68,6 +68,11 @@ import {
    setBlueFill(0) restore path owns that state. — */
 const SURGE_DIP_END = 0.35;
 const SURGE_DIP_DEPTH = 0.3; // brightness floor = 1 − depth = 0.7
+
+// Rounded-tile radius for the HOME globe panels (UV units, < 0.5) — lockup
+// fidelity (the SWM mark's panels carry a corner radius). /process reuses
+// createPanelMaterial at the default 0 (hard edges) and is untouched.
+const PANEL_CORNER_RADIUS = 0.12;
 function surgePanel(uniforms, t) {
   if (t <= 0) return;
   if (t < SURGE_DIP_END) {
@@ -182,7 +187,7 @@ export default function useGlobeScene(
     const carried = rigRef?.current?.rig;
     const RIG = carried
       ? { ...carried }
-      : { fill: FILL_FRACTION, fitCover: null, offsetX: 0, offsetY: 0, elevDeg: 0, zoom: 1 };
+      : { fill: FILL_FRACTION, fitCover: null, offsetX: 0, offsetY: 0, elevDeg: 0, roll: 0, zoom: 1 };
 
     // Canvas CSS px — measured ONLY by measure() (init + resize), never in
     // applyRig. applyRig is the per-frame rig handle (gesture zoom, the
@@ -223,6 +228,15 @@ export default function useGlobeScene(
       const er = THREE.MathUtils.degToRad(RIG.elevDeg);
       camera.position.set(0, -Math.sin(er) * dist, Math.cos(er) * dist);
       camera.lookAt(0, 0, 0);
+      // Camera roll about the view axis (the local +Z, which runs through the
+      // camera and the origin it's looking at, so the globe center stays fixed
+      // on-screen). A POSITIVE roll tilts the whole composition to the RIGHT:
+      // rotateZ(+θ) turns the camera's right axis to (cosθ, sinθ), so a point
+      // on the world horizon's right side projects to (+x, −y) — the horizon
+      // dips down-to-the-right and the globe's top leans right. roll 0 skips
+      // the call entirely, keeping the view matrix bit-identical to before
+      // (the parity guarantee). Rolls globe + labels together, as intended.
+      if (RIG.roll) camera.rotateZ(THREE.MathUtils.degToRad(RIG.roll));
       // View offset: fractions of the half-viewport, ALWAYS re-stamped with
       // fresh px so a resize can never leave a stale offset baked in. At 0/0
       // clear instead of stamping a zero offset — setViewOffset flips
@@ -280,7 +294,9 @@ export default function useGlobeScene(
     panels.forEach((panel) => {
       panel.mesh = new THREE.Mesh(
         panel.geometry,
-        createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR })
+        // Rounded tiles on the home globe (lockup fidelity); /process reuses
+        // this material at the default radius 0 (hard edges), untouched.
+        createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR, cornerRadius: PANEL_CORNER_RADIUS })
       );
       globeGroup.add(panel.mesh);
     });

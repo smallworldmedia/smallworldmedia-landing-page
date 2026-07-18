@@ -31,7 +31,7 @@
  * NEVER per frame.
  *
  * Chrome discipline: slots arm only at the chrome beat (data-chromed /
- * swm:hero-chrome — the ScrollRing latch idiom); live events before the
+ * swm:hero-chrome — the shared chrome-latch idiom); live events before the
  * beat only accumulate the candidate set. At commit the layer's root is
  * part of Hero's chrome NodeList, so the chrome-out fades it and a
  * dry-run release restores it. Pointer-inert throughout.
@@ -296,7 +296,7 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
     });
 
     /* — Arm at the chrome beat (data-chromed covers a mount racing the
-       event — the ScrollRing latch idiom). Before the beat, events only
+       event — the shared chrome-latch idiom). Before the beat, events only
        build the candidate set. — */
     let onChrome = null;
     const arm = () => {
@@ -313,8 +313,8 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
 
     /* — Per frame (overlay cadence): project each bound anchor, write the
        chip transform + leader endpoints. Zero allocations beyond the
-       write strings (the ScrollRing budget); zero layout reads — the chip
-       box comes from the bind-time cache. — */
+       write strings (the overlay-consumer budget); zero layout reads — the
+       chip box comes from the bind-time cache. — */
     const onFrame = (frame) => {
       lastFrame = frame; // event-time picks read the same matrices
       for (let i = 0; i < slots.length; i += 1) {
