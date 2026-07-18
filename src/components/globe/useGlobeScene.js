@@ -17,8 +17,10 @@
  * bridge); the returned api carries setBlueFill alongside replayCascade
  * (the chunk-4 commit's panel-by-panel blue), plus the chunk-5 intro pair:
  * setInk (gap-lattice ink — one white→blue lerp on the inner-sphere
- * material, which IS the lattice showing through the gaps) and
- * releaseScheduler (ends a holdEntrance hold). holdEntrance (full-intro
+ * material, which IS the lattice showing through the gaps),
+ * releaseScheduler (ends a holdEntrance hold) and onLiveChange (chunk-6
+ * labels — subscribe to the scheduler's live-panel transitions; the
+ * subscription outlives scene rebuilds). holdEntrance (full-intro
  * mounts only, never under RM) keeps the scene in its dark pre-cascade
  * state — no entrance cascade on load (panels build with uPower 0, so the
  * dark panelized sphere + gap lattice reads as the line-art mark at glyph
@@ -96,7 +98,8 @@ function surgePanel(uniforms, t) {
  *        no scheduler until releaseScheduler(). Forced off under reduced motion.
  * @returns {React.RefObject<{ replayCascade: (variant: string) => void,
  *          setBlueFill: (p: number, variant?: string) => void,
- *          setInk: (t: number) => void, releaseScheduler: () => void }>}
+ *          setInk: (t: number) => void, releaseScheduler: () => void,
+ *          onLiveChange: (cb: Function) => (() => void) }>}
  */
 export default function useGlobeScene(
   containerRef,
@@ -108,12 +111,31 @@ export default function useGlobeScene(
   poolRef,
   { rigRef = null, overlayRef = null, holdEntrance = false } = {}
 ) {
-  const apiRef = useRef({
-    replayCascade: () => {},
-    setBlueFill: () => {},
-    setInk: () => {},
-    releaseScheduler: () => {},
-  });
+  // Live-panel transition subscribers (chunk-6 labels) — hook-level, like
+  // the api object itself, so a subscription survives scene rebuilds (the
+  // old scheduler's dispose announces 'off' for everything it showed; the
+  // new one announces fresh 'live's into the same set). Lazy init keeps
+  // the Set a one-time allocation (Hero's overlayRef idiom).
+  const liveSubsRef = useRef(null);
+  if (liveSubsRef.current === null) liveSubsRef.current = new Set();
+  const apiRef = useRef(null);
+  if (apiRef.current === null) {
+    const liveSubs = liveSubsRef.current;
+    apiRef.current = {
+      replayCascade: () => {},
+      setBlueFill: () => {},
+      setInk: () => {},
+      releaseScheduler: () => {},
+      // Subscribe to live-panel transitions (LivePanelScheduler's
+      // onLiveChange events, panel object included — the consumer projects
+      // panel.centerDir itself). Scene-independent: never reset at
+      // teardown, so a label layer can subscribe once and hold on.
+      onLiveChange: (cb) => {
+        liveSubs.add(cb);
+        return () => liveSubs.delete(cb);
+      },
+    };
+  }
   // The hold releases ONCE per mount and stays released across scene
   // rebuilds (lab-style gap/cap retunes mid-session) — a rebuild after the
   // intro must come up live, not re-held.
@@ -377,6 +399,18 @@ export default function useGlobeScene(
        short-circuits) starts it and latches the release for any later
        rebuild; without a hold it starts here exactly as before. — */
     let scheduler = null;
+    // Live-event dispatcher — ONE stable closure handed to the scheduler
+    // (whichever path constructs it, including a releaseScheduler under
+    // holdEntrance), fanning out to the hook-level subscriber set. Hoisted
+    // emit closure, event cadence (≤2Hz) — never on the frame path.
+    let liveEvtPanel = null;
+    let liveEvtState = null;
+    const liveEmit = (cb) => cb(liveEvtPanel, liveEvtState);
+    const emitLiveChange = (panel, state) => {
+      liveEvtPanel = panel;
+      liveEvtState = state;
+      liveSubsRef.current.forEach(liveEmit);
+    };
     const startScheduler = () => {
       if (disposed || scheduler) return;
       scheduler =
@@ -386,6 +420,7 @@ export default function useGlobeScene(
               assets,
               poolHandle: poolRef.current,
               textureManager,
+              onLiveChange: emitLiveChange,
             })
           : null;
     };

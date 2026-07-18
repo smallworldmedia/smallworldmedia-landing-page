@@ -33,6 +33,11 @@
  * The ring is pointer-inert; the click/keyboard commit path is the
  * .hero__enter-hit target the overlay pins to the disc center.
  *
+ * Blob-tracking labels (chunk 6, HeroLabels — flag-gated OFF, ?herolabels
+ * / the bench toggle): mono chips + leader strokes latched to the LIVE
+ * panels via the scene api's onLiveChange subscription, running only
+ * between the chrome beat and a commit, never under RM.
+ *
  * While dragging, the RouteFill blue pre-covers on a power curve (up to
  * ?envpre % at the threshold) — video keeps playing under it. At commit the
  * pre-cover HOLDS wherever the drag left it (we simply stop emitting
@@ -69,6 +74,7 @@ import HeroText from './HeroText.jsx';
 import HeroTunePanel from './hero/HeroTunePanel.jsx';
 import ScrollRing from './hero/ScrollRing.jsx';
 import HeroIntro from './hero/HeroIntro.jsx';
+import HeroLabels from './hero/HeroLabels.jsx';
 import { createHeroOverlay } from './hero/heroOverlay.js';
 import {
   TUNING as HERO_TUNING,
@@ -282,6 +288,23 @@ export default function Hero({ globeAssets }) {
     if (HERO_TUNE_ACTIVE) setHeroTuneOn(true);
   }, []);
 
+  // Blob-tracking labels (chunk 6) — flag-gated OFF (TUNING.labels;
+  // ?herolabels=1 forces on) and RM's outer guard here (HeroLabels dual-
+  // guards inside). Same post-hydration gate — the URL-seeded flag must
+  // not touch the first client render — plus a live tune subscription so
+  // the bench toggle mounts/unmounts the layer and a labelMax change
+  // re-keys it (the slot count is a mount-time build).
+  const [labelsOn, setLabelsOn] = useState(false);
+  const [labelsMax, setLabelsMax] = useState(2);
+  useEffect(() => {
+    const sync = () => {
+      setLabelsOn(HERO_TUNING.labels && !PREFERS_REDUCED_MOTION);
+      setLabelsMax(HERO_TUNING.labelMax);
+    };
+    sync();
+    return subscribeHeroTune(sync);
+  }, []);
+
   // Mobile variant 0 (?ringmobile=0): swap the ring for the micro CTA. Same
   // post-hydration gate as the bench — IS_MOBILE/RING_MOBILE must not touch
   // the first client render (SSR parity); the swap lands while the chrome is
@@ -322,7 +345,7 @@ export default function Hero({ globeAssets }) {
     const sceneApi = sceneApiRef.current;
     const fill = fillRef.current;
     const chrome = heroRef.current.querySelectorAll(
-      '.hero__enter-hit, .hero__micro-cta, .hero__footer, .hero__text'
+      '.hero__enter-hit, .hero__micro-cta, .hero__footer, .hero__text, .hero-labels'
     );
     // Commit-time snapshot of the bench knobs — the timeline is one shot;
     // a mid-flight TUNING write waits for the next commit/dry-run.
@@ -762,6 +785,14 @@ export default function Hero({ globeAssets }) {
       {/* The statement lead — left-center, the /process prose voice
           (2026-07-16 recomposition; the line moved out of the footer) */}
       <HeroText />
+      {/* Blob-tracking labels (chunk 6) — flag-gated OFF; chips latch onto
+          LIVE panels between the chrome beat and a commit. Keyed by the
+          bench's max so a slot-count change rebuilds cleanly. Part of the
+          commit's chrome NodeList (.hero-labels) — the chrome-out fades
+          the layer and a dry-run restores it. */}
+      {labelsOn && (
+        <HeroLabels key={labelsMax} overlay={overlayRef.current} sceneApiRef={sceneApiRef} />
+      )}
       <div className="hero__footer">
         <SiteFooter noFill tagline={false} />
       </div>

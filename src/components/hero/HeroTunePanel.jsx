@@ -17,8 +17,9 @@
  * and the intro section (chunk 5: variant / A-script timing / lattice ink
  * + ↻ replay intro — Hero passes onReplayIntro, which re-mounts the
  * machine; the live-video scheduler can't re-hold mid-session, so replays
- * run over live video — accepted). The label section arrives with its
- * chunk.
+ * run over live video — accepted), plus the labels section (chunk 6: the
+ * flag-gated blob-tracking chips — the toggle mounts/unmounts the layer
+ * live, max rebuilds the slots, hold applies from the next cycle).
  *
  * Voice/chrome mirror the lenisTune bench (mono, near-black, lowercase).
  * Sits TOP-RIGHT — lenistune and the globe ?debug panel own bottom-left,
@@ -328,6 +329,39 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
           ↻ replay intro
         </button>
       </div>
+
+      <div className="hero-tune__group">labels</div>
+      <Segmented
+        label="labels"
+        param="labels"
+        value={s.labels ? 'on' : 'off'}
+        options={['on', 'off']}
+        onChange={(param, opt) => set(param, opt === 'on')}
+      />
+      <Row
+        label="max chips"
+        param="labelMax"
+        value={s.labelMax}
+        min={1}
+        max={4}
+        step={1}
+        onChange={set}
+      />
+      <Row
+        label="hold s"
+        param="labelHold"
+        value={s.labelHold}
+        min={0.5}
+        max={6}
+        step={0.1}
+        fmt={num3}
+        onChange={set}
+      />
+      <p className="hero-tune__note">
+        shipped OFF — chips latch onto live panels between the chrome beat
+        and a commit (?herolabels=1 forces on). max rebuilds the layer;
+        hold applies from each chip&apos;s next cycle.
+      </p>
 
       <div className="hero-tune__actions">
         <button type="button" className="hero-tune__btn" onClick={copyUrl}>

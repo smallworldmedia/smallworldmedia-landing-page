@@ -1,7 +1,8 @@
 /**
  * heroConfig.js — live tuning state for the HOME HERO camera rig, the
- * scroll_to_enter ring, the commit transition (chunk 4) and the logo→globe
- * intro (chunk 5; the label choreography is the remaining chunk).
+ * scroll_to_enter ring, the commit transition (chunk 4), the logo→globe
+ * intro (chunk 5) and the blob-tracking labels (chunk 6; shipped OFF
+ * behind the HERO_LABELS flag).
  *
  * The comp knobs initialize from the URL (the PARAM convention — always on,
  * like Hero's ?introms family and processConfig's TUNING) into the mutable
@@ -67,6 +68,13 @@ export const HERO_INTRO_EASE_PATH =
 export const FILL_MODES = ['panels', 'circle'];
 export const BLUE_CASCADES = ['sweep', 'rows', 'poles'];
 
+/* — Labels flag (chunk 6) — the SHIPPED default for the blob-tracking
+   label layer: false = the layer never mounts. ?herolabels=1 forces it on
+   (the flag seeds TUNING.labels below, and the bench toggle flips it live
+   — Hero mounts/unmounts the layer off the published value). Judged on
+   the bench before it ever defaults on. — */
+export const HERO_LABELS = false;
+
 /* — Intro variant vocabulary (chunk 5). ?intro doubles as the MODE force
    (full/replay — Hero reads those) and the variant select: only a|c land
    in TUNING. a = "Typeset, then Ignition" (chars materialize, cascade
@@ -79,9 +87,9 @@ export const INTRO_VARIANTS = ['a', 'c'];
    `fitCover: null` mean "use the device FILL_FRACTION / FIT_COVER from
    globeConfig" — the rig falls back at use-time, so a reset stays honest on
    both breakpoints. SSR sees the desktop shape; nothing reads TUNING until
-   the client rig effect runs. Later chunks append sections here (label —
-   commit landed with chunk 4, intro with chunk 5) — keep the section
-   comments so the table stays legible as it grows. — */
+   the client rig effect runs. Sections landed with their chunks (commit —
+   chunk 4, intro — chunk 5, labels — chunk 6) — keep the section comments
+   so the table stays legible as it grows. — */
 /* Offset signs follow the rig's screen convention (applyRig negates into
    setViewOffset): +offsetX moves the globe RIGHT, +offsetY moves it DOWN.
    So the mobile up-bias — disc in the upper ~60%, ring clear of the footer
@@ -128,6 +136,13 @@ export const TUNING_DEFAULTS = Object.freeze({
   introHoldMs: 800, // ?introhold — A2 hold after the chars land, ms
   introCascadeMs: 1700, // ?introcascadeat — when the glyph-scale cascade fires, ms
   heroInk: true, // ?heroink — 1|0: gap-lattice ink white → blue across the launch
+
+  /* labels — blob-tracking chips on the LIVE panels (chunk 6; HeroLabels
+     reads max at mount — Hero re-keys the layer on a change — and hold at
+     each cycle) */
+  labels: HERO_LABELS, // ?herolabels — 1|0: mount the label layer (shipped OFF)
+  labelMax: IS_MOBILE ? 1 : 2, // ?labelmax — concurrent chips
+  labelHold: 2.5, // ?labelhold — seconds a chip holds before re-slotting
 });
 
 /* URL param names for seed-on-load / copy_url, by section — NUMERIC knobs
@@ -152,6 +167,9 @@ const PARAM_KEYS = {
   introMs: 'introms',
   introHoldMs: 'introhold',
   introCascadeMs: 'introcascadeat',
+  /* labels */
+  labelMax: 'labelmax',
+  labelHold: 'labelhold',
 };
 const FIT_PARAM = 'herofit'; // contain | cover; anything else = device
 /* Commit string knobs — validated against the vocabulary lists (a typo
@@ -165,6 +183,9 @@ const BLUE_CASCADE_PARAM = 'bluecascade';
    a boolean (1|0). */
 const INTRO_PARAM = 'intro';
 const HERO_INK_PARAM = 'heroink';
+/* Labels flag — boolean like ?heroink (1|0); the numeric knobs ride
+   PARAM_KEYS. */
+const LABELS_PARAM = 'herolabels';
 
 // Live, mutable tuning state (panel writes, Hero's rig effect reads).
 export const TUNING = { ...TUNING_DEFAULTS };
@@ -195,6 +216,9 @@ if (typeof window !== 'undefined') {
   const ink = p.get(HERO_INK_PARAM);
   if (ink === '0') TUNING.heroInk = false;
   else if (ink === '1') TUNING.heroInk = true;
+  const lb = p.get(LABELS_PARAM);
+  if (lb === '1') TUNING.labels = true;
+  else if (lb === '0') TUNING.labels = false;
 }
 
 /* pub/sub — Hero's rig effect subscribes to re-apply on any panel change. */
@@ -260,6 +284,13 @@ export function heroTuneCopyUrl() {
     p.set(HERO_INK_PARAM, TUNING.heroInk ? '1' : '0');
   } else {
     p.delete(HERO_INK_PARAM);
+  }
+  // Labels flag — same boolean convention (off is the shipped default, so
+  // a dialed labels comp serializes herolabels=1).
+  if (TUNING.labels !== TUNING_DEFAULTS.labels) {
+    p.set(LABELS_PARAM, TUNING.labels ? '1' : '0');
+  } else {
+    p.delete(LABELS_PARAM);
   }
   return `${window.location.origin}${window.location.pathname}?${p.toString()}`;
 }

@@ -13,6 +13,10 @@
  *  - Hidden swap: score < SWAP_SCORE → texA quietly advances to the next
  *    pool asset; the inner sphere occludes the rear hemisphere so swaps are
  *    never visible. One swap per panel per trip behind the globe.
+ *
+ * Optional onLiveChange(panel, 'live'|'off') announces the transitions
+ * outward (the home hero's tracking labels) — see the constructor JSDoc.
+ * Events only; nothing outside ever polls scheduler internals.
  */
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -49,12 +53,19 @@ export default class LivePanelScheduler {
    * @param {Array} opts.assets - full ordered asset pool
    * @param {Object} opts.poolHandle - VideoSlotPool imperative handle (ref.current)
    * @param {TextureManager} opts.textureManager
+   * @param {(panel: Object, state: 'live'|'off') => void} [opts.onLiveChange]
+   *        Live-transition events (home-hero labels, chunk 6): 'live' when a
+   *        promotion's crossfade COMPLETES (the panel is actually showing
+   *        video), 'off' at demote start and on any slot release/teardown.
+   *        The liveAnnounced latch guarantees exactly one 'off' per 'live' —
+   *        a pending rollback that never presented frames emits nothing.
    */
-  constructor({ panels, assets, poolHandle, textureManager }) {
+  constructor({ panels, assets, poolHandle, textureManager, onLiveChange = null }) {
     this.panels = panels;
     this.assets = assets;
     this.pool = poolHandle;
     this.textureManager = textureManager;
+    this.onLiveChange = onLiveChange;
     this.disposed = false;
 
     // Next pool index for hidden swaps — starts after the initial assignment
@@ -172,6 +183,12 @@ export default class LivePanelScheduler {
           duration: CROSSFADE_SECONDS,
           ease: 'power2.out',
           overwrite: true,
+          // 'live' fires only once frames are truly on screen. A demote
+          // before then kills this tween (overwrite on the same uniform),
+          // so a never-shown panel never announces.
+          onComplete: () => {
+            if (!this.disposed && panel.liveState === 'live') this.announceLive(panel);
+          },
         });
       })
       .catch(() => {
@@ -180,8 +197,28 @@ export default class LivePanelScheduler {
       });
   }
 
+  /* — Label events (chunk 6) — the latch pair: announceLive marks the
+     panel, announceOff only fires for a marked panel and clears the mark,
+     so every consumer sees balanced live/off pairs no matter which path
+     (demote, rollback, dispose) frees the slot. Null-safe: without a
+     callback both are no-ops beyond the flag write. — */
+  announceLive(panel) {
+    if (!this.onLiveChange) return;
+    panel.liveAnnounced = true;
+    this.onLiveChange(panel, 'live');
+  }
+
+  announceOff(panel) {
+    if (!this.onLiveChange || !panel.liveAnnounced) return;
+    panel.liveAnnounced = false;
+    this.onLiveChange(panel, 'off');
+  }
+
   demote(panel) {
     panel.liveState = 'demoting';
+    // 'off' at demote START — the label fades while the crossfade back to
+    // the thumbnail plays, not after.
+    this.announceOff(panel);
     const { uniforms } = panel.mesh.material;
     gsap.to(uniforms.uMix, {
       value: 0,
@@ -193,6 +230,7 @@ export default class LivePanelScheduler {
   }
 
   freePanel(panel, { releasePool }) {
+    this.announceOff(panel); // no-op when demote already announced (latch)
     const slot = panel.liveSlot;
     if (slot != null && this.slots[slot] === panel) {
       if (releasePool && !this.disposed) this.pool.releaseSlot(slot);
@@ -251,6 +289,7 @@ export default class LivePanelScheduler {
   dispose() {
     this.disposed = true;
     this.panels.forEach((panel) => {
+      this.announceOff(panel); // teardown counts as a release — labels clear
       gsap.killTweensOf(panel.mesh.material.uniforms.uMix);
       if (panel.videoTexture) {
         panel.videoTexture.dispose();

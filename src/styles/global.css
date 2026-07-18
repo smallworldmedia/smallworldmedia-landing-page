@@ -1208,6 +1208,61 @@ body.route-home .site-nav__pill:hover {
   pointer-events: none;
 }
 
+/* Blob-tracking labels (home-hero chunk 6, flag-gated OFF — ?herolabels /
+   the bench toggle): the /process label voice ported to the globe — mono
+   chips latched to LIVE panels, each with a 1px leader stroke to its
+   panel's center. HeroLabels owns the spans and the SVG strokes, writing
+   chip transforms + line endpoints on the overlay cadence; everything
+   here is static. Pointer-inert; z 2 like the ring, so the spreading
+   commit fill (z 3) swallows the layer. */
+.hero-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* One full-viewport stroke layer — no viewBox, so user units are CSS px
+   and the line endpoints land exactly on the projected anchor. */
+.hero-labels__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-labels__leader {
+  stroke: var(--color-white);
+  stroke-width: 1;
+}
+
+.hero-labels__dot {
+  fill: var(--color-white);
+}
+
+/* The chip — the .process-label family voice (mono, white, GSAP-owned
+   autoAlpha with a 0.85 hold); two block lines: client name, service
+   tags. Transform-only placement, never a layout write per frame. */
+.hero-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+  white-space: nowrap;
+}
+
+.hero-label__line {
+  display: block;
+}
+
 /* Logo→globe intro (chunk 5) — the stand-in wordmark layer HeroIntro
    mounts in full mode only (never under reduced motion). One line centered
    over the held scene; the o of "world" is a hidden slot the live globe

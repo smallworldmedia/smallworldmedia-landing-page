@@ -136,6 +136,11 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
  * autoFill         — showcase motion assets, newest first, carrying
  *                    the hierarchy fields buildAssetPool needs
  *
+ * Every playable tier carries `services` in the house {name, slug} shape
+ * (FEATURED_PROJECT_DETAIL_QUERY convention) — the hero's tracking labels
+ * (chunk 6) read clientName + service names off the live panel's asset.
+ * buildAssetPool passes the field through untouched.
+ *
  * Video status: "preparing" is accepted alongside "ready" — the Mux
  * status snapshots in Sanity went stale after re-ingestion (streams
  * verified serving) and most hero reels are still marked preparing.
@@ -149,7 +154,8 @@ export const GLOBE_ASSETS_QUERY = `{
     "videoAspectRatio": video.asset->data.aspect_ratio,
     "videoStatus": video.asset->data.status,
     "clientName": client->name,
-    "clientSlug": client->slug.current
+    "clientSlug": client->slug.current,
+    "services": services[]->{ name, "slug": slug.current }
   },
   "featuredProjects": *[_type == "project"
       && isFeatured == true
@@ -171,7 +177,8 @@ export const GLOBE_ASSETS_QUERY = `{
       "videoAspectRatio": video.asset->data.aspect_ratio,
       "clientName": client->name,
       "clientSlug": client->slug.current,
-      "clientType": client->clientType
+      "clientType": client->clientType,
+      "services": services[]->{ name, "slug": slug.current }
     }
   }.hero,
   "autoFill": *[_type == "mediaAsset"
@@ -190,7 +197,7 @@ export const GLOBE_ASSETS_QUERY = `{
     "clientName": client->name,
     "clientSlug": client->slug.current,
     "clientType": client->clientType,
-    "services": services[]->slug.current
+    "services": services[]->{ name, "slug": slug.current }
   }
 }`;
 
