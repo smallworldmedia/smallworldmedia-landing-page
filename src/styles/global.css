@@ -401,50 +401,6 @@ body.route-home .site-nav__pill:hover {
   /* 24px */
 }
 
-/* ── Home (globe) nav variant — steady states ──
-   The sitemap links hide (visibility keeps the bar's geometry) and the two
-   primary-action pills appear: start_project overlaying the top-right slot,
-   follow_us fixed at the bottom-right of the viewport (portaled to the
-   shell — the drawer's translateY would otherwise capture its fixed box).
-   SiteNav's swm:envelop choreography animates between the two states. */
-.site-nav__start-slot {
-  position: absolute;
-  inset: 0 0 0 auto;
-  display: flex;
-  align-items: center;
-  pointer-events: none;
-}
-
-.site-nav__home-cta {
-  visibility: hidden;
-  pointer-events: auto;
-}
-
-body.route-home .site-nav__home-cta {
-  visibility: visible;
-}
-
-body.route-home .site-nav__links {
-  visibility: hidden;
-}
-
-.site-nav__home-follow {
-  position: fixed;
-  right: calc(var(--nav-inset) + var(--space-4));
-  bottom: 0.571rem;
-}
-
-/* 2026-07-16 home recomposition: start_project rides the right edge at
-   vertical center (portaled to the shell like follow_us); the top-right
-   slot hosts ⊙ process (HP-1). The envelop choreography exits start
-   through the RIGHT edge, process/follow through top/bottom. */
-.site-nav__home-start {
-  position: fixed;
-  right: calc(var(--nav-inset) + var(--space-4));
-  top: 50%;
-  transform: translateY(-50%);
-}
-
 /* ── Mobile menu (≤768px full-screen takeover) ──
    The menu pill replaces the collapsed links row; the panel is portaled to
    the shell (brand-black takeover) with its own top row mirroring the nav
@@ -561,11 +517,10 @@ body.route-home .site-nav__links {
    JS-positioned to glide under the hovered/focused link and rest under the
    current one. ?navfx=3 swaps to the BRACKETS ALT (the /work chip [ ]
    language) and the rule stays hidden.
-   CSS-FIRST by design: the choreography onSwap runs killTweensOf + clearProps
-   'all' on the links row and its children on every navigation — the fxrule is
-   a sibling (never collected) and the brackets are pseudo-elements on inner
-   spans, both immune to that wipe; both ride the envelop stagger (which
-   animates y/autoAlpha on the anchors — no property collision). The
+   CSS-FIRST by design: SiteNav's route-swap hygiene runs killTweensOf +
+   clearProps 'all' on the links row and its children on every navigation —
+   the fxrule is a sibling (never collected) and the brackets are
+   pseudo-elements on inner spans, both immune to that wipe. The
    /process-keyed current state is inert on this branch (process link + page
    are a v2 workstream) — it lights up when the link returns.
    ───────────────────────────────────────────────── */
@@ -637,9 +592,8 @@ body.route-home .site-nav__links {
    The 0.65em label gutters are reserved permanently; the links gap tightens
    to compensate (the gutters now carry part of the spacing rhythm — stock
    inter-link air is roughly preserved). Nothing here touches inline styles —
-   immune to the after-swap wipe; during the envelop stagger the pseudos ride
-   their anchor's tween. (The trailing looping caret was cut at bake —
-   brackets only.) */
+   immune to the after-swap wipe. (The trailing looping caret was cut at
+   bake — brackets only.) */
 .site-nav[data-navfx="3"] .site-nav__link {
   position: relative;
 }
@@ -1640,12 +1594,6 @@ body.route-home .site-nav__links {
 
   .site-nav__menu-pill {
     display: inline-flex;
-  }
-
-  /* start_project + process reach mobile through the menu, not the pills */
-  .site-nav__start-slot,
-  .site-nav__home-start {
-    display: none;
   }
 
   html,

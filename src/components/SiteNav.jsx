@@ -2,19 +2,11 @@
  * SiteNav — Fixed top navigation bar (shared site-wide).
  *
  * Blue bar: SWM globe mark + info pill on the left, sitemap links with
- * glyph prefixes on the right.
- *
- * Home (globe) variant — `body.route-home` drives the steady states in CSS,
- * so there is no hydration flash and the ClientRouter body-attribute swap
- * restores the standard bar automatically:
- *   - the sitemap links hide; a `start_project` pill takes the top-right
- *     slot and a `follow_us` pill sits fixed at the bottom-right (portaled
- *     to the site shell so the drawer transform can't capture its fixed
- *     positioning).
- *   - on Envelopment (`swm:envelop` while home) the pills translate out of
- *     the viewport and the standard links slide down into place, so /work
- *     arrives with the bar already seated. Arriving back home eases the
- *     pills in. Reduced motion: steady states only, no choreography.
+ * glyph prefixes on the right. The links row is the same on every route —
+ * home included. The home (globe) variant — `body.route-home`, set
+ * server-side by BaseLayout (no hydration flash) and swapped off by the
+ * ClientRouter on navigation — is CSS-only: the bar goes transparent and
+ * the info pill's blue accents go black.
  *
  * Props (all optional — when omitted, links fall back to navigation):
  *   onStartProject  — callback for "start_project" click
@@ -80,15 +72,10 @@ export default function SiteNav({
   const PillIcon = isInfoOpen ? CloseIcon : EjectIcon;
 
   const linksRef = useRef(null);
-  const startRef = useRef(null);
-  const processRef = useRef(null); // home-variant ⊙ process pill (HP-1)
-  const followRef = useRef(null);
-  const envTlRef = useRef(null);
   const menuRef = useRef(null);
   const fxRuleRef = useRef(null); // kinetic rule (sibling of the links row)
   const [menuOpen, setMenuOpen] = useState(false);
-  // Portal target for the fixed follow pill + mobile menu — client-only
-  // (island is SSR'd)
+  // Portal target for the mobile menu — client-only (island is SSR'd)
   const [shellEl, setShellEl] = useState(null);
   useEffect(() => {
     setShellEl(document.querySelector('.site-shell'));
@@ -170,82 +157,21 @@ export default function SiteNav({
     // Otherwise let the <a href="/"> navigate normally
   };
 
-  // ── Home ↔ site choreography ──
+  // ── Route-swap hygiene ──
+  // Route landed: wipe any inline GSAP state off the links row so every
+  // page opens on the CSS steady state (killTweensOf + clearProps strips
+  // inline STYLES only — data-current/aria-current survive).
   useEffect(() => {
-    const isHome = () => document.body.classList.contains('route-home');
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const allEls = () =>
-      [
+    const onSwap = () => {
+      const els = [
         linksRef.current,
-        startRef.current,
-        processRef.current,
-        followRef.current,
         ...(linksRef.current ? [...linksRef.current.children] : []),
       ].filter(Boolean);
-
-    // Envelopment: pills exit through the viewport edges while the standard
-    // links drop in from above — riding the passage, so /work lands seated.
-    const onEnvelop = () => {
-      if (!isHome() || reducedMotion) return;
-      const tl = gsap.timeline();
-      envTlRef.current = tl;
-      if (processRef.current) {
-        tl.to(processRef.current, { y: -64, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
-      }
-      if (startRef.current) {
-        tl.to(startRef.current, { x: 90, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
-      }
-      if (followRef.current) {
-        tl.to(followRef.current, { y: 90, autoAlpha: 0, duration: 0.4, ease: 'power2.in' }, 0);
-      }
-      if (linksRef.current) {
-        gsap.set(linksRef.current, { visibility: 'visible' });
-        tl.fromTo(
-          linksRef.current.children,
-          { y: -34, autoAlpha: 0 },
-          { y: 0, autoAlpha: 1, duration: 0.5, stagger: 0.07, ease: 'power3.out' },
-          0.18
-        );
-      }
+      gsap.killTweensOf(els);
+      gsap.set(els, { clearProps: 'all' });
     };
-
-    // Route landed: restore CSS steady states — unless the envelop
-    // choreography is still gliding the links in over the swap (it ends on
-    // the same values the site steady state uses; its inline styles are
-    // cleared on the next swap instead).
-    const onSwap = () => {
-      const els = allEls();
-      if (isHome()) {
-        envTlRef.current?.kill();
-        envTlRef.current = null;
-        gsap.killTweensOf(els);
-        gsap.set(els, { clearProps: 'all' });
-        if (!reducedMotion) {
-          const pills = [processRef.current, startRef.current, followRef.current].filter(Boolean);
-          gsap.fromTo(
-            pills,
-            {
-              autoAlpha: 0,
-              x: (i, el) => (el === startRef.current ? 18 : 0),
-              y: (i, el) =>
-                el === processRef.current ? -18 : el === followRef.current ? 22 : 0,
-            },
-            { autoAlpha: 1, x: 0, y: 0, duration: 0.5, ease: 'power3.out', clearProps: 'all' }
-          );
-        }
-      } else if (!envTlRef.current?.isActive()) {
-        gsap.killTweensOf(els);
-        gsap.set(els, { clearProps: 'all' });
-      }
-    };
-
-    window.addEventListener('swm:envelop', onEnvelop);
     document.addEventListener('astro:after-swap', onSwap);
-    return () => {
-      envTlRef.current?.kill();
-      window.removeEventListener('swm:envelop', onEnvelop);
-      document.removeEventListener('astro:after-swap', onSwap);
-    };
+    return () => document.removeEventListener('astro:after-swap', onSwap);
   }, []);
 
   // ── Current-page state (data-current + aria-current) ──
@@ -253,9 +179,9 @@ export default function SiteNav({
   // (the island never remounts). Href-keyed by construction: start_project
   // is an interception (never current) and follow_us is external (never
   // current) — only featured_projects (/work, /work/*) and process
-  // (/process) can match. The attributes survive the choreography onSwap
-  // wipe (killTweensOf + clearProps strips inline STYLES only) and the
-  // envelop stagger (transforms, not attributes). UNCONDITIONAL: aria-current
+  // (/process) can match. The attributes survive the route-swap hygiene
+  // wipe (killTweensOf + clearProps strips inline STYLES only, never
+  // attributes). UNCONDITIONAL: aria-current
   // is a strict a11y win and data-current is the kinetic rule's resting seat
   // — both run with no URL param. Deps [shellEl]: the portaled mobile items
   // only exist after the setShellEl effect re-renders, so re-run once the
@@ -287,13 +213,12 @@ export default function SiteNav({
   // ── Kinetic rule (desktop, default) ──
   // One shared 1px rule gliding under the hovered link, resting under the
   // current one. The fxrule is a SIBLING of the links row — invisible to
-  // the envelop stagger (which reads linksRef.children) and to onSwap's
-  // killTweensOf/clearProps (allEls() never collects it), so its inline
-  // transform/width/opacity are owned here and survive every swap. The
-  // anchors' offsetParent is .site-nav__right (position: relative), the
-  // same box the rule is absolute in — offsetLeft/offsetWidth map 1:1
-  // with no rect math, and the envelop tween only moves anchors in Y, so
-  // X measurements are always valid. Skipped under the ?navfx=3 brackets
+  // the route-swap hygiene wipe (which only collects the links row and its
+  // children), so its inline transform/width/opacity are owned here and
+  // survive every swap. The anchors' offsetParent is .site-nav__right
+  // (position: relative), the same box the rule is absolute in —
+  // offsetLeft/offsetWidth map 1:1 with no rect math, so X measurements
+  // are always valid. Skipped under the ?navfx=3 brackets
   // alt (the rule is display:none there). Deps [navfx]: the fxrule element
   // renders unconditionally (ref populated at mount), and the effect tears
   // down and stays dormant if the alt activates post-mount.
@@ -320,7 +245,7 @@ export default function SiteNav({
     };
     const moveTo = (el, { instant = false } = {}) => {
       // Never seat a 0-width rule at x:0 — the row is display:none
-      // (≤768px) or visibility:hidden (route-home) and offsets read 0.
+      // (≤768px) and offsets read 0.
       if (!el || el.offsetWidth === 0) {
         hide();
         return;
@@ -421,10 +346,8 @@ export default function SiteNav({
       <div className="site-nav__right">
         {/* The .site-nav__label spans wrap each link's text (the ?navfx=3
             brackets target them). Styling-inert: the span is the same
-            flex-item box as the anonymous text node it wraps, event bubbling
-            for the start_project interception is unchanged, and
-            .site-nav__links still has the same direct children — the envelop
-            stagger's choreography input. */}
+            flex-item box as the anonymous text node it wraps, and event
+            bubbling for the start_project interception is unchanged. */}
         <div className="site-nav__links" ref={linksRef}>
           <a
             href="/"
@@ -454,25 +377,11 @@ export default function SiteNav({
         </div>
 
         {/* The kinetic rule (default) — a SIBLING of the links row, so it
-            escapes both the envelop stagger and onSwap's killTweensOf/
-            clearProps wipe (allEls() never collects it). Rendered
-            unconditionally (hydrates clean; hidden by CSS under ?navfx=3);
-            its inline transform/width/opacity are owned by the kinetic-rule
-            effect. */}
+            escapes the route-swap hygiene wipe (which only collects the
+            links row and its children). Rendered unconditionally (hydrates
+            clean; hidden by CSS under ?navfx=3); its inline transform/
+            width/opacity are owned by the kinetic-rule effect. */}
         <span className="site-nav__fxrule" aria-hidden="true" ref={fxRuleRef} />
-
-        {/* Home variant: primary actions as pills (steady state via
-            body.route-home in CSS) */}
-        <div className="site-nav__start-slot">
-          <a
-            href="/process"
-            className="site-nav__pill site-nav__home-cta site-nav__home-process"
-            ref={processRef}
-          >
-            <span className="site-nav__glyph">⊙</span>
-            process
-          </a>
-        </div>
 
         {/* Mobile: links collapse into a full-screen menu (≤768px, CSS-gated) */}
         <button
@@ -486,32 +395,6 @@ export default function SiteNav({
           {menuOpen ? <CloseIcon /> : <EjectIcon />}
         </button>
       </div>
-
-      {shellEl &&
-        createPortal(
-          <>
-            <button
-              type="button"
-              className="site-nav__pill site-nav__home-cta site-nav__home-start"
-              ref={startRef}
-              onClick={handleStartProject}
-            >
-              <span className="site-nav__glyph">↳</span>
-              start_project
-            </button>
-            <a
-              href="https://instagram.com/smallworldmedia"
-              className="site-nav__pill site-nav__home-cta site-nav__home-follow"
-              ref={followRef}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <HeartIcon />
-              follow_us
-            </a>
-          </>,
-          shellEl
-        )}
 
       {/* Mobile menu panel — portaled to the shell (the drawer's translateY
           would capture a fixed box); brand black takeover, its own top row
