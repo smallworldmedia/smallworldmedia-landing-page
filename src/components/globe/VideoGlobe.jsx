@@ -13,6 +13,8 @@
  * @param {Object} props
  * @param {Array}   props.assets - ordered pool from GLOBE_ASSETS_QUERY → buildAssetPool
  * @param {boolean} [props.debug=false] - force the debug panel on
+ * @param {React.RefObject} [props.rigRef] - home-hero camera-rig handle (useGlobeScene)
+ * @param {React.RefObject} [props.overlayRef] - home-hero overlay bridge (useGlobeScene)
  */
 import { useRef, useState } from 'react';
 import useGlobeScene from './useGlobeScene.js';
@@ -24,7 +26,7 @@ const hasDebugParam = () =>
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).has('debug');
 
-export default function VideoGlobe({ assets, debug = false }) {
+export default function VideoGlobe({ assets, debug = false, rigRef = null, overlayRef = null }) {
   const containerRef = useRef(null);
   const poolRef = useRef(null);
   const variantRef = useRef(DEFAULT_CASCADE_VARIANT);
@@ -38,7 +40,10 @@ export default function VideoGlobe({ assets, debug = false }) {
   const [stats, setStats] = useState(null);
   const [showDebug] = useState(() => debug || hasDebugParam());
 
-  const api = useGlobeScene(containerRef, assets, gapDeg, capDeg, variantRef, setStats, poolRef);
+  const api = useGlobeScene(containerRef, assets, gapDeg, capDeg, variantRef, setStats, poolRef, {
+    rigRef,
+    overlayRef,
+  });
 
   const selectVariant = (v) => {
     variantRef.current = v;

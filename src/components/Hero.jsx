@@ -36,6 +36,9 @@ import VideoGlobe from './globe/VideoGlobe.jsx';
 import CtaArrows from './work/CtaArrows.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import HeroText from './HeroText.jsx';
+import HeroTunePanel from './hero/HeroTunePanel.jsx';
+import { createHeroOverlay } from './hero/heroOverlay.js';
+import { TUNING as HERO_TUNING, HERO_TUNE_ACTIVE, subscribeHeroTune } from './hero/heroConfig.js';
 import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
 import { TURN_EASE_PATH } from './work/world/worldConfig.js';
 import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS, GLIDE_MS } from '../lib/motion.js';
@@ -82,6 +85,39 @@ export default function Hero({ globeAssets }) {
   const departingRef = useRef(false);
   const accumRef = useRef(0);
   const idleRef = useRef(null);
+
+  // Camera rig + overlay bridge (home-hero rework, chunk 2). The scene fills
+  // rigRef with { rig, apply }; the overlay is created here (lazy ref init —
+  // pure, SSR-safe) so later chunks' ring/labels can onFrame() before or
+  // after the scene mounts. Identity rig = today's framing exactly.
+  const rigRef = useRef(null);
+  const overlayRef = useRef(null);
+  if (overlayRef.current === null) overlayRef.current = createHeroOverlay();
+
+  // Push the hero tuning (URL-seeded; identity without params) onto the live
+  // rig, and re-push on any bench change. zoom is deliberately not written
+  // here — it's gesture-owned (later chunk), never a bench value.
+  useEffect(() => {
+    const applyTuning = () => {
+      const handle = rigRef.current;
+      if (!handle) return;
+      handle.rig.fill = HERO_TUNING.fill;
+      handle.rig.offsetX = HERO_TUNING.offsetX;
+      handle.rig.offsetY = HERO_TUNING.offsetY;
+      handle.rig.elevDeg = HERO_TUNING.elevDeg;
+      handle.apply();
+    };
+    applyTuning();
+    return subscribeHeroTune(applyTuning);
+  }, []);
+
+  // Hero rig tuning bench — mount only AFTER hydration (SiteShell's
+  // LenisTunePanel convention): HERO_TUNE_ACTIVE reads the URL, which must
+  // not influence the first client render (SSR parity).
+  const [heroTuneOn, setHeroTuneOn] = useState(false);
+  useEffect(() => {
+    if (HERO_TUNE_ACTIVE) setHeroTuneOn(true);
+  }, []);
 
   // Scene is mounting — release the Envelopment fill if this arrival came
   // through it (/work first-World scroll-up home, FP-3 — the reverse passage
@@ -295,7 +331,7 @@ export default function Hero({ globeAssets }) {
       {/* Black start-state over the gradient; the loom thins it away */}
       <div className="hero__veil" aria-hidden="true" />
       <div className="hero__globe" ref={globeWrapRef}>
-        <VideoGlobe assets={globeAssets} />
+        <VideoGlobe assets={globeAssets} rigRef={rigRef} overlayRef={overlayRef} />
       </div>
       {/* The PRIMARY button (enter_world family), centered over the resting
           planet; the caret strip sits outside, emerging from behind it */}
@@ -323,6 +359,7 @@ export default function Hero({ globeAssets }) {
       <div className="hero__footer">
         <SiteFooter noFill tagline={false} />
       </div>
+      {heroTuneOn && <HeroTunePanel rigRef={rigRef} />}
     </section>
   );
 }

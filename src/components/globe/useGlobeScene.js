@@ -10,6 +10,11 @@
  * (lab tuning), and tears down fully on unmount — including
  * forceContextLoss(), so Astro view-transition navigation can't exhaust
  * the browser's WebGL context pool.
+ *
+ * Home-hero hooks (optional, null-safe — lab passes neither): rigRef gets a
+ * { rig, apply } camera-rig handle (fill/offset/elevation/zoom framing);
+ * overlayRef's .update runs post-render each frame (heroOverlay bridge). At
+ * identity the rig is bit-identical to the old fixed framing — see applyRig.
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -45,9 +50,23 @@ import {
  * @param {React.RefObject<string>} variantRef - current cascade variant
  * @param {(stats: Object) => void} onStats - debug readout sink (~2Hz)
  * @param {React.RefObject} poolRef - VideoSlotPool imperative handle (Stage 2 live tier)
+ * @param {Object} [hero] - home-hero hooks; lab/other callers omit and are unaffected
+ * @param {React.RefObject} [hero.rigRef] - receives { rig, apply }: mutate .rig
+ *        (fill/offsetX/offsetY/elevDeg/zoom), then call .apply() to re-frame
+ * @param {React.RefObject} [hero.overlayRef] - overlay bridge (heroOverlay);
+ *        its .current.update(ctx) runs once per rendered frame, post-render
  * @returns {React.RefObject<{ replayCascade: (variant: string) => void }>}
  */
-export default function useGlobeScene(containerRef, assets, gapDeg, capDeg, variantRef, onStats, poolRef) {
+export default function useGlobeScene(
+  containerRef,
+  assets,
+  gapDeg,
+  capDeg,
+  variantRef,
+  onStats,
+  poolRef,
+  { rigRef = null, overlayRef = null } = {}
+) {
   const apiRef = useRef({ replayCascade: () => {} });
 
   useEffect(() => {
@@ -64,25 +83,79 @@ export default function useGlobeScene(containerRef, assets, gapDeg, capDeg, vari
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 50);
 
-    const frameCamera = () => {
+    /* — Camera rig (replaces frameCamera) —
+       RIG is the mutable camera pose the outside world drives through rigRef
+       (home hero: tuning bench now, gestures later). Identity RIG reproduces
+       the pre-rig frameCamera output exactly:
+         · fill=FILL_FRACTION, zoom=1 → dist = RADIUS / sin(atan(FILL_FRACTION
+           · tanFit)) — the old position.z expression (the trailing ÷1 is
+           exact in IEEE);
+         · elevDeg=0 → position.set(0, -sin(0)·d, cos(0)·d) = (0, 0, d), and
+           lookAt(origin) from (0,0,d) with the default up resolves to the
+           identity rotation the camera already had (exact in FP:
+           normalize(0,0,d) = (0,0,1) and the basis cross products are exact);
+         · offsetX=offsetY=0 → clearViewOffset(), and r184's
+           updateProjectionMatrix applies .view only when .enabled — the
+           projection matrix is built from fov/aspect/near/far alone,
+           bit-identical to before.
+       Values carry across a scene rebuild (lab gap/cap retune) so an outside
+       mutation isn't reset when the globe regenerates. */
+    const carried = rigRef?.current?.rig;
+    const RIG = carried
+      ? { ...carried }
+      : { fill: FILL_FRACTION, offsetX: 0, offsetY: 0, elevDeg: 0, zoom: 1 };
+
+    // Canvas CSS px — cached here (applyRig runs at init + resize) so the
+    // per-frame overlay call never reads clientWidth (layout) in the loop.
+    let viewW = 1;
+    let viewH = 1;
+
+    const applyRig = () => {
+      if (disposed) return; // a stale handle post-teardown must be a no-op
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
+      viewW = w;
+      viewH = h;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       // Tan-space fit: contain (desktop) sizes the globe against the
       // smaller fov axis; cover (mobile overscan) against the larger one,
-      // so FILL_FRACTION > 1 crops the globe's edges past the viewport.
+      // so fill > 1 crops the globe's edges past the viewport.
       const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
       const tanH = tanV * camera.aspect;
       const tanFit = FIT_COVER ? Math.max(tanV, tanH) : Math.min(tanV, tanH);
-      camera.position.z = RADIUS / Math.sin(Math.atan(FILL_FRACTION * tanFit));
+      // fill null = "device FILL_FRACTION" — the hero bench's reset state.
+      const fillEff = RIG.fill ?? FILL_FRACTION;
+      const dist = RADIUS / Math.sin(Math.atan(fillEff * tanFit)) / RIG.zoom;
+      // Elevation orbits the camera in the y/z plane, always facing center.
+      const er = THREE.MathUtils.degToRad(RIG.elevDeg);
+      camera.position.set(0, -Math.sin(er) * dist, Math.cos(er) * dist);
+      camera.lookAt(0, 0, 0);
+      // View offset: fractions of the half-viewport, ALWAYS re-stamped with
+      // fresh px so a resize can never leave a stale offset baked in. At 0/0
+      // clear instead of stamping a zero offset — setViewOffset flips
+      // .view.enabled on and the projection math takes the .view branch;
+      // clearing keeps the identity matrix bit-identical (parity guarantee).
+      if (RIG.offsetX !== 0 || RIG.offsetY !== 0) {
+        camera.setViewOffset(w, h, (-RIG.offsetX * w) / 2, (-RIG.offsetY * h) / 2, w, h);
+      } else {
+        camera.clearViewOffset();
+      }
       camera.updateProjectionMatrix();
     };
-    frameCamera();
+    applyRig();
+    // Expose the rig to the owner (Hero): mutate .rig, then call .apply() —
+    // nothing here re-applies on its own. Left in place at teardown so the
+    // next scene build can carry the values; apply() is disposed-guarded.
+    if (rigRef) rigRef.current = { rig: RIG, apply: applyRig };
 
     /* — Globe meshes — */
     const globeGroup = new THREE.Group();
     scene.add(globeGroup);
+
+    // Persistent overlay call context — mutated per frame, never reallocated
+    // (the overlay bridge is a zero-allocation path, heroOverlay.js).
+    const overlayCtx = { camera, globeGroup, w: 1, h: 1 };
 
     const { panels, innerSphereGeometry } = buildGlobeGeometry({
       lonSegments: LON_SEGMENTS,
@@ -189,6 +262,14 @@ export default function useGlobeScene(containerRef, assets, gapDeg, capDeg, vari
       globeGroup.rotation.set(pitch, yaw, 0);
 
       renderer.render(scene, camera);
+      // Overlay bridge (home hero): hand the just-rendered frame to the DOM
+      // overlay — after render, so every matrix is the one drawn. Null-safe:
+      // lab/other callers pass no overlayRef and skip entirely.
+      if (overlayRef?.current) {
+        overlayCtx.w = viewW;
+        overlayCtx.h = viewH;
+        overlayRef.current.update(overlayCtx);
+      }
       framesRendered += 1;
       sceneTime += step;
 
@@ -245,7 +326,7 @@ export default function useGlobeScene(containerRef, assets, gapDeg, capDeg, vari
     document.addEventListener('visibilitychange', onVisibility);
     syncTicker();
 
-    const resizeObserver = new ResizeObserver(frameCamera);
+    const resizeObserver = new ResizeObserver(applyRig);
     resizeObserver.observe(container);
 
     /* — Teardown — */
