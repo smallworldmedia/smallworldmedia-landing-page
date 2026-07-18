@@ -12,9 +12,13 @@
  * copy_url serializes only non-default values (fp1Tune convention).
  * Carries the comp section (fill / fit / offset / elevation), the ring
  * section (radius / speed / lean, plus the URL-only ringmobile / ringtext
- * readouts) and the commit section (length / fill mode / blue cascade /
- * recenter / zoom windows + the dry-run trigger — Hero passes onDryRun);
- * intro/label sections arrive with their chunks.
+ * readouts), the commit section (length / fill mode / blue cascade /
+ * recenter / zoom windows + the dry-run trigger — Hero passes onDryRun)
+ * and the intro section (chunk 5: variant / A-script timing / lattice ink
+ * + ↻ replay intro — Hero passes onReplayIntro, which re-mounts the
+ * machine; the live-video scheduler can't re-hold mid-session, so replays
+ * run over live video — accepted). The label section arrives with its
+ * chunk.
  *
  * Voice/chrome mirror the lenisTune bench (mono, near-black, lowercase).
  * Sits TOP-RIGHT — lenistune and the globe ?debug panel own bottom-left,
@@ -30,6 +34,7 @@ import {
   RING_TEXT,
   FILL_MODES,
   BLUE_CASCADES,
+  INTRO_VARIANTS,
 } from './heroConfig.js';
 import { FILL_FRACTION, FIT_COVER, IS_MOBILE } from '../globe/globeConfig.js';
 
@@ -79,7 +84,7 @@ function Segmented({ label, param, value, options, onChange }) {
 
 const num3 = (n) => (Math.round(n * 1000) / 1000).toString();
 
-export default function HeroTunePanel({ rigRef, onDryRun }) {
+export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
   // Local mirror of the shared tuning state (seeded from it, incl. URL seed).
   const [s, setS] = useState(() => ({ ...TUNING }));
   const [copied, setCopied] = useState(false);
@@ -266,6 +271,61 @@ export default function HeroTunePanel({ rigRef, onDryRun }) {
       <div className="hero-tune__actions">
         <button type="button" className="hero-tune__btn" onClick={onDryRun}>
           ▶ commit dry-run
+        </button>
+      </div>
+
+      <div className="hero-tune__group">intro</div>
+      <Segmented
+        label="variant"
+        param="intro"
+        value={s.intro}
+        options={INTRO_VARIANTS}
+        onChange={set}
+      />
+      <Row
+        label="intro ms"
+        param="introMs"
+        value={s.introMs}
+        min={2500}
+        max={8000}
+        step={100}
+        onChange={set}
+      />
+      <Row
+        label="hold ms"
+        param="introHoldMs"
+        value={s.introHoldMs}
+        min={0}
+        max={2000}
+        step={50}
+        onChange={set}
+      />
+      <Row
+        label="cascade at ms"
+        param="introCascadeMs"
+        value={s.introCascadeMs}
+        min={600}
+        max={3000}
+        step={50}
+        onChange={set}
+      />
+      <Segmented
+        label="lattice ink"
+        param="heroInk"
+        value={s.heroInk ? 'on' : 'off'}
+        options={['on', 'off']}
+        onChange={(param, opt) => set(param, opt === 'on')}
+      />
+      <p className="hero-tune__note">
+        timing rows shape variant a (chars-in is fixed; the zoom fills the
+        rest of intro ms); c keeps its authored ~3.2s script. ease:
+        ?introease=&lt;path&gt; URL-only. replay re-mounts the machine — the
+        live-video scheduler is already running by then, so replays play
+        over live tiles (the once-per-session hold can&apos;t rewind).
+      </p>
+      <div className="hero-tune__actions">
+        <button type="button" className="hero-tune__btn" onClick={onReplayIntro}>
+          ↻ replay intro
         </button>
       </div>
 

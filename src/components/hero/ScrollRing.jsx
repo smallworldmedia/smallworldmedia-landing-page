@@ -21,8 +21,8 @@
  *               overshoot) while the ring rides the growing disc out
  *
  * The ring is pointer-inert (pointer-events: none) — the a11y commit path is
- * Hero's .hero__enter-hit button. It reveals itself on the loom chrome beat
- * (swm:hero-chrome, with the hero's data-chromed latch covering a late
+ * Hero's .hero__enter-hit button. It reveals itself on the entrance chrome
+ * beat (swm:hero-chrome, with the hero's data-chromed latch covering a late
  * mount). Reduced motion: static white ring, no rotation, no fill
  * choreography — guarded here AND in CSS.
  *
@@ -122,8 +122,8 @@ export default function ScrollRing({ ringRef, overlay }) {
     };
     const unsubscribe = overlay.onFrame(onFrame);
 
-    /* — Reveal on the loom chrome beat (data-chromed covers a mount that
-       races the event; RM shows instantly) — */
+    /* — Reveal on the entrance chrome beat (data-chromed covers a mount
+       that races the event; RM shows instantly) — */
     const reveal = () => {
       if (PREFERS_REDUCED_MOTION) gsap.set(wrap, { autoAlpha: 1 });
       else gsap.to(wrap, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });

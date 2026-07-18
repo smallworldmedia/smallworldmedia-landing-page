@@ -15,8 +15,17 @@
  * { rig, apply } camera-rig handle (fill/fitCover/offset/elevation/zoom
  * framing); overlayRef's .update runs post-render each frame (heroOverlay
  * bridge); the returned api carries setBlueFill alongside replayCascade
- * (the chunk-4 commit's panel-by-panel blue). At identity the rig is
- * bit-identical to the old fixed framing — see applyRig.
+ * (the chunk-4 commit's panel-by-panel blue), plus the chunk-5 intro pair:
+ * setInk (gap-lattice ink — one white→blue lerp on the inner-sphere
+ * material, which IS the lattice showing through the gaps) and
+ * releaseScheduler (ends a holdEntrance hold). holdEntrance (full-intro
+ * mounts only, never under RM) keeps the scene in its dark pre-cascade
+ * state — no entrance cascade on load (panels build with uPower 0, so the
+ * dark panelized sphere + gap lattice reads as the line-art mark at glyph
+ * scale) and no LivePanelScheduler promotion (no HLS decodes while the
+ * globe is glyph-sized; thumbnails still load normally). The hold ends
+ * when the owner fires replayCascade + releaseScheduler. At identity the
+ * rig is bit-identical to the old fixed framing — see applyRig.
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -83,8 +92,11 @@ function surgePanel(uniforms, t) {
  *        (fill/fitCover/offsetX/offsetY/elevDeg/zoom), then call .apply() to re-frame
  * @param {React.RefObject} [hero.overlayRef] - overlay bridge (heroOverlay);
  *        its .current.update(ctx) runs once per rendered frame, post-render
+ * @param {boolean} [hero.holdEntrance] - chunk-5 intro hold: no auto cascade,
+ *        no scheduler until releaseScheduler(). Forced off under reduced motion.
  * @returns {React.RefObject<{ replayCascade: (variant: string) => void,
- *          setBlueFill: (p: number, variant?: string) => void }>}
+ *          setBlueFill: (p: number, variant?: string) => void,
+ *          setInk: (t: number) => void, releaseScheduler: () => void }>}
  */
 export default function useGlobeScene(
   containerRef,
@@ -94,15 +106,28 @@ export default function useGlobeScene(
   variantRef,
   onStats,
   poolRef,
-  { rigRef = null, overlayRef = null } = {}
+  { rigRef = null, overlayRef = null, holdEntrance = false } = {}
 ) {
-  const apiRef = useRef({ replayCascade: () => {}, setBlueFill: () => {} });
+  const apiRef = useRef({
+    replayCascade: () => {},
+    setBlueFill: () => {},
+    setInk: () => {},
+    releaseScheduler: () => {},
+  });
+  // The hold releases ONCE per mount and stays released across scene
+  // rebuilds (lab-style gap/cap retunes mid-session) — a rebuild after the
+  // intro must come up live, not re-held.
+  const schedulerReleasedRef = useRef(false);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
 
     let disposed = false;
+    // RM dual-guard: a hold is meaningless when the cascade reveals
+    // instantly and the scheduler never exists — no-op it there so reduced
+    // motion can never be left staring at a dark, held sphere.
+    const hold = holdEntrance && !PREFERS_REDUCED_MOTION && !schedulerReleasedRef.current;
 
     /* — Renderer / scene / camera — */
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -263,11 +288,29 @@ export default function useGlobeScene(
       }
       cascadeTl = buildCascadeTimeline(panels, variant, LAT_BANDS + 2);
     };
+    // Entrance auto-start — SKIPPED under the intro hold: panels sit at
+    // their built state (uPower 0 — dark screens, lit lattice) until the
+    // owner fires replayCascade at its own beat. Thumbnails have still
+    // loaded above, so the cascade reveals real tiles whenever it comes.
     Promise.allSettled(thumbnailLoads).then(() => {
-      if (!disposed) startCascade(variantRef.current);
+      if (!disposed && !hold) startCascade(variantRef.current);
     });
     apiRef.current.replayCascade = (variant) => {
       if (!disposed) startCascade(variant);
+    };
+
+    /* — Gap-lattice ink (chunk-5 intro) — the "lines" of the mark are the
+       inner sphere showing through the panel gaps, so ONE material color
+       lerp inks the whole lattice: t 0 = white (the line-art wordmark
+       state), 1 = GAP_COLOR (the resting electric blue). Colors are baked
+       once per build; lerpColors mutates in place — nothing allocates per
+       call. Idle unless the intro drives it: the material initializes at
+       GAP_COLOR, and only a heroInk intro ever writes t < 1. — */
+    const inkWhite = new THREE.Color(0xffffff);
+    const inkBlue = new THREE.Color(GAP_COLOR);
+    apiRef.current.setInk = (t) => {
+      if (disposed) return;
+      innerMaterial.color.lerpColors(inkWhite, inkBlue, Math.min(Math.max(t, 0), 1));
     };
 
     /* — Commit blue-fill (home-hero chunk 4) — p 0..1 sweeps the whole
@@ -328,16 +371,29 @@ export default function useGlobeScene(
       }
     };
 
-    /* — Live video tier (Stage 2; stills only under reduced motion) — */
-    const scheduler =
-      poolRef?.current && assets?.length && !PREFERS_REDUCED_MOTION
-        ? new LivePanelScheduler({
-            panels,
-            assets,
-            poolHandle: poolRef.current,
-            textureManager,
-          })
-        : null;
+    /* — Live video tier (Stage 2; stills only under reduced motion) —
+       Creation is deferred under the intro hold: no HLS decodes while the
+       globe is glyph-sized. releaseScheduler (idempotent — a live scheduler
+       short-circuits) starts it and latches the release for any later
+       rebuild; without a hold it starts here exactly as before. — */
+    let scheduler = null;
+    const startScheduler = () => {
+      if (disposed || scheduler) return;
+      scheduler =
+        poolRef?.current && assets?.length && !PREFERS_REDUCED_MOTION
+          ? new LivePanelScheduler({
+              panels,
+              assets,
+              poolHandle: poolRef.current,
+              textureManager,
+            })
+          : null;
+    };
+    if (!hold) startScheduler();
+    apiRef.current.releaseScheduler = () => {
+      schedulerReleasedRef.current = true;
+      startScheduler();
+    };
 
     /* — Interaction + render loop — */
     const controller = new InteractionController(container);
@@ -437,6 +493,8 @@ export default function useGlobeScene(
       disposed = true;
       apiRef.current.replayCascade = () => {};
       apiRef.current.setBlueFill = () => {};
+      apiRef.current.setInk = () => {};
+      apiRef.current.releaseScheduler = () => {};
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);

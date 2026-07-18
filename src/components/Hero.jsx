@@ -1,14 +1,25 @@
 /**
  * Hero — home page hero: the CMS video globe moment.
  *
- * Loom entrance: the globe starts scaled down over a solid black veil and
- * approaches slowly to rest — a planet looming toward the viewer — while the
- * veil thins on the same curve so the blue gradient arrives with it. Full
- * loom plays once per session; returning to the home page gets a short
- * settle instead. Knobs: ?loomms ?loomscale (?loom=1 forces the full pass).
- * The chrome beat (duration·0.78) fires swm:hero-chrome + stamps
- * data-chromed on the section — the ring, micro CTA, hit target and
- * HeroText all reveal themselves off that one broadcast.
+ * Intro entrance (chunk 5 — replaced the loom): sessionStorage
+ * 'swm:hero-intro' gates three modes, decided ONCE at render time (a state
+ * initializer, safe on the client:only island — VideoGlobe needs
+ * holdEntrance as a prop before the scene builds, and HeroIntro must be in
+ * the first commit so its layout effect seeds the glyph rig ahead of the
+ * scene's build). FULL (first visit, or ?intro=full|a|c) mounts HeroIntro:
+ * the stand-in wordmark "small world media" typeset at display scale with
+ * the live globe framed exactly in the o of "world" over a HELD scene (no
+ * entrance cascade, no live-video scheduler until the machine releases
+ * them), then variant A's zoom or variant C's launch lands the resting
+ * comp. REPLAY (revisit / FP-3 return, or ?intro=replay) is a ~1.2s settle
+ * straight into the resting comp — veil 1→0 + rig.zoom 0.92→1 on the intro
+ * curve, no wordmark, cascade auto-fires as always. Reduced motion renders
+ * the static resting comp with instant chrome. The chrome beat — fired by
+ * the machine at its own beat, or at settle·0.78 on replay — arms the
+ * gesture, stamps data-chromed and broadcasts swm:hero-chrome; the ring,
+ * micro CTA, hit target and HeroText all reveal themselves off that one
+ * broadcast. Knobs: ?intro ?introms ?introhold ?introcascadeat ?heroink
+ * ?introease (heroConfig's intro section, on the ?herotune bench).
  *
  * SCROLL_TO_ENTER is the circular ring CTA (ScrollRing) orbiting the globe's
  * screen disc — chunk 3 of the hero rework retired the centered PRIMARY
@@ -57,11 +68,13 @@ import SiteFooter from './SiteFooter.jsx';
 import HeroText from './HeroText.jsx';
 import HeroTunePanel from './hero/HeroTunePanel.jsx';
 import ScrollRing from './hero/ScrollRing.jsx';
+import HeroIntro from './hero/HeroIntro.jsx';
 import { createHeroOverlay } from './hero/heroOverlay.js';
 import {
   TUNING as HERO_TUNING,
   HERO_TUNE_ACTIVE,
   HERO_COMMIT_EASE_PATH,
+  HERO_INTRO_EASE_PATH,
   RING_MOBILE,
   subscribeHeroTune,
 } from './hero/heroConfig.js';
@@ -76,14 +89,34 @@ const PARAM = (key, fallback) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-/* — Loom — long approach, long settle: eases in gently, sustains through the
-   middle, then decelerates into rest with no overshoot (house rule). */
-const LOOM_EASE_PATH = 'M0,0 C0.3,0.12 0.38,1 1,1';
-const LOOM_SECONDS = PARAM('loomms', 4800) / 1000;
-const LOOM_SCALE = PARAM('loomscale', 0.62);
-// Returning to home within a session: a short settle, not the full approach.
-const REPLAY_SECONDS = 1.3;
-const REPLAY_SCALE = 0.86;
+/* — Intro session gate (chunk 5; replaced 'swm:loomed') — one read+write
+   per page view, same try/catch idiom. RM decides first (dual-guard's
+   outer half — nothing intro-shaped may run there); ?intro forces a mode
+   regardless of the session flag; otherwise first visit = full, revisit
+   (FP-3 returns included) = replay. — */
+const INTRO_SESSION_KEY = 'swm:hero-intro';
+const decideIntroMode = () => {
+  if (typeof window === 'undefined' || PREFERS_REDUCED_MOTION) return 'rm';
+  const p = new URLSearchParams(window.location.search).get('intro');
+  const forced =
+    p === 'full' || p === 'a' || p === 'c' ? 'full' : p === 'replay' ? 'replay' : null;
+  let seen = false;
+  try {
+    seen = sessionStorage.getItem(INTRO_SESSION_KEY) === '1';
+    sessionStorage.setItem(INTRO_SESSION_KEY, '1');
+  } catch {
+    /* storage unavailable — every visit is the first */
+  }
+  return forced ?? (seen ? 'replay' : 'full');
+};
+
+/* — Replay settle — revisits skip the wordmark: veil 1→0 + rig.zoom
+   0.92→1 on the intro curve, straight into the resting comp. The chrome
+   beat keeps its loom-era place at duration·0.78; the full machine fires
+   its own beat (HeroIntro). — */
+const REPLAY_SECONDS = 1.2;
+const REPLAY_ZOOM_FROM = 0.92;
+const CHROME_BEAT_AT = 0.78;
 
 /* — Envelopment (chunk-4 commit) — the dolly's destination scale; the
    timeline length and the rest of the choreography live on heroConfig's
@@ -132,7 +165,7 @@ const HIT_BASE_PX = 44;
 
 export default function Hero({ globeAssets }) {
   const heroRef = useRef(null);
-  const globeWrapRef = useRef(null);
+  const veilRef = useRef(null);
   const armedRef = useRef(false);
   const departingRef = useRef(false);
   const accumRef = useRef(0);
@@ -149,8 +182,9 @@ export default function Hero({ globeAssets }) {
   const overlayRef = useRef(null);
   if (overlayRef.current === null) overlayRef.current = createHeroOverlay();
 
-  // Scene api mirror ({ replayCascade, setBlueFill } — VideoGlobe aliases
-  // the hook's api ref here) + the commit's blue surface (chunk 4).
+  // Scene api mirror ({ replayCascade, setBlueFill, setInk,
+  // releaseScheduler } — VideoGlobe aliases the hook's api ref here; the
+  // intro machine drives the chunk-5 pair) + the commit's blue surface.
   const sceneApiRef = useRef(null);
   const fillRef = useRef(null);
   // Live commit teardown — kills the master timeline / overlay sub (or the
@@ -160,8 +194,8 @@ export default function Hero({ globeAssets }) {
   useEffect(() => () => commitKillRef.current?.(), []);
 
   // Gesture-owned camera zoom — a proxy so drag writes, the release
-  // rubber-band and the envelopment glide all continue from the same value
-  // (GSAP overwrite arbitration on one target).
+  // rubber-band, the replay settle and the envelopment glide all continue
+  // from the same value (GSAP overwrite arbitration on one target).
   const zoomRef = useRef({ v: 1 });
   const applyZoom = () => {
     const handle = rigRef.current;
@@ -170,23 +204,75 @@ export default function Hero({ globeAssets }) {
     handle.apply();
   };
 
+  // ── Intro mode — decided ONCE at render (chunk 5) ──
+  // A state initializer, not an effect: VideoGlobe needs holdEntrance
+  // before the scene builds, and HeroIntro must be in the first commit so
+  // its layout effect seeds the glyph rig ahead of the scene's build.
+  const [introMode] = useState(decideIntroMode);
+  const [introOn, setIntroOn] = useState(introMode === 'full');
+  const [introRun, setIntroRun] = useState(0); // bench replays remount by key
+  // The machine owns the rig (glyph pose → launch) until its handoff — the
+  // tuning effect defers to it; a bench write mid-intro lands at the stamp.
+  const introDoneRef = useRef(introMode !== 'full');
+
+  // The chrome beat: arm the gesture, stamp the latch, broadcast — the
+  // ring / micro CTA / HeroText reveal themselves off the event (they can
+  // mount after it fires), Hero fades what it owns directly. Fired by the
+  // replay settle / RM path here, and by HeroIntro's machine in full mode.
+  const chromeBeat = (instant) => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    armedRef.current = true;
+    hero.dataset.chromed = '1';
+    window.dispatchEvent(new CustomEvent('swm:hero-chrome'));
+    const owned = hero.querySelectorAll('.hero__enter-hit, .hero__footer');
+    if (instant) gsap.set(owned, { autoAlpha: 1 });
+    else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
+  };
+
   // Push the hero tuning (URL-seeded; the resting comp without params) onto
   // the live rig, and re-push on any bench change. zoom is deliberately not
   // written here — it's gesture-owned (zoomRef), never a bench value.
+  const stampTuning = () => {
+    const handle = rigRef.current;
+    if (!handle) return;
+    handle.rig.fill = HERO_TUNING.fill;
+    handle.rig.fitCover = HERO_TUNING.fitCover;
+    handle.rig.offsetX = HERO_TUNING.offsetX;
+    handle.rig.offsetY = HERO_TUNING.offsetY;
+    handle.rig.elevDeg = HERO_TUNING.elevDeg;
+    handle.apply();
+  };
   useEffect(() => {
     const applyTuning = () => {
-      const handle = rigRef.current;
-      if (!handle) return;
-      handle.rig.fill = HERO_TUNING.fill;
-      handle.rig.fitCover = HERO_TUNING.fitCover;
-      handle.rig.offsetX = HERO_TUNING.offsetX;
-      handle.rig.offsetY = HERO_TUNING.offsetY;
-      handle.rig.elevDeg = HERO_TUNING.elevDeg;
-      handle.apply();
+      if (!introDoneRef.current) return; // the intro machine owns the rig
+      stampTuning();
     };
     applyTuning();
     return subscribeHeroTune(applyTuning);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The machine's handoff: restore the device fit axis + TUNING pose (the
+  // launch ended on the contain-equivalent fill — the same fill·tanFit
+  // product, so the axis swap is seamless), then drop the wordmark layer.
+  const onIntroDone = () => {
+    introDoneRef.current = true;
+    stampTuning();
+    setIntroOn(false);
+  };
+
+  // Bench action (?herotune): re-run the full machine. The scene can't
+  // re-hold mid-session — the live-video scheduler is already running and
+  // stays running (accepted; the bench note says so) — but the cascade
+  // replays and the glyph rig re-seeds through the live handle.
+  const onReplayIntro = () => {
+    if (introMode === 'rm' || departingRef.current) return;
+    armedRef.current = false; // re-arms at the machine's chrome beat
+    introDoneRef.current = false;
+    setIntroRun((n) => n + 1);
+    setIntroOn(true);
+  };
 
   // Hero rig tuning bench — mount only AFTER hydration (SiteShell's
   // LenisTunePanel convention): HERO_TUNE_ACTIVE reads the URL, which must
@@ -450,52 +536,60 @@ export default function Hero({ globeAssets }) {
     onEnterClick();
   };
 
-  // ── Loom entrance + chrome beat ──
+  // ── Entrance dispatch — by the render-time intro mode (chunk 5) ──
   useGSAP(
     () => {
-      const hero = heroRef.current;
-      const globeWrap = globeWrapRef.current;
-      const veil = hero.querySelector('.hero__veil');
-      // The chrome beat: arm the gesture, stamp the latch, broadcast — the
-      // ring / micro CTA / HeroText reveal themselves off the event (they
-      // can mount after this effect runs), Hero fades what it owns directly.
-      const chromeBeat = (instant) => {
-        armedRef.current = true;
-        hero.dataset.chromed = '1';
-        window.dispatchEvent(new CustomEvent('swm:hero-chrome'));
-        const owned = hero.querySelectorAll('.hero__enter-hit, .hero__footer');
-        if (instant) gsap.set(owned, { autoAlpha: 1 });
-        else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
-      };
+      const veil = veilRef.current;
 
-      if (PREFERS_REDUCED_MOTION) {
-        gsap.set(globeWrap, { scale: 1 });
+      if (introMode === 'rm') {
+        // RM dual-guard's other half: no theatrics — the static resting
+        // comp, instant chrome, veil gone.
         gsap.set(veil, { opacity: 0 });
         chromeBeat(true);
         return;
       }
 
-      let loomed = false;
-      try {
-        loomed = sessionStorage.getItem('swm:loomed') === '1';
-        sessionStorage.setItem('swm:loomed', '1');
-      } catch {
-        /* storage unavailable — always loom */
+      if (introMode === 'replay') {
+        // Revisit settle: straight into the resting comp on the intro
+        // curve — the veil thins exactly as the camera closes the last 8%
+        // (rig.zoom, not a DOM scale — the loom's transform died with
+        // chunk 5). zoom rides the gesture proxy so a drag mid-settle
+        // takes over cleanly (killTweensOf arbitration, one target). This
+        // layout effect runs BEFORE the scene's passive build — pre-seed
+        // the rig-carry so the very first rendered frame is already at
+        // 0.92 (HeroIntro's pre-seed idiom; the resting pose comes from
+        // TUNING, which the tuning effect re-stamps identically).
+        zoomRef.current.v = REPLAY_ZOOM_FROM;
+        if (!rigRef.current) {
+          rigRef.current = {
+            rig: {
+              fill: HERO_TUNING.fill,
+              fitCover: HERO_TUNING.fitCover,
+              offsetX: HERO_TUNING.offsetX,
+              offsetY: HERO_TUNING.offsetY,
+              elevDeg: HERO_TUNING.elevDeg,
+              zoom: REPLAY_ZOOM_FROM,
+            },
+            apply: () => {},
+          };
+        } else {
+          applyZoom();
+        }
+        const settleEase = CustomEase.create('swmHeroIntroSettle', HERO_INTRO_EASE_PATH);
+        gsap.set(veil, { opacity: 1 });
+        const tl = gsap.timeline();
+        tl.to(
+          zoomRef.current,
+          { v: 1, duration: REPLAY_SECONDS, ease: settleEase, onUpdate: applyZoom },
+          0
+        );
+        tl.to(veil, { opacity: 0, duration: REPLAY_SECONDS, ease: settleEase }, 0);
+        tl.add(() => chromeBeat(false), REPLAY_SECONDS * CHROME_BEAT_AT);
+        return;
       }
-      const full = !loomed || PARAM('loom', 0) === 1;
-      const duration = full ? LOOM_SECONDS : REPLAY_SECONDS;
-      const fromScale = full ? LOOM_SCALE : REPLAY_SCALE;
-      const loomEase = CustomEase.create('swmLoom', LOOM_EASE_PATH);
 
-      gsap.set(globeWrap, { scale: fromScale, transformOrigin: '50% 50%' });
-      gsap.set(veil, { opacity: 1 });
-
-      const tl = gsap.timeline();
-      // The approach and the gradient arrival share one curve — the blue
-      // horizon fades up exactly as the planet comes to rest.
-      tl.to(globeWrap, { scale: 1, duration, ease: loomEase }, 0);
-      tl.to(veil, { opacity: 0, duration, ease: loomEase }, 0);
-      tl.add(() => chromeBeat(false), duration * 0.78);
+      // full — HeroIntro owns the entrance end to end (veil, glyph rig,
+      // cascade beat, chrome beat, scheduler release); nothing to conduct.
     },
     { scope: heroRef }
   );
@@ -630,14 +724,17 @@ export default function Hero({ globeAssets }) {
 
   return (
     <section className="hero" ref={heroRef}>
-      {/* Black start-state over the gradient; the loom thins it away */}
-      <div className="hero__veil" aria-hidden="true" />
-      <div className="hero__globe" ref={globeWrapRef}>
+      {/* Black start-state over the gradient — the intro field: it paints
+          BELOW the canvas, so the wordmark phase gets black + live globe
+          for free. The machine (full) / settle (replay) thins it away. */}
+      <div className="hero__veil" ref={veilRef} aria-hidden="true" />
+      <div className="hero__globe">
         <VideoGlobe
           assets={globeAssets}
           rigRef={rigRef}
           overlayRef={overlayRef}
           sceneApiRef={sceneApiRef}
+          holdEntrance={introMode === 'full'}
         />
       </div>
       {microCta ? (
@@ -672,7 +769,22 @@ export default function Hero({ globeAssets }) {
           (CSS opacity/visibility) on EVERY fresh mount — a reverse arrival
           included — and only the commit timeline ever reveals it. */}
       <div className="hero__fill" ref={fillRef} aria-hidden="true" />
-      {heroTuneOn && <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} />}
+      {/* The logo→globe intro machine (chunk 5) — full mode only; the key
+          remounts it for bench replays. Sits after VideoGlobe in the tree
+          so its passive machine effect runs with the scene api live. */}
+      {introOn && (
+        <HeroIntro
+          key={introRun}
+          rigRef={rigRef}
+          sceneApiRef={sceneApiRef}
+          veilRef={veilRef}
+          onChromeBeat={() => chromeBeat(false)}
+          onDone={onIntroDone}
+        />
+      )}
+      {heroTuneOn && (
+        <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />
+      )}
     </section>
   );
 }

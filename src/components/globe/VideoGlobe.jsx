@@ -16,7 +16,12 @@
  * @param {React.RefObject} [props.rigRef] - home-hero camera-rig handle (useGlobeScene)
  * @param {React.RefObject} [props.overlayRef] - home-hero overlay bridge (useGlobeScene)
  * @param {React.RefObject} [props.sceneApiRef] - home-hero mirror of the scene api
- *        ({ replayCascade, setBlueFill } — the chunk-4 commit drives setBlueFill)
+ *        ({ replayCascade, setBlueFill, setInk, releaseScheduler } — chunk 4
+ *        drives setBlueFill; the chunk-5 intro drives the other three)
+ * @param {boolean} [props.holdEntrance=false] - chunk-5 intro hold: build the
+ *        scene dark (no auto cascade) with the live-video scheduler deferred
+ *        until api.releaseScheduler(). Must be decided BEFORE mount (Hero's
+ *        render-time mode call); no-op under reduced motion and for /lab.
  */
 import { useRef, useState } from 'react';
 import useGlobeScene from './useGlobeScene.js';
@@ -34,6 +39,7 @@ export default function VideoGlobe({
   rigRef = null,
   overlayRef = null,
   sceneApiRef = null,
+  holdEntrance = false,
 }) {
   const containerRef = useRef(null);
   const poolRef = useRef(null);
@@ -51,6 +57,7 @@ export default function VideoGlobe({
   const api = useGlobeScene(containerRef, assets, gapDeg, capDeg, variantRef, setStats, poolRef, {
     rigRef,
     overlayRef,
+    holdEntrance,
   });
   // Home-hero commit bridge: mirror the scene api out to the owner (Hero
   // drives setBlueFill from its master timeline). The hook mutates

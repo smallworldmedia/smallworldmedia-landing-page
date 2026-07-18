@@ -1,10 +1,10 @@
 /**
  * heroConfig.js — live tuning state for the HOME HERO camera rig, the
- * scroll_to_enter ring and the commit transition (chunk 4; later chunks add
- * the intro/label choreography).
+ * scroll_to_enter ring, the commit transition (chunk 4) and the logo→globe
+ * intro (chunk 5; the label choreography is the remaining chunk).
  *
  * The comp knobs initialize from the URL (the PARAM convention — always on,
- * like Hero's ?loomms family and processConfig's TUNING) into the mutable
+ * like Hero's ?introms family and processConfig's TUNING) into the mutable
  * TUNING object. Since chunk 3 the no-param state is the RESTING COMPOSITION
  * (Nathan's approved comp), not the old centered identity:
  *
@@ -49,6 +49,16 @@ export const RING_SEPARATOR = '✳';
    (author/visualize at gsap.com/docs/v3/Eases/CustomEase). — */
 export const HERO_COMMIT_EASE_PATH = search().get('commitease') || TURN_EASE_PATH;
 
+/* — Intro ease — the logo→globe launch curve (chunk 5). Descends from the
+   retired loom curve (M0,0 C0.3,0.12 0.38,1 1,1) reshaped for the zoom out
+   of the letterform: flatter ends (near-zero velocity at both — the glyph
+   holds, the resting comp arrives without overshoot) and a much steeper
+   mid, so the scale change reads as one decisive move rather than a drift.
+   ?introease=<path> overrides live for a feel pass (author/visualize at
+   gsap.com/docs/v3/Eases/CustomEase). — */
+export const HERO_INTRO_EASE_PATH =
+  search().get('introease') || 'M0,0 C0.36,0.04 0.4,0.96 1,1';
+
 /* — Commit mode vocabulary (URL seed validates against these; the bench
    selects from them). fillMode: how the blue reaches the viewport — through
    the globe's own panels (the cascade surge + a late disc bloom) or as one
@@ -57,14 +67,21 @@ export const HERO_COMMIT_EASE_PATH = search().get('commitease') || TURN_EASE_PAT
 export const FILL_MODES = ['panels', 'circle'];
 export const BLUE_CASCADES = ['sweep', 'rows', 'poles'];
 
+/* — Intro variant vocabulary (chunk 5). ?intro doubles as the MODE force
+   (full/replay — Hero reads those) and the variant select: only a|c land
+   in TUNING. a = "Typeset, then Ignition" (chars materialize, cascade
+   sparks in the letterform, one master zoom out). c = "Flicker Lockup,
+   Launch" (CRT flicker on, cascade beat, one diagonal launch). — */
+export const INTRO_VARIANTS = ['a', 'c'];
+
 /* — Defaults, by section. The comp block is device/variant-resolved ONCE at
    module load (globeConfig's frozen-breakpoint convention). `fill: null` /
    `fitCover: null` mean "use the device FILL_FRACTION / FIT_COVER from
    globeConfig" — the rig falls back at use-time, so a reset stays honest on
    both breakpoints. SSR sees the desktop shape; nothing reads TUNING until
-   the client rig effect runs. Later chunks append sections here (intro /
-   label — commit landed with chunk 4) — keep the section comments so the
-   table stays legible as it grows. — */
+   the client rig effect runs. Later chunks append sections here (label —
+   commit landed with chunk 4, intro with chunk 5) — keep the section
+   comments so the table stays legible as it grows. — */
 /* Offset signs follow the rig's screen convention (applyRig negates into
    setViewOffset): +offsetX moves the globe RIGHT, +offsetY moves it DOWN.
    So the mobile up-bias — disc in the upper ~60%, ring clear of the footer
@@ -100,6 +117,17 @@ export const TUNING_DEFAULTS = Object.freeze({
   blueCascade: 'sweep', // ?bluecascade — panels-mode delay model (BLUE_CASCADES above)
   recenterEnd: 0.4, // ?recenterend — e where the recenter (offsets/elev → 0) completes
   zoomStart: 0.25, // ?zoomstart — e where the dolly to ?envscale begins
+
+  /* intro — the logo→globe intro (chunk 5; HeroIntro reads these at mount,
+     so the bench shapes the NEXT intro — use ↻ replay intro to see it).
+     The timing knobs drive variant A's script (chars-in is a fixed 0.9s;
+     the zoom fills the remainder of introMs); variant C keeps its own
+     authored ~3.2s script. */
+  intro: 'a', // ?intro — a | c (INTRO_VARIANTS; full/replay force the mode instead)
+  introMs: 5000, // ?introms — variant A total length, ms
+  introHoldMs: 800, // ?introhold — A2 hold after the chars land, ms
+  introCascadeMs: 1700, // ?introcascadeat — when the glyph-scale cascade fires, ms
+  heroInk: true, // ?heroink — 1|0: gap-lattice ink white → blue across the launch
 });
 
 /* URL param names for seed-on-load / copy_url, by section — NUMERIC knobs
@@ -120,19 +148,29 @@ const PARAM_KEYS = {
   commitMs: 'commitms',
   recenterEnd: 'recenterend',
   zoomStart: 'zoomstart',
+  /* intro */
+  introMs: 'introms',
+  introHoldMs: 'introhold',
+  introCascadeMs: 'introcascadeat',
 };
 const FIT_PARAM = 'herofit'; // contain | cover; anything else = device
 /* Commit string knobs — validated against the vocabulary lists (a typo
-   falls back to the default, the FIT_PARAM convention). The ease path
-   (?commitease) stays URL-only: CustomEase is created once per commit. */
+   falls back to the default, the FIT_PARAM convention). The ease paths
+   (?commitease ?introease) stay URL-only: CustomEase is created once per
+   commit/intro run. */
 const FILL_MODE_PARAM = 'fillmode';
 const BLUE_CASCADE_PARAM = 'bluecascade';
+/* Intro non-numeric knobs — ?intro carries the variant (a|c only; the
+   full/replay mode forces pass through to Hero untouched) and ?heroink is
+   a boolean (1|0). */
+const INTRO_PARAM = 'intro';
+const HERO_INK_PARAM = 'heroink';
 
 // Live, mutable tuning state (panel writes, Hero's rig effect reads).
 export const TUNING = { ...TUNING_DEFAULTS };
 
 // Seed from the URL — always, not just under ?herotune (the hero's knob
-// convention: ?herofill=0.9 works standalone like ?loomms). A copied tuning
+// convention: ?herofill=0.9 works standalone like ?introms). A copied tuning
 // link reopens the panel in the same shape AND frames the very first paint.
 if (typeof window !== 'undefined') {
   const p = search();
@@ -152,6 +190,11 @@ if (typeof window !== 'undefined') {
   if (FILL_MODES.includes(fm)) TUNING.fillMode = fm;
   const bc = p.get(BLUE_CASCADE_PARAM);
   if (BLUE_CASCADES.includes(bc)) TUNING.blueCascade = bc;
+  const iv = p.get(INTRO_PARAM);
+  if (INTRO_VARIANTS.includes(iv)) TUNING.intro = iv;
+  const ink = p.get(HERO_INK_PARAM);
+  if (ink === '0') TUNING.heroInk = false;
+  else if (ink === '1') TUNING.heroInk = true;
 }
 
 /* pub/sub — Hero's rig effect subscribes to re-apply on any panel change. */
@@ -205,6 +248,18 @@ export function heroTuneCopyUrl() {
     p.set(BLUE_CASCADE_PARAM, TUNING.blueCascade);
   } else {
     p.delete(BLUE_CASCADE_PARAM);
+  }
+  // Intro variant — off-default only. Note the side effect is intentional:
+  // intro=c on a copied URL also forces the full intro to PLAY (Hero's mode
+  // read), which is exactly what sharing a dialed intro comp wants. A typed
+  // full/replay mode force is dropped when the variant is default — copy_url
+  // serializes the tuned comp, not the session's mode.
+  if (TUNING.intro !== TUNING_DEFAULTS.intro) p.set(INTRO_PARAM, TUNING.intro);
+  else p.delete(INTRO_PARAM);
+  if (TUNING.heroInk !== TUNING_DEFAULTS.heroInk) {
+    p.set(HERO_INK_PARAM, TUNING.heroInk ? '1' : '0');
+  } else {
+    p.delete(HERO_INK_PARAM);
   }
   return `${window.location.origin}${window.location.pathname}?${p.toString()}`;
 }

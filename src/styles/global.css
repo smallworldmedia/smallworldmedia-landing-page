@@ -929,9 +929,11 @@ body.route-home .site-nav__pill:hover {
   flex-shrink: 0;
 }
 
-/* Loom start-state — solid black over the gradient; the entrance thins it
-   away on the same curve as the globe's approach, so the blue horizon
-   arrives with the planet. Sits under the globe canvas (DOM order). */
+/* Intro start-state (chunk 5; the loom's veil, repurposed) — solid black
+   over the gradient, sitting UNDER the globe canvas (DOM order): the
+   wordmark phase gets a black field with the live globe over it for free.
+   The intro machine (full) / settle (replay) thins it away so the blue
+   horizon arrives with the resting comp. */
 .hero__veil {
   position: absolute;
   inset: 0;
@@ -942,12 +944,13 @@ body.route-home .site-nav__pill:hover {
 
 /* Video globe layer — replaced the Unicorn Studio .hero__scene.
    Pointer events stay ON: drag-to-spin reaches the canvas anywhere
-   the pointer-events:none text layer above doesn't intercept. */
+   the pointer-events:none text layer above doesn't intercept.
+   (Never transformed since chunk 5 — the loom's DOM scale became a
+   camera move, rig.zoom.) */
 .hero__globe {
   position: absolute;
   inset: 0;
   z-index: 0;
-  will-change: transform;
 }
 
 /* ============================================
@@ -1066,8 +1069,8 @@ body.route-home .site-nav__pill:hover {
    globe's screen disc. ScrollRing writes ONLY the wrapper transform
    (translate to disc center · scale to ring radius · rotate) on the scene's
    frame cadence, plus --ring-fill on the gesture — everything else here is
-   static, so the SVG never re-lays-out. Hidden until the loom's chrome beat
-   (ScrollRing fades itself in — opacity only, no motion). */
+   static, so the SVG never re-lays-out. Hidden until the entrance chrome
+   beat (ScrollRing fades itself in — opacity only, no motion). */
 .hero-ring {
   position: absolute;
   top: 0;
@@ -1203,6 +1206,39 @@ body.route-home .site-nav__pill:hover {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+/* Logo→globe intro (chunk 5) — the stand-in wordmark layer HeroIntro
+   mounts in full mode only (never under reduced motion). One line centered
+   over the held scene; the o of "world" is a hidden slot the live globe
+   shows through. Font size is set inline by placeGlyphRect (solved from
+   the o-slot diameter target); chars start hidden via GSAP in a layout
+   effect, pre-paint. Pointer-inert — drag-to-spin reaches the canvas
+   through it even mid-intro. */
+.hero-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.hero-intro__mark {
+  font-family: var(--font-headline);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+  white-space: nowrap;
+}
+
+/* SplitText chars — transformed (variant A tracks them apart) and
+   opacity-flickered (variant C), all GSAP-owned. */
+.hero-intro__char {
+  display: inline-block;
+  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
