@@ -5,26 +5,28 @@
  * bench toggle) and never under reduced motion — and the effect refuses to
  * run under RM here too, the dual guard.
  *
- * A mono chip latches onto a LIVE panel — line 1 the client name, line 2
- * up to two service tags in the process-vocabulary voice — scrambles in
- * (the house scramble), holds ?labelhold, fades, and re-slots to another
- * live panel (round-robin, never the same panel back-to-back when an
- * alternative exists). A 1px leader stroke connects the chip's nearest
- * corner to the panel's center, with a 3px anchor dot on the panel; both
- * live in ONE full-viewport SVG layer and ride the chip's own opacity
- * (one gsap target list per slot — chip + stroke group fade together).
+ * A mono chip latches onto a LIVE panel that is IN THE VIEWPORT (note 3) —
+ * line 1 the client name, line 2 up to two BRACKETED service tags ([tag]) —
+ * scrambles in (the house scramble), holds ?labelhold, fades, and re-slots
+ * to another visible panel (round-robin, never the same panel back-to-back
+ * when an alternative exists). The chip sits OUTWARD from the globe disc
+ * center by ?labelstroke px (the tunable leader length); a 1px leader stroke
+ * connects the panel's center to the chip's nearest corner, with a 3px anchor
+ * dot on the panel; both live in ONE full-viewport SVG layer and ride the
+ * chip's own opacity (one gsap target list per slot — chip + stroke fade
+ * together).
  *
  * Live-panel truth arrives by EVENT, never by polling: the scene api's
  * onLiveChange subscription (LivePanelScheduler announces 'live' when a
  * promotion's crossfade completes, 'off' at demote start and on any slot
- * release/teardown). A labeled panel demoted — or carried behind the
- * globe's silhouette (prominence < MIN_PROMINENCE, or projected past the
- * far plane) — fades early and the slot re-slots.
+ * release/teardown). Targeting is VIEWPORT-based, not a globe region: a
+ * candidate must be front-facing AND project on-screen; a labeled panel
+ * that turns away or cascades out of frame fades early and re-slots.
  *
  * Per frame (the overlay bridge cadence — no second rAF): each bound
  * slot projects panel.centerDir·RADIUS through globeGroup.localToWorld →
- * project(camera) → px, then writes ONE chip transform (the process
- * +14/−6 offsets) and the leader's four endpoints + dot center. Module
+ * project(camera) → px, then writes ONE chip transform (radial-outward by
+ * ?labelstroke) and the leader's four endpoints + dot center. Module
  * scratch vectors, zero allocations beyond the write strings; the chip
  * box is measured ONCE per content change (the text is pre-set at its
  * final length — mono face, so the scramble never changes the box) and
@@ -43,20 +45,24 @@ import { scrambleTo } from '../../lib/scramble.js';
 import { TUNING } from './heroConfig.js';
 import { RADIUS, PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
 
-/* Chip offsets from the anchor px — the process-label placement. */
-const CHIP_OFFSET_X = 14;
-const CHIP_OFFSET_Y = -6;
 const HOLD_ALPHA = 0.85; // the process-label resting opacity
 const FADE_IN_SECONDS = 0.2; // power2.out, process cadence
 const FADE_OUT_SECONDS = 0.3; // power2.in, process cadence
-/* Prominence = panel surface normal · globe→camera view axis (1 = dead
-   center, 0 = the rim). Below MIN a labeled panel is slipping behind the
-   silhouette — fade early. BIND is the pick-time hysteresis: a candidate
-   must clear the higher bar so a rim-hugger (the scheduler keeps panels
-   live down to DEMOTE_SCORE 0.06 under its dwell rules) can't enter a
-   bind → instant-fade loop. */
-const MIN_PROMINENCE = 0.15;
-const BIND_PROMINENCE = 0.25;
+/* Targeting is VIEWPORT-based (note 3): a panel is a candidate when it is
+   FRONT-FACING and its anchor projects ON-SCREEN — not when it sits in a
+   predetermined central region of the globe. With the globe huge and
+   off-right, most of it is off-screen; labels should latch onto whatever is
+   actually visible and let go as it cascades out of frame.
+   · FRONT_EPS: prominence (normal · view-axis) must exceed this — a sphere
+     projects back-facing panels onto the disc too, so a bare bounds test
+     isn't enough; this rejects the occluded hemisphere. Small (not a
+     region) — any panel actually turned toward the camera qualifies.
+   · Bind needs a margin INSIDE the viewport (so a chip doesn't bind to a
+     panel already at the very edge and fade the same frame); the per-frame
+     early-fade uses the fuller bounds — a small hysteresis band. */
+const FRONT_EPS = 0.05;
+const NDC_BIND = 0.9; // pick only panels comfortably on-screen (|ndc| < this)
+const NDC_KEEP = 1.02; // hold until the anchor actually leaves the frame
 const DOT_RADIUS = 1.5; // the 3px anchor dot
 
 /* Scratch space — the frame callback is synchronous and single-threaded
@@ -64,11 +70,13 @@ const DOT_RADIUS = 1.5; // the 3px anchor dot
 const vAnchor = new Vector3();
 const vNormal = new Vector3();
 const vAxis = new Vector3();
+const vProj = new Vector3(); // pick-time visibility projection (never mid-onFrame)
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-/* Service names in the process-vocabulary voice: lowercase snake_case
-   ("Art Direction" → art_direction), two max, ' / ' between. */
+/* Service names in the process-vocabulary voice, BRACKETED so they read as
+   tags: lowercase snake_case ("Art Direction" → [art_direction]), two max,
+   space-separated. */
 const serviceLine = (services) =>
   (services || [])
     .slice(0, 2)
@@ -79,7 +87,8 @@ const serviceLine = (services) =>
         .replace(/^_+|_+$/g, '')
     )
     .filter(Boolean)
-    .join(' / ');
+    .map((t) => `[${t}]`)
+    .join(' ');
 
 export default function HeroLabels({ overlay, sceneApiRef }) {
   const rootRef = useRef(null);
@@ -107,12 +116,25 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
        heroOverlay; single-threaded, so the scratch vectors are safe from
        both cadences). — */
     let lastFrame = null;
-    const prominenceOf = (panel) => {
-      if (!lastFrame) return 1; // no frame yet — accept; the guard corrects on tick one
-      vAnchor.setFromMatrixPosition(lastFrame.globeGroup.matrixWorld);
-      vAxis.setFromMatrixPosition(lastFrame.camera.matrixWorld).sub(vAnchor).normalize();
-      vNormal.copy(panel.centerDir).transformDirection(lastFrame.globeGroup.matrixWorld);
+    // Front-facing test: panel normal · (globe→camera) axis. >0 faces the
+    // camera; a sphere projects the BACK hemisphere onto the disc too, so this
+    // is what a bare on-screen bounds test can't do alone.
+    const prominenceIn = (panel, f) => {
+      vAnchor.setFromMatrixPosition(f.globeGroup.matrixWorld);
+      vAxis.setFromMatrixPosition(f.camera.matrixWorld).sub(vAnchor).normalize();
+      vNormal.copy(panel.centerDir).transformDirection(f.globeGroup.matrixWorld);
       return vNormal.dot(vAxis);
+    };
+    // Pick-time visibility (note 3): front-facing AND the anchor projects
+    // comfortably on-screen (|ndc| < NDC_BIND). Uses vProj so it never touches
+    // the onFrame anchor scratch.
+    const visibleAtPick = (panel) => {
+      if (!lastFrame) return true; // no frame yet — accept; the tick guard corrects
+      if (prominenceIn(panel, lastFrame) < FRONT_EPS) return false;
+      vProj.copy(panel.centerDir).multiplyScalar(RADIUS);
+      lastFrame.globeGroup.localToWorld(vProj);
+      vProj.project(lastFrame.camera);
+      return vProj.z <= 1 && Math.abs(vProj.x) < NDC_BIND && Math.abs(vProj.y) < NDC_BIND;
     };
 
     /* — Slots: chip span (two lines) + stroke group (line + dot) in the
@@ -170,7 +192,7 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
         const panel = live[idx];
         if (!panel.asset?.clientName) continue;
         if (slots.some((s) => s.panel === panel)) continue;
-        if (prominenceOf(panel) < BIND_PROMINENCE) continue; // rim-hugger
+        if (!visibleAtPick(panel)) continue; // must be front-facing + on-screen
         if (panel === slot.last) {
           fallback = fallback ?? panel;
           continue;
@@ -321,25 +343,37 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
         const slot = slots[i];
         const panel = slot.panel;
         if (!panel) continue;
-        // Prominence — the scheduler's score idiom, camera-space (the
-        // camera lookAts the globe center, so the view axis IS its z —
-        // elevation-safe where the scheduler's raw .z read assumes an
-        // equatorial camera). The MIN floor sits just above DEMOTE_SCORE
-        // (0.06): the label lets go a beat before the scheduler would
-        // demote the panel on score.
-        const prominence = prominenceOf(panel);
+        // Front-facing test (a back-hemisphere panel still projects onto the
+        // disc, so bounds alone can't reject it).
+        const prominence = prominenceIn(panel, frame);
         // Anchor: the panel center at the surface, globe-local → world →
         // NDC (post-render matrices, heroOverlay's guarantee).
         vAnchor.copy(panel.centerDir).multiplyScalar(RADIUS);
         frame.globeGroup.localToWorld(vAnchor);
         vAnchor.project(frame.camera);
-        if ((vAnchor.z > 1 || prominence < MIN_PROMINENCE) && !slot.fading) {
-          earlyFade(slot); // slipping behind the silhouette — let go early
-        }
+        // Viewport-based hold (note 3): let go when the anchor turns away or
+        // leaves the frame (NDC_KEEP margin past the edge), not on a region
+        // threshold — the label rides its panel down the cascade and releases
+        // as it exits, freeing the slot for a freshly-visible panel.
+        const gone =
+          vAnchor.z > 1 ||
+          prominence < FRONT_EPS ||
+          Math.abs(vAnchor.x) > NDC_KEEP ||
+          Math.abs(vAnchor.y) > NDC_KEEP;
+        if (gone && !slot.fading) earlyFade(slot);
         const ax = (vAnchor.x * 0.5 + 0.5) * frame.w;
         const ay = (vAnchor.y * -0.5 + 0.5) * frame.h; // NDC y-up → CSS y-down
-        const cx = ax + CHIP_OFFSET_X;
-        const cy = ay + CHIP_OFFSET_Y;
+        // Chip sits OUTWARD from the globe disc center by ?labelstroke px (the
+        // leader length), centered on that point so it clears the sphere; the
+        // leader connects the panel anchor to the chip's nearest corner.
+        const stroke = Math.max(0, TUNING.labelStroke);
+        let ox = ax - frame.disc.cx;
+        let oy = ay - frame.disc.cy;
+        const od = Math.hypot(ox, oy) || 1;
+        ox /= od;
+        oy /= od;
+        const cx = ax + ox * stroke - slot.w / 2;
+        const cy = ay + oy * stroke - slot.h / 2;
         slot.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
         // Leader: the chip corner nearest the anchor → the anchor.
         const x1 = ax < cx + slot.w / 2 ? cx : cx + slot.w;
