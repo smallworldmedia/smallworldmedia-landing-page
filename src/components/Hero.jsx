@@ -770,6 +770,7 @@ export default function Hero({ globeAssets }) {
           overlayRef={overlayRef}
           sceneApiRef={sceneApiRef}
           holdEntrance={introMode === 'full'}
+          cascadeSpeed={HERO_TUNING.cascadeSpeed}
         />
       </div>
       {/* Left-anchored statement column — the tagline (HeroText's .hero__lead,

@@ -114,7 +114,7 @@ export default function useGlobeScene(
   variantRef,
   onStats,
   poolRef,
-  { rigRef = null, overlayRef = null, holdEntrance = false } = {}
+  { rigRef = null, overlayRef = null, holdEntrance = false, cascadeSpeed = null } = {}
 ) {
   // Live-panel transition subscribers (chunk-6 labels) — hook-level, like
   // the api object itself, so a subscription survives scene rebuilds (the
@@ -467,7 +467,18 @@ export default function useGlobeScene(
     };
 
     /* — Interaction + render loop — */
-    const controller = new InteractionController(container);
+    // Cascade mode (home hero, note 6): a constant pitch drift rolls content
+    // top-to-bottom. deg/s → rad/s; null = legacy yaw auto-rotate (lab). When
+    // cascading, pitch accumulates CONTINUOUSLY (the ±40° drag clamp would
+    // freeze the roll) — a rolling sphere has no "upside down".
+    const cascadeRad =
+      cascadeSpeed != null && Number.isFinite(cascadeSpeed)
+        ? THREE.MathUtils.degToRad(cascadeSpeed)
+        : null;
+    const controller = new InteractionController(
+      container,
+      cascadeRad != null ? { cascadeSpeed: cascadeRad } : undefined
+    );
     const pitchLimit = THREE.MathUtils.degToRad(PITCH_LIMIT_DEG);
     let yaw = 0;
     let pitch = THREE.MathUtils.degToRad(INITIAL_PITCH_DEG);
@@ -488,7 +499,13 @@ export default function useGlobeScene(
 
       const { dYaw, dPitch } = controller.update(step);
       yaw += dYaw;
-      pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch + dPitch));
+      pitch += dPitch;
+      // Legacy (yaw-drift) mode clamps drag pitch to ±limit; the cascade must
+      // roll freely through every pitch, so it accumulates unbounded (three
+      // wraps it into the rotation matrix — any orientation is valid).
+      if (cascadeRad == null) {
+        pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch));
+      }
       globeGroup.rotation.set(pitch, yaw, 0);
 
       renderer.render(scene, camera);

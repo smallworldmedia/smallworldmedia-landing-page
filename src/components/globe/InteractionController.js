@@ -5,6 +5,12 @@
  * While dragging, pointer deltas pass through 1:1. On release, the flick
  * velocity GSAP-tweens back to ambient drift (power2.out — smooth family),
  * so the globe never stops dead.
+ *
+ * Ambient mode (home hero, note 6): when a `cascadeSpeed` (rad/s) is given,
+ * the ambient drift is a constant PITCH roll instead of yaw — the sphere
+ * rotates about its horizontal axis so surface content flows top-to-bottom
+ * toward the near pole (a slow content cascade). Callers that pass nothing
+ * (lab, other) keep the legacy yaw auto-rotate. Reduced motion → still.
  */
 import gsap from 'gsap';
 import {
@@ -15,14 +21,20 @@ import {
   PREFERS_REDUCED_MOTION,
 } from './globeConfig.js';
 
-// Reduced motion: no ambient drift, direct drag only (no inertia)
-const AMBIENT_SPEED = PREFERS_REDUCED_MOTION ? 0 : AUTO_ROTATE_SPEED;
-
 export default class InteractionController {
-  constructor(el) {
+  constructor(el, { cascadeSpeed = null } = {}) {
     this.el = el;
+    // Ambient rest velocity. Cascade mode = pitch drift (content flows down —
+    // positive dPitch moves the camera-facing surface screen-down under the
+    // elevated underside view); legacy = yaw drift. RM stills both.
+    const cascade = cascadeSpeed != null;
+    this.ambient = PREFERS_REDUCED_MOTION
+      ? { yaw: 0, pitch: 0 }
+      : cascade
+        ? { yaw: 0, pitch: cascadeSpeed }
+        : { yaw: AUTO_ROTATE_SPEED, pitch: 0 };
     this.dragging = false;
-    this.vel = { yaw: AMBIENT_SPEED, pitch: 0 };
+    this.vel = { yaw: this.ambient.yaw, pitch: this.ambient.pitch };
     this.pendingYaw = 0;
     this.pendingPitch = 0;
     this.instYaw = 0;
@@ -88,9 +100,10 @@ export default class InteractionController {
     this.vel.yaw = clamp(this.instYaw);
     this.vel.pitch = clamp(this.instPitch);
 
+    // Settle back to the ambient drift (the cascade pitch, or legacy yaw).
     gsap.to(this.vel, {
-      yaw: AMBIENT_SPEED,
-      pitch: 0,
+      yaw: this.ambient.yaw,
+      pitch: this.ambient.pitch,
       duration: INERTIA_SECONDS,
       ease: 'power2.out',
       overwrite: true,
