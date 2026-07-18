@@ -128,31 +128,30 @@ const CHROME_BEAT_AT = 0.78;
    ?zoomstart). */
 const ENV_SCALE = PARAM('envscale', 3.0);
 
-/* — Commit beat map — TWO progress spaces off ONE timeline:
-   · camera MOTION (recenter/zoom) keys off the eased e — the house curve
-     owns every translation (?recenterend ?zoomstart are e-space edges);
-   · the blue's EVENT TIMING (cascade sweep, fill spread) keys off the
-     timeline's RAW progress. The Turn curve reaches e≈0.65 by 25% of raw
-     time — windows hung on e compress to a ~70ms blink and the
-     panel-by-panel beat becomes imperceptible at any ?commitms. Raw-space
-     windows keep the sweep legible while the motion still settles on the
-     curve. One timeline, one clock — a linear sibling proxy, not a second
-     tween loop. — */
-const BLUE_PANELS_START = 0.35; // raw: cascade sweep begins after the dolly's violent phase…
-const BLUE_PANELS_END = 0.7; // …every panel is field blue here
-const SPREAD_PANELS_START = 0.72; // raw: .hero__fill disc → farthest corner
-const SPREAD_PANELS_END = 0.96;
-const GROW_CIRCLE_START = 0.3; // raw: .hero__fill radius 0 → disc edge…
-const GROW_CIRCLE_END = 0.68;
-const SPREAD_CIRCLE_START = 0.68; // …then disc edge → farthest corner
-const SPREAD_CIRCLE_END = 0.95;
+/* — Commit beat map — ONE linear timeline `raw.p`, split by ?bluelead
+   (note 4: "the blue fill should happen FIRST and then lead into the globe
+   centering and zoom"):
+   · BLUE LEADS over raw [0 .. blueLead]: the panels cascade to field blue
+     (or, circle mode, the disc blooms to the silhouette) while the CAMERA
+     HOLDS in the resting comp — the blue paints the globe where it sits,
+     off-right and underside, at full effect.
+   · CAMERA DIVES over raw [blueLead .. 1]: recenter (offsets/elev → 0) then
+     dolly (rig.zoom → ?envscale), on the house Turn curve applied to the
+     re-based progress `commitEase(seg(raw.p, blueLead, 1))` — the eased
+     launch/settle the doctrine wants, just held until the globe is blue.
+     ?recenterend / ?zoomstart are edges WITHIN that eased dive (cp-space).
+   · The .hero__fill disc spreads to the viewport corners over the dive's
+     tail, taking over from the by-then-blue globe at its edge → handoff at
+     raw 1. Blue never blinks (it owns the front of the timeline outright),
+     and the camera never moves before the globe is painted. — */
+const SPREAD_PANELS_END = 0.98; // raw: .hero__fill disc fully covers the viewport
+const SPREAD_CIRCLE_END = 0.98;
 const FILL_DISC_PAD = 1.03; // fill circle slightly proud of the disc (bgMorph precedent)
 const CHROME_OUT_SECONDS = 0.2; // the one real-time beat — the chrome exit
 const HANDOFF_COVER_SECONDS = 0.05; // RouteFill's snap under the covered viewport
 const DRYRUN_RETURN_SECONDS = 0.6; // rig back to the resting pose, expo.out
 
-/* Clamped remap: where a beat lives on its progress space (eased e for
-   motion, raw p for the blue's windows — see the beat map above). */
+/* Clamped remap: where a beat lives on its progress window. */
 const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
 
 /* — Scroll-fill (mirrors /work's CTA choreography + knobs) — */
@@ -351,7 +350,7 @@ export default function Hero({ globeAssets }) {
     );
     // Commit-time snapshot of the bench knobs — the timeline is one shot;
     // a mid-flight TUNING write waits for the next commit/dry-run.
-    const { fillMode, blueCascade, recenterEnd, zoomStart, commitMs } = HERO_TUNING;
+    const { fillMode, blueCascade, blueLead, recenterEnd, zoomStart, commitMs } = HERO_TUNING;
 
     // Recenter/zoom starts — FROM wherever the live rig sits (the resting
     // TUNING pose, a bench value, a mid-drag lean), never from defaults.
@@ -385,24 +384,25 @@ export default function Hero({ globeAssets }) {
     const coverRadius = () =>
       Math.hypot(Math.max(disc.cx, disc.w - disc.cx), Math.max(disc.cy, disc.h - disc.cy));
     const driveFill = (p) => {
-      // p is RAW timeline progress — the blue's windows live in raw space
-      // (see the beat map: e-space windows compress to a blink on the
-      // front-loaded Turn curve).
+      // p is RAW timeline progress; the fill windows are re-based on blueLead
+      // so the blue fills the globe FIRST (over [0, blueLead]) and only then
+      // spreads to the corners (over [blueLead, end]) as the camera dives.
       if (!fill) return;
       let radius;
+      const r0 = disc.r * FILL_DISC_PAD;
       if (fillMode === 'circle') {
-        // circle: bloom 0 → just past the disc edge, then spread out.
-        const grow = seg(p, GROW_CIRCLE_START, GROW_CIRCLE_END);
+        // circle: the disc blooms 0 → the silhouette over [0, blueLead] (this
+        // mode's "paint the globe" beat, in place of the panel cascade), then
+        // spreads disc → corners over [blueLead, end].
+        const grow = seg(p, 0, blueLead);
         if (grow <= 0) return;
-        const r0 = disc.r * FILL_DISC_PAD;
-        const spread = seg(p, SPREAD_CIRCLE_START, SPREAD_CIRCLE_END);
+        const spread = seg(p, blueLead, SPREAD_CIRCLE_END);
         radius = spread > 0 ? r0 + (coverRadius() - r0) * spread : r0 * grow;
       } else {
-        // panels: the div takes over from the fully-blued globe at the
-        // disc edge and carries the blue to the corners.
-        const spread = seg(p, SPREAD_PANELS_START, SPREAD_PANELS_END);
+        // panels: the panels are field blue by blueLead; the div takes over
+        // at the disc edge and carries the blue to the corners after it.
+        const spread = seg(p, blueLead, SPREAD_PANELS_END);
         if (spread <= 0) return;
-        const r0 = disc.r * FILL_DISC_PAD;
         radius = r0 + (coverRadius() - r0) * spread;
       }
       // Clip BEFORE the reveal — no unclipped first frame (bgMorph).
@@ -470,55 +470,51 @@ export default function Hero({ globeAssets }) {
       armedRef.current = true; // the gesture is live again
     };
 
-    /* — ONE master timeline, TWO progress reads (see the beat map): the
-       eased proxy e drives the camera motion, the linear sibling proxy p
-       (same timeline, same span — not a second clock) drives the blue's
-       windows. The only other clock is the 0.2s real-time chrome exit
-       (house-sanctioned exception). — */
+    /* — ONE linear master timeline `raw.p` (see the beat map). The blue owns
+       the front outright (paints the globe over [0, blueLead] while the
+       camera holds); the camera dive rides the house Turn curve applied to
+       the re-based progress after blueLead, so the eased launch/settle is
+       preserved — just delayed until the globe is blue. `raw.p` is linear so
+       the blue reads at any ?commitms; the only other clock is the 0.2s
+       real-time chrome exit (house-sanctioned exception). — */
     const commitEase = CustomEase.create('swmHeroCommit', HERO_COMMIT_EASE_PATH);
-    const ev = { e: 0 };
     const raw = { p: 0 };
     const tl = gsap.timeline({ onComplete: dryRun ? releaseDryRun : handoff });
-    // Chrome out — the ring stays: pinned blue, riding the growing disc
-    // until the spreading blue swallows it.
+    // Chrome out — the button stays until the spreading blue swallows it.
     tl.to(
       chrome,
       { autoAlpha: 0, duration: CHROME_OUT_SECONDS, ease: 'power2.out', overwrite: true },
       0
     );
-    // Linear sibling FIRST — inserted before the eased tween so raw.p is
-    // fresh when the eased tween's onUpdate reads it each tick.
-    tl.to(raw, { p: 1, duration: commitMs / 1000, ease: 'none' }, 0);
     tl.to(
-      ev,
+      raw,
       {
-        e: 1,
+        p: 1,
         duration: commitMs / 1000,
-        ease: commitEase,
+        ease: 'none',
         onUpdate: () => {
-          const e = ev.e;
+          const p = raw.p;
+          // 1) BLUE LEADS — panels surge to field blue over [0, blueLead] on
+          //    the cascade's own stagger while the camera is still (circle
+          //    mode blooms the disc instead — driveFill owns that below).
+          if (fillMode === 'panels') {
+            sceneApi?.setBlueFill(seg(p, 0, blueLead), blueCascade);
+          }
+          driveFill(p);
+          // 2) CAMERA DIVES — after blueLead, on the Turn curve: recenter the
+          //    now-blue globe to the axis, then dolly through it. cp holds at
+          //    0 until blueLead, so the globe does not move before it is blue.
           if (handle) {
-            // Recenter on the curve's front: offsets/elevation glide to
-            // the axis so the dolly dives through a centered planet.
-            const rc = seg(e, 0, recenterEnd);
+            const cp = commitEase(seg(p, blueLead, 1));
+            const rc = seg(cp, 0, recenterEnd);
             handle.rig.offsetX = startX * (1 - rc);
             handle.rig.offsetY = startY * (1 - rc);
             handle.rig.elevDeg = startElev * (1 - rc);
-            // Dolly through the silhouette, continuing from the drag's lean.
-            const z = seg(e, zoomStart, 1);
+            const z = seg(cp, zoomStart, 1);
             zoomRef.current.v = startZoom + (ENV_SCALE - startZoom) * z;
             handle.rig.zoom = zoomRef.current.v;
             handle.apply(); // ONE apply for every rig write this frame
           }
-          // The blue arrives through the globe's shape: panels surge to
-          // field blue on the cascade's own stagger, then the DOM fill
-          // takes over past the disc edge (circle mode skips the panels
-          // and blooms the disc-clipped fill directly — no setBlueFill).
-          // Raw-space windows: legible at any ?commitms.
-          if (fillMode === 'panels') {
-            sceneApi?.setBlueFill(seg(raw.p, BLUE_PANELS_START, BLUE_PANELS_END), blueCascade);
-          }
-          driveFill(raw.p);
         },
       },
       0
