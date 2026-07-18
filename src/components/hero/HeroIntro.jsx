@@ -4,15 +4,18 @@
  * force; never under reduced motion — and the machine bails here too, the
  * dual guard).
  *
- * The stand-in lockup: "small world media" typeset at display scale
- * (PP Neue Montreal via --font-headline, lowercase, one line centered)
- * where the "o" of "world" is a HIDDEN SLOT — the live WebGL globe shows
- * through it. Nothing is composited: the hero's veil paints BELOW the
- * canvas, so a black field with the globe visible is free; the wordmark
- * chars simply overlay on top. The owner will later supply a real lockup
- * asset — everything asset-shaped is isolated behind buildLockup() +
- * placeGlyphRect() (typeset the lockup, find the o-rect): swap those two
- * and the machines don't change.
+ * The lockup: the studio's inline "small world media" wordmark (the real
+ * brand asset, src/assets/swm-lockup-inline.svg, inlined via ?raw) — blue
+ * (#0000FF, exactly GAP_COLOR) letterforms with the "o" of "world" drawn as
+ * a globe glyph. That glyph path (id="swm-lockup-glyph") is the HIDDEN SLOT:
+ * the live WebGL globe shows through where it was. Nothing is composited:
+ * the hero's veil paints BELOW the canvas, so a black field with the globe
+ * visible is free; the SVG letterforms simply overlay on top. Everything
+ * asset-shaped stays isolated behind buildLockup() + placeGlyphRect()
+ * (inject the artwork, hide the glyph, measure its slot) — swap the asset
+ * and the machines below don't change. (The letterforms are the "chars" the
+ * variants animate; the SVG scales via its viewBox so the glyph slot lands
+ * at the target diameter — the lockup bleeds past the hero, which clips it.)
  *
  * Glyph framing: from the measured o-rect we compute rig values that frame
  * the globe exactly in the slot — fitCover FORCED contain for the glyph
@@ -58,7 +61,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
-import { SplitText } from 'gsap/SplitText';
 import { TUNING, HERO_INTRO_EASE_PATH } from './heroConfig.js';
 import {
   CAMERA_FOV,
@@ -67,28 +69,22 @@ import {
   IS_MOBILE,
   PREFERS_REDUCED_MOTION,
 } from '../globe/globeConfig.js';
+// The real brand lockup, inlined at build (?raw → markup string). The XML
+// prolog + fixed width/height were stripped in prep so it parses as an HTML
+// fragment and scales via CSS width; the globe glyph carries id
+// "swm-lockup-glyph".
+import LOCKUP_SVG from '../../assets/swm-lockup-inline.svg?raw';
 
-gsap.registerPlugin(CustomEase, SplitText);
+gsap.registerPlugin(CustomEase);
 
-/* — The stand-in copy. The o of "world" is the slot (the string's only o). — */
-const WORDMARK = 'small world media';
+const GLYPH_ID = 'swm-lockup-glyph';
 
-/* — Slot metrics: the char box is the ADVANCE box (line-height tall), not
-   the letterform. The o's round ink is ~this fraction of its advance width,
-   and its optical center (x-height middle over a ~0.8em baseline) sits a
-   touch below the box center. Stand-in fudges — the real lockup asset
-   replaces them with authored geometry. — */
-const O_INK_FRACTION = 0.9;
-const O_CENTER_Y_SHIFT = 0.04; // fraction of the char box height, downward
-const LINE_MAX_FRACTION = 0.92; // fit the line inside this … when it can
-
-/* — Slot size targets (o diameter, px). The slot is the POINT of the
-   intro — live tiles readable inside the letterform — so the line fitting
-   may only shrink it to the range floor; below that the floor holds and
-   the lockup bleeds past the viewport edges (the hero overflow-clips; the
-   o sits near the line's middle, so the crop stays centered on the
-   moment). On common desktops (<~2.1k px) and phones the floor is what
-   you get — the ranges' upper reaches need wide viewports. — */
+/* — Slot size targets (globe-glyph diameter, px). The slot is the POINT of
+   the intro — live tiles readable inside the letterform — so its floor
+   holds even when that pushes the lockup past the viewport edges (the hero
+   overflow-clips; the glyph sits near the line's middle, so the crop stays
+   centered on the moment). vw scales it on wider viewports; the range caps
+   it. — */
 const O_DESKTOP = { vw: 0.09, min: 120, max: 160 };
 const O_MOBILE = { vw: 0.24, min: 80, max: 110 };
 
@@ -118,47 +114,54 @@ const seg = (e, a, b) => clamp((e - a) / (b - a), 0, 1);
 /* ————— The asset swap seam ————— */
 
 /**
- * Typeset the stand-in lockup and split it. The future real-asset version
- * replaces the SplitText body with the artwork's own char/slot nodes and
- * keeps the same return shape.
- * @returns {{ split: SplitText, chars: Element[], oChar: Element|null }}
+ * Inject the real lockup artwork and split it into its parts: the globe
+ * glyph (the "o" of "world", tagged in the asset) becomes the hidden slot;
+ * every other letterform element is a "char" the variants animate. The
+ * return shape matches the machines' contract exactly — chars are valid
+ * GSAP / getBoundingClientRect targets (SVG elements), oChar is the slot,
+ * split.revert() clears the injected markup on teardown.
+ * @returns {{ split: {revert: () => void}, chars: Element[], oChar: Element|null }}
  */
 function buildLockup(markEl) {
-  markEl.textContent = WORDMARK;
-  const split = SplitText.create(markEl, { type: 'chars', charsClass: 'hero-intro__char' });
-  const oChar = split.chars.find((c) => c.textContent === 'o') ?? null;
-  return { split, chars: split.chars.filter((c) => c !== oChar), oChar };
+  markEl.innerHTML = LOCKUP_SVG;
+  const svg = markEl.querySelector('svg');
+  if (!svg) return { split: { revert: () => {} }, chars: [], oChar: null };
+  svg.classList.add('hero-intro__art');
+  const all = [...svg.querySelectorAll('path, polygon, rect')];
+  // The globe glyph carries the tag; fall back to the widest element (the
+  // globe's advance is ~2× a letter's) so a re-exported asset can't strand
+  // the slot.
+  let oChar =
+    svg.querySelector(`#${GLYPH_ID}`) ??
+    all.reduce((a, b) => (b.getBBox().width > a.getBBox().width ? b : a), all[0]) ??
+    null;
+  const chars = all.filter((el) => el !== oChar);
+  return { split: { revert: () => { markEl.innerHTML = ''; } }, chars, oChar };
 }
 
 /**
- * Size the lockup and find the o-rect (the process placeGlobe idiom, driven
- * the other way: instead of pinning an overlay to the glyph box, the glyph
- * box drives the camera). Probes at 100px to read the font's proportions,
- * solves the font size for the target slot diameter, caps against the line
- * width, then measures the real slot. Returns hero-relative px.
+ * Size the lockup so the glyph slot hits the target diameter, then measure
+ * the slot (the process placeGlobe idiom driven the other way — the glyph
+ * box drives the camera). The glyph's share of the viewBox is fixed, so one
+ * SVG width solves the slot px; the floor wins and the lockup bleeds past
+ * the hero (which clips it). Returns hero-relative px.
  */
 function placeGlyphRect(root, markEl, oChar) {
-  markEl.style.fontSize = '100px';
-  const probeO = oChar.getBoundingClientRect().width;
-  const probeLine = markEl.getBoundingClientRect().width;
+  const svg = markEl.querySelector('svg');
   const rb = root.getBoundingClientRect();
   const t = IS_MOBILE ? O_MOBILE : O_DESKTOP;
-  const desired = clamp(rb.width * t.vw, t.min, t.max);
-  const inkPerFont = (probeO * O_INK_FRACTION) / 100; // slot px per font px
-  const linePerFont = probeLine / 100;
-  let fontPx = inkPerFont > 0 ? desired / inkPerFont : 100;
-  // Fit the line when that keeps the slot at or above the range floor;
-  // otherwise the floor wins and the lockup bleeds (see the target note).
-  const maxLine = rb.width * LINE_MAX_FRACTION;
-  if (linePerFont > 0 && fontPx * linePerFont > maxLine) {
-    fontPx = Math.max(maxLine / linePerFont, inkPerFont > 0 ? t.min / inkPerFont : 0);
-  }
-  markEl.style.fontSize = `${fontPx.toFixed(2)}px`;
+  const desired = clamp(rb.width * t.vw, t.min, t.max); // glyph diameter, px
+  const vbW = svg?.viewBox?.baseVal?.width || 1;
+  const glyphVbW = oChar.getBBox().width || 1; // glyph extent in viewBox units
+  // svgWidth · (glyphVbW / vbW) = desired  →  solve the width.
+  const svgW = (desired * vbW) / glyphVbW;
+  svg.style.width = `${svgW.toFixed(2)}px`;
+  svg.style.height = 'auto';
   const ob = oChar.getBoundingClientRect();
   return {
     cx: ob.left + ob.width / 2 - rb.left,
-    cy: ob.top + ob.height * (0.5 + O_CENTER_Y_SHIFT) - rb.top,
-    d: ob.width * O_INK_FRACTION,
+    cy: ob.top + ob.height / 2 - rb.top, // the glyph box IS the globe — true center
+    d: ob.width,
     w: rb.width || 1,
     h: rb.height || 1,
   };
@@ -426,9 +429,9 @@ export default function HeroIntro({ rigRef, sceneApiRef, veilRef, onChromeBeat, 
 
   return (
     <div className="hero-intro" ref={rootRef} aria-hidden="true">
-      <div className="hero-intro__mark" ref={markRef}>
-        {WORDMARK}
-      </div>
+      {/* buildLockup injects the real lockup SVG here (useLayoutEffect,
+          pre-paint); the h1 in HeroText carries the accessible name. */}
+      <div className="hero-intro__mark" ref={markRef} />
     </div>
   );
 }

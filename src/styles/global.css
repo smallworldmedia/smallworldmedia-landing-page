@@ -1281,18 +1281,27 @@ body.route-home .site-nav__pill:hover {
 }
 
 .hero-intro__mark {
-  font-family: var(--font-headline);
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--color-white);
-  white-space: nowrap;
+  /* Sizes to the injected lockup SVG; placeGlyphRect sets the svg width so
+     the globe glyph lands at the target diameter (the line bleeds past the
+     hero, which clips it). */
+  line-height: 0;
 }
 
-/* SplitText chars — transformed (variant A tracks them apart) and
-   opacity-flickered (variant C), all GSAP-owned. */
-.hero-intro__char {
-  display: inline-block;
+/* The injected lockup artwork — its own #0000FF fill is the brand blue;
+   the block never wraps, height tracks the viewBox. */
+.hero-intro__art {
+  display: block;
+  height: auto;
+}
+
+/* Lockup letterforms — the "chars": translated (variant A tracks them
+   apart) and opacity-flickered (variant C), all GSAP-owned. fill-box keeps
+   the transform origin on each glyph so the outward tracking reads true. */
+.hero-intro__art path,
+.hero-intro__art polygon,
+.hero-intro__art rect {
+  transform-box: fill-box;
+  transform-origin: center;
   will-change: transform, opacity;
 }
 
