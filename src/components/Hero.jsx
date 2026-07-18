@@ -6,26 +6,33 @@
  * veil thins on the same curve so the blue gradient arrives with it. Full
  * loom plays once per session; returning to the home page gets a short
  * settle instead. Knobs: ?loomms ?loomscale (?loom=1 forces the full pass).
+ * The chrome beat (duration·0.78) fires swm:hero-chrome + stamps
+ * data-chromed on the section — the ring, micro CTA, hit target and
+ * HeroText all reveal themselves off that one broadcast.
  *
- * SCROLL_TO_ENTER is the /work CTA chip (fp-cta family), centered over the
- * resting planet, with the same scroll-fill interaction as [NEXT]/[PREVIOUS]:
- * wheel/touch fills it (scale grows, colours invert white/black → black/white),
- * stalling rubber-bands it back, and crossing the threshold pins it blue and
+ * SCROLL_TO_ENTER is the circular ring CTA (ScrollRing) orbiting the globe's
+ * screen disc — chunk 3 of the hero rework retired the centered PRIMARY
+ * button. The wheel/touch accumulator ([NEXT]/[PREVIOUS] family) drives it:
+ * dragging fills the ring white → blue and leans the CAMERA in (rig.zoom —
+ * the globe truly approaches, no DOM scale), stalling rubber-bands both back,
+ * and crossing the threshold pins the ring blue, eases its spin to rest and
  * fires the Envelopment (?scroll tunes the resistance, /work convention).
+ * Mobile keeps the ring by default (?ringmobile=1) over a contain-fit comp;
+ * ?ringmobile=0 restores the approved overscan with a bottom micro CTA.
+ * The ring is pointer-inert; the click/keyboard commit path is the
+ * .hero__enter-hit target the overlay pins to the disc center.
  *
- * The gesture is weighted like the pager: while dragging, the globe itself
- * leans toward the viewer (scale up to 1 + ?envlean) and the RouteFill blue
- * pre-covers on a power curve (up to ?envpre % at the threshold) — video
- * keeps playing under it. Stalling returns both on the release curve;
- * committing continues from wherever the drag left them, so the blue is
- * already rising when the passage takes over and is solid at navigation.
+ * While dragging, the RouteFill blue pre-covers on a power curve (up to
+ * ?envpre % at the threshold) — video keeps playing under it. Committing
+ * continues from wherever the drag left rig.zoom, so the blue is already
+ * rising when the passage takes over and is solid at navigation.
  *
- * Envelopment (ADR-0002): the globe scales up through the viewport on the
- * house Turn curve while the persistent RouteFill covers, then client-
- * navigates to /work, which releases the fill over its World. Reduced motion:
- * everything rests immediately; entering is a plain navigation.
- * Knobs: ?envms ?envscale ?envcover (RouteFill adds ?fillcover ?fillrelease;
- * WorldCard's enter_world bridge adds ?entercover).
+ * Envelopment (ADR-0002): the camera dollies through the globe's silhouette
+ * (rig.zoom → ?envscale) on the house Turn curve while the persistent
+ * RouteFill covers, then client-navigates to /work, which releases the fill
+ * over its World. Reduced motion: everything rests immediately; entering is
+ * a plain navigation. Knobs: ?envms ?envscale ?envcover (RouteFill adds
+ * ?fillcover ?fillrelease; WorldCard's enter_world bridge adds ?entercover).
  */
 import { useEffect, useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
@@ -37,9 +44,15 @@ import CtaArrows from './work/CtaArrows.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import HeroText from './HeroText.jsx';
 import HeroTunePanel from './hero/HeroTunePanel.jsx';
+import ScrollRing from './hero/ScrollRing.jsx';
 import { createHeroOverlay } from './hero/heroOverlay.js';
-import { TUNING as HERO_TUNING, HERO_TUNE_ACTIVE, subscribeHeroTune } from './hero/heroConfig.js';
-import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
+import {
+  TUNING as HERO_TUNING,
+  HERO_TUNE_ACTIVE,
+  RING_MOBILE,
+  subscribeHeroTune,
+} from './hero/heroConfig.js';
+import { PREFERS_REDUCED_MOTION, IS_MOBILE } from './globe/globeConfig.js';
 import { TURN_EASE_PATH } from './work/world/worldConfig.js';
 import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS, GLIDE_MS } from '../lib/motion.js';
 
@@ -71,12 +84,15 @@ const ENV_COVER_SECONDS = PARAM('envcover', GLIDE_MS) / 1000; // fade length fro
 
 /* — Scroll-fill (mirrors /work's CTA choreography + knobs) — */
 const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_HOME_PX); // px of wheel/touch to commit
-const CTA_MAX_EXTRA = 0.3; // CTA scale at full fill / hover = 1 + this
 const RM_WHEEL_THRESHOLD = 60; // reduced motion: modest intent → plain nav
 
 /* — Drag weight: what the gesture moves before it commits — */
-const ENV_LEAN = PARAM('envlean', 25) / 100; // globe scale extra at full drag
+const ENV_LEAN = PARAM('envlean', 25) / 100; // camera zoom extra at full drag
 const ENV_PRE_COVER = PARAM('envpre', 45) / 100; // blue opacity at full drag (f² curve)
+
+/* — Hit target: base diameter (the 44px a11y floor); the overlay scales it
+   up to ≈ the disc radius so the whole globe center is clickable. — */
+const HIT_BASE_PX = 44;
 
 export default function Hero({ globeAssets }) {
   const heroRef = useRef(null);
@@ -85,23 +101,38 @@ export default function Hero({ globeAssets }) {
   const departingRef = useRef(false);
   const accumRef = useRef(0);
   const idleRef = useRef(null);
+  const ringRef = useRef(null); // ScrollRing imperative handle ({ setFill })
+  const hitRef = useRef(null); // the a11y commit button over the disc center
+  const microRef = useRef(null); // mobile variant-0 micro CTA
 
   // Camera rig + overlay bridge (home-hero rework, chunk 2). The scene fills
   // rigRef with { rig, apply }; the overlay is created here (lazy ref init —
-  // pure, SSR-safe) so later chunks' ring/labels can onFrame() before or
-  // after the scene mounts. Identity rig = today's framing exactly.
+  // pure, SSR-safe) so the ring/hit/labels can onFrame() before or after the
+  // scene mounts.
   const rigRef = useRef(null);
   const overlayRef = useRef(null);
   if (overlayRef.current === null) overlayRef.current = createHeroOverlay();
 
-  // Push the hero tuning (URL-seeded; identity without params) onto the live
-  // rig, and re-push on any bench change. zoom is deliberately not written
-  // here — it's gesture-owned (later chunk), never a bench value.
+  // Gesture-owned camera zoom — a proxy so drag writes, the release
+  // rubber-band and the envelopment glide all continue from the same value
+  // (GSAP overwrite arbitration on one target).
+  const zoomRef = useRef({ v: 1 });
+  const applyZoom = () => {
+    const handle = rigRef.current;
+    if (!handle) return;
+    handle.rig.zoom = zoomRef.current.v;
+    handle.apply();
+  };
+
+  // Push the hero tuning (URL-seeded; the resting comp without params) onto
+  // the live rig, and re-push on any bench change. zoom is deliberately not
+  // written here — it's gesture-owned (zoomRef), never a bench value.
   useEffect(() => {
     const applyTuning = () => {
       const handle = rigRef.current;
       if (!handle) return;
       handle.rig.fill = HERO_TUNING.fill;
+      handle.rig.fitCover = HERO_TUNING.fitCover;
       handle.rig.offsetX = HERO_TUNING.offsetX;
       handle.rig.offsetY = HERO_TUNING.offsetY;
       handle.rig.elevDeg = HERO_TUNING.elevDeg;
@@ -119,6 +150,15 @@ export default function Hero({ globeAssets }) {
     if (HERO_TUNE_ACTIVE) setHeroTuneOn(true);
   }, []);
 
+  // Mobile variant 0 (?ringmobile=0): swap the ring for the micro CTA. Same
+  // post-hydration gate as the bench — IS_MOBILE/RING_MOBILE must not touch
+  // the first client render (SSR parity); the swap lands while the chrome is
+  // still veiled, so it is never seen.
+  const [microCta, setMicroCta] = useState(false);
+  useEffect(() => {
+    if (IS_MOBILE && !RING_MOBILE) setMicroCta(true);
+  }, []);
+
   // Scene is mounting — release the Envelopment fill if this arrival came
   // through it (/work first-World scroll-up home, FP-3 — the reverse passage
   // under the persistent RouteFill, ADR-0002). No-op on direct loads: the
@@ -126,11 +166,6 @@ export default function Hero({ globeAssets }) {
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('swm:fill-release'));
   }, []);
-
-  // CTA fill state — same model as /work: fill 0..1, mode drag|release|commit-pin
-  const [fill, setFill] = useState(0);
-  const [ctaMode, setCtaMode] = useState('drag');
-  const [hover, setHover] = useState(false);
 
   const beginEnvelopment = () => {
     if (departingRef.current) return;
@@ -145,16 +180,28 @@ export default function Hero({ globeAssets }) {
 
     const envEase = CustomEase.create('swmEnvelop', TURN_EASE_PATH);
     const tl = gsap.timeline({ onComplete: () => navigate('/work') });
+    // Chrome out — the ring stays: pinned blue, riding the growing disc
+    // until the RouteFill swallows it (chunk 4 rewrites this beat fully).
     tl.to(
-      heroRef.current.querySelectorAll('.hero__enter-wrap, .hero__footer, .hero__text'),
+      heroRef.current.querySelectorAll(
+        '.hero__enter-hit, .hero__micro-cta, .hero__footer, .hero__text'
+      ),
       { autoAlpha: 0, duration: 0.2, ease: 'power2.out', overwrite: true },
       0
     );
+    // The passage is now a camera move: rig.zoom dollies through the
+    // silhouette on the same curve the DOM scale used to ride. overwrite
+    // takes the proxy over from a live drag/release tween — the zoom
+    // continues from wherever the gesture left it.
     tl.to(
-      globeWrapRef.current,
-      // overwrite kills a live drag-lean tween — the passage continues the
-      // scale from wherever the gesture left it
-      { scale: ENV_SCALE, duration: ENV_SECONDS, ease: envEase, overwrite: 'auto' },
+      zoomRef.current,
+      {
+        v: ENV_SCALE,
+        duration: ENV_SECONDS,
+        ease: envEase,
+        overwrite: 'auto',
+        onUpdate: applyZoom,
+      },
       0
     );
     // Cover from the very first frame of the passage: the fill's power2.in
@@ -166,19 +213,52 @@ export default function Hero({ globeAssets }) {
     }, 0);
   };
 
-  // ── Loom entrance + chrome reveal (CTA + footer fade in, opacity only) ──
+  // Click/keyboard commit (hit target + micro CTA) — pin the ring like a
+  // crossed threshold, then run the same passage.
+  const onEnterClick = () => {
+    ringRef.current?.setFill(1, 'commit-pin');
+    beginEnvelopment();
+  };
+
+  // The hit target is disc-sized, so a drag-to-spin gesture can start AND
+  // end on it — browsers still fire click for that. Track the pointer-down
+  // point and swallow clicks that traveled like a drag (keyboard clicks
+  // carry no coordinates and pass untouched).
+  const hitDownRef = useRef(null);
+  const onHitPointerDown = (e) => {
+    hitDownRef.current = { x: e.clientX, y: e.clientY };
+  };
+  const onHitClick = (e) => {
+    const down = hitDownRef.current;
+    hitDownRef.current = null;
+    if (down && e.detail > 0 && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) {
+      return; // a spin drag that happened to end over the target
+    }
+    onEnterClick();
+  };
+
+  // ── Loom entrance + chrome beat ──
   useGSAP(
     () => {
       const hero = heroRef.current;
       const globeWrap = globeWrapRef.current;
       const veil = hero.querySelector('.hero__veil');
-      const chrome = hero.querySelectorAll('.hero__enter-wrap, .hero__footer, .hero__text');
+      // The chrome beat: arm the gesture, stamp the latch, broadcast — the
+      // ring / micro CTA / HeroText reveal themselves off the event (they
+      // can mount after this effect runs), Hero fades what it owns directly.
+      const chromeBeat = (instant) => {
+        armedRef.current = true;
+        hero.dataset.chromed = '1';
+        window.dispatchEvent(new CustomEvent('swm:hero-chrome'));
+        const owned = hero.querySelectorAll('.hero__enter-hit, .hero__footer');
+        if (instant) gsap.set(owned, { autoAlpha: 1 });
+        else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
+      };
 
       if (PREFERS_REDUCED_MOTION) {
         gsap.set(globeWrap, { scale: 1 });
         gsap.set(veil, { opacity: 0 });
-        gsap.set(chrome, { autoAlpha: 1 });
-        armedRef.current = true;
+        chromeBeat(true);
         return;
       }
 
@@ -196,20 +276,51 @@ export default function Hero({ globeAssets }) {
 
       gsap.set(globeWrap, { scale: fromScale, transformOrigin: '50% 50%' });
       gsap.set(veil, { opacity: 1 });
-      gsap.set(chrome, { autoAlpha: 0 });
 
       const tl = gsap.timeline();
       // The approach and the gradient arrival share one curve — the blue
       // horizon fades up exactly as the planet comes to rest.
       tl.to(globeWrap, { scale: 1, duration, ease: loomEase }, 0);
       tl.to(veil, { opacity: 0, duration, ease: loomEase }, 0);
-      tl.add(() => {
-        armedRef.current = true;
-      }, duration * 0.78);
-      tl.to(chrome, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' }, duration * 0.78);
+      tl.add(() => chromeBeat(false), duration * 0.78);
     },
     { scope: heroRef }
   );
+
+  // ── Hit target follows the disc (transform-only, the overlay cadence) ──
+  useEffect(() => {
+    if (microCta) return undefined; // variant 0's micro CTA is its own button
+    const hit = hitRef.current;
+    const overlay = overlayRef.current;
+    if (!hit || !overlay) return undefined;
+    return overlay.onFrame((frame) => {
+      // Diameter ≈ disc radius (radius ≈ 0.5·disc.r), never under the 44px
+      // a11y floor. Scale-only sizing — no width/height writes, no layout.
+      // --hit-inv counter-scales the focus outline to a constant weight.
+      const s = Math.max(1, frame.disc.r / HIT_BASE_PX);
+      hit.style.transform = `translate3d(${frame.disc.cx}px, ${frame.disc.cy}px, 0) scale(${s})`;
+      hit.style.setProperty('--hit-inv', String(1 / s));
+    });
+  }, [microCta]);
+
+  // ── Micro CTA reveal (variant 0) — chrome beat, with the latch covering
+  // its post-hydration mount landing after the beat (RM fires it instantly) ──
+  useEffect(() => {
+    if (!microCta) return undefined;
+    const el = microRef.current;
+    if (!el) return undefined;
+    const reveal = () => {
+      if (PREFERS_REDUCED_MOTION) gsap.set(el, { autoAlpha: 1 });
+      else gsap.to(el, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
+    };
+    if (el.closest('.hero')?.dataset.chromed === '1') {
+      reveal();
+      return undefined;
+    }
+    const onChrome = () => reveal();
+    window.addEventListener('swm:hero-chrome', onChrome, { once: true });
+    return () => window.removeEventListener('swm:hero-chrome', onChrome);
+  }, [microCta]);
 
   // ── Scroll-fill → envelopment (the /work wheel/touch accumulator) ──
   useEffect(() => {
@@ -218,34 +329,32 @@ export default function Hero({ globeAssets }) {
       idleRef.current = null;
     };
 
-    // Drag weight: the globe leans toward the viewer and the blue pre-covers
-    // with the gesture (f² keeps the fade subtle early). overwrite takes the
-    // scale over from a still-settling loom on the first tick.
+    // Drag weight: the ring fills, the CAMERA leans toward the globe
+    // (rig.zoom — direct write, the accumulator itself paces it) and the
+    // blue pre-covers with the gesture (f² keeps the fade subtle early).
     const dragTo = (f) => {
-      gsap.to(globeWrapRef.current, {
-        scale: 1 + ENV_LEAN * f,
-        duration: 0.25,
-        ease: 'power3.out',
-        overwrite: 'auto',
-      });
+      ringRef.current?.setFill(f, 'drag');
+      gsap.killTweensOf(zoomRef.current); // take over from a live release
+      zoomRef.current.v = 1 + ENV_LEAN * f;
+      applyZoom();
       window.dispatchEvent(
         new CustomEvent('swm:fill-progress', { detail: { value: ENV_PRE_COVER * f * f } })
       );
     };
 
-    // Stalled below the threshold → rubber-band CTA, globe and blue back
+    // Stalled below the threshold → rubber-band ring, camera and blue back
     // on the shared release curve.
     const scheduleRelease = () => {
       clearIdle();
       idleRef.current = setTimeout(() => {
         accumRef.current = 0;
-        setCtaMode('release');
-        setFill(0);
-        gsap.to(globeWrapRef.current, {
-          scale: 1,
+        ringRef.current?.setFill(0, 'release');
+        gsap.to(zoomRef.current, {
+          v: 1,
           duration: 0.4,
           ease: 'expo.out',
           overwrite: 'auto',
+          onUpdate: applyZoom,
         });
         window.dispatchEvent(
           new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: 0.4 } })
@@ -267,14 +376,11 @@ export default function Hero({ globeAssets }) {
       }
       if (a >= SCROLL_TRIGGER) {
         clearIdle();
-        setCtaMode('commit-pin'); // blue flash, held while the passage plays
-        setFill(1);
+        // Pinned blue, spin easing to rest — held while the passage plays.
+        ringRef.current?.setFill(1, 'commit-pin');
         beginEnvelopment();
       } else {
-        const f = a / SCROLL_TRIGGER;
-        setCtaMode('drag');
-        setFill(f);
-        dragTo(f);
+        dragTo(a / SCROLL_TRIGGER);
         scheduleRelease();
       }
     };
@@ -309,23 +415,6 @@ export default function Hero({ globeAssets }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── CTA presentation vars — the /work scroll choreography on the PRIMARY
-  // palette: white/blue at rest, filling (or hovering) toward the primary's
-  // hover state (blue/white), pinned solid blue at the threshold ──
-  const scale = 1 + CTA_MAX_EXTRA * Math.max(fill, hover ? 1 : 0);
-  const ctaReturn =
-    ctaMode === 'commit-pin' ? '0s' : ctaMode === 'release' ? '0.4s' : '0.12s';
-  const ctaEase =
-    ctaMode === 'release' ? 'cubic-bezier(0.16, 1, 0.3, 1)' : 'ease-out';
-  const pct =
-    ctaMode === 'commit-pin'
-      ? 100
-      : Math.round(Math.min(1, Math.max(fill, hover ? 1 : 0)) * 100);
-  const ctaColor = {
-    '--cta-bg': `color-mix(in srgb, var(--color-white), var(--color-electric-blue) ${pct}%)`,
-    '--cta-fg': `color-mix(in srgb, var(--color-electric-blue), var(--color-white) ${pct}%)`,
-  };
-
   return (
     <section className="hero" ref={heroRef}>
       {/* Black start-state over the gradient; the loom thins it away */}
@@ -333,26 +422,28 @@ export default function Hero({ globeAssets }) {
       <div className="hero__globe" ref={globeWrapRef}>
         <VideoGlobe assets={globeAssets} rigRef={rigRef} overlayRef={overlayRef} />
       </div>
-      {/* The PRIMARY button (enter_world family), centered over the resting
-          planet; the caret strip sits outside, emerging from behind it */}
-      <div className="hero__enter-wrap">
-        <button
-          type="button"
-          className="cta-primary hero__enter"
-          style={{
-            '--cta-scale': scale.toFixed(3),
-            '--cta-return': ctaReturn,
-            '--cta-ease': ctaEase,
-            ...ctaColor,
-          }}
-          onClick={beginEnvelopment}
-          onPointerEnter={() => setHover(true)}
-          onPointerLeave={() => setHover(false)}
-        >
-          scroll_to_enter
+      {microCta ? (
+        /* Mobile variant 0 — bottom micro cue over the overscan globe */
+        <button type="button" className="hero__micro-cta" ref={microRef} onClick={onEnterClick}>
+          <span className="hero__micro-cta-label">scroll_to_enter</span>
+          <CtaArrows direction="down" />
         </button>
-        <CtaArrows direction="down" />
-      </div>
+      ) : (
+        <>
+          {/* The ring CTA orbiting the disc (pointer-inert) + the invisible
+              commit target the overlay pins to the disc center (the a11y
+              click/keyboard path — matches the old button's click) */}
+          <ScrollRing ringRef={ringRef} overlay={overlayRef.current} />
+          <button
+            type="button"
+            className="hero__enter-hit"
+            ref={hitRef}
+            aria-label="Enter featured projects"
+            onPointerDown={onHitPointerDown}
+            onClick={onHitClick}
+          />
+        </>
+      )}
       {/* The statement lead — left-center, the /process prose voice
           (2026-07-16 recomposition; the line moved out of the footer) */}
       <HeroText />

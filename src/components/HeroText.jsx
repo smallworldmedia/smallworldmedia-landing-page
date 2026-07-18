@@ -1,6 +1,6 @@
-import { useRef } from 'react';
-import { useGSAP } from '@gsap/react';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
+import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
 
 /**
  * HeroText — DOM text overlay for the hero section.
@@ -10,18 +10,54 @@ import gsap from 'gsap';
  * LEFT of the viewport, set in the /process prose register (the
  * detail-blurb body voice) — the homepage speaks the same language as
  * the process page. Quiet fade-in; no drift.
+ *
+ * Reveal rides the loom's chrome beat (swm:hero-chrome from Hero at
+ * duration·0.78) instead of a fixed delay, so the lead lands with the rest
+ * of the chrome whatever the loom length. Guards: the hero's data-chromed
+ * latch covers a mount that races the event, and a safety timeout shows the
+ * line if the beat never arrives. Reduced motion: instantly visible.
  */
+
+// Safety net only — past the default full loom's beat (4.8s·0.78 ≈ 3.75s),
+// so it can never preempt the choreography it backs up.
+const CHROME_SAFETY_MS = 6000;
+
 export default function HeroText() {
   const containerRef = useRef(null);
 
-  useGSAP(() => {
-    const lead = containerRef.current?.querySelector('.hero__lead');
-    if (!lead) return;
-    gsap.fromTo(
-      lead,
-      { autoAlpha: 0, y: 10 },
-      { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power2.out', delay: 1.35 }
-    );
+  useEffect(() => {
+    const container = containerRef.current;
+    const lead = container?.querySelector('.hero__lead');
+    if (!lead) return undefined;
+
+    if (PREFERS_REDUCED_MOTION) {
+      gsap.set(lead, { autoAlpha: 1 });
+      return undefined;
+    }
+
+    gsap.set(lead, { autoAlpha: 0, y: 10 });
+    let shown = false;
+    let timer = null;
+    const show = () => {
+      if (shown) return;
+      shown = true;
+      clearTimeout(timer);
+      window.removeEventListener('swm:hero-chrome', show);
+      gsap.to(lead, { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power2.out' });
+    };
+
+    if (container.closest('.hero')?.dataset.chromed === '1') {
+      show(); // the beat already fired before this mount — the race guard
+    } else {
+      window.addEventListener('swm:hero-chrome', show);
+      timer = setTimeout(show, CHROME_SAFETY_MS);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('swm:hero-chrome', show);
+      gsap.killTweensOf(lead);
+    };
   }, []);
 
   return (

@@ -5,10 +5,13 @@
  *
  * Sliders write the shared heroConfig TUNING, which publishes → Hero's rig
  * effect stamps the values onto the live scene rig (rigRef.current.rig) and
- * re-applies — the framing moves on the next paint, no reload. copy_url
- * serializes only non-default values (fp1Tune convention). This chunk
- * carries the comp section (fill / offset / elevation); intro/ring/commit/
- * label sections arrive with their chunks.
+ * re-applies — the framing moves on the next paint, no reload. The ring
+ * sliders skip the rig entirely: ScrollRing reads TUNING live per frame, so
+ * they move just as immediately. copy_url serializes only non-default
+ * values (fp1Tune convention). Carries the comp section (fill / fit /
+ * offset / elevation) and the ring section (radius / speed / lean, plus the
+ * URL-only ringmobile / ringtext readouts); intro/commit/label sections
+ * arrive with their chunks.
  *
  * Voice/chrome mirror the lenisTune bench (mono, near-black, lowercase).
  * Sits TOP-RIGHT — lenistune and the globe ?debug panel own bottom-left,
@@ -20,8 +23,10 @@ import {
   setHeroTune,
   resetHeroTune,
   heroTuneCopyUrl,
+  RING_MOBILE,
+  RING_TEXT,
 } from './heroConfig.js';
-import { FILL_FRACTION } from '../globe/globeConfig.js';
+import { FILL_FRACTION, FIT_COVER, IS_MOBILE } from '../globe/globeConfig.js';
 
 // One labeled slider row. Writes the shared state (which drives the live rig
 // via Hero's effect) and mirrors into local React state so the input stays
@@ -134,7 +139,52 @@ export default function HeroTunePanel({ rigRef }) {
         onChange={set}
       />
       <p className="hero-tune__note">
-        reset returns fill to the device FILL_FRACTION ({num3(FILL_FRACTION)} here).
+        fit:{' '}
+        {s.fitCover == null
+          ? `device (${FIT_COVER ? 'cover' : 'contain'})`
+          : s.fitCover
+            ? 'cover'
+            : 'contain'}{' '}
+        — ?herofit=contain|cover. reset returns the resting-comp defaults for
+        this device/variant (device fill is {num3(FILL_FRACTION)}, fit{' '}
+        {FIT_COVER ? 'cover' : 'contain'} here).
+      </p>
+
+      <div className="hero-tune__group">ring</div>
+      <Row
+        label="radius ×disc"
+        param="ringR"
+        value={s.ringR}
+        min={0.9}
+        max={1.6}
+        step={0.01}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="speed °/s"
+        param="ringSpeed"
+        value={s.ringSpeed}
+        min={0}
+        max={15}
+        step={0.5}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="lean"
+        param="ringLean"
+        value={s.ringLean}
+        min={0}
+        max={0.3}
+        step={0.005}
+        fmt={num3}
+        onChange={set}
+      />
+      <p className="hero-tune__note">
+        ringmobile: {RING_MOBILE ? '1 (ring)' : '0 (micro cta)'}
+        {IS_MOBILE ? '' : ' — desktop always rings'} · text: {RING_TEXT} — both
+        URL-only (?ringmobile ?ringtext), reload to change.
       </p>
 
       <div className="hero-tune__actions">

@@ -12,9 +12,10 @@
  * the browser's WebGL context pool.
  *
  * Home-hero hooks (optional, null-safe — lab passes neither): rigRef gets a
- * { rig, apply } camera-rig handle (fill/offset/elevation/zoom framing);
- * overlayRef's .update runs post-render each frame (heroOverlay bridge). At
- * identity the rig is bit-identical to the old fixed framing — see applyRig.
+ * { rig, apply } camera-rig handle (fill/fitCover/offset/elevation/zoom
+ * framing); overlayRef's .update runs post-render each frame (heroOverlay
+ * bridge). At identity the rig is bit-identical to the old fixed framing —
+ * see applyRig.
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -52,7 +53,7 @@ import {
  * @param {React.RefObject} poolRef - VideoSlotPool imperative handle (Stage 2 live tier)
  * @param {Object} [hero] - home-hero hooks; lab/other callers omit and are unaffected
  * @param {React.RefObject} [hero.rigRef] - receives { rig, apply }: mutate .rig
- *        (fill/offsetX/offsetY/elevDeg/zoom), then call .apply() to re-frame
+ *        (fill/fitCover/offsetX/offsetY/elevDeg/zoom), then call .apply() to re-frame
  * @param {React.RefObject} [hero.overlayRef] - overlay bridge (heroOverlay);
  *        its .current.update(ctx) runs once per rendered frame, post-render
  * @returns {React.RefObject<{ replayCascade: (variant: string) => void }>}
@@ -85,11 +86,14 @@ export default function useGlobeScene(
 
     /* — Camera rig (replaces frameCamera) —
        RIG is the mutable camera pose the outside world drives through rigRef
-       (home hero: tuning bench now, gestures later). Identity RIG reproduces
-       the pre-rig frameCamera output exactly:
+       (home hero: tuning bench + the scroll gesture's zoom). Identity RIG
+       reproduces the pre-rig frameCamera output exactly:
          · fill=FILL_FRACTION, zoom=1 → dist = RADIUS / sin(atan(FILL_FRACTION
            · tanFit)) — the old position.z expression (the trailing ÷1 is
            exact in IEEE);
+         · fitCover=null → the device FIT_COVER picks the fit axis, exactly
+           the old hard-coded branch (the mobile ring variant overrides to
+           contain-fit on a cover-fit device);
          · elevDeg=0 → position.set(0, -sin(0)·d, cos(0)·d) = (0, 0, d), and
            lookAt(origin) from (0,0,d) with the default up resolves to the
            identity rotation the camera already had (exact in FP:
@@ -103,7 +107,7 @@ export default function useGlobeScene(
     const carried = rigRef?.current?.rig;
     const RIG = carried
       ? { ...carried }
-      : { fill: FILL_FRACTION, offsetX: 0, offsetY: 0, elevDeg: 0, zoom: 1 };
+      : { fill: FILL_FRACTION, fitCover: null, offsetX: 0, offsetY: 0, elevDeg: 0, zoom: 1 };
 
     // Canvas CSS px — cached here (applyRig runs at init + resize) so the
     // per-frame overlay call never reads clientWidth (layout) in the loop.
@@ -114,19 +118,32 @@ export default function useGlobeScene(
       if (disposed) return; // a stale handle post-teardown must be a no-op
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
+      // Re-size only when the box actually changed — apply() also runs on
+      // every gesture zoom write, and re-stamping an identical canvas size
+      // still clears the drawing buffer (a between-frames flicker).
+      if (w !== viewW || h !== viewH) renderer.setSize(w, h, false);
       viewW = w;
       viewH = h;
-      renderer.setSize(w, h, false);
       camera.aspect = w / h;
       // Tan-space fit: contain (desktop) sizes the globe against the
       // smaller fov axis; cover (mobile overscan) against the larger one,
       // so fill > 1 crops the globe's edges past the viewport.
+      // fitCover null = "device FIT_COVER" — like fill's null, the rig's
+      // reset state stays honest on both breakpoints.
       const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
       const tanH = tanV * camera.aspect;
-      const tanFit = FIT_COVER ? Math.max(tanV, tanH) : Math.min(tanV, tanH);
+      const coverEff = RIG.fitCover ?? FIT_COVER;
+      const tanFit = coverEff ? Math.max(tanV, tanH) : Math.min(tanV, tanH);
       // fill null = "device FILL_FRACTION" — the hero bench's reset state.
       const fillEff = RIG.fill ?? FILL_FRACTION;
-      const dist = RADIUS / Math.sin(Math.atan(fillEff * tanFit)) / RIG.zoom;
+      // Zoom is a dolly divisor; floor the distance just outside the sphere
+      // (surface + near plane + margin) so a deep envelopment zoom can never
+      // carry the camera inside the globe — by then the globe already
+      // overfills the viewport many times over, so the saturation is unseen.
+      const dist = Math.max(
+        RADIUS / Math.sin(Math.atan(fillEff * tanFit)) / RIG.zoom,
+        RADIUS * 1.15
+      );
       // Elevation orbits the camera in the y/z plane, always facing center.
       const er = THREE.MathUtils.degToRad(RIG.elevDeg);
       camera.position.set(0, -Math.sin(er) * dist, Math.cos(er) * dist);
