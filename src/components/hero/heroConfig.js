@@ -107,8 +107,13 @@ export const TUNING_DEFAULTS = Object.freeze({
   commitMs: 2000, // ?commitms — master timeline length, ms (ONE clock; every beat keys off its eased e)
   fillMode: 'panels', // ?fillmode — panels | circle (FILL_MODES above)
   blueCascade: 'poles', // ?bluecascade — panels-mode delay model (BLUE_CASCADES above)
+  blueLead: 0.4, // ?bluelead — raw progress by which the panel-blue has painted the globe; the camera recenter/zoom lead OUT of it (note 4: blue first, then dive in)
   recenterEnd: 1, // ?recenterend — e where the recenter (offsets/elev → 0) completes
   zoomStart: 0.9, // ?zoomstart — e where the dolly to ?envscale begins
+
+  /* globe — ambient motion of the panelized sphere itself (InteractionController
+     reads at build; the bench moves the NEXT mount unless wired live) */
+  cascadeSpeed: 8, // ?cascadespeed — top-to-bottom content cascade, deg/s of pitch drift (0 = still; note 6)
 
   /* intro — the logo→globe intro (chunk 5; HeroIntro reads these at mount,
      so the bench shapes the NEXT intro — use ↻ replay intro to see it).
@@ -127,6 +132,7 @@ export const TUNING_DEFAULTS = Object.freeze({
   labels: HERO_LABELS, // ?herolabels — 1|0: mount the label layer (shipped ON)
   labelMax: IS_MOBILE ? 1 : 6, // ?labelmax — concurrent chips
   labelHold: 4.8, // ?labelhold — seconds a chip holds before re-slotting
+  labelStroke: 48, // ?labelstroke — chip offset / leader-line length from its panel anchor, px (note 3)
 });
 
 /* URL param names for seed-on-load / copy_url, by section — NUMERIC knobs
@@ -143,8 +149,11 @@ const PARAM_KEYS = {
   textGap: 'textgap',
   /* commit */
   commitMs: 'commitms',
+  blueLead: 'bluelead',
   recenterEnd: 'recenterend',
   zoomStart: 'zoomstart',
+  /* globe */
+  cascadeSpeed: 'cascadespeed',
   /* intro */
   introMs: 'introms',
   introHoldMs: 'introhold',
@@ -152,6 +161,7 @@ const PARAM_KEYS = {
   /* labels */
   labelMax: 'labelmax',
   labelHold: 'labelhold',
+  labelStroke: 'labelstroke',
 };
 const FIT_PARAM = 'herofit'; // contain | cover; anything else = device
 /* Commit string knobs — validated against the vocabulary lists (a typo

@@ -224,6 +224,16 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         onChange={set}
       />
       <Row
+        label="blue lead"
+        param="blueLead"
+        value={s.blueLead}
+        min={0.1}
+        max={0.9}
+        step={0.05}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
         label="recenter end"
         param="recenterEnd"
         value={s.recenterEnd}
@@ -253,6 +263,22 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
           ▶ commit dry-run
         </button>
       </div>
+
+      <div className="hero-tune__group">globe</div>
+      <Row
+        label="cascade °/s"
+        param="cascadeSpeed"
+        value={s.cascadeSpeed}
+        min={0}
+        max={40}
+        step={0.5}
+        fmt={num3}
+        onChange={set}
+      />
+      <p className="hero-tune__note">
+        cascade (?cascadespeed) is the slow top-to-bottom content drift — deg/s
+        of pitch; 0 = still. Applied at the next globe mount (reload to change).
+      </p>
 
       <div className="hero-tune__group">intro</div>
       <Segmented
@@ -336,10 +362,20 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         fmt={num3}
         onChange={set}
       />
+      <Row
+        label="stroke px"
+        param="labelStroke"
+        value={s.labelStroke}
+        min={0}
+        max={160}
+        step={2}
+        onChange={set}
+      />
       <p className="hero-tune__note">
-        on by default — chips latch onto live panels between the chrome beat
-        and a commit (?herolabels=0 forces off). max rebuilds the layer;
-        hold applies from each chip&apos;s next cycle.
+        chips latch onto live panels IN THE VIEWPORT between the chrome beat
+        and a commit (?herolabels=0 forces off). max rebuilds the layer; hold
+        applies from each chip&apos;s next cycle; stroke (?labelstroke) is the
+        leader-line length from the panel to its chip.
       </p>
 
       <div className="hero-tune__actions">
