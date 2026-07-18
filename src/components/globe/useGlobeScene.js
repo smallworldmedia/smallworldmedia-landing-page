@@ -184,21 +184,21 @@ export default function useGlobeScene(
       ? { ...carried }
       : { fill: FILL_FRACTION, fitCover: null, offsetX: 0, offsetY: 0, elevDeg: 0, zoom: 1 };
 
-    // Canvas CSS px — cached here (applyRig runs at init + resize) so the
-    // per-frame overlay call never reads clientWidth (layout) in the loop.
+    // Canvas CSS px — measured ONLY by measure() (init + resize), never in
+    // applyRig. applyRig is the per-frame rig handle (gesture zoom, the
+    // commit/intro launches) and also feeds the overlay loop; keeping the
+    // clientWidth/clientHeight read out of it means the hot path never
+    // touches layout. That matters with the label layer on (?herolabels):
+    // it writes SVG geometry every frame, and a clientWidth read after those
+    // writes would force a synchronous reflow. (Adversarial review flag,
+    // 2026-07-18 — refuted on frame-ordering but closed at the source.)
     let viewW = 1;
     let viewH = 1;
 
     const applyRig = () => {
       if (disposed) return; // a stale handle post-teardown must be a no-op
-      const w = container.clientWidth || 1;
-      const h = container.clientHeight || 1;
-      // Re-size only when the box actually changed — apply() also runs on
-      // every gesture zoom write, and re-stamping an identical canvas size
-      // still clears the drawing buffer (a between-frames flicker).
-      if (w !== viewW || h !== viewH) renderer.setSize(w, h, false);
-      viewW = w;
-      viewH = h;
+      const w = viewW;
+      const h = viewH;
       camera.aspect = w / h;
       // Tan-space fit: contain (desktop) sizes the globe against the
       // smaller fov axis; cover (mobile overscan) against the larger one,
@@ -235,6 +235,26 @@ export default function useGlobeScene(
       }
       camera.updateProjectionMatrix();
     };
+
+    // Read the container box into the cache and resize the drawing buffer —
+    // init + resize only. Guarded to a genuine size change: re-stamping an
+    // identical canvas size clears the buffer (a between-frames flicker), and
+    // this is the ONLY place layout is read. Re-frames on the new box.
+    const measure = () => {
+      if (disposed) return;
+      const w = container.clientWidth || 1;
+      const h = container.clientHeight || 1;
+      if (w === viewW && h === viewH) return;
+      viewW = w;
+      viewH = h;
+      renderer.setSize(w, h, false);
+      applyRig();
+    };
+    // Seed the cache + first frame UNCONDITIONALLY (measure()'s change-guard
+    // is for the resize path; init must always frame once, as before).
+    viewW = container.clientWidth || 1;
+    viewH = container.clientHeight || 1;
+    renderer.setSize(viewW, viewH, false);
     applyRig();
     // Expose the rig to the owner (Hero): mutate .rig, then call .apply() —
     // nothing here re-applies on its own. Left in place at teardown so the
@@ -520,7 +540,7 @@ export default function useGlobeScene(
     document.addEventListener('visibilitychange', onVisibility);
     syncTicker();
 
-    const resizeObserver = new ResizeObserver(applyRig);
+    const resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(container);
 
     /* — Teardown — */
