@@ -41,6 +41,7 @@ export default function VideoGlobe({
   sceneApiRef = null,
   holdEntrance = false,
   cascadeSpeed = null,
+  cornerRadius = 0,
 }) {
   const containerRef = useRef(null);
   const poolRef = useRef(null);
@@ -60,6 +61,7 @@ export default function VideoGlobe({
     overlayRef,
     holdEntrance,
     cascadeSpeed,
+    cornerRadius,
   });
   // Home-hero commit bridge: mirror the scene api out to the owner (Hero
   // drives setBlueFill from its master timeline). The hook mutates

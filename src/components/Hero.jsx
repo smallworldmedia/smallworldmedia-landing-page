@@ -128,6 +128,11 @@ const CHROME_BEAT_AT = 0.78;
    ?zoomstart). */
 const ENV_SCALE = PARAM('envscale', 3.0);
 
+/* — Rounded panel tiles (note 5) — UV-space radius the home globe passes to
+   VideoGlobe (lockup fidelity, the SWM mark's panels carry a corner radius).
+   Home-only: /lab and /process get the default 0 (hard edges). — */
+const PANEL_CORNER_RADIUS = 0.12;
+
 /* — Commit beat map — ONE linear timeline `raw.p`, split by ?bluelead
    (note 4: "the blue fill should happen FIRST and then lead into the globe
    centering and zoom"):
@@ -771,6 +776,7 @@ export default function Hero({ globeAssets }) {
           sceneApiRef={sceneApiRef}
           holdEntrance={introMode === 'full'}
           cascadeSpeed={HERO_TUNING.cascadeSpeed}
+          cornerRadius={PANEL_CORNER_RADIUS}
         />
       </div>
       {/* Left-anchored statement column — the tagline (HeroText's .hero__lead,

@@ -68,11 +68,6 @@ import {
    setBlueFill(0) restore path owns that state. — */
 const SURGE_DIP_END = 0.35;
 const SURGE_DIP_DEPTH = 0.3; // brightness floor = 1 − depth = 0.7
-
-// Rounded-tile radius for the HOME globe panels (UV units, < 0.5) — lockup
-// fidelity (the SWM mark's panels carry a corner radius). /process reuses
-// createPanelMaterial at the default 0 (hard edges) and is untouched.
-const PANEL_CORNER_RADIUS = 0.12;
 function surgePanel(uniforms, t) {
   if (t <= 0) return;
   if (t < SURGE_DIP_END) {
@@ -114,7 +109,13 @@ export default function useGlobeScene(
   variantRef,
   onStats,
   poolRef,
-  { rigRef = null, overlayRef = null, holdEntrance = false, cascadeSpeed = null } = {}
+  {
+    rigRef = null,
+    overlayRef = null,
+    holdEntrance = false,
+    cascadeSpeed = null,
+    cornerRadius = 0,
+  } = {}
 ) {
   // Live-panel transition subscribers (chunk-6 labels) — hook-level, like
   // the api object itself, so a subscription survives scene rebuilds (the
@@ -294,9 +295,10 @@ export default function useGlobeScene(
     panels.forEach((panel) => {
       panel.mesh = new THREE.Mesh(
         panel.geometry,
-        // Rounded tiles on the home globe (lockup fidelity); /process reuses
-        // this material at the default radius 0 (hard edges), untouched.
-        createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR, cornerRadius: PANEL_CORNER_RADIUS })
+        // Rounded tiles only when the caller asks (the home hero passes ~0.12
+        // for lockup fidelity); /process (its own hook) and /lab (no override)
+        // get the default 0 — hard edges, untouched.
+        createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR, cornerRadius })
       );
       globeGroup.add(panel.mesh);
     });
@@ -475,6 +477,12 @@ export default function useGlobeScene(
       cascadeSpeed != null && Number.isFinite(cascadeSpeed)
         ? THREE.MathUtils.degToRad(cascadeSpeed)
         : null;
+    // ACTIVELY cascading = a nonzero speed AND motion allowed. Only then does
+    // pitch roll free of the ±40° clamp; when the ambient pitch is 0 (reduced
+    // motion, ?cascadespeed=0, or legacy yaw) the clamp must stay on so a drag
+    // can't flip the globe past vertical with no ambient drift to recover it.
+    const cascadeActive =
+      cascadeRad != null && cascadeRad !== 0 && !PREFERS_REDUCED_MOTION;
     const controller = new InteractionController(
       container,
       cascadeRad != null ? { cascadeSpeed: cascadeRad } : undefined
@@ -500,10 +508,12 @@ export default function useGlobeScene(
       const { dYaw, dPitch } = controller.update(step);
       yaw += dYaw;
       pitch += dPitch;
-      // Legacy (yaw-drift) mode clamps drag pitch to ±limit; the cascade must
-      // roll freely through every pitch, so it accumulates unbounded (three
-      // wraps it into the rotation matrix — any orientation is valid).
-      if (cascadeRad == null) {
+      // Clamp drag pitch to ±limit UNLESS the cascade is actively rolling —
+      // an active cascade accumulates unbounded (three wraps it into the
+      // rotation matrix; any orientation is valid) and its ambient drift
+      // carries a drag back. A still globe (RM / speed 0 / legacy) keeps the
+      // clamp so a drag can't strand it upside-down.
+      if (!cascadeActive) {
         pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch));
       }
       globeGroup.rotation.set(pitch, yaw, 0);
