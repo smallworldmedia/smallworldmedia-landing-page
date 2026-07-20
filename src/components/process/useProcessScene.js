@@ -18,10 +18,11 @@
  * Visual language (2026-07-13 refinement round): the panel color is
  * LIT_COLOR blue from birth and never tweens — the page speaks through
  * uPower, the black edge stroke (uStrokeMix), and the STAGED BACKGROUND.
- * S1/S2 play on a full-bleed electric-blue field (Fragments blue-on-blue,
- * black-stroked); at the S3 zoom-out the field CONTRACTS into the Core's
- * screen-space disc — the background literally becomes the core — and
- * black is revealed; S5 crossfades to the home hero's black→blue gradient.
+ * P2 (Nathan): S1/S2 play on a blank BRAND-WHITE canvas (blue Fragments,
+ * black-stroked, gathering as blue elements); at the S3 solidify the blue
+ * fill EMANATES from the Core's screen-space disc to flood the canvas —
+ * the world sits on BLUE, never black; S5 crossfades to the home hero's
+ * black→blue gradient.
  * The filled core dissolves during the S4 emanation so the expanded
  * world's gap-lattice (its lat/long lines) reads clean through.
  *
@@ -107,7 +108,8 @@ const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
    frames; panelScale = emanation; power/stroke = the panel language;
    innerScale = the filled-core sphere (0 = dissolved — S4/S5, where it
    would block the expanded world's gap-lattice); bg = the staged
-   background ('blue' field / 'black' void / 'gradient' home-hero).
+   background ('white' blank canvas — S1/S2 / 'blue' solidified world —
+   S3/S4 / 'gradient' home-hero — S5. P2: black is retired).
    Reduced motion keeps stage-02 as the connected belt (Thread pre-drawn,
    static) so the narrative survives as stills. */
 const beltPose = () => ({
@@ -118,7 +120,10 @@ const beltPose = () => ({
   power: TUNING.idlePower,
   stroke: 1,
   innerScale: 0,
-  bg: 'blue',
+  // P2 (Nathan): the opening is a blank BRAND-WHITE canvas — the blue
+  // Fragments read as blue elements gathering on it. Blue floods only once
+  // the Core solidifies at S3 (was a full-bleed blue field from S1).
+  bg: 'white',
   loops: false,
   decoys: true, // the S1 flood — culled at the refinement
 });
@@ -129,11 +134,13 @@ const getPose = (id) => {
     case 'stage-02':
       return PREFERS_REDUCED_MOTION
         ? { ...beltPose(), decoys: false } // RM still: the REFINED belt — flood already culled
-        : { form: 'core', frameR: 1, fill: TUNING.fillFraction, panelScale: 1, power: TUNING.idlePower, stroke: 1, innerScale: INNER_SPHERE_SCALE, bg: 'blue', loops: false };
+        : { form: 'core', frameR: 1, fill: TUNING.fillFraction, panelScale: 1, power: TUNING.idlePower, stroke: 1, innerScale: INNER_SPHERE_SCALE, bg: 'white', loops: false };
     case 'stage-03':
-      return { form: 'core', frameR: 1, fill: TUNING.s3Fill, panelScale: 1, power: 1, stroke: 0, innerScale: INNER_SPHERE_SCALE, bg: 'black', loops: false };
+      // P2: the Core solidifies and the blue fill floods the canvas — the
+      // world sits on BLUE, never black (was bg:'black').
+      return { form: 'core', frameR: 1, fill: TUNING.s3Fill, panelScale: 1, power: 1, stroke: 0, innerScale: INNER_SPHERE_SCALE, bg: 'blue', loops: false };
     case 'stage-04':
-      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'black', loops: false };
+      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'blue', loops: false };
     case 'stage-05':
       // v2 deck (B8): slight push-in over the S4 framing (?s5zoom) and an
       // axis lean toward ~2:00 (?s5tilt) — the world, emphasized, off-axis.
@@ -433,15 +440,16 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
 
     const renderFrame = () => renderer.render(scene, camera);
 
-    /* — The staged background (this round's headline beat). Three DOM
-       layers under the canvas: the page's base black, the electric-blue
-       field (S1/S2), the home-hero gradient (S5). The scene owns them —
-       the S2→S3 zoom-out CONTRACTS the blue field into the Core's live
-       screen-space disc (clip-path circle tracking the dolly per frame),
-       revealing black; the reverse expands it back out. Stage jumps and
-       compressed catch-ups crossfade instead — a contraction only reads
-       against its dolly. data-bg on the island root re-skins the DOM
-       accents (Thread stroke, captions, tokens) per field. — */
+    /* — The staged background (P2 headline beat). Three DOM layers under
+       the canvas: the page's base BRAND-WHITE canvas (S1/S2), the
+       electric-blue field (S3/S4), the home-hero gradient (S5). The scene
+       owns them — the S2→S3 solidify GROWS the blue field out of the
+       Core's live screen-space disc (clip-path circle tracking the dolly
+       per frame) to flood the canvas; the reverse shrinks it back into the
+       Core, restoring white. Stage jumps and compressed catch-ups
+       crossfade instead — a morph only reads against its dolly. data-bg on
+       the island root re-skins the DOM accents (captions, tokens, copy)
+       per field. — */
     const rootEl = chromeRefs?.rootRef?.current ?? null;
     const blueEl = chromeRefs?.blueRef?.current ?? null;
     const gradientEl = chromeRefs?.gradientRef?.current ?? null;
@@ -587,12 +595,26 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       if (el) scrambleTo(el, text);
     };
 
-    /* — Blob-tracking labels (v2 deck, B4): a handful of mono chips that
-       latch onto drifting shards, scramble a term from the rolling
-       DISCOVERY vocabulary, hold, release, retarget — the continuous
-       gathering of notes and references, annotated live. DOM overlay
-       (chromeRefs.labelsRef); the tick projects each latched shard to
-       screen px. S1 only; reduced motion never runs them. — */
+    /* — Blob-tracking labels (v2 deck, B4; refined P1 from the hero's
+       HeroLabels port). A handful of mono chips latch onto drifting
+       shards, scramble a term from the rolling DISCOVERY vocabulary, hold,
+       release, and re-slot — the continuous gathering of notes and
+       references, annotated live. S1 only; reduced motion never runs them.
+
+       Ported from the home-hero refinement (HeroLabels.jsx):
+       · a 1px LEADER line + a 3px ANCHOR DOT connect each chip to its
+         shard (one SVG layer; the chip sits radially OUTWARD from the belt
+         center by LEADER_LEN and the leader hits its nearest corner);
+       · VIEWPORT + FRONT-FACING candidate selection — a chip only latches
+         onto a shard that projects comfortably on-screen AND (for the 84
+         keepers, which carry a face normal) is turned toward the camera;
+       · NO-REPEAT round-robin — a slot prefers not to re-take the shard it
+         just released;
+       · per-frame EARLY FADE — a labeled shard that drifts out of frame or
+         turns away fades early and frees its slot.
+       Adapted to the process tick cadence (no heroOverlay/onFrame bridge):
+       updateLabels runs in the render tick and refreshes the matrices it
+       reads itself (discPx's idiom). — */
     const LABEL_TERMS = [
       'image_references', 'brand_cadence', 'artist_personality', 'artist_interests',
       'call_notes', 'inquiry_notes', 'preliminary_research', 'market_research',
@@ -600,50 +622,173 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       'genre_gaps', 'industry_opportunities', 'design_history', 'art_history',
       'industry_trends',
     ];
+    const LABEL_SVG_NS = 'http://www.w3.org/2000/svg';
+    const LEADER_LEN = 20; // px the chip sits outward from the belt center
+    const LABEL_DOT_R = 1.5; // the 3px anchor dot
+    const LABEL_FRONT_EPS = 0.05; // normal·view-axis floor (front-facing)
+    const LABEL_NDC_BIND = 0.9; // pick only shards comfortably on-screen
+    const LABEL_NDC_KEEP = 1.02; // hold until the anchor leaves the frame
     const labelsEl = chromeRefs?.labelsRef?.current ?? null;
     let labelsActive = false;
     let termCursor = 0;
     const labelSlots = [];
+    let labelsSvg = null;
     if (labelsEl && !PREFERS_REDUCED_MOTION) {
+      labelsSvg = document.createElementNS(LABEL_SVG_NS, 'svg');
+      labelsSvg.setAttribute('class', 'process-labels__svg');
+      labelsSvg.setAttribute('focusable', 'false');
+      labelsEl.appendChild(labelsSvg);
       for (let i = 0; i < 4; i++) {
         const el = document.createElement('span');
         el.className = 'process-label';
         labelsEl.appendChild(el);
-        labelSlots.push({ el, target: null, tl: null });
+        const g = document.createElementNS(LABEL_SVG_NS, 'g');
+        const line = document.createElementNS(LABEL_SVG_NS, 'line');
+        line.setAttribute('class', 'process-labels__leader');
+        const dot = document.createElementNS(LABEL_SVG_NS, 'circle');
+        dot.setAttribute('class', 'process-labels__dot');
+        dot.setAttribute('r', String(LABEL_DOT_R));
+        g.append(line, dot);
+        labelsSvg.appendChild(g);
+        gsap.set([el, g], { autoAlpha: 0 });
+        labelSlots.push({
+          el, g, line, dot,
+          target: null, // the live Vector3 (shard mesh.position or decoy.pos)
+          panel: null, // the keeper panel (for the front-facing test) or null (decoy)
+          last: null, // no-repeat guard: the target just released
+          tl: null, // the cycle timeline (scramble in → hold → fade)
+          dc: null, // the re-slot breath (delayedCall)
+          fading: false, // early fade in flight (one-shot latch)
+          w: 0, h: 0, // chip box, cached at bind
+        });
       }
     }
+
+    // Scratch — updateLabels/pick are synchronous, single-threaded.
+    const lblNdc = new THREE.Vector3();
+    const lblWorld = new THREE.Vector3();
+    const lblNormal = new THREE.Vector3();
+    const lblAxis = new THREE.Vector3();
+    const lblDisc = new THREE.Vector3();
+
+    // Refresh the matrices we read (render hasn't run for this frame yet —
+    // discPx's guarantee, reused).
+    const refreshLabelMatrices = () => {
+      camera.updateMatrixWorld();
+      camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+      globeGroup.updateMatrixWorld();
+    };
+    // Front-facing: the shard's world face normal · (shard→camera). >EPS
+    // faces the camera. Decoys have no stable normal — always "front" (only
+    // the viewport test gates them).
+    const labelProminence = (panel) => {
+      if (!panel) return 1;
+      lblNormal.copy(panel.centerDir).applyQuaternion(panel.mesh.quaternion);
+      lblNormal.transformDirection(globeGroup.matrixWorld);
+      lblWorld.copy(panel.mesh.position);
+      globeGroup.localToWorld(lblWorld);
+      lblAxis.copy(camera.position).sub(lblWorld).normalize();
+      return lblNormal.dot(lblAxis);
+    };
+
     const labelPool = () => {
       const pool = [];
       panels.forEach((p) => {
-        if (p.driftFactor > 0.5) pool.push(p.mesh.position);
+        if (p.driftFactor > 0.5) pool.push({ pos: p.mesh.position, panel: p });
       });
       if (decoyMesh.visible) {
         decoys.forEach((d) => {
-          if (d.s > 0.5) pool.push(d.pos);
+          if (d.s > 0.5) pool.push({ pos: d.pos, panel: null });
         });
       }
       return pool;
     };
-    const cycleSlot = (slot, delay = 0) => {
-      if (!labelsActive || disposed) return;
-      const taken = labelSlots.map((s) => s.target);
-      const pool = labelPool().filter((v) => !taken.includes(v));
-      if (!pool.length) return;
-      slot.target = pool[Math.floor(Math.random() * pool.length)];
+    // Pick-time visibility: front-facing AND the anchor projects comfortably
+    // on-screen (|ndc| < BIND). Refreshes matrices itself (rare — bind time).
+    const labelVisible = (cand) => {
+      if (labelProminence(cand.panel) < LABEL_FRONT_EPS) return false;
+      lblNdc.copy(cand.pos);
+      globeGroup.localToWorld(lblNdc).project(camera);
+      return (
+        lblNdc.z <= 1 &&
+        Math.abs(lblNdc.x) < LABEL_NDC_BIND &&
+        Math.abs(lblNdc.y) < LABEL_NDC_BIND
+      );
+    };
+    const pickTarget = (slot) => {
+      refreshLabelMatrices();
+      const taken = labelSlots.map((s) => s.target).filter(Boolean);
+      const pool = labelPool().filter((c) => !taken.includes(c.pos) && labelVisible(c));
+      if (!pool.length) return null;
+      // No-repeat: prefer any candidate that isn't the one this slot just
+      // released; fall back to the full set only if that's all there is.
+      const fresh = pool.filter((c) => c.pos !== slot.last);
+      const choose = fresh.length ? fresh : pool;
+      return choose[Math.floor(Math.random() * choose.length)];
+    };
+
+    const bindLabel = (slot, cand) => {
+      slot.target = cand.pos;
+      slot.panel = cand.panel;
+      slot.fading = false;
       const term = LABEL_TERMS[termCursor % LABEL_TERMS.length];
       termCursor += 1;
+      // Pre-set the final text so the box is measured at its final (mono)
+      // size — the ONE layout read per bind; scramble never resizes it.
+      slot.el.textContent = term;
+      const box = slot.el.getBoundingClientRect();
+      slot.w = box.width;
+      slot.h = box.height;
       slot.tl?.kill();
+      gsap.set([slot.el, slot.g], { autoAlpha: 0 });
       slot.tl = gsap
-        .timeline({ delay, onComplete: () => cycleSlot(slot, 0.2 + Math.random() * 0.6) })
-        .set(slot.el, { autoAlpha: 0 }, 0)
+        .timeline({ onComplete: () => releaseLabel(slot) })
         .call(() => scrambleTo(slot.el, term), null, 0.01)
-        .to(slot.el, { autoAlpha: 0.85, duration: 0.2, ease: 'power2.out' }, 0.01)
-        .to(slot.el, { autoAlpha: 0, duration: 0.3, ease: 'power2.in' }, 1.7 + Math.random() * 1.3);
+        .to([slot.el, slot.g], { autoAlpha: 0.85, duration: 0.2, ease: 'power2.out' }, 0.01)
+        .to([slot.el, slot.g], { autoAlpha: 0, duration: 0.3, ease: 'power2.in' }, 1.7 + Math.random() * 1.3);
+    };
+    const releaseLabel = (slot) => {
+      slot.last = slot.target;
+      slot.target = null;
+      slot.panel = null;
+      slot.fading = false;
+      if (!labelsActive || disposed) return;
+      slot.dc?.kill();
+      slot.dc = gsap.delayedCall(0.2 + Math.random() * 0.6, () => {
+        slot.dc = null;
+        if (!labelsActive || disposed || slot.target) return;
+        const next = pickTarget(slot);
+        if (next) bindLabel(slot, next);
+        // no candidate — the slot idles; the next start/cycle fills it
+      });
+    };
+    const earlyFadeLabel = (slot) => {
+      if (slot.fading) return;
+      slot.fading = true;
+      slot.tl?.kill();
+      slot.tl = null;
+      gsap.to([slot.el, slot.g], {
+        autoAlpha: 0,
+        duration: 0.3,
+        ease: 'power2.in',
+        overwrite: 'auto',
+        onComplete: () => {
+          if (!disposed) releaseLabel(slot);
+        },
+      });
     };
     const startLabels = (delay = 0) => {
       if (PREFERS_REDUCED_MOTION || !labelSlots.length || labelsActive) return;
       labelsActive = true;
-      labelSlots.forEach((slot, i) => cycleSlot(slot, delay + i * 0.45));
+      labelSlots.forEach((slot, i) => {
+        slot.dc?.kill();
+        slot.dc = gsap.delayedCall(delay + i * 0.45, () => {
+          slot.dc = null;
+          if (!labelsActive || disposed || slot.target) return;
+          const next = pickTarget(slot);
+          if (next) bindLabel(slot, next);
+        });
+      });
     };
     const stopLabels = () => {
       if (!labelsActive) return;
@@ -651,21 +796,55 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       labelSlots.forEach((slot) => {
         slot.tl?.kill();
         slot.tl = null;
+        slot.dc?.kill();
+        slot.dc = null;
         slot.target = null;
-        gsap.to(slot.el, { autoAlpha: 0, duration: 0.2, overwrite: 'auto' });
+        slot.panel = null;
+        slot.fading = false;
+        gsap.to([slot.el, slot.g], { autoAlpha: 0, duration: 0.2, overwrite: 'auto' });
       });
     };
-    const labelV = new THREE.Vector3();
     const updateLabels = () => {
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
+      refreshLabelMatrices();
+      // Belt center in screen px — the chip sits radially outward from it
+      // (the hero's disc-center idiom; here it's the framed belt center).
+      lblDisc.set(globeGroup.position.x, globeGroup.position.y, 0).project(camera);
+      const dcx = (lblDisc.x * 0.5 + 0.5) * w;
+      const dcy = (-lblDisc.y * 0.5 + 0.5) * h;
       labelSlots.forEach((slot) => {
         if (!slot.target) return;
-        labelV.copy(slot.target);
-        globeGroup.localToWorld(labelV).project(camera);
-        const x = (labelV.x * 0.5 + 0.5) * w + 14;
-        const y = (-labelV.y * 0.5 + 0.5) * h - 6;
-        slot.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+        lblNdc.copy(slot.target);
+        globeGroup.localToWorld(lblNdc).project(camera);
+        // Let go when the anchor turns away or leaves the frame (KEEP
+        // margin) — the label rides its shard out and frees the slot.
+        const gone =
+          lblNdc.z > 1 ||
+          Math.abs(lblNdc.x) > LABEL_NDC_KEEP ||
+          Math.abs(lblNdc.y) > LABEL_NDC_KEEP ||
+          (slot.panel && labelProminence(slot.panel) < LABEL_FRONT_EPS);
+        if (gone && !slot.fading) earlyFadeLabel(slot);
+        const ax = (lblNdc.x * 0.5 + 0.5) * w;
+        const ay = (-lblNdc.y * 0.5 + 0.5) * h;
+        // Chip sits OUTWARD from the belt center by LEADER_LEN, centered on
+        // that point; the leader connects the anchor to the nearest corner.
+        let ox = ax - dcx;
+        let oy = ay - dcy;
+        const od = Math.hypot(ox, oy) || 1;
+        ox /= od;
+        oy /= od;
+        const cx = ax + ox * LEADER_LEN - slot.w / 2;
+        const cy = ay + oy * LEADER_LEN - slot.h / 2;
+        slot.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
+        const x1 = ax < cx + slot.w / 2 ? cx : cx + slot.w;
+        const y1 = ay < cy + slot.h / 2 ? cy : cy + slot.h;
+        slot.line.setAttribute('x1', x1.toFixed(1));
+        slot.line.setAttribute('y1', y1.toFixed(1));
+        slot.line.setAttribute('x2', ax.toFixed(1));
+        slot.line.setAttribute('y2', ay.toFixed(1));
+        slot.dot.setAttribute('cx', ax.toFixed(1));
+        slot.dot.setAttribute('cy', ay.toFixed(1));
       });
     };
 
@@ -1086,14 +1265,17 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         tl.to(tiltState, { z: tiltTarget, duration: frameDur }, 0);
       }
 
-      // Background beat. The blue↔black boundary rides the S2↔S3 dolly as
-      // the contraction/expansion; every other pairing crossfades.
+      // Background beat (P2). The white↔blue boundary rides the S2↔S3
+      // dolly as the blue fill emanating from / receding into the Core:
+      // forward (light-up) the blue GROWS out of the solidifying Core to
+      // flood the canvas; reverse it SHRINKS back into the Core and the
+      // white canvas returns. Every other pairing crossfades.
       tl.call(() => setBgAttr(pose.bg), null, 0);
       if (pose.bg !== fromPose.bg) {
-        const contract = isLightUp && fromPose.bg === 'blue';
-        const expand =
-          !compressed && reversing && pose.bg === 'blue' && fromPose.bg === 'black';
-        if (contract || expand) bgMorph(tl, 0, frameDur, expand);
+        const grow = isLightUp && fromPose.bg === 'white' && pose.bg === 'blue';
+        const shrink =
+          !compressed && reversing && fromPose.bg === 'blue' && pose.bg === 'white';
+        if (grow || shrink) bgMorph(tl, 0, frameDur, grow);
         else bgCrossfade(tl, 0, Math.max(frameDur * 0.6, 0.3), pose.bg);
       }
 
@@ -1454,7 +1636,14 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         panel.mesh.material.dispose();
       });
       stopLabels();
-      labelSlots.forEach((slot) => slot.el.remove());
+      labelSlots.forEach((slot) => {
+        slot.tl?.kill();
+        slot.dc?.kill();
+        gsap.killTweensOf([slot.el, slot.g]);
+        slot.el.remove();
+        slot.g.remove();
+      });
+      labelsSvg?.remove();
       decoys.forEach((d) => gsap.killTweensOf(d));
       decoyGeometry.dispose();
       decoyMaterial.dispose();

@@ -72,6 +72,36 @@ export default function SiteShell() {
     isOpenRef.current = isInfoOpen;
   }, [isInfoOpen]);
 
+  // F1 footer nav-slide gate: mark <html> while the info drawer or inquiry
+  // overlay is open so the footer-reveal shell slide (global.css) backs off. A
+  // transformed .site-shell becomes the containing block for the fixed overlay,
+  // which would otherwise shift by the nav height when both are active at once.
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-chrome-open', isInfoOpen || isOverlayOpen);
+  }, [isInfoOpen, isOverlayOpen]);
+
+  // Measure the classic scrollbar width (→ --scrollbar-w; 0 on overlay-scrollbar
+  // systems) so the right-edge nav/footer inset clears it. The shell spans 100vw
+  // and the scrollbar overlays that edge, clipping the last nav item otherwise.
+  // Re-measured on resize and route change (scrollability differs per route).
+  useEffect(() => {
+    const setSbw = () => {
+      const w = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+      document.documentElement.style.setProperty('--scrollbar-w', `${w}px`);
+    };
+    setSbw();
+    const t = setTimeout(setSbw, 400); // after content/fonts settle scrollability
+    window.addEventListener('resize', setSbw);
+    document.addEventListener('astro:after-swap', setSbw);
+    document.addEventListener('astro:page-load', setSbw);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', setSbw);
+      document.removeEventListener('astro:after-swap', setSbw);
+      document.removeEventListener('astro:page-load', setSbw);
+    };
+  }, []);
+
   // GSAP: initial closed position + resize tracking
   useGSAP(() => {
     const wrapper = shellRef.current?.querySelector('.info-wrapper');

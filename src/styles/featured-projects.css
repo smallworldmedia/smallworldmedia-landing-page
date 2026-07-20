@@ -32,8 +32,12 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  /* S2: the gradient's base stop ingests the focused project's accent
+     (--project-color, broadcast on the .fp root that contains this element);
+     blank → brand blue. Recolours on the World Turn as the active project
+     changes. */
   background: linear-gradient(to top,
-      var(--color-electric-blue) 0%,
+      var(--project-color, var(--color-electric-blue)) 0%,
       var(--color-black) 40%);
 }
 
@@ -118,8 +122,10 @@
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
-  color: var(--color-white);
-  background: var(--color-electric-blue);
+  /* S2: readable ink on the accent-filled chip (dark on light accents). */
+  color: var(--project-color-fg, var(--color-white));
+  /* S2: per-project accent (set on .fp-card-wrap); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
   padding: var(--space-2) var(--space-4);
 }
 
@@ -191,7 +197,9 @@
   letter-spacing: var(--tracking-tight);
   text-transform: uppercase;
   border: 1px solid var(--color-white);
-  color: var(--color-electric-blue);
+  /* S2: the accent used AS text on white — a light accent falls back to brand
+     black (unreadable otherwise); a dark accent keeps its hue. */
+  color: var(--project-color-text, var(--color-electric-blue));
   background: var(--color-white);
   border-radius: 999px;
   padding: var(--space-2) var(--space-4);
@@ -221,19 +229,25 @@
   color: var(--color-black);
   opacity: 1.0;
   padding: 0.3rem 0.35rem;
-  /* font-size + colour glide on --pager-dur/--pager-ease so a committing Turn
-     moves the active number in sync with the CTA scaling back to rest. */
+  /* font-size glides on --pager-dur/--pager-ease so a committing Turn moves the
+     active number in sync with the CTA scaling back to rest. bg/colour stay on
+     the short 0.16s: at commit --pager-dur balloons to the 1.7s Turn window,
+     and since the chip's accent already cross-fades via the inherited @property
+     var, a 1.7s self-transition low-passed a moving target — the chip landed
+     late. Pinning bg/colour to 0.16s keeps it in step with the rest of the nav. */
   transition:
     font-size var(--pager-dur, 0.16s) var(--pager-ease, ease-out),
-    background var(--pager-dur, 0.16s) var(--pager-ease, ease-out),
-    color var(--pager-dur, 0.16s) var(--pager-ease, ease-out),
+    background 0.16s var(--pager-ease, ease-out),
+    color 0.16s var(--pager-ease, ease-out),
     opacity 0.2s cubic-bezier(0.2, 0.5, 0.35, 1);
 }
 
 .fp-pager__dot.is-active {
   opacity: 1;
-  color: var(--color-white);
-  background: var(--color-electric-blue);
+  /* S2: readable ink on the accent-filled chip (dark on light accents). */
+  color: var(--project-color-fg, var(--color-white));
+  /* S2: focused-project accent (broadcast on .fp root); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
 }
 
 /* Hover effector — strongest state: inverts to white-on-black. */
@@ -246,8 +260,9 @@
    it synchronously), and its blue must win over the hover black while the
    cursor is still parked on it. */
 .fp-pager__dot.is-active:hover {
-  color: var(--color-white);
-  background: var(--color-electric-blue);
+  color: var(--project-color-fg, var(--color-white));
+  /* S2: focused-project accent (broadcast on .fp root); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
 }
 
 /* Client-name token — fixed-size mono tag right of the scaling number, so
@@ -277,7 +292,7 @@
   transition:
     opacity 0.3s ease-out 0.05s,
     transform 0.4s ease-out 0.1s,
-    background var(--pager-dur, 0.16s) var(--pager-ease, ease-out);
+    background 0.16s var(--pager-ease, ease-out);
 }
 
 .fp-pager.is-hovered .fp-pager__label {
@@ -289,7 +304,9 @@
 .fp-pager__dot.is-active .fp-pager__label {
   opacity: 1;
   transform: translate(0, -50%);
-  background: var(--color-electric-blue);
+  color: var(--project-color-fg, var(--color-white));
+  /* S2: focused-project accent (broadcast on .fp root); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
 }
 
 /* White marker triangle, pointing right toward the numbers. It's a single
@@ -355,4 +372,129 @@
   .fp-scroller {
     scroll-behavior: auto;
   }
+}
+
+/* — Deck Viewer debug panel (?deckdebug) — dev affordance, mirrors the
+   process ?debug chrome (mono, near-black, electric-blue accents). Bottom-right
+   so it clears the left pager rail and the top/bottom CTAs. — */
+.fp-deckdbg {
+  position: fixed;
+  right: 1.143rem;
+  bottom: 1.143rem;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  width: min(21rem, calc(100vw - 2.286rem));
+  max-height: calc(100dvh - 8rem);
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid var(--color-electric-blue);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-white);
+}
+
+.fp-deckdbg--chip {
+  width: auto;
+  padding: 0;
+  overflow: visible;
+}
+
+.fp-deckdbg--chip button {
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-electric-blue);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.fp-deckdbg__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.fp-deckdbg__title {
+  color: var(--color-electric-blue);
+}
+
+.fp-deckdbg__close {
+  padding: 0 var(--space-2);
+  font-family: inherit;
+  font-size: 1.143rem;
+  line-height: 1;
+  color: var(--color-white);
+}
+
+.fp-deckdbg__knobs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.fp-deckdbg__knob {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr 3rem;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fp-deckdbg__knob-name {
+  opacity: 0.75;
+}
+
+.fp-deckdbg__knob-value {
+  text-align: right;
+  color: var(--color-electric-blue);
+}
+
+.fp-deckdbg__knob input[type='range'] {
+  width: 100%;
+  height: 2px;
+  appearance: none;
+  background: rgba(250, 250, 250, 0.3);
+  cursor: pointer;
+}
+
+.fp-deckdbg__knob input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 0;
+  background: var(--color-electric-blue);
+}
+
+.fp-deckdbg__knob input[type='range']::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 0;
+  background: var(--color-electric-blue);
+}
+
+.fp-deckdbg__url {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  border-top: 1px solid rgba(250, 250, 250, 0.2);
+  padding-top: var(--space-3);
+}
+
+.fp-deckdbg__url button {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-electric-blue);
+  color: var(--color-electric-blue);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.fp-deckdbg__url code {
+  flex-basis: 100%;
+  font-family: inherit;
+  font-size: 0.786rem;
+  opacity: 0.6;
+  word-break: break-all;
 }

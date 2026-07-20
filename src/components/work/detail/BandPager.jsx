@@ -2,11 +2,12 @@
  * BandPager — the shared band viewer core (BrandDeckViewer + AlbumArtViewer).
  *
  * One presentation for every paged band on the detail page: items ride a
- * slight isometric angle in a perspective stage, the resting fan recedes
- * behind the front item (depth = darkening, never transparency), passed
- * items lift toward the viewer and darken out left. The stack sits
- * right-of-center so the top-right side column (counter + per-item
- * content: deck name / release metadata) reads as part of the composition.
+ * slight isometric angle in a perspective stage. The composition is
+ * LEFT-ANCHORED — the front item rests left of center (never overshooting
+ * its column), the waiting fan recedes to its right, the shown pile tucks
+ * behind-and-left (depth = darkening, never transparency). The top-right
+ * side column (counter + per-item content: deck name / release metadata)
+ * sits in the room freed above the waiting fan.
  *
  * Motion is the World Turn curve — the same CustomEase + duration that
  * rolls Featured Project → Featured Project — so every paging gesture on
@@ -19,8 +20,9 @@
  * the band is in-viewport and the document visible. Reduced motion: no
  * idle cycle, instant page swaps, drag still works.
  *
- * Live tuning: ?deckangle ?deckfan ?deckfany ?deckexitx ?deckexity
- * ?deckcycle ?deckshift ?deckshifty ?deckw
+ * Live tuning: ?deckangle ?deckhome ?deckspacing ?deckfany
+ * ?deckpilex ?deckpiley ?deckcycle ?deckshift ?deckshifty ?deckw
+ * (?deckexitx / ?deckexity stay as soft aliases for the shown-pile steps)
  *
  * @param {Object} props
  * @param {Array<Object>} props.items    - assets, one per page
@@ -41,10 +43,11 @@ import {
 import {
   bandPose,
   BAND_ANGLE,
+  HOME_X,
   FAN_X,
   FAN_Y,
-  EXIT_X,
-  EXIT_Y,
+  PILE_X,
+  PILE_Y,
 } from '../bandLayout.js';
 import { IMG_FORMAT } from '../imageConfig.js';
 
@@ -58,12 +61,15 @@ const TAP_MAX_PX = 5; // pointer travel below this = click, not drag
 const FLICK_V = 0.9; // pages/s — release velocity that counts as a flick
 const DRAG_WINDOW_MS = 100; // velocity estimate looks back this far
 
-/* Stack geometry lives in bandLayout.js (shared with the World mount) */
-const STACK_SHIFT = 0.18; // × stage width, source stack rides right (top-right)
+/* Stack geometry lives in bandLayout.js (shared with the World mount).
+   The pose itself is left-anchored (HOME_X), so this residual shift only
+   fine-positions the whole composition inside the column. ~0 keeps it
+   left-anchored; nudge with ?deckshift. */
+const STACK_SHIFT = 0.0; // × stage width, composition residual x nudge
 const STACK_LIFT = -0.12; // × stage height, composition rides high
-/* Page width cap (× stage width) — sized so the full dealer composition
-   (landed pile + travel + front page + fan array) sits in the upper-right
-   quadrant of the tile area instead of sprawling the whole band. ?deckw */
+/* Page width cap (× stage width) — sized so the full conveyor composition
+   (shown pile + front page + waiting fan) sits within the tile column
+   instead of sprawling the whole band. ?deckw */
 const WIDTH_CAP = 0.44;
 
 /* Idle cycle — rest dwell before the next auto-advance (?deckcycle) */
@@ -89,10 +95,11 @@ export default function BandPager({
   const metricsRef = useRef(metrics);
   const tuning = useRef({
     angle: BAND_ANGLE,
+    home: HOME_X,
     fan: FAN_X,
     fanY: FAN_Y,
-    exitX: EXIT_X,
-    exitY: EXIT_Y,
+    pileX: PILE_X,
+    pileY: PILE_Y,
     shift: STACK_SHIFT,
     lift: STACK_LIFT,
   });
@@ -105,7 +112,7 @@ export default function BandPager({
   const paint = useCallback(() => {
     const phase = phaseRef.current;
     const { pageW } = metricsRef.current;
-    const { angle, fan, fanY, exitX, exitY, shift, lift } = tuning.current;
+    const { angle, home, fan, fanY, pileX, pileY, shift, lift } = tuning.current;
     const stage = stageRef.current;
     const shiftPx = stage ? stage.clientWidth * shift : 0;
     const liftPx = stage ? stage.clientHeight * lift : 0;
@@ -115,7 +122,7 @@ export default function BandPager({
       const el = els[i];
       if (!el) continue;
 
-      const pose = bandPose(i, phase, pageW, { fan, fanY, exitX, exitY });
+      const pose = bandPose(i, phase, pageW, { home, fan, fanY, pileX, pileY });
       if (pose.hidden) {
         el.style.visibility = 'hidden';
         continue;
@@ -142,12 +149,19 @@ export default function BandPager({
       const v = parseFloat(params.get(key));
       return Number.isFinite(v) ? v : fallback;
     };
+    // One knob scales both stacks: ?deckspacing overrides DECK_SPACING, so
+    // the fan step and (unless individually pinned) the pile steps track it.
+    const spacing = qNum('deckspacing', FAN_X); // FAN_X === DECK_SPACING
+    const spaceScale = FAN_X > 0 ? spacing / FAN_X : 1;
     tuning.current = {
       angle: qNum('deckangle', BAND_ANGLE),
-      fan: qNum('deckfan', FAN_X),
+      home: qNum('deckhome', HOME_X),
+      fan: spacing,
       fanY: qNum('deckfany', FAN_Y),
-      exitX: qNum('deckexitx', EXIT_X),
-      exitY: qNum('deckexity', EXIT_Y),
+      // ?deckpilex / ?deckpiley pin a step; ?deckexitx / ?deckexity remain
+      // soft aliases; otherwise the pile tracks the shared spacing token.
+      pileX: qNum('deckpilex', qNum('deckexitx', PILE_X * spaceScale)),
+      pileY: qNum('deckpiley', qNum('deckexity', PILE_Y * spaceScale)),
       shift: qNum('deckshift', STACK_SHIFT),
       lift: qNum('deckshifty', STACK_LIFT),
     };

@@ -37,7 +37,7 @@ export const HERO = {
 export const STAGES = [
   {
     id: 'stage-01',
-    token: 'STAGE_01',
+    token: 'PHASE_01',
     chip: 'discovery',
     headline: 'DISCOVERY',
     blurb:
@@ -45,7 +45,7 @@ export const STAGES = [
   },
   {
     id: 'stage-02',
-    token: 'STAGE_02',
+    token: 'PHASE_02',
     chip: 'refine_elements',
     headline: 'REFINE_ELEMENTS',
     blurb:
@@ -54,7 +54,7 @@ export const STAGES = [
   },
   {
     id: 'stage-03',
-    token: 'STAGE_03',
+    token: 'PHASE_03',
     chip: 'core_assembly',
     headline: 'CORE_ASSEMBLY',
     blurb:
@@ -62,7 +62,7 @@ export const STAGES = [
   },
   {
     id: 'stage-04',
-    token: 'STAGE_04',
+    token: 'PHASE_04',
     chip: 'build_world',
     headline: 'BUILD_WORLD',
     blurb:
@@ -70,7 +70,7 @@ export const STAGES = [
   },
   {
     id: 'stage-05',
-    token: 'STAGE_05',
+    token: 'PHASE_05',
     chip: 'world_in_motion',
     headline: 'WORLD_IN_MOTION',
     blurb:

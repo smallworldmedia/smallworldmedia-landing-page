@@ -138,6 +138,14 @@
   --nav-inset: var(--space-2);
   /* 4px */
 
+  /* Nav bar height — the sticky-reveal footer slides the page + nav up by
+     exactly this so the bar clears the top of the viewport (F1). Mirrors the
+     41px .site-nav / .mobile-menu__bar height; those keep their local
+     literals (other lanes own those files) — this token is the shared
+     slide-distance handle for the footer reveal. */
+  --nav-height: 2.929rem;
+  /* 41px */
+
   /* Radii */
   --radius-pill: 3.571rem;
   /* 50px */
@@ -147,6 +155,8 @@
   /* Transitions — GSAP-aligned */
   --ease-panel: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-panel: 600ms;
+  /* S2: accent cross-fade duration, synced to the World Turn (TURN_DURATION). */
+  --project-color-fade: 1700ms;
   --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-micro: 220ms;
   /* Steep launch, smooth decel into rest — mathematically overshoot-free
@@ -317,7 +327,7 @@ button {
   /* extra right clearance: the shell spans 100vw, so a classic scrollbar
      overlays this edge on scrollable routes — the token keeps the last
      nav item clear of it (and geometry identical on every route) */
-  padding-right: calc(var(--nav-inset) + var(--space-4));
+  padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
   background: var(--color-electric-blue);
   flex-shrink: 0;
 }
@@ -329,6 +339,112 @@ button {
    fill, and the info pill's blue accents go black. */
 body.route-home .site-nav {
   background: transparent;
+}
+
+/* ── /work focused-project accent (S2) ──
+   FeaturedProjects broadcasts the active project's accent on <html>
+   (--project-color) with a readable ink (--project-color-fg), an accent-as-text
+   colour (--project-color-text) and a globe-flip filter. Registering the colour
+   vars as @property <color> lets them INTERPOLATE, so every accent surface
+   cross-fades on the house curve as the World Turn changes project. html:has(.fp)
+   scopes it to /work; a colourless project falls back to brand blue. */
+@property --project-color {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+@property --project-color-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+@property --project-color-fg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255, 255, 255);
+}
+@property --project-color-text {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+/* Scalar twin of the ink colour (1 = white ink, 0 = dark ink). Interpolating a
+   NUMBER and feeding it through color-mix(in oklab) makes the nav text cross-fade
+   perceptually evenly BOTH ways — the direct sRGB colour interpolation of
+   white↔near-black reads as "holds light, then snaps dark" one direction and
+   smooth the other. */
+@property --nav-ink-l {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
+/* html.fp-tint is the detail-page marker (FeaturedProjectDetail broadcasts the
+   accent to <html> and sets this class) so the persistent nav tints there too,
+   mirroring html:has(.fp) on the /work index. */
+html:has(.fp),
+html.fp-tint,
+.fp {
+  transition:
+    --project-color var(--project-color-fade) var(--ease-panel),
+    --project-color-2 var(--project-color-fade) var(--ease-panel),
+    --project-color-fg var(--project-color-fade) var(--ease-panel),
+    --project-color-text var(--project-color-fade) var(--ease-panel),
+    --nav-ink-l var(--project-color-fade) var(--ease-panel);
+  /* Perceptually-even nav ink: oklab mix of near-black↔white driven by the
+     linearly-interpolating scalar. Rest values equal the old --project-color-fg
+     endpoints exactly (white / near-black); only the PATH between them changes. */
+  --nav-ink: color-mix(in oklab, var(--color-near-black), var(--color-white) calc(var(--nav-ink-l, 1) * 100%));
+}
+
+html:has(.fp) .site-nav,
+html.fp-tint .site-nav {
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* Nav links, labels, and the active/hover kinetic underline take the ink. */
+html:has(.fp) .site-nav__link,
+html:has(.fp) .site-nav__label,
+html.fp-tint .site-nav__link,
+html.fp-tint .site-nav__label {
+  color: var(--nav-ink, var(--color-white));
+}
+
+html:has(.fp) .site-nav__fxrule,
+html.fp-tint .site-nav__fxrule {
+  background: var(--nav-ink, var(--color-white));
+}
+
+/* info pill: accent fill + readable ink; hover inverts to ink-fill.
+   The pill's accent bg/ink RIDE the <html> @property cross-fade in lockstep
+   with the rest of the nav — its base `transition: background` (for hover)
+   would low-pass the interpolating var and land the fill LATE, so it's cleared
+   here and re-armed only on :hover. */
+html:has(.fp) .site-nav__pill,
+html.fp-tint .site-nav__pill {
+  background: var(--project-color, var(--color-electric-blue));
+  border-color: var(--nav-ink, var(--color-white));
+  color: var(--nav-ink, var(--color-white));
+  transition: none;
+}
+
+html:has(.fp) .site-nav__pill:hover,
+html.fp-tint .site-nav__pill:hover {
+  background: var(--nav-ink, var(--color-white));
+  color: var(--project-color, var(--color-electric-blue));
+  transition:
+    background var(--duration-micro) var(--ease-micro),
+    color var(--duration-micro) var(--ease-micro);
+}
+
+/* SWM globe: the white mark cross-fades to dark on a light accent, driven by the
+   SAME --nav-ink-l scalar as the nav ink (brightness 1 = white → 0 = black), so
+   it glides in lockstep with the text/pill on a project change instead of
+   snapping via the discrete --project-globe-filter (which the socials still
+   use for their per-page static flip). */
+html:has(.fp) .site-nav__logo img,
+html.fp-tint .site-nav__logo img {
+  filter: brightness(var(--nav-ink-l, 1));
 }
 
 body.route-home .site-nav__pill {
@@ -431,7 +547,7 @@ body.route-home .site-nav__pill:hover {
   justify-content: space-between;
   height: 2.929rem;
   padding: 0.214rem var(--nav-inset);
-  padding-right: calc(var(--nav-inset) + var(--space-4));
+  padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
 }
 
 .mobile-menu__bar img {
@@ -758,6 +874,11 @@ body.route-home .site-nav__pill:hover {
 
   pointer-events: none;
   /* let clicks pass through to page content */
+  /* F1: the footer-reveal nav slide animates on this transform, both ways (see
+     the html[data-footer-revealed] rule below). Only the footer slide sets a
+     transform on .site-shell itself — the drawer transform lives on the child
+     .info-wrapper — so this is safe. */
+  transition: transform var(--duration-panel) var(--ease-panel);
 }
 
 /* Prevent Astro View Transitions from fading the persisted shell */
@@ -779,7 +900,9 @@ body.route-home .site-nav__pill:hover {
 .route-fill {
   position: fixed;
   inset: 0;
-  background: var(--color-electric-blue);
+  /* S2: RouteFill sets --project-color per passage (from swm:envelop
+     detail.color) and clears it when absent; blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -950,7 +1073,31 @@ body.route-home .site-nav__pill:hover {
 .hero__globe {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  /* Above the intro wordmark (z:1) so the growing globe OBSCURES the letters as
+     it scales up (its transparent canvas shows them through elsewhere); still
+     below .hero__fill (z:3, the commit blue) and .hero__lead-col (z:2 chrome). */
+  z-index: 2;
+}
+
+/* Globe outer stroke (Globe/Homepage) — a flat electric-blue disc BEHIND the
+   canvas, sized just proud of the globe by Hero from the overlay disc, so the
+   only part not covered by the (opaque) globe is a thin ring at the silhouette:
+   the lockup globe's outer stroke, scaling proportionately through the intro
+   zoom and commit. Transform-driven (no per-frame relayout); a 200px base
+   circle scaled to the live diameter. */
+.hero__globe-stroke {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: var(--color-electric-blue);
+  transform-origin: 0 0;
+  will-change: transform;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* ============================================
@@ -967,7 +1114,9 @@ body.route-home .site-nav__pill:hover {
   font-size: var(--text-secondary);
   letter-spacing: var(--tracking-tight);
   background: var(--cta-bg, var(--color-white));
-  color: var(--cta-fg, var(--color-electric-blue));
+  /* S2: enter_world text ingests the accent-as-text (a light accent → brand
+     black); other .cta-primary consumers leave it unset → brand blue. */
+  color: var(--cta-fg, var(--project-color-text, var(--color-electric-blue)));
   border: none;
   border-radius: 999px;
   padding: 0.6rem 1.4rem;
@@ -977,8 +1126,10 @@ body.route-home .site-nav__pill:hover {
 }
 
 .cta-primary:hover {
-  background: var(--cta-bg, var(--color-electric-blue));
-  color: var(--cta-fg, var(--color-white));
+  /* S2: on hover the accent fills the chip; the label takes the readable ink
+     (dark on a light accent); blank → brand blue. */
+  background: var(--cta-bg, var(--project-color, var(--color-electric-blue)));
+  color: var(--cta-fg, var(--project-color-fg, var(--color-white)));
 }
 
 /* SECONDARY — the mono CTA chip family.
@@ -1200,7 +1351,9 @@ body.route-home .site-nav__pill:hover {
 .hero-intro {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  /* Below .hero__globe (z:2) so the growing globe obscures the wordmark on the
+     zoom; above .hero__veil (z:0) so the letters read on the black field. */
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1265,7 +1418,7 @@ body.route-home .site-nav__pill:hover {
   padding: 0.571rem var(--nav-inset);
   /* 8px 4px — the nav's hug */
   /* scrollbar clearance, the nav's right-edge idiom */
-  padding-right: calc(var(--nav-inset) + var(--space-4));
+  padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
   background: var(--color-near-black);
 }
 
@@ -1305,6 +1458,155 @@ body.route-home .site-nav__pill:hover {
 .site-footer__privacy:hover {
   text-decoration: underline;
 }
+
+/* ============================================
+   SITE FOOTER — links / sticky-reveal variant (F1)
+   ============================================
+   The expanded footer on non-hero routes (detail + process): a full-bleed
+   panel FIXED to the viewport bottom, hidden below the fold and driven UP
+   scroll-linked over the page's final stretch (SiteFooter.jsx owns the
+   transform; the spacer below reserves the matching scroll room). z below the
+   inquiry overlay (50) and nav (100) so both still cover it. */
+.site-footer--links {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 0;
+  background: var(--color-near-black);
+  /* Pre-JS / no-JS resting state: hidden below the fold. SiteFooter.jsx
+     overwrites this inline every scroll frame once mounted. */
+  transform: translateY(100%);
+  will-change: transform;
+}
+
+/* In-flow spacer — its height is set to the panel height by SiteFooter.jsx,
+   adding exactly one panel-height of scroll so the reveal completes at the
+   document end. Transparent: the fixed panel paints ON TOP as it rises. */
+.site-footer__spacer {
+  width: 100%;
+  pointer-events: none;
+}
+
+.site-footer__inner {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+  /* Nav's shared hug; extra right clearance mirrors the nav's scrollbar idiom */
+  padding: 1.286rem var(--nav-inset) 1.143rem;
+  padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+}
+
+/* LEFT — globe lockup + copyright */
+.site-footer__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.site-footer__lockup {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-white);
+}
+
+/* Full SWM wordmark+globe lockup (src/assets/swm-lockup-inline.svg — brand
+   blue in source) rendered mono-white to sit on the near-black footer.
+   brightness(0) invert(1) flattens any source hue to pure white. */
+.site-footer__lockup-art {
+  display: inline-flex;
+  filter: brightness(0) invert(1);
+}
+
+.site-footer__lockup-art svg {
+  display: block;
+  height: 3.2rem;
+  width: auto;
+}
+
+.site-footer--links .site-footer__copy {
+  font-family: var(--font-body);
+  font-size: 1.143rem;
+  /* 16px */
+  line-height: 1.571rem;
+  letter-spacing: -0.005em;
+  color: var(--color-white);
+}
+
+/* RIGHT — nav links restyled for the footer (the .site-nav__link idiom) */
+.site-footer__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4) var(--space-6);
+  justify-content: flex-end;
+}
+
+.site-footer__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.143rem;
+  /* 2px — the nav link's glyph gap */
+  font-family: var(--font-body);
+  font-size: 1.143rem;
+  /* 16px */
+  line-height: 1.571rem;
+  letter-spacing: -0.005em;
+  color: var(--color-white);
+  white-space: nowrap;
+  transition: opacity var(--duration-micro) var(--ease-micro);
+}
+
+.site-footer__link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-footer__link:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+.site-footer__glyph {
+  display: inline-block;
+}
+
+.site-footer__link--privacy {
+  opacity: 0.6;
+}
+
+.site-footer__link--privacy:hover {
+  opacity: 1;
+}
+
+/* Stack the columns on narrow viewports */
+@media (max-width: 768px) {
+  .site-footer__inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.714rem;
+  }
+
+  .site-footer__nav {
+    justify-content: flex-start;
+  }
+}
+
+/* ── INTEGRATION FLAG (F1) — nav slide ───────────────────────────────────────
+   As the footer reveals (SiteFooter.jsx sets [data-footer-revealed] on <html>
+   past the halfway point), the shared .site-shell slides up by one nav height
+   so the redundant bar leaves the viewport (its own nav links live in the
+   footer). Gated by :not([data-chrome-open]) — SiteShell marks <html> while the
+   info drawer or inquiry overlay is open; a transformed .site-shell becomes the
+   containing block for the fixed overlay, so the slide backs off whenever
+   either is open to avoid shifting it. The transition rides the base
+   .site-shell rule above so both directions animate. */
+html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
+  transform: translateY(calc(-1 * var(--nav-height)));
+}
+   ──────────────────────────────────────────────────────────────────────── */
 
 /* Left statement column — the tagline and the scroll_to_enter button share
    one left-anchored, vertically-centered column (home-hero refine: the ring
@@ -1451,8 +1753,10 @@ body.route-home .site-nav__pill:hover {
   /* 0.5px — the nav globe's RENDERED top, not the bar's padding: the 38px
      img overflow-centers in the 41px bar's 35px content box (top 1.5px)
      and SiteShell tucks the bar up 1px (INQ-3 icon parity) */
-  left: 1.143rem;
-  /* matches SiteNav padding-left */
+  left: var(--nav-inset);
+  /* matches SiteNav padding-left (--nav-inset, moved from 16px 2026-07-16
+     — this tokenizes the shared top-left globe X so all top-left globes
+     (SiteNav, mobile-menu, this overlay) track together) */
   width: 2.714rem;
   /* 38px — matches SiteNav globe */
   height: 2.714rem;

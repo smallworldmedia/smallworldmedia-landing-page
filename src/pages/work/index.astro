@@ -72,6 +72,10 @@ const worlds = projects
     clientName: p.clientName,
     title: p.title || null,
     year: p.year || null,
+    // S2: optional per-project accent palette (blank → brand-blue fallback
+    // everywhere the surfaces resolve --project-color).
+    projectColor: p.projectColor || null,
+    projectColorSecondary: p.projectColorSecondary || null,
     services,
     hero: hero
       ? {

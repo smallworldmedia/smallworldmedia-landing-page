@@ -26,6 +26,7 @@
 import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
+import { projectColorVars } from '../../lib/projectColor.js';
 import { SplitText } from 'gsap/SplitText';
 import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin';
 import { CustomEase } from 'gsap/CustomEase';
@@ -59,18 +60,19 @@ const CARD_TRAVEL = 70; // yPercent the card rides in/out (mirrors the media rol
 // persistent RouteFill, then client-navigate; the detail page releases it.
 // ?entercover=<ms> tunes the cover live.
 const ENTER_COVER_SECONDS = (() => {
-  if (typeof window === 'undefined') return 0.04;
+  if (typeof window === 'undefined') return 0.5;
   const n = parseFloat(new URLSearchParams(window.location.search).get('entercover'));
-  return Number.isFinite(n) ? n / 1000 : 0.04; // near-instant blue snap, per feel-pass
+  return Number.isFinite(n) ? n / 1000 : 0.5; // deliberate colour sweep into the world (dial via ?entercover=<ms>)
 })();
 let departing = false;
-function enterWorld(e, slug) {
+function enterWorld(e, slug, color) {
   if (PREFERS_REDUCED_MOTION) return; // plain ClientRouter navigation
   e.preventDefault();
   if (departing) return;
   departing = true;
   window.dispatchEvent(
-    new CustomEvent('swm:envelop', { detail: { duration: ENTER_COVER_SECONDS } })
+    // S2: the enter fill ingests the project's accent (blank → blue in RouteFill).
+    new CustomEvent('swm:envelop', { detail: { duration: ENTER_COVER_SECONDS, color } })
   );
   setTimeout(() => {
     departing = false;
@@ -281,7 +283,15 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
   if (!world) return null;
 
   return (
-    <div className="fp-card-wrap" data-phase={phase} ref={ref}>
+    <div
+      className="fp-card-wrap"
+      data-phase={phase}
+      ref={ref}
+      // S2: this card's accent palette. Scoped to the card subtree so the
+      // outgoing (exit) and incoming (enter) cards keep their own colors
+      // through a Turn; blank → the surfaces fall back to brand blue.
+      style={projectColorVars(world.projectColor, world.projectColorSecondary)}
+    >
       <span className="fp-card__tab">{`PROJECT_${pad2(index)}`}</span>
       <div className="fp-card">
         <h2 className="fp-card__client">{world.clientName}</h2>
@@ -293,7 +303,7 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         <a
           className="fp-card__cta cta-primary"
           href={`/work/${world.slug}`}
-          onClick={(e) => enterWorld(e, world.slug)}
+          onClick={(e) => enterWorld(e, world.slug, world.projectColor)}
         >
           enter_world
         </a>

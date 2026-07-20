@@ -326,7 +326,10 @@ export default function NextProjectBand({ next }) {
     // handshake with zero changes to the shell.
     tl.add(() => {
       window.dispatchEvent(
-        new CustomEvent('swm:envelop', { detail: { duration: NP_COVER_SECONDS } })
+        // S2: the enter fill ingests the next project's accent (blank → blue).
+        new CustomEvent('swm:envelop', {
+          detail: { duration: NP_COVER_SECONDS, color: next.color },
+        })
       );
     }, Math.max(0, NP_SECONDS - NP_COVER_SECONDS));
   };
@@ -484,6 +487,13 @@ export default function NextProjectBand({ next }) {
       href={`/work/${next.slug}`}
       className={`np-band${pinned ? ' is-pinned' : ''}`}
       ref={bandRef}
+      // S2: the next project's accent palette drives the pinned title/rule and
+      // the in-window cover (blank → brand blue). gsap.set(height/…) at commit
+      // writes other inline props and leaves these custom properties intact.
+      style={{
+        '--project-color': next.color || undefined,
+        '--project-color-2': next.colorSecondary || undefined,
+      }}
       onClick={onClick}
       aria-label={`Next project: ${next.clientName} — ${next.title}`}
     >

@@ -70,6 +70,20 @@ export const project = defineType({
       description:
         'When true, this project gets a dedicated Featured Project page.',
     }),
+    defineField({
+      name: 'projectColor',
+      title: 'Project Color',
+      type: 'string',
+      description:
+        'Optional accent color for this featured project (hex, e.g. #0000FF). Tints the /work card chip, service tags, enter_world CTA, left-pager active chip, this project\'s detail-page client band, and the page-enter fill. Leave blank for the default brand blue.',
+    }),
+    defineField({
+      name: 'projectColorSecondary',
+      title: 'Project Color (Secondary)',
+      type: 'string',
+      description:
+        'Optional second palette color (hex, e.g. #00E0FF) for two-tone accents. Threaded through as --project-color-2; leave blank for the default brand blue.',
+    }),
 
     // Drag-orderable rank (managed by @sanity/orderable-document-list).
     // Powers the Featured Projects experience order at /work AND the globe's

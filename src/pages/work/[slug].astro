@@ -52,6 +52,10 @@ export async function getStaticPaths() {
                 title: n.title ?? n.collection,
                 services: n.services ?? [],
                 hero: n.hero ?? null,
+                // S2: the next project's accent palette drives the np-band
+                // pinned title/rule, the in-window cover, and the enter fill.
+                color: n.color ?? null,
+                colorSecondary: n.colorSecondary ?? null,
                 index: nextIndex,
               }
             : null,

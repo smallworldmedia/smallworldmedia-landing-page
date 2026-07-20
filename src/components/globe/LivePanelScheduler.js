@@ -59,13 +59,25 @@ export default class LivePanelScheduler {
    *        video), 'off' at demote start and on any slot release/teardown.
    *        The liveAnnounced latch guarantees exactly one 'off' per 'live' —
    *        a pending rollback that never presented frames emits nothing.
+   * @param {boolean} [opts.cycleThumbnails=true] - hidden-hemisphere thumbnail
+   *        cycling. The home-hero ContentConveyor owns panel.asset/texA now, so
+   *        it passes false to stop the scheduler fighting it over texA; lab and
+   *        other callers keep the default rear-hemisphere swap.
    */
-  constructor({ panels, assets, poolHandle, textureManager, onLiveChange = null }) {
+  constructor({
+    panels,
+    assets,
+    poolHandle,
+    textureManager,
+    onLiveChange = null,
+    cycleThumbnails = true,
+  }) {
     this.panels = panels;
     this.assets = assets;
     this.pool = poolHandle;
     this.textureManager = textureManager;
     this.onLiveChange = onLiveChange;
+    this.cycleThumbnails = cycleThumbnails;
     this.disposed = false;
 
     // Next pool index for hidden swaps — starts after the initial assignment
@@ -113,7 +125,10 @@ export default class LivePanelScheduler {
       // fade in one synchronized wave.
       if (
         panel.liveState === 'live' &&
-        (((score < DEMOTE_SCORE || !visible) && now - panel.liveSince > MIN_LIVE_DWELL_SECONDS) ||
+        // Parked (past-pole, collapsed) scroll tiles demote immediately —
+        // streaming video into an invisible about-to-recycle row is wasted.
+        (panel.parked ||
+          ((score < DEMOTE_SCORE || !visible) && now - panel.liveSince > MIN_LIVE_DWELL_SECONDS) ||
           now - panel.liveSince > (panel.liveMaxDwell ?? MAX_LIVE_DWELL_SECONDS))
       ) {
         this.demote(panel);
@@ -125,6 +140,7 @@ export default class LivePanelScheduler {
       .filter(
         ({ panel, score, visible }) =>
           !panel.liveState &&
+          !panel.parked && // never stream into a collapsed past-pole scroll tile
           visible &&
           score > PROMOTE_SCORE &&
           now - (panel.lastLiveEnd ?? -Infinity) > RELIVE_COOLDOWN_SECONDS
@@ -136,15 +152,29 @@ export default class LivePanelScheduler {
       this.promote(panel, slot);
     }
 
-    // Hidden-hemisphere cycling
-    let swaps = 0;
-    for (const { panel, score } of scored) {
-      if (swaps >= MAX_SWAPS_PER_UPDATE) break;
-      if (score < SWAP_SCORE && !panel.liveState && !panel.swappedWhileHidden && !panel.swapping) {
-        this.swapHidden(panel);
-        swaps += 1;
+    // Hidden-hemisphere cycling — skipped when a ContentConveyor owns texA.
+    if (this.cycleThumbnails) {
+      let swaps = 0;
+      for (const { panel, score } of scored) {
+        if (swaps >= MAX_SWAPS_PER_UPDATE) break;
+        if (score < SWAP_SCORE && !panel.liveState && !panel.swappedWhileHidden && !panel.swapping) {
+          this.swapHidden(panel);
+          swaps += 1;
+        }
       }
     }
+  }
+
+  /**
+   * The content conveyor advanced this panel's asset — any live video here now
+   * streams the wrong tile. Demote it (crossfade back to the now-correct still);
+   * the promote loop re-establishes video on the new asset if it stays prominent.
+   * A 'pending' promotion is left alone: it's brief and will rotate off on its
+   * own, and cancelling an in-flight pool assign cleanly isn't worth the churn.
+   */
+  notifyContentChange(panel) {
+    if (this.disposed) return;
+    if (panel.liveState === 'live') this.demote(panel);
   }
 
   promote(panel, slot) {

@@ -5,6 +5,8 @@
  * overridden live via URL query params (no rebuild) for tuning, e.g.:
  *   /work?lens=-0.5&tile=1.2&scatter=0.8&zjitter=0.8&sep=0.5&fov=40
  */
+import { HOME_X } from '../bandLayout.js';
+
 export const IS_MOBILE =
   typeof window !== 'undefined' &&
   window.matchMedia('(max-width: 768px)').matches;
@@ -107,6 +109,30 @@ export const BAND_HEIGHT = num('bandh', TILE_HEIGHT * 1.7); // body reads bigger
 export const BAND_CYCLE_S = num('bandcycle', 3.2); // rest dwell between auto-advances
 export const BAND_MAX_PAGES = Math.max(2, Math.round(num('bandpages', 8))); // planes per band (memory cap)
 export const BAND_TEX_WIDTH = 800; // band texture request (px)
+
+/* — Composite band placement (FP2) — the featured-page deck is FORCED into the
+   TOP-RIGHT quadrant of the World rather than the seed's phyllotaxis slot, so
+   it lands consistently clear of the header/nav regardless of project slug.
+   Values are fractions of the visible half-extent at the band's depth:
+   +x = right, +y = up (scene convention; camera at origin looking down −Z).
+   ?bandx / ?bandy to nudge live. */
+export const BAND_POS_X = num('bandx', 0.34); // + = toward the right edge
+export const BAND_POS_Y = num('bandy', 0.36); // + = toward the top edge
+
+/* — Composite band live tunables (FP1 debug panel, ?deckdebug) — one mutable
+   store the running band reads every frame (worldBands paint/cycle) and the
+   panel writes, so the deck's rate/spacing/pose scale live with no rebuild.
+   Defaults (including any ?param seeds) reproduce the shipped pose exactly, so
+   with the panel absent nothing changes. */
+export const BAND_TUNABLES = {
+  cycleS: BAND_CYCLE_S, // rate the deck auto-advances pages (rest dwell, s)
+  spacingMul: num('deckspace', 1), // DECK_SPACING scale (card-to-card in-plane density)
+  homeX: num('deckhome', HOME_X), // front-page x-anchor (fraction of page width)
+  fanMul: num('deckfan', 1), // waiting-fan extent (how far the upcoming/back pages sit)
+  pileMul: num('deckpile', 1), // shown-pile extent (how far the shown pages sit)
+  posX: BAND_POS_X, // deck placement, +x toward right (fraction of half-width)
+  posY: BAND_POS_Y, // deck placement, +y toward top (fraction of half-height)
+};
 
 /* — Pointer parallax — */
 export const PARALLAX = num('parallax', -0.02); // camera tilt amplitude (radians)

@@ -10,10 +10,10 @@
  *   3. Project blurb — overview copy + client/date fields + ServiceTags
  *   4. Dense grid — remaining showcase assets in a flush 3-col grid,
  *      flowing around Grid Socket reserved regions (flushGrid.js) that
- *      float the composite occupants: AlbumArtViewer (full-width, top
- *      anchor) and BrandDeckViewer (right two-thirds — tiles flow beside
- *      its dealer composition; top when alone, mid when an orbit outranks
- *      it) — docs/orbit-deck-viewer-spec.md.
+ *      float the composite occupants: AlbumArtViewer and BrandDeckViewer
+ *      (both full-width — tiles flow above/below; deck takes the top
+ *      anchor when alone, mid when an orbit outranks it) —
+ *      docs/orbit-deck-viewer-spec.md.
  *   5. SiteFooter
  *
  * SiteNav, info drawer, and project overlay are handled by the
@@ -41,12 +41,11 @@ import { formatYearRange } from '../../../lib/formatYearRange.js';
 
 /* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
    Px-fixed height (~65vh on a laptop) so the reserved region stays rigid.
-   The ORBIT keeps the full-width band. The DECK reserves only the right
-   two-thirds: its dealer composition (source fan top-right, landed stack
-   upper-center — bandLayout.js) leaves the band's left edge empty, so the
-   grid tiles reclaim that column and flow beside it (flushGrid places
-   above/beside/below regions). Orbit still outranks deck for the top slot
-   when a page has both. */
+   Both ORBIT and DECK reserve the full-width band (colSpan 3): the
+   re-choreographed left-anchored conveyor (bandLayout.js) spans the row,
+   so tiles flow above/below it — not beside — and no shadowed page
+   overhangs a left-column tile (the old "floating above the grid" bug).
+   Orbit still outranks deck for the top slot when a page has both. */
 const DECK_REGION_ROWS = 34;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: DECK_REGION_ROWS, anchor: 'top' };
 
@@ -57,6 +56,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('swm:fill-release'));
   }, []);
+  // The nav accent itself is applied by the persistent RouteFill route
+  // controller (before paint, from the data-nav-accent-* attributes below) so
+  // the shell nav is already this project's colour on the first frame — no
+  // post-hydration broadcast, no brand-blue flash.
 
   const hero = assets[0] ?? null;
   const { showcase, albumArt, brandDecks } = buildContentFlow(assets);
@@ -69,8 +72,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   if (brandDecks.length > 0) {
     regions.push({
       id: 'deck',
-      colStart: 1,
-      colSpan: 2,
+      colStart: 0,
+      colSpan: 3,
       rowSpan: DECK_REGION_ROWS,
       anchor: albumArt.length > 0 ? 'mid' : 'top',
     });
@@ -146,12 +149,22 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   );
 
   return (
-    <div className="project-detail">
+    // S2: declares this project's accent for the RouteFill route controller to
+    // apply to the shell nav BEFORE paint on arrival (data-nav-accent absent →
+    // brand-blue fallback). data-nav-accent-page marks this as an accent route.
+    <div
+      className="project-detail"
+      data-nav-accent-page=""
+      data-nav-accent={project?.projectColor || undefined}
+      data-nav-accent-2={project?.projectColorSecondary || undefined}
+    >
       <ClientPanel
         client={client}
         displayTitle={displayTitle}
         year={yearDisplay}
         services={services}
+        projectColor={project?.projectColor}
+        projectColorSecondary={project?.projectColorSecondary}
       />
 
       {/* Breadcrumb back to the Featured Projects experience. Sits under

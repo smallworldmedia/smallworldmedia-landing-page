@@ -11,16 +11,30 @@
  * @param {Object} props
  * @param {Object} props.client       - client doc (name, clientType, city, country, links)
  * @param {string} props.displayTitle - collection name or project doc title
+ * @param {string} [props.projectColor]          - S2 accent (hex); tints the band bg
+ * @param {string} [props.projectColorSecondary] - S2 second palette color (hex)
  */
 
 import SocialButton, { SOCIAL_ICONS } from '../../ui/SocialButton.jsx';
+import { projectColorVars } from '../../../lib/projectColor.js';
 
-export default function ClientPanel({ client, displayTitle }) {
+export default function ClientPanel({
+  client,
+  displayTitle,
+  projectColor,
+  projectColorSecondary,
+}) {
   const basedIn = [client?.city, client?.country].filter(Boolean).join(', ');
   const socials = (client?.links ?? []).filter((l) => SOCIAL_ICONS[l.platform]);
 
   return (
-    <section className="client-panel">
+    <section
+      className="client-panel"
+      // S2: this project's accent tints the band background (blank → brand
+      // blue). Requires FeaturedProjectDetail to pass projectColor — until it
+      // does, the prop is undefined and the CSS var falls back to blue.
+      style={projectColorVars(projectColor, projectColorSecondary)}
+    >
       <h1 className="client-panel__title">
         {!displayTitle || client?.name?.toLowerCase() === displayTitle?.toLowerCase()
           ? (client?.name ?? displayTitle)

@@ -264,9 +264,9 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         </button>
       </div>
 
-      <div className="hero-tune__group">globe</div>
+      <div className="hero-tune__group">globe · flow + orient</div>
       <Row
-        label="cascade °/s"
+        label="cascade pace"
         param="cascadeSpeed"
         value={s.cascadeSpeed}
         min={0}
@@ -275,9 +275,113 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         fmt={num3}
         onChange={set}
       />
+      <Row
+        label="tilt deg"
+        param="tiltDeg"
+        value={s.tiltDeg}
+        min={0}
+        max={90}
+        step={0.5}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="yaw deg"
+        param="yawDeg"
+        value={s.yawDeg}
+        min={-180}
+        max={180}
+        step={1}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="yaw speed °/s"
+        param="yawSpeed"
+        value={s.yawSpeed}
+        min={-30}
+        max={30}
+        step={0.5}
+        fmt={num3}
+        onChange={set}
+      />
       <p className="hero-tune__note">
-        cascade (?cascadespeed) is the slow top-to-bottom content drift — deg/s
-        of pitch; 0 = still. Applied at the next globe mount (reload to change).
+        cascade (?cascadespeed) is the meridian-scroll pace — rows of tiles
+        travel pole-to-pole; higher = faster + more video load, 0 parks it. tilt
+        (?herotilt) is the brand lean (40 default), yaw (?heroyaw) is a static
+        spin, yaw speed (?yawspeed) auto-rotates the globe at a steady °/s (± for
+        direction, 0 = fixed). All apply LIVE.
+      </p>
+
+      <div className="hero-tune__group">globe · pole cap</div>
+      <Row
+        label="pole lift"
+        param="poleLift"
+        value={s.poleLift}
+        min={0}
+        max={1}
+        step={0.01}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="nose radius"
+        param="poleTip"
+        value={s.poleTip}
+        min={0}
+        max={0.5}
+        step={0.01}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="wide radius"
+        param="poleWide"
+        value={s.poleWide}
+        min={0}
+        max={0.3}
+        step={0.01}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="ramp start"
+        param="poleStart"
+        value={s.poleStart}
+        min={0.02}
+        max={1}
+        step={0.02}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="base corner"
+        param="cornerR"
+        value={s.cornerR}
+        min={0}
+        max={0.3}
+        step={0.01}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="cap size °"
+        param="poleCapDeg"
+        value={s.poleCapDeg}
+        min={0}
+        max={20}
+        step={0.5}
+        fmt={num3}
+        onChange={set}
+      />
+      <p className="hero-tune__note">
+        the near-pole height-eat. lift (?polelift) is how far the cap terminates
+        SHORT of the pole (bottom fraction that dissolves to blue; ≤0.25 keeps
+        the cap on-tile). nose (?poletip) = the cap&apos;s horizontal roundness
+        (≤0.5), wide (?polewide) = the away-end/wall radius, ramp (?polestart) =
+        the sin(θ) where the cap engages. base corner (?corner) is every
+        tile&apos;s resting radius. cap size (?polecap) is a persistent blue dome
+        that masks the residual convergence at each pole (0 = off). All LIVE.
       </p>
 
       <div className="hero-tune__group">intro</div>

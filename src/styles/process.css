@@ -14,13 +14,14 @@ html:has(body.route-process) {
   overflow: auto;
   height: auto;
   overscroll-behavior-y: none;
-  background: var(--color-black);
+  /* P2: the page opens on a blank brand-white canvas (was black) */
+  background: var(--color-cream);
 }
 
 body.route-process {
   overflow: visible;
   height: auto;
-  background: var(--color-black);
+  background: var(--color-cream);
 }
 
 /* --- Chrome variant: transparent nav over the black field --- */
@@ -33,16 +34,18 @@ body.route-process .site-nav {
   position: relative;
   width: 100%;
   min-height: 100dvh;
-  background: var(--color-black);
+  /* P2: brand-white blank canvas base. The scene grows the blue field over
+     it at S3 and crossfades the gradient at S5; data-bg re-skins copy. */
+  background: var(--color-cream);
   color: var(--color-cream);
 }
 
-/* --- Staged background (scene-driven) ---
-   Base black is the page itself. The blue field carries S1/S2 (the
-   scattered Fragments + connect-the-dots play blue-on-blue) and is
-   CONTRACTED into the Core's screen-space disc at the S3 zoom-out via a
-   scene-driven clip-path circle — the background becomes the core,
-   revealing black. S5 crossfades the home hero's gradient in. Layers sit
+/* --- Staged background (scene-driven, P2) ---
+   Base brand-WHITE (cream) is the page itself — the blank canvas S1/S2
+   play on (blue Fragments gathering as blue elements). At the S3 solidify
+   the blue field GROWS out of the Core's screen-space disc via a
+   scene-driven clip-path circle to flood the canvas — the world sits on
+   BLUE, never black. S5 crossfades the home hero's gradient in. Layers sit
    under the canvas (same z, earlier in DOM order). */
 .process-bg {
   position: fixed;
@@ -105,6 +108,36 @@ body.route-process .site-nav {
   overflow: hidden;
 }
 
+/* P1: one full-viewport stroke layer for the leaders + anchor dots (the
+   HeroLabels idiom). No viewBox → user units are CSS px, so the endpoints
+   land exactly on the projected shard anchor. */
+.process-labels__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.process-labels__leader {
+  stroke: var(--color-white);
+  stroke-width: 1;
+}
+
+.process-labels__dot {
+  fill: var(--color-white);
+}
+
+/* On the white canvas (S1/S2) the leader ink goes electric blue to read
+   against the blank field (the chip text flips to blue via the data-bg
+   skin above). */
+.process-page[data-bg='white'] .process-labels__leader {
+  stroke: var(--color-electric-blue);
+}
+
+.process-page[data-bg='white'] .process-labels__dot {
+  fill: var(--color-electric-blue);
+}
+
 .process-label {
   position: absolute;
   top: 0;
@@ -126,13 +159,57 @@ body.route-process .site-nav {
    blue. */
 .process-stage__token,
 .process-stage__caption,
-.process-hero__token {
-  transition: color 0.35s ease;
+.process-hero__token,
+/* P2: the display + prose registers recolor across the white↔blue field
+   flip too — an eased crossfade rather than a hard snap as the blue fill
+   grows/recedes over the ~0.6s dolly. */
+.process-hero__title,
+.process-stage__headline,
+.process-cta__display,
+.process-stage__blurb,
+.process-cta__line,
+.process-label {
+  transition: color 0.4s ease;
 }
 
 .process-page[data-bg='blue'] .process-stage__token,
 .process-page[data-bg='blue'] .process-stage__caption,
 .process-page[data-bg='blue'] .process-hero__token {
+  color: var(--color-white);
+}
+
+/* --- P2: white-canvas skin (S1/S2) ---
+   The blank brand-white field. White copy would vanish on it, so the
+   surfaces flip to the house electric blue (display + chrome read as the
+   "blue elements" gathering on the canvas); long prose goes near-black for
+   comfortable reading. Colors eased through the shared transition on the
+   token/caption/headline surfaces. FLAG: exact prose vs. blue split is a
+   dial for Nathan. */
+.process-page[data-bg='white'] .process-hero__title,
+.process-page[data-bg='white'] .process-stage__headline,
+.process-page[data-bg='white'] .process-cta__display,
+.process-page[data-bg='white'] .process-hero__token,
+.process-page[data-bg='white'] .process-stage__chip,
+.process-page[data-bg='white'] .process-stage__token,
+.process-page[data-bg='white'] .process-stage__caption,
+.process-page[data-bg='white'] .process-label,
+.process-page[data-bg='white'] .process-tagline,
+.process-page[data-bg='white'] .process-stepnav__cta,
+.process-page[data-bg='white'] .process-meter,
+.process-page[data-bg='white'] .process-meter__cells {
+  color: var(--color-electric-blue);
+}
+
+.process-page[data-bg='white'] .process-stage__blurb,
+.process-page[data-bg='white'] .process-cta__line {
+  color: var(--color-near-black);
+}
+
+/* Chip hover on the white field: fill electric blue, label goes white (the
+   inverse of the blue-field rule below). */
+.process-page[data-bg='white'] .process-stepnav__cta:not(:disabled):hover,
+.process-page[data-bg='white'] .process-stepnav__cta:not(:disabled):focus-visible {
+  background: var(--color-electric-blue);
   color: var(--color-white);
 }
 
@@ -286,7 +363,17 @@ body.route-process .site-nav {
   right: var(--nav-inset);
   bottom: var(--nav-inset);
   z-index: 4;
-  max-width: 24ch;
+  /* P3: one line, all caps — the tagline reads as a single mono rule
+     along the bottom edge. max-width relaxed off the 24ch prose measure
+     so it never wraps; the font shrinks on narrower desktops (min())
+     so the nowrap line stays inside the viewport. */
+  max-width: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* floor keeps it legible on narrow desktops; 1.5vw scales the nowrap line
+     down enough to stay clear of the bottom-right nav inset; capped at the
+     mono chrome size on wide viewports. */
+  font-size: clamp(0.5rem, 1.5vw, var(--text-mono));
   text-align: right;
   opacity: 0.65;
   pointer-events: none;
@@ -352,6 +439,43 @@ body.route-process .site-nav {
 .process-cta__secondary:focus-visible {
   outline: 1px dashed var(--color-electric-blue);
   outline-offset: 4px;
+}
+
+/* --- P6: back-to-top chip — the stepnav CTA idiom, in normal flow under
+   the closing actions (the walk loops back to the blank canvas). --- */
+.process-cta__top {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  border: none;
+  background: transparent;
+  color: var(--color-white);
+  opacity: 0.65;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+  transition:
+    opacity 0.18s ease-out,
+    background-color 0.18s ease-out;
+}
+
+.process-cta__top:hover,
+.process-cta__top:focus-visible {
+  opacity: 1;
+  background: var(--color-electric-blue);
+}
+
+.process-cta__top:focus-visible {
+  outline: 1px dashed var(--color-electric-blue);
+  outline-offset: 4px;
+}
+
+.process-cta__top .fp-cta__arrows {
+  width: 34px;
+  height: 20px;
 }
 
 /* --- ?debug tuning panel (spec §6 — lives on the gated route) --- */
@@ -560,14 +684,29 @@ body.route-process .site-nav {
     background-color 0.18s ease-out;
 }
 
-.process-stepnav__cta:hover,
-.process-stepnav__cta:focus-visible {
+.process-stepnav__cta:not(:disabled):hover,
+.process-stepnav__cta:not(:disabled):focus-visible {
   opacity: 1;
   background: var(--color-electric-blue);
 }
 
-.process-page[data-bg='blue'] .process-stepnav__cta:hover,
-.process-page[data-bg='blue'] .process-stepnav__cta:focus-visible {
+/* P5 states. [previous] fades fully out before the 2nd section (there's
+   nowhere back from the hero); [next] dims at the final section. Both are
+   native-`disabled` so they leave the tab order and clicks no-op — the
+   classes only carry the look, riding the base opacity transition. */
+.process-stepnav__cta.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.process-stepnav__cta.is-disabled {
+  opacity: 0.22;
+  pointer-events: none;
+  cursor: default;
+}
+
+.process-page[data-bg='blue'] .process-stepnav__cta:not(:disabled):hover,
+.process-page[data-bg='blue'] .process-stepnav__cta:not(:disabled):focus-visible {
   background: var(--color-black);
 }
 
@@ -656,6 +795,27 @@ body.route-process .site-nav {
       rgba(0, 0, 0, 0.6) 58%,
       rgba(0, 0, 0, 0) 68%
     );
+  }
+
+  /* P2: on the white canvas (S1/S2) the copy is dark — the black scrim
+     would bury it, so the phone scrim flips to a white wash instead. */
+  .process-page[data-bg='white'] .process-section {
+    background: linear-gradient(
+      to bottom,
+      rgba(250, 250, 250, 0) 32%,
+      rgba(250, 250, 250, 0.72) 42%,
+      rgba(250, 250, 250, 0.72) 58%,
+      rgba(250, 250, 250, 0) 68%
+    );
+  }
+
+  /* Dark copy on the white wash wants a light halo, not the dark one. */
+  .process-page[data-bg='white'] .process-hero__title,
+  .process-page[data-bg='white'] .process-stage__headline,
+  .process-page[data-bg='white'] .process-stage__blurb,
+  .process-page[data-bg='white'] .process-cta__display,
+  .process-page[data-bg='white'] .process-cta__line {
+    text-shadow: 0 1px 14px rgba(250, 250, 250, 0.9), 0 0 3px rgba(250, 250, 250, 0.8);
   }
 
   /* Legibility where copy overhangs the band edges over a lit globe */

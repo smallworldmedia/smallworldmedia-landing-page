@@ -77,6 +77,60 @@ export const MIN_LIVE_DWELL_SECONDS = 4;       // no promote/demote thrash durin
 export const MAX_LIVE_DWELL_SECONDS = PARAM('dwellmax', 12); // rotate slots off prominent panels
 export const RELIVE_COOLDOWN_SECONDS = PARAM('cooldown', 6); // keep rotated-off panels from re-winning at once
 
+/* — Meridian scroll (brand globe choreography, note 6) —
+   The globe holds its brand tilt; rows of TILES travel pole-to-pole (born at the
+   top pole, growing outward down the meridians, consumed at the bottom pole),
+   each tile carrying one persistent asset the whole way. The blue latitude lines
+   are the gaps between rows, so they travel in sync for free. Implemented as a
+   per-row polar-angle scroll in the vertex shader (panelMaterial uUsePolarScroll)
+   driven by MeridianScroll.
+
+   SCROLL_VISIBLE_ROWS sets the density (rows of tiles spanning pole-to-pole at
+   once); the grid builds visible+2 buffer rows (one emerging above the top pole,
+   one consuming below the bottom) so there is always a row at each pole and the
+   recycle happens unseen. pitch = π / visibleRows. Pace: the polar scroll rate
+   (rad/s) = pitch · cascadeSpeed / SCROLL_PACE_SCALE — so heroConfig's
+   cascadeSpeed is the flow speed AND the video/thumbnail-load knob. At scale 30,
+   visibleRows 6 (pitch 30°), cascadeSpeed 6 → ~0.105 rad/s → ~30s pole-to-pole. */
+export const SCROLL_VISIBLE_ROWS = 6;    // tile rows spanning the sphere at once (density)
+export const SCROLL_LAT_GAP_DEG = GAP_DEG; // travelling latitude-line thickness (matches meridian lines)
+export const SCROLL_PACE_SCALE = 30;     // scroll rate rad/s = pitch · cascadeSpeed / SCALE
+// Pole treatment (references the brand globe icon): rather than tiles converging
+// to a sharp singular point, as a tile nears a pole its pole-facing bottom LIFTS
+// into a rounded cap that terminates SHORT of the pole, leaving a clean blue pole
+// region. Driven by sin(θ_center) (the same pole-proximity as the media crop):
+// the cap ramps in once sin(θ) < START. In the panel shader the pole tile is a
+// wide rounded box INTERSECTED with a lifted elliptical bottom cap (panelMaterial
+// height-eat), so three DECOUPLED radii shape it:
+//   TIP  — the bottom cap's HORIZONTAL radius (round-vs-pointed nose; ≤ 0.5)
+//   WIDE — the away-end + straight-wall radius (keep ≈ base so the top stays square)
+//   LIFT — how far the cap's nose lifts UP off the pole (eats height; terminate-short)
+// Only affects the scroll globe (uUsePolarScroll=1).
+export const SCROLL_POLE_CORNER_TIP = 0.5;   // bottom-cap HORIZONTAL radius at the pole (round nose; ≤ 0.5)
+export const SCROLL_POLE_CORNER_WIDE = 0.3;  // away-end + wall radius at the pole (Nathan's bake)
+export const SCROLL_POLE_CORNER_START = 0.4; // sin(θ) below which the pole cap ramps in (Nathan's bake)
+// LIFT = the bottom fraction of a tile that dissolves to inner-sphere blue AT the
+// pole, so the cap terminates that far SHORT of the singularity. 0 = the cap
+// reaches the pole (today's un-lifted bottom). Keep ≤ 0.25 so the cap equator
+// (0.5 + 2·lift at the pole) stays on-tile; 0.15–0.25 reads as a clean blue cap
+// without eating the whole panel. Requires TIP ≤ 0.5. This is the BAKED default;
+// the ?herotune bench (heroConfig) dials it live via ?polelift= and copy_url.
+// 0.7 = Nathan's bake (aggressive eat; the pole cap masks the residual point).
+export const SCROLL_POLE_TIP_LIFT = 0.7;
+
+/* Pole cap — a small persistent spherical cap in the inner-sphere blue, sitting
+   just OUTSIDE the panel surface at each pole, to occlude the residual sliver
+   convergence the height-eat leaves behind (a clean blue dome over the exact
+   pole point). Angular radius in degrees (0 = off). Home scroll globe only; the
+   ?herotune bench dials it live via ?polecap= and copy_url. */
+export const SCROLL_POLE_CAP_DEG = 6;
+
+/* Base rounded-tile radius for the HOME globe's panels (UV units) — the SWM
+   lockup's panels carry a corner radius; /process + /lab pass 0 (hard edges).
+   Home-only; the ?herotune bench dials it live (?corner=). Must stay < 0.5.
+   0.07 = Nathan's bake. */
+export const PANEL_CORNER_RADIUS = 0.07;
+
 /* — Interaction — */
 export const AUTO_ROTATE_SPEED = 0.12;   // rad/s ambient drift
 export const PITCH_LIMIT_DEG = 40;

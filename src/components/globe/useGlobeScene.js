@@ -32,11 +32,12 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
-import buildGlobeGeometry from './buildGlobeGeometry.js';
+import buildGlobeGeometry, { buildScrollingGlobeGeometry } from './buildGlobeGeometry.js';
 import { createPanelMaterial } from './panelMaterial.js';
 import TextureManager, { computeCoverUv } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import LivePanelScheduler from './LivePanelScheduler.js';
+import MeridianScroll from './MeridianScroll.js';
 import buildCascadeTimeline, { panelDelay } from './cascade.js';
 import {
   LON_SEGMENTS,
@@ -53,6 +54,13 @@ import {
   GAP_COLOR,
   PANEL_FALLBACK_COLOR,
   PREFERS_REDUCED_MOTION,
+  SCROLL_VISIBLE_ROWS,
+  SCROLL_LAT_GAP_DEG,
+  SCROLL_POLE_CORNER_TIP,
+  SCROLL_POLE_CORNER_WIDE,
+  SCROLL_POLE_CORNER_START,
+  SCROLL_POLE_TIP_LIFT,
+  SCROLL_POLE_CAP_DEG,
 } from './globeConfig.js';
 
 /* — Blue-fill surge (home-hero chunk 4) — the inverted-CRT two-beat, ONE
@@ -132,6 +140,13 @@ export default function useGlobeScene(
       setBlueFill: () => {},
       setInk: () => {},
       releaseScheduler: () => {},
+      // Dev bench (?herotune) live tuning — pole cap/corner uniforms, brand
+      // orientation, scroll pace. No-ops until the scene effect assigns the
+      // real closures (and after teardown); the owner calls them optionally.
+      setPoleTuning: () => {},
+      setGlobeOrientation: () => {},
+      setCascadeSpeed: () => {},
+      setPoleCap: () => {},
       // Subscribe to live-panel transitions (LivePanelScheduler's
       // onLiveChange events, panel object included — the consumer projects
       // panel.centerDir itself). Scene-independent: never reset at
@@ -146,6 +161,28 @@ export default function useGlobeScene(
   // rebuilds (lab-style gap/cap retunes mid-session) — a rebuild after the
   // intro must come up live, not re-held.
   const schedulerReleasedRef = useRef(false);
+
+  // Dev-bench live tuning state (?herotune) — hook-level so a value survives a
+  // scene rebuild (lab gap/cap retune), the same way RIG is carried via rigRef.
+  // Seeded from the baked config/props; the bench mutates it through the api
+  // setters, and each scene build re-seeds its uniforms/rotation/scroll from it.
+  // Untouched, every field equals the shipped default → parity (the seed writes
+  // are provable no-ops, and /lab never calls the setters).
+  const tuneRef = useRef(null);
+  if (tuneRef.current === null) {
+    tuneRef.current = {
+      lift: SCROLL_POLE_TIP_LIFT,
+      tip: SCROLL_POLE_CORNER_TIP,
+      wide: SCROLL_POLE_CORNER_WIDE,
+      start: SCROLL_POLE_CORNER_START,
+      cornerR: cornerRadius,
+      tiltDeg: INITIAL_PITCH_DEG, // brand tilt; the tick applies (tiltDeg − INITIAL) as an offset
+      yawDeg: 0, // static brand spin offset
+      yawSpeed: 0, // steady auto-rotation, degrees/second (0 = fixed)
+      cascadeSpeed: Number.isFinite(cascadeSpeed) ? cascadeSpeed : 4,
+      capDeg: SCROLL_POLE_CAP_DEG, // pole-cap angular radius, degrees (0 = off)
+    };
+  }
 
   useEffect(() => {
     const container = containerRef.current;
@@ -284,13 +321,33 @@ export default function useGlobeScene(
     // (the overlay bridge is a zero-allocation path, heroOverlay.js).
     const overlayCtx = { camera, globeGroup, w: 1, h: 1 };
 
-    const { panels, innerSphereGeometry } = buildGlobeGeometry({
-      lonSegments: LON_SEGMENTS,
-      latBands: LAT_BANDS,
-      gapDeg,
-      capDeg,
-      radius: RADIUS,
-    });
+    // Conveyor/scroll mode (home hero, note 6): a finite cascadeSpeed means the
+    // brand meridian-scroll globe — rows of tiles travel pole-to-pole on the
+    // fixed-tilt sphere (MeridianScroll). lab/other callers pass null → the
+    // fixed globe with legacy yaw auto-rotate.
+    const conveyorMode = cascadeSpeed != null && Number.isFinite(cascadeSpeed);
+    const scrollPitch = Math.PI / SCROLL_VISIBLE_ROWS;
+    // Row count for cascade sequencing (buildCascadeTimeline/panelDelay): the
+    // scroll grid stacks SCROLL_VISIBLE_ROWS + 2 rows; the fixed globe is
+    // LAT_BANDS + 2 (pole rings included).
+    const totalRows = conveyorMode ? SCROLL_VISIBLE_ROWS + 2 : LAT_BANDS + 2;
+
+    const { panels, innerSphereGeometry } = conveyorMode
+      ? buildScrollingGlobeGeometry({
+          lonSegments: LON_SEGMENTS,
+          rows: SCROLL_VISIBLE_ROWS + 2, // + one buffer row beyond each pole
+          gapDeg,
+          latGapDeg: SCROLL_LAT_GAP_DEG,
+          pitchRad: scrollPitch,
+          radius: RADIUS,
+        })
+      : buildGlobeGeometry({
+          lonSegments: LON_SEGMENTS,
+          latBands: LAT_BANDS,
+          gapDeg,
+          capDeg,
+          radius: RADIUS,
+        });
 
     panels.forEach((panel) => {
       panel.mesh = new THREE.Mesh(
@@ -300,6 +357,17 @@ export default function useGlobeScene(
         // get the default 0 — hard edges, untouched.
         createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR, cornerRadius })
       );
+      // Scroll globe: spread the rows into a proper sphere from the very first
+      // frame (so the intro glyph reads as a globe, not an equatorial band) even
+      // before MeridianScroll starts animating. The shader repositions vertices,
+      // so bounds are stale — turn off frustum culling.
+      if (conveyorMode) {
+        const u = panel.mesh.material.uniforms;
+        u.uUsePolarScroll.value = 1;
+        u.uCanonTop.value = panel.canonTop;
+        u.uPolarTop.value = panel.row * scrollPitch; // MeridianScroll's scroll-0 layout
+        panel.mesh.frustumCulled = false;
+      }
       globeGroup.add(panel.mesh);
     });
 
@@ -326,6 +394,12 @@ export default function useGlobeScene(
         .loadThumbnail(asset.playbackId)
         .then((texture) => {
           if (disposed) return;
+          // A slow initial load can resolve AFTER MeridianScroll has already
+          // recycled this tile (which released this asset's ref and re-owns
+          // texA). Bail then, or we'd bind texA to a released/disposed texture.
+          // heldThumbId is set once the scroll driver exists; before that (or off
+          // the scroll path) it's null and this is a no-op.
+          if (conveyorMode && panel.heldThumbId != null && panel.heldThumbId !== asset.playbackId) return;
           const { uniforms } = panel.mesh.material;
           const { scale, offset } = computeCoverUv(1, panel.panelAspect);
           uniforms.texA.value = texture;
@@ -346,7 +420,7 @@ export default function useGlobeScene(
         });
         return;
       }
-      cascadeTl = buildCascadeTimeline(panels, variant, LAT_BANDS + 2);
+      cascadeTl = buildCascadeTimeline(panels, variant, totalRows);
     };
     // Entrance auto-start — SKIPPED under the intro hold: panels sit at
     // their built state (uPower 0 — dark screens, lit lattice) until the
@@ -394,7 +468,7 @@ export default function useGlobeScene(
       if (!blueDelays) blueDelays = new Float32Array(panels.length);
       let max = 0;
       for (let i = 0; i < panels.length; i += 1) {
-        const d = panelDelay(panels[i], variant, LAT_BANDS + 2);
+        const d = panelDelay(panels[i], variant, totalRows);
         blueDelays[i] = d;
         if (d > max) max = d;
       }
@@ -431,12 +505,15 @@ export default function useGlobeScene(
       }
     };
 
-    /* — Live video tier (Stage 2; stills only under reduced motion) —
-       Creation is deferred under the intro hold: no HLS decodes while the
-       globe is glyph-sized. releaseScheduler (idempotent — a live scheduler
-       short-circuits) starts it and latches the release for any later
-       rebuild; without a hold it starts here exactly as before. — */
+    /* — Live video tier (Stage 2; stills only under reduced motion) + the
+       meridian scroll (home hero) — both deferred under the intro hold: no HLS
+       decodes and no content flow while the globe is glyph-sized. The scheduler
+       and scroll start together; releaseScheduler (idempotent) starts them and
+       latches the release for any later rebuild; without a hold they start here
+       exactly as before. (The scroll globe is already positioned as a sphere at
+       build; deferring MeridianScroll only holds the MOTION, not the layout.) — */
     let scheduler = null;
+    let scroller = null;
     // Live-event dispatcher — ONE stable closure handed to the scheduler
     // (whichever path constructs it, including a releaseScheduler under
     // holdEntrance), fanning out to the hook-level subscriber set. Hoisted
@@ -450,7 +527,7 @@ export default function useGlobeScene(
       liveSubsRef.current.forEach(liveEmit);
     };
     const startScheduler = () => {
-      if (disposed || scheduler) return;
+      if (disposed || scheduler || scroller) return;
       scheduler =
         poolRef?.current && assets?.length && !PREFERS_REDUCED_MOTION
           ? new LivePanelScheduler({
@@ -459,6 +536,22 @@ export default function useGlobeScene(
               poolHandle: poolRef.current,
               textureManager,
               onLiveChange: emitLiveChange,
+              // The scroll driver owns panel.asset/texA under conveyor mode —
+              // stop the scheduler's hidden-hemisphere swap fighting it over texA.
+              cycleThumbnails: !conveyorMode,
+            })
+          : null;
+      // Meridian scroll: independent of the video pool (thumbnails only), so it
+      // runs whenever conveyor mode is on and motion is allowed, scheduler or
+      // not. Handed the scheduler so it can demote live video as rows recycle.
+      scroller =
+        conveyorMode && assets?.length && !PREFERS_REDUCED_MOTION
+          ? new MeridianScroll({
+              panels,
+              assets,
+              textureManager,
+              cascadeSpeed: tuneRef.current.cascadeSpeed, // bench-tunable pace (seeded from the prop)
+              scheduler,
             })
           : null;
     };
@@ -468,28 +561,98 @@ export default function useGlobeScene(
       startScheduler();
     };
 
+    /* — Dev bench live tuning (?herotune) — pole cap / corner rounding uniforms,
+       brand orientation, scroll pace. All gated by the owner opting in (Hero's
+       stampGlobeTuning); /lab never calls these. Pole/corner writes go to every
+       panel's uniforms (persisted in tuneRef so a scene rebuild re-seeds them);
+       orientation is read live in the tick; pace forwards to MeridianScroll. — */
+    const applyPoleUniforms = () => {
+      const t = tuneRef.current;
+      for (const panel of panels) {
+        const u = panel.mesh.material.uniforms;
+        u.uCornerR.value = t.cornerR;
+        u.uPoleTipLift.value = t.lift;
+        u.uPoleCornerTip.value = t.tip;
+        u.uPoleCornerWide.value = t.wide;
+        u.uPoleCornerStart.value = t.start;
+      }
+    };
+    applyPoleUniforms(); // seed from tuneRef (= config defaults when untuned → no-op)
+    apiRef.current.setPoleTuning = ({ lift, tip, wide, start, cornerR } = {}) => {
+      if (disposed) return;
+      const t = tuneRef.current;
+      if (lift != null) t.lift = lift;
+      if (tip != null) t.tip = tip;
+      if (wide != null) t.wide = wide;
+      if (start != null) t.start = start;
+      if (cornerR != null) t.cornerR = cornerR;
+      applyPoleUniforms();
+    };
+    apiRef.current.setGlobeOrientation = ({ tiltDeg, yawDeg, yawSpeed } = {}) => {
+      if (disposed) return;
+      const t = tuneRef.current;
+      if (tiltDeg != null) t.tiltDeg = tiltDeg;
+      if (yawDeg != null) t.yawDeg = yawDeg;
+      if (yawSpeed != null) t.yawSpeed = yawSpeed;
+      // read live in the tick — no re-apply needed
+    };
+    apiRef.current.setCascadeSpeed = (s) => {
+      if (disposed) return;
+      if (Number.isFinite(s)) tuneRef.current.cascadeSpeed = s;
+      if (scroller) scroller.setSpeed(tuneRef.current.cascadeSpeed);
+    };
+
+    /* — Pole caps (home scroll globe only) — a small spherical cap in the
+       inner-sphere blue at EACH pole, sitting just outside the panel surface, to
+       occlude the residual sliver convergence the height-eat leaves at the exact
+       pole point. Shares innerMaterial so it matches the gap blue and inks with
+       the intro. Angular radius (tuneRef.capDeg) is bench-tunable; 0 hides it.
+       Rebuilt (not scaled) on a size change — angular coverage can't be scaled
+       off the sphere; the geometry is tiny and only rebuilds on a slider move. — */
+    const CAP_RADIUS = RADIUS * 1.003; // just outside the panels (occludes the pinch)
+    let poleCaps = null; // { top, bottom } meshes, lazily created
+    const applyPoleCap = () => {
+      if (!conveyorMode) return; // fixed globes (/lab) keep their pole wedges — untouched
+      const ang = THREE.MathUtils.degToRad(Math.max(tuneRef.current.capDeg, 0));
+      const off = ang <= 1e-4;
+      if (!poleCaps) {
+        const top = new THREE.Mesh(new THREE.BufferGeometry(), innerMaterial);
+        const bottom = new THREE.Mesh(new THREE.BufferGeometry(), innerMaterial);
+        top.frustumCulled = false;
+        bottom.frustumCulled = false;
+        globeGroup.add(top, bottom);
+        poleCaps = { top, bottom };
+      }
+      poleCaps.top.geometry.dispose();
+      poleCaps.bottom.geometry.dispose();
+      poleCaps.top.visible = !off;
+      poleCaps.bottom.visible = !off;
+      // theta runs from +Y (0) to −Y (π): a cap at each pole is a thetaLength=ang
+      // slice off each end. Radial segs keep the rim circular; few rings suffice.
+      poleCaps.top.geometry = off
+        ? new THREE.BufferGeometry()
+        : new THREE.SphereGeometry(CAP_RADIUS, 32, 12, 0, Math.PI * 2, 0, ang);
+      poleCaps.bottom.geometry = off
+        ? new THREE.BufferGeometry()
+        : new THREE.SphereGeometry(CAP_RADIUS, 32, 12, 0, Math.PI * 2, Math.PI - ang, ang);
+    };
+    applyPoleCap(); // build at the seeded size (no-op off the scroll path)
+    apiRef.current.setPoleCap = (deg) => {
+      if (disposed || !conveyorMode) return;
+      if (Number.isFinite(deg)) tuneRef.current.capDeg = deg;
+      applyPoleCap();
+    };
+
     /* — Interaction + render loop — */
-    // Cascade mode (home hero, note 6): a constant pitch drift rolls content
-    // top-to-bottom. deg/s → rad/s; null = legacy yaw auto-rotate (lab). When
-    // cascading, pitch accumulates CONTINUOUSLY (the ±40° drag clamp would
-    // freeze the roll) — a rolling sphere has no "upside down".
-    const cascadeRad =
-      cascadeSpeed != null && Number.isFinite(cascadeSpeed)
-        ? THREE.MathUtils.degToRad(cascadeSpeed)
-        : null;
-    // ACTIVELY cascading = a nonzero speed AND motion allowed. Only then does
-    // pitch roll free of the ±40° clamp; when the ambient pitch is 0 (reduced
-    // motion, ?cascadespeed=0, or legacy yaw) the clamp must stay on so a drag
-    // can't flip the globe past vertical with no ambient drift to recover it.
-    const cascadeActive =
-      cascadeRad != null && cascadeRad !== 0 && !PREFERS_REDUCED_MOTION;
-    const controller = new InteractionController(
-      container,
-      cascadeRad != null ? { cascadeSpeed: cascadeRad } : undefined
-    );
+    // Conveyor mode holds the globe FIXED at the brand tilt (still ambient); the
+    // content flows via ContentConveyor, not rotation. Legacy callers (lab) keep
+    // the yaw auto-rotate. A drag always settles back to rest and the ±40° pitch
+    // clamp stays on in every mode, so a drag can never strand the globe.
+    const controller = new InteractionController(container, { still: conveyorMode });
     const pitchLimit = THREE.MathUtils.degToRad(PITCH_LIMIT_DEG);
     let yaw = 0;
     let pitch = THREE.MathUtils.degToRad(INITIAL_PITCH_DEG);
+    let spinYaw = 0; // accumulated steady auto-rotation (?yawspeed); 0 unless the bench dials it
 
     let accumulated = 0;
     let framesRendered = 0;
@@ -502,21 +665,45 @@ export default function useGlobeScene(
       const dt = deltaMs / 1000;
       accumulated += dt;
       if (accumulated < 1 / FPS_CAP) return;
-      const step = accumulated;
+      // Clamp the step: gsap.ticker runs lagSmoothing(0) globally, so a tab-hidden
+      // → visible resume (tick removed while hidden, re-added on resume) delivers
+      // one deltaMs spanning the whole hidden span. Unclamped that snaps the yaw
+      // auto-rotation and jumps the meridian scroll on the first frame back. 0.1s
+      // (~3–6 frames) is far above any real frame so normal motion is untouched.
+      const step = Math.min(accumulated, 0.1);
       accumulated = 0;
 
       const { dYaw, dPitch } = controller.update(step);
       yaw += dYaw;
       pitch += dPitch;
-      // Clamp drag pitch to ±limit UNLESS the cascade is actively rolling —
-      // an active cascade accumulates unbounded (three wraps it into the
-      // rotation matrix; any orientation is valid) and its ambient drift
-      // carries a drag back. A still globe (RM / speed 0 / legacy) keeps the
-      // clamp so a drag can't strand it upside-down.
-      if (!cascadeActive) {
-        pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch));
+      // Clamp drag pitch to ±limit in every mode — the globe holds a bounded
+      // orientation (fixed brand tilt under the conveyor, gentle yaw drift under
+      // legacy), so a drag can never strand it past vertical.
+      pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch));
+      // Dev-bench orientation offset (?herotune, read live): tilt is applied as
+      // (tiltDeg − INITIAL_PITCH) so the default 40 → 0 offset → parity; yaw is
+      // an absolute spin (default 0 → parity). Added AFTER the drag clamp so the
+      // bench can push the brand tilt past the ±40° drag range.
+      const orient = tuneRef.current;
+      // Steady auto-rotation (?yawspeed, read live): accumulate continuous yaw at
+      // yawSpeed °/s, wrapped bounded. 0 → spinYaw stays 0 → parity (fixed globe).
+      // Auto-rotation is MOTION, so it is suppressed under reduced motion (the
+      // globe holds its pose); the static tilt/yaw offsets below still apply.
+      if (!PREFERS_REDUCED_MOTION) {
+        spinYaw = (spinYaw + THREE.MathUtils.degToRad(orient.yawSpeed) * step) % (Math.PI * 2);
       }
-      globeGroup.rotation.set(pitch, yaw, 0);
+      globeGroup.rotation.set(
+        pitch + THREE.MathUtils.degToRad(orient.tiltDeg - INITIAL_PITCH_DEG),
+        yaw + spinYaw + THREE.MathUtils.degToRad(orient.yawDeg),
+        0
+      );
+
+      // Meridian scroll (home hero): advance the pole-to-pole tile travel on the
+      // fixed-tilt globe (writes each row's uPolarTop + refreshes centerDir).
+      // Per frame — the polar scroll is continuous. Null-safe: lab/RM never
+      // construct it. Runs before render so the frame reflects it, and before
+      // the scheduler tick so prominence scores read the fresh centerDir.
+      if (scroller) scroller.update(step);
 
       renderer.render(scene, camera);
       // Overlay bridge (home hero): hand the just-rendered frame to the DOM
@@ -593,12 +780,17 @@ export default function useGlobeScene(
       apiRef.current.setBlueFill = () => {};
       apiRef.current.setInk = () => {};
       apiRef.current.releaseScheduler = () => {};
+      apiRef.current.setPoleTuning = () => {};
+      apiRef.current.setGlobeOrientation = () => {};
+      apiRef.current.setCascadeSpeed = () => {};
+      apiRef.current.setPoleCap = () => {};
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       if (tickerActive) gsap.ticker.remove(tick);
       if (cascadeTl) cascadeTl.kill();
       if (scheduler) scheduler.dispose();
+      if (scroller) scroller.dispose();
       controller.dispose();
       textureManager.disposeAll();
       panels.forEach((panel) => {
@@ -607,6 +799,10 @@ export default function useGlobeScene(
       });
       innerSphereGeometry.dispose();
       innerMaterial.dispose();
+      if (poleCaps) {
+        poleCaps.top.geometry.dispose();
+        poleCaps.bottom.geometry.dispose();
+      }
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();

@@ -6,7 +6,9 @@
  * it, and the arriving route releases it once its scene is mounted.
  *
  * Cross-island protocol (CustomEvents, house convention):
- *   - `swm:envelop`       → cover. detail.duration overrides the fade-in.
+ *   - `swm:envelop`       → cover. detail.duration overrides the fade-in;
+ *     detail.color (S2) tints the fill to the destination project's accent
+ *     for this passage (absent → the default brand blue).
  *   - `swm:fill-release`  → uncover. Dispatched by the destination on mount.
  *   - `swm:fill-progress` → partial opacity tracking a live gesture
  *     (detail.value 0..1, detail.duration optional). Input stays live —
@@ -18,6 +20,7 @@
  */
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
+import { applyNavAccent, reapplyNavAccent, clearNavAccent } from '../lib/navAccent.js';
 
 // Live tuning (?key=value, ms) — read once when the persistent shell first
 // mounts, so put the knob on the URL you LOAD (it survives client navs).
@@ -63,6 +66,13 @@ export default function RouteFill() {
     const cover = (e) => {
       covered = true;
       fill.style.pointerEvents = 'auto'; // swallow input during the passage
+      // S2: tint the fill to the destination project's accent for this
+      // passage. Set the same --project-color token the CSS resolves through;
+      // clearing it when absent restores the brand-blue fallback, so every
+      // transition explicitly establishes its color (no stale tint carries over).
+      const color = e?.detail?.color;
+      if (color) fill.style.setProperty('--project-color', color);
+      else fill.style.removeProperty('--project-color');
       if (reducedMotion) {
         gsap.set(fill, { autoAlpha: 1 });
         return;
@@ -97,16 +107,42 @@ export default function RouteFill() {
       safetyTimer = setTimeout(release, SAFETY_MS);
     };
 
+    // ── Single nav-accent control point across route swaps ──
+    // The nav (z-100 shell) stays visible above this fill through every passage,
+    // so its colour must be right on the FIRST painted frame of the arriving
+    // route. astro:after-swap runs before that paint — and after astro has wiped
+    // <html>'s inline style — so re-establishing the accent here removes the
+    // brand-blue flash. Detail pages declare their accent statically
+    // (data-nav-accent-page); /work owns its own live, so we just re-assert the
+    // colour it carried into the swap (keeps it through the breadcrumb back);
+    // home/process clear back to blue.
+    const syncNavAccent = () => {
+      const page = document.querySelector('[data-nav-accent-page]');
+      if (page) {
+        applyNavAccent(page.dataset.navAccent || undefined, page.dataset.navAccent2 || undefined, false);
+        return;
+      }
+      const route = document.body.className;
+      if (route.includes('route-home') || route.includes('route-process')) {
+        clearNavAccent();
+        return;
+      }
+      reapplyNavAccent(); // /work — keep the pre-swap colour (breadcrumb back)
+    };
+
     window.addEventListener('swm:envelop', cover);
     window.addEventListener('swm:fill-release', release);
     window.addEventListener('swm:fill-progress', progress);
     document.addEventListener('astro:page-load', onPageLoad);
+    document.addEventListener('astro:after-swap', syncNavAccent);
+    syncNavAccent();
     return () => {
       clearTimeout(safetyTimer);
       window.removeEventListener('swm:envelop', cover);
       window.removeEventListener('swm:fill-release', release);
       window.removeEventListener('swm:fill-progress', progress);
       document.removeEventListener('astro:page-load', onPageLoad);
+      document.removeEventListener('astro:after-swap', syncNavAccent);
     };
   }, []);
 

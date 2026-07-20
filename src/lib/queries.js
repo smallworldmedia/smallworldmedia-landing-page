@@ -104,6 +104,8 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
     "projectId": _id,
     "slug": slug.current,
     title,
+    "color": projectColor,
+    "colorSecondary": projectColorSecondary,
     "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
     "clientName": client->name,
     "clientSlug": client->slug.current,
@@ -251,6 +253,8 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     "yearStart": coalesce(yearStart, year),
     yearEnd,
     isOngoing,
+    projectColor,
+    projectColorSecondary,
     "services": services[]->{ name, "slug": slug.current }
   }
 }`;
@@ -274,6 +278,8 @@ export const FEATURED_WORLDS_QUERY = `
     yearEnd,
     isOngoing,
     orderRank,
+    projectColor,
+    projectColorSecondary,
     "clientName": client->name,
     "clientSlug": client->slug.current,
     "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,

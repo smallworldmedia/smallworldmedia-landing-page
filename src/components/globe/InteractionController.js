@@ -6,11 +6,12 @@
  * velocity GSAP-tweens back to ambient drift (power2.out — smooth family),
  * so the globe never stops dead.
  *
- * Ambient mode (home hero, note 6): when a `cascadeSpeed` (rad/s) is given,
- * the ambient drift is a constant PITCH roll instead of yaw — the sphere
- * rotates about its horizontal axis so surface content flows top-to-bottom
- * toward the near pole (a slow content cascade). Callers that pass nothing
- * (lab, other) keep the legacy yaw auto-rotate. Reduced motion → still.
+ * Ambient mode: `still` (home hero, note 6) holds the globe FIXED at its brand
+ * tilt — no drift; a drag flicks then settles back to rest, and the pitch clamp
+ * keeps it from being stranded. The content cascade is a fixed-globe CONTENT
+ * conveyor now (ContentConveyor), not a rotation, so the controller no longer
+ * drives it. Callers that pass nothing (lab, other) keep the legacy yaw
+ * auto-rotate. Reduced motion → still regardless.
  */
 import gsap from 'gsap';
 import {
@@ -22,16 +23,13 @@ import {
 } from './globeConfig.js';
 
 export default class InteractionController {
-  constructor(el, { cascadeSpeed = null } = {}) {
+  constructor(el, { still = false } = {}) {
     this.el = el;
-    // Ambient rest velocity. Cascade mode = pitch drift (content flows down —
-    // positive dPitch moves the camera-facing surface screen-down under the
-    // elevated underside view); legacy = yaw drift. RM stills both.
-    const cascade = cascadeSpeed != null;
-    this.ambient = PREFERS_REDUCED_MOTION
-      ? { yaw: 0, pitch: 0 }
-      : cascade
-        ? { yaw: 0, pitch: cascadeSpeed }
+    // Ambient rest velocity. still (home hero) / reduced motion = no drift;
+    // legacy = yaw auto-rotate. A drag always settles back to this rest.
+    this.ambient =
+      PREFERS_REDUCED_MOTION || still
+        ? { yaw: 0, pitch: 0 }
         : { yaw: AUTO_ROTATE_SPEED, pitch: 0 };
     this.dragging = false;
     this.vel = { yaw: this.ambient.yaw, pitch: this.ambient.pitch };

@@ -82,7 +82,10 @@ import {
   HERO_INTRO_EASE_PATH,
   subscribeHeroTune,
 } from './hero/heroConfig.js';
-import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
+import {
+  PREFERS_REDUCED_MOTION,
+  PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
+} from './globe/globeConfig.js';
 import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS } from '../lib/motion.js';
 
 gsap.registerPlugin(useGSAP, CustomEase);
@@ -130,8 +133,9 @@ const ENV_SCALE = PARAM('envscale', 3.0);
 
 /* — Rounded panel tiles (note 5) — UV-space radius the home globe passes to
    VideoGlobe (lockup fidelity, the SWM mark's panels carry a corner radius).
-   Home-only: /lab and /process get the default 0 (hard edges). — */
-const PANEL_CORNER_RADIUS = 0.12;
+   Home-only: /lab and /process get the default 0 (hard edges). Lives in
+   globeConfig now so heroConfig's bench can seed ?corner from the same value. — */
+const PANEL_CORNER_RADIUS = GLOBE_PANEL_CORNER_RADIUS;
 
 /* — Commit beat map — ONE linear timeline `raw.p`, split by ?bluelead
    (note 4: "the blue fill should happen FIRST and then lead into the globe
@@ -172,6 +176,12 @@ const ENV_PRE_COVER = PARAM('envpre', 45) / 100; // blue opacity at full drag (f
    blue by the same fraction (pinned solid blue at commit). — */
 const CTA_MAX_EXTRA = 0.3;
 
+/* — Globe outer stroke (Globe/Homepage): a flat electric-blue disc behind the
+   canvas, sized this fraction proud of the globe disc so only a thin ring shows
+   at the silhouette (the lockup mark's outer stroke), scaling with the intro
+   zoom. ?globestroke=<pct> dials it (0 = off). — */
+const GLOBE_STROKE_FRAC = PARAM('globestroke', 5) / 100;
+
 export default function Hero({ globeAssets }) {
   const heroRef = useRef(null);
   const veilRef = useRef(null);
@@ -180,6 +190,7 @@ export default function Hero({ globeAssets }) {
   const accumRef = useRef(0);
   const idleRef = useRef(null);
   const leadColRef = useRef(null); // the tagline + scroll_to_enter button column
+  const strokeRef = useRef(null); // globe outer-stroke disc (tracks the overlay disc)
 
   // scroll_to_enter button fill state — the /work model (fill 0..1, mode
   // drag|release|commit-pin) restored from the pre-ring button. The gesture
@@ -264,9 +275,34 @@ export default function Hero({ globeAssets }) {
     handle.rig.roll = HERO_TUNING.roll;
     handle.apply();
   };
+  // Push the globe's own tunables (pole cap / corner rounding, brand
+  // orientation, scroll pace) onto the live scene api. Independent of the
+  // camera rig AND the intro machine — the pole treatment applies during the
+  // intro too — so this is ungated. No-op until the globe api is up (VideoGlobe
+  // aliases it), and the values equal the baked defaults unless a URL/bench
+  // change moved them, so an untouched load is a no-op.
+  const stampGlobeTuning = () => {
+    const api = sceneApiRef.current;
+    if (!api) return;
+    api.setPoleTuning({
+      lift: HERO_TUNING.poleLift,
+      tip: HERO_TUNING.poleTip,
+      wide: HERO_TUNING.poleWide,
+      start: HERO_TUNING.poleStart,
+      cornerR: HERO_TUNING.cornerR,
+    });
+    api.setGlobeOrientation({
+      tiltDeg: HERO_TUNING.tiltDeg,
+      yawDeg: HERO_TUNING.yawDeg,
+      yawSpeed: HERO_TUNING.yawSpeed,
+    });
+    api.setCascadeSpeed(HERO_TUNING.cascadeSpeed);
+    api.setPoleCap(HERO_TUNING.poleCapDeg);
+  };
   useEffect(() => {
     const applyTuning = () => {
-      if (!introDoneRef.current) return; // the intro machine owns the rig
+      stampGlobeTuning(); // globe uniforms/orientation/pace — always, intro included
+      if (!introDoneRef.current) return; // the intro machine owns the camera rig
       stampTuning();
     };
     applyTuning();
@@ -651,6 +687,32 @@ export default function Hero({ globeAssets }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Globe outer stroke — track the live disc every frame ──
+  // Transform-only (a 200px base circle translated + scaled to the live
+  // diameter, just proud of the disc), so it's compositor-cheap despite running
+  // per frame. Hidden until the first real disc lands; sized proud so only a
+  // thin ring shows past the (opaque) globe silhouette — the lockup outer stroke
+  // that scales through the intro zoom / commit. Off entirely at ?globestroke=0.
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    const el = strokeRef.current;
+    if (!overlay || !el || GLOBE_STROKE_FRAC <= 0) return undefined;
+    const BASE = 200;
+    let shown = false;
+    const unframe = overlay.onFrame((frame) => {
+      const { cx, cy, r } = frame.disc;
+      if (!r) return;
+      const d = 2 * r * (1 + GLOBE_STROKE_FRAC);
+      el.style.transform = `translate(${(cx - d / 2).toFixed(1)}px, ${(cy - d / 2).toFixed(1)}px) scale(${(d / BASE).toFixed(4)})`;
+      if (!shown) {
+        shown = true;
+        el.style.visibility = 'visible';
+      }
+    });
+    return unframe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Scroll-fill → envelopment (the /work wheel/touch accumulator) ──
   useEffect(() => {
     const clearIdle = () => {
@@ -768,6 +830,10 @@ export default function Hero({ globeAssets }) {
           BELOW the canvas, so the wordmark phase gets black + live globe
           for free. The machine (full) / settle (replay) thins it away. */}
       <div className="hero__veil" ref={veilRef} aria-hidden="true" />
+      {/* Globe outer stroke — behind the canvas, tracks the disc (Hero effect). */}
+      {GLOBE_STROKE_FRAC > 0 && (
+        <div className="hero__globe-stroke" ref={strokeRef} aria-hidden="true" />
+      )}
       <div className="hero__globe">
         <VideoGlobe
           assets={globeAssets}

@@ -53,6 +53,7 @@ import {
   THUMB_SIZE,
   DEPTH_TIERS,
   SHELL_RADIUS,
+  SHELL_LINE_COLOR,
   PARALLAX,
   PARALLAX_LERP,
   TILE_FALLBACK_COLOR,
@@ -72,8 +73,17 @@ import {
   WORLD_MAX_LIVE,
   BANDS_ENABLED,
   BAND_TIER,
+  BAND_TUNABLES,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
+
+// Half-angle tangent of the camera's vertical FOV — maps a depth to the
+// visible half-height there, so the band can be pinned to a quadrant fraction.
+const BAND_TAN_V = Math.tan((CAMERA_FOV * Math.PI) / 360);
+
+// S2: how far to dim a project accent when it tints the background grid, so a
+// bright accent (e.g. lime) stays a faint field rather than a glaring wall.
+const GRID_TINT_DIM = 0.6;
 
 gsap.registerPlugin(CustomEase);
 
@@ -114,6 +124,7 @@ function applyCover(material, texture, planeAspect, texAspect) {
 export default function useWorldScene(containerRef, world, index, poolRef) {
   const apiRef = useRef(null);
   const prevIndexRef = useRef(null);
+  const shellRef = useRef(null);
 
   // ── Setup: renderer / composer / scene / camera / shell / loop (mount once) ──
   useEffect(() => {
@@ -136,6 +147,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
 
     const shell = buildShell();
     scene.add(shell);
+    shellRef.current = shell;
 
     // Nearest tier (smallest |z|) gets the largest parallax; the Shell is the base (1×).
     const tierGain = DEPTH_TIERS.map((z) => SHELL_RADIUS / Math.abs(z));
@@ -354,20 +366,35 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         );
       });
 
-      // Composite bands — pinned to the band tier; the seeded position is
-      // rescaled from its placement depth so the angular spot is preserved.
+      // Composite bands — pinned to the band tier. FP2: the deck is FORCED into
+      // the TOP-RIGHT quadrant (+x right, +y up) rather than its seeded slot, so
+      // it lands consistently clear of the header/nav for any project. The
+      // anchor (half-extents × BAND_TUNABLES.pos*) is re-read live in
+      // applyParallax so the debug panel can nudge the placement without a rebuild.
       bandDefs.forEach((def, j) => {
-        const pl = placements[count + j];
         const z = DEPTH_TIERS[BAND_TIER] + (j === 0 ? -0.18 : 0.18);
-        const fit = Math.abs(z / pl.z);
+        const halfH = Math.abs(z) * BAND_TAN_V;
+        const halfW = halfH * (camera.aspect || 1);
+        // A second band tucks inboard so two decks (deck + album) don't overlap.
+        const inboard = j === 0 ? 1 : 0.6;
+        const anchorW = halfW * inboard;
         const band = createWorldBand({
           items: def.items,
           ratio: def.ratio,
-          placement: { x: pl.x * fit, y: pl.y * fit, z },
+          placement: {
+            x: anchorW * BAND_TUNABLES.posX,
+            y: halfH * BAND_TUNABLES.posY,
+            z,
+          },
           parent: slot.tierGroups[BAND_TIER],
           loader,
           ease: turnRollEase,
+          tune: BAND_TUNABLES,
         });
+        // Half-extents kept so applyParallax can re-derive the rest position
+        // from the live pos* tunables each frame (top-right quadrant nudging).
+        band.anchorW = anchorW;
+        band.anchorH = halfH;
         slot.bands.push(band);
         if (firstView && !PREFERS_REDUCED_MOTION) {
           gsap.to(band, {
@@ -518,6 +545,12 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // Composite bands: same spawn→rest push-out and load-fade compositing
       // as a Tile, applied to the whole body; page poses come from the band.
       for (const b of slot.bands) {
+        // FP2/FP1: re-anchor to the live top-right placement each frame so the
+        // panel's deck-position sliders move the deck without a rebuild.
+        if (b.anchorW != null) {
+          b.baseX = b.anchorW * BAND_TUNABLES.posX;
+          b.baseY = b.anchorH * BAND_TUNABLES.posY;
+        }
         const k = b.appear;
         b.group.position.x = b.baseX * TILE_SPAWN_FRAC + b.baseX * (1 - TILE_SPAWN_FRAC) * k;
         b.group.position.y = b.baseY * TILE_SPAWN_FRAC + b.baseY * (1 - TILE_SPAWN_FRAC) * k;
@@ -622,5 +655,23 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     const direction = prev == null ? 0 : Math.sign(index - prev);
     prevIndexRef.current = index;
     apiRef.current.goToWorld(world, direction);
+    // S2: the background grid ingests the focused project's accent (dimmed to
+    // keep the lat/long lines a faint field rather than a bright wall); a
+    // colourless project restores the default deep-blue grid.
+    const shell = shellRef.current;
+    if (shell) {
+      const target = new THREE.Color(world?.projectColor || SHELL_LINE_COLOR);
+      if (world?.projectColor) target.multiplyScalar(GRID_TINT_DIM);
+      // Cross-fade the grid to the focused accent on the SAME house curve +
+      // duration as the World Turn, so the field recolours as the roll plays.
+      gsap.to(shell.material.color, {
+        r: target.r,
+        g: target.g,
+        b: target.b,
+        duration: TURN_DURATION,
+        ease: turnRollEase,
+        overwrite: true,
+      });
+    }
   }, [world?.slug, index]);
 }

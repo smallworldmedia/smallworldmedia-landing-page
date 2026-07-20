@@ -20,6 +20,7 @@ import useProcessCopy from './useProcessCopy.js';
 import ProcessDebugPanel from './ProcessDebugPanel.jsx';
 import ProcessStepCtas from './ProcessStepCtas.jsx';
 import ProcessMeter from './ProcessMeter.jsx';
+import CtaArrows from '../work/CtaArrows.jsx';
 
 export default function ProcessPage() {
   const rootRef = useRef(null);
@@ -47,11 +48,18 @@ export default function ProcessPage() {
     window.dispatchEvent(new CustomEvent('swm:open-overlay'));
   };
 
+  // P6: back-to-top glide — the scroll driver owns the motion (house Turn
+  // curve via Lenis, or an instant jump under reduced motion).
+  const backToTop = () => {
+    window.dispatchEvent(new CustomEvent('swm:process-home'));
+  };
+
   return (
-    <div className="process-page" ref={rootRef} data-bg="blue">
-      {/* Staged background under the canvas: base black (the page), the
-          S5 home-hero gradient, the S1/S2 electric-blue field the scene
-          contracts into the Core at S3 (clip-path circle, scene-driven) */}
+    <div className="process-page" ref={rootRef} data-bg="white">
+      {/* Staged background under the canvas (P2): base BRAND-WHITE canvas
+          (S1/S2), the S3/S4 electric-blue field the scene grows out of the
+          Core at the solidify (clip-path circle, scene-driven), the S5
+          home-hero gradient */}
       <div className="process-bg" aria-hidden="true">
         <div className="process-bg__gradient" ref={gradientRef} />
         <div className="process-bg__blue" ref={blueRef} />
@@ -104,6 +112,16 @@ export default function ProcessPage() {
               {CTA.secondary}
             </a>
           </div>
+          {/* P6: back-to-top under the closing CTA — the walk loops back to
+              the blank canvas. */}
+          <button
+            type="button"
+            className="process-cta__top"
+            onClick={backToTop}
+          >
+            <CtaArrows direction="up" />
+            <span className="fp-cta__label">back_to_top</span>
+          </button>
         </section>
       </div>
 

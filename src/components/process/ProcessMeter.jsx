@@ -55,6 +55,16 @@ export default function ProcessMeter() {
   }, []);
 
   const cur = Math.round(frac * (total - 1)) + 1;
+
+  // P5: broadcast the active section index so ProcessStepCtas can hide
+  // [previous] before the 2nd section and disable [next] at the last.
+  // 0-based to match the stepper's clamp math; re-fires only when it moves.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('swm:process-index', { detail: { index: cur - 1, total } })
+    );
+  }, [cur, total]);
+
   return (
     <div className="process-meter" aria-hidden="true">
       <span className="process-meter__label">the_process</span>

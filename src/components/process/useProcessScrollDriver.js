@@ -53,6 +53,10 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
       const root = rootRef.current;
       if (!root) return undefined;
 
+      // Shared house curve for the top-level glides (P6 back-to-top, and
+      // the fallback path). The quantizer builds its own inside attach.
+      const homeEase = CustomEase.create('processHome', TURN_EASE_PATH);
+
       // Reduced motion: no timelines — every boundary is a single-frame
       // still (spec §7). Every state stays reachable in both directions.
       const drive = (stageId, { instant = false } = {}) => {
@@ -404,6 +408,25 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
       };
       window.addEventListener('swm:process-step', onStep);
 
+      /* P6 back-to-top (the closing "YOUR WORLD NEXT" control) → a smooth
+         glide to the top on the house Turn curve, modeled on the Home-key
+         handler. force:true glides even while the quantizer holds Lenis
+         stopped; under reduced motion (no Lenis) it's an instant jump. */
+      const onHome = () => {
+        const lenis = getLenis();
+        if (lenis && !PREFERS_REDUCED_MOTION) {
+          lenis.scrollTo(0, {
+            duration: TUNING.swipeSeconds,
+            easing: homeEase,
+            force: true,
+            lock: true,
+          });
+        } else {
+          window.scrollTo(0, 0);
+        }
+      };
+      window.addEventListener('swm:process-home', onHome);
+
       const onPageLoad = () => {
         attachLenis();
         ScrollTrigger.refresh();
@@ -419,6 +442,7 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
         disposed = true;
         document.removeEventListener('astro:page-load', onPageLoad);
         window.removeEventListener('swm:process-step', onStep);
+        window.removeEventListener('swm:process-home', onHome);
         quantizerCleanup?.();
         if (lockedLenis) getLenis()?.start(); // hand free scroll back to the site
         if (bridged) bridged.off('scroll', ScrollTrigger.update);

@@ -45,7 +45,9 @@ html:has(.project-detail) body {
   gap: 1rem;
   width: 100%;
   padding: 3.5rem 0.571rem 1rem;
-  background: var(--color-electric-blue);
+  /* S2: this project's accent (set on the .client-panel section via
+     ClientPanel's projectColor prop); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
 }
 
 .client-panel__title {
@@ -57,7 +59,8 @@ html:has(.project-detail) body {
   /* 74/96 */
   letter-spacing: -0.005em;
   text-transform: uppercase;
-  color: var(--color-white);
+  /* S2: readable ink on the accent-filled band (dark on light accents). */
+  color: var(--project-color-fg, var(--color-white));
   max-width: clamp(400px, 58vw, 1054px);
 }
 
@@ -126,6 +129,11 @@ html:has(.project-detail) body {
   /* 28px — tight-fill baseline */
   height: 2rem;
   object-fit: contain;
+  /* S2: the marks are white <img> SVGs (CSS colour can't reach into an <img>),
+     so the same light/dark flip the title uses is delivered as a filter —
+     brightness(0) darkens them to near-black on a light accent (inherited
+     --project-globe-filter from .client-panel); dark accents leave them white. */
+  filter: var(--project-globe-filter, none);
 }
 
 /* Per-platform optical corrections — viewBox fill varies per logo */
@@ -575,7 +583,11 @@ a.release-chip--link:hover {
 }
 
 .detail-breadcrumb:hover {
-  background: var(--color-electric-blue);
+  /* S2: this project's accent (inherited from the <html> detail broadcast);
+     blank → brand blue. Ink flips to the readable contrast colour so the
+     label stays legible on a light accent (e.g. HHS lime). */
+  background: var(--project-color, var(--color-electric-blue));
+  color: var(--project-color-fg, var(--color-white));
 }
 
 .detail-breadcrumb__glyph {
@@ -670,11 +682,13 @@ a.release-chip--link:hover {
 
 /* The pinned-blue moment: threshold crossed, held through the passage. */
 .np-band.is-pinned .np-band__title {
-  color: var(--color-electric-blue);
+  /* S2: the NEXT project's accent (set on .np-band via next.color); blank → blue. */
+  color: var(--project-color, var(--color-electric-blue));
 }
 
 .np-band.is-pinned .np-band__rule {
-  background: var(--color-electric-blue);
+  /* S2: the NEXT project's accent (set on .np-band via next.color); blank → blue. */
+  background: var(--project-color, var(--color-electric-blue));
 }
 
 /* Media window — right edge pinned, height locked, sized by the COMPONENT
@@ -721,7 +735,8 @@ a.release-chip--link:hover {
   position: absolute;
   inset: 0;
   z-index: 1; /* above the (static) media-inner and its media el */
-  background: var(--color-electric-blue);
+  /* S2: the NEXT project's accent (set on .np-band via next.color); blank → blue. */
+  background: var(--project-color, var(--color-electric-blue));
   opacity: 0;
   pointer-events: none;
 }

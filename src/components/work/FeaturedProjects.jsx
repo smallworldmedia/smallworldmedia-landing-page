@@ -31,8 +31,12 @@ import CtaArrows from './CtaArrows.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
 import Fp1TunePanel from './Fp1TunePanel.jsx';
 import { FP1_TUNE_ACTIVE } from './fp1Tune.js';
+// Deck Viewer live-tuning bench — dev-only, mounts solely under ?deckdebug.
+import FeaturedDeckDebugPanel from './FeaturedDeckDebugPanel.jsx';
 import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
+import { projectColorVars } from '../../lib/projectColor.js';
+import { applyNavAccent } from '../../lib/navAccent.js';
 import {
   SCROLL_TRIGGER_WORK_PX,
   TOUCH_GAIN,
@@ -75,6 +79,12 @@ export default function FeaturedProjects({ worlds = [] }) {
   // flip on in an effect — SSR and first client render both emit nothing.
   const [fp1TuneOn, setFp1TuneOn] = useState(false);
   useEffect(() => { if (FP1_TUNE_ACTIVE) setFp1TuneOn(true); }, []);
+  // Deck Viewer debug panel — same hydration-safe gate (SSR/first render emit
+  // nothing, flip on after mount when ?deckdebug is present).
+  const [deckDebugOn, setDeckDebugOn] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('deckdebug')) setDeckDebugOn(true);
+  }, []);
   // Co-present cards during a Turn: the incoming (phase 'enter') + the outgoing
   // (phase 'exit'), so the card rides in/out with the media. Each is keyed by index.
   const [cards, setCards] = useState([{ index: 0, dir: 1, phase: 'enter' }]);
@@ -134,6 +144,19 @@ export default function FeaturedProjects({ worlds = [] }) {
       /* storage unavailable — nothing to persist */
     }
   }, [active]);
+
+  // Drive the /work nav accent live as the active World changes, through the
+  // shared control point (navAccent) so the /work index and the detail page
+  // tint from ONE code path. First application (page arrival) is instant; later
+  // ones ride the cross-fade. No unmount-clear — the RouteFill route controller
+  // owns clearing on non-accent routes, so the colour survives the swap to a
+  // detail page (no blue flash) and persists through the breadcrumb back.
+  const firstNavAccent = useRef(true);
+  useEffect(() => {
+    const fw = worlds[active];
+    applyNavAccent(fw?.projectColor, fw?.projectColorSecondary, !firstNavAccent.current);
+    firstNavAccent.current = false;
+  }, [worlds, active]);
 
   const TURN_MS = TURN_DURATION * 1000;
   const clearIdle = () => {
@@ -427,7 +450,13 @@ export default function FeaturedProjects({ worlds = [] }) {
   // `committing` is true only for the CTA in the direction that was triggered.
   const ctaColor = (f, committing) => {
     if (committing && ctaMode === 'commit-pin') {
-      return { '--cta-bg': 'var(--color-electric-blue)', '--cta-fg': 'var(--color-white)' };
+      // S2: flash the DESTINATION project's accent (inherited from the .fp root,
+      // which already holds the committed project's vars) with readable ink —
+      // not the old hardcoded brand blue.
+      return {
+        '--cta-bg': 'var(--project-color, var(--color-electric-blue))',
+        '--cta-fg': 'var(--project-color-fg, var(--color-white))',
+      };
     }
     const pct = Math.round(Math.min(1, Math.max(0, f)) * 100);
     return {
@@ -449,8 +478,20 @@ export default function FeaturedProjects({ worlds = [] }) {
   const w = worlds[active];
 
   return (
-    <main className="fp" aria-label="Featured projects" ref={mainRef}>
+    <main
+      className="fp"
+      aria-label="Featured projects"
+      ref={mainRef}
+      // S2: the focused (active) project's accent, broadcast at the page root.
+      // The left-pager active chip resolves --project-color from here; per-card
+      // surfaces override it on their own .fp-card-wrap so a Turn keeps each
+      // card's color. Blank → brand-blue fallback. Deferred surfaces
+      // (.fp-canvas gradient, nav bar, WebGL grid) still hardcode blue and are
+      // unaffected by this var.
+      style={projectColorVars(w?.projectColor, w?.projectColorSecondary)}
+    >
       {fp1TuneOn && <Fp1TunePanel />}
+      {deckDebugOn && <FeaturedDeckDebugPanel />}
       <WorldScene world={w} index={active} />
 
       <nav

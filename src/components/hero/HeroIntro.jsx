@@ -93,9 +93,10 @@ const A_CHARS_IN_SEC = 0.9; // materialize window
 const A_IGNITION_GAP_SEC = 0.6; // sparks land, THEN the zoom
 const A_TAIL_SEC = 0.4; // introms envelope past the zoom's end
 const A_LAUNCH_MIN_SEC = 0.8; // floor when the knobs squeeze the zoom
-const A_CHARS_GONE_E = 0.35; // chars have tracked apart + faded by here
+const A_CHARS_GONE_E = 0.55; // chars have left frame / been covered by the globe by here
 const A_CHROME_E = 0.8; // chrome beat + releaseScheduler
-const A_TRACK_PX = 40; // outward tracking at full e
+const A_CHARS_EXIT_PAD = 48; // px past the viewport edge each char travels to leave frame
+const A_CHARS_SCALE = 1.12; // slight scale-up as the growing globe obscures them
 const A_INK_E = [0.2, 0.7]; // setInk window on e
 
 /* — Variant C script (seconds; authored, ~3.2s total — the A timing knobs
@@ -315,7 +316,13 @@ export default function HeroIntro({ rigRef, sceneApiRef, veilRef, onChromeBeat, 
       chars.forEach((c) => {
         const b = c.getBoundingClientRect(); // one-time read, launch start
         const dir = b.left + b.width / 2 < ocx ? -1 : 1;
-        tl.to(c, { x: dir * A_TRACK_PX, autoAlpha: 0, duration: 1, ease: 'none' }, 0);
+        // The globe (now z-above the wordmark) OBSCURES the letters as it grows;
+        // each char slides fully off its side of the viewport + scales up a touch
+        // on the way, and does NOT fade — it's covered / carried out of frame, not
+        // dissolved. Exit distance carries the char's near edge past the viewport.
+        const exit =
+          dir > 0 ? rb.right - b.left + A_CHARS_EXIT_PAD : -(b.right - rb.left + A_CHARS_EXIT_PAD);
+        tl.to(c, { x: exit, scale: A_CHARS_SCALE, duration: 1, ease: 'none' }, 0);
       });
       return tl;
     };

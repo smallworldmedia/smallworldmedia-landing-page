@@ -21,15 +21,14 @@ import gsap from 'gsap';
 import {
   bandPose,
   BAND_ANGLE,
+  HOME_X,
   FAN_X,
   FAN_Y,
   FAN_Z,
-  EXIT_Y,
-  EXIT_Z,
-  ARC_LIFT,
-  PARK_DX,
-  PARK_DY,
-  PARK_DZ,
+  PILE_X,
+  PILE_Y,
+  PILE_Z,
+  SHOW_LIFT,
   REF_PAGE_W,
 } from '../bandLayout.js';
 import {
@@ -43,6 +42,17 @@ import {
 } from './worldConfig.js';
 
 const DEG2RAD = Math.PI / 180;
+
+// Default live-tunables — reproduces the shipped pose/rate exactly. The scene
+// passes the shared BAND_TUNABLES store; this is the fallback when a caller
+// omits it (nothing changes vs. the pre-panel behaviour).
+const BAND_TUNE_DEFAULT = {
+  cycleS: BAND_CYCLE_S,
+  spacingMul: 1,
+  homeX: HOME_X,
+  fanMul: 1,
+  pileMul: 1,
+};
 
 const pageSrc = (p) =>
   p.imageUrl
@@ -61,27 +71,42 @@ const pageSrc = (p) =>
  * @param {THREE.Group} opts.parent - the slot tier group to mount into
  * @param {THREE.TextureLoader} opts.loader
  * @param {gsap.parseEase|Function} opts.ease - the Turn curve
+ * @param {Object} [opts.tune] - live tunables (FP1 panel): { cycleS, spacingMul,
+ *   homeX, fanMul, pileMul }. Read every paint/cycle so the deck rescales live;
+ *   defaults reproduce the shipped pose. See BAND_TUNABLES in worldConfig.
  * @returns band record for the slot ({ group, paint, appear, baseX, baseY, dispose })
  */
-export function createWorldBand({ items, ratio, placement, parent, loader, ease }) {
+export function createWorldBand({
+  items,
+  ratio,
+  placement,
+  parent,
+  loader,
+  ease,
+  tune = BAND_TUNE_DEFAULT,
+}) {
   const pages = items.slice(0, BAND_MAX_PAGES);
   // Fit the page inside a BAND_HEIGHT square, preserving aspect (tile rule).
   const pageW = ratio >= 1 ? BAND_HEIGHT : BAND_HEIGHT * ratio;
   const pageH = ratio >= 1 ? BAND_HEIGHT / ratio : BAND_HEIGHT;
   // px-tuned stack distances → world units, proportional to page width.
-  // (exitX is a pageW fraction — unitless, bandPose default applies.)
+  // Built live from `tune` each paint (the debug panel scales the deck without
+  // a rebuild); defaults (spacing/fan/pile × 1, homeX = HOME_X) are identity.
+  //   spacingMul → in-plane card-to-card steps (the DECK_SPACING knob, both stacks)
+  //   fanMul     → whole waiting-fan extent (in-plane + recession)
+  //   pileMul    → whole shown-pile extent (in-plane + recession)
+  //   homeX      → front-page x-anchor (fraction of pageW, unitless — passed through)
   const unit = pageW / REF_PAGE_W;
-  const dist = {
-    fan: FAN_X * unit,
-    fanY: FAN_Y * unit,
-    fanZ: FAN_Z * unit,
-    exitY: EXIT_Y * unit,
-    exitZ: EXIT_Z * unit,
-    arc: ARC_LIFT * unit,
-    parkX: PARK_DX * unit,
-    parkY: PARK_DY * unit,
-    parkZ: PARK_DZ * unit,
-  };
+  const distFor = () => ({
+    home: tune.homeX,
+    fan: FAN_X * unit * tune.spacingMul * tune.fanMul,
+    fanY: FAN_Y * unit * tune.spacingMul * tune.fanMul,
+    fanZ: FAN_Z * unit * tune.fanMul,
+    pileX: PILE_X * unit * tune.spacingMul * tune.pileMul,
+    pileY: PILE_Y * unit * tune.spacingMul * tune.pileMul,
+    pileZ: PILE_Z * unit * tune.pileMul,
+    lift: SHOW_LIFT * unit,
+  });
 
   const group = new THREE.Group();
   group.position.set(placement.x, placement.y, placement.z);
@@ -97,9 +122,9 @@ export function createWorldBand({ items, ratio, placement, parent, loader, ease 
     });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(pageW, pageH), material);
     mesh.rotation.y = BAND_ANGLE * DEG2RAD;
-    // renderOrder is set per frame from pose depth (paint) — the dealer
-    // model reorders cards live: dealt cards ride over the front page and
-    // land newest-on-top in the pile.
+    // renderOrder is set per frame from pose depth (paint) — the conveyor
+    // model reorders cards live: the front card is frontmost; both the
+    // waiting fan (right) and the shown pile (left) recede behind it.
     mesh.renderOrder = pages.length - i;
     group.add(mesh);
     brightness[i] = 1;
@@ -139,6 +164,7 @@ export function createWorldBand({ items, ratio, placement, parent, loader, ease 
 
   /** Pose every plane from the current phase; `opacity` = fade × slot fade. */
   band.paint = (opacity) => {
+    const dist = distFor(); // live tunables (panel scales the deck without a rebuild)
     for (let i = 0; i < planes.length; i++) {
       const mesh = planes[i];
       const pose = bandPose(i, band.phase, pageW, dist);
@@ -148,8 +174,8 @@ export function createWorldBand({ items, ratio, placement, parent, loader, ease 
       if (!visible) continue;
       // bandPose y is screen-positive-down (DOM convention) — flip for world.
       mesh.position.set(pose.x, -pose.y, pose.z);
-      // Transparent planes draw in z order (matches CSS preserve-3d): dealt
-      // cards over the front page, pile newest-on-top.
+      // Transparent planes draw in z order (matches CSS preserve-3d): the
+      // front card (z = 0) draws last, both stacks recede behind it.
       mesh.renderOrder = 100 + Math.round((pose.z / unit) * 10);
       // Depth = darkening (never transparency): brightness scales the map.
       if (brightness[i] !== pose.brightness) {
@@ -163,7 +189,9 @@ export function createWorldBand({ items, ratio, placement, parent, loader, ease 
   /* Idle cycle — rest dwell, then advance on the Turn curve; wrap to front. */
   if (!PREFERS_REDUCED_MOTION && pages.length > 1) {
     const scheduleCycle = () => {
-      band.cycleCall = gsap.delayedCall(BAND_CYCLE_S, () => {
+      // Read the dwell live so the panel's cycle-rate slider takes effect on the
+      // next advance (the running deck re-arms this after every cycle).
+      band.cycleCall = gsap.delayedCall(tune.cycleS, () => {
         const max = pages.length - 1;
         const cur = Math.round(band.phase);
         band.tween = gsap.to(band, {

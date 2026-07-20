@@ -1,8 +1,8 @@
 /**
  * heroConfig.js — live tuning state for the HOME HERO camera rig, the
  * scroll_to_enter button, the commit transition (chunk 4), the logo→globe
- * intro (chunk 5) and the blob-tracking labels (chunk 6; shipped ON since
- * the home-hero rework — the HERO_LABELS flag now defaults true).
+ * intro (chunk 5) and the blob-tracking labels (chunk 6; OFF by default since
+ * the pole-cap bake — the HERO_LABELS flag now defaults false).
  *
  * The comp knobs initialize from the URL (the PARAM convention — always on,
  * like Hero's ?introms family and processConfig's TUNING) into the mutable
@@ -22,7 +22,15 @@
  * the next paint, no reload. heroTuneCopyUrl() serializes only non-default
  * values so a dialed comp can be reloaded or shared (fp1Tune convention).
  */
-import { IS_MOBILE } from '../globe/globeConfig.js';
+import {
+  IS_MOBILE,
+  PANEL_CORNER_RADIUS,
+  SCROLL_POLE_TIP_LIFT,
+  SCROLL_POLE_CORNER_TIP,
+  SCROLL_POLE_CORNER_WIDE,
+  SCROLL_POLE_CORNER_START,
+  SCROLL_POLE_CAP_DEG,
+} from '../globe/globeConfig.js';
 import { TURN_EASE_PATH } from '../work/world/worldConfig.js';
 
 const search = () =>
@@ -57,11 +65,11 @@ export const FILL_MODES = ['panels', 'circle'];
 export const BLUE_CASCADES = ['sweep', 'rows', 'poles'];
 
 /* — Labels flag (chunk 6) — the SHIPPED default for the blob-tracking
-   label layer. Now TRUE: Nathan is designing the home hero with the chips
-   on, so the layer mounts by default (still ?herolabels-toggleable — =0
-   forces it off, and the bench toggle flips it live; Hero mounts/unmounts
-   the layer off the published value). — */
-export const HERO_LABELS = true;
+   label layer. Now FALSE (Nathan's bake): the pole-cap globe ships without
+   the chips, so the layer stays unmounted by default (still ?herolabels=1
+   turns it on, and the bench toggle flips it live; Hero mounts/unmounts the
+   layer off the published value). — */
+export const HERO_LABELS = false;
 
 /* — Intro variant vocabulary (chunk 5). ?intro doubles as the MODE force
    (full/replay — Hero reads those) and the variant select: only a|c land
@@ -88,8 +96,8 @@ const COMP_DEFAULTS = IS_MOBILE
     // CTA changed (ring → the scroll_to_enter button beneath the tagline)
     { fill: 0.95, fitCover: false, offsetX: 0, offsetY: -0.18, elevDeg: 8, roll: 0 }
   : // resting comp — Nathan's dialed desktop bake: globe huge and off-right,
-    // camera well below the axis looking up at the underside
-    { fill: 1.26, fitCover: null, offsetX: 0.46, offsetY: -0.35, elevDeg: 70, roll: 0 };
+    // near equator-on (low elevation), biased low-right, with the pole-cap globe
+    { fill: 1.42, fitCover: null, offsetX: 0.59, offsetY: 0.5, elevDeg: 2.5, roll: 0 };
 
 export const TUNING_DEFAULTS = Object.freeze({
   /* comp — camera rig */
@@ -100,7 +108,7 @@ export const TUNING_DEFAULTS = Object.freeze({
   elevDeg: COMP_DEFAULTS.elevDeg, // ?heroelev — camera elevation off the equator plane, degrees (orbits, keeps facing center)
   roll: COMP_DEFAULTS.roll, // ?heroroll — camera roll about the view axis, degrees (+ tilts the comp right); 0 = parity
   zoom: 1, // no param — dolly divisor on the fitted distance; gesture-owned (Hero's drag/release/envelop)
-  textGap: 32, // ?textgap — px gap between the globe disc's left edge and the tagline/CTA column (clearance)
+  textGap: 40, // ?textgap — px gap between the globe disc's left edge and the tagline/CTA column (clearance); 40 = Nathan's bake
 
   /* commit — the envelopment master timeline (chunk 4; Hero reads these at
      commit time, so the bench moves the NEXT commit/dry-run, not a live one) */
@@ -111,9 +119,30 @@ export const TUNING_DEFAULTS = Object.freeze({
   recenterEnd: 1, // ?recenterend — e where the recenter (offsets/elev → 0) completes
   zoomStart: 0.9, // ?zoomstart — e where the dolly to ?envscale begins
 
-  /* globe — ambient motion of the panelized sphere itself (InteractionController
-     reads at build; the bench moves the NEXT mount unless wired live) */
-  cascadeSpeed: 8, // ?cascadespeed — top-to-bottom content cascade, deg/s of pitch drift (0 = still; note 6)
+  /* globe — the meridian-scroll pace (MeridianScroll reads at build; the bench
+     moves the NEXT mount unless wired live). The globe holds its brand tilt;
+     cascadeSpeed sets how fast the ROWS OF TILES travel pole-to-pole (scroll
+     rate ∝ speed / SCROLL_PACE_SCALE) — also the video-load knob (faster = more
+     thumbnail/video churn). 0 parks the scroll. */
+  cascadeSpeed: 2.5, // ?cascadespeed — meridian-scroll pace (note 6). LIVE via the bench (setCascadeSpeed). 2.5 = Nathan's bake.
+
+  /* globe · pole cap + corner rounding — the near-pole "height-eat" treatment
+     (panelMaterial). The bench pushes these to the scene api (setPoleTuning),
+     which writes every panel's uniforms live. Defaults are the baked globeConfig
+     values, so an untouched bench serializes nothing. Home globe only. */
+  poleLift: SCROLL_POLE_TIP_LIFT, // ?polelift — bottom fraction dissolved to blue AT the pole (terminate-short amount; ≤0.25 stays on-tile)
+  poleTip: SCROLL_POLE_CORNER_TIP, // ?poletip — bottom-cap HORIZONTAL radius at the pole (round nose; ≤0.5)
+  poleWide: SCROLL_POLE_CORNER_WIDE, // ?polewide — away-end + wall radius at the pole (≈ base)
+  poleStart: SCROLL_POLE_CORNER_START, // ?polestart — sin(θ) below which the pole cap ramps in
+  cornerR: PANEL_CORNER_RADIUS, // ?corner — base rounded-tile radius (all tiles; <0.5)
+  poleCapDeg: SCROLL_POLE_CAP_DEG, // ?polecap — persistent blue cap over each pole, angular radius° (0 = off)
+
+  /* globe · orientation — the brand tilt + spin, applied live in the render
+     tick (setGlobeOrientation). tilt defaults to the brand INITIAL_PITCH; yaw
+     is an absolute spin offset. Both 0-offset at default → parity. */
+  tiltDeg: 45.5, // ?herotilt — brand tilt (camera-facing pole lean), degrees; 45.5 = Nathan's bake (tick applies tiltDeg − INITIAL_PITCH as the offset, so /lab stays at INITIAL_PITCH)
+  yawDeg: 0, // ?heroyaw — static globe spin about its axis, degrees
+  yawSpeed: -1.5, // ?yawspeed — steady auto-rotation about the axis, degrees/second (0 = fixed); −1.5 = Nathan's bake (slow reverse drift)
 
   /* intro — the logo→globe intro (chunk 5; HeroIntro reads these at mount,
      so the bench shapes the NEXT intro — use ↻ replay intro to see it).
@@ -154,6 +183,15 @@ const PARAM_KEYS = {
   zoomStart: 'zoomstart',
   /* globe */
   cascadeSpeed: 'cascadespeed',
+  poleLift: 'polelift',
+  poleTip: 'poletip',
+  poleWide: 'polewide',
+  poleStart: 'polestart',
+  cornerR: 'corner',
+  poleCapDeg: 'polecap',
+  tiltDeg: 'herotilt',
+  yawDeg: 'heroyaw',
+  yawSpeed: 'yawspeed',
   /* intro */
   introMs: 'introms',
   introHoldMs: 'introhold',
