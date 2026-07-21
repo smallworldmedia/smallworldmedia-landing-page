@@ -14,14 +14,14 @@ html:has(body.route-process) {
   overflow: auto;
   height: auto;
   overscroll-behavior-y: none;
-  /* P2: the page opens on a blank brand-white canvas (was black) */
-  background: var(--color-cream);
+  /* Rev: brand-BLUE field (the white blank-canvas start was jarring) */
+  background: var(--color-electric-blue);
 }
 
 body.route-process {
   overflow: visible;
   height: auto;
-  background: var(--color-cream);
+  background: var(--color-electric-blue);
 }
 
 /* --- Chrome variant: transparent nav over the black field --- */
@@ -34,19 +34,19 @@ body.route-process .site-nav {
   position: relative;
   width: 100%;
   min-height: 100dvh;
-  /* P2: brand-white blank canvas base. The scene grows the blue field over
-     it at S3 and crossfades the gradient at S5; data-bg re-skins copy. */
-  background: var(--color-cream);
+  /* Rev: brand-BLUE field base with white copy over it. The scene keeps the
+     blue field through S1–S4 and crossfades the gradient at S5; data-bg
+     re-skins copy (the white blank-canvas start is reverted). */
+  background: var(--color-electric-blue);
   color: var(--color-cream);
 }
 
-/* --- Staged background (scene-driven, P2) ---
-   Base brand-WHITE (cream) is the page itself — the blank canvas S1/S2
-   play on (blue Fragments gathering as blue elements). At the S3 solidify
-   the blue field GROWS out of the Core's screen-space disc via a
-   scene-driven clip-path circle to flood the canvas — the world sits on
-   BLUE, never black. S5 crossfades the home hero's gradient in. Layers sit
-   under the canvas (same z, earlier in DOM order). */
+/* --- Staged background (scene-driven) ---
+   Base is the brand-BLUE field (the page itself); Fragments gather on it with
+   STROKE_COLOR separating them, and white copy/chrome reads over it. The blue
+   field holds through S1–S4 (the S3 solidify keeps the Core light-up cascade
+   but no longer reveals blue from white); S5 crossfades the home hero's
+   gradient in. Layers sit under the canvas (same z, earlier in DOM order). */
 .process-bg {
   position: fixed;
   inset: 0;
@@ -60,8 +60,12 @@ body.route-process .site-nav {
   inset: 0;
 }
 
+/* The SOLIDIFY FIELD — repurposed to brand BLACK. The base page carries the
+   blue opening (S1/S2); this layer grows from the Core at S3 to flood the
+   world black (useProcessScene bgMorph), and holds through S4. Kept the
+   __blue class/ref handle for minimal churn — it renders black. */
 .process-bg__blue {
-  background: var(--color-electric-blue);
+  background: var(--color-black);
 }
 
 .process-bg__gradient {
@@ -174,7 +178,10 @@ body.route-process .site-nav {
 
 .process-page[data-bg='blue'] .process-stage__token,
 .process-page[data-bg='blue'] .process-stage__caption,
-.process-page[data-bg='blue'] .process-hero__token {
+.process-page[data-bg='blue'] .process-hero__token,
+.process-page[data-bg='black'] .process-stage__token,
+.process-page[data-bg='black'] .process-stage__caption,
+.process-page[data-bg='black'] .process-hero__token {
   color: var(--color-white);
 }
 

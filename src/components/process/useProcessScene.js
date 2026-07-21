@@ -108,8 +108,9 @@ const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
    frames; panelScale = emanation; power/stroke = the panel language;
    innerScale = the filled-core sphere (0 = dissolved — S4/S5, where it
    would block the expanded world's gap-lattice); bg = the staged
-   background ('white' blank canvas — S1/S2 / 'blue' solidified world —
-   S3/S4 / 'gradient' home-hero — S5. P2: black is retired).
+   background ('blue' brand opening — S1/S2 / 'black' solidified world — S3/S4,
+   grows from the Core at the solidify / 'gradient' home-hero — S5. White copy
+   throughout. The white blank-canvas start is retired).
    Reduced motion keeps stage-02 as the connected belt (Thread pre-drawn,
    static) so the narrative survives as stills. */
 const beltPose = () => ({
@@ -120,10 +121,11 @@ const beltPose = () => ({
   power: TUNING.idlePower,
   stroke: 1,
   innerScale: 0,
-  // P2 (Nathan): the opening is a blank BRAND-WHITE canvas — the blue
-  // Fragments read as blue elements gathering on it. Blue floods only once
-  // the Core solidifies at S3 (was a full-bleed blue field from S1).
-  bg: 'white',
+  // Nathan (rev): the opening is the BRAND-BLUE field again — the white
+  // blank-canvas start read as jarring. White copy/chrome sits over it and the
+  // Fragments gather on blue (STROKE_COLOR separates them), as the world does
+  // from S3 on. The P2 white-canvas experiment is reverted.
+  bg: 'blue',
   loops: false,
   decoys: true, // the S1 flood — culled at the refinement
 });
@@ -134,13 +136,15 @@ const getPose = (id) => {
     case 'stage-02':
       return PREFERS_REDUCED_MOTION
         ? { ...beltPose(), decoys: false } // RM still: the REFINED belt — flood already culled
-        : { form: 'core', frameR: 1, fill: TUNING.fillFraction, panelScale: 1, power: TUNING.idlePower, stroke: 1, innerScale: INNER_SPHERE_SCALE, bg: 'white', loops: false };
+        : { form: 'core', frameR: 1, fill: TUNING.fillFraction, panelScale: 1, power: TUNING.idlePower, stroke: 1, innerScale: INNER_SPHERE_SCALE, bg: 'blue', loops: false };
     case 'stage-03':
-      // P2: the Core solidifies and the blue fill floods the canvas — the
-      // world sits on BLUE, never black (was bg:'black').
-      return { form: 'core', frameR: 1, fill: TUNING.s3Fill, panelScale: 1, power: 1, stroke: 0, innerScale: INNER_SPHERE_SCALE, bg: 'blue', loops: false };
+      // Rev: at the solidify the Core's field floods to brand BLACK (grows
+      // from the core over the blue opening) — the world sits on black from
+      // P3 on (matches the homepage globe's black backdrop).
+      return { form: 'core', frameR: 1, fill: TUNING.s3Fill, panelScale: 1, power: 1, stroke: 0, innerScale: INNER_SPHERE_SCALE, bg: 'black', loops: false };
     case 'stage-04':
-      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'blue', loops: false };
+      // Rev: the built world keeps sitting on the brand-BLACK field (P3→P4).
+      return { form: 'core', frameR: TUNING.emanateScale, fill: TUNING.s45Fill, panelScale: TUNING.emanateScale, power: 1, stroke: 0, innerScale: 0, bg: 'black', loops: false };
     case 'stage-05':
       // v2 deck (B8): slight push-in over the S4 framing (?s5zoom) and an
       // axis lean toward ~2:00 (?s5tilt) — the world, emphasized, off-axis.
@@ -440,17 +444,18 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
 
     const renderFrame = () => renderer.render(scene, camera);
 
-    /* — The staged background (P2 headline beat). Three DOM layers under
-       the canvas: the page's base BRAND-WHITE canvas (S1/S2), the
-       electric-blue field (S3/S4), the home-hero gradient (S5). The scene
-       owns them — the S2→S3 solidify GROWS the blue field out of the
-       Core's live screen-space disc (clip-path circle tracking the dolly
-       per frame) to flood the canvas; the reverse shrinks it back into the
-       Core, restoring white. Stage jumps and compressed catch-ups
+    /* — The staged background. The page's base is the brand-BLUE opening
+       (S1/S2); the home-hero gradient is S5. In between, `blueEl` is the
+       SOLIDIFY FIELD — repurposed to brand BLACK (see .process-bg__blue in
+       process.css): the S2→S3 solidify GROWS it out of the Core's live
+       screen-space disc (clip-path circle tracking the dolly per frame) to
+       flood the canvas black; the reverse shrinks it back into the Core,
+       restoring the blue opening. Stage jumps / compressed catch-ups
        crossfade instead — a morph only reads against its dolly. data-bg on
-       the island root re-skins the DOM accents (captions, tokens, copy)
-       per field. — */
+       the island root re-skins the DOM accents (captions, tokens, copy) per
+       field (white copy on both blue and black). — */
     const rootEl = chromeRefs?.rootRef?.current ?? null;
+    // The solidify field layer (brand black); shown only from P3 (bg:'black').
     const blueEl = chromeRefs?.blueRef?.current ?? null;
     const gradientEl = chromeRefs?.gradientRef?.current ?? null;
 
@@ -480,7 +485,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       setBgAttr(bg);
       if (blueEl) {
         gsap.killTweensOf(blueEl);
-        gsap.set(blueEl, { autoAlpha: bg === 'blue' ? 1 : 0, clipPath: 'none' });
+        gsap.set(blueEl, { autoAlpha: bg === 'black' ? 1 : 0, clipPath: 'none' });
       }
       if (gradientEl) {
         gsap.killTweensOf(gradientEl);
@@ -518,7 +523,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
     const bgCrossfade = (tl, at, dur, toBg) => {
       if (blueEl) {
         tl.call(() => gsap.set(blueEl, { clipPath: 'none' }), null, at);
-        tl.to(blueEl, { autoAlpha: toBg === 'blue' ? 1 : 0, duration: dur, ease: 'power2.inOut' }, at);
+        tl.to(blueEl, { autoAlpha: toBg === 'black' ? 1 : 0, duration: dur, ease: 'power2.inOut' }, at);
       }
       if (gradientEl) {
         tl.to(gradientEl, { autoAlpha: toBg === 'gradient' ? 1 : 0, duration: dur, ease: 'power2.inOut' }, at);
@@ -1265,16 +1270,16 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         tl.to(tiltState, { z: tiltTarget, duration: frameDur }, 0);
       }
 
-      // Background beat (P2). The white↔blue boundary rides the S2↔S3
-      // dolly as the blue fill emanating from / receding into the Core:
-      // forward (light-up) the blue GROWS out of the solidifying Core to
-      // flood the canvas; reverse it SHRINKS back into the Core and the
-      // white canvas returns. Every other pairing crossfades.
+      // Background beat. The blue↔black boundary rides the S2↔S3 dolly as the
+      // black solidify field emanating from / receding into the Core: forward
+      // (light-up) the black GROWS out of the solidifying Core to flood the
+      // canvas; reverse it SHRINKS back into the Core and the blue opening
+      // returns. Every other pairing crossfades.
       tl.call(() => setBgAttr(pose.bg), null, 0);
       if (pose.bg !== fromPose.bg) {
-        const grow = isLightUp && fromPose.bg === 'white' && pose.bg === 'blue';
+        const grow = isLightUp && fromPose.bg === 'blue' && pose.bg === 'black';
         const shrink =
-          !compressed && reversing && fromPose.bg === 'blue' && pose.bg === 'white';
+          !compressed && reversing && fromPose.bg === 'black' && pose.bg === 'blue';
         if (grow || shrink) bgMorph(tl, 0, frameDur, grow);
         else bgCrossfade(tl, 0, Math.max(frameDur * 0.6, 0.3), pose.bg);
       }

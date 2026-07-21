@@ -38,6 +38,18 @@ const search = () =>
 
 export const HERO_TUNE_ACTIVE = search().get('herotune') === '1';
 
+/* — Globe outer stroke fraction (?globestroke, % → fraction; default 5%,
+   0 = off). ONE source of truth, shared by two consumers so they can never
+   drift: Hero sizes the stroke disc 1+FRAC proud of the live silhouette, and
+   HeroIntro frames the globe 1/(1+FRAC) SMALLER inside the lockup "o" so the
+   ringed globe's OUTER edge lands exactly at the glyph — globe + stroke =
+   the lockup glyph diameter, not proud of it (Rev-Notes-02 lockup fidelity;
+   the added ring must not overshoot the "o"). — */
+export const GLOBE_STROKE_FRAC = (() => {
+  const n = parseFloat(search().get('globestroke'));
+  return (Number.isFinite(n) ? n : 5) / 100;
+})();
+
 /* — Commit ease — the envelopment master curve (chunk 4). Starts life as
    the house Turn curve — steep launch that carries the gesture's momentum,
    flat zero-velocity ends, no overshoot — imported as the literal default

@@ -80,6 +80,7 @@ import {
   HERO_TUNE_ACTIVE,
   HERO_COMMIT_EASE_PATH,
   HERO_INTRO_EASE_PATH,
+  GLOBE_STROKE_FRAC,
   subscribeHeroTune,
 } from './hero/heroConfig.js';
 import {
@@ -177,10 +178,11 @@ const ENV_PRE_COVER = PARAM('envpre', 45) / 100; // blue opacity at full drag (f
 const CTA_MAX_EXTRA = 0.3;
 
 /* — Globe outer stroke (Globe/Homepage): a flat electric-blue disc behind the
-   canvas, sized this fraction proud of the globe disc so only a thin ring shows
-   at the silhouette (the lockup mark's outer stroke), scaling with the intro
-   zoom. ?globestroke=<pct> dials it (0 = off). — */
-const GLOBE_STROKE_FRAC = PARAM('globestroke', 5) / 100;
+   canvas, sized GLOBE_STROKE_FRAC proud of the globe disc so only a thin ring
+   shows at the silhouette (the lockup mark's outer stroke), scaling with the
+   intro zoom. The fraction (?globestroke, default 5%, 0 = off) is sourced from
+   heroConfig so HeroIntro can compensate the glyph framing by the same amount
+   (globe + stroke = the lockup "o"). — */
 
 export default function Hero({ globeAssets }) {
   const heroRef = useRef(null);
@@ -642,25 +644,26 @@ export default function Hero({ globeAssets }) {
     { scope: heroRef }
   );
 
-  // ── Tagline/CTA column width derived from the globe disc's left edge ──
-  // The column must never overlap the globe; it wraps to a 2nd line when the
-  // globe crowds it. We cache the disc every frame (3 number writes, zero
-  // alloc — this also keeps the overlay bridge running when labels are off)
-  // and write the column's --lead-max only on a "dirty" frame — armed by the
-  // chrome beat, window resize and bench comp changes, NEVER per frame (a
-  // width write relayouts the text). The write uses THAT frame's fresh disc.
-  // CSS clamps the raw px between a 12rem floor and a 46vw cap.
+  // ── Tagline/CTA column sized to the gap LEFT of the globe ──
+  // The column spans [viewport-left, globe-left-edge] and centre-justifies the
+  // tagline + CTA within that empty gap (CSS owns the centring; its own padding
+  // keeps the copy clear of the globe). We cache the disc every frame (3 number
+  // writes, zero alloc — this also keeps the overlay bridge running when labels
+  // are off) and write the column's --lead-gap (the globe's left-edge px, less
+  // ?textgap) only on a "dirty" frame — armed by the chrome beat, window resize
+  // and bench comp changes, NEVER per frame (a width write relayouts the text).
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return undefined;
     const disc = { cx: 0, cy: 0, r: 0 };
     let dirty = true; // compute once as soon as the first real disc lands
-    const writeWidth = () => {
+    const writeGap = () => {
       const col = leadColRef.current;
       if (!col || !disc.r) return;
-      const colLeft = col.getBoundingClientRect().left; // stable left inset
-      const px = Math.max(0, Math.round(disc.cx - disc.r - colLeft - HERO_TUNING.textGap));
-      col.style.setProperty('--lead-max', `${px}px`);
+      // The globe's LEFT edge in px (less a textGap breathing margin) — the
+      // width of the gap the column spans and centres its content within.
+      const px = Math.max(0, Math.round(disc.cx - disc.r - HERO_TUNING.textGap));
+      col.style.setProperty('--lead-gap', `${px}px`);
     };
     const unframe = overlay.onFrame((frame) => {
       disc.cx = frame.disc.cx;
@@ -668,7 +671,7 @@ export default function Hero({ globeAssets }) {
       disc.r = frame.disc.r;
       if (dirty && disc.r) {
         dirty = false;
-        writeWidth();
+        writeGap();
       }
     });
     const mark = () => {

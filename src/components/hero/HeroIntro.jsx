@@ -61,7 +61,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
-import { TUNING, HERO_INTRO_EASE_PATH } from './heroConfig.js';
+import { TUNING, HERO_INTRO_EASE_PATH, GLOBE_STROKE_FRAC } from './heroConfig.js';
 import {
   CAMERA_FOV,
   FILL_FRACTION,
@@ -96,7 +96,7 @@ const A_LAUNCH_MIN_SEC = 0.8; // floor when the knobs squeeze the zoom
 const A_CHARS_GONE_E = 0.55; // chars have left frame / been covered by the globe by here
 const A_CHROME_E = 0.8; // chrome beat + releaseScheduler
 const A_CHARS_EXIT_PAD = 48; // px past the viewport edge each char travels to leave frame
-const A_CHARS_SCALE = 1.12; // slight scale-up as the growing globe obscures them
+const A_CHARS_SCALE = 1.12; // UNIFORM group zoom (about the globe center) as the lockup exits
 const A_INK_E = [0.2, 0.7]; // setInk window on e
 
 /* — Variant C script (seconds; authored, ~3.2s total — the A timing knobs
@@ -177,7 +177,12 @@ function glyphPoseFor({ cx, cy, d, w, h }) {
   // Contain picks the smaller tan axis; its px dimension is the fit axis.
   const fitAxisPx = tanH < tanV ? w : h;
   return {
-    fill: Math.max(d, 1) / fitAxisPx,
+    // Frame the globe 1/(1+FRAC) SMALLER than the o-glyph box so Hero's outer
+    // stroke disc (sized 1+FRAC proud of the live silhouette) lands its ring
+    // exactly at the glyph edge — the ringed globe reads AS the lockup "o",
+    // not proud of it (Rev-Notes-02 lockup fidelity). FRAC=0 → the raw globe
+    // fills the slot as before.
+    fill: Math.max(d, 1) / (1 + GLOBE_STROKE_FRAC) / fitAxisPx,
     fitCover: false, // forced for the glyph phase; released at onDone
     // applyRig negates into setViewOffset: + is RIGHT/DOWN (chunk 3's
     // desktop +0.55 sits right of center) — same sense as screen deltas.
@@ -313,16 +318,48 @@ export default function HeroIntro({ rigRef, sceneApiRef, veilRef, onChromeBeat, 
       const tl = gsap.timeline({ paused: true });
       const rb = root.getBoundingClientRect();
       const ocx = rb.left + (rectRef.current ? rectRef.current.cx : rb.width / 2);
-      chars.forEach((c) => {
+      // The globe (now z-above the wordmark) OBSCURES the letters as it grows.
+      // Split the wordmark AT the globe: letters before it are the left group,
+      // after it the right group. Each group translates as ONE RIGID unit — a
+      // single shared x per side — so the letters keep their spacing relative to
+      // one another and slide off-frame in LOCKSTEP, never spreading apart or
+      // clipping individually. The per-side delta carries that group's INNER
+      // edge (the letter nearest the globe) just past the viewport edge, so the
+      // whole rigid group clears frame, and the whole lockup ZOOMS as one unit
+      // (uniform group scale about the globe center) as the globe grows. Scale is
+      // realized as own-center scale + a computed x/y so the net motion equals
+      // "scale A_CHARS_SCALE about the globe center, then the group exit" — a
+      // coherent zoom (spacing scales uniformly, arrangement locked), NOT the
+      // per-letter own-box scale that drifted them apart. The growing globe
+      // (z-above) obscures them; they don't fade.
+      const ocy = rb.top + (rectRef.current ? rectRef.current.cy : rb.height / 2);
+      let leftMaxRight = -Infinity; // rightmost right-edge among left-group chars
+      let rightMinLeft = Infinity; // leftmost left-edge among right-group chars
+      const info = chars.map((c) => {
         const b = c.getBoundingClientRect(); // one-time read, launch start
-        const dir = b.left + b.width / 2 < ocx ? -1 : 1;
-        // The globe (now z-above the wordmark) OBSCURES the letters as it grows;
-        // each char slides fully off its side of the viewport + scales up a touch
-        // on the way, and does NOT fade — it's covered / carried out of frame, not
-        // dissolved. Exit distance carries the char's near edge past the viewport.
-        const exit =
-          dir > 0 ? rb.right - b.left + A_CHARS_EXIT_PAD : -(b.right - rb.left + A_CHARS_EXIT_PAD);
-        tl.to(c, { x: exit, scale: A_CHARS_SCALE, duration: 1, ease: 'none' }, 0);
+        const cx = b.left + b.width / 2;
+        const dir = cx < ocx ? -1 : 1;
+        if (dir < 0) leftMaxRight = Math.max(leftMaxRight, b.right);
+        else rightMinLeft = Math.min(rightMinLeft, b.left);
+        return { dir, cx, cy: b.top + b.height / 2 };
+      });
+      const leftDelta = leftMaxRight > -Infinity ? -(leftMaxRight - rb.left + A_CHARS_EXIT_PAD) : 0;
+      const rightDelta = rightMinLeft < Infinity ? rb.right - rightMinLeft + A_CHARS_EXIT_PAD : 0;
+      const gs = A_CHARS_SCALE - 1; // group-zoom outward term (per glyph, about the globe center)
+      chars.forEach((c, i) => {
+        const { dir, cx, cy } = info[i];
+        tl.to(
+          c,
+          {
+            x: (dir < 0 ? leftDelta : rightDelta) + (cx - ocx) * gs,
+            y: (cy - ocy) * gs,
+            scale: A_CHARS_SCALE,
+            transformOrigin: 'center',
+            duration: 1,
+            ease: 'none',
+          },
+          0
+        );
       });
       return tl;
     };

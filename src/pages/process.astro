@@ -11,16 +11,25 @@
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
 import '../styles/process.css';
+import '../styles/video-globe.css';
 import ProcessPage from '../components/process/ProcessPage.jsx';
 import { PROCESS_META } from '../components/process/processContent.js';
+import { sanityFetch } from '../lib/sanityClient.js';
+import { GLOBE_ASSETS_QUERY } from '../lib/queries.js';
+import buildAssetPool from '../components/globe/buildAssetPool.js';
 
 // v2: process page gated until launch — un-gate is ONE 3-file commit:
 // remove this redirect, the matching forced 302 in netlify.toml, and the
 // SITEMAP_EXCLUDE entry in astro.config.mjs. Dev stays viewable for the
 // build + live tuning (/process?debug, spec §9 knobs).
 if (!import.meta.env.DEV) return Astro.redirect('/');
+
+// The finalized homepage globe now stands in for PROCESS's "O" (B9) — same
+// Sanity asset pool the home hero uses. Fetched after the gate so prod never
+// pays for it.
+const globeAssets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));
 ---
 
 <BaseLayout title={PROCESS_META.title} description={PROCESS_META.description}>
-  <ProcessPage client:only="react" />
+  <ProcessPage client:only="react" globeAssets={globeAssets} />
 </BaseLayout>

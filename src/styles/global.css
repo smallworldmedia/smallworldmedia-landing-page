@@ -262,7 +262,10 @@
    `stable` reserved a permanently-empty gutter (hidden boxes are still
    scroll containers) that rendered as a full-height blue band on every
    route. Nav stability against scrollbars is handled by sizing the
-   persistent .site-shell to 100vw instead. */
+   persistent .site-shell to 100vw and reserving a DEVICE-CONSTANT scrollbar
+   width (--scrollbar-w, measured off a probe in SiteShell — identical on
+   every route) in the nav/footer right inset instead. See .site-nav
+   padding-right. */
 html {
   font-size: 14px;
 }
@@ -325,8 +328,10 @@ button {
   padding: 0.214rem var(--nav-inset);
   /* 3px 16px */
   /* extra right clearance: the shell spans 100vw, so a classic scrollbar
-     overlays this edge on scrollable routes — the token keeps the last
-     nav item clear of it (and geometry identical on every route) */
+     overlays this edge on scrollable routes. --scrollbar-w is a DEVICE
+     CONSTANT (SiteShell probe), identical on every route, so the last nav
+     item both clears the bar AND lands at the same x on every page —
+     scrollbar or not — with no jump between locked and scrollable routes. */
   padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
   background: var(--color-electric-blue);
   flex-shrink: 0;
@@ -1224,7 +1229,7 @@ body.route-home .site-nav__pill:hover {
 .hero__enter-wrap {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1237,8 +1242,8 @@ body.route-home .site-nav__pill:hover {
   z-index: 1;
   pointer-events: auto;
   transform: scale(var(--cta-scale, 1));
-  /* grows to the right off the left inset (left-anchored under the lead) */
-  transform-origin: left center;
+  /* grows from centre (the CTA is centre-justified under the lead) */
+  transform-origin: center;
   transition:
     transform var(--cta-return, 0.12s) var(--cta-ease, ease-out),
     background 0.2s,
@@ -1251,7 +1256,8 @@ body.route-home .site-nav__pill:hover {
   margin-top: -0.25rem;
   /* tucked slightly under the pill's bottom edge */
   margin-bottom: 0;
-  height: 52px;
+  /* shorter window than the /work chips so FEWER (larger) carets show at once */
+  height: 40px;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
   -webkit-mask-repeat: no-repeat;
@@ -1262,8 +1268,11 @@ body.route-home .site-nav__pill:hover {
 
 /* Legibility over arbitrary globe tiles: the thin white strokes carry a soft
    dark shadow (the chip variants don't need this — their carets sit on the
-   chip's own fill). */
+   chip's own fill). Scaled UP from the /work chip caret (22×12) for the home
+   conveyor — a bigger, bolder arrow under the button. */
 .hero__enter-wrap .fp-cta__arrows-track svg {
+  width: 30px;
+  height: 16px;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
 }
 
@@ -1368,10 +1377,14 @@ body.route-home .site-nav__pill:hover {
 }
 
 /* The injected lockup artwork — its own #0000FF fill is the brand blue;
-   the block never wraps, height tracks the viewBox. */
+   the block never wraps, height tracks the viewBox. overflow:visible so the
+   letters can translate all the way to (and past) the VIEWPORT edge on the
+   launch — the outermost <svg> clips to its own box by default (sized to the
+   wordmark, narrower than the viewport), which was cutting letters off early. */
 .hero-intro__art {
   display: block;
   height: auto;
+  overflow: visible;
 }
 
 /* Lockup letterforms — the "chars": translated (variant A tracks them
@@ -1606,28 +1619,31 @@ body.route-home .site-nav__pill:hover {
 html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   transform: translateY(calc(-1 * var(--nav-height)));
 }
-   ──────────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────── */
 
-/* Left statement column — the tagline and the scroll_to_enter button share
-   one left-anchored, vertically-centered column (home-hero refine: the ring
-   retired, the button returned beneath the lead). --lead-max is written by
-   Hero from the globe disc's LEFT edge (on the chrome beat / resize / bench
-   change, never per frame); the clamp floors it at 12rem and caps it at 46vw
-   so the copy never overlaps the globe and wraps when space is tight. Both
-   children inherit the width, so the button left-aligns under the wrapped
-   lead. Pointer-inert (drag-to-spin reaches the canvas); only the button
-   opts back in. Faded on the commit as .hero__lead-col in the chrome list. */
+/* Left statement column — the tagline and the scroll_to_enter button, CENTRE-
+   justified in the empty gap between the viewport's left edge and the globe's
+   left edge. Hero writes --lead-gap (the globe's left-edge px, less ?textgap);
+   the column spans [0, --lead-gap] and centres its content there, its own
+   padding keeping the copy clear of the globe and the viewport edge. z-index 3
+   keeps the whole column ABOVE the globe (z:2) — below only the commit fill
+   (z:3, later in DOM, so it still swallows the chrome at the handoff).
+   Pointer-inert (drag-to-spin reaches the canvas); only the button opts back
+   in. Faded on the commit as .hero__lead-col in the chrome list. */
 .hero__lead-col {
   position: absolute;
-  left: 1.143rem;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 2;
+  z-index: 3;
+  box-sizing: border-box;
+  width: var(--lead-gap, 46vw);
+  padding: 0 1.143rem;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 1.143rem;
-  max-width: clamp(12rem, var(--lead-max, 46vw), 46vw);
+  align-items: center;
+  text-align: center;
+  gap: 1.714rem; /* text ↔ CTA breathing room (24px), token-scale */
   pointer-events: none;
 }
 
@@ -2143,15 +2159,21 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
   /* --- Hero & overlay mobile overrides --- */
 
-  /* The hero lead's mobile cut mirrors the process prose mobile cut; the
-     column's cap relaxes to 78vw on mobile (still honoring --lead-max when
-     the globe crowds it), the lead fills it. */
+  /* The hero lead's mobile cut mirrors the process prose mobile cut. On mobile
+     the globe is up-biased and fills the width, so there's no left gap to
+     centre into — the column spans the full width (inset both sides) and
+     centres the tagline + CTA under the globe instead. (HR-6 refines the
+     mobile composition.) */
   .hero__lead {
     font-size: clamp(1.4rem, 5.5vw, 2.2rem);
+    max-width: 100%;
   }
 
   .hero__lead-col {
-    max-width: clamp(12rem, var(--lead-max, 78vw), 78vw);
+    width: auto;
+    left: 1.143rem;
+    right: 1.143rem;
+    padding: 0;
   }
 
   .project-overlay {

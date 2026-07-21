@@ -15,6 +15,8 @@
  * (nothing here runs; the DOM's resting state is fully visible, the real
  * O glyph included).
  */
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -22,10 +24,11 @@ import { SplitText } from 'gsap/SplitText';
 import { scrambleTo } from '../../lib/scramble.js';
 import { PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
 import { EXIT_RATIO } from './processConfig.js';
+import VideoGlobe from '../globe/VideoGlobe.jsx';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
-export default function useProcessCopy(rootRef, sceneRef) {
+export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
   useGSAP(
     () => {
       const root = rootRef.current;
@@ -57,15 +60,50 @@ export default function useProcessCopy(rootRef, sceneRef) {
       const globeWrap = document.createElement('span');
       globeWrap.className = 'process-hero__globe-o';
       globeWrap.setAttribute('aria-hidden', 'true');
-      globeWrap.innerHTML = '<img src="/icons/SWM-globe_white.svg" alt="" />';
       heroTitle.appendChild(globeWrap);
+
+      // B9 (approved): the finalized homepage globe stands in for the O, in its
+      // OPENING state — holdEntrance keeps the entrance cascade + live-video
+      // scheduler deferred forever (never released here), so it renders as the
+      // dark line-art / gap-lattice mark that matches the SWM lockup glyph, not
+      // the populated video-panel globe. Same Sanity asset pool as the home
+      // hero. Mounted ONLY while the hero splash is on screen (the process page
+      // already runs its own WebGL scene). Falls back to the flat spinning mark
+      // if the pool is empty.
+      let globeRoot = null;
+      const mountGlobe = () => {
+        if (globeRoot) return;
+        if (globeAssets && globeAssets.length) {
+          globeRoot = createRoot(globeWrap);
+          globeRoot.render(createElement(VideoGlobe, { assets: globeAssets, holdEntrance: true }));
+        } else {
+          globeWrap.innerHTML = '<img src="/icons/SWM-globe_white.svg" alt="" />';
+        }
+      };
+      const unmountGlobe = () => {
+        if (globeRoot) {
+          globeRoot.unmount();
+          globeRoot = null;
+        } else {
+          globeWrap.innerHTML = '';
+        }
+      };
+      mountGlobe();
+
       const placeGlobe = () => {
         const hb = heroTitle.getBoundingClientRect();
         const ob = oChar.getBoundingClientRect();
-        globeWrap.style.left = `${ob.left - hb.left}px`;
-        globeWrap.style.top = `${ob.top - hb.top}px`;
-        globeWrap.style.width = `${ob.width}px`;
-        globeWrap.style.height = `${ob.height}px`;
+        // Square slot sized to the glyph HEIGHT and centered on the O, so the
+        // round globe reads at the letters' cap height (matches the retired
+        // placeholder's height-fit footprint). It bleeds slightly past the
+        // narrow squeezed-caps O into PR/CESS, as the placeholder did.
+        const size = ob.height;
+        const cx = ob.left + ob.width / 2 - hb.left;
+        const cy = ob.top + ob.height / 2 - hb.top;
+        globeWrap.style.left = `${cx - size / 2}px`;
+        globeWrap.style.top = `${cy - size / 2}px`;
+        globeWrap.style.width = `${size}px`;
+        globeWrap.style.height = `${size}px`;
       };
       placeGlobe();
       document.fonts?.ready.then(placeGlobe);
@@ -95,19 +133,25 @@ export default function useProcessCopy(rootRef, sceneRef) {
           if (window.scrollY < 40) {
             window.dispatchEvent(new CustomEvent('swm:process-step', { detail: { dir: 1 } }));
           }
-        }, 'out+=0.9');
+        }, 'out+=0.9')
+        // the header globe has faded — tear the live VideoGlobe down so it isn't
+        // left rendering behind the belt (remounts on a scroll-back to the hero).
+        .add(unmountGlobe, 'out+=1.2');
 
       // Scrolling back up to the hero later must not find a blank header —
       // restore the lockup (no scramble; chrome scrambles once).
       ScrollTrigger.create({
         trigger: heroSection,
         start: 'top 60%',
+        end: 'bottom top',
         onEnterBack: () => {
+          mountGlobe();
           splash.kill();
           heroToken.textContent = tokenText;
           gsap.to([...chars, heroToken], { autoAlpha: 1, duration: 0.3, overwrite: 'auto' });
           gsap.to(globeWrap, { autoAlpha: 1, scale: 1, duration: 0.3, overwrite: 'auto' });
         },
+        onLeave: () => unmountGlobe(), // scrolled past the hero — free the globe again
       });
 
       /* — Per-section entrances: same boundary geometry as the stage
@@ -172,6 +216,7 @@ export default function useProcessCopy(rootRef, sceneRef) {
 
       return () => {
         window.removeEventListener('resize', placeGlobe);
+        unmountGlobe();
         globeWrap.remove();
         splits.forEach((s) => s.revert());
       };

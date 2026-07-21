@@ -22,7 +22,7 @@ import ProcessStepCtas from './ProcessStepCtas.jsx';
 import ProcessMeter from './ProcessMeter.jsx';
 import CtaArrows from '../work/CtaArrows.jsx';
 
-export default function ProcessPage() {
+export default function ProcessPage({ globeAssets }) {
   const rootRef = useRef(null);
   const canvasRef = useRef(null);
   const captionRef = useRef(null);
@@ -36,7 +36,7 @@ export default function ProcessPage() {
     labelsRef,
   });
   useProcessScrollDriver(rootRef, sceneRef);
-  useProcessCopy(rootRef, sceneRef);
+  useProcessCopy(rootRef, sceneRef, globeAssets);
 
   // Release the Envelopment fill on arrival (RouteFill insurance — no-op on
   // direct loads; the detail-page convention, FeaturedProjectDetail.jsx).
@@ -55,7 +55,7 @@ export default function ProcessPage() {
   };
 
   return (
-    <div className="process-page" ref={rootRef} data-bg="white">
+    <div className="process-page" ref={rootRef} data-bg="blue">
       {/* Staged background under the canvas (P2): base BRAND-WHITE canvas
           (S1/S2), the S3/S4 electric-blue field the scene grows out of the
           Core at the solidify (clip-path circle, scene-driven), the S5

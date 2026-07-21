@@ -80,26 +80,29 @@ export default function SiteShell() {
     document.documentElement.toggleAttribute('data-chrome-open', isInfoOpen || isOverlayOpen);
   }, [isInfoOpen, isOverlayOpen]);
 
-  // Measure the classic scrollbar width (→ --scrollbar-w; 0 on overlay-scrollbar
-  // systems) so the right-edge nav/footer inset clears it. The shell spans 100vw
-  // and the scrollbar overlays that edge, clipping the last nav item otherwise.
-  // Re-measured on resize and route change (scrollability differs per route).
+  // Reserve the classic scrollbar's width as a DEVICE CONSTANT (→ --scrollbar-w),
+  // measured off an off-screen probe rather than innerWidth − clientWidth. The
+  // old measurement read the CURRENT route's scrollbar (≈15px on a scrollable
+  // route, 0 on a locked one), so the nav/footer right inset — and with it the
+  // right-edge items — jumped between pages. The probe reports the device's
+  // scrollbar width the SAME on every route (0 on overlay-scrollbar systems),
+  // so the inset is identical whether or not this page scrolls, while the
+  // `max(--space-4, --scrollbar-w)` in global.css still reserves room to clear
+  // the bar where it appears. Re-measured on resize (browser zoom, or plugging
+  // a mouse that flips macOS overlay↔classic scrollbars, changes the width).
   useEffect(() => {
     const setSbw = () => {
-      const w = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+      const probe = document.createElement('div');
+      probe.style.cssText =
+        'position:absolute;top:-9999px;width:100px;height:100px;overflow:scroll;visibility:hidden;pointer-events:none;';
+      document.body.appendChild(probe);
+      const w = Math.max(0, probe.offsetWidth - probe.clientWidth);
+      probe.remove();
       document.documentElement.style.setProperty('--scrollbar-w', `${w}px`);
     };
     setSbw();
-    const t = setTimeout(setSbw, 400); // after content/fonts settle scrollability
     window.addEventListener('resize', setSbw);
-    document.addEventListener('astro:after-swap', setSbw);
-    document.addEventListener('astro:page-load', setSbw);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener('resize', setSbw);
-      document.removeEventListener('astro:after-swap', setSbw);
-      document.removeEventListener('astro:page-load', setSbw);
-    };
+    return () => window.removeEventListener('resize', setSbw);
   }, []);
 
   // GSAP: initial closed position + resize tracking
