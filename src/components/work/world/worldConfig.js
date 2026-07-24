@@ -28,7 +28,7 @@ const num = (key, fallback) => {
 
 /* — Camera / render budget — */
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
-export const DPR_MAX = IS_MOBILE ? 1.5 : 2;
+export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales with DPR²; was desktop 2). ?dpr to A/B
 export const FPS_CAP = 60;
 export const MAX_TILES = num('max', IS_MOBILE ? 9 : 7);
 export const MIN_TILES = num('min', 5); // cycle showcase to fill sparse Worlds
