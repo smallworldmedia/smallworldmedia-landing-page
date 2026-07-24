@@ -50,9 +50,16 @@ export default class InteractionController {
     el.addEventListener('pointermove', this.onMove);
     el.addEventListener('pointerup', this.onUp);
     el.addEventListener('pointercancel', this.onUp);
+    // A swallowed pointerup (context menu, capture loss, app switch) must not
+    // strand dragging=true — the live scheduler defers promotions while it's
+    // set, so a stuck flag would silently starve the video tier. onUp is
+    // idempotent (dragging guard), so the extra firings are free.
+    el.addEventListener('lostpointercapture', this.onUp);
+    window.addEventListener('blur', this.onUp);
   }
 
   onDown(e) {
+    if (e.button !== 0) return; // right/middle click — the context menu eats the up
     this.el.setPointerCapture(e.pointerId);
     gsap.killTweensOf(this.vel);
     this.dragging = true;
@@ -128,6 +135,8 @@ export default class InteractionController {
     this.el.removeEventListener('pointermove', this.onMove);
     this.el.removeEventListener('pointerup', this.onUp);
     this.el.removeEventListener('pointercancel', this.onUp);
+    this.el.removeEventListener('lostpointercapture', this.onUp);
+    window.removeEventListener('blur', this.onUp);
     this.el.style.cursor = '';
   }
 }

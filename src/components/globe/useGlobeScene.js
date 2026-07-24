@@ -719,7 +719,8 @@ export default function useGlobeScene(
 
       schedClock += step;
       if (scheduler && schedClock >= 0.5) {
-        scheduler.update(globeGroup.rotation, sceneTime, camera);
+        // dragging defers promotions only — no Hls startups mid-gesture
+        scheduler.update(globeGroup.rotation, sceneTime, camera, controller.dragging);
         schedClock = 0;
       }
 

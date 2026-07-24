@@ -31,7 +31,7 @@ Two hypotheses were **refuted / refined** and shape the plan:
 
 ---
 
-## Progress — updated 2026-07-23
+## Progress — updated 2026-07-24
 
 - **DONE — Stage 1 (cheap defaults):** WS2 globe 480p; WS3 density dials (superseded on
   /work, see below); WS5 webp + `WORLD_MAX_LIVE` 4 + `THUMB_SIZE`; WS6 dead consts + Mux
@@ -43,10 +43,17 @@ Two hypotheses were **refuted / refined** and shape the plan:
   `c7eeaff`, `ec26afa`. Absorbs the WS3 density intent and adds nav-inset + video-priority
   + a memory cut. `/work` 1.1 GB Chrome memory diagnosed = stable GPU/video baseline, NOT
   a leak.
-- **TODO — Stage 2 (burst + latency):** WS1 globe promote-cap + drag-defer; WS5 worldLive
-  parallel first-fill + event-driven promote. ← **next**
+- **DONE — Stage 2 (burst + latency):** WS1 globe `MAX_PROMOTES_PER_UPDATE`=2 + drag-defer
+  (promotions skip while `controller.dragging`; demotes/swaps unaffected) + pointer-lifecycle
+  hardening in InteractionController (primary-button-only, `lostpointercapture`/`blur` →
+  release) so a swallowed pointerup can't strand the defer flag. WS5 worldLive fill window
+  (parallel promote into all free slots per attach, persists until the field is full) +
+  event-driven promote chaining on resolve/reject. Headless-verified: /work fills 4 slots
+  in ~2s (was serialized), globe holds 0 promotions through a 6s drag then refills to 7
+  in ~2.5s post-release.
 - **TODO — Stage 3 (structural):** WS3 build-stagger + fan-out; WS4 deck exclude-rect
   (the /work deck-band still sits low / overlaps — it's outside the new tile safe-region).
+  ← **next**
 - **TODO — Stage 4 (bundle diet):** code-split benches + lazy-`hls.js` (Safari/RM gate).
 - **DEFERRED:** full idle-prebuild (mobile density / HR-6). Optional: webp on the 5
   detail-page Mux sites; live-res 720→540 if memory needs more.

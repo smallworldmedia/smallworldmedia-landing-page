@@ -39,6 +39,9 @@ import {
 const VIEWPORT_NDC_LIMIT = 1.05;
 
 const MAX_SWAPS_PER_UPDATE = 4; // spread thumbnail fetches out over time
+// Spread Hls/MSE startups across beats — a drag release frees several slots
+// at once, and refilling them all in one beat stacks player setups on a frame
+const MAX_PROMOTES_PER_UPDATE = 2;
 
 function parseAspect(ratio) {
   if (typeof ratio !== 'string') return 1;
@@ -95,8 +98,11 @@ export default class LivePanelScheduler {
    * @param {THREE.Euler} rotation - current globe rotation
    * @param {number} now - seconds since scene start
    * @param {THREE.Camera} camera - for viewport visibility (overscan crop)
+   * @param {boolean} [dragging=false] - user is mid-drag: skip promotions
+   *        (no Hls startups during the gesture); demotes and hidden swaps
+   *        still run
    */
-  update(rotation, now, camera) {
+  update(rotation, now, camera, dragging = false) {
     if (this.disposed || !this.assets.length) return;
     this.now = now;
 
@@ -135,21 +141,28 @@ export default class LivePanelScheduler {
       }
     }
 
-    // Promote the most prominent eligible on-screen panels into free slots
-    const candidates = scored
-      .filter(
-        ({ panel, score, visible }) =>
-          !panel.liveState &&
-          !panel.parked && // never stream into a collapsed past-pole scroll tile
-          visible &&
-          score > PROMOTE_SCORE &&
-          now - (panel.lastLiveEnd ?? -Infinity) > RELIVE_COOLDOWN_SECONDS
-      )
-      .sort((a, b) => b.score - a.score);
-    for (const { panel } of candidates) {
-      const slot = this.slots.indexOf(null);
-      if (slot === -1) break;
-      this.promote(panel, slot);
+    // Promote the most prominent eligible on-screen panels into free slots.
+    // Deferred entirely mid-drag — panels demoted by the gesture would refill
+    // immediately and stutter the drag; the beat after release catches up.
+    if (!dragging) {
+      const candidates = scored
+        .filter(
+          ({ panel, score, visible }) =>
+            !panel.liveState &&
+            !panel.parked && // never stream into a collapsed past-pole scroll tile
+            visible &&
+            score > PROMOTE_SCORE &&
+            now - (panel.lastLiveEnd ?? -Infinity) > RELIVE_COOLDOWN_SECONDS
+        )
+        .sort((a, b) => b.score - a.score);
+      let promotes = 0;
+      for (const { panel } of candidates) {
+        if (promotes >= MAX_PROMOTES_PER_UPDATE) break;
+        const slot = this.slots.indexOf(null);
+        if (slot === -1) break;
+        this.promote(panel, slot);
+        promotes += 1;
+      }
     }
 
     // Hidden-hemisphere cycling — skipped when a ContentConveyor owns texA.

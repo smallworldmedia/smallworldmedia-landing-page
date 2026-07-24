@@ -8,7 +8,11 @@
  *
  *  - Promote: an eligible Tile takes a free VideoSlotPool slot → its HLS video
  *    crossfades up over the still (an overlay plane parented to the tile mesh,
- *    so it inherits parallax / push-out / Turn transforms).
+ *    so it inherits parallax / push-out / Turn transforms). After each
+ *    attach(), a fill window promotes candidates into ALL free slots in
+ *    parallel as their stills land, until the field is full; later (rotation)
+ *    promotions serialize, and each resolved promotion immediately re-enters
+ *    update() so the next waiting stream starts without waiting for a beat.
  *  - Rotate: when every slot is full and another eligible Tile is waiting, the
  *    longest-lived Tile past LIVE_DWELL_SECONDS fades back to its still and
  *    the waiting one takes the slot — the field keeps moving.
@@ -47,12 +51,14 @@ export default class WorldLiveScheduler {
     /** @type {Array<Object|null>} slot index → tile record holding it */
     this.slots = Array(WORLD_MAX_LIVE).fill(null);
     this.now = 0;
+    this.needsInitialFill = false;
   }
 
   /** Point the scheduler at the active World's tile records (post-build/Turn). */
   attach(tiles) {
     this.tiles = tiles;
     this.suspended = false;
+    this.needsInitialFill = true; // first beat fills all free slots at once
   }
 
   update(now) {
@@ -67,9 +73,30 @@ export default class WorldLiveScheduler {
     );
     if (!candidates.length) return;
 
-    // One stream starts up at a time: concurrent first-segment fetches split
-    // bandwidth and make *every* video late — serialized, the first tile goes
-    // live as fast as the network allows and the rest follow within a beat.
+    // Fill window after attach(): the user is staring at an empty field, so
+    // parallel startup beats serialized bandwidth-sharing — fill every free
+    // slot now. Duplicate-safe: promote() writes slots[] synchronously and
+    // pickCandidate excludes every playbackId already slotted (incl. pending).
+    if (this.needsInitialFill) {
+      let free;
+      while ((free = this.slots.indexOf(null)) !== -1) {
+        const next = this.pickCandidate(candidates);
+        if (!next) break;
+        this.promote(next, free);
+      }
+      // Stay in the fill window until the field is actually full — cold-load
+      // stills straggle across beats, and each should start streaming the
+      // moment it lands, not chained behind the prior stream's first frame.
+      // Sparse Worlds that can never fill every slot just keep promoting new
+      // candidates immediately (desired); rotation below needs all slots
+      // busy, so it stays unreachable while this is set.
+      this.needsInitialFill = this.slots.includes(null);
+      return;
+    }
+
+    // Steady-state (rotation) beats stay serialized: concurrent first-segment
+    // fetches split bandwidth and make *every* video late — one pending stream
+    // at a time, each resolution chaining the next via promote()'s update().
     if (this.slots.some((t) => t?.liveState === 'pending')) return;
 
     const free = this.slots.indexOf(null);
@@ -161,10 +188,17 @@ export default class WorldLiveScheduler {
           ease: 'power2.out',
           overwrite: 'auto',
         });
+
+        // Stream is up — start the next waiting one now instead of waiting
+        // out the beat (this.now may be a beat stale; dwell clocks tolerate
+        // it). update()'s guards keep this to one new pending stream at most.
+        if (!this.disposed && !this.suspended) this.update(this.now);
       })
       .catch(() => {
         // Slot reassigned/released or stream failed — roll back cleanly
         if (tile.liveState === 'pending') this.freeTile(tile, { releasePool: true });
+        // A failed startup shouldn't stall the chain — try the next candidate.
+        if (!this.disposed && !this.suspended) this.update(this.now);
       });
   }
 
