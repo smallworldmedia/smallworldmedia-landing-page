@@ -51,13 +51,14 @@ export const DPR_MAX = IS_MOBILE ? 1.5 : 2;
 export const THUMB_WIDTH = IS_MOBILE ? 384 : 512; // Mux thumbnail request size (square, smartcrop)
 
 /* — Stream quality —
-   Mobile overscan shows few, large panels → pin a single 540p rendition
-   (min+max together collapse the manifest to one choice, which also
-   overrides iOS native-HLS ABR that would otherwise pick low for a
-   hidden video element). Desktop runs 6 small panels → cheapest 270p. */
+   Both tiers pin a SINGLE rendition (min+max collapse the Mux manifest to one
+   choice), which also overrides native-HLS ABR that would otherwise pick low
+   for a hidden/small video element. Mobile overscan shows few large panels →
+   540p. Desktop runs 6 small-but-crisp center panels → 480p (min==max so the
+   preferMinQuality level-0 lock lands ON 480p, not the lowest sub-480p rung). */
 export const STREAM_PARAMS = IS_MOBILE
   ? 'min_resolution=540p&max_resolution=540p'
-  : 'max_resolution=270p';
+  : 'min_resolution=480p&max_resolution=480p';
 
 /* — Live video tier (Stage 2) —
    Camera sits at ~3.9R (desktop), so the visible horizon is at score ≈ 0.26;

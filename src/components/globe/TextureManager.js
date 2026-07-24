@@ -2,7 +2,7 @@
  * TextureManager.js — Mux thumbnail → THREE.Texture loader with refcounting.
  *
  * Thumbnail URL convention follows MediaCard/FeaturedProjects:
- *   image.mux.com/{playbackId}/thumbnail.jpg?width=…&fit_mode=smartcrop
+ *   image.mux.com/{playbackId}/thumbnail.webp?width=…&fit_mode=smartcrop
  * Square smartcrop requests keep texAspect = 1 so cover-fit math is uniform.
  */
 import * as THREE from 'three';
@@ -17,7 +17,7 @@ export default class TextureManager {
   }
 
   thumbnailUrl(playbackId) {
-    return `https://image.mux.com/${playbackId}/thumbnail.jpg?width=${THUMB_WIDTH}&height=${THUMB_WIDTH}&fit_mode=smartcrop`;
+    return `https://image.mux.com/${playbackId}/thumbnail.webp?width=${THUMB_WIDTH}&height=${THUMB_WIDTH}&fit_mode=smartcrop`;
   }
 
   /**

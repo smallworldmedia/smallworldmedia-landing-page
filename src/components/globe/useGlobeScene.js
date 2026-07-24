@@ -3,8 +3,8 @@
  *
  * Owns the renderer/scene/camera, builds the panelized globe, assigns CMS
  * thumbnails, and runs the render loop on gsap.ticker with an internal
- * 30fps gate (never gsap.ticker.fps() — the ticker is shared with the
- * persistent SiteShell).
+ * 60fps gate (FPS_CAP; never gsap.ticker.fps() — the ticker is shared
+ * with the persistent SiteShell).
  *
  * Lifecycle: the whole scene rebuilds when assets/gapDeg/capDeg change
  * (lab tuning), and tears down fully on unmount — including

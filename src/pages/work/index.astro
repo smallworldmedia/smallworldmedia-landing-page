@@ -27,7 +27,7 @@ import FeaturedProjects from '../../components/work/FeaturedProjects.jsx';
 const projects = await sanityFetch(FEATURED_WORLDS_QUERY);
 
 // Composite-band page shape (the World mount needs only art + aspect).
-const BAND_PAGE_CAP = 8; // matches BAND_MAX_PAGES client-side
+const BAND_PAGE_CAP = 5; // matches BAND_MAX_PAGES client-side
 const bandPage = (a) => ({
   _id: a._id,
   title: a.title || null,

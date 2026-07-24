@@ -30,9 +30,9 @@ const num = (key, fallback) => {
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
 export const DPR_MAX = IS_MOBILE ? 1.5 : 2;
 export const FPS_CAP = 60;
-export const MAX_TILES = num('max', IS_MOBILE ? 9 : 16);
-export const MIN_TILES = num('min', IS_MOBILE ? 5 : 8); // cycle showcase to fill sparse Worlds
-export const THUMB_SIZE = 1024; // tile texture request (px) — crisper near tiles
+export const MAX_TILES = num('max', IS_MOBILE ? 9 : 12);
+export const MIN_TILES = num('min', IS_MOBILE ? 5 : 6); // cycle showcase to fill sparse Worlds
+export const THUMB_SIZE = 640; // tile texture request (px) — right-sized for Near at DPR2 (was 1024, ~2× oversampled)
 
 /* — Depth tiers — Z position (camera sits at 0 looking down -Z), Near → Far.
    Perspective shrinks farther tiles; tier also gates live-video eligibility (P3). */
@@ -45,7 +45,6 @@ export const SCATTER_FRAC = num('scatter', 1.0); // spread vs. the visible half-
 export const CENTER_CLEAR_FRAC = num('clear', 0.59); // inner clear radius (normalized) — reserves the center for the card
 export const CLUSTER_RADIUS = num('cluster', 0.55); // outer bound (normalized) — tiles stay within this radius of center, clustering around the card
 export const OVERLAP_JITTER = num('jitter', 0.04); // seeded XY offset over the even (phyllotaxis) layout — higher = more organic clumping/overlap
-export const CURVE_STRENGTH = 0.42; // (superseded by LENS_DISTORTION post-process — no longer applied per-tile)
 export const TILE_FALLBACK_COLOR = 0xe6e6ea;
 
 /* — Tile appear (load-gated push-out) — a Tile stays hidden until its texture
@@ -86,7 +85,7 @@ export const TURN_EASE_PATH =
    else stays a thumbnail. The pool size is the hard decode budget. Live video
    suspends back to stills during a World Turn — the Turn is the incoming
    World's preload window. Reduced motion = stills only (no pool mounted). */
-export const WORLD_MAX_LIVE = Math.max(0, Math.round(num('live', IS_MOBILE ? 2 : 3)));
+export const WORLD_MAX_LIVE = Math.max(0, Math.round(num('live', IS_MOBILE ? 2 : 4)));
 export const LIVE_DWELL_SECONDS = num('livedwell', 9); // min time live before rotating to a waiting Near tile
 export const LIVE_CROSSFADE_SECONDS = num('livefade', 0.6); // still ↔ video crossfade (globe convention)
 export const LIVE_SUSPEND_SECONDS = 0.3; // fast fade back to stills when a Turn starts
@@ -107,7 +106,7 @@ export const BANDS_ENABLED = num('bands', 1) !== 0;
 export const BAND_TIER = 1; // Mid tier — behind the live Near tier, ahead of Far
 export const BAND_HEIGHT = num('bandh', TILE_HEIGHT * 1.7); // body reads bigger than a tile (world units, longest side)
 export const BAND_CYCLE_S = num('bandcycle', 3.2); // rest dwell between auto-advances
-export const BAND_MAX_PAGES = Math.max(2, Math.round(num('bandpages', 8))); // planes per band (memory cap)
+export const BAND_MAX_PAGES = Math.max(2, Math.round(num('bandpages', 5))); // planes per band (memory cap) — keep matched with BAND_PAGE_CAP in work/index.astro
 export const BAND_TEX_WIDTH = 800; // band texture request (px)
 
 /* — Composite band placement (FP2) — the featured-page deck is FORCED into the
@@ -149,5 +148,5 @@ export const SHELL_SPIN = num('spin', 0.012); // rad/sec — slow Y-spin so the 
 
 /* — Environment — the canvas renders transparent; the vertical gradient backdrop
    (black top → electric blue bottom, matching the home hero) lives on the DOM
-   (.fp-canvas in featured-projects.css) so the lens pass can't warp it. */
-export const BG_COLOR = 0x0000ff; // legacy solid fallback (unused by the transparent canvas)
+   (.fp-canvas in featured-projects.css) so the lens pass can't warp it. No
+   solid bg-color const lives here — the canvas is transparent by design. */

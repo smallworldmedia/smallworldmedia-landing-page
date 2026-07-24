@@ -80,6 +80,10 @@ const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
     <link rel="preload" href={fontBook} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={fontMedium} as="font" type="font/woff2" crossorigin />
 
+    {/* Mux — warm DNS+TLS+TCP before the first globe manifest / still / work thumbnail (both fetched with CORS) */}
+    <link rel="preconnect" href="https://stream.mux.com" crossorigin />
+    <link rel="preconnect" href="https://image.mux.com" crossorigin />
+
     {/* Google Fonts: Inter (UI font stack) */}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

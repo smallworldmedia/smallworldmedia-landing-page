@@ -99,7 +99,7 @@ const smoothstep = (a, b, x) => {
 
 const tileSrc = (t) =>
   t.playbackId
-    ? `https://image.mux.com/${t.playbackId}/thumbnail.jpg?width=${THUMB_SIZE}` // native aspect (no forced square crop)
+    ? `https://image.mux.com/${t.playbackId}/thumbnail.webp?width=${THUMB_SIZE}` // native aspect (no forced square crop)
     : t.imageUrl
       ? `${t.imageUrl}?w=${THUMB_SIZE}&auto=format&fit=max`
       : null;

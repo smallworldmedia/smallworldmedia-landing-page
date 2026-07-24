@@ -58,7 +58,7 @@ const pageSrc = (p) =>
   p.imageUrl
     ? `${p.imageUrl}?w=${BAND_TEX_WIDTH}&auto=format&fit=max`
     : p.playbackId
-      ? `https://image.mux.com/${p.playbackId}/thumbnail.jpg?width=${BAND_TEX_WIDTH}&fit_mode=preserve`
+      ? `https://image.mux.com/${p.playbackId}/thumbnail.webp?width=${BAND_TEX_WIDTH}&fit_mode=preserve`
       : null;
 
 /**
