@@ -71,6 +71,7 @@ export const TILE_SPAWN_FRAC = num('spawn', 0.12); // start position as a fracti
 export const TILE_SPAWN_SCALE = num('spawnscale', 0.72); // start scale (grows to 1 as it pushes out)
 export const TILE_APPEAR_DURATION = num('appearms', 1100) / 1000; // seconds of the appear/push-out
 export const TILE_APPEAR_FADE = num('appearfade', 0.35); // fraction of progress over which opacity ramps to full (rest is the settle)
+export const FANOUT_STAGGER = num('fanout', 0.55); // max extra delay at the outermost tile, seconds — first-view appears launch inner→outer (~50% of TILE_APPEAR_DURATION) so the field blooms outward instead of popping at random load order
 
 /* — Lens distortion (post-process) — applied to the whole composited scene so
    Tiles + Shell warp cohesively. NEGATIVE = pincushion / inward "inside-a-sphere". */

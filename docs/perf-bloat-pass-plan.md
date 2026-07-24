@@ -51,10 +51,23 @@ Two hypotheses were **refuted / refined** and shape the plan:
   event-driven promote chaining on resolve/reject. Headless-verified: /work fills 4 slots
   in ~2s (was serialized), globe holds 0 promotions through a 6s drag then refills to 7
   in ~2.5s post-release.
-- **TODO — Stage 3 (structural):** WS3 build-stagger + fan-out; WS4 deck exclude-rect
-  (the /work deck-band still sits low / overlaps — it's outside the new tile safe-region).
-  ← **next**
+- **DONE — Stage 3 (structural):** WS3 `buildSlot` staggered across rAF frames (batch-0
+  ≥ video budget synchronous, rest in 5-tile batches + 1 band/frame, `buildGen`
+  cancellation) + inner→outer appear bloom (`?fanout`, default 0.55s, anchored to build
+  time). WS4 band keep-outs in `placeTiles`: per-band footprint rects (centroid-centered,
+  world→normalized inversion at band z) with **ring-preserving angular displacement** —
+  centers rotate along the annulus to a validated clear spot (all rects + min-sep from
+  earlier displaced), zero extra PRNG draws (band-less Worlds byte-identical, sim-proven
+  over 60k worlds). Placeholder append dropped from the placeTiles input.
+  **Design notes for Nathan:** (a) the centers ring (CLUSTER_RADIUS 0.55 <
+  CENTER_CLEAR_FRAC 0.59) can hold ~3 displaced tiles clear of ONE band rect — two rects
+  exceed capacity at aspect ≤1.5, so a both-bands World keeps only the DECK keep-out
+  (gated in buildSlot; zero production Worlds have both today). (b) album-only Worlds at
+  square-ish (~1:1) viewports clump on the ring — falls under the deferred HR-6
+  mobile/tablet gate. (c) widening the annulus would give displacement 2D freedom if
+  either ever matters.
 - **TODO — Stage 4 (bundle diet):** code-split benches + lazy-`hls.js` (Safari/RM gate).
+  ← **next**
 - **DEFERRED:** full idle-prebuild (mobile density / HR-6). Optional: webp on the 5
   detail-page Mux sites; live-res 720→540 if memory needs more.
 

@@ -61,6 +61,7 @@ import {
   TILE_SPAWN_SCALE,
   TILE_APPEAR_DURATION,
   TILE_APPEAR_FADE,
+  FANOUT_STAGGER,
   LENS_DISTORTION_X,
   LENS_DISTORTION_Y,
   TURN_DURATION,
@@ -75,12 +76,35 @@ import {
   BANDS_ENABLED,
   BAND_TIER,
   BAND_TUNABLES,
+  BAND_HEIGHT,
+  BAND_MAX_PAGES,
+  TILE_HEIGHT,
+  SCATTER_FRAC,
+  FIELD_OFFSET_Y,
+  FIELD_SPREAD_X,
+  FIELD_SPREAD_Y,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
+import {
+  FAN_X,
+  FAN_Y,
+  FAN_FALLOFF,
+  FAN_DEPTH,
+  PILE_X,
+  PILE_Y,
+  PILE_FALLOFF,
+  SHOW_LIFT,
+  REF_PAGE_W,
+} from '../bandLayout.js';
 
 // Half-angle tangent of the camera's vertical FOV — maps a depth to the
 // visible half-height there, so the band can be pinned to a quadrant fraction.
 const BAND_TAN_V = Math.tan((CAMERA_FOV * Math.PI) / 360);
+
+// Converging cumulative offset (step, step·r, step·r², …) — bandLayout's `cum`,
+// re-derived here (it isn't exported) to size the band keep-out footprints.
+const cumSpread = (step, r, n) =>
+  n > 0 ? (step * (1 - Math.pow(r, n))) / (1 - r) : 0;
 
 // S2: how far to dim a project accent when it tints the background grid, so a
 // bright accent (e.g. lime) stays a faint field rather than a glaring wall.
@@ -245,6 +269,9 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     };
 
     const clearSlot = (slot) => {
+      // Invalidate any in-flight staggered build: deferred batches captured
+      // the old generation and abort instead of populating a cleared slot.
+      slot.buildGen = (slot.buildGen || 0) + 1;
       for (const t of slot.tiles) {
         gsap.killTweensOf(t); // stop any in-flight appear/push-out
         scheduler?.freeTile(t, { releasePool: true }); // overlay + pool slot, if live
@@ -291,9 +318,10 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
           : i % DEPTH_TIERS.length;
       // Thumbnail size scales inverse to field density — fewer tiles → bigger thumb.
       const thumb = thumbForCount(chosen.length);
-      // Composite bands (deck / album stacks) claim seeded positions in the
-      // same field so tiles space around them; their depth is pinned to the
-      // band tier afterwards.
+      // Composite bands (deck / album stacks) are FORCED to the top-right
+      // quadrant (see the creation block below), so instead of claiming seeded
+      // slots they hand placeTiles rectangular keep-outs over their REAL
+      // footprints — tiles space around where the deck actually sits.
       const bandDefs = BANDS_ENABLED
         ? [
             w?.brandDecks?.length && {
@@ -306,16 +334,109 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
             },
           ].filter(Boolean)
         : [];
-      const placements = placeTiles(
-        [...chosen, ...bandDefs.map((b) => ({ ratio: b.ratio }))],
-        {
-          seed: w.slug,
-          aspect: camera.aspect || 1,
-          tiers: chosen.map((_, i) => tierOf(i)),
-        }
-      );
+      // Per-band anchor geometry, hoisted so the keep-out rects here and the
+      // band creation block (bandDefs.forEach below) derive from the SAME values.
+      const bandGeom = bandDefs.map((def, j) => {
+        const z = DEPTH_TIERS[BAND_TIER] + (j === 0 ? -0.18 : 0.18);
+        const halfH = Math.abs(z) * BAND_TAN_V;
+        const halfW = halfH * (camera.aspect || 1);
+        // A second band tucks inboard so two decks (deck + album) don't overlap.
+        const inboard = j === 0 ? 1 : 0.6;
+        return { z, halfH, halfW, anchorW: halfW * inboard };
+      });
+      // Keep-out rects: each band's world footprint (front page + fan/pile
+      // spread around the forced anchor) mapped into the seeded layout's
+      // normalized centers frame. BAND_TUNABLES is read at BUILD time — live
+      // ?bandx/?bandy (posX/posY) nudges re-key the rect on the next
+      // buildSlot, not per frame.
+      const excludeRects = bandDefs.map((def, j) => {
+        const g = bandGeom[j];
+        // Anchor — same derivation the band creation block uses.
+        const bx = g.anchorW * BAND_TUNABLES.posX;
+        const by = g.halfH * BAND_TUNABLES.posY;
+        // Band body: up to BAND_MAX_PAGES pages fit in a BAND_HEIGHT square
+        // (worldBands sizing), px-tuned stack distances scaled by unit.
+        const pageW = def.ratio >= 1 ? BAND_HEIGHT : BAND_HEIGHT * def.ratio;
+        const pageH = def.ratio >= 1 ? BAND_HEIGHT / def.ratio : BAND_HEIGHT;
+        const unit = pageW / REF_PAGE_W;
+        const tune = BAND_TUNABLES;
+        const fanX = FAN_X * unit * tune.spacingMul * tune.fanMul;
+        const fanY = FAN_Y * unit * tune.spacingMul * tune.fanMul;
+        const pileX = PILE_X * unit * tune.spacingMul * tune.pileMul;
+        const pileY = PILE_Y * unit * tune.spacingMul * tune.pileMul;
+        const homeX = tune.homeX * pageW; // front-card anchor, left of group origin
+        const n = Math.min(def.items.length, BAND_MAX_PAGES);
+        const fanDepth = Math.min(n - 1, FAN_DEPTH); // visible waiting-fan depth
+        const parkDepth = Math.max(0, n - 2); // settled-pile depth at max phase
+        // In-plane reach of each stack from the group origin (bandPose
+        // extremes): the fan spreads +x/right of homeX and drifts down; the
+        // pile tucks −x/left past homeX and drifts up (+ the SHOW_LIFT arc).
+        const fanReach = cumSpread(fanX, FAN_FALLOFF, fanDepth);
+        const pileReach =
+          n > 1 ? pileX + cumSpread(pileX, PILE_FALLOFF, parkDepth) : 0;
+        const fanDrop = cumSpread(fanY, FAN_FALLOFF, fanDepth);
+        const pileRise =
+          (n > 1 ? pileY + cumSpread(pileY, PILE_FALLOFF, parkDepth) : 0) +
+          SHOW_LIFT * unit;
+        // X extents are asymmetric (pile-heavy left; homeX pre-tucks the fan
+        // right), so center the rect on the TRUE span rather than a symmetric
+        // max about the anchor — a symmetric rect over-reached ~0.4 world on
+        // the right, which displaced tiles paid for. Both sides + half a
+        // TILE_HEIGHT tile (the rect excludes tile CENTERS, but tiles have
+        // size); ~10% margin on the half-span.
+        const rightW = pageW / 2 + homeX + fanReach + TILE_HEIGHT / 2;
+        const leftW = pageW / 2 - homeX + pileReach + TILE_HEIGHT / 2;
+        const cxW = bx + (rightW - leftW) / 2;
+        const halfXw = ((rightW + leftW) / 2) * 1.1;
+        const halfYw =
+          (pageH / 2 + Math.max(fanDrop, pileRise) + TILE_HEIGHT / 2) * 1.1;
+        // World → normalized centers frame: invert seededLayout's stage-2 map
+        //   x = nx·halfW·SCATTER_FRAC·FIELD_SPREAD_X
+        //   y = ny·halfH·SCATTER_FRAC·FIELD_SPREAD_Y + FIELD_OFFSET_Y·halfH
+        // using the band's own z as the reference depth — tiles at other tiers
+        // have slightly different half-extents; the margin above absorbs that.
+        const normX = g.halfW * SCATTER_FRAC * FIELD_SPREAD_X;
+        const normY = g.halfH * SCATTER_FRAC * FIELD_SPREAD_Y;
+        return {
+          cx: cxW / normX,
+          cy: (by - FIELD_OFFSET_Y * g.halfH) / normY,
+          halfX: halfXw / normX,
+          halfY: halfYw / normY,
+        };
+      });
+      // Ring-capacity gate: the centers ring holds ~3 displaced tiles clear
+      // of ONE rect; two rects exceed it at aspect ≤1.5 (measured — tiles
+      // strand inside a band with nowhere left to go). If a World ever ships
+      // BOTH bands, only the deck (j=0, the dominant top-right fan) reserves
+      // its footprint and the album stack accepts overlap. No production
+      // World has both today (audited 2026-07-24).
+      if (excludeRects.length > 1) excludeRects.length = 1;
+      const placements = placeTiles(chosen, {
+        seed: w.slug,
+        aspect: camera.aspect || 1,
+        tiers: chosen.map((_, i) => tierOf(i)), // matches the input 1:1
+        excludeRects,
+      });
 
-      chosen.forEach((tile, i) => {
+      // Everything above (composition, placements, keep-outs) is cheap math and
+      // stays synchronous. The mesh/material/load churn below is what stacked
+      // the Turn's trigger frame, so it's staggered across animation frames.
+
+      // Stale-build guard: clearSlot bumps the slot generation, so a deferred
+      // batch from a superseded build (a new Turn / teardown arrived mid-build)
+      // aborts instead of adding meshes to a cleared slot (leak + ghost tiles).
+      const gen = slot.buildGen;
+
+      // Fan-out reference radius: appear delays scale with resting distance
+      // from center so the field blooms inner→outer (masks load jitter).
+      let maxR = 0;
+      for (const pl of placements) maxR = Math.max(maxR, Math.hypot(pl.x, pl.y));
+      // Bloom origin: delays anchor to the BUILD, not each texture's arrival,
+      // so a late-loading tile sheds the stagger it already waited out instead
+      // of re-paying it (keeps the sequence outward even on cold loads).
+      const bloomT0 = performance.now();
+
+      const createTile = (tile, i) => {
         const pl = placements[i];
         const tierIndex = tierOf(i);
         const material = new THREE.MeshBasicMaterial({
@@ -352,6 +473,8 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
           videoMesh: null,
           videoTexture: null,
         };
+        // push (never reassign): the live scheduler holds this array reference,
+        // so late-created tiles are promotable without a re-attach.
         slot.tiles.push(rec);
 
         const src = tileSrc(tile, thumb);
@@ -376,8 +499,17 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
               gsap.to(rec, {
                 appear: 1,
                 duration: TILE_APPEAR_DURATION,
+                // Bloom: inner tiles launch first, outer later — one coherent
+                // outward sequence instead of random per-texture pops.
+                delay: Math.max(
+                  0,
+                  FANOUT_STAGGER * (maxR > 0 ? Math.hypot(pl.x, pl.y) / maxR : 0) -
+                    (performance.now() - bloomT0) / 1000
+                ),
                 ease: turnRollEase,
-                overwrite: true,
+                // Property-scoped on purpose: `true` would kill a concurrent
+                // liveMix crossfade on the same rec; nothing else tweens appear.
+                overwrite: 'auto',
               });
             } else {
               rec.appear = 1;
@@ -386,20 +518,16 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
           undefined,
           () => { } // failed load → tile stays hidden (appear 0)
         );
-      });
+      };
 
       // Composite bands — pinned to the band tier. FP2: the deck is FORCED into
       // the TOP-RIGHT quadrant (+x right, +y up) rather than its seeded slot, so
       // it lands consistently clear of the header/nav for any project. The
       // anchor (half-extents × BAND_TUNABLES.pos*) is re-read live in
       // applyParallax so the debug panel can nudge the placement without a rebuild.
-      bandDefs.forEach((def, j) => {
-        const z = DEPTH_TIERS[BAND_TIER] + (j === 0 ? -0.18 : 0.18);
-        const halfH = Math.abs(z) * BAND_TAN_V;
-        const halfW = halfH * (camera.aspect || 1);
-        // A second band tucks inboard so two decks (deck + album) don't overlap.
-        const inboard = j === 0 ? 1 : 0.6;
-        const anchorW = halfW * inboard;
+      const createBand = (def, j) => {
+        // Anchor geometry hoisted to bandGeom (shared with the keep-out rects).
+        const { z, halfH, anchorW } = bandGeom[j];
         const band = createWorldBand({
           items: def.items,
           ratio: def.ratio,
@@ -417,6 +545,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         // from the live pos* tunables each frame (top-right quadrant nudging).
         band.anchorW = anchorW;
         band.anchorH = halfH;
+        // push (never reassign) — same identity contract as slot.tiles.
         slot.bands.push(band);
         if (firstView && !PREFERS_REDUCED_MOTION) {
           gsap.to(band, {
@@ -428,7 +557,35 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         } else {
           band.appear = 1;
         }
-      });
+      };
+
+      // Bands are the heaviest single items (up to BAND_MAX_PAGES planes +
+      // loads each) → each gets a whole frame to itself after the tile batches.
+      const scheduleBand = (j) => {
+        if (j >= bandDefs.length) return;
+        requestAnimationFrame(() => {
+          if (disposed || slot.buildGen !== gen) return; // superseded mid-build
+          createBand(bandDefs[j], j);
+          scheduleBand(j + 1);
+        });
+      };
+
+      // Build-stagger: the first tile batch runs synchronously so the field is
+      // never empty-started; later batches ride successive rAF callbacks. rAF
+      // directly (not the FPS_CAP-gated gsap ticker) — build cadence shouldn't
+      // wait on render cadence. Tiles are opacity-0 until their texture lands,
+      // so the progressive creation is invisible.
+      // ≥ the video budget so every Near/video tile is created in the
+      // synchronous batch — "videos start first" must survive a ?vtiles bump.
+      const TILE_BATCH = Math.max(5, WORLD_MAX_VIDEO_TILES);
+      const runBatch = (start) => {
+        if (disposed || slot.buildGen !== gen) return; // superseded mid-build
+        const end = Math.min(start + TILE_BATCH, chosen.length);
+        for (let i = start; i < end; i++) createTile(chosen[i], i);
+        if (end < chosen.length) requestAnimationFrame(() => runBatch(end));
+        else scheduleBand(0);
+      };
+      runBatch(0);
     };
 
     // ── World Turn — the two Worlds roll as one rigid pair ──
