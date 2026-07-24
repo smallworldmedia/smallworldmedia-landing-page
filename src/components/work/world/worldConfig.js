@@ -30,9 +30,20 @@ const num = (key, fallback) => {
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
 export const DPR_MAX = IS_MOBILE ? 1.5 : 2;
 export const FPS_CAP = 60;
-export const MAX_TILES = num('max', IS_MOBILE ? 9 : 8);
+export const MAX_TILES = num('max', IS_MOBILE ? 9 : 7);
 export const MIN_TILES = num('min', 5); // cycle showcase to fill sparse Worlds
-export const THUMB_SIZE = 768; // tile texture request (px) — fewer/larger tiles afford more res (still < old 1024)
+/* — Tile thumbnail size — linear in the World's tile count: FEWER tiles get a
+   BIGGER thumbnail (a sparse World shows each tile larger, and fewer total
+   requests leave more byte-budget per tile), shrinking as the field fills.
+   Endpoints tie to the MIN_TILES / MAX_TILES range; both live-tunable. */
+export const THUMB_MAX = Math.round(num('thumbmax', 896)); // biggest thumb — at MIN_TILES (sparsest World)
+export const THUMB_MIN = Math.round(num('thumbmin', 704)); // smallest thumb — at MAX_TILES (densest World)
+export function thumbForCount(count) {
+  const span = MAX_TILES - MIN_TILES;
+  if (span <= 0) return THUMB_MAX;
+  const t = Math.min(1, Math.max(0, (count - MIN_TILES) / span)); // 0 at MIN_TILES → 1 at MAX_TILES
+  return Math.round(THUMB_MAX + t * (THUMB_MIN - THUMB_MAX));
+}
 
 /* — Depth tiers — Z position (camera sits at 0 looking down -Z), Near → Far.
    Perspective shrinks farther tiles; tier also gates live-video eligibility (P3). */
@@ -48,9 +59,9 @@ export const OVERLAP_JITTER = num('jitter', 0.04); // seeded XY offset over the 
 /* — Field safe-region — hold the tile field clear of the fixed nav bar (top)
    and the viewport edges so nothing clips. Fractions of the visible half-extent
    at each tile's depth; all live-tunable to frame against the real projects. */
-export const FIELD_OFFSET_Y = num('fieldy', -0.08); // shift the whole field DOWN to clear the nav (− = down)
-export const FIELD_SPREAD_X = num('spreadx', 1.0);  // horizontal spread ×; < 1 pulls tiles off the left/right edges
-export const FIELD_SPREAD_Y = num('spready', 0.88); // vertical spread ×; < 1 flattens the ring so top/bottom clear
+export const FIELD_OFFSET_Y = num('fieldy', -0.012); // shift the whole field DOWN to clear the nav (− = down) — Nathan's bake
+export const FIELD_SPREAD_X = num('spreadx', 0.88);  // horizontal spread ×; < 1 pulls tiles off the left/right edges — Nathan's bake
+export const FIELD_SPREAD_Y = num('spready', 0.79);  // vertical spread ×; < 1 flattens the ring so top/bottom clear — Nathan's bake
 export const TILE_FALLBACK_COLOR = 0xe6e6ea;
 
 /* — Tile appear (load-gated push-out) — a Tile stays hidden until its texture

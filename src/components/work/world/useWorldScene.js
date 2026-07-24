@@ -50,7 +50,7 @@ import {
   FPS_CAP,
   MAX_TILES,
   MIN_TILES,
-  THUMB_SIZE,
+  thumbForCount,
   DEPTH_TIERS,
   SHELL_RADIUS,
   SHELL_LINE_COLOR,
@@ -98,11 +98,11 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
-const tileSrc = (t) =>
+const tileSrc = (t, thumb) =>
   t.playbackId
-    ? `https://image.mux.com/${t.playbackId}/thumbnail.webp?width=${THUMB_SIZE}` // native aspect (no forced square crop)
+    ? `https://image.mux.com/${t.playbackId}/thumbnail.webp?width=${thumb}` // native aspect (no forced square crop)
     : t.imageUrl
-      ? `${t.imageUrl}?w=${THUMB_SIZE}&auto=format&fit=max`
+      ? `${t.imageUrl}?w=${thumb}&auto=format&fit=max`
       : null;
 
 /** Cover-fit a texture into a plane of `planeAspect` via the texture transform. */
@@ -289,6 +289,8 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
             ? 0
             : 1 + ((i - videoCount) % 2)
           : i % DEPTH_TIERS.length;
+      // Thumbnail size scales inverse to field density — fewer tiles → bigger thumb.
+      const thumb = thumbForCount(chosen.length);
       // Composite bands (deck / album stacks) claim seeded positions in the
       // same field so tiles space around them; their depth is pinned to the
       // band tier afterwards.
@@ -352,7 +354,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         };
         slot.tiles.push(rec);
 
-        const src = tileSrc(tile);
+        const src = tileSrc(tile, thumb);
         if (!src) return;
         loader.load(
           src,
