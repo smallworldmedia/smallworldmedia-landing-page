@@ -31,6 +31,28 @@ Two hypotheses were **refuted / refined** and shape the plan:
 
 ---
 
+## Progress — updated 2026-07-23
+
+- **DONE — Stage 1 (cheap defaults):** WS2 globe 480p; WS3 density dials (superseded on
+  /work, see below); WS5 webp + `WORLD_MAX_LIVE` 4 + `THUMB_SIZE`; WS6 dead consts + Mux
+  preconnect. Commit `14bf4ce`.
+- **DONE — /work field rework (beyond the original plan, from live feedback):** nav-safe
+  framing (`FIELD_OFFSET_Y`/`SPREAD_X`/`SPREAD_Y` in `placeTiles`), `MAX_TILES`→7,
+  video-first composition (video→Near front tier, capped at play budget), count-linked
+  thumb (fewer tiles → bigger), `DPR_MAX` 2→1.5 for memory. Commits `ee3389e`,
+  `c7eeaff`, `ec26afa`. Absorbs the WS3 density intent and adds nav-inset + video-priority
+  + a memory cut. `/work` 1.1 GB Chrome memory diagnosed = stable GPU/video baseline, NOT
+  a leak.
+- **TODO — Stage 2 (burst + latency):** WS1 globe promote-cap + drag-defer; WS5 worldLive
+  parallel first-fill + event-driven promote. ← **next**
+- **TODO — Stage 3 (structural):** WS3 build-stagger + fan-out; WS4 deck exclude-rect
+  (the /work deck-band still sits low / overlaps — it's outside the new tile safe-region).
+- **TODO — Stage 4 (bundle diet):** code-split benches + lazy-`hls.js` (Safari/RM gate).
+- **DEFERRED:** full idle-prebuild (mobile density / HR-6). Optional: webp on the 5
+  detail-page Mux sites; live-res 720→540 if memory needs more.
+
+---
+
 ## Workstream 1 — Globe frame-drop (complaint #1)
 
 Root cause (confirmed `LivePanelScheduler.js:139-153`): the promote loop fills
