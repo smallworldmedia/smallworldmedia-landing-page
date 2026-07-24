@@ -24,6 +24,9 @@ import {
   Z_JITTER,
   TILE_DRIFT,
   CAMERA_FOV,
+  FIELD_OFFSET_Y,
+  FIELD_SPREAD_X,
+  FIELD_SPREAD_Y,
 } from './worldConfig.js';
 
 const DEG2RAD = Math.PI / 180;
@@ -57,7 +60,7 @@ export function mulberry32(a) {
  * @param {Object} opts  - { seed, aspect }
  * @returns {Array} placements [{ x, y, z, width, height }]
  */
-export function placeTiles(tiles, { seed, aspect }) {
+export function placeTiles(tiles, { seed, aspect, tiers }) {
   const rand = mulberry32(hashSeed(seed || 'world'));
   const tanV = Math.tan((CAMERA_FOV * DEG2RAD) / 2);
   const n = tiles.length;
@@ -89,7 +92,8 @@ export function placeTiles(tiles, { seed, aspect }) {
 
   // 2) Map to world space at each tile's depth tier (+ seeded Z-jitter).
   return tiles.map((t, i) => {
-    const z = DEPTH_TIERS[i % DEPTH_TIERS.length] + (rand() - 0.5) * Z_JITTER;
+    const tierIdx = tiers?.[i] ?? i % DEPTH_TIERS.length;
+    const z = DEPTH_TIERS[tierIdx] + (rand() - 0.5) * Z_JITTER;
     const halfH = Math.abs(z) * tanV;
     const halfW = halfH * aspect;
     const { nx, ny } = centers[i];
@@ -104,8 +108,8 @@ export function placeTiles(tiles, { seed, aspect }) {
     const driftSign = rand() < 0.5 ? -1 : 1;
     const driftAmp = TILE_DRIFT * (0.4 + 0.6 * rand());
     return {
-      x: nx * halfW * SCATTER_FRAC,
-      y: ny * halfH * SCATTER_FRAC,
+      x: nx * halfW * SCATTER_FRAC * FIELD_SPREAD_X,
+      y: ny * halfH * SCATTER_FRAC * FIELD_SPREAD_Y + FIELD_OFFSET_Y * halfH,
       z,
       width,
       height,

@@ -30,9 +30,9 @@ const num = (key, fallback) => {
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
 export const DPR_MAX = IS_MOBILE ? 1.5 : 2;
 export const FPS_CAP = 60;
-export const MAX_TILES = num('max', IS_MOBILE ? 9 : 12);
-export const MIN_TILES = num('min', IS_MOBILE ? 5 : 6); // cycle showcase to fill sparse Worlds
-export const THUMB_SIZE = 640; // tile texture request (px) — right-sized for Near at DPR2 (was 1024, ~2× oversampled)
+export const MAX_TILES = num('max', IS_MOBILE ? 9 : 8);
+export const MIN_TILES = num('min', 5); // cycle showcase to fill sparse Worlds
+export const THUMB_SIZE = 768; // tile texture request (px) — fewer/larger tiles afford more res (still < old 1024)
 
 /* — Depth tiers — Z position (camera sits at 0 looking down -Z), Near → Far.
    Perspective shrinks farther tiles; tier also gates live-video eligibility (P3). */
@@ -45,6 +45,12 @@ export const SCATTER_FRAC = num('scatter', 1.0); // spread vs. the visible half-
 export const CENTER_CLEAR_FRAC = num('clear', 0.59); // inner clear radius (normalized) — reserves the center for the card
 export const CLUSTER_RADIUS = num('cluster', 0.55); // outer bound (normalized) — tiles stay within this radius of center, clustering around the card
 export const OVERLAP_JITTER = num('jitter', 0.04); // seeded XY offset over the even (phyllotaxis) layout — higher = more organic clumping/overlap
+/* — Field safe-region — hold the tile field clear of the fixed nav bar (top)
+   and the viewport edges so nothing clips. Fractions of the visible half-extent
+   at each tile's depth; all live-tunable to frame against the real projects. */
+export const FIELD_OFFSET_Y = num('fieldy', -0.08); // shift the whole field DOWN to clear the nav (− = down)
+export const FIELD_SPREAD_X = num('spreadx', 1.0);  // horizontal spread ×; < 1 pulls tiles off the left/right edges
+export const FIELD_SPREAD_Y = num('spready', 0.88); // vertical spread ×; < 1 flattens the ring so top/bottom clear
 export const TILE_FALLBACK_COLOR = 0xe6e6ea;
 
 /* — Tile appear (load-gated push-out) — a Tile stays hidden until its texture
@@ -86,6 +92,10 @@ export const TURN_EASE_PATH =
    suspends back to stills during a World Turn — the Turn is the incoming
    World's preload window. Reduced motion = stills only (no pool mounted). */
 export const WORLD_MAX_LIVE = Math.max(0, Math.round(num('live', IS_MOBILE ? 2 : 4)));
+// Video tiles to LOAD — defaults to the play budget so every video tile actually
+// plays (no posters frozen on a non-live tile). Raise ?vtiles above ?live to
+// reintroduce rotation (extra Near videos cycle the slots, showing a poster between turns).
+export const WORLD_MAX_VIDEO_TILES = Math.max(0, Math.round(num('vtiles', WORLD_MAX_LIVE)));
 export const LIVE_DWELL_SECONDS = num('livedwell', 9); // min time live before rotating to a waiting Near tile
 export const LIVE_CROSSFADE_SECONDS = num('livefade', 0.6); // still ↔ video crossfade (globe convention)
 export const LIVE_SUSPEND_SECONDS = 0.3; // fast fade back to stills when a Turn starts

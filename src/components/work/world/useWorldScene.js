@@ -71,6 +71,7 @@ import {
   TURN_EASE_PATH,
   SHELL_SPIN,
   WORLD_MAX_LIVE,
+  WORLD_MAX_VIDEO_TILES,
   BANDS_ENABLED,
   BAND_TIER,
   BAND_TUNABLES,
@@ -269,7 +270,25 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // Cycle the available showcase up to a minimum density so sparse
       // Worlds still fill the field (the globe's autoFill convention).
       const count = Math.min(MAX_TILES, Math.max(MIN_TILES, pool.length));
-      const chosen = Array.from({ length: count }, (_, i) => pool[i % pool.length]);
+      // Video-first: promote up to the live budget of video assets to the front
+      // (Near) tier so every loaded video actually plays — no posters frozen on a
+      // non-live tile. Image assets fill the rest of the field on the back tiers.
+      const videoPool = pool.filter((a) => a.playbackId);
+      const stillPool = pool.filter((a) => !a.playbackId && a.imageUrl);
+      const videoCount = Math.min(videoPool.length, WORLD_MAX_VIDEO_TILES, count);
+      const stillNeed = count - videoCount;
+      const stillTiles = stillPool.length
+        ? Array.from({ length: stillNeed }, (_, j) => stillPool[j % stillPool.length])
+        : []; // no stills → don't pad the field with frozen video posters
+      const chosen = [...videoPool.slice(0, videoCount), ...stillTiles];
+      // Tier per tile: videos → Near (0, live-eligible + prominent); stills →
+      // Mid/Far. A video-less World keeps the original all-tier spread.
+      const tierOf = (i) =>
+        videoCount > 0
+          ? i < videoCount
+            ? 0
+            : 1 + ((i - videoCount) % 2)
+          : i % DEPTH_TIERS.length;
       // Composite bands (deck / album stacks) claim seeded positions in the
       // same field so tiles space around them; their depth is pinned to the
       // band tier afterwards.
@@ -290,12 +309,13 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         {
           seed: w.slug,
           aspect: camera.aspect || 1,
+          tiers: chosen.map((_, i) => tierOf(i)),
         }
       );
 
       chosen.forEach((tile, i) => {
         const pl = placements[i];
-        const tierIndex = i % DEPTH_TIERS.length;
+        const tierIndex = tierOf(i);
         const material = new THREE.MeshBasicMaterial({
           color: TILE_FALLBACK_COLOR,
           toneMapped: false,
