@@ -29,7 +29,6 @@ import { Flip } from 'gsap/Flip';
 import InfoPanel from './InfoPanel';
 import ProjectOverlay from './ProjectOverlay';
 import RouteFill from './RouteFill';
-import LenisTunePanel from './LenisTunePanel.jsx';
 import { LENIS_TUNE_ACTIVE } from '../lib/lenisTune.js';
 
 gsap.registerPlugin(useGSAP, Flip);
@@ -42,9 +41,29 @@ export default function SiteShell() {
   // A2b Lenis tuning bench — mount only AFTER hydration. LENIS_TUNE_ACTIVE
   // reads the URL, which must match server render; deferring to an effect keeps
   // the first client render byte-identical to SSR (see fp1Tune's mount note).
-  const [lenisTuneOn, setLenisTuneOn] = useState(false);
+  // The panel is also CODE-SPLIT: the same effect that opens the gate pulls the
+  // chunk in, so the bench (and its stylesheet, imported inside the panel) never
+  // rides the shipped SiteShell payload. State holds the component itself, so
+  // the setter needs the UPDATER form — setLenisTunePanel(Component) would treat
+  // a function value as a reducer and call it.
+  const [LenisTunePanel, setLenisTunePanel] = useState(null);
   useEffect(() => {
-    if (LENIS_TUNE_ACTIVE) setLenisTuneOn(true);
+    if (!LENIS_TUNE_ACTIVE) return;
+    // `alive` covers the late-resolve case: a ClientRouter navigation can unmount
+    // this island before the chunk lands, and setState-after-unmount would warn.
+    // React 19 StrictMode double-invokes this in dev — the second pass re-imports
+    // from the module cache and re-sets, so the panel still arrives.
+    let alive = true;
+    import('./LenisTunePanel.jsx')
+      .then((m) => {
+        if (alive) setLenisTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const handleToggle = useCallback(() => {
@@ -176,7 +195,7 @@ export default function SiteShell() {
         onClose={handleCloseOverlay}
       />
 
-      {lenisTuneOn && <LenisTunePanel />}
+      {LenisTunePanel && <LenisTunePanel />}
     </div>
   );
 }

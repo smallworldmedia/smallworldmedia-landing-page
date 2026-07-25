@@ -1,7 +1,12 @@
 /* fp1-tune.css — DEV-ONLY tuning bench for the house pulse curve (?fp1tune=1).
    Mono, near-black chrome in the globe-debug voice (video-globe.css). Only the
    .fp1-tune tree, which renders solely when Fp1TunePanel mounts, is styled — no
-   effect on the shipped /work surface. */
+   effect on the shipped /work surface.
+
+   Imported from work/index.astro, not from Fp1TunePanel: the panel is a lazy
+   chunk, but Astro hoists a lazy chunk's CSS back onto the importing page, so
+   importing it there changed the built stylesheet by exactly zero bytes. See
+   BaseLayout for the measurement. */
 
 .fp1-tune {
   position: fixed;

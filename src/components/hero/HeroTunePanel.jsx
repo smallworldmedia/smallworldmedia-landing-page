@@ -21,6 +21,10 @@
  * Voice/chrome mirror the lenisTune bench (mono, near-black, lowercase).
  * Sits TOP-RIGHT — lenistune and the globe ?debug panel own bottom-left,
  * fp1tune bottom-right — so every bench can coexist.
+ *
+ * Hero import()s this module, so its JS is its own chunk. hero-tune.css
+ * deliberately stays imported from BaseLayout — see the note there for why
+ * moving it here does not take it off the critical path.
  */
 import { useState } from 'react';
 import {

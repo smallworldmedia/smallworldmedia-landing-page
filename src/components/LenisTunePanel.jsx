@@ -10,6 +10,10 @@
  * reduced motion; the panel says so and keeps copy/url working.
  *
  * Voice/chrome mirror the fp1Tune bench (mono, near-black, lowercase).
+ *
+ * SiteShell import()s this module, so its JS is its own chunk. lenis-tune.css
+ * deliberately stays imported from BaseLayout — see the note there for why
+ * moving it here does not take it off the critical path.
  */
 import { useState, useEffect } from 'react';
 import {

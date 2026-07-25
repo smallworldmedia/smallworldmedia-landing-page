@@ -10,6 +10,11 @@
  * and copies the values to hand back for baking as the house token.
  *
  * Voice/chrome mirrors the globe debug panel (mono, near-black, lowercase).
+ *
+ * FeaturedProjects import()s this module, so its JS is its own chunk.
+ * fp1-tune.css deliberately stays imported from work/index.astro — see the
+ * note in BaseLayout for why moving it here does not take it off the
+ * critical path.
  */
 import { useState } from 'react';
 import {

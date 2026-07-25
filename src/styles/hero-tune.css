@@ -3,7 +3,12 @@
    Only the .hero-tune tree, which renders solely when HeroTunePanel mounts
    (gated), is styled — no effect on the shipped hero. Sits TOP-RIGHT so it
    never overlaps the lenistune / globe-debug benches (bottom-left) or the
-   fp1tune bench (bottom-right) if several are ever open. */
+   fp1tune bench (bottom-right) if several are ever open.
+
+   Imported from BaseLayout, not from HeroTunePanel: the panel is a lazy chunk,
+   but Astro hoists a lazy chunk's CSS back onto the importing page anyway, and
+   a runtime-injected sheet would not survive a ClientRouter head swap. See
+   BaseLayout for the measurement. */
 
 .hero-tune {
   position: fixed;

@@ -29,10 +29,10 @@ import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
-import Fp1TunePanel from './Fp1TunePanel.jsx';
+// Only the tiny shared tune STATE is static here; the panel itself (and the
+// Deck Viewer bench below) is import()ed from its mount effect, so neither
+// bench rides the shipped /work payload.
 import { FP1_TUNE_ACTIVE } from './fp1Tune.js';
-// Deck Viewer live-tuning bench — dev-only, mounts solely under ?deckdebug.
-import FeaturedDeckDebugPanel from './FeaturedDeckDebugPanel.jsx';
 import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 import { projectColorVars } from '../../lib/projectColor.js';
@@ -75,15 +75,46 @@ export default function FeaturedProjects({ worlds = [] }) {
   const [hoverPrev, setHoverPrev] = useState(false);
   // FP-1 bench: mount only AFTER hydration. FP1_TUNE_ACTIVE reads
   // window.location.search (false during SSR, true on the client), so gating
-  // JSX on it directly hydration-mismatches (#418). Start false everywhere,
-  // flip on in an effect — SSR and first client render both emit nothing.
-  const [fp1TuneOn, setFp1TuneOn] = useState(false);
-  useEffect(() => { if (FP1_TUNE_ACTIVE) setFp1TuneOn(true); }, []);
-  // Deck Viewer debug panel — same hydration-safe gate (SSR/first render emit
-  // nothing, flip on after mount when ?deckdebug is present).
-  const [deckDebugOn, setDeckDebugOn] = useState(false);
+  // JSX on it directly hydration-mismatches (#418). Start null everywhere,
+  // resolve in an effect — SSR and first client render both emit nothing.
+  // The effect also IS the gate's loader: it import()s the panel chunk, whose
+  // stylesheet rides along, so nothing bench-shaped ships to visitors. State
+  // holds a component, hence the UPDATER form — setFp1TunePanel(Component)
+  // would call the function as a reducer instead of storing it.
+  const [Fp1TunePanel, setFp1TunePanel] = useState(null);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has('deckdebug')) setDeckDebugOn(true);
+    if (!FP1_TUNE_ACTIVE) return;
+    // `alive` covers a late resolve after a ClientRouter swap unmounts the
+    // island. StrictMode's dev double-invoke re-imports from the module cache
+    // and re-sets, so the panel still lands on the second pass.
+    let alive = true;
+    import('./Fp1TunePanel.jsx')
+      .then((m) => {
+        if (alive) setFp1TunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Deck Viewer debug panel — same hydration-safe gate and same lazy chunk
+  // (SSR/first render emit nothing; ?deckdebug pulls the panel in after mount).
+  const [DeckDebugPanel, setDeckDebugPanel] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('deckdebug')) return;
+    let alive = true;
+    import('./FeaturedDeckDebugPanel.jsx')
+      .then((m) => {
+        if (alive) setDeckDebugPanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
   // Co-present cards during a Turn: the incoming (phase 'enter') + the outgoing
   // (phase 'exit'), so the card rides in/out with the media. Each is keyed by index.
@@ -490,8 +521,8 @@ export default function FeaturedProjects({ worlds = [] }) {
       // unaffected by this var.
       style={projectColorVars(w?.projectColor, w?.projectColorSecondary)}
     >
-      {fp1TuneOn && <Fp1TunePanel />}
-      {deckDebugOn && <FeaturedDeckDebugPanel />}
+      {Fp1TunePanel && <Fp1TunePanel />}
+      {DeckDebugPanel && <DeckDebugPanel />}
       <WorldScene world={w} index={active} />
 
       <nav

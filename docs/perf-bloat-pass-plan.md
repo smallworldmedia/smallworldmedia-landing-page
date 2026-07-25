@@ -66,8 +66,25 @@ Two hypotheses were **refuted / refined** and shape the plan:
   square-ish (~1:1) viewports clump on the ring — falls under the deferred HR-6
   mobile/tablet gate. (c) widening the annulus would give displacement 2D freedom if
   either ever matters.
-- **TODO — Stage 4 (bundle diet):** code-split benches + lazy-`hls.js` (Safari/RM gate).
-  ← **next**
+- **DONE — Stage 4 (bundle diet):** WS6 lazy-`hls.js` (module-scope memo + `cancelled`-guarded
+  async effect in `useHls.js`) and all **five** dev benches code-split behind `import()`
+  (the plan named four; `FeaturedDeckDebugPanel` is the same pattern in the same file).
+  Measured on real A/B builds — **eager JS gz: `/` 447.6→289.1 (−35.4%), `/work`
+  436.3→278.7 (−36.1%), `/work/bedouin` 302.6→146.0 (−51.8%)**. hls.js is dynamic-only on
+  every shipped route; its four remaining static importers are Sanity Studio chunks, in no
+  public route's graph. Merge gate PASSED on both engines: 5 surfaces × {normal,
+  reduced-motion} × {chromium, webkit} = 16 PASS / 4 by-design-no-video (reduced motion
+  gates `VideoSlotPool` out of the tree entirely, so the chunk is never even fetched), plus
+  16/16 on the blocked-chunk degradation path.
+  **Honest caveats:** (a) the win is *latency, not bytes* — a visitor who plays video
+  downloads the same total (`/work/bedouin` is +0.9 kb gz overall); 157 kb simply stopped
+  blocking hydration. (b) The bench split is worth ~1 kb, not the ~4–9 kb estimated: the
+  panel chunks import their tune-state libs back out of the eager parents, so only the
+  React UI moved. (c) The CSS half was reverted — see the struck row in WS6. (d) A failed
+  hls chunk fetch is terminal for the document (ESM module-map semantics); it degrades to
+  poster with no crash, but the live tier parks at `pending` forever. Known, cosmetic.
+  **Next dominant target (out of this pass):** `VideoSlotPool` at 129.7 kb gz is now 45% of
+  `/` and 47% of `/work` eager JS.
 - **DEFERRED:** full idle-prebuild (mobile density / HR-6). Optional: webp on the 5
   detail-page Mux sites; live-res 720→540 if memory needs more.
 
@@ -204,7 +221,7 @@ import into a shipped, hydrated island.
 |---|---|---|---|
 | **Lazy-load `hls.js`** — drop the top-level import; `const { default: Hls } = await import('hls.js')` on the MSE branch only (Safari native-HLS + reduced-motion skip it). Poster/crossfade masks the async tick. **Required merge gate:** globe promote + /work live + Lightbox + detail MediaSlot/NextProjectBand, each × {normal, reduced-motion} × {Chrome, Safari}; verify the `Hls.Events.ERROR` path handles a failed dynamic chunk | `useHls.js:28` + attach body (5 consumers unchanged) | M | ~130 gzip |
 | **Code-split the 4 dev benches** — keep the hydration-safe `?param`+`useState`-flip gate, replace the static import with `import().then(m => setPanel(...))`. **LenisTunePanel first** (in `SiteShell`, ships on EVERY route via the persistent shell) | `SiteShell.jsx:32-33`, `Hero.jsx:74`, `FeaturedProjects.jsx:31-35`, `ProcessPage.jsx:20` | M | ~4-9 gzip |
-| **Move dev-bench CSS into the (now lazy) panels** — drop `lenis-tune.css` + `hero-tune.css` from `BaseLayout`, `fp1-tune.css` from `/work` | `BaseLayout.astro:16,19`, `work/index.astro:17` | S | few KB |
+| ~~**Move dev-bench CSS into the (now lazy) panels**~~ — **TRIED AND REVERTED, do not retry.** Astro's CSS plugin walks `importers` CONCAT `dynamicImporters` (`core/build/graph.js`), so a lazy chunk's stylesheet is hoisted back onto every page that can reach it. Measured on real builds: `fp1-tune` was a pure no-op (`/work`'s sheet came out byte-identical, same content hash) and `lenis-tune` was a net LOSS — the bundled copy stayed and an inlined `<style>` copy was added, so it shipped twice and eager CSS grew **+329 / +439 / +380 b gz** on `/`, `/work`, `/work/bedouin`. The only technique that would work is `?url` + a runtime `<link>`, but that sheet is then stripped by ClientRouter's head swap (`swapHeadElements` keeps only persisted nodes and hrefs present in the destination head) and would need an `astro:after-swap` re-assert in all three panels — machinery not worth ~200 b gz on dev-only benches | `BaseLayout.astro:16,19`, `work/index.astro:21` | — | **0 (negative)** |
 | **Delete dead consts** `CURVE_STRENGTH`, `BG_COLOR` (zero import sites, self-labeled superseded/legacy) | `worldConfig.js:48,153` | S | ~0 |
 | **(Optional cleanliness)** dedupe `IS_MOBILE` + `PARAM(key,fallback)` into `src/lib` (near-0 KB — gzip already collapses; maintainability only) | multiple | M | ~0 |
 

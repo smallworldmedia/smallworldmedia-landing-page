@@ -2,7 +2,12 @@
    Mono, near-black chrome in the fp1Tune / globe-debug voice. Only the
    .lenis-tune tree, which renders solely when LenisTunePanel mounts (gated),
    is styled — no effect on shipped scroll. Sits bottom-LEFT so it never
-   overlaps the fp1Tune bench (bottom-right) if both are ever open. */
+   overlaps the fp1Tune bench (bottom-right) if both are ever open.
+
+   Imported from BaseLayout, not from LenisTunePanel: the panel is a lazy chunk,
+   but Astro hoists a lazy chunk's CSS back onto every page that can reach it,
+   so importing it there only duplicates the sheet. See BaseLayout for the
+   measurement. */
 
 .lenis-tune {
   position: fixed;

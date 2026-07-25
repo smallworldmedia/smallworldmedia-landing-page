@@ -17,6 +17,15 @@ import '../styles/lenis-tune.css';
 // Home-hero rig-tuning bench styles — only the .hero-tune tree, which
 // renders solely under ?herotune=1 (HeroTunePanel), is styled; inert otherwise.
 import '../styles/hero-tune.css';
+// Both sheets stay HERE even though the panels are now code-split. Moving a
+// bare `import './x.css'` into a lazily import()ed component does NOT take its
+// CSS off the critical path: Astro's CSS plugin walks `importers` CONCAT
+// `dynamicImporters` (core/build/graph.js), so a dynamic import is not a break
+// in the attribution walk and the sheet is hoisted back onto every page that
+// can reach it. Measured on a real build: the bundled copy stayed put and an
+// inlined <style> copy was ADDED — lenis-tune shipped twice and eager CSS grew
+// ~330–440 b gz per route. The lazy import() earns its keep on the panels'
+// JavaScript, not their styles.
 import SiteShell from '../components/SiteShell.jsx';
 // ?url imports resolve to the same content-hashed asset the CSS @font-face
 // references, so these preloads hit the real built URLs.

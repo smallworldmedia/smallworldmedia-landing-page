@@ -10,14 +10,13 @@
  * at section boundaries, and the fill-release arrival insurance. The
  * scene lands in P2/P3, entrances + debug chrome in P4.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SiteFooter from '../SiteFooter.jsx';
 import { HERO, STAGES, CTA } from './processContent.js';
 import { DEBUG } from './processConfig.js';
 import useProcessScene from './useProcessScene.js';
 import useProcessScrollDriver from './useProcessScrollDriver.js';
 import useProcessCopy from './useProcessCopy.js';
-import ProcessDebugPanel from './ProcessDebugPanel.jsx';
 import ProcessStepCtas from './ProcessStepCtas.jsx';
 import ProcessMeter from './ProcessMeter.jsx';
 import CtaArrows from '../work/CtaArrows.jsx';
@@ -42,6 +41,32 @@ export default function ProcessPage({ globeAssets }) {
   // direct loads; the detail-page convention, FeaturedProjectDetail.jsx).
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('swm:fill-release'));
+  }, []);
+
+  // ?debug chrome — code-split so the bench never rides the shipped island.
+  // The DEBUG gate keeps its shape: processConfig computes it off a null-guarded
+  // PARAMS, and this island is client:only (no SSR pass), so there's no first-
+  // render parity to protect the way SiteShell/FeaturedProjects have — DEBUG is
+  // already a safe module const. All that changes is WHEN the panel's code
+  // arrives. State holds a component, so the setter takes the UPDATER form —
+  // setDebugPanel(Component) would run it as a reducer instead of storing it.
+  const [DebugPanel, setDebugPanel] = useState(null);
+  useEffect(() => {
+    if (!DEBUG) return;
+    // `alive` covers a late resolve after a ClientRouter swap unmounts the page.
+    // StrictMode's dev double-invoke re-imports from the module cache and
+    // re-sets, so the panel still lands on the second pass.
+    let alive = true;
+    import('./ProcessDebugPanel.jsx')
+      .then((m) => {
+        if (alive) setDebugPanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const openProject = () => {
@@ -132,7 +157,7 @@ export default function ProcessPage({ globeAssets }) {
       <ProcessMeter />
       <p className="process-tagline">{HERO.tagline}</p>
 
-      {DEBUG && <ProcessDebugPanel sceneRef={sceneRef} />}
+      {DEBUG && DebugPanel && <DebugPanel sceneRef={sceneRef} />}
 
       <SiteFooter />
     </div>

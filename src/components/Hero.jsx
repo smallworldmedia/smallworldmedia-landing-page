@@ -71,7 +71,6 @@ import VideoGlobe from './globe/VideoGlobe.jsx';
 import CtaArrows from './work/CtaArrows.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import HeroText from './HeroText.jsx';
-import HeroTunePanel from './hero/HeroTunePanel.jsx';
 import HeroIntro from './hero/HeroIntro.jsx';
 import HeroLabels from './hero/HeroLabels.jsx';
 import { createHeroOverlay } from './hero/heroOverlay.js';
@@ -335,10 +334,28 @@ export default function Hero({ globeAssets }) {
 
   // Hero rig tuning bench — mount only AFTER hydration (SiteShell's
   // LenisTunePanel convention): HERO_TUNE_ACTIVE reads the URL, which must
-  // not influence the first client render (SSR parity).
-  const [heroTuneOn, setHeroTuneOn] = useState(false);
+  // not influence the first client render (SSR parity). Code-split on the same
+  // effect, so neither the bench nor its stylesheet (imported inside the panel)
+  // rides the shipped hero payload. The state holds the component, so the setter
+  // takes the UPDATER form — setHeroTunePanel(Component) would run a function
+  // value as a reducer instead of storing it.
+  const [HeroTunePanel, setHeroTunePanel] = useState(null);
   useEffect(() => {
-    if (HERO_TUNE_ACTIVE) setHeroTuneOn(true);
+    if (!HERO_TUNE_ACTIVE) return;
+    // `alive` guards the late resolve (a ClientRouter swap can unmount the hero
+    // before the chunk lands). StrictMode's dev double-invoke re-imports from
+    // the module cache and re-sets, so the second pass still mounts the panel.
+    let alive = true;
+    import('./hero/HeroTunePanel.jsx')
+      .then((m) => {
+        if (alive) setHeroTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Blob-tracking labels (chunk 6) — on by default now (TUNING.labels;
@@ -906,7 +923,7 @@ export default function Hero({ globeAssets }) {
           onDone={onIntroDone}
         />
       )}
-      {heroTuneOn && (
+      {HeroTunePanel && (
         <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />
       )}
     </section>

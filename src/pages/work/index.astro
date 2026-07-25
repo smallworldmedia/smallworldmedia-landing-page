@@ -13,7 +13,11 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import '../../styles/featured-projects.css';
 // FP-1 house-pulse tuning bench styles — only the .fp1-tune tree, which renders
-// solely under ?fp1tune=1; inert on the shipped surface.
+// solely under ?fp1tune=1; inert on the shipped surface. Stays here rather than
+// inside the code-split Fp1TunePanel: Astro re-attributes a lazy chunk's CSS
+// back to the importing page regardless (see BaseLayout for the mechanism), so
+// moving it measured as a pure no-op — this route's stylesheet came out
+// byte-for-byte identical, same content hash.
 import '../../styles/fp1-tune.css';
 import { sanityFetch } from '../../lib/sanityClient.js';
 import { FEATURED_WORLDS_QUERY } from '../../lib/queries.js';
