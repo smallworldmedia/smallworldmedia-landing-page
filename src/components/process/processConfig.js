@@ -114,4 +114,6 @@ export const S5_STROKE_A = 0x3e3a52;
 export const S5_STROKE_B = 0x53402f;
 export const DESKTOP_OFFSET_X = 0.28; // globe right-of-center (fraction of visible half-width)
 export const EXIT_RATIO = 0.7; // exits/reversals ≈0.7× their entrance durations
-export const PASS_BEATS = 8; // S5: one pattern pass per 8 beats
+// S5: one pattern pass per 6 beats (07-30 rhythm rework — was 8; tighter
+// changeovers, with the full-pass hit spread killing the dead tail).
+export const PASS_BEATS = 6;

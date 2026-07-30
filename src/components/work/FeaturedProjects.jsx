@@ -28,6 +28,7 @@ import { navigate } from 'astro:transitions/client';
 import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
+import SiteFooter from '../SiteFooter.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
 // Only the tiny shared tune STATE is static here; the panel itself (and the
 // Deck Viewer bench below) is import()ed from its mount effect, so neither
@@ -73,6 +74,17 @@ export default function FeaturedProjects({ worlds = [] }) {
   const [ctaMode, setCtaMode] = useState('drag'); // 'drag' tracks scroll | 'release' rubber-bands back | 'commit' eases back over a Turn
   const [hoverNext, setHoverNext] = useState(false);
   const [hoverPrev, setHoverPrev] = useState(false);
+  // Slide-up footer at the LAST World: once atEnd frees the bottom slot
+  // (.fp-next hides), further downward wheel/touch delta accumulates into
+  // this 0..1 and drives <SiteFooter driven> directly; wheeling up retracts
+  // it before any PREVIOUS paging runs. Ref mirrors state for the handlers.
+  const [footerP, setFooterP] = useState(0);
+  const footerPRef = useRef(0);
+  const setFooterReveal = (v) => {
+    if (footerPRef.current === v) return;
+    footerPRef.current = v;
+    setFooterP(v);
+  };
   // FP-1 bench: mount only AFTER hydration. FP1_TUNE_ACTIVE reads
   // window.location.search (false during SSR, true on the client), so gating
   // JSX on it directly hydration-mismatches (#418). Start null everywhere,
@@ -290,6 +302,27 @@ export default function FeaturedProjects({ worlds = [] }) {
     const addDelta = (dy) => {
       if (departingRef.current) return; // reverse Envelopment committed — input is done here
       if (performance.now() < lockRef.current) return;
+
+      // Footer reveal at the LAST World: the bottom slot belongs to the
+      // slide-up footer. Downward delta drives its 0..1 directly (the house
+      // trigger distance = one natural scroll motion for a full reveal);
+      // upward delta retracts it to 0 BEFORE any PREVIOUS accumulation runs.
+      // No rubber-band: like a scroll position, it parks where the gesture
+      // leaves it — the continuous shell slide keeps any partial state calm.
+      if (activeRef.current >= lastIndex) {
+        const p = footerPRef.current;
+        if (dy > 0 || p > 0) {
+          if (PREFERS_REDUCED_MOTION) {
+            // Reveal/retract without animation on the first delta.
+            setFooterReveal(dy > 0 ? 1 : 0);
+          } else {
+            setFooterReveal(Math.min(1, Math.max(0, p + dy / SCROLL_TRIGGER)));
+          }
+          accumRef.current = 0;
+          return; // swallow — no Turn/CTA math while the footer owns the delta
+        }
+      }
+
       let a = accumRef.current + dy;
       if (activeRef.current >= lastIndex) a = Math.min(0, a); // no next at the last World (v1: directory disabled)
 
@@ -365,6 +398,14 @@ export default function FeaturedProjects({ worlds = [] }) {
       el.removeEventListener('touchend', onTouchEnd);
     };
   }, [worlds.length, lastIndex]);
+
+  // Leaving the last World by any path the accumulator doesn't see (pager
+  // click, PREVIOUS CTA) drops a lingering footer reveal — earlier Worlds
+  // must never show it. The Turn choreography covers the snap.
+  useEffect(() => {
+    if (active < lastIndex && footerPRef.current > 0) setFooterReveal(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, lastIndex]);
 
   // On World change, stage the outgoing card (exit) under the incoming (enter);
   // drop the exited card once the Turn finishes.
@@ -603,6 +644,12 @@ export default function FeaturedProjects({ worlds = [] }) {
           <CtaArrows direction="down" />
         </button>
       )}
+
+      {/* Slide-up footer — parked fully below the fold (inert) until the last
+          World, where post-end wheel/touch delta drives its reveal. Driven
+          mode: no spacer (this page has no document scroll), transform fed
+          the accumulator's 0..1 directly. */}
+      <SiteFooter driven progress={footerP} />
 
       {/* Crawlable fallback — every featured project + link to its detail page. */}
       <ul className="sr-only">

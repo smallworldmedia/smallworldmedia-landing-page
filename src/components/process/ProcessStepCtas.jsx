@@ -13,16 +13,21 @@
  *
  * Visibility (P5, Nathan): [previous] is hidden/faded until the walk
  * reaches the 2nd section (index >= 1) — there's nowhere back from the
- * hero; [next] disables at the final section. The active index arrives
- * on the shared swm:process-index signal (ProcessMeter broadcasts it).
- * Disabled/hidden controls are native-`disabled` (out of the tab order,
- * clicks no-op) with aria-hidden/aria-disabled for assistive tech.
+ * hero. At the final section the [next] slot doesn't disable — it SWAPS
+ * to back_to_top (Nathan 07-30): same fixed corner, dispatching
+ * swm:process-home (the scroll driver owns the glide — ProcessPage P6
+ * convention). The active index arrives on the shared swm:process-index
+ * signal (ProcessMeter broadcasts it). Hidden controls are
+ * native-`disabled` (out of the tab order, clicks no-op) with
+ * aria-hidden for assistive tech.
  */
 import { useEffect, useState } from 'react';
 import CtaArrows from '../work/CtaArrows.jsx';
 
 const step = (dir) =>
   window.dispatchEvent(new CustomEvent('swm:process-step', { detail: { dir } }));
+
+const home = () => window.dispatchEvent(new CustomEvent('swm:process-home'));
 
 export default function ProcessStepCtas() {
   const [{ index, total }, setNav] = useState({ index: 0, total: 1 });
@@ -61,17 +66,29 @@ export default function ProcessStepCtas() {
         </button>
       </div>
       <div className="process-stepnav process-stepnav--next">
-        <button
-          type="button"
-          className={`process-stepnav__cta${atEnd ? ' is-disabled' : ''}`}
-          onClick={() => step(1)}
-          disabled={atEnd}
-          aria-disabled={atEnd}
-          aria-label="Next section"
-        >
-          <CtaArrows direction="down" />
-          <span className="fp-cta__label">next</span>
-        </button>
+        {atEnd ? (
+          /* Same fixed slot, new job: the end of the walk loops home
+             (replaces the old is-disabled dead [next]). */
+          <button
+            type="button"
+            className="process-stepnav__cta"
+            onClick={home}
+            aria-label="Back to top"
+          >
+            <CtaArrows direction="up" />
+            <span className="fp-cta__label">back_to_top</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="process-stepnav__cta"
+            onClick={() => step(1)}
+            aria-label="Next section"
+          >
+            <CtaArrows direction="down" />
+            <span className="fp-cta__label">next</span>
+          </button>
+        )}
       </div>
     </>
   );

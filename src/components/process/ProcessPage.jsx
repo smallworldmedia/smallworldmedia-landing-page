@@ -137,8 +137,11 @@ export default function ProcessPage({ globeAssets }) {
               {CTA.secondary}
             </a>
           </div>
-          {/* P6: back-to-top under the closing CTA — the walk loops back to
-              the blank canvas. */}
+          {/* P6 back-to-top — PHONE-ONLY since 07-30 (CSS hides it ≥769px):
+              desktop's back_to_top lives in the fixed [next] stepper slot
+              (ProcessStepCtas swaps it in at the final section); this
+              in-flow chip remains the phone's way home (the stepnav is
+              display:none on phones — swipe owns the walk). */}
           <button
             type="button"
             className="process-cta__top"

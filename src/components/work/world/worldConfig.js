@@ -5,7 +5,7 @@
  * overridden live via URL query params (no rebuild) for tuning, e.g.:
  *   /work?lens=-0.5&tile=1.2&scatter=0.8&zjitter=0.8&sep=0.5&fov=40
  */
-import { HOME_X } from '../bandLayout.js';
+import { HOME_X, VIEW_HOLD } from '../bandLayout.js';
 
 export const IS_MOBILE =
   typeof window !== 'undefined' &&
@@ -98,6 +98,18 @@ export const TURN_EASE_PATH =
   PARAMS?.get('ease') ||
   'M0,0 C0,0 -0.011,-0.003 0.018,0 0.129,0.011 0.128,0.098 0.216,0.494 0.324,0.982 0.304,1 0.987,1 1.015,1 1,1 1,1';
 
+/* — Enter-the-World ramp (detail-page transition) — on an enter_world commit
+   WorldCard dispatches 'swm:enter-world' alongside the envelopment cover; the
+   scene answers with ONE gesture on the Turn curve: a subtle camera dolly
+   toward the tiles + a lens-distortion swell, rising UNDER the color cover so
+   the frame visibly curves as you pass into the world.
+   ?enterzoom = dolly toward the field, world units (0.45 ≈ 12–14% apparent
+   zoom at the tile tiers — subtle, not the hero's 3×);
+   ?enterlens = additive distortion at full ramp (same additive sign as the
+   Turn spike, ~4× TURN_LENS_SPIKE so the curvature clearly reads). */
+export const ENTER_ZOOM_DOLLY = num('enterzoom', 0.45);
+export const ENTER_LENS_SWELL = num('enterlens', 0.32);
+
 /* — Live-video Near tier (P3 remainder) — only Near (tier 0) Tiles with a
    playbackId promote to live HLS, crossfading up over their stills; everything
    else stays a thumbnail. The pool size is the hard decode budget. Live video
@@ -151,6 +163,8 @@ export const BAND_TUNABLES = {
   homeX: num('deckhome', HOME_X), // front-page x-anchor (fraction of page width)
   fanMul: num('deckfan', 1), // waiting-fan extent (how far the upcoming/back pages sit)
   pileMul: num('deckpile', 1), // shown-pile extent (how far the shown pages sit)
+  viewHold: num('deckhold', VIEW_HOLD), // viewing-slot plateau width (fraction of a page step)
+  albumScale: num('deckalbum', 1), // album-art size multiplier (on the sub-16:9 area shrink)
   posX: BAND_POS_X, // deck placement, +x toward right (fraction of half-width)
   posY: BAND_POS_Y, // deck placement, +y toward top (fraction of half-height)
 };

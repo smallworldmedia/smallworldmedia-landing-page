@@ -29,7 +29,9 @@ import {
   PILE_Y,
   PILE_Z,
   SHOW_LIFT,
+  VIEW_HOLD,
   REF_PAGE_W,
+  pageFitScale,
 } from '../bandLayout.js';
 import {
   BAND_HEIGHT,
@@ -52,6 +54,8 @@ const BAND_TUNE_DEFAULT = {
   homeX: HOME_X,
   fanMul: 1,
   pileMul: 1,
+  viewHold: VIEW_HOLD,
+  albumScale: 1,
 };
 
 const pageSrc = (p) =>
@@ -86,9 +90,12 @@ export function createWorldBand({
   tune = BAND_TUNE_DEFAULT,
 }) {
   const pages = items.slice(0, BAND_MAX_PAGES);
-  // Fit the page inside a BAND_HEIGHT square, preserving aspect (tile rule).
-  const pageW = ratio >= 1 ? BAND_HEIGHT : BAND_HEIGHT * ratio;
-  const pageH = ratio >= 1 ? BAND_HEIGHT / ratio : BAND_HEIGHT;
+  // Fit the page inside a BAND_HEIGHT square, preserving aspect (tile rule);
+  // pageFitScale then normalizes squarer pages (album covers) toward the
+  // reference deck page's AREA so covers don't read oversized. The scale is
+  // applied per paint (mesh.scale) so the albumScale knob works live.
+  const fitW = ratio >= 1 ? BAND_HEIGHT : BAND_HEIGHT * ratio;
+  const fitH = ratio >= 1 ? BAND_HEIGHT / ratio : BAND_HEIGHT;
   // px-tuned stack distances → world units, proportional to page width.
   // Built live from `tune` each paint (the debug panel scales the deck without
   // a rebuild); defaults (spacing/fan/pile × 1, homeX = HOME_X) are identity.
@@ -96,8 +103,9 @@ export function createWorldBand({
   //   fanMul     → whole waiting-fan extent (in-plane + recession)
   //   pileMul    → whole shown-pile extent (in-plane + recession)
   //   homeX      → front-page x-anchor (fraction of pageW, unitless — passed through)
-  const unit = pageW / REF_PAGE_W;
-  const distFor = () => ({
+  //   viewHold   → viewing-slot plateau width (fraction of a step — passed through)
+  //   albumScale → live multiplier on the sub-16:9 area shrink (page size)
+  const distFor = (unit) => ({
     home: tune.homeX,
     fan: FAN_X * unit * tune.spacingMul * tune.fanMul,
     fanY: FAN_Y * unit * tune.spacingMul * tune.fanMul,
@@ -106,6 +114,7 @@ export function createWorldBand({
     pileY: PILE_Y * unit * tune.spacingMul * tune.pileMul,
     pileZ: PILE_Z * unit * tune.pileMul,
     lift: SHOW_LIFT * unit,
+    hold: tune.viewHold ?? VIEW_HOLD,
   });
 
   const group = new THREE.Group();
@@ -120,7 +129,7 @@ export function createWorldBand({
       transparent: true,
       opacity: 0, // load-gated, like a Tile
     });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(pageW, pageH), material);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(fitW, fitH), material);
     mesh.rotation.y = BAND_ANGLE * DEG2RAD;
     // renderOrder is set per frame from pose depth (paint) — the conveyor
     // model reorders cards live: the front card is frontmost; both the
@@ -164,7 +173,13 @@ export function createWorldBand({
 
   /** Pose every plane from the current phase; `opacity` = fade × slot fade. */
   band.paint = (opacity) => {
-    const dist = distFor(); // live tunables (panel scales the deck without a rebuild)
+    // Live tunables (panel scales the deck without a rebuild). Page size is
+    // ratio-normalized (albumScale live via mesh.scale); the pose distances
+    // scale with the PRESENTED page width so spacing tracks page size.
+    const scale = pageFitScale(ratio, tune.albumScale ?? 1);
+    const pageW = fitW * scale;
+    const unit = pageW / REF_PAGE_W;
+    const dist = distFor(unit);
     for (let i = 0; i < planes.length; i++) {
       const mesh = planes[i];
       const pose = bandPose(i, band.phase, pageW, dist);
@@ -172,11 +187,15 @@ export function createWorldBand({
       const visible = !pose.hidden && loaded && opacity > 0.01;
       mesh.visible = visible;
       if (!visible) continue;
+      mesh.scale.set(scale, scale, 1);
       // bandPose y is screen-positive-down (DOM convention) — flip for world.
       mesh.position.set(pose.x, -pose.y, pose.z);
       // Transparent planes draw in z order (matches CSS preserve-3d): the
       // front card (z = 0) draws last, both stacks recede behind it.
-      mesh.renderOrder = 100 + Math.round((pose.z / unit) * 10);
+      // UNQUANTIZED — the old ×10 rounding tied render order for a wide
+      // window around the crossover, which is exactly where the swap must
+      // resolve cleanly. Floats keep the tie to the single coplanar instant.
+      mesh.renderOrder = 100 + pose.z / unit;
       // Depth = darkening (never transparency): brightness scales the map.
       if (brightness[i] !== pose.brightness) {
         brightness[i] = pose.brightness;

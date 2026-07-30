@@ -38,7 +38,8 @@
  * (?introcascadeat — CRT sparks inside the letterform) → THE ZOOM: one
  * master rig tween on HERO_INTRO_EASE_PATH driving proxy e 0→1;
  * fill/offsets/elev lerp glyph → resting, the veil thins across e, the
- * remaining chars track apart ±40px and are gone by e≈0.35 (a paused
+ * remaining chars slide out slowly (power-lagged scrub, gone by e≈0.82 —
+ * the growing globe overlaps and covers letters mid-exit; a paused
  * GSAP timeline scrubbed by e — GSAP-owned, no per-frame char JS), the
  * lattice inks white→blue (setInk, e remapped 0.2→0.7, TUNING.heroInk),
  * and at e≈0.8 the chrome beat fires + releaseScheduler().
@@ -93,7 +94,8 @@ const A_CHARS_IN_SEC = 0.9; // materialize window
 const A_IGNITION_GAP_SEC = 0.6; // sparks land, THEN the zoom
 const A_TAIL_SEC = 0.4; // introms envelope past the zoom's end
 const A_LAUNCH_MIN_SEC = 0.8; // floor when the knobs squeeze the zoom
-const A_CHARS_GONE_E = 0.55; // chars have left frame / been covered by the globe by here
+const A_CHARS_GONE_E = 0.82; // chars have left frame / been covered by the globe by here (late — the growing globe overlaps/covers letters mid-exit before they clear)
+const A_CHARS_EXIT_POW = 1.7; // power remap on the exit scrub — early char travel LAGS the globe growth (slow start, catch-up finish), so the globe visibly overruns letters before they leave frame
 const A_CHROME_E = 0.8; // chrome beat + releaseScheduler
 const A_CHARS_EXIT_PAD = 48; // px past the viewport edge each char travels to leave frame
 const A_CHARS_SCALE = 1.12; // UNIFORM group zoom (about the globe center) as the lockup exits
@@ -402,7 +404,7 @@ export default function HeroIntro({ rigRef, sceneApiRef, veilRef, onChromeBeat, 
               s.handle.apply(); // ONE apply for every rig write this frame
             }
             if (veil) veil.style.opacity = (1 - e).toFixed(4);
-            if (scrub) scrub.progress(seg(e, 0, A_CHARS_GONE_E));
+            if (scrub) scrub.progress(Math.pow(seg(e, 0, A_CHARS_GONE_E), A_CHARS_EXIT_POW));
             if (ink) api()?.setInk(inkMap(e));
             if (chromeAtE != null && e >= chromeAtE) fireBeat();
           },

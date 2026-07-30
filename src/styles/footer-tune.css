@@ -1,0 +1,104 @@
+/* footer-tune.css — DEV-ONLY tuning bench for the sticky-reveal footer
+   (?footertune=1). Mono, near-black chrome in the lenis-tune voice. Only the
+   .footer-tune tree, which renders solely when FooterTunePanel mounts (gated),
+   is styled — no effect on the shipped footer. Sits top-LEFT, just below the
+   nav bar — the free corner (lenistune + globe debug bottom-left, fp1tune
+   bottom-right, herotune top-right).
+
+   Imported from BaseLayout, not from FooterTunePanel: the panel is a lazy
+   chunk, but Astro hoists a lazy chunk's CSS back onto every page that can
+   reach it, so importing it there only duplicates the sheet. See BaseLayout
+   for the measurement. */
+
+.footer-tune {
+  position: fixed;
+  left: var(--space-6);
+  top: calc(var(--nav-height, 2.929rem) + var(--space-6));
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 17rem;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.78);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  text-transform: lowercase;
+  pointer-events: auto;
+}
+
+.footer-tune__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  letter-spacing: 0.02em;
+}
+
+.footer-tune__note {
+  margin: 0;
+  opacity: 0.6;
+}
+
+.footer-tune__group {
+  margin-top: var(--space-3);
+  opacity: 0.55;
+  letter-spacing: 0.08em;
+  border-top: 1px solid rgba(250, 250, 250, 0.18);
+  padding-top: var(--space-3);
+}
+
+.footer-tune__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.footer-tune__key {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.footer-tune__val {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.footer-tune__row input[type='range'] {
+  width: 100%;
+  accent-color: var(--color-electric-blue);
+}
+
+.footer-tune__actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.footer-tune__btn {
+  appearance: none;
+  flex: 1 1 auto;
+  border: 1px solid var(--color-cream);
+  background: transparent;
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  text-transform: lowercase;
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+
+.footer-tune__head .footer-tune__btn {
+  flex: 0 0 auto;
+}
+
+.footer-tune__btn:hover {
+  background: var(--color-cream);
+  color: var(--color-black);
+}

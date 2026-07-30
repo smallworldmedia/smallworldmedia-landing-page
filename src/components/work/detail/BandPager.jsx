@@ -22,6 +22,7 @@
  *
  * Live tuning: ?deckangle ?deckhome ?deckspacing ?deckfany
  * ?deckpilex ?deckpiley ?deckcycle ?deckshift ?deckshifty ?deckw
+ * ?deckhold (viewing-slot plateau) ?deckalbum (album-art scale)
  * (?deckexitx / ?deckexity stay as soft aliases for the shown-pile steps)
  *
  * @param {Object} props
@@ -46,8 +47,14 @@ import {
   HOME_X,
   FAN_X,
   FAN_Y,
+  FAN_Z,
   PILE_X,
   PILE_Y,
+  PILE_Z,
+  SHOW_LIFT,
+  VIEW_HOLD,
+  REF_PAGE_W,
+  PAGE_REF_RATIO,
 } from '../bandLayout.js';
 import { IMG_FORMAT } from '../imageConfig.js';
 
@@ -68,12 +75,20 @@ const DRAG_WINDOW_MS = 100; // velocity estimate looks back this far
 const STACK_SHIFT = 0.0; // × stage width, composition residual x nudge
 const STACK_LIFT = -0.12; // × stage height, composition rides high
 /* Page width cap (× stage width) — sized so the full conveyor composition
-   (shown pile + front page + waiting fan) sits within the tile column
-   instead of sprawling the whole band. ?deckw */
-const WIDTH_CAP = 0.44;
+   (shown pile + INTERMEDIATE VIEWING SLOT + waiting fan) sits within the
+   tile column. Widened with the viewing-stage rework: the wider first pile
+   step gives the viewed page clear daylight from the stack, so the
+   composition earns more of the column. ?deckw */
+const WIDTH_CAP = 0.5;
 
 /* Idle cycle — rest dwell before the next auto-advance (?deckcycle) */
 const CYCLE_S = 2.6;
+
+/* Squarer-than-deck pages (album covers) never fill the full stage height —
+   the tallest a sub-16:9 page may stand, × stage height. Keeps the album
+   composition breathing like the deck's (which is width-capped and rests
+   with natural headroom). */
+const ALBUM_H_CAP = 0.85;
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 
@@ -102,6 +117,8 @@ export default function BandPager({
     pileY: PILE_Y,
     shift: STACK_SHIFT,
     lift: STACK_LIFT,
+    hold: VIEW_HOLD,
+    albumScale: 1,
   });
   const reducedMotion = useRef(false);
 
@@ -112,17 +129,33 @@ export default function BandPager({
   const paint = useCallback(() => {
     const phase = phaseRef.current;
     const { pageW } = metricsRef.current;
-    const { angle, home, fan, fanY, pileX, pileY, shift, lift } = tuning.current;
+    const { angle, home, fan, fanY, pileX, pileY, shift, lift, hold } =
+      tuning.current;
     const stage = stageRef.current;
     const shiftPx = stage ? stage.clientWidth * shift : 0;
     const liftPx = stage ? stage.clientHeight * lift : 0;
     const els = pageEls.current;
+    // Normalize the px-tuned stack distances by the presented page width —
+    // the same unit convention as the World mount — so spacing scales with
+    // page size (bigger pages no longer sit proportionally tighter).
+    const unit = pageW > 0 ? pageW / REF_PAGE_W : 1;
+    const dist = {
+      home,
+      fan: fan * unit,
+      fanY: fanY * unit,
+      fanZ: FAN_Z * unit,
+      pileX: pileX * unit,
+      pileY: pileY * unit,
+      pileZ: PILE_Z * unit,
+      lift: SHOW_LIFT * unit,
+      hold,
+    };
 
     for (let i = 0; i < els.length; i++) {
       const el = els[i];
       if (!el) continue;
 
-      const pose = bandPose(i, phase, pageW, { home, fan, fanY, pileX, pileY });
+      const pose = bandPose(i, phase, pageW, dist);
       if (pose.hidden) {
         el.style.visibility = 'hidden';
         continue;
@@ -164,6 +197,8 @@ export default function BandPager({
       pileY: qNum('deckpiley', qNum('deckexity', PILE_Y * spaceScale)),
       shift: qNum('deckshift', STACK_SHIFT),
       lift: qNum('deckshifty', STACK_LIFT),
+      hold: qNum('deckhold', VIEW_HOLD),
+      albumScale: qNum('deckalbum', 1),
     };
     const cycleS = qNum('deckcycle', CYCLE_S);
     const cycling =
@@ -258,7 +293,19 @@ export default function BandPager({
     const widthCap = qNum('deckw', WIDTH_CAP);
     const measure = () => {
       const r = stage.getBoundingClientRect();
-      const pageW = Math.min(r.height * ratio, r.width * widthCap);
+      const capW = r.width * widthCap;
+      let pageW = Math.min(r.height * ratio, capW);
+      // Ratio-aware size: squarer pages (album covers) present at the AREA
+      // the reference 16:9 deck page would take in this same stage, and
+      // never stand taller than ALBUM_H_CAP of it — instead of filling the
+      // whole stage height (which read oversized next to deck pages).
+      // ?deckalbum scales the result.
+      if (ratio < PAGE_REF_RATIO) {
+        const deckW = Math.min(r.height * PAGE_REF_RATIO, capW);
+        const areaW = Math.sqrt(((deckW * deckW) / PAGE_REF_RATIO) * ratio);
+        const headW = r.height * ALBUM_H_CAP * ratio;
+        pageW = Math.min(pageW, areaW, headW) * tuning.current.albumScale;
+      }
       const pageH = pageW / ratio;
       metricsRef.current = { pageW, pageH };
       setMetrics({ pageW, pageH });

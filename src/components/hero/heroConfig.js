@@ -128,8 +128,13 @@ export const TUNING_DEFAULTS = Object.freeze({
   fillMode: 'panels', // ?fillmode — panels | circle (FILL_MODES above)
   blueCascade: 'poles', // ?bluecascade — panels-mode delay model (BLUE_CASCADES above)
   blueLead: 0.4, // ?bluelead — raw progress by which the panel-blue has painted the globe; the camera recenter/zoom lead OUT of it (note 4: blue first, then dive in)
-  recenterEnd: 1, // ?recenterend — e where the recenter (offsets/elev → 0) completes
-  zoomStart: 0.9, // ?zoomstart — e where the dolly to ?envscale begins
+  /* recenterEnd/zoomStart shape ONE motion (rev-notes-03): the zoom launches
+     just after the recenter is underway and the two overlap for most of the
+     dive — center+zoom read as a single gesture, the dolly lagging slightly
+     behind the centering (was recenterEnd 1 / zoomStart 0.9: center fully,
+     THEN zoom in the last 10% — the reported disjoint/delay). */
+  recenterEnd: 0.65, // ?recenterend — e where the recenter (offsets/elev → 0) completes
+  zoomStart: 0.2, // ?zoomstart — e where the dolly to ?envscale begins
 
   /* globe — the meridian-scroll pace (MeridianScroll reads at build; the bench
      moves the NEXT mount unless wired live). The globe holds its brand tilt;

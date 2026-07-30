@@ -64,6 +64,8 @@ import {
   FANOUT_STAGGER,
   LENS_DISTORTION_X,
   LENS_DISTORTION_Y,
+  ENTER_ZOOM_DOLLY,
+  ENTER_LENS_SWELL,
   TURN_DURATION,
   TURN_EXIT_ANGLE,
   TURN_ENTER_ANGLE,
@@ -95,6 +97,7 @@ import {
   PILE_FALLOFF,
   SHOW_LIFT,
   REF_PAGE_W,
+  pageFitScale,
 } from '../bandLayout.js';
 
 // Half-angle tangent of the camera's vertical FOV — maps a depth to the
@@ -221,10 +224,45 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
 
     // Lens spike (0..1) added to the base distortion during a Turn.
     const lensSpike = { v: 0 };
+    // Enter-the-World ramp (0..1) — a second additive term, driven only by the
+    // enter_world commit (see the 'swm:enter-world' listener below).
+    const enterRamp = { v: 0 };
     const applyLens = () => {
-      lensPass.distortion.x = LENS_DISTORTION_X + TURN_LENS_SPIKE * lensSpike.v;
-      lensPass.distortion.y = LENS_DISTORTION_Y + TURN_LENS_SPIKE * 1.1 * lensSpike.v;
+      lensPass.distortion.x =
+        LENS_DISTORTION_X + TURN_LENS_SPIKE * lensSpike.v + ENTER_LENS_SWELL * enterRamp.v;
+      lensPass.distortion.y =
+        LENS_DISTORTION_Y +
+        TURN_LENS_SPIKE * 1.1 * lensSpike.v +
+        ENTER_LENS_SWELL * 1.1 * enterRamp.v;
     };
+
+    // ── Enter-the-World ramp — "entering the world" (revision note 1) ──
+    // On enter_world commit, WorldCard dispatches 'swm:enter-world' (same
+    // detail as its 'swm:envelop': { duration, color }). The scene answers by
+    // tweening enterRamp 0→1 over the cover duration on the SAME house curve
+    // (fpTurnRoll — steep launch, smooth decel, no overshoot), driving:
+    //   (a) a subtle camera dolly toward the tiles (ENTER_ZOOM_DOLLY world
+    //       units ≈ 12–14% apparent zoom at the tile tiers), and
+    //   (b) a lens-distortion swell (ENTER_LENS_SWELL, ~4× the Turn spike)
+    // so zoom + curvature are one gesture under the rising color cover.
+    // Reduced motion: WorldCard never dispatches, and the guard here keeps a
+    // stray dispatch from moving the camera. The scene unmounts on arrival at
+    // the detail route (route-scoped scenes, ADR-0002), so no un-ramp needed.
+    let enterTween = null;
+    const onEnterWorld = (e) => {
+      if (PREFERS_REDUCED_MOTION) return; // plain cover, no ramp
+      enterTween?.kill();
+      enterTween = gsap.to(enterRamp, {
+        v: 1,
+        duration: e?.detail?.duration ?? 0.7,
+        ease: turnRollEase,
+        onUpdate: () => {
+          camera.position.z = -ENTER_ZOOM_DOLLY * enterRamp.v; // toward −Z (the tiles)
+          applyLens();
+        },
+      });
+    };
+    window.addEventListener('swm:enter-world', onEnterWorld);
 
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
@@ -354,10 +392,15 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         // Anchor — same derivation the band creation block uses.
         const bx = g.anchorW * BAND_TUNABLES.posX;
         const by = g.halfH * BAND_TUNABLES.posY;
-        // Band body: up to BAND_MAX_PAGES pages fit in a BAND_HEIGHT square
-        // (worldBands sizing), px-tuned stack distances scaled by unit.
-        const pageW = def.ratio >= 1 ? BAND_HEIGHT : BAND_HEIGHT * def.ratio;
-        const pageH = def.ratio >= 1 ? BAND_HEIGHT / def.ratio : BAND_HEIGHT;
+        // Band body: up to BAND_MAX_PAGES pages fit in a BAND_HEIGHT square,
+        // area-normalized by ratio (worldBands sizing — pageFitScale shrinks
+        // squarer pages toward the deck page's area), px-tuned stack
+        // distances scaled by unit.
+        const fitScale = pageFitScale(def.ratio, BAND_TUNABLES.albumScale);
+        const pageW =
+          (def.ratio >= 1 ? BAND_HEIGHT : BAND_HEIGHT * def.ratio) * fitScale;
+        const pageH =
+          (def.ratio >= 1 ? BAND_HEIGHT / def.ratio : BAND_HEIGHT) * fitScale;
         const unit = pageW / REF_PAGE_W;
         const tune = BAND_TUNABLES;
         const fanX = FAN_X * unit * tune.spacingMul * tune.fanMul;
@@ -810,6 +853,8 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       ro.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('swm:enter-world', onEnterWorld);
+      enterTween?.kill();
       if (tickerActive) gsap.ticker.remove(tick);
       scheduler?.dispose();
       clearSlot(slotA);

@@ -17,7 +17,7 @@
  * Voice/chrome mirrors ProcessDebugPanel (mono, near-black, lowercase).
  */
 import { useState } from 'react';
-import { HOME_X } from './bandLayout.js';
+import { HOME_X, VIEW_HOLD } from './bandLayout.js';
 import { BAND_TUNABLES } from './world/worldConfig.js';
 
 /* Knob specs: key into BAND_TUNABLES, URL param (matches worldConfig's num()
@@ -29,6 +29,8 @@ const KNOBS = [
   { key: 'homeX', param: 'deckhome', label: 'front page x', min: -0.8, max: 0.4, step: 0.01, def: HOME_X },
   { key: 'fanMul', param: 'deckfan', label: 'back fan extent', min: 0.3, max: 2.5, step: 0.05, def: 1 },
   { key: 'pileMul', param: 'deckpile', label: 'shown pile extent', min: 0.3, max: 2.5, step: 0.05, def: 1 },
+  { key: 'viewHold', param: 'deckhold', label: 'view plateau', min: 0, max: 0.6, step: 0.01, def: VIEW_HOLD },
+  { key: 'albumScale', param: 'deckalbum', label: 'album art scale', min: 0.6, max: 1.4, step: 0.01, def: 1 },
   { key: 'posX', param: 'bandx', label: 'deck x (right)', min: 0, max: 0.6, step: 0.01, def: 0.34 },
   { key: 'posY', param: 'bandy', label: 'deck y (up)', min: 0, max: 0.6, step: 0.01, def: 0.36 },
 ];

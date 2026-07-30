@@ -64,13 +64,16 @@ html:has(.project-detail) body {
   max-width: clamp(400px, 58vw, 1054px);
 }
 
-/* Chips + socials in one horizontal row */
+/* Chips + socials in one horizontal row. Full-width so the next_project
+   chip's margin-left:auto can push it to the band's far right (chips and
+   socials keep their left cluster — nothing else stretches). */
 .client-panel__meta {
   display: flex;
   flex-direction: row;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.857rem;
+  width: 100%;
 }
 
 /* Chips sit side-by-side */
@@ -95,6 +98,7 @@ html:has(.project-detail) body {
   /* 14px */
   line-height: 1.571rem;
   letter-spacing: -0.024em;
+  text-transform: uppercase;
   color: var(--color-white);
   white-space: nowrap;
 }
@@ -167,6 +171,62 @@ html:has(.project-detail) body {
 
 .social-btn:hover {
   opacity: 0.65;
+}
+
+/* ============================================
+   NEXT-PROJECT CHIP — far right of the meta row
+   Chip-voice peek at where the chain goes next
+   (wraps last → first), with the house caret
+   strip cut horizontal. Commits through the same
+   envelopment cover as the NextProjectBand.
+   ============================================ */
+.client-panel__next {
+  display: flex;
+  align-items: center;
+  gap: 0.571rem;
+  margin-left: auto; /* far right of the chips/socials row */
+  padding: 0.143rem 0.571rem;
+  background: var(--color-near-black);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  text-transform: uppercase;
+  color: var(--color-white);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.client-panel__next:hover,
+.client-panel__next:focus-visible {
+  /* the chip already sits ON the accent band — pure black is the hover state */
+  background: var(--color-black);
+}
+
+/* Horizontal re-cut of the shared caret strip (global.css owns the 60×34
+   vertical base; process.css's 34×20 re-cut is the size precedent). The
+   window feathers on the side nearest the label (left). */
+.client-panel__next .fp-cta__arrows {
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 65%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 65%, #000 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.client-panel__next .fp-cta__arrows-track {
+  flex-direction: row;
+  align-items: center;
+  height: 100%;
+}
+
+.client-panel__next .fp-cta__arrows-track svg {
+  margin: 0 2.5px;
 }
 
 /* ============================================
@@ -301,6 +361,7 @@ html:has(.project-detail) body {
   /* 14px */
   line-height: 1;
   letter-spacing: -0.024em;
+  text-transform: uppercase;
   color: var(--color-white);
 }
 
@@ -577,6 +638,7 @@ a.release-chip--link:hover {
   font-size: 1rem;
   line-height: 1.571rem;
   letter-spacing: -0.024em;
+  text-transform: uppercase;
   color: var(--color-white);
   text-decoration: none;
   transition: background 0.2s ease;
@@ -778,6 +840,64 @@ a.release-chip--link:hover {
 }
 
 /* ============================================
+   DETAIL SCROLL METER — /process's walkthrough
+   status bar promoted to the detail page
+   (ProcessMeter className="detail-meter").
+   process.css doesn't load on this route, so the
+   chip is fully restyled here, mirroring the
+   .process-meter recipe (process.css). Cells
+   inherit the project accent: the html-level
+   --project-color is applied pre-paint by the
+   RouteFill nav-accent controller. z-index 4
+   keeps it UNDER NextProjectBand's promoted
+   commit box (z-90) and the site shell (z-100) —
+   the growing passage swallows it, by design.
+   ============================================ */
+.detail-meter {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--nav-inset);
+  z-index: 4;
+  display: flex;
+  align-items: baseline;
+  gap: 1ch;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--color-white);
+  pointer-events: none;
+  /* the meter sits over media — a soft dark plate keeps light accents
+     (e.g. HHS lime) and white ink readable on bright frames */
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.85), 0 1px 3px rgba(0, 0, 0, 0.7);
+  transition: opacity 0.3s ease;
+}
+
+.detail-meter .process-meter__cells {
+  color: var(--project-color, var(--color-electric-blue));
+  letter-spacing: 0.08em;
+}
+
+.detail-meter .process-meter__step {
+  opacity: 0.55;
+}
+
+/* The footer reveal slides up over the page bottom — the meter yields
+   (same html-level hook the shell nav rides). */
+html[data-footer-revealed] .detail-meter {
+  opacity: 0;
+}
+
+/* Mobile: left variant (the /process meter's ≤768px cut) */
+@media (max-width: 768px) {
+  .detail-meter {
+    left: var(--nav-inset);
+    transform: none;
+  }
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 
@@ -796,6 +916,12 @@ a.release-chip--link:hover {
   .client-panel__meta {
     max-width: max-content;
     /* prevents row from stretching full-width on narrow screens */
+  }
+
+  /* Stacked meta: the next_project chip joins the wrap flow instead of
+     pushing far right (no room to spread on a phone). */
+  .client-panel__next {
+    margin-left: 0;
   }
 
   /* Hero band collapses to stacked on mobile */

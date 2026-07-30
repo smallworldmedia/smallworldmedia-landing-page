@@ -153,6 +153,7 @@ body.route-process .site-nav {
   font-size: var(--text-mono);
   line-height: var(--lh-mono);
   letter-spacing: -0.02em;
+  text-transform: uppercase;
   color: var(--color-white);
   white-space: nowrap;
 }
@@ -262,6 +263,13 @@ body.route-process .site-nav {
   color: var(--color-white);
 }
 
+/* The splash empties the token before the 1.3s scramble — reserve its line
+   box (the .process-stage__caption convention) so the title never shifts
+   when the text lands, and again on the onEnterBack restore. */
+.process-hero__token {
+  min-height: var(--lh-mono);
+}
+
 /* Flex + gap, not a leading space — ScrambleText trims leading
    whitespace, so the separator spacing lives in layout */
 .process-stage__chip {
@@ -295,10 +303,23 @@ body.route-process .site-nav {
   position: relative;
 }
 
-/* --- The globe-O (B9): the SWM globe stands in for PROCESS's O —
-   placeholder = the flat mark spinning slowly; the production asset is
-   a Lottie looping one longitudinal translation (separate asset task).
-   Sized/positioned to the O glyph box by useProcessCopy. --- */
+/* Clear space for the globe-O (Nathan 07-30): the square globe slot is
+   sized to the glyph HEIGHT, wider than the narrow squeezed-caps O — pad
+   the O char so the mark sits in clear air instead of brushing PR/CESS.
+   Em units ride the fluid title size; symmetric padding keeps the slot
+   centered on the char box (placeGlobe measures the padded box). Only
+   exists when SplitText has run (motion path) — the reduced-motion title
+   keeps its real O and natural spacing. */
+.process-hero__title .process-char:nth-child(3) {
+  /* 0.26em: the square slot (glyph-height wide) plus ~0.065em of air each
+     side — measured against the R/C neighbors at 1440w. */
+  padding: 0 0.26em;
+}
+
+/* --- The globe-O: the flat white SWM globe mark — the nav-bar icon —
+   spinning slowly as the O (Nathan 07-30: white stroke, not the dark
+   WebGL panel globe). Sized/positioned to the O glyph box by
+   useProcessCopy. --- */
 .process-hero__globe-o {
   position: absolute;
   display: flex;
@@ -411,6 +432,7 @@ body.route-process .site-nav {
   font-family: var(--font-mono);
   font-size: var(--text-ui);
   letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
   line-height: 1;
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
@@ -449,7 +471,12 @@ body.route-process .site-nav {
 }
 
 /* --- P6: back-to-top chip — the stepnav CTA idiom, in normal flow under
-   the closing actions (the walk loops back to the blank canvas). --- */
+   the closing actions (the walk loops back to the blank canvas).
+   07-30: PHONE-ONLY now. On desktop the fixed [next] slot swaps to
+   back_to_top at the final section (ProcessStepCtas) — one back-to-top
+   per viewport. The stepnav is display:none ≤768px (swipe owns the
+   walk), so this in-flow chip stays as the phone's way home (desktop
+   cut lives after the block — same specificity, source order decides). --- */
 .process-cta__top {
   display: inline-flex;
   align-items: center;
@@ -462,6 +489,7 @@ body.route-process .site-nav {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
   padding: 0.25rem 0.4rem;
   cursor: pointer;
   transition:
@@ -483,6 +511,14 @@ body.route-process .site-nav {
 .process-cta__top .fp-cta__arrows {
   width: 34px;
   height: 20px;
+}
+
+/* Desktop: the fixed [next] slot owns back_to_top at the end — hide the
+   in-flow chip so there's exactly one. */
+@media (min-width: 769px) {
+  .process-cta__top {
+    display: none;
+  }
 }
 
 /* --- ?debug tuning panel (spec §6 — lives on the gated route) --- */
@@ -655,15 +691,18 @@ body.route-process .site-nav {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.15rem;
+  /* Nathan 07-30: both steppers step in from the viewport edges by the
+     SAME amount — [previous] down, [next] up. One var, provably equal. */
+  --stepnav-edge-offset: 1.143rem;
 }
 
 .process-stepnav--prev {
   /* below the 2.929rem (41px) nav bar — the SiteNav height convention */
-  top: calc(2.929rem + var(--space-4));
+  top: calc(2.929rem + var(--space-4) + var(--stepnav-edge-offset));
 }
 
 .process-stepnav--next {
-  bottom: var(--nav-inset);
+  bottom: calc(var(--nav-inset) + var(--stepnav-edge-offset));
 }
 
 /* ?debug only: the tuning panel owns the lower-left corner — [next]
@@ -684,6 +723,7 @@ body.route-process .site-nav {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
   padding: 0.25rem 0.4rem;
   cursor: pointer;
   transition:
@@ -698,18 +738,13 @@ body.route-process .site-nav {
 }
 
 /* P5 states. [previous] fades fully out before the 2nd section (there's
-   nowhere back from the hero); [next] dims at the final section. Both are
-   native-`disabled` so they leave the tab order and clicks no-op — the
-   classes only carry the look, riding the base opacity transition. */
+   nowhere back from the hero) — native-`disabled` so it leaves the tab
+   order and clicks no-op; the class only carries the look, riding the
+   base opacity transition. ([next] no longer dims at the end — the slot
+   swaps to back_to_top instead, 07-30.) */
 .process-stepnav__cta.is-hidden {
   opacity: 0;
   pointer-events: none;
-}
-
-.process-stepnav__cta.is-disabled {
-  opacity: 0.22;
-  pointer-events: none;
-  cursor: default;
 }
 
 .process-page[data-bg='blue'] .process-stepnav__cta:not(:disabled):hover,
@@ -738,6 +773,7 @@ body.route-process .site-nav {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   letter-spacing: -0.02em;
+  text-transform: uppercase;
   color: var(--color-white);
   pointer-events: none;
 }

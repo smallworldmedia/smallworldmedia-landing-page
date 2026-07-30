@@ -60,9 +60,11 @@ const CARD_TRAVEL = 70; // yPercent the card rides in/out (mirrors the media rol
 // persistent RouteFill, then client-navigate; the detail page releases it.
 // ?entercover=<ms> tunes the cover live.
 const ENTER_COVER_SECONDS = (() => {
-  if (typeof window === 'undefined') return 0.5;
+  if (typeof window === 'undefined') return 0.7;
   const n = parseFloat(new URLSearchParams(window.location.search).get('entercover'));
-  return Number.isFinite(n) ? n / 1000 : 0.5; // deliberate colour sweep into the world (dial via ?entercover=<ms>)
+  // 0.7 (was 0.5): lengthened so the scene's enter-ramp (zoom + lens swell
+  // under the cover) has room to read. Dial via ?entercover=<ms>.
+  return Number.isFinite(n) ? n / 1000 : 0.7;
 })();
 let departing = false;
 function enterWorld(e, slug, color) {
@@ -73,6 +75,11 @@ function enterWorld(e, slug, color) {
   window.dispatchEvent(
     // S2: the enter fill ingests the project's accent (blank → blue in RouteFill).
     new CustomEvent('swm:envelop', { detail: { duration: ENTER_COVER_SECONDS, color } })
+  );
+  window.dispatchEvent(
+    // Scene choreography: useWorldScene answers with the synced zoom +
+    // lens-distortion enter-ramp under the rising cover (same duration/curve).
+    new CustomEvent('swm:enter-world', { detail: { duration: ENTER_COVER_SECONDS, color } })
   );
   setTimeout(() => {
     departing = false;

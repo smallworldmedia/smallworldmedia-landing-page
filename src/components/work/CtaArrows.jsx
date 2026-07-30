@@ -6,7 +6,8 @@
  * glyph read too heavy) translating at a constant rate, clipped to the
  * container window and feathered to 0% opacity only on the side nearest
  * the label; carets stay fully visible all the way to the far edge.
- * `direction`: 'down' (NEXT / enter) or 'up' (PREVIOUS).
+ * `direction`: 'down' (NEXT / enter), 'up' (PREVIOUS), or 'right'
+ * (detail-page next_project chip — horizontal track, xPercent loop).
  *
  * ?caret=<seconds> tunes the drift (seconds per slot); reduced motion
  * renders the strip static.
@@ -23,6 +24,21 @@ const ARROW_LOOP_SECONDS = (() => {
 })();
 
 function Chevron({ direction }) {
+  if (direction === 'right') {
+    // Horizontal cut: the same thin 1.5px stroke rotated to point right,
+    // sized for the chip-scale window (project-detail.css re-cuts the frame).
+    return (
+      <svg viewBox="0 0 12 24" width="10" height="20">
+        <polyline
+          points="3.5,2 8.5,12 3.5,22"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="square"
+        />
+      </svg>
+    );
+  }
   const points = direction === 'down' ? '2,3.5 12,8.5 22,3.5' : '2,8.5 12,3.5 22,8.5';
   return (
     <svg viewBox="0 0 24 12" width="22" height="12">
@@ -46,7 +62,9 @@ export default function CtaArrows({ direction }) {
     const tween =
       direction === 'down'
         ? gsap.fromTo(track, { yPercent: -50 }, { yPercent: 0, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 })
-        : gsap.fromTo(track, { yPercent: 0 }, { yPercent: -50, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 });
+        : direction === 'right'
+          ? gsap.fromTo(track, { xPercent: -50 }, { xPercent: 0, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 })
+          : gsap.fromTo(track, { yPercent: 0 }, { yPercent: -50, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 });
     return () => tween.kill();
   }, [direction]);
 

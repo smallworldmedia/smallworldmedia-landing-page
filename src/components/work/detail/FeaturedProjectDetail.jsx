@@ -29,6 +29,7 @@
 import { useEffect } from 'react';
 import ClientPanel from './ClientPanel.jsx';
 import MediaSlot from './MediaSlot.jsx';
+import ProcessMeter from '../../process/ProcessMeter.jsx';
 import NextProjectBand from './NextProjectBand.jsx';
 import SiteFooter from '../../SiteFooter.jsx';
 import GridSocket from './GridSocket.jsx';
@@ -100,6 +101,14 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const displayTitle = project?.title || null;
   const overview = project?.description ?? null;
 
+  // Scroll-meter label — the client name as a mono token (house voice:
+  // lowercase, underscore-joined, like the_process / client_type).
+  const meterLabel =
+    (client?.name ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'project';
+
   // ── Compute flush grid placements around the reserved regions ──
   const { placements, regions: sockets } = computeFlushGrid(showcase, { regions });
 
@@ -165,6 +174,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         services={services}
         projectColor={project?.projectColor}
         projectColorSecondary={project?.projectColorSecondary}
+        nextProject={nextProject}
       />
 
       {/* Breadcrumb back to the Featured Projects experience. Sits under
@@ -232,6 +242,19 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       {/* Continuation: the next project's card + the resistance gesture
           that carries the user into it (chain wraps last → first). */}
       {nextProject && <NextProjectBand next={nextProject} />}
+
+      {/* Scroll meter — the /process walkthrough status bar promoted to the
+          detail page (fixed chrome, bottom-center). Steps count the page's
+          media slots (hero + grid tiles); the cells inherit this project's
+          accent via the html-level --project-color (applied pre-paint by the
+          RouteFill nav-accent controller — zero plumbing here). No broadcast:
+          nothing on this page consumes swm:process-index. */}
+      <ProcessMeter
+        label={meterLabel}
+        sectionSelector=".media-slot"
+        broadcast={false}
+        className="detail-meter"
+      />
 
       <SiteFooter />
     </div>

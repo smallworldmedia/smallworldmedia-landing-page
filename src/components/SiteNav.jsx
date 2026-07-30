@@ -17,20 +17,17 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 
-/* ── NAV micro-interaction (default = kinetic rule; ?navfx=3 = brackets) ──
-   The kinetic rule + current-page state are the DEFAULT nav — no param.
-   ?navfx=3 selects the BRACKETS ALT (the /work chip language), read ONCE at
-   hydration (the CtaArrows ?caret idiom). The island is client:load +
-   transition:persist and never remounts, so the const holds for the whole
-   session across client navs (the param drops off the URL after the first
-   swap — by design). Rendered as data-navfx="3" on both chrome roots
-   (.site-nav and the portaled .mobile-menu) when the alt is selected; the
-   alt's CSS lives in global.css scoped under [data-navfx="3"]. Any other
-   value (or none) → null → the promoted default. */
-const NAVFX = (() => {
-  if (typeof window === 'undefined') return null;
-  return new URLSearchParams(window.location.search).get('navfx') === '3' ? '3' : null;
-})();
+/* ── NAV micro-interaction (merged default — brackets on hover, rule on
+   current) ── The two former systems (?navfx=3 brackets alt vs kinetic-rule
+   default) are MERGED as the one default: CSS brackets [ ] converge on
+   hover/focus, and the fxrule underline stays PINNED under the current page
+   link, gliding to the new current on navigation. ?navfx is retired — the
+   param is ignored (harmless no-op). */
+
+/* Safety net for the home chrome gate — past the default full intro's beat
+   (HeroText's CHROME_SAFETY_MS idiom), so it can never preempt the
+   choreography it backs up; a failed hero can never leave the nav hidden. */
+const CHROME_SAFETY_MS = 6000;
 
 /** Minimal inline glyph icons (Figma uses Simple Design System icons) */
 function HeartIcon() {
@@ -71,28 +68,17 @@ export default function SiteNav({
   const pillLabel = isInfoOpen ? 'close' : 'info';
   const PillIcon = isInfoOpen ? CloseIcon : EjectIcon;
 
+  const navRef = useRef(null); // the visual bar — home chrome gate target
   const linksRef = useRef(null);
   const menuRef = useRef(null);
-  const fxRuleRef = useRef(null); // kinetic rule (sibling of the links row)
+  const fxRuleRef = useRef(null); // current-page rule (sibling of the links row)
+  const fxReseatRef = useRef(null); // instant fxrule re-seat, exposed by the rule effect
   const [menuOpen, setMenuOpen] = useState(false);
   // Portal target for the mobile menu — client-only (island is SSR'd)
   const [shellEl, setShellEl] = useState(null);
   useEffect(() => {
     setShellEl(document.querySelector('.site-shell'));
   }, []);
-
-  // Two-pass activation for the ?navfx=3 alt: the island is SSR'd and React
-  // 19 hydration adopts the server DOM without patching attribute mismatches
-  // — so the data-navfx="3" attribute must land as a post-mount UPDATE
-  // (server render and first client render match). With no param the state
-  // stays null: zero re-render, DOM byte-identical. The kinetic rule element
-  // renders UNCONDITIONALLY now — it is in the server DOM too, so it hydrates
-  // clean.
-  const [navfx, setNavfx] = useState(null);
-  useEffect(() => {
-    if (NAVFX) setNavfx(NAVFX);
-  }, []);
-  const fxAttr = navfx ? { 'data-navfx': navfx } : {};
 
   const handleStartProject = (e) => {
     if (onStartProject) {
@@ -210,20 +196,19 @@ export default function SiteNav({
     return () => document.removeEventListener('astro:after-swap', refreshCurrent);
   }, [shellEl]);
 
-  // ── Kinetic rule (desktop, default) ──
-  // One shared 1px rule gliding under the hovered link, resting under the
-  // current one. The fxrule is a SIBLING of the links row — invisible to
-  // the route-swap hygiene wipe (which only collects the links row and its
+  // ── Current-page rule (desktop) ──
+  // One shared 1px rule PINNED under the current link — the underline is the
+  // CURRENT-PAGE indicator only (hover/focus affordance is the CSS brackets
+  // on .site-nav__label). On navigation the after-swap re-seat glides the
+  // rule to the new current link — "the underline goes to the clicked nav
+  // item". The fxrule is a SIBLING of the links row — invisible to the
+  // route-swap hygiene wipe (which only collects the links row and its
   // children), so its inline transform/width/opacity are owned here and
   // survive every swap. The anchors' offsetParent is .site-nav__right
   // (position: relative), the same box the rule is absolute in —
   // offsetLeft/offsetWidth map 1:1 with no rect math, so X measurements
-  // are always valid. Skipped under the ?navfx=3 brackets
-  // alt (the rule is display:none there). Deps [navfx]: the fxrule element
-  // renders unconditionally (ref populated at mount), and the effect tears
-  // down and stays dormant if the alt activates post-mount.
+  // are always valid.
   useEffect(() => {
-    if (navfx === '3') return undefined;
     const rule = fxRuleRef.current;
     const linksEl = linksRef.current;
     if (!rule || !linksEl) return undefined;
@@ -263,18 +248,8 @@ export default function SiteNav({
     const currentLink = () => linksEl.querySelector('[data-current]');
     const goHome = () => moveTo(currentLink());
 
-    const onEnter = (e) => moveTo(e.currentTarget);
-    const onLeave = () => goHome();
-    const onFocusIn = (e) => {
-      const link = e.target.closest('.site-nav__link');
-      if (link) moveTo(link);
-    };
-    const onFocusOut = (e) => {
-      // Intra-row Tab moves fire focusout+focusin per stop — only a true
-      // row exit sends the rule home (kills the per-stop flicker).
-      if (e.relatedTarget && linksEl.contains(e.relatedTarget)) return;
-      goHome();
-    };
+    // No hover/focus handlers — the rule never leaves the current link
+    // (brackets carry hover). It only moves on navigation and re-measures.
     // Re-seat to the new current link after a swap — navigation reads as
     // the rule traveling to where you went. Two frames, not a microtask:
     // rAF still runs after refreshCurrent's after-swap listener updates
@@ -296,11 +271,6 @@ export default function SiteNav({
       });
     };
 
-    const links = [...linksEl.querySelectorAll('.site-nav__link')];
-    links.forEach((l) => l.addEventListener('mouseenter', onEnter));
-    linksEl.addEventListener('mouseleave', onLeave);
-    linksEl.addEventListener('focusin', onFocusIn);
-    linksEl.addEventListener('focusout', onFocusOut);
     document.addEventListener('astro:after-swap', onSwap);
     window.addEventListener('resize', onResize);
 
@@ -313,20 +283,69 @@ export default function SiteNav({
       if (!disposed) moveTo(currentLink(), { instant: true });
     });
 
+    // Expose the instant re-seat for the home chrome gate — after the bar
+    // fades in, the underline must materialize under the current link.
+    fxReseatRef.current = () => moveTo(currentLink(), { instant: true });
+
     return () => {
       disposed = true;
+      fxReseatRef.current = null;
       if (raf) cancelAnimationFrame(raf);
-      links.forEach((l) => l.removeEventListener('mouseenter', onEnter));
-      linksEl.removeEventListener('mouseleave', onLeave);
-      linksEl.removeEventListener('focusin', onFocusIn);
-      linksEl.removeEventListener('focusout', onFocusOut);
       document.removeEventListener('astro:after-swap', onSwap);
       window.removeEventListener('resize', onResize);
     };
-  }, [navfx]);
+  }, []);
+
+  // ── Home chrome gate (initial page load only) ──
+  // On a fresh load of the home route the whole visual bar (logo + links +
+  // pill) stays hidden until the hero settles and fires its chrome beat
+  // (window 'swm:hero-chrome' + the durable .hero[data-chromed="1"] latch —
+  // the HeroText consumer pattern). The island is transition:persist and
+  // SITE-WIDE, so this runs ONCE at hydration: client navs never re-hide
+  // (landing on home from another page keeps the bar), and any after-swap
+  // before the beat force-reveals instantly — the nav can never be hidden
+  // off-home. The latch check covers reduced-motion / replay beats that fire
+  // before hydration; the safety timer covers a failed hero. Hiding targets
+  // .site-nav only — the portaled .mobile-menu and the rest of .site-shell
+  // (InfoPanel/ProjectOverlay) are untouched.
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return undefined;
+    if (!document.body.classList.contains('route-home')) return undefined;
+    if (document.querySelector('.hero')?.dataset.chromed === '1') return undefined;
+
+    gsap.set(nav, { autoAlpha: 0 });
+    let shown = false;
+    let timer = null;
+    const show = (instant) => {
+      if (shown) return;
+      shown = true;
+      clearTimeout(timer);
+      window.removeEventListener('swm:hero-chrome', onBeat);
+      document.removeEventListener('astro:after-swap', onLeave);
+      if (instant) gsap.set(nav, { autoAlpha: 1 });
+      else gsap.to(nav, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
+      // The underline materializes under the current link now that the bar
+      // is visible (inline transform/width/opacity re-written).
+      fxReseatRef.current?.();
+    };
+    const onBeat = () => show(false);
+    const onLeave = () => show(true); // navigated away pre-beat — never hide chrome off-home
+    window.addEventListener('swm:hero-chrome', onBeat);
+    document.addEventListener('astro:after-swap', onLeave);
+    timer = setTimeout(() => show(false), CHROME_SAFETY_MS);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('swm:hero-chrome', onBeat);
+      document.removeEventListener('astro:after-swap', onLeave);
+      gsap.killTweensOf(nav);
+      gsap.set(nav, { autoAlpha: 1 });
+    };
+  }, []);
 
   return (
-    <nav className="site-nav" {...fxAttr}>
+    <nav className="site-nav" ref={navRef}>
       <div className="site-nav__brand">
         <a href="/" className="site-nav__logo" aria-label="Small World Media home">
           <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
@@ -344,7 +363,7 @@ export default function SiteNav({
       </div>
 
       <div className="site-nav__right">
-        {/* The .site-nav__label spans wrap each link's text (the ?navfx=3
+        {/* The .site-nav__label spans wrap each link's text (the hover
             brackets target them). Styling-inert: the span is the same
             flex-item box as the anonymous text node it wraps, and event
             bubbling for the start_project interception is unchanged. */}
@@ -363,7 +382,7 @@ export default function SiteNav({
           </a>
           <a href="/process" className="site-nav__link">
             <span className="site-nav__glyph">⊙</span>
-            process
+            <span className="site-nav__label">process</span>
           </a>
           <a
             href="https://instagram.com/smallworldmedia"
@@ -376,11 +395,10 @@ export default function SiteNav({
           </a>
         </div>
 
-        {/* The kinetic rule (default) — a SIBLING of the links row, so it
+        {/* The current-page rule — a SIBLING of the links row, so it
             escapes the route-swap hygiene wipe (which only collects the
-            links row and its children). Rendered unconditionally (hydrates
-            clean; hidden by CSS under ?navfx=3); its inline transform/
-            width/opacity are owned by the kinetic-rule effect. */}
+            links row and its children). Its inline transform/width/opacity
+            are owned by the current-page rule effect. */}
         <span className="site-nav__fxrule" aria-hidden="true" ref={fxRuleRef} />
 
         {/* Mobile: links collapse into a full-screen menu (≤768px, CSS-gated) */}
@@ -406,10 +424,20 @@ export default function SiteNav({
             ref={menuRef}
             data-open={menuOpen}
             aria-hidden={!menuOpen}
-            {...fxAttr}
           >
             <div className="mobile-menu__bar">
-              <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
+              {/* Real home link (matches the nav-bar logo) — the fullscreen
+                  panel covers the bar's logo, so this one must navigate.
+                  Close on click: same-route "/" navigation never fires
+                  astro:after-swap, so the swap-close listener won't run. */}
+              <a
+                href="/"
+                className="site-nav__logo"
+                aria-label="Small World Media home"
+                onClick={() => setMenuOpen(false)}
+              >
+                <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
+              </a>
               <button
                 type="button"
                 className="site-nav__pill mobile-menu__close"
@@ -430,7 +458,7 @@ export default function SiteNav({
               </a>
               <a href="/process" className="mobile-menu__item">
                 <span className="site-nav__glyph">⊙</span>
-                process
+                <span className="site-nav__label">process</span>
               </a>
               <a
                 href="https://instagram.com/smallworldmedia"

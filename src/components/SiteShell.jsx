@@ -30,6 +30,7 @@ import InfoPanel from './InfoPanel';
 import ProjectOverlay from './ProjectOverlay';
 import RouteFill from './RouteFill';
 import { LENIS_TUNE_ACTIVE } from '../lib/lenisTune.js';
+import { FOOTER_TUNE_ACTIVE } from '../lib/footerTune.js';
 
 gsap.registerPlugin(useGSAP, Flip);
 
@@ -57,6 +58,25 @@ export default function SiteShell() {
     import('./LenisTunePanel.jsx')
       .then((m) => {
         if (alive) setLenisTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Footer-reveal tuning bench (?footertune=1) — same hydration-safe lazy
+  // gate as LenisTunePanel above: SSR/first client render emit nothing, the
+  // effect import()s the chunk only when the URL asks for it.
+  const [FooterTunePanel, setFooterTunePanel] = useState(null);
+  useEffect(() => {
+    if (!FOOTER_TUNE_ACTIVE) return;
+    let alive = true;
+    import('./FooterTunePanel.jsx')
+      .then((m) => {
+        if (alive) setFooterTunePanel(() => m.default);
       })
       .catch(() => {
         /* dev bench only — a blocked/offline chunk just means no panel */
@@ -196,6 +216,7 @@ export default function SiteShell() {
       />
 
       {LenisTunePanel && <LenisTunePanel />}
+      {FooterTunePanel && <FooterTunePanel />}
     </div>
   );
 }

@@ -15,8 +15,6 @@
  * (nothing here runs; the DOM's resting state is fully visible, the real
  * O glyph included).
  */
-import { createElement } from 'react';
-import { createRoot } from 'react-dom/client';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -24,10 +22,14 @@ import { SplitText } from 'gsap/SplitText';
 import { scrambleTo } from '../../lib/scramble.js';
 import { PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
 import { EXIT_RATIO } from './processConfig.js';
-import VideoGlobe from '../globe/VideoGlobe.jsx';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
+// `globeAssets` is intentionally unused since the 07-30 revision (the O is
+// the flat white SVG mark now, matching the nav lockup) — the prop plumbing
+// stays so ProcessPage/the island contract doesn't churn if the animated
+// asset returns.
+// eslint-disable-next-line no-unused-vars
 export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
   useGSAP(
     () => {
@@ -62,31 +64,18 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
       globeWrap.setAttribute('aria-hidden', 'true');
       heroTitle.appendChild(globeWrap);
 
-      // B9 (approved): the finalized homepage globe stands in for the O, in its
-      // OPENING state — holdEntrance keeps the entrance cascade + live-video
-      // scheduler deferred forever (never released here), so it renders as the
-      // dark line-art / gap-lattice mark that matches the SWM lockup glyph, not
-      // the populated video-panel globe. Same Sanity asset pool as the home
-      // hero. Mounted ONLY while the hero splash is on screen (the process page
-      // already runs its own WebGL scene). Falls back to the flat spinning mark
-      // if the pool is empty.
-      let globeRoot = null;
+      // 07-30 revision (supersedes the B9 WebGL stand-in): the O is the flat
+      // white SWM globe mark — the exact nav-bar icon — a white STROKE on the
+      // field instead of the dark-panel WebGL globe. The former VideoGlobe
+      // mount is gone; mount/unmount keep their splash/ScrollTrigger call
+      // sites but now just swap the img in and out.
       const mountGlobe = () => {
-        if (globeRoot) return;
-        if (globeAssets && globeAssets.length) {
-          globeRoot = createRoot(globeWrap);
-          globeRoot.render(createElement(VideoGlobe, { assets: globeAssets, holdEntrance: true }));
-        } else {
+        if (!globeWrap.firstChild) {
           globeWrap.innerHTML = '<img src="/icons/SWM-globe_white.svg" alt="" />';
         }
       };
       const unmountGlobe = () => {
-        if (globeRoot) {
-          globeRoot.unmount();
-          globeRoot = null;
-        } else {
-          globeWrap.innerHTML = '';
-        }
+        globeWrap.innerHTML = '';
       };
       mountGlobe();
 
@@ -94,9 +83,10 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
         const hb = heroTitle.getBoundingClientRect();
         const ob = oChar.getBoundingClientRect();
         // Square slot sized to the glyph HEIGHT and centered on the O, so the
-        // round globe reads at the letters' cap height (matches the retired
-        // placeholder's height-fit footprint). It bleeds slightly past the
-        // narrow squeezed-caps O into PR/CESS, as the placeholder did.
+        // round globe reads at the letters' cap height. The O char carries
+        // extra horizontal padding (process.css .process-char:nth-child(3),
+        // Nathan 07-30) so this square slot sits in CLEAR space instead of
+        // bleeding into PR/CESS — the padded char box keeps the slot centered.
         const size = ob.height;
         const cx = ob.left + ob.width / 2 - hb.left;
         const cy = ob.top + ob.height / 2 - hb.top;

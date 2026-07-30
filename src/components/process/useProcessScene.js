@@ -366,7 +366,10 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         };
       });
       decoys.forEach((d, i) => {
-        d.pos.copy(slots[order[panels.length + i]]);
+        // Keep the slot itself: the prolonged cull (decoysOut) tweens d.pos
+        // off-frame for the falling cohort — belt returns restore from here.
+        d.beltPos = slots[order[panels.length + i]];
+        d.pos.copy(d.beltPos);
         d.quat.setFromEuler(
           new THREE.Euler(rand() * Math.PI * 2, rand() * Math.PI * 2, rand() * Math.PI * 2)
         );
@@ -853,32 +856,81 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       });
     };
 
-    /* — Decoy choreography: snappy randomized flickers in/out (the
-       gathered-material read). `s` rides gsap; the tick composes it. — */
-    const decoysOut = (tl, at, window) => {
+    /* — Decoy choreography (`s` rides gsap; the tick composes it).
+       Two registers (Nathan 07-30): the DEFAULT cull is the snappy
+       flicker-out (interrupts / generic transitions — stays fast); the
+       PROLONGED cull is the authored S1→S2 read — exits spread across a
+       few seconds of the connect phase so the user takes notice, split
+       into two cohorts: half flicker out with a drawn-out stutter, half
+       FALL out of frame (d.pos tweened down past the frustum; the tick's
+       belt-drift quat spin keeps them tumbling on the way down). What
+       remains is the material that builds the world. — */
+    const decoysOut = (tl, at, window, prolonged = false) => {
       if (!decoyMesh.visible) return;
-      decoys.forEach((d) => {
+      const fallDist = TUNING.scatter * 3.2; // safely past the frustum floor
+      decoys.forEach((d, i) => {
         gsap.killTweensOf(d);
+        gsap.killTweensOf(d.pos);
         const jitter = (d.phase / (Math.PI * 2)) * window;
-        tl.to(
-          d,
-          {
-            keyframes: [
-              { s: d.s * 0.45, duration: 0.05 },
-              { s: d.s * 0.8, duration: 0.05 },
-              { s: 0, duration: 0.16, ease: 'power2.in' },
-            ],
-            ease: 'none',
-          },
-          at + jitter
-        );
+        if (prolonged && i % 2 === 1) {
+          // Falling cohort: gravity read — steep accelerating drop with a
+          // seeded sideways drift; scale zeroes once it's out of frame.
+          const fallDur = 1.0 + (d.phase / (Math.PI * 2)) * 0.4;
+          tl.to(
+            d.pos,
+            {
+              y: d.pos.y - fallDist,
+              x: d.pos.x + Math.sin(d.phase) * 0.45,
+              duration: fallDur,
+              ease: 'power2.in',
+            },
+            at + jitter
+          );
+          tl.set(d, { s: 0 }, at + jitter + fallDur);
+        } else if (prolonged) {
+          // Flickering cohort: the scale-jitter exit, slowed to read.
+          tl.to(
+            d,
+            {
+              keyframes: [
+                { s: d.s * 0.45, duration: 0.12 },
+                { s: d.s * 0.85, duration: 0.14 },
+                { s: d.s * 0.3, duration: 0.1 },
+                { s: d.s * 0.7, duration: 0.12 },
+                { s: 0, duration: 0.3, ease: 'power2.in' },
+              ],
+              ease: 'none',
+            },
+            at + jitter
+          );
+        } else {
+          tl.to(
+            d,
+            {
+              keyframes: [
+                { s: d.s * 0.45, duration: 0.05 },
+                { s: d.s * 0.8, duration: 0.05 },
+                { s: 0, duration: 0.16, ease: 'power2.in' },
+              ],
+              ease: 'none',
+            },
+            at + jitter
+          );
+        }
       });
       tl.call(() => {
         decoyMesh.visible = false;
-      }, null, at + window + 0.3);
+      }, null, at + window + (prolonged ? 1.5 : 0.3));
     };
     const decoysIn = (tl, at, window) => {
       tl.call(() => {
+        // Belt return mirrors the cull: fallen decoys re-seat on their
+        // belt slots before the flicker-in surfaces them.
+        decoys.forEach((d) => {
+          gsap.killTweensOf(d.pos);
+          if (d.beltPos) d.pos.copy(d.beltPos);
+        });
+        composeDecoys();
         decoyMesh.visible = true;
       }, null, at);
       decoys.forEach((d) => {
@@ -934,15 +986,21 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
     /* — S5 rhythm engine (the musical rework). Envelope per hit: snap to
        full blue (attack) → HOLD on blue (?hold beats) → STEEP falloff
        (expo — fast first, long tail) down to ?pulsemin. Patterns spread
-       one hit per panel per 8-beat pass (checker alternates per beat
-       instead); `cycle` rotates the whole vocabulary, one pattern per
-       pass. Between hits a panel rests dark — the waves are light. — */
+       one hit per panel per PASS_BEATS-beat pass (checker alternates per
+       beat instead); `cycle` rotates the whole vocabulary, one pattern
+       per pass. Between hits a panel rests dark — the waves are light. — */
     const ripplePanel =
       panels.find((p) => p.row === Math.floor(TOTAL_ROWS / 2) && p.lonIndex === 0) ?? panels[0];
 
     const patternHits = (name, pi, beat, pass) => {
-      const envSpan = (TUNING.holdBeats + TUNING.decayBeats) * beat + 0.1;
-      const spreadWindow = Math.max(pass - envSpan, beat);
+      // 07-30 rhythm rework (Nathan: "less downtime between changeovers"):
+      // hits spread across the FULL pass minus a half-beat of headroom.
+      // The old reserve (pass − envelope span) crammed every attack into
+      // the pass head and left a ~1.1s dead tail at each changeover; now
+      // late hits keep firing to the boundary and their decay tails spill
+      // into the next pattern's pass — the overlap that keeps the energy
+      // continuous. buildRhythmLoop clamps only the loop-seam tails.
+      const spreadWindow = Math.max(pass - beat * 0.5, beat);
       const single = (delays) => {
         const max = Math.max(...delays) || 1;
         return delays.map((d) => [(d / max) * spreadWindow]);
@@ -1010,23 +1068,32 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
             Math.min(TUNING.decayBeats * beat, cycleLen - hold - attack * 1.5),
             0.08
           );
-          const keyframes = [
-            { value: 1.0, duration: attack, ease: 'power2.out' },
-            { value: 1.0, duration: hold, ease: 'none' },
-            { value: TUNING.pulseMin, duration: decay, ease: decayEase },
-          ];
-          // B8: the brown-blue inner stroke surfaces as the light dies —
-          // uStrokeMix rides the envelope INVERSELY (lit = no ink, dark =
-          // inked lattice), same grid, same falloff shape.
-          const strokeKeyframes = [
-            { value: 0, duration: attack, ease: 'power2.out' },
-            { value: 0, duration: hold, ease: 'none' },
-            { value: TUNING.s5Stroke, duration: decay, ease: decayEase },
-          ];
           times.forEach((t) => {
-            tl.to(p.mesh.material.uniforms.uPower, { keyframes }, pi * pass + t);
+            const start = pi * pass + t;
+            // Loop-seam clamp: tails may spill BETWEEN patterns (that's
+            // the overlap), but never past totalLen — the tl.set pin must
+            // stay the timeline's true end or the repeat drifts off the
+            // beat grid. Only the final pattern's last hits compress.
+            const decayFit = Math.max(
+              Math.min(decay, totalLen - start - hold - attack),
+              0.05
+            );
+            const keyframes = [
+              { value: 1.0, duration: attack, ease: 'power2.out' },
+              { value: 1.0, duration: hold, ease: 'none' },
+              { value: TUNING.pulseMin, duration: decayFit, ease: decayEase },
+            ];
+            // B8: the brown-blue inner stroke surfaces as the light dies —
+            // uStrokeMix rides the envelope INVERSELY (lit = no ink, dark =
+            // inked lattice), same grid, same falloff shape.
+            const strokeKeyframes = [
+              { value: 0, duration: attack, ease: 'power2.out' },
+              { value: 0, duration: hold, ease: 'none' },
+              { value: TUNING.s5Stroke, duration: decayFit, ease: decayEase },
+            ];
+            tl.to(p.mesh.material.uniforms.uPower, { keyframes }, start);
             if (strokeOn) {
-              tl.to(p.mesh.material.uniforms.uStrokeMix, { keyframes: strokeKeyframes }, pi * pass + t);
+              tl.to(p.mesh.material.uniforms.uStrokeMix, { keyframes: strokeKeyframes }, start);
             }
           });
         });
@@ -1101,6 +1168,8 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       decoyMaterial.uniforms.uStrokeWidthPx.value = TUNING.strokePx;
       decoys.forEach((d) => {
         gsap.killTweensOf(d);
+        gsap.killTweensOf(d.pos); // a killed mid-fall leaves pos displaced —
+        if (d.beltPos) d.pos.copy(d.beltPos); // snap back to the belt slot
         d.s = pose.decoys && !(belt && beltHidden) ? 1 : 0;
       });
       decoyMesh.visible = Boolean(pose.decoys) && !(belt && beltHidden);
@@ -1143,11 +1212,13 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       tl.call(() => fireCaption('references_folded'), null, 0);
 
       // B5 (v2 deck): push INTO the floating cloud while the flood sheds
-      // its decoys — zoom in, the extra material flickers out of frame,
+      // its decoys. 07-30 rework: the shed is PROLONGED — exits spread
+      // across ~3.5s of the Thread's connect phase (half flicker, half
+      // fall out of frame) so the cull itself reads as the refinement,
       // leaving the 84 keepers for the string to claim.
       const HEAD = 0.55;
       tl.to(camera.position, { z: camera.position.z * 0.82, duration: 0.75 }, 0);
-      decoysOut(tl, 0.05, 0.5);
+      decoysOut(tl, 0.15, 3.4, true);
 
       // Connect: hop-by-hop trim-path draw; each strike stamps the
       // Fragment a shade darker (claimed) and damps its drift to a
@@ -1307,6 +1378,24 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       // included — buildConnectAndAssemble owns the authored cull).
       if (pose.decoys && !decoyMesh.visible && !beltHidden) {
         decoysIn(tl, frameDur * 0.25, TUNING.stageSeconds * durMult);
+      } else if (pose.decoys && decoyMesh.visible && !beltHidden) {
+        // Interrupting the prolonged S1→S2 cull mid-flight kills its exit
+        // tweens with the timeline, stranding fallen/half-scaled decoys
+        // (visible never flipped, so the decoysIn branch can't restore).
+        // Re-seat the pool on its belt slots as this morph starts.
+        tl.call(
+          () => {
+            decoys.forEach((d) => {
+              gsap.killTweensOf(d);
+              gsap.killTweensOf(d.pos);
+              if (d.beltPos) d.pos.copy(d.beltPos);
+              d.s = 1;
+            });
+            composeDecoys();
+          },
+          null,
+          0
+        );
       } else if (!pose.decoys && decoyMesh.visible) {
         decoysOut(tl, 0, Math.min(0.4, frameDur));
       }
@@ -1420,6 +1509,8 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
           decoyMesh.visible = true;
           decoys.forEach((d) => {
             gsap.killTweensOf(d);
+            gsap.killTweensOf(d.pos);
+            if (d.beltPos) d.pos.copy(d.beltPos);
             d.s = 1;
           });
           composeDecoys();

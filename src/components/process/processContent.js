@@ -12,8 +12,8 @@
  *
  * Registers (brand-polish audit §4.4): chrome = lowercase snake_case mono ·
  * display = squeezed caps · prose = sentence case, em-dashes, triads.
- * Blurb budget: ≤45 words, ≤3 sentences — except stage-02, kept verbatim
- * per Nathan's deck (~55 words; the budget note is advisory there).
+ * Blurb budget: ≤45 words, ≤3 sentences (v3 blurbs, Nathan 2026-07-30 —
+ * all five now fit the budget).
  */
 
 export const PROCESS_META = {
@@ -41,7 +41,7 @@ export const STAGES = [
     chip: 'discovery',
     headline: 'DISCOVERY',
     blurb:
-      'From first contact, core concepts and ideas are continuously collected and mapped. We collaborate to uncover and plot your references, audience, and elements that become the building blocks of your world.',
+      'We collaborate to uncover and map references, audience, and possible areas of exploration that become the building blocks of your world — from first contact onward.',
   },
   {
     id: 'stage-02',
@@ -49,7 +49,7 @@ export const STAGES = [
     chip: 'refine_elements',
     headline: 'REFINE_ELEMENTS',
     blurb:
-      'To construct a common visual language, these materials are refined and distilled down into the core foundation of the world. We curate the core elements that will build the strongest foundation for your world, connecting the dots and guiding you through a unified, top-down visual language — creative direction, a refined mood board, and long-term brand vision.',
+      'Materials are refined and distilled down into the core foundation of the world. We curate the elements that will build the strongest foundation for your world, connecting the dots and guiding you through creative direction and long-term brand vision.',
     captions: ['references_folded', 'dots_connected', 'core_assembled'],
   },
   {
@@ -66,7 +66,7 @@ export const STAGES = [
     chip: 'build_world',
     headline: 'BUILD_WORLD',
     blurb:
-      'Let’s zoom out: this is where the world materializes. Event and campaign creative, album art, templates, mockups across physical and digital space. Each asset an extension of the one before it: pushing the world outward to pull your audience in.',
+      'This is where the world materializes. Production-ready brand components built across physical and digital space. Each asset pushes the world outward to pull your audience inward.',
   },
   {
     id: 'stage-05',
@@ -74,7 +74,7 @@ export const STAGES = [
     chip: 'world_in_motion',
     headline: 'WORLD_IN_MOTION',
     blurb:
-      'The world build, now complete, goes live. A self-realizing brand system, all elements are compiled into a comprehensive brand book, mapped out to walk you through where you are, and where you’re going: every piece an extension of the core, built to evolve with you.',
+      'The world build, now complete, goes live. All elements are compiled into a comprehensive brand book, mapped out to walk you through where you are, and where you’re going.',
   },
 ];
 

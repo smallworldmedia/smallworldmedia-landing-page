@@ -17,6 +17,9 @@ import '../styles/lenis-tune.css';
 // Home-hero rig-tuning bench styles — only the .hero-tune tree, which
 // renders solely under ?herotune=1 (HeroTunePanel), is styled; inert otherwise.
 import '../styles/hero-tune.css';
+// Footer-reveal tuning bench styles — only the .footer-tune tree, which
+// renders solely under ?footertune=1 (FooterTunePanel), is styled; inert otherwise.
+import '../styles/footer-tune.css';
 // Both sheets stay HERE even though the panels are now code-split. Moving a
 // bare `import './x.css'` into a lazily import()ed component does NOT take its
 // CSS off the critical path: Astro's CSS plugin walks `importers` CONCAT
