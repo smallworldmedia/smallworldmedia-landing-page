@@ -65,6 +65,7 @@ const MEDIA_TYPE_RATIOS = {
   static_16x9: 16 / 9,
   motion_1x1: 1,
   motion_3x4: 3 / 4,
+  motion_4x3: 4 / 3,
   motion_4x5: 4 / 5,
   motion_9x16: 9 / 16,
   motion_16x9: 16 / 9,

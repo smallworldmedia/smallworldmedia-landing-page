@@ -219,7 +219,6 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     name,
     "slug": slug.current,
     clientType,
-    description,
     city,
     country,
     links

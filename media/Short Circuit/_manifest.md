@@ -9,7 +9,7 @@ year: 2026
 |------|-----------|-------------|-------|--------|-----------|
 | SCTV_1_ORIGINS.mp4 | motion_other | promo video | SCTV 1 — Origins | false | 1 |
 | SCTV_2_EVENTS.mp4 | motion_other | promo video | SCTV 2 — Events | false | 2 |
-| Short Circuit Logo Loop RGB_1.mp4 | motion_other | logo design | Short Circuit Logo Loop RGB | false | 3 |
+| Short Circuit Logo Loop RGB_30sec.mp4 | motion_16x9 | logo design | Short Circuit Logo Loop RGB | false | 3 |
 | sc tour 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour 4x5 | false | 4 |
 | sc tour brookyln 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour Brooklyn 4x5 | false | 5 |
 | sc tour la 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour LA 4x5 | false | 6 |

@@ -34,12 +34,6 @@ export const client = defineType({
       initialValue: 'artist',
     }),
     defineField({
-      name: 'description',
-      type: 'text',
-      title: 'Short Bio',
-      rows: 3,
-    }),
-    defineField({
       name: 'city',
       type: 'string',
     }),

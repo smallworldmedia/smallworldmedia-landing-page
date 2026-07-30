@@ -177,20 +177,24 @@ The system that turns a Featured Project directory's contents into a page layout
 
 ### Aspect Ratio Resolution Rules
 
-Every asset MUST carry enough metadata for the renderer to compute its native aspect ratio. The resolution cascade (defined in `buildContentFlow.js → ratioOf()`) is:
+Every asset MUST carry enough metadata for the renderer to compute its aspect ratio. The resolution cascade (defined in `buildContentFlow.js → ratioOf()`, shared by detail pages, /work Worlds, and the directory grid) is:
 
 | Priority | Source | Example |
 |---|---|---|
-| 1 | **Mux `data.aspect_ratio`** | `"16:9"`, `"9:16"`, `"4:5"` — authoritative for video |
-| 2 | **Sanity image `metadata.dimensions`** | `{ width: 3000, height: 4000 }` — authoritative for images |
-| 3 | **Title-hint parsing** | Asset title containing "3x4", "9x16", "4x5" etc. |
-| 4 | **`mediaType` lookup** | `static_3x4` → 3/4, `motion_9x16` → 9/16, `album-art` → 1 |
+| 1 | **`mediaType` ratio bucket** (editorial truth) | `static_3x4` → 3/4, `motion_9x16` → 9/16, `motion_4x3` → 4/3, `album-art` → 1, `brand-deck` → 16/9 |
+| 2 | **Mux `data.aspect_ratio`** | `"16:9"`, `"9:16"` — authoritative for video without a ratio bucket |
+| 3 | **Sanity image `metadata.dimensions`** | `{ width: 3000, height: 4000 }` — authoritative for images without a ratio bucket |
+| 4 | **Title-hint parsing** | Asset title containing "3x4", "9x16", "4x5" etc. |
 | 5 | **Fallback** | 16 / 9 (landscape default) |
+
+**Media-type assignment rule (2026-07-30):** ratio buckets are assigned by **closest aspect ratio** — the intent is for media to populate the container that best suits its native aspect. Non-exact aspects go to the nearest bucket (e.g. 25:32 ≈ 0.78 → `motion_4x5`; 850:937 ≈ 0.91 → `motion_4x5`; 4:3 sources → `motion_4x3`). This makes aspect editorial and immune to stale Mux data.
+
+**Deliberate `MEDIA_TYPE_RATIOS` omissions:** `motion_other`, `static_other`, and `logo` have **no** map entry, so they fall through to real Mux/image dimensions — reserved for aspects no bucket suits (ultra-wide 4:1 banners, odd one-offs). Do not add map entries for them.
 
 **Ingestion rules:**
 - Videos uploaded to Mux **must** have `data.aspect_ratio` back-synced to the `mux.videoAsset` doc. Run the Mux backfill script after any bulk video ingestion.
 - Images uploaded to Sanity CDN carry dimensions automatically via `metadata.dimensions`.
-- Assets with generic `mediaType` values (`motion_other`, `static_other`) **must** include a ratio hint in the title (e.g. "Framework LA 3x4") or be re-typed to a ratio-encoding value (e.g. `static_3x4`).
+- Assets with generic `mediaType` values (`motion_other`, `static_other`) rely on the synced Mux/image data above; re-type them to the closest ratio bucket unless their aspect genuinely fits no bucket.
 - The `data-portrait` attribute is applied when `ratio < 1.2` (PORTRAIT_THRESHOLD), which clamps the container to `max(ratio, 3/4)` via CSS.
 
 ### Display Group (Controlled Adjacency)

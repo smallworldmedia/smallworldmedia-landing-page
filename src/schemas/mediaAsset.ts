@@ -33,7 +33,10 @@ export const mediaAsset = defineType({
       title: 'Media Type',
       type: 'string',
       description:
-        'Select first — determines whether image or video upload appears.',
+        'Select first — determines whether image or video upload appears. ' +
+        'Ratio buckets are assigned by CLOSEST aspect ratio: the goal is for ' +
+        'media to populate the container that best suits its native aspect ' +
+        '(e.g. 25:32 → 4:5, 850:937 → 4:5).',
       options: {
         list: [
           // Layout-purpose types
@@ -55,6 +58,7 @@ export const mediaAsset = defineType({
           // Motion format types
           { title: 'Motion — 1:1', value: 'motion_1x1' },
           { title: 'Motion — 3:4', value: 'motion_3x4' },
+          { title: 'Motion — 4:3', value: 'motion_4x3' },
           { title: 'Motion — 4:5', value: 'motion_4x5' },
           { title: 'Motion — 9:16', value: 'motion_9x16' },
           {
