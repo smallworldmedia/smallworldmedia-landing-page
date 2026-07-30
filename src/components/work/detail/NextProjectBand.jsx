@@ -473,7 +473,7 @@ export default function NextProjectBand({ next }) {
   // time=0: the band video starts at frame 0, so the frame-0 poster is the
   // aligned one — no poster→playback jump.
   const posterUrl = isVideo
-    ? `https://image.mux.com/${next.hero.playbackId}/thumbnail.jpg?width=${MEDIA_IMG_WIDTH}&fit_mode=preserve&time=0`
+    ? `https://image.mux.com/${next.hero.playbackId}/thumbnail.webp?width=${MEDIA_IMG_WIDTH}&fit_mode=preserve&time=0`
     : null;
 
   const onClick = (e) => {

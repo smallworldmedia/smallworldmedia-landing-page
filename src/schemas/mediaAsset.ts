@@ -77,7 +77,6 @@ export const mediaAsset = defineType({
         defineField({
           name: 'alt',
           type: 'string',
-          validation: (r) => r.required().warning('Alt text needed for SEO'),
         }),
       ],
       hidden: ({ parent }) => isVideoType(parent?.mediaType),

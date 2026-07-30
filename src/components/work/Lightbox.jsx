@@ -47,7 +47,7 @@ export default function Lightbox({ asset, onClose }) {
 
   // Poster for immediate visual feedback while video buffers
   const posterUrl = isVideo
-    ? `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=1920&fit_mode=preserve`
+    ? `https://image.mux.com/${asset.playbackId}/thumbnail.webp?width=1920&fit_mode=preserve`
     : null;
 
   return (

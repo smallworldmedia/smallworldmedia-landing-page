@@ -60,29 +60,6 @@ export const SERVICE_TAGS_QUERY = `
 `;
 
 /**
- * FEATURED_PROJECTS_QUERY — First-ranked asset per Featured Project collection.
- * Each result represents a Featured Project with its top-ranked asset acting
- * as the hero (first in drag-to-order = hero, no flags needed).
- */
-export const FEATURED_PROJECTS_QUERY = `
-  *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))] {
-    "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
-      | order(orderRank asc) [0] {
-      _id,
-      title,
-      "imageUrl": image.asset->url,
-      "playbackId": video.asset->playbackId,
-      "videoAspectRatio": video.asset->data.aspect_ratio,
-      "videoStatus": video.asset->data.status,
-      "services": services[]->{ name, "slug": slug.current }
-    },
-    "clientName": client->name,
-    "clientSlug": client->slug.current,
-    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest
-  }
-`;
-
-/**
  * FEATURED_PROJECT_PATHS_QUERY — One row per Featured Project doc
  * (isFeatured == true). The project doc _id is the grouping key the detail
  * page fetches by (FEATURED_PROJECT_DETAIL_QUERY); `collection` is resolved

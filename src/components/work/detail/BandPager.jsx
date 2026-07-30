@@ -415,7 +415,7 @@ export default function BandPager({
                 src={
                   p.imageUrl
                     ? `${p.imageUrl}?w=${imgWidth}&${IMG_FORMAT}`
-                    : `https://image.mux.com/${p.playbackId}/thumbnail.jpg?width=${imgWidth}&fit_mode=preserve`
+                    : `https://image.mux.com/${p.playbackId}/thumbnail.webp?width=${imgWidth}&fit_mode=preserve`
                 }
                 alt={p.title || `page ${i + 1}`}
                 draggable={false}

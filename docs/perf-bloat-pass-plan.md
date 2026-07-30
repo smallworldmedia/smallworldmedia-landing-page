@@ -85,8 +85,10 @@ Two hypotheses were **refuted / refined** and shape the plan:
   poster with no crash, but the live tier parks at `pending` forever. Known, cosmetic.
   **Next dominant target (out of this pass):** `VideoSlotPool` at 129.7 kb gz is now 45% of
   `/` and 47% of `/work` eager JS.
-- **DEFERRED:** full idle-prebuild (mobile density / HR-6). Optional: webp on the 5
-  detail-page Mux sites; live-res 720→540 if memory needs more.
+- **DEFERRED:** full idle-prebuild (mobile density / HR-6); live-res 720→540 if memory
+  needs more. ~~webp on the 5 detail-page Mux sites~~ **DONE 2026-07-29** (MediaSlot,
+  NextProjectBand, BandPager, MediaCard, Lightbox → `thumbnail.webp`, params unchanged,
+  `time=0` kept where load-bearing).
 
 ---
 

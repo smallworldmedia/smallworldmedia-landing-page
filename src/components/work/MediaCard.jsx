@@ -1,7 +1,7 @@
 /**
  * MediaCard — Individual grid cell for a media asset.
  *
- * - Each card sets its own aspect-ratio from the asset's real dimensions.
+ * - Each card sets its own aspect-ratio via the shared ratioOf cascade.
  * - Images: rendered as <img> with lazy loading.
  * - Videos: real <video> element with HLS streaming (via useHls).
  *   IntersectionObserver triggers play/pause and loads HLS only when visible.
@@ -15,6 +15,7 @@
  */
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import useHls from './useHls.js';
+import { ratioOf } from './detail/buildContentFlow.js';
 import { IMG_WIDTH_STANDARD, IMG_WIDTH_WIDE, IMG_FORMAT } from './imageConfig.js';
 
 /** Preview loop cap in seconds */
@@ -42,43 +43,28 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
   useHls(videoRef, hlsSrc, GRID_HLS_CONFIG);
 
   /**
-   * Compute the actual aspect ratio from asset dimensions.
-   * Uses the same resolution cascade as the detail page:
-   *   Mux data → Sanity image dims → title hint → mediaType map → 16:9
+   * Aspect ratio via the shared detail-page cascade (ratioOf):
+   *   mediaType map → Mux data → Sanity image dims → title hint → 16:9
    */
-  const dimensions = useMemo(() => {
-    if (isVideo && asset.videoAspectRatio) {
-      const [w, h] = asset.videoAspectRatio.split(':').map(Number);
-      return { ratio: w / h, w, h };
-    }
-    if (asset.imageDimensions) {
-      const { width, height } = asset.imageDimensions;
-      return { ratio: width / height, w: width, h: height };
-    }
-    // Title-hint parsing: "…3x4…", "…9x16…" etc.
-    const titleMatch = asset.title?.match(/\b(\d{1,2})\s*[xX×]\s*(\d{1,2})\b/);
-    if (titleMatch) {
-      const w = Number(titleMatch[1]);
-      const h = Number(titleMatch[2]);
-      if (w && h) return { ratio: w / h, w, h };
-    }
-    return { ratio: 16 / 9, w: 16, h: 9 };
-  }, [isVideo, asset.videoAspectRatio, asset.imageDimensions, asset.title]);
+  const ratio = useMemo(
+    () => ratioOf(asset),
+    [asset.mediaType, asset.videoAspectRatio, asset.imageDimensions, asset.title]
+  );
 
   /**
    * Grid span classes based on aspect ratio.
    */
   const getCellClass = () => {
-    if (dimensions.ratio >= 1.6) return 'media-grid__cell--wide';
-    if (dimensions.ratio <= 0.7) return 'media-grid__cell--tall';
+    if (ratio >= 1.6) return 'media-grid__cell--wide';
+    if (ratio <= 0.7) return 'media-grid__cell--tall';
     return '';
   };
 
-  const imageWidth = dimensions.ratio >= 1.6 ? IMG_WIDTH_WIDE : IMG_WIDTH_STANDARD;
+  const imageWidth = ratio >= 1.6 ? IMG_WIDTH_WIDE : IMG_WIDTH_STANDARD;
 
   /** Mux thumbnail for poster / fallback */
   const posterUrl = isVideo
-    ? `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=${imageWidth}&fit_mode=preserve`
+    ? `https://image.mux.com/${asset.playbackId}/thumbnail.webp?width=${imageWidth}&fit_mode=preserve`
     : null;
 
   /**
@@ -117,7 +103,7 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
   }, []);
 
   const cardStyle = {
-    aspectRatio: `${dimensions.w} / ${dimensions.h}`,
+    aspectRatio: `${ratio}`,
   };
 
   /**

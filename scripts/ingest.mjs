@@ -226,7 +226,7 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
     client: clientRef,
     services: serviceRefs.length > 0 ? serviceRefs : undefined,
     project: projectRef,
-    year: header.year ? parseInt(header.year, 10) : undefined,
+    yearStart: header.year ? parseInt(header.year, 10) : undefined,
     orderRank: sortOrderToRank(sortOrder),
     contentRole: row.contentrole || row['contentRole'] || undefined,
     displayGroup: row.displaygroup || row['displayGroup'] || undefined,
@@ -235,7 +235,6 @@ function buildDoc(row, header, clientRef, serviceRefs, projectRef, imageField, m
       : undefined,
     sourceFolder: manifestDir,
     sourceManifest: path.basename(manifestDir),
-    fileName: row.file,
   }
 
   if (imageField) {

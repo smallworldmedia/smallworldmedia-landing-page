@@ -70,9 +70,9 @@ const MEDIA_TYPE_RATIOS = {
   motion_16x9: 16 / 9,
   'album-art': 1,
   'brand-deck': 16 / 9,
-  'brand-deck-page': 16 / 9,
   'featured-project-reel': 16 / 9,
-  logo: 1,
+  // no `logo` entry: logos don't encode a ratio (live set is 1.14–2.0),
+  // so they fall through to real image dimensions.
 };
 
 /**
@@ -151,7 +151,7 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
     if (!hasMedia) continue;
 
     if (asset.mediaType === 'album-art') albumArt.push({ i, asset });
-    else if (asset.mediaType === 'brand-deck' || asset.mediaType === 'brand-deck-page') {
+    else if (asset.mediaType === 'brand-deck') {
       const key = asset.displayGroup ?? 'deck';
       if (!deckGroups.has(key)) deckGroups.set(key, []);
       deckGroups.get(key).push(asset);

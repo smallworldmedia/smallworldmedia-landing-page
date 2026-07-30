@@ -57,7 +57,7 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
   // time=0: playback starts at frame 0 (native loop, no seek), so the
   // frame-0 poster is the aligned one — no poster→playback jump.
   const posterUrl = isVideo
-    ? `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=${SLOT_IMG_WIDTH}&fit_mode=preserve&time=0`
+    ? `https://image.mux.com/${asset.playbackId}/thumbnail.webp?width=${SLOT_IMG_WIDTH}&fit_mode=preserve&time=0`
     : null;
 
   const ratio = ratioOf(asset);
