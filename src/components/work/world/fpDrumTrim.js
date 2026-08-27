@@ -75,27 +75,30 @@ export function inkForAccent(accent) {
 /* ────────────────────────────── SPINE TABS ────────────────────────────── */
 
 /**
- * Canvas texture for a plate's spine tab: accent flood, mono coordinates
- * rotated −90° (reads bottom-up, the book-spine direction). Aspect is
- * portrait (3:8) — the tab block is sized to match.
+ * Canvas texture for a plate's spine tab: accent (project color token)
+ * flood, the asset's Sanity title in mono rotated −90° (reads bottom-up, the
+ * book-spine direction). Thin spine aspect (1:5) — the tab block is sized to
+ * match. Ink follows the nav YIQ rule (inkForAccent).
  */
+export const TAB_TEX_W = 64;
+export const TAB_TEX_H = 320;
 export function makeTabTexture(text, accent) {
-  const W = 96;
-  const H = 256;
   const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
+  canvas.width = TAB_TEX_W;
+  canvas.height = TAB_TEX_H;
   const c = canvas.getContext('2d');
   c.fillStyle = num2hex(accent);
-  c.fillRect(0, 0, W, H);
+  c.fillRect(0, 0, TAB_TEX_W, TAB_TEX_H);
   c.save();
-  c.translate(W / 2, H / 2);
+  c.translate(TAB_TEX_W / 2, TAB_TEX_H / 2);
   c.rotate(-Math.PI / 2);
-  c.font = '500 44px "SFMono-Regular", Menlo, Consolas, monospace';
+  const label = String(text ?? '').toUpperCase();
+  const shown = label.length > 18 ? `${label.slice(0, 17)}…` : label;
+  c.font = '500 26px "SFMono-Regular", Menlo, Consolas, monospace';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.fillStyle = inkForAccent(accent);
-  c.fillText(text, 0, 0);
+  c.fillText(shown, 0, 0);
   c.restore();
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -124,8 +127,8 @@ const GLOW_FRAG = /* glsl */ `
   uniform vec3 uColor;
   uniform float uOpacity;
   uniform float uAlpha;
-  uniform float uT;
-  uniform float uPeriod;
+  uniform float uAge[8];
+  uniform int uLaunchN;
   uniform float uSpeed;
   uniform float uFall;
   uniform float uRadMax;
@@ -153,31 +156,27 @@ const GLOW_FRAG = /* glsl */ `
       float sy = wrapPi(cLon - uArcLon) * sin(cLat);
       float r = length(vec2(sx, sy));
       if (r <= uRadMax) {
-        float ph = mod(uT, uPeriod);
-        if (uVar < 1.5) {
-          // 1 — pulse ring: eased launch, fading as it grows; overshoots the
-          // cap so it exits before relaunch (a natural rest beat).
-          float p01 = ph / uPeriod;
-          float e = 1.0 - (1.0 - p01) * (1.0 - p01);
-          float d = (r - e * uRadMax * 1.25) / uRipW;
-          I = exp(-d * d) * (1.0 - 0.55 * p01);
-        } else if (uVar < 2.5) {
-          // 2 — wavetrain: constant-speed rings, one born each period.
-          float spacing = uSpeed * uPeriod;
-          float lead = mod(uT * uSpeed, spacing);
-          for (int k = 0; k < 6; k++) {
-            float rr = lead + float(k) * spacing;
-            if (rr > uRadMax) break;
-            float d = (r - rr) / uRipW;
+        // Every live launch is INDEPENDENT — a new ripple firing never resets
+        // the ones still traveling (uAge = seconds since each launch; the CPU
+        // prunes a launch only once its whole trail has left the frame).
+        for (int i = 0; i < 8; i++) {
+          if (i >= uLaunchN) break;
+          float front = uAge[i] * uSpeed;
+          if (uVar < 1.5) {
+            // 1 — pulse ring: one crest, fading as it travels.
+            float d = (r - front) / uRipW;
+            I += exp(-d * d) * (1.0 - 0.55 * clamp(front / uRadMax, 0.0, 1.0));
+          } else if (uVar < 2.5) {
+            // 2 — wavetrain: identical crests, no travel fade.
+            float d = (r - front) / uRipW;
             I += exp(-d * d);
-          }
-        } else {
-          // 3 — droplet: crisp constant-speed front, damped trailing crests.
-          float front = ph * uSpeed;
-          float back = front - r;
-          if (back >= 0.0) {
-            float lambda = uRipW * 4.0;
-            I = max(0.0, sin(TAU * back / lambda)) * exp(-back / (lambda * 1.6));
+          } else {
+            // 3 — droplet: crisp front, damped trailing crests behind it.
+            float back = front - r;
+            if (back >= 0.0) {
+              float lambda = uRipW * 4.0;
+              I += max(0.0, sin(TAU * back / lambda)) * exp(-back / (lambda * 1.6));
+            }
           }
         }
         I *= exp(-r / uFall);
@@ -240,8 +239,8 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
     // The trace needs to punch harder than the ambient ripple — few cells lit
     // at once vs a whole traveling crest (?fpglowa scales both).
     uAlpha: { value: mode === 2 ? Math.min(0.55, FPGLOW_ALPHA * 3) : FPGLOW_ALPHA },
-    uT: { value: 0 },
-    uPeriod: { value: HOUSE_PULSE_PERIOD_S },
+    uAge: { value: new Array(8).fill(0) },
+    uLaunchN: { value: 0 },
     uSpeed: { value: RIPPLE_SPEED * radMax },
     uFall: { value: RIPPLE_FALLOFF * radMax },
     uRadMax: { value: radMax },
@@ -270,10 +269,16 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
   group.add(mesh);
   parent.add(group);
 
-  // Mode 1: the ripple clock advances in paint() (uT); each launch period is
-  // HOUSE_PULSE_PERIOD_S, so the emanation and the enter_world fill pulse
-  // breathe on the same cadence.
+  // Mode 1: launch bookkeeping lives in paint(). A new ripple fires every
+  // HOUSE_PULSE_PERIOD_S (the enter_world cadence) as an INDEPENDENT launch;
+  // each keeps traveling until its whole trail leaves the frame — at slow
+  // ?ripspeed several are alive at once (capped at the shader's 8).
   let lastNow = performance.now();
+  const launches = [0]; // seconds since each live launch; first fires on build
+  let launchTimer = 0;
+  // How far behind the front a variation's trail stays visible: droplet
+  // crests decay over ~5λ (λ = uRipW·4); the ring variants over ~3 widths.
+  const trailReach = uniforms.uRipW.value * (RIPPLE_VAR >= 3 ? 20 : 3);
 
   // Mode 2: trail of body-local cell hits (lat, lon, age01).
   const trail = []; // { lat, lon, t }
@@ -317,8 +322,19 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
       const dt = Math.min(now - lastNow, 100) / 1000; // tab-return clamp
       lastNow = now;
       if (mode === 1 && !PREFERS_REDUCED_MOTION) {
-        // Wrap far from float-precision trouble, on a period boundary.
-        uniforms.uT.value = (uniforms.uT.value + dt) % (HOUSE_PULSE_PERIOD_S * 1000);
+        launchTimer += dt;
+        if (launchTimer >= HOUSE_PULSE_PERIOD_S) {
+          launchTimer -= HOUSE_PULSE_PERIOD_S;
+          launches.push(0);
+        }
+        for (let i = launches.length - 1; i >= 0; i--) {
+          launches[i] += dt;
+          if (launches[i] * uniforms.uSpeed.value > radMax + trailReach)
+            launches.splice(i, 1);
+        }
+        while (launches.length > 8) launches.shift(); // cap — the oldest goes
+        for (let i = 0; i < launches.length; i++) uniforms.uAge.value[i] = launches[i];
+        uniforms.uLaunchN.value = launches.length;
       }
       if (mode === 2 && !PREFERS_REDUCED_MOTION) {
         sampleCursor();

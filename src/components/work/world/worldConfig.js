@@ -46,7 +46,7 @@ export const FPGRID_VIS = num('fpvis', 0.85); // fraction of the frustum the len
 export const FPGLOW = Math.round(num('fpglow', 1)); // grid-panel illumination: 0 off · 1 accent ripple emanating from center (launches on the house-pulse cadence — reinforces enter_world) · 2 pointer-trace (cells light as the cursor passes, lens-distortion-corrected)
 export const FPGLOW_ALPHA = num('fpglowa', 0.2); // peak illuminated-panel alpha (the pointer trace runs ×3, capped 0.55)
 /* — Ripple bench (?fpglow=1 — Nathan's pick, 08-27 (2)) — */
-export const RIPPLE_VAR = Math.round(num('ripvar', 3)); // radial animation: 1 pulse ring (eased launch, fades as it grows — the first cut) · 2 wavetrain (constant-speed rings, a new one born each house period; drop ?ripspeed to ~0.2 to see several alive) · 3 droplet (crisp constant-speed front + damped trailing crests — the water read)
+export const RIPPLE_VAR = Math.round(num('ripvar', 3)); // radial animation: 1 pulse ring (one crest, fades as it travels) · 2 wavetrain (identical crests, no travel fade) · 3 droplet (crisp front + damped trailing crests — the water read). Launches are INDEPENDENT: one fires each house period and keeps traveling until its trail leaves the frame — slow ?ripspeed = several alive at once (cap 8)
 export const RIPPLE_SHADE = Math.round(num('ripshade', 0)); // cell shading: 0 FLAT fill — illumination fills each cell to the grid lines · 1 hairline inset (the soft bevel/emboss read)
 export const RIPPLE_SPEED = num('ripspeed', 0.45); // ripple travel, fraction of the capped radius per second
 export const RIPPLE_FALLOFF = num('ripfall', 0.9); // distance decay length, × the capped radius (higher = the ripple carries further before dimming)

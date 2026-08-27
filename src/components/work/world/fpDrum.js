@@ -42,6 +42,8 @@ import { plateCover, spawnQuaternion } from './fpAtlas.js';
 import { createWallPlate } from './fpDrumWall.js';
 import {
   makeTabTexture,
+  TAB_TEX_W,
+  TAB_TEX_H,
   createDrumGlow,
   createDrumFurniture,
 } from './fpDrumTrim.js';
@@ -620,31 +622,33 @@ export function buildDrumSlot(slot, w, ctx) {
     const border = makeBorder(block);
     mesh.add(border);
 
-    // ?fptab — spine tab: accent stamp OUTSIDE the media frame, hanging off
-    // the plate's bottom-left corner (08-27 (2), Nathan) — mono
-    // cell-coordinates rotated −90°, ink on the nav rule (light accent →
-    // near-black ink, dark → white; inkForAccent = projectInk's twin).
+    // ?fptab — spine tab: accent (project color token) stamp OUTSIDE the
+    // media frame, off the LEFT edge at the bottom corner (08-27 (3),
+    // Nathan) — the asset's Sanity title in mono, rotated −90°, ink on the
+    // nav rule (light accent → near-black ink, dark → white; inkForAccent =
+    // projectInk's twin). Coordinates only as the no-title fallback.
     let tab = null;
     if (FPTAB) {
       const tabBlock = {
-        i1: block.i1 - 3, // below the bottom edge (+lon = up), flush attached
-        j1: block.j1, // left-aligned with the plate's left edge
+        i1: block.i1, // bottom-aligned with the plate's bottom edge
+        j1: block.j1 - 1, // one cell proud of the left edge (+lat = right)
         lonCells: 3,
-        latCells: 2,
-        lon1: (block.i1 - 3) * D_LON,
-        lon2: block.i1 * D_LON,
-        lat1: block.j1 * D_LAT,
-        lat2: (block.j1 + 2) * D_LAT,
+        latCells: 1,
+        lon1: block.i1 * D_LON,
+        lon2: (block.i1 + 3) * D_LON,
+        lat1: (block.j1 - 1) * D_LAT,
+        lat2: block.j1 * D_LAT,
       };
       const latC = (tabBlock.lat1 + tabBlock.lat2) / 2;
       const tabCover =
         (tabBlock.lat2 - tabBlock.lat1) /
         Math.max(1e-6, (tabBlock.lon2 - tabBlock.lon1) * Math.sin(latC));
       const tex = makeTabTexture(
-        `${String(block.j1).padStart(3, '0')}·${String(block.i1).padStart(3, '0')}`,
+        tile.title ||
+          `${String(block.j1).padStart(3, '0')}·${String(block.i1).padStart(3, '0')}`,
         accent
       );
-      plateCover(tex, tabCover, 96 / 256);
+      plateCover(tex, tabCover, TAB_TEX_W / TAB_TEX_H);
       const tabMaterial = new THREE.MeshBasicMaterial({
         map: tex,
         toneMapped: false,
