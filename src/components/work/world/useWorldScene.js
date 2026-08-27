@@ -55,9 +55,13 @@ import {
   PP_DRIFT,
   BREATHE,
 } from './fpForme.js';
+import { createDrum, buildDrumSlot } from './fpDrum.js';
 import {
   FPGRID,
   CAM_LOOK,
+  ARC_DEG,
+  DRUM_TURN_MUL,
+  DRUM_CREEP,
   CAMERA_FOV,
   DPR_MAX,
   MSAA_SAMPLES,
@@ -239,6 +243,17 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     slotB.atlasBias = 0.03;
     let activeSlot = slotA;
     let idleSlot = slotB;
+
+    // DRUM: shell + both slot pivots fuse into one rigid revolving body;
+    // the Turn rotates the roll group to ABSOLUTE index × ARC_DEG targets
+    // (idle creep, when Nathan turns it on, is absorbed by the next Turn).
+    let drum = null;
+    let drumAdv = 0; // settled advance, degrees (index × ARC_DEG)
+    if (FPGRID === 3) {
+      drum = createDrum(scene, shell);
+      drum.body.add(slotA.pivot);
+      drum.body.add(slotB.pivot);
+    }
     let currentSlug = null;
     // Projects whose push-out reveal has already played. The push-out is a
     // per-project *first-view* reveal, not tied to texture-load timing: a World
@@ -409,7 +424,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // fp-grid mode 1 (ATLAS): media as on-sphere plates locked into the
       // graticule's cells — composition, appear, and register plates live in
       // fpAtlas.js; records stay scheduler/clearSlot-compatible.
-      if (FPGRID === 1 || FPGRID === 2) {
+      if (FPGRID > 0) {
         const ctx = {
           camera,
           loader,
@@ -418,7 +433,13 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
           isStale: () => disposed,
         };
         if (FPGRID === 1) buildAtlasSlot(slot, w, ctx);
-        else buildFormeSlot(slot, w, ctx);
+        else if (FPGRID === 2) buildFormeSlot(slot, w, ctx);
+        else
+          buildDrumSlot(slot, w, {
+            ...ctx,
+            arcOffsetDeg: slot.drumArcOffset || 0,
+            drum,
+          });
         return;
       }
       const pool = w?.showcase || [];
@@ -742,6 +763,16 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // 0 = initial/instant. Reduced motion always swaps instantly.
       if (!currentSlug || direction === 0 || PREFERS_REDUCED_MOTION || !w) {
         finishTurnInstant();
+        // DRUM: reduced-motion paging still advances the absolute drum angle
+        // (instantly); the new arc is dressed at the new rest pose.
+        if (FPGRID === 3) {
+          if (direction) drumAdv += (direction > 0 ? 1 : -1) * ARC_DEG;
+          activeSlot.drumArcOffset = -drumAdv;
+          if (drum) {
+            drum.state.adv = drumAdv;
+            drum.applyRoll();
+          }
+        }
         buildSlot(activeSlot, w);
         activeSlot.pivot.rotation.x = 0;
         activeSlot.pivot.position.z = 0;
@@ -768,10 +799,29 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // FORME: the incoming build is wave-driven (the re-deal master below),
       // not the first-view appear — flag it before the build.
       if (FPGRID === 2) incoming.formeViaTurn = true;
+      // DRUM: the incoming arc dresses one ARC_DEG below (forward) or above
+      // (back) — absolute target bookkeeping.
+      const drumTarget = FPGRID === 3 ? drumAdv + (direction > 0 ? 1 : -1) * ARC_DEG : 0;
+      if (FPGRID === 3) incoming.drumArcOffset = -drumTarget;
       buildSlot(incoming, w);
 
       let apply;
-      if (FPGRID === 2) {
+      if (FPGRID === 3) {
+        // ── DRUM conveyor: the whole rigid body (grid + both arcs) rotates
+        // to the absolute target on the house curve; the lens spike rides
+        // the same master. No crossfade — the travel is physical. The roll
+        // itself is applied in tick from drum.state.
+        incoming.pivot.rotation.x = 0;
+        incoming.pivot.position.z = 0;
+        setSlotOpacity(incoming, 1);
+        setSlotOpacity(outgoing, 1);
+        const startAdv = drum ? drum.state.adv : drumAdv; // absorbs idle creep
+        apply = (e) => {
+          if (drum) drum.state.adv = startAdv + (drumTarget - startAdv) * e;
+          lensSpike.v = Math.sin(Math.PI * e);
+          applyLens();
+        };
+      } else if (FPGRID === 2) {
         // ── FORME re-deal: nothing travels. Pivots stay pinned; a dealloc
         // wavefront sweeps the outgoing blocks (bottom→top going forward),
         // the incoming allocates one beat behind, and the lens spike rides
@@ -816,13 +866,22 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       const prog = { p: 0 };
       turnTween = gsap.to(prog, {
         p: 1,
-        duration: TURN_DURATION,
+        // DRUM: 120° at the stock 1.7s sweeps ~2× today's apparent Turn
+        // speed — the mode stretches the same house curve (?drumturn).
+        duration: TURN_DURATION * (FPGRID === 3 ? DRUM_TURN_MUL : 1),
         ease: turnRollEase, // the CustomEase shapes the whole gesture
         onUpdate: () => apply(prog.p),
         onComplete: () => {
           clearSlot(outgoing);
           outgoing.pivot.rotation.x = 0;
           outgoing.pivot.position.z = 0;
+          if (FPGRID === 3) {
+            drumAdv = drumTarget;
+            if (drum) {
+              drum.state.adv = drumAdv;
+              drum.applyRoll();
+            }
+          }
           lensSpike.v = 0;
           applyLens();
           activeSlot = incoming;
@@ -859,7 +918,9 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // ATLAS: one rigid body — no tier gains, no drift, no planar travel; the
       // appear is an on-sphere slerp and parallax is the camera's head-turn
       // (applied once in tick). Tier groups stay at rest.
-      if (FPGRID === 1) {
+      if (FPGRID === 1 || FPGRID === 3) {
+        // DRUM shares ATLAS's composite: slerp appear + opacity + borders —
+        // the conveyor motion itself lives on the drum's roll group.
         applyAtlasSlot(slot);
         return;
       }
@@ -961,6 +1022,18 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         slotB.pivot.position.y = paneOY;
         lensPass.principalPoint.set(eased.x * PP_DRIFT, -eased.y * PP_DRIFT);
         shell.position.set(eased.x * PARALLAX, -eased.y * PARALLAX, 0);
+      } else if (FPGRID === 3) {
+        // DRUM: pointer micro-rotates the ENTIRE drum (grid + media, one
+        // heavy instrument); idle creep (Nathan's toggle, ?creep deg/s) walks
+        // the conveyor when no Turn owns it — the next Turn's absolute
+        // target absorbs any drift.
+        if (drum) {
+          if (DRUM_CREEP && !turnTween && !PREFERS_REDUCED_MOTION)
+            drum.state.adv += DRUM_CREEP * dt;
+          drum.applyRoll();
+          drum.parallax.rotation.y = -eased.x * CAM_LOOK * 0.8;
+          drum.parallax.rotation.x = -eased.y * CAM_LOOK * 0.8;
+        }
       } else {
         shell.position.set(eased.x * PARALLAX, -eased.y * PARALLAX, 0);
       }
@@ -1019,6 +1092,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       scene.remove(slotB.pivot);
       formeStatics?.dispose();
       formeLatticeRef.current = null;
+      drum?.dispose();
       shell.geometry.dispose();
       shell.material.dispose();
       lensPass.dispose();

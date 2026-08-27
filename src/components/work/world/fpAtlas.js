@@ -97,7 +97,7 @@ const pageSrc = (p) =>
 /** Cover-fit into a plate's projected aspect. BackSide (viewed from inside)
  *  mirrors U, so repeat.x is negated — with center (0.5,0.5) that mirrors
  *  about the middle and stays inside the clamped [0,1] range. */
-function plateCover(texture, coverAspect, texAspect) {
+export function plateCover(texture, coverAspect, texAspect) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
   texture.center.set(0.5, 0.5);
@@ -109,12 +109,13 @@ function plateCover(texture, coverAspect, texAspect) {
   texture.repeat.x *= -1;
 }
 
-/** Spawn pose: the plate pulled (1 − TILE_SPAWN_FRAC) of the way to view
- *  center along the great circle — the house push-out, reinterpreted on-sphere. */
-function spawnQuaternion(block) {
+/** Spawn pose: the plate pulled (1 − TILE_SPAWN_FRAC) of the way to `target`
+ *  (default: view center) along the great circle — the house push-out,
+ *  reinterpreted on-sphere. DRUM passes each arc's own center. */
+export function spawnQuaternion(block, target = VIEW_DIR) {
   const qFull = new THREE.Quaternion().setFromUnitVectors(
     blockCenterDir(block),
-    VIEW_DIR
+    target
   );
   return new THREE.Quaternion().slerpQuaternions(
     IDENTITY_Q,
@@ -125,13 +126,13 @@ function spawnQuaternion(block) {
 
 /** Accent border for one block — own material so its opacity can composite
  *  with the plate's appear fade (S2 ink: full project accent, undimmed). */
-function makeBorder(block, accent) {
+function makeBorder(block, accent, radius = BORDER_R) {
   const material = new THREE.LineBasicMaterial({
     color: new THREE.Color(accent || 0x020098),
     transparent: true,
     opacity: 0,
   });
-  const border = new THREE.LineSegments(blockBorderGeometry(block, BORDER_R), material);
+  const border = new THREE.LineSegments(blockBorderGeometry(block, radius), material);
   border.renderOrder = ORDER_BORDER;
   return border;
 }
@@ -144,14 +145,29 @@ const BORDER_ALPHA = 0.9;
  * sectors: back = next page, front = current, front clipped by a sweeping
  * meridian plane. Replaces bandPose/worldBands in this mode.
  */
-function createRegisterPlate({ block, pages, loader, parent, accent, ease, radius }) {
+export function createRegisterPlate({
+  block,
+  pages,
+  loader,
+  parent,
+  accent,
+  ease,
+  radius,
+  geometryFor, // (block, rOut) => BufferGeometry — DRUM remaps sector UVs
+  orientPlane, // (plane) => void — DRUM maps the local wipe cut to world space
+  spawnTarget, // spawn slerp target dir — DRUM pulls toward its arc's center
+  orders = { back: ORDER_STRIP_BACK, front: ORDER_STRIP_FRONT }, // DRUM draws above the shell
+  borderRadius = BORDER_R, // DRUM's border sits inside its plate radius
+}) {
   const group = new THREE.Group();
   parent.add(group);
+  const makeGeometry =
+    geometryFor || ((b, rOut) => blockSectorGeometry(b, radius + rOut));
 
   const textures = pages.map(() => null);
   const makeMesh = (order, rOut) => {
     const mesh = new THREE.Mesh(
-      blockSectorGeometry(block, radius + rOut),
+      makeGeometry(block, rOut),
       new THREE.MeshBasicMaterial({
         color: TILE_FALLBACK_COLOR,
         toneMapped: false,
@@ -164,15 +180,15 @@ function createRegisterPlate({ block, pages, loader, parent, accent, ease, radiu
     group.add(mesh);
     return mesh;
   };
-  const back = makeMesh(ORDER_STRIP_BACK, BACK_R_OUT);
-  const front = makeMesh(ORDER_STRIP_FRONT, 0);
-  const border = makeBorder(block, accent);
+  const back = makeMesh(orders.back, BACK_R_OUT);
+  const front = makeMesh(orders.front, 0);
+  const border = makeBorder(block, accent, borderRadius);
   group.add(border);
 
   const strip = {
     group,
     appear: 0,
-    qSpawn: spawnQuaternion(block),
+    qSpawn: spawnQuaternion(block, spawnTarget),
     disposed: false,
     cur: 0,
     wipe: 0, // 0 = front page whole → 1 = fully re-dealt to the next page
@@ -220,6 +236,8 @@ function createRegisterPlate({ block, pages, loader, parent, accent, ease, radiu
     } else {
       const cut = block.lon1 + (block.lon2 - block.lon1) * strip.wipe;
       clipPlane.normal.set(-Math.sin(cut), 0, Math.cos(cut));
+      clipPlane.constant = 0;
+      orientPlane?.(clipPlane); // DRUM: local cut → world space (planes clip in world)
       front.material.clippingPlanes = [clipPlane];
     }
   };

@@ -39,6 +39,8 @@ export const PLATE_DEG = num('platedeg', 11.5); // plate longest side, degrees o
 export const FPGRID_WINDOW = num('fpwin', 0.78); // usable fraction of the frustum — the lens crop shows ~0.85, so 0.78 keeps edge blocks a real margin inside the frame (pincushion magnifies edges)
 export const CAM_LOOK = num('camlook', 0.025); // ATLAS parallax: camera look-around amplitude (radians ≈ legacy near-tier travel)
 export const DRUM_CREEP = num('creep', 0); // DRUM idle: whole-body creep, deg/sec (0 = still — Nathan's toggle)
+export const ARC_DEG = num('arcdeg', 60); // DRUM: arc per project (6-fold). 60° keeps the conveyor CONTINUOUS — the incoming arc enters the frame before the outgoing exits; 120° left a long bare-grid beat mid-roll.
+export const DRUM_TURN_MUL = num('drumturn', 1.15); // DRUM: Turn duration × (60° needs less stretch than the 120° sweep did)
 export const PANE_PITCH = num('panepitch', 3); // FORME: macro-cell pitch as a multiple of the shell's fine pitch
 
 /* — Camera / render budget — */
