@@ -184,7 +184,13 @@
 
 /* enter_world skin now comes from the shared PRIMARY button component
    (.cta-primary in global.css — white/blue → hover blue/white, borderless);
-   .fp-card__cta remains as the card's layout/GSAP hook only. */
+   .fp-card__cta remains as the card's layout/GSAP hook only.
+   08-27: the FP-1 pulse now animates the FILL (background/color) via GSAP —
+   the shared 0.2s CSS transition would lag every tick of that tween, so this
+   card's CTA opts out; hover easing is handled by the pulse's calm tween. */
+.fp-card__cta.cta-primary {
+  transition: none;
+}
 
 .fp-card__tags {
   list-style: none;
@@ -202,11 +208,13 @@
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
   text-transform: uppercase;
-  border: 1px solid var(--color-white);
-  /* S2: the accent used AS text on white — a light accent falls back to brand
-     black (unreadable otherwise); a dark accent keeps its hue. */
-  color: var(--project-color-text, var(--color-electric-blue));
-  background: var(--color-white);
+  border: 1px solid var(--color-black);
+  /* 08-27 (Nathan): persistent BRAND-BLACK fill so the tags differentiate
+     from the white enter_world chip. Ink = the accent when it's light enough
+     to carry on black (projectColorVars' --project-color-on-black); a dark
+     accent falls back to white. Blank project → white on black. */
+  color: var(--project-color-on-black, var(--color-white));
+  background: var(--color-black);
   border-radius: 999px;
   padding: var(--space-2) var(--space-4);
 }

@@ -64,16 +64,29 @@ export function accentText(hex) {
 }
 
 /**
+ * The accent rendered AS ink on a BLACK surface (the /work service tags'
+ * persistent brand-black fill, 08-27): a LIGHT accent reads beautifully on
+ * black and keeps its hue; a dark accent would vanish, so fall back to white.
+ * The polar twin of accentText(). undefined when unparseable.
+ */
+export function accentOnBlack(hex) {
+  const y = brightness(hex);
+  if (y == null) return undefined;
+  return y >= YIQ_THRESHOLD ? hex : INK_LIGHT;
+}
+
+/**
  * Build the inline style vars for a project accent. Any missing input is left
  * out (value `undefined`) so the CSS fallback chain stays intact.
- *   --project-color        accent (bg fills, gradient, grid)
- *   --project-color-2      secondary accent (plumbed; unmapped)
- *   --project-color-fg     readable ink for text/marks ON the accent
- *   --project-color-text   the accent used AS text on white (→ black if light)
- *   --project-globe-filter flips the white SWM globe dark on a light accent
- *   --nav-ink-l            ink lightness scalar (1 = white ink, 0 = dark ink)
- *                          for the nav's perceptual (oklab) cross-fade — see
- *                          the --nav-ink definition in global.css
+ *   --project-color          accent (bg fills, gradient, grid)
+ *   --project-color-2        secondary accent (plumbed; unmapped)
+ *   --project-color-fg       readable ink for text/marks ON the accent
+ *   --project-color-text     the accent used AS text on white (→ black if light)
+ *   --project-color-on-black the accent used AS ink on brand black (→ white if dark)
+ *   --project-globe-filter   flips the white SWM globe dark on a light accent
+ *   --nav-ink-l              ink lightness scalar (1 = white ink, 0 = dark ink)
+ *                            for the nav's perceptual (oklab) cross-fade — see
+ *                            the --nav-ink definition in global.css
  */
 export function projectColorVars(primary, secondary) {
   return {
@@ -81,6 +94,7 @@ export function projectColorVars(primary, secondary) {
     '--project-color-2': secondary || undefined,
     '--project-color-fg': projectInk(primary),
     '--project-color-text': accentText(primary),
+    '--project-color-on-black': accentOnBlack(primary),
     '--project-globe-filter': accentIsLight(primary) ? 'brightness(0)' : undefined,
     // Scalar twin of --project-color-fg: 1 → white ink (dark accent), 0 → dark
     // ink (light accent). Interpolated linearly so the nav ink cross-fades

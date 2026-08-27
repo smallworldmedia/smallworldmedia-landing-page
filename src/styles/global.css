@@ -81,6 +81,11 @@
   /* Figma bands use near-black on the pure-black page — root-scoped so
      site-wide consumers (footer bar, np-band) resolve on every route */
   --color-near-black: #0a0a0a;
+  /* enter_world pulse floor (08-27, Nathan): the CTA now pulses its FILL
+     toward this gray instead of dipping opacity (the grid must never show
+     through the chip). Sits between dark-gray and the mid tones so the dip
+     stays clearly distinct from the brand-black service tags. */
+  --color-dim-gray: rgb(64, 64, 64);
 
   /* Typography — font stacks */
   --font-display: 'OT Neue Montreal Squeezed', 'PP Neue Montreal', 'Inter', sans-serif;

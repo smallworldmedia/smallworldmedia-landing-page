@@ -168,17 +168,21 @@ export function getLivePulse() {
 
 /**
  * Build a paused pulse loop on `target` from the CURRENT live state — the
- * live-tuning counterpart of motion.js housePulseLoop, specialised to the
- * enter_world opacity dim. Registers the CustomEase under a UNIQUE name each
- * call and passes the returned function straight to the tween. (Reusing one
- * name threw "Invalid CustomEase" when a rebuild landed while the prior
- * pulse timeline was mid-render; a fresh name per rebuild can't collide.
- * The stale entries are a negligible dev-only registry cost on this gated
- * bench.) Caller owns play/kill.
+ * live-tuning counterpart of motion.js housePulseLoop. Registers the
+ * CustomEase under a UNIQUE name each call and passes the returned function
+ * straight to the tween. (Reusing one name threw "Invalid CustomEase" when a
+ * rebuild landed while the prior pulse timeline was mid-render; a fresh name
+ * per rebuild can't collide. The stale entries are a negligible dev-only
+ * registry cost on this gated bench.) Caller owns play/kill.
+ *
+ * 08-27: the enter_world dip became a FILL pulse (WorldCard passes its
+ * resolved color `peakVars`); the bench keeps tuning the CURVE/period/rest.
+ * The `dim` slider only applies to the legacy opacity fallback (no peakVars)
+ * and is otherwise vestigial pending a bench redial.
  */
 let liveEaseSeq = 0;
 let lastGoodEase = null;
-export function liveHousePulseLoop(gsap, target) {
+export function liveHousePulseLoop(gsap, target, peakVars) {
   const s = state;
   // buildHousePulsePath clamps to a valid monotonic curve, so this normally
   // can't throw — but guard anyway: an unforeseen combo must never surface an
@@ -192,7 +196,7 @@ export function liveHousePulseLoop(gsap, target) {
   }
   const on = s.period * s.onRatio;
   return gsap.timeline({ repeat: -1, repeatDelay: s.period - on }).to(target, {
-    opacity: s.dim,
+    ...(peakVars || { opacity: s.dim }),
     duration: on,
     ease,
   });

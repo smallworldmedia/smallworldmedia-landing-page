@@ -93,12 +93,35 @@ const PARAM = (key, fallback) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-// FP-1: once the boot entrance rests, enter_world dims on the house pulse
+// FP-1: once the boot entrance rests, enter_world dips on the house pulse
 // (housePulseLoop's boomerang: bright → dip → return, equal rest between hits).
-// enter_world reading of the house pulse — Nathan's 2026-07-17 dial.
-const PULSE_PEAK_OPACITY = PARAM('fp1dim', 0.3); // opacity at the dip's deepest point
+// 08-27 redial (Nathan): the dip is now a FILL pulse toward --color-dim-gray
+// (label flips white for legibility) instead of an opacity dip — the grid must
+// never show through the chip. ?fp1mix scales the dip depth (1 = all the way
+// to the token); the old ?fp1dim opacity knob is retired.
+const PULSE_MIX = PARAM('fp1mix', 1); // 0..1 — how far the fill travels toward dim-gray at the dip
 const PULSE_PERIOD_S = PARAM('fp1period', HOUSE_PULSE_PERIOD_S); // full cycle: hit + rest
 const PULSE_REST_BEAT_S = PARAM('fp1rest', 1.05); // beat between boot-end and first dip
+
+/** The pulse's color endpoints, resolved from the CTA's live computed style
+ *  (per-card accent scope) + the dim-gray token. Read once per enter run. */
+function pulsePeakVars(cta) {
+  const cs = getComputedStyle(cta);
+  const restBg = cs.backgroundColor;
+  const restFg = cs.color;
+  const dimGray =
+    getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-dim-gray')
+      .trim() || 'rgb(64, 64, 64)';
+  const mix = Math.min(1, Math.max(0, PULSE_MIX));
+  return {
+    rest: { backgroundColor: restBg, color: restFg },
+    peak: {
+      backgroundColor: gsap.utils.interpolate(restBg, dimGray)(mix),
+      color: gsap.utils.interpolate(restFg, '#ffffff')(mix),
+    },
+  };
+}
 
 export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
   const ref = useRef(null);
@@ -129,11 +152,11 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       const exitTo = dir > 0 ? -CARD_TRAVEL : CARD_TRAVEL;
 
       if (phase === 'exit') {
-        // FP-1: the pulse was killed above, which can strand the CTA's opacity
-        // mid-dip (the boomerang ease never rested at 1) — restore full
-        // strength so the card rides out uniform.
+        // FP-1: the pulse was killed above, which can strand the CTA's fill
+        // mid-dip (the boomerang ease never rested) — clear the inline color
+        // props so the card rides out on its stylesheet colors.
         const exitCta = q('.fp-card__cta')[0];
-        if (exitCta) gsap.set(exitCta, { opacity: 1 });
+        if (exitCta) gsap.set(exitCta, { opacity: 1, clearProps: 'backgroundColor,color' });
         if (PREFERS_REDUCED_MOTION) {
           gsap.set(wrap, { autoAlpha: 0 });
           return;
@@ -186,9 +209,10 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       // With the ?fp1tune bench live, the pulse reads the panel's curve/dim/
       // period instead of the motion.js default; the closures below go through
       // pulseRef.current so a bench rebuild is picked up transparently.
+      const pulseColors = pulsePeakVars(cta);
       const pulse = FP1_TUNE_ACTIVE
-        ? liveHousePulseLoop(gsap, cta)
-        : housePulseLoop(gsap, cta, { opacity: PULSE_PEAK_OPACITY }, PULSE_PERIOD_S);
+        ? liveHousePulseLoop(gsap, cta, pulseColors.peak)
+        : housePulseLoop(gsap, cta, pulseColors.peak, PULSE_PERIOD_S);
       pulse.pause();
       pulseRef.current = pulse;
       const restBeat = FP1_TUNE_ACTIVE ? getLivePulse().rest : PULSE_REST_BEAT_S;
@@ -204,7 +228,13 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       const calm = contextSafe(() => {
         hovered = true;
         pulseRef.current?.pause();
-        calmTween = gsap.to(cta, { opacity: 1, duration: 0.15 });
+        // Ease the fill home, then hand the props back to the stylesheet so
+        // the :hover accent fill (CSS) can take the chip.
+        calmTween = gsap.to(cta, {
+          ...pulseColors.rest,
+          duration: 0.15,
+          onComplete: () => gsap.set(cta, { clearProps: 'backgroundColor,color' }),
+        });
       });
       const stir = contextSafe(() => {
         hovered = false;
@@ -230,8 +260,9 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       if (FP1_TUNE_ACTIVE) {
         const rebuild = contextSafe(() => {
           pulseRef.current?.kill();
-          gsap.set(cta, { opacity: 1 }); // clear any mid-dip strand
-          const next = liveHousePulseLoop(gsap, cta);
+          // clear any mid-dip strand
+          gsap.set(cta, { opacity: 1, clearProps: 'backgroundColor,color' });
+          const next = liveHousePulseLoop(gsap, cta, pulsePeakVars(cta).peak);
           next.pause();
           pulseRef.current = next;
           if (armed && !hovered && phaseRef.current === 'enter') next.play();
