@@ -45,7 +45,10 @@ import { placeTiles } from './seededLayout.js';
 import { createWorldBand } from './worldBands.js';
 import WorldLiveScheduler from './worldLive.js';
 import { ENTER_TUNABLES, powInOut, seg } from './enterTune.js';
+import { buildAtlasSlot, applyAtlasSlot, ORDER_SHELL } from './fpAtlas.js';
 import {
+  FPGRID,
+  CAM_LOOK,
   CAMERA_FOV,
   DPR_MAX,
   MSAA_SAMPLES,
@@ -166,6 +169,10 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
     renderer.setClearColor(0x000000, 0);
+    // fp-grid: page wipes (register plates / FORME re-deal) cut with world-space
+    // clipping planes — material-agnostic, so video overlays keep their built-in
+    // sRGB decode. Enabling costs nothing while no material carries planes.
+    renderer.localClippingEnabled = true;
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -174,6 +181,12 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     camera.position.set(0, 0, 0);
 
     const shell = buildShell();
+    // fp-grid: everything in the scene is transparent AND sphere-centered, so
+    // the painter sort (keyed on object world position ≈ origin for all of it)
+    // is arbitrary — draw order must be explicit. The shell draws AFTER the
+    // plates (media sits beyond it, "pressed under glass"); accent borders,
+    // just inside the shell, draw last and win their shared cell lines.
+    if (FPGRID > 0) shell.renderOrder = ORDER_SHELL;
     scene.add(shell);
     shellRef.current = shell;
 
@@ -199,6 +212,10 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     };
     const slotA = makeSlot();
     const slotB = makeSlot();
+    // ATLAS: tiny per-slot radius bias so two Worlds' plates are never coplanar
+    // while both are up during a Turn (the Z_JITTER doctrine, radially).
+    slotA.atlasBias = 0;
+    slotB.atlasBias = 0.03;
     let activeSlot = slotA;
     let idleSlot = slotB;
     let currentSlug = null;
@@ -354,6 +371,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         t.mesh.geometry.dispose();
         t.mesh.material.dispose();
         if (t.texture) t.texture.dispose();
+        t.extraDispose?.(); // fp-grid extras (accent border geometry/material)
       }
       slot.tiles = [];
       for (const b of slot.bands) b.dispose();
@@ -363,12 +381,25 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     // Build a World's Tiles into a slot (replacing whatever it held).
     const buildSlot = (slot, w) => {
       clearSlot(slot);
-      const pool = w?.showcase || [];
-      if (!pool.length) return;
       // First time this World is shown → its tiles push out from center; on any
       // later visit they just resolve at rest (no re-run of the reveal).
       const firstView = w?.slug != null && !seenWorlds.has(w.slug);
       if (w?.slug != null) seenWorlds.add(w.slug);
+      // fp-grid mode 1 (ATLAS): media as on-sphere plates locked into the
+      // graticule's cells — composition, appear, and register plates live in
+      // fpAtlas.js; records stay scheduler/clearSlot-compatible.
+      if (FPGRID === 1) {
+        buildAtlasSlot(slot, w, {
+          camera,
+          loader,
+          firstView,
+          ease: turnRollEase,
+          isStale: () => disposed,
+        });
+        return;
+      }
+      const pool = w?.showcase || [];
+      if (!pool.length) return;
       // Cycle the available showcase up to a minimum density so sparse
       // Worlds still fill the field (the globe's autoFill convention).
       const count = Math.min(MAX_TILES, Math.max(MIN_TILES, pool.length));
@@ -776,6 +807,13 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     window.addEventListener('pointermove', onPointer);
 
     const applyParallax = (slot) => {
+      // ATLAS: one rigid body — no tier gains, no drift, no planar travel; the
+      // appear is an on-sphere slerp and parallax is the camera's head-turn
+      // (applied once in tick). Tier groups stay at rest.
+      if (FPGRID === 1) {
+        applyAtlasSlot(slot);
+        return;
+      }
       for (let i = 0; i < slot.tierGroups.length; i++) {
         const amp = PARALLAX * tierGain[i];
         slot.tierGroups[i].position.set(eased.x * amp, -eased.y * amp, 0);
@@ -842,9 +880,19 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       eased.y += (target.y - eased.y) * PARALLAX_LERP;
 
       // Base layer: the World Shell / grid moves the least; a slow Y-spin drifts
-      // the grid lines left→right.
+      // the grid lines left→right. (Grid modes: SHELL_SPIN defaults to 0 —
+      // cell-locked media may not crawl off.)
       if (!PREFERS_REDUCED_MOTION) shell.rotation.y += SHELL_SPIN * dt;
-      shell.position.set(eased.x * PARALLAX, -eased.y * PARALLAX, 0);
+      if (FPGRID === 1) {
+        // ATLAS parallax = the head-turn: a small camera look-around pans grid
+        // and plates with ZERO relative slip (everything is camera-centered);
+        // signs match the legacy field feel (pointer right → content left).
+        camera.rotation.y = -eased.x * CAM_LOOK;
+        camera.rotation.x = eased.y * CAM_LOOK;
+        shell.position.set(0, 0, 0);
+      } else {
+        shell.position.set(eased.x * PARALLAX, -eased.y * PARALLAX, 0);
+      }
       // Both slots get parallax (idle is empty outside a Turn — negligible).
       applyParallax(slotA);
       applyParallax(slotB);

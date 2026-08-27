@@ -26,6 +26,21 @@ const num = (key, fallback) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+/* — fp-grid mode (refactor/fp-grid-media) — media lives IN the grid.
+   ?fpgrid selects the expression: 1 ATLAS (on-sphere plates, fixed graticule),
+   2 FORME (locked letterpress pane, re-deal Turn), 3 DRUM (one continuous
+   revolving world). 0 = the legacy floating tile field. Default = 1 (Nathan,
+   08-27). All grid modes: SHELL_SPIN → 0, media + grid move as one body. */
+export const FPGRID = Math.round(num('fpgrid', 1));
+export const FPGRID_ACTIVE = FPGRID > 0;
+
+/* — fp-grid shared knobs (house num() convention) — */
+export const PLATE_DEG = num('platedeg', 11.5); // plate longest side, degrees of arc (≈ today's tile presence)
+export const FPGRID_WINDOW = num('fpwin', 0.78); // usable fraction of the frustum — the lens crop shows ~0.85, so 0.78 keeps edge blocks a real margin inside the frame (pincushion magnifies edges)
+export const CAM_LOOK = num('camlook', 0.025); // ATLAS parallax: camera look-around amplitude (radians ≈ legacy near-tier travel)
+export const DRUM_CREEP = num('creep', 0); // DRUM idle: whole-body creep, deg/sec (0 = still — Nathan's toggle)
+export const PANE_PITCH = num('panepitch', 3); // FORME: macro-cell pitch as a multiple of the shell's fine pitch
+
 /* — Camera / render budget — */
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
 export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales with DPR²; was desktop 2). ?dpr to A/B
@@ -176,7 +191,9 @@ export const SHELL_MERIDIANS = 250; // longitude lines
 export const SHELL_PARALLELS = 230; // latitude lines
 export const SHELL_LINE_COLOR = 0x020098;
 export const SHELL_OPACITY = num('shellalpha', 0.55); // ?shellalpha — grid line opacity; 0.55 = 08-25 "more subtle" default (was 1.0)
-export const SHELL_SPIN = num('spin', 0.012); // rad/sec — slow Y-spin so the grid drifts left→right (negate ?spin to flip)
+// Grid modes stop the spin: cell-locked media may not crawl off — the field
+// moves only as one body (each mode's own parallax/Turn). ?spin still overrides.
+export const SHELL_SPIN = num('spin', FPGRID_ACTIVE ? 0 : 0.012); // rad/sec — slow Y-spin so the grid drifts left→right (negate ?spin to flip)
 
 /* — Environment — the canvas renders transparent; the vertical gradient backdrop
    (black top → electric blue bottom, matching the home hero) lives on the DOM

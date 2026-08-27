@@ -157,26 +157,36 @@ export default class WorldLiveScheduler {
       .assign(slot, tile.playbackId)
       .then((video) => {
         if (this.disposed || tile.liveState !== 'pending') return;
-        const texture = new THREE.VideoTexture(video);
+        let texture;
+        let overlay;
+        if (tile.makeOverlay) {
+          // fp-grid seam: a grid-mode record supplies its own overlay (curved
+          // sector clone, mode-specific cover-fit) — the flat-plane default
+          // below assumes PlaneGeometry.parameters, which sectors don't have.
+          ({ texture, mesh: overlay } = tile.makeOverlay(video));
+        } else {
+          texture = new THREE.VideoTexture(video);
+          texture.minFilter = THREE.LinearFilter;
+          this.coverFit(texture, tile, video);
+          overlay = new THREE.Mesh(
+            new THREE.PlaneGeometry(
+              tile.mesh.geometry.parameters.width,
+              tile.mesh.geometry.parameters.height
+            ),
+            new THREE.MeshBasicMaterial({
+              map: texture,
+              toneMapped: false,
+              transparent: true,
+              opacity: 0,
+              depthWrite: false,
+            })
+          );
+          overlay.position.z = OVERLAY_Z;
+        }
         // Built-in materials decode video textures in-shader (DECODE_VIDEO_TEXTURE),
         // so tagging sRGB is enough — no manual decode like the globe's shader.
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.LinearFilter;
-        this.coverFit(texture, tile, video);
         tile.videoTexture = texture;
-
-        const { width, height } = tile.mesh.geometry.parameters;
-        const overlay = new THREE.Mesh(
-          new THREE.PlaneGeometry(width, height),
-          new THREE.MeshBasicMaterial({
-            map: texture,
-            toneMapped: false,
-            transparent: true,
-            opacity: 0,
-            depthWrite: false,
-          })
-        );
-        overlay.position.z = OVERLAY_Z;
         tile.mesh.add(overlay); // inherits parallax / push-out / Turn roll
         tile.videoMesh = overlay;
 
