@@ -45,6 +45,7 @@ import {
   FPGLOW_ALPHA,
   RIPPLE_VAR,
   RIPPLE_SHADE,
+  RIPPLE_EVERY,
   RIPPLE_SPEED,
   RIPPLE_FALLOFF,
   RIPPLE_RADIUS,
@@ -322,9 +323,12 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
       const dt = Math.min(now - lastNow, 100) / 1000; // tab-return clamp
       lastNow = now;
       if (mode === 1 && !PREFERS_REDUCED_MOTION) {
+        // ?ripevery: launches fire every N house periods (2 = every other
+        // enter_world pulse) — still on the pulse grid, just sparser.
+        const cadence = HOUSE_PULSE_PERIOD_S * RIPPLE_EVERY;
         launchTimer += dt;
-        if (launchTimer >= HOUSE_PULSE_PERIOD_S) {
-          launchTimer -= HOUSE_PULSE_PERIOD_S;
+        if (launchTimer >= cadence) {
+          launchTimer -= cadence;
           launches.push(0);
         }
         for (let i = launches.length - 1; i >= 0; i--) {

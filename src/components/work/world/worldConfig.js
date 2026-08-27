@@ -48,6 +48,7 @@ export const FPGLOW_ALPHA = num('fpglowa', 0.2); // peak illuminated-panel alpha
 /* — Ripple bench (?fpglow=1 — Nathan's pick, 08-27 (2)) — */
 export const RIPPLE_VAR = Math.round(num('ripvar', 3)); // radial animation: 1 pulse ring (one crest, fades as it travels) · 2 wavetrain (identical crests, no travel fade) · 3 droplet (crisp front + damped trailing crests — the water read). Launches are INDEPENDENT: one fires each house period and keeps traveling until its trail leaves the frame — slow ?ripspeed = several alive at once (cap 8)
 export const RIPPLE_SHADE = Math.round(num('ripshade', 0)); // cell shading: 0 FLAT fill — illumination fills each cell to the grid lines · 1 hairline inset (the soft bevel/emboss read)
+export const RIPPLE_EVERY = Math.max(0.25, num('ripevery', 1)); // house periods between launches (2 = fire every OTHER enter_world pulse; fractions allowed)
 export const RIPPLE_SPEED = num('ripspeed', 0.45); // ripple travel, fraction of the capped radius per second
 export const RIPPLE_FALLOFF = num('ripfall', 0.9); // distance decay length, × the capped radius (higher = the ripple carries further before dimming)
 export const RIPPLE_RADIUS = num('riprad', 1); // ripple extent, × the visible window's half-diagonal
