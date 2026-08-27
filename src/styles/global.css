@@ -99,6 +99,8 @@
 
   /* Typography — font weights */
   --weight-semi: 600;
+  --weight-medium: 500;
+  /* PP Neue Montreal Medium — the pill emphasis (VISUAL WORLDS) + chip labels */
 
   /* Typography — sizes (rem, base 14px) */
   --text-headline: 2rem;
@@ -117,9 +119,15 @@
   /* 19.2px */
   --lh-body: 1.4;
   /* unitless — body/meta copy at fluid sizes */
+  --text-pill: 1.286rem;
+  /* 18px — the pill/chip line (nav info pill, site tagline + its copyright) */
+  --lh-pill: 1.571rem;
+  /* 22px */
 
   /* Typography — tracking */
   --tracking-tight: -0.02em;
+  --tracking-body: -0.005em;
+  /* the body/chrome micro-tighten (nav links, footer lines, pills) */
 
   /* Spacing (rem, base 14px) */
   --space-1: 0.143rem;
@@ -597,11 +605,11 @@ body.route-home .site-nav__logo {
   background: var(--color-electric-blue);
   color: var(--color-white);
   font-family: var(--font-body);
-  font-size: 1.286rem;
-  /* 18px */
-  line-height: 1.571rem;
-  /* 22px */
-  letter-spacing: -0.005em;
+  /* 08-27: the 18/22/−0.005 trio became tokens (--text-pill family) when the
+     site tagline joined the pill idiom — same values, now shared. */
+  font-size: var(--text-pill);
+  line-height: var(--lh-pill);
+  letter-spacing: var(--tracking-body);
   cursor: pointer;
   transition: background var(--duration-micro) var(--ease-micro);
 }
@@ -1860,9 +1868,9 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   background: var(--color-black);
   color: var(--color-white);
   font-family: var(--font-body);
-  font-size: 1.286rem; /* 18px */
-  line-height: 1.22;
-  letter-spacing: -0.005em;
+  font-size: var(--text-pill);
+  line-height: var(--lh-pill);
+  letter-spacing: var(--tracking-body);
   white-space: nowrap;
   /* pre-JS ground: hidden until the intro (or the session-revisit set) */
   visibility: hidden;
@@ -1874,14 +1882,15 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 }
 
 .site-tagline__word--em {
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .site-tagline__copy {
   font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 1.286rem;
-  letter-spacing: -0.005em;
+  font-weight: var(--weight-medium);
+  font-size: var(--text-pill);
+  line-height: var(--lh-pill);
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
   white-space: nowrap;
   visibility: hidden;
@@ -1891,7 +1900,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 @media (max-width: 768px) {
   /* Mobile: the pill may outgrow the viewport — let the line shrink. */
   .site-tagline__pill {
-    font-size: 1.143rem;
+    font-size: var(--text-ui);
   }
 
   .site-tagline__row {
