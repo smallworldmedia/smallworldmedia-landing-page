@@ -65,10 +65,24 @@
 > - **Detail page**: AlbumArtViewer rides the DeckScroller wall (BandPager +
 >   per-release chips tabled with it); the same wall carries to the grid.
 >
-> Open for Nathan: glow mode choice (1 vs 2 vs 0) + `?fpglowa`, furniture
-> on/off, wall drift/gear taste, `?fp1mix` depth, per-release metadata's new
-> home if wanted, chrome keep-outs for [PREVIOUS]/[NEXT] (still deferred),
-> mobile pass (deferred, as with HR-6).
+> **Round 2 (08-27 (3), Nathan's notes):** the ripple is the chosen element —
+> `?fpglow=1` is now a clock-driven RIPPLE BENCH: `?ripvar` 1 pulse ring /
+> 2 wavetrain (drop `?ripspeed` ≈ 0.2 to see several rings alive) / 3 droplet
+> (crisp front + damped trailing crests, DEFAULT — the water read); every
+> launch stays on the house-pulse cadence with enter_world. `?ripshade` 0
+> (default) = FLAT cell fill to the grid lines · 1 = hairline-inset
+> bevel/emboss. `?ripspeed` (fraction of capped radius per second, 0.45) ·
+> `?ripfall` (decay length × radius, 0.9) · `?riprad` (extent × window
+> half-diagonal, 1) · `?ripw` (crest half-width in cells, 4). Spine tabs sit
+> OUTSIDE the media frame (hanging off the bottom-left corner; nav YIQ ink
+> rule). Wall canvas 640 → 1152 desktop (page requests 800). The home hero
+> enter_world inherits the fill pulse (brighten polarity: black →
+> --color-dim-gray via --cta-pulse under the blue pour).
+>
+> Open for Nathan: ripple variation + shade + speed/falloff/radius taste,
+> `?fpglowa`, furniture on/off, wall drift/gear, `?fp1mix` depth,
+> per-release metadata's new home if wanted, chrome keep-outs for
+> [PREVIOUS]/[NEXT] (still deferred), mobile pass (deferred, as with HR-6).
 >
 > Grounding: candidate mechanisms were adversarially verified against the real
 > scene code (useWorldScene / buildShell / seededLayout / worldLive / worldBands)
