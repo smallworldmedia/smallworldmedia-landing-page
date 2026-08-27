@@ -91,7 +91,12 @@ import {
   PREFERS_REDUCED_MOTION,
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
-import { SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN, RELEASE_MS } from '../lib/motion.js';
+import {
+  SCROLL_TRIGGER_HOME_PX,
+  TOUCH_GAIN,
+  RELEASE_MS,
+  housePulseLoop,
+} from '../lib/motion.js';
 
 gsap.registerPlugin(useGSAP, CustomEase);
 
@@ -222,6 +227,7 @@ export default function Hero({ globeAssets }) {
   const accumRef = useRef(0);
   const idleRef = useRef(null);
   const leadColRef = useRef(null); // the enter_world button column (above the globe)
+  const enterWrapRef = useRef(null); // FP-1 fill-pulse target (see the pulse effect)
   const strokeRef = useRef(null); // globe outer-stroke disc (tracks the overlay disc)
 
   // enter_world button fill state — the /work model (fill 0..1, mode
@@ -230,6 +236,18 @@ export default function Hero({ globeAssets }) {
   // ring and stays fine now (the heavy work is the rig/overlay, not this).
   const [ctaFill, setCtaFill] = useState(0);
   const [ctaMode, setCtaMode] = useState('drag');
+
+  // FP-1 fill pulse, home reading (08-27): loop --cta-pulse 0 → 1 → 0 on the
+  // house envelope. Lives on the wrap (no React inline style there); the
+  // button's --cta-bg color-mix folds it in below. Reduced motion: never runs.
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const wrap = enterWrapRef.current;
+    if (!wrap) return undefined;
+    gsap.set(wrap, { '--cta-pulse': 0 }); // explicit start value for the var tween
+    const pulse = housePulseLoop(gsap, wrap, { '--cta-pulse': 1 });
+    return () => pulse.kill();
+  }, []);
   const [ctaHover, setCtaHover] = useState(false);
   const setCta = (f, mode) => {
     setCtaFill(f);
@@ -1037,7 +1055,14 @@ export default function Hero({ globeAssets }) {
       ? 100
       : Math.round(Math.min(1, Math.max(ctaFill, ctaHover ? 1 : 0)) * 100);
   const ctaColor = {
-    '--cta-bg': `color-mix(in srgb, var(--color-black), var(--color-electric-blue) ${ctaPct}%)`,
+    // 08-27 (Nathan): the /work FP-1 fill pulse extends home — the DEFAULT
+    // (rest) state breathes the black fill toward --color-dim-gray on the
+    // house pulse (--cta-pulse 0..1, tweened on the wrap so React's inline
+    // style on the button never fights GSAP's var writes). The blue pour
+    // mixes OVER the breathing base, so any charge or hover swamps the pulse
+    // naturally — no gating logic needed. Home polarity = BRIGHTEN
+    // (black → dim gray), the inquiry-field reading of the house pulse.
+    '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--color-black), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-electric-blue) ${ctaPct}%)`,
     '--cta-fg': 'var(--color-white)',
     '--cta-down': ctaDown.toFixed(4),
   };
@@ -1083,7 +1108,7 @@ export default function Hero({ globeAssets }) {
       />
       <div className="hero__lead-col" ref={leadColRef}>
         <HeroText />
-        <div className="hero__enter-wrap">
+        <div className="hero__enter-wrap" ref={enterWrapRef}>
           <button
             type="button"
             className="cta-primary hero__enter"
