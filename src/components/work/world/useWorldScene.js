@@ -47,6 +47,15 @@ import WorldLiveScheduler from './worldLive.js';
 import { ENTER_TUNABLES, powInOut, seg } from './enterTune.js';
 import { buildAtlasSlot, applyAtlasSlot, ORDER_SHELL } from './fpAtlas.js';
 import {
+  createFormeLattice,
+  buildFormeSlot,
+  applyFormeSlot,
+  formeTurnApply,
+  PANE_DRIFT,
+  PP_DRIFT,
+  BREATHE,
+} from './fpForme.js';
+import {
   FPGRID,
   CAM_LOOK,
   CAMERA_FOV,
@@ -156,6 +165,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
   const apiRef = useRef(null);
   const prevIndexRef = useRef(null);
   const shellRef = useRef(null);
+  const formeLatticeRef = useRef(null); // FORME pane lattice material (S2 tint)
 
   // ── Setup: renderer / composer / scene / camera / shell / loop (mount once) ──
   useEffect(() => {
@@ -189,6 +199,17 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     if (FPGRID > 0) shell.renderOrder = ORDER_SHELL;
     scene.add(shell);
     shellRef.current = shell;
+
+    // FORME: the pane lattice is scene-level and NEVER re-deals; the true
+    // shell dims into deep atmosphere behind it.
+    let formeStatics = null;
+    if (FPGRID === 2) {
+      const w0 = container.clientWidth || 1;
+      const h0 = container.clientHeight || 1;
+      formeStatics = createFormeLattice(scene, w0 / h0);
+      formeLatticeRef.current = formeStatics.material;
+      shell.material.opacity = shell.material.opacity * 0.45;
+    }
 
     // Nearest tier (smallest |z|) gets the largest parallax; the Shell is the base (1×).
     const tierGain = DEPTH_TIERS.map((z) => SHELL_RADIUS / Math.abs(z));
@@ -388,14 +409,16 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       // fp-grid mode 1 (ATLAS): media as on-sphere plates locked into the
       // graticule's cells — composition, appear, and register plates live in
       // fpAtlas.js; records stay scheduler/clearSlot-compatible.
-      if (FPGRID === 1) {
-        buildAtlasSlot(slot, w, {
+      if (FPGRID === 1 || FPGRID === 2) {
+        const ctx = {
           camera,
           loader,
           firstView,
           ease: turnRollEase,
           isStale: () => disposed,
-        });
+        };
+        if (FPGRID === 1) buildAtlasSlot(slot, w, ctx);
+        else buildFormeSlot(slot, w, ctx);
         return;
       }
       const pool = w?.showcase || [];
@@ -741,34 +764,54 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
 
       const outgoing = activeSlot;
       const incoming = idleSlot;
+      const s = direction > 0 ? 1 : -1; // forward rolls up (+), back rolls down (−)
+      // FORME: the incoming build is wave-driven (the re-deal master below),
+      // not the first-view appear — flag it before the build.
+      if (FPGRID === 2) incoming.formeViaTurn = true;
       buildSlot(incoming, w);
 
-      // Both pivots rotate the same direction, kept a fixed angle apart, so the
-      // field reads as one continuous roll: outgoing center→off, incoming off→center.
-      const s = direction > 0 ? 1 : -1; // forward rolls up (+), back rolls down (−)
-      incoming.pivot.rotation.x = -s * TURN_ENTER_ANGLE; // staged off-center
-      incoming.pivot.position.z = 0;
-      setSlotOpacity(incoming, 0);
-      setSlotOpacity(outgoing, 1);
+      let apply;
+      if (FPGRID === 2) {
+        // ── FORME re-deal: nothing travels. Pivots stay pinned; a dealloc
+        // wavefront sweeps the outgoing blocks (bottom→top going forward),
+        // the incoming allocates one beat behind, and the lens spike rides
+        // the SAME eased master — finishTurnInstant's progress(1) still
+        // lands the exact end state.
+        incoming.pivot.rotation.x = 0;
+        incoming.pivot.position.z = 0;
+        setSlotOpacity(incoming, 1);
+        setSlotOpacity(outgoing, 1);
+        apply = (e) => {
+          lensSpike.v = formeTurnApply(e, outgoing, incoming, s);
+          applyLens();
+        };
+      } else {
+        // Both pivots rotate the same direction, kept a fixed angle apart, so the
+        // field reads as one continuous roll: outgoing center→off, incoming off→center.
+        incoming.pivot.rotation.x = -s * TURN_ENTER_ANGLE; // staged off-center
+        incoming.pivot.position.z = 0;
+        setSlotOpacity(incoming, 0);
+        setSlotOpacity(outgoing, 1);
 
-      // `e` is the eased progress (the tween applies turnRollEase), so the roll
-      // and the recede/lens pulse all ride the same curve and settle with it.
-      const apply = (e) => {
-        outgoing.pivot.rotation.x = s * TURN_EXIT_ANGLE * e;
-        incoming.pivot.rotation.x = -s * TURN_ENTER_ANGLE * (1 - e);
-        // There-and-back pulse for depth + distortion. Keyed off the eased `e`
-        // (not raw time), so it inherits the curve's zero-velocity ends → glides
-        // into rest with the roll instead of cutting off (the old abrupt stop).
-        const pulse = Math.sin(Math.PI * e); // 0→1→0
-        const z = -TURN_RECEDE * pulse;
-        outgoing.pivot.position.z = z;
-        incoming.pivot.position.z = z;
-        lensSpike.v = pulse;
-        applyLens();
-        // Crossfade follows the roll so the leaving World dims as it rolls away.
-        setSlotOpacity(outgoing, 1 - smoothstep(0.4, 0.95, e));
-        setSlotOpacity(incoming, smoothstep(0.05, 0.6, e));
-      };
+        // `e` is the eased progress (the tween applies turnRollEase), so the roll
+        // and the recede/lens pulse all ride the same curve and settle with it.
+        apply = (e) => {
+          outgoing.pivot.rotation.x = s * TURN_EXIT_ANGLE * e;
+          incoming.pivot.rotation.x = -s * TURN_ENTER_ANGLE * (1 - e);
+          // There-and-back pulse for depth + distortion. Keyed off the eased `e`
+          // (not raw time), so it inherits the curve's zero-velocity ends → glides
+          // into rest with the roll instead of cutting off (the old abrupt stop).
+          const pulse = Math.sin(Math.PI * e); // 0→1→0
+          const z = -TURN_RECEDE * pulse;
+          outgoing.pivot.position.z = z;
+          incoming.pivot.position.z = z;
+          lensSpike.v = pulse;
+          applyLens();
+          // Crossfade follows the roll so the leaving World dims as it rolls away.
+          setSlotOpacity(outgoing, 1 - smoothstep(0.4, 0.95, e));
+          setSlotOpacity(incoming, smoothstep(0.05, 0.6, e));
+        };
+      }
 
       const prog = { p: 0 };
       turnTween = gsap.to(prog, {
@@ -806,12 +849,24 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     };
     window.addEventListener('pointermove', onPointer);
 
+    // FORME pane parallax state (computed once per tick, world units / UV):
+    let paneOX = 0;
+    let paneOY = 0;
+    let breatheX = 0;
+    let breatheY = 0;
+
     const applyParallax = (slot) => {
       // ATLAS: one rigid body — no tier gains, no drift, no planar travel; the
       // appear is an on-sphere slerp and parallax is the camera's head-turn
       // (applied once in tick). Tier groups stay at rest.
       if (FPGRID === 1) {
         applyAtlasSlot(slot);
+        return;
+      }
+      // FORME: the pane is one body (translated in tick); records composite
+      // their allocation gates + ink breathing here.
+      if (FPGRID === 2) {
+        applyFormeSlot(slot, paneOY, breatheX, breatheY);
         return;
       }
       for (let i = 0; i < slot.tierGroups.length; i++) {
@@ -886,10 +941,26 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       if (FPGRID === 1) {
         // ATLAS parallax = the head-turn: a small camera look-around pans grid
         // and plates with ZERO relative slip (everything is camera-centered);
-        // signs match the legacy field feel (pointer right → content left).
+        // signs match the legacy field feel (pointer right → content left,
+        // pointer down → content up).
         camera.rotation.y = -eased.x * CAM_LOOK;
-        camera.rotation.x = eased.y * CAM_LOOK;
+        camera.rotation.x = -eased.y * CAM_LOOK;
         shell.position.set(0, 0, 0);
+      } else if (FPGRID === 2) {
+        // FORME: pane (lattice + both slots) drifts as ONE body over the
+        // shell's smaller base drift; the lens principal point leans toward
+        // the cursor; images breathe inside their immobile frames.
+        paneOX = -eased.x * PANE_DRIFT;
+        paneOY = eased.y * PANE_DRIFT;
+        breatheX = eased.x * BREATHE;
+        breatheY = -eased.y * BREATHE;
+        if (formeStatics) formeStatics.lattice.position.set(paneOX, paneOY, 0);
+        slotA.pivot.position.x = paneOX;
+        slotA.pivot.position.y = paneOY;
+        slotB.pivot.position.x = paneOX;
+        slotB.pivot.position.y = paneOY;
+        lensPass.principalPoint.set(eased.x * PP_DRIFT, -eased.y * PP_DRIFT);
+        shell.position.set(eased.x * PARALLAX, -eased.y * PARALLAX, 0);
       } else {
         shell.position.set(eased.x * PARALLAX, -eased.y * PARALLAX, 0);
       }
@@ -946,6 +1017,8 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       clearSlot(slotB);
       scene.remove(slotA.pivot);
       scene.remove(slotB.pivot);
+      formeStatics?.dispose();
+      formeLatticeRef.current = null;
       shell.geometry.dispose();
       shell.material.dispose();
       lensPass.dispose();
@@ -981,6 +1054,18 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         ease: turnRollEase,
         overwrite: true,
       });
+      // FORME: the pane lattice ingests the same dimmed accent as the shell —
+      // the whole page recolours as the re-deal plays.
+      if (formeLatticeRef.current) {
+        gsap.to(formeLatticeRef.current.color, {
+          r: target.r,
+          g: target.g,
+          b: target.b,
+          duration: TURN_DURATION,
+          ease: turnRollEase,
+          overwrite: true,
+        });
+      }
     }
   }, [world?.slug, index]);
 }
