@@ -43,8 +43,15 @@ export const CAM_LOOK = num('camlook', 0.025); // ATLAS parallax: camera look-ar
 /* — DRUM refinement knobs (08-27 second pass, DRUM blessed) — */
 export const FPGRID_BALANCE = num('fpbal', 1) !== 0; // semi-balance pass over the seeded placement (0 = raw ring placement, for A/B)
 export const FPGRID_VIS = num('fpvis', 0.85); // fraction of the frustum the lens crop actually SHOWS — the balance pass judges zone occupancy against this visible frame, independent of the ?fpwin placement window
-export const FPGLOW = Math.round(num('fpglow', 1)); // grid-panel illumination: 0 off · 1 accent wave emanating from center (rides the house pulse cadence — reinforces enter_world) · 2 pointer-trace (cells light as the cursor passes, lens-distortion-corrected)
+export const FPGLOW = Math.round(num('fpglow', 1)); // grid-panel illumination: 0 off · 1 accent ripple emanating from center (launches on the house-pulse cadence — reinforces enter_world) · 2 pointer-trace (cells light as the cursor passes, lens-distortion-corrected)
 export const FPGLOW_ALPHA = num('fpglowa', 0.2); // peak illuminated-panel alpha (the pointer trace runs ×3, capped 0.55)
+/* — Ripple bench (?fpglow=1 — Nathan's pick, 08-27 (2)) — */
+export const RIPPLE_VAR = Math.round(num('ripvar', 3)); // radial animation: 1 pulse ring (eased launch, fades as it grows — the first cut) · 2 wavetrain (constant-speed rings, a new one born each house period; drop ?ripspeed to ~0.2 to see several alive) · 3 droplet (crisp constant-speed front + damped trailing crests — the water read)
+export const RIPPLE_SHADE = Math.round(num('ripshade', 0)); // cell shading: 0 FLAT fill — illumination fills each cell to the grid lines · 1 hairline inset (the soft bevel/emboss read)
+export const RIPPLE_SPEED = num('ripspeed', 0.45); // ripple travel, fraction of the capped radius per second
+export const RIPPLE_FALLOFF = num('ripfall', 0.9); // distance decay length, × the capped radius (higher = the ripple carries further before dimming)
+export const RIPPLE_RADIUS = num('riprad', 1); // ripple extent, × the visible window's half-diagonal
+export const RIPPLE_WIDTH = num('ripw', 4); // crest half-width, in lat cells (var 3's crest spacing rides it ×4)
 export const FPTAB = num('fptab', 1) !== 0; // plate spine tabs: small accent tab, −90° mono cell-coordinates, bottom-left of each plate
 export const FPFURN = num('fpfurn', 0) !== 0; // drum furniture: seeded registration crosses / coordinate captions / cell floods in empty cells (FORME's furniture language riding the drum)
 export const WALL_DRIFT = num('walldrift', 9); // deck/album wall plates: idle column drift, canvas px/s (DeckScroller's ?deckdrift idiom)

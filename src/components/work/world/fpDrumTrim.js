@@ -2,11 +2,15 @@
  * fpDrumTrim.js — the DRUM's print-shop trim (08-27): three toggleable
  * creative elements that dress the lattice between media plates.
  *
- *   ?fpglow=1  CENTER PULSE — grid panels illuminate in the project color in a
- *              ring emanating from the view center, on the house-pulse cadence
- *              (HOUSE_PULSE period), reinforcing the enter_world CTA at the
- *              center. All shader-side: one window-sized sector whose fragment
- *              quantizes to the fine cell lattice, so whole panels light flat.
+ *   ?fpglow=1  CENTER RIPPLE — grid panels illuminate in the project color as
+ *              a ripple emanating from the view center, each launch synced to
+ *              the house-pulse cadence (reinforcing the enter_world CTA).
+ *              Ripple bench (08-27 (2), Nathan's pick): ?ripvar animation
+ *              variation (1 pulse ring / 2 wavetrain / 3 droplet), ?ripshade
+ *              flat-fill vs bevel-inset cell shading, ?ripspeed ?ripfall
+ *              ?riprad ?ripw. All shader-side: one window-sized sector whose
+ *              fragment quantizes to the fine cell lattice, so whole panels
+ *              light flat, filling to the grid lines.
  *   ?fpglow=2  POINTER TRACE — the panels the cursor passes over illuminate
  *              and decay. The mouse ray is corrected through the lens pass
  *              (forward-applying the pincushion's backward map) and dropped
@@ -39,9 +43,15 @@ import {
   SHELL_RADIUS,
   CAMERA_FOV,
   FPGLOW_ALPHA,
+  RIPPLE_VAR,
+  RIPPLE_SHADE,
+  RIPPLE_SPEED,
+  RIPPLE_FALLOFF,
+  RIPPLE_RADIUS,
+  RIPPLE_WIDTH,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
-import { HOUSE_PULSE_PERIOD_S, HOUSE_PULSE_ON_RATIO } from '../../../lib/motion.js';
+import { HOUSE_PULSE_PERIOD_S } from '../../../lib/motion.js';
 
 const DEG2RAD = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -103,18 +113,25 @@ const GLOW_VERT = /* glsl */ `
 `;
 
 /* Fragment quantizes body-local lon/lat to the fine cell lattice, so a whole
-   panel carries one intensity (flat, per-cell — never a soft wash), with a
-   hairline inset so panels read as cells. Mode 1: expanding ring from the
-   view/arc center. Mode 2: gaussian splats at the trail points. */
+   panel carries one intensity (flat, per-cell — never a soft wash). Shading
+   toggle (?ripshade): 0 = FLAT fill to the grid lines (the lines draw over
+   the glow at order 30 > 28, so the fill meets them exactly); 1 = hairline
+   inset (the soft bevel read). Mode 1 = the ripple bench (?ripvar 1|2|3),
+   mode 2 = gaussian splats at the pointer-trail points. */
 const GLOW_FRAG = /* glsl */ `
   #define TAU 6.28318530718
   #define PI 3.14159265359
   uniform vec3 uColor;
   uniform float uOpacity;
   uniform float uAlpha;
-  uniform float uWave;
-  uniform float uMaxR;
-  uniform float uWaveW;
+  uniform float uT;
+  uniform float uPeriod;
+  uniform float uSpeed;
+  uniform float uFall;
+  uniform float uRadMax;
+  uniform float uRipW;
+  uniform float uVar;
+  uniform float uShade;
   uniform float uDLon;
   uniform float uDLat;
   uniform float uViewLat;
@@ -135,9 +152,37 @@ const GLOW_FRAG = /* glsl */ `
       float sx = cLat - uViewLat;
       float sy = wrapPi(cLon - uArcLon) * sin(cLat);
       float r = length(vec2(sx, sy));
-      float ring = uWave * uMaxR;
-      float d = (r - ring) / uWaveW;
-      I = exp(-d * d) * (1.0 - 0.55 * uWave);
+      if (r <= uRadMax) {
+        float ph = mod(uT, uPeriod);
+        if (uVar < 1.5) {
+          // 1 — pulse ring: eased launch, fading as it grows; overshoots the
+          // cap so it exits before relaunch (a natural rest beat).
+          float p01 = ph / uPeriod;
+          float e = 1.0 - (1.0 - p01) * (1.0 - p01);
+          float d = (r - e * uRadMax * 1.25) / uRipW;
+          I = exp(-d * d) * (1.0 - 0.55 * p01);
+        } else if (uVar < 2.5) {
+          // 2 — wavetrain: constant-speed rings, one born each period.
+          float spacing = uSpeed * uPeriod;
+          float lead = mod(uT * uSpeed, spacing);
+          for (int k = 0; k < 6; k++) {
+            float rr = lead + float(k) * spacing;
+            if (rr > uRadMax) break;
+            float d = (r - rr) / uRipW;
+            I += exp(-d * d);
+          }
+        } else {
+          // 3 — droplet: crisp constant-speed front, damped trailing crests.
+          float front = ph * uSpeed;
+          float back = front - r;
+          if (back >= 0.0) {
+            float lambda = uRipW * 4.0;
+            I = max(0.0, sin(TAU * back / lambda)) * exp(-back / (lambda * 1.6));
+          }
+        }
+        I *= exp(-r / uFall);
+        I = min(I, 1.0);
+      }
     } else {
       for (int i = 0; i < 12; i++) {
         if (i >= uTrailN) break;
@@ -145,13 +190,16 @@ const GLOW_FRAG = /* glsl */ `
         float dx = cLat - t.x;
         float dy = wrapPi(cLon - t.y) * sin(cLat);
         float d2 = dx * dx + dy * dy;
-        I += exp(-d2 / (2.0 * uWaveW * uWaveW)) * (1.0 - t.z);
+        I += exp(-d2 / (2.0 * uRipW * uRipW)) * (1.0 - t.z);
       }
       I = min(I, 1.0);
     }
-    vec2 f = vec2(fract(lon / uDLon), fract(lat / uDLat));
-    vec2 e = min(f, 1.0 - f);
-    float inset = smoothstep(0.0, 0.12, min(e.x, e.y));
+    float inset = 1.0;
+    if (uShade > 0.5) {
+      vec2 f = vec2(fract(lon / uDLon), fract(lat / uDLat));
+      vec2 e = min(f, 1.0 - f);
+      inset = smoothstep(0.0, 0.12, min(e.x, e.y));
+    }
     gl_FragColor = vec4(uColor, I * inset * uAlpha * uOpacity);
   }
 `;
@@ -182,15 +230,24 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
   };
   const geometry = blockSectorGeometry(block, SHELL_RADIUS + GLOW_R_OUT);
 
+  // Ripple frame: the capped radius (?riprad × the window half-diagonal)
+  // anchors speed/falloff, so those knobs read in composition terms, not
+  // radians.
+  const radMax = Math.hypot(win.halfLon, win.halfLat) * RIPPLE_RADIUS;
   const uniforms = {
     uColor: { value: new THREE.Color(accent) },
     uOpacity: { value: 0 },
-    // The trace needs to punch harder than the ambient wave — few cells lit
-    // at once vs a whole expanding ring (?fpglowa scales both).
+    // The trace needs to punch harder than the ambient ripple — few cells lit
+    // at once vs a whole traveling crest (?fpglowa scales both).
     uAlpha: { value: mode === 2 ? Math.min(0.55, FPGLOW_ALPHA * 3) : FPGLOW_ALPHA },
-    uWave: { value: 0 },
-    uMaxR: { value: Math.hypot(win.halfLon, win.halfLat) },
-    uWaveW: { value: mode === 2 ? D_LAT * 3.2 : 0.07 },
+    uT: { value: 0 },
+    uPeriod: { value: HOUSE_PULSE_PERIOD_S },
+    uSpeed: { value: RIPPLE_SPEED * radMax },
+    uFall: { value: RIPPLE_FALLOFF * radMax },
+    uRadMax: { value: radMax },
+    uRipW: { value: mode === 2 ? D_LAT * 3.2 : RIPPLE_WIDTH * D_LAT },
+    uVar: { value: RIPPLE_VAR },
+    uShade: { value: RIPPLE_SHADE },
     uDLon: { value: D_LON },
     uDLat: { value: D_LAT },
     uViewLat: { value: VIEW_LAT },
@@ -213,23 +270,10 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
   group.add(mesh);
   parent.add(group);
 
-  // Mode 1: the ring rides the house-pulse cadence — same period as the
-  // enter_world dip, so the emanation and the CTA breathe together.
-  let waveTween = null;
-  if (mode === 1 && !PREFERS_REDUCED_MOTION) {
-    const on = HOUSE_PULSE_PERIOD_S * HOUSE_PULSE_ON_RATIO;
-    waveTween = gsap.fromTo(
-      uniforms.uWave,
-      { value: 0 },
-      {
-        value: 1,
-        duration: on,
-        ease: 'power1.out',
-        repeat: -1,
-        repeatDelay: HOUSE_PULSE_PERIOD_S - on,
-      }
-    );
-  }
+  // Mode 1: the ripple clock advances in paint() (uT); each launch period is
+  // HOUSE_PULSE_PERIOD_S, so the emanation and the enter_world fill pulse
+  // breathe on the same cadence.
+  let lastNow = performance.now();
 
   // Mode 2: trail of body-local cell hits (lat, lon, age01).
   const trail = []; // { lat, lon, t }
@@ -269,9 +313,15 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
     qSpawn: IDENTITY_Q.clone(),
     paint(opacity) {
       uniforms.uOpacity.value = opacity;
+      const now = performance.now();
+      const dt = Math.min(now - lastNow, 100) / 1000; // tab-return clamp
+      lastNow = now;
+      if (mode === 1 && !PREFERS_REDUCED_MOTION) {
+        // Wrap far from float-precision trouble, on a period boundary.
+        uniforms.uT.value = (uniforms.uT.value + dt) % (HOUSE_PULSE_PERIOD_S * 1000);
+      }
       if (mode === 2 && !PREFERS_REDUCED_MOTION) {
         sampleCursor();
-        const now = performance.now();
         let n = 0;
         for (let i = trail.length - 1; i >= 0 && n < TRAIL_MAX; i--) {
           const age = (now - trail[i].t) / (TRAIL_FADE_S * 1000);
@@ -286,7 +336,6 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
       }
     },
     dispose() {
-      waveTween?.kill();
       gsap.killTweensOf(record);
       parent.remove(group);
       geometry.dispose();

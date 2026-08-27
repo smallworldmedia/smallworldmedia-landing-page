@@ -92,7 +92,7 @@ const ORDER_PLATE = 32;
 const ORDER_STRIP_BACK = 33;
 const ORDER_STRIP_FRONT = 34;
 const ORDER_OVERLAY = 36;
-const ORDER_TAB = 38; // spine tabs stamp OVER the media (and its overlay)
+const ORDER_TAB = 38; // spine tabs hang on the open grid outside the frame — over the lines/glow, under the accent borders
 const ORDER_BORDER = 40;
 
 const BORDER_ALPHA = 0.9;
@@ -620,17 +620,19 @@ export function buildDrumSlot(slot, w, ctx) {
     const border = makeBorder(block);
     mesh.add(border);
 
-    // ?fptab — spine tab: accent stamp on the plate's bottom-left corner,
-    // mono cell-coordinates rotated −90° (the letterpress plate label).
+    // ?fptab — spine tab: accent stamp OUTSIDE the media frame, hanging off
+    // the plate's bottom-left corner (08-27 (2), Nathan) — mono
+    // cell-coordinates rotated −90°, ink on the nav rule (light accent →
+    // near-black ink, dark → white; inkForAccent = projectInk's twin).
     let tab = null;
-    if (FPTAB && block.latCells >= 4 && block.lonCells >= 5) {
+    if (FPTAB) {
       const tabBlock = {
-        i1: block.i1,
-        j1: block.j1,
+        i1: block.i1 - 3, // below the bottom edge (+lon = up), flush attached
+        j1: block.j1, // left-aligned with the plate's left edge
         lonCells: 3,
         latCells: 2,
-        lon1: block.i1 * D_LON,
-        lon2: (block.i1 + 3) * D_LON,
+        lon1: (block.i1 - 3) * D_LON,
+        lon2: block.i1 * D_LON,
         lat1: block.j1 * D_LAT,
         lat2: (block.j1 + 2) * D_LAT,
       };

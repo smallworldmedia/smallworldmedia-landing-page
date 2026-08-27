@@ -27,6 +27,7 @@ import { plateCover, spawnQuaternion } from './fpAtlas.js';
 import {
   WALL_DRIFT,
   WALL_GEAR,
+  IS_MOBILE,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -34,8 +35,12 @@ import {
    VISIBLE_ROWS sizes the columns; the gutter is proportional to the canvas
    (2px of a ~1400px detail frame ≈ 1px of our 640px canvas, floor 1). */
 const VISIBLE_ROWS = 2;
-const CANVAS_W = 640;
-const PAGE_REQ_W = 480; // per-page texture request width (columns are ~320px)
+/* 08-27 (2), Nathan: walls read fuzzy at 640 — a strip plate covers ~600+ css
+   px at DPR 1.5, so the canvas ships at ~device resolution on desktop. The
+   per-frame upload cost scales with the canvas area (repaints are
+   movement-gated), so mobile keeps the lighter target. */
+const CANVAS_W = IS_MOBILE ? 704 : 1152;
+const PAGE_REQ_W = IS_MOBILE ? 480 : 800; // per-page texture request width
 const BORDER_ALPHA = 0.9;
 
 const pageSrc = (p) =>
@@ -217,7 +222,9 @@ export function createWallPlate({
       const adv = drum?.state?.adv ?? lastAdv;
       const kick = Math.abs(adv - lastAdv) * WALL_GEAR;
       lastAdv = adv;
-      const step = WALL_DRIFT * dt + kick;
+      // Knobs are calibrated at the original 640px canvas — scale with the
+      // shipped resolution so the on-screen rate is resolution-independent.
+      const step = (WALL_DRIFT * dt + kick) * (W / 640);
       for (let i = 0; i < cols; i++) offsets[i] += dirs[i] * step;
       travelled += step;
       // Repaint on real movement (≥ ~1/4 canvas px) or a newly landed image;
