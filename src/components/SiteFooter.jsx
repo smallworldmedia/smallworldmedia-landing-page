@@ -35,9 +35,8 @@
  *    inert gating and the same <html> reveal broadcast as the scroll mode.
  */
 import { useEffect, useRef } from 'react';
-// Full SWM lockup (wordmark + globe glyph). Inlined ?raw so CSS can recolour it
-// mono-white for the near-black footer (source art is brand blue).
-import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
+// 08-27: the lockup left the panel with the left column — the persistent
+// SiteTagline island owns the footer lockup + copyright now.
 // Reveal-travel multiplier (spacer = K × panel height) + its ?footertune
 // pub/sub. Static import is the tiny shared STATE only (the fp1Tune idiom);
 // the bench panel itself is a lazy chunk owned by SiteShell.
@@ -213,22 +212,12 @@ export default function SiteFooter({
         }
       >
         <div className="site-footer__inner">
-          <div className="site-footer__left">
-            <a
-              href="/"
-              className="site-footer__lockup"
-              aria-label="Small World Media home"
-            >
-              <span
-                className="site-footer__lockup-art"
-                aria-hidden="true"
-                dangerouslySetInnerHTML={{ __html: LOCKUP_SVG }}
-              />
-            </a>
-            <p className="site-footer__copy">
-              ©{year} Small World Media LLC. All Rights Reserved.
-            </p>
-          </div>
+          {/* LEFT retired (08-27, Nathan): the persistent SiteTagline pill —
+              fixed at this panel's exact inner inset — IS the left column
+              now; its copyright + white lockup fade in on this panel's own
+              --footer-reveal broadcast, settling into place here. The inner
+              keeps a min-height (global.css) so the band still backdrops
+              that stack. */}
 
           <nav className="site-footer__nav" aria-label="Footer">
             <a href="/" className="site-footer__link">

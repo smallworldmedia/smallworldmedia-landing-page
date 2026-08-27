@@ -69,7 +69,6 @@ import { CustomEase } from 'gsap/CustomEase';
 import { navigate } from 'astro:transitions/client';
 import VideoGlobe from './globe/VideoGlobe.jsx';
 import CtaArrows from './work/CtaArrows.jsx';
-import SiteFooter from './SiteFooter.jsx';
 import HeroText from './HeroText.jsx';
 import HeroIntro from './hero/HeroIntro.jsx';
 // The brand lockup, inlined (nav/footer precedent — one source of truth in
@@ -340,9 +339,17 @@ export default function Hero({ globeAssets }) {
     // and a cut needs no tween anyway. delayedCall stays as the clock so
     // pending cuts die with this island's gsap context.
     const setVis = (els, v) => els.forEach((el) => { el.style.visibility = v; });
+    // 08-27: the persistent SiteTagline island keys its one-time intro off
+    // the lockup animation's END — broadcast it (rAF-deferred so no listener
+    // work is adopted into this island's gsap context; the 08-25 doctrine).
+    const done = () =>
+      requestAnimationFrame(() =>
+        window.dispatchEvent(new CustomEvent('swm:hero-lockup-done'))
+      );
     if (instant || !words) {
       if (words) setVis(words.flat(), 'visible');
       gsap.set(wrap, { autoAlpha: 1 });
+      done();
       return;
     }
     setVis(words.flat(), 'hidden');
@@ -351,6 +358,7 @@ export default function Hero({ globeAssets }) {
     words.forEach((group, i) => {
       gsap.delayedCall(beat * i, () => setVis(group, 'visible'));
     });
+    gsap.delayedCall(beat * words.length, done);
   };
 
   // The chrome beat: arm the gesture, stamp the latch, broadcast — the
@@ -372,9 +380,7 @@ export default function Hero({ globeAssets }) {
     requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('swm:hero-chrome')));
     // The lockup leaves the fade list (08-25 (2)) — it arrives word by word.
     runLockupBeats(instant);
-    const owned = hero.querySelectorAll(
-      '.hero__enter-wrap, .hero__arrows, .hero__footer'
-    );
+    const owned = hero.querySelectorAll('.hero__enter-wrap, .hero__arrows');
     if (instant) gsap.set(owned, { autoAlpha: 1 });
     else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
   };
@@ -562,7 +568,7 @@ export default function Hero({ globeAssets }) {
     const sceneApi = sceneApiRef.current;
     const fill = fillRef.current;
     const chrome = heroRef.current.querySelectorAll(
-      '.hero__lead-col, .hero__arrows, .hero__footer, .hero-labels'
+      '.hero__lead-col, .hero__arrows, .hero-labels'
     );
     // Commit-time snapshot of the bench knobs — the timeline is one shot;
     // a mid-flight TUNING write waits for the next commit/dry-run.
@@ -1141,9 +1147,9 @@ export default function Hero({ globeAssets }) {
       {labelsOn && (
         <HeroLabels key={labelsMax} overlay={overlayRef.current} sceneApiRef={sceneApiRef} />
       )}
-      <div className="hero__footer">
-        <SiteFooter noFill tagline={false} />
-      </div>
+      {/* hero footer bar RETIRED (08-27, Nathan): the persistent SiteTagline
+          island (BaseLayout) owns the lower-left now — its one-time intro
+          keys off swm:hero-lockup-done above. */}
       {/* Commit blue-fill — the envelopment surface (chunk 4). Starts hidden
           (CSS opacity/visibility) on EVERY fresh mount — a reverse arrival
           included — and only the commit timeline ever reveals it. */}

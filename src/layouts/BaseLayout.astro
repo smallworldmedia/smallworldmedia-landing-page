@@ -33,6 +33,7 @@ import '../styles/commit-tune.css';
 // ~330–440 b gz per route. The lazy import() earns its keep on the panels'
 // JavaScript, not their styles.
 import SiteShell from '../components/SiteShell.jsx';
+import SiteTagline from '../components/SiteTagline.jsx';
 // ?url imports resolve to the same content-hashed asset the CSS @font-face
 // references, so these preloads hit the real built URLs.
 import fontBook from '../assets/fonts/PPNeueMontreal-Book.woff2?url';
@@ -130,6 +131,11 @@ const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
 
     {/* Persistent shell — nav + drawer + overlay (survives page swaps) */}
     <SiteShell client:load transition:persist="site-shell" transition:animate="none" />
+
+    {/* Persistent lower-left tagline pill (Figma Frame 19, 08-27). Its OWN
+        island — the footer-reveal rule translates .site-shell up by the nav
+        height, which would carry the pill off its footer alignment. */}
+    <SiteTagline client:load transition:persist="site-tagline" transition:animate="none" />
 
     <div id="main">
       <slot />

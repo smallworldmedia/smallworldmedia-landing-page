@@ -1556,16 +1556,9 @@ body.route-home .site-nav__logo {
   will-change: transform, opacity;
 }
 
-/* No-fill footer over the hero gradient — bookends the transparent nav */
-.hero__footer {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1;
-  opacity: 0;
-  visibility: hidden;
-}
+/* .hero__footer RETIRED (08-27): the persistent SiteTagline pill owns the
+   hero's lower-left; the no-fill SiteFooter variant keeps its CSS below for
+   backward compatibility but no longer mounts anywhere. */
 
 /* ============================================
    SITE FOOTER — shared (moved from project-detail.css)
@@ -1663,8 +1656,13 @@ body.route-home .site-nav__logo {
 .site-footer__inner {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-6);
+  /* 08-27: the left column lives OUTSIDE this panel now (the persistent
+     SiteTagline pill + its reveal-state lockup/copyright) — this min-height
+     reserves the band that stack occupies: lockup art (7rem × 0.28) + gap +
+     pill (~2.7rem). */
+  min-height: 5rem;
   /* Nav's shared hug; extra right clearance mirrors the nav's scrollbar idiom */
   padding: 1.286rem var(--nav-inset) 1.143rem;
   padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
@@ -1788,6 +1786,118 @@ body.route-home .site-nav__logo {
 html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   transform: translateY(calc(var(--footer-reveal, 1) * -1 * var(--nav-height)));
   transition: none;
+}
+
+/* ============================================
+   SITE TAGLINE — persistent lower-left pill (Figma Frame 19, 08-27)
+   ============================================
+   Fixed on every route (own island in BaseLayout — NOT inside .site-shell,
+   whose footer-reveal slide would carry it off alignment). Its resting
+   inset IS the links footer's inner padding (left --nav-inset / bottom
+   1.143rem), so the rising footer settles around it by construction. The
+   copyright + white lockup start hidden; SiteTagline.jsx reveals them on
+   the footer's --footer-reveal broadcast. z: above the footer panel (40),
+   below the inquiry overlay (50) and nav shell (100). */
+.site-tagline {
+  position: fixed;
+  left: var(--nav-inset);
+  bottom: 1.143rem;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.286rem;
+  pointer-events: none;
+}
+
+/* White SWM lockup at the NAV lockup's scale (svg height 7rem — the shared
+   asset's viewBox carries ~72% whitespace, so the wrapper clamps to the
+   art's optical height and centers the oversize svg inside it; left margin
+   backs out the internal left whitespace so the optical edge seats on the
+   pill's text inset, per the Frame 19 end-state). Hidden until the footer
+   reveal; visibility (autoAlpha) also gates its pointer target. */
+.site-tagline__lockup {
+  height: calc(7rem * 0.28);
+  display: flex;
+  align-items: center;
+  margin-left: calc(0.857rem - var(--lockup-bleed));
+  pointer-events: auto;
+  visibility: hidden;
+  opacity: 0;
+}
+
+.site-tagline__lockup-art {
+  display: inline-flex;
+  align-items: center;
+}
+
+.site-tagline__lockup-art svg {
+  display: block;
+  height: 7rem;
+  width: auto;
+  flex: none;
+}
+
+.site-tagline__lockup-art svg,
+.site-tagline__lockup-art svg * {
+  fill: var(--color-white);
+}
+
+.site-tagline__row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem; /* pill → copyright run-on (Figma: 21px) */
+}
+
+/* The pill — black flood, radius-50 capsule, 8/12 padding, 18px PP Neue
+   Montreal (VISUAL WORLDS Medium, rest Regular), per the Figma node. The
+   intro wipes clip-path left→right; words are per-span for the stagger. */
+.site-tagline__pill {
+  display: flex;
+  align-items: center;
+  gap: 0.28em;
+  padding: 0.571rem 0.857rem;
+  border-radius: 999px;
+  background: var(--color-black);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: 1.286rem; /* 18px */
+  line-height: 1.22;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  /* pre-JS ground: hidden until the intro (or the session-revisit set) */
+  visibility: hidden;
+  opacity: 0;
+}
+
+.site-tagline__word {
+  display: inline-block;
+}
+
+.site-tagline__word--em {
+  font-weight: 500;
+}
+
+.site-tagline__copy {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 1.286rem;
+  letter-spacing: -0.005em;
+  color: var(--color-white);
+  white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+}
+
+@media (max-width: 768px) {
+  /* Mobile: the pill may outgrow the viewport — let the line shrink. */
+  .site-tagline__pill {
+    font-size: 1.143rem;
+  }
+
+  .site-tagline__row {
+    gap: 0.857rem;
+    flex-wrap: wrap;
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
