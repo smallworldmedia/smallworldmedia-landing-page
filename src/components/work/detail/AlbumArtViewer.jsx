@@ -1,77 +1,39 @@
 /**
- * AlbumArtViewer — album catalogs on the shared BandPager.
+ * AlbumArtViewer — album catalogs on the orthographic DeckScroller wall
+ * (08-27, Nathan).
  *
- * Covers page exactly like deck pages (same structure, weight, idle
- * cycle — cohesion by construction), and the focused cover's release
- * metadata rises in the top-right side column below the counter: black
- * mono chips mirroring the ClientPanel's base_in / client_type family.
- * The headline (artist — title) scrambles in per cover; catalog, date,
- * and stream-link buttons render only when the field exists — with no
- * releaseInfo the asset title stands alone and still looks intentional.
+ * The BandPager presentation (World-Turn-curve pager, one cover per gesture,
+ * per-cover release metadata rising in the side column) is TABLED — nothing
+ * else rides the pager now, but BandPager.jsx stays on disk. Covers render
+ * exactly like deck pages: alternating drifting columns of square art under
+ * hairline black gutters, accelerated by the page's own Lenis scroll —
+ * cohesion with the brand-deck walls by construction, and the same wall
+ * carries over to the /work grid (fpDrumWall). A wall has no focused cover,
+ * so the per-release chips (catalog number, date, stream links) are tabled
+ * with the pager; the side column keeps the catalog identity instead — an
+ * album_catalog scramble over a release-count chip.
  *
  * @param {Object} props
  * @param {Array<Object>} props.covers - album-art assets (≥ ORBIT_MIN)
  */
-import BandPager from './BandPager.jsx';
+import DeckScroller from './DeckScroller.jsx';
 import ScrambleLabel from './ScrambleLabel.jsx';
 
-const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-
-/** '2024-03-15' → 'MAR 2024' (locale-free: SSR and client must agree). */
-function formatReleaseDate(iso) {
-  const [y, m] = (iso || '').split('-');
-  const mi = Number(m) - 1;
-  if (!y || mi < 0 || mi > 11) return null;
-  return `${MONTHS[mi]} ${y}`;
-}
-
-function ReleaseMeta({ asset }) {
-  const info = asset.releaseInfo ?? {};
-  const headline =
-    [info.releaseArtist, info.releaseTitle].filter(Boolean).join(' — ') ||
-    asset.title ||
-    'UNTITLED';
-  const date = formatReleaseDate(info.releaseDate);
-  const links = (info.streamLinks ?? []).filter((l) => l?.url);
-
-  return (
-    <div className="release-meta">
-      <ScrambleLabel
-        scrambleOnMount
-        text={headline}
-        className="release-chip release-chip--headline"
-      />
-      {info.catalogNumber && (
-        <span className="release-chip">{info.catalogNumber}</span>
-      )}
-      {date && <span className="release-chip">{date}</span>}
-      {links.map((l) => (
-        <a
-          key={l.url}
-          className="release-chip release-chip--link"
-          href={l.url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {(l.platform || 'LISTEN').toUpperCase()} ↗
-        </a>
-      ))}
-    </div>
-  );
-}
-
 export default function AlbumArtViewer({ covers }) {
+  if (!covers.length) return null;
   return (
-    <BandPager
-      items={covers}
-      ratio={1}
-      kind="album"
-      imgWidth={800}
-      ariaLabel="album artwork"
-      side={(current) => (
-        /* keyed remount per cover: chips slide in, headline scrambles */
-        <ReleaseMeta key={covers[current]._id} asset={covers[current]} />
-      )}
-    />
+    <div className="deck-scroller-shell">
+      <div className="deck-scroller__side deck-scroller__side--album">
+        <ScrambleLabel
+          scrambleOnMount
+          text="album_catalog"
+          className="band-pager__name"
+        />
+        <span className="release-chip">
+          {String(covers.length).padStart(2, '0')} RELEASES
+        </span>
+      </div>
+      <DeckScroller pages={covers} ratio={1} ariaLabel="album artwork" />
+    </div>
   );
 }
