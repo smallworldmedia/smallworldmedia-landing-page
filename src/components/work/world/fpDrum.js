@@ -38,17 +38,20 @@ import {
   blockBorderGeometry,
   blockCenterDir,
 } from './fpGridCells.js';
+import { plateCover, spawnQuaternion } from './fpAtlas.js';
+import { createWallPlate } from './fpDrumWall.js';
 import {
-  plateCover,
-  spawnQuaternion,
-  createRegisterPlate,
-} from './fpAtlas.js';
+  makeTabTexture,
+  createDrumGlow,
+  createDrumFurniture,
+} from './fpDrumTrim.js';
 import {
   SHELL_RADIUS,
   MAX_TILES,
   MIN_TILES,
   thumbForCount,
   PLATE_DEG,
+  CAMERA_FOV,
   TILE_FALLBACK_COLOR,
   TILE_APPEAR_DURATION,
   FANOUT_STAGGER,
@@ -56,7 +59,6 @@ import {
   BANDS_ENABLED,
   BAND_TIER,
   BAND_TUNABLES,
-  BAND_MAX_PAGES,
   DEPTH_TIERS,
   CENTER_CLEAR_FRAC,
   CLUSTER_RADIUS,
@@ -64,6 +66,12 @@ import {
   FIELD_OFFSET_Y,
   FIELD_SPREAD_X,
   FIELD_SPREAD_Y,
+  FPGRID_BALANCE,
+  FPGRID_VIS,
+  FPGLOW,
+  FPTAB,
+  FPFURN,
+  WALL_MAX_PAGES,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -77,11 +85,14 @@ const PLATE_R_IN = 0.12; // plates at SHELL_RADIUS − this
 const BORDER_R_IN = 0.18;
 const OVERLAY_R_IN = 0.06;
 
-/* renderOrder: shell (30) first, then plates COVER their cells' lines. */
+/* renderOrder: shell (30) first, then plates COVER their cells' lines.
+   (Trim: glow panels + furniture floods sit at 28, under the lattice —
+   fpDrumTrim.js; furniture marks at 31.) */
 const ORDER_PLATE = 32;
 const ORDER_STRIP_BACK = 33;
 const ORDER_STRIP_FRONT = 34;
 const ORDER_OVERLAY = 36;
+const ORDER_TAB = 38; // spine tabs stamp OVER the media (and its overlay)
 const ORDER_BORDER = 40;
 
 const BORDER_ALPHA = 0.9;
@@ -260,7 +271,7 @@ function placeDrumBlocks(items, { seed, aspect, arcLon, reserved = [] }) {
   const outerR = Math.max(CLUSTER_RADIUS, innerR + 1e-3);
   const angleOffset = rand() * TAU;
   const n = items.length;
-  const blocks = items.map((item, i) => {
+  const raw = items.map((item, i) => {
     const t = n > 1 ? (i + 0.5) / n : 0;
     const baseR = Math.sqrt(innerR * innerR + t * (outerR * outerR - innerR * innerR));
     const ang = i * GOLDEN_ANGLE + angleOffset;
@@ -273,10 +284,204 @@ function placeDrumBlocks(items, { seed, aspect, arcLon, reserved = [] }) {
     const res = resolveOnRing(nx, ny, item.ratio);
     if (!res) return null;
     placed.push(res.b);
-    return finalize(res.b, res.nr);
+    return { b: res.b, nr: res.nr, ratio: item.ratio };
   });
 
-  return { blocks, reserved: reservedOut };
+  const balanceStats = FPGRID_BALANCE
+    ? balanceDrumComposition(raw, items, {
+        placed,
+        aspect,
+        arcLon,
+        norm,
+        quantize,
+        isClear,
+        inWindow,
+        intersectsCard,
+        overlaps,
+      })
+    : null;
+
+  const blocks = raw.map((r) => {
+    if (!r) return null;
+    // Re-derive the bloom radius from the FINAL position — a nudged/rescued
+    // block staggers by where it actually landed.
+    const c = norm((r.b.j1 + r.b.latCells / 2) * D_LAT, (r.b.i1 + r.b.lonCells / 2) * D_LON);
+    return finalize(r.b, Math.hypot(c.nx, c.ny));
+  });
+
+  return { blocks, reserved: reservedOut, balanceStats };
+}
+
+/**
+ * Semi-balance pass (Nathan, 08-27): the seeded ring placement composes well
+ * but can leave overtly empty corners (and an oversized block can weigh one
+ * down). Measure occupancy of the VISIBLE frame in 3×3 zones — the center
+ * zone belongs to the WorldCard and is excluded — then, deterministically
+ * (pure arithmetic, zero PRNG draws — same slug, same composition):
+ *   a) NUDGE blocks a few whole cells at a time toward whatever move most
+ *      reduces zone-occupancy variance (run-off past the frame stays allowed:
+ *      the placement window, not the visible frame, bounds the move);
+ *   b) RESCUE dropped blocks into the emptiest zone (empty cells are
+ *      composition, but a rescued block beats a bare corner);
+ *   c) DEMOTE the block crowding a dominant zone one size step (~15%) —
+ *      the Munchietown bottom-left correction.
+ * ?fpbal=0 compares against the raw ring placement.
+ */
+const BAL_OFFSETS = [-4, -2, -1, 0, 1, 2, 4]; // candidate nudges, whole cells per axis
+const BAL_SWEEPS = 3;
+const BAL_DEMOTE_STEP = 0.85; // size step for a demoted block (× PLATE_DEG)
+const BAL_DOMINANCE = 1.6; // zone occupancy vs mean that triggers a demotion
+const BAL_MAX_DEMOTE = 2;
+const CENTER_ZONE = 4;
+
+function balanceDrumComposition(raw, items, ctx) {
+  const { placed, aspect, arcLon, norm, quantize, isClear, inWindow, intersectsCard, overlaps } = ctx;
+  // The visible frame's angular half-extents (the lens crop shows ~FPGRID_VIS
+  // of the frustum) — balance is judged on what the viewer actually sees,
+  // independent of the placement window (?fpwin).
+  const tanH = Math.tan((CAMERA_FOV * DEG2RAD) / 2) * FPGRID_VIS;
+  const hx = Math.atan(tanH * (aspect || 1)); // screen-x = latitude arc
+  const hy = Math.atan(tanH); // screen-y = longitude arc
+  const zw = (2 * hx) / 3;
+  const zh = (2 * hy) / 3;
+
+  const rectOf = (b) => ({
+    x1: b.j1 * D_LAT - VIEW_LAT,
+    x2: (b.j1 + b.latCells) * D_LAT - VIEW_LAT,
+    y1: b.i1 * D_LON - arcLon,
+    y2: (b.i1 + b.lonCells) * D_LON - arcLon,
+  });
+  const zoneShare = (r, z) => {
+    const zx1 = -hx + (z % 3) * zw;
+    const zy1 = -hy + Math.floor(z / 3) * zh;
+    const ox = Math.max(0, Math.min(r.x2, zx1 + zw) - Math.max(r.x1, zx1));
+    const oy = Math.max(0, Math.min(r.y2, zy1 + zh) - Math.max(r.y1, zy1));
+    return (ox * oy) / (zw * zh);
+  };
+  const occupancy = () => {
+    const occ = new Array(9).fill(0);
+    for (const p of placed) {
+      const r = rectOf(p);
+      for (let z = 0; z < 9; z++) occ[z] += zoneShare(r, z);
+    }
+    return occ;
+  };
+  const metric = () => {
+    const occ = occupancy();
+    let sum = 0;
+    for (let z = 0; z < 9; z++) if (z !== CENTER_ZONE) sum += occ[z];
+    const mean = sum / 8;
+    let v = 0;
+    for (let z = 0; z < 9; z++) if (z !== CENTER_ZONE) v += (occ[z] - mean) ** 2;
+    return v;
+  };
+  const clearFor = (b, self) =>
+    inWindow(b) &&
+    !intersectsCard(b) &&
+    placed.every((p) => p === self || !overlaps(b, p));
+
+  const stats = { nudged: 0, rescued: 0, demoted: 0, before: metric() };
+
+  // a) nudge sweeps — each block takes its best variance-reducing legal move.
+  const sweep = () => {
+    let improved = false;
+    let score = metric();
+    for (const r of raw) {
+      if (!r) continue;
+      const b = r.b;
+      let best = null;
+      for (const di of BAL_OFFSETS) {
+        for (const dj of BAL_OFFSETS) {
+          if (!di && !dj) continue;
+          const cand = { ...b, i1: b.i1 + di, j1: b.j1 + dj };
+          if (!clearFor(cand, b)) continue;
+          const oi = b.i1;
+          const oj = b.j1;
+          b.i1 = cand.i1;
+          b.j1 = cand.j1;
+          const s = metric();
+          b.i1 = oi;
+          b.j1 = oj;
+          if (s < score - 1e-6 && (!best || s < best.s)) best = { di, dj, s };
+        }
+      }
+      if (best) {
+        b.i1 += best.di;
+        b.j1 += best.dj;
+        score = best.s;
+        improved = true;
+        stats.nudged++;
+      }
+    }
+    return improved;
+  };
+  for (let pass = 0; pass < BAL_SWEEPS; pass++) if (!sweep()) break;
+
+  // b) rescue drops into the emptiest zone (deterministic outward search).
+  raw.forEach((r, idx) => {
+    if (r) return;
+    const occ = occupancy();
+    let zBest = -1;
+    let zMin = Infinity;
+    for (let z = 0; z < 9; z++)
+      if (z !== CENTER_ZONE && occ[z] < zMin) {
+        zMin = occ[z];
+        zBest = z;
+      }
+    const latC = VIEW_LAT + (-hx + (zBest % 3) * zw + zw / 2);
+    const lonC = arcLon + (-hy + Math.floor(zBest / 3) * zh + zh / 2);
+    const span = drumSpan(items[idx].ratio, latC, PLATE_DEG);
+    const STEPS = [0, -2, 2, -4, 4, -6, 6];
+    outer: for (const dj of STEPS) {
+      for (const di of STEPS) {
+        const b = quantize(latC + dj * D_LAT, lonC + di * D_LON, span);
+        if (isClear(b)) {
+          placed.push(b);
+          raw[idx] = { b, nr: 1, ratio: items[idx].ratio };
+          stats.rescued++;
+          break outer;
+        }
+      }
+    }
+  });
+
+  // c) demote the top contributor to a dominant zone one size step.
+  for (let d = 0; d < BAL_MAX_DEMOTE; d++) {
+    const occ = occupancy();
+    let sum = 0;
+    let zMax = -1;
+    let vMax = -1;
+    for (let z = 0; z < 9; z++)
+      if (z !== CENTER_ZONE) {
+        sum += occ[z];
+        if (occ[z] > vMax) {
+          vMax = occ[z];
+          zMax = z;
+        }
+      }
+    if (vMax < (sum / 8) * BAL_DOMINANCE) break;
+    let top = null;
+    for (const r of raw) {
+      if (!r || r.demoted) continue;
+      const share = zoneShare(rectOf(r.b), zMax);
+      if (share > 0 && (!top || share > top.share)) top = { r, share };
+    }
+    if (!top) break;
+    const b = top.r.b;
+    const latC = (b.j1 + b.latCells / 2) * D_LAT;
+    const lonC = (b.i1 + b.lonCells / 2) * D_LON;
+    const span = drumSpan(top.r.ratio, latC, PLATE_DEG * BAL_DEMOTE_STEP);
+    if (span.latCells >= b.latCells && span.lonCells >= b.lonCells) break;
+    const nb = quantize(latC, lonC, span);
+    if (!clearFor(nb, b)) break;
+    Object.assign(b, nb); // in place — `placed` holds the same ref
+    top.r.demoted = true;
+    stats.demoted++;
+    sweep(); // the smaller block may now settle somewhere better
+  }
+
+  stats.after = metric();
+  return stats;
 }
 
 /**
@@ -309,17 +514,24 @@ export function buildDrumSlot(slot, w, ctx) {
   const radius = SHELL_RADIUS - PLATE_R_IN - (slot.atlasBias || 0);
   const accent = w?.projectColor || 0x020098;
 
+  // 08-27 (Nathan): decks and album art render as WALL plates — the detail
+  // page's orthographic DeckScroller brought over to the grid (fpDrumWall).
+  // `ratio` is the wall plate's FOOTPRINT aspect (drives cell span); the
+  // wall's internal column math derives its column count from it: deck 16:9
+  // pages → 2 big spreads, album squares → a 3×2 record bin.
   const stripDefs = BANDS_ENABLED
     ? [
         w?.brandDecks?.length && {
-          pages: w.brandDecks,
-          ratio: w.brandDecks[0].ratio || 16 / 9,
-          baseDeg: PLATE_DEG * 1.5,
+          pages: w.brandDecks.slice(0, WALL_MAX_PAGES),
+          pageRatio: w.brandDecks[0].ratio || 16 / 9,
+          ratio: 16 / 9,
+          baseDeg: PLATE_DEG * 1.8,
         },
         w?.albumArt?.length && {
-          pages: w.albumArt,
-          ratio: 1,
-          baseDeg: PLATE_DEG * 1.2,
+          pages: w.albumArt.slice(0, WALL_MAX_PAGES),
+          pageRatio: 1,
+          ratio: 1.5,
+          baseDeg: PLATE_DEG * 1.6,
         },
       ].filter(Boolean)
     : [];
@@ -332,7 +544,7 @@ export function buildDrumSlot(slot, w, ctx) {
     baseDeg: def.baseDeg,
   }));
 
-  const { blocks, reserved: stripBlocks } = placeDrumBlocks(chosen, {
+  const { blocks, reserved: stripBlocks, balanceStats } = placeDrumBlocks(chosen, {
     seed: w.slug,
     aspect: camera.aspect || 1,
     arcLon,
@@ -346,11 +558,28 @@ export function buildDrumSlot(slot, w, ctx) {
       placedTiles: blocks.filter(Boolean).length,
       dropped: blocks.filter((b) => !b).length,
       strips: stripBlocks.length,
+      balance: balanceStats,
       blocks: blocks.filter(Boolean).map((b) => ({
         lon: [(b.lon1 / DEG2RAD).toFixed(1), (b.lon2 / DEG2RAD).toFixed(1)],
         lat: [(b.lat1 / DEG2RAD).toFixed(1), (b.lat2 / DEG2RAD).toFixed(1)],
       })),
     };
+  }
+
+  // Screen-angle rects every trim element must clear (x = lat − VIEW_LAT,
+  // y = lon − arcLon): the media blocks, the wall strips, and the WorldCard.
+  const avoidRects = [...blocks.filter(Boolean), ...stripBlocks].map((b) => ({
+    x1: b.lat1 - VIEW_LAT,
+    x2: b.lat2 - VIEW_LAT,
+    y1: b.lon1 - arcLon,
+    y2: b.lon2 - arcLon,
+  }));
+  {
+    const win = angularWindow(camera.aspect || 1);
+    const cx = CARD_HALF * FIELD_SPREAD_X * win.halfLon;
+    const cy = CARD_HALF * FIELD_SPREAD_Y * win.halfLat;
+    const oy = FIELD_OFFSET_Y * win.halfLat;
+    avoidRects.push({ x1: -cx, x2: cx, y1: -cy + oy, y2: cy + oy });
   }
 
   // Spawn slerps pull toward the ARC's own center, not the live view center.
@@ -391,6 +620,42 @@ export function buildDrumSlot(slot, w, ctx) {
     const border = makeBorder(block);
     mesh.add(border);
 
+    // ?fptab — spine tab: accent stamp on the plate's bottom-left corner,
+    // mono cell-coordinates rotated −90° (the letterpress plate label).
+    let tab = null;
+    if (FPTAB && block.latCells >= 4 && block.lonCells >= 5) {
+      const tabBlock = {
+        i1: block.i1,
+        j1: block.j1,
+        lonCells: 3,
+        latCells: 2,
+        lon1: block.i1 * D_LON,
+        lon2: (block.i1 + 3) * D_LON,
+        lat1: block.j1 * D_LAT,
+        lat2: (block.j1 + 2) * D_LAT,
+      };
+      const latC = (tabBlock.lat1 + tabBlock.lat2) / 2;
+      const tabCover =
+        (tabBlock.lat2 - tabBlock.lat1) /
+        Math.max(1e-6, (tabBlock.lon2 - tabBlock.lon1) * Math.sin(latC));
+      const tex = makeTabTexture(
+        `${String(block.j1).padStart(3, '0')}·${String(block.i1).padStart(3, '0')}`,
+        accent
+      );
+      plateCover(tex, tabCover, 96 / 256);
+      const tabMaterial = new THREE.MeshBasicMaterial({
+        map: tex,
+        toneMapped: false,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.BackSide,
+      });
+      tab = new THREE.Mesh(drumSectorGeometry(tabBlock, radius - 0.03), tabMaterial);
+      tab.renderOrder = ORDER_TAB;
+      mesh.add(tab);
+    }
+
     const rec = {
       mesh,
       texture: null,
@@ -401,6 +666,7 @@ export function buildDrumSlot(slot, w, ctx) {
       coverAspect: block.coverAspect,
       borderMaterial: border.material,
       playbackId: tile.playbackId || null,
+      tabMaterial: tab ? tab.material : null,
       liveState: null,
       liveMix: 0,
       liveSlot: null,
@@ -433,6 +699,11 @@ export function buildDrumSlot(slot, w, ctx) {
       extraDispose: () => {
         border.geometry.dispose();
         border.material.dispose();
+        if (tab) {
+          tab.geometry.dispose();
+          tab.material.map?.dispose();
+          tab.material.dispose();
+        }
       },
     };
     slot.tiles.push(rec);
@@ -473,36 +744,66 @@ export function buildDrumSlot(slot, w, ctx) {
     );
   };
 
-  const createStrip = (def, j) => {
-    const strip = createRegisterPlate({
+  // 08-27: strips are WALL plates (fpDrumWall) — the detail page's
+  // orthographic DeckScroller riding the drum. The meridian-wipe register
+  // plate stays ATLAS-only.
+  const createWall = (def, j) => {
+    const wall = createWallPlate({
       block: stripBlocks[j],
-      pages: def.pages.slice(0, BAND_MAX_PAGES),
-      loader,
-      parent: slot.tierGroups[BAND_TIER],
+      pages: def.pages,
+      pageRatio: def.pageRatio,
       accent,
-      ease,
-      radius,
+      parent: slot.tierGroups[BAND_TIER],
+      drum,
       geometryFor: (b, rOut) => drumSectorGeometry(b, radius + rOut),
-      // The wipe cut is authored in body-local lon — map it into world space
-      // (clipping planes live there) through the drum's current pose.
-      orientPlane: (plane) => {
-        drum.body.updateWorldMatrix(true, false);
-        plane.applyMatrix4(drum.body.matrixWorld);
-      },
+      borderGeometryFor: (b) => blockBorderGeometry(b, SHELL_RADIUS - BORDER_R_IN),
       spawnTarget: arcCenterDir,
-      orders: { back: ORDER_STRIP_BACK, front: ORDER_STRIP_FRONT },
-      borderRadius: SHELL_RADIUS - BORDER_R_IN,
+      orders: { front: ORDER_STRIP_FRONT, border: ORDER_BORDER },
     });
-    slot.bands.push(strip);
+    slot.bands.push(wall);
     if (firstView && !PREFERS_REDUCED_MOTION) {
-      gsap.to(strip, {
+      gsap.to(wall, {
         appear: 1,
         duration: TILE_APPEAR_DURATION,
         ease,
         overwrite: true,
       });
     } else {
-      strip.appear = 1;
+      wall.appear = 1;
+    }
+  };
+
+  // Trim (?fpglow / ?fpfurn) — the between-media dressing, one build each
+  // per arc. Glow is pure shader (skip under reduced motion: the wave would
+  // never run and the trace has no pointer).
+  const createTrim = () => {
+    const aspect = camera.aspect || 1;
+    if ((FPGLOW === 1 || FPGLOW === 2) && !PREFERS_REDUCED_MOTION) {
+      slot.bands.push(
+        createDrumGlow(FPGLOW, {
+          arcLon,
+          aspect,
+          accent,
+          drum,
+          lensPass: ctx.lensPass,
+          pointer: ctx.pointer,
+          parent: slot.tierGroups[BAND_TIER],
+          ease,
+        })
+      );
+    }
+    if (FPFURN) {
+      slot.bands.push(
+        createDrumFurniture({
+          seed: w.slug,
+          arcLon,
+          aspect,
+          accent,
+          avoid: avoidRects,
+          parent: slot.tierGroups[BAND_TIER],
+          ease,
+        })
+      );
     }
   };
 
@@ -510,10 +811,15 @@ export function buildDrumSlot(slot, w, ctx) {
   const stale = () => isStale() || slot.buildGen !== gen;
   const BATCH = Math.max(5, WORLD_MAX_VIDEO_TILES);
   const scheduleStrip = (j) => {
-    if (j >= stripDefs.length) return;
+    if (j >= stripDefs.length) {
+      requestAnimationFrame(() => {
+        if (!stale()) createTrim();
+      });
+      return;
+    }
     requestAnimationFrame(() => {
       if (stale()) return;
-      createStrip(stripDefs[j], j);
+      createWall(stripDefs[j], j);
       scheduleStrip(j + 1);
     });
   };

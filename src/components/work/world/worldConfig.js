@@ -29,15 +29,27 @@ const num = (key, fallback) => {
 /* — fp-grid mode (refactor/fp-grid-media) — media lives IN the grid.
    ?fpgrid selects the expression: 1 ATLAS (on-sphere plates, fixed graticule),
    2 FORME (locked letterpress pane, re-deal Turn), 3 DRUM (one continuous
-   revolving world). 0 = the legacy floating tile field. Default = 1 (Nathan,
-   08-27). All grid modes: SHELL_SPIN → 0, media + grid move as one body. */
-export const FPGRID = Math.round(num('fpgrid', 1));
+   revolving world). 0 = the legacy floating tile field. Default = 3 — DRUM is
+   the blessed direction (Nathan, 08-27 feel pass); 1/2 stay live for
+   comparison. All grid modes: SHELL_SPIN → 0, media + grid move as one body. */
+export const FPGRID = Math.round(num('fpgrid', 3));
 export const FPGRID_ACTIVE = FPGRID > 0;
 
 /* — fp-grid shared knobs (house num() convention) — */
-export const PLATE_DEG = num('platedeg', 11.5); // plate longest side, degrees of arc (≈ today's tile presence)
-export const FPGRID_WINDOW = num('fpwin', 0.78); // usable fraction of the frustum — the lens crop shows ~0.85, so 0.78 keeps edge blocks a real margin inside the frame (pincushion magnifies edges)
+export const PLATE_DEG = num('platedeg', 12); // plate longest side, degrees of arc — Nathan's 08-27 DRUM bake (was 11.5)
+export const FPGRID_WINDOW = num('fpwin', 1.1); // usable fraction of the frustum — Nathan's 08-27 DRUM bake (was 0.78): > 1 lets edge blocks run off the frame, implying more world beyond it
 export const CAM_LOOK = num('camlook', 0.025); // ATLAS parallax: camera look-around amplitude (radians ≈ legacy near-tier travel)
+
+/* — DRUM refinement knobs (08-27 second pass, DRUM blessed) — */
+export const FPGRID_BALANCE = num('fpbal', 1) !== 0; // semi-balance pass over the seeded placement (0 = raw ring placement, for A/B)
+export const FPGRID_VIS = num('fpvis', 0.85); // fraction of the frustum the lens crop actually SHOWS — the balance pass judges zone occupancy against this visible frame, independent of the ?fpwin placement window
+export const FPGLOW = Math.round(num('fpglow', 1)); // grid-panel illumination: 0 off · 1 accent wave emanating from center (rides the house pulse cadence — reinforces enter_world) · 2 pointer-trace (cells light as the cursor passes, lens-distortion-corrected)
+export const FPGLOW_ALPHA = num('fpglowa', 0.2); // peak illuminated-panel alpha (the pointer trace runs ×3, capped 0.55)
+export const FPTAB = num('fptab', 1) !== 0; // plate spine tabs: small accent tab, −90° mono cell-coordinates, bottom-left of each plate
+export const FPFURN = num('fpfurn', 0) !== 0; // drum furniture: seeded registration crosses / coordinate captions / cell floods in empty cells (FORME's furniture language riding the drum)
+export const WALL_DRIFT = num('walldrift', 9); // deck/album wall plates: idle column drift, canvas px/s (DeckScroller's ?deckdrift idiom)
+export const WALL_GEAR = num('wallgear', 5); // wall px of column travel per DEGREE of drum roll — the Turn accelerates the wall the way Lenis scroll does on the detail page
+export const WALL_MAX_PAGES = Math.max(4, Math.round(num('wallpages', 12))); // pages a wall plate cycles — pairs with BAND_PAGE_CAP in work/index.astro (the register plates still slice BAND_MAX_PAGES)
 export const DRUM_CREEP = num('creep', 0); // DRUM idle: whole-body creep, deg/sec (0 = still — Nathan's toggle)
 export const ARC_DEG = num('arcdeg', 60); // DRUM: arc per project (6-fold). 60° keeps the conveyor CONTINUOUS — the incoming arc enters the frame before the outgoing exits; 120° left a long bare-grid beat mid-roll.
 export const DRUM_TURN_MUL = num('drumturn', 1.15); // DRUM: Turn duration × (60° needs less stretch than the 120° sweep did)
@@ -48,7 +60,7 @@ export const CAMERA_FOV = num('fov', 42); // vertical degrees
 export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales with DPR²; was desktop 2). ?dpr to A/B
 export const MSAA_SAMPLES = num('msaa', 4); // composer target multisamples (08-25 grid AA); 0 = off, ?msaa to A/B
 export const FPS_CAP = 60;
-export const MAX_TILES = num('max', IS_MOBILE ? 9 : 7);
+export const MAX_TILES = num('max', IS_MOBILE ? 9 : 8); // desktop 8 — Nathan's 08-27 DRUM density bake (was 7)
 export const MIN_TILES = num('min', 5); // cycle showcase to fill sparse Worlds
 /* — Tile thumbnail size — linear in the World's tile count: FEWER tiles get a
    BIGGER thumbnail (a sparse World shows each tile larger, and fewer total

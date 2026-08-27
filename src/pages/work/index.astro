@@ -31,7 +31,11 @@ import FeaturedProjects from '../../components/work/FeaturedProjects.jsx';
 const projects = await sanityFetch(FEATURED_WORLDS_QUERY);
 
 // Composite-band page shape (the World mount needs only art + aspect).
-const BAND_PAGE_CAP = 5; // matches BAND_MAX_PAGES client-side
+// 08-27: raised 5 → 12 for the DRUM wall plates (fpDrumWall cycles up to
+// WALL_MAX_PAGES pages, and a scrolling wall reads best with the fuller set).
+// The legacy/ATLAS register-plate paths still slice BAND_MAX_PAGES (5)
+// client-side, so they are unaffected.
+const BAND_PAGE_CAP = 12; // matches WALL_MAX_PAGES client-side
 const bandPage = (a) => ({
   _id: a._id,
   title: a.title || null,

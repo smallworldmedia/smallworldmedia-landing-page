@@ -439,6 +439,10 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
             ...ctx,
             arcOffsetDeg: slot.drumArcOffset || 0,
             drum,
+            // Trim ctx (08-27): the pointer-trace glow corrects the cursor
+            // through the LIVE lens coefficients before raycasting the drum.
+            lensPass,
+            pointer: { target, eased },
           });
         return;
       }

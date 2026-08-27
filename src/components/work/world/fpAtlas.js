@@ -537,6 +537,7 @@ export function applyAtlasSlot(slot) {
     const fade = TILE_APPEAR_FADE > 0 ? Math.min(1, k / TILE_APPEAR_FADE) : 1;
     t.mesh.material.opacity = fade * slot.opacity;
     if (t.borderMaterial) t.borderMaterial.opacity = BORDER_ALPHA * fade * slot.opacity;
+    if (t.tabMaterial) t.tabMaterial.opacity = fade * slot.opacity; // DRUM spine tab
     if (t.videoMesh) t.videoMesh.material.opacity = t.liveMix * fade * slot.opacity;
   }
   for (const b of slot.bands) {
