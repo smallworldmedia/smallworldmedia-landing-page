@@ -29,9 +29,46 @@
 > creep deg/s · plus the standing knobs (`?bandx/?bandy` strip anchor,
 > `?max/?min` density, `?shellalpha`, `?spin`).
 >
-> Open for Nathan's feel pass: per-mode composition balance (seeded per slug),
-> FORME frame weight/furniture density, DRUM creep on/off + rate, mobile pass
-> (deferred, as with HR-6).
+> **STATUS 2026-08-27 (2): DRUM BLESSED — refinement pass shipped.** Nathan
+> picked DRUM from the feel pass; his tunables are baked as defaults
+> (`fpgrid=3`, `platedeg=12`, `fpwin=1.1`, desktop `max=8`). The pass added:
+>
+> - **Composition balance** (`?fpbal=1` default, `0` = raw A/B): a
+>   deterministic post-pass measures 3×3-zone occupancy of the VISIBLE frame
+>   (`?fpvis` 0.85 lens-crop model; center zone = the card's, excluded), then
+>   nudges blocks a few cells toward the variance-minimizing legal move (up to
+>   3 sweeps), re-seats DROPPED blocks into the emptiest zone, and demotes the
+>   block crowding a dominant zone one size step (~15%). Zero PRNG draws —
+>   seeded layouts stay reproducible. Verified: rossi zone variance 0.385 →
+>   0.010, munchietown 0.321 → 0.005.
+> - **Wall plates** (`fpDrumWall.js`): brand decks + album art render as the
+>   detail page's orthographic DeckScroller wall pressed into the drum — one
+>   canvas per strip with the exact column math (alternating directions,
+>   `(col + n·cols) % N` cycling, positive-mod wrap), idle drift `?walldrift`
+>   + Turn-roll coupling `?wallgear` (|Δadv| stands in for Lenis velocity).
+>   `BAND_PAGE_CAP` 5 → 12 server-side (`?wallpages` client cap); the
+>   legacy/ATLAS register plates still slice `BAND_MAX_PAGES`.
+> - **Trim toggles** (`fpDrumTrim.js`): `?fpglow=1` (default) — cell panels
+>   illuminate in the accent in a ring emanating from center on the
+>   house-pulse cadence (reinforces enter_world); `?fpglow=2` — pointer-trace
+>   illumination, cursor corrected through the LIVE lens coefficients
+>   (forward-applying the pass's backward map) then dropped into drum-body
+>   space so lit cells stay on their cells as the drum rolls; `?fpglowa`
+>   alpha. `?fptab=1` (default) — accent spine tab, −90° mono
+>   cell-coordinates, stamped on each plate's bottom-left. `?fpfurn=1`
+>   (default 0) — FORME's furniture riding the drum: seeded registration
+>   crosses, coordinate captions, whisper floods in empty cells.
+> - **Card chrome**: service tags now persistent brand-black fill — a LIGHT
+>   accent is used AS ink on the black (`--project-color-on-black`), dark
+>   accents fall back white; enter_world pulses its FILL toward the new
+>   `--color-dim-gray` token (`?fp1mix` depth) instead of dipping opacity.
+> - **Detail page**: AlbumArtViewer rides the DeckScroller wall (BandPager +
+>   per-release chips tabled with it); the same wall carries to the grid.
+>
+> Open for Nathan: glow mode choice (1 vs 2 vs 0) + `?fpglowa`, furniture
+> on/off, wall drift/gear taste, `?fp1mix` depth, per-release metadata's new
+> home if wanted, chrome keep-outs for [PREVIOUS]/[NEXT] (still deferred),
+> mobile pass (deferred, as with HR-6).
 >
 > Grounding: candidate mechanisms were adversarially verified against the real
 > scene code (useWorldScene / buildShell / seededLayout / worldLive / worldBands)
