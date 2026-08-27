@@ -3,8 +3,35 @@
 > Proposal for the `refactor/fp-grid-media` worktree. One concept — media occupies
 > blocks of grid cells instead of floating in front of the shell — expressed three
 > ways, live-switchable via `?fpgrid=1|2|3` (house `num()` convention;
-> `?fpgrid=0` = legacy floating field). **Awaiting Nathan's approval before deep
-> implementation.**
+> `?fpgrid=0` = legacy floating field).
+>
+> **STATUS 2026-08-27: APPROVED + ALL THREE IMPLEMENTED** (commits f11b6a8
+> ATLAS, d7d0cf6 FORME, 6fde3fb DRUM). Nathan's calls honored: default mode 1;
+> DRUM idle creep is a live toggle (`?creep` deg/s, default 0 = still); house
+> tokens/curves/timings reused throughout (turnRollEase, TURN_DURATION,
+> TILE_APPEAR/FANOUT, BAND_CYCLE_S, S2 accent ingestion, CTA ink states).
+> All modes verified on coco (video-heavy) + bedouin (deck-heavy): Turn,
+> enter-dive, deck cycling, live video within the existing pool budget
+> (4/4/3/4 streams live on modes 0/1/2/3), console clean, build green,
+> `?fpgrid=0` legacy regression-free.
+>
+> Implementation deltas vs the plan below: DRUM arcs landed at **60°** (6-fold)
+> — 120° left a bare-grid beat mid-roll; 60° keeps the conveyor continuous
+> (`?arcdeg` to compare). Ring-walk placement DROPS a block when a full
+> revolution (3 outward layers) finds no clear cells — empty cells over corner
+> pileups. Sanity CORS gained `http://localhost:4322` (this worktree's dev port).
+>
+> **Live-tuning quick reference** (all house `num()` params on `/work`):
+> `?fpgrid=0|1|2|3` mode · `?platedeg` block size (deg, all modes) ·
+> `?fpwin` field margin inside the lens crop · `?camlook` ATLAS/DRUM pointer
+> amplitude · `?panepitch` FORME macro-cell pitch (× shell fine pitch) ·
+> `?arcdeg` DRUM arc · `?drumturn` DRUM Turn duration × · `?creep` DRUM idle
+> creep deg/s · plus the standing knobs (`?bandx/?bandy` strip anchor,
+> `?max/?min` density, `?shellalpha`, `?spin`).
+>
+> Open for Nathan's feel pass: per-mode composition balance (seeded per slug),
+> FORME frame weight/furniture density, DRUM creep on/off + rate, mobile pass
+> (deferred, as with HR-6).
 >
 > Grounding: candidate mechanisms were adversarially verified against the real
 > scene code (useWorldScene / buildShell / seededLayout / worldLive / worldBands)
