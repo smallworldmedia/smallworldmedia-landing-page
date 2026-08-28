@@ -57,7 +57,7 @@ html:has(.project-detail) body {
   /* 96px @ 1800w */
   line-height: 0.78;
   /* 74/96 */
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   text-transform: uppercase;
   /* S2: readable ink on the accent-filled band (dark on light accents). */
   color: var(--project-color-fg, var(--color-white));
@@ -342,7 +342,7 @@ html:has(.project-detail) body {
   font-size: clamp(1.5rem, 2.78vw, 3.571rem);
   /* 50px @ 1800w */
   line-height: 1;
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
 }
 
@@ -375,7 +375,7 @@ html:has(.project-detail) body {
   /* 24px */
   line-height: 1.571rem;
   /* 22px */
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
 }
 
@@ -820,7 +820,7 @@ a.release-chip--link:hover {
   /* 96px @ 1800w, client-panel title family */
   font-size: clamp(2.2rem, 5.333vw, 6.857rem);
   line-height: 0.78;
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   text-transform: uppercase;
   white-space: nowrap;
   transition: color 0.12s ease-out;

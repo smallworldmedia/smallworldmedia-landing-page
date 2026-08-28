@@ -713,7 +713,7 @@ body.route-home .site-nav__logo {
   /* 16px */
   line-height: 1.571rem;
   /* 22px */
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
   white-space: nowrap;
 }
@@ -1609,7 +1609,7 @@ body.route-home .site-nav__logo {
   font-family: var(--font-body);
   font-size: var(--text-secondary);
   line-height: var(--lh-secondary);
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
 }
 
@@ -1619,7 +1619,7 @@ body.route-home .site-nav__logo {
   /* 16px */
   line-height: 1.571rem;
   /* 22px */
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
 }
 
@@ -1712,7 +1712,7 @@ body.route-home .site-nav__logo {
   font-size: 1.143rem;
   /* 16px */
   line-height: 1.571rem;
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
 }
 
@@ -1734,7 +1734,7 @@ body.route-home .site-nav__logo {
   font-size: 1.143rem;
   /* 16px */
   line-height: 1.571rem;
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
   white-space: nowrap;
   transition: opacity var(--duration-micro) var(--ease-micro);
@@ -2079,7 +2079,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   font-size: 1.286rem;
   /* 18px */
   line-height: 1.571rem;
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   cursor: pointer;
   transition: background var(--duration-micro) var(--ease-micro);
   margin-left: auto;
@@ -2528,7 +2528,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
     font-weight: 400;
     font-size: clamp(1.4rem, 5.5vw, 2.2rem);
     line-height: 1;
-    letter-spacing: -0.005em;
+    letter-spacing: var(--tracking-body);
     text-transform: none;
     max-width: 100%;
   }

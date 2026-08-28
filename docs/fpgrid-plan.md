@@ -84,6 +84,15 @@
 > per-release metadata's new home if wanted, chrome keep-outs for
 > [PREVIOUS]/[NEXT] (still deferred), mobile pass (deferred, as with HR-6).
 >
+> **POST-MERGE FOLLOW-UP (Nathan, 08-27):** after this branch folds in, run a
+> SITE-WIDE token sweep — replace hardcoded CSS literals (sizes, line-heights,
+> tracking, weights, colors, spacing) with design-system variables, MINTING
+> new tokens where no existing one matches or sits close to the value. The
+> pill-line pass (c6d9c5c: `--text-pill`/`--lh-pill`/`--weight-medium`/
+> `--tracking-body`, then the 12-site `-0.005em` sweep across global/process/
+> project-detail) is the model: swap is mechanical, resolved values must stay
+> byte-identical, and a token only earns its name with real consumers.
+>
 > Grounding: candidate mechanisms were adversarially verified against the real
 > scene code (useWorldScene / buildShell / seededLayout / worldLive / worldBands)
 > — all three came back *feasible-with-changes*; the corrections are folded in

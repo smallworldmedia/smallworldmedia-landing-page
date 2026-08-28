@@ -366,7 +366,7 @@ body.route-process .site-nav {
   font-weight: 400;
   font-size: clamp(1.5rem, 2.78vw, 3.571rem);
   line-height: 1;
-  letter-spacing: -0.005em;
+  letter-spacing: var(--tracking-body);
   color: var(--color-white);
   max-width: min(26ch, 44vw);
   margin-top: var(--space-6);
