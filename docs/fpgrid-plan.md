@@ -84,13 +84,13 @@
 > per-release metadata's new home if wanted, chrome keep-outs for
 > [PREVIOUS]/[NEXT] (still deferred), mobile pass (deferred, as with HR-6).
 >
-> **Ripple BAKED (08-27 (4), Nathan):** `ripvar=3 · ripspeed=0.15 ·
-> ripevery=2.5 · ripfall=0.8 · ripw=6` are the shipped defaults; new
-> `?ripalpha` caps the crest — defaulting to the LIVE `?shellalpha` so the
-> illuminated cells peak at the grid lines' own ink. The tagline pill +
-> copyright now ride the footer-link 16/22 tier (VISUAL WORLDS keeps
-> Medium); privacy closes the footer row at `--weight-medium`, brand blue
-> at rest, white on hover.
+> **Ripple BAKED (08-27 (5), Nathan's final dial):** `ripvar=3 ·
+> ripspeed=0.15 · ripevery=4 · ripfall=0.13 · ripw=5 · ripalpha=1` are the
+> shipped defaults — sparse launches (every 4th pulse), FULL-ink crests with
+> a tight falloff doing the dimming (the heart burns bright and dies fast
+> with distance). The tagline pill + copyright ride the footer-link 16/22
+> tier (VISUAL WORLDS keeps Medium); privacy closes the footer row at
+> `--weight-medium`, brand blue at rest, white on hover.
 >
 > **POST-MERGE FOLLOW-UP (Nathan, 08-27):** after this branch folds in, run a
 > SITE-WIDE token sweep — replace hardcoded CSS literals (sizes, line-heights,
