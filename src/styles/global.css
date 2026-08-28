@@ -1754,12 +1754,15 @@ body.route-home .site-nav__logo {
   display: inline-block;
 }
 
+/* 08-27 (4), Nathan: privacy closes the row one weight up, brand blue at
+   rest, white on hover (the old 0.6-opacity whisper retired). */
 .site-footer__link--privacy {
-  opacity: 0.6;
+  font-weight: var(--weight-medium);
+  color: var(--color-electric-blue);
 }
 
 .site-footer__link--privacy:hover {
-  opacity: 1;
+  color: var(--color-white);
 }
 
 /* Stack the columns on narrow viewports */
@@ -1856,9 +1859,11 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   gap: 1.5rem; /* pill → copyright run-on (Figma: 21px) */
 }
 
-/* The pill — black flood, radius-50 capsule, 8/12 padding, 18px PP Neue
-   Montreal (VISUAL WORLDS Medium, rest Regular), per the Figma node. The
-   intro wipes clip-path left→right; words are per-span for the stagger. */
+/* The pill — black flood, radius-50 capsule, 8/12 padding. 08-27 (4),
+   Nathan: the pill line + copyright ride the FOOTER NAV LINK text style
+   (16/22 body, --tracking-body) so the whole revealed footer reads as one
+   type tier; only VISUAL WORLDS keeps the Medium emphasis. The intro wipes
+   clip-path left→right; words are per-span for the stagger. */
 .site-tagline__pill {
   display: flex;
   align-items: center;
@@ -1868,7 +1873,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   background: var(--color-black);
   color: var(--color-white);
   font-family: var(--font-body);
-  font-size: var(--text-pill);
+  font-size: var(--text-ui);
   line-height: var(--lh-pill);
   letter-spacing: var(--tracking-body);
   white-space: nowrap;
@@ -1887,8 +1892,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
 .site-tagline__copy {
   font-family: var(--font-body);
-  font-weight: var(--weight-medium);
-  font-size: var(--text-pill);
+  font-size: var(--text-ui);
   line-height: var(--lh-pill);
   letter-spacing: var(--tracking-body);
   color: var(--color-white);
@@ -1898,11 +1902,6 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 }
 
 @media (max-width: 768px) {
-  /* Mobile: the pill may outgrow the viewport — let the line shrink. */
-  .site-tagline__pill {
-    font-size: var(--text-ui);
-  }
-
   .site-tagline__row {
     gap: 0.857rem;
     flex-wrap: wrap;

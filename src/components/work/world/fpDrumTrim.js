@@ -50,6 +50,7 @@ import {
   RIPPLE_FALLOFF,
   RIPPLE_RADIUS,
   RIPPLE_WIDTH,
+  RIPPLE_ALPHA,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 import { HOUSE_PULSE_PERIOD_S } from '../../../lib/motion.js';
@@ -237,9 +238,9 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
   const uniforms = {
     uColor: { value: new THREE.Color(accent) },
     uOpacity: { value: 0 },
-    // The trace needs to punch harder than the ambient ripple — few cells lit
-    // at once vs a whole traveling crest (?fpglowa scales both).
-    uAlpha: { value: mode === 2 ? Math.min(0.55, FPGLOW_ALPHA * 3) : FPGLOW_ALPHA },
+    // Ripple peaks at ?ripalpha (default = the grid lines' own opacity);
+    // the trace keeps its harder ?fpglowa×3 basis — few cells lit at once.
+    uAlpha: { value: mode === 2 ? Math.min(0.55, FPGLOW_ALPHA * 3) : RIPPLE_ALPHA },
     uAge: { value: new Array(8).fill(0) },
     uLaunchN: { value: 0 },
     uSpeed: { value: RIPPLE_SPEED * radMax },

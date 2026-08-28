@@ -44,15 +44,18 @@ export const CAM_LOOK = num('camlook', 0.025); // ATLAS parallax: camera look-ar
 export const FPGRID_BALANCE = num('fpbal', 1) !== 0; // semi-balance pass over the seeded placement (0 = raw ring placement, for A/B)
 export const FPGRID_VIS = num('fpvis', 0.85); // fraction of the frustum the lens crop actually SHOWS — the balance pass judges zone occupancy against this visible frame, independent of the ?fpwin placement window
 export const FPGLOW = Math.round(num('fpglow', 1)); // grid-panel illumination: 0 off · 1 accent ripple emanating from center (launches on the house-pulse cadence — reinforces enter_world) · 2 pointer-trace (cells light as the cursor passes, lens-distortion-corrected)
-export const FPGLOW_ALPHA = num('fpglowa', 0.2); // peak illuminated-panel alpha (the pointer trace runs ×3, capped 0.55)
-/* — Ripple bench (?fpglow=1 — Nathan's pick, 08-27 (2)) — */
-export const RIPPLE_VAR = Math.round(num('ripvar', 3)); // radial animation: 1 pulse ring (one crest, fades as it travels) · 2 wavetrain (identical crests, no travel fade) · 3 droplet (crisp front + damped trailing crests — the water read). Launches are INDEPENDENT: one fires each house period and keeps traveling until its trail leaves the frame — slow ?ripspeed = several alive at once (cap 8)
+export const FPGLOW_ALPHA = num('fpglowa', 0.2); // pointer-trace alpha basis (the trace runs ×3, capped 0.55); the RIPPLE's peak is ?ripalpha below
+/* — Ripple bench (?fpglow=1 — Nathan's pick; defaults = his 08-27 (4) bake:
+   slow droplets every 2.5 pulses, wide crests, peaking at the grid lines'
+   own ink) — */
+export const RIPPLE_VAR = Math.round(num('ripvar', 3)); // radial animation: 1 pulse ring (one crest, fades as it travels) · 2 wavetrain (identical crests, no travel fade) · 3 droplet (crisp front + damped trailing crests — the water read). Launches are INDEPENDENT: each fires on the cadence and keeps traveling until its trail leaves the frame (cap 8 alive)
 export const RIPPLE_SHADE = Math.round(num('ripshade', 0)); // cell shading: 0 FLAT fill — illumination fills each cell to the grid lines · 1 hairline inset (the soft bevel/emboss read)
-export const RIPPLE_EVERY = Math.max(0.25, num('ripevery', 1)); // house periods between launches (2 = fire every OTHER enter_world pulse; fractions allowed)
-export const RIPPLE_SPEED = num('ripspeed', 0.45); // ripple travel, fraction of the capped radius per second
-export const RIPPLE_FALLOFF = num('ripfall', 0.9); // distance decay length, × the capped radius (higher = the ripple carries further before dimming)
+export const RIPPLE_EVERY = Math.max(0.25, num('ripevery', 2.5)); // house periods between launches — 08-27 bake 2.5 (was 1); fractions allowed
+export const RIPPLE_SPEED = num('ripspeed', 0.15); // ripple travel, fraction of the capped radius per second — 08-27 bake (was 0.45)
+export const RIPPLE_FALLOFF = num('ripfall', 0.8); // distance decay length, × the capped radius — 08-27 bake (was 0.9)
 export const RIPPLE_RADIUS = num('riprad', 1); // ripple extent, × the visible window's half-diagonal
-export const RIPPLE_WIDTH = num('ripw', 4); // crest half-width, in lat cells (var 3's crest spacing rides it ×4)
+export const RIPPLE_WIDTH = num('ripw', 6); // crest half-width, in lat cells (var 3's crest spacing rides it ×4) — 08-27 bake (was 4)
+export const RIPPLE_ALPHA = num('ripalpha', num('shellalpha', 0.55)); // ripple peak alpha — defaults to the LIVE grid-line opacity (?shellalpha, 0.55) so the illuminated cells crest at exactly the lines' own ink (Nathan, 08-27 (4))
 export const FPTAB = num('fptab', 1) !== 0; // plate spine tabs: small accent tab, −90° mono cell-coordinates, bottom-left of each plate
 export const FPFURN = num('fpfurn', 0) !== 0; // drum furniture: seeded registration crosses / coordinate captions / cell floods in empty cells (FORME's furniture language riding the drum)
 export const WALL_DRIFT = num('walldrift', 9); // deck/album wall plates: idle column drift, canvas px/s (DeckScroller's ?deckdrift idiom)
