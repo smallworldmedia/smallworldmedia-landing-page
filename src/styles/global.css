@@ -1013,15 +1013,17 @@ body.route-home .site-nav__logo {
   pointer-events: none;
 }
 
-/* overviews_loading (08-25, Nathan) — the dummy loading bar bridging the
-   home→/work passage. Centered on the fill; mono label over a hairline
-   track; the bar is GSAP-scaled from the left (RouteFill loaderStart).
-   Hidden until a loader-tagged envelop; fades with the parent fill. */
+/* overviews_loading (08-25, Nathan; 08-27 (4): a fixed SIBLING of the fill,
+   not a child — the hero's early swm:loader-start raises it over the
+   commit's own spreading blue, ?loaderlead ms in, and RouteFill fades it in
+   mirror with the fill on release). Viewport-centered; mono label over a
+   hairline track; the bar is GSAP-scaled from the left. */
 .route-fill__loader {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   gap: 0.571rem;

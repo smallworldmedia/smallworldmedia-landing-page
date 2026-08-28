@@ -44,6 +44,9 @@ const FIELDS = [
   { key: 'blueSurge', label: 'blue surge', hint: 'per-panel length (delay units)' },
   { key: 'blueDipEnd', label: 'blue dip end', hint: 'dip share of surge 0..0.9' },
   { key: 'blueDipDepth', label: 'blue dip depth', hint: 'brightness drop 0..1' },
+  /* overviews_loading (home→/work passage) */
+  { key: 'loaderLeadMs', label: 'loader lead', hint: 'ms after commit start → bar appears' },
+  { key: 'loaderEndMs', label: 'loader end', hint: 'ms the bar takes to close; reveal waits' },
   /* hero comp */
   { key: 'lockupH', label: 'lockup h', hint: 'px height, 0 = auto clamp' },
   { key: 'lockupBeatMs', label: 'lockup beat', hint: 'ms between word cuts (entrance)' },

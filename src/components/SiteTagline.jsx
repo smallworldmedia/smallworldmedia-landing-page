@@ -77,8 +77,10 @@ export default function SiteTagline() {
         showInstant();
         return;
       }
-      // Pill wipes in left→right (left anchored); words fade up into place
-      // starting just behind the wipe. House feel: steep launch, smooth decel.
+      // Pill wipes in left→right (left anchored); words fade into place
+      // starting just behind the wipe. 08-27 (4), Nathan: NO y transform on
+      // the per-word arrival — the sequential rise read as stutter; the
+      // words fade in seated.
       introTl = gsap
         .timeline()
         .set(pill, { autoAlpha: 1 })
@@ -90,10 +92,9 @@ export default function SiteTagline() {
         )
         .fromTo(
           words,
-          { autoAlpha: 0, yPercent: 70 },
+          { autoAlpha: 0 },
           {
             autoAlpha: 1,
-            yPercent: 0,
             duration: 0.45,
             stagger: 0.07,
             ease: 'power2.out',

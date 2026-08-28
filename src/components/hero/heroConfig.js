@@ -139,6 +139,12 @@ export const TUNING_DEFAULTS = Object.freeze({
      camera channels ride — everything runs concurrently; overlap freely. */
   blueStart: 0, // ?bluestart — timeline fraction where the panel cascade begins
   blueEnd: 0.3, // ?blueend — timeline fraction where the last panel lands blue; 0.3 = Nathan's 08-25 bake
+  /* overviews_loading pacing (08-27 (4), Nathan — the bar had no time to run:
+     it only existed between the handoff and /work's release). Both read LIVE
+     at fire time (Hero commit / RouteFill release), so the bench moves them
+     without a reload. */
+  loaderLeadMs: 350, // ?loaderlead — ms after the commit STARTS before the loading chrome appears (over the spreading blue; was: only at handoff, ~commitMs later)
+  loaderEndMs: 500, // ?loaderend — the bar's paced closing stretch once /work releases: the final % eases over this and the reveal WAITS for it
   /* Camera channels (08-25 refactor): each rides its OWN smooth power-inOut
      window as a fraction of the FULL timeline — recenter and zoom overlap
      with each other AND the blue as one fluid gesture, no lurch at either
@@ -231,6 +237,8 @@ const PARAM_KEYS = {
   commitMs: 'commitms',
   blueStart: 'bluestart',
   blueEnd: 'blueend',
+  loaderLeadMs: 'loaderlead',
+  loaderEndMs: 'loaderend',
   recenterStart: 'recenterstart',
   recenterEnd: 'recenterend',
   zoomStart: 'zoomstart',

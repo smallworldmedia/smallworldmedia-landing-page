@@ -715,6 +715,18 @@ export default function Hero({ globeAssets }) {
        real-time chrome exit (house-sanctioned exception). — */
     const raw = { p: 0 };
     const tl = gsap.timeline({ onComplete: dryRun ? releaseDryRun : handoff });
+    // 08-27 (4), Nathan: the overviews_loading chrome opens EARLY —
+    // ?loaderlead ms after the commit starts, over the spreading blue (it
+    // used to exist only between the handoff and /work's release, no time to
+    // run its charge). rAF-deferred dispatch so RouteFill's tweens are never
+    // adopted into this island's gsap context; dry runs stay bare.
+    if (!dryRun) {
+      gsap.delayedCall(Math.max(0, HERO_TUNING.loaderLeadMs) / 1000, () =>
+        requestAnimationFrame(() =>
+          window.dispatchEvent(new CustomEvent('swm:loader-start'))
+        )
+      );
+    }
     // Chrome out — the button stays until the spreading blue swallows it.
     tl.to(
       chrome,
@@ -1061,15 +1073,15 @@ export default function Hero({ globeAssets }) {
       ? 100
       : Math.round(Math.min(1, Math.max(ctaFill, ctaHover ? 1 : 0)) * 100);
   const ctaColor = {
-    // 08-27 (Nathan): the /work FP-1 fill pulse extends home — the DEFAULT
-    // (rest) state breathes the black fill toward --color-dim-gray on the
-    // house pulse (--cta-pulse 0..1, tweened on the wrap so React's inline
-    // style on the button never fights GSAP's var writes). The blue pour
-    // mixes OVER the breathing base, so any charge or hover swamps the pulse
-    // naturally — no gating logic needed. Home polarity = BRIGHTEN
-    // (black → dim gray), the inquiry-field reading of the house pulse.
-    '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--color-black), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-electric-blue) ${ctaPct}%)`,
-    '--cta-fg': 'var(--color-white)',
+    // 08-27 (4) redial (Nathan): the DEFAULT state is BRAND BLUE, pulsing
+    // down to --color-dim-gray on the house pulse (--cta-pulse 0..1, tweened
+    // on the wrap so React's inline style here never fights GSAP's var
+    // writes). Hover and the scroll charge pour WHITE over the breathing
+    // base (ctaPct swamps the pulse — no gating logic), the label crossing
+    // to blue for legibility — the chip lands on /work already wearing that
+    // page's white enter_world skin.
+    '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--color-electric-blue), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-white) ${ctaPct}%)`,
+    '--cta-fg': `color-mix(in srgb, var(--color-white), var(--color-electric-blue) ${ctaPct}%)`,
     '--cta-down': ctaDown.toFixed(4),
   };
 

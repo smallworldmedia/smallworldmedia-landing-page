@@ -21,6 +21,9 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { applyNavAccent, reapplyNavAccent, clearNavAccent } from '../lib/navAccent.js';
+// overviews_loading pacing knobs (?loaderlead / ?loaderend, ?committune
+// bench) — read at fire time so the bench moves them live.
+import { TUNING as HERO_TUNING } from './hero/heroConfig.js';
 
 // Live tuning (?key=value, ms) — read once when the persistent shell first
 // mounts, so put the knob on the URL you LOAD (it survives client navs).
@@ -50,14 +53,17 @@ export default function RouteFill() {
     let safetyTimer = null;
     let loaderUp = false;
 
-    // ── overviews_loading (08-25, Nathan) — a dummy loading bar bridging
-    // the home→/work gap: the departing hero tags its envelop with
-    // detail.loader, the bar charges to ~90% while the World builds behind
-    // the fill, and the release snaps it full before the fade carries the
-    // whole layer (loader included — it's a child) away. Dummy by design:
-    // it paces the WAIT, it does not measure progress. ──
+    // ── overviews_loading (08-25, Nathan; 08-27 (4) repaced) — a dummy
+    // loading bar bridging the home→/work gap. The loader is a SIBLING of
+    // the fill now (not a child), so the departing hero can open it EARLY —
+    // `swm:loader-start`, ?loaderlead ms into the commit, over the hero's
+    // own spreading blue — instead of waiting for the handoff envelop
+    // (detail.loader stays as the fallback trigger). On release the bar
+    // takes a paced ?loaderend closing stretch to 100% and the fill reveal
+    // WAITS for it. Dummy by design: it paces the WAIT, it does not measure
+    // progress. Both knobs live on the ?committune bench (read at fire time).
     const loaderStart = () => {
-      if (!loader || !bar || reducedMotion) return;
+      if (!loader || !bar || reducedMotion || loaderUp) return;
       loaderUp = true;
       gsap.killTweensOf([loader, bar]);
       gsap.set(bar, { scaleX: 0 });
@@ -67,17 +73,23 @@ export default function RouteFill() {
       tl.to(bar, { scaleX: 0.82, duration: 1.1, ease: 'power2.out' });
       tl.to(bar, { scaleX: 0.96, duration: 3.5, ease: 'none' });
     };
+    const loaderEndSeconds = () =>
+      Math.max(0.05, (HERO_TUNING.loaderEndMs ?? 500) / 1000);
     const loaderFinish = () => {
       if (!loaderUp || !loader || !bar) return;
       loaderUp = false;
       gsap.killTweensOf(bar);
-      // Complete under the release fade, then reset for the next passage
-      // (the fade above hides the snap-to-zero).
-      gsap.to(bar, { scaleX: 1, duration: 0.15, ease: 'power2.out' });
+      // The paced close (?loaderend): the final stretch eases to 100% and
+      // the fill's reveal delay below holds until it lands.
+      const endS = loaderEndSeconds();
+      gsap.to(bar, { scaleX: 1, duration: endS, ease: 'power1.inOut' });
+      // A sibling no longer rides the fill's fade — mirror it exactly
+      // (same delay + duration + curve), then reset for the next passage.
       gsap.to(loader, {
         autoAlpha: 0,
-        duration: 0.1,
-        delay: RELEASE_DELAY + RELEASE_SECONDS,
+        duration: RELEASE_SECONDS,
+        delay: endS + RELEASE_DELAY,
+        ease: 'power2.inOut',
         onComplete: () => gsap.set(bar, { scaleX: 0 }),
       });
     };
@@ -87,6 +99,9 @@ export default function RouteFill() {
       if (!covered) return;
       covered = false;
       fill.style.pointerEvents = 'none';
+      // Capture BEFORE loaderFinish flips loaderUp: when the bar is up, the
+      // reveal waits out its paced close (the loader-less passages don't).
+      const holdS = loaderUp ? loaderEndSeconds() : 0;
       loaderFinish();
       if (reducedMotion) {
         gsap.set(fill, { autoAlpha: 0 });
@@ -95,7 +110,7 @@ export default function RouteFill() {
       gsap.to(fill, {
         autoAlpha: 0,
         duration: RELEASE_SECONDS,
-        delay: RELEASE_DELAY,
+        delay: RELEASE_DELAY + holdS,
         ease: 'power2.inOut',
         overwrite: true,
       });
@@ -169,9 +184,11 @@ export default function RouteFill() {
       reapplyNavAccent(); // /work — keep the pre-swap colour (breadcrumb back)
     };
 
+    const loaderEarly = () => loaderStart();
     window.addEventListener('swm:envelop', cover);
     window.addEventListener('swm:fill-release', release);
     window.addEventListener('swm:fill-progress', progress);
+    window.addEventListener('swm:loader-start', loaderEarly);
     document.addEventListener('astro:page-load', onPageLoad);
     document.addEventListener('astro:after-swap', syncNavAccent);
     syncNavAccent();
@@ -180,21 +197,25 @@ export default function RouteFill() {
       window.removeEventListener('swm:envelop', cover);
       window.removeEventListener('swm:fill-release', release);
       window.removeEventListener('swm:fill-progress', progress);
+      window.removeEventListener('swm:loader-start', loaderEarly);
       document.removeEventListener('astro:page-load', onPageLoad);
       document.removeEventListener('astro:after-swap', syncNavAccent);
     };
   }, []);
 
   return (
-    <div ref={fillRef} className="route-fill" aria-hidden="true">
-      {/* overviews_loading (08-25) — hidden until a loader-tagged envelop;
-          fades with the parent fill on release, reset after. */}
-      <div className="route-fill__loader" ref={loaderRef}>
+    <>
+      <div ref={fillRef} className="route-fill" aria-hidden="true" />
+      {/* overviews_loading (08-27 (4): a SIBLING of the fill, so the hero's
+          early `swm:loader-start` can raise it over its own spreading blue
+          before the envelop; painted after the fill in the shell, faded in
+          mirror with it on release. */}
+      <div className="route-fill__loader" ref={loaderRef} aria-hidden="true">
         <p className="route-fill__loader-label">overviews_loading</p>
         <div className="route-fill__loader-track">
           <div className="route-fill__loader-bar" ref={barRef} />
         </div>
       </div>
-    </div>
+    </>
   );
 }
