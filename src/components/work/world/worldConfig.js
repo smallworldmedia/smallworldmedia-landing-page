@@ -59,7 +59,7 @@ export const RIPPLE_ALPHA = num('ripalpha', 1); // ripple peak alpha — 08-27 (
 export const FPTAB = num('fptab', 1) !== 0; // plate spine tabs: small accent tab, −90° mono cell-coordinates, bottom-left of each plate
 export const FPFURN = num('fpfurn', 0) !== 0; // drum furniture: seeded registration crosses / coordinate captions / cell floods in empty cells (FORME's furniture language riding the drum)
 export const WALL_DRIFT = num('walldrift', 9); // deck/album wall plates: idle column drift, canvas px/s (DeckScroller's ?deckdrift idiom)
-export const WALL_GEAR = num('wallgear', 5); // wall px of column travel per DEGREE of drum roll — the Turn accelerates the wall the way Lenis scroll does on the detail page
+export const WALL_GEAR = num('wallgear', 12); // wall px of column travel per DEGREE of drum roll — the Turn accelerates the wall the way Lenis scroll does on the detail page. 08-28 bake 12 (was 5): Nathan's call from the taste pass
 export const WALL_MAX_PAGES = Math.max(4, Math.round(num('wallpages', 12))); // pages a wall plate cycles — pairs with BAND_PAGE_CAP in work/index.astro (the register plates still slice BAND_MAX_PAGES)
 export const DRUM_CREEP = num('creep', 0); // DRUM idle: whole-body creep, deg/sec (0 = still — Nathan's toggle)
 export const ARC_DEG = num('arcdeg', 60); // DRUM: arc per project (6-fold). 60° keeps the conveyor CONTINUOUS — the incoming arc enters the frame before the outgoing exits; 120° left a long bare-grid beat mid-roll.

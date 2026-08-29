@@ -535,6 +535,15 @@ export function buildDrumSlot(slot, w, ctx) {
           ratio: 1.5,
           baseDeg: PLATE_DEG * 1.6,
         },
+        // 08-28 (Nathan): the second deck group fills the album anchor on
+        // deck-heavy Worlds — album art keeps priority (two-anchor budget).
+        !w?.albumArt?.length &&
+          w?.brandDecks2?.length && {
+            pages: w.brandDecks2.slice(0, WALL_MAX_PAGES),
+            pageRatio: w.brandDecks2[0].ratio || 16 / 9,
+            ratio: 16 / 9,
+            baseDeg: PLATE_DEG * 1.8,
+          },
       ].filter(Boolean)
     : [];
   const anchorNx = BAND_TUNABLES.posX / FIELD_SPREAD_X;

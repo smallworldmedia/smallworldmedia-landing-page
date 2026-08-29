@@ -98,6 +98,13 @@ const worlds = projects
     brandDecks: flow.brandDecks.length
       ? flow.brandDecks[0].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
       : [],
+    // 08-28 (Nathan): deck-heavy Worlds get a SECOND deck wall — the next
+    // deck group rides the album-art anchor when no album art claims it
+    // (bedouin: saga guidelines + brand guidelines).
+    brandDecks2:
+      flow.brandDecks.length > 1
+        ? flow.brandDecks[1].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
+        : [],
     albumArt: flow.albumArt.slice(0, BAND_PAGE_CAP).map(bandPage),
   };
 });
