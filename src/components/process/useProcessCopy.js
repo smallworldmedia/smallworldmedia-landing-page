@@ -21,7 +21,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 import { scrambleTo } from '../../lib/scramble.js';
 import { PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
-import { EXIT_RATIO, O_STROKE_PCT } from './processConfig.js';
+import { EXIT_RATIO, O_STROKE_PCT, O_PAD_EM } from './processConfig.js';
 import { createLockupGlobe } from './liveLockupGlobe.js';
 import { settleDebounce } from '../../lib/settleResize.js';
 
@@ -60,6 +60,9 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
       splits.push(titleSplit);
       const oChar = titleSplit.chars[2]; // P R [O] C E S S
       const chars = titleSplit.chars.filter((c) => c !== oChar);
+      // Clear air each side of the O slot — ?opad em (08-28: snugged from
+      // the 0.26em CSS literal; the knob overrides the stylesheet).
+      oChar.style.padding = `0 ${O_PAD_EM}em`;
 
       const globeWrap = document.createElement('span');
       globeWrap.className = 'process-hero__globe-o';

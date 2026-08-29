@@ -2,16 +2,17 @@
  * liveLockupGlobe — the /process globe-O, LIVE (08-28, Nathan — supersedes
  * the 08-25 static snapshot; lockupGlobeSnapshot stays for reference).
  *
- * Round 2 (Nathan): this is the HOME globe's own dialed-in parts in the
- * mark colorway, not a re-approximation — panels render through
- * createPanelMaterial (so the lockup corner radius, PANEL_CORNER_RADIUS,
- * and every shader refinement carry over; the corner cut paints the
- * lattice WHITE here via uBlueColor), and the cascade is the home cascade
- * family itself (buildCascadeTimeline — the CRT power-on flicker,
- * ?ocasvar rows|poles|sweep), looping with a ?ocas-second rest between
- * sweeps. A slow spin turns the globe around its OWN polar axis (the tilt
- * group wraps the spin group, so the pole stays tipped toward the camera
- * while the meridian wedges travel), ?ospin deg/s.
+ * Round 3 (Nathan): the O is the HOME hero globe AT REST, in the mark
+ * colorway — buildScrollingGlobeGeometry + the panel shader's polar-scroll
+ * path (uUsePolarScroll=1, uPolarTop pinned at the scroll-0 layout), so
+ * the POLE treatment carries over exactly: panels pinch toward the poles
+ * but never reach the convergence point, the corner radius ramps to the
+ * rounded nose (SCROLL_POLE_CORNER_* + tip lift), and the white lattice
+ * keeps its stroke width at the poles — the lockup SVG's construction.
+ * The cascade is retired (round-3 call: the rotation carries the motion);
+ * panels hold full power. ?ospin deg/s (negative = westward) spins the
+ * globe around its OWN polar axis — the tilt group wraps the spin group,
+ * so the pole stays tipped toward the camera while the meridians travel.
  *
  * The backing canvas is a fixed square supersample (768px, the snapshot's
  * resolution) CSS-scaled into the glyph slot — window resizes never touch
@@ -20,20 +21,19 @@
  */
 import * as THREE from 'three';
 import gsap from 'gsap';
-import buildGlobeGeometry from '../globe/buildGlobeGeometry.js';
+import { buildScrollingGlobeGeometry } from '../globe/buildGlobeGeometry.js';
 import { createPanelMaterial } from '../globe/panelMaterial.js';
-import buildCascadeTimeline from '../globe/cascade.js';
 import {
   LON_SEGMENTS,
-  LAT_BANDS,
   GAP_DEG,
-  CAP_DEG,
+  SCROLL_VISIBLE_ROWS,
+  SCROLL_LAT_GAP_DEG,
   INNER_SPHERE_SCALE,
   INITIAL_PITCH_DEG,
   GAP_COLOR,
   PANEL_CORNER_RADIUS,
 } from '../globe/globeConfig.js';
-import { O_SPIN_DPS, O_CASCADE_S, O_CASCADE_VARIANT } from './processConfig.js';
+import { O_SPIN_DPS } from './processConfig.js';
 
 const BACKING_PX = 768; // supersamples the ~glyph-height slot on any display
 const WHITE = 0xffffff; // --color-white — the gap lattice
@@ -58,40 +58,40 @@ export function createLockupGlobe() {
   const spin = new THREE.Group();
   tilt.add(spin);
 
-  const { panels, innerSphereGeometry } = buildGlobeGeometry({
+  // The home hero's scroll grid, pinned at scroll-0 (rows spread into the
+  // sphere, one buffer row beyond each pole — useGlobeScene's rest layout).
+  const scrollPitch = Math.PI / SCROLL_VISIBLE_ROWS;
+  const { panels, innerSphereGeometry } = buildScrollingGlobeGeometry({
     lonSegments: LON_SEGMENTS,
-    latBands: LAT_BANDS,
+    rows: SCROLL_VISIBLE_ROWS + 2,
     gapDeg: GAP_DEG,
-    capDeg: CAP_DEG,
+    latGapDeg: SCROLL_LAT_GAP_DEG,
+    pitchRad: scrollPitch,
     radius: 1,
   });
   for (const panel of panels) {
     // The home panel shader in the mark colorway: flat electric-blue fill,
-    // the baked lockup corner radius, and the corner cut painted WHITE so
-    // the rounding melts into this globe's white gap lattice.
+    // the baked lockup corner radius, the corner cut painted WHITE so the
+    // rounding melts into this globe's white gap lattice — and the polar
+    // scroll path ON so the pole pinch/nose treatment applies.
     const material = createPanelMaterial({
       fallbackColor: GAP_COLOR,
       cornerRadius: PANEL_CORNER_RADIUS,
     });
-    material.uniforms.uBlueColor.value.set(WHITE);
+    const u = material.uniforms;
+    u.uBlueColor.value.set(WHITE);
+    u.uUsePolarScroll.value = 1;
+    u.uCanonTop.value = panel.canonTop;
+    u.uPolarTop.value = panel.row * scrollPitch; // scroll-0: the rest sphere
+    u.uPower.value = 1; // no cascade (round-3 call) — panels hold full power
     panel.mesh = new THREE.Mesh(panel.geometry, material);
+    panel.mesh.frustumCulled = false; // shader repositions vertices off the built band
     spin.add(panel.mesh);
   }
   const innerMaterial = new THREE.MeshBasicMaterial({ color: WHITE });
   const innerSphere = new THREE.Mesh(innerSphereGeometry, innerMaterial);
   innerSphere.scale.setScalar(INNER_SPHERE_SCALE);
   spin.add(innerSphere);
-
-  // Cascade: the home power-on flicker, looping with a rest between sweeps.
-  // ?ocas=0 = off — panels hold full power (createPanelMaterial starts dark).
-  const totalRows = LAT_BANDS + 2;
-  let cascadeTl = null;
-  if (O_CASCADE_S > 0) {
-    cascadeTl = buildCascadeTimeline(panels, O_CASCADE_VARIANT, totalRows);
-    cascadeTl.repeat(-1).repeatDelay(O_CASCADE_S);
-  } else {
-    for (const panel of panels) panel.mesh.material.uniforms.uPower.value = 1;
-  }
 
   const spinRad = THREE.MathUtils.degToRad(O_SPIN_DPS);
   let t0 = null;
@@ -106,7 +106,6 @@ export function createLockupGlobe() {
     canvas: renderer.domElement,
     dispose() {
       gsap.ticker.remove(tick);
-      cascadeTl?.kill();
       for (const panel of panels) {
         panel.geometry.dispose();
         panel.mesh.material.dispose();

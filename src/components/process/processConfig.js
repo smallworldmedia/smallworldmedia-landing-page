@@ -35,10 +35,9 @@ export const DEBUG = PARAMS?.has('debug') ?? false;
 
 /* — Globe-O, LIVE (08-28, Nathan — the 08-25 snapshot gains motion + the
    fill-circle-as-stroke ring). Consumed by liveLockupGlobe/useProcessCopy. — */
-export const O_SPIN_DPS = num('ospin', 6); // ?ospin — spin around the polar axis, deg/s (the mark's slow turn); 0 = still
-export const O_CASCADE_S = num('ocas', 4); // ?ocas — pause between cascade sweeps, seconds; 0 = cascade off (panels hold full power)
-export const O_CASCADE_VARIANT = str('ocasvar', 'sweep'); // ?ocasvar — rows | poles | sweep (the home cascade family; sweep = Nathan's home pick)
-export const O_STROKE_PCT = Math.max(0, num('ostroke', 8.2)); // ?ostroke — outer-stroke ring, % proud, clamped ≥0 (≤ −100 would make the slot-height math divide toward Infinity); the home ?globestroke convention: the globe shrinks inside so globe + ring land AT the glyph height
+export const O_SPIN_DPS = num('ospin', -20); // ?ospin — spin around the polar axis, deg/s (negative = westward); 0 = still. 08-28 bake −20 (Nathan's dial; the cascade is retired — rotation carries the motion)
+export const O_STROKE_PCT = Math.max(0, num('ostroke', 3)); // ?ostroke — outer-stroke ring, % proud, clamped ≥0 (≤ −100 would make the slot-height math divide toward Infinity); the home ?globestroke convention: the globe shrinks inside so globe + ring land AT the glyph height. 08-28 bake 3 (Nathan's dial)
+export const O_PAD_EM = num('opad', 0.12); // ?opad — clear air each side of the O glyph slot, em of the title size (was the 0.26em CSS literal; snugged per Nathan's round-3 call)
 
 /* — Resize doctrine (08-28, shared dial with /work): the camera re-eval
    TRAILS the window on a retargeted ease. — */

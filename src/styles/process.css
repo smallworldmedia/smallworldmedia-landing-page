@@ -312,9 +312,9 @@ body.route-process .site-nav {
    exists when SplitText has run (motion path) — the reduced-motion title
    keeps its real O and natural spacing. */
 .process-hero__title .process-char:nth-child(3) {
-  /* 0.26em: the square slot (glyph-height wide) plus ~0.065em of air each
-     side — measured against the R/C neighbors at 1440w. */
-  padding: 0 0.26em;
+  /* Fallback only — useProcessCopy stamps the live value inline from
+     ?opad (processConfig O_PAD_EM; 08-28 snugged to 0.12em, Nathan). */
+  padding: 0 0.12em;
 }
 
 /* --- The globe-O, LIVE (Nathan 08-28 — supersedes the 08-25 static
