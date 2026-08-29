@@ -29,6 +29,7 @@ const num = (key, fallback) => {
 /* — Camera / render budget — */
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
 export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales with DPR²; was desktop 2). ?dpr to A/B
+export const MSAA_SAMPLES = num('msaa', 4); // composer target multisamples (08-25 grid AA); 0 = off, ?msaa to A/B
 export const FPS_CAP = 60;
 export const MAX_TILES = num('max', IS_MOBILE ? 9 : 7);
 export const MIN_TILES = num('min', 5); // cycle showcase to fill sparse Worlds
@@ -98,17 +99,12 @@ export const TURN_EASE_PATH =
   PARAMS?.get('ease') ||
   'M0,0 C0,0 -0.011,-0.003 0.018,0 0.129,0.011 0.128,0.098 0.216,0.494 0.324,0.982 0.304,1 0.987,1 1.015,1 1,1 1,1';
 
-/* — Enter-the-World ramp (detail-page transition) — on an enter_world commit
-   WorldCard dispatches 'swm:enter-world' alongside the envelopment cover; the
-   scene answers with ONE gesture on the Turn curve: a subtle camera dolly
-   toward the tiles + a lens-distortion swell, rising UNDER the color cover so
-   the frame visibly curves as you pass into the world.
-   ?enterzoom = dolly toward the field, world units (0.45 ≈ 12–14% apparent
-   zoom at the tile tiers — subtle, not the hero's 3×);
-   ?enterlens = additive distortion at full ramp (same additive sign as the
-   Turn spike, ~4× TURN_LENS_SPIKE so the curvature clearly reads). */
-export const ENTER_ZOOM_DOLLY = num('enterzoom', 0.45);
-export const ENTER_LENS_SWELL = num('enterlens', 0.32);
+/* — Enter-the-World ramp (detail-page transition) — MOVED to enterTune.js
+   (08-25 rework): the ramp's knobs are now the live ENTER_TUNABLES store the
+   ?entertune=1 bench writes. The old ENTER_LENS_SWELL (+0.32) was a sign bug:
+   added to the negative base it flipped the warp into an outward barrel bow +
+   shrink; the store's `lens` deepens the pull (negative) instead, alongside a
+   projection zoom that scales the grid UP in sync. */
 
 /* — Live-video Near tier (P3 remainder) — only Near (tier 0) Tiles with a
    playbackId promote to live HLS, crossfading up over their stills; everything
@@ -179,10 +175,15 @@ export const SHELL_RADIUS = 16;
 export const SHELL_MERIDIANS = 250; // longitude lines
 export const SHELL_PARALLELS = 230; // latitude lines
 export const SHELL_LINE_COLOR = 0x020098;
-export const SHELL_OPACITY = 1.0;
+export const SHELL_OPACITY = num('shellalpha', 0.55); // ?shellalpha — grid line opacity; 0.55 = 08-25 "more subtle" default (was 1.0)
 export const SHELL_SPIN = num('spin', 0.012); // rad/sec — slow Y-spin so the grid drifts left→right (negate ?spin to flip)
 
 /* — Environment — the canvas renders transparent; the vertical gradient backdrop
    (black top → electric blue bottom, matching the home hero) lives on the DOM
    (.fp-canvas in featured-projects.css) so the lens pass can't warp it. No
-   solid bg-color const lives here — the canvas is transparent by design. */
+   solid bg-color const lives here — the canvas is transparent by design.
+   08-25 (Nathan): the bottom fade is dialable — WorldScene stamps these onto
+   .fp-canvas as --fp-fade / --fp-fade-h; the CSS mixes the accent toward
+   black by the fade %, keeping the S2 @property accent cross-fade intact. */
+export const FP_FADE = num('fpfade', 65); // ?fpfade — bottom-fade intensity, % of the accent mixed over black (100 = the old solid stop)
+export const FP_FADE_H = num('fpfadeh', 40); // ?fpfadeh — gradient height, % of viewport the fade climbs before pure black

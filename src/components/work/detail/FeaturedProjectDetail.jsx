@@ -47,8 +47,12 @@ import { formatYearRange } from '../../../lib/formatYearRange.js';
    so tiles flow above/below it — not beside — and no shadowed page
    overhangs a left-column tile (the old "floating above the grid" bug).
    Orbit still outranks deck for the top slot when a page has both. */
-const DECK_REGION_ROWS = 34;
-const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: DECK_REGION_ROWS, anchor: 'top' };
+const ORBIT_REGION_ROWS = 34;
+/* 08-25 (2), Nathan: the deck sockets DOUBLED (34 → 68 rows ≈ 814px) — the
+   tabbed viewer shows 2 big page columns (cols forced below), the poster
+   wall gets ~4 larger flyers. The orbit keeps its original band height. */
+const DECK_REGION_ROWS = 68;
+const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
 
 
 export default function FeaturedProjectDetail({ assets, client, project, collection, nextProject }) {
@@ -65,12 +69,49 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const hero = assets[0] ?? null;
   const { showcase, albumArt, brandDecks } = buildContentFlow(assets);
 
+  // ── Deck-as-featured (08-25, Nathan — bedouin/saga) ──
+  // When the collection's FIRST-RANKED asset is a brand-deck page, that
+  // page's WHOLE deck group is the featured media: the DeckScroller wall
+  // leads the flow where the hero slot would sit, and the group leaves the
+  // grid socket (any other decks keep it). buildContentFlow skipped the
+  // hero page (assets[0] convention), so it folds back into its group here.
+  const heroIsDeck = hero?.mediaType === 'brand-deck';
+  let heroDecks = null;
+  let gridDecks = brandDecks;
+  if (heroIsDeck) {
+    const key = hero.displayGroup ?? 'deck';
+    const rest = brandDecks.find((d) => d.group === key)?.pages ?? [];
+    heroDecks = [
+      {
+        group: key,
+        pages: [hero, ...rest].sort(
+          (a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0)
+        ),
+      },
+    ];
+    gridDecks = brandDecks.filter((d) => d.group !== key);
+  }
+
+  // ── Poster decks split out (08-25 (2), Nathan — bedouin SA tour) ──
+  // Deck groups whose pages are PORTRAIT (flyers/posters compiled as a
+  // deck) each get their OWN dedicated socket instead of riding the tabbed
+  // guidelines viewer — a 4:5 wall wants its own frame, and the flyers
+  // read as a separate body of work. Landscape decks share the tab socket.
+  const tabbedDecks = gridDecks.filter(
+    (d) => !(d.pages[0] && ratioOf(d.pages[0]) < PORTRAIT_THRESHOLD)
+  );
+  const posterDecks = gridDecks.filter(
+    (d) => d.pages[0] && ratioOf(d.pages[0]) < PORTRAIT_THRESHOLD
+  );
+
   // ── Socket regions from the content flow ──
   // Orbit outranks deck: a lone deck takes the top anchor, a deck sharing
-  // the page with an orbit inserts mid-grid (spec § Placement).
+  // the page with an orbit inserts mid-grid (spec § Placement). Poster
+  // decks sit BELOW the rest of the grid (08-25 (2), Nathan — the SA tour
+  // wall closes the tile field as a 'bottom' region).
   const regions = [];
   if (albumArt.length > 0) regions.push(ORBIT_REGION);
-  if (brandDecks.length > 0) {
+  if (tabbedDecks.length > 0) {
     regions.push({
       id: 'deck',
       colStart: 0,
@@ -79,8 +120,17 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       anchor: albumArt.length > 0 ? 'mid' : 'top',
     });
   }
+  for (const d of posterDecks) {
+    regions.push({
+      id: `deck-solo:${d.group}`,
+      colStart: 0,
+      colSpan: 3,
+      rowSpan: DECK_REGION_ROWS,
+      anchor: 'bottom',
+    });
+  }
 
-  const isPortraitHero = hero && ratioOf(hero) < PORTRAIT_THRESHOLD;
+  const isPortraitHero = hero && !heroIsDeck && ratioOf(hero) < PORTRAIT_THRESHOLD;
 
   // Service tags — prefer project-level tags, fall back to asset-derived union
   const services =
@@ -123,7 +173,14 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     (socketsAt.get(i) ?? []).map((s) => (
       <GridSocket key={`socket-${s.id}`} region={s}>
         {s.id === 'deck' ? (
-          <BrandDeckViewer decks={brandDecks} />
+          // 2 fixed page columns (08-25 (2)) — big spreads, not a lattice
+          <BrandDeckViewer decks={tabbedDecks} cols={2} />
+        ) : s.id.startsWith('deck-solo:') ? (
+          // A poster deck's dedicated wall — single group, no tabs, the
+          // group name chip carries the identity.
+          <BrandDeckViewer
+            decks={posterDecks.filter((d) => `deck-solo:${d.group}` === s.id)}
+          />
         ) : (
           <AlbumArtViewer covers={albumArt} />
         )}
@@ -197,8 +254,16 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       </a>
 
       <main className="project-detail__flow">
-        {/* Portrait hero → side-by-side band; landscape → stacked full-bleed */}
-        {isPortraitHero ? (
+        {/* Deck hero → the featured deck's wall leads the flow; portrait
+            hero → side-by-side band; landscape → stacked full-bleed */}
+        {heroDecks ? (
+          <>
+            <div className="hero-deck">
+              <BrandDeckViewer decks={heroDecks} />
+            </div>
+            {blurbSection}
+          </>
+        ) : isPortraitHero ? (
           <div
             className="hero-band"
             style={{ '--hero-ratio': ratioOf(hero) }}

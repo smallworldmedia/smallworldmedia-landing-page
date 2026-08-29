@@ -74,17 +74,17 @@ import {
    Continuous at the seam (both beats meet at 0.7), no overshoot at either
    end. Writes both uniforms; t ≤ 0 leaves the panel untouched — the
    setBlueFill(0) restore path owns that state. — */
-const SURGE_DIP_END = 0.35;
-const SURGE_DIP_DEPTH = 0.3; // brightness floor = 1 − depth = 0.7
-function surgePanel(uniforms, t) {
+const SURGE_DIP_END = 0.35; // default dip share — live-tunable via setBlueFillTuning (08-25)
+const SURGE_DIP_DEPTH = 0.3; // default brightness floor = 1 − depth = 0.7
+function surgePanel(uniforms, t, dipEnd, dipDepth) {
   if (t <= 0) return;
-  if (t < SURGE_DIP_END) {
-    uniforms.uPower.value = 1 - SURGE_DIP_DEPTH * (t / SURGE_DIP_END);
+  if (t < dipEnd) {
+    uniforms.uPower.value = 1 - dipDepth * (t / dipEnd);
     uniforms.uBlueMix.value = 0;
   } else {
-    const s = (t - SURGE_DIP_END) / (1 - SURGE_DIP_END);
+    const s = (t - dipEnd) / (1 - dipEnd);
     const ss = s * s * (3 - 2 * s); // smoothstep — flat ends, no overshoot
-    uniforms.uPower.value = 1 - SURGE_DIP_DEPTH * (1 - ss);
+    uniforms.uPower.value = 1 - dipDepth * (1 - ss);
     uniforms.uBlueMix.value = ss;
   }
 }
@@ -458,7 +458,11 @@ export default function useGlobeScene(
        setBlueFill(0) fully restores (uBlueMix 0, uPower 1) for the
        dry-run release; a fresh mount never needs it — every material
        initializes uBlueMix at 0 (panelMaterial). — */
-    const BLUE_SURGE = 0.15; // per-panel surge length, cascade delay-units
+    // 08-25: surge shape live-tunable (Hero stamps from TUNING via
+    // setBlueFillTuning — the ?bluesurge/?bluedipend/?bluedipdepth knobs).
+    let blueSurge = 0.15; // per-panel surge length, cascade delay-units
+    let blueDipEnd = SURGE_DIP_END;
+    let blueDipDepth = SURGE_DIP_DEPTH;
     let blueDelays = null;
     let blueVariant = null;
     let blueWindow = 1;
@@ -472,8 +476,20 @@ export default function useGlobeScene(
         blueDelays[i] = d;
         if (d > max) max = d;
       }
-      blueWindow = max + BLUE_SURGE; // the last panel completes exactly at p=1
+      blueWindow = max + blueSurge; // the last panel completes exactly at p=1
       blueVariant = variant;
+    };
+    apiRef.current.setBlueFillTuning = ({ surge, dipEnd, dipDepth } = {}) => {
+      if (surge != null && Number.isFinite(surge) && surge > 0 && surge !== blueSurge) {
+        blueSurge = surge;
+        blueVariant = null; // window derives from surge — force a rebake
+      }
+      if (dipEnd != null && Number.isFinite(dipEnd)) {
+        blueDipEnd = Math.min(Math.max(dipEnd, 0.01), 0.95);
+      }
+      if (dipDepth != null && Number.isFinite(dipDepth)) {
+        blueDipDepth = Math.min(Math.max(dipDepth, 0), 1);
+      }
     };
     apiRef.current.setBlueFill = (p, variant = variantRef.current) => {
       if (disposed) return;
@@ -500,7 +516,9 @@ export default function useGlobeScene(
       for (let i = 0; i < panels.length; i += 1) {
         surgePanel(
           panels[i].mesh.material.uniforms,
-          Math.min(Math.max((p * blueWindow - blueDelays[i]) / BLUE_SURGE, 0), 1)
+          Math.min(Math.max((p * blueWindow - blueDelays[i]) / blueSurge, 0), 1),
+          blueDipEnd,
+          blueDipDepth
         );
       }
     };

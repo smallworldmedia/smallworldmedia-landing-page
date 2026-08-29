@@ -35,10 +35,16 @@
   /* S2: the gradient's base stop ingests the focused project's accent
      (--project-color, broadcast on the .fp root that contains this element);
      blank → brand blue. Recolours on the World Turn as the active project
-     changes. */
+     changes.
+     08-25 (Nathan): the fade is dimmed + dialable — WorldScene stamps
+     --fp-fade (accent % mixed over black; 100 = the old solid stop) and
+     --fp-fade-h (the height the fade climbs). The @property accent still
+     interpolates inside the color-mix, so the Turn recolour is unchanged. */
   background: linear-gradient(to top,
-      var(--project-color, var(--color-electric-blue)) 0%,
-      var(--color-black) 40%);
+      color-mix(in srgb,
+        var(--color-black),
+        var(--project-color, var(--color-electric-blue)) calc(var(--fp-fade, 65) * 1%)) 0%,
+      var(--color-black) var(--fp-fade-h, 40%));
 }
 
 .fp-canvas canvas {

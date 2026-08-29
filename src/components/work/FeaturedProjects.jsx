@@ -34,6 +34,10 @@ import SiteFooter from '../SiteFooter.jsx';
 // Deck Viewer bench below) is import()ed from its mount effect, so neither
 // bench rides the shipped /work payload.
 import { FP1_TUNE_ACTIVE } from './fp1Tune.js';
+// Text-exit choreography (08-26): the card + nav text animates out on the
+// enter_world commit, riding the scene's enter ramp (textExit.js). The tiny
+// runner is static; its ?texttune=1 bench is lazy like the others below.
+import { runTextExit, cancelTextExit } from './textExit.js';
 import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 import { projectColorVars } from '../../lib/projectColor.js';
@@ -126,6 +130,51 @@ export default function FeaturedProjects({ worlds = [] }) {
       });
     return () => {
       alive = false;
+    };
+  }, []);
+  // Enter-the-World choreography bench — same hydration-safe gate and lazy
+  // chunk (?entertune pulls the panel in after mount; SSR/first render emit
+  // nothing). The tiny ENTER_TUNABLES store itself is static via the scene.
+  const [EnterTunePanel, setEnterTunePanel] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('entertune')) return;
+    let alive = true;
+    import('./EnterTunePanel.jsx')
+      .then((m) => {
+        if (alive) setEnterTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Text-exit choreography bench (?texttune) — same gate/chunk shape.
+  const [TextTunePanel, setTextTunePanel] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('texttune')) return;
+    let alive = true;
+    import('./TextTunePanel.jsx')
+      .then((m) => {
+        if (alive) setTextTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Arm the text-exit: the SAME 'swm:enter-world' dispatch that drives the
+  // scene's zoom/lens ramp plays the DOM text-out (elements queried at fire
+  // time — never cached from this mount; client:only stale-DOM trap).
+  useEffect(() => {
+    const onEnterWorld = (e) => runTextExit(e?.detail || {});
+    window.addEventListener('swm:enter-world', onEnterWorld);
+    return () => {
+      window.removeEventListener('swm:enter-world', onEnterWorld);
+      cancelTextExit();
     };
   }, []);
   // Co-present cards during a Turn: the incoming (phase 'enter') + the outgoing
@@ -516,28 +565,28 @@ export default function FeaturedProjects({ worlds = [] }) {
     '--pager-ease': committing ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'ease-out',
   };
 
-  // CTA colour states: default black/white → lerps to white/black as the fill
-  // grows (scrolling toward the threshold) → flashes blue/white the instant the
-  // threshold is crossed (commit-pin) → eases back to black/white over the Turn.
+  // CTA colour states (08-26, Nathan): default = the focused PROJECT ACCENT
+  // (readable ink; inherited from the .fp root, blank → brand blue) → lerps
+  // to brand white/black as the fill grows OR on hover (the "charged" state)
+  // → pins white/black the instant the threshold is crossed (commit-pin) →
+  // eases back to the DESTINATION project's accent over the Turn.
   // `committing` is true only for the CTA in the direction that was triggered.
   const ctaColor = (f, committing) => {
     if (committing && ctaMode === 'commit-pin') {
-      // S2: flash the DESTINATION project's accent (inherited from the .fp root,
-      // which already holds the committed project's vars) with readable ink —
-      // not the old hardcoded brand blue.
       return {
-        '--cta-bg': 'var(--project-color, var(--color-electric-blue))',
-        '--cta-fg': 'var(--project-color-fg, var(--color-white))',
+        '--cta-bg': 'var(--color-white)',
+        '--cta-fg': 'var(--color-black)',
       };
     }
     const pct = Math.round(Math.min(1, Math.max(0, f)) * 100);
     return {
-      '--cta-bg': `color-mix(in srgb, var(--color-black), var(--color-white) ${pct}%)`,
-      '--cta-fg': `color-mix(in srgb, var(--color-white), var(--color-black) ${pct}%)`,
+      '--cta-bg': `color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-white) ${pct}%)`,
+      '--cta-fg': `color-mix(in srgb, var(--project-color-fg, var(--color-white)), var(--color-black) ${pct}%)`,
     };
   };
-  const nextColor = ctaColor(Math.max(0, fill), dir > 0);
-  const prevColor = ctaColor(Math.max(0, -fill), dir < 0);
+  // Hover charges the colour fully (like the scale bump above) — white/black.
+  const nextColor = ctaColor(Math.max(Math.max(0, fill), hoverNext ? 1 : 0), dir > 0);
+  const prevColor = ctaColor(Math.max(Math.max(0, -fill), hoverPrev ? 1 : 0), dir < 0);
 
   if (!worlds.length) {
     return (
@@ -564,6 +613,14 @@ export default function FeaturedProjects({ worlds = [] }) {
     >
       {Fp1TunePanel && <Fp1TunePanel />}
       {DeckDebugPanel && <DeckDebugPanel />}
+      {EnterTunePanel && (
+        // getAccent: the dry-run's cover ingests the ACTIVE project's accent
+        // (ref, not state — the panel reads it at ▶ time, no re-render tie).
+        <EnterTunePanel getAccent={() => worlds[activeRef.current]?.projectColor} />
+      )}
+      {TextTunePanel && (
+        <TextTunePanel getAccent={() => worlds[activeRef.current]?.projectColor} />
+      )}
       <WorldScene world={w} index={active} />
 
       <nav

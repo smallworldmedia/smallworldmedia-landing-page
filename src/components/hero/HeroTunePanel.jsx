@@ -228,11 +228,21 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         onChange={set}
       />
       <Row
-        label="blue lead"
-        param="blueLead"
-        value={s.blueLead}
-        min={0.1}
+        label="blue start"
+        param="blueStart"
+        value={s.blueStart}
+        min={0}
         max={0.9}
+        step={0.05}
+        fmt={num3}
+        onChange={set}
+      />
+      <Row
+        label="blue end"
+        param="blueEnd"
+        value={s.blueEnd}
+        min={0.1}
+        max={1}
         step={0.05}
         fmt={num3}
         onChange={set}

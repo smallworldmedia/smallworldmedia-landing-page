@@ -36,6 +36,7 @@ import {
   TURN_EASE_PATH,
   PREFERS_REDUCED_MOTION,
 } from './world/worldConfig.js';
+import { ENTER_TUNABLES } from './world/enterTune.js';
 import { housePulseLoop, HOUSE_PULSE_PERIOD_S } from '../../lib/motion.js';
 // FP-1 house-pulse tuning bench (dev-only, ?fp1tune=1). Absent without the
 // param: FP1_TUNE_ACTIVE is false and the shipped pulse stays motion.js default.
@@ -58,33 +59,29 @@ const CARD_TRAVEL = 70; // yPercent the card rides in/out (mirrors the media rol
 
 // enter_world rides the Envelopment bridge (ADR-0002): cover with the
 // persistent RouteFill, then client-navigate; the detail page releases it.
-// ?entercover=<ms> tunes the cover live.
-const ENTER_COVER_SECONDS = (() => {
-  if (typeof window === 'undefined') return 0.7;
-  const n = parseFloat(new URLSearchParams(window.location.search).get('entercover'));
-  // 0.7 (was 0.5): lengthened so the scene's enter-ramp (zoom + lens swell
-  // under the cover) has room to read. Dial via ?entercover=<ms>.
-  return Number.isFinite(n) ? n / 1000 : 0.7;
-})();
+// Duration comes LIVE from the enter-tune store at click time (?enterms /
+// the ?entertune=1 bench; legacy ?entercover still seeds it), so a dialed
+// choreography drives the real commit, not just the bench's dry-run.
 let departing = false;
 function enterWorld(e, slug, color) {
   if (PREFERS_REDUCED_MOTION) return; // plain ClientRouter navigation
   e.preventDefault();
   if (departing) return;
   departing = true;
+  const coverS = ENTER_TUNABLES.enterMs / 1000;
   window.dispatchEvent(
     // S2: the enter fill ingests the project's accent (blank → blue in RouteFill).
-    new CustomEvent('swm:envelop', { detail: { duration: ENTER_COVER_SECONDS, color } })
+    new CustomEvent('swm:envelop', { detail: { duration: coverS, color } })
   );
   window.dispatchEvent(
-    // Scene choreography: useWorldScene answers with the synced zoom +
-    // lens-distortion enter-ramp under the rising cover (same duration/curve).
-    new CustomEvent('swm:enter-world', { detail: { duration: ENTER_COVER_SECONDS, color } })
+    // Scene choreography: useWorldScene answers with the synced lens-deepen +
+    // scale-up enter-ramp under the rising cover (same duration, one gesture).
+    new CustomEvent('swm:enter-world', { detail: { duration: coverS, color } })
   );
   setTimeout(() => {
     departing = false;
     navigate(`/work/${slug}`);
-  }, ENTER_COVER_SECONDS * 1000 + 60);
+  }, coverS * 1000 + 60);
 }
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');

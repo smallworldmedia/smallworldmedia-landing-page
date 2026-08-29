@@ -22,13 +22,14 @@ import { SplitText } from 'gsap/SplitText';
 import { scrambleTo } from '../../lib/scramble.js';
 import { PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
 import { EXIT_RATIO } from './processConfig.js';
+import { getLockupGlobeSnapshot } from './lockupGlobeSnapshot.js';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
-// `globeAssets` is intentionally unused since the 07-30 revision (the O is
-// the flat white SVG mark now, matching the nav lockup) — the prop plumbing
-// stays so ProcessPage/the island contract doesn't churn if the animated
-// asset returns.
+// `globeAssets` is intentionally unused since the 07-30 revision (no videos
+// in the O — and the 08-25 snapshot globe needs no assets either) — the
+// prop plumbing stays so ProcessPage/the island contract doesn't churn if
+// the animated asset returns.
 // eslint-disable-next-line no-unused-vars
 export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
   useGSAP(
@@ -64,14 +65,18 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
       globeWrap.setAttribute('aria-hidden', 'true');
       heroTitle.appendChild(globeWrap);
 
-      // 07-30 revision (supersedes the B9 WebGL stand-in): the O is the flat
-      // white SWM globe mark — the exact nav-bar icon — a white STROKE on the
-      // field instead of the dark-panel WebGL globe. The former VideoGlobe
-      // mount is gone; mount/unmount keep their splash/ScrollTrigger call
-      // sites but now just swap the img in and out.
+      // 08-25 revision (supersedes the 07-30 flat spinning SVG — rotation
+      // was never the intent): the O is the 3D globe recreation, blue
+      // panels with brand white between them at the lockup's brand tilt,
+      // rendered ONCE to a cached data URL (lockupGlobeSnapshot). Still an
+      // <img>, so the splash/ScrollTrigger mount/unmount call sites and
+      // the .process-hero__globe-o sizing CSS are untouched.
       const mountGlobe = () => {
         if (!globeWrap.firstChild) {
-          globeWrap.innerHTML = '<img src="/icons/SWM-globe_white.svg" alt="" />';
+          const img = document.createElement('img');
+          img.src = getLockupGlobeSnapshot();
+          img.alt = '';
+          globeWrap.appendChild(img);
         }
       };
       const unmountGlobe = () => {

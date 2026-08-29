@@ -37,6 +37,9 @@ const search = () =>
   new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
 
 export const HERO_TUNE_ACTIVE = search().get('herotune') === '1';
+/* ?committune=1 — the 08-25 typed commit-choreography panel (number inputs,
+   not sliders; CommitTunePanel). Shares TUNING/pub-sub with the hero bench. */
+export const COMMIT_TUNE_ACTIVE = search().get('committune') === '1';
 
 /* — Globe outer stroke fraction (?globestroke, % → fraction; default 5%,
    0 = off). ONE source of truth, shared by two consumers so they can never
@@ -107,9 +110,12 @@ const COMP_DEFAULTS = IS_MOBILE
   ? // mobile: the ring-era contain-fit numbers, untouched for now — only the
     // CTA changed (ring → the scroll_to_enter button beneath the tagline)
     { fill: 0.95, fitCover: false, offsetX: 0, offsetY: -0.18, elevDeg: 8, roll: 0 }
-  : // resting comp — Nathan's dialed desktop bake: globe huge and off-right,
-    // near equator-on (low elevation), biased low-right, with the pole-cap globe
-    { fill: 1.42, fitCover: null, offsetX: 0.59, offsetY: 0.5, elevDeg: 2.5, roll: 0 };
+  : // resting comp — Nathan's 08-24 recomposition bake: globe CENTERED with its
+    // center point ON the bottom viewport edge (offsetY 1 = the full half-view),
+    // tilted slightly away (high elevation, looking down over the pole), tagline
+    // + CTA centered in the clear band above the disc. (was: off-right low comp
+    // fill 1.42 / x 0.59 / y 0.5 / elev 2.5)
+    { fill: 1.22, fitCover: null, offsetX: 0, offsetY: 1, elevDeg: 56.5, roll: 0 };
 
 export const TUNING_DEFAULTS = Object.freeze({
   /* comp — camera rig */
@@ -120,28 +126,56 @@ export const TUNING_DEFAULTS = Object.freeze({
   elevDeg: COMP_DEFAULTS.elevDeg, // ?heroelev — camera elevation off the equator plane, degrees (orbits, keeps facing center)
   roll: COMP_DEFAULTS.roll, // ?heroroll — camera roll about the view axis, degrees (+ tilts the comp right); 0 = parity
   zoom: 1, // no param — dolly divisor on the fitted distance; gesture-owned (Hero's drag/release/envelop)
-  textGap: 40, // ?textgap — px gap between the globe disc's left edge and the tagline/CTA column (clearance); 40 = Nathan's bake
+  textGap: 44, // ?textgap — px clearance between the globe disc's TOP edge and the tagline/CTA column bottom (was the left-edge gap in the off-right comp); 44 = Nathan's 08-24 bake
 
   /* commit — the envelopment master timeline (chunk 4; Hero reads these at
      commit time, so the bench moves the NEXT commit/dry-run, not a live one) */
-  commitMs: 2000, // ?commitms — master timeline length, ms (ONE clock; every beat keys off its eased e)
+  commitMs: 1200, // ?commitms — master timeline length, ms; 1200 = Nathan's 08-25 committune bake (was 2000)
   fillMode: 'panels', // ?fillmode — panels | circle (FILL_MODES above)
-  blueCascade: 'poles', // ?bluecascade — panels-mode delay model (BLUE_CASCADES above)
-  blueLead: 0.4, // ?bluelead — raw progress by which the panel-blue has painted the globe; the camera recenter/zoom lead OUT of it (note 4: blue first, then dive in)
-  /* recenterEnd/zoomStart shape ONE motion (rev-notes-03): the zoom launches
-     just after the recenter is underway and the two overlap for most of the
-     dive — center+zoom read as a single gesture, the dolly lagging slightly
-     behind the centering (was recenterEnd 1 / zoomStart 0.9: center fully,
-     THEN zoom in the last 10% — the reported disjoint/delay). */
-  recenterEnd: 0.65, // ?recenterend — e where the recenter (offsets/elev → 0) completes
-  zoomStart: 0.2, // ?zoomstart — e where the dolly to ?envscale begins
+  blueCascade: 'sweep', // ?bluecascade — panels-mode delay model (BLUE_CASCADES above); sweep = Nathan's 08-25 bake (was rows)
+  /* 08-25 (2): the blue-first sequencing is RETIRED (Nathan: "the blue
+     panel fill occurs DURING the zoom and center motion"). The blue gets
+     its own window [blueStart, blueEnd] on the SAME linear timeline the
+     camera channels ride — everything runs concurrently; overlap freely. */
+  blueStart: 0, // ?bluestart — timeline fraction where the panel cascade begins
+  blueEnd: 0.3, // ?blueend — timeline fraction where the last panel lands blue; 0.3 = Nathan's 08-25 bake
+  /* Camera channels (08-25 refactor): each rides its OWN smooth power-inOut
+     window as a fraction of the FULL timeline — recenter and zoom overlap
+     with each other AND the blue as one fluid gesture, no lurch at either
+     end. camPow shapes both channels' in-out curvature (2 = gentle, 3+ =
+     punchier middle). Dial via the ?committune=1 typed panel. Nathan's
+     08-25 bake: full-length recenter, zoom window overrunning the timeline
+     (1.2 → the dolly is still ~2% shy at handoff — an open-ended read,
+     never a parked frame). */
+  recenterStart: 0, // ?recenterstart — timeline fraction where the recenter begins
+  recenterEnd: 3, // ?recenterend — Nathan's 08-25 bake: window 3× the timeline — the recenter lands only ~31% complete at handoff (a slow drift-toward-axis under the dolly, never a parked frame)
+  zoomStart: 0, // ?zoomstart — timeline fraction where the dolly begins
+  zoomEnd: 1, // ?zoomend — timeline fraction where the dolly completes
+  camPow: 1.2, // ?campow — power-inOut exponent for BOTH camera channels; 1.2 = near-linear glide (Nathan's 08-25 bake)
+  envScale: 3.0, // ?envscale — the dolly's destination scale (was a Hero module const)
+  /* blue-fill surge shape (08-25 — the per-panel inverted-CRT two-beat the
+     commit paints the globe with; useGlobeScene consumes via
+     setBlueFillTuning). surge = each panel's transition length in cascade
+     delay-units (bigger = softer, more overlap between panels); the dip is
+     beat 1's brightness blink (end = fraction of the surge it occupies,
+     depth = how far brightness falls). */
+  blueSurge: 0.1, // ?bluesurge — per-panel surge length; 0.1 = Nathan's 08-25 bake
+  blueDipEnd: 0.4, // ?bluedipend — dip beat's share of the surge (0..~0.9); 0.4 = Nathan's 08-25 bake
+  blueDipDepth: 0.2, // ?bluedipdepth — brightness floor = 1 − depth; 0.2 = Nathan's 08-25 bake
+  /* hero centered lockup (08-25) — px height; 0 = the CSS clamp default. */
+  lockupH: 400, // ?lockuph — hero lockup height px; 400 = Nathan's 08-25 bake (band-centered, so it grows symmetrically)
+  /* lockup word-beat entrance (08-25 (2), Nathan): the hero lockup arrives
+     WORD BY WORD — Small → World → Media™ — three HARD CUTS (visibility
+     flips, no fades), one beat apart, starting at the chrome beat. Hero
+     buckets the inline SVG's glyphs into the three words by artwork x. */
+  lockupBeatMs: 280, // ?lockupbeat — ms between word cuts (word 1 lands at the chrome beat itself)
 
   /* globe — the meridian-scroll pace (MeridianScroll reads at build; the bench
      moves the NEXT mount unless wired live). The globe holds its brand tilt;
      cascadeSpeed sets how fast the ROWS OF TILES travel pole-to-pole (scroll
      rate ∝ speed / SCROLL_PACE_SCALE) — also the video-load knob (faster = more
      thumbnail/video churn). 0 parks the scroll. */
-  cascadeSpeed: 2.5, // ?cascadespeed — meridian-scroll pace (note 6). LIVE via the bench (setCascadeSpeed). 2.5 = Nathan's bake.
+  cascadeSpeed: 2, // ?cascadespeed — meridian-scroll pace (note 6). LIVE via the bench (setCascadeSpeed). 2 = Nathan's 08-24 bake (was 2.5).
 
   /* globe · pole cap + corner rounding — the near-pole "height-eat" treatment
      (panelMaterial). The bench pushes these to the scene api (setPoleTuning),
@@ -159,7 +193,7 @@ export const TUNING_DEFAULTS = Object.freeze({
      is an absolute spin offset. Both 0-offset at default → parity. */
   tiltDeg: 45.5, // ?herotilt — brand tilt (camera-facing pole lean), degrees; 45.5 = Nathan's bake (tick applies tiltDeg − INITIAL_PITCH as the offset, so /lab stays at INITIAL_PITCH)
   yawDeg: 0, // ?heroyaw — static globe spin about its axis, degrees
-  yawSpeed: -1.5, // ?yawspeed — steady auto-rotation about the axis, degrees/second (0 = fixed); −1.5 = Nathan's bake (slow reverse drift)
+  yawSpeed: -2, // ?yawspeed — steady auto-rotation about the axis, degrees/second (0 = fixed); −2 = Nathan's 08-24 bake (slow reverse drift)
 
   /* intro — the logo→globe intro (chunk 5; HeroIntro reads these at mount,
      so the bench shapes the NEXT intro — use ↻ replay intro to see it).
@@ -195,9 +229,19 @@ const PARAM_KEYS = {
   textGap: 'textgap',
   /* commit */
   commitMs: 'commitms',
-  blueLead: 'bluelead',
+  blueStart: 'bluestart',
+  blueEnd: 'blueend',
+  recenterStart: 'recenterstart',
   recenterEnd: 'recenterend',
   zoomStart: 'zoomstart',
+  zoomEnd: 'zoomend',
+  camPow: 'campow',
+  envScale: 'envscale',
+  blueSurge: 'bluesurge',
+  blueDipEnd: 'bluedipend',
+  blueDipDepth: 'bluedipdepth',
+  lockupH: 'lockuph',
+  lockupBeatMs: 'lockupbeat',
   /* globe */
   cascadeSpeed: 'cascadespeed',
   poleLift: 'polelift',

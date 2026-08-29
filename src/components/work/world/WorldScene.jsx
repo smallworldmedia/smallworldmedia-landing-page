@@ -20,6 +20,8 @@ import {
   WORLD_MAX_LIVE,
   WORLD_STREAM_PARAMS,
   PREFERS_REDUCED_MOTION,
+  FP_FADE,
+  FP_FADE_H,
 } from './worldConfig.js';
 
 export default function WorldScene({ world, index = 0 }) {
@@ -34,7 +36,14 @@ export default function WorldScene({ world, index = 0 }) {
   useEffect(() => setHydrated(true), []);
   return (
     <>
-      <div ref={ref} className="fp-canvas" aria-hidden="true" />
+      <div
+        ref={ref}
+        className="fp-canvas"
+        aria-hidden="true"
+        /* 08-25: bottom-fade dials (?fpfade ?fpfadeh) — consumed by the
+           .fp-canvas gradient in featured-projects.css */
+        style={{ '--fp-fade': FP_FADE, '--fp-fade-h': `${FP_FADE_H}%` }}
+      />
       {hydrated && WORLD_MAX_LIVE > 0 && !PREFERS_REDUCED_MOTION && (
         <VideoSlotPool
           ref={poolRef}

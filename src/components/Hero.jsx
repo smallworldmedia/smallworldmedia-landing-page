@@ -72,12 +72,17 @@ import CtaArrows from './work/CtaArrows.jsx';
 import SiteFooter from './SiteFooter.jsx';
 import HeroText from './HeroText.jsx';
 import HeroIntro from './hero/HeroIntro.jsx';
+// The brand lockup, inlined (nav/footer precedent — one source of truth in
+// src/assets). Hero renders it centered above the enter_world CTA in brand
+// white, on its OWN layer BELOW the globe canvas (z1 < z2) so the commit's
+// scaling globe covers it (08-25).
+import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
 import HeroLabels from './hero/HeroLabels.jsx';
 import { createHeroOverlay } from './hero/heroOverlay.js';
 import {
   TUNING as HERO_TUNING,
   HERO_TUNE_ACTIVE,
-  HERO_COMMIT_EASE_PATH,
+  COMMIT_TUNE_ACTIVE,
   HERO_INTRO_EASE_PATH,
   GLOBE_STROKE_FRAC,
   subscribeHeroTune,
@@ -117,19 +122,48 @@ const decideIntroMode = () => {
   return forced ?? (seen ? 'replay' : 'full');
 };
 
+/* — 08-24: the lockup-morph machine (HeroIntro's chars→globe launch) is
+   RETIRED from the default path — the nav carries the full lockup now, so
+   the entrance no longer spells the wordmark. ?intro=a|c still mounts the
+   old machine for reference/comparison; without it, 'full' runs the ARRIVE
+   settle below. — */
+const INTRO_FORCED_VARIANT = (() => {
+  if (typeof window === 'undefined') return false;
+  const p = new URLSearchParams(window.location.search).get('intro');
+  return p === 'a' || p === 'c';
+})();
+
 /* — Replay settle — revisits skip the wordmark: veil 1→0 + rig.zoom
    0.92→1 on the intro curve, straight into the resting comp. The chrome
-   beat keeps its loom-era place at duration·0.78; the full machine fires
-   its own beat (HeroIntro). — */
+   beat keeps its loom-era place at duration·0.78; the forced-variant
+   machine fires its own beat (HeroIntro). — */
 const REPLAY_SECONDS = 1.2;
 const REPLAY_ZOOM_FROM = 0.92;
 const CHROME_BEAT_AT = 0.78;
+
+/* — Arrive settle (08-24) — the DEFAULT first-visit entrance: the globe
+   subtly scales into the resting comp (rig.zoom 0.94→1 on the intro curve)
+   while the panel cascade paints it; the veil thins across the same window.
+   Chrome beat + live-video scheduler release at the settle's beat point.
+   Longer than the replay settle so the cascade has room to read. — */
+const ARRIVE_SECONDS = 2.2;
+const ARRIVE_ZOOM_FROM = 0.94;
+const ARRIVE_CASCADE_AT = 0.4; // s into the settle — panels cascade as it scales
 
 /* — Envelopment (chunk-4 commit) — the dolly's destination scale; the
    timeline length and the rest of the choreography live on heroConfig's
    commit section (?commitms ?fillmode ?bluecascade ?recenterend
    ?zoomstart). */
-const ENV_SCALE = PARAM('envscale', 3.0);
+/* 08-25: ?envscale moved into heroConfig TUNING (envScale) so the typed
+   commit panel can dial it live — read from HERO_TUNING at commit time. */
+
+/* Power in-out easing for the commit's camera channels — smooth at BOTH ends
+   (zero velocity in, zero velocity out; no overshoot), curvature set by pow.
+   Each channel gets its own window on the LINEAR dive progress, so recenter
+   and zoom overlap into one cohesive fluid motion (Nathan, 08-25) instead of
+   compounding through the flat-tailed Turn curve. */
+const powInOut = (t, pow) =>
+  t < 0.5 ? 0.5 * Math.pow(2 * t, pow) : 1 - 0.5 * Math.pow(2 * (1 - t), pow);
 
 /* — Rounded panel tiles (note 5) — UV-space radius the home globe passes to
    VideoGlobe (lockup fidelity, the SWM mark's panels carry a corner radius).
@@ -137,22 +171,18 @@ const ENV_SCALE = PARAM('envscale', 3.0);
    globeConfig now so heroConfig's bench can seed ?corner from the same value. — */
 const PANEL_CORNER_RADIUS = GLOBE_PANEL_CORNER_RADIUS;
 
-/* — Commit beat map — ONE linear timeline `raw.p`, split by ?bluelead
-   (note 4: "the blue fill should happen FIRST and then lead into the globe
-   centering and zoom"):
-   · BLUE LEADS over raw [0 .. blueLead]: the panels cascade to field blue
-     (or, circle mode, the disc blooms to the silhouette) while the CAMERA
-     HOLDS in the resting comp — the blue paints the globe where it sits,
-     off-right and underside, at full effect.
-   · CAMERA DIVES over raw [blueLead .. 1]: recenter (offsets/elev → 0) then
-     dolly (rig.zoom → ?envscale), on the house Turn curve applied to the
-     re-based progress `commitEase(seg(raw.p, blueLead, 1))` — the eased
-     launch/settle the doctrine wants, just held until the globe is blue.
-     ?recenterend / ?zoomstart are edges WITHIN that eased dive (cp-space).
-   · The .hero__fill disc spreads to the viewport corners over the dive's
-     tail, taking over from the by-then-blue globe at its edge → handoff at
-     raw 1. Blue never blinks (it owns the front of the timeline outright),
-     and the camera never moves before the globe is painted. — */
+/* — Commit beat map (08-25: CONCURRENT windows — the blue-first doctrine is
+   retired per Nathan: "the blue panel fill occurs DURING the zoom and center
+   motion"). ONE linear timeline `raw.p`; every channel is a window on it:
+   · BLUE over [?bluestart .. ?blueend]: the panels cascade to field blue
+     (or, circle mode, the disc blooms to the silhouette) WHILE the camera
+     moves — fully overlapping choreography.
+   · RECENTER over [?recenterstart .. ?recenterend] and DOLLY over
+     [?zoomstart .. ?zoomend] (rig.zoom → ?envscale), each on its own
+     power-inOut curve (?campow) — smooth both ends, no overshoot.
+   · The .hero__fill disc spreads to the viewport corners over
+     [?blueend .. 0.98], taking over from the painted globe at its edge →
+     handoff at raw 1. — */
 const SPREAD_PANELS_END = 0.98; // raw: .hero__fill disc fully covers the viewport
 const SPREAD_CIRCLE_END = 0.98;
 const FILL_DISC_PAD = 1.03; // fill circle slightly proud of the disc (bgMorph precedent)
@@ -171,10 +201,10 @@ const RM_WHEEL_THRESHOLD = 60; // reduced motion: modest intent → plain nav
 const ENV_LEAN = PARAM('envlean', 25) / 100; // camera zoom extra at full drag
 const ENV_PRE_COVER = PARAM('envpre', 45) / 100; // blue opacity at full drag (f² curve)
 
-/* — CTA fill presentation (restored from the pre-ring button): the pill
-   scales to 1 + this at full drag fill or hover, and mixes white → electric
-   blue by the same fraction (pinned solid blue at commit). — */
-const CTA_MAX_EXTRA = 0.3;
+/* — CTA fill presentation: 08-25 — the scale model retired (the button
+   slides down instead; see the presentation vars block). The pill mixes
+   black → electric blue by the charge fraction (pinned solid blue at
+   commit). — */
 
 /* — Globe outer stroke (Globe/Homepage): a flat electric-blue disc behind the
    canvas, sized GLOBE_STROKE_FRAC proud of the globe disc so only a thin ring
@@ -186,14 +216,15 @@ const CTA_MAX_EXTRA = 0.3;
 export default function Hero({ globeAssets }) {
   const heroRef = useRef(null);
   const veilRef = useRef(null);
+  const lockupRef = useRef(null); // the centered hero lockup wrap (word beats)
   const armedRef = useRef(false);
   const departingRef = useRef(false);
   const accumRef = useRef(0);
   const idleRef = useRef(null);
-  const leadColRef = useRef(null); // the tagline + scroll_to_enter button column
+  const leadColRef = useRef(null); // the enter_world button column (above the globe)
   const strokeRef = useRef(null); // globe outer-stroke disc (tracks the overlay disc)
 
-  // scroll_to_enter button fill state — the /work model (fill 0..1, mode
+  // enter_world button fill state — the /work model (fill 0..1, mode
   // drag|release|commit-pin) restored from the pre-ring button. The gesture
   // path writes it via setCta; a per-drag React render was fine before the
   // ring and stays fine now (the heavy work is the rig/overlay, not this).
@@ -240,11 +271,69 @@ export default function Hero({ globeAssets }) {
   // before the scene builds, and HeroIntro must be in the first commit so
   // its layout effect seeds the glyph rig ahead of the scene's build.
   const [introMode] = useState(decideIntroMode);
-  const [introOn, setIntroOn] = useState(introMode === 'full');
+  // HeroIntro mounts ONLY under the forced variants (?intro=a|c) — the
+  // default 'full' entrance is the arrive settle (no wordmark machine).
+  const [introOn, setIntroOn] = useState(introMode === 'full' && INTRO_FORCED_VARIANT);
   const [introRun, setIntroRun] = useState(0); // bench replays remount by key
   // The machine owns the rig (glyph pose → launch) until its handoff — the
   // tuning effect defers to it; a bench write mid-intro lands at the stamp.
-  const introDoneRef = useRef(introMode !== 'full');
+  // The arrive/replay settles never own the pose (zoom rides the gesture
+  // proxy), so they count as "done" from the start.
+  const introDoneRef = useRef(!(introMode === 'full' && INTRO_FORCED_VARIANT));
+
+  // ── Lockup word buckets (08-25 (2)) ──
+  // The inline SVG is one glyph per path/polygon/rect; bucket them into the
+  // three words by artwork x (getBBox works on visibility:hidden). Gaps in
+  // the artwork put the boundaries safely at 195 (SMALL|WORLD — the globe
+  // "o" sits at 303) and 405 (WORLD|MEDIA™ — the ™ marks land at 548+).
+  // Computed LAZILY at beat time, never cached from mount: the client:only
+  // island's early DOM is replaced during dev hydration churn (observed
+  // 08-25 — mount-time references went stale and the cuts wrote inline
+  // styles to disconnected nodes), and 17 getBBox calls per entrance are
+  // free.
+  const bucketLockupWords = () => {
+    const svg = lockupRef.current?.querySelector('svg');
+    if (!svg) return null;
+    const words = [[], [], []];
+    svg.querySelectorAll('path, polygon, rect').forEach((el) => {
+      let x = 0;
+      try {
+        x = el.getBBox().x;
+      } catch {
+        return; // unrendered — leave the glyph out; the fallback shows all
+      }
+      words[x < 195 ? 0 : x < 405 ? 1 : 2].push(el);
+    });
+    return words.every((w) => w.length) ? words : null;
+  };
+
+  // The three-beat lockup arrival (Nathan, 08-25 (2)): Small → World →
+  // Media™ as HARD CUTS — visibility flips, no fades — one ?lockupbeat
+  // apart, word 1 landing on the chrome beat itself. Instant (RM) or a
+  // failed bucketing shows the whole lockup at once. delayedCalls live in
+  // this island's gsap context on purpose — an unmount kills the pending
+  // cuts with everything else.
+  const runLockupBeats = (instant) => {
+    const wrap = lockupRef.current;
+    if (!wrap) return;
+    const words = bucketLockupWords();
+    // Hard cuts are PLAIN style writes, not gsap.set — a set of
+    // visibility on these SVG glyphs was observed not to stick (08-25),
+    // and a cut needs no tween anyway. delayedCall stays as the clock so
+    // pending cuts die with this island's gsap context.
+    const setVis = (els, v) => els.forEach((el) => { el.style.visibility = v; });
+    if (instant || !words) {
+      if (words) setVis(words.flat(), 'visible');
+      gsap.set(wrap, { autoAlpha: 1 });
+      return;
+    }
+    setVis(words.flat(), 'hidden');
+    gsap.set(wrap, { autoAlpha: 1 }); // the wrap itself cuts on, no fade
+    const beat = Math.max(0, HERO_TUNING.lockupBeatMs) / 1000;
+    words.forEach((group, i) => {
+      gsap.delayedCall(beat * i, () => setVis(group, 'visible'));
+    });
+  };
 
   // The chrome beat: arm the gesture, stamp the latch, broadcast — the
   // HeroText lead / labels reveal themselves off the event (they can mount
@@ -256,8 +345,18 @@ export default function Hero({ globeAssets }) {
     if (!hero) return;
     armedRef.current = true;
     hero.dataset.chromed = '1';
-    window.dispatchEvent(new CustomEvent('swm:hero-chrome'));
-    const owned = hero.querySelectorAll('.hero__enter-wrap, .hero__footer');
+    // Dispatch OUTSIDE the caller's gsap context. A tween created
+    // synchronously inside a context-owned animation's callback is ADOPTED
+    // by that context (gsap 3.11 context inheritance) — SiteNav's reveal
+    // tween was adopted into this island's useGSAP context and REVERTED at
+    // unmount, re-hiding the nav after the commit swap (08-25 bug, caught
+    // by stack trap). One rAF breaks the adoption chain for every listener.
+    requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('swm:hero-chrome')));
+    // The lockup leaves the fade list (08-25 (2)) — it arrives word by word.
+    runLockupBeats(instant);
+    const owned = hero.querySelectorAll(
+      '.hero__enter-wrap, .hero__arrows, .hero__footer'
+    );
     if (instant) gsap.set(owned, { autoAlpha: 1 });
     else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
   };
@@ -283,6 +382,16 @@ export default function Hero({ globeAssets }) {
   // aliases it), and the values equal the baked defaults unless a URL/bench
   // change moved them, so an untouched load is a no-op.
   const stampGlobeTuning = () => {
+    // 08-25: hero lockup height (?lockuph; 0 = the CSS clamp default) —
+    // DOM-only, stamped before the scene-api guard so it applies pre-build.
+    const heroEl = heroRef.current;
+    if (heroEl) {
+      if (HERO_TUNING.lockupH > 0) {
+        heroEl.style.setProperty('--hero-lockup-h', `${HERO_TUNING.lockupH}px`);
+      } else {
+        heroEl.style.removeProperty('--hero-lockup-h');
+      }
+    }
     const api = sceneApiRef.current;
     if (!api) return;
     api.setPoleTuning({
@@ -299,6 +408,12 @@ export default function Hero({ globeAssets }) {
     });
     api.setCascadeSpeed(HERO_TUNING.cascadeSpeed);
     api.setPoleCap(HERO_TUNING.poleCapDeg);
+    // 08-25: commit blue-fill surge shape (?bluesurge ?bluedipend ?bluedipdepth).
+    api.setBlueFillTuning?.({
+      surge: HERO_TUNING.blueSurge,
+      dipEnd: HERO_TUNING.blueDipEnd,
+      dipDepth: HERO_TUNING.blueDipDepth,
+    });
   };
   useEffect(() => {
     const applyTuning = () => {
@@ -320,13 +435,18 @@ export default function Hero({ globeAssets }) {
     setIntroOn(false);
   };
 
-  // Bench action (?herotune): re-run the full machine. The scene can't
-  // re-hold mid-session — the live-video scheduler is already running and
-  // stays running (accepted; the bench note says so) — but the cascade
-  // replays and the glyph rig re-seeds through the live handle.
+  // Bench action (?herotune): re-run the entrance. Default path = the arrive
+  // settle (cascade replays; the live-video scheduler is already running and
+  // stays running — accepted, the bench note says so). Forced ?intro=a|c =
+  // remount the old machine by key (glyph rig re-seeds through the live
+  // handle).
   const onReplayIntro = () => {
     if (introMode === 'rm' || departingRef.current) return;
-    armedRef.current = false; // re-arms at the machine's chrome beat
+    armedRef.current = false; // re-arms at the entrance's chrome beat
+    if (!INTRO_FORCED_VARIANT) {
+      runEntranceSettle(ARRIVE_SECONDS, ARRIVE_ZOOM_FROM, true);
+      return;
+    }
     introDoneRef.current = false;
     setIntroRun((n) => n + 1);
     setIntroOn(true);
@@ -339,6 +459,24 @@ export default function Hero({ globeAssets }) {
   // rides the shipped hero payload. The state holds the component, so the setter
   // takes the UPDATER form — setHeroTunePanel(Component) would run a function
   // value as a reducer instead of storing it.
+  // Typed commit-choreography panel (?committune=1) — same lazy-mount
+  // convention; number inputs instead of sliders (Nathan, 08-25).
+  const [CommitTunePanel, setCommitTunePanel] = useState(null);
+  useEffect(() => {
+    if (!COMMIT_TUNE_ACTIVE) return undefined;
+    let alive = true;
+    import('./hero/CommitTunePanel.jsx')
+      .then((m) => {
+        if (alive) setCommitTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const [HeroTunePanel, setHeroTunePanel] = useState(null);
   useEffect(() => {
     if (!HERO_TUNE_ACTIVE) return;
@@ -406,11 +544,23 @@ export default function Hero({ globeAssets }) {
     const sceneApi = sceneApiRef.current;
     const fill = fillRef.current;
     const chrome = heroRef.current.querySelectorAll(
-      '.hero__lead-col, .hero__footer, .hero-labels'
+      '.hero__lead-col, .hero__arrows, .hero__footer, .hero-labels'
     );
     // Commit-time snapshot of the bench knobs — the timeline is one shot;
     // a mid-flight TUNING write waits for the next commit/dry-run.
-    const { fillMode, blueCascade, blueLead, recenterEnd, zoomStart, commitMs } = HERO_TUNING;
+    const {
+      fillMode,
+      blueCascade,
+      blueStart,
+      blueEnd,
+      recenterStart,
+      recenterEnd,
+      zoomStart,
+      zoomEnd,
+      camPow,
+      envScale,
+      commitMs,
+    } = HERO_TUNING;
 
     // Recenter/zoom starts — FROM wherever the live rig sits (the resting
     // TUNING pose, a bench value, a mid-drag lean), never from defaults.
@@ -444,24 +594,24 @@ export default function Hero({ globeAssets }) {
     const coverRadius = () =>
       Math.hypot(Math.max(disc.cx, disc.w - disc.cx), Math.max(disc.cy, disc.h - disc.cy));
     const driveFill = (p) => {
-      // p is RAW timeline progress; the fill windows are re-based on blueLead
-      // so the blue fills the globe FIRST (over [0, blueLead]) and only then
-      // spreads to the corners (over [blueLead, end]) as the camera dives.
+      // p is RAW timeline progress; the fill windows key off blueEnd (08-25:
+      // the blue paints DURING the camera motion over [blueStart, blueEnd])
+      // — the disc→corners spread takes over once the globe is painted.
       if (!fill) return;
       let radius;
       const r0 = disc.r * FILL_DISC_PAD;
       if (fillMode === 'circle') {
-        // circle: the disc blooms 0 → the silhouette over [0, blueLead] (this
-        // mode's "paint the globe" beat, in place of the panel cascade), then
-        // spreads disc → corners over [blueLead, end].
-        const grow = seg(p, 0, blueLead);
+        // circle: the disc blooms 0 → the silhouette over the blue window
+        // (this mode's "paint the globe" beat, in place of the panel
+        // cascade), then spreads disc → corners over [blueEnd, end].
+        const grow = seg(p, blueStart, blueEnd);
         if (grow <= 0) return;
-        const spread = seg(p, blueLead, SPREAD_CIRCLE_END);
+        const spread = seg(p, blueEnd, SPREAD_CIRCLE_END);
         radius = spread > 0 ? r0 + (coverRadius() - r0) * spread : r0 * grow;
       } else {
-        // panels: the panels are field blue by blueLead; the div takes over
+        // panels: the panels are field blue by blueEnd; the div takes over
         // at the disc edge and carries the blue to the corners after it.
-        const spread = seg(p, blueLead, SPREAD_PANELS_END);
+        const spread = seg(p, blueEnd, SPREAD_PANELS_END);
         if (spread <= 0) return;
         radius = r0 + (coverRadius() - r0) * spread;
       }
@@ -483,7 +633,10 @@ export default function Hero({ globeAssets }) {
       unsub();
       commitKillRef.current = null;
       window.dispatchEvent(
-        new CustomEvent('swm:envelop', { detail: { duration: HANDOFF_COVER_SECONDS } })
+        // loader: true — the home→/work passage shows the overviews_loading
+        // bar on the RouteFill while the World builds (08-25; other
+        // passages stay bare).
+        new CustomEvent('swm:envelop', { detail: { duration: HANDOFF_COVER_SECONDS, loader: true } })
       );
       navigate('/work');
     };
@@ -530,14 +683,12 @@ export default function Hero({ globeAssets }) {
       armedRef.current = true; // the gesture is live again
     };
 
-    /* — ONE linear master timeline `raw.p` (see the beat map). The blue owns
-       the front outright (paints the globe over [0, blueLead] while the
-       camera holds); the camera dive rides the house Turn curve applied to
-       the re-based progress after blueLead, so the eased launch/settle is
-       preserved — just delayed until the globe is blue. `raw.p` is linear so
-       the blue reads at any ?commitms; the only other clock is the 0.2s
+    /* — ONE linear master timeline `raw.p` (see the beat map). Blue, recenter
+       and dolly each ease through their own window on it, fully concurrent
+       (08-25 — the blue-first hold and the shared Turn-curve remap both
+       retired; ?commitease and ?bluelead with them). `raw.p` is linear so
+       every window reads at any ?commitms; the only other clock is the 0.2s
        real-time chrome exit (house-sanctioned exception). — */
-    const commitEase = CustomEase.create('swmHeroCommit', HERO_COMMIT_EASE_PATH);
     const raw = { p: 0 };
     const tl = gsap.timeline({ onComplete: dryRun ? releaseDryRun : handoff });
     // Chrome out — the button stays until the spreading blue swallows it.
@@ -554,24 +705,24 @@ export default function Hero({ globeAssets }) {
         ease: 'none',
         onUpdate: () => {
           const p = raw.p;
-          // 1) BLUE LEADS — panels surge to field blue over [0, blueLead] on
-          //    the cascade's own stagger while the camera is still (circle
-          //    mode blooms the disc instead — driveFill owns that below).
+          // CONCURRENT CHANNELS (08-25, Nathan): the blue paints DURING the
+          // camera motion — panels surge to field blue over the blue window
+          // [blueStart, blueEnd] on the cascade's own stagger (circle mode
+          // blooms the disc instead — driveFill owns that below) WHILE each
+          // camera channel (recenter, dolly) rides its OWN power-inOut
+          // window on the same linear timeline. Everything overlaps as one
+          // cohesive motion; the windows are the choreography.
           if (fillMode === 'panels') {
-            sceneApi?.setBlueFill(seg(p, 0, blueLead), blueCascade);
+            sceneApi?.setBlueFill(seg(p, blueStart, blueEnd), blueCascade);
           }
           driveFill(p);
-          // 2) CAMERA DIVES — after blueLead, on the Turn curve: recenter the
-          //    now-blue globe to the axis, then dolly through it. cp holds at
-          //    0 until blueLead, so the globe does not move before it is blue.
           if (handle) {
-            const cp = commitEase(seg(p, blueLead, 1));
-            const rc = seg(cp, 0, recenterEnd);
+            const rc = powInOut(seg(p, recenterStart, recenterEnd), camPow);
             handle.rig.offsetX = startX * (1 - rc);
             handle.rig.offsetY = startY * (1 - rc);
             handle.rig.elevDeg = startElev * (1 - rc);
-            const z = seg(cp, zoomStart, 1);
-            zoomRef.current.v = startZoom + (ENV_SCALE - startZoom) * z;
+            const z = powInOut(seg(p, zoomStart, zoomEnd), camPow);
+            zoomRef.current.v = startZoom + (envScale - startZoom) * z;
             handle.rig.zoom = zoomRef.current.v;
             handle.apply(); // ONE apply for every rig write this frame
           }
@@ -603,6 +754,37 @@ export default function Hero({ globeAssets }) {
   };
 
   // ── Entrance dispatch — by the render-time intro mode (chunk 5) ──
+  // The scene api can lag the settle's early beats (three build + textures) —
+  // retry until it lands rather than dropping the beat (a missed cascade on a
+  // held entrance would leave the globe dark).
+  const withSceneApi = (fn) => {
+    const attempt = () => {
+      const api = sceneApiRef.current;
+      if (api) fn(api);
+      else gsap.delayedCall(0.15, attempt);
+    };
+    attempt();
+  };
+  // Shared settle: veil 1→0 + rig.zoom from→1 on the intro curve, straight
+  // into the resting comp (rig.zoom, not a DOM scale). zoom rides the gesture
+  // proxy so a drag mid-settle takes over cleanly (killTweensOf arbitration,
+  // one target). `arrive` adds the cascade + scheduler release (the held
+  // first-visit build); the replay scene cascades on its own at mount.
+  const runEntranceSettle = (secs, from, arrive) => {
+    const veil = veilRef.current;
+    zoomRef.current.v = from;
+    applyZoom();
+    const settleEase = CustomEase.create('swmHeroIntroSettle', HERO_INTRO_EASE_PATH);
+    gsap.set(veil, { opacity: 1 });
+    const tl = gsap.timeline();
+    tl.to(zoomRef.current, { v: 1, duration: secs, ease: settleEase, onUpdate: applyZoom }, 0);
+    tl.to(veil, { opacity: 0, duration: secs, ease: settleEase }, 0);
+    if (arrive) {
+      tl.add(() => withSceneApi((api) => api.replayCascade('sweep')), ARRIVE_CASCADE_AT);
+      tl.add(() => withSceneApi((api) => api.releaseScheduler()), secs * CHROME_BEAT_AT);
+    }
+    tl.add(() => chromeBeat(false), secs * CHROME_BEAT_AT);
+  };
   useGSAP(
     () => {
       const veil = veilRef.current;
@@ -615,17 +797,14 @@ export default function Hero({ globeAssets }) {
         return;
       }
 
-      if (introMode === 'replay') {
-        // Revisit settle: straight into the resting comp on the intro
-        // curve — the veil thins exactly as the camera closes the last 8%
-        // (rig.zoom, not a DOM scale — the loom's transform died with
-        // chunk 5). zoom rides the gesture proxy so a drag mid-settle
-        // takes over cleanly (killTweensOf arbitration, one target). This
+      if (introMode === 'replay' || (introMode === 'full' && !INTRO_FORCED_VARIANT)) {
+        // Arrive (default first visit) / replay (revisit) settle. This
         // layout effect runs BEFORE the scene's passive build — pre-seed
-        // the rig-carry so the very first rendered frame is already at
-        // 0.92 (HeroIntro's pre-seed idiom; the resting pose comes from
-        // TUNING, which the tuning effect re-stamps identically).
-        zoomRef.current.v = REPLAY_ZOOM_FROM;
+        // the rig-carry so the very first rendered frame is already at the
+        // from-zoom (HeroIntro's pre-seed idiom; the resting pose comes
+        // from TUNING, which the tuning effect re-stamps identically).
+        const arrive = introMode === 'full';
+        const from = arrive ? ARRIVE_ZOOM_FROM : REPLAY_ZOOM_FROM;
         if (!rigRef.current) {
           rigRef.current = {
             rig: {
@@ -635,40 +814,31 @@ export default function Hero({ globeAssets }) {
               offsetY: HERO_TUNING.offsetY,
               elevDeg: HERO_TUNING.elevDeg,
               roll: HERO_TUNING.roll,
-              zoom: REPLAY_ZOOM_FROM,
+              zoom: from,
             },
             apply: () => {},
           };
-        } else {
-          applyZoom();
         }
-        const settleEase = CustomEase.create('swmHeroIntroSettle', HERO_INTRO_EASE_PATH);
-        gsap.set(veil, { opacity: 1 });
-        const tl = gsap.timeline();
-        tl.to(
-          zoomRef.current,
-          { v: 1, duration: REPLAY_SECONDS, ease: settleEase, onUpdate: applyZoom },
-          0
-        );
-        tl.to(veil, { opacity: 0, duration: REPLAY_SECONDS, ease: settleEase }, 0);
-        tl.add(() => chromeBeat(false), REPLAY_SECONDS * CHROME_BEAT_AT);
+        runEntranceSettle(arrive ? ARRIVE_SECONDS : REPLAY_SECONDS, from, arrive);
         return;
       }
 
-      // full — HeroIntro owns the entrance end to end (veil, glyph rig,
-      // cascade beat, chrome beat, scheduler release); nothing to conduct.
+      // forced variant (?intro=a|c) — HeroIntro owns the entrance end to end
+      // (veil, glyph rig, cascade beat, chrome beat, scheduler release);
+      // nothing to conduct.
     },
     { scope: heroRef }
   );
 
-  // ── Tagline/CTA column sized to the gap LEFT of the globe ──
-  // The column spans [viewport-left, globe-left-edge] and centre-justifies the
-  // tagline + CTA within that empty gap (CSS owns the centring; its own padding
-  // keeps the copy clear of the globe). We cache the disc every frame (3 number
-  // writes, zero alloc — this also keeps the overlay bridge running when labels
-  // are off) and write the column's --lead-gap (the globe's left-edge px, less
-  // ?textgap) only on a "dirty" frame — armed by the chrome beat, window resize
-  // and bench comp changes, NEVER per frame (a width write relayouts the text).
+  // ── Tagline/CTA column anchored ABOVE the globe ──
+  // 08-24 recomposition: the globe rests centered with its center point on the
+  // bottom viewport edge, so the statement + CTA live in the clear band above
+  // the disc — horizontally centered, the column's BOTTOM held ?textgap px off
+  // the disc's TOP edge (CSS anchors via --lead-top + translateY(-100%)). We
+  // cache the disc every frame (3 number writes, zero alloc — this also keeps
+  // the overlay bridge running when labels are off) and write --lead-top only
+  // on a "dirty" frame — armed by the chrome beat, window resize and bench comp
+  // changes, NEVER per frame (a top write relayouts the text).
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return undefined;
@@ -677,10 +847,36 @@ export default function Hero({ globeAssets }) {
     const writeGap = () => {
       const col = leadColRef.current;
       if (!col || !disc.r) return;
-      // The globe's LEFT edge in px (less a textGap breathing margin) — the
-      // width of the gap the column spans and centres its content within.
-      const px = Math.max(0, Math.round(disc.cx - disc.r - HERO_TUNING.textGap));
-      col.style.setProperty('--lead-gap', `${px}px`);
+      // The globe's TOP edge in px (less a textGap breathing margin) — where
+      // the column's bottom edge rests.
+      const px = Math.max(0, Math.round(disc.cy - disc.r - HERO_TUNING.textGap));
+      col.style.setProperty('--lead-top', `${px}px`);
+      // 08-25: the enter_world button slides DOWN to the viewport center as
+      // the scroll charges (translateY = --cta-down × --cta-slide). Measure
+      // the slide from the UNTRANSFORMED wrap (the button carries the
+      // transform), on the same dirty frames.
+      const wrap = col.querySelector('.hero__enter-wrap');
+      if (wrap) {
+        const r = wrap.getBoundingClientRect();
+        const slide = Math.max(
+          0,
+          Math.round(window.innerHeight / 2 - (r.top + r.height / 2))
+        );
+        col.style.setProperty('--cta-slide', `${slide}px`);
+        // 08-25 (Nathan): the lockup stays CENTERED in the band between the
+        // nav bar's bottom edge and the button's top — at ANY ?lockuph scale
+        // (it was bottom-anchored, so scaling walked it into the nav). The
+        // midline moves only when the layout does — same dirty frames.
+        const navBottom =
+          document.querySelector('.site-nav')?.getBoundingClientRect().bottom ?? 41;
+        const hero = heroRef.current;
+        if (hero) {
+          hero.style.setProperty(
+            '--lockup-center-y',
+            `${Math.round((navBottom + r.top) / 2)}px`
+          );
+        }
+      }
     };
     const unframe = overlay.onFrame((frame) => {
       disc.cx = frame.disc.cx;
@@ -826,13 +1022,14 @@ export default function Hero({ globeAssets }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── scroll_to_enter button presentation vars (restored from the pre-ring
-  // button) — the /work scroll choreography on the PRIMARY palette: white/blue
-  // at rest, filling (or hovering) toward the primary's hover state
-  // (blue/white), pinned solid blue at the threshold. --cta-return/--cta-ease
-  // give each mode its own transition timing (drag snappy, release the house
-  // rubber-band curve, commit-pin instant). ──
-  const ctaScale = 1 + CTA_MAX_EXTRA * Math.max(ctaFill, ctaHover ? 1 : 0);
+  // ── enter_world button presentation vars — 08-25 model: SOLID BLACK fill
+  // inside the white stroke at rest, pouring to solid electric blue as the
+  // scroll charges (always opaque — it covers the caret strip as it passes),
+  // while the button SLIDES DOWN toward the viewport center tethered to the
+  // same accumulator (translateY, no scaling). Release rubber-bands it back
+  // up on the house curve; commit-pin parks it at center instantly. Hover
+  // pours the blue but never moves the button. ──
+  const ctaDown = ctaMode === 'commit-pin' ? 1 : Math.min(1, ctaFill);
   const ctaReturn = ctaMode === 'commit-pin' ? '0s' : ctaMode === 'release' ? '0.4s' : '0.12s';
   const ctaEase = ctaMode === 'release' ? 'cubic-bezier(0.16, 1, 0.3, 1)' : 'ease-out';
   const ctaPct =
@@ -840,8 +1037,9 @@ export default function Hero({ globeAssets }) {
       ? 100
       : Math.round(Math.min(1, Math.max(ctaFill, ctaHover ? 1 : 0)) * 100);
   const ctaColor = {
-    '--cta-bg': `color-mix(in srgb, var(--color-white), var(--color-electric-blue) ${ctaPct}%)`,
-    '--cta-fg': `color-mix(in srgb, var(--color-electric-blue), var(--color-white) ${ctaPct}%)`,
+    '--cta-bg': `color-mix(in srgb, var(--color-black), var(--color-electric-blue) ${ctaPct}%)`,
+    '--cta-fg': 'var(--color-white)',
+    '--cta-down': ctaDown.toFixed(4),
   };
 
   return (
@@ -865,14 +1063,24 @@ export default function Hero({ globeAssets }) {
           cornerRadius={PANEL_CORNER_RADIUS}
         />
       </div>
-      {/* Left-anchored statement column — the tagline (HeroText's .hero__lead,
-          the /process prose voice) THEN the scroll_to_enter button beneath it.
-          The column's --lead-max (Hero writes it from the globe disc's left
-          edge) clamps its width so the copy clears the globe and wraps when
-          tight; the button inherits it and left-aligns under the wrapped lead.
-          The column is pointer-inert (drag-to-spin reaches the canvas); only
-          the button opts back in. Revealed on the chrome beat, faded on the
-          commit (it's the .hero__lead-col in the chrome NodeList). */}
+      {/* Centered statement column ABOVE the globe (08-24 recomposition) —
+          the tagline (HeroText's .hero__lead, the /process section-header
+          display register) THEN the scroll_to_enter button beneath it. Hero
+          writes --lead-top (the disc's top edge, less ?textgap) and CSS
+          anchors the column's bottom there, horizontally centered. The column
+          is pointer-inert (drag-to-spin reaches the canvas); only the button
+          opts back in. Revealed on the chrome beat, faded on the commit
+          (it's the .hero__lead-col in the chrome NodeList). */}
+      {/* Centered brand lockup (08-25) — white, above the enter_world CTA,
+          on its OWN layer at z1: BELOW the globe canvas (z2), so the commit's
+          scaling globe covers it (it is deliberately NOT in the chrome-out
+          NodeList — occlusion is the exit). Revealed on the chrome beat. */}
+      <div
+        className="hero__lockup"
+        aria-hidden="true"
+        ref={lockupRef}
+        dangerouslySetInnerHTML={{ __html: lockupSvg }}
+      />
       <div className="hero__lead-col" ref={leadColRef}>
         <HeroText />
         <div className="hero__enter-wrap">
@@ -880,7 +1088,6 @@ export default function Hero({ globeAssets }) {
             type="button"
             className="cta-primary hero__enter"
             style={{
-              '--cta-scale': ctaScale.toFixed(3),
               '--cta-return': ctaReturn,
               '--cta-ease': ctaEase,
               ...ctaColor,
@@ -889,10 +1096,16 @@ export default function Hero({ globeAssets }) {
             onPointerEnter={() => setCtaHover(true)}
             onPointerLeave={() => setCtaHover(false)}
           >
-            scroll_to_enter
+            enter_world
           </button>
-          <CtaArrows direction="down" />
         </div>
+      </div>
+      {/* Caret strip (08-25) — split OUT of the button wrap onto its own
+          static layer at z1: BEHIND the globe canvas (z2), no scaling/motion
+          interactivity — the opaque button slides down over it. Revealed on
+          the chrome beat, faded with the commit chrome. */}
+      <div className="hero__arrows" aria-hidden="true">
+        <CtaArrows direction="down" />
       </div>
       {/* Blob-tracking labels (chunk 6) — on by default now (?herolabels=0
           forces off); chips latch onto LIVE panels between the chrome beat
@@ -923,6 +1136,7 @@ export default function Hero({ globeAssets }) {
           onDone={onIntroDone}
         />
       )}
+      {CommitTunePanel && <CommitTunePanel onDryRun={onCommitDryRun} />}
       {HeroTunePanel && (
         <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />
       )}

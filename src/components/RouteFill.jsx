@@ -37,19 +37,57 @@ const SAFETY_MS = 2500;
 
 export default function RouteFill() {
   const fillRef = useRef(null);
+  const loaderRef = useRef(null); // the overviews_loading chrome (08-25)
+  const barRef = useRef(null); // the bar fill — scaleX 0..1
 
   useEffect(() => {
     const fill = fillRef.current;
     if (!fill) return undefined;
+    const loader = loaderRef.current;
+    const bar = barRef.current;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let covered = false;
     let safetyTimer = null;
+    let loaderUp = false;
+
+    // ── overviews_loading (08-25, Nathan) — a dummy loading bar bridging
+    // the home→/work gap: the departing hero tags its envelop with
+    // detail.loader, the bar charges to ~90% while the World builds behind
+    // the fill, and the release snaps it full before the fade carries the
+    // whole layer (loader included — it's a child) away. Dummy by design:
+    // it paces the WAIT, it does not measure progress. ──
+    const loaderStart = () => {
+      if (!loader || !bar || reducedMotion) return;
+      loaderUp = true;
+      gsap.killTweensOf([loader, bar]);
+      gsap.set(bar, { scaleX: 0 });
+      gsap.set(loader, { autoAlpha: 1 });
+      // Fast optimistic charge, then a slow creep — never lands on its own.
+      const tl = gsap.timeline();
+      tl.to(bar, { scaleX: 0.82, duration: 1.1, ease: 'power2.out' });
+      tl.to(bar, { scaleX: 0.96, duration: 3.5, ease: 'none' });
+    };
+    const loaderFinish = () => {
+      if (!loaderUp || !loader || !bar) return;
+      loaderUp = false;
+      gsap.killTweensOf(bar);
+      // Complete under the release fade, then reset for the next passage
+      // (the fade above hides the snap-to-zero).
+      gsap.to(bar, { scaleX: 1, duration: 0.15, ease: 'power2.out' });
+      gsap.to(loader, {
+        autoAlpha: 0,
+        duration: 0.1,
+        delay: RELEASE_DELAY + RELEASE_SECONDS,
+        onComplete: () => gsap.set(bar, { scaleX: 0 }),
+      });
+    };
 
     const release = () => {
       clearTimeout(safetyTimer);
       if (!covered) return;
       covered = false;
       fill.style.pointerEvents = 'none';
+      loaderFinish();
       if (reducedMotion) {
         gsap.set(fill, { autoAlpha: 0 });
         return;
@@ -73,6 +111,7 @@ export default function RouteFill() {
       const color = e?.detail?.color;
       if (color) fill.style.setProperty('--project-color', color);
       else fill.style.removeProperty('--project-color');
+      if (e?.detail?.loader) loaderStart();
       if (reducedMotion) {
         gsap.set(fill, { autoAlpha: 1 });
         return;
@@ -146,5 +185,16 @@ export default function RouteFill() {
     };
   }, []);
 
-  return <div ref={fillRef} className="route-fill" aria-hidden="true" />;
+  return (
+    <div ref={fillRef} className="route-fill" aria-hidden="true">
+      {/* overviews_loading (08-25) — hidden until a loader-tagged envelop;
+          fades with the parent fill on release, reset after. */}
+      <div className="route-fill__loader" ref={loaderRef}>
+        <p className="route-fill__loader-label">overviews_loading</p>
+        <div className="route-fill__loader-track">
+          <div className="route-fill__loader-bar" ref={barRef} />
+        </div>
+      </div>
+    </div>
+  );
 }

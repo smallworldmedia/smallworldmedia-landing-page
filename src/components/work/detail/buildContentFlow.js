@@ -107,6 +107,19 @@ function ratioFromTitle(title) {
  * primary source.
  */
 export function ratioOf(asset) {
+  // 0. brand-deck pages with real image dims (08-25): the native page
+  //    aspect outranks the historical 16:9 default — a COMPILED poster
+  //    deck (SA tour, 4:5 stills regrouped as a deck) keeps its aspect
+  //    everywhere (DeckScroller wall, directory grid); true 16:9 deck
+  //    exports resolve identically to the old constant.
+  if (
+    asset.mediaType === 'brand-deck' &&
+    asset.imageDimensions?.width &&
+    asset.imageDimensions?.height
+  ) {
+    return asset.imageDimensions.width / asset.imageDimensions.height;
+  }
+
   // 1. mediaType-encoded ratio — editorial truth
   const typeRatio = MEDIA_TYPE_RATIOS[asset.mediaType];
   if (typeRatio != null) return typeRatio;

@@ -1,12 +1,16 @@
 /**
  * SiteNav — Fixed top navigation bar (shared site-wide).
  *
- * Blue bar: SWM globe mark + info pill on the left, sitemap links with
- * glyph prefixes on the right. The links row is the same on every route —
- * home included. The home (globe) variant — `body.route-home`, set
- * server-side by BaseLayout (no hydration flash) and swapped off by the
- * ClientRouter on navigation — is CSS-only: the bar goes transparent and
- * the info pill's blue accents go black.
+ * Blue bar: the SWM inline lockup (08-24 — the full "Small World Media"
+ * lockup replaced the bare globe mark, inlined from the shared
+ * src/assets/swm-lockup-inline.svg the footer also uses) + info pill on
+ * the left, sitemap links with glyph prefixes on the right. The home
+ * variant — `body.route-home`, set server-side by BaseLayout (no
+ * hydration flash) and swapped off by the ClientRouter on navigation —
+ * is CSS-only: the bar goes transparent, the info pill's blue accents go
+ * black, and the LINKS ROW (+ mobile menu pill + fxrule) stays hidden —
+ * the sitemap only comes into view after the scroll-trigger commit lands
+ * on the featured-projects page (or any non-home route).
  *
  * Props (all optional — when omitted, links fall back to navigation):
  *   onStartProject  — callback for "start_project" click
@@ -16,6 +20,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
+// The brand lockup, inlined (footer precedent) — one source of truth in
+// src/assets; native blue artwork, no recolor filter.
+import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
 
 /* ── NAV micro-interaction (merged default — brackets on hover, rule on
    current) ── The two former systems (?navfx=3 brackets alt vs kinetic-rule
@@ -296,51 +303,122 @@ export default function SiteNav({
     };
   }, []);
 
-  // ── Home chrome gate (initial page load only) ──
-  // On a fresh load of the home route the whole visual bar (logo + links +
-  // pill) stays hidden until the hero settles and fires its chrome beat
-  // (window 'swm:hero-chrome' + the durable .hero[data-chromed="1"] latch —
-  // the HeroText consumer pattern). The island is transition:persist and
-  // SITE-WIDE, so this runs ONCE at hydration: client navs never re-hide
-  // (landing on home from another page keeps the bar), and any after-swap
-  // before the beat force-reveals instantly — the nav can never be hidden
-  // off-home. The latch check covers reduced-motion / replay beats that fire
-  // before hydration; the safety timer covers a failed hero. Hiding targets
-  // .site-nav only — the portaled .mobile-menu and the rest of .site-shell
-  // (InfoPanel/ProjectOverlay) are untouched.
+  // ── Home chrome gate + brand arrival choreography ──
+  // Fresh HOME load: the bar stays hidden until the hero settles and fires
+  // its chrome beat ('swm:hero-chrome' + the durable .hero[data-chromed="1"]
+  // latch — the HeroText consumer pattern; safety timer covers a failed
+  // hero). On home the bar shows ONLY the info pill in the LEFT CORNER (the
+  // nav lockup + links are CSS-hidden on route-home — the lockup lives
+  // centered in the hero instead).
+  //
+  // EVERY after-swap re-asserts bar visibility unconditionally (clearProps).
+  // This is deliberate belt-and-suspenders: a swap during the island
+  // teardown was observed reverting the reveal tween's inline styles (nav
+  // landed on /work at opacity 0 — 08-25 bug), so visibility off-home is
+  // never left to a one-shot listener again.
+  //
+  // HOME → OFF-HOME swap (the globe commit landing on /work) additionally
+  // runs the 08-25 brand arrival: the info pill eases RIGHT from the corner
+  // to its resting slot (making way), then the nav lockup slides DOWN from
+  // above the frame into place — its fills already on the nav ink token
+  // (--nav-ink-l) via CSS, so it lands in the correct light/dark state.
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return undefined;
-    if (!document.body.classList.contains('route-home')) return undefined;
-    if (document.querySelector('.hero')?.dataset.chromed === '1') return undefined;
+    let wasHome = document.body.classList.contains('route-home');
 
-    gsap.set(nav, { autoAlpha: 0 });
-    let shown = false;
-    let timer = null;
-    const show = (instant) => {
-      if (shown) return;
-      shown = true;
-      clearTimeout(timer);
-      window.removeEventListener('swm:hero-chrome', onBeat);
-      document.removeEventListener('astro:after-swap', onLeave);
-      if (instant) gsap.set(nav, { autoAlpha: 1 });
-      else gsap.to(nav, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
-      // The underline materializes under the current link now that the bar
-      // is visible (inline transform/width/opacity re-written).
-      fxReseatRef.current?.();
+    const runBrandArrival = () => {
+      const logo = nav.querySelector('.site-nav__logo');
+      const pill = nav.querySelector('.site-nav__pill');
+      if (!logo || !pill) return;
+      // ≤768px the lockup is absolutely CENTERED in the bar (08-25 phone
+      // order: info left, lockup center, menu right) — the pill already owns
+      // the corner on home AND off-home, so there is nothing to make way for:
+      // skip the slide, keep only the lockup drop (its GSAP transform
+      // composes with the CSS `translate` centering).
+      const centered = window.matchMedia('(max-width: 768px)').matches;
+      const slide = logo.offsetWidth + 10; // lockup slot + the brand gap
+      gsap.killTweensOf([logo, pill]);
+      const tl = gsap.timeline({
+        onComplete: () => gsap.set([logo, pill], { clearProps: 'all' }),
+      });
+      if (!centered) {
+        tl.fromTo(
+          pill,
+          { x: -slide },
+          { x: 0, duration: 0.5, ease: 'power3.inOut' },
+          0
+        );
+      }
+      tl.fromTo(
+        logo,
+        { yPercent: -180, autoAlpha: 0 },
+        { yPercent: 0, autoAlpha: 1, duration: 0.45, ease: 'power3.out' },
+        centered ? 0 : 0.38 // "then" — the drop starts as the pill settles
+      );
     };
-    const onBeat = () => show(false);
-    const onLeave = () => show(true); // navigated away pre-beat — never hide chrome off-home
-    window.addEventListener('swm:hero-chrome', onBeat);
-    document.addEventListener('astro:after-swap', onLeave);
-    timer = setTimeout(() => show(false), CHROME_SAFETY_MS);
+
+    // 08-25: the sitemap links stagger in on page load (Nathan's call —
+    // links live on home again, no /work detour needed). Runs at the beat
+    // on home, immediately on any other fresh load; clearProps on complete
+    // so the kinetic rule / brackets meet a clean row.
+    const staggerLinks = () => {
+      const items = nav.querySelectorAll('.site-nav__links a');
+      if (!items.length) return;
+      gsap.fromTo(
+        items,
+        { y: -10, autoAlpha: 0 },
+        {
+          y: 0,
+          autoAlpha: 1,
+          duration: 0.45,
+          stagger: 0.07,
+          ease: 'power2.out',
+          clearProps: 'all',
+          onComplete: () => fxReseatRef.current?.(),
+        }
+      );
+    };
+
+    const onSwap = () => {
+      const isHome = document.body.classList.contains('route-home');
+      gsap.killTweensOf(nav);
+      gsap.set(nav, { clearProps: 'opacity,visibility' }); // never hidden after a swap
+      if (wasHome && !isHome) runBrandArrival();
+      fxReseatRef.current?.();
+      wasHome = isHome;
+    };
+    document.addEventListener('astro:after-swap', onSwap);
+
+    // Initial-load gate (home only, beat not yet fired).
+    let timer = null;
+    let onBeat = null;
+    if (wasHome && document.querySelector('.hero')?.dataset.chromed !== '1') {
+      gsap.set(nav, { autoAlpha: 0 });
+      let shown = false;
+      const show = () => {
+        if (shown) return;
+        shown = true;
+        clearTimeout(timer);
+        window.removeEventListener('swm:hero-chrome', onBeat);
+        gsap.to(nav, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
+        staggerLinks();
+      };
+      onBeat = show;
+      window.addEventListener('swm:hero-chrome', onBeat);
+      timer = setTimeout(show, CHROME_SAFETY_MS);
+    } else {
+      // Fresh load off-home (or a pre-latched home): stagger the links in
+      // once at hydration. Persisted island — this never re-runs on swaps.
+      staggerLinks();
+    }
 
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('swm:hero-chrome', onBeat);
-      document.removeEventListener('astro:after-swap', onLeave);
+      if (onBeat) window.removeEventListener('swm:hero-chrome', onBeat);
+      document.removeEventListener('astro:after-swap', onSwap);
       gsap.killTweensOf(nav);
-      gsap.set(nav, { autoAlpha: 1 });
+      gsap.set(nav, { clearProps: 'opacity,visibility' });
     };
   }, []);
 
@@ -348,7 +426,11 @@ export default function SiteNav({
     <nav className="site-nav" ref={navRef}>
       <div className="site-nav__brand">
         <a href="/" className="site-nav__logo" aria-label="Small World Media home">
-          <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
+          <span
+            className="site-nav__lockup"
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: lockupSvg }}
+          />
         </a>
         <button
           className="site-nav__pill"
@@ -436,7 +518,11 @@ export default function SiteNav({
                 aria-label="Small World Media home"
                 onClick={() => setMenuOpen(false)}
               >
-                <img src="/icons/SWM-globe_white.svg" alt="" width="38" height="38" />
+                <span
+                  className="site-nav__lockup"
+                  aria-hidden="true"
+                  dangerouslySetInnerHTML={{ __html: lockupSvg }}
+                />
               </a>
               <button
                 type="button"

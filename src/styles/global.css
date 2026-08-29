@@ -138,6 +138,17 @@
   --nav-inset: var(--space-2);
   /* 4px */
 
+  /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
+     edge lands on the same left line as the detail-page client name (the
+     --space-4 page padding of .client-panel / .project-blurb) — one global
+     spacing, every route. The inline SVG carries built-in canvas whitespace
+     (artwork min-x 36.302 of the 228.999-unit viewBox height, measured
+     08-25), so consumers subtract --lockup-bleed = height × 0.1585 from
+     their seat; the bleed token rides the nav's 7rem svg height. */
+  --lockup-left: var(--space-4);
+  /* 8px — the client-name left line */
+  --lockup-bleed: calc(7rem * 0.1585);
+
   /* Nav bar height — the sticky-reveal footer slides the page + nav up by
      exactly this so the bar clears the top of the viewport (F1). Mirrors the
      41px .site-nav / .mobile-menu__bar height; those keep their local
@@ -179,17 +190,49 @@
    rest. Stops sampled from HOUSE_PULSE_PATH; the hit occupies 0–75% of the
    cycle (HOUSE_PULSE_ON_RATIO 0.75), peak at ~33.75%, rest 75–100%. */
 @keyframes house-pulse {
-  0%     { opacity: 1; }
-  7.5%   { opacity: 0.88; }
-  15%    { opacity: 0.66; }
-  22.5%  { opacity: 0.44; }
-  33.75% { opacity: 0.3; }
-  45%    { opacity: 0.43; }
-  52.5%  { opacity: 0.6; }
-  60%    { opacity: 0.79; }
-  67.5%  { opacity: 0.93; }
-  75%    { opacity: 1; }
-  100%   { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+
+  7.5% {
+    opacity: 0.88;
+  }
+
+  15% {
+    opacity: 0.66;
+  }
+
+  22.5% {
+    opacity: 0.44;
+  }
+
+  33.75% {
+    opacity: 0.3;
+  }
+
+  45% {
+    opacity: 0.43;
+  }
+
+  52.5% {
+    opacity: 0.6;
+  }
+
+  60% {
+    opacity: 0.79;
+  }
+
+  67.5% {
+    opacity: 0.93;
+  }
+
+  75% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 .house-pulse {
@@ -201,17 +244,49 @@
    shorter rest. Same sampled stop map as house-pulse above, mirrored onto
    opacity 0.5→1. */
 @keyframes house-pulse-brighten {
-  0%     { opacity: 0.5; }
-  7.5%   { opacity: 0.58; }
-  15%    { opacity: 0.75; }
-  22.5%  { opacity: 0.9; }
-  33.75% { opacity: 1; }
-  45%    { opacity: 0.91; }
-  52.5%  { opacity: 0.79; }
-  60%    { opacity: 0.65; }
-  67.5%  { opacity: 0.55; }
-  75%    { opacity: 0.5; }
-  100%   { opacity: 0.5; }
+  0% {
+    opacity: 0.5;
+  }
+
+  7.5% {
+    opacity: 0.58;
+  }
+
+  15% {
+    opacity: 0.75;
+  }
+
+  22.5% {
+    opacity: 0.9;
+  }
+
+  33.75% {
+    opacity: 1;
+  }
+
+  45% {
+    opacity: 0.91;
+  }
+
+  52.5% {
+    opacity: 0.79;
+  }
+
+  60% {
+    opacity: 0.65;
+  }
+
+  67.5% {
+    opacity: 0.55;
+  }
+
+  75% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 0.5;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -358,21 +433,25 @@ body.route-home .site-nav {
   inherits: true;
   initial-value: rgb(0, 0, 255);
 }
+
 @property --project-color-2 {
   syntax: '<color>';
   inherits: true;
   initial-value: rgb(0, 0, 255);
 }
+
 @property --project-color-fg {
   syntax: '<color>';
   inherits: true;
   initial-value: rgb(255, 255, 255);
 }
+
 @property --project-color-text {
   syntax: '<color>';
   inherits: true;
   initial-value: rgb(0, 0, 255);
 }
+
 /* Scalar twin of the ink colour (1 = white ink, 0 = dark ink). Interpolating a
    NUMBER and feeding it through color-mix(in oklab) makes the nav text cross-fade
    perceptually evenly BOTH ways — the direct sRGB colour interpolation of
@@ -442,14 +521,14 @@ html.fp-tint .site-nav__pill:hover {
     color var(--duration-micro) var(--ease-micro);
 }
 
-/* SWM globe: the white mark cross-fades to dark on a light accent, driven by the
-   SAME --nav-ink-l scalar as the nav ink (brightness 1 = white → 0 = black), so
-   it glides in lockstep with the text/pill on a project change instead of
-   snapping via the discrete --project-globe-filter (which the socials still
-   use for their per-page static flip). */
-html:has(.fp) .site-nav__logo img,
-html.fp-tint .site-nav__logo img {
-  filter: brightness(var(--nav-ink-l, 1));
+/* 08-24: the nav brand is the full SWM inline lockup (inlined SVG). The
+   artwork is native #0000FF — identical to the bar — so OFF-HOME the fills
+   take the nav ink instead: white on the blue bar, gliding dark on a light
+   project accent via the SAME --nav-ink-l scalar the old globe mark's
+   brightness cross-fade used. Home (transparent bar over the black field)
+   keeps the native blue artwork. */
+body:not(.route-home) .site-nav__lockup svg * {
+  fill: hsl(0 0% calc(var(--nav-ink-l, 1) * 100%));
 }
 
 body.route-home .site-nav__pill {
@@ -469,13 +548,36 @@ body.route-home .site-nav__pill:hover {
 .site-nav__logo {
   display: flex;
   align-items: center;
+  /* Seat the artwork's optical left edge on --lockup-left: back out the bar's
+     own padding and the SVG's internal left whitespace. Nets ≈ −0.82rem. */
+  margin-left: calc(var(--lockup-left) - var(--nav-inset) - var(--lockup-bleed));
 }
 
-.site-nav__logo img {
-  width: 2.714rem;
-  /* 38px */
-  height: 2.714rem;
-  object-fit: cover;
+.site-nav__lockup {
+  display: flex;
+  align-items: center;
+}
+
+.site-nav__lockup svg {
+  display: block;
+  height: 7rem;
+  width: auto;
+  fill: var(--color-white);
+}
+
+/* Home: the sitemap stays out of view until the scroll-trigger commit lands
+   on the featured-projects page — and the NAV lockup sits out too (08-25:
+   the lockup lives centered in the hero above the enter_world CTA; the info
+   pill is the bar's lone left-corner item). Route class swaps on navigation,
+   so /work (and every other route) shows links + lockup the moment it paints
+   under the envelopment cover — with the brand-arrival choreography sliding
+   the pill right and dropping the lockup in (SiteNav). The fxrule (links
+   underline) and the mobile menu pill follow the row. */
+/* 08-25: the links row is BACK on home (staggered in at the chrome beat —
+   SiteNav) — only the nav LOCKUP sits out on home (the hero owns it; the
+   brand arrival drops it in after the commit). */
+body.route-home .site-nav__logo {
+  display: none;
 }
 
 .site-nav__pill {
@@ -819,6 +921,7 @@ body.route-home .site-nav__pill:hover {
    rules above at equal specificity — this block sits later in the cascade, so
    it wins without !important. */
 @media (prefers-reduced-motion: reduce) {
+
   /* rule — snaps between positions (still a functioning current indicator,
      it just doesn't glide); the mobile current underline snaps too */
   .site-nav__fxrule,
@@ -895,6 +998,46 @@ body.route-home .site-nav__pill:hover {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+/* overviews_loading (08-25, Nathan) — the dummy loading bar bridging the
+   home→/work passage. Centered on the fill; mono label over a hairline
+   track; the bar is GSAP-scaled from the left (RouteFill loaderStart).
+   Hidden until a loader-tagged envelop; fades with the parent fill. */
+.route-fill__loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.571rem;
+  /* 8px */
+  width: min(60vw, 15.714rem);
+  /* 220px */
+  opacity: 0;
+  visibility: hidden;
+}
+
+.route-fill__loader-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: 1;
+  letter-spacing: -0.024em;
+  color: var(--color-white);
+}
+
+.route-fill__loader-track {
+  height: 0.571rem;
+  /* 8px */
+  border: 1px solid var(--color-white);
+}
+
+.route-fill__loader-bar {
+  height: 100%;
+  background: var(--color-white);
+  transform: scaleX(0);
+  transform-origin: left center;
 }
 
 /* ============================================
@@ -1121,14 +1264,19 @@ body.route-home .site-nav__pill:hover {
   color: var(--cta-fg, var(--project-color-fg, var(--color-white)));
 }
 
-/* SECONDARY — the mono CTA chip family.
-   [NEXT]/[PREVIOUS] on /work (breadcrumb/secondary-type use of the mono face).
-   Scale via --cta-scale; colour shifts via --cta-bg/--cta-fg; /work sets
-   its interaction-mode transition timing through --cta-return/--cta-ease. */
+/* SECONDARY — the nav CTA chip family.
+   [NEXT]/[PREVIOUS] on /work. 08-26 (Nathan): navigation-centric chips ride
+   the UI sans face (the enter_world/.cta-primary family) at the chip's small
+   size, and their REST state is the focused project's accent (readable ink;
+   blank → brand blue) — the hover/scroll "charged" state is brand
+   white/black (FeaturedProjects lerps --cta-bg/--cta-fg between them).
+   Scale via --cta-scale (× --tx-scale — the enter-commit text-exit
+   choreography's push-in multiplier, textExit.js); /work sets its
+   interaction-mode transition timing through --cta-return/--cta-ease. */
 .fp-cta {
   position: fixed;
   left: 50%;
-  transform: translateX(-50%) scale(var(--cta-scale, 1));
+  transform: translateX(-50%) scale(calc(var(--cta-scale, 1) * var(--tx-scale, 1)));
   transform-origin: center;
   z-index: 4;
   display: flex;
@@ -1137,9 +1285,9 @@ body.route-home .site-nav__pill:hover {
   gap: 0.1rem;
   border: none;
   cursor: pointer;
-  background: var(--cta-bg, var(--color-black));
-  color: var(--cta-fg, var(--color-white));
-  font-family: var(--font-mono);
+  background: var(--cta-bg, var(--project-color, var(--color-electric-blue)));
+  color: var(--cta-fg, var(--project-color-fg, var(--color-white)));
+  font-family: var(--font-ui);
   font-size: var(--text-ui);
   letter-spacing: var(--tracking-tight);
   text-transform: uppercase;
@@ -1222,22 +1370,41 @@ body.route-home .site-nav__pill:hover {
 }
 
 .hero__enter {
-  /* above the caret strip, so carets read as emerging from behind it */
   position: relative;
   z-index: 1;
   pointer-events: auto;
-  transform: scale(var(--cta-scale, 1));
-  /* grows from centre (the CTA is centre-justified under the lead) */
-  transform-origin: center;
+  /* 08-25 pill: SOLID BLACK fill at rest inside the white stroke — always
+     opaque, so it covers the caret strip as it passes. The scroll charge
+     pours electric blue in via --cta-bg (Hero's vars) and SLIDES the button
+     down toward the viewport center (--cta-down 0..1 × --cta-slide px,
+     Hero-measured); the release rubber-bands it back on --cta-return/
+     --cta-ease. No scaling. */
+  border: 1px solid var(--color-white);
+  transform: translateY(calc(var(--cta-down, 0) * var(--cta-slide, 0px)));
   transition:
     transform var(--cta-return, 0.12s) var(--cta-ease, ease-out),
     background 0.2s,
     color 0.2s;
 }
 
-/* Caret strip below the button: opacity falls off at BOTH ends — carets
-   surface from behind the button and dissolve before the far edge. */
-.hero__enter-wrap .fp-cta__arrows {
+/* Caret strip (08-25) — its own static layer BEHIND the globe canvas (z1 <
+   z2), bottom seated at the column's anchor line; no interactivity. The
+   internal caret loop (CtaArrows) keeps running. Hidden until the chrome
+   beat (Hero's owned NodeList). */
+.hero__arrows {
+  position: absolute;
+  left: 50%;
+  top: var(--lead-top, 38vh);
+  transform: translate(-50%, -100%);
+  z-index: 1;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Caret window: opacity falls off at BOTH ends — carets surface from under
+   the button's rest slot and dissolve before the far edge. */
+.hero__arrows .fp-cta__arrows {
   margin-top: -0.25rem;
   /* tucked slightly under the pill's bottom edge */
   margin-bottom: 0;
@@ -1617,31 +1784,72 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   transform: translateY(calc(var(--footer-reveal, 1) * -1 * var(--nav-height)));
   transition: none;
 }
+
 /* ──────────────────────────────────────────────────────────────────────── */
 
-/* Left statement column — the tagline and the scroll_to_enter button, CENTRE-
-   justified in the empty gap between the viewport's left edge and the globe's
-   left edge. Hero writes --lead-gap (the globe's left-edge px, less ?textgap);
-   the column spans [0, --lead-gap] and centres its content there, its own
-   padding keeping the copy clear of the globe and the viewport edge. z-index 3
-   keeps the whole column ABOVE the globe (z:2) — below only the commit fill
-   (z:3, later in DOM, so it still swallows the chrome at the handoff).
-   Pointer-inert (drag-to-spin reaches the canvas); only the button opts back
-   in. Faded on the commit as .hero__lead-col in the chrome list. */
+/* Centered brand lockup (08-25) — brand WHITE, above the enter_world CTA.
+   Its own layer at z-index 1: BELOW the globe canvas (z2), so the commit's
+   scaling globe visibly covers it; the CTA column stays at z3 for pointer
+   access. Anchored off the same --lead-top the CTA column uses, lifted by
+   --hero-cta-block (≈ the CTA button + caret strip + gap). Hidden until the
+   chrome beat (Hero's owned NodeList fades it in). */
+.hero__lockup {
+  position: absolute;
+  left: 50%;
+  /* 08-25: centered ON the midline of the [nav bottom … button top] band
+     (Hero writes --lockup-center-y on the same dirty frames as --lead-top),
+     so any ?lockuph scale grows it symmetrically in the available space. */
+  top: var(--lockup-center-y, 24vh);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hero__lockup svg {
+  display: block;
+  /* ?lockuph (committune "lockup h") writes --hero-lockup-h in px; 0/unset
+     falls back to the fluid clamp. */
+  height: var(--hero-lockup-h, clamp(4rem, 8.5vw, 7.5rem));
+  width: auto;
+}
+
+.hero__lockup svg * {
+  fill: var(--color-white);
+}
+
+/* Statement column ABOVE the globe (08-24 comp) — the tagline (squeezed
+   display register) and the scroll_to_enter button, horizontally centered.
+   Hero writes --lead-top (the disc's TOP edge px, less ?textgap); the
+   -100% Y translate rests the column's bottom there, clear of the disc.
+   z-index 3 keeps the whole column ABOVE the globe (z:2) — below only the
+   commit fill (z:3, later in DOM, so it still swallows the chrome at the
+   handoff). Pointer-inert (drag-to-spin reaches the canvas); only the button
+   opts back in. Faded on the commit as .hero__lead-col in the chrome list. */
 .hero__lead-col {
   position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 50%;
+  /* Anchored ABOVE the globe (08-24 comp): Hero writes --lead-top = the disc's
+     top edge less ?textgap; the -100% Y translate rests the column's BOTTOM
+     there. Fallback ≈ the settled disc top at common aspects, pre-first-frame
+     (the column is invisible until the chrome beat anyway). */
+  top: var(--lead-top, 38vh);
+  transform: translate(-50%, -100%);
   z-index: 3;
   box-sizing: border-box;
-  width: var(--lead-gap, 46vw);
+  width: min(88vw, 64.286rem);
   padding: 0 1.143rem;
+  /* 08-25: the caret strip left this column for its own z1 layer (seated at
+     the same anchor line) — this bottom pad keeps the button at its previous
+     rest height, above the carets. */
+  padding-bottom: 2.857rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 1.714rem; /* text ↔ CTA breathing room (24px), token-scale */
+  gap: 1.714rem;
+  /* text ↔ CTA breathing room (24px), token-scale */
   pointer-events: none;
 }
 
@@ -1695,11 +1903,16 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
    the column govern the wrap (its --lead-max keeps the copy clear of the
    globe — the old static 44vw box could overlap it at laptop aspect ratios). */
 .hero__lead {
-  font-family: var(--font-body);
-  font-weight: 400;
-  font-size: clamp(1.5rem, 2.78vw, 3.571rem);
-  line-height: 1;
-  letter-spacing: -0.005em;
+  /* 08-24: the /process section-header display register verbatim
+     (.process-stage__headline tokens — squeezed caps over the globe). */
+  font-family: var(--font-display);
+  font-weight: var(--weight-semi);
+  font-size: clamp(3rem, 6.2vw, 6.75rem);
+  line-height: 0.85;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  /* even two-line break — no lone "INDUSTRY." widow */
   color: var(--color-white);
   max-width: 100%;
   pointer-events: none;
@@ -2029,8 +2242,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 }
 
 /* Tablet — Unicorn breakpoint: 576–991px */
-@media (max-width: 991px) {
-}
+@media (max-width: 991px) {}
 
 @media (max-width: 768px) {
 
@@ -2050,6 +2262,28 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
   .site-nav__menu-pill {
     display: inline-flex;
+  }
+
+  /* 08-25 (Nathan): phone nav order = info pill LEFT, lockup CENTERED,
+     menu pill RIGHT. The logo leaves the brand flex row for an absolute
+     center seat; the pill falls back to the corner. CSS `translate` (not
+     transform) does the centering so the brand-arrival GSAP transform
+     (yPercent drop) composes with it instead of clobbering it. The
+     mobile-menu takeover bar mirrors the geometry. */
+  .site-nav,
+  .mobile-menu__bar {
+    position: relative;
+  }
+
+  .site-nav__logo,
+  .mobile-menu__bar .site-nav__logo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    /* the 7rem svg canvas is taller than the 41px bar — center both axes */
+    translate: -50% -50%;
+    margin-left: 0;
+    /* desktop alignment margin is a flex-flow concern — not here */
   }
 
   html,
@@ -2163,7 +2397,15 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
      centres the tagline + CTA under the globe instead. (HR-6 refines the
      mobile composition.) */
   .hero__lead {
+    /* Mobile keeps the pre-08-24 prose register + vertical centring until
+       HR-6 designs the mobile composition — the desktop base rule moved to
+       the squeezed display register anchored above the globe. */
+    font-family: var(--font-body);
+    font-weight: 400;
     font-size: clamp(1.4rem, 5.5vw, 2.2rem);
+    line-height: 1;
+    letter-spacing: -0.005em;
+    text-transform: none;
     max-width: 100%;
   }
 
@@ -2171,6 +2413,8 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
     width: auto;
     left: 1.143rem;
     right: 1.143rem;
+    top: 50%;
+    transform: translateY(-50%);
     padding: 0;
   }
 

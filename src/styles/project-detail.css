@@ -186,8 +186,11 @@ html:has(.project-detail) body {
   gap: 0.571rem;
   margin-left: auto; /* far right of the chips/socials row */
   padding: 0.143rem 0.571rem;
+  /* 08-26 nav-chip pass: rest stays near-black — the chip sits ON the accent
+     band, so the family's accent rest state would vanish here; it joins the
+     family through the sans face + the white/black charged hover instead. */
   background: var(--color-near-black);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: 1rem;
   line-height: 1.571rem;
   letter-spacing: -0.024em;
@@ -195,13 +198,14 @@ html:has(.project-detail) body {
   color: var(--color-white);
   white-space: nowrap;
   text-decoration: none;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .client-panel__next:hover,
 .client-panel__next:focus-visible {
-  /* the chip already sits ON the accent band — pure black is the hover state */
-  background: var(--color-black);
+  /* Nav-chip charged state (08-26): brand white, black ink/arrows. */
+  background: var(--color-white);
+  color: var(--color-black);
 }
 
 /* Horizontal re-cut of the shared caret strip (global.css owns the 60×34
@@ -550,6 +554,84 @@ html:has(.project-detail) body {
 }
 
 /* ============================================
+   DECK SCROLLER — orthographic deck-page wall
+   (08-25, replaces the BandPager presentation
+   for brand decks; DeckScroller.jsx). Full
+   grid width, black hairline gutters, columns
+   drifting in alternating vertical directions,
+   accelerated by the page's Lenis scroll. The
+   frame crops — a peek inside the deck.
+   ============================================ */
+.deck-scroller-shell {
+  position: relative;
+  height: 100%;
+}
+
+/* Deck-as-featured (08-25, bedouin/saga): when the top-ranked asset is a
+   brand-deck page, the wall leads the flow in the hero slot — a tall
+   full-width stage between the client panel and the blurb. */
+.hero-deck {
+  height: 70dvh;
+  background: var(--color-black);
+}
+
+.deck-scroller__chrome {
+  position: absolute;
+  top: 0.571rem;
+  left: 1.143rem;
+  z-index: 3;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.571rem;
+}
+
+.deck-scroller__side {
+  position: absolute;
+  top: 0.571rem;
+  right: 1.143rem;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.deck-scroller {
+  height: 100%;
+  background: var(--color-black);
+  overflow: hidden;
+  display: flex;
+  gap: var(--deck-wgap, 2px);
+  /* inert wall — the page scroll is the control */
+  pointer-events: none;
+  user-select: none;
+}
+
+.deck-scroller__col {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-scroller__strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--deck-wgap, 2px);
+  will-change: transform;
+}
+
+.deck-scroller__page {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--deck-ratio, 16 / 9);
+  object-fit: cover;
+  background: var(--color-near-black);
+  /* pre-load ground */
+}
+
+/* ============================================
    RELEASE META — focused cover's metadata
    Black mono chips in the band's side column,
    mirroring the ClientPanel base_in /
@@ -633,23 +715,24 @@ a.release-chip--link:hover {
   width: max-content;
   margin: 0.571rem 0 calc(-1.857rem - 0.571rem) 0.571rem;
   padding: 0.143rem 0.571rem;
-  background: var(--color-near-black);
-  font-family: var(--font-mono);
+  /* 08-26 nav-chip pass (family: /work [NEXT]/[PREVIOUS]): rest = this
+     project's accent with readable ink (inherited from the <html> detail
+     broadcast; blank → brand blue), sans UI face at the chip size. */
+  background: var(--project-color, var(--color-electric-blue));
+  font-family: var(--font-ui);
   font-size: 1rem;
   line-height: 1.571rem;
   letter-spacing: -0.024em;
   text-transform: uppercase;
-  color: var(--color-white);
+  color: var(--project-color-fg, var(--color-white));
   text-decoration: none;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .detail-breadcrumb:hover {
-  /* S2: this project's accent (inherited from the <html> detail broadcast);
-     blank → brand blue. Ink flips to the readable contrast colour so the
-     label stays legible on a light accent (e.g. HHS lime). */
-  background: var(--project-color, var(--color-electric-blue));
-  color: var(--project-color-fg, var(--color-white));
+  /* Nav-chip charged state (08-26): brand white, black ink. */
+  background: var(--color-white);
+  color: var(--color-black);
 }
 
 .detail-breadcrumb__glyph {

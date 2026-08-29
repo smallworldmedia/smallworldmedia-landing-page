@@ -44,9 +44,11 @@ import { buildShell } from './buildShell.js';
 import { placeTiles } from './seededLayout.js';
 import { createWorldBand } from './worldBands.js';
 import WorldLiveScheduler from './worldLive.js';
+import { ENTER_TUNABLES, powInOut, seg } from './enterTune.js';
 import {
   CAMERA_FOV,
   DPR_MAX,
+  MSAA_SAMPLES,
   FPS_CAP,
   MAX_TILES,
   MIN_TILES,
@@ -64,8 +66,6 @@ import {
   FANOUT_STAGGER,
   LENS_DISTORTION_X,
   LENS_DISTORTION_Y,
-  ENTER_ZOOM_DOLLY,
-  ENTER_LENS_SWELL,
   TURN_DURATION,
   TURN_EXIT_ANGLE,
   TURN_ENTER_ANGLE,
@@ -208,7 +208,16 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     const seenWorlds = new Set();
 
     // Post-processing: scene → lens distortion → sRGB output.
-    const composer = new EffectComposer(renderer);
+    // 08-25 AA: the composer's internal targets bypass the context's MSAA
+    // (`antialias: true` on the renderer only covers direct-to-canvas), so
+    // the tile grid rendered with hard jaggies. A multisampled target
+    // (WebGL2) restores 4× MSAA through the whole pass chain; setSize
+    // resizes it in place, samples preserved. ?msaa to A/B (0 = off).
+    const msaaTarget = new THREE.WebGLRenderTarget(1, 1, {
+      samples: MSAA_SAMPLES,
+      type: THREE.HalfFloatType,
+    });
+    const composer = new EffectComposer(renderer, msaaTarget);
     composer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
     composer.addPass(new RenderPass(scene, camera));
     const LensDistortionPass = LensDistortionPassGen({ THREE, Pass, FullScreenQuad });
@@ -224,42 +233,70 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
 
     // Lens spike (0..1) added to the base distortion during a Turn.
     const lensSpike = { v: 0 };
-    // Enter-the-World ramp (0..1) — a second additive term, driven only by the
-    // enter_world commit (see the 'swm:enter-world' listener below).
+    // Enter-the-World lens channel (0..1) — a second additive term, driven
+    // only by the enter_world commit (see the 'swm:enter-world' listener
+    // below). ENTER_TUNABLES.lens is NEGATIVE: the ramp DEEPENS the base
+    // inside-a-sphere pull. (The retired +ENTER_LENS_SWELL crossed zero into
+    // an outward barrel bow + shrink — the 08-25 "bowing outward" bug.)
     const enterRamp = { v: 0 };
     const applyLens = () => {
       lensPass.distortion.x =
-        LENS_DISTORTION_X + TURN_LENS_SPIKE * lensSpike.v + ENTER_LENS_SWELL * enterRamp.v;
+        LENS_DISTORTION_X + TURN_LENS_SPIKE * lensSpike.v + ENTER_TUNABLES.lens * enterRamp.v;
       lensPass.distortion.y =
         LENS_DISTORTION_Y +
         TURN_LENS_SPIKE * 1.1 * lensSpike.v +
-        ENTER_LENS_SWELL * 1.1 * enterRamp.v;
+        ENTER_TUNABLES.lens * 1.1 * enterRamp.v;
     };
 
-    // ── Enter-the-World ramp — "entering the world" (revision note 1) ──
+    // ── Enter-the-World ramp — "zooming further into the world" (08-25 rework) ──
     // On enter_world commit, WorldCard dispatches 'swm:enter-world' (same
-    // detail as its 'swm:envelop': { duration, color }). The scene answers by
-    // tweening enterRamp 0→1 over the cover duration on the SAME house curve
-    // (fpTurnRoll — steep launch, smooth decel, no overshoot), driving:
-    //   (a) a subtle camera dolly toward the tiles (ENTER_ZOOM_DOLLY world
-    //       units ≈ 12–14% apparent zoom at the tile tiers), and
-    //   (b) a lens-distortion swell (ENTER_LENS_SWELL, ~4× the Turn spike)
-    // so zoom + curvature are one gesture under the rising color cover.
-    // Reduced motion: WorldCard never dispatches, and the guard here keeps a
-    // stray dispatch from moving the camera. The scene unmounts on arrival at
-    // the detail route (route-scoped scenes, ADR-0002), so no un-ramp needed.
+    // detail as its 'swm:envelop': { duration, color }). The scene answers
+    // with the commit-choreography model (Hero.beginEnvelopment, 08-25): ONE
+    // linear master progress; each channel rides its own [start, end] window
+    // shaped by powInOut(ENTER_TUNABLES.pow) — smooth both ends, no overshoot:
+    //   · LENS over [lensStart, lensEnd] — the distortion deepen above, so the
+    //     curvature intensifies (further inside the sphere), and
+    //   · MOVE over [moveStart, moveEnd] — camera dolly toward the tiles
+    //     (`dolly` world units) + projection zoom 1→`scale`, scaling the WHOLE
+    //     frame (shell grid included) UP in sync with the deepening lens,
+    // one gesture under the rising color cover. ENTER_TUNABLES is read fresh
+    // every update, so the ?entertune=1 bench moves the next run live.
+    // detail.dryRun (the bench's ▶): hold at full ramp, then unwind to rest —
+    // a real commit never unwinds (the scene unmounts on arrival at the
+    // detail route, ADR-0002). Reduced motion: WorldCard never dispatches, and
+    // the guard here keeps a stray dispatch from moving the camera.
     let enterTween = null;
+    const enterProg = { p: 0 }; // the linear master (channels window it)
+    const applyEnter = () => {
+      const t = ENTER_TUNABLES;
+      enterRamp.v = powInOut(seg(enterProg.p, t.lensStart, t.lensEnd), t.pow);
+      const move = powInOut(seg(enterProg.p, t.moveStart, t.moveEnd), t.pow);
+      camera.position.z = -t.dolly * move; // toward −Z (the tiles)
+      camera.zoom = 1 + (Math.max(0.05, t.scale) - 1) * move;
+      camera.updateProjectionMatrix();
+      applyLens();
+    };
     const onEnterWorld = (e) => {
       if (PREFERS_REDUCED_MOTION) return; // plain cover, no ramp
       enterTween?.kill();
-      enterTween = gsap.to(enterRamp, {
-        v: 1,
-        duration: e?.detail?.duration ?? 0.7,
-        ease: turnRollEase,
-        onUpdate: () => {
-          camera.position.z = -ENTER_ZOOM_DOLLY * enterRamp.v; // toward −Z (the tiles)
-          applyLens();
-        },
+      enterTween = gsap.to(enterProg, {
+        p: 1,
+        duration: e?.detail?.duration ?? ENTER_TUNABLES.enterMs / 1000,
+        ease: 'none', // linear master — the channels carry the curve
+        onUpdate: applyEnter,
+        onComplete: e?.detail?.dryRun
+          ? () => {
+              // Bench rehearsal: hold the arrived frame, then unwind so the
+              // next ▶ starts from rest (Hero's dry-run return convention).
+              enterTween = gsap.to(enterProg, {
+                p: 0,
+                duration: 0.6,
+                delay: ENTER_TUNABLES.holdMs / 1000,
+                ease: 'expo.out',
+                onUpdate: applyEnter,
+              });
+            }
+          : undefined,
       });
     };
     window.addEventListener('swm:enter-world', onEnterWorld);

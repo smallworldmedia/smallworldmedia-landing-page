@@ -202,7 +202,6 @@ body.route-process .site-nav {
 .process-page[data-bg='white'] .process-stage__caption,
 .process-page[data-bg='white'] .process-label,
 .process-page[data-bg='white'] .process-tagline,
-.process-page[data-bg='white'] .process-stepnav__cta,
 .process-page[data-bg='white'] .process-meter,
 .process-page[data-bg='white'] .process-meter__cells {
   color: var(--color-electric-blue);
@@ -213,11 +212,13 @@ body.route-process .site-nav {
   color: var(--color-near-black);
 }
 
-/* Chip hover on the white field: fill electric blue, label goes white (the
-   inverse of the blue-field rule below). */
+/* Chip hover on the white field: the family's white/black charged state
+   would be boundary-less on white — flip to black fill/white ink (same
+   "goes neutral" language, inverted for the field). The blue REST fill
+   already reads on white, so no rest override is needed (08-26 pass). */
 .process-page[data-bg='white'] .process-stepnav__cta:not(:disabled):hover,
 .process-page[data-bg='white'] .process-stepnav__cta:not(:disabled):focus-visible {
-  background: var(--color-electric-blue);
+  background: var(--color-black);
   color: var(--color-white);
 }
 
@@ -316,10 +317,11 @@ body.route-process .site-nav {
   padding: 0 0.26em;
 }
 
-/* --- The globe-O: the flat white SWM globe mark — the nav-bar icon —
-   spinning slowly as the O (Nathan 07-30: white stroke, not the dark
-   WebGL panel globe). Sized/positioned to the O glyph box by
-   useProcessCopy. --- */
+/* --- The globe-O: the 3D globe recreation as a static snapshot (Nathan
+   08-25 — blue panels, brand white between them, brand tilt; the 07-30
+   flat spinning SVG is retired — rotation was never the intent).
+   Sized/positioned to the O glyph box by useProcessCopy; the img is a
+   cached one-shot WebGL render (lockupGlobeSnapshot). No animation. --- */
 .process-hero__globe-o {
   position: absolute;
   display: flex;
@@ -331,19 +333,6 @@ body.route-process .site-nav {
 .process-hero__globe-o img {
   height: 96%;
   width: auto;
-  animation: process-globe-spin 16s linear infinite;
-}
-
-@keyframes process-globe-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .process-hero__globe-o img {
-    animation: none;
-  }
 }
 
 .process-stage__headline {
@@ -483,10 +472,10 @@ body.route-process .site-nav {
   gap: 0.5rem;
   margin-top: 2rem;
   border: none;
-  background: transparent;
-  color: var(--color-white);
-  opacity: 0.65;
-  font-family: var(--font-mono);
+  /* 08-26 nav-chip pass — same family skin as the stepnav steppers. */
+  background: var(--project-color, var(--color-electric-blue));
+  color: var(--project-color-fg, var(--color-white));
+  font-family: var(--font-ui);
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
   text-transform: uppercase;
@@ -494,13 +483,14 @@ body.route-process .site-nav {
   cursor: pointer;
   transition:
     opacity 0.18s ease-out,
-    background-color 0.18s ease-out;
+    background-color 0.18s ease-out,
+    color 0.18s ease-out;
 }
 
 .process-cta__top:hover,
 .process-cta__top:focus-visible {
-  opacity: 1;
-  background: var(--color-electric-blue);
+  background: var(--color-white);
+  color: var(--color-black);
 }
 
 .process-cta__top:focus-visible {
@@ -712,15 +702,19 @@ body.route-process .site-nav {
   left: calc(var(--nav-inset) + 300px);
 }
 
+/* 08-26 nav-chip pass (family: /work [NEXT]/[PREVIOUS], detail breadcrumb):
+   rest = accent fill with readable ink (no process accent → brand blue),
+   sans UI face at the small stepper size; hover/focus = the family's
+   white/black charged state. Per-phase overrides below keep the chip
+   legible where the field matches one of its states. */
 .process-stepnav__cta {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   border: none;
-  background: transparent;
-  color: var(--color-white);
-  opacity: 0.65;
-  font-family: var(--font-mono);
+  background: var(--project-color, var(--color-electric-blue));
+  color: var(--project-color-fg, var(--color-white));
+  font-family: var(--font-ui);
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
   text-transform: uppercase;
@@ -728,13 +722,14 @@ body.route-process .site-nav {
   cursor: pointer;
   transition:
     opacity 0.18s ease-out,
-    background-color 0.18s ease-out;
+    background-color 0.18s ease-out,
+    color 0.18s ease-out;
 }
 
 .process-stepnav__cta:not(:disabled):hover,
 .process-stepnav__cta:not(:disabled):focus-visible {
-  opacity: 1;
-  background: var(--color-electric-blue);
+  background: var(--color-white);
+  color: var(--color-black);
 }
 
 /* P5 states. [previous] fades fully out before the 2nd section (there's
@@ -747,9 +742,18 @@ body.route-process .site-nav {
   pointer-events: none;
 }
 
+/* Blue phase: the rest fill matches the field — the chip goes neutral-dark
+   (the chip-on-accent-surface precedent, client-panel__next). Hover stays
+   the family white/black. */
+.process-page[data-bg='blue'] .process-stepnav__cta {
+  background: var(--color-near-black);
+  color: var(--color-white);
+}
+
 .process-page[data-bg='blue'] .process-stepnav__cta:not(:disabled):hover,
 .process-page[data-bg='blue'] .process-stepnav__cta:not(:disabled):focus-visible {
-  background: var(--color-black);
+  background: var(--color-white);
+  color: var(--color-black);
 }
 
 /* The /work caret window at 60×34 outweighs the small label — re-cut */

@@ -15,10 +15,14 @@
  * rects, so tiles fill above, beside, and below them.
  *
  * Anchors:
- *   `top` — region rows start at 0 (directly below the blurb).
- *   `mid` — two-pass: place tiles without the region, pick the tile row
- *           boundary nearest the natural midpoint, pin the region there,
- *           re-place everything around it. Deterministic.
+ *   `top`    — region rows start at 0 (directly below the blurb).
+ *   `mid`    — two-pass: place tiles without the region, pick the tile row
+ *              boundary nearest the natural midpoint, pin the region there,
+ *              re-place everything around it. Deterministic.
+ *   `bottom` — pinned AFTER everything (08-25 (2), the SA tour wall): the
+ *              region starts at the grid's natural end (bottoms stack), no
+ *              tile ever places below it, and the guarded stretch flushes
+ *              the tile field down to its top edge.
  *
  * Flush pass, two stages:
  *   1. Guarded — every tile stretches down to the next occupied thing in
@@ -169,7 +173,19 @@ function guardedStretch(placements, regions, totalRows) {
  * (painted beneath intact tiles). The stretch clamps at the first region
  * boundary in any spanned column; a gap with no tile above it (or capped
  * by a region) stays — the documented ragged edge.
+ *
+ * 08-25 (Nathan — the bedouin "saga tulum promo covering the tiles above
+ * it"): the stretch is BOUNDED. An unbounded stretch on a multi-column
+ * tile could double its box under a neighbor (a 26-row under-paint), and
+ * where TWO stretched underlays overlapped, DOM order — not z-index —
+ * decided who painted on top: the lower tile's media covered the tile
+ * above it. A stretch whose collateral overlap with any OTHER placement
+ * exceeds MAX_UNDERLAY_ROWS is rejected — the residual gap stays open
+ * (near-black ground, the same accepted ragged edge) instead of a
+ * building-sized underlay reading as a broken grid.
  */
+const MAX_UNDERLAY_ROWS = 12; // half a landscape — a peek, never a second tile
+
 function forcedFill(placements, regions, cols, totalRows) {
   const covers = (x, xStart, xSpan, c) => xStart <= c && c < xStart + xSpan;
 
@@ -201,7 +217,22 @@ function forcedFill(placements, regions, cols, totalRows) {
               target = Math.min(target, r.rowStart);
             }
           }
-          if (target > above.rowEnd) {
+          // Collateral bound: how deep would the stretched box run under
+          // any other placement in the columns it spans?
+          let collateral = 0;
+          for (const other of placements) {
+            if (other === above) continue;
+            const sharesCol =
+              other.col < above.col + above.colSpan &&
+              other.col + other.colSpan > above.col;
+            if (sharesCol && other.rowStart < target && other.rowEnd > above.rowEnd) {
+              collateral = Math.max(
+                collateral,
+                Math.min(target, other.rowEnd) - Math.max(above.rowEnd, other.rowStart)
+              );
+            }
+          }
+          if (target > above.rowEnd && collateral <= MAX_UNDERLAY_ROWS) {
             above.rowEnd = target;
             above.underlay = true;
           }
@@ -240,9 +271,10 @@ export function computeFlushGrid(showcase, { cols = 3, regions = [] } = {}) {
   });
 
   const resolved = norm
-    .filter((r) => r.anchor !== 'mid')
+    .filter((r) => r.anchor !== 'mid' && r.anchor !== 'bottom')
     .map((r) => ({ ...r, rowStart: 0, rowEnd: r.rowSpan }));
   const mids = norm.filter((r) => r.anchor === 'mid');
+  const bottoms = norm.filter((r) => r.anchor === 'bottom');
 
   let placements;
   if (mids.length === 0) {
@@ -273,6 +305,20 @@ export function computeFlushGrid(showcase, { cols = 3, regions = [] } = {}) {
 
     // Pass 2 — re-place everything around the pinned regions.
     placements = placeAll(showcase, cols, resolved);
+  }
+
+  // Bottom regions — pinned at the natural end AFTER placement (tiles can
+  // never flow below them), stacking downward. Added to `resolved` before
+  // the flush passes so the guarded stretch clamps at the first bottom
+  // region's top edge (full-width regions flush the whole tile field).
+  let bottomRow = Math.max(
+    0,
+    ...placements.map((p) => p.rowEnd),
+    ...resolved.map((r) => r.rowEnd)
+  );
+  for (const r of bottoms) {
+    resolved.push({ ...r, rowStart: bottomRow, rowEnd: bottomRow + r.rowSpan });
+    bottomRow += r.rowSpan;
   }
 
   const totalRows = Math.max(
