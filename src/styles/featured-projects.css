@@ -2,6 +2,16 @@
    The WebGL WorldScene replaces `.fp-world__field` in P2; the World Turn
    replaces native scroll-snap in P3. Colours from global.css tokens. */
 
+/* 08-28 (Nathan): while /work is mounted the ROOT paints black — macOS
+   fills newly exposed window area with the html/body background during a
+   scale-UP before layout catches up, and the site-wide electric blue read
+   as a blue flash against this page's black field. :has() scopes it to the
+   route with no navigation leak. */
+html:has(.fp),
+body:has(.fp) {
+  background: var(--color-black);
+}
+
 .fp {
   position: relative;
   height: 100vh;

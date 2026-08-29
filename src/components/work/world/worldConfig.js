@@ -68,7 +68,7 @@ export const PANE_PITCH = num('panepitch', 3); // FORME: macro-cell pitch as a m
 
 /* — Camera / render budget — */
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
-export const CAM_LAG_S = num('camlag', 0.5); // resize: camera re-eval TRAILS the window (retargeted ease — the TouchDesigner lag feel); ~0 = instant
+export const CAM_LAG_S = num('camlag', 0.7); // resize: camera re-eval TRAILS the window (retargeted ease — the TouchDesigner lag feel); ~0 = instant. 08-28 bake 0.7 (Nathan's dial)
 export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales with DPR²; was desktop 2). ?dpr to A/B
 export const MSAA_SAMPLES = num('msaa', 4); // composer target multisamples (08-25 grid AA); 0 = off, ?msaa to A/B
 export const FPS_CAP = 60;
@@ -243,5 +243,5 @@ export const SHELL_SPIN = num('spin', FPGRID_ACTIVE ? 0 : 0.012); // rad/sec —
    08-25 (Nathan): the bottom fade is dialable — WorldScene stamps these onto
    .fp-canvas as --fp-fade / --fp-fade-h; the CSS mixes the accent toward
    black by the fade %, keeping the S2 @property accent cross-fade intact. */
-export const FP_FADE = num('fpfade', 65); // ?fpfade — bottom-fade intensity, % of the accent mixed over black (100 = the old solid stop)
+export const FP_FADE = num('fpfade', 0); // ?fpfade — bottom-fade intensity, % of the accent mixed over black (100 = the old solid stop). 08-28 bake 0 (was 65, Nathan): /work backdrop stays BLACK — the accent glow read as a blue page flash whenever the canvas blanked (resize), and black grounds the drop-out
 export const FP_FADE_H = num('fpfadeh', 40); // ?fpfadeh — gradient height, % of viewport the fade climbs before pure black

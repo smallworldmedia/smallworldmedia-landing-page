@@ -21,8 +21,9 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 import { scrambleTo } from '../../lib/scramble.js';
 import { PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
-import { EXIT_RATIO } from './processConfig.js';
-import { getLockupGlobeSnapshot } from './lockupGlobeSnapshot.js';
+import { EXIT_RATIO, O_STROKE_PCT } from './processConfig.js';
+import { createLockupGlobe } from './liveLockupGlobe.js';
+import { settleDebounce } from '../../lib/settleResize.js';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
@@ -65,21 +66,31 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
       globeWrap.setAttribute('aria-hidden', 'true');
       heroTitle.appendChild(globeWrap);
 
-      // 08-25 revision (supersedes the 07-30 flat spinning SVG — rotation
-      // was never the intent): the O is the 3D globe recreation, blue
-      // panels with brand white between them at the lockup's brand tilt,
-      // rendered ONCE to a cached data URL (lockupGlobeSnapshot). Still an
-      // <img>, so the splash/ScrollTrigger mount/unmount call sites and
-      // the .process-hero__globe-o sizing CSS are untouched.
+      // 08-28 revision (supersedes the 08-25 static snapshot): the O is the
+      // LIVE globe recreation — spinning, cascading (liveLockupGlobe,
+      // ?ospin/?ocas/?ocasdip) — behind it the fill-circle-as-stroke disc
+      // (the home ?globestroke convention): the ring fills the old 96%
+      // slot, the globe canvas sits 1/(1+frac) inside, so globe + ring
+      // land exactly at the glyph height (?ostroke). The mount/unmount
+      // call sites are unchanged; the inner span is the RESIZE fade owner
+      // (the splash/ScrollTrigger choreography owns globeWrap itself).
+      let oGlobe = null;
       const mountGlobe = () => {
-        if (!globeWrap.firstChild) {
-          const img = document.createElement('img');
-          img.src = getLockupGlobeSnapshot();
-          img.alt = '';
-          globeWrap.appendChild(img);
-        }
+        if (globeWrap.firstChild) return;
+        const inner = document.createElement('span');
+        inner.className = 'process-o__inner';
+        const stroke = document.createElement('span');
+        stroke.className = 'process-o__stroke';
+        oGlobe = createLockupGlobe();
+        oGlobe.canvas.className = 'process-o__canvas';
+        oGlobe.canvas.style.height = `${96 / (1 + O_STROKE_PCT / 100)}%`;
+        inner.appendChild(stroke);
+        inner.appendChild(oGlobe.canvas);
+        globeWrap.appendChild(inner);
       };
       const unmountGlobe = () => {
+        oGlobe?.dispose();
+        oGlobe = null;
         globeWrap.innerHTML = '';
       };
       mountGlobe();
@@ -102,7 +113,41 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
       };
       placeGlobe();
       document.fonts?.ready.then(placeGlobe);
-      window.addEventListener('resize', placeGlobe);
+
+      // 08-28 resize doctrine: the fit chases the reflowing glyph at most
+      // once per frame (rAF-coalesced reads), while the globe itself fades
+      // out on the first event of a gesture and back in after settle —
+      // the same drop-then-return the home globe runs.
+      let placeRaf = 0;
+      const queuePlace = () => {
+        if (placeRaf) return;
+        placeRaf = requestAnimationFrame(() => {
+          placeRaf = 0;
+          placeGlobe();
+        });
+      };
+      let oResizeFaded = false;
+      const oFadeBack = settleDebounce(
+        () => {
+          if (!oResizeFaded) return;
+          oResizeFaded = false;
+          placeGlobe();
+          const inner = globeWrap.firstChild;
+          if (inner)
+            gsap.to(inner, { autoAlpha: 1, duration: 0.45, ease: 'power2.out', overwrite: true });
+        },
+        { settleMs: 300, maxWaitMs: 2000 }
+      );
+      const onGlobeResize = () => {
+        queuePlace();
+        const inner = globeWrap.firstChild;
+        if (inner && !oResizeFaded) {
+          oResizeFaded = true;
+          gsap.to(inner, { autoAlpha: 0, duration: 0.12, ease: 'none', overwrite: true });
+        }
+        oFadeBack();
+      };
+      window.addEventListener('resize', onGlobeResize);
 
       const tokenText = heroToken.textContent;
       heroToken.textContent = '';
@@ -210,7 +255,9 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
       });
 
       return () => {
-        window.removeEventListener('resize', placeGlobe);
+        window.removeEventListener('resize', onGlobeResize);
+        oFadeBack.cancel();
+        if (placeRaf) cancelAnimationFrame(placeRaf);
         unmountGlobe();
         globeWrap.remove();
         splits.forEach((s) => s.revert());

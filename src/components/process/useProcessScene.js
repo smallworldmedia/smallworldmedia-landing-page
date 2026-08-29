@@ -84,7 +84,9 @@ import {
   DESKTOP_OFFSET_X,
   EXIT_RATIO,
   PASS_BEATS,
+  CAM_LAG_S,
 } from './processConfig.js';
+import { settleDebounce } from '../../lib/settleResize.js';
 
 gsap.registerPlugin(CustomEase);
 
@@ -952,23 +954,71 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       });
     };
 
+    // 08-28 (Nathan): the /work resize doctrine — the buffer tracks the
+    // window instantly (no stretched frames), the CAMERA re-evaluation
+    // (aspect + the contain-fit framing) TRAILS on a retargeted ease
+    // (?camlag — the TouchDesigner lag), and the old mid-transition skip
+    // now CATCHES UP on settle instead of holding stale framing until the
+    // next stage change.
+    let viewW = 0;
+    let viewH = 0;
+    const camLag = { aspect: 1, z: 0, x: 0, y: 0 };
+    let camSeeded = false;
+    const applyCamLag = () => {
+      if (activeTl) return; // a transition owns the camera — settle catches up
+      camera.aspect = camLag.aspect;
+      camera.updateProjectionMatrix();
+      camera.position.z = camLag.z;
+      globeGroup.position.x = camLag.x;
+      globeGroup.position.y = camLag.y;
+      if (PREFERS_REDUCED_MOTION) {
+        updateThread();
+        renderFrame();
+      }
+    };
+    const retargetCam = () => {
+      const { z, offsetX, offsetY } = framingFor(getPose(stage ?? 'stage-01'));
+      gsap.to(camLag, {
+        aspect: (container.clientWidth || 1) / (container.clientHeight || 1),
+        z,
+        x: offsetX,
+        y: offsetY,
+        duration: Math.max(0.01, CAM_LAG_S),
+        ease: 'power3.out',
+        overwrite: true,
+        onUpdate: applyCamLag,
+      });
+    };
+    const settleReframe = settleDebounce(
+      () => {
+        if (activeTl) {
+          settleReframe(); // still transitioning — re-arm, land after
+          return;
+        }
+        retargetCam();
+      },
+      { settleMs: 300, maxWaitMs: 2000 }
+    );
     const resize = () => {
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
+      if (w === viewW && h === viewH) return; // re-stamping clears the buffer
+      viewW = w;
+      viewH = h;
       renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
       threadMaterial.resolution.set(w, h); // Line2 screen-width lines need it
-      if (!activeTl) {
+      if (!camSeeded) {
+        camSeeded = true;
         const { z, offsetX, offsetY } = framingFor(getPose(stage ?? 'stage-01'));
-        camera.position.z = z;
-        globeGroup.position.x = offsetX;
-        globeGroup.position.y = offsetY;
-        if (PREFERS_REDUCED_MOTION) {
-          updateThread();
-          renderFrame();
-        }
+        camLag.aspect = w / h;
+        camLag.z = z;
+        camLag.x = offsetX;
+        camLag.y = offsetY;
+        applyCamLag();
+        return;
       }
+      retargetCam();
+      settleReframe();
     };
 
     const stopLoops = () => {
@@ -1717,6 +1767,8 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       apiRef.current = NOOP_API;
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
+      settleReframe.cancel();
+      gsap.killTweensOf(camLag);
       document.removeEventListener('visibilitychange', onVisibility);
       if (tickerActive) gsap.ticker.remove(tick);
       if (activeTl) activeTl.kill();
