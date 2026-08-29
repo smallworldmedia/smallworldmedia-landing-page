@@ -5,6 +5,12 @@
 > ways, live-switchable via `?fpgrid=1|2|3` (house `num()` convention;
 > `?fpgrid=0` = legacy floating field).
 >
+> **STATUS 2026-08-29 (4): FOLDED** — landed on `feature/v1-launch` via
+> fast-forward (016b343 → 77ab5c3); fp-grid worktree + branches removed.
+> Live on the stable preview:
+> https://feature-v1-launch--smallworldmedia-landingpage.netlify.app
+> (production `main`/smallworld.media untouched until launch).
+>
 > **STATUS 2026-08-29 (3): FOLD-READY.** The 08-28 wave shipped bedouin's
 > second deck wall (hero-led wall-deck order, `?vtiles` 6), the site resize
 > doctrine (settle-debounce + `?camlag` camera chase + video pause; NO
