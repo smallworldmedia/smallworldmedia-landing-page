@@ -9,7 +9,7 @@ const SITEMAP_EXCLUDE = ['/work/directory', '/lab/globe', '/specimen', '/process
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://smallworldmedia.co',
+  site: 'https://smallworld.media',
   output: 'static',
   integrations: [
     react(),

@@ -5,4 +5,4 @@ Disallow: /work/directory
 Disallow: /lab/
 Disallow: /specimen
 
-Sitemap: https://smallworldmedia.co/sitemap-index.xml
+Sitemap: https://smallworld.media/sitemap-index.xml
