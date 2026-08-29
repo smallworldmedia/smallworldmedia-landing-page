@@ -54,6 +54,20 @@ const worlds = projects
   const hero = assets[0] || null;
   const flow = buildContentFlow(assets);
 
+  // Wall-deck order: buildContentFlow's group order is first appearance by
+  // orderRank with the hero SKIPPED — so a hero that is itself a deck page
+  // (bedouin: saga p.01) swallows its group's first appearance and the wrong
+  // deck leads the walls. Re-lead with the hero's own deck when it has one;
+  // detail pages keep the flow's native order.
+  const heroDeckGroup =
+    hero?.mediaType === 'brand-deck' ? (hero.displayGroup ?? 'deck') : null;
+  const wallDecks = heroDeckGroup
+    ? [
+        ...flow.brandDecks.filter((d) => d.group === heroDeckGroup),
+        ...flow.brandDecks.filter((d) => d.group !== heroDeckGroup),
+      ]
+    : flow.brandDecks;
+
   const showcase = flow.showcase.map((a) => ({
     _id: a._id,
     title: a.title,
@@ -95,15 +109,15 @@ const worlds = projects
     // World-side composite bands (ADR-0003): the lead deck's pages + the
     // album-art covers, capped — display bodies among the Tiles. Empty
     // arrays = no band (the ORBIT_MIN gate already ran in buildContentFlow).
-    brandDecks: flow.brandDecks.length
-      ? flow.brandDecks[0].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
+    brandDecks: wallDecks.length
+      ? wallDecks[0].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
       : [],
     // 08-28 (Nathan): deck-heavy Worlds get a SECOND deck wall — the next
     // deck group rides the album-art anchor when no album art claims it
     // (bedouin: saga guidelines + brand guidelines).
     brandDecks2:
-      flow.brandDecks.length > 1
-        ? flow.brandDecks[1].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
+      wallDecks.length > 1
+        ? wallDecks[1].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
         : [],
     albumArt: flow.albumArt.slice(0, BAND_PAGE_CAP).map(bandPage),
   };

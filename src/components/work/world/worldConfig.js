@@ -72,6 +72,16 @@ export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales
 export const MSAA_SAMPLES = num('msaa', 4); // composer target multisamples (08-25 grid AA); 0 = off, ?msaa to A/B
 export const FPS_CAP = 60;
 export const MAX_TILES = num('max', IS_MOBILE ? 9 : 8); // desktop 8 — Nathan's 08-27 DRUM density bake (was 7)
+// 08-28 (Nathan): DRUM density follows the SETTLED viewport width — his call:
+// the 08-27 bake (8) at laptop widths ramping to 12 on a wide window. Linear
+// between the anchors, rounded (the rounding is the rebuild quantum — the
+// settle pass rebuilds only when this value or the aspect actually moves).
+// An explicit ?max pins density at any width; mobile keeps its own bake.
+export const maxTilesFor = (width) => {
+  if (IS_MOBILE || PARAMS?.has('max')) return MAX_TILES;
+  const t = Math.min(1, Math.max(0, (width - 1280) / (1920 - 1280)));
+  return Math.round(8 + 4 * t);
+};
 export const MIN_TILES = num('min', 5); // cycle showcase to fill sparse Worlds
 /* — Tile thumbnail size — linear in the World's tile count: FEWER tiles get a
    BIGGER thumbnail (a sparse World shows each tile larger, and fewer total
@@ -152,10 +162,15 @@ export const TURN_EASE_PATH =
    suspends back to stills during a World Turn — the Turn is the incoming
    World's preload window. Reduced motion = stills only (no pool mounted). */
 export const WORLD_MAX_LIVE = Math.max(0, Math.round(num('live', IS_MOBILE ? 2 : 4)));
-// Video tiles to LOAD — defaults to the play budget so every video tile actually
-// plays (no posters frozen on a non-live tile). Raise ?vtiles above ?live to
-// reintroduce rotation (extra Near videos cycle the slots, showing a poster between turns).
-export const WORLD_MAX_VIDEO_TILES = Math.max(0, Math.round(num('vtiles', WORLD_MAX_LIVE)));
+// Video tiles to LOAD. Above ?live, extra Near videos rotate through the pool
+// slots (poster between turns). 08-28 bake (Nathan): desktop 6 (was = live
+// budget 4) — all-video showcases (bedouin) fill in past the decode cap via
+// rotation instead of running the drum half-empty. Mobile keeps the play
+// budget (every loaded video tile actually plays).
+export const WORLD_MAX_VIDEO_TILES = Math.max(
+  0,
+  Math.round(num('vtiles', IS_MOBILE ? WORLD_MAX_LIVE : 6))
+);
 export const LIVE_DWELL_SECONDS = num('livedwell', 9); // min time live before rotating to a waiting Near tile
 export const LIVE_CROSSFADE_SECONDS = num('livefade', 0.6); // still ↔ video crossfade (globe convention)
 export const LIVE_SUSPEND_SECONDS = 0.3; // fast fade back to stills when a Turn starts

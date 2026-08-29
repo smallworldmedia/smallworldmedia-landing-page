@@ -49,7 +49,7 @@ import {
 } from './fpDrumTrim.js';
 import {
   SHELL_RADIUS,
-  MAX_TILES,
+  maxTilesFor,
   MIN_TILES,
   thumbForCount,
   PLATE_DEG,
@@ -497,7 +497,12 @@ export function buildDrumSlot(slot, w, ctx) {
   const pool = w?.showcase || [];
   if (!pool.length && !w?.brandDecks?.length && !w?.albumArt?.length) return;
 
-  const count = Math.min(MAX_TILES, Math.max(MIN_TILES, pool.length));
+  const count = Math.min(
+    // Width-aware density (08-28): read at BUILD time — the settle-resize
+    // pass rebuilds the slot when the settled width crosses a density step.
+    maxTilesFor(typeof window !== 'undefined' ? window.innerWidth : 1280),
+    Math.max(MIN_TILES, pool.length)
+  );
   const videoPool = pool.filter((a) => a.playbackId);
   const stillPool = pool.filter((a) => !a.playbackId && a.imageUrl);
   const videoCount = Math.min(videoPool.length, WORLD_MAX_VIDEO_TILES, count);

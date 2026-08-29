@@ -56,6 +56,7 @@ import {
   BREATHE,
 } from './fpForme.js';
 import { createDrum, buildDrumSlot } from './fpDrum.js';
+import { settleDebounce } from '../../../lib/settleResize.js';
 import {
   FPGRID,
   CAM_LOOK,
@@ -67,6 +68,7 @@ import {
   MSAA_SAMPLES,
   FPS_CAP,
   MAX_TILES,
+  maxTilesFor,
   MIN_TILES,
   thumbForCount,
   DEPTH_TIERS,
@@ -170,6 +172,8 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
   const prevIndexRef = useRef(null);
   const shellRef = useRef(null);
   const formeLatticeRef = useRef(null); // FORME pane lattice material (S2 tint)
+  const worldRef = useRef(null);
+  worldRef.current = world; // live for the mount-effect closures (settle rebuild)
 
   // ── Setup: renderer / composer / scene / camera / shell / loop (mount once) ──
   useEffect(() => {
@@ -417,6 +421,9 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     // Build a World's Tiles into a slot (replacing whatever it held).
     const buildSlot = (slot, w) => {
       clearSlot(slot);
+      // Settle-resize bookkeeping: the viewport this build solved for.
+      slot.builtAspect = camera.aspect || 1;
+      slot.builtMaxTiles = maxTilesFor(window.innerWidth);
       // First time this World is shown → its tiles push out from center; on any
       // later visit they just resolve at rest (no re-run of the reveal).
       const firstView = w?.slug != null && !seenWorlds.has(w.slug);
@@ -902,6 +909,30 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       });
     };
 
+    // 08-28 (Nathan): the drum re-populates on SETTLED resizes. Placement +
+    // density are frozen per build (the solve captures camera.aspect and the
+    // width-aware tile count), so a grown viewport otherwise keeps the old
+    // solve — bare grid where new frame appeared — until the next Turn.
+    // Cheap per-event work stays in resize(); this waits for the drag to
+    // settle (trailing debounce + max-wait), sits out an in-flight Turn
+    // (re-arms, lands after the roll), and re-runs the appear choreography
+    // so the new solve resolves like a fresh World instead of popping.
+    const settledRebuild = settleDebounce(() => {
+      if (disposed || FPGRID !== 3) return;
+      const w = worldRef.current;
+      if (!w || currentSlug == null) return;
+      if (turnTween) {
+        settledRebuild();
+        return;
+      }
+      const density = maxTilesFor(window.innerWidth);
+      const aspectMoved =
+        Math.abs((camera.aspect || 1) - (activeSlot.builtAspect ?? camera.aspect ?? 1)) > 0.05;
+      if (density === activeSlot.builtMaxTiles && !aspectMoved) return;
+      seenWorlds.delete(w.slug);
+      goToWorld(w, 0);
+    });
+
     // ── Pointer parallax (listen on window so DOM overlays don't swallow it) ──
     const target = { x: 0, y: 0 };
     const eased = { x: 0, y: 0 };
@@ -1072,7 +1103,10 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     io.observe(container);
     const onVisibility = () => syncTicker();
     document.addEventListener('visibilitychange', onVisibility);
-    const ro = new ResizeObserver(resize);
+    const ro = new ResizeObserver(() => {
+      resize();
+      settledRebuild();
+    });
     ro.observe(container);
     syncTicker();
 
@@ -1081,6 +1115,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     return () => {
       disposed = true;
       apiRef.current = null;
+      settledRebuild.cancel();
       finishTurnInstant();
       io.disconnect();
       ro.disconnect();
