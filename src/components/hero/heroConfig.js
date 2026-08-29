@@ -50,7 +50,9 @@ export const COMMIT_TUNE_ACTIVE = search().get('committune') === '1';
    the added ring must not overshoot the "o"). — */
 export const GLOBE_STROKE_FRAC = (() => {
   const n = parseFloat(search().get('globestroke'));
-  return (Number.isFinite(n) ? n : 5) / 100;
+  // 08-28 bake 7 (was 5): Nathan — the ring wasn't reading at rest; slightly
+  // prouder so the blue outer stroke matches the lockup mark.
+  return (Number.isFinite(n) ? n : 7) / 100;
 })();
 
 /* — Commit ease — the envelopment master curve (chunk 4). Starts life as

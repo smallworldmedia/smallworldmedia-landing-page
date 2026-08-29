@@ -68,7 +68,7 @@ import {
   MSAA_SAMPLES,
   FPS_CAP,
   MAX_TILES,
-  maxTilesFor,
+  CAM_LAG_S,
   MIN_TILES,
   thumbForCount,
   DEPTH_TIERS,
@@ -172,8 +172,6 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
   const prevIndexRef = useRef(null);
   const shellRef = useRef(null);
   const formeLatticeRef = useRef(null); // FORME pane lattice material (S2 tint)
-  const worldRef = useRef(null);
-  worldRef.current = world; // live for the mount-effect closures (settle rebuild)
 
   // ── Setup: renderer / composer / scene / camera / shell / loop (mount once) ──
   useEffect(() => {
@@ -384,13 +382,58 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
         );
     }
 
+    // 08-28 (Nathan, round 2): resize doctrine for the World scene — the
+    // canvas buffer tracks the window instantly (no stretched frames), but
+    // the CAMERA re-evaluation (aspect → framing, and the lens field over
+    // it) TRAILS the gesture on a retargeted ease: every resize event
+    // re-aims the same short tween, so a drag reads as a smooth chase
+    // (TouchDesigner lag), never a per-event snap. Live video PAUSES on the
+    // first event of a gesture and resumes once it settles. The placed
+    // solve is NEVER touched by a resize — nothing drops out.
+    let viewW = 0;
+    let viewH = 0;
+    const aspectLag = { v: 1 };
+    let aspectSeeded = false;
+    let resizePaused = false;
+    const resumeAfterResize = settleDebounce(
+      () => {
+        if (disposed || !resizePaused) return;
+        resizePaused = false;
+        if (tickerActive) poolRef.current?.resumeAll();
+      },
+      { settleMs: 300, maxWaitMs: 2000 }
+    );
     const resize = () => {
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
+      if (w === viewW && h === viewH) return; // re-stamping clears the buffer
+      viewW = w;
+      viewH = h;
       renderer.setSize(w, h, false);
       composer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+      const targetAspect = w / h;
+      if (!aspectSeeded) {
+        aspectSeeded = true;
+        aspectLag.v = targetAspect;
+        camera.aspect = targetAspect;
+        camera.updateProjectionMatrix();
+        return;
+      }
+      if (!resizePaused) {
+        resizePaused = true;
+        poolRef.current?.pauseAll(); // hold the live frames through the drag
+      }
+      resumeAfterResize();
+      gsap.to(aspectLag, {
+        v: targetAspect,
+        duration: Math.max(0.01, CAM_LAG_S),
+        ease: 'power3.out',
+        overwrite: true,
+        onUpdate: () => {
+          camera.aspect = aspectLag.v;
+          camera.updateProjectionMatrix();
+        },
+      });
     };
     resize();
 
@@ -421,9 +464,6 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     // Build a World's Tiles into a slot (replacing whatever it held).
     const buildSlot = (slot, w) => {
       clearSlot(slot);
-      // Settle-resize bookkeeping: the viewport this build solved for.
-      slot.builtAspect = camera.aspect || 1;
-      slot.builtMaxTiles = maxTilesFor(window.innerWidth);
       // First time this World is shown → its tiles push out from center; on any
       // later visit they just resolve at rest (no re-run of the reveal).
       const firstView = w?.slug != null && !seenWorlds.has(w.slug);
@@ -909,30 +949,6 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       });
     };
 
-    // 08-28 (Nathan): the drum re-populates on SETTLED resizes. Placement +
-    // density are frozen per build (the solve captures camera.aspect and the
-    // width-aware tile count), so a grown viewport otherwise keeps the old
-    // solve — bare grid where new frame appeared — until the next Turn.
-    // Cheap per-event work stays in resize(); this waits for the drag to
-    // settle (trailing debounce + max-wait), sits out an in-flight Turn
-    // (re-arms, lands after the roll), and re-runs the appear choreography
-    // so the new solve resolves like a fresh World instead of popping.
-    const settledRebuild = settleDebounce(() => {
-      if (disposed || FPGRID !== 3) return;
-      const w = worldRef.current;
-      if (!w || currentSlug == null) return;
-      if (turnTween) {
-        settledRebuild();
-        return;
-      }
-      const density = maxTilesFor(window.innerWidth);
-      const aspectMoved =
-        Math.abs((camera.aspect || 1) - (activeSlot.builtAspect ?? camera.aspect ?? 1)) > 0.05;
-      if (density === activeSlot.builtMaxTiles && !aspectMoved) return;
-      seenWorlds.delete(w.slug);
-      goToWorld(w, 0);
-    });
-
     // ── Pointer parallax (listen on window so DOM overlays don't swallow it) ──
     const target = { x: 0, y: 0 };
     const eased = { x: 0, y: 0 };
@@ -1103,10 +1119,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     io.observe(container);
     const onVisibility = () => syncTicker();
     document.addEventListener('visibilitychange', onVisibility);
-    const ro = new ResizeObserver(() => {
-      resize();
-      settledRebuild();
-    });
+    const ro = new ResizeObserver(resize);
     ro.observe(container);
     syncTicker();
 
@@ -1115,7 +1128,8 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     return () => {
       disposed = true;
       apiRef.current = null;
-      settledRebuild.cancel();
+      resumeAfterResize.cancel();
+      gsap.killTweensOf(aspectLag);
       finishTurnInstant();
       io.disconnect();
       ro.disconnect();

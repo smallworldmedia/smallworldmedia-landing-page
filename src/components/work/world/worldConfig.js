@@ -68,6 +68,7 @@ export const PANE_PITCH = num('panepitch', 3); // FORME: macro-cell pitch as a m
 
 /* — Camera / render budget — */
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
+export const CAM_LAG_S = num('camlag', 0.5); // resize: camera re-eval TRAILS the window (retargeted ease — the TouchDesigner lag feel); ~0 = instant
 export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales with DPR²; was desktop 2). ?dpr to A/B
 export const MSAA_SAMPLES = num('msaa', 4); // composer target multisamples (08-25 grid AA); 0 = off, ?msaa to A/B
 export const FPS_CAP = 60;

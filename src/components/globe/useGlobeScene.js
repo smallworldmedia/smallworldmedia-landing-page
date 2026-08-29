@@ -36,6 +36,7 @@ import buildGlobeGeometry, { buildScrollingGlobeGeometry } from './buildGlobeGeo
 import { createPanelMaterial } from './panelMaterial.js';
 import TextureManager, { computeCoverUv } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
+import { settleDebounce } from '../../lib/settleResize.js';
 import LivePanelScheduler from './LivePanelScheduler.js';
 import MeridianScroll from './MeridianScroll.js';
 import buildCascadeTimeline, { panelDelay } from './cascade.js';
@@ -292,6 +293,30 @@ export default function useGlobeScene(
     // init + resize only. Guarded to a genuine size change: re-stamping an
     // identical canvas size clears the buffer (a between-frames flicker), and
     // this is the ONLY place layout is read. Re-frames on the new box.
+    // 08-28 (Nathan): a live drag clears the buffer faster than the
+    // FPS-gated tick repaints it, so mid-resize the canvas reads blank and
+    // the stroke disc shows through — make that the DESIGN: the first real
+    // resize of a gesture fades the canvas out (blue disc + ring = the rest
+    // state, the lockup mark), and once the gesture settles the globe fades
+    // back in over it.
+    let resizeFaded = false;
+    const fadeBackIn = settleDebounce(
+      () => {
+        if (disposed || !resizeFaded) return;
+        resizeFaded = false;
+        requestAnimationFrame(() => {
+          // one frame so the tick paints the final size before the reveal
+          if (disposed) return;
+          gsap.to(renderer.domElement, {
+            opacity: 1,
+            duration: 0.45,
+            ease: 'power2.out',
+            overwrite: true,
+          });
+        });
+      },
+      { settleMs: 300, maxWaitMs: 2000 }
+    );
     const measure = () => {
       if (disposed) return;
       const w = container.clientWidth || 1;
@@ -299,6 +324,16 @@ export default function useGlobeScene(
       if (w === viewW && h === viewH) return;
       viewW = w;
       viewH = h;
+      if (!resizeFaded) {
+        resizeFaded = true;
+        gsap.to(renderer.domElement, {
+          opacity: 0,
+          duration: 0.12,
+          ease: 'none',
+          overwrite: true,
+        });
+      }
+      fadeBackIn();
       renderer.setSize(w, h, false);
       applyRig();
     };
@@ -805,6 +840,8 @@ export default function useGlobeScene(
       apiRef.current.setPoleCap = () => {};
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
+      fadeBackIn.cancel();
+      gsap.killTweensOf(renderer.domElement);
       document.removeEventListener('visibilitychange', onVisibility);
       if (tickerActive) gsap.ticker.remove(tick);
       if (cascadeTl) cascadeTl.kill();
