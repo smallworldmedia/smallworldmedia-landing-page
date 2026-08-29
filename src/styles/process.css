@@ -313,8 +313,8 @@ body.route-process .site-nav {
    keeps its real O and natural spacing. */
 .process-hero__title .process-char:nth-child(3) {
   /* Fallback only — useProcessCopy stamps the live value inline from
-     ?opad (processConfig O_PAD_EM; 08-28 snugged to 0.12em, Nathan). */
-  padding: 0 0.12em;
+     ?opad (processConfig O_PAD_EM; 08-29 bake 0.175em, Nathan's dial). */
+  padding: 0 0.175em;
 }
 
 /* --- The globe-O, LIVE (Nathan 08-28 — supersedes the 08-25 static

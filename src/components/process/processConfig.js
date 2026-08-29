@@ -37,7 +37,7 @@ export const DEBUG = PARAMS?.has('debug') ?? false;
    fill-circle-as-stroke ring). Consumed by liveLockupGlobe/useProcessCopy. — */
 export const O_SPIN_DPS = num('ospin', -20); // ?ospin — spin around the polar axis, deg/s (negative = westward); 0 = still. 08-28 bake −20 (Nathan's dial; the cascade is retired — rotation carries the motion)
 export const O_STROKE_PCT = Math.max(0, num('ostroke', 3)); // ?ostroke — outer-stroke ring, % proud, clamped ≥0 (≤ −100 would make the slot-height math divide toward Infinity); the home ?globestroke convention: the globe shrinks inside so globe + ring land AT the glyph height. 08-28 bake 3 (Nathan's dial)
-export const O_PAD_EM = num('opad', 0.12); // ?opad — clear air each side of the O glyph slot, em of the title size (was the 0.26em CSS literal; snugged per Nathan's round-3 call)
+export const O_PAD_EM = num('opad', 0.175); // ?opad — clear air each side of the O glyph slot, em of the title size (was the 0.26em CSS literal). 08-29 bake 0.175 (Nathan's dial)
 
 /* — Resize doctrine (08-28, shared dial with /work): the camera re-eval
    TRAILS the window on a retargeted ease. — */
