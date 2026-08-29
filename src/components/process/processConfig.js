@@ -38,7 +38,7 @@ export const DEBUG = PARAMS?.has('debug') ?? false;
 export const O_SPIN_DPS = num('ospin', 6); // ?ospin — spin around the polar axis, deg/s (the mark's slow turn); 0 = still
 export const O_CASCADE_S = num('ocas', 4); // ?ocas — pause between cascade sweeps, seconds; 0 = cascade off (panels hold full power)
 export const O_CASCADE_VARIANT = str('ocasvar', 'sweep'); // ?ocasvar — rows | poles | sweep (the home cascade family; sweep = Nathan's home pick)
-export const O_STROKE_PCT = num('ostroke', 8.2); // ?ostroke — outer-stroke ring, % proud (the home ?globestroke convention: the globe shrinks inside so globe + ring land AT the glyph height)
+export const O_STROKE_PCT = Math.max(0, num('ostroke', 8.2)); // ?ostroke — outer-stroke ring, % proud, clamped ≥0 (≤ −100 would make the slot-height math divide toward Infinity); the home ?globestroke convention: the globe shrinks inside so globe + ring land AT the glyph height
 
 /* — Resize doctrine (08-28, shared dial with /work): the camera re-eval
    TRAILS the window on a retargeted ease. — */

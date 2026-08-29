@@ -965,21 +965,44 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
     const camLag = { aspect: 1, z: 0, x: 0, y: 0 };
     let camSeeded = false;
     const applyCamLag = () => {
-      if (activeTl) return; // a transition owns the camera — settle catches up
+      // Aspect has no other owner — apply it even mid-transition (holding it
+      // stale renders the whole show anamorphic on a resized buffer). The
+      // POSITION framing is the transitions' property: defer while one runs;
+      // settle catches up.
       camera.aspect = camLag.aspect;
       camera.updateProjectionMatrix();
-      camera.position.z = camLag.z;
-      globeGroup.position.x = camLag.x;
-      globeGroup.position.y = camLag.y;
+      if (!activeTl) {
+        camera.position.z = camLag.z;
+        globeGroup.position.x = camLag.x;
+        globeGroup.position.y = camLag.y;
+      }
       if (PREFERS_REDUCED_MOTION) {
         updateThread();
         renderFrame();
       }
     };
     const retargetCam = () => {
+      // Re-sync the shadow state from the LIVE rig first — transitions,
+      // applyPose and the tune bench write the camera directly between
+      // resizes; tweening from stale shadow values would snap the camera
+      // backward on the first onUpdate.
+      camLag.aspect = camera.aspect;
+      camLag.z = camera.position.z;
+      camLag.x = globeGroup.position.x;
+      camLag.y = globeGroup.position.y;
       const { z, offsetX, offsetY } = framingFor(getPose(stage ?? 'stage-01'));
+      const aspect = (container.clientWidth || 1) / (container.clientHeight || 1);
+      if (PREFERS_REDUCED_MOTION) {
+        // RM doctrine: single frames only — stamp, render once, done.
+        camLag.aspect = aspect;
+        camLag.z = z;
+        camLag.x = offsetX;
+        camLag.y = offsetY;
+        applyCamLag();
+        return;
+      }
       gsap.to(camLag, {
-        aspect: (container.clientWidth || 1) / (container.clientHeight || 1),
+        aspect,
         z,
         x: offsetX,
         y: offsetY,
@@ -1515,6 +1538,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       if (DEBUG) console.info(`[ProcessScene] setStageInstant ${stage ?? '∅'} → ${next}`);
       if (activeTl) activeTl.kill();
       activeTl = null;
+      gsap.killTweensOf(camLag); // a surviving resize-lag tween would drag the camera back
       stopLoops();
       panels.forEach((p) => gsap.killTweensOf(p));
       applyPose(getPose(next));
@@ -1568,6 +1592,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       }
       const interrupted = Boolean(activeTl);
       if (activeTl) activeTl.kill();
+      gsap.killTweensOf(camLag); // the transition owns the camera now — drop any resize-lag chase
       stopLoops();
       activeTl = buildTransition(stage ?? 'stage-01', next, interrupted);
       stage = next;
