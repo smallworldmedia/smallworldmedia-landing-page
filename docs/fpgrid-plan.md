@@ -5,6 +5,15 @@
 > ways, live-switchable via `?fpgrid=1|2|3` (house `num()` convention;
 > `?fpgrid=0` = legacy floating field).
 >
+> **STATUS 2026-08-29 (3): FOLD-READY.** The 08-28 wave shipped bedouin's
+> second deck wall (hero-led wall-deck order, `?vtiles` 6), the site resize
+> doctrine (settle-debounce + `?camlag` camera chase + video pause; NO
+> repopulation on resize — Nathan's revert call), the black /work field
+> (`?fpfade` 0 + `:has` root paint), and the /process live globe-O (the home
+> scroll-globe at rest; `?ospin` −20 · `?ostroke` 3 · `?opad` 0.175). Branch
+> history rewritten (tree-verified) so the DO-NOT-MERGE base is a proper
+> landing commit — fold-in runbook in `docs/.session-context.md`.
+>
 > **STATUS 2026-08-27: APPROVED + ALL THREE IMPLEMENTED** (commits f11b6a8
 > ATLAS, d7d0cf6 FORME, 6fde3fb DRUM). Nathan's calls honored: default mode 1;
 > DRUM idle creep is a live toggle (`?creep` deg/s, default 0 = still); house
