@@ -44,8 +44,10 @@ import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
 
 const REVEAL_KEY = 'swm:tagline-revealed';
 // Figma segments: the first two words carry Medium, the rest Regular.
-const WORDS = ['VISUAL', 'WORLDS', 'for', 'the', 'music', 'industry.'];
-const EM_WORDS = 2;
+// Exported (08-30): the mobile menu renders its own copy of the tagline
+// pill (SiteNav) — one source for the words.
+export const TAGLINE_WORDS = ['VISUAL', 'WORLDS', 'for', 'the', 'music', 'industry.'];
+export const EM_WORDS = 2;
 const HOME_SAFETY_MS = 12000; // hero-chrome no-show fallback (odd intro paths)
 const REVEAL_ON = 0.85; // footer progress that arms the copyright/lockup
 const REVEAL_OFF = 0.5; // retreat threshold (hysteresis)
@@ -286,7 +288,7 @@ export default function SiteTagline() {
         </a>
         <div className="site-tagline__row">
           <p className="site-tagline__pill" aria-label="Visual worlds for the music industry">
-            {WORDS.map((w, i) => (
+            {TAGLINE_WORDS.map((w, i) => (
               <span
                 key={w}
                 className={`site-tagline__word${i < EM_WORDS ? ' site-tagline__word--em' : ''}`}

@@ -23,6 +23,10 @@ import gsap from 'gsap';
 // The brand lockup, inlined (footer precedent) — one source of truth in
 // src/assets; native blue artwork, no recolor filter.
 import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
+// The tagline words — the mobile menu carries its own copy of the pill
+// (08-30, Nathan): off-home ≤768px the page-level pill is hidden (it ate
+// bottom real estate), so the takeover is the tagline's site-wide home.
+import { TAGLINE_WORDS, EM_WORDS } from './SiteTagline';
 
 /* ── NAV micro-interaction (08-29, Nathan) ── The merged bracket/fxrule
    system is RETIRED (brackets forced label gutters between glyph and text;
@@ -414,9 +418,9 @@ export default function SiteNav({
             </nav>
             {/* Privacy — mobile home (08-30, Nathan): ≤768px the lower-right
                 .site-privacy pill is hidden, so the menu carries the link —
-                pill-tier type, LEFT-aligned with the item column in the
-                panel's lower corner. Explicit close: a same-route /privacy
-                tap never fires astro:after-swap. */}
+                item-ink white, LEFT-aligned with the item column, seated
+                just above the menu's tagline pill. Explicit close: a
+                same-route /privacy tap never fires astro:after-swap. */}
             <a
               href="/privacy"
               className="mobile-menu__privacy"
@@ -424,6 +428,23 @@ export default function SiteNav({
             >
               privacy
             </a>
+            {/* Tagline pill — the menu's own copy (08-30, Nathan): off-home
+                ≤768px the page-level pill is hidden (real estate), so the
+                takeover carries "VISUAL WORLDS for the music industry."
+                site-wide; on home it doubles the persistent page pill,
+                seated at the SAME y so menu open/close reads seamless.
+                Decorative here — the page pill (home) and footer carry the
+                accessible copy. */}
+            <p className="mobile-menu__tagline" aria-hidden="true">
+              {TAGLINE_WORDS.map((w, i) => (
+                <span
+                  key={w}
+                  className={`site-tagline__word${i < EM_WORDS ? ' site-tagline__word--em' : ''}`}
+                >
+                  {w}
+                </span>
+              ))}
+            </p>
           </div>,
           shellEl
         )}

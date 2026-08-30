@@ -731,6 +731,12 @@ body.route-home .site-nav__lockup svg * {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  /* The menu tagline pill's seat (08-30): matches the HOME page pill's box
+     bottom exactly — bottom inset + the wrapped-copy line the hidden
+     copyright reserves under it (--lh-link + the row's --space-6 gap) — so
+     opening the menu on home reads as the same pill persisting. The
+     privacy link stacks one pill-box + gap above it. */
+  --menu-pill-seat: calc(var(--footer-bottom-inset) + var(--lh-link) + var(--space-6));
 }
 
 /* /work + detail routes (08-30, Nathan): the takeover inherits the focused
@@ -803,32 +809,26 @@ html.fp-tint .mobile-menu__item {
 /* Privacy — the menu's lower-LEFT link (08-30, Nathan): ≤768px the fixed
    lower-right .site-privacy pill is hidden, so the takeover carries the
    /privacy link instead — LEFT-ALIGNED on the items' own inset (the menu
-   reads as one left-anchored column). Its TEXT LINE sits exactly where the
-   tagline pill's text sits under the takeover (bottom inset + the pill's
-   own bottom padding) and rides the SAME size token as that pill's text
-   (--text-link — the mobile tier). Same privacy link language: brand blue
-   Medium at rest, white under a finger; fp routes hand it the nav ink
-   (blue-on-accent could vanish). */
+   reads as one left-anchored column) and wearing the ITEMS' OWN INK
+   (08-30 (2): the brand-blue read was invisible on the black takeover).
+   Seated one pill-box + gap above the menu's tagline pill; --text-link
+   tier (the pill text's token). fp routes ride --nav-ink like the items. */
 .mobile-menu__privacy {
   position: absolute;
   left: var(--nav-inset);
-  /* The tagline pill's text line, reconstructed: bottom inset + the
-     wrapped copyright line the hidden copy reserves BELOW the pill on
-     mobile (--lh-link + the row's --space-6 wrap gap) + the pill's own
-     bottom padding. Matches the pill's live text baseline by the same
-     tokens that seat it. */
-  bottom: calc(var(--footer-bottom-inset) + var(--lh-link) + var(--space-6) + var(--pill-pad-y));
+  bottom: calc(var(--menu-pill-seat) + var(--lh-link) + 2 * var(--pill-pad-y) + var(--space-6));
   font-family: var(--font-body);
   font-size: var(--text-link);
   line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   font-weight: var(--weight-medium);
-  color: var(--color-electric-blue);
+  color: var(--color-white);
 }
 
 .mobile-menu__privacy:hover,
 .mobile-menu__privacy:active {
-  color: var(--color-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .mobile-menu__privacy:focus-visible {
@@ -840,6 +840,31 @@ html:has(.fp) .mobile-menu__privacy,
 html.fp-tint .mobile-menu__privacy {
   color: var(--nav-ink, var(--color-white));
   transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+}
+
+/* Tagline pill — the menu's own copy (08-30, Nathan): the takeover is the
+   tagline's site-wide home on phones (the page-level pill survives only on
+   route-home — the gate lives in the tagline's ≤768px block). Same capsule
+   skin + type as .site-tagline__pill, spanning the shared edge tokens;
+   black capsule holds on fp accents (the nav-pill black idiom). */
+.mobile-menu__tagline {
+  position: absolute;
+  left: var(--nav-inset);
+  right: var(--chrome-right-inset);
+  bottom: var(--menu-pill-seat);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28em;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border-radius: var(--radius-capsule);
+  background: var(--color-black);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  white-space: nowrap;
 }
 
 .site-nav__link {
@@ -1733,12 +1758,11 @@ html.fp-tint .mobile-menu__privacy {
     display: none;
   }
 
-  /* The mobile tagline stack is one line taller than desktop's: the
-     copyright WRAPS below the full-width pill (its --lh-link line + the
-     row's --space-6 wrap gap) instead of running inline — the band
-     min-height counts it so the lockup stays inside the band. */
+  /* The mobile band reserves for the OFF-HOME tagline stack (footers only
+     exist off-home, where the page pill is hidden — 08-30 (2)): lockup art
+     + column gap + the copyright line, plus this box's own paddings. */
   .site-footer__inner {
-    min-height: calc(var(--lockup-art-h) + var(--space-2) + var(--lh-link) + 2 * var(--pill-pad-y) + var(--lh-link) + var(--space-6) + var(--footer-top-pad) + var(--footer-bottom-inset));
+    min-height: calc(var(--lockup-art-h) + var(--space-2) + var(--lh-link) + var(--footer-top-pad) + var(--footer-bottom-inset));
   }
 }
 
@@ -1899,6 +1923,15 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   .site-tagline__pill {
     width: 100%;
     justify-content: center;
+  }
+
+  /* 08-30 (2), Nathan: on phones the page-level pill is HOME-ONLY — on
+     every other route it covered needed bottom real estate, so the mobile
+     menu's own copy (.mobile-menu__tagline) is the tagline's site-wide
+     home. display:none (not visibility) so the wrapped copyright takes
+     the row's first line and seats at the bottom inset in the footer. */
+  body:not(.route-home) .site-tagline__pill {
+    display: none;
   }
 
   /* Copyright wraps below the full-width pill on reveal (08-30, Nathan:
