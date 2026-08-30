@@ -23,14 +23,6 @@
   status = 302
   force = true
 
-# v2: process page gated until launch (same pattern) — remove with the
-# redirect in process.astro + the sitemap exclude, one 3-file commit.
-[[redirects]]
-  from = "/process"
-  to = "/"
-  status = 302
-  force = true
-
 # FP-4b (2026-07-16): homegrwxn merged INTO rossi — permanent move; bellaire
 # unfeatured for now — soft redirect until it returns.
 [[redirects]]

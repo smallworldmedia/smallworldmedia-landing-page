@@ -126,6 +126,8 @@ Panels settle at the expanded radius; looping `uPower` pattern timelines run on 
 
 ## 6. Route, gating, nav, SEO
 
+> **UN-GATED 2026-08-29** — the 3-file un-gate below is DONE (redirect line, netlify 302, sitemap exclude all removed; nav links were already live). `/process` is a live route; do NOT re-add the gate from this checklist. `?debug` is now publicly reachable (consistent with the other shipped benches).
+
 - **Gate (from the first build commit)** — the exact three-part disabled-route pattern:
   1. `src/pages/process.astro` frontmatter, before any work: `return Astro.redirect('/');` + re-enable comment (the `src/pages/specimen.astro:17-19` mold, tagged `v2:`).
   2. `netlify.toml`: `[[redirects]] from = "/process" to = "/" status = 302 force = true` (force overrides the meta-refresh page Astro emits for static routes — same blocks as `netlify.toml:7-24`).
