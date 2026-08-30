@@ -21,7 +21,7 @@ Full implementation notes in the session plan; this is the tracking list. Order:
 | # | Item | Status | Notes |
 |---|---|---|---|
 | F1 | Info panel restyle | ✅ `8fe42e8` | Brand black, white text, client-name affordance removed, embed placeholder deleted. |
-| F2 | Remove `process` nav link | ✅ `8fe42e8` | Removed. Process page = v2 workstream, planned separately on its own branch. |
+| F2 | Remove `process` nav link | ✅ `8fe42e8` | Removed. Process page = v2 workstream, planned separately on its own branch. **Superseded 08-29:** page shipped, nav link live, `/process` UN-GATED (`d863919` — redirect + netlify 302 + sitemap exclude all removed). |
 | F3 | Home footer tagline | ✅ `8fe42e8` | `SiteFooter tagline` prop; white `--font-body`, home only. |
 | F4 | Disable `/lab/globe` + `/specimen` | ✅ `8fe42e8` | Astro.redirect + forced Netlify 302, `/work/directory` pattern. |
 | F5 | Static SVG nav globe | ✅ `8fe42e8` | `SWM-globe_white.svg` in nav + overlay; both gif copies deleted (−1.1MB). |
