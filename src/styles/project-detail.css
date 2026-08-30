@@ -174,44 +174,97 @@ html:has(.project-detail) body {
 }
 
 /* ============================================
-   NEXT-PROJECT CHIP — far right of the meta row
-   Chip-voice peek at where the chain goes next
-   (wraps last → first), with the house caret
-   strip cut horizontal. Commits through the same
-   envelopment cover as the NextProjectBand.
+   NEXT-PROJECT CHIP — inline with the breadcrumb
+   (08-30, Nathan — moved out of the meta row):
+   right-anchored to the viewport on the
+   breadcrumb's own row, NOT sticky — only the
+   breadcrumb pins; this scrolls away with the
+   content. Same height-neutral footprint trick
+   as the breadcrumb (see its block-level note):
+   the two chips collapse to one zero-height row
+   so the media below sits flush. Skin joins the
+   breadcrumb family now that they read as a pair
+   (accent rest / white-black charged) — the old
+   near-black rest existed only because the chip
+   sat ON the accent band. Commits through the
+   same envelopment cover as the NextProjectBand.
    ============================================ */
-.client-panel__next {
+.detail-next {
+  position: relative;
+  z-index: 19; /* floats over the content top, under the sticky breadcrumb */
   display: flex;
   align-items: center;
   gap: 0.571rem;
-  margin-left: auto; /* far right of the chips/socials row */
+  width: max-content;
+  /* Cap = the breadcrumb's rendered box (probe-measured 183.1px, font-ui
+     1rem "↩ FEATURED_PROJECTS" chip) — the pair reads as equals; a long
+     client name overflows the window below and marquees instead of
+     widening. */
+  --detail-next-max: 13.08rem;
+  max-width: var(--detail-next-max);
+  margin: 0.571rem 0.571rem calc(-1.857rem - 0.571rem) auto;
   padding: 0.143rem 0.571rem;
-  /* 08-26 nav-chip pass: rest stays near-black — the chip sits ON the accent
-     band, so the family's accent rest state would vanish here; it joins the
-     family through the sans face + the white/black charged hover instead. */
-  background: var(--color-near-black);
+  background: var(--project-color, var(--color-electric-blue));
   font-family: var(--font-ui);
   font-size: 1rem;
   line-height: 1.571rem;
   letter-spacing: -0.024em;
   text-transform: uppercase;
-  color: var(--color-white);
+  color: var(--project-color-fg, var(--color-white));
   white-space: nowrap;
   text-decoration: none;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-.client-panel__next:hover,
-.client-panel__next:focus-visible {
+.detail-next:hover,
+.detail-next:focus-visible {
   /* Nav-chip charged state (08-26): brand white, black ink/arrows. */
   background: var(--color-white);
   color: var(--color-black);
 }
 
+/* The client-name window — the only flexible box in the chip: it shrinks
+   under the max-width cap and clips; an overflowing name scrolls on repeat
+   (the [data-marquee] track below — JS mounts the duplicate copy only when
+   the single copy truly overflows). */
+.detail-next__window {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.detail-next__track {
+  display: inline-flex;
+}
+
+/* The marquee gap rides ONLY the marquee state — a static (fitting) name
+   keeps no trailing dead-space before the carets. Padded per copy so the
+   -50% translate of the two-copy track loops seamlessly. */
+[data-marquee] .detail-next__copy {
+  padding-right: 1.5em;
+}
+
+[data-marquee] .detail-next__track {
+  animation: detail-next-loop var(--marquee-s, 6s) linear infinite;
+}
+
+@keyframes detail-next-loop {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-next__track {
+    animation: none !important;
+  }
+}
+
 /* Horizontal re-cut of the shared caret strip (global.css owns the 60×34
    vertical base; process.css's 34×20 re-cut is the size precedent). The
    window feathers on the side nearest the label (left). */
-.client-panel__next .fp-cta__arrows {
+.detail-next .fp-cta__arrows {
+  flex: none;
   width: 34px;
   height: 20px;
   margin: 0;
@@ -223,13 +276,13 @@ html:has(.project-detail) body {
   mask-size: 100% 100%;
 }
 
-.client-panel__next .fp-cta__arrows-track {
+.detail-next .fp-cta__arrows-track {
   flex-direction: row;
   align-items: center;
   height: 100%;
 }
 
-.client-panel__next .fp-cta__arrows-track svg {
+.detail-next .fp-cta__arrows-track svg {
   margin: 0 2.5px;
 }
 
@@ -1010,10 +1063,11 @@ html[data-footer-revealed] .detail-meter {
     /* prevents row from stretching full-width on narrow screens */
   }
 
-  /* Stacked meta: the next_project chip joins the wrap flow instead of
-     pushing far right (no room to spread on a phone). */
-  .client-panel__next {
-    margin-left: 0;
+  /* Breadcrumb + next chip share one row on a phone too — the chip
+     additionally caps against the viewport so it can never ride over the
+     breadcrumb (breadcrumb box + its margins + a touch of air ≈ 15rem). */
+  .detail-next {
+    max-width: min(var(--detail-next-max), calc(100vw - 15rem));
   }
 
   /* Hero band collapses to stacked on mobile */

@@ -26,8 +26,11 @@
  * @param {string}        props.collection - curated collection name (sourceManifest)
  * @param {Object|null}   props.nextProject - next-in-chain card data (NextProjectBand)
  */
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { navigate } from 'astro:transitions/client';
 import ClientPanel from './ClientPanel.jsx';
+import CtaArrows from '../CtaArrows.jsx';
+import { PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 import MediaSlot from './MediaSlot.jsx';
 import ProcessMeter from '../../process/ProcessMeter.jsx';
 import NextProjectBand from './NextProjectBand.jsx';
@@ -54,6 +57,94 @@ const ORBIT_REGION_ROWS = 34;
 const DECK_REGION_ROWS = 68;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
 
+/* ── next_project chip (08-30, Nathan — moved out of the ClientPanel meta
+   row): rides INLINE with the breadcrumb under the panel — right-anchored
+   to the viewport, NOT sticky (the breadcrumb alone pins; this scrolls
+   away with the content). Its max-width matches the breadcrumb's rendered
+   box, so long client names overflow the name window — the field then
+   scrolls on repeat (marquee): JS measures the single copy against the
+   window, and only an actual overflow mounts the duplicate + animation
+   (reduced motion never marquees — the name just clips). Commit rides the
+   same envelopment bridge as before. ── */
+const NEXT_COVER_SECONDS = 0.6;
+const MARQUEE_PX_PER_S = 30; // loop pace — one copy-width per this many px/s
+let departing = false;
+function goNextProject(e, next) {
+  try {
+    // The breadcrumb's return-restore should reopen /work on the world we
+    // land in — same handshake NextProjectBand writes at commit (which also
+    // writes before its reduced-motion branch, so RM riders get it too).
+    if (next.index != null) sessionStorage.setItem('swm:worldIndex', String(next.index));
+  } catch {
+    /* storage unavailable */
+  }
+  if (PREFERS_REDUCED_MOTION) return; // plain ClientRouter navigation
+  e.preventDefault();
+  if (departing) return;
+  departing = true;
+  window.dispatchEvent(
+    // S2: the enter fill ingests the NEXT project's accent (blank → blue).
+    new CustomEvent('swm:envelop', { detail: { duration: NEXT_COVER_SECONDS, color: next.color } })
+  );
+  setTimeout(() => {
+    departing = false;
+    navigate(`/work/${next.slug}`);
+  }, NEXT_COVER_SECONDS * 1000 + 60);
+}
+
+function DetailNextChip({ next }) {
+  const windowRef = useRef(null);
+  const copyRef = useRef(null);
+  const [marquee, setMarquee] = useState(false);
+  const [loopSeconds, setLoopSeconds] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const win = windowRef.current;
+      const copy = copyRef.current;
+      if (!win || !copy) return;
+      if (PREFERS_REDUCED_MOTION) {
+        setMarquee(false);
+        return;
+      }
+      // Measure the SINGLE copy against its window (the duplicate mounts
+      // only after this flips true, so the measurement is never polluted).
+      const over = copy.scrollWidth > win.clientWidth + 1;
+      setMarquee(over);
+      // Loop travel = one copy incl. its marquee gap (offsetWidth counts the
+      // [data-marquee] padding on the next frame; the pre-pad width is close
+      // enough — the pace knob absorbs the difference).
+      if (over) setLoopSeconds(Math.max(2, copy.scrollWidth / MARQUEE_PX_PER_S));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [next]);
+
+  // The WHOLE label line is the scrolling field ("next_project: name") —
+  // a static prefix outside the window would eat the breadcrumb-width cap
+  // and leave the name a few px (observed: one letter). Short labels that
+  // fit stay static; the rest tick past whole.
+  const label = `next_project: ${next.clientName?.toLowerCase() ?? ''}`;
+  return (
+    <a
+      className="detail-next"
+      href={`/work/${next.slug}`}
+      onClick={(e) => goNextProject(e, next)}
+      aria-label={`Next project: ${next.clientName}`}
+      data-marquee={marquee || undefined}
+      style={marquee ? { '--marquee-s': `${loopSeconds.toFixed(2)}s` } : undefined}
+    >
+      <span className="detail-next__window" ref={windowRef} aria-hidden="true">
+        <span className="detail-next__track">
+          <span className="detail-next__copy" ref={copyRef}>{label}</span>
+          {marquee && <span className="detail-next__copy">{label}</span>}
+        </span>
+      </span>
+      <CtaArrows direction="right" />
+    </a>
+  );
+}
 
 export default function FeaturedProjectDetail({ assets, client, project, collection, nextProject }) {
   // Release the Envelopment fill if this arrival came through the
@@ -231,7 +322,6 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         services={services}
         projectColor={project?.projectColor}
         projectColorSecondary={project?.projectColorSecondary}
-        nextProject={nextProject}
       />
 
       {/* Breadcrumb back to the Featured Projects experience. Sits under
@@ -252,6 +342,11 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         <span className="detail-breadcrumb__glyph" aria-hidden="true">↩</span>
         featured_projects
       </a>
+
+      {/* next_project chip — INLINE with the breadcrumb (08-30, Nathan):
+          right-anchored, same height-neutral row, deliberately NOT sticky
+          (only the breadcrumb pins; this scrolls up with the content). */}
+      {nextProject && <DetailNextChip next={nextProject} />}
 
       <main className="project-detail__flow">
         {/* Deck hero → the featured deck's wall leads the flow; portrait
