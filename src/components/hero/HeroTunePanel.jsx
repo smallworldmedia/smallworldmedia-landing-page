@@ -180,15 +180,6 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         fmt={num3}
         onChange={set}
       />
-      <Row
-        label="text gap px"
-        param="textGap"
-        value={s.textGap}
-        min={0}
-        max={120}
-        step={2}
-        onChange={set}
-      />
       <p className="hero-tune__note">
         fit:{' '}
         {s.fitCover == null
@@ -197,8 +188,7 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
             ? 'cover'
             : 'contain'}{' '}
         — ?herofit=contain|cover. roll (?heroroll) tilts the whole comp right
-        at +, 0 = parity. text gap (?textgap) is the tagline/CTA clearance from
-        the globe. reset returns the resting-comp defaults for this
+        at +, 0 = parity. reset returns the resting-comp defaults for this
         device/variant (device fill is {num3(FILL_FRACTION)}, fit{' '}
         {FIT_COVER ? 'cover' : 'contain'} here).
       </p>

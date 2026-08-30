@@ -109,15 +109,16 @@ export const INTRO_VARIANTS = ['a', 'c'];
    chrome — is a NEGATIVE offsetY. roll is degrees about the view axis
    (+ tilts the whole comp to the right; 0 = today's untilted framing). */
 const COMP_DEFAULTS = IS_MOBILE
-  ? // mobile: the ring-era contain-fit numbers, untouched for now — only the
-    // CTA changed (ring → the scroll_to_enter button beneath the tagline)
+  ? // mobile: the ring-era contain-fit numbers, untouched — the slight
+    // up-bias keeps the disc clear of the full-width tagline pill
     { fill: 0.95, fitCover: false, offsetX: 0, offsetY: -0.18, elevDeg: 8, roll: 0 }
-  : // resting comp — Nathan's 08-24 recomposition bake: globe CENTERED with its
-    // center point ON the bottom viewport edge (offsetY 1 = the full half-view),
-    // tilted slightly away (high elevation, looking down over the pole), tagline
-    // + CTA centered in the clear band above the disc. (was: off-right low comp
-    // fill 1.42 / x 0.59 / y 0.5 / elev 2.5)
-    { fill: 1.22, fitCover: null, offsetX: 0, offsetY: 1, elevDeg: 56.5, roll: 0 };
+  : // resting comp — 08-30 (Nathan): desktop MIRRORS the mobile centered
+    // layout — globe centered in the viewport, near-equator elevation, the
+    // enter_world button floating at its center (tap-only, the inception
+    // "next layer inward" read). fill/fitCover null = the device constants
+    // (FILL_FRACTION 0.85, contain). (was: the 08-24 bottom-edge band comp
+    // fill 1.22 / y 1 / elev 56.5 — reachable via ?herofill&heroy&heroelev)
+    { fill: null, fitCover: null, offsetX: 0, offsetY: 0, elevDeg: 8, roll: 0 };
 
 export const TUNING_DEFAULTS = Object.freeze({
   /* comp — camera rig */
@@ -127,8 +128,9 @@ export const TUNING_DEFAULTS = Object.freeze({
   offsetY: COMP_DEFAULTS.offsetY, // ?heroy — view offset, fraction of the half-viewport (−1..1, + = down)
   elevDeg: COMP_DEFAULTS.elevDeg, // ?heroelev — camera elevation off the equator plane, degrees (orbits, keeps facing center)
   roll: COMP_DEFAULTS.roll, // ?heroroll — camera roll about the view axis, degrees (+ tilts the comp right); 0 = parity
-  zoom: 1, // no param — dolly divisor on the fitted distance; gesture-owned (Hero's drag/release/envelop)
-  textGap: 44, // ?textgap — px clearance between the globe disc's TOP edge and the tagline/CTA column bottom (was the left-edge gap in the off-right comp); 44 = Nathan's 08-24 bake
+  zoom: 1, // no param — dolly divisor on the fitted distance; owned by the entrance settle + envelopment (the scroll gesture retired 08-30)
+  /* textGap RETIRED 08-30 — the CTA column is viewport-centered by CSS now
+     (no disc-anchored --lead-top write); the knob had nothing to consume. */
 
   /* commit — the envelopment master timeline (chunk 4; Hero reads these at
      commit time, so the bench moves the NEXT commit/dry-run, not a live one) */
@@ -170,13 +172,10 @@ export const TUNING_DEFAULTS = Object.freeze({
   blueSurge: 0.1, // ?bluesurge — per-panel surge length; 0.1 = Nathan's 08-25 bake
   blueDipEnd: 0.4, // ?bluedipend — dip beat's share of the surge (0..~0.9); 0.4 = Nathan's 08-25 bake
   blueDipDepth: 0.2, // ?bluedipdepth — brightness floor = 1 − depth; 0.2 = Nathan's 08-25 bake
-  /* hero centered lockup (08-25) — px height; 0 = the CSS clamp default. */
-  lockupH: 400, // ?lockuph — hero lockup height px; 400 = Nathan's 08-25 bake (band-centered, so it grows symmetrically)
-  /* lockup word-beat entrance (08-25 (2), Nathan): the hero lockup arrives
-     WORD BY WORD — Small → World → Media™ — three HARD CUTS (visibility
-     flips, no fades), one beat apart, starting at the chrome beat. Hero
-     buckets the inline SVG's glyphs into the three words by artwork x. */
-  lockupBeatMs: 280, // ?lockupbeat — ms between word cuts (word 1 lands at the chrome beat itself)
+  /* lockupH + lockupBeatMs RETIRED 08-30 — the centered hero lockup left the
+     comp (the NAV carries the brand on every route now, home included); the
+     word-beat entrance went with it. swm:hero-lockup-done still fires (from
+     the chrome beat) so SiteTagline's intro keying is unchanged. */
 
   /* globe — the meridian-scroll pace (MeridianScroll reads at build; the bench
      moves the NEXT mount unless wired live). The globe holds its brand tilt;
@@ -234,7 +233,6 @@ const PARAM_KEYS = {
   offsetY: 'heroy',
   elevDeg: 'heroelev',
   roll: 'heroroll',
-  textGap: 'textgap',
   /* commit */
   commitMs: 'commitms',
   blueStart: 'bluestart',
@@ -250,8 +248,6 @@ const PARAM_KEYS = {
   blueSurge: 'bluesurge',
   blueDipEnd: 'bluedipend',
   blueDipDepth: 'bluedipdepth',
-  lockupH: 'lockuph',
-  lockupBeatMs: 'lockupbeat',
   /* globe */
   cascadeSpeed: 'cascadespeed',
   poleLift: 'polelift',

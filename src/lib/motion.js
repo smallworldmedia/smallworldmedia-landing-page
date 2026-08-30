@@ -71,12 +71,12 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
    touch deltas gain ×TOUCH_GAIN, and a stall of RELEASE_MS rubber-bands
    back to rest. Surfaces read their own trigger (live-tunable via ?scroll;
    /process gets its own param at rebase so surfaces dial independently). */
-export const SCROLL_TRIGGER_HOME_PX = 500; // home hero Envelopment
 export const SCROLL_TRIGGER_WORK_PX = 500; // /work World Turn + detail next-project band
 export const SCROLL_TRIGGER_PROCESS_PX = 500; // /process quantizer
 // ^ unified at 500 per Nathan's 2026-07-16 dial (was 600/600/700) — the
 //   Notion "takes too much scroll power" note, answered. Per-surface
-//   exports stay so a future dial can split them again.
+//   exports stay so a future dial can split them again. (The HOME trigger
+//   retired 08-30 — the hero's enter_world is tap-only now.)
 export const TOUCH_GAIN = 2; // touch deltas 2× — parity with wheel feel
 export const RELEASE_MS = 160; // stall gap before the rubber-band release
 

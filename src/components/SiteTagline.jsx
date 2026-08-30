@@ -302,8 +302,10 @@ export default function SiteTagline() {
 
       {/* Lower-right mirror (08-29): the persistent privacy pill — fixed as
           a SIBLING of the tagline root (both position to the viewport; the
-          island wrapper has no transform). Desktop-only: ≤768px the footer
-          nav's in-row privacy link carries the duty (global.css gates). */}
+          island wrapper has no transform). Desktop-only: ≤768px the mobile
+          menu's lower-corner privacy link carries the duty (global.css
+          gates; 08-30 — the full-width tagline pill owns the bottom edge
+          on phones). */}
       <a href="/privacy" className="site-privacy" ref={privacyRef}>
         <span className="site-privacy__word">privacy</span>
       </a>

@@ -8,9 +8,9 @@
  * variant — `body.route-home`, set server-side by BaseLayout (no
  * hydration flash) and swapped off by the ClientRouter on navigation —
  * is CSS-only: the bar goes transparent, the info pill's blue accents go
- * black, and the LINKS ROW (+ mobile menu pill) stays hidden —
- * the sitemap only comes into view after the scroll-trigger commit lands
- * on the featured-projects page (or any non-home route).
+ * black, and the lockup fills go WHITE over the black hero field (08-30 —
+ * the nav carries the brand on home now; the centered hero lockup
+ * retired with the tap-only comp).
  *
  * Props (all optional — when omitted, links fall back to navigation):
  *   onStartProject  — callback for "start_project" click
@@ -58,7 +58,8 @@ function EjectIcon() {
   );
 }
 
-function CloseIcon() {
+/* Exported: InfoPanel's top-left close pill reuses it (08-30). */
+export function CloseIcon() {
   return (
     <svg className="site-nav__pill-icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
       <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -202,60 +203,24 @@ export default function SiteNav({
     return () => document.removeEventListener('astro:after-swap', refreshCurrent);
   }, [shellEl]);
 
-  // ── Home chrome gate + brand arrival choreography ──
+  // ── Home chrome gate ──
   // Fresh HOME load: the bar stays hidden until the hero settles and fires
   // its chrome beat ('swm:hero-chrome' + the durable .hero[data-chromed="1"]
   // latch — the HeroText consumer pattern; safety timer covers a failed
-  // hero). On home the bar shows ONLY the info pill in the LEFT CORNER (the
-  // nav lockup + links are CSS-hidden on route-home — the lockup lives
-  // centered in the hero instead).
+  // hero). 08-30: the nav LOCKUP lives in the bar on home too now (the
+  // centered hero lockup retired with the tap-only comp), so the whole
+  // brand row arrives with the bar's chrome-beat fade — the 08-25 brand
+  // arrival choreography (pill slide + lockup drop on the home→off-home
+  // swap) retired with it: there is no longer an empty lockup slot to fill.
   //
   // EVERY after-swap re-asserts bar visibility unconditionally (clearProps).
   // This is deliberate belt-and-suspenders: a swap during the island
   // teardown was observed reverting the reveal tween's inline styles (nav
   // landed on /work at opacity 0 — 08-25 bug), so visibility off-home is
   // never left to a one-shot listener again.
-  //
-  // HOME → OFF-HOME swap (the globe commit landing on /work) additionally
-  // runs the 08-25 brand arrival: the info pill eases RIGHT from the corner
-  // to its resting slot (making way), then the nav lockup slides DOWN from
-  // above the frame into place — its fills already on the nav ink token
-  // (--nav-ink-l) via CSS, so it lands in the correct light/dark state.
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return undefined;
-    let wasHome = document.body.classList.contains('route-home');
-
-    const runBrandArrival = () => {
-      const logo = nav.querySelector('.site-nav__logo');
-      const pill = nav.querySelector('.site-nav__pill');
-      if (!logo || !pill) return;
-      // ≤768px the lockup is absolutely CENTERED in the bar (08-25 phone
-      // order: info left, lockup center, menu right) — the pill already owns
-      // the corner on home AND off-home, so there is nothing to make way for:
-      // skip the slide, keep only the lockup drop (its GSAP transform
-      // composes with the CSS `translate` centering).
-      const centered = window.matchMedia('(max-width: 768px)').matches;
-      const slide = logo.offsetWidth + 10; // lockup slot + the brand gap
-      gsap.killTweensOf([logo, pill]);
-      const tl = gsap.timeline({
-        onComplete: () => gsap.set([logo, pill], { clearProps: 'all' }),
-      });
-      if (!centered) {
-        tl.fromTo(
-          pill,
-          { x: -slide },
-          { x: 0, duration: 0.5, ease: 'power3.inOut' },
-          0
-        );
-      }
-      tl.fromTo(
-        logo,
-        { yPercent: -180, autoAlpha: 0 },
-        { yPercent: 0, autoAlpha: 1, duration: 0.45, ease: 'power3.out' },
-        centered ? 0 : 0.38 // "then" — the drop starts as the pill settles
-      );
-    };
 
     // 08-25: the sitemap links stagger in on page load (Nathan's call —
     // links live on home again, no /work detour needed). Runs at the beat
@@ -279,18 +244,16 @@ export default function SiteNav({
     };
 
     const onSwap = () => {
-      const isHome = document.body.classList.contains('route-home');
       gsap.killTweensOf(nav);
       gsap.set(nav, { clearProps: 'opacity,visibility' }); // never hidden after a swap
-      if (wasHome && !isHome) runBrandArrival();
-      wasHome = isHome;
     };
     document.addEventListener('astro:after-swap', onSwap);
 
     // Initial-load gate (home only, beat not yet fired).
+    const isHome = document.body.classList.contains('route-home');
     let timer = null;
     let onBeat = null;
-    if (wasHome && document.querySelector('.hero')?.dataset.chromed !== '1') {
+    if (isHome && document.querySelector('.hero')?.dataset.chromed !== '1') {
       gsap.set(nav, { autoAlpha: 0 });
       let shown = false;
       const show = () => {
@@ -449,6 +412,18 @@ export default function SiteNav({
                 <span className="site-nav__label">follow_us</span>
               </a>
             </nav>
+            {/* Privacy — mobile home (08-30, Nathan): ≤768px the lower-right
+                .site-privacy pill is hidden, so the menu carries the link —
+                pill-tier type, LEFT-aligned with the item column in the
+                panel's lower corner. Explicit close: a same-route /privacy
+                tap never fires astro:after-swap. */}
+            <a
+              href="/privacy"
+              className="mobile-menu__privacy"
+              onClick={() => setMenuOpen(false)}
+            >
+              privacy
+            </a>
           </div>,
           shellEl
         )}

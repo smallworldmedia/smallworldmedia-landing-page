@@ -21,28 +21,19 @@
  * broadcast. Knobs: ?intro ?introms ?introhold ?introcascadeat ?heroink
  * ?introease (heroConfig's intro section, on the ?herotune bench).
  *
- * SCROLL_TO_ENTER is the PRIMARY button, restored beneath the tagline in a
- * left-anchored column (the home-hero refine retired chunk 3's orbiting
- * ring). The wheel/touch accumulator ([NEXT]/[PREVIOUS] family) drives its
- * fill: dragging mixes the pill white → electric blue and leans the CAMERA
- * in (rig.zoom — the globe truly approaches, no DOM scale), stalling
- * rubber-bands both back, and crossing the threshold pins the pill blue and
- * fires the Envelopment (?scroll tunes the resistance, /work convention).
- * Clicking the button (or keyboard Enter) commits the same way. One CTA on
- * every breakpoint. The tagline + button column takes its max-width from the
- * globe disc's left edge (?textgap) so the copy never overlaps the globe and
- * wraps when space is tight.
+ * enter_world is the PRIMARY button — TAP ONLY on every breakpoint (08-30,
+ * Nathan: the wheel/touch scroll-to-enter accumulator is RETIRED so the
+ * button reads as the "tap to the next layer inward" mechanism the FP page
+ * already hints at — inception style). It rests CENTERED in the viewport,
+ * floating over the centered globe (the 08-30 comp mirrors mobile on
+ * desktop); clicking it (or keyboard Enter) pins the fill blue and fires
+ * the Envelopment. The caret strip and the disc-anchored column machinery
+ * (--lead-top / --cta-slide) retired with the gesture.
  *
  * Blob-tracking labels (chunk 6, HeroLabels — on by default now, ?herolabels
  * / the bench toggle): mono chips + leader strokes latched to the LIVE
  * panels via the scene api's onLiveChange subscription, running only
  * between the chrome beat and a commit, never under RM.
- *
- * While dragging, the RouteFill blue pre-covers on a power curve (up to
- * ?envpre % at the threshold) — video keeps playing under it. At commit the
- * pre-cover HOLDS wherever the drag left it (we simply stop emitting
- * progress); the hero owns the visual from there. Committing continues from
- * wherever the drag left rig.zoom.
  *
  * Envelopment (ADR-0002; chunk-4 commit): ONE master timeline drives an
  * eased proxy e 0→1 on the commit curve (HERO_COMMIT_EASE_PATH,
@@ -68,14 +59,8 @@ import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
 import { navigate } from 'astro:transitions/client';
 import VideoGlobe from './globe/VideoGlobe.jsx';
-import CtaArrows from './work/CtaArrows.jsx';
 import HeroText from './HeroText.jsx';
 import HeroIntro from './hero/HeroIntro.jsx';
-// The brand lockup, inlined (nav/footer precedent — one source of truth in
-// src/assets). Hero renders it centered above the enter_world CTA in brand
-// white, on its OWN layer BELOW the globe canvas (z1 < z2) so the commit's
-// scaling globe covers it (08-25).
-import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
 import HeroLabels from './hero/HeroLabels.jsx';
 import { createHeroOverlay } from './hero/heroOverlay.js';
 import {
@@ -90,20 +75,9 @@ import {
   PREFERS_REDUCED_MOTION,
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
-import {
-  SCROLL_TRIGGER_HOME_PX,
-  TOUCH_GAIN,
-  RELEASE_MS,
-  housePulseLoop,
-} from '../lib/motion.js';
+import { housePulseLoop } from '../lib/motion.js';
 
 gsap.registerPlugin(useGSAP, CustomEase);
-
-const PARAM = (key, fallback) => {
-  if (typeof window === 'undefined') return fallback;
-  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
-  return Number.isFinite(n) ? n : fallback;
-};
 
 /* — Intro session gate (chunk 5; replaced 'swm:loomed') — one read+write
    per page view, same try/catch idiom. RM decides first (dual-guard's
@@ -197,18 +171,10 @@ const DRYRUN_RETURN_SECONDS = 0.6; // rig back to the resting pose, expo.out
 /* Clamped remap: where a beat lives on its progress window. */
 const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
 
-/* — Scroll-fill (mirrors /work's CTA choreography + knobs) — */
-const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_HOME_PX); // px of wheel/touch to commit
-const RM_WHEEL_THRESHOLD = 60; // reduced motion: modest intent → plain nav
-
-/* — Drag weight: what the gesture moves before it commits — */
-const ENV_LEAN = PARAM('envlean', 25) / 100; // camera zoom extra at full drag
-const ENV_PRE_COVER = PARAM('envpre', 45) / 100; // blue opacity at full drag (f² curve)
-
-/* — CTA fill presentation: 08-25 — the scale model retired (the button
-   slides down instead; see the presentation vars block). The pill mixes
-   black → electric blue by the charge fraction (pinned solid blue at
-   commit). — */
+/* — 08-30: the scroll-fill gesture is RETIRED (SCROLL_TRIGGER / drag lean /
+   RouteFill pre-cover all gone with it) — enter_world is TAP ONLY on every
+   breakpoint. The pill's presentation reduces to rest / hover / commit-pin
+   (the presentation vars block). — */
 
 /* — Globe outer stroke (Globe/Homepage): a flat electric-blue disc behind the
    canvas, sized GLOBE_STROKE_FRAC proud of the globe disc so only a thin ring
@@ -220,21 +186,14 @@ const ENV_PRE_COVER = PARAM('envpre', 45) / 100; // blue opacity at full drag (f
 export default function Hero({ globeAssets }) {
   const heroRef = useRef(null);
   const veilRef = useRef(null);
-  const lockupRef = useRef(null); // the centered hero lockup wrap (word beats)
   const armedRef = useRef(false);
   const departingRef = useRef(false);
-  const accumRef = useRef(0);
-  const idleRef = useRef(null);
-  const leadColRef = useRef(null); // the enter_world button column (above the globe)
   const enterWrapRef = useRef(null); // FP-1 fill-pulse target (see the pulse effect)
   const strokeRef = useRef(null); // globe outer-stroke disc (tracks the overlay disc)
 
-  // enter_world button fill state — the /work model (fill 0..1, mode
-  // drag|release|commit-pin) restored from the pre-ring button. The gesture
-  // path writes it via setCta; a per-drag React render was fine before the
-  // ring and stays fine now (the heavy work is the rig/overlay, not this).
-  const [ctaFill, setCtaFill] = useState(0);
-  const [ctaMode, setCtaMode] = useState('drag');
+  // enter_world button state — tap-only (08-30): the drag fill model reduced
+  // to one commit-pin flag; hover pours via ctaHover below.
+  const [ctaPinned, setCtaPinned] = useState(false);
 
   // FP-1 fill pulse, home reading (08-27): loop --cta-pulse 0 → 1 → 0 on the
   // house envelope. Lives on the wrap (no React inline style there); the
@@ -248,10 +207,6 @@ export default function Hero({ globeAssets }) {
     return () => pulse.kill();
   }, []);
   const [ctaHover, setCtaHover] = useState(false);
-  const setCta = (f, mode) => {
-    setCtaFill(f);
-    setCtaMode(mode);
-  };
 
   // Camera rig + overlay bridge (home-hero rework, chunk 2). The scene fills
   // rigRef with { rig, apply }; the overlay is created here (lazy ref init —
@@ -272,9 +227,9 @@ export default function Hero({ globeAssets }) {
   const commitKillRef = useRef(null);
   useEffect(() => () => commitKillRef.current?.(), []);
 
-  // Gesture-owned camera zoom — a proxy so drag writes, the release
-  // rubber-band, the replay settle and the envelopment glide all continue
-  // from the same value (GSAP overwrite arbitration on one target).
+  // Camera zoom proxy — the entrance settles and the envelopment glide
+  // continue from the same value (GSAP overwrite arbitration on one target;
+  // the drag gesture that used to share it retired 08-30).
   const zoomRef = useRef({ v: 1 });
   const applyZoom = () => {
     const handle = rigRef.current;
@@ -298,74 +253,10 @@ export default function Hero({ globeAssets }) {
   // proxy), so they count as "done" from the start.
   const introDoneRef = useRef(!(introMode === 'full' && INTRO_FORCED_VARIANT));
 
-  // ── Lockup word buckets (08-25 (2)) ──
-  // The inline SVG is one glyph per path/polygon/rect; bucket them into the
-  // three words by artwork x (getBBox works on visibility:hidden). Gaps in
-  // the artwork put the boundaries safely at 195 (SMALL|WORLD — the globe
-  // "o" sits at 303) and 405 (WORLD|MEDIA™ — the ™ marks land at 548+).
-  // Computed LAZILY at beat time, never cached from mount: the client:only
-  // island's early DOM is replaced during dev hydration churn (observed
-  // 08-25 — mount-time references went stale and the cuts wrote inline
-  // styles to disconnected nodes), and 17 getBBox calls per entrance are
-  // free.
-  const bucketLockupWords = () => {
-    const svg = lockupRef.current?.querySelector('svg');
-    if (!svg) return null;
-    const words = [[], [], []];
-    svg.querySelectorAll('path, polygon, rect').forEach((el) => {
-      let x = 0;
-      try {
-        x = el.getBBox().x;
-      } catch {
-        return; // unrendered — leave the glyph out; the fallback shows all
-      }
-      words[x < 195 ? 0 : x < 405 ? 1 : 2].push(el);
-    });
-    return words.every((w) => w.length) ? words : null;
-  };
-
-  // The three-beat lockup arrival (Nathan, 08-25 (2)): Small → World →
-  // Media™ as HARD CUTS — visibility flips, no fades — one ?lockupbeat
-  // apart, word 1 landing on the chrome beat itself. Instant (RM) or a
-  // failed bucketing shows the whole lockup at once. delayedCalls live in
-  // this island's gsap context on purpose — an unmount kills the pending
-  // cuts with everything else.
-  const runLockupBeats = (instant) => {
-    const wrap = lockupRef.current;
-    if (!wrap) return;
-    const words = bucketLockupWords();
-    // Hard cuts are PLAIN style writes, not gsap.set — a set of
-    // visibility on these SVG glyphs was observed not to stick (08-25),
-    // and a cut needs no tween anyway. delayedCall stays as the clock so
-    // pending cuts die with this island's gsap context.
-    const setVis = (els, v) => els.forEach((el) => { el.style.visibility = v; });
-    // 08-27: the persistent SiteTagline island keys its one-time intro off
-    // the lockup animation's END — broadcast it (rAF-deferred so no listener
-    // work is adopted into this island's gsap context; the 08-25 doctrine).
-    const done = () =>
-      requestAnimationFrame(() =>
-        window.dispatchEvent(new CustomEvent('swm:hero-lockup-done'))
-      );
-    if (instant || !words) {
-      if (words) setVis(words.flat(), 'visible');
-      gsap.set(wrap, { autoAlpha: 1 });
-      done();
-      return;
-    }
-    setVis(words.flat(), 'hidden');
-    gsap.set(wrap, { autoAlpha: 1 }); // the wrap itself cuts on, no fade
-    const beat = Math.max(0, HERO_TUNING.lockupBeatMs) / 1000;
-    words.forEach((group, i) => {
-      gsap.delayedCall(beat * i, () => setVis(group, 'visible'));
-    });
-    gsap.delayedCall(beat * words.length, done);
-  };
-
-  // The chrome beat: arm the gesture, stamp the latch, broadcast — the
-  // HeroText lead / labels reveal themselves off the event (they can mount
-  // after it fires), Hero fades what it owns directly (the CTA button wrap +
-  // footer). Fired by the replay settle / RM path here, and by HeroIntro's
-  // machine in full mode.
+  // The chrome beat: arm the button, stamp the latch, broadcast — the
+  // labels reveal themselves off the event (they can mount after it fires),
+  // Hero fades what it owns directly (the CTA button wrap). Fired by the
+  // replay settle / RM path here, and by HeroIntro's machine in full mode.
   const chromeBeat = (instant) => {
     const hero = heroRef.current;
     if (!hero) return;
@@ -378,9 +269,14 @@ export default function Hero({ globeAssets }) {
     // unmount, re-hiding the nav after the commit swap (08-25 bug, caught
     // by stack trap). One rAF breaks the adoption chain for every listener.
     requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('swm:hero-chrome')));
-    // The lockup leaves the fade list (08-25 (2)) — it arrives word by word.
-    runLockupBeats(instant);
-    const owned = hero.querySelectorAll('.hero__enter-wrap, .hero__arrows');
+    // 08-30: the hero lockup (and its word-beat entrance) retired — the NAV
+    // carries the brand on home now. The done broadcast SiteTagline keys its
+    // one-time intro off still fires, straight from this beat (rAF-deferred,
+    // the 08-25 adoption doctrine).
+    requestAnimationFrame(() =>
+      window.dispatchEvent(new CustomEvent('swm:hero-lockup-done'))
+    );
+    const owned = hero.querySelectorAll('.hero__enter-wrap');
     if (instant) gsap.set(owned, { autoAlpha: 1 });
     else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
   };
@@ -406,16 +302,6 @@ export default function Hero({ globeAssets }) {
   // aliases it), and the values equal the baked defaults unless a URL/bench
   // change moved them, so an untouched load is a no-op.
   const stampGlobeTuning = () => {
-    // 08-25: hero lockup height (?lockuph; 0 = the CSS clamp default) —
-    // DOM-only, stamped before the scene-api guard so it applies pre-build.
-    const heroEl = heroRef.current;
-    if (heroEl) {
-      if (HERO_TUNING.lockupH > 0) {
-        heroEl.style.setProperty('--hero-lockup-h', `${HERO_TUNING.lockupH}px`);
-      } else {
-        heroEl.style.removeProperty('--hero-lockup-h');
-      }
-    }
     const api = sceneApiRef.current;
     if (!api) return;
     api.setPoleTuning({
@@ -549,7 +435,6 @@ export default function Hero({ globeAssets }) {
     if (departingRef.current) return;
     departingRef.current = true;
     armedRef.current = false;
-    clearTimeout(idleRef.current);
     commitKillRef.current?.(); // a dry-run return tween may still be settling
     commitKillRef.current = null;
 
@@ -568,7 +453,7 @@ export default function Hero({ globeAssets }) {
     const sceneApi = sceneApiRef.current;
     const fill = fillRef.current;
     const chrome = heroRef.current.querySelectorAll(
-      '.hero__lead-col, .hero__arrows, .hero-labels'
+      '.hero__lead-col, .hero-labels'
     );
     // Commit-time snapshot of the bench knobs — the timeline is one shot;
     // a mid-flight TUNING write waits for the next commit/dry-run.
@@ -587,10 +472,10 @@ export default function Hero({ globeAssets }) {
     } = HERO_TUNING;
 
     // Recenter/zoom starts — FROM wherever the live rig sits (the resting
-    // TUNING pose, a bench value, a mid-drag lean), never from defaults.
-    // The master onUpdate owns the zoom proxy now: kill a live drag/release
-    // tween instead of tweening over it (the old separate zoom tween died
-    // with chunk 4 — zoom is a remap of e like everything else).
+    // TUNING pose, a bench value, a mid-settle zoom), never from defaults.
+    // The master onUpdate owns the zoom proxy: kill any live settle tween
+    // instead of tweening over it (zoom is a remap of e like everything
+    // else).
     gsap.killTweensOf(zoomRef.current);
     const startX = handle ? handle.rig.offsetX : 0;
     const startY = handle ? handle.rig.offsetY : 0;
@@ -650,9 +535,7 @@ export default function Hero({ globeAssets }) {
     // e=1, real commit: the viewport is already solid blue — the persistent
     // RouteFill snaps opaque under one beat and owns the cross-route frame;
     // the hero island (fill div included) unmounts with the swap. The old
-    // t=0 `swm:envelop` dispatch is GONE — the hero owns the passage visual
-    // now, and the drag's pre-cover simply holds where it left off (we stop
-    // emitting `swm:fill-progress` the moment the commit starts).
+    // t=0 `swm:envelop` dispatch is GONE — the hero owns the passage visual.
     const handoff = () => {
       unsub();
       commitKillRef.current = null;
@@ -695,16 +578,10 @@ export default function Hero({ globeAssets }) {
         });
         commitKillRef.current = () => backTween.kill();
       }
-      setCta(0, 'release');
-      // Let the drag's held pre-cover go too — the rehearsal must leave no
-      // residue on the persistent RouteFill (no-op if it was never raised).
-      window.dispatchEvent(
-        new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: 0.4 } })
-      );
+      setCtaPinned(false);
       gsap.to(chrome, { autoAlpha: 1, duration: 0.4, ease: 'power2.out', overwrite: true });
-      accumRef.current = 0;
       departingRef.current = false;
-      armedRef.current = true; // the gesture is live again
+      armedRef.current = true; // the button is live again
     };
 
     /* — ONE linear master timeline `raw.p` (see the beat map). Blue, recenter
@@ -772,20 +649,19 @@ export default function Hero({ globeAssets }) {
     };
   };
 
-  // Click/keyboard commit (the button) — pin the fill like a crossed
-  // threshold, then run the same passage. (Keyboard Enter fires click
-  // natively; no drag disambiguation needed — the button isn't over the
-  // spin-draggable disc.)
+  // Click/keyboard commit (the button) — THE way in (tap-only, 08-30):
+  // pin the fill blue, then run the passage. (Keyboard Enter fires click
+  // natively.)
   const onEnterClick = () => {
-    setCta(1, 'commit-pin');
+    setCtaPinned(true);
     beginEnvelopment();
   };
 
-  // Bench rehearsal (?herotune) — pin the fill like a real threshold cross,
-  // then play the commit timeline with the dry-run release instead of the
+  // Bench rehearsal (?herotune) — pin the fill like a real commit, then
+  // play the commit timeline with the dry-run release instead of the
   // navigation.
   const onCommitDryRun = () => {
-    setCta(1, 'commit-pin');
+    setCtaPinned(true);
     beginEnvelopment({ dryRun: true });
   };
 
@@ -866,78 +742,11 @@ export default function Hero({ globeAssets }) {
     { scope: heroRef }
   );
 
-  // ── Tagline/CTA column anchored ABOVE the globe ──
-  // 08-24 recomposition: the globe rests centered with its center point on the
-  // bottom viewport edge, so the statement + CTA live in the clear band above
-  // the disc — horizontally centered, the column's BOTTOM held ?textgap px off
-  // the disc's TOP edge (CSS anchors via --lead-top + translateY(-100%)). We
-  // cache the disc every frame (3 number writes, zero alloc — this also keeps
-  // the overlay bridge running when labels are off) and write --lead-top only
-  // on a "dirty" frame — armed by the chrome beat, window resize and bench comp
-  // changes, NEVER per frame (a top write relayouts the text).
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return undefined;
-    const disc = { cx: 0, cy: 0, r: 0 };
-    let dirty = true; // compute once as soon as the first real disc lands
-    const writeGap = () => {
-      const col = leadColRef.current;
-      if (!col || !disc.r) return;
-      // The globe's TOP edge in px (less a textGap breathing margin) — where
-      // the column's bottom edge rests.
-      const px = Math.max(0, Math.round(disc.cy - disc.r - HERO_TUNING.textGap));
-      col.style.setProperty('--lead-top', `${px}px`);
-      // 08-25: the enter_world button slides DOWN to the viewport center as
-      // the scroll charges (translateY = --cta-down × --cta-slide). Measure
-      // the slide from the UNTRANSFORMED wrap (the button carries the
-      // transform), on the same dirty frames.
-      const wrap = col.querySelector('.hero__enter-wrap');
-      if (wrap) {
-        const r = wrap.getBoundingClientRect();
-        const slide = Math.max(
-          0,
-          Math.round(window.innerHeight / 2 - (r.top + r.height / 2))
-        );
-        col.style.setProperty('--cta-slide', `${slide}px`);
-        // 08-25 (Nathan): the lockup stays CENTERED in the band between the
-        // nav bar's bottom edge and the button's top — at ANY ?lockuph scale
-        // (it was bottom-anchored, so scaling walked it into the nav). The
-        // midline moves only when the layout does — same dirty frames.
-        const navBottom =
-          document.querySelector('.site-nav')?.getBoundingClientRect().bottom ?? 41;
-        const hero = heroRef.current;
-        if (hero) {
-          hero.style.setProperty(
-            '--lockup-center-y',
-            `${Math.round((navBottom + r.top) / 2)}px`
-          );
-        }
-      }
-    };
-    const unframe = overlay.onFrame((frame) => {
-      disc.cx = frame.disc.cx;
-      disc.cy = frame.disc.cy;
-      disc.r = frame.disc.r;
-      if (dirty && disc.r) {
-        dirty = false;
-        writeGap();
-      }
-    });
-    const mark = () => {
-      dirty = true;
-    };
-    window.addEventListener('swm:hero-chrome', mark);
-    window.addEventListener('resize', mark);
-    const unTune = subscribeHeroTune(mark);
-    if (heroRef.current?.dataset.chromed === '1') mark(); // beat already fired
-    return () => {
-      unframe();
-      window.removeEventListener('swm:hero-chrome', mark);
-      window.removeEventListener('resize', mark);
-      unTune();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── (08-30) The disc-anchored column effect is RETIRED — the CTA column
+  // is viewport-centered by CSS on every breakpoint (no --lead-top /
+  // --cta-slide / --lockup-center-y writes). The overlay bridge stays warm
+  // through the globe-stroke subscriber below (and computes on demand for
+  // the commit's own subscription regardless). ──
 
   // ── Globe outer stroke — track the live disc every frame ──
   // Transform-only (a 200px base circle translated + scaled to the live
@@ -965,113 +774,16 @@ export default function Hero({ globeAssets }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Scroll-fill → envelopment (the /work wheel/touch accumulator) ──
-  useEffect(() => {
-    const clearIdle = () => {
-      clearTimeout(idleRef.current);
-      idleRef.current = null;
-    };
+  // ── (08-30) The wheel/touch scroll-fill accumulator is RETIRED —
+  // enter_world commits on tap/click/Enter only, on every breakpoint (the
+  // "tap to the next layer inward" mechanism). Drag lean, rubber-band
+  // release and the RouteFill pre-cover all went with it. ──
 
-    // Drag weight: the button fills, the CAMERA leans toward the globe
-    // (rig.zoom — direct write, the accumulator itself paces it) and the
-    // blue pre-covers with the gesture (f² keeps the fade subtle early).
-    const dragTo = (f) => {
-      setCta(f, 'drag');
-      gsap.killTweensOf(zoomRef.current); // take over from a live release
-      zoomRef.current.v = 1 + ENV_LEAN * f;
-      applyZoom();
-      window.dispatchEvent(
-        new CustomEvent('swm:fill-progress', { detail: { value: ENV_PRE_COVER * f * f } })
-      );
-    };
-
-    // Stalled below the threshold → rubber-band the button fill, camera and
-    // blue back on the shared release curve.
-    const scheduleRelease = () => {
-      clearIdle();
-      idleRef.current = setTimeout(() => {
-        accumRef.current = 0;
-        setCta(0, 'release');
-        gsap.to(zoomRef.current, {
-          v: 1,
-          duration: 0.4,
-          ease: 'expo.out',
-          overwrite: 'auto',
-          onUpdate: applyZoom,
-        });
-        window.dispatchEvent(
-          new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: 0.4 } })
-        );
-      }, RELEASE_MS);
-    };
-
-    const addDelta = (dy) => {
-      if (!armedRef.current || departingRef.current) return;
-      // The inquiry overlay owns the screen — scrolling under it must not
-      // arm the envelopment (wheel events bubble to window regardless)
-      if (document.querySelector('.project-overlay')?.dataset.open === 'true') return;
-      const a = Math.max(0, accumRef.current + dy); // downward intent only
-      accumRef.current = a;
-
-      if (PREFERS_REDUCED_MOTION) {
-        if (a >= RM_WHEEL_THRESHOLD) beginEnvelopment();
-        return;
-      }
-      if (a >= SCROLL_TRIGGER) {
-        clearIdle();
-        // Pinned solid blue — held while the passage plays.
-        setCta(1, 'commit-pin');
-        beginEnvelopment();
-      } else {
-        dragTo(a / SCROLL_TRIGGER);
-        scheduleRelease();
-      }
-    };
-
-    const onWheel = (e) => addDelta(e.deltaY);
-    let touchY = null;
-    const onTouchStart = (e) => {
-      touchY = e.touches[0]?.clientY ?? null;
-    };
-    const onTouchMove = (e) => {
-      if (touchY === null) return;
-      const y = e.touches[0]?.clientY ?? touchY;
-      addDelta((touchY - y) * TOUCH_GAIN); // upward swipe = enter (the house gain)
-      touchY = y;
-    };
-    const onTouchEnd = () => {
-      touchY = null;
-      if (!departingRef.current) scheduleRelease();
-    };
-
-    window.addEventListener('wheel', onWheel, { passive: true });
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: true });
-    window.addEventListener('touchend', onTouchEnd);
-    return () => {
-      clearIdle();
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── enter_world button presentation vars — 08-25 model: SOLID BLACK fill
-  // inside the white stroke at rest, pouring to solid electric blue as the
-  // scroll charges (always opaque — it covers the caret strip as it passes),
-  // while the button SLIDES DOWN toward the viewport center tethered to the
-  // same accumulator (translateY, no scaling). Release rubber-bands it back
-  // up on the house curve; commit-pin parks it at center instantly. Hover
-  // pours the blue but never moves the button. ──
-  const ctaDown = ctaMode === 'commit-pin' ? 1 : Math.min(1, ctaFill);
-  const ctaReturn = ctaMode === 'commit-pin' ? '0s' : ctaMode === 'release' ? '0.4s' : '0.12s';
-  const ctaEase = ctaMode === 'release' ? 'cubic-bezier(0.16, 1, 0.3, 1)' : 'ease-out';
-  const ctaPct =
-    ctaMode === 'commit-pin'
-      ? 100
-      : Math.round(Math.min(1, Math.max(ctaFill, ctaHover ? 1 : 0)) * 100);
+  // ── enter_world button presentation vars — tap-only model (08-30): the
+  // pill rests on the pulsing brand-blue base, hover pours WHITE over it,
+  // and a commit pins the poured state while the passage plays. No slide,
+  // no scaling — the button lives at the viewport center. ──
+  const ctaPct = ctaPinned || ctaHover ? 100 : 0;
   const ctaColor = {
     // 08-27 (4) redial (Nathan): the DEFAULT state is BRAND BLUE, pulsing
     // down to --color-dim-gray on the house pulse (--cta-pulse 0..1, tweened
@@ -1082,7 +794,6 @@ export default function Hero({ globeAssets }) {
     // page's white enter_world skin.
     '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--color-electric-blue), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-white) ${ctaPct}%)`,
     '--cta-fg': `color-mix(in srgb, var(--color-white), var(--color-electric-blue) ${ctaPct}%)`,
-    '--cta-down': ctaDown.toFixed(4),
   };
 
   return (
@@ -1106,35 +817,21 @@ export default function Hero({ globeAssets }) {
           cornerRadius={PANEL_CORNER_RADIUS}
         />
       </div>
-      {/* Centered statement column ABOVE the globe (08-24 recomposition) —
-          the tagline (HeroText's .hero__lead, the /process section-header
-          display register) THEN the scroll_to_enter button beneath it. Hero
-          writes --lead-top (the disc's top edge, less ?textgap) and CSS
-          anchors the column's bottom there, horizontally centered. The column
-          is pointer-inert (drag-to-spin reaches the canvas); only the button
-          opts back in. Revealed on the chrome beat, faded on the commit
-          (it's the .hero__lead-col in the chrome NodeList). */}
-      {/* Centered brand lockup (08-25) — white, above the enter_world CTA,
-          on its OWN layer at z1: BELOW the globe canvas (z2), so the commit's
-          scaling globe covers it (it is deliberately NOT in the chrome-out
-          NodeList — occlusion is the exit). Revealed on the chrome beat. */}
-      <div
-        className="hero__lockup"
-        aria-hidden="true"
-        ref={lockupRef}
-        dangerouslySetInnerHTML={{ __html: lockupSvg }}
-      />
-      <div className="hero__lead-col" ref={leadColRef}>
+      {/* enter_world column — CENTERED in the viewport on every breakpoint
+          (08-30, the tap-only comp: the button floats at the centered
+          globe's heart — "tap to the next layer inward"). The hero lockup
+          and caret strip that used to share this band are RETIRED (the NAV
+          carries the brand on home now). Pointer-inert wrapper (drag-to-spin
+          reaches the canvas); only the button opts back in. Revealed on the
+          chrome beat, faded on the commit (.hero__lead-col in the chrome
+          NodeList). HeroText keeps the sr-only h1 (SEO/a11y). */}
+      <div className="hero__lead-col">
         <HeroText />
         <div className="hero__enter-wrap" ref={enterWrapRef}>
           <button
             type="button"
             className="cta-primary hero__enter"
-            style={{
-              '--cta-return': ctaReturn,
-              '--cta-ease': ctaEase,
-              ...ctaColor,
-            }}
+            style={ctaColor}
             onClick={onEnterClick}
             onPointerEnter={() => setCtaHover(true)}
             onPointerLeave={() => setCtaHover(false)}
@@ -1142,13 +839,6 @@ export default function Hero({ globeAssets }) {
             enter_world
           </button>
         </div>
-      </div>
-      {/* Caret strip (08-25) — split OUT of the button wrap onto its own
-          static layer at z1: BEHIND the globe canvas (z2), no scaling/motion
-          interactivity — the opaque button slides down over it. Revealed on
-          the chrome beat, faded with the commit chrome. */}
-      <div className="hero__arrows" aria-hidden="true">
-        <CtaArrows direction="down" />
       </div>
       {/* Blob-tracking labels (chunk 6) — on by default now (?herolabels=0
           forces off); chips latch onto LIVE panels between the chrome beat
