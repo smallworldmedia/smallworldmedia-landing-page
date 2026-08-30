@@ -129,6 +129,11 @@ export default function SiteShell() {
   // `max(--space-4, --scrollbar-w)` in global.css still reserves room to clear
   // the bar where it appears. Re-measured on resize (browser zoom, or plugging
   // a mouse that flips macOS overlay↔classic scrollbars, changes the width).
+  // RE-ASSERTED on astro:after-swap: ClientRouter soft navs replace ALL <html>
+  // attributes, inline style included, silently erasing the property — on
+  // classic-scrollbar devices the right inset then collapsed to the 0px
+  // fallback and the nav links shifted ~7px right after the first soft nav
+  // (Nathan's home→/work report, 08-29).
   useEffect(() => {
     const setSbw = () => {
       const probe = document.createElement('div');
@@ -141,7 +146,11 @@ export default function SiteShell() {
     };
     setSbw();
     window.addEventListener('resize', setSbw);
-    return () => window.removeEventListener('resize', setSbw);
+    document.addEventListener('astro:after-swap', setSbw);
+    return () => {
+      window.removeEventListener('resize', setSbw);
+      document.removeEventListener('astro:after-swap', setSbw);
+    };
   }, []);
 
   // GSAP: initial closed position + resize tracking
