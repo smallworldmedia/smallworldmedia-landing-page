@@ -158,6 +158,18 @@
   --nav-inset: var(--space-2);
   /* 4px */
 
+  /* Chrome RIGHT-edge inset — the scrollbar-aware twin of --nav-inset,
+     shared by everything seated on the viewport's right edge (nav bar,
+     mobile menu bar, footer bar + inner, privacy pill, /process caption).
+     The shell spans 100vw, so a classic scrollbar overlays this edge on
+     scrollable routes; --scrollbar-w is a DEVICE CONSTANT (SiteShell
+     probe), identical on every route, so right-edge chrome both clears
+     the bar AND lands at the same x on every page — scrollbar or not —
+     with no jump between locked and scrollable routes. ONE token so the
+     pill's resting inset and the footer's inner padding can never drift
+     (they are the same edge by construction). */
+  --chrome-right-inset: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+
   /* Footer bottom inset — ONE token for every element seated on the
      viewport's bottom edge: the tagline pill, the privacy pill, and the
      links footer's inner bottom padding (the pills' resting insets ARE that
@@ -465,12 +477,9 @@ button {
   /* 41px */
   padding: 0.214rem var(--nav-inset);
   /* 3px 16px */
-  /* extra right clearance: the shell spans 100vw, so a classic scrollbar
-     overlays this edge on scrollable routes. --scrollbar-w is a DEVICE
-     CONSTANT (SiteShell probe), identical on every route, so the last nav
-     item both clears the bar AND lands at the same x on every page —
-     scrollbar or not — with no jump between locked and scrollable routes. */
-  padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+  /* extra right clearance — the shared scrollbar-aware right-edge token
+     (see --chrome-right-inset for the full story) */
+  padding-right: var(--chrome-right-inset);
   background: var(--color-electric-blue);
   flex-shrink: 0;
 }
@@ -737,7 +746,7 @@ body.route-home .site-nav__logo {
   justify-content: space-between;
   height: 2.929rem;
   padding: 0.214rem var(--nav-inset);
-  padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+  padding-right: var(--chrome-right-inset);
 }
 
 .mobile-menu__bar img {
@@ -1476,7 +1485,7 @@ body.route-home .site-nav__logo {
   padding: 0.571rem var(--nav-inset);
   /* 8px 4px — the nav's hug */
   /* scrollbar clearance, the nav's right-edge idiom */
-  padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+  padding-right: var(--chrome-right-inset);
   background: var(--color-near-black);
 }
 
@@ -1568,7 +1577,7 @@ body.route-home .site-nav__logo {
      corner pills seat on the same token); extra right clearance mirrors the
      nav's scrollbar idiom. */
   padding: var(--footer-top-pad) var(--nav-inset) var(--footer-bottom-inset);
-  padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+  padding-right: var(--chrome-right-inset);
 }
 
 /* LEFT — globe lockup + copyright */
@@ -1843,7 +1852,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
    ≤768px it yields to the footer nav's in-row privacy link. */
 .site-privacy {
   position: fixed;
-  right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+  right: var(--chrome-right-inset);
   bottom: var(--footer-bottom-inset);
   z-index: 45;
   display: flex;

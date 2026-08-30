@@ -417,7 +417,7 @@ body.route-process .site-nav {
   /* 08-29: clear the persistent lower-right privacy pill (.site-privacy) —
      the pill's own scrollbar-aware inset + the reserve above (the footer
      nav's reservation idiom). */
-  right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)) + var(--caption-pill-reserve));
+  right: calc(var(--chrome-right-inset) + var(--caption-pill-reserve));
   bottom: var(--nav-inset);
   z-index: 4;
   /* P3: one line, all caps — the tagline reads as a single mono rule
