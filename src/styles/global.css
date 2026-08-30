@@ -123,6 +123,13 @@
   /* 18px — the pill/chip line (nav info pill, site tagline + its copyright) */
   --lh-pill: 1.571rem;
   /* 22px */
+  --text-link: 1.143rem;
+  /* 16px — the LINK tier: nav links, footer links + copyright, and the
+     corner pills' text line (08-27, Nathan: one type tier across the
+     revealed footer; token sweep 08-29 lifted the literals here). */
+  --lh-link: 1.571rem;
+  /* 22px — same line as --lh-pill by design (the 18px pill tier and the
+     16px link tier share one rhythm); separate token so either can move. */
 
   /* Typography — tracking */
   --tracking-tight: -0.02em;
@@ -159,6 +166,22 @@
      footer elements hug the bottom of the viewport. */
   --footer-bottom-inset: 0.857rem;
 
+  /* Capsule pill skin — the corner pills (.site-tagline__pill /
+     .site-privacy) share ONE black capsule: this padding, --radius-capsule,
+     --color-black flood, the --text-link line. Footer clearances derive
+     from the same knobs (the nav row lifts by --pill-pad-y; the band
+     min-height counts the pill's box). */
+  --pill-pad-y: var(--space-4);
+  /* 8px */
+  --pill-pad-x: var(--space-6);
+  /* 12px */
+
+  /* Fixed privacy-pill keep-out — the horizontal reserve the footer nav row
+     leaves for the lower-right .site-privacy capsule (~5.3rem) + row air.
+     (The /process caption carries its own tighter reserve — page-local
+     knob in process.css.) */
+  --privacy-clearance: 7rem;
+
   /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
      edge lands on the same left line as the detail-page client name (the
      --space-4 page padding of .client-panel / .project-blurb) — one global
@@ -168,7 +191,13 @@
      their seat; the bleed token rides the nav's 7rem svg height. */
   --lockup-left: var(--space-4);
   /* 8px — the client-name left line */
-  --lockup-bleed: calc(7rem * 0.1585);
+  --lockup-svg-h: 7rem;
+  /* the shared inline-SVG canvas height (nav lockup + tagline lockup art) */
+  --lockup-bleed: calc(var(--lockup-svg-h) * 0.1585);
+  --lockup-art-h: calc(var(--lockup-svg-h) * 0.28);
+  /* the artwork's optical height inside that canvas (~28%, measured 08-27)
+     — the tagline lockup wrapper clamps to it; the footer band min-height
+     counts it. */
 
   /* Nav bar height — the sticky-reveal footer slides the page + nav up by
      exactly this so the bar clears the top of the viewport (F1). Mirrors the
@@ -181,6 +210,8 @@
   /* Radii */
   --radius-pill: 3.571rem;
   /* 50px */
+  --radius-capsule: 999px;
+  /* full capsule — the corner pills */
   --radius-none: 0;
 
 
@@ -612,7 +643,7 @@ body.route-home .site-nav__pill:hover {
 
 .site-nav__lockup svg {
   display: block;
-  height: 7rem;
+  height: var(--lockup-svg-h);
   width: auto;
   fill: var(--color-white);
 }
@@ -748,10 +779,8 @@ body.route-home .site-nav__logo {
   gap: 0.143rem;
   /* 2px */
   font-family: var(--font-body);
-  font-size: 1.143rem;
-  /* 16px */
-  line-height: 1.571rem;
-  /* 22px */
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   color: var(--color-white);
   white-space: nowrap;
@@ -1120,7 +1149,7 @@ body.route-home .site-nav__logo {
      black); other .cta-primary consumers leave it unset → brand blue. */
   color: var(--cta-fg, var(--project-color-text, var(--color-electric-blue)));
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   padding: 0.6rem 1.4rem;
   text-decoration: none;
   cursor: pointer;
@@ -1472,10 +1501,8 @@ body.route-home .site-nav__logo {
 
 .site-footer__copy {
   font-family: var(--font-body);
-  font-size: 1.143rem;
-  /* 16px */
-  line-height: 1.571rem;
-  /* 22px */
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   color: var(--color-white);
 }
@@ -1530,14 +1557,17 @@ body.route-home .site-nav__logo {
      SiteTagline pill + its reveal-state lockup/copyright) — this min-height
      reserves the band that stack occupies. 08-29, Nathan: the old 5rem
      under-reserved and the lockup poked above the band — now computed from
-     the stack itself: lockup art (7rem × 0.28) + the tagline's 0.286rem
-     gap + pill (--lh-pill + 2 × 0.571rem padding) = the 4.96rem content
-     row, plus this box's own top padding and bottom inset (border-box). */
-  min-height: calc(4.96rem + 1.286rem + var(--footer-bottom-inset));
+     the stack's OWN tokens (border-box): lockup art + the tagline column's
+     --space-2 gap + the pill's box (--lh-link line + 2 × --pill-pad-y),
+     plus this box's top padding and bottom inset. (≈ the 4.96rem content
+     row of the 08-29 bake.) */
+  --footer-top-pad: 1.286rem;
+  /* 18px */
+  min-height: calc(var(--lockup-art-h) + var(--space-2) + var(--lh-link) + 2 * var(--pill-pad-y) + var(--footer-top-pad) + var(--footer-bottom-inset));
   /* Nav's shared hug; bottom rides the shared --footer-bottom-inset (the
      corner pills seat on the same token); extra right clearance mirrors the
      nav's scrollbar idiom. */
-  padding: 1.286rem var(--nav-inset) var(--footer-bottom-inset);
+  padding: var(--footer-top-pad) var(--nav-inset) var(--footer-bottom-inset);
   padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
 }
 
@@ -1574,26 +1604,25 @@ body.route-home .site-nav__logo {
 
 .site-footer--links .site-footer__copy {
   font-family: var(--font-body);
-  font-size: 1.143rem;
-  /* 16px */
-  line-height: 1.571rem;
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   color: var(--color-white);
 }
 
 /* RIGHT — nav links restyled for the footer (the .site-nav__link idiom).
-   08-29: the row clears the fixed lower-right privacy pill (margin-right
-   reserves pill width + a row gap) and lifts by the pill's vertical padding
-   (0.571rem) so the link text line sits flush with the pill's text line —
-   the tagline row's align-center reading, mirrored. */
+   08-29: the row clears the fixed lower-right privacy pill (margin-right =
+   --privacy-clearance, pill width + a row gap) and lifts by the pill's own
+   vertical padding so the link text line sits flush with the pill's text
+   line — the tagline row's align-center reading, mirrored. */
 .site-footer__nav {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-4) var(--space-6);
   justify-content: flex-end;
-  margin-right: 7rem;
-  margin-bottom: 0.571rem;
+  margin-right: var(--privacy-clearance);
+  margin-bottom: var(--pill-pad-y);
 }
 
 /* 08-29: hidden ground for the link-row stagger (SiteFooter.jsx animates
@@ -1607,9 +1636,8 @@ body.route-home .site-nav__logo {
   gap: 0.143rem;
   /* 2px — the nav link's glyph gap */
   font-family: var(--font-body);
-  font-size: 1.143rem;
-  /* 16px */
-  line-height: 1.571rem;
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   color: var(--color-white);
   white-space: nowrap;
@@ -1709,7 +1737,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   z-index: 45;
   display: flex;
   flex-direction: column;
-  gap: 0.286rem;
+  gap: var(--space-2);
   pointer-events: none;
 }
 
@@ -1720,10 +1748,11 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
    pill's text inset, per the Frame 19 end-state). Hidden until the footer
    reveal; visibility (autoAlpha) also gates its pointer target. */
 .site-tagline__lockup {
-  height: calc(7rem * 0.28);
+  height: var(--lockup-art-h);
   display: flex;
   align-items: center;
-  margin-left: calc(0.857rem - var(--lockup-bleed));
+  /* optical edge seats on the pill's text inset (--pill-pad-x) */
+  margin-left: calc(var(--pill-pad-x) - var(--lockup-bleed));
   pointer-events: auto;
   visibility: hidden;
   opacity: 0;
@@ -1736,7 +1765,7 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
 .site-tagline__lockup-art svg {
   display: block;
-  height: 7rem;
+  height: var(--lockup-svg-h);
   width: auto;
   flex: none;
 }
@@ -1752,22 +1781,23 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   gap: 1.5rem; /* pill → copyright run-on (Figma: 21px) */
 }
 
-/* The pill — black flood, radius-50 capsule, 8/12 padding. 08-27 (4),
-   Nathan: the pill line + copyright ride the FOOTER NAV LINK text style
-   (16/22 body, --tracking-body) so the whole revealed footer reads as one
-   type tier; only VISUAL WORLDS keeps the Medium emphasis. The intro wipes
-   clip-path left→right; words are per-span for the stagger. */
+/* The pill — the shared black capsule skin (--pill-pad-* / --radius-capsule).
+   08-27 (4), Nathan: the pill line + copyright ride the FOOTER NAV LINK text
+   style (--text-link/--lh-link, --tracking-body) so the whole revealed
+   footer reads as one type tier; only VISUAL WORLDS keeps the Medium
+   emphasis. The intro wipes clip-path left→right; words are per-span for
+   the stagger. */
 .site-tagline__pill {
   display: flex;
   align-items: center;
   gap: 0.28em;
-  padding: 0.571rem 0.857rem;
-  border-radius: 999px;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border-radius: var(--radius-capsule);
   background: var(--color-black);
   color: var(--color-white);
   font-family: var(--font-body);
-  font-size: var(--text-ui);
-  line-height: var(--lh-pill);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   white-space: nowrap;
   /* pre-JS ground: hidden until the intro (or the session-revisit set) */
@@ -1785,8 +1815,8 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
 .site-tagline__copy {
   font-family: var(--font-body);
-  font-size: var(--text-ui);
-  line-height: var(--lh-pill);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   color: var(--color-white);
   white-space: nowrap;
@@ -1818,12 +1848,12 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   z-index: 45;
   display: flex;
   align-items: center;
-  padding: 0.571rem 0.857rem;
-  border-radius: 999px;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border-radius: var(--radius-capsule);
   background: var(--color-black);
   font-family: var(--font-body);
-  font-size: var(--text-ui);
-  line-height: var(--lh-pill);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   font-weight: var(--weight-medium);
   color: var(--color-electric-blue);

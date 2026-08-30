@@ -293,7 +293,9 @@ html:has(.work-page) body {
   border-radius: 0;
   overflow: hidden;
   aspect-ratio: 1 / 1;
-  background: var(--color-charcoal);
+  /* 08-29 sweep: was undefined --color-charcoal (resolved to transparent);
+     the intended dark ground behind loading album art, on a real token. */
+  background: var(--color-dark-gray);
 }
 
 .album-card__stack {

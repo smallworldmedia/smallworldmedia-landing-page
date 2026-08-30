@@ -401,7 +401,7 @@ html:has(.project-detail) body {
   border: 1px solid var(--color-white);
   color: var(--color-white);
   background: var(--color-black);
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   padding: var(--space-2) var(--space-4);
 }
 

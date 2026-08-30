@@ -224,7 +224,7 @@ body:has(.fp) {
      accent falls back to white. Blank project → white on black. */
   color: var(--color-white);
   background: var(--project-color);
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   padding: var(--space-2) var(--space-5);
 }
 
