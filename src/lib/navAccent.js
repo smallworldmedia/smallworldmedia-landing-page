@@ -29,15 +29,21 @@ const KEYS = [
 // swap (astro wipes <html>'s inline style during the swap).
 let last = { primary: undefined, secondary: undefined };
 
-// Suppress the <html> @property cross-fade for a single instant application
-// (page arrivals must NOT animate up from the brand-blue initial value — that
-// is the flash we are removing). In-page changes keep the smooth cross-fade.
+// Suppress the accent cross-fades for a single instant application (page
+// arrivals must NOT animate up from the brand-blue initial value — that is
+// the flash we are removing). In-page changes keep the smooth cross-fade.
+// Two channels to silence: the <html> @property transitions (transition:
+// none) AND the ELEMENT-LOCAL ink transitions on the nav links/pill/lockup
+// (08-29 paint-invalidation fix) — those read the inherited --ink-fade
+// duration, so zeroing it for the flush snaps them in the same commit.
 function commitInstant(root, mutate) {
   const prev = root.style.transition;
   root.style.transition = 'none';
+  root.style.setProperty('--ink-fade', '0s');
   mutate();
-  void root.offsetWidth; // flush the change with the transition disabled
+  void root.offsetWidth; // flush the change with the transitions disabled
   root.style.transition = prev;
+  root.style.removeProperty('--ink-fade');
 }
 
 /**

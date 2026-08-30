@@ -8,7 +8,7 @@
  * variant — `body.route-home`, set server-side by BaseLayout (no
  * hydration flash) and swapped off by the ClientRouter on navigation —
  * is CSS-only: the bar goes transparent, the info pill's blue accents go
- * black, and the LINKS ROW (+ mobile menu pill + fxrule) stays hidden —
+ * black, and the LINKS ROW (+ mobile menu pill) stays hidden —
  * the sitemap only comes into view after the scroll-trigger commit lands
  * on the featured-projects page (or any non-home route).
  *
@@ -24,12 +24,12 @@ import gsap from 'gsap';
 // src/assets; native blue artwork, no recolor filter.
 import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
 
-/* ── NAV micro-interaction (merged default — brackets on hover, rule on
-   current) ── The two former systems (?navfx=3 brackets alt vs kinetic-rule
-   default) are MERGED as the one default: CSS brackets [ ] converge on
-   hover/focus, and the fxrule underline stays PINNED under the current page
-   link, gliding to the new current on navigation. ?navfx is retired — the
-   param is ignored (harmless no-op). */
+/* ── NAV micro-interaction (08-29, Nathan) ── The merged bracket/fxrule
+   system is RETIRED (brackets forced label gutters between glyph and text;
+   the pinned current-page underline didn't land). Hover/focus now carries
+   the FOOTER NAV's underline idiom (CSS text-decoration in global.css) —
+   one link language across nav + footer. data-current/aria-current are
+   still maintained below (a11y + any future current-page treatment). */
 
 /* Safety net for the home chrome gate — past the default full intro's beat
    (HeroText's CHROME_SAFETY_MS idiom), so it can never preempt the
@@ -78,8 +78,6 @@ export default function SiteNav({
   const navRef = useRef(null); // the visual bar — home chrome gate target
   const linksRef = useRef(null);
   const menuRef = useRef(null);
-  const fxRuleRef = useRef(null); // current-page rule (sibling of the links row)
-  const fxReseatRef = useRef(null); // instant fxrule re-seat, exposed by the rule effect
   const [menuOpen, setMenuOpen] = useState(false);
   // Portal target for the mobile menu — client-only (island is SSR'd)
   const [shellEl, setShellEl] = useState(null);
@@ -174,9 +172,10 @@ export default function SiteNav({
   // current) — only featured_projects (/work, /work/*) and process
   // (/process) can match. The attributes survive the route-swap hygiene
   // wipe (killTweensOf + clearProps strips inline STYLES only, never
-  // attributes). UNCONDITIONAL: aria-current
-  // is a strict a11y win and data-current is the kinetic rule's resting seat
-  // — both run with no URL param. Deps [shellEl]: the portaled mobile items
+  // attributes). UNCONDITIONAL: aria-current is a strict a11y win and
+  // data-current stays maintained for any future current-page treatment
+  // (the fxrule underline it used to seat is retired, 08-29) — both run
+  // with no URL param. Deps [shellEl]: the portaled mobile items
   // only exist after the setShellEl effect re-renders, so re-run once the
   // portal lands and a hard load of /work also marks the menu items (desktop
   // links refresh twice, harmlessly).
@@ -202,106 +201,6 @@ export default function SiteNav({
     document.addEventListener('astro:after-swap', refreshCurrent);
     return () => document.removeEventListener('astro:after-swap', refreshCurrent);
   }, [shellEl]);
-
-  // ── Current-page rule (desktop) ──
-  // One shared 1px rule PINNED under the current link — the underline is the
-  // CURRENT-PAGE indicator only (hover/focus affordance is the CSS brackets
-  // on .site-nav__label). On navigation the after-swap re-seat glides the
-  // rule to the new current link — "the underline goes to the clicked nav
-  // item". The fxrule is a SIBLING of the links row — invisible to the
-  // route-swap hygiene wipe (which only collects the links row and its
-  // children), so its inline transform/width/opacity are owned here and
-  // survive every swap. The anchors' offsetParent is .site-nav__right
-  // (position: relative), the same box the rule is absolute in —
-  // offsetLeft/offsetWidth map 1:1 with no rect math, so X measurements
-  // are always valid.
-  useEffect(() => {
-    const rule = fxRuleRef.current;
-    const linksEl = linksRef.current;
-    if (!rule || !linksEl) return undefined;
-
-    let visible = false;
-    const suppressed = (fn) => {
-      rule.style.transition = 'none';
-      fn();
-      void rule.offsetWidth; // commit the suppressed move before restoring
-      rule.style.transition = '';
-    };
-    const place = (el) => {
-      rule.style.transform = `translateX(${el.offsetLeft}px)`;
-      rule.style.width = `${el.offsetWidth}px`;
-    };
-    const hide = () => {
-      rule.style.opacity = '0';
-      visible = false;
-    };
-    const moveTo = (el, { instant = false } = {}) => {
-      // Never seat a 0-width rule at x:0 — the row is display:none
-      // (≤768px) and offsets read 0.
-      if (!el || el.offsetWidth === 0) {
-        hide();
-        return;
-      }
-      if (!visible || instant) {
-        // Materialize in place: position with transitions suppressed,
-        // then fade in — never fly in from x:0.
-        suppressed(() => place(el));
-      } else {
-        place(el);
-      }
-      rule.style.opacity = '1';
-      visible = true;
-    };
-    const currentLink = () => linksEl.querySelector('[data-current]');
-    const goHome = () => moveTo(currentLink());
-
-    // No hover/focus handlers — the rule never leaves the current link
-    // (brackets carry hover). It only moves on navigation and re-measures.
-    // Re-seat to the new current link after a swap — navigation reads as
-    // the rule traveling to where you went. Two frames, not a microtask:
-    // rAF still runs after refreshCurrent's after-swap listener updates
-    // data-current, but a microtask fires before the swapped-in page has
-    // laid out, so the rule glided to a pre-layout transient (~10px right
-    // of the current link). Double-rAF lets layout settle before we measure.
-    const onSwap = () =>
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          if (!disposed) goHome();
-        }),
-      );
-    let raf = 0;
-    const onResize = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        moveTo(currentLink(), { instant: true });
-      });
-    };
-
-    document.addEventListener('astro:after-swap', onSwap);
-    window.addEventListener('resize', onResize);
-
-    // First seat: transition-suppressed under the current link
-    // (data-current is already fresh — the refresh effect ran at mount).
-    // Re-seat once metrics settle after the webfont swap.
-    moveTo(currentLink(), { instant: true });
-    let disposed = false;
-    document.fonts?.ready?.then(() => {
-      if (!disposed) moveTo(currentLink(), { instant: true });
-    });
-
-    // Expose the instant re-seat for the home chrome gate — after the bar
-    // fades in, the underline must materialize under the current link.
-    fxReseatRef.current = () => moveTo(currentLink(), { instant: true });
-
-    return () => {
-      disposed = true;
-      fxReseatRef.current = null;
-      if (raf) cancelAnimationFrame(raf);
-      document.removeEventListener('astro:after-swap', onSwap);
-      window.removeEventListener('resize', onResize);
-    };
-  }, []);
 
   // ── Home chrome gate + brand arrival choreography ──
   // Fresh HOME load: the bar stays hidden until the hero settles and fires
@@ -361,7 +260,7 @@ export default function SiteNav({
     // 08-25: the sitemap links stagger in on page load (Nathan's call —
     // links live on home again, no /work detour needed). Runs at the beat
     // on home, immediately on any other fresh load; clearProps on complete
-    // so the kinetic rule / brackets meet a clean row.
+    // so the CSS hover underline meets a clean row.
     const staggerLinks = () => {
       const items = nav.querySelectorAll('.site-nav__links a');
       if (!items.length) return;
@@ -375,7 +274,6 @@ export default function SiteNav({
           stagger: 0.07,
           ease: 'power2.out',
           clearProps: 'all',
-          onComplete: () => fxReseatRef.current?.(),
         }
       );
     };
@@ -385,7 +283,6 @@ export default function SiteNav({
       gsap.killTweensOf(nav);
       gsap.set(nav, { clearProps: 'opacity,visibility' }); // never hidden after a swap
       if (wasHome && !isHome) runBrandArrival();
-      fxReseatRef.current?.();
       wasHome = isHome;
     };
     document.addEventListener('astro:after-swap', onSwap);
@@ -445,10 +342,11 @@ export default function SiteNav({
       </div>
 
       <div className="site-nav__right">
-        {/* The .site-nav__label spans wrap each link's text (the hover
-            brackets target them). Styling-inert: the span is the same
-            flex-item box as the anonymous text node it wraps, and event
-            bubbling for the start_project interception is unchanged. */}
+        {/* The .site-nav__label spans wrap each link's text (the CSS hover
+            underline targets them — glyphs stay undecorated). Styling-inert:
+            the span is the same flex-item box as the anonymous text node it
+            wraps, and event bubbling for the start_project interception is
+            unchanged. */}
         <div className="site-nav__links" ref={linksRef}>
           <a
             href="/"
@@ -476,12 +374,6 @@ export default function SiteNav({
             <span className="site-nav__label">follow_us</span>
           </a>
         </div>
-
-        {/* The current-page rule — a SIBLING of the links row, so it
-            escapes the route-swap hygiene wipe (which only collects the
-            links row and its children). Its inline transform/width/opacity
-            are owned by the current-page rule effect. */}
-        <span className="site-nav__fxrule" aria-hidden="true" ref={fxRuleRef} />
 
         {/* Mobile: links collapse into a full-screen menu (≤768px, CSS-gated) */}
         <button

@@ -35,12 +35,25 @@
  *    inert gating and the same <html> reveal broadcast as the scroll mode.
  */
 import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
 // 08-27: the lockup left the panel with the left column — the persistent
 // SiteTagline island owns the footer lockup + copyright now.
 // Reveal-travel multiplier (spacer = K × panel height) + its ?footertune
 // pub/sub. Static import is the tiny shared STATE only (the fp1Tune idiom);
 // the bench panel itself is a lazy chunk owned by SiteShell.
 import { getFooterTravelK, subscribeFooterTune } from '../lib/footerTune.js';
+
+// ── Link-row stagger (08-29, Nathan) ──
+// The footer nav links animate in on the same reveal beat the left corner's
+// copyright/lockup use (SiteTagline's REVEAL_ON/OFF hysteresis + delay),
+// following the HOUSE stagger from the main nav bar (0.45s / 0.07 stagger /
+// power2.out) — rising from below at the bottom edge. Gated additionally on
+// <html data-privacy-landed> (set by SiteTagline once the privacy pill's
+// intro lands): the row never staggers in beside an unlanded pill. This
+// completes the footer elements' animations — both corners + the link row.
+const STAGGER_ON = 0.85; // footer progress that arms the link stagger
+const STAGGER_OFF = 0.5; // retreat threshold (hysteresis)
+const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 
 /* Shared broadcast: reveal progress → <html>, consumed by the global.css
    shell-slide rule. Attribute gates the rule on (any progress), the var
@@ -153,6 +166,115 @@ export default function SiteFooter({
     };
   }, [reveal]);
 
+  // ── Link-row stagger — rides the shared --footer-reveal broadcast ──
+  // MODE-AGNOSTIC by design: both the scroll and driven paths broadcast the
+  // same var + attribute on <html>, so one watcher (the SiteTagline watcher
+  // shape — attribute-gated rAF loop + MutationObserver) covers every route.
+  // Links are queried lazily at fire time (the client:only stale-DOM rule)
+  // and filtered to visible — the desktop-hidden in-row privacy link never
+  // occupies a stagger slot.
+  useEffect(() => {
+    if (noFill) return undefined;
+    const panel = panelRef.current;
+    if (!panel) return undefined;
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let tl = null;
+    let tlTargets = [];
+    let shown = false;
+    let raf = 0;
+    const links = () =>
+      [...panel.querySelectorAll('.site-footer__link')].filter(
+        (el) => el.offsetParent !== null
+      );
+    // Rebuild whenever the VISIBLE set changed (a 768px crossing swaps the
+    // in-row privacy link in/out of the row) — a timeline frozen on the old
+    // set would leave a newly-visible link stuck at the CSS hidden ground
+    // forever. Dropped targets get clearProps back to that ground.
+    const ensureTl = () => {
+      const cur = links();
+      const stale =
+        !tl ||
+        cur.length !== tlTargets.length ||
+        cur.some((el, i) => el !== tlTargets[i]);
+      if (stale) {
+        if (tl) {
+          tl.kill();
+          gsap.set(tlTargets, { clearProps: 'y,opacity,visibility' });
+        }
+        tlTargets = cur;
+        tl = gsap.timeline({ paused: true }).fromTo(
+          cur,
+          { y: 10, autoAlpha: 0 },
+          {
+            y: 0,
+            autoAlpha: 1,
+            duration: 0.45,
+            stagger: 0.07,
+            ease: 'power2.out',
+          },
+          STAGGER_DELAY_S
+        );
+      }
+      return tl;
+    };
+    const readReveal = () => {
+      const v = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--footer-reveal')
+      );
+      return Number.isFinite(v) ? v : 0;
+    };
+    const landed = () =>
+      document.documentElement.hasAttribute('data-privacy-landed');
+    const watch = () => {
+      raf = 0;
+      const p = readReveal();
+      if (!shown && p >= STAGGER_ON && landed()) {
+        shown = true;
+        if (reduced) gsap.set(links(), { autoAlpha: 1, y: 0 });
+        else ensureTl().play();
+      } else if (shown && p < STAGGER_OFF) {
+        shown = false;
+        if (reduced) gsap.set(links(), { autoAlpha: 0 });
+        else tl?.reverse();
+      }
+      if (document.documentElement.hasAttribute('data-footer-revealed')) {
+        raf = requestAnimationFrame(watch);
+      }
+    };
+    const mo = new MutationObserver(() => {
+      const on = document.documentElement.hasAttribute('data-footer-revealed');
+      if (on && !raf) raf = requestAnimationFrame(watch);
+      if (!on) {
+        // Broadcast cleared mid-reveal (route swap): retreat cleanly.
+        if (shown) {
+          shown = false;
+          if (reduced || !tl) gsap.set(links(), { autoAlpha: 0 });
+          else tl.reverse();
+        }
+        if (raf) {
+          cancelAnimationFrame(raf);
+          raf = 0;
+        }
+      }
+    });
+    mo.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-footer-revealed'],
+    });
+    if (document.documentElement.hasAttribute('data-footer-revealed')) {
+      raf = requestAnimationFrame(watch);
+    }
+
+    return () => {
+      mo.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+      tl?.kill();
+    };
+  }, [noFill]);
+
   // ── Driven reveal (/work) — explicit 0..1 from the host, no document scroll.
   // The transform itself is declarative (inline style below); this effect owns
   // the <html> broadcast so the shared-chrome nav slide tracks the same number.
@@ -241,6 +363,10 @@ export default function SiteFooter({
               <span className="site-footer__glyph">♡</span>
               <span className="site-footer__label">follow_us</span>
             </a>
+            {/* ≤768px ONLY (global.css gates): desktop privacy moved to the
+                persistent lower-right .site-privacy pill (SiteTagline island,
+                08-29) — this in-row link is the mobile fallback until the
+                deferred mobile pass. */}
             <a
               href="/privacy"
               className="site-footer__link site-footer__link--privacy"

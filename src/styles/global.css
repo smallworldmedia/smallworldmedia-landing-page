@@ -151,6 +151,14 @@
   --nav-inset: var(--space-2);
   /* 4px */
 
+  /* Footer bottom inset — ONE token for every element seated on the
+     viewport's bottom edge: the tagline pill, the privacy pill, and the
+     links footer's inner bottom padding (the pills' resting insets ARE that
+     padding by construction — a shared token keeps them from drifting).
+     08-29, Nathan: tightened 1.143rem (16px) → 0.857rem (12px) — the
+     footer elements hug the bottom of the viewport. */
+  --footer-bottom-inset: 0.857rem;
+
   /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
      edge lands on the same left line as the detail-page client name (the
      --space-4 page padding of .client-panel / .project-blurb) — one global
@@ -181,11 +189,22 @@
   --duration-panel: 600ms;
   /* S2: accent cross-fade duration, synced to the World Turn (TURN_DURATION). */
   --project-color-fade: 1700ms;
+  /* Ink cross-fade curve — the ONE knob for every text-ink fade (the
+     element-local nav color/fill transitions + the fg/text colour twins).
+     08-29 (Nathan, post paint-fix): tracks the accent wash — ink and bar
+     ride the SAME curve, mathematically in lockstep. History: while the
+     paint-invalidation bug made turn-commit jank eat the flip, this held a
+     mid-weighted cubic-bezier(0.65, 0, 0.35, 1) to push the visible work
+     past the WebGL stall (~t 420-490ms); with element-local transitions
+     painting reliably, Nathan chose the tight sync. Dial the mid-weighted
+     bezier back in here if the flip ever reads snappy under turn jank. */
+  --ease-ink: var(--ease-panel);
   --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-micro: 220ms;
   /* Steep launch, smooth decel into rest — mathematically overshoot-free
-     (the curve never exceeds 1). Drives the nav kinetic rule glide and the
-     ?navfx=3 bracket converge. Promoted from the NAV-2 lab at bake. */
+     (the curve never exceeds 1). The house draw curve (NAV-2 lab bake);
+     currently unconsumed after the bracket/fxrule retirement (08-29) —
+     kept as the standing token for draw-style motion. */
   --ease-draw: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* House slow pulse — CSS approximation of HOUSE_PULSE_PATH in
@@ -482,15 +501,27 @@ body.route-home .site-nav {
 html:has(.fp),
 html.fp-tint,
 .fp {
+  /* Hue washes ride the house panel curve; the fg/text colour twins ride
+     --ease-ink. --nav-ink-l is deliberately NOT in this list (08-29 fix,
+     Nathan's rossi→kamino report): Chromium does not paint-invalidate
+     text/SVG that consume an ANIMATING inherited custom property — their
+     computed style glides (any getComputedStyle poll reads perfect
+     intermediates, which masked this in probes) but the PIXELS freeze
+     until the next full recalc at turn settle, then cut. The tell: the
+     info pill faded correctly (its background rides the animating
+     --project-color, forcing its own repaint every frame) while the plain
+     links and the lockup froze. So the scalar SNAPS here, and every ink
+     consumer below animates its OWN color/fill — an element-local
+     transition guarantees invalidation. */
   transition:
     --project-color var(--project-color-fade) var(--ease-panel),
     --project-color-2 var(--project-color-fade) var(--ease-panel),
-    --project-color-fg var(--project-color-fade) var(--ease-panel),
-    --project-color-text var(--project-color-fade) var(--ease-panel),
-    --nav-ink-l var(--project-color-fade) var(--ease-panel);
-  /* Perceptually-even nav ink: oklab mix of near-black↔white driven by the
-     linearly-interpolating scalar. Rest values equal the old --project-color-fg
-     endpoints exactly (white / near-black); only the PATH between them changes. */
+    --project-color-fg var(--project-color-fade) var(--ease-ink),
+    --project-color-text var(--project-color-fade) var(--ease-ink);
+  /* Perceptually-even nav ink: oklab mix of near-black↔white from the
+     (snapping) scalar. The color-mix() result is a NON-LEGACY colour, so
+     the consumers' own color/fill transitions interpolate it in Oklab —
+     the perceptual-evenness goal of the old animated-scalar design holds. */
   --nav-ink: color-mix(in oklab, var(--color-near-black), var(--color-white) calc(var(--nav-ink-l, 1) * 100%));
 }
 
@@ -499,30 +530,36 @@ html.fp-tint .site-nav {
   background: var(--project-color, var(--color-electric-blue));
 }
 
-/* Nav links, labels, and the active/hover kinetic underline take the ink. */
+/* Nav links + labels take the ink (the hover underline is text-decoration —
+   it rides currentColor for free). ELEMENT-LOCAL ink transition (see the
+   transition-list note above): --nav-ink snaps on <html>; each element
+   fades its own color over the turn window on --ease-ink, so the flip is
+   paint-invalidation-proof. --ink-fade is the instant-commit gate —
+   navAccent.js sets it to 0s while applying page arrivals/clears so those
+   stay flash-free. */
 html:has(.fp) .site-nav__link,
 html:has(.fp) .site-nav__label,
 html.fp-tint .site-nav__link,
 html.fp-tint .site-nav__label {
   color: var(--nav-ink, var(--color-white));
-}
-
-html:has(.fp) .site-nav__fxrule,
-html.fp-tint .site-nav__fxrule {
-  background: var(--nav-ink, var(--color-white));
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
 }
 
 /* info pill: accent fill + readable ink; hover inverts to ink-fill.
-   The pill's accent bg/ink RIDE the <html> @property cross-fade in lockstep
-   with the rest of the nav — its base `transition: background` (for hover)
-   would low-pass the interpolating var and land the fill LATE, so it's cleared
-   here and re-armed only on :hover. */
+   The pill's accent BG rides the <html> @property cross-fade in lockstep
+   with the bar — its base `transition: background` (for hover) would
+   low-pass the interpolating var and land the fill LATE, so background is
+   deliberately NOT transitioned here (re-armed only on :hover). Its ink
+   channels (color/border) ride the element-local ink transition like the
+   links, so the whole nav's text flips as one. */
 html:has(.fp) .site-nav__pill,
 html.fp-tint .site-nav__pill {
   background: var(--project-color, var(--color-electric-blue));
   border-color: var(--nav-ink, var(--color-white));
   color: var(--nav-ink, var(--color-white));
-  transition: none;
+  transition:
+    color var(--ink-fade, var(--project-color-fade)) var(--ease-ink),
+    border-color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
 }
 
 html:has(.fp) .site-nav__pill:hover,
@@ -536,12 +573,14 @@ html.fp-tint .site-nav__pill:hover {
 
 /* 08-24: the nav brand is the full SWM inline lockup (inlined SVG). The
    artwork is native #0000FF — identical to the bar — so OFF-HOME the fills
-   take the nav ink instead: white on the blue bar, gliding dark on a light
-   project accent via the SAME --nav-ink-l scalar the old globe mark's
-   brightness cross-fade used. Home (transparent bar over the black field)
-   keeps the native blue artwork. */
+   take the nav ink instead: white on the blue bar, dark on a light project
+   accent. 08-29: fill now consumes the SAME --nav-ink the links use (was
+   an hsl(calc) of the scalar) and fades via its own element-local fill
+   transition — same paint-invalidation fix, and one ink formula. Home
+   (transparent bar over the black field) keeps the native blue artwork. */
 body:not(.route-home) .site-nav__lockup svg * {
-  fill: hsl(0 0% calc(var(--nav-ink-l, 1) * 100%));
+  fill: var(--nav-ink, var(--color-white));
+  transition: fill var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
 }
 
 body.route-home .site-nav__pill {
@@ -584,8 +623,8 @@ body.route-home .site-nav__pill:hover {
    pill is the bar's lone left-corner item). Route class swaps on navigation,
    so /work (and every other route) shows links + lockup the moment it paints
    under the envelopment cover — with the brand-arrival choreography sliding
-   the pill right and dropping the lockup in (SiteNav). The fxrule (links
-   underline) and the mobile menu pill follow the row. */
+   the pill right and dropping the lockup in (SiteNav). The mobile menu pill
+   follows the row. */
 /* 08-25: the links row is BACK on home (staggered in at the chrome beat —
    SiteNav) — only the nav LOCKUP sits out on home (the hero owns it; the
    brand arrival drops it in after the commit). */
@@ -718,11 +757,14 @@ body.route-home .site-nav__logo {
   white-space: nowrap;
 }
 
-/* Hover/focus affordance is the bracket pair on .site-nav__label (below),
-   not the stock text underline — the JS-positioned .site-nav__fxrule marks
-   the CURRENT page only. Promoted from the NAV-2 lab. */
-.site-nav__link:hover {
-  text-decoration: none;
+/* Hover/focus affordance is the FOOTER NAV's underline idiom (08-29,
+   Nathan — the bracket/fxrule system retired; one link language across nav
+   + footer). Decoration on the LABEL span only, so the leading glyph/icon
+   stays clean. */
+.site-nav__link:hover .site-nav__label,
+.site-nav__link:focus-visible .site-nav__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .site-nav__glyph {
@@ -742,219 +784,32 @@ body.route-home .site-nav__logo {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-   NAV micro-interaction — brackets on hover + current-page rule (MERGED
-   DEFAULT; ?navfx retired as a no-op)
+   NAV micro-interaction — the footer underline idiom (08-29, Nathan)
    ────────────────────────────────────────────────────────────────────────────
-   Promoted from the NAV-2 fx lab (was ?navfx=1..4, then a kinetic-rule
-   default with a ?navfx=3 brackets alt — now ONE merged system, no param).
-   The nav carries the current-page state (data-current / aria-current,
-   maintained unconditionally by SiteNav.jsx from window.location on hydrate +
-   astro:after-swap; only /work(/*) and /process can ever be current) and TWO
-   complementary indicators:
-   · HOVER/FOCUS — mono [ ] BRACKETS (the /work chip language) converge from
-     outward offsets to hug the pointed link's label, CSS-only;
-   · CURRENT — the 1px .site-nav__fxrule, a SIBLING of the links row,
-     JS-PINNED under the current link (it never follows hover) and gliding to
-     the new current on navigation.
-   CSS-FIRST by design: SiteNav's route-swap hygiene runs killTweensOf +
-   clearProps 'all' on the links row and its children on every navigation —
-   the fxrule is a sibling (never collected) and the brackets are
-   pseudo-elements on inner spans, both immune to that wipe.
+   The merged bracket/fxrule system (NAV-2 lab bake) is RETIRED: the bracket
+   gutters forced extra air between each glyph and its label, and the pinned
+   current-page rule didn't land. Hover/focus now carries the SAME underline
+   the footer nav links use (the :hover rule on .site-nav__label above —
+   text-decoration, 3px offset, label-only so glyphs stay clean). Current-page
+   state (data-current / aria-current) is still maintained by SiteNav.jsx —
+   a11y + any future current treatment — with no visual attached for now.
    ───────────────────────────────────────────────── */
 
-/* Focus-visible ring — the brackets also fire on :focus-visible; this is
-   the standard keyboard focus indicator. Promoted unconditional from the
-   NAV-2 lab (a11y). */
+/* Focus-visible ring — the standard keyboard focus indicator (promoted
+   unconditional from the NAV-2 lab, a11y). The underline also fires on
+   :focus-visible via the hover rule above. */
 .site-nav__link:focus-visible,
 .mobile-menu__item:focus-visible {
   outline: 1px solid currentColor;
   outline-offset: 3px;
 }
 
-/* ── current-page rule — one shared 1px rule (np-band vocabulary) ──
-   Positioned by JS (SiteNav.jsx) via inline transform/width; PINNED under
-   the current link (hover never moves it — brackets carry hover) and gliding
-   there on navigation. White on both chromes (the np-band's white-at-rest
-   reading; the blue pinned state stays the band's own). */
-.site-nav__fxrule {
-  position: absolute;
-  top: calc(50% + 14px);
-  /* 3px below the 22px-line-height text block — verify optically */
-  left: 0;
-  width: 0;
-  height: 1px;
-  background: var(--color-white);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    transform 340ms var(--ease-draw),
-    width 340ms var(--ease-draw),
-    opacity 180ms var(--ease-micro);
-}
-
-/* mobile current underline — a shared traveling element makes no sense in a
-   vertical open/close menu: the underline rests under the CURRENT item only
-   (the :active press feedback is the brackets, below — same split as
-   desktop). Pure CSS, no JS in the portal. */
-.mobile-menu .mobile-menu__item {
-  position: relative;
-}
-
-.mobile-menu .mobile-menu__item::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -3px;
-  height: 2px;
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 160ms var(--ease-draw);
-}
-
-.mobile-menu .mobile-menu__item[data-current]::after {
-  transform: scaleX(1);
-}
-
-/* ── hover brackets — the /work chip language in chrome ──
-   Mono [ ] brackets, absolutely positioned so hover NEVER reflows the row.
-   The 0.65em label gutters are reserved permanently; the links gap tightens
-   to compensate (the gutters now carry part of the spacing rhythm — stock
-   inter-link air is roughly preserved). Nothing here touches inline styles —
-   immune to the after-swap wipe. HOVER/FOCUS-ONLY: the current page is
-   marked by the fxrule underline, never by resting brackets. (The trailing
-   looping caret was cut at bake — brackets only.) */
-.site-nav .site-nav__link {
-  position: relative;
-}
-
-.site-nav .site-nav__links {
-  gap: 1.286rem;
-  /* 18px (stock 24px) — see gutter note above */
-}
-
-.site-nav .site-nav__label {
-  position: relative;
-  margin: 0 0.65em;
-}
-
-/* At rest: invisible, offset outward. Pseudo-elements hit-test as part of
-   their element — pointer-events: none so brackets never extend/steal hover
-   in the gaps. */
-.site-nav .site-nav__label::before,
-.site-nav .site-nav__label::after {
-  position: absolute;
-  top: 50%;
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  line-height: 1;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 150ms var(--ease-micro), transform 150ms var(--ease-micro);
-}
-
-.site-nav .site-nav__label::before {
-  content: '[';
-  right: calc(100% + 0.12em);
-  transform: translate(-0.35em, -50%);
-}
-
-.site-nav .site-nav__label::after {
-  content: ']';
-  left: calc(100% + 0.12em);
-  transform: translate(0.35em, -50%);
-}
-
-/* Hover/focus: both brackets converge to their resting slots, simultaneous,
-   no stagger. On hover-out the base 150ms outward fade dissipates them
-   quickly. No [data-current] here — the current link rests bracket-free,
-   marked by the underline alone. */
-.site-nav .site-nav__link:hover .site-nav__label::before,
-.site-nav .site-nav__link:hover .site-nav__label::after,
-.site-nav .site-nav__link:focus-visible .site-nav__label::before,
-.site-nav .site-nav__link:focus-visible .site-nav__label::after {
-  opacity: 1;
-  transform: translate(0, -50%);
-  transition: opacity 200ms var(--ease-draw), transform 200ms var(--ease-draw);
-}
-
-/* mobile brackets — :active snaps them in at 90ms (press feedback must read
-   instantly under a finger — the 200ms draw is too slow). The finger is the
-   pointer here: brackets = press, underline = current, same split as
-   desktop. Label spans exist in the items already — CSS-only. */
-.mobile-menu .site-nav__label {
-  position: relative;
-  margin: 0 0.35em;
-}
-
-.mobile-menu .site-nav__label::before,
-.mobile-menu .site-nav__label::after {
-  position: absolute;
-  top: 50%;
-  font-family: var(--font-mono);
-  font-size: 0.85em;
-  line-height: 1;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 150ms var(--ease-micro), transform 150ms var(--ease-micro);
-}
-
-.mobile-menu .site-nav__label::before {
-  content: '[';
-  right: calc(100% + 0.08em);
-  transform: translate(-0.3em, -50%);
-}
-
-.mobile-menu .site-nav__label::after {
-  content: ']';
-  left: calc(100% + 0.08em);
-  transform: translate(0.3em, -50%);
-}
-
-.mobile-menu .mobile-menu__item:active .site-nav__label::before,
-.mobile-menu .mobile-menu__item:active .site-nav__label::after {
-  opacity: 1;
-  transform: translate(0, -50%);
-  transition: opacity 90ms var(--ease-micro), transform 90ms var(--ease-micro);
-}
-
-/* ≤1024px: the base RESPONSIVE block tightens the links gap to 1rem — the
-   reserved bracket gutters carry part of the rhythm, so tighten the gap
-   here too. */
-@media (max-width: 1024px) {
-  .site-nav .site-nav__links {
-    gap: 0.857rem;
-    /* 12px (stock 14px here) */
-  }
-}
-
-/* Reduced motion — static states remain intact (rule/brackets still mark
-   hover + current); every glide/draw is removed. Selectors mirror the motion
-   rules above at equal specificity — this block sits later in the cascade, so
-   it wins without !important. */
-@media (prefers-reduced-motion: reduce) {
-
-  /* rule — snaps between positions (still a functioning current indicator,
-     it just doesn't glide); the mobile current underline snaps too */
-  .site-nav__fxrule,
-  .mobile-menu .mobile-menu__item::after {
-    transition: none;
-  }
-
-  /* brackets appear/disappear instantly */
-  .site-nav .site-nav__label::before,
-  .site-nav .site-nav__label::after,
-  .site-nav .site-nav__link:hover .site-nav__label::before,
-  .site-nav .site-nav__link:hover .site-nav__label::after,
-  .site-nav .site-nav__link:focus-visible .site-nav__label::before,
-  .site-nav .site-nav__link:focus-visible .site-nav__label::after,
-  .mobile-menu .site-nav__label::before,
-  .mobile-menu .site-nav__label::after,
-  .mobile-menu .mobile-menu__item:active .site-nav__label::before,
-  .mobile-menu .mobile-menu__item:active .site-nav__label::after {
-    transition: none;
-  }
+/* mobile press feedback — the underline snaps in under a finger (:active;
+   text-decoration is instant, no transition needed). Same label-only scope
+   as desktop hover. */
+.mobile-menu .mobile-menu__item:active .site-nav__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* ── end NAV micro-interaction ─────────────────────────────── */
@@ -1648,7 +1503,10 @@ body.route-home .site-nav__logo {
   bottom: 0;
   z-index: 40;
   padding: 0;
-  background: var(--color-near-black);
+  /* 08-29, Nathan: BRAND BLACK, not near-black — the corner pills are
+     --color-black capsules seated in this band; on near-black they read a
+     tad lighter than their own chrome. One token, seamless band. */
+  background: var(--color-black);
   /* Pre-JS / no-JS resting state: hidden below the fold. SiteFooter.jsx
      overwrites this inline every scroll frame once mounted. */
   transform: translateY(100%);
@@ -1670,11 +1528,16 @@ body.route-home .site-nav__logo {
   gap: var(--space-6);
   /* 08-27: the left column lives OUTSIDE this panel now (the persistent
      SiteTagline pill + its reveal-state lockup/copyright) — this min-height
-     reserves the band that stack occupies: lockup art (7rem × 0.28) + gap +
-     pill (~2.7rem). */
-  min-height: 5rem;
-  /* Nav's shared hug; extra right clearance mirrors the nav's scrollbar idiom */
-  padding: 1.286rem var(--nav-inset) 1.143rem;
+     reserves the band that stack occupies. 08-29, Nathan: the old 5rem
+     under-reserved and the lockup poked above the band — now computed from
+     the stack itself: lockup art (7rem × 0.28) + the tagline's 0.286rem
+     gap + pill (--lh-pill + 2 × 0.571rem padding) = the 4.96rem content
+     row, plus this box's own top padding and bottom inset (border-box). */
+  min-height: calc(4.96rem + 1.286rem + var(--footer-bottom-inset));
+  /* Nav's shared hug; bottom rides the shared --footer-bottom-inset (the
+     corner pills seat on the same token); extra right clearance mirrors the
+     nav's scrollbar idiom. */
+  padding: 1.286rem var(--nav-inset) var(--footer-bottom-inset);
   padding-right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
 }
 
@@ -1718,15 +1581,26 @@ body.route-home .site-nav__logo {
   color: var(--color-white);
 }
 
-/* RIGHT — nav links restyled for the footer (the .site-nav__link idiom) */
+/* RIGHT — nav links restyled for the footer (the .site-nav__link idiom).
+   08-29: the row clears the fixed lower-right privacy pill (margin-right
+   reserves pill width + a row gap) and lifts by the pill's vertical padding
+   (0.571rem) so the link text line sits flush with the pill's text line —
+   the tagline row's align-center reading, mirrored. */
 .site-footer__nav {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-4) var(--space-6);
   justify-content: flex-end;
+  margin-right: 7rem;
+  margin-bottom: 0.571rem;
 }
 
+/* 08-29: hidden ground for the link-row stagger (SiteFooter.jsx animates
+   autoAlpha in on the reveal beat; pre-play the row must not show inside
+   the rising panel). No-JS never reveals the panel at all, so this hides
+   nothing reachable. NOTE: no opacity transition here — a CSS transition
+   would low-pass the GSAP stagger's per-frame writes. */
 .site-footer__link {
   display: inline-flex;
   align-items: center;
@@ -1739,10 +1613,16 @@ body.route-home .site-nav__logo {
   letter-spacing: var(--tracking-body);
   color: var(--color-white);
   white-space: nowrap;
-  transition: opacity var(--duration-micro) var(--ease-micro);
+  opacity: 0;
+  visibility: hidden;
 }
 
-.site-footer__link:hover {
+/* Underline the LABEL only (08-29, Nathan): decoration on the inline-flex
+   link propagates into BOTH flex items — glyph and label each drew their
+   own underline segment with a bare gap at the flex gap between them, a
+   visibly broken line. Label-scoped, it matches the main nav exactly. */
+.site-footer__link:hover .site-footer__label,
+.site-footer__link:focus-visible .site-footer__label {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -1757,8 +1637,12 @@ body.route-home .site-nav__logo {
 }
 
 /* 08-27 (4), Nathan: privacy closes the row one weight up, brand blue at
-   rest, white on hover (the old 0.6-opacity whisper retired). */
+   rest, white on hover (the old 0.6-opacity whisper retired).
+   08-29: DESKTOP-HIDDEN — privacy lives in the persistent lower-right
+   .site-privacy pill (SiteTagline island) now; this in-row link returns
+   ≤768px as the mobile fallback until the deferred mobile pass. */
 .site-footer__link--privacy {
+  display: none;
   font-weight: var(--weight-medium);
   color: var(--color-electric-blue);
 }
@@ -1777,6 +1661,13 @@ body.route-home .site-nav__logo {
 
   .site-footer__nav {
     justify-content: flex-start;
+    /* the fixed privacy pill is hidden here — no clearance to reserve */
+    margin-right: 0;
+    margin-bottom: 0;
+  }
+
+  .site-footer__link--privacy {
+    display: inline-flex;
   }
 }
 
@@ -1807,14 +1698,14 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
    Fixed on every route (own island in BaseLayout — NOT inside .site-shell,
    whose footer-reveal slide would carry it off alignment). Its resting
    inset IS the links footer's inner padding (left --nav-inset / bottom
-   1.143rem), so the rising footer settles around it by construction. The
-   copyright + white lockup start hidden; SiteTagline.jsx reveals them on
-   the footer's --footer-reveal broadcast. z: above the footer panel (40),
-   below the inquiry overlay (50) and nav shell (100). */
+   --footer-bottom-inset), so the rising footer settles around it by
+   construction. The copyright + white lockup start hidden; SiteTagline.jsx
+   reveals them on the footer's --footer-reveal broadcast. z: above the
+   footer panel (40), below the inquiry overlay (50) and nav shell (100). */
 .site-tagline {
   position: fixed;
   left: var(--nav-inset);
-  bottom: 1.143rem;
+  bottom: var(--footer-bottom-inset);
   z-index: 45;
   display: flex;
   flex-direction: column;
@@ -1907,6 +1798,53 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   .site-tagline__row {
     gap: 0.857rem;
     flex-wrap: wrap;
+  }
+}
+
+/* ============================================
+   SITE PRIVACY — persistent lower-right pill (08-29, Nathan)
+   ============================================
+   The tagline pill's MIRROR: a fixed black capsule linking /privacy, seated
+   at the links footer's inner right/bottom padding (same construction — the
+   rising footer settles around it; the footer nav's margin-right reserves
+   its clearance). Rendered by the SiteTagline island as a sibling; wipes in
+   right→left on the tagline's intro beat. Privacy link language (08-27):
+   brand blue Medium at rest, white on hover. Hidden pre-JS like the pill;
+   ≤768px it yields to the footer nav's in-row privacy link. */
+.site-privacy {
+  position: fixed;
+  right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+  bottom: var(--footer-bottom-inset);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  padding: 0.571rem 0.857rem;
+  border-radius: 999px;
+  background: var(--color-black);
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  line-height: var(--lh-pill);
+  letter-spacing: var(--tracking-body);
+  font-weight: var(--weight-medium);
+  color: var(--color-electric-blue);
+  white-space: nowrap;
+  /* pre-JS ground: hidden until the intro (or the session-revisit set) */
+  visibility: hidden;
+  opacity: 0;
+}
+
+.site-privacy:hover {
+  color: var(--color-white);
+}
+
+.site-privacy:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (max-width: 768px) {
+  .site-privacy {
+    display: none;
   }
 }
 

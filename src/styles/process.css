@@ -405,7 +405,10 @@ body.route-process .site-nav {
    corner for bottom-center). Measured so it never crowds the meter. --- */
 .process-tagline {
   position: fixed;
-  right: var(--nav-inset);
+  /* 08-29: clear the persistent lower-right privacy pill (.site-privacy) —
+     the pill's own scrollbar-aware inset + its ~5.3rem capsule + air (the
+     footer nav's reservation idiom). */
+  right: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)) + 6.5rem);
   bottom: var(--nav-inset);
   z-index: 4;
   /* P3: one line, all caps — the tagline reads as a single mono rule
@@ -415,10 +418,15 @@ body.route-process .site-nav {
   max-width: none;
   text-transform: uppercase;
   white-space: nowrap;
-  /* floor keeps it legible on narrow desktops; 1.5vw scales the nowrap line
-     down enough to stay clear of the bottom-right nav inset; capped at the
-     mono chrome size on wide viewports. */
-  font-size: clamp(0.5rem, 1.5vw, var(--text-mono));
+  /* Floor keeps it legible on narrow desktops; capped at the mono chrome
+     size on wide viewports. The middle term tracks the free band between
+     the CENTERED meter's right edge and the pill reservation (solved
+     08-29: the old 1.5vw never dropped below the cap on desktop, so the
+     constant-width line collided with the meter once the pill clearance
+     moved it left; 1.38vw − 0.5rem shrinks the line just fast enough to
+     clear the meter down to ~1000px — below that the floor crowds it, as
+     it always did — while still reaching the full cap by 1440). */
+  font-size: clamp(0.5rem, calc(1.38vw - 0.5rem), var(--text-mono));
   text-align: right;
   opacity: 0.65;
   pointer-events: none;
