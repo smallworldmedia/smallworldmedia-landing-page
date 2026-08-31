@@ -1,7 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
-import SiteNav, { CloseIcon } from './SiteNav';
+import SiteNav from './SiteNav';
 import { CLIENTS } from '../lib/constants';
 
 /**
@@ -163,27 +163,11 @@ export default function InfoPanel({
 
     return (
         <div className="info-wrapper" data-open={isOpen}>
-            {/* Content area — sits above the nav bar, clipped when closed */}
+            {/* Content area — sits above the nav bar, clipped when closed.
+                (The 08-30 top-left close row was REMOVED 08-31, Nathan —
+                the nav's info pill, white-filled while open via
+                aria-expanded, is the one close affordance.) */}
             <div className="info-panel" ref={panelRef}>
-                {/* Close row (08-30, Nathan): the drawer's own close pill at
-                    TOP-LEFT — the corner the info pill opened from (the nav
-                    bar, pill included, rides at the drawer's BOTTOM while
-                    open, so it can't serve the corner). */}
-                <div className="info-panel__bar">
-                    {/* tabIndex gate: the closed drawer sits translated above
-                        the viewport — its button must not catch keyboard
-                        focus while hidden. */}
-                    <button
-                        type="button"
-                        className="site-nav__pill"
-                        onClick={onToggle}
-                        aria-label="Close info panel"
-                        tabIndex={isOpen ? 0 : -1}
-                    >
-                        close
-                        <CloseIcon />
-                    </button>
-                </div>
                 <div className="info-panel__layout">
                     {/* Left column: description */}
                     <div className="info-panel__left">

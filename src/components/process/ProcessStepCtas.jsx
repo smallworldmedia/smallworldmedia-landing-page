@@ -86,8 +86,8 @@ export default function ProcessStepCtas() {
             onClick={() => step(1)}
             aria-label="Next section"
           >
-            <CtaArrows direction="down" />
             <span className="fp-cta__label">next</span>
+            <CtaArrows direction="down" />
           </button>
         )}
       </div>

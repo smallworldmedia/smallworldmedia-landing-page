@@ -754,8 +754,11 @@ body.route-process .site-nav {
    legible where the field matches one of its states. */
 .process-stepnav__cta {
   display: flex;
+  /* 08-31, Nathan: the stepper family stacks VERTICALLY, centered —
+     arrows above the text on previous, below it on next, minimal gap. */
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.1rem;
   border: none;
   background: var(--project-color, var(--color-electric-blue));
   color: var(--project-color-fg, var(--color-white));
@@ -801,10 +804,22 @@ body.route-process .site-nav {
   color: var(--color-black);
 }
 
-/* The /work caret window at 60×34 outweighs the small label — re-cut */
+/* The /work caret window at 60×34 outweighs the small label — re-cut.
+   08-31: the window runs THROUGH the chip's vertical padding to its outer
+   edge (carets clip exactly at the chip bounds, never inside them, never
+   past them — the old base −--space-3 margin overshot this chip's
+   0.25rem pad). */
 .process-stepnav .fp-cta__arrows {
   width: 34px;
-  height: 20px;
+  height: calc(20px + 0.25rem);
+}
+
+.process-stepnav .fp-cta__arrows--up {
+  margin: -0.25rem 0 0;
+}
+
+.process-stepnav .fp-cta__arrows--down {
+  margin: 0 0 -0.25rem;
 }
 
 /* --- Walkthrough status bar (08-31, Nathan): the osboot ░▒▓█ cell meter

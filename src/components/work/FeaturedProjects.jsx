@@ -697,8 +697,8 @@ export default function FeaturedProjects({ worlds = [] }) {
           onPointerLeave={() => setHoverNext(false)}
           aria-label="Next project"
         >
-          <CtaArrows direction="down" />
           <span className="fp-cta__label">next</span>
+          <CtaArrows direction="down" />
         </button>
       )}
 

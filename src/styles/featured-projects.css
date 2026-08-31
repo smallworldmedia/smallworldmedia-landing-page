@@ -372,9 +372,9 @@ body:has(.fp) {
    stepper SKIN (small sans row, lowercase) and the shared inward seat. */
 .fp-cta.fp-prev,
 .fp-cta.fp-next {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
+  /* vertical stack (08-31): the base .fp-cta column/center/0.1rem-gap IS
+     the stepper read — arrows above the label on previous, below on next
+     (markup order); only the small skin overrides live here */
   padding: 0.25rem 0.4rem;
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
@@ -389,11 +389,21 @@ body:has(.fp) {
   bottom: calc(var(--nav-inset) + var(--stepnav-edge-inset));
 }
 
-/* The /process caret re-cut (the 60×34 window outweighs the small label) */
+/* The /process caret re-cut (the 60×34 window outweighs the small label).
+   08-31: the window runs THROUGH the chip's vertical padding to its outer
+   edge — carets clip exactly at the chip bounds. */
 .fp-prev .fp-cta__arrows,
 .fp-next .fp-cta__arrows {
   width: 34px;
-  height: 20px;
+  height: calc(20px + 0.25rem);
+}
+
+.fp-prev .fp-cta__arrows--up {
+  margin: -0.25rem 0 0;
+}
+
+.fp-next .fp-cta__arrows--down {
+  margin: 0 0 -0.25rem;
 }
 
 @media (max-width: 768px) {
@@ -403,6 +413,21 @@ body:has(.fp) {
   .fp-pager__label {
     font-size: 1.143rem;
     /* 16px */
+  }
+
+  /* 08-31, Nathan: at REST the pager shows no client name on phones — the
+     focused card already carries it (redundant + it ate card real estate,
+     Heavy House Society worst). The label still slides in while the rail
+     is pressed/hovered (the is-hovered state below outranks this rest
+     override). Full pager rework queued next session. */
+  .fp-pager__dot.is-active .fp-pager__label {
+    opacity: 0;
+    transform: translate(-0.5rem, -50%);
+  }
+
+  .fp-pager.is-hovered .fp-pager__dot.is-active .fp-pager__label {
+    opacity: 1;
+    transform: translate(0, -50%);
   }
 
   /* PROJECT_## tab collides with the left pager rail on phones — the pager

@@ -152,7 +152,11 @@ export function runTextExit({ duration, dryRun = false } = {}) {
   // visibility was observed not to stick for hard cuts).
   let split = null;
   if (client) {
-    split = SplitText.create(client, { type: 'chars' });
+    // words,chars — NOT chars alone (08-31, Nathan's report: chars-only
+    // splitting drops the inter-word spaces, so a two-line name like
+    // HEAVY HOUSE SOCIETY lost its wrap points and collapsed to one line
+    // mid-exit; word wrappers preserve the resting line geometry).
+    split = SplitText.create(client, { type: 'words,chars' });
   }
   const scheduleCuts = (els, stepMs) => {
     shuffle(els).forEach((el, i) => {

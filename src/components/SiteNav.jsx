@@ -63,8 +63,7 @@ function EjectIcon() {
   );
 }
 
-/* Exported: InfoPanel's top-left close pill reuses it (08-30). */
-export function CloseIcon() {
+function CloseIcon() {
   return (
     <svg className="site-nav__pill-icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
       <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

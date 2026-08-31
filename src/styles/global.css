@@ -720,7 +720,6 @@ body.route-home .site-nav__lockup svg * {
    rest/hover rule so the attribute wins at any route. */
 .site-nav__pill[aria-expanded="true"],
 .site-nav__pill.mobile-menu__close,
-html .info-panel__bar .site-nav__pill,
 html:has(.fp) .site-nav__pill[aria-expanded="true"],
 html.fp-tint .site-nav__pill[aria-expanded="true"],
 html:has(.fp) .site-nav__pill.mobile-menu__close,
@@ -1222,16 +1221,8 @@ html[data-footer-revealed] .detail-progress {
   flex-shrink: 0;
 }
 
-/* Close row (08-30, Nathan): the drawer's OWN close pill at the panel's
-   TOP-LEFT — corresponding to the info pill's corner that opened it (the
-   mobile-menu close↔menu-pill idiom; the nav bar rides at the drawer's
-   BOTTOM while open, so its pill can't serve the corner). In-flow row, so
-   the description/clients layout simply starts below it. */
-.info-panel__bar {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: var(--space-4);
-}
+/* (The 08-30 .info-panel__bar close row was removed 08-31, Nathan — the
+   nav's info pill, white while open via aria-expanded, closes the drawer.) */
 
 
 /* Horizontal 2-column layout: left (embed + desc), right (clients) */
