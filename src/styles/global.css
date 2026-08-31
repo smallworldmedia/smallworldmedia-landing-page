@@ -731,12 +731,12 @@ body.route-home .site-nav__lockup svg * {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  /* The menu tagline pill's seat (08-30): matches the HOME page pill's box
-     bottom exactly — bottom inset + the wrapped-copy line the hidden
-     copyright reserves under it (--lh-link + the row's --space-6 gap) — so
-     opening the menu on home reads as the same pill persisting. The
-     privacy link stacks one pill-box + gap above it. */
-  --menu-pill-seat: calc(var(--footer-bottom-inset) + var(--lh-link) + var(--space-6));
+  /* The menu foot's seat (08-30 (3)): the HOME page tagline seats at the
+     bare bottom inset now — the narrow three-line block leaves room for
+     the hidden copyright BESIDE it in the row (no wrapped-line reserve
+     anymore) — so the foot matches with the same token and menu
+     open/close on home reads as one persistent block. */
+  --menu-pill-seat: var(--footer-bottom-inset);
 }
 
 /* /work + detail routes (08-30, Nathan): the takeover inherits the focused
@@ -806,17 +806,25 @@ html.fp-tint .mobile-menu__item {
   height: 0.9em;
 }
 
-/* Privacy — the menu's lower-LEFT link (08-30, Nathan): ≤768px the fixed
-   lower-right .site-privacy pill is hidden, so the takeover carries the
-   /privacy link instead — LEFT-ALIGNED on the items' own inset (the menu
-   reads as one left-anchored column) and wearing the ITEMS' OWN INK
-   (08-30 (2): the brand-blue read was invisible on the black takeover).
-   Seated one pill-box + gap above the menu's tagline pill; --text-link
-   tier (the pill text's token). fp routes ride --nav-ink like the items. */
-.mobile-menu__privacy {
+/* Lower-left foot (08-30 (3), Nathan): privacy stacked above the tagline,
+   both left-aligned with the item column. The foot's BOTTOM = the home
+   page tagline's seat (--menu-pill-seat), so menu open/close on home
+   reads as one persistent block — no per-element bottom math. */
+.mobile-menu__foot {
   position: absolute;
   left: var(--nav-inset);
-  bottom: calc(var(--menu-pill-seat) + var(--lh-link) + 2 * var(--pill-pad-y) + var(--space-6));
+  right: var(--chrome-right-inset);
+  bottom: var(--menu-pill-seat);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+/* Privacy — item-ink white (08-30 (2): the brand-blue read was invisible
+   on the black takeover), --text-link tier; fp routes ride --nav-ink like
+   the items. */
+.mobile-menu__privacy {
   font-family: var(--font-body);
   font-size: var(--text-link);
   line-height: var(--lh-link);
@@ -842,29 +850,24 @@ html.fp-tint .mobile-menu__privacy {
   transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
 }
 
-/* Tagline pill — the menu's own copy (08-30, Nathan): the takeover is the
-   tagline's site-wide home on phones (the page-level pill survives only on
-   route-home — the gate lives in the tagline's ≤768px block). Same capsule
-   skin + type as .site-tagline__pill, spanning the shared edge tokens;
-   black capsule holds on fp accents (the nav-pill black idiom). */
+/* Tagline — the menu's own copy (08-30, Nathan): the takeover is the
+   tagline's site-wide home on phones (the page-level tagline survives
+   only on route-home). 08-30 (3): UNCAPSULED three-line stack at the
+   blurb scale — mirrors the home page tagline exactly (same tokens, same
+   seat via the foot). Fallback size guards the desktop-token gap: the
+   menu only opens ≤768px where --text-blurb exists. */
 .mobile-menu__tagline {
-  position: absolute;
-  left: var(--nav-inset);
-  right: var(--chrome-right-inset);
-  bottom: var(--menu-pill-seat);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.28em;
-  padding: var(--pill-pad-y) var(--pill-pad-x);
-  border-radius: var(--radius-capsule);
-  background: var(--color-black);
+  display: block;
   color: var(--color-white);
   font-family: var(--font-body);
-  font-size: var(--text-link);
-  line-height: var(--lh-link);
+  font-size: var(--text-blurb, 1.4rem);
+  line-height: 1;
   letter-spacing: var(--tracking-body);
   white-space: nowrap;
+}
+
+.mobile-menu__tagline .site-tagline__line {
+  display: block;
 }
 
 .site-nav__link {
@@ -1021,6 +1024,25 @@ html.fp-tint .mobile-menu__privacy {
   visibility: hidden;
 }
 
+/* 08-30 (3), Nathan — the detail-progress treatment in WHITE: rounded
+   capsule track (white stroke) + white fill, with a readout row aligned to
+   the bar's bounds: mono percentage (no % mark) at the LEFT bound, the
+   chip-voice label at the RIGHT bound. */
+.route-fill__loader-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.route-fill__loader-pct {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  letter-spacing: -0.024em;
+  color: var(--color-white);
+}
+
 .route-fill__loader-label {
   /* 08-30 (2), Nathan: the loader joins the CHIP type voice (the
      .detail-next / breadcrumb token set — sans UI face, chip size and
@@ -1038,13 +1060,18 @@ html.fp-tint .mobile-menu__privacy {
   height: 0.571rem;
   /* 8px */
   border: 1px solid var(--color-white);
+  border-radius: var(--radius-capsule);
+  overflow: hidden;
+  /* clips the width-driven fill to the capsule's rounded ends */
 }
 
 .route-fill__loader-bar {
   height: 100%;
+  width: 0%;
+  /* width-driven (RouteFill writes it per frame) — a scaleX would squash
+     the capsule radius; the detail-progress precedent */
+  border-radius: inherit;
   background: var(--color-white);
-  transform: scaleX(0);
-  transform-origin: left center;
 }
 
 /* ============================================
@@ -1890,6 +1917,13 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   opacity: 0;
 }
 
+/* Line groups (08-30 (3)) — structure only on desktop (display:contents
+   keeps the pill's single-row flex read); ≤768px they stack as the
+   three-line block. */
+.site-tagline__line {
+  display: contents;
+}
+
 .site-tagline__word {
   display: inline-block;
 }
@@ -1911,29 +1945,45 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
 @media (max-width: 768px) {
 
-  /* 08-30 (Nathan): the pill spans the viewport — the fixed wrapper
-     stretches between the SAME edge tokens the rest of the chrome hugs
-     (left --nav-inset, right --chrome-right-inset), and the capsule fills
-     it with the word run centered. Text is the link tier's mobile size
-     (the ≤768px :root override). */
+  /* 08-30 (3), Nathan: the CAPSULE is desktop-only — on phones the tagline
+     is a bare three-line stack (VISUAL WORLDS / for the music /
+     industry.), blurb-size type, left-justified in the lower-left corner.
+     The wrapper keeps its corner seat; the row still reserves the wrapped
+     copyright line below (the --menu-pill-seat math rides it). */
   .site-tagline {
     right: var(--chrome-right-inset);
   }
 
   .site-tagline__row {
-    /* --space-6 (12px), not a literal — the mobile-menu privacy link and
-       the footer band min-height rebuild the pill's line position from
-       this same token (the wrapped-copy reserve). */
+    /* --space-6 (12px), not a literal — the mobile-menu foot and the
+       footer band min-height rebuild the tagline's seat from this same
+       token (the wrapped-copy reserve). */
     gap: var(--space-6);
     flex-wrap: wrap;
   }
 
   .site-tagline__pill {
-    width: 100%;
-    justify-content: center;
+    display: block;
+    width: max-content;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    /* the project-detail blurb's mobile size — one shared token */
+    font-size: var(--text-blurb);
+    line-height: 1;
   }
 
-  /* 08-30 (2), Nathan: on phones the page-level pill is HOME-ONLY — on
+  .site-tagline__pill .site-tagline__line {
+    display: block;
+  }
+
+  /* block lines lose the pill's flex gap — word spacing returns as the
+     same 0.28em, between words only */
+  .site-tagline__line .site-tagline__word:not(:last-child) {
+    margin-right: 0.28em;
+  }
+
+  /* 08-30 (2), Nathan: on phones the page-level tagline is HOME-ONLY — on
      every other route it covered needed bottom real estate, so the mobile
      menu's own copy (.mobile-menu__tagline) is the tagline's site-wide
      home. display:none (not visibility) so the wrapped copyright takes
@@ -2427,6 +2477,10 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
        gap. The logo caps its width against 100vw − 2× this, so the lockup
        SCALES DOWN before it can ever touch a pill on narrow devices. */
     --bar-pill-reserve: 7rem;
+    /* The project-detail blurb's mobile size, promoted to a token
+       (08-30 (3)): the uncapsuled tagline stack rides the SAME scale —
+       project-detail.css consumes it for .project-blurb__text ≤768px. */
+    --text-blurb: clamp(1.4rem, 5.5vw, 2.2rem);
   }
 
   /* Tightened pill skin on phones (08-30, Nathan): horizontal padding

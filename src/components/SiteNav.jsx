@@ -23,10 +23,11 @@ import gsap from 'gsap';
 // The brand lockup, inlined (footer precedent) — one source of truth in
 // src/assets; native blue artwork, no recolor filter.
 import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
-// The tagline words — the mobile menu carries its own copy of the pill
-// (08-30, Nathan): off-home ≤768px the page-level pill is hidden (it ate
+// The tagline lines — the mobile menu carries its own copy (08-30,
+// Nathan): off-home ≤768px the page-level tagline is hidden (it ate
 // bottom real estate), so the takeover is the tagline's site-wide home.
-import { TAGLINE_WORDS, EM_WORDS } from './SiteTagline';
+// 08-30 (3): uncapsuled three-line stack, blurb-size type.
+import { TAGLINE_LINES, EM_LINE } from './SiteTagline';
 
 /* ── NAV micro-interaction (08-29, Nathan) ── The merged bracket/fxrule
    system is RETIRED (brackets forced label gutters between glyph and text;
@@ -416,35 +417,36 @@ export default function SiteNav({
                 <span className="site-nav__label">follow_us</span>
               </a>
             </nav>
-            {/* Privacy — mobile home (08-30, Nathan): ≤768px the lower-right
-                .site-privacy pill is hidden, so the menu carries the link —
-                item-ink white, LEFT-aligned with the item column, seated
-                just above the menu's tagline pill. Explicit close: a
+            {/* Lower-left foot (08-30 (3), Nathan): privacy stacked above
+                the tagline, both left-aligned with the item column — the
+                foot's BOTTOM matches the home page tagline's seat so menu
+                open/close on home reads as one persistent block. The
+                tagline is decorative here (the page copy + footer carry
+                the accessible text); privacy closes explicitly — a
                 same-route /privacy tap never fires astro:after-swap. */}
-            <a
-              href="/privacy"
-              className="mobile-menu__privacy"
-              onClick={() => setMenuOpen(false)}
-            >
-              privacy
-            </a>
-            {/* Tagline pill — the menu's own copy (08-30, Nathan): off-home
-                ≤768px the page-level pill is hidden (real estate), so the
-                takeover carries "VISUAL WORLDS for the music industry."
-                site-wide; on home it doubles the persistent page pill,
-                seated at the SAME y so menu open/close reads seamless.
-                Decorative here — the page pill (home) and footer carry the
-                accessible copy. */}
-            <p className="mobile-menu__tagline" aria-hidden="true">
-              {TAGLINE_WORDS.map((w, i) => (
-                <span
-                  key={w}
-                  className={`site-tagline__word${i < EM_WORDS ? ' site-tagline__word--em' : ''}`}
-                >
-                  {w}
-                </span>
-              ))}
-            </p>
+            <div className="mobile-menu__foot">
+              <a
+                href="/privacy"
+                className="mobile-menu__privacy"
+                onClick={() => setMenuOpen(false)}
+              >
+                privacy
+              </a>
+              <p className="mobile-menu__tagline" aria-hidden="true">
+                {TAGLINE_LINES.map((line, li) => (
+                  <span className="site-tagline__line" key={line.join('-')}>
+                    {line.map((w) => (
+                      <span
+                        key={w}
+                        className={`site-tagline__word${li === EM_LINE ? ' site-tagline__word--em' : ''}`}
+                      >
+                        {w}
+                      </span>
+                    ))}
+                  </span>
+                ))}
+              </p>
+            </div>
           </div>,
           shellEl
         )}

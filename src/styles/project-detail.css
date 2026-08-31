@@ -269,12 +269,16 @@ html:has(.project-detail) body {
 
 /* Horizontal re-cut of the shared caret strip (global.css owns the 60×34
    vertical base; process.css's 34×20 re-cut is the size precedent). The
-   window feathers on the side nearest the label (left). */
+   window feathers on the side nearest the label (left). 08-30 (3), Nathan:
+   the window BLEEDS to the chip's full bounds — negative margins swallow
+   the vertical padding and the right padding (the ticker-window idiom), so
+   carets run edge-to-edge instead of floating inset. */
 .detail-next .fp-cta__arrows {
   flex: none;
-  width: 34px;
-  height: 20px;
-  margin: 0;
+  align-self: stretch;
+  width: calc(34px + 0.571rem);
+  height: auto;
+  margin: -0.143rem -0.571rem -0.143rem 0;
   -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 65%, #000 100%);
   mask-image: linear-gradient(to right, transparent 0%, #000 65%, #000 100%);
   -webkit-mask-repeat: no-repeat;
@@ -804,9 +808,17 @@ a.release-chip--link:hover {
   color: var(--color-black);
 }
 
+/* The drawn return arrow (08-30 (3) — replaced the ↩ codepoint, which iOS
+   rendered as an emoji). Sized to the label's cap read. */
 .detail-breadcrumb__glyph {
-  font-size: 1.1em;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.detail-breadcrumb__glyph svg {
+  display: block;
+  width: 0.93em;
+  height: auto;
 }
 
 /* SITE FOOTER — moved to global.css (shared site chrome; the home hero
@@ -1118,7 +1130,9 @@ html[data-footer-revealed] .detail-progress {
   }
 
   .project-blurb__text {
-    font-size: clamp(1.4rem, 5.5vw, 2.2rem);
+    /* the shared mobile blurb token (global.css ≤768px :root — the
+       tagline stack rides the same scale); value-identical swap 08-30 (3) */
+    font-size: var(--text-blurb);
   }
 
   .project-blurb__details {

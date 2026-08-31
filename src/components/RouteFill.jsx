@@ -41,7 +41,8 @@ const SAFETY_MS = 2500;
 export default function RouteFill() {
   const fillRef = useRef(null);
   const loaderRef = useRef(null); // the overviews_loading chrome (08-25)
-  const barRef = useRef(null); // the bar fill — scaleX 0..1
+  const barRef = useRef(null); // the bar fill — width 0..100% (08-30 (3): width, not scaleX — the capsule radius must not squash)
+  const pctRef = useRef(null); // the mono percentage readout (08-30 (3))
 
   useEffect(() => {
     const fill = fillRef.current;
@@ -62,27 +63,36 @@ export default function RouteFill() {
     // takes a paced ?loaderend closing stretch to 100% and the fill reveal
     // WAITS for it. Dummy by design: it paces the WAIT, it does not measure
     // progress. Both knobs live on the ?committune bench (read at fire time).
+    // The bar is WIDTH-driven (08-30 (3): the capsule's rounded ends must
+    // not squash — the detail-progress precedent); the mono readout tracks
+    // the same proxy, no % mark.
+    const pct = { v: 0 };
+    const writeBar = () => {
+      if (bar) bar.style.width = `${pct.v.toFixed(2)}%`;
+      if (pctRef.current) pctRef.current.textContent = String(Math.round(pct.v));
+    };
     const loaderStart = () => {
       if (!loader || !bar || reducedMotion || loaderUp) return;
       loaderUp = true;
-      gsap.killTweensOf([loader, bar]);
-      gsap.set(bar, { scaleX: 0 });
+      gsap.killTweensOf([loader, pct]);
+      pct.v = 0;
+      writeBar();
       gsap.set(loader, { autoAlpha: 1 });
       // Fast optimistic charge, then a slow creep — never lands on its own.
       const tl = gsap.timeline();
-      tl.to(bar, { scaleX: 0.82, duration: 1.1, ease: 'power2.out' });
-      tl.to(bar, { scaleX: 0.96, duration: 3.5, ease: 'none' });
+      tl.to(pct, { v: 82, duration: 1.1, ease: 'power2.out', onUpdate: writeBar });
+      tl.to(pct, { v: 96, duration: 3.5, ease: 'none', onUpdate: writeBar });
     };
     const loaderEndSeconds = () =>
       Math.max(0.05, (HERO_TUNING.loaderEndMs ?? 500) / 1000);
     const loaderFinish = () => {
       if (!loaderUp || !loader || !bar) return;
       loaderUp = false;
-      gsap.killTweensOf(bar);
+      gsap.killTweensOf(pct);
       // The paced close (?loaderend): the final stretch eases to 100% and
       // the fill's reveal delay below holds until it lands.
       const endS = loaderEndSeconds();
-      gsap.to(bar, { scaleX: 1, duration: endS, ease: 'power1.inOut' });
+      gsap.to(pct, { v: 100, duration: endS, ease: 'power1.inOut', onUpdate: writeBar });
       // A sibling no longer rides the fill's fade — mirror it exactly
       // (same delay + duration + curve), then reset for the next passage.
       gsap.to(loader, {
@@ -90,7 +100,10 @@ export default function RouteFill() {
         duration: RELEASE_SECONDS,
         delay: endS + RELEASE_DELAY,
         ease: 'power2.inOut',
-        onComplete: () => gsap.set(bar, { scaleX: 0 }),
+        onComplete: () => {
+          pct.v = 0;
+          writeBar();
+        },
       });
     };
 
@@ -211,7 +224,12 @@ export default function RouteFill() {
           before the envelop; painted after the fill in the shell, faded in
           mirror with it on release. */}
       <div className="route-fill__loader" ref={loaderRef} aria-hidden="true">
-        <p className="route-fill__loader-label">overviews_loading</p>
+        {/* 08-30 (3), Nathan: percentage (mono token, no % mark) seats on
+            the bar's LEFT bound; the label justifies to its RIGHT bound. */}
+        <div className="route-fill__loader-row">
+          <span className="route-fill__loader-pct" ref={pctRef}>0</span>
+          <p className="route-fill__loader-label">overviews_loading</p>
+        </div>
         <div className="route-fill__loader-track">
           <div className="route-fill__loader-bar" ref={barRef} />
         </div>

@@ -109,9 +109,9 @@ export const INTRO_VARIANTS = ['a', 'c'];
    chrome — is a NEGATIVE offsetY. roll is degrees about the view axis
    (+ tilts the whole comp to the right; 0 = today's untilted framing). */
 const COMP_DEFAULTS = IS_MOBILE
-  ? // mobile: the ring-era contain-fit numbers, untouched — the slight
-    // up-bias keeps the disc clear of the full-width tagline pill
-    { fill: 0.95, fitCover: false, offsetX: 0, offsetY: -0.18, elevDeg: 8, roll: 0 }
+  ? // mobile: contain-fit, DEAD CENTER (08-30 (3), Nathan: horizontally AND
+    // vertically — the old −0.18 up-bias retired with the capsule pill)
+    { fill: 0.95, fitCover: false, offsetX: 0, offsetY: 0, elevDeg: 8, roll: 0 }
   : // resting comp — 08-30 (Nathan): desktop MIRRORS the mobile centered
     // layout — globe centered in the viewport, near-equator elevation, the
     // enter_world button floating at its center (tap-only, the inception

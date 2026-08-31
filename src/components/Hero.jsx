@@ -76,6 +76,15 @@ import {
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
 import { housePulseLoop } from '../lib/motion.js';
+// 08-30 (3), Nathan: the home→/work transition carries the FP→detail
+// choreography — the SAME enter-tune vocabulary (cover duration, window
+// model, pow curve) WorldCard/useWorldScene ride, so the two passages can
+// never drift apart.
+import {
+  ENTER_TUNABLES,
+  powInOut as enterPow,
+  seg as enterSeg,
+} from './work/world/enterTune.js';
 
 gsap.registerPlugin(useGSAP, CustomEase);
 
@@ -649,12 +658,51 @@ export default function Hero({ globeAssets }) {
     };
   };
 
-  // Click/keyboard commit (the button) — THE way in (tap-only, 08-30):
-  // pin the fill blue, then run the passage. (Keyboard Enter fires click
-  // natively.)
+  // Click/keyboard commit (the button) — THE way in (tap-only, 08-30).
+  // 08-30 (3), Nathan: the passage carries the FP→detail choreography —
+  // the RouteFill cover rises over ?enterms while the CAMERA dives on the
+  // enter-tune window model (the open-ended moveEnd-2 read: still steeply
+  // mid-rise at the handoff, never parked), then client-navigate. One
+  // gesture vocabulary across home→/work→detail. The old chunk-4 master
+  // timeline (blue cascade + recenter + fill spread) is retired from this
+  // path — the ?herotune bench's dry-run still rehearses it for reference.
   const onEnterClick = () => {
+    if (departingRef.current) return;
     setCtaPinned(true);
-    beginEnvelopment();
+    if (PREFERS_REDUCED_MOTION) {
+      navigate('/work'); // RM: plain navigation, no theatrics
+      return;
+    }
+    departingRef.current = true;
+    armedRef.current = false;
+    commitKillRef.current?.(); // a bench dry-run may still be settling
+    const { enterMs, scale, moveStart, moveEnd, pow } = ENTER_TUNABLES;
+    const coverS = enterMs / 1000;
+    window.dispatchEvent(
+      // loader: true — home→/work still shows overviews_loading while the
+      // World builds (the FP→detail passage stays bare). Brand blue: home
+      // never knows the arriving World's accent, and home IS blue.
+      new CustomEvent('swm:envelop', { detail: { duration: coverS, loader: true } })
+    );
+    // The camera dive under the rising cover — rig.zoom rides the SAME
+    // window + pow the World's projection zoom rides in useWorldScene.
+    gsap.killTweensOf(zoomRef.current);
+    const startZoom = zoomRef.current.v;
+    const raw = { p: 0 };
+    const tl = gsap.to(raw, {
+      p: 1,
+      duration: coverS,
+      ease: 'none',
+      onUpdate: () => {
+        const z = enterPow(enterSeg(raw.p, moveStart, moveEnd), pow);
+        zoomRef.current.v = startZoom + (scale - startZoom) * z;
+        applyZoom();
+      },
+    });
+    commitKillRef.current = () => tl.kill();
+    // setTimeout, not delayedCall — the island's gsap context dies with the
+    // swap and must not take the navigation with it (WorldCard's idiom).
+    setTimeout(() => navigate('/work'), enterMs + 60);
   };
 
   // Bench rehearsal (?herotune) — pin the fill like a real commit, then

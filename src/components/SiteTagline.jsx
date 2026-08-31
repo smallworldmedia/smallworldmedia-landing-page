@@ -44,10 +44,17 @@ import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
 
 const REVEAL_KEY = 'swm:tagline-revealed';
 // Figma segments: the first two words carry Medium, the rest Regular.
-// Exported (08-30): the mobile menu renders its own copy of the tagline
-// pill (SiteNav) — one source for the words.
-export const TAGLINE_WORDS = ['VISUAL', 'WORLDS', 'for', 'the', 'music', 'industry.'];
-export const EM_WORDS = 2;
+// Exported (08-30): the mobile menu renders its own copy (SiteNav) — one
+// source for the words. 08-30 (3), Nathan: structured as LINES — mobile
+// drops the capsule and stacks "VISUAL WORLDS / for the music / industry."
+// (line spans are display:contents on desktop, so the pill's single-row
+// flex read is unchanged there). Line 0 carries the Medium emphasis.
+export const TAGLINE_LINES = [
+  ['VISUAL', 'WORLDS'],
+  ['for', 'the', 'music'],
+  ['industry.'],
+];
+export const EM_LINE = 0;
 const HOME_SAFETY_MS = 12000; // hero-chrome no-show fallback (odd intro paths)
 const REVEAL_ON = 0.85; // footer progress that arms the copyright/lockup
 const REVEAL_OFF = 0.5; // retreat threshold (hysteresis)
@@ -288,13 +295,17 @@ export default function SiteTagline() {
         </a>
         <div className="site-tagline__row">
           <p className="site-tagline__pill" aria-label="Visual worlds for the music industry">
-            {TAGLINE_WORDS.map((w, i) => (
-              <span
-                key={w}
-                className={`site-tagline__word${i < EM_WORDS ? ' site-tagline__word--em' : ''}`}
-                aria-hidden="true"
-              >
-                {w}
+            {TAGLINE_LINES.map((line, li) => (
+              <span className="site-tagline__line" key={line.join('-')}>
+                {line.map((w) => (
+                  <span
+                    key={w}
+                    className={`site-tagline__word${li === EM_LINE ? ' site-tagline__word--em' : ''}`}
+                    aria-hidden="true"
+                  >
+                    {w}
+                  </span>
+                ))}
               </span>
             ))}
           </p>

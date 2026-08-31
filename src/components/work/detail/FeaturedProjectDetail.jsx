@@ -331,7 +331,23 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           }
         }}
       >
-        <span className="detail-breadcrumb__glyph" aria-hidden="true">↩</span>
+        {/* Inline SVG return arrow (08-30 (3), Nathan): the ↩ codepoint
+            carries an emoji presentation on iOS — a drawn glyph can't be
+            hijacked by the emoji font. Strokes ride currentColor. */}
+        <span className="detail-breadcrumb__glyph" aria-hidden="true">
+          <svg viewBox="0 0 15 13" fill="none">
+            <path
+              d="M14 1v3a4 4 0 0 1-4 4H2"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <path
+              d="M6 4 2 8l4 4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+          </svg>
+        </span>
         featured_projects
       </a>
 
