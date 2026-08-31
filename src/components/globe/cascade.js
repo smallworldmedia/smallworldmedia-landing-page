@@ -40,6 +40,12 @@ export function panelDelay(panel, variant, totalRows) {
     }
     case 'sweep':
       return panel.lonIndex * 0.07 + panel.row * 0.03 + jitter;
+    case 'random':
+      // 08-31, Nathan: fully random order (the textExit letter-cut reading
+      // for the video→blue fill) — every panel draws an independent slot
+      // across a spread comparable to sweep's total run. Computed ONCE per
+      // cascade like every variant: zero added per-frame cost.
+      return Math.random() * 1.2;
     case 'rows':
     default:
       return panel.row * 0.16 + panel.lonIndex * 0.02 + jitter;

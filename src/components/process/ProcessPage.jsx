@@ -12,13 +12,16 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import SiteFooter from '../SiteFooter.jsx';
+// 08-31, Nathan: the walkthrough meter is the shared minimal status bar now
+// (the ░▒▓█ boot-log cells retired with ProcessMeter) — document-measured,
+// re-firing the swm:process-index contract for the steppers.
+import DetailProgressBar from '../work/detail/DetailProgressBar.jsx';
 import { HERO, STAGES, CTA } from './processContent.js';
 import { DEBUG } from './processConfig.js';
 import useProcessScene from './useProcessScene.js';
 import useProcessScrollDriver from './useProcessScrollDriver.js';
 import useProcessCopy from './useProcessCopy.js';
 import ProcessStepCtas from './ProcessStepCtas.jsx';
-import ProcessMeter from './ProcessMeter.jsx';
 import CtaArrows from '../work/CtaArrows.jsx';
 
 export default function ProcessPage({ globeAssets }) {
@@ -157,7 +160,7 @@ export default function ProcessPage({ globeAssets }) {
           [next] bottom-left, status meter bottom-center, tagline
           bottom-right (Nathan's Notion deck, confirmed 2026-07-16) */}
       <ProcessStepCtas />
-      <ProcessMeter />
+      <DetailProgressBar measure="document" broadcast sectionSelector=".process-section" />
       <p className="process-tagline">{HERO.tagline}</p>
 
       {DEBUG && DebugPanel && <DebugPanel sceneRef={sceneRef} />}

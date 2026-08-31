@@ -668,7 +668,7 @@ export default function FeaturedProjects({ worlds = [] }) {
           aria-label="Previous project"
         >
           <CtaArrows direction="up" />
-          <span className="fp-cta__label">[PREVIOUS]</span>
+          <span className="fp-cta__label">previous</span>
         </button>
       )}
 
@@ -697,8 +697,8 @@ export default function FeaturedProjects({ worlds = [] }) {
           onPointerLeave={() => setHoverNext(false)}
           aria-label="Next project"
         >
-          <span className="fp-cta__label">[NEXT]</span>
           <CtaArrows direction="down" />
+          <span className="fp-cta__label">next</span>
         </button>
       )}
 

@@ -17,7 +17,8 @@
  * to back_to_top (Nathan 07-30): same fixed corner, dispatching
  * swm:process-home (the scroll driver owns the glide — ProcessPage P6
  * convention). The active index arrives on the shared swm:process-index
- * signal (ProcessMeter broadcasts it). Hidden controls are
+ * signal (the minimal status bar broadcasts it — DetailProgressBar,
+ * 08-31; ProcessMeter's cells retired). Hidden controls are
  * native-`disabled` (out of the tab order, clicks no-op) with
  * aria-hidden for assistive tech.
  */

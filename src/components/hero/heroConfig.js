@@ -79,7 +79,7 @@ export const HERO_INTRO_EASE_PATH =
    disc-clipped circle. blueCascade: which panel-delay model the panels-mode
    surge rides — cascade.js's variants, same names. — */
 export const FILL_MODES = ['panels', 'circle'];
-export const BLUE_CASCADES = ['sweep', 'rows', 'poles'];
+export const BLUE_CASCADES = ['sweep', 'rows', 'poles', 'random'];
 
 /* — Labels flag (chunk 6) — the SHIPPED default for the blob-tracking
    label layer. Now FALSE (Nathan's bake): the pole-cap globe ships without

@@ -40,7 +40,12 @@
  */
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
+import { SplitText } from 'gsap/SplitText';
 import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
+// The FP→detail letter-exit's pacing knob — one cut clock site-wide.
+import { TEXT_TUNABLES } from './work/textExit.js';
+
+gsap.registerPlugin(SplitText);
 
 const REVEAL_KEY = 'swm:tagline-revealed';
 // Figma segments: the first two words carry Medium, the rest Regular.
@@ -265,9 +270,57 @@ export default function SiteTagline() {
       raf = requestAnimationFrame(watch);
     }
 
+    // ── Letter exit (08-31, Nathan): the home→/work commit carries the
+    // FP→detail text choreography — Hero broadcasts swm:tagline-exit and
+    // the tagline's LETTERS hard-cut in RANDOM order on the same
+    // charCutMs clock (the textExit convention: SplitText at fire time,
+    // plain visibility writes). This island PERSISTS through the swap, so
+    // astro:after-swap restores everything — /work must arrive with the
+    // tagline whole. RM never plays (Hero's RM commit is a plain nav). ──
+    let exitSplit = null;
+    let exitCalls = [];
+    const exitCut = [];
+    const restoreExit = () => {
+      exitCalls.forEach((c) => c.kill());
+      exitCalls = [];
+      exitCut.forEach((el) => {
+        el.style.visibility = '';
+      });
+      exitCut.length = 0;
+      exitSplit?.revert();
+      exitSplit = null;
+    };
+    const onTaglineExit = () => {
+      restoreExit();
+      if (!pill) return;
+      try {
+        exitSplit = SplitText.create(pill, { type: 'chars' });
+      } catch {
+        return; // unsplittable (hidden pre-intro edge) — the cover carries it
+      }
+      const chars = [...(exitSplit.chars ?? [])];
+      for (let i = chars.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [chars[i], chars[j]] = [chars[j], chars[i]];
+      }
+      chars.forEach((el, i) => {
+        exitCalls.push(
+          gsap.delayedCall((i * TEXT_TUNABLES.charCutMs) / 1000, () => {
+            el.style.visibility = 'hidden';
+            exitCut.push(el);
+          })
+        );
+      });
+    };
+    window.addEventListener('swm:tagline-exit', onTaglineExit);
+    document.addEventListener('astro:after-swap', restoreExit);
+
     return () => {
       window.removeEventListener('swm:hero-lockup-done', onChrome);
       document.removeEventListener('astro:after-swap', onSwapLatch);
+      window.removeEventListener('swm:tagline-exit', onTaglineExit);
+      document.removeEventListener('astro:after-swap', restoreExit);
+      restoreExit();
       window.clearTimeout(safetyId);
       mo.disconnect();
       if (raf) cancelAnimationFrame(raf);

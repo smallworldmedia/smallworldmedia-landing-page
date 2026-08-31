@@ -219,6 +219,14 @@
   --nav-height: 2.929rem;
   /* 41px */
 
+  /* Stepper-chip edge inset (08-31, Nathan): how far the fixed
+     previous/next steppers sit IN from the viewport's top/bottom edges —
+     shared by /process (the origin component) and /work (which adopted
+     the stepper as the primary prev/next set). Stepped 1.143rem → 2.857rem
+     per Nathan's "inward, away from the edges". */
+  --stepnav-edge-inset: 2.857rem;
+  /* 40px */
+
   /* Radii */
   --radius-pill: 3.571rem;
   /* 50px */
@@ -602,13 +610,18 @@ html.fp-tint .site-nav__pill {
     border-color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
 }
 
-html:has(.fp) .site-nav__pill:hover,
-html.fp-tint .site-nav__pill:hover {
-  background: var(--nav-ink, var(--color-white));
-  color: var(--project-color, var(--color-electric-blue));
-  transition:
-    background var(--duration-micro) var(--ease-micro),
-    color var(--duration-micro) var(--ease-micro);
+/* Hover is REAL-POINTER-ONLY (08-31, Nathan's report: on touch the :hover
+   state sticks after a tap, so the info pill "hung" white after closing —
+   @media (hover: hover) keeps every pill hover off touch devices). */
+@media (hover: hover) {
+  html:has(.fp) .site-nav__pill:hover,
+  html.fp-tint .site-nav__pill:hover {
+    background: var(--nav-ink, var(--color-white));
+    color: var(--project-color, var(--color-electric-blue));
+    transition:
+      background var(--duration-micro) var(--ease-micro),
+      color var(--duration-micro) var(--ease-micro);
+  }
 }
 
 /* 08-24: the nav brand is the full SWM inline lockup (inlined SVG). The
@@ -627,8 +640,10 @@ body.route-home .site-nav__pill {
   background: var(--color-black);
 }
 
-body.route-home .site-nav__pill:hover {
-  background: var(--color-electric-blue);
+@media (hover: hover) {
+  body.route-home .site-nav__pill:hover {
+    background: var(--color-electric-blue);
+  }
 }
 
 .site-nav__brand {
@@ -690,8 +705,30 @@ body.route-home .site-nav__lockup svg * {
   transition: background var(--duration-micro) var(--ease-micro);
 }
 
-.site-nav__pill:hover {
-  background: var(--color-black);
+@media (hover: hover) {
+  .site-nav__pill:hover {
+    background: var(--color-black);
+  }
+}
+
+/* ── OPEN-STATE skin (08-31, Nathan): one rule across every panel toggle —
+   a pill whose component is OPEN wears WHITE fill with the accent ink
+   (blank → brand blue); closing returns it to the accent/route rest above.
+   Covers: the info pill + menu pill via aria-expanded (SiteNav maintains
+   it), and the two dedicated close pills (the menu takeover's and the info
+   drawer's), which only ever render in the open state. Placed after every
+   rest/hover rule so the attribute wins at any route. */
+.site-nav__pill[aria-expanded="true"],
+.site-nav__pill.mobile-menu__close,
+html .info-panel__bar .site-nav__pill,
+html:has(.fp) .site-nav__pill[aria-expanded="true"],
+html.fp-tint .site-nav__pill[aria-expanded="true"],
+html:has(.fp) .site-nav__pill.mobile-menu__close,
+html.fp-tint .site-nav__pill.mobile-menu__close,
+body.route-home .site-nav__pill[aria-expanded="true"] {
+  background: var(--color-white);
+  border-color: var(--color-white);
+  color: var(--project-color, var(--color-electric-blue));
 }
 
 .site-nav__pill-icon {
@@ -1072,6 +1109,80 @@ html.fp-tint .mobile-menu__privacy {
      the capsule radius; the detail-progress precedent */
   border-radius: inherit;
   background: var(--color-white);
+}
+
+/* ============================================
+   STATUS PROGRESS BAR — shared page-scroll chrome
+   (08-30 (2) on the detail pages; 08-31 promoted
+   here when /process adopted it): a simple
+   rounded capsule — project-accent fill over a
+   DARKER TINT of the same accent, no label, no
+   count. Hidden until the user scrolls
+   (data-shown); at the content's end (data-done)
+   it wipes out LEFT → RIGHT via clip-path on the
+   house draw curve at a quick cut. z-index 4
+   keeps it UNDER promoted commit boxes (z-90)
+   and the site shell (z-100). DetailProgressBar
+   .jsx drives the fill width + the two data
+   states; process.css adds field-aware skins.
+   ============================================ */
+.detail-progress {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--nav-inset);
+  z-index: 4;
+  /* the overviews_loading track's width language — one loader vocabulary */
+  width: min(60vw, 15.714rem);
+  height: 0.429rem;
+  /* 6px */
+  border-radius: var(--radius-capsule);
+  /* the unfilled track: the accent pulled toward black */
+  background: color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-black) 65%);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  clip-path: inset(0 0 0 0);
+  /* house draw curve at quick cuts — the reveal fades, the wipe clips */
+  transition:
+    opacity 0.3s var(--ease-draw),
+    visibility 0s linear 0.3s,
+    clip-path 0.4s var(--ease-draw);
+}
+
+.detail-progress[data-shown] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s var(--ease-draw),
+    clip-path 0.4s var(--ease-draw);
+}
+
+/* The end-state wipe: the erase edge starts at the LEFT edge and travels
+   right (left inset 0 → 100%). Scrolling back re-arms it in reverse. */
+.detail-progress[data-done] {
+  clip-path: inset(0 0 0 100%);
+}
+
+.detail-progress__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* The footer reveal slides up over the page bottom — the bar yields (same
+   html-level hook the shell nav rides; normally the data-done wipe has
+   already fired by then — this is the belt). */
+html[data-footer-revealed] .detail-progress {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-progress {
+    transition: none;
+  }
 }
 
 /* ============================================

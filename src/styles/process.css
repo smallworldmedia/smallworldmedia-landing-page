@@ -201,9 +201,7 @@ body.route-process .site-nav {
 .process-page[data-bg='white'] .process-stage__token,
 .process-page[data-bg='white'] .process-stage__caption,
 .process-page[data-bg='white'] .process-label,
-.process-page[data-bg='white'] .process-tagline,
-.process-page[data-bg='white'] .process-meter,
-.process-page[data-bg='white'] .process-meter__cells {
+.process-page[data-bg='white'] .process-tagline {
   color: var(--color-electric-blue);
 }
 
@@ -727,8 +725,10 @@ body.route-process .site-nav {
   align-items: flex-start;
   gap: 0.15rem;
   /* Nathan 07-30: both steppers step in from the viewport edges by the
-     SAME amount — [previous] down, [next] up. One var, provably equal. */
-  --stepnav-edge-offset: 1.143rem;
+     SAME amount — [previous] down, [next] up. One var, provably equal.
+     08-31: the amount is the GLOBAL --stepnav-edge-inset token now
+     (/work's adopted steppers ride the same seat). */
+  --stepnav-edge-offset: var(--stepnav-edge-inset);
 }
 
 .process-stepnav--prev {
@@ -807,38 +807,18 @@ body.route-process .site-nav {
   height: 20px;
 }
 
-/* --- Walkthrough status meter: the carousel osboot boot-log block
-   meter, promoted to site chrome. Mono register; the cells carry the
-   osboot letterspacing; the step counter dims like the boot log. --- */
-.process-meter {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: var(--nav-inset);
-  z-index: 4;
-  display: flex;
-  align-items: baseline;
-  gap: 1ch;
-  font-family: var(--font-mono);
-  font-size: var(--text-mono);
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-  color: var(--color-white);
-  pointer-events: none;
+/* --- Walkthrough status bar (08-31, Nathan): the osboot ░▒▓█ cell meter
+   RETIRED — the shared minimal capsule (.detail-progress, global.css)
+   carries the walk now. Only the FIELD-AWARE skins live here: the blue
+   phase's field IS the brand fill, so the bar flips to white-over-dark
+   (the stepnav chip-on-accent precedent); the white field keeps the
+   brand-blue fill, which reads natively there. --- */
+.process-page[data-bg='blue'] .detail-progress {
+  background: color-mix(in srgb, var(--color-white), var(--color-black) 70%);
 }
 
-.process-meter__cells {
-  color: var(--color-electric-blue);
-  letter-spacing: 0.08em;
-  transition: color 0.35s ease;
-}
-
-.process-page[data-bg='blue'] .process-meter__cells {
-  color: var(--color-white);
-}
-
-.process-meter__step {
-  opacity: 0.55;
+.process-page[data-bg='blue'] .detail-progress__fill {
+  background: var(--color-white);
 }
 
 /* --- Mobile (≤768px): copy full-width over a black scrim (spec §1) --- */
@@ -869,12 +849,6 @@ body.route-process .site-nav {
     display: none;
   }
 
-  .process-meter {
-    left: var(--nav-inset);
-    right: auto;
-    /* undo the desktop centering or the meter pulls half-offscreen */
-    transform: none;
-  }
 
   .process-section {
     /* Three-color discipline: black surface behind white text. The band

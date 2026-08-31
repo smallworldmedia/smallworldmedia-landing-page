@@ -38,8 +38,8 @@ const FIELDS = [
   {
     key: 'blueCascade',
     label: 'blue cascade',
-    hint: 'sweep | rows | poles',
-    oneOf: ['sweep', 'rows', 'poles'],
+    hint: 'sweep | rows | poles | random',
+    oneOf: ['sweep', 'rows', 'poles', 'random'],
   },
   { key: 'blueSurge', label: 'blue surge', hint: 'per-panel length (delay units)' },
   { key: 'blueDipEnd', label: 'blue dip end', hint: 'dip share of surge 0..0.9' },

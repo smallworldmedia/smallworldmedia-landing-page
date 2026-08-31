@@ -684,6 +684,10 @@ export default function Hero({ globeAssets }) {
       // never knows the arriving World's accent, and home IS blue.
       new CustomEvent('swm:envelop', { detail: { duration: coverS, loader: true } })
     );
+    // 08-31: the tagline's letters cut out in random order under the rising
+    // cover — the FP→detail letter-exit carried to this passage (the
+    // persistent SiteTagline island owns the cuts + the after-swap restore).
+    window.dispatchEvent(new CustomEvent('swm:tagline-exit'));
     // The camera dive under the rising cover — rig.zoom rides the SAME
     // window + pow the World's projection zoom rides in useWorldScene.
     gsap.killTweensOf(zoomRef.current);

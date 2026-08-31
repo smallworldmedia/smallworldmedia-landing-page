@@ -356,14 +356,44 @@ body:has(.fp) {
 }
 
 /* .fp-cta base chip + .fp-cta__arrows moved to global.css (shared CTA chip
-   family — the home hero's SCROLL_TO_ENTER reuses them). /work keeps only
-   its route-specific positioning below. */
-.fp-next {
-  bottom: 4vh;
+   family). 08-31, Nathan: /work's [PREVIOUS]/[NEXT] center chips are
+   RETIRED — the /process STEPPER set is the primary prev/next component
+   now (small sans chip, left corners, the shared --stepnav-edge-inset
+   seat), refined going forward as the family that matches the breadcrumb/
+   next-project chips. The behavior wiring is unchanged: --cta-bg/--cta-fg
+   still carry the scroll-charge lerp, --cta-scale × --tx-scale still ride
+   the enter push-in (transform-origin left so the corner chips grow from
+   their seat). */
+/* Class-doubled selectors on purpose: Astro's stylesheet ORDER between
+   global and page css differs between a direct /work load and a client-nav
+   arrival (observed 08-31) — specificity, not order, must win over the
+   .fp-cta base. Placement per Nathan (08-31): the chips STAY CENTERED on
+   this page (the base left:50% + centering translate), wearing the
+   stepper SKIN (small sans row, lowercase) and the shared inward seat. */
+.fp-cta.fp-prev,
+.fp-cta.fp-next {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.4rem;
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
 }
 
-.fp-prev {
-  top: 8vh;
+.fp-cta.fp-prev {
+  /* below the nav bar — the /process --prev seat's vertical tokens */
+  top: calc(var(--nav-height) + var(--space-4) + var(--stepnav-edge-inset));
+}
+
+.fp-cta.fp-next {
+  bottom: calc(var(--nav-inset) + var(--stepnav-edge-inset));
+}
+
+/* The /process caret re-cut (the 60×34 window outweighs the small label) */
+.fp-prev .fp-cta__arrows,
+.fp-next .fp-cta__arrows {
+  width: 34px;
+  height: 20px;
 }
 
 @media (max-width: 768px) {
