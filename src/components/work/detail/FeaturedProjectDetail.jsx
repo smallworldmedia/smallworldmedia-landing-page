@@ -32,7 +32,7 @@ import ClientPanel from './ClientPanel.jsx';
 import CtaArrows from '../CtaArrows.jsx';
 import { PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 import MediaSlot from './MediaSlot.jsx';
-import ProcessMeter from '../../process/ProcessMeter.jsx';
+import DetailProgressBar from './DetailProgressBar.jsx';
 import NextProjectBand from './NextProjectBand.jsx';
 import SiteFooter from '../../SiteFooter.jsx';
 import GridSocket from './GridSocket.jsx';
@@ -242,14 +242,6 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const displayTitle = project?.title || null;
   const overview = project?.description ?? null;
 
-  // Scroll-meter label — the client name as a mono token (house voice:
-  // lowercase, underscore-joined, like the_process / client_type).
-  const meterLabel =
-    (client?.name ?? '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'project';
-
   // ── Compute flush grid placements around the reserved regions ──
   const { placements, regions: sockets } = computeFlushGrid(showcase, { regions });
 
@@ -403,18 +395,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           that carries the user into it (chain wraps last → first). */}
       {nextProject && <NextProjectBand next={nextProject} />}
 
-      {/* Scroll meter — the /process walkthrough status bar promoted to the
-          detail page (fixed chrome, bottom-center). Steps count the page's
-          media slots (hero + grid tiles); the cells inherit this project's
-          accent via the html-level --project-color (applied pre-paint by the
-          RouteFill nav-accent controller — zero plumbing here). No broadcast:
-          nothing on this page consumes swm:process-index. */}
-      <ProcessMeter
-        label={meterLabel}
-        sectionSelector=".media-slot"
-        broadcast={false}
-        className="detail-meter"
-      />
+      {/* Scroll status bar (08-30 (2), Nathan — replaced the ProcessMeter
+          promotion): accent capsule over a darker tint, no count; appears
+          on first scroll, wipes out left→right at the media's end. */}
+      <DetailProgressBar />
 
       <SiteFooter />
     </div>

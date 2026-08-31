@@ -54,7 +54,6 @@ import { CustomEase } from 'gsap/CustomEase';
 import { navigate } from 'astro:transitions/client';
 import useHls from '../useHls.js';
 import ServiceTag from '../ServiceTag.jsx';
-import { scrambleTo } from '../../../lib/scramble.js';
 import { SCROLL_TRIGGER_WORK_PX, GLIDE_MS } from '../../../lib/motion.js';
 import { IMG_FORMAT } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
@@ -117,7 +116,6 @@ export default function NextProjectBand({ next }) {
   const bandRef = useRef(null);
   const labelWrapRef = useRef(null);
   const labelRef = useRef(null);
-  const scrambledRef = useRef(false);
   const ruleRef = useRef(null);
   const titleRef = useRef(null);
   const tagsRef = useRef(null);
@@ -455,12 +453,8 @@ export default function NextProjectBand({ next }) {
       ([entry]) => {
         setInView(entry.isIntersecting);
         if (!entry.isIntersecting) videoRef.current?.pause();
-        // First arrival in view: the label announces itself via the house
-        // scramble (snaps under reduced motion inside scrambleTo).
-        if (entry.isIntersecting && !scrambledRef.current && labelRef.current) {
-          scrambledRef.current = true;
-          scrambleTo(labelRef.current, 'next project:');
-        }
+        // 08-30 (2), Nathan: the label's scramble announcement retired —
+        // the chip-typography label just displays in full.
       },
       { rootMargin: '200px', threshold: 0.05 }
     );
@@ -499,8 +493,9 @@ export default function NextProjectBand({ next }) {
     >
       <div className="np-band__text">
         <div className="np-band__label-wrap" ref={labelWrapRef}>
+          {/* Chip voice (08-30 (2)) — matches .detail-next's label exactly. */}
           <span className="np-band__label" ref={labelRef}>
-            next project:
+            next_project:
           </span>
         </div>
         <span className="np-band__rule" ref={ruleRef} aria-hidden="true" />

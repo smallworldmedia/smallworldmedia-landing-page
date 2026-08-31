@@ -159,10 +159,16 @@ export default function SiteShell() {
     const panelContent = wrapper?.querySelector('.info-panel');
     if (!wrapper || !panelContent) return;
 
+    // Closed y = -ceil(panel height): the panel hides fully even at a
+    // fractional measure, but the NAV at the wrapper's bottom stays seated
+    // AT the viewport top. (08-30, Nathan's report: the old flat +1px
+    // overshoot lifted the whole bar 1px — the mobile menu's takeover bar
+    // sits at true 0, so its centered lockup read "a touch lower" than the
+    // nav's. Probe: bar top −1 vs menu bar 0.)
     let currentHeight = panelContent.getBoundingClientRect().height;
 
     if (!isOpenRef.current) {
-      gsap.set(wrapper, { y: -(currentHeight + 1) });
+      gsap.set(wrapper, { y: -Math.ceil(currentHeight) });
     }
 
     const resizeObserver = new ResizeObserver(() => {
@@ -171,7 +177,7 @@ export default function SiteShell() {
         if (Math.abs(currentHeight - accurateHeight) > 0.5) {
           currentHeight = accurateHeight;
           if (!isOpenRef.current) {
-            gsap.set(wrapper, { y: -(currentHeight + 1), overwrite: true });
+            gsap.set(wrapper, { y: -Math.ceil(currentHeight), overwrite: true });
           }
         }
       });
@@ -198,7 +204,7 @@ export default function SiteShell() {
       });
     } else {
       gsap.to(wrapper, {
-        y: -(currentHeight + 1),
+        y: -Math.ceil(currentHeight), // the ceil idiom — see the closed-set note
         duration: 0.48,
         ease: 'power2.inOut',
         delay: 0.15,

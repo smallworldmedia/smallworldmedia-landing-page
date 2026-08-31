@@ -1022,10 +1022,15 @@ html.fp-tint .mobile-menu__privacy {
 }
 
 .route-fill__loader-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-mono);
-  line-height: 1;
+  /* 08-30 (2), Nathan: the loader joins the CHIP type voice (the
+     .detail-next / breadcrumb token set — sans UI face, chip size and
+     tracking, uppercase); the mono face left with it. (A broader loading-
+     bar refinement pass is queued post-mobile — see memory.) */
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.571rem;
   letter-spacing: -0.024em;
+  text-transform: uppercase;
   color: var(--color-white);
 }
 
@@ -1125,7 +1130,10 @@ html.fp-tint .mobile-menu__privacy {
 }
 
 .description__text strong {
-  color: var(--color-electric-blue);
+  /* 08-30 (2), Nathan: the drawer's brand accents ride the PROJECT accent
+     wherever one is broadcast (<html> --project-color on /work + detail
+     routes); everywhere else the fallback keeps them brand blue. */
+  color: var(--project-color, var(--color-electric-blue));
   font-weight: 400;
 }
 
@@ -2538,14 +2546,16 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
     z-index: 2;
   }
 
-  /* Custom scrollbar thumb — persistent on mobile, GSAP entrance scaleY */
+  /* Custom scrollbar thumb — persistent on mobile, GSAP entrance scaleY.
+     08-30 (2): rides the project accent like the drawer's other brand
+     elements (blank → brand blue). */
   .clients__scrollbar-thumb {
     position: absolute;
     top: 0;
     right: 0;
     width: 4px;
     border-radius: var(--radius-pill);
-    background: var(--color-electric-blue);
+    background: var(--project-color, var(--color-electric-blue));
   }
 
   .clients__header {

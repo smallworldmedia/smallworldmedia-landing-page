@@ -231,6 +231,13 @@ html:has(.project-detail) body {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
+  /* Bleed the clip window to the chip's own edges (08-30 (2), Nathan: the
+     inner padding read as the ticker "cutting off early"): the left bleed
+     swallows the chip's padding so text exits AT the capsule edge; the
+     right bleed swallows the flex gap so text enters at the caret stack's
+     edge. */
+  margin-left: -0.571rem;
+  margin-right: -0.571rem;
 }
 
 .detail-next__track {
@@ -847,13 +854,15 @@ a.release-chip--link:hover {
 }
 
 .np-band__label {
-  /* Mono, like every scrambling label site-wide — fixed advance width is
-     what keeps the house scramble reading clean (no reflow while cycling). */
-  font-family: var(--font-mono);
-  /* 24px @ 1800w */
-  font-size: clamp(1rem, 1.333vw, 1.714rem);
-  line-height: 0.92;
-  letter-spacing: var(--tracking-tight);
+  /* 08-30 (2), Nathan: the mono scramble voice retired — the label wears
+     the next_project CHIP's typography (the .detail-next token set: sans
+     UI face, chip size, chip tracking, uppercase), displayed in full on
+     the band's black ground. No ticker here. */
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  text-transform: uppercase;
 }
 
 .np-band__rule {
@@ -985,60 +994,76 @@ a.release-chip--link:hover {
 }
 
 /* ============================================
-   DETAIL SCROLL METER — /process's walkthrough
-   status bar promoted to the detail page
-   (ProcessMeter className="detail-meter").
-   process.css doesn't load on this route, so the
-   chip is fully restyled here, mirroring the
-   .process-meter recipe (process.css). Cells
-   inherit the project accent: the html-level
-   --project-color is applied pre-paint by the
-   RouteFill nav-accent controller. z-index 4
-   keeps it UNDER NextProjectBand's promoted
-   commit box (z-90) and the site shell (z-100) —
-   the growing passage swallows it, by design.
+   DETAIL PROGRESS BAR (08-30 (2), Nathan —
+   replaced the ProcessMeter promotion): a simple
+   rounded status capsule — project-accent fill
+   over a DARKER TINT of the same accent, no
+   label, no asset count. Hidden until the user
+   scrolls (data-shown); at the media's end
+   (data-done) it wipes out LEFT → RIGHT via
+   clip-path on the house draw curve at a quick
+   cut. z-index 4 keeps it UNDER NextProjectBand's
+   promoted commit box (z-90) and the site shell
+   (z-100) — the growing passage swallows it, by
+   design. DetailProgressBar.jsx drives the fill
+   width + the two data states.
    ============================================ */
-.detail-meter {
+.detail-progress {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
   bottom: var(--nav-inset);
   z-index: 4;
-  display: flex;
-  align-items: baseline;
-  gap: 1ch;
-  font-family: var(--font-mono);
-  font-size: var(--text-mono);
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-  color: var(--color-white);
+  /* the overviews_loading track's width language — one loader vocabulary */
+  width: min(60vw, 15.714rem);
+  height: 0.429rem;
+  /* 6px */
+  border-radius: var(--radius-capsule);
+  /* the unfilled track: the accent pulled toward black */
+  background: color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-black) 65%);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  /* the meter sits over media — a soft dark plate keeps light accents
-     (e.g. HHS lime) and white ink readable on bright frames */
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.85), 0 1px 3px rgba(0, 0, 0, 0.7);
-  transition: opacity 0.3s ease;
+  clip-path: inset(0 0 0 0);
+  /* house draw curve at quick cuts — the reveal fades, the wipe clips */
+  transition:
+    opacity 0.3s var(--ease-draw),
+    visibility 0s linear 0.3s,
+    clip-path 0.4s var(--ease-draw);
 }
 
-.detail-meter .process-meter__cells {
-  color: var(--project-color, var(--color-electric-blue));
-  letter-spacing: 0.08em;
+.detail-progress[data-shown] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s var(--ease-draw),
+    clip-path 0.4s var(--ease-draw);
 }
 
-.detail-meter .process-meter__step {
-  opacity: 0.55;
+/* The end-state wipe: the erase edge starts at the LEFT edge and travels
+   right (left inset 0 → 100%). Scrolling back re-arms it in reverse. */
+.detail-progress[data-done] {
+  clip-path: inset(0 0 0 100%);
 }
 
-/* The footer reveal slides up over the page bottom — the meter yields
-   (same html-level hook the shell nav rides). */
-html[data-footer-revealed] .detail-meter {
+.detail-progress__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* The footer reveal slides up over the page bottom — the bar yields (same
+   html-level hook the shell nav rides; normally the data-done wipe has
+   already fired by then — this is the belt). */
+html[data-footer-revealed] .detail-progress {
   opacity: 0;
 }
 
-/* Mobile: left variant (the /process meter's ≤768px cut) */
-@media (max-width: 768px) {
-  .detail-meter {
-    left: var(--nav-inset);
-    transform: none;
+@media (prefers-reduced-motion: reduce) {
+  .detail-progress {
+    transition: none;
   }
 }
 
