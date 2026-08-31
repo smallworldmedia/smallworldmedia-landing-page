@@ -226,6 +226,11 @@
      per Nathan's "inward, away from the edges". */
   --stepnav-edge-inset: 2.857rem;
   /* 40px */
+  /* Stepper chip floor width (08-31, Nathan): previous/next read as EQUALS
+     — the shorter word inherits the longer chip's box. = the "previous"
+     chip's rendered width (probe-measured 73.4px). min-width, not width:
+     the back_to_top swap-in runs longer and must still fit. */
+  --stepnav-min-w: 5.25rem;
 
   /* Radii */
   --radius-pill: 3.571rem;
@@ -724,7 +729,8 @@ html:has(.fp) .site-nav__pill[aria-expanded="true"],
 html.fp-tint .site-nav__pill[aria-expanded="true"],
 html:has(.fp) .site-nav__pill.mobile-menu__close,
 html.fp-tint .site-nav__pill.mobile-menu__close,
-body.route-home .site-nav__pill[aria-expanded="true"] {
+body.route-home .site-nav__pill[aria-expanded="true"],
+body.route-home .site-nav__pill.mobile-menu__close {
   background: var(--color-white);
   border-color: var(--color-white);
   color: var(--project-color, var(--color-electric-blue));

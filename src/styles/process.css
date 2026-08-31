@@ -759,6 +759,8 @@ body.route-process .site-nav {
   flex-direction: column;
   align-items: center;
   gap: 0.1rem;
+  /* previous/next as equals — the "previous" box is the floor (global token) */
+  min-width: var(--stepnav-min-w);
   border: none;
   background: var(--project-color, var(--color-electric-blue));
   color: var(--project-color-fg, var(--color-white));

@@ -378,6 +378,8 @@ body:has(.fp) {
   padding: 0.25rem 0.4rem;
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
+  /* previous/next as equals — the "previous" box is the floor (global token) */
+  min-width: var(--stepnav-min-w);
 }
 
 .fp-cta.fp-prev {
