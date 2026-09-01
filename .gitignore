@@ -39,3 +39,6 @@ media/**
 .sanity/
 .scratch/
 schema.json
+
+# Claude Code per-machine settings
+.claude/settings.local.json
