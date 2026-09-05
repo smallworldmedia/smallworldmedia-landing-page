@@ -74,6 +74,10 @@ import {
   FPTAB,
   FPFURN,
   WALL_MAX_PAGES,
+  CORNER_PRESET,
+  CORNER_T1_MUL,
+  CORNER_T2_MUL,
+  CORNER_INSET,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -86,6 +90,14 @@ const TAU = Math.PI * 2;
 const PLATE_R_IN = 0.12; // plates at SHELL_RADIUS − this
 const BORDER_R_IN = 0.18;
 const OVERLAY_R_IN = 0.06;
+/* r10 (Nathan's Munchietown note): transient Z-FIGHTING during the spawn
+   flight — every media plate sat at exactly the same radius, so sectors
+   crossing mid-slerp were coplanar and the poster/fallback fills
+   shimmered until the composition settled (video start just marks the
+   settle). A per-plate radial step gives each plate its own shell: index
+   i sits at −i × this. Max spread 8 × 0.003 = 0.024 — inside the tab's
+   −0.03 step and nowhere near the border shell (−0.18). */
+const PLATE_Z_EPS = 0.003;
 
 /* renderOrder: shell (30) first, then plates COVER their cells' lines.
    (Trim: glow panels + furniture floods sit at 28, under the lattice —
@@ -173,7 +185,7 @@ const CARD_HALF = CENTER_CLEAR_FRAC * 0.6;
  * to LATITUDE offset, ny (screen-y) to LONGITUDE offset from the arc center.
  * Same annulus + card keep-out + ring-walk/drop doctrine as the other modes.
  */
-function placeDrumBlocks(items, { seed, aspect, arcLon, reserved = [] }) {
+function placeDrumBlocks(items, { seed, aspect, arcLon, reserved = [], anchors = null }) {
   const rand = mulberry32(hashSeed(seed || 'world'));
   const win = angularWindow(aspect); // halfLon = screen-x half-extent, halfLat = screen-y
   const placed = [];
@@ -273,23 +285,40 @@ function placeDrumBlocks(items, { seed, aspect, arcLon, reserved = [] }) {
   const outerR = Math.max(CLUSTER_RADIUS, innerR + 1e-3);
   const angleOffset = rand() * TAU;
   const n = items.length;
-  const raw = items.map((item, i) => {
-    const t = n > 1 ? (i + 0.5) / n : 0;
-    const baseR = Math.sqrt(innerR * innerR + t * (outerR * outerR - innerR * innerR));
-    const ang = i * GOLDEN_ANGLE + angleOffset;
-    let nx = Math.cos(ang) * baseR + (rand() * 2 - 1) * OVERLAP_JITTER;
-    let ny = Math.sin(ang) * baseR + (rand() * 2 - 1) * OVERLAP_JITTER;
-    const r = Math.hypot(nx, ny) || 1e-6;
-    const clamped = Math.min(Math.max(r, innerR), outerR);
-    nx = (nx / r) * clamped;
-    ny = (ny / r) * clamped;
-    const res = resolveOnRing(nx, ny, item.ratio);
-    if (!res) return null;
-    placed.push(res.b);
-    return { b: res.b, nr: res.nr, ratio: item.ratio };
-  });
+  // r9 CORNER PRESET path: items arrive with fixed normalized seats
+  // (the reserved idiom — quantize at the anchor, walk outward on
+  // collision, never dropped) — no ring walk, no jitter, no balance.
+  const raw = anchors
+    ? items.map((item, i) => {
+        const a = anchors[i];
+        if (!a) return null;
+        const { latC, lonC } = toAngles(a.nx, a.ny);
+        const b = quantize(latC, lonC, drumSpan(item.ratio, latC, a.baseDeg ?? PLATE_DEG));
+        for (let s = 0; s < 60; s++) {
+          if (!intersectsCard(b) && placed.every((p) => !overlaps(b, p))) break;
+          b.j1 += Math.sign(a.nx || 1);
+          b.i1 += Math.sign(a.ny || 1);
+        }
+        placed.push(b);
+        return { b, nr: Math.hypot(a.nx, a.ny), ratio: item.ratio };
+      })
+    : items.map((item, i) => {
+        const t = n > 1 ? (i + 0.5) / n : 0;
+        const baseR = Math.sqrt(innerR * innerR + t * (outerR * outerR - innerR * innerR));
+        const ang = i * GOLDEN_ANGLE + angleOffset;
+        let nx = Math.cos(ang) * baseR + (rand() * 2 - 1) * OVERLAP_JITTER;
+        let ny = Math.sin(ang) * baseR + (rand() * 2 - 1) * OVERLAP_JITTER;
+        const r = Math.hypot(nx, ny) || 1e-6;
+        const clamped = Math.min(Math.max(r, innerR), outerR);
+        nx = (nx / r) * clamped;
+        ny = (ny / r) * clamped;
+        const res = resolveOnRing(nx, ny, item.ratio);
+        if (!res) return null;
+        placed.push(res.b);
+        return { b: res.b, nr: res.nr, ratio: item.ratio };
+      });
 
-  const balanceStats = FPGRID_BALANCE
+  const balanceStats = FPGRID_BALANCE && !anchors
     ? balanceDrumComposition(raw, items, {
         placed,
         aspect,
@@ -497,12 +526,75 @@ export function buildDrumSlot(slot, w, ctx) {
   const pool = w?.showcase || [];
   if (!pool.length && !w?.brandDecks?.length && !w?.albumArt?.length) return;
 
-  const count = Math.min(
-    // Width-aware density (08-28): read at BUILD time — the settle-resize
-    // pass rebuilds the slot when the settled width crosses a density step.
-    maxTilesFor(typeof window !== 'undefined' ? window.innerWidth : 1280),
-    Math.max(MIN_TILES, pool.length)
-  );
+  // 08-27 (Nathan): decks and album art render as WALL plates — the detail
+  // page's orthographic DeckScroller brought over to the grid (fpDrumWall).
+  // `ratio` is the wall plate's FOOTPRINT aspect (drives cell span); the
+  // wall's internal column math derives its column count from it: deck 16:9
+  // pages → 2 big spreads, album squares → a 3×2 record bin. (Assembled
+  // BEFORE the density math since r9 — the corner preset's media budget is
+  // 4 minus the walls.)
+  const stripDefs = BANDS_ENABLED
+    ? [
+        w?.brandDecks?.length && {
+          pages: w.brandDecks.slice(0, WALL_MAX_PAGES),
+          pageRatio: w.brandDecks[0].ratio || 16 / 9,
+          ratio: 16 / 9,
+          // r10: under the preset the walls ride the tier-1 multiplier
+          // (footprint parity with the tier-1 plates — ?t1deg dials both).
+          baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.8),
+        },
+        w?.albumArt?.length && {
+          pages: w.albumArt.slice(0, WALL_MAX_PAGES),
+          pageRatio: 1,
+          ratio: 1.5,
+          baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.6),
+        },
+        // 08-28 (Nathan): the second deck group fills the album anchor on
+        // deck-heavy Worlds — album art keeps priority (two-anchor budget).
+        !w?.albumArt?.length &&
+          w?.brandDecks2?.length && {
+            pages: w.brandDecks2.slice(0, WALL_MAX_PAGES),
+            pageRatio: w.brandDecks2[0].ratio || 16 / 9,
+            ratio: 16 / 9,
+            baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.8),
+          },
+      ].filter(Boolean)
+    : [];
+  // r10: the preset's seats pull IN from the wall-anchor corners
+  // (?cornerin) — the plates read whole-ish, a little off-frame is fine.
+  const seatIn = CORNER_PRESET ? CORNER_INSET : 1;
+  const anchorNx = (BAND_TUNABLES.posX / FIELD_SPREAD_X) * seatIn;
+  const anchorNy = ((BAND_TUNABLES.posY - FIELD_OFFSET_Y) / FIELD_SPREAD_Y) * seatIn;
+
+  // r9 (Nathan): the MOBILE CORNER PRESET — every project shares one
+  // four-corner composition (the Bedouin read). Tier 1 = two DECK-SCALE
+  // seats (×1.8 PLATE_DEG, the wall plates' own footprint) on one
+  // diagonal; tier 2 = two PLATE_DEG seats on the other. Walls own tier-1
+  // seats first, showcase media fills the remainder, so exactly FOUR
+  // media surfaces load per project (fewer only when a world genuinely
+  // lacks assets). The diagonal flips per slug (hashSeed parity —
+  // deterministic, same slug same composition), and the seeded ring +
+  // balance pass are skipped entirely: nothing computed, nothing varied.
+  const preset = CORNER_PRESET;
+  const presetFlip = preset && (hashSeed(w.slug || 'world') & 1) === 1 ? -1 : 1;
+  const seatT1 = [
+    { nx: anchorNx, ny: anchorNy * presetFlip, big: true },
+    { nx: -anchorNx, ny: -anchorNy * presetFlip, big: true },
+  ];
+  const seatT2 = [
+    { nx: anchorNx, ny: -anchorNy * presetFlip, big: false },
+    { nx: -anchorNx, ny: anchorNy * presetFlip, big: false },
+  ];
+  const plateSeats = preset ? [...seatT1.slice(stripDefs.length), ...seatT2] : null;
+
+  const count = preset
+    ? Math.max(0, Math.min(4 - stripDefs.length, plateSeats.length))
+    : Math.min(
+        // Width-aware density (08-28): read at BUILD time — the settle-resize
+        // pass rebuilds the slot when the settled width crosses a density step.
+        maxTilesFor(typeof window !== 'undefined' ? window.innerWidth : 1280),
+        Math.max(MIN_TILES, pool.length)
+      );
   const videoPool = pool.filter((a) => a.playbackId);
   const stillPool = pool.filter((a) => !a.playbackId && a.imageUrl);
   const videoCount = Math.min(videoPool.length, WORLD_MAX_VIDEO_TILES, count);
@@ -512,50 +604,22 @@ export function buildDrumSlot(slot, w, ctx) {
     : [];
   const chosen = [...videoPool.slice(0, videoCount), ...stillTiles];
   const tierOf = (i) =>
-    videoCount > 0
-      ? i < videoCount
+    preset
+      ? plateSeats[i]?.big
         ? 0
-        : 1 + ((i - videoCount) % 2)
-      : i % DEPTH_TIERS.length;
+        : 1 + (i % 2)
+      : videoCount > 0
+        ? i < videoCount
+          ? 0
+          : 1 + ((i - videoCount) % 2)
+        : i % DEPTH_TIERS.length;
   const thumb = thumbForCount(chosen.length);
   const radius = SHELL_RADIUS - PLATE_R_IN - (slot.atlasBias || 0);
   const accent = w?.projectColor || 0x020098;
 
-  // 08-27 (Nathan): decks and album art render as WALL plates — the detail
-  // page's orthographic DeckScroller brought over to the grid (fpDrumWall).
-  // `ratio` is the wall plate's FOOTPRINT aspect (drives cell span); the
-  // wall's internal column math derives its column count from it: deck 16:9
-  // pages → 2 big spreads, album squares → a 3×2 record bin.
-  const stripDefs = BANDS_ENABLED
-    ? [
-        w?.brandDecks?.length && {
-          pages: w.brandDecks.slice(0, WALL_MAX_PAGES),
-          pageRatio: w.brandDecks[0].ratio || 16 / 9,
-          ratio: 16 / 9,
-          baseDeg: PLATE_DEG * 1.8,
-        },
-        w?.albumArt?.length && {
-          pages: w.albumArt.slice(0, WALL_MAX_PAGES),
-          pageRatio: 1,
-          ratio: 1.5,
-          baseDeg: PLATE_DEG * 1.6,
-        },
-        // 08-28 (Nathan): the second deck group fills the album anchor on
-        // deck-heavy Worlds — album art keeps priority (two-anchor budget).
-        !w?.albumArt?.length &&
-          w?.brandDecks2?.length && {
-            pages: w.brandDecks2.slice(0, WALL_MAX_PAGES),
-            pageRatio: w.brandDecks2[0].ratio || 16 / 9,
-            ratio: 16 / 9,
-            baseDeg: PLATE_DEG * 1.8,
-          },
-      ].filter(Boolean)
-    : [];
-  const anchorNx = BAND_TUNABLES.posX / FIELD_SPREAD_X;
-  const anchorNy = (BAND_TUNABLES.posY - FIELD_OFFSET_Y) / FIELD_SPREAD_Y;
   const reserved = stripDefs.map((def, j) => ({
-    nx: j === 0 ? anchorNx : -anchorNx,
-    ny: j === 0 ? anchorNy : -anchorNy,
+    nx: preset ? seatT1[j].nx : j === 0 ? anchorNx : -anchorNx,
+    ny: preset ? seatT1[j].ny : j === 0 ? anchorNy : -anchorNy,
     ratio: def.ratio,
     baseDeg: def.baseDeg,
   }));
@@ -565,6 +629,16 @@ export function buildDrumSlot(slot, w, ctx) {
     aspect: camera.aspect || 1,
     arcLon,
     reserved,
+    anchors: preset
+      ? chosen.map(
+          (_, i) =>
+            plateSeats[i] && {
+              nx: plateSeats[i].nx,
+              ny: plateSeats[i].ny,
+              baseDeg: PLATE_DEG * (plateSeats[i].big ? CORNER_T1_MUL : CORNER_T2_MUL),
+            }
+        )
+      : null,
   });
   if (typeof window !== 'undefined' && window.location.search.includes('debug')) {
     (window.__fpDrum ||= {})[w.slug] = {
@@ -576,6 +650,10 @@ export function buildDrumSlot(slot, w, ctx) {
       strips: stripBlocks.length,
       balance: balanceStats,
       blocks: blocks.filter(Boolean).map((b) => ({
+        lon: [(b.lon1 / DEG2RAD).toFixed(1), (b.lon2 / DEG2RAD).toFixed(1)],
+        lat: [(b.lat1 / DEG2RAD).toFixed(1), (b.lat2 / DEG2RAD).toFixed(1)],
+      })),
+      stripRects: stripBlocks.map((b) => ({
         lon: [(b.lon1 / DEG2RAD).toFixed(1), (b.lon2 / DEG2RAD).toFixed(1)],
         lat: [(b.lat1 / DEG2RAD).toFixed(1), (b.lat2 / DEG2RAD).toFixed(1)],
       })),
@@ -630,7 +708,7 @@ export function buildDrumSlot(slot, w, ctx) {
       opacity: 0,
       side: THREE.BackSide,
     });
-    const mesh = new THREE.Mesh(drumSectorGeometry(block, radius), material);
+    const mesh = new THREE.Mesh(drumSectorGeometry(block, radius - i * PLATE_Z_EPS), material);
     mesh.renderOrder = ORDER_PLATE;
     slot.tierGroups[tierIndex].add(mesh);
     const border = makeBorder(block);

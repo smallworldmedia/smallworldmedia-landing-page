@@ -177,7 +177,9 @@ body:has(.fp) {
   font-family: var(--font-display);
   text-transform: uppercase;
   letter-spacing: var(--tracking-tight);
-  font-size: clamp(2.5rem, 7vw, 8rem);
+  /* ?cardname (09-04 r8): px override for the mobile dial pass (inline
+     --fp-card-name-size on .fp); the clamp is the shipped size. */
+  font-size: var(--fp-card-name-size, clamp(2.5rem, 7vw, 8rem));
   line-height: .8;
   margin-bottom: 0.5rem;
   font-weight: 600;
@@ -207,7 +209,8 @@ body:has(.fp) {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--space-4);
+  /* ?taggap (09-04 r8): the mobile dial for pill spacing. */
+  gap: var(--fp-tag-gap, var(--space-4));
   padding: 0;
   margin: 1rem 1rem 1rem;
 }
@@ -215,17 +218,20 @@ body:has(.fp) {
 .fp-tag {
   font-family: var(--font-mono);
   font-weight: 500;
-  font-size: var(--text-mono);
+  /* ?tagtext / ?tagpad / ?tagpadx (09-04 r8): the mobile dial set —
+     FeaturedProjects writes the --fp-tag-* overrides inline on .fp;
+     absent, the shipped tokens hold. */
+  font-size: var(--fp-tag-size, var(--text-mono));
   letter-spacing: var(--tracking-normal);
   text-transform: uppercase;
-  /* 08-27 (Nathan): persistent BRAND-BLACK fill so the tags differentiate
-     from the white enter_world chip. Ink = the accent when it's light enough
-     to carry on black (projectColorVars' --project-color-on-black); a dark
-     accent falls back to white. Blank project → white on black. */
-  color: var(--color-white);
+  /* Accent-filled pill; ink = the PAIRED -fg token (09-04 r8, Nathan) so
+     a light accent flips the text black — matching every other
+     project-color-dependent text element (the chip rows' idiom). The old
+     hard white ink vanished on light accents. */
+  color: var(--project-color-fg, var(--color-white));
   background: var(--project-color);
   border-radius: var(--radius-capsule);
-  padding: var(--space-2) var(--space-5);
+  padding: var(--fp-tag-pad-y, var(--space-2)) var(--fp-tag-pad-x, var(--space-5));
 }
 
 /* Pager */
@@ -355,6 +361,1449 @@ body:has(.fp) {
   will-change: transform;
 }
 
+/* — Tape-wheel pager (?pager=tape · A/B arm, docs/fp-pager-rework-approaches.md)
+   One chip at the rail seat; press-hold (touch) / hover (desktop) opens a
+   feathered tape window and the numbers roll under a fixed accent reading
+   line — content moves, the window doesn't. Per-frame motion is transform-
+   only (engine quickSetters); CSS owns deploy/retract. Tokens: global.css
+   :root + <=768 tier (--tape-*, --pager-stage-dim). — */
+.fp .fp-tape {
+  position: fixed;
+  left: clamp(0.75rem, 2vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Press target inflated around the small chip — never leftward (the screen
+   edge belongs to system gestures). z -1 keeps the pad behind the window so
+   desktop cell clicks still land on their buttons. */
+.fp .fp-tape::after {
+  content: '';
+  position: absolute;
+  inset: -0.75rem -0.75rem -0.75rem 0;
+  z-index: -1;
+}
+
+/* Feather stops as element-local registered props so the mask can RIDE the
+   shutter (0%/100% at rest = a no-op mask, crisp chip; 28%/72% open = the
+   .detail-next feather rotated vertical). Element-local + consumed by this
+   element's own mask — the inherited-@property text paint trap does not
+   apply. Unregistered fallback = the stops jump instead of glide. */
+@property --tape-feather-a {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --tape-feather-b {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 100%;
+}
+
+/* The shutter: symmetric growth — the root's translateY(-50%) re-centres
+   live as the height animates, so the reading line never moves. */
+.fp .fp-tape__window {
+  position: relative;
+  width: var(--tape-w);
+  height: var(--tape-row);
+  overflow: hidden;
+  background: var(--color-near-black);
+  --tape-feather-a: 0%;
+  --tape-feather-b: 100%;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tape-feather-a), #000 var(--tape-feather-b), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tape-feather-a), #000 var(--tape-feather-b), transparent 100%);
+  transition:
+    height var(--tape-close-ms) var(--ease-draw),
+    --tape-feather-a var(--tape-close-ms) var(--ease-draw),
+    --tape-feather-b var(--tape-close-ms) var(--ease-draw);
+}
+
+.fp .fp-tape[data-open] .fp-tape__window {
+  height: calc(var(--tape-rows) * var(--tape-row));
+  --tape-feather-a: 28%;
+  --tape-feather-b: 72%;
+  transition:
+    height var(--tape-open-ms) var(--ease-draw),
+    --tape-feather-a var(--tape-open-ms) var(--ease-draw),
+    --tape-feather-b var(--tape-open-ms) var(--ease-draw);
+}
+
+/* The reading line — the fixed split-flap cell the tape rolls under. This
+   IS the rest chip (rest window = one row = the band covers it fully). */
+.fp .fp-tape__line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: var(--tape-row);
+  transform: translateY(-50%);
+  overflow: hidden;
+  /* Decorative overlay (aria-hidden): hover/clicks fall through to copy
+     A's buttons — otherwise the cell :hover rule ties the inherit rule's
+     specificity and paints the band's digit white-on-white. */
+  pointer-events: none;
+  /* S2 contract: focused-project accent off the .fp root broadcast;
+     readable ink via the paired -fg. Element-local transitions pinned
+     (the .fp-pager__dot doctrine) so the 1700ms inherited @property fade
+     keeps repainting this text consumer. */
+  background: var(--project-color, var(--color-electric-blue));
+  color: var(--project-color-fg, var(--color-white));
+  transition:
+    background 0.16s ease-out,
+    color 0.16s ease-out;
+}
+
+/* Charged = held intent (press past the graze, hover on desktop). */
+.fp .fp-tape[data-charged] .fp-tape__line {
+  background: var(--color-white);
+  color: var(--color-black);
+}
+
+.fp .fp-tape__tape {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  /* SSR-correct seed off the inline --tape-i; the engine's first
+     quickSetter write (inline transform) takes over on hydration */
+  transform: translateY(calc((var(--tape-i, 0) + 0.5) * var(--tape-row) * -1));
+  will-change: transform;
+}
+
+.fp .fp-tape__cell {
+  display: block;
+  width: 100%;
+  height: var(--tape-row);
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--tape-row);
+  letter-spacing: var(--tracking-tight);
+  text-align: center;
+  color: color-mix(in srgb, var(--color-white) 55%, transparent);
+  cursor: pointer;
+}
+
+/* Keyboard ring at the CONTAINER — the focused cell itself sits under the
+   opaque reading-line overlay, so a per-cell ring can never be seen.
+   :focus-visible (not :focus-within) so mouse clicks don't ring; outlines
+   ignore the window's own overflow clip. */
+.fp .fp-tape:has(.fp-tape__cell:focus-visible) .fp-tape__window {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+/* Copy B rides inside the band and wears its ink (window-with-inverted-copy). */
+.fp .fp-tape__line .fp-tape__cell {
+  color: inherit;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .fp .fp-tape__cell:hover {
+    color: var(--color-white);
+  }
+}
+
+/* Client-name plate off the reading line's right edge — engaged only
+   (number-only rest, Nathan's 08-31 call). Near-black label skin; the
+   window/track pair marquees only when the name overflows the cap. */
+.fp .fp-tape__name {
+  position: absolute;
+  left: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translate(-0.5rem, -50%);
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0.071rem 0.429rem;
+  background: var(--color-near-black);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-mono);
+  line-height: 1.4;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  transition:
+    max-width var(--tape-close-ms) var(--ease-draw),
+    opacity 0.2s ease-out,
+    transform var(--tape-close-ms) var(--ease-draw);
+}
+
+.fp .fp-tape[data-open] .fp-tape__name {
+  max-width: var(--tape-name-max);
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition:
+    max-width var(--tape-open-ms) var(--ease-draw),
+    opacity 0.2s ease-out 80ms,
+    transform var(--tape-open-ms) var(--ease-draw);
+}
+
+.fp .fp-tape__name-track {
+  display: inline-flex;
+}
+
+.fp .fp-tape__name-track > span {
+  padding-right: 1.5em;
+}
+
+/* The duplicate copy participates only while marqueeing (keeps the
+   overflow measurement honest). */
+.fp .fp-tape__name:not([data-marquee]) .fp-tape__name-track > span + span {
+  display: none;
+}
+
+.fp .fp-tape__name[data-marquee] {
+  mask-image: linear-gradient(to right, #000 82%, transparent);
+  -webkit-mask-image: linear-gradient(to right, #000 82%, transparent);
+}
+
+.fp .fp-tape__name[data-marquee] .fp-tape__name-track {
+  animation: fp-tape-marquee var(--marquee-s, 6s) linear infinite;
+}
+
+@keyframes fp-tape-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Engaged tell: the stage recedes — the scene is NOT turning while the
+   pager owns the gesture. Class toggled imperatively by the island.
+   .fp-stage carries no inline styles or GSAP writes; dimming the card
+   wraps instead would fight WorldCard's inline autoAlpha. */
+.fp .fp-stage {
+  transition: opacity var(--duration-micro) var(--ease-micro);
+}
+
+.fp.is-pager-engaged .fp-stage {
+  opacity: var(--pager-stage-dim);
+}
+
+/* 09-02 (Nathan, scale arm): the engaged tell is a full-viewport SCRIM —
+   black over every page element EXCEPT the pager, nav lockup included, so
+   the selection owns the eye — replacing the stage-opacity dim for
+   ?pager=scale only (the island stamps data-pager with the resolved
+   variant). The scrim is a fixed ::before riding z-110, over the site nav
+   shell (z-100) and under the skip link (z-200); .fp creates no stacking
+   context and no ancestor contains fixed, so the pseudo escapes the .fp
+   overflow clip and covers the true viewport. The engaged pager itself
+   rides UP to z-120 — and holds there through the scrim's fade-out (the
+   0s z-index transition delayed by --pager-scrim-ms), so the chip never
+   dips beneath the scrim mid-fade. At rest it returns to z-5, back under
+   the inquiry overlay (z-50). */
+.fp[data-pager='scale'].is-pager-engaged .fp-stage {
+  opacity: 1;
+}
+
+/* BAKED scrimtune recipe (09-04, Nathan's dial): depth 0.4
+   (--pager-scrim, global.css) over a 75% project-colour tint, 7.5px
+   backdrop blur, RGB turbulence grain (freq 0.84, 1 octave, amount 0.82)
+   on a 184px tile, dancing at 30fps via the fp-scrim-grain steps() driver
+   below. Declared on .fp (not the ::before) so the ?scrimtune bench's
+   inline writes still override every dial — the bench also stills the
+   shipped driver via --scrim-grain-anim while its own interval owns the
+   jitter. */
+.fp[data-pager='scale'] {
+  --scrim-tint: 0.75;
+  --scrim-bf: blur(7.5px);
+  --scrim-noise-size: 184px;
+  --scrim-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%20width%3D'100%25'%20height%3D'100%25'%3E%3CfeTurbulence%20type%3D'turbulence'%20baseFrequency%3D'0.84'%20numOctaves%3D'1'%20seed%3D'7'%20stitchTiles%3D'stitch'%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D'linear'%20slope%3D'0.82'%20intercept%3D'0'%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D'256'%20height%3D'256'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
+}
+
+/* ≤768 grain re-dial (09-04 r9, Nathan's device bake:
+   ?grainamt=.56&grainsize=90&grainfreq=.85): finer tile, lighter slope,
+   same turbulence/1-octave/rgb character. Regenerate with
+   scrimNoise.js noiseUri({...SCRIM_GRAIN, freq: 0.85, amount: 0.56}) —
+   the mirror lives there as SCRIM_GRAIN_MOBILE. URL dials still override
+   (inline beats the tier block). */
+@media (max-width: 768px) {
+  .fp[data-pager='scale'] {
+    --scrim-noise-size: 90px;
+    --scrim-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%20width%3D'100%25'%20height%3D'100%25'%3E%3CfeTurbulence%20type%3D'turbulence'%20baseFrequency%3D'0.85'%20numOctaves%3D'1'%20seed%3D'7'%20stitchTiles%3D'stitch'%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D'linear'%20slope%3D'0.56'%20intercept%3D'0'%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D'256'%20height%3D'256'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
+  }
+}
+
+.fp[data-pager='scale']::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  /* The BLUR FIX (09-04): the fade lives on opacity 0↔1 while the
+     DARKNESS lives in the background-color's alpha (--pager-scrim, same
+     0–1 token) — an element with opacity < 1 composites its
+     backdrop-filter RESULT at that opacity over the SHARP original, so a
+     0.65-opacity scrim leaked 35% crisp stage through every blur ("blur
+     px does nothing"). At steady opacity 1 the filter owns the backdrop.
+     --scrim-tint mixes the live --project-color into the flood before
+     the alpha (0 = pure black). */
+  background-color: color-mix(
+    in srgb,
+    color-mix(
+        in srgb,
+        var(--project-color, var(--color-black)) calc(var(--scrim-tint, 0) * 100%),
+        var(--color-black)
+      )
+      calc(var(--pager-scrim) * 100%),
+    transparent
+  );
+  /* ?scrimtune hooks (09-04 round 7): the bench writes these inline on
+     .fp — a tiled feTurbulence data-URI (grain), its display size, a
+     per-frame jitter offset (the grain "fps"), a backdrop blur, and the
+     tint above. All default to no-ops, so the shipped scrim is visually
+     identical until a dial moves; blessed values get baked here. */
+  background-image: var(--scrim-noise, none);
+  background-size: var(--scrim-noise-size, auto);
+  background-position: var(--scrim-noise-pos, 0 0);
+  background-repeat: repeat;
+  -webkit-backdrop-filter: var(--scrim-bf, none);
+  backdrop-filter: var(--scrim-bf, none);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--pager-scrim-ms) var(--ease-micro);
+}
+
+.fp[data-pager='scale'].is-pager-engaged::before,
+.fp[data-pager='scale'].is-scrimtune-hold::before {
+  opacity: 1;
+  /* The shipped grain driver: 8 held frames over 8/30s = the baked 30fps
+     jitter (keyframed background-position outranks the base var while
+     active). Runs only while the scrim shows; deliberately NOT stilled by
+     the pause freeze — the grain belongs to the scrim, not the page (the
+     projector idiom), matching what the bench previewed. The bench sets
+     --scrim-grain-anim: none and drives its own interval instead. */
+  animation: var(--scrim-grain-anim, fp-scrim-grain 0.2667s steps(1, end) infinite);
+}
+
+@keyframes fp-scrim-grain {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+
+  12.5% {
+    background-position: 137px 61px;
+  }
+
+  25% {
+    background-position: 33px 199px;
+  }
+
+  37.5% {
+    background-position: 208px 118px;
+  }
+
+  50% {
+    background-position: 88px 22px;
+  }
+
+  62.5% {
+    background-position: 166px 233px;
+  }
+
+  75% {
+    background-position: 14px 92px;
+  }
+
+  87.5% {
+    background-position: 227px 172px;
+  }
+}
+
+.fp[data-pager='scale'] .fp-scale {
+  transition: z-index 0s linear var(--pager-scrim-ms);
+}
+
+.fp[data-pager='scale'].is-pager-engaged .fp-scale {
+  z-index: 120;
+  transition: z-index 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  /* The [data-open] selectors must appear here too — the base (0,2,0)
+     rules alone lose to the open-state (0,3,0)+attr transitions, so the
+     deploy would still animate under RM. */
+  .fp .fp-tape__window,
+  .fp .fp-tape__name,
+  .fp .fp-tape[data-open] .fp-tape__window,
+  .fp .fp-tape[data-open] .fp-tape__name,
+  .fp .fp-stage {
+    transition: none;
+  }
+
+  .fp .fp-tape__name[data-marquee] .fp-tape__name-track {
+    animation: none;
+  }
+}
+
+/* — Graticule pager (?pager=scale · A/B arm, docs/fp-pager-rework-approaches.md)
+   The chart instrument: a flush margin-tab chip (a stacked fraction —
+   active over a 1px rule over the count) is the fixed LENS; press-hold
+   (touch) / hover (desktop) charges it and the SCALE — one strip of major
+   ticks + numbers (minor ticks deleted round 6) — slides 1:1 under it (the
+   inverse of the fisheye rail). Per-frame motion is the strip transform
+   only (engine
+   quickSetter); CSS owns deploy/retract + the tick flash. Tokens: global.css
+   :root + <=768 tier (--scale-*, --pager-stage-dim). — */
+.fp .fp-scale {
+  position: fixed;
+  /* The FLUSH margin-tab seat (device-gate item: the iOS back-swipe gutter
+     — ship flush, gate on the real-device pass). */
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  width: var(--scale-w);
+  color: var(--color-white);
+  /* Root-local derived geometry: the lens row's centre from the chip top =
+     the scale's origin; the pointer's room inside every number cell (lens
+     and stations share it so the digits line up under the lens). */
+  --scale-lens-y: calc(var(--scale-num-h) / 2);
+  --scale-pad: var(--space-4);
+  /* The row under the lens RIGHT NOW. The skin writes --scale-c at every
+     detent (--scale-q at every landing), so every derived distance below
+     keys off the live instrument instead of React's `active` — a commit
+     deferred behind the Turn lock can't leave the cascade or the hit pad
+     pointing at a station the lens has already left. Pre-hydration both
+     fall back to the SSR seed. */
+  --scale-cur: var(--scale-c, var(--scale-i, 0));
+  /* Stations that EXIST above / below the lens, capped at the deployed
+     window — the engaged hit pad's two halves (never symmetric: at either
+     end of the scale one side is empty stage). */
+  --scale-up: min(var(--scale-rows), var(--scale-cur));
+  --scale-down: min(var(--scale-rows), var(--scale-n, 1) - 1 - var(--scale-cur));
+  /* --scale-clones (inline, from the skin's CLONE_ROWS) = ghost rows past
+     each end under ?wrap; 0 without it, so every derived geometry below
+     degrades to the bounded scale. */
+  /* Feather depth at each end of the window — 09-02 round 2: TWO stations
+     of fade (the roster dissolves over a greater area). ?feather=<px>
+     overrides inline from the skin. */
+  --scale-feather: calc(var(--scale-pitch) * 2);
+  /* The cascade is FITTED to its budget: the farthest visible station is
+     always --scale-rows away, so the last station always finishes inside
+     --scale-open-ms / --scale-close-ms (the 30ms token stays the cap for
+     short windows). Without this the 13-station reverse cascade ran 480ms
+     against a 300ms rule wipe — orphan ticks after the axis had gone. */
+  --scale-stagger-open: min(
+    var(--scale-stagger-ms),
+    (var(--scale-open-ms) - var(--scale-fade-ms)) / var(--scale-rows)
+  );
+  --scale-stagger-close: min(
+    var(--scale-stagger-ms),
+    (var(--scale-close-ms) - var(--scale-fade-ms)) / var(--scale-rows)
+  );
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Press target inflated around the small chip — never leftward (the screen
+   edge belongs to system gestures; flush seat = zero room anyway). z -1
+   keeps the pad behind the strip so desktop station clicks land on their
+   buttons. Right pad to 1rem: 35 + 14 = 49px ≥ the 44px minimum. */
+.fp .fp-scale::after {
+  content: '';
+  position: absolute;
+  inset: -0.75rem -1rem -0.75rem 0;
+  z-index: -1;
+}
+
+/* Engaged: the pointer surface inflates ~4rem rightward AND over the
+   deployed scale (audit: a chip-wide hover surface + pointerleave-commit
+   kills scrubs on tiny x-drift; the gaps beside the stations' ticks must
+   not leak). Each half is sized off the stations that EXIST on that side,
+   capped at the window — a symmetric pad would hold the pager engaged (and
+   the stage's own wheel dead) over hundreds of px of empty column at either
+   end of the scale. */
+.fp .fp-scale[data-open]::after {
+  top: calc((var(--scale-up) + 0.5) * var(--scale-pitch) * -1);
+  bottom: calc((var(--scale-down) + 0.5) * var(--scale-pitch) * -1);
+  right: -4rem;
+}
+
+/* The chip = lens row + fraction rule + denominator row. Decorative
+   overlay: the station buttons beneath carry the semantics and clicks; the
+   root's own box carries hover/press. Above the strip so the scale's
+   numbers pass UNDER the opaque lens (fixed window, moving scale). */
+.fp .fp-scale__chip {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* Both fraction rows: chip-family members — mono digits, focused-project
+   accent off the .fp root broadcast, readable ink via the paired -fg.
+   Element-local bg/colour transitions pinned (the .fp-pager__dot doctrine)
+   so the 1700ms inherited @property fade keeps repainting these text
+   consumers. 0.4s here = the UN-charge (the attribute leaves, this rule's
+   transition runs): short, so the chip lands wearing the destination accent
+   well inside the Turn instead of low-passing the whole cross-fade. */
+.fp .fp-scale__lens,
+.fp .fp-scale__den {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--scale-num-h);
+  padding-left: var(--scale-pad);
+  /* 09-02 round 2 (Nathan): body face across the whole pager — the
+     instrument joins the button family instead of the mono readouts.
+     Round 7 (Nathan): the resting chip (number over total) matches the
+     corner pills' text line (--text-link, the "for the music industry"
+     size) on DESKTOP; the ≤768 tier keeps --text-mono. The engaged roster
+     stays --text-mono — the chip's digits are hidden while deployed, so
+     only the rest/charged states wear this. */
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-mono);
+  letter-spacing: var(--tracking-tight);
+  background: var(--project-color, var(--color-electric-blue));
+  color: var(--project-color-fg, var(--color-white));
+  transition:
+    background 0.4s var(--ease-micro),
+    color 0.4s var(--ease-micro);
+}
+
+/* The 1px fraction rule rides the denominator's top edge in the ink colour
+   (currentColor follows the colour transition), so it fades WITH the
+   denominator on engage — no separate rule element to keep opaque. */
+.fp .fp-scale__den {
+  border-top: 1px solid currentColor;
+  transition:
+    background 0.4s var(--ease-micro),
+    color 0.4s var(--ease-micro),
+    opacity var(--scale-close-ms) var(--ease-draw);
+}
+
+/* Charged = held intent (press past the graze, hover on desktop). Snappy
+   in (0.16s); HELD for the whole gesture — the accent returns only after
+   the commit, on the 0.4s base transition above. */
+.fp .fp-scale[data-charged] .fp-scale__lens,
+.fp .fp-scale[data-charged] .fp-scale__den {
+  background: var(--color-white);
+  color: var(--color-black);
+  transition:
+    background 0.16s var(--ease-micro),
+    color 0.16s var(--ease-micro);
+}
+
+.fp .fp-scale[data-charged] .fp-scale__den {
+  transition:
+    background 0.16s var(--ease-micro),
+    color 0.16s var(--ease-micro),
+    opacity var(--scale-close-ms) var(--ease-draw);
+}
+
+/* Engaged: the denominator (and its rule) fades — only the lens remains. */
+.fp .fp-scale[data-open] .fp-scale__den {
+  opacity: 0;
+  transition:
+    background 0.16s var(--ease-micro),
+    color 0.16s var(--ease-micro),
+    opacity var(--scale-open-ms) var(--ease-draw);
+}
+
+/* FP-1 house pulse at REST (09-02 round 2): a dim-gray veil inside the
+   lens swells on the canonical envelope (GSAP housePulseLoop — the skin
+   owns the timeline and kills it for the whole gesture), the number
+   riding above it and flipping white at the peak. A dedicated span, never
+   the lens bg: the accent/charged colour transitions on the row must keep
+   their element-local CSS lanes (the paint-trap doctrine). */
+.fp .fp-scale__pulse {
+  position: absolute;
+  inset: 0;
+  background: var(--color-dim-gray);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fp .fp-scale__pointer,
+.fp .fp-scale__num {
+  z-index: 1;
+}
+
+/* Round 4 (09-03, Nathan): while DEPLOYED the chip YIELDS — bg to
+   transparent, its digits out — and the station row under the lens IS the
+   selected readout (number + name as one element, scaled by proximity; see
+   the station rules). One crossfade at open/close in one seat, instead of
+   a per-crossing handoff between two instances of the same name. Placed
+   after the charged rules on purpose: open must outrank the white charge
+   (equal specificity, source order decides). The pointer keeps its own
+   white — currentColor would fade with the lens ink. */
+.fp .fp-scale__num {
+  display: inline-block;
+  opacity: 1;
+  transition: opacity 0.2s var(--ease-micro);
+}
+
+.fp .fp-scale[data-open] .fp-scale__lens {
+  background: transparent;
+  color: var(--color-white);
+}
+
+.fp .fp-scale[data-open] .fp-scale__num {
+  opacity: 0;
+}
+
+/* The lens pointer — the legacy marker triangle (border-triangle idiom)
+   carried over, inside the lens's left pad (the flush seat leaves no room
+   outside it). It wears the lens INK (currentColor) — white-on-white would
+   vanish on the charged chip — and shows only while deployed. */
+.fp .fp-scale__pointer {
+  position: absolute;
+  left: var(--space-1);
+  top: 50%;
+  width: 0;
+  height: 0;
+  /* Round 7 (Nathan): bigger selection arrow — 12×8px (was 7×5). */
+  margin-top: -0.429rem;
+  border-top: 0.429rem solid transparent;
+  border-bottom: 0.429rem solid transparent;
+  border-left: 0.571rem solid currentColor;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-micro);
+}
+
+.fp .fp-scale[data-open] .fp-scale__pointer {
+  opacity: 1;
+  transition: opacity 0.2s var(--ease-micro) 80ms;
+}
+
+/* The deployed WINDOW — the instrument's aperture, --scale-rows pitches
+   each side of the lens. Fixed (never transformed): the strip slides under
+   it, so far stations scrub into view instead of running under the fixed
+   nav lockup or off the bottom of a phone (13 stations × 36px = ±432px
+   around a lens pinned at 50vh overran both). overflow clips the hit
+   testing — stations outside the window are inert, not just invisible —
+   and the mask feathers the two edges so the scale reads as endless rather
+   than cut. --scale-rows is a TOKEN per tier: dial it, or set it past the
+   station count to get the unbounded scale back. */
+/* Round 5 (09-03, Nathan): the FLIPPER BOX — the round-1 near-black label
+   chip reborn as the game-show arrow. It seats at the lens line and rides
+   --box-dy, a skin-side spring that FOLLOWS the current name's exact
+   motion under tension (magnet-shaped strip) and flicks to the incoming
+   name at the threshold, re-centring as it locks. Round 6: it lives
+   INSIDE the strip, between the hairline and the stations, so the fill
+   paints OVER the axis line and UNDER the row text (equal-z siblings in
+   DOM order — no stacking-context split can be out-ranked from outside),
+   and it runs from the SEAT EDGE so the project number sits on solid
+   black too (the scaled digits crossed the white hairline). Width is
+   JS-set per detent (measured name start + capped name + pad, unscaled);
+   inside the strip the transform counter-rides the strip off --scale-qf
+   (the same number the engine writes as the strip's -q·pitch, so the box
+   holds the lens line in screen space with zero extra per-frame writes),
+   then --box-dy deflects it; translateY leftmost applies AFTER the scale,
+   so both stay screen px. Origin 0 50% = the row's own origin, so box and
+   row scale in lockstep. */
+.fp .fp-scale__box {
+  position: absolute;
+  left: 0;
+  top: calc(var(--scale-box-h) / -2);
+  width: 0;
+  height: var(--scale-box-h);
+  background: var(--color-near-black);
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 0 50%;
+  transform: translateY(
+      calc(var(--scale-qf, var(--scale-cur)) * var(--scale-pitch) + var(--box-dy, 0px))
+    )
+    scale(calc(var(--scale-sel) * var(--scale-sel-bump)));
+  /* ^ ×--scale-sel-bump since r8: the box tracks the selected row's TOP
+     size (the bumped paint), keeping the ticker clip flush at its edge. */
+  transition: opacity 0.2s var(--ease-micro);
+}
+
+.fp .fp-scale[data-open] .fp-scale__box {
+  opacity: 1;
+  transition: opacity 0.2s var(--ease-micro) 80ms;
+}
+
+/* ?wrap — the WHEEL (09-02, default ON): the strip loops, so neither
+   hit-pad half ever runs out of stations. */
+.fp .fp-scale--wrap {
+  --scale-up: var(--scale-rows);
+  --scale-down: var(--scale-rows);
+}
+
+.fp .fp-scale__window {
+  position: absolute;
+  left: 0;
+  top: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
+  /* Wide enough for the station names right of the ticks (09-02) — and,
+     round 4, for the SELECTED row painted at ×--scale-sel (transform scales
+     the painted box past the layout extent; the window must not double-clip
+     what the name's own max-width already governs). Mask stays
+     vertical-only, so the names feather with their rows. */
+  width: calc(
+    (var(--scale-w) + var(--space-4) + var(--space-2) + var(--scale-name-max)) * var(--scale-sel)
+  );
+  height: calc(var(--scale-rows) * var(--scale-pitch) * 2);
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    var(--color-black) var(--scale-feather),
+    var(--color-black) calc(100% - var(--scale-feather)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    var(--color-black) var(--scale-feather),
+    var(--color-black) calc(100% - var(--scale-feather)),
+    transparent 100%
+  );
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* The scale strip: ONE vertically transformed layer whose origin is the
+   lens centre (--scale-rows pitches down inside the window); station k sits
+   (k − q) pitches from it. SSR-correct seed off the inline --scale-i; the
+   engine's first quickSetter write (inline transform) takes over on
+   hydration. Inert at rest — invisible stations above/below the chip must
+   not widen the press target or steal stage taps; deployed, they are the
+   desktop click/hover surface (a pointer-events:auto child stays
+   hit-testable inside the window's pointer-events:none box). */
+.fp .fp-scale__scale {
+  position: absolute;
+  left: 0;
+  top: calc(var(--scale-rows) * var(--scale-pitch));
+  width: 100%;
+  height: 0;
+  transform: translateY(calc(var(--scale-i, 0) * var(--scale-pitch) * -1));
+  will-change: transform;
+  pointer-events: none;
+}
+
+.fp .fp-scale[data-open] .fp-scale__scale {
+  pointer-events: auto;
+}
+
+/* The axis hairline (round 7): a SCREEN-SPACE SVG path filling the window
+   — no longer riding the strip. Under ?scalewarp the skin builds the
+   barrel curve (in screen space the cylinder is a STATIC ellipse: a row at
+   screen offset u wears scale cos(δ/R) with u = R·sin(δ/R)·pitch, so
+   x = X0·√(1 − (u/(R·pitch))²) — the line hugs each row's own axis
+   crossing as it scales in and out at the feathered edges, instead of
+   slicing straight through the shrunken names); without warp the path is
+   the straight vertical line. Closed = a zero-height clip slit at the
+   window centre — which IS the lens line in screen space, so the wipe
+   always converges on the lens with no strip-space origin var (--scale-q
+   retired). Open draws OUTWARD from the lens both ways; the window's
+   feather mask fades the ends like everything else. */
+.fp .fp-scale__hair {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: inset(50% 0 50%);
+  transition: clip-path var(--scale-close-ms) var(--ease-draw);
+}
+
+.fp .fp-scale__hair path {
+  fill: none;
+  stroke: var(--color-white);
+  stroke-width: 1px;
+}
+
+.fp .fp-scale[data-open] .fp-scale__hair {
+  clip-path: inset(0);
+  transition: clip-path var(--scale-open-ms) var(--ease-draw);
+}
+
+/* Wheel SEAM (round 7): the rule between the last and first stations at
+   every loop boundary in the rendered strip — where the list repeats. Own
+   strip-level element with the seam position inline as --k (…, −0.5,
+   count − 0.5, …), NOT a station pseudo: the r6 minor-tick lesson — it
+   must never ride the selected row's ×--scale-sel transform. It joins the
+   stations' open/close cascade off the same --i math, and under warp wears
+   the cylinder projection (translate + foreshorten) WITHOUT the selection
+   lift. Sits under the flipper box, so the fill covers it at the lens the
+   way it covers the hairline. */
+.fp .fp-scale__seam {
+  --i: max(var(--k, 0) - var(--scale-cur), var(--scale-cur) - var(--k, 0));
+  position: absolute;
+  left: var(--scale-w);
+  top: calc(var(--k, 0) * var(--scale-pitch) - 0.5px);
+  width: calc(var(--space-4) + var(--space-2) + var(--scale-name-max));
+  height: 1px;
+  background: color-mix(in srgb, var(--color-white) 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 0 50%;
+  transition: opacity var(--scale-fade-ms) var(--ease-micro)
+    calc(max(var(--scale-rows) - var(--i), 0) * var(--scale-stagger-close));
+}
+
+.fp .fp-scale[data-open] .fp-scale__seam {
+  opacity: 1;
+  transition: opacity var(--scale-fade-ms) var(--ease-micro)
+    calc(min(var(--i), var(--scale-rows)) * var(--scale-stagger-open));
+}
+
+.fp .fp-scale--warp .fp-scale__seam {
+  --dq: calc(var(--k, 0) - var(--scale-qf, var(--scale-cur)));
+  transform: translateY(
+      calc(
+        (var(--scale-warp-r) * sin(var(--dq) / var(--scale-warp-r)) - var(--dq)) *
+          var(--scale-pitch)
+      )
+    )
+    scale(cos(var(--dq) / var(--scale-warp-r)));
+}
+
+.fp .fp-scale__stations {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+}
+
+/* One station = one pitch-tall row: the number (same cell geometry as the
+   lens, so it lines up under it at q = k) and a major tick off the axis at
+   its centre. (The half-station MINOR ticks were deleted in round 6 —
+   Nathan's screenshot: the selected row's minor tick scaled up in lockstep
+   with it and hung below the name.) Numbers and ticks cascade OUTWARD from
+   the lens on deploy (delay = distance × stagger) and fade back TOWARD it
+   on retract (far first — the same --i, mirrored off the window's reach);
+   the tick rides the button's opacity. --i is derived from --scale-cur,
+   the row under the lens RIGHT NOW, so the cascade always converges on the
+   lens (React's `active` lags it through every lock-deferred Turn). */
+.fp .fp-scale__station {
+  --i: max(var(--k, 0) - var(--scale-cur), var(--scale-cur) - var(--k, 0));
+  position: absolute;
+  left: 0;
+  top: calc((var(--k, 0) - 0.5) * var(--scale-pitch));
+  /* The chip column only — the window is wider for the names now, and a
+     full-width button would drag the centred digits off the lens line. The
+     name span overflows the button box rightward and stays clickable. */
+  width: var(--scale-w);
+  height: var(--scale-pitch);
+  padding: 0 0 0 var(--scale-pad);
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: var(--text-mono);
+  line-height: var(--scale-pitch);
+  letter-spacing: var(--tracking-tight);
+  text-align: center;
+  /* Round 4 (09-03): the row IS the selected display — no preview label,
+     no handoff, no double. Round 8 (Nathan): the proximity curve spans
+     TWO stations — the ±1 neighbours land at the FULL --scale-sel (the
+     [select_project] size) and the selected row rides above it to
+     × --scale-sel-bump. --ndr = live distance from the lens (--scale-qf,
+     per frame, magnet-shaped upstream); --w1 weights the centre bump
+     (f² inside one station), --w2 the outer falloff (f² across stations
+     1→2); --wd doubles as the ink weight, so the near trio reads full
+     white and the roster sits at 55%. NO transform/color transitions —
+     per-frame channels; the engine's damper + magnet are the only
+     smoothing. */
+  --ndr: max(
+    var(--k, 0) - var(--scale-qf, var(--scale-cur)),
+    var(--scale-qf, var(--scale-cur)) - var(--k, 0)
+  );
+  --w1: clamp(0, 1 - var(--ndr), 1);
+  --w2: clamp(0, 2 - var(--ndr), 1);
+  --wd: calc(var(--w2) * var(--w2));
+  --sel: calc(
+    1 + (var(--scale-sel) - 1) * var(--wd) +
+      (var(--scale-sel) * var(--scale-sel-bump) - var(--scale-sel)) * var(--w1) * var(--w1)
+  );
+  color: color-mix(in srgb, var(--color-white) calc(55% + 45% * var(--wd)), transparent);
+  opacity: 0;
+  cursor: pointer;
+  /* Origin on the seat edge — the row grows rightward off its tick. */
+  transform-origin: 0 50%;
+  transition: opacity var(--scale-fade-ms) var(--ease-micro)
+    calc(max(var(--scale-rows) - var(--i), 0) * var(--scale-stagger-close));
+}
+
+.fp .fp-scale[data-open] .fp-scale__station {
+  opacity: 1;
+  transform: scale(var(--sel)); /* lands EXACTLY --scale-sel at lock — the [select_project] size */
+  transition: opacity var(--scale-fade-ms) var(--ease-micro)
+    calc(min(var(--i), var(--scale-rows)) * var(--scale-stagger-open));
+}
+
+/* ?scalewarp=1 (09-02 round 2, Nathan's lens-warp variant): every row wears
+   a cylindrical projection of its CONTINUOUS distance from the lens —
+   --scale-qf, written per frame by the skin — approximating the media
+   grid's camera-lens warp in DOM space (the shader itself can't reach DOM;
+   same visual language, dialable radius). Screen offset R·sin(δ/R) against
+   the strip's linear δ = the corrective translateY; cos(δ/R) is the drum
+   foreshortening. Transform transitions are DROPPED here — a per-frame
+   channel must never be low-passed by a 0.2s transition. --scale-warp-r is
+   in STATIONS (the drum radius); the skin inverts the same math in its
+   hitTest so taps land the row they visually touch. */
+.fp .fp-scale--warp {
+  --scale-warp-r: 8;
+}
+
+.fp .fp-scale--warp .fp-scale__station,
+.fp .fp-scale--warp[data-open] .fp-scale__station {
+  /* Both states carry the SAME transform: the projection replaces the pop
+     (whose [data-open] rule outweighs a single-class warp selector), and a
+     per-frame channel must never be low-passed by a 0.2s transition. */
+  --dq: calc(var(--k, 0) - var(--scale-qf, var(--scale-cur)));
+  /* The drum foreshortening times the selection lift — one scale channel. */
+  transform: translateY(
+      calc(
+        (var(--scale-warp-r) * sin(var(--dq) / var(--scale-warp-r)) - var(--dq)) *
+          var(--scale-pitch)
+      )
+    )
+    scale(calc(cos(var(--dq) / var(--scale-warp-r)) * var(--sel)));
+}
+
+/* Major tick — the station's own mark, at its centre. */
+.fp .fp-scale__station::before {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: calc(50% - 0.5px);
+  width: var(--space-4);
+  height: 1px;
+  background: currentColor;
+  pointer-events: none;
+}
+
+/* Crossed major tick flashes white and decays (the engine sets data-flash
+   at the detent, clears it on the next crossing). An animation, not a
+   transition, so the decay needs no second DOM write. */
+.fp .fp-scale__station[data-flash]::before {
+  animation: fp-scale-flash var(--scale-flash-ms) var(--ease-micro) both;
+}
+
+@keyframes fp-scale-flash {
+  from {
+    background: var(--color-white);
+  }
+
+  to {
+    background: currentColor;
+  }
+}
+
+@media (hover: hover) {
+  .fp .fp-scale__station:hover {
+    color: var(--color-white);
+  }
+}
+
+/* Per-station client name (09-02; round 4 09-03): every deployed row
+   carries its name right of the axis ticks, riding the row's cascade fade,
+   ink and scale — number and name are ONE element from roster to selected.
+   No per-row dimming (Nathan's round-4 note: two instances of one name
+   read cheap — there is only this one now). The track carries TWO copies
+   (the tape idiom): the second participates only while marqueeing. */
+.fp .fp-scale__name {
+  position: absolute;
+  left: calc(var(--scale-w) + var(--space-4) + var(--space-2));
+  top: 0;
+  max-width: var(--scale-name-max);
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+  line-height: var(--scale-pitch);
+  text-transform: uppercase;
+}
+
+/* The SELECTED row's tighter cap (round 5): the box bounds the name, the
+   clip happens here, and past it the marquee rolls. Roster rows keep the
+   wide cap — the whole roster still reads (round-1 goal). */
+.fp .fp-scale__name[data-sel] {
+  max-width: var(--scale-name-sel-max);
+}
+
+/* The ±1 NEIGHBOUR rows (round 8): painted at the full [select_project]
+   size now, so they wear the tighter cap too — hard clip, no ticker
+   (context rows; the skin stamps data-near per detent). */
+.fp .fp-scale__name[data-near] {
+  max-width: var(--scale-name-sel-max);
+}
+
+.fp .fp-scale__name-track {
+  display: inline-flex;
+  gap: var(--space-6);
+}
+
+.fp .fp-scale__name:not([data-marquee]) .fp-scale__name-track > span + span {
+  display: none;
+}
+
+/* The SELECTED row's clipping name gets the next-project chip's ticker
+   (the tape's marquee): the skin measures at each detent and arms
+   data-marquee on the row under the lens only. Round 7 (Nathan): NO fade —
+   the rolling text runs flush to the box edge and HARD-CLIPS there (the
+   name's own overflow at the sel cap; the skin drops the box's trailing
+   pad while marqueeing, so clip edge = box edge). Never under RM (the
+   skin gates the animation; a static clipped name is fine). */
+.fp .fp-scale__name[data-marquee] .fp-scale__name-track {
+  animation: fp-scale-marquee var(--marquee-s, 6s) linear infinite;
+}
+
+@keyframes fp-scale-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Keyboard ring at the LENS — the focused (active) station sits under the
+   opaque chip, so a per-station ring can never be seen. :focus-visible
+   (not :focus-within) so mouse clicks don't ring. The station's own UA
+   outline is suppressed: unlike the tape's clipped window the graticule
+   draws it in full, one row taller than the lens, so the two rendered as
+   concentric mismatched rings. The ring stays OUTWARD: the flush seat cuts
+   its left edge at the viewport (a three-sided bracket — noted with the
+   seat itself, which is a device-gate item), but an inset ring collides
+   with the ×1.5 lens digit inside a 19px row. */
+.fp .fp-scale__station:focus-visible {
+  outline: none;
+}
+
+.fp .fp-scale:has(.fp-scale__station:focus-visible) .fp-scale__lens {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+/* select_project hint (?selectlabel, default ON — 09-02 round 2): rotated
+   90° CCW (vertical-rl + 180° flip reads bottom-to-top everywhere Safari
+   included), seated above the chip, anchored to its top edge. On engage it
+   WIPES DOWNWARD IN GLOBAL SPACE — clip-path applies pre-transform, and the
+   180° flip maps global top onto the local bottom, so the wipe grows the
+   LOCAL BOTTOM inset. Reappears on retract on the close curve. */
+.fp .fp-scale__hint {
+  position: absolute;
+  bottom: calc(100% + var(--space-3));
+  left: 50%;
+  transform: translateX(-50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  font-family: var(--font-body);
+  /* Round 7: the corner pills' text line on desktop (with the chip);
+     --text-mono at ≤768. */
+  font-size: var(--text-link);
+  letter-spacing: var(--tracking-tight);
+  color: color-mix(in srgb, var(--color-white) 55%, transparent);
+  pointer-events: none;
+  clip-path: inset(-2px);
+  transition: clip-path var(--scale-close-ms) var(--ease-draw);
+}
+
+.fp .fp-scale[data-open] .fp-scale__hint {
+  clip-path: inset(-2px -2px 100% -2px);
+  transition: clip-path var(--scale-open-ms) var(--ease-draw);
+}
+
+/* [select_project] pause-screen label (?pause, default OFF — 09-02 round 2):
+   viewport centre over the scrim while everything else on the page holds
+   still. Fade-in only rides CSS ([data-show]); the EXIT is the house random
+   letter cut (the skin hides the char spans in shuffled order — the
+   textExit idiom), so the hide itself is instant. Same 50vw seat trick as
+   the retired zoom flight: the root is fixed at the viewport's vertical
+   centre, so lens-y ≈ centre. */
+.fp .fp-scale__freeze {
+  position: absolute;
+  left: 50vw;
+  top: var(--scale-lens-y);
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-body);
+  font-size: var(--text-secondary);
+  letter-spacing: var(--tracking-tight);
+  /* r9 (Nathan): a CHIP — the accent fill with its paired ink (the token
+     pair every project-color-dependent element rides), the fp-card__tab
+     family skin. */
+  color: var(--project-color-fg, var(--color-white));
+  background: var(--project-color, var(--color-electric-blue));
+  padding: var(--space-2) var(--space-4);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.fp .fp-scale__freeze[data-show] {
+  opacity: 1;
+  transition: opacity 0.2s var(--ease-micro) 80ms;
+}
+
+/* ≤768 (r9, Nathan — supersedes the 09-03 right-seat): long client names
+   creep through the lens band for a beat as they scale toward centre, so
+   the chip leaves the band entirely — ROTATED 90° CCW (the hint's
+   vertical-rl + 180° flip idiom: reads bottom-to-top, and a 180° spin is
+   box-preserving, so the translate percentages stay honest), anchored to
+   the RIGHT viewport edge, centred in the TOP HALF (~25vh). Round 7: the
+   chip + hint's desktop --text-link steps back to --text-mono on this
+   tier. */
+@media (max-width: 768px) {
+  .fp .fp-scale__freeze {
+    left: calc(100vw - var(--space-4));
+    top: calc(var(--scale-lens-y) - 25vh);
+    transform: translate(-100%, -50%) rotate(180deg);
+    writing-mode: vertical-rl;
+  }
+
+  .fp .fp-scale__lens,
+  .fp .fp-scale__den,
+  .fp .fp-scale__hint {
+    font-size: var(--text-mono);
+  }
+}
+
+/* The pause screen proper: every CSS animation outside the pager holds
+   (GSAP tweens + the scene loop are paused by the skin — globalTimeline +
+   the swm:fp-freeze scene gate), and the scrim turns SOLID to input so the
+   stage, CTAs and chrome are inert while frozen. */
+.fp.is-fp-frozen :not(.fp-scale, .fp-scale *) {
+  animation-play-state: paused;
+}
+
+.fp[data-pager='scale'].is-fp-frozen::before {
+  pointer-events: auto;
+}
+
+/* (The r8 pause-screen globe ::after was REMOVED in r9 — Nathan's call;
+   the [select_project] label became the accent CHIP instead.) */
+
+
+@media (prefers-reduced-motion: reduce) {
+
+  /* The [data-open] / [data-charged] selectors must appear here too — the
+     base rules alone lose to the state rules' transitions, so the deploy
+     would still animate under RM. Colour transitions on the chip rows
+     STAY (the paint-trap guard): only their opacity fade is dropped. */
+  .fp .fp-scale__num,
+  .fp .fp-scale__pointer,
+  .fp .fp-scale__hair,
+  .fp .fp-scale__station,
+  .fp .fp-scale[data-open] .fp-scale__num,
+  .fp .fp-scale[data-open] .fp-scale__pointer,
+  .fp .fp-scale[data-open] .fp-scale__hair,
+  .fp .fp-scale[data-open] .fp-scale__station {
+    transition: none;
+  }
+
+  .fp .fp-scale__den,
+  .fp .fp-scale[data-charged] .fp-scale__den,
+  .fp .fp-scale[data-open] .fp-scale__den {
+    transition-property: background, color;
+  }
+
+  /* 09-02 movers: scrim, engaged z hold, station names, hint wipe, pop,
+     freeze label. (The warp transform carries no transition to drop, and
+     the skin never builds the rest pulse under RM.) */
+  .fp[data-pager='scale']::before,
+  .fp[data-pager='scale'] .fp-scale,
+  .fp[data-pager='scale'].is-pager-engaged .fp-scale,
+  .fp .fp-scale__name,
+  .fp .fp-scale__hint,
+  .fp .fp-scale[data-open] .fp-scale__hint,
+  .fp .fp-scale__freeze[data-show],
+  .fp .fp-scale__station,
+  .fp .fp-scale[data-open] .fp-scale__station {
+    transition: none;
+  }
+
+  .fp .fp-scale__station[data-flash]::before {
+    animation: none;
+  }
+
+  .fp .fp-scale__name[data-marquee] .fp-scale__name-track {
+    animation: none;
+  }
+
+  .fp .fp-scale__box,
+  .fp .fp-scale[data-open] .fp-scale__box {
+    transition: none;
+  }
+
+  .fp .fp-scale__seam,
+  .fp .fp-scale[data-open] .fp-scale__seam {
+    transition: none;
+  }
+
+  /* Baked 30fps grain jitter (09-04) holds still under RM — the scrim
+     keeps its static grain texture. */
+  .fp[data-pager='scale'].is-pager-engaged::before,
+  .fp[data-pager='scale'].is-scrimtune-hold::before {
+    animation: none;
+  }
+}
+
+/* — Signal-tuner pager (?pager=tuner · A/B arm, docs/fp-pager-rework-approaches.md)
+   Nothing spatial ever deploys — ONE chip at the rail seat that seeks like
+   a tuner. Rest: pad2(active) over a 2px position strip (fill =
+   active/(N−1)). Engage: the chip charges, the /NN total extends INSIDE
+   it, the client name extends right, the strip tracks the scrub 1:1.
+   Per-frame motion is ONE custom property (--tuner-pos, engine onFrame) +
+   textContent hard-cuts/scramble; CSS owns deploy/retract and the
+   post-commit strip glide. Tokens: global.css :root + <=768 tier
+   (--tuner-*, --pager-stage-dim). — */
+.fp .fp-tuner {
+  position: fixed;
+  left: clamp(0.75rem, 2vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Press target inflated around the small chip — never leftward (the screen
+   edge belongs to system gestures). z -1 keeps the pad behind the chip so
+   the slider itself stays the focus/hover target. */
+.fp .fp-tuner::after {
+  content: '';
+  position: absolute;
+  inset: -0.75rem -0.857rem -0.75rem 0;
+  z-index: -1;
+}
+
+/* Open: the pad grows rightward so a desktop scrub survives small x-drift
+   toward the stage (a 33px hover surface + pointerleave-commit would kill
+   it — the graticule audit's finding, adopted). MOUSE ONLY: touch captures
+   the pointer, so the inflation buys nothing there and the extra 3rem sits
+   over the card during the 900ms peek, where a tap on it is swallowed as a
+   peek-press instead of reaching the card. */
+@media (hover: hover) and (pointer: fine) {
+  .fp .fp-tuner[data-open]::after {
+    right: -3rem;
+  }
+}
+
+/* The chip — the ONE focusable slider. Column: readout row over the strip,
+   so the strip sits on the chip's true bottom edge. min-width, not width:
+   the /NN total extends inside the chip under intent (the seat is left-
+   anchored, so growth reads rightward, toward the name). S2 contract:
+   focused-project accent off the .fp root broadcast, readable ink via the
+   paired -fg; element-local transitions pinned (the .fp-pager__dot
+   doctrine) so the 1700ms inherited @property fade keeps repainting this
+   text consumer — the strip rides currentColor off the same channel. */
+.fp .fp-tuner__chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: var(--tuner-w);
+  height: var(--tuner-h);
+  padding: 0 var(--space-3);
+  background: var(--project-color, var(--color-electric-blue));
+  color: var(--project-color-fg, var(--color-white));
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  letter-spacing: var(--tracking-tight);
+  cursor: pointer;
+  transition:
+    background 0.16s ease-out,
+    color 0.16s ease-out;
+}
+
+/* Charged = held intent (press past the graze, hover on desktop). Peek
+   keeps the accent — the engine drops the charge for it. */
+.fp .fp-tuner[data-charged] .fp-tuner__chip {
+  background: var(--color-white);
+  color: var(--color-black);
+}
+
+/* Keyboard ring on the slider itself (nothing covers it). :focus-visible,
+   not :focus — a tap's focus synthesis must not ring. */
+.fp .fp-tuner__chip:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+/* Left-anchored, NOT centered: the row outgrows the rest chip's content box
+   the moment the /NN total unrolls, and a centered row would slide the
+   station number ~4px left over the 300ms draw (and back on retract). The
+   number is the anchor — the total grows rightward FROM it, never through
+   it (the tape's "reading line never moves" principle). */
+.fp .fp-tuner__readout {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* Digits box pinned to 2ch: the seeking scramble swaps in glyphs the mono
+   may fall back for — a moving box would jitter the total beside it. The
+   margin re-centers the 2ch box inside the REST chip's content box, so the
+   digits render at the identical x at rest and open. */
+.fp .fp-tuner__digits {
+  display: inline-block;
+  width: 2ch;
+  margin-left: calc((var(--tuner-w) - 2 * var(--space-3) - 2ch) / 2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* The /NN total lives INSIDE the chip and extends under intent (max-width
+   0 → 3ch, the draw curve). Dimmed against the digits so the station stays
+   the loud number; currentColor keeps it on the chip's transitioning ink. */
+.fp .fp-tuner__total {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  transition: max-width var(--tuner-close-ms) var(--ease-draw);
+}
+
+.fp .fp-tuner[data-open] .fp-tuner__total {
+  max-width: 3ch;
+  transition: max-width var(--tuner-open-ms) var(--ease-draw);
+}
+
+/* The position strip — runs FULL-BLEED through the chip's horizontal
+   padding (the .fp-cta__arrows--down caret-window idiom: negative margins
+   pull the window out to the chip's true edges). Track = ink at 35%,
+   fill = ink. */
+.fp .fp-tuner__strip {
+  flex: none;
+  height: var(--tuner-strip);
+  margin: 0 calc(-1 * var(--space-3));
+  background: color-mix(in srgb, currentColor 35%, transparent);
+}
+
+/* Fill width IS the position: --tuner-pos (0..1) on the root — the SSR seed
+   inline, then ONE style.setProperty per engine frame. No transition by
+   default: rest-follow and live seek are per-frame writes that must never
+   fight an interpolation. */
+.fp .fp-tuner__fill {
+  display: block;
+  height: 100%;
+  width: calc(var(--tuner-pos, 0) * 100%);
+  background: currentColor;
+}
+
+/* Post-commit glide: the strip travels from the seek position to the
+   landed station over the Turn on the CTA commit curve (the pager-CTA
+   linked-motion doctrine). The root arms [data-glide] + writes the target
+   in one task, mutes its per-frame writes for the window, then drops the
+   attribute — --tuner-glide-ms rides TURN_DURATION (inline, so ?turnms
+   keeps them in lockstep); the accent-fade token is the SSR fallback. */
+.fp .fp-tuner[data-glide] .fp-tuner__fill {
+  transition: width var(--tuner-glide-ms, var(--project-color-fade)) cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Client-name window off the chip's right edge — engaged only (number-only
+   rest, Nathan's 08-31 call). Near-black label skin; NO marquee — the mask
+   is sized to the cap, so only a name that overruns the cap feathers out
+   (a short name never fades). Left as a pointer surface ON MOUSE: a cursor
+   drifting onto the plate is still inside the root, so the scrub survives
+   (see the touch opt-out below). */
+.fp .fp-tuner__name {
+  position: absolute;
+  left: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translate(-0.5rem, -50%);
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0.071rem 0.429rem;
+  background: var(--color-near-black);
+  color: var(--color-white);
+  /* The house mono TAILS the body stack: the seeking scramble borrows the
+     ░▒▓█ block glyphs, which no face in --font-body carries — per-character
+     fallback would otherwise land on the OS symbol font (Apple Symbols /
+     Segoe UI Symbol), which renders them oversized and platform-dependent.
+     Iosevka Term ships unsubset, so the blocks resolve on the house mono. */
+  font-family: var(--font-body), var(--font-mono);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-mono);
+  line-height: 1.4;
+  text-transform: uppercase;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent 100%);
+  mask-size: var(--tuner-name-max) 100%;
+  -webkit-mask-size: var(--tuner-name-max) 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  transition:
+    max-width var(--tuner-close-ms) var(--ease-draw),
+    opacity 0.2s ease-out,
+    transform var(--tuner-close-ms) var(--ease-draw);
+}
+
+.fp .fp-tuner[data-open] .fp-tuner__name {
+  max-width: var(--tuner-name-max);
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition:
+    max-width var(--tuner-open-ms) var(--ease-draw),
+    opacity 0.2s ease-out 80ms,
+    transform var(--tuner-open-ms) var(--ease-draw);
+}
+
+/* Touch has no cursor to lose, so the plate keeps the tape's inert skin
+   there: while open it lies over the card's tag row, and a tap on it would
+   be eaten by the pager (a peek-press with no hit target just retracts)
+   instead of reaching the card underneath. */
+@media (hover: none) {
+  .fp .fp-tuner__name {
+    pointer-events: none;
+  }
+}
+
+/* The text box is pinned to the REAL name's width (inline, measured at
+   detent lock) so the proportional-face scramble never jitters the plate. */
+.fp .fp-tuner__name-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  /* The [data-open]/[data-glide] selectors must appear here too — the base
+     (0,2,0) rules alone lose to the state (0,3,0)+attr transitions, so the
+     deploy and the strip glide would still animate under RM. The chip's
+     0.16s colour transitions stay: they are the paint-trap fix, not motion. */
+  .fp .fp-tuner__total,
+  .fp .fp-tuner__name,
+  .fp .fp-tuner__fill,
+  .fp .fp-tuner[data-open] .fp-tuner__total,
+  .fp .fp-tuner[data-open] .fp-tuner__name,
+  .fp .fp-tuner[data-glide] .fp-tuner__fill {
+    transition: none;
+  }
+}
+
 /* .fp-cta base chip + .fp-cta__arrows moved to global.css (shared CTA chip
    family). 08-31, Nathan: /work's [PREVIOUS]/[NEXT] center chips are
    RETIRED — the /process STEPPER set is the primary prev/next component
@@ -445,8 +1894,20 @@ body:has(.fp) {
     min-width: 0;
   }
 
+  /* 09-04 r9 (Nathan's mobile dial bake: ?cardname=84 → 6rem fixed —
+     replaces the old clamp; ?tagtext=12 → 0.857rem; ?taggap=6 → --space-3;
+     ?tagpad=4 = the shipped --space-2, already true). The --fp-* dial vars
+     still override live. */
   .fp-card__client {
-    font-size: clamp(3rem, 11.5vw, 4.75rem);
+    font-size: var(--fp-card-name-size, 6rem);
+  }
+
+  .fp-tag {
+    font-size: var(--fp-tag-size, 0.857rem);
+  }
+
+  .fp-card__tags {
+    gap: var(--fp-tag-gap, var(--space-3));
   }
 }
 

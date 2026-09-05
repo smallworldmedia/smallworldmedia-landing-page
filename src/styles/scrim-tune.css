@@ -1,0 +1,147 @@
+/* scrim-tune.css — DEV-ONLY tuning bench for the ?pager=scale engaged scrim
+   (?scrimtune=1, 09-04 round 7). Mono, near-black chrome in the fp1Tune /
+   lenis-tune voice. Only the .scrim-tune tree is styled, and it renders
+   solely when ScrimTunePanel mounts (gated) — no effect on the shipped
+   scrim. Seated top-RIGHT (fp1 sits bottom-right, lenis bottom-left) and
+   above the scrim it dials (z 999 > scrim 110).
+
+   Imported from work/index.astro, the fp1-tune convention — the panel is a
+   lazy chunk, but Astro hoists a lazy chunk's CSS onto every page that can
+   reach it, so importing it from the component would only duplicate the
+   sheet. */
+
+.scrim-tune {
+  position: fixed;
+  right: var(--space-6);
+  top: 5rem;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 17rem;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.78);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  text-transform: lowercase;
+  pointer-events: auto;
+}
+
+.scrim-tune__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  letter-spacing: 0.02em;
+}
+
+.scrim-tune__note {
+  margin: 0;
+  opacity: 0.6;
+}
+
+.scrim-tune__group {
+  margin-top: var(--space-3);
+  opacity: 0.55;
+  letter-spacing: 0.08em;
+  border-top: 1px solid rgba(250, 250, 250, 0.18);
+  padding-top: var(--space-3);
+}
+
+.scrim-tune__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scrim-tune__key {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.scrim-tune__val {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.scrim-tune__row input[type='range'] {
+  width: 100%;
+  accent-color: var(--color-electric-blue);
+}
+
+.scrim-tune__check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.scrim-tune__check input {
+  accent-color: var(--color-electric-blue);
+}
+
+.scrim-tune__key select {
+  border: 1px solid rgba(250, 250, 250, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  text-transform: lowercase;
+  padding: var(--space-1) var(--space-2);
+}
+
+/* Generated bake block */
+.scrim-tune__path {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  opacity: 0.85;
+}
+
+.scrim-tune__path textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid rgba(250, 250, 250, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  padding: var(--space-2) var(--space-3);
+  word-break: break-all;
+}
+
+.scrim-tune__actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.scrim-tune__btn {
+  appearance: none;
+  flex: 1 1 auto;
+  border: 1px solid var(--color-cream);
+  background: transparent;
+  color: var(--color-cream);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  text-transform: lowercase;
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+
+.scrim-tune__head .scrim-tune__btn {
+  flex: 0 0 auto;
+}
+
+.scrim-tune__btn:hover {
+  background: var(--color-cream);
+  color: var(--color-black);
+}

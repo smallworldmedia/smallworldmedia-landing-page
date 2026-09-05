@@ -59,6 +59,14 @@ const PARAM = (key, fallback) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+// ?pager= A/B arms (08-31 rework) — every skin rides pager/usePagerGesture.js.
+// Static import() literals so each arm is its own lazy chunk. `hasOwn`
+// lookup below, never `in`: a `?pager=constructor` must not resolve.
+const PAGER_VARIANTS = Object.freeze({
+  tape: () => import('./pager/TapeWheelPager.jsx'),
+  scale: () => import('./pager/GraticulePager.jsx'),
+  tuner: () => import('./pager/SignalTunerPager.jsx'),
+});
 const PAGER_BASE_GAIN = 1.6; // active dot scale = 1 + this
 const PAGER_HOVER_GAIN = 1.8; // additive, centred on the cursor
 // Wheel/touch px to fill a CTA and advance — higher = more scroll resistance
@@ -150,6 +158,80 @@ export default function FeaturedProjects({ worlds = [] }) {
       alive = false;
     };
   }, []);
+  // FP pager rework A/B arms (?pager=tape|scale|tuner) — the same
+  // hydration-safe lazy gate as the benches: SSR + first client paint render
+  // the legacy rail (client:load parity, #418), the chosen variant swaps in
+  // after mount, and no arm's chunk rides the default visitor's payload.
+  // docs/fp-pager-rework-approaches.md is the spec.
+  const [PagerVariant, setPagerVariant] = useState(null);
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get('pager');
+    const load = Object.hasOwn(PAGER_VARIANTS, slug) ? PAGER_VARIANTS[slug] : null;
+    if (!load) return;
+    // Variant-scoped CSS hook (09-02): the scale arm swaps the engaged
+    // stage-dim for the full-viewport scrim via .fp[data-pager='scale'].
+    // Imperative, post-mount only — the SSR/first-paint markup stays
+    // identical to the legacy rail (#418 parity).
+    mainRef.current?.setAttribute('data-pager', slug);
+    let alive = true;
+    load()
+      .then((m) => {
+        if (alive) setPagerVariant(() => m.default);
+      })
+      .catch(() => {
+        /* A/B arm only — a blocked chunk just means the legacy rail */
+      });
+    return () => {
+      alive = false;
+      mainRef.current?.removeAttribute('data-pager');
+    };
+  }, []);
+  // ?cardname ?tagtext ?tagpad ?tagpadx ?taggap — the fp-card MOBILE dial
+  // set (09-04 r8): px overrides for the client-name headline, service-tag
+  // text, pill padding and pill gap, written inline as --fp-* custom props
+  // on .fp (the CSS falls back to the shipped tokens when absent). Blessed
+  // values get baked into featured-projects.css (≤768 tier as needed).
+  // Media density/spacing ride the EXISTING worldConfig knobs (?max
+  // ?platedeg ?fpwin ?fpvis — see the tunables guide).
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return undefined;
+    const dials = [
+      ['cardname', '--fp-card-name-size'],
+      ['tagtext', '--fp-tag-size'],
+      ['tagpad', '--fp-tag-pad-y'],
+      ['tagpadx', '--fp-tag-pad-x'],
+      ['taggap', '--fp-tag-gap'],
+    ];
+    const set = [];
+    dials.forEach(([key, prop]) => {
+      const v = PARAM(key, 0);
+      if (v > 0) {
+        el.style.setProperty(prop, `${v}px`);
+        set.push(prop);
+      }
+    });
+    return () => set.forEach((p) => el.style.removeProperty(p));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Pager-scrim bench (?scrimtune, 09-04 round 7) — same gate/chunk shape.
+  // Dials the ?pager=scale engaged scrim's opacity/blur/grain live through
+  // inline custom props on .fp (no-op fallbacks in featured-projects.css).
+  const [ScrimTunePanel, setScrimTunePanel] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('scrimtune')) return;
+    let alive = true;
+    import('./ScrimTunePanel.jsx')
+      .then((m) => {
+        if (alive) setScrimTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
   // Text-exit choreography bench (?texttune) — same gate/chunk shape.
   const [TextTunePanel, setTextTunePanel] = useState(null);
   useEffect(() => {
@@ -170,7 +252,13 @@ export default function FeaturedProjects({ worlds = [] }) {
   // scene's zoom/lens ramp plays the DOM text-out (elements queried at fire
   // time — never cached from this mount; client:only stale-DOM trap).
   useEffect(() => {
-    const onEnterWorld = (e) => runTextExit(e?.detail || {});
+    const onEnterWorld = (e) => {
+      // A queued pager commit must never fire a Turn mid-enter-dive — the
+      // enter_world path sets neither lockRef nor departingRef.
+      clearTimeout(pagerCommitRef.current);
+      pagerCommitRef.current = null;
+      runTextExit(e?.detail || {});
+    };
     window.addEventListener('swm:enter-world', onEnterWorld);
     return () => {
       window.removeEventListener('swm:enter-world', onEnterWorld);
@@ -192,6 +280,13 @@ export default function FeaturedProjects({ worlds = [] }) {
   const homeFillRef = useRef(0); // last dispatched pre-cover value (upward drag at the first World)
   const activeRef = useRef(0);
   activeRef.current = active;
+  // ── FP pager rework shared engine hooks (08-31) ──
+  // Engaged = the pager owns input: the accumulator drops deltas (a second
+  // finger on the stage must not Turn mid-scrub) and the stage dims via a
+  // class toggled IMPERATIVELY — per-gesture setState would re-render the
+  // whole WebGL tree for a className flip.
+  const pagerEngagedRef = useRef(false);
+  const pagerCommitRef = useRef(null); // one trailing deferred commit, latest landing wins
 
   const lastIndex = worlds.length - 1;
   const atEnd = active >= lastIndex;
@@ -291,6 +386,8 @@ export default function FeaturedProjects({ worlds = [] }) {
     if (departingRef.current) return;
     departingRef.current = true;
     clearIdle();
+    clearTimeout(pagerCommitRef.current); // no queued pager Turn fires mid-departure
+    pagerCommitRef.current = null;
     accumRef.current = 0;
     lockRef.current = Number.POSITIVE_INFINITY; // no Turns mid-departure
     if (PREFERS_REDUCED_MOTION) {
@@ -343,6 +440,44 @@ export default function FeaturedProjects({ worlds = [] }) {
     setActive(clamped);
   };
 
+  // The pager engine's engaged latch (see pagerEngagedRef above).
+  const onPagerEngaged = (v) => {
+    pagerEngagedRef.current = v;
+    if (v) {
+      // Re-engage cancels any deferred commit — the new gesture's landing
+      // supersedes the stale one (the spec's cleared-on-re-engage rule).
+      clearTimeout(pagerCommitRef.current);
+      pagerCommitRef.current = null;
+    }
+    mainRef.current?.classList.toggle('is-pager-engaged', v);
+  };
+
+  // The pager's commit path: exactly ONE goTo per release, honoring the
+  // one-Turn-at-a-time lock (goTo's click path never checked it — this is
+  // strictly politer). A release inside a prior Turn's window defers on a
+  // single trailing timer; a non-finite lock means mid-departure — refuse
+  // outright (setTimeout coerces an Infinity delay to 0).
+  const requestGoTo = (i) => {
+    if (departingRef.current) return;
+    clearTimeout(pagerCommitRef.current);
+    pagerCommitRef.current = null;
+    // A landing on the active index only CANCELS the stale deferral (the
+    // engine commits every landing for exactly this reason).
+    if (i === activeRef.current) return;
+    const now = performance.now();
+    if (now >= lockRef.current) {
+      goTo(i);
+      return;
+    }
+    if (!Number.isFinite(lockRef.current)) return;
+    pagerCommitRef.current = setTimeout(() => {
+      pagerCommitRef.current = null;
+      // Re-enter rather than goTo directly: a CTA Turn during the wait
+      // re-arms the lock, and firing blind would overlap Turns.
+      requestGoTo(i);
+    }, lockRef.current - now + 20);
+  };
+
   // Wheel/touch accumulator → fills a CTA, then advances forward/back.
   useEffect(() => {
     const el = mainRef.current;
@@ -350,6 +485,7 @@ export default function FeaturedProjects({ worlds = [] }) {
 
     const addDelta = (dy) => {
       if (departingRef.current) return; // reverse Envelopment committed — input is done here
+      if (pagerEngagedRef.current) return; // pager owns input mid-scrub (a second finger must not Turn)
       if (performance.now() < lockRef.current) return;
 
       // Footer reveal at the LAST World: the bottom slot belongs to the
@@ -441,6 +577,8 @@ export default function FeaturedProjects({ worlds = [] }) {
     el.addEventListener('touchend', onTouchEnd);
     return () => {
       clearIdle();
+      clearTimeout(pagerCommitRef.current); // deferred pager commit dies with the island
+      pagerCommitRef.current = null;
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
@@ -485,6 +623,11 @@ export default function FeaturedProjects({ worlds = [] }) {
   // in screen space (the rail's own top moves during those shifts); the
   // nav offset is applied at write time.
   useEffect(() => {
+    // Variant arm: the legacy rail is unmounting (or gone) — the dep change
+    // runs the cleanup below, tearing the ticker down; without this the
+    // follower runs forever against DETACHED nodes (querySelectorAll still
+    // finds children of a detached nav, so the !dot bail never fires).
+    if (PagerVariant) return undefined;
     const nav = pagerRef.current;
     const marker = markerRef.current;
     if (!nav || !marker || worlds.length < 1) return undefined;
@@ -518,7 +661,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     };
     gsap.ticker.add(follow);
     return () => gsap.ticker.remove(follow);
-  }, [worlds.length]);
+  }, [worlds.length, PagerVariant]);
 
   const onNext = () => {
     if (!atEnd) goTo(active + 1);
@@ -613,6 +756,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     >
       {Fp1TunePanel && <Fp1TunePanel />}
       {DeckDebugPanel && <DeckDebugPanel />}
+      {ScrimTunePanel && <ScrimTunePanel />}
       {EnterTunePanel && (
         // getAccent: the dry-run's cover ingests the ACTIVE project's accent
         // (ref, not state — the panel reads it at ▶ time, no re-render tie).
@@ -623,6 +767,14 @@ export default function FeaturedProjects({ worlds = [] }) {
       )}
       <WorldScene world={w} index={active} />
 
+      {PagerVariant ? (
+        <PagerVariant
+          worlds={worlds}
+          active={active}
+          commit={requestGoTo}
+          onEngaged={onPagerEngaged}
+        />
+      ) : (
       <nav
         className={`fp-pager${hoverIndex !== null ? ' is-hovered' : ''}`}
         aria-label="Featured project pager"
@@ -655,6 +807,7 @@ export default function FeaturedProjects({ worlds = [] }) {
           </button>
         ))}
       </nav>
+      )}
 
       {/* Top: previous-project control (hidden on the first project). */}
       {!atStart && (

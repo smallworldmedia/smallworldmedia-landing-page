@@ -73,6 +73,15 @@ export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales
 export const MSAA_SAMPLES = num('msaa', 4); // composer target multisamples (08-25 grid AA); 0 = off, ?msaa to A/B
 export const FPS_CAP = 60;
 export const MAX_TILES = num('max', IS_MOBILE ? 9 : 8); // desktop 8 — Nathan's 08-27 DRUM density bake (was 7)
+export const CORNER_PRESET = num('corners', IS_MOBILE ? 1 : 0) > 0; // 09-04 r9 (Nathan): the MOBILE four-corner media preset — one shared composition per project (the Bedouin read): tier-1 = two deck-scale plates on one diagonal, tier-2 = two smaller on the other; walls own tier-1 seats first; exactly 4 media surfaces load. Diagonal flips per slug (deterministic). Skips the seeded ring + balance pass entirely. ?corners=0 compares the dynamic layout on a phone; ?corners=1 previews the preset on desktop.
+/* r10 (Nathan: plates were getting cut off by the viewport — smaller +
+   tighter, "going out of frame a bit" is fine): the preset's own scale/
+   seat dials. T1/T2 multiply PLATE_DEG (walls ride T1 too under the
+   preset — tier-1 footprint parity); INSET multiplies the wall-anchor
+   corner coords toward centre for every seat. */
+export const CORNER_T1_MUL = num('t1deg', 1.35); // tier-1 plate scale × PLATE_DEG (r9 was 1.8 — the desktop wall footprint)
+export const CORNER_T2_MUL = num('t2deg', 0.8); // tier-2 plate scale × PLATE_DEG (r9 was 1)
+export const CORNER_INSET = num('cornerin', 0.8); // seat pull-in factor (1 = the r9 wall-anchor corners)
 // 08-28 (Nathan): DRUM density follows the SETTLED viewport width — his call:
 // the 08-27 bake (8) at laptop widths ramping to 12 on a wide window. Linear
 // between the anchors, rounded (the rounding is the rebuild quantum — the

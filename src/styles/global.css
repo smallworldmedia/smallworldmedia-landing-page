@@ -232,6 +232,109 @@
      the back_to_top swap-in runs longer and must still fit. */
   --stepnav-min-w: 5.25rem;
 
+  /* FP pager rework (08-31, docs/fp-pager-rework-approaches.md) — the
+     ?pager=tape chip/window. One tape cell = the chip at rest; the window
+     opens to --tape-rows cells under intent. The row is also the detent's
+     visual unit (finger px per detent is JS — PAGER_DETENT_TOUCH_PX). */
+  --tape-w: 2.357rem;
+  /* 33px — 2ch mono + side room; digits never reflow the frame */
+  --tape-row: calc(var(--lh-mono) + 0.5rem);
+  /* one tape cell: mono line + breathing room */
+  --tape-rows: 5;
+  --tape-open-ms: 240ms;
+  --tape-close-ms: 380ms;
+  --tape-name-max: 13.08rem;
+  /* the next-chip cap re-minted for /work — project-detail.css tokens are
+     route-scoped (pattern reuse, not var reuse) */
+  --pager-stage-dim: 0.35;
+  /* stage opacity while the pager owns the gesture (scene-not-turning tell) */
+  --pager-scrim: 0.4;
+  /* 09-02 (Nathan, scale arm): engaged FULL-VIEWPORT scrim depth — over
+     everything but the pager (nav lockup included), replacing the stage
+     dim for ?pager=scale (.fp[data-pager='scale']::before). Since the
+     09-04 blur fix this is the scrim's background-color ALPHA (element
+     opacity holds 1 engaged); 0.65 → 0.4 in Nathan's 09-04 scrimtune bake
+     (the rest of the recipe — tint/blur/grain — lives with the scrim rule
+     in featured-projects.css). */
+  --pager-scrim-ms: 240ms;
+  /* scrim fade; also the delay before the engaged pager drops back under
+     the site chrome (z-index snap rides this so the chip never dims
+     mid-fade) */
+  /* ?pager=scale — the graticule (approach B): a flush margin-tab chip (a
+     stacked fraction, two mono rows over a 1px rule) is the fixed LENS; the
+     scale of ticks + numbers slides under it. The pitch is the station
+     spacing AND the finger's px-per-detent (1:1) — px on purpose, and it
+     must match motion.js SCALE_PITCH_PX per tier. */
+  --scale-w: 3rem;
+  /* 42px — 2ch body digits + the lens-pointer room; the ×1.5 lens digit still
+     fits (09-02 scale-up: the whole instrument re-proportioned to the
+     next/previous chips — body face, --text-mono size) */
+  --scale-num-h: 1.714rem;
+  /* 24px — one fraction row (body line + breathing); chip = 2 rows + 1px */
+  --scale-pitch: 48px;
+  /* station pitch = touch detent (SCALE_PITCH_PX). PRE-HYDRATION FALLBACK
+     only: the skin writes --scale-pitch inline from the engine's resolved
+     detentPx (motion.js + ?detent), so the scale and the finger can never
+     drift out of 1:1. Keep this equal to SCALE_PITCH_PX per tier anyway —
+     it is what the SSR base transform lays out on. 44 → 48 in r8
+     (Nathan: "slightly more vertical space on select" — breathing room
+     for the scaled-up near trio; the ≤768 tier HOLDS at 48, hard-bounded
+     by the 667px-phone window check below). */
+  --scale-rows: 7;
+  /* Deployed WINDOW reach, in stations each side of the lens (±336px here).
+     Bounds the scale so 13 stations can't run under the fixed nav lockup or
+     off the bottom of a phone; stations beyond it are clipped AND inert,
+     and scrub into view (the strip still slides 1:1). Raise it past the
+     project count for the unbounded scale. */
+  --scale-open-ms: 240ms;
+  /* hairline draw + lens zoom + label reveal */
+  --scale-close-ms: 300ms;
+  /* the whole inward retract (rule wipe + reverse cascade — the cascade is
+     FITTED to this budget in featured-projects.css off --scale-rows) */
+  --scale-stagger-ms: 30ms;
+  /* per-station cascade delay outward from the lens (reversed on retract);
+     a CAP — the fitted stagger uses the smaller of this and
+     (open|close − fade) / --scale-rows */
+  --scale-fade-ms: 120ms;
+  /* one station's own fade inside the cascade */
+  --scale-flash-ms: 160ms;
+  /* crossed major tick: white, then decays */
+  --scale-name-max: 12rem;
+  /* 09-02: per-station client-name cap right of the axis (roster rows) */
+  --scale-name-sel-max: 12rem;
+  /* 09-03 round 5: the SELECTED row's own, TIGHTER cap — its painted box is
+     ×--scale-sel, and on phones it must stop short of the right-seated
+     [select_project]. Clip → the marquee takes over. Keep the JS mirrors in
+     GraticulePager's selCap in sync. */
+  --scale-box-h: 1.286rem;
+  /* 18px unscaled (×1.688 ≈ 30px painted) — the selected name's near-black
+     container chip (the round-1 label skin, reborn as the game-show flipper
+     that follows the name under tension) */
+  --scale-sel: 1.688;
+  /* 09-03 round 4: the [select_project] size ratio — --text-secondary over
+     --text-mono (1.543 / 0.9141). Since r8 this is the ±1 NEIGHBOUR rows'
+     landing size (the two-station proximity curve); the selected row rides
+     above it by --scale-sel-bump. Number and name pass from roster to
+     selected as ONE element, no handoff, no double. */
+  --scale-sel-bump: 1.15;
+  /* 09-04 r8 (Nathan: "selected slightly larger than that size token"):
+     the centre row's extra lift over --scale-sel (≈ 24.8px painted). The
+     flipper box scales by sel×bump to stay flush. Agent number — dial. */
+  /* ?pager=tuner — the signal-tuner chip (approach C): one chip, nothing
+     spatial deploys. Width is a FLOOR (the /NN total extends inside the
+     chip under intent); height carries the 2px position strip at its
+     bottom edge. */
+  --tuner-w: 2.357rem;
+  /* 33px — 2ch mono + side room, the tape's chip width (family parity) */
+  --tuner-h: 2rem;
+  /* 28px — mono line + the strip, the rest chip's height */
+  --tuner-strip: 2px;
+  /* position strip thickness (fill = active/(N−1); live seek when open) */
+  --tuner-open-ms: 300ms;
+  --tuner-close-ms: 300ms;
+  --tuner-name-max: 13.08rem;
+  /* name-window cap — the tape's cap re-minted per arm (pattern reuse) */
+
   /* Radii */
   --radius-pill: 3.571rem;
   /* 50px */
@@ -258,9 +361,9 @@
   --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-micro: 220ms;
   /* Steep launch, smooth decel into rest — mathematically overshoot-free
-     (the curve never exceeds 1). The house draw curve (NAV-2 lab bake);
-     currently unconsumed after the bracket/fxrule retirement (08-29) —
-     kept as the standing token for draw-style motion. */
+     (the curve never exceeds 1). The house draw curve (NAV-2 lab bake).
+     SHARED consumers: .detail-progress (08-29 adoption, ~L1170) + the
+     ?pager=tape wheel (08-31) — any retune touches every consumer. */
   --ease-draw: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* House slow pulse — CSS approximation of HOUSE_PULSE_PATH in
@@ -2589,6 +2692,37 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
        (08-30 (3)): the uncapsuled tagline stack rides the SAME scale —
        project-detail.css consumes it for .project-blurb__text ≤768px. */
     --text-blurb: clamp(1.4rem, 5.5vw, 2.2rem);
+    /* ?pager=tape re-tier (08-31): 3 rows of context (economy over the
+       card), a touch more chip width for the 14px mono digits, and the
+       name plate floors against the viewport before the desktop cap. */
+    --tape-rows: 3;
+    --tape-w: 2.571rem;
+    /* 36px */
+    --tape-name-max: min(52vw, 13.08rem);
+    /* ?pager=scale re-tier: a touch more chip for the 14px mono digits, the
+       36px pitch (SCALE_PITCH_MOBILE_PX — a thumb-sized detent), and the
+       preview label floors against the viewport before the desktop cap. */
+    --scale-w: 3.143rem;
+    /* 44px */
+    --scale-num-h: 1.857rem;
+    /* 26px — chip ≈ 44×53 */
+    --scale-pitch: 48px;
+    --scale-rows: 6;
+    /* ±288px around a lens at 50vh — still clears the 41px bar at the top
+       on a 667px phone (333 − 288 = 45px), the shortest device in the
+       gate; drop to 5 if the fit reads tight there. */
+    --scale-name-max: min(45vw, 12rem);
+    /* roster names clear a 320px viewport beside the 44px chip + ticks */
+    --scale-name-sel-max: min(28vw, 8rem);
+    /* selected: painted ×(1.688 × --scale-sel-bump 1.15 ≈ 1.94) from
+       x≈54px → right edge ~316px of 390. WIDENED r10 (was 17vw/4.5rem):
+       the [select_project] chip left the lens band in r9 (rotated, top
+       right edge), so the only bound is the viewport. JS mirror in
+       GraticulePager setMarquee: 28vw/112. */
+    /* ?pager=tuner re-tier: the name window floors against the viewport
+       before the desktop cap (the chip itself holds — 2ch of the 14px
+       mono still clears the 33px floor). */
+    --tuner-name-max: min(52vw, 13.08rem);
   }
 
   /* Tightened pill skin on phones (08-30, Nathan): horizontal padding

@@ -1097,8 +1097,14 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
 
     let tickerActive = false;
     let inView = true;
+    // 09-02 (scale pager's ?pause variant): the pager broadcasts
+    // swm:fp-freeze while it owns a pause-screen engage — a real STOP for
+    // the scene (render and decode both hold via the same gate the
+    // visibility/in-view paths use), not a timeScale trick. Anything else
+    // may broadcast it too; the gate is variant-agnostic.
+    let frozen = false;
     const syncTicker = () => {
-      const run = inView && !document.hidden;
+      const run = inView && !document.hidden && !frozen;
       if (run && !tickerActive) {
         gsap.ticker.add(tick);
         tickerActive = true;
@@ -1119,6 +1125,11 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     io.observe(container);
     const onVisibility = () => syncTicker();
     document.addEventListener('visibilitychange', onVisibility);
+    const onFreeze = (e) => {
+      frozen = !!e.detail?.on;
+      syncTicker();
+    };
+    window.addEventListener('swm:fp-freeze', onFreeze);
     const ro = new ResizeObserver(resize);
     ro.observe(container);
     syncTicker();
@@ -1134,6 +1145,7 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       io.disconnect();
       ro.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('swm:fp-freeze', onFreeze);
       window.removeEventListener('pointermove', onPointer);
       window.removeEventListener('swm:enter-world', onEnterWorld);
       enterTween?.kill();

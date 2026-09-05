@@ -59,11 +59,18 @@ export function ensureHousePulse() {
  */
 export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PERIOD_S) {
   const on = periodS * HOUSE_PULSE_ON_RATIO;
-  return gsap.timeline({ repeat: -1, repeatDelay: periodS - on }).to(target, {
+  const tl = gsap.timeline({ repeat: -1, repeatDelay: periodS - on }).to(target, {
     ...peakVars,
     duration: on,
     ease: ensureHousePulse(),
   });
+  // House METRONOME (09-04, Nathan): every pulse loop is phase-locked to
+  // the shared wall clock, so surfaces that arm at different moments
+  // (enter_world, the pager's number cell + select_project hint, the
+  // inquiry next-field) beat TOGETHER instead of drifting per arm time.
+  // Manual pulse timelines (GraticulePager's armPulse) seek the same way.
+  tl.totalTime((performance.now() / 1000) % periodS);
+  return tl;
 }
 
 /* ── House scroll gesture ─────────────────────────────────────────────────
@@ -88,6 +95,51 @@ export const RELEASE_MS = 160; // stall gap before the rubber-band release
    dial in worldConfig.js.) */
 export const GLIDE_MS = 800;
 export const GLIDE_SECONDS = GLIDE_MS / 1000;
+
+/* ── FP pager gesture (08-31 rework, docs/fp-pager-rework-approaches.md) ──
+   The press-hold-slide-release wheel shared by every ?pager= variant.
+   Wheeling is a pure-DOM scrub — the scene never turns mid-gesture; release
+   commits exactly ONE goTo. Plain exports only: this module runs during SSR,
+   so the ?detent/?wheeldetent live overrides resolve in the component via
+   the PARAM helper, never here. */
+export const PAGER_HOLD_MS = 200; // press-and-hold engage threshold (tap below it = peek)
+export const PAGER_SLOP_PX = 8; // vertical travel that promotes a press to engage before the timer
+export const PAGER_DETENT_TOUCH_PX = 56; // finger travel per station (live ?detent)
+export const PAGER_DETENT_WHEEL_PX = 90; // desktop wheel deltaY per station (live ?wheeldetent)
+export const PAGER_STALL_COMMIT_MS = 450; // desktop wheel silence before the landing commits
+export const PAGER_PEEK_MS = 900; // tap-peek hold before auto-retract
+export const PAGER_FLICK_CARRY_S = 0.12; // release velocity carry (80ms sample window, ±2 detents cap)
+export const PAGER_TAU_SCRUB = 0.05; // dt-invariant damper while the finger owns the tape
+export const PAGER_TAU_GLIDE = 0.27; // rest-follow of an external Turn (the marker's glide τ)
+export const PAGER_END_RESIST = 0.3; // beyond-range travel compression (cap 0.35 detent)
+export const PAGER_KEY_COMMIT_MS = 400; // keyboard arrow-run debounce into one commit
+/* ?pager=scale — the graticule's own dials (approach B). The pitch is the
+   station spacing AND the finger's px-per-detent (1:1, magnet off), and
+   THIS is its single source of truth: the skin resolves detentPx from
+   these (or ?detent, floored at 8px) and writes it back as the inline
+   --scale-pitch, so the scale and the finger can never drift apart. The
+   global.css --scale-pitch token is the pre-hydration fallback only —
+   keep it equal per tier so the SSR base transform lays out right. */
+export const SCALE_PITCH_PX = 48; // desktop station pitch = touch detent (live ?detent) — 09-04 r8 vertical-space bump (was 44)
+export const SCALE_PITCH_MOBILE_PX = 48; // <=768px tier pitch — HOLDS at 48 (the 667px-phone window check bounds it; see global.css --scale-rows)
+export const SCALE_WHEEL_DETENT_PX = 100; // desktop wheel deltaY per station (live ?wheeldetent)
+export const SCALE_END_RESIST = 0.2; // beyond-range compression — stiffer than the tape's 0.3
+/* No stall-commit on this arm (09-03 round 6): a desktop wheel settle is a
+   PREVIEW — the Turn evaluates only at disengage (mouse-out / touch release
+   / keyboard), so settling on stations in sequence can never stack frozen
+   Turns behind the pause scrim. The skin passes stallMs: Infinity. */
+export const SCALE_MAGNET_EXP = 2.2; // magnet curve exponent (live ?magnet) — Nathan's 09-03 r6 bake (was 4)
+export const SCALE_FLIP_TAU_S = 0.005; // flipper-box spring τ (live ?fliptau) — Nathan's 09-03 r6 bake (was 0.06)
+/* ?pager=tuner — the signal tuner's own dials (approach C). The wheel
+   pitch is per-arm (80 vs the tape's 90: a 1:1 strip wants a touch less
+   travel per station); the lock window + scramble beat are the tuner's
+   "hunting signal" — seeking between stations scrambles the readout at the
+   textExit charCutMs cadence, locking within the window. */
+export const TUNER_DETENT_WHEEL_PX = 80; // desktop wheel deltaY per station (live ?wheeldetent)
+export const TUNER_IDLE_COMMIT_MS = 650; // desktop idle-at-detent auto-commit (?idlecommit=0 defeats)
+export const TUNER_LOCK_WINDOW = 0.33; // |q − round(q)| at or under this = LOCKED (real text), beyond = SEEKING
+export const TUNER_SCRAMBLE_MS = 35; // seeking readout char-cut cadence (the textExit charCutMs beat)
+export const TUNER_HAPTIC_MS = 8; // navigator.vibrate tick per newly-locked station
 
 /* ── Lenis tuning ─────────────────────────────────────────────────────────
    Spread into the Lenis constructor by smoothScroll.js. BAKED from the A2b
