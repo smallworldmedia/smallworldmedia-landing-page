@@ -158,16 +158,18 @@ export default function FeaturedProjects({ worlds = [] }) {
       alive = false;
     };
   }, []);
-  // FP pager rework arm (?pager=scale; tape/tuner deleted 09-05) — the same
-  // hydration-safe lazy gate as the benches: SSR + first client paint render
-  // the legacy rail (client:load parity, #418), the chosen variant swaps in
-  // after mount, and no arm's chunk rides the default visitor's payload.
+  // FP pager arm — the same hydration-safe lazy gate as the benches: SSR +
+  // first client paint render the legacy rail (client:load parity, #418),
+  // the arm swaps in after mount. 09-06 (Nathan): the SCALE arm is the
+  // DEFAULT — no param = scale (tape/tuner deleted 09-05); ?pager=rail
+  // keeps the legacy rail (the parked rail-arm proposal's front end).
   // docs/fp-pager-rework-approaches.md is the spec.
   const [PagerVariant, setPagerVariant] = useState(null);
   useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get('pager');
+    const param = new URLSearchParams(window.location.search).get('pager');
+    const slug = param === null ? 'scale' : param;
     const load = Object.hasOwn(PAGER_VARIANTS, slug) ? PAGER_VARIANTS[slug] : null;
-    if (!load) return;
+    if (!load) return; // 'rail' (or any unknown value) = the legacy rail
     // Variant-scoped CSS hook (09-02): the scale arm swaps the engaged
     // stage-dim for the full-viewport scrim via .fp[data-pager='scale'].
     // Imperative, post-mount only — the SSR/first-paint markup stays

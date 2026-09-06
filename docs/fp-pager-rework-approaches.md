@@ -1027,6 +1027,16 @@ seek the wall clock: the caret tween `totalTime(now mod loop)` (the
 alone: the scrim-grain jitter (phase is noise), the FilterBar bounce
 (not a ticker), the unused `.house-pulse` class.
 
+### 09-06 — the scale arm is the DEFAULT
+
+Nathan wants the Netlify preview's `/work` to show the arm without a
+query. No `?pager` now resolves to `scale`; `?pager=rail` (or any
+unknown value) keeps the legacy rail. The lazy-gate shape is unchanged:
+SSR + first client paint still render the rail, the scale chunk swaps
+in after mount — so every visitor now pays the chunk and sees the rail
+for one paint before the swap. Retiring that first-paint rail (SSR the
+scale arm's rest chip) is the next structural step, not done here.
+
 ### Open calls from round 11
 
 - The falloff triple (3.5 / 1 / 1.5) are agent numbers — dial on device.
