@@ -310,16 +310,45 @@
   /* 18px unscaled (×1.688 ≈ 30px painted) — the selected name's near-black
      container chip (the round-1 label skin, reborn as the game-show flipper
      that follows the name under tension) */
-  --scale-sel: 1.688;
+  --scale-sel: 1.8;
   /* 09-03 round 4: the [select_project] size ratio — --text-secondary over
      --text-mono (1.543 / 0.9141). Since r8 this is the ±1 NEIGHBOUR rows'
      landing size (the two-station proximity curve); the selected row rides
      above it by --scale-sel-bump. Number and name pass from roster to
      selected as ONE element, no handoff, no double. */
-  --scale-sel-bump: 1.15;
+  --scale-sel-bump: 1.05;
+  /* r11f BAKE (09-05, Nathan's dial): sel 1.8 / bump 1.05 / falloff 0.5 /
+     hold 0.5 / exp 2 / slice-reach 3 (+ magnet 4, fliptau 0.1 in motion.js,
+     feather 250 ≤768). */
   /* 09-04 r8 (Nathan: "selected slightly larger than that size token"):
      the centre row's extra lift over --scale-sel (≈ 24.8px painted). The
      flipper box scales by sel×bump to stay flush. Agent number — dial. */
+  --scale-falloff: 0.5;
+  /* 09-04 r11 (Nathan): the proximity curve's RADIUS in stations — where
+     the lift (and the ink) reaches roster size. Was a fixed 2 (r8's
+     two-station curve). BAKED 09-04 r11b at Nathan's dial: radius = hold =
+     0.75 → a STEP — only the row inside ±0.75 of the lens (the one under
+     it, with the magnet) lifts; the rest sit at roster size. ?falloff. */
+  --scale-falloff-hold: 0.5;
+  /* stations either side of the lens that HOLD at the full --scale-sel
+     before the roll-off begins. ?falloffhold. */
+  --scale-falloff-exp: 2;
+  /* the roll-off's curve exponent past the hold (1 = linear, 2 = f²).
+     ?falloffexp. */
+  --scale-slice-reach: 3;
+  /* 09-05 r11c (Nathan): the sliced axis is STEPPED AT THE CENTRE and
+     continuous at the outer rows — each row's slice (and tick) pulls OUT
+     toward the selected row's own axis (--scale-w × sel × bump) by a
+     weight that is 1 at the lens and 0 at --scale-slice-reach stations,
+     curved by --scale-slice-exp (>1 = steep near the centre, flat at the
+     edges: big steps at ±1/±2, none by the reach). ?slicereach. */
+  --scale-slice-exp: 2;
+  /* the taper's curve exponent. ?sliceexp. */
+  --scale-slice-amp: 1;
+  /* how far the lens-adjacent target closes on the selected row's axis:
+     1 = the ±1 row (taper-weighted) climbs the full sel lift toward it, 0
+     = straight (r11b). Axis + tick + NAME shift as a group; the number
+     stays. ?sliceamp. */
   /* ?pager=tuner — the signal-tuner chip (approach C): one chip, nothing
      spatial deploys. Width is a FLOOR (the /NN total extends inside the
      chip under intent); height carries the 2px position strip at its
@@ -2711,9 +2740,18 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
     /* ±288px around a lens at 50vh — still clears the 41px bar at the top
        on a 667px phone (333 − 288 = 45px), the shortest device in the
        gate; drop to 5 if the fit reads tight there. */
-    --scale-name-max: min(45vw, 12rem);
-    /* roster names clear a 320px viewport beside the 44px chip + ticks */
-    --scale-name-sel-max: min(28vw, 8rem);
+    /* r11d (Nathan): the SELECTED slot spans the viewport — its cap is
+       EVALUATED: (100vw − --space-4 right pad) at the painted ×sel×bump,
+       back in the row's own px, minus the name's seat (chip + --space-2).
+       The roster cap IS this value, so a long name clips (and tickers)
+       identically in every row — no jump at the detent. Was min(28vw,
+       8rem) sel / min(45vw, 12rem) roster. JS reads the computed value
+       (no px mirror any more). */
+    --scale-name-sel-max: calc(
+      (100vw - var(--space-4)) / (var(--scale-sel) * var(--scale-sel-bump)) - var(--scale-w) -
+        var(--space-2)
+    );
+    --scale-name-max: var(--scale-name-sel-max);
     /* selected: painted ×(1.688 × --scale-sel-bump 1.15 ≈ 1.94) from
        x≈54px → right edge ~316px of 390. WIDENED r10 (was 17vw/4.5rem):
        the [select_project] chip left the lens band in r9 (rotated, top

@@ -78,6 +78,9 @@ import {
   CORNER_T1_MUL,
   CORNER_T2_MUL,
   CORNER_INSET,
+  WALL_EXTRA_ROWS,
+  WALL_DECK_COLS,
+  WALL_ALBUM_COLS,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -270,7 +273,9 @@ function placeDrumBlocks(items, { seed, aspect, arcLon, reserved = [], anchors =
 
   const reservedOut = reserved.map((r) => {
     const { latC, lonC } = toAngles(r.nx, r.ny);
-    const b = quantize(latC, lonC, drumSpan(r.ratio, latC, r.baseDeg ?? PLATE_DEG));
+    const span = drumSpan(r.ratio, latC, r.baseDeg ?? PLATE_DEG);
+    span.lonCells += r.extraRows || 0; // r11: the mobile walls run one cell taller
+    const b = quantize(latC, lonC, span);
     for (let s = 0; s < 60; s++) {
       if (!intersectsCard(b) && placed.every((p) => !overlaps(b, p))) break;
       b.j1 += Math.sign(r.nx || 1); // + lat = right
@@ -542,12 +547,14 @@ export function buildDrumSlot(slot, w, ctx) {
           // r10: under the preset the walls ride the tier-1 multiplier
           // (footprint parity with the tier-1 plates — ?t1deg dials both).
           baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.8),
+          cols: WALL_DECK_COLS,
         },
         w?.albumArt?.length && {
           pages: w.albumArt.slice(0, WALL_MAX_PAGES),
           pageRatio: 1,
           ratio: 1.5,
           baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.6),
+          cols: WALL_ALBUM_COLS,
         },
         // 08-28 (Nathan): the second deck group fills the album anchor on
         // deck-heavy Worlds — album art keeps priority (two-anchor budget).
@@ -557,6 +564,7 @@ export function buildDrumSlot(slot, w, ctx) {
             pageRatio: w.brandDecks2[0].ratio || 16 / 9,
             ratio: 16 / 9,
             baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.8),
+            cols: WALL_DECK_COLS,
           },
       ].filter(Boolean)
     : [];
@@ -622,6 +630,7 @@ export function buildDrumSlot(slot, w, ctx) {
     ny: preset ? seatT1[j].ny : j === 0 ? anchorNy : -anchorNy,
     ratio: def.ratio,
     baseDeg: def.baseDeg,
+    extraRows: WALL_EXTRA_ROWS,
   }));
 
   const { blocks, reserved: stripBlocks, balanceStats } = placeDrumBlocks(chosen, {
@@ -648,6 +657,7 @@ export function buildDrumSlot(slot, w, ctx) {
       placedTiles: blocks.filter(Boolean).length,
       dropped: blocks.filter((b) => !b).length,
       strips: stripBlocks.length,
+      stripCols: stripDefs.map((d) => d.cols || 0), // r11: 0 = the auto column count
       balance: balanceStats,
       blocks: blocks.filter(Boolean).map((b) => ({
         lon: [(b.lon1 / DEG2RAD).toFixed(1), (b.lon2 / DEG2RAD).toFixed(1)],
@@ -850,6 +860,7 @@ export function buildDrumSlot(slot, w, ctx) {
       block: stripBlocks[j],
       pages: def.pages,
       pageRatio: def.pageRatio,
+      cols: def.cols,
       accent,
       parent: slot.tierGroups[BAND_TIER],
       drum,

@@ -128,8 +128,8 @@ export const SCALE_END_RESIST = 0.2; // beyond-range compression — stiffer tha
    PREVIEW — the Turn evaluates only at disengage (mouse-out / touch release
    / keyboard), so settling on stations in sequence can never stack frozen
    Turns behind the pause scrim. The skin passes stallMs: Infinity. */
-export const SCALE_MAGNET_EXP = 2.2; // magnet curve exponent (live ?magnet) — Nathan's 09-03 r6 bake (was 4)
-export const SCALE_FLIP_TAU_S = 0.005; // flipper-box spring τ (live ?fliptau) — Nathan's 09-03 r6 bake (was 0.06)
+export const SCALE_MAGNET_EXP = 4; // magnet curve exponent (live ?magnet) — Nathan's 09-05 r11f bake (r6 was 2.2, original 4)
+export const SCALE_FLIP_TAU_S = 0.1; // flipper spring τ — box AND pointer since r11f (live ?fliptau) — Nathan's 09-05 r11f bake (r6 0.005, original 0.06)
 /* ?pager=tuner — the signal tuner's own dials (approach C). The wheel
    pitch is per-arm (80 vs the tape's 90: a 1:1 strip wants a touch less
    travel per station); the lock window + scramble beat are the tuner's

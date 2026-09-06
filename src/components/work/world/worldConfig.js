@@ -79,9 +79,21 @@ export const CORNER_PRESET = num('corners', IS_MOBILE ? 1 : 0) > 0; // 09-04 r9 
    seat dials. T1/T2 multiply PLATE_DEG (walls ride T1 too under the
    preset — tier-1 footprint parity); INSET multiplies the wall-anchor
    corner coords toward centre for every seat. */
-export const CORNER_T1_MUL = num('t1deg', 1.35); // tier-1 plate scale × PLATE_DEG (r9 was 1.8 — the desktop wall footprint)
-export const CORNER_T2_MUL = num('t2deg', 0.8); // tier-2 plate scale × PLATE_DEG (r9 was 1)
-export const CORNER_INSET = num('cornerin', 0.8); // seat pull-in factor (1 = the r9 wall-anchor corners)
+export const CORNER_T1_MUL = num('t1deg', 0.8); // tier-1 plate scale × PLATE_DEG — Nathan's 09-04 r11b bake (r10 1.35, r9 1.8)
+export const CORNER_T2_MUL = num('t2deg', 0.75); // tier-2 plate scale × PLATE_DEG — r11b bake (r10 0.8, r9 1)
+export const CORNER_INSET = num('cornerin', 0.5); // seat pull-in factor (1 = the r9 wall-anchor corners) — r11b bake (r10 0.8)
+// 09-04 r11 (Nathan): the MOBILE wall re-tier — deck and album walls grow
+// one cell TALLER (?wallrows extra lon cells on the reserved footprint) and
+// re-column: decks show ONE column of pages, album art TWO (was the
+// DeckScroller auto count, 3 for squares). 0 = the auto column math.
+export const WALL_EXTRA_ROWS = num('wallrows', IS_MOBILE ? 1 : 0);
+export const WALL_DECK_COLS = num('deckcols', IS_MOBILE ? 1 : 0);
+export const WALL_ALBUM_COLS = num('albumcols', IS_MOBILE ? 2 : 0);
+// r11b (Nathan: "resolution still lacking"): the wall canvas width in px. The
+// per-frame upload cost scales with canvas AREA (repaints are movement-
+// gated), so this is the compute dial; the page TEXTURE request width is
+// derived per wall from the column width (decode-only, free per frame).
+export const WALL_CANVAS_PX = num('wallpx', IS_MOBILE ? 896 : 1152); // seat pull-in factor (1 = the r9 wall-anchor corners)
 // 08-28 (Nathan): DRUM density follows the SETTLED viewport width — his call:
 // the 08-27 bake (8) at laptop widths ramping to 12 on a wide window. Linear
 // between the anchors, rounded (the rounding is the rebuild quantum — the

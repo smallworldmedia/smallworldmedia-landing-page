@@ -867,6 +867,7 @@ body:has(.fp) {
   align-items: center;
   justify-content: center;
   height: var(--scale-num-h);
+  font-weight: var(--weight-medium);
   padding-left: var(--scale-pad);
   /* 09-02 round 2 (Nathan): body face across the whole pager — the
      instrument joins the button family instead of the mono readouts.
@@ -983,6 +984,12 @@ body:has(.fp) {
   border-bottom: 0.429rem solid transparent;
   border-left: 0.571rem solid currentColor;
   opacity: 0;
+  /* r11f (Nathan): the pointer rides the FLIPPER'S spring — --box-dy is
+     the box's screen-space deflection (the strip's own motion cancels
+     inside it), written on the root per frame, so the arrow follows the
+     current name under tension and flicks to the incoming one with the
+     fill. */
+  transform: translateY(var(--box-dy, 0px));
   transition: opacity 0.2s var(--ease-micro);
 }
 
@@ -1149,9 +1156,12 @@ body:has(.fp) {
 .fp .fp-scale__seam {
   --i: max(var(--k, 0) - var(--scale-cur), var(--scale-cur) - var(--k, 0));
   position: absolute;
-  left: var(--scale-w);
+  /* Round 11 (Nathan): from the VIEWPORT edge (the root is the flush
+     seat, x = 0) across the number column to the name cap; ≤768 runs the
+     full viewport width. */
+  left: 0;
   top: calc(var(--k, 0) * var(--scale-pitch) - 0.5px);
-  width: calc(var(--space-4) + var(--space-2) + var(--scale-name-max));
+  width: calc(var(--scale-w) + var(--space-4) + var(--space-2) + var(--scale-name-max));
   height: 1px;
   background: color-mix(in srgb, var(--color-white) 55%, transparent);
   opacity: 0;
@@ -1169,13 +1179,15 @@ body:has(.fp) {
 
 .fp .fp-scale--warp .fp-scale__seam {
   --dq: calc(var(--k, 0) - var(--scale-qf, var(--scale-cur)));
+  /* r11b (Nathan): translate ONLY — the seam spans its full width at every
+     row (scale(cos) shortened it toward the edges); a 1px rule has no
+     foreshortening to show. */
   transform: translateY(
-      calc(
-        (var(--scale-warp-r) * sin(var(--dq) / var(--scale-warp-r)) - var(--dq)) *
-          var(--scale-pitch)
-      )
+    calc(
+      (var(--scale-warp-r) * sin(var(--dq) / var(--scale-warp-r)) - var(--dq)) *
+        var(--scale-pitch)
     )
-    scale(cos(var(--dq) / var(--scale-warp-r)));
+  );
 }
 
 .fp .fp-scale__stations {
@@ -1209,6 +1221,9 @@ body:has(.fp) {
   border: none;
   background: transparent;
   font-family: var(--font-body);
+  /* Round 11 (Nathan): the enter_world button's weight (.cta-primary 500)
+     on number + name — and on the lens/den digits, hint and chip below. */
+  font-weight: var(--weight-medium);
   font-size: var(--text-mono);
   line-height: var(--scale-pitch);
   letter-spacing: var(--tracking-tight);
@@ -1228,9 +1243,54 @@ body:has(.fp) {
     var(--k, 0) - var(--scale-qf, var(--scale-cur)),
     var(--scale-qf, var(--scale-cur)) - var(--k, 0)
   );
-  --w1: clamp(0, 1 - var(--ndr), 1);
-  --w2: clamp(0, 2 - var(--ndr), 1);
-  --wd: calc(var(--w2) * var(--w2));
+  /* r11e (Nathan: "the text jumps up before the black bar reaches it"):
+     the SIZE curve keys off the DETENTED row — --scale-cur, an integer
+     the skin writes at each detent, the same instant the flipper box
+     flicks — not the continuous --scale-qf. So number + name snap to the
+     selected size in the frame the fill lands, and the falloff below
+     steps per detent with it. --ndr (continuous) still drives the
+     stagger (--sw), which is positional, not a size. */
+  --ndd: max(var(--k, 0) - var(--scale-cur), var(--scale-cur) - var(--k, 0));
+  --w1: clamp(0, 1 - var(--ndd), 1);
+  /* Round 11 (Nathan): the roll-off is DIALABLE — a plateau of
+     --scale-falloff-hold stations at the full --scale-sel, then a
+     pow(--scale-falloff-exp) descent to roster size at --scale-falloff
+     stations out. The ink rides the same weight, so the dim is as gradual
+     as the shrink (r8's fixed w2² dropped from full to roster inside one
+     station — "too jarring"). */
+  --wr: clamp(
+    0,
+    1 - max(var(--ndd) - var(--scale-falloff-hold), 0) /
+      max(var(--scale-falloff) - var(--scale-falloff-hold), 0.001),
+    1
+  );
+  --wd: pow(var(--wr), var(--scale-falloff-exp));
+  /* --fs = the row's TOTAL screen scale (the warp rule multiplies cos in):
+     the 1px strokes (tick, axis slice) divide by it so they stay hairlines
+     instead of thickening with the row (r11b, Nathan). */
+  --fs: var(--sel);
+  /* r11c: the stagger — the row's axis target in screen space is
+     --scale-w × (1 + (selMax − 1) × amp × taper), where taper = 1 at the
+     lens → 0 at the reach (pow-curved); the offset is that target minus
+     where the row's own scale already puts it (--scale-w × --fs), in the
+     row's local px (÷ --fs). The lens row lands ≈ 0 (its scale IS the
+     target). --ndr is continuous, so the steps flow with the scrub. */
+  --sw: pow(clamp(0, 1 - var(--ndr) / var(--scale-slice-reach), 1), var(--scale-slice-exp));
+  /* Target (in units of the row's own scale, so the warp's barrel is
+     untouched): 1 + (selMax − 1) × amp × taper; minus the row's actual
+     --sel; clamped at 0 so nothing ever moves INWARD (with amp < 1 the
+     selected row's own target sits below its scale — it must never pull
+     its slice back through the number). ÷ --sel = local px. */
+  --sdx: calc(
+    max(
+        0px,
+        var(--scale-w) *
+          (
+            1 + (var(--scale-sel) * var(--scale-sel-bump) - 1) * var(--scale-slice-amp) *
+              var(--sw) - var(--sel)
+          )
+      ) / var(--sel)
+  );
   --sel: calc(
     1 + (var(--scale-sel) - 1) * var(--wd) +
       (var(--scale-sel) * var(--scale-sel-bump) - var(--scale-sel)) * var(--w1) * var(--w1)
@@ -1271,6 +1331,7 @@ body:has(.fp) {
      (whose [data-open] rule outweighs a single-class warp selector), and a
      per-frame channel must never be low-passed by a 0.2s transition. */
   --dq: calc(var(--k, 0) - var(--scale-qf, var(--scale-cur)));
+  --fs: calc(cos(var(--dq) / var(--scale-warp-r)) * var(--sel));
   /* The drum foreshortening times the selection lift — one scale channel. */
   transform: translateY(
       calc(
@@ -1286,11 +1347,53 @@ body:has(.fp) {
   content: '';
   position: absolute;
   left: 100%;
-  top: calc(50% - 0.5px);
+  top: calc(50% - 0.5px / var(--fs));
   width: var(--space-4);
-  height: 1px;
+  height: calc(1px / var(--fs)); /* r11b: a hairline at every row scale */
   background: currentColor;
   pointer-events: none;
+}
+
+/* The SLICED axis (round 11, Nathan): each station carries its own 1px
+   slice of the vertical stroke at the tick origin (the seat edge of the
+   name column), so the stroke SCALES WITH THE ROW — its position between
+   number and name holds constant as the row grows toward the lens, where
+   the screen-space hairline used to cut through the scaled-up names. The
+   slices ride the station's cascade fade, ink weight, and (under warp)
+   the same translate + cos projection, so together they trace the
+   barrel curve the SVG path drew. Each slice owns EXACTLY its row's
+   share of screen height — the row box is scaled by --sel, so the slice
+   is 1/--sel of it, centred (a full-height slice on a scaled row
+   overlapped its neighbours at a different x: a comb of parallel
+   strokes). Under warp the row's screen scale is cos·sel, so the slice
+   paints pitch·cos — the warped row spacing — and the slices tile
+   edge-to-edge. The x-step between neighbouring slices IS the effect.
+   ?hairslice=0 restores the single SVG hairline. */
+.fp .fp-scale--slice .fp-scale__station::after {
+  content: '';
+  position: absolute;
+  left: calc(100% - 0.5px / var(--fs) + var(--sdx)); /* r11c: staggered outward */
+  top: calc(50% - 50% / var(--sel));
+  width: calc(1px / var(--fs)); /* r11b: never thickens with the row */
+  height: calc(100% / var(--sel));
+  background: currentColor;
+  pointer-events: none;
+}
+
+/* r11c: the axis AND the name move as ONE group — the funnel toward the
+   selected row; the number stays in its cell. r11d (Nathan): the major
+   tick (the dash between number and name) is GONE under the sliced axis
+   — the slice is the rung now — and the name seats --space-2 off it. */
+.fp .fp-scale--slice .fp-scale__station::before {
+  display: none;
+}
+
+.fp .fp-scale--slice .fp-scale__name {
+  left: calc(var(--scale-w) + var(--space-2) + var(--sdx));
+}
+
+.fp .fp-scale--slice .fp-scale__hair {
+  display: none;
 }
 
 /* Crossed major tick flashes white and decays (the engine sets data-flash
@@ -1409,6 +1512,7 @@ body:has(.fp) {
   transform: translateX(-50%) rotate(180deg);
   writing-mode: vertical-rl;
   font-family: var(--font-body);
+  font-weight: var(--weight-medium);
   /* Round 7: the corner pills' text line on desktop (with the chip);
      --text-mono at ≤768. */
   font-size: var(--text-link);
@@ -1438,6 +1542,7 @@ body:has(.fp) {
   z-index: 2;
   transform: translate(-50%, -50%);
   font-family: var(--font-body);
+  font-weight: var(--weight-medium);
   font-size: var(--text-secondary);
   letter-spacing: var(--tracking-tight);
   /* r9 (Nathan): a CHIP — the accent fill with its paired ink (the token
@@ -1449,11 +1554,23 @@ body:has(.fp) {
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
+  /* Round 11 (Nathan): the chip's EXIT — once the letter cut has run, the
+     skin stamps data-exit and the accent fill WIPES DOWNWARD in global
+     space (top → bottom). Unrotated here, so the TOP inset grows; the
+     ≤768 chip is the 180° vertical-rl flip, where clip-path (pre-
+     transform) maps global top onto the LOCAL BOTTOM — the hint's idiom.
+     No transition without data-exit: the next engage snaps it open. */
+  clip-path: inset(-2px);
 }
 
 .fp .fp-scale__freeze[data-show] {
   opacity: 1;
   transition: opacity 0.2s var(--ease-micro) 80ms;
+}
+
+.fp .fp-scale__freeze[data-exit] {
+  clip-path: inset(100% -2px -2px -2px);
+  transition: clip-path var(--scale-close-ms) var(--ease-draw);
 }
 
 /* ≤768 (r9, Nathan — supersedes the 09-03 right-seat): long client names
@@ -1470,6 +1587,30 @@ body:has(.fp) {
     top: calc(var(--scale-lens-y) - 25vh);
     transform: translate(-100%, -50%) rotate(180deg);
     writing-mode: vertical-rl;
+  }
+
+  /* The 180° flip: global top-down = the LOCAL BOTTOM inset (r11). */
+  .fp .fp-scale__freeze[data-exit] {
+    clip-path: inset(-2px -2px 100% -2px);
+  }
+
+  /* r11f: Nathan's feather bake — 250px each end (was 2 × pitch = 96). */
+  .fp .fp-scale {
+    --scale-feather: 250px;
+  }
+
+  /* Round 11: the seams run the full viewport width on phones — the
+     window (its horizontal clip) opens to match. */
+  .fp .fp-scale__window {
+    width: max(
+      (var(--scale-w) + var(--space-4) + var(--space-2) + var(--scale-name-max)) *
+        var(--scale-sel),
+      100vw
+    );
+  }
+
+  .fp .fp-scale__seam {
+    width: 100vw;
   }
 
   .fp .fp-scale__lens,

@@ -178,6 +178,28 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // drags).
   const flipTau = Math.min(1, Math.max(0.001, PARAM('fliptau', SCALE_FLIP_TAU_S)));
   const featherPx = Math.max(0, PARAM('feather', 0));
+  // Round 11 (Nathan): the proximity curve's dials — radius in stations
+  // (?falloff), the full-size plateau either side of the lens
+  // (?falloffhold) and the roll-off exponent (?falloffexp). Absent = the
+  // global.css tokens (--scale-falloff 3.5 / -hold 1 / -exp 1.5). Written
+  // inline on the root so the station CSS reads them per frame.
+  const falloff = PARAM('falloff', 0);
+  const falloffHold = PARAM('falloffhold', -1);
+  const falloffExp = PARAM('falloffexp', 0);
+  // ?hairslice (default ON, r11): each station draws its own slice of the
+  // axis stroke so it scales with the row; 0 = the r7 screen-space SVG.
+  const sliceOn = PARAM('hairslice', 1) > 0;
+  // r11c: the centre stagger — reach (stations to straight), taper
+  // exponent, amplitude (0..1 of the selected row's protrusion); absent =
+  // the tokens (4 / 2 / 1).
+  const sliceReach = PARAM('slicereach', 0);
+  const sliceExp = PARAM('sliceexp', 0);
+  const sliceAmp = PARAM('sliceamp', -1);
+  // r11e: the scale AMOUNT dials — the neighbour/landing size and the
+  // centre row's extra lift (tokens --scale-sel 1.688 / --scale-sel-bump
+  // 1.15); the box, the caps and the stagger all read the same tokens.
+  const selScale = PARAM('selscale', 0);
+  const selBump = PARAM('selbump', 0);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -274,7 +296,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       const target = (Math.round(q) - q) * g.pitch;
       f.y += (target - f.y) * (1 - Math.exp(-dt / flipTau));
     }
-    boxRef.current?.style.setProperty('--box-dy', `${f.y.toFixed(2)}px`);
+    // r11f (Nathan): written on the ROOT — the box (inside the strip) and
+    // the lens POINTER (fixed) both inherit it, one driver for both.
+    rootRef.current?.style.setProperty('--box-dy', `${f.y.toFixed(2)}px`);
   };
   const flipRef = useRef({ y: 0, t: 0 });
 
@@ -464,8 +488,14 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // selected row (consistency), measured with the same cap. Stamped here
   // beside data-sel, cleared from the rows they leave.
   const nearRef = useRef([]);
+  // r11d (Nathan): the caps are READ, not mirrored — the ≤768 sel cap is
+  // now evaluated from the viewport in CSS (the selected slot spans it),
+  // and the roster cap IS the sel cap, so a name that clips in the lens
+  // clips identically in every row (the long-name flash at the detent:
+  // full in the roster, cut the instant data-sel landed). Every clipping
+  // row tickers, selected or not.
+  const capOf = (el) => parseFloat(getComputedStyle(el).maxWidth) || Infinity;
   const setMarquee = (un) => {
-    const capPx = mobileTier() ? Math.min(window.innerWidth * 0.28, 112) : 168;
     const nameEl = stationsRef.current?.children[un + cloneOff]?.querySelector('.fp-scale__name');
     if (selRef.current && selRef.current !== nameEl) {
       selRef.current.removeAttribute('data-sel');
@@ -477,28 +507,48 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       el.removeAttribute('data-marquee');
     });
     nearRef.current = [];
-    [un - 1, un + 1].forEach((k) => {
+    // r11b: the ±1 rows only need the tighter cap (and the ticker) when
+    // they actually LIFT — i.e. the curve's hold reaches them. Under the
+    // baked step (hold 0.75) they sit at roster size and must keep the
+    // wide roster cap, or they clip for nothing. Reads the live token so
+    // ?falloffhold and the bake agree.
+    const holdNow =
+      falloffHold >= 0
+        ? falloffHold
+        : parseFloat(getComputedStyle(rootRef.current).getPropertyValue('--scale-falloff-hold')) || 0;
+    (holdNow >= 1 ? [un - 1, un + 1] : []).forEach((k) => {
       const el = stationsRef.current?.children[k + cloneOff]?.querySelector('.fp-scale__name');
       if (el && el !== nameEl) {
         el.setAttribute('data-near', '');
-        const copy = el.firstChild?.children?.[0];
-        if (!PREFERS_REDUCED_MOTION && copy && copy.offsetWidth > capPx) {
-          el.setAttribute('data-marquee', '');
-        }
         nearRef.current.push(el);
       }
     });
+    if (nameEl) nameEl.setAttribute('data-sel', '');
+    // Attributes first, then ONE read pass (caps + copy widths), then the
+    // writes — no layout thrash across the ~30 rendered rows.
+    const rows = Array.from(stationsRef.current?.querySelectorAll('.fp-scale__name') ?? []).map(
+      (el) => {
+        const copy = el.firstChild?.children?.[0];
+        return { el, cap: capOf(el), w: copy ? copy.offsetWidth : 0 };
+      }
+    );
+    let selW = 0;
+    let selCap = Infinity;
+    let selRolls = false;
+    rows.forEach(({ el, cap, w }) => {
+      const rolls = !PREFERS_REDUCED_MOTION && w > cap;
+      el.toggleAttribute('data-marquee', rolls);
+      if (el === nameEl) {
+        selW = w;
+        selCap = cap;
+        selRolls = rolls;
+      }
+    });
     if (!nameEl) return;
-    const copy = nameEl.firstChild?.children?.[0];
-    const w = copy ? copy.offsetWidth : 0;
-    nameEl.setAttribute('data-sel', '');
-    const rolls = !PREFERS_REDUCED_MOTION && w > capPx;
-    if (rolls) nameEl.setAttribute('data-marquee', '');
-    else nameEl.removeAttribute('data-marquee');
     selRef.current = nameEl;
     boxRef.current?.style.setProperty(
       'width',
-      `${nameEl.offsetLeft + Math.round(Math.min(w, capPx)) + (rolls ? 0 : 6)}px`
+      `${nameEl.offsetLeft + Math.round(Math.min(selW, selCap)) + (selRolls ? 0 : 6)}px`
     );
   };
   const setStation = (i, un = i) => {
@@ -680,6 +730,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         el.querySelectorAll('span').forEach((s) => {
           s.style.visibility = '';
         });
+        el.removeAttribute('data-exit'); // a re-engage mid-wipe snaps the chip open
         el.setAttribute('data-show', '');
       }
       setFrozen(true);
@@ -703,8 +754,24 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
             })
           );
         });
+        // Round 11 (Nathan): the chip itself leaves AFTER the letters —
+        // data-exit runs the CSS top→bottom wipe (--scale-close-ms), then
+        // data-show drops (the opacity fade is invisible behind a fully
+        // closed clip) and the letters are restored for the next engage.
+        const wipeS =
+          (parseFloat(getComputedStyle(el).getPropertyValue('--scale-close-ms')) || 300) /
+          1000;
         freezeCallsRef.current.push(
-          gsap.delayedCall(chars.length * 0.035 + 0.05, () => el.removeAttribute('data-show'))
+          gsap.delayedCall(chars.length * 0.035 + 0.05, () => el.setAttribute('data-exit', ''))
+        );
+        freezeCallsRef.current.push(
+          gsap.delayedCall(chars.length * 0.035 + 0.05 + wipeS + 0.02, () => {
+            el.removeAttribute('data-show');
+            el.removeAttribute('data-exit');
+            chars.forEach((s) => {
+              s.style.visibility = '';
+            });
+          })
         );
       }
     }
@@ -714,7 +781,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
 
   return (
     <nav
-      className={`fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}`}
+      className={`fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}`}
       ref={rootRef}
       aria-label="Featured project pager"
       data-open={open || undefined}
@@ -730,6 +797,14 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         '--scale-pitch': `${detentPx}px`,
         '--scale-clones': cloneOff,
         ...(featherPx > 0 ? { '--scale-feather': `${featherPx}px` } : {}),
+        ...(falloff > 0 ? { '--scale-falloff': falloff } : {}),
+        ...(falloffHold >= 0 ? { '--scale-falloff-hold': falloffHold } : {}),
+        ...(falloffExp > 0 ? { '--scale-falloff-exp': falloffExp } : {}),
+        ...(sliceReach > 0 ? { '--scale-slice-reach': sliceReach } : {}),
+        ...(sliceExp > 0 ? { '--scale-slice-exp': sliceExp } : {}),
+        ...(sliceAmp >= 0 ? { '--scale-slice-amp': sliceAmp } : {}),
+        ...(selScale > 0 ? { '--scale-sel': selScale } : {}),
+        ...(selBump > 0 ? { '--scale-sel-bump': selBump } : {}),
       }}
     >
       {/* The chip = the lens (numerator row) + the fraction rule + the

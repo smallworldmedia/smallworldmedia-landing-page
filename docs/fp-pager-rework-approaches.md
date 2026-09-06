@@ -814,6 +814,146 @@ Nathan's follow-ups:
 All three tiers probe-clean; build green; tunables **253** PASS
 (+`?t1deg ?t2deg ?cornerin`).
 
+## 09-04 round 11 — the gradual roll-off, the sliced axis, the chip wipe, the mobile walls
+
+Nathan's device pass on rounds 6–10 (`?t1deg=.8&t2deg=.75&cornerin=.5`
+was his dial of the moment — not baked; he's still dialing):
+
+1. **The proximity curve was too jarring** — r8's fixed two-station
+   curve held ±1 at full size then dropped to roster scale AND 55% ink
+   inside the next station. Now DIALABLE: `--scale-falloff` **3.5**
+   (radius in stations), `--scale-falloff-hold` **1** (the ±1 plateau),
+   `--scale-falloff-exp` **1.5** (`pow` descent past the hold); ink
+   rides the same weight (`--wd`) so the dim is as gradual as the
+   shrink. URL dials `?falloff ?falloffhold ?falloffexp` write the
+   tokens inline. The centre row's `--scale-sel-bump` is untouched — the
+   selected still reads a bump over its neighbours.
+2. **The axis stroke is SLICED** (`?hairslice`, default on): each
+   station's `::after` draws its own 1px segment at the tick origin,
+   so the stroke scales with the row and its position between number
+   and name holds constant (the r7 screen-space SVG cut through the
+   scaled-up names). The slices ride the cascade fade, ink weight and
+   the warp translate+cos, so together they trace the barrel curve; the
+   SVG hairline hides. The x-step between neighbouring slices IS the
+   effect (Nathan proposed exactly this).
+3. **The seam** now starts at the VIEWPORT edge (left 0 — the root is
+   the flush seat) across the number column; ≤768 it runs the full
+   `100vw` (the window's horizontal clip opens to match).
+4. **Weight 500** — the enter_world button's `.cta-primary` weight — on
+   stations (number + name), the lens/den digits, the hint and the
+   `[select_project]` chip.
+5. **The chip EXITS** — after the letter cut completes, `data-exit`
+   runs a CSS top→bottom wipe in GLOBAL space over `--scale-close-ms`
+   (unrotated: the top inset grows; the ≤768 180° vertical-rl flip maps
+   global top onto the LOCAL BOTTOM inset — the hint's pre-transform
+   clip idiom), then `data-show` drops and the letters restore. A
+   re-engage mid-wipe clears `data-exit` (snap open). RM skips it with
+   the letter cut.
+6. **Mobile walls** (fpDrum/fpDrumWall): deck and album walls run ONE
+   CELL TALLER (`?wallrows` extra lon cells on the reserved footprint,
+   default 1 ≤768) and re-column — decks ONE column of pages
+   (`?deckcols` 1), album art TWO (`?albumcols` 2, was the auto 3-column
+   bin). `createWallPlate` gained a `cols` override; 0 = the
+   DeckScroller auto count (desktop unchanged).
+
+Dropped from the list: "only 3 media assets on mobile" — Nathan
+confirmed localhost shows 4/4 with the same dials; the LAN phone had a
+stale bundle.
+
+### 09-04 round 11b — Nathan's first pass on r11
+
+1. **Baked**: falloff `0.75 / 0.75 / 1` (radius = hold → a STEP: only the
+   lens row lifts, the roster sits at size — his dial) and the corner
+   triple `?t1deg` **0.8** / `?t2deg` **0.75** / `?cornerin` **0.5**.
+2. **Seam spans full width at every row** — the warp rule is translate-
+   only now (`scale(cos)` shortened it toward the edges).
+3. **Hairline strokes never thicken** — the tick and the axis slice divide
+   by the row's total screen scale (`--fs` = sel, × cos under warp), so
+   they paint 1px at the lens as at the roster.
+4. **Wall resolution** — the page texture request width now follows the
+   column width (a 1-column mobile wall drew 480px pages into a 704px
+   column — a 1.5× upscale; decode-only fix), and the mobile canvas is
+   896px (`?wallpx`, was 704; 1.6× the upload area — the one real compute
+   cost, dial to compare).
+5. Nathan's note "by the outer two projects the slicing effect is
+   nonexistent" — **open, needs his read**: with the step curve every row
+   but the lens sits at roster scale, so neighbouring slices differ only by
+   the warp's cos and read as one line; if the stagger is wanted as a
+   design element throughout, it needs its own offset term.
+
+### 09-05 round 11c — the stagger, the right way round
+
+Nathan, twice: stepped AT THE CENTRE, continuous at the OUTER rows —
+and in r11b the steps faded toward the centre while the selected row
+"protruded considerably". (An outward-growing stagger was built and
+scrapped in between — the inverse.) Now each row's axis TARGET is
+`--scale-w × (1 + (sel×bump − 1) × amp × taper)` with `taper =
+pow(clamp(1 − ndr/reach), exp)` — 1 at the lens, 0 at the reach — and
+the slice + tick shift by target minus the row's own scaled position
+(÷ `--fs`, local px). The axis, tick AND NAME shift as one group (the number stays) — a
+funnel toward the selected row; the offset is clamped at 0 (nothing
+moves inward; the warp's barrel at the edges is untouched). Tokens
+**reach 4 / exp 2 / amp 1**: steps ≈ 18 / 13 / 7.5 / 2.6px from the
+selected out to ±3, straight beyond. Per-frame
+(`--ndr` continuous). `?slicereach ?sliceexp ?sliceamp`. r11b note 5
+closed.
+
+### 09-05 round 11d — no dash, the viewport slot, one cap everywhere
+
+Nathan's next read:
+
+1. **The dash is gone** — under the sliced axis the major tick
+   (`::before`) is `display: none`; the slice is the rung. The name seats
+   `--space-2` off the number's vertical (was `--space-4 + --space-2`).
+2. **The long-name flash** (Heavy House Society: full in the roster, then
+   cut the instant `data-sel` landed): the roster cap (`min(45vw, 12rem)`)
+   was wider than the sel cap (`min(28vw, 8rem)`). ≤768 now: the SELECTED
+   slot spans the viewport — `--scale-name-sel-max` is EVALUATED as
+   `(100vw − --space-4) / (sel × bump) − --scale-w − --space-2` — and
+   `--scale-name-max` IS that value, so every row clips identically.
+3. **Every clipping row tickers**, selected or not: `setMarquee` reads
+   each row's COMPUTED max-width (no JS px mirror any more), measures all
+   ~30 rendered rows in one read pass, and toggles `data-marquee` per row.
+   The flipper box width uses the selected row's computed cap.
+
+Desktop caps untouched (12rem both, already equal).
+
+### 09-05 round 11e — sizes land WITH the bar
+
+Nathan: number + name jumped to selected size before the black fill
+reached them. The size curve keyed off `--scale-qf` (continuous, per
+frame) while the box flicks at the detent (±0.5). Now `--ndd` = integer
+distance from `--scale-cur` (written at each detent — the same instant
+the box flicks) drives `--w1` and the falloff; `--ndr` (continuous)
+survives only for the stagger (positional). Sizes step per detent, in
+the frame the fill lands. New dials `?selscale` (`--scale-sel`) and
+`?selbump` (`--scale-sel-bump`) — the scale amount had no URL knob.
+
+### 09-05 round 11f — Nathan's bake + the pointer rides the flipper
+
+**Baked** (his dial): `selscale` **1.8** / `selbump` **1.05** / `falloff`
+**0.5** / `falloffhold` **0.5** / `falloffexp` **2** / `slicereach`
+**3** (global.css tokens); `magnet` **4** / `fliptau` **0.1** (motion.js);
+`feather` **250px** ≤768 (desktop keeps 2 × pitch — undialed).
+
+**Pointer**: the lens arrow now rides the flipper's spring — `--box-dy`
+is written on the ROOT per frame (the box inside the strip inherits it;
+its screen deflection IS that value since the strip's motion cancels
+inside), and the pointer wears `translateY(var(--box-dy))`. One driver:
+arrow and fill follow the current name under tension and flick to the
+incoming one together at the threshold.
+
+### Open calls from round 11
+
+- The falloff triple (3.5 / 1 / 1.5) are agent numbers — dial on device.
+- **Neighbours at full size still have no black box** (the r8 flag) —
+  with the wider curve more rows now cross the sliced axis at scale;
+  per-row boxes or a wider flipper are the two answers.
+- The wipe reuses `--scale-close-ms` (300) — its own token if the beat
+  wants to differ from the strip's retract.
+- `?wallrows` adds a cell on BOTH wall kinds; the album's 2-column bin at
+  +1 cell may want its own row count.
+
 ### Open calls from round 9
 
 - ~~Tier-2 scale + seat coords are agent numbers~~ — r10 made all three

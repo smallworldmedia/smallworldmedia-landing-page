@@ -27,7 +27,7 @@ import { plateCover, spawnQuaternion } from './fpAtlas.js';
 import {
   WALL_DRIFT,
   WALL_GEAR,
-  IS_MOBILE,
+  WALL_CANVAS_PX,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -39,15 +39,18 @@ const VISIBLE_ROWS = 2;
    px at DPR 1.5, so the canvas ships at ~device resolution on desktop. The
    per-frame upload cost scales with the canvas area (repaints are
    movement-gated), so mobile keeps the lighter target. */
-const CANVAS_W = IS_MOBILE ? 704 : 1152;
-const PAGE_REQ_W = IS_MOBILE ? 480 : 800; // per-page texture request width
+const CANVAS_W = WALL_CANVAS_PX; // r11b: ?wallpx (mobile 896, was 704; desktop 1152)
 const BORDER_ALPHA = 0.9;
 
-const pageSrc = (p) =>
+// r11b (Nathan: walls read soft): the per-page texture request width follows
+// the wall's COLUMN width — a fixed 480 drawn into a 704px single column
+// was a 1.5× upscale. Rounded up to a 64px step (CDN cache-friendly),
+// capped at 1024. Decode cost only; nothing per frame.
+const pageSrc = (p, reqW) =>
   p.imageUrl
-    ? `${p.imageUrl}?w=${PAGE_REQ_W}&auto=format&fit=max`
+    ? `${p.imageUrl}?w=${reqW}&auto=format&fit=max`
     : p.playbackId
-      ? `https://image.mux.com/${p.playbackId}/thumbnail.webp?width=${PAGE_REQ_W}&fit_mode=preserve`
+      ? `https://image.mux.com/${p.playbackId}/thumbnail.webp?width=${reqW}&fit_mode=preserve`
       : null;
 
 /** drawImage cover-fit (the CSS object-fit:cover the DOM wall relies on). */
@@ -97,6 +100,7 @@ export function createWallPlate({
   borderGeometryFor,
   spawnTarget,
   orders,
+  cols: colsOverride = 0,
 }) {
   const W = CANVAS_W;
   const H = Math.max(64, Math.round(W / Math.max(0.2, block.coverAspect)));
@@ -105,10 +109,15 @@ export function createWallPlate({
   // DeckScroller layout math, verbatim in canvas px.
   const ratio = pageRatio && pageRatio > 0 ? pageRatio : 16 / 9;
   const idealPageH = H / VISIBLE_ROWS;
-  const cols = Math.max(2, Math.round(W / (idealPageH * ratio)));
+  // r11: a caller-fixed column count (the mobile re-tier: deck 1 / album
+  // 2) replaces the VISIBLE_ROWS-derived auto count when given.
+  const cols =
+    colsOverride > 0 ? Math.round(colsOverride) : Math.max(2, Math.round(W / (idealPageH * ratio)));
   const colW = (W - (cols - 1) * GAP) / cols;
   const pageH = colW / ratio;
   const perCol = Math.max(2, Math.ceil((H + pageH) / (pageH + GAP)));
+  const reqW = Math.min(1024, Math.ceil(colW / 64) * 64);
+  const srcOf = (p) => pageSrc(p, reqW);
   const cycleH = perCol * (pageH + GAP);
   const dirs = Array.from({ length: cols }, (_, i) => (i % 2 === 0 ? 1 : -1));
   const offsets = new Array(cols).fill(0);
@@ -128,7 +137,7 @@ export function createWallPlate({
   const images = new Map(); // src → { img, ready }
   let anyReady = false;
   for (const p of pages) {
-    const src = pageSrc(p);
+    const src = srcOf(p);
     if (!src || images.has(src)) continue;
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -155,7 +164,7 @@ export function createWallPlate({
       let n = 0;
       while (y < H) {
         const p = cycle[n % perCol];
-        const entry = p && images.get(pageSrc(p));
+        const entry = p && images.get(srcOf(p));
         if (entry?.ready) drawCover(c, entry.img, x, y, colW, pageH);
         y += pageH + GAP;
         n++;
