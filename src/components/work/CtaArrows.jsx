@@ -65,6 +65,12 @@ export default function CtaArrows({ direction }) {
         : direction === 'right'
           ? gsap.fromTo(track, { xPercent: -50 }, { xPercent: 0, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 })
           : gsap.fromTo(track, { yPercent: 0 }, { yPercent: -50, duration: ARROW_LOOP_SECONDS, ease: 'none', repeat: -1 });
+    // 09-05 (the pager-ticker finding, applied house-wide): every looping
+    // strip is PHASE-LOCKED to the wall clock — the housePulseLoop seek —
+    // so strips that mount at different moments (the /work prev/next
+    // pair, /process's three, a remount after a Turn) run in step instead
+    // of each starting from zero whenever it happened to arm.
+    tween.totalTime((performance.now() / 1000) % ARROW_LOOP_SECONDS);
     return () => tween.kill();
   }, [direction]);
 

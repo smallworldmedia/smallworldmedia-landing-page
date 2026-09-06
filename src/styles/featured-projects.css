@@ -989,7 +989,7 @@ body:has(.fp) {
   /* Round 11 (Nathan): the enter_world button's weight (.cta-primary 500)
      on number + name — and on the lens/den digits, hint and chip below. */
   font-weight: var(--weight-medium);
-  font-size: var(--text-mono);
+  font-size: calc(var(--text-mono) * var(--scale-roster)); /* r11g: ?roster */
   line-height: var(--scale-pitch);
   letter-spacing: var(--tracking-tight);
   text-align: center;
@@ -1060,7 +1060,15 @@ body:has(.fp) {
     1 + (var(--scale-sel) - 1) * var(--wd) +
       (var(--scale-sel) * var(--scale-sel-bump) - var(--scale-sel)) * var(--w1) * var(--w1)
   );
-  color: color-mix(in srgb, var(--color-white) calc(55% + 45% * var(--wd)), transparent);
+  /* r11g (Nathan: "much more gradual"): the ink rides its OWN continuous
+     curve (--ndr, per frame) — white at the lens, --scale-ink-floor at
+     --scale-ink-reach stations — decoupled from the detented size step. */
+  --wi: pow(clamp(0, 1 - var(--ndr) / var(--scale-ink-reach), 1), var(--scale-ink-exp));
+  color: color-mix(
+    in srgb,
+    var(--color-white) calc((var(--scale-ink-floor) + (1 - var(--scale-ink-floor)) * var(--wi)) * 100%),
+    transparent
+  );
   opacity: 0;
   cursor: pointer;
   /* Origin on the seat edge — the row grows rightward off its tick. */
@@ -1096,15 +1104,28 @@ body:has(.fp) {
      (whose [data-open] rule outweighs a single-class warp selector), and a
      per-frame channel must never be low-passed by a 0.2s transition. */
   --dq: calc(var(--k, 0) - var(--scale-qf, var(--scale-cur)));
-  --fs: calc(cos(var(--dq) / var(--scale-warp-r)) * var(--sel));
-  /* The drum foreshortening times the selection lift — one scale channel. */
-  transform: translateY(
+  /* --cw = the drum foreshortening, CLAMPED at the horizon (r11g): wheel
+     clones past δ = R·π/2 have cos < 0 — a negative scale MIRRORED them,
+     and sin folding back put them inside the window. They used to hide
+     by luck (mirrored off the viewport's left edge); the straight-axis
+     translate below carried them into view. Clamped, they collapse to
+     scale ≈ 0 instead. */
+  --cw: max(cos(var(--dq) / var(--scale-warp-r)), 0.001);
+  --fs: calc(var(--cw) * var(--sel));
+  /* The drum foreshortening times the selection lift — one scale channel.
+     r11g (Nathan: "the outer 3 positions should have zero slicing"): the
+     row also translates RIGHT by --scale-w × (1 − cos), so the axis (at
+     --scale-w in row space, scaled from x = 0) stays a STRAIGHT line as
+     the far rows shrink — number, slice and name move together, the gap
+     opens at the seat edge instead of stepping the axis inward. */
+  transform: translate(
+      calc(var(--scale-w) * (1 - var(--cw))),
       calc(
         (var(--scale-warp-r) * sin(var(--dq) / var(--scale-warp-r)) - var(--dq)) *
           var(--scale-pitch)
       )
     )
-    scale(calc(cos(var(--dq) / var(--scale-warp-r)) * var(--sel)));
+    scale(var(--fs));
 }
 
 /* Major tick — the station's own mark, at its centre. */

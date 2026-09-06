@@ -295,17 +295,22 @@
      ×--scale-sel, and on phones it must stop short of the right-seated
      [select_project]. Clip → the marquee takes over. Keep the JS mirrors in
      GraticulePager's selCap in sync. */
-  --scale-box-h: 1.286rem;
+  --scale-box-h: calc(var(--scale-pitch) / (var(--scale-sel) * var(--scale-sel-bump)));
+  /* r11g (Nathan): the flipper box paints EXACTLY one row tall — the pitch
+     back-divided by the selected paint (the box scales ×sel×bump), so it
+     matches the sliced axis's row share. Was a fixed 1.286rem. */
   /* 18px unscaled (×1.688 ≈ 30px painted) — the selected name's near-black
      container chip (the round-1 label skin, reborn as the game-show flipper
      that follows the name under tension) */
-  --scale-sel: 1.8;
+  --scale-sel: 1.5;
   /* 09-03 round 4: the [select_project] size ratio — --text-secondary over
      --text-mono (1.543 / 0.9141). Since r8 this is the ±1 NEIGHBOUR rows'
      landing size (the two-station proximity curve); the selected row rides
      above it by --scale-sel-bump. Number and name pass from roster to
      selected as ONE element, no handoff, no double. */
   --scale-sel-bump: 1.05;
+  /* r11h BAKE (09-05, Nathan's dial): roster 1.9 / sel 1.5 (r11f 1.8) /
+     ink reach 5 / exp 1.9 / floor 0.8. */
   /* r11f BAKE (09-05, Nathan's dial): sel 1.8 / bump 1.05 / falloff 0.5 /
      hold 0.5 / exp 2 / slice-reach 3 (+ magnet 4, fliptau 0.1 in motion.js,
      feather 250 ≤768). */
@@ -324,6 +329,18 @@
   --scale-falloff-exp: 2;
   /* the roll-off's curve exponent past the hold (1 = linear, 2 = f²).
      ?falloffexp. */
+  --scale-roster: 1.9;
+  /* r11g (Nathan: desktop roster too small): multiplier on the roster
+     rows' base size (--text-mono). The selected paint = roster × sel ×
+     bump, so rebalance with ?selscale after raising this. ?roster. */
+  --scale-ink-reach: 5;
+  /* r11g: the INK curve is its own — continuous (per frame), not the
+     detented size step: white at the lens → the floor at this many
+     stations out. ?inkreach. */
+  --scale-ink-exp: 1.9;
+  /* the ink curve's exponent (1 linear, 2 = f²). ?inkexp. */
+  --scale-ink-floor: 0.8;
+  /* roster ink = this fraction of white (0.55 = the r4 55%). ?inkfloor. */
   --scale-slice-reach: 3;
   /* 09-05 r11c (Nathan): the sliced axis is STEPPED AT THE CENTRE and
      continuous at the outer rows — each row's slice (and tick) pulls OUT
@@ -2720,6 +2737,11 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
         var(--space-2)
     );
     --scale-name-max: var(--scale-name-sel-max);
+    /* r11h: the roster multiplier is a DESKTOP dial (1.9 baked there) —
+       at 1.9 on a phone the digits overrun the 44px cell into the axis
+       and mid-length names tip into the ticker. Holds at 1 here; dial
+       ?roster on device separately. */
+    --scale-roster: 1;
     /* selected: painted ×(1.688 × --scale-sel-bump 1.15 ≈ 1.94) from
        x≈54px → right edge ~316px of 390. WIDENED r10 (was 17vw/4.5rem):
        the [select_project] chip left the lens band in r9 (rotated, top

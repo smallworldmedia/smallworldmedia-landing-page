@@ -968,6 +968,65 @@ chip exit) lifts out of GraticulePager into a shared `usePauseScreen`
 hook so both skins call it. Nothing in the rail slides — all 13 chips
 stay put; the cursor walks them. Est. ~300 lines + the hook extraction.
 
+### 09-05 round 11g — roster size, the full-height box, the ink curve, straight edges
+
+Nathan's desktop screenshot (the rail arm is PARKED — spec'd above, not
+built):
+
+1. **Roster too small on desktop** — no dial existed. `?roster`
+   (`--scale-roster`, 1) multiplies the base size; the selected paint is
+   roster × sel × bump, so `?selscale` rebalances.
+2. **The box is one row tall** — `--scale-box-h` = pitch ÷ (sel × bump),
+   so after the box's own ×sel×bump it paints exactly the row pitch and
+   matches the sliced axis's share (was a fixed 18px × sel).
+3. **Ink decoupled from size** — the ink rode `--wd` (the detented size
+   step → white/grey with nothing between). Now its own continuous
+   `--wi = pow(clamp(1 − ndr/reach), exp)` off `--ndr` (per frame):
+   `?inkreach` 4 / `?inkexp` 1 / `?inkfloor` 0.55.
+4. **Slicing at the outer rows** — the warp shrinks far rows by cos, and
+   the axis (at `--scale-w` in row space, origin x = 0) shrank with them:
+   ~4px steps per row at δ ≥ 5. The warp transform now also translates
+   the row RIGHT by `--scale-w × (1 − cos)`, so the axis is a straight
+   line at the edges; number, slice and name move together and the gap
+   opens at the seat edge.
+   This exposed a LATENT ghost: wheel clones past the drum's horizon
+   (δ > R·π/2 → cos < 0) were being drawn at a NEGATIVE scale — mirrored
+   — and sin folding back put them inside the window; they hid only by
+   being mirrored off the viewport's left edge. cos is now clamped at
+   0.001 at the horizon (`--cw`), so those rows collapse to nothing.
+
+### 09-05 round 11h — bake + persistent tickers
+
+**Baked**: `roster` **1.9** / `selscale` **1.5** / `inkreach` **5** /
+`inkexp` **1.9** / `inkfloor` **0.8**.
+
+**Tickers reset as you scroll** (Nathan) — two causes, both fixed:
+(1) `setMarquee` stripped `data-marquee` off the rows leaving the
+sel/near roles and the same pass re-added it — a remove + add in one
+tick restarts a CSS animation; the role attributes clear alone now.
+(2) The wheel renders one client name in several DOM nodes (the clone
+rows), each animation starting whenever its node armed, so crossing a
+loop boundary swapped nodes and jumped the phase. Every ticker is now
+PHASE-LOCKED to the wall clock — `animation-delay = −(now mod duration)`
+set when a node arms (the housePulseLoop idiom) — so any node of the
+same name is at the same scroll position, always.
+
+### 09-05 — the phase-lock finding, applied house-wide
+
+Nathan: "is it worth checking we apply this globally for all tickers?"
+Audit of every looping animation: the pager marquee (fixed r11h), the
+`CtaArrows` caret strips (a GSAP `repeat: -1` per instance — /work's
+prev/next pair and /process's three mounted at different moments and
+drifted apart), the detail page's `detail-next-loop` ticker (restarted
+from zero on every re-arm / soft nav), and the inquiry overlay's CSS
+`house-pulse-brighten` next-field (restarted whenever the class moved to
+the next field — a phase jump against the metronome). All three now
+seek the wall clock: the caret tween `totalTime(now mod loop)` (the
+`housePulseLoop` seek), the ticker and the pulse a negative
+`animation-delay` of `−(now mod duration)` written when they arm. Left
+alone: the scrim-grain jitter (phase is noise), the FilterBar bounce
+(not a ticker), the unused `.house-pulse` class.
+
 ### Open calls from round 11
 
 - The falloff triple (3.5 / 1 / 1.5) are agent numbers — dial on device.

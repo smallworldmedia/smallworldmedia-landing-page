@@ -253,6 +253,7 @@ html:has(.project-detail) body {
 
 [data-marquee] .detail-next__track {
   animation: detail-next-loop var(--marquee-s, 6s) linear infinite;
+  animation-delay: var(--marquee-phase, 0s); /* 09-05: wall-clock phase-lock */
 }
 
 @keyframes detail-next-loop {

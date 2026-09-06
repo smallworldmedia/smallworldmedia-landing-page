@@ -200,6 +200,12 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // 1.15); the box, the caps and the stagger all read the same tokens.
   const selScale = PARAM('selscale', 0);
   const selBump = PARAM('selbump', 0);
+  // r11g: roster base-size multiplier + the ink's own curve (reach /
+  // exponent / floor) — tokens --scale-roster 1, --scale-ink-* 4 / 1 / .55.
+  const roster = PARAM('roster', 0);
+  const inkReach = PARAM('inkreach', 0);
+  const inkExp = PARAM('inkexp', 0);
+  const inkFloor = PARAM('inkfloor', -1);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -497,14 +503,16 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   const capOf = (el) => parseFloat(getComputedStyle(el).maxWidth) || Infinity;
   const setMarquee = (un) => {
     const nameEl = stationsRef.current?.children[un + cloneOff]?.querySelector('.fp-scale__name');
+    // r11h (Nathan: tickers reset as you scroll): data-marquee is NEVER
+    // stripped here — the pass below sets the truth per row, and a
+    // remove + re-add in one tick restarted the CSS animation on every
+    // row that changed role. Only the role attributes clear.
     if (selRef.current && selRef.current !== nameEl) {
       selRef.current.removeAttribute('data-sel');
-      selRef.current.removeAttribute('data-marquee');
       selRef.current = null;
     }
     nearRef.current.forEach((el) => {
       el.removeAttribute('data-near');
-      el.removeAttribute('data-marquee');
     });
     nearRef.current = [];
     // r11b: the ±1 rows only need the tighter cap (and the ticker) when
@@ -537,6 +545,17 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     let selRolls = false;
     rows.forEach(({ el, cap, w }) => {
       const rolls = !PREFERS_REDUCED_MOTION && w > cap;
+      if (rolls && !el.hasAttribute('data-marquee')) {
+        // r11h: PHASE-LOCK to the wall clock (the housePulseLoop idiom) —
+        // the wheel renders the same client name in several nodes (the
+        // clone rows), each animation starting whenever ITS node armed;
+        // crossing a loop boundary swapped nodes and jumped the ticker.
+        // A negative delay of (now mod duration) puts every node of the
+        // same name at the same scroll position, always.
+        const track = el.firstChild;
+        const durS = parseFloat(getComputedStyle(el).getPropertyValue('--marquee-s')) || 6;
+        if (track) track.style.animationDelay = `${-((performance.now() / 1000) % durS).toFixed(3)}s`;
+      }
       el.toggleAttribute('data-marquee', rolls);
       if (el === nameEl) {
         selW = w;
@@ -805,6 +824,10 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         ...(sliceAmp >= 0 ? { '--scale-slice-amp': sliceAmp } : {}),
         ...(selScale > 0 ? { '--scale-sel': selScale } : {}),
         ...(selBump > 0 ? { '--scale-sel-bump': selBump } : {}),
+        ...(roster > 0 ? { '--scale-roster': roster } : {}),
+        ...(inkReach > 0 ? { '--scale-ink-reach': inkReach } : {}),
+        ...(inkExp > 0 ? { '--scale-ink-exp': inkExp } : {}),
+        ...(inkFloor >= 0 ? { '--scale-ink-floor': inkFloor } : {}),
       }}
     >
       {/* The chip = the lens (numerator row) + the fraction rule + the

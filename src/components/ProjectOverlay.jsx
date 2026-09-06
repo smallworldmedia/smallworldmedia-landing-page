@@ -155,6 +155,18 @@ export default function ProjectOverlay({ isOpen, onClose }) {
     const highlightedStep = isOpen ? nextStep : null;
     const nextClass = (step) =>
         highlightedStep === step ? ' project-overlay__field--next' : '';
+    // 09-05: the CSS house-pulse restarts from zero every time the class
+    // moves to the next field — a phase jump against the metronome every
+    // other pulse on the page keeps (housePulseLoop seeks the wall clock).
+    // Same seek, as a negative animation-delay on the label at each move.
+    useEffect(() => {
+        if (!highlightedStep || PREFERS_REDUCED_MOTION) return;
+        const label = document.querySelector('.project-overlay__field--next .project-overlay__label');
+        if (!label) return;
+        const periodS =
+            parseFloat(getComputedStyle(label).getPropertyValue('--duration-pulse')) / 1000 || 2.3;
+        label.style.animationDelay = `${(-((performance.now() / 1000) % periodS)).toFixed(3)}s`;
+    }, [highlightedStep]);
 
     const handleFieldChange = useCallback((fieldName, value) => {
         setFieldValues((prev) => ({ ...prev, [fieldName]: value }));

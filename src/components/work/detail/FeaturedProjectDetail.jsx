@@ -133,7 +133,18 @@ function DetailNextChip({ next }) {
       onClick={(e) => goNextProject(e, next)}
       aria-label={`Next project: ${next.clientName}`}
       data-marquee={marquee || undefined}
-      style={marquee ? { '--marquee-s': `${loopSeconds.toFixed(2)}s` } : undefined}
+      style={
+        marquee
+          ? {
+              '--marquee-s': `${loopSeconds.toFixed(2)}s`,
+              // 09-05: phase-locked to the wall clock (the pager-ticker
+              // finding) — a re-arm (resize re-measure, a soft nav to the
+              // next detail page) resumes the scroll where the clock says,
+              // never from zero.
+              '--marquee-phase': `${(-((performance.now() / 1000) % loopSeconds)).toFixed(3)}s`,
+            }
+          : undefined
+      }
     >
       <span className="detail-next__window" ref={windowRef} aria-hidden="true">
         <span className="detail-next__track">
