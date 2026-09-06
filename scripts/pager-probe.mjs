@@ -44,8 +44,8 @@ const arg = (k, d) => {
   if (m) return m.slice(k.length + 3);
   return process.argv.includes(`--${k}`) ? true : d;
 };
-const VARIANT = arg('variant', 'tape');
-const ROOT = arg('root', VARIANT === 'tape' ? '.fp-tape' : VARIANT === 'scale' ? '.fp-scale' : '.fp-tuner');
+const VARIANT = arg('variant', 'scale'); // tape/tuner arms deleted 09-05
+const ROOT = arg('root', '.fp-scale');
 const MOBILE = !!arg('mobile', false);
 const VW = Number(arg('vw', MOBILE ? 390 : 1440));
 const VH = Number(arg('vh', MOBILE ? 844 : 900));

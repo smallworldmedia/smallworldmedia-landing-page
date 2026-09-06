@@ -232,20 +232,9 @@
      the back_to_top swap-in runs longer and must still fit. */
   --stepnav-min-w: 5.25rem;
 
-  /* FP pager rework (08-31, docs/fp-pager-rework-approaches.md) — the
-     ?pager=tape chip/window. One tape cell = the chip at rest; the window
-     opens to --tape-rows cells under intent. The row is also the detent's
-     visual unit (finger px per detent is JS — PAGER_DETENT_TOUCH_PX). */
-  --tape-w: 2.357rem;
-  /* 33px — 2ch mono + side room; digits never reflow the frame */
-  --tape-row: calc(var(--lh-mono) + 0.5rem);
-  /* one tape cell: mono line + breathing room */
-  --tape-rows: 5;
-  --tape-open-ms: 240ms;
-  --tape-close-ms: 380ms;
-  --tape-name-max: 13.08rem;
-  /* the next-chip cap re-minted for /work — project-detail.css tokens are
-     route-scoped (pattern reuse, not var reuse) */
+  /* FP pager rework (08-31, docs/fp-pager-rework-approaches.md). The
+     ?pager=tape / ?pager=tuner token sets were deleted 09-05 with those
+     arms; the scale arm's tokens follow below. */
   --pager-stage-dim: 0.35;
   /* stage opacity while the pager owns the gesture (scene-not-turning tell) */
   --pager-scrim: 0.4;
@@ -349,20 +338,6 @@
      1 = the ±1 row (taper-weighted) climbs the full sel lift toward it, 0
      = straight (r11b). Axis + tick + NAME shift as a group; the number
      stays. ?sliceamp. */
-  /* ?pager=tuner — the signal-tuner chip (approach C): one chip, nothing
-     spatial deploys. Width is a FLOOR (the /NN total extends inside the
-     chip under intent); height carries the 2px position strip at its
-     bottom edge. */
-  --tuner-w: 2.357rem;
-  /* 33px — 2ch mono + side room, the tape's chip width (family parity) */
-  --tuner-h: 2rem;
-  /* 28px — mono line + the strip, the rest chip's height */
-  --tuner-strip: 2px;
-  /* position strip thickness (fill = active/(N−1); live seek when open) */
-  --tuner-open-ms: 300ms;
-  --tuner-close-ms: 300ms;
-  --tuner-name-max: 13.08rem;
-  /* name-window cap — the tape's cap re-minted per arm (pattern reuse) */
 
   /* Radii */
   --radius-pill: 3.571rem;
@@ -2721,13 +2696,6 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
        (08-30 (3)): the uncapsuled tagline stack rides the SAME scale —
        project-detail.css consumes it for .project-blurb__text ≤768px. */
     --text-blurb: clamp(1.4rem, 5.5vw, 2.2rem);
-    /* ?pager=tape re-tier (08-31): 3 rows of context (economy over the
-       card), a touch more chip width for the 14px mono digits, and the
-       name plate floors against the viewport before the desktop cap. */
-    --tape-rows: 3;
-    --tape-w: 2.571rem;
-    /* 36px */
-    --tape-name-max: min(52vw, 13.08rem);
     /* ?pager=scale re-tier: a touch more chip for the 14px mono digits, the
        36px pitch (SCALE_PITCH_MOBILE_PX — a thumb-sized detent), and the
        preview label floors against the viewport before the desktop cap. */
@@ -2757,10 +2725,6 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
        the [select_project] chip left the lens band in r9 (rotated, top
        right edge), so the only bound is the viewport. JS mirror in
        GraticulePager setMarquee: 28vw/112. */
-    /* ?pager=tuner re-tier: the name window floors against the viewport
-       before the desktop cap (the chip itself holds — 2ch of the 14px
-       mono still clears the 33px floor). */
-    --tuner-name-max: min(52vw, 13.08rem);
   }
 
   /* Tightened pill skin on phones (08-30, Nathan): horizontal padding

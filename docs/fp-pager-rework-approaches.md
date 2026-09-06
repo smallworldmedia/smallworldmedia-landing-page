@@ -943,6 +943,31 @@ inside), and the pointer wears `translateY(var(--box-dy))`. One driver:
 arrow and fill follow the current name under tension and flick to the
 incoming one together at the threshold.
 
+## 09-05 — tape + tuner DELETED; the rail arm proposal
+
+Nathan: the scale arm won. `TapeWheelPager.jsx` and `SignalTunerPager.jsx`
+are gone with their CSS blocks (featured-projects.css −~450 lines), their
+`--tape-*` / `--tuner-*` token sets (global.css, both tiers), the `TUNER_*`
+motion constants, the `?idlecommit` / `?scramblename` knobs, and the
+`PAGER_ARMS` entries (`?pager=tape|tuner` now fall through to the legacy
+rail like any unknown value). The engine's `PAGER_*` defaults stay — they
+are the engine's, not the tape's. The probe's default variant is `scale`.
+The LEGACY RAIL stays as the no-param default (Nathan's call — see below).
+
+**The rail arm (proposed, feasible):** a fourth skin, `?pager=rail`, that
+keeps the legacy rail's front end — the same `.fp-pager` markup and CSS
+(accent chip, fisheye numbers, name tokens, the marker triangle) — driven
+by the scale arm's interaction: hover / press-hold to ENGAGE (the pause
+screen: freeze + scrim + `[select_project]` chip), wheel / slide to scrub
+with the magnet, release to commit ONE Turn. The engine already
+abstracts every piece a skin needs (onFrame q, onDetent, onEngaged,
+onCharged, hitTest); the rail's fisheye becomes a function of the
+engine's `q` instead of the cursor, the marker rides the flipper spring
+(`--box-dy`), and the pause-screen machinery (setFrozen, scrim class,
+chip exit) lifts out of GraticulePager into a shared `usePauseScreen`
+hook so both skins call it. Nothing in the rail slides — all 13 chips
+stay put; the cursor walks them. Est. ~300 lines + the hook extraction.
+
 ### Open calls from round 11
 
 - The falloff triple (3.5 / 1 / 1.5) are agent numbers — dial on device.

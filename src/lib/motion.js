@@ -130,16 +130,7 @@ export const SCALE_END_RESIST = 0.2; // beyond-range compression — stiffer tha
    Turns behind the pause scrim. The skin passes stallMs: Infinity. */
 export const SCALE_MAGNET_EXP = 4; // magnet curve exponent (live ?magnet) — Nathan's 09-05 r11f bake (r6 was 2.2, original 4)
 export const SCALE_FLIP_TAU_S = 0.1; // flipper spring τ — box AND pointer since r11f (live ?fliptau) — Nathan's 09-05 r11f bake (r6 0.005, original 0.06)
-/* ?pager=tuner — the signal tuner's own dials (approach C). The wheel
-   pitch is per-arm (80 vs the tape's 90: a 1:1 strip wants a touch less
-   travel per station); the lock window + scramble beat are the tuner's
-   "hunting signal" — seeking between stations scrambles the readout at the
-   textExit charCutMs cadence, locking within the window. */
-export const TUNER_DETENT_WHEEL_PX = 80; // desktop wheel deltaY per station (live ?wheeldetent)
-export const TUNER_IDLE_COMMIT_MS = 650; // desktop idle-at-detent auto-commit (?idlecommit=0 defeats)
-export const TUNER_LOCK_WINDOW = 0.33; // |q − round(q)| at or under this = LOCKED (real text), beyond = SEEKING
-export const TUNER_SCRAMBLE_MS = 35; // seeking readout char-cut cadence (the textExit charCutMs beat)
-export const TUNER_HAPTIC_MS = 8; // navigator.vibrate tick per newly-locked station
+/* (?pager=tuner's TUNER_* dials deleted 09-05 with the arm.) */
 
 /* ── Lenis tuning ─────────────────────────────────────────────────────────
    Spread into the Lenis constructor by smoothScroll.js. BAKED from the A2b

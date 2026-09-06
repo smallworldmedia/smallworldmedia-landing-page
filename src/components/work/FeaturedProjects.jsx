@@ -63,9 +63,9 @@ const PARAM = (key, fallback) => {
 // Static import() literals so each arm is its own lazy chunk. `hasOwn`
 // lookup below, never `in`: a `?pager=constructor` must not resolve.
 const PAGER_VARIANTS = Object.freeze({
-  tape: () => import('./pager/TapeWheelPager.jsx'),
+  // 09-05: tape + tuner arms DELETED (Nathan's call — the scale arm won);
+  // the legacy rail stays as the no-param default.
   scale: () => import('./pager/GraticulePager.jsx'),
-  tuner: () => import('./pager/SignalTunerPager.jsx'),
 });
 const PAGER_BASE_GAIN = 1.6; // active dot scale = 1 + this
 const PAGER_HOVER_GAIN = 1.8; // additive, centred on the cursor
@@ -158,7 +158,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       alive = false;
     };
   }, []);
-  // FP pager rework A/B arms (?pager=tape|scale|tuner) — the same
+  // FP pager rework arm (?pager=scale; tape/tuner deleted 09-05) — the same
   // hydration-safe lazy gate as the benches: SSR + first client paint render
   // the legacy rail (client:load parity, #418), the chosen variant swaps in
   // after mount, and no arm's chunk rides the default visitor's payload.
