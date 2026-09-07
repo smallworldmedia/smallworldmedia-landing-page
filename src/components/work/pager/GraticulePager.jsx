@@ -208,6 +208,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   const inkFloor = PARAM('inkfloor', -1);
   // 09-06: the [select_project] chip's exit-wipe beat in ms (?chipwipe).
   const chipWipe = PARAM('chipwipe', 0);
+  // 09-07: the name cap in px (?namemax) — desktop token 20rem; ≤768 the
+  // cap is evaluated from the viewport and this overrides it too.
+  const nameMax = PARAM('namemax', 0);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -831,6 +834,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         ...(inkExp > 0 ? { '--scale-ink-exp': inkExp } : {}),
         ...(inkFloor >= 0 ? { '--scale-ink-floor': inkFloor } : {}),
         ...(chipWipe > 0 ? { '--scale-chip-wipe-ms': `${chipWipe}ms` } : {}),
+        ...(nameMax > 0 ? { '--scale-name-max': `${nameMax}px`, '--scale-name-sel-max': `${nameMax}px` } : {}),
       }}
     >
       {/* The chip = the lens (numerator row) + the fraction rule + the

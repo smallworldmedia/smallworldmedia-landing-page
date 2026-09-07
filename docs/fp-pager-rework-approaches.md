@@ -1076,6 +1076,17 @@ be reproduced headless here without its engine:
    `--scale-chip-wipe-ms` **520** on `--ease-micro` (symmetric) now;
    `?chipwipe` dials it; the skin's unmount delay reads the same token.
 
+### 09-07 — the desktop name cap
+
+Nathan: desktop names cut off too suddenly. The caps were a fixed 12rem
+(168px) while the roster now paints at 1.9× (24px) — the widest name
+(Heavy House Society) measures 264px, so most names tickered. Desktop
+`--scale-name-max` → **20rem** (280px, every name fits at roster, no
+ticker) and `--scale-name-sel-max` aliases it (one cap — the r11d
+no-jump rule, desktop too). Measured: the selected box tops out ≈ 513px
+against the card's left edge at 520px on 1440. `?namemax` (px) dials
+both. ≤768 unchanged (viewport-evaluated).
+
 ### Open calls from round 11
 
 - The falloff triple (3.5 / 1 / 1.5) are agent numbers — dial on device.

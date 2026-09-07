@@ -294,9 +294,13 @@
   /* one station's own fade inside the cascade */
   --scale-flash-ms: 160ms;
   /* crossed major tick: white, then decays */
-  --scale-name-max: 12rem;
-  /* 09-02: per-station client-name cap right of the axis (roster rows) */
-  --scale-name-sel-max: 12rem;
+  --scale-name-max: 20rem;
+  /* 09-02: per-station client-name cap right of the axis (roster rows).
+     09-07 (Nathan: "no need to cut off so suddenly" on desktop): 12rem →
+     20rem — fits the widest name (Heavy House Society, 264px at the
+     roster 1.9 size) with no ticker; the selected box (×1.575 + seat ≈
+     513px) still clears the centred card at 1440. ?namemax (px). */
+  --scale-name-sel-max: var(--scale-name-max);
   /* 09-03 round 5: the SELECTED row's own, TIGHTER cap — its painted box is
      ×--scale-sel, and on phones it must stop short of the right-seated
      [select_project]. Clip → the marquee takes over. Keep the JS mirrors in
