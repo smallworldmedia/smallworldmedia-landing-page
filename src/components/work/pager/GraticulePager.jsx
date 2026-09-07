@@ -243,6 +243,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // chip in px.
   const tagsOn = PARAM('tags', 1) > 0;
   const tagsH = PARAM('tagsh', 0);
+  const tagSize = PARAM('tagsize', 0); // the readout's size, em ratio of the row
   const fillPxs = PARAM('fillpxs', 0);
   const boxGap = PARAM('boxgap', 0);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
@@ -387,6 +388,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     ...(subScale > 0 ? { '--scale-sub': subScale } : {}),
     ...(subInk >= 0 ? { '--scale-sub-ink': subInk } : {}),
     ...(!tagsOn ? { '--scale-tags-h': '0px' } : tagsH > 0 ? { '--scale-tags-h': `${tagsH}px` } : {}),
+    ...(tagSize > 0 ? { '--scale-tags-size': tagSize } : {}),
     ...(fillPxs > 0 ? { '--scale-fill-pxs': fillPxs } : {}),
     ...(boxGap > 0 ? { '--scale-box-gap': `${boxGap}px` } : {}),
   };

@@ -361,6 +361,9 @@
      by this much (unscaled row px; painted ×sel×bump). The rows below the
      detented one shift down by the painted amount so the +1 name is never
      covered. Desktop only — 0 at ≤768. ?tagsh. */
+  --scale-tags-size: var(--scale-sub);
+  /* the readout's type size as an em ratio of the row (defaults to the
+     sub token's ratio). ?tagsize. */
   --scale-tags-ms: 160ms;
   /* the rows-below shift (a `top` transition at the detent step) */
   --scale-fill-pxs: 44;

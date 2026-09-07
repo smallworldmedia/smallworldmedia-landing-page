@@ -1303,7 +1303,7 @@ body:has(.fp) {
   height: var(--scale-tags-h);
   overflow: hidden;
   font-family: var(--font-mono);
-  font-size: calc(1em * var(--scale-sub));
+  font-size: calc(1em * var(--scale-tags-size));
   font-weight: 400;
   line-height: var(--scale-tags-h);
   letter-spacing: 0;
