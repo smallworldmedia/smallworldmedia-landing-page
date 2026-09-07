@@ -124,6 +124,14 @@ const subOf = (w) =>
     ? w.title.trim()
     : null;
 const nameOf = (w) => (subOf(w) ? `${w.clientName} ${subOf(w)}` : w.clientName);
+// 09-07 (Nathan, "option 3"): the services READOUT string — the project's
+// service tags (the card's own `services` shape), ' · '-separated (a
+// slash collides with "Event / Tour Creative"); CSS uppercases it in the
+// mono face. Null when the project carries none.
+const tagsOf = (w) => {
+  const names = (w.services || []).map((t) => t?.name).filter(Boolean);
+  return names.length ? names.join(' · ') : null;
+};
 // Live tuning (?key=value) — the FeaturedProjects knobs convention.
 const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
@@ -227,6 +235,16 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // copy so the cap, the ticker measure and the box width all include it.
   const subScale = PARAM('sub', 0);
   const subInk = PARAM('subink', -1);
+  // 09-07 (Nathan, "option 3", desktop only): the SERVICES READOUT under
+  // the selected name inside the taller box (?tags=0 drops it AND the row
+  // shift — token --scale-tags-h zeroed), ?tagsh = the line's unscaled
+  // height in px, ?fillpxs = the fill ticker's speed (unscaled px/s),
+  // ?boxgap = the min gap between the fixed box and the [select_project]
+  // chip in px.
+  const tagsOn = PARAM('tags', 1) > 0;
+  const tagsH = PARAM('tagsh', 0);
+  const fillPxs = PARAM('fillpxs', 0);
+  const boxGap = PARAM('boxgap', 0);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -287,6 +305,13 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         pitch: detentPx,
         rows,
         warpR: parseFloat(cs.getPropertyValue('--scale-warp-r')) || 8,
+        // 09-07: the readout's painted height in STATIONS — the rows
+        // below the detent sit that much lower; hitTest compensates.
+        tagsSt:
+          ((parseFloat(cs.getPropertyValue('--scale-tags-h')) || 0) *
+            (parseFloat(cs.getPropertyValue('--scale-sel')) || 1) *
+            (parseFloat(cs.getPropertyValue('--scale-sel-bump')) || 1)) /
+          (detentPx || 1),
         y: gsap.quickSetter(stripRef.current, 'y', 'px'),
       };
       buildHair(gearRef.current);
@@ -515,6 +540,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // selected row (consistency), measured with the same cap. Stamped here
   // beside data-sel, cleared from the rows they leave.
   const nearRef = useRef([]);
+  const tagsRef = useRef(null); // 09-07: the detented row's readout (desktop)
   // r11d (Nathan): the caps are READ, not mirrored — the ≤768 sel cap is
   // now evaluated from the viewport in CSS (the selected slot spans it),
   // and the roster cap IS the sel cap, so a name that clips in the lens
@@ -530,7 +556,12 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     // row that changed role. Only the role attributes clear.
     if (selRef.current && selRef.current !== nameEl) {
       selRef.current.removeAttribute('data-sel');
+      unfill(selRef.current);
       selRef.current = null;
+    }
+    if (tagsRef.current) {
+      unfill(tagsRef.current);
+      tagsRef.current = null;
     }
     nearRef.current.forEach((el) => {
       el.removeAttribute('data-near');
@@ -564,8 +595,11 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     let selW = 0;
     let selCap = Infinity;
     let selRolls = false;
+    // 09-07 (Nathan): on DESKTOP the selected row never wears the two-copy
+    // marquee — it gets the fill ticker below, whatever its width.
+    const desk = !mobileTier();
     rows.forEach(({ el, cap, w }) => {
-      const rolls = !PREFERS_REDUCED_MOTION && w > cap;
+      const rolls = !PREFERS_REDUCED_MOTION && w > cap && !(desk && el === nameEl);
       if (rolls && !el.hasAttribute('data-marquee')) {
         // r11h: PHASE-LOCK to the wall clock (the housePulseLoop idiom) —
         // the wheel renders the same client name in several nodes (the
@@ -586,10 +620,65 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     });
     if (!nameEl) return;
     selRef.current = nameEl;
+    if (desk) {
+      // 09-07 (Nathan): the desktop box is a FIXED width, client to
+      // client — the widest client name (+ sub token), capped so at least
+      // --scale-box-gap stays between the painted box and the
+      // [select_project] chip. Inside it the name ALWAYS rolls, repeated
+      // to fill; the services readout rolls under it at the same speed.
+      const pad = 6;
+      const cs = getComputedStyle(rootRef.current);
+      const selPaint =
+        (parseFloat(cs.getPropertyValue('--scale-sel')) || 1) *
+        (parseFloat(cs.getPropertyValue('--scale-sel-bump')) || 1);
+      const gapPx = boxGap > 0 ? boxGap : parseFloat(cs.getPropertyValue('--scale-box-gap')) || 0;
+      const widest = rows.reduce((m, r) => Math.max(m, r.w), 0);
+      let boxW = nameEl.offsetLeft + widest + pad;
+      const chip = freezeRef.current?.getBoundingClientRect();
+      const boxRect = boxRef.current?.getBoundingClientRect();
+      if (chip && boxRect && chip.width > 0) {
+        boxW = Math.min(boxW, (chip.left - gapPx - boxRect.left) / selPaint);
+      }
+      boxW = Math.max(boxW, nameEl.offsetLeft + 48);
+      const cap = boxW - nameEl.offsetLeft - pad;
+      const pxs = fillPxs > 0 ? fillPxs : parseFloat(cs.getPropertyValue('--scale-fill-pxs')) || 44;
+      fill(nameEl, selW, cap, pxs);
+      const tagsEl = nameEl.parentElement?.querySelector('.fp-scale__tags');
+      if (tagsEl && tagsOn) {
+        const copy = tagsEl.firstChild?.children?.[0];
+        fill(tagsEl, copy ? copy.offsetWidth : 0, cap, pxs);
+        tagsRef.current = tagsEl;
+      }
+      boxRef.current?.style.setProperty('width', `${Math.round(boxW)}px`);
+      return;
+    }
     boxRef.current?.style.setProperty(
       'width',
       `${nameEl.offsetLeft + Math.round(Math.min(selW, selCap)) + (selRolls ? 0 : 6)}px`
     );
+  };
+  // 09-07: the FILL TICKER — enough copies of the text to span `cap`
+  // (cloned once, kept; CSS hides the extras off data-fill), rolling by
+  // exactly one copy + the track gap at `pxs` unscaled px/s, phase-locked
+  // to the wall clock (r11h). Never under RM (a static clipped line).
+  const fill = (el, w, cap, pxs) => {
+    const track = el.firstChild;
+    if (!track || !track.children.length) return;
+    el.style.maxWidth = `${Math.max(0, Math.round(cap))}px`;
+    if (PREFERS_REDUCED_MOTION || !(w > 0)) return;
+    const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+    const shift = w + gap;
+    const need = Math.max(2, Math.ceil(cap / shift) + 1);
+    while (track.children.length < need) track.appendChild(track.children[0].cloneNode(true));
+    const dur = shift / Math.max(pxs, 1);
+    track.style.setProperty('--fill-shift', `${shift}px`);
+    track.style.setProperty('--fill-s', `${dur.toFixed(3)}s`);
+    track.style.animationDelay = `${-((performance.now() / 1000) % dur).toFixed(3)}s`;
+    el.setAttribute('data-fill', '');
+  };
+  const unfill = (el) => {
+    el.removeAttribute('data-fill');
+    el.style.maxWidth = '';
   };
   const setStation = (i, un = i) => {
     const w = worlds[i];
@@ -646,6 +735,14 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       const g = gear();
       if (!rect || !g || !g.pitch) return null;
       let d = (clientY - (rect.top + rect.height / 2)) / g.pitch;
+      // 09-07: the readout gap — rows below the DETENTED row (cRef, not
+      // q) are shifted down by g.tagsSt; a tap in the gap is the detented
+      // row's own box, a tap below it lands its true row.
+      if (g.tagsSt) {
+        const dc = cRef.current - q;
+        if (d > dc + 0.5 + g.tagsSt) d -= g.tagsSt;
+        else if (d > dc + 0.5) d = dc;
+      }
       // Warp inverse: the screen offset is R·sin(δ/R) of the logical δ —
       // recover δ before the row math or far taps land short of their row.
       if (warpOn) d = g.warpR * Math.asin(Math.min(1, Math.max(-1, d / g.warpR)));
@@ -821,7 +918,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
 
   return (
     <nav
-      className={`fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}`}
+      className={`fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}${tagsOn ? ' fp-scale--tags' : ''}`}
       ref={rootRef}
       aria-label="Featured project pager"
       data-open={open || undefined}
@@ -853,6 +950,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         ...(nameMax > 0 ? { '--scale-name-max': `${nameMax}px`, '--scale-name-sel-max': `${nameMax}px` } : {}),
         ...(subScale > 0 ? { '--scale-sub': subScale } : {}),
         ...(subInk >= 0 ? { '--scale-sub-ink': subInk } : {}),
+        ...(!tagsOn ? { '--scale-tags-h': '0px' } : tagsH > 0 ? { '--scale-tags-h': `${tagsH}px` } : {}),
+        ...(fillPxs > 0 ? { '--scale-fill-pxs': fillPxs } : {}),
+        ...(boxGap > 0 ? { '--scale-box-gap': `${boxGap}px` } : {}),
       }}
     >
       {/* The chip = the lens (numerator row) + the fraction rule + the
@@ -968,6 +1068,15 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
                       </span>
                     </span>
                   </span>
+                  {/* 09-07: the services READOUT — desktop, detented row only
+                      (CSS: opacity --w1, display none ≤768 / ?tags=0). */}
+                  {tagsOf(w) && (
+                    <span className="fp-scale__tags" aria-hidden="true">
+                      <span className="fp-scale__tags-track">
+                        <span>{tagsOf(w)}</span>
+                      </span>
+                    </span>
+                  )}
                 </button>
               );
             })}

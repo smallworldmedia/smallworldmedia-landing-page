@@ -801,7 +801,9 @@ body:has(.fp) {
   left: 0;
   top: calc(var(--scale-box-h) / -2);
   width: 0;
-  height: var(--scale-box-h);
+  /* 09-07: + the services readout line (0 at ≤768). The top edge holds,
+     so the name row stays centred on the lens and the box grows DOWN. */
+  height: calc(var(--scale-box-h) + var(--scale-tags-h));
   background: var(--color-near-black);
   opacity: 0;
   pointer-events: none;
@@ -983,7 +985,15 @@ body:has(.fp) {
   --i: max(var(--k, 0) - var(--scale-cur), var(--scale-cur) - var(--k, 0));
   position: absolute;
   left: 0;
-  top: calc((var(--k, 0) - 0.5) * var(--scale-pitch));
+  /* 09-07: every row BELOW the detented one drops by the readout's painted
+     height (--scale-tags-h × sel × bump), so the box's second line never
+     covers the +1 name. --scale-cur is an integer, so the clamp is a 0/1
+     step at the detent — the same instant the size curve steps and the
+     flipper flicks — eased by the `top` transition below. */
+  top: calc(
+    (var(--k, 0) - 0.5) * var(--scale-pitch) + var(--scale-tags-h) * var(--scale-sel) *
+      var(--scale-sel-bump) * clamp(0, var(--k, 0) - var(--scale-cur), 1)
+  );
   /* The chip column only — the window is wider for the names now, and a
      full-width button would drag the centred digits off the lens line. The
      name span overflows the button box rightward and stays clickable. */
@@ -1080,15 +1090,19 @@ body:has(.fp) {
   cursor: pointer;
   /* Origin on the seat edge — the row grows rightward off its tick. */
   transform-origin: 0 50%;
-  transition: opacity var(--scale-fade-ms) var(--ease-micro)
-    calc(max(var(--scale-rows) - var(--i), 0) * var(--scale-stagger-close));
+  transition:
+    opacity var(--scale-fade-ms) var(--ease-micro)
+      calc(max(var(--scale-rows) - var(--i), 0) * var(--scale-stagger-close)),
+    top var(--scale-tags-ms) var(--ease-micro);
 }
 
 .fp .fp-scale[data-open] .fp-scale__station {
   opacity: 1;
   transform: scale(var(--sel)); /* lands EXACTLY --scale-sel at lock — the [select_project] size */
-  transition: opacity var(--scale-fade-ms) var(--ease-micro)
-    calc(min(var(--i), var(--scale-rows)) * var(--scale-stagger-open));
+  transition:
+    opacity var(--scale-fade-ms) var(--ease-micro)
+      calc(min(var(--i), var(--scale-rows)) * var(--scale-stagger-open)),
+    top var(--scale-tags-ms) var(--ease-micro);
 }
 
 /* ?scalewarp=1 (09-02 round 2, Nathan's lens-warp variant): every row wears
@@ -1168,7 +1182,10 @@ body:has(.fp) {
   left: calc(100% - 0.5px / var(--fs) + var(--sdx)); /* r11c: staggered outward */
   top: calc(50% - 50% / var(--sel));
   width: calc(1px / var(--fs)); /* r11b: never thickens with the row */
-  height: calc(100% / var(--sel));
+  /* 09-07: the detented row's slice runs on through the readout line
+     (--w1 = 1 there, 0 everywhere else) so the axis stays continuous
+     down the taller box. */
+  height: calc(100% / var(--sel) + var(--scale-tags-h) * var(--w1));
   background: currentColor;
   pointer-events: none;
 }
@@ -1263,8 +1280,72 @@ body:has(.fp) {
   opacity: var(--scale-sub-ink);
 }
 
-.fp .fp-scale__name:not([data-marquee]) .fp-scale__name-track > span + span {
+.fp .fp-scale__name:not([data-marquee]):not([data-fill]) .fp-scale__name-track > span + span,
+.fp .fp-scale__tags:not([data-fill]) .fp-scale__tags-track > span + span {
   display: none;
+}
+
+/* 09-07 (Nathan, "option 3" — desktop only): the SERVICES READOUT. A
+   second line under the client name, inside the taller flipper box:
+   mono, the sub size, undimmed, uppercase, ' · '-separated — a readout,
+   not chips. Every station carries one (the wheel's clones too); only
+   the DETENTED row shows it (opacity = --w1, the same 0/1 the size bump
+   keys off), so it lands with the box. Seated where the box's name row
+   ends — pitch/2 + (pitch/2)/(sel×bump) in the station's own px — and
+   exactly --scale-tags-h tall, matching the box's extension. The skin
+   caps it to the box (inline max-width) and runs the fill ticker on it. */
+.fp .fp-scale__tags {
+  position: absolute;
+  left: calc(var(--scale-w) + var(--space-4) + var(--space-2));
+  top: calc(
+    var(--scale-pitch) / 2 + var(--scale-pitch) / (2 * var(--scale-sel) * var(--scale-sel-bump))
+  );
+  height: var(--scale-tags-h);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: calc(1em * var(--scale-sub));
+  font-weight: 400;
+  line-height: var(--scale-tags-h);
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-align: left;
+  text-transform: uppercase;
+  opacity: var(--w1);
+  pointer-events: none;
+}
+
+.fp .fp-scale--slice .fp-scale__tags {
+  left: calc(var(--scale-w) + var(--space-2) + var(--sdx));
+}
+
+.fp .fp-scale:not(.fp-scale--tags) .fp-scale__tags {
+  display: none;
+}
+
+.fp .fp-scale__tags-track {
+  display: inline-flex;
+  gap: var(--space-6);
+}
+
+/* 09-07: the FILL TICKER (desktop selected row): the copy repeats to fill
+   the fixed box and rolls by exactly one copy + gap (--fill-shift, px,
+   skin-measured) per --fill-s — the skin derives the duration from
+   --scale-fill-pxs so the name and the readout move at ONE speed, each
+   phase-locked to the wall clock (r11h idiom). Distinct from
+   data-marquee (the two-copy −50% roll the roster/≤768 rows keep). */
+.fp .fp-scale__name[data-fill] .fp-scale__name-track,
+.fp .fp-scale__tags[data-fill] .fp-scale__tags-track {
+  animation: fp-scale-fill var(--fill-s, 6s) linear infinite;
+}
+
+@keyframes fp-scale-fill {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-1 * var(--fill-shift, 50%)));
+  }
 }
 
 /* The SELECTED row's clipping name gets the next-project chip's ticker
@@ -1499,7 +1580,9 @@ body:has(.fp) {
     animation: none;
   }
 
-  .fp .fp-scale__name[data-marquee] .fp-scale__name-track {
+  .fp .fp-scale__name[data-marquee] .fp-scale__name-track,
+  .fp .fp-scale__name[data-fill] .fp-scale__name-track,
+  .fp .fp-scale__tags[data-fill] .fp-scale__tags-track {
     animation: none;
   }
 

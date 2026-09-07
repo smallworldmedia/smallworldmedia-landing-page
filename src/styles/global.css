@@ -278,12 +278,13 @@
   --scale-open-ms: 240ms;
   /* hairline draw + lens zoom + label reveal */
   --scale-close-ms: 300ms;
-  --scale-chip-wipe-ms: 520ms;
+  --scale-chip-wipe-ms: 300ms;
   /* 09-06 (Nathan: the mobile chip's exit "hard cuts"): the
      [select_project] chip's own wipe. It shared --scale-close-ms on
      --ease-draw (an expo-out: two-thirds done in the first 60ms — ~4
      phone frames of motion on a solid block, read as a cut). Longer, on
-     --ease-micro. ?chipwipe. */
+     --ease-micro. ?chipwipe. 09-07 (Nathan): the desktop chip wipes
+     QUICKER — 300ms here; the ≤768 tier holds the 520 it was tuned at. */
   /* the whole inward retract (rule wipe + reverse cascade — the cascade is
      FITTED to this budget in featured-projects.css off --scale-rows) */
   --scale-stagger-ms: 30ms;
@@ -350,9 +351,27 @@
   /* 09-07 (Nathan): the project TITLE token after the client name (Sanity
      `title`, e.g. "(Pre-2026)" on COCO/HHS) — its size as an em ratio of
      the row, so it rides the row's own roster→selected curve. ?sub. */
-  --scale-sub-ink: 0.7;
+  --scale-sub-ink: 1;
   /* its ink as a fraction of the row's colour (an opacity — the row's
-     colour already carries the proximity ink). ?subink. */
+     colour already carries the proximity ink). Undimmed 09-07 (Nathan).
+     ?subink. */
+  --scale-tags-h: 1.5rem;
+  /* 09-07 (Nathan, "option 3"): the SERVICES READOUT — a second mono line
+     under the selected client name, INSIDE the flipper box, which grows
+     by this much (unscaled row px; painted ×sel×bump). The rows below the
+     detented one shift down by the painted amount so the +1 name is never
+     covered. Desktop only — 0 at ≤768. ?tagsh. */
+  --scale-tags-ms: 160ms;
+  /* the rows-below shift (a `top` transition at the detent step) */
+  --scale-fill-pxs: 44;
+  /* 09-07: the FILL TICKER — the desktop selected name (and the readout)
+     always roll, the copy repeated to fill the fixed box, at this many
+     UNSCALED px/s (≈ the established 6s-per-copy roll on the widest name).
+     Both lines share the speed, phase-locked to the wall clock. ?fillpxs. */
+  --scale-box-gap: 2rem;
+  /* 09-07: the FIXED desktop box width = the widest client name, capped so
+     at least this gap stays between the box and the [select_project]
+     chip. ?boxgap (px). */
   --scale-ink-reach: 5;
   /* r11g: the INK curve is its own — continuous (per frame), not the
      detented size step: white at the lens → the floor at this many
@@ -2762,6 +2781,10 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
        and mid-length names tip into the ticker. Holds at 1 here; dial
        ?roster on device separately. */
     --scale-roster: 1;
+    --scale-chip-wipe-ms: 520ms;
+    /* the ≤768 chip wipe stays at its 09-06 tune; desktop is 300 */
+    --scale-tags-h: 0px;
+    /* the services readout is desktop-only (09-07) */
     /* selected: painted ×(1.688 × --scale-sel-bump 1.15 ≈ 1.94) from
        x≈54px → right edge ~316px of 390. WIDENED r10 (was 17vw/4.5rem):
        the [select_project] chip left the lens band in r9 (rotated, top
