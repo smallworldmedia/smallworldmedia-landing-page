@@ -246,6 +246,10 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   const tagSize = PARAM('tagsize', 0); // the readout's size, em ratio of the row
   const fillPxs = PARAM('fillpxs', 0);
   const boxGap = PARAM('boxgap', 0);
+  // 09-07: how long the OUTGOING row keeps its fill roll after the detent
+  // (ms) — the box is still deflected onto it at the threshold. Default
+  // ≈ one flip-spring τ (3τ "hung too long" — Nathan); 0 = drop at once.
+  const unfillMs = PARAM('unfill', -1);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -737,9 +741,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // 09-07 (Nathan: COCO snapped from the roll to a single name while still
   // inside the box): the detent fires at the threshold, while the flipper
   // is still deflected onto the OUTGOING row and springing across — so the
-  // outgoing row keeps rolling for the spring's settle (~3τ) and drops to
-  // its single copy only once the box has left it. Re-selection inside
-  // that window cancels the drop (fill() re-arms on the same clock).
+  // outgoing row keeps rolling for ~one spring τ (?unfill ms) and drops
+  // to its single copy as the box clears it. Re-selection inside that
+  // window cancels the drop (fill() re-arms on the same clock).
   const unfillTimers = useRef(new Map());
   const cancelUnfill = (el) => {
     const t = unfillTimers.current.get(el);
@@ -750,7 +754,11 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   };
   const unfillLater = (el) => {
     cancelUnfill(el);
-    const ms = Math.max(150, Math.round(flipTau * 3 * 1000));
+    const ms = unfillMs >= 0 ? unfillMs : Math.max(60, Math.round(flipTau * 1000));
+    if (ms === 0) {
+      unfill(el);
+      return;
+    }
     unfillTimers.current.set(
       el,
       setTimeout(() => {
