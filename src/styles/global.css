@@ -278,6 +278,12 @@
   --scale-open-ms: 240ms;
   /* hairline draw + lens zoom + label reveal */
   --scale-close-ms: 300ms;
+  --scale-chip-wipe-ms: 520ms;
+  /* 09-06 (Nathan: the mobile chip's exit "hard cuts"): the
+     [select_project] chip's own wipe. It shared --scale-close-ms on
+     --ease-draw (an expo-out: two-thirds done in the first 60ms — ~4
+     phone frames of motion on a solid block, read as a cut). Longer, on
+     --ease-micro. ?chipwipe. */
   /* the whole inward retract (rule wipe + reverse cascade — the cascade is
      FITTED to this budget in featured-projects.css off --scale-rows) */
   --scale-stagger-ms: 30ms;

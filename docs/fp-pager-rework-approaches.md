@@ -1037,6 +1037,45 @@ in after mount — so every visitor now pays the chunk and sees the rail
 for one paint before the swap. Retiring that first-paint rail (SSR the
 scale arm's rest chip) is the next structural step, not done here.
 
+**Done the same day (Nathan: "should we just address that now?"):**
+the arm is SSR'd. `GraticulePager` is a static import rendered by
+`FeaturedProjects` on the server and on the client's first paint (its
+SSR seed off the inline `--scale-i` was built for this; #418 parity
+holds because the client's first tree is the same tree — probe: zero
+hydration warnings, `.fp-scale` in the first DOM, no `.fp-pager__dot`
+in `dist/work/index.html`). `data-pager='scale'` is RENDERED on
+`<main>`, not stamped, so the scrim / z CSS hooks are live from first
+paint. The legacy rail is the lazy side now — `?pager=rail` flips a
+`legacyRail` state after mount and the rail (with its marker follower)
+swaps in; the old `PAGER_VARIANTS` map is gone.
+
+### 09-06 — the mobile chip wipe hard-cut
+
+Nathan: on the phone the `[select_project]` chip's exit wipe never
+shows — it hard-cuts. Two fixes, both belt-and-braces since WebKit can't
+be reproduced headless here without its engine:
+
+1. **The z hold** — the engaged pager returned to z-5 at
+   `--pager-scrim-ms` (240ms), but the chip's letter cut + wipe run
+   ~1.2s past the retract. The hold now ALSO lasts while
+   `.fp-scale__freeze[data-show]` exists (`:has()`), so whatever the
+   timings the chip is above everything until it unmounts.
+2. **Same-unit clip edges** — the wipe interpolated the moving edge from
+   `−2px` to `100%`, a px ↔ % calc interpolation Chrome tweens but WebKit
+   has snapped (which reads as exactly "no wipe, hard cut"). Rest form is
+   now `inset(0% …)` on the wiping edge (top on desktop, the local bottom
+   under the ≤768 180° flip) so every edge tweens within one unit. The
+   hint's engage wipe gets the same form. **Tested in real WebKit** (the
+   Playwright engine): both forms tween — so this was hygiene, not the
+   cause.
+3. **The actual cause — the ease.** The wipe rode the strip's
+   `--scale-close-ms` (300) on `--ease-draw`, `cubic-bezier(0.16, 1,
+   0.3, 1)` — an expo-out: WebKit's own samples put it 67% done at 60ms
+   and 90% at 100ms. On a solid accent block whose letters are already
+   gone, that is ~4 phone frames of motion — a cut. The chip has its own
+   `--scale-chip-wipe-ms` **520** on `--ease-micro` (symmetric) now;
+   `?chipwipe` dials it; the skin's unmount delay reads the same token.
+
 ### Open calls from round 11
 
 - The falloff triple (3.5 / 1 / 1.5) are agent numbers — dial on device.

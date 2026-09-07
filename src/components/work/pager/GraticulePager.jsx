@@ -206,6 +206,8 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   const inkReach = PARAM('inkreach', 0);
   const inkExp = PARAM('inkexp', 0);
   const inkFloor = PARAM('inkfloor', -1);
+  // 09-06: the [select_project] chip's exit-wipe beat in ms (?chipwipe).
+  const chipWipe = PARAM('chipwipe', 0);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -778,7 +780,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         // data-show drops (the opacity fade is invisible behind a fully
         // closed clip) and the letters are restored for the next engage.
         const wipeS =
-          (parseFloat(getComputedStyle(el).getPropertyValue('--scale-close-ms')) || 300) /
+          (parseFloat(getComputedStyle(el).getPropertyValue('--scale-chip-wipe-ms')) || 520) /
           1000;
         freezeCallsRef.current.push(
           gsap.delayedCall(chars.length * 0.035 + 0.05, () => el.setAttribute('data-exit', ''))
@@ -828,6 +830,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         ...(inkReach > 0 ? { '--scale-ink-reach': inkReach } : {}),
         ...(inkExp > 0 ? { '--scale-ink-exp': inkExp } : {}),
         ...(inkFloor >= 0 ? { '--scale-ink-floor': inkFloor } : {}),
+        ...(chipWipe > 0 ? { '--scale-chip-wipe-ms': `${chipWipe}ms` } : {}),
       }}
     >
       {/* The chip = the lens (numerator row) + the fraction rule + the

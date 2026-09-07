@@ -28,6 +28,7 @@ import { navigate } from 'astro:transitions/client';
 import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
+import GraticulePager from './pager/GraticulePager.jsx';
 import SiteFooter from '../SiteFooter.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
 // Only the tiny shared tune STATE is static here; the panel itself (and the
@@ -62,11 +63,11 @@ const PARAM = (key, fallback) => {
 // ?pager= A/B arms (08-31 rework) — every skin rides pager/usePagerGesture.js.
 // Static import() literals so each arm is its own lazy chunk. `hasOwn`
 // lookup below, never `in`: a `?pager=constructor` must not resolve.
-const PAGER_VARIANTS = Object.freeze({
-  // 09-05: tape + tuner arms DELETED (Nathan's call — the scale arm won);
-  // the legacy rail stays as the no-param default.
-  scale: () => import('./pager/GraticulePager.jsx'),
-});
+// 09-06: the scale arm is SSR'd (static import — it renders server-side
+// off the inline --scale-i seed, client:load parity holds because the
+// client's first render is the same tree); the legacy rail is the lazy
+// side now, swapped in after mount under ?pager=rail only. (The lazy
+// PAGER_VARIANTS map of the A/B days is gone with the tape/tuner arms.)
 const PAGER_BASE_GAIN = 1.6; // active dot scale = 1 + this
 const PAGER_HOVER_GAIN = 1.8; // additive, centred on the cursor
 // Wheel/touch px to fill a CTA and advance — higher = more scroll resistance
@@ -158,35 +159,15 @@ export default function FeaturedProjects({ worlds = [] }) {
       alive = false;
     };
   }, []);
-  // FP pager arm — the same hydration-safe lazy gate as the benches: SSR +
-  // first client paint render the legacy rail (client:load parity, #418),
-  // the arm swaps in after mount. 09-06 (Nathan): the SCALE arm is the
-  // DEFAULT — no param = scale (tape/tuner deleted 09-05); ?pager=rail
-  // keeps the legacy rail (the parked rail-arm proposal's front end).
-  // docs/fp-pager-rework-approaches.md is the spec.
-  const [PagerVariant, setPagerVariant] = useState(null);
+  // FP pager — the SCALE arm is the arm (09-06): SSR + first paint render
+  // it (no rail flash, no chunk swap). ?pager=rail keeps the legacy rail
+  // (the parked rail-arm proposal's front end): the same hydration-safe
+  // post-mount swap the A/B gate used, inverted. data-pager='scale' is
+  // rendered, not stamped — the scrim/z CSS hooks are live from first
+  // paint. docs/fp-pager-rework-approaches.md is the spec.
+  const [legacyRail, setLegacyRail] = useState(false);
   useEffect(() => {
-    const param = new URLSearchParams(window.location.search).get('pager');
-    const slug = param === null ? 'scale' : param;
-    const load = Object.hasOwn(PAGER_VARIANTS, slug) ? PAGER_VARIANTS[slug] : null;
-    if (!load) return; // 'rail' (or any unknown value) = the legacy rail
-    // Variant-scoped CSS hook (09-02): the scale arm swaps the engaged
-    // stage-dim for the full-viewport scrim via .fp[data-pager='scale'].
-    // Imperative, post-mount only — the SSR/first-paint markup stays
-    // identical to the legacy rail (#418 parity).
-    mainRef.current?.setAttribute('data-pager', slug);
-    let alive = true;
-    load()
-      .then((m) => {
-        if (alive) setPagerVariant(() => m.default);
-      })
-      .catch(() => {
-        /* A/B arm only — a blocked chunk just means the legacy rail */
-      });
-    return () => {
-      alive = false;
-      mainRef.current?.removeAttribute('data-pager');
-    };
+    if (new URLSearchParams(window.location.search).get('pager') === 'rail') setLegacyRail(true);
   }, []);
   // ?cardname ?tagtext ?tagpad ?tagpadx ?taggap — the fp-card MOBILE dial
   // set (09-04 r8): px overrides for the client-name headline, service-tag
@@ -629,7 +610,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     // runs the cleanup below, tearing the ticker down; without this the
     // follower runs forever against DETACHED nodes (querySelectorAll still
     // finds children of a detached nav, so the !dot bail never fires).
-    if (PagerVariant) return undefined;
+    if (!legacyRail) return undefined; // the scale arm has its own pointer
     const nav = pagerRef.current;
     const marker = markerRef.current;
     if (!nav || !marker || worlds.length < 1) return undefined;
@@ -663,7 +644,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     };
     gsap.ticker.add(follow);
     return () => gsap.ticker.remove(follow);
-  }, [worlds.length, PagerVariant]);
+  }, [worlds.length, legacyRail]);
 
   const onNext = () => {
     if (!atEnd) goTo(active + 1);
@@ -748,6 +729,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       className="fp"
       aria-label="Featured projects"
       ref={mainRef}
+      data-pager={legacyRail ? undefined : 'scale'}
       // S2: the focused (active) project's accent, broadcast at the page root.
       // The left-pager active chip resolves --project-color from here; per-card
       // surfaces override it on their own .fp-card-wrap so a Turn keeps each
@@ -769,8 +751,8 @@ export default function FeaturedProjects({ worlds = [] }) {
       )}
       <WorldScene world={w} index={active} />
 
-      {PagerVariant ? (
-        <PagerVariant
+      {!legacyRail ? (
+        <GraticulePager
           worlds={worlds}
           active={active}
           commit={requestGoTo}

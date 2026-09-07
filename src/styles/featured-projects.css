@@ -507,7 +507,14 @@ body:has(.fp) {
   transition: z-index 0s linear var(--pager-scrim-ms);
 }
 
-.fp[data-pager='scale'].is-pager-engaged .fp-scale {
+.fp[data-pager='scale'].is-pager-engaged .fp-scale,
+/* 09-06 (Nathan: the mobile chip's wipe hard-cut): the z hold ALSO lasts
+   as long as the [select_project] chip is showing — its letter cut +
+   wipe run ~930ms past the retract, far beyond --pager-scrim-ms (240),
+   and at z-5 the stage paints OVER the chip (verified: elementFromPoint
+   at the chip's centre = .fp-stage from 650ms). Attribute-driven, so the
+   hold ends exactly when the chip unmounts, whatever the timings. */
+.fp[data-pager='scale']:has(.fp-scale__freeze[data-show]) .fp-scale {
   z-index: 120;
   transition: z-index 0s;
 }
@@ -1305,7 +1312,11 @@ body:has(.fp) {
   letter-spacing: var(--tracking-tight);
   color: color-mix(in srgb, var(--color-white) 55%, transparent);
   pointer-events: none;
-  clip-path: inset(-2px);
+  /* 09-06: every edge interpolates within ONE unit (the wiping edge 0% →
+     100%, the others a fixed −2px) — a px ↔ % edge needs a calc()
+     interpolation that WebKit has snapped rather than tweened (read as
+     "no wipe, hard cut" on the phone). Same form on the chip below. */
+  clip-path: inset(-2px -2px 0% -2px);
   transition: clip-path var(--scale-close-ms) var(--ease-draw);
 }
 
@@ -1345,8 +1356,10 @@ body:has(.fp) {
      space (top → bottom). Unrotated here, so the TOP inset grows; the
      ≤768 chip is the 180° vertical-rl flip, where clip-path (pre-
      transform) maps global top onto the LOCAL BOTTOM — the hint's idiom.
-     No transition without data-exit: the next engage snaps it open. */
-  clip-path: inset(-2px);
+     No transition without data-exit: the next engage snaps it open.
+     09-06: the wiping edge is 0% at rest (same-unit interpolation —
+     see the hint above); ≤768 flips which edge, below. */
+  clip-path: inset(0% -2px -2px -2px);
 }
 
 .fp .fp-scale__freeze[data-show] {
@@ -1356,7 +1369,9 @@ body:has(.fp) {
 
 .fp .fp-scale__freeze[data-exit] {
   clip-path: inset(100% -2px -2px -2px);
-  transition: clip-path var(--scale-close-ms) var(--ease-draw);
+  /* 09-06: its own beat + a symmetric ease — the strip's --ease-draw
+     expo-out finished the visible motion in ~80ms (a cut on a phone). */
+  transition: clip-path var(--scale-chip-wipe-ms) var(--ease-micro);
 }
 
 /* ≤768 (r9, Nathan — supersedes the 09-03 right-seat): long client names
@@ -1375,7 +1390,13 @@ body:has(.fp) {
     writing-mode: vertical-rl;
   }
 
-  /* The 180° flip: global top-down = the LOCAL BOTTOM inset (r11). */
+  /* The 180° flip: global top-down = the LOCAL BOTTOM inset (r11). Rest
+     form carries the 0% on the same (bottom) edge so the transition
+     stays px→px / %→% per edge (09-06). */
+  .fp .fp-scale__freeze {
+    clip-path: inset(-2px -2px 0% -2px);
+  }
+
   .fp .fp-scale__freeze[data-exit] {
     clip-path: inset(-2px -2px 100% -2px);
   }
