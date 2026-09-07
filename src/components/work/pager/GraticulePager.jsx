@@ -358,6 +358,54 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // --scale-rows) moves. Keyed on the RESOLVED value and run as an effect,
   // so React has already written the new inline --scale-pitch to the DOM
   // before the geometry is re-read.
+  // SSR-correct seed: the CSS base transform reads --scale-i until the
+  // engine's first quickSetter write takes over (inline transform wins),
+  // and --scale-c falls back to it before the first detent. --scale-n
+  // feeds the hairline extent; --scale-pitch is the engine's own detent
+  // unit, so the scale and the finger can never drift. Every `?` dial
+  // lands here as an inline token.
+  const rootStyle = {
+    '--scale-i': active,
+    '--scale-n': count,
+    '--scale-pitch': `${detentPx}px`,
+    '--scale-clones': cloneOff,
+    ...(featherPx > 0 ? { '--scale-feather': `${featherPx}px` } : {}),
+    ...(falloff > 0 ? { '--scale-falloff': falloff } : {}),
+    ...(falloffHold >= 0 ? { '--scale-falloff-hold': falloffHold } : {}),
+    ...(falloffExp > 0 ? { '--scale-falloff-exp': falloffExp } : {}),
+    ...(sliceReach > 0 ? { '--scale-slice-reach': sliceReach } : {}),
+    ...(sliceExp > 0 ? { '--scale-slice-exp': sliceExp } : {}),
+    ...(sliceAmp >= 0 ? { '--scale-slice-amp': sliceAmp } : {}),
+    ...(selScale > 0 ? { '--scale-sel': selScale } : {}),
+    ...(selBump > 0 ? { '--scale-sel-bump': selBump } : {}),
+    ...(roster > 0 ? { '--scale-roster': roster } : {}),
+    ...(inkReach > 0 ? { '--scale-ink-reach': inkReach } : {}),
+    ...(inkExp > 0 ? { '--scale-ink-exp': inkExp } : {}),
+    ...(inkFloor >= 0 ? { '--scale-ink-floor': inkFloor } : {}),
+    ...(chipWipe > 0 ? { '--scale-chip-wipe-ms': `${chipWipe}ms` } : {}),
+    ...(nameMax > 0 ? { '--scale-name-max': `${nameMax}px`, '--scale-name-sel-max': `${nameMax}px` } : {}),
+    ...(subScale > 0 ? { '--scale-sub': subScale } : {}),
+    ...(subInk >= 0 ? { '--scale-sub-ink': subInk } : {}),
+    ...(!tagsOn ? { '--scale-tags-h': '0px' } : tagsH > 0 ? { '--scale-tags-h': `${tagsH}px` } : {}),
+    ...(fillPxs > 0 ? { '--scale-fill-pxs': fillPxs } : {}),
+    ...(boxGap > 0 ? { '--scale-box-gap': `${boxGap}px` } : {}),
+  };
+  const rootClass = `fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}${tagsOn ? ' fp-scale--tags' : ''}`;
+  // 09-07 (Nathan: "my tunables aren't working on localhost"): since the
+  // arm is SSR'd (09-06) the server renders every dial at its FALLBACK
+  // (PARAM has no window there) and React hydration KEEPS the server's
+  // style/class attributes — a client-side difference in a prop is never
+  // written, and no later render re-diffs it. So the dials are re-applied
+  // IMPERATIVELY once at mount. Declared before every other effect: gear()
+  // reads tokens (--scale-tags-h, --scale-warp-r) off computed style.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    el.className = rootClass;
+    Object.entries(rootStyle).forEach(([k, v]) => el.style.setProperty(k, String(v)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     gearRef.current = null;
     writeFrame(lastQRef.current);
@@ -918,42 +966,12 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
 
   return (
     <nav
-      className={`fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}${tagsOn ? ' fp-scale--tags' : ''}`}
+      className={rootClass}
       ref={rootRef}
       aria-label="Featured project pager"
       data-open={open || undefined}
       data-charged={charged || undefined}
-      // SSR-correct seed: the CSS base transform reads --scale-i until the
-      // engine's first quickSetter write takes over (inline transform wins),
-      // and --scale-c falls back to it before the first detent.
-      // --scale-n feeds the hairline extent; --scale-pitch is the engine's
-      // own detent unit, so the scale and the finger can never drift.
-      style={{
-        '--scale-i': active,
-        '--scale-n': count,
-        '--scale-pitch': `${detentPx}px`,
-        '--scale-clones': cloneOff,
-        ...(featherPx > 0 ? { '--scale-feather': `${featherPx}px` } : {}),
-        ...(falloff > 0 ? { '--scale-falloff': falloff } : {}),
-        ...(falloffHold >= 0 ? { '--scale-falloff-hold': falloffHold } : {}),
-        ...(falloffExp > 0 ? { '--scale-falloff-exp': falloffExp } : {}),
-        ...(sliceReach > 0 ? { '--scale-slice-reach': sliceReach } : {}),
-        ...(sliceExp > 0 ? { '--scale-slice-exp': sliceExp } : {}),
-        ...(sliceAmp >= 0 ? { '--scale-slice-amp': sliceAmp } : {}),
-        ...(selScale > 0 ? { '--scale-sel': selScale } : {}),
-        ...(selBump > 0 ? { '--scale-sel-bump': selBump } : {}),
-        ...(roster > 0 ? { '--scale-roster': roster } : {}),
-        ...(inkReach > 0 ? { '--scale-ink-reach': inkReach } : {}),
-        ...(inkExp > 0 ? { '--scale-ink-exp': inkExp } : {}),
-        ...(inkFloor >= 0 ? { '--scale-ink-floor': inkFloor } : {}),
-        ...(chipWipe > 0 ? { '--scale-chip-wipe-ms': `${chipWipe}ms` } : {}),
-        ...(nameMax > 0 ? { '--scale-name-max': `${nameMax}px`, '--scale-name-sel-max': `${nameMax}px` } : {}),
-        ...(subScale > 0 ? { '--scale-sub': subScale } : {}),
-        ...(subInk >= 0 ? { '--scale-sub-ink': subInk } : {}),
-        ...(!tagsOn ? { '--scale-tags-h': '0px' } : tagsH > 0 ? { '--scale-tags-h': `${tagsH}px` } : {}),
-        ...(fillPxs > 0 ? { '--scale-fill-pxs': fillPxs } : {}),
-        ...(boxGap > 0 ? { '--scale-box-gap': `${boxGap}px` } : {}),
-      }}
+      style={rootStyle}
     >
       {/* The chip = the lens (numerator row) + the fraction rule + the
           denominator. Decorative overlay: the station buttons beneath carry
