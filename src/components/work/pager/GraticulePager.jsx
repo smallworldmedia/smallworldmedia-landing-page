@@ -606,11 +606,11 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     // row that changed role. Only the role attributes clear.
     if (selRef.current && selRef.current !== nameEl) {
       selRef.current.removeAttribute('data-sel');
-      unfill(selRef.current);
+      unfillLater(selRef.current);
       selRef.current = null;
     }
     if (tagsRef.current) {
-      unfill(tagsRef.current);
+      unfillLater(tagsRef.current);
       tagsRef.current = null;
     }
     nearRef.current.forEach((el) => {
@@ -676,7 +676,10 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       // --scale-box-gap stays between the painted box and the
       // [select_project] chip. Inside it the name ALWAYS rolls, repeated
       // to fill; the services readout rolls under it at the same speed.
-      const pad = 6;
+      // 09-07 (Nathan): NO trailing pad — the rolling text hard-clips at
+      // the box edge (the r7 flush rule), so the box ends where the clip
+      // ends.
+      const pad = 0;
       const cs = getComputedStyle(rootRef.current);
       const selPaint =
         (parseFloat(cs.getPropertyValue('--scale-sel')) || 1) *
@@ -714,6 +717,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   const fill = (el, w, cap, pxs) => {
     const track = el.firstChild;
     if (!track || !track.children.length) return;
+    cancelUnfill(el);
     el.style.maxWidth = `${Math.max(0, Math.round(cap))}px`;
     if (PREFERS_REDUCED_MOTION || !(w > 0)) return;
     const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
@@ -730,6 +734,38 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     el.removeAttribute('data-fill');
     el.style.maxWidth = '';
   };
+  // 09-07 (Nathan: COCO snapped from the roll to a single name while still
+  // inside the box): the detent fires at the threshold, while the flipper
+  // is still deflected onto the OUTGOING row and springing across — so the
+  // outgoing row keeps rolling for the spring's settle (~3τ) and drops to
+  // its single copy only once the box has left it. Re-selection inside
+  // that window cancels the drop (fill() re-arms on the same clock).
+  const unfillTimers = useRef(new Map());
+  const cancelUnfill = (el) => {
+    const t = unfillTimers.current.get(el);
+    if (t) {
+      clearTimeout(t);
+      unfillTimers.current.delete(el);
+    }
+  };
+  const unfillLater = (el) => {
+    cancelUnfill(el);
+    const ms = Math.max(150, Math.round(flipTau * 3 * 1000));
+    unfillTimers.current.set(
+      el,
+      setTimeout(() => {
+        unfillTimers.current.delete(el);
+        unfill(el);
+      }, ms)
+    );
+  };
+  useEffect(
+    () => () => {
+      unfillTimers.current.forEach((t) => clearTimeout(t));
+      unfillTimers.current.clear();
+    },
+    []
+  );
   const setStation = (i, un = i) => {
     const w = worlds[i];
     if (!w) return;
