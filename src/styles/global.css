@@ -295,15 +295,16 @@
   /* one station's own fade inside the cascade */
   --scale-flash-ms: 160ms;
   /* crossed major tick: white, then decays */
-  --scale-name-max: 25rem;
+  --scale-name-max: 2400px;
   /* 09-02: per-station client-name cap right of the axis (roster rows).
      09-07 (Nathan: "no need to cut off so suddenly" on desktop): 12rem →
      20rem — fit the widest name (Heavy House Society, 264px at the
      roster 1.9 size) with no ticker. 09-07 later: 20rem → 25rem (350px)
      once the title token landed — "HEAVY HOUSE SOCIETY (Pre-2026)" is
-     331px at roster size. Its selected box (×1.575 + seat ≈ 606px) now
-     overlaps the centred card at 1440 under the scrim (the accepted
-     narrow-desktop overlap, now on one row at 1440 too). ?namemax (px). */
+     331px at roster size. Nathan's dial the same evening: 2400px —
+     effectively UNCAPPED on desktop (no roster row ever clips or
+     tickers; the selected row's clip is the fixed box, set by the skin).
+     ?namemax (px). */
   --scale-name-sel-max: var(--scale-name-max);
   /* 09-03 round 5: the SELECTED row's own, TIGHTER cap — its painted box is
      ×--scale-sel, and on phones it must stop short of the right-seated
@@ -355,26 +356,15 @@
   /* its ink as a fraction of the row's colour (an opacity — the row's
      colour already carries the proximity ink). Undimmed 09-07 (Nathan).
      ?subink. */
-  --scale-tags-h: 1.5rem;
-  /* 09-07 (Nathan, "option 3"): the SERVICES READOUT — a second mono line
-     under the selected client name, INSIDE the flipper box, which grows
-     by this much (unscaled row px; painted ×sel×bump). The rows below the
-     detented one shift down by the painted amount so the +1 name is never
-     covered. Desktop only — 0 at ≤768. ?tagsh. */
-  --scale-tags-size: var(--scale-sub);
-  /* the readout's type size as an em ratio of the row (defaults to the
-     sub token's ratio). ?tagsize. */
-  --scale-tags-ms: 160ms;
-  /* the rows-below shift (a `top` transition at the detent step) */
-  --scale-fill-pxs: 44;
-  /* 09-07: the FILL TICKER — the desktop selected name (and the readout)
-     always roll, the copy repeated to fill the fixed box, at this many
-     UNSCALED px/s (≈ the established 6s-per-copy roll on the widest name).
-     Both lines share the speed, phase-locked to the wall clock. ?fillpxs. */
-  --scale-box-gap: 2rem;
+  --scale-fill-pxs: 30;
+  /* 09-07: the FILL TICKER — the desktop selected name always rolls, the
+     copy repeated to fill the fixed box, at this many UNSCALED px/s,
+     phase-locked to the wall clock. Nathan's dial 30 (agent 44). ?fillpxs.
+     (A services readout that rolled under it was tried + dropped 09-07.) */
+  --scale-box-gap: 12px;
   /* 09-07: the FIXED desktop box width = the widest client name, capped so
      at least this gap stays between the box and the [select_project]
-     chip. ?boxgap (px). */
+     chip. Nathan's dial 12 (agent 2rem). ?boxgap (px). */
   --scale-ink-reach: 5;
   /* r11g: the INK curve is its own — continuous (per frame), not the
      detented size step: white at the lens → the floor at this many
@@ -2786,8 +2776,6 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
     --scale-roster: 1;
     --scale-chip-wipe-ms: 520ms;
     /* the ≤768 chip wipe stays at its 09-06 tune; desktop is 300 */
-    --scale-tags-h: 0px;
-    /* the services readout is desktop-only (09-07) */
     /* selected: painted ×(1.688 × --scale-sel-bump 1.15 ≈ 1.94) from
        x≈54px → right edge ~316px of 390. WIDENED r10 (was 17vw/4.5rem):
        the [select_project] chip left the lens band in r9 (rotated, top

@@ -124,14 +124,6 @@ const subOf = (w) =>
     ? w.title.trim()
     : null;
 const nameOf = (w) => (subOf(w) ? `${w.clientName} ${subOf(w)}` : w.clientName);
-// 09-07 (Nathan, "option 3"): the services READOUT string — the project's
-// service tags (the card's own `services` shape), ' · '-separated (a
-// slash collides with "Event / Tour Creative"); CSS uppercases it in the
-// mono face. Null when the project carries none.
-const tagsOf = (w) => {
-  const names = (w.services || []).map((t) => t?.name).filter(Boolean);
-  return names.length ? names.join(' · ') : null;
-};
 // Live tuning (?key=value) — the FeaturedProjects knobs convention.
 const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
@@ -235,21 +227,16 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // copy so the cap, the ticker measure and the box width all include it.
   const subScale = PARAM('sub', 0);
   const subInk = PARAM('subink', -1);
-  // 09-07 (Nathan, "option 3", desktop only): the SERVICES READOUT under
-  // the selected name inside the taller box (?tags=0 drops it AND the row
-  // shift — token --scale-tags-h zeroed), ?tagsh = the line's unscaled
-  // height in px, ?fillpxs = the fill ticker's speed (unscaled px/s),
-  // ?boxgap = the min gap between the fixed box and the [select_project]
-  // chip in px.
-  const tagsOn = PARAM('tags', 1) > 0;
-  const tagsH = PARAM('tagsh', 0);
-  const tagSize = PARAM('tagsize', 0); // the readout's size, em ratio of the row
+  // 09-07 (Nathan): the desktop selected row's FILL TICKER — ?fillpxs =
+  // its speed (unscaled px/s), ?boxgap = the min gap between the fixed
+  // box and the [select_project] chip in px. (The services readout that
+  // shared this box was tried and DROPPED the same day — spec doc.)
   const fillPxs = PARAM('fillpxs', 0);
   const boxGap = PARAM('boxgap', 0);
   // 09-07: how long the OUTGOING row keeps its fill roll after the detent
-  // (ms) — the box is still deflected onto it at the threshold. Default
-  // ≈ one flip-spring τ (3τ "hung too long" — Nathan); 0 = drop at once.
-  const unfillMs = PARAM('unfill', -1);
+  // (ms). Nathan's dial 09-07: 0 — drop at once (1τ and 3τ both read as
+  // the roll hanging in the roster).
+  const unfillMs = PARAM('unfill', 0);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -310,13 +297,6 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         pitch: detentPx,
         rows,
         warpR: parseFloat(cs.getPropertyValue('--scale-warp-r')) || 8,
-        // 09-07: the readout's painted height in STATIONS — the rows
-        // below the detent sit that much lower; hitTest compensates.
-        tagsSt:
-          ((parseFloat(cs.getPropertyValue('--scale-tags-h')) || 0) *
-            (parseFloat(cs.getPropertyValue('--scale-sel')) || 1) *
-            (parseFloat(cs.getPropertyValue('--scale-sel-bump')) || 1)) /
-          (detentPx || 1),
         y: gsap.quickSetter(stripRef.current, 'y', 'px'),
       };
       buildHair(gearRef.current);
@@ -391,19 +371,17 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     ...(nameMax > 0 ? { '--scale-name-max': `${nameMax}px`, '--scale-name-sel-max': `${nameMax}px` } : {}),
     ...(subScale > 0 ? { '--scale-sub': subScale } : {}),
     ...(subInk >= 0 ? { '--scale-sub-ink': subInk } : {}),
-    ...(!tagsOn ? { '--scale-tags-h': '0px' } : tagsH > 0 ? { '--scale-tags-h': `${tagsH}px` } : {}),
-    ...(tagSize > 0 ? { '--scale-tags-size': tagSize } : {}),
     ...(fillPxs > 0 ? { '--scale-fill-pxs': fillPxs } : {}),
     ...(boxGap > 0 ? { '--scale-box-gap': `${boxGap}px` } : {}),
   };
-  const rootClass = `fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}${tagsOn ? ' fp-scale--tags' : ''}`;
+  const rootClass = `fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}`;
   // 09-07 (Nathan: "my tunables aren't working on localhost"): since the
   // arm is SSR'd (09-06) the server renders every dial at its FALLBACK
   // (PARAM has no window there) and React hydration KEEPS the server's
   // style/class attributes — a client-side difference in a prop is never
   // written, and no later render re-diffs it. So the dials are re-applied
   // IMPERATIVELY once at mount. Declared before every other effect: gear()
-  // reads tokens (--scale-tags-h, --scale-warp-r) off computed style.
+  // reads tokens (--scale-warp-r) off computed style.
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -594,7 +572,6 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // selected row (consistency), measured with the same cap. Stamped here
   // beside data-sel, cleared from the rows they leave.
   const nearRef = useRef([]);
-  const tagsRef = useRef(null); // 09-07: the detented row's readout (desktop)
   // r11d (Nathan): the caps are READ, not mirrored — the ≤768 sel cap is
   // now evaluated from the viewport in CSS (the selected slot spans it),
   // and the roster cap IS the sel cap, so a name that clips in the lens
@@ -612,10 +589,6 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       selRef.current.removeAttribute('data-sel');
       unfillLater(selRef.current);
       selRef.current = null;
-    }
-    if (tagsRef.current) {
-      unfillLater(tagsRef.current);
-      tagsRef.current = null;
     }
     nearRef.current.forEach((el) => {
       el.removeAttribute('data-near');
@@ -679,7 +652,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       // client — the widest client name (+ sub token), capped so at least
       // --scale-box-gap stays between the painted box and the
       // [select_project] chip. Inside it the name ALWAYS rolls, repeated
-      // to fill; the services readout rolls under it at the same speed.
+      // to fill.
       // 09-07 (Nathan): NO trailing pad — the rolling text hard-clips at
       // the box edge (the r7 flush rule), so the box ends where the clip
       // ends.
@@ -700,12 +673,6 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       const cap = boxW - nameEl.offsetLeft - pad;
       const pxs = fillPxs > 0 ? fillPxs : parseFloat(cs.getPropertyValue('--scale-fill-pxs')) || 44;
       fill(nameEl, selW, cap, pxs);
-      const tagsEl = nameEl.parentElement?.querySelector('.fp-scale__tags');
-      if (tagsEl && tagsOn) {
-        const copy = tagsEl.firstChild?.children?.[0];
-        fill(tagsEl, copy ? copy.offsetWidth : 0, cap, pxs);
-        tagsRef.current = tagsEl;
-      }
       boxRef.current?.style.setProperty('width', `${Math.round(boxW)}px`);
       return;
     }
@@ -718,6 +685,11 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // (cloned once, kept; CSS hides the extras off data-fill), rolling by
   // exactly one copy + the track gap at `pxs` unscaled px/s, phase-locked
   // to the wall clock (r11h). Never under RM (a static clipped line).
+  // The phase (animation-delay) is written ONLY when the roll ARMS: on a
+  // node already rolling, a fresh delay against its fixed start time
+  // JUMPS the phase (currentTime = elapsed − delay) — setStation re-runs
+  // on the same row at every Turn end / follow, and on a short name like
+  // COCO (a ~3s period) that read as the ticker "re-evaluating".
   const fill = (el, w, cap, pxs) => {
     const track = el.firstChild;
     if (!track || !track.children.length) return;
@@ -729,6 +701,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     const need = Math.max(2, Math.ceil(cap / shift) + 1);
     while (track.children.length < need) track.appendChild(track.children[0].cloneNode(true));
     const dur = shift / Math.max(pxs, 1);
+    if (el.hasAttribute('data-fill')) return; // already rolling — never re-phase
     track.style.setProperty('--fill-shift', `${shift}px`);
     track.style.setProperty('--fill-s', `${dur.toFixed(3)}s`);
     track.style.animationDelay = `${-((performance.now() / 1000) % dur).toFixed(3)}s`;
@@ -829,14 +802,6 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       const g = gear();
       if (!rect || !g || !g.pitch) return null;
       let d = (clientY - (rect.top + rect.height / 2)) / g.pitch;
-      // 09-07: the readout gap — rows below the DETENTED row (cRef, not
-      // q) are shifted down by g.tagsSt; a tap in the gap is the detented
-      // row's own box, a tap below it lands its true row.
-      if (g.tagsSt) {
-        const dc = cRef.current - q;
-        if (d > dc + 0.5 + g.tagsSt) d -= g.tagsSt;
-        else if (d > dc + 0.5) d = dc;
-      }
       // Warp inverse: the screen offset is R·sin(δ/R) of the logical δ —
       // recover δ before the row math or far taps land short of their row.
       if (warpOn) d = g.warpR * Math.asin(Math.min(1, Math.max(-1, d / g.warpR)));
@@ -1132,15 +1097,6 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
                       </span>
                     </span>
                   </span>
-                  {/* 09-07: the services READOUT — desktop, detented row only
-                      (CSS: opacity --w1, display none ≤768 / ?tags=0). */}
-                  {tagsOf(w) && (
-                    <span className="fp-scale__tags" aria-hidden="true">
-                      <span className="fp-scale__tags-track">
-                        <span>{tagsOf(w)}</span>
-                      </span>
-                    </span>
-                  )}
                 </button>
               );
             })}

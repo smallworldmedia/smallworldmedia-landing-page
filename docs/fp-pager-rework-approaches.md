@@ -1163,6 +1163,49 @@ both. ≤768 unchanged (viewport-evaluated).
   (refuse engage during a Turn, or scope the pause to the scene only) if
   the variant ships.
 
+## 09-07 — the title token, the fixed-width fill ticker, the readout that was dropped
+
+Nathan's desktop round on the SSR'd default. Commits `b57c853` → this one, all pushed.
+
+- **Title token** `.fp-scale__sub` — Sanity `title` ("(Pre-2026)" on COCO #08 / HHS #09,
+  null elsewhere) rides after the client name in every row: body family, sentence case,
+  weight 400, `--scale-sub` .62em, `--scale-sub-ink` 1. Inside the name copy, so the cap,
+  the ticker measure and the box include it. A title equal to the client name is
+  suppressed; aria-label + live region carry it. `?sub ?subink`.
+- **Every `?` dial was DEAD on a hard load since the SSR (a6553b9)** — the server renders
+  each inline-token dial at its fallback and React hydration keeps the server's
+  style/class attributes. `rootStyle`/`rootClass` are now re-applied imperatively once at
+  mount (before the other effects — `gear()` reads tokens off computed style). With a
+  dial in the URL React logs one "attributes didn't match … won't be patched up" notice;
+  harmless.
+- **Fixed-width desktop box + the FILL TICKER**: the box is one width client to client —
+  the widest name (+ sub) + seat, capped so `--scale-box-gap` stays before the
+  `[select_project]` chip. The selected name ALWAYS rolls, copies cloned into the track to
+  fill (hidden off `data-fill`), `fp-scale-fill` shifts one copy + gap (`--fill-shift` px)
+  per `--fill-s` = shift ÷ `--scale-fill-pxs` — a constant px/s, wall-clock phase-locked.
+  No trailing pad: clip edge = box edge. Roster/≤768 keep the two-copy marquee. Desktop
+  `--scale-name-max` → 2400px (uncapped; the box is the selected clip).
+- **The COCO "re-evaluation"**: `fill()` rewrote `animation-delay` on every `setStation`
+  (Turn end / follow re-run it on the same row); on a node already rolling a new delay
+  against its fixed start time JUMPS the phase (currentTime = elapsed − delay). Short
+  period (COCO ≈ 3s) made it obvious. Fix: the phase is written only when the roll ARMS.
+  The `?unfill` hold (outgoing row keeps rolling ~τ / 3τ) was a wrong-cause fix — both
+  read as the roll hanging in the roster; default 0 now, dial kept.
+- **Services READOUT — built, then DROPPED the same day.** Option 3 of three proposed
+  (in-box trailing line · vertical tag column beside the rotated mobile chip · two-line
+  box): a mono line of the project's `services` under the name, the box growing by
+  `--scale-tags-h`, rows below the detent shifting by the painted amount (a `top` step at
+  the detent), the slice extended, hitTest compensated, `?tags ?tagsh ?tagsize`. Nathan:
+  "not moving forward with the service tags on the scale" — all of it removed (commit
+  after `0bda577`); the card's tag row remains the tag surface.
+- **Chip wipe** 520 → 300ms desktop (≤768 holds 520).
+- **Nathan's bake** (his dial string `fillpxs=30 boxgap=12 unfill=0 namemax=2400`):
+  `--scale-fill-pxs` 30 · `--scale-box-gap` 12px · `?unfill` 0 · desktop name cap 2400px.
+
+Open after this round: the desktop box for HHS (Pre-2026) selected ≈ 600px overlaps the
+centred card at 1440 under the scrim (accepted); the mobile tier has no fill ticker
+(two-copy marquee, evaluated cap — unchanged).
+
 ## Open calls for Nathan (09-01 — the A/B tuning list)
 
 Behaviour is correct on all three arms; these are taste, and every one is a token
