@@ -116,6 +116,14 @@ import {
 } from '../../../lib/motion.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
+// 09-07: the secondary token — the project's Sanity title when it adds
+// something (the detail page's own rule: a title equal to the client name
+// is the client name). Null → no sub span, no trailing gap.
+const subOf = (w) =>
+  w.title && w.title.trim().toLowerCase() !== (w.clientName || '').trim().toLowerCase()
+    ? w.title.trim()
+    : null;
+const nameOf = (w) => (subOf(w) ? `${w.clientName} ${subOf(w)}` : w.clientName);
 // Live tuning (?key=value) — the FeaturedProjects knobs convention.
 const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
@@ -211,6 +219,14 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
   // 09-07: the name cap in px (?namemax) — desktop token 20rem; ≤768 the
   // cap is evaluated from the viewport and this overrides it too.
   const nameMax = PARAM('namemax', 0);
+  // 09-07 (Nathan): the project TITLE (Sanity `title`, e.g. "(Pre-2026)")
+  // rides after the client name as a smaller secondary token — body
+  // family, sentence case, dimmed. ?sub = its size as an em ratio of the
+  // row (token --scale-sub .62); ?subink = its ink as a fraction of the
+  // row's colour (token --scale-sub-ink .7). Rendered inside the name's
+  // copy so the cap, the ticker measure and the box width all include it.
+  const subScale = PARAM('sub', 0);
+  const subInk = PARAM('subink', -1);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -461,7 +477,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
     const w = worlds[i];
     const el = liveRef.current;
     if (!w || !el) return;
-    const label = `Project ${i + 1} of ${count} — ${w.clientName}`;
+    const label = `Project ${i + 1} of ${count} — ${nameOf(w)}`;
     if (el.textContent !== label) el.textContent = label;
   };
 
@@ -835,6 +851,8 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
         ...(inkFloor >= 0 ? { '--scale-ink-floor': inkFloor } : {}),
         ...(chipWipe > 0 ? { '--scale-chip-wipe-ms': `${chipWipe}ms` } : {}),
         ...(nameMax > 0 ? { '--scale-name-max': `${nameMax}px`, '--scale-name-sel-max': `${nameMax}px` } : {}),
+        ...(subScale > 0 ? { '--scale-sub': subScale } : {}),
+        ...(subInk >= 0 ? { '--scale-sub-ink': subInk } : {}),
       }}
     >
       {/* The chip = the lens (numerator row) + the fraction rule + the
@@ -916,7 +934,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
                   type="button"
                   className="fp-scale__station"
                   aria-label={
-                    clone ? undefined : `Go to ${w.clientName} (project ${i + 1} of ${count})`
+                    clone ? undefined : `Go to ${nameOf(w)} (project ${i + 1} of ${count})`
                   }
                   aria-hidden={clone || undefined}
                   aria-current={!clone && i === active ? 'true' : undefined}
@@ -940,8 +958,14 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
                       only while the selected row marquees. */}
                   <span className="fp-scale__name" aria-hidden="true">
                     <span className="fp-scale__name-track">
-                      <span>{w.clientName}</span>
-                      <span>{w.clientName}</span>
+                      <span>
+                        {w.clientName}
+                        {subOf(w) && <span className="fp-scale__sub">{subOf(w)}</span>}
+                      </span>
+                      <span>
+                        {w.clientName}
+                        {subOf(w) && <span className="fp-scale__sub">{subOf(w)}</span>}
+                      </span>
                     </span>
                   </span>
                 </button>

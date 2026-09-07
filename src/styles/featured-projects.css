@@ -1249,6 +1249,20 @@ body:has(.fp) {
   gap: var(--space-6);
 }
 
+/* 09-07 (Nathan): the project TITLE as a secondary token after the client
+   name — body family, sentence case (the authored "(Pre-2026)" keeps its
+   parens and case), lighter weight, dimmed, sized as a ratio of the row
+   (--scale-sub) so it scales with the row's curve. Inline INSIDE the name
+   copy: the cap, the ticker measure and the flipper box include it. */
+.fp .fp-scale__sub {
+  margin-left: var(--space-2);
+  font-family: var(--font-body);
+  font-size: calc(1em * var(--scale-sub));
+  font-weight: 400;
+  text-transform: none;
+  opacity: var(--scale-sub-ink);
+}
+
 .fp .fp-scale__name:not([data-marquee]) .fp-scale__name-track > span + span {
   display: none;
 }
