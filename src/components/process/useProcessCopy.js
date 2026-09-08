@@ -24,6 +24,7 @@ import { PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
 import { EXIT_RATIO, O_STROKE_PCT, O_PAD_EM } from './processConfig.js';
 import { createLockupGlobe } from './liveLockupGlobe.js';
 import { settleDebounce } from '../../lib/settleResize.js';
+import { kwWipe } from '../../lib/keywords.jsx';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 
@@ -226,6 +227,9 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
           .timeline({ paused: true })
           .to(split.lines, { yPercent: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }, 0.35)
           .to(rises, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.12, ease: 'power2.out' }, 0.65);
+        // 09-08 (Nathan): keyword highlights wipe in just after the blurb
+        // lands — same timeline, so leave-back retracts them in kind.
+        kwWipe(tl, section, 1.05);
 
         let scrambled = false; // chrome scrambles once; re-entries keep text
         ScrollTrigger.create({

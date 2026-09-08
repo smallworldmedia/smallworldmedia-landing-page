@@ -153,7 +153,11 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
            resizes and the CTA's runway all move them): each section
            centers in the viewport; sections taller than the viewport
            rest past their top so the copy block sits centered. The
-           document end is one extra step when the footer adds runway. */
+           document end is one extra step when the footer adds runway.
+           09-08 (Nathan): NOT any more — the footer + logo ticker are
+           baked into the LAST slide: when the footer's spacer adds
+           runway, the final section's rest IS the document end, so one
+           swipe lands the CTA with the panel fully risen beneath it. */
         const rests = () => {
           const doc = document.scrollingElement || document.documentElement;
           const maxScroll = Math.max(doc.scrollHeight - window.innerHeight, 0);
@@ -165,7 +169,7 @@ export default function useProcessScrollDriver(rootRef, sceneRef) {
                 Math.min(Math.max(top + (el.offsetHeight - window.innerHeight) / 2, 0), maxScroll)
               );
             });
-          if (maxScroll > (stops[stops.length - 1] ?? 0) + 40) stops.push(maxScroll);
+          if (stops.length && maxScroll > stops[stops.length - 1]) stops[stops.length - 1] = maxScroll;
           return stops;
         };
         const nearestIndex = (stops) => {

@@ -34,6 +34,8 @@ export const HERO = {
  * (scene.goTo(id)); `captions` are the Thread's scramble pings (S2 only).
  * Headlines are display tokens (rendered squeezed-caps at poster scale).
  */
+/* Keywords: [[double brackets]] mark the words the highlight wipe lands on
+   (src/lib/keywords.jsx) — edit freely, the markup is derived. */
 export const STAGES = [
   {
     id: 'stage-01',
@@ -41,7 +43,7 @@ export const STAGES = [
     chip: 'discovery',
     headline: 'DISCOVERY',
     blurb:
-      'We collaborate to uncover and map references, audience, and possible areas of exploration that become the building blocks of your world — from first contact onward.',
+      'We collaborate to uncover and map [[references]], [[audience]], and possible areas of exploration that become the [[building blocks]] of your world — from first contact onward.',
   },
   {
     id: 'stage-02',
@@ -49,7 +51,7 @@ export const STAGES = [
     chip: 'refine_elements',
     headline: 'REFINE_ELEMENTS',
     blurb:
-      'Materials are refined and distilled down into the core foundation of the world. We curate the elements that will build the strongest foundation for your world, connecting the dots and guiding you through creative direction and long-term brand vision.',
+      'Materials are refined and distilled down into the [[core foundation]] of the world. We curate the elements that will build the strongest foundation for your world, [[connecting the dots]] and guiding you through creative direction and [[long-term brand vision]].',
     captions: ['references_folded', 'dots_connected', 'core_assembled'],
   },
   {
@@ -58,7 +60,7 @@ export const STAGES = [
     chip: 'core_assembly',
     headline: 'CORE_ASSEMBLY',
     blurb:
-      'The core, now solidified, is built as a singular visual system — logo suite, type pairings, color palette, layout sensibility — all created and anchored via the world’s core elements.',
+      'The core, now solidified, is built as a [[singular visual system]] — [[logo suite]], [[type pairings]], [[color palette]], [[layout sensibility]] — all created and anchored via the world’s core elements.',
   },
   {
     id: 'stage-04',
@@ -66,7 +68,7 @@ export const STAGES = [
     chip: 'build_world',
     headline: 'BUILD_WORLD',
     blurb:
-      'This is where the world materializes. Production-ready brand components built across physical and digital space. Each asset pushes the world outward to pull your audience inward.',
+      'This is where the world [[materializes]]. [[Production-ready]] brand components built across [[physical and digital space]]. Each asset pushes the world outward to pull your audience inward.',
   },
   {
     id: 'stage-05',
@@ -74,7 +76,7 @@ export const STAGES = [
     chip: 'world_in_motion',
     headline: 'WORLD_IN_MOTION',
     blurb:
-      'The world build, now complete, goes live. All elements are compiled into a comprehensive brand book, mapped out to walk you through where you are, and where you’re going.',
+      'The world build, now complete, [[goes live]]. All elements are compiled into a comprehensive [[brand book]], mapped out to walk you through where you are, and where you’re going.',
   },
 ];
 

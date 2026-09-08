@@ -2130,10 +2130,13 @@ html[data-footer-revealed] .detail-progress {
   margin: 0 0 var(--logo-pad-y);
   padding: 0 var(--nav-inset);
   padding-right: var(--chrome-right-inset);
-  font-family: var(--font-mono);
-  font-size: var(--text-mono);
+  /* 09-08 (Nathan): body face at the enter_world button's weight token
+     (.cta-primary = --weight-medium 500), not mono. */
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-secondary);
   line-height: var(--logo-odo-lh);
-  letter-spacing: var(--tracking-body);
+  letter-spacing: var(--tracking-tight);
   color: var(--color-dim-gray);
 }
 
@@ -2262,6 +2265,54 @@ html[data-footer-revealed] .logo-ticker__odo-col {
   .logo-ticker__track[aria-hidden] {
     display: none;
   }
+}
+
+/* ============================================
+   KEYWORD HIGHLIGHT — src/lib/keywords.jsx (09-08, Nathan)
+   Three layers per <mark class="kw">: the box (scaleX from the left), the
+   resting-ink word, and the highlight-ink word clip-wiped in lockstep — a
+   mask that replaces one ink state with the other. Colour per blurb via
+   --kw-bg / --kw-ink on any ancestor (defaults: electric blue / white).
+   inline-block: a keyword never breaks across lines (a split box would
+   read as two highlights). GSAP drives scaleX + clip-path directly —
+   no custom-property animation (the paint trap).
+   ============================================ */
+.kw {
+  position: relative;
+  display: inline-block;
+  padding: 0 0.12em;
+  margin: 0 -0.12em;
+  color: inherit;
+  background: none;
+  vertical-align: baseline;
+}
+
+/* Stack: base word → box → ink. The box covers the base as it wipes (the
+   mask), so the base's mobile text-shadow never bleeds onto the box. */
+.kw__box {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--kw-bg, var(--color-electric-blue));
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  will-change: transform;
+}
+
+.kw__base {
+  position: relative;
+  z-index: 0;
+}
+
+.kw__ink {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 0 0.12em;
+  color: var(--kw-ink, var(--color-white));
+  clip-path: inset(0 100% 0 0);
+  white-space: nowrap;
+  text-shadow: none;
 }
 
 /* ── INTEGRATION FLAG (F1) — nav slide ───────────────────────────────────────

@@ -42,6 +42,8 @@ import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid } from './flushGrid.js';
 import { formatYearRange } from '../../../lib/formatYearRange.js';
+import { renderKeywords } from '../../../lib/keywords.jsx';
+import useKeywordWipe from './useKeywordWipe.js';
 
 /* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
    Px-fixed height (~65vh on a laptop) so the reserved region stays rigid.
@@ -281,10 +283,18 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       </GridSocket>
     ));
 
+  // 09-08: keyword highlights wipe in once the blurb scrolls into view.
+  const blurbRef = useRef(null);
+  useKeywordWipe(blurbRef);
+
   /* ---- Blurb section (shared between portrait & landscape layouts) ---- */
   const blurbSection = (
     <section className="project-blurb">
-      {overview && <p className="project-blurb__text">{overview}</p>}
+      {overview && (
+        <p className="project-blurb__text" ref={blurbRef}>
+          {renderKeywords(overview)}
+        </p>
+      )}
 
       <div className="project-blurb__details">
         <div className="detail-field">

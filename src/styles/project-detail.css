@@ -389,7 +389,12 @@ html:has(.project-detail) body {
 /* ============================================
    PROJECT BLURB — overview + details band
    ============================================ */
+/* Keyword highlight (09-08, Nathan; src/lib/keywords.jsx): the box is the
+   project colour, the wiped-in ink its brightness-dependent counterpart
+   (black on a bright accent) — both from the <html> accent vars. */
 .project-blurb {
+  --kw-bg: var(--project-color, var(--color-electric-blue));
+  --kw-ink: var(--project-color-fg, var(--color-white));
   display: flex;
   flex-direction: column;
   justify-content: center;

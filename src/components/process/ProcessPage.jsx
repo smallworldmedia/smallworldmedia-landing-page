@@ -17,6 +17,7 @@ import SiteFooter from '../SiteFooter.jsx';
 // re-firing the swm:process-index contract for the steppers.
 import DetailProgressBar from '../work/detail/DetailProgressBar.jsx';
 import { HERO, STAGES, CTA } from './processContent.js';
+import { renderKeywords } from '../../lib/keywords.jsx';
 import { DEBUG } from './processConfig.js';
 import useProcessScene from './useProcessScene.js';
 import useProcessScrollDriver from './useProcessScrollDriver.js';
@@ -25,6 +26,11 @@ import ProcessStepCtas from './ProcessStepCtas.jsx';
 import CtaArrows from '../work/CtaArrows.jsx';
 
 export default function ProcessPage({ globeAssets }) {
+  // ?scrim — the phone copy scrim (full-bleed since 09-08). OFF by default
+  // (Nathan, 09-08); the dial brings it back for tuning. client:only route,
+  // so a plain read is safe.
+  const scrimOn =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('scrim');
   const rootRef = useRef(null);
   const canvasRef = useRef(null);
   const captionRef = useRef(null);
@@ -83,7 +89,7 @@ export default function ProcessPage({ globeAssets }) {
   };
 
   return (
-    <div className="process-page" ref={rootRef} data-bg="blue">
+    <div className="process-page" ref={rootRef} data-bg="blue" data-scrim={scrimOn ? '' : undefined}>
       {/* Staged background under the canvas (P2): base BRAND-WHITE canvas
           (S1/S2), the S3/S4 electric-blue field the scene grows out of the
           Core at the solidify (clip-path circle, scene-driven), the S5
@@ -118,7 +124,7 @@ export default function ProcessPage({ globeAssets }) {
               <span className="process-stage__chipline">{`/ ${stage.chip}`}</span>
             </p>
             <h2 className="process-stage__headline">{stage.headline}</h2>
-            <p className="process-stage__blurb">{stage.blurb}</p>
+            <p className="process-stage__blurb">{renderKeywords(stage.blurb)}</p>
             {stage.captions && (
               <p className="process-stage__caption" ref={captionRef} aria-hidden="true" />
             )}
@@ -127,7 +133,7 @@ export default function ProcessPage({ globeAssets }) {
 
         <section className="process-section process-cta" data-stage="cta">
           <h2 className="process-cta__display">{CTA.display}</h2>
-          <p className="process-cta__line">{CTA.line}</p>
+          <p className="process-cta__line">{renderKeywords(CTA.line)}</p>
           <div className="process-cta__actions">
             <button
               type="button"
@@ -165,7 +171,11 @@ export default function ProcessPage({ globeAssets }) {
 
       {DEBUG && DebugPanel && <DebugPanel sceneRef={sceneRef} />}
 
-      <SiteFooter />
+      {/* 09-08 (Nathan): the footer + logo ticker are BAKED INTO the last
+          slide's swipe — the driver's final rest is the document end and
+          the spacer is exactly one panel tall (travelK 1), so the CTA copy
+          lands with the panel fully risen beneath it: one gesture. */}
+      <SiteFooter travelK={1} />
     </div>
   );
 }

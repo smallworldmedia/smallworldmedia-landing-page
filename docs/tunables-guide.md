@@ -491,6 +491,8 @@ Readers: `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx
 
 ## `/process`
 
+**09-08 additions.** `?scrim` (presence gate, `ProcessPage.jsx`) turns the ≤768 copy scrim back ON — it is OFF by default since 09-08 and now spans the full viewport width (a `.process-section::before` bleed). The last slide bakes in the footer + logo ticker (the driver's final rest = document end; `SiteFooter travelK={1}`), and phone cards anchor to the viewport bottom (`--ps-mobile-bottom`). Keyword highlights: `[[word]]` in `processContent.js` blurbs (and the Sanity `description`) — `src/lib/keywords.jsx`.
+
 Reader: `src/components/process/processConfig.js` (`num()` / `str()`, module-load). Two tiers. **Module consts** (reload-only, not on the panel, not in `copy_url`): `?ospin` `?ostroke` `?opad` `?camlag` `?debug`. **`TUNING`** (live via the `?debug` panel's `applyTuning()`: framing/drift/glow/stroke instant, durations/orders/hops/rhythm on the next transition). `ms` knobs travel as ms in the URL and store as seconds. Bake: `processConfig.js:48-77 TUNING_DEFAULTS` unless noted.
 
 | param | what it does | default | values | bake |

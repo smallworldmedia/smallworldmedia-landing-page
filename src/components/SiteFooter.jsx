@@ -71,6 +71,7 @@ const broadcastReveal = (progress) => {
 const clearReveal = () => {
   const root = document.documentElement;
   root.style.removeProperty('--footer-reveal');
+  root.style.removeProperty('--footer-panel-h');
   root.removeAttribute('data-footer-revealed');
 };
 
@@ -82,6 +83,10 @@ export default function SiteFooter({
   progress = 0,
   /** The client-logo band above the links (09-07). Off = the bare panel. */
   ticker = true,
+  /** Scroll mode: spacer = K × panel height. Absent = the ?footertravel
+      bake (1.8). /process passes 1 so the reveal is exactly one panel of
+      runway, baked into the last slide's swipe (09-08). */
+  travelK,
 }) {
   const reveal = !noFill && !driven;
   const panelRef = useRef(null);
@@ -107,8 +112,12 @@ export default function SiteFooter({
     let disposed = false;
 
     const sizeSpacer = () => {
-      travel = panel.offsetHeight * getFooterTravelK();
+      const h = panel.offsetHeight;
+      travel = h * (travelK ?? getFooterTravelK());
       spacer.style.height = `${travel}px`;
+      // Broadcast the panel's own height — /process sizes its last slide
+      // to the room ABOVE the risen panel (process.css .process-cta).
+      document.documentElement.style.setProperty('--footer-panel-h', `${h}px`);
     };
 
     const apply = () => {

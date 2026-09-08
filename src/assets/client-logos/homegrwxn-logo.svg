@@ -1,19 +1,5 @@
-<svg fill="#fff" version="1.1" id="b" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 1425.518 1040.578" enable-background="new 0 0 1425.518 1040.578"
-	 xml:space="preserve">
-<g id="c">
-	<path stroke="#fff" stroke-miterlimit="10" d="M585.423,326.111h82.17L528.92,714.466h-82.17L585.423,326.111z M668.182,714.466
-		h82.17l138.672-388.355h-82.17L668.182,714.466L668.182,714.466z M978.769,620.73h-96.375v93.736h96.375V620.73z"/>
-</g>
-<g>
-	<g>
-		<polyline fill="none" stroke="#fff" stroke-width="8" stroke-miterlimit="10" points="442.13,255.432 442.13,112.865 
-			1273.77,112.865 1273.77,246.756 		"/>
-		<g>
-			<polygon points="1241.052,220.248 1246.911,214.791 1273.762,243.686 1300.622,214.791 1306.481,220.248 1273.762,255.432 			"/>
-		</g>
-	</g>
-</g>
-<g>
-</g>
+<svg fill="#fff" id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 532.019 388.355">
+  <g id="c" data-name="Layer 1">
+    <path d="M138.673,0h82.17L82.17,388.355H0L138.673,0ZM221.432,388.355h82.17L442.274,0h-82.17l-138.673,388.355ZM532.019,294.619h-96.375v93.736h96.375v-93.736Z"/>
+  </g>
 </svg>

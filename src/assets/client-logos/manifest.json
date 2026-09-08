@@ -9,7 +9,7 @@
   {
     "file": "armada-logo.png",
     "name": "Armada",
-    "w": 349,
+    "w": 350,
     "h": 96,
     "src": "armada-logo.png"
   },
@@ -37,7 +37,7 @@
   {
     "file": "cheetah-print.png",
     "name": "Cheetah Print",
-    "w": 256,
+    "w": 255,
     "h": 240,
     "src": "cheetah-print.png"
   },
@@ -65,7 +65,7 @@
   {
     "file": "electric-ibiza-white.png",
     "name": "Electric Ibiza",
-    "w": 977,
+    "w": 891,
     "h": 240,
     "src": "electric-ibiza_white.png"
   },
@@ -107,8 +107,8 @@
   {
     "file": "homegrwxn-logo.svg",
     "name": "Homegrwxn",
-    "w": 1425.518,
-    "h": 1040.578,
+    "w": 532.019,
+    "h": 388.355,
     "src": "homegrwxn_logo.svg"
   },
   {
@@ -149,7 +149,7 @@
   {
     "file": "louder-than-silence.png",
     "name": "Louder Than Silence",
-    "w": 507,
+    "w": 506,
     "h": 240,
     "src": "louder-than-silence.png"
   },
@@ -226,8 +226,8 @@
   {
     "file": "sidney-charles-logo-01.svg",
     "name": "Sidney Charles",
-    "w": 1024,
-    "h": 1024,
+    "w": 932.352,
+    "h": 439.296,
     "src": "sidney-charles-logo-01.svg"
   },
   {
@@ -254,7 +254,7 @@
   {
     "file": "tomorrowland.png",
     "name": "Tomorrowland",
-    "w": 384,
+    "w": 383,
     "h": 240,
     "src": "tomorrowland.png"
   },

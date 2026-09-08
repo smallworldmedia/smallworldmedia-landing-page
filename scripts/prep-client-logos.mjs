@@ -108,13 +108,56 @@ const svgSize = (s) => {
   return { w, h };
 };
 
-// ── Raster: trim, downscale, join alpha onto white ─────────────────────
+// ── Tight crop (09-08, Nathan): every file is cropped to the OUTER BOUNDS
+// of its ink — no padding — so the ticker's optical-balance rule (height ×
+// (ref ÷ aspect)^k) sees the mark's true aspect, never its canvas. Bounds
+// come from the alpha channel (any pixel > ALPHA_MIN counts), not sharp's
+// top-left-colour trim, which misses transparent-but-differently-coloured
+// margins. SVGs are rasterised to find the same box, then get their viewBox
+// rewritten to it (the geometry is untouched).
+const ALPHA_MIN = 8;
+const alphaBox = async (input, opts = {}) => {
+  const { data, info } = await sharp(input, opts).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width: W, height: H, channels: C } = info;
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (data[(y * W + x) * C + 3] > ALPHA_MIN) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) throw new Error('no opaque pixels');
+  return { x0, y0, x1: x1 + 1, y1: y1 + 1, W, H };
+};
+
+const SVG_RENDER_W = 2000; // px — bbox precision ≈ viewBox/2000
+const tightSvg = async (svg) => {
+  const { w, h } = svgSize(svg);
+  const scale = SVG_RENDER_W / w;
+  const b = await alphaBox(Buffer.from(svg), { density: 72 * scale });
+  // sharp renders at the viewBox's px size × density/72 — map back.
+  const sx = w / b.W;
+  const sy = h / b.H;
+  const vb = [b.x0 * sx, b.y0 * sy, (b.x1 - b.x0) * sx, (b.y1 - b.y0) * sy].map((n) => +n.toFixed(3));
+  return svg.replace(/viewBox="[^"]+"/, `viewBox="${vb.join(' ')}"`);
+};
+
+// ── Raster: crop to ink, downscale, join alpha onto white ──────────────
 const whitenRaster = async (file) => {
   const meta = await sharp(file).metadata();
   if (!meta.hasAlpha) throw new Error('opaque raster — no alpha to lift; needs a transparent export');
-  // Trim transparent padding, then cap height. Two passes because trim
-  // needs the pre-resize pixels and resize needs the trimmed dims.
-  const trimmed = await sharp(file).ensureAlpha().trim().png().toBuffer();
+  // Crop to the alpha bbox, then cap height. Two passes because the crop
+  // needs the source pixels and the resize needs the cropped dims.
+  const b = await alphaBox(file);
+  const trimmed = await sharp(file)
+    .ensureAlpha()
+    .extract({ left: b.x0, top: b.y0, width: b.x1 - b.x0, height: b.y1 - b.y0 })
+    .png()
+    .toBuffer();
   const tm = await sharp(trimmed).metadata();
   const h = Math.min(MAX_H, tm.height);
   const w = Math.round((tm.width * h) / tm.height);
@@ -173,7 +216,7 @@ const main = async () => {
     const slug = kebab(basename(f, ext));
     try {
       if (ext === '.svg') {
-        const out = whitenSvg(await readFile(join(IN, f), 'utf8'));
+        const out = await tightSvg(whitenSvg(await readFile(join(IN, f), 'utf8')));
         const { w, h } = svgSize(out);
         await writeFile(join(OUT, `${slug}.svg`), out);
         manifest.push({ file: `${slug}.svg`, name: humanize(slug), w, h, src: f });
