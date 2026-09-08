@@ -20,8 +20,14 @@
  * the images load (the UA maps the attrs to aspect-ratio): the marquee's
  * duration is measured once at mount, never re-based mid-roll.
  *
- * MARQUEE: track rendered twice, keyframe translateX(0 → -50%); duration =
- * track width ÷ `--logo-pxs` (constant px/s, the fill-ticker doctrine).
+ * MARQUEE (09-08, Nathan): JS-driven on THE shared drag + momentum engine
+ * (src/lib/dragMomentum.js — the home globe's choreography, one place).
+ * The strip (two track copies) rolls at the AMBIENT velocity −`--logo-pxs`
+ * px/s (constant, the fill-ticker doctrine); a pointer drag passes through
+ * 1:1, a flick carries on the globe's inertia curve and settles back to the
+ * roll. Position wraps modulo one track width, so the loop is seamless in
+ * either direction. Runs only while the footer is revealing (or a drag /
+ * flick is live).
  * ODOMETER: CSS keyframes only — five words + a clone of the first, one
  * `--logo-word-cycle` per word, hold/move baked into the percentages.
  *
@@ -31,7 +37,10 @@
  * GraticulePager trap, 09-07).
  */
 import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
 import manifest from '../assets/client-logos/manifest.json';
+import DragMomentum, { PX_MAX_SPEED } from '../lib/dragMomentum.js';
+import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
 
 const URLS = import.meta.glob('../assets/client-logos/*.{svg,png}', {
   eager: true,
@@ -77,11 +86,15 @@ const PARAM = (key, fallback) => {
 export default function ClientLogoTicker() {
   const rootRef = useRef(null);
   const trackRef = useRef(null);
+  const rollRef = useRef(null);
+  const stripRef = useRef(null);
 
   useEffect(() => {
     const root = rootRef.current;
     const track = trackRef.current;
-    if (!root || !track) return undefined;
+    const roll = rollRef.current;
+    const strip = stripRef.current;
+    if (!root || !track || !roll || !strip) return undefined;
 
     // Dials first (they change the widths the measure below reads). Literal
     // PARAM('key') calls so scripts/tunables-keys.mjs inventories them.
@@ -107,22 +120,47 @@ export default function ClientLogoTicker() {
       });
     }
 
-    // Duration = one track width ÷ px/s. Widths are deterministic from the
-    // width/height attrs, so this settles at mount; the observer only
-    // re-bases on a real relayout (the 768 re-tier), where a phase jump is
-    // invisible under the tier's own reflow.
-    let lastW = 0;
+    // The roll: ambient velocity = −px/s (leftward); a drag passes through
+    // 1:1 (sensitivity 1 px/px); the flick cap is the globe's, in px.
+    const pxs = () =>
+      Math.max(0, parseFloat(getComputedStyle(root).getPropertyValue('--logo-pxs')) || 40);
+    const engine = new DragMomentum(roll, {
+      ambient: { x: PREFERS_REDUCED_MOTION ? 0 : -pxs(), y: 0 },
+      sensitivity: 1,
+      maxSpeed: PX_MAX_SPEED,
+      reducedMotion: PREFERS_REDUCED_MOTION,
+    });
+
+    // One track width = the wrap period. Widths are deterministic from the
+    // width/height attrs, so this settles at mount; the observer re-bases
+    // on a real relayout (the 768 re-tier).
+    let period = 0;
     const measure = () => {
-      const w = track.getBoundingClientRect().width;
-      if (!w || Math.abs(w - lastW) < 1) return;
-      lastW = w;
-      const pxs = Math.max(1, parseFloat(getComputedStyle(root).getPropertyValue('--logo-pxs')) || 40);
-      root.style.setProperty('--logo-roll-s', `${(w / pxs).toFixed(2)}s`);
+      period = track.getBoundingClientRect().width;
+      engine.setAmbient(PREFERS_REDUCED_MOTION ? 0 : -pxs(), 0);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(track);
-    return () => ro.disconnect();
+
+    // Frame: integrate, wrap into (−period, 0], paint. Idle (parked footer,
+    // no drag/flick) frames cost one attribute read.
+    let x = 0;
+    const html = document.documentElement;
+    const tick = (_t, dtMs) => {
+      const live = engine.dragging || gsap.isTweening(engine.vel) || html.hasAttribute('data-footer-revealed');
+      if (!live || !period) return;
+      const { dx } = engine.update(Math.min(dtMs / 1000, 0.1)); // tab-resume clamp
+      if (!dx) return;
+      x = (((x + dx) % period) + period) % period - period;
+      strip.style.transform = `translate3d(${x.toFixed(2)}px, 0, 0)`;
+    };
+    gsap.ticker.add(tick);
+    return () => {
+      gsap.ticker.remove(tick);
+      ro.disconnect();
+      engine.dispose();
+    };
   }, []);
 
   const renderTrack = (hidden) => (
@@ -177,9 +215,11 @@ export default function ClientLogoTicker() {
         <span className="sr-only">{WORDS.join(', ')}.</span>
       </p>
 
-      <div className="logo-ticker__roll">
-        {renderTrack(false)}
-        {renderTrack(true)}
+      <div className="logo-ticker__roll" ref={rollRef}>
+        <div className="logo-ticker__strip" ref={stripRef}>
+          {renderTrack(false)}
+          {renderTrack(true)}
+        </div>
       </div>
     </div>
   );

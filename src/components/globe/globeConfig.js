@@ -1,3 +1,4 @@
+import { DRAG_CHOREO } from '../../lib/dragMomentum.js';
 /**
  * globeConfig.js — Every tunable constant for the CMS Video Globe.
  *
@@ -135,9 +136,9 @@ export const PANEL_CORNER_RADIUS = 0.07;
 /* — Interaction — */
 export const AUTO_ROTATE_SPEED = 0.12;   // rad/s ambient drift
 export const PITCH_LIMIT_DEG = 40;
-export const DRAG_SENSITIVITY = 0.001;   // rad per px of pointer travel
-export const MAX_FLICK_SPEED = 1;        // rad/s cap on release velocity
-export const INERTIA_SECONDS = .35;      // decay back to ambient drift
+export const DRAG_SENSITIVITY = DRAG_CHOREO.sensitivity;   // rad per px of pointer travel // ← src/lib/dragMomentum.js (09-08: ONE choreography)
+export const MAX_FLICK_SPEED = DRAG_CHOREO.maxSpeed;        // rad/s cap on release velocity // ← src/lib/dragMomentum.js (09-08: ONE choreography)
+export const INERTIA_SECONDS = DRAG_CHOREO.inertiaSeconds;      // decay back to ambient drift // ← src/lib/dragMomentum.js (09-08: ONE choreography)
 
 /* — Colors (match global.css custom properties) — */
 export const GAP_COLOR = 0x0000ff;            // electric blue — the lat/long lines + occluding inner sphere

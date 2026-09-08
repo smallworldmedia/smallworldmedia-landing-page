@@ -75,7 +75,8 @@ import {
   PREFERS_REDUCED_MOTION,
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
-import { housePulseLoop } from '../lib/motion.js';
+import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
+import SiteFooter, { FOOTER_REVEAL_EVENT } from './SiteFooter.jsx';
 // 08-30 (3), Nathan: the home→/work transition carries the FP→detail
 // choreography — the SAME enter-tune vocabulary (cover duration, window
 // model, pow curve) WorldCard/useWorldScene ride, so the two passages can
@@ -197,6 +198,69 @@ export default function Hero({ globeAssets }) {
   const veilRef = useRef(null);
   const armedRef = useRef(false);
   const departingRef = useRef(false);
+  // 09-08 (Nathan): scroll DOWN on home reveals the links footer (+ logo
+  // ticker) — the /work idiom: no document scroll, the wheel/touch delta
+  // drives SiteFooter's driven progress 0..1 directly; upward delta
+  // retracts; it parks where the gesture leaves it. The tagline pill asks
+  // for a full reveal; the enter_world commit retracts it.
+  const [footerP, setFooterP] = useState(0);
+  const footerPRef = useRef(0);
+  const setFooterReveal = (v) => {
+    if (footerPRef.current === v) return;
+    footerPRef.current = v;
+    setFooterP(v);
+  };
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return undefined;
+    const addDelta = (dy) => {
+      if (departingRef.current) return;
+      const p = footerPRef.current;
+      if (dy <= 0 && p <= 0) return;
+      if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : 0);
+      else setFooterReveal(Math.min(1, Math.max(0, p + dy / SCROLL_TRIGGER_HOME_PX)));
+    };
+    const onWheel = (e) => {
+      e.preventDefault();
+      addDelta(e.deltaY);
+    };
+    let touchY = null;
+    let touchX = null;
+    const onTouchStart = (e) => {
+      touchY = e.touches[0].clientY;
+      touchX = e.touches[0].clientX;
+    };
+    const onTouchMove = (e) => {
+      if (touchY === null) return;
+      const y = e.touches[0].clientY;
+      const x = e.touches[0].clientX;
+      // a mostly-horizontal move is the globe's drag, not a reveal
+      if (Math.abs(x - touchX) > Math.abs(y - touchY) && footerPRef.current <= 0) return;
+      addDelta((touchY - y) * TOUCH_GAIN);
+      touchY = y;
+      touchX = x;
+      e.preventDefault();
+    };
+    const onTouchEnd = () => {
+      touchY = null;
+      touchX = null;
+    };
+    const onReveal = () => {
+      if (!departingRef.current) setFooterReveal(1);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    window.addEventListener(FOOTER_REVEAL_EVENT, onReveal);
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener(FOOTER_REVEAL_EVENT, onReveal);
+    };
+  }, []);
   const enterWrapRef = useRef(null); // FP-1 fill-pulse target (see the pulse effect)
   const strokeRef = useRef(null); // globe outer-stroke disc (tracks the overlay disc)
 
@@ -668,6 +732,7 @@ export default function Hero({ globeAssets }) {
   // path — the ?herotune bench's dry-run still rehearses it for reference.
   const onEnterClick = () => {
     if (departingRef.current) return;
+    setFooterReveal(0); // the footer never rides the Envelopment
     setCtaPinned(true);
     if (PREFERS_REDUCED_MOTION) {
       navigate('/work'); // RM: plain navigation, no theatrics
@@ -921,6 +986,9 @@ export default function Hero({ globeAssets }) {
           onDone={onIntroDone}
         />
       )}
+      {/* 09-08 (Nathan): the links footer + logo ticker, driven by the
+          post-hero wheel/touch delta above (the /work idiom). */}
+      <SiteFooter driven progress={footerP} />
       {CommitTunePanel && <CommitTunePanel onDryRun={onCommitDryRun} />}
       {HeroTunePanel && (
         <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />

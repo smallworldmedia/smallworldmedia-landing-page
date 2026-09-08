@@ -29,7 +29,7 @@ import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
 import GraticulePager from './pager/GraticulePager.jsx';
-import SiteFooter from '../SiteFooter.jsx';
+import SiteFooter, { FOOTER_REVEAL_EVENT } from '../SiteFooter.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
 // Only the tiny shared tune STATE is static here; the panel itself (and the
 // Deck Viewer bench below) is import()ed from its mount effect, so neither
@@ -93,6 +93,13 @@ export default function FeaturedProjects({ worlds = [] }) {
   // it before any PREVIOUS paging runs. Ref mirrors state for the handlers.
   const [footerP, setFooterP] = useState(0);
   const footerPRef = useRef(0);
+  // 09-08 (Nathan): the tagline pill asks for the footer — driven mode
+  // answers with a full reveal; the accumulator's upward delta retracts it.
+  useEffect(() => {
+    const on = () => setFooterReveal(1);
+    window.addEventListener(FOOTER_REVEAL_EVENT, on);
+    return () => window.removeEventListener(FOOTER_REVEAL_EVENT, on);
+  }, []);
   const setFooterReveal = (v) => {
     if (footerPRef.current === v) return;
     footerPRef.current = v;
@@ -482,7 +489,9 @@ export default function FeaturedProjects({ worlds = [] }) {
       // upward delta retracts it to 0 BEFORE any PREVIOUS accumulation runs.
       // No rubber-band: like a scroll position, it parks where the gesture
       // leaves it — the continuous shell slide keeps any partial state calm.
-      if (activeRef.current >= lastIndex) {
+      // 09-08: ALSO whenever the footer is up (the tagline pill can raise it
+      // from any World) — an upward delta retracts it before any Turn.
+      if (activeRef.current >= lastIndex || footerPRef.current > 0) {
         const p = footerPRef.current;
         if (dy > 0 || p > 0) {
           if (PREFERS_REDUCED_MOTION) {

@@ -80,6 +80,7 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
    /process gets its own param at rebase so surfaces dial independently). */
 export const SCROLL_TRIGGER_WORK_PX = 500; // /work World Turn + detail next-project band
 export const SCROLL_TRIGGER_PROCESS_PX = 500; // /process quantizer
+export const SCROLL_TRIGGER_HOME_PX = 500; // / — post-hero delta drives the footer reveal (09-08)
 // ^ unified at 500 per Nathan's 2026-07-16 dial (was 600/600/700) — the
 //   Notion "takes too much scroll power" note, answered. Per-surface
 //   exports stay so a future dial can split them again. (The HOME trigger

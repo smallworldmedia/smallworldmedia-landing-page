@@ -27,7 +27,10 @@ const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Routes whose islands own the wheel — Lenis stays off. */
-const ownsItsWheel = (pathname) => pathname.replace(/\/+$/, '') === '/work';
+const ownsItsWheel = (pathname) => {
+  const p = pathname.replace(/\/+$/, '');
+  return p === '/work' || p === ''; // 09-08: home's wheel drives the footer reveal
+};
 
 function start() {
   if (lenis) return;

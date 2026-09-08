@@ -192,7 +192,7 @@ Readers: `src/lib/smoothScroll.js` (raw params, per route), `src/lib/lenisTune.j
 | `?logomaxw` | cap on a mark's width as a multiple of `--logo-h` | `8` | finite > 0 | `global.css --logo-max-w` |
 | `?logobal` | optical-balance exponent: each mark's height × (`ref` ÷ aspect)^k — 0 = height-fit, 0.5 = equal area, 1 = equal width (per-item `--lf`, clamped 0.55–2) | `0.5` | 0–1 | `ClientLogoTicker.jsx BAL_K` **and** `global.css --logo-bal` (keep equal) |
 | `?logoref` | the reference aspect (w/h) that sits at exactly `--logo-h` | `3` | finite > 0 | `ClientLogoTicker.jsx BAL_REF_AR` **and** `global.css --logo-ref-ar` |
-| `?logopxs` | marquee speed in px/s — constant across viewports; JS writes `--logo-roll-s` = track width ÷ this at mount | `40` | finite > 0 | `global.css --logo-pxs` |
+| `?logopxs` | marquee speed in px/s — the roll's AMBIENT velocity on the shared drag + momentum engine (`src/lib/dragMomentum.js`, the globe's choreography); drag/flick ride the same numbers | `40` | finite > 0 | `global.css --logo-pxs` |
 | `?logofrom` | footer progress at which the band starts fading in (window over `--footer-reveal`) | `0.6` | 0–1, < `?logoto` | `global.css --logo-reveal-from` |
 | `?logoto` | footer progress at which the band is fully in | `0.98` | 0–1 | `global.css --logo-reveal-to` |
 | `?logowordcycle` | one odometer word per cycle, ms (hold ≈ 75%, move ≈ 25% on `--ease-panel`) | `1800` | finite > 0 | `global.css --logo-word-cycle` |

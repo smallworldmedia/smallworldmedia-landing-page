@@ -408,8 +408,9 @@
      manifest dims — these two are the documented bake, mirrored in
      ClientLogoTicker.jsx BAL_K / BAL_REF_AR. ?logobal ?logoref. */
   --logo-pxs: 40;
-  /* marquee speed in px/s — CONSTANT across viewports; the JS writes
-     --logo-roll-s = track width ÷ this at mount. ?logopxs. */
+  /* marquee speed in px/s — CONSTANT across viewports: the roll's ambient
+     velocity on the shared drag + momentum engine (src/lib/dragMomentum.js,
+     09-08 — the globe's choreography, one place). ?logopxs. */
   --logo-reveal-from: 0.6;
   --logo-reveal-to: 0.98;
   /* the band's fade is a WINDOW over --footer-reveal: 0 at -from, 1 at
@@ -1061,18 +1062,30 @@ html.fp-tint .mobile-menu__item {
    on the black takeover), --text-link tier; fp routes ride --nav-ink like
    the items. */
 .mobile-menu__privacy {
+  /* 09-08 (Nathan): LOWER-RIGHT, the .site-privacy pill's exact twin. The
+     foot's right/bottom edges ARE the pill's seat tokens
+     (--chrome-right-inset / --menu-pill-seat = --footer-bottom-inset), so
+     absolute 0/0 inside it lands on the same pixels; the capsule, padding,
+     face and blue ink mirror .site-privacy (below) for a seamless overlay.
+     The size tier is set in the ≤768 block beside .site-privacy. */
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border-radius: var(--radius-capsule);
+  background: var(--color-black);
   font-family: var(--font-body);
-  font-size: var(--text-link);
-  line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   font-weight: var(--weight-medium);
-  color: var(--color-white);
+  color: var(--color-electric-blue);
+  white-space: nowrap;
 }
 
 .mobile-menu__privacy:hover,
 .mobile-menu__privacy:active {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: var(--color-white);
 }
 
 .mobile-menu__privacy:focus-visible {
@@ -1080,11 +1093,9 @@ html.fp-tint .mobile-menu__item {
   outline-offset: 3px;
 }
 
-html:has(.fp) .mobile-menu__privacy,
-html.fp-tint .mobile-menu__privacy {
-  color: var(--nav-ink, var(--color-white));
-  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
-}
+/* (09-08) The fp-route --nav-ink override is GONE: the link sits in its own
+   black capsule now, so brand blue reads on every takeover tint — and it
+   must match .site-privacy pixel-for-pixel (the seamless overlay). */
 
 /* Tagline — the menu's own copy (08-30, Nathan): the takeover is the
    tagline's site-wide home on phones (the page-level tagline survives
@@ -2111,10 +2122,12 @@ html[data-footer-revealed] .detail-progress {
    ============================================ */
 .logo-ticker {
   /* Fade = a window over the footer's own broadcast (one motion). No
-     translate of its own: the panel already carries it. */
+     translate of its own: the panel already carries it. Reads the PEAK
+     (09-08): fades IN on the rise, holds through the retreat — the exit is
+     masked by the panel's top edge, never a fade. */
   --lt-p: clamp(
     0,
-    (var(--footer-reveal, 0) - var(--logo-reveal-from)) /
+    (var(--footer-peak, var(--footer-reveal, 0)) - var(--logo-reveal-from)) /
       (var(--logo-reveal-to) - var(--logo-reveal-from)),
     1
   );
@@ -2194,6 +2207,11 @@ html[data-footer-revealed] .detail-progress {
   display: flex;
   width: 100%;
   overflow: hidden;
+  /* the drag surface (09-08): horizontal drag is ours, vertical stays the
+     page's; the engine paints the cursor */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
   /* soft edges — mask, not overlays, so the black ground needs no match */
   -webkit-mask-image: linear-gradient(
     to right,
@@ -2211,6 +2229,14 @@ html[data-footer-revealed] .detail-progress {
   );
 }
 
+/* the strip = both track copies; JS translates it (dragMomentum engine),
+   wrapping modulo one track width */
+.logo-ticker__strip {
+  display: flex;
+  flex: none;
+  will-change: transform;
+}
+
 .logo-ticker__track {
   display: flex;
   align-items: center;
@@ -2222,13 +2248,6 @@ html[data-footer-revealed] .detail-progress {
   margin: 0;
   padding-left: 0;
   list-style: none;
-  animation: logo-ticker-roll var(--logo-roll-s, 60s) linear infinite;
-  animation-play-state: paused;
-  will-change: transform;
-}
-
-@keyframes logo-ticker-roll {
-  to { transform: translateX(-100%); }
 }
 
 .logo-ticker__item {
@@ -2248,15 +2267,13 @@ html[data-footer-revealed] .detail-progress {
   -webkit-user-drag: none;
 }
 
-/* Both animations run ONLY while the footer is revealing — the same
-   attribute that gates the shell slide. */
-html[data-footer-revealed] .logo-ticker__track,
+/* The odometer runs ONLY while the footer is revealing — the same
+   attribute that gates the shell slide (the roll's JS loop reads it too). */
 html[data-footer-revealed] .logo-ticker__odo-col {
   animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .logo-ticker__track,
   .logo-ticker__odo-col {
     animation: none;
   }
@@ -2438,6 +2455,18 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   display: contents;
 }
 
+/* 09-08: the pill is a BUTTON now (it invokes the footer) — strip the UA
+   skin, keep the capsule; hit-testable despite the wrapper's inert. */
+button.site-tagline__pill {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 .site-tagline__word {
   display: inline-block;
 }
@@ -2465,7 +2494,8 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
      The wrapper keeps its corner seat; the row still reserves the wrapped
      copyright line below (the --menu-pill-seat math rides it). */
   .site-tagline {
-    right: var(--chrome-right-inset);
+    /* reserve the lower-right privacy pill's corner (09-08) */
+    right: calc(var(--chrome-right-inset) + var(--privacy-clearance));
   }
 
   .site-tagline__row {
@@ -2557,9 +2587,20 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   outline-offset: 3px;
 }
 
+/* ≤768 (09-08, Nathan): the privacy pill LIVES in the lower-right corner
+   on phones too — one size up (--text-pill) — and the mobile menu's link
+   is its pixel twin (same seat, padding, face, ink), so menu open/close
+   and the footer reveal read as ONE persistent element. Above the tagline
+   stack (z 45) so the full-width tagline row never covers it. */
 @media (max-width: 768px) {
+  .site-privacy,
+  .mobile-menu__privacy {
+    font-size: var(--text-pill);
+    line-height: var(--lh-pill);
+  }
+
   .site-privacy {
-    display: none;
+    z-index: 46;
   }
 }
 

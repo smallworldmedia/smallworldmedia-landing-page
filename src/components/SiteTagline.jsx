@@ -42,6 +42,7 @@ import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
+import { FOOTER_REVEAL_EVENT } from './SiteFooter.jsx';
 // The FP→detail letter-exit's pacing knob — one cut clock site-wide.
 import { TEXT_TUNABLES } from './work/textExit.js';
 
@@ -62,7 +63,7 @@ export const TAGLINE_LINES = [
 export const EM_LINE = 0;
 const HOME_SAFETY_MS = 12000; // hero-chrome no-show fallback (odd intro paths)
 const REVEAL_ON = 0.85; // footer progress that arms the copyright/lockup
-const REVEAL_OFF = 0.5; // retreat threshold (hysteresis)
+const REVEAL_OFF = 0.5; // (unused since 09-08 — exits are masked, not faded) // retreat threshold (hysteresis)
 const REVEAL_DELAY_S = 0.25; // Nathan: a *delayed* trigger after the reveal
 
 const prefersReduced = () =>
@@ -234,14 +235,9 @@ export default function SiteTagline() {
         } else {
           (footTl || buildFootTl()).play();
         }
-      } else if (footShown && p < REVEAL_OFF) {
-        footShown = false;
-        if (reduced) {
-          gsap.set([copy, lockup], { autoAlpha: 0 });
-        } else {
-          footTl?.reverse();
-        }
       }
+      // 09-08 (Nathan): no retreat fade — the stack rides the panel down and
+      // exits masked by its top edge; it snaps to the ground on park (below).
       if (document.documentElement.hasAttribute('data-footer-revealed')) {
         raf = requestAnimationFrame(watch);
       }
@@ -250,11 +246,11 @@ export default function SiteTagline() {
       const on = document.documentElement.hasAttribute('data-footer-revealed');
       if (on && !raf) raf = requestAnimationFrame(watch);
       if (!on) {
-        // Route swap / broadcast cleared mid-reveal: retreat cleanly.
+        // Panel parked / route swap: snap to the ground, unseen (09-08).
         if (footShown) {
           footShown = false;
-          if (reduced || !footTl) gsap.set([copy, lockup], { autoAlpha: 0 });
-          else footTl.reverse();
+          footTl?.pause(0);
+          gsap.set([copy, lockup], { autoAlpha: 0 });
         }
         if (raf) {
           cancelAnimationFrame(raf);
@@ -347,7 +343,14 @@ export default function SiteTagline() {
           />
         </a>
         <div className="site-tagline__row">
-          <p className="site-tagline__pill" aria-label="Visual worlds for the music industry">
+          {/* 09-08 (Nathan): the pill INVOKES the footer — one event, each
+              route answers in its own idiom (SiteFooter FOOTER_REVEAL_EVENT). */}
+          <button
+            type="button"
+            className="site-tagline__pill"
+            aria-label="Visual worlds for the music industry — open the footer"
+            onClick={() => window.dispatchEvent(new Event(FOOTER_REVEAL_EVENT))}
+          >
             {TAGLINE_LINES.map((line, li) => (
               <span className="site-tagline__line" key={line.join('-')}>
                 {line.map((w) => (
@@ -361,7 +364,7 @@ export default function SiteTagline() {
                 ))}
               </span>
             ))}
-          </p>
+          </button>
           <p className="site-tagline__copy">©{year}. All rights reserved.</p>
         </div>
       </div>

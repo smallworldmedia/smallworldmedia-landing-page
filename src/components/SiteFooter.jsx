@@ -42,6 +42,12 @@ import gsap from 'gsap';
 // pub/sub. Static import is the tiny shared STATE only (the fp1Tune idiom);
 // the bench panel itself is a lazy chunk owned by SiteShell.
 import { getFooterTravelK, subscribeFooterTune } from '../lib/footerTune.js';
+import { getLenis } from '../lib/smoothScroll.js';
+
+/** Any surface can ask for the footer: window.dispatchEvent(new Event(this)).
+    Scroll routes glide to the document end (below); /work's driven host and
+    the home hero handle it themselves (09-08, Nathan — the tagline pill). */
+export const FOOTER_REVEAL_EVENT = 'swm:footer-reveal';
 // 09-07 (Nathan): the client-logo band rides the TOP of the links panel — it
 // inherits the panel's transform (scroll + driven modes), the spacer's
 // ResizeObserver already re-measures the taller panel, inert is inherited,
@@ -57,20 +63,30 @@ import ClientLogoTicker from './ClientLogoTicker.jsx';
 // intro lands): the row never staggers in beside an unlanded pill. This
 // completes the footer elements' animations — both corners + the link row.
 const STAGGER_ON = 0.85; // footer progress that arms the link stagger
-const STAGGER_OFF = 0.5; // retreat threshold (hysteresis)
 const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 
 /* Shared broadcast: reveal progress → <html>, consumed by the global.css
    shell-slide rule. Attribute gates the rule on (any progress), the var
    drives the proportional translate. */
+// 09-08 (Nathan): footer elements enter on the reveal but never FADE OUT —
+// the retreat is masked by the panel's top edge leaving the viewport. So
+// alongside the live progress we broadcast its PEAK since the last park:
+// `--footer-peak` rises with the reveal and holds through the retreat,
+// resetting only once the panel is fully parked (progress ≈ 0). Anything
+// that fades on the reveal consumes the peak, not the progress.
+let revealPeak = 0;
 const broadcastReveal = (progress) => {
   const root = document.documentElement;
+  revealPeak = progress <= 0.001 ? 0 : Math.max(revealPeak, progress);
   root.style.setProperty('--footer-reveal', progress.toFixed(4));
+  root.style.setProperty('--footer-peak', revealPeak.toFixed(4));
   root.toggleAttribute('data-footer-revealed', progress > 0.001);
 };
 const clearReveal = () => {
   const root = document.documentElement;
+  revealPeak = 0;
   root.style.removeProperty('--footer-reveal');
+  root.style.removeProperty('--footer-peak');
   root.style.removeProperty('--footer-panel-h');
   root.removeAttribute('data-footer-revealed');
 };
@@ -144,6 +160,18 @@ export default function SiteFooter({
       broadcastReveal(progress);
     };
 
+    // 09-08 (Nathan): the tagline pill (SiteTagline) asks for the footer —
+    // on a scroll route that is a glide to the document end (Lenis when it
+    // runs the window, else native smooth), which drives apply() as usual.
+    const onRevealRequest = () => {
+      const doc = document.scrollingElement || document.documentElement;
+      const end = Math.max(doc.scrollHeight - window.innerHeight, 0);
+      const lenis = getLenis?.();
+      if (lenis) lenis.scrollTo(end, { force: true, lock: true });
+      else window.scrollTo({ top: end, behavior: 'smooth' });
+    };
+    window.addEventListener(FOOTER_REVEAL_EVENT, onRevealRequest);
+
     const onScroll = () => {
       if (raf) return;
       raf = requestAnimationFrame(apply);
@@ -177,6 +205,7 @@ export default function SiteFooter({
       ro?.disconnect();
       unsubTune();
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener(FOOTER_REVEAL_EVENT, onRevealRequest);
       window.removeEventListener('resize', onResize);
       clearReveal();
     };
@@ -251,11 +280,11 @@ export default function SiteFooter({
         shown = true;
         if (reduced) gsap.set(links(), { autoAlpha: 1, y: 0 });
         else ensureTl().play();
-      } else if (shown && p < STAGGER_OFF) {
-        shown = false;
-        if (reduced) gsap.set(links(), { autoAlpha: 0 });
-        else tl?.reverse();
       }
+      // 09-08 (Nathan): NO retreat branch — the links stay landed while the
+      // panel slides down; the exit is masked by its top edge leaving the
+      // viewport. They snap back to the hidden ground only once the panel
+      // parks (the attribute clears → the observer below).
       if (document.documentElement.hasAttribute('data-footer-revealed')) {
         raf = requestAnimationFrame(watch);
       }
@@ -264,11 +293,12 @@ export default function SiteFooter({
       const on = document.documentElement.hasAttribute('data-footer-revealed');
       if (on && !raf) raf = requestAnimationFrame(watch);
       if (!on) {
-        // Broadcast cleared mid-reveal (route swap): retreat cleanly.
+        // Panel parked (or route swap): snap to the hidden ground — the
+        // panel is off-screen, so nothing is seen fading (09-08).
         if (shown) {
           shown = false;
-          if (reduced || !tl) gsap.set(links(), { autoAlpha: 0 });
-          else tl.reverse();
+          tl?.pause(0);
+          gsap.set(links(), { autoAlpha: 0, y: 10 });
         }
         if (raf) {
           cancelAnimationFrame(raf);
