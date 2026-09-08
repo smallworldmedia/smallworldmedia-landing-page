@@ -820,6 +820,12 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
       cRef.current -= off;
       prevDetentRef.current -= off;
       rootRef.current?.style.setProperty('--scale-c', cRef.current);
+      // 09-07 (Nathan: scrolling UP from COCO #01 the roll stopped — a
+      // single COCO in the box until it left): the re-base swaps the DOM
+      // node under the lens for its CLONE (identical text, no data-fill /
+      // data-sel), so the roll has to move to that node. Its phase is the
+      // wall clock's, so the swap is seamless (the r11h idiom).
+      setMarquee(cRef.current);
     },
     tuning: {
       detentPx, // 1:1 with the pitch — the finger moves the scale exactly
