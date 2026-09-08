@@ -76,7 +76,7 @@ import {
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
 import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
-import SiteFooter, { FOOTER_REVEAL_EVENT } from './SiteFooter.jsx';
+import SiteFooter, { FOOTER_REVEAL_EVENT, wipeReveal } from './SiteFooter.jsx';
 // 08-30 (3), Nathan: the home→/work transition carries the FP→detail
 // choreography — the SAME enter-tune vocabulary (cover duration, window
 // model, pow curve) WorldCard/useWorldScene ride, so the two passages can
@@ -205,6 +205,7 @@ export default function Hero({ globeAssets }) {
   // for a full reveal; the enter_world commit retracts it.
   const [footerP, setFooterP] = useState(0);
   const footerPRef = useRef(0);
+  const footerWipeRef = useRef(null); // the pill's wipe tween — the user's delta kills it
   const setFooterReveal = (v) => {
     if (footerPRef.current === v) return;
     footerPRef.current = v;
@@ -215,6 +216,7 @@ export default function Hero({ globeAssets }) {
     if (!el) return undefined;
     const addDelta = (dy) => {
       if (departingRef.current) return;
+      footerWipeRef.current?.kill();
       const p = footerPRef.current;
       if (dy <= 0 && p <= 0) return;
       if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : 0);
@@ -246,7 +248,9 @@ export default function Hero({ globeAssets }) {
       touchX = null;
     };
     const onReveal = () => {
-      if (!departingRef.current) setFooterReveal(1);
+      if (departingRef.current) return;
+      footerWipeRef.current?.kill();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -254,6 +258,7 @@ export default function Hero({ globeAssets }) {
     el.addEventListener('touchend', onTouchEnd);
     window.addEventListener(FOOTER_REVEAL_EVENT, onReveal);
     return () => {
+      footerWipeRef.current?.kill();
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
@@ -732,6 +737,7 @@ export default function Hero({ globeAssets }) {
   // path — the ?herotune bench's dry-run still rehearses it for reference.
   const onEnterClick = () => {
     if (departingRef.current) return;
+    footerWipeRef.current?.kill();
     setFooterReveal(0); // the footer never rides the Envelopment
     setCtaPinned(true);
     if (PREFERS_REDUCED_MOTION) {

@@ -29,7 +29,7 @@ import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
 import GraticulePager from './pager/GraticulePager.jsx';
-import SiteFooter, { FOOTER_REVEAL_EVENT } from '../SiteFooter.jsx';
+import SiteFooter, { FOOTER_REVEAL_EVENT, wipeReveal } from '../SiteFooter.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
 // Only the tiny shared tune STATE is static here; the panel itself (and the
 // Deck Viewer bench below) is import()ed from its mount effect, so neither
@@ -95,10 +95,17 @@ export default function FeaturedProjects({ worlds = [] }) {
   const footerPRef = useRef(0);
   // 09-08 (Nathan): the tagline pill asks for the footer — driven mode
   // answers with a full reveal; the accumulator's upward delta retracts it.
+  const footerWipeRef = useRef(null); // the pill's wipe — the user's delta kills it
   useEffect(() => {
-    const on = () => setFooterReveal(1);
+    const on = () => {
+      footerWipeRef.current?.kill();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
+    };
     window.addEventListener(FOOTER_REVEAL_EVENT, on);
-    return () => window.removeEventListener(FOOTER_REVEAL_EVENT, on);
+    return () => {
+      footerWipeRef.current?.kill();
+      window.removeEventListener(FOOTER_REVEAL_EVENT, on);
+    };
   }, []);
   const setFooterReveal = (v) => {
     if (footerPRef.current === v) return;
@@ -442,6 +449,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       // paint OVER the footer panel (z-40) — with the logo band the panel is
       // ~13rem tall, so an engage at full reveal would dim the logo row.
       // Retract instead; the post-end delta reveals it again on release.
+      footerWipeRef.current?.kill();
       if (footerPRef.current > 0) setFooterReveal(0);
     }
     mainRef.current?.classList.toggle('is-pager-engaged', v);
@@ -480,6 +488,7 @@ export default function FeaturedProjects({ worlds = [] }) {
 
     const addDelta = (dy) => {
       if (departingRef.current) return; // reverse Envelopment committed — input is done here
+      footerWipeRef.current?.kill(); // the user's delta supersedes the pill's wipe
       if (pagerEngagedRef.current) return; // pager owns input mid-scrub (a second finger must not Turn)
       if (performance.now() < lockRef.current) return;
 
@@ -587,7 +596,10 @@ export default function FeaturedProjects({ worlds = [] }) {
   // click, PREVIOUS CTA) drops a lingering footer reveal — earlier Worlds
   // must never show it. The Turn choreography covers the snap.
   useEffect(() => {
-    if (active < lastIndex && footerPRef.current > 0) setFooterReveal(0);
+    if (active < lastIndex && footerPRef.current > 0) {
+      footerWipeRef.current?.kill();
+      setFooterReveal(0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, lastIndex]);
 

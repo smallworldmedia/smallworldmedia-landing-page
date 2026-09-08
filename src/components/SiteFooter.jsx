@@ -42,12 +42,33 @@ import gsap from 'gsap';
 // pub/sub. Static import is the tiny shared STATE only (the fp1Tune idiom);
 // the bench panel itself is a lazy chunk owned by SiteShell.
 import { getFooterTravelK, subscribeFooterTune } from '../lib/footerTune.js';
+import { CustomEase } from 'gsap/CustomEase';
 import { getLenis } from '../lib/smoothScroll.js';
+import { GLIDE_SECONDS } from '../lib/motion.js';
+import { TURN_EASE_PATH } from './work/world/worldConfig.js';
 
 /** Any surface can ask for the footer: window.dispatchEvent(new Event(this)).
     Scroll routes glide to the document end (below); /work's driven host and
     the home hero handle it themselves (09-08, Nathan — the tagline pill). */
 export const FOOTER_REVEAL_EVENT = 'swm:footer-reveal';
+
+/* The pill's WIPE (09-08, Nathan): the reveal rides the house glide — one
+   GLIDE_SECONDS on the World Turn curve (steep launch, smooth settle, no
+   overshoot). Scroll routes hand the same duration + curve to Lenis; driven
+   hosts tween their progress through wipeReveal(). */
+const WIPE_EASE = 'footerWipe';
+const wipeEase = () => CustomEase.get(WIPE_EASE) || CustomEase.create(WIPE_EASE, TURN_EASE_PATH);
+/** Tween a driven host's 0..1 from `from` to 1; returns the tween (kill it
+    the moment the user's own delta takes over). */
+export function wipeReveal(from, set) {
+  const proxy = { p: Math.min(Math.max(from, 0), 1) };
+  return gsap.to(proxy, {
+    p: 1,
+    duration: GLIDE_SECONDS * (1 - proxy.p),
+    ease: wipeEase(),
+    onUpdate: () => set(proxy.p),
+  });
+}
 // 09-07 (Nathan): the client-logo band rides the TOP of the links panel — it
 // inherits the panel's transform (scroll + driven modes), the spacer's
 // ResizeObserver already re-measures the taller panel, inert is inherited,
@@ -167,8 +188,18 @@ export default function SiteFooter({
       const doc = document.scrollingElement || document.documentElement;
       const end = Math.max(doc.scrollHeight - window.innerHeight, 0);
       const lenis = getLenis?.();
-      if (lenis) lenis.scrollTo(end, { force: true, lock: true });
-      else window.scrollTo({ top: end, behavior: 'smooth' });
+      if (lenis) {
+        lenis.scrollTo(end, { duration: GLIDE_SECONDS, easing: wipeEase(), force: true, lock: true });
+      } else {
+        // no Lenis (RM / no smooth scroll): tween the window on the same curve
+        const proxy = { y: window.scrollY };
+        gsap.to(proxy, {
+          y: end,
+          duration: GLIDE_SECONDS,
+          ease: wipeEase(),
+          onUpdate: () => window.scrollTo(0, proxy.y),
+        });
+      }
     };
     window.addEventListener(FOOTER_REVEAL_EVENT, onRevealRequest);
 
