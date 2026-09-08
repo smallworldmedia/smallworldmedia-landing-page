@@ -225,6 +225,21 @@ export default function SiteTagline() {
       );
       return Number.isFinite(v) ? v : 0;
     };
+    let panelEl = null;
+    const maskToPanel = () => {
+      if (!panelEl || !panelEl.isConnected) panelEl = document.querySelector('.site-footer--links');
+      if (!panelEl) return;
+      const edge = panelEl.getBoundingClientRect().top;
+      for (const el of [copy, lockup]) {
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top;
+        const cut = Math.max(0, edge - top);
+        el.style.clipPath = cut > 0 ? `inset(${cut.toFixed(1)}px 0 0 0)` : '';
+      }
+    };
+    const unmask = () => {
+      for (const el of [copy, lockup]) if (el) el.style.clipPath = '';
+    };
     const watch = () => {
       raf = 0;
       const p = readReveal();
@@ -236,8 +251,11 @@ export default function SiteTagline() {
           (footTl || buildFootTl()).play();
         }
       }
-      // 09-08 (Nathan): no retreat fade — the stack rides the panel down and
-      // exits masked by its top edge; it snaps to the ground on park (below).
+      // 09-08 (Nathan): no retreat fade — the stack is MASKED by the panel's
+      // top edge. This island is fixed to the viewport (it never rides the
+      // panel's transform), so the mask is explicit: every frame, clip each
+      // element above the panel's live top edge. Cleared on park (below).
+      if (footShown) maskToPanel();
       if (document.documentElement.hasAttribute('data-footer-revealed')) {
         raf = requestAnimationFrame(watch);
       }
@@ -251,6 +269,7 @@ export default function SiteTagline() {
           footShown = false;
           footTl?.pause(0);
           gsap.set([copy, lockup], { autoAlpha: 0 });
+          unmask();
         }
         if (raf) {
           cancelAnimationFrame(raf);

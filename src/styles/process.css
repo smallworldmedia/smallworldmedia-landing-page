@@ -944,22 +944,7 @@ body.route-process .site-nav {
     );
   }
 
-  /* Dark copy on the white wash wants a light halo, not the dark one. */
-  .process-page[data-bg='white'] .process-hero__title,
-  .process-page[data-bg='white'] .process-stage__headline,
-  .process-page[data-bg='white'] .process-stage__blurb,
-  .process-page[data-bg='white'] .process-cta__display,
-  .process-page[data-bg='white'] .process-cta__line {
-    text-shadow: 0 1px 14px rgba(250, 250, 250, 0.9), 0 0 3px rgba(250, 250, 250, 0.8);
-  }
-
-  /* Legibility where copy overhangs the band edges over a lit globe */
-  .process-hero__title,
-  .process-hero__sub,
-  .process-stage__headline,
-  .process-stage__blurb,
-  .process-cta__display,
-  .process-cta__line {
-    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.7);
-  }
+  /* 09-08 (Nathan): NO text shadows on the process page — the mobile
+     halos (dark on the blue/black fields, light on the white wash) are
+     gone; the full-bleed ?scrim is the legibility tool if one is needed. */
 }
