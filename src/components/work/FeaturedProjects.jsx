@@ -431,6 +431,11 @@ export default function FeaturedProjects({ worlds = [] }) {
       // supersedes the stale one (the spec's cleared-on-re-engage rule).
       clearTimeout(pagerCommitRef.current);
       pagerCommitRef.current = null;
+      // 09-07 (Nathan): the pager's scrim (z-110) and frozen scale (z-120)
+      // paint OVER the footer panel (z-40) — with the logo band the panel is
+      // ~13rem tall, so an engage at full reveal would dim the logo row.
+      // Retract instead; the post-end delta reveals it again on release.
+      if (footerPRef.current > 0) setFooterReveal(0);
     }
     mainRef.current?.classList.toggle('is-pager-engaged', v);
   };

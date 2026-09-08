@@ -42,3 +42,7 @@ schema.json
 
 # Claude Code per-machine settings
 .claude/settings.local.json
+
+# Client logo intake (Dropbox dump) — scripts/prep-client-logos.mjs
+# normalises it into the tracked src/assets/client-logos/
+Client Logos/

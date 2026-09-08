@@ -388,6 +388,44 @@
      = straight (r11b). Axis + tick + NAME shift as a group; the number
      stays. ?sliceamp. */
 
+  /* ── Client-logo ticker (09-07, Nathan) — the band riding the top of
+     the links footer (ClientLogoTicker.jsx). Every dial is applied
+     imperatively at mount (SSR keeps the server's inline style). ── */
+  --logo-h: 28px;
+  /* logo row height — every mark is height-fit, width auto. ?logoh (px). */
+  --logo-gap: 3.5rem;
+  /* 49px between marks. ?logogap (px). */
+  --logo-max-w: 8;
+  /* cap on a mark's width as a multiple of --logo-h (the 8:1 wordmarks
+     letterbox past it). ?logomaxw. */
+  --logo-bal: 0.5;
+  --logo-ref-ar: 3;
+  /* 09-08 (Nathan): optical balance. Each mark's height = --logo-h ×
+     (ref-ar ÷ aspect)^bal — squares come up, wide wordmarks come down, so
+     the row reads at ONE perceived size. 0.5 equalises area; 0 = height-
+     fit; 1 = equal width. The 3:1 reference sits at exactly --logo-h.
+     JS computes the per-item factor (--lf, clamped 0.55–2) from the
+     manifest dims — these two are the documented bake, mirrored in
+     ClientLogoTicker.jsx BAL_K / BAL_REF_AR. ?logobal ?logoref. */
+  --logo-pxs: 40;
+  /* marquee speed in px/s — CONSTANT across viewports; the JS writes
+     --logo-roll-s = track width ÷ this at mount. ?logopxs. */
+  --logo-reveal-from: 0.6;
+  --logo-reveal-to: 0.98;
+  /* the band's fade is a WINDOW over --footer-reveal: 0 at -from, 1 at
+     -to. The band is the TOP of a panel rising from 100%, so its top edge
+     only clears the fold at p = 1 — an early window fades in below the
+     fold. ?logofrom ?logoto. */
+  --logo-word-cycle: 1800ms;
+  /* one odometer word per cycle (hold ≈ 75%, move ≈ 25%; the move rides
+     --ease-panel). ?logowordcycle (ms). */
+  --logo-odo-lh: 1.25em;
+  /* the odometer's line box — the column steps by exactly this. */
+  --logo-fade: 6rem;
+  /* the roll's soft edges (mask), each side. */
+  --logo-pad-y: 1.714rem;
+  /* 24px above the copy and below the roll. */
+
   /* Radii */
   --radius-pill: 3.571rem;
   /* 50px */
@@ -2065,6 +2103,167 @@ html[data-footer-revealed] .detail-progress {
   }
 }
 
+/* ============================================
+   CLIENT LOGO TICKER — the band riding the top of the links footer
+   (09-07, Nathan; ClientLogoTicker.jsx). Rendered INSIDE the fixed panel,
+   above .site-footer__inner, so it rides the panel's reveal transform in
+   both the scroll and the driven (/work) modes — no listener of its own.
+   ============================================ */
+.logo-ticker {
+  /* Fade = a window over the footer's own broadcast (one motion). No
+     translate of its own: the panel already carries it. */
+  --lt-p: clamp(
+    0,
+    (var(--footer-reveal, 0) - var(--logo-reveal-from)) /
+      (var(--logo-reveal-to) - var(--logo-reveal-from)),
+    1
+  );
+  opacity: var(--lt-p);
+  padding: var(--logo-pad-y) 0;
+  border-bottom: 1px solid rgb(255 255 255 / 0.12);
+  background: var(--color-black);
+  overflow: hidden;
+}
+
+/* ── Copy line + odometer ── */
+.logo-ticker__copy {
+  margin: 0 0 var(--logo-pad-y);
+  padding: 0 var(--nav-inset);
+  padding-right: var(--chrome-right-inset);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--logo-odo-lh);
+  letter-spacing: var(--tracking-body);
+  color: var(--color-dim-gray);
+}
+
+.logo-ticker__odo {
+  position: relative;
+  display: inline-grid;
+  vertical-align: top;
+  height: var(--logo-odo-lh);
+  overflow: hidden;
+  color: var(--color-white);
+}
+
+/* sizer: all five words stacked in ONE cell → box = the longest word */
+.logo-ticker__odo-sizer {
+  display: inline-grid;
+  visibility: hidden;
+}
+
+.logo-ticker__odo-sizer > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.logo-ticker__odo-col {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+  animation: logo-ticker-odo calc(var(--logo-word-cycle) * 5) infinite;
+  animation-play-state: paused;
+  will-change: transform;
+}
+
+.logo-ticker__odo-word {
+  display: block;
+  height: var(--logo-odo-lh);
+  line-height: var(--logo-odo-lh);
+}
+
+/* five words + the clone of the first: hold 15 of every 20%, move on the
+   house panel curve (no overshoot) for the last 5%; 100% = -5 lines = the
+   clone = word 0 → the loop snaps back invisibly. */
+@keyframes logo-ticker-odo {
+  0%, 15% { transform: translateY(0); animation-timing-function: var(--ease-panel); }
+  20%, 35% { transform: translateY(calc(var(--logo-odo-lh) * -1)); animation-timing-function: var(--ease-panel); }
+  40%, 55% { transform: translateY(calc(var(--logo-odo-lh) * -2)); animation-timing-function: var(--ease-panel); }
+  60%, 75% { transform: translateY(calc(var(--logo-odo-lh) * -3)); animation-timing-function: var(--ease-panel); }
+  80%, 95% { transform: translateY(calc(var(--logo-odo-lh) * -4)); animation-timing-function: var(--ease-panel); }
+  100% { transform: translateY(calc(var(--logo-odo-lh) * -5)); }
+}
+
+/* ── The roll: one row, one direction, seamless ── */
+.logo-ticker__roll {
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+  /* soft edges — mask, not overlays, so the black ground needs no match */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--logo-fade),
+    #000 calc(100% - var(--logo-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--logo-fade),
+    #000 calc(100% - var(--logo-fade)),
+    transparent
+  );
+}
+
+.logo-ticker__track {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--logo-gap);
+  /* the gap between the two copies = the item gap, so the seam is one
+     more ordinary gap */
+  padding-right: var(--logo-gap);
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  animation: logo-ticker-roll var(--logo-roll-s, 60s) linear infinite;
+  animation-play-state: paused;
+  will-change: transform;
+}
+
+@keyframes logo-ticker-roll {
+  to { transform: translateX(-100%); }
+}
+
+.logo-ticker__item {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+
+.logo-ticker__img {
+  display: block;
+  /* --lf = the item's optical factor (see --logo-bal) */
+  height: calc(var(--logo-h) * var(--lf, 1));
+  width: auto;
+  max-width: calc(var(--logo-h) * var(--logo-max-w));
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Both animations run ONLY while the footer is revealing — the same
+   attribute that gates the shell slide. */
+html[data-footer-revealed] .logo-ticker__track,
+html[data-footer-revealed] .logo-ticker__odo-col {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-ticker__track,
+  .logo-ticker__odo-col {
+    animation: none;
+  }
+
+  /* static: one copy, first word, no fade edges to hint motion */
+  .logo-ticker__track[aria-hidden] {
+    display: none;
+  }
+}
+
 /* ── INTEGRATION FLAG (F1) — nav slide ───────────────────────────────────────
    As the footer reveals, the shared .site-shell slides up by one nav height so
    the redundant bar leaves the viewport (its own nav links live in the footer).
@@ -2776,6 +2975,13 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
     --scale-roster: 1;
     --scale-chip-wipe-ms: 520ms;
     /* the ≤768 chip wipe stays at its 09-06 tune; desktop is 300 */
+    /* logo ticker re-tier: smaller marks, tighter gap, shorter edges. */
+    --logo-h: 22px;
+    --logo-gap: 2.286rem;
+    /* 32px */
+    --logo-fade: 3rem;
+    --logo-pad-y: 1.286rem;
+    /* 18px */
     /* selected: painted ×(1.688 × --scale-sel-bump 1.15 ≈ 1.94) from
        x≈54px → right edge ~316px of 390. WIDENED r10 (was 17vw/4.5rem):
        the [select_project] chip left the lens band in r9 (rotated, top

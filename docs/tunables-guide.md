@@ -2,8 +2,8 @@
 
 Every live tuning knob and debug affordance on the site, read from the code on
 2026-09-02 (`feature/v1-launch` @ `f625090` plus the uncommitted three-arm
-pager build + the 09-02/09-03 scale refinement rounds): 238 URL params
-across 26 reader files, 10 bench/debug panels, 4 debug globals. Regenerate it with the recipe at the bottom; `node scripts/tunables-keys.mjs --check`
+pager build + the 09-02/09-03 scale refinement rounds; 09-07 logo ticker): 285 URL params
+across 27 reader files, 10 bench/debug panels, 4 debug globals. Regenerate it with the recipe at the bottom; `node scripts/tunables-keys.mjs --check`
 fails if a param in the code is missing from this doc.
 
 ## How tunables work
@@ -182,6 +182,20 @@ Readers: `src/lib/smoothScroll.js` (raw params, per route), `src/lib/lenisTune.j
 | `?footertune` | mounts FooterTunePanel | off | exactly `1` | — |
 | `?footerlockup` | SWM lockup art height → `--footer-lockup-h` on `<html>` (applies without the gate) | `3.2` rem | finite > 0; slider 2–6 / 0.1 | `footerTune.js:29` **and** the `global.css:1826` fallback (keep equal) |
 | `?footertravel` | reveal travel = K × footer panel height (applies without the gate) | `1.8` | finite > 0; slider 1–3 / 0.05 | `footerTune.js:30` |
+
+**Client-logo ticker (09-07)** — reader `src/components/ClientLogoTicker.jsx` (the band riding the top of the links footer on every footer route; mount-effect class, applied imperatively because the panel is SSR'd). Assets come from `src/assets/client-logos/` via `scripts/prep-client-logos.mjs` (intake `Client Logos/` → white-on-transparent, ≤240px tall, `manifest.json` with intrinsic w/h).
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?logoh` | logo row height in px (every mark is height-fit) | `28` (`22` ≤768) | finite px | `global.css --logo-h` (both tiers) |
+| `?logogap` | gap between marks in px | `49` (`32` ≤768) | finite px | `global.css --logo-gap` |
+| `?logomaxw` | cap on a mark's width as a multiple of `--logo-h` | `8` | finite > 0 | `global.css --logo-max-w` |
+| `?logobal` | optical-balance exponent: each mark's height × (`ref` ÷ aspect)^k — 0 = height-fit, 0.5 = equal area, 1 = equal width (per-item `--lf`, clamped 0.55–2) | `0.5` | 0–1 | `ClientLogoTicker.jsx BAL_K` **and** `global.css --logo-bal` (keep equal) |
+| `?logoref` | the reference aspect (w/h) that sits at exactly `--logo-h` | `3` | finite > 0 | `ClientLogoTicker.jsx BAL_REF_AR` **and** `global.css --logo-ref-ar` |
+| `?logopxs` | marquee speed in px/s — constant across viewports; JS writes `--logo-roll-s` = track width ÷ this at mount | `40` | finite > 0 | `global.css --logo-pxs` |
+| `?logofrom` | footer progress at which the band starts fading in (window over `--footer-reveal`) | `0.6` | 0–1, < `?logoto` | `global.css --logo-reveal-from` |
+| `?logoto` | footer progress at which the band is fully in | `0.98` | 0–1 | `global.css --logo-reveal-to` |
+| `?logowordcycle` | one odometer word per cycle, ms (hold ≈ 75%, move ≈ 25% on `--ease-panel`) | `1800` | finite > 0 | `global.css --logo-word-cycle` |
 
 **Lenis traps.** Raw `?lerp` / `?wheelmult` / `?lenisdur` last for one route: `start()` re-reads the URL per route and soft navs drop the query. Opening `?lenistune=1` **alone reverts the live feel to library defaults** (the bench state initializes to 0.1 / 1 / 0, not the bake, and the page-load handler pushes it). Open it as `?lenistune=1&lerp=0.165&wheelmult=1.25` to start from the bake; `↺ reset` also goes to library defaults. Things that scale with the Lenis bake and need a regression pass after a retune: detail `?deckgear`, GridSocket parallax, the /process quantizer glides, next-project `?nparm`. A dialed `?footerlockup` is lost on the first soft nav (inline `<html>` property, no `astro:after-swap` re-assert) until a slider is touched.
 

@@ -42,6 +42,11 @@ import gsap from 'gsap';
 // pub/sub. Static import is the tiny shared STATE only (the fp1Tune idiom);
 // the bench panel itself is a lazy chunk owned by SiteShell.
 import { getFooterTravelK, subscribeFooterTune } from '../lib/footerTune.js';
+// 09-07 (Nathan): the client-logo band rides the TOP of the links panel — it
+// inherits the panel's transform (scroll + driven modes), the spacer's
+// ResizeObserver already re-measures the taller panel, inert is inherited,
+// and every footer route gets it with no per-route wiring.
+import ClientLogoTicker from './ClientLogoTicker.jsx';
 
 // ── Link-row stagger (08-29, Nathan) ──
 // The footer nav links animate in on the same reveal beat the left corner's
@@ -75,6 +80,8 @@ export default function SiteFooter({
   /** Driven mode (/work): reveal fed an explicit 0..1 — no document scroll. */
   driven = false,
   progress = 0,
+  /** The client-logo band above the links (09-07). Off = the bare panel. */
+  ticker = true,
 }) {
   const reveal = !noFill && !driven;
   const panelRef = useRef(null);
@@ -333,6 +340,7 @@ export default function SiteFooter({
             : undefined
         }
       >
+        {ticker && <ClientLogoTicker />}
         <div className="site-footer__inner">
           {/* LEFT retired (08-27, Nathan): the persistent SiteTagline pill —
               fixed at this panel's exact inner inset — IS the left column
