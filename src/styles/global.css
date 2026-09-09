@@ -2847,18 +2847,20 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   height: 0.714rem;
 }
 
-/* 09-08 (Nathan): the SWM LOCKUP replaces the top-left globe — the EXACT
-   seat + size of the footer's lockup (.site-tagline__lockup in the
-   SiteTagline island: left = the pill's text inset minus the art's bleed,
-   bottom = the tagline row's top + its gap; ≤768 the group seat). One set
-   of tokens, so the two can never drift. */
+/* 09-08 (Nathan): the SWM LOCKUP replaces the top-left globe — at the NAV
+   BAR's exact seat + size: desktop = the bar's left seat (the same
+   --lockup-left / --lockup-bleed margin as .site-nav__logo, centred in a
+   --nav-height box at the top); ≤768 = absolutely centred in that bar box
+   (the .site-nav__logo mobile rule, same no-overlap cap). One set of
+   tokens, so the two can never drift. */
 .project-overlay__lockup {
   position: absolute;
-  left: calc(var(--nav-inset) + var(--pill-pad-x) - var(--lockup-bleed));
-  bottom: calc(var(--footer-bottom-inset) + 2 * var(--pill-pad-y) + var(--lh-link) + var(--space-2));
-  height: var(--lockup-art-h);
+  top: 0;
+  left: var(--nav-inset);
+  height: var(--nav-height);
   display: flex;
   align-items: center;
+  margin-left: calc(var(--lockup-left) - var(--nav-inset) - var(--lockup-bleed));
   z-index: 2;
   pointer-events: none;
 }
@@ -2876,8 +2878,16 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
 @media (max-width: 768px) {
   .project-overlay__lockup {
-    left: calc(var(--nav-inset) - var(--lockup-bleed));
-    bottom: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-link) + var(--space-1));
+    left: 50%;
+    top: calc(var(--nav-height) / 2);
+    height: auto;
+    translate: -50% -50%;
+    margin-left: 0;
+    max-width: calc(100vw - 2 * var(--bar-pill-reserve));
+  }
+
+  .project-overlay__lockup svg {
+    max-width: 100%;
   }
 }
 
