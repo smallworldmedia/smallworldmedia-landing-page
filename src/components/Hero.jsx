@@ -76,7 +76,7 @@ import {
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
 import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
-import SiteFooter, { FOOTER_REVEAL_EVENT, wipeReveal } from './SiteFooter.jsx';
+import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from './SiteFooter.jsx';
 // 08-30 (3), Nathan: the home→/work transition carries the FP→detail
 // choreography — the SAME enter-tune vocabulary (cover duration, window
 // model, pow curve) WorldCard/useWorldScene ride, so the two passages can
@@ -252,12 +252,18 @@ export default function Hero({ globeAssets }) {
       footerWipeRef.current?.kill();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
     };
+    const onClose = () => {
+      footerWipeRef.current?.kill();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, 0);
+    };
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
     el.addEventListener('touchend', onTouchEnd);
     window.addEventListener(FOOTER_REVEAL_EVENT, onReveal);
+    window.addEventListener(FOOTER_CLOSE_EVENT, onClose);
     return () => {
+      window.removeEventListener(FOOTER_CLOSE_EVENT, onClose);
       footerWipeRef.current?.kill();
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);

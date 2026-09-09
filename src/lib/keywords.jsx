@@ -28,7 +28,10 @@ import gsap from 'gsap';
 
 export const KW_DURATION_S = 0.5;
 export const KW_STAGGER_S = 0.09;
-const KW_RE = /\[\[(.+?)\]\]/g;
+// A keyword absorbs the punctuation glued to it (`[[audience]],` → the
+// comma rides inside the box) — 09-08 (Nathan): a comma left outside gets
+// lost in the gap between two highlights.
+const KW_RE = /\[\[(.+?)\]\]([,.;:!?…]*)/g;
 
 /** Plain string → React nodes; keywords become <mark class="kw">. */
 export function renderKeywords(text) {
@@ -38,12 +41,13 @@ export function renderKeywords(text) {
   let i = 0;
   for (const m of text.matchAll(KW_RE)) {
     if (m.index > last) out.push(text.slice(last, m.index));
+    const word = m[1] + (m[2] || '');
     out.push(
       <mark className="kw" key={`kw-${i++}`}>
         <span className="kw__box" aria-hidden="true" />
-        <span className="kw__base">{m[1]}</span>
+        <span className="kw__base">{word}</span>
         <span className="kw__ink" aria-hidden="true">
-          {m[1]}
+          {word}
         </span>
       </mark>,
     );
@@ -54,7 +58,7 @@ export function renderKeywords(text) {
 }
 
 /** Strip the markers — for aria-labels, meta, anything that wants prose. */
-export const stripKeywords = (text) => (text ? text.replace(KW_RE, '$1') : text);
+export const stripKeywords = (text) => (text ? text.replace(KW_RE, '$1$2') : text);
 
 /**
  * Append the wipe to `tl` at `at` for every .kw under `root`.

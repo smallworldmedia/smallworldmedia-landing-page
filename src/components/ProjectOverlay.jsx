@@ -3,25 +3,16 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
 import { SERVICE_TAGS } from '../lib/constants';
-import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from './work/world/worldConfig.js';
+import { PREFERS_REDUCED_MOTION } from './work/world/worldConfig.js';
+import { wipeIn, wipeOut } from '../lib/overlayWipe.js';
+import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
 
 gsap.registerPlugin(useGSAP, CustomEase);
 
-const globeMark = '/icons/SWM-globe_white.svg';
-
-/* INQ-2 — the overlay open/close rides the house Turn curve as a directional
-   clip-path wipe (in from the top edge, erased bottom-to-top on the way out).
-   CustomEase names are global; register the overlay's copy once. */
-const OVERLAY_WIPE_EASE = 'overlayWipe';
-const ensureOverlayWipe = () => {
-    if (!CustomEase.get(OVERLAY_WIPE_EASE)) {
-        CustomEase.create(OVERLAY_WIPE_EASE, TURN_EASE_PATH);
-    }
-    return OVERLAY_WIPE_EASE;
-};
-
-const CLIP_OPEN = 'inset(0 0 0% 0)';
-const CLIP_CLOSED = 'inset(0 0 100% 0)'; // hidden above: only the top edge line remains
+/* INQ-2 → 09-08 (Nathan): the overlay open/close is THE shared overlay wipe
+   (src/lib/overlayWipe.js) — up from the bottom edge on the house Turn
+   curve, erased back down on the way out; the mobile menu and the privacy
+   overlay ride the same module. */
 
 const FORM_FIELDS = [
     { name: 'name', label: 'Name', type: 'text', required: true },
@@ -249,24 +240,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             //    snaps to 1 first so `visibility` keeps gating pointer events
             //    while closed — clip-path alone doesn't block them.
             //    Reduced motion keeps the old gentle fade.
-            if (PREFERS_REDUCED_MOTION) {
-                tl.fromTo(el,
-                    { autoAlpha: 0 },
-                    {
-                        autoAlpha: 1,
-                        duration: 0.35,
-                        ease: 'power2.out',
-                        overwrite: true,
-                    }
-                );
-            } else {
-                tl.set(el, { autoAlpha: 1, clipPath: CLIP_CLOSED, overwrite: true });
-                tl.to(el, {
-                    clipPath: CLIP_OPEN,
-                    duration: 0.45,
-                    ease: ensureOverlayWipe(),
-                });
-            }
+            wipeIn(el, tl);
 
             // 2. Header slides down into place — against the wipe, it starts
             //    as the reveal front passes mid-viewport (the Turn curve
@@ -298,23 +272,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             // Close — wiped away bottom-to-top on the house curve (INQ-2);
             // exit stays shorter than the entrance. autoAlpha drops once the
             // wipe lands so the closed overlay stays non-interactive.
-            if (PREFERS_REDUCED_MOTION) {
-                gsap.to(el, {
-                    autoAlpha: 0,
-                    duration: 0.3,
-                    ease: 'power2.inOut',
-                    overwrite: true,
-                });
-            } else {
-                gsap.timeline()
-                    .to(el, {
-                        clipPath: CLIP_CLOSED,
-                        duration: 0.35,
-                        ease: ensureOverlayWipe(),
-                        overwrite: true,
-                    })
-                    .set(el, { autoAlpha: 0 });
-            }
+            wipeOut(el);
         } else {
             // Initial hidden state
             gsap.set(el, { autoAlpha: 0 });
@@ -355,24 +313,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                     if (el) {
                         // Post-submit close — same bottom-to-top wipe as the
                         // manual close, a beat slower (INQ-2)
-                        if (PREFERS_REDUCED_MOTION) {
-                            gsap.to(el, {
-                                autoAlpha: 0,
-                                duration: 0.5,
-                                ease: 'power3.inOut',
-                                overwrite: true,
-                                onComplete: () => onClose(),
-                            });
-                        } else {
-                            gsap.timeline({ onComplete: () => onClose() })
-                                .to(el, {
-                                    clipPath: CLIP_CLOSED,
-                                    duration: 0.5,
-                                    ease: ensureOverlayWipe(),
-                                    overwrite: true,
-                                })
-                                .set(el, { autoAlpha: 0 });
-                        }
+                        wipeOut(el, 0.5).eventCallback('onComplete', () => onClose());
                     }
                 }, 2500);
             } else {
@@ -397,12 +338,14 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             data-open={isOpen}
             aria-hidden={!isOpen}
         >
-            {/* Globe logo — top left; stays mounted so the mark never blinks
-                (same static SVG + coordinates as the SiteNav globe below) */}
-            <img
-                className="project-overlay__globe"
-                src={globeMark}
-                alt="Small World Media"
+            {/* SWM lockup — lower-left, the EXACT seat + size of the footer's
+                lockup (SiteTagline .site-tagline__lockup) — 09-08, Nathan:
+                replaces the top-left globe. */}
+            <div
+                className="project-overlay__lockup"
+                aria-label="Small World Media"
+                role="img"
+                dangerouslySetInnerHTML={{ __html: LOCKUP_SVG }}
             />
 
 

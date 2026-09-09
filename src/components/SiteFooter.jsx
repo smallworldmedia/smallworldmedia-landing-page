@@ -51,6 +51,9 @@ import { TURN_EASE_PATH } from './work/world/worldConfig.js';
     Scroll routes glide to the document end (below); /work's driven host and
     the home hero handle it themselves (09-08, Nathan — the tagline pill). */
 export const FOOTER_REVEAL_EVENT = 'swm:footer-reveal';
+/** Fired by SiteFooter when an INVOKED footer must close (a click outside
+    it) — the driven hosts (home, /work) wipe their progress back to 0. */
+export const FOOTER_CLOSE_EVENT = 'swm:footer-close';
 
 /* The pill's WIPE (09-08, Nathan): the reveal rides the house glide — one
    GLIDE_SECONDS on the World Turn curve (steep launch, smooth settle, no
@@ -60,15 +63,24 @@ const WIPE_EASE = 'footerWipe';
 const wipeEase = () => CustomEase.get(WIPE_EASE) || CustomEase.create(WIPE_EASE, TURN_EASE_PATH);
 /** Tween a driven host's 0..1 from `from` to 1; returns the tween (kill it
     the moment the user's own delta takes over). */
-export function wipeReveal(from, set) {
+export function wipeReveal(from, set, to = 1) {
   const proxy = { p: Math.min(Math.max(from, 0), 1) };
   return gsap.to(proxy, {
-    p: 1,
-    duration: GLIDE_SECONDS * (1 - proxy.p),
+    p: to,
+    duration: GLIDE_SECONDS * Math.abs(to - proxy.p),
     ease: wipeEase(),
     onUpdate: () => set(proxy.p),
   });
 }
+
+/* INVOKED footer (09-08, Nathan): the tagline pill raises the footer AS AN
+   OVERLAY wherever the page is — no scroll. A pointerdown anywhere outside
+   the panel (and off the pill) closes it with the inverse wipe. Shared by
+   both modes: scroll mode wipes its own panel and hands control back to the
+   scroll math on close; driven mode only tracks the flag and asks its host
+   to wipe down (FOOTER_CLOSE_EVENT). */
+const isOutside = (e, panel) =>
+  !panel.contains(e.target) && !e.target.closest?.('.site-tagline__pill');
 // 09-07 (Nathan): the client-logo band rides the TOP of the links panel — it
 // inherits the panel's transform (scroll + driven modes), the spacer's
 // ResizeObserver already re-measures the taller panel, inert is inherited,
@@ -160,48 +172,58 @@ export default function SiteFooter({
     const apply = () => {
       raf = 0;
       if (disposed || !travel) return;
-      const vh = window.innerHeight;
-      const top = spacer.getBoundingClientRect().top;
+      // Invoked (the pill) or mid-wipe: the tween owns the paint.
+      if (invoked || (wipe && wipe.isActive())) return;
       // 0 when the spacer sits at/below the fold; 1 once it has fully risen
       // into the bottom band (== document end, by construction — the K in the
-      // spacer height is divided back out here).
-      const progress = Math.min(Math.max((vh - top) / travel, 0), 1);
-      panel.style.transform = `translateY(${(1 - progress) * 100}%)`;
-      // a11y: while it sits below the fold the footer's links must not be
-      // tab-reachable (focusing a transform-hidden control strands the caret
-      // off-screen). Keep the panel inert until it begins rising into view.
-      const wantInert = progress <= 0.001;
+      // spacer height is divided back out here). paint() also keeps the
+      // panel inert below the fold (a11y: no tab stops off-screen) and
+      // broadcasts CONTINUOUSLY for the shared-chrome nav slide.
+      paint(scrollProgress());
+    };
+
+    // 09-08 (Nathan): the tagline pill raises the footer AS AN OVERLAY right
+    // where the page is — no scroll. While invoked, the scroll math stands
+    // down (apply() returns early); the panel is wiped by a tween of the
+    // same 0..1. A pointerdown outside closes it: the inverse wipe back to
+    // whatever progress the scroll position implies, then apply() resumes.
+    let invoked = false;
+    let wipe = null;
+    let shown = 0; // the progress the panel is painted at
+    const paint = (p) => {
+      shown = p;
+      panel.style.transform = `translateY(${(1 - p) * 100}%)`;
+      const wantInert = p <= 0.001;
       if (wantInert !== inertFlag) {
         inertFlag = wantInert;
         panel.inert = wantInert;
       }
-      // Broadcast for the shared-chrome nav slide — CONTINUOUS (--footer-reveal
-      // var + any-progress attribute gate), so the shell translates in lockstep
-      // with the panel instead of scooting on a halfway threshold.
-      broadcastReveal(progress);
+      broadcastReveal(p);
     };
-
-    // 09-08 (Nathan): the tagline pill (SiteTagline) asks for the footer —
-    // on a scroll route that is a glide to the document end (Lenis when it
-    // runs the window, else native smooth), which drives apply() as usual.
+    const scrollProgress = () => {
+      if (!travel) return 0;
+      const top = spacer.getBoundingClientRect().top;
+      return Math.min(Math.max((window.innerHeight - top) / travel, 0), 1);
+    };
     const onRevealRequest = () => {
-      const doc = document.scrollingElement || document.documentElement;
-      const end = Math.max(doc.scrollHeight - window.innerHeight, 0);
-      const lenis = getLenis?.();
-      if (lenis) {
-        lenis.scrollTo(end, { duration: GLIDE_SECONDS, easing: wipeEase(), force: true, lock: true });
-      } else {
-        // no Lenis (RM / no smooth scroll): tween the window on the same curve
-        const proxy = { y: window.scrollY };
-        gsap.to(proxy, {
-          y: end,
-          duration: GLIDE_SECONDS,
-          ease: wipeEase(),
-          onUpdate: () => window.scrollTo(0, proxy.y),
-        });
-      }
+      if (invoked) return;
+      invoked = true;
+      document.documentElement.setAttribute('data-footer-invoked', '');
+      wipe?.kill();
+      wipe = wipeReveal(shown, paint, 1);
+    };
+    const closeInvoked = () => {
+      if (!invoked) return;
+      invoked = false;
+      document.documentElement.removeAttribute('data-footer-invoked');
+      wipe?.kill();
+      wipe = wipeReveal(shown, paint, scrollProgress());
+    };
+    const onOutside = (e) => {
+      if (invoked && isOutside(e, panel)) closeInvoked();
     };
     window.addEventListener(FOOTER_REVEAL_EVENT, onRevealRequest);
+    document.addEventListener('pointerdown', onOutside, true);
 
     const onScroll = () => {
       if (raf) return;
@@ -237,6 +259,9 @@ export default function SiteFooter({
       unsubTune();
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener(FOOTER_REVEAL_EVENT, onRevealRequest);
+      document.removeEventListener('pointerdown', onOutside, true);
+      document.documentElement.removeAttribute('data-footer-invoked');
+      wipe?.kill();
       window.removeEventListener('resize', onResize);
       clearReveal();
     };
@@ -356,8 +381,37 @@ export default function SiteFooter({
   // The transform itself is declarative (inline style below); this effect owns
   // the <html> broadcast so the shared-chrome nav slide tracks the same number.
   const drivenP = driven ? Math.min(Math.max(progress, 0), 1) : 0;
+  // Driven mode's invoked overlay (09-08): the host wipes progress on the
+  // pill's request; this side only remembers that it was INVOKED and asks
+  // the host to wipe down on a pointerdown outside the panel.
   useEffect(() => {
     if (!driven) return undefined;
+    let invoked = false;
+    const onReq = () => {
+      invoked = true;
+      document.documentElement.setAttribute('data-footer-invoked', '');
+    };
+    const clear = () => {
+      invoked = false;
+      document.documentElement.removeAttribute('data-footer-invoked');
+    };
+    const onOutside = (e) => {
+      const panel = panelRef.current;
+      if (!invoked || !panel || !isOutside(e, panel)) return;
+      clear();
+      window.dispatchEvent(new Event(FOOTER_CLOSE_EVENT));
+    };
+    window.addEventListener(FOOTER_REVEAL_EVENT, onReq);
+    document.addEventListener('pointerdown', onOutside, true);
+    return () => {
+      window.removeEventListener(FOOTER_REVEAL_EVENT, onReq);
+      document.removeEventListener('pointerdown', onOutside, true);
+      clear();
+    };
+  }, [driven]);
+  useEffect(() => {
+    if (!driven) return undefined;
+    if (drivenP <= 0.001) document.documentElement.removeAttribute('data-footer-invoked');
     broadcastReveal(drivenP);
     return undefined;
   }, [driven, drivenP]);

@@ -973,7 +973,8 @@ body.route-home .site-nav__pill.mobile-menu__close {
      the hidden copyright BESIDE it in the row (no wrapped-line reserve
      anymore) — so the foot matches with the same token and menu
      open/close on home reads as one persistent block. */
-  --menu-pill-seat: var(--footer-bottom-inset);
+  /* 09-08: = the page tagline's seat — the privacy pill's TEXT bottom */
+  --menu-pill-seat: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
 }
 
 /* /work + detail routes (08-30, Nathan): the takeover inherits the focused
@@ -2431,6 +2432,15 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
    emphasis. The intro wipes clip-path left→right; words are per-span for
    the stagger. */
 .site-tagline__pill {
+  /* 09-08: a BUTTON (it invokes the footer) — the UA skin is reset HERE, at
+     the class's own specificity, so the ≤768 blurb-size rule below still
+     wins (a `button.` selector outranked it and shrank the phone tagline). */
+  appearance: none;
+  border: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 0.28em;
@@ -2453,18 +2463,6 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
    three-line block. */
 .site-tagline__line {
   display: contents;
-}
-
-/* 09-08: the pill is a BUTTON now (it invokes the footer) — strip the UA
-   skin, keep the capsule; hit-testable despite the wrapper's inert. */
-button.site-tagline__pill {
-  appearance: none;
-  border: 0;
-  margin: 0;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  pointer-events: auto;
 }
 
 .site-tagline__word {
@@ -2536,12 +2534,30 @@ button.site-tagline__pill {
     display: none;
   }
 
-  /* Copyright wraps below the full-width pill on reveal (08-30, Nathan:
-     the mobile footer's only incoming line) — left-aligned with the other
-     footer elements' TEXT line (the pill's text inset, which is also the
-     lockup's optical left seat). */
+  /* 09-08 (Nathan): on phones the footer band's lower-left is the SWM
+     LOCKUP + ©copyright, snug, left-aligned, as one group whose bottom
+     sits on the privacy pill's TEXT bottom (the capsule's bottom inset +
+     its padding). Both are taken out of flow so the tagline pill keeps
+     its own seat (matching the mobile menu's tagline — the wrapper's
+     bottom is the same line, see --menu-pill-seat). The rising footer
+     masks the pill OUT (SiteTagline maskToPanel) as the group lands. */
+  .site-tagline {
+    bottom: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
+  }
+
   .site-tagline__copy {
-    margin-left: var(--pill-pad-x);
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    margin-left: 0;
+  }
+
+  .site-tagline__lockup {
+    position: absolute;
+    left: 0;
+    bottom: calc(var(--lh-link) + var(--space-1));
+    /* optical edge on the text's left */
+    margin-left: calc(-1 * var(--lockup-bleed));
   }
 }
 
@@ -2592,11 +2608,111 @@ button.site-tagline__pill {
    is its pixel twin (same seat, padding, face, ink), so menu open/close
    and the footer reveal read as ONE persistent element. Above the tagline
    stack (z 45) so the full-width tagline row never covers it. */
+/* Open state (09-08): the info pill's convention — white fill, blue ink,
+   `close ×` with the glyph after the word. */
+.site-privacy[aria-expanded='true'] {
+  background: var(--color-white);
+  color: var(--color-electric-blue);
+  gap: 0.143rem;
+}
+
+.site-privacy__icon {
+  width: 0.714rem;
+  height: 0.714rem;
+  flex: none;
+}
+
+/* ============================================
+   PRIVACY OVERLAY — the notice in place (09-08, Nathan)
+   ============================================
+   Lives in the SiteTagline island UNDER its pill (z 44 < 46): the pill is
+   the close. Wipes up on the shared overlay wipe (src/lib/overlayWipe.js).
+   Hidden pre-JS; autoAlpha brackets the wipe. */
+.privacy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  overflow-y: auto;
+  background: var(--color-black);
+  color: var(--color-white);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.privacy-overlay[data-open='true'] {
+  pointer-events: auto;
+}
+
+/* The notice's measure — shared by /privacy and the overlay (PrivacyContent) */
+.privacy {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 8rem var(--space-6) 6rem;
+  color: var(--color-white);
+}
+
+.privacy__title {
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  letter-spacing: -0.02em;
+}
+
+.privacy__updated {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  margin-top: var(--space-2);
+  opacity: 0.7;
+}
+
+.privacy__section {
+  margin-top: 2.5rem;
+}
+
+.privacy__section h2 {
+  font-family: var(--font-secondary);
+  font-weight: 400;
+  font-size: var(--text-secondary);
+  /* white, not electric blue — pure #00f on black fails contrast for
+     running document headings */
+  color: var(--color-white);
+}
+
+.privacy__section p {
+  margin-top: var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  line-height: 1.5;
+}
+
+.privacy__section a {
+  color: var(--color-white);
+  text-decoration: underline;
+}
+
+.privacy__home {
+  display: inline-block;
+  margin-top: 3.5rem;
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  color: var(--color-white);
+}
+
+.privacy__home:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .site-privacy,
   .mobile-menu__privacy {
     font-size: var(--text-pill);
     line-height: var(--lh-pill);
+  }
+
+  /* room for the lower-right pill under the copy */
+  .privacy {
+    padding-bottom: 8rem;
   }
 
   .site-privacy {
@@ -2731,22 +2847,38 @@ button.site-tagline__pill {
   height: 0.714rem;
 }
 
-.project-overlay__globe {
+/* 09-08 (Nathan): the SWM LOCKUP replaces the top-left globe — the EXACT
+   seat + size of the footer's lockup (.site-tagline__lockup in the
+   SiteTagline island: left = the pill's text inset minus the art's bleed,
+   bottom = the tagline row's top + its gap; ≤768 the group seat). One set
+   of tokens, so the two can never drift. */
+.project-overlay__lockup {
   position: absolute;
-  top: 0.036rem;
-  /* 0.5px — the nav globe's RENDERED top, not the bar's padding: the 38px
-     img overflow-centers in the 41px bar's 35px content box (top 1.5px)
-     and SiteShell tucks the bar up 1px (INQ-3 icon parity) */
-  left: var(--nav-inset);
-  /* matches SiteNav padding-left (--nav-inset, moved from 16px 2026-07-16
-     — this tokenizes the shared top-left globe X so all top-left globes
-     (SiteNav, mobile-menu, this overlay) track together) */
-  width: 2.714rem;
-  /* 38px — matches SiteNav globe */
-  height: 2.714rem;
-  object-fit: cover;
+  left: calc(var(--nav-inset) + var(--pill-pad-x) - var(--lockup-bleed));
+  bottom: calc(var(--footer-bottom-inset) + 2 * var(--pill-pad-y) + var(--lh-link) + var(--space-2));
+  height: var(--lockup-art-h);
+  display: flex;
+  align-items: center;
   z-index: 2;
   pointer-events: none;
+}
+
+.project-overlay__lockup svg {
+  display: block;
+  height: var(--lockup-svg-h);
+  width: auto;
+}
+
+.project-overlay__lockup svg,
+.project-overlay__lockup svg * {
+  fill: var(--color-white);
+}
+
+@media (max-width: 768px) {
+  .project-overlay__lockup {
+    left: calc(var(--nav-inset) - var(--lockup-bleed));
+    bottom: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-link) + var(--space-1));
+  }
 }
 
 .project-overlay__header {

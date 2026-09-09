@@ -29,7 +29,7 @@ import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
 import GraticulePager from './pager/GraticulePager.jsx';
-import SiteFooter, { FOOTER_REVEAL_EVENT, wipeReveal } from '../SiteFooter.jsx';
+import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from '../SiteFooter.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
 // Only the tiny shared tune STATE is static here; the panel itself (and the
 // Deck Viewer bench below) is import()ed from its mount effect, so neither
@@ -101,10 +101,16 @@ export default function FeaturedProjects({ worlds = [] }) {
       footerWipeRef.current?.kill();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
     };
+    const off = () => {
+      footerWipeRef.current?.kill();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, 0);
+    };
     window.addEventListener(FOOTER_REVEAL_EVENT, on);
+    window.addEventListener(FOOTER_CLOSE_EVENT, off);
     return () => {
       footerWipeRef.current?.kill();
       window.removeEventListener(FOOTER_REVEAL_EVENT, on);
+      window.removeEventListener(FOOTER_CLOSE_EVENT, off);
     };
   }, []);
   const setFooterReveal = (v) => {

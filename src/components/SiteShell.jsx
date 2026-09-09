@@ -28,6 +28,7 @@ import { Flip } from 'gsap/Flip';
 
 import InfoPanel from './InfoPanel';
 import ProjectOverlay from './ProjectOverlay';
+import { PRIVACY_STATE_EVENT } from './PrivacyOverlay.jsx';
 import RouteFill from './RouteFill';
 import { LENIS_TUNE_ACTIVE } from '../lib/lenisTune.js';
 import { FOOTER_TUNE_ACTIVE } from '../lib/footerTune.js';
@@ -37,6 +38,14 @@ gsap.registerPlugin(useGSAP, Flip);
 export default function SiteShell() {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  // The privacy overlay lives in the SiteTagline island (its pill is its
+  // close control and must paint above it); it reports its state here.
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  useEffect(() => {
+    const on = (e) => setIsPrivacyOpen(!!e.detail?.open);
+    window.addEventListener(PRIVACY_STATE_EVENT, on);
+    return () => window.removeEventListener(PRIVACY_STATE_EVENT, on);
+  }, []);
   const shellRef = useRef(null);
 
   // A2b Lenis tuning bench — mount only AFTER hydration. LENIS_TUNE_ACTIVE
@@ -116,8 +125,11 @@ export default function SiteShell() {
   // transformed .site-shell becomes the containing block for the fixed overlay,
   // which would otherwise shift by the nav height when both are active at once.
   useEffect(() => {
-    document.documentElement.toggleAttribute('data-chrome-open', isInfoOpen || isOverlayOpen);
-  }, [isInfoOpen, isOverlayOpen]);
+    document.documentElement.toggleAttribute(
+      'data-chrome-open',
+      isInfoOpen || isOverlayOpen || isPrivacyOpen
+    );
+  }, [isInfoOpen, isOverlayOpen, isPrivacyOpen]);
 
   // Reserve the classic scrollbar's width as a DEVICE CONSTANT (→ --scrollbar-w),
   // measured off an off-screen probe rather than innerWidth − clientWidth. The

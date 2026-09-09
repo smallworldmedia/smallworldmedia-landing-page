@@ -20,6 +20,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
+import { wipeIn, wipeOut } from '../lib/overlayWipe.js';
+import { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
 // The brand lockup, inlined (footer precedent) — one source of truth in
 // src/assets; native blue artwork, no recolor filter.
 import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
@@ -110,22 +112,21 @@ export default function SiteNav({
         gsap.set(menu, { autoAlpha: 1 });
         gsap.set(menu.querySelectorAll('.mobile-menu__item'), { clearProps: 'all' });
       } else {
-        const tl = gsap.timeline();
-        tl.fromTo(menu, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3, ease: 'power2.out', overwrite: true });
+        // 09-08 (Nathan): the takeover WIPES up from the bottom on the shared
+        // overlay wipe (the inquiry overlay's), items staggering in behind
+        // the front; it wipes back DOWN on close — never a fade.
+        const tl = wipeIn(menu);
         tl.fromTo(
           menu.querySelectorAll('.mobile-menu__item'),
           { y: 26, autoAlpha: 0 },
           { y: 0, autoAlpha: 1, duration: 0.45, stagger: 0.07, ease: 'power3.out' },
-          0.08
+          '-=0.3'
         );
       }
+    } else if (reducedMotion) {
+      gsap.set(menu, { autoAlpha: 0 });
     } else {
-      gsap.to(menu, {
-        autoAlpha: 0,
-        duration: reducedMotion ? 0 : 0.25,
-        ease: 'power2.inOut',
-        overwrite: true,
-      });
+      wipeOut(menu);
     }
     return undefined;
   }, [menuOpen, shellEl]);
@@ -427,7 +428,13 @@ export default function SiteNav({
               <a
                 href="/privacy"
                 className="mobile-menu__privacy"
-                onClick={() => setMenuOpen(false)}
+                onClick={(e) => {
+                  // 09-08: opens the privacy OVERLAY (the lower-right pill's
+                  // twin takes over as its close); the menu wipes away.
+                  e.preventDefault();
+                  setMenuOpen(false);
+                  window.dispatchEvent(new Event(PRIVACY_OPEN_EVENT));
+                }}
               >
                 privacy
               </a>

@@ -38,11 +38,23 @@
  * — the footer-reveal rule translates the shell up by the nav height, which
  * would carry this off its footer alignment).
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
 import { FOOTER_REVEAL_EVENT } from './SiteFooter.jsx';
+import PrivacyOverlay, { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
+
+/* The nav pill's close glyph (SiteNav CloseIcon) — the privacy pill swaps
+   to `close ×` while its overlay is up (09-08, the info pill convention). */
+function CloseIcon() {
+  return (
+    <svg className="site-privacy__icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 // The FP→detail letter-exit's pacing knob — one cut clock site-wide.
 import { TEXT_TUNABLES } from './work/textExit.js';
 
@@ -71,6 +83,16 @@ const prefersReduced = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export default function SiteTagline() {
+  // 09-08 (Nathan): the privacy notice opens IN PLACE as an overlay; the
+  // pill is its close control. Any surface can open it (the mobile menu's
+  // twin) via PRIVACY_OPEN_EVENT.
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const closePrivacy = useCallback(() => setPrivacyOpen(false), []);
+  useEffect(() => {
+    const on = () => setPrivacyOpen(true);
+    window.addEventListener(PRIVACY_OPEN_EVENT, on);
+    return () => window.removeEventListener(PRIVACY_OPEN_EVENT, on);
+  }, []);
   const rootRef = useRef(null);
   const privacyRef = useRef(null);
 
@@ -226,10 +248,13 @@ export default function SiteTagline() {
       return Number.isFinite(v) ? v : 0;
     };
     let panelEl = null;
-    const maskToPanel = () => {
+    const panelEdge = () => {
       if (!panelEl || !panelEl.isConnected) panelEl = document.querySelector('.site-footer--links');
-      if (!panelEl) return;
-      const edge = panelEl.getBoundingClientRect().top;
+      return panelEl ? panelEl.getBoundingClientRect().top : Infinity;
+    };
+    const maskToPanel = () => {
+      const edge = panelEdge();
+      if (!Number.isFinite(edge)) return;
       for (const el of [copy, lockup]) {
         if (!el) continue;
         const top = el.getBoundingClientRect().top;
@@ -237,8 +262,19 @@ export default function SiteTagline() {
         el.style.clipPath = cut > 0 ? `inset(${cut.toFixed(1)}px 0 0 0)` : '';
       }
     };
+    // 09-08 (Nathan): on phones the rising footer is an INVERSE mask for the
+    // tagline pill — everything of it below the panel's top edge is hidden,
+    // so the footer wipes the blurb out as its lockup + copyright land.
+    const pillEl = root.querySelector('.site-tagline__pill');
+    const maskPill = () => {
+      if (!pillEl || !window.matchMedia('(max-width: 768px)').matches) return;
+      const edge = panelEdge();
+      const r = pillEl.getBoundingClientRect();
+      const cut = Number.isFinite(edge) ? Math.max(0, r.bottom - edge) : 0;
+      pillEl.style.clipPath = cut > 0 ? `inset(0 0 ${cut.toFixed(1)}px 0)` : '';
+    };
     const unmask = () => {
-      for (const el of [copy, lockup]) if (el) el.style.clipPath = '';
+      for (const el of [copy, lockup, pillEl]) if (el) el.style.clipPath = '';
     };
     const watch = () => {
       raf = 0;
@@ -256,6 +292,7 @@ export default function SiteTagline() {
       // panel's transform), so the mask is explicit: every frame, clip each
       // element above the panel's live top edge. Cleared on park (below).
       if (footShown) maskToPanel();
+      maskPill();
       if (document.documentElement.hasAttribute('data-footer-revealed')) {
         raf = requestAnimationFrame(watch);
       }
@@ -269,8 +306,8 @@ export default function SiteTagline() {
           footShown = false;
           footTl?.pause(0);
           gsap.set([copy, lockup], { autoAlpha: 0 });
-          unmask();
         }
+        unmask();
         if (raf) {
           cancelAnimationFrame(raf);
           raf = 0;
@@ -394,8 +431,20 @@ export default function SiteTagline() {
           menu's lower-corner privacy link carries the duty (global.css
           gates; 08-30 — the full-width tagline pill owns the bottom edge
           on phones). */}
-      <a href="/privacy" className="site-privacy" ref={privacyRef}>
-        <span className="site-privacy__word">privacy</span>
+      <PrivacyOverlay open={privacyOpen} onClose={closePrivacy} />
+      <a
+        href="/privacy"
+        className="site-privacy"
+        ref={privacyRef}
+        aria-expanded={privacyOpen}
+        aria-label={privacyOpen ? 'Close privacy' : 'Privacy'}
+        onClick={(e) => {
+          e.preventDefault();
+          setPrivacyOpen((v) => !v);
+        }}
+      >
+        <span className="site-privacy__word">{privacyOpen ? 'close' : 'privacy'}</span>
+        {privacyOpen && <CloseIcon />}
       </a>
     </>
   );
