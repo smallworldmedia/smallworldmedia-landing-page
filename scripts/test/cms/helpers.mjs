@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm, readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -13,7 +13,8 @@ export const tagDoc = { _id: 'serviceTag-branding', _type: 'serviceTag', _rev: '
 export const reference = id => ({ _type: 'reference', _ref: id })
 export function existingMedia(id, fields = {}) { return { _id: id, _type: 'mediaAsset', _rev: 'r-old', title: 'Old title', slug: { _type: 'slug', current: 'old-route' }, mediaType: 'static_1x1', client: reference(clientDoc._id), services: [{ ...reference(tagDoc._id), _key: 'branding' }], sourceFolder: '/historic/dropbox/Collection', sourceManifest: 'Collection', orderRank: '0|hzzzzz:', image: { _type: 'image', asset: reference('image-existing') }, releaseInfo: { releaseArtist: 'Keep me' }, ...fields } }
 export async function harness(t, { docs = [], videoStatus = 'ready' } = {}) {
-  const base = process.env.CMS_TEST_TMP || path.join(os.tmpdir(), 'swm-cms-offline-tests')
+  // macOS os.tmpdir() lives under /var (a symlink); the state guard rejects symlinked paths, so resolve first.
+  const base = path.join(await realpath(process.env.CMS_TEST_TMP || os.tmpdir()), 'swm-cms-offline-tests')
   await mkdir(base, { recursive: true })
   const root = await mkdtemp(path.join(base, 'runner-')), media = path.join(root,'Collection')
   await mkdir(media)
