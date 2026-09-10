@@ -1,9 +1,8 @@
 # Scoped CMS workflow
 
 The website-local runner is `scripts/cms.mjs`; `/swm:cms` is its provider-neutral
-conversation entrypoint in the canonical SWM plugin. The new skill is staged on
-a release branch; it is not yet an installed marketplace release. Main-branch
-merge/release and each surface's refresh remain separate gates. Old ingestion scripts are
+conversation entrypoint in the canonical SWM plugin (released in swm 1.12.0 on
+2026-09-10; each surface still refreshes on its own schedule). Old ingestion scripts are
 not alternative production-write workflows.
 
 **Scope → inspect → propose exact diff → approve once → apply → verify/report.**
@@ -165,6 +164,8 @@ its own authorization.
 ## Verification boundary
 
 Offline fake-adapter tests exercise safety and recovery. Live Sanity/Mux
-integration requires separate authorization for a scoped test dataset/upload;
-no production content change is authorized by installing this workflow. Treat
-live integration as unverified until an authorized test has actually run.
+integration was verified on 2026-09-10 against a throwaway dataset (since deleted):
+zero-write preview, exact-diff apply, image dimensions, Mux readiness/playback/aspect,
+manifest write-back, append-preserves-order, idempotent re-apply, kill-and-resume
+without duplicate upload, draft blocking, and read-only verify. No production content
+change is authorized by installing this workflow.
