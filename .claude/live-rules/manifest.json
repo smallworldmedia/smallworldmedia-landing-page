@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "path": "rules/one-place-motion.md",
+      "hash": "dbbac7379fe2462bb79168325e39e4143adf89461d10aee2b76140438e0b9b95",
+      "description": "Motion physics and overlay wipes live in one place",
+      "globs": [
+        "src/lib/dragMomentum.js",
+        "src/lib/overlayWipe.js",
+        "src/components/globe/**",
+        "src/components/work/**",
+        "src/components/process/**",
+        "src/components/hero/**",
+        "src/components/*.jsx",
+        "src/components/ui/**"
+      ],
+      "dirs": [],
+      "prompt": [],
+      "priority": 60,
+      "enabled": true,
+      "include": []
+    },
+    {
+      "path": "rules/prettier-never-write.md",
+      "hash": "55ac54b498de7f5230cca855a4ebb92b980a845724daac5aeb6d89f023717a8f",
+      "description": "No prettier --write (the repo has no prettier config)",
+      "globs": [
+        "src/**",
+        "scripts/**",
+        "*.mjs",
+        "*.ts"
+      ],
+      "dirs": [],
+      "prompt": [],
+      "priority": 60,
+      "enabled": true,
+      "include": []
+    },
+    {
+      "path": "rules/reuse-first.md",
+      "hash": "f010c32e747fe76a616f40dae34bde23f32104b57187d92b6d06693936a1f1b1",
+      "description": "Reuse-first implementation",
+      "globs": [],
+      "dirs": [],
+      "prompt": [],
+      "priority": 90,
+      "enabled": true,
+      "include": []
+    },
+    {
+      "path": "rules/self-improvement.md",
+      "hash": "35a5acfc31816e18899307a93ca4c2f743a6f97c24c0541b2422334247b3d26e",
+      "description": "Self-improvement: build the capability that makes the next goal cheaper",
+      "globs": [],
+      "dirs": [],
+      "prompt": [],
+      "priority": 40,
+      "enabled": true,
+      "include": []
+    },
+    {
+      "path": "rules/tunables-url-params.md",
+      "hash": "05c1c4168e886724238f8406a4dd7cbaba4aca62dd7a54ae68f65a05e4ada7c9",
+      "description": "Tunables land as ?param first, bake only on Nathan's values",
+      "globs": [
+        "src/**"
+      ],
+      "dirs": [],
+      "prompt": [
+        "tunable",
+        "tunables",
+        "knob",
+        "bake",
+        "?param",
+        "bench",
+        "dial"
+      ],
+      "priority": 55,
+      "enabled": true,
+      "include": []
+    },
+    {
+      "path": "rules/verify-visually.md",
+      "hash": "bd015772bb79a9b23f68e30556d5cba8ab86484b8a3f837200268447c77a0953",
+      "description": "Motion and layout changes are verified on screen, not by a build pass",
+      "globs": [
+        "src/styles/**",
+        "src/components/**",
+        "src/pages/**"
+      ],
+      "dirs": [],
+      "prompt": [],
+      "priority": 60,
+      "enabled": true,
+      "include": []
+    }
+  ]
+}

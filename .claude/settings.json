@@ -1,0 +1,7 @@
+{
+  "enabledPlugins": {
+    "codebase-mapper@eigenwise-toolshed": true,
+    "live-rules@eigenwise-toolshed": true,
+    "context7@claude-plugins-official": true
+  }
+}
