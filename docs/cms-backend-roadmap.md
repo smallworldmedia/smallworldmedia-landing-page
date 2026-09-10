@@ -1,25 +1,61 @@
 # SWM CMS Backend Roadmap
 
-> The single source of truth for getting all media assets from the `media/` directory into Sanity.
+> Current CMS operating direction plus historical implementation milestones. Historical counts are snapshots, not a live inventory or permission to rerun migrations.
+
+## Current workflow — scoped, preview first
+
+Use `/swm:cms` with the website-local `scripts/cms.mjs` runner. See
+[CMS workflow](cms-workflow.md) for exact commands, credentials, saved plans,
+publication approval, no-edit windows and recovery; see the
+[manifest contract](_manifest-template.md) for intake.
+
+- Scope → inspect → propose an exact diff → approve once → apply → verify.
+  Preview performs no external writes/uploads; targets must be explicit.
+- Approved content changes target published documents only when no affected
+  draft exists. Drafts block; no automatic draft publication/discard, site
+  deployment, deletes, whole-library execution or reseeding.
+- Sanity remains editorial authority. Manifest additions preserve existing
+  metadata/media/grouping and append in row order after valid `orderRank`.
+  First-ranked media is the hero; `isHero` is retired. Explicit curation controls
+  rank/hero changes, not old manifest `sortOrder` values.
+- Optional `sanityId` binds stable identities as selected manifests are used;
+  ambiguous legacy matches stop. No bulk migration of the existing manifests.
+- Classification is provider-neutral: actual dimensions plus visual review,
+  closest suitable aspect buckets including `motion_4x3`. Decks/carousels retain
+  nested page paths; PDF sources require reviewed page-image exports.
+- Image/video/reel uploads, readiness/aspect metadata and project references are
+  integrated. Mux `preparing` remains pending. Resume the saved journal, never
+  blindly repeat uploads; uncertain image responses require manual reconciliation.
+- Offline tests are the first gate. Live Sanity/Mux integration remains unverified
+  until separately authorized and executed. Plugin release/refresh and website
+  release are separate gates, not implied by these local implementation changes.
+
+The phases below document historical work and deferred ideas, **not competing
+runnable procedures**. Legacy seed/patch/migration programs are maintenance-only;
+do not use old commands to bypass reviewed-plan approval.
 
 ---
 
 ## Architecture Overview
 
 ```
-media/ (Dropbox-synced, gitignored)
-  └─ 48 client folders
-       ├─ _manifest.md (Mode 2: per-row serviceType)   ← root assets
-       └─ Artwork/ or Featured Project/
-            └─ _manifest.md (Mode 1: header services)   ← curated collections
+media/ (Dropbox-synced; media gitignored, manifests tracked)
+  └─ selected client folder
+       ├─ _manifest.md (Mode 2: per-row serviceType)
+       └─ curated collection/
+            ├─ _manifest.md (Mode 1: header services)
+            └─ optional nested page images
                     ↓
-            scripts/ingest.mjs
+            scripts/cms.mjs plan (read-only preview + local plan)
+                    ↓ exact approval, including publication
+            scripts/cms.mjs apply (journaled uploads + guarded writes)
                     ↓
-            Sanity mediaAsset documents
-              - title, mediaType, serviceType
-              - image or video (Mux)
-              - client reference
-              - serviceTag references ← powers portfolio filtering
+            published Sanity mediaAsset/project/client documents
+              - stable IDs, editorial metadata, orderRank
+              - ready image or video references and aspect metadata
+              - client/project/serviceTag references
+                    ↓
+            scripts/cms.mjs verify (read-only; deployment separate)
 ```
 
 ---
@@ -71,7 +107,7 @@ media/ (Dropbox-synced, gitignored)
 - [x] Create `CONTEXT.md` — domain glossary (folder rules, content roles, exclusions)
 - [x] Build `scripts/generate-manifests.mjs` — structural scaffolding (69 manifests detected)
 - [x] Create `/media-import` workflow (ongoing new client setup)
-- [x] Create `/media-curate` workflow (batch classification with Gemini visual analysis)
+- [x] Create `/media-curate` workflow (historical batch visual classification; now superseded by provider-neutral `/swm:cms`)
 - [x] Update `docs/naming-conventions.md` — folder structure aligned with CONTEXT.md
 - [x] Add `contentRole` field to mediaAsset schema (`process` / `supporting`)
 - [x] Update `ingest.mjs` to parse contentRole from manifests
@@ -198,11 +234,11 @@ Each root manifest requires human curation of the `serviceType` column.
 
 > Completed 2026-06-20 — uploaded the 20 deferred motion assets to Mux, closing the last video gap in the featured-projects collections.
 
-These 20 were staged (files + manifests ready) but left pending after the Phase 12 run (awaiting re-export/compression). Uploaded + wired via `scripts/ingest-videos.mjs --manifest <path>`, which queries Sanity for `motion_*` mediaAssets with no `video`, matches each by title to its source file, uploads to Mux (Direct Upload), creates the `mux.videoAsset` doc, and patches the `video` ref onto the existing mediaAsset.
+These 20 were staged (files + manifests ready) but left pending after the Phase 12 run (awaiting re-export/compression). The historical separate video backfill matched by title and wired references. That procedure is retired: current scoped uploads match bound identity and relative source path, and finalize uploads/references together through the reviewed runner.
 
 - [x] Backfill 15 motion assets — `Andhera/Andhera Branding`
 - [x] Backfill 5 motion assets — `Andhera/DEVELOPED Artist Workshop`
-- [x] Verify all 20 wired with playback IDs (11 `ready`, 9 `preparing` at run time — both serve)
+- [x] Historical wiring recorded playback IDs for 20 assets (11 `ready`, 9 `preparing` at run time). **Correction:** those 9 were pending, not verified ready; current acceptance requires ready playback and final aspect metadata.
 
 Result: Mux video assets 215 → 235; zero `motion_*` mediaAssets without video in these two collections.
 
@@ -243,9 +279,9 @@ Result: Mux video assets 215 → 235; zero `motion_*` mediaAssets without video 
 
 ---
 
-## Scorecard
+## Historical Scorecard (not live-verified)
 
-| Metric | Current | Target |
+| Metric | Recorded snapshot | Historical target |
 |--------|---------|--------|
 | Clients seeded | 59 | 59 |
 | Service tags | 15 | 15 |

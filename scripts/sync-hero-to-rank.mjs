@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 /**
- * strip-hero-flags.mjs — Remove ALL isHero flags from mediaAsset documents.
+ * sync-hero-to-rank.mjs — Remove historical isHero flags from mediaAsset documents.
  *
  * The isHero field has been retired. First-in-order (orderRank asc) IS the
  * hero — no flag needed. This script unsets every remaining isHero field.
  *
- * DRY RUN by default. Pass --commit to actually mutate.
- *
- *   node scripts/strip-hero-flags.mjs          # preview
- *   node scripts/strip-hero-flags.mjs --commit # apply
+ * MAINTENANCE ONLY: historical field removal, not routine hero curation.
+ * No arguments or --dry-run prints guidance without reading credentials/content.
+ * See --help for the separate legacy acknowledgement required before execution.
  */
-import { createClient } from '@sanity/client';
-import fs from 'fs';
-import path from 'path';
+import { legacyMaintenanceGate } from './lib/legacy-cms-guard.mjs';
+const gate = legacyMaintenanceGate('sync-hero-to-rank.mjs', process.argv.slice(2), { writeFlag: '--commit' });
+if (!gate.allowed) process.exit(gate.exitCode);
+const { createClient } = await import('@sanity/client');
+const { default: fs } = await import('node:fs');
+const { default: path } = await import('node:path');
 
 const COMMIT = process.argv.includes('--commit');
 

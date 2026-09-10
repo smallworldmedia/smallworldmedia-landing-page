@@ -30,16 +30,16 @@ A curated collection of album art covers for a record label client. Uses a Mode 
 
 A curated collection elevated to a first-class showcase by a `project` document with `isFeatured == true`. The **project doc is the control surface**: it owns membership in the Featured Projects experience, display order, and editorial copy — its media is the backing collection's assets.
 
-- **Definition source:** `project.isFeatured` (membership) + `project.sortOrder` (order), authored in Sanity. *Not* derived from assets.
-- **Invariant:** every Featured Project collection must have a `project` doc carrying its blurb/editorial copy. *(Some are currently missing — backfill required.)*
-- **Hero:** the collection's sizzle reel (`isHero: true`) is the project's hero media — it is no longer what *defines* "featured".
+- **Definition source:** `project.isFeatured` (membership) + `project.orderRank` (order), authored in Sanity. *Not* derived from assets.
+- **Invariant:** every Featured Project collection must have a `project` doc carrying its blurb/editorial copy. Missing references require an explicit scoped proposal, not bulk reseeding.
+- **Hero:** the first asset in the collection's `orderRank` sequence. It need not be a reel; `isHero` is retired and is not a current schema field.
 - **Example collection:** `media/Heavy House Society/Branding 2026/`
 - **Frontend destination:** the Featured Projects experience + Single Project Page (`/work/[slug]`) — `FeaturedProjectDetail`, laid out by the Content Population Hierarchy (see below)
 - _Avoid_: defining "featured" by the existence of an isHero sizzle reel (the legacy collection-first model, now superseded)
 
 ## Root Manifest
 
-A Mode 2 `_manifest.md` at the root of a Client Folder. Each row specifies its own `serviceType` because root assets are a mix of branding, promo, social, etc. All root manifest assets have `isHero: false`.
+A Mode 2 `_manifest.md` at the root of a Client Folder. Each row specifies its own `serviceType` because root assets are a mix of branding, promo, social, etc. Root intake does not assign a hero flag.
 
 ## Content Role
 
@@ -69,6 +69,22 @@ Header-level `services:` field applies to all rows. Used in Artwork Catalogs and
 
 Per-row `serviceType` column. Used in Root Manifests where assets span different services.
 
+## CMS Intake and Editorial Authority
+
+Manifests are versioned intake records; Sanity is the current editorial authority.
+The provider-neutral `/swm:cms` workflow invokes `scripts/cms.mjs`: **scope → inspect → propose exact diff → approve → apply → verify**. See [the operational contract](docs/cms-workflow.md) and [manifest template](docs/_manifest-template.md).
+
+- Preview reads only; explicit saved-plan approval names the project/dataset, exact document changes, uploads and publication impact. Implementation approval is not content approval.
+- Approved changes target published documents only when no affected draft exists. Draft conflicts stop the operation; never automatically publish/discard drafts. A brief Studio no-edit window is required because revision checks cannot lock absent drafts or new collection members.
+- Additions preserve existing editorial fields, media, release metadata, grouping values (`sourceFolder`/`sourceManifest`) and order. Explicit allowlisted `set`/`unset` patches change only approved fields.
+- Optional manifest `sanityId` binds stable published identity; preserve existing IDs. Legacy matching must be unique and verified. Titles/filenames never redefine a bound identity, and title edits never implicitly rename routes. Bind selected manifests as used, not all manifests in a migration.
+- New assets append in table row order after the collection's last valid `orderRank`. Invalid ranks and requested hero changes require explicit curation, never global rank resets. Legacy manifest `sortOrder`/`isHero`/`aspectRatio` values are informational only; do not add them to new scaffolds.
+- Probe actual dimensions and inspect media with the available assistant; no mandatory model/provider. Use closest suitable aspect buckets, including `motion_4x3`. Placeholders and unresolved references block planning.
+- Deck/carousel page paths may be nested beneath the manifest directory. PDFs require reviewed page-image exports; no path escapes or automatic whole-library execution.
+- The runner integrates image/video/reel uploads, project references, readiness and aspect verification. Resume the saved run; uncertain responses require reconciliation, not duplicate uploads. CMS publication does not deploy the website.
+
+Historical ADR-0001 names `sortOrder`; current schemas use `orderRank`. Its project-reference join decision remains in force; the older ordering field is superseded.
+
 ## File Exclusion Rules
 
 Only web-ready media is ingested. The generator script and ingestion pipeline skip everything else.
@@ -87,11 +103,11 @@ Only web-ready media is ingested. The generator script and ingestion pipeline sk
 
 Brand decks and pitch decks are delivered as PDFs but cannot be ingested directly (PDFs are excluded). Instead, each PDF must be **separated into per-page JPEGs** before ingestion.
 
-**Workflow (pending):**
-1. Identify all brand deck / pitch deck PDFs in the media directory
-2. Export each page as a standalone JPEG (e.g., `bedouin-brand-guidelines_01.jpg`, `_02.jpg`, …)
-3. Create or update the manifest with one row per page, using `mediaType: brand-deck`
-4. Ingest normally — the **BrandDeckViewer** component renders the pages as a horizontal deck pager
+**Scoped workflow:**
+1. Select the requested brand/pitch deck PDF (no whole-library sweep)
+2. Export each page as a standalone JPEG and review the exports (e.g., `bedouin-brand-guidelines_01.jpg`, `_02.jpg`, …)
+3. Create or update only the scoped intake with nested relative paths, `mediaType: brand-deck`, a shared `displayGroup`, and `brandDeckOrder`
+4. Preview, approve and apply through the CMS runner — the **BrandDeckViewer** component renders the pages as a horizontal deck pager
 
 **Known PDFs awaiting conversion:**
 - `Andhera/DEVELOPED Artist Workshop/` — DEVELOPED Pitch Deck
@@ -118,7 +134,7 @@ Canonical names for UI components. All implementation work **must** use these te
 | **AlbumArtTicker** | Horizontal auto-scrolling ticker for album art collections. Populates inline within the MediaGrid. | `album-art` mediaType assets, grouped by client |
 | **FilterBar** | Horizontal scrollable strip of service tag pills. Sticky below header while scrolling. | `serviceTag` documents |
 | **Lightbox** | Full-screen overlay for detailed asset viewing. Video mode with sound; image mode with full resolution. | Single `mediaAsset` (triggered from MediaCard) |
-| **FeaturedProjects** | Page orchestrator for the immersive Featured Projects experience: paginates vertically through featured projects, owns the shared WebGL canvas + pager, and receives the Envelopment hand-off from the home globe. *(Supersedes the legacy isHero-driven showcase.)* | `project` docs where `isFeatured == true`, ordered by `sortOrder` |
+| **FeaturedProjects** | Page orchestrator for the immersive Featured Projects experience: paginates vertically through featured projects, owns the shared WebGL canvas + pager, and receives the Envelopment hand-off from the home globe. *(Supersedes the legacy isHero-driven showcase.)* | `project` docs where `isFeatured == true`, ordered by `orderRank` |
 | **FeaturedProjectsPreview** | The instanced, full-bleed (100vw×100vh) component that renders one featured project's **World** — the **World Shell**, floating **Tiles** across 3 depth tiers, and the identity card with the `enter_world` CTA. One instance per featured project. | One `project` + its showcase media (joined via `mediaAsset.project`) |
 | **FeaturedProjectDetail** | Orchestrator for the `/work/[slug]` Single Project Page. Renders one Featured Project collection as an editorial page via the Content Population Hierarchy. | All `mediaAsset` docs sharing one `sourceFolder` + optional `project` doc |
 | **SiteNav** | Fixed top navigation bar — globe, info pill, sitemap links. | Static |
@@ -161,19 +177,19 @@ Canonical names for UI components. All implementation work **must** use these te
 - **the Core** — the globe the connected Fragments pull inward to construct: the single unified concept the client's world is built from. Stage 3 gives it its identity (the blue light-up). _Avoid_: Chosen World, Seed World (retired term), winner, seed.
 - **Stage** — one of the five scroll-triggered scene states (`STAGE_01 discovery` → `STAGE_05 living_world`), each an authored time-domain transition fired at a section boundary. _Avoid_: phase (reserved for build plans), step, section (the DOM element, not the state).
 
-The system that turns a Featured Project directory's contents into a page layout. **Pages are populated, not authored** — the manifest/tagging metadata set at ingestion is the layout instruction set. This is why the manifest system records `sortOrder`, `isHero`, `mediaType`, `contentRole`, and `displayGroup` on every asset.
+The system that turns a Featured Project directory's contents into a page layout. **Pages are populated, not authored** — current CMS metadata is the layout instruction set. Intake proposes `mediaType`, `contentRole`, and `displayGroup`; the runner appends new `orderRank` values without replaying existing editorial metadata.
 
 | Metadata | Layout role |
 |---|---|
 | `sourceFolder` / `sourceManifest` | Grouping key — defines which assets belong to the project page |
-| `isHero` | The sizzle reel — always the first full-bleed slot |
-| `sortOrder` | Manifest row order — the sequence assets flow into slots |
+| First-ranked asset | Hero media — first in the collection's drag-to-order ranking, not a dedicated flag |
+| `orderRank` | Studio-compatible rank — the current editorial sequence; new intake appends in row order |
 | `mediaType` / aspect ratio | Slot sizing — landscape can go full-bleed; portrait/square always pairs into split rows |
 | `contentRole` | Flow membership — showcase (empty) populates the main flow; `process`/`supporting` reserved for the future BTS section |
 | `displayGroup` | Sub-grouping — assets sharing a `displayGroup` value render adjacent on the detail page (controlled adjacency) |
 | `album-art` mediaType | **Dual-feed rule** — populates both the AlbumArtViewer (detail page) and AlbumArtTicker (project directory) |
 | `brand-deck` mediaType | **Dual-feed rule** — held out of the flow; populates the BrandDeckViewer accordion (detail page) and a grouped deck presence (project directory), sorted by `brandDeckOrder` |
-| `carousel-slide` mediaType | Held out of the flow — populates the to-be-built Carousel component, one carousel per `displayGroup`, slides in `sortOrder` |
+| `carousel-slide` mediaType | Held out of the flow — populates the to-be-built Carousel component, one carousel per `displayGroup`, slides in `orderRank` |
 
 ### Aspect Ratio Resolution Rules
 
@@ -192,14 +208,14 @@ Every asset MUST carry enough metadata for the renderer to compute its aspect ra
 **Deliberate `MEDIA_TYPE_RATIOS` omissions:** `motion_other`, `static_other`, and `logo` have **no** map entry, so they fall through to real Mux/image dimensions — reserved for aspects no bucket suits (ultra-wide 4:1 banners, odd one-offs). Do not add map entries for them.
 
 **Ingestion rules:**
-- Videos uploaded to Mux **must** have `data.aspect_ratio` back-synced to the `mux.videoAsset` doc. Run the Mux backfill script after any bulk video ingestion.
+- Videos/reels uploaded through the runner must reach Mux `ready`, with playback and final `data.aspect_ratio` metadata attached to the `mux.videoAsset` doc before media wiring. `preparing` is pending; resume the same saved run. No separate backfill command is required.
 - Images uploaded to Sanity CDN carry dimensions automatically via `metadata.dimensions`.
 - Assets with generic `mediaType` values (`motion_other`, `static_other`) rely on the synced Mux/image data above; re-type them to the closest ratio bucket unless their aspect genuinely fits no bucket.
 - The `data-portrait` attribute is applied when `ratio < 1.2` (PORTRAIT_THRESHOLD), which clamps the container to `max(ratio, 3/4)` via CSS.
 
 ### Display Group (Controlled Adjacency)
 
-Assets within a Featured Project can be sub-grouped by setting the `displayGroup` field. All assets sharing the same `displayGroup` value render adjacent in the detail page layout — groups are ordered by the lowest `sortOrder` member within each group, and assets within a group maintain their individual `sortOrder`.
+Assets within a Featured Project can be sub-grouped by setting the `displayGroup` field. All assets sharing the same `displayGroup` value render adjacent in the detail page layout — groups are ordered by the lowest `orderRank` member within each group, and assets within a group maintain their individual `orderRank`.
 
 - No group headers or visual dividers are rendered — this is **controlled adjacency**, not sectioning.
 - Assets with no `displayGroup` form a single implicit "ungrouped" cluster.
@@ -225,7 +241,7 @@ Mirrors album art: any `brand-deck` asset feeds **two** contexts:
 
 ### Carousel Convention
 
-Social/editorial carousels (multi-slide posts) live in a subfolder, one image per slide. Each slide row uses `mediaType: carousel-slide`, `displayGroup` = the kebab-case slug of the carousel name (e.g. `womens-day-carousel`), and `sortOrder` sequences the slides. `buildContentFlow` holds carousel slides out of the masonry flow — reserved for the to-be-built Carousel component, which renders one carousel per `displayGroup`.
+Social/editorial carousels (multi-slide posts) live in a subfolder, one image per slide. Each slide row uses `mediaType: carousel-slide`, `displayGroup` = the kebab-case slug of the carousel name (e.g. `womens-day-carousel`), and `orderRank` sequences the slides. `buildContentFlow` holds carousel slides out of the masonry flow — reserved for the to-be-built Carousel component, which renders one carousel per `displayGroup`.
 
 ### Brand Deck Convention
 

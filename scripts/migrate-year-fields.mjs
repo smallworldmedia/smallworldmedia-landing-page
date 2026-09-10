@@ -12,13 +12,16 @@
  * After migration, the orphaned fields (year, displayTitle, overview) are
  * unset so Studio stops showing "Unknown fields found".
  *
- * Usage:
- *   node scripts/migrate-year-fields.mjs            # dry run (default-safe)
- *   node scripts/migrate-year-fields.mjs --apply    # write patches
+ * MAINTENANCE ONLY: historical migration, not routine content editing.
+ * No arguments or --dry-run prints guidance without reading credentials/content.
+ * See --help for the separate legacy acknowledgement required before execution.
  */
-import { createClient } from '@sanity/client'
-import fs from 'fs'
-import path from 'path'
+import { legacyMaintenanceGate } from './lib/legacy-cms-guard.mjs'
+const gate = legacyMaintenanceGate('migrate-year-fields.mjs')
+if (!gate.allowed) process.exit(gate.exitCode)
+const { createClient } = await import('@sanity/client')
+const { default: fs } = await import('node:fs')
+const { default: path } = await import('node:path')
 
 // ── Load token from .env.local if not in environment ──
 if (!process.env.SANITY_WRITE_TOKEN) {

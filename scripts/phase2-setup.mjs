@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 /**
  * phase2-setup.mjs — Create project documents for Phase 2
+ * MAINTENANCE ONLY: historical replacement setup, not routine project creation.
+ * No arguments or --dry-run prints guidance without reading credentials/content.
+ * See --help for the separate legacy acknowledgement required before execution.
  */
-import { createClient } from '@sanity/client'
-import fs from 'fs'
-import path from 'path'
+import { legacyMaintenanceGate } from './lib/legacy-cms-guard.mjs'
+const gate = legacyMaintenanceGate('phase2-setup.mjs')
+if (!gate.allowed) process.exit(gate.exitCode)
+const { createClient } = await import('@sanity/client')
+const { default: fs } = await import('node:fs')
+const { default: path } = await import('node:path')
 
 // Load token
 const envPath = path.resolve(process.cwd(), '.env.local')

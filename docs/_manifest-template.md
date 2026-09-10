@@ -1,191 +1,130 @@
 # Manifest Template — `_manifest.md`
 
-Place this file in any project folder to enable automated ingestion.
-The ingest script (`scripts/ingest.mjs`) will parse it and create/update
-Sanity `mediaAsset` documents for every file listed.
+Manifests are versioned intake records, not a mirror of current editorial content.
+Sanity is the editorial authority. Use the scoped preview-first runner in
+[CMS workflow](cms-workflow.md); adding files never replays old row metadata.
 
----
+## Two modes
 
-## Format
+### Mode 1 — Curated Collection
 
-There are **two manifest modes** depending on where the manifest lives:
-
-### Mode 1: Curated Collection (artwork catalogs, featured projects)
-
-All assets share a single service context. The `services:` header applies to every row.
+Header `services:` applies to rows without their own `serviceType`.
 
 ```markdown
-# {Project Title}
+# Example Client — Branding
 
-client: {client-name}              <!-- must match a seeded client name -->
-services: branding, album art      <!-- comma-separated — applied to ALL rows -->
-year: 2024
-project: {project-slug}            <!-- optional: links to a project doc -->
+client: Example Client
+services: branding
+year: 2026
+project: example-client-branding
 
 ## Assets
 
-| file | mediaType | title | isHero | sortOrder |
-|------|-----------|-------|--------|-----------|
-| hhs-brand-01_logo-primary.png | logo | HHS Logo Primary | true | 1 |
-| hhs-brand-02_logo-mark.png | logo | HHS Logo Mark | false | 2 |
+| file | mediaType | title | displayGroup | brandDeckOrder | sanityId |
+| --- | --- | --- | --- | --- | --- |
+| logo.png | logo | Primary Logo | | | |
+| Brand Guidelines/page_01.jpg | brand-deck | Guidelines Page 01 | brand-guidelines | 1 | |
+| Brand Guidelines/page_02.jpg | brand-deck | Guidelines Page 02 | brand-guidelines | 2 | |
 ```
 
-### Mode 2: Client Root (mixed assets in a flattened directory)
+### Mode 2 — Client Root
 
-Each asset may belong to a different service. Use the `serviceType` column.
+Each row supplies its own comma-separated service names.
 
 ```markdown
-# {Client Name} — Root Assets
+# Example Client — Root Assets
 
-client: {client-name}
-year: 2024
+client: Example Client
+year: 2026
 
 ## Assets
 
-| file | mediaType | serviceType | title | isHero | sortOrder |
-|------|-----------|-------------|-------|--------|-----------|
-| spotify-promo_v2.mp4 | motion_9x16 | promo video | Spotify Promo | false | 1 |
-| Brand Guidelines/brand-guidelines_page_01.jpg | brand-deck | branding | Brand Guidelines Page 01 | false | 2 |
-| tour-poster.jpg | static_16x9 | event / tour creative | Tour Poster | false | 3 |
+| file | mediaType | serviceType | title | contentRole | displayGroup | sanityId |
+| --- | --- | --- | --- | --- | --- | --- |
+| promo.mp4 | motion_4x3 | promo video | Promo | | | |
+| poster.jpg | static_4x5 | event / tour creative | Tour Poster | | | |
+| Carousel/slide_01.jpg | carousel-slide | social media | Slide 01 | | campaign-carousel | |
+| Carousel/slide_02.jpg | carousel-slide | social media | Slide 02 | | campaign-carousel | |
 ```
 
-> **Optional columns** — append `displayGroup` and `brandDeckOrder` columns when a
-> manifest contains brand decks or carousels (the ingestion script parses them by
-> header name; leave cells empty on rows that don't need them):
->
-> - **Brand decks**: per-page JPEGs in a subfolder (source PDF stays unmanifested).
->   `mediaType: brand-deck`, `displayGroup` = kebab-case deck slug
->   (e.g. `developed-pitch-deck`), `brandDeckOrder` = 1-based page sequence.
-> - **Carousels**: one image per slide in a subfolder. `mediaType: carousel-slide`,
->   `displayGroup` = kebab-case carousel slug (e.g. `womens-day-carousel`),
->   slide sequence via `sortOrder`.
->
-> ```markdown
-> | file | mediaType | title | isHero | aspectRatio | sortOrder | displayGroup | brandDeckOrder |
-> |------|-----------|-------|--------|-------------|-----------|--------------|----------------|
-> | Pitch Deck/deck_page_01.jpg | brand-deck | Deck Page 01 | false | 16:9 | 10 | client-pitch-deck | 1 |
-> | IWD Carousel/slide-1.jpg | carousel-slide | IWD Slide 1 | false | 4:5 | 20 | iwd-carousel | |
-> ```
+Examples assume these client, service and project documents already exist; names
+are illustrative, not instructions to seed them. New client/project creations
+require explicit proposals. Never invent tags or featured status.
 
-> **Fallback rule:** If a row has a `serviceType` value, the ingestion script uses it.
-> If `serviceType` is missing or blank, it falls back to the header `services:` field.
+## Header contract
 
----
+| Field | Meaning |
+| --- | --- |
+| `client` | Required resolved client name. Ambiguous/missing matches block planning. |
+| `services` | Comma-separated existing service names. Required unless every row supplies `serviceType`. |
+| `year` | Optional; when supplied, integer 2015–2030 (current runner/schema range). |
+| `project` | Optional existing project slug; reference resolution is part of the scoped plan. |
 
-## Field Reference
+Do not append inline HTML comments to header values. Placeholder values such as
+`TBD` and `<!-- define services -->` are deliberately rejected.
 
-### Header Fields
+## Table contract
 
-| Field     | Required | Description |
-|-----------|----------|-------------|
-| `client`  | ✅       | Client name (exact match from CMS) |
-| `services`| Mode 1 ✅ / Mode 2 ❌ | Comma-separated service tag names (applied to all rows) |
-| `year`    | ✅       | Project year |
-| `project` | ❌       | Slug of an existing project document |
+Use exactly one asset table. Headers are case-insensitive; empty optional cells
+must retain their pipe delimiters. Unknown columns and duplicate files/IDs fail.
 
-### Asset Table Columns
+| Column | Meaning |
+| --- | --- |
+| `file` | Required manifest-relative file path; nested subfolders are supported. No absolute paths, `..`, backslashes or symlink escapes. PDFs are not uploadable. |
+| `mediaType` | Required reviewed current schema value (below). |
+| `serviceType` | Optional comma-separated services, overriding header `services` for that row; one source is required for every row. |
+| `title` | Reviewed display title; recommended for every row. Changing it does not change a bound ID or implicitly rename a slug/route. |
+| `contentRole` | Empty for showcase; `process` for BTS or `supporting` for contextual material. |
+| `displayGroup` | Optional kebab-case group slug, e.g. `brand-guidelines` or `campaign-carousel`. |
+| `brandDeckOrder` | Page number for deck pages, starting at 1. |
+| `sanityId` | Optional stable published document ID. Leave blank for new assets; the runner records successful bindings back into this selected manifest. Preserve existing bindings. |
 
-| Column        | Required | Description |
-|---------------|----------|-------------|
-| `file`        | ✅       | Filename (same directory) or relative path (`../subfolder/file.jpg`) |
-| `mediaType`   | ✅       | Asset format/shape — drives the renderer (video player vs lightbox) |
-| `serviceType` | Mode 2 ✅ / Mode 1 ❌ | Per-asset service classification — drives portfolio filtering |
-| `contentRole` | ❌       | `process` or `supporting` — leave empty for showcase (default). See below. |
-| `title`       | ✅       | Display name in the CMS and frontend |
-| `isHero`      | ❌       | `true` = project thumbnail (default: `false`) |
-| `sortOrder`   | ❌       | Display order (lower = first) |
+Legacy `isHero` and numeric `sortOrder` columns are accepted for compatibility
+but are **informational only**. Do not add them to new scaffolds. There is no
+manifest `orderRank` column. Legacy `aspectRatio` is also accepted as informational;
+actual probed dimensions take precedence. New assets append in **table row
+order** after the current collection's last valid Studio-compatible `orderRank`;
+existing order and hero remain unchanged. Rank/hero changes require an explicit
+curation diff. Deck pages use `brandDeckOrder`; carousel slides use `orderRank`.
 
-### Content Roles
+Missing/invalid existing ranks are conflicts to resolve explicitly, not a reason
+to reseed the collection. Legacy rows without `sanityId` require unique verified
+identity matching; ambiguous/renamed rows must be resolved, never duplicated.
+Binding happens as selected manifests are used, not through a bulk migration.
 
-Most assets are **showcase** content (polished deliverables) — this is the default when `contentRole` is not set. Only tag the exceptions:
+## Current media types
 
-| Value | When to use | Frontend behavior |
-|-------|-------------|-------------------|
-| *(empty)* | Polished deliverables — the default | Appears in portfolio grid + project page |
-| `process` | BTS, screen recordings, WIPs | Project page only (e.g., "Behind the Scenes" section) |
-| `supporting` | Contextual assets — event photos, reference shots | Project page only, not in main portfolio grid |
+- Layout: `album-art`, `logo`, `featured-project-reel`, `brand-deck`, `carousel-slide`
+- Static: `static_1x1`, `static_3x4`, `static_4x5`, `static_9x16`, `static_16x9`, `static_other`
+- Motion: `motion_1x1`, `motion_3x4`, `motion_4x3`, `motion_4x5`, `motion_9x16`, `motion_16x9`, `motion_other`
 
-### Valid `mediaType` values
+Use actual dimensions/file metadata and visual inspection by the available
+assistant; no particular classifier/model provider is required. Select the
+closest suitable aspect bucket. Generic `*_other` types are for genuinely
+unsuitable bucket matches, not unknown/unreviewed files. A scaffold's `TBD` must
+be resolved before planning. A reel is a video type, not a hero flag.
 
-**Layout types:** `album-art`, `logo`, `featured-project-reel`, `brand-deck`, `carousel-slide`
+## Decks, carousels and release metadata
 
-**Static formats:** `static_1x1`, `static_3x4`, `static_4x5`, `static_9x16`, `static_16x9`, `static_other`
+Export PDF source decks to reviewed per-page images before intake. Keep the PDF
+out of the table. Preserve nested relative paths, assign `brand-deck`, a shared
+`displayGroup`, and `brandDeckOrder`. Carousels use one image per row,
+`carousel-slide`, a shared group and reviewed row order for new slides.
 
-**Motion formats:** `motion_1x1`, `motion_3x4`, `motion_4x5`, `motion_9x16`, `motion_16x9`, `motion_other`
+Album-art release metadata is **not** parsed from `### Release:` prose or a
+second table. Use an explicit allowlisted `releaseInfo` patch in the changes
+request after review. Existing release metadata and unrelated fields are never
+replaced by a routine addition.
 
-### Valid `serviceType` values
+## Local scaffolding
 
-These must match existing `serviceTag` documents in Sanity:
-
-| Value | Description |
-|-------|-------------|
-| `album art` | Cover artwork for music releases |
-| `branding` | Identity systems, brand guidelines |
-| `merch design` | Merchandise, apparel, product mockups |
-| `logo design` | Standalone logo/mark work |
-| `web design` | Website design and development |
-| `live visuals` | Real-time visual content for live performances |
-| `2d animation` | Motion graphics, animated flyers |
-| `3d animation` | 3D renders, visualizers |
-| `promo video` | Promotional video content |
-| `event / tour creative` | Flyers, tour posters, event branding |
-| `social media` | Platform-specific content (stories, posts) |
-
----
-
-## Album Art Extension
-
-For `album-art` media types, add streaming links with a sub-table
-immediately after the asset row:
-
-```markdown
-| file | mediaType | title | isHero | sortOrder |
-|------|-----------|-------|--------|-----------|
-| hhs-art-01_deep-dive-ep.jpg | album-art | Deep Dive EP | false | 1 |
-
-### Release: Deep Dive EP
-- artist: Various Artists
-- catalog: HHS-001
-- date: 2024-03-15
-- spotify: https://open.spotify.com/album/...
-- apple-music: https://music.apple.com/album/...
-- soundcloud: https://soundcloud.com/...
+```sh
+node scripts/generate-manifests.mjs "Example Client" --dry-run
+node scripts/generate-manifests.mjs "Example Client"
 ```
 
----
-
-## Ingestion Resolution
-
-The `services` field on the `mediaAsset` Sanity schema is an **array of references**
-to `serviceTag` documents. The ingestion script resolves service names to references:
-
-```
-Manifest "serviceType: promo video"
-  → GROQ: *[_type == "serviceTag" && name == "promo video"][0]._id
-  → mediaAsset.services = [{ _ref: "tag-id-xyz" }]
-```
-
-This means:
-- **Filenames never carry service metadata** — they're just disk locators
-- **`mediaType`** drives the frontend renderer (image vs video, aspect ratio)
-- **`serviceType` / `services:`** drives portfolio filtering ("Show me all branding")
-
----
-
-## Example: Complete Root Manifest (Mode 2)
-
-```markdown
-# Bedouin — Root Assets
-
-client: Bedouin
-year: 2024
-
-## Assets
-
-| file | mediaType | serviceType | title | isHero | sortOrder |
-|------|-----------|-------------|-------|--------|-----------|
-| bedouin_spotify-promo_v2.mp4 | motion_9x16 | promo video | Spotify Promo v2 | false | 1 |
-| dear-miami_promo_1_v1.mp4 | motion_9x16 | promo video | Dear Miami Promo | false | 2 |
-| 01_bedouin_costa-rica_122724.jpg | static_16x9 | event / tour creative | Costa Rica 12/27 | false | 3 |
-| tour-listing.jpg | static_16x9 | event / tour creative | SA Tour Listing | false | 4 |
-```
+Scaffolding performs no CMS calls. It requires one client, preserves every existing
+manifest, and rejects `--force`. It lists nested files within a collection without
+absorbing subfolders that already have their own manifest. Root files remain
+separate from collections. Classifications, services and nested deck/carousel
+conventions still require review; nothing is automatically featured or published.

@@ -1,14 +1,19 @@
 /**
  * patch-project-data.mjs — Batch-populate missing client info & project blurbs.
  *
- * Run:  node scripts/patch-project-data.mjs
+ * MAINTENANCE ONLY: historical hard-coded patches, not routine content edits.
+ * No arguments or --dry-run prints guidance without reading credentials/content.
+ * See --help for the separate legacy acknowledgement required before execution.
  *
  * Patches two document types:
  *   1. client  — city, country, links (social URLs)
  *   2. project — description, year, services[]
  */
 
-import { createClient } from '@sanity/client';
+import { legacyMaintenanceGate } from './lib/legacy-cms-guard.mjs';
+const gate = legacyMaintenanceGate('patch-project-data.mjs');
+if (!gate.allowed) process.exit(gate.exitCode);
+const { createClient } = await import('@sanity/client');
 
 const client = createClient({
   projectId: 'b60h4u7o',

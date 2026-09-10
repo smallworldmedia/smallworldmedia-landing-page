@@ -36,6 +36,8 @@ media/**
 !media/**/_manifest.md
 
 # Local-only artifacts
+# CMS state defaults outside Dropbox; ignore an explicit checkout-local override too.
+.cms-runs/
 .sanity/
 .scratch/
 schema.json

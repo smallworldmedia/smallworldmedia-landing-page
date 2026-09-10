@@ -3,14 +3,17 @@
  * upload-missing-videos.mjs — Upload 27 identified video files to Mux
  * and wire them into their existing Sanity mediaAsset documents.
  *
- * Usage:
- *   node scripts/upload-missing-videos.mjs              # upload all
- *   node scripts/upload-missing-videos.mjs --dry-run    # preview only
+ * MAINTENANCE ONLY: historical hard-coded uploads, not routine video ingestion.
+ * No arguments or --dry-run prints guidance without reading credentials/content.
+ * See --help for the separate legacy acknowledgement required before execution.
  */
-import Mux from '@mux/mux-node'
-import { createClient } from '@sanity/client'
-import fs from 'fs'
-import path from 'path'
+import { legacyMaintenanceGate } from './lib/legacy-cms-guard.mjs'
+const gate = legacyMaintenanceGate('upload-missing-videos.mjs')
+if (!gate.allowed) process.exit(gate.exitCode)
+const { default: Mux } = await import('@mux/mux-node')
+const { createClient } = await import('@sanity/client')
+const { default: fs } = await import('node:fs')
+const { default: path } = await import('node:path')
 
 // ── Load env ──
 const envPath = path.resolve(process.cwd(), '.env.local')

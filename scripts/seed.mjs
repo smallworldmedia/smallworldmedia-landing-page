@@ -3,15 +3,18 @@
  * seed.mjs — Seed the SWM Portfolio Sanity project with
  * service tags and client documents.
  *
- * Usage:
- *   node scripts/seed.mjs               # seed both
- *   node scripts/seed.mjs --tags-only   # seed tags only
- *   node scripts/seed.mjs --clients-only # seed clients only
- *   node scripts/seed.mjs --dry-run     # preview mutations
+ * MAINTENANCE ONLY: historical replacement seed, not routine ingestion.
+ * No arguments or --dry-run prints guidance without reading credentials/content.
+ * See --help for the separate legacy acknowledgement required before execution.
  */
-import { createClient } from '@sanity/client'
-import fs from 'fs'
-import path from 'path'
+import { legacyMaintenanceGate } from './lib/legacy-cms-guard.mjs'
+const gate = legacyMaintenanceGate('seed.mjs', process.argv.slice(2), {
+  allowedFlags: ['--tags-only', '--clients-only'],
+})
+if (!gate.allowed) process.exit(gate.exitCode)
+const { createClient } = await import('@sanity/client')
+const { default: fs } = await import('node:fs')
+const { default: path } = await import('node:path')
 
 // ── Load token from .env.local if not in environment ──
 if (!process.env.SANITY_WRITE_TOKEN) {

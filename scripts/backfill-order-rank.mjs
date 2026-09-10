@@ -7,13 +7,16 @@
  * to-order to work.  The ingest script previously only wrote `sortOrder`;
  * this backfill bridges the gap for existing assets.
  *
- * Usage:
- *   node scripts/backfill-order-rank.mjs              # dry run
- *   node scripts/backfill-order-rank.mjs --apply      # write patches
+ * MAINTENANCE ONLY: historical rank backfill, not routine curation.
+ * No arguments or --dry-run prints guidance without reading credentials/content.
+ * See --help for the separate legacy acknowledgement required before execution.
  */
-import { createClient } from '@sanity/client'
-import fs from 'fs'
-import path from 'path'
+import { legacyMaintenanceGate } from './lib/legacy-cms-guard.mjs'
+const gate = legacyMaintenanceGate('backfill-order-rank.mjs')
+if (!gate.allowed) process.exit(gate.exitCode)
+const { createClient } = await import('@sanity/client')
+const { default: fs } = await import('node:fs')
+const { default: path } = await import('node:path')
 
 // ── Load token ──
 if (!process.env.SANITY_WRITE_TOKEN) {
