@@ -134,6 +134,11 @@
     grid-column: 1 / -1 !important;
     grid-row: span 26 !important;
   }
+  /* Banner walls (09-10): 1.5 banners tall at THIS width — the rows are
+     measured in FeaturedProjectDetail and handed down as --socket-rows. */
+  .masonry-grid--detail > .grid-socket[data-socket^="banner:"] {
+    grid-row: span var(--socket-rows, 12) !important;
+  }
   .grid-socket__layer {
     transform: none !important;
     will-change: auto;

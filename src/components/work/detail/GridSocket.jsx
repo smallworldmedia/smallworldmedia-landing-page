@@ -85,6 +85,9 @@ export default function GridSocket({ region, parallax = 0.92, maxDrift = 40, chi
       style={{
         gridColumn: `${region.colStart + 1} / span ${region.colSpan}`,
         gridRow: `${region.rowStart + 1} / ${region.rowEnd + 1}`,
+        // ≤1024 collapses placement to a fixed span; banner sockets read
+        // their measured height back through this var (masonry.css).
+        '--socket-rows': region.rowSpan,
       }}
     >
       <div ref={layerRef} className="grid-socket__layer">

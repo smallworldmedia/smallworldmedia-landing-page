@@ -38,6 +38,7 @@ import SiteFooter from '../../SiteFooter.jsx';
 import GridSocket from './GridSocket.jsx';
 import BrandDeckViewer from './BrandDeckViewer.jsx';
 import AlbumArtViewer from './AlbumArtViewer.jsx';
+import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid } from './flushGrid.js';
@@ -57,6 +58,11 @@ const ORBIT_REGION_ROWS = 34;
    tabbed viewer shows 2 big page columns (cols forced below), the poster
    wall gets ~4 larger flyers. The orbit keeps its original band height. */
 const DECK_REGION_ROWS = 68;
+/* 09-10, Nathan: banner sockets (SoundCloud headers) size to ONE AND A HALF
+   banners at the grid's current width — rows derive from the measured width
+   below; this is only the pre-measure fallback (≈ a 1200px grid). */
+const BANNER_REGION_ROWS_FALLBACK = 38;
+const GRID_ROW_PX = 10;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
 
 /* ── next_project chip (08-30, Nathan — moved out of the ClientPanel meta
@@ -171,7 +177,36 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // post-hydration broadcast, no brand-blue flash.
 
   const hero = assets[0] ?? null;
-  const { showcase, albumArt, brandDecks } = buildContentFlow(assets);
+  const { showcase, albumArt, brandDecks, banners } = buildContentFlow(assets);
+
+  // Banner sockets want a height in BANNERS, not rows: measure the flow
+  // width (the grid is full-bleed inside it) and convert. Runs at every
+  // width — the ≤1024 in-flow band reads the same rows via --socket-rows.
+  const flowRef = useRef(null);
+  const [gridMetrics, setGridMetrics] = useState(null);
+  useEffect(() => {
+    if (!banners.length) return undefined;
+    const el = flowRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const grid = el.querySelector('.masonry-grid--detail');
+      const rowGap = grid ? parseFloat(getComputedStyle(grid).rowGap) || 0 : 0;
+      setGridMetrics({ width: el.clientWidth, rowGap });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [banners.length]);
+  // A span of N rows is N tracks plus N-1 row gaps tall, so convert the
+  // wanted pixel height through the row PITCH (track + gap), not the track.
+  const bannerRows = (group) => {
+    if (!gridMetrics?.width) return BANNER_REGION_ROWS_FALLBACK;
+    const ratio = ratioOf(group.items[0]);
+    const wantPx = (BANNER_VISIBLE * gridMetrics.width) / ratio;
+    const pitch = GRID_ROW_PX + gridMetrics.rowGap;
+    return Math.max(8, Math.ceil((wantPx + gridMetrics.rowGap) / pitch));
+  };
 
   // ── Deck-as-featured (08-25, Nathan — bedouin/saga) ──
   // When the collection's FIRST-RANKED asset is a brand-deck page, that
@@ -233,6 +268,16 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       anchor: 'bottom',
     });
   }
+  // Banner walls close the tile field after any poster deck (09-10).
+  for (const b of banners) {
+    regions.push({
+      id: `banner:${b.group}`,
+      colStart: 0,
+      colSpan: 3,
+      rowSpan: bannerRows(b),
+      anchor: 'bottom',
+    });
+  }
 
   const isPortraitHero = hero && !heroIsDeck && ratioOf(hero) < PORTRAIT_THRESHOLD;
 
@@ -277,6 +322,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           <BrandDeckViewer
             decks={posterDecks.filter((d) => `deck-solo:${d.group}` === s.id)}
           />
+        ) : s.id.startsWith('banner:') ? (
+          <BannerViewer banners={banners.find((b) => `banner:${b.group}` === s.id)} />
         ) : (
           <AlbumArtViewer covers={albumArt} />
         )}
@@ -377,7 +424,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           (only the breadcrumb pins; this scrolls up with the content). */}
       {nextProject && <DetailNextChip next={nextProject} />}
 
-      <main className="project-detail__flow">
+      <main className="project-detail__flow" ref={flowRef}>
         {/* Deck hero → the featured deck's wall leads the flow; portrait
             hero → side-by-side band; landscape → stacked full-bleed */}
         {heroDecks ? (

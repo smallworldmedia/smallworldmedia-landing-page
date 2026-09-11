@@ -75,7 +75,7 @@ must retain their pipe delimiters. Unknown columns and duplicate files/IDs fail.
 | `serviceType` | Optional comma-separated services, overriding header `services` for that row; one source is required for every row. |
 | `title` | Reviewed display title; recommended for every row. Changing it does not change a bound ID or implicitly rename a slug/route. |
 | `contentRole` | Empty for showcase; `process` for BTS or `supporting` for contextual material. |
-| `displayGroup` | Optional kebab-case group slug, e.g. `brand-guidelines` or `campaign-carousel`. |
+| `displayGroup` | Optional kebab-case group slug, e.g. `brand-guidelines` or `campaign-carousel`. A group ending in `-banners` (e.g. `soundcloud-banners`) routes wide static assets to the project page's BannerViewer wall; keep their `mediaType` as `static_other`. |
 | `brandDeckOrder` | Page number for deck pages, starting at 1. |
 | `sanityId` | Optional stable published document ID. Leave blank for new assets; the runner records successful bindings back into this selected manifest. Preserve existing bindings. |
 

@@ -29,6 +29,8 @@ const documents = [
   media('slide-1', '0|i0000v:', { mediaType: 'carousel-slide', image, displayGroup: 'reviewed-carousel' }),
   media('slide-2', '0|i00013:', { mediaType: 'carousel-slide', image, displayGroup: 'reviewed-carousel' }),
   media('motion', '0|i0001b:', { mediaType: 'motion_other', video }),
+  media('banner-2', '0|i0001c:', { mediaType: 'static_other', image, displayGroup: 'soundcloud-banners' }),
+  media('banner-1', '0|i0001d:', { mediaType: 'static_other', image, displayGroup: 'soundcloud-banners' }),
   media('drafts.unapproved', '0|000000:', { mediaType: 'static_4x5', image }),
   media('other-project', '0|000001:', { project: ref('other-project'), mediaType: 'static_4x5', image }),
 ]
@@ -37,13 +39,17 @@ const query = async (source, dataset = documents, params = {}) =>
 
 test('published scoped detail query preserves hero, deck/carousel order and release metadata', async () => {
   const detail = await query(FEATURED_PROJECT_DETAIL_QUERY, documents, { projectId: 'project-fixture' })
-  assert.deepEqual(detail.assets.map(({ _id }) => _id), ['hero', 'cover', 'page-2', 'page-1', 'slide-1', 'slide-2', 'motion'])
+  assert.deepEqual(detail.assets.map(({ _id }) => _id), ['hero', 'cover', 'page-2', 'page-1', 'slide-1', 'slide-2', 'motion', 'banner-2', 'banner-1'])
   assert.equal(detail.assets[1].releaseInfo.releaseTitle, 'Studio release')
   const flow = buildContentFlow(detail.assets)
   assert.deepEqual(flow.brandDecks[0].pages.map(({ _id }) => _id), ['page-1', 'page-2'])
   assert.deepEqual(flow.carousels.map(({ _id }) => _id), ['slide-1', 'slide-2'])
+  // Banner groups (09-10): routed by displayGroup, orderRank order kept, out of the showcase.
+  assert.deepEqual(flow.banners, [{ group: 'soundcloud-banners', items: flow.banners[0].items }])
+  assert.deepEqual(flow.banners[0].items.map(({ _id }) => _id), ['banner-2', 'banner-1'])
+  assert.ok(!flow.showcase.some(({ _id }) => _id.startsWith('banner-')))
   assert.equal(ratioOf(flow.brandDecks[0].pages[0]), 4 / 5)
-  assert.equal(ratioOf(detail.assets.at(-1)), 4 / 3)
+  assert.equal(ratioOf(detail.assets.find(({ _id }) => _id === 'motion')), 4 / 3)
 })
 
 test('appended media stays in the same world and does not change hero or route', async () => {

@@ -18,14 +18,19 @@
  *     by brandDeckOrder within each group.
  *  4. `carousel-slide` assets are held out — reserved for the
  *     Carousel component, grouped by displayGroup (orderRank within group).
- *  5. process/supporting assets (contentRole) are excluded —
+ *  5. banner assets (09-10, Nathan — COCO SoundCloud banners) are held
+ *     out for the BannerViewer: any asset whose displayGroup ends in
+ *     `banner`/`banners` (e.g. `soundcloud-banners`), grouped by that
+ *     displayGroup in orderRank order. No dedicated mediaType — the
+ *     group name IS the classification, so Studio needs no schema change.
+ *  6. process/supporting assets (contentRole) are excluded —
  *     reserved for the future BTS section.
- *  6. Everything else is `showcase` — rendered in the masonry grid
+ *  7. Everything else is `showcase` — rendered in the masonry grid
  *     in orderRank order.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
  * @param {{orbitMin?: number}} [opts] - ORBIT_MIN override (live tuning)
- * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<Object>, bts: Array<Object>}}
+ * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<Object>, banners: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
  */
 
 /** Ratio below which an asset is considered portrait/square. */
@@ -37,6 +42,10 @@ const PORTRAIT_THRESHOLD = 1.2;
  * covers fold back into the showcase flow instead of vanishing.
  */
 export const ORBIT_MIN = 6;
+
+/** displayGroup convention that routes an asset to the BannerViewer. */
+const BANNER_GROUP_RE = /(^|-)banners?$/i;
+export const isBannerGroup = (group) => BANNER_GROUP_RE.test(group ?? '');
 
 /**
  * Ratios encoded directly in the mediaType suffix.
@@ -153,6 +162,7 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
   // Map preserves insertion order → group order = first appearance =
   // lowest-orderRank member (controlled-adjacency convention).
   const deckGroups = new Map();
+  const bannerGroups = new Map();
 
   // assets[0] is the hero (first in drag-to-order ranking) — skip it.
   // showcase/albumArt entries carry their loop index so a gate fold-back
@@ -170,7 +180,11 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
       if (!deckGroups.has(key)) deckGroups.set(key, []);
       deckGroups.get(key).push(asset);
     } else if (asset.mediaType === 'carousel-slide') carousels.push(asset);
-    else if (asset.contentRole) bts.push(asset);
+    else if (isBannerGroup(asset.displayGroup)) {
+      const key = asset.displayGroup;
+      if (!bannerGroups.has(key)) bannerGroups.set(key, []);
+      bannerGroups.get(key).push(asset);
+    } else if (asset.contentRole) bts.push(asset);
     else showcase.push({ i, asset });
   }
 
@@ -196,5 +210,8 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
     (a.displayGroup ?? '').localeCompare(b.displayGroup ?? '')
   );
 
-  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, bts };
+  // Banners keep incoming orderRank order within each group.
+  const banners = [...bannerGroups.entries()].map(([group, items]) => ({ group, items }));
+
+  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, banners, bts };
 }
