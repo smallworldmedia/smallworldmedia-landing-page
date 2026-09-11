@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-09-10*
 
 ## Quick start
 ```bash
@@ -38,7 +38,7 @@ by scope.
 | Change home hero / globe | `src/components/Hero.jsx`, `hero/heroConfig.js`, `globe/useGlobeScene.js`, `globe/globeConfig.js` |
 | Change /work Worlds or pager | `work/FeaturedProjects.jsx`, `work/world/useWorldScene.js` + `worldConfig.js`, `work/pager/*`; probe with `scripts/pager-probe.mjs` |
 | Change a detail page | `work/detail/FeaturedProjectDetail.jsx`, `buildContentFlow.js`, `flushGrid.js`, `src/styles/project-detail.css` |
-| Change /process | `process/useProcessScene.js`, `processConfig.js`, `processContent.js`, `src/styles/process.css` |
+| Change /process | `process/useProcessScene.js`, `processConfig.js`, `processContent.js`, `src/styles/process.css`; probe with `scripts/process-probe.mjs` |
 | Chrome / footer / overlays | flat `src/components/*.jsx`, `src/styles/global.css`, `src/lib/overlayWipe.js` |
 | Add a client's media | write `_manifest.md` (`scripts/generate-manifests.mjs`), then `npm run cms -- plan` → `apply` → `verify` |
 | Add client logos | drop into `Client Logos/`, run `node scripts/prep-client-logos.mjs`, check `--check` |

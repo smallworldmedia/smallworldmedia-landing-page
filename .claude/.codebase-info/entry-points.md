@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-09-10*
 
 ## Routes
 
@@ -41,6 +41,7 @@ purpose), server-computed `body.route-*` classes, skip link, hidden Netlify cont
 | `npm run test:cms` | `node --test` over `scripts/test/**` |
 | `node scripts/tunables-keys.mjs --check` | fails if a `?param` in code is missing from `docs/tunables-guide.md` |
 | `node scripts/pager-probe.mjs …` | headless Playwright probe of `/work` pager scenarios |
+| `node scripts/process-probe.mjs [--mobile] [--secs=30]` | headless probe of the `/process` discovery slide: samples `window.__swmProcessStats` (published by `ProcessDebugPanel` under `?debug=1`) for chip count, duplicate terms, overlaps, and each tour hold's subject vs seat, with a screenshot per hold |
 | `node scripts/prep-client-logos.mjs [--check]` | normalize `Client Logos/` into `src/assets/client-logos/` |
 | `node scripts/generate-manifests.mjs "Client" [--dry-run]` | scaffold TBD manifests |
 

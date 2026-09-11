@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-09-10*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -52,8 +52,11 @@ graticule) · `seededLayout.js` · `fpGridCells.js` · `fpAtlas.js` / `fpForme.j
 
 ### `work/detail/`
 `FeaturedProjectDetail.jsx` (orchestrator) · `buildContentFlow.js` (assets → hero/showcase/decks/
-albumArt buckets) · `flushGrid.js` (pure placement with socket regions) · `GridSocket.jsx`
-(parallax on `gsap.ticker`) · `DeckScroller.jsx` (+ `BrandDeckViewer`, `AlbumArtViewer`) ·
+albumArt/banners buckets; `isBannerGroup` routes any displayGroup ending `-banner(s)` to `banners`) ·
+`flushGrid.js` (pure placement with socket regions) · `GridSocket.jsx` (parallax on `gsap.ticker`;
+hands `--socket-rows` to CSS) · `DeckScroller.jsx` (+ `BrandDeckViewer`, `AlbumArtViewer`,
+`BannerViewer` — one-column full-width wall sized to 1.5 banners, rows derived from the measured
+flow width through the grid row pitch; ≤1024 spans `--socket-rows`, masonry.css) ·
 `MediaSlot.jsx` · `ClientPanel.jsx` · `ScrambleLabel.jsx` · `DetailProgressBar.jsx` (shared with
 /process) · `NextProjectBand.jsx` · `useKeywordWipe.js` · `BandPager.jsx` (tabled, unmounted).
 

@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-09-10*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -17,7 +17,9 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
 - `manifest.mjs` — `parseManifest()` (headers client/services/year/project; columns file, mediaType,
   serviceType, title, isHero, sortOrder, aspectRatio, contentRole, displayGroup, brandDeckOrder,
   sanityId; Mode 1 header services vs Mode 2 per-row) and `inspectFile()` (path/symlink guard,
-  sha256, dimensions).
+  sha256, dimensions). displayGroup convention: a group ending `-banner(s)` (e.g.
+  `soundcloud-banners`, mediaType static_other) renders in the detail page's BannerViewer
+  (`docs/_manifest-template.md`).
 - `contract.mjs` — field allowlist, validators, LexoRank helpers, `closestType()`,
   `SUPPORTED_SCHEMA_HASH` (planner fails closed on schema drift).
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`.
