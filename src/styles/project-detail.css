@@ -406,6 +406,11 @@ html:has(.project-detail) body {
   background: var(--color-near-black);
 }
 
+/* paragraph break — a blank line in the Sanity description; em of the blurb itself */
+.project-blurb__text + .project-blurb__text {
+  margin-top: 0.6em;
+}
+
 .project-blurb__text {
   font-family: var(--font-body);
   font-weight: 400;

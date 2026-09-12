@@ -2303,6 +2303,9 @@ html[data-footer-revealed] .logo-ticker__odo-col {
   color: inherit;
   background: none;
   vertical-align: baseline;
+  /* a multi-word keyword is one .kw PER WORD (keywords.jsx); the trailing
+     space lives inside each fragment so the box runs on without a gap */
+  white-space: pre;
 }
 
 /* Stack: base word → box → ink. The box covers the base as it wipes (the
@@ -2322,14 +2325,33 @@ html[data-footer-revealed] .logo-ticker__odo-col {
   z-index: 0;
 }
 
+/* Prose links inside blurbs (09-10): the nav/footer underline idiom, and a
+   keyword-link lifts its box on hover — the box IS the affordance. */
+.prose-link {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  text-decoration-thickness: 0.04em;
+}
+.prose-link:hover,
+.prose-link:focus-visible {
+  color: var(--kw-bg, var(--color-electric-blue));
+}
+.kw-link:hover .kw__box,
+.kw-link:focus-visible .kw__box {
+  filter: brightness(1.18);
+}
+
 .kw__ink {
   position: absolute;
   inset: 0;
   z-index: 2;
   padding: 0 0.12em;
   color: var(--kw-ink, var(--color-white));
-  clip-path: inset(0 100% 0 0);
-  white-space: nowrap;
+  /* vertical slack: with a tight line-height the descenders overflow the mark box,
+     and the NEXT line's box (z 1) would cover them — the ink layer sits above
+     every box, so let its clip breathe past the box top and bottom (09-10) */
+  clip-path: inset(-0.35em 100% -0.35em 0);
+  white-space: pre;
   text-shadow: none;
 }
 

@@ -338,9 +338,19 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const blurbSection = (
     <section className="project-blurb">
       {overview && (
-        <p className="project-blurb__text" ref={blurbRef}>
-          {renderKeywords(overview)}
-        </p>
+        // A blank line in the Sanity `description` (a `text` field, Enter
+        // works in Studio) is a paragraph break; single newlines stay soft.
+        <div className="project-blurb__copy" ref={blurbRef}>
+          {overview
+            .split(/\n\s*\n/)
+            .map((para) => para.trim())
+            .filter(Boolean)
+            .map((para, i) => (
+              <p className="project-blurb__text" key={i}>
+                {renderKeywords(para)}
+              </p>
+            ))}
+        </div>
       )}
 
       <div className="project-blurb__details">
