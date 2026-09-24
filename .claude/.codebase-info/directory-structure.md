@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-09-10*
+*Last Updated: 2026-09-23*
 
 ```
 .
@@ -16,7 +16,8 @@
 │   │   ├── *.jsx             # site chrome: SiteShell, SiteNav, SiteFooter, SiteTagline, RouteFill,
 │   │   │                     #   InfoPanel, ProjectOverlay, PrivacyOverlay/Content, ClientLogoTicker,
 │   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels
-│   │   ├── globe/            # video globe: scene hook, geometry, shader material, schedulers, textures
+│   │   ├── globe/            # video globe: scene hook, geometry, shader material, schedulers, textures,
+│   │   │                     #   population modes (world pools, patterns, director, tile swaps, popConfig)
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
 │   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, directory stack
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
@@ -36,9 +37,9 @@
 │   ├── cms.mjs               # npm run cms — plan / apply / verify
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state
 │   ├── lib/legacy-cms-guard.mjs
-│   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms)
+│   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms, globe-worlds)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prepare-compress.mjs   # live utilities
-│   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs   # docs + probe tooling
+│   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs   # docs + probe tooling
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated
 │   └── shots/                # probe screenshot dumps (untracked noise)
 ├── docs/                     # plans, specs, ADRs (adr/), agent conventions (agents/), tunables guide

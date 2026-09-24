@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-09-10*
+*Last Updated: 2026-09-23*
 
 ## Quick start
 ```bash
@@ -17,7 +17,8 @@ process env (names in `.env.example`, values in gitignored `.env.local`).
 - `docs/refinements-master-plan.md` — Notion revision notes triaged into work items.
 - Specs/plans: `docs/featured-projects-preview-plan.md`, `docs/fpgrid-plan.md`,
   `docs/fp-pager-rework-approaches.md`, `docs/process-page-spec.md` + `-plan.md`,
-  `docs/orbit-deck-viewer-spec.md`, `docs/perf-bloat-pass-plan.md`, `docs/brand-polish-audit.md`.
+  `docs/orbit-deck-viewer-spec.md`, `docs/perf-bloat-pass-plan.md`, `docs/brand-polish-audit.md`,
+  `docs/globe-worlds-plan.md` (home globe population modes, branch `refine/globe-worlds`).
 - `docs/adr/0001–0004` — the four standing architecture decisions.
 - `docs/tunables-guide.md` — every `?param` and bench.
 - `CONTEXT.md` — media-library glossary; `docs/naming-conventions.md` — media filenames.
@@ -35,7 +36,7 @@ by scope.
 | Task | Start at |
 |---|---|
 | Tune a motion value | find the `?param` in `docs/tunables-guide.md`, dial it live, bake on Nathan's number, run `node scripts/tunables-keys.mjs --check` |
-| Change home hero / globe | `src/components/Hero.jsx`, `hero/heroConfig.js`, `globe/useGlobeScene.js`, `globe/globeConfig.js` |
+| Change home hero / globe | `src/components/Hero.jsx`, `hero/heroConfig.js`, `globe/useGlobeScene.js`, `globe/globeConfig.js`; population modes: `globe/PopulationDirector.js` + `popConfig.js`, bench `?poptune=1`, probe with `scripts/globe-probe.mjs` |
 | Change /work Worlds or pager | `work/FeaturedProjects.jsx`, `work/world/useWorldScene.js` + `worldConfig.js`, `work/pager/*`; probe with `scripts/pager-probe.mjs` |
 | Change a detail page | `work/detail/FeaturedProjectDetail.jsx`, `buildContentFlow.js`, `flushGrid.js`, `src/styles/project-detail.css` |
 | Change /process | `process/useProcessScene.js`, `processConfig.js`, `processContent.js`, `src/styles/process.css`; probe with `scripts/process-probe.mjs` |
