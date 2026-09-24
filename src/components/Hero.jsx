@@ -75,6 +75,7 @@ import {
   PREFERS_REDUCED_MOTION,
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
+import { POP_TUNE_ACTIVE } from './globe/popConfig.js';
 import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
 import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from './SiteFooter.jsx';
 // 08-30 (3), Nathan: the home→/work transition carries the FP→detail
@@ -193,7 +194,7 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    heroConfig so HeroIntro can compensate the glyph framing by the same amount
    (globe + stroke = the lockup "o"). — */
 
-export default function Hero({ globeAssets }) {
+export default function Hero({ globeAssets, globeWorlds }) {
   const heroRef = useRef(null);
   const veilRef = useRef(null);
   const armedRef = useRef(false);
@@ -484,6 +485,24 @@ export default function Hero({ globeAssets }) {
       })
       .catch(() => {
         /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Globe population bench (?poptune=1, docs/globe-worlds-plan.md) — the
+  // same post-hydration lazy mount as the hero bench above.
+  const [PopTunePanel, setPopTunePanel] = useState(null);
+  useEffect(() => {
+    if (!POP_TUNE_ACTIVE) return undefined;
+    let alive = true;
+    import('./hero/PopTunePanel.jsx')
+      .then((m) => {
+        if (alive) setPopTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only */
       });
     return () => {
       alive = false;
@@ -944,6 +963,7 @@ export default function Hero({ globeAssets }) {
           holdEntrance={introMode === 'full'}
           cascadeSpeed={HERO_TUNING.cascadeSpeed}
           cornerRadius={PANEL_CORNER_RADIUS}
+          worlds={globeWorlds}
         />
       </div>
       {/* enter_world column — CENTERED in the viewport on every breakpoint
@@ -1005,6 +1025,7 @@ export default function Hero({ globeAssets }) {
       {HeroTunePanel && (
         <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />
       )}
+      {PopTunePanel && <PopTunePanel sceneApiRef={sceneApiRef} />}
     </section>
   );
 }

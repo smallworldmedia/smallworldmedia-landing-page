@@ -1,6 +1,6 @@
 # Globe Worlds: three ways to populate the home globe by featured project
 
-*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23. Status: P0 done — see the Status log at the end.*
+*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23. Status: P1 done, at the P1 checkpoint — see the Status log at the end.*
 
 ## Context
 
@@ -212,8 +212,8 @@ npm run dev -- --port 4322        # runs beside :4321 in this checkout
 
 | group | keys (defaults) |
 |---|---|
-| gate / global | `poptune=1` (strict gate) · `popmode` off\|tides\|blend\|procession (off) · `popseed` (random per visit) · `popmedia` showcase\|art\|video (showcase = videos + stills) · `popcap` (24 desktop / 16 mobile) · `popshare` equal\|weighted · `popenter` 1\|0 (1) |
-| tides | `popgroup` (2) · `pophold` (8) · `popholdjit` (0.3) · `poptrans` (1.6) · `poptransset` (tide) · `poppattern` (continents,archipelago,spiral) · `poppair` (relay) · `popcarry` (0.5) · `popchaos` (0.35) · `popstray` (0) · `popstagger` (random) · `popboost` (auto) |
+| gate / global | `poptune=1` (strict gate) · `popmode` off\|tides\|blend\|procession (off; P1 ships off\|tides) · `popseed` (random per visit) · `popmedia` showcase\|all\|video\|still\|art (showcase = the /work showcase Tiles, videos + stills; all adds album art) · `popcap` (24 desktop / 16 mobile) · `popshare` equal\|weighted · `popenter` 1\|0 (1; lands in P3) |
+| tides | `popgroup` (2) · `poppattern` (continents,archipelago,spiral) — both live since P1 · P2: `pophold` (8) · `popholdjit` (0.3) · `poptrans` (1.6) · `poptransset` (tide) · `poppair` (relay) · `popcarry` (0.5) · `popchaos` (0.35) · `popstray` (0) · `popstagger` (random). `popboost` is dropped: the surge's peak is whatever pours the new grouping in within `poptrans`. |
 | blend | `popinput` (pointer; drag on touch) · `popaxis` (grain) · `popgrain` (2.5) · `popfollow` (0.35) · `pophyst` (0.04) · `popflip` (160) · `popdragrange` (180) |
 | procession | `popspan` (3) · `popflow` (2) · `poplanes` (1) · `popbloom` (1.2) · `popdive` (2.5) |
 
@@ -296,3 +296,25 @@ pools ship tagged by kind up to the hard cap.
 ## Status log
 
 - 2026-09-23 · P0 · worktree + branch created, `npm install`, this plan committed.
+- 2026-09-23 · P1 · engine items 1–8 + `popmode=tides` holds.
+  - Landed: `buildWorldPools` (13 worlds, 257 assets, /work showcase parity; no ids in the
+    props), stills on the globe (`TextureManager.loadAsset`, square Sanity crops), tape
+    coordinates + MeridianScroll `assignRow` / `setRateScale`, `tileSwap.js` (the single
+    refcount-safe `loadTile`, blink / surge / cut, `applyPlan`), `LivePanelScheduler.dropLive`
+    (stills and mid-swap tiles never promote), `PopulationDirector` (patterns, neighbour rule,
+    current + NEXT grouping held warm, freeze under the commit's blue, `window.__swmPopStats`),
+    `popConfig` + `PopTunePanel` (readout under mode; phones start as a `⌁ worlds` chip),
+    `scripts/globe-probe.mjs`, 9 unit tests.
+  - Verified: unit 9/9 · `tunables-keys --check` PASS (295 keys) · globe-probe desktop, mobile,
+    RM and off all pass (integrity 1.0 in holds, 0 black after warm-up, ≤ 57 cached / 44 GPU
+    textures desktop and 36 mobile, no flips in a hold, ⏭ lands in 1.1–1.6 s and as a 0.26 s cut
+    under RM, clean console) · pager-probe rest on /work clean · `npm run build` 22 pages.
+    /process imports none of the modules this branch changes, and `/lab/globe` redirects to `/`.
+  - Payload: `dist/index.html` 190 → 247 KB raw (+57 KB), +10 KB gzip / +6 KB brotli, shipped
+    even with `popmode` off. P6 settles it: a winning mode lets home drop the flat
+    `globeAssets` (the director feeds every tile), or `off` wins and `globeWorlds` goes.
+  - Found: the probes' `new URL(import.meta.url).pathname` percent-encodes this Dropbox path and
+    mkdirs a stray `Small%20World%20Media` tree. Fixed in globe-probe; pager-probe still has it,
+    so pass it an explicit `--out`.
+  - A ⏭ re-lays all 96 tiles, the carried world's too (each grouping draws a new pattern). P2's
+    relay transitions keep the carried world's tiles in place.

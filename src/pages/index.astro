@@ -11,22 +11,28 @@
  * (curated globe picks + breadth-interleaved auto-fill) is
  * fetched from Sanity at build time and passed through the island.
  *
+ * The featured-project pools (FEATURED_WORLDS_QUERY — the same rows /work
+ * renders — through buildWorldPools) ride along for the globe's ?popmode
+ * population modes (docs/globe-worlds-plan.md); the default globe ignores them.
+ *
  * Static pages added in the full site build (case studies,
  * about, etc.) will be pure .astro with zero client JS.
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
 import '../styles/video-globe.css';
 import { sanityFetch } from '../lib/sanityClient.js';
-import { GLOBE_ASSETS_QUERY } from '../lib/queries.js';
+import { GLOBE_ASSETS_QUERY, FEATURED_WORLDS_QUERY } from '../lib/queries.js';
 import buildAssetPool from '../components/globe/buildAssetPool.js';
+import buildWorldPools from '../components/globe/buildWorldPools.js';
 import LandingPage from '../components/LandingPage.jsx';
 
 const globeAssets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));
+const globeWorlds = buildWorldPools(await sanityFetch(FEATURED_WORLDS_QUERY));
 ---
 
 <BaseLayout
   title="Small World Media™ — Visual Worlds for the Music Industry"
   description="Small World Media is a multi-disciplinary creative studio specializing in visual identity, motion design, and digital experiences for the music industry."
 >
-  <LandingPage client:only="react" globeAssets={globeAssets} />
+  <LandingPage client:only="react" globeAssets={globeAssets} globeWorlds={globeWorlds} />
 </BaseLayout>
