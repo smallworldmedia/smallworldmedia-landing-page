@@ -14,13 +14,13 @@
 | `ProjectOverlay.jsx` / `PrivacyOverlay.jsx` / `PrivacyContent.jsx` | Inquiry form (Netlify Forms) and privacy overlay, both on `lib/overlayWipe.js`; privacy copy shared with `/privacy` |
 | `InfoPanel.jsx` | Slide-down client drawer with SiteNav seated at its bottom |
 | `ClientLogoTicker.jsx` | Logo band above the links footer; rides `DragMomentum`; assets via `import.meta.glob` + `src/assets/client-logos/manifest.json` |
-| `Hero.jsx` (~1000 lines) | Home hero: intro modes (full/replay/rm via sessionStorage), globe rig, `enter_world` commit, footer reveal |
+| `Hero.jsx` (~1000 lines) | Home hero: intro modes (full/replay/rm via sessionStorage), globe rig, `enter_world` commit (under `?popmode` it holds the population clock and hands /work the world on the globe, `swm:enterWorld`), footer reveal |
 | `LandingPage.jsx`, `HeroText.jsx` | Island wrapper; hidden `<h1>` |
 
 ## Globe (`src/components/globe/`)
 `VideoGlobe.jsx` (component) · `useGlobeScene.js` (the only three.js↔React boundary; `gsap.ticker`
 loop, `forceContextLoss` teardown; under `?popmode` the world-colour ink tween and the api's
-`onWorldChange`) · `buildGlobeGeometry.js` (panelized sphere + pole wedges) ·
+`onWorldChange` and `popHold`) · `buildGlobeGeometry.js` (panelized sphere + pole wedges) ·
 `panelMaterial.js` (unlit shader: cover-fit, `uMix` A↔B, `uPower` cascade, `uBlueMix`) · `cascade.js`
 · `LivePanelScheduler.js` (~2 Hz promote/demote; `dropLive` under a swap; `setShared` = one decode
 per clip on every tile showing it) · `VideoSlotPool.jsx`
@@ -36,7 +36,8 @@ for the tide) · `InteractionController.js`
 pool per featured project, /work showcase parity) · `worldPatterns.js` (pure, seeded cluster patterns
 over the tape) · `PopulationDirector.js` (one world at a time by default; tile → world assignment;
 the change clock, a hold then a tide / blink / surge / cut; current + next world held warm; freeze
-under the commit's blue; `onWorld` feeds the scene's colour; publishes `window.__swmPopStats`) ·
+under the commit's blue; `hold()` at the Enter World click stops the clock but lets a change in
+flight land; `onWorld` feeds the scene's colour; publishes `window.__swmPopStats`) ·
 `tileSwap.js` (THE refcount-safe `loadTile` + blink / surge / cut swaps, `applyPlan`) ·
 `popConfig.js` (`?pop*` TUNING + pub/sub).
 
@@ -48,18 +49,19 @@ under the commit's blue; `onWorld` feeds the scene's colour; publishes `window._
 ## /work (`src/components/work/`)
 | File | Purpose |
 |---|---|
-| `FeaturedProjects.jsx` (~900) | Orchestrator: wheel/touch accumulator → CTA fill → World Turn; scroll-up-to-home at World 0; driven footer at last World; lazy benches; legacy `?pager=rail` |
+| `FeaturedProjects.jsx` (~900) | Orchestrator: wheel/touch accumulator → CTA fill → World Turn; scroll-up-to-home at World 0; driven footer at last World; lazy benches; legacy `?pager=rail`. Enter World arrival: consumes `swm:enterWorld` once and snaps (`snapRef` = target index: one entering card and no Turn, direction 0 in `useWorldScene`, instant pager step; the fill is released on the snapped card) |
 | `WorldCard.jsx` | Identity card, OS-window boot entrance; fires the real enter commit |
 | `CtaArrows.jsx`, `textExit.js` | Caret strips; text-out choreography (`TEXT_TUNABLES`) |
-| `pager/usePagerGesture.js` | Shared gesture engine: press-hold engage, scrub + detent magnet, wrap, end resistance, stall commit; only `requestGoTo` fires a Turn |
-| `pager/GraticulePager.jsx` | The `scale` skin (SSR'd default). Tape/tuner arms removed; survive as tuning presets |
+| `pager/usePagerGesture.js` | Shared gesture engine: press-hold engage, scrub + detent magnet, wrap, end resistance, stall commit; only `requestGoTo` fires a Turn; `follow(i, instant)` steps without the glide |
+| `pager/GraticulePager.jsx` | The `scale` skin (SSR'd default). Tape/tuner arms removed; survive as tuning presets. On a `snapRef` arrival it jumps to the station and skips the announcement |
 | `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `ServiceTag.jsx` | Shared math/recipes/hooks |
 | `*TunePanel.jsx`, `fp1Tune.js`, `FeaturedDeckDebugPanel.jsx` | `?entertune`, `?texttune`, `?scrimtune`, `?fp1tune` benches |
 | `ProjectDirectory.jsx`, `MediaGrid.jsx`, `MediaCard.jsx`, `AlbumArtTicker.jsx`, `FilterBar.jsx`, `Lightbox.jsx` | Dormant directory route |
 
 ### `work/world/`
 `useWorldScene.js` (~1200; renderer, slotA/slotB Turn, EffectComposer → lens distortion → output,
-enter ramp, resize, `swm:fp-freeze` gate) · `WorldScene.jsx` (shell + `VideoSlotPool`) ·
+enter ramp, resize, `swm:fp-freeze` gate; a `snapRef` arrival drives direction 0, no Turn) ·
+`WorldScene.jsx` (shell + `VideoSlotPool`) ·
 `worldConfig.js` (all tunables, `FPGRID` default 3 = DRUM) · `buildShell.js` (inverse-sphere
 graticule) · `seededLayout.js` · `fpGridCells.js` · `fpAtlas.js` / `fpForme.js` / `fpDrum.js` (+
 `fpDrumTrim.js`, `fpDrumWall.js`) · `worldBands.js` · `worldLive.js` · `enterTune.js` ·

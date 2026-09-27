@@ -53,7 +53,7 @@ world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second s
   byte-identical: `?lenistune`, `?footertune`, `?herotune`, `?committune`, `?entertune`, `?texttune`,
   `?scrimtune`, `?fp1tune`, `?poptune`, `?debug` (process), `?fpgrid=1|2|3`, `?pager=rail`. Phone-sized
   benches start collapsed to a one-line chip (`?debug` process, `?deckdebug`, `?poptune`).
-- Inventory: `docs/tunables-guide.md` (303 keys). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (304 keys). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
   idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
   regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
@@ -81,6 +81,11 @@ world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second s
   `feature/v1-launch`'s `pager-probe.mjs` still needs `--out`.
 - Pixel reads on the dev server: remove `astro-dev-toolbar` first. It sits bottom-centre over the
   page (globe-probe's `--paint` does this).
+- Timing a route arrival: polling from Node starves under SwiftShader (3 samples in 3.2 s missed
+  the /work arrival). Record in the page instead, with a MutationObserver + rAF logger on `window`,
+  which survives a ClientRouter soft nav (globe-probe's `--enter` does this).
+- Previews of the production build: serve them on an allowlisted port (localhost:4321, :4322 or
+  :3333). Sanity's image CDN 403s any other origin, so WebGL stills go black (`communication.md`).
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 
