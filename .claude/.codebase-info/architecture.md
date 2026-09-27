@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-09-10*
+*Last Updated: 2026-09-23*
 
 ## Summary
 
@@ -36,7 +36,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 
 | Component | Lives in | Responsibility |
 |---|---|---|
-| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work |
+| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; under `?popmode` (branch `refine/globe-worlds`) a PopulationDirector lays featured-project worlds over the tiles |
 | /work Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
 | /process | `src/components/process/` | Five-stage narrative: ScrollTrigger-driven stage machine reusing the globe geometry/material |
@@ -48,8 +48,9 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 ## Data Flow
 
 1. Build: each page runs `sanityFetch(QUERY)` (`src/lib/sanityClient.js`, CDN, drafts excluded), shapes
-   the result (`buildAssetPool` for globe routes, `buildContentFlow` for /work), and passes plain props
-   into the island. No client-side Sanity calls.
+   the result (`buildAssetPool` for globe routes, `buildContentFlow` for /work, `buildWorldPools` for
+   the home globe's population modes), and passes plain props into the island. No client-side Sanity
+   calls.
 2. Runtime media: images via Sanity CDN / Mux thumbnails (`globe/TextureManager.js`), video via hls.js
    into a fixed `<video>` pool (`globe/VideoSlotPool.jsx`); schedulers (`LivePanelScheduler`,
    `world/worldLive.js`) promote a handful of visible tiles to live video at ~2 Hz.
@@ -67,4 +68,4 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
   `Astro.redirect` in frontmatter; their components are dormant, not deleted.
 - Every knob is a URL `?param` first, baked only on Nathan's stated value (`docs/tunables-guide.md`,
   gated by `scripts/tunables-keys.mjs --check`).
-- Playwright is deliberately not a dependency; `scripts/pager-probe.mjs` and `scripts/process-probe.mjs` resolve it from the npx cache.
+- Playwright is deliberately not a dependency; `scripts/pager-probe.mjs`, `scripts/process-probe.mjs` and `scripts/globe-probe.mjs` resolve it from the npx cache.

@@ -61,6 +61,7 @@ value living only in a `copy_url` link.
 |---|---|---|---|---|
 | `?herotune=1` | `/` | top-right | hero camera rig (fill/offset/elev/roll), commit rehearsal, globe flow + orientation, pole cap, intro variant, labels; `▶ commit dry-run`, `↻ replay intro`, `↺ reset` | current search + `herotune=1`, non-defaults only |
 | `?committune=1` | `/` | bottom-right | typed number fields for the commit choreography, incl. the knobs the slider bench lacks (`recenterstart` `zoomend` `campow` `envscale` `bluesurge` `bluedipend` `bluedipdepth` `loaderlead` `loaderend`); `▶ dry-run`; Enter commits a field | same serializer, swaps `herotune` for `committune=1` |
+| `?poptune=1` | `/` (branch `refine/globe-worlds`) | bottom-right (collides with committune); under the nav, collapsed to a `⌁ worlds` chip ≤768px | globe population: mode, worlds per grouping, pattern set, media, cap / world, share; `⏭ next`, `↻ reroll`, `↺ reset`; live readout of `window.__swmPopStats` | current search + `poptune=1` + `popseed` (always), non-defaults only |
 | `?debug` | `/`, `/lab/globe` | bottom-left | VideoGlobe aside: cascade-variant buttons, `↺ replay`, gap/cap sliders (commit on release, they rebuild the scene), fps/tex/live/vis/pool stats | none |
 | `?lenistune=1` | every route (Lenis is live only on document-scroll routes, so dial on a `/work/[slug]` page) | bottom-left | lerp, wheel mult, duration (duration > 0 overrides lerp); `↺ reset`; `copy values` emits the `LENIS_TUNING` block | current search + `lenistune=1`; diff baseline is the *library* default 0.1 / 1, not the bake |
 | `?footertune=1` | every route (dial on `/process` or a detail page) | top-left | lockup height (rem), reveal travel K; `↺ reset` | current search + `footertune=1`, non-defaults only |
@@ -70,7 +71,7 @@ value living only in a `copy_url` link.
 | `?deckdebug` | `/work` | bottom-right (collides with fp1tune); collapses to a `⌁ deck` chip ≤768px | deck viewer: cycle, spacing, home x, fan, pile, hold, album scale, deck x/y; `↺ reset` | **rebuilt from pathname**, other params dropped |
 | `?debug` | `/process` | bottom-left; chip on phones | stage buttons 01–05, `↻ replay`, fps/draws/stage, 23 sliders + 5 selects for the whole process scene | **rebuilt from pathname** + `?debug`, ms knobs as ms |
 
-Corner map: top-left = texttune / footertune · top-right = herotune / entertune · bottom-left = lenistune / globe debug / process debug · bottom-right = committune / fp1tune / deckdebug.
+Corner map: top-left = texttune / footertune · top-right = herotune / entertune · bottom-left = lenistune / globe debug / process debug · bottom-right = committune / poptune / fp1tune / deckdebug.
 
 ## `/` home — hero rig, commit rehearsal, globe, intro, labels
 
@@ -145,6 +146,23 @@ Readers: `src/components/hero/heroConfig.js` (module-load seed of `TUNING`, alwa
 | `?labelstroke` | leader-line length / chip offset | `48` px | slider 0–160 / 2 | `heroConfig.js:222` |
 
 The `introms` / `introhold` / `introcascadeat` / `heroink` rows, the bench's `variant` control and `↻ replay intro` only do anything when the page was **loaded** with `?intro=a|c`. Without it, replay re-runs the arrive settle.
+
+### Globe population modes (live; branch `refine/globe-worlds`, plan `docs/globe-worlds-plan.md`)
+
+Reader: `src/components/globe/popConfig.js` (module-load seed of `TUNING`, always on — the knobs work without the panel), consumed by `PopulationDirector.js` through `useGlobeScene`. Panel: `?poptune=1` (PopTunePanel). A mode change builds or drops the director without rebuilding the scene; every other knob re-lays the current grouping as a staggered blink (a cut before the entrance settles, under the commit's blue, and under RM). Nothing is baked: P6 bakes Nathan's numbers into `POP_DEFAULTS`. Without `?popmode` the globe is exactly today's (no director, the flat asset pool).
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?poptune` | mounts PopTunePanel | off | exactly `1` | — |
+| `?popmode` | `off` = today's globe; `tides` = featured-project worlds in clustered groupings over the scroll tape. P1 is holds only: the grouping changes from the bench (`⏭` / `↻` / a knob), never on a timer | `off` | `off` \| `tides` (`blend`, `procession` arrive in P4/P5) | `popConfig.js POP_DEFAULTS.mode` |
+| `?popseed` | run seed: the lead world and each grouping's pattern | random per visit | integer ≥ 0 | never (per visit by design) |
+| `?popgroup` | worlds per grouping; `⏭` relays A+B → B+C | `2` | 1–3 (clamped) | `POP_DEFAULTS.group` |
+| `?poppattern` | the pattern set groupings draw from, comma list; unknown names dropped, empty → default. `facets` needs `popgroup=1` (one world's media kinds become the regions) | `continents,archipelago,spiral` | `continents` `archipelago` `gores` `bands` `spiral` `facets` | `POP_DEFAULTS.patterns` |
+| `?popmedia` | a world's tile media: `showcase` = its /work World's showcase Tiles (videos + stills), `all` adds album art; a filter that leaves < 3 falls back to the world's whole pool | `showcase` | `showcase` \| `all` \| `video` \| `still` \| `art` | `POP_DEFAULTS.media` |
+| `?popcap` | per-world pool cap (texture residency: the director holds the current + next grouping warm) | desktop `24`, mobile `16` | 1–32 (clamped) | `POP_DEFAULTS.cap` |
+| `?popshare` | tape area per world: `equal`, or `weighted` ∝ its pool size | `equal` | `equal` \| `weighted` | `POP_DEFAULTS.share` |
+
+Probe: `node scripts/globe-probe.mjs [--mobile] [--rm] [--next=2] [--mode=off]` (dev server on `:4322`) reads `window.__swmPopStats` and gates integrity, black tiles, texture count, quiet holds and `⏭` landing.
 
 ## `/` and `/lab/globe` — VideoGlobe live-video tier
 
@@ -544,6 +562,7 @@ All gated on `?debug` (exact key in useWorldScene; **substring** in fpDrum/fpAtl
 | `window.__fpDrum[slug]` | `/work` DRUM | `{ arcOffsetDeg, arcLonDeg, drumAdv, placedTiles, dropped, strips, balance, blocks }` per World build |
 | `window.__fpAtlas[slug]` | `/work` ATLAS | `{ blocks, stripBlocks, aspect }` |
 | `[ProcessScene] goTo/setStageInstant` | `/process` `?debug` | `console.info` on every stage move |
+| `window.__swmPopStats` | `/` — **not** `?debug`-gated: published ~2 Hz whenever `?popmode` ≠ off (branch `refine/globe-worlds`) | `{ mode, phase, grouping, pattern, seed, step, focus, integrity, visible, black, flips, flipsPerSec, warm, textures, gpuTextures, live, fps }` — PopTunePanel's readout and `scripts/globe-probe.mjs` read it |
 
 Ungated traces: every live `<video>` carries `data-playback-id` (VideoSlotPool). Persisted state that changes behaviour without a param: `sessionStorage['swm:hero-intro']` (first-visit flag → full vs replay entrance), `swm:worldIndex` + `swm:returnToWork` (breadcrumb return World).
 
@@ -581,6 +600,7 @@ Worth tickets; none were fixed here.
 | `src/lib/motion.js` | `HOUSE_PULSE_*`, `SCROLL_TRIGGER_WORK_PX` / `_PROCESS_PX`, `TOUCH_GAIN`, `RELEASE_MS`, `GLIDE_MS`, `PAGER_*`, `LENIS_TUNING` |
 | `src/components/hero/heroConfig.js` | `TUNING_DEFAULTS`, `COMP_DEFAULTS`, `HERO_LABELS`, the `globestroke` / `introease` literals |
 | `src/components/globe/globeConfig.js` | live-tier scores/dwells, pole-cap + corner geometry, `FILL_FRACTION`, `FIT_COVER`, `GAP_DEG`, `CAP_DEG` |
+| `src/components/globe/popConfig.js` | `POP_DEFAULTS` (branch `refine/globe-worlds`; nothing baked yet) |
 | `src/components/work/world/worldConfig.js` | every World scene knob; `BAND_TUNABLES` seeds |
 | `src/components/work/world/enterTune.js` | `ENTER_TUNE_DEFAULTS` |
 | `src/components/work/textExit.js` | `TEXT_TUNE_DEFAULTS` |
@@ -604,4 +624,4 @@ grep -rlE "URLSearchParams|searchParams|location\.search" src    # the reader fi
 node scripts/tunables-guide-html.mjs docs/tunables-guide.md out.html   # rebuild the navigable HTML (artifact) version
 ```
 
-The extractor follows every idiom in use: `params.get/has('k')`, the `num()` / `PARAM()` / `qNum()` / `str()` helpers, `PARAM_KEYS` maps, `FOO_PARAM = 'k'` name constants, `[param, option]` pairs and `location.search.includes('k')`. A new reading style needs a new regex there. Known false positives it ignores: `a`, `panels` (variant arrays), `email` (form field). For a new key, read its reader file and add a row: what it does, default with units, accepted values, bake target; if it is inert or dry-run only, say so in the lists above.
+The extractor follows every idiom in use: `params.get/has('k')`, the `num()` / `PARAM()` / `qNum()` / `str()` helpers, `PARAM_KEYS` maps, `FOO_PARAM = 'k'` name constants, `[param, option]` pairs and `location.search.includes('k')`. A new reading style needs a new regex there. Known false positives it ignores: `a`, `panels` (variant arrays), `equal`, `video` (popConfig vocab pairs), `email` (form field). For a new key, read its reader file and add a row: what it does, default with units, accepted values, bake target; if it is inert or dry-run only, say so in the lists above.

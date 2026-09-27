@@ -8,10 +8,10 @@ import Hero from './Hero';
  * (rendered in BaseLayout with transition:persist), which
  * owns the start-project / follow-us actions.
  */
-export default function LandingPage({ globeAssets }) {
+export default function LandingPage({ globeAssets, globeWorlds }) {
   return (
     <div className="page-shell">
-      <Hero globeAssets={globeAssets} />
+      <Hero globeAssets={globeAssets} globeWorlds={globeWorlds} />
     </div>
   );
 }

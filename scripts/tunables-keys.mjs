@@ -13,7 +13,8 @@
  *   FOO_PARAM = 'k'                            name constants (heroConfig)
  *   ['k', 'option']                            [param, option] pairs (smoothScroll)
  *   location.search.includes('k')             substring gates (fpDrum / fpAtlas)
- * Known false positives (variant arrays, a form field) are listed in IGNORE.
+ * Known false positives (variant arrays, popConfig's two-option vocab
+ * arrays, a form field) are listed in IGNORE.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -21,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const GUIDE = join(ROOT, 'docs', 'tunables-guide.md');
-const IGNORE = new Set(['a', 'panels', 'email']);
+const IGNORE = new Set(['a', 'panels', 'email', 'equal', 'video']);
 
 const files = [];
 (function walk(d) {
