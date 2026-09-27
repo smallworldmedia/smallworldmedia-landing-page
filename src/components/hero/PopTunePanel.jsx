@@ -9,7 +9,8 @@
  * (hold, transition, the set, chaos) take effect from the next change. One
  * world holds the globe by default (Nathan, 09-26); with 2–3 the pattern
  * buttons toggle the SET groupings draw from, and switching one ON also
- * shows it now (sceneApi.popShow). ⏭ next = the next world now, through
+ * shows it now (sceneApi.popShow). enter world (?popenter) is read by Hero
+ * at the Enter World click. ⏭ next = the next world now, through
  * its transition; ↻ reroll = a new seed (a new start world and change
  * clock). The readout polls window.__swmPopStats, which the director
  * publishes at ~2 Hz (also what scripts/globe-probe.mjs reads) — it sits
@@ -244,6 +245,18 @@ export default function PopTunePanel({ sceneApiRef }) {
         ?poplive · ?popcolor. shared = one decode per clip, bound on every tile showing it (the
         repeats play in sync); tile = one decode per live tile. world = the projectColor takes
         the lattice, ring, gradient, enter_world and the nav accents.
+      </p>
+
+      <div className="hero-tune__group">enter world</div>
+      <Segmented
+        label="lands in"
+        value={s.enter ? 'world' : 'first'}
+        options={['world', 'first']}
+        onPick={(m) => set('enter', m === 'world' ? 1 : 0)}
+      />
+      <p className="hero-tune__note">
+        ?popenter. world = enter_world opens /work inside the world on the globe (it lands
+        there, no turn from the first world); first = the first /work world, as before.
       </p>
 
       <div className="hero-tune__actions">

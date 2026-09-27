@@ -1,6 +1,6 @@
 # Globe Worlds: three ways to populate the home globe by featured project
 
-*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23. Status: P2 done (one world at a time, the change clock, shared video streams, the world's colour), at the P2 checkpoint — see the Status log at the end.*
+*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23; re-scoped at the P2 checkpoint (2026-09-26: Blend becomes pointer / drag travel between worlds, Procession drops, Dive folds into P3). Status: P3 done (Enter World lands inside the world on the globe), at the P3 checkpoint — see the Status log at the end.*
 
 ## Context
 
@@ -207,12 +207,13 @@ npm run dev -- --port 4322        # runs beside :4321 in this checkout
   Turn from World 0, applied before `swm:fill-release`. The `swm:returnToWork` restore stays as is.
 - Optional: the commit's blue surge starts from the focus cluster. The director computes delays by
   distance from the cluster's centroid; `cascade.js` stays untouched.
+- As built (P3): see the P3 entry in the Status log. The optional focus-cluster surge is not built.
 
 ## Params (all new, prefixed `pop`; `cluster`, `jitter`, `hold` and `pattern` are taken elsewhere)
 
 | group | keys (defaults) |
 |---|---|
-| gate / global | `poptune=1` (strict gate) · `popmode` off\|tides\|blend\|procession (off; P1 ships off\|tides) · `popseed` (random per visit) · `popmedia` showcase\|all\|video\|still\|art (showcase = the /work showcase Tiles, videos + stills; all adds album art) · `popcap` (24 desktop / 16 mobile) · `popshare` equal\|weighted · `popenter` 1\|0 (1; lands in P3) |
+| gate / global | `poptune=1` (strict gate) · `popmode` off\|tides\|blend\|procession (off; P1 ships off\|tides) · `popseed` (random per visit) · `popmedia` showcase\|all\|video\|still\|art (showcase = the /work showcase Tiles, videos + stills; all adds album art) · `popcap` (24 desktop / 16 mobile) · `popshare` equal\|weighted · `popenter` 1\|0 (1; live since P3) |
 | tides | `popgroup` (2) · `poppattern` (continents,archipelago,spiral) — both live since P1 · P2: `pophold` (8) · `popholdjit` (0.3) · `poptrans` (1.6) · `poptransset` (tide) · `poppair` (relay) · `popcarry` (0.5) · `popchaos` (0.35) · `popstray` (0) · `popstagger` (random). `popboost` is dropped: the surge's peak is whatever pours the new grouping in within `poptrans`. |
 | blend | `popinput` (pointer; drag on touch) · `popaxis` (grain) · `popgrain` (2.5) · `popfollow` (0.35) · `pophyst` (0.04) · `popflip` (160) · `popdragrange` (180) |
 | procession | `popspan` (3) · `popflow` (2) · `poplanes` (1) · `popbloom` (1.2) · `popdive` (2.5) |
@@ -227,9 +228,9 @@ pools ship tagged by kind up to the hard cap.
 | P0 | worktree, npm install, plan doc commit | — |
 | P1 | engine items 1–8, `popmode=tides` with holds only (static first grouping) | Do the clusters read as client worlds on first load? Pattern family? Stills OK? |
 | P2 | Tides: groupings, all transitions, chaos, relay/lineage | Dial session, then send copy_url |
-| P3 | Enter the world you see (/work snap arrival) | Does home → /work land inside the right world? |
-| P4 | Blend: pointer, drag, quad | Dial session |
-| P5 | Procession + Dive | Dial session |
+| P3 | Enter the world you see (/work snap arrival); with one world on the globe, this is the Dive | Does home → /work land inside the right world? |
+| P4 | Blend, re-scoped 09-26: pointer / drag travel between worlds (not two worlds mixed) | Dial session |
+| P5 | Procession + Dive: dropped 09-26 (one world at a time leaves no river; the Dive is P3) | — |
 | P6 | Your pick → bake only your numbers (bake law), park or remove the losing modes, final docs | — |
 
 ## Parity and blast radius
@@ -240,8 +241,9 @@ pools ship tagged by kind up to the hard cap.
   (all three shared with /process), `VideoSlotPool.jsx` (/work), `buildAssetPool.js` and
   `GLOBE_ASSETS_QUERY` (/process), and all of `src/components/process/`.
 - **Modified:** `index.astro`, `LandingPage.jsx`, `Hero.jsx`, `VideoGlobe.jsx`, `useGlobeScene.js`,
-  `MeridianScroll.js`, `LivePanelScheduler.js`, `TextureManager.js`, and in P3 only
-  `FeaturedProjects.jsx` and `useWorldScene.js`.
+  `MeridianScroll.js`, `LivePanelScheduler.js`, `TextureManager.js`, and in P3
+  `FeaturedProjects.jsx` and `useWorldScene.js`. The snap also reached `WorldScene.jsx`,
+  `GraticulePager.jsx` and `usePagerGesture.js`; see the P3 log.
 - **New:** `buildWorldPools.js`, `worldPatterns.js`, `PopulationDirector.js`, `tileSwap.js`,
   `popConfig.js`, `PopTunePanel.jsx`, `scripts/globe-probe.mjs`,
   `scripts/test/globe-worlds.test.mjs`, `docs/globe-worlds-plan.md`.
@@ -373,3 +375,62 @@ pools ship tagged by kind up to the hard cap.
       the 1.7 s fade (the custom-property paint trap); backgrounds fade.
     - The open menu inks the accent on white (as /work does), which has low contrast for light
       worlds (Munchietown, Andhera Records, Heavy House Society).
+- 2026-09-26 · P2 checkpoint (Nathan): go ahead with the re-scope, starting with P3. Blend
+  becomes pointer / drag travel between worlds (P4), Procession's multi-world river drops, and
+  the Dive folds into P3.
+- 2026-09-26 · P3 · Enter World lands inside the world on the globe.
+  - Landed:
+    - `?popenter` (default 1; on the bench, "enter world · lands in world | first").
+    - The Enter World click stops the change clock: `director.hold()`, through the scene api's
+      `popHold`. Unlike `freeze`, a change already rolling lands on its own curve.
+    - The passage keeps the world's colour. The slug of the world on the globe (from
+      `onWorldChange`, else `getFocusProject()`) goes to /work through
+      `sessionStorage['swm:enterWorld']`, on the passage and on the RM path alike.
+    - /work consumes the key once on mount and **snaps**: `snapRef` holds the target index for
+      the arrival's commit.
+      - The staging effect stages one entering card with no outgoing card, so no Turn.
+      - `useWorldScene` drives direction 0.
+      - `GraticulePager` steps to the station at once (`follow(i, true)` → `stepRM`) with no
+        announcement.
+      - The accent effect waits for the snapped world.
+      - `swm:fill-release` waits for the snapped card, so the cover never lifts on World 0.
+    - No key, an unknown slug, or `popenter=0` → the `swm:returnToWork` restore runs as before.
+  - Blast radius beyond the plan's P3 list:
+    - The snap reaches the pager: `WorldScene.jsx`, `GraticulePager.jsx`, `usePagerGesture.js`.
+    - The clock hold: `PopulationDirector.js` (`hold`; `slug` and `held` in the stats) and
+      `useGlobeScene.js` (`popHold`).
+    - The knob: `popConfig.js`, `PopTunePanel.jsx`.
+  - globe-probe `--enter`: 10 gates. It clicks Enter World on a world whose slug and colour
+    differ from World 0's, then follows the arrival with an in-page recorder
+    (MutationObserver + rAF). Polling from Node sampled 3 times in 3.2 s under SwiftShader and
+    missed the arrival. Failed image requests now land in `report.imageFailures`.
+  - Verified:
+    - Unit 13/13 · `tunables-keys --check` PASS (304 keys).
+    - globe-probe `--enter` desktop, mobile and RM: all 18 gates. `--next=1 --paint` 9/9;
+      `--mode=off` 3/3.
+    - `--extra="&popenter=0"` lands on World 0. Its one failing gate, `clean`, is two GSAP
+      "target null" warnings on the COCO Branding 2026 detail page; a direct load of that page
+      reproduces them, so they predate P3.
+    - pager-probe rest is clean. `npm run build` builds 22 pages, and `dist/index.html` stays
+      at 247 KB.
+    - Production build (preview on :3333): all 18 gates, in headless SwiftShader timings: the
+      cover at 1.15 s, the snap at 3.77 s, the card at 4.35 s, the fill held until the card.
+  - Found:
+    - **Sanity's image CDN enforces the project's CORS allowlist on images.** A preview on
+      :4323 got a 403 on every still, the globe showed black tiles, and the probe's noise
+      filter hid why.
+      - On the list: localhost:4321, :4322 and :3333, smallworld.media, and Netlify deploy
+        previews (`*--smallworldmedia-landingpage.netlify.app`).
+      - Off it: the bare `smallworldmedia-landingpage.netlify.app` and 127.0.0.1. www 301s to
+        the apex, so it is fine.
+      - /work's world textures already depended on this; the globe's stills now do too.
+    - The ClientRouter swap wipes the `<html>` accent until RouteFill's after-swap re-applies
+      it, so the nav blinks brand blue over the world-coloured cover: ~165 ms in the headless
+      production run, ~250 ms in dev. It predates P3, and on a real machine it may last a
+      frame or less. A fix would carry the accent onto `newDocument` in `astro:before-swap`.
+  - Open at the checkpoint:
+    - Does home → /work land inside the right world, on desktop and on the phone?
+    - The breadcrumb return still plays a Turn from World 0 and fades from its colour (the
+      plan kept that restore as is). The same snap could serve it.
+    - Reduced motion has no cover, so World 0's server-rendered card shows until hydration
+      snaps to the world (~3.3 s headless in dev). A brief RM cover would hide it.

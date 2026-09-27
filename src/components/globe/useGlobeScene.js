@@ -135,7 +135,8 @@ function surgePanel(uniforms, t, dipEnd, dipDepth) {
  *          setBlueFill: (p: number, variant?: string) => void,
  *          setInk: (t: number) => void, releaseScheduler: () => void,
  *          onLiveChange: (cb: Function) => (() => void),
- *          onWorldChange: (cb: Function) => (() => void) }>}
+ *          onWorldChange: (cb: Function) => (() => void),
+ *          getFocusProject: () => (string|null), popHold: () => void }>}
  */
 export default function useGlobeScene(
   containerRef,
@@ -183,10 +184,12 @@ export default function useGlobeScene(
       setCascadeSpeed: () => {},
       setPoleCap: () => {},
       // Population modes (?popmode): the /work slug of the world in view
-      // (null when no director), and the ?poptune bench's actions.
+      // (null when no director), the ?poptune bench's actions, and Enter
+      // World's hold on the change clock.
       getFocusProject: () => null,
       popNext: () => {},
       popShow: () => {},
+      popHold: () => {},
       // Subscribe to live-panel transitions (LivePanelScheduler's
       // onLiveChange events, panel object included — the consumer projects
       // panel.centerDir itself). Scene-independent: never reset at
@@ -808,6 +811,7 @@ export default function useGlobeScene(
     apiRef.current.getFocusProject = () => (director ? director.focusProject() : null);
     apiRef.current.popNext = () => director?.next();
     apiRef.current.popShow = (name) => director?.show(name);
+    apiRef.current.popHold = () => director?.hold();
 
     /* — Dev bench live tuning (?herotune) — pole cap / corner rounding uniforms,
        brand orientation, scroll pace. All gated by the owner opting in (Hero's
@@ -1048,6 +1052,7 @@ export default function useGlobeScene(
       apiRef.current.getFocusProject = () => null;
       apiRef.current.popNext = () => {};
       apiRef.current.popShow = () => {};
+      apiRef.current.popHold = () => {};
       if (unsubscribePop) unsubscribePop();
       if (accentTween) accentTween.kill();
       intersectionObserver.disconnect();

@@ -8,7 +8,7 @@
  * Usage:
  *   node scripts/globe-probe.mjs [--mode=tides] [--secs=20] [--warm=6]
  *        [--next=2] [--seed=42] [--mobile] [--rm] [--intro=replay|full]
- *        [--paint] [--channel=chrome]
+ *        [--paint] [--enter] [--channel=chrome]
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
  *
  * Samples the stats (and the <html> accent: the pop-tint class, the computed
@@ -28,6 +28,21 @@
  * one ⏭ change: the accent must ARRIVE through intermediate colours, not cut
  * at the end — Chromium's paint-invalidation trap on animating custom
  * properties (the 08-29 nav fix) — so the gate is ≥ 3 in-between colours.
+ *
+ * --enter (P3) then clicks Enter World on a world that isn't /work's first
+ * (⏭ until the globe shows one) and follows the passage: /work must open
+ * INSIDE that world as a snap — never an outgoing card (no Turn staged), the
+ * scale pager never between stations (no glide from the first World), the
+ * accent the world's colour from the moment it lands, the swm:enterWorld key
+ * consumed. It then takes that card's enter_world to the detail page and the
+ * breadcrumb back, which must reopen the same world (the swm:returnToWork
+ * restore). With --extra="&popenter=0" /work must open on its first world.
+ *
+ * Failed image requests land in report.imageFailures (the noise filter hides
+ * them from the console list) with a hint on stderr: a still the Sanity CDN
+ * refuses by CORS — the page origin is off the project's allowlist, e.g. a
+ * preview on a fresh port; localhost:4321, :4322 and :3333 are on it —
+ * otherwise reads only as black tiles and a low integrity.
  *
  * Headless notes: SwiftShader is the default GPU (pager-probe's finding — the
  * GPU path starves the main thread); fps under it is NOT a device number.
@@ -70,23 +85,37 @@ const BASE = arg('base', 'http://localhost:4322');
 const GPU = arg('gpu', 'swiftshader');
 const CHANNEL = arg('channel', ''); // 'chrome' → the installed Google Chrome
 const PAINT = !!arg('paint', false);
+const ENTER = !!arg('enter', false);
+const ENTER_OFF = /[?&]popenter=0\b/.test(EXTRA); // /work must open on its first world
 const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
 const OUT = arg(
   'out',
   // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
   // mkdir a stray "Small%20World%20Media" tree beside the real one).
-  path.join(path.dirname(fileURLToPath(import.meta.url)), 'shots', `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}`)
+  path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    'shots',
+    `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}`
+  )
 );
 const URL_ = `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}`;
 
 // pager-probe's environmental noise (headless CDN CORS, GPU readback stalls,
 // Chrome's reduced-motion view-transitions warning) — never the page's fault.
-const NOISE = [/cdn\.sanity\.io/, /net::ERR_FAILED/, /GPU stall due to ReadPixels/, /view.transition/i];
+// --enter adds Chrome's font-preload timing warning on /work and the detail
+// page (the layout's preloads, not the globe's).
+const NOISE = [
+  /cdn\.sanity\.io/,
+  /net::ERR_FAILED/,
+  /GPU stall due to ReadPixels/,
+  /view.transition/i,
+  /preloaded using link preload but not used/,
+];
 
 fs.mkdirSync(OUT, { recursive: true });
 // Only this probe's own NN-name.png shots — never anything else in --out.
 for (const f of fs.readdirSync(OUT)) if (/^\d\d-[\w-]+\.png$/.test(f)) fs.rmSync(path.join(OUT, f));
-const report = { url: URL_, viewport: [VW, VH], mobile: MOBILE, rm: RM, samples: [], shots: [], consoleErrors: [], pageErrors: [] };
+const report = { url: URL_, viewport: [VW, VH], mobile: MOBILE, rm: RM, samples: [], shots: [], consoleErrors: [], pageErrors: [], imageFailures: [] };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function waitServer() {
@@ -146,6 +175,151 @@ async function pressNext(page) {
   return true;
 }
 
+// A hold with room left on its clock, so no change starts under the next step.
+const holdRoom = (page) =>
+  page
+    .waitForFunction(
+      () => {
+        const s = window.__swmPopStats;
+        return s?.phase === 'hold' && (s.holdLeft == null || s.holdLeft >= 3);
+      },
+      null,
+      { timeout: 30000, polling: 100 }
+    )
+    .then(
+      () => true,
+      () => false
+    );
+
+// /work's first World — slug + accent — from its SSR'd card.
+async function firstWork() {
+  const html = await (await fetch(`${BASE}/work`)).text();
+  const wrap = html.match(/<div[^>]*fp-card-wrap[^>]*>/)?.[0] ?? '';
+  const tag = html.match(/<a[^>]*fp-card__cta[^>]*>/)?.[0] ?? '';
+  return {
+    slug: tag.match(/href="\/work\/([^"]+)"/)?.[1] ?? null,
+    color: wrap.match(/--project-color:\s*(#[0-9a-fA-F]{6})/)?.[1] ?? null,
+  };
+}
+
+// In-page recorder, armed before the click: every change to the staged
+// cards, the scale pager's strip position, the <html> accent and the passage
+// fill's opacity (to 0.01), as it happens (a MutationObserver — the main
+// thread is too busy building /work for a polling probe to see the arrival).
+// window survives the soft nav.
+const armRecorder = () => {
+  const log = (window.__enterLog = []);
+  const t0 = performance.now();
+  const last = {};
+  const note = (k, v) => {
+    if (last[k] === v) return;
+    last[k] = v;
+    log.push({ ms: Math.round(performance.now() - t0), [k]: v });
+  };
+  const check = () => {
+    note(
+      'cards',
+      [...document.querySelectorAll('.fp-card-wrap')]
+        .map((c) => `${c.dataset.phase}:${(c.querySelector('.fp-card__cta')?.getAttribute('href') ?? '').slice(6)}`)
+        .join(' ')
+    );
+    note('qf', document.querySelector('.fp-scale')?.style.getPropertyValue('--scale-qf') || null);
+    note('accent', getComputedStyle(document.documentElement).getPropertyValue('--project-color').trim());
+    const fill = document.querySelector('.route-fill');
+    note('fill', fill ? Math.round(parseFloat(getComputedStyle(fill).opacity) * 100) / 100 : null);
+  };
+  new MutationObserver(check).observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['style', 'class', 'data-phase'],
+  });
+  const frame = () => {
+    check();
+    if (performance.now() - t0 < 12000) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+};
+
+// /work as the page holds it: the staged cards (an 'exit' one = a Turn), the
+// entered card's slug, the scale pager's strip position, the <html> accent,
+// the active index FeaturedProjects persists, the handoff key.
+const readWork = () => {
+  const cards = [...document.querySelectorAll('.fp-card-wrap')];
+  const enter = cards.find((c) => c.dataset.phase === 'enter');
+  const href = enter?.querySelector('.fp-card__cta')?.getAttribute('href') ?? '';
+  const qf = parseFloat(document.querySelector('.fp-scale')?.style.getPropertyValue('--scale-qf'));
+  let key = null;
+  let index = NaN;
+  try {
+    key = sessionStorage.getItem('swm:enterWorld');
+    index = parseInt(sessionStorage.getItem('swm:worldIndex') ?? '', 10);
+  } catch {}
+  return {
+    path: location.pathname,
+    cards: cards.length,
+    exits: cards.filter((c) => c.dataset.phase === 'exit').length,
+    slug: href.startsWith('/work/') ? href.slice(6) : null,
+    qf: Number.isFinite(qf) ? qf : null,
+    index: Number.isFinite(index) ? index : null,
+    accent: getComputedStyle(document.documentElement).getPropertyValue('--project-color').trim(),
+    key,
+  };
+};
+
+/** --enter: Enter World on a world other than /work's first, the /work
+ *  arrival recorded as it happens, then its enter_world and the breadcrumb. */
+async function enterScenario(page) {
+  const out = { first: await firstWork() };
+  // …and a colour of its own, so the accent gate can tell them apart.
+  const own = (s) =>
+    s?.slug && s.slug !== out.first.slug && (s.color || '').toLowerCase() !== (out.first.color || '').toLowerCase();
+  for (let i = 0; i < 6; i += 1) {
+    await holdRoom(page);
+    const s = await page.evaluate(() => window.__swmPopStats);
+    if (own(s)) break;
+    await pressNext(page);
+    await page
+      .waitForFunction((from) => window.__swmPopStats?.step !== from, s?.step, { timeout: 15000, polling: 100 })
+      .catch(() => {});
+  }
+  await holdRoom(page);
+  out.want = await page.evaluate(() => {
+    const s = window.__swmPopStats;
+    return { slug: s?.slug ?? null, world: s?.world ?? null, color: s?.color ?? null };
+  });
+  await page.evaluate(() => document.querySelector('astro-dev-toolbar')?.remove());
+  // ⏭ opened the bench; on phones it sits over the Enter World CTA.
+  const collapse = page.locator('.hero-tune--pop button[aria-label="Collapse"]');
+  if (MOBILE && (await collapse.count())) await collapse.first().click();
+  await page.evaluate(armRecorder);
+  const t0 = Date.now();
+  await page.locator('.hero__enter').first().click();
+  out.held = await page
+    .waitForFunction(() => window.__swmPopStats?.held, null, { timeout: 3000, polling: 50 })
+    .then(() => true, () => false);
+  await page.waitForFunction(() => location.pathname === '/work', null, { timeout: 20000, polling: 50 });
+  out.navMs = Date.now() - t0;
+  await sleep(4000); // the build, the fill's release, the card's boot
+  out.log = await page.evaluate(() => window.__enterLog);
+  out.landed = await page.evaluate(readWork);
+  await shot(page, 'enter-work');
+  try {
+    await page.locator('.fp-card-wrap[data-phase="enter"] .fp-card__cta').first().click();
+    await page.waitForFunction((slug) => location.pathname === `/work/${slug}`, out.landed.slug, { timeout: 20000, polling: 100 });
+    await page.waitForSelector('.detail-breadcrumb', { state: 'visible', timeout: 20000 });
+    await sleep(1500);
+    await page.locator('.detail-breadcrumb').first().click();
+    await page.waitForFunction(() => location.pathname === '/work', null, { timeout: 20000, polling: 50 });
+    await sleep(2500); // the restore's Turn from the first World (unchanged) lands
+    out.back = await page.evaluate(readWork);
+    await shot(page, 'enter-back');
+  } catch (e) {
+    out.backError = String(e).slice(0, 300);
+  }
+  return out;
+}
+
 (async () => {
   await waitServer();
   const browser = await chromium.launch({
@@ -164,9 +338,15 @@ async function pressNext(page) {
   page.on('console', (m) => {
     if (m.type() !== 'error' && m.type() !== 'warning') return;
     const text = m.text();
-    if (!NOISE.some((re) => re.test(text))) report.consoleErrors.push(`${m.type()}: ${text.slice(0, 300)}`);
+    // the route it fired on (--enter visits /work and a detail page too)
+    const at = new URL(page.url()).pathname;
+    if (!NOISE.some((re) => re.test(text))) report.consoleErrors.push(`${m.type()} @${at}: ${text.slice(0, 300)}`);
   });
   page.on('pageerror', (e) => report.pageErrors.push(String(e).slice(0, 400)));
+  page.on('requestfailed', (r) => {
+    if (r.resourceType() !== 'image') return;
+    report.imageFailures.push(`${r.failure()?.errorText} @${new URL(page.url()).pathname}: ${r.url().slice(0, 160)}`);
+  });
   await page.goto(URL_, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.video-globe__canvas canvas', { timeout: 30000 });
 
@@ -233,6 +413,7 @@ async function pressNext(page) {
     report.colour = { ready, want, ...(await readTint(page)) };
   } else report.colour = await readTint(page);
   await shot(page, 'end');
+  if (ENTER && MODE !== 'off') report.enter = await enterScenario(page);
   await browser.close();
 
   const stats = report.samples.filter((s) => s.phase);
@@ -264,6 +445,48 @@ async function pressNext(page) {
   };
   const m = report.summary;
   const c = report.colour;
+  // --enter, read off the recorder: never an outgoing card (no Turn staged),
+  // once the wanted card is up no other, the pager never between stations
+  // (no glide), the first World's accent never shown on the way in, and the
+  // passage fill fully up from the swap until the wanted card is (it lifts
+  // onto the entered World — reduced motion has no fill to hold).
+  const e = report.enter;
+  const enterPass = (() => {
+    if (!e) return {};
+    const want = ENTER_OFF ? e.first.slug : e.want?.slug;
+    const log = e.log || [];
+    const cards = log.filter((x) => 'cards' in x).map((x) => x.cards);
+    const qfs = log.filter((x) => x.qf != null).map((x) => parseFloat(x.qf));
+    const accents = log.filter((x) => 'accent' in x).map((x) => x.accent);
+    const swapAt = log.findIndex((x) => x.cards);
+    const wantAt = log.findIndex((x) => x.cards === `enter:${want}`);
+    let fillThen = null;
+    let fillHeld = swapAt >= 0 && wantAt >= swapAt;
+    log.forEach((x, i) => {
+      if (x.fill == null) return;
+      if (i <= swapAt) fillThen = x.fill;
+      else if (i < wantAt && x.fill < 0.99) fillHeld = false;
+    });
+    fillHeld = fillHeld && fillThen != null && fillThen >= 0.99;
+    const at = cards.indexOf(`enter:${want}`);
+    const wantAccent = e.want?.color ? rgbOf(e.want.color) : null;
+    const firstAccent = e.first.color ? rgbOf(e.first.color) : null;
+    return {
+      enterNonTrivial: ENTER_OFF || (!!want && want !== e.first.slug),
+      enterLanded: e.landed?.slug === want,
+      enterNoTurn: !cards.some((c) => c.includes('exit:')),
+      enterSteady: at >= 0 && cards.slice(at).every((c) => c === `enter:${want}`),
+      enterPagerJumps: qfs.every((q) => Math.abs(q - Math.round(q)) < 1e-3),
+      enterPagerAt: e.landed?.qf != null && Math.round(e.landed.qf) === e.landed.index,
+      enterAccent:
+        ENTER_OFF ||
+        !wantAccent ||
+        (e.landed?.accent === wantAccent && (firstAccent === wantAccent || !accents.includes(firstAccent))),
+      enterFillHeld: RM || ENTER_OFF || fillHeld,
+      enterKeyConsumed: e.landed?.key == null,
+      returnRestored: e.back?.slug === e.landed?.slug,
+    };
+  })();
   report.pass =
     MODE === 'off'
       ? { noStats: stats.length === 0, noTint: !c.popTint, clean: !report.consoleErrors.length && !report.pageErrors.length }
@@ -278,8 +501,15 @@ async function pressNext(page) {
           cycled: RM ? m.changes === nexts.length : m.changes > nexts.length,
           colour: c.ready && (c.want ? c.popTint && c.accent === rgbOf(c.want) : true),
           ...(report.paint ? { gradientAnimates: report.paint.between >= 3 } : {}),
+          ...enterPass,
           clean: !report.consoleErrors.length && !report.pageErrors.length,
         };
+  if (report.imageFailures.length) {
+    console.error(
+      `globe-probe: ${report.imageFailures.length} image request(s) failed, first: ${report.imageFailures[0]}\n` +
+        `  a CORS block on cdn.sanity.io = this origin is off the Sanity project's allowlist (localhost:4321, :4322, :3333 are on it)`
+    );
+  }
   console.log(JSON.stringify(report, null, 1));
   if (Object.values(report.pass).some((v) => !v)) process.exit(2);
 })().catch((e) => {

@@ -12,6 +12,8 @@
  * @param {Object} props
  * @param {Object|null} props.world - the active World
  * @param {number} props.index - the active World's index (drives Turn direction)
+ * @param {React.RefObject} [props.snapRef] - the arrival snap's index
+ *        (FeaturedProjects): that index change builds at once, no Turn
  */
 import { useEffect, useRef, useState } from 'react';
 import useWorldScene from './useWorldScene.js';
@@ -24,10 +26,10 @@ import {
   FP_FADE_H,
 } from './worldConfig.js';
 
-export default function WorldScene({ world, index = 0 }) {
+export default function WorldScene({ world, index = 0, snapRef = null }) {
   const ref = useRef(null);
   const poolRef = useRef(null);
-  useWorldScene(ref, world, index, poolRef);
+  useWorldScene(ref, world, index, poolRef, snapRef);
   // The pool mounts on a post-hydration pass: its presence and size depend on
   // reduced-motion / viewport, which the SSR HTML can't know — rendering it
   // during hydration mismatches. The scheduler reads poolRef lazily, so the

@@ -141,7 +141,9 @@ const CLONE_ROWS = 8;
 const MOBILE_TIER = '(max-width: 768px)';
 const mobileTier = () => typeof window !== 'undefined' && window.matchMedia(MOBILE_TIER).matches;
 
-export default function GraticulePager({ worlds, active, commit, onEngaged }) {
+// snapRef — the arrival snap's index (FeaturedProjects: Enter World from the
+// home globe); that index change lands at once and silently.
+export default function GraticulePager({ worlds, active, commit, onEngaged, snapRef = null }) {
   const rootRef = useRef(null);
   const stripRef = useRef(null);
   const stationsRef = useRef(null);
@@ -852,15 +854,19 @@ export default function GraticulePager({ worlds, active, commit, onEngaged }) {
 
   // A Turn from any other path (CTA scroll, envelopment restore, a commit
   // deferred behind the previous Turn's lock) glides the scale to the new
-  // index — the marker-follow idiom, engine-owned τ.
+  // index — the marker-follow idiom, engine-owned τ. The arrival snap (Enter
+  // World from the home globe) is the page load itself: the scale is simply
+  // there, no glide from the first World.
   useEffect(() => {
-    engine.follow(active);
+    const snap = snapRef?.current === active;
+    engine.follow(active, snap);
     // The gesture announces its own crossings; a Turn that lands at rest
     // (CTA scroll, station click, peek tap) announces exactly once here.
-    // Never on the mount run: seeding a live region that is already in the
-    // document reads as an announcement, so the pager would speak the
-    // resting project unprompted on every page load.
-    if (mountedRef.current && !openRef.current) announce(active);
+    // Never on the mount run (nor the arrival snap, still the load): seeding
+    // a live region that is already in the document reads as an
+    // announcement, so the pager would speak the resting project unprompted
+    // on every page load.
+    if (mountedRef.current && !openRef.current && !snap) announce(active);
     mountedRef.current = true;
     syncPulse(); // rest pulse rebuilds on the DESTINATION accent (500ms arm delay)
     const focused = document.activeElement;

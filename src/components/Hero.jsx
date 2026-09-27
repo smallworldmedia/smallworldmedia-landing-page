@@ -75,7 +75,7 @@ import {
   PREFERS_REDUCED_MOTION,
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
-import { POP_TUNE_ACTIVE } from './globe/popConfig.js';
+import { POP_TUNE_ACTIVE, TUNING as POP_TUNING } from './globe/popConfig.js';
 import { applyNavAccent, clearNavAccent } from '../lib/navAccent.js';
 import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
 import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from './SiteFooter.jsx';
@@ -513,16 +513,16 @@ export default function Hero({ globeAssets, globeWorlds }) {
   // Population worlds (?popmode): the world on the globe tints the home
   // chrome — its projectColor rides the same <html> accent broadcast /work
   // uses (navAccent), scoped by html.pop-tint (global.css), and colours the
-  // commit's passage (worldColorRef → swm:envelop). No world (off, or
+  // commit's passage (worldRef → swm:envelop). No world (off, or
   // ?popcolor=0) eases back to brand blue. On a route swap the swap has
   // already wiped <html> and RouteFill sets the next route's accent — only
   // an unmount that leaves the tint in place clears it.
-  const worldColorRef = useRef(null);
+  const worldRef = useRef(null); // { slug, color } — the world on the globe
   useEffect(() => {
     const api = sceneApiRef.current;
     if (!api?.onWorldChange) return undefined;
-    const unsub = api.onWorldChange(({ color, animate }) => {
-      worldColorRef.current = color;
+    const unsub = api.onWorldChange(({ slug, color, animate }) => {
+      worldRef.current = { slug, color };
       applyNavAccent(color || undefined, undefined, animate, { tint: 'pop-tint' });
     });
     return () => {
@@ -530,6 +530,24 @@ export default function Hero({ globeAssets, globeWorlds }) {
       if (document.documentElement.classList.contains('pop-tint')) clearNavAccent();
     };
   }, []);
+
+  // Enter the world you see (globe-worlds P3): right before each Enter World
+  // navigation, the world on the globe goes to /work as `swm:enterWorld` (its
+  // slug) and FeaturedProjects opens INSIDE it — a snap, no Turn from the
+  // first World. No world (off, ?popenter=0) clears the key so a stale one
+  // can never reopen a world later. Before the entrance has named its world,
+  // the director's focus stands in.
+  const handOffWorld = (world = worldRef.current) => {
+    const slug = POP_TUNING.enter
+      ? world?.slug || sceneApiRef.current?.getFocusProject?.() || null
+      : null;
+    try {
+      if (slug) sessionStorage.setItem('swm:enterWorld', slug);
+      else sessionStorage.removeItem('swm:enterWorld');
+    } catch {
+      /* storage unavailable — /work opens at the first World */
+    }
+  };
 
   // Blob-tracking labels (chunk 6) — on by default now (TUNING.labels;
   // ?herolabels=0 forces off) with RM's outer guard here (HeroLabels dual-
@@ -570,6 +588,7 @@ export default function Hero({ globeAssets, globeWorlds }) {
         armedRef.current = true;
         return;
       }
+      handOffWorld();
       navigate('/work'); // /work initializes already inside
       return;
     }
@@ -669,9 +688,12 @@ export default function Hero({ globeAssets, globeWorlds }) {
         // bar on the RouteFill while the World builds (08-25; other
         // passages stay bare).
         new CustomEvent('swm:envelop', {
-          detail: { duration: HANDOFF_COVER_SECONDS, loader: true, color: worldColorRef.current || undefined },
+          detail: { duration: HANDOFF_COVER_SECONDS, loader: true, color: worldRef.current?.color || undefined },
         })
       );
+      // The blue fill froze the director at its first beat — the world here
+      // is the one the commit swallowed.
+      handOffWorld();
       navigate('/work');
     };
 
@@ -789,7 +811,12 @@ export default function Hero({ globeAssets, globeWorlds }) {
     footerWipeRef.current?.kill();
     setFooterReveal(0); // the footer never rides the Envelopment
     setCtaPinned(true);
+    // The world you clicked is the world you land in: the change clock holds
+    // from here (no new world starts under the dive) and /work gets this one.
+    sceneApiRef.current?.popHold();
+    const entered = worldRef.current;
     if (PREFERS_REDUCED_MOTION) {
+      handOffWorld(entered);
       navigate('/work'); // RM: plain navigation, no theatrics
       return;
     }
@@ -804,7 +831,7 @@ export default function Hero({ globeAssets, globeWorlds }) {
       // population world's accent when one holds the globe (?popmode) —
       // otherwise brand blue: home IS blue.
       new CustomEvent('swm:envelop', {
-        detail: { duration: coverS, loader: true, color: worldColorRef.current || undefined },
+        detail: { duration: coverS, loader: true, color: entered?.color || undefined },
       })
     );
     // 08-31: the tagline's letters cut out in random order under the rising
@@ -829,7 +856,10 @@ export default function Hero({ globeAssets, globeWorlds }) {
     commitKillRef.current = () => tl.kill();
     // setTimeout, not delayedCall — the island's gsap context dies with the
     // swap and must not take the navigation with it (WorldCard's idiom).
-    setTimeout(() => navigate('/work'), enterMs + 60);
+    setTimeout(() => {
+      handOffWorld(entered);
+      navigate('/work');
+    }, enterMs + 60);
   };
 
   // Bench rehearsal (?herotune) — pin the fill like a real commit, then

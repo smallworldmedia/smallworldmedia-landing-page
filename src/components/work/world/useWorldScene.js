@@ -30,6 +30,8 @@
  * @param {Object|null} world - the active World ({ slug, showcase: [...] })
  * @param {number} index - the active World's index (drives Turn direction)
  * @param {React.RefObject} poolRef - VideoSlotPool imperative handle (live tier)
+ * @param {React.RefObject} [snapRef] - the arrival snap's index (Enter World
+ *        from the home globe): that change builds at once, like the mount
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -167,7 +169,7 @@ function applyCover(material, texture, planeAspect, texAspect) {
   material.needsUpdate = true;
 }
 
-export default function useWorldScene(containerRef, world, index, poolRef) {
+export default function useWorldScene(containerRef, world, index, poolRef, snapRef = null) {
   const apiRef = useRef(null);
   const prevIndexRef = useRef(null);
   const shellRef = useRef(null);
@@ -1173,7 +1175,9 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
   useEffect(() => {
     if (!apiRef.current) return;
     const prev = prevIndexRef.current;
-    const direction = prev == null ? 0 : Math.sign(index - prev);
+    // The arrival snap is the page landing inside a World, not a Turn.
+    const snap = snapRef?.current === index;
+    const direction = prev == null || snap ? 0 : Math.sign(index - prev);
     prevIndexRef.current = index;
     apiRef.current.goToWorld(world, direction);
     // S2: the background grid ingests the focused project's accent (dimmed to

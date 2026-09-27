@@ -35,6 +35,8 @@
  * onWorld(world, { animate }) fires once the entrance has landed (greet) and
  * as each later world takes the globe — the scene tints the lattice and the
  * home chrome with its projectColor. ⏭ on the bench runs the next change now.
+ * Enter World holds the clock (hold) so the world you dive into is the world
+ * /work opens on.
  *
  * Tile assets are decorated once with their world (stats/focus) and the chip
  * copy HeroLabels reads (clientName, services).
@@ -78,6 +80,7 @@ export default class PopulationDirector {
     this.onWorld = onWorld;
     this.disposed = false;
     this.frozen = false;
+    this.held = false; // Enter World: no new change starts (one in flight lands)
     this.busy = false;
     this.busyCall = null;
     this.layoutToken = 0;
@@ -294,7 +297,7 @@ export default class PopulationDirector {
       this.rollTide(dt);
       return;
     }
-    if (this.busy || this.worlds.length < 2) return;
+    if (this.held || this.busy || this.worlds.length < 2) return;
     this.holdLeft -= dt;
     if (this.holdLeft <= 0) this.advance();
   }
@@ -416,8 +419,8 @@ export default class PopulationDirector {
     } else if (key === 'transitions' || key === 'chaos') {
       if (!this.busy) this.planNext(); // re-draw the next world + transition
     } else if (key === 'color') this.emitWorld(true);
-    else if (key === 'trans' || key === 'live') {
-      // read at the next change / the scene swaps the live tier
+    else if (key === 'trans' || key === 'live' || key === 'enter') {
+      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World
     } else this.relayout(); // media, cap, share, group, reset
   }
 
@@ -436,6 +439,14 @@ export default class PopulationDirector {
 
   unfreeze() {
     this.frozen = false;
+  }
+
+  /** Enter World (the CTA's dive): the clock stops, so no new world starts
+   *  under the passage — the one you clicked is the one /work opens on. Unlike
+   *  freeze, a change already rolling lands on its own curve. Never released:
+   *  the navigation follows and the scene unmounts with the page. */
+  hold() {
+    this.held = true;
   }
 
   dropLive(panel) {
@@ -485,6 +496,8 @@ export default class PopulationDirector {
       phase: this.frozen ? 'frozen' : this.changing ? 'transition' : this.busy ? 'relayout' : 'hold',
       grouping: g.members.map(label),
       world: label(this.lead),
+      slug: this.worlds[this.lead]?.slug ?? null, // what Enter World hands /work
+      held: this.held,
       next: this.upcoming ? label(this.upcoming.members[0]) : null,
       transition: this.changing ?? this.upcomingKind,
       holdLeft: this.busy ? null : Math.max(0, Math.round(this.holdLeft * 10) / 10),

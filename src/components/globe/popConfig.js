@@ -18,6 +18,7 @@
  * 1) = the timed change between worlds (hold, holdJit, trans, transitions,
  * chaos), the one-world layout, shared video streams (live) and the world's
  * projectColor on the globe + chrome (color).
+ * P3 = Enter World lands inside the world on the globe (enter).
  */
 import { IS_MOBILE } from './globeConfig.js';
 import { PATTERNS } from './worldPatterns.js';
@@ -77,6 +78,7 @@ export const POP_DEFAULTS = Object.freeze({
   chaos: 0.35, // ?popchaos — 0 = editorial order + the set in turn; 1 = a random next world + transition every change
   live: 'shared', // ?poplive — shared | tile (POP_LIVE)
   color: 1, // ?popcolor — 1 = the world's projectColor drives the globe + chrome; 0 = brand blue
+  enter: 1, // ?popenter — 1 = Enter World opens /work on the world on the globe; 0 = the first World
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
@@ -91,6 +93,7 @@ const NUMERIC = {
   trans: ['poptrans', (n) => clamp(n, 0.3, 8)],
   chaos: ['popchaos', (n) => clamp(n, 0, 1)],
   color: ['popcolor', (n) => (n > 0 ? 1 : 0)],
+  enter: ['popenter', (n) => (n > 0 ? 1 : 0)],
 };
 /* — Single-choice knobs (value ∈ vocab) and set knobs (comma lists ⊂ vocab). — */
 const CHOICE = {

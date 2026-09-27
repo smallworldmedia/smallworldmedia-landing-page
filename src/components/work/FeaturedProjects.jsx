@@ -304,15 +304,35 @@ export default function FeaturedProjects({ worlds = [] }) {
   // restored card in through the normal exit/enter choreography (setting
   // cards directly here raced that effect and left the entrance reverted —
   // the "card never loads" bug).
+  //
+  // Enter World from the home globe (globe-worlds P3) hands over the world
+  // on the globe as `swm:enterWorld` (a slug — Hero) and /work opens INSIDE
+  // it: a SNAP, the page arriving there rather than a Turn from the first
+  // World. snapRef holds that index for exactly the arrival's commit — the
+  // children (WorldScene: an instant build; the pager: a jump, no glide) read
+  // it in their effects, which run before this component's, and the
+  // card-staging effect below clears it once it has booted the card fresh.
+  const snapRef = useRef(null);
   useEffect(() => {
     let armed = false;
     let saved = NaN;
+    let entered = null;
     try {
+      entered = sessionStorage.getItem('swm:enterWorld');
+      sessionStorage.removeItem('swm:enterWorld');
       armed = sessionStorage.getItem('swm:returnToWork') === '1';
       sessionStorage.removeItem('swm:returnToWork');
       saved = parseInt(sessionStorage.getItem('swm:worldIndex') ?? '', 10);
     } catch {
       /* storage unavailable → first World */
+    }
+    const at = entered ? worlds.findIndex((fw) => fw.slug === entered) : -1;
+    if (at >= 0) {
+      if (at !== activeRef.current) {
+        snapRef.current = at;
+        setActive(at);
+      }
+      return;
     }
     if (!armed || !Number.isFinite(saved)) return;
     const idx = Math.max(0, Math.min(lastIndex, saved));
@@ -322,9 +342,13 @@ export default function FeaturedProjects({ worlds = [] }) {
 
   // Scene is mounting — release the Envelopment fill if this arrival came
   // through it (home → /work under the persistent RouteFill, ADR-0002).
-  // No-op on direct loads: the fill is only ever up mid-passage.
+  // No-op on direct loads: the fill is only ever up mid-passage. An arrival
+  // snap holds it until the entered World's card is up (fillOnCardRef = that
+  // World's index) — the passage lifts onto that World, never the first.
+  const fillOnCardRef = useRef(null);
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+    if (snapRef.current != null) fillOnCardRef.current = snapRef.current;
+    else window.dispatchEvent(new CustomEvent('swm:fill-release'));
   }, []);
 
   useEffect(() => {
@@ -343,6 +367,9 @@ export default function FeaturedProjects({ worlds = [] }) {
   // detail page (no blue flash) and persists through the breadcrumb back.
   const firstNavAccent = useRef(true);
   useEffect(() => {
+    // An arrival snap is pending: the first World's accent must not flash
+    // under the passage — the snap's own commit applies the entered one.
+    if (snapRef.current != null && snapRef.current !== active) return;
     const fw = worlds[active];
     applyNavAccent(fw?.projectColor, fw?.projectColorSecondary, !firstNavAccent.current);
     firstNavAccent.current = false;
@@ -610,9 +637,13 @@ export default function FeaturedProjects({ worlds = [] }) {
   }, [active, lastIndex]);
 
   // On World change, stage the outgoing card (exit) under the incoming (enter);
-  // drop the exited card once the Turn finishes.
+  // drop the exited card once the Turn finishes. The arrival snap has no
+  // outgoing card: the entered World's card boots in fresh, as on any load.
   useEffect(() => {
+    const snap = snapRef.current === active;
+    if (snap) snapRef.current = null; // the arrival's commit is done with it
     setCards((prev) => {
+      if (snap) return [{ index: active, dir: 1, phase: 'enter' }];
       const top = prev.find((c) => c.phase === 'enter') || prev[prev.length - 1];
       if (!top || top.index === active) return prev;
       const d = Math.sign(active - top.index) || 1;
@@ -627,6 +658,14 @@ export default function FeaturedProjects({ worlds = [] }) {
     }, TURN_MS + 120);
     return () => clearTimeout(cardTimerRef.current);
   }, [active]);
+
+  // The arrival snap's card is committed (its entrance set pre-paint) — now
+  // the held passage fill lets go.
+  useEffect(() => {
+    if (fillOnCardRef.current == null || cards[0]?.index !== fillOnCardRef.current) return;
+    fillOnCardRef.current = null;
+    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+  }, [cards]);
 
   // Pager marker: one triangle that eases to the active number instead of
   // teleporting. Two damping modes, because the target moves for two
@@ -781,7 +820,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       {TextTunePanel && (
         <TextTunePanel getAccent={() => worlds[activeRef.current]?.projectColor} />
       )}
-      <WorldScene world={w} index={active} />
+      <WorldScene world={w} index={active} snapRef={snapRef} />
 
       {!legacyRail ? (
         <GraticulePager
@@ -789,6 +828,7 @@ export default function FeaturedProjects({ worlds = [] }) {
           active={active}
           commit={requestGoTo}
           onEngaged={onPagerEngaged}
+          snapRef={snapRef}
         />
       ) : (
       <nav
