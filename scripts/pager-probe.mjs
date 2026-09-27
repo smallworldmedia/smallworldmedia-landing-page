@@ -28,6 +28,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 // Playwright is NOT a project dependency (the repo ships no test runner). Point
@@ -50,7 +51,9 @@ const MOBILE = !!arg('mobile', false);
 const VW = Number(arg('vw', MOBILE ? 390 : 1440));
 const VH = Number(arg('vh', MOBILE ? 844 : 900));
 const RM = !!arg('rm', false);
-const OUT = arg('out', path.join(path.dirname(new URL(import.meta.url).pathname), 'shots', `${VARIANT}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}`));
+// fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
+// mkdir a stray "Small%20World%20Media" tree beside the real one).
+const OUT = arg('out', path.join(path.dirname(fileURLToPath(import.meta.url)), 'shots', `${VARIANT}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}`));
 const SCEN = String(arg('scenario', 'all')).split(',');
 const EXTRA = arg('extra', '');
 const HOLD = Number(arg('hold', 260));

@@ -28,27 +28,17 @@
  * globe is glyph-sized; thumbnails still load normally). The hold ends
  * when the owner fires replayCascade + releaseScheduler. At identity the
  * rig is bit-identical to the old fixed framing — see applyRig.
- *
- * Population modes (globe-worlds, docs/globe-worlds-plan.md): with `worlds`
- * (buildWorldPools) and ?popmode on, a PopulationDirector decides each
- * scroll tile's asset — the initial layout and every re-born row — so the
- * globe shows featured-project worlds in clusters. Mode changes on the
- * ?poptune bench rebuild the director only, never the scene. Without a
- * popmode the director is never built and the globe is unchanged.
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import buildGlobeGeometry, { buildScrollingGlobeGeometry } from './buildGlobeGeometry.js';
 import { createPanelMaterial } from './panelMaterial.js';
-import TextureManager, { computeCoverUv, assetKey } from './TextureManager.js';
+import TextureManager, { computeCoverUv } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import { settleDebounce } from '../../lib/settleResize.js';
 import LivePanelScheduler from './LivePanelScheduler.js';
-import MeridianScroll, { initialBirth } from './MeridianScroll.js';
-import PopulationDirector from './PopulationDirector.js';
-import { applyPlan } from './tileSwap.js';
-import { TUNING as POP_TUNING, subscribePopTune } from './popConfig.js';
+import MeridianScroll from './MeridianScroll.js';
 import buildCascadeTimeline, { panelDelay } from './cascade.js';
 import {
   LON_SEGMENTS,
@@ -115,8 +105,6 @@ function surgePanel(uniforms, t, dipEnd, dipDepth) {
  *        its .current.update(ctx) runs once per rendered frame, post-render
  * @param {boolean} [hero.holdEntrance] - chunk-5 intro hold: no auto cascade,
  *        no scheduler until releaseScheduler(). Forced off under reduced motion.
- * @param {Array} [hero.worlds] - featured-project pools (buildWorldPools) for
- *        the population modes; used only under ?popmode on the scroll globe
  * @returns {React.RefObject<{ replayCascade: (variant: string) => void,
  *          setBlueFill: (p: number, variant?: string) => void,
  *          setInk: (t: number) => void, releaseScheduler: () => void,
@@ -136,7 +124,6 @@ export default function useGlobeScene(
     holdEntrance = false,
     cascadeSpeed = null,
     cornerRadius = 0,
-    worlds = null,
   } = {}
 ) {
   // Live-panel transition subscribers (chunk-6 labels) — hook-level, like
@@ -161,11 +148,6 @@ export default function useGlobeScene(
       setGlobeOrientation: () => {},
       setCascadeSpeed: () => {},
       setPoleCap: () => {},
-      // Population modes (?popmode): the /work slug of the world in view
-      // (null when no director), and the ?poptune bench's actions.
-      getFocusProject: () => null,
-      popNext: () => {},
-      popShow: () => {},
       // Subscribe to live-panel transitions (LivePanelScheduler's
       // onLiveChange events, panel object included — the consumer projects
       // panel.centerDir itself). Scene-independent: never reset at
@@ -420,9 +402,6 @@ export default function useGlobeScene(
         u.uCanonTop.value = panel.canonTop;
         u.uPolarTop.value = panel.row * scrollPitch; // MeridianScroll's scroll-0 layout
         panel.mesh.frustumCulled = false;
-        // Tape coordinate (the population modes' pattern space) — stamped
-        // now because the initial layout runs before MeridianScroll exists.
-        panel.tapeS = initialBirth(panel.row, totalRows);
       }
       globeGroup.add(panel.mesh);
     });
@@ -442,51 +421,29 @@ export default function useGlobeScene(
     const initialScore = (p) => p.centerDir.clone().applyEuler(initialRotation).z;
     const byProminence = [...panels].sort((a, b) => initialScore(b) - initialScore(a));
     const textureManager = new TextureManager();
-    // Declared ahead of their section (the live tier below) — the population
-    // director's hooks read them.
-    let scheduler = null;
-    let scroller = null;
-    let director = null;
-    const buildDirector = () =>
-      new PopulationDirector({
-        panels,
-        worlds,
-        textureManager,
-        getScheduler: () => scheduler,
-        getRotation: () => globeGroup.rotation,
-        canAnimate: () => popCanAnimate(),
-      });
-    const popAvailable = conveyorMode && worlds?.length > 0;
-    if (popAvailable && POP_TUNING.mode !== 'off') director = buildDirector();
-    const thumbnailLoads = director
-      ? director.initialLayout(byProminence) // clustered worlds from the very first reveal
-      : byProminence.map((panel, idx) => {
-          if (!assets?.length) return Promise.resolve();
-          const asset = assets[idx % assets.length];
-          panel.asset = asset;
-          // The tile owns this build-time ref (MeridianScroll's recycles release
-          // it through heldThumbId; see tileSwap.loadTile).
-          if (conveyorMode) panel.heldThumbId = assetKey(asset);
-          return textureManager
-            .loadThumbnail(asset.playbackId)
-            .then((texture) => {
-              if (disposed) return;
-              // A slow initial load can resolve AFTER MeridianScroll has already
-              // recycled this tile (which released this asset's ref and re-owns
-              // texA). Bail then, or we'd bind texA to a released/disposed texture.
-              // heldThumbId holds this load's key from the start (conveyor mode)
-              // until a recycle's bind takes it over; off the scroll path it's
-              // unset and this is a no-op.
-              if (conveyorMode && panel.heldThumbId != null && panel.heldThumbId !== assetKey(asset)) return;
-              const { uniforms } = panel.mesh.material;
-              const { scale, offset } = computeCoverUv(1, panel.panelAspect);
-              uniforms.texA.value = texture;
-              uniforms.uvScaleA.value.set(scale[0], scale[1]);
-              uniforms.uvOffsetA.value.set(offset[0], offset[1]);
-              uniforms.uHasTexA.value = 1;
-            })
-            .catch(() => {}); // failed thumb → panel keeps fallback color
-        });
+    const thumbnailLoads = byProminence.map((panel, idx) => {
+      if (!assets?.length) return Promise.resolve();
+      const asset = assets[idx % assets.length];
+      panel.asset = asset;
+      return textureManager
+        .loadThumbnail(asset.playbackId)
+        .then((texture) => {
+          if (disposed) return;
+          // A slow initial load can resolve AFTER MeridianScroll has already
+          // recycled this tile (which released this asset's ref and re-owns
+          // texA). Bail then, or we'd bind texA to a released/disposed texture.
+          // heldThumbId is set once the scroll driver exists; before that (or off
+          // the scroll path) it's null and this is a no-op.
+          if (conveyorMode && panel.heldThumbId != null && panel.heldThumbId !== asset.playbackId) return;
+          const { uniforms } = panel.mesh.material;
+          const { scale, offset } = computeCoverUv(1, panel.panelAspect);
+          uniforms.texA.value = texture;
+          uniforms.uvScaleA.value.set(scale[0], scale[1]);
+          uniforms.uvOffsetA.value.set(offset[0], offset[1]);
+          uniforms.uHasTexA.value = 1;
+        })
+        .catch(() => {}); // failed thumb → panel keeps fallback color
+    });
 
     /* — Cascade — */
     let cascadeTl = null;
@@ -579,8 +536,6 @@ export default function useGlobeScene(
           u.uBlueMix.value = 0;
           u.uPower.value = 1;
         }
-        entranceSettled = true; // every screen is back at full power
-        if (director) director.unfreeze();
         return;
       }
       if (!blueEngaged) {
@@ -591,8 +546,6 @@ export default function useGlobeScene(
           cascadeTl.kill();
           cascadeTl = null;
         }
-        // …and so would a population swap: land them all, then hold still.
-        if (director) director.freeze();
       }
       bakeBlueDelays(variant);
       for (let i = 0; i < panels.length; i += 1) {
@@ -605,20 +558,6 @@ export default function useGlobeScene(
       }
     };
 
-    /* — Population swaps may blink a screen only when nothing else owns
-       uPower: after the entrance cascade has landed (or a dry-run restored
-       every screen), never during a cascade replay or the commit's fill,
-       never under reduced motion. Otherwise swaps land as cuts. — */
-    let entranceSettled = false;
-    const popCanAnimate = () => {
-      if (blueEngaged || PREFERS_REDUCED_MOTION) return false;
-      if (cascadeTl) {
-        if (cascadeTl.isActive()) return false;
-        if (cascadeTl.progress() >= 1) entranceSettled = true;
-      }
-      return entranceSettled;
-    };
-
     /* — Live video tier (Stage 2; stills only under reduced motion) + the
        meridian scroll (home hero) — both deferred under the intro hold: no HLS
        decodes and no content flow while the globe is glyph-sized. The scheduler
@@ -626,6 +565,8 @@ export default function useGlobeScene(
        latches the release for any later rebuild; without a hold they start here
        exactly as before. (The scroll globe is already positioned as a sphere at
        build; deferring MeridianScroll only holds the MOTION, not the layout.) — */
+    let scheduler = null;
+    let scroller = null;
     // Live-event dispatcher — ONE stable closure handed to the scheduler
     // (whichever path constructs it, including a releaseScheduler under
     // holdEntrance), fanning out to the hook-level subscriber set. Hoisted
@@ -664,7 +605,6 @@ export default function useGlobeScene(
               textureManager,
               cascadeSpeed: tuneRef.current.cascadeSpeed, // bench-tunable pace (seeded from the prop)
               scheduler,
-              assignRow: director ? director.assignRow : null,
             })
           : null;
     };
@@ -673,47 +613,6 @@ export default function useGlobeScene(
       schedulerReleasedRef.current = true;
       startScheduler();
     };
-
-    /* — Population modes (?popmode / the ?poptune bench) — a mode change
-       builds or drops the director (never the scene) and re-lays the globe;
-       any other pop knob goes to the director (onTune decides what to redo).
-       Dropping back to off re-lays the flat pool through the same swap path. */
-    const tileOwner = {
-      textureManager,
-      get disposed() {
-        return disposed;
-      },
-      dropLive: (p) => scheduler?.dropLive(p),
-    };
-    const relayoutFlat = () => {
-      if (!assets?.length) return;
-      const plan = new Map();
-      byProminence.forEach((p, i) => {
-        plan.set(p, scroller ? scroller.nextPoolAsset() : assets[i % assets.length]);
-      });
-      applyPlan(tileOwner, plan, { animate: popCanAnimate() });
-    };
-    const unsubscribePop = popAvailable
-      ? subscribePopTune((key) => {
-          if (disposed) return;
-          const want = POP_TUNING.mode !== 'off';
-          if (want && !director) {
-            director = buildDirector();
-            if (scroller) scroller.assignRow = director.assignRow;
-            director.relayout();
-          } else if (!want && director) {
-            director.dispose();
-            director = null;
-            if (scroller) scroller.assignRow = null;
-            relayoutFlat();
-          } else if (director && key !== 'mode') {
-            director.onTune(key);
-          }
-        })
-      : null;
-    apiRef.current.getFocusProject = () => (director ? director.focusProject() : null);
-    apiRef.current.popNext = () => director?.next();
-    apiRef.current.popShow = (name) => director?.show(name);
 
     /* — Dev bench live tuning (?herotune) — pole cap / corner rounding uniforms,
        brand orientation, scroll pace. All gated by the owner opting in (Hero's
@@ -874,8 +773,7 @@ export default function useGlobeScene(
       schedClock += step;
       if (scheduler && schedClock >= 0.5) {
         // dragging defers promotions only — no Hls startups mid-gesture
-        // …and while a population relayout is mid-swap.
-        scheduler.update(globeGroup.rotation, sceneTime, camera, controller.dragging || !!director?.busy);
+        scheduler.update(globeGroup.rotation, sceneTime, camera, controller.dragging);
         schedClock = 0;
       }
 
@@ -888,16 +786,8 @@ export default function useGlobeScene(
           }))
           .sort((a, b) => b.score - a.score)
           .slice(0, 6);
-        const fps = Math.round(framesRendered / statClock);
-        if (director) {
-          director.sample(globeGroup.rotation, {
-            fps,
-            gpuTextures: renderer.info.memory.textures,
-            dt: statClock,
-          });
-        }
         onStats({
-          fps,
+          fps: Math.round(framesRendered / statClock),
           textures: renderer.info.memory.textures,
           ...(scheduler ? scheduler.getStats() : {}),
           topPanels: top.map((t) => `${t.id}:${t.score.toFixed(2)}`),
@@ -948,10 +838,6 @@ export default function useGlobeScene(
       apiRef.current.setGlobeOrientation = () => {};
       apiRef.current.setCascadeSpeed = () => {};
       apiRef.current.setPoleCap = () => {};
-      apiRef.current.getFocusProject = () => null;
-      apiRef.current.popNext = () => {};
-      apiRef.current.popShow = () => {};
-      if (unsubscribePop) unsubscribePop();
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
       fadeBackIn.cancel();
@@ -961,7 +847,6 @@ export default function useGlobeScene(
       if (cascadeTl) cascadeTl.kill();
       if (scheduler) scheduler.dispose();
       if (scroller) scroller.dispose();
-      if (director) director.dispose();
       controller.dispose();
       textureManager.disposeAll();
       panels.forEach((panel) => {
@@ -978,7 +863,7 @@ export default function useGlobeScene(
       renderer.forceContextLoss();
       renderer.domElement.remove();
     };
-  }, [assets, worlds, gapDeg, capDeg]);
+  }, [assets, gapDeg, capDeg]);
 
   return apiRef;
 }

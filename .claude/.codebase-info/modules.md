@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-10*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -21,24 +21,14 @@
 `VideoGlobe.jsx` (component) · `useGlobeScene.js` (the only three.js↔React boundary; `gsap.ticker`
 loop, `forceContextLoss` teardown) · `buildGlobeGeometry.js` (panelized sphere + pole wedges) ·
 `panelMaterial.js` (unlit shader: cover-fit, `uMix` A↔B, `uPower` cascade, `uBlueMix`) · `cascade.js`
-· `LivePanelScheduler.js` (~2 Hz promote/demote; `dropLive` under a swap) · `VideoSlotPool.jsx`
-(fixed HLS pool) · `TextureManager.js` (refcounted Mux thumbnails + square Sanity stills, keyed by
-`assetKey`) · `buildAssetPool.js` (pure build-time ordering) · `MeridianScroll.js` (row conveyor;
-stamps tape coordinates `(lonIndex, tapeS)`, optional `assignRow` hook) · `InteractionController.js`
-(yaw/pitch skin over `lib/dragMomentum`) · `globeConfig.js` (tunables; re-exports drag constants from
-`dragMomentum`).
-
-**Population modes** (branch `refine/globe-worlds`, `docs/globe-worlds-plan.md`; built only under
-`?popmode`, else the globe is unchanged): `buildWorldPools.js` (pure: `FEATURED_WORLDS_QUERY` → one
-pool per featured project, /work showcase parity) · `worldPatterns.js` (pure, seeded cluster patterns
-over the tape) · `PopulationDirector.js` (tile → world assignment, current + next grouping held warm,
-freeze under the commit's blue, publishes `window.__swmPopStats`) · `tileSwap.js` (THE refcount-safe
-`loadTile` + blink / surge / cut swaps) · `popConfig.js` (`?pop*` TUNING + pub/sub).
+· `LivePanelScheduler.js` (~2 Hz promote/demote) · `VideoSlotPool.jsx` (fixed HLS pool) ·
+`TextureManager.js` (refcounted Mux thumbnails) · `buildAssetPool.js` (pure build-time ordering) ·
+`MeridianScroll.js` · `InteractionController.js` (yaw/pitch skin over `lib/dragMomentum`) ·
+`globeConfig.js` (tunables; re-exports drag constants from `dragMomentum`).
 
 ## Hero (`src/components/hero/`)
 `heroConfig.js` (TUNING store + pub/sub + ease paths) · `heroOverlay.js` (scene→DOM disc projection)
-· `HeroIntro.jsx` · `HeroLabels.jsx` · `HeroTunePanel.jsx` / `CommitTunePanel.jsx` / `PopTunePanel.jsx`
-(benches; the last is `?poptune=1`).
+· `HeroIntro.jsx` · `HeroLabels.jsx` · `HeroTunePanel.jsx` / `CommitTunePanel.jsx` (benches).
 
 ## /work (`src/components/work/`)
 | File | Purpose |
@@ -86,6 +76,6 @@ material, api `{goTo, applyTuning, replay, stats, dispose}`) · `useProcessScrol
 | `scramble.js`, `charCut.js` | House scramble; random-letter hard cut (successor for arriving chrome text) | cards, chrome, tagline, pager |
 | `smoothScroll.js` | Single Lenis on `gsap.ticker`; off on `/` and `/work`; `getLenis()` may be null | layout script, process driver, GridSocket |
 | `settleResize.js` | `settleDebounce` resize doctrine | scene hooks |
-| `motion.js`, `momentum.js`, `navAccent.js`, `projectColor.js`, `projectSlug.js`, `keywords.jsx`, `formatYearRange.js`, `constants.js` | Ease paths, accumulators, nav accent + `--project-color` writers, slug fallback, `[[word]]` keyword markers + `[text](/href)` blurb links, formatting |
+| `motion.js`, `momentum.js`, `navAccent.js`, `projectColor.js`, `projectSlug.js`, `keywords.jsx`, `formatYearRange.js`, `constants.js` | Ease paths, accumulators, nav accent + `--project-color` writers, slug fallback, `[[word]]` keyword markers, formatting |
 | `sanityClient.js`, `queries.js` | `sanityFetch`, all GROQ | pages |
 | `lenisTune.js`, `footerTune.js` | Bench publishers | tune panels |

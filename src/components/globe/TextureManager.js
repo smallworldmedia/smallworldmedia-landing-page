@@ -1,22 +1,12 @@
 /**
- * TextureManager.js — Mux thumbnail / Sanity still → THREE.Texture loader
- * with refcounting.
+ * TextureManager.js — Mux thumbnail → THREE.Texture loader with refcounting.
  *
  * Thumbnail URL convention follows MediaCard/FeaturedProjects:
  *   image.mux.com/{playbackId}/thumbnail.webp?width=…&fit_mode=smartcrop
- * Stills (the globe-worlds population modes' image assets) request the
- * Sanity CDN's square crop at the same size, cropped on the busiest region
- * (crop=entropy — the smartcrop analogue). Square either way, so texAspect
- * stays 1 and cover-fit math is uniform.
- *
- * Cache keys are assetKey(asset) = playbackId ?? imageUrl — a video's key IS
- * its playbackId, so the default (video-only) pool keys exactly as before.
+ * Square smartcrop requests keep texAspect = 1 so cover-fit math is uniform.
  */
 import * as THREE from 'three';
 import { THUMB_WIDTH } from './globeConfig.js';
-
-/** The texture cache key for a globe asset (video playbackId, else still URL). */
-export const assetKey = (asset) => asset?.playbackId || asset?.imageUrl || null;
 
 export default class TextureManager {
   constructor() {
@@ -30,31 +20,17 @@ export default class TextureManager {
     return `https://image.mux.com/${playbackId}/thumbnail.webp?width=${THUMB_WIDTH}&height=${THUMB_WIDTH}&fit_mode=smartcrop`;
   }
 
-  stillUrl(imageUrl) {
-    return `${imageUrl}?w=${THUMB_WIDTH}&h=${THUMB_WIDTH}&fit=crop&crop=entropy&auto=format`;
-  }
-
   /**
    * Load (or reuse) the thumbnail texture for a playback ID.
    * Every loadThumbnail() must be paired with a release().
    */
   loadThumbnail(playbackId) {
-    return this.loadAsset({ playbackId });
-  }
-
-  /**
-   * Load (or reuse) the tile texture for a globe asset — the Mux thumbnail
-   * for a video, the square Sanity crop for a still. Pair every call with
-   * release(assetKey(asset)).
-   */
-  loadAsset(asset) {
-    const key = assetKey(asset);
-    let entry = this.cache.get(key);
+    let entry = this.cache.get(playbackId);
     if (!entry) {
       entry = { texture: null, refs: 0, promise: null };
       entry.promise = new Promise((resolve, reject) => {
         this.loader.load(
-          asset.playbackId ? this.thumbnailUrl(asset.playbackId) : this.stillUrl(asset.imageUrl),
+          this.thumbnailUrl(playbackId),
           (texture) => {
             texture.colorSpace = THREE.SRGBColorSpace;
             texture.anisotropy = 4;
@@ -65,25 +41,19 @@ export default class TextureManager {
           reject
         );
       });
-      this.cache.set(key, entry);
+      this.cache.set(playbackId, entry);
     }
     entry.refs += 1;
     return entry.promise;
   }
 
-  /** The already-decoded texture for a key, or null (no ref taken). */
-  peek(key) {
-    return this.cache.get(key)?.texture ?? null;
-  }
-
-  /** @param {string} key - a playbackId, or assetKey(asset) for a still */
-  release(key) {
-    const entry = this.cache.get(key);
+  release(playbackId) {
+    const entry = this.cache.get(playbackId);
     if (!entry) return;
     entry.refs -= 1;
     if (entry.refs <= 0) {
       entry.promise.then((t) => t.dispose()).catch(() => {});
-      this.cache.delete(key);
+      this.cache.delete(playbackId);
     }
   }
 

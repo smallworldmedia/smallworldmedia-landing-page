@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-09*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -38,13 +38,6 @@ resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
 
 ClientRouter wipes every `<html>` attribute on swap; persistent islands re-assert theirs on
 `astro:after-swap`.
-
-## Stats globals
-
-Scene → bench / probe reads, polled (no events). `window.__swmPopStats` is published ~2 Hz by
-`globe/PopulationDirector.js` whenever `?popmode` ≠ off (not `?debug`-gated; branch
-`refine/globe-worlds`) and read by `hero/PopTunePanel.jsx`'s readout and `scripts/globe-probe.mjs`.
-The `?debug`-gated `/work` globals are listed in `docs/tunables-guide.md`.
 
 ## External services
 

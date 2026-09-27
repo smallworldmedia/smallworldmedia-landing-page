@@ -17,10 +17,6 @@
  * Optional onLiveChange(panel, 'live'|'off') announces the transitions
  * outward (the home hero's tracking labels) — see the constructor JSDoc.
  * Events only; nothing outside ever polls scheduler internals.
- *
- * Globe-worlds population modes: a still tile (no playbackId) never promotes,
- * a tile mid-swap (panel.swapping — tileSwap.js) never promotes, and
- * dropLive(panel) frees a tile's video instantly, under a swap's dip.
  */
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -153,8 +149,6 @@ export default class LivePanelScheduler {
         .filter(
           ({ panel, score, visible }) =>
             !panel.liveState &&
-            panel.asset?.playbackId && // stills have no stream
-            !panel.swapping &&
             !panel.parked && // never stream into a collapsed past-pole scroll tile
             visible &&
             score > PROMOTE_SCORE &&
@@ -194,18 +188,6 @@ export default class LivePanelScheduler {
   notifyContentChange(panel) {
     if (this.disposed) return;
     if (panel.liveState === 'live') this.demote(panel);
-  }
-
-  /**
-   * A population swap is changing this tile's asset under a dip to black or
-   * blue — release its video NOW (no crossfade back to the still: the screen
-   * is dark, and the still is about to change too). Pending promotions roll
-   * back through the same liveState check the pool resolve already makes.
-   */
-  dropLive(panel) {
-    if (this.disposed || !panel.liveState) return;
-    gsap.killTweensOf(panel.mesh.material.uniforms.uMix);
-    this.freePanel(panel, { releasePool: true });
   }
 
   promote(panel, slot) {

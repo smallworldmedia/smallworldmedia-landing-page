@@ -1,12 +1,12 @@
 # Entry Points
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-10*
 
 ## Routes
 
 | URL | Page | Island (directive) | Data | Status |
 |---|---|---|---|---|
-| `/` | `src/pages/index.astro` | `LandingPage.jsx` → `Hero.jsx` (`client:only="react"`) | `GLOBE_ASSETS_QUERY` → `globe/buildAssetPool.js`; `FEATURED_WORLDS_QUERY` → `globe/buildWorldPools.js` (`?popmode`, branch `refine/globe-worlds`) | live; `body.route-home` |
+| `/` | `src/pages/index.astro` | `LandingPage.jsx` → `Hero.jsx` (`client:only="react"`) | `GLOBE_ASSETS_QUERY` → `globe/buildAssetPool.js` | live; `body.route-home` |
 | `/process` | `src/pages/process.astro` | `process/ProcessPage.jsx` (`client:only`) | same globe pool + `process/processContent.js` | live; `body.route-process` |
 | `/work` | `src/pages/work/index.astro` | `work/FeaturedProjects.jsx` (`client:load`) | `FEATURED_WORLDS_QUERY` → `work/detail/buildContentFlow.js` | live |
 | `/work/[slug]` | `src/pages/work/[slug].astro` | `work/detail/FeaturedProjectDetail.jsx` (`client:load`) | `FEATURED_PROJECT_PATHS_QUERY` (paths + next chain), `FEATURED_PROJECT_DETAIL_QUERY` | live |
@@ -38,11 +38,9 @@ purpose), server-computed `body.route-*` classes, skip link, hidden Netlify cont
 | `npm run build` | `astro build` → `dist/` (22 pages) |
 | `npm run preview` | serve `dist/` |
 | `npm run cms -- plan|apply|verify …` | CMS ingest CLI (`scripts/cms.mjs`), see `cms-pipeline.md` |
-| `npm run test:cms` | `node --test` over the CMS suites (`scripts/test/cms/`, `cms-*`, `legacy-cms`) |
-| `node --test scripts/test/globe-worlds.test.mjs` | the home globe population modes' pure pieces (world pools, patterns, director ownership); not in `test:cms` |
+| `npm run test:cms` | `node --test` over `scripts/test/**` |
 | `node scripts/tunables-keys.mjs --check` | fails if a `?param` in code is missing from `docs/tunables-guide.md` |
 | `node scripts/pager-probe.mjs …` | headless Playwright probe of `/work` pager scenarios |
-| `node scripts/globe-probe.mjs [--mobile] [--rm] [--next=N] [--mode=off]` | headless probe of the home globe's population modes (dev server on :4322, the worktree port): samples `window.__swmPopStats`, gates integrity, black tiles, texture count, quiet holds and ⏭ landing; screenshots to `scripts/shots/globe-*` |
 | `node scripts/process-probe.mjs [--mobile] [--secs=30]` | headless probe of the `/process` discovery slide: samples `window.__swmProcessStats` (published by `ProcessDebugPanel` under `?debug=1`) for chip count, duplicate terms, overlaps, and each tour hold's subject vs seat, with a screenshot per hold |
 | `node scripts/prep-client-logos.mjs [--check]` | normalize `Client Logos/` into `src/assets/client-logos/` |
 | `node scripts/generate-manifests.mjs "Client" [--dry-run]` | scaffold TBD manifests |
