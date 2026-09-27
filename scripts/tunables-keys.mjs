@@ -12,6 +12,7 @@
  *   PARAM_KEYS = { stateKey: 'k', … }          bench state ↔ param maps
  *   FOO_PARAM = 'k'                            name constants (heroConfig)
  *   ['k', 'option']                            [param, option] pairs (smoothScroll)
+ *   stateKey: ['k', reader|VOCAB]              [param, reader] tuple maps (popConfig)
  *   location.search.includes('k')             substring gates (fpDrum / fpAtlas)
  * Known false positives (variant arrays, popConfig's two-option vocab
  * arrays, a form field) are listed in IGNORE.
@@ -22,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const GUIDE = join(ROOT, 'docs', 'tunables-guide.md');
-const IGNORE = new Set(['a', 'panels', 'email', 'equal', 'video']);
+const IGNORE = new Set(['a', 'panels', 'email', 'equal', 'video', 'mix', 'shared']);
 
 const files = [];
 (function walk(d) {
@@ -46,6 +47,7 @@ const LINE_RES = [
   /location\.search\.includes\(\s*['"]([a-z0-9_-]+)['"]/g,
   /\bp\.set\(\s*['"]([a-z0-9_-]+)['"]/g,
   /\b[A-Z][A-Z0-9_]*_PARAM\s*=\s*['"]([a-z0-9_-]+)['"]/g,
+  /^\s*[A-Za-z_$][\w$]*\s*:\s*\[\s*['"]([a-z0-9_-]+)['"]\s*,\s*(?:\(|[A-Z_][A-Z0-9_]*\b)/g,
 ];
 for (const f of files) {
   const src = readFileSync(f, 'utf8');

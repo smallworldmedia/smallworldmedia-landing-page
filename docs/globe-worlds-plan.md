@@ -1,6 +1,6 @@
 # Globe Worlds: three ways to populate the home globe by featured project
 
-*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23. Status: P1 done, at the P1 checkpoint — see the Status log at the end.*
+*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23. Status: P2 done (one world at a time, the change clock, shared video streams, the world's colour), at the P2 checkpoint — see the Status log at the end.*
 
 ## Context
 
@@ -318,3 +318,58 @@ pools ship tagged by kind up to the hard cap.
     so pass it an explicit `--out`.
   - A ⏭ re-lays all 96 tiles, the carried world's too (each grouping draws a new pattern). P2's
     relay transitions keep the carried world's tiles in place.
+- 2026-09-26 · P1 checkpoint (Nathan). Two worlds on the globe at once weaken the "visual
+  worlds" read; one world at a time makes it obvious what building a world means for each
+  client. He likes the video repetition. He asked (Q1) whether one loaded video can feed many
+  tiles, saving compute while more videos play, and (Q2) whether each world's projectColor can
+  drive the globe's blue, the background gradient, the nav and the slide-down drawer, as on
+  /work.
+- 2026-09-26 · pager-probe's default `--out` percent-encoded path fixed (`fileURLToPath`,
+  d4f471c). That commit also swept a stale Dropbox git index and reverted P1; 0c8b14d restored
+  it additively. In this worktree, `git status` before every commit.
+- 2026-09-26 · P2 · one world at a time, and the world changes on its own.
+  - Landed: `popgroup` defaults to 1 (Nathan's call); `poplayout` mix | facets lays out one
+    world, and 2–3 worlds keep the pattern set. A world holds `pophold` s ± `popholdjit`, then
+    the next takes the globe over `poptrans` s through a transition from `poptransset`:
+    - **tide** (default): MeridianScroll `advance()` surges the scroll one full span on
+      power3.out, and every row re-births once, so the new world pours in from the top pole and
+      nothing changes in place.
+    - **blink / surge**: in place, through `applyPlan`'s style.
+    - **cut**: under RM, before the entrance, and under the commit.
+
+    `popchaos` runs from 0 (the /work order and the set in turn) to 1 (a random next world,
+    never one of the last 4, and a random transition). The next world is planned and its
+    textures warmed as each hold begins. `poptrans` defaults to 2.4 s, not the plan's 1.6,
+    because the tide rolls a full pole-to-pole span. 13 unit tests (tide, chaos, cut and
+    shared streams are new).
+  - Q1 · shared streams (`poplive=shared`, the default under a popmode): the scheduler spends
+    one VideoSlotPool slot and one VideoTexture per clip, bound on every tile showing it, so
+    repeats play in sync. `tile` is today's one decode per tile. A lower `popcap` means more
+    repeats per decode.
+  - Q2 · world colour (`popcolor=1`): the lattice, inner sphere and pole caps ink tweens to
+    the world's projectColor over 1.7 s on the panel curve (`uBlueColor` set at runtime;
+    panelMaterial untouched). The scene api's `onWorldChange` feeds Hero →
+    `applyNavAccent(…, { tint: 'pop-tint' })`: the /work accent vars on `<html>`. The hero
+    gradient, globe stroke / fill, pill hover, Enter World CTA and the passage's colour
+    read `--project-color`.
+  - Verified: unit 13/13 · `tunables-keys --check` PASS (303 keys). P2's tuple-map popConfig had
+    hidden every pop key from the extractor, which now reads that idiom. globe-probe:
+    - **desktop** `--next=1 --paint`: every gate. 7 decodes lit 31 tiles, ≤ 42 textures, and
+      the ⏭ tide landed in 2.5 s. The gradient passed through 4 in-between colours.
+    - **mobile** 30 s: TOBEHONEST → Munchietown → COCO (Pre-2026) → Andhera Records on the
+      clock. 4 decodes lit 22 tiles, ≤ 34 textures, and the accent landed on #FDED22.
+    - **RM**: no video and no self-change; ⏭ is a 0.6 s cut and the colour lands at once.
+    - **off**: no stats and no tint.
+
+    Soft navs: Enter World carries the world's colour into /work, which then fades to World
+    0's colour (the P3 gap). Back home starts blue and re-tints when the globe greets its
+    world. pager-probe rest on /work is clean; `npm run build` builds 22 pages;
+    `dist/index.html` stays at 247 KB (P2 ships no new props).
+  - Open at the checkpoint:
+    - One world at a time reshapes the other options: Blend becomes pointer / drag travel
+      between worlds (not two worlds mixed on the globe), Procession's multi-world river drops,
+      and Dive folds into P3.
+    - Accent text (open-menu pill ink, drawer strong text, CTA label) can snap at the end of
+      the 1.7 s fade (the custom-property paint trap); backgrounds fade.
+    - The open menu inks the accent on white (as /work does), which has low contrast for light
+      worlds (Munchietown, Andhera Records, Heavy House Society).

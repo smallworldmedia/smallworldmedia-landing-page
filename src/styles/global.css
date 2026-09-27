@@ -745,9 +745,12 @@ body.route-home .site-nav {
 
 /* html.fp-tint is the detail-page marker (FeaturedProjectDetail broadcasts the
    accent to <html> and sets this class) so the persistent nav tints there too,
-   mirroring html:has(.fp) on the /work index. */
+   mirroring html:has(.fp) on the /work index. html.pop-tint is home's twin
+   (globe-worlds, ?popmode): the world on the globe broadcasts its accent the
+   same way, and it cross-fades on the same curve as each world takes over. */
 html:has(.fp),
 html.fp-tint,
+html.pop-tint,
 .fp {
   /* Hue washes ride the house panel curve; the fg/text colour twins ride
      --ease-ink. --nav-ink-l is deliberately NOT in this list (08-29 fix,
@@ -843,6 +846,16 @@ body.route-home .site-nav__pill {
 @media (hover: hover) {
   body.route-home .site-nav__pill:hover {
     background: var(--color-electric-blue);
+  }
+
+  /* Home under a population world (html.pop-tint): the bar stays clear and
+     the pills black at rest, the hover wears the world's accent with its
+     readable ink. Before the open-state block, so an open pill keeps its
+     skin. The open ink, the drawer's accents, the hero gradient, stroke
+     ring, enter_world and the commit fill resolve --project-color already. */
+  html.pop-tint .site-nav__pill:hover {
+    background: var(--project-color, var(--color-electric-blue));
+    color: var(--project-color-fg, var(--color-white));
   }
 }
 
@@ -1539,9 +1552,10 @@ html[data-footer-revealed] .detail-progress {
   height: 100dvh;
   min-height: 42.857rem;
   overflow: clip;
-  /* Globe-approved backdrop — matches /lab/globe tuning */
+  /* Globe-approved backdrop — matches /lab/globe tuning. The horizon takes
+     the population world's accent on home (html.pop-tint); blank → blue. */
   background: linear-gradient(to top,
-      var(--color-electric-blue) 0%,
+      var(--project-color, var(--color-electric-blue)) 0%,
       var(--color-black) 40%);
   flex-shrink: 0;
 }
@@ -1586,7 +1600,8 @@ html[data-footer-revealed] .detail-progress {
   width: 200px;
   height: 200px;
   border-radius: 50%;
-  background: var(--color-electric-blue);
+  /* the lattice's colour — a population world's accent, else brand blue */
+  background: var(--project-color, var(--color-electric-blue));
   transform-origin: 0 0;
   will-change: transform;
   visibility: hidden;
@@ -1754,7 +1769,7 @@ html[data-footer-revealed] .detail-progress {
   position: fixed;
   inset: 0;
   z-index: 3;
-  background: var(--color-electric-blue);
+  background: var(--project-color, var(--color-electric-blue));
   opacity: 0;
   visibility: hidden;
   pointer-events: none;

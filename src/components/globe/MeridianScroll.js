@@ -39,7 +39,10 @@
  * tiles as panel.tapeS. (lonIndex, tapeS) is the tile's place on an endless
  * tape, which worldPatterns lays client worlds over. An optional assignRow
  * hook (PopulationDirector) picks a recycled row's assets in place of the
- * pool cursor; without it the cursor runs exactly as before.
+ * pool cursor; without it the cursor runs exactly as before. advance() adds
+ * extra travel for one frame: the director's tide transition surges the
+ * scroll a full span, so the next world pours in from the top pole as rows
+ * re-birth.
  */
 import * as THREE from 'three';
 import { assetKey } from './TextureManager.js';
@@ -109,6 +112,7 @@ export default class MeridianScroll {
     const speed = Number.isFinite(cascadeSpeed) && cascadeSpeed > 0 ? cascadeSpeed : 0;
     this.rate = (this.pitch * speed) / SCROLL_PACE_SCALE;
     this.rateScale = 1; // population-mode multiplier on the pace (setRateScale)
+    this.extra = 0; // population-mode travel queued for the next update (advance)
 
     // Source pool cursor — start past the initial assignment so fresh rows don't
     // immediately repeat the tiles already on screen.
@@ -136,6 +140,15 @@ export default class MeridianScroll {
    *  top of the bench pace — 1 = the plain cascadeSpeed pace. */
   setRateScale(k) {
     this.rateScale = Number.isFinite(k) && k > 0 ? k : 0;
+  }
+
+  /** Extra polar travel (rad) on top of the pace, landed by the next update —
+   *  the tide transition's surge, driven per frame by its own curve (even with
+   *  the pace parked). Rows wrap (and re-birth) as they cross the bottom pole,
+   *  exactly as at rest. The wrap test needs one frame's travel < span − pitch;
+   *  the tide stays far below it. */
+  advance(dTheta) {
+    if (Number.isFinite(dTheta) && dTheta > 0) this.extra += dTheta;
   }
 
   nextPoolAsset() {
@@ -197,8 +210,12 @@ export default class MeridianScroll {
 
   /** @param {number} dt - seconds since last frame (called every rendered frame) */
   update(dt) {
-    if (this.disposed || this.rate <= 0 || this.rateScale <= 0) return;
-    this.scroll += this.rate * this.rateScale * dt;
+    if (this.disposed) return;
+    const pace = this.rate > 0 && this.rateScale > 0 ? this.rate * this.rateScale * dt : 0;
+    const travel = pace + this.extra;
+    this.extra = 0;
+    if (travel <= 0) return;
+    this.scroll += travel;
     if (this.scroll >= this.span) this.scroll -= this.span; // keep bounded
     this.applyScroll();
   }

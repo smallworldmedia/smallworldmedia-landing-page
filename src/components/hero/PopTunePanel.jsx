@@ -5,14 +5,16 @@
  *
  * Controls write popConfig's TUNING (setPopTune → publish(key)); the scene
  * subscribes — a mode change builds/drops the PopulationDirector, a layout
- * knob re-lays the current grouping as a staggered blink. Pattern buttons
- * toggle the SET future groupings draw from; switching one ON also shows it
- * now (sceneApi.popShow). ⏭ next = the next grouping (relay: A+B → B+C),
- * ↻ reroll = a new seed (new start world + patterns). The readout polls
- * window.__swmPopStats, which the director publishes at ~2 Hz (also what
- * scripts/globe-probe.mjs reads) — it sits right under mode so it never
- * scrolls away while dialing. copy_url = poptune=1 + the seed + only
- * off-default values.
+ * knob re-lays the current world as a staggered blink, the change knobs
+ * (hold, transition, the set, chaos) take effect from the next change. One
+ * world holds the globe by default (Nathan, 09-26); with 2–3 the pattern
+ * buttons toggle the SET groupings draw from, and switching one ON also
+ * shows it now (sceneApi.popShow). ⏭ next = the next world now, through
+ * its transition; ↻ reroll = a new seed (a new start world and change
+ * clock). The readout polls window.__swmPopStats, which the director
+ * publishes at ~2 Hz (also what scripts/globe-probe.mjs reads) — it sits
+ * right under mode so it never scrolls away while dialing. copy_url =
+ * poptune=1 + the seed + only off-default values.
  *
  * Voice/chrome: the hero bench's .hero-tune tree (mono, near-black,
  * lowercase), BOTTOM-RIGHT via .hero-tune--pop — ?herotune owns top-right,
@@ -26,6 +28,9 @@ import {
   POP_MEDIA,
   POP_SHARES,
   POP_PATTERNS,
+  POP_LAYOUTS,
+  POP_TRANSITIONS,
+  POP_LIVE,
   setPopTune,
   resetPopTune,
   rerollSeed,
@@ -95,7 +100,7 @@ export default function PopTunePanel({ sceneApiRef }) {
     return (
       <aside className="hero-tune hero-tune--pop hero-tune--chip" aria-label="Globe population tuning">
         <button type="button" className="hero-tune__btn" onClick={() => setOpen(true)}>
-          {`⌁ worlds · ${on && stats ? `${stats.pattern} · ${pct(stats.integrity)}` : s.mode}`}
+          {`⌁ worlds · ${on && stats ? `${stats.world} · ${stats.holdLeft != null ? `${stats.holdLeft}s` : stats.phase}` : s.mode}`}
         </button>
       </aside>
     );
@@ -113,11 +118,15 @@ export default function PopTunePanel({ sceneApiRef }) {
     rerollSeed();
     setS({ ...TUNING });
   };
+  // Set knobs toggle members; a set never empties.
+  const toggle = (key, name) => {
+    const was = s[key].includes(name);
+    if (was && s[key].length === 1) return;
+    set(key, was ? s[key].filter((n) => n !== name) : [...s[key], name]);
+    return !was;
+  };
   const togglePattern = (name) => {
-    const was = s.patterns.includes(name);
-    if (was && s.patterns.length === 1) return; // the set never empties
-    set('patterns', was ? s.patterns.filter((n) => n !== name) : [...s.patterns, name]);
-    if (!was) sceneApiRef?.current?.popShow(name);
+    if (toggle('patterns', name)) sceneApiRef?.current?.popShow(name);
   };
   const copyUrl = async () => {
     const text = popTuneCopyUrl();
@@ -149,16 +158,20 @@ export default function PopTunePanel({ sceneApiRef }) {
         {on && stats ? (
           <>
             {stats.grouping.join(' + ')}
+            {stats.next ? ` → ${stats.next}` : ''}
             <br />
-            {stats.pattern} · {stats.phase} · seed {stats.seed}/{stats.step}
+            {stats.phase}
+            {stats.holdLeft != null ? ` ${stats.holdLeft}s` : ''} · {stats.transition ?? '—'} · {stats.pattern} ·
+            seed {stats.seed}/{stats.step}
             <br />
-            focus {stats.focus ?? '—'}
+            colour {stats.color ?? 'blue'} · focus {stats.focus ?? '—'}
             <br />
             integrity {pct(stats.integrity)} · vis {stats.visible} · black {stats.black} · flips {stats.flips}
             <br />
             tex {stats.textures} (gpu {stats.gpuTextures ?? '—'}, warm {stats.warm}) · fps {stats.fps ?? '—'}
             <br />
-            live {stats.live.length ? stats.live.join(', ') : '—'}
+            video {stats.streams} decode{stats.streams === 1 ? '' : 's'} → {stats.liveTiles} tiles ·{' '}
+            {stats.live.length ? stats.live.join(', ') : '—'}
           </>
         ) : on ? (
           'waiting for the globe…'
@@ -166,26 +179,48 @@ export default function PopTunePanel({ sceneApiRef }) {
           'mode off — the default globe.'
         )}
       </p>
-
-      <div className="hero-tune__group">grouping</div>
-      <Row label="worlds" param="group" value={s.group} min={1} max={3} step={1} onChange={set} />
-      <Segmented
-        label="pattern set"
-        options={POP_PATTERNS}
-        isActive={(n) => s.patterns.includes(n)}
-        onPick={togglePattern}
-      />
       <div className="hero-tune__actions">
         <button type="button" className="hero-tune__btn" onClick={() => sceneApiRef?.current?.popNext()}>
-          ⏭ next
+          ⏭ next world
         </button>
         <button type="button" className="hero-tune__btn" onClick={reroll}>
           ↻ reroll
         </button>
       </div>
+
+      <div className="hero-tune__group">change</div>
+      <Row label="hold (s)" param="hold" value={s.hold} min={2} max={60} step={0.5} onChange={set} />
+      <Row label="hold jitter ±" param="holdJit" value={s.holdJit} min={0} max={0.9} step={0.05} onChange={set} />
+      <Row label="transition (s)" param="trans" value={s.trans} min={0.3} max={8} step={0.1} onChange={set} />
+      <Segmented
+        label="transitions"
+        options={POP_TRANSITIONS}
+        isActive={(n) => s.transitions.includes(n)}
+        onPick={(n) => toggle('transitions', n)}
+      />
+      <Row label="chaos" param="chaos" value={s.chaos} min={0} max={1} step={0.05} onChange={set} />
       <p className="hero-tune__note">
-        ?popgroup · ?poppattern. a pattern switched on shows now; facets splits one world by
-        media kind. holds only (p1): ⏭ / ↻ / a knob re-lays.
+        ?pophold · ?popholdjit · ?poptrans · ?poptransset · ?popchaos. tide = the scroll surges
+        one full span, the next world pours in from the top pole; blink / surge swap in place;
+        cut = at once. chaos 0 walks the /work order and the set in turn, 1 draws both at random.
+        a change knob applies from the next change.
+      </p>
+
+      <div className="hero-tune__group">world</div>
+      <Row label="worlds at once" param="group" value={s.group} min={1} max={3} step={1} onChange={set} />
+      {s.group === 1 ? (
+        <Segmented label="layout" value={s.layout} options={POP_LAYOUTS} onPick={(m) => set('layout', m)} />
+      ) : (
+        <Segmented
+          label="pattern set"
+          options={POP_PATTERNS}
+          isActive={(n) => s.patterns.includes(n)}
+          onPick={togglePattern}
+        />
+      )}
+      <p className="hero-tune__note">
+        ?popgroup · ?poplayout · ?poppattern. one world: mix interleaves its media, facets
+        splits it into regions by media kind. 2–3: a pattern switched on shows now.
       </p>
 
       <div className="hero-tune__group">media</div>
@@ -194,7 +229,21 @@ export default function PopTunePanel({ sceneApiRef }) {
       <Segmented label="share" value={s.share} options={POP_SHARES} onPick={(m) => set('share', m)} />
       <p className="hero-tune__note">
         ?popmedia · ?popcap · ?popshare. showcase = the /work tiles, all adds album art;
-        weighted = area ∝ media count.
+        weighted = area ∝ media count. a lower cap repeats clips more (more tiles per decode).
+      </p>
+
+      <div className="hero-tune__group">video · colour</div>
+      <Segmented label="live video" value={s.live} options={POP_LIVE} onPick={(m) => set('live', m)} />
+      <Segmented
+        label="colour"
+        value={s.color ? 'world' : 'blue'}
+        options={['world', 'blue']}
+        onPick={(m) => set('color', m === 'world' ? 1 : 0)}
+      />
+      <p className="hero-tune__note">
+        ?poplive · ?popcolor. shared = one decode per clip, bound on every tile showing it (the
+        repeats play in sync); tile = one decode per live tile. world = the projectColor takes
+        the lattice, ring, gradient, enter_world and the nav accents.
       </p>
 
       <div className="hero-tune__actions">

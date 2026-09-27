@@ -8,25 +8,38 @@
  * Usage:
  *   node scripts/globe-probe.mjs [--mode=tides] [--secs=20] [--warm=6]
  *        [--next=2] [--seed=42] [--mobile] [--rm] [--intro=replay|full]
+ *        [--paint] [--channel=chrome]
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
  *
- * Samples the stats once a second for --secs, clicks the bench's ⏭ next
+ * Samples the stats (and the <html> accent: the pop-tint class, the computed
+ * --project-color) once a second for --secs, clicks the bench's ⏭ next
  * --next times (spread across the run) and times each one until the new
- * grouping has landed (landedMs, ±0.5 s — the stats publish at ~2 Hz),
+ * world has landed (landedMs, ±0.5 s — the stats publish at ~2 Hz),
  * screenshots at the warm mark, after each ⏭ and at the end, and prints a
  * JSON report whose `pass` block holds the plan's gates: integrity ≥ 0.95
  * during holds, 0 black visible tiles after --warm, a bounded texture count,
  * no in-place flips during a hold (assets are persistent at rest), every ⏭
- * landed, and no console/page errors. --mode=off checks the default globe runs
- * clean (no stats expected).
+ * landed, the world changing on its own clock (under --rm only ⏭ moves it), the
+ * chrome wearing the world's projectColor once a change has landed, and no
+ * console/page errors. --mode=off checks the default globe runs clean (no
+ * stats, no tint).
+ *
+ * --paint reads the hero gradient's bottom pixel every frame it can through
+ * one ⏭ change: the accent must ARRIVE through intermediate colours, not cut
+ * at the end — Chromium's paint-invalidation trap on animating custom
+ * properties (the 08-29 nav fix) — so the gate is ≥ 3 in-between colours.
  *
  * Headless notes: SwiftShader is the default GPU (pager-probe's finding — the
  * GPU path starves the main thread); fps under it is NOT a device number.
+ * The bundled Chromium plays the Mux streams (09-26: 7 decodes lit 31 tiles),
+ * so streams/liveTiles are real; --channel=chrome runs the installed Google
+ * Chrome instead.
  * ?intro=replay skips the ~5s logo intro (the full intro holds the globe dark,
  * so black tiles are expected until its cascade).
  */
 import path from 'node:path';
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
@@ -55,6 +68,8 @@ const INTRO = arg('intro', 'replay');
 const EXTRA = arg('extra', '');
 const BASE = arg('base', 'http://localhost:4322');
 const GPU = arg('gpu', 'swiftshader');
+const CHANNEL = arg('channel', ''); // 'chrome' → the installed Google Chrome
+const PAINT = !!arg('paint', false);
 const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
 const OUT = arg(
   'out',
@@ -92,10 +107,50 @@ async function shot(page, name) {
   report.shots.push(file);
 }
 
+/** One CSS pixel's [r, g, b]: a 1×1 PNG, its IDAT inflated past the row's
+ *  filter byte — with no neighbours, every PNG filter reconstructs to the
+ *  raw bytes. */
+async function pixel(page, x, y) {
+  const png = await page.screenshot({ clip: { x, y, width: 1, height: 1 }, scale: 'css' });
+  const idat = [];
+  for (let at = 8; at < png.length; ) {
+    const len = png.readUInt32BE(at);
+    if (png.toString('ascii', at + 4, at + 8) === 'IDAT') idat.push(png.subarray(at + 8, at + 8 + len));
+    at += 12 + len;
+  }
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  return [raw[1], raw[2], raw[3]];
+}
+
+// The <html> accent as the chrome reads it.
+const readTint = (page) =>
+  page.evaluate(() => {
+    const html = document.documentElement;
+    return {
+      popTint: html.classList.contains('pop-tint'),
+      accent: getComputedStyle(html).getPropertyValue('--project-color').trim(),
+    };
+  });
+const rgbOf = (hex) => {
+  const h = hex.replace('#', '');
+  return `rgb(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)})`;
+};
+
+// Open the bench (phones start collapsed) and press ⏭.
+async function pressNext(page) {
+  const chip = page.locator('.hero-tune--chip button');
+  if (await chip.count()) await chip.first().click();
+  const btn = page.locator('.hero-tune--pop button', { hasText: 'next' });
+  if (!(await btn.count())) return false;
+  await btn.first().click();
+  return true;
+}
+
 (async () => {
   await waitServer();
   const browser = await chromium.launch({
     headless: true,
+    ...(CHANNEL ? { channel: CHANNEL } : {}),
     args: GPU === 'swiftshader' ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [],
   });
   const ctx = await browser.newContext({
@@ -119,16 +174,12 @@ async function shot(page, name) {
   for (let t = 1; t <= SECS; t++) {
     await sleep(1000);
     const stats = await page.evaluate(() => window.__swmPopStats ?? null);
-    report.samples.push({ t, ...(stats || { none: true }) });
+    report.samples.push({ t, ...(stats || { none: true }), tint: await readTint(page) });
     if (t === WARM) await shot(page, 'warm');
     if (nextAt.has(t)) {
-      const chip = page.locator('.hero-tune--chip button'); // phones start collapsed
-      if (await chip.count()) await chip.first().click();
-      const btn = page.locator('.hero-tune--pop button', { hasText: 'next' });
-      if (await btn.count()) {
-        const step = await page.evaluate(() => window.__swmPopStats?.step ?? null);
-        const t0 = Date.now();
-        await btn.first().click();
+      const step = await page.evaluate(() => window.__swmPopStats?.step ?? null);
+      const t0 = Date.now();
+      if (await pressNext(page)) {
         const landedMs = await page
           .waitForFunction(
             (from) => {
@@ -147,6 +198,40 @@ async function shot(page, name) {
       } else report.samples.push({ t, action: 'next — bench button missing', landedMs: null });
     }
   }
+
+  // --paint: the gradient's horizon pixel (bottom centre) through one change.
+  if (PAINT && MODE !== 'off' && !RM) {
+    const room = () => {
+      const s = window.__swmPopStats;
+      return s?.phase === 'hold' && s.holdLeft >= 3;
+    };
+    const ready = await page.waitForFunction(room, null, { timeout: 30000, polling: 100 }).then(() => true, () => false);
+    await page.evaluate(() => document.querySelector('astro-dev-toolbar')?.remove()); // it sits on that pixel in dev
+    const [x, y] = [Math.round(VW / 2), VH - 2];
+    const before = await pixel(page, x, y);
+    const series = [];
+    if (ready && (await pressNext(page))) {
+      const t0 = Date.now();
+      while (Date.now() - t0 < 2600) series.push({ ms: Date.now() - t0, rgb: await pixel(page, x, y) });
+    }
+    const after = series.length ? series[series.length - 1].rgb : before;
+    const far = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i]))) > 6;
+    const between = new Set(series.filter((p) => far(p.rgb, before) && far(p.rgb, after)).map((p) => p.rgb.join(',')));
+    report.paint = { at: [x, y], before, after, between: between.size, frames: series.length, series };
+  }
+
+  // The chrome wears the world once a change has fully landed (the accent's
+  // 1.7 s fade included).
+  if (MODE !== 'off') {
+    const room = () => {
+      const s = window.__swmPopStats;
+      return s?.phase === 'hold' && s.holdLeft >= 3;
+    };
+    const ready = await page.waitForFunction(room, null, { timeout: 30000, polling: 100 }).then(() => true, () => false);
+    if (ready) await sleep(2000);
+    const want = await page.evaluate(() => window.__swmPopStats?.color ?? null);
+    report.colour = { ready, want, ...(await readTint(page)) };
+  } else report.colour = await readTint(page);
   await shot(page, 'end');
   await browser.close();
 
@@ -160,7 +245,11 @@ async function shot(page, name) {
     return same ? n + (s.flips - prev.flips) : n;
   }, 0);
   const nexts = report.samples.filter((s) => s.action?.startsWith('next'));
+  const steps = stats.map((s) => s.step);
   report.summary = {
+    worlds: stats.reduce((seq, s) => (seq[seq.length - 1] === s.world ? seq : [...seq, s.world]), []),
+    changes: steps.length ? Math.max(...steps) - Math.min(...steps) : 0,
+    transitions: [...new Set(stats.filter((s) => s.phase === 'transition').map((s) => s.transition))],
     groupings: [...new Set(stats.map((s) => `${s.grouping.join(' + ')} [${s.pattern}]`))],
     minIntegrityInHolds: holds.length ? Math.min(...holds.map((s) => s.integrity)) : null,
     maxBlackAfterWarm: warm.length ? Math.max(...warm.map((s) => s.black)) : null,
@@ -168,18 +257,27 @@ async function shot(page, name) {
     flips: stats.length ? stats[stats.length - 1].flips : null,
     holdFlips,
     nextLandedMs: nexts.map((s) => s.landedMs),
+    // video: decodes vs the tiles they light (shared streams: tiles ≥ decodes)
+    maxStreams: stats.length ? Math.max(...stats.map((s) => s.streams ?? 0)) : null,
+    maxLiveTiles: stats.length ? Math.max(...stats.map((s) => s.liveTiles ?? 0)) : null,
     fps: warm.map((s) => s.fps),
   };
   const m = report.summary;
+  const c = report.colour;
   report.pass =
     MODE === 'off'
-      ? { noStats: stats.length === 0, clean: !report.consoleErrors.length && !report.pageErrors.length }
+      ? { noStats: stats.length === 0, noTint: !c.popTint, clean: !report.consoleErrors.length && !report.pageErrors.length }
       : {
           integrity: m.minIntegrityInHolds != null && m.minIntegrityInHolds >= 0.95,
           noBlackAfterWarm: m.maxBlackAfterWarm === 0,
           texturesBounded: m.maxTextures != null && m.maxTextures <= TEX_BOUND,
           quietHolds: m.holdFlips === 0,
           nextLanded: m.nextLandedMs.every((ms) => ms != null),
+          // the clock turns worlds by itself — beyond the ⏭ presses; under RM
+          // only the presses move it (each one a cut)
+          cycled: RM ? m.changes === nexts.length : m.changes > nexts.length,
+          colour: c.ready && (c.want ? c.popTint && c.accent === rgbOf(c.want) : true),
+          ...(report.paint ? { gradientAnimates: report.paint.between >= 3 } : {}),
           clean: !report.consoleErrors.length && !report.pageErrors.length,
         };
   console.log(JSON.stringify(report, null, 1));

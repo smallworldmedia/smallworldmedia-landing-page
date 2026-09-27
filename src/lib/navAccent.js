@@ -11,6 +11,9 @@
  *   • detail page — per project, applied before paint by the RouteFill route
  *     controller (astro:after-swap), so the nav never resets to brand blue
  *     between pages and the colour survives the breadcrumb back to /work.
+ *   • home — the population world on the globe (Hero, ?popmode), under
+ *     html.pop-tint instead of fp-tint: home keeps its own chrome and only
+ *     its brand-blue accents take the colour.
  */
 import { projectColorVars } from './projectColor.js';
 
@@ -48,9 +51,10 @@ function commitInstant(root, mutate) {
 
 /**
  * Write the accent vars to <html>. `animate` false = instant (page arrivals);
- * true = ride the CSS cross-fade (in-page /work project changes).
+ * true = ride the CSS cross-fade (in-page /work project changes). `tint` is
+ * the <html> class that scopes which chrome takes it (pop-tint on home).
  */
-export function applyNavAccent(primary, secondary, animate = true) {
+export function applyNavAccent(primary, secondary, animate = true, { tint = 'fp-tint' } = {}) {
   if (typeof document === 'undefined') return;
   last = { primary, secondary };
   const root = document.documentElement;
@@ -64,7 +68,7 @@ export function applyNavAccent(primary, secondary, animate = true) {
       if (v != null) root.style.setProperty(k, v);
       else root.style.removeProperty(k);
     }
-    root.classList.add('fp-tint');
+    root.classList.add(tint);
   };
   if (animate) write();
   else commitInstant(root, write);
@@ -83,6 +87,6 @@ export function clearNavAccent() {
   const root = document.documentElement;
   commitInstant(root, () => {
     for (const k of KEYS) root.style.removeProperty(k);
-    root.classList.remove('fp-tint');
+    root.classList.remove('fp-tint', 'pop-tint');
   });
 }

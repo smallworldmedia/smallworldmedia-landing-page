@@ -34,11 +34,15 @@
  * scroll tile's asset — the initial layout and every re-born row — so the
  * globe shows featured-project worlds in clusters. Mode changes on the
  * ?poptune bench rebuild the director only, never the scene. Without a
- * popmode the director is never built and the globe is unchanged.
+ * popmode the director is never built and the globe is unchanged. As each
+ * world takes the globe its projectColor becomes the lattice blue (the
+ * accent below) and goes out through onWorldChange — Hero tints the home
+ * chrome with it.
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
+import { CustomEase } from 'gsap/CustomEase';
 import buildGlobeGeometry, { buildScrollingGlobeGeometry } from './buildGlobeGeometry.js';
 import { createPanelMaterial } from './panelMaterial.js';
 import TextureManager, { computeCoverUv, assetKey } from './TextureManager.js';
@@ -73,6 +77,16 @@ import {
   SCROLL_POLE_TIP_LIFT,
   SCROLL_POLE_CAP_DEG,
 } from './globeConfig.js';
+
+gsap.registerPlugin(CustomEase);
+
+/* — World accent clock (population modes) — the CSS accent's own fade,
+   --project-color-fade on --ease-panel (global.css), so the lattice, the
+   stroke ring and the home chrome change colour in lockstep. — */
+const ACCENT_SECONDS = 1.7;
+const ACCENT_EASE = 'swmAccentPanel';
+const accentEase = () =>
+  CustomEase.get(ACCENT_EASE) || CustomEase.create(ACCENT_EASE, 'M0,0 C0.22,1 0.36,1 1,1');
 
 /* — Blue-fill surge (home-hero chunk 4) — the inverted-CRT two-beat, ONE
    cheap shape per panel per frame. t is the panel's local 0..1 progress
@@ -120,7 +134,8 @@ function surgePanel(uniforms, t, dipEnd, dipDepth) {
  * @returns {React.RefObject<{ replayCascade: (variant: string) => void,
  *          setBlueFill: (p: number, variant?: string) => void,
  *          setInk: (t: number) => void, releaseScheduler: () => void,
- *          onLiveChange: (cb: Function) => (() => void) }>}
+ *          onLiveChange: (cb: Function) => (() => void),
+ *          onWorldChange: (cb: Function) => (() => void) }>}
  */
 export default function useGlobeScene(
   containerRef,
@@ -146,9 +161,15 @@ export default function useGlobeScene(
   // the Set a one-time allocation (Hero's overlayRef idiom).
   const liveSubsRef = useRef(null);
   if (liveSubsRef.current === null) liveSubsRef.current = new Set();
+  // Population-world subscribers (Hero's chrome tint) — hook-level the same
+  // way; the latest announcement replays on subscribe, since the scene can
+  // greet (reduced motion) before Hero's effect subscribes.
+  const worldHubRef = useRef(null);
+  if (worldHubRef.current === null) worldHubRef.current = { subs: new Set(), last: null };
   const apiRef = useRef(null);
   if (apiRef.current === null) {
     const liveSubs = liveSubsRef.current;
+    const worldHub = worldHubRef.current;
     apiRef.current = {
       replayCascade: () => {},
       setBlueFill: () => {},
@@ -173,6 +194,13 @@ export default function useGlobeScene(
       onLiveChange: (cb) => {
         liveSubs.add(cb);
         return () => liveSubs.delete(cb);
+      },
+      // Subscribe to the population world taking the globe — { slug, color,
+      // animate }, color its projectColor (null = brand blue). Never reset.
+      onWorldChange: (cb) => {
+        worldHub.subs.add(cb);
+        if (worldHub.last) cb(worldHub.last);
+        return () => worldHub.subs.delete(cb);
       },
     };
   }
@@ -453,8 +481,10 @@ export default function useGlobeScene(
         worlds,
         textureManager,
         getScheduler: () => scheduler,
+        getScroller: () => scroller,
         getRotation: () => globeGroup.rotation,
         canAnimate: () => popCanAnimate(),
+        onWorld: (world, info) => onPopWorld(world, info), // the accent section below
       });
     const popAvailable = conveyorMode && worlds?.length > 0;
     if (popAvailable && POP_TUNING.mode !== 'off') director = buildDirector();
@@ -520,10 +550,66 @@ export default function useGlobeScene(
        GAP_COLOR, and only a heroInk intro ever writes t < 1. — */
     const inkWhite = new THREE.Color(0xffffff);
     const inkBlue = new THREE.Color(GAP_COLOR);
+    let inkT = 1; // kept so a world accent change re-inks at the intro's point
+    const paintInk = () => innerMaterial.color.lerpColors(inkWhite, inkBlue, inkT);
     apiRef.current.setInk = (t) => {
       if (disposed) return;
-      innerMaterial.color.lerpColors(inkWhite, inkBlue, Math.min(Math.max(t, 0), 1));
+      inkT = Math.min(Math.max(t, 0), 1);
+      paintInk();
     };
+
+    /* — World accent (population modes) — the lattice blue becomes the
+       world's projectColor. inkBlue is the ink target (inner sphere + pole
+       caps — the lattice), and every panel's uBlueColor (the commit surge,
+       the rounded-corner fringe) shares that one Color, so a single write
+       retints the lot. Tweened on the CSS accent's clock and lerped in gamma
+       sRGB — how the browser interpolates the chrome's legacy colours — so
+       the stroke ring and the home chrome change in lockstep. onWorldChange
+       carries the change out to Hero. Idle without a director. — */
+    const accentFrom = { r: 0, g: 0, b: 0 };
+    const accentTo = { r: 0, g: 0, b: 0 };
+    const accentClock = { t: 1 };
+    const accentTarget = new THREE.Color();
+    let accentTween = null;
+    const paintAccent = () => {
+      const k = accentClock.t;
+      inkBlue.setRGB(
+        accentFrom.r + (accentTo.r - accentFrom.r) * k,
+        accentFrom.g + (accentTo.g - accentFrom.g) * k,
+        accentFrom.b + (accentTo.b - accentFrom.b) * k,
+        THREE.SRGBColorSpace
+      );
+      paintInk();
+    };
+    const setAccent = (color, animate) => {
+      inkBlue.getRGB(accentFrom, THREE.SRGBColorSpace); // from where it is — mid-change included
+      accentTarget.set(color || GAP_COLOR).getRGB(accentTo, THREE.SRGBColorSpace);
+      if (accentTween) accentTween.kill();
+      accentTween = null;
+      accentClock.t = animate ? 0 : 1;
+      if (animate) {
+        accentTween = gsap.to(accentClock, {
+          t: 1,
+          duration: ACCENT_SECONDS,
+          ease: accentEase(),
+          onUpdate: paintAccent,
+        });
+      } else paintAccent();
+    };
+    if (popAvailable) {
+      for (const p of panels) p.mesh.material.uniforms.uBlueColor.value = inkBlue;
+    }
+    const onPopWorld = (world, { animate }) => {
+      if (disposed) return;
+      const color = (POP_TUNING.color && world?.projectColor) || null;
+      setAccent(color, animate);
+      const hub = worldHubRef.current;
+      hub.last = { slug: world?.slug ?? null, color, animate };
+      hub.subs.forEach((cb) => cb(hub.last));
+    };
+    // Reduced motion has no clock and no entrance to wait for — the first
+    // world takes its colour at once.
+    if (director && PREFERS_REDUCED_MOTION) director.greet(false);
 
     /* — Commit blue-fill (home-hero chunk 4) — p 0..1 sweeps the whole
        cascade window: each panel's surge (surgePanel above) is delayed by
@@ -653,6 +739,9 @@ export default function useGlobeScene(
               cycleThumbnails: !conveyorMode,
             })
           : null;
+      // One decode per clip (?poplive=shared) only under a population mode;
+      // the flat globe keeps its per-tile decodes.
+      scheduler?.setShared(!!director && POP_TUNING.live === 'shared');
       // Meridian scroll: independent of the video pool (thumbnails only), so it
       // runs whenever conveyor mode is on and motion is allowed, scheduler or
       // not. Handed the scheduler so it can demote live video as rows recycle.
@@ -677,7 +766,9 @@ export default function useGlobeScene(
     /* — Population modes (?popmode / the ?poptune bench) — a mode change
        builds or drops the director (never the scene) and re-lays the globe;
        any other pop knob goes to the director (onTune decides what to redo).
-       Dropping back to off re-lays the flat pool through the same swap path. */
+       Dropping back to off re-lays the flat pool through the same swap path
+       and hands the lattice + chrome back to brand blue; every change
+       re-checks the live tier's mode (?poplive, a reset). */
     const tileOwner = {
       textureManager,
       get disposed() {
@@ -701,14 +792,17 @@ export default function useGlobeScene(
             director = buildDirector();
             if (scroller) scroller.assignRow = director.assignRow;
             director.relayout();
+            if (PREFERS_REDUCED_MOTION) director.greet(false);
           } else if (!want && director) {
             director.dispose();
             director = null;
             if (scroller) scroller.assignRow = null;
             relayoutFlat();
+            onPopWorld(null, { animate: !PREFERS_REDUCED_MOTION });
           } else if (director && key !== 'mode') {
             director.onTune(key);
           }
+          scheduler?.setShared(!!director && POP_TUNING.live === 'shared');
         })
       : null;
     apiRef.current.getFocusProject = () => (director ? director.focusProject() : null);
@@ -857,6 +951,9 @@ export default function useGlobeScene(
       // Per frame — the polar scroll is continuous. Null-safe: lab/RM never
       // construct it. Runs before render so the frame reflects it, and before
       // the scheduler tick so prominence scores read the fresh centerDir.
+      // The population clock (?popmode) runs first: a tide queues its surge
+      // on the scroller, which lands it this same frame.
+      if (director) director.update(step);
       if (scroller) scroller.update(step);
 
       renderer.render(scene, camera);
@@ -952,6 +1049,7 @@ export default function useGlobeScene(
       apiRef.current.popNext = () => {};
       apiRef.current.popShow = () => {};
       if (unsubscribePop) unsubscribePop();
+      if (accentTween) accentTween.kill();
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
       fadeBackIn.cancel();

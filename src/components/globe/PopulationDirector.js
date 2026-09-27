@@ -12,14 +12,29 @@
  * first reveal is clustered worlds; after that MeridianScroll asks assignRow()
  * for every row it re-births at the top pole, so the grouping keeps pouring
  * in with the brand motion and a cluster travels pole-to-pole with its tiles.
+ * One world (?popgroup=1, the default since Nathan's P1 read on 09-26: two
+ * worlds sharing the globe weaken "we build whole worlds") is one region —
+ * its media interleaved (?poplayout=mix) or split into regions by media kind
+ * (facets).
  *
- * P1 = Tides holds: the grouping changes only from the bench — ⏭ next (relay:
- * A+B → B+C), a reroll or a layout knob — as a warm, staggered blink relayout
- * (tileSwap.applyPlan). The current AND the next grouping's textures are
- * held warm (the director's own refs), so a swap never waits on the network
- * — ⏭ lands on decoded textures, as P2's hold timer will. Swaps land as
- * cuts whenever the screens aren't free to blink (intro hold, entrance
- * cascade, the commit's blue fill, reduced motion).
+ * P2 — the world changes on its own. It holds ?pophold s (± ?popholdjit),
+ * then the next one takes the globe through a transition from ?poptransset:
+ *   tide   the scroll surges one full span over ?poptrans s on the house
+ *          out-curve (power3.out: steep launch, smooth settle into the rest
+ *          pace, no overshoot) — every row re-births once, so the new world
+ *          pours in from the top pole while the old one drains out the
+ *          bottom; no tile changes in place (the persistence doctrine)
+ *   blink / surge   in place, staggered across ?poptrans (tileSwap)
+ *   cut    at once
+ * ?popchaos 0 walks the /work order and the transition set in turn; 1 draws a
+ * random next world (never a recent one) and transition every change. The
+ * next world is decided — and its textures warmed — as each hold begins, so a
+ * change never waits on the network. The clock (update, from the scene's
+ * tick) runs only while the screens are free to animate (canAnimate) and the
+ * commit hasn't frozen the globe; under reduced motion the first world holds.
+ * onWorld(world, { animate }) fires once the entrance has landed (greet) and
+ * as each later world takes the globe — the scene tints the lattice and the
+ * home chrome with its projectColor. ⏭ on the bench runs the next change now.
  *
  * Tile assets are decorated once with their world (stats/focus) and the chip
  * copy HeroLabels reads (clientName, services).
@@ -37,6 +52,8 @@ const RELAYOUT_SPREAD = 0.6; // s — bench relayout stagger window
 const RELAYOUT_DUR = 0.45; // s — one tile's blink
 const GRID = 64; // tape grid key stride (lon < GRID)
 const FACING = 0.05; // prominence floor for "visible" in the stats
+const RECENT = 4; // chaos never jumps back to one of the last RECENT worlds
+const TIDE_EASE = gsap.parseEase('power3.out');
 
 export default class PopulationDirector {
   /**
@@ -45,26 +62,34 @@ export default class PopulationDirector {
    * @param {Array} opts.worlds - buildWorldPools output
    * @param {TextureManager} opts.textureManager
    * @param {() => (LivePanelScheduler|null)} opts.getScheduler
+   * @param {() => (MeridianScroll|null)} [opts.getScroller] - the tide's travel
    * @param {() => THREE.Euler} opts.getRotation - the globe's live rotation
-   * @param {() => boolean} opts.canAnimate - false → swaps land as cuts
+   * @param {() => boolean} opts.canAnimate - false → swaps land as cuts, the clock waits
+   * @param {(world: Object|null, info: { animate: boolean }) => void} [opts.onWorld]
    */
-  constructor({ panels, worlds, textureManager, getScheduler, getRotation, canAnimate }) {
+  constructor({ panels, worlds, textureManager, getScheduler, getScroller = () => null, getRotation, canAnimate, onWorld = null }) {
     this.panels = panels;
     this.worlds = worlds;
     this.textureManager = textureManager;
     this.getScheduler = getScheduler;
+    this.getScroller = getScroller;
     this.getRotation = getRotation;
     this.canAnimate = canAnimate;
+    this.onWorld = onWorld;
     this.disposed = false;
     this.frozen = false;
     this.busy = false;
     this.busyCall = null;
     this.layoutToken = 0;
+    this.changing = null; // the timed change in flight (tide | blink | surge | cut)
+    this.tide = null; // { t, T, D, done, scroller } while a tide rolls
+    this.greeted = false; // the first world announced (after the entrance)
     this.flips = 0; // tiles re-laid in place (monotonic; births aren't flips)
     this.flipsSampled = 0;
     this.countFlip = () => (this.flips += 1);
     this.warm = new Map(); // texture key → its load promise; one director ref per key
     this.upcoming = null; // the next grouping, pre-warmed
+    this.upcomingKind = null; // …and the transition that will bring it
     this.lon = 1 + Math.max(...panels.map((p) => p.lonIndex));
     const byRow = new Map();
     for (const p of panels) {
@@ -79,23 +104,27 @@ export default class PopulationDirector {
     this.assignRow = this.assignRow.bind(this);
     this.reseed();
     this.grouping = this.makeGrouping();
+    this.beginHold();
   }
 
-  /** Seed-derived start: which world leads the first grouping. */
+  /** Seed-derived start: which world leads first; the change history resets. */
   reseed() {
     this.seed = TUNING.seed;
-    this.start = Math.floor(mulberry32(hashSeed(`${this.seed}:start`))() * this.worlds.length);
+    this.lead = Math.floor(mulberry32(hashSeed(`${this.seed}:start`))() * this.worlds.length);
+    this.history = [];
     this.step = 0;
   }
 
-  makeGrouping(forcedPattern = null, step = this.step) {
+  makeGrouping({ pattern = null, step = this.step, lead = this.lead } = {}) {
     const n = this.worlds.length;
     const size = Math.min(TUNING.group, n);
-    const lead = (this.start + step) % n;
     const members = Array.from({ length: size }, (_, i) => (lead + i) % n);
     const seed = hashSeed(`${this.seed}:${step}`);
     const set = TUNING.patterns.length ? TUNING.patterns : POP_DEFAULTS.patterns;
-    const name = forcedPattern || set[Math.floor(mulberry32(seed ^ 0x9e3779b9)() * set.length)];
+    const name =
+      size === 1
+        ? TUNING.layout // one world: mix | facets
+        : pattern || set[Math.floor(mulberry32(seed ^ 0x9e3779b9)() * set.length)];
     const kinds = MEDIA_KINDS[TUNING.media] ?? null;
     let pools = members.map((w) => selectPool(this.pools[w], { kinds, cap: TUNING.cap }));
     let regionWorld = members;
@@ -189,13 +218,12 @@ export default class PopulationDirector {
     return [...plan].map(([p, a]) => loadTile(this, p, a));
   }
 
-  /** Hold a ref on every asset of the current grouping and the next one.
-   *  Resolves once the CURRENT grouping's textures have settled — including
-   *  keys an earlier prefetch is still loading. */
+  /** Hold a ref on every asset of the current grouping, and plan + warm the
+   *  next one. Resolves once the CURRENT grouping's textures have settled —
+   *  including keys an earlier prefetch is still loading. */
   warmGrouping() {
     const now = this.warmPools(this.grouping.pools);
-    this.upcoming = this.makeGrouping(null, this.step + 1);
-    this.warmPools(this.upcoming.pools);
+    this.planNext();
     return now;
   }
 
@@ -221,11 +249,119 @@ export default class PopulationDirector {
     }
   }
 
-  /** Re-lay the whole globe with a fresh grouping (bench actions). */
-  relayout({ reseed = false, pattern = null } = {}) {
-    if (this.disposed) return;
-    if (reseed) this.reseed();
-    this.grouping = this.makeGrouping(pattern);
+  /* — The change clock. Every draw is seeded (seed : step : what), so a
+     pinned ?popseed replays the same sequence of worlds, holds and
+     transitions. — */
+
+  /** The world after the current one: the /work order (A+B → B+C for 2–3
+   *  worlds), or — with probability ?popchaos — any world not shown lately. */
+  nextLead(step) {
+    const n = this.worlds.length;
+    if (n < 2) return this.lead;
+    const rand = mulberry32(hashSeed(`${this.seed}:${step}:next`));
+    if (rand() >= TUNING.chaos) return (this.lead + 1) % n;
+    const recent = new Set([this.lead, ...this.history.slice(0, Math.min(RECENT, n - 2))]);
+    const open = this.worlds.map((_, i) => i).filter((i) => !recent.has(i));
+    return open[Math.floor(rand() * open.length)];
+  }
+
+  /** The transition that brings step's world: the set in turn, or — with
+   *  probability ?popchaos — any of it. */
+  nextKind(step) {
+    const set = TUNING.transitions.length ? TUNING.transitions : POP_DEFAULTS.transitions;
+    const rand = mulberry32(hashSeed(`${this.seed}:${step}:kind`));
+    return rand() < TUNING.chaos ? set[Math.floor(rand() * set.length)] : set[step % set.length];
+  }
+
+  planNext() {
+    const step = this.step + 1;
+    this.upcoming = this.makeGrouping({ step, lead: this.nextLead(step) });
+    this.upcomingKind = this.nextKind(step);
+    this.warmPools(this.upcoming.pools);
+  }
+
+  beginHold() {
+    const r = mulberry32(hashSeed(`${this.seed}:${this.step}:hold`))();
+    this.holdLeft = TUNING.hold * (1 + TUNING.holdJit * (2 * r - 1));
+  }
+
+  /** Per rendered frame, from the scene's tick (before the scroll update, so
+   *  a tide's travel lands the same frame). */
+  update(dt) {
+    if (this.disposed || this.frozen || !this.canAnimate()) return;
+    if (!this.greeted) this.greet(true);
+    if (this.tide) {
+      this.rollTide(dt);
+      return;
+    }
+    if (this.busy || this.worlds.length < 2) return;
+    this.holdLeft -= dt;
+    if (this.holdLeft <= 0) this.advance();
+  }
+
+  /** The first world takes its colour — after the entrance has landed (the
+   *  intro is the brand's own blue), or at once (reduced motion). */
+  greet(animate) {
+    if (this.greeted || this.disposed) return;
+    this.greeted = true;
+    this.emitWorld(animate);
+  }
+
+  emitWorld(animate) {
+    if (!this.greeted || !this.onWorld) return;
+    this.onWorld(this.worlds[this.lead] ?? null, { animate });
+  }
+
+  /** The next world takes the globe (the hold ran out, or ⏭). */
+  advance() {
+    if (this.disposed || this.busy) return;
+    const animate = !this.frozen && this.canAnimate();
+    const kind = animate ? this.upcomingKind : 'cut';
+    this.step += 1;
+    this.history = [this.lead, ...this.history].slice(0, RECENT);
+    this.grouping = this.upcoming ?? this.makeGrouping({ lead: this.nextLead(this.step) });
+    this.lead = this.grouping.members[0];
+    this.changing = kind;
+    this.emitWorld(animate);
+    if (kind === 'tide' && this.startTide()) return;
+    // No scroll to surge (the scene is still held) → the tide lands as a blink.
+    const dur = Math.min(Math.max(TUNING.trans * 0.3, 0.3), 0.9);
+    this.layIn({ style: kind === 'tide' ? 'blink' : kind, spread: Math.max(TUNING.trans - dur, 0), dur });
+  }
+
+  startTide() {
+    const scroller = this.getScroller();
+    if (!scroller) return false;
+    this.busy = true;
+    this.tide = { t: 0, T: TUNING.trans, D: scroller.span, done: 0, scroller };
+    return true;
+  }
+
+  rollTide(dt) {
+    const td = this.tide;
+    td.t = Math.min(td.t + dt, td.T);
+    const to = TIDE_EASE(td.t / td.T) * td.D;
+    td.scroller.advance(to - td.done);
+    td.done = to;
+    if (td.t >= td.T) {
+      this.tide = null;
+      this.settle();
+    }
+  }
+
+  /** A change (or a bench relayout) has landed: the next world is planned and
+   *  warmed, its hold starts, the textures nobody needs go cold. */
+  settle() {
+    this.busy = false;
+    this.changing = null;
+    this.planNext();
+    this.beginHold();
+    this.releaseCold();
+  }
+
+  /** Re-lay the whole globe onto the current grouping, in place: a staggered
+   *  `style` swap per tile (a cut when the screens aren't free to animate). */
+  layIn({ style = 'blink', spread = RELAYOUT_SPREAD, dur = RELAYOUT_DUR } = {}) {
     const plan = this.planAll(this.byProminence());
     const bornAt = new Map([...plan.keys()].map((p) => [p, p.tapeS]));
     const token = ++this.layoutToken;
@@ -237,21 +373,29 @@ export default class PopulationDirector {
       for (const [p, s] of bornAt) if (p.tapeS !== s) plan.delete(p);
       const { span } = applyPlan(this, plan, {
         animate: !this.frozen && this.canAnimate(),
-        spread: RELAYOUT_SPREAD,
-        dur: RELAYOUT_DUR,
+        style,
+        spread,
+        dur,
         onBound: this.countFlip,
       });
       if (this.busyCall) this.busyCall.kill();
-      this.busyCall = gsap.delayedCall(span, () => {
-        this.busy = false;
-        this.releaseCold();
-      });
+      this.busyCall = gsap.delayedCall(span, () => this.settle());
     });
   }
 
+  /** Re-lay the whole globe with a fresh grouping (bench actions). */
+  relayout({ reseed = false, pattern = null } = {}) {
+    if (this.disposed) return;
+    this.tide = null; // a bench action takes over from a rolling tide
+    this.changing = null;
+    if (reseed) this.reseed();
+    this.grouping = this.makeGrouping({ pattern });
+    this.emitWorld(true); // a reseed can change the world — and a reset the colour knob
+    this.layIn();
+  }
+
   next() {
-    this.step += 1;
-    this.relayout();
+    if (!this.busy) this.advance();
   }
 
   show(pattern) {
@@ -262,16 +406,32 @@ export default class PopulationDirector {
   onTune(key) {
     if (key === 'seed') this.relayout({ reseed: true });
     else if (key === 'patterns') {
-      if (!TUNING.patterns.includes(this.grouping.name)) this.relayout();
-    } else this.relayout();
+      if (this.grouping.members.length > 1 && !TUNING.patterns.includes(this.grouping.name)) this.relayout();
+      else if (!this.busy) this.planNext();
+    } else if (key === 'layout') {
+      if (this.grouping.members.length === 1) this.relayout();
+      else if (!this.busy) this.planNext();
+    } else if (key === 'hold' || key === 'holdJit') {
+      if (!this.busy) this.beginHold(); // a new hold starts now, on the new dial
+    } else if (key === 'transitions' || key === 'chaos') {
+      if (!this.busy) this.planNext(); // re-draw the next world + transition
+    } else if (key === 'color') this.emitWorld(true);
+    else if (key === 'trans' || key === 'live') {
+      // read at the next change / the scene swaps the live tier
+    } else this.relayout(); // media, cap, share, group, reset
   }
 
   /** The commit engaged its blue fill: land every in-flight swap now and
-   *  hold still (later relayouts cut under the blue) until unfreeze. */
+   *  hold still (later relayouts cut under the blue) until unfreeze. A tide
+   *  stops where it is; the stragglers scroll out at the rest pace. */
   freeze() {
     if (this.frozen) return;
     this.frozen = true;
     for (const p of this.panels) cancelSwap(p, this, { complete: true });
+    if (this.tide) {
+      this.tide = null;
+      this.settle();
+    }
   }
 
   unfreeze() {
@@ -291,7 +451,8 @@ export default class PopulationDirector {
 
   /** ~2 Hz from the scene's stat clock: visible shares, integrity (visible
    *  tiles showing a world of the current grouping), black tiles, live
-   *  videos per world — published as window.__swmPopStats (bench + probe). */
+   *  videos per world, the change clock — published as window.__swmPopStats
+   *  (bench + probe). */
   sample(rotation, { fps = null, gpuTextures = null, dt = 0.5 } = {}) {
     const g = this.grouping;
     const shares = new Map();
@@ -299,7 +460,9 @@ export default class PopulationDirector {
     let visible = 0;
     let black = 0;
     let inGroup = 0;
+    let liveTiles = 0;
     for (const p of this.panels) {
+      if (p.liveState === 'live') liveTiles += 1;
       if (p.parked) continue;
       if (this._v.copy(p.centerDir).applyEuler(rotation).z <= FACING) continue;
       visible += 1;
@@ -319,8 +482,13 @@ export default class PopulationDirector {
     };
     const stats = {
       mode: TUNING.mode,
-      phase: this.frozen ? 'frozen' : this.busy ? 'relayout' : 'hold',
+      phase: this.frozen ? 'frozen' : this.changing ? 'transition' : this.busy ? 'relayout' : 'hold',
       grouping: g.members.map(label),
+      world: label(this.lead),
+      next: this.upcoming ? label(this.upcoming.members[0]) : null,
+      transition: this.changing ?? this.upcomingKind,
+      holdLeft: this.busy ? null : Math.max(0, Math.round(this.holdLeft * 10) / 10),
+      color: TUNING.color ? (this.worlds[this.lead]?.projectColor ?? null) : null,
       pattern: g.name,
       seed: this.seed,
       step: this.step,
@@ -333,6 +501,8 @@ export default class PopulationDirector {
       warm: this.warm.size,
       textures: this.textureManager.cache.size,
       gpuTextures,
+      streams: this.getScheduler()?.getStats().live ?? 0, // decodes
+      liveTiles,
       live: [...live].map(([w, c]) => `${this.worlds[w].clientName} ${c}`),
       fps,
     };
@@ -343,6 +513,7 @@ export default class PopulationDirector {
 
   dispose() {
     this.disposed = true;
+    this.tide = null;
     if (this.busyCall) this.busyCall.kill();
     for (const p of this.panels) cancelSwap(p);
     for (const k of this.warm.keys()) this.textureManager.release(k);

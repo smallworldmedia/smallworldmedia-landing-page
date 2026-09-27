@@ -139,21 +139,21 @@ export function swapTile(owner, panel, asset, { style = 'blink', delay = 0, dur 
 
 /**
  * Lay a whole plan (Map panel → asset) onto the tiles. Tiles already showing
- * (or swapping to) their planned asset are left alone. animate → a blink per
- * tile at a random delay within `spread`; else a cut (the tile's live video
- * drops first). onBound(asset) fires as each tile's new texture lands.
- * Returns { flips, span } — the swaps started and the seconds until the last
- * one lands.
+ * (or swapping to) their planned asset are left alone. animate → a `style`
+ * swap (blink | surge) per tile at a random delay within `spread`; else — or
+ * style 'cut' — every tile at once (its live video drops first). onBound(asset)
+ * fires as each tile's new texture lands. Returns { flips, span } — the swaps
+ * started and the seconds until the last one lands.
  */
-export function applyPlan(owner, plan, { animate, spread = 0.6, dur = 0.45, onBound = null } = {}) {
+export function applyPlan(owner, plan, { animate, style = 'blink', spread = 0.6, dur = 0.45, onBound = null } = {}) {
   let flips = 0;
   let span = 0;
   for (const [panel, asset] of plan) {
     if (assetKey(panel.swapAsset || panel.asset) === assetKey(asset)) continue;
     flips += 1;
-    if (animate) {
+    if (animate && style !== 'cut') {
       const delay = Math.random() * spread;
-      swapTile(owner, panel, asset, { style: 'blink', delay, dur, onBound });
+      swapTile(owner, panel, asset, { style, delay, dur, onBound });
       span = Math.max(span, delay + dur);
     } else {
       cancelSwap(panel);

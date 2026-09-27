@@ -76,6 +76,7 @@ import {
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
 import { POP_TUNE_ACTIVE } from './globe/popConfig.js';
+import { applyNavAccent, clearNavAccent } from '../lib/navAccent.js';
 import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
 import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from './SiteFooter.jsx';
 // 08-30 (3), Nathan: the home→/work transition carries the FP→detail
@@ -509,6 +510,27 @@ export default function Hero({ globeAssets, globeWorlds }) {
     };
   }, []);
 
+  // Population worlds (?popmode): the world on the globe tints the home
+  // chrome — its projectColor rides the same <html> accent broadcast /work
+  // uses (navAccent), scoped by html.pop-tint (global.css), and colours the
+  // commit's passage (worldColorRef → swm:envelop). No world (off, or
+  // ?popcolor=0) eases back to brand blue. On a route swap the swap has
+  // already wiped <html> and RouteFill sets the next route's accent — only
+  // an unmount that leaves the tint in place clears it.
+  const worldColorRef = useRef(null);
+  useEffect(() => {
+    const api = sceneApiRef.current;
+    if (!api?.onWorldChange) return undefined;
+    const unsub = api.onWorldChange(({ color, animate }) => {
+      worldColorRef.current = color;
+      applyNavAccent(color || undefined, undefined, animate, { tint: 'pop-tint' });
+    });
+    return () => {
+      unsub();
+      if (document.documentElement.classList.contains('pop-tint')) clearNavAccent();
+    };
+  }, []);
+
   // Blob-tracking labels (chunk 6) — on by default now (TUNING.labels;
   // ?herolabels=0 forces off) with RM's outer guard here (HeroLabels dual-
   // guards inside). Same post-hydration gate — the URL-seeded flag must
@@ -646,7 +668,9 @@ export default function Hero({ globeAssets, globeWorlds }) {
         // loader: true — the home→/work passage shows the overviews_loading
         // bar on the RouteFill while the World builds (08-25; other
         // passages stay bare).
-        new CustomEvent('swm:envelop', { detail: { duration: HANDOFF_COVER_SECONDS, loader: true } })
+        new CustomEvent('swm:envelop', {
+          detail: { duration: HANDOFF_COVER_SECONDS, loader: true, color: worldColorRef.current || undefined },
+        })
       );
       navigate('/work');
     };
@@ -776,9 +800,12 @@ export default function Hero({ globeAssets, globeWorlds }) {
     const coverS = enterMs / 1000;
     window.dispatchEvent(
       // loader: true — home→/work still shows overviews_loading while the
-      // World builds (the FP→detail passage stays bare). Brand blue: home
-      // never knows the arriving World's accent, and home IS blue.
-      new CustomEvent('swm:envelop', { detail: { duration: coverS, loader: true } })
+      // World builds (the FP→detail passage stays bare). The fill wears the
+      // population world's accent when one holds the globe (?popmode) —
+      // otherwise brand blue: home IS blue.
+      new CustomEvent('swm:envelop', {
+        detail: { duration: coverS, loader: true, color: worldColorRef.current || undefined },
+      })
     );
     // 08-31: the tagline's letters cut out in random order under the rising
     // cover — the FP→detail letter-exit carried to this passage (the
@@ -939,9 +966,11 @@ export default function Hero({ globeAssets, globeWorlds }) {
     // writes). Hover and the scroll charge pour WHITE over the breathing
     // base (ctaPct swamps the pulse — no gating logic), the label crossing
     // to blue for legibility — the chip lands on /work already wearing that
-    // page's white enter_world skin.
-    '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--color-electric-blue), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-white) ${ctaPct}%)`,
-    '--cta-fg': `color-mix(in srgb, var(--color-white), var(--color-electric-blue) ${ctaPct}%)`,
+    // page's white enter_world skin. Under a population world (?popmode) the
+    // blue is the world's accent: the fill takes it, the label its readable
+    // ink, the hovered label its accent-as-text (html.pop-tint).
+    '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-white) ${ctaPct}%)`,
+    '--cta-fg': `color-mix(in srgb, var(--project-color-fg, var(--color-white)), var(--project-color-text, var(--color-electric-blue)) ${ctaPct}%)`,
   };
 
   return (

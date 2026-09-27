@@ -1,7 +1,8 @@
 // Globe-worlds population modes (docs/globe-worlds-plan.md) — the pure
 // pieces: buildWorldPools over the real FEATURED_WORLDS_QUERY (groq-js, the
-// cms-frontend fixture idiom), worldPatterns' tape layouts, and the
-// PopulationDirector's assignment + texture ownership on fake panels.
+// cms-frontend fixture idiom), worldPatterns' tape layouts, the
+// PopulationDirector's assignment, texture ownership and change clock on
+// fake panels, and the scheduler's shared streams on a fake video pool.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
@@ -14,6 +15,7 @@ import { initialBirth } from '../../src/components/globe/MeridianScroll.js'
 import { assetKey } from '../../src/components/globe/TextureManager.js'
 import { loadTile } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
+import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
 import { TUNING, POP_DEFAULTS } from '../../src/components/globe/popConfig.js'
 
 /* — buildWorldPools over the real query — */
@@ -156,7 +158,23 @@ function fakeScene() {
         tapeS: initialBirth(row, ROWS),
         panelAspect: 1,
         centerDir: new THREE.Vector3(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)),
-        mesh: { material: { uniforms: { uPower: { value: 1 }, uBlueMix: { value: 0 }, uHasTexA: { value: 0 }, texA: { value: null }, uvScaleA: v2(), uvOffsetA: v2() } } },
+        mesh: {
+          material: {
+            uniforms: {
+              uPower: { value: 1 },
+              uBlueMix: { value: 0 },
+              uHasTexA: { value: 0 },
+              texA: { value: null },
+              uvScaleA: v2(),
+              uvOffsetA: v2(),
+              texB: { value: null },
+              uVideoB: { value: 0 },
+              uvScaleB: v2(),
+              uvOffsetB: v2(),
+              uMix: { value: 0 },
+            },
+          },
+        },
       })
     }
   }
@@ -206,7 +224,7 @@ function assertNeighboursDiffer(panels) {
 }
 
 test('director: clustered layout follows the pattern, no neighbour repeats, rows keep pouring in', () => {
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42 })
+  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, group: 2, chaos: 0 })
   const { panels, textureManager } = fakeScene()
   const director = new PopulationDirector({
     panels,
@@ -241,7 +259,7 @@ test('director: clustered layout follows the pattern, no neighbour repeats, rows
 })
 
 test('director: texture refs balance — one per tile, plus the warm set until dispose', () => {
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 9 })
+  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 9, group: 2, chaos: 0 })
   const { panels, textureManager } = fakeScene()
   const director = new PopulationDirector({
     panels,
@@ -256,9 +274,10 @@ test('director: texture refs balance — one per tile, plus the warm set until d
   // ⏭ lands warm: the next grouping (relay A+B → B+C) is already held.
   assert.deepEqual(director.upcoming.members, [director.grouping.members[1], (director.grouping.members[1] + 1) % 3])
   for (const a of director.upcoming.pools.flat()) assert.ok(director.warm.has(assetKey(a)), assetKey(a))
-  // A re-lay onto a new grouping (cut path), then the cold refs drop.
+  // A re-lay onto the next grouping (the cut path), then the cold refs drop.
   director.step += 1
-  director.grouping = director.makeGrouping()
+  director.grouping = director.upcoming
+  director.lead = director.grouping.members[0]
   const plan = director.planAll(director.byProminence())
   for (const [p, a] of plan) loadTile(director, p, a)
   director.warmGrouping()
@@ -266,4 +285,128 @@ test('director: texture refs balance — one per tile, plus the warm set until d
   assert.equal(textureManager.refs(), panels.length + director.warm.size)
   director.dispose()
   assert.equal(textureManager.refs(), panels.length) // the tiles still own what they show
+})
+
+/* — P2: one world at a time, changing on its own clock — */
+function makeDirector(tuning, opts = {}) {
+  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides' }, tuning)
+  const { panels, textureManager } = fakeScene()
+  const director = new PopulationDirector({
+    panels,
+    worlds: worldsFixture(),
+    textureManager,
+    getScheduler: () => null,
+    getRotation: () => new THREE.Euler(),
+    canAnimate: () => false,
+    ...opts,
+  })
+  director.initialLayout(director.byProminence())
+  return { director, panels, textureManager }
+}
+const settleTicks = (ms = 0) => new Promise((r) => setTimeout(r, ms))
+
+test('director: a world holds, then the next pours in on a tide — one full span, steep launch, no overshoot', () => {
+  const seen = []
+  const scroller = { span: 10, steps: [], advance(d) { this.steps.push(d) } }
+  const { director } = makeDirector(
+    { seed: 3, chaos: 0, hold: 2, holdJit: 0, trans: 1, transitions: ['tide'] },
+    { getScroller: () => scroller, canAnimate: () => true, onWorld: (w, info) => seen.push([w.slug, info.animate]) },
+  )
+  assert.equal(director.grouping.members.length, 1) // one world by default (Nathan, 09-26)
+  const first = director.lead
+  director.update(0.1) // the entrance has landed — the first world takes its colour
+  assert.deepEqual(seen, [[director.worlds[first].slug, true]])
+  let frames = 1
+  while (!director.tide && frames < 100) {
+    director.update(0.1)
+    frames += 1
+  }
+  assert.ok(frames >= 19 && frames <= 21, `held ${frames} frames`)
+  assert.equal(director.lead, (first + 1) % 3) // chaos 0 walks the /work order
+  assert.deepEqual(seen.at(-1), [director.worlds[director.lead].slug, true]) // the colour turns as the tide starts
+  assert.equal(director.sample(new THREE.Euler()).phase, 'transition')
+  while (director.tide) director.update(1 / 60)
+  const total = scroller.steps.reduce((a, b) => a + b, 0)
+  assert.ok(Math.abs(total - scroller.span) < 1e-9, `rolled ${total}`) // every row re-births once
+  assert.ok(scroller.steps.every((d) => d >= 0)) // never backwards — no overshoot
+  assert.ok(scroller.steps[0] > scroller.steps.at(-1) * 100) // steep launch, smooth settle
+  const stats = director.sample(new THREE.Euler())
+  assert.equal(stats.phase, 'hold')
+  assert.equal(stats.world, director.worlds[director.lead].clientName)
+  assert.equal(stats.holdLeft, 2)
+  director.dispose()
+})
+
+test('director: chaos 0 walks the /work order and the set in turn; chaos 1 never revisits a recent world', () => {
+  const eight = Array.from({ length: 8 }, (_, i) => ({ slug: `w${i}`, clientName: `W${i}`, title: null, services: [], assets: pool(4, 'video', `w${i}-`) }))
+  const set = ['tide', 'blink', 'cut']
+  const { director } = makeDirector({ seed: 11, chaos: 0, transitions: set }, { worlds: eight })
+  for (let step = 1; step <= 6; step++) {
+    assert.equal(director.nextLead(step), (director.lead + 1) % 8)
+    assert.equal(director.nextKind(step), set[step % 3])
+  }
+  TUNING.chaos = 1
+  const kinds = new Set()
+  for (let step = 1; step <= 60; step++) {
+    const lead = director.nextLead(step)
+    assert.ok(![director.lead, ...director.history].includes(lead), `step ${step}: ${lead}`)
+    kinds.add(director.nextKind(step))
+    director.history = [director.lead, ...director.history].slice(0, 4)
+    director.lead = lead
+  }
+  assert.equal(kinds.size, set.length) // every transition in the set gets drawn
+  director.dispose()
+})
+
+test('director: an in-place change re-lays every tile onto the next world at once (cut)', async () => {
+  const seen = []
+  const { director, panels, textureManager } = makeDirector({ seed: 4, chaos: 0 }, { onWorld: (w) => seen.push(w.slug) })
+  director.greet(false) // reduced motion's greeting — at once
+  director.next() // the screens aren't free to animate → a cut
+  assert.equal(director.changing, 'cut')
+  await settleTicks() // the warm textures settle, the plan lands
+  for (const p of panels) assert.equal(p.asset.world, director.lead)
+  assert.deepEqual(seen, [director.worlds[(director.lead + 2) % 3].slug, director.worlds[director.lead].slug])
+  await settleTicks(60) // the settle (a zero-length delayedCall on the ticker)
+  assert.equal(director.busy, false)
+  assert.equal(textureManager.refs(), panels.length + director.warm.size)
+  director.dispose()
+})
+
+test('scheduler: shared streams — one decode per clip lights every copy of it', async () => {
+  const { panels, textureManager } = fakeScene()
+  const clips = ['c0', 'c1', 'c2'].map((id) => ({ kind: 'video', playbackId: id, videoAspectRatio: '16:9' }))
+  panels.forEach((p, i) => {
+    p.asset = clips[i % clips.length]
+    p.parked = false
+  })
+  const pool = {
+    assigned: [],
+    released: [],
+    assign(slot, id) {
+      this.assigned.push(id)
+      return Promise.resolve({ videoWidth: 16, videoHeight: 9 })
+    },
+    releaseSlot(slot) {
+      this.released.push(slot)
+    },
+  }
+  const scheduler = new LivePanelScheduler({ panels, assets: clips, poolHandle: pool, textureManager, cycleThumbnails: false })
+  scheduler.setShared(true)
+  const rot = new THREE.Euler()
+  scheduler.update(rot, 0, null)
+  await settleTicks()
+  assert.equal(pool.assigned.length, 2) // two new streams per update, one decode each
+  scheduler.update(rot, 0.5, null)
+  await settleTicks()
+  assert.deepEqual([...pool.assigned].sort(), ['c0', 'c1', 'c2']) // never a second decode of a clip
+  assert.ok(panels.every((p) => p.liveState === 'live')) // every copy joined
+  assert.equal(scheduler.getStats().live, 3)
+  scheduler.notifyContentChange(panels[0]) // a recycle: that copy leaves, the stream plays on
+  assert.equal(panels[0].liveState, null)
+  assert.equal(scheduler.streams.size, 3)
+  scheduler.setShared(false) // back to one decode per tile: everything drops first
+  assert.equal(pool.released.length, 3)
+  assert.ok(panels.every((p) => !p.liveState && p.mesh.material.uniforms.uMix.value === 0))
+  scheduler.dispose()
 })
