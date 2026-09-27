@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-26*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -37,7 +37,12 @@ bugs. Footer exits are masked via `--footer-peak`, never faded.
 
 Globe tiles: `globe/tileSwap.js` is the one refcount-safe way to put an asset on a tile (`loadTile`,
 `heldThumbId` ownership). A tile's asset changes only where its screen shows no media (the parked
-pole, a blink to black, a blue surge, a cut), never through a cross-dissolve.
+pole, a blink to black, a blue surge, a cut), never through a cross-dissolve. A population-mode
+world change defaults to the tide: `MeridianScroll.advance()` surges the scroll one full span, so the
+next world arrives row by row from the top pole.
+
+Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
+world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
 
 ## Tunables and tune panels
 - Idiom: module-level `PARAMS = new URLSearchParams(location.search)` (null on server) with
@@ -48,9 +53,12 @@ pole, a blink to black, a blue surge, a cut), never through a cross-dissolve.
   byte-identical: `?lenistune`, `?footertune`, `?herotune`, `?committune`, `?entertune`, `?texttune`,
   `?scrimtune`, `?fp1tune`, `?poptune`, `?debug` (process), `?fpgrid=1|2|3`, `?pager=rail`. Phone-sized
   benches start collapsed to a one-line chip (`?debug` process, `?deckdebug`, `?poptune`).
-- Inventory: `docs/tunables-guide.md` (295 params). After adding/renaming/baking a param run
-  `node scripts/tunables-keys.mjs --check` and update the doc. Same-key collisions across routes
-  and `?lenistune=1` silently reverting the Lenis bake are known traps.
+- Inventory: `docs/tunables-guide.md` (303 keys). After adding/renaming/baking a param run
+  `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
+  idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
+  regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
+  the 16 pop keys until the tuple regex landed.
+  Same-key collisions across routes and `?lenistune=1` silently reverting the Lenis bake are known traps.
 
 ## Rendering traps (learned)
 - Element `opacity < 1` composites a `backdrop-filter` over the sharp original: fade the background
@@ -69,7 +77,10 @@ pole, a blink to black, a blue surge, a cut), never through a cross-dissolve.
   `scripts/globe-probe.mjs` shares its launch doctrine for the home globe.
 - Probe output paths: derive them with `fileURLToPath(import.meta.url)`. `new URL(import.meta.url).pathname`
   percent-encodes the Dropbox path's spaces and mkdirs a stray `Small%20World%20Media` tree beside the
-  real one (`pager-probe.mjs` still does, so pass it `--out`).
+  real one. Both probes are fixed on `refine/globe-worlds` (d4f471c); until that merges,
+  `feature/v1-launch`'s `pager-probe.mjs` still needs `--out`.
+- Pixel reads on the dev server: remove `astro-dev-toolbar` first. It sits bottom-centre over the
+  page (globe-probe's `--paint` does this).
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 

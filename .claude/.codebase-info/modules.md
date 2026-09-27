@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-26*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -19,21 +19,26 @@
 
 ## Globe (`src/components/globe/`)
 `VideoGlobe.jsx` (component) · `useGlobeScene.js` (the only three.js↔React boundary; `gsap.ticker`
-loop, `forceContextLoss` teardown) · `buildGlobeGeometry.js` (panelized sphere + pole wedges) ·
+loop, `forceContextLoss` teardown; under `?popmode` the world-colour ink tween and the api's
+`onWorldChange`) · `buildGlobeGeometry.js` (panelized sphere + pole wedges) ·
 `panelMaterial.js` (unlit shader: cover-fit, `uMix` A↔B, `uPower` cascade, `uBlueMix`) · `cascade.js`
-· `LivePanelScheduler.js` (~2 Hz promote/demote; `dropLive` under a swap) · `VideoSlotPool.jsx`
+· `LivePanelScheduler.js` (~2 Hz promote/demote; `dropLive` under a swap; `setShared` = one decode
+per clip on every tile showing it) · `VideoSlotPool.jsx`
 (fixed HLS pool) · `TextureManager.js` (refcounted Mux thumbnails + square Sanity stills, keyed by
 `assetKey`) · `buildAssetPool.js` (pure build-time ordering) · `MeridianScroll.js` (row conveyor;
-stamps tape coordinates `(lonIndex, tapeS)`, optional `assignRow` hook) · `InteractionController.js`
+stamps tape coordinates `(lonIndex, tapeS)`, optional `assignRow` hook, `advance()` extra travel
+for the tide) · `InteractionController.js`
 (yaw/pitch skin over `lib/dragMomentum`) · `globeConfig.js` (tunables; re-exports drag constants from
 `dragMomentum`).
 
 **Population modes** (branch `refine/globe-worlds`, `docs/globe-worlds-plan.md`; built only under
 `?popmode`, else the globe is unchanged): `buildWorldPools.js` (pure: `FEATURED_WORLDS_QUERY` → one
 pool per featured project, /work showcase parity) · `worldPatterns.js` (pure, seeded cluster patterns
-over the tape) · `PopulationDirector.js` (tile → world assignment, current + next grouping held warm,
-freeze under the commit's blue, publishes `window.__swmPopStats`) · `tileSwap.js` (THE refcount-safe
-`loadTile` + blink / surge / cut swaps) · `popConfig.js` (`?pop*` TUNING + pub/sub).
+over the tape) · `PopulationDirector.js` (one world at a time by default; tile → world assignment;
+the change clock, a hold then a tide / blink / surge / cut; current + next world held warm; freeze
+under the commit's blue; `onWorld` feeds the scene's colour; publishes `window.__swmPopStats`) ·
+`tileSwap.js` (THE refcount-safe `loadTile` + blink / surge / cut swaps, `applyPlan`) ·
+`popConfig.js` (`?pop*` TUNING + pub/sub).
 
 ## Hero (`src/components/hero/`)
 `heroConfig.js` (TUNING store + pub/sub + ease paths) · `heroOverlay.js` (scene→DOM disc projection)

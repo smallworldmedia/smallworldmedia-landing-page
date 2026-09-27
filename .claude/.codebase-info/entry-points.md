@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-26*
 
 ## Routes
 
@@ -39,10 +39,10 @@ purpose), server-computed `body.route-*` classes, skip link, hidden Netlify cont
 | `npm run preview` | serve `dist/` |
 | `npm run cms -- plan|apply|verify …` | CMS ingest CLI (`scripts/cms.mjs`), see `cms-pipeline.md` |
 | `npm run test:cms` | `node --test` over the CMS suites (`scripts/test/cms/`, `cms-*`, `legacy-cms`) |
-| `node --test scripts/test/globe-worlds.test.mjs` | the home globe population modes' pure pieces (world pools, patterns, director ownership); not in `test:cms` |
+| `node --test scripts/test/globe-worlds.test.mjs` | the home globe population modes' pure pieces (world pools, patterns, director ownership, the change clock, shared streams); not in `test:cms` |
 | `node scripts/tunables-keys.mjs --check` | fails if a `?param` in code is missing from `docs/tunables-guide.md` |
 | `node scripts/pager-probe.mjs …` | headless Playwright probe of `/work` pager scenarios |
-| `node scripts/globe-probe.mjs [--mobile] [--rm] [--next=N] [--mode=off]` | headless probe of the home globe's population modes (dev server on :4322, the worktree port): samples `window.__swmPopStats`, gates integrity, black tiles, texture count, quiet holds and ⏭ landing; screenshots to `scripts/shots/globe-*` |
+| `node scripts/globe-probe.mjs [--mobile] [--rm] [--next=N] [--mode=off] [--paint] [--channel=chrome]` | headless probe of the home globe's population modes (dev server on :4322, the worktree port): samples `window.__swmPopStats` and the `<html>` tint. It gates integrity, black tiles, texture count, quiet holds, ⏭ landing, the world changing on its own clock, and the chrome wearing the world's colour. `--paint` checks that the hero gradient fades through in-between colours. Screenshots go to `scripts/shots/globe-*` |
 | `node scripts/process-probe.mjs [--mobile] [--secs=30]` | headless probe of the `/process` discovery slide: samples `window.__swmProcessStats` (published by `ProcessDebugPanel` under `?debug=1`) for chip count, duplicate terms, overlaps, and each tour hold's subject vs seat, with a screenshot per hold |
 | `node scripts/prep-client-logos.mjs [--check]` | normalize `Client Logos/` into `src/assets/client-logos/` |
 | `node scripts/generate-manifests.mjs "Client" [--dry-run]` | scaffold TBD manifests |

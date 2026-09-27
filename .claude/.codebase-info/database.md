@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-26*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -36,4 +36,6 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 ## Content flow on the site
 `work/detail/buildContentFlow.js` partitions a project's assets into hero / showcase / brandDecks
 (cap 12 pages) / albumArt buckets; the same function feeds both `/work` Worlds and the detail grid.
-Project accent colors reach CSS through `lib/projectColor.js` as `--project-color*`.
+Project accent colors reach CSS through `lib/projectColor.js` as `--project-color*`. On home
+(branch `refine/globe-worlds`, `?popcolor`), the globe world's `projectColor` also drives the globe's
+ink and the home chrome.

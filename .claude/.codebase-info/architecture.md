@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-26*
 
 ## Summary
 
@@ -36,7 +36,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 
 | Component | Lives in | Responsibility |
 |---|---|---|
-| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; under `?popmode` (branch `refine/globe-worlds`) a PopulationDirector lays featured-project worlds over the tiles |
+| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; under `?popmode` (branch `refine/globe-worlds`) a PopulationDirector lays featured-project worlds over the tiles, one world at a time on its own change clock, and the world's `projectColor` tints the globe and the home chrome |
 | /work Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
 | /process | `src/components/process/` | Five-stage narrative: ScrollTrigger-driven stage machine reusing the globe geometry/material |
@@ -53,7 +53,8 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
    calls.
 2. Runtime media: images via Sanity CDN / Mux thumbnails (`globe/TextureManager.js`), video via hls.js
    into a fixed `<video>` pool (`globe/VideoSlotPool.jsx`); schedulers (`LivePanelScheduler`,
-   `world/worldLive.js`) promote a handful of visible tiles to live video at ~2 Hz.
+   `world/worldLive.js`) promote a handful of visible tiles to live video at ~2 Hz. Under `?popmode`
+   the globe scheduler shares streams: one decode per clip feeds every tile showing it (`?poplive`).
 3. Content ingest: `media/<Client>/<Collection>/_manifest.md` → `npm run cms plan` → approve →
    `apply` (Sanity docs + Mux uploads, journaled) → `verify`. See `cms-pipeline.md`.
 

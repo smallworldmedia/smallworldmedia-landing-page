@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-09-26*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -9,7 +9,7 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 
 | Event | Dispatched by | Listened by | Payload |
 |---|---|---|---|
-| `swm:envelop` | `Hero.jsx`, `work/WorldCard.jsx`, benches | `RouteFill.jsx` | `{duration, color?, loader?}` |
+| `swm:envelop` | `Hero.jsx`, `work/WorldCard.jsx`, benches | `RouteFill.jsx` | `{duration, color?, loader?}` (Hero sends the globe world's colour under `?popmode`) |
 | `swm:fill-release` | `Hero`, `FeaturedProjects`, `FeaturedProjectDetail`, `ProcessPage`, benches | `RouteFill` | — (2.5 s safety release if unclaimed) |
 | `swm:fill-progress` | gesture surfaces | `RouteFill` | `{value 0..1, duration?}` |
 | `swm:loader-start` | `Hero` (`?loaderlead`) | `RouteFill` | — |
@@ -33,17 +33,28 @@ resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
 | `data-privacy-landed` | `SiteTagline` | footer link stagger waits on it |
 | `--scrollbar-w` | `SiteShell` | re-measured on `astro:after-swap` |
 | `data-nav-accent*` | detail pages | project accent for `RouteFill` / `lib/navAccent.js` |
+| `html.fp-tint` / `html.pop-tint`, `--project-color*` | `lib/navAccent.js` (`applyNavAccent(…, { tint })`: /work → `fp-tint`, home under `?popmode` → `pop-tint`; `clearNavAccent` drops both, RouteFill on route-home / route-process) | chrome wears the accent; the classes carry the 1.7 s colour fade |
 | `body.route-home` / `body.route-process` | `BaseLayout.astro` (server) | route-scoped chrome CSS, no hydration flash |
 | `sessionStorage swm:hero-intro`, `swm:returnToWork` | `Hero`, layout script | intro mode; back-nav to /work |
 
 ClientRouter wipes every `<html>` attribute on swap; persistent islands re-assert theirs on
 `astro:after-swap`.
 
+## Scene → island subscriptions
+
+`globe/useGlobeScene.js`'s api `onWorldChange(cb)` (branch `refine/globe-worlds`) reports each world
+the PopulationDirector puts on the globe as `{slug, color, animate}` and replays the latest world to
+a late subscriber. `Hero.jsx` subscribes: it applies `pop-tint` and keeps the colour for its
+`swm:envelop` dispatches. On unmount it clears the tint only if `pop-tint` is still on `<html>`, so
+it never clobbers /work's `fp-tint` after a swap.
+
 ## Stats globals
 
 Scene → bench / probe reads, polled (no events). `window.__swmPopStats` is published ~2 Hz by
 `globe/PopulationDirector.js` whenever `?popmode` ≠ off (not `?debug`-gated; branch
-`refine/globe-worlds`) and read by `hero/PopTunePanel.jsx`'s readout and `scripts/globe-probe.mjs`.
+`refine/globe-worlds`): the world, the change clock (`phase`, `holdLeft`, `next`, `transition`),
+its colour, and video decodes vs the tiles they light (`streams`, `liveTiles`). It is read by
+`hero/PopTunePanel.jsx`'s readout and `scripts/globe-probe.mjs`.
 The `?debug`-gated `/work` globals are listed in `docs/tunables-guide.md`.
 
 ## External services
