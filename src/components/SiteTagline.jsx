@@ -38,7 +38,7 @@
  * immediately on page load"): at REST ON HOME (body.route-home, no drawer /
  * overlay / privacy [data-chrome-open], no mobile menu [data-menu-open], no
  * footer [data-footer-revealed]) the pill carries the LONG blurb — "Small
- * World Media is a multidisciplinary design studio …". Any other state, or any
+ * World Media is a multidisciplinary creative studio …". Any other state, or any
  * other route, ABBREVIATES it to the short tagline: the capsule closes in
  * from its top-right (bottom-left anchored, so the text never travels), the
  * long words drop out, the short words fade up seated. Leaving that state
@@ -79,7 +79,7 @@ export const EM_LINE = 0;
 // lines as written (nowrap); phones let them run as one wrapping paragraph.
 // "Small World Media" carries the Medium (VISUAL WORLDS' role).
 const TAGLINE_LONG_LINES = [
-  ['Small', 'World', 'Media', 'is', 'a', 'multidisciplinary', 'design', 'studio', 'that', 'specializes', 'in'],
+  ['Small', 'World', 'Media', 'is', 'a', 'multidisciplinary', 'creative', 'studio', 'that', 'specializes', 'in'],
   ['building', 'high-impact', 'brand', 'worlds', 'and', 'visuals', 'for', 'the', 'music', 'industry.'],
 ];
 const LONG_EM_WORDS = 3;
