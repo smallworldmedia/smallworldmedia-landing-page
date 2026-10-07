@@ -647,3 +647,46 @@ pools ship tagged by kind up to the hard cap.
     slice. Read by eye in `01-warm.png`: `TOBEHONEST` complete across its 3 upper-right tiles
     on both desktop and `--mobile`, and `ANDHERA RECORDS` complete across 4 lower-left tiles in
     `02-end.png`. That shot is the one that read "TOHOST" before.
+
+- 2026-10-07 · mobile home footer reveal · the scroll-up reveals the rest of the footer and the
+  logo ticker, the globe and `enter_world` rise at half the rate, and the footer text no longer
+  loads abruptly. Builds on 10-07's resting footer variant (`?footerrest` 0.62).
+  - **The rise channel.** `broadcastReveal` is the one place that holds both the progress and
+    the resting floor, so it publishes the normalization next to the raw reveal: `--footer-rise`
+    (0 in the resting pose, 1 at a full reveal), `--footer-rise-peak`, and `--footer-span`
+    (1 − rest). In JS, not as a `:root` calc — `?footerrest=1` is a legal dial and
+    `(p − 1) / (1 − 1)` is not a number. GEOMETRY rides the live rise; every FADE rides the
+    peak, because "footer exits are masked via `--footer-peak`, never faded".
+  - **The lift.** One gated custom property, `--hero-lift` under `html[data-footer-rest]`,
+    = rise × `?footerlift` × span × `--footer-panel-h`, written to the individual `translate`
+    property on the globe, the ring, the labels, the lead column and the commit fill.
+    `translate` pre-multiplies the `transform` those elements already carry from the dolly and
+    the lockup scale. Gated because `translate: 0 0px` is not `none` — ungated it would put the
+    whole hero on the compositor on the document-scroll routes too. `.hero__fill` is
+    `position: fixed; inset: 0`, so it also gets a static `bottom` bleed of one panel height;
+    lifted without it, it opens a bare strip at the bottom of the viewport.
+  - **The marks.** The client roll fades + settles over a window on the PEAK rise. Its start is
+    the FIXED POINT of its own measurement: at rise 0.6 the roll's top edge sits exactly on the
+    fold at 390×844, so the fade begins on its first visible pixel. The arithmetic guess off
+    static CSS said 0.42; a 16-step scrub said 0.66; the interpolated crossing says 0.60.
+  - **The entrance.** `STAGGER_ON = 0.85` sat above the 0.62 floor, so the resting footer's
+    stagger loop never fired and the blurb simply existed. Retired that loop (it now also
+    guards on `:not([data-footer-rest])`), and the entrance is armed inside `chromeBeat` — the
+    beat the CTA and the tagline already use — as a per-word `autoAlpha` fade with no y (the
+    sequential rise read as stutter). The hidden ground is `[data-footer-in]` in CSS, removed on
+    every bail path including a 3 s safety timer: absence means VISIBLE, so a beat that never
+    arrives costs the animation, not the text.
+  - **The lag.** The driven footer repainted through React state on every touchmove. `footerP`
+    state is gone; `paintDrivenFooter` writes the panel transform and the channel imperatively,
+    the same way scroll mode already did. On the page Nathan called laggy this matters more than
+    anything else in the round.
+  - **The measurement gap.** Nothing in the repo could move a finger, so every figure in the
+    design round was arithmetic off static CSS. `globe-probe.mjs --footer` now drives a real
+    touch scrub through CDP at a mobile viewport and asserts 12 gates on observed pixels,
+    including the two that encode the actual bugs: `liftZeroAtRest` (a lift windowed over raw
+    progress starts a third of the way up on the first paint) and `blurbNotFinalOnFirstFrame`
+    (a rAF watcher installed before any page script, because "no animation" and "an animation
+    whose threshold was never crossed" look identical once settled).
+  - Verified on this round: unit 58/58 (16 new), `tunables-keys --check` PASS (319 keys),
+    `npm run build` 23 pages, and `globe-probe --footer` 12/12 against `astro preview` —
+    panel climb 106.86px, hero lift 53.39px, ratio 0.4996 against a dialed 0.5.

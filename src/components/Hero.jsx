@@ -78,8 +78,16 @@ import {
 } from './globe/globeConfig.js';
 import { POP_TUNE_ACTIVE, TUNING as POP_TUNING } from './globe/popConfig.js';
 import { applyNavAccent, clearNavAccent } from '../lib/navAccent.js';
-import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
-import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from './SiteFooter.jsx';
+import { housePulseLoop, RELEASE_MS, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
+import SiteFooter, {
+  FOOTER_REVEAL_EVENT,
+  FOOTER_CLOSE_EVENT,
+  wipeReveal,
+  paintDrivenFooter,
+  armFooterEntrance,
+  playFooterEntrance,
+  resetFooterEntrance,
+} from './SiteFooter.jsx';
 // The studio blurb, split at its Medium emphasis — on phones it leaves the
 // tagline pill and is set in the resting footer (below).
 import { TAGLINE_LONG_SPLIT } from './SiteTagline.jsx';
@@ -230,6 +238,15 @@ const FOOTER_REST = IS_MOBILE
   ? Math.min(1, Math.max(0, PARAM('footerrest', FOOTER_REST_DEFAULT)))
   : 0;
 
+/* The resting footer's on-load entrance FAIL-OPEN deadline (10-07). The
+   entrance is armed from inside chromeBeat — the beat the CTA, the nav and
+   the tagline pill already arrive on — which lands at CHROME_BEAT_AT of the
+   settle: 0.78 × 2.2s = 1.72s on a first visit, 0.94s on a revisit. 3s is
+   comfortably past both and still bounded, so a beat that never comes at all
+   (a dead HeroIntro machine under ?intro=a|c) brings the blurb up un-animated
+   instead of leaving it blank. Absence of [data-footer-in] means VISIBLE. */
+const FOOTER_IN_SAFETY_MS = 3000;
+
 export default function Hero({ globeAssets, globeWorlds }) {
   const heroRef = useRef(null);
   const veilRef = useRef(null);
@@ -242,13 +259,20 @@ export default function Hero({ globeAssets, globeWorlds }) {
   // for a full reveal; the enter_world commit retracts it.
   // 10-07: FOOTER_REST is the FLOOR, not 0 — on phones the panel starts (and
   // returns to) the resting fraction above.
-  const [footerP, setFooterP] = useState(FOOTER_REST);
+  //
+  // 10-07 (2): no React state here any more. This used to be useState, so
+  // every touchmove frame re-rendered Hero → SiteFooter → ClientLogoTicker to
+  // recompute one inline transform and one `inert` — sixty subtree
+  // reconciliations a second beside the WebGL draw, which is the single
+  // largest per-frame cost on the page Nathan calls laggy. The panel paints
+  // itself imperatively from this one number now (paintDrivenFooter), the way
+  // scroll mode always has; the `progress` prop just seeds the resting pose.
   const footerPRef = useRef(FOOTER_REST);
   const footerWipeRef = useRef(null); // the pill's wipe tween — the user's delta kills it
   const setFooterReveal = (v) => {
     if (footerPRef.current === v) return;
     footerPRef.current = v;
-    setFooterP(v);
+    paintDrivenFooter(v);
   };
   useEffect(() => {
     const el = heroRef.current;
@@ -270,9 +294,22 @@ export default function Hero({ globeAssets, globeWorlds }) {
     };
     let touchY = null;
     let touchX = null;
+    // ── The release carry (10-07) ──
+    // Nathan's recorded curve is "no overshoot, steep launch carrying scroll
+    // momentum, smooth decel into rest", and addDelta is raw unfiltered
+    // per-frame delta: the panel stopped DEAD where the finger lifted, with
+    // no decel at all. So carry the gesture's last velocity one stall-gap
+    // further (RELEASE_MS, the house gap that already means "the finger has
+    // stopped") and settle it on the footerWipe curve — the SAME wipeReveal
+    // the pill and the close path ride, so the footer still has exactly one
+    // glide. A finger already at rest when it lifts gets no carry.
+    let vel = 0; // progress per ms, smoothed
+    let moveAt = 0;
     const onTouchStart = (e) => {
       touchY = e.touches[0].clientY;
       touchX = e.touches[0].clientX;
+      vel = 0;
+      moveAt = 0;
     };
     const onTouchMove = (e) => {
       if (touchY === null) return;
@@ -286,7 +323,16 @@ export default function Hero({ globeAssets, globeWorlds }) {
       if (!IS_MOBILE && Math.abs(x - touchX) > Math.abs(y - touchY) && footerPRef.current <= 0) {
         return;
       }
-      addDelta((touchY - y) * TOUCH_GAIN);
+      const dy = (touchY - y) * TOUCH_GAIN;
+      const now = performance.now();
+      if (moveAt) {
+        // dt floored at one frame so a two-event burst cannot read as an
+        // enormous velocity.
+        const dp = dy / SCROLL_TRIGGER_HOME_PX / Math.max(16, now - moveAt);
+        vel = vel === 0 ? dp : vel * 0.6 + dp * 0.4;
+      }
+      moveAt = now;
+      addDelta(dy);
       touchY = y;
       touchX = x;
       e.preventDefault();
@@ -294,6 +340,16 @@ export default function Hero({ globeAssets, globeWorlds }) {
     const onTouchEnd = () => {
       touchY = null;
       touchX = null;
+      // RM snaps progress 0↔1 with no in-betweens, so there is nothing to
+      // carry there (and a glide would contradict the preference).
+      if (PREFERS_REDUCED_MOTION || departingRef.current) return;
+      const stalled = !moveAt || performance.now() - moveAt > RELEASE_MS;
+      const p = footerPRef.current;
+      const to = Math.min(1, Math.max(FOOTER_REST, p + vel * RELEASE_MS));
+      vel = 0;
+      if (stalled || Math.abs(to - p) < 0.002) return;
+      footerWipeRef.current?.kill();
+      footerWipeRef.current = wipeReveal(p, setFooterReveal, to);
     };
     const onReveal = () => {
       if (departingRef.current) return;
@@ -308,7 +364,17 @@ export default function Hero({ globeAssets, globeWorlds }) {
     // logo band last), drops the tagline pill and holds F1 off for exactly as
     // long as this floor is live. One attribute, one frozen fact — so the
     // layout can never disagree with the number the gesture clamps to.
-    if (FOOTER_REST) document.documentElement.setAttribute('data-footer-rest', '');
+    let inSafety = null;
+    if (FOOTER_REST) {
+      document.documentElement.setAttribute('data-footer-rest', '');
+      // The on-load entrance's hidden ground, set in the SAME frame as the
+      // variant latch so the blurb is never seen at full strength and then
+      // hidden. chromeBeat plays it; this is only the fail-open deadline for
+      // a beat that never comes.
+      if (armFooterEntrance(PREFERS_REDUCED_MOTION)) {
+        inSafety = setTimeout(() => playFooterEntrance(PREFERS_REDUCED_MOTION), FOOTER_IN_SAFETY_MS);
+      }
+    }
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -317,6 +383,10 @@ export default function Hero({ globeAssets, globeWorlds }) {
     window.addEventListener(FOOTER_CLOSE_EVENT, onClose);
     return () => {
       document.documentElement.removeAttribute('data-footer-rest');
+      // Every bail path ungrounds the entrance: absence means VISIBLE.
+      document.documentElement.removeAttribute('data-footer-in');
+      clearTimeout(inSafety);
+      resetFooterEntrance(); // a soft nav back to home runs it again
       window.removeEventListener(FOOTER_CLOSE_EVENT, onClose);
       footerWipeRef.current?.kill();
       el.removeEventListener('wheel', onWheel);
@@ -414,6 +484,17 @@ export default function Hero({ globeAssets, globeWorlds }) {
     requestAnimationFrame(() =>
       window.dispatchEvent(new CustomEvent('swm:hero-lockup-done'))
     );
+    // 10-07 (Nathan): the RESTING footer's text arrives on this beat too —
+    // the one page-load beat the CTA, the nav and the tagline pill already
+    // share, so the footer joins the page's single arrival instead of
+    // deriving its own latch, one-shot listener and safety timer in a child
+    // effect (SiteNav.jsx:259-281's idiom, which also carries a
+    // child-before-parent ordering hazard and a 6s worst case). The panel is
+    // already OPEN at ?footerrest, so there is no reveal progress to gate on:
+    // the abruptness Nathan reported is STAGGER_ON (0.85) sitting above that
+    // floor, which nothing on load can cross. rAF-deferred like the two
+    // dispatches above — the 08-25 gsap-context adoption doctrine.
+    requestAnimationFrame(() => playFooterEntrance(PREFERS_REDUCED_MOTION));
     const owned = hero.querySelectorAll('.hero__enter-wrap');
     if (instant) gsap.set(owned, { autoAlpha: 1 });
     else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
@@ -1162,7 +1243,11 @@ export default function Hero({ globeAssets, globeWorlds }) {
           phones it rests OPEN at FOOTER_REST carrying the studio blurb —
           `rest` moves the peak broadcast's reset to that floor so the logo
           band's hint read returns on every retreat. */}
-      <SiteFooter driven progress={footerP} rest={FOOTER_REST} blurb={TAGLINE_LONG_SPLIT} />
+      {/* 10-07 (2): `progress` is the RESTING pose only — a constant. The
+          gesture moves the panel through paintDrivenFooter (one style write
+          per frame) instead of through this prop, so a touchmove no longer
+          re-renders this subtree sixty times a second. */}
+      <SiteFooter driven progress={FOOTER_REST} rest={FOOTER_REST} blurb={TAGLINE_LONG_SPLIT} />
       {CommitTunePanel && <CommitTunePanel onDryRun={onCommitDryRun} />}
       {HeroTunePanel && (
         <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />

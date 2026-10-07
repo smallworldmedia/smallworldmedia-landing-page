@@ -2512,6 +2512,159 @@ html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell
   transform: none;
 }
 
+/* ── The HERO PARALLAX on the resting footer's reveal (10-07, Nathan: "have
+   the globe and Enter World button scroll up slightly, maybe at half the rate
+   of the actual scroll") ──────────────────────────────────────────────────
+   Driver: --footer-rise, NOT --footer-reveal. The raw var RESTS at ?footerrest
+   (0.62), so a consumer reading it lifts the globe a third of the way on the
+   FIRST PAINT; the rise is 0 in the resting pose by construction.
+
+   Travel: the panel's own climb is span × --footer-panel-h, and --footer-lift-k
+   (?footerlift) is the fraction of it the hero follows. There is no document
+   scroll on home (html, body are 100dvh / overflow hidden), so the panel's own
+   rise IS "the actual scroll" — it is the thing the user is watching move.
+   ONE number feeds every selector below, so the globe, its ring and the button
+   can never drift apart.
+
+   One intermediate property, not five copies of the calc, so the reduced-motion
+   override is a single auditable line rather than an accident.
+
+   GATED on [data-footer-rest] — mandatory, not tidiness. `translate: 0 0px` is
+   NOT `none`: ungated, these five would permanently establish a transform, a
+   containing block and a stacking context on desktop and at every other
+   breakpoint, silently capturing any future position:fixed descendant. The
+   attribute exists only while Hero's frozen IS_MOBILE floor is live, so
+   desktop and ?footerrest=0 are byte-identical to before.
+
+   The individual `translate` property, NOT `transform` — this is the whole
+   trick. .hero__lead-col's transform IS its -50%/-50% centering (below) and
+   .hero__globe-stroke's transform is rewritten from the overlay disc EVERY
+   FRAME by Hero. `translate` pre-multiplies the final matrix without
+   participating in `transform` at all, so the blue ring stays welded to the
+   silhouette and the button stays centered with no JS change.
+
+   NOT in the list: .hero-labels__svg, because it is a CHILD of .hero-labels
+   (above) — listing both would lift the leader strokes TWICE while the chips
+   moved once. And .hero__veil, which is a full-bleed black field that must
+   stay full-bleed.
+
+   `transition: none` is mandatory too: a transition low-passes per-frame var
+   updates into a smear (the shell-slide lesson above). */
+html[data-footer-rest] {
+  --hero-lift: calc(
+    var(--footer-rise, 0) * var(--footer-lift-k, 0.5) * var(--footer-span, 1) *
+      var(--footer-panel-h, 0px)
+  );
+}
+
+/* Reduced motion: the gesture SNAPS progress between the floor and 1 with no
+   in-betweens (Hero's addDelta), so a live lift would read as a ~50px jump
+   cut. Explicit, not a side effect. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-footer-rest] {
+    --hero-lift: 0px;
+  }
+}
+
+html[data-footer-rest] .hero__globe,
+html[data-footer-rest] .hero__globe-stroke,
+html[data-footer-rest] .hero-labels,
+html[data-footer-rest] .hero__lead-col,
+html[data-footer-rest] .hero__fill {
+  translate: 0 calc(var(--hero-lift, 0px) * -1);
+  transition: none;
+}
+
+/* The commit fill is in the list because its clip-path circle is written from
+   canvas-local coords (Hero sizes it off the overlay disc) — left unlifted, a
+   ?committune dry-run fired mid-reveal would bloom from a centre up to the
+   full lift off. It is position:fixed inset:0, so lifting it would open a bare
+   strip at the viewport bottom; one panel height of bottom bleed covers every
+   reachable lift (max lift = k × span × panelH ≤ panelH). Static per layout —
+   not a per-frame value. The real commit never sees it: onEnterClick drops the
+   reveal to the floor first, so the rise is 0 before the bloom starts. */
+html[data-footer-rest] .hero__fill {
+  bottom: calc(var(--footer-panel-h, 0px) * -1);
+}
+
+/* ── The CLIENT MARKS arrive on the reveal (10-07, Nathan: "have the scroll
+   upward reveal the rest of the footer and the logo ticker") ──────────────
+   The gesture already works — an upward swipe advances the reveal from the
+   floor to 1 and the panel climbs. What was missing is hidden-at-rest STATE:
+   the marks sit clear BELOW the fold at rest, so they merely slid into frame
+   at full strength. This is their own window inside the band's, the same
+   clamp idiom --lt-p already uses one tier up, so the copy line and the marks
+   stage instead of arriving together.
+
+   Reads --footer-rise-PEAK, never the live rise. "Footer exits are masked via
+   --footer-peak, never faded": the roll's top edge does not leave the fold
+   until most of this window is already spent, so windowed over the live rise
+   the marks would dim away in FULL VIEW on every downward gesture. The peak
+   rises with the reveal and holds through the retreat, resetting only once the
+   panel is back at its floor.
+
+   The window start is MEASURED, not guessed — scripts/globe-probe.mjs
+   --footer interpolates marksFoldCrossRise, the rise at which the roll's top
+   edge touches the fold, and gates it against this number (within 0.05). 0.6
+   is the FIXED POINT of that measurement on a 390×844 viewport: at rise 0.6
+   the roll sits exactly at the fold, so the fade begins on its first visible
+   pixel — none of it spent off-screen, none of it already spent on arrival.
+   Measured, not derived: an arithmetic guess off static CSS said 0.42, and a
+   16-step scrub said 0.66. Keep this equal to FOOTER_TUNE_DEFAULTS.marksFrom
+   (scripts/test/footer-reveal.test.mjs holds the pair together).
+   ?footermarksfrom ?footermarksto ?footermarkslift. */
+html[data-footer-rest] .logo-ticker__roll {
+  --mk-from: var(--footer-marks-from, 0.6);
+  --mk-to: var(--footer-marks-to, 0.9);
+  --mk-p: clamp(
+    0,
+    (var(--footer-rise-peak, 0) - var(--mk-from)) / (var(--mk-to) - var(--mk-from)),
+    1
+  );
+  opacity: var(--mk-p);
+  translate: 0 calc((1 - var(--mk-p)) * var(--footer-marks-lift, 1.25rem));
+  transition: none;
+}
+
+/* ── The resting footer's ON-LOAD entrance ground (10-07, Nathan: "the footer
+   text and footer elements don't just instantly load abruptly") ───────────
+   Set by Hero in the same frame as [data-footer-rest] and removed by
+   SiteFooter's playFooterEntrance on the chrome beat — the beat the CTA, the
+   nav and the tagline pill already arrive on. ABSENCE MEANS VISIBLE: a dead
+   chrome beat, or anything thrown inside the entrance, leaves the studio blurb
+   UP rather than blank, which is the whole point of the resting floor. The
+   words' own fade is GSAP, element-locally, on .site-footer__blurb-word. */
+html[data-footer-in] .site-footer__blurb,
+html[data-footer-in] .logo-ticker__copy {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Reduced motion never has an entrance to wait for. Hero already declines to
+   ground it, so this is the belt: the frozen JS read and the live media query
+   can disagree if the preference is toggled mid-session. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-footer-in] .site-footer__blurb,
+  html[data-footer-in] .logo-ticker__copy {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* The nav links' hidden ground (above) is UNGATED CSS, [data-footer-rest] is
+   frozen IS_MOBILE, and .site-footer__nav regains display:flex above 768px —
+   so a phone loaded in portrait and rotated to a 844px-wide landscape made
+   five links layout-visible while the stagger loop that would have revealed
+   them is retired under this attribute. They would sit at opacity 0 forever.
+   Clear the ground where the row is visible but the loop is off; the same
+   rotation case the F1 rule above already reasons about. */
+@media (min-width: 769px) {
+  html[data-footer-rest] .site-footer__link {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
 /* ============================================
    SITE TAGLINE — persistent lower-left pill (Figma Frame 19, 08-27)
    ============================================

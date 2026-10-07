@@ -100,7 +100,10 @@ const SHORT_CHARS = TAGLINE_LINES.flat().join('').length;
 const TAG_MORPH_MS = 600;
 // Word fade-ins share one total budget (s), so the 21-word blurb arrives on
 // the short tagline's beat instead of a 1.5 s crawl; the morph's is tighter.
-const wordStagger = (n, budget = 0.8) => Math.min(0.07, budget / Math.max(1, n - 1));
+// Exported 10-07: the resting footer's on-load entrance fades the SAME copy
+// in (this pill's long layer lives in the panel at ≤768px), so it needs this
+// beat, not a re-typed copy of it — one house per-word budget.
+export const wordStagger = (n, budget = 0.8) => Math.min(0.07, budget / Math.max(1, n - 1));
 const HOME_SAFETY_MS = 12000; // hero-chrome no-show fallback (odd intro paths)
 const REVEAL_ON = 0.85; // footer progress that arms the copyright/lockup
 const REVEAL_OFF = 0.5; // (unused since 09-08 — exits are masked, not faded) // retreat threshold (hysteresis)

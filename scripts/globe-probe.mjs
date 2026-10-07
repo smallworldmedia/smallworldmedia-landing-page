@@ -8,7 +8,7 @@
  * Usage:
  *   node scripts/globe-probe.mjs [--mode=tides] [--secs=20] [--warm=6]
  *        [--next=2] [--seed=42] [--mobile] [--rm] [--intro=replay|full]
- *        [--paint] [--enter] [--channel=chrome]
+ *        [--paint] [--enter] [--footer] [--channel=chrome]
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
  *
  * --base and --out also read GLOBE_PROBE_BASE / GLOBE_PROBE_OUT, for a pinned
@@ -52,6 +52,23 @@
  * World 0's server-rendered card is never seen.
  * With --extra="&popenter=0" /work must open on its first world.
  *
+ * --footer (10-07) is the only scenario here that GESTURES: it forces the
+ * mobile viewport, drives a real touch scrub with CDP Input.dispatchTouchEvent
+ * and MEASURES the MOBILE HOME resting footer's reveal. It short-circuits the
+ * population sampling loop. Gates: the panel parks at ?footerrest with the
+ * normalized rise at 0 (restFloor), the hero's lift is EXACTLY 0 in the
+ * resting pose (liftZeroAtRest — a parallax driven off the raw --footer-reveal
+ * instead of --footer-rise lifts the globe a third of the way on the first
+ * paint), measured lift ÷ measured panel climb ≈ ?footerlift (liftRatio), the
+ * button and the blue ring travel exactly with the globe (ctaRidesGlobe /
+ * strokeRidesGlobe), driven mode publishes --footer-panel-h at all
+ * (panelHPublished), the client marks' fade COMPLETES above the fold
+ * (marksArriveOnScreen), they do NOT fade out on a downward gesture
+ * (marksHoldOnRetreat — the --footer-peak rule), and the on-load entrance
+ * genuinely runs rather than the blurb being final on its first drawn frame
+ * (blurbNotFinalOnFirstFrame / blurbSettles). report.measured carries the
+ * observed px — nothing in the design round could measure any of it.
+ *
  * Failed image requests land in report.imageFailures (the noise filter hides
  * them from the console list) with a hint on stderr: a still the Sanity CDN
  * refuses by CORS — the page origin is off the project's allowlist, e.g. a
@@ -89,7 +106,12 @@ const SECS = Number(arg('secs', 20));
 const WARM = Number(arg('warm', 6));
 const NEXT = Number(arg('next', 0));
 const SEED = arg('seed', '42');
-const MOBILE = !!arg('mobile', false);
+// --footer (10-07) — the MOBILE HOME resting footer's reveal: the one
+// scenario in this probe that GESTURES. It is a mobile scenario by
+// definition (the floor only exists where Hero's frozen IS_MOBILE is true),
+// so it forces the viewport itself and the pinned verifier stays flagless.
+const FOOTER = !!arg('footer', false);
+const MOBILE = FOOTER || !!arg('mobile', false);
 const RM = !!arg('rm', false);
 const VW = Number(arg('vw', MOBILE ? 390 : 1440));
 const VH = Number(arg('vh', MOBILE ? 844 : 900));
@@ -106,7 +128,14 @@ const PAINT = !!arg('paint', false);
 const ENTER = !!arg('enter', false);
 const ENTER_OFF = /[?&]popenter=0\b/.test(EXTRA); // /work must open on its first world
 const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
-const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}`;
+// --footer expectations. These mirror the BAKES the scenario is gating, the
+// way texbound mirrors the texture budget: Hero's FOOTER_REST_DEFAULT and
+// footerTune's liftK. Pass the matching --footerrest / --footerlift when you
+// dial the page with ?footerrest / ?footerlift through --extra.
+const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.62));
+const LIFT_K_EXPECT = Number(arg('footerlift', 0.5));
+const MARKS_FROM_EXPECT = Number(arg('footermarksfrom', 0.6));
+const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}`;
 const OUT = arg(
   'out',
   // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
@@ -116,7 +145,11 @@ const OUT = arg(
     RUN
   )
 );
-const URL_ = `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}`;
+// --footer loads home with NO bench: the pop panel's chip parks over the hero
+// and would swallow the touch scrub.
+const URL_ = FOOTER
+  ? `${BASE}/?intro=${INTRO}${EXTRA}`
+  : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}`;
 
 // pager-probe's environmental noise (headless CDN CORS, GPU readback stalls,
 // Chrome's reduced-motion view-transitions warning) — never the page's fault.
@@ -352,6 +385,256 @@ async function enterScenario(page) {
   return out;
 }
 
+/* ── --footer: the MOBILE HOME resting footer's reveal ─────────────────────
+   The first scenario in this probe that GESTURES. Everything the footer round
+   claims is geometry under a finger, and nothing in the repo could move a
+   finger — so every number in the design round was arithmetic off static CSS.
+   This drives a real touch scrub through CDP Input.dispatchTouchEvent and
+   MEASURES, so the gates assert observed pixels, not derivations.
+
+   Installed BEFORE any page script (addInitScript): a rAF watcher that records
+   the blurb's state on every frame it CHANGES, from the very first frame the
+   document has. That is the only way to see whether the on-load entrance ran
+   at all — the bug it exists to catch is a threshold the resting pose never
+   crosses, which looks identical to "no animation" once it has settled. */
+const FOOTER_WATCH = () => {
+  const log = [];
+  let frames = 0;
+  const read = () => {
+    const blurb = document.querySelector('.site-footer__blurb');
+    if (blurb) {
+      const cs = getComputedStyle(blurb);
+      const words = blurb.querySelectorAll('.site-footer__blurb-word');
+      let wordMax = null;
+      if (words.length) {
+        wordMax = 0;
+        for (const w of words) {
+          wordMax = Math.max(wordMax, parseFloat(getComputedStyle(w).opacity) || 0);
+        }
+      }
+      const drawn = cs.display !== 'none' && cs.visibility !== 'hidden';
+      // What the eye gets: the paragraph's own alpha times its brightest word.
+      const ink = drawn
+        ? (parseFloat(cs.opacity) || 0) * (wordMax == null ? 1 : wordMax)
+        : 0;
+      const row = {
+        t: Math.round(performance.now()),
+        drawn,
+        opacity: Math.round((parseFloat(cs.opacity) || 0) * 1e4) / 1e4,
+        words: words.length,
+        wordMax: wordMax == null ? null : Math.round(wordMax * 1e4) / 1e4,
+        ink: Math.round(ink * 1e4) / 1e4,
+        ground: document.documentElement.hasAttribute('data-footer-in'),
+        rest: document.documentElement.hasAttribute('data-footer-rest'),
+      };
+      const prev = log[log.length - 1];
+      if (
+        !prev ||
+        prev.ink !== row.ink ||
+        prev.drawn !== row.drawn ||
+        prev.ground !== row.ground ||
+        prev.rest !== row.rest
+      ) {
+        log.push(row);
+      }
+    }
+    if (++frames < 420) requestAnimationFrame(read);
+  };
+  window.__swmFooterWatch = log;
+  requestAnimationFrame(read);
+};
+
+/** One measurement of everything the reveal moves. `translate` is a real CSS
+ *  property, so its COMPUTED value is already resolved to px — that is how the
+ *  lift is read as a number instead of re-deriving it from a calc. */
+const footerRead = (page) =>
+  page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const v = (k) => {
+      const n = parseFloat(cs.getPropertyValue(k));
+      return Number.isFinite(n) ? n : null;
+    };
+    const el = (sel) => document.querySelector(sel);
+    const top = (sel) => {
+      const e = el(sel);
+      return e ? Math.round(e.getBoundingClientRect().top * 100) / 100 : null;
+    };
+    const opacity = (sel) => {
+      const e = el(sel);
+      return e ? Math.round((parseFloat(getComputedStyle(e).opacity) || 0) * 1e4) / 1e4 : null;
+    };
+    // translate: "none" | "<x>" | "<x> <y>" — the y is the lift (negative up).
+    const liftOf = (sel) => {
+      const e = el(sel);
+      if (!e) return null;
+      const t = getComputedStyle(e).translate;
+      if (!t || t === 'none') return 0;
+      const parts = t.trim().split(/\s+/);
+      const y = parts.length > 1 ? parseFloat(parts[1]) : 0;
+      return Number.isFinite(y) ? -Math.round(y * 100) / 100 : 0; // up = positive
+    };
+    return {
+      reveal: v('--footer-reveal'),
+      peak: v('--footer-peak'),
+      rise: v('--footer-rise'),
+      risePeak: v('--footer-rise-peak'),
+      span: v('--footer-span'),
+      panelH: v('--footer-panel-h'),
+      panelTop: top('.site-footer--links'),
+      globeLift: liftOf('.hero__globe'),
+      strokeLift: liftOf('.hero__globe-stroke'),
+      leadLift: liftOf('.hero__lead-col'),
+      globeTop: top('.hero__globe'),
+      strokeTop: top('.hero__globe-stroke'),
+      ctaTop: top('.hero__enter'),
+      rollTop: top('.logo-ticker__roll'),
+      rollOpacity: opacity('.logo-ticker__roll'),
+      bandOpacity: opacity('.logo-ticker'),
+      strokeTransform: el('.hero__globe-stroke')
+        ? getComputedStyle(el('.hero__globe-stroke')).transform
+        : null,
+      leadTransform: el('.hero__lead-col')
+        ? getComputedStyle(el('.hero__lead-col')).transform
+        : null,
+    };
+  });
+
+/** A real finger. CDP touch events, because Playwright's touchscreen can tap
+ *  but not drag, and Hero's reveal reads the delta BETWEEN touchmoves. */
+async function touchScrub(cdp, page, { x, from, to, steps }) {
+  const pt = (y) => [{ x, y, radiusX: 2, radiusY: 2, force: 1 }];
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(from) });
+  const trail = [];
+  for (let i = 1; i <= steps; i++) {
+    const y = from + ((to - from) * i) / steps;
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(y) });
+    trail.push(await footerRead(page));
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  return trail;
+}
+
+async function footerScenario(page, ctx) {
+  const cdp = await ctx.newCDPSession(page);
+  await cdp.send('Input.setIgnoreInputEvents', { ignore: false }).catch(() => {});
+  // Past the chrome beat (0.78 × the arrive/replay settle) and the entrance.
+  await sleep(3200);
+  const x = Math.round(VW / 2);
+  const rest = await footerRead(page);
+  await shot(page, 'footer-rest');
+
+  // UP — the reveal. 120px of finger × TOUCH_GAIN 2 ÷ SCROLL_TRIGGER_HOME_PX
+  // 500 = 0.48 of progress, which clears the 1.0 clamp from the 0.62 floor
+  // with room to spare, so the scrub ENDS at a full reveal and not at a number
+  // that depends on the gain. The step SIZE is the other half of the point:
+  // 32 steps advance ~0.04 of rise each, and these samples are the resolution
+  // of every number below. At 16 steps the fold crossing read 0.12 of rise too
+  // high — a derived default is only as good as the grid it was read off.
+  const up = await touchScrub(cdp, page, { x, from: 320, to: 200, steps: 32 });
+  await sleep(1000); // the release carry settles
+  const full = await footerRead(page);
+  await shot(page, 'footer-full');
+
+  // DOWN — the retreat. The marks must HOLD (they ride the PEAK rise), which
+  // is the one thing a live-progress window gets wrong, in full view.
+  // The roll is on screen for only the top ~0.6 of the retreat: 220px over
+  // 16 steps sampled that window 3 times, which is not enough to call a hold.
+  const down = await touchScrub(cdp, page, { x, from: 180, to: 300, steps: 24 });
+  const afterRetreat = await footerRead(page);
+  await shot(page, 'footer-parked');
+  await sleep(1200);
+  const parked = await footerRead(page);
+
+  const watch = await page.evaluate(() => window.__swmFooterWatch || []);
+  return { rest, up, full, down, afterRetreat, parked, watch };
+}
+
+/** The gates, from the measurements above. */
+function footerPass(f) {
+  const near = (a, b, tol) => a != null && b != null && Math.abs(a - b) <= tol;
+  const { rest, full, up, down } = f;
+  // The panel's own climb and the hero's lift, both MEASURED.
+  const climb = rest.panelTop != null && full.panelTop != null ? rest.panelTop - full.panelTop : null;
+  const lift = full.globeLift;
+  const ratio = climb ? lift / climb : null;
+  f.measured = {
+    panelH: full.panelH,
+    panelClimb: climb == null ? null : Math.round(climb * 100) / 100,
+    heroLift: lift,
+    liftRatio: ratio == null ? null : Math.round(ratio * 1e4) / 1e4,
+    liftKExpected: LIFT_K_EXPECT,
+    ctaRide: rest.ctaTop != null && full.ctaTop != null ? Math.round((rest.ctaTop - full.ctaTop) * 100) / 100 : null,
+    strokeRide:
+      rest.strokeTop != null && full.strokeTop != null
+        ? Math.round((rest.strokeTop - full.strokeTop) * 100) / 100
+        : null,
+    fold: VH,
+  };
+  // The marks' arrival: the first scrub step at which the roll is fully in,
+  // and the roll's top edge there. The fade must COMPLETE on screen — a
+  // window that finishes below the fold spends the whole arrival unseen.
+  const arrival = up.find((s) => (s.rollOpacity ?? 0) >= 0.99);
+  f.measured.marksFullAtRise = arrival ? arrival.rise : null;
+  f.measured.marksFullAtRollTop = arrival ? arrival.rollTop : null;
+  // Where the roll's top edge crosses the fold, in rise — the number the
+  // ?footermarksfrom default IS, so it has to be better than "the first
+  // sample that happened to be above the fold". INTERPOLATED across the
+  // straddling pair; the trail is linear in rise, so both brackets agree.
+  const ci = up.findIndex((s) => s.rollTop != null && s.rollTop < VH);
+  const above = ci >= 0 ? up[ci] : null;
+  const below = ci > 0 ? up[ci - 1] : null;
+  const crossRise =
+    below && above && below.rollTop > above.rollTop
+      ? below.rise +
+        ((below.rollTop - VH) / (below.rollTop - above.rollTop)) * (above.rise - below.rise)
+      : above
+        ? above.rise
+        : null;
+  f.measured.marksFoldCrossRise = crossRise == null ? null : Math.round(crossRise * 1e4) / 1e4;
+  f.measured.marksFoldCrossBracket = below && above ? [below.rise, above.rise] : null;
+  f.measured.marksFromExpected = MARKS_FROM_EXPECT;
+  // The retreat, on screen only: off-screen the exit is masked by the panel's
+  // top edge, which is the whole point of the peak.
+  const onScreen = down.filter((s) => s.rollTop != null && s.rollTop < VH - 1);
+  const minHeld = onScreen.length ? Math.min(...onScreen.map((s) => s.rollOpacity ?? 0)) : null;
+  f.measured.retreatOnScreenSteps = onScreen.length;
+  f.measured.retreatMinRollOpacity = minHeld;
+  // The entrance: the first frame the blurb was DRAWN under the variant must
+  // not already be final, and it must reach full ink afterwards.
+  const firstDrawn = f.watch.find((r) => r.rest && r.drawn);
+  const maxInk = f.watch.length ? Math.max(...f.watch.map((r) => r.ink)) : null;
+  f.measured.blurbFirstDrawn = firstDrawn || null;
+  f.measured.blurbMaxInk = maxInk;
+  return {
+    // the panel parks at ?footerrest, and the normalized rise is 0 there
+    restFloor: near(rest.reveal, FOOTER_REST_EXPECT, 0.01) && near(rest.span, 1 - FOOTER_REST_EXPECT, 0.01),
+    // THE --footer-reveal-vs-rise bug: a parallax off the raw var lifts the
+    // globe a third of the way on the first paint
+    liftZeroAtRest:
+      near(rest.globeLift, 0, 0.5) && near(rest.strokeLift, 0, 0.5) && near(rest.leadLift, 0, 0.5),
+    // "half the rate of the actual scroll", against the panel's own climb
+    liftRatio: climb > 1 && near(ratio, LIFT_K_EXPECT, 0.03),
+    // the button and the ring cannot drift from the globe
+    ctaRidesGlobe: lift > 1 && near(f.measured.ctaRide, lift, 0.6),
+    strokeRidesGlobe: lift > 1 && near(f.measured.strokeRide, lift, 0.6),
+    // the driven mode publishes the panel height the lift denominates against
+    panelHPublished: full.panelH != null && full.panelH > 1,
+    // the arrival completes ABOVE the fold (this is what killed a clock-scrub
+    // design: its tween finished at 846px against an 844px fold)
+    marksArriveOnScreen: !!arrival && arrival.rollTop < VH,
+    // the marks' fade BEGINS as their top edge touches the fold: none of it
+    // is spent off-screen, and none of it is already spent when they appear.
+    // ?footermarksfrom is the fixed point of this measurement, so the gate
+    // holds the baked default and the CSS fallback to what the probe reads.
+    marksFadeStartsAtFold: crossRise != null && near(crossRise, MARKS_FROM_EXPECT, 0.05),
+    // the peak rule: no fade-out in full view on a downward gesture
+    marksHoldOnRetreat: onScreen.length > 5 && minHeld >= 0.99,
+    // the entrance genuinely RUNS — the gate that would have caught ask 3
+    blurbNotFinalOnFirstFrame: !!firstDrawn && firstDrawn.ink < 0.5,
+    blurbSettles: maxInk != null && maxInk >= 0.99,
+  };
+}
+
 (async () => {
   await waitServer();
   const browser = await chromium.launch({
@@ -379,8 +662,32 @@ async function enterScenario(page) {
     if (r.resourceType() !== 'image') return;
     report.imageFailures.push(`${r.failure()?.errorText} @${new URL(page.url()).pathname}: ${r.url().slice(0, 160)}`);
   });
+  // The entrance watcher must see the FIRST frame, so it is installed before
+  // any page script runs.
+  if (FOOTER) await page.addInitScript(FOOTER_WATCH);
   await page.goto(URL_, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('.video-globe__canvas canvas', { timeout: 30000 });
+
+  // --footer short-circuits the population sampling loop entirely: it gates a
+  // gesture, not the globe's clock, and the whole run is a few seconds.
+  if (FOOTER) {
+    report.footer = await footerScenario(page, ctx);
+    report.pass = {
+      ...footerPass(report.footer),
+      clean: !report.consoleErrors.length && !report.pageErrors.length,
+    };
+    report.measured = report.footer.measured;
+    if (report.imageFailures.length) {
+      console.error(
+        `globe-probe: ${report.imageFailures.length} image request(s) failed, first: ${report.imageFailures[0]}\n` +
+          "  a CORS block on cdn.sanity.io = this origin is off the Sanity project's allowlist (localhost:4321, :4322, :3333 are on it)"
+      );
+    }
+    console.log(JSON.stringify(report, null, 1));
+    save();
+    await browser.close().catch(() => {});
+    process.exit(Object.values(report.pass).some((v) => !v) ? 2 : 0);
+  }
 
   const nextAt = new Set(Array.from({ length: NEXT }, (_, i) => Math.round(WARM + ((i + 1) * (SECS - WARM)) / (NEXT + 1))));
   for (let t = 1; t <= SECS; t++) {

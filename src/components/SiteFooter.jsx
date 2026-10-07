@@ -34,14 +34,23 @@
  *    host (FeaturedProjects' wheel/touch accumulator) owns the number. Same
  *    inert gating and the same <html> reveal broadcast as the scroll mode.
  */
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import gsap from 'gsap';
 // 08-27: the lockup left the panel with the left column — the persistent
 // SiteTagline island owns the footer lockup + copyright now.
 // Reveal-travel multiplier (spacer = K × panel height) + its ?footertune
 // pub/sub. Static import is the tiny shared STATE only (the fp1Tune idiom);
 // the bench panel itself is a lazy chunk owned by SiteShell.
-import { getFooterTravelK, subscribeFooterTune } from '../lib/footerTune.js';
+import {
+  getFooterTravelK,
+  getFooterIntroS,
+  subscribeFooterTune,
+  footerRise,
+  footerSpan,
+} from '../lib/footerTune.js';
+// The house resize doctrine (08-28): cheap work per event, the expensive
+// re-measure after the gesture SETTLES.
+import { settleDebounce } from '../lib/settleResize.js';
 import { CustomEase } from 'gsap/CustomEase';
 import { getLenis } from '../lib/smoothScroll.js';
 import { GLIDE_SECONDS } from '../lib/motion.js';
@@ -86,6 +95,11 @@ const isOutside = (e, panel) =>
 // ResizeObserver already re-measures the taller panel, inert is inherited,
 // and every footer route gets it with no per-route wiring.
 import ClientLogoTicker from './ClientLogoTicker.jsx';
+// One per-word fade budget for the whole house — the helper that caps each
+// beat at 0.07 while fitting N words into a total (SiteTagline's pill intro
+// is the other caller). Imported rather than re-typed: a forked motion
+// number is a bug waiting to drift.
+import { wordStagger } from './SiteTagline.jsx';
 
 // ── Link-row stagger (08-29, Nathan) ──
 // The footer nav links animate in on the same reveal beat the left corner's
@@ -112,12 +126,35 @@ const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 // session's high-water mark and the logo band's at-rest hint read (its fade
 // window over this var) could never come back. rest = 0 is the old behaviour
 // byte for byte.
+// 10-07 (Nathan, the resting footer's reveal): alongside the ABSOLUTE
+// progress we publish it NORMALIZED against the resting floor — `--footer-rise`
+// is 0 in the resting pose and 1 at a full reveal, `--footer-span` is the
+// travel the floor left (so rise × span × --footer-panel-h is the panel's own
+// climb in px), and `--footer-rise-peak` is the rise's PEAK twin.
+//
+// Every consumer that must be ABSENT at rest reads the rise, never
+// --footer-reveal: the raw var rests at 0.62 on mobile home, so a parallax
+// reading it lifts the globe a third of the way on the FIRST PAINT, and a
+// threshold reading it (STAGGER_ON) can never fire from that floor.
+//
+// Which of the two rises a consumer wants is doctrine, not taste:
+//   • GEOMETRY rides the LIVE rise — the hero parallax must retreat with the
+//     panel it is following.
+//   • Anything that FADES rides --footer-rise-peak. "Footer exits are masked
+//     via --footer-peak, never faded" (patterns.md): windowed over the live
+//     rise, the client marks would dim away in full view on every retreat,
+//     because the roll's top edge does not leave the fold until most of the
+//     window is already spent.
+// rest = 0 ⇒ rise === reveal, span === 1 — desktop and /work are unchanged.
 let revealPeak = 0;
 const broadcastReveal = (progress, rest = 0) => {
   const root = document.documentElement;
   revealPeak = progress <= rest + 0.001 ? rest : Math.max(revealPeak, progress);
   root.style.setProperty('--footer-reveal', progress.toFixed(4));
   root.style.setProperty('--footer-peak', revealPeak.toFixed(4));
+  root.style.setProperty('--footer-rise', footerRise(progress, rest).toFixed(4));
+  root.style.setProperty('--footer-rise-peak', footerRise(revealPeak, rest).toFixed(4));
+  root.style.setProperty('--footer-span', footerSpan(rest).toFixed(4));
   root.toggleAttribute('data-footer-revealed', progress > 0.001);
 };
 const clearReveal = () => {
@@ -125,9 +162,128 @@ const clearReveal = () => {
   revealPeak = 0;
   root.style.removeProperty('--footer-reveal');
   root.style.removeProperty('--footer-peak');
+  root.style.removeProperty('--footer-rise');
+  root.style.removeProperty('--footer-rise-peak');
+  root.style.removeProperty('--footer-span');
   root.style.removeProperty('--footer-panel-h');
   root.removeAttribute('data-footer-revealed');
+  root.removeAttribute('data-footer-in');
 };
+
+/* ── Driven mode's per-frame channel (10-07, Nathan — the home reveal felt
+   laggy on an iPhone 17 Pro) ───────────────────────────────────────────────
+   The driven panel used to take its progress as a PROP, so every touchmove
+   frame reconciled Hero → SiteFooter → ClientLogoTicker just to recompute one
+   inline transform and one `inert` — sixty full subtree renders a second,
+   beside the WebGL draw, on the page Nathan calls laggy. Scroll mode has
+   never done that: it paints from a ref (paint(), below). This is that paint
+   handed to the driven host, so a gesture frame costs one style write and no
+   React work at all.
+
+   The `progress` prop still seeds the resting pose and still carries /work's
+   own React-driven flow, so the declarative path is intact for a host that
+   does not reach for this. One driven footer exists at a time (home OR
+   /work), so one slot is enough; a value pushed before the panel's effect
+   installs is held and painted on install. */
+let drivenPaint = null;
+let drivenPending = null;
+export function paintDrivenFooter(p) {
+  if (drivenPaint) drivenPaint(p);
+  else drivenPending = p;
+}
+
+/* ── The resting footer's ON-LOAD entrance (10-07, Nathan: "be sure that we
+   integrate GSAP text animation so that the footer text and footer elements
+   don't just instantly load abruptly") ─────────────────────────────────────
+   The panel is already OPEN at ?footerrest, so there is no reveal event to
+   ride: STAGGER_ON (0.85) sits ABOVE the floor, which is exactly why the
+   choreography below it never ran on load. And a progress-gated entrance
+   would make the blurb ABSENT on load, the opposite of what the floor is
+   for. So this is a one-time PAGE-LOAD beat, armed by Hero from inside
+   chromeBeat — the same beat the CTA, the nav and the tagline pill arrive
+   on — which fires in the resting pose by construction because it never
+   reads progress. What rides the reveal instead is the client marks, in CSS,
+   over --footer-rise-peak.
+
+   Nathan settled the per-word arrival for THIS COPY as a seated FADE:
+   "NO y transform on the per-word arrival — the sequential rise read as
+   stutter; the words fade in seated" (SiteTagline.jsx:258-262 — the blurb IS
+   that pill's long layer, TAGLINE_LONG_SPLIT). autoAlpha only, no y.
+
+   The words are React-rendered spans, not a SplitText run: the pill does the
+   same, the browser re-wraps them for free at 320/430px, and SplitText would
+   be rewriting DOM React owns. The hidden ground is CSS under
+   [data-footer-in], removed on every bail path, so ABSENCE MEANS VISIBLE —
+   a dead chrome beat leaves the studio blurb up rather than blank.
+
+   Idempotent: Hero's safety net and the beat can both call it. */
+let entranceShown = false;
+/** Ground the entrance's targets — called in the SAME frame as
+    [data-footer-rest], so the resting blurb is never seen at full strength
+    first. Never grounds under reduced motion, and never after the entrance
+    has already played (Hero's RM path fires the chrome beat from a LAYOUT
+    effect, which runs before this passive one). */
+export function armFooterEntrance(reduced = false) {
+  if (typeof document === 'undefined' || reduced || entranceShown) return false;
+  document.documentElement.setAttribute('data-footer-in', '');
+  return true;
+}
+export function playFooterEntrance(reduced = false) {
+  if (typeof document === 'undefined' || entranceShown) return false;
+  const panel = document.querySelector('.site-footer--links');
+  // Queried at fire time, never cached at mount — the client:only stale-DOM
+  // rule, the same one links() honours.
+  const blurb = panel?.querySelector('.site-footer__blurb');
+  if (!panel || !blurb) return false;
+  entranceShown = true;
+  const words = [...blurb.querySelectorAll('.site-footer__blurb-word')];
+  const lead = panel.querySelector('.logo-ticker__copy');
+  const ground = () => document.documentElement.removeAttribute('data-footer-in');
+  if (reduced || !words.length) {
+    ground();
+    return true;
+  }
+  // Ground FIRST, then un-hide the container: one task, so there is no frame
+  // in between and nothing flashes.
+  const budget = getFooterIntroS();
+  gsap.set(words, { autoAlpha: 0 });
+  if (lead) gsap.set(lead, { autoAlpha: 0, y: 14 });
+  ground();
+  const tl = gsap.timeline();
+  tl.to(
+    words,
+    {
+      autoAlpha: 1,
+      duration: budget,
+      ease: 'power2.out',
+      stagger: wordStagger(words.length, budget),
+    },
+    STAGGER_DELAY_S
+  );
+  // The band's copy line is the one element that may rise: it is a single
+  // line arriving under the blurb, not a sequence of words, so there is no
+  // stutter to read. The `rises` channel from useProcessCopy, verbatim.
+  if (lead) {
+    tl.to(
+      lead,
+      { autoAlpha: 1, y: 0, duration: 0.4, ease: 'power3.out', clearProps: 'all' },
+      STAGGER_DELAY_S + 0.18
+    );
+  }
+  return true;
+}
+/** Hero's footer effect calls this on teardown: a fresh mount must be able to
+    run the entrance again (a soft nav back to home). */
+export function resetFooterEntrance() {
+  entranceShown = false;
+}
+
+/** The [emphasised opening, rest] blurb pair → one flat word list, each word
+    carrying whether it is in the Medium opening. */
+const blurbWords = ([em, rest]) => [
+  ...String(em || '').split(/\s+/).filter(Boolean).map((word) => ({ word, em: true })),
+  ...String(rest || '').split(/\s+/).filter(Boolean).map((word) => ({ word, em: false })),
+];
 
 export default function SiteFooter({
   noFill = false,
@@ -344,6 +500,20 @@ export default function SiteFooter({
     };
     const landed = () =>
       document.documentElement.hasAttribute('data-privacy-landed');
+    // 10-07: RETIRE this loop on the resting footer. [data-footer-revealed]
+    // never clears there (the panel rests at ?footerrest for the whole
+    // session), so a getComputedStyle forced style read span 60 fps beside
+    // the WebGL globe — to animate five links that are display:none at
+    // ≤768px and a threshold the floor can never cross. f1dd984 made exactly
+    // this fix in SiteTagline's maskLive() and missed this file. The resting
+    // footer's own entrance is beat-armed (playFooterEntrance) and needs no
+    // loop at all. Hero sets [data-footer-rest] AFTER this child effect runs,
+    // so the loop arms for one frame and then self-retires — the links' CSS
+    // ground is cleared above 768px (the rotation case), so nothing is left
+    // stranded invisible.
+    const watchLive = () =>
+      document.documentElement.hasAttribute('data-footer-revealed') &&
+      !document.documentElement.hasAttribute('data-footer-rest');
     const watch = () => {
       raf = 0;
       const p = readReveal();
@@ -356,13 +526,13 @@ export default function SiteFooter({
       // panel slides down; the exit is masked by its top edge leaving the
       // viewport. They snap back to the hidden ground only once the panel
       // parks (the attribute clears → the observer below).
-      if (document.documentElement.hasAttribute('data-footer-revealed')) {
+      if (watchLive()) {
         raf = requestAnimationFrame(watch);
       }
     };
     const mo = new MutationObserver(() => {
       const on = document.documentElement.hasAttribute('data-footer-revealed');
-      if (on && !raf) raf = requestAnimationFrame(watch);
+      if (watchLive() && !raf) raf = requestAnimationFrame(watch);
       if (!on) {
         // Panel parked (or route swap): snap to the hidden ground — the
         // panel is off-screen, so nothing is seen fading (09-08).
@@ -381,7 +551,7 @@ export default function SiteFooter({
       attributes: true,
       attributeFilter: ['data-footer-revealed'],
     });
-    if (document.documentElement.hasAttribute('data-footer-revealed')) {
+    if (watchLive()) {
       raf = requestAnimationFrame(watch);
     }
 
@@ -424,15 +594,69 @@ export default function SiteFooter({
       clear();
     };
   }, [driven]);
+  // The driven panel's paint — transform, inert and the <html> broadcast, all
+  // imperative, exactly as scroll mode's paint() does them. The prop seeds it
+  // and keeps /work's React flow working; the per-frame channel above lets a
+  // gesture host move the panel without a render (see paintDrivenFooter).
   useEffect(() => {
     if (!driven) return undefined;
-    if (drivenP <= rest + 0.001) document.documentElement.removeAttribute('data-footer-invoked');
-    broadcastReveal(drivenP, rest);
-    return undefined;
+    const panel = panelRef.current;
+    if (!panel) return undefined;
+    let inertFlag = null;
+    const paint = (p) => {
+      panel.style.transform = `translateY(${((1 - p) * 100).toFixed(3)}%)`;
+      const wantInert = p <= 0.001;
+      if (wantInert !== inertFlag) {
+        inertFlag = wantInert;
+        panel.inert = wantInert;
+      }
+      if (p <= rest + 0.001) document.documentElement.removeAttribute('data-footer-invoked');
+      broadcastReveal(p, rest);
+    };
+    drivenPaint = paint;
+    paint(drivenPending ?? drivenP);
+    drivenPending = null;
+    return () => {
+      if (drivenPaint === paint) drivenPaint = null;
+    };
   }, [driven, drivenP, rest]);
   useEffect(() => {
     if (!driven) return undefined;
-    return clearReveal; // route swap away from /work drops the broadcast
+    return () => {
+      drivenPending = null;
+      clearReveal(); // route swap away from /work drops the broadcast
+    };
+  }, [driven]);
+
+  // ── The panel's own height, in DRIVEN mode too (10-07) ──
+  // sizeSpacer() is the only other writer of --footer-panel-h and it lives
+  // inside `if (!reveal) return`, so the driven routes never published it:
+  // home had no panel height in CSS at all, and the hero parallax had no
+  // denominator for "half the rate of the actual scroll". Same property name
+  // as scroll mode — a forked name is a bug — so /process's existing reader
+  // is unaffected. Layout-change cost only; nothing per frame. The expensive
+  // re-measure goes through the house settle debounce, so a rotation does not
+  // thrash it, and document.fonts.ready re-seats it once the webfont's
+  // metrics have moved the blurb's wrap.
+  useEffect(() => {
+    if (!driven) return undefined;
+    const panel = panelRef.current;
+    if (!panel) return undefined;
+    let disposed = false;
+    const publish = () => {
+      if (disposed) return;
+      document.documentElement.style.setProperty('--footer-panel-h', `${panel.offsetHeight}px`);
+    };
+    publish();
+    const settle = settleDebounce(publish);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(settle) : null;
+    ro?.observe(panel);
+    document.fonts?.ready?.then(publish);
+    return () => {
+      disposed = true;
+      settle.cancel();
+      ro?.disconnect();
+    };
   }, [driven]);
 
   const year = new Date().getFullYear();
@@ -468,16 +692,11 @@ export default function SiteFooter({
       <footer
         className="site-footer site-footer--links"
         ref={panelRef}
-        // Scroll mode mounts inert and flips imperatively per frame; driven
-        // mode re-renders per progress step, so both stay declarative here.
+        // BOTH modes mount inert and flip imperatively per frame now (10-07):
+        // driven mode's transform and inert moved into its paint() so a
+        // gesture frame costs no React render. A declarative transform here
+        // would fight that paint on the next unrelated re-render.
         inert={driven ? drivenP <= 0.001 : true}
-        // Driven mode: the reveal transform IS the prop — overrides the CSS
-        // resting translateY(100%), stays off-screen at 0.
-        style={
-          driven
-            ? { transform: `translateY(${((1 - drivenP) * 100).toFixed(3)}%)` }
-            : undefined
-        }
       >
         {ticker && <ClientLogoTicker />}
         <div className="site-footer__inner">
@@ -492,9 +711,26 @@ export default function SiteFooter({
               "utilized by…" line fading in below it (the band is ordered
               last there), so the footer answers "what is Small World Media"
               on load. Drawn only while the footer rests (global.css). */}
+          {/* 10-07: set as PER-WORD spans (the tagline pill's own shape —
+              .site-tagline__word), because the on-load entrance fades the
+              words in one at a time. React renders them rather than SplitText
+              splitting them at fire time: the pill does the same, the browser
+              re-wraps real inline spans for free when the blurb re-flows at
+              320/430px, and a SplitText run here would be rewriting DOM React
+              owns. No display change on the span, so the text lays out
+              identically to the two-span version. */}
           {blurb && (
             <p className="site-footer__blurb">
-              <span className="site-footer__blurb-em">{blurb[0]}</span> {blurb[1]}
+              {blurbWords(blurb).map(({ word, em }, i) => (
+                <Fragment key={`${i}-${word}`}>
+                  {i > 0 && ' '}
+                  <span
+                    className={`site-footer__blurb-word${em ? ' site-footer__blurb-em' : ''}`}
+                  >
+                    {word}
+                  </span>
+                </Fragment>
+              ))}
             </p>
           )}
 
