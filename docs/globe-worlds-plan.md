@@ -515,6 +515,9 @@ pools ship tagged by kind up to the hard cap.
     - The suspect is RouteFill's mount-time `syncNavAccent()` on home.
     - If the failure recurs, trace `html` class changes with a MutationObserver. Patching
       `classList` breaks the add.
+  - The probe saves its full report as `report.json` beside the shots in `--out` (default
+    `scripts/shots/globe-*`), on failed and crashed runs too, and prints the path to stderr.
+    Stdout is unchanged, so no run needs repeating to recover a report cut off by `tail`.
   - Phone viewing: run the worktree server as `astro dev --host --port 4322`. Sanity's CORS list
     has `http://192.168.1.19:4322` since 10-07 (Nathan's yes); without that entry, stills load
     black from a LAN origin.

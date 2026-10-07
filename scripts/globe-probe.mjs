@@ -21,7 +21,8 @@
  * no in-place flips during a hold (assets are persistent at rest), every ⏭
  * landed, the world changing on its own clock (under --rm only ⏭ moves it), the
  * chrome wearing the world's projectColor once a change has landed, and no
- * console/page errors. --mode=off checks the default globe runs clean (no
+ * console/page errors. The report is also saved as report.json beside the
+ * shots in --out (a failed or crashed run included); its path goes to stderr. --mode=off checks the default globe runs clean (no
  * stats, no tint).
  *
  * --paint reads the hero gradient's bottom pixel every frame it can through
@@ -121,6 +122,12 @@ const NOISE = [
 fs.mkdirSync(OUT, { recursive: true });
 // Only this probe's own NN-name.png shots — never anything else in --out.
 for (const f of fs.readdirSync(OUT)) if (/^\d\d-[\w-]+\.png$/.test(f)) fs.rmSync(path.join(OUT, f));
+// The full report on disk, beside the shots — stdout stays the bare JSON.
+const save = () => {
+  const file = path.join(OUT, 'report.json');
+  fs.writeFileSync(file, JSON.stringify(report, null, 1) + '\n');
+  console.error(`globe-probe: report → ${file}`);
+};
 const report = { url: URL_, viewport: [VW, VH], mobile: MOBILE, rm: RM, samples: [], shots: [], consoleErrors: [], pageErrors: [], imageFailures: [] };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -538,9 +545,11 @@ async function enterScenario(page) {
     );
   }
   console.log(JSON.stringify(report, null, 1));
+  save();
   if (Object.values(report.pass).some((v) => !v)) process.exit(2);
 })().catch((e) => {
   report.fatal = String(e && e.stack ? e.stack : e);
   console.log(JSON.stringify(report, null, 1));
+  save();
   process.exit(1);
 });
