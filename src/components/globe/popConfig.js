@@ -22,12 +22,17 @@
  * 10-06 bake (Nathan's dial): tides on by default, all media, cap 13,
  * weighted shares, a 6 s ± 0.2 hold, a 0.9 s surge, chaos 1. The seed stays
  * random per visit (his call).
- * 10-06 = client-name ticker tiles (names, nameSpans, nameSpeed, nameStyle —
- * nameTicker.js); starting values, not yet dialed.
+ * 10-06 = client-name strips (names, nameStyle — nameTicker.js).
+ * 10-07 = their placement rework: the ticker is gone (the strips are still),
+ * the span comes from the MEASURED name (nameSpanMin/nameSpanMax) instead of a
+ * random width, the type is smaller (nameSize), and the director places each
+ * world's strip camera-relative — mid-latitude (nameBand), front-facing
+ * (nameFace), in the quadrant opposite the last world's — or across a whole
+ * latitude row (nameMode=band). Starting values, not yet dialed.
  */
 import { PATTERNS } from './worldPatterns.js';
 import { WORLD_POOL_CAP } from './buildWorldPools.js';
-import { NAME_STYLES } from './nameTicker.js';
+import { NAME_STYLES, NAME_MODES } from './nameTicker.js';
 
 const search = () =>
   new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
@@ -51,9 +56,7 @@ export const POP_TRANSITIONS = ['tide', 'blink', 'surge', 'cut'];
 /** shared = one decoded stream feeds every tile showing that clip; tile = one
  *  decode per live tile (today's scheduler). */
 export const POP_LIVE = ['shared', 'tile'];
-/** A name strip's width in adjacent tiles (each strip draws one from the set). */
-export const POP_NAME_SPANS = ['1', '2', '3'];
-export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES };
+export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES, NAME_MODES as POP_NAME_MODES };
 
 /** popmedia → the media kinds a world's pool keeps (null = its whole pool:
  *  hero + showcase Tiles + album art). showcase = the /work World's Tiles —
@@ -86,9 +89,13 @@ export const POP_DEFAULTS = Object.freeze({
   live: 'shared', // ?poplive — shared | tile (POP_LIVE)
   color: 1, // ?popcolor — 1 = the world's projectColor drives the globe + chrome; 0 = brand blue
   enter: 1, // ?popenter — 1 = Enter World opens /work on the world on the globe; 0 = the first World
-  names: 2, // ?popnames — name-strip rows on the visible face, ≈ strips facing you (0 = none; 4 = every row)
-  nameSpans: Object.freeze(['2', '3']), // ?popnamespan — a strip's width in tiles, drawn per strip (comma list, POP_NAME_SPANS)
-  nameSpeed: 0.6, // ?popnamespeed — the ticker's pace, tile heights per second (0 = still)
+  names: 1, // ?popnames — name strips a world places (0 = none)
+  nameMode: 'region', // ?popnamemode — region = a run of tiles sized to the name; band = a whole latitude row (NAME_MODES)
+  nameSize: 0.62, // ?popnamesize — font px per strip height (was a baked 0.86 — Nathan 10-07: "reduced slightly")
+  nameBand: 0.65, // ?popnameband — the middle fraction of pole-to-pole a strip may sit in
+  nameFace: 0.5, // ?popnameface — front-facing width as a fraction of the circumference (0.5 = the visible half)
+  nameSpanMin: 2, // ?popnamespanmin — fewest tiles a strip may use
+  nameSpanMax: 6, // ?popnamespanmax — most tiles a strip may use (at the cap the type shrinks, the name is never cut)
   nameStyle: 'ink', // ?popnamestyle — ink = the world's colour on black; fill = black on the colour
 });
 
@@ -106,7 +113,11 @@ const NUMERIC = {
   color: ['popcolor', (n) => (n > 0 ? 1 : 0)],
   enter: ['popenter', (n) => (n > 0 ? 1 : 0)],
   names: ['popnames', (n) => clamp(Math.round(n), 0, 4)],
-  nameSpeed: ['popnamespeed', (n) => clamp(n, 0, 4)],
+  nameSize: ['popnamesize', (n) => clamp(Math.round(n * 100) / 100, 0.3, 1.2)],
+  nameBand: ['popnameband', (n) => clamp(Math.round(n * 100) / 100, 0.1, 1)],
+  nameFace: ['popnameface', (n) => clamp(Math.round(n * 100) / 100, 0.05, 1)],
+  nameSpanMin: ['popnamespanmin', (n) => clamp(Math.round(n), 1, 12)],
+  nameSpanMax: ['popnamespanmax', (n) => clamp(Math.round(n), 1, 12)],
 };
 /* — Single-choice knobs (value ∈ vocab) and set knobs (comma lists ⊂ vocab). — */
 const CHOICE = {
@@ -116,11 +127,11 @@ const CHOICE = {
   layout: ['poplayout', POP_LAYOUTS],
   live: ['poplive', POP_LIVE],
   nameStyle: ['popnamestyle', NAME_STYLES],
+  nameMode: ['popnamemode', NAME_MODES],
 };
 const SETS = {
   patterns: ['poppattern', PATTERNS],
   transitions: ['poptransset', POP_TRANSITIONS],
-  nameSpans: ['popnamespan', POP_NAME_SPANS],
 };
 
 // Live, mutable tuning state (the bench writes, the director reads).

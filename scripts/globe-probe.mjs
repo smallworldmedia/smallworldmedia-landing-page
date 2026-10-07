@@ -11,6 +11,10 @@
  *        [--paint] [--enter] [--channel=chrome]
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
  *
+ * --base and --out also read GLOBE_PROBE_BASE / GLOBE_PROBE_OUT, for a pinned
+ * verifier command that carries no flags (GLOBE_PROBE_OUT is the PARENT of the
+ * per-run folder, so one setting serves every variant of a run).
+ *
  * Samples the stats (and the <html> accent: the pop-tint class, the computed
  * --project-color) once a second for --secs, clicks the bench's ⏭ next
  * --next times (spread across the run) and times each one until the new
@@ -20,7 +24,9 @@
  * during holds, 0 black visible tiles after --warm, a bounded texture count,
  * no in-place flips during a hold (assets are persistent at rest), every ⏭
  * landed, the world changing on its own clock (under --rm only ⏭ moves it), the
- * chrome wearing the world's projectColor once a change has landed, and no
+ * chrome wearing the world's projectColor once a change has landed, the
+ * client-name strips placed inside the latitude band and (in region mode)
+ * wholly front-facing and never moving (10-07: the ticker is gone), and no
  * console/page errors. The report is also saved as report.json beside the
  * shots in --out (a failed or crashed run included); its path goes to stderr. --mode=off checks the default globe runs clean (no
  * stats, no tint).
@@ -88,21 +94,25 @@ const VW = Number(arg('vw', MOBILE ? 390 : 1440));
 const VH = Number(arg('vh', MOBILE ? 844 : 900));
 const INTRO = arg('intro', 'replay');
 const EXTRA = arg('extra', '');
-const BASE = arg('base', 'http://localhost:4322');
+// GLOBE_PROBE_BASE / GLOBE_PROBE_OUT are the same two knobs by environment,
+// for a pinned verifier command that can't carry flags (several worktrees of
+// this repo are often up at once, each dev server on its own port — and the
+// Sanity CDN only allows a handful of them, see the CORS note above).
+const BASE = arg('base', process.env.GLOBE_PROBE_BASE || 'http://localhost:4322');
 const GPU = arg('gpu', 'swiftshader');
 const CHANNEL = arg('channel', ''); // 'chrome' → the installed Google Chrome
 const PAINT = !!arg('paint', false);
 const ENTER = !!arg('enter', false);
 const ENTER_OFF = /[?&]popenter=0\b/.test(EXTRA); // /work must open on its first world
 const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
+const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}`;
 const OUT = arg(
   'out',
   // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
   // mkdir a stray "Small%20World%20Media" tree beside the real one).
   path.join(
-    path.dirname(fileURLToPath(import.meta.url)),
-    'shots',
-    `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}`
+    process.env.GLOBE_PROBE_OUT || path.join(path.dirname(fileURLToPath(import.meta.url)), 'shots'),
+    RUN
   )
 );
 const URL_ = `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}`;
@@ -448,6 +458,51 @@ async function enterScenario(page) {
   }, 0);
   const nexts = report.samples.filter((s) => s.action?.startsWith('next'));
   const steps = stats.map((s) => s.step);
+  // Client-name strips (10-07). namePlaced is what the director MEASURED off
+  // the live scene as it placed this world's strips (the band / facing /
+  // quadrant contract); nameUv is each strip slice's resting window, so two
+  // samples of the same world disagreeing means something still moves them.
+  const namesOn = stats.some((s) => s.nameStrips > 0);
+  const placed = [...new Map(stats.filter((s) => s.namePlaced).map((s) => [s.namePlaced.step, s.namePlaced])).values()];
+  // Stillness is a gate about REST, so compare only two HOLD samples of the
+  // same world (the quietHolds idiom). `step` alone isn't enough: it advances
+  // when a change STARTS, and the tiles swap across the lay-in's spread, so a
+  // transition sample can still hold the previous world's strip — and nameUv
+  // is keyed by slice index, so slice 1 of a span-4 strip (0.25) would be
+  // compared with slice 1 of the next world's span-2 strip (0.5). In a hold
+  // every strip is at rest: a row re-born inside one can never carry a strip
+  // (pick() consumes the plan), so nothing binds between two hold samples.
+  const uvMoved = [];
+  let uvHeld = 0; // slice comparisons actually made — 0 would pass vacuously
+  for (let i = 1; i < stats.length; i++) {
+    const [a, b] = [stats[i - 1], stats[i]];
+    if (!a.nameUv || !b.nameUv || a.step !== b.step || a.seed !== b.seed) continue;
+    if (a.phase !== 'hold' || b.phase !== 'hold') continue;
+    for (const k of Object.keys(b.nameUv)) {
+      if (!(k in a.nameUv)) continue;
+      uvHeld += 1;
+      if (Math.abs(a.nameUv[k] - b.nameUv[k]) <= 1e-4) continue;
+      uvMoved.push(`t${b.t} step${b.step} slice ${k}: ${a.nameUv[k]} → ${b.nameUv[k]}`);
+    }
+  }
+  const names = {
+    placements: placed.map(
+      (p) => `${p.mode} span ${p.span} × ${p.tiles}t · ${p.quad ?? '—'}${p.relaxed ? ` (relaxed:${p.relaxed})` : ''}`
+    ),
+    // the band is the hard gate; |y| ≤ yLimit is "inside the middle ?popnameband"
+    worstPlacedY: placed.length ? Math.max(...placed.map((p) => p.yMax ?? 0)) : null,
+    yLimit: placed.length ? placed[0].yLimit : null,
+    worstPlacedZ: placed.filter((p) => p.mode === 'region').length
+      ? Math.min(...placed.filter((p) => p.mode === 'region').map((p) => p.zMin ?? -1))
+      : null,
+    zLimit: placed.length ? placed[0].zLimit : null,
+    relaxed: placed.filter((p) => p.relaxed).length,
+    maxNameTiles: stats.length ? Math.max(...stats.map((s) => s.nameTiles ?? 0)) : null,
+    // live, as the strips travel with their rows out of the band — diagnostic
+    maxLiveNameY: stats.length ? Math.max(...stats.map((s) => s.nameMaxY ?? 0)) : null,
+    uvHeld,
+    uvMoved,
+  };
   report.summary = {
     worlds: stats.reduce((seq, s) => (seq[seq.length - 1] === s.world ? seq : [...seq, s.world]), []),
     changes: steps.length ? Math.max(...steps) - Math.min(...steps) : 0,
@@ -462,6 +517,7 @@ async function enterScenario(page) {
     // video: decodes vs the tiles they light (shared streams: tiles ≥ decodes)
     maxStreams: stats.length ? Math.max(...stats.map((s) => s.streams ?? 0)) : null,
     maxLiveTiles: stats.length ? Math.max(...stats.map((s) => s.liveTiles ?? 0)) : null,
+    names,
     fps: warm.map((s) => s.fps),
   };
   const m = report.summary;
@@ -534,6 +590,17 @@ async function enterScenario(page) {
           // only the presses move it (each one a cut)
           cycled: RM ? m.changes === nexts.length : m.changes > nexts.length,
           colour: c.ready && (c.want ? c.popTint && c.accent === rgbOf(c.want) : true),
+          // the client-name strips: placed at all, never outside the latitude
+          // band, a region strip wholly front-facing, and never moving (the
+          // ticker is gone — tile k rests on the k-th slice, for good)
+          ...(namesOn
+            ? {
+                namesPlaced: !!names.placements.length && names.maxNameTiles > 0 && placed.every((p) => p.tiles > 0),
+                namesInBand: !!placed.length && placed.every((p) => (p.yMax ?? 0) <= p.yLimit + 1e-4),
+                namesFrontFacing: placed.every((p) => p.mode !== 'region' || (p.zMin ?? -1) >= p.zLimit - 1e-4),
+                namesStill: names.uvHeld > 0 && names.uvMoved.length === 0,
+              }
+            : {}),
           ...(report.paint ? { gradientAnimates: report.paint.between >= 3 } : {}),
           ...enterPass,
           clean: !report.consoleErrors.length && !report.pageErrors.length,

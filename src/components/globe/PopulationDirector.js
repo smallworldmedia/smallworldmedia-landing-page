@@ -41,13 +41,27 @@
  * Tile assets are decorated once with their world (stats/focus) and the chip
  * copy HeroLabels reads (clientName, services).
  *
- * 10-06 — client-name ticker strips (nameTicker): every few tape rows, a
- * strip of 1–3 adjacent tiles shows the world's clientName in the FP card
- * face, sliding across the tiles as one ticker (?popnames, ?popnamespan,
- * ?popnamespeed, ?popnamestyle). The strip belongs to the world that owns
- * its first tile, warms with the grouping, and travels pole-to-pole with its
- * row like any tile. Per frame, tickNames() moves each strip tile's window
- * (uvOffsetA.x over the repeating strip) — still under reduced motion.
+ * 10-06 — client-name strips (nameTicker): a run of adjacent tiles shows the
+ * world's clientName in the FP card face (?popnames, ?popnamestyle). The
+ * strip belongs to the world that owns its first tile, warms with the
+ * grouping, and travels pole-to-pole with its row like any tile.
+ *
+ * 10-07 — their PLACEMENT (Nathan: too big, long names clipped, no ticker).
+ * planNames() chooses the strips ONCE PER WORLD CHANGE against the live
+ * scene, panel-keyed, because all three of his asks are about where a panel
+ * is RIGHT NOW relative to the camera and none can be expressed over the
+ * scroll tape (a row's latitude changes all the way down its pass):
+ *   mid-latitude  |centerDir.y| inside ?popnameband of pole-to-pole
+ *   front-facing  every tile's camera-rotated .z clears ?popnameface
+ *   alternating   the strip's quadrant of that region walks NAME_QUADS
+ *                 (lower-left, upper-right, upper-left, lower-right)
+ * The span comes from the MEASURED name (nameSpan), so the whole name reads
+ * at rest instead of being cut; ?popnamemode=band draws it across a whole
+ * latitude row instead. The ticker is gone: placeNames() only reconciles each
+ * tile's resting window, so at rest there are no per-frame uniform writes.
+ * A row re-born at the pole is outside the band by construction, so names
+ * refresh at a change, not at a birth — and a `tide` (which re-births every
+ * row) therefore carries no strips at all.
  */
 import gsap from 'gsap';
 import * as THREE from 'three';
@@ -57,8 +71,7 @@ import { selectPool, WORLD_KINDS } from './buildWorldPools.js';
 import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
-import { nameAsset, nameCell } from './nameTicker.js';
-import { SCROLL_VISIBLE_ROWS } from './globeConfig.js';
+import { nameAsset, nameSpan, nameBandLimit, nameFaceLimit, NAME_QUADS } from './nameTicker.js';
 
 const RELAYOUT_SPREAD = 0.6; // s — bench relayout stagger window
 const RELAYOUT_DUR = 0.45; // s — one tile's blink
@@ -100,8 +113,9 @@ export default class PopulationDirector {
     this.flips = 0; // tiles re-laid in place (monotonic; births aren't flips)
     this.flipsSampled = 0;
     this.countFlip = () => (this.flips += 1);
-    this.names = new Map(); // `${world}:${style}` → its name-strip asset (one texture per key)
-    this.nameT = 0; // tile heights the ticker has run
+    this.names = new Map(); // nameKey → its name-strip asset (one texture per key)
+    this.namePlan = new Map(); // panel → its strip, for the layout in flight (planNames)
+    this.namePlaced = null; // that placement's own measurements (bench + probe)
     this.warm = new Map(); // texture key → its load promise; one director ref per key
     this.upcoming = null; // the next grouping, pre-warmed
     this.upcomingKind = null; // …and the transition that will bring it
@@ -112,10 +126,13 @@ export default class PopulationDirector {
       byRow.get(p.row).push(p);
     }
     this.rows = [...byRow.values()];
+    // Derived, never assumed: 12 lon × 6 visible rows happens to make it 1.
+    this.panelAspect = panels[0]?.panelAspect || 1;
     this.pools = worlds.map((w, wi) =>
       w.assets.map((a) => ({ ...a, clientName: w.clientName, services: w.services, world: wi }))
     );
     this._v = new THREE.Vector3();
+    this._n = new THREE.Vector3(); // planNames' own scratch (byProminence owns _v)
     this.assignRow = this.assignRow.bind(this);
     this.reseed();
     this.grouping = this.makeGrouping();
@@ -152,12 +169,17 @@ export default class PopulationDirector {
       }
     }
     const weights = TUNING.share === 'weighted' ? pools.map((l) => l.length) : pools.map(() => 1);
+    // The name quadrant walks NAME_QUADS by step, from a seeded start — so
+    // consecutive worlds land far apart (Nathan: lower-left, then upper-right)
+    // and a pinned ?popseed still replays the same globe.
+    const quadFrom = Math.floor(mulberry32(hashSeed(`${this.seed}:namequad`))() * NAME_QUADS.length);
     return {
       members,
       regionWorld,
       pools,
       name,
       seed,
+      nameQuad: NAME_QUADS[(((step + quadFrom) % NAME_QUADS.length) + NAME_QUADS.length) % NAME_QUADS.length],
       pattern: makePattern(name, { seed, weights, lon: this.lon }),
       cursor: pools.map(() => 0),
     };
@@ -172,8 +194,13 @@ export default class PopulationDirector {
     const L = this.lon;
     const lon = panel.lonIndex;
     const s = panel.tapeS;
-    const strip = this.pickName(lon, s);
-    if (strip) return strip;
+    // A strip this layout's planNames already placed on this panel. Consumed,
+    // so a row re-born later (at the pole) can never inherit it.
+    const strip = this.namePlan.get(panel);
+    if (strip) {
+      this.namePlan.delete(panel);
+      return strip;
+    }
     const r = g.pattern.owner(lon, s);
     const pool = g.pools[r];
     const near = [
@@ -197,29 +224,157 @@ export default class PopulationDirector {
     return asset;
   }
 
-  /** The name strip on tape (lon, s), or null: a per-tile asset (its window
-   *  k / phase in the strip) over the world's one shared strip texture. */
-  pickName(lon, s) {
-    if (!TUNING.names) return null;
-    const cell = nameCell(lon, s, {
-      seed: this.seed,
-      L: this.lon,
-      rows: SCROLL_VISIBLE_ROWS,
-      count: TUNING.names,
-      spans: TUNING.nameSpans.map(Number),
+  /** How a world's strip is drawn — pure in (its name, the dials, the tile
+   *  aspect), so warmSet and planNames always agree on the texture. The span
+   *  is the tile count the MEASURED name needs to read at rest. */
+  nameLayout(w) {
+    if (TUNING.nameMode === 'band') return { mode: 'band', span: this.lon, panelAspect: this.panelAspect };
+    const span = nameSpan(this.worlds[w]?.clientName, TUNING.nameSize, this.panelAspect, {
+      min: TUNING.nameSpanMin,
+      max: Math.min(TUNING.nameSpanMax, this.lon),
     });
-    if (!cell) return null;
-    const g = this.grouping;
-    const base = this.nameFor(g.regionWorld[g.pattern.owner(cell.start, s)]);
-    return base && { ...base, k: cell.k, phase: cell.phase };
+    return { mode: 'region', span, panelAspect: this.panelAspect };
   }
 
+  /** A world's strip asset (one per nameKey — one texture, refcounted per
+   *  tile). Null for a world without a clientName. */
   nameFor(w) {
     const world = this.worlds[w];
     if (!world?.clientName) return null;
-    const key = `${w}:${TUNING.nameStyle}`;
-    if (!this.names.has(key)) this.names.set(key, nameAsset(world, w, TUNING.nameStyle));
-    return this.names.get(key);
+    const asset = nameAsset(world, w, {
+      style: TUNING.nameStyle,
+      size: TUNING.nameSize,
+      ...this.nameLayout(w),
+    });
+    if (!this.names.has(asset.nameKey)) this.names.set(asset.nameKey, asset);
+    return this.names.get(asset.nameKey);
+  }
+
+  /** Where this world's name goes, decided once against the LIVE scene (see
+   *  the header): a Map panel → its strip tile ({ ...asset, k }), plus the
+   *  placement's own measurements on this.namePlaced.
+   *
+   *  region  every candidate is a run of `span` adjacent tiles of one
+   *          band row; it must be wholly front-facing, and its quadrant OF
+   *          THE FRONT-FACING REGION (split at that region's own mid-point,
+   *          not the screen's — the brand tilt pushes the whole region below
+   *          centre) must be the grouping's. The most frontal candidate wins.
+   *          Band + facing + quadrant leaves a small admissible set, so the
+   *          gates relax in order: quadrant first, then facing — never the
+   *          latitude band, and the relaxation is reported.
+   *  band    `names` whole latitude rows inside the band, the row walking
+   *          with the step so the band moves between worlds. */
+  planNames() {
+    this.namePlaced = null;
+    const plan = new Map();
+    const count = TUNING.names;
+    if (!count) return plan;
+    const g = this.grouping;
+    const L = this.lon;
+    const rot = this.getRotation();
+    const yLimit = nameBandLimit(TUNING.nameBand);
+    const zLimit = nameFaceLimit(TUNING.nameFace);
+    const band = TUNING.nameMode === 'band';
+    // Rows whose latitude is inside the band. One row = one latitude, and
+    // centerDir is unrotated, so row[0] speaks for all 12 tiles.
+    const rows = this.rows.filter((r) => r.length && Math.abs(r[0].centerDir.y) <= yLimit);
+    if (!rows.length) return plan;
+    const v = this._n;
+    const rotated = (p) => v.copy(p.centerDir).applyEuler(rot);
+    const draw = mulberry32(hashSeed(`${this.seed}:namerow`))();
+    let relaxed = null;
+    let quad = null;
+    let span = 0;
+
+    if (band) {
+      const from = Math.floor(draw * rows.length) + this.step;
+      for (let i = 0; i < Math.min(count, rows.length); i++) {
+        const row = rows[(((from + i) % rows.length) + rows.length) % rows.length];
+        const at = new Map(row.map((p) => [p.lonIndex, p]));
+        const s = row[0].tapeS;
+        const base = this.nameFor(g.regionWorld[g.pattern.owner(0, s)]);
+        if (!base) continue;
+        span = L;
+        for (let k = 0; k < L; k++) {
+          const p = at.get(k);
+          if (p) plan.set(p, { ...base, k });
+        }
+      }
+    } else {
+      const cands = [];
+      for (const row of rows) {
+        const at = new Map(row.map((p) => [p.lonIndex, p]));
+        const s = row[0].tapeS;
+        for (let st = 0; st < L; st++) {
+          const base = this.nameFor(g.regionWorld[g.pattern.owner(st, s)]);
+          if (!base) continue;
+          const span = Math.min(base.span, L);
+          const tiles = [];
+          for (let k = 0; k < span; k++) tiles.push(at.get((st + k) % L));
+          if (tiles.some((p) => !p)) continue;
+          let minZ = Infinity;
+          let cx = 0;
+          let cy = 0;
+          for (const p of tiles) {
+            const d = rotated(p);
+            minZ = Math.min(minZ, d.z);
+            cx += d.x / span;
+            cy += d.y / span;
+          }
+          cands.push({ row, tiles, base, minZ, cx, cy });
+        }
+      }
+      let pool = cands.filter((c) => c.minZ >= zLimit);
+      if (!pool.length) {
+        pool = cands;
+        relaxed = 'facing';
+      }
+      // The quadrants partition the ADMISSIBLE region, split at its own
+      // mid-point, so all four stay reachable under the brand tilt.
+      const mid = (f) => {
+        const xs = pool.map(f);
+        return (Math.min(...xs) + Math.max(...xs)) / 2;
+      };
+      const xm = mid((c) => c.cx);
+      const ym = mid((c) => c.cy);
+      const quadOf = (c) => (c.cy >= ym ? 'U' : 'L') + (c.cx >= xm ? 'R' : 'L');
+      let want = pool.filter((c) => quadOf(c) === g.nameQuad);
+      if (!want.length) {
+        want = pool;
+        relaxed = relaxed || 'quadrant';
+      }
+      want.sort((a, b) => b.minZ - a.minZ); // the most frontal run wins
+      const usedRows = new Set();
+      for (const c of want) {
+        if (usedRows.size >= count) break;
+        if (usedRows.has(c.row)) continue;
+        usedRows.add(c.row);
+        if (quad == null) quad = quadOf(c);
+        span = Math.max(span, c.tiles.length);
+        c.tiles.forEach((p, k) => plan.set(p, { ...c.base, k }));
+      }
+    }
+
+    let yMax = 0;
+    let zMin = Infinity;
+    for (const p of plan.keys()) {
+      yMax = Math.max(yMax, Math.abs(p.centerDir.y));
+      zMin = Math.min(zMin, rotated(p).z);
+    }
+    this.namePlaced = {
+      step: this.step,
+      mode: band ? 'band' : 'region',
+      span,
+      tiles: plan.size,
+      want: band ? null : g.nameQuad,
+      quad,
+      relaxed,
+      yLimit: Math.round(yLimit * 1e4) / 1e4,
+      yMax: plan.size ? Math.round(yMax * 1e4) / 1e4 : null,
+      zLimit: Math.round(zLimit * 1e4) / 1e4,
+      zMin: plan.size ? Math.round(zMin * 1e4) / 1e4 : null,
+    };
+    return plan;
   }
 
   /** A grouping's textures: its pools + its worlds' name strips. */
@@ -229,19 +384,22 @@ export default class PopulationDirector {
     return [...g.pools, strips];
   }
 
-  /** Per frame: slide every strip tile's window along the repeating strip.
-   *  Tile k of a strip starts where tile k-1 ends (k · its window width), so
-   *  the name runs across the strip as one; the clock waits while the
-   *  screens aren't free to animate (reduced motion: the strips hold still). */
-  tickNames(dt) {
-    if (this.canAnimate()) this.nameT += dt * TUNING.nameSpeed;
+  /** Each strip tile's RESTING window: tile k shows the k-th slice of the
+   *  strip (k · the slice width), so the name reads across the lattice gaps
+   *  as one — still. tileSwap's cover-fit centres a texture on its tile, and
+   *  nothing else writes uvOffsetA, so the director reconciles it here. A
+   *  loop rather than a bind hook because loadTile fires from three places
+   *  (a row's re-birth, applyPlan, initialLayout) and layIn's kept-texture
+   *  strip takes a new window with no load at all. Writes only on a change,
+   *  so at rest this costs nothing (the ticker's per-frame writes are gone). */
+  placeNames() {
     for (const p of this.panels) {
       const a = p.shownAsset;
       if (a?.kind !== 'name') continue;
       const u = p.mesh.material.uniforms;
-      const aspect = u.texA.value?.userData?.aspect || 1;
-      const x = a.phase + a.k * u.uvScaleA.value.x + this.nameT / aspect;
-      u.uvOffsetA.value.x = x - Math.floor(x);
+      const x = a.k * u.uvScaleA.value.x;
+      const want = x - Math.floor(x); // band: the window wraps the repeat
+      if (Math.abs(u.uvOffsetA.value.x - want) > 1e-6) u.uvOffsetA.value.x = want;
     }
   }
 
@@ -261,9 +419,11 @@ export default class PopulationDirector {
   /** A fresh board, tiles decided in `order` (most prominent first, so each
    *  world's lead assets land where the eye is). */
   planAll(order) {
+    this.namePlan = this.planNames();
     const grid = new Map();
     const plan = new Map();
     for (const p of order) plan.set(p, this.pick(p, grid));
+    this.namePlan = new Map(); // a strip is only ever placed by the plan that chose it
     return plan;
   }
 
@@ -356,7 +516,7 @@ export default class PopulationDirector {
    *  a tide's travel lands the same frame). */
   update(dt) {
     if (this.disposed) return;
-    this.tickNames(dt);
+    this.placeNames();
     if (this.frozen || !this.canAnimate()) return;
     if (!this.greeted) this.greet(true);
     if (this.tide) {
@@ -493,9 +653,9 @@ export default class PopulationDirector {
     } else if (key === 'transitions' || key === 'chaos') {
       if (!this.busy) this.planNext(); // re-draw the next world + transition
     } else if (key === 'color') this.emitWorld(true);
-    else if (key === 'trans' || key === 'live' || key === 'enter' || key === 'nameSpeed') {
-      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World / per frame
-    } else this.relayout(); // media, cap, share, group, names, nameSpans, nameStyle, reset
+    else if (key === 'trans' || key === 'live' || key === 'enter') {
+      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World
+    } else this.relayout(); // media, cap, share, group, the name knobs, reset
   }
 
   /** The commit engaged its blue fill: land every in-flight swap now and
@@ -547,13 +707,19 @@ export default class PopulationDirector {
     let inGroup = 0;
     let liveTiles = 0;
     let nameTiles = 0;
+    let nameMaxY = 0;
+    const nameUv = {}; // strip slice k → its resting uvOffsetA.x (the probe's stillness gate)
     for (const p of this.panels) {
       if (p.liveState === 'live') liveTiles += 1;
       if (p.parked) continue;
       if (this._v.copy(p.centerDir).applyEuler(rotation).z <= FACING) continue;
       visible += 1;
       if (!p.mesh.material.uniforms.uHasTexA.value) black += 1;
-      if (p.shownAsset?.kind === 'name') nameTiles += 1;
+      if (p.shownAsset?.kind === 'name') {
+        nameTiles += 1;
+        nameMaxY = Math.max(nameMaxY, Math.abs(p.centerDir.y));
+        nameUv[p.shownAsset.k] = Math.round(p.mesh.material.uniforms.uvOffsetA.value.x * 1e6) / 1e6;
+      }
       const w = p.shownAsset?.world; // what texA shows, not the load in flight
       if (w == null) continue;
       shares.set(w, (shares.get(w) || 0) + 1);
@@ -593,6 +759,15 @@ export default class PopulationDirector {
       streams: this.getScheduler()?.getStats().live ?? 0, // decodes
       liveTiles,
       nameTiles, // visible tiles showing a name strip
+      nameStrips: TUNING.names, // strips a world places (0 = names off)
+      nameMode: TUNING.nameMode,
+      // Where this world's strips were PLACED, measured off the live scene at
+      // the moment of the change (the probe's band / facing / quadrant gates).
+      namePlaced: this.namePlaced,
+      // Live, as the strips travel: a placed strip drifts out of the band with
+      // its row, so this is a diagnostic, not a gate.
+      nameMaxY: nameTiles ? Math.round(nameMaxY * 1e4) / 1e4 : null,
+      nameUv,
       live: [...live].map(([w, c]) => `${this.worlds[w].clientName} ${c}`),
       fps,
     };

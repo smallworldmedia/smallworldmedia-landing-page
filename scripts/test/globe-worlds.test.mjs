@@ -17,7 +17,13 @@ import { loadTile } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
 import { TUNING, POP_DEFAULTS } from '../../src/components/globe/popConfig.js'
-import { nameCell } from '../../src/components/globe/nameTicker.js'
+import {
+  measureNameAspect,
+  nameSpan,
+  nameBandLimit,
+  nameFaceLimit,
+  NAME_QUADS,
+} from '../../src/components/globe/nameTicker.js'
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -151,13 +157,18 @@ function fakeScene() {
   for (let lon = 0; lon < LON; lon++) {
     for (let row = 0; row < ROWS; row++) {
       const phi = ((lon + 0.5) / LON) * Math.PI * 2
-      const theta = ((row + 0.5) / 6) * Math.PI
+      // MeridianScroll.applyScroll: 8 rows at a π/6 pitch, so two sit past a
+      // pole — parked, their centerDir clamped pole-ward (|y| = 1).
+      const thetaC = ((row + 0.5) / 6) * Math.PI
+      const parked = !(thetaC > 0 && thetaC < Math.PI)
+      const theta = Math.min(Math.max(thetaC, 0), Math.PI)
       const v2 = () => ({ value: new THREE.Vector2() })
       panels.push({
         lonIndex: lon,
         row,
         tapeS: initialBirth(row, ROWS),
         panelAspect: 1,
+        parked,
         centerDir: new THREE.Vector3(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)),
         mesh: {
           material: {
@@ -180,16 +191,28 @@ function fakeScene() {
     }
   }
   // Refcounting fake with the TextureManager surface loadTile/director use.
+  // Each texture carries the aspect nameTicker stamps on the real thing —
+  // tileSwap's cover-fit is what turns a region strip's span into a tile's
+  // 1/span window, so a fake without it would test nothing.
+  const texFor = (a) => ({
+    k: assetKey(a),
+    userData: {
+      aspect:
+        a.kind !== 'name' ? 1 : a.mode === 'band' ? measureNameAspect(a.text, a.size) : a.span * a.panelAspect,
+    },
+  })
   const textureManager = {
     cache: new Map(),
     loadAsset(a) {
       const k = assetKey(a)
-      const e = this.cache.get(k) || { refs: 0 }
+      const e = this.cache.get(k) || { refs: 0, texture: texFor(a) }
       e.refs += 1
       this.cache.set(k, e)
-      return Promise.resolve({ k })
+      return Promise.resolve(e.texture)
     },
-    peek: (k) => ({ k }),
+    peek(k) {
+      return this.cache.get(k)?.texture ?? null
+    },
     release(k) {
       const e = this.cache.get(k)
       if (!e) return
@@ -375,74 +398,174 @@ test('director: an in-place change re-lays every tile onto the next world at onc
   director.dispose()
 })
 
-/* — 10-06: client-name ticker strips — */
-test('name strips: every K-th row, two runs half a globe apart, one always facing', () => {
-  const L = LON
-  const o = { seed: 7, L, rows: 6, count: 2, spans: [2, 3] }
-  const stripRows = []
-  for (let s = -8; s < 48; s++) {
-    const cells = []
-    for (let lon = 0; lon < L; lon++) {
-      const c = nameCell(lon, s, o)
-      if (c) cells.push([lon, c])
-    }
-    if (!cells.length) continue
-    stripRows.push({ s, cells })
-    const starts = [...new Set(cells.map(([, c]) => c.start))]
-    assert.equal(starts.length, 2)
-    assert.equal((starts[1] - starts[0] + L) % L, L / 2)
-    for (const [lon, c] of cells) assert.equal((c.start + c.k) % L, lon) // tile k sits k on from the start
-    for (const a of starts) {
-      const run = cells.filter(([, c]) => c.start === a)
-      assert.ok([2, 3].includes(run[0][1].span))
-      assert.equal(run.length, run[0][1].span)
-    }
+/* — 10-07: client-name placement (SQ-8) — camera-relative, no ticker — */
+const Y_LIMIT = nameBandLimit(POP_DEFAULTS.nameBand)
+const Z_LIMIT = nameFaceLimit(POP_DEFAULTS.nameFace)
+const TILT = () => new THREE.Euler(THREE.MathUtils.degToRad(40), 0, 0) // the brand tilt
+const strips = (panels) => panels.filter((p) => p.shownAsset?.kind === 'name')
+const SPAN_CLAMP = { min: POP_DEFAULTS.nameSpanMin, max: POP_DEFAULTS.nameSpanMax }
+
+test('names: the span comes from the measured name — a longer name takes more tiles, and is never cut', () => {
+  const size = POP_DEFAULTS.nameSize
+  assert.ok(
+    nameSpan('Hurry Up Slowly Records', size, 1, SPAN_CLAMP) > nameSpan('COCO', size, 1, SPAN_CLAMP),
+    'a long name must occupy more tiles than a short one'
+  )
+  for (const name of ['A', 'COCO', 'Imperfect Records', 'Hurry Up Slowly Records']) {
+    const aspect = measureNameAspect(name, size)
+    const span = nameSpan(name, size, 1, SPAN_CLAMP)
+    assert.ok(span >= SPAN_CLAMP.min && span <= SPAN_CLAMP.max, `${name}: ${span}`)
+    // A tile shows panelAspect/stripAspect of the strip, so the whole name
+    // reads iff span ≥ stripAspect/panelAspect — unless the clamp capped it,
+    // where loadNameTexture shrinks the type instead of cutting the name.
+    assert.ok(span * 1 >= aspect || span === SPAN_CLAMP.max, `${name}: span ${span} for aspect ${aspect.toFixed(2)}`)
   }
-  // K = the face's 6 rows over 2 → a strip row every 3rd tape row.
-  for (let i = 1; i < stripRows.length; i++) assert.equal(stripRows[i].s - stripRows[i - 1].s, 3)
-  // Any two neighbouring strip rows leave no gap wider than 4 tiles round the globe.
-  for (let i = 1; i < stripRows.length; i++) {
-    const st = [...new Set([...stripRows[i - 1].cells, ...stripRows[i].cells].map(([, c]) => c.start))].sort((a, b) => a - b)
-    const gaps = st.map((a, j) => (st[(j + 1) % st.length] - a + L) % L || L)
-    assert.ok(Math.max(...gaps) <= 4, `s${stripRows[i].s}: starts ${st}`)
-  }
-  assert.equal(nameCell(0, 0, { ...o, count: 0 }), null)
+  // Smaller type needs no more tiles, and a wider tile needs fewer.
+  assert.ok(nameSpan('Imperfect Records', 0.4, 1, SPAN_CLAMP) <= nameSpan('Imperfect Records', 0.9, 1, SPAN_CLAMP))
+  assert.ok(nameSpan('Imperfect Records', size, 2, SPAN_CLAMP) <= nameSpan('Imperfect Records', size, 1, SPAN_CLAMP))
+  // The clamp is honoured from both ends.
+  assert.equal(nameSpan('A', size, 1, { min: 4, max: 6 }), 4)
+  assert.equal(nameSpan('Hurry Up Slowly Records', size, 1, { min: 1, max: 2 }), 2)
 })
 
-test('director: name strips share one texture per world and run as one ticker across their tiles', () => {
-  const { director, panels, textureManager } = makeDirector(
-    { seed: 5, names: 2, nameSpans: ['3'], nameSpeed: 1 },
-    { canAnimate: () => true }
+test('names: a world places its strip mid-latitude, front-facing, read once across its tiles', () => {
+  const { director, panels } = makeDirector({ seed: 5, names: 1 }, { getRotation: TILT })
+  const placed = director.namePlaced
+  assert.equal(placed.mode, 'region')
+  assert.equal(placed.relaxed, null) // band + facing + quadrant all satisfiable
+  const run = strips(panels)
+  assert.equal(run.length, placed.span)
+  assert.ok(placed.span >= 2, `span ${placed.span}`)
+  // The two gates, re-measured here rather than taken from the director.
+  const rot = TILT()
+  for (const p of run) {
+    assert.ok(Math.abs(p.centerDir.y) <= Y_LIMIT, `row ${p.row}: |y| ${p.centerDir.y.toFixed(3)} > ${Y_LIMIT}`)
+    const z = p.centerDir.clone().applyEuler(rot).z
+    assert.ok(z >= Z_LIMIT, `L${p.lonIndex} r${p.row}: z ${z.toFixed(3)} < ${Z_LIMIT}`)
+    assert.ok(!p.parked)
+  }
+  // One row, adjacent tiles, each slice of the strip exactly once.
+  assert.equal(new Set(run.map((p) => p.row)).size, 1)
+  assert.deepEqual(
+    run.map((p) => p.shownAsset.k).sort((a, b) => a - b),
+    Array.from({ length: placed.span }, (_, i) => i)
   )
+  const lons = run.map((p) => p.lonIndex)
+  for (const p of run) assert.equal(lons.includes((p.lonIndex + 1) % LON) || p.shownAsset.k === placed.span - 1, true)
+  // The windows tile the strip edge to edge: tile k rests on slice k, and
+  // span windows cover the whole strip (no repeat, so nothing is cut).
+  director.update(1 / 60)
+  const byK = [...run].sort((a, b) => a.shownAsset.k - b.shownAsset.k)
+  for (const p of byK) {
+    const u = p.mesh.material.uniforms
+    assert.ok(Math.abs(u.uvOffsetA.value.x - p.shownAsset.k * u.uvScaleA.value.x) < 1e-9, `k${p.shownAsset.k}`)
+  }
+  const scaleX = byK[0].mesh.material.uniforms.uvScaleA.value.x
+  assert.ok(Math.abs(scaleX * placed.span - 1) < 1e-6, `${scaleX} × ${placed.span}`)
+  director.dispose()
+})
+
+test('names: a row re-born at the pole never carries a strip — names refresh at a change', () => {
+  const { director, panels } = makeDirector({ seed: 5, names: 1 }, { getRotation: TILT })
+  assert.ok(strips(panels).length > 0)
+  const rows = new Map()
+  for (const p of panels) rows.set(p.row, [...(rows.get(p.row) || []), p])
+  let next = ROWS
+  for (let k = 0; k < 16; k++) {
+    const oldest = [...rows.values()].sort((a, b) => a[0].tapeS - b[0].tapeS)[0]
+    for (const p of oldest) p.tapeS = next
+    next += 1
+    const picks = director.assignRow(oldest)
+    assert.ok(
+      picks.every((a) => a.kind !== 'name'),
+      `re-born row ${oldest[0].row} took a strip`
+    )
+    oldest.forEach((p, i) => loadTile(director, p, picks[i]))
+  }
+  director.dispose()
+})
+
+test('names: consecutive worlds place in diagonally opposite quadrants', () => {
+  const { director } = makeDirector({ seed: 5, names: 1, chaos: 0 }, { getRotation: TILT })
+  const seen = []
+  for (let i = 0; i < 8; i++) {
+    seen.push({ want: director.grouping.nameQuad, ...director.namePlaced })
+    director.step += 1
+    director.grouping = director.makeGrouping({ step: director.step, lead: director.nextLead(director.step) })
+    director.planAll(director.byProminence())
+  }
+  // The cursor walks NAME_QUADS — Nathan's lower-left then upper-right.
+  const from = NAME_QUADS.indexOf(seen[0].want)
+  assert.ok(from >= 0)
+  seen.forEach((x, i) => assert.equal(x.want, NAME_QUADS[(from + i) % 4]))
+  // Every world honoured it — and landed in a different quadrant each time.
+  for (const x of seen) {
+    assert.equal(x.relaxed, null, `step ${x.step} relaxed: ${x.relaxed}`)
+    assert.equal(x.quad, x.want, `step ${x.step}`)
+    assert.ok(x.tiles > 0)
+    assert.ok(x.yMax <= x.yLimit, `step ${x.step}: yMax ${x.yMax} > ${x.yLimit}`)
+    assert.ok(x.zMin >= x.zLimit, `step ${x.step}: zMin ${x.zMin} < ${x.zLimit}`)
+  }
+  for (let i = 1; i < seen.length; i++) assert.notEqual(seen[i].quad, seen[i - 1].quad)
+  // LL ↔ UR and UL ↔ LR: the first move crosses the region on both axes.
+  const [a, b] = [seen[0].quad, seen[1].quad]
+  assert.notEqual(a[0], b[0])
+  assert.notEqual(a[1], b[1])
+  director.dispose()
+})
+
+test('names: band mode draws the name across a whole latitude row, inside the band', () => {
+  const { director, panels } = makeDirector({ seed: 5, names: 1, nameMode: 'band' }, { getRotation: TILT })
+  const run = strips(panels)
+  assert.equal(director.namePlaced.mode, 'band')
+  assert.equal(run.length, LON) // a full horizontal band
+  assert.equal(new Set(run.map((p) => p.row)).size, 1)
+  assert.deepEqual(
+    run.map((p) => p.shownAsset.k).sort((a, b) => a - b),
+    Array.from({ length: LON }, (_, i) => i)
+  )
+  for (const p of run) assert.ok(Math.abs(p.centerDir.y) <= Y_LIMIT, `row ${p.row}`)
+  // The natural strip repeats around the row: tile k+1's window starts where
+  // tile k's ends (mod the strip's period).
+  director.update(1 / 60)
+  const byK = [...run].sort((a, b) => a.shownAsset.k - b.shownAsset.k)
+  for (let k = 1; k < byK.length; k++) {
+    const a = byK[k - 1].mesh.material.uniforms
+    const b = byK[k].mesh.material.uniforms
+    const d = (((b.uvOffsetA.value.x - a.uvOffsetA.value.x - a.uvScaleA.value.x) % 1) + 1) % 1
+    assert.ok(d < 1e-9 || d > 1 - 1e-9, `k${k}: ${d}`)
+  }
+  director.dispose()
+})
+
+test('names: one shared texture per world + style + layout, and the strips hold still', () => {
+  const { director, panels, textureManager } = makeDirector({ seed: 5, names: 1 }, { getRotation: TILT, canAnimate: () => true })
   const world = director.worlds[director.lead]
-  const key = `name:${world.slug}:ink`
-  const strips = panels.filter((p) => p.shownAsset?.kind === 'name')
-  assert.ok(strips.length >= 6) // 8 tape rows → 2–3 strip rows × 2 strips × 3 tiles
-  for (const p of strips) {
+  const run = strips(panels)
+  const key = `name:${world.slug}:ink:${POP_DEFAULTS.nameSize}:region${director.namePlaced.span}`
+  assert.ok(run.length > 1)
+  for (const p of run) {
     assert.equal(assetKey(p.shownAsset), key)
     assert.equal(p.shownAsset.text, world.clientName)
     assert.equal(p.shownAsset.world, director.lead)
   }
   assert.ok(director.warm.has(key)) // warmed with the grouping
-  assert.equal(textureManager.cache.get(key).refs, strips.length + 1) // one shared texture, refcounted per tile
+  assert.equal(textureManager.cache.get(key).refs, run.length + 1) // one texture, refcounted per tile
+  // No ticker: the windows never move, however long the clock runs.
   director.update(0.5)
-  const at = new Map(panels.map((p) => [`${p.lonIndex}:${p.tapeS}`, p]))
-  let pairs = 0
-  for (const p of strips) {
-    const q = at.get(`${(p.lonIndex + 1) % LON}:${p.tapeS}`)
-    if (q?.shownAsset?.kind !== 'name' || q.shownAsset.k !== p.shownAsset.k + 1) continue
-    const a = p.mesh.material.uniforms
-    const b = q.mesh.material.uniforms
-    // tile k+1's window starts where tile k's ends (mod the strip's period)
-    const d = (((b.uvOffsetA.value.x - a.uvOffsetA.value.x - a.uvScaleA.value.x) % 1) + 1) % 1
-    assert.ok(d < 1e-9 || d > 1 - 1e-9, `L${p.lonIndex} s${p.tapeS}: ${d}`)
-    pairs += 1
-  }
-  assert.ok(pairs > 0)
-  const before = strips[0].mesh.material.uniforms.uvOffsetA.value.x
-  director.update(0.25) // the ticker moves on its clock
-  assert.notEqual(strips[0].mesh.material.uniforms.uvOffsetA.value.x, before)
+  const at = run.map((p) => p.mesh.material.uniforms.uvOffsetA.value.x)
+  for (let i = 0; i < 20; i++) director.update(0.25)
+  assert.deepEqual(
+    run.map((p) => p.mesh.material.uniforms.uvOffsetA.value.x),
+    at
+  )
+  // A longer name takes more tiles on the globe, not a cut strip.
+  const long = [{ slug: 'long', clientName: 'Hurry Up Slowly Records', title: null, services: [], assets: pool(10, 'video', 'long-') }]
+  const { director: d2, panels: p2 } = makeDirector({ seed: 5, names: 1 }, { getRotation: TILT, worlds: long })
+  assert.ok(strips(p2).length > run.length, `${strips(p2).length} vs ${run.length}`)
+  assert.equal(strips(p2).length, d2.namePlaced.span)
   director.dispose()
+  d2.dispose()
 })
 
 test('scheduler: shared streams — one decode per clip lights every copy of it', async () => {

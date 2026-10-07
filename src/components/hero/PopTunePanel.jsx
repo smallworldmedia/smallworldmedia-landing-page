@@ -10,8 +10,12 @@
  * world holds the globe by default (Nathan, 09-26); with 2–3 the pattern
  * buttons toggle the SET groupings draw from, and switching one ON also
  * shows it now (sceneApi.popShow). enter world (?popenter) is read by Hero
- * at the Enter World click. names (10-06) = the client-name ticker strips
- * (count / widths / pace / style; pace is live, the rest re-lay the world).
+ * at the Enter World click. names (10-06, reworked 10-07) = the client-name
+ * strips: how many a world places, the layout (a run of tiles sized to the
+ * name, or a whole latitude row), the type size, the latitude band and
+ * front-facing width the placement must sit in, the span clamp, the style.
+ * Every one of them re-lays the world; the readout shows where the strips
+ * actually landed, and whether a gate had to relax.
  * ⏭ next = the next world now, through
  * its transition; ↻ reroll = a new seed (a new start world and change
  * clock). The readout polls window.__swmPopStats, which the director
@@ -34,7 +38,7 @@ import {
   POP_LAYOUTS,
   POP_TRANSITIONS,
   POP_LIVE,
-  POP_NAME_SPANS,
+  POP_NAME_MODES,
   POP_NAME_STYLES,
   setPopTune,
   resetPopTune,
@@ -177,6 +181,13 @@ export default function PopTunePanel({ sceneApiRef }) {
             <br />
             video {stats.streams} decode{stats.streams === 1 ? '' : 's'} → {stats.liveTiles} tiles ·{' '}
             {stats.live.length ? stats.live.join(', ') : '—'}
+            <br />
+            names {stats.nameTiles} tile{stats.nameTiles === 1 ? '' : 's'} ·{' '}
+            {stats.namePlaced
+              ? `${stats.namePlaced.mode} span ${stats.namePlaced.span} · ${stats.namePlaced.quad ?? '—'}${
+                  stats.namePlaced.relaxed ? ` (relaxed: ${stats.namePlaced.relaxed})` : ''
+                }`
+              : '—'}
           </>
         ) : on ? (
           'waiting for the globe…'
@@ -252,19 +263,23 @@ export default function PopTunePanel({ sceneApiRef }) {
       </p>
 
       <div className="hero-tune__group">names</div>
-      <Row label="strip rows" param="names" value={s.names} min={0} max={4} step={1} onChange={set} />
-      <Segmented
-        label="width (tiles)"
-        options={POP_NAME_SPANS}
-        isActive={(n) => s.nameSpans.includes(n)}
-        onPick={(n) => toggle('nameSpans', n)}
-      />
-      <Row label="pace" param="nameSpeed" value={s.nameSpeed} min={0} max={4} step={0.05} onChange={set} />
+      <Row label="strips / world" param="names" value={s.names} min={0} max={4} step={1} onChange={set} />
+      <Segmented label="layout" value={s.nameMode} options={POP_NAME_MODES} onPick={(m) => set('nameMode', m)} />
+      <Row label="type size" param="nameSize" value={s.nameSize} min={0.3} max={1.2} step={0.01} onChange={set} />
+      <Row label="band of pole→pole" param="nameBand" value={s.nameBand} min={0.1} max={1} step={0.01} onChange={set} />
+      <Row label="front-facing" param="nameFace" value={s.nameFace} min={0.05} max={1} step={0.01} onChange={set} />
+      <Row label="span min" param="nameSpanMin" value={s.nameSpanMin} min={1} max={12} step={1} onChange={set} />
+      <Row label="span max" param="nameSpanMax" value={s.nameSpanMax} min={1} max={12} step={1} onChange={set} />
       <Segmented label="style" value={s.nameStyle} options={POP_NAME_STYLES} onPick={(m) => set('nameStyle', m)} />
       <p className="hero-tune__note">
-        ?popnames · ?popnamespan · ?popnamespeed · ?popnamestyle. the world's client name in the
-        fp card face, ticking across 1–3 adjacent tiles of a row (each strip draws a width from the
-        set). pace = tile heights / s, live. ink = the colour on black, fill = black on the colour.
+        ?popnames · ?popnamemode · ?popnamesize · ?popnameband · ?popnameface · ?popnamespanmin ·
+        ?popnamespanmax · ?popnamestyle. the world's client name in the fp card face, STILL (no
+        ticker). region = a run of adjacent tiles of one row, as many as the measured name needs
+        (span min…max) so it reads once, edge to edge; band = a whole latitude row, the name
+        repeating round the globe. each change places the strip mid-latitude, facing you, in the
+        quadrant opposite the last world's — a span near half the globe can only sit centred, so
+        the quadrant relaxes (the readout says so); lower span max to keep it alternating. ink =
+        the colour on black, fill = black on the colour.
       </p>
 
       <div className="hero-tune__group">enter world</div>

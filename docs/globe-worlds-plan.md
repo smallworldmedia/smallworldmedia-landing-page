@@ -468,7 +468,8 @@ pools ship tagged by kind up to the hard cap.
         strips half a globe apart, and each pair sits a quarter globe on from the last, so a
         strip always faces the viewer even though the globe drifts at only 2°/s.
       - `?popnamespan` (`2,3`), `?popnamespeed` (0.6 tile heights/s), `?popnamestyle`
-        (ink | fill). The bench has a "names" group.
+        (ink | fill). The bench has a "names" group. **`?popnamespan` and `?popnamespeed` were
+        retired on 10-07** with the ticker and the tape-pure placement — see the round below.
       - Strips warm with their grouping and hold still under RM. `__swmPopStats.nameTiles`
         counts the visible ones.
   - Verified:
@@ -521,3 +522,76 @@ pools ship tagged by kind up to the hard cap.
   - Phone viewing: run the worktree server as `astro dev --host --port 4322`. Sanity's CORS list
     has `http://192.168.1.19:4322` since 10-07 (Nathan's yes); without that entry, stills load
     black from a LAN origin.
+- 2026-10-07 · client-name placement rework (Nathan: "the text is too big and the longer client
+  names are clipped … let's also remove the horizontal ticker effect"). The names are no longer
+  laid over the scroll tape at all.
+  - **Why the model had to move.** `nameCell(lon, s)` was pure over the tape, so it could only
+    see a tile's `(lonIndex, tapeS)`. All three of his placement asks — a mid-latitude band, the
+    front-facing half, a region that alternates between worlds — are about where a panel is RIGHT
+    NOW relative to the camera, and a row's latitude changes continuously all the way down its
+    ~90 s pole-to-pole pass. So placement moved into `PopulationDirector.planNames()`, decided
+    ONCE PER WORLD CHANGE against the live scene (`panel.centerDir` unrotated = the latitude;
+    `centerDir.applyEuler(getRotation()).z` = facing) and keyed by PANEL. `nameCell` is gone.
+  - **No more ticker.** `tickNames(dt)` and `?popnamespeed` / `POP_DEFAULTS.nameSpeed` are gone,
+    along with the 96-panel-per-frame uniform write they carried. `placeNames()` replaces it: it
+    reconciles each strip tile's RESTING window (tile *k* on slice *k*) and writes only when the
+    value actually changes, so at rest the strips cost nothing. It has to be a loop rather than a
+    bind hook — `loadTile` fires from three places (a row's re-birth, `applyPlan`,
+    `initialLayout`) and `layIn`'s kept-texture strip takes a new window with no load at all.
+    The per-tile random `phase` went with it (a still strip must start at a glyph, not mid-one).
+  - **Span from the measured name** — the actual clipping fix. A tile shows
+    `panelAspect / stripAspect` of the strip, so a 2–3 tile strip only ever showed 33–75% of a
+    typical name; the ticker hid the rest by scrolling it past. `measureNameAspect()` measures the
+    label on a module-level 2D context with the real font string (falling back to a glyph-count
+    estimate until `document.fonts.check` passes — the first layout plans before anything warms,
+    and the next change measures for real), and `nameSpan()` returns
+    `clamp(ceil(stripAspect / panelAspect), ?popnamespanmin, ?popnamespanmax)`. In region mode the
+    canvas is then padded to EXACTLY `span × panelAspect` strip heights with the name centred, so
+    `computeCoverUv` hands each tile exactly `1/span` of it: the name reads once, edge to edge, no
+    `RepeatWrapping`. At the max clamp the drawing shrinks the type instead of cutting the name.
+  - **Smaller type.** `?popnamesize` (0.62, was a baked 0.86) is font px per strip height. It also
+    shortens the strip, because the name's width scales with the px and its clear space does not.
+  - **The gates.** `?popnameband` (0.65) = the middle fraction of pole-to-pole a strip may sit in
+    (|`centerDir.y`| ≤ 0.85), measured on the row so a strip is never half in. `?popnameface`
+    (0.5 = the visible half) gates EVERY tile of the strip, not just its start.
+  - **Alternation.** `makeGrouping` stamps `nameQuad` = `NAME_QUADS[(step + seeded) % 4]`, walking
+    lower-left → upper-right → upper-left → lower-right (Nathan's example is the first move), so
+    `?popseed` still replays the same globe. The quadrants partition the ADMISSIBLE region, split
+    at that region's OWN mid-point — not the screen's, because the 40° brand tilt pushes the whole
+    front-facing mid-latitude band below centre, and an absolute `y >= 0` test would make the
+    upper quadrants unreachable.
+  - **Relaxation, as predicted.** Band + facing + quadrant leaves roughly 12–16 admissible tiles
+    of 96. The gates relax in order — quadrant, then facing, never the latitude band — and the
+    relaxation is published (`namePlaced.relaxed`), shown on the bench and gated by the probe.
+    Observed: a span-6 name (`Imperfect Records`) spans half the globe, so it can only sit centred
+    and the quadrant relaxes. `?popnamespanmax` is the knob that trades width for alternation.
+  - **The band variant.** `?popnamemode=band` draws the name across a whole latitude row, the
+    natural strip repeating around the globe, still — the row walking with the step so the band
+    moves between worlds. It needed the two blockers gone: the old `span ≤ floor(L/2)` clamp and
+    the two-starts-half-a-globe-apart loop.
+  - **Accepted consequence.** A row re-born at the pole has |y| ≈ 1, outside any band, so names
+    refresh at a world change and not at a birth. That costs almost nothing under the default
+    `surge` (in place, against the live rotation), but under `?poptransset=tide` EVERY row
+    re-births, so the globe carries no strips at all until a non-tide change. Chosen deliberately
+    over re-laying strips in place after a tide, which would break the persistence doctrine and
+    flip tiles inside a hold (the probe's `quietHolds` gate).
+  - **Stats.** `__swmPopStats` keeps `nameTiles` and adds `nameStrips`, `nameMode`, `nameMaxY`
+    (live, a diagnostic — a placed strip drifts out of the band with its row), `nameUv` (each
+    slice's resting window) and `namePlaced` — the placement's own measurements at the moment of
+    the change: mode, span, tiles, the wanted and actual quadrant, any relaxation, and the
+    `yMax`/`zMin` it achieved against the `yLimit`/`zLimit` it had to clear.
+  - Verified: unit 19/19 (the old cadence and ticker tests are replaced by the band / facing /
+    quadrant / span / stillness / band-mode contract), `tunables-keys --check` PASS (313 keys),
+    `npm run build`, and globe-probe default / `--mobile` / `--rm` / `--rm --next=2` /
+    `--extra="&popnamemode=band"` — 12/12 gates each, including the four new ones
+    `namesPlaced`, `namesInBand`, `namesFrontFacing`, `namesStill`. What the runs measured:
+    spans 5 / 4 / 2 over three worlds walking UR → UL → LR with no relaxation, every placed
+    tile inside the band and in front (worst |y| 0.72 of a 0.85 limit, worst z +0.26 of 0),
+    and 61 resting-window comparisons with zero movement. Two notes for the dial: on
+    `--mobile` the worst placed |y| is 0.8513 against the same 0.8526 limit, so
+    `?popnameband` 0.65 has almost no margin on a phone's grid; and `namesStill` must be
+    read hold-to-hold, because `step` advances when a change STARTS while the tiles are
+    still swapping, so a transition sample can hold the previous world's strip.
+  - Open for Nathan's dial: every one of `?popnamesize`, `?popnameband`, `?popnameface`,
+    `?popnamespanmin`, `?popnamespanmax`, `?popnames` and `?popnamemode` ships as a URL param with
+    a bench row and no baked number — he has given none.

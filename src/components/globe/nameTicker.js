@@ -1,54 +1,128 @@
 /**
- * nameTicker.js — client-name ticker tiles on the home globe (10-06, Nathan:
- * "one to several of the panels populate with the client name, ticker-style
- * … two to three panels adjacent to one another, the project color, the FP
- * card's typeface").
+ * nameTicker.js — the client-name strip on the home globe (10-06, Nathan:
+ * "one to several of the panels populate with the client name … the project
+ * color, the FP card's typeface"; 10-07, the placement rework: "the text is
+ * too big and the longer client names are clipped … let's remove the
+ * horizontal ticker effect").
  *
- * A world's name is drawn ONCE into a horizontally repeating strip texture:
- * one period = the clientName in the FP card's face (OT Neue Montreal
- * Squeezed SemiBold, uppercase, tight tracking) + a gap, in the world's
- * projectColor — `ink` = the colour on black, `fill` = black on the colour
- * (?popnamestyle). A strip spans 1–3 adjacent tiles of one scroll row
- * (?popnamespan); each tile samples the next tile-width window of the strip,
- * and the director slides every window on one clock (?popnamespeed), so the
- * name runs across the tiles — behind the lattice gaps — as one ticker. Only
- * the cover-fit uniforms move (uvScaleA / uvOffsetA over RepeatWrapping):
- * panelMaterial is untouched, and the strip's real aspect rides
- * texture.userData.aspect into tileSwap's cover-fit (so the glyphs keep their
- * shape on every row).
+ * This module DRAWS and MEASURES; PopulationDirector.planNames() places.
+ * (Placement is camera-relative — mid-latitude, front-facing, a quadrant
+ * opposite the last world's — and none of that can be expressed over the
+ * scroll tape: a row's latitude changes all the way down its pole-to-pole
+ * pass. The old tape-pure nameCell() is gone with the ticker.)
  *
- * nameCell() is pure over the scroll tape, like worldPatterns: ?popnames
- * strip rows share the visible face (every K-th tape row, K = the face's rows
- * over the count), each carrying two strips half a globe apart, and each
- * strip row's pair sits a quarter globe on from the last — so the starts of
- * any two neighbouring strip rows are ≤ 4 tiles apart all the way round and
- * at least one strip faces the viewer whichever way the globe has turned
- * (it drifts at 2°/s; a strip on the back would otherwise hide for a minute).
- * The names pour in from the top pole with the brand motion and travel with
- * their row.
+ * A world's name is drawn ONCE into a strip texture: the clientName in the FP
+ * card's face (OT Neue Montreal Squeezed SemiBold, uppercase, tight tracking)
+ * in the world's projectColor — `ink` = the colour on black, `fill` = black
+ * on the colour (?popnamestyle), at ?popnamesize font px per strip height.
+ * Two layouts (?popnamemode):
+ *   region  the strip IS the run of tiles: the canvas is padded to exactly
+ *           `span` tiles wide (span from the MEASURED name, nameSpan below),
+ *           the name centred in it, no repeat — so the tiles read the whole
+ *           name once, edge to edge, and nothing is cut. A span the clamp cut
+ *           short shrinks the type rather than cutting the name.
+ *   band    the natural strip (name + gap) repeating around a whole latitude
+ *           row, still.
+ * The strips do not move: tile k rests on the k-th slice of the strip
+ * (PopulationDirector.placeNames), and the strip's real aspect rides
+ * texture.userData.aspect into tileSwap's cover-fit, which is what makes that
+ * slice exactly 1/span of the strip in region mode.
+ *
+ * nameKey carries every input that changes the DRAWING (style, size, layout)
+ * because TextureManager caches one texture per key — a variation left out of
+ * the key would let the first-drawn variant stick for the session.
  */
 import * as THREE from 'three';
-import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 
 export const NAME_STYLES = ['ink', 'fill'];
+/** region = a run of tiles sized to the name; band = a whole latitude row. */
+export const NAME_MODES = ['region', 'band'];
+/** The quadrant walk across worlds — Nathan: lower-left, then upper-right. */
+export const NAME_QUADS = ['LL', 'UR', 'UL', 'LR'];
 
 const FACE = '"OT Neue Montreal Squeezed"'; // .fp-card__client (--font-display)
 const WEIGHT = 600;
 const STRIP_H = 256; // px — the strip's height (a tile's texture scale)
-const SIZE = 0.86; // font px per strip height (caps ≈ 0.6 of the tile)
 const TRACKING = -0.02; // em — the card's --tracking-tight
-const GAP = 0.42; // strip heights between repeats of the name
+const GAP = 0.42; // strip heights of clear space around the name
 const BLACK = '#000000';
 const BRAND_BLUE = '#0000ff'; // a world without a projectColor
+const EM = 0.5; // em per glyph — the estimate when the face can't be measured
 
-/** The tile asset for a world's name (assetKey reads nameKey). */
-export function nameAsset(world, wi, style) {
+const fontAt = (px) => `${WEIGHT} ${px}px ${FACE}`;
+const pxFor = (size) => Math.max(8, Math.round(STRIP_H * size));
+const label = (text) => String(text ?? '').toUpperCase();
+const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
+
+/** The latitude gate: the |centerDir.y| a name tile may sit at for a band of
+ *  `f` of pole-to-pole (0.65 = the middle 65%, |y| ≤ 0.85). centerDir is
+ *  unrotated, so its y IS the latitude and |y| is pole proximity. */
+export const nameBandLimit = (f) => Math.sin((clamp(f, 0, 1) * Math.PI) / 2);
+/** The facing gate: the camera-rotated .z every tile of a strip must clear
+ *  for a front-facing width of `f` of the circumference (0.5 = the visible
+ *  half → 0). */
+export const nameFaceLimit = (f) => Math.cos(clamp(f, 0, 1) * Math.PI);
+
+let ctx2d = null;
+function measureCtx() {
+  if (ctx2d !== null) return ctx2d;
+  ctx2d = typeof document === 'undefined' ? false : document.createElement('canvas').getContext('2d');
+  return ctx2d;
+}
+
+/** The drawn width of the label in px — measured once the face has loaded,
+ *  else estimated from the glyph count (a wrong estimate only mis-sizes one
+ *  layout; the next world change measures for real). */
+function textWidth(text, px) {
+  const s = label(text);
+  const font = fontAt(px);
+  try {
+    const ctx = measureCtx();
+    if (ctx && document.fonts?.check?.(font, s)) {
+      ctx.font = font;
+      ctx.letterSpacing = `${(TRACKING * px).toFixed(1)}px`;
+      return ctx.measureText(s).width;
+    }
+  } catch {
+    /* fall through to the estimate */
+  }
+  return s.length * px * (EM + TRACKING);
+}
+
+/** The natural strip's aspect (the name plus its clear space, over the strip
+ *  height) — what the director needs BEFORE the texture exists, because
+ *  initialLayout plans the globe before anything warms. */
+export function measureNameAspect(text, size) {
+  if (!label(text)) return 1;
+  return Math.max(1, (textWidth(text, pxFor(size)) + STRIP_H * GAP) / STRIP_H);
+}
+
+/**
+ * Tiles a strip needs so the whole name READS AT REST. A tile shows
+ * panelAspect / stripAspect of the strip, so the name fits iff
+ * span ≥ stripAspect / panelAspect — the clipping the ticker used to hide by
+ * scrolling the rest past. Clamped to [min, max]; at max the drawing shrinks
+ * the type instead (loadNameTexture), so a name is never cut either way.
+ */
+export function nameSpan(text, size, panelAspect, { min = 1, max = 1 } = {}) {
+  const need = Math.ceil(measureNameAspect(text, size) / (panelAspect || 1));
+  const lo = Math.max(1, Math.round(min));
+  return clamp(need, lo, Math.max(lo, Math.round(max)));
+}
+
+/** The tile asset for a world's name strip (assetKey reads nameKey). */
+export function nameAsset(world, wi, { style, size, mode, span, panelAspect = 1 }) {
+  const band = mode === 'band';
   return {
     kind: 'name',
-    nameKey: `name:${world.slug}:${style}`,
+    nameKey: `name:${world.slug}:${style}:${size}:${band ? 'band' : `region${span}`}`,
     text: world.clientName || '',
     color: world.projectColor || BRAND_BLUE,
     style,
+    size,
+    mode: band ? 'band' : 'region',
+    span,
+    panelAspect,
     world: wi,
     clientName: world.clientName,
     services: world.services,
@@ -56,25 +130,39 @@ export function nameAsset(world, wi, style) {
 }
 
 /** Draw the strip → a CanvasTexture (resolves once the face has loaded). */
-export async function loadNameTexture({ text, color, style }) {
-  const px = Math.round(STRIP_H * SIZE);
-  const font = `${WEIGHT} ${px}px ${FACE}`;
-  const label = String(text).toUpperCase();
+export async function loadNameTexture({ text, color, style, size, mode, span, panelAspect = 1 }) {
+  const s = label(text);
+  const band = mode === 'band';
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  let px = pxFor(size);
   try {
-    await document.fonts.load(font, label);
+    await document.fonts.load(fontAt(px), s);
   } catch {
     /* the fallback face draws */
   }
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
   const setFont = () => {
-    ctx.font = font;
+    ctx.font = fontAt(px);
     ctx.letterSpacing = `${(TRACKING * px).toFixed(1)}px`;
   };
   setFont();
-  const m = ctx.measureText(label);
+  let m = ctx.measureText(s);
   const gap = STRIP_H * GAP;
-  const w = Math.max(STRIP_H, Math.ceil(m.width + gap));
+  let w;
+  if (band) {
+    w = Math.max(STRIP_H, Math.ceil(m.width + gap));
+  } else {
+    // The canvas IS the span: span tiles of clear width, so cover-fit hands
+    // each tile exactly 1/span of it and the name reads once, edge to edge.
+    w = Math.max(STRIP_H, Math.round(span * panelAspect * STRIP_H));
+    const room = w - gap;
+    if (m.width > room && room > 0) {
+      // ?popnamespanmax cut the span short — shrink the type, never the name.
+      px = Math.max(8, Math.floor(px * (room / m.width)));
+      setFont();
+      m = ctx.measureText(s);
+    }
+  }
   canvas.width = w;
   canvas.height = STRIP_H;
   setFont(); // a resize resets the context
@@ -85,38 +173,11 @@ export async function loadNameTexture({ text, color, style }) {
   ctx.textBaseline = 'alphabetic';
   // The caps' own box, centred on the strip (optical, not em-box, centring).
   const y = (STRIP_H + m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-  ctx.fillText(label, gap / 2, y);
+  ctx.fillText(s, band ? gap / 2 : Math.max(0, (w - m.width) / 2), y);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.RepeatWrapping;
+  if (band) tex.wrapS = THREE.RepeatWrapping; // the name repeats round the row
   tex.anisotropy = 4;
   tex.userData.aspect = w / STRIP_H;
   return tex;
-}
-
-/**
- * The name strip at tape (lon, s), or null. `rows` = tile rows on the visible
- * face; every K-th tape row (K = rows / count) carries two strips half a globe
- * apart, `span` tiles wide, the pair a quarter globe (+0–1 tile) on from the
- * previous strip row's. → { k (tile within the strip), span, start, phase
- * (the ticker's starting offset, strip periods) }.
- */
-export function nameCell(lon, s, { seed, L, rows, count, spans }) {
-  if (!count || !spans?.length) return null;
-  const K = Math.max(1, Math.floor(rows / count));
-  const draw = mulberry32(hashSeed(`${seed}:names`));
-  const r0 = Math.floor(draw() * K);
-  const base = Math.floor(draw() * L);
-  if ((((s - r0) % K) + K) % K !== 0) return null;
-  const j = (s - r0) / K; // which strip row
-  const half = Math.floor(L / 2);
-  const rand = mulberry32(hashSeed(`${seed}:name:${s}`));
-  const start = (((base + j * Math.round(L / 4) + Math.floor(rand() * 2)) % L) + L) % L;
-  const span = Math.min(spans[Math.floor(rand() * spans.length)], half);
-  const phase = rand();
-  for (const a of [start, (start + half) % L]) {
-    const k = (lon - a + L) % L;
-    if (k < span) return { k, span, start: a, phase };
-  }
-  return null;
 }
