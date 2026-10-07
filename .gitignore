@@ -48,3 +48,6 @@ schema.json
 # Client logo intake (Dropbox dump) — scripts/prep-client-logos.mjs
 # normalises it into the tracked src/assets/client-logos/
 Client Logos/
+
+# Headless probe output (pager-probe / process-probe screenshots + JSON)
+scripts/shots/

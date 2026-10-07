@@ -14,6 +14,14 @@
  * globe around its OWN polar axis — the tilt group wraps the spin group,
  * so the pole stays tipped toward the camera while the meridians travel.
  *
+ * 09-09 (Nathan): the O takes the same DRAG + FLICK the home globe and the
+ * footer logo ticker ride (src/lib/dragMomentum.js) — the glyph is a globe
+ * instance like any other, so grabbing it spins it and letting go settles
+ * back to the ?ospin ambient over the house 0.35s. Only the spin axis is
+ * driven (the brand tilt is the OUTER group and stays put — the mark must
+ * never tip). Touch stands down, as it does on the scene behind it: a finger
+ * on this page pages the walk.
+ *
  * The backing canvas is a fixed square supersample (768px, the snapshot's
  * resolution) CSS-scaled into the glyph slot — window resizes never touch
  * GL. Create on hero mount, dispose on leave (the existing globe-O
@@ -23,6 +31,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { buildScrollingGlobeGeometry } from '../globe/buildGlobeGeometry.js';
 import { createPanelMaterial } from '../globe/panelMaterial.js';
+import DragMomentum from '../../lib/dragMomentum.js';
 import {
   LON_SEGMENTS,
   GAP_DEG,
@@ -32,6 +41,9 @@ import {
   INITIAL_PITCH_DEG,
   GAP_COLOR,
   PANEL_CORNER_RADIUS,
+  DRAG_SENSITIVITY,
+  MAX_FLICK_SPEED,
+  PREFERS_REDUCED_MOTION,
 } from '../globe/globeConfig.js';
 import { O_SPIN_DPS } from './processConfig.js';
 
@@ -94,10 +106,24 @@ export function createLockupGlobe() {
   spin.add(innerSphere);
 
   const spinRad = THREE.MathUtils.degToRad(O_SPIN_DPS);
-  let t0 = null;
-  const tick = (time) => {
-    if (t0 == null) t0 = time;
-    spin.rotation.y = spinRad * (time - t0);
+  // ?ospin is the AMBIENT now, not a clock: the angle accumulates so a drag
+  // can add to it and the release can settle back without a seam. Reduced
+  // motion keeps the plain ambient (no engine, no pointer surface).
+  const drag = PREFERS_REDUCED_MOTION
+    ? null
+    : new DragMomentum(renderer.domElement, {
+        ambient: { x: spinRad, y: 0 },
+        sensitivity: DRAG_SENSITIVITY,
+        maxSpeed: MAX_FLICK_SPEED,
+        reducedMotion: PREFERS_REDUCED_MOTION,
+        touch: false, // the /process swipe quantizer owns the finger
+      });
+  const tick = (_time, deltaMs) => {
+    // Clamp the step: a backgrounded tab hands back one huge delta, which
+    // would snap the mark through a random number of turns on return.
+    const step = Math.min(deltaMs, 100) / 1000;
+    const { dx } = drag ? drag.update(step) : { dx: spinRad * step };
+    spin.rotation.y += dx;
     renderer.render(scene, camera);
   };
   gsap.ticker.add(tick);
@@ -106,6 +132,7 @@ export function createLockupGlobe() {
     canvas: renderer.domElement,
     dispose() {
       gsap.ticker.remove(tick);
+      drag?.dispose();
       for (const panel of panels) {
         panel.geometry.dispose();
         panel.mesh.material.dispose();

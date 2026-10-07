@@ -51,6 +51,8 @@ export const TUNING_DEFAULTS = {
   drift: 0.09, // ?drift — suspended-cloud self-rotation rate (very slow — the v2 read)
   threadHops: 84, // ?threadhops — Fragments the Thread chains (84 = every bead on the string)
   threadHopSeconds: 0.1, // ?threadms — Thread draw per hop
+  threadTight: 0.85, // ?threadtight — S1→S2: the camera opens dead on the Thread's FIRST bead at this fraction of the Core's rest distance (so the assembly's pull-back is real); floored at the cloud's near face
+  threadDrift: 0.2, // ?threaddrift — S1→S2: how far back toward the wide the camera eases DURING the trace (0 = holds tight until the assembly, 1 = fully wide before it)
   assembleSeconds: 2.5, // ?assemble — assembly, scatter → home
   zoomOutSeconds: 0.6, // ?zoomout — S2→S3 dolly-back (the bg contraction rides it)
   emanateScale: 1.7, // ?emanate — S4 per-panel scale target
@@ -62,14 +64,35 @@ export const TUNING_DEFAULTS = {
   s45Fill: 1.1, // ?s45fill — build-out: outgrows the frame, stays contained
   idlePower: 0.54, // ?idlepower — belt idle: under field brightness (strokes carry the read)
   pulseMin: 0.06, // ?pulsemin — S5 floor: how dark the falloff lands (0 = full black)
-  holdBeats: 0.1, // ?hold — S5 envelope: beats held ON blue before the falloff
-  decayBeats: 2, // ?decay — S5 envelope: beats of steep (expo) falloff to the floor
+  holdBeats: 2, // ?hold — S5 envelope + the S1 label pulse: beats held ON blue (S5 caps it at 45% of the cycle) before the falloff (Nathan 09-10: 2)
+  decayBeats: 3, // ?decay — S5 envelope + the S1 label pulse: beats of steep (expo) falloff to the floor (Nathan 09-10: 3)
   pattern: 'cycle', // ?pattern — S5 sequencing (rows/equator/ripple/checker/random/cycle)
   decayCurve: 'expo', // ?decaycurve — S5 falloff shape: expo (baked feel) | linear (house-pulse read) — A/B toggle, v2 deck
   s5Zoom: 1.06, // ?s5zoom — S5 push-in over the S4 framing (world emphasized)
   s5TiltDeg: 33, // ?s5tilt — S5 axis lean toward ~2:00, eased in on the house curve
   s5Stroke: 1, // ?s5stroke — inner-stroke mix where the falloff lands (0 disables)
   strokePx: 1.75, // ?stroke — Fragment edge stroke width (screen px; 0 disables)
+
+  /* — DISCOVERY round (09-09, Nathan): the S1 belt is a place the camera
+     TRAVELS THROUGH, not a still life. Everything below is stage-01 only
+     and unwinds as the Fragments assemble. — */
+  fog: 0.56, // ?fog — atmospheric depth: how far the FURTHEST shard's fill AND stroke are pulled toward the field color (0 = off, 1 = it IS the field). Never opacity — the panels stay fully opaque
+  fogSpan: 0.7, // ?fogspan — depth to full haze BEHIND the belt's establishing distance, × ?scatter (the window opens a quarter of this in front). Anchored in WORLD depth, not to the dolly: push the camera toward a far shard and it clears
+  tour: 'on', // ?tour — the S1 camera tour (off = the static establishing frame the belt held before 09-09)
+  tourTravel: 3.4, // ?tourtravel — seconds of glide per station, on the house Turn curve
+  tourHold: 2.6, // ?tourhold — seconds the camera RESTS on a close-up (the label's reading beat)
+  tourNear: 0.42, // ?tournear — closest station's dolly distance as a fraction of the establishing frame; the floor keeps the cloud's near face in front of the camera
+  tourFar: 0.66, // ?tourfar — farthest close-up station, same units (stations land between near and far)
+  labelPulse: 0.6, // ?labelpulse — how DARK a labelled shard's fill pulses, as a fraction of the belt's resting ?idlepower (1 = no pulse): the house envelope (?bpm ?hold ?decay) inverted — snap down, hold, expo recover — for as long as the chip names it
+  labelLead: 136, // ?labellead — screen px between a chip and the shard it names (the leader's length); round 1 sat them 20px out and the pairing was hard to read
+  tourShift: 1, // ?tourshift — how far a station must MOVE the camera from the last one, in multiples of the new station's half-frame width (1 = the frame slides by half its width, so most of what is in view is new); the picker takes the farthest candidates if none clears it
+  tourReach: 0.34, // ?tourreach — how far off-centre a station SEATS its subject, as a multiplier on the baked compositional thirds (1× = the bake; 0 centres every shot, which is what the photography rule says not to do)
+  spinFast: 4.4, // ?spinfast — the fast rotation tier's multiplier over the base ?drift rate
+  spinFastFrac: 0.3, // ?spinfastfrac — fraction of shards seeded onto that fast tier (0 = one uniform rate, the pre-09-09 read)
+  labelCount: 4, // ?labels — annotation chips alive at once on desktop (a phone takes min(this, 3)); needs a reload — slots are built at mount (Nathan 09-10: capped at 4)
+  labelSize: 0, // ?labelsize — chip type size in px; 0 = the .process-label token (--text-mono). Live.
+  labelCharMs: 22, // ?labelchar — ms between letter cuts in a chip's random-letter entrance (charCut.js)
+  labelHold: 3.2, // ?labelhold — seconds a chip HOLDS at full strength after its letters land — ONLY when the tour is off; with the tour running a chip lives exactly as long as the camera holds its station
   mobileDrop: 0.02, // ?dropy — phone: Core drop (near-zero per the 07-16 dial; P5 device pass revisits)
   swipe: 'on', // ?swipe — one-section-per-swipe scroll (off = free document scroll)
   swipePx: SCROLL_TRIGGER_PROCESS_PX, // ?swipepx — wheel/touch px to commit a swipe (house constant, motion.js)
@@ -83,6 +106,8 @@ export const TUNING = {
   drift: num('drift', TUNING_DEFAULTS.drift),
   threadHops: num('threadhops', TUNING_DEFAULTS.threadHops),
   threadHopSeconds: num('threadms', TUNING_DEFAULTS.threadHopSeconds * 1000) / 1000,
+  threadTight: num('threadtight', TUNING_DEFAULTS.threadTight),
+  threadDrift: num('threaddrift', TUNING_DEFAULTS.threadDrift),
   assembleSeconds: num('assemble', TUNING_DEFAULTS.assembleSeconds),
   zoomOutSeconds: num('zoomout', TUNING_DEFAULTS.zoomOutSeconds),
   emanateScale: num('emanate', TUNING_DEFAULTS.emanateScale),
@@ -102,6 +127,23 @@ export const TUNING = {
   s5TiltDeg: num('s5tilt', TUNING_DEFAULTS.s5TiltDeg),
   s5Stroke: num('s5stroke', TUNING_DEFAULTS.s5Stroke),
   strokePx: num('stroke', TUNING_DEFAULTS.strokePx),
+  fog: num('fog', TUNING_DEFAULTS.fog),
+  fogSpan: num('fogspan', TUNING_DEFAULTS.fogSpan),
+  tour: str('tour', TUNING_DEFAULTS.tour),
+  tourTravel: num('tourtravel', TUNING_DEFAULTS.tourTravel),
+  tourHold: num('tourhold', TUNING_DEFAULTS.tourHold),
+  tourNear: num('tournear', TUNING_DEFAULTS.tourNear),
+  tourFar: num('tourfar', TUNING_DEFAULTS.tourFar),
+  tourShift: num('tourshift', TUNING_DEFAULTS.tourShift),
+  tourReach: num('tourreach', TUNING_DEFAULTS.tourReach),
+  labelPulse: num('labelpulse', TUNING_DEFAULTS.labelPulse),
+  labelLead: num('labellead', TUNING_DEFAULTS.labelLead),
+  spinFast: num('spinfast', TUNING_DEFAULTS.spinFast),
+  spinFastFrac: num('spinfastfrac', TUNING_DEFAULTS.spinFastFrac),
+  labelCount: num('labels', TUNING_DEFAULTS.labelCount),
+  labelSize: num('labelsize', TUNING_DEFAULTS.labelSize),
+  labelCharMs: num('labelchar', TUNING_DEFAULTS.labelCharMs),
+  labelHold: num('labelhold', TUNING_DEFAULTS.labelHold),
   mobileDrop: num('dropy', TUNING_DEFAULTS.mobileDrop),
   swipe: str('swipe', TUNING_DEFAULTS.swipe),
   // Own param (?swipepx) so /process dials independently of the ?scroll

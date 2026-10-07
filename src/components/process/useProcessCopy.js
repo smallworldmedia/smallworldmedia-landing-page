@@ -203,7 +203,6 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
       const sections = gsap.utils.toArray('.process-stage, .process-cta', root);
       sections.forEach((section) => {
         const tokenEl = section.querySelector('.process-stage__token');
-        const chipTail = section.querySelector('.process-stage__chipline');
         const headline = section.querySelector('.process-stage__headline, .process-cta__display');
         const rises = section.querySelectorAll(
           '.process-stage__blurb, .process-cta__line, .process-cta__actions'
@@ -216,9 +215,7 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
         });
         splits.push(split);
         const tokenFinal = tokenEl?.textContent ?? '';
-        const chipFinal = chipTail?.textContent ?? '';
         if (tokenEl) tokenEl.textContent = '';
-        if (chipTail) chipTail.textContent = '';
 
         gsap.set(split.lines, { yPercent: 110 });
         gsap.set(rises, { autoAlpha: 0, y: 14 });
@@ -240,7 +237,6 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
             if (!scrambled) {
               scrambled = true;
               if (tokenEl) scrambleTo(tokenEl, tokenFinal);
-              if (chipTail) scrambleTo(chipTail, chipFinal);
             }
             tl.timeScale(1).play();
           },
@@ -256,7 +252,6 @@ export default function useProcessCopy(rootRef, sceneRef, globeAssets) {
         if (rect.top <= line && rect.bottom >= line) {
           scrambled = true;
           if (tokenEl) tokenEl.textContent = tokenFinal;
-          if (chipTail) chipTail.textContent = chipFinal;
           tl.progress(1);
         }
       });

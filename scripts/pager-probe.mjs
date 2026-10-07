@@ -5,7 +5,7 @@
  * Usage:
  *   node pager-probe.mjs --variant=scale --root=.fp-scale [--vw=1440 --vh=900]
  *        [--mobile] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
- *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://127.0.0.1:4321]
+ *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
  *
  * Prints a JSON report to stdout (console errors, page errors, readouts per
  * step) and writes PNG screenshots to --out. Touch gestures go through CDP
@@ -55,7 +55,7 @@ const SCEN = String(arg('scenario', 'all')).split(',');
 const EXTRA = arg('extra', '');
 const HOLD = Number(arg('hold', 260));
 const DETENTS = Number(arg('detents', 2));
-const BASE = arg('base', 'http://127.0.0.1:4321');
+const BASE = arg('base', 'http://localhost:4321');
 const PEEKWAIT = Number(arg('peekwait', 250));
 const GPU = arg('gpu', 'swiftshader'); // swiftshader (default: ~30ms timer lag) | default (GPU path: ~250ms main-thread starvation)
 const SETTLE = Number(arg('settle', 250)); // extra ms before every readout (headless render lag)

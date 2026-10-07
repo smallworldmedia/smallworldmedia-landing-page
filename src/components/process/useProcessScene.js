@@ -26,6 +26,19 @@
  * The filled core dissolves during the S4 emanation so the expanded
  * world's gap-lattice (its lat/long lines) reads clean through.
  *
+ * S1, the DISCOVERY round (09-09, Nathan): the belt is a place the camera
+ * TRAVELS THROUGH, not a still life. A seeded camera TOUR glides between
+ * close-up stations pushed into the cloud — the establishing wide is seen
+ * once, on arrival, and never returned to (Nathan 09-10: the zoom-out is
+ * saved for S2's assembly, so it reads as a reveal) — so the shards and
+ * their annotation chips read at size and the reader is inside the
+ * gathering. Shards tumble on SEEDED axes at two rate
+ * tiers (?spinfast / ?spinfastfrac). An ATMOSPHERIC DEPTH haze (?fog) pulls
+ * each shard's fill and stroke toward the field color by view depth — never
+ * opacity, the panels stay fully opaque — and burns off as they assemble.
+ * The chips carry the house random-letter entrance (charCut.js) instead of
+ * the scramble, and the whole field takes the home globe's drag + flick.
+ *
  * Stages: S1 drifting Fragment belt (seeded, empty center) → S2 the Thread
  * chains ?threadhops Fragments with STRAIGHT segments from the center,
  * then the pull-in assembly seats beads in HOP ORDER (string pulled taut;
@@ -57,6 +70,8 @@ import { createPanelMaterial } from '../globe/panelMaterial.js';
 import buildCascadeTimeline, { panelDelay } from '../globe/cascade.js';
 import { mulberry32, hashSeed } from '../work/world/seededLayout.js';
 import { scrambleTo } from '../../lib/scramble.js';
+import { CHAR_CUT, cutSchedule } from '../../lib/charCut.js';
+import DragMomentum from '../../lib/dragMomentum.js';
 import {
   LON_SEGMENTS,
   LAT_BANDS,
@@ -69,6 +84,9 @@ import {
   DPR_MAX,
   AUTO_ROTATE_SPEED,
   INITIAL_PITCH_DEG,
+  PITCH_LIMIT_DEG,
+  DRAG_SENSITIVITY,
+  MAX_FLICK_SPEED,
   GAP_COLOR,
   PREFERS_REDUCED_MOTION,
 } from '../globe/globeConfig.js';
@@ -155,6 +173,29 @@ const getPose = (id) => {
       return null;
   }
 };
+
+/* Per-shard tumble, seeded (09-09, Nathan: "some of the fragments rotating
+   at a faster rate than the others on different rotation axes, governed by
+   random seed"). Two things vary, both drawn from the belt's own PRNG so a
+   re-seed is reproducible:
+   · AXIS — most shards tumble on a free 3D axis; a seeded minority spins on
+     a CARDINAL one, which reads as a clean flat turn against the general
+     wobble and keeps the cloud from looking uniformly noisy;
+   · RATE — a ?spinfastfrac slice lands on a FAST tier (× ?spinfast), the
+     rest on the slow base. The contrast is what makes the field read as
+     depth rather than one drifting sheet, and it is what a close-up needs:
+     at the wide every shard turned alike. */
+const spinAxis = (rand) => {
+  const pick = rand();
+  if (pick < 0.1) return new THREE.Vector3(1, 0, 0);
+  if (pick < 0.2) return new THREE.Vector3(0, 1, 0);
+  if (pick < 0.3) return new THREE.Vector3(0, 0, 1);
+  return new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize();
+};
+const spinRate = (rand) =>
+  rand() < TUNING.spinFastFrac
+    ? Math.max(TUNING.spinFast, 0) * (0.7 + rand() * 0.6)
+    : 0.4 + rand() * 0.8;
 
 /* Equator-out radiation — the trivial third delay model beside
    panelDelay's rows/poles/sweep (spec §3 S5): the inverse of `poles`. */
@@ -253,6 +294,10 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       bakeEdgeUv(panel.geometry);
       panel.homeOffset = panel.centerDir.clone().multiplyScalar(RADIUS);
       panel.geometry.translate(-panel.homeOffset.x, -panel.homeOffset.y, -panel.homeOffset.z);
+      // Shard extent about its own origin — the annotation chips test against
+      // it as a screen circle when choosing a readable seat.
+      panel.geometry.computeBoundingSphere();
+      panel.boundRadius = panel.geometry.boundingSphere?.radius ?? 0.2;
       panel.driftFactor = 1; // 1 free-drifting → damped on claim → 0 assembled
       panel.mesh = new THREE.Mesh(
         panel.geometry,
@@ -273,6 +318,8 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
     const decoyGeometry = decoyProto.geometry.clone();
     const decoyMaterial = createPanelMaterial({ fallbackColor: LIT_COLOR });
     decoyMaterial.uniforms.uStrokeColor.value.copy(strokeColor);
+    decoyGeometry.computeBoundingSphere();
+    const decoyRadius = decoyGeometry.boundingSphere?.radius ?? 0.2;
     const decoyMesh = new THREE.InstancedMesh(decoyGeometry, decoyMaterial, DECOY_COUNT);
     decoyMesh.frustumCulled = false; // instances spread far beyond the proto's bounds
     decoyMesh.visible = false;
@@ -359,11 +406,11 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
           new THREE.Euler(rand() * Math.PI * 2, rand() * Math.PI * 2, rand() * Math.PI * 2)
         );
         panel.drift = {
-          // Suspended point cloud: slow LINEAR self-rotation only (the
-          // whole-cloud rotation is globeGroup's yaw) — no positional
-          // wobble; positions rest at beltPos.
-          axis: new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize(),
-          speedRatio: 0.6 + rand() * 0.8, // × TUNING.drift at tick time
+          // Suspended point cloud: LINEAR self-rotation only (the whole-cloud
+          // rotation is globeGroup's yaw) — no positional wobble; positions
+          // rest at beltPos. Axis and rate are the seeded tiers above.
+          axis: spinAxis(rand),
+          speedRatio: spinRate(rand), // × TUNING.drift at tick time
           phase: rand() * Math.PI * 2, // seeded stagger for entrances
         };
       });
@@ -375,8 +422,8 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         d.quat.setFromEuler(
           new THREE.Euler(rand() * Math.PI * 2, rand() * Math.PI * 2, rand() * Math.PI * 2)
         );
-        d.axis.set(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize();
-        d.speedRatio = 0.5 + rand() * 0.9;
+        d.axis.copy(spinAxis(rand)); // the decoy flood tumbles on the same tiers
+        d.speedRatio = spinRate(rand);
         d.scale = 0.72 + rand() * 0.26; // raw material reads slightly smaller
         d.phase = rand() * Math.PI * 2;
       });
@@ -444,10 +491,71 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
     let beltDrifting = false; // tick writes belt transforms only while true
     let beltHidden = !PREFERS_REDUCED_MOTION; // arrival: shards absent until materializeBelt()
     let threadActive = false; // tick reprojects the Thread only while true
+    // The tour's stations, blend and camera solutions live with the tour
+    // itself (below the resize doctrine — they ride camLag); only the latch
+    // has to be up here, because applyCamLag/retargetCam must stand down
+    // while the tour owns camera.position.
+    let tourTl = null;
+    let tourActive = false;
     let threadChain = [];     // claimed panels, hop order
     let threadDraw = { frac: 0, alpha: 1 };
 
-    const renderFrame = () => renderer.render(scene, camera);
+    /* — Atmospheric depth (09-09, Nathan). The belt is deep and the camera
+       now travels into it, so distance has to READ: each shard's fill AND
+       its black edge stroke are pulled toward the field color by view depth
+       (panelMaterial's uFog*). Deliberately not opacity — every panel stays
+       fully opaque; a shard far back is the same solid mesh, painted closer
+       to the blue it sits on, the way haze eats a distant ridgeline.
+
+       The window is ANCHORED IN WORLD DEPTH and deliberately ASYMMETRIC:
+       it opens a quarter-span in FRONT of the belt's establishing distance
+       (the group sits at z=0 and the camera looks down −Z, so that distance
+       is the stage-01 contain-fit z) and reaches full weight ?fogspan ×
+       ?scatter BEHIND it. Front-of-field shards therefore stay crisp and
+       only what is genuinely further away recedes — a symmetric window
+       hazed half the cloud at the establishing wide and read as a blue
+       wash. Round 1 measured the window from the camera's OWN position, so
+       a close-up hazed the same relative depth the wide did — which meant
+       a far shard stayed just as faded as the camera pushed toward it.
+       Nathan (09-10): haze is a property of the AIR between lens and
+       shard, so the window sits still and the dolly moves through it — a
+       shard the camera approaches clears.
+
+       `amount` is the global strength, tweened to 0 as the Fragments
+       assemble: the haze belongs to the gathering, not to the built
+       world. — */
+    const fogState = { amount: 0, near: 0, far: 1 };
+    const poseFog = (pose) => (pose.form === 'belt' ? Math.max(TUNING.fog, 0) : 0);
+    const applyFogUniforms = () => {
+      const span = Math.max(TUNING.fogSpan * TUNING.scatter, 0.05);
+      // uFogNear/Far are VIEW depths. Fixing them to the establishing
+      // distance (not camera.position.z) is what makes the window still in
+      // world terms: the dolly shortens every shard's view depth as it
+      // pushes in, so what it approaches comes forward out of the haze.
+      const baseZ = framingFor(getPose('stage-01')).z;
+      const near = baseZ - span * 0.25;
+      const far = baseZ + span;
+      fogState.near = near;
+      fogState.far = far;
+      for (let i = 0; i < panels.length; i++) {
+        const u = panels[i].mesh.material.uniforms;
+        u.uFogAmount.value = fogState.amount;
+        u.uFogNear.value = near;
+        u.uFogFar.value = far;
+      }
+      const du = decoyMaterial.uniforms;
+      du.uFogAmount.value = fogState.amount;
+      du.uFogNear.value = near;
+      du.uFogFar.value = far;
+    };
+
+    // Every render path funnels through here — the tick, the reduced-motion
+    // single frames, the arrival stamp — so the haze can never be a frame
+    // stale behind the dolly it is measured against.
+    const renderFrame = () => {
+      applyFogUniforms();
+      renderer.render(scene, camera);
+    };
 
     /* — The staged background. The page's base is the brand-BLUE opening
        (S1/S2); the home-hero gradient is S5. In between, `blueEl` is the
@@ -571,6 +679,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
     };
     const clearThread = () => {
       threadActive = false;
+      threadCamActive = false; // the camera is the assembly's (or an interrupt's) now
       threadChain = [];
       threadDraw = { frac: 0, alpha: 1 };
       threadLine.visible = false;
@@ -605,26 +714,41 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       if (el) scrambleTo(el, text);
     };
 
-    /* — Blob-tracking labels (v2 deck, B4; refined P1 from the hero's
-       HeroLabels port). A handful of mono chips latch onto drifting
-       shards, scramble a term from the rolling DISCOVERY vocabulary, hold,
-       release, and re-slot — the continuous gathering of notes and
-       references, annotated live. S1 only; reduced motion never runs them.
+    /* — Annotation labels. IN-SCENE since 09-09 round 2 (Nathan: the chips
+       must sit at their panel's z, so they layer against each other and are
+       COVERED by shards in front of them — that occlusion is what tells you
+       which panel a chip is naming).
 
-       Ported from the home-hero refinement (HeroLabels.jsx):
-       · a 1px LEADER line + a 3px ANCHOR DOT connect each chip to its
-         shard (one SVG layer; the chip sits radially OUTWARD from the belt
-         center by LEADER_LEN and the leader hits its nearest corner);
-       · VIEWPORT + FRONT-FACING candidate selection — a chip only latches
-         onto a shard that projects comfortably on-screen AND (for the 84
-         keepers, which carry a face normal) is turned toward the camera;
-       · NO-REPEAT round-robin — a slot prefers not to re-take the shard it
-         just released;
-       · per-frame EARLY FADE — a labeled shard that drifts out of frame or
-         turns away fades early and frees its slot.
-       Adapted to the process tick cadence (no heroOverlay/onFrame bridge):
-       updateLabels runs in the render tick and refreshes the matrices it
-       reads itself (discPx's idiom). — */
+       They used to be DOM chips in a fixed overlay with an SVG leader,
+       composited above the whole render, which made occlusion impossible —
+       exactly the problem the Thread hit in the v2 deck (B3) and solved the
+       same way: it stopped being a screen-space overlay and became a real
+       line in the scene. The chips follow it now. Each slot is a small group
+       — a text plane, a leader line, an anchor dot — living at its panel's
+       WORLD POSITION, so the depth buffer does the layering for free: nearer
+       chips paint over farther ones, and any shard in front hides the chip
+       outright. Nothing here projects to screen space to be drawn.
+
+       The chip is a plane, not a sprite, and it never needs billboarding:
+       this camera is axis-aligned and never rotates, so a plane in the world
+       XY plane already faces it dead-on. It IS re-scaled every frame so the
+       text holds a constant SIZE ON SCREEN however far the tour has dollied
+       — a chip that shrank with distance would be unreadable at exactly the
+       moment the haze made its panel interesting.
+
+       Type is drawn to a canvas texture rather than set in the DOM, so
+       .process-label in process.css stays the source of truth: a hidden
+       probe hands the canvas its face, size, tracking and colour. Letters
+       land on the house random-letter cut — the same shuffled clock the DOM
+       sites run (charCut's cutSchedule), painting one more glyph per tick
+       instead of un-hiding one more span.
+
+       Ported from the home-hero refinement and kept: VIEWPORT + FRONT-FACING
+       candidate selection, NO-REPEAT round-robin, and the per-frame EARLY
+       FADE when a labelled shard turns away or leaves frame. New at this
+       round: a bind is REJECTED when its chip would land on top of a chip
+       already out, which stops the clustering the longer leaders would
+       otherwise make worse. S1 only; reduced motion never runs them. — */
     const LABEL_TERMS = [
       'image_references', 'brand_cadence', 'artist_personality', 'artist_interests',
       'call_notes', 'inquiry_notes', 'preliminary_research', 'market_research',
@@ -632,54 +756,246 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       'genre_gaps', 'industry_opportunities', 'design_history', 'art_history',
       'industry_trends',
     ];
-    const LABEL_SVG_NS = 'http://www.w3.org/2000/svg';
-    const LEADER_LEN = 20; // px the chip sits outward from the belt center
-    const LABEL_DOT_R = 1.5; // the 3px anchor dot
     const LABEL_FRONT_EPS = 0.05; // normal·view-axis floor (front-facing)
-    const LABEL_NDC_BIND = 0.9; // pick only shards comfortably on-screen
-    const LABEL_NDC_KEEP = 1.02; // hold until the anchor leaves the frame
+    const LABEL_NDC_BIND = 0.86; // pick only shards comfortably on-screen
+    const LABEL_BIND_FACING = 0.4; // normal·view-axis floor to TAKE a chip (≈66° of square); the keep floor stays LABEL_FRONT_EPS
+    const LABEL_HAZE_MAX = 0.45; // a target more hazed than this is too faint to be pointed at
+    const LABEL_NDC_KEEP = 1.05; // hold until the anchor leaves the frame
+    const LABEL_HOLD_ALPHA = 0.85; // the resting strength
+    const LABEL_DOT_PX = 3; // anchor dot diameter, screen px
+    const LABEL_ROOT_EPS = 0.012; // world units the dot/leader root sits up the view ray off the shard's face
+    /* How far in front of its own shard the whole trio sits. Two jobs, and
+       the second is why it is not a hairline: the dot and leader sit ON their
+       shard and would z-fight it, AND a chip left exactly coplanar gets
+       chopped by every neighbour that drifts within a few hundredths of its
+       depth — at close range that is most of them, and a word cut into thirds
+       reads as broken rather than as depth. Lifting by a fraction of the
+       belt's own shard spacing means only a shard CLEARLY in front covers a
+       chip, which is the read that identifies the pairing. */
+    const labelLift = () => TUNING.scatter * 0.16;
     const labelsEl = chromeRefs?.labelsRef?.current ?? null;
     let labelsActive = false;
     let termCursor = 0;
     const labelSlots = [];
-    let labelsSvg = null;
-    if (labelsEl && !PREFERS_REDUCED_MOTION) {
-      labelsSvg = document.createElementNS(LABEL_SVG_NS, 'svg');
-      labelsSvg.setAttribute('class', 'process-labels__svg');
-      labelsSvg.setAttribute('focusable', 'false');
-      labelsEl.appendChild(labelsSvg);
-      for (let i = 0; i < 4; i++) {
-        const el = document.createElement('span');
-        el.className = 'process-label';
-        labelsEl.appendChild(el);
-        const g = document.createElementNS(LABEL_SVG_NS, 'g');
-        const line = document.createElementNS(LABEL_SVG_NS, 'line');
-        line.setAttribute('class', 'process-labels__leader');
-        const dot = document.createElementNS(LABEL_SVG_NS, 'circle');
-        dot.setAttribute('class', 'process-labels__dot');
-        dot.setAttribute('r', String(LABEL_DOT_R));
-        g.append(line, dot);
-        labelsSvg.appendChild(g);
-        gsap.set([el, g], { autoAlpha: 0 });
-        labelSlots.push({
-          el, g, line, dot,
-          target: null, // the live Vector3 (shard mesh.position or decoy.pos)
-          panel: null, // the keeper panel (for the front-facing test) or null (decoy)
-          last: null, // no-repeat guard: the target just released
-          tl: null, // the cycle timeline (scramble in → hold → fade)
-          dc: null, // the re-slot breath (delayedCall)
-          fading: false, // early fade in flight (one-shot latch)
-          w: 0, h: 0, // chip box, cached at bind
-        });
+    const labelGroup = new THREE.Group();
+    scene.add(labelGroup);
+    // Shared across every slot — one plane, one disc, scaled per frame.
+    const labelPlaneGeo = new THREE.PlaneGeometry(1, 1);
+    const labelDotGeo = new THREE.CircleGeometry(1, 12);
+
+    /* Style probe: process.css keeps owning the chips' typography. Read once
+       at mount and again when the webfont lands (the first read would
+       otherwise measure a fallback face and every chip would be the wrong
+       width for the rest of the session). */
+    const labelStyle = {
+      font: '500 13px sans-serif',
+      css: '#ffffff',
+      color: new THREE.Color(0xffffff),
+      track: 0,
+      line: 16,
+    };
+    const readLabelStyle = () => {
+      if (!labelsEl || disposed) return;
+      const probe = document.createElement('span');
+      probe.className = 'process-label';
+      probe.textContent = 'M';
+      labelsEl.appendChild(probe);
+      const cs = getComputedStyle(probe);
+      const cssSize = parseFloat(cs.fontSize) || 13;
+      // ?labelsize overrides the token's px; line and tracking (em-relative
+      // in the CSS) scale with it so the chip keeps its proportions.
+      const size = TUNING.labelSize > 0 ? TUNING.labelSize : cssSize;
+      const k = size / cssSize;
+      const line = parseFloat(cs.lineHeight);
+      labelStyle.line = (Number.isFinite(line) ? line : cssSize * 1.3) * k;
+      labelStyle.font = `${cs.fontWeight} ${size}px ${cs.fontFamily}`;
+      labelStyle.css = cs.color || 'rgb(255,255,255)';
+      labelStyle.track = (parseFloat(cs.letterSpacing) || 0) * k;
+      probe.remove();
+      labelStyle.color.setStyle(labelStyle.css);
+    };
+    /** ?labelsize live: re-read the probe and repaint every bound chip at
+     *  the new size (the canvas re-allocates — see drawChip). */
+    const restyleLabels = () => {
+      readLabelStyle();
+      for (const slot of labelSlots) {
+        if (!slot.term) continue;
+        slot.textW = measureChars(slot, slot.chars);
+        drawChip(slot);
       }
+    };
+
+    const makeLabelSlot = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
+      // depthWrite off across the trio: they are transparent, so they must
+      // TEST against the shards (that is the occlusion) without stamping the
+      // buffer and punching holes in whatever draws after them.
+      const chipMat = new THREE.MeshBasicMaterial({
+        map: texture, transparent: true, depthWrite: false, opacity: 0,
+      });
+      const leaderMat = new THREE.LineBasicMaterial({
+        transparent: true, depthWrite: false, opacity: 0,
+      });
+      const dotMat = new THREE.MeshBasicMaterial({
+        transparent: true, depthWrite: false, opacity: 0,
+      });
+      const leaderGeo = new THREE.BufferGeometry();
+      leaderGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+      const group = new THREE.Group();
+      const chip = new THREE.Mesh(labelPlaneGeo, chipMat);
+      const leader = new THREE.Line(leaderGeo, leaderMat);
+      const dot = new THREE.Mesh(labelDotGeo, dotMat);
+      group.add(chip, leader, dot);
+      group.visible = false;
+      labelGroup.add(group);
+      return {
+        group, chip, leader, leaderGeo, dot,
+        canvas, ctx, texture,
+        mats: [chipMat, leaderMat, dotMat],
+        term: '', // the word on the chip — the supply skips words already out
+        strikes: 0, // consecutive frames measured as mostly covered
+        chars: [], // the term, per code point
+        shown: [], // which have been cut in
+        textW: 0, // chip width in screen px (the canvas is this × DPR)
+        box: null, // last painted chip box in screen px — the anti-overlap test
+        target: null, // the live Vector3 (shard mesh.position or decoy.pos)
+        panel: null, // the keeper panel (for the front-facing test) or null (decoy)
+        last: null, // no-repeat guard: the target just released
+        tl: null, // the cycle timeline (chip in → hold → fade)
+        cut: null, // the running random-letter entrance (charCut clock)
+        dc: null, // the re-slot breath (delayedCall)
+        fading: false, // early fade in flight (one-shot latch)
+      };
+    };
+
+    if (labelsEl && !PREFERS_REDUCED_MOTION) {
+      readLabelStyle();
+      document.fonts?.ready.then(readLabelStyle);
+      /* Slot count is fixed at mount (the HeroLabels convention) — ?labels
+         needs a reload, not an applyTuning. Desktop is capped at 4 (Nathan
+         09-10); a phone takes at most three: a term like
+         INDUSTRY_OPPORTUNITIES is around 200px, which is half a 390px
+         viewport, so three chips there already fill the frame. */
+      const labelSlotCount = Math.max(
+        1,
+        Math.round(IS_MOBILE ? Math.min(TUNING.labelCount, 3) : TUNING.labelCount) || 1
+      );
+      for (let i = 0; i < labelSlotCount; i++) labelSlots.push(makeLabelSlot());
     }
+
+    /* Canvas paint. One glyph at a time, advancing by the probe's tracking —
+       hand-advanced rather than via ctx.letterSpacing, because the per-char
+       loop is exactly what the letter cut needs anyway. */
+    const labelCtxFont = (slot) => {
+      slot.ctx.font = labelStyle.font;
+      slot.ctx.textBaseline = 'middle';
+    };
+    const measureChars = (slot, chars) => {
+      slot.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      labelCtxFont(slot);
+      let w = 0;
+      for (const ch of chars) w += slot.ctx.measureText(ch).width + labelStyle.track;
+      return Math.max(Math.ceil(w - labelStyle.track) + 2, 1); // shed the trailing track, +2 for AA
+    };
+    /* Term supply. The rolling cursor keeps the vocabulary moving, but it
+       must SKIP anything currently on screen: yields rebind often enough now
+       to burn through all 17 terms inside one chip's lifetime, and two chips
+       reading the same word is the one mistake an annotation layer cannot
+       make. peekTerm is non-consuming — the anti-overlap test has to measure
+       the real word, not an average. */
+    const termAt = (offset) => {
+      const held = new Set(labelSlots.map((s) => s.term).filter(Boolean));
+      for (let k = 0; k < LABEL_TERMS.length; k++) {
+        const term = LABEL_TERMS[(termCursor + offset + k) % LABEL_TERMS.length].toUpperCase();
+        if (!held.has(term)) return { term, step: k + 1 };
+      }
+      return { term: LABEL_TERMS[termCursor % LABEL_TERMS.length].toUpperCase(), step: 1 };
+    };
+    const peekTerm = () => termAt(0).term;
+    /* A shard KEEPS ITS WORD (Nathan, 09-10). A chip that fades and comes
+       back on the same shard reading something else breaks the claim that
+       the shard IS that thing — the label was naming it, not decorating it.
+       Keyed by the live target (a mesh.position or decoy.pos — stable
+       object identities), so a shard re-picked by any slot, at any later
+       point in the belt's life, gets the word it was first given. The pool
+       therefore skips a shard whose word is currently on screen elsewhere. */
+    const termOf = new Map();
+    /* The labelled shard DARKENS on the house pulse (Nathan, 09-10): the S5
+       envelope (?bpm ?hold ?decay) inverted — snap down to ?labelpulse,
+       hold, expo recover to lit — looping for as long as the chip names
+       it. Decoys are one instanced draw and cannot pulse per shard. */
+    const pulseOn = (panel) => {
+      if (!panel || TUNING.labelPulse >= 0.999) return;
+      const u = panel.mesh.material.uniforms.uPower;
+      gsap.killTweensOf(u);
+      const beat = 60 / Math.max(TUNING.bpm, 1);
+      // The belt rests at ?idlepower, not full — the floor is a FRACTION of
+      // that resting level, and the recover lands back on it.
+      const rest = getPose(stage)?.power ?? 1;
+      const floor = rest * Math.max(TUNING.labelPulse, 0);
+      const attack = Math.min(0.07, beat * 0.15);
+      const hold = Math.max(TUNING.holdBeats * beat, 0.02);
+      const decay = Math.max(TUNING.decayBeats * beat, 0.08);
+      const decayEase = TUNING.decayCurve === 'linear' ? 'none' : 'expo.out';
+      panel.pulse = gsap.timeline({ repeat: -1 }).to(u, {
+        keyframes: [
+          { value: floor, duration: attack, ease: 'power2.out' },
+          { value: floor, duration: hold, ease: 'none' },
+          { value: rest, duration: decay, ease: decayEase },
+        ],
+      });
+    };
+    const pulseOff = (panel) => {
+      if (!panel?.pulse) return;
+      panel.pulse.kill();
+      panel.pulse = null;
+      const u = panel.mesh.material.uniforms.uPower;
+      gsap.killTweensOf(u);
+      gsap.to(u, { value: getPose(stage)?.power ?? 1, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
+    };
+    const heldTerms = () => new Set(labelSlots.map((s) => s.term).filter(Boolean));
+    const termFor = (cand) => termOf.get(cand.pos) ?? peekTerm();
+    const drawChip = (slot) => {
+      const dpr = Math.min(window.devicePixelRatio || 1, DPR_MAX);
+      const w = slot.textW;
+      const h = Math.max(Math.ceil(labelStyle.line), 1);
+      const cw = Math.max(Math.ceil(w * dpr), 1);
+      const chh = Math.max(Math.ceil(h * dpr), 1);
+      if (slot.canvas.width !== cw || slot.canvas.height !== chh) {
+        slot.canvas.width = cw; // resizing resets the 2d state — font is re-set below
+        slot.canvas.height = chh;
+        // three allocates a CanvasTexture's GPU storage ONCE (texStorage2D,
+        // immutable) and later uploads are texSubImage2D into it — so a
+        // shorter term painted into a slot that last held a longer one left
+        // the old word's tail on the plane ("INQUIRY_NOTES" + "…YSIS"). Free
+        // the GL texture on a size change and it reallocates at the new size.
+        slot.texture.dispose();
+      }
+      const ctx = slot.ctx;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      labelCtxFont(slot);
+      ctx.fillStyle = labelStyle.css;
+      let x = 1;
+      for (let i = 0; i < slot.chars.length; i++) {
+        const adv = ctx.measureText(slot.chars[i]).width + labelStyle.track;
+        if (slot.shown[i]) ctx.fillText(slot.chars[i], x, h / 2);
+        x += adv;
+      }
+      slot.texture.needsUpdate = true;
+    };
 
     // Scratch — updateLabels/pick are synchronous, single-threaded.
     const lblNdc = new THREE.Vector3();
     const lblWorld = new THREE.Vector3();
     const lblNormal = new THREE.Vector3();
     const lblAxis = new THREE.Vector3();
-    const lblDisc = new THREE.Vector3();
 
     // Refresh the matrices we read (render hasn't run for this frame yet —
     // discPx's guarantee, reused).
@@ -701,6 +1017,81 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       return lblNormal.dot(lblAxis);
     };
 
+    /* Screen geometry. The camera is axis-aligned and never rotates, so the
+       whole projection is arithmetic on world x/y over view depth — no
+       matrices, and the inverse (screen px back to world at a given depth)
+       is just as direct, which is what places the chip. */
+    /* The copy column is DOM painted OVER the canvas, so depth cannot keep a
+       chip out from under the stage's own type — and text over text is the
+       one read the layer must never produce. Measure the live stage copy
+       (token + headline + blurb, not the 140vh section box around them) and
+       hand it to chipInFrame as a keep-out. */
+    const copyEl = rootEl?.querySelector('.process-stage[data-stage="stage-01"]') ?? null;
+    const copyParts = copyEl
+      ? [...copyEl.querySelectorAll('.process-stage__chip, .process-stage__headline, .process-stage__blurb')]
+      : [];
+    const copyKeep = { x0: 0, y0: 0, x1: 0, y1: 0 };
+    const measureCopy = () => {
+      if (!copyParts.length) return null;
+      const base = container.getBoundingClientRect();
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const el of copyParts) {
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        x0 = Math.min(x0, r.left - base.left);
+        y0 = Math.min(y0, r.top - base.top);
+        x1 = Math.max(x1, r.right - base.left);
+        y1 = Math.max(y1, r.bottom - base.top);
+      }
+      if (x0 === Infinity) return null;
+      copyKeep.x0 = x0; copyKeep.y0 = y0; copyKeep.x1 = x1; copyKeep.y1 = y1;
+      return copyKeep;
+    };
+    const labelView = () => {
+      const vw = container.clientWidth || 1;
+      const vh = container.clientHeight || 1;
+      const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
+      return { vw, vh, tanV, tanH: tanV * (camera.aspect || 1), keep: measureCopy() };
+    };
+    const toPx = (world, view, out) => {
+      const depth = camera.position.z - world.z;
+      if (depth <= 0.05) return null;
+      out.x = view.vw / 2 + ((world.x - camera.position.x) / (depth * view.tanH)) * (view.vw / 2);
+      out.y = view.vh / 2 - ((world.y - camera.position.y) / (depth * view.tanV)) * (view.vh / 2);
+      out.depth = depth;
+      // world units per screen px AT THIS DEPTH — the chip's scale factor
+      out.perPx = (depth * view.tanV * 2) / view.vh;
+      return out;
+    };
+    const lblA = { x: 0, y: 0, depth: 0, perPx: 0 };
+    const lblB = { x: 0, y: 0, depth: 0, perPx: 0 };
+    const lblChip = { x: 0, y: 0 };
+
+    /* Where a chip WOULD land for a given anchor: outward from the belt's
+       centre by the leader length, the direction taken in screen space so it
+       reads as "away from the cloud" whatever the dolly is doing. Fills
+       lblChip and returns the outward unit vector, or null off-screen. */
+    const chipSeat = (worldPos, view, out) => {
+      if (!toPx(worldPos, view, lblA)) return null;
+      lblWorld.set(globeGroup.position.x, globeGroup.position.y, 0);
+      const centre = toPx(lblWorld, view, lblB);
+      let ox = centre ? lblA.x - centre.x : 1;
+      let oy = centre ? lblA.y - centre.y : 0;
+      const od = Math.hypot(ox, oy) || 1;
+      ox /= od;
+      oy /= od;
+      // Phones get a shorter leader for the same reason they get fewer chips:
+      // the frame cannot spare 64px of empty run either side of a chip that is
+      // already half its width.
+      const lead = Math.max(TUNING.labelLead, 0) * (IS_MOBILE ? 0.6 : 1);
+      lblChip.x = lblA.x + ox * lead;
+      lblChip.y = lblA.y + oy * lead;
+      out.ox = ox;
+      out.oy = oy;
+      return out;
+    };
+    const seatOut = { ox: 1, oy: 0 };
+
     const labelPool = () => {
       const pool = [];
       panels.forEach((p) => {
@@ -708,15 +1099,41 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       });
       if (decoyMesh.visible) {
         decoys.forEach((d) => {
-          if (d.s > 0.5) pool.push({ pos: d.pos, panel: null });
+          if (d.s > 0.9) pool.push({ pos: d.pos, panel: null, decoy: d });
         });
       }
       return pool;
     };
     // Pick-time visibility: front-facing AND the anchor projects comfortably
-    // on-screen (|ndc| < BIND). Refreshes matrices itself (rare — bind time).
+    // on-screen (|ndc| < BIND).
+    /* A decoy is a flat shard too: its face normal is the proto's centerDir
+       under its own quaternion. Round 3 called every decoy "front-facing",
+       so an edge-on one — a hairline — could take a chip. */
+    const decoyProminence = (d) => {
+      lblNormal.copy(decoyProto.centerDir).applyQuaternion(d.quat);
+      lblNormal.transformDirection(globeGroup.matrixWorld);
+      lblWorld.copy(d.pos);
+      globeGroup.localToWorld(lblWorld);
+      lblAxis.copy(camera.position).sub(lblWorld).normalize();
+      return lblNormal.dot(lblAxis);
+    };
+    /* How far into the haze a target sits (0 crisp → 1 the field colour).
+       A chip on a shard the haze has all but erased points at nothing. */
+    const hazeAt = (cand) => {
+      if (fogState.amount <= 0) return 0;
+      lblWorld.copy(cand.pos);
+      globeGroup.localToWorld(lblWorld);
+      const depth = camera.position.z - lblWorld.z;
+      const w = (depth - fogState.near) / Math.max(fogState.far - fogState.near, 1e-4);
+      return Math.min(Math.max(w, 0), 1) * fogState.amount;
+    };
     const labelVisible = (cand) => {
-      if (labelProminence(cand.panel) < LABEL_FRONT_EPS) return false;
+      // Bind-time facing floor is STRICTER than the keep floor: a shard
+      // 80° off square still "faces" the lens but reads as a sliver, and a
+      // chip on a sliver reads as a chip on nothing (Nathan, 09-10).
+      const facing = cand.panel ? labelProminence(cand.panel) : decoyProminence(cand.decoy);
+      if (facing < LABEL_BIND_FACING) return false;
+      if (hazeAt(cand) > LABEL_HAZE_MAX) return false;
       lblNdc.copy(cand.pos);
       globeGroup.localToWorld(lblNdc).project(camera);
       return (
@@ -725,11 +1142,155 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         Math.abs(lblNdc.y) < LABEL_NDC_BIND
       );
     };
+    /* Anti-overlap: would this candidate's chip land on a chip already out?
+       Boxes come from the last painted frame (slot.box), and the candidate is
+       sized with a nominal width — the term isn't chosen until bind, and a
+       rough box is enough to break up clustering. */
+    /* Would a shard already be sitting in front of this seat? A chip that
+       latches into a spot it is 70% hidden in is noise — the occlusion only
+       reads as depth when it happens to a chip you could otherwise see. Each
+       shard is tested as its bounding circle in screen px, which is generous
+       (it over-rejects at the corners) and costs one projection per shard on
+       a cadence of seconds, not frames.
+
+       The DECOY FLOOD counts. It is easy to forget because the haze paints a
+       distant decoy almost exactly the colour of the field it sits on — but
+       it is still an opaque mesh writing depth, so it hides a chip just as
+       hard as a shard you can see. Leaving the pool out of this test was
+       what left words trailing a stray glyph poking out from behind a panel
+       that looked like empty blue. */
+    const lblCircle = new THREE.Vector3();
+    /* Every shard reduced to a screen-space circle ONCE per frame, then every
+       coverage question is arithmetic. Projecting inside the sample loop
+       instead cost 7 projections per sample point and made the test too
+       expensive to run on more than one chip a frame — which was the reason
+       badly-buried chips lingered long enough to be read as garbage. */
+    const occluders = [];
+    let occStamp = -1;
+    const pushOccluder = (view, pos, radius) => {
+      lblCircle.copy(pos);
+      globeGroup.localToWorld(lblCircle);
+      if (!toPx(lblCircle, view, lblB)) return;
+      occluders.push({
+        x: lblB.x,
+        y: lblB.y,
+        // The bounding SPHERE circumscribes a flat shard, so the raw radius
+        // claims more cover than the quad has; 0.85 lands nearer its real
+        // silhouette and stops clear chips being told to move.
+        r: (radius * 0.85) / lblB.perPx,
+        depth: lblB.depth,
+      });
+    };
+    const buildOccluders = (view, stamp) => {
+      if (occStamp === stamp) return;
+      occStamp = stamp;
+      occluders.length = 0;
+      for (let i = 0; i < panels.length; i++) {
+        const p = panels[i];
+        if (p.driftFactor > 0.5) pushOccluder(view, p.mesh.position, p.boundRadius || 0.2);
+      }
+      if (decoyMesh.visible) {
+        for (let i = 0; i < decoys.length; i++) {
+          const d = decoys[i];
+          const scale = d.scale * d.s;
+          if (scale > 0.05) pushOccluder(view, d.pos, decoyRadius * scale);
+        }
+      }
+    };
+    const coveredAt = (x, y, reach, depth) => {
+      for (let i = 0; i < occluders.length; i++) {
+        const o = occluders[i];
+        if (o.depth >= depth || o.depth <= 0.05) continue; // behind the chip
+        const dx = o.x - x;
+        const dy = o.y - y;
+        const reachR = o.r + reach;
+        if (dx * dx + dy * dy < reachR * reachR) return true;
+      }
+      return false;
+    };
+    let occTick = 0;
+    const seatBehindShard = (view, chipX, chipY, w, h, depth) => {
+      buildOccluders(view, (occTick += 1)); // a pick is off-cadence — rebuild
+      return coveredAt(chipX, chipY, Math.max(w, h) / 2, depth);
+    };
+
+    /* How much of a chip may be hidden before it should give up. A chip
+       clipped at one end still reads (and the clipping is what pairs it with
+       its shard); one cut down to a stray syllable is just noise sitting next
+       to whatever else is on screen. Sampled across the chip's width. */
+    const CHIP_COVER_MAX = 0.4;
+    const CHIP_COVER_SAMPLES = 7;
+    /* Two strikes, not one. A single sample can catch a shard mid-sweep across
+       a chip that is about to be clear again, and yielding on that turns the
+       layer twitchy: every yield is a rebind, every rebind is another chance
+       to collide, and the churn feeds itself. */
+    const CHIP_COVER_STRIKES = 2;
+    const chipCoverage = (slot) => {
+      if (!slot.box) return 0;
+      const { x, y, w, depth } = slot.box;
+      const near = depth - labelLift();
+      let hit = 0;
+      for (let k = 0; k < CHIP_COVER_SAMPLES; k++) {
+        const sx = x - w / 2 + (w * (k + 0.5)) / CHIP_COVER_SAMPLES;
+        if (coveredAt(sx, y, 1, near)) hit += 1;
+      }
+      return hit / CHIP_COVER_SAMPLES;
+    };
+
+    /* Clear air demanded between two chips, px. Generous on purpose: two
+       boxes that merely ABUT do not overlap, but their words run together
+       into one unreadable string — which is the failure you actually see, not
+       glyphs on glyphs. Roughly two characters' worth keeps them separate
+       words. Governs both the bind-time rejection and the drift yield. */
+    const CHIP_PAD = 28;
+    const boxesHit = (ax, ay, aw, ah, box, pad = CHIP_PAD) =>
+      Math.abs(ax - box.x) < (aw + box.w) / 2 + pad &&
+      Math.abs(ay - box.y) < (ah + box.h) / 2 + pad;
+    /** The chip's whole box has to be on screen — the NDC tests govern the
+     *  ANCHOR, and the chip now sits ?labellead beyond it, so a shard well
+     *  inside the frame can still hang its label off the edge. */
+    const chipInFrame = (view, x, y, w, h) =>
+      x - w / 2 > 4 && x + w / 2 < view.vw - 4 && y - h / 2 > 4 && y + h / 2 < view.vh - 4 &&
+      !(view.keep &&
+        x + w / 2 > view.keep.x0 && x - w / 2 < view.keep.x1 &&
+        y + h / 2 > view.keep.y0 && y - h / 2 < view.keep.y1);
+    const chipClear = (cand, view, probeSlot) => {
+      lblWorld.copy(cand.pos);
+      globeGroup.localToWorld(lblWorld);
+      if (!chipSeat(lblWorld, view, seatOut)) return false;
+      const w = measureChars(probeSlot, [...termFor(cand)]);
+      const h = Math.max(labelStyle.line, 8);
+      if (!chipInFrame(view, lblChip.x, lblChip.y, w, h)) return false;
+      for (const slot of labelSlots) {
+        if (!slot.target || !slot.box) continue;
+        if (boxesHit(lblChip.x, lblChip.y, w, h, slot.box)) return false;
+      }
+      return !seatBehindShard(view, lblChip.x, lblChip.y, w, h, lblA.depth - labelLift());
+    };
     const pickTarget = (slot) => {
       refreshLabelMatrices();
+      const view = labelView();
       const taken = labelSlots.map((s) => s.target).filter(Boolean);
-      const pool = labelPool().filter((c) => !taken.includes(c.pos) && labelVisible(c));
+      const held = heldTerms();
+      const open = labelPool().filter(
+        (c) => !taken.includes(c.pos) && !held.has(termOf.get(c.pos)) && labelVisible(c)
+      );
+      // Prefer somewhere the chip can actually be read; fall back to the
+      // merely-visible set rather than idling a slot.
+      const clear = open.filter((c) => chipClear(c, view, slot));
+      const pool = clear.length ? clear : open;
       if (!pool.length) return null;
+      // The tour's SUBJECT gets a chip first when it hasn't got one: the
+      // camera framed it deliberately, so it is the shard the viewer is being
+      // asked to look at (see the tour, below).
+      const subject = tourSubjectPanel();
+      if (subject && !taken.includes(subject.mesh.position)) {
+        // A readable seat first; failing that, any seat — the drift rules
+        // re-slot it if it really cannot be read, but the framed shard
+        // going unnamed is the worse failure.
+        const hit = pool.find((c) => c.panel === subject) ?? open.find((c) => c.panel === subject);
+        if (hit) return hit;
+      }
       // No-repeat: prefer any candidate that isn't the one this slot just
       // released; fall back to the full set only if that's all there is.
       const fresh = pool.filter((c) => c.pos !== slot.last);
@@ -741,45 +1302,109 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       slot.target = cand.pos;
       slot.panel = cand.panel;
       slot.fading = false;
-      const term = LABEL_TERMS[termCursor % LABEL_TERMS.length];
-      termCursor += 1;
-      // Pre-set the final text so the box is measured at its final (mono)
-      // size — the ONE layout read per bind; scramble never resizes it.
-      slot.el.textContent = term;
-      const box = slot.el.getBoundingClientRect();
-      slot.w = box.width;
-      slot.h = box.height;
+      let term = termOf.get(cand.pos);
+      if (!term) {
+        const next = termAt(0);
+        termCursor += next.step;
+        term = next.term;
+        termOf.set(cand.pos, term);
+      }
+      slot.term = term;
+      slot.cut?.kill();
       slot.tl?.kill();
-      gsap.set([slot.el, slot.g], { autoAlpha: 0 });
+      slot.chars = [...term];
+      slot.shown = slot.chars.map(() => false);
+      slot.strikes = 0;
+      slot.textW = measureChars(slot, slot.chars);
+      // Seat the box NOW, not on the next painted frame: a sibling slot
+      // picking in the same beat has to be able to see this one, and a chip
+      // fading up from opacity 0 is skipped by updateLabels for a frame or two.
+      slot.box = null;
+      lblWorld.copy(slot.target);
+      globeGroup.localToWorld(lblWorld);
+      if (chipSeat(lblWorld, labelView(), seatOut)) {
+        slot.box = {
+          x: lblChip.x,
+          y: lblChip.y,
+          w: slot.textW,
+          h: Math.max(labelStyle.line, 1),
+          depth: lblA.depth,
+        };
+      }
+      slot.mats[1].color.copy(labelStyle.color);
+      slot.mats[2].color.copy(labelStyle.color);
+      pulseOn(slot.panel);
+      drawChip(slot); // the empty box: the chip is at opacity 0 until the tl runs
+      gsap.killTweensOf(slot.mats);
+      slot.mats.forEach((m) => {
+        m.opacity = 0;
+      });
+      // The house random-letter entrance, on the shared clock — one more
+      // glyph painted per tick where a DOM chip would un-hide one more span.
+      slot.cut = cutSchedule(slot.chars.length, {
+        stepMs: TUNING.labelCharMs,
+        onCut: (i) => {
+          slot.shown[i] = true;
+          drawChip(slot);
+        },
+      });
+      // Quicker in, longer hold (Nathan): the chip's own reveal is a blink —
+      // the letters carry the entrance — and the rest is the reading beat.
+      // With the TOUR running the beat is the camera's (Nathan, 09-10): a
+      // chip cuts in as the camera arrives at a station and holds for as
+      // long as the camera holds that framing — it never fades out of a shot
+      // that is still being held. The leg that leaves the station is what
+      // fades it (see tourLeg). ?labelhold only times the tour-off path.
       slot.tl = gsap
-        .timeline({ onComplete: () => releaseLabel(slot) })
-        .call(() => scrambleTo(slot.el, term), null, 0.01)
-        .to([slot.el, slot.g], { autoAlpha: 0.85, duration: 0.2, ease: 'power2.out' }, 0.01)
-        .to([slot.el, slot.g], { autoAlpha: 0, duration: 0.3, ease: 'power2.in' }, 1.7 + Math.random() * 1.3);
+        .timeline()
+        .to(slot.mats, { opacity: LABEL_HOLD_ALPHA, duration: 0.12, ease: 'power2.out' }, 0);
+      if (!tourActive) {
+        const hold = Math.max(TUNING.labelHold, 0.4);
+        const out = slot.cut.duration + hold;
+        slot.tl
+          .to(slot.mats, { opacity: 0, duration: 0.3, ease: 'power2.in' }, out)
+          .call(() => releaseLabel(slot));
+      }
     };
+
     const releaseLabel = (slot) => {
+      slot.cut?.kill();
+      slot.cut = null;
+      pulseOff(slot.panel);
       slot.last = slot.target;
+      slot.term = '';
       slot.target = null;
       slot.panel = null;
+      slot.box = null;
       slot.fading = false;
+      slot.group.visible = false;
       if (!labelsActive || disposed) return;
+      // Between stations the slots stay empty: the next arrival fills them.
+      if (tourActive && !atStation) return;
       slot.dc?.kill();
-      slot.dc = gsap.delayedCall(0.2 + Math.random() * 0.6, () => {
+      slot.dc = gsap.delayedCall(0.35 + Math.random() * 0.7, () => {
         slot.dc = null;
         if (!labelsActive || disposed || slot.target) return;
+        if (tourActive && !atStation) return;
         const next = pickTarget(slot);
         if (next) bindLabel(slot, next);
         // no candidate — the slot idles; the next start/cycle fills it
       });
     };
-    const earlyFadeLabel = (slot) => {
+    /** @param {boolean} quick a chip yielding a contested seat has to clear
+     *  it FAST — the whole point is to stop two words sharing a spot, and a
+     *  leisurely fade leaves them sharing it anyway. */
+    const earlyFadeLabel = (slot, quick = false) => {
       if (slot.fading) return;
       slot.fading = true;
       slot.tl?.kill();
       slot.tl = null;
-      gsap.to([slot.el, slot.g], {
-        autoAlpha: 0,
-        duration: 0.3,
+      // The shard left frame mid-entrance: land the remaining letters so the
+      // chip fades as a whole word rather than a half-typed one.
+      slot.cut?.finish();
+      gsap.to(slot.mats, {
+        opacity: 0,
+        duration: quick ? 0.16 : 0.3,
         ease: 'power2.in',
         overwrite: 'auto',
         onComplete: () => {
@@ -787,75 +1412,270 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         },
       });
     };
-    const startLabels = (delay = 0) => {
-      if (PREFERS_REDUCED_MOTION || !labelSlots.length || labelsActive) return;
-      labelsActive = true;
-      labelSlots.forEach((slot, i) => {
+    /** Fill every empty slot, staggered — the arrival burst at a station and
+     *  the first start share it. */
+    const fillLabels = (delay, stagger) => {
+      let at = delay;
+      labelSlots.forEach((slot) => {
+        if (slot.target) return;
         slot.dc?.kill();
-        slot.dc = gsap.delayedCall(delay + i * 0.45, () => {
+        // Slightly uneven stagger (Nathan, 09-10): the chips arrive one
+        // after another with a little human unevenness, not on a grid.
+        at += stagger * (0.6 + Math.random() * 0.8);
+        const attempt = () => {
           slot.dc = null;
           if (!labelsActive || disposed || slot.target) return;
           const next = pickTarget(slot);
-          if (next) bindLabel(slot, next);
+          if (next) {
+            bindLabel(slot, next);
+          } else if (tourActive && atStation && performance.now() - stationAt < STATION_FILL_MS) {
+            // No readable seat this instant — a close station frames few
+            // shards and they keep drifting. Try again briefly, inside the
+            // arrival window, so a straggler still belongs to the entrance.
+            slot.dc = gsap.delayedCall(0.25 + Math.random() * 0.25, attempt);
+          }
+        };
+        slot.dc = gsap.delayedCall(at, attempt);
+      });
+    };
+    /** Every live chip lets go — the camera is leaving the shot. Each
+     *  chip's letters CUT OUT in random order (the house exit cadence), the
+     *  chips themselves slightly staggered, so the set leaves as a stutter
+     *  rather than a dissolve (Nathan, 09-10). */
+    const LEAVE_STAGGER = 0.07;
+    /** The house exit for one chip: letters cut out in random order, the
+     *  last one taking the leader and dot with it, then the slot releases. */
+    const cutOutLabel = (slot, delay = 0) => {
+      if (!slot.target || slot.fading) return;
+      slot.fading = true; // no yield may interrupt the exit
+      slot.tl?.kill();
+      slot.tl = null;
+      slot.cut?.finish(); // any letter still landing lands, then leaves
+      slot.dc?.kill();
+      slot.dc = gsap.delayedCall(delay, () => {
+        slot.dc = null;
+        slot.cut = cutSchedule(slot.chars.length, {
+          stepMs: CHAR_CUT.outStepMs,
+          onCut: (i) => {
+            slot.shown[i] = false;
+            drawChip(slot);
+          },
+          onComplete: () => {
+            gsap.to(slot.mats, {
+              opacity: 0,
+              duration: 0.12,
+              ease: 'power2.in',
+              overwrite: 'auto',
+              onComplete: () => {
+                if (!disposed) releaseLabel(slot);
+              },
+            });
+          },
         });
       });
+    };
+    const clearLabels = () => {
+      let k = 0;
+      labelSlots.forEach((slot) => {
+        if (!slot.target || slot.fading) {
+          slot.dc?.kill();
+          slot.dc = null;
+          return;
+        }
+        cutOutLabel(slot, k * LEAVE_STAGGER + Math.random() * LEAVE_STAGGER);
+        k += 1;
+      });
+    };
+    const startLabels = (delay = 0) => {
+      if (PREFERS_REDUCED_MOTION || !labelSlots.length || labelsActive) return;
+      labelsActive = true;
+      fillLabels(delay, 0.28);
     };
     const stopLabels = () => {
       if (!labelsActive) return;
       labelsActive = false;
       labelSlots.forEach((slot) => {
+        pulseOff(slot.panel);
         slot.tl?.kill();
         slot.tl = null;
+        slot.cut?.kill();
+        slot.cut = null;
         slot.dc?.kill();
         slot.dc = null;
+        slot.term = '';
         slot.target = null;
         slot.panel = null;
+        slot.box = null;
         slot.fading = false;
-        gsap.to([slot.el, slot.g], { autoAlpha: 0, duration: 0.2, overwrite: 'auto' });
+        gsap.to(slot.mats, {
+          opacity: 0,
+          duration: 0.2,
+          overwrite: 'auto',
+          onComplete: () => {
+            slot.group.visible = false;
+          },
+        });
       });
     };
+
+    /* Per frame: place each bound slot's trio in WORLD space at its panel's
+       own depth. Everything else — which chip is in front of which, and
+       which shards cover them — is the depth buffer's job. */
     const updateLabels = () => {
-      const w = container.clientWidth || 1;
-      const h = container.clientHeight || 1;
+      const view = labelView();
       refreshLabelMatrices();
-      // Belt center in screen px — the chip sits radially outward from it
-      // (the hero's disc-center idiom; here it's the framed belt center).
-      lblDisc.set(globeGroup.position.x, globeGroup.position.y, 0).project(camera);
-      const dcx = (lblDisc.x * 0.5 + 0.5) * w;
-      const dcy = (-lblDisc.y * 0.5 + 0.5) * h;
       labelSlots.forEach((slot) => {
-        if (!slot.target) return;
-        lblNdc.copy(slot.target);
-        globeGroup.localToWorld(lblNdc).project(camera);
-        // Let go when the anchor turns away or leaves the frame (KEEP
-        // margin) — the label rides its shard out and frees the slot.
+        const visible = slot.mats[0].opacity > 0.002;
+        if (!slot.target || !visible) {
+          slot.group.visible = false;
+          return;
+        }
+        lblWorld.copy(slot.target);
+        globeGroup.localToWorld(lblWorld);
+        const anchorZ = lblWorld.z;
+        if (!chipSeat(lblWorld, view, seatOut)) {
+          // Behind the lens — let go and hide this frame.
+          slot.group.visible = false;
+          if (!slot.fading) earlyFadeLabel(slot);
+          return;
+        }
+        const { perPx } = lblA;
+        // Let go when the anchor turns away or leaves the frame (KEEP margin)
+        // — the chip rides its shard out and frees the slot.
+        const ndcX = (lblA.x / view.vw) * 2 - 1;
+        const ndcY = 1 - (lblA.y / view.vh) * 2;
+        const wPx0 = slot.textW;
+        const hPx0 = Math.max(labelStyle.line, 1);
         const gone =
-          lblNdc.z > 1 ||
-          Math.abs(lblNdc.x) > LABEL_NDC_KEEP ||
-          Math.abs(lblNdc.y) > LABEL_NDC_KEEP ||
+          Math.abs(ndcX) > LABEL_NDC_KEEP ||
+          Math.abs(ndcY) > LABEL_NDC_KEEP ||
+          // A generous margin: the chip is a rigid plane, so reaching the
+          // frustum edge CUTS it rather than fading it. Start the fade far
+          // enough out that it finishes before the edge does that.
+          !chipInFrame(view, lblChip.x, lblChip.y, wPx0 + 72, hPx0 + 40) ||
           (slot.panel && labelProminence(slot.panel) < LABEL_FRONT_EPS);
-        if (gone && !slot.fading) earlyFadeLabel(slot);
-        const ax = (lblNdc.x * 0.5 + 0.5) * w;
-        const ay = (-lblNdc.y * 0.5 + 0.5) * h;
-        // Chip sits OUTWARD from the belt center by LEADER_LEN, centered on
-        // that point; the leader connects the anchor to the nearest corner.
-        let ox = ax - dcx;
-        let oy = ay - dcy;
-        const od = Math.hypot(ox, oy) || 1;
-        ox /= od;
-        oy /= od;
-        const cx = ax + ox * LEADER_LEN - slot.w / 2;
-        const cy = ay + oy * LEADER_LEN - slot.h / 2;
-        slot.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
-        const x1 = ax < cx + slot.w / 2 ? cx : cx + slot.w;
-        const y1 = ay < cy + slot.h / 2 ? cy : cy + slot.h;
-        slot.line.setAttribute('x1', x1.toFixed(1));
-        slot.line.setAttribute('y1', y1.toFixed(1));
-        slot.line.setAttribute('x2', ax.toFixed(1));
-        slot.line.setAttribute('y2', ay.toFixed(1));
-        slot.dot.setAttribute('cx', ax.toFixed(1));
-        slot.dot.setAttribute('cy', ay.toFixed(1));
+        // Held station: a chip that has cut in STAYS until the camera leaves
+        // (Nathan, 09-10 — the drift-time yields read as flicker). The
+        // frustum may clip a chip riding out at the edge; it does not fade.
+        if (gone && !slot.fading && !heldStation()) earlyFadeLabel(slot);
+        slot.group.visible = true;
+
+        const wPx = slot.textW;
+        const hPx = Math.max(labelStyle.line, 1);
+        slot.box = { x: lblChip.x, y: lblChip.y, w: wPx, h: hPx, depth: lblA.depth };
+        /* Screen px → world AT THE LIFTED DEPTH. The chip sits ?scatter×0.16
+           in front of its shard's z (so only a shard clearly nearer covers
+           it), and it has to be unprojected at THAT depth: round 3 solved px
+           at the anchor's depth and then wrote a nearer z, which is not a
+           move along the view ray — it pushed every chip, leader and dot
+           outward from the screen centre by depth/(depth − lift), most at the
+           frame edges and in the close-ups. That was the anchor dot hanging
+           off the shard's face (Nathan, 09-10). */
+        const lift = anchorZ + labelLift();
+        const liftDepth = Math.max(lblA.depth - labelLift(), 0.05);
+        const perPxLift = (liftDepth * view.tanV * 2) / view.vh;
+        const pxToWorldX = (px) =>
+          camera.position.x + ((px - view.vw / 2) / (view.vw / 2)) * liftDepth * view.tanH;
+        const pxToWorldY = (py) =>
+          camera.position.y - ((py - view.vh / 2) / (view.vh / 2)) * liftDepth * view.tanV;
+        slot.chip.position.set(pxToWorldX(lblChip.x), pxToWorldY(lblChip.y), lift);
+        slot.chip.scale.set(wPx * perPxLift, hPx * perPxLift, 1);
+
+        /* The leader AIMS AT THE CHIP'S CENTRE (09-09 round 2, Nathan — it
+           used to grab the nearest corner, which read as pointing at the end
+           of the word rather than at the label) and STOPS at the box edge, so
+           the line never crosses the type it is naming. Since the seat is
+           radial, that edge is the middle of whichever side faces the shard. */
+        const hx = wPx / 2;
+        const hy = hPx / 2;
+        const ax = Math.abs(seatOut.ox);
+        const ay = Math.abs(seatOut.oy);
+        const t = Math.min(
+          ax > 1e-4 ? hx / ax : Infinity,
+          ay > 1e-4 ? hy / ay : Infinity
+        );
+        const edgeX = lblChip.x - seatOut.ox * t;
+        const edgeY = lblChip.y - seatOut.oy * t;
+        /* The dot and the leader's ROOT sit on the shard's own face — the
+           shard's origin IS its face centre (geometry re-baked to centerDir·R
+           at build) — nudged a hair up the view ray so they paint over the
+           face instead of z-fighting into it. A nudge along the ray moves
+           nothing on screen. The leader climbs from there to the lifted chip
+           edge; in profile it now leaves the face rather than floating
+           beside it. */
+        lblWorld.copy(slot.target); // chipSeat borrowed lblWorld for the group centre
+        globeGroup.localToWorld(lblWorld);
+        lblNormal.copy(camera.position).sub(lblWorld).normalize().multiplyScalar(LABEL_ROOT_EPS);
+        const rootX = lblWorld.x + lblNormal.x;
+        const rootY = lblWorld.y + lblNormal.y;
+        const rootZ = lblWorld.z + lblNormal.z;
+        const pos = slot.leaderGeo.attributes.position;
+        pos.setXYZ(0, rootX, rootY, rootZ);
+        pos.setXYZ(1, pxToWorldX(edgeX), pxToWorldY(edgeY), lift);
+        pos.needsUpdate = true;
+        slot.leaderGeo.computeBoundingSphere();
+
+        slot.dot.position.set(rootX, rootY, rootZ);
+        slot.dot.scale.setScalar((LABEL_DOT_PX / 2) * perPx);
       });
+
+      /* Drift occlusion. The bind test seats a chip somewhere readable, but
+         its shard keeps moving and the cloud keeps turning, so a chip can
+         still end up behind a bank of shards showing three letters. Every
+         chip is re-measured every frame against the cached circles and gives
+         up once it is mostly covered — the slot re-slots somewhere it can be
+         read. Partial cover stays: a word clipped at one end is the read that
+         pairs it with its shard, and only a word cut to a stray syllable is
+         noise. */
+      if (heldStation()) {
+        /* Persistent for the shot — with ONE exception. Two chips that have
+           drifted into a true intersection are text over text, the read the
+           layer must never produce, so the farther one leaves by the house
+           letter cut and re-seats. Mere proximity (the bind-time pad) does
+           not count here; only glyph boxes actually crossing. */
+        for (let i = 0; i < labelSlots.length; i++) {
+          const a = labelSlots[i];
+          if (!a.target || !a.box || a.fading) continue;
+          for (let j = i + 1; j < labelSlots.length; j++) {
+            const b = labelSlots[j];
+            if (!b.target || !b.box || b.fading) continue;
+            if (!boxesHit(a.box.x, a.box.y, a.box.w, a.box.h, b.box, 0)) continue;
+            cutOutLabel(a.box.depth > b.box.depth ? a : b);
+            break;
+          }
+        }
+        return;
+      }
+      buildOccluders(view, (occTick += 1));
+      for (const probe of labelSlots) {
+        if (!probe.target || !probe.box || probe.fading || probe.mats[0].opacity <= 0.3) continue;
+        if (chipCoverage(probe) > CHIP_COVER_MAX) {
+          probe.strikes = (probe.strikes || 0) + 1;
+          if (probe.strikes >= CHIP_COVER_STRIKES) earlyFadeLabel(probe, true);
+        } else {
+          probe.strikes = 0;
+        }
+      }
+
+      /* Drift collisions. The bind test keeps chips off each other at the
+         moment they latch, but both are riding shards that keep moving, so
+         two can still wander together. DEPTH arbitrates, the same rule that
+         governs everything else here: the FARTHER chip yields — it fades
+         early and re-slots somewhere clear, and the nearer one, the one the
+         viewer reads as in front, keeps its seat. Text over text is mush
+         whichever order it paints in, so one of them has to go.
+         n ≤ 8, so the pairwise sweep is free. */
+      for (let i = 0; i < labelSlots.length; i++) {
+        const a = labelSlots[i];
+        if (!a.target || !a.box || a.fading) continue;
+        for (let j = i + 1; j < labelSlots.length; j++) {
+          const b = labelSlots[j];
+          if (!b.target || !b.box || b.fading) continue;
+          if (!boxesHit(a.box.x, a.box.y, a.box.w, a.box.h, b.box)) continue;
+          earlyFadeLabel(a.box.depth > b.box.depth ? a : b, true);
+          break;
+        }
+      }
     };
 
     /* — Decoy choreography (`s` rides gsap; the tick composes it).
@@ -972,7 +1792,10 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       camera.aspect = camLag.aspect;
       camera.updateProjectionMatrix();
       if (!activeTl) {
-        camera.position.z = camLag.z;
+        // The S1 tour is the sole writer of camera.position while it runs
+        // (it composes camLag.z × its own station fraction, per frame) — a
+        // resize retargets the BASE and the tick re-derives from it.
+        if (!tourActive) camera.position.z = camLag.z;
         globeGroup.position.x = camLag.x;
         globeGroup.position.y = camLag.y;
       }
@@ -987,7 +1810,10 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       // resizes; tweening from stale shadow values would snap the camera
       // backward on the first onUpdate.
       camLag.aspect = camera.aspect;
-      camLag.z = camera.position.z;
+      // Mid-tour, camera.position is a subject-tracking solution, not the
+      // contain fit — reading it back would fold a close-up's distance into
+      // the base and walk the establishing framing in a little every resize.
+      if (!tourActive) camLag.z = camera.position.z;
       camLag.x = globeGroup.position.x;
       camLag.y = globeGroup.position.y;
       const { z, offsetX, offsetY } = framingFor(getPose(stage ?? 'stage-01'));
@@ -1042,6 +1868,266 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       }
       retargetCam();
       settleReframe();
+    };
+
+    /* — The DISCOVERY tour (09-09, reworked round 2 for INTENT). Stage-01
+       used to hold one establishing frame while the belt turned; the camera
+       travels it now.
+
+       Round 1 flew to seeded points in space, which moved well but framed
+       nothing in particular — Nathan's note: "some of the camera angles zoom
+       in, and it's not really zooming in on anything." A camera move has to
+       be about a subject. So a station is no longer a position: it is a
+       SHARD — preferring one that is currently carrying an annotation chip,
+       because that is the thing the page is asking you to read — plus the
+       SEAT it should occupy in frame and how close to stand.
+
+       That makes each leg a real tracking shot. The subject's world position
+       is read live every frame and the camera solves for the position that
+       puts it on its seat, so as the cloud turns the camera follows it
+       rather than letting it drift out of a fixed frame. A leg tweens a
+       single 0→1 blend between the PREVIOUS station's solution and the
+       NEXT's, both evaluated live, so the move tracks both subjects on the
+       way across and settles into holding the new one.
+
+       Seats are thirds, never the centre, and they are chosen to respect the
+       copy: on desktop the column owns the left, so subjects sit right of
+       centre; on a phone the copy is bottom-anchored, so they sit high. The
+       first station of every cycle is the establishing wide — you are shown
+       the whole field before being taken into it.
+
+       Ownership: while the tour runs it is the only writer of
+       camera.position; any goTo kills it and the transition tweens the
+       camera home from wherever the path left it — never a cut. The camera
+       never ROTATES, so every projection in this file (the label placement,
+       discPx, the contain fit) keeps its "looks down −Z from (x, y, z)"
+       assumption intact. — */
+    const SEATS_DESKTOP = [
+      { u: 0.34, v: 0.22 },
+      { u: 0.3, v: -0.26 },
+      { u: 0.42, v: -0.04 },
+      { u: 0.22, v: 0.3 },
+      { u: 0.38, v: 0.08 },
+    ];
+    const SEATS_MOBILE = [
+      { u: 0.24, v: 0.34 },
+      { u: -0.22, v: 0.3 },
+      { u: 0.04, v: 0.42 },
+      { u: -0.26, v: 0.2 },
+      { u: 0.26, v: 0.24 },
+    ];
+    const tourSeats = () => (IS_MOBILE ? SEATS_MOBILE : SEATS_DESKTOP);
+    const TOUR_SUBJECT_FACING = 0.75; // normal·view-axis floor for a station's subject (≈41° of square — a slow tumble over the leg cannot take it under the chip's 0.4 bind floor)
+    let tourSeatCursor = 0;
+    let tourLegCount = 0;
+    const tourFrom = { wide: true, panel: null, u: 0, v: 0, k: 1 };
+    const tourTo = { wide: true, panel: null, u: 0, v: 0, k: 1 };
+    const tourBlend = { t: 1 };
+    // The chips' clock (09-10): true while the camera holds a station, false
+    // on the road between two. releaseLabel refuses to rebind on the road.
+    let atStation = true;
+    let stationAt = 0; // performance.now() of the last arrival — the fill window
+    const STATION_FILL_MS = 1200; // late fills only this long after arrival, so the set reads as one entrance
+    /** True while the tour holds a shot: chips are persistent, no yields. */
+    const heldStation = () => tourActive && atStation;
+    const tourCamA = new THREE.Vector3();
+    const tourCamB = new THREE.Vector3();
+    const tourSubject = new THREE.Vector3();
+    /* The S1→S2 hand-off (Nathan 09-10): the connect show opens TIGHT on the
+       Thread's first bead — a station like any tour stop, solved live so the
+       yawing cloud cannot walk the bead out from under the lens — eases back
+       a little as the trace runs (?threaddrift), and only pulls fully wide
+       WITH the assembly, so the Core's arrival is the reveal. */
+    const threadSt = { panel: null, k: 1, coreZ: 1 };
+    const threadCam = { t: 0 };
+    const threadCamFrom = new THREE.Vector3();
+    let threadCamActive = false;
+    /* The connect camera: dead on the first bead (x/y), at ?threadtight × the
+       CORE's rest distance — not the tour's subject-relative dolly, because
+       the point is to sit CLOSER than where the assembly will leave the lens,
+       so the pull-back is real. Floored at the cloud's near face (a smaller
+       margin than the tour's: this lens holds still) and at half a unit in
+       front of the bead itself. */
+    const threadCamSolve = (out) => {
+      tourSubject.copy(threadSt.panel.mesh.position);
+      globeGroup.localToWorld(tourSubject);
+      const floor = TUNING.scatter * 1.15 * 1.12 + 0.25;
+      const z = Math.max(threadSt.k * threadSt.coreZ, tourSubject.z + 0.5, floor);
+      return out.set(tourSubject.x, tourSubject.y, z);
+    };
+
+    /** The shard the camera is currently framing — the label picker gives it
+     *  a chip first, so the framed subject is the one that gets named. */
+    const tourSubjectPanel = () =>
+      tourActive && !tourTo.wide && tourBlend.t > 0.5 ? tourTo.panel : null;
+
+    /* Solve the camera position that seats `st`'s subject at (u, v) in NDC,
+       `dist` in front of it. The floor keeps the lens outside the cloud's
+       near face — a subject that has rotated to the far side would otherwise
+       pull the camera in among the shards (or behind them). Framing survives
+       the clamp because the seat is solved from the RESULTING depth. */
+    const stationCam = (st, out) => {
+      const baseZ = camLag.z;
+      if (!st || st.wide || !st.panel) return out.set(0, 0, baseZ);
+      tourSubject.copy(st.panel.mesh.position);
+      globeGroup.localToWorld(tourSubject);
+      const floor = TUNING.scatter * 1.15 * 1.12 + 0.6;
+      const z = Math.max(tourSubject.z + st.k * baseZ, floor);
+      const depth = z - tourSubject.z;
+      const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2);
+      const tanH = tanV * (camera.aspect || 1);
+      return out.set(
+        tourSubject.x - st.u * depth * tanH,
+        tourSubject.y - st.v * depth * tanV,
+        z
+      );
+    };
+
+    /* Choose the next station: always a close-up. The establishing wide
+       used to return every ?tourstops-th leg as the breath between shots;
+       Nathan (09-10) cut it — the pull-back is saved for S2's assembly so
+       the Core arrives as a reveal — and its slot in the cycle is just
+       another tracked subject on the next unused seat. */
+    const nextStation = (st) => {
+      tourLegCount += 1;
+      refreshLabelMatrices();
+      /* The subject is chosen for NOVELTY (Nathan, 09-10): each stop has to
+         put NEW shards in frame, or the stops read as the same shot nudged
+         and their chips repeat. So the pool is every free, front-facing
+         shard — not just what the current frame holds — and each candidate
+         is scored by how far its station would MOVE the camera, in
+         half-frame widths at that station's depth. Anything clearing
+         ?tourshift is fair game; if nothing does, the farthest few are. */
+      const seats = tourSeats();
+      const seat = seats[tourSeatCursor % seats.length];
+      tourSeatCursor += 1;
+      const spread = Math.max(TUNING.tourReach, 0) / 0.34; // the bake IS 1×
+      const probe = {
+        wide: false,
+        panel: null,
+        u: seat.u * spread,
+        v: seat.v * spread,
+        k: TUNING.tourNear + Math.random() * Math.max(TUNING.tourFar - TUNING.tourNear, 0),
+      };
+      const tanH = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2) * (camera.aspect || 1);
+      const scored = [];
+      for (const p of panels) {
+        if (p.driftFactor <= 0.5 || p === tourTo.panel) continue;
+        // A subject has to STAY a subject: it is framed for travel + hold
+        // (~6s), so no fast spinner (the tier turns away mid-shot), and it
+        // must face the camera squarely now so a slow tumble cannot take it
+        // past the chip's front-facing floor before the hold ends.
+        if (p.drift.speedRatio > 1.2) continue;
+        if (labelProminence(p) < TOUR_SUBJECT_FACING) continue;
+        probe.panel = p;
+        stationCam(probe, tourCamB);
+        const halfW = Math.max((tourCamB.z - tourSubject.z) * tanH, 0.05);
+        const shift = Math.hypot(tourCamB.x - camera.position.x, tourCamB.y - camera.position.y) / halfW;
+        scored.push({ p, shift });
+      }
+      if (!scored.length) {
+        // Nothing squarely facing and slow this beat — rather than fall back
+        // to the wide, take any free shard: the camera keeps moving in close.
+        for (const p of panels) {
+          if (p.driftFactor <= 0.5 || p === tourTo.panel) continue;
+          probe.panel = p;
+          stationCam(probe, tourCamB);
+          const halfW = Math.max((tourCamB.z - tourSubject.z) * tanH, 0.05);
+          scored.push({ p, shift: Math.hypot(tourCamB.x - camera.position.x, tourCamB.y - camera.position.y) / halfW });
+        }
+        if (!scored.length) {
+          st.wide = true; // an empty belt (tuning edge) — nothing to frame
+          st.panel = null;
+          return st;
+        }
+      }
+      const clear = scored.filter((c) => c.shift >= Math.max(TUNING.tourShift, 0));
+      let pool = clear;
+      if (!pool.length) {
+        scored.sort((a, b) => b.shift - a.shift);
+        pool = scored.slice(0, 3);
+      }
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      st.wide = false;
+      st.panel = pick.p;
+      st.u = probe.u;
+      st.v = probe.v;
+      st.k = probe.k;
+      return st;
+    };
+
+    const stopTour = () => {
+      if (tourTl) {
+        tourTl.kill();
+        tourTl = null;
+      }
+      gsap.killTweensOf(tourBlend);
+      tourActive = false;
+      atStation = true;
+    };
+
+    const tourLeg = () => {
+      if (disposed || !tourActive) return;
+      // The station just held becomes the one we travel FROM, so the blend
+      // always crosses between two live solutions.
+      tourFrom.wide = tourTo.wide;
+      tourFrom.panel = tourTo.panel;
+      tourFrom.u = tourTo.u;
+      tourFrom.v = tourTo.v;
+      tourFrom.k = tourTo.k;
+      nextStation(tourTo);
+      tourBlend.t = 0;
+      // Leaving the shot: every chip lets go, and none rebinds on the road.
+      atStation = false;
+      clearLabels();
+      const travel = Math.max(TUNING.tourTravel, 0.1);
+      tourTl?.kill();
+      tourTl = gsap
+        .timeline({ onComplete: tourLeg })
+        // The glide, on the house Turn curve.
+        .to(tourBlend, {
+          t: 1,
+          duration: travel,
+          ease: turnEase,
+          // Arriving: the Turn curve is steep early and long in the settle,
+          // so the framing has all but landed well before the tween ends.
+          // The chips cut in on the BLEND, not the clock — as the shot
+          // lands, not after it.
+          onUpdate: () => {
+            if (atStation || tourBlend.t < 0.9) return;
+            atStation = true;
+            stationAt = performance.now();
+            if (labelsActive) fillLabels(0, 0.14);
+          },
+        })
+        // The hold — t stays at 1 while the camera keeps TRACKING the
+        // subject, which is what makes a rest read as a held shot rather
+        // than a frozen one.
+        .to(tourBlend, { t: 1, duration: Math.max(TUNING.tourHold, 0) });
+    };
+
+    const startTour = () => {
+      if (PREFERS_REDUCED_MOTION || disposed || tourActive) return;
+      if (TUNING.tour === 'off' || TUNING.tour === '0') return;
+      // Callers only reach here with the camera resting on the belt's
+      // establishing frame (an applyPose, a transition that just landed, the
+      // arrival materialize). camLag may be carrying another stage's framing
+      // if a resize landed there — the tour's base is the belt's contain fit,
+      // so restate it.
+      camLag.z = framingFor(getPose('stage-01')).z;
+      tourActive = true;
+      tourLegCount = 0;
+      tourTo.wide = true;
+      tourTo.panel = null;
+      tourBlend.t = 1;
+      // The wide is a station too: hold it (the arrival's chips get their
+      // beat) before the first leg pushes in.
+      atStation = true;
+      stationAt = performance.now();
+      tourTl?.kill();
+      tourTl = gsap
+        .timeline({ onComplete: tourLeg })
+        .to(tourBlend, { t: 1, duration: Math.max(TUNING.tourHold, 0) });
     };
 
     const stopLoops = () => {
@@ -1207,8 +2293,12 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
 
     /* — Instant pose application (arrival sync + every RM boundary) — */
     const applyPose = (pose) => {
+      stopTour(); // an instant pose owns the camera outright
       const { z, offsetX, offsetY } = framingFor(pose);
-      camera.position.z = z;
+      // x/y as well as z: the S1 tour trucks the camera off-axis, and an
+      // instant pose must land on the establishing frame, not on wherever
+      // the path happened to be.
+      camera.position.set(0, 0, z);
       globeGroup.position.x = offsetX;
       globeGroup.position.y = offsetY;
       const belt = pose.form === 'belt';
@@ -1248,6 +2338,8 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       decoyMesh.visible = Boolean(pose.decoys) && !(belt && beltHidden);
       composeDecoys();
       bgInstant(pose.bg);
+      gsap.killTweensOf(fogState);
+      fogState.amount = poseFog(pose);
       beltDrifting = belt && !PREFERS_REDUCED_MOTION;
     };
 
@@ -1290,7 +2382,29 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       // fall out of frame) so the cull itself reads as the refinement,
       // leaving the 84 keepers for the string to claim.
       const HEAD = 0.55;
-      tl.to(camera.position, { z: camera.position.z * 0.82, duration: 0.75 }, 0);
+      // From wherever the tour left the lens, glide to a TIGHT station on the
+      // first bead (?threadtight, the tour's dolly units) — one gesture, never
+      // a cut — then creep back toward the wide across the trace
+      // (?threaddrift of the way). The tick solves the station live while
+      // threadCamActive; the assembly below takes the camera over at at0.
+      const tight = THREE.MathUtils.clamp(TUNING.threadTight, 0.05, 1);
+      const drift = THREE.MathUtils.clamp(TUNING.threadDrift, 0, 1);
+      threadSt.panel = threadChain[0] ?? null;
+      threadSt.k = tight;
+      threadSt.coreZ = framingFor(pose).z;
+      threadCam.t = 0;
+      threadCamFrom.copy(camera.position);
+      threadCamActive = Boolean(threadSt.panel);
+      tl.to(threadCam, { t: 1, duration: 0.75 }, 0);
+      // The haze belongs to the gathering: it burns off across the connect and
+      // assembly, so the Core arrives with no atmosphere at all (Nathan:
+      // "fade to no atmospheric effect on the second slide").
+      gsap.killTweensOf(fogState);
+      tl.to(
+        fogState,
+        { amount: 0, duration: Math.max(TUNING.assembleSeconds, 0.3), ease: 'power2.inOut' },
+        0.2
+      );
       decoysOut(tl, 0.15, 3.4, true);
 
       // Connect: hop-by-hop trim-path draw; each strike stamps the
@@ -1313,6 +2427,11 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       });
 
       const connectEnd = HEAD + threadChain.length * hopSeconds;
+      tl.to(
+        threadSt,
+        { k: tight + (1 - tight) * drift, duration: Math.max(connectEnd - HEAD, 0.1), ease: 'sine.inOut' },
+        HEAD
+      );
       tl.call(() => fireCaption('dots_connected'), null, connectEnd);
 
       // Assemble: the pull. Chained Fragments seat in HOP ORDER across
@@ -1359,9 +2478,14 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       // closing shell and the surfacing inner sphere OCCLUDE it away, the
       // beads swallowing their own string.
 
-      // The Core holds large — dropping low on phones (?dropy).
+      // The Core holds large — dropping low on phones (?dropy). The pull
+      // back to the wide rides the assembly itself: the live thread station
+      // hands the camera over a hair before the tween records its start.
       const { z, offsetX, offsetY } = framingFor(pose);
-      tl.to(camera.position, { z, duration: assembleSeconds }, at0);
+      tl.call(() => {
+        threadCamActive = false;
+      }, null, Math.max(at0 - 0.01, 0));
+      tl.to(camera.position, { x: 0, y: 0, z, duration: assembleSeconds }, at0);
       tl.to(globeGroup.position, { x: offsetX, y: offsetY, duration: assembleSeconds }, at0);
 
       tl.call(() => {
@@ -1389,13 +2513,17 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         onComplete: () => {
           activeTl = null;
           if (pose.loops) startLoops();
-          if (pose.form === 'belt') beltDrifting = !PREFERS_REDUCED_MOTION;
+          if (pose.form === 'belt') {
+            beltDrifting = !PREFERS_REDUCED_MOTION;
+            startTour(); // back on the belt — the camera resumes its walk
+          }
           if (pose.decoys) startLabels(0.15);
         },
       });
 
       // A running Thread show never survives an interrupt — fade it fast.
       if (threadActive) {
+        threadCamActive = false; // this timeline owns camera.position from 0
         tl.to(threadDraw, { alpha: 0, duration: 0.25, ease: 'power2.in' }, 0);
         tl.call(clearThread, null, 0.26);
       }
@@ -1403,8 +2531,19 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       const { z, offsetX, offsetY } = framingFor(pose);
       const isLightUp = to === 'stage-03' && !reversing && !compressed;
       const frameDur = (isLightUp ? TUNING.zoomOutSeconds : TUNING.stageSeconds) * durMult;
-      tl.to(camera.position, { z, duration: frameDur }, 0);
+      // x/y ride the same window: a transition that interrupts the S1 tour
+      // (or reverses back onto the belt) must land on the establishing frame,
+      // which is also where startTour picks the path back up.
+      tl.to(camera.position, { x: 0, y: 0, z, duration: frameDur }, 0);
       tl.to(globeGroup.position, { x: offsetX, y: offsetY, duration: frameDur }, 0);
+
+      // Atmospheric depth follows the FORM: full on the gathering belt, gone
+      // the moment the Fragments are one body.
+      const fogTarget = poseFog(pose);
+      if (Math.abs(fogState.amount - fogTarget) > 1e-4) {
+        gsap.killTweensOf(fogState);
+        tl.to(fogState, { amount: fogTarget, duration: frameDur, ease: 'power2.inOut' }, 0);
+      }
 
       // S5 axis lean rides the same window (house curve — "the same
       // synced animation curve"); eases back to upright on the way out.
@@ -1562,6 +2701,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       // layer too; RM never runs it (startLabels self-gates).
       stopLabels();
       if (getPose(next).decoys && !beltHidden) startLabels(0.3);
+      if (getPose(next).form === 'belt' && !beltHidden) startTour();
       updateThread();
       renderFrame();
     };
@@ -1592,6 +2732,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       }
       const interrupted = Boolean(activeTl);
       if (activeTl) activeTl.kill();
+      stopTour(); // the transition owns the camera from here
       gsap.killTweensOf(camLag); // the transition owns the camera now — drop any resize-lag chase
       stopLoops();
       activeTl = buildTransition(stage ?? 'stage-01', next, interrupted);
@@ -1635,6 +2776,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         });
       }
       startLabels(0.7);
+      startTour();
     };
 
     /* — Live tuning (the ?debug panel): re-seed the belt (the drift tick
@@ -1649,6 +2791,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         p.mesh.material.uniforms.uStrokeWidthPx.value = TUNING.strokePx;
       });
       threadMaterial.linewidth = TUNING.strokePx; // the string shares the ink width
+      if (labelSlots.length) restyleLabels(); // ?labelsize
       const pose = getPose(stage ?? 'stage-01');
       if (!activeTl) {
         const { z, offsetX, offsetY } = framingFor(pose);
@@ -1670,6 +2813,17 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         }
       }
       if (loopTl) startLoops(); // rebuild on the new bpm/pattern/envelope grid
+      // ?fog / ?fogspan are instant (the uniforms are stamped every render);
+      // only the STRENGTH needs restating, and never over a running fade.
+      if (!activeTl) fogState.amount = poseFog(pose);
+      // ?tourreach / ?tournear / ?tourfar / the leg timings rebuild the path
+      // in place (the walk restarts from the wide).
+      if (tourActive) {
+        stopTour();
+        startTour();
+      } else if (!activeTl && pose.form === 'belt' && !beltHidden) {
+        startTour(); // ?tour flipped back on from the panel
+      }
       if (PREFERS_REDUCED_MOTION) {
         applyPose(pose);
         updateThread();
@@ -1694,12 +2848,38 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       if (prev !== current) goTo(current);
     };
 
+    /* — Pointer drag + flick (09-09, Nathan: the home globe's interaction
+       choreography, carried onto /process). The SAME engine the hero globe
+       and the footer logo ticker ride (src/lib/dragMomentum.js): deltas pass
+       through 1:1 while the pointer is down, release flicks on the EMA
+       velocity, and the spin settles back to the ambient drift over 0.35s —
+       the field never stops dead. The ±40° pitch clamp is the home globe's,
+       so a drag can never strand the belt edge-on.
+
+       TOUCH stands down (the engine's `touch: false`): this page's swipe
+       quantizer walks the sections with a finger, and a globe that ate the
+       pan would trap the reader mid-walk. Mouse and pen drag; a finger
+       pages. The canvas only RECEIVES pointers where the copy column isn't
+       (process.css hands the layer its pointer-events back) — so the gesture
+       lives in the open field beside the words, which is where the shards
+       are. — */
+    const drag = PREFERS_REDUCED_MOTION
+      ? null
+      : new DragMomentum(container, {
+          ambient: { x: AUTO_ROTATE_SPEED, y: 0 },
+          sensitivity: DRAG_SENSITIVITY,
+          maxSpeed: MAX_FLICK_SPEED,
+          reducedMotion: PREFERS_REDUCED_MOTION,
+          touch: false,
+        });
+
     /* — Render loop: shared gsap.ticker, local FPS gate (never
-       gsap.ticker.fps — shared with SiteShell + Lenis). Belt drift and
-       Thread reprojection ride the same tick. Reduced motion never runs
-       the ticker: single frames only. — */
+       gsap.ticker.fps — shared with SiteShell + Lenis). Belt drift, the
+       camera tour and Thread reprojection ride the same tick. Reduced
+       motion never runs the ticker: single frames only. — */
     let yaw = 0;
-    const pitch = THREE.MathUtils.degToRad(INITIAL_PITCH_DEG);
+    let pitch = THREE.MathUtils.degToRad(INITIAL_PITCH_DEG);
+    const pitchLimit = THREE.MathUtils.degToRad(PITCH_LIMIT_DEG);
     let accumulated = 0;
     let sceneTime = 0;
     let statFrames = 0;
@@ -1711,8 +2891,25 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       accumulated = 0;
       sceneTime += step;
       statFrames += 1;
-      yaw += AUTO_ROTATE_SPEED * step;
+      // Ambient drift and the drag are one channel — the engine returns the
+      // ambient when no pointer is down, so this is the same rotation the
+      // scene always had until someone grabs it.
+      const { dx, dy } = drag ? drag.update(step) : { dx: AUTO_ROTATE_SPEED * step, dy: 0 };
+      yaw += dx;
+      pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch + dy));
       globeGroup.rotation.set(pitch, yaw, tiltState.z);
+      if (tourActive) {
+        // Both stations solved LIVE from their subjects' current positions,
+        // then blended: the move tracks both while it crosses, and the hold
+        // keeps tracking the one it landed on.
+        stationCam(tourFrom, tourCamA);
+        stationCam(tourTo, tourCamB);
+        camera.position.lerpVectors(tourCamA, tourCamB, tourBlend.t);
+      } else if (threadCamActive) {
+        // S1→S2 connect: tracking the Thread's first bead, tight.
+        threadCamSolve(tourCamB);
+        camera.position.lerpVectors(threadCamFrom, tourCamB, threadCam.t);
+      }
       if (beltDrifting) {
         // Suspended point cloud (v2 deck): slow LINEAR self-rotation at
         // per-shard varied speeds; positions rest — the whole-cloud
@@ -1746,6 +2943,7 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
         tickerActive = false;
       }
       if (loopTl) loopTl.paused(!shouldRun);
+      if (tourTl) tourTl.paused(!shouldRun);
     };
     const intersectionObserver = new IntersectionObserver(
       ([entry]) => {
@@ -1773,7 +2971,41 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       const fps = Math.round((statFrames / Math.max(now - statStamp, 1)) * 1000);
       statFrames = 0;
       statStamp = now;
-      return { fps, calls: renderer.info.render.calls, stage };
+      /* Discovery-slide readouts for the bench: how many chips are actually
+         live (a starved layer is the failure the bind rules can cause), and
+         where the tour's subject sits in NDC — the proof that a station
+         frames a labelled shard on its seat rather than empty field. */
+      const chips = labelSlots
+        .filter((s) => s.target && s.box && !s.fading && s.mats[0].opacity > 0.3)
+        .map((s) => ({
+          term: s.term,
+          // which shard (panel index) or decoy ('d' + index) the chip names —
+          // the probe checks a target never changes its word
+          id: s.panel ? panels.indexOf(s.panel) : `d${decoys.findIndex((d) => d.pos === s.target)}`,
+          x: Math.round(s.box.x), y: Math.round(s.box.y), w: Math.round(s.box.w),
+        }));
+      let subject = null;
+      const st = tourActive && !tourTo.wide && tourTo.panel ? tourTo : null;
+      if (st) {
+        tourSubject.copy(st.panel.mesh.position);
+        globeGroup.localToWorld(tourSubject);
+        const view = labelView();
+        const px = toPx(tourSubject, view, { x: 0, y: 0, depth: 0, perPx: 0 });
+        if (px) {
+          subject = {
+            u: +(((px.x / view.vw) * 2 - 1).toFixed(2)),
+            v: +((1 - (px.y / view.vh) * 2).toFixed(2)),
+            seatU: +st.u.toFixed(2),
+            seatV: +st.v.toFixed(2),
+            blend: +tourBlend.t.toFixed(2),
+            labelled: labelSlots.some((s) => s.panel === st.panel && s.target),
+          };
+        }
+      }
+      // Slot states for the probe: b bound · f fading · d waiting on a delayedCall · - idle
+      const slots = labelSlots.map((s) => (s.target ? (s.fading ? 'f' : 'b') : s.dc ? 'd' : '-')).join('');
+      const cam = [camera.position.x, camera.position.y, camera.position.z].map((v) => +v.toFixed(3));
+      return { fps, calls: renderer.info.render.calls, stage, chips, slots, atStation, cam, tour: subject ?? (tourActive ? 'wide' : 'off') };
     };
 
     apiRef.current = {
@@ -1798,6 +3030,9 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       if (tickerActive) gsap.ticker.remove(tick);
       if (activeTl) activeTl.kill();
       stopLoops();
+      stopTour();
+      gsap.killTweensOf(fogState);
+      drag?.dispose();
       if (blueEl) gsap.killTweensOf(blueEl);
       if (gradientEl) gsap.killTweensOf(gradientEl);
       panels.forEach((panel) => {
@@ -1811,12 +3046,16 @@ export default function useProcessScene(containerRef, captionRef, chromeRefs) {
       stopLabels();
       labelSlots.forEach((slot) => {
         slot.tl?.kill();
+        slot.cut?.kill();
         slot.dc?.kill();
-        gsap.killTweensOf([slot.el, slot.g]);
-        slot.el.remove();
-        slot.g.remove();
+        gsap.killTweensOf(slot.mats);
+        slot.mats.forEach((m) => m.dispose());
+        slot.leaderGeo.dispose();
+        slot.texture.dispose();
+        slot.group.removeFromParent();
       });
-      labelsSvg?.remove();
+      labelPlaneGeo.dispose();
+      labelDotGeo.dispose();
       decoys.forEach((d) => gsap.killTweensOf(d));
       decoyGeometry.dispose();
       decoyMaterial.dispose();

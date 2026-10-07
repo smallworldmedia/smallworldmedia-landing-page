@@ -28,11 +28,13 @@ const SLIDERS = [
   { key: 'zoomOutSeconds', param: 'zoomout', min: 0.3, max: 2.5, step: 0.05 },
   { key: 'threadHops', param: 'threadhops', min: 3, max: 84, step: 1 },
   { key: 'threadHopSeconds', param: 'threadms', min: 0.05, max: 2, step: 0.05, ms: true },
+  { key: 'threadTight', param: 'threadtight', min: 0.3, max: 1, step: 0.01 },
+  { key: 'threadDrift', param: 'threaddrift', min: 0, max: 1, step: 0.05 },
   { key: 'assembleSeconds', param: 'assemble', min: 0.5, max: 5, step: 0.1 },
   { key: 'emanateScale', param: 'emanate', min: 1, max: 2.2, step: 0.05 },
   { key: 'bpm', param: 'bpm', min: 60, max: 180, step: 1 },
   { key: 'pulseMin', param: 'pulsemin', min: 0, max: 1, step: 0.01 },
-  { key: 'holdBeats', param: 'hold', min: 0, max: 2, step: 0.05 },
+  { key: 'holdBeats', param: 'hold', min: 0, max: 4, step: 0.05 },
   { key: 'decayBeats', param: 'decay', min: 0.1, max: 4, step: 0.05 },
   { key: 's5Zoom', param: 's5zoom', min: 1, max: 1.3, step: 0.01 },
   { key: 's5TiltDeg', param: 's5tilt', min: 0, max: 60, step: 1 },
@@ -40,6 +42,26 @@ const SLIDERS = [
   { key: 'mobileDrop', param: 'dropy', min: 0, max: 0.5, step: 0.02 },
   { key: 'swipePx', param: 'swipepx', min: 150, max: 1200, step: 25 },
   { key: 'swipeSeconds', param: 'swipems', min: 0.4, max: 2.5, step: 0.05, ms: true },
+  /* — DISCOVERY round (09-09). ?fog / ?fogspan / the spin tiers / the tour
+     geometry / ?labelsize apply live (the tour restarts from the wide);
+     ?labels needs a reload — the chip slots are built at mount, the
+     HeroLabels convention. — */
+  { key: 'fog', param: 'fog', min: 0, max: 1, step: 0.02 },
+  { key: 'fogSpan', param: 'fogspan', min: 0.3, max: 3, step: 0.05 },
+  { key: 'tourTravel', param: 'tourtravel', min: 0.5, max: 8, step: 0.1 },
+  { key: 'tourHold', param: 'tourhold', min: 0, max: 8, step: 0.1 },
+  { key: 'tourNear', param: 'tournear', min: 0.2, max: 1, step: 0.02 },
+  { key: 'tourFar', param: 'tourfar', min: 0.2, max: 1, step: 0.02 },
+  { key: 'tourShift', param: 'tourshift', min: 0, max: 3, step: 0.1 },
+  { key: 'tourReach', param: 'tourreach', min: 0, max: 1.4, step: 0.02 },
+  { key: 'spinFast', param: 'spinfast', min: 1, max: 12, step: 0.2 },
+  { key: 'spinFastFrac', param: 'spinfastfrac', min: 0, max: 1, step: 0.05 },
+  { key: 'labelCharMs', param: 'labelchar', min: 4, max: 120, step: 2 },
+  { key: 'labelHold', param: 'labelhold', min: 0.4, max: 8, step: 0.1 },
+  { key: 'labelPulse', param: 'labelpulse', min: 0, max: 1, step: 0.02 },
+  { key: 'labelLead', param: 'labellead', min: 12, max: 200, step: 2 },
+  { key: 'labelCount', param: 'labels', min: 1, max: 16, step: 1 },
+  { key: 'labelSize', param: 'labelsize', min: 0, max: 32, step: 0.5 },
 ];
 
 const VARIANTS = ['rows', 'poles', 'sweep'];
@@ -49,6 +71,7 @@ const SELECTS = [
   { key: 'pattern', param: 'pattern', options: RHYTHM_PATTERNS },
   { key: 'decayCurve', param: 'decaycurve', options: ['expo', 'linear'] },
   { key: 'swipe', param: 'swipe', options: ['on', 'off'] },
+  { key: 'tour', param: 'tour', options: ['on', 'off'] },
 ];
 
 const knobLabel = (def) => `?${def.param}`;
@@ -79,7 +102,11 @@ export default function ProcessDebugPanel({ sceneRef }) {
   );
 
   useEffect(() => {
-    const id = setInterval(() => setStats(sceneRef.current.getStats()), 500);
+    const id = setInterval(() => {
+      const next = sceneRef.current.getStats();
+      window.__swmProcessStats = next; // headless probe readout (scripts/process-probe.mjs)
+      setStats(next);
+    }, 500);
     return () => clearInterval(id);
   }, [sceneRef]);
 
@@ -110,7 +137,11 @@ export default function ProcessDebugPanel({ sceneRef }) {
     <aside className="process-debug">
       <div className="process-debug__head">
         <p className="process-debug__stats">
-          {`fps ${stats.fps} · draws ${stats.calls} · ${stats.stage ?? '∅'}`}
+          {`fps ${stats.fps} · draws ${stats.calls} · ${stats.stage ?? '∅'} · chips ${stats.chips?.length ?? 0}${
+            stats.tour && typeof stats.tour === 'object'
+              ? ` · subject ${stats.tour.u},${stats.tour.v} → seat ${stats.tour.seatU},${stats.tour.seatV}${stats.tour.labelled ? ' ✓' : ''}`
+              : stats.tour ? ` · tour ${stats.tour}` : ''
+          }`}
         </p>
         <button
           type="button"

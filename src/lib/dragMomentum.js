@@ -45,6 +45,11 @@ export default class DragMomentum {
    * @param {number}  o.maxSpeed     per-axis release cap (units/s)
    * @param {boolean} o.reducedMotion
    * @param {boolean} o.cursor       manage grab/grabbing (default true)
+   * @param {boolean} o.touch        accept TOUCH pointers (default true).
+   *        Pass false where a page-level touch gesture already owns the
+   *        screen — /process, where the swipe quantizer walks the sections
+   *        and a finger on the field must page, not spin. Mouse and pen
+   *        still drag there; nothing changes for the hosts that omit it.
    */
   constructor(el, o = {}) {
     this.el = el;
@@ -52,6 +57,7 @@ export default class DragMomentum {
     this.max = o.maxSpeed ?? DRAG_CHOREO.maxSpeed;
     this.rm = !!o.reducedMotion;
     this.cursor = o.cursor ?? true;
+    this.touch = o.touch ?? true;
     this.ambient = { x: o.ambient?.x ?? 0, y: o.ambient?.y ?? 0 };
     this.dragging = false;
     this.vel = { x: this.ambient.x, y: this.ambient.y };
@@ -90,6 +96,7 @@ export default class DragMomentum {
 
   onDown(e) {
     if (e.button !== 0) return; // right/middle click — the context menu eats the up
+    if (!this.touch && e.pointerType === 'touch') return; // a page gesture owns the finger
     this.el.setPointerCapture(e.pointerId);
     gsap.killTweensOf(this.vel);
     this.dragging = true;

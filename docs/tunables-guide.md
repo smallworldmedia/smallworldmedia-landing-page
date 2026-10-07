@@ -491,6 +491,33 @@ Readers: `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx
 
 ## `/process`
 
+**09-09 additions (the DISCOVERY round).** Stage-01 is no longer a still
+life: a camera **tour** (`?tour` `?tourtravel` `?tourhold`
+`?tournear` `?tourfar` `?tourshift` `?tourreach`) glides between tracked close-ups (the
+establishing wide is seen once, on arrival — 09-10, Nathan: the pull-back is saved for S2's
+assembly, and `?threadtight` / `?threaddrift` shape that hand-off). A station is a SHARD, not a point — preferring one that is
+currently carrying a chip — seated on a compositional third (right of centre
+on desktop, high on a phone, so the copy keeps its side) and followed live as
+the cloud turns. An
+**atmospheric-depth haze** (`?fog` `?fogspan`) pulls each shard's fill *and*
+black stroke toward the field colour by view depth (a colour mix — the
+panels stay fully opaque, never transparent; it burns off as the Fragments
+assemble, so there is no haze from stage-02 on), shards tumble on seeded
+axes at two rate tiers (`?spinfast` `?spinfastfrac`), and the annotation
+chips (`?labels` `?labelchar` `?labelhold` `?labellead` `?labelpulse`) wear the body face
+and land on the house **random-letter entrance** (`src/lib/charCut.js`)
+instead of the scramble. Those chips live **inside the WebGL scene** since
+round 2 — canvas-textured planes at their panel's own z, so they layer
+against each other by depth and shards in front of them cover them (the
+Thread's B3 move, applied to type); their leader aims at the chip's centre
+and stops at its edge. `.process-label` in `process.css` still owns the
+typography: a hidden probe hands the canvas its face, size, tracking and
+colour. The field and the globe-O both take the home globe's drag + flick
+(`src/lib/dragMomentum.js`) — **mouse and pen only**, since the swipe
+quantizer owns touch here. Chrome removals the same round: the `/ chip_name`
+tail after `PHASE_0#`, and the persistent bottom-right tagline. The
+`[previous]`/`[next]` steppers moved onto the `/work` seat (centred).
+
 **09-08 additions.** `?scrim` (presence gate, `ProcessPage.jsx`) turns the ≤768 copy scrim back ON — it is OFF by default since 09-08 and now spans the full viewport width (a `.process-section::before` bleed). The last slide bakes in the footer + logo ticker (the driver's final rest = document end; `SiteFooter travelK={1}`), and phone cards anchor to the viewport bottom (`--ps-mobile-bottom`). Keyword highlights: `[[word]]` in `processContent.js` blurbs (and the Sanity `description`) — `src/lib/keywords.jsx`.
 
 Reader: `src/components/process/processConfig.js` (`num()` / `str()`, module-load). Two tiers. **Module consts** (reload-only, not on the panel, not in `copy_url`): `?ospin` `?ostroke` `?opad` `?camlag` `?debug`. **`TUNING`** (live via the `?debug` panel's `applyTuning()`: framing/drift/glow/stroke instant, durations/orders/hops/rhythm on the next transition). `ms` knobs travel as ms in the URL and store as seconds. Bake: `processConfig.js:48-77 TUNING_DEFAULTS` unless noted.
@@ -507,6 +534,8 @@ Reader: `src/components/process/processConfig.js` (`num()` / `str()`, module-loa
 | `?drift` | suspended-cloud self-rotation rate | `0.09` | slider 0–0.8 / 0.005 | `.drift` |
 | `?threadhops` | fragments the Thread chains | `84` (every bead) | slider 3–84 / 1 | `.threadHops` |
 | `?threadms` | Thread draw per hop | `100` ms | slider 0.05–2 s / 0.05 | `.threadHopSeconds` |
+| `?threadtight` | S1→S2: the camera opens **dead on the Thread's first bead** (x/y solved live, so the yawing cloud cannot walk it out of frame) at this fraction of the **Core's rest distance** — closer than where the assembly leaves the lens, so the pull-back is real; floored at the cloud's near face (`?scatter` × 1.29 + 0.25), which at the bake sits just under 0.85 | `0.85` | slider 0.3–1 / 0.01 | `.threadTight` |
+| `?threaddrift` | S1→S2: how far back toward the wide the camera eases **during** the trace (0 = holds tight until the assembly; 1 = fully wide before it); the rest of the pull-back rides the assembly itself, x/y centring with it | `0.2` | slider 0–1 / 0.05 | `.threadDrift` |
 | `?assemble` | assembly scatter → home | `2.5` s | slider 0.5–5 / 0.1 | `.assembleSeconds` |
 | `?zoomout` | S2→S3 dolly-back | `0.6` s | slider 0.3–2.5 / 0.05 | `.zoomOutSeconds` |
 | `?emanate` | S4 per-panel scale target | `1.7` | slider 1–2.2 / 0.05 | `.emanateScale` |
@@ -518,8 +547,8 @@ Reader: `src/components/process/processConfig.js` (`num()` / `str()`, module-loa
 | `?s45fill` | S4/S5 build-out fill (outgrows the frame) | `1.1` | slider 0.5–1.3 / 0.01 | `.s45Fill` |
 | `?idlepower` | belt idle brightness | `0.54` | slider 0–1 / 0.02 | `.idlePower` |
 | `?pulsemin` | S5 falloff floor (0 = full black) | `0.06` | slider 0–1 / 0.01 | `.pulseMin` |
-| `?hold` | S5 beats held ON blue before falloff (capped at 45% of the cycle) | `0.1` beats | slider 0–2 / 0.05 | `.holdBeats` |
-| `?decay` | S5 beats of falloff to the floor | `2` beats | slider 0.1–4 / 0.05 | `.decayBeats` |
+| `?hold` | S5 beats held ON blue before falloff (capped at 45% of the cycle) — also the S1 label pulse's hold (`?labelpulse`), uncapped there | `2` beats (09-10, Nathan; was 0.1) | slider 0–4 / 0.05 | `.holdBeats` |
+| `?decay` | S5 beats of falloff to the floor — also the S1 label pulse's recover | `3` beats (09-10, Nathan; was 2) | slider 0.1–4 / 0.05 | `.decayBeats` |
 | `?pattern` | S5 sequencing (`cycle` rotates the rest one per pass) | `cycle` | `cycle` \| `rows` \| `equator` \| `ripple` \| `checker` \| `random` | `.pattern` |
 | `?decaycurve` | S5 falloff ease | `expo` | `expo` \| `linear` (anything ≠ linear = expo) | `.decayCurve` |
 | `?s5zoom` | S5 push-in over S4 framing | `1.06` | slider 1–1.3 / 0.01 | `.s5Zoom` |
@@ -530,6 +559,23 @@ Reader: `src/components/process/processConfig.js` (`num()` / `str()`, module-loa
 | `?swipe` | one-section-per-swipe quantizer; flipping off live restarts Lenis | `on` | `on` \| `off` (code also treats `0` as off) | `.swipe` |
 | `?swipepx` | wheel/touch px (touch ×2) to commit a section swipe; `?scroll` is the legacy alias, lower precedence | `500` px | slider 150–1200 / 25 | `motion.js:75 SCROLL_TRIGGER_PROCESS_PX` |
 | `?swipems` | committed section glide length (house Turn curve) | `800` ms | slider 0.4–2.5 s / 0.05 | `.swipeSeconds` (mirrors `motion.js GLIDE_MS` 800: two literals to keep in sync) |
+| `?fog` | S1 atmospheric depth: how far the furthest shard's fill **and** stroke are pulled toward the field colour (never opacity) | `0.56` | slider 0–1 / 0.02 | `.fog` |
+| `?fogspan` | depth to full haze **behind** the belt's establishing distance, × `?scatter` (the window opens a quarter of this in front, so the near field stays crisp); anchored in world depth, so pushing the camera toward a far shard clears it | `0.7` | slider 0.3–3 / 0.05 | `.fogSpan` |
+| `?tour` | the S1 camera tour (`off` = the static establishing frame, pre-09-09) | `on` | `on` \| `off` (code also treats `0` as off) | `.tour` |
+| `?tourtravel` | glide per station, on the house Turn curve | `3.4` s | slider 0.5–8 / 0.1 | `.tourTravel` |
+| `?tourhold` | rest at each station (the chip's reading beat) | `2.6` s | slider 0–8 / 0.1 | `.tourHold` |
+| `?tournear` | closest station's distance **from its subject**, as a fraction of the establishing frame; a floor keeps the lens outside the cloud's near face | `0.42` | slider 0.2–1 / 0.02 | `.tourNear` |
+| `?tourfar` | farthest subject distance, same units (stations land between near and far) | `0.66` | slider 0.2–1 / 0.02 | `.tourFar` |
+| `?tourshift` | how far a station must **move the camera** from the last one, in multiples of the new station's half-frame width (1 = the frame slides by half its width, so most of what is in view is new); if no candidate clears it the picker takes the farthest few | `1` | slider 0–3 / 0.1 | `.tourShift` |
+| `?tourreach` | how far off-centre a station **seats its subject**, as a multiplier on the baked compositional thirds (1× = the bake; 0 centres every shot) | `0.34` (= 1×) | slider 0–1.4 / 0.02 | `.tourReach` |
+| `?spinfast` | fast rotation tier's multiplier over the base `?drift` rate | `4.4` | slider 1–12 / 0.2 | `.spinFast` |
+| `?spinfastfrac` | fraction of shards seeded onto that fast tier (0 = one uniform rate) | `0.3` | slider 0–1 / 0.05 | `.spinFastFrac` |
+| `?labels` | annotation chips alive at once (**≤768px takes at most 3**, with a 0.6× leader — a 200px term is half a 390px viewport) — **reload only** (slots are built at mount, the HeroLabels convention); the panel slider still writes `copy_url` | `4` (09-10, Nathan: capped; was 8) | slider 1–16 / 1 | `.labelCount` |
+| `?labelsize` | chip type size in px; `0` = the `.process-label` token (`--text-mono`); line height and tracking scale with it; live — bound chips repaint | `0` | slider 0–32 / 0.5 | `.labelSize` |
+| `?labelchar` | ms between letter cuts in a chip's random-letter entrance (`charCut.js`) | `22` ms | slider 4–120 / 2 | `.labelCharMs` |
+| `?labelhold` | seconds a chip holds at full strength once its letters have landed — **only when the tour is off**; with the tour running, chips cut in as the camera arrives at a station and fade only when it leaves | `3.2` s | slider 0.4–8 / 0.1 | `.labelHold` |
+| `?labelpulse` | how **dark** a labelled shard's fill pulses, as a fraction of the belt's resting `?idlepower` (1 = no pulse) — the house S5 envelope (`?bpm` `?hold` `?decay`) inverted: snap down, hold, expo recover, for as long as the chip names it | `0.6` | slider 0–1 / 0.02 | `.labelPulse` |
+| `?labellead` | screen px between a chip and the shard it names (the leader's length) | `136` px | slider 12–200 / 2 | `.labelLead` |
 
 Page keyboard (always on, not just with `?debug`): ArrowDown / PageDown / Space next, ArrowUp / PageUp / Shift+Space previous, Home / End glide to top / last rest. The quantizer ignores wheel/touch inside `.process-debug`. RM: no quantizer, no Lenis, stills at boundaries.
 

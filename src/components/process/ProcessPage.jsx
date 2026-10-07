@@ -119,9 +119,10 @@ export default function ProcessPage({ globeAssets }) {
             className="process-section process-stage"
             data-stage={stage.id}
           >
+            {/* 09-09 (Nathan): the chip is the PHASE token alone — the
+                "/ chip_name" tail is gone. */}
             <p className="process-stage__chip">
               <span className="process-stage__token">{stage.token}</span>
-              <span className="process-stage__chipline">{`/ ${stage.chip}`}</span>
             </p>
             <h2 className="process-stage__headline">{stage.headline}</h2>
             <p className="process-stage__blurb">{renderKeywords(stage.blurb)}</p>
@@ -162,12 +163,11 @@ export default function ProcessPage({ globeAssets }) {
         </section>
       </div>
 
-      {/* Fixed walkthrough chrome: [previous] top-left below the nav,
-          [next] bottom-left, status meter bottom-center, tagline
-          bottom-right (Nathan's Notion deck, confirmed 2026-07-16) */}
+      {/* Fixed walkthrough chrome. 09-09 (Nathan): the steppers take the
+          /work seat — CENTERED, [previous] below the nav, [next] above the
+          status meter — and the persistent bottom-right tagline is retired. */}
       <ProcessStepCtas />
       <DetailProgressBar measure="document" broadcast sectionSelector=".process-section" />
-      <p className="process-tagline">{HERO.tagline}</p>
 
       {DEBUG && DebugPanel && <DebugPanel sceneRef={sceneRef} />}
 

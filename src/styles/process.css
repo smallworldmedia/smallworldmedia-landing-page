@@ -81,7 +81,13 @@ body.route-process .site-nav {
 
 /* Fixed full-viewport scene layer behind the copy (spec §1). The scene
    composes the globe right-of-center via group offset — the copy column
-   and the globe share the frame rather than splitting it. */
+   and the globe share the frame rather than splitting it.
+
+   09-09: this layer is the DRAG SURFACE for the field (the home globe's
+   engine, useProcessScene). It only ever sees a pointer where the copy
+   column has handed one through — see the pointer-events pair below — so
+   the gesture lives in the open frame beside the words, which is exactly
+   where the Fragments are. */
 .process-page__canvas {
   position: fixed;
   inset: 0;
@@ -101,55 +107,40 @@ body.route-process .site-nav {
    no DOM layer. It draws ink-black, the Fragment stroke's color on the
    blue field, and only ever shows there.) */
 
-/* --- S1 blob-tracking labels (B4): mono chips latched to drifting
-   shards, scrambling the rolling DISCOVERY vocabulary. The scene owns
-   the spans and projects their targets per frame. --- */
+/* --- S1 annotation chips. The chips, their leaders and their anchor dots
+   are WebGL objects since 09-09 round 2 (useProcessScene): they sit at their
+   panel's own z so shards in front of them can cover them, which a DOM
+   overlay composited above the render could never do — the same move the
+   Thread made in the v2 deck.
+
+   What survives here is the TYPOGRAPHY. .process-label is never painted now;
+   the scene appends a hidden probe carrying this class, reads its face,
+   size, tracking and colour, and draws the chip into a canvas texture with
+   them. So this rule is still the single source of truth for how a chip
+   looks — it just reaches the screen through the canvas. --- */
 .process-labels {
+  /* Probe host only: no painting happens in the DOM, so it takes no space
+     and can never sit over the scene's drag surface. */
   position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
   overflow: hidden;
-}
-
-/* P1: one full-viewport stroke layer for the leaders + anchor dots (the
-   HeroLabels idiom). No viewBox → user units are CSS px, so the endpoints
-   land exactly on the projected shard anchor. */
-.process-labels__svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.process-labels__leader {
-  stroke: var(--color-white);
-  stroke-width: 1;
-}
-
-.process-labels__dot {
-  fill: var(--color-white);
-}
-
-/* On the white canvas (S1/S2) the leader ink goes electric blue to read
-   against the blank field (the chip text flips to blue via the data-bg
-   skin above). */
-.process-page[data-bg='white'] .process-labels__leader {
-  stroke: var(--color-electric-blue);
-}
-
-.process-page[data-bg='white'] .process-labels__dot {
-  fill: var(--color-electric-blue);
+  pointer-events: none;
 }
 
 .process-label {
   position: absolute;
   top: 0;
   left: 0;
-  opacity: 0;
   visibility: hidden;
-  will-change: transform;
-  font-family: var(--font-mono);
+  /* 09-09 (Nathan): the BODY face, not mono — the chips are notes being
+     gathered, and the body voice reads as material rather than as machine
+     chrome. Size/rhythm stay on the mono chrome tokens so the chip keeps
+     its place in the hierarchy. */
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
   font-size: var(--text-mono);
   line-height: var(--lh-mono);
   letter-spacing: -0.02em;
@@ -172,8 +163,7 @@ body.route-process .site-nav {
 .process-stage__headline,
 .process-cta__display,
 .process-stage__blurb,
-.process-cta__line,
-.process-label {
+.process-cta__line {
   transition: color 0.4s ease;
 }
 
@@ -199,9 +189,7 @@ body.route-process .site-nav {
 .process-page[data-bg='white'] .process-hero__token,
 .process-page[data-bg='white'] .process-stage__chip,
 .process-page[data-bg='white'] .process-stage__token,
-.process-page[data-bg='white'] .process-stage__caption,
-.process-page[data-bg='white'] .process-label,
-.process-page[data-bg='white'] .process-tagline {
+.process-page[data-bg='white'] .process-stage__caption {
   color: var(--color-electric-blue);
 }
 
@@ -225,6 +213,16 @@ body.route-process .site-nav {
   position: relative;
   z-index: 2;
   padding: 0 1.143rem;
+  /* 09-09: the column spans the viewport, so at `auto` it swallowed every
+     pointer before the scene's drag surface could see one. The COLUMN is
+     transparent to pointers; its actual content takes them back (below), so
+     text still selects and every control still clicks — and the open frame
+     beside the copy drags the field. */
+  pointer-events: none;
+}
+
+.process-page__copy :where(p, h1, h2, a, button, .process-cta__actions) {
+  pointer-events: auto;
 }
 
 /* Scroll runway per state: hero 100vh · Stages 140vh · CTA = the room
@@ -275,7 +273,6 @@ body.route-process .site-nav {
 
 /* --- Chrome register: lowercase snake_case mono --- */
 .process-hero__token,
-.process-tagline,
 .process-stage__chip {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
@@ -291,12 +288,8 @@ body.route-process .site-nav {
   min-height: var(--lh-mono);
 }
 
-/* Flex + gap, not a leading space — ScrambleText trims leading
-   whitespace, so the separator spacing lives in layout */
-.process-stage__chip {
-  display: flex;
-  gap: 0.5ch;
-}
+/* 09-09: the chip is the PHASE token alone — the "/ chip_name" tail and
+   the flex row that spaced it away from the token are both retired. */
 
 .process-stage__token {
   color: var(--color-electric-blue);
@@ -418,47 +411,6 @@ body.route-process .site-nav {
   color: var(--color-white);
   max-width: min(26ch, 44vw);
   margin-top: var(--space-6);
-}
-
-/* --- Persistent tagline: fixed bottom-right, the mono chrome voice
-   (v2 deck — replaces the retired hero sub/cue; the meter vacated this
-   corner for bottom-center). Measured so it never crowds the meter. --- */
-.process-tagline {
-  /* 08-29 keep-out + shrink knobs (tokenized in the 08-29 sweep — values
-     unchanged from the verified bake): */
-  --caption-pill-reserve: 6.5rem;
-  /* the .site-privacy capsule (~5.3rem) + air — deliberately tighter than
-     the footer nav's --privacy-clearance (no row gap to mirror here) */
-  --caption-slope: 1.38vw;
-  /* viewport-tracking shrink rate of the nowrap line */
-  --caption-shrink: 0.5rem;
-  /* constant shed off the slope — see the font-size note below */
-  position: fixed;
-  /* 08-29: clear the persistent lower-right privacy pill (.site-privacy) —
-     the pill's own scrollbar-aware inset + the reserve above (the footer
-     nav's reservation idiom). */
-  right: calc(var(--chrome-right-inset) + var(--caption-pill-reserve));
-  bottom: var(--nav-inset);
-  z-index: 4;
-  /* P3: one line, all caps — the tagline reads as a single mono rule
-     along the bottom edge. max-width relaxed off the 24ch prose measure
-     so it never wraps; the font shrinks on narrower desktops (min())
-     so the nowrap line stays inside the viewport. */
-  max-width: none;
-  text-transform: uppercase;
-  white-space: nowrap;
-  /* Floor keeps it legible on narrow desktops; capped at the mono chrome
-     size on wide viewports. The middle term tracks the free band between
-     the CENTERED meter's right edge and the pill reservation (solved
-     08-29: the old 1.5vw never dropped below the cap on desktop, so the
-     constant-width line collided with the meter once the pill clearance
-     moved it left; 1.38vw − 0.5rem shrinks the line just fast enough to
-     clear the meter down to ~1000px — below that the floor crowds it, as
-     it always did — while still reaching the full cap by 1440). */
-  font-size: clamp(0.5rem, calc(var(--caption-slope) - var(--caption-shrink)), var(--text-mono));
-  text-align: right;
-  opacity: 0.65;
-  pointer-events: none;
 }
 
 /* S2's Thread pings land here (references_folded → dots_connected →
@@ -736,15 +688,20 @@ body.route-process .site-nav {
    CtaArrows caret window), quieter voice: transparent at 0.65, filling
    electric blue on hover (the house chip hover) — black on the blue
    field where electric blue vanishes.
-   Placement (v2 deck): [previous] top-left below the nav (back is up),
-   [next] bottom-left (forward is down). --- */
+   Placement — 09-09 (Nathan): the steppers move onto the /work seat. The
+   chips are CENTERED horizontally (.fp-cta's left:50% + centering
+   translate, featured-projects.css), [previous] below the nav bar and
+   [next] above the status meter; the vertical tokens were already shared,
+   so this is the last piece of parity between the two pagers. The old
+   left-corner placement (v2 deck) is retired. --- */
 .process-stepnav {
   position: fixed;
-  left: var(--nav-inset);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 4;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.15rem;
   /* Nathan 07-30: both steppers step in from the viewport edges by the
      SAME amount — [previous] down, [next] up. One var, provably equal.
@@ -762,12 +719,8 @@ body.route-process .site-nav {
   bottom: calc(var(--nav-inset) + var(--stepnav-edge-offset));
 }
 
-/* ?debug only: the tuning panel owns the lower-left corner — [next]
-   slides right of it so both stay clickable while dialing ([previous]
-   lives top-left now and clears the panel on its own) */
-.process-page:has(.process-debug) .process-stepnav--next {
-  left: calc(var(--nav-inset) + 300px);
-}
+/* (The ?debug shove is retired with the left-corner seat — a centered
+   [next] clears the lower-left tuning panel on its own.) */
 
 /* 08-26 nav-chip pass (family: /work [NEXT]/[PREVIOUS], detail breadcrumb):
    rest = accent fill with readable ink (no process accent → brand blue),
@@ -881,10 +834,9 @@ body.route-process .site-nav {
     max-width: none;
   }
 
-  /* One meter of chrome is enough on a phone — the steppers assume a
-     pointer anyway; swipe owns the walk. The tagline sits out too. */
-  .process-stepnav,
-  .process-tagline {
+  /* The steppers assume a pointer anyway; swipe owns the walk on a phone.
+     (The tagline that used to sit out here is retired outright, 09-09.) */
+  .process-stepnav {
     display: none;
   }
 

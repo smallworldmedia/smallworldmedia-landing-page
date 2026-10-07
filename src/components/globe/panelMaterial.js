@@ -13,6 +13,15 @@
  *    whole globe reads as one blue disc and colorspace_fragment lands it
  *    exactly on the DOM --color-electric-blue (the process contraction
  *    handoff proved that equivalence).
+ *  - an optional ATMOSPHERIC DEPTH haze via uFogAmount/uFogNear/uFogFar/
+ *    uFogColor (09-09, /process): the panel's view depth pulls BOTH its
+ *    fill and its edge stroke toward the field color, so shards further
+ *    from the camera recede into the background the way distance washes
+ *    out a landscape. Deliberately NOT opacity — every panel stays fully
+ *    opaque (transparency on overlapping convex-sphere meshes is the
+ *    draw-order bug this material exists to avoid); the recession is a
+ *    color mix. uFogAmount 0 (the default, every other consumer) skips
+ *    the whole thing and the shader is byte-identical to before.
  *  - an optional edge stroke via uStrokeMix (0 = off — the home globe's
  *    resting state; /process draws its Fragments blue-on-blue and lets a
  *    black stroke separate them from the field). The stroke reads the
@@ -59,8 +68,12 @@ const vertexShader = /* glsl */ `
   uniform float uUsePolarScroll;
   uniform float uPolarTop;
   uniform float uCanonTop;
+  uniform float uFogAmount; // 0 = no atmospheric haze (every non-/process caller)
+  uniform float uFogNear;   // view depth where the haze starts (world units)
+  uniform float uFogFar;    // view depth where it reaches uFogAmount
   varying vec2 vUv;
   varying vec2 vEdgeUv;
+  varying float vFog; // interpolated haze weight, 0 at the near plane
   varying float vK; // media horizontal crop factor (1 = full; <1 = centre-crop)
   varying float vFlipPole; // 1 = tile nearer the TOP pole (pole-facing edge is vUv.y=1)
   void main() {
@@ -100,7 +113,18 @@ const vertexShader = /* glsl */ `
     #ifdef USE_INSTANCING
       localPos = instanceMatrix * localPos;
     #endif
-    gl_Position = projectionMatrix * modelViewMatrix * localPos;
+    // Split out the model-view product so the haze can read view depth. The
+    // gl_Position math is unchanged — projection × (modelView × local).
+    vec4 mvPosition = modelViewMatrix * localPos;
+    // Per-VERTEX (interpolated across the shard) rather than per-object, so
+    // a shard turned edge-on to the camera hazes across its own width — and
+    // so the InstancedMesh decoy pool gets the effect for free, with no
+    // per-instance attribute. −mvPosition.z is the view depth (camera looks
+    // down −Z).
+    vFog = uFogAmount <= 0.0
+      ? 0.0
+      : clamp((-mvPosition.z - uFogNear) / max(uFogFar - uFogNear, 1e-4), 0.0, 1.0) * uFogAmount;
+    gl_Position = projectionMatrix * mvPosition;
   }
 `;
 
@@ -128,6 +152,7 @@ const fragmentShader = /* glsl */ `
   uniform float uStrokeMix;
   uniform float uStrokeWidthPx;
   uniform vec3 uStrokeColor;
+  uniform vec3 uFogColor; // the field the distance recedes into
   uniform float uBlueMix;
   uniform vec3 uBlueColor;
   uniform float uCornerR;
@@ -140,6 +165,7 @@ const fragmentShader = /* glsl */ `
   varying vec2 vEdgeUv;
   varying float vK; // media horizontal crop factor / pole-proximity from the vertex stage
   varying float vFlipPole; // 1 = top-pole row → mirror the cap's pole-facing edge to vUv.y=1
+  varying float vFog; // atmospheric haze weight (0 unless uFogAmount > 0)
 
   vec3 srgbToLinear(vec3 c) {
     return mix(
@@ -249,6 +275,11 @@ const fragmentShader = /* glsl */ `
     float stroke = (1.0 - smoothstep(uStrokeWidthPx - 0.6, uStrokeWidthPx + 0.6, edgePx))
       * uStrokeMix * step(0.01, uStrokeWidthPx); // width 0 = fully off, no edge hairline
     color = mix(color, uStrokeColor, stroke);
+    // Atmospheric depth: AFTER the stroke, so ink and fill recede together —
+    // a distant shard's black edge washes toward the field exactly as its
+    // face does, which is what sells the haze. Alpha is untouched (1.0
+    // below): this is a color mix, never transparency.
+    color = mix(color, uFogColor, vFog);
     // Commit blue-fill (chunk 4): last mix before the colorspace output so
     // at uBlueMix 1 the panel is exactly the inner sphere's blue — stroke,
     // texture and power all submerged under the field.
@@ -314,6 +345,14 @@ export function createPanelMaterial({ fallbackColor, cornerRadius = 0 }) {
       uStrokeMix: { value: 0 }, // 0 = no stroke (home globe); /process drives it
       uStrokeWidthPx: { value: 1.5 },
       uStrokeColor: { value: new THREE.Color(0x000000) },
+      // Atmospheric depth — off by default; /process's belt drives it and
+      // fades it to 0 as the Fragments assemble into the Core.
+      uFogAmount: { value: 0 },
+      uFogNear: { value: 0 },
+      uFogFar: { value: 1 },
+      // GAP_COLOR, never a hand-picked hex — the same equivalence uBlueColor
+      // rests on, so at weight 1 a shard IS the electric-blue field.
+      uFogColor: { value: new THREE.Color(GAP_COLOR) },
       uBlueMix: { value: 0 }, // 0 = untouched — the commit blue-fill (useGlobeScene setBlueFill) drives it
       uBlueColor: { value: new THREE.Color(GAP_COLOR) }, // the inner sphere's blue, never a hand-picked hex
       uCornerR: { value: cornerRadius }, // rounded-tile radius; 0 = hard edges (/process); branch skipped when 0
