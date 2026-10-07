@@ -17,6 +17,17 @@
   /* pointer drag owns the gesture */
 }
 
+/* 10-07 (Nathan): on phones the HOME globe installs no drag listeners at all
+   (InteractionController's `drag` option), so the canvas must stop claiming
+   the whole gesture — the vertical swipe there is the resting footer's
+   reveal. pan-y hands back only that axis; /lab/globe, which keeps its drag
+   on a phone, still owns the horizontal. */
+@media (max-width: 768px) {
+  .video-globe__canvas {
+    touch-action: pan-y;
+  }
+}
+
 .video-globe__canvas canvas {
   display: block;
   width: 100%;

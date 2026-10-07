@@ -8,6 +8,13 @@
  * at z 44. Escape closes; any route swap closes. /privacy stays a real route
  * (same PrivacyContent) for direct links.
  *
+ * 10-07 (Nathan, mobile chrome pass): ≤768px that pill is GONE — privacy
+ * lives ONLY in the mobile menu there, and the menu link merely OPENS this.
+ * With no pill, no Escape key and no route change, a phone had no way out of
+ * this overlay at all. So the surface carries its OWN close capsule now (the
+ * same `close ×` mark, the same lower-right seat the pill held), shown at
+ * ≤768px where the pill is hidden. Desktop keeps the pill as the close.
+ *
  * Cross-island: SiteShell folds `swm:privacy-state` into its
  * data-chrome-open latch (the footer shell-slide gate).
  */
@@ -18,6 +25,17 @@ import gsap from 'gsap';
 
 export const PRIVACY_OPEN_EVENT = 'swm:open-privacy'; // any surface → open
 export const PRIVACY_STATE_EVENT = 'swm:privacy-state'; // this → shell, detail: {open}
+
+/* The house close glyph (SiteNav's menu pill, the privacy pill) — ONE mark:
+   SiteTagline's pill imports it from here rather than keeping a twin. */
+export function CloseIcon() {
+  return (
+    <svg className="site-privacy__icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default function PrivacyOverlay({ open, onClose }) {
   const ref = useRef(null);
@@ -58,6 +76,19 @@ export default function PrivacyOverlay({ open, onClose }) {
   return (
     <div className="privacy-overlay" ref={ref} data-open={open} aria-hidden={!open} role="dialog" aria-label="Privacy">
       <PrivacyContent home={false} />
+      {/* ≤768px only (global.css gates): the pill that closes this on desktop
+          is hidden there, so this IS the way out. Fixed inside the overlay —
+          the wipe's clip-path makes this box the containing block, so it
+          holds the corner while the notice scrolls and wipes away with it. */}
+      <button
+        type="button"
+        className="privacy-overlay__close"
+        aria-label="Close privacy"
+        onClick={onClose}
+      >
+        <span className="site-privacy__word">close</span>
+        <CloseIcon />
+      </button>
     </div>
   );
 }

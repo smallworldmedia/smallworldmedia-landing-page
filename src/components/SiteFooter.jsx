@@ -107,10 +107,15 @@ const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 // `--footer-peak` rises with the reveal and holds through the retreat,
 // resetting only once the panel is fully parked (progress ≈ 0). Anything
 // that fades on the reveal consumes the peak, not the progress.
+// 10-07 (Nathan): the mobile home variant PARKS at a resting floor, never at
+// 0, so "parked" is `rest`, not zero — otherwise the peak would latch at the
+// session's high-water mark and the logo band's at-rest hint read (its fade
+// window over this var) could never come back. rest = 0 is the old behaviour
+// byte for byte.
 let revealPeak = 0;
-const broadcastReveal = (progress) => {
+const broadcastReveal = (progress, rest = 0) => {
   const root = document.documentElement;
-  revealPeak = progress <= 0.001 ? 0 : Math.max(revealPeak, progress);
+  revealPeak = progress <= rest + 0.001 ? rest : Math.max(revealPeak, progress);
   root.style.setProperty('--footer-reveal', progress.toFixed(4));
   root.style.setProperty('--footer-peak', revealPeak.toFixed(4));
   root.toggleAttribute('data-footer-revealed', progress > 0.001);
@@ -132,6 +137,16 @@ export default function SiteFooter({
   progress = 0,
   /** The client-logo band above the links (09-07). Off = the bare panel. */
   ticker = true,
+  /** MOBILE HOME VARIANT (10-07, Nathan) — the long studio blurb, as the
+      [emphasised opening, rest] pair SiteTagline exports (TAGLINE_LONG_SPLIT).
+      Present = this panel carries the blurb; global.css draws it only while
+      the footer rests ([data-footer-rest]), since desktop home keeps the
+      blurb in the tagline pill. */
+  blurb = null,
+  /** Driven mode: the progress this panel PARKS at (0 everywhere but mobile
+      home, where Hero floors it at ?footerrest). The peak broadcast resets
+      here instead of at 0. */
+  rest = 0,
   /** Scroll mode: spacer = K × panel height. Absent = the ?footertravel
       bake (1.8). /process passes 1 so the reveal is exactly one panel of
       runway, baked into the last slide's swipe (09-08). */
@@ -411,10 +426,10 @@ export default function SiteFooter({
   }, [driven]);
   useEffect(() => {
     if (!driven) return undefined;
-    if (drivenP <= 0.001) document.documentElement.removeAttribute('data-footer-invoked');
-    broadcastReveal(drivenP);
+    if (drivenP <= rest + 0.001) document.documentElement.removeAttribute('data-footer-invoked');
+    broadcastReveal(drivenP, rest);
     return undefined;
-  }, [driven, drivenP]);
+  }, [driven, drivenP, rest]);
   useEffect(() => {
     if (!driven) return undefined;
     return clearReveal; // route swap away from /work drops the broadcast
@@ -472,6 +487,16 @@ export default function SiteFooter({
               --footer-reveal broadcast, settling into place here. The inner
               keeps a min-height (global.css) so the band still backdrops
               that stack. */}
+          {/* 10-07 (Nathan): the mobile home variant's own copy — the studio
+              blurb, at the TOP of the panel with the logo band's
+              "utilized by…" line fading in below it (the band is ordered
+              last there), so the footer answers "what is Small World Media"
+              on load. Drawn only while the footer rests (global.css). */}
+          {blurb && (
+            <p className="site-footer__blurb">
+              <span className="site-footer__blurb-em">{blurb[0]}</span> {blurb[1]}
+            </p>
+          )}
 
           <nav className="site-footer__nav" aria-label="Footer">
             <a href="/" className="site-footer__link">

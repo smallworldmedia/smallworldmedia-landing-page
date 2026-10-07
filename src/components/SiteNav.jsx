@@ -289,6 +289,12 @@ export default function SiteNav({
     };
   }, []);
 
+  // 10-07 (Nathan): "move 2026 all rights reserved to the mobile menu" — the
+  // ©line left the footer band with the SWM lockup (both display:none at
+  // ≤768px now) and lands in the menu's foot, the takeover being the
+  // tagline's site-wide home on phones already.
+  const year = new Date().getFullYear();
+
   return (
     <nav className="site-nav" ref={navRef}>
       <div className="site-nav__brand">
@@ -440,6 +446,10 @@ export default function SiteNav({
               >
                 privacy
               </a>
+              {/* ABOVE the tagline, so the tagline keeps the foot's bottom —
+                  that seat is the home page tagline's own (--menu-pill-seat),
+                  which is what makes menu open/close read as one block. */}
+              <p className="mobile-menu__copy">©{year}. All rights reserved.</p>
               <p className="mobile-menu__tagline" aria-hidden="true">
                 {TAGLINE_LINES.map((line, li) => (
                   <span className="site-tagline__line" key={line.join('-')}>

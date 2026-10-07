@@ -1131,6 +1131,19 @@ html.fp-tint .mobile-menu__item {
   display: block;
 }
 
+/* ©line (10-07, Nathan) — moved here from the footer band's lower-left
+   group, which is gone on phones. Keeps .site-tagline__copy's exact type
+   (the LINK tier, white) so it reads as the same line it was, and sits
+   ABOVE the tagline so the tagline holds the foot's bottom seat. */
+.mobile-menu__copy {
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  white-space: nowrap;
+}
+
 .site-nav__link {
   display: inline-flex;
   align-items: center;
@@ -2000,6 +2013,30 @@ html[data-footer-revealed] .detail-progress {
   padding-right: var(--chrome-right-inset);
 }
 
+/* The MOBILE HOME variant's blurb (10-07, Nathan) — the tagline pill's long
+   layer, moved INTO the panel so the footer answers "what is Small World
+   Media" on load. It rides the pill's own mobile scale (--text-blurb, the
+   shared project-blurb token) and the logo band's "utilized by…" line is
+   pointed at that same token in the variant block, so the two read as one
+   size. Hidden by default: it is drawn only under [data-footer-rest] (the
+   variant block) — desktop home keeps the blurb in the pill, and no other
+   route is handed the `blurb` prop at all. */
+.site-footer__blurb {
+  display: none;
+  flex: 1 1 auto;
+  margin: 0;
+  font-family: var(--font-body);
+  /* fallback guards the desktop token gap: --text-blurb is a ≤768px token */
+  font-size: var(--text-blurb, 1.4rem);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+}
+
+.site-footer__blurb-em {
+  font-weight: var(--weight-medium);
+}
+
 /* LEFT — globe lockup + copyright */
 .site-footer__left {
   display: flex;
@@ -2122,11 +2159,21 @@ html[data-footer-revealed] .detail-progress {
     display: none;
   }
 
-  /* The mobile band reserves for the OFF-HOME tagline stack (footers only
-     exist off-home, where the page pill is hidden — 08-30 (2)): lockup art
-     + column gap + the copyright line, plus this box's own paddings. */
+  /* 10-07 (Nathan, mobile chrome pass): there is NOTHING left to reserve.
+     The lockup and the ©line moved off phones entirely — the lockup is gone
+     and the copyright now lives in the mobile menu's foot — so the band's
+     height is its own content (the home variant's blurb) plus these
+     paddings. The 08-29 stack calc would have held an empty 5rem band. */
   .site-footer__inner {
-    min-height: calc(var(--lockup-art-h) + var(--space-2) + var(--lh-link) + var(--footer-top-pad) + var(--footer-bottom-inset));
+    min-height: 0;
+  }
+
+  /* …and off the home variant there is no content at all (the nav is hidden
+     above, the stack is gone, and only home is handed the blurb), so the box
+     goes with it rather than leaving the band's rule hanging over an empty
+     strip. On home it carries the blurb and stays. */
+  html:not([data-footer-rest]) .site-footer__inner {
+    display: none;
   }
 }
 
@@ -2402,6 +2449,70 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 }
 
 /* ============================================
+   MOBILE HOME FOOTER VARIANT — [data-footer-rest] (10-07, Nathan)
+   ============================================
+   "A frictionless experience for users in knowing what small world media is
+   and establishing our credentials right off the bat": on phones the home
+   footer RESTS OPEN. Hero floors its driven progress at ?footerrest and sets
+   this attribute on <html> for exactly as long as that floor is live, so the
+   whole variant keys off ONE fact — the same frozen IS_MOBILE the JS reads,
+   never a media query that could disagree with it mid-session.
+
+   The panel re-stacks: the blurb on top, then the logo band (its
+   "utilized by…" line + the marks) ORDERED LAST, so the resting band shows
+   the blurb with that line fading in below it as the gesture reveals the
+   rest. The fade is the band's existing window over --footer-peak, opened
+   from 0 here so the hint is already partly in at rest (?logofrom/?logoto
+   still override — ClientLogoTicker writes them inline).
+   ============================================ */
+html[data-footer-rest] .site-footer--links {
+  display: flex;
+  flex-direction: column;
+}
+
+/* the blurb is the band's own content now — left-aligned, full measure */
+html[data-footer-rest] .site-footer__inner {
+  justify-content: flex-start;
+}
+
+html[data-footer-rest] .site-footer__blurb {
+  display: block;
+}
+
+html[data-footer-rest] .logo-ticker {
+  /* LAST element in the band (DOM order is untouched, so desktop, /work and
+     the detail footers keep the band at the panel's top) — the rule the
+     separator hairline hangs off flips with it. */
+  order: 1;
+  border-bottom: 0;
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+  --logo-reveal-from: 0;
+}
+
+/* Nathan: "ensure the 'utilized across a full spectrum' text matches to the
+   text size of the blurb that now sits above it" — one token, both lines. */
+html[data-footer-rest] .logo-ticker__copy {
+  font-size: var(--text-blurb, 1.4rem);
+}
+
+/* The page-level tagline pill yields: the blurb it carried is in the panel
+   now, and the resting panel sits exactly where the pill does (the 09-08
+   mask clipped it out of the risen footer for the same reason — this is that
+   mask's resting-footer case, expressed once instead of per frame). */
+html[data-footer-rest] .site-tagline__pill {
+  display: none;
+}
+
+/* F1 OFF while the footer rests: a nonzero resting progress would translate
+   the shell up by that fraction of a nav height for the whole session. (It is
+   already off at ≤768px, where this variant lives — this keeps it off if the
+   frozen IS_MOBILE and the media query ever disagree, e.g. a phone-width load
+   rotated or resized past the breakpoint.) */
+html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell {
+  transform: none;
+}
+
+/* ============================================
    SITE TAGLINE — persistent lower-left pill (Figma Frame 19, 08-27)
    ============================================
    Fixed on every route (own island in BaseLayout — NOT inside .site-shell,
@@ -2561,8 +2672,10 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
      The wrapper keeps its corner seat; the row still reserves the wrapped
      copyright line below (the --menu-pill-seat math rides it). */
   .site-tagline {
-    /* reserve the lower-right privacy pill's corner (09-08) */
-    right: calc(var(--chrome-right-inset) + var(--privacy-clearance));
+    /* 10-07 (Nathan): no corner to reserve any more — the privacy pill is
+       GONE on phones (the mobile menu's link is the only one), which is the
+       width the blurb gets back. */
+    right: var(--chrome-right-inset);
   }
 
   .site-tagline__row {
@@ -2600,10 +2713,12 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   }
 
   /* 10-06: the long blurb runs as one wrapping paragraph, a size down from
-     the short stack, measured to the tagline's own seat (left inset →
-     the privacy pill's clearance). */
+     the short stack, measured to the tagline's own seat (left inset → the
+     right chrome inset; 10-07 dropped the retired privacy pill's clearance
+     from that measure — Nathan: "that should free up the longer text blurb
+     on mobile globe page to have more width in its text box"). */
   .site-tagline__text--long {
-    max-width: calc(100vw - var(--nav-inset) - var(--chrome-right-inset) - var(--privacy-clearance));
+    max-width: calc(100vw - var(--nav-inset) - var(--chrome-right-inset));
     white-space: normal;
     font-size: 0.82em;
     line-height: 1.1;
@@ -2632,30 +2747,20 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
     display: none;
   }
 
-  /* 09-08 (Nathan): on phones the footer band's lower-left is the SWM
-     LOCKUP + ©copyright, snug, left-aligned, as one group whose bottom
-     sits on the privacy pill's TEXT bottom (the capsule's bottom inset +
-     its padding). Both are taken out of flow so the tagline pill keeps
-     its own seat (matching the mobile menu's tagline — the wrapper's
-     bottom is the same line, see --menu-pill-seat). The rising footer
-     masks the pill OUT (SiteTagline maskToPanel) as the group lands. */
   .site-tagline {
     bottom: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
   }
 
-  .site-tagline__copy {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    margin-left: 0;
-  }
-
+  /* 10-07 (Nathan): the 09-08 lower-left footer group — SWM LOCKUP +
+     ©copyright, positioned into the risen band — is RETIRED on phones.
+     "Move 2026 all rights reserved to the mobile menu": the ©line is
+     .mobile-menu__copy now (SiteNav's foot, beside the privacy link), and
+     "remove the SWM lockup from the footer" takes the lockup with it. The
+     freed band height is what the logo ticker drops into. Nothing left here
+     needs the per-frame panel-edge mask either (see SiteTagline maskLive). */
+  .site-tagline__copy,
   .site-tagline__lockup {
-    position: absolute;
-    left: 0;
-    bottom: calc(var(--lh-link) + var(--space-1));
-    /* optical edge on the text's left */
-    margin-left: calc(-1 * var(--lockup-bleed));
+    display: none;
   }
 }
 
@@ -2742,6 +2847,45 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   pointer-events: auto;
 }
 
+/* ≤768px (10-07, Nathan) the overlay's OWN way out — the privacy pill that
+   closes it on desktop does not exist on phones, and nothing else did: no
+   Escape key, and the notice never changes route. This is that pill's OPEN
+   state (white fill, blue ink, `close ×`) in the exact corner it held, so
+   menu → notice → close reads as one persistent element. `fixed` INSIDE the
+   overlay: the wipe animates clip-path, which makes the overlay the
+   containing block for it, so the capsule holds the corner while the notice
+   scrolls and leaves with the wipe instead of outliving it. */
+.privacy-overlay__close {
+  display: none;
+  position: fixed;
+  right: var(--chrome-right-inset);
+  /* the seat the MENU's privacy link holds (.mobile-menu's --menu-pill-seat,
+     a var scoped to that panel) — the capsule the user just tapped does not
+     jump as the menu wipes out and the notice wipes in */
+  bottom: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
+  align-items: center;
+  gap: 0.143rem;
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border-radius: var(--radius-capsule);
+  background: var(--color-white);
+  color: var(--color-electric-blue);
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.privacy-overlay__close:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
 /* The notice's measure — shared by /privacy and the overlay (PrivacyContent) */
 .privacy {
   max-width: 46rem;
@@ -2803,18 +2947,30 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
 @media (max-width: 768px) {
   .site-privacy,
-  .mobile-menu__privacy {
+  .mobile-menu__privacy,
+  .privacy-overlay__close {
     font-size: var(--text-pill);
     line-height: var(--lh-pill);
   }
 
-  /* room for the lower-right pill under the copy */
+  /* room for the lower-right close pill under the copy */
   .privacy {
     padding-bottom: 8rem;
   }
 
+  /* 10-07 (Nathan): "move the privacy policy button to only be in the mobile
+     menu, remove from globe page and any other occurrence on mobile
+     breakpoint". The 08-30 note above this section already CLAIMED this
+     arrangement — the rule was never written, so the pill stayed on phones
+     and ate --privacy-clearance out of the blurb's measure. The mobile
+     menu's .mobile-menu__privacy is the one opener now; since this pill was
+     also the overlay's CLOSE, the overlay carries its own (above). */
   .site-privacy {
-    z-index: 46;
+    display: none;
+  }
+
+  .privacy-overlay__close {
+    display: flex;
   }
 }
 

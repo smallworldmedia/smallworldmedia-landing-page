@@ -72,6 +72,7 @@ import {
   subscribeHeroTune,
 } from './hero/heroConfig.js';
 import {
+  IS_MOBILE,
   PREFERS_REDUCED_MOTION,
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
@@ -79,6 +80,9 @@ import { POP_TUNE_ACTIVE, TUNING as POP_TUNING } from './globe/popConfig.js';
 import { applyNavAccent, clearNavAccent } from '../lib/navAccent.js';
 import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
 import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from './SiteFooter.jsx';
+// The studio blurb, split at its Medium emphasis — on phones it leaves the
+// tagline pill and is set in the resting footer (below).
+import { TAGLINE_LONG_SPLIT } from './SiteTagline.jsx';
 // 08-30 (3), Nathan: the home→/work transition carries the FP→detail
 // choreography — the SAME enter-tune vocabulary (cover duration, window
 // model, pow curve) WorldCard/useWorldScene ride, so the two passages can
@@ -195,6 +199,37 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    heroConfig so HeroIntro can compensate the glyph framing by the same amount
    (globe + stroke = the lockup "o"). — */
 
+/* — The MOBILE HOME footer floor (10-07, Nathan) — "On homepage load let's
+   have the footer persistent and visible … show visible only the text blurb
+   with the 'utilized by…' text fading out below to suggest there is more to
+   scroll to". The footer's driven progress PARKS at this fraction instead of
+   0 on phones, so the studio blurb is up on load and the gesture reveals the
+   rest. Desktop keeps 0 — the blurb lives in the tagline pill there.
+
+   The number is Nathan's to bake, so it ships as a dial: ?footerrest=<0..1>
+   (0 restores the old retract-to-nothing feel). Read at module load like
+   IS_MOBILE itself, so one frozen fact drives both the JS and the CSS
+   variant ([data-footer-rest], set below).
+
+   The default is MEASURED, not guessed — it is a fraction of the panel's own
+   height, and the panel is blurb + logo band. At 390×844 the band breaks
+   down as: blurb box 128.6px of a 281.2px panel (0.457), then the band's
+   18px top padding and the first "utilized by…" line (26.8px). 0.62 is the
+   first floor that clears the whole blurb AND brings that line into the
+   frame, dimmed by the band's own reveal window — Nathan's "visible only the
+   text blurb with the 'utilized by…' text fading out below". It still clears
+   the blurb at 320px and 430px (where the blurb re-wraps, and the band
+   re-tiers with it). Below ~0.46 the blurb itself is cut off. — */
+const FOOTER_REST_DEFAULT = 0.62;
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+const FOOTER_REST = IS_MOBILE
+  ? Math.min(1, Math.max(0, PARAM('footerrest', FOOTER_REST_DEFAULT)))
+  : 0;
+
 export default function Hero({ globeAssets, globeWorlds }) {
   const heroRef = useRef(null);
   const veilRef = useRef(null);
@@ -205,8 +240,10 @@ export default function Hero({ globeAssets, globeWorlds }) {
   // drives SiteFooter's driven progress 0..1 directly; upward delta
   // retracts; it parks where the gesture leaves it. The tagline pill asks
   // for a full reveal; the enter_world commit retracts it.
-  const [footerP, setFooterP] = useState(0);
-  const footerPRef = useRef(0);
+  // 10-07: FOOTER_REST is the FLOOR, not 0 — on phones the panel starts (and
+  // returns to) the resting fraction above.
+  const [footerP, setFooterP] = useState(FOOTER_REST);
+  const footerPRef = useRef(FOOTER_REST);
   const footerWipeRef = useRef(null); // the pill's wipe tween — the user's delta kills it
   const setFooterReveal = (v) => {
     if (footerPRef.current === v) return;
@@ -218,11 +255,14 @@ export default function Hero({ globeAssets, globeWorlds }) {
     if (!el) return undefined;
     const addDelta = (dy) => {
       if (departingRef.current) return;
-      footerWipeRef.current?.kill();
       const p = footerPRef.current;
-      if (dy <= 0 && p <= 0) return;
-      if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : 0);
-      else setFooterReveal(Math.min(1, Math.max(0, p + dy / SCROLL_TRIGGER_HOME_PX)));
+      // A delta that cannot move the panel must not touch the pill's wipe:
+      // the kill used to run BEFORE this return, so one stray upward
+      // touchmove mid-wipe cancelled it and parked the panel partway.
+      if (dy <= 0 && p <= FOOTER_REST) return;
+      footerWipeRef.current?.kill();
+      if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : FOOTER_REST);
+      else setFooterReveal(Math.min(1, Math.max(FOOTER_REST, p + dy / SCROLL_TRIGGER_HOME_PX)));
     };
     const onWheel = (e) => {
       e.preventDefault();
@@ -238,8 +278,14 @@ export default function Hero({ globeAssets, globeWorlds }) {
       if (touchY === null) return;
       const y = e.touches[0].clientY;
       const x = e.touches[0].clientX;
-      // a mostly-horizontal move is the globe's drag, not a reveal
-      if (Math.abs(x - touchX) > Math.abs(y - touchY) && footerPRef.current <= 0) return;
+      // A mostly-horizontal move is the globe's drag, not a reveal — and the
+      // globe only drags where IS_MOBILE is false now (10-07: the globe's
+      // pointer listeners are not installed on phones at all, so there is no
+      // drag to protect there; the `<= 0` clause had already made this
+      // unreachable under the resting floor).
+      if (!IS_MOBILE && Math.abs(x - touchX) > Math.abs(y - touchY) && footerPRef.current <= 0) {
+        return;
+      }
       addDelta((touchY - y) * TOUCH_GAIN);
       touchY = y;
       touchX = x;
@@ -256,8 +302,13 @@ export default function Hero({ globeAssets, globeWorlds }) {
     };
     const onClose = () => {
       footerWipeRef.current?.kill();
-      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, 0);
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, FOOTER_REST);
     };
+    // The CSS variant latch: global.css re-stacks the panel (blurb up top,
+    // logo band last), drops the tagline pill and holds F1 off for exactly as
+    // long as this floor is live. One attribute, one frozen fact — so the
+    // layout can never disagree with the number the gesture clamps to.
+    if (FOOTER_REST) document.documentElement.setAttribute('data-footer-rest', '');
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -265,6 +316,7 @@ export default function Hero({ globeAssets, globeWorlds }) {
     window.addEventListener(FOOTER_REVEAL_EVENT, onReveal);
     window.addEventListener(FOOTER_CLOSE_EVENT, onClose);
     return () => {
+      document.documentElement.removeAttribute('data-footer-rest');
       window.removeEventListener(FOOTER_CLOSE_EVENT, onClose);
       footerWipeRef.current?.kill();
       el.removeEventListener('wheel', onWheel);
@@ -813,7 +865,10 @@ export default function Hero({ globeAssets, globeWorlds }) {
   const onEnterClick = () => {
     if (departingRef.current) return;
     footerWipeRef.current?.kill();
-    setFooterReveal(0); // the footer never rides the Envelopment
+    // The footer never rides the Envelopment — back to its resting floor,
+    // which on phones is NOT 0: dropping it to nothing yanked the persistent
+    // footer off the screen under the dive.
+    setFooterReveal(FOOTER_REST);
     setCtaPinned(true);
     // The world you clicked is the world you land in: the change clock holds
     // from here (no new world starts under the dive) and /work gets this one.
@@ -1103,8 +1158,11 @@ export default function Hero({ globeAssets, globeWorlds }) {
         />
       )}
       {/* 09-08 (Nathan): the links footer + logo ticker, driven by the
-          post-hero wheel/touch delta above (the /work idiom). */}
-      <SiteFooter driven progress={footerP} />
+          post-hero wheel/touch delta above (the /work idiom). 10-07: on
+          phones it rests OPEN at FOOTER_REST carrying the studio blurb —
+          `rest` moves the peak broadcast's reset to that floor so the logo
+          band's hint read returns on every retreat. */}
+      <SiteFooter driven progress={footerP} rest={FOOTER_REST} blurb={TAGLINE_LONG_SPLIT} />
       {CommitTunePanel && <CommitTunePanel onDryRun={onCommitDryRun} />}
       {HeroTunePanel && (
         <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />

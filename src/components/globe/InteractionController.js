@@ -12,6 +12,11 @@
  * brand tilt — no drift; a drag flicks then settles back to rest, and the
  * pitch clamp keeps it from being stranded. Callers that pass nothing (lab,
  * other) keep the legacy yaw auto-rotate. Reduced motion → still regardless.
+ *
+ * `drag: false` (10-07, Nathan — the home globe on phones) hands the gesture
+ * back to the page: the engine installs no pointer listeners at all, so the
+ * ambient drift and the pitch clamp still run but nothing grabs the canvas.
+ * Pass it per CALLER — /lab/globe keeps its drag on phones.
  */
 import DragMomentum from '../../lib/dragMomentum.js';
 import {
@@ -22,7 +27,7 @@ import {
 } from './globeConfig.js';
 
 export default class InteractionController {
-  constructor(el, { still = false } = {}) {
+  constructor(el, { still = false, drag = true } = {}) {
     const ambient =
       PREFERS_REDUCED_MOTION || still ? { x: 0, y: 0 } : { x: AUTO_ROTATE_SPEED, y: 0 };
     this.engine = new DragMomentum(el, {
@@ -30,6 +35,7 @@ export default class InteractionController {
       sensitivity: DRAG_SENSITIVITY,
       maxSpeed: MAX_FLICK_SPEED,
       reducedMotion: PREFERS_REDUCED_MOTION,
+      drag,
     });
   }
 

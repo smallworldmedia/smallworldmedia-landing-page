@@ -67,6 +67,7 @@ import {
   DPR_MAX,
   PITCH_LIMIT_DEG,
   GAP_COLOR,
+  IS_MOBILE,
   PANEL_FALLBACK_COLOR,
   PREFERS_REDUCED_MOTION,
   SCROLL_VISIBLE_ROWS,
@@ -900,7 +901,15 @@ export default function useGlobeScene(
     // content flows via ContentConveyor, not rotation. Legacy callers (lab) keep
     // the yaw auto-rotate. A drag always settles back to rest and the ±40° pitch
     // clamp stays on in every mode, so a drag can never strand the globe.
-    const controller = new InteractionController(container, { still: conveyorMode });
+    // 10-07 (Nathan): drag-to-spin is OFF on phones for the HOME globe —
+    // "it's fighting with page scroll and is not worth having both" (that
+    // page's vertical gesture drives the resting footer's reveal). The gate
+    // is `conveyorMode`, not IS_MOBILE alone: this hook is also /lab/globe's
+    // scene, and the lab keeps its drag on a phone.
+    const controller = new InteractionController(container, {
+      still: conveyorMode,
+      drag: !(IS_MOBILE && conveyorMode),
+    });
     const pitchLimit = THREE.MathUtils.degToRad(PITCH_LIMIT_DEG);
     let yaw = 0;
     let pitch = THREE.MathUtils.degToRad(INITIAL_PITCH_DEG);

@@ -38,7 +38,7 @@
  * immediately on page load"): at REST ON HOME (body.route-home, no drawer /
  * overlay / privacy [data-chrome-open], no mobile menu [data-menu-open], no
  * footer [data-footer-revealed]) the pill carries the LONG blurb — "Small
- * World Media is a full-spectrum creative studio …". Any other state, or any
+ * World Media is a multidisciplinary design studio …". Any other state, or any
  * other route, ABBREVIATES it to the short tagline: the capsule closes in
  * from its top-right (bottom-left anchored, so the text never travels), the
  * long words drop out, the short words fade up seated. Leaving that state
@@ -53,18 +53,10 @@ import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
 import { FOOTER_REVEAL_EVENT } from './SiteFooter.jsx';
-import PrivacyOverlay, { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
-
-/* The nav pill's close glyph (SiteNav CloseIcon) — the privacy pill swaps
-   to `close ×` while its overlay is up (09-08, the info pill convention). */
-function CloseIcon() {
-  return (
-    <svg className="site-privacy__icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-      <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+/* The privacy pill swaps to `close ×` while its overlay is up (09-08, the
+   info pill convention) — the glyph lives with the overlay now (10-07), which
+   needs the same mark for its own ≤768px close. */
+import PrivacyOverlay, { PRIVACY_OPEN_EVENT, CloseIcon } from './PrivacyOverlay.jsx';
 // The FP→detail letter-exit's pacing knob — one cut clock site-wide.
 import { TEXT_TUNABLES } from './work/textExit.js';
 
@@ -87,10 +79,18 @@ export const EM_LINE = 0;
 // lines as written (nowrap); phones let them run as one wrapping paragraph.
 // "Small World Media" carries the Medium (VISUAL WORLDS' role).
 const TAGLINE_LONG_LINES = [
-  ['Small', 'World', 'Media', 'is', 'a', 'full-spectrum', 'creative', 'studio', 'that', 'specializes', 'in'],
+  ['Small', 'World', 'Media', 'is', 'a', 'multidisciplinary', 'design', 'studio', 'that', 'specializes', 'in'],
   ['building', 'high-impact', 'brand', 'worlds', 'and', 'visuals', 'for', 'the', 'music', 'industry.'],
 ];
 const LONG_EM_WORDS = 3;
+/* 10-07 (Nathan): ≤768px the blurb moves OUT of this pill and into the home
+   footer variant (SiteFooter's `blurb` prop, passed by Hero). The footer sets
+   it as running prose, so it wants the sentence split at the Medium emphasis
+   — not the per-word spans the pill's morph needs. One source for the words. */
+export const TAGLINE_LONG_SPLIT = Object.freeze([
+  TAGLINE_LONG_LINES[0].slice(0, LONG_EM_WORDS).join(' '),
+  [TAGLINE_LONG_LINES[0].slice(LONG_EM_WORDS), ...TAGLINE_LONG_LINES.slice(1)].flat().join(' '),
+]);
 const LABEL_LONG = `${TAGLINE_LONG_LINES.flat().join(' ')} — open the footer`;
 const LABEL_SHORT = 'Visual worlds for the music industry — open the footer';
 // The letter exit's budget: the short tagline's letter count, so the long
@@ -382,6 +382,18 @@ export default function SiteTagline() {
     const unmask = () => {
       for (const el of [copy, lockup, pillEl]) if (el) el.style.clipPath = '';
     };
+    // 10-07 (Nathan, mobile chrome pass): on phones the HOME footer rests
+    // OPEN, so [data-footer-revealed] is set for the whole session there —
+    // and every element this loop masks (the copyright, the lockup, the pill)
+    // is display:none at ≤768px now. [data-footer-rest] (Hero, while that
+    // floor is live) is the one fact that tells them apart: without it this
+    // rAF would run at 60fps beside the WebGL globe and paint nothing.
+    const maskLive = () => {
+      const html = document.documentElement;
+      return (
+        html.hasAttribute('data-footer-revealed') && !html.hasAttribute('data-footer-rest')
+      );
+    };
     const watch = () => {
       raf = 0;
       const p = readReveal();
@@ -399,12 +411,12 @@ export default function SiteTagline() {
       // element above the panel's live top edge. Cleared on park (below).
       if (footShown) maskToPanel();
       maskPill();
-      if (document.documentElement.hasAttribute('data-footer-revealed')) {
+      if (maskLive()) {
         raf = requestAnimationFrame(watch);
       }
     };
     const mo = new MutationObserver(() => {
-      const on = document.documentElement.hasAttribute('data-footer-revealed');
+      const on = maskLive();
       if (on && !raf) raf = requestAnimationFrame(watch);
       if (!on) {
         // Panel parked / route swap: snap to the ground, unseen (09-08).
@@ -422,9 +434,15 @@ export default function SiteTagline() {
     });
     mo.observe(document.documentElement, {
       attributes: true,
+      // Only the reveal latch is observed. [data-footer-rest] lands once per
+      // mount (Hero's effect, after its SiteFooter child has already
+      // broadcast) and never flips again, so watch()'s own maskLive() check
+      // retires the loop on its next frame — one extra frame, no second
+      // filter entry. (A two-string attributeFilter also reads as a
+      // [param, option] pair to scripts/tunables-keys.mjs.)
       attributeFilter: ['data-footer-revealed'],
     });
-    if (document.documentElement.hasAttribute('data-footer-revealed')) {
+    if (maskLive()) {
       raf = requestAnimationFrame(watch);
     }
 

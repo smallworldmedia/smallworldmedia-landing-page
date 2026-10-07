@@ -45,13 +45,19 @@ export default class DragMomentum {
    * @param {number}  o.maxSpeed     per-axis release cap (units/s)
    * @param {boolean} o.reducedMotion
    * @param {boolean} o.cursor       manage grab/grabbing (default true)
+   * @param {boolean} o.drag         install the pointer listeners (default
+   *   true). Off = an AMBIENT-ONLY engine: update() still integrates the rest
+   *   velocity, there is simply nothing to grab (and no grab cursor), so the
+   *   surface leaves the gesture to the page. 10-07, Nathan: that is the home
+   *   globe on phones, where drag-to-spin fought the footer's scroll.
    */
   constructor(el, o = {}) {
     this.el = el;
     this.sens = o.sensitivity ?? DRAG_CHOREO.sensitivity;
     this.max = o.maxSpeed ?? DRAG_CHOREO.maxSpeed;
     this.rm = !!o.reducedMotion;
-    this.cursor = o.cursor ?? true;
+    this.drag = o.drag ?? true;
+    this.cursor = (o.cursor ?? true) && this.drag;
     this.ambient = { x: o.ambient?.x ?? 0, y: o.ambient?.y ?? 0 };
     this.dragging = false;
     this.vel = { x: this.ambient.x, y: this.ambient.y };
@@ -67,6 +73,7 @@ export default class DragMomentum {
     this.onMove = this.onMove.bind(this);
     this.onUp = this.onUp.bind(this);
 
+    if (!this.drag) return;
     if (this.cursor) el.style.cursor = 'grab';
     el.addEventListener('pointerdown', this.onDown);
     el.addEventListener('pointermove', this.onMove);
@@ -156,6 +163,7 @@ export default class DragMomentum {
 
   dispose() {
     gsap.killTweensOf(this.vel);
+    if (!this.drag) return;
     this.el.removeEventListener('pointerdown', this.onDown);
     this.el.removeEventListener('pointermove', this.onMove);
     this.el.removeEventListener('pointerup', this.onUp);
