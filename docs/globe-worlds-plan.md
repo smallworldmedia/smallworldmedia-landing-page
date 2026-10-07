@@ -492,3 +492,29 @@ pools ship tagged by kind up to the hard cap.
       faintly in `ink` (TOBEHONEST grey on black).
     - The phone blurb's 0.82 em.
     - The loader's ~550 ms start (`?loaderlead`).
+- 2026-10-07 · probe cover gates (Nathan: "add both").
+  - `globe-probe --enter` now gates the two 10-06 passage fixes, so a regression fails the run:
+    - `enterLoaderAfterCta`: the Enter World chrome (`.hero__lead-col`) reaches opacity 0
+      before the loading bar's first visible frame. Under RM the bar never shows.
+      `report.enter.timing` keeps both times: 219 ms → 616 ms in SwiftShader.
+    - `enterFillHeld` no longer exempts RM. The cover must be fully up when /work's first card
+      appears (World 0's SSR card) and stay up until the entered world's card. `returnFillHeld`
+      applies the same rule to the breadcrumb return.
+  - Verified: `--enter`, `--rm --enter` and `--mobile --enter` pass every gate. Each new gate
+    was replayed over the recorded logs, with mutations that break it:
+    - a cover dip after the first card;
+    - a 0.6 cover at the swap;
+    - the loader 1 ms before the chrome is out.
+
+    Every mutation fails its gate.
+  - Unreproduced one-off: 1 of 3 `--rm --enter` runs (seed 42, TOBEHONEST) failed the older
+    `colour` gate. The chrome read brand blue with no `pop-tint`, although the world was
+    `#404040`. The other two runs and 11 traced RM loads tinted correctly.
+    - Under RM the director greets its world at once. A clear landing after that greet would
+      leave the chrome blue for the whole visit, because only ⏭ changes the world under RM.
+    - The suspect is RouteFill's mount-time `syncNavAccent()` on home.
+    - If the failure recurs, trace `html` class changes with a MutationObserver. Patching
+      `classList` breaks the add.
+  - Phone viewing: run the worktree server as `astro dev --host --port 4322`. Sanity's CORS list
+    has `http://192.168.1.19:4322` since 10-07 (Nathan's yes); without that entry, stills load
+    black from a LAN origin.

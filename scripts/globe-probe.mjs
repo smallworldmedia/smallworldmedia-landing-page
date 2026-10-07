@@ -37,6 +37,11 @@
  * consumed. It then takes that card's enter_world to the detail page and the
  * breadcrumb back, which must reopen the same world (the swm:returnToWork
  * restore) as a snap too since 10-06 — no outgoing card on the way back.
+ * 10-06 cover gates: the Enter World chrome must be fully out before the
+ * loading bar shows (under RM the bar never shows), and on the way in AND
+ * back the cover must be fully up from the moment /work's first card exists
+ * until the wanted card is — reduced motion included (its instant cover), so
+ * World 0's server-rendered card is never seen.
  * With --extra="&popenter=0" /work must open on its first world.
  *
  * Failed image requests land in report.imageFailures (the noise filter hides
@@ -217,7 +222,13 @@ const armRecorder = () => {
     last[k] = v;
     log.push({ ms: Math.round(performance.now() - t0), [k]: v });
   };
+  const op = (sel) => {
+    const el = document.querySelector(sel);
+    return el ? Math.round(parseFloat(getComputedStyle(el).opacity) * 100) / 100 : null;
+  };
   const check = () => {
+    note('cta', op('.hero__lead-col')); // the Enter World chrome (null once home unmounts)
+    note('loader', op('.route-fill__loader'));
     note(
       'cards',
       [...document.querySelectorAll('.fp-card-wrap')]
@@ -450,9 +461,11 @@ async function enterScenario(page) {
   const c = report.colour;
   // --enter, read off the recorder: never an outgoing card (no Turn staged),
   // once the wanted card is up no other, the pager never between stations
-  // (no glide), the first World's accent never shown on the way in, and the
-  // passage fill fully up from the swap until the wanted card is (it lifts
-  // onto the entered World — reduced motion has no fill to hold).
+  // (no glide), the first World's accent never shown on the way in, the
+  // passage fill fully up from the swap until the wanted card is, on the way
+  // in and back (it lifts onto the entered World — under reduced motion too,
+  // its instant cover since 10-06), and the loading bar only once the Enter
+  // World chrome is out (never under RM).
   const e = report.enter;
   const enterPass = (() => {
     if (!e) return {};
@@ -461,16 +474,24 @@ async function enterScenario(page) {
     const cards = log.filter((x) => 'cards' in x).map((x) => x.cards);
     const qfs = log.filter((x) => x.qf != null).map((x) => parseFloat(x.qf));
     const accents = log.filter((x) => 'accent' in x).map((x) => x.accent);
-    const swapAt = log.findIndex((x) => x.cards);
-    const wantAt = log.findIndex((x) => x.cards === `enter:${want}`);
-    let fillThen = null;
-    let fillHeld = swapAt >= 0 && wantAt >= swapAt;
-    log.forEach((x, i) => {
-      if (x.fill == null) return;
-      if (i <= swapAt) fillThen = x.fill;
-      else if (i < wantAt && x.fill < 0.99) fillHeld = false;
-    });
-    fillHeld = fillHeld && fillThen != null && fillThen >= 0.99;
+    // The cover is fully up when /work's first card appears and stays up
+    // until the wanted card is the one on screen.
+    const coverHeld = (rows, slug) => {
+      const swapAt = rows.findIndex((x) => x.cards);
+      const wantAt = rows.findIndex((x) => x.cards === `enter:${slug}`);
+      let fillThen = null;
+      let held = swapAt >= 0 && wantAt >= swapAt;
+      rows.forEach((x, i) => {
+        if (x.fill == null) return;
+        if (i <= swapAt) fillThen = x.fill;
+        else if (i < wantAt && x.fill < 0.99) held = false;
+      });
+      return held && fillThen != null && fillThen >= 0.99;
+    };
+    // The CTA chrome out (opacity 0) vs the loading bar's first visible frame.
+    const ctaOut = log.find((x) => x.cta === 0);
+    const loaderIn = log.find((x) => x.loader > 0);
+    e.timing = { ctaOutMs: ctaOut?.ms ?? null, loaderInMs: loaderIn?.ms ?? null };
     const at = cards.indexOf(`enter:${want}`);
     const wantAccent = e.want?.color ? rgbOf(e.want.color) : null;
     const firstAccent = e.first.color ? rgbOf(e.first.color) : null;
@@ -485,10 +506,12 @@ async function enterScenario(page) {
         ENTER_OFF ||
         !wantAccent ||
         (e.landed?.accent === wantAccent && (firstAccent === wantAccent || !accents.includes(firstAccent))),
-      enterFillHeld: RM || ENTER_OFF || fillHeld,
+      enterFillHeld: ENTER_OFF || coverHeld(log, want),
+      enterLoaderAfterCta: RM ? !loaderIn : !!ctaOut && !!loaderIn && loaderIn.ms >= ctaOut.ms,
       enterKeyConsumed: e.landed?.key == null,
       returnRestored: e.back?.slug === e.landed?.slug,
       returnNoTurn: !(e.backLog || []).some((x) => 'cards' in x && x.cards.includes('exit:')),
+      returnFillHeld: !!e.backLog && coverHeld(e.backLog, e.landed?.slug),
     };
   })();
   report.pass =
