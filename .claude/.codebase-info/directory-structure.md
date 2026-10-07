@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-09-23*
+*Last Updated: 2026-10-06*
 
 ```
 .
@@ -17,7 +17,7 @@
 │   │   │                     #   InfoPanel, ProjectOverlay, PrivacyOverlay/Content, ClientLogoTicker,
 │   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels
 │   │   ├── globe/            # video globe: scene hook, geometry, shader material, schedulers, textures,
-│   │   │                     #   population modes (world pools, patterns, director, tile swaps, popConfig)
+│   │   │                     #   population modes (world pools, patterns, director, tile swaps, name ticker, popConfig)
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
 │   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, directory stack
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)

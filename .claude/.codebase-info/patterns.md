@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-09-26*
+*Last Updated: 2026-10-06*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -39,7 +39,8 @@ Globe tiles: `globe/tileSwap.js` is the one refcount-safe way to put an asset on
 `heldThumbId` ownership). A tile's asset changes only where its screen shows no media (the parked
 pole, a blink to black, a blue surge, a cut), never through a cross-dissolve. A population-mode
 world change defaults to the tide: `MeridianScroll.advance()` surges the scroll one full span, so the
-next world arrives row by row from the top pole.
+next world arrives row by row from the top pole. Name-ticker strips move only the cover-fit uniforms
+(`uvOffsetA` over a RepeatWrapping strip, per frame); `panelMaterial.js` stays untouched.
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.

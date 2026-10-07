@@ -1,12 +1,12 @@
 # Entry Points
 
-*Last Updated: 2026-09-26*
+*Last Updated: 2026-10-06*
 
 ## Routes
 
 | URL | Page | Island (directive) | Data | Status |
 |---|---|---|---|---|
-| `/` | `src/pages/index.astro` | `LandingPage.jsx` → `Hero.jsx` (`client:only="react"`) | `GLOBE_ASSETS_QUERY` → `globe/buildAssetPool.js`; `FEATURED_WORLDS_QUERY` → `globe/buildWorldPools.js` (`?popmode`, branch `refine/globe-worlds`) | live; `body.route-home` |
+| `/` | `src/pages/index.astro` | `LandingPage.jsx` → `Hero.jsx` (`client:only="react"`) | `GLOBE_ASSETS_QUERY` → `globe/buildAssetPool.js`; `FEATURED_WORLDS_QUERY` → `globe/buildWorldPools.js` (population modes, default `tides`; branch `refine/globe-worlds`) | live; `body.route-home` |
 | `/process` | `src/pages/process.astro` | `process/ProcessPage.jsx` (`client:only`) | same globe pool + `process/processContent.js` | live; `body.route-process` |
 | `/work` | `src/pages/work/index.astro` | `work/FeaturedProjects.jsx` (`client:load`) | `FEATURED_WORLDS_QUERY` → `work/detail/buildContentFlow.js` | live |
 | `/work/[slug]` | `src/pages/work/[slug].astro` | `work/detail/FeaturedProjectDetail.jsx` (`client:load`) | `FEATURED_PROJECT_PATHS_QUERY` (paths + next chain), `FEATURED_PROJECT_DETAIL_QUERY` | live |
@@ -42,7 +42,7 @@ purpose), server-computed `body.route-*` classes, skip link, hidden Netlify cont
 | `node --test scripts/test/globe-worlds.test.mjs` | the home globe population modes' pure pieces (world pools, patterns, director ownership, the change clock, shared streams); not in `test:cms` |
 | `node scripts/tunables-keys.mjs --check` | fails if a `?param` in code is missing from `docs/tunables-guide.md` |
 | `node scripts/pager-probe.mjs …` | headless Playwright probe of `/work` pager scenarios |
-| `node scripts/globe-probe.mjs [--mobile] [--rm] [--next=N] [--mode=off] [--paint] [--enter] [--channel=chrome]` | headless probe of the home globe's population modes (dev server on :4322, the worktree port): samples `window.__swmPopStats` and the `<html>` tint. It gates integrity, black tiles, texture count, quiet holds, ⏭ landing, the world changing on its own clock, and the chrome wearing the world's colour. `--paint` checks that the hero gradient fades through in-between colours. `--enter` clicks Enter World on a world other than /work's first and gates the arrival (a snap: no outgoing card, the pager at its station, the world's accent, the cover held until the card, the key consumed) and the breadcrumb return. Failed image requests land in `report.imageFailures`, with a CORS hint on stderr. Screenshots go to `scripts/shots/globe-*` |
+| `node scripts/globe-probe.mjs [--mobile] [--rm] [--next=N] [--mode=off] [--paint] [--enter] [--channel=chrome]` | headless probe of the home globe's population modes (dev server on :4322, the worktree port): samples `window.__swmPopStats` and the `<html>` tint. It gates integrity, black tiles, texture count, quiet holds, ⏭ landing, the world changing on its own clock, and the chrome wearing the world's colour. `--paint` checks that the hero gradient fades through in-between colours. `--enter` clicks Enter World on a world other than /work's first and gates the arrival (a snap: no outgoing card, the pager at its station, the world's accent, the cover held until the card, the key consumed) and the breadcrumb return (the same world, as a snap: `returnNoTurn`). Failed image requests land in `report.imageFailures`, with a CORS hint on stderr. Screenshots go to `scripts/shots/globe-*` |
 | `node scripts/process-probe.mjs [--mobile] [--secs=30]` | headless probe of the `/process` discovery slide: samples `window.__swmProcessStats` (published by `ProcessDebugPanel` under `?debug=1`) for chip count, duplicate terms, overlaps, and each tour hold's subject vs seat, with a screenshot per hold |
 | `node scripts/prep-client-logos.mjs [--check]` | normalize `Client Logos/` into `src/assets/client-logos/` |
 | `node scripts/generate-manifests.mjs "Client" [--dry-run]` | scaffold TBD manifests |

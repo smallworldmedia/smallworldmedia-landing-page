@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-09-26*
+*Last Updated: 2026-10-06*
 
 ## Summary
 
@@ -36,7 +36,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 
 | Component | Lives in | Responsibility |
 |---|---|---|
-| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; under `?popmode` (branch `refine/globe-worlds`) a PopulationDirector lays featured-project worlds over the tiles, one world at a time on its own change clock, and the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /work (a snap, not a Turn from World 0) |
+| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; on branch `refine/globe-worlds` a PopulationDirector (on by default since the 10-06 bake; `?popmode=off` restores the flat pool) lays featured-project worlds over the tiles, one world at a time on its own change clock, with client-name ticker strips across adjacent tiles; the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /work (a snap, not a Turn from World 0), and the detail breadcrumb returns the same way |
 | /work Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
 | /process | `src/components/process/` | Five-stage narrative: ScrollTrigger-driven stage machine reusing the globe geometry/material |
@@ -53,8 +53,8 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
    calls.
 2. Runtime media: images via Sanity CDN / Mux thumbnails (`globe/TextureManager.js`), video via hls.js
    into a fixed `<video>` pool (`globe/VideoSlotPool.jsx`); schedulers (`LivePanelScheduler`,
-   `world/worldLive.js`) promote a handful of visible tiles to live video at ~2 Hz. Under `?popmode`
-   the globe scheduler shares streams: one decode per clip feeds every tile showing it (`?poplive`).
+   `world/worldLive.js`) promote a handful of visible tiles to live video at ~2 Hz. Under the population
+   modes the globe scheduler shares streams: one decode per clip feeds every tile showing it (`?poplive`).
 3. Content ingest: `media/<Client>/<Collection>/_manifest.md` → `npm run cms plan` → approve →
    `apply` (Sanity docs + Mux uploads, journaled) → `verify`. See `cms-pipeline.md`.
 
