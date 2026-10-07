@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-10-06*
+*Last Updated: 2026-10-07*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -33,14 +33,20 @@ are cancelled.
 ## One-place motion
 `src/lib/dragMomentum.js` (drag + inertia), `src/lib/overlayWipe.js` (overlay wipe, never a fade),
 `src/lib/scramble.js` / `charCut.js` (text arrival). New surfaces consume these; forked numbers are
-bugs. Footer exits are masked via `--footer-peak`, never faded.
+bugs. Footer exits are masked via `--footer-peak`, never faded — anything that fades on the way IN
+rides the peak's rest-normalized twin `--footer-rise-peak`, so a retreat slides the mask back over
+it instead of fading it out on screen (`communication.md`). `lib/dragMomentum.js` takes
+`drag: false` for an ambient-only engine (no pointer listeners at all), which is how the phone
+home globe hands the gesture back to the page.
 
 Globe tiles: `globe/tileSwap.js` is the one refcount-safe way to put an asset on a tile (`loadTile`,
 `heldThumbId` ownership). A tile's asset changes only where its screen shows no media (the parked
 pole, a blink to black, a blue surge, a cut), never through a cross-dissolve. A population-mode
 world change defaults to the tide: `MeridianScroll.advance()` surges the scroll one full span, so the
-next world arrives row by row from the top pole. Name-ticker strips move only the cover-fit uniforms
-(`uvOffsetA` over a RepeatWrapping strip, per frame); `panelMaterial.js` stays untouched.
+next world arrives row by row from the top pole. Client-name strips are PLACED, not scrolled: `planNames()`
+picks their tiles once per world change against the live camera, `placeNames()` only reconciles the cover-fit
+uniforms per frame, and the horizontal ticker is gone. `panelMaterial.js` stays untouched, so its pole pinch
+(`vK = sin(thetaC)`) is compensated CPU-side in `nameTicker.js` (`namePinch` / `nameWindow` / `nameRendered`).
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
@@ -54,12 +60,15 @@ world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second s
   byte-identical: `?lenistune`, `?footertune`, `?herotune`, `?committune`, `?entertune`, `?texttune`,
   `?scrimtune`, `?fp1tune`, `?poptune`, `?debug` (process), `?fpgrid=1|2|3`, `?pager=rail`. Phone-sized
   benches start collapsed to a one-line chip (`?debug` process, `?deckdebug`, `?poptune`).
-- Inventory: `docs/tunables-guide.md` (304 keys). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (319 keys). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
   idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
   regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
   the 16 pop keys until the tuple regex landed.
   Same-key collisions across routes and `?lenistune=1` silently reverting the Lenis bake are known traps.
+  A seeder's `n > 0` guard also swallows a legal dialed `0`: `footerTune.js` carries a per-key `ZERO_OK` set rather
+  than relaxing the guard for every key, because `?footerlift=0` is the one way to ask whether a parallax is
+  carrying anything.
 
 ## Rendering traps (learned)
 - Element `opacity < 1` composites a `backdrop-filter` over the sharp original: fade the background
@@ -85,8 +94,17 @@ world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second s
 - Timing a route arrival: polling from Node starves under SwiftShader (3 samples in 3.2 s missed
   the /work arrival). Record in the page instead, with a MutationObserver + rAF logger on `window`,
   which survives a ClientRouter soft nav (globe-probe's `--enter` does this).
-- Previews of the production build: serve them on an allowlisted port (localhost:4321, :4322 or
-  :3333). Sanity's image CDN 403s any other origin, so WebGL stills go black (`communication.md`).
+- Previews of the production build: serve them on an allowlisted port (localhost:4321, :4322, :3333
+  or :4330). Sanity's image CDN 403s any other origin, so WebGL stills go black (`communication.md`).
+- Never probe a dev server straight after `npm run build`: the two share `node_modules/.vite`, the
+  build rewrites the optimized-deps cache, and the running `astro dev` then answers modules with 504
+  "Outdated Optimize Dep" — the probe times out on the canvas while the tests and the build itself
+  report green. Probe the built output instead: `npx astro preview --port 3333` with
+  `GLOBE_PROBE_BASE=http://localhost:3333`.
+- `globe-probe --footer` is the only scenario in the repo that GESTURES (a real touch scrub, forced
+  mobile at 390×844). Footer-reveal geometry — the panel's climb against the hero's lift, the marks'
+  crossing of the fold, the hold through a retreat — is measured there rather than argued from
+  arithmetic.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 

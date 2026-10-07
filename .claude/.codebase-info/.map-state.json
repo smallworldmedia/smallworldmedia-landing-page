@@ -3,7 +3,7 @@
   "tool": "codebase-mapper",
   "version": "2.15.10",
   "mappedAt": "2026-10-07",
-  "gitCommit": "ebc5472c9d8c9b59140731f787efe81f7c97aaa1",
+  "gitCommit": "1e46bb546ab7d9fa9145a6a95d49021cac4e8f16",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -19,16 +19,16 @@
   ],
   "hashes": {
     "INDEX.md": "2ff67acb7d54301971d38c715613bb3b963b2b8a5b2027d940adf67a5a18baa1",
-    "architecture.md": "fb63f8719bfcbdd769b4c17553b72f701b71076739b56ea7094eaab9c296ffb5",
+    "architecture.md": "94085c53eb10386e83c2eb8240762ce650170fabf65bb99a4fb9c0266cf7f152",
     "cms-pipeline.md": "a177e29250424503252c1126421373934bf576162dfe37d211b156b7c40598d1",
     "coding-style.md": "702f452f8d1d83068a16de873a136e9b89d168852e2c4a38b7958239ab30ad14",
-    "communication.md": "7bd0c74190c2138b5bae859c7e8f1d8f1a7f3ac231f6a8abb9e86eca030b7cfa",
+    "communication.md": "9fe2746b1a0fe8453e0fa09e99b8873a2690f7f391670ea7f622a64513b9c6f6",
     "database.md": "b1d22593d54470d8e918794222da69c84fdb5e4cf091c8cba975dd29d891b4cd",
-    "directory-structure.md": "c871b52ad048717ef3571fb27b023a5aeb26a183af6e601d585f0fa46d33d786",
-    "entry-points.md": "bf812315fc02e8340a3af5739b46c8d59e5b3ce8cecf386db28a2be9329e98fe",
-    "modules.md": "72e8c2727cce067871ad6a2882392e7d3918f01b087752306e04462640f8938a",
-    "onboarding.md": "413f6657d7f14c951e2145d6bc61c01dfedb6d7ee80fed15272e3c587633263b",
-    "patterns.md": "dca800d139001c42fd928a47bf5b685f63976c4665684aae676b6d5cbefffc73",
+    "directory-structure.md": "134db43b9dad2d2dcbd5b33239cfc1e496afdb0583797b8e20210f979422730d",
+    "entry-points.md": "842e401e6d3a805324d05bb606a89c5f3cc1cccfe68534c01375525ff0d7c0fd",
+    "modules.md": "6d4c957cef775d7f9768b1a1bbdf4d5c7087ec03593c793774bd199ebfe573ac",
+    "onboarding.md": "abaf4bae5343eda86e7d0af1b54f734dc9938a995f6ce6a1dc3540fcad0a88fb",
+    "patterns.md": "f4fac7c85fc1f1d3d217bd9796408b9f7ffcd0c68301fb4dbb14470a3fa55b9d",
     "tech-landscape.md": "7407c07cfbc42cdb9d78655f7a1ceba400a0ee14822674949443a1b433ab24d2"
   }
 }
