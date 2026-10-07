@@ -70,15 +70,37 @@ function measureCtx() {
   return ctx2d;
 }
 
-/** The drawn width of the label in px — measured once the face has loaded,
- *  else estimated from the glyph count (a wrong estimate only mis-sizes one
- *  layout; the next world change measures for real). */
+/** A webfont used ONLY on a canvas is never fetched: nothing in the DOM wears
+ *  it, so the browser leaves it alone until something asks. loadNameTexture
+ *  asks (document.fonts.load) — but the director PLANS before it draws, and
+ *  document.fonts.check() answers true for a face the document has never
+ *  activated, so that first measurement silently runs in the DEFAULT face and
+ *  sizes the span to its much wider metrics (TOBEHONEST asked for 5 tiles of
+ *  a 3-tile name, spreading it over 150° of longitude where the globe's own
+ *  foreshortening eats it). So ask at import, and until the real face is in
+ *  hand measure nothing — the glyph-count estimate is the honest answer. */
+let faceLoaded = false;
+if (typeof document !== 'undefined' && document.fonts?.load) {
+  document.fonts
+    .load(fontAt(STRIP_H), 'ABC')
+    .then(() => {
+      faceLoaded = true;
+    })
+    .catch(() => {
+      /* the estimate carries it */
+    });
+}
+
+/** The drawn width of the label in px — measured once the face is really in
+ *  hand (faceLoaded above, NOT document.fonts.check), else estimated from the
+ *  glyph count (a wrong estimate only mis-sizes one layout; the next world
+ *  change measures for real). */
 function textWidth(text, px) {
   const s = label(text);
   const font = fontAt(px);
   try {
     const ctx = measureCtx();
-    if (ctx && document.fonts?.check?.(font, s)) {
+    if (ctx && faceLoaded) {
       ctx.font = font;
       ctx.letterSpacing = `${(TRACKING * px).toFixed(1)}px`;
       return ctx.measureText(s).width;
