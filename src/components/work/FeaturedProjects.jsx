@@ -300,10 +300,10 @@ export default function FeaturedProjects({ worlds = [] }) {
   // the breadcrumb arms `swm:returnToWork` on click, and BaseLayout's
   // popstate tracker arms it for browser back/forward. Any other entry —
   // the nav's featured_projects link, a direct load — starts at the first
-  // World. Restore sets `active` only: the card-staging effect rolls the
-  // restored card in through the normal exit/enter choreography (setting
-  // cards directly here raced that effect and left the entrance reverted —
-  // the "card never loads" bug).
+  // World. Restore sets `active` (+ the snap below) only: the card-staging
+  // effect boots the restored card (setting cards directly here raced that
+  // effect and left the entrance reverted — the "card never loads" bug).
+  // Since 10-06 the return is a snap like Enter World's, not a Turn.
   //
   // Enter World from the home globe (globe-worlds P3) hands over the world
   // on the globe as `swm:enterWorld` (a slug — Hero) and /work opens INSIDE
@@ -336,7 +336,12 @@ export default function FeaturedProjects({ worlds = [] }) {
     }
     if (!armed || !Number.isFinite(saved)) return;
     const idx = Math.max(0, Math.min(lastIndex, saved));
-    if (idx !== activeRef.current) setActive(idx);
+    // 10-06 (Nathan): the detail-page return SNAPS too (continuity with Enter
+    // World) — the breadcrumb's cover holds until this World's card is up.
+    if (idx !== activeRef.current) {
+      snapRef.current = idx;
+      setActive(idx);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

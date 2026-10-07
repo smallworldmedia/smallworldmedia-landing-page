@@ -46,7 +46,8 @@ export function loadTile(owner, panel, asset, onBound = null) {
       return;
     }
     const u = panel.mesh.material.uniforms;
-    const { scale, offset } = computeCoverUv(1, panel.panelAspect);
+    // Thumbnails are square; a name strip carries its real aspect (nameTicker).
+    const { scale, offset } = computeCoverUv(tex.userData?.aspect ?? 1, panel.panelAspect);
     u.texA.value = tex;
     u.uvScaleA.value.set(scale[0], scale[1]);
     u.uvOffsetA.value.set(offset[0], offset[1]);

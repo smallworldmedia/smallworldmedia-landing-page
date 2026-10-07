@@ -588,6 +588,10 @@ export default function Hero({ globeAssets, globeWorlds }) {
         armedRef.current = true;
         return;
       }
+      // The cover cuts in (10-06) — /work lets go once the entered card is up.
+      window.dispatchEvent(
+        new CustomEvent('swm:envelop', { detail: { duration: 0, color: worldRef.current?.color || undefined } })
+      );
       handOffWorld();
       navigate('/work'); // /work initializes already inside
       return;
@@ -816,8 +820,14 @@ export default function Hero({ globeAssets, globeWorlds }) {
     sceneApiRef.current?.popHold();
     const entered = worldRef.current;
     if (PREFERS_REDUCED_MOTION) {
+      // RM: plain navigation, no theatrics — but the cover CUTS in (RouteFill
+      // sets it, no fade) so /work's server-rendered first World never shows
+      // before the entered one; /work lets go once that card is up (10-06).
+      window.dispatchEvent(
+        new CustomEvent('swm:envelop', { detail: { duration: 0, color: entered?.color || undefined } })
+      );
       handOffWorld(entered);
-      navigate('/work'); // RM: plain navigation, no theatrics
+      navigate('/work');
       return;
     }
     departingRef.current = true;
@@ -825,14 +835,29 @@ export default function Hero({ globeAssets, globeWorlds }) {
     commitKillRef.current?.(); // a bench dry-run may still be settling
     const { enterMs, scale, moveStart, moveEnd, pow } = ENTER_TUNABLES;
     const coverS = enterMs / 1000;
+    // 10-06 (Nathan): the button leaves FIRST, quickly — the chrome exit's
+    // one real-time beat — and the loading bar waits until it is gone.
+    const chrome = heroRef.current?.querySelectorAll('.hero__lead-col, .hero-labels');
+    if (chrome?.length) {
+      gsap.to(chrome, { autoAlpha: 0, duration: CHROME_OUT_SECONDS, ease: 'power2.out', overwrite: true });
+    }
     window.dispatchEvent(
-      // loader: true — home→/work still shows overviews_loading while the
-      // World builds (the FP→detail passage stays bare). The fill wears the
-      // population world's accent when one holds the globe (?popmode) —
-      // otherwise brand blue: home IS blue.
+      // The fill wears the population world's accent when one holds the
+      // globe (?popmode) — otherwise brand blue: home IS blue.
       new CustomEvent('swm:envelop', {
-        detail: { duration: coverS, loader: true, color: entered?.color || undefined },
+        detail: { duration: coverS, color: entered?.color || undefined },
       })
+    );
+    // overviews_loading (home→/work only — the FP→detail passage stays bare)
+    // opens ?loaderlead ms AFTER the button is out, never under it. rAF-
+    // deferred so RouteFill's tweens are not adopted by this island's context.
+    const loaderAtMs = Math.min(
+      enterMs,
+      CHROME_OUT_SECONDS * 1000 + Math.max(0, HERO_TUNING.loaderLeadMs)
+    );
+    setTimeout(
+      () => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('swm:loader-start'))),
+      loaderAtMs
     );
     // 08-31: the tagline's letters cut out in random order under the rising
     // cover — the FP→detail letter-exit carried to this passage (the

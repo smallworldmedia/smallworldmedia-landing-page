@@ -34,11 +34,21 @@
  * footer band. (SiteFooter's own link-row stagger rides the same broadcast —
  * the two corners + the link row read as one settling moment.)
  *
+ * Two states (10-06, Nathan — "make it very clear what Small World Media is
+ * immediately on page load"): at REST ON HOME (body.route-home, no drawer /
+ * overlay / privacy [data-chrome-open], no mobile menu [data-menu-open], no
+ * footer [data-footer-revealed]) the pill carries the LONG blurb — "Small
+ * World Media is a full-spectrum creative studio …". Any other state, or any
+ * other route, ABBREVIATES it to the short tagline: the capsule closes in
+ * from its top-right (bottom-left anchored, so the text never travels), the
+ * long words drop out, the short words fade up seated. Leaving that state
+ * on home expands it back. Re-checked on every latch change + after-swap.
+ *
  * Mounted in BaseLayout as its OWN persistent island (NOT inside .site-shell
  * — the footer-reveal rule translates the shell up by the nav height, which
  * would carry this off its footer alignment).
  */
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
@@ -73,6 +83,24 @@ export const TAGLINE_LINES = [
   ['industry.'],
 ];
 export const EM_LINE = 0;
+// 10-06 (Nathan): the long blurb home shows at rest. Desktop sets the two
+// lines as written (nowrap); phones let them run as one wrapping paragraph.
+// "Small World Media" carries the Medium (VISUAL WORLDS' role).
+const TAGLINE_LONG_LINES = [
+  ['Small', 'World', 'Media', 'is', 'a', 'full-spectrum', 'creative', 'studio', 'that', 'specializes', 'in'],
+  ['building', 'high-impact', 'brand', 'worlds', 'and', 'visuals', 'for', 'the', 'music', 'industry.'],
+];
+const LONG_EM_WORDS = 3;
+const LABEL_LONG = `${TAGLINE_LONG_LINES.flat().join(' ')} — open the footer`;
+const LABEL_SHORT = 'Visual worlds for the music industry — open the footer';
+// The letter exit's budget: the short tagline's letter count, so the long
+// blurb cuts out in the same total time (each cut comes faster).
+const SHORT_CHARS = TAGLINE_LINES.flat().join('').length;
+// ?tagmorph — the long ⇄ short morph, ms (the capsule's resize clock).
+const TAG_MORPH_MS = 600;
+// Word fade-ins share one total budget (s), so the 21-word blurb arrives on
+// the short tagline's beat instead of a 1.5 s crawl; the morph's is tighter.
+const wordStagger = (n, budget = 0.8) => Math.min(0.07, budget / Math.max(1, n - 1));
 const HOME_SAFETY_MS = 12000; // hero-chrome no-show fallback (odd intro paths)
 const REVEAL_ON = 0.85; // footer progress that arms the copyright/lockup
 const REVEAL_OFF = 0.5; // (unused since 09-08 — exits are masked, not faded) // retreat threshold (hysteresis)
@@ -100,7 +128,8 @@ export default function SiteTagline() {
     const root = rootRef.current;
     if (!root) return undefined;
     const pill = root.querySelector('.site-tagline__pill');
-    const words = root.querySelectorAll('.site-tagline__word');
+    const longEl = root.querySelector('.site-tagline__text--long');
+    const shortEl = root.querySelector('.site-tagline__text--short');
     const copy = root.querySelector('.site-tagline__copy');
     const lockup = root.querySelector('.site-tagline__lockup');
     const privacy = privacyRef.current;
@@ -124,14 +153,90 @@ export default function SiteTagline() {
     };
     document.addEventListener('astro:after-swap', onSwapLatch);
 
-    // ── Intro ──
+    // ── Long ⇄ short (10-06) ── `long` is what the DOM shows. The resting
+    // layer sits in flow and sizes the capsule; the other waits out of flow,
+    // unseen (global.css, keyed on data-tagline).
+    let long = false;
     let introPlayed = false;
     let introTl = null;
+    let morphTl = null;
+    const morphS = (() => {
+      const v = Number(new URLSearchParams(location.search).get('tagmorph'));
+      return (Number.isFinite(v) && v > 0 ? v : TAG_MORPH_MS) / 1000;
+    })();
+    const activeLayer = () => (long ? longEl : shortEl);
+    const layerWords = (el) => el.querySelectorAll('.site-tagline__word');
+    const atRest = () => {
+      const html = document.documentElement;
+      return (
+        document.body.classList.contains('route-home') &&
+        !html.hasAttribute('data-chrome-open') &&
+        !html.hasAttribute('data-menu-open') &&
+        !html.hasAttribute('data-footer-revealed')
+      );
+    };
+    const settleMorph = () => {
+      morphTl?.kill();
+      morphTl = null;
+      gsap.set(pill, { clearProps: 'width,height' });
+      gsap.set([longEl, shortEl], { clearProps: 'width' });
+      longEl.classList.remove('is-leaving');
+      shortEl.classList.remove('is-leaving');
+    };
+    const setLong = (next, animate) => {
+      if (next === long) return;
+      const outgoing = activeLayer();
+      // Measured before the settle: mid-morph, the capsule's live size IS
+      // where the reverse starts (no snap).
+      const from = pill.getBoundingClientRect();
+      const outW = outgoing.getBoundingClientRect().width;
+      settleMorph();
+      long = next;
+      pill.dataset.tagline = next ? 'long' : 'short';
+      pill.setAttribute('aria-label', next ? LABEL_LONG : LABEL_SHORT);
+      const incoming = activeLayer();
+      const inWords = layerWords(incoming);
+      // Instant: RM, pre-intro (the intro reveals whichever is resting), or a
+      // pill that isn't drawn (phones hide it off home).
+      if (!animate || reduced || !introPlayed || !from.width) {
+        gsap.set(inWords, { autoAlpha: 1 });
+        return;
+      }
+      introTl?.progress(1); // a state change mid-intro lands the intro first
+      const to = pill.getBoundingClientRect();
+      // Both layers keep their own measure while the capsule resizes under
+      // them, so neither re-wraps mid-morph.
+      gsap.set(outgoing, { width: outW });
+      gsap.set(incoming, { width: incoming.getBoundingClientRect().width });
+      outgoing.classList.add('is-leaving');
+      morphTl = gsap
+        .timeline({ onComplete: settleMorph })
+        .fromTo(
+          pill,
+          { width: from.width, height: from.height },
+          { width: to.width, height: to.height, duration: morphS, ease: 'power3.out' },
+          0
+        )
+        .to(
+          layerWords(outgoing),
+          { autoAlpha: 0, duration: 0.18, ease: 'power1.in', stagger: { amount: 0.12, from: 'random' } },
+          0
+        )
+        .fromTo(
+          inWords,
+          { autoAlpha: 0 },
+          { autoAlpha: 1, duration: 0.4, ease: 'power2.out', stagger: wordStagger(inWords.length, 0.45) },
+          morphS * 0.35
+        );
+    };
+    setLong(atRest(), false);
+
+    // ── Intro ──
     let safetyId = 0;
     const showInstant = () => {
       introPlayed = true;
       gsap.set(pill, { clipPath: 'inset(0% 0% 0% 0%)', autoAlpha: 1 });
-      gsap.set(words, { autoAlpha: 1, yPercent: 0 });
+      gsap.set(layerWords(activeLayer()), { autoAlpha: 1, yPercent: 0 });
       if (privacy) {
         gsap.set(privacy, { clipPath: 'inset(0% 0% 0% 0%)', autoAlpha: 1 });
         gsap.set(privacyWord, { autoAlpha: 1 });
@@ -155,6 +260,7 @@ export default function SiteTagline() {
       // the per-word arrival — the sequential rise read as stutter; the
       // words fade in seated. The privacy pill mirrors on the same beat:
       // right→left (right anchored), its one word fading in behind the wipe.
+      const words = layerWords(activeLayer());
       introTl = gsap
         .timeline({ onComplete: markLanded })
         .set(pill, { autoAlpha: 1 })
@@ -170,7 +276,7 @@ export default function SiteTagline() {
           {
             autoAlpha: 1,
             duration: 0.45,
-            stagger: 0.07,
+            stagger: wordStagger(words.length),
             ease: 'power2.out',
           },
           0.12
@@ -345,8 +451,9 @@ export default function SiteTagline() {
     const onTaglineExit = () => {
       restoreExit();
       if (!pill) return;
+      settleMorph();
       try {
-        exitSplit = SplitText.create(pill, { type: 'chars' });
+        exitSplit = SplitText.create(activeLayer(), { type: 'chars' });
       } catch {
         return; // unsplittable (hidden pre-intro edge) — the cover carries it
       }
@@ -355,9 +462,11 @@ export default function SiteTagline() {
         const j = Math.floor(Math.random() * (i + 1));
         [chars[i], chars[j]] = [chars[j], chars[i]];
       }
+      // 10-06: the long blurb cuts in the short tagline's total time.
+      const stepMs = TEXT_TUNABLES.charCutMs * Math.min(1, SHORT_CHARS / Math.max(1, chars.length));
       chars.forEach((el, i) => {
         exitCalls.push(
-          gsap.delayedCall((i * TEXT_TUNABLES.charCutMs) / 1000, () => {
+          gsap.delayedCall((i * stepMs) / 1000, () => {
             el.style.visibility = 'hidden';
             exitCut.push(el);
           })
@@ -367,11 +476,24 @@ export default function SiteTagline() {
     window.addEventListener('swm:tagline-exit', onTaglineExit);
     document.addEventListener('astro:after-swap', restoreExit);
 
+    // Long ⇄ short follows the latches + the route (after restoreExit, so a
+    // cut blurb is whole again before it morphs).
+    const evaluate = () => setLong(atRest(), true);
+    const stateMo = new MutationObserver(evaluate);
+    stateMo.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-chrome-open', 'data-menu-open', 'data-footer-revealed'],
+    });
+    document.addEventListener('astro:after-swap', evaluate);
+
     return () => {
       window.removeEventListener('swm:hero-lockup-done', onChrome);
       document.removeEventListener('astro:after-swap', onSwapLatch);
       window.removeEventListener('swm:tagline-exit', onTaglineExit);
       document.removeEventListener('astro:after-swap', restoreExit);
+      document.removeEventListener('astro:after-swap', evaluate);
+      stateMo.disconnect();
+      settleMorph();
       restoreExit();
       window.clearTimeout(safetyId);
       mo.disconnect();
@@ -404,22 +526,43 @@ export default function SiteTagline() {
           <button
             type="button"
             className="site-tagline__pill"
-            aria-label="Visual worlds for the music industry — open the footer"
+            aria-label={LABEL_SHORT}
             onClick={() => window.dispatchEvent(new Event(FOOTER_REVEAL_EVENT))}
           >
-            {TAGLINE_LINES.map((line, li) => (
-              <span className="site-tagline__line" key={line.join('-')}>
-                {line.map((w) => (
-                  <span
-                    key={w}
-                    className={`site-tagline__word${li === EM_LINE ? ' site-tagline__word--em' : ''}`}
-                    aria-hidden="true"
-                  >
-                    {w}
-                  </span>
-                ))}
-              </span>
-            ))}
+            {/* 10-06: two layers, one resting (data-tagline, set by the
+                effect). Long words are spaced by real spaces so phones can
+                wrap them as a paragraph. */}
+            <span className="site-tagline__text site-tagline__text--long" aria-hidden="true">
+              {TAGLINE_LONG_LINES.map((line, li) => (
+                <span className="site-tagline__line" key={line.join('-')}>
+                  {line.map((w, wi) => (
+                    <Fragment key={w}>
+                      {wi > 0 && ' '}
+                      <span
+                        className={`site-tagline__word${li === 0 && wi < LONG_EM_WORDS ? ' site-tagline__word--em' : ''}`}
+                      >
+                        {w}
+                      </span>
+                    </Fragment>
+                  ))}
+                  {li < TAGLINE_LONG_LINES.length - 1 && ' '}
+                </span>
+              ))}
+            </span>
+            <span className="site-tagline__text site-tagline__text--short" aria-hidden="true">
+              {TAGLINE_LINES.map((line, li) => (
+                <span className="site-tagline__line" key={line.join('-')}>
+                  {line.map((w) => (
+                    <span
+                      key={w}
+                      className={`site-tagline__word${li === EM_LINE ? ' site-tagline__word--em' : ''}`}
+                    >
+                      {w}
+                    </span>
+                  ))}
+                </span>
+              ))}
+            </span>
           </button>
           <p className="site-tagline__copy">©{year}. All rights reserved.</p>
         </div>

@@ -147,7 +147,7 @@ export const TUNING_DEFAULTS = Object.freeze({
      it only existed between the handoff and /work's release). Both read LIVE
      at fire time (Hero commit / RouteFill release), so the bench moves them
      without a reload. */
-  loaderLeadMs: 350, // ?loaderlead — ms after the commit STARTS before the loading chrome appears (over the spreading blue; was: only at handoff, ~commitMs later)
+  loaderLeadMs: 350, // ?loaderlead — ms after the Enter World button is OUT (the 0.2 s chrome exit) before the loading bar fades up (10-06: never under the button); the ?herotune dry run's commit path counts it from the commit's start
   loaderEndMs: 500, // ?loaderend — the bar's paced closing stretch once /work releases: the final % eases over this and the reveal WAITS for it
   /* Camera channels (08-25 refactor): each rides its OWN smooth power-inOut
      window as a fraction of the FULL timeline — recenter and zoom overlap

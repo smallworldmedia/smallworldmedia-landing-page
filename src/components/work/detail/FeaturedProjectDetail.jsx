@@ -100,6 +100,34 @@ function goNextProject(e, next) {
   }, NEXT_COVER_SECONDS * 1000 + 60);
 }
 
+// The breadcrumb back (10-06, Nathan): /work reopens this project's World as
+// a SNAP — the same continuity as Enter World from the globe. The cover wears
+// the project's accent and holds until that World's card is up (/work's
+// fillOnCardRef). RM keeps the plain navigation but still cuts the cover in,
+// so /work's first World never shows before the restored one.
+function goBackToWork(e, color) {
+  try {
+    sessionStorage.setItem('swm:returnToWork', '1');
+  } catch {
+    /* storage unavailable */
+  }
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // new tab/window
+  if (PREFERS_REDUCED_MOTION) {
+    window.dispatchEvent(new CustomEvent('swm:envelop', { detail: { duration: 0, color } }));
+    return;
+  }
+  e.preventDefault();
+  if (departing) return;
+  departing = true;
+  window.dispatchEvent(
+    new CustomEvent('swm:envelop', { detail: { duration: NEXT_COVER_SECONDS, color } })
+  );
+  setTimeout(() => {
+    departing = false;
+    navigate('/work');
+  }, NEXT_COVER_SECONDS * 1000 + 60);
+}
+
 function DetailNextChip({ next }) {
   const windowRef = useRef(null);
   const copyRef = useRef(null);
@@ -397,17 +425,12 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       {/* Breadcrumb back to the Featured Projects experience. Sits under
           the client panel on the left, rides sticky under the nav once the
           panel scrolls away. Clicking arms the return-restore — /work
-          reopens the World you entered from (nav link starts fresh). */}
+          reopens the World you entered from (nav link starts fresh), as a
+          snap under the project-coloured cover (goBackToWork). */}
       <a
         href="/work"
         className="detail-breadcrumb"
-        onClick={() => {
-          try {
-            sessionStorage.setItem('swm:returnToWork', '1');
-          } catch {
-            /* storage unavailable */
-          }
-        }}
+        onClick={(e) => goBackToWork(e, project?.projectColor || undefined)}
       >
         {/* Inline SVG return arrow (08-30 (3), Nathan): the ↩ codepoint
             carries an emoji presentation on iOS — a drawn glyph can't be

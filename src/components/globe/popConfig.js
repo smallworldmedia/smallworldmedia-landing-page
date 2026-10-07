@@ -19,10 +19,15 @@
  * chaos), the one-world layout, shared video streams (live) and the world's
  * projectColor on the globe + chrome (color).
  * P3 = Enter World lands inside the world on the globe (enter).
+ * 10-06 bake (Nathan's dial): tides on by default, all media, cap 13,
+ * weighted shares, a 6 s ± 0.2 hold, a 0.9 s surge, chaos 1. The seed stays
+ * random per visit (his call).
+ * 10-06 = client-name ticker tiles (names, nameSpans, nameSpeed, nameStyle —
+ * nameTicker.js); starting values, not yet dialed.
  */
-import { IS_MOBILE } from './globeConfig.js';
 import { PATTERNS } from './worldPatterns.js';
 import { WORLD_POOL_CAP } from './buildWorldPools.js';
+import { NAME_STYLES } from './nameTicker.js';
 
 const search = () =>
   new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
@@ -46,7 +51,9 @@ export const POP_TRANSITIONS = ['tide', 'blink', 'surge', 'cut'];
 /** shared = one decoded stream feeds every tile showing that clip; tile = one
  *  decode per live tile (today's scheduler). */
 export const POP_LIVE = ['shared', 'tile'];
-export { PATTERNS as POP_PATTERNS };
+/** A name strip's width in adjacent tiles (each strip draws one from the set). */
+export const POP_NAME_SPANS = ['1', '2', '3'];
+export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES };
 
 /** popmedia → the media kinds a world's pool keeps (null = its whole pool:
  *  hero + showcase Tiles + album art). showcase = the /work World's Tiles —
@@ -63,22 +70,26 @@ export const MEDIA_KINDS = {
 const randomSeed = () => Math.floor(Math.random() * 1e6);
 
 export const POP_DEFAULTS = Object.freeze({
-  mode: 'off', // ?popmode — off | tides (POP_MODES)
+  mode: 'tides', // ?popmode — off | tides (POP_MODES). Nathan 10-06: tides is home's globe
   seed: 0, // ?popseed — the draw (start world, patterns, the change clock); resolved per visit below
-  media: 'showcase', // ?popmedia — showcase | all | video | still | art (MEDIA_KINDS)
-  cap: IS_MOBILE ? 16 : 24, // ?popcap — assets per world, ≤ WORLD_POOL_CAP (bounds texture residency)
-  share: 'equal', // ?popshare — equal | weighted (tape area ∝ each world's media count)
+  media: 'all', // ?popmedia — showcase | all | video | still | art (MEDIA_KINDS)
+  cap: 13, // ?popcap — assets per world, ≤ WORLD_POOL_CAP (bounds texture residency)
+  share: 'weighted', // ?popshare — equal | weighted (tape area ∝ each world's media count)
   group: 1, // ?popgroup — worlds on the globe at once, 1..3 (Nathan 09-26: one)
   layout: 'mix', // ?poplayout — one world: mix | facets (POP_LAYOUTS)
   patterns: Object.freeze(['continents', 'archipelago', 'spiral']), // ?poppattern — 2–3 worlds: the set each grouping draws from (comma list)
-  hold: 8, // ?pophold — seconds a world holds before the next
-  holdJit: 0.3, // ?popholdjit — ± fraction of the hold, drawn per change
-  trans: 2.4, // ?poptrans — seconds a change takes (a tide rolls a full span in it)
-  transitions: Object.freeze(['tide']), // ?poptransset — the set changes draw from (comma list, POP_TRANSITIONS)
-  chaos: 0.35, // ?popchaos — 0 = editorial order + the set in turn; 1 = a random next world + transition every change
+  hold: 6, // ?pophold — seconds a world holds before the next
+  holdJit: 0.2, // ?popholdjit — ± fraction of the hold, drawn per change
+  trans: 0.9, // ?poptrans — seconds a change takes (a tide rolls a full span in it)
+  transitions: Object.freeze(['surge']), // ?poptransset — the set changes draw from (comma list, POP_TRANSITIONS)
+  chaos: 1, // ?popchaos — 0 = editorial order + the set in turn; 1 = a random next world + transition every change
   live: 'shared', // ?poplive — shared | tile (POP_LIVE)
   color: 1, // ?popcolor — 1 = the world's projectColor drives the globe + chrome; 0 = brand blue
   enter: 1, // ?popenter — 1 = Enter World opens /work on the world on the globe; 0 = the first World
+  names: 2, // ?popnames — name-strip rows on the visible face, ≈ strips facing you (0 = none; 4 = every row)
+  nameSpans: Object.freeze(['2', '3']), // ?popnamespan — a strip's width in tiles, drawn per strip (comma list, POP_NAME_SPANS)
+  nameSpeed: 0.6, // ?popnamespeed — the ticker's pace, tile heights per second (0 = still)
+  nameStyle: 'ink', // ?popnamestyle — ink = the world's colour on black; fill = black on the colour
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
@@ -94,6 +105,8 @@ const NUMERIC = {
   chaos: ['popchaos', (n) => clamp(n, 0, 1)],
   color: ['popcolor', (n) => (n > 0 ? 1 : 0)],
   enter: ['popenter', (n) => (n > 0 ? 1 : 0)],
+  names: ['popnames', (n) => clamp(Math.round(n), 0, 4)],
+  nameSpeed: ['popnamespeed', (n) => clamp(n, 0, 4)],
 };
 /* — Single-choice knobs (value ∈ vocab) and set knobs (comma lists ⊂ vocab). — */
 const CHOICE = {
@@ -102,10 +115,12 @@ const CHOICE = {
   share: ['popshare', POP_SHARES],
   layout: ['poplayout', POP_LAYOUTS],
   live: ['poplive', POP_LIVE],
+  nameStyle: ['popnamestyle', NAME_STYLES],
 };
 const SETS = {
   patterns: ['poppattern', PATTERNS],
   transitions: ['poptransset', POP_TRANSITIONS],
+  nameSpans: ['popnamespan', POP_NAME_SPANS],
 };
 
 // Live, mutable tuning state (the bench writes, the director reads).

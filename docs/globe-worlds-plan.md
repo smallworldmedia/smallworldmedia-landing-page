@@ -434,3 +434,61 @@ pools ship tagged by kind up to the hard cap.
       plan kept that restore as is). The same snap could serve it.
     - Reduced motion has no cover, so World 0's server-rendered card shows until hydration
       snaps to the world (~3.3 s headless in dev). A brief RM cover would hide it.
+- 2026-10-06 · P3 checkpoint (Nathan). Enter World lands in the world on the globe. Yes to
+  the breadcrumb snap and to a short RM cover. He baked his dial (below). He also asked for:
+  a quicker CTA exit with the loading bar after it; the tagline's extended blurb as home's
+  default (his priority: say what SWM is at once); and client-name ticker tiles.
+- 2026-10-06 · the P3 round.
+  - Landed:
+    - **Bake** (Nathan's URL): `tides` on by default, `all` media, cap 13, `weighted`, a 6 s ±
+      0.2 hold, a 0.9 s `surge`, chaos 1. The seed stays random per visit (his call).
+      `?popmode=off` restores the pre-worlds globe.
+    - **Breadcrumb snap.** The detail breadcrumb covers in the project's colour (0.6 s), then
+      navigates. /work's `swm:returnToWork` restore arms `snapRef`, so the return is the arrival
+      snap: no Turn, no fade from World 0's colour, the fill held until the card. Under RM it
+      is an instant cover and a plain link.
+    - **RM cover.** Both RM Enter World paths dispatch `swm:envelop {duration: 0}` in the
+      world's colour before navigating, so World 0's server-rendered card never shows.
+    - **CTA exit.** The Enter World chrome fades out in 0.2 s at the click. The passage cover
+      carries no loader any more; `swm:loader-start` fires `?loaderlead` ms (350) after the
+      chrome is out. RouteFill fades the bar up over 0.3 s instead of popping it.
+    - **Tagline.** At rest on home (`body.route-home` with no `data-chrome-open`,
+      `data-menu-open` or `data-footer-revealed`), the chip shows the extended blurb. Any
+      other state abbreviates it to "VISUAL WORLDS for the music industry." through a GSAP
+      morph: the capsule resizes from its anchored corner over `?tagmorph` ms (600), the words
+      leave and arrive in a stagger, and the extended blurb returns on rest. SiteNav now sets
+      the `data-menu-open` latch. On phones the long blurb is a 4-line paragraph at 0.82 em.
+    - **Name ticker** (`nameTicker.js`). The world's `clientName` appears in the FP card face
+      (OT Neue Montreal Squeezed 600, uppercase, -0.02 em), drawn once per world and style into
+      a repeating CanvasTexture. A strip spans 1–3 adjacent tiles of a row:
+      - Tile *k* samples the window *k* tile-widths along the strip, and the director slides
+        every window on one clock, so the name runs across the lattice gaps as one ticker.
+        Only uvScaleA / uvOffsetA move; panelMaterial is untouched.
+      - `?popnames` (2) sets the strip rows on the visible face. Each strip row carries two
+        strips half a globe apart, and each pair sits a quarter globe on from the last, so a
+        strip always faces the viewer even though the globe drifts at only 2°/s.
+      - `?popnamespan` (`2,3`), `?popnamespeed` (0.6 tile heights/s), `?popnamestyle`
+        (ink | fill). The bench has a "names" group.
+      - Strips warm with their grouping and hold still under RM. `__swmPopStats.nameTiles`
+        counts the visible ones.
+  - Verified:
+    - Unit 15/15 (new: the strip cadence / runs / facing guarantee, and one shared texture per
+      world with continuous windows).
+    - `tunables-keys --check` PASS (309 keys).
+    - globe-probe default, `--enter`, `--rm --enter` and `--mobile`: every gate. `--enter` adds
+      `returnNoTurn`, and the breadcrumb return passes it on both paths.
+    - pager-probe rest is clean. `npm run build` builds 22 pages.
+    - Visible name tiles at the default (2): 2–8 at 1440 and 3–7 at 390, never 0 across 3
+      seeds × 30 s. Before the stagger: 0–2, with long empty stretches.
+    - Tagline: long at rest; short on /process, with the info drawer and with the footer up;
+      long again back home and once the footer shuts.
+    - Production preview in installed Chrome (real GPU):
+      - CTA out by 210 ms; the loader starts at ~610 ms.
+      - Passage cover lifts 330 ms after /work's page-load.
+      - RM cover: up 67 ms after the click and released at ~300 ms, as soon as the entered
+        world's card replaces World 0's SSR card. A cold first fetch took ~1.3 s.
+  - Open for Nathan:
+    - The ticker defaults: count, widths, pace, and `ink` vs `fill`. Dark project colours read
+      faintly in `ink` (TOBEHONEST grey on black).
+    - The phone blurb's 0.82 em.
+    - The loader's ~550 ms start (`?loaderlead`).

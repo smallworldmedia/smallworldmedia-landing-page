@@ -11,12 +11,15 @@
  *
  * Cache keys are assetKey(asset) = playbackId ?? imageUrl — a video's key IS
  * its playbackId, so the default (video-only) pool keys exactly as before.
+ * A client-name ticker tile (nameTicker.js, 10-06) keys on its nameKey and
+ * draws its strip locally — same refcount, no network beyond the face.
  */
 import * as THREE from 'three';
 import { THUMB_WIDTH } from './globeConfig.js';
+import { loadNameTexture } from './nameTicker.js';
 
-/** The texture cache key for a globe asset (video playbackId, else still URL). */
-export const assetKey = (asset) => asset?.playbackId || asset?.imageUrl || null;
+/** The texture cache key for a globe asset (video playbackId, else still URL, else a name strip). */
+export const assetKey = (asset) => asset?.playbackId || asset?.imageUrl || asset?.nameKey || null;
 
 export default class TextureManager {
   constructor() {
@@ -52,19 +55,22 @@ export default class TextureManager {
     let entry = this.cache.get(key);
     if (!entry) {
       entry = { texture: null, refs: 0, promise: null };
-      entry.promise = new Promise((resolve, reject) => {
-        this.loader.load(
-          asset.playbackId ? this.thumbnailUrl(asset.playbackId) : this.stillUrl(asset.imageUrl),
-          (texture) => {
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.anisotropy = 4;
-            entry.texture = texture;
-            resolve(texture);
-          },
-          undefined,
-          reject
-        );
-      });
+      entry.promise =
+        asset.kind === 'name'
+          ? loadNameTexture(asset).then((texture) => (entry.texture = texture))
+          : new Promise((resolve, reject) => {
+              this.loader.load(
+                asset.playbackId ? this.thumbnailUrl(asset.playbackId) : this.stillUrl(asset.imageUrl),
+                (texture) => {
+                  texture.colorSpace = THREE.SRGBColorSpace;
+                  texture.anisotropy = 4;
+                  entry.texture = texture;
+                  resolve(texture);
+                },
+                undefined,
+                reject
+              );
+            });
       this.cache.set(key, entry);
     }
     entry.refs += 1;

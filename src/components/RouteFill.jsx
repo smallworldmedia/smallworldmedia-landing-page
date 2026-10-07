@@ -36,6 +36,7 @@ const PARAM = (key, fallback) => {
 const COVER_SECONDS = PARAM('fillcover', 100) / 1000; // fallback only — dispatchers pass their own
 const RELEASE_SECONDS = PARAM('fillrelease', 400) / 1000; // fade off over the arriving scene
 const RELEASE_DELAY = 0.1; // one settle beat so the arriving scene has a frame up
+const LOADER_IN_SECONDS = 0.3; // overviews_loading's fade up (10-06)
 const SAFETY_MS = 2500;
 
 export default function RouteFill() {
@@ -77,7 +78,8 @@ export default function RouteFill() {
       gsap.killTweensOf([loader, pct]);
       pct.v = 0;
       writeBar();
-      gsap.set(loader, { autoAlpha: 1 });
+      // 10-06 (Nathan: it "comes in too quickly"): a short fade up, not a pop.
+      gsap.fromTo(loader, { autoAlpha: 0 }, { autoAlpha: 1, duration: LOADER_IN_SECONDS, ease: 'power2.out' });
       // Fast optimistic charge, then a slow creep — never lands on its own.
       const tl = gsap.timeline();
       tl.to(pct, { v: 82, duration: 1.1, ease: 'power2.out', onUpdate: writeBar });

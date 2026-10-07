@@ -10,7 +10,9 @@
  * world holds the globe by default (Nathan, 09-26); with 2–3 the pattern
  * buttons toggle the SET groupings draw from, and switching one ON also
  * shows it now (sceneApi.popShow). enter world (?popenter) is read by Hero
- * at the Enter World click. ⏭ next = the next world now, through
+ * at the Enter World click. names (10-06) = the client-name ticker strips
+ * (count / widths / pace / style; pace is live, the rest re-lay the world).
+ * ⏭ next = the next world now, through
  * its transition; ↻ reroll = a new seed (a new start world and change
  * clock). The readout polls window.__swmPopStats, which the director
  * publishes at ~2 Hz (also what scripts/globe-probe.mjs reads) — it sits
@@ -32,6 +34,8 @@ import {
   POP_LAYOUTS,
   POP_TRANSITIONS,
   POP_LIVE,
+  POP_NAME_SPANS,
+  POP_NAME_STYLES,
   setPopTune,
   resetPopTune,
   rerollSeed,
@@ -245,6 +249,22 @@ export default function PopTunePanel({ sceneApiRef }) {
         ?poplive · ?popcolor. shared = one decode per clip, bound on every tile showing it (the
         repeats play in sync); tile = one decode per live tile. world = the projectColor takes
         the lattice, ring, gradient, enter_world and the nav accents.
+      </p>
+
+      <div className="hero-tune__group">names</div>
+      <Row label="strip rows" param="names" value={s.names} min={0} max={4} step={1} onChange={set} />
+      <Segmented
+        label="width (tiles)"
+        options={POP_NAME_SPANS}
+        isActive={(n) => s.nameSpans.includes(n)}
+        onPick={(n) => toggle('nameSpans', n)}
+      />
+      <Row label="pace" param="nameSpeed" value={s.nameSpeed} min={0} max={4} step={0.05} onChange={set} />
+      <Segmented label="style" value={s.nameStyle} options={POP_NAME_STYLES} onPick={(m) => set('nameStyle', m)} />
+      <p className="hero-tune__note">
+        ?popnames · ?popnamespan · ?popnamespeed · ?popnamestyle. the world's client name in the
+        fp card face, ticking across 1–3 adjacent tiles of a row (each strip draws a width from the
+        set). pace = tile heights / s, live. ink = the colour on black, fill = black on the colour.
       </p>
 
       <div className="hero-tune__group">enter world</div>

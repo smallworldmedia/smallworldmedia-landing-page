@@ -106,6 +106,8 @@ export default function SiteNav({
     const menu = menuRef.current;
     if (!menu) return undefined;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // 10-06: a latch for SiteTagline — the blurb abbreviates while the menu is up.
+    document.documentElement.toggleAttribute('data-menu-open', menuOpen);
 
     if (menuOpen) {
       if (reducedMotion) {

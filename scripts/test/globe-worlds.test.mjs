@@ -17,6 +17,7 @@ import { loadTile } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
 import { TUNING, POP_DEFAULTS } from '../../src/components/globe/popConfig.js'
+import { nameCell } from '../../src/components/globe/nameTicker.js'
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -151,7 +152,7 @@ function fakeScene() {
     for (let row = 0; row < ROWS; row++) {
       const phi = ((lon + 0.5) / LON) * Math.PI * 2
       const theta = ((row + 0.5) / 6) * Math.PI
-      const v2 = () => ({ value: { set() {} } })
+      const v2 = () => ({ value: new THREE.Vector2() })
       panels.push({
         lonIndex: lon,
         row,
@@ -224,7 +225,8 @@ function assertNeighboursDiffer(panels) {
 }
 
 test('director: clustered layout follows the pattern, no neighbour repeats, rows keep pouring in', () => {
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, group: 2, chaos: 0 })
+  // names off: a strip's adjacent tiles share its texture by design (tested below)
+  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, group: 2, chaos: 0, names: 0 })
   const { panels, textureManager } = fakeScene()
   const director = new PopulationDirector({
     panels,
@@ -370,6 +372,76 @@ test('director: an in-place change re-lays every tile onto the next world at onc
   await settleTicks(60) // the settle (a zero-length delayedCall on the ticker)
   assert.equal(director.busy, false)
   assert.equal(textureManager.refs(), panels.length + director.warm.size)
+  director.dispose()
+})
+
+/* — 10-06: client-name ticker strips — */
+test('name strips: every K-th row, two runs half a globe apart, one always facing', () => {
+  const L = LON
+  const o = { seed: 7, L, rows: 6, count: 2, spans: [2, 3] }
+  const stripRows = []
+  for (let s = -8; s < 48; s++) {
+    const cells = []
+    for (let lon = 0; lon < L; lon++) {
+      const c = nameCell(lon, s, o)
+      if (c) cells.push([lon, c])
+    }
+    if (!cells.length) continue
+    stripRows.push({ s, cells })
+    const starts = [...new Set(cells.map(([, c]) => c.start))]
+    assert.equal(starts.length, 2)
+    assert.equal((starts[1] - starts[0] + L) % L, L / 2)
+    for (const [lon, c] of cells) assert.equal((c.start + c.k) % L, lon) // tile k sits k on from the start
+    for (const a of starts) {
+      const run = cells.filter(([, c]) => c.start === a)
+      assert.ok([2, 3].includes(run[0][1].span))
+      assert.equal(run.length, run[0][1].span)
+    }
+  }
+  // K = the face's 6 rows over 2 → a strip row every 3rd tape row.
+  for (let i = 1; i < stripRows.length; i++) assert.equal(stripRows[i].s - stripRows[i - 1].s, 3)
+  // Any two neighbouring strip rows leave no gap wider than 4 tiles round the globe.
+  for (let i = 1; i < stripRows.length; i++) {
+    const st = [...new Set([...stripRows[i - 1].cells, ...stripRows[i].cells].map(([, c]) => c.start))].sort((a, b) => a - b)
+    const gaps = st.map((a, j) => (st[(j + 1) % st.length] - a + L) % L || L)
+    assert.ok(Math.max(...gaps) <= 4, `s${stripRows[i].s}: starts ${st}`)
+  }
+  assert.equal(nameCell(0, 0, { ...o, count: 0 }), null)
+})
+
+test('director: name strips share one texture per world and run as one ticker across their tiles', () => {
+  const { director, panels, textureManager } = makeDirector(
+    { seed: 5, names: 2, nameSpans: ['3'], nameSpeed: 1 },
+    { canAnimate: () => true }
+  )
+  const world = director.worlds[director.lead]
+  const key = `name:${world.slug}:ink`
+  const strips = panels.filter((p) => p.shownAsset?.kind === 'name')
+  assert.ok(strips.length >= 6) // 8 tape rows → 2–3 strip rows × 2 strips × 3 tiles
+  for (const p of strips) {
+    assert.equal(assetKey(p.shownAsset), key)
+    assert.equal(p.shownAsset.text, world.clientName)
+    assert.equal(p.shownAsset.world, director.lead)
+  }
+  assert.ok(director.warm.has(key)) // warmed with the grouping
+  assert.equal(textureManager.cache.get(key).refs, strips.length + 1) // one shared texture, refcounted per tile
+  director.update(0.5)
+  const at = new Map(panels.map((p) => [`${p.lonIndex}:${p.tapeS}`, p]))
+  let pairs = 0
+  for (const p of strips) {
+    const q = at.get(`${(p.lonIndex + 1) % LON}:${p.tapeS}`)
+    if (q?.shownAsset?.kind !== 'name' || q.shownAsset.k !== p.shownAsset.k + 1) continue
+    const a = p.mesh.material.uniforms
+    const b = q.mesh.material.uniforms
+    // tile k+1's window starts where tile k's ends (mod the strip's period)
+    const d = (((b.uvOffsetA.value.x - a.uvOffsetA.value.x - a.uvScaleA.value.x) % 1) + 1) % 1
+    assert.ok(d < 1e-9 || d > 1 - 1e-9, `L${p.lonIndex} s${p.tapeS}: ${d}`)
+    pairs += 1
+  }
+  assert.ok(pairs > 0)
+  const before = strips[0].mesh.material.uniforms.uvOffsetA.value.x
+  director.update(0.25) // the ticker moves on its clock
+  assert.notEqual(strips[0].mesh.material.uniforms.uvOffsetA.value.x, before)
   director.dispose()
 })
 

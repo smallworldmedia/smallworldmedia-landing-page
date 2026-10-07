@@ -40,6 +40,14 @@
  *
  * Tile assets are decorated once with their world (stats/focus) and the chip
  * copy HeroLabels reads (clientName, services).
+ *
+ * 10-06 — client-name ticker strips (nameTicker): every few tape rows, a
+ * strip of 1–3 adjacent tiles shows the world's clientName in the FP card
+ * face, sliding across the tiles as one ticker (?popnames, ?popnamespan,
+ * ?popnamespeed, ?popnamestyle). The strip belongs to the world that owns
+ * its first tile, warms with the grouping, and travels pole-to-pole with its
+ * row like any tile. Per frame, tickNames() moves each strip tile's window
+ * (uvOffsetA.x over the repeating strip) — still under reduced motion.
  */
 import gsap from 'gsap';
 import * as THREE from 'three';
@@ -49,6 +57,8 @@ import { selectPool, WORLD_KINDS } from './buildWorldPools.js';
 import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
+import { nameAsset, nameCell } from './nameTicker.js';
+import { SCROLL_VISIBLE_ROWS } from './globeConfig.js';
 
 const RELAYOUT_SPREAD = 0.6; // s — bench relayout stagger window
 const RELAYOUT_DUR = 0.45; // s — one tile's blink
@@ -90,6 +100,8 @@ export default class PopulationDirector {
     this.flips = 0; // tiles re-laid in place (monotonic; births aren't flips)
     this.flipsSampled = 0;
     this.countFlip = () => (this.flips += 1);
+    this.names = new Map(); // `${world}:${style}` → its name-strip asset (one texture per key)
+    this.nameT = 0; // tile heights the ticker has run
     this.warm = new Map(); // texture key → its load promise; one director ref per key
     this.upcoming = null; // the next grouping, pre-warmed
     this.upcomingKind = null; // …and the transition that will bring it
@@ -160,6 +172,8 @@ export default class PopulationDirector {
     const L = this.lon;
     const lon = panel.lonIndex;
     const s = panel.tapeS;
+    const strip = this.pickName(lon, s);
+    if (strip) return strip;
     const r = g.pattern.owner(lon, s);
     const pool = g.pools[r];
     const near = [
@@ -181,6 +195,54 @@ export default class PopulationDirector {
     g.cursor[r] = (c + 1) % pool.length;
     grid.set(s * GRID + lon, assetKey(asset));
     return asset;
+  }
+
+  /** The name strip on tape (lon, s), or null: a per-tile asset (its window
+   *  k / phase in the strip) over the world's one shared strip texture. */
+  pickName(lon, s) {
+    if (!TUNING.names) return null;
+    const cell = nameCell(lon, s, {
+      seed: this.seed,
+      L: this.lon,
+      rows: SCROLL_VISIBLE_ROWS,
+      count: TUNING.names,
+      spans: TUNING.nameSpans.map(Number),
+    });
+    if (!cell) return null;
+    const g = this.grouping;
+    const base = this.nameFor(g.regionWorld[g.pattern.owner(cell.start, s)]);
+    return base && { ...base, k: cell.k, phase: cell.phase };
+  }
+
+  nameFor(w) {
+    const world = this.worlds[w];
+    if (!world?.clientName) return null;
+    const key = `${w}:${TUNING.nameStyle}`;
+    if (!this.names.has(key)) this.names.set(key, nameAsset(world, w, TUNING.nameStyle));
+    return this.names.get(key);
+  }
+
+  /** A grouping's textures: its pools + its worlds' name strips. */
+  warmSet(g) {
+    if (!TUNING.names) return g.pools;
+    const strips = [...new Set(g.regionWorld)].map((w) => this.nameFor(w)).filter(Boolean);
+    return [...g.pools, strips];
+  }
+
+  /** Per frame: slide every strip tile's window along the repeating strip.
+   *  Tile k of a strip starts where tile k-1 ends (k · its window width), so
+   *  the name runs across the strip as one; the clock waits while the
+   *  screens aren't free to animate (reduced motion: the strips hold still). */
+  tickNames(dt) {
+    if (this.canAnimate()) this.nameT += dt * TUNING.nameSpeed;
+    for (const p of this.panels) {
+      const a = p.shownAsset;
+      if (a?.kind !== 'name') continue;
+      const u = p.mesh.material.uniforms;
+      const aspect = u.texA.value?.userData?.aspect || 1;
+      const x = a.phase + a.k * u.uvScaleA.value.x + this.nameT / aspect;
+      u.uvOffsetA.value.x = x - Math.floor(x);
+    }
   }
 
   /** MeridianScroll's hook: assets for a re-born row (lon order, tapeS set). */
@@ -225,7 +287,7 @@ export default class PopulationDirector {
    *  next one. Resolves once the CURRENT grouping's textures have settled —
    *  including keys an earlier prefetch is still loading. */
   warmGrouping() {
-    const now = this.warmPools(this.grouping.pools);
+    const now = this.warmPools(this.warmSet(this.grouping));
     this.planNext();
     return now;
   }
@@ -244,7 +306,9 @@ export default class PopulationDirector {
 
   /** Drop the warm refs neither the current nor the next grouping needs. */
   releaseCold() {
-    const keep = new Set([...this.grouping.pools, ...(this.upcoming?.pools ?? [])].flat().map(assetKey));
+    const keep = new Set(
+      [...this.warmSet(this.grouping), ...(this.upcoming ? this.warmSet(this.upcoming) : [])].flat().map(assetKey)
+    );
     for (const k of this.warm.keys()) {
       if (keep.has(k)) continue;
       this.warm.delete(k);
@@ -280,7 +344,7 @@ export default class PopulationDirector {
     const step = this.step + 1;
     this.upcoming = this.makeGrouping({ step, lead: this.nextLead(step) });
     this.upcomingKind = this.nextKind(step);
-    this.warmPools(this.upcoming.pools);
+    this.warmPools(this.warmSet(this.upcoming));
   }
 
   beginHold() {
@@ -291,7 +355,9 @@ export default class PopulationDirector {
   /** Per rendered frame, from the scene's tick (before the scroll update, so
    *  a tide's travel lands the same frame). */
   update(dt) {
-    if (this.disposed || this.frozen || !this.canAnimate()) return;
+    if (this.disposed) return;
+    this.tickNames(dt);
+    if (this.frozen || !this.canAnimate()) return;
     if (!this.greeted) this.greet(true);
     if (this.tide) {
       this.rollTide(dt);
@@ -374,6 +440,14 @@ export default class PopulationDirector {
       // A row re-born while the textures warmed already took the new
       // grouping from assignRow — its planned picks belong to its old place.
       for (const [p, s] of bornAt) if (p.tapeS !== s) plan.delete(p);
+      // A strip tile already showing its world's strip keeps the texture
+      // (applyPlan skips a same-key tile) — but takes its new window.
+      for (const [p, a] of plan) {
+        if (a.kind === 'name' && !p.swapAsset && assetKey(p.shownAsset) === assetKey(a)) {
+          p.asset = a;
+          p.shownAsset = a;
+        }
+      }
       const { span } = applyPlan(this, plan, {
         animate: !this.frozen && this.canAnimate(),
         style,
@@ -419,9 +493,9 @@ export default class PopulationDirector {
     } else if (key === 'transitions' || key === 'chaos') {
       if (!this.busy) this.planNext(); // re-draw the next world + transition
     } else if (key === 'color') this.emitWorld(true);
-    else if (key === 'trans' || key === 'live' || key === 'enter') {
-      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World
-    } else this.relayout(); // media, cap, share, group, reset
+    else if (key === 'trans' || key === 'live' || key === 'enter' || key === 'nameSpeed') {
+      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World / per frame
+    } else this.relayout(); // media, cap, share, group, names, nameSpans, nameStyle, reset
   }
 
   /** The commit engaged its blue fill: land every in-flight swap now and
@@ -472,12 +546,14 @@ export default class PopulationDirector {
     let black = 0;
     let inGroup = 0;
     let liveTiles = 0;
+    let nameTiles = 0;
     for (const p of this.panels) {
       if (p.liveState === 'live') liveTiles += 1;
       if (p.parked) continue;
       if (this._v.copy(p.centerDir).applyEuler(rotation).z <= FACING) continue;
       visible += 1;
       if (!p.mesh.material.uniforms.uHasTexA.value) black += 1;
+      if (p.shownAsset?.kind === 'name') nameTiles += 1;
       const w = p.shownAsset?.world; // what texA shows, not the load in flight
       if (w == null) continue;
       shares.set(w, (shares.get(w) || 0) + 1);
@@ -516,6 +592,7 @@ export default class PopulationDirector {
       gpuTextures,
       streams: this.getScheduler()?.getStats().live ?? 0, // decodes
       liveTiles,
+      nameTiles, // visible tiles showing a name strip
       live: [...live].map(([w, c]) => `${this.worlds[w].clientName} ${c}`),
       fps,
     };

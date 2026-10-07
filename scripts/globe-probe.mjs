@@ -36,7 +36,8 @@
  * accent the world's colour from the moment it lands, the swm:enterWorld key
  * consumed. It then takes that card's enter_world to the detail page and the
  * breadcrumb back, which must reopen the same world (the swm:returnToWork
- * restore). With --extra="&popenter=0" /work must open on its first world.
+ * restore) as a snap too since 10-06 — no outgoing card on the way back.
+ * With --extra="&popenter=0" /work must open on its first world.
  *
  * Failed image requests land in report.imageFailures (the noise filter hides
  * them from the console list) with a hint on stderr: a still the Sanity CDN
@@ -309,9 +310,11 @@ async function enterScenario(page) {
     await page.waitForFunction((slug) => location.pathname === `/work/${slug}`, out.landed.slug, { timeout: 20000, polling: 100 });
     await page.waitForSelector('.detail-breadcrumb', { state: 'visible', timeout: 20000 });
     await sleep(1500);
+    await page.evaluate(armRecorder);
     await page.locator('.detail-breadcrumb').first().click();
     await page.waitForFunction(() => location.pathname === '/work', null, { timeout: 20000, polling: 50 });
-    await sleep(2500); // the restore's Turn from the first World (unchanged) lands
+    await sleep(2500); // the restore's snap (10-06) lands
+    out.backLog = await page.evaluate(() => window.__enterLog);
     out.back = await page.evaluate(readWork);
     await shot(page, 'enter-back');
   } catch (e) {
@@ -485,6 +488,7 @@ async function enterScenario(page) {
       enterFillHeld: RM || ENTER_OFF || fillHeld,
       enterKeyConsumed: e.landed?.key == null,
       returnRestored: e.back?.slug === e.landed?.slug,
+      returnNoTurn: !(e.backLog || []).some((x) => 'cards' in x && x.cards.includes('exit:')),
     };
   })();
   report.pass =

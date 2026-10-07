@@ -2478,11 +2478,18 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   text-align: left;
   cursor: pointer;
   pointer-events: auto;
+  /* 10-06: the long/short layers stack BOTTOM-anchored, so the morph's
+     resize closes the capsule from its top-right while the text holds
+     still (SiteTagline setLong). */
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 0.28em;
+  flex-direction: column;
+  justify-content: flex-end;
   padding: var(--pill-pad-y) var(--pill-pad-x);
-  border-radius: var(--radius-capsule);
+  /* the one-line capsule's half-height — the short state is still an exact
+     capsule, the two-line blurb a chip with the same corners */
+  border-radius: calc(var(--lh-link) / 2 + var(--pill-pad-y));
+  overflow: hidden;
   background: var(--color-black);
   color: var(--color-white);
   font-family: var(--font-body);
@@ -2504,6 +2511,31 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 
 .site-tagline__word {
   display: inline-block;
+}
+
+/* 10-06 (Nathan): the long blurb (home at rest) and the short tagline. The
+   resting layer is in flow and sizes the pill; the other waits out of flow,
+   unseen; .is-leaving keeps an outgoing layer drawn through the morph. */
+.site-tagline__text--short {
+  display: flex;
+  align-items: center;
+  gap: 0.28em;
+}
+
+.site-tagline__text--long .site-tagline__line {
+  display: block;
+}
+
+.site-tagline__pill[data-tagline='long'] .site-tagline__text--short,
+.site-tagline__pill:not([data-tagline='long']) .site-tagline__text--long {
+  position: absolute;
+  left: var(--pill-pad-x);
+  bottom: var(--pill-pad-y);
+  visibility: hidden;
+}
+
+.site-tagline__pill .site-tagline__text.is-leaving {
+  visibility: visible;
 }
 
 .site-tagline__word--em {
@@ -2542,14 +2574,19 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
   }
 
   .site-tagline__pill {
-    display: block;
     width: max-content;
     padding: 0;
     background: none;
     border-radius: 0;
+    /* bare text: descenders at line-height 1 must not clip */
+    overflow: visible;
     /* the project-detail blurb's mobile size — one shared token */
     font-size: var(--text-blurb);
     line-height: 1;
+  }
+
+  .site-tagline__text--short {
+    display: block;
   }
 
   .site-tagline__pill .site-tagline__line {
@@ -2560,6 +2597,30 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
      same 0.28em, between words only */
   .site-tagline__line .site-tagline__word:not(:last-child) {
     margin-right: 0.28em;
+  }
+
+  /* 10-06: the long blurb runs as one wrapping paragraph, a size down from
+     the short stack, measured to the tagline's own seat (left inset →
+     the privacy pill's clearance). */
+  .site-tagline__text--long {
+    max-width: calc(100vw - var(--nav-inset) - var(--chrome-right-inset) - var(--privacy-clearance));
+    white-space: normal;
+    font-size: 0.82em;
+    line-height: 1.1;
+  }
+
+  .site-tagline__pill .site-tagline__text--long .site-tagline__line {
+    display: inline;
+  }
+
+  .site-tagline__text--long .site-tagline__line .site-tagline__word {
+    margin-right: 0;
+  }
+
+  .site-tagline__pill[data-tagline='long'] .site-tagline__text--short,
+  .site-tagline__pill:not([data-tagline='long']) .site-tagline__text--long {
+    left: 0;
+    bottom: 0;
   }
 
   /* 08-30 (2), Nathan: on phones the page-level tagline is HOME-ONLY — on
