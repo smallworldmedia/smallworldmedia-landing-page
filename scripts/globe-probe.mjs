@@ -26,7 +26,8 @@
  * landed, the world changing on its own clock (under --rm only ⏭ moves it), the
  * chrome wearing the world's projectColor once a change has landed, the
  * client-name strips placed inside the latitude band and (in region mode)
- * wholly front-facing and never moving (10-07: the ticker is gone), and no
+ * wholly front-facing, each tile rendering its own whole slice of the strip
+ * past the pole pinch, and never moving (10-07: the ticker is gone), and no
  * console/page errors. The report is also saved as report.json beside the
  * shots in --out (a failed or crashed run included); its path goes to stderr. --mode=off checks the default globe runs clean (no
  * stats, no tint).
@@ -460,29 +461,87 @@ async function enterScenario(page) {
   const steps = stats.map((s) => s.step);
   // Client-name strips (10-07). namePlaced is what the director MEASURED off
   // the live scene as it placed this world's strips (the band / facing /
-  // quadrant contract); nameUv is each strip slice's resting window, so two
-  // samples of the same world disagreeing means something still moves them.
+  // quadrant contract); nameSlices is what each strip tile actually renders,
+  // so two samples of the same world disagreeing means something moves them.
   const namesOn = stats.some((s) => s.nameStrips > 0);
   const placed = [...new Map(stats.filter((s) => s.namePlaced).map((s) => [s.namePlaced.step, s.namePlaced])).values()];
+  // REGISTER: what each strip tile actually RENDERS (stats.nameSlices =
+  // { lo, hi } of the strip after panelMaterial's pole-pinch centre-crop,
+  // plus `w`, the slice it should be). This is the gate the "TOHOST" defect
+  // needed: the texture, the span and the uv offsets were each dumped and
+  // each correct, and the render still showed only the middle vK of every
+  // slice, because the crop lands downstream of all of them. Tile k is in
+  // register iff it renders [k·w, (k+1)·w] — full width (hi−lo = w, the
+  // vK-independence the compensation buys) and in place (lo ≡ k·w, mod 1 for
+  // band mode's repeat). Both errors are read AS A FRACTION OF THE SLICE,
+  // because that is what legibility scales with and because the defect is
+  // multiplicative: an uncompensated tile renders vK of its slice, so it is
+  // off by (1−vK) — 30% at the |y| 0.72 placement that read "TOHOST", 48% at
+  // the 0.85 band edge. The tolerance is 5%: the director writes the window
+  // one frame before the scroll applies it, and one frame of pinch travel
+  // measured up to 1.3% of a slice on a 12 fps warm-up frame. The honest
+  // limit of the gate: where vK is already ≈ 1 (a row near the equator) an
+  // uncompensated tile is off by less than that and will not fire — correct,
+  // since there it also renders ≥ 95% of its slice and the name reads.
+  // Graded only while the tile is still a tile: below PINCH_FLOOR it is under
+  // 40% of a band's width — far outside the latitude band it was placed in
+  // (the default admits vK ≥ 0.52), a sliver nothing reads, and a place where
+  // the pinch changes fast enough per frame to swamp the measurement. Band
+  // mode makes this routine: a whole row carries the strip, so the outgoing
+  // row is still carrying it while it dies at the pole.
+  const SLICE_TOL = 0.05;
+  const PINCH_FLOOR = 0.4;
+  const sliceBad = [];
+  let sliceSeen = 0;
+  let sliceSkipped = 0;
+  let sliceWidthErr = 0;
+  let sliceRegErr = 0;
+  const modErr = (d) => d - Math.round(d); // registration error, mod the strip
+  for (const s of stats) {
+    for (const [k, r] of Object.entries(s.nameSlices || {})) {
+      if (!(r.vk >= PINCH_FLOOR)) {
+        sliceSkipped += 1;
+        continue;
+      }
+      sliceSeen += 1;
+      const dW = (r.hi - r.lo) / r.w - 1;
+      const dR = modErr(r.lo - Number(k) * r.w) / r.w;
+      sliceWidthErr = Math.max(sliceWidthErr, Math.abs(dW));
+      sliceRegErr = Math.max(sliceRegErr, Math.abs(dR));
+      if (Math.abs(dW) > SLICE_TOL)
+        sliceBad.push(`t${s.t} step${s.step} slice ${k}: renders ${((r.hi - r.lo) / r.w).toFixed(3)} of its slice`);
+      else if (Math.abs(dR) > SLICE_TOL)
+        sliceBad.push(`t${s.t} step${s.step} slice ${k}: lo ${r.lo} is ${dR.toFixed(3)} of a slice off ${(Number(k) * r.w).toFixed(4)}`);
+    }
+  }
   // Stillness is a gate about REST, so compare only two HOLD samples of the
   // same world (the quietHolds idiom). `step` alone isn't enough: it advances
   // when a change STARTS, and the tiles swap across the lay-in's spread, so a
-  // transition sample can still hold the previous world's strip — and nameUv
-  // is keyed by slice index, so slice 1 of a span-4 strip (0.25) would be
+  // transition sample can still hold the previous world's strip — and the
+  // slices are keyed by index, so slice 1 of a span-4 strip (0.25) would be
   // compared with slice 1 of the next world's span-2 strip (0.5). In a hold
   // every strip is at rest: a row re-born inside one can never carry a strip
   // (pick() consumes the plan), so nothing binds between two hold samples.
+  // Compared on the RENDERED range, not the uniforms — the uniforms now track
+  // the row's pinch as it scrolls, and holding that range still as they do is
+  // exactly the thing the ticker's removal was meant to buy.
   const uvMoved = [];
   let uvHeld = 0; // slice comparisons actually made — 0 would pass vacuously
   for (let i = 1; i < stats.length; i++) {
     const [a, b] = [stats[i - 1], stats[i]];
-    if (!a.nameUv || !b.nameUv || a.step !== b.step || a.seed !== b.seed) continue;
+    if (!a.nameSlices || !b.nameSlices || a.step !== b.step || a.seed !== b.seed) continue;
     if (a.phase !== 'hold' || b.phase !== 'hold') continue;
-    for (const k of Object.keys(b.nameUv)) {
-      if (!(k in a.nameUv)) continue;
+    for (const k of Object.keys(b.nameSlices)) {
+      if (!(k in a.nameSlices)) continue;
+      if (!(a.nameSlices[k].vk >= PINCH_FLOOR) || !(b.nameSlices[k].vk >= PINCH_FLOOR)) continue;
       uvHeld += 1;
-      if (Math.abs(a.nameUv[k] - b.nameUv[k]) <= 1e-4) continue;
-      uvMoved.push(`t${b.t} step${b.step} slice ${k}: ${a.nameUv[k]} → ${b.nameUv[k]}`);
+      // In slice units and MOD THE REPEAT (band mode's window wraps, so a
+      // still strip can read 1.0103 then 0.0104), same tolerance as the
+      // register gate: each sample carries its own frame of pinch travel,
+      // while a ticker moved the window by whole slices between samples.
+      const d = modErr(a.nameSlices[k].lo - b.nameSlices[k].lo) / b.nameSlices[k].w;
+      if (Math.abs(d) <= SLICE_TOL) continue;
+      uvMoved.push(`t${b.t} step${b.step} slice ${k}: ${a.nameSlices[k].lo} → ${b.nameSlices[k].lo}`);
     }
   }
   const names = {
@@ -500,6 +559,15 @@ async function enterScenario(page) {
     maxNameTiles: stats.length ? Math.max(...stats.map((s) => s.nameTiles ?? 0)) : null,
     // live, as the strips travel with their rows out of the band — diagnostic
     maxLiveNameY: stats.length ? Math.max(...stats.map((s) => s.nameMaxY ?? 0)) : null,
+    sliceSeen,
+    sliceSkipped, // tiles below PINCH_FLOOR — a strip dying at the pole
+    // worst of each, as a fraction of one slice, so a regression reads as a
+    // number and not only a flipped boolean: ≤ 0.013 of a slice when the
+    // pinch is compensated, 1−vK (0.30 at the "TOHOST" placement, 0.48 at the
+    // band edge) when it is not
+    worstSliceWidthErr: sliceSeen ? Math.round(sliceWidthErr * 1e4) / 1e4 : null,
+    worstSliceRegErr: sliceSeen ? Math.round(sliceRegErr * 1e4) / 1e4 : null,
+    sliceBad,
     uvHeld,
     uvMoved,
   };
@@ -591,13 +659,16 @@ async function enterScenario(page) {
           cycled: RM ? m.changes === nexts.length : m.changes > nexts.length,
           colour: c.ready && (c.want ? c.popTint && c.accent === rgbOf(c.want) : true),
           // the client-name strips: placed at all, never outside the latitude
-          // band, a region strip wholly front-facing, and never moving (the
-          // ticker is gone — tile k rests on the k-th slice, for good)
+          // band, a region strip wholly front-facing, every tile RENDERING its
+          // own whole slice (namesSlice — the one that sees past the pole
+          // pinch, which the other four cannot), and that render never moving
+          // (the ticker is gone — tile k shows the k-th slice, for good)
           ...(namesOn
             ? {
                 namesPlaced: !!names.placements.length && names.maxNameTiles > 0 && placed.every((p) => p.tiles > 0),
                 namesInBand: !!placed.length && placed.every((p) => (p.yMax ?? 0) <= p.yLimit + 1e-4),
                 namesFrontFacing: placed.every((p) => p.mode !== 'region' || (p.zMin ?? -1) >= p.zLimit - 1e-4),
+                namesSlice: names.sliceSeen > 0 && names.sliceBad.length === 0,
                 namesStill: names.uvHeld > 0 && names.uvMoved.length === 0,
               }
             : {}),

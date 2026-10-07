@@ -576,9 +576,10 @@ pools ship tagged by kind up to the hard cap.
     over re-laying strips in place after a tide, which would break the persistence doctrine and
     flip tiles inside a hold (the probe's `quietHolds` gate).
   - **Stats.** `__swmPopStats` keeps `nameTiles` and adds `nameStrips`, `nameMode`, `nameMaxY`
-    (live, a diagnostic — a placed strip drifts out of the band with its row), `nameUv` (each
-    slice's resting window) and `namePlaced` — the placement's own measurements at the moment of
-    the change: mode, span, tiles, the wanted and actual quadrant, any relaxation, and the
+    (live, a diagnostic — a placed strip drifts out of the band with its row), `nameSlices` (per
+    slice: the `lo`/`hi` of the strip the tile actually RENDERS, the slice width `w` it should
+    be, and the tile's pinch `vk`) and `namePlaced` — the placement's own measurements at the
+    moment of the change: mode, span, tiles, the wanted and actual quadrant, any relaxation, and the
     `yMax`/`zMin` it achieved against the `yLimit`/`zLimit` it had to clear.
   - Verified: unit 19/19 (the old cadence and ticker tests are replaced by the band / facing /
     quadrant / span / stillness / band-mode contract), `tunables-keys --check` PASS (313 keys),
@@ -595,3 +596,54 @@ pools ship tagged by kind up to the hard cap.
   - Open for Nathan's dial: every one of `?popnamesize`, `?popnameband`, `?popnameface`,
     `?popnamespanmin`, `?popnamespanmax`, `?popnames` and `?popnamemode` ships as a URL param with
     a bench row and no baked number — he has given none.
+  - **The pole pinch — why the first world read "TOHOST" (10-07, second round).** The rework
+    above shipped green and still rendered `TOBEHONEST` as `TOHOST` on the first world, while
+    `ANDHERA RECORDS` lower down read perfectly. The texture, the published UVs, the panel
+    aspect and the span were each dumped and each correct; the defect is DOWNSTREAM of all of
+    them. `panelMaterial`'s fragment stage centre-crops a scroll tile's media sampling by
+    `vK = sin(θ_center)` — the pole-pinch compensation, written for photos: a tile narrowed
+    toward a pole would otherwise squash its picture, so the shader samples only the middle `vK`
+    at constant pixel density and lets the silhouette crop. For text that is fatal. Tile k did
+    not render `[k/span, (k+1)/span]`; it rendered the middle `vK` of that slice, losing
+    `(1−vK)/2` at each edge. At the `UR` placement (|y| 0.72 → vK 0.70) each tile showed 70% of
+    its two characters; at the 0.65 band's edge (|y| 0.85) only 53%. The lower-left placement
+    read because its θ is nearer 90° and vK nearer 1 — nothing was being cropped.
+  - **The fix: undo the pinch CPU-side, for name tiles only** (`nameTicker.nameWindow`, applied
+    in `placeNames`). `scaleX = slice/vK` and the offset recentred, so `vUv.x` 0..1 reaches the
+    shader as `mUv.x = 0.5 ± vK/2` and renders exactly `[k·slice, (k+1)·slice]` at any latitude.
+    `panelMaterial` is untouched, Nathan's middle-65% band is untouched, and the glyphs
+    foreshorten with the latitude — the sphere's own longitude convergence, correct for type
+    wrapped around a globe, and not the squash the pinch exists to prevent. The alternative
+    (tighten `?popnameband` until vK ≈ 1) was rejected: vK ≥ 0.9 needs |y| ≤ 0.436, about 29% of
+    the polar span, which contradicts the ask. The span is NOT divided by vK as well — that
+    would roughly double a run at the band edge, past the front-facing half, and the facing gate
+    would relax and put half the name behind the globe.
+  - **Recomputed every frame, deliberately.** vK moves as a row scrolls pole-ward, so a window
+    frozen at the change drifts: ~12° of travel inside one hold is a 10% sampling error, a glyph
+    sliver repeated across every lattice gap. `placeNames` already ran every frame (it only ever
+    wrote on a change), so this adds no loop — just writes on the ≤ span tiles carrying a strip,
+    against the 96 `uPolarTop` writes the scroll driver already makes in the same frame. What is
+    still is the RENDERED slice, not the uniforms: exactly `slice` wide and centred on
+    `(k+½)·slice` at every latitude. `update()` runs before the scroll applies, so the window is
+    one frame stale in vK — measured at ≤ 1.3% of a slice on a 12 fps warm-up frame.
+  - **The gate that would have caught it.** `nameSlices` now publishes, per slice, the strip
+    range the tile actually RENDERS (the shader's own crop arithmetic re-derived from the live
+    uniforms and the tile's latitude), the slice width it should be, and its pinch. New probe
+    gate `namesSlice`: every tile renders a full slice (`hi−lo = w`) in register (`lo ≡ k·w`),
+    both read as a FRACTION OF A SLICE because the defect is multiplicative — 30% at the
+    placement that read "TOHOST", 48% at the band edge, against a 5% tolerance. `namesStill` now
+    compares that rendered range hold-to-hold (mod the repeat) instead of the raw `uvOffsetA`,
+    which legitimately moves now. Both skip tiles under 40% pinch: a strip that has scrolled on
+    to the pole is a sliver nothing reads, and the pinch changes too fast there to measure in a
+    frame (band mode hits this every change, the outgoing row dying at the pole). The honest
+    limit: near the equator an uncompensated tile is off by less than the tolerance — correct,
+    because there it renders ≥ 95% of its slice and the name reads anyway.
+  - Verified on this round: unit 21/21 (two new — the window/render round-trip over a sweep of
+    vK and k with the uncompensated window as the negative control, and band mode's wrapped
+    window; plus the registration test that scrolls a placed row and asserts the rendered range
+    holds while the uniforms move), `tunables-keys --check` PASS (314 keys), `npm run build`
+    23 pages, and globe-probe default / `--mobile` / `--rm` / `--rm --next=2` /
+    `--extra="&popnamemode=band"` — 13/13 gates each, worst rendered-width error 0.49% of a
+    slice. Read by eye in `01-warm.png`: `TOBEHONEST` complete across its 3 upper-right tiles
+    on both desktop and `--mobile`, and `ANDHERA RECORDS` complete across 4 lower-left tiles in
+    `02-end.png`. That shot is the one that read "TOHOST" before.

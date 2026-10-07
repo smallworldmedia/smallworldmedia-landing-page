@@ -58,7 +58,9 @@
  * The span comes from the MEASURED name (nameSpan), so the whole name reads
  * at rest instead of being cut; ?popnamemode=band draws it across a whole
  * latitude row instead. The ticker is gone: placeNames() only reconciles each
- * tile's resting window, so at rest there are no per-frame uniform writes.
+ * tile's resting window onto its own slice of the strip — against
+ * panelMaterial's pole pinch, which centre-crops the sampling and is what
+ * rendered TOBEHONEST as "TOHOST" (nameTicker.nameWindow).
  * A row re-born at the pole is outside the band by construction, so names
  * refresh at a change, not at a birth — and a `tide` (which re-births every
  * row) therefore carries no strips at all.
@@ -71,7 +73,16 @@ import { selectPool, WORLD_KINDS } from './buildWorldPools.js';
 import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
-import { nameAsset, nameSpan, nameBandLimit, nameFaceLimit, NAME_QUADS } from './nameTicker.js';
+import {
+  nameAsset,
+  nameSpan,
+  nameBandLimit,
+  nameFaceLimit,
+  namePinch,
+  nameWindow,
+  nameRendered,
+  NAME_QUADS,
+} from './nameTicker.js';
 
 const RELAYOUT_SPREAD = 0.6; // s — bench relayout stagger window
 const RELAYOUT_DUR = 0.45; // s — one tile's blink
@@ -384,23 +395,47 @@ export default class PopulationDirector {
     return [...g.pools, strips];
   }
 
-  /** Each strip tile's RESTING window: tile k shows the k-th slice of the
-   *  strip (k · the slice width), so the name reads across the lattice gaps
-   *  as one — still. tileSwap's cover-fit centres a texture on its tile, and
-   *  nothing else writes uvOffsetA, so the director reconciles it here. A
-   *  loop rather than a bind hook because loadTile fires from three places
-   *  (a row's re-birth, applyPlan, initialLayout) and layIn's kept-texture
-   *  strip takes a new window with no load at all. Writes only on a change,
-   *  so at rest this costs nothing (the ticker's per-frame writes are gone). */
+  /** Each strip tile's RESTING window: tile k RENDERS the k-th slice of the
+   *  strip, so the name reads across the lattice gaps as one — still.
+   *  nameWindow owns the arithmetic (and why it is not just k · the slice
+   *  width: panelMaterial's pole pinch centre-crops the sampling, which is
+   *  what rendered TOBEHONEST as "TOHOST"). tileSwap's cover-fit centres a
+   *  texture on its tile and nothing else writes uvScaleA/uvOffsetA, so the
+   *  director reconciles them here. A loop rather than a bind hook because
+   *  loadTile fires from three places (a row's re-birth, applyPlan,
+   *  initialLayout) and layIn's kept-texture strip takes a new window with no
+   *  load at all.
+   *
+   *  The pinch moves as the row scrolls pole-ward, so the window is
+   *  recomputed every frame — but this loop already ran every frame, the
+   *  writes land only on the ≤ span tiles that carry a strip, and the scroll
+   *  driver writes uPolarTop for all 96 panels in the same frame anyway. The
+   *  alternative (recompute at the change and let it drift) loses register at
+   *  the seams: 12° of travel inside one hold is a 10% sampling error, a
+   *  glyph sliver repeated across every gap. The RENDERED slice stays exactly
+   *  `slice` wide and centred on (k+½)·slice at every latitude — that
+   *  invariant, not a frozen uniform, is what the probe's namesSlice /
+   *  namesStill gates assert. update() runs before the scroll applies, so the
+   *  pinch used here is one frame stale: ~0.0006 of vK, a sub-0.1% window
+   *  error the gates' tolerances carry. */
   placeNames() {
     for (const p of this.panels) {
       const a = p.shownAsset;
       if (a?.kind !== 'name') continue;
       const u = p.mesh.material.uniforms;
-      const x = a.k * u.uvScaleA.value.x;
-      const want = x - Math.floor(x); // band: the window wraps the repeat
-      if (Math.abs(u.uvOffsetA.value.x - want) > 1e-6) u.uvOffsetA.value.x = want;
+      const w = nameWindow(a.k, this.nameSliceOf(p), namePinch(p.centerDir.y), { band: a.mode === 'band' });
+      if (Math.abs(u.uvScaleA.value.x - w.scaleX) > 1e-6) u.uvScaleA.value.x = w.scaleX;
+      if (Math.abs(u.uvOffsetA.value.x - w.offsetX) > 1e-6) u.uvOffsetA.value.x = w.offsetX;
     }
+  }
+
+  /** One tile's natural share of the strip it shows = cover-fit's own x scale
+   *  (TextureManager.computeCoverUv) for the strip's real aspect. Read off the
+   *  bound texture, so a region strip (padded to exactly `span` tiles → 1/span)
+   *  and a band strip (the natural name + gap, repeating) take one rule. */
+  nameSliceOf(panel) {
+    const aspect = panel.mesh.material.uniforms.texA.value?.userData?.aspect || 1;
+    return Math.min(1, panel.panelAspect / aspect);
   }
 
   /** MeridianScroll's hook: assets for a re-born row (lon order, tapeS set). */
@@ -708,7 +743,13 @@ export default class PopulationDirector {
     let liveTiles = 0;
     let nameTiles = 0;
     let nameMaxY = 0;
-    const nameUv = {}; // strip slice k → its resting uvOffsetA.x (the probe's stillness gate)
+    // Strip slice k → { lo, hi } of the strip the tile actually RENDERS (so
+    // after panelMaterial's pole-pinch crop — the uniforms alone cannot show
+    // it, which is how "TOHOST" passed every gate), and `w`, the slice it
+    // should be. The probe's namesSlice (full width, in register) and
+    // namesStill (unmoving between two holds) gates both read this.
+    const nameSlices = {};
+    const r6 = (n) => Math.round(n * 1e6) / 1e6;
     for (const p of this.panels) {
       if (p.liveState === 'live') liveTiles += 1;
       if (p.parked) continue;
@@ -718,7 +759,13 @@ export default class PopulationDirector {
       if (p.shownAsset?.kind === 'name') {
         nameTiles += 1;
         nameMaxY = Math.max(nameMaxY, Math.abs(p.centerDir.y));
-        nameUv[p.shownAsset.k] = Math.round(p.mesh.material.uniforms.uvOffsetA.value.x * 1e6) / 1e6;
+        const u = p.mesh.material.uniforms;
+        const vk = namePinch(p.centerDir.y);
+        const [lo, hi] = nameRendered(u.uvScaleA.value.x, u.uvOffsetA.value.x, vk);
+        // vk rides along so the gate can tell a readable tile from a sliver a
+        // strip has since scrolled to the pole, where the pinch itself is
+        // changing faster than one frame of measurement can follow.
+        nameSlices[p.shownAsset.k] = { lo: r6(lo), hi: r6(hi), w: r6(this.nameSliceOf(p)), vk: r6(vk) };
       }
       const w = p.shownAsset?.world; // what texA shows, not the load in flight
       if (w == null) continue;
@@ -767,7 +814,7 @@ export default class PopulationDirector {
       // Live, as the strips travel: a placed strip drifts out of the band with
       // its row, so this is a diagnostic, not a gate.
       nameMaxY: nameTiles ? Math.round(nameMaxY * 1e4) / 1e4 : null,
-      nameUv,
+      nameSlices,
       live: [...live].map(([w, c]) => `${this.worlds[w].clientName} ${c}`),
       fps,
     };

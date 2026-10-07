@@ -23,10 +23,12 @@
  *           short shrinks the type rather than cutting the name.
  *   band    the natural strip (name + gap) repeating around a whole latitude
  *           row, still.
- * The strips do not move: tile k rests on the k-th slice of the strip
- * (PopulationDirector.placeNames), and the strip's real aspect rides
- * texture.userData.aspect into tileSwap's cover-fit, which is what makes that
- * slice exactly 1/span of the strip in region mode.
+ * The strips do not move: tile k RENDERS the k-th slice of the strip
+ * (nameWindow below, applied in PopulationDirector.placeNames), and the
+ * strip's real aspect rides texture.userData.aspect into tileSwap's cover-fit,
+ * which is what makes that slice exactly 1/span of the strip in region mode.
+ * "Renders", not "rests on": panelMaterial centre-crops a scroll tile's
+ * sampling by the pole pinch, so the window has to undo it — see nameWindow.
  *
  * nameKey carries every input that changes the DRAWING (style, size, layout)
  * because TextureManager caches one texture per key — a variation left out of
@@ -62,6 +64,51 @@ export const nameBandLimit = (f) => Math.sin((clamp(f, 0, 1) * Math.PI) / 2);
  *  for a front-facing width of `f` of the circumference (0.5 = the visible
  *  half → 0). */
 export const nameFaceLimit = (f) => Math.cos(clamp(f, 0, 1) * Math.PI);
+
+/** panelMaterial's pole-pinch factor for a scroll tile at latitude `y`
+ *  (centerDir.y = cos θ_center): vK = sin(θ_center) — the tile's width as a
+ *  fraction of the equator band. centerDir is a unit vector, so sin θ is its
+ *  own xz length. The floor keeps a parked row (|y| = 1, collapsed on a pole
+ *  and invisible) out of a divide by zero. */
+export const namePinch = (y) => Math.max(Math.sqrt(Math.max(1 - y * y, 0)), 1e-3);
+
+/**
+ * Slice k's resting window on a tile pinched by `vK`, for a strip whose
+ * natural slice (cover-fit's own x scale — one tile's share) is `slice` wide.
+ *
+ * The pinch is why this is not simply `offsetX = k · slice`. panelMaterial
+ * centre-crops a scroll tile's media SAMPLING by vK (`vK` in its vertex
+ * shader, `mUv` in its fragment shader) so a tile narrowed toward a pole
+ * crops a photo instead of squashing it. Text has no slack for that: at the
+ * band edge vK ≈ 0.53, so a tile showed only the middle HALF of its slice —
+ * which rendered TOBEHONEST as "TOHOST" while the texture, the span and the
+ * offsets were all provably right, because the crop happens after them.
+ *
+ * So undo it here. vUv.x 0..1 reaches the shader as mUv.x = 0.5 ± vK/2, and
+ * u = mUv.x · scaleX + offsetX, so scaleX = slice/vK makes the rendered width
+ * exactly `slice` at every latitude and the offset recentres it on
+ * (k + ½)·slice. The glyphs then foreshorten with the latitude — the sphere's
+ * own longitude convergence, correct for type wrapped around a globe, and not
+ * the squash the pinch exists to prevent.
+ *
+ * `band` wraps the offset into the strip's repeat (RepeatWrapping). Region
+ * must NOT wrap: its offset is slightly negative at k = 0 by design and the
+ * sampled range still never leaves [0, 1], while a wrap would push it past
+ * the clamped edge.
+ */
+export function nameWindow(k, slice, vK, { band = false } = {}) {
+  const scaleX = slice / vK;
+  const offsetX = k * slice - ((1 - vK) * slice) / (2 * vK);
+  return { scaleX, offsetX: band ? offsetX - Math.floor(offsetX) : offsetX };
+}
+
+/** The strip range a tile with this window ACTUALLY renders, under the pinch
+ *  — the measurement, not the intent, and the one the "TOHOST" defect needed:
+ *  every CPU-side value was right while the render was wrong. Tile k is in
+ *  register iff this is [k·slice, (k+1)·slice] (mod 1 in band mode). */
+export function nameRendered(scaleX, offsetX, vK) {
+  return [offsetX + (0.5 - 0.5 * vK) * scaleX, offsetX + (0.5 + 0.5 * vK) * scaleX];
+}
 
 let ctx2d = null;
 function measureCtx() {

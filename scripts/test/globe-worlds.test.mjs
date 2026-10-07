@@ -22,6 +22,9 @@ import {
   nameSpan,
   nameBandLimit,
   nameFaceLimit,
+  namePinch,
+  nameWindow,
+  nameRendered,
   NAME_QUADS,
 } from '../../src/components/globe/nameTicker.js'
 
@@ -403,6 +406,14 @@ const Y_LIMIT = nameBandLimit(POP_DEFAULTS.nameBand)
 const Z_LIMIT = nameFaceLimit(POP_DEFAULTS.nameFace)
 const TILT = () => new THREE.Euler(THREE.MathUtils.degToRad(40), 0, 0) // the brand tilt
 const strips = (panels) => panels.filter((p) => p.shownAsset?.kind === 'name')
+/** One tile's natural share of its strip (cover-fit's x scale) and the strip
+ *  range it really renders — re-derived here from the live uniforms and the
+ *  tile's own latitude, which is what the probe's namesSlice gate measures. */
+const sliceOf = (p) => Math.min(1, p.panelAspect / (p.mesh.material.uniforms.texA.value?.userData?.aspect || 1))
+const rendered = (p) => {
+  const u = p.mesh.material.uniforms
+  return shaderRenders(u.uvScaleA.value.x, u.uvOffsetA.value.x, namePinch(p.centerDir.y))
+}
 const SPAN_CLAMP = { min: POP_DEFAULTS.nameSpanMin, max: POP_DEFAULTS.nameSpanMax }
 
 test('names: the span comes from the measured name — a longer name takes more tiles, and is never cut', () => {
@@ -426,6 +437,60 @@ test('names: the span comes from the measured name — a longer name takes more 
   // The clamp is honoured from both ends.
   assert.equal(nameSpan('A', size, 1, { min: 4, max: 6 }), 4)
   assert.equal(nameSpan('Hurry Up Slowly Records', size, 1, { min: 1, max: 2 }), 2)
+})
+
+// What panelMaterial's fragment stage does to a scroll tile's sampling —
+// mUv.x = 0.5 + (vUv.x − 0.5)·vK, so vUv.x 0..1 renders [u(0), u(1)].
+const shaderRenders = (scaleX, offsetX, vK) =>
+  [0, 1].map((x) => (0.5 + (x - 0.5) * vK) * scaleX + offsetX)
+
+test('names: a tile renders its WHOLE slice through panelMaterial’s pole pinch', () => {
+  // nameRendered must be the shader's own arithmetic, or it measures nothing.
+  for (const vK of [0.3, 0.527, 1]) {
+    assert.deepEqual(nameRendered(0.25 / vK, 0.1, vK), shaderRenders(0.25 / vK, 0.1, vK))
+  }
+  // vK = sin θ for the latitude centerDir.y = cos θ — panelMaterial's own vK.
+  for (const theta of [0.4, 1.0, Math.PI / 2, 2.4]) {
+    assert.ok(Math.abs(namePinch(Math.cos(theta)) - Math.sin(theta)) < 1e-12, `θ ${theta}`)
+  }
+  assert.ok(namePinch(1) > 0, 'a parked row must not divide by zero')
+  for (const span of [2, 3, 5, 6]) {
+    const slice = 1 / span
+    for (const vK of [1, 0.9, 0.707, 0.527, 0.3]) {
+      for (let k = 0; k < span; k++) {
+        const { scaleX, offsetX } = nameWindow(k, slice, vK)
+        const [lo, hi] = shaderRenders(scaleX, offsetX, vK)
+        assert.ok(Math.abs(lo - k * slice) < 1e-12, `span${span} vK${vK} k${k}: lo ${lo}`)
+        assert.ok(Math.abs(hi - (k + 1) * slice) < 1e-12, `span${span} vK${vK} k${k}: hi ${hi}`)
+        // The rendered range never leaves the texture, so region mode's
+        // slightly negative offset at k = 0 is never clamped.
+        assert.ok(lo >= -1e-12 && hi <= 1 + 1e-12, `span${span} vK${vK} k${k}: [${lo}, ${hi}]`)
+      }
+    }
+  }
+  // The negative control, and the "TOHOST" defect itself: resting tile k on
+  // slice k WITHOUT undoing the pinch (scaleX = slice, offsetX = k·slice) —
+  // every CPU-side value right, the render cut to the middle vK of the slice.
+  const vK = 0.527 // the band edge at ?popnameband 0.65 (|y| 0.851)
+  const slice = 1 / 5
+  const [lo, hi] = shaderRenders(slice, 2 * slice, vK)
+  assert.ok(Math.abs(hi - lo - slice * vK) < 1e-12, 'uncompensated renders only vK of its slice')
+  assert.ok(hi - lo < slice * 0.6, `${(hi - lo) / slice} of the slice — TOBEHONEST read "TOHOST"`)
+  assert.ok(Math.abs(lo - 2 * slice) > 0.04, 'and starts well inside its own slice')
+})
+
+test('names: band mode’s wrapped window still renders its own slice of the repeat', () => {
+  const slice = 0.37 // a natural strip (name + gap) wider than one tile
+  for (const vK of [1, 0.8, 0.527]) {
+    for (let k = 0; k < 12; k++) {
+      const { scaleX, offsetX } = nameWindow(k, slice, vK, { band: true })
+      assert.ok(offsetX >= 0 && offsetX < 1, `k${k}: ${offsetX} must sit inside the repeat`)
+      const [lo, hi] = shaderRenders(scaleX, offsetX, vK)
+      assert.ok(Math.abs(hi - lo - slice) < 1e-12, `k${k}: width ${hi - lo}`)
+      const off = lo - k * slice
+      assert.ok(Math.abs(off - Math.round(off)) < 1e-12, `k${k}: ${off} is not a whole repeat`)
+    }
+  }
 })
 
 test('names: a world places its strip mid-latitude, front-facing, read once across its tiles', () => {
@@ -452,16 +517,21 @@ test('names: a world places its strip mid-latitude, front-facing, read once acro
   )
   const lons = run.map((p) => p.lonIndex)
   for (const p of run) assert.equal(lons.includes((p.lonIndex + 1) % LON) || p.shownAsset.k === placed.span - 1, true)
-  // The windows tile the strip edge to edge: tile k rests on slice k, and
-  // span windows cover the whole strip (no repeat, so nothing is cut).
+  // The RENDERS tile the strip edge to edge: tile k renders slice k past the
+  // pole pinch, and span slices cover the whole strip (no repeat, nothing
+  // cut). Measured off the live uniforms + latitude, as the probe does.
   director.update(1 / 60)
   const byK = [...run].sort((a, b) => a.shownAsset.k - b.shownAsset.k)
+  assert.ok(Math.abs(sliceOf(byK[0]) * placed.span - 1) < 1e-6, `slice × ${placed.span}`)
+  let edge = 0
   for (const p of byK) {
-    const u = p.mesh.material.uniforms
-    assert.ok(Math.abs(u.uvOffsetA.value.x - p.shownAsset.k * u.uvScaleA.value.x) < 1e-9, `k${p.shownAsset.k}`)
+    const slice = sliceOf(p)
+    const [lo, hi] = rendered(p)
+    assert.ok(Math.abs(lo - p.shownAsset.k * slice) < 1e-9, `k${p.shownAsset.k}: lo ${lo}`)
+    assert.ok(Math.abs(lo - edge) < 1e-9, `k${p.shownAsset.k}: a gap at ${edge}`)
+    edge = hi
   }
-  const scaleX = byK[0].mesh.material.uniforms.uvScaleA.value.x
-  assert.ok(Math.abs(scaleX * placed.span - 1) < 1e-6, `${scaleX} × ${placed.span}`)
+  assert.ok(Math.abs(edge - 1) < 1e-9, `the run renders ${edge} of the strip`)
   director.dispose()
 })
 
@@ -525,15 +595,20 @@ test('names: band mode draws the name across a whole latitude row, inside the ba
     Array.from({ length: LON }, (_, i) => i)
   )
   for (const p of run) assert.ok(Math.abs(p.centerDir.y) <= Y_LIMIT, `row ${p.row}`)
-  // The natural strip repeats around the row: tile k+1's window starts where
-  // tile k's ends (mod the strip's period).
+  // The natural strip repeats around the row: tile k+1 renders where tile k
+  // stopped (mod the strip's period), each one a full slice wide.
   director.update(1 / 60)
   const byK = [...run].sort((a, b) => a.shownAsset.k - b.shownAsset.k)
+  for (const p of byK) {
+    const [lo, hi] = rendered(p)
+    assert.ok(Math.abs(hi - lo - sliceOf(p)) < 1e-9, `k${p.shownAsset.k}: renders ${hi - lo}`)
+    // the offset stays inside the repeat, so RepeatWrapping does the tiling
+    const off = p.mesh.material.uniforms.uvOffsetA.value.x
+    assert.ok(off >= 0 && off < 1, `k${p.shownAsset.k}: offset ${off} outside the repeat`)
+  }
   for (let k = 1; k < byK.length; k++) {
-    const a = byK[k - 1].mesh.material.uniforms
-    const b = byK[k].mesh.material.uniforms
-    const d = (((b.uvOffsetA.value.x - a.uvOffsetA.value.x - a.uvScaleA.value.x) % 1) + 1) % 1
-    assert.ok(d < 1e-9 || d > 1 - 1e-9, `k${k}: ${d}`)
+    const d = rendered(byK[k])[0] - rendered(byK[k - 1])[1]
+    assert.ok(Math.abs(d - Math.round(d)) < 1e-9, `k${k}: ${d} is not a whole repeat`)
   }
   director.dispose()
 })
@@ -551,14 +626,31 @@ test('names: one shared texture per world + style + layout, and the strips hold 
   }
   assert.ok(director.warm.has(key)) // warmed with the grouping
   assert.equal(textureManager.cache.get(key).refs, run.length + 1) // one texture, refcounted per tile
-  // No ticker: the windows never move, however long the clock runs.
+  // No ticker: the RENDERED slice never moves — not as the clock runs, and
+  // not as the row scrolls pole-ward, where the pinch changes and the
+  // uniforms MUST move for the render to stay put. That is why placeNames
+  // reconciles every frame: a window frozen at the change would lose register
+  // at every seam as its row travelled (~10% of a slice over one hold).
   director.update(0.5)
-  const at = run.map((p) => p.mesh.material.uniforms.uvOffsetA.value.x)
+  const was = run.map(rendered)
   for (let i = 0; i < 20; i++) director.update(0.25)
-  assert.deepEqual(
-    run.map((p) => p.mesh.material.uniforms.uvOffsetA.value.x),
-    at
-  )
+  assert.deepEqual(run.map(rendered), was)
+  const scales = () => run.map((p) => p.mesh.material.uniforms.uvScaleA.value.x)
+  const before = scales()
+  for (const p of run) {
+    // MeridianScroll.applyScroll: the row travels down, centerDir rewritten.
+    const theta = Math.acos(p.centerDir.y) + 0.21 // ~12°, about one hold's travel
+    const st = Math.sin(theta)
+    const r = Math.hypot(p.centerDir.x, p.centerDir.z) || 1
+    p.centerDir.set((p.centerDir.x / r) * st, Math.cos(theta), (p.centerDir.z / r) * st)
+  }
+  director.update(1 / 60)
+  assert.notDeepEqual(scales(), before, 'the window must track the pinch as the row scrolls')
+  run.forEach((p, i) => {
+    const [lo, hi] = rendered(p)
+    assert.ok(Math.abs(lo - was[i][0]) < 1e-9, `k${p.shownAsset.k}: lo moved ${was[i][0]} → ${lo}`)
+    assert.ok(Math.abs(hi - was[i][1]) < 1e-9, `k${p.shownAsset.k}: hi moved ${was[i][1]} → ${hi}`)
+  })
   // A longer name takes more tiles on the globe, not a cut strip.
   const long = [{ slug: 'long', clientName: 'Hurry Up Slowly Records', title: null, services: [], assets: pool(10, 'video', 'long-') }]
   const { director: d2, panels: p2 } = makeDirector({ seed: 5, names: 1 }, { getRotation: TILT, worlds: long })
