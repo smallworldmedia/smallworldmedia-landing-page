@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-10-06*
+*Last Updated: 2026-10-08*
 
 ```
 .
@@ -16,8 +16,9 @@
 │   │   ├── *.jsx             # site chrome: SiteShell, SiteNav, SiteFooter, SiteTagline, RouteFill,
 │   │   │                     #   InfoPanel, ProjectOverlay, PrivacyOverlay/Content, ClientLogoTicker,
 │   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels
-│   │   ├── globe/            # video globe: scene hook, geometry, shader material, schedulers, textures,
-│   │   │                     #   population modes (world pools, patterns, director, tile swaps, name ticker, popConfig)
+│   │   ├── globe/            # video globe: scene hook, geometry, shader material, grain rig, schedulers,
+│   │   │                     #   textures, population modes (world pools, patterns, director, tile swaps,
+│   │   │                     #   name strips, popConfig)
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
 │   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, directory stack
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
@@ -28,8 +29,10 @@
 │   │   └── ui/SocialButton.jsx
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, momentum, navAccent, projectColor, projectSlug,
-│   │                         #   keywords, formatYearRange, constants, sanityClient, queries, *Tune
-│   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag, globeSettings
+│   │                         #   keywords, formatYearRange, constants, sanityClient, queries,
+│   │                         #   siteCopy, *Tune
+│   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
+│   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + per-route sheets + *-tune.css benches
 │   └── assets/               # fonts/ (woff2), client-logos/ (normalized + manifest.json), lockup svg
 ├── public/                   # favicons, og-image, robots, icons/ sprite + social marks

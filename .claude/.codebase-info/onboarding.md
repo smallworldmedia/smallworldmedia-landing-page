@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-10-07*
+*Last Updated: 2026-10-08*
 
 ## Quick start
 ```bash
@@ -13,9 +13,11 @@ node --test scripts/test/*.test.mjs    # every top-level suite (globe worlds, fo
 No env vars are needed for the site build. The CMS CLI needs `SANITY_*` / `MUX_*` tokens in the
 process env (names in `.env.example`, values in gitignored `.env.local`).
 
-Probing after a build? Serve the built output, never the dev server — a build rewrites the shared
-`node_modules/.vite` and the live `astro dev` starts answering 504 "Outdated Optimize Dep", which
-reads as a probe failure. `npx astro preview --port 3333` then
+Probing after a build? Serve the built output, never the dev server — a build rewrites that worktree's
+`node_modules/.vite` and its live `astro dev` starts answering 504 "Outdated Optimize Dep", which
+reads as a probe failure. Each worktree has its own real `node_modules`, so the collision is confined to
+one worktree: to gate a revision while a live `--host` session keeps serving a phone, build in a
+different worktree. `npx astro preview --port 3333` then
 `GLOBE_PROBE_BASE=http://localhost:3333 node scripts/globe-probe.mjs` (3333 is CORS-allowlisted, so
 the stills load and the globe is not black).
 
@@ -48,6 +50,7 @@ by scope.
 | Change a detail page | `work/detail/FeaturedProjectDetail.jsx`, `buildContentFlow.js`, `flushGrid.js`, `src/styles/project-detail.css` |
 | Change /process | `process/useProcessScene.js`, `processConfig.js`, `processContent.js`, `src/styles/process.css`; probe with `scripts/process-probe.mjs` |
 | Chrome / footer / overlays | flat `src/components/*.jsx`, `src/styles/global.css`, `src/lib/overlayWipe.js`; the footer reveal channel is `SiteFooter.jsx` + `lib/footerTune.js` (bench `?footertune=1`), measured with `node scripts/globe-probe.mjs --footer` |
+| Pick or add a house colour | the `--swm-*` extended palette and the `--ink-muted` role token in `src/styles/global.css`'s `:root`; consume a role token, never a raw hue, and check the contrast on black (`--swm-navy` and the brand electric blue are below 2.5:1 there) |
 | Add a client's media | write `_manifest.md` (`scripts/generate-manifests.mjs`), then `npm run cms -- plan` → `apply` → `verify` |
 | Add client logos | drop into `Client Logos/`, run `node scripts/prep-client-logos.mjs`, check `--check` |
 | Edit Sanity schema | `src/schemas/*.ts`; CMS contract hash in `scripts/lib/cms/contract.mjs` must be updated or `plan` fails closed |

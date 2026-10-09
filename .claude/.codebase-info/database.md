@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-09-26*
+*Last Updated: 2026-10-08*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -15,6 +15,19 @@ media-library terms (Client Folder, Curated Collection, Artwork Catalog, Feature
 | `mediaAsset` | `title`, `slug`, `mediaType` (album-art, logo, featured-project-reel, brand-deck, carousel-slide, `static_*`, `motion_*` by aspect), `image` (hotspot+alt) or `video` (`mux.video`), `releaseInfo{…}` (album-art), `brandDeckOrder`, `contentRole` (process/supporting; empty = showcase), `displayGroup`, `sourceFolder`/`sourceManifest` (read-only provenance), `orderRank` | `client` → client; `project` → project; `services[]` → serviceTag |
 | `serviceTag` | `name`, `slug`, `sortOrder` | — |
 | `globeSettings` | singleton `_id: "globeSettings"`, `picks[]` | → mediaAsset |
+| `siteSettings` | singleton `_id: "siteSettings"` (10-08), `footerBlurb`, `tagline` — the site-wide studio copy | — |
+
+**`siteSettings` holds MARKED PLAIN TEXT, not Portable Text.** Both fields are `type: 'text'`
+(`footerBlurb` rows 3 / max 400, `tagline` rows 2 / max 160) carrying the house marker vocabulary
+that `src/lib/keywords.jsx` parses — `**bold**`, `[[keyword]]`, `[[keyword]](/href)`,
+`[label](/href)` — the same format the `project.description` fields already use. One vocabulary,
+one parser, no new dependency; there is still **zero Portable Text in the repo**. A newline is a
+LINE BREAK, which is how the tagline pill's three-line lockup survives an editor rewording it.
+It is a second singleton rather than more fields on `globeSettings` because that document is named
+and iconned for the homepage globe. Both are pinned in `sanity.config.ts` via
+`S.document().documentId(…)` and filtered out of `newDocumentOptions`. Seeded and published in
+`production`. **The hosted Studio's deployed schema manifest is stale**, so the type will not appear
+there until the Studio is redeployed; a local Studio picks it up from the repo.
 
 Conventions: `isHero` is retired; the first asset by `orderRank` is the hero. Drafts are excluded
 from every site query. Ordering uses LexoRank via `@sanity/orderable-document-list` (Studio lists:
@@ -29,6 +42,7 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 | `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro`; `src/pages/index.astro` via `globe/buildWorldPools.js` (the home globe's population modes, branch `refine/globe-worlds`) |
 | `FEATURED_PROJECT_PATHS_QUERY`, `FEATURED_PROJECT_DETAIL_QUERY` (`$projectId`) | `src/pages/work/[slug].astro`; paths order drives `NextProjectBand` adjacency |
 | `MEDIA_GRID_QUERY`, `ALBUM_ART_QUERY`, `SERVICE_TAGS_QUERY` | dormant `/work/directory` |
+| `SITE_COPY_QUERY` (the `siteSettings` singleton) | `src/lib/siteCopy.js`, awaited by `BaseLayout.astro` (every route) and `src/pages/index.astro` |
 
 `scripts/test/cms-frontend.test.mjs` evaluates these real queries with `groq-js` against fixtures;
 `scripts/test/globe-worlds.test.mjs` does the same for `FEATURED_WORLDS_QUERY` → `buildWorldPools`.

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "tool": "codebase-mapper",
   "version": "2.15.10",
-  "mappedAt": "2026-10-07",
-  "gitCommit": "1e46bb546ab7d9fa9145a6a95d49021cac4e8f16",
+  "mappedAt": "2026-10-09",
+  "gitCommit": "d0044462776147736165dfd09eedcc418b63babd",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -18,17 +18,17 @@
     "tech-landscape.md"
   ],
   "hashes": {
-    "INDEX.md": "2ff67acb7d54301971d38c715613bb3b963b2b8a5b2027d940adf67a5a18baa1",
-    "architecture.md": "94085c53eb10386e83c2eb8240762ce650170fabf65bb99a4fb9c0266cf7f152",
+    "INDEX.md": "71f5af443854a6e402290c5b799d5cf340c2effd71de2405130faef887d608b1",
+    "architecture.md": "5a9bb01ad6e5d084a7a5e48ed65ce49faa0d5b8904181bdd7d7c587d2740c607",
     "cms-pipeline.md": "a177e29250424503252c1126421373934bf576162dfe37d211b156b7c40598d1",
-    "coding-style.md": "702f452f8d1d83068a16de873a136e9b89d168852e2c4a38b7958239ab30ad14",
-    "communication.md": "9fe2746b1a0fe8453e0fa09e99b8873a2690f7f391670ea7f622a64513b9c6f6",
-    "database.md": "b1d22593d54470d8e918794222da69c84fdb5e4cf091c8cba975dd29d891b4cd",
-    "directory-structure.md": "134db43b9dad2d2dcbd5b33239cfc1e496afdb0583797b8e20210f979422730d",
-    "entry-points.md": "842e401e6d3a805324d05bb606a89c5f3cc1cccfe68534c01375525ff0d7c0fd",
-    "modules.md": "6d4c957cef775d7f9768b1a1bbdf4d5c7087ec03593c793774bd199ebfe573ac",
-    "onboarding.md": "abaf4bae5343eda86e7d0af1b54f734dc9938a995f6ce6a1dc3540fcad0a88fb",
-    "patterns.md": "f4fac7c85fc1f1d3d217bd9796408b9f7ffcd0c68301fb4dbb14470a3fa55b9d",
+    "coding-style.md": "856e2d0b893613d795e60ac41c216665b1b932f15dfbfd26b49620c21e04a05b",
+    "communication.md": "90acafb4a5f96e8975abb447c73e839e146f76dfdf64a0f959f7d8989dcbeae0",
+    "database.md": "10b035b16ba3756aaa43cf94e31f18ece3299322d59031d1e3e48c7464532547",
+    "directory-structure.md": "080a52f77a889622d0f76e9b90515dc45535d7ca26295e76e0201a36ec564543",
+    "entry-points.md": "7af59c3f0ebdd4b026edab056bd7c2532f9756dfa64b0574ad4997feda4cf427",
+    "modules.md": "9604482b4294c9c71d5f18da500b9e850c4ba6038c106ff0df9011380aa2c626",
+    "onboarding.md": "59d9252eca0fbe30091feb84fa4719ccd746e73da7318c32d488b5f42ca78593",
+    "patterns.md": "dd7841a3344b88501bccc3cb31a4c2ae7f0feea5dfe68539c89cfa1fa1515a63",
     "tech-landscape.md": "7407c07cfbc42cdb9d78655f7a1ceba400a0ee14822674949443a1b433ab24d2"
   }
 }

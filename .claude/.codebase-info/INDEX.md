@@ -1,6 +1,6 @@
 # Codebase Map — Small World Media site
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-10-08*
 
 The Small World Media (SWM) portfolio site at smallworld.media: a static Astro 5 build whose
 routes are each one large React island driving a route-scoped three.js canvas (home video globe,
@@ -20,10 +20,10 @@ preview-first CLI (`npm run cms`) ingests media from Dropbox-synced `media/` man
 | [directory-structure.md](./directory-structure.md) | Annotated tree of src/, scripts/, docs/, assets |
 | [entry-points.md](./entry-points.md) | Route table (live vs redirected), layout, npm scripts |
 | [modules.md](./modules.md) | Per-area module purposes: work, world, globe, hero, process, chrome, lib |
-| [communication.md](./communication.md) | `swm:*` window events, `<html>` data-attribute latches, external services |
+| [communication.md](./communication.md) | `swm:*` window events, `<html>` data-attribute latches, server-frontmatter → island props, external services |
 | [database.md](./database.md) | Sanity document types, relationships, GROQ queries and consumers |
 | [cms-pipeline.md](./cms-pipeline.md) | `npm run cms` plan/apply/verify, manifests, Mux, tests, retired scripts |
-| [patterns.md](./patterns.md) | GSAP/ClientRouter doctrine, tunables + tune panels, commit-curve idiom, resize/headless doctrine |
+| [patterns.md](./patterns.md) | GSAP/ClientRouter doctrine, the marked-copy grammar and its two renderers, tunables + tune panels, commit-curve idiom, resize/headless doctrine |
 | [coding-style.md](./coding-style.md) | Naming, CSS token tiers, file header comments, no formatter |
 | [onboarding.md](./onboarding.md) | Quick start, common tasks, where the plans and memory live |
 

@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-10-07*
+*Last Updated: 2026-10-08*
 
 ## Summary
 
@@ -42,7 +42,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 | /process | `src/components/process/` | Five-stage narrative: ScrollTrigger-driven stage machine reusing the globe geometry/material |
 | Persistent chrome | `src/components/SiteShell.jsx`, `SiteNav.jsx`, `SiteFooter.jsx`, `SiteTagline.jsx`, `RouteFill.jsx`, overlays | Nav, drawer, inquiry form (Netlify Forms), privacy, footer reveal, route-fill bridge, logo ticker |
 | Shared motion libs | `src/lib/` | `dragMomentum`, `overlayWipe`, `scramble`, `charCut`, `smoothScroll`, `settleResize` — single sources of truth |
-| Data layer | `src/lib/sanityClient.js`, `src/lib/queries.js`, `src/schemas/` | Build-time fetch, GROQ, Sanity schema for the Studio at `/studio` |
+| Data layer | `src/lib/sanityClient.js`, `src/lib/queries.js`, `src/lib/siteCopy.js`, `src/schemas/` | Build-time fetch, GROQ, the memoized site-copy read, Sanity schema for the Studio at `/studio` |
 | CMS toolchain | `scripts/cms.mjs`, `scripts/lib/cms/` | Preview-first ingest of manifests into Sanity + Mux; `node --test` suite |
 
 ## Data Flow
@@ -51,6 +51,16 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
    the result (`buildAssetPool` for globe routes, `buildContentFlow` for /work, `buildWorldPools` for
    the home globe's population modes), and passes plain props into the island. No client-side Sanity
    calls.
+   **Site-wide copy is a special case of the same rule** (10-08): the footer blurb and the tagline
+   live on the `siteSettings` singleton, and `src/lib/siteCopy.js` memoizes the PROMISE so the whole
+   build makes one request for them. `BaseLayout.astro` awaits it — the one file every route passes
+   through, /privacy and /404 included — and hands it to the two persistent islands as a `siteCopy`
+   prop (`SiteTagline`, and `SiteShell` → `InfoPanel` → `SiteNav`); `index.astro` awaits the same
+   memo and threads it `LandingPage` → `Hero` → `SiteFooter`, because the footer blurb reaches the
+   panel through Hero. It travels as SERIALIZED PROPS rather than a module import for a load-bearing
+   reason: these are React islands, two of them `transition:persist`, and a module-level value set in
+   .astro frontmatter exists on the SERVER ONLY — the island's client bundle would hydrate with the
+   build-time default and flash the old copy.
 2. Runtime media: images via Sanity CDN / Mux thumbnails (`globe/TextureManager.js`), video via hls.js
    into a fixed `<video>` pool (`globe/VideoSlotPool.jsx`); schedulers (`LivePanelScheduler`,
    `world/worldLive.js`) promote a handful of visible tiles to live video at ~2 Hz. Under the population
