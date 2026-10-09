@@ -54,12 +54,12 @@ export const THUMB_WIDTH = IS_MOBILE ? 384 : 512; // Mux thumbnail request size 
 /* — Stream quality —
    Both tiers pin a SINGLE rendition (min+max collapse the Mux manifest to one
    choice), which also overrides native-HLS ABR that would otherwise pick low
-   for a hidden/small video element. Mobile overscan shows few large panels →
-   540p. Desktop runs 6 small-but-crisp center panels → 480p (min==max so the
-   preferMinQuality level-0 lock lands ON 480p, not the lowest sub-480p rung). */
-export const STREAM_PARAMS = IS_MOBILE
-  ? 'min_resolution=540p&max_resolution=540p'
-  : 'min_resolution=480p&max_resolution=480p';
+   for a hidden/small video element. Phone and desktop both pin 480p. Mux's
+   ladder here (270p/480p/720p/1080p) has no 540p rung, so the phone's old
+   540p pin was always served 480p; 480p names what plays (Nathan, 10-09:
+   the lowest rung that stays sharp). min==max, so the preferMinQuality
+   level-0 lock lands ON 480p, not a lower rung. */
+export const STREAM_PARAMS = 'min_resolution=480p&max_resolution=480p';
 
 /* — Live video tier (Stage 2) —
    Camera sits at ~3.9R (desktop), so the visible horizon is at score ≈ 0.26;
@@ -70,7 +70,7 @@ export const STREAM_PARAMS = IS_MOBILE
    MAX_LIVE_DWELL rotation + a re-live cooldown, not from demote alone.
    Knobs: ?promote ?demote ?dwellmax ?cooldown */
 export const MAX_LIVE = IS_MOBILE ? 4 : 7;     // concurrent video decode budget
-export const GLOBE_PREVIEW_SECONDS = 4;        // abbreviated loop, MediaCard convention
+export { PREVIEW_SECONDS as GLOBE_PREVIEW_SECONDS } from '../work/imageConfig.js'; // the shared preview window: VideoSlotPool's clip + loop
 export const CROSSFADE_SECONDS = 0.6;          // thumbnail ↔ video uMix tween
 export const PROMOTE_SCORE = PARAM('promote', 0.03);  // leading edge crests the rim
 export const DEMOTE_SCORE = PARAM('demote', 0.06);    // hysteresis — below this, fade back to still

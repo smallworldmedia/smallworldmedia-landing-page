@@ -27,6 +27,9 @@ import {
   nameRendered,
   NAME_QUADS,
 } from '../../src/components/globe/nameTicker.js'
+import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS } from '../../src/components/globe/globeConfig.js'
+import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../../src/components/work/imageConfig.js'
+import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib/netReport.mjs'
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -759,4 +762,150 @@ test('scheduler: shared streams — one decode per clip lights every copy of it'
   assert.equal(pool.released.length, 3)
   assert.ok(panels.every((p) => !p.liveState && p.mesh.material.uniforms.uMix.value === 0))
   scheduler.dispose()
+})
+
+/* — P0: the video diet (Mux instant clipping; Nathan, 10-09) — */
+test('video diet: one preview window, one detail cap, the clip last and once (P0)', () => {
+  assert.equal(GLOBE_PREVIEW_SECONDS, PREVIEW_SECONDS) // the globe pool loops at the shared window
+  assert.ok(PREVIEW_SECONDS > 0 && DETAIL_MAX_SECONDS > PREVIEW_SECONDS)
+  // the pool: the caller's pin first, the clip last (VideoSlotPool.streamUrl)
+  assert.equal(muxStream('abc', GLOBE_PREVIEW_SECONDS, STREAM_PARAMS), `https://stream.mux.com/abc.m3u8?${STREAM_PARAMS}&asset_end_time=${PREVIEW_SECONDS}`)
+  // a bare surface: the clip alone (MediaSlot, NextProjectBand, MediaCard)
+  assert.equal(muxStream('abc', DETAIL_MAX_SECONDS), `https://stream.mux.com/abc.m3u8?asset_end_time=${DETAIL_MAX_SECONDS}`)
+  const q = new URL(muxStream('abc', PREVIEW_SECONDS, STREAM_PARAMS)).searchParams
+  assert.deepEqual(q.getAll('asset_end_time'), [String(PREVIEW_SECONDS)])
+  assert.equal([...q.keys()].at(-1), 'asset_end_time')
+  // each surface's owed clip; the directory has no rule while it redirects
+  const W = { preview: PREVIEW_SECONDS, detail: DETAIL_MAX_SECONDS }
+  assert.equal(owedClip('/', true, W), PREVIEW_SECONDS)
+  assert.equal(owedClip('/work', true, W), PREVIEW_SECONDS) // the World Near tier
+  assert.equal(owedClip('/lab/globe', true, W), PREVIEW_SECONDS)
+  assert.equal(owedClip('/work/some-project', false, W), DETAIL_MAX_SECONDS)
+  assert.equal(owedClip('/work/some-project/', false, W), DETAIL_MAX_SECONDS)
+  assert.equal(owedClip('/work/directory', false, W), null)
+  assert.equal(owedClip('/', false, W), null)
+  // Mux keeps every segment that starts before the clip
+  assert.deepEqual(cover([5, 5, 5, 5, 5, 5], 15), { needed: 3, end: 15 })
+  assert.deepEqual(cover([4, 4, 4, 4, 0.708], 15), { needed: 4, end: 16 }) // a 4 s-segment asset's clip ends at 16
+  assert.deepEqual(cover([5, 5, 0.083], 15), { needed: 3, end: 10.083 }) // shorter than the cap: the whole asset
+  assert.deepEqual(cover([5, 5, 5], 5), { needed: 1, end: 5 })
+  assert.deepEqual(cover([4, 4, 4], 5), { needed: 2, end: 8 })
+  // the strict cap (Nathan, 10-09): a detail player wraps at DETAIL_MAX_SECONDS whatever its clip's end
+  const wrapAt = (t) => {
+    const v = { currentTime: t }
+    wrapAtDetailCap({ currentTarget: v })
+    return v.currentTime
+  }
+  assert.equal(wrapAt(DETAIL_MAX_SECONDS + 0.1), 0)
+  assert.equal(wrapAt(DETAIL_MAX_SECONDS), 0)
+  assert.equal(wrapAt(DETAIL_MAX_SECONDS - 0.1), DETAIL_MAX_SECONDS - 0.1)
+})
+
+test('video diet: every master owes its surface a clip, and the gates fail for real without it (P0)', () => {
+  const W = { preview: PREVIEW_SECONDS, detail: DETAIL_MAX_SECONDS }
+  const rend = (r) => `https://manifest-x.mux.com/${r}/rendition.m3u8?sig=1`
+  const chunk = (r, i) => `https://chunk-x.mux.com/v1/chunk/${r}/${i}.m4s`
+  // a master listing one video rendition r; `sent` is what reached Mux (`asked` unless --noclip stripped it)
+  const master = (route, asked, r, sent = asked) => ({
+    route, bucket: 'mux-master', asked, sent, bytes: 400,
+    body: `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1122000,RESOLUTION=854x480\n${rend(r)}`,
+  })
+  // r's playlist: n segments of `seg` seconds (Mux cuts most assets at 5 s, a few at 4 s)
+  const playlist = (route, r, n, seg = 5) => ({
+    route, bucket: 'mux-playlist', asked: rend(r), sent: rend(r), bytes: 300,
+    body: ['#EXTM3U', `#EXT-X-MAP:URI="${chunk(r, 'init')}"`, ...Array.from({ length: n }, (_, i) => `#EXTINF:${seg}.0,\n${chunk(r, i)}`), '#EXT-X-ENDLIST'].join('\n'),
+  })
+  const get = (route, r, i) => ({ route, bucket: 'mux-segment', asked: chunk(r, i), sent: chunk(r, i), bytes: 1000 })
+  const gets = (route, r, n) => [get(route, r, 'init'), ...Array.from({ length: n }, (_, i) => get(route, r, i))]
+  const run = (bodies, fetched, sessions, opts = {}) =>
+    netReport([...bodies.map(({ body, ...e }) => e), ...fetched], bodies, sessions, { ...W, ...opts })
+  // a session that played to maxT and jumped back from there once
+  const play = (id, route, pooled, maxT, more = {}) => ({ id, pooled, route, n: 40, maxT, jumps: [maxT], ended: 0, maxStillMs: 0, dur: maxT, ...more })
+  const pv = Math.ceil(PREVIEW_SECONDS / 5) // what each clip keeps of a 5 s-segment asset
+  const dv = Math.ceil(DETAIL_MAX_SECONDS / 5)
+  const slotUrl = muxStream('slot', PREVIEW_SECONDS, STREAM_PARAMS) // a home globe slot (pinned)
+  const heroUrl = muxStream('hero', DETAIL_MAX_SECONDS) // a detail page's MediaSlot (bare)
+  const ok = run(
+    [master('/', slotUrl, 'p'), playlist('/', 'p', pv), master('/work/x', heroUrl, 'h'), playlist('/work/x', 'h', dv)],
+    [...gets('/', 'p', pv), ...gets('/work/x', 'h', dv)],
+    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, DETAIL_MAX_SECONDS + TICK_S / 2)],
+  )
+  assert.deepEqual(ok.pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  assert.equal(ok.net.detail.streamClip.n, 2) // both surfaces judged, each against its own clip
+  assert.equal(ok.net.detail.segmentsPerRendition.n, 2)
+  assert.equal(ok.net.detail.loops.wraps, 2)
+  assert.equal(ok.net.byRoute['/work/x']['mux-segment'].n, dv + 1) // the init + the clip
+  assert.equal(ok.net.detail.segmentsPerRendition.conflicts, 0)
+  assert.deepEqual(ok.net.refetch, { chunks: pv + 1 + dv + 1, dupPaths: 0 })
+  // a 4 s-segment asset: the preview clip runs on to the next boundary, and the pool's guard loops it at the window
+  const four = run([master('/', slotUrl, 'p'), playlist('/', 'p', 2, 4)], gets('/', 'p', 2), [play('slot', '/', true, PREVIEW_SECONDS + 0.2)])
+  assert.deepEqual(four.pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  assert.equal(four.net.renditions[0].clipEnd, 8)
+
+  // NC: --noclip. The page asked for the clips; Mux was sent none, so it listed whole assets, the
+  // slot fetched past its window and the hero played past its cap: all three gates fail non-vacuously.
+  const bare = (u) => u.replace(/[?&]asset_end_time=[\d.]+/, '')
+  const nc = run(
+    [master('/', slotUrl, 'p', bare(slotUrl)), playlist('/', 'p', 8), master('/work/x', heroUrl, 'h', bare(heroUrl)), playlist('/work/x', 'h', 40)],
+    [...gets('/', 'p', pv + 2), ...gets('/work/x', 'h', dv + 5)],
+    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, 2 * DETAIL_MAX_SECONDS)],
+  )
+  assert.deepEqual(nc.pass, { streamClip: false, segmentsPerRendition: false, loops: false })
+  for (const g of ['streamClip', 'segmentsPerRendition', 'loops']) assert.equal(nc.net.detail[g].vacuous, false)
+  assert.equal(nc.net.detail.streamClip.worst, 2)
+  assert.equal(nc.net.detail.segmentsPerRendition.worst, 5) // the hero's segments past its cap
+  assert.equal(nc.net.detail.loops.bad[0].why, 'played past its clip')
+  // NC: a bare master off a detail page has no rule (the directory's case today)
+  assert.equal(run([master('/work/directory', heroUrl, 'h'), playlist('/work/directory', 'h', dv)], gets('/work/directory', 'h', dv), []).pass.streamClip, false)
+  // NC: a chunk no playlist lists fails segmentsPerRendition
+  assert.equal(run([master('/', slotUrl, 'p'), playlist('/', 'p', pv)], [...gets('/', 'p', pv), get('/', 'q', 0)], [play('slot', '/', true, 1)]).pass.segmentsPerRendition, false)
+  // the loop: within LOOP_END_S of its loop point passes (a guard a tick late included); past it,
+  // `ended`, frozen on the end frame, no clip end to judge against, or a run that never wraps at its
+  // loop point each fail
+  const loops = (s) => run([master('/', slotUrl, 'p'), playlist('/', 'p', pv)], gets('/', 'p', pv), s).pass.loops
+  assert.equal(loops([play('slot', '/', true, PREVIEW_SECONDS + TICK_S / 2)]), true)
+  assert.equal(loops([play('slot', '/', true, PREVIEW_SECONDS + TICK_S + 0.01)]), true) // the pool's guard, a tick late
+  assert.equal(loops([play('slot', '/', true, PREVIEW_SECONDS + LOOP_END_S + TICK_S)]), false)
+  assert.equal(loops([play('slot', '/', true, PREVIEW_SECONDS, { ended: 1 })]), false)
+  assert.equal(loops([play('slot', '/', true, PREVIEW_SECONDS, { maxStillMs: STALL_MS })]), false)
+  assert.equal(loops([play('other', '/', true, 1)]), false)
+  assert.equal(loops([play('slot', '/', true, 1, { jumps: [] })]), false)
+  assert.equal(loops([play('slot', '/', true, PREVIEW_SECONDS / 2)]), false) // a rewind mid-clip (a detach) is no wrap
+  // vacuity: nothing logged is a failure, never a pass; under reduced motion the floor is 0
+  const empty = run([], [], [])
+  assert.deepEqual(empty.pass, { streamClip: false, segmentsPerRendition: false, loops: false })
+  assert.equal(empty.net.detail.streamClip.vacuous, true)
+  assert.deepEqual(run([], [], [], { rm: true }).pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  // the loop point is the window or the clip's end, whichever comes first: a 4 s-segment slot (clip
+  // end 8) that plays on to its clip's end fails; a 4 s-segment detail hero (clip end 16) passes when
+  // it wraps at the cap and fails when it plays to its clip's end
+  assert.equal(run([master('/', slotUrl, 'p'), playlist('/', 'p', 2, 4)], gets('/', 'p', 2), [play('slot', '/', true, 8)]).pass.loops, false)
+  const hero4 = (maxT) => run([master('/work/x', heroUrl, 'h'), playlist('/work/x', 'h', 4, 4)], gets('/work/x', 'h', 4), [play('hero', '/work/x', false, maxT)])
+  assert.equal(hero4(DETAIL_MAX_SECONDS + TICK_S).pass.loops, true)
+  assert.equal(hero4(16).pass.loops, false)
+  assert.equal(hero4(16).net.detail.loops.bad[0].why, 'played past its clip')
+  // NC: a segment path two playlists list is an ambiguous attribution, so segmentsPerRendition fails
+  const twinUrl = muxStream('twin', PREVIEW_SECONDS, STREAM_PARAMS)
+  const twin = run(
+    [master('/', slotUrl, 'p'), playlist('/', 'p', pv), master('/', twinUrl, 'q'), { ...playlist('/', 'q', pv), body: playlist('/', 'p', pv).body }],
+    gets('/', 'p', pv),
+    [play('slot', '/', true, PREVIEW_SECONDS)],
+  )
+  assert.equal(twin.pass.segmentsPerRendition, false)
+  assert.equal(twin.net.detail.segmentsPerRendition.conflicts, pv) // each segment; the shared init is none
+  assert.equal(twin.pass.streamClip, true)
+  // two clips of one asset (a globe slot's preview, a detail page's cap) share the track's init chunk
+  // and never a segment: Mux serves one init to every clip, so a shared init alone is no conflict
+  const sharedInit = (b) => ({ ...b, body: b.body.replace(chunk('h', 'init'), chunk('p', 'init')) })
+  const clips = run(
+    [master('/', slotUrl, 'p'), playlist('/', 'p', pv), master('/work/x', heroUrl, 'h'), sharedInit(playlist('/work/x', 'h', dv))],
+    [...gets('/', 'p', pv), get('/work/x', 'p', 'init'), ...gets('/work/x', 'h', dv).slice(1)],
+    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, DETAIL_MAX_SECONDS)],
+  )
+  assert.equal(clips.net.detail.segmentsPerRendition.conflicts, 0)
+  assert.deepEqual(clips.pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  // refetch is listed, never gated: one chunk fetched twice
+  const again = run([master('/', slotUrl, 'p'), playlist('/', 'p', pv)], [...gets('/', 'p', pv), get('/', 'p', 0)], [play('slot', '/', true, PREVIEW_SECONDS)])
+  assert.deepEqual(again.net.refetch, { chunks: pv + 2, dupPaths: 1 })
+  assert.deepEqual(again.pass, { streamClip: true, segmentsPerRendition: true, loops: true })
 })

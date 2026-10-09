@@ -196,11 +196,11 @@ export const WORLD_MAX_VIDEO_TILES = Math.max(
 export const LIVE_DWELL_SECONDS = num('livedwell', 9); // min time live before rotating to a waiting Near tile
 export const LIVE_CROSSFADE_SECONDS = num('livefade', 0.6); // still ↔ video crossfade (globe convention)
 export const LIVE_SUSPEND_SECONDS = 0.3; // fast fade back to stills when a Turn starts
-// Near Tiles are large on screen (unlike globe panels), so pin a single hi-res
-// rendition: min+max together collapse the Mux manifest to one choice — no ABR
-// decision, no quality jump, and the 4s loop replays from buffer so delivery
-// cost stays a few MB per promotion. ?liveres=1080p etc. to experiment.
-const LIVE_RES = PARAMS?.get('liveres') || (IS_MOBILE ? '540p' : '720p');
+// Near Tiles are large on screen (unlike globe panels), so pin one rendition:
+// min+max collapse the Mux manifest to one choice — no ABR decision, no quality
+// jump. Phones pin 480p, the lowest rung that stays sharp (Nathan, 10-09); the
+// pool clips every stream at the preview window. ?liveres=1080p to experiment.
+const LIVE_RES = PARAMS?.get('liveres') || (IS_MOBILE ? '480p' : '720p');
 export const WORLD_STREAM_PARAMS = `min_resolution=${LIVE_RES}&max_resolution=${LIVE_RES}`;
 
 /* — Composite bands (World-side deck/album mounts, ADR-0003) —

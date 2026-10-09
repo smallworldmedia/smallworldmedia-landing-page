@@ -21,6 +21,7 @@ import ProjectDirectory from '../../components/work/ProjectDirectory.jsx';
 // experience + detail pages only. To re-enable: remove this redirect, restore
 // the SiteNav project_directory link, and restore the end-of-paging hand-off
 // in FeaturedProjects (clamp + hidden [NEXT] at the last World).
+// Previews: the grid's MediaCard already streams only the shared preview window, clipped at the source (muxStream at PREVIEW_SECONDS); keep it on that helper when re-enabling. The Lightbox plays full length on purpose (deliberate viewing).
 return Astro.redirect('/work');
 
 const assets = await sanityFetch(MEDIA_GRID_QUERY);

@@ -8,12 +8,42 @@
  * Usage:
  *   node scripts/globe-probe.mjs [--mode=tides] [--secs=20] [--warm=6]
  *        [--next=2] [--seed=42] [--mobile] [--rm] [--intro=replay|full]
- *        [--paint] [--enter] [--footer] [--channel=chrome]
+ *        [--paint] [--enter] [--footer] [--detail=SLUG] [--hold=PREFIX] [--noclip] [--channel=chrome]
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
  *
  * --base and --out also read GLOBE_PROBE_BASE / GLOBE_PROBE_OUT, for a pinned
  * verifier command that carries no flags (GLOBE_PROBE_OUT is the PARENT of the
  * per-run folder, so one setting serves every variant of a run).
+ *
+ * The video diet (P0). Every run but --footer logs its Mux and Sanity
+ * requests into report.net (scripts/lib/netReport.mjs reads it): per-bucket
+ * {n, bytes} for mux-master, mux-playlist, mux-segment, mux-thumb and
+ * sanity-image, the same per route, each rendition's highest segment index
+ * against what its clip keeps, what each <video> played, and the chunks
+ * fetched more than once (refetch: listed, not gated). Every master owes its
+ * surface's clip, imported from src/components/work/imageConfig.js: the pool
+ * (a min = max pin in the asked URL) PREVIEW_SECONDS, a detail page's bare
+ * players DETAIL_MAX_SECONDS. Three gates (report.net.detail[gate] = { n,
+ * floor, vacuous, worst, bound, … }): streamClip (every master carries the
+ * clip it owes), segmentsPerRendition (no segment fetched past it, none that
+ * two playlists list) and loops (no <video> plays past its loop point, the
+ * window or its clip's end, by more than LOOP_END_S, fires `ended` or freezes
+ * on its last frame, and one wraps there).
+ * --noclip strips the clip from every master in flight (page.route): the
+ * negative control, under which the clip gates (streamClip,
+ * segmentsPerRendition) must fail non-vacuously. Every player still wraps at
+ * its window, so loops is no control there. The route is registered in both
+ * arms, and any page.route turns Playwright's HTTP cache off for the whole
+ * page, images included: every byte in report.net is a cold-cache byte, a
+ * probe's figure, not a viewer's.
+ * --detail=SLUG loads /work/SLUG instead of home and scrolls it top to
+ * bottom, holding two capped loops at each end; it judges the three gates,
+ * detailCovered (every <video> on the page asked for a stream), noErrors
+ * (no console error or page error; warnings are listed, not gated) and, with
+ * --hold=PREFIX, heldWrap (the first <video> whose Mux id starts with PREFIX,
+ * centred and held two capped loops more, wraps at least once and never
+ * plays past its window), and skips the globe's sampling. --detail refuses
+ * --rm, which would drop every vacuity floor to zero.
  *
  * Samples the stats (and the <html> accent: the pop-tint class, the computed
  * --project-color) once a second for --secs, clicks the bench's ⏭ next
@@ -88,6 +118,8 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS } from '../src/components/work/imageConfig.js';
+import { netBucket, netReport, masterId, LOOP_SAMPLE_MS, LOOP_END_S } from './lib/netReport.mjs';
 
 const require = createRequire(import.meta.url);
 // Playwright is not a project dependency — pager-probe's PLAYWRIGHT_PATH rule.
@@ -128,6 +160,18 @@ const PAINT = !!arg('paint', false);
 const ENTER = !!arg('enter', false);
 const ENTER_OFF = /[?&]popenter=0\b/.test(EXTRA); // /work must open on its first world
 const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
+// The video diet (P0): --noclip strips asset_end_time from every master in
+// flight (the negative control; --noclip=0, =false, =off, =no or = leave it
+// off); --detail=SLUG probes /work/SLUG instead, and --hold=PREFIX holds one
+// of its videos through a wrap.
+const NOCLIP_ARG = arg('noclip', false);
+const NOCLIP = NOCLIP_ARG === true || (typeof NOCLIP_ARG === 'string' && !/^(0|false|off|no)?$/i.test(NOCLIP_ARG));
+const DETAIL = arg('detail', '');
+if (DETAIL === true) throw new Error('globe-probe: --detail takes a slug (--detail=SLUG)');
+if (DETAIL && RM) throw new Error('globe-probe: --detail with --rm drops every vacuity floor to 0; run --detail without --rm');
+const HOLD = arg('hold', '');
+if (HOLD === true || (HOLD && !DETAIL)) throw new Error('globe-probe: --hold takes a Mux id prefix and goes with --detail (--detail=SLUG --hold=PREFIX)');
+const STEP_MS = 2000; // --detail: each scroll step's hold, so the slots it reveals start their streams
 // --footer expectations. These mirror the BAKES the scenario is gating, the
 // way texbound mirrors the texture budget: Hero's FOOTER_REST_MOBILE and
 // footerTune's liftK. Pass the matching --footerrest / --footerlift when you
@@ -135,7 +179,7 @@ const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
 const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.59));
 const LIFT_K_EXPECT = Number(arg('footerlift', 0.5));
 const MARKS_FROM_EXPECT = Number(arg('footermarksfrom', 0.6));
-const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}`;
+const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}${DETAIL ? `-detail-${DETAIL}` : ''}${HOLD ? `-hold-${HOLD}` : ''}${NOCLIP ? '-noclip' : ''}`;
 const OUT = arg(
   'out',
   // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
@@ -146,10 +190,12 @@ const OUT = arg(
   )
 );
 // --footer loads home with NO bench: the pop panel's chip parks over the hero
-// and would swallow the touch scrub.
-const URL_ = FOOTER
-  ? `${BASE}/?intro=${INTRO}${EXTRA}`
-  : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}`;
+// and would swallow the touch scrub. --detail loads the detail page itself.
+const URL_ = DETAIL
+  ? `${BASE}/work/${DETAIL}`
+  : FOOTER
+    ? `${BASE}/?intro=${INTRO}${EXTRA}`
+    : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}`;
 
 // pager-probe's environmental noise (headless CDN CORS, GPU readback stalls,
 // Chrome's reduced-motion view-transitions warning) — never the page's fault.
@@ -383,6 +429,126 @@ async function enterScenario(page) {
     out.backError = String(e).slice(0, 300);
   }
   return out;
+}
+
+/* ── The video diet's loop watch (P0) ──────────────────────────────────────
+   Installed before any page script (addInitScript) and kept across soft
+   navigations, so it sees every <video> from its first timeupdate. One
+   session per element per source: the highest currentTime it reached, where
+   each backward jump of more than a second started (netReport counts one
+   from the loop point as a wrap), whether it fired `ended`, and the longest
+   it sat playing but frozen within endS of its end (hls.js's stalled end of
+   stream), sampled every sampleMs. Its id is the pool slot's
+   data-playback-id, else the Mux id in its poster. The listeners capture on
+   the document: media events do not bubble, and the capture phase runs
+   before the element's own handlers (the pool's seek-back). */
+const LOOP_WATCH = ({ sampleMs, endS }) => {
+  const sessions = (window.__swmLoops = []);
+  const live = new WeakMap(); // element → its current session
+  const idOf = (v) => v.dataset.playbackId || /image\.mux\.com\/([^/?]+)/.exec(v.poster || '')?.[1] || null;
+  const sessionOf = (v) => {
+    let s = live.get(v);
+    if (!s || s.src !== v.currentSrc) {
+      s = {
+        id: idOf(v),
+        pooled: !!v.dataset.playbackId,
+        route: location.pathname,
+        src: v.currentSrc,
+        n: 0,
+        maxT: 0,
+        jumps: [],
+        ended: 0,
+        lastT: 0,
+        lastSampleT: -1,
+        stillMs: 0,
+        maxStillMs: 0,
+        dur: null,
+      };
+      live.set(v, s);
+      sessions.push(s);
+    }
+    return s;
+  };
+  document.addEventListener(
+    'timeupdate',
+    (e) => {
+      const v = e.target;
+      if (!(v instanceof HTMLVideoElement)) return;
+      const s = sessionOf(v);
+      const t = v.currentTime;
+      if (t < s.lastT - 1) s.jumps.push(Math.round(s.lastT * 1000) / 1000);
+      s.lastT = t;
+      s.n += 1;
+      s.maxT = Math.max(s.maxT, t);
+      if (Number.isFinite(v.duration)) s.dur = Math.round(v.duration * 1000) / 1000;
+    },
+    true
+  );
+  document.addEventListener(
+    'ended',
+    (e) => {
+      if (e.target instanceof HTMLVideoElement) sessionOf(e.target).ended += 1;
+    },
+    true
+  );
+  setInterval(() => {
+    for (const v of document.querySelectorAll('video')) {
+      const s = live.get(v);
+      if (!s || s.src !== v.currentSrc) continue;
+      const t = v.currentTime;
+      const atEnd = !v.paused && !v.seeking && Number.isFinite(v.duration) && t >= v.duration - endS;
+      s.stillMs = atEnd && t === s.lastSampleT ? s.stillMs + sampleMs : 0;
+      s.maxStillMs = Math.max(s.maxStillMs, s.stillMs);
+      s.lastSampleT = t;
+    }
+  }, sampleMs);
+};
+
+/** --detail: the page top to bottom. Hold at the top for two capped loops (the
+ *  hero and the first rows wrap at least once), step down most of a viewport
+ *  at a time, each step held STEP_MS so the slots it reveals start their
+ *  streams, then hold at the bottom (the last rows and NextProjectBand) as
+ *  long. Scrolling only: the band commits on a wheel or touch gesture or a
+ *  click, never on window.scrollTo. With --hold=PREFIX it then centres the
+ *  first <video> whose Mux id starts with PREFIX and holds it two capped
+ *  loops more, so that video wraps at its window at least once (heldWrap). */
+async function detailScenario(page) {
+  await page.waitForSelector('.media-slot', { timeout: 30000 });
+  const hold = 2 * DETAIL_MAX_SECONDS * 1000;
+  await sleep(hold);
+  let steps = 0;
+  while (steps < 200) {
+    const done = await page.evaluate(() => {
+      const end = document.documentElement.scrollHeight - innerHeight;
+      if (scrollY >= end - 2) return true;
+      window.scrollTo(0, Math.min(end, scrollY + 0.8 * innerHeight));
+      return false;
+    });
+    if (done) break;
+    steps += 1;
+    await sleep(STEP_MS);
+  }
+  await sleep(hold);
+  const seen = await page.evaluate((n) => {
+    const idOf = (v) => /image\.mux\.com\/([^/?]+)/.exec(v.poster || '')?.[1] ?? null;
+    return {
+      route: location.pathname,
+      steps: n,
+      ids: [...new Set([...document.querySelectorAll('video')].map(idOf).filter(Boolean))],
+    };
+  }, steps);
+  if (!HOLD) return seen;
+  // LOOP_WATCH's id (a pool slot's data-playback-id, else the Mux id in the
+  // poster), so heldWrap reads the same sessions.
+  const held = await page.evaluate((prefix) => {
+    const idOf = (v) => v.dataset.playbackId || /image\.mux\.com\/([^/?]+)/.exec(v.poster || '')?.[1] || null;
+    const v = [...document.querySelectorAll('video')].find((x) => (idOf(x) || '').startsWith(prefix));
+    if (!v) return { prefix, id: null };
+    v.scrollIntoView({ block: 'center' });
+    return { prefix, id: idOf(v) };
+  }, HOLD);
+  if (held.id) await sleep(hold + STEP_MS);
+  return { ...seen, held };
 }
 
 /* ── --footer: the MOBILE HOME resting footer's reveal ─────────────────────
@@ -713,10 +879,97 @@ function footerPass(f) {
     if (r.resourceType() !== 'image') return;
     report.imageFailures.push(`${r.failure()?.errorText} @${new URL(page.url()).pathname}: ${r.url().slice(0, 160)}`);
   });
+  // The video diet (P0): every Mux and Sanity request that ENDS, bucketed and
+  // sized (sizes() = bytes on the wire), with the URL the page asked for
+  // (before --noclip's route), the route that asked, and the URL it sent;
+  // master and rendition playlist bodies are kept for netReport.
+  const asked = new WeakMap();
+  const net = { log: [], bodies: [], pending: [] };
+  page.on('request', (r) => asked.set(r, { url: r.url(), route: new URL(page.url()).pathname }));
+  const onNetEnd = (failed) => (r) => {
+    const bucket = netBucket(r.url());
+    if (!bucket) return;
+    const at = asked.get(r);
+    const route = at?.route ?? new URL(page.url()).pathname;
+    net.pending.push(
+      (async () => {
+        const sizes = failed ? null : await r.sizes().catch(() => null);
+        const e = { route, bucket, asked: at?.url ?? r.url(), sent: r.url(), bytes: sizes?.responseBodySize ?? 0, ...(failed ? { failed: true } : {}) };
+        net.log.push(e);
+        if (!failed && (bucket === 'mux-master' || bucket === 'mux-playlist')) {
+          const res = await r.response();
+          net.bodies.push({ ...e, body: res ? await res.text().catch(() => '') : '' });
+        }
+      })().catch(() => {}) // a request still in flight at close is dropped, never fatal
+    );
+  };
+  const onNetFinished = onNetEnd(false);
+  const onNetFailed = onNetEnd(true);
+  page.on('requestfinished', onNetFinished);
+  page.on('requestfailed', onNetFailed);
+  // Stop logging (the loop watch's sessions first, while the page is up), wait
+  // for every logged request's size and body, and judge.
+  const finishNet = async () => {
+    const sessions = await page
+      .evaluate(() => (window.__swmLoops || []).map(({ src, lastT, lastSampleT, stillMs, ...s }) => s))
+      .catch(() => []);
+    page.off('requestfinished', onNetFinished);
+    page.off('requestfailed', onNetFailed);
+    await Promise.all(net.pending);
+    return netReport(net.log, net.bodies, sessions, {
+      preview: PREVIEW_SECONDS,
+      detail: DETAIL_MAX_SECONDS,
+      rm: RM,
+      noclip: NOCLIP,
+    });
+  };
   // The entrance watcher must see the FIRST frame, so it is installed before
   // any page script runs.
   if (FOOTER) await page.addInitScript(FOOTER_WATCH);
+  else {
+    await page.addInitScript(LOOP_WATCH, { sampleMs: LOOP_SAMPLE_MS, endS: LOOP_END_S });
+    // The video diet's negative control, registered in every run that judges
+    // the diet (all but --footer) as a pass-through unless --noclip: any
+    // page.route turns Playwright's HTTP cache off, so both arms of a
+    // before/after measure the same cold cache. The page still ASKS for the
+    // clip (report.net.log's `asked`); under --noclip Mux never sees it
+    // (`sent`).
+    await page.route(/stream\.mux\.com\/[^/?]+\.m3u8/, (route) => {
+      if (!NOCLIP) return route.continue();
+      const u = new URL(route.request().url());
+      u.searchParams.delete('asset_end_time');
+      return route.continue({ url: u.toString() });
+    });
+  }
   await page.goto(URL_, { waitUntil: 'domcontentloaded' });
+
+  // --detail: the detail page alone, judged by the video diet; no globe here.
+  if (DETAIL) {
+    report.detailPage = await detailScenario(page);
+    const diet = await finishNet();
+    await browser.close().catch(() => {});
+    report.net = diet.net;
+    const streamed = new Set(
+      diet.net.log
+        .filter((e) => e.bucket === 'mux-master' && !e.failed && e.route === report.detailPage.route)
+        .map((e) => masterId(e.sent))
+    );
+    report.pass = {
+      ...diet.pass,
+      // the scroll reached every <video> on the page: each asked for a stream
+      detailCovered: report.detailPage.ids.length > 0 && report.detailPage.ids.every((id) => streamed.has(id)),
+      // console errors (a refused stream logs one) and page errors; a warning
+      // stays listed in report.consoleErrors but is not gated here
+      noErrors: !report.consoleErrors.some((m) => m.startsWith('error ')) && !report.pageErrors.length,
+      // --hold: the held video wrapped at least once and never played past its window
+      ...(HOLD
+        ? { heldWrap: !!report.detailPage.held?.id && diet.net.sessions.some((s) => s.id === report.detailPage.held.id && s.wraps >= 1 && !s.why) }
+        : {}),
+    };
+    console.log(JSON.stringify(report, null, 1));
+    save();
+    process.exit(Object.values(report.pass).some((v) => !v) ? 2 : 0);
+  }
   await page.waitForSelector('.video-globe__canvas canvas', { timeout: 30000 });
 
   // --footer short-circuits the population sampling loop entirely: it gates a
@@ -804,6 +1057,7 @@ function footerPass(f) {
   } else report.colour = await readTint(page);
   await shot(page, 'end');
   if (ENTER && MODE !== 'off') report.enter = await enterScenario(page);
+  const diet = await finishNet();
   await browser.close();
 
   const stats = report.samples.filter((s) => s.phase);
@@ -1061,6 +1315,9 @@ function footerPass(f) {
           ...enterPass,
           clean: !report.consoleErrors.length && !report.pageErrors.length,
         };
+  // The video diet's gates (report.net.detail[gate] = { n, floor, vacuous, worst, bound, … }).
+  report.net = diet.net;
+  Object.assign(report.pass, diet.pass);
   if (report.imageFailures.length) {
     console.error(
       `globe-probe: ${report.imageFailures.length} image request(s) failed, first: ${report.imageFailures[0]}\n` +

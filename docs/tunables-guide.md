@@ -366,7 +366,7 @@ Mode tags: **[all]** every field mode · **[DRUM]** `fpgrid=3` (the shipped defa
 | `?vtiles` | video tiles to load (extras rotate through the pool); also sizes the sync build batch [all] | desktop `6`, mobile = `?live` | integer ≥ 0 | `:173` |
 | `?livedwell` | min seconds live before rotating to a waiting Near tile [all] | `9` s | any finite | `:175` |
 | `?livefade` | still ↔ video crossfade [all] | `0.6` s | any finite | `:176` |
-| `?liveres` | pinned Mux rendition (`min_resolution=X&max_resolution=X`) [all] | desktop `720p`, mobile `540p` | any string, passed verbatim | `:182` |
+| `?liveres` | pinned Mux rendition (`min_resolution=X&max_resolution=X`) [all] | desktop `720p`, mobile `480p` | any string, passed verbatim | `:203` |
 
 ### Bands and the deck viewer (the `?deckdebug` panel writes these live)
 
