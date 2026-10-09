@@ -2801,7 +2801,7 @@ html[data-footer-rest] .logo-ticker {
 
      --lt-p, the band's own window, cannot express this: it is a RISE window
      keyed on --footer-peak, and on this variant there is no rise — the band
-     IS the resting content, so at the 0.62 floor it resolved to a flat 0.633
+     IS the resting content, so at the then-0.62 floor it resolved to a flat 0.633
      and the --logo-reveal-from: 0 override that used to sit here was that
      window being fought with the only lever it had. Both are gone.
 
@@ -2868,7 +2868,7 @@ html[data-footer-rest] .logo-ticker__copy {
    DESKTOP RESTING VARIANT — the panel's own layout (10-08, Nathan)
    ============================================
    ?footerrest reaches ANY width (Hero: desktop defaults to 0, the phone to
-   0.62, an explicit dial to anywhere), so on desktop this variant inherits a
+   0.59, an explicit dial to anywhere), so on desktop this variant inherits a
    panel built for a different pose. Everything here is gated at 769px because
    the three things it reckons with — the fixed lockup, the (c) line and the
    privacy pill — are all display:none at <=768px, where the phone's layout is
@@ -3061,7 +3061,7 @@ html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell
    the globe and Enter World button scroll up slightly, maybe at half the rate
    of the actual scroll") ──────────────────────────────────────────────────
    Driver: --footer-rise, NOT --footer-reveal. The raw var RESTS at ?footerrest
-   (0.62), so a consumer reading it lifts the globe a third of the way on the
+   (0.59), so a consumer reading it lifts the globe a third of the way on the
    FIRST PAINT; the rise is 0 in the resting pose by construction.
 
    Travel: the panel's own climb is span × --footer-panel-h, and --footer-lift-k

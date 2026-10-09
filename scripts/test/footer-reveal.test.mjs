@@ -110,6 +110,43 @@ test('the ticker foot clearance default equals its derived CSS chain', () => {
   )
 })
 
+/* ?footerrest is the one shipped default with NO CSS fallback twin — it is read
+   in JS at module load and latches [data-footer-rest], so the cascade never
+   sees it. It forked anyway: `globe-probe --footer` has to KNOW the floor to
+   gate that the panel parks on it, so the number lives in Hero.jsx and again
+   as the probe's FOOTER_REST_EXPECT default. Nothing held them equal, and a
+   re-bake that moved only Hero's copy would not fail a test — it would fail
+   the PROBE, later, reading as a regression in the footer rather than as a
+   stale gate. Both are parsed from source: Hero.jsx is an island (importing it
+   drags in the whole hero) and the probe runs a browser on import. */
+test('the footer rest bake and the probe gate that checks it are one number', () => {
+  const read = (file, re, what) => {
+    const m = fs.readFileSync(`${root}${file}`, 'utf8').match(re)
+    assert.ok(m, `${file} no longer declares ${what} the way this test reads it`)
+    return Number(m[1])
+  }
+  const baked = read(
+    'src/components/Hero.jsx',
+    /const FOOTER_REST_MOBILE = ([0-9.]+)/,
+    'FOOTER_REST_MOBILE',
+  )
+  const gate = read(
+    'scripts/globe-probe.mjs',
+    /const FOOTER_REST_EXPECT = Number\(arg\('footerrest', ([0-9.]+)\)\)/,
+    'FOOTER_REST_EXPECT',
+  )
+  assert.equal(
+    gate,
+    baked,
+    `globe-probe gates ?footerrest=${gate} but Hero bakes ${baked} — move both`,
+  )
+  // It must also stay clear of the blurb's clipping floor: the blurb box ends
+  // at 0.415 of the 281.2px panel at 390x844 (swept 10-08), below which the
+  // resting pose cuts the studio blurb off mid-line.
+  assert.ok(baked > 0.42, `a rest of ${baked} clips the blurb (floor is ~0.415)`)
+  assert.ok(baked <= 1, `?footerrest is a 0..1 fraction, got ${baked}`)
+})
+
 test('the marks window opens before it closes and inside the rise', () => {
   const { marksFrom, marksTo } = FOOTER_TUNE_DEFAULTS
   assert.ok(marksFrom >= 0 && marksFrom < marksTo, `${marksFrom} < ${marksTo}`)

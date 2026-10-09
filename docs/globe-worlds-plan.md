@@ -650,7 +650,7 @@ pools ship tagged by kind up to the hard cap.
 
 - 2026-10-07 · mobile home footer reveal · the scroll-up reveals the rest of the footer and the
   logo ticker, the globe and `enter_world` rise at half the rate, and the footer text no longer
-  loads abruptly. Builds on 10-07's resting footer variant (`?footerrest` 0.62).
+  loads abruptly. Builds on 10-07's resting footer variant (`?footerrest`, 0.62 at the time; re-baked 0.59 on 10-08).
   - **The rise channel.** `broadcastReveal` is the one place that holds both the progress and
     the resting floor, so it publishes the normalization next to the raw reveal: `--footer-rise`
     (0 in the resting pose, 1 at a full reveal), `--footer-rise-peak`, and `--footer-span`
@@ -689,4 +689,6 @@ pools ship tagged by kind up to the hard cap.
     whose threshold was never crossed" look identical once settled).
   - Verified on this round: unit 58/58 (16 new), `tunables-keys --check` PASS (319 keys),
     `npm run build` 23 pages, and `globe-probe --footer` 12/12 against `astro preview` —
-    panel climb 106.86px, hero lift 53.39px, ratio 0.4996 against a dialed 0.5.
+    panel climb 106.86px, hero lift 53.39px, ratio 0.4996 against a dialed 0.5 — the two absolute
+    figures are `(1 − rest) × panel-h` at that round's 0.62 floor; the 10-08 re-bake to 0.59 moves
+    them to 115.3/57.6 and leaves the ratio alone.

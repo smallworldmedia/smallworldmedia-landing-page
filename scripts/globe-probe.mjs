@@ -132,7 +132,7 @@ const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
 // way texbound mirrors the texture budget: Hero's FOOTER_REST_MOBILE and
 // footerTune's liftK. Pass the matching --footerrest / --footerlift when you
 // dial the page with ?footerrest / ?footerlift through --extra.
-const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.62));
+const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.59));
 const LIFT_K_EXPECT = Number(arg('footerlift', 0.5));
 const MARKS_FROM_EXPECT = Number(arg('footermarksfrom', 0.6));
 const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}`;
@@ -573,9 +573,11 @@ async function footerScenario(page, ctx) {
   await shot(page, 'footer-rest');
 
   // UP — the reveal. 120px of finger × TOUCH_GAIN 2 ÷ SCROLL_TRIGGER_HOME_PX
-  // 500 = 0.48 of progress, which clears the 1.0 clamp from the 0.62 floor
-  // with room to spare, so the scrub ENDS at a full reveal and not at a number
-  // that depends on the gain. The step SIZE is the other half of the point:
+  // 500 = 0.48 of progress, which clears the 1.0 clamp from the 0.59 floor
+  // (1.07, so the clamp absorbs the last 0.07) and the scrub ENDS at a full
+  // reveal rather than at a number that depends on the gain. The re-bake
+  // 0.62 -> 0.59 on 10-08 spent 0.03 of that margin; a floor below ~0.52
+  // would need a longer finger. The step SIZE is the other half of the point:
   // 32 steps advance ~0.04 of rise each, and these samples are the resolution
   // of every number below. At 16 steps the fold crossing read 0.12 of rise too
   // high — a derived default is only as good as the grid it was read off.

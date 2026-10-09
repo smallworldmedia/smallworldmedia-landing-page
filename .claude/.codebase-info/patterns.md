@@ -158,7 +158,7 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   params and `tunables-guide.md` rows but NO rows in `hero/PopTunePanel.jsx`, so they dial by URL only.
 - A tier-split default reads as ONE knob: `GLOBE_STROKE_FRAC` resolves `IS_MOBILE ? 5 : 6`, and a single
   `?globestroke` overrides BOTH tiers (the `?grainsize` convention) rather than exposing two params.
-- Inventory: `docs/tunables-guide.md` (333 keys). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (338 keys). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
   idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
   regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
@@ -171,6 +171,22 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   properties, while a knob the JS reads at play time (`introS`, `slideRem`, `slideLeadS`) stays out of
   that map and is exposed through a getter instead. Adding a play-time knob to `CSS_KNOBS` publishes a
   var nothing consumes.
+- **A shipped default lives twice, so something must hold the copies equal.** Usually the twin is a CSS
+  `var()` fallback (what the phone gets) against `FOOTER_TUNE_DEFAULTS` (what the bench and a copied URL
+  get); `scripts/test/footer-reveal.test.mjs` asserts all 8 `CSS_KNOBS` pairs, and for
+  `--ticker-foot-clearance` it asserts the derived `calc()` CHAIN rather than a number, so a token moving
+  underneath the bake fails. The fork is not always CSS: `?footerrest` is read in JS at module load and
+  only latches `[data-footer-rest]`, so the cascade never sees it — yet the number still lives twice,
+  because `globe-probe --footer` has to know the floor to gate that the panel parks on it
+  (`Hero.jsx FOOTER_REST_MOBILE` ↔ the probe's `FOOTER_REST_EXPECT`). That pair is guarded too, by
+  PARSING both literals out of source, since Hero is an island and the probe opens a browser on import.
+  Without it a re-bake that moved one copy would not fail a test — it would fail the probe later, reading
+  as a footer regression rather than a stale gate (10-08, after `?footerrest` 0.62 → 0.59).
+- A measured number written into a comment is a claim about one baked state. When the measured thing
+  moves, grep the OLD number across `src/ docs/ scripts/ .claude/.codebase-info/` — it is routinely in
+  all four, and a figure that is really `(1 − rest) × panel-h` (`?footerlift`'s 106.86/53.39) moves with a
+  bake nobody connected to it. Prefer a ratio or a derived chain, and date a history claim's premise
+  ("at the then-0.62 floor") so a dead diagnosis is not read as the live value.
 
 ## Rendering traps (learned)
 - Element `opacity < 1` composites a `backdrop-filter` over the sharp original: fade the background
@@ -184,8 +200,8 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   `--hero-lift` uses it). Layout-box reads (`offsetHeight`, `ResizeObserver`) ignore `translate`, so
   `--footer-panel-h` is unaffected.
 - When a surface sits under a derived `opacity`, the veil outranks the ink. `.logo-ticker` is
-  `opacity: var(--lt-p)`, clamped from `--footer-peak` against `--logo-reveal-from/-to`, which is
-  0.633 at the resting footer: relighting the copy's ink alone moved composited contrast only
+  `opacity: var(--lt-p)`, clamped from `--footer-peak` against `--logo-reveal-from/-to`, which was
+  0.633 at the resting footer (`footerrest/0.98`, at the then-0.62 floor): relighting the copy's ink alone moved composited contrast only
   1.43:1 → 2.80:1, while lifting the veil got the shipped 4.61:1. Measure the
   composite, not the token — and a 2D-canvas pixel sample, because `getComputedStyle().color` on a
   `color-mix()` reports `oklab(...)` and a naive RGB parse of it reads as black. Under
@@ -268,7 +284,7 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   Hero's `addDelta` — and wheel DOWN (`+120`); up leaves the band on its 0.4 floor with
   `--footer-band-p` at 0, which reads exactly like a broken fade. The desktop resting variant is also
   NOT the desktop default (`FOOTER_REST_MOBILE` applies ≤768px), so a desktop run must pass
-  `?footerrest=0.62`.
+  `?footerrest=0.59` (the phone bake; it was 0.62 before 10-08).
 - Screenshot the VIEWPORT, not an element taller than the fold. Playwright stitches unpainted
   compositor content for the off-screen part, which reads as a solid block of the page's accent — a
   convincing-looking render bug that is not there. Confirm with `elementFromPoint` before believing a

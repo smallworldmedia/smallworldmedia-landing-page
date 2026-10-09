@@ -226,23 +226,35 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
 
    The default is MEASURED, not guessed — it is a fraction of the panel's own
    height, and the panel is blurb + logo band, so a rest of p clears the blurb
-   when p >= blurbBottom / panelHeight. 0.62 is the first floor that clears the
-   whole blurb AND brings the first "utilized by…" line into the frame, dimmed
-   by the band's own reveal window — Nathan's "visible only the text blurb with
-   the 'utilized by…' text fading out below".
+   when p >= blurbBottom / panelHeight. The floor wanted is the one that clears
+   the whole blurb AND brings the first "utilized by…" line into the frame,
+   dimmed by the band's own reveal window — Nathan's "visible only the text
+   blurb with the 'utilized by…' text fading out below".
 
-   RE-MEASURED 10-08, after the blurb moved into Sanity: the new copy is
-   shorter, so at 390×844 it sets as 4 lines rather than 5, the panel is 281px,
-   and the blurb box ends at 0.415 of it — the clipping floor is ~0.42 (was
-   ~0.46) and 0.62 now clears the blurb with ~58px in hand, showing the TOP of
-   the "utilized by…" line rather than seating it. ~0.59 would reproduce the
-   pre-Sanity framing; 0.62 is Nathan's bake and stands. It still clears at
-   320px (5 lines, 291px, 0.449) and 430px (4 lines, 297px, 0.427).
+   RE-BAKED 0.62 → 0.59 on 10-08 (Nathan: "fix the over-clearing"), after the
+   blurb moved into Sanity and the shorter copy re-wrapped it 5 lines → 4. The
+   panel went 306px → 281.2px, so the SAME 0.62 revealed more of it: 57.7px of
+   blurb clearance where the dialed pose had ~50px, and 26.8px of the "utilized
+   by…" line showing instead of seated.
 
-   THIS IS A COPY-DEPENDENT NUMBER now — a longer blurb re-wraps and moves it.
-   docs/tunables-guide.md `?footerrest` carries the full reading, including why
-   the desktop variant needs its own (its panel is 258px at 1440×900). — */
-const FOOTER_REST_MOBILE = 0.62;
+   SWEPT at 390×844 with ?footerslide=0, so what is read is the settled pose:
+   the relationship is linear at the panel's own height — 2.81px of reveal per
+   0.01 of rest — and the blurb→lead-in gap is a CONSTANT 31.0px at every rest.
+   So 0.59 restores both halves of the dialed framing to within a pixel: blurb
+   clearance 49.3px (pre-Sanity ~50.0) and lead-in peek 18.3px (pre-Sanity
+   ~19.0, derived from that ~50.0 across the same constant gap, since the old
+   panel cannot be re-measured). The sweep also re-derives the clipping floor
+   independently — blurbClear hits 0 at rest 0.4147, i.e. the blurb box ends at
+   0.415 of the panel — so 0.59 holds 0.175 of headroom above it. It still
+   clears at 320px (5 lines, 291px, 0.449) and 430px (4 lines, 297px, 0.427).
+
+   THIS IS A COPY-DEPENDENT NUMBER — a longer blurb re-wraps and moves it, and
+   it has moved once already. docs/tunables-guide.md `?footerrest` carries the
+   full reading and the sweep table, including why the desktop variant needs
+   its own (its panel is 258px at 1440×900). FOOTER_REST_EXPECT in
+   scripts/globe-probe.mjs is this number's gate twin — move both, or --footer
+   fails. — */
+const FOOTER_REST_MOBILE = 0.59;
 const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
   const n = parseFloat(new URLSearchParams(window.location.search).get(key));

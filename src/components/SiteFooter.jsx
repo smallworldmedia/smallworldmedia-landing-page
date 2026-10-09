@@ -141,7 +141,7 @@ const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 // climb in px), and `--footer-rise-peak` is the rise's PEAK twin.
 //
 // Every consumer that must be ABSENT at rest reads the rise, never
-// --footer-reveal: the raw var rests at 0.62 on mobile home, so a parallax
+// --footer-reveal: the raw var rests at 0.59 on mobile home, so a parallax
 // reading it lifts the globe a third of the way on the FIRST PAINT, and a
 // threshold reading it (STAGGER_ON) can never fire from that floor.
 //
