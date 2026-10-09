@@ -199,10 +199,14 @@ export default function useHls(
 
         // Wait for the first high-res fragment to buffer, then play.
         // Poster thumbnail shows during this brief wait — no quality jump.
-        hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        // Remove ONLY this listener. A bare hls.off(FRAG_BUFFERED) clears
+        // every FRAG_BUFFERED listener, hls.js's own stream/ABR/level
+        // controllers included, and loading stops after the first fragment.
+        const playOnFirstFrag = () => {
+          hls.off(Hls.Events.FRAG_BUFFERED, playOnFirstFrag);
           video.play().catch(() => {});
-          hls.off(Hls.Events.FRAG_BUFFERED);
-        });
+        };
+        hls.on(Hls.Events.FRAG_BUFFERED, playOnFirstFrag);
       } else if (preferMinQuality) {
         // After manifest is parsed, triple-lock to lowest rendition
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
