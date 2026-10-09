@@ -88,9 +88,10 @@ import SiteFooter, {
   playFooterEntrance,
   resetFooterEntrance,
 } from './SiteFooter.jsx';
-// The studio blurb, split at its Medium emphasis — on phones it leaves the
-// tagline pill and is set in the resting footer (below).
-import { TAGLINE_LONG_SPLIT } from './SiteTagline.jsx';
+// The studio blurb — in the resting footer variant it leaves the tagline pill
+// and is set in the panel (below). It is Sanity copy now, handed down from
+// index.astro, so only the no-Sanity fallback lives in code (10-08).
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 // 08-30 (3), Nathan: the home→/work transition carries the FP→detail
 // choreography — the SAME enter-tune vocabulary (cover duration, window
 // model, pow curve) WorldCard/useWorldScene ride, so the two passages can
@@ -203,7 +204,8 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
 /* — Globe outer stroke (Globe/Homepage): a flat electric-blue disc behind the
    canvas, sized GLOBE_STROKE_FRAC proud of the globe disc so only a thin ring
    shows at the silhouette (the lockup mark's outer stroke), scaling with the
-   intro zoom. The fraction (?globestroke, default 5%, 0 = off) is sourced from
+   intro zoom. The fraction (?globestroke, default 6% desktop / 5% mobile,
+   0 = off) is sourced from
    heroConfig so HeroIntro can compensate the glyph framing by the same amount
    (globe + stroke = the lockup "o"). — */
 
@@ -212,7 +214,10 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    with the 'utilized by…' text fading out below to suggest there is more to
    scroll to". The footer's driven progress PARKS at this fraction instead of
    0 on phones, so the studio blurb is up on load and the gesture reveals the
-   rest. Desktop keeps 0 — the blurb lives in the tagline pill there.
+   rest. Desktop DEFAULTS to 0 — the blurb lives in the tagline pill there —
+   but an explicitly passed ?footerrest reaches any width, so the desktop
+   variant can be dialed live before anything is baked. A page with no param
+   is byte-identical to before.
 
    The number is Nathan's to bake, so it ships as a dial: ?footerrest=<0..1>
    (0 restores the old retract-to-nothing feel). Read at module load like
@@ -220,23 +225,34 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    variant ([data-footer-rest], set below).
 
    The default is MEASURED, not guessed — it is a fraction of the panel's own
-   height, and the panel is blurb + logo band. At 390×844 the band breaks
-   down as: blurb box 128.6px of a 281.2px panel (0.457), then the band's
-   18px top padding and the first "utilized by…" line (26.8px). 0.62 is the
-   first floor that clears the whole blurb AND brings that line into the
-   frame, dimmed by the band's own reveal window — Nathan's "visible only the
-   text blurb with the 'utilized by…' text fading out below". It still clears
-   the blurb at 320px and 430px (where the blurb re-wraps, and the band
-   re-tiers with it). Below ~0.46 the blurb itself is cut off. — */
-const FOOTER_REST_DEFAULT = 0.62;
+   height, and the panel is blurb + logo band, so a rest of p clears the blurb
+   when p >= blurbBottom / panelHeight. 0.62 is the first floor that clears the
+   whole blurb AND brings the first "utilized by…" line into the frame, dimmed
+   by the band's own reveal window — Nathan's "visible only the text blurb with
+   the 'utilized by…' text fading out below".
+
+   RE-MEASURED 10-08, after the blurb moved into Sanity: the new copy is
+   shorter, so at 390×844 it sets as 4 lines rather than 5, the panel is 281px,
+   and the blurb box ends at 0.415 of it — the clipping floor is ~0.42 (was
+   ~0.46) and 0.62 now clears the blurb with ~58px in hand, showing the TOP of
+   the "utilized by…" line rather than seating it. ~0.59 would reproduce the
+   pre-Sanity framing; 0.62 is Nathan's bake and stands. It still clears at
+   320px (5 lines, 291px, 0.449) and 430px (4 lines, 297px, 0.427).
+
+   THIS IS A COPY-DEPENDENT NUMBER now — a longer blurb re-wraps and moves it.
+   docs/tunables-guide.md `?footerrest` carries the full reading, including why
+   the desktop variant needs its own (its panel is 258px at 1440×900). — */
+const FOOTER_REST_MOBILE = 0.62;
 const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
   const n = parseFloat(new URLSearchParams(window.location.search).get(key));
   return Number.isFinite(n) ? n : fallback;
 };
-const FOOTER_REST = IS_MOBILE
-  ? Math.min(1, Math.max(0, PARAM('footerrest', FOOTER_REST_DEFAULT)))
-  : 0;
+const REST_DIAL = PARAM('footerrest', NaN);
+const FOOTER_REST = Math.min(
+  1,
+  Math.max(0, Number.isFinite(REST_DIAL) ? REST_DIAL : IS_MOBILE ? FOOTER_REST_MOBILE : 0)
+);
 
 /* The resting footer's on-load entrance FAIL-OPEN deadline (10-07). The
    entrance is armed from inside chromeBeat — the beat the CTA, the nav and
@@ -247,7 +263,8 @@ const FOOTER_REST = IS_MOBILE
    instead of leaving it blank. Absence of [data-footer-in] means VISIBLE. */
 const FOOTER_IN_SAFETY_MS = 3000;
 
-export default function Hero({ globeAssets, globeWorlds }) {
+export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
+  const footerBlurb = siteCopy?.footerBlurb || SITE_COPY_FALLBACK.footerBlurb;
   const heroRef = useRef(null);
   const veilRef = useRef(null);
   const armedRef = useRef(false);
@@ -318,9 +335,16 @@ export default function Hero({ globeAssets, globeWorlds }) {
       // A mostly-horizontal move is the globe's drag, not a reveal — and the
       // globe only drags where IS_MOBILE is false now (10-07: the globe's
       // pointer listeners are not installed on phones at all, so there is no
-      // drag to protect there; the `<= 0` clause had already made this
-      // unreachable under the resting floor).
-      if (!IS_MOBILE && Math.abs(x - touchX) > Math.abs(y - touchY) && footerPRef.current <= 0) {
+      // drag to protect there). The test is FOOTER_REST, not 0: under a
+      // resting floor the panel never sits at 0, so `<= 0` made this bail
+      // dead — and DragMomentum listens on pointer events with no pointerType
+      // filter, so on a touch laptop at desktop width one sideways swipe would
+      // spin the globe AND climb the panel.
+      if (
+        !IS_MOBILE &&
+        Math.abs(x - touchX) > Math.abs(y - touchY) &&
+        footerPRef.current <= FOOTER_REST
+      ) {
         return;
       }
       const dy = (touchY - y) * TOUCH_GAIN;
@@ -371,7 +395,16 @@ export default function Hero({ globeAssets, globeWorlds }) {
       // variant latch so the blurb is never seen at full strength and then
       // hidden. chromeBeat plays it; this is only the fail-open deadline for
       // a beat that never comes.
-      if (armFooterEntrance(PREFERS_REDUCED_MOTION)) {
+      // The slide is first-view only (Nathan: "doesn't have to slide up if the
+      // user has already been on the site recently"). introMode is ALREADY
+      // that answer — decideIntroMode's one sessionStorage flag, tab-scoped,
+      // the same mechanism the tagline's revisit skip uses — so this reuses it
+      // rather than minting a second key. 'replay' and 'rm' get the fade with
+      // no slide; ?intro=full forces it back for a look.
+      // (introMode is declared below this effect but read inside its callback,
+      // which React runs after the render body — and it is a render-once
+      // useState value, so the [] deps stay honest.)
+      if (armFooterEntrance(PREFERS_REDUCED_MOTION, introMode === 'full')) {
         inSafety = setTimeout(() => playFooterEntrance(PREFERS_REDUCED_MOTION), FOOTER_IN_SAFETY_MS);
       }
     }
@@ -1205,7 +1238,7 @@ export default function Hero({ globeAssets, globeWorlds }) {
             onPointerEnter={() => setCtaHover(true)}
             onPointerLeave={() => setCtaHover(false)}
           >
-            enter_world
+            zoom_in
           </button>
         </div>
       </div>
@@ -1247,7 +1280,7 @@ export default function Hero({ globeAssets, globeWorlds }) {
           gesture moves the panel through paintDrivenFooter (one style write
           per frame) instead of through this prop, so a touchmove no longer
           re-renders this subtree sixty times a second. */}
-      <SiteFooter driven progress={FOOTER_REST} rest={FOOTER_REST} blurb={TAGLINE_LONG_SPLIT} />
+      <SiteFooter driven progress={FOOTER_REST} rest={FOOTER_REST} blurb={footerBlurb} />
       {CommitTunePanel && <CommitTunePanel onDryRun={onCommitDryRun} />}
       {HeroTunePanel && (
         <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />

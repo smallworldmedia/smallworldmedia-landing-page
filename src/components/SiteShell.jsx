@@ -35,7 +35,7 @@ import { FOOTER_TUNE_ACTIVE } from '../lib/footerTune.js';
 
 gsap.registerPlugin(useGSAP, Flip);
 
-export default function SiteShell() {
+export default function SiteShell({ siteCopy }) {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   // The privacy overlay lives in the SiteTagline island (its pill is its
@@ -235,6 +235,7 @@ export default function SiteShell() {
         isOpen={isInfoOpen}
         onToggle={handleToggle}
         onStartProject={handleOpenOverlay}
+        siteCopy={siteCopy}
       />
 
       <ProjectOverlay

@@ -16,6 +16,13 @@
 import gsap from 'gsap';
 
 export const CASCADE_VARIANTS = ['rows', 'poles', 'sweep'];
+/* Every ordering panelDelay's switch actually implements. CASCADE_VARIANTS is
+   the subset the entrance cascade offers (no 'random' — a random entrance reads
+   as a fault); heroConfig's BLUE_CASCADES is the same four for the commit fill.
+   Consumers that drive panelDelay directly (the grain reveal's ?popgrainorder)
+   validate against THIS, so a name can't be offered that the switch then
+   silently defaults to 'rows'. */
+export const DELAY_ORDERS = ['sweep', 'rows', 'poles', 'random'];
 export const DEFAULT_CASCADE_VARIANT = 'sweep'; // Nathan's pick
 
 // CRT flicker: uPower 0 → pulse → dip → overshoot (>1 over-brightens) → settle

@@ -277,3 +277,15 @@ export const FEATURED_WORLDS_QUERY = `
     }
   }
 `;
+
+/**
+ * The siteSettings singleton — the footer blurb and the tagline, as marked
+ * plain strings (see src/lib/siteCopy.js). Published only; a draft edit shows
+ * up after it is published, like every other query here.
+ */
+export const SITE_COPY_QUERY = `
+  *[_type == "siteSettings" && !(_id in path("drafts.**"))][0] {
+    footerBlurb,
+    tagline
+  }
+`;

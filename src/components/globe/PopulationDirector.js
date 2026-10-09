@@ -288,7 +288,11 @@ export default class PopulationDirector {
     const band = TUNING.nameMode === 'band';
     // Rows whose latitude is inside the band. One row = one latitude, and
     // centerDir is unrotated, so row[0] speaks for all 12 tiles.
-    const rows = this.rows.filter((r) => r.length && Math.abs(r[0].centerDir.y) <= yLimit);
+    // A parked row is collapsed at/beyond a pole with centerDir clamped to
+    // |y| = 1, which slips through at ?popnameband=1 (yLimit = 1).
+    const rows = this.rows.filter(
+      (r) => r.length && !r[0].parked && Math.abs(r[0].centerDir.y) <= yLimit
+    );
     if (!rows.length) return plan;
     const v = this._n;
     const rotated = (p) => v.copy(p.centerDir).applyEuler(rot);

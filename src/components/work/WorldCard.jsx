@@ -340,7 +340,7 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
           href={`/work/${world.slug}`}
           onClick={(e) => enterWorld(e, world.slug, world.projectColor)}
         >
-          enter_world
+          zoom_in
         </a>
         {world.services?.length > 0 && (
           <ul className="fp-card__tags">

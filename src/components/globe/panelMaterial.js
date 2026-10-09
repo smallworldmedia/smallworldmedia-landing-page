@@ -136,6 +136,19 @@ const fragmentShader = /* glsl */ `
   uniform float uPoleCornerWide;  // scroll globe: wide-end + straight-wall corner radius at the pole
   uniform float uPoleCornerStart; // scroll globe: sin(θ) below which the pole cap ramps in
   uniform float uPoleTipLift;     // scroll globe: pole-facing cap lift — bottom fraction dissolved to blue at the pole (terminate-short amount, UV units)
+  // Grain placeholder (10-07). uGrainMix 0 = the whole feature is off and every
+  // fragment is byte-identical to before, which is what keeps /process, /lab and
+  // liveLockupGlobe untouched. SHARED across all panels except uGrainSeed and
+  // uGrainPhase, which are per-tile.
+  uniform sampler2D uGrainTex;   // the FP pager's dialed turbulence tile (scrimNoise.js)
+  uniform float uGrainMix;       // master ceiling; 0 = off (gates the branch)
+  uniform float uGrainRepeat;    // tile repeats across one panel — the cell-size dial
+  uniform vec2 uGrainSeed;       // per-tile offset so neighbours aren't identical static
+  uniform vec2 uGrainJitter;     // the 8-frame held jitter, in tile-UV units
+  uniform float uGrainStart;     // vK below which grain is at full strength
+  uniform float uGrainRamp;      // smoothstep width of the media handoff, in vK
+  uniform float uGrainStagger;   // per-tile threshold spread (× uGrainPhase)
+  uniform float uGrainPhase;     // this tile's 0..1 place in the reveal order
   varying vec2 vUv;
   varying vec2 vEdgeUv;
   varying float vK; // media horizontal crop factor / pole-proximity from the vertex stage
@@ -239,7 +252,37 @@ const fragmentShader = /* glsl */ `
     vec3 colorB = texture2D(texB, mUv * uvScaleB + uvOffsetB).rgb;
     colorB = mix(colorB, srgbToLinear(colorB), uVideoB);
     vec3 base = mix(uFallbackColor, colorA, uHasTexA);
-    vec3 color = mix(base, colorB, uMix) * uPower;
+    vec3 color = mix(base, colorB, uMix);
+    // GRAIN PLACEHOLDER (10-07) — static stands in for the media wherever the
+    // row is pinched near a pole, so the eye never sees the warped, cropped
+    // media the pinch produces. Three properties make it correct:
+    //  · sampled in mUv — the SAME pinch-compensated tile UV the media uses, so
+    //    the cells hold CONSTANT pixel density as the panel narrows. That is
+    //    the no-warp requirement, and it is the media path's own guarantee
+    //    (see the mUv comment above), not a second mechanism that could drift.
+    //  · vK = sin(θ_center) is symmetric about the equator, so a row returns to
+    //    static as it nears the FAR pole for free — one threshold, both ends.
+    //  · never divided by vK: vK reaches exactly 0 on visible fragments, so a
+    //    1/vK un-warp would be undefined precisely at the pinch.
+    // Mixed BEFORE uPower so the grain dims with the entrance cascade exactly
+    // as the media it replaces does.
+    if (uGrainMix > 0.0) {
+      float gThresh = uGrainStart + uGrainPhase * uGrainStagger;
+      float gBand = 1.0 - smoothstep(gThresh, gThresh + max(uGrainRamp, 1e-4), vK);
+      if (gBand > 0.0) {
+        vec2 gUv = mUv * uGrainRepeat + uGrainSeed + uGrainJitter;
+        vec4 g = texture2D(uGrainTex, gUv);
+        // The static REPLACES the media rather than veiling it: the noise is
+        // premultiplied by its own alpha (i.e. composited over black), so at
+        // full band the panel reads as a static field and the media is not
+        // exposed at all. Blending the noise's alpha OVER the media instead
+        // would leave the warped media plainly visible underneath, which is
+        // the thing the band exists to hide.
+        vec3 staticRgb = srgbToLinear(g.rgb) * g.a;
+        color = mix(color, staticRgb, clamp(uGrainMix * gBand, 0.0, 1.0));
+      }
+    }
+    color *= uPower;
     // Edge stroke: distance to the nearest panel edge in aEdgeUv space,
     // converted to pixels via fwidth so the width holds under any camera
     // distance or panel scale. Applied after uPower — the stroke is ink,
@@ -286,10 +329,27 @@ export function getPlaceholderTexture() {
  * @param {number} [opts.cornerRadius=0] - rounded-tile radius in UV units
  *        (0 = hard edges, the /process default; the home globe passes ~0.12
  *        for lockup fidelity). Must stay < 0.5.
+ * @param {Object} [opts.grain] - SHARED grain uniform holders (same object
+ *        identity across every panel, so one write per frame covers the whole
+ *        globe instead of 96). Omit it and the material gets private holders
+ *        with uGrainMix 0 — the feature off, output byte-identical.
  * @returns {THREE.ShaderMaterial}
  */
-export function createPanelMaterial({ fallbackColor, cornerRadius = 0 }) {
+export function createPanelMaterial({ fallbackColor, cornerRadius = 0, grain }) {
   const placeholder = getPlaceholderTexture();
+  // Per-tile holders are always private; shared ones come from `grain` when the
+  // caller owns a grain rig. uGrainTex defaults to the placeholder so the
+  // sampler is never unbound, exactly as texA/texB do.
+  const g = grain || {};
+  const shared = {
+    uGrainTex: g.uGrainTex || { value: placeholder },
+    uGrainMix: g.uGrainMix || { value: 0 },
+    uGrainRepeat: g.uGrainRepeat || { value: 1 },
+    uGrainJitter: g.uGrainJitter || { value: new THREE.Vector2(0, 0) },
+    uGrainStart: g.uGrainStart || { value: 0 },
+    uGrainRamp: g.uGrainRamp || { value: 0.15 },
+    uGrainStagger: g.uGrainStagger || { value: 0 },
+  };
   return new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
@@ -323,6 +383,12 @@ export function createPanelMaterial({ fallbackColor, cornerRadius = 0 }) {
       uPoleCornerWide: { value: SCROLL_POLE_CORNER_WIDE },
       uPoleCornerStart: { value: SCROLL_POLE_CORNER_START },
       uPoleTipLift: { value: SCROLL_POLE_TIP_LIFT },
+      ...shared,
+      // Per-tile: the seed decorrelates neighbouring panels' static, the phase
+      // is this tile's place in the staggered reveal order. Both written by the
+      // caller at build time; 0,0 / 0 is a legal "no decorrelation, no stagger".
+      uGrainSeed: { value: new THREE.Vector2(0, 0) },
+      uGrainPhase: { value: 0 },
     },
   });
 }

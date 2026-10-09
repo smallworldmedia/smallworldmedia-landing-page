@@ -41,7 +41,8 @@ export const HERO_TUNE_ACTIVE = search().get('herotune') === '1';
    not sliders; CommitTunePanel). Shares TUNING/pub-sub with the hero bench. */
 export const COMMIT_TUNE_ACTIVE = search().get('committune') === '1';
 
-/* — Globe outer stroke fraction (?globestroke, % → fraction; default 5%,
+/* — Globe outer stroke fraction (?globestroke, % → fraction; default 6%
+   desktop / 5% mobile,
    0 = off). ONE source of truth, shared by two consumers so they can never
    drift: Hero sizes the stroke disc 1+FRAC proud of the live silhouette, and
    HeroIntro frames the globe 1/(1+FRAC) SMALLER inside the lockup "o" so the
@@ -50,9 +51,12 @@ export const COMMIT_TUNE_ACTIVE = search().get('committune') === '1';
    the added ring must not overshoot the "o"). — */
 export const GLOBE_STROKE_FRAC = (() => {
   const n = parseFloat(search().get('globestroke'));
-  // 08-28 bake 8.2 (was 5, then 7): Nathan's dial — the blue outer stroke
-  // ring at lockup-mark weight.
-  return (Number.isFinite(n) ? n : 8.2) / 100;
+  // 10-07 bake 6 desktop / 5 mobile (was 8.2 from 08-28, before that 7, 5):
+  // Nathan's dial — 8.2 read too heavy on both tiers. The ring is now the
+  // first knob here to split by tier (the IS_MOBILE idiom FILL_FRACTION and
+  // COMP_DEFAULTS use); one ?globestroke overrides BOTH tiers, the
+  // ?grainsize convention.
+  return (Number.isFinite(n) ? n : IS_MOBILE ? 5 : 6) / 100;
 })();
 
 /* — Commit ease — the envelopment master curve (chunk 4). Starts life as

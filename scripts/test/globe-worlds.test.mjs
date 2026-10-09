@@ -11,7 +11,7 @@ import { FEATURED_WORLDS_QUERY } from '../../src/lib/queries.js'
 import { buildContentFlow } from '../../src/components/work/detail/buildContentFlow.js'
 import buildWorldPools, { selectPool, WORLD_POOL_CAP } from '../../src/components/globe/buildWorldPools.js'
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
-import { initialBirth } from '../../src/components/globe/MeridianScroll.js'
+import { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import { assetKey } from '../../src/components/globe/TextureManager.js'
 import { loadTile } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
@@ -151,6 +151,69 @@ test('a one-region pattern owns everything; the blend field is uniform', () => {
     const frac = values.filter((v) => v < m).length / values.length
     assert.ok(Math.abs(frac - m) <= 0.06, `field below ${m}: ${frac.toFixed(3)}`)
   }
+})
+
+/* — The scroll-0 pose: the scene must pose the globe BEFORE it plans — */
+test('pose: scrollZeroTheta reproduces the driver\'s own thetaForRow at scroll 0', () => {
+  const N = 8
+  const PITCH = Math.PI / 6
+  const LO = -PITCH
+  const SPAN = N * PITCH
+  // MeridianScroll.thetaForRow with scroll = 0, transcribed.
+  const thetaForRow = (j) => LO + ((((j * PITCH - LO) % SPAN) + SPAN) % SPAN)
+  for (let j = 0; j < N; j++) {
+    assert.ok(
+      Math.abs(scrollZeroTheta(j, N) - thetaForRow(j)) < 1e-12,
+      `row ${j}: ${scrollZeroTheta(j, N)} vs ${thetaForRow(j)}`
+    )
+  }
+  // The last row is what the old `row * pitch` stamp got wrong: it read 210°
+  // where the driver says -30°. Both poses are parked, so nothing moved on
+  // screen — but the two numbers disagreeing is the smell that found the bug.
+  assert.ok(scrollZeroTheta(N - 1, N) < 0, 'last row wraps above the top pole')
+  assert.ok(Math.abs((N - 1) * PITCH - scrollZeroTheta(N - 1, N)) > 1, 'and the old stamp did not')
+})
+
+test('pose: poseTile gives honest latitudes, so the name band can refuse the poles', () => {
+  const N = 8
+  const BAND = Math.PI / 6 - 0.0192 // the built tile band, a shade under the pitch
+  const tile = (row) => ({
+    row,
+    phiC: 0,
+    bandHeight: BAND,
+    centerDir: new THREE.Vector3(0, 0, 0), // the canonical-equator seed
+    mesh: { material: { uniforms: { uPolarTop: { value: 0 } } } },
+  })
+  const posed = []
+  for (let j = 0; j < N; j++) {
+    const p = tile(j)
+    poseTile(p, scrollZeroTheta(j, N))
+    posed.push(p)
+  }
+  // Before the fix every one of these still read |y| = 0 — the geometry's
+  // canonical-equator seed — because the scene stamped only uPolarTop. The band
+  // gate then admitted all 8 rows, parked buffers included.
+  assert.ok(
+    posed.every((p) => p.mesh.material.uniforms.uPolarTop.value === scrollZeroTheta(p.row, N)),
+    'the shader uniform is written'
+  )
+  assert.equal(posed.filter((p) => p.parked).length, 2, 'two of eight rows sit past a pole')
+
+  // Row 0 sits ~14.5° from the north pole: the row the first world's strip
+  // landed on, at |y| ≈ 0.968, vK ≈ 0.25 — four-times-condensed type, held for
+  // the whole first world.
+  assert.ok(Math.abs(posed[0].centerDir.y) > 0.95, `row 0 |y| ${posed[0].centerDir.y.toFixed(4)}`)
+  assert.ok(namePinch(posed[0].centerDir.y) < 0.3, 'and badly pinched')
+
+  // ...and the default band must now refuse it.
+  const yLimit = nameBandLimit(POP_DEFAULTS.nameBand)
+  assert.ok(Math.abs(posed[0].centerDir.y) > yLimit, 'row 0 falls outside the default name band')
+  const eligible = posed.filter((p) => !p.parked && Math.abs(p.centerDir.y) <= yLimit)
+  assert.ok(eligible.length >= 2, `eligible rows ${eligible.length} — a strip must have somewhere to go`)
+  assert.ok(
+    eligible.every((p) => namePinch(p.centerDir.y) >= 0.5),
+    'every eligible row keeps the type under 2x condensed at birth'
+  )
 })
 
 /* — PopulationDirector on fake panels — */

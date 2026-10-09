@@ -34,7 +34,7 @@
  *    host (FeaturedProjects' wheel/touch accumulator) owns the number. Same
  *    inert gating and the same <html> reveal broadcast as the scroll mode.
  */
-import { Fragment, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 // 08-27: the lockup left the panel with the left column — the persistent
 // SiteTagline island owns the footer lockup + copyright now.
@@ -44,6 +44,10 @@ import gsap from 'gsap';
 import {
   getFooterTravelK,
   getFooterIntroS,
+  getFooterSlideK,
+  getFooterSlideS,
+  getFooterSlideLeadS,
+  getLogoFadeMinS,
   subscribeFooterTune,
   footerRise,
   footerSpan,
@@ -100,6 +104,10 @@ import ClientLogoTicker from './ClientLogoTicker.jsx';
 // is the other caller). Imported rather than re-typed: a forked motion
 // number is a bug waiting to drift.
 import { wordStagger } from './SiteTagline.jsx';
+// The blurb is CMS copy in the house marker format (10-08): one parser for the
+// words, one renderer for the mark markup, one driver for the wipe.
+import { keywordLines, renderWordTokens, kwWipe, kwSet, stripKeywords } from '../lib/keywords.jsx';
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 
 // ── Link-row stagger (08-29, Nathan) ──
 // The footer nav links animate in on the same reveal beat the left corner's
@@ -147,23 +155,124 @@ const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 //     window is already spent.
 // rest = 0 ⇒ rise === reveal, span === 1 — desktop and /work are unchanged.
 let revealPeak = 0;
+
+/* ── The band's ONE-WAY "has been seen" latch (10-08, Nathan: "start at 0.4
+   until the user scrolls up to reveal it for the first time") ─────────────
+   --footer-rise-peak is NOT this. It is a WITHIN-EXCURSION peak: it resets to
+   0 the frame the panel parks back on its floor, deliberately, because the
+   marks' at-rest hint has to be able to come back and the probe gates
+   marksHoldOnRetreat on exactly that semantic. Making it monotone across
+   parks would break both. So the latch is its own fact.
+
+   TAB-SCOPED, not per-page-view: sessionStorage, the same channel and the
+   same lifetime as Hero's 'swm:hero-intro' — one tab, one first reveal. The
+   attribute has to be re-asserted after a soft nav because the Astro
+   ClientRouter replaces <html> wholesale (the attribute-wipe rule), which is
+   why the store exists at all rather than just the attribute.
+   Deliberately NOT cleared by clearReveal(): that runs on every teardown. */
+const SEEN_KEY = 'swm:footer-seen';
+const markFooterSeen = (root) => {
+  if (root.hasAttribute('data-footer-seen')) return;
+  root.setAttribute('data-footer-seen', '');
+  try {
+    sessionStorage.setItem(SEEN_KEY, '1');
+  } catch {
+    // Private mode / blocked site data: the attribute still holds for this
+    // page view, it just will not survive a soft nav. Fails toward the
+    // DIMMER pose, never toward a stuck one.
+  }
+};
+if (typeof window !== 'undefined') {
+  const reassert = () => {
+    try {
+      if (sessionStorage.getItem(SEEN_KEY) === '1') {
+        document.documentElement.setAttribute('data-footer-seen', '');
+      }
+    } catch {
+      /* unreadable store — leave the band dim, which is the safe default */
+    }
+  };
+  reassert();
+  document.addEventListener('astro:after-swap', reassert);
+}
+
+/* ── The band's MINIMUM fade (10-08, Nathan: "add a minimum fade in time for
+   the logo ticker so that it still has a perceivable fade in even if you
+   scroll down quickly") ────────────────────────────────────────────────────
+   The resting band's veil ramps on --footer-rise-peak, which is POSITION, not
+   time. The rise spans only (1 − rest) × panel-h — about 95px on a 1440 × 900
+   desktop — so a single flick can carry the whole thing inside a frame or two
+   and the dim pose simply pops to full.
+
+   --footer-band-p is that same rise held back by a clock: min(rise, elapsed /
+   ?logofademin). A FLOOR, not a duration — a leisurely scrub already beats the
+   clock, min() leaves it untouched, and the band stays locked to the gesture.
+   A CSS `transition: opacity` would have been one line and the wrong shape: a
+   transition imposes its time on the slow case too, so the band would trail
+   the panel it belongs to by the same amount it helps the fast case.
+
+   It needs its own rAF because the gate keeps opening after the gesture ends:
+   with the scrub parked at 1 there is no further broadcast to ride. The loop
+   runs only while the clock still outranks the rise, so it is a couple of
+   dozen frames once, and nothing at all once the band is up.
+
+   The floor RE-ARMS whenever the rise returns to its floor, so every lift from
+   the resting pose fades — not just the session's first. (After a full reveal
+   [data-footer-seen] pins the band at 1 and the gate stops mattering.) */
+let bandRise = 0;
+let bandRiseStart = 0;
+let bandRaf = 0;
+
+const paintBand = () => {
+  bandRaf = 0;
+  const ms = getLogoFadeMinS() * 1000;
+  const reduced =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const gate =
+    reduced || !(ms > 0) || !bandRiseStart
+      ? 1
+      : Math.min(1, (performance.now() - bandRiseStart) / ms);
+  const p = Math.min(bandRise, gate);
+  document.documentElement.style.setProperty('--footer-band-p', p.toFixed(4));
+  /* THE LATCH HANGS OFF THE GATED VALUE, not off the rise. [data-footer-seen]
+     is a hard `opacity: 1` at a specificity the ramp cannot beat, so latching
+     on the rise alone would fire on the first frame of a flick and paint over
+     the very fade this gate exists to protect. The threshold stays 0.999
+     because the ramp is already at 0.9994 there — an invisible handoff. */
+  if (p > 0.999) markFooterSeen(document.documentElement);
+  if (gate < 1 && bandRise > 0) bandRaf = requestAnimationFrame(paintBand);
+};
+
 const broadcastReveal = (progress, rest = 0) => {
   const root = document.documentElement;
   revealPeak = progress <= rest + 0.001 ? rest : Math.max(revealPeak, progress);
   root.style.setProperty('--footer-reveal', progress.toFixed(4));
   root.style.setProperty('--footer-peak', revealPeak.toFixed(4));
   root.style.setProperty('--footer-rise', footerRise(progress, rest).toFixed(4));
-  root.style.setProperty('--footer-rise-peak', footerRise(revealPeak, rest).toFixed(4));
+  const risePeak = footerRise(revealPeak, rest);
+  root.style.setProperty('--footer-rise-peak', risePeak.toFixed(4));
   root.style.setProperty('--footer-span', footerSpan(rest).toFixed(4));
+  // Arm the clock on the way up, re-arm it when the band is back on its floor.
+  if (risePeak <= 0) bandRiseStart = 0;
+  else if (!bandRiseStart) bandRiseStart = performance.now();
+  bandRise = risePeak;
+  if (!bandRaf) paintBand();
   root.toggleAttribute('data-footer-revealed', progress > 0.001);
 };
 const clearReveal = () => {
   const root = document.documentElement;
   revealPeak = 0;
+  if (bandRaf) cancelAnimationFrame(bandRaf);
+  bandRaf = 0;
+  bandRise = 0;
+  bandRiseStart = 0;
   root.style.removeProperty('--footer-reveal');
   root.style.removeProperty('--footer-peak');
   root.style.removeProperty('--footer-rise');
   root.style.removeProperty('--footer-rise-peak');
+  root.style.removeProperty('--footer-band-p');
   root.style.removeProperty('--footer-span');
   root.style.removeProperty('--footer-panel-h');
   root.removeAttribute('data-footer-revealed');
@@ -208,7 +317,8 @@ export function paintDrivenFooter(p) {
    Nathan settled the per-word arrival for THIS COPY as a seated FADE:
    "NO y transform on the per-word arrival — the sequential rise read as
    stutter; the words fade in seated" (SiteTagline.jsx:258-262 — the blurb IS
-   that pill's long layer, TAGLINE_LONG_SPLIT). autoAlpha only, no y.
+   that pill's long layer, the same `siteSettings.footerBlurb` string).
+   autoAlpha only, no y.
 
    The words are React-rendered spans, not a SplitText run: the pill does the
    same, the browser re-wraps them for free at 320/430px, and SplitText would
@@ -218,14 +328,112 @@ export function paintDrivenFooter(p) {
 
    Idempotent: Hero's safety net and the beat can both call it. */
 let entranceShown = false;
+/* The slide's armed distance in px, handed from arm to play. Module state
+   like entranceShown, for the same reason: the beat and Hero's safety timer
+   are two possible callers of play() and only arm() knows whether this visit
+   earned a slide. 0 = no slide armed, which is also every non-first view. */
+let slideFromPx = 0;
+/* The rise's own tween, held so teardown can kill it. Without the handle a
+   soft nav mid-rise leaves onUpdate rewriting `--footer-slide` after the
+   cleanup removed it. */
+let slideTween = null;
+
+/** Drop the slide's ground.
+
+    THE PANEL IS PARKED LOW WHENEVER `--footer-slide` IS SET, so every path
+    that ends the entrance WITHOUT animating it has to clear the property or
+    the panel stays off the fold for the whole visit — the house's fail-open
+    rule, where absence means VISIBLE. Cheap to call twice; it is the single
+    place that owns the property's removal besides the tween's own onComplete. */
+const dropSlide = () => {
+  slideTween?.kill();
+  slideTween = null;
+  slideFromPx = 0;
+  if (typeof document !== 'undefined') {
+    document.documentElement.style.removeProperty('--footer-slide');
+    settleOdometer();
+  }
+};
+
+/* THE ODOMETER HOLDS THROUGH THE ON-LOAD ENTRANCE (10-08, Nathan: "the
+   vertical ticker text gets caught and then snaps into place after the initial
+   slide up into resting state").
+
+   MEASURED CAUSE, not a guess. The roll is a CSS @keyframes animation that is
+   NOT composited — the band above it has a per-frame `opacity: calc(…)` driven
+   by --footer-band-p's own rAF, so the subtree repaints every frame and Chrome
+   declines to promote the column. It therefore runs on the main thread, during
+   the single busiest window the page has: globe boot, the entrance timeline,
+   and --footer-slide being written to <html> every frame. A probe at 1440x900
+   caught it exactly — one 1555 ms frame in which the animation advanced 583 ms
+   and painted nothing, then the next frame took 1272 ms of clock at once and
+   stepped translateY 0 -> -31.78px. A whole word, in one frame. That is the
+   catch and that is the snap.
+
+   The roll is also INVISIBLE for most of that window: [data-footer-in] hides
+   .logo-ticker__copy outright, and the lead line only fades in part-way
+   through the timeline. So the animation was burning main-thread budget on
+   something nobody could see, and arriving mid-step when they finally could.
+
+   Holding it is therefore the fix AND the cheaper behaviour: the column sits
+   on its first word until the entrance lands, then cycles on a quiet thread.
+   The latch rides --footer-slide's lifecycle exactly — set where that property
+   is set, cleared where it is cleared — so every bail path dropSlide already
+   owns covers this too, and ABSENCE MEANS RUNNING: a throw, a dead beat, or no
+   JS at all leaves the odometer cycling as before rather than frozen.
+
+   Deliberately NOT phase-locked with a negative animation-delay the way the
+   repo's three other CSS tickers are (project-detail.css, ProjectOverlay,
+   GraticulePager). Those are continuous marquees where phase is noise; this
+   one is a five-word odometer that is meant to start on the first word. */
+const settleOdometer = () => {
+  document.documentElement.removeAttribute('data-footer-settling');
+};
+
+/** How much of the panel is on screen in the resting pose, px — the slide's
+    unit. `innerHeight - panelTop` is that number by definition, so k = 1
+    parks the panel's top exactly at the fold and nothing of it shows at load.
+    Reading the rect forces one style+layout flush, which is the POINT: Hero
+    sets [data-footer-rest] synchronously a few statements before arming, so
+    the flush is what makes the rect the resting pose rather than the
+    pre-latch one. If that pose somehow has not resolved, the panel reads at
+    or below the fold (nothing on screen) and the published channel answers
+    instead: rest x panel-h, where rest = 1 - --footer-span. */
+const restingRevealPx = () => {
+  const panel = document.querySelector('.site-footer--links');
+  const onScreen = panel ? window.innerHeight - panel.getBoundingClientRect().top : 0;
+  if (onScreen > 1) return onScreen;
+  const cs = getComputedStyle(document.documentElement);
+  const span = parseFloat(cs.getPropertyValue('--footer-span')) || 0;
+  const panelH = parseFloat(cs.getPropertyValue('--footer-panel-h')) || 0;
+  return Math.max(0, (1 - span) * panelH);
+};
 /** Ground the entrance's targets — called in the SAME frame as
     [data-footer-rest], so the resting blurb is never seen at full strength
     first. Never grounds under reduced motion, and never after the entrance
     has already played (Hero's RM path fires the chrome beat from a LAYOUT
     effect, which runs before this passive one). */
-export function armFooterEntrance(reduced = false) {
+export function armFooterEntrance(reduced = false, slide = false) {
   if (typeof document === 'undefined' || reduced || entranceShown) return false;
-  document.documentElement.setAttribute('data-footer-in', '');
+  const root = document.documentElement;
+  root.setAttribute('data-footer-in', '');
+  /* The slide's ground must be set in THIS frame, not at the beat: the panel
+     is at its resting pose from the very first paint (the entrance ground
+     hides only the blurb and the band's copy line, never the panel), so a
+     slide started at the beat would jump the panel DOWN 1.7s in and then
+     slide it back — which at a full-reveal start would be the whole panel
+     dropping out of frame mid-load. Hero's effect runs after SiteFooter's — which has already
+     painted the resting pose and published the channel — and both are in one
+     passive-effect flush, so there is no paint in between.
+     `slide` is the caller's "first view" read: Hero's intro mode, which is
+     already the house answer to "have they been here recently" (one
+     sessionStorage flag, tab-scoped, shared with the tagline's own revisit
+     skip). A revisit gets the fade with no slide, which is the ask. */
+  const slideK = slide ? Math.max(0, getFooterSlideK()) : 0;
+  slideFromPx = slideK > 0 ? Math.round(slideK * restingRevealPx() * 10) / 10 : 0;
+  if (slideFromPx > 0) root.style.setProperty('--footer-slide', `${slideFromPx}px`);
+  // Hold the band's odometer until the entrance lands (see settleOdometer).
+  root.setAttribute('data-footer-settling', '');
   return true;
 }
 export function playFooterEntrance(reduced = false) {
@@ -234,22 +442,75 @@ export function playFooterEntrance(reduced = false) {
   // Queried at fire time, never cached at mount — the client:only stale-DOM
   // rule, the same one links() honours.
   const blurb = panel?.querySelector('.site-footer__blurb');
-  if (!panel || !blurb) return false;
+  if (!panel || !blurb) {
+    // The panel is already armed LOW at this point, and this bail returns
+    // without setting entranceShown — so Hero's FOOTER_IN_SAFETY_MS timer
+    // re-enters the same failing path and the footer never rises. Clearing
+    // here is what keeps a missing blurb cosmetic instead of parking the whole
+    // panel off the fold for the visit.
+    dropSlide();
+    return false;
+  }
   entranceShown = true;
   const words = [...blurb.querySelectorAll('.site-footer__blurb-word')];
   const lead = panel.querySelector('.logo-ticker__copy');
   const ground = () => document.documentElement.removeAttribute('data-footer-in');
   if (reduced || !words.length) {
     ground();
+    // Reduced motion gets the final state, the house rule for the wipe
+    // everywhere else it runs. The resting state of a highlight in this panel
+    // is already VISIBLE (global.css), so this is belt-and-braces for the path
+    // where the words existed but we are not animating them.
+    kwSet(blurb, true);
+    // Nothing will animate the slide now, so drop its ground rather than
+    // leaving the panel parked a full reveal low for the session.
+    dropSlide();
     return true;
   }
   // Ground FIRST, then un-hide the container: one task, so there is no frame
   // in between and nothing flashes.
   const budget = getFooterIntroS();
+  // "Offset text animation just slightly to allow for slide up." A LOCAL lead,
+  // not a bump to STAGGER_DELAY_S — that constant is shared with the link-row
+  // stagger, which runs on /process and every detail page, none of which has
+  // a slide to wait for.
+  const slideLead = slideFromPx > 0 ? Math.max(0, getFooterSlideLeadS()) : 0;
   gsap.set(words, { autoAlpha: 0 });
+  /* The highlights rest VISIBLE in this panel (global.css) so a blurb that
+     never gets an entrance — a revisit, a reduced-motion load, no JS at all —
+     still reads as designed. Winding them back to 0 is therefore part of
+     PLAYING the entrance, not of the markup: these inline styles outrank the
+     resting rule, and kwWipe tweens them back up. */
+  kwSet(blurb, false);
   if (lead) gsap.set(lead, { autoAlpha: 0, y: 14 });
   ground();
-  const tl = gsap.timeline();
+  const tl = gsap.timeline({ onComplete: settleOdometer });
+  /* The slide leads the timeline. It rides the footer's own wipe curve — the
+     house glide Nathan recorded (steep launch, smooth decel, no overshoot) —
+     on its OWN duration (?footerslides): it borrowed the word budget while it
+     was a 1.25rem nudge, but a full-reveal rise is ~157px at 1440x900, ~9x
+     that travel, and 0.45s over it reads as a snap rather than a glide. The
+     var is removed on completion so the cascade goes inert again rather than
+     carrying a pinned `translate: 0 0px` for the session. */
+  if (slideFromPx > 0) {
+    const slide = { v: slideFromPx };
+    const root = document.documentElement;
+    slideTween = tl.to(
+      slide,
+      {
+        v: 0,
+        duration: Math.max(0, getFooterSlideS()),
+        ease: wipeEase(),
+        onUpdate: () => root.style.setProperty('--footer-slide', `${slide.v}px`),
+        onComplete: () => {
+          root.style.removeProperty('--footer-slide');
+          slideTween = null;
+          slideFromPx = 0;
+        },
+      },
+      0
+    );
+  }
   tl.to(
     words,
     {
@@ -258,8 +519,13 @@ export function playFooterEntrance(reduced = false) {
       ease: 'power2.out',
       stagger: wordStagger(words.length, budget),
     },
-    STAGGER_DELAY_S
+    STAGGER_DELAY_S + slideLead
   );
+  /* The wipe rides the SAME timeline as the words, so it inherits the slide's
+     lead and any reverse retracts it in kind — the doctrine kwWipe was written
+     for. It starts a beat after the words begin arriving: a box sweeping under
+     a word that has not faded in yet reads as a stray bar. */
+  kwWipe(tl, blurb, STAGGER_DELAY_S + slideLead + 0.22);
   // The band's copy line is the one element that may rise: it is a single
   // line arriving under the blurb, not a sequence of words, so there is no
   // stutter to read. The `rises` channel from useProcessCopy, verbatim.
@@ -267,7 +533,7 @@ export function playFooterEntrance(reduced = false) {
     tl.to(
       lead,
       { autoAlpha: 1, y: 0, duration: 0.4, ease: 'power3.out', clearProps: 'all' },
-      STAGGER_DELAY_S + 0.18
+      STAGGER_DELAY_S + 0.18 + slideLead
     );
   }
   return true;
@@ -276,27 +542,40 @@ export function playFooterEntrance(reduced = false) {
     run the entrance again (a soft nav back to home). */
 export function resetFooterEntrance() {
   entranceShown = false;
+  dropSlide();
 }
 
 /** The [emphasised opening, rest] blurb pair → one flat word list, each word
     carrying whether it is in the Medium opening. */
-const blurbWords = ([em, rest]) => [
-  ...String(em || '').split(/\s+/).filter(Boolean).map((word) => ({ word, em: true })),
-  ...String(rest || '').split(/\s+/).filter(Boolean).map((word) => ({ word, em: false })),
-];
+/* The blurb arrives as ONE marked string from Sanity (src/lib/siteCopy.js), so
+   the words, the Medium cut and the highlights all come out of one parse. It
+   replaced a frozen [emphasised opening, rest] pair whose emphasis was
+   POSITIONAL — the first three words — which could not survive copy an editor
+   is allowed to reword. A blurb with no markers still renders: every word is
+   plain, which is exactly what the pair produced for its `rest` half. */
+const blurbTokens = (blurb) => keywordLines(blurb).flat();
 
 export default function SiteFooter({
   noFill = false,
-  tagline = 'Visual Worlds for the Music Industry',
+  /* The `noFill` overlay variant's one line. NOTHING MOUNTS THAT VARIANT today
+     (nothing passes noFill; a probe finds zero .site-footer__tagline on /, /work
+     and /process), so this is dormant — but it was a THIRD hard-coded copy of a
+     sentence that now lives in Sanity, which is how copies drift. Defaulting it
+     to the shared fallback, markers stripped and the pill's line breaks
+     flattened, leaves one source for the words. A caller that wants the live CMS
+     string can pass it. */
+  tagline = stripKeywords(SITE_COPY_FALLBACK.tagline).replace(/\s*\n\s*/g, ' '),
   /** Driven mode (/work): reveal fed an explicit 0..1 — no document scroll. */
   driven = false,
   progress = 0,
   /** The client-logo band above the links (09-07). Off = the bare panel. */
   ticker = true,
-  /** MOBILE HOME VARIANT (10-07, Nathan) — the long studio blurb, as the
-      [emphasised opening, rest] pair SiteTagline exports (TAGLINE_LONG_SPLIT).
-      Present = this panel carries the blurb; global.css draws it only while
-      the footer rests ([data-footer-rest]), since desktop home keeps the
+  /** HOME FOOTER VARIANT (10-07, Nathan) — the long studio blurb, as ONE
+      marked string in the house format (`**bold**`, `[[highlight]]`; see
+      src/lib/keywords.jsx). It comes from the `siteSettings.footerBlurb`
+      Sanity field via src/lib/siteCopy.js, threaded index.astro → LandingPage
+      → Hero. Present = this panel carries the blurb; global.css draws it only
+      while the footer rests ([data-footer-rest]), since desktop home keeps the
       blurb in the tagline pill. */
   blurb = null,
   /** Driven mode: the progress this panel PARKS at (0 everywhere but mobile
@@ -659,6 +938,82 @@ export default function SiteFooter({
     };
   }, [driven]);
 
+  /* ── The blurb's own width, in em (10-08) ────────────────────────────────
+     The desktop resting variant fills its measure on ONE line by dividing
+     that measure by the sentence's width in em. That divisor was a baked
+     55.722 — exactly right, and bound to one exact string, which stops being
+     safe the moment the copy is editable. Measuring it instead means the fill
+     follows whatever the blurb actually says.
+
+     A nowrap CLONE, not the live element: the real blurb is display:none off
+     the variant and already wrapped on it, while a clone keeps the per-word
+     spans AND their .site-footer__blurb-em weight class, so the Medium
+     opening words are measured at their real width rather than the book one.
+     100px is just a convenient unit — tracking is in em, so the ratio is
+     size-independent and one measurement holds at every viewport.
+
+     WHICH FACE IS PAINTED DECIDES WHEN WE MAY MEASURE. The fallback stack is
+     7.1% narrower than ABC Areal, so measuring the fallback publishes too
+     SMALL a divisor, sizes the line too LARGE, and wraps it — the one
+     direction this must never fail in. Every @font-face here is
+     `font-display: swap` and BaseLayout preloads the PP Neue Montreal
+     FALLBACK rather than the measured face, so a cold load really can paint
+     the fallback first: measuring unconditionally at mount reads the fallback's
+     narrower width (~51.74 for the copy shipped 10-08, i.e. the same 7.1%
+     applied to today's 55.722 — it read 58.238 on the pre-Sanity string, so
+     this number moves with the copy and only the RATIO is stable), stays
+     self-consistent until ABC Areal swaps in 7.69% wider, and then overflows
+     its measure by ~7.15% until something re-measures.
+
+     So the first measurement waits for the face the blurb is actually
+     painted in — its own computed font-family, first entry, never a name
+     hard-coded here — and `document.fonts.ready` stays only as the backstop.
+     It is deliberately NOT the primary trigger: ready waits on every
+     REQUESTED face, including the ~1.5 MB Iosevka the island asks for after
+     hydration, so it can resolve long after the blurb has already swapped.
+     A face that never loads (a 404 on the untracked woff2) rejects, and we
+     publish anyway — measuring whatever is painted is always right.
+
+     The CSS keeps 55.722 as its var() fallback, so absence is today's
+     correct value rather than a collapse. */
+  useEffect(() => {
+    if (!blurb) return undefined;
+    let disposed = false;
+    const publish = () => {
+      const el = panelRef.current?.querySelector('.site-footer__blurb');
+      if (disposed || !el?.parentNode) return;
+      const probe = el.cloneNode(true);
+      probe.setAttribute('aria-hidden', 'true');
+      probe.style.cssText =
+        'position:absolute;left:-9999px;top:0;display:block;width:auto;max-width:none;' +
+        'white-space:nowrap;visibility:hidden;pointer-events:none;font-size:100px;';
+      el.parentNode.appendChild(probe);
+      const em = probe.getBoundingClientRect().width / 100;
+      probe.remove();
+      if (em > 0) {
+        document.documentElement.style.setProperty('--footer-blurb-em', em.toFixed(3));
+      }
+    };
+    const whenFaceReady = () => {
+      const el = panelRef.current?.querySelector('.site-footer__blurb');
+      const fonts = typeof document !== 'undefined' ? document.fonts : null;
+      if (!el || !fonts?.load) {
+        publish();
+        return;
+      }
+      const cs = getComputedStyle(el);
+      const family = cs.fontFamily.split(',')[0].trim().replace(/^["']|["']$/g, '');
+      const spec = `${cs.fontWeight} 100px "${family}"`;
+      if (fonts.check?.(spec)) publish();
+      else fonts.load(spec).then(publish, publish);
+    };
+    whenFaceReady();
+    document.fonts?.ready?.then(publish);
+    return () => {
+      disposed = true;
+    };
+  }, [blurb]);
+
   const year = new Date().getFullYear();
 
   // ── Simple / overlay variant (hero) — unchanged ──
@@ -721,16 +1076,11 @@ export default function SiteFooter({
               identically to the two-span version. */}
           {blurb && (
             <p className="site-footer__blurb">
-              {blurbWords(blurb).map(({ word, em }, i) => (
-                <Fragment key={`${i}-${word}`}>
-                  {i > 0 && ' '}
-                  <span
-                    className={`site-footer__blurb-word${em ? ' site-footer__blurb-em' : ''}`}
-                  >
-                    {word}
-                  </span>
-                </Fragment>
-              ))}
+              {renderWordTokens(blurbTokens(blurb), {
+                wordClass: 'site-footer__blurb-word',
+                emClass: 'site-footer__blurb-em',
+                keyPrefix: 'blurb',
+              })}
             </p>
           )}
 

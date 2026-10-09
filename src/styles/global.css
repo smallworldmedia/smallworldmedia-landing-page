@@ -69,6 +69,24 @@
   font-display: swap;
 }
 
+/* ABC Areal (Dinamo) — THE MAIN SANS, 10-07 trial. One variable file carries
+   the whole range the site asks for: wght 400–700 continuous, so 400/500/600
+   and 700 are all real cuts rather than the synthetic 600 PP Neue Montreal
+   was faking. 181 KB for the variable vs 189 KB for three statics, and one
+   request instead of three. No italic face is declared because nothing in the
+   site sets font-style: italic (the delivery's slnt -12..0 axis is there if
+   that changes). Squeezed display text and the mono stack are NOT Areal:
+   Areal ships no condensed width, and the globe's canvas name strips bake
+   --font-display ("OT Neue Montreal Squeezed", nameTicker.js:45), so that
+   face has to stay. */
+@font-face {
+  font-family: 'ABC Areal';
+  src: url('../assets/fonts/ABCArealVariable.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* — Custom Properties — */
 :root {
   /* Colors */
@@ -87,15 +105,83 @@
      stays clearly distinct from the brand-black service tags. */
   --color-dim-gray: rgb(64, 64, 64);
 
-  /* Typography — font stacks */
-  --font-display: 'OT Neue Montreal Squeezed', 'PP Neue Montreal', 'Inter', sans-serif;
-  --font-headline: 'PP Neue Montreal', sans-serif;
+  /* — SWM extended palette (10-08, Nathan) —
+     The house palette BEYOND the brand blue. Pulled by area from Nathan's
+     reference image rather than eyeballed, so these are the picture's actual
+     main colour instances. --color-electric-blue above stays the brand's
+     primary and is untouched; --swm-blue is a second, softer blue the
+     reference leans on, not a restatement of it.
+     The reference's neutrals already exist here — its near-black #030304 is
+     --color-black/--color-near-black and its near-white #FAFCFB is
+     --color-cream — so no neutral is duplicated.
+     Ordered by hue (red -> blue) so a consumer can walk the set as a
+     spectrum; --swm-navy and --swm-periwinkle are supports, outside that
+     walk, because navy all but vanishes on the brand black. */
+  --swm-red: #fd361a;
+  --swm-orange: #fe7701;
+  --swm-yellow: #fbb702;
+  --swm-green: #03a238;
+  --swm-blue: #1556e5;
+  --swm-navy: #0a2577;
+  --swm-periwinkle: #a6bcda;
+
+  /* The spectrum walk, in hue order — indirected through these so swapping a
+     frame is one line and the keyframes never name a colour directly.
+     --swm-navy and the brand electric-blue are deliberately absent: at
+     1.54:1 and 2.44:1 on the brand black they read as a dropout, not a
+     colour. --swm-blue is the dimmest member that stays (3.49:1); swap in
+     --swm-periwinkle (10.83:1) if frame 5 reads as a gap. */
+  --swm-cycle-1: var(--swm-red);
+  --swm-cycle-2: var(--swm-orange);
+  --swm-cycle-3: var(--swm-yellow);
+  --swm-cycle-4: var(--swm-green);
+  --swm-cycle-5: var(--swm-blue);
+
+  /* House pulse tempo. Root-scoped so ?pulsebpm on <html> reaches every
+     consumer; a half note is 120/bpm s (0.9449s at 127). */
+  --swm-bpm: 127;
+
+  /* Complete palette sweeps inside the CYCLING half note — the colour RATE,
+     SUBDIVIDED OUT OF the tempo above rather than typed beside it, so
+     ?pulsebpm still moves both and the half-note boundary never drifts.
+     10-08 (Nathan): "dial in the rate of the switching between colors while
+     retaining the same BPM… much more rapid, but still have the same pausing
+     intervals". 1 = the original one-sweep-per-pulse (188.98ms a frame);
+     3 = 62.99ms, 15.9Hz.
+     INTEGER ONLY, AND CLAMPED — ClientLogoTicker rounds and clamps 1..5
+     because both failure modes are silent: a fraction lets the gate truncate
+     a sweep mid-palette (at 0.5 only 3 of the 5 colours are ever painted),
+     and 0 does NOT invalidate the calc — the UA clamps the duration to
+     1.8e308s and the walk freezes on red with no error. At 6 a colour gets a
+     single 60Hz refresh and reads as noise rather than a frame. ?pulsereps */
+  --swm-pulse-reps: 3;
+
+  /* Muted text ink (10-08, Nathan: "not enough contrast"). A ROLE token, not
+     a value token: the grey it replaces (--color-dim-gray) is a FILL — the
+     enter_world CTA's pulse floor and a featured-projects background — so
+     lightening that in place would move Nathan's 08-27 CTA bake. Lightness
+     rides a 0..1 dial through color-mix, the --nav-ink idiom, so ?inkmuted
+     slides it without a second hex. */
+  --ink-muted: color-mix(
+    in oklab,
+    var(--color-black),
+    var(--color-white) calc(var(--ink-muted-l, 0.58) * 100%)
+  );
+
+  /* Typography — font stacks.
+     ABC Areal is the main sans (10-07 trial); PP Neue Montreal stays one step
+     behind it in every chain, so a face that fails to load degrades to the
+     previous house sans rather than to a system font. --font-display keeps the
+     Squeezed face at the front (Areal has no condensed width, and the globe
+     bakes this token into its canvas strips) and --font-mono is untouched. */
+  --font-display: 'OT Neue Montreal Squeezed', 'ABC Areal', 'PP Neue Montreal', sans-serif;
+  --font-headline: 'ABC Areal', 'PP Neue Montreal', sans-serif;
   /* Regular weight — 26.4px headlines */
-  --font-secondary: 'PP Neue Montreal', sans-serif;
+  --font-secondary: 'ABC Areal', 'PP Neue Montreal', sans-serif;
   /* Book weight — 21.6px sub-headings */
   --font-mono: 'Iosevka Term', 'Geist Mono', ui-monospace, monospace;
-  --font-ui: 'Inter', system-ui, sans-serif;
-  --font-body: 'PP Neue Montreal', 'Inter', system-ui, sans-serif;
+  --font-ui: 'ABC Areal', 'Inter', system-ui, sans-serif;
+  --font-body: 'ABC Areal', 'PP Neue Montreal', 'Inter', system-ui, sans-serif;
 
   /* Typography — font weights */
   --weight-semi: 600;
@@ -187,6 +273,24 @@
   /* 8px */
   --pill-pad-x: var(--space-6);
   /* 12px */
+
+  /* Pill INK (10-08, Nathan: "globally across desktop and mobile let's have
+     the privacy ink color linked to project color token"). One token per
+     face, four consumers, instead of four copies of the var() chain:
+     on-black  → .site-privacy, .mobile-menu__privacy (black capsules)
+     on-white  → .site-privacy[aria-expanded], .privacy-overlay__close
+     --project-color-on-black and --project-color-text are projectColor.js's
+     polar twins (accentOnBlack / accentText) and are already computed for
+     every accent — a light accent keeps its hue, a dark one flips to the
+     readable extreme — so there is no new colour maths here.
+     NEITHER of these may become an @property: unregistered is load-bearing
+     twice over. A registered property always resolves to its initial-value,
+     which would kill the var() fallback (that is why every
+     `var(--project-color, …)` fallback in this file is already dead code),
+     and registering makes it interpolable, which re-opens the paint trap
+     documented at --nav-ink. The fade belongs on the element, not here. */
+  --pill-ink-on-black: var(--project-color-on-black, var(--color-electric-blue));
+  --pill-ink-on-white: var(--project-color-text, var(--color-electric-blue));
 
   /* Fixed privacy-pill keep-out — the horizontal reserve the footer nav row
      leaves for the lower-right .site-privacy capsule (~5.3rem) + row air.
@@ -695,10 +799,20 @@ button {
 /* ── Globe-page nav variant ──
    BaseLayout sets body.route-home server-side (no hydration flash); the
    ClientRouter swaps body attributes on navigation, so leaving the globe
-   restores the blue variant automatically. On the globe: no background
-   fill, and the info pill's blue accents go black. */
+   restores the blue variant automatically. The info pill's blue accents go
+   black here.
+
+   10-08, Nathan: the bar takes the BRAND BLACK fill rather than running
+   transparent. It was the only chrome surface on the globe with no fill of
+   its own, so the sphere tracked through behind the links as it turned —
+   worst where a bright panel passed under start_project / featured_projects.
+   --color-black is the token the house already uses for exactly this kind of
+   chrome band (the home nav pills below, the links-footer band), NOT
+   --color-near-black, which is the Figma-band value. Flat background, never
+   opacity: the bar's own autoAlpha is animated on the home chrome gate, and
+   fading the element would fade the links with it. */
 body.route-home .site-nav {
-  background: transparent;
+  background: var(--color-black);
 }
 
 /* ── /work focused-project accent (S2) ──
@@ -1093,7 +1207,8 @@ html.fp-tint .mobile-menu__item {
   font-family: var(--font-body);
   letter-spacing: var(--tracking-body);
   font-weight: var(--weight-medium);
-  color: var(--color-electric-blue);
+  color: var(--pill-ink-on-black);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
   white-space: nowrap;
 }
 
@@ -1501,7 +1616,14 @@ html[data-footer-revealed] .detail-progress {
      wherever one is broadcast (<html> --project-color on /work + detail
      routes); everywhere else the fallback keeps them brand blue. */
   color: var(--project-color, var(--color-electric-blue));
-  font-weight: 400;
+  /* 10-08, Nathan: "make Small World Media bold in the info drawer blurb to
+     match the blurb in the footer" — the footer's cut is --weight-medium on
+     .site-footer__blurb-em, and BOTH surfaces resolve to ABC Areal first
+     (--font-headline and --font-body share it, a variable face at 400..700),
+     so 500 is a real instance here and the two match exactly. The accent
+     colour above is a separate 08-30 decision and is deliberately kept: the
+     drawer's subject now carries weight AND hue, the footer's only weight. */
+  font-weight: var(--weight-medium);
 }
 
 /* Clients — fills remaining space to the right */
@@ -2037,6 +2159,36 @@ html[data-footer-revealed] .detail-progress {
   font-weight: var(--weight-medium);
 }
 
+/* ── Highlights in the blurb (10-08) ─────────────────────────────────────────
+   The blurb is CMS copy now, so `[[keyword]]` can appear in it. Two things it
+   needs that the project pages already had:
+
+   1. THE COLOUR. --kw-bg / --kw-ink are per-surface tokens with no inherited
+      value outside a project page (which binds them to the project colour) and
+      /process (per data-bg field). On black, under the globe, the brand blue
+      box with white ink IS the house pairing — bound here rather than left to
+      kw's var() fallbacks so it is one declared, dialable place.
+
+   2. A VISIBLE RESTING STATE. `.kw__box` rests at scaleX(0) and `.kw__ink` at a
+      fully-clipped inset, so a highlight is INVISIBLE until a driver wipes it.
+      Everywhere else in the repo the driver is guaranteed — the wipe is part of
+      a scroll-triggered entrance that always runs. Here it is not: the footer's
+      entrance plays once per session (`entranceShown`), skips under reduced
+      motion, and does not run at all without JS. Resting the box open and the
+      ink unclipped makes the degraded state "the highlight is simply there",
+      and playFooterEntrance winds it back to 0 with inline styles — which
+      outrank these rules — on the paths where it does animate. */
+.site-footer__blurb {
+  --kw-bg: var(--color-electric-blue);
+  --kw-ink: var(--color-white);
+}
+.site-footer__blurb .kw__box {
+  transform: scaleX(1);
+}
+.site-footer__blurb .kw__ink {
+  clip-path: inset(-0.35em 0% -0.35em 0);
+}
+
 /* LEFT — globe lockup + copyright */
 .site-footer__left {
   display: flex;
@@ -2140,7 +2292,9 @@ html[data-footer-revealed] .detail-progress {
 .site-footer__link--privacy {
   display: none;
   font-weight: var(--weight-medium);
-  color: var(--color-electric-blue);
+  /* display:none at every breakpoint, but kept in step with the live pills so
+     a future footer return doesn't ship the one privacy link still on blue. */
+  color: var(--pill-ink-on-black);
 }
 
 .site-footer__link--privacy:hover {
@@ -2213,7 +2367,16 @@ html[data-footer-revealed] .detail-progress {
   font-size: var(--text-secondary);
   line-height: var(--logo-odo-lh);
   letter-spacing: var(--tracking-tight);
-  color: var(--color-dim-gray);
+  /* 10-08 (Nathan: "not enough contrast"). Was --color-dim-gray #404040,
+     measured 2.03:1 on this band — the band's ground is PURE --color-black,
+     not near-black, so 2.03 is the honest figure. --ink-muted at its 0.58
+     default resolves to #7a7a7a = 4.89:1, clearing AA body with headroom and
+     still sitting ~4.3x below the white odometer word, so the hierarchy
+     holds. The dim-gray VALUE stays put: it is the enter_world CTA's pulse
+     floor plus two other fills, none of them ink.
+     NB the token is only half the contrast story at rest — see
+     --logo-rest-op on the [data-footer-rest] band below. */
+  color: var(--ink-muted);
 }
 
 .logo-ticker__odo {
@@ -2223,6 +2386,109 @@ html[data-footer-revealed] .detail-progress {
   height: var(--logo-odo-lh);
   overflow: hidden;
   color: var(--color-white);
+}
+
+/* ── "full spectrum": the half-note spectrum pulse ──
+   10-08 (Nathan): the ink flips between a rapid walk of the house palette
+   and the muted ink, in HARD frame shifts — "not interpolated, hard hold
+   frame shifts" — on half-note pulses at 127 BPM.
+
+   THE TIMING IS THE MUSIC, so it is derived, not typed. --swm-bpm is the
+   only number: a half note is 120/bpm s, and the full cycle is two of them
+   (one pulse cycling, one pulse flat), hence 240s/bpm = 1.8898s at 127.
+   The five colour frames divide the CYCLING half note exactly, so one pulse
+   is one complete sweep of the palette — "full spectrum", once per pulse,
+   at 188.98ms a frame.
+
+   WHY steps(1, end) AND NOT A TWEEN. It is the scrim grain's own idiom
+   (scrimNoise, panelGrain): the timing function applies between every
+   keyframe pair, so each segment HOLDS its start value and jumps at the
+   end. No interpolation anywhere, which is the brief, and it also means the
+   colours need no @property registration to behave.
+
+   WHY `color` ON THE ELEMENT AND NOT AN INHERITED VAR. Animating an
+   inherited custom property does not paint-invalidate the text consuming it
+   — the computed value glides while the pixels freeze (the 08-29 --nav-ink-l
+   finding above). Animating this element's own `color` is the documented fix,
+   so the frames actually land. */
+/* TWO ANIMATIONS, ONE PROPERTY (10-08). The rate and the tempo used to share
+   one keyframe table, which pinned the colour frames to 10% of the cycle —
+   and @keyframes percentages are literals, so no var() can move them. Split
+   in two: the WALK's duration carries the colour rate, the GATE's carries the
+   BPM, and the two never have to agree on a percentage. ?pulsereps is then
+   just the walk's divisor. */
+.logo-ticker__spectrum {
+  animation:
+    swm-spectrum-walk calc(120s / var(--swm-bpm, 127) / var(--swm-pulse-reps, 3)) steps(1, end)
+      infinite,
+    swm-spectrum-gate calc(240s / var(--swm-bpm, 127)) steps(1, end) infinite;
+  /* Paused by default and released by the same latch as the odometer below.
+     Ungated, a 15.9Hz text repaint would run on /work beside the WebGL world,
+     on /process, on every detail page, and while this panel is parked
+     off-screen at translateY(100%). On home the latch never clears while the
+     footer rests, so the pulse is continuous there — which is the point. */
+  animation-play-state: paused;
+}
+
+/* THE WALK — one COMPLETE sweep of the palette per iteration, five equal
+   frames. "Full spectrum" is the phrase, so sweeps-per-half-note is the only
+   unit in which every legal value keeps that promise: the five frames divide
+   the cycling half exactly, no frame is ever truncated, and walk:gate =
+   2 x reps is an integer, so every flat half begins on a sweep boundary. */
+@keyframes swm-spectrum-walk {
+  0% {
+    color: var(--swm-cycle-1);
+  }
+  20% {
+    color: var(--swm-cycle-2);
+  }
+  40% {
+    color: var(--swm-cycle-3);
+  }
+  60% {
+    color: var(--swm-cycle-4);
+  }
+  80% {
+    color: var(--swm-cycle-5);
+  }
+  100% {
+    color: var(--swm-cycle-1);
+  }
+}
+
+/* THE GATE — the half note, and the whole trick.
+   THERE IS NO 0% KEYFRAME FOR `color` ON PURPOSE. With the property absent
+   from 0%, the UA synthesises that keyframe from the UNDERLYING value — which
+   here is the walk, because this animation is declared SECOND and so is the
+   higher-priority effect. Under steps(1, end) the 0→50% segment therefore
+   HOLDS that underlying value, re-read every frame: the walk passes straight
+   through. At 50% this animation takes over and replaces it with the flat
+   ink, which holds to 100%.
+   DO NOT "fix" this by adding `0% { color: … }` — that pins the whole cycling
+   half to one colour and kills the walk.
+   Verified by stepping a paused clock across the cycle in 0.5ms seeks: 6
+   distinct painted inks, zero intermediate values, the boundary nailed at
+   t=945ms, identical in Blink 151 and WebKit 26.5. (The tempting alternative
+   — a `-webkit-text-fill-color: currentColor` gate over an animated `color`
+   — measures perfectly in Blink and collapses to a FLAT muted phrase for the
+   entire cycle in WebKit, i.e. invisible on every iPhone. It is not used.) */
+@keyframes swm-spectrum-gate {
+  50% {
+    color: var(--ink-muted);
+  }
+  100% {
+    color: var(--ink-muted);
+  }
+}
+
+/* A 15.9Hz colour walk on text is squarely a reduced-motion case: hold the
+   muted ink flat. (It is well under WCAG 2.3.1's flash threshold, which is
+   about large-area luminance change, but comfort is the point here.) */
+@media (prefers-reduced-motion: reduce) {
+  .logo-ticker__spectrum {
+    animation: none;
+    color: var(--ink-muted);
+  }
 }
 
 /* sizer: all five words stacked in ONE cell → box = the longest word */
@@ -2332,8 +2598,24 @@ html[data-footer-revealed] .detail-progress {
 
 /* The odometer runs ONLY while the footer is revealing — the same
    attribute that gates the shell slide (the roll's JS loop reads it too). */
-html[data-footer-revealed] .logo-ticker__odo-col {
+html[data-footer-revealed] .logo-ticker__odo-col,
+html[data-footer-revealed] .logo-ticker__spectrum {
   animation-play-state: running;
+}
+
+/* …but NOT through the on-load entrance (10-08). The roll is a main-thread
+   animation — the band's per-frame `opacity: calc(…)` keeps Chrome from
+   compositing the column — and the entrance is the busiest window the page
+   has, so it froze mid-step and then jumped a whole word when the thread
+   freed. Measured: one 1555 ms frame, then 1272 ms of animation clock and a
+   full -31.78px step in the next. SiteFooter owns this latch on the same
+   lifecycle as --footer-slide (see settleOdometer there); same specificity as
+   the rule above, so ORDER is what makes it win — keep it below.
+   The spectrum is deliberately left running: its animation is a hard-hold
+   `steps(1, end)` colour flip, where a stalled frame reads as one slightly
+   long hold rather than as a jump. */
+html[data-footer-settling] .logo-ticker__odo-col {
+  animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2357,6 +2639,19 @@ html[data-footer-revealed] .logo-ticker__odo-col {
    read as two highlights). GSAP drives scaleX + clip-path directly —
    no custom-property animation (the paint trap).
    ============================================ */
+
+/* `**bold**` — the weight marker (10-08). renderKeywords emits <b class=
+   "kw-em">, and <b> would otherwise take the browser's default 700, which is
+   NOT the house cut: every marked surface means --weight-medium by it (the
+   footer blurb gets there via its own emClass, .site-footer__blurb-em, and the
+   drawer's <strong> via .description__text strong). Declared here so the marker
+   lands on the same weight wherever the PROSE renderer is used — project detail
+   paragraphs, /process stage blurbs and CTA line — instead of only where a
+   caller happens to pass a class. */
+.kw-em {
+  font-weight: var(--weight-medium);
+}
+
 .kw {
   position: relative;
   display: inline-block;
@@ -2468,6 +2763,18 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 html[data-footer-rest] .site-footer--links {
   display: flex;
   flex-direction: column;
+
+  /* The on-load slide (10-08, Nathan). The INDIVIDUAL `translate` property,
+     never `transform`: SiteFooter writes the whole transform string
+     imperatively every reveal frame (paint(), both modes), so a GSAP tween of
+     y/transform here would be clobbered on the next frame and would fight
+     GSAP's own transform cache. `translate` pre-multiplies it instead, so the
+     two compose — the same reason --hero-lift uses it.
+     0px is the inert ground: the var is set only while the slide is armed,
+     and removed when it lands. Layout is untouched — offsetHeight and
+     ResizeObserver report the layout box, so --footer-panel-h (the
+     denominator of both the rest fraction and --hero-lift) does not move. */
+  translate: 0 var(--footer-slide, 0px);
 }
 
 /* the blurb is the band's own content now — left-aligned, full measure */
@@ -2486,13 +2793,217 @@ html[data-footer-rest] .logo-ticker {
   order: 1;
   border-bottom: 0;
   border-top: 1px solid rgb(255 255 255 / 0.12);
-  --logo-reveal-from: 0;
+
+  /* DIM AT REST, FULL ONCE SEEN — and it never goes back (10-08, Nathan:
+     "'Utilized by a full spectrum' opacity and the logo ticker below it
+     start at 0.4 until the user scrolls up to reveal it for the first
+     time").
+
+     --lt-p, the band's own window, cannot express this: it is a RISE window
+     keyed on --footer-peak, and on this variant there is no rise — the band
+     IS the resting content, so at the 0.62 floor it resolved to a flat 0.633
+     and the --logo-reveal-from: 0 override that used to sit here was that
+     window being fought with the only lever it had. Both are gone.
+
+     THE RAMP rides --footer-rise-peak, the rest-normalized peak: 0 in the
+     resting pose, 1 at a full reveal, and it holds through a retreat WITHIN
+     an excursion. It is NOT a session latch — measured, it resets 1 → 0 the
+     frame the panel parks back on its floor, which is deliberate (the marks'
+     at-rest hint has to be able to come back, and the probe gates
+     marksHoldOnRetreat on exactly that). So the ramp alone would re-dim the
+     band on every park, which is the one thing the ask rules out. The
+     [data-footer-seen] rule below is the one-way half; this is only the
+     glide into it.
+
+     FAILS OPEN: with --footer-rise-peak absent or non-numeric the whole
+     calc is invalid-at-computed-value and the declaration drops, leaving the
+     base rule's own opacity — visible, never 0.
+
+     WHAT 0.4 COSTS, measured over the panel's pure black: the lead-in ink
+     composites to rgb(49,49,49) = 1.61:1 and the odometer word to
+     rgb(102,102,102) = 3.66:1. Both are under AA body (4.5:1), and the copy
+     line is 19.6px/500 on the phone and below the desktop crossover, so the
+     large-text exemption does not apply there; on the desktop variant the
+     copy line rides --footer-blurb-size and only reaches WCAG's 24px bar
+     above ~1530px. This is
+     NOT reachable by brightening ink — at 0.4 pure white itself tops out at
+     3.66:1. ?logorestop is the floor: 0.5 reads barely brighter and brings
+     the white odometer word to 5.32:1, which is the honest compromise if the
+     number matters. (The 1.43:1 figure this comment used to carry was
+     measured against the retired --color-dim-gray; today's #7a7a7a lead-in
+     through the old 0.633 veil is 2.48:1.) */
+  opacity: calc(
+    var(--logo-rest-op, 0.4) + (1 - var(--logo-rest-op, 0.4)) *
+      var(--footer-band-p, var(--footer-rise-peak, 1))
+  );
+}
+
+/* THE ONE-WAY HALF. Specificity (0,3,1) beats the rule above, and the value
+   is a literal 1 — no var, no calc, nothing that can go invalid. SiteFooter
+   sets the attribute the first time the rise clears 0.999 and never removes
+   it, re-asserting from sessionStorage after a soft nav (ClientRouter
+   replaces every <html> attribute).
+   THE THRESHOLD HAS TO BE A FULL REVEAL. At 0.999 the ramp above is already
+   at 0.9994, so the handoff to a hard 1 is a 0.0006 step — invisible. Latch
+   at, say, 0.6 and it is a visible 0.24 jump, because neither rule carries a
+   transition (deliberately: a transition would low-pass the per-frame var
+   updates into a smear — and the minimum fade is a clock in SiteFooter for
+   the same reason).
+   IT IS THE GATED --footer-band-p THAT HAS TO CLEAR 0.999, NOT THE RISE.
+   This rule outranks the ramp, so latching on the rise would snap the band to
+   full on the first frame of a quick scroll and erase the minimum fade. */
+html[data-footer-rest][data-footer-seen] .logo-ticker {
+  opacity: 1;
 }
 
 /* Nathan: "ensure the 'utilized across a full spectrum' text matches to the
-   text size of the blurb that now sits above it" — one token, both lines. */
+   text size of the blurb that now sits above it" — one token, both lines.
+   (Still true above 769px, where the token becomes --footer-blurb-size — see
+   the desktop block below, which keeps the pair matched.) */
 html[data-footer-rest] .logo-ticker__copy {
   font-size: var(--text-blurb, 1.4rem);
+}
+
+/* ============================================
+   DESKTOP RESTING VARIANT — the panel's own layout (10-08, Nathan)
+   ============================================
+   ?footerrest reaches ANY width (Hero: desktop defaults to 0, the phone to
+   0.62, an explicit dial to anywhere), so on desktop this variant inherits a
+   panel built for a different pose. Everything here is gated at 769px because
+   the three things it reckons with — the fixed lockup, the (c) line and the
+   privacy pill — are all display:none at <=768px, where the phone's layout is
+   already right. A gate inside an attribute-keyed variant is normally the
+   thing this file warns against; it is correct here precisely because the
+   OTHER tier's rules are the media query's, so the two cannot disagree.
+   ============================================ */
+@media (min-width: 769px) {
+  /* (1) THE DEAD RESERVE ABOVE THE BLURB. `.site-footer__inner`'s min-height
+     reserves the fixed tagline stack — lockup art + gap + the (c) line's box
+     — from back when that stack sat over this panel's bottom. Under this
+     variant the band is ordered last and the lockup is now hidden, so the
+     reserve pays for a column that is never drawn, and `align-items:
+     flex-end` parked the blurb at the bottom of it: measured 64.90px from the
+     panel's top to the blurb's first line where the pad alone is 18.00px.
+     Dropping it lands the blurb at exactly the pad, at every width tested
+     from 800 to 3440. (The <=768px block makes the same call, for the same
+     reason, further down.) */
+  html[data-footer-rest] .site-footer__inner {
+    min-height: 0;
+    padding-top: var(--footer-rest-top-pad, 1.286rem);
+  }
+
+  /* (2) THE BAND'S FOOT. Ordered last, the band lands exactly where the fixed
+     lower corners sit: measured, the privacy pill overlapped the marks row by
+     25.97px and the copyright by 10.00px. None of these numbers moves with
+     width — html{font-size:14px} pins the whole rem chain and all three boxes
+     are bottom-fixed — so one clearance holds everywhere. It is the same
+     construction the inner's min-height tail used (the pill's own box seated
+     on the shared bottom inset) plus one row gap: the reserve has effectively
+     MOVED from above the blurb to below the band, which is where this
+     variant actually needs it. Clears them by 12.02px and 27.99px. */
+  html[data-footer-rest] .logo-ticker {
+    padding-bottom: var(
+      --ticker-foot-clearance,
+      calc(
+        var(--footer-bottom-inset) + var(--lh-link) + 2 * var(--pill-pad-y) + var(--space-6)
+      )
+    );
+  }
+
+  /* (3) ONE LINE, FULL MEASURE, AT ANY WIDTH (Nathan: "scale up to maintain
+     the full width of the viewport, beyond any viewport width… value that
+     makes the blurb run on only one line, similar to how the blurb and the
+     info drawer scales up. cross utilize the scaling system if possible").
+
+     THE SCALING SYSTEM REUSED is the info drawer's — bare, UNCAPPED viewport
+     type — not the project blurb's clamp(), whose 3.571rem ceiling is exactly
+     the cap being rejected. What gets divided is the panel's OWN measure, the
+     same `100vw minus the two chrome insets` expression
+     .site-tagline__text--long already writes for this very copy.
+
+     THE DIVISOR IS A MEASUREMENT OF THE COPY, which is why it is taken at
+     RUNTIME (see below) rather than typed. Tracking is in em, so the scaling
+     is exactly linear and ONE number holds at every width: the copy as
+     shipped measures 55.722em and fills exactly one line at 1180, 1200, 1280,
+     1366, 1440, 1536, 1600, 1728, 1920, 2048, 2560, 2880, 3440 and 4480, with
+     zero overflow at any of them (25.43px @1440, 45.43px @2560, 61.14px
+     @3440).
+
+     A BARE vw COEFFICIENT CANNOT DO THIS. The 16px inset is fixed, so exact
+     fill is 1.5746vw at 1280 and 1.5845vw at 2560 (asymptote 1.5945): any
+     single number either wraps at the narrow end or leaves a widening gap at
+     the wide end. Dividing the measure is what makes the trailing slack a
+     constant 0.5% instead.
+
+     --footer-blurb-fill is the taste knob — the share of the measure the line
+     takes. 1 is flush and sits on the sub-pixel edge (it wrapped at 1024w),
+     so 0.995 keeps ~0.5% in hand; that headroom is also what absorbs a
+     Retina device rounding glyph advances differently from this measurement.
+
+     NO `white-space: nowrap`. The computed size already makes one line fit,
+     and nowrap would turn any miss — a copy edit, a font swap — into content
+     overflowing a panel whose .logo-ticker ancestor is overflow:hidden, i.e.
+     a clipped sentence instead of a wrapped one. Wrapping is the correct
+     failure mode, and the per-word entrance is unaffected either way.
+
+     THE DIVISOR IS MEASURED, NOT BAKED. SiteFooter publishes
+     --footer-blurb-em from a nowrap clone of the real blurb (weights and all)
+     and re-measures on document.fonts.ready, so the fill follows the copy
+     instead of one frozen sentence. That is the whole reason the blurb could
+     move into Sanity: an editor rewords it and the size follows, with no
+     number here to update.
+
+     55.722 IS THE FALLBACK, AND IT IS COPY-DEPENDENT BY NATURE. It is the
+     shipped string's own measurement, so SSR and a no-JS load are correct for
+     today's copy; the moment someone edits the blurb in the Studio this
+     number is stale and only the first paint sees it, because the runtime
+     measurement overwrites it. Staleness is harmless in one direction and
+     not the other: a divisor that is too LARGE under-fills (smaller type,
+     still one line), a divisor that is too SMALL over-fills and wraps. Since
+     shortening copy raises the true divisor's accuracy and lengthening it
+     lowers the number needed, keep this value at or ABOVE the current
+     measurement if it is ever hand-edited. Webfont failure is safe for the
+     same reason: the fallback stack measures ~7% narrower than ABC Areal, so
+     a swap period under-fills rather than wrapping.
+
+     THE FILL ONLY SCALES UP. Below the baseline it would keep shrinking to
+     stay on one line — 11.9px at 769w — so max() floors it at the SAME
+     1.4rem every other desktop site falls back to, and the sentence wraps
+     from there instead (Nathan, 10-08). `--text-blurb` is a ≤768px token, so
+     above 769px this var() resolves to the literal 1.4rem; it is written as
+     the var anyway so the floor follows the token if it ever gains a desktop
+     value, exactly as every other desktop consumer reads it.
+
+     THE CROSSOVER MOVES WITH THE COPY — it is `19.6 x em / fill` in measure
+     terms, not a width anyone chose. For the copy as shipped that lands at a
+     measure of ~1098px, i.e. a viewport of ~1110-1130px: measured one line
+     from 1130px up and two lines at 1100px and below, the wrapped band all at
+     exactly 19.6px with no overflow. Below the crossover the blurb is two lines at
+     precisely the baseline every other desktop surface falls back to, which
+     is why the narrow band needed no second bake. (It sat at ~1245px for the
+     pre-Sanity copy; a longer blurb pushes it back up.)
+
+     It floors the DIAL too: ?footerblurbfill can only pull the size down to
+     the baseline (≈0.863 at 1440w), below which it is clamped and inert. */
+  html[data-footer-rest] {
+    --footer-blurb-size: max(
+      var(--text-blurb, 1.4rem),
+      calc(
+        var(--footer-blurb-fill, 0.995) * (100vw - var(--nav-inset) - var(--chrome-right-inset)) /
+          var(--footer-blurb-em, 55.722)
+      )
+    );
+  }
+
+  /* Both lines, one token — Nathan's own "one token, both lines" rule for
+     this pair, carried up to the new size. The odometer rides it for free:
+     its whole geometry is --logo-odo-lh (1.25em) and the keyframes step in
+     multiples of it, so the rolling word scales coherently instead of
+     desyncing. */
+  html[data-footer-rest] .site-footer__blurb,
+  html[data-footer-rest] .logo-ticker__copy {
+    font-size: var(--footer-blurb-size);
+  }
 }
 
 /* The page-level tagline pill yields: the blurb it carried is in the panel
@@ -2500,6 +3011,40 @@ html[data-footer-rest] .logo-ticker__copy {
    mask clipped it out of the risen footer for the same reason — this is that
    mask's resting-footer case, expressed once instead of per frame). */
 html[data-footer-rest] .site-tagline__pill {
+  display: none;
+}
+
+/* …and the white lockup with it (10-08, Nathan: "we still need to hide the
+   lockup… it is overlapping with the logo ticker"). The band is ORDERED LAST
+   under this variant, so the marks row lands exactly where the fixed lockup
+   sits: measured 27.44px of the lockup's 27.44px height inside
+   .logo-ticker__roll — 100% of it, over the marks, at every width from 800 to
+   3440 and at a full reveal only (at rest it is still visibility:hidden,
+   REVEAL_ON 0.85).
+   VIEWPORT-UNGATED ON PURPOSE, like the rest of this block: at <=768px the
+   lockup is ALREADY display:none (the phone block below), so this is a
+   measured no-op there rather than a second breakpoint to keep in sync.
+   THE COPYRIGHT STAYS — it is a separate element in the same bottom-anchored
+   fixed column, and hiding only the lockup leaves its rect untouched
+   (measured identical before and after, the --space-2 gap collapsing with the
+   hidden sibling). It gets its clearance from the band's foot instead. */
+html[data-footer-rest] .site-tagline__lockup {
+  display: none;
+}
+
+/* The footer link row goes with it (10-08, Nathan: "on globe page footer
+   variant let's remove the footer links"). THE WHOLE FIX IS HERE: the row was
+   only ever killed inside @media (max-width: 768px), and this variant is
+   viewport-ungated — ?footerrest reaches any width — so above 769px the
+   resting footer was still showing all five links. display:none takes the row,
+   its --privacy-clearance reserve and its --pill-pad-y lift out together, and
+   drops the links from the tab order and the accessibility tree in one move.
+   The nav stays reachable: the F1 shell slide is explicitly OFF under this
+   variant (just below), so the main nav bar never leaves the viewport here;
+   at ≤768px the mobile menu is the nav surface anyway (08-30).
+   /work, /process and the detail footers never carry this attribute and keep
+   their rows untouched. */
+html[data-footer-rest] .site-footer__nav {
   display: none;
 }
 
@@ -2651,19 +3196,11 @@ html[data-footer-in] .logo-ticker__copy {
   }
 }
 
-/* The nav links' hidden ground (above) is UNGATED CSS, [data-footer-rest] is
-   frozen IS_MOBILE, and .site-footer__nav regains display:flex above 768px —
-   so a phone loaded in portrait and rotated to a 844px-wide landscape made
-   five links layout-visible while the stagger loop that would have revealed
-   them is retired under this attribute. They would sit at opacity 0 forever.
-   Clear the ground where the row is visible but the loop is off; the same
-   rotation case the F1 rule above already reasons about. */
-@media (min-width: 769px) {
-  html[data-footer-rest] .site-footer__link {
-    opacity: 1;
-    visibility: visible;
-  }
-}
+/* The landscape-rotation escape that used to live here (a @media
+   (min-width: 769px) rule clearing .site-footer__link's hidden ground) is
+   GONE as of 10-08: the row itself is now display:none under this variant at
+   every width, so the state it rescued — links layout-visible while the
+   stagger loop is retired — is unreachable. */
 
 /* ============================================
    SITE TAGLINE — persistent lower-left pill (Figma Frame 19, 08-27)
@@ -2943,7 +3480,8 @@ html[data-footer-in] .logo-ticker__copy {
   line-height: var(--lh-link);
   letter-spacing: var(--tracking-body);
   font-weight: var(--weight-medium);
-  color: var(--color-electric-blue);
+  color: var(--pill-ink-on-black);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
   white-space: nowrap;
   /* pre-JS ground: hidden until the intro (or the session-revisit set) */
   visibility: hidden;
@@ -2968,7 +3506,7 @@ html[data-footer-in] .logo-ticker__copy {
    `close ×` with the glyph after the word. */
 .site-privacy[aria-expanded='true'] {
   background: var(--color-white);
-  color: var(--color-electric-blue);
+  color: var(--pill-ink-on-white);
   gap: 0.143rem;
 }
 
@@ -3024,7 +3562,8 @@ html[data-footer-in] .logo-ticker__copy {
   padding: var(--pill-pad-y) var(--pill-pad-x);
   border-radius: var(--radius-capsule);
   background: var(--color-white);
-  color: var(--color-electric-blue);
+  color: var(--pill-ink-on-white);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
   font-family: var(--font-body);
   font-size: var(--text-link);
   line-height: var(--lh-link);

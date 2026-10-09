@@ -31,8 +31,32 @@ export const SCRIM_GRAIN_MOBILE = {
   size: 90,
 };
 
-export const noiseUri = (s) => {
-  if (s.type === 'none' || s.amount <= 0) return 'none';
+/* The SVG's intrinsic pixel size. The recipe's `size` is the DISPLAY size this
+   256px tile is drawn at, so size/GRAIN_TILE_PX is the scale factor. */
+export const GRAIN_TILE_PX = 256;
+
+/* The shipped 8-frame jitter, in tile pixels — the ONE source for the
+   @keyframes fp-scrim-grain table in featured-projects.css (0.2667s /
+   steps(1,end) = the baked 30fps). The globe's WebGL grain steps this same
+   table so the two surfaces jitter identically instead of by coincidence. */
+export const GRAIN_JITTER = [
+  [0, 0],
+  [137, 61],
+  [33, 199],
+  [208, 118],
+  [88, 22],
+  [166, 233],
+  [14, 92],
+  [227, 172],
+];
+
+/* The BARE `data:image/svg+xml,…` URI — what a THREE.TextureLoader can
+   consume (noiseUri's CSS `url("…")` wrapper cannot be loaded as an image
+   source). '' when the recipe is off, so callers can test it falsily.
+   noiseUri() wraps this, so the CSS path and the ScrimTunePanel copy block
+   stay byte-identical. */
+export const noiseDataUri = (s) => {
+  if (s.type === 'none' || s.amount <= 0) return '';
   const mono = s.mono
     ? "<feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.33 0.33 0.33 0 0'/>"
     : '';
@@ -43,5 +67,12 @@ export const noiseUri = (s) => {
     mono +
     `<feComponentTransfer><feFuncA type='linear' slope='${s.amount}' intercept='0'/></feComponentTransfer>` +
     "</filter><rect width='256' height='256' filter='url(#n)'/></svg>";
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+};
+
+/** The CSS `background-image` form. Output is unchanged from before the
+    noiseDataUri split — the scrim bake and the bench copy block depend on it. */
+export const noiseUri = (s) => {
+  const d = noiseDataUri(s);
+  return d ? `url("${d}")` : 'none';
 };

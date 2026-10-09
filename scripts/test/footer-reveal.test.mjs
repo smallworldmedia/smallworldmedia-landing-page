@@ -76,6 +76,40 @@ test('the hero-lift and marks defaults match their CSS fallbacks', () => {
   assert.equal(FOOTER_TUNE_DEFAULTS.lockupRem, fallback('--footer-lockup-h'))
 })
 
+/* The 10-08 desktop resting-footer knobs joined CSS_KNOBS, so they are under the
+   same contract and need the same guard — without this the de-fork check covered
+   5 of 8 and would not have noticed the three new ones drifting. */
+test('the desktop resting-footer defaults match their CSS fallbacks', () => {
+  assert.equal(FOOTER_TUNE_DEFAULTS.topPad, fallback('--footer-rest-top-pad'))
+  assert.equal(FOOTER_TUNE_DEFAULTS.blurbFill, fallback('--footer-blurb-fill'))
+})
+
+/* --ticker-foot-clearance is the one knob whose fallback is NOT a literal: it is
+   derived from the four tokens the reserve it replaced was built from, precisely
+   so the two cannot drift (see global.css). So assert the CHAIN, not a number —
+   this is what catches a token moving underneath the baked default.
+   Resolved at the base tier on purpose: the knob only applies above 769px, so
+   --lh-link's phone step-down never reaches it. --pill-pad-y is an alias. */
+test('the ticker foot clearance default equals its derived CSS chain', () => {
+  const token = (name) => {
+    const m = css.match(new RegExp(`--${name}:\\s*([0-9.]+)rem`))
+    assert.ok(m, `global.css has no rem value for --${name}`)
+    return Number(m[1])
+  }
+  assert.match(
+    css,
+    /var\(\s*--ticker-foot-clearance,\s*calc\(/,
+    'the clearance must keep a derived calc() fallback, not a literal',
+  )
+  const derived =
+    token('footer-bottom-inset') + token('lh-link') + 2 * token('space-4') + token('space-6')
+  assert.equal(
+    Number(derived.toFixed(3)),
+    FOOTER_TUNE_DEFAULTS.tickerFoot,
+    `derived ${derived.toFixed(3)}rem vs baked ${FOOTER_TUNE_DEFAULTS.tickerFoot}rem`,
+  )
+})
+
 test('the marks window opens before it closes and inside the rise', () => {
   const { marksFrom, marksTo } = FOOTER_TUNE_DEFAULTS
   assert.ok(marksFrom >= 0 && marksFrom < marksTo, `${marksFrom} < ${marksTo}`)
@@ -165,15 +199,23 @@ test('reduced motion zeroes the lift and skips the entrance ground', () => {
   )
 })
 
-test('the nav links regain their ink above the mobile breakpoint', () => {
-  // The links' hidden ground is UNGATED, [data-footer-rest] is a frozen
-  // IS_MOBILE read, and .site-footer__nav regains display:flex above 768px —
-  // so a phone rotated into a 844px-wide landscape showed five links that the
-  // retired stagger loop would never have revealed.
-  const esc = css.slice(css.indexOf('@media (min-width: 769px)'))
+test('the footer link row is not drawn under the resting variant, at any width', () => {
+  // 10-08 (Nathan): the links are removed from the globe-page footer variant.
+  // This replaces the landscape-rotation escape that used to be asserted here.
+  // That escape existed because .site-footer__nav was killed only inside
+  // @media (max-width: 768px) while [data-footer-rest] is viewport-ungated, so
+  // a 844px-wide landscape phone showed five links the retired stagger loop
+  // would never reveal. Killing the ROW under the variant makes that state
+  // unreachable, so the escape is gone and this is the invariant that matters:
+  // the row must not come back above the breakpoint.
+  assert.match(
+    css,
+    /html\[data-footer-rest\] \.site-footer__nav \{\s*display: none/,
+    'the footer nav row is not hidden under [data-footer-rest]'
+  )
   assert.ok(
-    /html\[data-footer-rest\] \.site-footer__link \{\s*opacity: 1/.test(esc),
-    'no landscape escape for the nav links hidden ground'
+    !/@media \(min-width: 769px\) \{\s*html\[data-footer-rest\] \.site-footer__link/.test(css),
+    'the superseded landscape escape for .site-footer__link is still present'
   )
 })
 

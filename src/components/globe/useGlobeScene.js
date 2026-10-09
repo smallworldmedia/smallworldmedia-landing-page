@@ -49,11 +49,12 @@ import TextureManager, { computeCoverUv, assetKey } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import { settleDebounce } from '../../lib/settleResize.js';
 import LivePanelScheduler from './LivePanelScheduler.js';
-import MeridianScroll, { initialBirth } from './MeridianScroll.js';
+import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from './MeridianScroll.js';
 import PopulationDirector from './PopulationDirector.js';
 import { applyPlan } from './tileSwap.js';
 import { TUNING as POP_TUNING, subscribePopTune } from './popConfig.js';
 import buildCascadeTimeline, { panelDelay } from './cascade.js';
+import createPanelGrain from './panelGrain.js';
 import {
   LON_SEGMENTS,
   LAT_BANDS,
@@ -417,6 +418,11 @@ export default function useGlobeScene(
     // LAT_BANDS + 2 (pole rings included).
     const totalRows = conveyorMode ? SCROLL_VISIBLE_ROWS + 2 : LAT_BANDS + 2;
 
+    // Panel grain rig (10-07): built only on the scroll globe. Off the scroll
+    // path vK is a constant 1, so the reveal band already resolves to 0 and the
+    // grain would be inert — no reason to hold the texture.
+    const grainRig = conveyorMode ? createPanelGrain() : null;
+
     const { panels, innerSphereGeometry } = conveyorMode
       ? buildScrollingGlobeGeometry({
           lonSegments: LON_SEGMENTS,
@@ -440,7 +446,13 @@ export default function useGlobeScene(
         // Rounded tiles only when the caller asks (the home hero passes ~0.12
         // for lockup fidelity); /process (its own hook) and /lab (no override)
         // get the default 0 — hard edges, untouched.
-        createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR, cornerRadius })
+        createPanelMaterial({
+          fallbackColor: PANEL_FALLBACK_COLOR,
+          cornerRadius,
+          // Shared holders: one write per frame covers the whole globe. Null off
+          // the scroll path → the material makes its own, with uGrainMix 0.
+          grain: grainRig?.uniforms,
+        })
       );
       // Scroll globe: spread the rows into a proper sphere from the very first
       // frame (so the intro glyph reads as a globe, not an equatorial band) even
@@ -450,7 +462,15 @@ export default function useGlobeScene(
         const u = panel.mesh.material.uniforms;
         u.uUsePolarScroll.value = 1;
         u.uCanonTop.value = panel.canonTop;
-        u.uPolarTop.value = panel.row * scrollPitch; // MeridianScroll's scroll-0 layout
+        // MeridianScroll's scroll-0 pose through the driver's OWN writer, so the
+        // live centerDir/parked land here too — not just the shader uniform.
+        // Stamping the uniform alone is what let the initial layout plan the
+        // first world's client name against a globe still seeded at the
+        // canonical equator (every row reporting |y| = 0), so the name band
+        // admitted every row and the strip could be born at the pole.
+        // It also fixes the last row, whose old `row * scrollPitch` read 210 deg
+        // where thetaForRow says -30 deg.
+        poseTile(panel, scrollZeroTheta(panel.row, totalRows));
         panel.mesh.frustumCulled = false;
         // Tape coordinate (the population modes' pattern space) — stamped
         // now because the initial layout runs before MeridianScroll exists.
@@ -458,6 +478,11 @@ export default function useGlobeScene(
       }
       globeGroup.add(panel.mesh);
     });
+
+    // Stamp each tile's place in the staggered reveal (and its static
+    // decorrelation) now that every material exists. Re-stamped by the rig
+    // itself if ?popgrainorder changes.
+    grainRig?.assign(panels, POP_TUNING.grainOrder, totalRows);
 
     const innerMaterial = new THREE.MeshBasicMaterial({ color: GAP_COLOR });
     const innerSphere = new THREE.Mesh(innerSphereGeometry, innerMaterial);
@@ -968,6 +993,10 @@ export default function useGlobeScene(
       // on the scroller, which lands it this same frame.
       if (director) director.update(step);
       if (scroller) scroller.update(step);
+      // Panel grain: reads the live pop knobs and steps the held jitter. No new
+      // rAF — it rides this tick, and costs one uniform write per frame for the
+      // whole globe because the holders are shared.
+      if (grainRig) grainRig.update(step, POP_TUNING);
 
       renderer.render(scene, camera);
       // Overlay bridge (home hero): hand the just-rendered frame to the DOM
@@ -1074,6 +1103,7 @@ export default function useGlobeScene(
       if (scheduler) scheduler.dispose();
       if (scroller) scroller.dispose();
       if (director) director.dispose();
+      if (grainRig) grainRig.dispose();
       controller.dispose();
       textureManager.disposeAll();
       panels.forEach((panel) => {

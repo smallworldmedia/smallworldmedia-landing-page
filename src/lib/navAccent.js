@@ -22,6 +22,12 @@ const KEYS = [
   '--project-color-2',
   '--project-color-fg',
   '--project-color-text',
+  // 10-08: projectColorVars has always emitted this (accentOnBlack), but it
+  // never reached <html> — so it had zero consumers and a CSS-only binding to
+  // it would silently resolve to the blue fallback on every route. The privacy
+  // pills are fixed siblings outside the /work card subtrees that carry it
+  // inline, so <html> is the only place they can see it.
+  '--project-color-on-black',
   '--project-globe-filter',
   '--nav-ink-l',
 ];

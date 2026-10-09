@@ -58,6 +58,41 @@ import { SCROLL_VISIBLE_ROWS, SCROLL_PACE_SCALE } from './globeConfig.js';
  */
 export const initialBirth = (j, N) => (j === N - 1 ? N - 1 : N - 2 - j);
 
+/** Row j's top polar angle at scroll 0 — exactly what thetaForRow(j) returns
+ *  before this driver exists. The scene needs it to pose the globe for the
+ *  initial layout, which runs ~250 lines before the constructor. */
+export const scrollZeroTheta = (j, rows) => {
+  const pitch = Math.PI / SCROLL_VISIBLE_ROWS;
+  const lo = -pitch;
+  const span = rows * pitch;
+  return lo + ((((j * pitch - lo) % span) + span) % span);
+};
+
+/** Write one tile's pose from its row's top polar angle: the shader uniform AND
+ *  the live centerDir every CPU-side consumer reads (the scheduler's score, the
+ *  name band, initial prominence), AND the parked flag. THE one place that
+ *  mapping lives, so a tile can never be posed for the shader but not for the
+ *  latitude readers.
+ *
+ *  That exact split was a real bug: buildGlobeGeometry seeds centerDir at the
+ *  canonical equator and the scene stamped only uPolarTop at scroll 0, so the
+ *  initial layout planned the first world's client-name strip against a globe
+ *  that reported every row at |y| = 0. The band gate admitted all 8 rows,
+ *  parked buffers included, and the strip could land on row 0 — 14.45 deg from
+ *  the pole, vK 0.25, four-times-condensed type for the whole first hold.
+ *
+ *  A row is "parked" (collapsed at/beyond a pole) when its center is not
+ *  strictly inside (0, pi); the clamp keeps a parked row's centerDir pole-ward
+ *  and sane rather than NaN. */
+export const poseTile = (p, theta) => {
+  const thetaC = theta + p.bandHeight / 2;
+  p.parked = !(thetaC > 0 && thetaC < Math.PI);
+  p.mesh.material.uniforms.uPolarTop.value = theta;
+  const tc = Math.min(Math.max(thetaC, 0), Math.PI);
+  const st = Math.sin(tc);
+  p.centerDir.set(-Math.cos(p.phiC) * st, Math.cos(tc), Math.sin(p.phiC) * st);
+};
+
 export default class MeridianScroll {
   /**
    * @param {Object} opts
@@ -174,18 +209,7 @@ export default class MeridianScroll {
       this.rowTheta[j] = theta;
       this.rowPrevTheta[j] = theta;
 
-      const tiles = this.rows[j];
-      // Tile center latitude; a row is "parked" (collapsed at/beyond a pole) when
-      // its center is not strictly inside (0, π). Clamp the value used for
-      // centerDir so a parked row still yields a sane (pole-ward) direction.
-      for (const p of tiles) {
-        const thetaC = theta + p.bandHeight / 2;
-        p.parked = !(thetaC > 0 && thetaC < Math.PI);
-        p.mesh.material.uniforms.uPolarTop.value = theta;
-        const tc = Math.min(Math.max(thetaC, 0), Math.PI);
-        const st = Math.sin(tc);
-        p.centerDir.set(-Math.cos(p.phiC) * st, Math.cos(tc), Math.sin(p.phiC) * st);
-      }
+      for (const p of this.rows[j]) poseTile(p, theta);
     }
   }
 

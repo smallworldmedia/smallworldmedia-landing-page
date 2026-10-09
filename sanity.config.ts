@@ -10,6 +10,7 @@ import { schemaTypes } from './src/schemas'
  * in the default "new document" list and renders it as a single form.
  */
 const GLOBE_SETTINGS_ID = 'globeSettings' // deterministic _id for the singleton
+const SITE_SETTINGS_ID = 'siteSettings' // ditto — site-wide copy
 
 export default defineConfig({
   name: 'swm-portfolio',
@@ -32,6 +33,16 @@ export default defineConfig({
                   .schemaType('globeSettings')
                   .documentId(GLOBE_SETTINGS_ID)
                   .title('Globe Settings')
+              ),
+
+            // ── Site Settings (singleton) — site-wide copy ──
+            S.listItem()
+              .title('Site Settings')
+              .child(
+                S.document()
+                  .schemaType('siteSettings')
+                  .documentId(SITE_SETTINGS_ID)
+                  .title('Site Settings')
               ),
 
             S.divider(),
@@ -96,8 +107,12 @@ export default defineConfig({
   },
 
   document: {
-    // Prevent creating new globeSettings documents from the "new document" menu
+    // Keep both singletons out of the "new document" menu — each has one
+    // deterministic _id and a pinned desk item, so a second copy is only ever
+    // a mistake.
     newDocumentOptions: (prev) =>
-      prev.filter((item) => item.templateId !== 'globeSettings'),
+      prev.filter(
+        (item) => item.templateId !== 'globeSettings' && item.templateId !== 'siteSettings'
+      ),
   },
 })

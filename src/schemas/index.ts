@@ -3,6 +3,7 @@ import { client } from './client'
 import { project } from './project'
 import { mediaAsset } from './mediaAsset'
 import { globeSettings } from './globeSettings'
+import { siteSettings } from './siteSettings'
 
 export const schemaTypes = [
   serviceTag,
@@ -10,4 +11,5 @@ export const schemaTypes = [
   project,
   mediaAsset,
   globeSettings,
+  siteSettings,
 ]

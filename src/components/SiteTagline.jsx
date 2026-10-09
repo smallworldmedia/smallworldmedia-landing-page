@@ -48,7 +48,7 @@
  * — the footer-reveal rule translates the shell up by the nav height, which
  * would carry this off its footer alignment).
  */
-import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
@@ -59,43 +59,36 @@ import { FOOTER_REVEAL_EVENT } from './SiteFooter.jsx';
 import PrivacyOverlay, { PRIVACY_OPEN_EVENT, CloseIcon } from './PrivacyOverlay.jsx';
 // The FP→detail letter-exit's pacing knob — one cut clock site-wide.
 import { TEXT_TUNABLES } from './work/textExit.js';
+// The pill's copy is CMS data in the house marker format (10-08).
+import { keywordLines, renderWordTokens, stripKeywords } from '../lib/keywords.jsx';
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 
 gsap.registerPlugin(SplitText);
 
 const REVEAL_KEY = 'swm:tagline-revealed';
-// Figma segments: the first two words carry Medium, the rest Regular.
-// Exported (08-30): the mobile menu renders its own copy (SiteNav) — one
-// source for the words. 08-30 (3), Nathan: structured as LINES — mobile
-// drops the capsule and stacks "VISUAL WORLDS / for the music / industry."
-// (line spans are display:contents on desktop, so the pill's single-row
-// flex read is unchanged there). Line 0 carries the Medium emphasis.
-export const TAGLINE_LINES = [
-  ['VISUAL', 'WORLDS'],
-  ['for', 'the', 'music'],
-  ['industry.'],
-];
-export const EM_LINE = 0;
-// 10-06 (Nathan): the long blurb home shows at rest. Desktop sets the two
-// lines as written (nowrap); phones let them run as one wrapping paragraph.
-// "Small World Media" carries the Medium (VISUAL WORLDS' role).
-const TAGLINE_LONG_LINES = [
-  ['Small', 'World', 'Media', 'is', 'a', 'multidisciplinary', 'creative', 'studio', 'that', 'specializes', 'in'],
-  ['building', 'high-impact', 'brand', 'worlds', 'and', 'visuals', 'for', 'the', 'music', 'industry.'],
-];
-const LONG_EM_WORDS = 3;
-/* 10-07 (Nathan): ≤768px the blurb moves OUT of this pill and into the home
-   footer variant (SiteFooter's `blurb` prop, passed by Hero). The footer sets
-   it as running prose, so it wants the sentence split at the Medium emphasis
-   — not the per-word spans the pill's morph needs. One source for the words. */
-export const TAGLINE_LONG_SPLIT = Object.freeze([
-  TAGLINE_LONG_LINES[0].slice(0, LONG_EM_WORDS).join(' '),
-  [TAGLINE_LONG_LINES[0].slice(LONG_EM_WORDS), ...TAGLINE_LONG_LINES.slice(1)].flat().join(' '),
-]);
-const LABEL_LONG = `${TAGLINE_LONG_LINES.flat().join(' ')} — open the footer`;
-const LABEL_SHORT = 'Visual worlds for the music industry — open the footer';
-// The letter exit's budget: the short tagline's letter count, so the long
-// blurb cuts out in the same total time (each cut comes faster).
-const SHORT_CHARS = TAGLINE_LINES.flat().join('').length;
+/* THE COPY IS SANITY DATA NOW (10-08, Nathan) — `siteSettings.footerBlurb`
+   and `siteSettings.tagline`, threaded in as props from BaseLayout (see
+   src/lib/siteCopy.js for why props and not a module lookup). Both are single
+   marked strings in the house format, so ONE parse yields the words, the
+   Medium cut and any highlights:
+
+     **VISUAL WORLDS**        the Medium cut, by marker rather than by position
+     \n                       a line break — the pill's three-line lockup
+
+   WHAT THIS REPLACED, and why it had to go: three baked structures that each
+   encoded the copy a different way. `TAGLINE_LINES` was a word-array whose
+   emphasis was a LINE INDEX (`EM_LINE = 0`); `TAGLINE_LONG_LINES`'s was a word
+   COUNT (`LONG_EM_WORDS = 3`); `TAGLINE_LONG_SPLIT` re-joined that array into
+   an [opening, rest] pair for the footer. All three are positional, so the
+   moment an editor reworded a line the Medium cut landed on the wrong words.
+   The marker travels WITH the word.
+
+   The two former exports are gone with them: SiteNav now parses the same
+   tagline string it is handed, and Hero is handed the blurb string directly. */
+const LABEL_SUFFIX = ' — open the footer';
+/** Marked copy → the pill's aria-label: prose, no markers, no line breaks. */
+const taglineLabel = (marked) =>
+  `${stripKeywords(marked || '').replace(/\s*\n\s*/g, ' ').trim()}${LABEL_SUFFIX}`;
 // ?tagmorph — the long ⇄ short morph, ms (the capsule's resize clock).
 const TAG_MORPH_MS = 600;
 // Word fade-ins share one total budget (s), so the 21-word blurb arrives on
@@ -113,7 +106,23 @@ const prefersReduced = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export default function SiteTagline() {
+export default function SiteTagline({ siteCopy }) {
+  /* Falling back per FIELD, not per object: a half-populated singleton (the
+     blurb written, the tagline still empty) should lose only the empty one. */
+  const longMarked = siteCopy?.footerBlurb || SITE_COPY_FALLBACK.footerBlurb;
+  const shortMarked = siteCopy?.tagline || SITE_COPY_FALLBACK.tagline;
+  const longLines = useMemo(() => keywordLines(longMarked), [longMarked]);
+  const shortLines = useMemo(() => keywordLines(shortMarked), [shortMarked]);
+  const labelLong = useMemo(() => taglineLabel(longMarked), [longMarked]);
+  const labelShort = useMemo(() => taglineLabel(shortMarked), [shortMarked]);
+  /* The letter exit's budget — the SHORT tagline's letter count, so the long
+     blurb cuts out in the same total time (each cut comes faster). Derived
+     from the live copy now, so re-wording the tagline re-paces the exit
+     instead of silently pacing it against the old string. */
+  const shortChars = useMemo(
+    () => shortLines.flat().reduce((n, t) => n + t.text.trim().length, 0),
+    [shortLines]
+  );
   // 09-08 (Nathan): the privacy notice opens IN PLACE as an overlay; the
   // pill is its close control. Any surface can open it (the mobile menu's
   // twin) via PRIVACY_OPEN_EVENT.
@@ -196,7 +205,7 @@ export default function SiteTagline() {
       settleMorph();
       long = next;
       pill.dataset.tagline = next ? 'long' : 'short';
-      pill.setAttribute('aria-label', next ? LABEL_LONG : LABEL_SHORT);
+      pill.setAttribute('aria-label', next ? labelLong : labelShort);
       const incoming = activeLayer();
       const inWords = layerWords(incoming);
       // Instant: RM, pre-intro (the intro reveals whichever is resting), or a
@@ -393,8 +402,21 @@ export default function SiteTagline() {
     // rAF would run at 60fps beside the WebGL globe and paint nothing.
     const maskLive = () => {
       const html = document.documentElement;
+      // The [data-footer-rest] stand-down is a PHONE fact, not a latch fact:
+      // this rAF is the only thing that un-hides .site-tagline__copy and
+      // .site-tagline__lockup, whose ground (visibility:hidden; opacity:0) is
+      // ungated and which are display:none only at <=768px. Retiring the loop
+      // wherever the latch appears leaves the white lockup and the (c) line
+      // blank for the whole session at desktop width — and global.css:2525
+      // has already taken the pill, so the corner empties out completely.
+      // Tested the same way maskPill tests it eighteen lines up, so a frozen
+      // IS_MOBILE and the live media query cannot disagree.
       return (
-        html.hasAttribute('data-footer-revealed') && !html.hasAttribute('data-footer-rest')
+        html.hasAttribute('data-footer-revealed') &&
+        !(
+          html.hasAttribute('data-footer-rest') &&
+          window.matchMedia('(max-width: 768px)').matches
+        )
       );
     };
     const watch = () => {
@@ -484,7 +506,7 @@ export default function SiteTagline() {
         [chars[i], chars[j]] = [chars[j], chars[i]];
       }
       // 10-06: the long blurb cuts in the short tagline's total time.
-      const stepMs = TEXT_TUNABLES.charCutMs * Math.min(1, SHORT_CHARS / Math.max(1, chars.length));
+      const stepMs = TEXT_TUNABLES.charCutMs * Math.min(1, shortChars / Math.max(1, chars.length));
       chars.forEach((el, i) => {
         exitCalls.push(
           gsap.delayedCall((i * stepMs) / 1000, () => {
@@ -547,40 +569,36 @@ export default function SiteTagline() {
           <button
             type="button"
             className="site-tagline__pill"
-            aria-label={LABEL_SHORT}
+            aria-label={labelShort}
             onClick={() => window.dispatchEvent(new Event(FOOTER_REVEAL_EVENT))}
           >
             {/* 10-06: two layers, one resting (data-tagline, set by the
                 effect). Long words are spaced by real spaces so phones can
                 wrap them as a paragraph. */}
             <span className="site-tagline__text site-tagline__text--long" aria-hidden="true">
-              {TAGLINE_LONG_LINES.map((line, li) => (
-                <span className="site-tagline__line" key={line.join('-')}>
-                  {line.map((w, wi) => (
-                    <Fragment key={w}>
-                      {wi > 0 && ' '}
-                      <span
-                        className={`site-tagline__word${li === 0 && wi < LONG_EM_WORDS ? ' site-tagline__word--em' : ''}`}
-                      >
-                        {w}
-                      </span>
-                    </Fragment>
-                  ))}
-                  {li < TAGLINE_LONG_LINES.length - 1 && ' '}
+              {longLines.map((line, li) => (
+                <span className="site-tagline__line" key={`long-${li}`}>
+                  {renderWordTokens(line, {
+                    wordClass: 'site-tagline__word',
+                    emClass: 'site-tagline__word--em',
+                    keyPrefix: `long-${li}`,
+                  })}
+                  {li < longLines.length - 1 && ' '}
                 </span>
               ))}
             </span>
+            {/* The short layer spaces its words in CSS (a flex gap in the
+                capsule, a 0.28em margin once the lines go block), so it takes
+                NO text separators — the same shape it has always had. */}
             <span className="site-tagline__text site-tagline__text--short" aria-hidden="true">
-              {TAGLINE_LINES.map((line, li) => (
-                <span className="site-tagline__line" key={line.join('-')}>
-                  {line.map((w) => (
-                    <span
-                      key={w}
-                      className={`site-tagline__word${li === EM_LINE ? ' site-tagline__word--em' : ''}`}
-                    >
-                      {w}
-                    </span>
-                  ))}
+              {shortLines.map((line, li) => (
+                <span className="site-tagline__line" key={`short-${li}`}>
+                  {renderWordTokens(line, {
+                    wordClass: 'site-tagline__word',
+                    emClass: 'site-tagline__word--em',
+                    keyPrefix: `short-${li}`,
+                    separators: false,
+                  })}
                 </span>
               ))}
             </span>

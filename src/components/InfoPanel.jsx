@@ -26,6 +26,9 @@ export default function InfoPanel({
     isOpen,
     onToggle,
     onStartProject,
+    /** `{ footerBlurb, tagline }` — passed straight through to SiteNav, which
+        renders the tagline in the mobile menu's foot (10-08). */
+    siteCopy,
 }) {
     const panelRef = useRef(null);
     const hasAnimatedRef = useRef(false);
@@ -173,9 +176,9 @@ export default function InfoPanel({
                     <div className="info-panel__left">
                         <div className="description">
                             <p className="description__text">
-                                <strong>Small World Media</strong> is a multi-disciplinary creative
-                                studio specializing in visual identity, motion design, and digital
-                                experiences for the music industry.
+                                <strong>Small World Media</strong> is a multidisciplinary creative
+                                studio specializing in design and motion across 2D, 3D, and
+                                experimental techniques for the music industry.
                             </p>
                         </div>
                     </div>
@@ -210,6 +213,7 @@ export default function InfoPanel({
                 isInfoOpen={isOpen}
                 onInfoToggle={onToggle}
                 onStartProject={onStartProject}
+                siteCopy={siteCopy}
             />
         </div>
     );

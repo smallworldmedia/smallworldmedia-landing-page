@@ -129,7 +129,7 @@ const ENTER = !!arg('enter', false);
 const ENTER_OFF = /[?&]popenter=0\b/.test(EXTRA); // /work must open on its first world
 const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
 // --footer expectations. These mirror the BAKES the scenario is gating, the
-// way texbound mirrors the texture budget: Hero's FOOTER_REST_DEFAULT and
+// way texbound mirrors the texture budget: Hero's FOOTER_REST_MOBILE and
 // footerTune's liftK. Pass the matching --footerrest / --footerlift when you
 // dial the page with ?footerrest / ?footerlift through --extra.
 const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.62));
@@ -463,6 +463,26 @@ const footerRead = (page) =>
       const e = el(sel);
       return e ? Math.round((parseFloat(getComputedStyle(e).opacity) || 0) * 1e4) / 1e4 : null;
     };
+    /* The resting variant's TYPE, measured rather than asserted. Nothing else
+       in the harness gated the thing this round is actually about — that the
+       blurb fills its measure on exactly one line above the floor's crossover
+       and wraps below it — so every claim about it needed a throwaway probe.
+       lines is height/line-height, which is exact here because the blurb is
+       one paragraph of inline word spans with no mixed leading. */
+    const typeOf = (sel) => {
+      const e = el(sel);
+      if (!e) return null;
+      const c = getComputedStyle(e);
+      const size = parseFloat(c.fontSize) || 0;
+      const lh = parseFloat(c.lineHeight) || 0;
+      const r = e.getBoundingClientRect();
+      return {
+        size: Math.round(size * 100) / 100,
+        lines: lh ? Math.round(r.height / lh) : null,
+        width: Math.round(r.width * 100) / 100,
+        overflow: Math.max(0, Math.round(e.scrollWidth - e.clientWidth)),
+      };
+    };
     // translate: "none" | "<x>" | "<x> <y>" — the y is the lift (negative up).
     const liftOf = (sel) => {
       const e = el(sel);
@@ -478,9 +498,23 @@ const footerRead = (page) =>
       peak: v('--footer-peak'),
       rise: v('--footer-rise'),
       risePeak: v('--footer-rise-peak'),
+      // The band's rise after the minimum-fade clock, and the session latch it
+      // feeds. bandP BELOW risePeak means the fade is still running.
+      bandP: v('--footer-band-p'),
+      seen: document.documentElement.hasAttribute('data-footer-seen'),
+      // The measured divisor of the one-line fill, and what it produced.
+      blurbEm: v('--footer-blurb-em'),
+      blurbType: typeOf('.site-footer__blurb'),
+      leadType: typeOf('.logo-ticker__copy'),
       span: v('--footer-span'),
       panelH: v('--footer-panel-h'),
       panelTop: top('.site-footer--links'),
+      // The on-load slide. `slide` is the live armed distance (null once the
+      // tween lands and removes the property); panelLift is the panel's OWN
+      // translate, negative while it is still parked below its rest pose. Both
+      // are null/0 under the default --intro=replay — see footerScenario.
+      slide: v('--footer-slide'),
+      panelLift: liftOf('.site-footer--links'),
       globeLift: liftOf('.hero__globe'),
       strokeLift: liftOf('.hero__globe-stroke'),
       leadLift: liftOf('.hero__lead-col'),
@@ -518,7 +552,22 @@ async function footerScenario(page, ctx) {
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Input.setIgnoreInputEvents', { ignore: false }).catch(() => {});
   // Past the chrome beat (0.78 × the arrive/replay settle) and the entrance.
-  await sleep(3200);
+  // 10-08: raised 3200 → 4000. The arithmetic, so the next change can check
+  // it: beat 2.2 × 0.78 = 1.716s, then the entrance's last word lands at
+  // STAGGER_DELAY_S 0.25 + slideLead 0.12 + budget 0.45 + stagger span 0.45 =
+  // 1.27s, i.e. 2.99s, and the panel's own rise lands at beat + ?footerslides
+  // 0.7 = 2.42s. At 3200 the margin was 214ms, and this scenario reads
+  // panelTop to derive panelClimb and gate liftRatio to ±0.03 — so an
+  // entrance that ran a frame long would be measured MID-SLIDE and fail
+  // liftRatio with no hint why. 4000 leaves a full second.
+  //
+  // READ THIS BEFORE TRUSTING A SLIDE NUMBER FROM HERE. This scenario loads
+  // with ?intro=replay (the INTRO default), and the slide is armed only on
+  // Hero's introMode === 'full'. So in a default run `slide` is null and
+  // `panelLift` is 0 — the rise is NOT under test and the margin above is
+  // slack, not proof. To measure the entrance proper, pass --intro=full; then
+  // the first read must come after 2.42s or it lands mid-rise.
+  await sleep(4000);
   const x = Math.round(VW / 2);
   const rest = await footerRead(page);
   await shot(page, 'footer-rest');
@@ -851,6 +900,8 @@ function footerPass(f) {
       uvMoved.push(`t${b.t} step${b.step} slice ${k}: ${a.nameSlices[k].lo} → ${b.nameSlices[k].lo}`);
     }
   }
+  // Frames with name tiles actually drawn — see maxInkedNameY.
+  const inked = stats.filter((s) => (s.nameTiles ?? 0) > 0);
   const names = {
     placements: placed.map(
       (p) => `${p.mode} span ${p.span} × ${p.tiles}t · ${p.quad ?? '—'}${p.relaxed ? ` (relaxed:${p.relaxed})` : ''}`
@@ -866,6 +917,19 @@ function footerPass(f) {
     maxNameTiles: stats.length ? Math.max(...stats.map((s) => s.nameTiles ?? 0)) : null,
     // live, as the strips travel with their rows out of the band — diagnostic
     maxLiveNameY: stats.length ? Math.max(...stats.map((s) => s.nameMaxY ?? 0)) : null,
+    // THE LIVE BAND, read only off frames that actually have name tiles INKED.
+    // worstPlacedY above reads the latitude at PLACEMENT time, which is how a
+    // strip born against a latitude nobody had written passed every gate: the
+    // placement log was honest about a number the globe had not yet posed. This
+    // pair reads what is on screen, so it catches both that and a strip that
+    // was legal at birth and drifted. nameTiles > 0 is the vacuity guard — an
+    // all-media frame has no name latitude to be wrong about.
+    inkedSamples: inked.length,
+    maxInkedNameY: inked.length ? Math.max(...inked.map((s) => s.nameMaxY ?? 0)) : null,
+    // the same number as the type sees it: 1 / pinch is the condensation factor
+    worstInkedPinch: inked.length
+      ? Math.round(Math.min(...inked.map((s) => Math.sqrt(Math.max(0, 1 - (s.nameMaxY ?? 0) ** 2)))) * 1e4) / 1e4
+      : null,
     sliceSeen,
     sliceSkipped, // tiles below PINCH_FLOOR — a strip dying at the pole
     // worst of each, as a fraction of one slice, so a regression reads as a
@@ -974,6 +1038,18 @@ function footerPass(f) {
             ? {
                 namesPlaced: !!names.placements.length && names.maxNameTiles > 0 && placed.every((p) => p.tiles > 0),
                 namesInBand: !!placed.length && placed.every((p) => (p.yMax ?? 0) <= p.yLimit + 1e-4),
+                // ...and the same, on screen rather than in the placement
+                // log. Deliberately the SAME limit, with no allowance for the
+                // row's poleward travel: a row's theta_c only ever increases,
+                // so a southern strip drifts out of the band over its life and
+                // an allowance generous enough to cover that (0.3 rad, one
+                // world at the pitch) relaxes the limit to |y| 0.969 — which
+                // is the original defect's own 0.9638, i.e. vacuous. Measured
+                // travel is 8-10 deg per world and the rows are quantised to a
+                // 30 deg pitch, so the southernmost admitted row (|y| 0.700)
+                // ends its life at 0.814, inside the default 0.853 with room.
+                // If this ever fires, a strip really is warping at a pole.
+                namesLiveInBand: names.inkedSamples > 0 && names.maxInkedNameY <= (names.yLimit ?? 1) + 1e-4,
                 namesFrontFacing: placed.every((p) => p.mode !== 'region' || (p.zMin ?? -1) >= p.zLimit - 1e-4),
                 namesSlice: names.sliceSeen > 0 && names.sliceBad.length === 0,
                 namesStill: names.uvHeld > 0 && names.uvMoved.length === 0,
