@@ -17,7 +17,8 @@
  *               halfway-scoot fix, half b). SiteFooter reads it via
  *               getFooterTravelK() and re-sizes on publish.
  *
- * MOBILE HOME ([data-footer-rest], 10-07) — the resting footer's own four.
+ * HOME ([data-footer-rest], 10-07; desktop too since 10-09) — the resting
+ * footer's own four.
  * They are the footer channel's knobs, so they live here beside the other
  * two rather than in ClientLogoTicker's dial block:
  *
@@ -41,15 +42,15 @@
  */
 
 /* ── The reveal, normalized against its resting floor ─────────────────────
-   The footer channel's progress is ABSOLUTE 0..1, and on mobile home it
-   rests at ?footerrest (0.59) — never at 0. Everything that must be ABSENT
+   The footer channel's progress is ABSOLUTE 0..1, and on home it rests at
+   ?footerrest (0.59 on phones, 0.62 on desktop since 10-09) — never at 0. Everything that must be ABSENT
    in the resting pose (the hero parallax, the client marks) needs the
    reveal measured from that floor instead, which is the only number nobody
    held: broadcastReveal is the one place in the codebase with both the
    progress and the rest, and it used to throw the rest away.
 
-   rest = 0 ⇒ rise === progress and span === 1, so desktop, /work and the
-   detail footers are byte-identical.
+   rest = 0 ⇒ rise === progress and span === 1, so /work, /process, the
+   detail footers and ?footerrest=0 are byte-identical.
 
    Computed in JS, never as a `:root` calc: `calc((reveal - rest) / (1 -
    rest))` divides by zero at the legal dial value ?footerrest=1 and goes
@@ -70,7 +71,7 @@ export const FOOTER_TUNE_ACTIVE =
 export const FOOTER_TUNE_DEFAULTS = Object.freeze({
   lockupRem: 3.2, // mirrors the global.css `--footer-lockup-h` fallback
   travelK: 1.8, // reveal travel = K × panel height of scroll (1 = old feel)
-  // ── mobile home ([data-footer-rest]) ──
+  // ── home rest ([data-footer-rest], both tiers since 10-09) ──
   liftK: 0.5, // mirrors the global.css `--footer-lift-k` fallback
   marksFrom: 0.6, // mirrors `--footer-marks-from` — MEASURED, see the guide
   marksTo: 0.9, // mirrors `--footer-marks-to`

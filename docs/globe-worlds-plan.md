@@ -692,3 +692,17 @@ pools ship tagged by kind up to the hard cap.
     panel climb 106.86px, hero lift 53.39px, ratio 0.4996 against a dialed 0.5 — the two absolute
     figures are `(1 − rest) × panel-h` at that round's 0.62 floor; the 10-08 re-bake to 0.59 moves
     them to 115.3/57.6 and leaves the ratio alone.
+
+- 2026-10-09 · Nathan's bakes · (A) the desktop home footer rests open by default. Nathan:
+  "can we push the globe page footer work (visible when i define ?footerrest) to be live".
+  - **A — `FOOTER_REST_DESKTOP = 0.62`** in `Hero.jsx`, beside the phone's 0.59. Every desktop
+    look of the variant on 10-08 ran at `?footerrest=0.62`, so the bake is that pose. Proof it
+    reproduces the look: on the preview build at DSF 2, 1440×900 and 1728×992, a no-param load
+    and `?footerrest=0.62` read identically on every field. Clearance/peek 112.7/75.7px at
+    1440×900 (105.0/68.0 at 0.59) and 114.4/77.5 at 1728×992; the blurb is one line at both,
+    and the clipping floor is 0.183 / 0.197. `?footerrest=0` is the old desktop footer.
+    The tagline's `maskLive()` rAF now stays live on desktop home (it retires only at ≤768px):
+    +0.10–0.13 style recalcs per frame at rest against `?footerrest=0`, with durations inside
+    run-to-run noise. Not retired in this commit. `globe-probe --footer` (phone), default and
+    `--mobile` all exit 0 with no gate change; unit tests add `the desktop footer rest is its
+    own bake`.

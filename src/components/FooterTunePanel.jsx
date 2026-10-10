@@ -11,9 +11,10 @@
  *   travel k — reveal-travel multiplier (spacer = K × panel height), the
  *              halfway-scoot fix's second half. SiteFooter re-measures on
  *              the shared pub/sub.
- *   lift k, marks from/to/lift, intro s — the MOBILE HOME resting footer
- *              (10-07): the hero parallax's share of the panel's climb, the
- *              client marks' own reveal window, and the on-load word fade.
+ *   lift k, marks from/to/lift, intro s — the HOME resting footer
+ *              (10-07; desktop too since 10-09): the hero parallax's share of
+ *              the panel's climb, the client marks' own reveal window,
+ *              and the on-load word fade.
  *
  * copy_url emits only non-default knobs (?footerlockup / ?footertravel /
  * ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
@@ -120,10 +121,11 @@ export default function FooterTunePanel() {
         or a project page.
       </p>
 
-      {/* MOBILE HOME ([data-footer-rest]) — these four only do anything where
-          the footer RESTS open, which is phones. The bench is a fixed 17rem
-          and covers most of a 390px viewport, so the honest way to dial these
-          is the URL on the device: thumb between ?footerlift=0.35 and
+      {/* HOME ([data-footer-rest]) — these four only do anything where the
+          footer RESTS open, which is home on both tiers since 10-09 (phones
+          since 10-07). The bench is a fixed 17rem and covers most of a 390px
+          viewport, so the honest way to dial these on a phone is the URL on
+          the device: thumb between ?footerlift=0.35 and
           ?footerlift=0.65 to answer "is half the rate right?". */}
       <div className="footer-tune__group">home rest · hero lift</div>
       <Row
@@ -138,7 +140,7 @@ export default function FooterTunePanel() {
       />
       <p className="footer-tune__note">
         globe + ring + enter_world follow the panel at k × its own climb. 0 =
-        parallax off. MOBILE HOME only — ?footerlift on the phone.
+        parallax off. Home only — ?footerlift on the phone.
       </p>
 
       <div className="footer-tune__group">home rest · client marks</div>

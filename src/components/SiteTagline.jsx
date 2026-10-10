@@ -394,23 +394,35 @@ export default function SiteTagline({ siteCopy }) {
     const unmask = () => {
       for (const el of [copy, lockup, pillEl]) if (el) el.style.clipPath = '';
     };
-    // 10-07 (Nathan, mobile chrome pass): on phones the HOME footer rests
-    // OPEN, so [data-footer-revealed] is set for the whole session there —
-    // and every element this loop masks (the copyright, the lockup, the pill)
-    // is display:none at ≤768px now. [data-footer-rest] (Hero, while that
-    // floor is live) is the one fact that tells them apart: without it this
-    // rAF would run at 60fps beside the WebGL globe and paint nothing.
+    // 10-07 (Nathan, mobile chrome pass): the HOME footer rests OPEN (phones
+    // since 10-07, desktop since 10-09), so [data-footer-revealed] is set for
+    // the whole session there. On phones every element this loop masks (the
+    // copyright, the lockup, the pill) is display:none at ≤768px, so
+    // [data-footer-rest] (Hero, while that floor is live) retires it: without
+    // that this rAF would run at 60fps beside the WebGL globe and paint
+    // nothing.
     const maskLive = () => {
       const html = document.documentElement;
       // The [data-footer-rest] stand-down is a PHONE fact, not a latch fact:
-      // this rAF is the only thing that un-hides .site-tagline__copy and
-      // .site-tagline__lockup, whose ground (visibility:hidden; opacity:0) is
-      // ungated and which are display:none only at <=768px. Retiring the loop
-      // wherever the latch appears leaves the white lockup and the (c) line
-      // blank for the whole session at desktop width — and global.css:2525
-      // has already taken the pill, so the corner empties out completely.
-      // Tested the same way maskPill tests it eighteen lines up, so a frozen
-      // IS_MOBILE and the live media query cannot disagree.
+      // this rAF is the only thing that un-hides .site-tagline__copy (and,
+      // off the variant, .site-tagline__lockup), whose ground
+      // (visibility:hidden; opacity:0) is ungated and which is display:none
+      // only at <=768px. Retiring the loop wherever the latch appears leaves
+      // the (c) line blank for the whole session at desktop width — and the
+      // variant has already taken the pill and the lockup at every width
+      // (global.css, [data-footer-rest]), so the corner empties out
+      // completely. Tested the same way maskPill tests it eighteen lines up,
+      // so a frozen IS_MOBILE and the live media query cannot disagree.
+      // THE DESKTOP CONSEQUENCE (10-09, desktop rests at 0.62): above 768px
+      // this loop now stays live for the whole home session — readReveal()'s
+      // getComputedStyle every frame, maskPill()'s matchMedia early-out —
+      // although the variant has taken the pill and the lockup at every width
+      // and only the (c) line is left for it (its fade at REVEAL_ON and its
+      // mask). Measured at 1440×900 DSF 2, 10 s at rest against
+      // ?footerrest=0, three runs: +0.10–0.13 style recalcs per frame (one per
+      // frame, every frame); the recalc, script and task durations moved by
+      // less than either arm's own run-to-run spread. Not retired here: the
+      // (c) line still needs it on a full reveal.
       return (
         html.hasAttribute('data-footer-revealed') &&
         !(

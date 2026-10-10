@@ -2135,14 +2135,15 @@ html[data-footer-revealed] .detail-progress {
   padding-right: var(--chrome-right-inset);
 }
 
-/* The MOBILE HOME variant's blurb (10-07, Nathan) — the tagline pill's long
+/* The HOME variant's blurb (10-07, Nathan; both tiers since 10-09) — the tagline pill's long
    layer, moved INTO the panel so the footer answers "what is Small World
    Media" on load. It rides the pill's own mobile scale (--text-blurb, the
    shared project-blurb token) and the logo band's "utilized by…" line is
    pointed at that same token in the variant block, so the two read as one
    size. Hidden by default: it is drawn only under [data-footer-rest] (the
-   variant block) — desktop home keeps the blurb in the pill, and no other
-   route is handed the `blurb` prop at all. */
+   variant block) — home on both tiers since 10-09 (?footerrest=0 hands the
+   blurb back to the pill), and no other route is handed the `blurb` prop at
+   all. */
 .site-footer__blurb {
   display: none;
   flex: 1 1 auto;
@@ -2744,14 +2745,16 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
 }
 
 /* ============================================
-   MOBILE HOME FOOTER VARIANT — [data-footer-rest] (10-07, Nathan)
+   HOME FOOTER VARIANT — [data-footer-rest] (10-07, Nathan; desktop 10-09)
    ============================================
    "A frictionless experience for users in knowing what small world media is
-   and establishing our credentials right off the bat": on phones the home
-   footer RESTS OPEN. Hero floors its driven progress at ?footerrest and sets
-   this attribute on <html> for exactly as long as that floor is live, so the
-   whole variant keys off ONE fact — the same frozen IS_MOBILE the JS reads,
-   never a media query that could disagree with it mid-session.
+   and establishing our credentials right off the bat": the home footer RESTS
+   OPEN — on phones since 10-07 (0.59), on desktop since 10-09 (0.62, Hero's
+   FOOTER_REST_DESKTOP). Hero floors its driven progress at ?footerrest and
+   sets this attribute on <html> for exactly as long as that floor is live, so
+   the whole variant keys off ONE fact read at module load, never a media
+   query that could disagree with it mid-session. ?footerrest=0 removes it on
+   either tier.
 
    The panel re-stacks: the blurb on top, then the logo band (its
    "utilized by…" line + the marks) ORDERED LAST, so the resting band shows
@@ -2867,9 +2870,9 @@ html[data-footer-rest] .logo-ticker__copy {
 /* ============================================
    DESKTOP RESTING VARIANT — the panel's own layout (10-08, Nathan)
    ============================================
-   ?footerrest reaches ANY width (Hero: desktop defaults to 0, the phone to
-   0.59, an explicit dial to anywhere), so on desktop this variant inherits a
-   panel built for a different pose. Everything here is gated at 769px because
+   The variant is on desktop home by default since 10-09 (Hero: desktop rests
+   at 0.62, the phone at 0.59, an explicit dial anywhere), so on desktop it
+   inherits a panel built for a different pose. Everything here is gated at 769px because
    the three things it reckons with — the fixed lockup, the (c) line and the
    privacy pill — are all display:none at <=768px, where the phone's layout is
    already right. A gate inside an attribute-keyed variant is normally the
@@ -3035,8 +3038,8 @@ html[data-footer-rest] .site-tagline__lockup {
 /* The footer link row goes with it (10-08, Nathan: "on globe page footer
    variant let's remove the footer links"). THE WHOLE FIX IS HERE: the row was
    only ever killed inside @media (max-width: 768px), and this variant is
-   viewport-ungated — ?footerrest reaches any width — so above 769px the
-   resting footer was still showing all five links. display:none takes the row,
+   viewport-ungated — desktop home rests too (by default since 10-09) — so
+   above 769px the resting footer was still showing all five links. display:none takes the row,
    its --privacy-clearance reserve and its --pill-pad-y lift out together, and
    drops the links from the tab order and the accessibility tree in one move.
    The nav stays reachable: the F1 shell slide is explicitly OFF under this
@@ -3049,10 +3052,9 @@ html[data-footer-rest] .site-footer__nav {
 }
 
 /* F1 OFF while the footer rests: a nonzero resting progress would translate
-   the shell up by that fraction of a nav height for the whole session. (It is
-   already off at ≤768px, where this variant lives — this keeps it off if the
-   frozen IS_MOBILE and the media query ever disagree, e.g. a phone-width load
-   rotated or resized past the breakpoint.) */
+   the shell up by that fraction of a nav height for the whole session. At
+   ≤768px it is already off; above 769px — desktop home, which rests at 0.62
+   since 10-09 — this rule is what keeps the nav bar in place. */
 html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell {
   transform: none;
 }
@@ -3061,8 +3063,9 @@ html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell
    the globe and Enter World button scroll up slightly, maybe at half the rate
    of the actual scroll") ──────────────────────────────────────────────────
    Driver: --footer-rise, NOT --footer-reveal. The raw var RESTS at ?footerrest
-   (0.59), so a consumer reading it lifts the globe a third of the way on the
-   FIRST PAINT; the rise is 0 in the resting pose by construction.
+   (0.59 on the phone, 0.62 on desktop since 10-09), so a consumer reading it
+   lifts the globe a third of the way on the FIRST PAINT; the rise is 0 in the
+   resting pose by construction.
 
    Travel: the panel's own climb is span × --footer-panel-h, and --footer-lift-k
    (?footerlift) is the fraction of it the hero follows. There is no document
@@ -3078,8 +3081,9 @@ html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell
    NOT `none`: ungated, these five would permanently establish a transform, a
    containing block and a stacking context on desktop and at every other
    breakpoint, silently capturing any future position:fixed descendant. The
-   attribute exists only while Hero's frozen IS_MOBILE floor is live, so
-   desktop and ?footerrest=0 are byte-identical to before.
+   attribute exists only while Hero's resting floor is live — home on both
+   tiers since 10-09; ?footerrest=0 and every other route are byte-identical
+   to before.
 
    The individual `translate` property, NOT `transform` — this is the whole
    trick. .hero__lead-col's transform IS its -50%/-50% centering (below) and

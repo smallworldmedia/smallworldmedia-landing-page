@@ -129,8 +129,8 @@ const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 // `--footer-peak` rises with the reveal and holds through the retreat,
 // resetting only once the panel is fully parked (progress ≈ 0). Anything
 // that fades on the reveal consumes the peak, not the progress.
-// 10-07 (Nathan): the mobile home variant PARKS at a resting floor, never at
-// 0, so "parked" is `rest`, not zero — otherwise the peak would latch at the
+// 10-07 (Nathan): the home variant PARKS at a resting floor, never at 0
+// (phones since 10-07, desktop since 10-09), so "parked" is `rest`, not zero — otherwise the peak would latch at the
 // session's high-water mark and the logo band's at-rest hint read (its fade
 // window over this var) could never come back. rest = 0 is the old behaviour
 // byte for byte.
@@ -141,7 +141,7 @@ const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 // climb in px), and `--footer-rise-peak` is the rise's PEAK twin.
 //
 // Every consumer that must be ABSENT at rest reads the rise, never
-// --footer-reveal: the raw var rests at 0.59 on mobile home, so a parallax
+// --footer-reveal: the raw var rests at 0.59 (phone) / 0.62 (desktop) on home, so a parallax
 // reading it lifts the globe a third of the way on the FIRST PAINT, and a
 // threshold reading it (STAGGER_ON) can never fire from that floor.
 //
@@ -575,12 +575,12 @@ export default function SiteFooter({
       src/lib/keywords.jsx). It comes from the `siteSettings.footerBlurb`
       Sanity field via src/lib/siteCopy.js, threaded index.astro → LandingPage
       → Hero. Present = this panel carries the blurb; global.css draws it only
-      while the footer rests ([data-footer-rest]), since desktop home keeps the
-      blurb in the tagline pill. */
+      while the footer rests ([data-footer-rest]) — home on both tiers since
+      10-09; at ?footerrest=0 the tagline pill carries the blurb instead. */
   blurb = null,
-  /** Driven mode: the progress this panel PARKS at (0 everywhere but mobile
-      home, where Hero floors it at ?footerrest). The peak broadcast resets
-      here instead of at 0. */
+  /** Driven mode: the progress this panel PARKS at (0 everywhere but home,
+      where Hero floors it at ?footerrest — 0.59 phone, 0.62 desktop). The
+      peak broadcast resets here instead of at 0. */
   rest = 0,
   /** Scroll mode: spacer = K × panel height. Absent = the ?footertravel
       bake (1.8). /process passes 1 so the reveal is exactly one panel of
@@ -782,14 +782,17 @@ export default function SiteFooter({
     // 10-07: RETIRE this loop on the resting footer. [data-footer-revealed]
     // never clears there (the panel rests at ?footerrest for the whole
     // session), so a getComputedStyle forced style read span 60 fps beside
-    // the WebGL globe — to animate five links that are display:none at
-    // ≤768px and a threshold the floor can never cross. f1dd984 made exactly
-    // this fix in SiteTagline's maskLive() and missed this file. The resting
+    // the WebGL globe — to animate five links that are display:none under
+    // the variant at every width (global.css) and a threshold the floor can
+    // never cross. f1dd984 made exactly this fix in SiteTagline's maskLive()
+    // and missed this file. The resting
     // footer's own entrance is beat-armed (playFooterEntrance) and needs no
     // loop at all. Hero sets [data-footer-rest] AFTER this child effect runs,
     // so the loop arms for one frame and then self-retires — the links' CSS
     // ground is cleared above 768px (the rotation case), so nothing is left
-    // stranded invisible.
+    // stranded invisible. Under the variant the row itself is display:none
+    // at every width (desktop home rests too since 10-09), so there is
+    // nothing for it to strand there either.
     const watchLive = () =>
       document.documentElement.hasAttribute('data-footer-revealed') &&
       !document.documentElement.hasAttribute('data-footer-rest');
@@ -1061,7 +1064,7 @@ export default function SiteFooter({
               --footer-reveal broadcast, settling into place here. The inner
               keeps a min-height (global.css) so the band still backdrops
               that stack. */}
-          {/* 10-07 (Nathan): the mobile home variant's own copy — the studio
+          {/* 10-07 (Nathan): the home variant's own copy — the studio
               blurb, at the TOP of the panel with the logo band's
               "utilized by…" line fading in below it (the band is ordered
               last there), so the footer answers "what is Small World Media"

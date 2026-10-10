@@ -214,10 +214,10 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    with the 'utilized by…' text fading out below to suggest there is more to
    scroll to". The footer's driven progress PARKS at this fraction instead of
    0 on phones, so the studio blurb is up on load and the gesture reveals the
-   rest. Desktop DEFAULTS to 0 — the blurb lives in the tagline pill there —
-   but an explicitly passed ?footerrest reaches any width, so the desktop
-   variant can be dialed live before anything is baked. A page with no param
-   is byte-identical to before.
+   rest. Desktop rests too since 10-09 (FOOTER_REST_DESKTOP below); an
+   explicitly passed ?footerrest still reaches any width, and ?footerrest=0
+   restores the old retract-to-nothing footer (and the tagline-pill blurb) on
+   either tier.
 
    The number is Nathan's to bake, so it ships as a dial: ?footerrest=<0..1>
    (0 restores the old retract-to-nothing feel). Read at module load like
@@ -255,6 +255,13 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    scripts/globe-probe.mjs is this number's gate twin — move both, or --footer
    fails. — */
 const FOOTER_REST_MOBILE = 0.59;
+/* The DESKTOP rest (10-09, Nathan: "push the globe page footer work (visible
+   when i define ?footerrest) to be live"). 0.62 is the value every desktop
+   look of the variant ran at on 10-08 — the pose he approved — and the one the
+   desktop figures in docs/tunables-guide.md's footer rows were read at. It is
+   its own number, not the phone's: at 1440×900 the panel is 258px against the
+   phone's 281.2px, so the 0.59 sweep above does not transfer. */
+const FOOTER_REST_DESKTOP = 0.62;
 const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
   const n = parseFloat(new URLSearchParams(window.location.search).get(key));
@@ -263,7 +270,10 @@ const PARAM = (key, fallback) => {
 const REST_DIAL = PARAM('footerrest', NaN);
 const FOOTER_REST = Math.min(
   1,
-  Math.max(0, Number.isFinite(REST_DIAL) ? REST_DIAL : IS_MOBILE ? FOOTER_REST_MOBILE : 0)
+  Math.max(
+    0,
+    Number.isFinite(REST_DIAL) ? REST_DIAL : IS_MOBILE ? FOOTER_REST_MOBILE : FOOTER_REST_DESKTOP
+  )
 );
 
 /* The resting footer's on-load entrance FAIL-OPEN deadline (10-07). The
@@ -286,8 +296,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   // drives SiteFooter's driven progress 0..1 directly; upward delta
   // retracts; it parks where the gesture leaves it. The tagline pill asks
   // for a full reveal; the enter_world commit retracts it.
-  // 10-07: FOOTER_REST is the FLOOR, not 0 — on phones the panel starts (and
-  // returns to) the resting fraction above.
+  // 10-07: FOOTER_REST is the FLOOR, not 0 — the panel starts (and returns
+  // to) the resting fraction above: phones since 10-07, desktop since 10-09.
   //
   // 10-07 (2): no React state here any more. This used to be useState, so
   // every touchmove frame re-rendered Hero → SiteFooter → ClientLogoTicker to
@@ -992,8 +1002,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     if (departingRef.current) return;
     footerWipeRef.current?.kill();
     // The footer never rides the Envelopment — back to its resting floor,
-    // which on phones is NOT 0: dropping it to nothing yanked the persistent
-    // footer off the screen under the dive.
+    // which is NOT 0 (either tier since 10-09): dropping it to nothing yanked
+    // the persistent footer off the screen under the dive.
     setFooterReveal(FOOTER_REST);
     setCtaPinned(true);
     // The world you clicked is the world you land in: the change clock holds
@@ -1284,8 +1294,9 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
         />
       )}
       {/* 09-08 (Nathan): the links footer + logo ticker, driven by the
-          post-hero wheel/touch delta above (the /work idiom). 10-07: on
-          phones it rests OPEN at FOOTER_REST carrying the studio blurb —
+          post-hero wheel/touch delta above (the /work idiom). 10-07: it
+          rests OPEN at FOOTER_REST carrying the studio blurb (phones 10-07,
+          desktop 10-09) —
           `rest` moves the peak broadcast's reset to that floor so the logo
           band's hint read returns on every retreat. */}
       {/* 10-07 (2): `progress` is the RESTING pose only — a constant. The

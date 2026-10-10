@@ -1,6 +1,7 @@
-// The mobile home footer's reveal channel (SQ-11, 10-07) — the parts that are
-// checkable without a browser. The GEOMETRY is measured by
-// `node scripts/globe-probe.mjs --footer`, which drives a real touch scrub;
+// The home footer's reveal channel (SQ-11, 10-07; desktop rests too since
+// 10-09) — the parts that are checkable without a browser. The GEOMETRY is
+// measured by `node scripts/globe-probe.mjs --footer`, which drives a real
+// touch scrub (phone-only);
 // this file holds the three things that probe cannot see:
 //
 //   1. the normalization math, including the ?footerrest=1 edge the channel
@@ -145,6 +146,26 @@ test('the footer rest bake and the probe gate that checks it are one number', ()
   // resting pose cuts the studio blurb off mid-line.
   assert.ok(baked > 0.42, `a rest of ${baked} clips the blurb (floor is ~0.415)`)
   assert.ok(baked <= 1, `?footerrest is a 0..1 fraction, got ${baked}`)
+})
+
+/* The DESKTOP rest (10-09, Nathan: "push the globe page footer work (visible
+   when i define ?footerrest) to be live") is its own bake, FOOTER_REST_DESKTOP,
+   not the phone's number. It has NO gate twin to pair with: the probe's
+   --footer scenario is phone-only (`MOBILE = FOOTER || …` in globe-probe.mjs),
+   so the pair test above has nothing to hold it against. What it CAN be held
+   to is its own clipping floor. Read 10-09 off the preview build at DSF 2,
+   ?footerslide=0, settled: (blurb bottom − panel top) / panel height is 0.1831
+   at 1440×900 (257.9px panel) and 0.1966 at 1728×992 (270.3px) — the blurb is
+   one line there (the ?footerblurbfill fill), so the floor moves with the
+   viewport, not with a re-wrap. The larger of the two is the floor. */
+test('the desktop footer rest is its own bake', () => {
+  const m = fs
+    .readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
+    .match(/const FOOTER_REST_DESKTOP = ([0-9.]+)/)
+  assert.ok(m, 'Hero.jsx no longer declares FOOTER_REST_DESKTOP the way this test reads it')
+  const baked = Number(m[1])
+  assert.ok(baked <= 1, `?footerrest is a 0..1 fraction, got ${baked}`)
+  assert.ok(baked > 0.1966, `a desktop rest of ${baked} clips the blurb (floor is 0.1966 @1728x992)`)
 })
 
 test('the marks window opens before it closes and inside the rise', () => {
