@@ -5,12 +5,13 @@
  * aspect-ratio from the asset's native dimensions. Portrait assets
  * are clamped to a 3:4 minimum container with object-fit: cover.
  *
- * Videos stream at most DETAIL_MAX_SECONDS of each asset (Nathan, 10-09:
- * the page's hard cut on long assets), clipped at the source (muxStream,
- * Mux instant clipping), and wrap at the cap (wrapAtDetailCap). HLS
- * attaches lazily when the slot enters the viewport; playback pauses
- * off-screen. Images load from the Sanity CDN. Both fade in via the
- * shared load-gate pattern.
+ * Each video streams a clip of DETAIL_MAX_SECONDS (Nathan, 10-09: the
+ * page's hard cut on long assets), cut at the source (muxStream, Mux
+ * instant clipping) and ending on the first segment boundary at or after
+ * it, or at a shorter asset's own end; wrapAtDetailCap loops at the cap,
+ * and `loop` at a shorter clip's end. HLS attaches lazily when the slot
+ * enters the viewport; playback pauses off-screen. Images load from the
+ * Sanity CDN. Both fade in via the shared load-gate pattern.
  *
  * @param {Object} props
  * @param {Object}  props.asset - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY
@@ -55,7 +56,7 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
     ? muxStream(asset.playbackId, DETAIL_MAX_SECONDS)
     : null;
 
-  useHls(videoRef, hlsSrc, DETAIL_HLS_CONFIG);
+  useHls(videoRef, hlsSrc, DETAIL_HLS_CONFIG, { videoOnly: true });
 
   // time=0: playback starts at frame 0 and every wrap returns there (the
   // native loop, or the cap's seek), so the frame-0 poster is the aligned

@@ -30,6 +30,8 @@ import {
 import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS } from '../../src/components/globe/globeConfig.js'
 import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../../src/components/work/imageConfig.js'
 import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib/netReport.mjs'
+import { stripAudioFromMaster, AUDIO_CODEC } from '../../src/components/work/hlsVideoOnly.js'
+import { videoOnlyLoader } from '../../src/components/work/useHls.js'
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -801,14 +803,15 @@ test('video diet: one preview window, one detail cap, the clip last and once (P0
   assert.equal(wrapAt(DETAIL_MAX_SECONDS - 0.1), DETAIL_MAX_SECONDS - 0.1)
 })
 
-test('video diet: every master owes its surface a clip, and the gates fail for real without it (P0)', () => {
+test('video diet: every master owes its surface a clip, no muted surface fetches audio, and the gates fail for real without them (P0, P0v)', () => {
   const W = { preview: PREVIEW_SECONDS, detail: DETAIL_MAX_SECONDS }
   const rend = (r) => `https://manifest-x.mux.com/${r}/rendition.m3u8?sig=1`
   const chunk = (r, i) => `https://chunk-x.mux.com/v1/chunk/${r}/${i}.m4s`
-  // a master listing one video rendition r; `sent` is what reached Mux (`asked` unless --noclip stripped it)
+  // a master listing one video rendition r and, as a Mux master of an asset with sound does, its audio rendition
+  // `${r}-audio`; `sent` is what reached Mux (`asked` unless --noclip stripped it)
   const master = (route, asked, r, sent = asked) => ({
     route, bucket: 'mux-master', asked, sent, bytes: 400,
-    body: `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1122000,RESOLUTION=854x480\n${rend(r)}`,
+    body: `#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",URI="${rend(`${r}-audio`)}"\n#EXT-X-STREAM-INF:BANDWIDTH=1122000,RESOLUTION=854x480,AUDIO="audio"\n${rend(r)}`,
   })
   // r's playlist: n segments of `seg` seconds (Mux cuts most assets at 5 s, a few at 4 s)
   const playlist = (route, r, n, seg = 5) => ({
@@ -830,7 +833,7 @@ test('video diet: every master owes its surface a clip, and the gates fail for r
     [...gets('/', 'p', pv), ...gets('/work/x', 'h', dv)],
     [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, DETAIL_MAX_SECONDS + TICK_S / 2)],
   )
-  assert.deepEqual(ok.pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  assert.deepEqual(ok.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: true })
   assert.equal(ok.net.detail.streamClip.n, 2) // both surfaces judged, each against its own clip
   assert.equal(ok.net.detail.segmentsPerRendition.n, 2)
   assert.equal(ok.net.detail.loops.wraps, 2)
@@ -839,18 +842,19 @@ test('video diet: every master owes its surface a clip, and the gates fail for r
   assert.deepEqual(ok.net.refetch, { chunks: pv + 1 + dv + 1, dupPaths: 0 })
   // a 4 s-segment asset: the preview clip runs on to the next boundary, and the pool's guard loops it at the window
   const four = run([master('/', slotUrl, 'p'), playlist('/', 'p', 2, 4)], gets('/', 'p', 2), [play('slot', '/', true, PREVIEW_SECONDS + 0.2)])
-  assert.deepEqual(four.pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  assert.deepEqual(four.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: true })
   assert.equal(four.net.renditions[0].clipEnd, 8)
 
   // NC: --noclip. The page asked for the clips; Mux was sent none, so it listed whole assets, the
-  // slot fetched past its window and the hero played past its cap: all three gates fail non-vacuously.
+  // slot fetched past its window and the hero played past its cap: all three clip and loop gates fail
+  // non-vacuously. The client's audio strip is not the clip's, so audio still passes.
   const bare = (u) => u.replace(/[?&]asset_end_time=[\d.]+/, '')
   const nc = run(
     [master('/', slotUrl, 'p', bare(slotUrl)), playlist('/', 'p', 8), master('/work/x', heroUrl, 'h', bare(heroUrl)), playlist('/work/x', 'h', 40)],
     [...gets('/', 'p', pv + 2), ...gets('/work/x', 'h', dv + 5)],
     [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, 2 * DETAIL_MAX_SECONDS)],
   )
-  assert.deepEqual(nc.pass, { streamClip: false, segmentsPerRendition: false, loops: false })
+  assert.deepEqual(nc.pass, { streamClip: false, segmentsPerRendition: false, loops: false, audio: true })
   for (const g of ['streamClip', 'segmentsPerRendition', 'loops']) assert.equal(nc.net.detail[g].vacuous, false)
   assert.equal(nc.net.detail.streamClip.worst, 2)
   assert.equal(nc.net.detail.segmentsPerRendition.worst, 5) // the hero's segments past its cap
@@ -873,9 +877,9 @@ test('video diet: every master owes its surface a clip, and the gates fail for r
   assert.equal(loops([play('slot', '/', true, PREVIEW_SECONDS / 2)]), false) // a rewind mid-clip (a detach) is no wrap
   // vacuity: nothing logged is a failure, never a pass; under reduced motion the floor is 0
   const empty = run([], [], [])
-  assert.deepEqual(empty.pass, { streamClip: false, segmentsPerRendition: false, loops: false })
+  assert.deepEqual(empty.pass, { streamClip: false, segmentsPerRendition: false, loops: false, audio: false })
   assert.equal(empty.net.detail.streamClip.vacuous, true)
-  assert.deepEqual(run([], [], [], { rm: true }).pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  assert.deepEqual(run([], [], [], { rm: true }).pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: true })
   // the loop point is the window or the clip's end, whichever comes first: a 4 s-segment slot (clip
   // end 8) that plays on to its clip's end fails; a 4 s-segment detail hero (clip end 16) passes when
   // it wraps at the cap and fails when it plays to its clip's end
@@ -903,9 +907,138 @@ test('video diet: every master owes its surface a clip, and the gates fail for r
     [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, DETAIL_MAX_SECONDS)],
   )
   assert.equal(clips.net.detail.segmentsPerRendition.conflicts, 0)
-  assert.deepEqual(clips.pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  // ...and the first claim stands: both routes' fetches of the shared init credit the slot's playlist,
+  // the first to list it, so the hero's rendition holds its own segments only
+  assert.deepEqual(clips.net.renditions.map((r) => [r.id, r.init, r.fetched]), [['slot', true, pv], ['hero', false, dv]])
+  assert.deepEqual(clips.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: true })
   // refetch is listed, never gated: one chunk fetched twice
   const again = run([master('/', slotUrl, 'p'), playlist('/', 'p', pv)], [...gets('/', 'p', pv), get('/', 'p', 0)], [play('slot', '/', true, PREVIEW_SECONDS)])
   assert.deepEqual(again.net.refetch, { chunks: pv + 2, dupPaths: 1 })
-  assert.deepEqual(again.pass, { streamClip: true, segmentsPerRendition: true, loops: true })
+  assert.deepEqual(again.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: true })
+
+  // P0v, the audio gate. Every master above lists its audio rendition (n counts them) and none was
+  // fetched, so audio passed.
+  const audio = (r) => (({ n, vacuous, worst, playlists, chunks }) => ({ n, vacuous, worst, playlists, chunks }))(r.net.detail.audio)
+  assert.deepEqual(audio(ok), { n: 2, vacuous: false, worst: 0, playlists: 0, chunks: 0 })
+  // NC: an audio playlist, its init and a segment fetched fail it, non-vacuously, and nothing else
+  const slot = [master('/', slotUrl, 'p'), playlist('/', 'p', pv)]
+  const heard = run([...slot, playlist('/', 'p-audio', pv)], [...gets('/', 'p', pv), ...gets('/', 'p-audio', 1)], [play('slot', '/', true, PREVIEW_SECONDS)])
+  assert.deepEqual(heard.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: false })
+  assert.deepEqual(audio(heard), { n: 1, vacuous: false, worst: 3, playlists: 1, chunks: 2 })
+  // NC: --noclip strips the clip from what Mux is sent, never from what the page asked, so a muted
+  // master is never taken for the Lightbox's
+  const ncSlot = [master('/', slotUrl, 'p', bare(slotUrl)), playlist('/', 'p', pv)]
+  const ncHeard = run([...ncSlot, playlist('/', 'p-audio', pv)], [...gets('/', 'p', pv), get('/', 'p-audio', 0)], [play('slot', '/', true, PREVIEW_SECONDS)])
+  assert.equal(ncHeard.pass.audio, false)
+  // judged, not exempted: a master taken for the Lightbox's would leave the gate vacuous (n 0) and fail it anyway
+  assert.deepEqual(audio(ncHeard), { n: 1, vacuous: false, worst: 2, playlists: 1, chunks: 1 })
+  // the Lightbox plays with sound: its master, the one that asks for no clip, is neither offered nor judged
+  const lightbox = run(
+    [...slot, master('/work/directory', 'https://stream.mux.com/lb.m3u8', 'l'), playlist('/work/directory', 'l-audio', 3)],
+    [...gets('/', 'p', pv), ...gets('/work/directory', 'l-audio', 3)],
+    [play('slot', '/', true, PREVIEW_SECONDS)],
+  )
+  assert.equal(lightbox.pass.audio, true)
+  assert.deepEqual(audio(lightbox), { n: 1, vacuous: false, worst: 0, playlists: 0, chunks: 0 })
+  // vacuity: no master listing audio is a failure, never a pass (the floor is 0 under reduced motion, above)
+  const silent = (m) => ({ ...m, body: m.body.replace(/^#EXT-X-MEDIA:.*\n/m, '').replace(',AUDIO="audio"', '') })
+  assert.ok(slot[0].body.includes('TYPE=AUDIO') && !silent(slot[0]).body.includes('AUDIO'))
+  const mute = run([silent(slot[0]), slot[1]], gets('/', 'p', pv), [play('slot', '/', true, PREVIEW_SECONDS)])
+  assert.deepEqual(mute.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: false })
+  assert.equal(mute.net.detail.audio.vacuous, true)
+})
+
+/* — P0v: muted surfaces fetch no audio (Nathan, 10-09: "disable the audio download anywhere other
+   than the lightbox") — */
+test('video diet: a muted surface strips its master of the audio rendition and nothing else (P0v)', () => {
+  const AUDIO = '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Default",CHANNELS="2",AUTOSELECT=YES,DEFAULT=YES,URI="https://manifest-x.mux.com/a/rendition.m3u8?sig=1"'
+  const variant = (codecs, audio = ',AUDIO="audio"') =>
+    `#EXT-X-STREAM-INF:BANDWIDTH=1122000,RESOLUTION=854x480,CODECS="${codecs}"${audio}\nhttps://manifest-x.mux.com/v/rendition.m3u8`
+  const m3u8 = (...lines) => ['#EXTM3U', '#EXT-X-VERSION:5', ...lines, ''].join('\n')
+  // Mux's shape: an audio group with a URI, and a variant that points at it
+  const mux = m3u8(AUDIO, variant('avc1.640028,mp4a.40.2'))
+  const out = stripAudioFromMaster(mux)
+  assert.ok(!out.includes('TYPE=AUDIO') && !out.includes('AUDIO='))
+  assert.ok(out.includes('CODECS="avc1.640028"'))
+  assert.equal(out, m3u8(variant('avc1.640028', '')))
+  // no audio: the very same string
+  const none = m3u8(variant('avc1.640028', ''))
+  assert.equal(stripAudioFromMaster(none), none)
+  // an audio-only asset would be left with no codec: the master stays as it is
+  const audioOnly = m3u8(AUDIO, variant('mp4a.40.2'))
+  assert.equal(stripAudioFromMaster(audioOnly), audioOnly)
+  // CRLF line endings are kept
+  assert.equal(stripAudioFromMaster(mux.replace(/\n/g, '\r\n')), out.replace(/\n/g, '\r\n'))
+  // an audio rendition with no URI is muxed into the variants: dropping its codec would mis-declare the
+  // SourceBuffer, so the master stays as it is
+  const muxed = mux.replace(/,URI="[^"]*"/, '')
+  assert.ok(muxed.includes('TYPE=AUDIO') && !muxed.includes('URI='))
+  assert.equal(stripAudioFromMaster(muxed), muxed)
+  // every audio codec family leaves CODECS; every video one stays
+  const video = ['avc1.640028', 'hvc1.2.4.L123.B0', 'av01.0.08M.08', 'vp09.00.40.08']
+  for (const a of ['mha2.0x0D', 'mhm2.0x0D', 'mlpa', 'enca', 'dts+', 'dtsx', 'ec-3', 'Opus', 'fLaC']) {
+    assert.ok(AUDIO_CODEC.test(a), a)
+    for (const v of video) assert.equal(stripAudioFromMaster(m3u8(AUDIO, variant(`${a},${v}`))), m3u8(variant(v, '')), `${a},${v}`)
+  }
+  for (const v of video) assert.equal(AUDIO_CODEC.test(v), false, v)
+  // a family name must end the codec or meet its first dot: a longer name is no match
+  for (const x of ['mp4ax.40.2', 'opusx', 'flacy', 'ec-3x']) assert.equal(AUDIO_CODEC.test(x), false, x)
+  // a variant with no AUDIO= keeps its CODECS: an mp4a there is muxed into its own segments
+  const mixed = m3u8(AUDIO, variant('avc1.640028,mp4a.40.2'), variant('avc1.4d401e,mp4a.40.2', ''))
+  assert.equal(stripAudioFromMaster(mixed), m3u8(variant('avc1.640028', ''), variant('avc1.4d401e,mp4a.40.2', '')))
+})
+
+test('video diet: the videoOnly playlist loader rewrites the master alone, and hands every other load through as it came (P0v)', () => {
+  // a stub hls.js: its default loader records what each load() was handed
+  const calls = []
+  class Base {
+    load(context, config, callbacks) {
+      calls.push({ context, config, callbacks })
+    }
+  }
+  const Loader = videoOnlyLoader({ DefaultConfig: { loader: Base } })
+  assert.ok(new Loader() instanceof Base)
+  const master = '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",URI="a.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=1122000,CODECS="avc1.640028,mp4a.40.2",AUDIO="audio"\nv.m3u8\n'
+  const callbacks = () => {
+    const got = []
+    const cb = { onSuccess: (...a) => got.push(a), onError() {}, onTimeout() {}, onAbort() {}, onProgress() {} }
+    return { cb, got }
+  }
+  const config = { timeout: 1 }
+  // the master: onSuccess gets the stripped text, with the same response, stats, context and details
+  const m = callbacks()
+  const manifest = { type: 'manifest', url: 'https://stream.mux.com/x.m3u8' }
+  new Loader().load(manifest, config, m.cb)
+  const sent = calls.at(-1)
+  assert.equal(sent.context, manifest)
+  assert.equal(sent.config, config)
+  assert.notEqual(sent.callbacks, m.cb)
+  for (const k of ['onError', 'onTimeout', 'onAbort', 'onProgress']) assert.equal(sent.callbacks[k], m.cb[k], k)
+  const response = { url: manifest.url, data: master }
+  const stats = {}
+  const details = {}
+  sent.callbacks.onSuccess(response, stats, manifest, details)
+  assert.equal(m.got.length, 1)
+  assert.equal(m.got[0][0], response)
+  assert.equal(response.data, stripAudioFromMaster(master))
+  assert.ok(!response.data.includes('AUDIO'))
+  assert.equal(m.got[0][1], stats)
+  assert.equal(m.got[0][2], manifest)
+  assert.equal(m.got[0][3], details)
+  // a master that arrives as bytes is left alone
+  const bytes = { data: new ArrayBuffer(8) }
+  new Loader().load(manifest, config, callbacks().cb)
+  const before = bytes.data
+  calls.at(-1).callbacks.onSuccess(bytes, stats, manifest, details)
+  assert.equal(bytes.data, before)
+  // every other playlist (a level, the audio track, subtitles) keeps the caller's own callbacks
+  for (const type of ['level', 'audioTrack', 'subtitleTrack']) {
+    const o = callbacks()
+    const context = { type, url: 'https://manifest-x.mux.com/r/rendition.m3u8' }
+    new Loader().load(context, config, o.cb)
+    assert.equal(calls.at(-1).callbacks, o.cb, type)
+    assert.equal(calls.at(-1).context, context, type)
+  }
+  // one class, built on first use
+  assert.equal(videoOnlyLoader({ DefaultConfig: { loader: Base } }), Loader)
 })

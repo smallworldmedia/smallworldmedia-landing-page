@@ -52,7 +52,7 @@ function streamUrl(playbackId, params) {
 }
 
 function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
-  useHls(videoRef, src, POOL_HLS_CONFIG, { preferMinQuality: true });
+  useHls(videoRef, src, POOL_HLS_CONFIG, { preferMinQuality: true, videoOnly: true });
 
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;

@@ -138,7 +138,7 @@ export default function NextProjectBand({ next }) {
   const isVideo = !!next?.hero?.playbackId;
   const hlsSrc =
     isVideo && inView ? muxStream(next.hero.playbackId, DETAIL_MAX_SECONDS) : null;
-  useHls(videoRef, hlsSrc, BAND_HLS_CONFIG);
+  useHls(videoRef, hlsSrc, BAND_HLS_CONFIG, { videoOnly: true });
 
   // ── Measure the rest-state shifts (and re-measure on resize) ──
   // CSS lays everything at its END position (text at the left edge, media

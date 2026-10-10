@@ -53,8 +53,12 @@
  * @param {Object} [options]
  * @param {boolean} [options.preferMaxQuality=false] - Lock to highest rendition
  * @param {boolean} [options.preferMinQuality=false] - Lock to lowest rendition
+ * @param {boolean} [options.videoOnly=false] - Never fetch audio. For muted,
+ *   never-unmuted surfaces only (globe/World pool, detail slots, next-project
+ *   band, media cards). The Lightbox plays WITH sound and must not pass it.
  */
 import { useEffect, useRef } from 'react';
+import { stripAudioFromMaster } from './hlsVideoOnly.js';
 
 /**
  * Module-level memo for the lazily imported library.
@@ -108,11 +112,50 @@ function mayHaveMse() {
   );
 }
 
+/**
+ * ── videoOnly: a playlist loader that drops the master's audio group ──
+ * hls.js routes every playlist through config.pLoader. This subclass of the
+ * default loader rewrites ONLY the master (context.type === 'manifest') with
+ * stripAudioFromMaster (./hlsVideoOnly.js), so hls.js never requests the audio
+ * playlist, init or segments; level and segment loads pass through untouched.
+ * The native-HLS fallback (attachNative) cannot be rewritten: it still
+ * fetches audio. That path only runs where hls.js cannot: no MediaSource
+ * family at all (iPhone before iOS 17.1 and its ManagedMediaSource), no
+ * usable SourceBuffer, or an hls.js chunk that never arrived.
+ *
+ * hls.js loads once per document (loadHls), so one class, built on first use,
+ * serves every instance. Exported for the tests, which pass a stub Hls.
+ */
+let VideoOnlyLoader = null;
+
+export function videoOnlyLoader(Hls) {
+  if (!VideoOnlyLoader) {
+    VideoOnlyLoader = class extends Hls.DefaultConfig.loader {
+      load(context, config, callbacks) {
+        if (context.type === 'manifest') {
+          const { onSuccess } = callbacks;
+          callbacks = {
+            ...callbacks,
+            onSuccess: (response, stats, ctx, details) => {
+              if (typeof response.data === 'string') {
+                response.data = stripAudioFromMaster(response.data);
+              }
+              onSuccess(response, stats, ctx, details);
+            },
+          };
+        }
+        super.load(context, config, callbacks);
+      }
+    };
+  }
+  return VideoOnlyLoader;
+}
+
 export default function useHls(
   videoRef,
   src,
   hlsConfig = {},
-  { preferMaxQuality = false, preferMinQuality = false } = {}
+  { preferMaxQuality = false, preferMinQuality = false, videoOnly = false } = {}
 ) {
   const hlsRef = useRef(null);
 
@@ -176,6 +219,9 @@ export default function useHls(
         ...(!preferMaxQuality && !preferMinQuality
           ? { capLevelToPlayerSize: true }
           : {}),
+        // Muted surfaces only: rewrite the master so no audio is fetched
+        // (see videoOnlyLoader). The Lightbox never sets this.
+        ...(videoOnly ? { pLoader: videoOnlyLoader(Hls) } : {}),
         ...hlsConfig,
       });
       instance = hls;

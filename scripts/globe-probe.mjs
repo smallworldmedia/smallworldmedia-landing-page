@@ -15,7 +15,7 @@
  * verifier command that carries no flags (GLOBE_PROBE_OUT is the PARENT of the
  * per-run folder, so one setting serves every variant of a run).
  *
- * The video diet (P0). Every run but --footer logs its Mux and Sanity
+ * The video diet (P0, P0v). Every run but --footer logs its Mux and Sanity
  * requests into report.net (scripts/lib/netReport.mjs reads it): per-bucket
  * {n, bytes} for mux-master, mux-playlist, mux-segment, mux-thumb and
  * sanity-image, the same per route, each rendition's highest segment index
@@ -23,21 +23,24 @@
  * fetched more than once (refetch: listed, not gated). Every master owes its
  * surface's clip, imported from src/components/work/imageConfig.js: the pool
  * (a min = max pin in the asked URL) PREVIEW_SECONDS, a detail page's bare
- * players DETAIL_MAX_SECONDS. Three gates (report.net.detail[gate] = { n,
+ * players DETAIL_MAX_SECONDS. Four gates (report.net.detail[gate] = { n,
  * floor, vacuous, worst, bound, … }): streamClip (every master carries the
  * clip it owes), segmentsPerRendition (no segment fetched past it, none that
- * two playlists list) and loops (no <video> plays past its loop point, the
+ * two playlists list), loops (no <video> plays past its loop point, the
  * window or its clip's end, by more than LOOP_END_S, fires `ended` or freezes
- * on its last frame, and one wraps there).
+ * on its last frame, and one wraps there) and audio (P0v: no muted surface
+ * fetches an audio rendition's playlist or chunk, while the masters on the
+ * wire still list one; the Lightbox, which plays with sound, is exempt).
  * --noclip strips the clip from every master in flight (page.route): the
  * negative control, under which the clip gates (streamClip,
  * segmentsPerRendition) must fail non-vacuously. Every player still wraps at
- * its window, so loops is no control there. The route is registered in both
+ * its window, so loops is no control there, and the client still strips the
+ * audio, so audio is no control there either. The route is registered in both
  * arms, and any page.route turns Playwright's HTTP cache off for the whole
  * page, images included: every byte in report.net is a cold-cache byte, a
  * probe's figure, not a viewer's.
  * --detail=SLUG loads /work/SLUG instead of home and scrolls it top to
- * bottom, holding two capped loops at each end; it judges the three gates,
+ * bottom, holding two capped loops at each end; it judges the four gates,
  * detailCovered (every <video> on the page asked for a stream), noErrors
  * (no console error or page error; warnings are listed, not gated) and, with
  * --hold=PREFIX, heldWrap (the first <video> whose Mux id starts with PREFIX,

@@ -1,8 +1,8 @@
 /**
- * netReport — the video diet's reader (P0). scripts/globe-probe.mjs logs every
- * Mux and Sanity request that ends (report.net.log) and what each <video>
- * played (LOOP_WATCH's sessions); this module buckets the log and judges three
- * gates. Pure (no Playwright), so the tests import it.
+ * netReport — the video diet's reader (P0, P0v). scripts/globe-probe.mjs logs
+ * every Mux and Sanity request that ends (report.net.log) and what each
+ * <video> played (LOOP_WATCH's sessions); this module buckets the log and
+ * judges four gates. Pure (no Playwright), so the tests import it.
  *
  * Every master owes the clip of the surface that asked for it (owedClip):
  *  - pinned, i.e. the ASKED URL carries max_resolution: VideoSlotPool (the
@@ -33,10 +33,21 @@
  *    a wrap. Every player wraps at its window: the pool and MediaCard by their
  *    timeupdate guards, MediaSlot and NextProjectBand by wrapAtDetailCap, and
  *    a guard that fires a tick late still lands inside LOOP_END_S.
+ *  - audio (P0v): no muted surface fetches audio. Every probed route is one,
+ *    and each strips its master's audio group in the client (useHls's
+ *    videoOnly), after the fetch, so the master on the wire still lists its
+ *    audio rendition: n counts those masters (offered), which keeps the gate
+ *    non-vacuous. worst = the audio rendition playlists fetched plus the
+ *    chunks that map to an audio rendition, its init included; the bound is 0.
+ *    The Lightbox plays with sound, so its masters are exempt: the only ones
+ *    that ask for no clip (full length on purpose). /work/directory
+ *    redirects, so no probe opens it today.
  * Each has a vacuity floor of one (none under reduced motion, where the globe
  * mounts no pool). The probe's --noclip is the clip gates' negative control;
  * players still wrap at their windows there, so loops is controlled by the
- * unit tests and by a build with the cap's seek removed (--hold).
+ * unit tests and by a build with the cap's seek removed (--hold). --noclip
+ * leaves the client's audio strip alone: audio is controlled by the unit
+ * tests and by the reports of a build without the strip (P0's).
  * net.refetch counts the chunks fetched more than once. It is listed, never
  * gated: a detail page's slots re-attach on re-entry, the pool reassigns
  * slots, and the probe runs with the HTTP cache off.
@@ -69,6 +80,11 @@ export const masterId = (url) => new URL(url).pathname.slice(1).replace(/\.m3u8$
 /** A pool master: the page ASKED for a pinned rendition. Read off the asked
  *  URL, so --noclip's in-flight rewrite never changes what a master owes. */
 export const pinnedMaster = (asked) => new URL(asked).searchParams.has('max_resolution');
+
+/** The Lightbox's master: the one stream the client asks for with no clip
+ *  (full length on purpose, with sound), so the audio gate exempts it. Read
+ *  off the asked URL, so --noclip's rewrite never exempts a muted surface. */
+const lightboxMaster = (asked) => !new URL(asked).searchParams.has('asset_end_time');
 
 /** The clip, in seconds, a stream owes: the preview window for the pool (a
  *  pinned master, or a pool <video>), the detail cap for a bare stream on a
@@ -129,14 +145,16 @@ function segmentsOf(body, base) {
   return { init, segs };
 }
 
-/** report.net and its three gates. `log` holds the requests that ended, in
+/** report.net and its four gates. `log` holds the requests that ended, in
  *  the probe's shape ({ route, bucket, asked, sent, bytes, failed? }); `bodies`
  *  the master and playlist entries with their `body`; `sessions` what
  *  LOOP_WATCH saw ({ id, pooled, route, n, maxT, jumps, ended, maxStillMs,
  *  dur }, jumps holding where each backward jump started). A chunk maps to its
  *  rendition by PATH: a refetched playlist varies its host and query while the
  *  paths stay put, and a different query (a pin, a clip) lists different
- *  rendition and chunk paths. */
+ *  rendition and chunk paths. A chunk two playlists list stays with the first
+ *  (the first claim stands): a shared init's fetches credit the first playlist
+ *  that lists it (renditions[].init). */
 export function netReport(log, bodies, sessions, { preview, detail, rm = false, noclip = false }) {
   const windows = { preview, detail };
   const buckets = {};
@@ -154,22 +172,29 @@ export function netReport(log, bodies, sessions, { preview, detail, rm = false, 
     .filter((e) => e.bucket === 'mux-master' && !e.failed)
     .map((e) => ({ route: e.route, sent: e.sent, owed: owedClip(e.route, pinnedMaster(e.asked), windows) }));
   const owner = new Map(); // rendition path → { id, type, owed }; the stricter clip wins a shared path
+  const audioPaths = new Set(); // audio rendition paths a muted surface's master lists
+  let offered = 0; // muted surfaces' masters whose body on the wire lists an audio rendition
   for (const m of bodies.filter((b) => b.bucket === 'mux-master')) {
     const owed = owedClip(m.route, pinnedMaster(m.asked), windows);
-    for (const r of renditionsOf(m.body, m.sent)) {
+    const listed = renditionsOf(m.body, m.sent);
+    for (const r of listed) {
       const had = owner.get(r.path);
       if (!had || (owed ?? Infinity) < (had.owed ?? Infinity)) owner.set(r.path, { id: masterId(m.sent), type: r.type, owed });
     }
+    if (lightboxMaster(m.asked)) continue; // it plays with sound
+    const audio = listed.filter((r) => r.type === 'audio');
+    if (audio.length) offered += 1;
+    for (const r of audio) audioPaths.add(r.path);
   }
 
   // Playlists: each rendition's segment durations; every chunk path → (rendition, position).
-  const rends = new Map(); // rendition path → { id, type, owed, durs, fetched }
+  const rends = new Map(); // rendition path → { id, type, owed, durs, fetched, init }
   const chunkAt = new Map(); // chunk path → { rendition, position }; the init's position is null
   let conflicts = 0; // segment paths a second rendition also lists (the first claim stands)
   for (const p of bodies.filter((b) => b.bucket === 'mux-playlist')) {
     const path = new URL(p.sent).pathname;
     const { init, segs } = segmentsOf(p.body, p.sent);
-    const r = rends.get(path) ?? { ...(owner.get(path) ?? { id: null, type: null, owed: null }), durs: [], fetched: new Set() };
+    const r = rends.get(path) ?? { ...(owner.get(path) ?? { id: null, type: null, owed: null }), durs: [], fetched: new Set(), init: false };
     if (segs.length > r.durs.length) r.durs = segs.map((s) => s.dur);
     rends.set(path, r);
     const claim = (chunk, position) => {
@@ -180,6 +205,13 @@ export function netReport(log, bodies, sessions, { preview, detail, rm = false, 
     if (init) claim(init, null);
     segs.forEach((s, i) => claim(s.path, i));
   }
+  // audio: each request a muted surface made of an audio rendition (its playlist, its init, a segment)
+  const audioBad = []; // { route, bucket, id, path }
+  for (const e of log.filter((x) => x.bucket === 'mux-playlist' && !x.failed)) {
+    const path = new URL(e.sent).pathname;
+    if (audioPaths.has(path)) audioBad.push({ route: e.route, bucket: e.bucket, id: owner.get(path).id, path });
+  }
+  const audioPlaylists = audioBad.length;
   let unmapped = 0;
   const timesFetched = new Map(); // chunk path → fetches (net.refetch)
   for (const c of log.filter((e) => e.bucket === 'mux-segment' && !e.failed)) {
@@ -187,8 +219,14 @@ export function netReport(log, bodies, sessions, { preview, detail, rm = false, 
     timesFetched.set(chunk, (timesFetched.get(chunk) ?? 0) + 1);
     const at = chunkAt.get(chunk);
     if (!at) unmapped += 1;
-    else if (at.position != null) rends.get(at.rendition).fetched.add(at.position);
+    else {
+      const r = rends.get(at.rendition);
+      if (at.position != null) r.fetched.add(at.position);
+      else r.init = true;
+      if (audioPaths.has(at.rendition)) audioBad.push({ route: c.route, bucket: c.bucket, id: r.id, path: chunk });
+    }
   }
+  const audioChunks = audioBad.length - audioPlaylists;
   const refetch = {
     chunks: [...timesFetched.values()].reduce((n, k) => n + k, 0),
     dupPaths: [...timesFetched.values()].filter((k) => k > 1).length,
@@ -200,7 +238,7 @@ export function netReport(log, bodies, sessions, { preview, detail, rm = false, 
       const maxIndex = Math.max(...r.fetched);
       return {
         id: r.id, type: r.type, owed: r.owed, listed: r.durs.length, needed: c?.needed ?? null, clipEnd: c?.end ?? null,
-        fetched: r.fetched.size, maxIndex, past: c ? Math.max(0, maxIndex + 1 - c.needed) : null,
+        fetched: r.fetched.size, init: r.init, maxIndex, past: c ? Math.max(0, maxIndex + 1 - c.needed) : null,
       };
     });
 
@@ -236,12 +274,14 @@ export function netReport(log, bodies, sessions, { preview, detail, rm = false, 
       worst: Math.max(0, ...renditions.map((r) => r.past ?? 0)), bound: 0, unowed: renditions.filter((r) => r.past == null).length, unmapped, conflicts, bad: segBad.slice(0, 5),
     }),
     loops: gate(played.length, { worst: over.length ? Math.round(Math.max(...over) * 1000) / 1000 : null, bound: LOOP_END_S, wraps, bad: loopBad.slice(0, 5) }),
+    audio: gate(offered, { worst: audioPlaylists + audioChunks, bound: 0, playlists: audioPlaylists, chunks: audioChunks, bad: audioBad.slice(0, 5) }),
   };
   return {
     pass: {
       streamClip: !detailOf.streamClip.vacuous && clipBad.length === 0,
       segmentsPerRendition: !detailOf.segmentsPerRendition.vacuous && unmapped === 0 && conflicts === 0 && segBad.length === 0,
       loops: !detailOf.loops.vacuous && loopBad.length === 0 && (played.length === 0 || wraps >= 1),
+      audio: !detailOf.audio.vacuous && detailOf.audio.worst === 0,
     },
     net: { windows, noclip, buckets, byRoute, renditions, sessions: played, detail: detailOf, refetch, log },
   };

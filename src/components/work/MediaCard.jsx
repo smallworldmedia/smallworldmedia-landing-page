@@ -41,7 +41,7 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
     : null;
 
   // Attach HLS stream — only when hlsSrc is set (i.e. card is visible)
-  useHls(videoRef, hlsSrc, GRID_HLS_CONFIG);
+  useHls(videoRef, hlsSrc, GRID_HLS_CONFIG, { videoOnly: true });
 
   /**
    * Aspect ratio via the shared detail-page cascade (ratioOf):
