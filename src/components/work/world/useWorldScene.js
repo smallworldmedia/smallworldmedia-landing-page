@@ -67,7 +67,7 @@ import {
   CAMERA_FOV,
   DPR_MAX,
   MSAA_SAMPLES,
-  FPS_CAP,
+  FPS_GATE_S,
   MAX_TILES,
   CAM_LAG_S,
   MIN_TILES,
@@ -1045,7 +1045,13 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     let schedClock = 0; // ~2Hz live-tier cadence, globe convention
     const tick = (_t, deltaMs) => {
       accumulated += deltaMs / 1000;
-      if (accumulated < 1 / FPS_CAP) return;
+      // gsap's ticker reports whole-ms deltas (16 or 17 at 60 Hz), so a strict
+      // 1/FPS_CAP gate skips every 16 ms frame: about 40 fps in a 17/33 ms
+      // rhythm. ?fpstol=2 (FPS_TOL_MS) gives a steady 60 (both measured
+      // 10-09), and the per-render PARALLAX_LERP then settles faster. Default
+      // 0 keeps the strict gate: unbaked, Nathan's call. FPS_GATE_S is
+      // 1/FPS_CAP − FPS_TOL_MS/1000, in seconds (worldConfig.js).
+      if (accumulated < FPS_GATE_S) return;
       const dt = accumulated; // seconds since last render (for time-based motion)
       accumulated = 0;
       sceneTime += dt;

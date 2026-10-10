@@ -817,6 +817,36 @@ test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pi
   }
 })
 
+test('wall canvas: desktop keeps the 08-27 texel ratio above pixel ratio 1.5, phones stay 896; ?fpstol clamps (PF)', async () => {
+  // load-time knobs: stub the window (with the screen's pixel ratio), import a fresh copy, restore the window in finally
+  let fresh = 0
+  const load = async (search, mobile = false, dpr = 1) => {
+    const had = globalThis.window
+    const stub = { location: { search }, devicePixelRatio: dpr, matchMedia: (q) => ({ matches: mobile && q.includes('max-width') }) }
+    if (search === null) delete globalThis.window // SSR: no window at all
+    else globalThis.window = stub
+    try {
+      return await import(`../../src/components/work/world/worldConfig.js?t=pf-${++fresh}`)
+    } finally {
+      if (had === undefined) delete globalThis.window
+      else globalThis.window = had
+    }
+  }
+  for (const [dpr, px] of [[1, 1152], [1.5, 1152], [2, 1536], [3, 1536]]) {
+    assert.equal((await load('', false, dpr)).WALL_CANVAS_PX, px, `desktop at DPR ${dpr}`) // DPR_MAX (2) caps a 3× screen
+  }
+  for (const dpr of [1, 2, 3]) assert.equal((await load('', true, dpr)).WALL_CANVAS_PX, 896, `phone at DPR ${dpr}`)
+  assert.equal((await load('?wallpx=640', false, 2)).WALL_CANVAS_PX, 640) // ?wallpx still overrides
+  assert.equal((await load('?dpr=1.5', false, 2)).WALL_CANVAS_PX, 1152) // the World's ratio, not the screen's
+  assert.equal((await load(null)).WALL_CANVAS_PX, 1152) // SSR: the floor
+  assert.equal((await load('', false, 2)).FPS_TOL_MS, 0) // default: the strict gate, today's cadence
+  assert.equal((await load('?fpstol=2', false, 2)).FPS_TOL_MS, 2)
+  assert.equal((await load('?fpstol=-1', false, 2)).FPS_TOL_MS, 0) // the clamp's ends
+  assert.equal((await load('?fpstol=9', false, 2)).FPS_TOL_MS, 2.5)
+  assert.equal((await load('', false, 2)).FPS_GATE_S, 1 / 60) // the tick's gate, in seconds: the strict 1/FPS_CAP
+  assert.equal((await load('?fpstol=2', false, 2)).FPS_GATE_S, 1 / 60 - 0.002) // 2 ms of slack = 0.002 s (pins the ms → s units)
+})
+
 /* — P0: the video diet (Mux instant clipping; Nathan, 10-09) — */
 test('video diet: one preview window, one detail cap, the clip last and once (P0)', () => {
   assert.equal(GLOBE_PREVIEW_SECONDS, PREVIEW_SECONDS) // the globe pool loops at the shared window

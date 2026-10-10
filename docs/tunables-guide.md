@@ -2,7 +2,7 @@
 
 Every live tuning knob and debug affordance on the site, read from the code on
 2026-09-02 (`feature/v1-launch` @ `f625090` plus the uncommitted three-arm
-pager build + the 09-02/09-03 scale refinement rounds; 09-07 logo ticker; 10-08 palette + footer variant + desktop rest layout; 10-09 globe device knobs): 340 URL params
+pager build + the 09-02/09-03 scale refinement rounds; 09-07 logo ticker; 10-08 palette + footer variant + desktop rest layout; 10-09 globe device knobs, World render-gate slack): 341 URL params
 across 27 reader files, 10 bench/debug panels, 4 debug globals. Regenerate it with the recipe at the bottom; `node scripts/tunables-keys.mjs --check`
 fails if a param in the code is missing from this doc.
 
@@ -309,7 +309,7 @@ Mode tags: **[all]** every field mode · **[DRUM]** `fpgrid=3` (the shipped defa
 | `?wallrows` | 09-04 r11 (Nathan): extra lon CELLS on the deck/album wall footprint — the mobile walls run one cell taller (the reserved block's `drumSpan` + this before quantize; the canvas follows `coverAspect`) [DRUM] | `1` ≤768 / `0` desktop (`IS_MOBILE`) | integer ≥ 0 | `worldConfig.js WALL_EXTRA_ROWS` |
 | `?deckcols` | r11: fixed page-column count for DECK walls (the mobile re-tier shows ONE column of pages); `0` = DeckScroller's `VISIBLE_ROWS`-derived auto count [DRUM] | `1` ≤768 / `0` desktop | integer ≥ 0 | `worldConfig.js WALL_DECK_COLS` → `fpDrumWall.js cols` |
 | `?albumcols` | r11: fixed column count for ALBUM-ART walls (TWO on phones — was the auto 3-column record bin); `0` = auto [DRUM] | `2` ≤768 / `0` desktop | integer ≥ 0 | `worldConfig.js WALL_ALBUM_COLS` → `fpDrumWall.js cols` |
-| `?wallpx` | r11b (Nathan: walls read soft): the wall CANVAS width in px — the per-frame upload cost scales with canvas AREA (repaints are movement-gated), so this is the compute dial. The page TEXTURE request width is no longer a constant: it follows the column width (`ceil(colW/64)×64`, cap 1024 — a 1-column mobile wall was drawing 480px pages into a 704px column), decode-only [DRUM] | `896` ≤768 (was 704) / `1152` desktop | px > 0 | `worldConfig.js WALL_CANVAS_PX` → `fpDrumWall.js CANVAS_W` |
+| `?wallpx` | r11b (Nathan: walls read soft): the wall CANVAS width in px — since 10-09 the pages sit still in a per-column atlas the shader scrolls, so the area sets texture memory and the one upload per landed page (nothing uploads per frame). The page TEXTURE request width is no longer a constant: it follows the column width (`ceil(colW/64)×64`, cap 1024 — a 1-column mobile wall was drawing 480px pages into a 704px column), decode-only [DRUM] | `896` ≤768 (was 704) / desktop `1152` up to pixel ratio 1.5, then `768` × ratio (`1536` at 2; the World's ratio, `min(devicePixelRatio, ?dpr)`, read at load) | px > 0 | `worldConfig.js WALL_CANVAS_PX` → `fpDrumWall.js CANVAS_W` |
 
 ### Camera and render
 
@@ -317,8 +317,9 @@ Mode tags: **[all]** every field mode · **[DRUM]** `fpgrid=3` (the shipped defa
 |---|---|---|---|---|
 | `?fov` | camera vertical FOV [all] | `42` deg | any finite | `:70` |
 | `?camlag` | resize: camera aspect re-eval trails the window on a retargeted ease [all] | `0.7` s | any finite (floor 0.01) | `:71` |
-| `?dpr` | devicePixelRatio cap for renderer + composer; the renderer takes `min(devicePixelRatio, ?dpr)`, so a 1× screen renders at 1 [all] | desktop `2`, mobile `3` (Nathan 10-09: full res; was `1.5`) | any finite | `:72` |
+| `?dpr` | devicePixelRatio cap for renderer + composer; the renderer takes `min(devicePixelRatio, ?dpr)`, so a 1× screen renders at 1. On desktop it also sets the wall canvas width above 1.5 (see `?wallpx`) [all] | desktop `2`, mobile `3` (Nathan 10-09: full res; was `1.5`) | any finite | `:72` |
 | `?msaa` | composer multisamples; `0` off [all] | `4` | any finite | `:73` |
+| `?fpstol` | ms of slack in the World's 60 fps render gate (`useWorldScene` tick; load-time). gsap's ticker reports whole-ms deltas, so the strict gate renders about 40 fps in a 17/33 ms rhythm; `2` renders a steady 60 (measured 10-09): +50% renders, and the per-render `PARALLAX_LERP` settles faster. /work only: the globe and /process keep their strict gates. Unbaked, Nathan's call [all] | `0` (the strict gate, today's cadence) | 0–2.5 (clamped: from about 2.7 the 14 ms of two 144 Hz frames passes the gate, and a 144 Hz screen would render above 60) | `worldConfig.js FPS_TOL_MS` |
 | `?lens` | base lens distortion both axes; negative = pincushion "inside a sphere" [all] | `-0.15` | any finite | `:130` |
 | `?lensx` / `?lensy` | per-axis warp; beat `?lens` | `?lens` / `?lens` × 1.1 | any finite | `:131-132` |
 | `?spike` | extra distortion at the Turn midpoint (×1.1 on Y) [all] | `0.08` | any finite | `:141` |

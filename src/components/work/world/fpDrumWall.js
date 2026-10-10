@@ -6,11 +6,20 @@
  * page's Lenis scroll accelerating every column in its own direction. This
  * module re-creates that wall INSIDE the drum: one canvas is laid out with the
  * DeckScroller's exact column math (VISIBLE_ROWS-derived columns, alternating
- * directions, (col + n·cols) % N page cycling, positive-mod wrap) and mapped
- * onto a drum sector, so the wall curves with the world and rolls with the
- * conveyor. The scroll coupling translates too: instead of Lenis velocity,
- * columns take a kick from |Δ drum roll| — a World Turn rushes the wall the
- * way scrolling the detail page does.
+ * directions, (col + n·cols) % N page cycling; the cycle wraps in the shader,
+ * 10-09 below) and mapped onto a drum sector, so the wall curves with the
+ * world and rolls with the conveyor. The scroll coupling translates too:
+ * instead of Lenis velocity, columns take a kick from |Δ drum roll| — a World
+ * Turn rushes the wall the way scrolling the detail page does.
+ *
+ * 10-09 (deck-wall flicker): the pages no longer move INSIDE the texture.
+ * Repainting a moving canvas re-sampled every page at a new sub-pixel phase
+ * each frame (one phase per column, ~1:1 scale) and rebuilt the mip chain on
+ * every upload, so sharpness pumped with the drift — worst at lower DPR,
+ * where the GPU reads the rebuilt mips. Now each column's page cycle is
+ * painted ONCE into a static atlas (re-painted only as pages land) and the
+ * plate's shader scrolls it: one wrapped travel uniform, even columns one
+ * way, odd columns the other, the hardware Repeat wrapping the cycle.
  *
  * One implementation serves both strips: brand decks (16:9 pages) and album
  * art (square covers) — the deck-page viewing component, brought over to the
@@ -37,10 +46,17 @@ import {
 const VISIBLE_ROWS = 2;
 /* 08-27 (2), Nathan: walls read fuzzy at 640 — a strip plate covers ~600+ css
    px at DPR 1.5, so the canvas ships at ~device resolution on desktop. The
-   per-frame upload cost scales with the canvas area (repaints are
-   movement-gated), so mobile keeps the lighter target. */
-const CANVAS_W = WALL_CANVAS_PX; // r11b: ?wallpx (mobile 896, was 704; desktop 1152)
+   wall is laid out on this virtual W × H canvas; the atlas below holds one
+   page cycle per column at the same horizontal resolution. */
+const CANVAS_W = WALL_CANVAS_PX; // r11b: ?wallpx (mobile 896, was 704; desktop 1152 up to pixel ratio 1.5, then 768 × ratio)
 const BORDER_ALPHA = 0.9;
+/* Atlas shape (10-09). The cycle height rounds UP to a multiple of ROW_Q
+   texels (the pages stretch by that sliver; the shader divides it back out),
+   so mip levels 0–4 tile the cycle exactly and the Repeat wrap is seamless
+   at every level the plate reaches. COL_PAD widens the black gutters in the
+   ATLAS only, so a mip texel never mixes a neighbouring column's pages. */
+const ATLAS_ROW_Q = 16;
+const ATLAS_COL_PAD = 16;
 
 // r11b (Nathan: walls read soft): the per-page texture request width follows
 // the wall's COLUMN width — a fixed 480 drawn into a 704px single column
@@ -53,8 +69,9 @@ const pageSrc = (p, reqW) =>
       ? `https://image.mux.com/${p.playbackId}/thumbnail.webp?width=${reqW}&fit_mode=preserve`
       : null;
 
-/** drawImage cover-fit (the CSS object-fit:cover the DOM wall relies on). */
-function drawCover(c, img, x, y, w, h) {
+/** drawImage cover-fit (the CSS object-fit:cover the DOM wall relies on):
+ *  crops to the w × h page, then draws it dh tall (the atlas row stretch). */
+function drawCover(c, img, x, y, w, h, dh = h) {
   const iw = img.naturalWidth;
   const ih = img.naturalHeight;
   if (!iw || !ih) return;
@@ -71,8 +88,30 @@ function drawCover(c, img, x, y, w, h) {
     sh = iw / ca;
     sy = (ih - sh) / 2;
   }
-  c.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  c.drawImage(img, sx, sy, sw, sh, x, y, w, dh);
 }
+
+/* The plate's map lookup, scrolled. vMapUv (plateCover's U-flip + crop) is
+   mapped to the virtual W × H canvas, then into the atlas: each column at its
+   own x (+ COL_PAD per column), rows stretched by sigma and offset by the
+   column's travel (even columns +, odd −). Gradients come from the UNscrolled
+   plate UV — the travel jumps at gutters and wraps at the cycle, the
+   footprint never does — so the mip level never spikes at a seam. */
+const WALL_MAP_FRAGMENT = /* glsl */ `
+#ifdef USE_MAP
+	float wallX = vMapUv.x * uWallGeom.x;
+	float wallY = ( 1.0 - vMapUv.y ) * uWallGeom.y;
+	float wallCol = clamp( floor( wallX / uWallGeom.z ), 0.0, uWallGeom.w - 1.0 );
+	float wallDir = 1.0 - 2.0 * mod( wallCol, 2.0 );
+	vec2 wallUv = vec2(
+		( wallX + wallCol * uWallAtlas.w ) / uWallAtlas.x,
+		1.0 - ( uWallAtlas.z * wallY + wallDir * uWallTravel ) / uWallAtlas.y
+	);
+	vec2 wallGrad = vec2( uWallGeom.x / uWallAtlas.x, uWallAtlas.z * uWallGeom.y / uWallAtlas.y );
+	vec4 sampledDiffuseColor = textureGrad( map, wallUv, dFdx( vMapUv ) * wallGrad, dFdy( vMapUv ) * wallGrad );
+	diffuseColor *= sampledDiffuseColor;
+#endif
+`;
 
 /**
  * Build a scrolling wall plate for one block.
@@ -118,21 +157,32 @@ export function createWallPlate({
   const perCol = Math.max(2, Math.ceil((H + pageH) / (pageH + GAP)));
   const reqW = Math.min(1024, Math.ceil(colW / 64) * 64);
   const srcOf = (p) => pageSrc(p, reqW);
-  const cycleH = perCol * (pageH + GAP);
-  const dirs = Array.from({ length: cols }, (_, i) => (i % 2 === 0 ? 1 : -1));
-  const offsets = new Array(cols).fill(0);
-  const mod = (x, n) => ((x % n) + n) % n;
+  const pitch = pageH + GAP;
+  const cycleH = perCol * pitch;
   // Column i cycles pages (i + n·cols) mod N — reading order runs across the
   // wall then wraps (the DeckScroller idiom, every column stays populated).
   const columnPages = (col) =>
     Array.from({ length: perCol }, (_, n) => pages[(col + n * cols) % pages.length]);
 
+  // The static atlas: one page cycle per column, top to bottom.
+  const atlasH = Math.ceil(cycleH / ATLAS_ROW_Q) * ATLAS_ROW_Q;
+  const sigma = atlasH / cycleH; // atlas rows per canvas px (≥ 1)
+  const atlasW = W + (cols - 1) * ATLAS_COL_PAD;
   const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
+  canvas.width = atlasW;
+  canvas.height = atlasH;
   const c = canvas.getContext('2d');
+  // The atlas is painted once, not every frame: if the browser drops the 2D
+  // backing store (contextlost, then contextrestored, e.g. after a GPU reset)
+  // it comes back cleared, so a restore marks it for the next paint().
+  // Chromium and Firefox fire these; WebKit has no 2D context-loss event, so
+  // on Safari (iOS too) a dropped atlas waits for the next page landing.
+  const onRestored = () => {
+    dirty = true;
+  };
+  canvas.addEventListener('contextrestored', onRestored);
 
-  // Lazy page images — the canvas repaints as each lands (black ground first,
+  // Lazy page images — the atlas repaints as each lands (black ground first,
   // the DOM wall's --color-near-black pre-load convention).
   const images = new Map(); // src → { img, ready }
   let anyReady = false;
@@ -152,31 +202,34 @@ export function createWallPlate({
     images.set(src, entry);
   }
 
-  const paintCanvas = () => {
+  const paintAtlas = () => {
     c.fillStyle = '#000000';
-    c.fillRect(0, 0, W, H);
+    c.fillRect(0, 0, atlasW, atlasH);
     for (let col = 0; col < cols; col++) {
       const cycle = columnPages(col);
-      const x = col * (colW + GAP);
-      let y = -mod(offsets[col], cycleH);
-      // Enough copies to cover the frame at any wrap offset (the DOM strip's
-      // two-copy render, expressed as a resumed walk).
-      let n = 0;
-      while (y < H) {
-        const p = cycle[n % perCol];
+      const x = col * (colW + GAP + ATLAS_COL_PAD);
+      for (let n = 0; n < perCol; n++) {
+        const p = cycle[n];
         const entry = p && images.get(srcOf(p));
-        if (entry?.ready) drawCover(c, entry.img, x, y, colW, pageH);
-        y += pageH + GAP;
-        n++;
+        if (entry?.ready) drawCover(c, entry.img, x, n * pitch * sigma, colW, pageH, pageH * sigma);
       }
     }
   };
-  paintCanvas();
+  paintAtlas();
 
   const texture = new THREE.CanvasTexture(canvas);
-  // Canvas aspect == block coverAspect by construction: plateCover reduces to
-  // the BackSide U-flip (no crop).
+  // plateCover maps the VIRTUAL W × H canvas (aspect == block coverAspect by
+  // construction: the BackSide U-flip, no crop); the shader takes it on into
+  // the atlas. The cycle repeats down the strip.
   plateCover(texture, block.coverAspect, W / H);
+  texture.wrapT = THREE.RepeatWrapping;
+  const uniforms = {
+    // Column travel in atlas rows, wrapped on the CPU to [0, atlasH) so
+    // float32 stays exact however long the session runs.
+    uWallTravel: { value: 0 },
+    uWallGeom: { value: new THREE.Vector4(W, H, colW + GAP, cols) },
+    uWallAtlas: { value: new THREE.Vector4(atlasW, atlasH, sigma, ATLAS_COL_PAD) },
+  };
   const material = new THREE.MeshBasicMaterial({
     map: texture,
     toneMapped: false,
@@ -184,6 +237,16 @@ export function createWallPlate({
     opacity: 0,
     side: THREE.BackSide,
   });
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        'void main() {',
+        'uniform float uWallTravel;\nuniform vec4 uWallGeom;\nuniform vec4 uWallAtlas;\nvoid main() {'
+      )
+      .replace('#include <map_fragment>', WALL_MAP_FRAGMENT);
+  };
+  material.customProgramCacheKey = () => 'fpDrumWall-atlas';
   const mesh = new THREE.Mesh(geometryFor(block, 0), material);
   mesh.renderOrder = orders.front;
 
@@ -203,7 +266,7 @@ export function createWallPlate({
   let lastNow = performance.now();
   let lastAdv = drum?.state?.adv ?? 0;
   let dirty = true;
-  let travelled = 0;
+  let travel = 0; // canvas px, [0, cycleH)
 
   const record = {
     group,
@@ -213,16 +276,15 @@ export function createWallPlate({
     paint(opacity) {
       material.opacity = opacity;
       borderMaterial.opacity = BORDER_ALPHA * opacity;
-      if (PREFERS_REDUCED_MOTION) {
-        // Static wall (the DOM wall's reduced-motion contract) — first
-        // texture uploads still need a flush as images land.
-        if (dirty && anyReady) {
-          paintCanvas();
-          texture.needsUpdate = true;
-          dirty = false;
-        }
-        return;
+      // Pages land late: each landing repaints the atlas once (one upload, one
+      // mip build). Nothing uploads while the wall moves.
+      if (dirty && anyReady) {
+        paintAtlas();
+        texture.needsUpdate = true;
+        dirty = false;
       }
+      // Static wall under reduced motion (the DOM wall's contract).
+      if (PREFERS_REDUCED_MOTION) return;
       const now = performance.now();
       const dt = Math.min(now - lastNow, 100) / 1000; // tab-return clamp
       lastNow = now;
@@ -233,23 +295,14 @@ export function createWallPlate({
       lastAdv = adv;
       // Knobs are calibrated at the original 640px canvas — scale with the
       // shipped resolution so the on-screen rate is resolution-independent.
-      const step = (WALL_DRIFT * dt + kick) * (W / 640);
-      for (let i = 0; i < cols; i++) offsets[i] += dirs[i] * step;
-      travelled += step;
-      // Repaint on real movement (≥ ~1/4 canvas px) or a newly landed image;
-      // skip entirely while the slot is faded out.
-      if (opacity <= 0.001) return;
-      if (travelled >= 0.25 || dirty) {
-        paintCanvas();
-        texture.needsUpdate = true;
-        travelled = 0;
-        dirty = false;
-      }
+      travel = (travel + (WALL_DRIFT * dt + kick) * (W / 640)) % cycleH;
+      uniforms.uWallTravel.value = travel * sigma;
     },
     dispose() {
       record.disposed = true;
       gsap.killTweensOf(record);
       for (const { img } of images.values()) img.onload = null;
+      canvas.removeEventListener('contextrestored', onRestored);
       images.clear();
       parent.remove(group);
       mesh.geometry.dispose();
