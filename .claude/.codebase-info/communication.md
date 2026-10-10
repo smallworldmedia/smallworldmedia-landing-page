@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-10-10*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -20,6 +20,7 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:open-privacy` / `swm:privacy-state` | privacy pill, mobile menu / `PrivacyOverlay` | `PrivacyOverlay` / `SiteShell` | `{open}` |
 | `swm:hero-chrome`, `swm:hero-lockup-done`, `swm:tagline-exit` | `Hero` | `SiteNav`, `HeroLabels`, `SiteTagline` | — |
 | `swm:process-step` / `-home` / `-index` | `ProcessStepCtas`, driver, `DetailProgressBar` | `useProcessScrollDriver`, `useProcessCopy` | step deltas / index |
+| `swm:process-cta-hover` | `ProcessPage` (CTA hover/focus, rAF-deferred) | `useProcessScene` (the freed shard pulses) | `{on}` |
 
 Rule: dispatches that cross into a persistent island are `requestAnimationFrame`-deferred so the
 resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
@@ -34,6 +35,7 @@ resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
 | `--scrollbar-w` | `SiteShell` | re-measured on `astro:after-swap` |
 | `data-nav-accent*` | detail pages | project accent for `RouteFill` / `lib/navAccent.js` |
 | `body.route-home` / `body.route-process` | `BaseLayout.astro` (server) | route-scoped chrome CSS, no hydration flash |
+| `.process-page[data-opening]`, `[data-bg]` | `ProcessPage` (SSR), then `useProcessScene` (`setOpening`, `setBgAttr`) | /process field (w9c): `data-opening` (`black`\|`blue`) keys `process.css` `--ps-field-open`/`--ps-field-solid` and, via `:has()`, the html/body base; `data-bg` names the live field colour, which skins the steppers' keyline and the privacy pill's keyline on black |
 | `sessionStorage swm:hero-intro`, `swm:returnToWork` | `Hero`, layout script | intro mode; back-nav to /work |
 
 ClientRouter wipes every `<html>` attribute on swap; persistent islands re-assert theirs on

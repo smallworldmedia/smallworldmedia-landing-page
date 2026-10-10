@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-09-10*
+*Last Updated: 2026-10-10*
 
 ## Routes
 
@@ -35,13 +35,13 @@ purpose), server-computed `body.route-*` classes, skip link, hidden Netlify cont
 | Command | Does |
 |---|---|
 | `npm run dev` | `astro dev` on :4321 (`--host` for phone testing) |
-| `npm run build` | `astro build` → `dist/` (22 pages) |
+| `npm run build` | `astro build` → `dist/` (24 pages; grows with featured projects) |
 | `npm run preview` | serve `dist/` |
 | `npm run cms -- plan|apply|verify …` | CMS ingest CLI (`scripts/cms.mjs`), see `cms-pipeline.md` |
 | `npm run test:cms` | `node --test` over `scripts/test/**` |
 | `node scripts/tunables-keys.mjs --check` | fails if a `?param` in code is missing from `docs/tunables-guide.md` |
 | `node scripts/pager-probe.mjs …` | headless Playwright probe of `/work` pager scenarios |
-| `node scripts/process-probe.mjs [--mobile] [--secs=30]` | headless probe of the `/process` discovery slide: samples `window.__swmProcessStats` (published by `ProcessDebugPanel` under `?debug=1`) for chip count, duplicate terms, overlaps, and each tour hold's subject vs seat, with a screenshot per hold |
+| `node scripts/process-probe.mjs [--mobile] [--secs=30] [--extra="&knob=…"]` | headless probe of `/process?debug=1`: samples the S1 tour (`window.__swmProcessStats` + the live `__swmProcessPeek()`) for chip count, duplicate terms, overlaps, keep-out and each tour hold's subject vs seat. Modes: `--walk [--back]` (contact sheets + `walk.json` per beat: fps, keep-out, draw calls), `--walk --break` (`break-track.json`: reversals / overshoots), `--buried [--every=120] [--secs=150] [--cpu=4]` (chip cover on real pixels, readable namings, pick cost), `--transition` (S1→S2 camera path); `report.json` also carries `chipStats`, the scene's `?debug` chip bench (per-station fill, binds, draw calls, leader×chip crossings, bank wraps) |
 | `node scripts/prep-client-logos.mjs [--check]` | normalize `Client Logos/` into `src/assets/client-logos/` |
 | `node scripts/generate-manifests.mjs "Client" [--dry-run]` | scaffold TBD manifests |
 

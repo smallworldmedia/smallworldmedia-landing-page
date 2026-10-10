@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-10-08*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -26,6 +26,7 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 | Query | Used by |
 |---|---|
 | `GLOBE_ASSETS_QUERY` (picks / featured / heroes / autoFill tiers) | `/`, `/process`, `/lab/globe` via `globe/buildAssetPool.js` |
+| `PROJECT_COLORS_QUERY` (project colour tokens, /work World order) | `src/pages/process.astro` → `lib/projectColor.js` `colorPool` → /process chip fills |
 | `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro` |
 | `FEATURED_PROJECT_PATHS_QUERY`, `FEATURED_PROJECT_DETAIL_QUERY` (`$projectId`) | `src/pages/work/[slug].astro`; paths order drives `NextProjectBand` adjacency |
 | `MEDIA_GRID_QUERY`, `ALBUM_ART_QUERY`, `SERVICE_TAGS_QUERY` | dormant `/work/directory` |
@@ -35,4 +36,5 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 ## Content flow on the site
 `work/detail/buildContentFlow.js` partitions a project's assets into hero / showcase / brandDecks
 (cap 12 pages) / albumArt buckets; the same function feeds both `/work` Worlds and the detail grid.
-Project accent colors reach CSS through `lib/projectColor.js` as `--project-color*`.
+Project accent colors reach CSS through `lib/projectColor.js` as `--project-color*`, and the
+/process chips through `colorPool` (distinct colours, dealt modulo).
