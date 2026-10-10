@@ -39,7 +39,6 @@ import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
 import { LensDistortionPassGen } from './vendor/lensDistortion.js';
 import { buildShell } from './buildShell.js';
@@ -184,7 +183,11 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     // Transparent canvas: the black→blue gradient lives on the DOM (.fp-canvas)
     // so it stays clean/monotonic like the home hero (the lens pass would warp a
     // WebGL background). The grid + tiles composite over it.
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // 10-09 (PW): a bare canvas, no MSAA and no depth. The canvas only ever
+    // receives the lens pass's full-screen triangle; MSAA and depth live on the
+    // composer target below. The context's own MSAA and depth buffers were dead
+    // weight that scales with DPR².
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, depth: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
     renderer.setClearColor(0x000000, 0);
     // fp-grid: page wipes (register plates / FORME re-deal) cut with world-space
@@ -264,15 +267,22 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     // seen before just snaps its tiles to rest (revisits don't re-animate).
     const seenWorlds = new Set();
 
-    // Post-processing: scene → lens distortion → sRGB output.
+    // Post-processing: scene → lens distortion, which also writes sRGB to the
+    // canvas. 10-09 (PW): the OutputPass is folded into the lens shader's
+    // colorspace_fragment (vendor/lensDistortion.js), so the frame no longer
+    // makes a second full-screen trip through a target.
     // 08-25 AA: the composer's internal targets bypass the context's MSAA
-    // (`antialias: true` on the renderer only covers direct-to-canvas), so
+    // (the context's antialias only ever covered direct-to-canvas draws), so
     // the tile grid rendered with hard jaggies. A multisampled target
     // (WebGL2) restores 4× MSAA through the whole pass chain; setSize
     // resizes it in place, samples preserved. ?msaa to A/B (0 = off).
+    // 10-09 (PW): sRGB8 (SRGB8_ALPHA8) instead of HalfFloat: half the bytes
+    // per sample, and the sRGB encoding keeps the dark gradient that linear
+    // 8-bit bands. The depth buffer stays: the World's materials test depth.
     const msaaTarget = new THREE.WebGLRenderTarget(1, 1, {
       samples: MSAA_SAMPLES,
-      type: THREE.HalfFloatType,
+      type: THREE.UnsignedByteType,
+      colorSpace: THREE.SRGBColorSpace,
     });
     const composer = new EffectComposer(renderer, msaaTarget);
     composer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
@@ -284,9 +294,12 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
       focalLength: new THREE.Vector2(1, 1),
       skew: 0,
     });
+    // The lens is the last pass, so the composer renders it to the canvas. No
+    // swap: a swap every frame would make RenderPass alternate between the
+    // composer's two targets and allocate both. Without it the scene always
+    // lands in the same one, and the other is never allocated.
+    lensPass.needsSwap = false;
     composer.addPass(lensPass);
-    const outputPass = new OutputPass();
-    composer.addPass(outputPass);
 
     // Lens spike (0..1) added to the base distortion during a Turn.
     const lensSpike = { v: 0 };
@@ -1163,7 +1176,6 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
       shell.geometry.dispose();
       shell.material.dispose();
       lensPass.dispose();
-      outputPass.dispose?.();
       composer.dispose();
       renderer.dispose();
       renderer.forceContextLoss();

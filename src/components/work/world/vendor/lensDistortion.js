@@ -8,6 +8,12 @@
  * `distortion` (uK0) is the radial coefficient: NEGATIVE = pincushion / inward
  * warp — the "inside-a-sphere" look. Applied as a post-process so the whole
  * composited scene (Tiles + World Shell) distorts cohesively.
+ *
+ * Local change (10-09, PW): the fragment shader ends with
+ * `#include <colorspace_fragment>`, which folds the World's OutputPass into this
+ * pass. As the composer's last pass it renders to the canvas, where three
+ * resolves `linearToOutputTexel` to the sRGB OETF; into a render target it
+ * resolves to linear (a no-op), so the include is safe either way.
  */
 
 export const LensDistortionShader = {
@@ -42,6 +48,7 @@ export const LensDistortionShader = {
       vec2 Xp = ( KK * Xd ).xy * .5 + .5; // projected; into 0..1
       if ( Xp.x >= 0. && Xp.x <= 1. && Xp.y >= 0. && Xp.y <= 1. ) {
         gl_FragColor = texture2D( tDiffuse, Xp );
+        #include <colorspace_fragment>
       }
     }
   `,
