@@ -24,8 +24,9 @@
  *
  * The backing canvas is a fixed square supersample (768px, the snapshot's
  * resolution) CSS-scaled into the glyph slot — window resizes never touch
- * GL. Create on hero mount, dispose on leave (the existing globe-O
- * lifecycle); dispose() tears the whole context down.
+ * GL. 10-07: created ONCE per island mount; pause() / resume() take it off
+ * and back on the ticker while the shards hold the mark or the hero is away;
+ * dispose() (island unmount only) tears the whole context down.
  */
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -43,12 +44,18 @@ import {
   PANEL_CORNER_RADIUS,
   DRAG_SENSITIVITY,
   MAX_FLICK_SPEED,
+  FPS_CAP,
   PREFERS_REDUCED_MOTION,
 } from '../globe/globeConfig.js';
-import { O_SPIN_DPS } from './processConfig.js';
+import { O_SPIN_DPS, FRAME_GATE_SLACK } from './processConfig.js';
 
 const BACKING_PX = 768; // supersamples the ~glyph-height slot on any display
 const WHITE = 0xffffff; // --color-white — the gap lattice
+// Orthographic half-extent — the mark is a flat projection; the tiny margin
+// keeps the silhouette's antialiased edge off the canvas bounds. Exported:
+// the globe's disc is the canvas ÷ this, which is how the scene's shatter
+// sizes the O it takes over.
+export const LOCKUP_EXTENT = 1.005;
 
 export function createLockupGlobe() {
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -57,9 +64,7 @@ export function createLockupGlobe() {
   renderer.setClearColor(0x000000, 0); // transparent field around the disc
 
   const scene = new THREE.Scene();
-  // Orthographic — the mark is a flat projection; the tiny margin keeps the
-  // silhouette's antialiased edge off the canvas bounds.
-  const EXTENT = 1.005;
+  const EXTENT = LOCKUP_EXTENT;
   const camera = new THREE.OrthographicCamera(-EXTENT, EXTENT, EXTENT, -EXTENT, 0.1, 10);
   camera.position.set(0, 0, 3);
   camera.lookAt(0, 0, 0);
@@ -105,6 +110,16 @@ export function createLockupGlobe() {
   innerSphere.scale.setScalar(INNER_SPHERE_SCALE);
   spin.add(innerSphere);
 
+  /* 10-07 (Nathan): the O BREAKS into the stage-01 belt, and the scene's
+     shatter timeline owns the beat — it tweens this state directly. `k` is
+     the white-up (every tile mixes toward the white lattice through the
+     panel shader's uBlueMix: at 1 the O is one white disc, the frame the
+     scene's shards take over on); `boost` is the wind-up's rev, rad/s
+     ADDED along the ambient's direction — additive, so it revs at ?ospin 0
+     too and never multiplies a drag. */
+  const charge = { k: 0, boost: 0 };
+  let chargeK = 0;
+
   const spinRad = THREE.MathUtils.degToRad(O_SPIN_DPS);
   // ?ospin is the AMBIENT now, not a clock: the angle accumulates so a drag
   // can add to it and the release can settle back without a seam. Reduced
@@ -118,20 +133,81 @@ export function createLockupGlobe() {
         reducedMotion: PREFERS_REDUCED_MOTION,
         touch: false, // the /process swipe quantizer owns the finger
       });
-  const tick = (_time, deltaMs) => {
-    // Clamp the step: a backgrounded tab hands back one huge delta, which
-    // would snap the mark through a random number of turns on return.
-    const step = Math.min(deltaMs, 100) / 1000;
-    const { dx } = drag ? drag.update(step) : { dx: spinRad * step };
-    spin.rotation.y += dx;
+  /* 10-07 (w2): CONTEXT LOSS. The context now lives for the whole island
+     (perf-2), so a paused O that iOS evicts in the background must never
+     draw into a dead context. three's renderer already preventDefaults the
+     loss (so the browser may restore) and rebuilds its GPU state on the
+     restore — every geometry, program and uniform re-uploads from the
+     JS-side objects on the next render; nothing here holds raw GL. This
+     side: stop drawing while lost, and on the restore redraw one frame if
+     the O is live (a paused O draws on resume()). */
+  let lost = false;
+  const onLost = (e) => {
+    e.preventDefault();
+    lost = true;
+  };
+  const onRestored = () => {
+    lost = false;
+    chargeK = -1; // re-stamp the heat on the first frame back
+    if (running) draw();
+  };
+  renderer.domElement.addEventListener('webglcontextlost', onLost);
+  renderer.domElement.addEventListener('webglcontextrestored', onRestored);
+  const draw = () => {
+    if (lost) return;
+    if (charge.k !== chargeK) {
+      chargeK = charge.k;
+      for (const panel of panels) panel.mesh.material.uniforms.uBlueMix.value = chargeK;
+    }
     renderer.render(scene, camera);
   };
-  gsap.ticker.add(tick);
+  // 10-07 (perf-1/perf-2): the scene's 60fps gate (FRAME_GATE_SLACK) — the
+  // O rendered on EVERY ticker beat, 120×/s on ProMotion, beside the scene.
+  let acc = 0;
+  const tick = (_time, deltaMs) => {
+    acc += deltaMs / 1000;
+    if (acc < 1 / FPS_CAP - FRAME_GATE_SLACK) return;
+    // Clamp the step: a backgrounded tab hands back one huge delta, which
+    // would snap the mark through a random number of turns on return.
+    const step = Math.min(acc, 0.1);
+    acc = 0;
+    const { dx } = drag ? drag.update(step) : { dx: spinRad * step };
+    spin.rotation.y += dx + Math.sign(spinRad || -1) * charge.boost * step;
+    draw();
+  };
+  /* 10-07 (perf-2): ONE lockup per island mount. While the shards hold the
+     mark (broken) or the hero is scrolled away, the O is PAUSED — off the
+     ticker, its canvas hidden in the slot — instead of disposed: each return
+     used to build a fresh context and compile its shaders mid-glide (on a
+     back_to_top, mid-reform). The spin holds where it paused. */
+  let running = false;
+  const resume = () => {
+    if (running) return;
+    running = true;
+    acc = 0;
+    draw(); // the first visible frame is never a stale one
+    gsap.ticker.add(tick);
+  };
+  const pause = () => {
+    if (!running) return;
+    running = false;
+    gsap.ticker.remove(tick);
+  };
+  resume();
 
   return {
     canvas: renderer.domElement,
+    charge,
+    /** The meridian phase + the brand pitch — the scene's shards take the O
+     *  over at exactly this orientation. */
+    orientation: () => ({ pitch: tilt.rotation.x, yaw: spin.rotation.y }),
+    pause,
+    resume,
     dispose() {
-      gsap.ticker.remove(tick);
+      pause();
+      renderer.domElement.removeEventListener('webglcontextlost', onLost);
+      renderer.domElement.removeEventListener('webglcontextrestored', onRestored);
+      gsap.killTweensOf(charge);
       drag?.dispose();
       for (const panel of panels) {
         panel.geometry.dispose();

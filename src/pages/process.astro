@@ -15,8 +15,9 @@ import '../styles/video-globe.css';
 import ProcessPage from '../components/process/ProcessPage.jsx';
 import { PROCESS_META } from '../components/process/processContent.js';
 import { sanityFetch } from '../lib/sanityClient.js';
-import { GLOBE_ASSETS_QUERY } from '../lib/queries.js';
+import { GLOBE_ASSETS_QUERY, PROJECT_COLORS_QUERY } from '../lib/queries.js';
 import buildAssetPool from '../components/globe/buildAssetPool.js';
+import { colorPool } from '../lib/projectColor.js';
 
 // 08-29: launch gate REMOVED (redirect here + netlify.toml 302 + sitemap
 // exclude — the planned 3-file un-gate). /process is live.
@@ -24,8 +25,13 @@ import buildAssetPool from '../components/globe/buildAssetPool.js';
 // The finalized homepage globe now stands in for PROCESS's "O" (B9) — same
 // Sanity asset pool the home hero uses.
 const globeAssets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));
+
+// 10-07 (Nathan): every annotation chip (the S1 tour, the S2 Thread's words,
+// the S3 spec sheet, the CTA's first_contact) is filled in the project
+// colour tokens, dealt in modulo order — the distinct colours, /work order.
+const projectColors = colorPool(await sanityFetch(PROJECT_COLORS_QUERY));
 ---
 
 <BaseLayout title={PROCESS_META.title} description={PROCESS_META.description}>
-  <ProcessPage client:only="react" globeAssets={globeAssets} />
+  <ProcessPage client:only="react" globeAssets={globeAssets} projectColors={projectColors} />
 </BaseLayout>

@@ -21,9 +21,46 @@
  * 08-31; ProcessMeter's cells retired). Hidden controls are
  * native-`disabled` (out of the tab order, clicks no-op) with
  * aria-hidden for assistive tech.
+ *
+ * 10-07 (w5, stepper-tease): [next] NAMES what comes next — `next:
+ * core_assembly` — the phase names are natural cliffhangers, and the eye
+ * already rests on this chip. Tokens come from processContent in
+ * .process-section order ([HERO, ...STAGES, CTA] — the hero holds index 0,
+ * so it never shifts them), lowercased chrome register; the CTA reads
+ * your_world_next. The aria-label says it in words ("Next: Core
+ * assembly" — 10-07, final review: the visible
+ * label's own words, in order, so speech input matches it; WCAG 2.5.3 —
+ * "Next section: …" put a word between them). The end still swaps the
+ * slot to back_to_top. Desktop only in practice: the stepnav is hidden
+ * ≤768px (process.css).
+ *
+ * 10-09 (w9, steppers-plain — Nathan: "remove the scramble animation from
+ * the next and previous buttons"): the label is plain React text now; an
+ * index change swaps it in one frame, old words → new words, no glyph
+ * noise. [previous] was always a static label. The carets (CtaArrows)
+ * still loop — they are the chip's motion, not a scramble.
  */
 import { useEffect, useState } from 'react';
 import CtaArrows from '../work/CtaArrows.jsx';
+import { HERO, STAGES, CTA } from './processContent.js';
+
+// .process-section order: index i's [next] names section i + 1.
+const SECTION_NAMES = [HERO.h1, ...STAGES.map((st) => st.headline), CTA.display];
+const tokenOf = (name) => name.trim().toLowerCase().replace(/\s+/g, '_');
+const spokenOf = (name) => {
+  const words = name.trim().toLowerCase().replace(/[_\s]+/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+// 10-08 (w8, ?nexttease): exported — the phone's `next: <phase>` caption line
+// (ProcessPage) says the stepper's own words, never new copy.
+export const nextLabel = (index) => {
+  const name = SECTION_NAMES[index + 1];
+  return name ? `next: ${tokenOf(name)}` : 'next';
+};
+const nextAria = (index) => {
+  const name = SECTION_NAMES[index + 1];
+  return name ? `Next: ${spokenOf(name)}` : 'Next';
+};
 
 const step = (dir) =>
   window.dispatchEvent(new CustomEvent('swm:process-step', { detail: { dir } }));
@@ -84,9 +121,9 @@ export default function ProcessStepCtas() {
             type="button"
             className="process-stepnav__cta"
             onClick={() => step(1)}
-            aria-label="Next section"
+            aria-label={nextAria(index)}
           >
-            <span className="fp-cta__label">next</span>
+            <span className="fp-cta__label">{nextLabel(index)}</span>
             <CtaArrows direction="down" />
           </button>
         )}

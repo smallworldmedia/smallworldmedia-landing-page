@@ -34,9 +34,13 @@ export const HERO = {
 /**
  * One record per Stage. `id` is the stage-machine state key
  * (scene.goTo(id)); `token` is the chrome line above the headline (PHASE_0#
- * and nothing else since 09-09); `captions` are the Thread's scramble pings
- * (S2 only). Headlines are display tokens (rendered squeezed-caps at poster
- * scale).
+ * and nothing else since 09-09); `captions` are the mono line under the
+ * blurb — the Thread's scramble pings on S2, and (10-07, w6) S5's live
+ * readout (`chapters` are its brand-book pages). Headlines are display tokens
+ * (rendered squeezed-caps at poster scale).
+ * 10-09 (w9, s2-hold): `captionLead` seats the line ABOVE the blurb at the
+ * blurb's own size (S2: the count is what you watch while the dots connect,
+ * and the blurb waits for them — ProcessPage, process.css).
  */
 /* Keywords: [[double brackets]] mark the words the highlight wipe lands on
    (src/lib/keywords.jsx) — edit freely, the markup is derived. */
@@ -54,7 +58,11 @@ export const STAGES = [
     headline: 'REFINE_ELEMENTS',
     blurb:
       'Materials are refined and distilled down into the [[core foundation]] of the world. We curate the elements that will build the strongest foundation for your world, [[connecting the dots]] and guiding you through creative direction and [[long-term brand vision]].',
-    captions: ['references_folded', 'dots_connected', 'core_assembled'],
+    // 10-09 (w9, s2-hold): the scene's pings, in order — core_assembled
+    // retired with the assembly (it is S3's now; whether S3 names it is
+    // Nathan's call). The scene fires the literals; this list is the record.
+    captions: ['references_folded', 'dots_connected'],
+    captionLead: true,
   },
   {
     id: 'stage-03',
@@ -62,6 +70,10 @@ export const STAGES = [
     headline: 'CORE_ASSEMBLY',
     blurb:
       'The core, now solidified, is built as a [[singular visual system]] — [[logo suite]], [[type pairings]], [[color palette]], [[layout sensibility]] — all created and anchored via the world’s core elements.',
+    // 10-07 (w5, s3-spec-sheet): the chips that name the solid Core at S3's
+    // rest, one per beat, in this (the blurb's) order — chrome register
+    // (lowercase snake_case); the chip renderer uppercases them.
+    annotations: ['logo_suite', 'type_pairings', 'color_palette', 'layout_sensibility'],
   },
   {
     id: 'stage-04',
@@ -76,12 +88,30 @@ export const STAGES = [
     headline: 'WORLD_IN_MOTION',
     blurb:
       'The world build, now complete, [[goes live]]. All elements are compiled into a comprehensive [[brand book]], mapped out to walk you through where you are, and where you’re going.',
+    // 10-07 (w6, s5-drop): the LIVE readout beside the beat ● — the count-in,
+    // then the tempo on the drop ({bpm} = ?bpm at fire time: live_123_bpm).
+    // Chrome register. NEW COPY — Nathan to approve.
+    captions: ['count_in', 'live_{bpm}_bpm'],
+    // 10-07 (w6, s5-chapters): the loop's five passes are the brand book's
+    // pages — from the second pass on the readout walks them,
+    // `p.0N/05 <this> → <next>` (where you are, and where you're going). S3's
+    // deliverables plus S4's components: callbacks, not new vocabulary.
+    // NEW COPY — Nathan to approve.
+    chapters: ['logo_suite', 'type_pairings', 'color_palette', 'layout_sensibility', 'brand_components'],
   },
 ];
 
 export const CTA = {
   display: 'YOUR WORLD NEXT',
-  line: 'Explore our worlds, or start one of your own.',
+  // 10-07: the ask carries the house highlight like every other prose line;
+  // "your own" is held on a no-break space so no engine widows "own." (the
+  // CSS balances the line — process.css .process-cta__line).
+  line: 'Explore our worlds, or [[start one of your own]].',
   primary: '↳ start_project',
   secondary: '⁕ featured_projects',
+  // 10-07 (w7, cta-finale): the in-scene chip the FREED shard wears at the
+  // CTA rest (?finale) — the visitor's world, one shard lifted off the
+  // brand's. Chrome register (the chip renderer uppercases it). Its own
+  // field, not the retired stage `chip`. NEW COPY — Nathan to approve.
+  contact: 'first_contact',
 };
