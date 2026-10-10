@@ -143,3 +143,22 @@ export const INERTIA_SECONDS = DRAG_CHOREO.inertiaSeconds;      // decay back to
 /* — Colors (match global.css custom properties) — */
 export const GAP_COLOR = 0x0000ff;            // electric blue — the lat/long lines + occluding inner sphere
 export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-texture state
+
+/* — VideoGlobe-only device knobs (10-09, the media spans round): the home
+   globe and /lab, which share useGlobeScene, nameTicker and VideoSlotPool's
+   default pin. Load-time and checked: PARAM doesn't clamp, and
+   setPixelRatio(0) would blank the canvas. /process keeps DPR_MAX; /work has
+   its own ?dpr and ?liveres (work/world/worldConfig.js). A bake of the
+   globe's ratio belongs in GLOBE_DPR_MAX's default, not DPR_MAX: /process
+   shares DPR_MAX, and the name strips scale by GLOBE_DPR_MAX / DPR_MAX. — */
+const clampTo = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
+/** ?globedpr — the VideoGlobe's renderer pixel-ratio cap (useGlobeScene). */
+export const GLOBE_DPR_MAX = clampTo(PARAM('globedpr', DPR_MAX), 1, 3);
+const GLOBE_RES = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('globeres');
+/** ?globeres — the VideoGlobe's stream pin on any device: one Mux rung
+ *  (270p | 480p | 720p | 1080p), else STREAM_PARAMS. The World's ?liveres,
+ *  but checked: Mux's ladder has no 540 rung. VideoSlotPool's default, so
+ *  anything that sizes the globe's streams reads this, not STREAM_PARAMS. */
+export const GLOBE_STREAM_PARAMS = /^(270|480|720|1080)p$/.test(GLOBE_RES ?? '')
+  ? `min_resolution=${GLOBE_RES}&max_resolution=${GLOBE_RES}`
+  : STREAM_PARAMS;

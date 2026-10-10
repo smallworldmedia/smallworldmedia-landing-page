@@ -35,6 +35,7 @@
  * the key would let the first-drawn variant stick for the session.
  */
 import * as THREE from 'three';
+import { GLOBE_DPR_MAX, DPR_MAX } from './globeConfig.js';
 
 export const NAME_STYLES = ['ink', 'fill'];
 /** region = a run of tiles sized to the name; band = a whole latitude row. */
@@ -44,7 +45,7 @@ export const NAME_QUADS = ['LL', 'UR', 'UL', 'LR'];
 
 const FACE = '"OT Neue Montreal Squeezed"'; // .fp-card__client (--font-display)
 const WEIGHT = 600;
-const STRIP_H = 256; // px — the strip's height (a tile's texture scale)
+const STRIP_H = Math.round((256 * GLOBE_DPR_MAX) / DPR_MAX); // px — the strip's height (a tile's texture scale): 256 at the default pixel-ratio cap, scaled with ?globedpr so the names keep their texel density on a full-res canvas (a phone at ?globedpr=3 draws 512)
 const TRACKING = -0.02; // em — the card's --tracking-tight
 const GAP = 0.42; // strip heights of clear space around the name
 const BLACK = '#000000';

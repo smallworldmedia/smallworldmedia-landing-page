@@ -69,7 +69,7 @@ export const PANE_PITCH = num('panepitch', 3); // FORME: macro-cell pitch as a m
 /* — Camera / render budget — */
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
 export const CAM_LAG_S = num('camlag', 0.7); // resize: camera re-eval TRAILS the window (retargeted ease — the TouchDesigner lag feel); ~0 = instant. 08-28 bake 0.7 (Nathan's dial)
-export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales with DPR²; was desktop 2). ?dpr to A/B
+export const DPR_MAX = num('dpr', IS_MOBILE ? 3 : 2); // full res (Nathan, 10-09): phone 3, desktop 2, a Retina Mac's own ratio. The renderer takes min(devicePixelRatio, DPR_MAX), so a 1× screen still renders at 1. Render memory scales with DPR²: useWorldScene's 8-bit sRGB targets and bare canvas make 3 affordable on a phone. ?dpr to A/B
 export const MSAA_SAMPLES = num('msaa', 4); // composer target multisamples (08-25 grid AA); 0 = off, ?msaa to A/B
 export const FPS_CAP = 60;
 export const MAX_TILES = num('max', IS_MOBILE ? 9 : 8); // desktop 8 — Nathan's 08-27 DRUM density bake (was 7)

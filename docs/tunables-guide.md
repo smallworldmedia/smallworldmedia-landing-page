@@ -2,7 +2,7 @@
 
 Every live tuning knob and debug affordance on the site, read from the code on
 2026-09-02 (`feature/v1-launch` @ `f625090` plus the uncommitted three-arm
-pager build + the 09-02/09-03 scale refinement rounds; 09-07 logo ticker; 10-08 palette + footer variant + desktop rest layout): 338 URL params
+pager build + the 09-02/09-03 scale refinement rounds; 09-07 logo ticker; 10-08 palette + footer variant + desktop rest layout; 10-09 globe device knobs): 340 URL params
 across 27 reader files, 10 bench/debug panels, 4 debug globals. Regenerate it with the recipe at the bottom; `node scripts/tunables-keys.mjs --check`
 fails if a param in the code is missing from this doc.
 
@@ -191,7 +191,7 @@ Probe: `node scripts/globe-probe.mjs [--mobile] [--rm] [--next=2] [--mode=off] [
 
 ## `/` and `/lab/globe` — VideoGlobe live-video tier
 
-Reader: `src/components/globe/globeConfig.js` (`PARAM()`, module-load). Consumer: `LivePanelScheduler.js`. Every other globeConfig export (geometry, `FPS_CAP`, `DPR_MAX`, `THUMB_WIDTH`, `STREAM_PARAMS`, `MAX_LIVE`, `SCROLL_*`, colors) is a plain constant with no URL knob; `IS_MOBILE` (≤768px, frozen at load) picks the device defaults.
+Reader: `src/components/globe/globeConfig.js` (`PARAM()`, module-load). Consumer: `LivePanelScheduler.js`. Every other globeConfig export (geometry, `FPS_CAP`, `DPR_MAX`, `THUMB_WIDTH`, `STREAM_PARAMS`, `MAX_LIVE`, `SCROLL_*`, colors) is a plain constant with no URL knob, except `GLOBE_DPR_MAX` and `GLOBE_STREAM_PARAMS` (the VideoGlobe on home and /lab, load-time and checked: `?globedpr`, `?globeres`; URL-only, PopTunePanel has no row for them); `IS_MOBILE` (≤768px, frozen at load) picks the device defaults.
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
@@ -199,6 +199,8 @@ Reader: `src/components/globe/globeConfig.js` (`PARAM()`, module-load). Consumer
 | `?demote` | hysteresis score below which a live panel fades back to its still after the 4 s min dwell | `0.06` | any finite | `globeConfig.js:75 DEMOTE_SCORE` |
 | `?dwellmax` | max live dwell before a slot rotates off (randomized ×0.75–1.25 per panel) | `12` s | any finite | `globeConfig.js:78 MAX_LIVE_DWELL_SECONDS` |
 | `?cooldown` | re-live cooldown after rotation | `6` s | any finite | `globeConfig.js:79 RELIVE_COOLDOWN_SECONDS` |
+| `?globedpr` | the VideoGlobe's renderer pixel-ratio cap: home and /lab (load-time; /process keeps `DPR_MAX`, /work has `?dpr`). Also scales the name strips (`nameTicker.js` `STRIP_H`: 256 at the default, 512 on a phone at `3`) | `DPR_MAX` (2 desktop, 1.5 phone) | 1–3 (clamped) | `globeConfig.js GLOBE_DPR_MAX` |
+| `?globeres` | the VideoGlobe's stream pin on any device: one Mux rung for every pool stream, clipped as before (load-time; /work has `?liveres`) | `STREAM_PARAMS` (`480p`) | `270p` \| `480p` \| `720p` \| `1080p`; anything else keeps the default | `globeConfig.js GLOBE_STREAM_PARAMS` |
 | `?debug` | mounts the VideoGlobe debug aside (on `/lab/globe` it is on in dev regardless) | off | presence | — (its gap/cap sliders bake to `globeConfig.js:30-31 GAP_DEG` 1.1 / `CAP_DEG` 24) |
 
 ## Site-wide — RouteFill passage
@@ -315,7 +317,7 @@ Mode tags: **[all]** every field mode · **[DRUM]** `fpgrid=3` (the shipped defa
 |---|---|---|---|---|
 | `?fov` | camera vertical FOV [all] | `42` deg | any finite | `:70` |
 | `?camlag` | resize: camera aspect re-eval trails the window on a retargeted ease [all] | `0.7` s | any finite (floor 0.01) | `:71` |
-| `?dpr` | devicePixelRatio cap for renderer + composer [all] | `1.5` | any finite | `:72` |
+| `?dpr` | devicePixelRatio cap for renderer + composer; the renderer takes `min(devicePixelRatio, ?dpr)`, so a 1× screen renders at 1 [all] | desktop `2`, mobile `3` (Nathan 10-09: full res; was `1.5`) | any finite | `:72` |
 | `?msaa` | composer multisamples; `0` off [all] | `4` | any finite | `:73` |
 | `?lens` | base lens distortion both axes; negative = pincushion "inside a sphere" [all] | `-0.15` | any finite | `:130` |
 | `?lensx` / `?lensy` | per-axis warp; beat `?lens` | `?lens` / `?lens` × 1.1 | any finite | `:131-132` |

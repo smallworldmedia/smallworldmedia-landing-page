@@ -65,7 +65,7 @@ import {
   FILL_FRACTION,
   INITIAL_PITCH_DEG,
   FPS_CAP,
-  DPR_MAX,
+  GLOBE_DPR_MAX,
   PITCH_LIMIT_DEG,
   GAP_COLOR,
   IS_MOBILE,
@@ -248,7 +248,7 @@ export default function useGlobeScene(
 
     /* — Renderer / scene / camera — */
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, GLOBE_DPR_MAX));
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();

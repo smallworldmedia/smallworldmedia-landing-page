@@ -767,6 +767,36 @@ test('scheduler: shared streams — one decode per clip lights every copy of it'
 })
 
 /* — P0: the video diet (Mux instant clipping; Nathan, 10-09) — */
+test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pin, /work renders at full res (P0c)', async () => {
+  // load-time knobs: stub the window, evaluate a fresh copy of the module, restore the window in finally
+  let fresh = 0
+  const load = async (file, search, mobile) => {
+    const had = globalThis.window
+    globalThis.window = { location: { search }, matchMedia: (q) => ({ matches: mobile && q.includes('max-width') }) }
+    try {
+      return await import(`../../src/components/${file}?t=p0c-${++fresh}`)
+    } finally {
+      if (had === undefined) delete globalThis.window
+      else globalThis.window = had
+    }
+  }
+  const low = await load('globe/globeConfig.js', '?globedpr=0&globeres=999p', true)
+  assert.equal(low.GLOBE_DPR_MAX, 1) // PARAM reads 0: the clamp is what makes it 1
+  assert.equal(low.GLOBE_STREAM_PARAMS, STREAM_PARAMS) // not a rung: the pin stands
+  const high = await load('globe/globeConfig.js', '?globedpr=9&globeres=720p', true)
+  assert.equal(high.GLOBE_DPR_MAX, 3)
+  assert.equal(high.GLOBE_STREAM_PARAMS, 'min_resolution=720p&max_resolution=720p')
+  for (const mobile of [false, true]) {
+    const globe = await load('globe/globeConfig.js', '', mobile)
+    assert.equal(globe.DPR_MAX, mobile ? 1.5 : 2)
+    assert.equal(globe.GLOBE_DPR_MAX, globe.DPR_MAX) // default-neutral: home and /lab render as before
+    assert.equal(globe.GLOBE_STREAM_PARAMS, STREAM_PARAMS)
+    const world = await load('work/world/worldConfig.js', '', mobile)
+    assert.equal(world.DPR_MAX, mobile ? 3 : 2) // Nathan, 10-09: full res
+  }
+  assert.equal((await load('work/world/worldConfig.js', '?dpr=1.5', true)).DPR_MAX, 1.5) // ?dpr still A/Bs
+})
+
 test('video diet: one preview window, one detail cap, the clip last and once (P0)', () => {
   assert.equal(GLOBE_PREVIEW_SECONDS, PREVIEW_SECONDS) // the globe pool loops at the shared window
   assert.ok(PREVIEW_SECONDS > 0 && DETAIL_MAX_SECONDS > PREVIEW_SECONDS)

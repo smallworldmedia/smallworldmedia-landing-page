@@ -29,7 +29,7 @@ import {
 } from 'react';
 import useHls from '../work/useHls.js';
 import { muxStream } from '../work/imageConfig.js';
-import { MAX_LIVE, GLOBE_PREVIEW_SECONDS, STREAM_PARAMS } from './globeConfig.js';
+import { MAX_LIVE, GLOBE_PREVIEW_SECONDS, GLOBE_STREAM_PARAMS } from './globeConfig.js';
 
 /** hls.js config for pool slots — locked rendition. maxBufferLength is a
  *  FLOOR, not a cap: hls.js aims its forward buffer at 8 × maxBufferSize ÷
@@ -90,7 +90,7 @@ function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
 // shapes the Mux manifests; both default to the globe's values. The World
 // mounts a smaller, higher-resolution pool for its Near tier.
 const VideoSlotPool = forwardRef(function VideoSlotPool(
-  { size = MAX_LIVE, streamParams = STREAM_PARAMS },
+  { size = MAX_LIVE, streamParams = GLOBE_STREAM_PARAMS },
   ref
 ) {
   const videoRefs = useRef(
