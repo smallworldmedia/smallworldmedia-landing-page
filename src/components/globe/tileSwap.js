@@ -93,8 +93,12 @@ export function swapTile(owner, panel, asset, { style = 'blink', delay = 0, dur 
   panel.swapping = true; // the live scheduler skips a tile mid-swap
   panel.swapAsset = asset;
   panel.swapStyle = style;
+  const s0 = panel.tapeS; // a re-born row stamps a new tape index (MeridianScroll.recycle)
   const swapNow = () => {
     if (panel.swapAsset !== asset) return;
+    // Landing on a tile whose row was re-born under the dip is the stale-swap
+    // race: counted for the probe (staleLanded, gated to 0). recycle cancels these first.
+    if (panel.tapeS !== s0) owner.staleLanded = (owner.staleLanded || 0) + 1;
     panel.swapAsset = null;
     owner.dropLive?.(panel);
     loadTile(owner, panel, asset, onBound);

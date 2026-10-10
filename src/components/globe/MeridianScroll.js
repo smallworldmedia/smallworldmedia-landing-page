@@ -46,7 +46,7 @@
  */
 import * as THREE from 'three';
 import { assetKey } from './TextureManager.js';
-import { loadTile } from './tileSwap.js';
+import { loadTile, cancelSwap } from './tileSwap.js';
 import { SCROLL_VISIBLE_ROWS, SCROLL_PACE_SCALE } from './globeConfig.js';
 
 /**
@@ -111,6 +111,7 @@ export default class MeridianScroll {
     this.scheduler = scheduler;
     this.assignRow = assignRow;
     this.disposed = false;
+    this.bornCancelled = 0; // swaps cancelled because their row was re-born under them (probe telemetry)
 
     // Group panels into rows (each = the 12 longitude tiles at one row index).
     const byRow = new Map();
@@ -223,6 +224,10 @@ export default class MeridianScroll {
     const picks = this.assignRow ? this.assignRow(tiles) : null;
     if (!picks && !this.assets.length) return;
     tiles.forEach((p, i) => {
+      // A swap planned before the wrap would land the old row's asset over the
+      // born one. The row is parked (θc outside (0, π)), so cancelling is silent.
+      if (p.swapAsset) this.bornCancelled += 1;
+      cancelSwap(p);
       const asset = picks ? picks[i] : this.nextPoolAsset();
       if (!asset) return;
       // A live/pending video would now stream the wrong tile — demote it (the

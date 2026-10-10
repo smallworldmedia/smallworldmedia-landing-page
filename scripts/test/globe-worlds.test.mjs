@@ -11,7 +11,7 @@ import { FEATURED_WORLDS_QUERY } from '../../src/lib/queries.js'
 import { buildContentFlow } from '../../src/components/work/detail/buildContentFlow.js'
 import buildWorldPools, { selectPool, WORLD_POOL_CAP } from '../../src/components/globe/buildWorldPools.js'
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
-import { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
+import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import { assetKey } from '../../src/components/globe/TextureManager.js'
 import { loadTile } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
@@ -467,6 +467,76 @@ test('director: an in-place change re-lays every tile onto the next world at onc
   assert.equal(director.busy, false)
   assert.equal(textureManager.refs(), panels.length + director.warm.size)
   director.dispose()
+})
+
+/** fakeScene, posed the way MeridianScroll poses a real scroll globe. */
+function fakeScrollScene() {
+  const scene = fakeScene()
+  const band = Math.PI / 6 - THREE.MathUtils.degToRad(1.1) // max(pitch − latGap, 0.02)
+  for (const p of scene.panels) {
+    p.bandHeight = band
+    p.phiC = ((p.lonIndex + 0.5) / LON) * Math.PI * 2
+    p.canonTop = Math.PI / 2 - band / 2
+    Object.assign(p.mesh.material.uniforms, { uPolarTop: { value: 0 }, uUsePolarScroll: { value: 0 }, uCanonTop: { value: 0 } })
+    poseTile(p, scrollZeroTheta(p.row, ROWS))
+  }
+  const tm = scene.textureManager
+  const load = tm.loadAsset.bind(tm)
+  tm.loadAsset = (a) => {
+    const pending = load(a)
+    if (a.tex) tm.cache.get(assetKey(a)).texture.userData.aspect = a.tex.aspect // the requested aspect (TextureManager measures the decoded one)
+    return pending
+  }
+  return scene
+}
+
+test('director: a re-born row cancels its in-flight swap, so the born asset survives (P0a)', async () => {
+  const random = Math.random
+  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', transitions: ['blink'], chaos: 0, names: 0 })
+  const { panels, textureManager } = fakeScrollScene()
+  let scroller = null
+  let born = null
+  const director = new PopulationDirector({
+    panels,
+    worlds: worldsFixture(),
+    textureManager,
+    getScheduler: () => null,
+    getScroller: () => scroller,
+    getRotation: () => new THREE.Euler(),
+    canAnimate: () => true,
+  })
+  try {
+    director.initialLayout(director.byProminence())
+    scroller = new MeridianScroll({ panels, assets: [], textureManager, cascadeSpeed: 0, scheduler: null, assignRow: (tiles) => (born = director.assignRow(tiles)) })
+    Math.random = () => 0.99 // every swap waits 0.594 s (0.99 × spread 0.6 = ?poptrans 0.9 − the 0.3 s blink)
+    director.advance()
+    await settleTicks()
+    const row6 = panels.filter((p) => p.row === 6)
+    assert.ok(row6.every((p) => p.swapAsset))
+    const victim = panels.find((p) => p.row === 2 && p.swapAsset)
+    const stale = victim.swapAsset
+    scroller.advance(Math.PI / 6)
+    scroller.update(0) // row 6 wraps past the south pole → recycle
+    await settleTicks()
+    row6.forEach((p, i) => {
+      assert.ok(p.swapTl === null) // not equal: failing, it would inspect the live timeline 1000 levels deep and never return
+      assert.equal(p.swapAsset, null)
+      assert.equal(p.shownAsset, born[i])
+    })
+    assert.equal(scroller.bornCancelled, 12)
+    assert.equal(director.staleLanded ?? 0, 0)
+    // NC: the old path, a re-born stamp with no cancel: the planned swap lands over the born asset, and is counted.
+    victim.tapeS += 100
+    loadTile(director, victim, born[0])
+    for (const p of panels) p.swapTl?.progress(1)
+    await settleTicks()
+    assert.equal(director.staleLanded, 1)
+    row6.forEach((p, i) => assert.equal(p.shownAsset, born[i]))
+    assert.equal(victim.shownAsset, stale)
+  } finally {
+    Math.random = random
+    director.dispose()
+  }
 })
 
 /* — 10-07: client-name placement (SQ-8) — camera-relative, no ticker — */
