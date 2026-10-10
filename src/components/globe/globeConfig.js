@@ -147,13 +147,29 @@ export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-textu
 /* — VideoGlobe-only device knobs (10-09, the media spans round): the home
    globe and /lab, which share useGlobeScene, nameTicker and VideoSlotPool's
    default pin. Load-time and checked: PARAM doesn't clamp, and
-   setPixelRatio(0) would blank the canvas. /process keeps DPR_MAX; /work has
-   its own ?dpr and ?liveres (work/world/worldConfig.js). A bake of the
-   globe's ratio belongs in GLOBE_DPR_MAX's default, not DPR_MAX: /process
-   shares DPR_MAX, and the name strips scale by GLOBE_DPR_MAX / DPR_MAX. — */
+   setPixelRatio(0) would blank the canvas. /work has its own ?dpr and
+   ?liveres (work/world/worldConfig.js). A bake of the globe's ratio belongs
+   in GLOBE_DPR_MAX's default, never DPR_MAX: /process shares DPR_MAX.
+
+   BAKED 10-09 (Nathan's Q10): phones render the globe at full resolution,
+   3 — "yes to phone globe at full res , it looks so much better and does not
+   stutter". Desktop stays DPR_MAX (2). /process keeps DPR_MAX, unchanged at
+   1.5 on phones and 2 on desktop. ?globedpr=1.5 is the old phone look.
+   ?globeres keeps its 480p pin (STREAM_PARAMS): "i think we can stay at
+   480p i see no discernable difference". — */
 const clampTo = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
 /** ?globedpr — the VideoGlobe's renderer pixel-ratio cap (useGlobeScene). */
-export const GLOBE_DPR_MAX = clampTo(PARAM('globedpr', DPR_MAX), 1, 3);
+export const GLOBE_DPR_MAX = clampTo(PARAM('globedpr', IS_MOBILE ? 3 : DPR_MAX), 1, 3);
+/** The name strips' height in px (nameTicker's STRIP_H): 256 at the old
+ *  default, scaled by the ratio the canvas ACTUALLY renders at over the one
+ *  DPR_MAX would give it — never by the caps' ratio, which over-draws
+ *  wherever the screen is under the cap (a DSF-2 phone renders 2/1.5, not
+ *  3/1.5; a 2× desktop at ?globedpr=3 still renders 2/2). The server has no
+ *  screen, so it reads the default cap and draws 256. */
+const DEVICE_DPR = typeof window === 'undefined' ? DPR_MAX : window.devicePixelRatio || 1;
+export const NAME_STRIP_H = Math.round(
+  (256 * Math.min(DEVICE_DPR, GLOBE_DPR_MAX)) / Math.min(DEVICE_DPR, DPR_MAX)
+);
 const GLOBE_RES = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('globeres');
 /** ?globeres — the VideoGlobe's stream pin on any device: one Mux rung
  *  (270p | 480p | 720p | 1080p), else STREAM_PARAMS. The World's ?liveres,

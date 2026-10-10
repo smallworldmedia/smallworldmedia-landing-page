@@ -766,13 +766,17 @@ test('scheduler: shared streams — one decode per clip lights every copy of it'
   scheduler.dispose()
 })
 
-/* — P0: the video diet (Mux instant clipping; Nathan, 10-09) — */
+/* — P0c: the globe device knobs — */
 test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pin, /work renders at full res (P0c)', async () => {
   // load-time knobs: stub the window, evaluate a fresh copy of the module, restore the window in finally
   let fresh = 0
-  const load = async (file, search, mobile) => {
+  const load = async (file, search, mobile, devicePixelRatio) => {
     const had = globalThis.window
-    globalThis.window = { location: { search }, matchMedia: (q) => ({ matches: mobile && q.includes('max-width') }) }
+    globalThis.window = {
+      location: { search },
+      matchMedia: (q) => ({ matches: mobile && q.includes('max-width') }),
+      ...(devicePixelRatio === undefined ? {} : { devicePixelRatio }),
+    }
     try {
       return await import(`../../src/components/${file}?t=p0c-${++fresh}`)
     } finally {
@@ -788,15 +792,32 @@ test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pi
   assert.equal(high.GLOBE_STREAM_PARAMS, 'min_resolution=720p&max_resolution=720p')
   for (const mobile of [false, true]) {
     const globe = await load('globe/globeConfig.js', '', mobile)
-    assert.equal(globe.DPR_MAX, mobile ? 1.5 : 2)
-    assert.equal(globe.GLOBE_DPR_MAX, globe.DPR_MAX) // default-neutral: home and /lab render as before
-    assert.equal(globe.GLOBE_STREAM_PARAMS, STREAM_PARAMS)
+    assert.equal(globe.DPR_MAX, mobile ? 1.5 : 2) // /process shares DPR_MAX: unchanged
+    // Nathan, 10-09 (Q10): "yes to phone globe at full res" — phones bake 3, desktop keeps DPR_MAX
+    assert.equal(globe.GLOBE_DPR_MAX, mobile ? 3 : globe.DPR_MAX)
+    assert.equal(globe.GLOBE_STREAM_PARAMS, STREAM_PARAMS) // "i think we can stay at 480p"
     const world = await load('work/world/worldConfig.js', '', mobile)
     assert.equal(world.DPR_MAX, mobile ? 3 : 2) // Nathan, 10-09: full res
   }
   assert.equal((await load('work/world/worldConfig.js', '?dpr=1.5', true)).DPR_MAX, 1.5) // ?dpr still A/Bs
+  assert.equal((await load('globe/globeConfig.js', '?globedpr=1.5', true)).GLOBE_DPR_MAX, 1.5) // the old phone look
+  // The name strips scale with the ratio the canvas RENDERS at over the old default, not the caps'.
+  const strip = async (search, mobile, dpr) => (await load('globe/globeConfig.js', search, mobile, dpr)).NAME_STRIP_H
+  assert.equal(await strip('', true, 3), 512) // DSF-3 phone: 3 / 1.5
+  assert.equal(await strip('', true, 2), 341) // DSF-2 phone: 2 / 1.5 (the caps' ratio drew 512)
+  assert.equal(await strip('', false, 1), 256)
+  assert.equal(await strip('', false, 2), 256)
+  assert.equal(await strip('?globedpr=3', false, 2), 256) // a 2× screen still renders 2 (the caps' ratio drew 384)
+  assert.equal(await strip('?globedpr=3', false, 3), 384)
+  assert.equal(await strip('?globedpr=1.5', true, 3), 256)
+  // the rung regex is anchored at both ends and case-exact: P0c's surviving mutations X5 and X7
+  // ('720px' holds the trailing anchor, which the other three let go)
+  for (const bad of ['1720p', '540p', '720P', '720px']) {
+    assert.equal((await load('globe/globeConfig.js', `?globeres=${bad}`, true)).GLOBE_STREAM_PARAMS, STREAM_PARAMS)
+  }
 })
 
+/* — P0: the video diet (Mux instant clipping; Nathan, 10-09) — */
 test('video diet: one preview window, one detail cap, the clip last and once (P0)', () => {
   assert.equal(GLOBE_PREVIEW_SECONDS, PREVIEW_SECONDS) // the globe pool loops at the shared window
   assert.ok(PREVIEW_SECONDS > 0 && DETAIL_MAX_SECONDS > PREVIEW_SECONDS)

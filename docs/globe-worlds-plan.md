@@ -693,8 +693,10 @@ pools ship tagged by kind up to the hard cap.
     figures are `(1 − rest) × panel-h` at that round's 0.62 floor; the 10-08 re-bake to 0.59 moves
     them to 115.3/57.6 and leaves the ratio alone.
 
-- 2026-10-09 · Nathan's bakes · (A) the desktop home footer rests open by default. Nathan:
-  "can we push the globe page footer work (visible when i define ?footerrest) to be live".
+- 2026-10-09 · Nathan's bakes · (A) the desktop home footer rests open by default; (B) phones
+  render the globe at full resolution. Nathan: "can we push the globe page footer work (visible
+  when i define ?footerrest) to be live"; "yes to phone globe at full res , it looks so much
+  better and does not stutter. i think we can stay at 480p i see no discernable difference".
   - **A — `FOOTER_REST_DESKTOP = 0.62`** in `Hero.jsx`, beside the phone's 0.59. Every desktop
     look of the variant on 10-08 ran at `?footerrest=0.62`, so the bake is that pose. Proof it
     reproduces the look: on the preview build at DSF 2, 1440×900 and 1728×992, a no-param load
@@ -706,3 +708,12 @@ pools ship tagged by kind up to the hard cap.
     run-to-run noise. Not retired in this commit. `globe-probe --footer` (phone), default and
     `--mobile` all exit 0 with no gate change; unit tests add `the desktop footer rest is its
     own bake`.
+  - **B — `GLOBE_DPR_MAX` defaults to 3 on phones** (Nathan's Q10); desktop stays `DPR_MAX` (2),
+    and /process keeps `DPR_MAX` (1.5 phone). `?globedpr=1.5` is the old phone look, and
+    `?globeres` keeps the 480p pin. The name strips now scale by the ratio the canvas actually
+    renders at (`NAME_STRIP_H` in globeConfig.js), not by the caps' ratio: 512 on a DSF-3 phone,
+    341 on a DSF-2 phone (the caps' ratio drew 512), 256 on every desktop at the default. Read
+    off the preview's canvas: phone DSF 3 `/` 3.00 (was 1.50), `/?globedpr=1.5` 1.50, `/work`
+    3.00; DSF-2 phone 2.00; desktop DSF 2 2.00. The strip heights were read at runtime and match.
+    `globe-probe` default and `--mobile` exit 0. Mobile bytes are 13.09 MB, inside 480p's
+    13–15 MB.
