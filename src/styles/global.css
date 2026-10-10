@@ -2790,9 +2790,9 @@ html[data-footer-rest] .site-footer__blurb {
 }
 
 html[data-footer-rest] .logo-ticker {
-  /* LAST element in the band (DOM order is untouched, so desktop, /work and
-     the detail footers keep the band at the panel's top) — the rule the
-     separator hairline hangs off flips with it. */
+  /* LAST element in the band (DOM order is untouched, so /work, /process,
+     the detail footers and home at ?footerrest=0 keep the band at the
+     panel's top) — the rule the separator hairline hangs off flips with it. */
   order: 1;
   border-bottom: 0;
   border-top: 1px solid rgb(255 255 255 / 0.12);

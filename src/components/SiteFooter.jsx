@@ -153,7 +153,8 @@ const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 //     rise, the client marks would dim away in full view on every retreat,
 //     because the roll's top edge does not leave the fold until most of the
 //     window is already spent.
-// rest = 0 ⇒ rise === reveal, span === 1 — desktop and /work are unchanged.
+// rest = 0 ⇒ rise === reveal, span === 1 — /work, /process, the detail
+// footers and ?footerrest=0 are unchanged.
 let revealPeak = 0;
 
 /* ── The band's ONE-WAY "has been seen" latch (10-08, Nathan: "start at 0.4
