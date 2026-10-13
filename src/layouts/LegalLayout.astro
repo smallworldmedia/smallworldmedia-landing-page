@@ -1,0 +1,124 @@
+---
+/**
+ * LegalLayout — shell for the static legal pages (/privacy, /terms).
+ *
+ * Pure .astro, zero client JS. Reuses BaseLayout and the global design
+ * tokens, but lets the document scroll (the landing page locks
+ * html/body to the viewport).
+ */
+import BaseLayout from './BaseLayout.astro';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  updated: string;
+}
+
+const { title, description, updated } = Astro.props;
+---
+
+<BaseLayout title={`${title} · Small World Media™`} description={description}>
+  <main class="legal">
+    <header class="legal__header">
+      <a class="legal__home" href="/">Small World Media™</a>
+      <nav class="legal__nav" aria-label="Legal">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </nav>
+    </header>
+
+    <article class="legal__body">
+      <h1>{title}</h1>
+      <p class="legal__updated">Last updated {updated}</p>
+      <slot />
+    </article>
+  </main>
+</BaseLayout>
+
+<style is:global>
+  html:has(.legal),
+  body:has(.legal) {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+</style>
+
+<style>
+  .legal {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1.5rem 16px 5rem;
+  }
+
+  .legal__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 4rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-mono);
+    line-height: var(--lh-mono);
+    text-transform: uppercase;
+  }
+
+  .legal__nav {
+    display: flex;
+    gap: 1.25rem;
+  }
+
+  .legal__header a:hover,
+  .legal__header a:focus-visible {
+    text-decoration: underline;
+  }
+
+  .legal__body {
+    font-family: var(--font-body);
+    font-size: var(--text-ui);
+    line-height: 1.55;
+  }
+
+  .legal__body h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(3rem, 12vw, 6rem);
+    line-height: 0.9;
+    text-transform: uppercase;
+  }
+
+  .legal__updated {
+    margin: 1rem 0 3rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-mono);
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+
+  .legal__body :global(h2) {
+    font-family: var(--font-headline);
+    font-weight: 500;
+    font-size: var(--text-secondary);
+    line-height: 1.2;
+    margin: 2.5rem 0 0.75rem;
+  }
+
+  .legal__body :global(p),
+  .legal__body :global(ul) {
+    margin-bottom: 1rem;
+  }
+
+  .legal__body :global(ul) {
+    padding-left: 1.25rem;
+  }
+
+  .legal__body :global(li) {
+    margin-bottom: 0.4rem;
+  }
+
+  .legal__body :global(a) {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+</style>

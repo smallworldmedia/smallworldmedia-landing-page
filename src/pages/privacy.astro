@@ -1,0 +1,99 @@
+---
+/**
+ * Privacy Policy — /privacy
+ *
+ * Covers the website and SWM Bookkeeping, the studio's private
+ * QuickBooks Online integration (linked from its Intuit app listing).
+ */
+import LegalLayout from '../layouts/LegalLayout.astro';
+
+const EMAIL = 'nathan@smallworld.media';
+---
+
+<LegalLayout
+  title="Privacy Policy"
+  description="How Small World Media handles information collected through smallworld.media and its private QuickBooks integration."
+  updated="October 13, 2026"
+>
+  <p>
+    Small World Media LLC (“Small World Media”, “we”, “us”) is a creative studio in San Diego, California.
+    This policy explains what information we collect through this website, smallworld.media, and through
+    SWM Bookkeeping, a private QuickBooks Online integration we use for our own books, and how we use it.
+  </p>
+
+  <h2>This website</h2>
+  <p>We don’t use analytics, advertising trackers or cookies on this site.</p>
+  <ul>
+    <li>
+      <strong>Contact form.</strong> When you send an inquiry, we receive the name, email address, project
+      details and message you enter. Our host, Netlify, processes the form and delivers it to us by email. We use it
+      only to reply to you and to discuss the project you asked about.
+    </li>
+    <li>
+      <strong>Hosting and delivery.</strong> Like any website, the services that deliver these pages receive
+      your IP address and basic request details (browser, time, page requested). These are Netlify (hosting),
+      Google Fonts (typefaces) and jsDelivr (a script for the animated background). Their own privacy policies
+      govern that data.
+    </li>
+  </ul>
+
+  <h2>SWM Bookkeeping (QuickBooks integration)</h2>
+  <p>
+    SWM Bookkeeping is an internal tool. It connects only to Small World Media’s own QuickBooks Online company,
+    and it isn’t offered to, or used with, any other business or QuickBooks user.
+  </p>
+  <ul>
+    <li>
+      <strong>What it accesses.</strong> Through Intuit’s Accounting API, it reads and writes our company’s
+      accounting records: the chart of accounts, transactions, vendors, journal entries and company details. It
+      doesn’t use Intuit’s Payments or Payroll APIs.
+    </li>
+    <li>
+      <strong>How it’s used.</strong> Only for our own bookkeeping: reconciling our accounts with bank and card
+      statements, and recording entries the company owner has reviewed and approved.
+    </li>
+    <li>
+      <strong>AI assistance.</strong> The owner uses an AI assistant, Anthropic’s Claude, to help prepare and
+      apply those entries. Data the assistant reads from QuickBooks is processed by Anthropic to provide that
+      service. We don’t allow it to be used to train AI models.
+    </li>
+    <li>
+      <strong>Storage and security.</strong> QuickBooks access tokens are stored encrypted in the macOS Keychain
+      on the owner’s computer and are never shared. Working copies of reports and a log of every change are kept
+      on the owner’s devices and in our private cloud storage. All connections to Intuit use HTTPS.
+    </li>
+    <li>
+      <strong>No selling or sharing.</strong> We don’t sell, rent or share QuickBooks data with anyone, apart from
+      the AI assistant described above and our accountant or tax preparer when needed for our own filings.
+    </li>
+    <li>
+      <strong>Disconnecting.</strong> Access can be revoked at any time from QuickBooks (Apps → My apps), which
+      immediately stops the integration from reaching the company’s data.
+    </li>
+  </ul>
+
+  <h2>Retention</h2>
+  <p>
+    We keep contact-form messages for as long as we need them to work with you, and accounting records for as long
+    as tax and business record-keeping rules require.
+  </p>
+
+  <h2>Your choices</h2>
+  <p>
+    You can ask us what information we hold about you, or ask us to correct or delete it, by emailing
+    <a href={`mailto:${EMAIL}`}>{EMAIL}</a>. California residents have these rights under the CCPA. We don’t sell or
+    share personal information as those terms are defined there.
+  </p>
+
+  <h2>Children</h2>
+  <p>This site isn’t directed to children under 13, and we don’t knowingly collect their information.</p>
+
+  <h2>Changes</h2>
+  <p>If we change this policy, we’ll update it here and change the date at the top.</p>
+
+  <h2>Contact</h2>
+  <p>
+    Small World Media LLC · San Diego, California ·
+    <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+  </p>
+</LegalLayout>
