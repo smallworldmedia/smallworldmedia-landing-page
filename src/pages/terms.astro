@@ -1,0 +1,76 @@
+---
+/**
+ * Terms of Use — /terms
+ *
+ * Website terms plus the end-user terms for SWM Bookkeeping, the
+ * studio's private QuickBooks integration (its Intuit EULA URL).
+ */
+import LegalLayout from '../layouts/LegalLayout.astro';
+
+const EMAIL = 'nathan@smallworld.media';
+---
+
+<LegalLayout
+  title="Terms of Use"
+  description="Terms for using smallworld.media and Small World Media's private QuickBooks integration."
+  updated="October 13, 2026"
+>
+  <p>
+    These terms apply to smallworld.media (the “site”), run by Small World Media LLC (“Small World Media”, “we”, “us”),
+    and to SWM Bookkeeping, our private QuickBooks Online integration. By using the site, you agree to them.
+  </p>
+
+  <h2>The site</h2>
+  <ul>
+    <li>
+      The site presents our studio and its work. All work, imagery, video, typefaces and text on it belong to
+      Small World Media or our clients and collaborators. Please don’t copy, republish or use them commercially
+      without our written permission.
+    </li>
+    <li>
+      Sending an inquiry through the contact form doesn’t create a client relationship. Projects are governed by
+      the separate proposal or agreement we sign with each client.
+    </li>
+    <li>Don’t use the site to send spam, interfere with it, or try to access anything that isn’t public.</li>
+  </ul>
+
+  <h2>SWM Bookkeeping</h2>
+  <ul>
+    <li>
+      SWM Bookkeeping is an internal tool, licensed only to Small World Media LLC for its own QuickBooks Online
+      company. It isn’t offered, sold or licensed to anyone else, and no other party may use it.
+    </li>
+    <li>
+      It connects to QuickBooks through Intuit’s Accounting API, with access the company owner grants and can revoke
+      at any time in QuickBooks. Our <a href="/privacy">Privacy Policy</a> describes how that data is handled.
+    </li>
+    <li>
+      QuickBooks and Intuit are trademarks of Intuit Inc. SWM Bookkeeping isn’t made, endorsed or supported by
+      Intuit.
+    </li>
+  </ul>
+
+  <h2>No warranty</h2>
+  <p>
+    The site and SWM Bookkeeping are provided “as is”, without warranties of any kind. We don’t promise the site will
+    always be available or error-free.
+  </p>
+
+  <h2>Limitation of liability</h2>
+  <p>
+    To the extent the law allows, Small World Media isn’t liable for indirect, incidental or consequential damages
+    arising from use of the site or SWM Bookkeeping.
+  </p>
+
+  <h2>Governing law</h2>
+  <p>These terms are governed by the laws of the State of California.</p>
+
+  <h2>Changes</h2>
+  <p>We may update these terms. When we do, we’ll post the new version here and change the date at the top.</p>
+
+  <h2>Contact</h2>
+  <p>
+    Small World Media LLC · San Diego, California ·
+    <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+  </p>
+</LegalLayout>
