@@ -272,6 +272,7 @@ export const FEATURED_WORLDS_QUERY = `
       "imageDimensions": image.asset->metadata.dimensions,
       "playbackId": video.asset->playbackId,
       "videoAspectRatio": video.asset->data.aspect_ratio,
+      "videoTrack": video.asset->data.tracks[type == "video"][0]{max_width, max_height},
       "videoStatus": video.asset->data.status,
       "services": services[]->{ name, "slug": slug.current }
     }

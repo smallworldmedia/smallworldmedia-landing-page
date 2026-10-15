@@ -72,7 +72,7 @@ const image = { _type: 'image', asset: ref('image-page') }
 const video = (id) => ({ _type: 'mux.video', asset: ref(id) })
 const base = { _type: 'mediaAsset', client: ref('client-fixture'), project: ref('project-fixture'), sourceManifest: 'Branding' }
 const media = (id, rank, fields) => ({ ...base, _id: id, orderRank: rank, title: id, ...fields })
-const mux = (id, status = 'ready') => ({ _id: id, _type: 'mux.videoAsset', playbackId: `pb-${id}`, data: { status, aspect_ratio: '16:9' } })
+const mux = (id, status = 'ready') => ({ _id: id, _type: 'mux.videoAsset', playbackId: `pb-${id}`, data: { status, aspect_ratio: '16:9', tracks: [{ type: 'video', max_width: 1920, max_height: 1080 }] } })
 const documents = [
   { _id: 'client-fixture', _type: 'client', name: 'Fixture', slug: { current: 'fixture' } },
   { _id: 'svc', _type: 'service', name: 'Motion Design', slug: { current: 'motion-design' } },
@@ -103,7 +103,17 @@ test('buildWorldPools holds exactly the /work World media: hero, showcase Tiles,
   // a duplicate stream is one texture.
   assert.deepEqual(world.assets.map(assetKey), ['pb-mux-hero', 'https://cdn.example/page.jpg', 'https://cdn.example/still.jpg', 'pb-mux-a'])
   assert.deepEqual(world.assets.map((a) => a.kind), ['video', 'art', 'still', 'video'])
-  assert.deepEqual(Object.keys(world.assets[0]), ['kind', 'playbackId', 'videoAspectRatio']) // lean props: no ids, no nulls
+  assert.deepEqual(Object.keys(world.assets[0]), ['kind', 'playbackId', 'videoAspectRatio', 'u']) // lean props: no ids, no nulls
+  assert.deepEqual(world.assets.map((a) => a.u), ['h', 'q', 'q', 'h']) // hero · cover · still · clip-a (mediaClass.classOf)
+  // u is the veto, not the label alone: clip-a's stream as a 1080×1920 source keeps its motion_16x9 label and classes v (RH8CMzFM's case, T8)
+  const portrait = documents.map((d) => (d._id === 'mux-a' ? { ...d, data: { status: 'ready', aspect_ratio: '9:16', tracks: [{ type: 'video', max_width: 1080, max_height: 1920 }] } } : d))
+  assert.equal(buildWorldPools(await query(FEATURED_WORLDS_QUERY, portrait))[0].assets.find((a) => a.playbackId === 'pb-mux-a').u, 'v')
+  // s: the source short side, only below TOP_RUNG; 0 = no track size
+  const withTrack = (track) => documents.map((d) => (d._id === 'mux-a' ? { ...d, data: { status: 'ready', aspect_ratio: '16:9', ...(track ? { tracks: [{ type: 'video', ...track }] } : {}) } } : d))
+  assert.equal(buildWorldPools(await query(FEATURED_WORLDS_QUERY, withTrack({ max_width: 1280, max_height: 720 })))[0].assets[3].s, 720)
+  assert.equal(buildWorldPools(await query(FEATURED_WORLDS_QUERY, withTrack(null)))[0].assets[3].s, 0)
+  assert.equal('s' in world.assets[3], false) // NC: a 1080p source carries nothing
+  assert.equal(world.assets.some((a) => !a.playbackId && 's' in a), false) // NC: s is a video's alone; no still or album art carries one, not even 0
   // Parity with the World itself: every non-hero tile is a showcase Tile or album art.
   const flow = buildContentFlow(rows[0].assets)
   const worldKeys = new Set([...flow.showcase, ...flow.albumArt].map((a) => a.playbackId || a.imageUrl))

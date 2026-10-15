@@ -16,13 +16,19 @@
  * starves a project's album art or stills behind a long run of videos.
  *
  * Globe asset shape: { kind: 'video'|'still'|'art', playbackId?, imageUrl?,
- * videoAspectRatio? } — no ids and no nulls: the pools ride the home island's
- * props (~40 KB for 13 worlds), and the texture key (assetKey) is all a tile
- * needs. Stills load as square Sanity crops (TextureManager); kind only
- * filters, playbackId alone decides whether a tile can go live.
+ * videoAspectRatio?, u?, s? } — no ids and no nulls: the pools ride the home
+ * island's props (WORLD_POOL_CAP bounds them), and the texture key (assetKey)
+ * is all a tile needs. Stills load as square Sanity crops (TextureManager);
+ * kind only filters, playbackId alone decides whether a tile can go live.
+ * `u` is the span class `mediaClass.classOf` decides at build from the label
+ * and the native ratio; absent means single only. `s` is a video's source
+ * short side, present only below `TOP_RUNG`, or 0 when unknown
+ * (docs/globe-worlds-plan.md § Media spans).
  */
 import { buildContentFlow } from '../work/detail/buildContentFlow.js';
 import { toProjectSlug } from '../../lib/projectSlug.js';
+import { classOf } from './mediaClass.js';
+import { TOP_RUNG } from './unitSpan.js';
 
 export const WORLD_POOL_CAP = 32; // per project — bounds the island payload
 export const WORLD_KINDS = ['video', 'still', 'art'];
@@ -48,6 +54,16 @@ function toGlobeAsset(asset) {
   if (asset.playbackId) out.playbackId = asset.playbackId;
   else out.imageUrl = asset.imageUrl;
   if (asset.playbackId && asset.videoAspectRatio) out.videoAspectRatio = asset.videoAspectRatio;
+  const u = classOf(asset); // 'h' | 'v' | 'q' | null: the span class (mediaClass.js), decided once, here
+  if (u) out.u = u;
+  // s: a video's SOURCE short side (the Mux video track), carried only below
+  // TOP_RUNG; 0 = Sanity holds no track size. Absent = at least TOP_RUNG.
+  // unitSpan.sourceShort reads it: quad election, class-texture and rung clamps.
+  if (asset.playbackId) {
+    const t = asset.videoTrack;
+    const s = t?.max_width > 0 && t?.max_height > 0 ? Math.min(t.max_width, t.max_height) : 0;
+    if (s < TOP_RUNG) out.s = s;
+  }
   return out;
 }
 
