@@ -31,11 +31,23 @@
  */
 import gsap from 'gsap';
 import { assetKey, computeCoverUv } from './TextureManager.js';
+import { namePinch } from './nameTicker.js';
+import { unitA } from './unitSpan.js';
+
+/** A unit member's texA window from its own live pose: the ONE rule both writers
+ *  use (windowA, so loadTile's bind; PopulationDirector.place). θ in the globe frame. */
+export function unitWindowOf(panel, m, aTex) {
+  const y = Math.min(Math.max(panel.centerDir.y, -1), 1);
+  return unitA(m, namePinch(y), Math.acos(y), aTex);
+}
 
 /** THE texA window rule, for every texA writer: the texture's MEASURED aspect
  *  (userData.aspect: a class texture, a name strip; a legacy thumbnail has none
- *  and is square) covered onto the panel. P4b adds the unit-member branch. */
+ *  and is square) covered onto the panel. A unit member (P4b) takes its own
+ *  window inside the unit picture instead, unless the probe's kill switch
+ *  globalThis.__swmNoUnitWindows is set (true or 'bind': --negctl, §8.1). */
 export function windowA(panel, asset, tex) {
+  if (asset?.place && !globalThis.__swmNoUnitWindows) return unitWindowOf(panel, asset, tex?.userData?.aspect ?? asset.tex?.aspect ?? 1);
   const { scale, offset } = computeCoverUv(tex?.userData?.aspect ?? 1, panel.panelAspect);
   return { s: scale, o: offset };
 }
@@ -59,6 +71,10 @@ export function loadTile(owner, panel, asset, onBound = null) {
     u.uvScaleA.value.set(scale[0], scale[1]);
     u.uvOffsetA.value.set(offset[0], offset[1]);
     u.uHasTexA.value = 1;
+    // A unit member is right on its FIRST bound frame (windowA, above), whoever binds it:
+    // the director's plan or MeridianScroll's born pair. The hook reads only panel and asset.
+    if (asset.place) panel._skewTheta = Math.acos(Math.min(Math.max(panel.centerDir.y, -1), 1));
+    panel._bound = asset; // place() counts any unit record shown without this bind (snaps, gated 0)
     panel.shownAsset = asset; // what texA shows (panel.asset leads it while a load is in flight)
     // Release what this tile WAS showing (already ref-bumped above, so a
     // same-key reload can never dip to 0), then take ownership.

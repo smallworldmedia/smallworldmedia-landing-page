@@ -16,7 +16,7 @@ import buildWorldPools, { selectPool, WORLD_POOL_CAP } from '../../src/component
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import TextureManager, { assetKey, computeCoverUv } from '../../src/components/globe/TextureManager.js'
-import { loadTile, windowA, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
+import { loadTile, windowA, unitWindowOf, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
 import { TUNING, POP_DEFAULTS, setPopTune } from '../../src/components/globe/popConfig.js'
@@ -1434,6 +1434,39 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
     assert.deepEqual(['neighbourRule' in g.pass, g.detail.neighbourRule.reportOnly, g.detail.neighbourRule.worst], [false, true, 1], JSON.stringify(over))
   }
   assert.equal('neighbourRule' in judgeH([uS()], { record: true }).detail, false)
+
+  // — P4b — level h: what the units render. unitSeam and unitRegister sum n over the samples (floor 20 each)
+  // and bound the worst: 1e-4 of a member's rendered width, 5e-6 of texture uv. snaps (n = the units samples,
+  // floor 1) and skew (n = the most skewChecks a sample saw, floor 20) read the director's cumulative counters.
+  const drawn = (units = {}) => uS({ seam: { n: 12, worst: 2e-5 }, register: { n: 24, worst: 1e-6 }, snaps: 0, skewBad: 0, skewChecks: 30, ...units })
+  const right = judgeH([drawn(), drawn({ seam: { n: 10, worst: 1e-4 }, register: { n: 20, worst: 5e-6 }, skewChecks: 60 })])
+  const row = (g, name) => [g.pass[name], g.detail[name].n, g.detail[name].floor, g.detail[name].worst, g.detail[name].bound]
+  assert.deepEqual(row(right, 'unitSeam'), [true, 22, 20, 1e-4, 1e-4]) // n sums the samples; a worst AT the bound passes
+  assert.deepEqual(row(right, 'unitRegister'), [true, 44, 20, 5e-6, 5e-6])
+  assert.deepEqual(row(right, 'snaps'), [true, 2, 1, 0, 0])
+  assert.deepEqual(row(right, 'skew'), [true, 60, 20, 0, 0]) // a cumulative count: its latest, never a sum
+  // each fails non-vacuously just past its bound, whichever sample saw it (a counter only grows: the later one)
+  assert.ok(failsAlone(judgeH([drawn(), drawn({ seam: { n: 10, worst: 1.01e-4 } })]), 'unitSeam'))
+  assert.ok(failsAlone(judgeH([drawn({ seam: { n: 10, worst: 1.01e-4 } }), drawn()]), 'unitSeam'))
+  assert.ok(failsAlone(judgeH([drawn({ register: { n: 30, worst: 5.1e-6 } })]), 'unitRegister'))
+  assert.ok(failsAlone(judgeH([drawn({ register: { n: 30, worst: 5.1e-6 } }), drawn()]), 'unitRegister'))
+  assert.ok(failsAlone(judgeH([drawn(), drawn({ snaps: 1 })]), 'snaps'))
+  assert.ok(failsAlone(judgeH([drawn(), drawn({ skewBad: 1 })]), 'skew'))
+  // ...and whichever phase saw it: all four read every units sample, so a fault seen only in a change (or a tide),
+  // with the clock stopped, fails them too. That is when windows move most.
+  const moving = (units) => uS({ seam: { n: 12, worst: 2e-5 }, register: { n: 24, worst: 1e-6 }, snaps: 0, skewBad: 0, skewChecks: 30, clock: 'stopped', ...units }, { phase: 'change' })
+  assert.ok(failsAlone(judgeH([drawn(), moving({ seam: { n: 10, worst: 1.01e-4 } })]), 'unitSeam'))
+  assert.ok(failsAlone(judgeH([drawn(), moving({ register: { n: 20, worst: 5.1e-6 } })]), 'unitRegister'))
+  assert.ok(failsAlone(judgeH([drawn(), moving({ snaps: 1 })]), 'snaps'))
+  assert.ok(failsAlone(judgeH([drawn(), moving({ skewBad: 1 })]), 'skew'))
+  // vacuous under the floors: 19 seams, 19 registers, 19 skew checks; snaps with no units sample at all
+  const thin = judgeH([drawn({ seam: { n: 19, worst: 0 }, register: { n: 19, worst: 0 }, skewChecks: 19 })])
+  for (const name of ['unitSeam', 'unitRegister', 'skew']) assert.deepEqual([thin.pass[name], thin.detail[name].vacuous], [false, true], name)
+  const unitless = judgeH([{ ...drawn(), units: null }])
+  assert.deepEqual([unitless.pass.snaps, unitless.detail.snaps.vacuous], [false, true])
+  // below level h none of the four is evaluated
+  const texOnly = unitGates({ requests: [classQ], samples: [drawn()] }, texCtx)
+  assert.equal(['unitSeam', 'unitRegister', 'snaps', 'skew'].some((name) => name in texOnly.detail), false)
 })
 
 test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
@@ -2036,13 +2069,25 @@ test('spans: with units on, every tile and the warm set hold one ref each, on th
     assert.notEqual(textureManager.refs(), panels.length + director.warm.size)
     textureManager.release(assetKey(classed[0].asset))
     assert.equal(textureManager.refs(), panels.length + director.warm.size)
-    // Each classed tile's texA window covers its texture's measured aspect onto the panel (THE window rule;
-    // this scene's loader stamps the requested aspect), not the square of a legacy thumbnail.
+    // Each classed single's texA window covers its texture's measured aspect onto the panel (THE window rule;
+    // this scene's loader stamps the requested aspect), not the square of a legacy thumbnail; a unit member's
+    // is its own window inside the unit picture (P4b: windowA's member branch, unitWindowOf).
+    let members = 0
+    let singles = 0
     for (const p of classed) {
       const u = p.mesh.material.uniforms
+      const got = [u.uvScaleA.value.x, u.uvScaleA.value.y, u.uvOffsetA.value.x, u.uvOffsetA.value.y]
+      if (p.asset.place) {
+        members += 1
+        const w = unitWindowOf(p, p.asset, p.asset.tex.aspect)
+        assert.deepEqual(got, [...w.s, ...w.o], p.asset.tex.key)
+        continue
+      }
+      singles += 1
       const { scale, offset } = computeCoverUv(p.asset.tex.aspect, p.panelAspect)
-      assert.deepEqual([u.uvScaleA.value.x, u.uvScaleA.value.y, u.uvOffsetA.value.x, u.uvOffsetA.value.y], [...scale, ...offset], p.asset.tex.key)
+      assert.deepEqual(got, [...scale, ...offset], p.asset.tex.key)
     }
+    assert.ok(members >= 1 && singles >= 1, `${members} members, ${singles} singles checked`)
     // unitStats' census of the cache: each pool key once, by the class it was asked as; a key outside the
     // pools (a name strip's) is not a pool texture.
     const census = { h: 0, v: 0, q: 0, legacy: 0 }
@@ -2811,8 +2856,10 @@ test('spans: placeKey keys the texture AND the unit slot: single ↔ member swap
   const { panels, textureManager } = fakeScene()
   const owner = { textureManager, disposed: false }
   const a = { kind: 'video', playbackId: 'clip', u: 'h' }
-  const P = { uid: 'h:2:5:clip' }
-  const Q = { uid: 'h:6:5:clip' }
+  // Whole Places (P4b: a bound member takes its own window from its place, windowA's member branch)
+  const unit = (uid) => ({ uid, key: 'clip', cls: 'h', cols: 2, rows: 1, n: 2, S: unitAspect(2, 1, SPAN_L), L: SPAN_L, members: [], born: false })
+  const P = unit('h:2:5:clip')
+  const Q = unit('h:6:5:clip')
   const member = (place, kx) => ({ ...a, place, kx, ky: 0 })
   assert.equal(placeKey(a), 'clip|-') // units off: the texture key and '|-'
   assert.equal(placeKey(member(P, 1)), 'clip|h:2:5:clip:1:0')
@@ -2965,4 +3012,421 @@ test('spans: a unit powers on and fills blue as one picture: every member takes 
   } finally {
     Math.random = random
   }
+})
+
+/* — Media spans, P4b: per-frame unit windows. loadTile's bind hook writes a member's own window on its first
+   bound frame; director.place() rewrites it from the live pose after every frame's scroll (T18, and T20's
+   — P4b — block above). — */
+/** Every uniform of every panel, by value: vectors as arrays, textures as the objects bound. */
+const uniformSnapshot = (panels) =>
+  panels.map((p) => Object.fromEntries(Object.entries(p.mesh.material.uniforms).map(([k, u]) => [k, u.value?.isVector2 ? [u.value.x, u.value.y] : u.value])))
+/** A tile's A window as its uniforms hold it. */
+const windowOf = (p) => {
+  const u = p.mesh.material.uniforms
+  return [u.uvScaleA.value.x, u.uvScaleA.value.y, u.uvOffsetA.value.x, u.uvOffsetA.value.y]
+}
+/** The A window a member owes at its live pose: THE rule both writers use, on the texture it shows. */
+const owed = (p) => {
+  const w = unitWindowOf(p, p.shownAsset, p.mesh.material.uniforms.texA.value.userData.aspect)
+  return [...w.s, ...w.o]
+}
+const thetaOf = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
+/** Move every row by d from its scroll-0 pose (MeridianScroll's own pose writer). */
+const shiftRows = (panels, d) => {
+  for (const p of panels) poseTile(p, scrollZeroTheta(p.row, ROWS) + d)
+}
+
+test('spans: with units off, place() changes nothing: every uniform of every panel, name strips included (T18)', () => {
+  const directors = []
+  try {
+    // Units off on the scroll lattice, names on: today's board. Every bind stamps _bound; nothing else is written.
+    const { director: off, panels } = unitDirector({ units: 0, names: 1 }, { getRotation: TILT })
+    directors.push(off)
+    off.initialLayout(off.byProminence())
+    assert.ok(strips(panels).length >= 2, `${strips(panels).length} strip tiles`) // the snapshot holds name strips
+    assert.ok(panels.every((p) => !p.shownAsset.place && p._bound === p.shownAsset && p._skewTheta === undefined))
+    const today = uniformSnapshot(panels)
+    for (let i = 0; i < 3; i++) off.place()
+    assert.deepEqual(uniformSnapshot(panels), today)
+    for (const [i, p] of panels.entries()) for (const k of ['texA', 'texB']) assert.equal(p.mesh.material.uniforms[k].value, today[i][k]) // the very texture bound, not a lookalike
+    assert.deepEqual([off.unitSnaps, off.skewChecks, off.skewBad], [0, 0, 0])
+    // ?popunits flipped off on the bench while units still show (until the relayout lands): place() still returns
+    // at once, though every member's window is stale (the rows have moved on under them).
+    const { director: on, panels: board } = unitDirector({ names: 1 }, { getRotation: TILT })
+    directors.push(on)
+    on.initialLayout(on.byProminence())
+    const members = board.filter((p) => p.shownAsset.place && !p.parked)
+    assert.ok(members.length >= 6 && strips(board).length >= 2, `${members.length} members, ${strips(board).length} strip tiles`)
+    shiftRows(board, 0.05)
+    TUNING.units = 0
+    const stale = uniformSnapshot(board)
+    on.place()
+    assert.deepEqual(uniformSnapshot(board), stale)
+    assert.deepEqual([on.unitSnaps, on.skewChecks, on.skewBad], [0, 0, 0])
+    // NC: units on, place() writes a member's A: the window it owes at the moved pose.
+    TUNING.units = 1
+    on.place()
+    assert.notDeepEqual(uniformSnapshot(board), stale)
+    for (const p of members.filter((m) => !m.parked)) assert.deepEqual(windowOf(p), owed(p))
+  } finally {
+    for (const d of directors) d.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: a unit member is right on its first bound frame: windowA’s member branch, loadTile’s bind hook (P4b)', async () => {
+  const { director, panels } = unitDirector()
+  try {
+    director.initialLayout(director.byProminence())
+    const units = [...placesOf(panels).keys()]
+    assert.ok(units.length >= 4, `${units.length} units`)
+    for (const p of panels) {
+      assert.equal(p._bound, p.shownAsset) // every bind stamps what it bound
+      if (!p.shownAsset.place) {
+        assert.equal(p._skewTheta, undefined)
+        continue
+      }
+      assert.equal(p._skewTheta, thetaOf(p)) // the pose its first window was written for
+      assert.deepEqual(windowOf(p), owed(p))
+    }
+    // windowA: a member's own window on its texture's measured aspect, else its requested one, else square. A
+    // single, and every member under the probe's kill switch (true, or 'bind'), takes the cover window.
+    const m = units[0].members[1]
+    const rec = m.shownAsset
+    const tex = m.mesh.material.uniforms.texA.value
+    const cover = (t) => {
+      const { scale, offset } = computeCoverUv(t, m.panelAspect)
+      return { s: scale, o: offset }
+    }
+    assert.deepEqual(windowA(m, rec, tex), unitWindowOf(m, rec, tex.userData.aspect))
+    assert.deepEqual(windowA(m, rec, {}), unitWindowOf(m, rec, rec.tex.aspect))
+    assert.deepEqual(windowA(m, { ...rec, tex: undefined }, null), unitWindowOf(m, rec, 1))
+    // The measured aspect wins over the one the record asked for: a texture that measures 1.8 is windowed for 1.8.
+    // NC: the two windows differ.
+    assert.deepEqual(windowA(m, rec, { userData: { aspect: 1.8 } }), unitWindowOf(m, rec, 1.8))
+    assert.notDeepEqual(unitWindowOf(m, rec, 1.8), unitWindowOf(m, rec, rec.tex.aspect))
+    // θ is the colatitude, acos of the clamped y, as place() and the register take it. An H member's window does not
+    // read θ; a V member's does (P5's class), so a hand-made V record pins it. NC: asin's θ gives another window.
+    const V = { ...rec.place, uid: 'v:0:0:test', cls: 'v', cols: 1, rows: 2, S: unitAspect(1, 2, rec.place.L) }
+    const vRec = { ...rec, place: V, kx: 0, ky: 0 }
+    const y = m.centerDir.y
+    assert.deepEqual(windowA(m, vRec, tex), unitA(vRec, namePinch(y), thetaOf(m), tex.userData.aspect))
+    assert.notDeepEqual(unitA(vRec, namePinch(y), Math.asin(y), tex.userData.aspect), windowA(m, vRec, tex))
+    assert.deepEqual(windowA(m, { kind: 'video', playbackId: 'single' }, tex), cover(tex.userData.aspect))
+    for (const v of [true, 'bind']) {
+      globalThis.__swmNoUnitWindows = v
+      assert.deepEqual(windowA(m, rec, tex), cover(tex.userData.aspect), String(v))
+    }
+    delete globalThis.__swmNoUnitWindows
+    // The kill switch's guide row (the debug globals) names both values.
+    assert.match(fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8'), /^\| `globalThis\.__swmNoUnitWindows` \| .*`true`.*`'bind'`.*\|$/m)
+    // NC: the member window is neither the cover window nor its partner's: the pair shows two halves of one picture.
+    assert.notDeepEqual(windowA(m, rec, tex), cover(tex.userData.aspect))
+    assert.notDeepEqual(windowOf(units[0].members[0]), windowOf(m))
+    // The hook writes the bind's pose whoever binds: a re-bind after the rows moved stamps the new θ and window.
+    shiftRows(panels, 0.03)
+    loadTile(director, m, rec)
+    assert.deepEqual([m._bound, m._skewTheta], [rec, thetaOf(m)])
+    assert.deepEqual(windowOf(m), owed(m))
+    // _bound is the record loadTile last BOUND: a load superseded while in flight settles late, releases its own
+    // ref and stamps nothing, so _bound stays what the tile shows (else place() would freeze it as a snap).
+    const tm = director.textureManager
+    const [peek, loadAsset] = [tm.peek, tm.loadAsset]
+    let settle = null
+    tm.peek = () => null
+    tm.loadAsset = () => new Promise((resolve) => (settle = resolve))
+    const late = loadTile(director, m, { kind: 'video', playbackId: 'late' })
+    Object.assign(tm, { peek, loadAsset })
+    loadTile(director, m, rec) // warm: binds at once
+    settle({ userData: { aspect: 1 } })
+    await late
+    assert.deepEqual([m._bound, m.shownAsset], [rec, rec])
+  } finally {
+    delete globalThis.__swmNoUnitWindows
+    director.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: director.place() rewrites each member from its live pose: dead-band, snaps, parked, skew, the kill switch (P4b)', () => {
+  const { director, panels } = unitDirector()
+  try {
+    director.initialLayout(director.byProminence())
+    assert.equal(director.skewMax, unitSkewBound(director.L)) // m7: from UNIT_EPS and the lattice
+    /** Members place() judges for skew this frame: bound, unparked, in a whole unit. */
+    const judged = () => panels.filter((p) => p.shownAsset?.place && p._bound === p.shownAsset && !p.parked && director.wholeUnit(p.shownAsset.place)).length
+    const units = [...placesOf(panels).keys()].filter((P) => director.wholeUnit(P))
+    assert.ok(units.length >= 4, `${units.length} whole units`)
+    const members = units.flatMap((P) => P.members)
+    // One frame of a tide (the rows move 0.01 rad): every member's window follows its pose; each judged member is
+    // one skew check, and none is skewed (the pose change bounds the write).
+    shiftRows(panels, 0.01)
+    const stale = members.map(windowOf)
+    const checks = judged()
+    director.place()
+    for (const p of members) if (!p.parked) assert.deepEqual([windowOf(p), p._skewTheta], [owed(p), thetaOf(p)])
+    assert.ok(members.some((p, i) => Math.abs(windowOf(p)[2] - stale[i][2]) > 1e-4)) // the pose change moved them
+    assert.deepEqual([director.skewChecks, director.skewBad, director.unitSnaps], [checks, 0, 0])
+    // A pose change too small to move any window past the dead-band still moves every pose stamp, so the next
+    // frame's allowance runs from this frame's pose. NC: the stamps did move.
+    shiftRows(panels, 0.01 + 1e-10)
+    const [kept, stamps] = [members.map(windowOf), members.map((p) => p._skewTheta)]
+    director.place()
+    for (const [i, p] of members.entries()) if (!p.parked) assert.deepEqual([windowOf(p), p._skewTheta], [kept[i], thetaOf(p)])
+    assert.ok(members.some((p, i) => !p.parked && p._skewTheta !== stamps[i]))
+
+    const p0 = units.find((P) => P.members.every((m) => !m.parked)).members[0]
+    const u = p0.mesh.material.uniforms
+    // Dead-band: a window within 1e-9 of the one owed stays as it is (and the 1e-6 slack keeps it from skew).
+    const w0 = owed(p0)
+    u.uvOffsetA.value.x = w0[2] + 5e-10
+    director.place()
+    assert.equal(u.uvOffsetA.value.x, w0[2] + 5e-10)
+    u.uvOffsetA.value.x = w0[2] + 2e-9
+    director.place()
+    assert.equal(u.uvOffsetA.value.x, w0[2])
+    // off is the largest of the four components: a scale, or a y term, 2e-9 off on its own is rewritten too.
+    for (const [k, c] of [['uvScaleA', 'x'], ['uvScaleA', 'y'], ['uvOffsetA', 'y']]) {
+      u[k].value[c] += 2e-9
+      assert.notDeepEqual(windowOf(p0), owed(p0), `${k}.${c} planted`)
+      director.place()
+      assert.deepEqual(windowOf(p0), owed(p0), `${k}.${c}`)
+    }
+    assert.equal(director.skewBad, 0)
+    // Skew: a write larger than the pose change allows (skewMax · |Δθ| + 1e-6) is counted; one inside it is not.
+    const plant = (e, dTheta) => {
+      director.place()
+      p0._skewTheta = thetaOf(p0) - dTheta
+      u.uvOffsetA.value.x = owed(p0)[2] + e
+      const bad = director.skewBad
+      director.place()
+      return director.skewBad - bad
+    }
+    assert.deepEqual([plant(0.9 * director.skewMax * 0.01, 0.01), plant(1.1 * director.skewMax * 0.01, 0.01)], [0, 1])
+    assert.deepEqual([plant(5e-7, 0), plant(2e-6, 0)], [0, 1])
+    // A member with no pose stamp gets no pose allowance, only the 1e-6 slack; place() stamps it.
+    director.place()
+    delete p0._skewTheta
+    u.uvOffsetA.value.x = owed(p0)[2] + 2e-6
+    const unstamped = director.skewBad
+    director.place()
+    assert.deepEqual([director.skewBad - unstamped, p0._skewTheta], [1, thetaOf(p0)])
+    // Mid-swap (a blink or a surge dip: swapping, swapAsset set) a member still shows its unit, so place() still
+    // follows its pose; only a parked tile is skipped. NC: the move left its window behind.
+    p0.swapping = true
+    p0.swapAsset = { kind: 'video', playbackId: 'next' }
+    shiftRows(panels, 0.02)
+    assert.notDeepEqual(windowOf(p0), owed(p0))
+    director.place()
+    assert.deepEqual(windowOf(p0), owed(p0))
+    p0.swapping = false
+    p0.swapAsset = null
+    director.place()
+    // Snaps: a unit record shown without loadTile's bind is counted and never written; bound, it is placed again.
+    p0.shownAsset = { ...p0.shownAsset }
+    u.uvOffsetA.value.x += 1e-3
+    const held = windowOf(p0)
+    director.place()
+    assert.deepEqual([director.unitSnaps, windowOf(p0)], [1, held])
+    loadTile(director, p0, p0.shownAsset)
+    u.uvOffsetA.value.x += 1e-3
+    director.place()
+    assert.deepEqual([director.unitSnaps, windowOf(p0)], [1, owed(p0)])
+    // Parked: skipped (no write, no snap, its pose stamp kept); its unit is not whole, so its partner is not judged,
+    // though it is still placed.
+    const q = units.find((P) => P !== p0.shownAsset.place && P.members.every((m) => !m.parked))
+    const [q0, q1] = q.members
+    const full = judged()
+    q0.parked = true
+    q0.mesh.material.uniforms.uvOffsetA.value.x += 1e-3
+    q1.mesh.material.uniforms.uvOffsetA.value.x += 1e-3
+    q0._skewTheta = -1
+    q1._skewTheta = -1
+    const parked = windowOf(q0)
+    const [snaps, before] = [director.unitSnaps, director.skewChecks]
+    director.place()
+    assert.deepEqual([windowOf(q0), q0._skewTheta, director.unitSnaps], [parked, -1, snaps])
+    assert.deepEqual([director.wholeUnit(q), director.skewChecks - before], [false, full - 2]) // neither member of q is judged
+    assert.deepEqual([windowOf(q1), q1._skewTheta], [owed(q1), thetaOf(q1)]) // judged or not, a placed member's stamp moves
+    q0.parked = false
+    director.place()
+    // The measured aspect wins: a texture that now measures 1.8, not what its record asked for, moves the unit's
+    // members to their 1.8 windows. NC: those are not the windows for the record's aspect.
+    const texes = [...new Set(p0.shownAsset.place.members.map((m) => m.mesh.material.uniforms.texA.value))]
+    const measured = texes.map((t) => t.userData.aspect)
+    for (const t of texes) t.userData.aspect = 1.8
+    director.place()
+    for (const m of p0.shownAsset.place.members) {
+      const w = unitWindowOf(m, m.shownAsset, m.shownAsset.tex.aspect)
+      assert.deepEqual(windowOf(m), owed(m))
+      assert.notDeepEqual(windowOf(m), [...w.s, ...w.o])
+    }
+    texes.forEach((t, i) => (t.userData.aspect = measured[i]))
+    director.place()
+    // The kill switch: true stops place() (the probe's --negctl); 'bind' leaves it on (--negctl=bind), and its
+    // correction, made with no pose change, is skew: what the bind control's gate sees.
+    u.uvOffsetA.value.x += 1e-3
+    const off = windowOf(p0)
+    const tally = [director.unitSnaps, director.skewChecks, director.skewBad]
+    globalThis.__swmNoUnitWindows = true
+    director.place()
+    assert.deepEqual([windowOf(p0), director.unitSnaps, director.skewChecks, director.skewBad], [off, ...tally])
+    globalThis.__swmNoUnitWindows = 'bind'
+    director.place()
+    assert.deepEqual([windowOf(p0), director.skewBad], [owed(p0), tally[2] + 1])
+    delete globalThis.__swmNoUnitWindows
+    // The scene's tick calls it after the scroll and before the render, so a frame shows the pose it was placed for.
+    // Each call is one whole code line, found once: a commented-out copy or a guarded variant does not count.
+    const tick = fs.readFileSync(new URL('../../src/components/globe/useGlobeScene.js', import.meta.url), 'utf8').split('\n').map((l) => l.trim())
+    const at = ['if (director) director.update(step);', 'if (scroller) scroller.update(step);', 'if (director) director.place();', 'renderer.render(scene, camera);'].map((s) => {
+      const lines = tick.flatMap((l, i) => (l === s ? [i] : []))
+      assert.equal(lines.length, 1, s)
+      return lines[0]
+    })
+    assert.ok(at[0] < at[1] && at[1] < at[2] && at[2] < at[3], JSON.stringify(at))
+  } finally {
+    delete globalThis.__swmNoUnitWindows
+    director.dispose()
+    TUNING.units = 0
+  }
+  // No lattice (the fixed globe): place() never runs, units on or not.
+  const { director: fixed, panels: flat } = spanDirector(1, { scene: fakeScene() })
+  try {
+    assert.deepEqual([fixed.L, fixed.skewMax], [null, 0])
+    const P = { uid: 'h:0:0:clip', key: 'clip', cls: 'h', cols: 2, rows: 1, n: 2, S: unitAspect(2, 1, SPAN_L), L: SPAN_L, members: [flat[1], flat[ROWS + 1]] }
+    P.members.forEach((m, kx) => {
+      const rec = { kind: 'video', playbackId: 'clip', place: P, kx, ky: 0 }
+      Object.assign(m, { shownAsset: rec, _bound: rec })
+      m.mesh.material.uniforms.uvOffsetA.value.x = 0.5
+    })
+    fixed.place()
+    assert.deepEqual(P.members.map((m) => m.mesh.material.uniforms.uvOffsetA.value.x), [0.5, 0.5])
+    assert.deepEqual([fixed.unitSnaps, fixed.skewChecks], [0, 0])
+  } finally {
+    fixed.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: unitStats measures what whole units render: the seam and the register off the uniforms and the pose (P4b)', () => {
+  const { director, panels } = unitDirector()
+  try {
+    director.initialLayout(director.byProminence())
+    const units = [...placesOf(panels).keys()].filter((P) => director.wholeUnit(P))
+    assert.ok(units.length >= 4, `${units.length} whole units`)
+    const stats = () => director.unitStats(0)
+    assert.deepEqual([stats().seam, stats().register], [{ n: units.length, worst: 0 }, { n: 2 * units.length, worst: 0 }])
+    assert.deepEqual([stats().snaps, stats().skewBad, stats().skewChecks], [0, 0, 0])
+    // One pair by hand, through the shader's mUv: the halves render equally wide, a lattice gap apart (Gφ over a
+    // member's φ length, in rendered width), so the one picture runs on across the seam.
+    const [left, right] = units[0].members
+    const ren = (p) => spanRendered(p.mesh.material.uniforms.uvScaleA.value.x, p.mesh.material.uniforms.uvOffsetA.value.x, namePinch(p.centerDir.y))
+    const [[l0, r0], [l1, r1]] = [ren(left), ren(right)]
+    near((l1 - r0) / (r0 - l0), director.L.Gphi / director.L.phiLen, 1e-12, 'the gap')
+    near(r1 - l1, r0 - l0, 1e-12, 'the widths')
+    // NC: one member's offset 1e-3 off: the register sees exactly that, the seam that over the left member's width.
+    right.mesh.material.uniforms.uvOffsetA.value.x += 1e-3
+    near([stats().register.worst, stats().seam.worst], [1e-3, 1e-3 / (r0 - l0)], 1e-8)
+    right.mesh.material.uniforms.uvOffsetA.value.x -= 1e-3
+    // NC: the right member rendered wider from the same left edge: only the width term sees it (vK · 1e-3 over the
+    // left member's rendered width).
+    const uR = right.mesh.material.uniforms
+    const [sx, ox] = [uR.uvScaleA.value.x, uR.uvOffsetA.value.x]
+    const vK = namePinch(right.centerDir.y)
+    uR.uvScaleA.value.x = sx + 1e-3
+    uR.uvOffsetA.value.x = ox - (0.5 - 0.5 * vK) * 1e-3
+    near(ren(right)[0], l1, 1e-12, 'the same left edge')
+    near([stats().register.worst, stats().seam.worst], [1e-3, (vK * 1e-3) / (r0 - l0)], 1e-8)
+    // Reported to 1e-9 (r9): a member 4e-10 off reads 0.
+    uR.uvScaleA.value.x = sx
+    uR.uvOffsetA.value.x = ox + 4e-10
+    assert.equal(stats().register.worst, 0)
+    uR.uvOffsetA.value.x = ox
+    // Only whole units are judged: one torn (a member showing a single) and one with a member parked are not.
+    loadTile(director, units[1].members[1], { kind: 'video', playbackId: 'stray' })
+    units[2].members[0].parked = true
+    assert.deepEqual([units[1], units[2], units[3]].map((P) => director.wholeUnit(P)), [false, false, true])
+    assert.deepEqual([stats().seam.n, stats().register.n], [units.length - 2, 2 * (units.length - 2)])
+    units[2].members[0].parked = false
+    // Whole by what the tiles SHOW, not what they plan: a member whose next asset is still loading shows the unit.
+    const [lead] = units[3].members
+    const planned = lead.asset
+    lead.asset = { kind: 'video', playbackId: 'next' }
+    assert.equal(director.wholeUnit(units[3]), true)
+    lead.asset = planned
+    // The register reads the measured aspect: re-measured at 1.8, a unit's members are off until place() moves
+    // them, then right again.
+    const texes = [...new Set(units[0].members.map((m) => m.mesh.material.uniforms.texA.value))]
+    const measured = texes.map((t) => t.userData.aspect)
+    for (const t of texes) t.userData.aspect = 1.8
+    assert.ok(stats().register.worst > 1e-3, JSON.stringify(stats().register))
+    director.place()
+    assert.equal(stats().register.worst, 0)
+    texes.forEach((t, i) => (t.userData.aspect = measured[i]))
+    director.place()
+    // NC (--negctl's board): members bound with no unit window each cover the whole picture; both measures break.
+    globalThis.__swmNoUnitWindows = true
+    for (const m of units[3].members) loadTile(director, m, m.shownAsset)
+    delete globalThis.__swmNoUnitWindows
+    assert.ok(stats().seam.worst > 0.5 && stats().register.worst > 0.1, JSON.stringify([stats().seam, stats().register]))
+    // the director's counters read through
+    Object.assign(director, { unitSnaps: 2, skewBad: 3, skewChecks: 40 })
+    assert.deepEqual([stats().snaps, stats().skewBad, stats().skewChecks], [2, 3, 40])
+  } finally {
+    delete globalThis.__swmNoUnitWindows
+    director.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: through a tide’s travel, place() after each frame’s scroll keeps whole units registered and seamless, born pairs from their first frame (P4b)', () => {
+  /** 640 frames of 0.03 rad (the 8-row tape ≈ 4.6 times over), place() after each scroll; unitStats every 8th. */
+  const travel = (kill) => {
+    if (kill) globalThis.__swmNoUnitWindows = kill
+    const { director, panels, textureManager } = unitDirector()
+    try {
+      director.initialLayout(director.byProminence())
+      const planned = panels.filter((p) => p.shownAsset.place).length // the initial layout's members, all on unparked rows
+      const scroller = new MeridianScroll({ panels, assets: [], textureManager, cascadeSpeed: 0, scheduler: null, assignRow: (tiles) => director.assignRow(tiles) })
+      const out = { planned, seamN: 0, seamW: 0, regN: 0, regW: 0 }
+      for (let f = 1; f <= 640; f++) {
+        scroller.advance(0.03)
+        scroller.update(0)
+        director.place()
+        if (f % 8) continue
+        const { seam, register } = director.unitStats(0)
+        Object.assign(out, { seamN: out.seamN + seam.n, regN: out.regN + register.n, seamW: Math.max(out.seamW, seam.worst), regW: Math.max(out.regW, register.worst) })
+      }
+      return { ...out, bornH: director.bornH, snaps: director.unitSnaps, skewBad: director.skewBad, skewChecks: director.skewChecks }
+    } finally {
+      director.dispose()
+      delete globalThis.__swmNoUnitWindows
+      TUNING.units = 0
+    }
+  }
+  const run = travel(null)
+  assert.ok(run.bornH >= 3 && run.seamN >= 200, JSON.stringify(run)) // born pairs bind parked at their pre-wrap pose (past the south pole), then roll in from the north
+  assert.equal(run.regN, 2 * run.seamN) // H pairs: two members, one seam
+  assert.ok(run.seamW <= 1e-6 && run.regW <= 1e-9, JSON.stringify(run)) // orders inside the gates' 1e-4 and 5e-6
+  assert.deepEqual([run.snaps, run.skewBad], [0, 0])
+  assert.ok(run.skewChecks >= 640, JSON.stringify(run))
+  // NC (--negctl=bind): each bind writes the cover window and place() puts it right that same frame, so what
+  // renders stays right; only the skew check sees the jump, on every planned member. Not on a born one: a born
+  // pair binds parked at its row's pre-wrap pose (recycle runs before poseTile: past the south pole), where a
+  // member's window and the cover window meet (vK → 0: both show the picture's centre slice), and its pose stamp
+  // is π, so its first unparked frame's allowance (skewMax·|θ − π|) dwarfs any bind error.
+  const bind = travel('bind')
+  assert.ok(bind.planned >= 8 && bind.skewBad === bind.planned, JSON.stringify(bind))
+  assert.ok(bind.seamW <= 1e-6 && bind.regW <= 1e-9, JSON.stringify(bind))
+  // The geometry behind it: at either pole (vK clamped to 1e-3) a member's window is the cover window to within
+  // vK; NC: at the equator they are a quarter of the picture apart.
+  const P = { cols: 2, rows: 1, S: unitAspect(2, 1, SPAN_L), L: SPAN_L }
+  const cover = coverWindow(P.S, SPAN_L.phiLen / SPAN_L.bandH)
+  const memberAt = (y) => unitA({ place: P, kx: 0, ky: 0 }, namePinch(y), Math.acos(y), P.S)
+  for (const y of [1, -1]) near([...memberAt(y).s, ...memberAt(y).o], [...cover.s, ...cover.o], 1e-3, `the pole at y ${y}`)
+  assert.ok(Math.abs(memberAt(0).o[0] - cover.o[0]) > 0.2, `${memberAt(0).o[0]} vs ${cover.o[0]}`)
+  // NC (--negctl): no unit windows at all: the seams and the register break, and place() checks nothing.
+  const none = travel(true)
+  assert.ok(none.seamW > 0.5 && none.regW > 0.1, JSON.stringify(none))
+  assert.deepEqual([none.skewChecks, none.skewBad, none.snaps], [0, 0, 0])
 })

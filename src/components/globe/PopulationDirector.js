@@ -74,7 +74,7 @@ import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
 import { SCROLL_VISIBLE_ROWS, THUMB_WIDTH } from './globeConfig.js';
-import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE } from './unitSpan.js';
+import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -157,6 +157,8 @@ export default class PopulationDirector {
     this.initVQ = 0; // V/Q units in the initial layout (0 by construction: its plan has no horizon, M4)
     this.initThetaH = null; // the horizon the initial layout's plan saw: null while useGlobeScene's `posed` latch holds (M4)
     this.lastD = null; // the travel budget the last plan used (rad)
+    this.unitSnaps = 0; this.skewBad = 0; this.skewChecks = 0;
+    this.skewMax = this.L ? unitSkewBound(this.L) : 0; // the per-frame skew bound, derived from UNIT_EPS and the lattice (m7)
     this.decorSig = null;
     this.pools = this.decorate();
     this._v = new THREE.Vector3();
@@ -493,6 +495,54 @@ export default class PopulationDirector {
   nameSliceOf(panel) {
     const aspect = panel.mesh.material.uniforms.texA.value?.userData?.aspect || 1;
     return Math.min(1, panel.panelAspect / aspect);
+  }
+
+  /** Every member of P shows P (from what the tiles SHOW, not what they plan). */
+  wholeUnit(P) {
+    return P.members.every((m) => m.shownAsset?.place === P && !m.parked);
+  }
+
+  /** Per rendered frame, right after the scroll (useGlobeScene): every unparked
+   *  unit member's texA window from its own live pose, through a 1e-9 dead-band
+   *  (unitSeam is relative to a member's rendered width, which shrinks with vK).
+   *  The name strips do the same (placeNames); persistence forbids changing the
+   *  picture, not moving the window. A strict no-op with units off (T18). */
+  place() {
+    if (!TUNING.units || !this.L || globalThis.__swmNoUnitWindows === true) return;
+    const W = this.W;
+    for (const p of this.panels) {
+      const m = p.shownAsset;
+      const P = m?.place;
+      if (!P || p.parked) continue;
+      if (p._bound !== m) {
+        this.unitSnaps += 1;
+        continue;
+      }
+      const u = p.mesh.material.uniforms;
+      const y = Math.min(Math.max(p.centerDir.y, -1), 1);
+      const theta = Math.acos(y);
+      const w = unitA(m, namePinch(y), theta, u.texA.value?.userData?.aspect ?? m.tex?.aspect ?? 1);
+      const off = Math.max(
+        Math.abs(u.uvScaleA.value.x - w.s[0]),
+        Math.abs(u.uvScaleA.value.y - w.s[1]),
+        Math.abs(u.uvOffsetA.value.x - w.o[0]),
+        Math.abs(u.uvOffsetA.value.y - w.o[1])
+      );
+      // Skew: last frame's window may differ from this one only by the pose
+      // change. skewMax is the closed-form max |d window / dθ| (unitSpan.unitSkewBound:
+      // H anywhere; V/Q with the lead inside [θN, θS], where it lives by construction)
+      // times SKEW_MARGIN, so a retuned UNIT_EPS raises the bound along with the slope.
+      const lead = Math.acos(Math.min(Math.max(P.members[0].centerDir.y, -1), 1));
+      if (this.wholeUnit(P) && (P.rows === 1 || (lead >= W.thetaN && lead <= W.thetaS))) {
+        this.skewChecks += 1;
+        if (off > this.skewMax * Math.abs(theta - (p._skewTheta ?? theta)) + 1e-6) this.skewBad += 1;
+      }
+      if (off > 1e-9) {
+        u.uvScaleA.value.set(w.s[0], w.s[1]);
+        u.uvOffsetA.value.set(w.o[0], w.o[1]);
+      }
+      p._skewTheta = theta;
+    }
   }
 
   /** MeridianScroll's hook: assets for a re-born row (lon order, tapeS set). */
@@ -1072,6 +1122,38 @@ export default class PopulationDirector {
       thetaH: deg(this.W.thetaH),
       initVQ: this.initVQ,
       initThetaH: deg(this.initThetaH),
+    });
+
+    // — P4b — what whole units RENDER: the shader's mUv, re-derived from the uniforms and the pose.
+    const seam = { n: 0, worst: 0 };
+    const register = { n: 0, worst: 0 };
+    for (const [P] of places) {
+      if (!this.wholeUnit(P)) continue;
+      for (const m of P.members) {
+        const u = m.mesh.material.uniforms;
+        const y = Math.min(Math.max(m.centerDir.y, -1), 1);
+        register.n += 1;
+        register.worst = Math.max(register.worst, diff(u.uvScaleA.value, u.uvOffsetA.value, unitA(m.shownAsset, namePinch(y), Math.acos(y), aTexOf(m))));
+      }
+      if (P.cols !== 2) continue;
+      for (let ky = 0; ky < P.rows; ky++) {
+        const left = P.members[ky * 2];
+        const right = P.members[ky * 2 + 1];
+        const uL = left.mesh.material.uniforms;
+        const uR = right.mesh.material.uniforms;
+        const [l0, r0] = rendered(uL.uvScaleA.value.x, uL.uvOffsetA.value.x, namePinch(left.centerDir.y));
+        const [l1, r1x] = rendered(uR.uvScaleA.value.x, uR.uvOffsetA.value.x, namePinch(right.centerDir.y));
+        const wL = r0 - l0;
+        seam.n += 1;
+        seam.worst = Math.max(seam.worst, Math.max(Math.abs(l1 - r0 - (wL * P.L.Gphi) / P.L.phiLen), Math.abs(r1x - l1 - wL)) / wL);
+      }
+    }
+    Object.assign(out, {
+      seam: { n: seam.n, worst: r9(seam.worst) },
+      register: { n: register.n, worst: r9(register.worst) },
+      snaps: this.unitSnaps,
+      skewBad: this.skewBad,
+      skewChecks: this.skewChecks,
     });
     return out;
   }

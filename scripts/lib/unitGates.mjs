@@ -191,6 +191,18 @@ export function unitGates(report, ctx) {
       reportOnly: !judged || ctx.equiv > 0, // and a tile budget repeats assets by design (Nathan's Q8)
     });
   }
+
+  // — P4b — h: what the units render.
+  const seam = U.map((s) => s.units.seam).filter(Boolean);
+  const seamW = max(seam.map((x) => x.worst));
+  gate(out, 'unitSeam', { n: sum(seam.map((x) => x.n)), floor: 20, ok: seamW <= 1e-4, worst: seamW, bound: 1e-4 });
+  const reg = U.map((s) => s.units.register).filter(Boolean);
+  const regW = max(reg.map((x) => x.worst));
+  gate(out, 'unitRegister', { n: sum(reg.map((x) => x.n)), floor: 20, ok: regW <= 5e-6, worst: regW, bound: 5e-6 });
+  const snaps = max(U.map((s) => s.units.snaps ?? 0));
+  gate(out, 'snaps', { n: U.length, ok: snaps === 0, worst: snaps, bound: 0 });
+  const skewBad = max(U.map((s) => s.units.skewBad ?? 0));
+  gate(out, 'skew', { n: max(U.map((s) => s.units.skewChecks ?? 0)), floor: 20, ok: skewBad === 0, worst: skewBad, bound: 0 });
   return out;
 }
 

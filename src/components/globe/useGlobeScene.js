@@ -1040,6 +1040,9 @@ export default function useGlobeScene(
       // on the scroller, which lands it this same frame.
       if (director) director.update(step);
       if (scroller) scroller.update(step);
+      // Unit windows (media spans): from the poses this frame renders, so the
+      // scroll a tide just landed is in them. No-op with ?popunits off.
+      if (director) director.place();
       // Panel grain: reads the live pop knobs and steps the held jitter. No new
       // rAF — it rides this tick, and costs one uniform write per frame for the
       // whole globe because the holders are shared.
