@@ -175,6 +175,7 @@ export default class LivePanelScheduler {
             ({ panel, score, visible }) =>
               !panel.liveState &&
               panel.asset?.playbackId && // stills have no stream
+              !panel.asset.place && // members never promote per tile (stills in tile mode)
               (!panel.asset.tex || panel.shownAsset === panel.asset) && // B derives from the bound A
               !panel.swapping &&
               !panel.parked && // never stream into a collapsed past-pole scroll tile
@@ -338,6 +339,7 @@ export default class LivePanelScheduler {
       !panel.parked &&
       !panel.swapping &&
       (!panel.asset.tex || panel.shownAsset === panel.asset) &&
+      !panel.asset.place &&
       !this.grainHidden(panel)
     );
   }

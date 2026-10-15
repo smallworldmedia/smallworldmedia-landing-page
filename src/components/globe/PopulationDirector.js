@@ -68,13 +68,13 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
 import { assetKey } from './TextureManager.js';
-import { loadTile, applyPlan, cancelSwap } from './tileSwap.js';
+import { loadTile, applyPlan, cancelSwap, sharedDelays } from './tileSwap.js';
 import { selectPool, WORLD_KINDS } from './buildWorldPools.js';
 import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
 import { SCROLL_VISIBLE_ROWS, THUMB_WIDTH } from './globeConfig.js';
-import { lattice, texSpec } from './unitSpan.js';
+import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -105,7 +105,7 @@ export default class PopulationDirector {
    * @param {() => boolean} opts.canAnimate - false → swaps land as cuts, the clock waits
    * @param {(world: Object|null, info: { animate: boolean }) => void} [opts.onWorld]
    */
-  constructor({ panels, worlds, textureManager, getScheduler, getScroller = () => null, getRotation, canAnimate, onWorld = null }) {
+  constructor({ panels, worlds, textureManager, getScheduler, getScroller = () => null, getRotation, canAnimate, onWorld = null, getPace = () => 0, getHorizon = () => Math.PI, revealHeld = false }) {
     this.panels = panels;
     this.worlds = worlds;
     this.textureManager = textureManager;
@@ -145,6 +145,18 @@ export default class PopulationDirector {
     this.panelAspect = panels[0]?.panelAspect || 1;
     // The span lattice, read off a live scroll panel. Null on the fixed globe, so units never run there.
     this.L = panels[0]?.bandHeight > 0 ? lattice(panels[0], this.lon, SCROLL_VISIBLE_ROWS) : null;
+    this.getPace = getPace; // °/s the rows travel right now (0 = still: reduced motion)
+    this.getHorizon = getHorizon; // rad: the live horizon colatitude θh (camera in the globe frame)
+    this.revealHeld = revealHeld; // the entrance waits on a held reveal (--intro=full)
+    // The ε window (unitSpan.thetaBound): V/Q leads live inside [θN, θS] for their whole planned life.
+    this.W = this.L
+      ? { thetaN: thetaBound((1 + UNIT_EPS) ** -2, this.L.Pth), thetaS: thetaBound((1 + UNIT_EPS) ** 2, this.L.Pth), thetaH: null, Pth: this.L.Pth }
+      : null;
+    this.placed = { h: 0, v: 0, q: 0 }; // units placed, cumulative (births included)
+    this.bornH = 0; // H pairs formed inside a born row
+    this.initVQ = 0; // V/Q units in the initial layout (0 by construction: its plan has no horizon, M4)
+    this.initThetaH = null; // the horizon the initial layout's plan saw: null while useGlobeScene's `posed` latch holds (M4)
+    this.lastD = null; // the travel budget the last plan used (rad)
     this.decorSig = null;
     this.pools = this.decorate();
     this._v = new THREE.Vector3();
@@ -493,18 +505,166 @@ export default class PopulationDirector {
       if (rs !== s - 1 && rs !== s + 1) continue;
       for (const p of row) grid.set(rs * GRID + p.lonIndex, assetKey(p.swapAsset || p.asset));
     }
-    return tiles.map((p) => this.pick(p, grid));
+    const picks = tiles.map((p) => this.pick(p, grid));
+    if (TUNING.units && this.L && !(TUNING.grainAmt > 0)) this.birthPairs(tiles, picks, grid);
+    return picks;
   }
 
   /** A fresh board, tiles decided in `order` (most prominent first, so each
    *  world's lead assets land where the eye is). */
-  planAll(order) {
+  planAll(order, { land = 0, initial = false } = {}) {
     this.namePlan = this.planNames();
     const grid = new Map();
     const plan = new Map();
-    for (const p of order) plan.set(p, this.pick(p, grid));
+    if (TUNING.units && this.L) this.planUnits(order, grid, plan, this.travelBudget(land, initial), initial);
+    for (const p of order) if (!plan.has(p)) plan.set(p, this.pick(p, grid));
     this.namePlan = new Map(); // a strip is only ever placed by the plan that chose it
     return plan;
+  }
+
+  /** How far (rad) a unit's rows may travel before the next plan replaces it:
+   *  landing + the longest hold + the next change. */
+  travelBudget(land, initial) {
+    const pace = this.getPace();
+    if (!(pace > 0)) return 0; // rows still (reduced motion)
+    if (this.worlds.length < 2) return Infinity; // no clock: the layout lives forever
+    if (initial && !this.revealHeld) return Infinity; // replay: the first hold's start is unbounded
+    return (pace * ((initial ? T_ENTRANCE : land) + TUNING.hold * (1 + TUNING.holdJit) + TUNING.trans) * Math.PI) / 180;
+  }
+
+  /** Units first, then (planAll) singles. Names were placed first and are never
+   *  members. Every footprint lies in ONE owner region, and its outer
+   *  4-neighbours are free of its key. Records are fresh objects { ...asset, place, kx, ky }. */
+  planUnits(order, grid, plan, D, initial) {
+    const g = this.grouping;
+    const L = this.lon;
+    const W = this.W;
+    W.thetaH = this.getHorizon(); // null until the tick has posed the globe: then H pairs only (M4)
+    if (initial) this.initThetaH = W.thetaH; // the latch, judged live by the initVQ gate
+    this.lastD = D;
+    const gT = TUNING.grainAmt > 0 ? TUNING.grainStart + TUNING.grainRamp + TUNING.grainStagger : 0;
+    const cell = new Map();
+    for (const p of this.panels) cell.set(p.tapeS * GRID + p.lonIndex, p);
+    const thetaOf = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1));
+    const ownerOf = (p) => g.pattern.owner(p.lonIndex, p.tapeS);
+    const free = (p) => !!p && !p.parked && !plan.has(p) && !this.namePlan.has(p);
+    const count = new Map(); // key → units in this plan
+    const admissible = (lead, cls) => (cls === 'h' ? eligibleH(thetaOf(lead), D, gT) : W.thetaH != null && eligibleVQ(thetaOf(lead), D, W, gT));
+    const outerFree = (members, key) => {
+      const inside = new Set(members);
+      for (const m of members) {
+        for (const [dl, ds] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+          const q = cell.get((m.tapeS + ds) * GRID + ((m.lonIndex + dl + L) % L));
+          if (q && !inside.has(q) && grid.get(q.tapeS * GRID + q.lonIndex) === key) return false;
+        }
+      }
+      return true;
+    };
+    const footprint = (lead, cls) => {
+      const { cols, rows } = UNIT_SHAPE[cls];
+      const r = ownerOf(lead);
+      const out = [];
+      for (let ky = 0; ky < rows; ky++) {
+        for (let kx = 0; kx < cols; kx++) {
+          const m = cell.get((lead.tapeS - ky) * GRID + ((lead.lonIndex + kx) % L)); // ky 1 = one row south (tapeS − 1)
+          if (!free(m) || ownerOf(m) !== r) return null;
+          out.push(m); // index k → kx = k % cols, ky = floor(k / cols)
+        }
+      }
+      return out;
+    };
+    const claim = (P, recs) => {
+      P.members.forEach((m, k) => {
+        plan.set(m, recs[k]);
+        grid.set(m.tapeS * GRID + m.lonIndex, P.key);
+      });
+      count.set(P.key, (count.get(P.key) || 0) + 1);
+    };
+    // 1 — keep first: an intact unit whose asset is still in its region's pool (and may still form that class
+    // there), still admissible, keeps its records (zero flips), refreshed to the region's world (m10).
+    for (const p of order) {
+      const P = p.shownAsset?.place;
+      if (!P || P.members[0] !== p || !UNIT_CLASSES.has(P.cls)) continue;
+      const intact = P.members.every((m) => free(m) && m.asset === m.shownAsset && m.asset?.place === P && !m.swapAsset);
+      const r = ownerOf(p);
+      const rec = g.pools[r]?.find((a) => assetKey(a) === P.key);
+      if (!intact || P.members.some((m) => ownerOf(m) !== r) || rec?.unitCls !== P.cls) continue;
+      if ((count.get(P.key) || 0) >= TUNING.unitMax || !admissible(p, P.cls) || !outerFree(P.members, P.key)) continue;
+      // The member records are the unit's own objects (claim/birthPairs spread them), so this never touches a pool
+      // record. A shared id kept across a world change now announces the new world.
+      for (const m of P.members) Object.assign(m.asset, { world: rec.world, clientName: rec.clientName, services: rec.services });
+      claim(P, P.members.map((m) => m.asset));
+    }
+    // 2 — new units, most prominent lead first, walking the region pool in editorial order.
+    g.ucursor ??= [];
+    for (const p of order) {
+      if (!free(p)) continue;
+      const r = ownerOf(p);
+      const pool = g.pools[r];
+      if (!pool?.length) continue;
+      const c0 = g.ucursor[r] ?? g.cursor[r];
+      for (let t = 0; t < pool.length; t++) {
+        const i = (c0 + t) % pool.length;
+        const a = pool[i];
+        const cls = a.unitCls; // the class THIS region's world may form (decorate)
+        if (!cls || !UNIT_CLASSES.has(cls)) continue;
+        const key = assetKey(a);
+        if ((count.get(key) || 0) >= TUNING.unitMax || !admissible(p, cls)) continue;
+        const members = footprint(p, cls);
+        if (!members || !outerFree(members, key)) continue;
+        const { cols, rows } = UNIT_SHAPE[cls];
+        const P = { uid: `${cls}:${p.lonIndex}:${p.tapeS}:${key}`, key, cls, cols, rows, n: members.length, S: unitAspect(cols, rows, this.L), L: this.L, members, born: false };
+        claim(P, members.map((m, k) => ({ ...a, place: P, kx: k % cols, ky: Math.floor(k / cols) })));
+        g.ucursor[r] = (i + 1) % pool.length; // the region's next unit takes the next classed asset
+        if (i === g.cursor[r] % pool.length) g.cursor[r] = (i + 1) % pool.length; // …and singles don't open on it
+        this.placed[cls] += 1;
+        if (initial && cls !== 'h') this.initVQ += 1;
+        break;
+      }
+    }
+  }
+
+  /** H pairs inside a born row (MeridianScroll.recycle → assignRow): lon pairs
+   *  never wrap; the pick must be an 'h' asset; same owner region; outer
+   *  neighbours free of its key; within ?popunitmax on the board. No V/Q: a born
+   *  row sits in the north buffer (θ < 0), outside [θN, θS]. */
+  birthPairs(tiles, picks, grid) {
+    const g = this.grouping;
+    const L = this.lon;
+    const s = tiles[0].tapeS;
+    const idx = new Map(tiles.map((p, i) => [p.lonIndex, i]));
+    const keyAt = (lon) => assetKey(picks[idx.get((lon + L) % L)]);
+    const onBoard = this.unitCountByKey();
+    for (let lon = 0; lon + 1 < L; lon++) {
+      const i = idx.get(lon);
+      const j = idx.get(lon + 1);
+      const a = picks[i];
+      if (i == null || j == null || a?.unitCls !== 'h' || a.place || picks[j]?.kind === 'name') continue;
+      const key = assetKey(a);
+      if ((onBoard.get(key) || 0) >= TUNING.unitMax || g.pattern.owner(lon, s) !== g.pattern.owner(lon + 1, s)) continue;
+      if (keyAt(lon - 1) === key || keyAt(lon + 2) === key) continue;
+      if ([s - 1, s + 1].some((r) => grid.get(r * GRID + lon) === key || grid.get(r * GRID + lon + 1) === key)) continue;
+      const P = { uid: `h:${lon}:${s}:${key}`, key, cls: 'h', cols: 2, rows: 1, n: 2, S: unitAspect(2, 1, this.L), L: this.L, members: [tiles[i], tiles[j]], born: true };
+      picks[i] = { ...a, place: P, kx: 0, ky: 0 };
+      picks[j] = { ...a, place: P, kx: 1, ky: 0 };
+      onBoard.set(key, (onBoard.get(key) || 0) + 1);
+      this.bornH += 1;
+      this.placed.h += 1;
+      lon += 1;
+    }
+  }
+
+  /** Units on the board now (planned or in flight), counted by key. */
+  unitCountByKey() {
+    const seen = new Set();
+    const n = new Map();
+    for (const p of this.panels) {
+      const P = (p.swapAsset || p.asset)?.place;
+      if (!P || seen.has(P)) continue;
+      seen.add(P);
+      n.set(P.key, (n.get(P.key) || 0) + 1);
+    }
+    return n;
   }
 
   byProminence() {
@@ -518,7 +678,7 @@ export default class PopulationDirector {
   /** Build time: lay the first grouping (no animation — the entrance cascade
    *  reveals it). Returns the tile loads the cascade waits on. */
   initialLayout(order) {
-    const plan = this.planAll(order);
+    const plan = this.planAll(order, { initial: true });
     this.warmGrouping();
     return [...plan].map(([p, a]) => loadTile(this, p, a));
   }
@@ -671,15 +831,19 @@ export default class PopulationDirector {
   /** Re-lay the whole globe onto the current grouping, in place: a staggered
    *  `style` swap per tile (a cut when the screens aren't free to animate). */
   layIn({ style = 'blink', spread = RELAYOUT_SPREAD, dur = RELAYOUT_DUR } = {}) {
-    const plan = this.planAll(this.byProminence());
-    const bornAt = new Map([...plan.keys()].map((p) => [p, p.tapeS]));
+    const units = !!(TUNING.units && this.L);
+    // Units off: planned now, as always. Units on: planned once the textures are
+    // warm, against the poses the change lands on (travelBudget counts the landing).
+    let plan = units ? null : this.planAll(this.byProminence());
+    const bornAt = plan ? new Map([...plan.keys()].map((p) => [p, p.tapeS])) : null;
     const token = ++this.layoutToken;
     this.busy = true;
     this.warmGrouping().then(() => {
       if (this.disposed || token !== this.layoutToken) return;
+      if (units) plan = this.planAll(this.byProminence(), { land: spread + dur });
       // A row re-born while the textures warmed already took the new
       // grouping from assignRow — its planned picks belong to its old place.
-      for (const [p, s] of bornAt) if (p.tapeS !== s) plan.delete(p);
+      else for (const [p, s] of bornAt) if (p.tapeS !== s) plan.delete(p);
       // A strip tile already showing its world's strip keeps the texture
       // (applyPlan skips a same-key tile) — but takes its new window.
       for (const [p, a] of plan) {
@@ -688,12 +852,14 @@ export default class PopulationDirector {
           p.shownAsset = a;
         }
       }
+      const animate = !this.frozen && this.canAnimate();
       const { span } = applyPlan(this, plan, {
-        animate: !this.frozen && this.canAnimate(),
+        animate,
         style,
         spread,
         dur,
         onBound: this.countFlip,
+        delays: units && animate && style !== 'cut' ? sharedDelays(plan, spread) : null,
       });
       if (this.busyCall) this.busyCall.kill();
       this.busyCall = gsap.delayedCall(span, () => this.settle());
@@ -862,6 +1028,51 @@ export default class PopulationDirector {
       liveReg.worst = Math.max(liveReg.worst, diff(u.uvScaleB.value, u.uvOffsetB.value, sched.liveWindow(p, video)));
     }
     out.liveReg = { n: liveReg.n, worst: r9(liveReg.worst) };
+
+    // — P4a — the units the tiles show.
+    const places = new Map(); // Place → its unparked showing tiles
+    let members = 0;
+    let liveMembers = 0;
+    for (const p of this.panels) {
+      const P = p.shownAsset?.place;
+      if (!P || p.parked) continue;
+      members += 1;
+      if (isLive(p)) liveMembers += 1;
+      if (!places.has(P)) places.set(P, []);
+      places.get(P).push(p);
+    }
+    const rot = this.getRotation();
+    const perKey = new Map();
+    let torn = 0;
+    let orphans = 0;
+    let orphansFront = 0;
+    for (const [P, tiles] of places) {
+      if (P.members.every((m) => m.shownAsset?.place === P)) {
+        perKey.set(P.key, (perKey.get(P.key) || 0) + 1);
+        continue;
+      }
+      if (P.members.some((m) => m.swapAsset || m.swapping)) continue; // mid-change: not torn yet
+      torn += 1;
+      orphans += tiles.length;
+      for (const t of tiles) if (this._v.copy(t.centerDir).applyEuler(rot).z > FACING) orphansFront += 1;
+    }
+    const deg = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(((x * 180) / Math.PI) * 100) / 100);
+    const pace = this.getPace();
+    Object.assign(out, {
+      placed: { ...this.placed },
+      bornH: this.bornH,
+      members,
+      liveMembers,
+      whole: { n: places.size, torn },
+      orphans,
+      orphansFront,
+      repeats: Math.max(0, ...perKey.values()),
+      clock: !(pace > 0) ? 'static' : this.frozen || this.held || this.worlds.length < 2 || !this.canAnimate() ? 'stopped' : 'running',
+      D: deg(this.lastD),
+      thetaH: deg(this.W.thetaH),
+      initVQ: this.initVQ,
+      initThetaH: deg(this.initThetaH),
+    });
     return out;
   }
 

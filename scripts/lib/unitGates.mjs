@@ -160,6 +160,37 @@ export function unitGates(report, ctx) {
     const w = max(lr.map((x) => x.worst));
     gate(out, 'liveReg', { n: sum(lr.map((x) => x.n)), ok: w <= 1e-3, worst: w, bound: 1e-3 });
   }
+
+  // — P4a — h: whole units, repeats, stills in tile mode, the neighbour rule.
+  if (!at(ctx, 'h')) return out;
+  const torn = max(runHolds.map((s) => s.units.whole.torn));
+  gate(out, 'unitWhole', { n: sum(runHolds.map((s) => s.units.whole.n)), ok: torn === 0, worst: torn, bound: 0 });
+  if (ctx.tide) gate(out, 'bornWhole', { n: max(U.map((s) => s.units.bornH)), ok: torn === 0, worst: torn, bound: 0 });
+  const rep = max(uHolds.map((s) => s.units.repeats));
+  gate(out, 'unitRepeats', { n: uHolds.length, ok: rep <= ctx.unitMax, worst: rep, bound: ctx.unitMax });
+  if (ctx.tile) {
+    const lm = max(U.map((s) => s.units.liveMembers));
+    gate(out, 'memberStills', { n: max(U.map((s) => s.units.members)), ok: lm === 0, worst: lm, bound: 0 });
+  }
+  if (unitsOn && !ctx.record) {
+    // Units must not add same-texture neighbours beyond what the units-off globe shows on the same view.
+    const REF = { 'u-desktop': 'off-desktop', 'u-mobile': 'off-mobile', 'u-rm': 'off-rm', 'u-tide': 'off-tide' };
+    const bound = ctx.baselines?.[REF[ctx.key] ?? (ctx.mobile ? 'off-mobile' : 'off-desktop')]?.adjMax ?? null;
+    const pooled = uHolds.filter((s) => (s.layout?.minPool ?? 0) >= 6);
+    const adj = max(pooled.map((s) => s.layout.adj));
+    // Judged only with a units-off reference AND a hold big enough to judge (minPool ≥ 6). Without either
+    // there is nothing to compare (small worlds hold no such sample): report-only, floor 0 (m2).
+    const judged = bound != null && pooled.length > 0;
+    gate(out, 'neighbourRule', {
+      n: judged ? pooled.length : 0,
+      floor: judged ? 1 : 0,
+      ok: adj <= (bound ?? Infinity),
+      worst: adj,
+      bound,
+      unitAdj: max(pooled.map((s) => s.layout.unitAdj)),
+      reportOnly: !judged || ctx.equiv > 0, // and a tile budget repeats assets by design (Nathan's Q8)
+    });
+  }
   return out;
 }
 

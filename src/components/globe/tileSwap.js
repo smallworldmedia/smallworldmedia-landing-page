@@ -75,6 +75,46 @@ export function loadTile(owner, panel, asset, onBound = null) {
   return pending.then(bind, () => tm.release(key)); // failed load — release its own +1
 }
 
+/** applyPlan's skip test: the texture AND the unit slot. A same-texture tile that
+ *  moves between single and member (or between units) must still swap, so its
+ *  window changes under the dip. With units off this is assetKey + '|-'. */
+export const placeKey = (a) => `${assetKey(a)}|${a?.place ? `${a.place.uid}:${a.kx}:${a.ky}` : '-'}`;
+
+/** One stagger delay per connected group of unit ids, old ∪ new: a new unit and
+ *  every unit it breaks dip together, so no unit is ever seen half-swapped.
+ *  Union-find over panels and `u:<uid>` nodes; one Math.random() per group, in plan order. */
+export function sharedDelays(plan, spread) {
+  const parent = new Map();
+  const add = (x) => (parent.has(x) ? x : (parent.set(x, x), x));
+  const find = (x) => {
+    while (parent.get(x) !== x) {
+      parent.set(x, parent.get(parent.get(x)));
+      x = parent.get(x);
+    }
+    return x;
+  };
+  const join = (a, b) => {
+    const ra = find(add(a));
+    const rb = find(add(b));
+    if (ra !== rb) parent.set(rb, ra);
+  };
+  for (const [panel, asset] of plan) {
+    add(panel);
+    const was = (panel.swapAsset || panel.asset)?.place?.uid;
+    const now = asset?.place?.uid;
+    if (was) join(panel, `u:${was}`);
+    if (now) join(panel, `u:${now}`);
+  }
+  const drawn = new Map();
+  const out = new Map();
+  for (const [panel] of plan) {
+    const root = find(panel);
+    if (!drawn.has(root)) drawn.set(root, Math.random() * spread);
+    out.set(panel, drawn.get(root));
+  }
+  return out;
+}
+
 export const SWAP_STYLES = ['blink', 'surge', 'cut'];
 
 function killSwap(panel) {
@@ -155,16 +195,17 @@ export function swapTile(owner, panel, asset, { style = 'blink', delay = 0, dur 
  * swap (blink | surge) per tile at a random delay within `spread`; else — or
  * style 'cut' — every tile at once (its live video drops first). onBound(asset)
  * fires as each tile's new texture lands. Returns { flips, span } — the swaps
- * started and the seconds until the last one lands.
+ * started and the seconds until the last one lands. `delays` (a Map panel → s,
+ * from sharedDelays) replaces the per-tile draw; tiles are skipped by placeKey.
  */
-export function applyPlan(owner, plan, { animate, style = 'blink', spread = 0.6, dur = 0.45, onBound = null } = {}) {
+export function applyPlan(owner, plan, { animate, style = 'blink', spread = 0.6, dur = 0.45, onBound = null, delays = null } = {}) {
   let flips = 0;
   let span = 0;
   for (const [panel, asset] of plan) {
-    if (assetKey(panel.swapAsset || panel.asset) === assetKey(asset)) continue;
+    if (placeKey(panel.swapAsset || panel.asset) === placeKey(asset)) continue;
     flips += 1;
     if (animate && style !== 'cut') {
-      const delay = Math.random() * spread;
+      const delay = delays ? (delays.get(panel) ?? 0) : Math.random() * spread;
       swapTile(owner, panel, asset, { style, delay, dur, onBound });
       span = Math.max(span, delay + dur);
     } else {

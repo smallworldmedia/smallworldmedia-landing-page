@@ -110,6 +110,7 @@ export const POP_DEFAULTS = Object.freeze({
   grainOrder: 'sweep', // ?popgrainorder — which panelDelay ordering the stagger follows (DELAY_ORDERS)
   grainLive: 0, // ?popgrainlive — 1 = the grain band also withholds live video (real decode saving in ?poplive=tile only; in shared mode it just changes which clips win)
   units: 0, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe
+  unitMax: 1, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Nathan's Q7)
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
@@ -139,6 +140,7 @@ const NUMERIC = {
   grainStagger: ['popgrainstagger', (n) => clamp(Math.round(n * 100) / 100, 0, 0.4)],
   grainLive: ['popgrainlive', (n) => (n > 0 ? 1 : 0)],
   units: ['popunits', (n) => (n > 0 ? 1 : 0)],
+  unitMax: ['popunitmax', (n) => clamp(Math.round(n), 1, 6)],
 };
 /* — Single-choice knobs (value ∈ vocab) and set knobs (comma lists ⊂ vocab). — */
 const CHOICE = {

@@ -53,7 +53,7 @@ import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from './Merid
 import PopulationDirector from './PopulationDirector.js';
 import { applyPlan, windowA } from './tileSwap.js';
 import { TUNING as POP_TUNING, subscribePopTune } from './popConfig.js';
-import buildCascadeTimeline, { panelDelay } from './cascade.js';
+import buildCascadeTimeline, { panelDelay, delayOwner } from './cascade.js';
 import createPanelGrain from './panelGrain.js';
 import {
   LON_SEGMENTS,
@@ -73,6 +73,7 @@ import {
   PREFERS_REDUCED_MOTION,
   SCROLL_VISIBLE_ROWS,
   SCROLL_LAT_GAP_DEG,
+  SCROLL_PACE_SCALE,
   SCROLL_POLE_CORNER_TIP,
   SCROLL_POLE_CORNER_WIDE,
   SCROLL_POLE_CORNER_START,
@@ -504,6 +505,9 @@ export default function useGlobeScene(
     let scheduler = null;
     let scroller = null;
     let director = null;
+    let posed = false; // the tick has set the globe's rotation at least once (getHorizon is null until then, M4)
+    const hzQ = new THREE.Quaternion();
+    const hzV = new THREE.Vector3();
     const buildDirector = () =>
       new PopulationDirector({
         panels,
@@ -514,6 +518,23 @@ export default function useGlobeScene(
         getRotation: () => globeGroup.rotation,
         canAnimate: () => popCanAnimate(),
         onWorld: (world, info) => onPopWorld(world, info), // the accent section below
+        // Span budget inputs (P4a, PopulationDirector.travelBudget / planUnits).
+        getPace: () =>
+          scroller
+            ? (scroller.rate * scroller.rateScale * 180) / Math.PI
+            : PREFERS_REDUCED_MOTION
+              ? 0
+              : ((180 / SCROLL_VISIBLE_ROWS) * tuneRef.current.cascadeSpeed) / SCROLL_PACE_SCALE, // before the scroller exists
+        getHorizon: () => {
+          // No pose yet: no horizon, and the plan places H pairs only. initialRotation is the 40° build pose, not the 45.5° brand tilt (M4).
+          if (!posed) return null;
+          // camera → globe frame; θh = its colatitude + the visible cap's half-angle
+          hzQ.setFromEuler(globeGroup.rotation).invert();
+          hzV.copy(camera.position).sub(globeGroup.position).applyQuaternion(hzQ);
+          const d = hzV.length();
+          return Math.acos(THREE.MathUtils.clamp(hzV.y / d, -1, 1)) + Math.acos(Math.min(RADIUS / d, 1));
+        },
+        revealHeld: hold,
       });
     const popAvailable = conveyorMode && worlds?.length > 0;
     if (popAvailable && POP_TUNING.mode !== 'off') director = buildDirector();
@@ -660,6 +681,7 @@ export default function useGlobeScene(
     let blueVariant = null;
     let blueWindow = 1;
     let blueEngaged = false;
+    const panelIndex = new Map(panels.map((p, i) => [p, i])); // a unit member → its lead's baked delay
     const bakeBlueDelays = (variant) => {
       if (blueDelays && blueVariant === variant) return;
       if (!blueDelays) blueDelays = new Float32Array(panels.length);
@@ -713,7 +735,7 @@ export default function useGlobeScene(
       for (let i = 0; i < panels.length; i += 1) {
         surgePanel(
           panels[i].mesh.material.uniforms,
-          Math.min(Math.max((p * blueWindow - blueDelays[i]) / blueSurge, 0), 1),
+          Math.min(Math.max((p * blueWindow - blueDelays[panelIndex.get(delayOwner(panels[i]))]) / blueSurge, 0), 1),
           blueDipEnd,
           blueDipDepth
         );
@@ -1007,6 +1029,7 @@ export default function useGlobeScene(
         yaw + spinYaw + THREE.MathUtils.degToRad(orient.yawDeg),
         0
       );
+      posed = true;
 
       // Meridian scroll (home hero): advance the pole-to-pole tile travel on the
       // fixed-tilt globe (writes each row's uPolarTop + refreshes centerDir).

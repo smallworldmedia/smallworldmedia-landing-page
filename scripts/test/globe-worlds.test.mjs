@@ -16,7 +16,7 @@ import buildWorldPools, { selectPool, WORLD_POOL_CAP } from '../../src/component
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import TextureManager, { assetKey, computeCoverUv } from '../../src/components/globe/TextureManager.js'
-import { loadTile, windowA } from '../../src/components/globe/tileSwap.js'
+import { loadTile, windowA, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
 import { TUNING, POP_DEFAULTS, setPopTune } from '../../src/components/globe/popConfig.js'
@@ -36,7 +36,7 @@ import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib
 import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload, classSizes } from '../lib/unitGates.mjs'
 import { stripAudioFromMaster, AUDIO_CODEC } from '../../src/components/work/hlsVideoOnly.js'
 import { videoOnlyLoader } from '../../src/components/work/useHls.js'
-import buildCascadeTimeline, { DELAY_ORDERS, panelDelay } from '../../src/components/globe/cascade.js'
+import buildCascadeTimeline, { DELAY_ORDERS, panelDelay, delayOwner } from '../../src/components/globe/cascade.js'
 import { buildScrollingGlobeGeometry } from '../../src/components/globe/buildGlobeGeometry.js'
 import {
   UNIT_EPS,
@@ -65,6 +65,7 @@ import {
   eligibleVQ,
   liveB,
   pictureAspect,
+  UNIT_CLASSES,
 } from '../../src/components/globe/unitSpan.js'
 import { classOf } from '../../src/components/globe/mediaClass.js'
 
@@ -1390,6 +1391,49 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   assert.deepEqual([misregistered.pass.liveReg, misregistered.detail.liveReg.vacuous, misregistered.detail.liveReg.worst], [false, false, 2e-3])
   assert.equal(unitGates(registers({ n: 0, worst: 0 }, { n: 0, worst: 0 }), texCtx).detail.liveReg.vacuous, true) // samples, no live class tile
   assert.equal('liveReg' in unitGates(registers({ n: 1, worst: 2e-3 }), { ...texCtx, rm: true }).pass, false)
+
+  // — P4a — level h: unitWhole over the running holds (n = the units judged), bornWhole in tide (n = births),
+  // unitRepeats over the holds against ?popunitmax, memberStills in tile mode (n = members), and the neighbour
+  // rule against its key's units-off reference (adjMax), judged only on holds with minPool ≥ 6.
+  const hCtx = { ...texCtx, key: 'u-desktop', level: 'h', unitMax: 1, baselines: { 'off-desktop': { adjMax: 0 }, 'off-mobile': { adjMax: 2 } } }
+  const uS = (units = {}, { phase = 'hold', adj = 0, minPool = 8 } = {}) => ({
+    phase,
+    step: 0,
+    units: { texClass: { h: 1, v: 0, q: 0, legacy: 0 }, whole: { n: 2, torn: 0 }, bornH: 0, members: 4, liveMembers: 0, repeats: 1, clock: 'running', ...units },
+    layout: { adj, unitAdj: 0, minPool },
+  })
+  const judgeH = (samples, over = {}) => unitGates({ requests: [classQ], samples }, { ...hCtx, ...over })
+  const failsAlone = (g, name) => g.pass[name] === false && g.detail[name].vacuous === false && expectFail({ pass: g.pass, spans: { detail: g.detail } }, [name]).ok
+  const plainH = judgeH([uS(), uS({ whole: { n: 3, torn: 0 } })])
+  assert.deepEqual([plainH.pass.unitWhole, plainH.detail.unitWhole.n, plainH.detail.unitWhole.worst], [true, 5, 0])
+  assert.deepEqual([plainH.pass.unitRepeats, plainH.detail.unitRepeats.n, plainH.detail.unitRepeats.bound], [true, 2, 1])
+  assert.deepEqual([plainH.pass.neighbourRule, plainH.detail.neighbourRule.n, plainH.detail.neighbourRule.bound], [true, 2, 0])
+  assert.deepEqual(['bornWhole' in plainH.detail, 'memberStills' in plainH.detail], [false, false]) // tide only, tile mode only
+  assert.ok(failsAlone(judgeH([uS({ whole: { n: 2, torn: 1 } })]), 'unitWhole'))
+  // a torn unit in a stopped hold or outside a hold is not judged
+  const quietTorn = judgeH([uS(), uS({ whole: { n: 2, torn: 1 }, clock: 'stopped' }), uS({ whole: { n: 2, torn: 1 } }, { phase: 'change' })])
+  assert.deepEqual([quietTorn.pass.unitWhole, quietTorn.detail.unitWhole.n], [true, 2])
+  const tideH = judgeH([uS({ bornH: 3 }), uS({ bornH: 5 })], { tide: true })
+  assert.deepEqual([tideH.pass.bornWhole, tideH.detail.bornWhole.n], [true, 5])
+  assert.ok(failsAlone(judgeH([uS({ bornH: 5, whole: { n: 2, torn: 1 } })], { tide: true }), 'bornWhole'))
+  assert.equal(judgeH([uS()], { tide: true }).detail.bornWhole.vacuous, true) // no birth: nothing to judge
+  assert.ok(failsAlone(judgeH([uS({ repeats: 2 })]), 'unitRepeats'))
+  assert.equal(judgeH([uS({ repeats: 2 })], { unitMax: 2 }).pass.unitRepeats, true)
+  assert.equal(judgeH([uS(), uS({ repeats: 3 }, { phase: 'change' })]).pass.unitRepeats, true) // holds only
+  const tileH = judgeH([uS({ members: 4 }), uS({ members: 6 })], { tile: true })
+  assert.deepEqual([tileH.pass.memberStills, tileH.detail.memberStills.n], [true, 6])
+  assert.ok(failsAlone(judgeH([uS({ liveMembers: 1 })], { tile: true }), 'memberStills'))
+  assert.ok(failsAlone(judgeH([uS({}, { adj: 1 })]), 'neighbourRule'))
+  assert.deepEqual([judgeH([uS({}, { adj: 1, minPool: 5 }), uS()]).pass.neighbourRule, judgeH([uS({}, { adj: 1, minPool: 5 }), uS()]).detail.neighbourRule.n], [true, 1])
+  // each key reads its own reference: u-mobile → off-mobile; a key outside the map → off-mobile or off-desktop
+  assert.deepEqual([judgeH([uS({}, { adj: 1 })], { key: 'u-mobile' }).pass.neighbourRule, judgeH([uS({}, { adj: 1 })], { key: 'u-mobile' }).detail.neighbourRule.bound], [true, 2])
+  assert.deepEqual([judgeH([uS({}, { adj: 1 })], { key: 'u-tile', mobile: true }).pass.neighbourRule, judgeH([uS({}, { adj: 1 })], { key: 'u-tile' }).pass.neighbourRule], [true, false])
+  // report-only (never in pass): no reference, ?popequiv, and absent while recording
+  for (const over of [{ baselines: {} }, { equiv: 2 }]) {
+    const g = judgeH([uS({}, { adj: 1 })], over)
+    assert.deepEqual(['neighbourRule' in g.pass, g.detail.neighbourRule.reportOnly, g.detail.neighbourRule.worst], [false, true, 1], JSON.stringify(over))
+  }
+  assert.equal('neighbourRule' in judgeH([uS()], { record: true }).detail, false)
 })
 
 test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
@@ -2217,18 +2261,21 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
     return { s: [u.uvScaleB.value.x, u.uvScaleB.value.y], o: [u.uvOffsetB.value.x, u.uvOffsetB.value.y] }
   }
   const pool = { assign: () => Promise.resolve(frame), releaseSlot() {} }
-  const live = new LivePanelScheduler({ panels: [stale, bound], assets: [clip], poolHandle: pool, textureManager: null, cycleThumbnails: false })
+  // — P4a — a unit member stays a still in tile mode and never joins a shared stream (the most prominent here).
+  const unitRec = { ...record, place: { uid: 'h:0:0:clip' }, kx: 0, ky: 0 }
+  const unitTile = Object.assign(liveTile(unitRec, 1), { asset: unitRec })
+  const live = new LivePanelScheduler({ panels: [unitTile, stale, bound], assets: [clip], poolHandle: pool, textureManager: null, cycleThumbnails: false })
   try {
-    assert.deepEqual([live.canJoin(bound), live.canJoin(stale)], [true, false])
+    assert.deepEqual([live.canJoin(bound), live.canJoin(stale), live.canJoin(unitTile)], [true, false, false])
     live.update(new THREE.Euler(), 10, null)
     await settleTicks()
-    assert.deepEqual([bound.liveState, stale.liveState], ['live', null])
+    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState], ['live', null, null])
     assert.ok(err(B(bound), liveB(16 / 9, aTex, A1)) <= 1e-12)
     live.setShared(true)
     bound.mesh.material.uniforms.uvScaleB.value.set(0, 0) // attach must write it again
     live.update(new THREE.Euler(), 20, null)
     await settleTicks()
-    assert.deepEqual([bound.liveState, stale.liveState], ['live', null])
+    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState], ['live', null, null])
     assert.ok(err(B(bound), liveB(16 / 9, aTex, A1)) <= 1e-12)
   } finally {
     live.dispose()
@@ -2262,5 +2309,660 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
   } finally {
     director.dispose()
     TUNING.units = 0
+  }
+})
+
+/* — Media spans, P4a: H pairs planned as whole units (T13, T14, T15, T17, T29's H half, T31). — */
+/** A units-on director on fakeScrollScene, with tunings over spanDirector's (seed 42, chaos 0, no names). */
+function unitDirector(tune = {}, { worlds = classedWorlds(), scene = fakeScrollScene(), ...opts } = {}) {
+  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, units: 1 }, tune)
+  const director = new PopulationDirector({
+    panels: scene.panels,
+    worlds,
+    textureManager: scene.textureManager,
+    getScheduler: () => null,
+    getRotation: () => new THREE.Euler(),
+    canAnimate: () => false,
+    ...opts,
+  })
+  return { director, ...scene }
+}
+/** The units the tiles are laid with (`asset`, the plan's side): Place → its tiles. */
+function placesOf(panels) {
+  const out = new Map()
+  for (const p of panels) if (p.asset?.place) out.set(p.asset.place, [...(out.get(p.asset.place) ?? []), p])
+  return out
+}
+/** assertNeighboursDiffer, span-aware: a unit's own members share its key by design; every other right or
+ *  up pair differs, so every outer neighbour of a unit does. */
+function assertSpanNeighboursDiffer(panels) {
+  const at = new Map(panels.map((p) => [`${p.lonIndex}:${p.tapeS}`, p]))
+  for (const p of panels) {
+    for (const q of [at.get(`${(p.lonIndex + 1) % LON}:${p.tapeS}`), at.get(`${p.lonIndex}:${p.tapeS + 1}`)]) {
+      if (!q || (p.asset.place && q.asset.place === p.asset.place)) continue
+      assert.notEqual(assetKey(q.asset), assetKey(p.asset), `L${p.lonIndex} s${p.tapeS} vs L${q.lonIndex} s${q.tapeS}`)
+    }
+  }
+}
+/** Every unit on the board is a whole H pair: its tiles are exactly its members, kx 0 then kx 1 along one
+ *  row, each showing the unit's key on a fresh record, all in the lead's owner region. Returns units per key. */
+function assertWholeUnits(director, panels) {
+  const owner = (p) => director.grouping.pattern.owner(p.lonIndex, p.tapeS)
+  const perKey = new Map()
+  for (const [P, tiles] of placesOf(panels)) {
+    assert.equal(P.cls, 'h', P.uid)
+    assert.equal(tiles.length, P.members.length, P.uid)
+    const [lead] = P.members
+    // the record: its slot in the uid, the pair's shape, its aspect on the live lattice
+    const shape = [`h:${lead.lonIndex}:${lead.tapeS}:${P.key}`, 2, 1, 2, unitAspect(2, 1, director.L), director.L]
+    assert.deepEqual([P.uid, P.cols, P.rows, P.n, P.S, P.L], shape, P.uid)
+    P.members.forEach((m, k) => {
+      assert.ok(tiles.includes(m), P.uid)
+      if (!P.born) assert.ok(!m.parked, `${P.uid}: a plan never claims a parked tile`) // a born row is born parked, north of the pole
+      assert.equal(m.asset.place, P)
+      assert.equal(assetKey(m.asset), P.key)
+      assert.deepEqual([m.asset.kx, m.asset.ky, m.tapeS, m.lonIndex], [k, 0, lead.tapeS, (lead.lonIndex + k) % LON], P.uid)
+      assert.equal(owner(m), owner(lead), `${P.uid}: one owner region`)
+    })
+    if (P.born) assert.equal(P.members[1].lonIndex, lead.lonIndex + 1, `${P.uid}: a born pair never wraps`)
+    perKey.set(P.key, (perKey.get(P.key) ?? 0) + 1)
+  }
+  // The pool records stay untouched: a member's record is its own object.
+  for (const r of [...director.pools.flat(), ...director.grouping.pools.flat()]) assert.ok(!('place' in r), assetKey(r))
+  return perKey
+}
+
+test('spans: planUnits forms whole H pairs in one region, clear of their own key, at most ?popunitmax per key; a kept unit takes the new world (T13)', async () => {
+  assert.deepEqual([...UNIT_CLASSES], ['h']) // P4a plans H pairs only (P5 adds v and q)
+  // ?popunitmax: 1 by default, an integer 1–6, and its own guide row.
+  assert.equal(POP_DEFAULTS.unitMax, 1)
+  for (const [typed, want] of [[0, 1], [2.4, 2], [9, 6]]) {
+    setPopTune('unitMax', typed)
+    assert.equal(TUNING.unitMax, want)
+  }
+  assert.match(fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8'), /^\| `\?popunitmax` \|.*\| `POP_DEFAULTS\.unitMax` \|$/m)
+  const directors = []
+  try {
+    // Two worlds at once (two owner regions), one unit per key.
+    const { director, panels } = unitDirector({ group: 2 })
+    directors.push(director)
+    director.initialLayout(director.byProminence())
+    let perKey = assertWholeUnits(director, panels)
+    assert.ok([...placesOf(panels).keys()].every((P) => P.born === false)) // planned, not born
+    assert.ok(perKey.size >= 6, `${perKey.size} units`)
+    assert.deepEqual([...new Set(perKey.values())], [1])
+    const planned = director.placed.h
+    assert.equal(planned, perKey.size)
+    assertSpanNeighboursDiffer(panels)
+    // NC: the plain neighbour rule flags a unit's own members as same-key neighbours.
+    assert.throws(() => assertNeighboursDiffer(panels), assert.AssertionError)
+    // Births (MeridianScroll.recycle → assignRow): H pairs inside the born row, whole, never across the
+    // seam, clear of their key, within ?popunitmax on the board.
+    const rows = new Map()
+    for (const p of panels) rows.set(p.row, [...(rows.get(p.row) ?? []), p])
+    let next = Math.max(...panels.map((p) => p.tapeS)) + 1
+    for (let k = 0; k < 24; k++) {
+      const oldest = [...rows.values()].sort((a, b) => a[0].tapeS - b[0].tapeS)[0]
+      for (const p of oldest) p.tapeS = next
+      next += 1
+      const picks = director.assignRow(oldest)
+      oldest.forEach((p, i) => loadTile(director, p, picks[i]))
+      perKey = assertWholeUnits(director, panels)
+      assert.ok(Math.max(...perKey.values()) <= 1)
+      assertSpanNeighboursDiffer(panels)
+    }
+    assert.ok(director.bornH >= 3, `${director.bornH} born pairs`)
+    assert.equal(director.placed.h, planned + director.bornH) // placed counts every unit formed, births included
+    assert.ok([...placesOf(panels).keys()].some((P) => P.born))
+    assert.deepEqual([director.unitStats(0).bornH, director.unitStats(0).placed], [director.bornH, director.placed]) // the probe reads both
+
+    // ?popunitmax 2: the cap is what bounds a key.
+    const { director: two, panels: board } = unitDirector({ unitMax: 2 })
+    directors.push(two)
+    two.initialLayout(two.byProminence())
+    const twice = assertWholeUnits(two, board)
+    assert.equal(Math.max(...twice.values()), 2)
+    assertSpanNeighboursDiffer(board)
+
+    // Keep-first (m10): a world change whose pool still holds a unit's key keeps the unit, on its own records
+    // (zero flips), refreshed to the new world. `shared` is h in every world (decorate pools its class). Each
+    // world names its own services here, so the refresh is seen on all three fields.
+    const { director: one, panels: tiles } = unitDirector({}, { worlds: classedWorlds().map((w) => ({ ...w, services: [`${w.slug}-svc`] })) })
+    directors.push(one)
+    one.initialLayout(one.byProminence())
+    const kept = [...placesOf(tiles).keys()].find((P) => P.key.startsWith('shared|'))
+    assert.ok(kept, 'the shared clip formed a unit')
+    const records = kept.members.map((m) => m.asset)
+    const stale = { ...records[0] } // the lead's record as it stands: what a keep without the refresh would show
+    one.step += 1
+    one.grouping = one.upcoming
+    one.lead = one.grouping.members[0]
+    const plan = one.planAll(one.byProminence())
+    const world = one.worlds[one.lead]
+    kept.members.forEach((m, k) => {
+      assert.equal(plan.get(m), records[k]) // kept: the unit's own record objects
+      assert.equal(plan.get(m).world, one.lead)
+      assert.equal(plan.get(m).clientName, world.clientName)
+      assert.deepEqual(plan.get(m).services, world.services)
+    })
+    assert.equal(applyPlan(one, new Map(kept.members.map((m) => [m, plan.get(m)])), { animate: false }).flips, 0)
+    // NC: without the refresh, the kept unit's lead still names the old world.
+    assert.notEqual(stale.world, one.lead)
+    assert.notEqual(stale.clientName, world.clientName)
+    assert.notDeepEqual(stale.services, world.services)
+  } finally {
+    for (const d of directors) d.dispose()
+    TUNING.units = 0
+    TUNING.unitMax = 1
+  }
+})
+
+const GRID = 64 // PopulationDirector's tape grid stride: a cell is s·GRID + lon
+/** MeridianScroll.recycle, n times: the oldest row is re-born (a new tapeS) and takes assignRow's picks. */
+function recycleRows(director, panels, n) {
+  const rows = new Map()
+  for (const p of panels) rows.set(p.row, [...(rows.get(p.row) ?? []), p])
+  let next = Math.max(...panels.map((p) => p.tapeS)) + 1
+  for (let k = 0; k < n; k++) {
+    const oldest = [...rows.values()].sort((a, b) => a[0].tapeS - b[0].tapeS)[0]
+    for (const p of oldest) p.tapeS = next
+    next += 1
+    const picks = director.assignRow(oldest)
+    oldest.forEach((p, i) => loadTile(director, p, picks[i]))
+  }
+}
+
+test('spans: planUnits and birthPairs on crafted boards — the seam, outer neighbours, the walk and its cursors; the births’ guards and the board count (T13)', () => {
+  const { director, panels } = unitDirector() // one world: one region owns every tile
+  try {
+    const g = director.grouping
+    const pool = g.pools[0]
+    const classed = pool.flatMap((a, i) => (a.unitCls === 'h' ? [i] : []))
+    assert.ok(classed.length >= 3, JSON.stringify(classed))
+    const key = (i) => assetKey(pool[i])
+    const at = (lon, row) => panels.find((p) => p.lonIndex === lon && p.row === row)
+    /** One lead through planUnits (still rows: D 0, no grain); the unit walk starts at `from`, singles' cursor at `cursor`. */
+    const unitAt = (lead, { grid = new Map(), from = classed[0], cursor = 0 } = {}) => {
+      g.ucursor = [from]
+      g.cursor = [cursor]
+      director.namePlan = new Map()
+      const plan = new Map()
+      director.planUnits([lead], grid, plan, 0, false)
+      return plan.get(lead)?.place ?? null
+    }
+    // A lead on the last meridian wraps the seam (a planned unit may; a born pair never does).
+    const seam = unitAt(at(LON - 1, 3), { cursor: classed[0] })
+    assert.deepEqual([seam?.members.map((m) => m.lonIndex), seam?.key], [[LON - 1, 0], key(classed[0])])
+    // The cursors: the region's next unit walks on from the asset after this one, and singles don't open on it.
+    assert.deepEqual([g.ucursor[0], g.cursor[0]], [classed[0] + 1, classed[0] + 1])
+    // The walk starts at the unit cursor (not the singles' cursor, nor the pool's head).
+    assert.equal(unitAt(at(4, 3), { from: classed[1] })?.key, key(classed[1]))
+    // A key just right of the seam (lon 0) is an outer neighbour of a unit on lon L−2, L−1: that key is ruled
+    // out, and the walk goes on to the next classed asset.
+    const lead = at(LON - 2, 3)
+    const ruled = unitAt(lead, { grid: new Map([[lead.tapeS * GRID + 0, key(classed[0])]]) })
+    assert.deepEqual([ruled?.members.map((m) => m.lonIndex), ruled?.key], [[LON - 2, LON - 1], key(classed[1])])
+
+    // birthPairs on crafted picks (one born row, lon order): two h picks, no name strip, the key clear of both
+    // lon neighbours (across the seam too) and of rows s ± 1 over both members, under ?popunitmax with the
+    // row's own pairs counted.
+    const row = panels.filter((p) => p.row === 3).sort((a, b) => a.lonIndex - b.lonIndex)
+    const s = row[0].tapeS
+    const h = (id, unitCls = 'h') => ({ kind: 'video', playbackId: id, unitCls })
+    const born = (spec, grid = new Map()) => {
+      const picks = row.map((p) => spec[p.lonIndex] ?? { kind: 'video', playbackId: `x${p.lonIndex}` })
+      director.birthPairs(row, picks, grid)
+      return picks.flatMap((a, lon) => (a.place && a.kx === 0 ? [`${lon}:${a.place.key}`] : []))
+    }
+    assert.deepEqual(born({ 4: h('K'), 5: h('K') }), ['4:K'])
+    assert.deepEqual(born({ 1: h('K'), 2: h('K'), 3: h('K') }), []) // a third K on either side of a pair
+    assert.deepEqual(born({ 0: h('K'), 1: h('K'), [LON - 1]: h('K') }), []) // the left neighbour across the seam
+    assert.deepEqual(born({ 4: h('K'), 5: h('K') }, new Map([[(s + 1) * GRID + 5, 'K']])), []) // K one row up from the second member
+    assert.deepEqual(born({ 4: h('K'), 5: h('K') }, new Map([[(s - 1) * GRID + 4, 'K']])), []) // K one row down from the first
+    assert.deepEqual(born({ 1: h('K'), 2: h('K'), 6: h('K'), 7: h('K') }), ['1:K']) // ?popunitmax 1: the row's first pair counts
+    assert.deepEqual(born({ 4: h('V', 'v'), 5: h('V', 'v') }), []) // only an h pick pairs
+    assert.deepEqual(born({ 4: h('K'), 5: { kind: 'name', nameKey: 'K-strip' } }), []) // a name strip never joins
+
+    // The births' cap reads the board: units planned or in flight (a swap's target leads what texA shows), each
+    // unit once however many members it has.
+    const U = (k) => ({ uid: `h:0:0:${k}`, key: k })
+    const [P1, P2, P3] = [U('k1'), U('k2'), U('k2')]
+    const rec = (k, place) => ({ kind: 'video', playbackId: k, ...(place ? { place } : {}) })
+    Object.assign(panels[0], { asset: rec('k1', P1), shownAsset: rec('k1', P1) })
+    Object.assign(panels[1], { asset: rec('k1', P1), shownAsset: rec('k1', P1) }) // the same unit's second member
+    Object.assign(panels[2], { asset: rec('a'), shownAsset: rec('a'), swapAsset: rec('k2', P2) }) // swapping into a unit
+    Object.assign(panels[3], { asset: rec('k2', P3), shownAsset: rec('b') }) // planned, its load still in flight
+    assert.deepEqual(Object.fromEntries(director.unitCountByKey()), { k1: 1, k2: 2 })
+  } finally {
+    director.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: keep-first keeps only an intact unit — every member showing it, none loading or swapping, one region, under the cap, outer neighbours clear; under the grain every lead is admissible (T13, m10)', () => {
+  const directors = []
+  const make = (tune, opts) => {
+    const out = unitDirector(tune, opts)
+    directors.push(out.director)
+    out.director.initialLayout(out.director.byProminence())
+    return out
+  }
+  try {
+    const { director, panels } = make({ group: 2 }) // two owner regions
+    const units = [...placesOf(panels).keys()]
+    const replan = (grid = new Map()) => {
+      director.namePlan = new Map()
+      const plan = new Map()
+      director.planUnits(director.byProminence(), grid, plan, 0, false)
+      return plan
+    }
+    const kept = (plan, P) => P.members.every((m) => plan.get(m) === m.asset)
+    const untouched = replan()
+    assert.ok(units.length >= 6 && units.every((P) => kept(untouched, P)), `${units.length} units`) // an unchanged board keeps every unit
+    const P = units[0]
+    const [m0, m1] = P.members
+    const was = { asset: m1.asset, shown: m1.shownAsset }
+    const broken = (why, apply, undo) => {
+      apply()
+      try {
+        assert.equal(kept(replan(), P), false, why)
+      } finally {
+        undo()
+      }
+      assert.equal(kept(replan(), P), true, `${why}: restored`)
+    }
+    broken('a member mid-load', () => (m1.asset = { ...was.asset }), () => (m1.asset = was.asset))
+    const staleRec = { ...was.asset, place: { ...P } } // bound and showing, but another unit's record
+    broken('a stale record', () => Object.assign(m1, { asset: staleRec, shownAsset: staleRec }), () => Object.assign(m1, { asset: was.asset, shownAsset: was.shown }))
+    broken('a member swapping', () => (m1.swapAsset = { ...was.asset }), () => (m1.swapAsset = null))
+    const pattern = director.grouping.pattern
+    const owner = pattern.owner
+    const other = 1 - owner(m0.lonIndex, m0.tapeS)
+    broken('members in two regions', () => (pattern.owner = (lon, s) => (lon === m1.lonIndex && s === m1.tapeS ? other : owner(lon, s))), () => (pattern.owner = owner))
+    const left = m0.tapeS * GRID + ((m0.lonIndex + LON - 1) % LON)
+    assert.equal(kept(replan(new Map([[left, P.key]])), P), false, 'its key on an outer neighbour')
+
+    // The cap: a board laid at ?popunitmax 2 and re-planned at 1 keeps one unit per key.
+    const { director: two, panels: board } = make({ unitMax: 2 })
+    const twice = assertWholeUnits(two, board)
+    assert.equal(Math.max(...twice.values()), 2)
+    TUNING.unitMax = 1
+    const capped = new Map()
+    for (const Q of new Set([...two.planAll(two.byProminence()).values()].map((a) => a.place).filter(Boolean))) capped.set(Q.key, (capped.get(Q.key) ?? 0) + 1)
+    assert.deepEqual([...new Set(capped.values())], [1])
+    // …and a unit is judged at its LEAD's place in the order: with A's second member ahead of B's lead, and B's
+    // lead ahead of A's, B keeps the key.
+    const K2 = [...twice].find(([, n]) => n === 2)[0]
+    const [A, B] = [...placesOf(board).keys()].filter((Q) => Q.key === K2)
+    const tie = new Map()
+    two.namePlan = new Map()
+    two.planUnits([A.members[1], B.members[0], A.members[0], B.members[1]], new Map(), tie, 0, false)
+    assert.deepEqual([kept(tie, B), kept(tie, A)], [true, false])
+    // A unit of a class this level doesn't plan (a V pair, drawn by hand on a column a V could hold) is never kept.
+    const vRec = two.grouping.pools[0].find((a) => a.unitCls === 'v')
+    const thetaV = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
+    const top = board.find((p) => !p.parked && !p.asset.place && eligibleVQ(thetaV(p), 0, { ...two.W, thetaH: Math.PI }, 0))
+    const bottom = board.find((p) => p.lonIndex === top.lonIndex && p.tapeS === top.tapeS - 1)
+    const V = { uid: `v:${top.lonIndex}:${top.tapeS}:${assetKey(vRec)}`, key: assetKey(vRec), cls: 'v', cols: 1, rows: 2, n: 2, members: [top, bottom], born: false }
+    for (const [k, m] of [top, bottom].entries()) m.asset = m.shownAsset = { ...vRec, place: V, kx: 0, ky: k }
+    const vPlan = new Map()
+    two.namePlan = new Map()
+    two.planUnits([top, bottom], new Map(), vPlan, 0, false)
+    assert.ok(vRec && !bottom.parked && !kept(vPlan, V))
+
+    // The grain (gT = grainStart + grainRamp + grainStagger): a unit, kept or new, needs an admissible lead
+    // (eligibleH over the travel D). A board laid without it and re-planned with it drops the units the grain
+    // would reach, keeps the rest, and forms no new one where the grain reaches.
+    const { director: wide, panels: wb } = make({ unitMax: 6 }, { getPace: () => 2, revealHeld: true })
+    const laid = [...placesOf(wb).keys()]
+    TUNING.grainAmt = 1
+    const gT = TUNING.grainStart + TUNING.grainRamp + TUNING.grainStagger
+    const grained = wide.planAll(wide.byProminence(), { land: 0.9 })
+    const D = wide.lastD
+    near(degOf(D), 18, 1e-9)
+    const thetaOf = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
+    const leads = [...new Set([...grained.values()].map((a) => a.place).filter(Boolean))].map((Q) => Q.members[0])
+    assert.ok(leads.length >= 1)
+    for (const lead of leads) assert.ok(eligibleH(thetaOf(lead), D, gT), `lead at ${degOf(thetaOf(lead)).toFixed(1)}°`)
+    assert.ok(laid.some((Q) => !eligibleH(thetaOf(Q.members[0]), D, gT))) // the laid board had leads the grain rules out…
+    assert.ok(laid.some((Q) => kept(grained, Q))) // …and the re-plan kept the others
+    // A born row under the grain forms no pair; the same births without it do.
+    recycleRows(wide, wb, 12)
+    assert.equal(wide.bornH, 0)
+    TUNING.grainAmt = 0
+    const { director: twin, panels: tb } = make({ unitMax: 6 })
+    recycleRows(twin, tb, 12)
+    assert.ok(twin.bornH >= 1, `${twin.bornH} births without the grain`)
+  } finally {
+    for (const d of directors) d.dispose()
+    TUNING.units = 0
+    TUNING.unitMax = 1
+    TUNING.grainAmt = 0
+  }
+})
+
+test('spans: unitStats — members and units on unparked tiles, a torn unit and its orphans (front ones apart), live members, repeats per key (T13)', () => {
+  const { director, panels } = unitDirector()
+  try {
+    director.initialLayout(director.byProminence())
+    const laid = [...placesOf(panels).keys()]
+    const stats = () => {
+      const u = director.unitStats(0)
+      return [u.members, u.whole.n, u.whole.torn, u.orphans, u.orphansFront, u.repeats, u.liveMembers]
+    }
+    assert.ok(laid.length >= 3, `${laid.length} units`)
+    assert.deepEqual(stats(), [2 * laid.length, laid.length, 0, 0, 0, 1, 0])
+    const P = laid.find((Q) => Q.members[0].centerDir.z > 0.05) // a unit facing the camera (FACING)
+    const [m0, m1] = P.members
+    m0.parked = m1.parked = true // past the pole: neither its members nor the unit count
+    assert.deepEqual(stats().slice(0, 2), [2 * laid.length - 2, laid.length - 1])
+    m0.parked = m1.parked = false
+    m0.liveState = 'live'
+    assert.equal(stats()[6], 1)
+    m0.liveState = null
+    const shown = m1.shownAsset
+    loadTile(director, m1, { kind: 'video', playbackId: 'a-single' }) // m1 leaves the unit: torn, m0 its orphan
+    assert.deepEqual(stats(), [2 * laid.length - 1, laid.length, 1, 1, 1, 1, 0])
+    director.getRotation = () => new THREE.Euler(0, Math.PI, 0) // turned away: the orphan is behind
+    assert.equal(stats()[4], 0)
+    director.getRotation = () => new THREE.Euler()
+    m0.swapAsset = { ...shown } // mid-change (a swap in flight): not torn yet
+    assert.deepEqual(stats().slice(2, 5), [0, 0, 0])
+    m0.swapAsset = null
+  } finally {
+    director.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: the rules hold on any board — no lattice forms no unit, ?popunitmax 6 claims no parked tile and keeps outer neighbours clear, a name strip is never a member (T13)', () => {
+  const directors = []
+  try {
+    // The fixed globe (no lattice): ?popunits 1 never runs planUnits.
+    const { director: fixed, panels: fb } = unitDirector({}, { scene: fakeScene() })
+    directors.push(fixed)
+    fixed.initialLayout(fixed.byProminence())
+    assert.deepEqual([fixed.L, placesOf(fb).size, fixed.placed.h], [null, 0, 0])
+    // ?popunitmax 6: a crowded board, still whole units on unparked tiles with clear outer neighbours.
+    const { director: six, panels: board } = unitDirector({ unitMax: 6 })
+    directors.push(six)
+    six.initialLayout(six.byProminence())
+    const perKey = assertWholeUnits(six, board)
+    assert.ok(Math.max(...perKey.values()) >= 3, JSON.stringify([...perKey]))
+    assertSpanNeighboursDiffer(board)
+    // Names on: planNames places the strips first, and a strip tile keeps its strip.
+    const { director: named, panels: nb } = unitDirector({ names: 1 })
+    directors.push(named)
+    let strips = null
+    const planNames = named.planNames.bind(named)
+    named.planNames = () => {
+      const m = planNames()
+      strips ??= new Map(m) // the initial layout's (pick consumes the map)
+      return m
+    }
+    named.initialLayout(named.byProminence())
+    assert.ok(strips.size >= 1 && placesOf(nb).size >= 1)
+    for (const [p, strip] of strips) assert.equal(p.asset, strip, `L${p.lonIndex} r${p.row}`)
+  } finally {
+    for (const d of directors) d.dispose()
+    TUNING.units = 0
+    TUNING.unitMax = 1
+  }
+})
+
+test('spans: sharedDelays draws one delay per connected group of old ∪ new units; singles keep their own (T14)', () => {
+  const random = Math.random
+  const { panels, textureManager } = fakeScene()
+  const owner = { textureManager, disposed: false }
+  const rec = (id, uid = null, kx = 0) => ({ kind: 'video', playbackId: id, ...(uid ? { place: { uid }, kx, ky: 0 } : {}) })
+  const [a, b, c, d, e, f, g, h, i] = panels
+  // What the tiles show: U1 on a and b, U3 on e and f, i mid-swap into U2; the rest singles.
+  a.asset = rec('u1', 'U1', 0)
+  b.asset = rec('u1', 'U1', 1)
+  e.asset = rec('u3', 'U3', 0)
+  f.asset = rec('u3', 'U3', 1)
+  for (const p of [c, d, g, h, i]) p.asset = rec(`was-${p.lonIndex}-${p.row}`)
+  i.swapAsset = rec('u2', 'U2', 1)
+  // The plan: b and c form U2 (b breaks U1, a goes single), d stays single, e goes single (it breaks U3; f is
+  // not in the plan), g and h form U4, i goes single (it was swapping into U2).
+  const plan = new Map([
+    [a, rec('x')],
+    [b, rec('u2', 'U2', 0)],
+    [c, rec('u2', 'U2', 1)],
+    [d, rec('y')],
+    [e, rec('z')],
+    [g, rec('u4', 'U4', 0)],
+    [h, rec('u4', 'U4', 1)],
+    [i, rec('w')],
+  ])
+  let draws = 0
+  Math.random = () => ++draws / 10
+  try {
+    const delays = sharedDelays(plan, 0.6)
+    // the groups, in plan order: {a, b, c, i} (U1 ∪ U2 ∪ i's swap target), {d}, {e} (U3), {g, h} (U4)
+    assert.equal(draws, 4)
+    assert.equal(delays.size, plan.size)
+    assert.equal(delays.has(f), false)
+    for (const [p, r] of [[a, 0.1], [b, 0.1], [c, 0.1], [i, 0.1], [d, 0.2], [e, 0.3], [g, 0.4], [h, 0.4]]) {
+      near(delays.get(p), r * 0.6, 1e-12, `L${p.lonIndex} r${p.row}`)
+    }
+    // applyPlan takes them: each swap starts at its group's delay, and the span ends with the last landing.
+    const { flips, span } = applyPlan(owner, plan, { animate: true, style: 'blink', spread: 0.6, dur: 0.45, delays })
+    assert.equal(flips, plan.size)
+    for (const [p] of plan) near(p.swapTl.delay(), delays.get(p), 1e-12)
+    near(span, 0.4 * 0.6 + 0.45, 1e-12)
+    assert.equal(draws, 4) // no per-tile draw on top
+    // NC: today's per-tile draw gives a unit's members different delays.
+    const perTile = new Map([...plan.keys()].map((p) => [p, Math.random() * 0.6]))
+    assert.notEqual(perTile.get(b), perTile.get(c))
+    assert.notEqual(perTile.get(g), perTile.get(h))
+  } finally {
+    Math.random = random
+    for (const p of panels) cancelSwap(p)
+  }
+})
+
+test('spans: layIn hands applyPlan one delay per unit; units off keeps one draw per flipped tile, as today (T14, m3)', async () => {
+  const random = Math.random
+  const directors = []
+  try {
+    // Units on: a relayout on a new seed lays new units, and each one's members start their swaps together.
+    const { director, panels } = unitDirector({}, { canAnimate: () => true })
+    directors.push(director)
+    director.initialLayout(director.byProminence())
+    TUNING.seed = 7
+    director.relayout({ reseed: true })
+    await settleTicks()
+    const laid = new Map()
+    for (const p of panels) if (p.swapTl && p.swapAsset?.place) laid.set(p.swapAsset.place, [...(laid.get(p.swapAsset.place) ?? []), p])
+    const whole = [...laid].filter(([P, tiles]) => tiles.length === P.members.length)
+    assert.ok(whole.length >= 1, `${whole.length} units laid`)
+    for (const [P] of whole) for (const m of P.members) assert.equal(m.swapTl.delay(), P.members[0].swapTl.delay(), P.uid)
+    // Units off: a relayout (same seed) over a board where every third tile shows a stray, so the rest skip: one
+    // Math.random() per flipped tile, in plan order.
+    const { director: off } = unitDirector({ units: 0 }, { canAnimate: () => true })
+    directors.push(off)
+    off.initialLayout(off.byProminence())
+    const order = off.byProminence()
+    order.forEach((p, i) => i % 3 === 1 && loadTile(off, p, { kind: 'video', playbackId: `stray${i}` }))
+    const warm = off.warmGrouping.bind(off)
+    let n = 0
+    off.warmGrouping = () => warm().then(() => (Math.random = () => (n += 1) / 1000)) // counts the draws that lay the plan
+    off.relayout()
+    await settleTicks()
+    Math.random = random
+    const flipped = order.filter((p) => p.swapTl)
+    assert.equal(flipped.length, order.filter((p, i) => i % 3 === 1).length)
+    const d1 = flipped[0].swapTl.delay()
+    flipped.forEach((p, k) => near(p.swapTl.delay(), d1 * (k + 1), 1e-9, `flip ${k}`))
+    assert.equal(n, flipped.length)
+  } finally {
+    Math.random = random
+    for (const d of directors) {
+      for (const p of d.panels) cancelSwap(p)
+      d.dispose()
+    }
+    TUNING.units = 0
+    TUNING.seed = 42
+  }
+})
+
+test('spans: placeKey keys the texture AND the unit slot: single ↔ member swaps, an unchanged place skips (T15)', () => {
+  const { panels, textureManager } = fakeScene()
+  const owner = { textureManager, disposed: false }
+  const a = { kind: 'video', playbackId: 'clip', u: 'h' }
+  const P = { uid: 'h:2:5:clip' }
+  const Q = { uid: 'h:6:5:clip' }
+  const member = (place, kx) => ({ ...a, place, kx, ky: 0 })
+  assert.equal(placeKey(a), 'clip|-') // units off: the texture key and '|-'
+  assert.equal(placeKey(member(P, 1)), 'clip|h:2:5:clip:1:0')
+  const flips = (i, from, to) => {
+    loadTile(owner, panels[i], from)
+    return applyPlan(owner, new Map([[panels[i], to]]), { animate: false }).flips
+  }
+  assert.equal(flips(0, a, member(P, 0)), 1) // single → member: the tile swaps, so its window changes under the dip
+  assert.equal(panels[0].shownAsset.place, P)
+  assert.equal(flips(1, member(P, 1), a), 1) // member → single
+  assert.equal(flips(2, member(P, 0), member(Q, 0)), 1) // one unit → another of the same asset
+  assert.equal(flips(3, member(P, 0), member(P, 1)), 1) // the other slot of the same unit
+  assert.equal(flips(4, member(P, 0), member(P, 0)), 0) // an unchanged place skips (a fresh record, the same slot)
+  assert.equal(flips(5, a, { ...a }), 0) // units off: the same asset skips, as today
+  assert.equal(flips(6, a, { kind: 'video', playbackId: 'other' }), 1)
+  // NC: keyed on assetKey alone, the single → member change reads as unchanged, so the window would never change.
+  assert.equal(assetKey(a), assetKey(member(P, 0)))
+})
+
+test('spans: travelBudget is the landing, the longest hold and the next change at the rows’ pace (T17)', async () => {
+  const pace = ((180 / 6) * 2) / 30 // °/s: 6 rows × cascadeSpeed 2 / SCROLL_PACE_SCALE (the desktop pace)
+  assert.deepEqual([POP_DEFAULTS.hold, POP_DEFAULTS.holdJit, POP_DEFAULTS.trans], [6, 0.2, 0.9])
+  const directors = []
+  const make = (opts, tune = {}) => {
+    const { director } = unitDirector(tune, opts)
+    directors.push(director)
+    return director
+  }
+  try {
+    const still = make({ getPace: () => 0, revealHeld: true })
+    assert.equal(still.travelBudget(0.9, false), 0) // reduced motion: the rows never move
+    assert.equal(still.travelBudget(0, true), 0)
+    assert.equal(still.unitStats(0).clock, 'static')
+    const replay = make({ getPace: () => pace, canAnimate: () => true })
+    assert.equal(replay.travelBudget(0, true), Infinity) // replay: the first hold's start is unbounded…
+    near(degOf(replay.travelBudget(0.9, false)), 18.0, 1e-9, 'replay advance') // …every later plan is bounded
+    assert.equal(replay.unitStats(0).clock, 'running')
+    assert.equal(make({ getPace: () => pace, worlds: classedWorlds().slice(0, 1) }).travelBudget(0.9, false), Infinity) // one world: no clock
+    const director = make({ getPace: () => pace, revealHeld: true })
+    near(degOf(director.travelBudget(0.9, false)), 18.0, 1e-9, 'advance')
+    near(degOf(director.travelBudget(1.05, false)), 18.3, 1e-9, 'relayout')
+    near(degOf(director.travelBudget(0, true)), 20.2, 1e-9, 'arrive')
+    // Each path hands it its own landing: the held entrance, a change (spread + dur = ?poptrans), a bench relayout.
+    const lands = []
+    const budget = director.travelBudget
+    director.travelBudget = function (land, initial) {
+      lands.push([land, initial])
+      return budget.call(this, land, initial)
+    }
+    director.initialLayout(director.byProminence())
+    assert.equal(director.sample(new THREE.Euler()).units.D, 20.2)
+    assert.equal(director.sample(new THREE.Euler()).units.clock, 'stopped') // the screens aren't free to animate
+    director.advance() // the screens aren't free to animate: a cut
+    await settleTicks()
+    assert.equal(director.sample(new THREE.Euler()).units.D, 18)
+    director.relayout()
+    await settleTicks()
+    assert.equal(director.sample(new THREE.Euler()).units.D, 18.3)
+    assert.deepEqual(lands.map(([, initial]) => initial), [true, false, false])
+    near(lands.map(([land]) => land), [0, 0.9, 1.05], 1e-12, 'landings')
+    // NC: without the landing term, advance gives 16.2°.
+    near(degOf(director.travelBudget(0, false)), 16.2, 1e-9)
+  } finally {
+    for (const d of directors) d.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: the initial layout is planned before the first pose — no horizon, so H pairs only (T29, M4)', () => {
+  let horizon = null // useGlobeScene's getHorizon until the tick has posed the globe (the `posed` latch)
+  const { director } = unitDirector({}, { getPace: () => 2, revealHeld: true, getHorizon: () => horizon })
+  try {
+    director.initialLayout(director.byProminence())
+    let units = director.sample(new THREE.Euler()).units
+    assert.ok(units.placed.h >= 1, JSON.stringify(units.placed)) // an H pair needs no horizon
+    assert.deepEqual([units.placed.v, units.placed.q, units.initVQ], [0, 0, 0])
+    assert.equal(units.thetaH, null)
+    assert.equal(units.initThetaH, null)
+    assert.equal(units.D, 20.2) // arrive: the held entrance + the longest hold + the next change
+    // Posed: the next plan reads the live horizon, and the initial layout's stays null.
+    horizon = rad(127.5)
+    director.planAll(director.byProminence(), { land: 0.9 })
+    units = director.sample(new THREE.Euler()).units
+    assert.equal(units.thetaH, 127.5)
+    assert.equal(units.initThetaH, null)
+    // NC: the pre-tick initialRotation horizon (≈ 133°) admits a V/Q lead whose bottom row travels to 132.4°,
+    // past the posed limb at 127.5°.
+    const D = rad(20.2)
+    const lead = rad(82.19) // the arrive window's θS edge (θS − D)
+    assert.equal(eligibleVQ(lead, D, { ...director.W, thetaH: rad(133) }, 0), true)
+    near(degOf(lead + director.W.Pth + D), 132.39, 1e-9)
+    assert.equal(eligibleVQ(lead, D, { ...director.W, thetaH: rad(127.5) }, 0), false)
+  } finally {
+    director.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: a unit powers on and fills blue as one picture: every member takes its lead’s delay (T31, m3)', () => {
+  const random = Math.random
+  const { panels } = fakeScene()
+  const at = (lon, row) => panels.find((p) => p.lonIndex === lon && p.row === row)
+  panels.forEach((p, i) => (p.asset = { kind: 'video', playbackId: `single${i}` }))
+  // An H, a V and a Q unit (kx along lon, ky one row south), as planUnits lays their records.
+  const unit = (cls, lon, row) => {
+    const { cols, rows } = UNIT_SHAPE[cls]
+    const members = []
+    for (let ky = 0; ky < rows; ky++) for (let kx = 0; kx < cols; kx++) members.push(at(lon + kx, row + ky))
+    const P = { uid: `${cls}:${lon}:${members[0].tapeS}:${cls}clip`, cls, cols, rows, members }
+    members.forEach((m, k) => (m.asset = { kind: 'video', playbackId: `${cls}clip`, place: P, kx: k % cols, ky: Math.floor(k / cols) }))
+    return P
+  }
+  const units = [unit('h', 2, 3), unit('v', 5, 2), unit('q', 8, 1)]
+  const members = units.flatMap((P) => P.members)
+  // The blue fill's lookup: every member → its lead; a panel outside a unit owns itself.
+  for (const P of units) for (const m of P.members) assert.equal(delayOwner(m), P.members[0])
+  for (const p of panels.filter((x) => !members.includes(x))) assert.equal(delayOwner(p), p)
+  const owners = panels.length - members.length + units.length
+  try {
+    for (const variant of DELAY_ORDERS) {
+      let calls = 0
+      Math.random = () => ((calls += 1), (calls * 0.37) % 1)
+      const tl = buildCascadeTimeline(panels, variant, ROWS)
+      // panelDelay draws once per owner (jitter; 'random' draws its slot too): one delay per unit
+      assert.equal(calls, owners * (variant === 'random' ? 2 : 1), variant)
+      const startOf = new Map(tl.getChildren(false, true, false).filter((t) => t.vars.keyframes).map((t) => [t.targets()[0], t.startTime()]))
+      tl.kill()
+      for (const P of units) {
+        const lead = startOf.get(P.members[0].mesh.material.uniforms.uPower)
+        for (const m of P.members) assert.equal(startOf.get(m.mesh.material.uniforms.uPower), lead, `${variant} ${P.uid}`)
+      }
+      assert.equal(startOf.size, panels.length, variant) // every screen still powers on
+    }
+    // The unit's delay is its lead's own, whichever member the cascade meets first (here the panels reversed).
+    Math.random = () => 0
+    for (const variant of DELAY_ORDERS.filter((v) => v !== 'random')) {
+      const tl = buildCascadeTimeline([...panels].reverse(), variant, ROWS)
+      const startOf = new Map(tl.getChildren(false, true, false).filter((t) => t.vars.keyframes).map((t) => [t.targets()[0], t.startTime()]))
+      tl.kill()
+      for (const P of units) for (const m of P.members) near(startOf.get(m.mesh.material.uniforms.uPower), panelDelay(P.members[0], variant, ROWS), 1e-9, `${variant} ${P.uid}`)
+    }
+    // NC: per-panel panelDelay (the old path) starts an H pair's halves ≥ 0.02 s apart under sweep (0.07 s per
+    // lon step, minus at most 0.05 s of jitter): here the worst case, the lead drawing the most jitter.
+    const [h0, h1] = units[0].members
+    Math.random = () => 0.999999
+    const d0 = panelDelay(h0, 'sweep', ROWS)
+    Math.random = () => 0
+    const d1 = panelDelay(h1, 'sweep', ROWS)
+    assert.ok(d1 - d0 >= 0.02, `${d1 - d0}`)
+  } finally {
+    Math.random = random
   }
 })

@@ -59,6 +59,10 @@ export function panelDelay(panel, variant, totalRows) {
   }
 }
 
+/** Media spans: the panel whose stagger delay a panel takes, its unit's lead
+ *  (place.members[0]), so a unit powers on and fills blue as one picture. */
+export const delayOwner = (panel) => panel.asset?.place?.members[0] ?? panel;
+
 /**
  * @param {Array} panels - panel records carrying { mesh, lonIndex, row }
  * @param {string} variant - one of CASCADE_VARIANTS
@@ -67,10 +71,13 @@ export function panelDelay(panel, variant, totalRows) {
  */
 export default function buildCascadeTimeline(panels, variant, totalRows) {
   const tl = gsap.timeline();
+  const delays = new Map(); // owner panel → its ONE delay (units off: every panel is its own owner)
   panels.forEach((panel) => {
+    const owner = delayOwner(panel);
+    if (!delays.has(owner)) delays.set(owner, panelDelay(owner, variant, totalRows));
     const uPower = panel.mesh.material.uniforms.uPower;
     tl.set(uPower, { value: 0 }, 0);
-    tl.to(uPower, { keyframes: FLICKER_KEYFRAMES }, panelDelay(panel, variant, totalRows));
+    tl.to(uPower, { keyframes: FLICKER_KEYFRAMES }, delays.get(owner));
   });
   return tl;
 }
