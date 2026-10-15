@@ -15,7 +15,7 @@ import { buildContentFlow } from '../../src/components/work/detail/buildContentF
 import buildWorldPools, { selectPool, WORLD_POOL_CAP } from '../../src/components/globe/buildWorldPools.js'
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
-import TextureManager, { assetKey } from '../../src/components/globe/TextureManager.js'
+import TextureManager, { assetKey, computeCoverUv } from '../../src/components/globe/TextureManager.js'
 import { loadTile } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
@@ -36,6 +36,35 @@ import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib
 import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload } from '../lib/unitGates.mjs'
 import { stripAudioFromMaster, AUDIO_CODEC } from '../../src/components/work/hlsVideoOnly.js'
 import { videoOnlyLoader } from '../../src/components/work/useHls.js'
+import buildCascadeTimeline, { DELAY_ORDERS } from '../../src/components/globe/cascade.js'
+import { buildScrollingGlobeGeometry } from '../../src/components/globe/buildGlobeGeometry.js'
+import {
+  UNIT_EPS,
+  T_ENTRANCE,
+  TOP_RUNG,
+  UNIT_SHAPE,
+  SKEW_MARGIN,
+  lattice,
+  latticeOf,
+  frac,
+  unitAspect,
+  kappaOwn,
+  memberWindow,
+  compose,
+  coverWindow,
+  rendered as spanRendered,
+  unitA,
+  thetaBound,
+  unitSkewBound,
+  frameOf,
+  mp,
+  sourceShort,
+  texSpec,
+  quadEligible,
+  eligibleH,
+  eligibleVQ,
+} from '../../src/components/globe/unitSpan.js'
+import { classOf } from '../../src/components/globe/mediaClass.js'
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -1392,4 +1421,412 @@ test('spans: a load that rejects is failed, never pending, so the ref ledger sti
   assert.equal(tm.stats().mib, Math.round(((tm.cache.size * 512 * 512 * 4 * 4) / 3 / 1048576) * 10) / 10)
   tm.disposeAll()
   assert.equal(tm.stats().mib, 0) // teardown empties the ledger
+})
+
+/* — Media spans, P1: unitSpan's arithmetic and mediaClass's classes (T1–T10, T30). Both modules
+   stay inert until P3 wires them in: these tests are their only importer. — */
+const SPAN_L = latticeOf({ lon: 12, visibleRows: 6, gapDeg: 1.1, latGapDeg: 1.1 }) // the home globe: 12 meridians, 6 rows, 1.1° gaps
+const rad = (d) => (d * Math.PI) / 180
+const degOf = (r) => (r * 180) / Math.PI
+/** The seam between a unit's two members, as a fraction of the unit: the gap G over 2P − G. */
+const seamOf = (P, G) => G / (2 * P - G)
+/** |a − b| ≤ tol, element by element, for a number or an array. */
+const near = (a, b, tol, msg = '') => {
+  const [xs, ys] = [[a].flat(), [b].flat()]
+  assert.equal(xs.length, ys.length, msg)
+  xs.forEach((x, i) => assert.ok(Math.abs(x - ys[i]) <= tol, `${msg} [${i}] ${x} vs ${ys[i]} (± ${tol})`))
+}
+
+test('spans: lattice() off a real scroll panel is latticeOf, and the unit aspects follow from it (T1)', () => {
+  const panelsAt = (gapDeg) =>
+    buildScrollingGlobeGeometry({ lonSegments: 12, rows: 8, gapDeg, latGapDeg: 1.1, pitchRad: Math.PI / 6, radius: 1 }).panels
+  const panels = panelsAt(1.1)
+  for (const p of [panels[0], panels[panels.length - 1]]) {
+    const live = lattice(p, 12, 6)
+    for (const k of ['Pphi', 'Gphi', 'Pth', 'Gth', 'phiLen', 'bandH']) near(live[k], SPAN_L[k], 1e-12, k)
+  }
+  // and with unequal gaps (2° meridians, 1.1° rows), so neither gap can stand in for the other
+  const wide = lattice(panelsAt(2)[0], 12, 6)
+  const wideOf = latticeOf({ lon: 12, visibleRows: 6, gapDeg: 2, latGapDeg: 1.1 })
+  for (const k of ['Pphi', 'Gphi', 'Pth', 'Gth', 'phiLen', 'bandH']) near(wide[k], wideOf[k], 1e-12, `2° gaps: ${k}`)
+  assert.deepEqual(UNIT_SHAPE, { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 } })
+  const S = (L, cls) => unitAspect(UNIT_SHAPE[cls].cols, UNIT_SHAPE[cls].rows, L)
+  near(S(SPAN_L, 'h'), 2.038062, 1e-6, 'S_h')
+  near(S(SPAN_L, 'v'), 0.490662, 1e-6, 'S_v')
+  near(S(SPAN_L, 'q'), 1, 1e-6, 'S_q')
+  // NC: a globe built with 2° meridian gaps gives S_h 2.00692, which the S assertion refuses
+  const wideH = S(wide, 'h')
+  near(wideH, 2.00692, 1e-5)
+  assert.ok(Math.abs(wideH - 2.038062) > 1e-6)
+})
+
+test('spans: frac keeps the gap inside the unit, a seam of G/(2P − G) between its members (T2)', () => {
+  const { Pphi, Gphi, phiLen, Pth, Gth, bandH } = SPAN_L
+  const m0 = frac(0, 2, Pphi, Gphi, phiLen)
+  const m1 = frac(1, 2, Pphi, Gphi, phiLen)
+  near(m0, [0, 0.490662], 1e-6, 'kx 0')
+  near(m1, [0.509338, 1], 1e-6, 'kx 1')
+  near(m1[0] - m0[1], 0.018676, 1e-6, 'seam')
+  near(m1[0] - m0[1], seamOf(Pphi, Gphi), 1e-12, 'seam = G/(2P − G)')
+  near(m1[1] - m1[0], m0[1] - m0[0], 1e-12, 'equal members')
+  // the rows split the same way (V, Q), and one row is the whole unit (H)
+  const [r0, r1] = [0, 1].map((ky) => frac(ky, 2, Pth, Gth, bandH))
+  near(r1[0] - r0[1], seamOf(Pth, Gth), 1e-12, 'row seam')
+  near(frac(0, 1, Pth, Gth, bandH), [0, 1], 1e-12, 'one row')
+  // NC: with G = 0 the members meet at 0.5: no seam
+  const [n0, n1] = [0, 1].map((kx) => frac(kx, 2, Pphi, 0, Pphi))
+  near([n0[1], n1[0]], [0.5, 0.5], 1e-12)
+  assert.ok(Math.abs(n1[0] - n0[1] - 0.018676) > 1e-6)
+})
+
+test('spans: an H pair shows one picture: kx 0 and kx 1 meet exactly one seam apart, at any pinch (T3)', () => {
+  const S = unitAspect(2, 1, SPAN_L)
+  const place = { cols: 2, rows: 1, S, L: SPAN_L }
+  const seam = seamOf(SPAN_L.Pphi, SPAN_L.Gphi)
+  const [a0, b0] = frac(0, 2, SPAN_L.Pphi, SPAN_L.Gphi, SPAN_L.phiLen)
+  for (const [aTex, legacyErr] of [[1043 / 512, '1.0385'], [16 / 9, '1.1845'], [1.5, '1.3968']]) {
+    const C = coverWindow(aTex, S)
+    const cu = computeCoverUv(aTex, S)
+    assert.deepEqual(C, { s: cu.scale, o: cu.offset }) // TextureManager's cover crop, as a window
+    for (const th of [30, 60, 90]) {
+      const vK = Math.sin(rad(th))
+      const [W0, W1] = [0, 1].map((kx) => compose(C, memberWindow({ cols: 2, rows: 1, kx, ky: 0 }, vK, vK, SPAN_L)))
+      const r0 = spanRendered(W0.s[0], W0.o[0], vK)
+      const r1 = spanRendered(W1.s[0], W1.o[0], vK)
+      const want = C.s[0] * vK * seam
+      assert.ok(Math.abs(r1[0] - r0[1] - want) <= 1e-12, `aTex ${aTex} at ${th}°: gap ${r1[0] - r0[1]} vs ${want}`)
+      // the pair spans the whole cover crop, pinched about its centre like one tile
+      near([r0[0], r1[1]], [C.o[0] + C.s[0] * (0.5 - vK / 2), C.o[0] + C.s[0] * (0.5 + vK / 2)], 1e-12, 'pair extent')
+      // and each member shows the crop's full height: one row is the whole unit
+      for (const Wk of [W0, W1]) near([Wk.o[1], Wk.o[1] + Wk.s[1]], [C.o[1], C.o[1] + C.s[1]], 1e-12, 'member height')
+      // unitA builds the same windows from the member records
+      assert.deepEqual(unitA({ place, kx: 0, ky: 0 }, vK, rad(th), aTex), W0)
+      assert.deepEqual(unitA({ place, kx: 1, ky: 0 }, vK, rad(th), aTex), W1)
+      // NC: today's per-tile cover (computeCoverUv(aTex, 1) on both members) renders one range
+      // twice, so the seam misses by more than a member's width
+      const leg = computeCoverUv(aTex, 1)
+      const rl = spanRendered(leg.scale[0], leg.offset[0], vK)
+      const err = Math.abs(rl[0] - rl[1] - want) / (C.s[0] * vK * (b0 - a0))
+      assert.equal(err.toFixed(4), legacyErr, `legacy seam error, aTex ${aTex} at ${th}°`)
+    }
+  }
+})
+
+test('spans: a V pair keeps its columns straight across the row gap, inside the ε warp (T4)', () => {
+  const S = unitAspect(1, 2, SPAN_L)
+  const place = { cols: 1, rows: 2, S, L: SPAN_L }
+  const { Pth } = SPAN_L
+  const rowSeam = seamOf(Pth, SPAN_L.Gth)
+  near(rowSeam, 0.018676, 1e-6, 'row seam')
+  for (const [th, warpWant, jogWant] of [[47.61, '0.1397', '0.1191'], [60, '0.0719', '0.0670'], [79.5, '0.0211', '0.0203']]) {
+    const t0 = rad(th)
+    const t1 = t0 + Pth
+    const v0 = Math.sin(t0)
+    const v1 = Math.sin(t1)
+    const q0 = kappaOwn(t0, 0, Pth, v0)
+    const q1 = kappaOwn(t1, 1, Pth, v1)
+    for (const aTex of [512 / 1043, S]) {
+      const C = coverWindow(aTex, S)
+      const T = unitA({ place, kx: 0, ky: 0 }, v0, t0, aTex)
+      const B = unitA({ place, kx: 0, ky: 1 }, v1, t1, aTex)
+      assert.deepEqual(T, compose(C, memberWindow({ cols: 1, rows: 2, kx: 0, ky: 0 }, v0, q0, SPAN_L)))
+      assert.deepEqual(B, compose(C, memberWindow({ cols: 1, rows: 2, kx: 0, ky: 1 }, v1, q1, SPAN_L)))
+      // the two rows render the same columns, each through its own pinch...
+      near(spanRendered(T.s[0], T.o[0], v0), spanRendered(B.s[0], B.o[0], v1), 1e-12, `columns at ${th}°`)
+      // ...and stack one row seam apart (texture v runs bottom-up: the top row sits above)
+      near((T.o[1] - (B.o[1] + B.s[1])) / C.s[1], rowSeam, 1e-12, `row gap at ${th}°`)
+      // and together span the crop's full height: the bottom row from its foot, the top row to its head
+      near([B.o[1], T.o[1] + T.s[1]], [C.o[1], C.o[1] + C.s[1]], 1e-12, `pair height at ${th}°`)
+    }
+    const warp = [Math.abs(Math.log(v0 / q0)), Math.abs(Math.log(v1 / q1))]
+    assert.equal(warp[0].toFixed(4), warpWant, `warp at ${th}°`)
+    near(warp[1], warp[0], 1e-12, 'both rows warp alike')
+    assert.ok(warp.every((w) => w <= Math.log(1.15)), `warp ${warp} at ${th}°`)
+    // NC: q = each row's own vK jogs the columns at the gap
+    const C = coverWindow(512 / 1043, S)
+    const Tn = compose(C, memberWindow({ cols: 1, rows: 2, kx: 0, ky: 0 }, v0, v0, SPAN_L))
+    const Bn = compose(C, memberWindow({ cols: 1, rows: 2, kx: 0, ky: 1 }, v1, v1, SPAN_L))
+    const [rt, rb] = [spanRendered(Tn.s[0], Tn.o[0], v0), spanRendered(Bn.s[0], Bn.o[0], v1)]
+    assert.equal((Math.max(Math.abs(rt[0] - rb[0]), Math.abs(rt[1] - rb[1])) / C.s[0]).toFixed(4), jogWant, `jog at ${th}°`)
+  }
+})
+
+test('spans: every DELAY_ORDERS cascade over 8 rows lands inside T_ENTRANCE, at the jitter’s worst (T5)', () => {
+  const panelsOf = (lon, rows) =>
+    Array.from({ length: lon * rows }, (_, i) => ({
+      lonIndex: Math.floor(i / rows),
+      row: i % rows,
+      mesh: { material: { uniforms: { uPower: { value: 1 } } } },
+    }))
+  const durationOf = (lon, rows, variant) => {
+    const tl = buildCascadeTimeline(panelsOf(lon, rows), variant, rows)
+    const d = tl.duration()
+    tl.kill()
+    return d
+  }
+  const real = Math.random
+  Math.random = () => 0.999999
+  try {
+    const want = { sweep: 1.58, rows: 1.94, poles: 1.425, random: 1.75 }
+    assert.deepEqual(DELAY_ORDERS, Object.keys(want))
+    assert.equal(T_ENTRANCE, 2)
+    for (const v of DELAY_ORDERS) {
+      const d = durationOf(12, 8, v)
+      near(d, want[v], 1e-4, v)
+      assert.ok(d <= T_ENTRANCE, `${v}: ${d} s`)
+    }
+    // NC: a 12-row cascade overruns the landing
+    const d12 = durationOf(12, 12, 'rows')
+    near(d12, 2.58, 1e-4)
+    assert.ok(d12 > T_ENTRANCE)
+  } finally {
+    Math.random = real
+  }
+})
+
+test('spans: θN and θS from thetaBound are where the V warp reaches ln 1.15 (T6)', () => {
+  assert.equal(UNIT_EPS, 0.15)
+  const { Pth } = SPAN_L
+  // a top member's signed warp ln(vK/κ), rising through 0 where its pair straddles the equator (lead 75°)
+  const warp = (t) => Math.log(Math.sin(t) / kappaOwn(t, 0, Pth, Math.sin(t)))
+  const solve = (target) => {
+    let [lo, hi] = [1e-6, Math.PI - Pth - 1e-6]
+    for (let i = 0; i < 200; i++) {
+      const mid = (lo + hi) / 2
+      if (warp(mid) < target) lo = mid
+      else hi = mid
+    }
+    return (lo + hi) / 2
+  }
+  const tN = thetaBound((1 + UNIT_EPS) ** -2, Pth)
+  const tS = thetaBound((1 + UNIT_EPS) ** 2, Pth)
+  assert.ok(Math.abs(tN - solve(-Math.log(1.15))) <= 1e-9, `θN ${tN}`)
+  assert.ok(Math.abs(tS - solve(Math.log(1.15))) <= 1e-9, `θS ${tS}`)
+  assert.equal(degOf(tN).toFixed(2), '47.61')
+  assert.equal(degOf(tS).toFixed(2), '102.39')
+  // NC: ε 0.10 moves θN to 55.47°
+  const tN10 = thetaBound(1.1 ** -2, Pth)
+  assert.equal(degOf(tN10).toFixed(2), '55.47')
+  assert.ok(Math.abs(tN10 - tN) > 1e-9)
+})
+
+test('spans: texSpec sizes each class texture from T1, and never asks a CDN for more than the source holds (T7)', () => {
+  // sourceShort: the island's s below the top rung (0 = unknown), else TOP_RUNG
+  assert.equal(TOP_RUNG, 1080)
+  assert.equal(sourceShort({ kind: 'video', playbackId: 'id' }), TOP_RUNG)
+  assert.equal(sourceShort({ kind: 'video', playbackId: 'id', s: 720 }), 720)
+  assert.equal(sourceShort({ kind: 'video', playbackId: 'id', s: 0 }), 0)
+  const vid = (s, ratio = '16:9') => ({ kind: 'video', playbackId: 'id', videoAspectRatio: ratio, ...(s == null ? {} : { s }) })
+  const still = (dims) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/x${dims ? `-${dims}` : ''}.jpg` })
+  const size = (t) => `${t.w}x${t.h}`
+  // a 1080 video and a still with no -WxH never clamp: the sizes come from T1 alone
+  const sizes = { 512: { h: '1043x512', v: '512x1043', q: '1043x1043' }, 384: { h: '783x384', v: '384x783', q: '783x783' } }
+  for (const T1 of [512, 384]) {
+    for (const cls of ['h', 'v', 'q']) {
+      for (const a of [vid(), still()]) {
+        const t = texSpec(a, cls, T1, SPAN_L)
+        assert.equal(size(t), sizes[T1][cls], `${a.kind} ${cls} at ${T1}`)
+        assert.equal(t.cls, cls)
+        assert.equal(t.aspect, t.w / t.h)
+        assert.equal(t.key, `${a.playbackId || a.imageUrl}|${cls}${t.w}x${t.h}`)
+      }
+    }
+  }
+  const mh = texSpec(vid(), 'h', 512, SPAN_L)
+  assert.equal(mh.key, 'id|h1043x512')
+  assert.equal(mh.url, 'https://image.mux.com/id/thumbnail.webp?width=1043&height=512&fit_mode=crop&time=0')
+  assert.equal(texSpec(still(), 'h', 512, SPAN_L).url, 'https://cdn.sanity.io/images/p/d/x.jpg?w=1043&h=512&fit=crop&auto=format')
+  // the clamp table (T1 512), both CDNs
+  const clamps = [
+    [still('1500x1000'), 'h', '1043x512'],
+    [still('800x600'), 'h', '800x393'],
+    [still('1200x1500'), 'q', '1043x1043'],
+    [still('600x900'), 'v', '442x900'],
+    [vid(720), 'h', '1043x512'], // the 1280×720 source covers it
+    [vid(480), 'h', '853x419'],
+    [vid(0), 'h', '1043x512'], // no track dims: unknown, so unclamped
+    [vid(720, '9:16'), 'v', '512x1043'], // a portrait source frame is (s, s/r): 720×1280 covers it
+    [vid(480, '9:16'), 'v', '419x853'], // the s 480 h case, on its side
+  ]
+  for (const [a, cls, want] of clamps) assert.equal(size(texSpec(a, cls, 512, SPAN_L)), want, `${a.imageUrl || `s ${a.s}`} ${cls}`)
+  const small = texSpec(still('800x600'), 'h', 512, SPAN_L)
+  assert.equal(small.key, 'https://cdn.sanity.io/images/p/d/x-800x600.jpg|h800x393')
+  assert.equal(small.url, 'https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=800&h=393&fit=crop&auto=format')
+  // a quad is elected only on a REAL source short side ≥ 0.9·TQ (938.7 at T1 512, 704.7 at 384): ≤ a 10% upscale
+  const quad = (a) => ({ ...a, u: 'q' })
+  for (const [T1, yes, no] of [[512, '939x1200', '938x1200'], [384, '705x900', '704x900']]) {
+    assert.equal(quadEligible(quad(still(yes)), T1, SPAN_L), true, `${yes} at ${T1}`)
+    assert.equal(quadEligible(quad(still(no)), T1, SPAN_L), false, `${no} at ${T1}`)
+  }
+  assert.equal(quadEligible(quad(vid()), 512, SPAN_L), true) // a 1080 video
+  assert.equal(quadEligible(quad(vid(720)), 512, SPAN_L), false)
+  assert.equal(quadEligible(quad(vid(720)), 384, SPAN_L), true)
+  assert.equal(quadEligible(quad(vid(0)), 384, SPAN_L), false) // an unknown source is never elected
+  assert.equal(quadEligible(quad(still()), 384, SPAN_L), false)
+  assert.equal(quadEligible({ ...still('2000x2000'), u: 'h' }, 512, SPAN_L), false) // q candidates only
+  // NC: without the clamp (the request an unknown source gets) an 800×600 still and a Mux s 480
+  // both ask for 1043×512, wider than their sources: upscales
+  for (const [a, src] of [[still('800x600'), { w: 800, h: 600 }], [vid(480), { w: (480 * 16) / 9, h: 480 }]]) {
+    const unclamped = texSpec(a.playbackId ? { ...a, s: 0 } : still(), 'h', 512, SPAN_L)
+    assert.equal(size(unclamped), '1043x512')
+    assert.ok(unclamped.w > src.w)
+    const clamped = texSpec(a, 'h', 512, SPAN_L)
+    assert.ok(clamped.w <= src.w && clamped.h <= src.h, size(clamped))
+  }
+})
+
+test('spans: classOf: the label proposes, the native ratio vetoes, over the class table (T8)', async () => {
+  const still = (mediaType, w, h) => ({ mediaType, imageUrl: `https://cdn.sanity.io/images/p/d/x-${w}x${h}.jpg`, imageDimensions: { width: w, height: h } })
+  const clip = (mediaType, ratio, videoStatus = 'ready') => ({ mediaType, playbackId: `pb-${ratio}`, videoAspectRatio: ratio, videoStatus })
+  const rh8 = clip('motion_16x9', '9:16') // RH8CMzFM: labelled 16x9, natively 9:16
+  const rows = (await query(FEATURED_WORLDS_QUERY))[0].assets
+  const fixture = (id) => rows.find((r) => r._id === id)
+  const table = [
+    ['Cheetah Print still (16x9 label, 3:2)', still('static_16x9', 1500, 1000), 'h'],
+    ['RH8CMzFM clip', rh8, 'v'],
+    ['a banner (4.77)', still('static_16x9', 477, 100), null],
+    ['Gallery Wall (2.4)', still('static_16x9', 2400, 1000), null],
+    ['Rossi clip (ready)', clip('motion_3x4', '3:4'), 'q'],
+    ['1.266 still', still('static_other', 1266, 1000), 'q'],
+    ['4:3 clip', clip('motion_4x3', '4:3'), 'q'],
+    ['16x9 label, 1:1 native', still('static_16x9', 1000, 1000), 'q'],
+    ['a 2:1 static_other', still('static_other', 2000, 1000), null],
+    ["Mux clip, 'preparing'", clip('motion_16x9', '16:9', 'preparing'), null],
+    ['fixture hero (mux 16:9, ready)', fixture('hero'), 'h'],
+    ['fixture cover (1200×1500)', fixture('cover'), 'q'],
+    ['fixture still (800×1000)', fixture('still'), 'q'],
+    ['fixture clip-a (mux 16:9)', fixture('clip-a'), 'h'],
+  ]
+  assert.equal(table.length, 14)
+  for (const [name, row, want] of table) assert.equal(classOf(row), want, name)
+  // NC: the label alone classes RH8CMzFM as h
+  assert.equal(classOf(rh8, { source: 'label' }), 'h')
+})
+
+test('spans: eligibleVQ gives the lead windows on both devices; eligibleH is the grain alone (T9)', () => {
+  const { Pth } = SPAN_L
+  const thetaN = thetaBound((1 + UNIT_EPS) ** -2, Pth)
+  const thetaS = thetaBound((1 + UNIT_EPS) ** 2, Pth)
+  const W = (thetaH) => ({ thetaN, thetaS, Pth, thetaH: rad(thetaH) })
+  const g = 0.67 // grainStart + grainRamp + grainStagger at the defaults (≈ 42.07°)
+  // a window's two edges, by bisection: the predicate holds at 60° and fails at 0 and at π
+  const windowOf = (ok) => {
+    assert.ok(ok(rad(60)) && !ok(0) && !ok(Math.PI))
+    const cut = (lo, hi) => {
+      for (let i = 0; i < 200; i++) {
+        const mid = (lo + hi) / 2
+        if (ok(mid) === ok(lo)) lo = mid
+        else hi = mid
+      }
+      return (lo + hi) / 2
+    }
+    return [cut(0, rad(60)), cut(rad(60), Math.PI)]
+  }
+  const vq = (D, thetaH, grain = g) => windowOf((t) => eligibleVQ(t, rad(D), W(thetaH), grain))
+  const fmt = (w) => w.map((t) => degOf(t).toFixed(2))
+  const paths = [
+    ['advance', 18.0, ['47.61', '79.50'], ['47.61', '84.39']],
+    ['relayout', 18.3, ['47.61', '79.20'], ['47.61', '84.09']],
+    ['arrive', 20.2, ['47.61', '77.30'], ['47.61', '82.19']], // the function's window; no initial plan uses it (M4)
+    ['reduced motion', 0, ['47.61', '97.50'], ['47.61', '102.39']],
+  ]
+  for (const [name, D, desktop, phone] of paths) {
+    for (const grain of [g, 0]) {
+      // the grain never binds a V/Q window at its defaults
+      assert.deepEqual(fmt(vq(D, 127.5, grain)), desktop, `${name} desktop, g ${grain}`)
+      assert.deepEqual(fmt(vq(D, 134.6, grain)), phone, `${name} phone, g ${grain}`)
+    }
+  }
+  // the edges themselves: θN, the desktop horizon, the phone's θS
+  near(vq(18, 127.5)[0], thetaN, 1e-12, 'θN')
+  near(vq(18, 127.5)[1], rad(127.5) - Pth - rad(18), 1e-12, 'horizon-bound')
+  near(vq(18, 134.6)[1], thetaS - rad(18), 1e-12, 'θS-bound')
+  // replay and a single world (D ∞): no V/Q anywhere
+  for (let t = 1; t < 180; t++) assert.equal(eligibleVQ(rad(t), Infinity, W(134.6), 0), false, `${t}°`)
+  // H: no ε window and no horizon; with the grain on, sin ≥ g at both ends of the travel
+  assert.deepEqual(fmt(windowOf((t) => eligibleH(t, rad(18), g))), ['42.07', '119.93'])
+  for (const t of [1, 90, 179]) assert.equal(eligibleH(rad(t), Infinity, 0), true, `grain off, ${t}°`)
+  assert.equal(eligibleH(rad(90), Infinity, g), false) // an endless travel always reaches the grain
+  // NC: D without the landing (16.2°) lifts the desktop top to 81.3°
+  assert.deepEqual(fmt(vq(16.2, 127.5)), ['47.61', '81.30'])
+})
+
+test('spans: frameOf / mp give the frame Mux serves at a rung, box-limited past 16:9 (T10)', () => {
+  for (const [t, frame, want] of [[270, [480, 270], 0.1296], [480, [854, 480], 0.40992], [720, [1280, 720], 0.9216], [1080, [1920, 1080], 2.0736]]) {
+    assert.deepEqual(frameOf(t, 16 / 9), frame, `${t}p`)
+    assert.deepEqual(frameOf(t, 9 / 16), [frame[1], frame[0]], `${t}p portrait`)
+    near(mp(t, 16 / 9), want, 1e-12, `${t}p`)
+  }
+  assert.deepEqual(frameOf(480, 4 / 3), [640, 480])
+  assert.deepEqual(frameOf(480, 4), [854, 214]) // a 4:1 frame is box-limited: its short side shrinks below the rung
+  // NC: the old t²·16/9 arithmetic misses the 854-wide frame Mux serves at 480: seven of them
+  // decode 2.86944 MP, not 2.8672; and unboxed, a 4:1 frame at 480 would claim 1920×480
+  const old = (t) => (t * t * 16) / 9 / 1e6
+  near(7 * old(480), 2.8672, 1e-12)
+  near(7 * mp(480, 16 / 9), 2.86944, 1e-12)
+  assert.ok(7 * old(480) < 7 * mp(480, 16 / 9))
+  assert.ok(mp(480, 4) < (1920 * 480) / 1e6)
+})
+
+test('spans: unitSkewBound covers every member’s window slope over the ε window, and rises with ε (T30)', () => {
+  const L = SPAN_L
+  const vKOf = (t) => Math.max(Math.sin(t), 1e-3) // poseTile's namePinch(centerDir.y)
+  const S = (cls) => unitAspect(UNIT_SHAPE[cls].cols, UNIT_SHAPE[cls].rows, L)
+  // each class: no crop (aTex = S, the widest window) and its texture's aspect at both T1s
+  const aspects = (cls) => {
+    const { cols, rows } = UNIT_SHAPE[cls]
+    const tex = (T1) => Math.round((T1 * (cols * L.Pphi - L.Gphi)) / L.phiLen) / Math.round((T1 * (rows * L.Pth - L.Gth)) / L.bandH)
+    return [S(cls), tex(512), tex(384)]
+  }
+  // |d window / dθ| of one member in its own θ, by central differences on unitA
+  const slope = (cls, kx, ky, t, aTex) => {
+    const { cols, rows } = UNIT_SHAPE[cls]
+    const place = { cols, rows, S: S(cls), L }
+    const w = (th) => unitA({ place, kx, ky }, vKOf(th), th, aTex)
+    const h = 1e-6
+    const [a, b] = [w(t - h), w(t + h)]
+    return Math.max(...[0, 1].flatMap((i) => [Math.abs(b.s[i] - a.s[i]), Math.abs(b.o[i] - a.o[i])])) / (2 * h)
+  }
+  // H members anywhere in (0, π)
+  let maxH = 0
+  for (let t = 0.5; t < 179.5; t += 0.25) for (const a of aspects('h')) for (const kx of [0, 1]) maxH = Math.max(maxH, slope('h', kx, 0, rad(t), a))
+  // V/Q members with the lead over the whole [θN, θS]
+  const sampled = (eps) => {
+    const tN = thetaBound((1 + eps) ** -2, L.Pth)
+    const tS = thetaBound((1 + eps) ** 2, L.Pth)
+    const leads = []
+    for (let t = tN; t <= tS + 1e-12; t += rad(0.05)) leads.push(t)
+    leads.push(tS)
+    let max = maxH
+    for (const lead of leads) {
+      for (const cls of ['v', 'q']) {
+        for (const a of aspects(cls)) {
+          for (const ky of [0, 1]) for (const kx of cls === 'q' ? [0, 1] : [0]) max = Math.max(max, slope(cls, kx, ky, lead + ky * L.Pth, a))
+        }
+      }
+    }
+    return max
+  }
+  const at = {}
+  let prev = -Infinity
+  for (const eps of [0.1, 0.15, 0.16, 0.2]) {
+    const bound = unitSkewBound(L, eps)
+    at[eps] = sampled(eps)
+    assert.ok(bound >= at[eps], `ε ${eps}: bound ${bound} < sampled ${at[eps]}`)
+    assert.ok(bound > prev, `ε ${eps}: the bound must rise with ε`)
+    prev = bound
+  }
+  // the default: 1.1 × the V top member's slope at θN, tied by its mirror, the bottom member with the lead at θS
+  assert.equal(SKEW_MARGIN, 1.1)
+  assert.equal(unitSkewBound(L), unitSkewBound(L, UNIT_EPS))
+  near(unitSkewBound(L) / 1.1, 0.39858, 5e-6, 'default bound / 1.1')
+  near(at[0.15], 0.39858, 5e-6, 'sampled max at the default')
+  const tN = thetaBound(1.15 ** -2, L.Pth)
+  const tS = thetaBound(1.15 ** 2, L.Pth)
+  near(slope('v', 0, 0, tN, S('v')), unitSkewBound(L) / 1.1, 1e-8, 'V top member at θN')
+  near(slope('v', 0, 1, tS + L.Pth, S('v')), unitSkewBound(L) / 1.1, 1e-8, 'V bottom member, lead at θS')
+  // NC: at ε 0.16 the sampled slope is 0.4138, above the old fixed 0.4, which would have counted
+  // skew failures on a correct window
+  assert.equal(at[0.16].toFixed(4), '0.4138')
+  assert.ok(at[0.16] > 0.4)
 })
