@@ -15,6 +15,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// — P3 — (unitSpan.js lands in P1; globeConfig.js is node-safe: every window read is guarded)
+import { latticeOf, UNIT_SHAPE } from '../../src/components/globe/unitSpan.js';
+import { LON_SEGMENTS, SCROLL_VISIBLE_ROWS, GAP_DEG, SCROLL_LAT_GAP_DEG } from '../../src/components/globe/globeConfig.js';
 
 /** Probe levels, cumulative: each adds its gates to the ones below it. */
 export const LEVELS = ['off', 'tex', 'h', 'vq', 'live', 'tier'];
@@ -29,6 +32,29 @@ function gate(out, name, { n, floor = 1, ok, worst = null, bound = null, reportO
   if (!reportOnly) out.pass[name] = !vacuous && !!ok;
 }
 
+// — P3 — the class texture sizes at T1: unitSpan.texSpec's arithmetic on the default lattice.
+const SIZES = new Map();
+export function classSizes(t1) {
+  if (!SIZES.has(t1)) {
+    const L = latticeOf({ lon: LON_SEGMENTS, visibleRows: SCROLL_VISIBLE_ROWS, gapDeg: GAP_DEG, latGapDeg: SCROLL_LAT_GAP_DEG });
+    const sz = {};
+    for (const [cls, { cols, rows }] of Object.entries(UNIT_SHAPE)) {
+      sz[cls] = [Math.round((t1 * (cols * L.Pphi - L.Gphi)) / L.phiLen), Math.round((t1 * (rows * L.Pth - L.Gth)) / L.bandH)];
+    }
+    SIZES.set(t1, sz);
+  }
+  return SIZES.get(t1);
+}
+
+/** — P3 — (w, h) is the class size (W, H) scaled by ONE k ≤ 1 and rounded: texSpec's source
+ *  clamp, on both CDNs. Exact (an interval test on k), so no aspect tolerance. */
+const scaledFrom = (w, h, W, H) => {
+  const lo = Math.max((w - 0.5) / W, (h - 0.5) / H);
+  const hi = Math.min((w + 0.5) / W, (h + 0.5) / H);
+  return lo < hi && lo <= 1;
+};
+const classOfSize = (t1, w, h) => Object.entries(classSizes(t1)).find(([, [W, H]]) => scaledFrom(w, h, W, H))?.[0];
+
 /** A logged request → { kind: 'stream'|'legacy'|'class'|'other', id, query, shape }. id = host + path
  *  (a stream's: its playbackId). shape = the class, or for 'other' an id-free signature: path segments
  *  holding a digit or ≥ 16 characters become '*', query digits become '#' (the baseline's allow-list). */
@@ -41,8 +67,18 @@ export function classifyRequest(url, t1) {
   const keys = [...u.searchParams.keys()].join('&');
   if (u.host === 'image.mux.com') {
     if (query === `width=${t1}&height=${t1}&fit_mode=smartcrop`) return { kind: 'legacy', id, query, shape: 'mux' };
+    // — P3 — a class crop: the class size or its source clamp (M2), a true centre crop of frame 0.
+    if (keys === 'width&height&fit_mode&time' && p.fit_mode === 'crop' && p.time === '0') {
+      const cls = classOfSize(t1, Number(p.width), Number(p.height));
+      if (cls) return { kind: 'class', id, query, shape: cls };
+    }
   } else if (u.host === 'cdn.sanity.io') {
     if (query === `w=${t1}&h=${t1}&fit=crop&crop=entropy&auto=format`) return { kind: 'legacy', id, query, shape: 'sanity' };
+    // — P3 — a class crop: the class size or its source clamp.
+    if (keys === 'w&h&fit&auto' && p.fit === 'crop' && p.auto === 'format') {
+      const cls = classOfSize(t1, Number(p.w), Number(p.h));
+      if (cls) return { kind: 'class', id, query, shape: cls };
+    }
   }
   const segs = u.pathname.split('/').map((s) => (/\d/.test(s) || s.length >= 16 ? '*' : s)).join('/');
   return { kind: 'other', id, query, shape: `${u.host}${segs}?${query.replace(/\d+/g, '#')}` };
@@ -115,6 +151,14 @@ export function unitGates(report, ctx) {
     const bound = ctx.texpeak ?? (base?.peakMax != null ? base.peakMax * 1.15 : null);
     // A change window holds three groupings (the old one stays referenced until settle → releaseCold); under RM nothing changes on its own clock, so the initial layout is the peak.
     gate(out, 'texPeak', { n: bound == null ? 0 : ctx.rm ? 1 : changes, ok: peak <= bound, worst: peak, bound });
+  }
+
+  // — P3 — tex: texB registers on live class textures.
+  if (!at(ctx, 'tex')) return out;
+  if (!ctx.rm) {
+    const lr = U.map((s) => s.units.liveReg).filter(Boolean);
+    const w = max(lr.map((x) => x.worst));
+    gate(out, 'liveReg', { n: sum(lr.map((x) => x.n)), ok: w <= 1e-3, worst: w, bound: 1e-3 });
   }
   return out;
 }

@@ -188,6 +188,9 @@ export default function PopTunePanel({ sceneApiRef }) {
                   stats.namePlaced.relaxed ? ` (relaxed: ${stats.namePlaced.relaxed})` : ''
                 }`
               : '—'}
+            <br />
+            spans {stats.units ? `h ${stats.units.placed?.h ?? 0} · v ${stats.units.placed?.v ?? 0} · q ${stats.units.placed?.q ?? 0}` : 'off'} ·
+            tex {stats.tex?.mib ?? '—'} MiB (peak {stats.tex?.peak ?? '—'}) · decode {stats.decode?.mp ?? '—'} MP
           </>
         ) : on ? (
           'waiting for the globe…'
@@ -246,6 +249,13 @@ export default function PopTunePanel({ sceneApiRef }) {
       <p className="hero-tune__note">
         ?popmedia · ?popcap · ?popshare. showcase = the /work tiles, all adds album art;
         weighted = area ∝ media count. a lower cap repeats clips more (more tiles per decode).
+      </p>
+
+      <div className="hero-tune__group">spans</div>
+      <Segmented label="spans" value={s.units ? 'on' : 'off'} options={['off', 'on']} onPick={(m) => set('units', m === 'on' ? 1 : 0)} />
+      <p className="hero-tune__note">
+        ?popunits. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one texture per
+        asset, one stream and one chip per unit. off = today's globe.
       </p>
 
       <div className="hero-tune__group">video · colour</div>

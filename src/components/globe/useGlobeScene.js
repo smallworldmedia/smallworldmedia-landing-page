@@ -45,13 +45,13 @@ import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
 import buildGlobeGeometry, { buildScrollingGlobeGeometry } from './buildGlobeGeometry.js';
 import { createPanelMaterial } from './panelMaterial.js';
-import TextureManager, { computeCoverUv, assetKey } from './TextureManager.js';
+import TextureManager, { assetKey } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import { settleDebounce } from '../../lib/settleResize.js';
 import LivePanelScheduler from './LivePanelScheduler.js';
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from './MeridianScroll.js';
 import PopulationDirector from './PopulationDirector.js';
-import { applyPlan } from './tileSwap.js';
+import { applyPlan, windowA } from './tileSwap.js';
 import { TUNING as POP_TUNING, subscribePopTune } from './popConfig.js';
 import buildCascadeTimeline, { panelDelay } from './cascade.js';
 import createPanelGrain from './panelGrain.js';
@@ -538,7 +538,7 @@ export default function useGlobeScene(
               // unset and this is a no-op.
               if (conveyorMode && panel.heldThumbId != null && panel.heldThumbId !== assetKey(asset)) return;
               const { uniforms } = panel.mesh.material;
-              const { scale, offset } = computeCoverUv(1, panel.panelAspect);
+              const { s: scale, o: offset } = windowA(panel, asset, texture);
               uniforms.texA.value = texture;
               uniforms.uvScaleA.value.set(scale[0], scale[1]);
               uniforms.uvOffsetA.value.set(offset[0], offset[1]);

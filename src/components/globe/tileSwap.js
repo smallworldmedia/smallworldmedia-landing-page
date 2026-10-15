@@ -32,6 +32,14 @@
 import gsap from 'gsap';
 import { assetKey, computeCoverUv } from './TextureManager.js';
 
+/** THE texA window rule, for every texA writer: the texture's MEASURED aspect
+ *  (userData.aspect: a class texture, a name strip; a legacy thumbnail has none
+ *  and is square) covered onto the panel. P4b adds the unit-member branch. */
+export function windowA(panel, asset, tex) {
+  const { scale, offset } = computeCoverUv(tex?.userData?.aspect ?? 1, panel.panelAspect);
+  return { s: scale, o: offset };
+}
+
 export function loadTile(owner, panel, asset, onBound = null) {
   const tm = owner.textureManager;
   const key = assetKey(asset);
@@ -46,8 +54,7 @@ export function loadTile(owner, panel, asset, onBound = null) {
       return;
     }
     const u = panel.mesh.material.uniforms;
-    // Thumbnails are square; a name strip carries its real aspect (nameTicker).
-    const { scale, offset } = computeCoverUv(tex.userData?.aspect ?? 1, panel.panelAspect);
+    const { s: scale, o: offset } = windowA(panel, asset, tex); // THE window rule (measured aspect; P4b: a member's own window)
     u.texA.value = tex;
     u.uvScaleA.value.set(scale[0], scale[1]);
     u.uvOffsetA.value.set(offset[0], offset[1]);

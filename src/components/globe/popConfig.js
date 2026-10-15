@@ -109,6 +109,7 @@ export const POP_DEFAULTS = Object.freeze({
   grainStagger: 0.07, // ?popgrainstagger — per-tile threshold spread, so a row's tiles cross the reveal in order instead of blinking on together (a row is iso-latitude, so without this they ARE simultaneous)
   grainOrder: 'sweep', // ?popgrainorder — which panelDelay ordering the stagger follows (DELAY_ORDERS)
   grainLive: 0, // ?popgrainlive — 1 = the grain band also withholds live video (real decode saving in ?poplive=tile only; in shared mode it just changes which clips win)
+  units: 0, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
@@ -137,6 +138,7 @@ const NUMERIC = {
   grainRamp: ['popgrainramp', (n) => clamp(Math.round(n * 100) / 100, 0.02, 0.6)],
   grainStagger: ['popgrainstagger', (n) => clamp(Math.round(n * 100) / 100, 0, 0.4)],
   grainLive: ['popgrainlive', (n) => (n > 0 ? 1 : 0)],
+  units: ['popunits', (n) => (n > 0 ? 1 : 0)],
 };
 /* — Single-choice knobs (value ∈ vocab) and set knobs (comma lists ⊂ vocab). — */
 const CHOICE = {

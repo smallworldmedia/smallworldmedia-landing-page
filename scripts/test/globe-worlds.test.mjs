@@ -16,10 +16,10 @@ import buildWorldPools, { selectPool, WORLD_POOL_CAP } from '../../src/component
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import TextureManager, { assetKey, computeCoverUv } from '../../src/components/globe/TextureManager.js'
-import { loadTile } from '../../src/components/globe/tileSwap.js'
+import { loadTile, windowA } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
-import { TUNING, POP_DEFAULTS } from '../../src/components/globe/popConfig.js'
+import { TUNING, POP_DEFAULTS, setPopTune } from '../../src/components/globe/popConfig.js'
 import {
   measureNameAspect,
   nameSpan,
@@ -30,13 +30,13 @@ import {
   nameRendered,
   NAME_QUADS,
 } from '../../src/components/globe/nameTicker.js'
-import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS } from '../../src/components/globe/globeConfig.js'
+import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS, THUMB_WIDTH } from '../../src/components/globe/globeConfig.js'
 import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../../src/components/work/imageConfig.js'
 import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib/netReport.mjs'
-import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload } from '../lib/unitGates.mjs'
+import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload, classSizes } from '../lib/unitGates.mjs'
 import { stripAudioFromMaster, AUDIO_CODEC } from '../../src/components/work/hlsVideoOnly.js'
 import { videoOnlyLoader } from '../../src/components/work/useHls.js'
-import buildCascadeTimeline, { DELAY_ORDERS } from '../../src/components/globe/cascade.js'
+import buildCascadeTimeline, { DELAY_ORDERS, panelDelay } from '../../src/components/globe/cascade.js'
 import { buildScrollingGlobeGeometry } from '../../src/components/globe/buildGlobeGeometry.js'
 import {
   UNIT_EPS,
@@ -63,6 +63,8 @@ import {
   quadEligible,
   eligibleH,
   eligibleVQ,
+  liveB,
+  pictureAspect,
 } from '../../src/components/globe/unitSpan.js'
 import { classOf } from '../../src/components/globe/mediaClass.js'
 
@@ -1346,6 +1348,48 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   assert.equal(checkPayload(island([{ ...A, u: 'h' }, { ...still, s: 600 }])).ok, false)
   assert.equal(checkPayload(island([{ ...A, u: 'h', s: 1.5 }])).ok, false)
   assert.equal(checkPayload(island([{ ...A, s: 720 }]), { unitsAbsent: true }).ok, false)
+
+  // — P3 — class requests (T1 512: h 1043×512, q 1043²; clamped to the source on both CDNs).
+  assert.deepEqual(classSizes(512), { h: [1043, 512], v: [512, 1043], q: [1043, 1043] })
+  assert.deepEqual(classSizes(384), { h: [783, 384], v: [384, 783], q: [783, 783] })
+  assert.equal(classifyRequest('https://image.mux.com/abc/thumbnail.webp?width=1043&height=512&fit_mode=crop&time=0', 512).shape, 'h')
+  assert.equal(classifyRequest('https://image.mux.com/abc/thumbnail.webp?width=853&height=419&fit_mode=crop&time=0', 512).shape, 'h') // M2: an s 480 source, clamped
+  assert.equal(classifyRequest('https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=800&h=393&fit=crop&auto=format', 512).shape, 'h')
+  assert.equal(classifyRequest('https://cdn.sanity.io/images/p/d/x-600x900.jpg?w=442&h=900&fit=crop&auto=format', 512).shape, 'v')
+  // NC: an upscaled Sanity crop, and a Mux crop off the class size, are not class requests.
+  assert.equal(classifyRequest('https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=1100&h=540&fit=crop&auto=format', 512).kind, 'other')
+  assert.equal(classifyRequest('https://image.mux.com/abc/thumbnail.webp?width=1040&height=512&fit_mode=crop&time=0', 512).kind, 'other')
+  // — P3 — one variant per id, now that an id can be asked two ways (P0b's leftover, M17): one query per id
+  // passes; the same id as a legacy crop AND a class crop is two variants, which fails non-vacuously, worst 2.
+  const classQ = 'https://image.mux.com/id0/thumbnail.webp?width=1043&height=512&fit_mode=crop&time=0'
+  const texCtx = { ...ctx, units: 1, level: 'tex', record: false, baselines: {} }
+  const oneWay = unitGates({ requests: [classQ, mux('id1')], samples: [] }, texCtx)
+  assert.deepEqual([oneWay.pass.thumbVariants, oneWay.detail.thumbVariants.n, oneWay.detail.thumbVariants.worst], [true, 2, 1])
+  const twoWays = unitGates({ requests: [mux('id0'), classQ, mux('id1')], samples: [] }, texCtx)
+  assert.deepEqual([twoWays.pass.thumbVariants, twoWays.detail.thumbVariants.vacuous, twoWays.detail.thumbVariants.worst], [false, false, 2])
+  assert.ok(expectFail({ pass: twoWays.pass, spans: { detail: twoWays.detail } }, ['thumbVariants']).ok)
+  // — P3 — the class shapes are exact: Mux's needs fit_mode=crop and time=0, Sanity's fit=crop and auto=format,
+  // and neither takes another parameter.
+  for (const url of [
+    'https://image.mux.com/abc/thumbnail.webp?width=1043&height=512&fit_mode=crop&time=1',
+    'https://image.mux.com/abc/thumbnail.webp?width=1043&height=512&fit_mode=smartcrop&time=0',
+    'https://image.mux.com/abc/thumbnail.webp?width=1043&height=512&fit_mode=crop&time=0&x=1',
+    'https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=800&h=393&fit=crop&auto=webp',
+    'https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=800&h=393&fit=max&auto=format',
+    'https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=800&h=393&fit=crop&auto=format&q=80',
+  ])
+    assert.equal(classifyRequest(url, 512).kind, 'other', url)
+  // — P3 — at level tex a run must ask for a class texture (texReqShape); liveReg sums the live class tiles over
+  // the samples (n), bounds the worst register at 1e-3, and is skipped under RM.
+  const legacyOnly = unitGates({ requests: [mux('id1')], samples: [] }, texCtx)
+  assert.deepEqual([legacyOnly.pass.texReqShape, legacyOnly.detail.texReqShape.vacuous, legacyOnly.detail.texReqShape.classN], [false, false, 0])
+  const registers = (...regs) => ({ requests: [classQ], samples: regs.map((liveReg) => ({ phase: 'hold', step: 0, units: { texClass: { h: 1, v: 0, q: 0, legacy: 0 }, liveReg } })) })
+  const held = unitGates(registers({ n: 2, worst: 4e-4 }, { n: 1, worst: 0 }), texCtx)
+  assert.deepEqual([held.pass.liveReg, held.detail.liveReg.n, held.detail.liveReg.worst], [true, 3, 4e-4])
+  const misregistered = unitGates(registers({ n: 1, worst: 2e-3 }), texCtx)
+  assert.deepEqual([misregistered.pass.liveReg, misregistered.detail.liveReg.vacuous, misregistered.detail.liveReg.worst], [false, false, 2e-3])
+  assert.equal(unitGates(registers({ n: 0, worst: 0 }, { n: 0, worst: 0 }), texCtx).detail.liveReg.vacuous, true) // samples, no live class tile
+  assert.equal('liveReg' in unitGates(registers({ n: 1, worst: 2e-3 }), { ...texCtx, rm: true }).pass, false)
 })
 
 test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
@@ -1839,4 +1883,384 @@ test('spans: unitSkewBound covers every member’s window slope over the ε wind
   // skew failures on a correct window
   assert.equal(at[0.16].toFixed(4), '0.4138')
   assert.ok(at[0.16] > 0.4)
+})
+
+/* — Media spans, P3: ?popunits and class textures, one texture per asset at its measured aspect
+   (T11, T12, T19, T21; T20's class requests are in the gate-module test above). — */
+/** Worlds whose assets carry mediaClass's `u` (and P2's `s`): h clips (two from a 480 source, whose class
+ *  crop is clamped to it), v stills (600×900: clamped too), q clips (no class texture until P5's election),
+ *  single-only stills, and one clip every world carries, classed h in the first world and v in the others. */
+const classedWorlds = () =>
+  ['Alpha', 'Beta', 'Gamma'].map((name, wi) => ({
+    slug: name.toLowerCase(),
+    clientName: name,
+    title: null,
+    services: [],
+    assets: [
+      ...Array.from({ length: 3 }, (_, i) => ({ kind: 'video', playbackId: `${name}-h${i}`, videoAspectRatio: '16:9', u: 'h' })),
+      ...Array.from({ length: 2 }, (_, i) => ({ kind: 'video', playbackId: `${name}-hs${i}`, videoAspectRatio: '16:9', u: 'h', s: 480 })),
+      ...Array.from({ length: 3 }, (_, i) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/${name}-v${i}-600x900.jpg`, u: 'v' })),
+      ...Array.from({ length: 2 }, (_, i) => ({ kind: 'video', playbackId: `${name}-q${i}`, videoAspectRatio: '1:1', u: 'q' })),
+      ...Array.from({ length: 2 }, (_, i) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/${name}-x${i}-800x800.jpg` })),
+      { kind: 'video', playbackId: 'shared', videoAspectRatio: '16:9', u: wi === 0 ? 'h' : 'v' },
+    ],
+  }))
+/** The pool records before P3: the constructor's spread, which decorate must return with units off. */
+const todaysSpread = (worlds) => worlds.map((w, wi) => w.assets.map((a) => ({ ...a, clientName: w.clientName, services: w.services, world: wi })))
+/** A director on fakeScrollScene (a live scroll lattice), ?popunits as given. */
+function spanDirector(units, { worlds = classedWorlds(), scene = fakeScrollScene(), ...opts } = {}) {
+  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, units })
+  const director = new PopulationDirector({
+    panels: scene.panels,
+    worlds,
+    textureManager: scene.textureManager,
+    getScheduler: () => null,
+    getRotation: () => new THREE.Euler(),
+    canAnimate: () => false,
+    ...opts,
+  })
+  return { director, ...scene }
+}
+
+test('spans: decorate gives each h/v id ONE class texture, pooled across worlds; units off is today’s spread (T11)', () => {
+  const worlds = classedWorlds()
+  const { director: off } = spanDirector(0, { worlds })
+  const { director: fixed } = spanDirector(1, { worlds, scene: fakeScene() }) // the fixed globe: no lattice
+  const { director: on, panels } = spanDirector(1, { worlds })
+  try {
+    // Units off (or no lattice): today's records exactly; deepEqual would see a stray tex or unitCls key.
+    assert.deepEqual(off.pools, todaysSpread(worlds))
+    assert.equal(fixed.L, null)
+    assert.deepEqual(fixed.pools, todaysSpread(worlds))
+    // Units on: the lattice comes off the scroll panel, and each h/v record carries its class texture.
+    assert.deepEqual(on.L, lattice(panels[0], LON, 6))
+    const records = on.pools.flat()
+    for (const r of records.filter((x) => x.playbackId !== 'shared')) {
+      if (r.u === 'h' || r.u === 'v') {
+        assert.deepEqual(r.tex, texSpec(r, r.u, THUMB_WIDTH, on.L), assetKey(r))
+        assert.equal(r.unitCls, r.u)
+        assert.equal(assetKey(r), r.tex.key) // the variant is in the cache key
+      } else assert.ok(!('tex' in r) && !('unitCls' in r), assetKey(r)) // q waits for P5; an unclassed asset stays single
+    }
+    // the source clamp reaches the records: a 480 clip and a 600×900 still ask for no more than they hold
+    assert.ok(records.some((r) => r.tex?.url.endsWith('?width=853&height=419&fit_mode=crop&time=0')))
+    assert.ok(records.some((r) => r.tex?.url.endsWith('-600x900.jpg?w=442&h=900&fit=crop&auto=format')))
+    // the clip every world carries: h in world 0, v in worlds 1 and 2 → ONE key, h's, everywhere
+    const shared = records.filter((r) => r.playbackId === 'shared')
+    assert.equal(shared.length, 3)
+    assert.deepEqual([...new Set(shared.map(assetKey))], [texSpec(shared[0], 'h', THUMB_WIDTH, on.L).key])
+    assert.ok(shared.every((r) => r.unitCls === 'h'))
+    // NC: per-record classing (texSpec(a, a.u, …), no pooling) gives the shared id two keys.
+    const perRecord = worlds.flatMap((w) => w.assets.filter((a) => a.playbackId === 'shared')).map((a) => texSpec(a, a.u, THUMB_WIDTH, on.L).key)
+    assert.equal(new Set(perRecord).size, 2)
+
+    // ?popunits ships off and stores 0 | 1. Toggling it rebuilds the records (onTune → redecorate → relayout);
+    // a tune that leaves the signature alone keeps them.
+    assert.equal(POP_DEFAULTS.units, 0)
+    // its own guide row (tunables-keys --check also counts the __swmPopStats row's mention of ?popunits)
+    assert.match(fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8'), /^\| `\?popunits` \|.*\| `POP_DEFAULTS\.units` \|$/m)
+    const relayouts = []
+    off.relayout = (opts) => relayouts.push(opts)
+    const kept = off.pools
+    TUNING.units = 0
+    off.onTune('*')
+    assert.equal(off.pools, kept) // the same records, not a rebuild
+    setPopTune('units', 5) // a hand-typed ?popunits=5
+    assert.equal(TUNING.units, 1)
+    off.onTune('units')
+    assert.deepEqual(off.pools, on.pools)
+    TUNING.units = 0
+    off.onTune('*') // the bench's reset
+    assert.deepEqual(off.pools, todaysSpread(worlds))
+    assert.equal(relayouts.length, 3)
+  } finally {
+    for (const d of [off, fixed, on]) d.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: with units on, every tile and the warm set hold one ref each, on the class key the tile shows (T12)', async () => {
+  const { director, panels, textureManager } = spanDirector(1)
+  try {
+    await Promise.all(director.initialLayout(director.byProminence()))
+    assert.equal(textureManager.refs(), panels.length + director.warm.size)
+    const classed = panels.filter((p) => p.asset.tex)
+    assert.ok(classed.length >= 12, `${classed.length} classed tiles`)
+    for (const p of classed) assert.equal(p.heldThumbId, p.asset.tex.key)
+    // NC: one extra loadAsset without a release breaks the ledger.
+    textureManager.loadAsset(classed[0].asset)
+    assert.notEqual(textureManager.refs(), panels.length + director.warm.size)
+    textureManager.release(assetKey(classed[0].asset))
+    assert.equal(textureManager.refs(), panels.length + director.warm.size)
+    // Each classed tile's texA window covers its texture's measured aspect onto the panel (THE window rule;
+    // this scene's loader stamps the requested aspect), not the square of a legacy thumbnail.
+    for (const p of classed) {
+      const u = p.mesh.material.uniforms
+      const { scale, offset } = computeCoverUv(p.asset.tex.aspect, p.panelAspect)
+      assert.deepEqual([u.uvScaleA.value.x, u.uvScaleA.value.y, u.uvOffsetA.value.x, u.uvOffsetA.value.y], [...scale, ...offset], p.asset.tex.key)
+    }
+    // unitStats' census of the cache: each pool key once, by the class it was asked as; a key outside the
+    // pools (a name strip's) is not a pool texture.
+    const census = { h: 0, v: 0, q: 0, legacy: 0 }
+    for (const k of textureManager.cache.keys()) census[/\|([hvq])\d+x\d+$/.exec(k)?.[1] ?? 'legacy'] += 1
+    assert.ok(census.h > 0 && census.v > 0 && census.legacy > 0, JSON.stringify(census))
+    textureManager.cache.set('strip', { refs: 1, texture: {} })
+    assert.deepEqual(director.unitStats(0).texClass, census)
+    textureManager.cache.delete('strip')
+  } finally {
+    director.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: units off is today’s globe: records, texture URLs, random draws, both windows, the cascade (T19)', async () => {
+  const random = Math.random
+  const decorate = PopulationDirector.prototype.decorate
+  // One layout + one change on a real TextureManager whose stub loader logs every URL it is asked for.
+  const run = async (units, records = null) => {
+    Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, transitions: ['blink'], units })
+    const { panels } = fakeScrollScene()
+    const tm = new TextureManager()
+    const urls = []
+    tm.loader = {
+      load(url, onLoad) {
+        urls.push(url)
+        setTimeout(() => onLoad(Object.assign(new THREE.Texture(), { image: { width: 512, height: 512 } })), 0)
+      },
+    }
+    let draws = 0
+    let director = null
+    if (records) PopulationDirector.prototype.decorate = records
+    Math.random = () => {
+      draws += 1
+      return 0.5
+    }
+    try {
+      director = new PopulationDirector({
+        panels,
+        worlds: classedWorlds(),
+        textureManager: tm,
+        getScheduler: () => null,
+        getRotation: () => new THREE.Euler(),
+        canAnimate: () => true,
+      })
+      await Promise.all(director.initialLayout(director.byProminence()))
+      director.advance() // a blink: one Math.random delay per tile that changes
+      await settleTicks(5)
+      return { pools: director.pools, urls, draws, shown: panels.map((p) => assetKey(p.asset)), units: director.sample(new THREE.Euler()).units }
+    } finally {
+      Math.random = random
+      PopulationDirector.prototype.decorate = decorate
+      director?.dispose()
+      TUNING.units = 0
+    }
+  }
+  const legacy = (url) => classifyRequest(url, 512).kind === 'legacy'
+  const off = await run(0)
+  const before = await run(0, function () {
+    return todaysSpread(this.worlds)
+  })
+  assert.deepEqual(off.pools, before.pools) // decorate as T11
+  assert.ok(off.urls.length > 0 && off.urls.every(legacy), off.urls.find((u) => !legacy(u)))
+  assert.deepEqual(off.urls, before.urls)
+  assert.ok(off.draws > 0)
+  assert.equal(off.draws, before.draws)
+  assert.deepEqual(off.shown, before.shown)
+  assert.equal(off.units, null) // the telemetry's span fields stay null
+  // NC: with units on, the URL comparison fails: the h/v assets ask for class crops.
+  const on = await run(1)
+  assert.equal(on.urls.every(legacy), false)
+  assert.ok(on.urls.some((u) => classifyRequest(u, 512).kind === 'class'))
+  assert.ok(on.units?.texClass && on.units.liveReg, JSON.stringify(on.units))
+
+  // liveWindow on a record without tex is today's cover of the clip's metadata aspect (bad ratio → 1).
+  const sched = new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null, cycleThumbnails: false })
+  const frame = { videoWidth: 854, videoHeight: 480 }
+  for (const [ratio, aspect] of [['16:9', 16 / 9], ['9:16', 9 / 16], ['bogus', 1], [undefined, 1]]) {
+    const { scale, offset } = computeCoverUv(aspect, 1.3)
+    const tile = { panelAspect: 1.3, asset: { kind: 'video', playbackId: 'x', videoAspectRatio: ratio, u: 'h' } }
+    assert.deepEqual(sched.liveWindow(tile, frame), { s: scale, o: offset }, String(ratio))
+  }
+  // windowA on a legacy texture (no measured aspect) is cover(1), the window every texA writer used (m4).
+  for (const tex of [new THREE.Texture(), {}, null]) {
+    const { scale, offset } = computeCoverUv(1, 1.3)
+    assert.deepEqual(windowA({ panelAspect: 1.3 }, { playbackId: 'x' }, tex), { s: scale, o: offset })
+  }
+
+  // The entrance cascade over panels without `place` (units off; every /process panel): panelDelay once per
+  // panel, in panel order, so the draws and every tween's position are today's (m3).
+  const { panels } = fakeScene()
+  const counter = () => {
+    let i = 0
+    return () => ((i++ * 0.37) % 1)
+  }
+  try {
+    for (const variant of DELAY_ORDERS) {
+      let draws = 0
+      const counted = (next) => () => ((draws += 1), next())
+      Math.random = counted(counter())
+      const tl = buildCascadeTimeline(panels, variant, ROWS)
+      const built = draws
+      draws = 0
+      Math.random = counted(counter())
+      const want = panels.map((p) => panelDelay(p, variant, ROWS))
+      assert.equal(built, draws, variant) // today's draws: panelDelay once per panel
+      // GSAP keeps a timeline's children sorted by start time, so each panel's flicker is found by its target.
+      const startOf = new Map(tl.getChildren(false, true, false).filter((t) => t.vars.keyframes).map((t) => [t.targets()[0], t.startTime()]))
+      const got = panels.map((p) => startOf.get(p.mesh.material.uniforms.uPower))
+      tl.kill()
+      near(got, want, 1e-7, variant)
+      // NC: the same draws taken in another order put the tweens elsewhere.
+      Math.random = counter()
+      const reversed = [...panels].reverse().map((p) => panelDelay(p, variant, ROWS)).reverse()
+      assert.ok(got.some((t, i) => Math.abs(t - reversed[i]) > 1e-3), variant)
+    }
+  } finally {
+    Math.random = random
+  }
+})
+
+test('spans: liveWindow registers texB with the bound class texture — Mux’s ratio, the decoded frame only as a fallback (T21)', async () => {
+  const sched = new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null, cycleThumbnails: false })
+  const clip = { kind: 'video', playbackId: 'clip', videoAspectRatio: '16:9', u: 'h' }
+  const tex = texSpec(clip, 'h', 512, SPAN_L) // 1043×512
+  const aTex = tex.w / tex.h
+  const panelAspect = SPAN_L.phiLen / SPAN_L.bandH
+  /** A live tile showing `asset` on its class texture, texA's window A in the uniforms. */
+  const tile = (asset, A) => ({
+    asset,
+    shownAsset: asset,
+    panelAspect,
+    mesh: {
+      material: {
+        uniforms: {
+          texA: { value: { userData: { aspect: aTex } } },
+          uvScaleA: { value: new THREE.Vector2(A.s[0], A.s[1]) },
+          uvOffsetA: { value: new THREE.Vector2(A.o[0], A.o[1]) },
+        },
+      },
+    },
+  })
+  const frame = { videoWidth: 854, videoHeight: 480 } // the 480p pin's 16:9 frame: 1.7792, not 16:9
+  /** The liveReg measure: the largest of the four window components' differences. */
+  const err = (B, W) => Math.max(...[0, 1].flatMap((i) => [Math.abs(B.s[i] - W.s[i]), Math.abs(B.o[i] - W.o[i])]))
+  /** How far a tile corner's sampled frame point moves between two windows (the misregistration you'd see). */
+  const shift = (B, W) => Math.max(...[0, 1].flatMap((i) => [Math.abs(B.o[i] - W.o[i]), Math.abs(B.o[i] + B.s[i] - W.o[i] - W.s[i])]))
+  const record = { ...clip, tex, unitCls: 'h' }
+
+  // A single on its class texture: A is windowA's cover of the crop's measured aspect.
+  const A1 = windowA({ panelAspect }, record, { userData: { aspect: aTex } })
+  const single = tile(record, A1)
+  assert.equal(pictureAspect(record, frame), 16 / 9) // the metadata ratio, exactly
+  assert.ok(err(sched.liveWindow(single, frame), liveB(16 / 9, aTex, A1)) <= 1e-12)
+  // a ratio that won't parse falls back to the decoded frame (m6)
+  const unparsed = tile({ ...record, videoAspectRatio: 'n/a' }, A1)
+  assert.ok(err(sched.liveWindow(unparsed, frame), liveB(854 / 480, aTex, A1)) <= 1e-12)
+  // An H member at 60°: texB follows whatever window A the tile holds (P4b writes the member's).
+  const vK = Math.sin(Math.PI / 3)
+  const Am = compose(coverWindow(aTex, unitAspect(2, 1, SPAN_L)), memberWindow({ cols: 2, rows: 1, kx: 0, ky: 0 }, vK, vK, SPAN_L))
+  const member = tile(record, Am)
+  assert.ok(err(sched.liveWindow(member, frame), liveB(16 / 9, aTex, Am)) <= 1e-12)
+
+  // NC: registered on the decoded 854×480 frame, the picture lands 3.4e-4 off; today's B (the clip's cover
+  // of the panel) misses by 0.1273 on a 16:9 single and by 0.1846 on an H member at 60°.
+  near(shift(liveB(854 / 480, aTex, A1), sched.liveWindow(single, frame)), 3.409e-4, 1e-7, 'decoded frame')
+  const today = (() => {
+    const { scale, offset } = computeCoverUv(16 / 9, panelAspect)
+    return { s: scale, o: offset }
+  })()
+  near(err(today, sched.liveWindow(single, frame)), 0.1273, 5e-5, "today's B, single")
+  near(err(today, sched.liveWindow(member, frame)), 0.1846, 5e-5, "today's B, H member at 60°")
+
+  // B = C ∘ A: a tile's uv goes through A into texA, then through texA's crop C = cover(V, aTex) of the frame.
+  // The order shows only where C crops across the member's off-centre axis (centred windows commute, and a 16:9
+  // frame is narrower than the H crop, so its C is whole in u): a 21:9 clip on the same crop.
+  const wide = tile({ ...record, videoAspectRatio: '21:9' }, Am)
+  const C = coverWindow(21 / 9, aTex)
+  const CA = { s: [C.s[0] * Am.s[0], C.s[1] * Am.s[1]], o: [C.o[0] + C.s[0] * Am.o[0], C.o[1] + C.s[1] * Am.o[1]] }
+  assert.ok(C.s[0] < 1 && Am.o[0] + Am.s[0] / 2 !== 0.5) // C crops in u; the member's window is off-centre in u
+  assert.ok(err(sched.liveWindow(wide, frame), CA) <= 1e-12)
+  // aTex is the bound texture's MEASURED aspect (the CDN rounds: 1043×511 here); the spec's only while texA has none.
+  const rounded = tile(record, A1)
+  rounded.mesh.material.uniforms.texA.value = { userData: { aspect: 1043 / 511 } }
+  assert.ok(err(sched.liveWindow(rounded, frame), liveB(16 / 9, 1043 / 511, A1)) <= 1e-12)
+  assert.ok(err(sched.liveWindow(rounded, frame), liveB(16 / 9, aTex, A1)) > 1e-4)
+  const unbound = tile(record, A1)
+  unbound.mesh.material.uniforms.texA.value = null
+  assert.ok(err(sched.liveWindow(unbound, frame), liveB(16 / 9, tex.aspect, A1)) <= 1e-12)
+
+  // TextureManager measures what decoded: an <img>'s natural size, else an ImageBitmap's size. A legacy
+  // thumbnail gets no aspect (square: cover(1)).
+  const tm = new TextureManager()
+  const small = { ...clip, tex: texSpec(clip, 'h', 384, SPAN_L) } // 783×384
+  const decoded = new Map([
+    [tex.url, { naturalWidth: 1043, naturalHeight: 511 }],
+    [small.tex.url, { width: 783, height: 384 }],
+    [tm.thumbnailUrl('clip'), { naturalWidth: 512, naturalHeight: 512 }],
+  ])
+  tm.loader = { load: (url, onLoad) => setTimeout(() => onLoad(Object.assign(new THREE.Texture(), { image: decoded.get(url) })), 0) }
+  const [measured, bitmap, legacyTex] = await Promise.all([tm.loadAsset(record), tm.loadAsset(small), tm.loadAsset(clip)])
+  assert.deepEqual([measured.userData.aspect, bitmap.userData.aspect, 'aspect' in legacyTex.userData], [1043 / 511, 783 / 384, false])
+  tm.disposeAll()
+
+  // The scheduler writes liveWindow's B into a class tile (promote in tile mode, attach on a shared stream), and
+  // never streams into a class tile whose texA still shows the asset it held before (B derives from the bound A).
+  const liveTile = (shownAsset, z) => {
+    const p = tile(record, A1)
+    Object.assign(p.mesh.material.uniforms, { uMix: { value: 0 }, texB: { value: null }, uVideoB: { value: 0 }, uvScaleB: { value: new THREE.Vector2() }, uvOffsetB: { value: new THREE.Vector2() } })
+    return Object.assign(p, { shownAsset, parked: false, liveState: null, centerDir: new THREE.Vector3(0, Math.sqrt(1 - z * z), z) })
+  }
+  const bound = liveTile(record, 0.8)
+  const stale = liveTile({ ...clip, playbackId: 'before' }, 1) // the more prominent: it would win the slot first
+  const B = (p) => {
+    const u = p.mesh.material.uniforms
+    return { s: [u.uvScaleB.value.x, u.uvScaleB.value.y], o: [u.uvOffsetB.value.x, u.uvOffsetB.value.y] }
+  }
+  const pool = { assign: () => Promise.resolve(frame), releaseSlot() {} }
+  const live = new LivePanelScheduler({ panels: [stale, bound], assets: [clip], poolHandle: pool, textureManager: null, cycleThumbnails: false })
+  try {
+    assert.deepEqual([live.canJoin(bound), live.canJoin(stale)], [true, false])
+    live.update(new THREE.Euler(), 10, null)
+    await settleTicks()
+    assert.deepEqual([bound.liveState, stale.liveState], ['live', null])
+    assert.ok(err(B(bound), liveB(16 / 9, aTex, A1)) <= 1e-12)
+    live.setShared(true)
+    bound.mesh.material.uniforms.uvScaleB.value.set(0, 0) // attach must write it again
+    live.update(new THREE.Euler(), 20, null)
+    await settleTicks()
+    assert.deepEqual([bound.liveState, stale.liveState], ['live', null])
+    assert.ok(err(B(bound), liveB(16 / 9, aTex, A1)) <= 1e-12)
+  } finally {
+    live.dispose()
+  }
+
+  // The probe's register (unitStats.liveReg): liveWindow's measure on every live or demoting class tile still
+  // showing its asset with a decoded frame; a legacy, stale, idle or undecoded tile is skipped, and so is every
+  // tile before the scheduler exists.
+  const Wb = { s: [0.5, 0.6], o: [0.1, 0.2] }
+  let probeSched = { liveWindow: () => Wb }
+  const { director } = spanDirector(1, { getScheduler: () => probeSched })
+  try {
+    const legacyClip = { kind: 'video', playbackId: 'legacy', videoAspectRatio: '16:9' }
+    const cases = [
+      [record, record, 'live', { liveVideo: frame }, 0], // counted, on register
+      [record, record, 'demoting', { liveStream: { video: frame } }, 2e-3], // counted: a demoting tile still shows B
+      [legacyClip, legacyClip, 'live', { liveVideo: frame }, 0.1], // a legacy tile keeps today's B
+      [record, legacyClip, 'live', { liveVideo: frame }, 0.1], // texA still shows another asset
+      [record, record, null, { liveVideo: frame }, 0.1], // not live
+      [record, record, 'live', { liveVideo: { videoWidth: 0, videoHeight: 0 } }, 0.1], // no frame decoded yet
+    ]
+    cases.forEach(([asset, shownAsset, liveState, video, off], i) => {
+      const p = director.panels[i]
+      Object.assign(p, { asset, shownAsset, liveState, liveStream: null, liveVideo: null }, video)
+      p.mesh.material.uniforms.uvScaleB.value.set(Wb.s[0], Wb.s[1])
+      p.mesh.material.uniforms.uvOffsetB.value.set(Wb.o[0] + off, Wb.o[1])
+    })
+    assert.deepEqual(director.unitStats(0).liveReg, { n: 2, worst: 2e-3 })
+    probeSched = null
+    assert.deepEqual(director.unitStats(0).liveReg, { n: 0, worst: 0 })
+  } finally {
+    director.dispose()
+    TUNING.units = 0
+  }
 })

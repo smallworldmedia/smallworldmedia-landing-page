@@ -211,3 +211,7 @@ export function electQuads(pool, n, T1, L) {
   }
   return out;
 }
+
+/* — P3 — texB through texA: the decoded frame (aspect V) mapped onto texA's
+   centre crop (aspect aTex), then through texA's own window A. — */
+export const liveB = (V, aTex, A) => compose(coverWindow(V, aTex), A);

@@ -6,10 +6,12 @@
  *   image.mux.com/{playbackId}/thumbnail.webp?width=…&fit_mode=smartcrop
  * Stills (the globe-worlds population modes' image assets) request the
  * Sanity CDN's square crop at the same size, cropped on the busiest region
- * (crop=entropy — the smartcrop analogue). Square either way, so texAspect
- * stays 1 and cover-fit math is uniform.
+ * (crop=entropy — the smartcrop analogue). Square either way for a
+ * single-only asset; a classed asset under ?popunits loads ONE class crop
+ * (unitSpan.texSpec) and records its measured aspect.
  *
- * Cache keys are assetKey(asset) = playbackId ?? imageUrl — a video's key IS
+ * Cache keys are assetKey(asset) = tex.key ?? playbackId ?? imageUrl — a
+ * class crop keys on its own variant (tex.key); otherwise a video's key IS
  * its playbackId, so the default (video-only) pool keys exactly as before.
  * A client-name ticker tile (nameTicker.js, 10-06) keys on its nameKey and
  * draws its strip locally — same refcount, no network beyond the face.
@@ -18,8 +20,10 @@ import * as THREE from 'three';
 import { THUMB_WIDTH } from './globeConfig.js';
 import { loadNameTexture } from './nameTicker.js';
 
-/** The texture cache key for a globe asset (video playbackId, else still URL, else a name strip). */
-export const assetKey = (asset) => asset?.playbackId || asset?.imageUrl || asset?.nameKey || null;
+/** The texture cache key for a globe asset: a class texture's own key (its
+ *  variant folded in: every refcount site keys on this), else the video
+ *  playbackId, else the still URL, else a name strip. */
+export const assetKey = (asset) => asset?.tex?.key || asset?.playbackId || asset?.imageUrl || asset?.nameKey || null;
 
 export default class TextureManager {
   constructor() {
@@ -66,10 +70,16 @@ export default class TextureManager {
             })
           : new Promise((resolve, reject) => {
               this.loader.load(
-                asset.playbackId ? this.thumbnailUrl(asset.playbackId) : this.stillUrl(asset.imageUrl),
+                asset.tex ? asset.tex.url : asset.playbackId ? this.thumbnailUrl(asset.playbackId) : this.stillUrl(asset.imageUrl),
                 (texture) => {
                   texture.colorSpace = THREE.SRGBColorSpace;
                   texture.anisotropy = 4;
+                  // A class texture carries its MEASURED aspect: the CDN rounds,
+                  // and unit windows must register with what actually decoded.
+                  if (asset.tex) {
+                    const img = texture.image;
+                    texture.userData.aspect = (img.naturalWidth || img.width) / (img.naturalHeight || img.height);
+                  }
                   entry.texture = texture;
                   this.account(key, entry, texture);
                   resolve(texture);

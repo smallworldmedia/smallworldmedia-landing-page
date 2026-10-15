@@ -73,6 +73,8 @@ import { selectPool, WORLD_KINDS } from './buildWorldPools.js';
 import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
+import { SCROLL_VISIBLE_ROWS, THUMB_WIDTH } from './globeConfig.js';
+import { lattice, texSpec } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -141,9 +143,10 @@ export default class PopulationDirector {
     this.rows = [...byRow.values()];
     // Derived, never assumed: 12 lon × 6 visible rows happens to make it 1.
     this.panelAspect = panels[0]?.panelAspect || 1;
-    this.pools = worlds.map((w, wi) =>
-      w.assets.map((a) => ({ ...a, clientName: w.clientName, services: w.services, world: wi }))
-    );
+    // The span lattice, read off a live scroll panel. Null on the fixed globe, so units never run there.
+    this.L = panels[0]?.bandHeight > 0 ? lattice(panels[0], this.lon, SCROLL_VISIBLE_ROWS) : null;
+    this.decorSig = null;
+    this.pools = this.decorate();
     this._v = new THREE.Vector3();
     this._n = new THREE.Vector3(); // planNames' own scratch (byProminence owns _v)
     this.assignRow = this.assignRow.bind(this);
@@ -196,6 +199,42 @@ export default class PopulationDirector {
       pattern: makePattern(name, { seed, weights, lon: this.lon }),
       cursor: pools.map(() => 0),
     };
+  }
+
+  /** The pool records. Units off: exactly the old spread. Units on: each 'h'/'v'
+   *  asset also gets its ONE class texture (tex) and the unit class it may form
+   *  (unitCls; P5 adds the elected quads, per world). */
+  decorate() {
+    const on = !!(TUNING.units && this.L);
+    this.decorSig = this.sigOf();
+    // One texture variant per id (thumbVariants): an asset several worlds carry
+    // takes the class of its first classed occurrence, in world order.
+    const clsById = new Map();
+    if (on) for (const w of this.worlds) for (const a of w.assets) {
+      const id = a.playbackId || a.imageUrl;
+      if ((a.u === 'h' || a.u === 'v') && !clsById.has(id)) clsById.set(id, a.u);
+    }
+    return this.worlds.map((w, wi) =>
+      w.assets.map((a) => {
+        const r = { ...a, clientName: w.clientName, services: w.services, world: wi };
+        const c = on ? clsById.get(a.playbackId || a.imageUrl) : null;
+        if (c) {
+          r.tex = texSpec(a, c, THUMB_WIDTH, this.L);
+          r.unitCls = c; // what planUnits / birthPairs form; P5: a quad only where THIS world elected it
+        }
+        return r;
+      })
+    );
+  }
+
+  sigOf() {
+    // Constant with units off, so a knob never rebuilds today's records. P5 appends |quads|cap|media; P7 |equiv|T1.
+    return TUNING.units && this.L ? '1' : '0';
+  }
+
+  /** A knob that changes the records (units, quads) rebuilds them; the relayout that follows re-warms. */
+  redecorate() {
+    if (this.sigOf() !== this.decorSig) this.pools = this.decorate();
   }
 
   /* — Assignment. grid: Map (s·GRID + lon) → texture key of the tiles
@@ -682,6 +721,11 @@ export default class PopulationDirector {
 
   /** A popConfig change (useGlobeScene forwards the key). */
   onTune(key) {
+    if (key === '*' || key === 'units') {
+      this.redecorate();
+      this.relayout();
+      return;
+    }
     if (key === 'seed') this.relayout({ reseed: true });
     else if (key === 'patterns') {
       if (this.grouping.members.length > 1 && !TUNING.patterns.includes(this.grouping.name)) this.relayout();
@@ -793,6 +837,34 @@ export default class PopulationDirector {
     return { adj, unitAdj, minPool: Math.min(...this.grouping.pools.map((pool) => pool.length)) };
   }
 
+  /** Span telemetry (docs/globe-worlds-plan.md § Media spans). Plain
+   *  numbers only: never a panel, never a Place (it is cyclic). */
+  unitStats(r1) {
+    const r9 = (x) => Math.round(x * 1e9) / 1e9;
+    const diff = (s, o, w) =>
+      Math.max(Math.abs(s.x - w.s[0]), Math.abs(s.y - w.s[1]), Math.abs(o.x - w.o[0]), Math.abs(o.y - w.o[1]));
+    const isLive = (p) => p.liveState === 'live' || p.liveState === 'demoting';
+    const aTexOf = (p) => p.mesh.material.uniforms.texA.value?.userData?.aspect ?? p.shownAsset?.tex?.aspect ?? 1;
+    const out = {};
+
+    // — P3 — which texture each cached key is; texB's register on live class textures.
+    const clsOf = new Map();
+    for (const pool of this.pools) for (const a of pool) clsOf.set(assetKey(a), a.tex?.cls ?? 'legacy');
+    out.texClass = { h: 0, v: 0, q: 0, legacy: 0 };
+    for (const k of this.textureManager.cache.keys()) if (clsOf.has(k)) out.texClass[clsOf.get(k)] += 1;
+    const sched = this.getScheduler();
+    const liveReg = { n: 0, worst: 0 };
+    for (const p of this.panels) {
+      const video = p.liveStream?.video ?? p.liveVideo;
+      if (!p.asset?.tex || p.shownAsset !== p.asset || !isLive(p) || !(video?.videoWidth > 0) || !sched?.liveWindow) continue;
+      const u = p.mesh.material.uniforms;
+      liveReg.n += 1;
+      liveReg.worst = Math.max(liveReg.worst, diff(u.uvScaleB.value, u.uvOffsetB.value, sched.liveWindow(p, video)));
+    }
+    out.liveReg = { n: liveReg.n, worst: r9(liveReg.worst) };
+    return out;
+  }
+
   /** ~2 Hz from the scene's stat clock: visible shares, integrity (visible
    *  tiles showing a world of the current grouping), black tiles, live
    *  videos per world, the change clock — published as window.__swmPopStats
@@ -889,7 +961,7 @@ export default class PopulationDirector {
       layout: this.layoutStats(),
       staleLanded: this.staleLanded,
       bornCancelled: this.getScroller()?.bornCancelled ?? 0,
-      units: null, // P3: this.unitStats(r1) while ?popunits is on
+      units: TUNING.units && this.L ? this.unitStats(r1) : null,
     };
     this.flipsSampled = this.flips;
     if (typeof window !== 'undefined') window.__swmPopStats = stats;

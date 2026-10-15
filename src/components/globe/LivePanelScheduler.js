@@ -42,6 +42,8 @@ import {
   RELIVE_COOLDOWN_SECONDS,
   CROSSFADE_SECONDS,
 } from './globeConfig.js';
+import { liveB, pictureAspect } from './unitSpan.js';
+import { windowA } from './tileSwap.js';
 
 // NDC margin for "on screen" — matters in mobile cover-overscan, where a
 // panel can face the camera yet sit cropped outside the viewport
@@ -173,6 +175,7 @@ export default class LivePanelScheduler {
             ({ panel, score, visible }) =>
               !panel.liveState &&
               panel.asset?.playbackId && // stills have no stream
+              (!panel.asset.tex || panel.shownAsset === panel.asset) && // B derives from the bound A
               !panel.swapping &&
               !panel.parked && // never stream into a collapsed past-pole scroll tile
               !this.grainHidden(panel) && // nor into one whose media is under static
@@ -334,8 +337,25 @@ export default class LivePanelScheduler {
       !panel.liveState &&
       !panel.parked &&
       !panel.swapping &&
+      (!panel.asset.tex || panel.shownAsset === panel.asset) &&
       !this.grainHidden(panel)
     );
+  }
+
+  /** texB's window. A single-only asset: today's cover of the clip's metadata
+   *  aspect. A class texture: the clip's picture V (Mux's exact ratio; the decoded
+   *  frame only when that won't parse, unitSpan.pictureAspect) seen through the
+   *  texA window (texA is the centre crop of frame 0 at aspect aTex: B = cover(V, aTex) ∘ A). */
+  liveWindow(panel, video) {
+    const a = panel.asset;
+    if (!a?.tex) {
+      const { scale, offset } = computeCoverUv(parseAspect(a?.videoAspectRatio), panel.panelAspect);
+      return { s: scale, o: offset };
+    }
+    const u = panel.mesh.material.uniforms;
+    const aTex = u.texA.value?.userData?.aspect ?? a.tex.aspect;
+    const A = { s: [u.uvScaleA.value.x, u.uvScaleA.value.y], o: [u.uvOffsetA.value.x, u.uvOffsetA.value.y] };
+    return liveB(pictureAspect(a, video), aTex, A);
   }
 
   startStream(id, slot) {
@@ -366,7 +386,7 @@ export default class LivePanelScheduler {
 
   attach(panel, stream) {
     const { uniforms } = panel.mesh.material;
-    const { scale, offset } = computeCoverUv(parseAspect(panel.asset.videoAspectRatio), panel.panelAspect);
+    const { s: scale, o: offset } = this.liveWindow(panel, stream.video);
     uniforms.texB.value = stream.texture;
     uniforms.uVideoB.value = 1;
     uniforms.uvScaleB.value.set(scale[0], scale[1]);
@@ -456,10 +476,7 @@ export default class LivePanelScheduler {
         panel.liveVideo = video;
 
         const { uniforms } = panel.mesh.material;
-        const { scale, offset } = computeCoverUv(
-          parseAspect(panel.asset.videoAspectRatio),
-          panel.panelAspect
-        );
+        const { s: scale, o: offset } = this.liveWindow(panel, video);
         uniforms.texB.value = texture;
         uniforms.uVideoB.value = 1;
         uniforms.uvScaleB.value.set(scale[0], scale[1]);
@@ -551,7 +568,7 @@ export default class LivePanelScheduler {
         if (this.disposed) return;
         const previousId = panel.asset?.playbackId;
         const { uniforms } = panel.mesh.material;
-        const { scale, offset } = computeCoverUv(1, panel.panelAspect);
+        const { s: scale, o: offset } = windowA(panel, nextAsset, texture);
         uniforms.texA.value = texture;
         uniforms.uvScaleA.value.set(scale[0], scale[1]);
         uniforms.uvOffsetA.value.set(offset[0], offset[1]);
