@@ -5,6 +5,9 @@
 // fake panels, and the scheduler's shared streams on a fake video pool.
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import * as THREE from 'three'
 import { parse, evaluate } from 'groq-js'
 import { FEATURED_WORLDS_QUERY } from '../../src/lib/queries.js'
@@ -12,7 +15,7 @@ import { buildContentFlow } from '../../src/components/work/detail/buildContentF
 import buildWorldPools, { selectPool, WORLD_POOL_CAP } from '../../src/components/globe/buildWorldPools.js'
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
-import { assetKey } from '../../src/components/globe/TextureManager.js'
+import TextureManager, { assetKey } from '../../src/components/globe/TextureManager.js'
 import { loadTile } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
@@ -30,6 +33,7 @@ import {
 import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS } from '../../src/components/globe/globeConfig.js'
 import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../../src/components/work/imageConfig.js'
 import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib/netReport.mjs'
+import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload } from '../lib/unitGates.mjs'
 import { stripAudioFromMaster, AUDIO_CODEC } from '../../src/components/work/hlsVideoOnly.js'
 import { videoOnlyLoader } from '../../src/components/work/useHls.js'
 
@@ -289,6 +293,11 @@ function fakeScene() {
       if (!e) return
       e.refs -= 1
       if (e.refs <= 0) this.cache.delete(k)
+    },
+    stats() {
+      let refs = 0
+      for (const e of this.cache.values()) refs += e.refs
+      return { mib: 0, peak: 0, entries: this.cache.size, refs, pending: 0, failed: 0 }
     },
     refs() {
       let n = 0
@@ -1076,6 +1085,10 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   const heard = run([...slot, playlist('/', 'p-audio', pv)], [...gets('/', 'p', pv), ...gets('/', 'p-audio', 1)], [play('slot', '/', true, PREVIEW_SECONDS)])
   assert.deepEqual(heard.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: false })
   assert.deepEqual(audio(heard), { n: 1, vacuous: false, worst: 3, playlists: 1, chunks: 2 })
+  // one audio request alone fails it: the bound is 0, not 1
+  const once = run([...slot, playlist('/', 'p-audio', pv)], gets('/', 'p', pv), [play('slot', '/', true, PREVIEW_SECONDS)])
+  assert.deepEqual(audio(once), { n: 1, vacuous: false, worst: 1, playlists: 1, chunks: 0 })
+  assert.equal(once.pass.audio, false)
   // NC: --noclip strips the clip from what Mux is sent, never from what the page asked, so a muted
   // master is never taken for the Lightbox's
   const ncSlot = [master('/', slotUrl, 'p', bare(slotUrl)), playlist('/', 'p', pv)]
@@ -1192,4 +1205,191 @@ test('video diet: the videoOnly playlist loader rewrites the master alone, and h
   }
   // one class, built on first use
   assert.equal(videoOnlyLoader({ DefaultConfig: { loader: Base } }), Loader)
+})
+
+/* — Media spans (docs/globe-worlds-plan.md § Media spans): the gate module, and the texture ledger — */
+test('spans: the gate module — vacuity, expect-fail, request classes, baselines, payload', () => {
+  assert.deepEqual(LEVELS, ['off', 'tex', 'h', 'vq', 'live', 'tier'])
+  const clip = `&asset_end_time=${GLOBE_PREVIEW_SECONDS}` // P0: VideoSlotPool.streamUrl's clip (muxStream: exactly the window, P0-ORDERS §1.2)
+  const mux = (id, t1 = 512) => `https://image.mux.com/${id}/thumbnail.webp?width=${t1}&height=${t1}&fit_mode=smartcrop`
+  assert.equal(classifyRequest(mux('abc'), 512).kind, 'legacy')
+  assert.equal(classifyRequest('https://cdn.sanity.io/images/p/d/x-1500x1000.jpg?w=512&h=512&fit=crop&crop=entropy&auto=format', 512).kind, 'legacy')
+  assert.equal(classifyRequest(`https://stream.mux.com/abc.m3u8?min_resolution=480p&max_resolution=480p${clip}`, 512).id, 'abc')
+  const other = classifyRequest('https://image.mux.com/LongPlaybackId0123456789/animated.gif?width=64', 512)
+  assert.equal(other.kind, 'other')
+  assert.equal(other.shape, 'image.mux.com/*/animated.gif?width=#') // id-free: one allow-list entry for every id
+  assert.equal(classifyRequest(mux('abc'), 384).kind, 'other') // NC: the legacy query at the wrong T1 is not legacy
+
+  // A units-off run: 12 legacy ids, one stream, six quiet hold samples across one change.
+  const sample = (t) => ({ t, phase: 'hold', step: t < 4 ? 0 : 1, staleLanded: 0, units: null, tex: { mib: 40, peak: 50, refDrift: 0 }, layout: { adj: 0, unitAdj: 0, minPool: 8 } })
+  const report = {
+    requests: [...Array.from({ length: 12 }, (_, i) => mux(`id${i}`)), `https://stream.mux.com/id0.m3u8?min_resolution=480p&max_resolution=480p${clip}`],
+    samples: [1, 2, 3, 4, 5, 6].map(sample),
+  }
+  const ctx = { key: 'off-desktop', seed: '42', units: null, level: 'off', mode: 'tides', rm: false, t1: 512, texmb: 96, texpeak: null, record: true, baselines: {} }
+  const rec = unitGates(report, ctx)
+  assert.ok(Object.values(rec.pass).every(Boolean), JSON.stringify(rec.detail))
+  assert.equal('texPeak' in rec.pass || 'legacyParity' in rec.pass, false) // skipped while recording
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unit-gates-'))
+  try {
+    const file = path.join(dir, 'baselines', 'globe-units.json')
+    assert.deepEqual(readBaselines(file), {})
+    writeBaseline(file, 'off-desktop', baselineOf(report, ctx))
+    const baselines = readBaselines(file)
+    assert.equal(baselines['off-desktop'].peakMax, 50)
+    assert.equal(Object.keys(baselines['off-desktop'].idQuery).length, 12)
+    assert.deepEqual(baselines['off-desktop'].streamQueries, [`min_resolution=480p&max_resolution=480p${clip}`])
+
+    const plain = unitGates(report, { ...ctx, record: false, baselines })
+    assert.ok(Object.values(plain.pass).every(Boolean), JSON.stringify(plain.detail))
+    assert.equal(plain.detail.texPeak.bound, 50 * 1.15)
+    assert.equal(plain.detail.legacyParity.n, 12)
+    // NC: each P0b gate fails non-vacuously on its own violation, and each floor holds.
+    const judge = (r, over = {}) => unitGates(r, { ...ctx, record: false, baselines, ...over })
+    const each = (patch) => ({ ...report, samples: report.samples.map((s) => ({ ...s, ...patch })) })
+    const gif = { ...report, requests: [...report.requests, 'https://image.mux.com/id0/animated.gif?width=64'] }
+    assert.deepEqual([judge(gif).pass.texReqShape, judge(gif).detail.texReqShape.vacuous], [false, false]) // an unlisted 'other' shape
+    assert.equal(unitGates(gif, ctx).pass.texReqShape, true) // ...which a recording accepts, as the allow-list
+    assert.equal(judge(each({ staleLanded: 1 })).pass.staleLanded, false)
+    assert.equal(judge(each({ tex: { mib: 40, peak: 50, refDrift: 1 } })).pass.texBudget, false) // a drifting ledger
+    assert.equal(judge(each({ units: { clock: 'running' } })).pass.unitsVacuous, false) // units at level off
+    assert.equal(judge({ ...report, samples: report.samples.slice(0, 2) }).detail.texBudget.vacuous, true) // 2 quiet samples < 3
+    assert.equal(judge(each({ step: 0 })).detail.texPeak.vacuous, true) // no step change: nothing to bound
+    assert.equal(judge(report, { key: 'nope' }).detail.legacyParity.vacuous, true) // no record under the key
+    assert.equal(judge({ ...report, requests: report.requests.slice(3) }).detail.legacyParity.vacuous, true) // 9 shared ids < 10
+
+    // NC: a stream pin that sneaks in while units are off fails legacyParity, non-vacuously.
+    const pinned = { ...report, requests: [...report.requests, `https://stream.mux.com/id1.m3u8?min_resolution=720p&max_resolution=720p${clip}`] }
+    const bad = unitGates(pinned, { ...ctx, record: false, baselines })
+    const asReport = (g) => ({ pass: g.pass, spans: { detail: g.detail } })
+    assert.equal(bad.pass.legacyParity, false)
+    assert.equal(bad.detail.legacyParity.vacuous, false)
+    assert.ok(expectFail(asReport(bad), ['legacyParity']).ok)
+    // NC: a stream that lost P0's clip (today's URL) is a stream-query mismatch against a post-P0 baseline.
+    const unclipped = { ...report, requests: [...report.requests.slice(0, -1), 'https://stream.mux.com/id0.m3u8?min_resolution=480p&max_resolution=480p'] }
+    assert.equal(unitGates(unclipped, { ...ctx, record: false, baselines }).pass.legacyParity, false)
+    // NC: expectFail refuses a gate that passed, a failure that is only vacuous, an absent gate, a fatal run.
+    assert.equal(expectFail(asReport(plain), ['legacyParity']).ok, false)
+    const empty = unitGates({ requests: [], samples: [] }, { ...ctx, record: false, baselines })
+    assert.equal(empty.pass.texReqShape, false)
+    assert.equal(empty.detail.texReqShape.vacuous, true)
+    assert.equal(expectFail(asReport(empty), ['texReqShape']).ok, false)
+    assert.equal(expectFail(asReport(bad), ['unitSeam']).ok, false)
+    assert.equal(expectFail({ ...asReport(bad), fatal: 'Error: boom' }, ['legacyParity']).ok, false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+
+  // The island payload: lean assets, and u only where it belongs.
+  const island = (assets) => {
+    const v = (x) => [0, x]
+    const props = { globeWorlds: [1, [[0, { slug: v('a'), assets: [1, assets.map((a) => [0, Object.fromEntries(Object.entries(a).map(([k, x]) => [k, v(x)]))])] }]]] }
+    return `<astro-island uid="x" component-url="/l.js" props="${JSON.stringify(props).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></astro-island>`
+  }
+  const A = { kind: 'video', playbackId: 'p1', videoAspectRatio: '16:9' }
+  assert.ok(checkPayload(island([A]), { unitsAbsent: true }).ok)
+  const withU = checkPayload(island([{ ...A, u: 'h' }, A]))
+  assert.ok(withU.ok, withU.reasons.join('; '))
+  assert.equal(withU.uBytes, 32)
+  // NC: u before P2, no u after it, a stray key, a foreign class.
+  assert.equal(checkPayload(island([{ ...A, u: 'h' }]), { unitsAbsent: true }).ok, false)
+  assert.equal(checkPayload(island([A])).ok, false)
+  assert.equal(checkPayload(island([{ ...A, id: 'x' }]), { unitsAbsent: true }).ok, false)
+  assert.equal(checkPayload(island([{ ...A, u: 'x' }])).ok, false)
+  // s (P2, M2): a video's source short side, only below TOP_RUNG; 0 = Mux holds no track size.
+  const withS = checkPayload(island([{ ...A, u: 'h', s: 720 }, { ...A, playbackId: 'p2', s: 0 }, A]))
+  assert.ok(withS.ok, withS.reasons.join('; '))
+  assert.equal(withS.withS, 2)
+  assert.equal(withS.sBytes, 22 + 20)
+  // NC: s on a still, a fractional s, s before P2.
+  const still = { kind: 'still', imageUrl: 'https://cdn.sanity.io/images/p/d/x-800x600.jpg' }
+  assert.equal(checkPayload(island([{ ...A, u: 'h' }, { ...still, s: 600 }])).ok, false)
+  assert.equal(checkPayload(island([{ ...A, u: 'h', s: 1.5 }])).ok, false)
+  assert.equal(checkPayload(island([{ ...A, s: 720 }]), { unitsAbsent: true }).ok, false)
+})
+
+test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
+  // names off: in node a real TextureManager rejects every name strip (nameTicker draws on a canvas)
+  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, group: 2, chaos: 0, names: 0 })
+  const { panels } = fakeScene()
+  const tm = new TextureManager()
+  // A stub loader: every load settles a tick later, as on the network. The one key that rejects is
+  // chosen once the layout has put it on a tile.
+  let bad = null
+  tm.loader = {
+    load(url, onLoad, onProgress, onError) {
+      setTimeout(() => {
+        if (url.includes(`/${bad}/`)) onError(new Error(`404 ${url}`))
+        else onLoad(Object.assign(new THREE.Texture(), { image: { width: 512, height: 512 } }))
+      }, 0)
+    },
+  }
+  const director = new PopulationDirector({
+    panels,
+    worlds: worldsFixture(),
+    textureManager: tm,
+    getScheduler: () => null,
+    getRotation: () => new THREE.Euler(0.8, 0, 0),
+    canAnimate: () => false,
+  })
+  const loads = director.initialLayout(director.byProminence())
+  const victim = panels.find((p) => !p.parked)
+  bad = assetKey(victim.asset)
+  // an entry released before it decoded is never counted (account's cache check)
+  tm.loadAsset({ kind: 'video', playbackId: 'released-early' }).catch(() => {})
+  tm.release('released-early')
+  assert.ok(director.warm.has(bad)) // the director holds a warm ref on it, beside the tile's
+  assert.equal(director.texStats().refDrift, null) // loads in flight: not quiet yet
+  await Promise.all(loads)
+  await settleTicks()
+  const s = tm.stats()
+  assert.equal(s.failed, 1)
+  assert.equal(s.pending, 0)
+  assert.ok(s.peak >= s.mib && s.peak > 0) // the session peak is kept
+  // every other entry decoded and counted once: 512² RGBA8, plus a third for the mips
+  assert.equal(s.mib, Math.round((((s.entries - 1) * 512 * 512 * 4 * 4) / 3 / 1048576) * 10) / 10)
+  // the tile's load bowed out (loadTile released its own +1); the director's warm ref keeps the entry
+  assert.equal(victim.heldThumbId, null)
+  assert.equal(tm.cache.get(bad).refs, 1)
+  assert.equal(director.busy, false)
+  assert.equal(director.texStats().refDrift, 0) // quiet: every ref is a tile's or the warm set's
+  // upload and layout telemetry (report-only; the off-* records' adjMax rests on layout): an upload frame
+  // is counted apart from the idle ones; a same-key pair counts right and up; a parked tile is out.
+  director.noteRender(20, 1)
+  director.noteRender(1, 0)
+  assert.deepEqual(director.uploadStats(), { n: 1, msMax: 20, idleP95: 1 })
+  const shown = panels.map((t) => [t, t.shownAsset])
+  panels.forEach((t, i) => (t.shownAsset = { kind: 'still', imageUrl: `own-${i}` })) // every tile its own key
+  assert.equal(director.layoutStats().adj, 0)
+  const tileAt = (lon, tape) => panels.find((t) => !t.parked && t.lonIndex === lon && t.tapeS === tape)
+  const pivot = panels.find((t) => !t.parked && tileAt(t.lonIndex, t.tapeS + 1) && tileAt((t.lonIndex + 1) % LON, t.tapeS))
+  const above = tileAt(pivot.lonIndex, pivot.tapeS + 1)
+  above.shownAsset = pivot.shownAsset
+  assert.equal(director.layoutStats().adj, 1) // the up pair
+  tileAt((pivot.lonIndex + 1) % LON, pivot.tapeS).shownAsset = pivot.shownAsset
+  assert.equal(director.layoutStats().adj, 2) // and the right pair
+  above.parked = true
+  assert.equal(director.layoutStats().adj, 1) // a parked tile is out of the layout
+  above.parked = false
+  for (const [t, a] of shown) t.shownAsset = a
+  // NC: the old rule (pending = no texture) holds the rejected entry in flight forever, so the ledger never reads.
+  tm.stats = function () {
+    return { ...TextureManager.prototype.stats.call(this), pending: [...this.cache.values()].filter((e) => !e.texture).length }
+  }
+  assert.equal(tm.stats().pending, 1)
+  assert.equal(director.texStats().refDrift, null)
+  await settleTicks(5)
+  assert.equal(director.texStats().refDrift, null)
+  delete tm.stats
+  // ...and its refs still free it: the director's release evicts it, with every other warm-only entry.
+  director.dispose()
+  assert.equal(tm.cache.has(bad), false)
+  assert.equal(tm.peek(bad), null)
+  assert.equal(tm.stats().failed, 0)
+  assert.equal(tm.stats().refs, panels.filter((p) => p.heldThumbId).length) // the tiles still own what they show
+  // the bytes leave with the refs: what stays resident is the tiles' textures alone, mips counted
+  assert.equal(tm.stats().mib, Math.round(((tm.cache.size * 512 * 512 * 4 * 4) / 3 / 1048576) * 10) / 10)
+  tm.disposeAll()
+  assert.equal(tm.stats().mib, 0) // teardown empties the ledger
 })

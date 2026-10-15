@@ -25,8 +25,10 @@ export default class TextureManager {
   constructor() {
     this.loader = new THREE.TextureLoader();
     this.loader.setCrossOrigin('anonymous');
-    /** @type {Map<string, { texture: THREE.Texture|null, refs: number, promise: Promise }>} */
+    /** @type {Map<string, { texture: THREE.Texture|null, refs: number, promise: Promise, bytes?: number, failed?: boolean }>} */
     this.cache = new Map();
+    this.bytes = 0; // decoded bytes of every loaded entry, mips counted (probe telemetry)
+    this.peakBytes = 0;
   }
 
   thumbnailUrl(playbackId) {
@@ -57,7 +59,11 @@ export default class TextureManager {
       entry = { texture: null, refs: 0, promise: null };
       entry.promise =
         asset.kind === 'name'
-          ? loadNameTexture(asset).then((texture) => (entry.texture = texture))
+          ? loadNameTexture(asset).then((texture) => {
+              entry.texture = texture;
+              this.account(key, entry, texture);
+              return texture;
+            })
           : new Promise((resolve, reject) => {
               this.loader.load(
                 asset.playbackId ? this.thumbnailUrl(asset.playbackId) : this.stillUrl(asset.imageUrl),
@@ -65,12 +71,19 @@ export default class TextureManager {
                   texture.colorSpace = THREE.SRGBColorSpace;
                   texture.anisotropy = 4;
                   entry.texture = texture;
+                  this.account(key, entry, texture);
                   resolve(texture);
                 },
                 undefined,
                 reject
               );
             });
+      // A rejected load is FAILED, never pending: stats() reports it apart, so
+      // the ledger can go quiet. The entry keeps its refs; release() still frees it.
+      entry.promise = entry.promise.catch((e) => {
+        entry.failed = true;
+        throw e;
+      });
       this.cache.set(key, entry);
     }
     entry.refs += 1;
@@ -82,12 +95,40 @@ export default class TextureManager {
     return this.cache.get(key)?.texture ?? null;
   }
 
+  /** Count a decoded texture once: RGBA8, plus a third for the mip chain. An
+   *  entry released before it decoded is never counted. */
+  account(key, entry, texture) {
+    if (this.cache.get(key) !== entry || entry.bytes) return;
+    const img = texture.image;
+    const w = img?.naturalWidth || img?.width || 0;
+    const h = img?.naturalHeight || img?.height || 0;
+    entry.bytes = w * h * 4 * (texture.generateMipmaps === false ? 1 : 4 / 3);
+    this.bytes += entry.bytes;
+    this.peakBytes = Math.max(this.peakBytes, this.bytes);
+  }
+
+  /** Residency for the probe: MiB now and at peak, entries, Σ refs, loads in
+   *  flight (pending), and loads that rejected (failed: held, never decoding). */
+  stats() {
+    let refs = 0;
+    let pending = 0;
+    let failed = 0;
+    for (const e of this.cache.values()) {
+      refs += e.refs;
+      if (e.failed) failed += 1;
+      else if (!e.texture) pending += 1;
+    }
+    const mib = (b) => Math.round((b / 1048576) * 10) / 10;
+    return { mib: mib(this.bytes), peak: mib(this.peakBytes), entries: this.cache.size, refs, pending, failed };
+  }
+
   /** @param {string} key - a playbackId, or assetKey(asset) for a still */
   release(key) {
     const entry = this.cache.get(key);
     if (!entry) return;
     entry.refs -= 1;
     if (entry.refs <= 0) {
+      this.bytes -= entry.bytes || 0;
       entry.promise.then((t) => t.dispose()).catch(() => {});
       this.cache.delete(key);
     }
@@ -98,6 +139,7 @@ export default class TextureManager {
       entry.promise.then((t) => t.dispose()).catch(() => {});
     }
     this.cache.clear();
+    this.bytes = 0;
   }
 }
 

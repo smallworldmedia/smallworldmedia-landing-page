@@ -947,6 +947,30 @@ export default function useGlobeScene(
     let sceneTime = 0;
     const scoreVec = new THREE.Vector3();
 
+    // R1 (span telemetry, report-only): device-px height of the most
+    // camera-facing unparked tile, from its top and bottom edge on its own meridian.
+    const r1A = new THREE.Vector3();
+    const r1B = new THREE.Vector3();
+    const onSphere = (v, phi, theta) =>
+      v.set(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)).multiplyScalar(RADIUS);
+    const frontRowPx = () => {
+      let best = null;
+      let bestZ = -Infinity;
+      for (const p of panels) {
+        if (p.parked || p.phiC == null) continue;
+        const z = scoreVec.copy(p.centerDir).applyEuler(globeGroup.rotation).z;
+        if (z > bestZ) {
+          bestZ = z;
+          best = p;
+        }
+      }
+      const top = best?.mesh.material.uniforms.uPolarTop?.value;
+      if (top == null) return null;
+      globeGroup.localToWorld(onSphere(r1A, best.phiC, top)).project(camera);
+      globeGroup.localToWorld(onSphere(r1B, best.phiC, top + best.bandHeight)).project(camera);
+      return Math.round((Math.abs(r1A.y - r1B.y) / 2) * viewH * renderer.getPixelRatio());
+    };
+
     const tick = (_time, deltaMs) => {
       const dt = deltaMs / 1000;
       accumulated += dt;
@@ -998,7 +1022,10 @@ export default function useGlobeScene(
       // whole globe because the holders are shared.
       if (grainRig) grainRig.update(step, POP_TUNING);
 
+      const texBefore = renderer.info.memory.textures;
+      const r0 = performance.now();
       renderer.render(scene, camera);
+      if (director) director.noteRender(performance.now() - r0, renderer.info.memory.textures - texBefore);
       // Overlay bridge (home hero): hand the just-rendered frame to the DOM
       // overlay — after render, so every matrix is the one drawn. Null-safe:
       // lab/other callers pass no overlayRef and skip entirely.
@@ -1033,6 +1060,7 @@ export default function useGlobeScene(
             fps,
             gpuTextures: renderer.info.memory.textures,
             dt: statClock,
+            r1: frontRowPx(),
           });
         }
         onStats({

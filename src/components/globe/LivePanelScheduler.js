@@ -350,6 +350,7 @@ export default class LivePanelScheduler {
         texture.colorSpace = THREE.NoColorSpace; // raw upload — the tile mode's contract (promote)
         texture.minFilter = THREE.LinearFilter;
         stream.texture = texture;
+        stream.video = video; // measured decode (decodeStats)
         stream.state = 'live';
         stream.since = this.now;
         stream.maxDwell = MAX_LIVE_DWELL_SECONDS * (0.75 + Math.random() * 0.5);
@@ -432,6 +433,7 @@ export default class LivePanelScheduler {
     }
     stream.texture?.dispose();
     stream.texture = null;
+    stream.video = null;
   }
 
   promote(panel, slot) {
@@ -451,6 +453,7 @@ export default class LivePanelScheduler {
         texture.colorSpace = THREE.NoColorSpace;
         texture.minFilter = THREE.LinearFilter;
         panel.videoTexture = texture;
+        panel.liveVideo = video;
 
         const { uniforms } = panel.mesh.material;
         const { scale, offset } = computeCoverUv(
@@ -532,6 +535,7 @@ export default class LivePanelScheduler {
       panel.videoTexture = null;
     }
     panel.liveSlot = null;
+    panel.liveVideo = null;
     if (panel.liveState) panel.lastLiveEnd = this.now;
     panel.liveState = null;
   }
@@ -583,6 +587,24 @@ export default class LivePanelScheduler {
     };
   }
 
+  /** Measured decode for the probe: what the <video> elements on screen really
+   *  decode (shared: every non-pending stream; tile: every live/demoting slot). */
+  decodeStats() {
+    const streams = [];
+    const add = (id, video, plan) => {
+      const w = video?.videoWidth || 0;
+      const h = video?.videoHeight || 0;
+      streams.push({ id, w, h, short: Math.min(w, h), mp: Math.round((w * h) / 1e4) / 100, plan: plan?.rung ?? null, planShort: plan?.short ?? null });
+    };
+    if (this.shared) {
+      for (const s of this.streams.values()) if (s.state !== 'pending') add(s.id, s.video, s.plan);
+    } else {
+      for (const p of this.slots) if (p && (p.liveState === 'live' || p.liveState === 'demoting')) add(p.asset?.playbackId, p.liveVideo, null);
+    }
+    const mp = streams.reduce((n, s) => n + (s.w * s.h) / 1e6, 0);
+    return { mp: Math.round(mp * 1000) / 1000, streams };
+  }
+
   dispose() {
     this.disposed = true;
     for (const s of this.streams.values()) {
@@ -600,6 +622,7 @@ export default class LivePanelScheduler {
       panel.liveState = null;
       panel.liveSlot = null;
       panel.liveStream = null;
+      panel.liveVideo = null;
     });
     this.slots.fill(null);
   }

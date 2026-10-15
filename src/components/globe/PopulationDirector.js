@@ -124,6 +124,8 @@ export default class PopulationDirector {
     this.flips = 0; // tiles re-laid in place (monotonic; births aren't flips)
     this.flipsSampled = 0;
     this.countFlip = () => (this.flips += 1);
+    this.staleLanded = 0; // swaps that landed on a re-born row (tileSwap.swapNow; gated to 0)
+    this._render = { ms: new Float32Array(240), up: new Uint8Array(240), i: 0, n: 0 }; // last 240 frames
     this.names = new Map(); // nameKey → its name-strip asset (one texture per key)
     this.namePlan = new Map(); // panel → its strip, for the layout in flight (planNames)
     this.namePlaced = null; // that placement's own measurements (bench + probe)
@@ -733,11 +735,69 @@ export default class PopulationDirector {
     return this.worlds[w]?.slug ?? null;
   }
 
+  /** Per rendered frame (useGlobeScene): the render call's ms, and whether it
+   *  uploaded a new GPU texture (renderer.info.memory.textures grew). */
+  noteRender(ms, uploaded) {
+    const r = this._render;
+    r.ms[r.i] = ms;
+    r.up[r.i] = uploaded > 0 ? 1 : 0;
+    r.i = (r.i + 1) % r.ms.length;
+    r.n = Math.min(r.n + 1, r.ms.length);
+  }
+
+  uploadStats() {
+    const r = this._render;
+    const up = [];
+    const idle = [];
+    for (let k = 0; k < r.n; k++) (r.up[k] ? up : idle).push(r.ms[k]);
+    idle.sort((a, b) => a - b);
+    const r2 = (x) => Math.round(x * 100) / 100;
+    return {
+      n: up.length,
+      msMax: up.length ? r2(Math.max(...up)) : 0,
+      idleP95: idle.length ? r2(idle[Math.floor(0.95 * (idle.length - 1))]) : 0,
+    };
+  }
+
+  /** Residency, plus the ref ledger: at rest every ref is a tile's (heldThumbId)
+   *  or the warm set's, so refs − tiles − warm must be 0. Null mid-change. A
+   *  FAILED load is not in flight, so it never holds the ledger open. */
+  texStats() {
+    const t = this.textureManager.stats();
+    const quiet = !this.busy && !this.tide && t.pending === 0 && !this.panels.some((p) => p.swapping);
+    const held = this.panels.reduce((n, p) => n + (p.heldThumbId ? 1 : 0), 0);
+    return { ...t, refDrift: quiet ? t.refs - held - this.warm.size : null };
+  }
+
+  /** Same-texture neighbours: right and up pairs among unparked, non-name tiles.
+   *  Two members of ONE unit share a key by design and are skipped. unitAdj =
+   *  the pairs touching a member; minPool = the grouping's smallest pool. */
+  layoutStats() {
+    const at = new Map();
+    for (const p of this.panels) {
+      if (!p.parked && p.shownAsset && p.shownAsset.kind !== 'name') at.set(p.tapeS * GRID + p.lonIndex, p);
+    }
+    let adj = 0;
+    let unitAdj = 0;
+    for (const p of at.values()) {
+      const right = at.get(p.tapeS * GRID + ((p.lonIndex + 1) % this.lon));
+      const up = at.get((p.tapeS + 1) * GRID + p.lonIndex);
+      for (const q of [right, up]) {
+        if (!q || assetKey(q.shownAsset) !== assetKey(p.shownAsset)) continue;
+        const uid = p.shownAsset.place?.uid;
+        if (uid && uid === q.shownAsset.place?.uid) continue;
+        adj += 1;
+        if (p.shownAsset.place || q.shownAsset.place) unitAdj += 1;
+      }
+    }
+    return { adj, unitAdj, minPool: Math.min(...this.grouping.pools.map((pool) => pool.length)) };
+  }
+
   /** ~2 Hz from the scene's stat clock: visible shares, integrity (visible
    *  tiles showing a world of the current grouping), black tiles, live
    *  videos per world, the change clock — published as window.__swmPopStats
    *  (bench + probe). */
-  sample(rotation, { fps = null, gpuTextures = null, dt = 0.5 } = {}) {
+  sample(rotation, { fps = null, gpuTextures = null, dt = 0.5, r1 = null } = {}) {
     const g = this.grouping;
     const shares = new Map();
     const live = new Map();
@@ -821,6 +881,15 @@ export default class PopulationDirector {
       nameSlices,
       live: [...live].map(([w, c]) => `${this.worlds[w].clientName} ${c}`),
       fps,
+      // Span telemetry (docs/globe-worlds-plan.md § Media spans). Plain data: no panels, no cycles.
+      tex: this.texStats(),
+      upload: this.uploadStats(),
+      r1,
+      decode: this.getScheduler()?.decodeStats?.() ?? null,
+      layout: this.layoutStats(),
+      staleLanded: this.staleLanded,
+      bornCancelled: this.getScroller()?.bornCancelled ?? 0,
+      units: null, // P3: this.unitStats(r1) while ?popunits is on
     };
     this.flipsSampled = this.flips;
     if (typeof window !== 'undefined') window.__swmPopStats = stats;

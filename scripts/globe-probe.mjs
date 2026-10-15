@@ -10,6 +10,9 @@
  *        [--next=2] [--seed=42] [--mobile] [--rm] [--intro=replay|full]
  *        [--paint] [--enter] [--footer] [--detail=SLUG] [--hold=PREFIX] [--noclip] [--channel=chrome]
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
+ *        [--units[=0|1]] [--level=off|tex|h|vq|live|tier] [--texmb=MiB]
+ *        [--texpeak=MiB] [--record-baseline] [--baseline=KEY] [--negctl[=bind|pin]]
+ *        [--decodemax=MP] [--densitymax=X]
  *
  * --base and --out also read GLOBE_PROBE_BASE / GLOBE_PROBE_OUT, for a pinned
  * verifier command that carries no flags (GLOBE_PROBE_OUT is the PARENT of the
@@ -46,7 +49,28 @@
  * --hold=PREFIX, heldWrap (the first <video> whose Mux id starts with PREFIX,
  * centred and held two capped loops more, wraps at least once and never
  * plays past its window), and skips the globe's sampling. --detail refuses
- * --rm, which would drop every vacuity floor to zero.
+ * --rm, which would drop every vacuity floor to zero, and --footer and
+ * --enter, which start on home.
+ *
+ * Media spans (scripts/lib/unitGates.mjs; docs/globe-worlds-plan.md § Media
+ * spans): --units adds &popunits=1 (--units=0 adds &popunits=0). --level picks
+ * the span gates, cumulatively: tex (class textures), h (horizontal units), vq
+ * (vertical pairs, quads), live (one stream and one chip per unit), tier
+ * (measured decode, rungs, density). A tide run caps at h; --rm and
+ * &poplive=tile cap at vq. --units with no --level fails unitsVacuous by design.
+ * The gates read scripts/baselines/globe-units.json under KEY (--baseline,
+ * default the --out folder's name); --record-baseline writes KEY, and only from
+ * an all-pass run. --negctl turns the unit windows off (=bind: loadTile's hook
+ * only) and =pin decodes every stream off its plan; they, and --texmb /
+ * --texpeak / --decodemax / --densitymax set below the measured value, are the
+ * negative controls: node scripts/lib/unitGates.mjs --expect-fail=<gates>
+ * <report.json> exits 0 only when each named gate failed non-vacuously.
+ * Seed 42 by default; for vacuity only, retry 7, 9, 11, 13 (first passing seed
+ * per run type: <filled in by P8>). --record-baseline=0 is off, as --noclip=0
+ * is. --negctl=pin refuses --noclip. --detail and --footer refuse --units,
+ * --level, --negctl and --record-baseline; both exit before the span gates,
+ * so --texmb, --texpeak, --baseline, --decodemax and --densitymax do nothing
+ * there.
  *
  * Samples the stats (and the <html> accent: the pop-tint class, the computed
  * --project-color) once a second for --secs, clicks the bench's ⏭ next
@@ -123,6 +147,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS } from '../src/components/work/imageConfig.js';
 import { netBucket, netReport, masterId, LOOP_SAMPLE_MS, LOOP_END_S } from './lib/netReport.mjs';
+import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline } from './lib/unitGates.mjs';
 
 const require = createRequire(import.meta.url);
 // Playwright is not a project dependency — pager-probe's PLAYWRIGHT_PATH rule.
@@ -170,11 +195,48 @@ const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
 const NOCLIP_ARG = arg('noclip', false);
 const NOCLIP = NOCLIP_ARG === true || (typeof NOCLIP_ARG === 'string' && !/^(0|false|off|no)?$/i.test(NOCLIP_ARG));
 const DETAIL = arg('detail', '');
-if (DETAIL === true) throw new Error('globe-probe: --detail takes a slug (--detail=SLUG)');
+if (DETAIL === true || process.argv.includes('--detail=')) throw new Error('globe-probe: --detail takes a slug (--detail=SLUG)');
 if (DETAIL && RM) throw new Error('globe-probe: --detail with --rm drops every vacuity floor to 0; run --detail without --rm');
+if (DETAIL && (FOOTER || ENTER)) throw new Error('globe-probe: --detail probes /work/SLUG alone; run --footer and --enter without it');
 const HOLD = arg('hold', '');
-if (HOLD === true || (HOLD && !DETAIL)) throw new Error('globe-probe: --hold takes a Mux id prefix and goes with --detail (--detail=SLUG --hold=PREFIX)');
+if (HOLD === true || process.argv.includes('--hold=') || (HOLD && !DETAIL)) throw new Error('globe-probe: --hold takes a Mux id prefix and goes with --detail (--detail=SLUG --hold=PREFIX)');
 const STEP_MS = 2000; // --detail: each scroll step's hold, so the slots it reveals start their streams
+// — Media spans (scripts/lib/unitGates.mjs; docs/globe-worlds-plan.md § Media spans) —
+const UNITS_ARG = arg('units', null); // --units → &popunits=1; --units=0 → &popunits=0; absent → nothing added
+const UNITS = UNITS_ARG === null ? null : UNITS_ARG === true ? 1 : Number(UNITS_ARG) > 0 ? 1 : 0;
+const TIDE = /[?&]poptransset=tide\b/.test(EXTRA);
+const TILE = /[?&]poplive=tile\b/.test(EXTRA);
+const LEVEL_ASKED = String(arg('level', 'off'));
+if (!LEVELS.includes(LEVEL_ASKED)) {
+  console.error(`globe-probe: --level must be one of ${LEVELS.join(' | ')}`);
+  process.exit(1);
+}
+// A tide re-births every row (V/Q leave with them): cap h. RM has no video, and tile mode never lights a member: cap vq.
+const LEVEL = LEVELS[Math.min(LEVELS.indexOf(LEVEL_ASKED), TIDE ? 2 : 5, RM || TILE ? 3 : 5)];
+// texBudget: resident MiB at rest. The warm-residency forecast at popcap 13 with units on (64.4 desktop,
+// 36.3 phone) plus headroom; texPeak, not this, bounds the change window's three groupings.
+const TEXMB = Number(arg('texmb', MOBILE ? 56 : 96));
+const TEXPEAK = arg('texpeak', null); // texPeak's bound; default = the baseline's peak × 1.15
+// A bare flag is on; =0, =false, =off, =no or = (empty) is off: P0's --noclip parse (P0-AMEND §3.1.4, minor 9).
+const flagOn = (v) => v === true || (typeof v === 'string' && !/^(0|false|off|no)?$/i.test(v));
+const RECORD = flagOn(arg('record-baseline', false));
+const NEGCTL = arg('negctl', false); // true | 'bind' | 'pin'
+if (![false, true, 'bind', 'pin'].includes(NEGCTL)) {
+  console.error('globe-probe: --negctl takes no value, or bind | pin');
+  process.exit(1);
+}
+if (NOCLIP && NEGCTL === 'pin') {
+  // Each rewrites the master URL with its own page.route, and a route.continue() never reaches the other handler.
+  console.error('globe-probe: --noclip and --negctl=pin are separate negative controls; run them apart');
+  process.exit(1);
+}
+if ((DETAIL || FOOTER) && (UNITS !== null || LEVEL_ASKED !== 'off' || NEGCTL || RECORD)) {
+  // Both branches exit before the span gates: a span flag there would pass on nothing.
+  console.error('globe-probe: --detail and --footer have no span gates; run --units, --level, --negctl and --record-baseline without them');
+  process.exit(1);
+}
+const DECODEMAX = arg('decodemax', null);
+const DENSITYMAX = arg('densitymax', null);
 // --footer expectations. These mirror the BAKES the scenario is gating, the
 // way texbound mirrors the texture budget: Hero's FOOTER_REST_MOBILE and
 // footerTune's liftK. Pass the matching --footerrest / --footerlift when you
@@ -198,7 +260,28 @@ const URL_ = DETAIL
   ? `${BASE}/work/${DETAIL}`
   : FOOTER
     ? `${BASE}/?intro=${INTRO}${EXTRA}`
-    : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}`;
+    : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${UNITS === null ? '' : `&popunits=${UNITS}`}${EXTRA}`;
+// The gates' context. Every value mirrors what the page will read, so a gate never guesses.
+const BASELINE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'baselines', 'globe-units.json');
+const extraNum = (k) => {
+  const m = new RegExp(`[?&]${k}=(-?[\\d.]+)`).exec(EXTRA);
+  return m ? Number(m[1]) : null;
+};
+const GATE_CTX = {
+  key: String(arg('baseline', path.basename(OUT))),
+  seed: SEED, units: UNITS, level: LEVEL, mode: MODE, rm: RM, mobile: MOBILE, tide: TIDE, tile: TILE, intro: INTRO,
+  unitMax: Math.min(Math.max(Math.round(extraNum('popunitmax') ?? 1), 1), 6), // popConfig's clamp
+  // GLOBE_T1: ?globethumb clamped and rounded, else THUMB_WIDTH (IS_MOBILE = max-width 768px, i.e. the CSS viewport)
+  t1: extraNum('globethumb') != null ? Math.round(Math.min(Math.max(extraNum('globethumb'), 256), 1024)) : VW <= 768 ? 384 : 512,
+  equiv: Math.max(0, extraNum('popequiv') ?? 0),
+  look: /[?&]popunitlook=flat\b/.test(EXTRA) ? 'flat' : 'rows',
+  texmb: TEXMB,
+  texpeak: TEXPEAK === null ? null : Number(TEXPEAK),
+  decodemax: DECODEMAX === null ? null : Number(DECODEMAX),
+  densitymax: DENSITYMAX === null ? null : Number(DENSITYMAX),
+  record: RECORD,
+  baselines: readBaselines(BASELINE_FILE),
+};
 
 // pager-probe's environmental noise (headless CDN CORS, GPU readback stalls,
 // Chrome's reduced-motion view-transitions warning) — never the page's fault.
@@ -944,6 +1027,19 @@ function footerPass(f) {
       return route.continue({ url: u.toString() });
     });
   }
+  // Negative controls (docs/globe-worlds-plan.md § Media spans): unit windows off —
+  // true = both writers (loadTile's bind hook and director.place), 'bind' = the bind hook only.
+  if (NEGCTL === true || NEGCTL === 'bind') await page.addInitScript((v) => { globalThis.__swmNoUnitWindows = v; }, NEGCTL === 'bind' ? 'bind' : true);
+  // 'pin': every master playlist decodes off its plan (270p; a 270p plan → 480p). The clip stays; report.net.log keeps the asked URL.
+  if (NEGCTL === 'pin') {
+    await page.route(/stream\.mux\.com\/[^/?]+\.m3u8/, (route) => {
+      const u = new URL(route.request().url());
+      const to = u.searchParams.get('max_resolution') === '270p' ? '480p' : '270p';
+      u.searchParams.set('min_resolution', to);
+      u.searchParams.set('max_resolution', to);
+      return route.continue({ url: u.toString() });
+    });
+  }
   await page.goto(URL_, { waitUntil: 'domcontentloaded' });
 
   // --detail: the detail page alone, judged by the video diet; no globe here.
@@ -957,6 +1053,8 @@ function footerPass(f) {
         .filter((e) => e.bucket === 'mux-master' && !e.failed && e.route === report.detailPage.route)
         .map((e) => masterId(e.sent))
     );
+    const held = report.detailPage.held?.id;
+    const last = held ? diet.net.sessions.filter((s) => s.id === held).at(-1) : null;
     report.pass = {
       ...diet.pass,
       // the scroll reached every <video> on the page: each asked for a stream
@@ -965,9 +1063,7 @@ function footerPass(f) {
       // stays listed in report.consoleErrors but is not gated here
       noErrors: !report.consoleErrors.some((m) => m.startsWith('error ')) && !report.pageErrors.length,
       // --hold: the held video wrapped at least once and never played past its window
-      ...(HOLD
-        ? { heldWrap: !!report.detailPage.held?.id && diet.net.sessions.some((s) => s.id === report.detailPage.held.id && s.wraps >= 1 && !s.why) }
-        : {}),
+      ...(HOLD ? { heldWrap: !!last && last.wraps >= 1 && !last.why } : {}),
     };
     console.log(JSON.stringify(report, null, 1));
     save();
@@ -1321,6 +1417,14 @@ function footerPass(f) {
   // The video diet's gates (report.net.detail[gate] = { n, floor, vacuous, worst, bound, … }).
   report.net = diet.net;
   Object.assign(report.pass, diet.pass);
+  // Media spans (scripts/lib/unitGates.mjs): mode off → the request gates only.
+  // detail[gate] = { n, floor, vacuous, worst, bound }: --expect-fail accepts only a non-vacuous false.
+  report.requests = report.net.log.filter((e) => e.route === '/' && ['mux-thumb', 'sanity-image', 'mux-master'].includes(e.bucket)).map((e) => e.asked); // §8.2
+  const spans = unitGates(report, GATE_CTX);
+  Object.assign(report.pass, spans.pass);
+  report.spans = { key: GATE_CTX.key, level: LEVEL, asked: LEVEL_ASKED, units: UNITS, detail: spans.detail };
+  // A baseline is written only from a run whose every gate passed (§8.6).
+  if (RECORD && Object.values(report.pass).every(Boolean)) writeBaseline(BASELINE_FILE, GATE_CTX.key, baselineOf(report, GATE_CTX));
   if (report.imageFailures.length) {
     console.error(
       `globe-probe: ${report.imageFailures.length} image request(s) failed, first: ${report.imageFailures[0]}\n` +
