@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-10-08*
+*Last Updated: 2026-10-16*
 
 ```
 .
@@ -18,7 +18,7 @@
 │   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels
 │   │   ├── globe/            # video globe: scene hook, geometry, shader material, grain rig, schedulers,
 │   │   │                     #   textures, population modes (world pools, patterns, director, tile swaps,
-│   │   │                     #   name strips, popConfig)
+│   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass)
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
 │   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, directory stack
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
@@ -40,6 +40,8 @@
 │   ├── cms.mjs               # npm run cms — plan / apply / verify
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state
 │   ├── lib/legacy-cms-guard.mjs
+│   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
+│   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
 │   │                         #   globe-worlds, footer-reveal)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prepare-compress.mjs   # live utilities

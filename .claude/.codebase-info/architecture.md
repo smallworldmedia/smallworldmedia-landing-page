@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-10-08*
+*Last Updated: 2026-10-16*
 
 ## Summary
 
@@ -36,7 +36,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 
 | Component | Lives in | Responsibility |
 |---|---|---|
-| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; on branch `refine/globe-worlds` a PopulationDirector (on by default since the 10-06 bake; `?popmode=off` restores the flat pool) lays featured-project worlds over the tiles, one world at a time on its own change clock, with client-name strips placed camera-relative on each world change; the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /work (a snap, not a Turn from World 0), and the detail breadcrumb returns the same way |
+| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; on branch `refine/globe-worlds` a PopulationDirector (on by default since the 10-06 bake; `?popmode=off` restores the flat pool) lays featured-project worlds over the tiles, one world at a time on its own change clock, with client-name strips placed camera-relative on each world change; the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /work (a snap, not a Turn from World 0), and the detail breadcrumb returns the same way. Media spans (`?popunits`, OFF by default; `docs/globe-worlds-plan.md` § Media spans) let one classed asset span 2×1, 1×2 or 2×2 tiles as one picture: classed at build (`mediaClass.js`), planned by the director, and windowed per frame on the CPU (`unitSpan.js`, `PopulationDirector.place()`), with one stream and one chip per unit |
 | /work Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
 | /process | `src/components/process/` | Five-stage narrative: ScrollTrigger-driven stage machine reusing the globe geometry/material |
@@ -64,7 +64,10 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 2. Runtime media: images via Sanity CDN / Mux thumbnails (`globe/TextureManager.js`), video via hls.js
    into a fixed `<video>` pool (`globe/VideoSlotPool.jsx`); schedulers (`LivePanelScheduler`,
    `world/worldLive.js`) promote a handful of visible tiles to live video at ~2 Hz. Under the population
-   modes the globe scheduler shares streams: one decode per clip feeds every tile showing it (`?poplive`).
+   modes the globe scheduler shares streams: one decode per clip feeds every tile showing it (`?poplive`),
+   and under media spans each stream takes a planned rung inside a fixed decode budget (`?poptier`).
+   Every autoplay stream is a Mux clip of its surface's window, with no audio on muted surfaces
+   (`work/imageConfig.js`, `work/hlsVideoOnly.js`; the video diet, 10-09).
 3. Content ingest: `media/<Client>/<Collection>/_manifest.md` → `npm run cms plan` → approve →
    `apply` (Sanity docs + Mux uploads, journaled) → `verify`. See `cms-pipeline.md`.
 

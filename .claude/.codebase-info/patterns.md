@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-10-08*
+*Last Updated: 2026-10-16*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -76,6 +76,25 @@ assertion is only as honest as the pose it measured, which is why `globe-probe`'
 throughout. The band is now also gated on what is INKED — `namesLiveInBand` over frames with
 `nameTiles > 0`, against the same limit with no allowance for the row's poleward travel, since an
 allowance wide enough to cover one world relaxes the limit to `|y|` 0.969 and swallows the defect.
+
+**A window that depends on the pose is written every frame, after the pose** (media spans, P4b
+`d0e430f`). A unit member's crop of the unit picture depends on its live latitude (the pole pinch,
+and for V/Q the geometric mean of both rows' pinch), so it cannot be stamped once at bind time like a
+single's cover-fit. `PopulationDirector.place()` is the one per-frame writer: `useGlobeScene` calls it
+right after `scroller.update`, and it re-derives every member's A window from its own pose, and its B
+(video) window as `cover(V, aTex) ∘ A` so the video registers with the poster. Two rules keep it
+honest. Every bind-time texA writer (`loadTile`'s bind, `LivePanelScheduler.swapHidden`,
+`useGlobeScene`'s initial load) goes through `tileSwap.windowA`, and `place()` computes the same
+`unitA(m, namePinch(y), θ, aTex)` that windowA's unit branch (`unitWindowOf`) does, so a bind and a
+frame agree; the exception is `--negctl=bind`, which removes only windowA's unit branch. `loadTile`'s
+bind hook also writes a planned member's window on its first bound frame, so nothing renders a frame
+with the single's window. And a member's texB, plus the telemetry that counts
+it (`registerB`, `density`), is written only when its stream was lit for this unit
+(`liveUid === place.uid`, the A7 guard, P6a `8e74419` and P7 `eadf842`): a tile still showing a unit
+record while its copy plays another clip as a single must not be judged as that unit. The shader is
+untouched; the whole compensation is CPU-side, like the name strips'. The probe's kill switch,
+`globalThis.__swmNoUnitWindows` (`communication.md`), is how its negative controls prove the gates
+can see a missing window.
 
 Grain is the same one-place rule across surfaces: the globe's panel static is not a lookalike of the FP
 pager scrim's, it IS that recipe, imported from `work/scrimNoise.js`. A second turbulence recipe for the
@@ -158,7 +177,8 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   params and `tunables-guide.md` rows but NO rows in `hero/PopTunePanel.jsx`, so they dial by URL only.
 - A tier-split default reads as ONE knob: `GLOBE_STROKE_FRAC` resolves `IS_MOBILE ? 5 : 6`, and a single
   `?globestroke` overrides BOTH tiers (the `?grainsize` convention) rather than exposing two params.
-- Inventory: `docs/tunables-guide.md` (338 keys). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (347 keys, as `node scripts/tunables-keys.mjs` printed at
+  `eadf842`, 10-16; read the count from that command, never by hand). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
   idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
   regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
@@ -181,7 +201,11 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   (`Hero.jsx FOOTER_REST_MOBILE` ↔ the probe's `FOOTER_REST_EXPECT`). That pair is guarded too, by
   PARSING both literals out of source, since Hero is an island and the probe opens a browser on import.
   Without it a re-bake that moved one copy would not fail a test — it would fail the probe later, reading
-  as a footer regression rather than a stale gate (10-08, after `?footerrest` 0.62 → 0.59).
+  as a footer regression rather than a stale gate (10-08, after `?footerrest` 0.62 → 0.59). Desktop's
+  own default, `FOOTER_REST_DESKTOP` 0.62 (bake A, `ba7cf2c`), has NO probe twin — `--footer` is
+  phone-only (`MOBILE = FOOTER || …`) — so `footer-reveal.test.mjs`'s "the desktop footer rest is its
+  own bake" holds it to its own clipping floor instead, and asserts the `IS_MOBILE ?` routing with a
+  swapped-ternary control.
 - A measured number written into a comment is a claim about one baked state. When the measured thing
   moves, grep the OLD number across `src/ docs/ scripts/ .claude/.codebase-info/` — it is routinely in
   all four, and a figure that is really `(1 − rest) × panel-h` (`?footerlift`'s 106.86/53.39) moves with a
@@ -201,7 +225,7 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   `--footer-panel-h` is unaffected.
 - When a surface sits under a derived `opacity`, the veil outranks the ink. `.logo-ticker` is
   `opacity: var(--lt-p)`, clamped from `--footer-peak` against `--logo-reveal-from/-to`, which was
-  0.633 at the resting footer (`footerrest/0.98`, at the then-0.62 floor): relighting the copy's ink alone moved composited contrast only
+  0.633 at the resting footer (`footerrest/0.98` at the desktop's 0.62 floor, the default since bake A `ba7cf2c`; 0.602 at the phone's 0.59): relighting the copy's ink alone moved composited contrast only
   1.43:1 → 2.80:1, while lifting the veil got the shipped 4.61:1. Measure the
   composite, not the token — and a 2D-canvas pixel sample, because `getComputedStyle().color` on a
   `color-mix()` reports `oklab(...)` and a naive RGB parse of it reads as black. Under
@@ -247,6 +271,20 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   specificity.
 - Resize: `lib/settleResize.js` `settleDebounce` — cheap per-event work, expensive re-solves after settle.
 
+## Video delivery (learned, the video diet 10-09)
+- **hls.js `maxBufferLength` is a floor, not a cap: bound a muted loop at the source.** hls.js aims its
+  forward buffer at `8 × maxBufferSize ÷ bitrate` seconds (up to `maxMaxBufferLength`), which at these
+  bitrates runs past the end of most assets, so without a clip a muted loop downloads its whole asset. Every autoplay
+  surface asks for a Mux clip instead, through `work/imageConfig.js`'s `muxStream` (`asset_end_time`);
+  Mux ends a clip on the first segment boundary at or after it, so players also wrap at the window
+  (`timeupdate`, `wrapAtDetailCap`) for a clip that ends later. The Lightbox streams whole on purpose.
+- **Mux has no playback modifier that drops audio, so muted surfaces drop it client-side**:
+  `work/hlsVideoOnly.js` rewrites only the master playlist (the `TYPE=AUDIO` group, the `AUDIO="…"`
+  attribute and the audio codec go), installed by `useHls`'s `videoOnly` as the playlist loader; a
+  master it cannot rewrite safely is used as is. The file never names `URLSearchParams`,
+  `location.search` or `searchParams`, comments included, because those are the tunables scanner's
+  opt-in strings.
+
 ## Verification
 - Motion/layout changes are verified on screen (Playwright at 1440 and 390), not by build success.
 - Headless Chromium starves `/work`'s main thread: launch with `--use-angle=swiftshader
@@ -282,9 +320,9 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
 - Driving the reveal from a desktop probe: park the pointer mid-viewport BEFORE
   `page.mouse.wheel` — Playwright's pointer starts at (0, 0), where the wheel event never reaches
   Hero's `addDelta` — and wheel DOWN (`+120`); up leaves the band on its 0.4 floor with
-  `--footer-band-p` at 0, which reads exactly like a broken fade. The desktop resting variant is also
-  NOT the desktop default (`FOOTER_REST_MOBILE` applies ≤768px), so a desktop run must pass
-  `?footerrest=0.59` (the phone bake; it was 0.62 before 10-08).
+  `--footer-band-p` at 0, which reads exactly like a broken fade. Since bake A (`ba7cf2c`, 10-09) the
+  desktop rests too, at `FOOTER_REST_DESKTOP` 0.62, so a desktop run needs no `?footerrest`; pass
+  `?footerrest=0` for the old retract-to-nothing footer.
 - Screenshot the VIEWPORT, not an element taller than the fold. Playwright stitches unpainted
   compositor content for the off-screen part, which reads as a solid block of the page's accent — a
   convincing-looking render bug that is not there. Confirm with `elementFromPoint` before believing a
@@ -294,6 +332,21 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   failing. Derive it from the live measurement (`--footer-blurb-em`, the fill dial) instead. Same
   rule for prose: compare against a clone with the `aria-hidden` `.kw__ink` layers stripped, since
   raw `textContent` doubles every keyword.
+- **Probe gates are pure modules, and every gate proves it can see.** `scripts/lib/unitGates.mjs`
+  (the media spans' gates, by `--level`) and `scripts/lib/netReport.mjs` (the video diet's four:
+  `streamClip`, `segmentsPerRendition`, `loops`, `audio`, judging every master by the clip its
+  surface owes, imported from `work/imageConfig.js` rather than restated) take the probe's report and
+  import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures. Every gate
+  records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
+  a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
+  `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named
+  gate failed NON-vacuously (the controls and their flags are in `docs/globe-worlds-plan.md`
+  § Media spans). Home runs read records in `scripts/baselines/globe-units.json` by key
+  (`--baseline=KEY`, default the `--out` folder's name), written only from an all-pass
+  `--record-baseline` run and never by hand; a run with no record under its key exits 2 on
+  `legacyParity` / `texPeak` as vacuous, so a bare `node scripts/globe-probe.mjs` exits 2 — pass the
+  key the run matches (`--baseline=off-desktop` for a plain desktop run). A one-off failure gets one rerun
+  on a quiet machine, both runs kept; never lower a floor or weaken a gate.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 

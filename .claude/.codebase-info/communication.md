@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-10-08*
+*Last Updated: 2026-10-16*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -30,13 +30,13 @@ resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
 |---|---|---|
 | `data-chrome-open` | `SiteShell` | drawer, inquiry, or privacy open |
 | `data-menu-open` | `SiteNav` | the mobile menu is open; with `data-chrome-open` and `data-footer-revealed` it tells `SiteTagline` home is not at rest |
-| `data-footer-revealed`, `data-footer-invoked`, `data-footer-in`, `--footer-reveal`, `--footer-peak`, `--footer-rise`, `--footer-rise-peak`, `--footer-span`, `--footer-panel-h`, `--footer-lockup-h` | `SiteFooter` (one writer: `broadcastReveal` / `clearReveal`) | footer progress; driven mode on /work. `--footer-reveal` / `--footer-peak` are absolute 0..1 (the peak ratchets and holds through a retreat); `--footer-rise` / `--footer-rise-peak` are the same travel **normalized against the resting floor** — 0 in the mobile home's resting pose, 1 at a full reveal — over `--footer-span` = 1 − rest, so `rise × span × --footer-panel-h` is the panel's own climb in px and a consumer never needs to know `?footerrest` (`lib/footerTune.js` `footerRise` / `footerSpan`). `--footer-panel-h` is the measured panel height, now published from driven mode too. `data-footer-in` is the on-load entrance's ground, removed on every bail path, so **absence means visible**. `--footer-slide` is a transient companion: px, present only while the resting panel's first-load rise plays, tweened to 0 and then removed, so a consumer must treat absence as 0 (its `var()` fallback). Its armed value is the panel's whole resting reveal by default, i.e. the panel starts flush at the fold |
+| `data-footer-revealed`, `data-footer-invoked`, `data-footer-in`, `--footer-reveal`, `--footer-peak`, `--footer-rise`, `--footer-rise-peak`, `--footer-span`, `--footer-panel-h`, `--footer-lockup-h` | `SiteFooter` (one writer: `broadcastReveal` / `clearReveal`) | footer progress; driven mode on /work. `--footer-reveal` / `--footer-peak` are absolute 0..1 (the peak ratchets and holds through a retreat); `--footer-rise` / `--footer-rise-peak` are the same travel **normalized against the resting floor** — 0 in home's resting pose, 1 at a full reveal — over `--footer-span` = 1 − rest, so `rise × span × --footer-panel-h` is the panel's own climb in px and a consumer never needs to know `?footerrest` (`lib/footerTune.js` `footerRise` / `footerSpan`). `--footer-panel-h` is the measured panel height, now published from driven mode too. `data-footer-in` is the on-load entrance's ground, removed on every bail path, so **absence means visible**. `--footer-slide` is a transient companion: px, present only while the resting panel's first-load rise plays, tweened to 0 and then removed, so a consumer must treat absence as 0 (its `var()` fallback). Its armed value is the panel's whole resting reveal by default, i.e. the panel starts flush at the fold |
 | `--footer-band-p` | `SiteFooter` (`paintBand`, its own rAF) | the band's rise gated by a minimum-fade clock, `min(--footer-rise-peak, elapsed / ?logofademin)`. Consumers read `var(--footer-band-p, var(--footer-rise-peak, 1))` so absence degrades to the ungated rise |
 | `data-footer-settling` | `SiteFooter` (set in `armFooterEntrance` beside `--footer-slide`; cleared by `settleOdometer()` from BOTH the entrance timeline's `onComplete` and `dropSlide()`) | the on-load entrance is still playing, so the band's word odometer HOLDS on its first word (10-08). It deliberately rides `--footer-slide`'s exact lifecycle, which already owns every bail path, and **absence means running** — a throw, a dead chrome beat or no JS leaves the roll cycling rather than frozen. Exactly one consumer: `html[data-footer-settling] .logo-ticker__odo-col { animation-play-state: paused }` in `global.css`, which sits BELOW the `html[data-footer-revealed] … { running }` rule and beats it on SOURCE ORDER at equal specificity — a real edit hazard, keep it below. `.logo-ticker__spectrum` is deliberately NOT gated: its roll is a hard-hold `steps(1, end)` colour flip, where a stalled frame reads as one slightly long hold rather than a jump (see `patterns.md` for why the roll stalls at all) |
 | `data-footer-seen` | `SiteFooter` (`markFooterSeen`, mirrored to `sessionStorage 'swm:footer-seen'` and re-asserted on `astro:after-swap`) | the visitor has revealed the footer in full at least once this tab. A SESSION latch, deliberately distinct from `--footer-rise-peak`, which resets 1 → 0 the frame the panel parks on its floor because the marks' at-rest hint has to be able to return. The band's resting veil ramps on the channel and is then held up by the latch |
 | `--footer-blurb-em` | `SiteFooter` (nowrap clone, re-measured on `document.fonts.ready`) | the blurb's width in em, the divisor of the one-line fill. CSS falls back to the hand-measured em (55.722 for the current copy), so SSR and a no-JS load are correct |
 | `--swm-pulse-reps`, `--footer-rest-top-pad`, `--ticker-foot-clearance`, `--footer-blurb-fill` | `ClientLogoTicker` `rootDial()` / `footerTune` `CSS_KNOBS` | inline dials on `<html>`: the spectrum's sweeps per half note, and the three desktop resting-footer layout knobs. All are read as `var(--knob, fallback)` so absence is the shipped bake |
-| `data-footer-rest`, `--hero-lift` | latch: `Hero.jsx`; var: derived in `styles/global.css` | the mobile home's resting-footer variant — the footer is already part-revealed, so `SiteTagline` reads this to know home is not at rest, and the hero rides the reveal. `--hero-lift` = `--footer-rise × --footer-lift-k × --footer-span × --footer-panel-h`, defined only under this latch (0 under reduced motion) and applied as `translate: 0 calc(var(--hero-lift) * -1)` to the globe, its stroke, the labels, the lead column and the fill |
+| `data-footer-rest`, `--hero-lift` | latch: `Hero.jsx`; var: derived in `styles/global.css` | home's resting-footer variant, on both device classes since bake A (`ba7cf2c`, 10-09; phones since 10-07) — the footer is already part-revealed, so `SiteTagline` reads this to know home is not at rest, and the hero rides the reveal. `--hero-lift` = `--footer-rise × --footer-lift-k × --footer-span × --footer-panel-h`, defined only under this latch (0 under reduced motion) and applied as `translate: 0 calc(var(--hero-lift) * -1)` to the globe, its stroke, the labels, the lead column and the fill |
 | `--footer-lift-k`, `--footer-marks-from`, `--footer-marks-to`, `--footer-marks-lift` | `lib/footerTune.js` (fallbacks in `global.css`) | the resting footer's dials, seeded from `?footerlift` / `?footermarksfrom` / `?footermarksto` / `?footermarkslift` and written live by `?footertune=1`; each bake lives in both places (`FOOTER_TUNE_DEFAULTS` mirrors every `var(…, fallback)`) |
 | `data-privacy-landed` | `SiteTagline` | footer link stagger waits on it |
 | `--scrollbar-w` | `SiteShell` | re-measured on `astro:after-swap` |
@@ -81,9 +81,19 @@ Scene → bench / probe reads, polled (no events). `window.__swmPopStats` is pub
 decodes vs the tiles they light (`streams`, `liveTiles`), and the name strips: how many are visible
 (`nameTiles`), where this world placed them (`namePlaced`, measured off the live scene at the
 change) and where each one actually renders (`nameSlices`, per strip `{lo, hi, w, vk}` in tape-u
-after the pole-pinch compensation — the probe's slice and stillness gates read this). It is read by
-`hero/PopTunePanel.jsx`'s readout and `scripts/globe-probe.mjs`. The `?debug`-gated `/work` globals
-are listed in `docs/tunables-guide.md`.
+after the pole-pinch compensation — the probe's slice and stillness gates read this). The media
+spans added `tex`, `upload`, `r1`, `decode` `{ mp, budget, pinShort, bucket, streams }`, `layout`,
+`staleLanded`, `bornCancelled` and `units` (`null` unless `?popunits` is on; otherwise the placement,
+seam, register, warp, live-split, chip and `density` counters the span gates read). The full field
+list is `docs/globe-worlds-plan.md` § Media spans and the tunables guide's Debug globals row. It is
+read by `hero/PopTunePanel.jsx`'s readout and `scripts/globe-probe.mjs`. The `?debug`-gated `/work`
+globals are listed in `docs/tunables-guide.md`.
+
+`globalThis.__swmNoUnitWindows` goes the other way, probe → scene: `globe-probe`'s `--negctl` sets it
+to `true` (no unit windows at all: `tileSwap.windowA` falls back to a single's cover-fit and
+`PopulationDirector.place()` returns early) and `--negctl=bind` to `'bind'` (only `loadTile`'s bind
+hook loses the unit window), through `page.addInitScript`. It is a kill switch for the negative
+controls, never set by the site.
 
 ## Server frontmatter → island props
 
@@ -107,7 +117,7 @@ point of use rather than anywhere upstream. See `architecture.md` (Data Flow) fo
 |---|---|---|
 | Sanity (b60h4u7o/production) | build-time read; CLI write | `src/lib/sanityClient.js`, `src/lib/siteCopy.js` (every route), `scripts/lib/cms/adapters.mjs` |
 | Sanity CDN images | runtime read | `globe/TextureManager.js`, media slots |
-| Mux | runtime HLS + thumbnails; CLI uploads | `useHls.js`, `VideoSlotPool.jsx`, adapters |
+| Mux | runtime HLS + thumbnails; CLI uploads | `useHls.js`, `VideoSlotPool.jsx`, adapters. Every autoplay master is CLIPPED at the source (`work/imageConfig.js` `muxStream`: `asset_end_time` = `PREVIEW_SECONDS` for the pools and MediaCard, `DETAIL_MAX_SECONDS` on detail pages; P0 `cb7b8e8`), and muted surfaces fetch no audio (`useHls` `videoOnly` → `hlsVideoOnly.js`; P0v `f951497`). The Lightbox streams the whole asset with sound |
 | Netlify Forms | inquiry POST | `ProjectOverlay.jsx` + hidden mirror form in `BaseLayout.astro` |
 | Google Fonts | Inter stylesheet | `BaseLayout.astro` |
 
