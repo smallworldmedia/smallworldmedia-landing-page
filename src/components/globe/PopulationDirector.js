@@ -999,8 +999,8 @@ export default class PopulationDirector {
     } else if (key === 'transitions' || key === 'chaos') {
       if (!this.busy) this.planNext(); // re-draw the next world + transition
     } else if (key === 'color') this.emitWorld(true);
-    else if (key === 'trans' || key === 'live' || key === 'enter') {
-      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World
+    else if (key === 'trans' || key === 'live' || key === 'enter' || key === 'tier') {
+      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World / the scheduler reads the tier at each stream start
     } else this.relayout(); // share, group, unitMax, the name knobs (media, cap and a reset's '*' re-decorate first, above)
   }
 
@@ -1261,6 +1261,19 @@ export default class PopulationDirector {
       }
     }
     Object.assign(out, { liveSplit, chipsPerUnit, registerB: { n: registerB.n, worst: r9(registerB.worst) } });
+
+    // — P6b — texB texels per device px (vertical), against the front row's R1 (R1 is report-only).
+    const density = { n: 0, worst: 0 };
+    if (r1 > 0) {
+      for (const p of this.panels) {
+        const video = p.liveStream?.video;
+        if (!p.shownAsset?.place || p.parked || !(video?.videoHeight > 0)) continue;
+        density.n += 1;
+        density.worst = Math.max(density.worst, (video.videoHeight * p.mesh.material.uniforms.uvScaleB.value.y) / r1);
+      }
+    }
+    out.density = { n: density.n, worst: Math.round(density.worst * 1000) / 1000 };
+
     return out;
   }
 

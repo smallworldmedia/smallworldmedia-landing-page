@@ -218,3 +218,35 @@ export const liveB = (V, aTex, A) => compose(coverWindow(V, aTex), A);
 
 /* — P4a (h) / P5 (v, q) — the unit classes the planner forms. — */
 export const UNIT_CLASSES = new Set(['h', 'v', 'q']);
+
+/* — P6b — stream tiers. A rung is a pinned rendition's short side. The pin
+   rung is the one the pool's pin is served at (pinShortOf(GLOBE_STREAM_PARAMS)):
+   480 on both devices by default (P0 pins 480p; the old 540p pin was served at
+   Mux's 480p rendition, B1), 720 under ?globeres=720p. A plan at the pin
+   requests the pin verbatim. auto keeps texB within [1, 2] texels per device px
+   where it can; phonehd (a phone at full res) takes the LOWEST rung at ≥ 1 on
+   the binding phone, 430 at DPR 3 (A2), which is lean/hidpi's row. lean is one
+   rung lower, phone 270. — */
+export const STREAM_RUNGS = [270, 480, 720, TOP_RUNG];
+export const TIER_RANK = { s: 0, h: 1, v: 1, q: 2 };
+const LEAN_HIDPI = { s: 480, h: 480, v: 480, q: 720 }; // lean/hidpi; auto/phonehd shares it (A2)
+const LEAN_PHONE = { s: 270, h: 270, v: 270, q: 480 }; // lean/phone; lean/phonehd shares it
+export const STREAM_TIERS = {
+  auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720 }, phone: { s: 480, h: 480, v: 480, q: 480 }, phonehd: LEAN_HIDPI },
+  lean: { hidpi: LEAN_HIDPI, lodpi: { s: 480, h: 480, v: 480, q: 720 }, phone: LEAN_PHONE, phonehd: LEAN_PHONE },
+};
+/** A phone at or above this effective pixel ratio is phonehd: the midpoint of
+ *  the old phone cap 1.5 and full res 3 (§3.9). Since bake B's 3, a 3× phone
+ *  is phonehd at the default; a 2× phone renders at 2 and stays phone. */
+export const PHONEHD_MIN_RATIO = 2.25;
+/** The DPR bucket, read once at load from the renderer's effective ratio,
+ *  min(devicePixelRatio, GLOBE_DPR_MAX): no re-tier on resize (O9). */
+export const tierBucket = (mobile, ratio) => (mobile ? (ratio >= PHONEHD_MIN_RATIO ? 'phonehd' : 'phone') : ratio >= 1.5 ? 'hidpi' : 'lodpi');
+/** The largest rung at or below x (short-side px); below the lowest rung, the lowest. */
+export const rungAtMost = (x) => STREAM_RUNGS.filter((r) => r <= x).at(-1) ?? STREAM_RUNGS[0];
+/** The rung a Mux pin query is SERVED at: the largest rung at or below its
+ *  max_resolution ('…max_resolution=540p' → 480: Mux has no 540 rendition). */
+export const pinShortOf = (params) => {
+  const t = Number(/max_resolution=(\d+)p/.exec(params)?.[1]);
+  return t > 0 ? rungAtMost(t) : 480;
+};

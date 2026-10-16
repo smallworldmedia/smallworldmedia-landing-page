@@ -55,6 +55,7 @@ import { applyPlan, windowA } from './tileSwap.js';
 import { TUNING as POP_TUNING, subscribePopTune } from './popConfig.js';
 import buildCascadeTimeline, { panelDelay, delayOwner } from './cascade.js';
 import createPanelGrain from './panelGrain.js';
+import { STREAM_TIERS, tierBucket } from './unitSpan.js';
 import {
   LON_SEGMENTS,
   LAT_BANDS,
@@ -775,6 +776,16 @@ export default function useGlobeScene(
       liveEvtState = state;
       liveSubsRef.current.forEach(liveEmit);
     };
+    // Stream tiers (?poptier, units only): a rung per stream from the unit class
+    // it lights and the DPR bucket. The bucket reads the renderer's effective
+    // ratio, min(devicePixelRatio, GLOBE_DPR_MAX), once (O9: no re-tier on
+    // resize). Null keeps the pool's pin (GLOBE_STREAM_PARAMS) for every stream.
+    const bucket = tierBucket(IS_MOBILE, renderer.getPixelRatio());
+    const tierFor = (cls) => {
+      if (!director || !POP_TUNING.units || POP_TUNING.tier === 'today') return null;
+      const rung = STREAM_TIERS[POP_TUNING.tier]?.[bucket]?.[cls];
+      return rung ? { rung, floor: POP_TUNING.tier === 'lean' ? 270 : 480 } : null;
+    };
     const startScheduler = () => {
       if (disposed || scheduler || scroller) return;
       scheduler =
@@ -788,6 +799,8 @@ export default function useGlobeScene(
               // The scroll driver owns panel.asset/texA under conveyor mode —
               // stop the scheduler's hidden-hemisphere swap fighting it over texA.
               cycleThumbnails: !conveyorMode,
+              tierFor,
+              bucket,
             })
           : null;
       // One decode per clip (?poplive=shared) only under a population mode;

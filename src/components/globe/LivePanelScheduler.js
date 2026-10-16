@@ -41,8 +41,10 @@ import {
   MAX_LIVE_DWELL_SECONDS,
   RELIVE_COOLDOWN_SECONDS,
   CROSSFADE_SECONDS,
+  GLOBE_STREAM_PARAMS,
+  GLOBE_PREVIEW_SECONDS,
 } from './globeConfig.js';
-import { liveB, pictureAspect } from './unitSpan.js';
+import { liveB, pictureAspect, mp, frameOf, rungAtMost, sourceShort, parseRatio, STREAM_RUNGS, TIER_RANK, pinShortOf } from './unitSpan.js';
 import { windowA } from './tileSwap.js';
 
 // NDC margin for "on screen" — matters in mobile cover-overscan, where a
@@ -53,6 +55,7 @@ const MAX_SWAPS_PER_UPDATE = 4; // spread thumbnail fetches out over time
 // Spread Hls/MSE startups across beats — a drag release frees several slots
 // at once, and refilling them all in one beat stacks player setups on a frame
 const MAX_PROMOTES_PER_UPDATE = 2;
+const TIER_PENDING_S = 2 * GLOBE_PREVIEW_SECONDS; // a pinned rung that hasn't presented within two loops is treated as missing
 
 function parseAspect(ratio) {
   if (typeof ratio !== 'string') return 1;
@@ -77,6 +80,11 @@ export default class LivePanelScheduler {
    *        cycling. The home-hero ContentConveyor owns panel.asset/texA now, so
    *        it passes false to stop the scheduler fighting it over texA; lab and
    *        other callers keep the default rear-hemisphere swap.
+   * @param {(cls: string) => ({ rung: number, floor: number }|null)} [opts.tierFor]
+   *        Stream tiers (?poptier, shared streams under ?popunits): a stream's
+   *        rung from its brightest unit class. null = the pool's pin for every stream.
+   * @param {string} [opts.bucket] - the DPR bucket tierFor reads, for decodeStats
+   * @param {string} [opts.pinParams=GLOBE_STREAM_PARAMS] - the pool's pin (a test seam)
    */
   constructor({
     panels,
@@ -85,6 +93,9 @@ export default class LivePanelScheduler {
     textureManager,
     onLiveChange = null,
     cycleThumbnails = true,
+    tierFor = null,
+    bucket = null,
+    pinParams = GLOBE_STREAM_PARAMS,
   }) {
     this.panels = panels;
     this.assets = assets;
@@ -92,6 +103,11 @@ export default class LivePanelScheduler {
     this.textureManager = textureManager;
     this.onLiveChange = onLiveChange;
     this.cycleThumbnails = cycleThumbnails;
+    this.tierFor = tierFor; // (unit class) → { rung, floor } | null (useGlobeScene); null = the pool's pin for every stream
+    this.bucket = bucket; // the DPR bucket tierFor reads (useGlobeScene, load-time): decodeStats reports it
+    this.pinShort = pinShortOf(pinParams); // the pool's pin (GLOBE_STREAM_PARAMS): 480 on both devices by default, 720 under ?globeres=720p
+    this.decodeBudget = MAX_LIVE * mp(this.pinShort, 16 / 9); // MAX_LIVE × the served pin frame: today's at the default (R4)
+    this.tierFail = new Set(); // playbackIds whose planned rung failed: their next start asks the pin itself
     this.disposed = false;
 
     // Next pool index for hidden swaps — starts after the initial assignment
@@ -307,7 +323,9 @@ export default class LivePanelScheduler {
       if (starts >= MAX_PROMOTES_PER_UPDATE) break;
       const slot = this.slots.indexOf(null);
       if (slot === -1) break;
-      this.startStream(id, slot);
+      const plan = this.planOf(id);
+      if (plan === false) break; // the most prominent clip that doesn't fit blocks this beat
+      this.startStream(id, slot, plan);
       starts += 1;
     }
   }
@@ -356,6 +374,66 @@ export default class LivePanelScheduler {
     return pl.members.every((m) => m.asset?.place?.uid === pl.uid && this.canJoin(m)) ? pl.members : null;
   }
 
+  /** A stream's plan: null = no tiers (the pool's pin, no admission), also under a pin below 480;
+   *  else the rung its brightest tile class asks for in this DPR bucket, never
+   *  above the source, one rung lower if that doesn't fit the decode budget, or
+   *  false = doesn't fit (head-of-line). An id whose planned rung failed asks
+   *  the pin itself, with no retry below it. */
+  planOf(id) {
+    if (!this.tierFor) return null;
+    // A pin below 480 (?globeres=270p): the tiers stand down and every stream plays the pin, as with units off.
+    // Tiered plans would start above the pin inside a budget sized to it, and under auto an id that asks the pin
+    // (a failed rung, an unknown source) would sit below the 480 floor on every beat (§3.9).
+    if (this.pinShort < 480) return null;
+    let cls = 's';
+    let ratio = null;
+    let src = null;
+    for (const p of this.panels) {
+      if (p.parked || p.asset?.playbackId !== id) continue;
+      const c = p.asset.place ? p.asset.place.cls : 's';
+      if (TIER_RANK[c] > TIER_RANK[cls]) cls = c;
+      ratio ??= parseRatio(p.asset.videoAspectRatio);
+      src ??= sourceShort(p.asset); // the island's s (M2): TOP_RUNG when not carried, 0 when unknown
+    }
+    const t = this.tierFor(cls);
+    if (!t) return null;
+    // A failed rung (tierFail) falls back to the pin itself, the rendition the pool plays with no tiers, and
+    // never retries below it: under ?globeres=720p a failed 480 plan would otherwise ask for 480 again.
+    const failed = this.tierFail.has(id);
+    let want = failed ? this.pinShort : t.rung;
+    // Never above the source (M2): an upgrade takes the largest rung the source reaches; unknown (0) stays at the pin.
+    if (want > this.pinShort) want = Math.max(this.pinShort, rungAtMost(Math.min(want, src ?? 0)));
+    const k = STREAM_RUNGS.indexOf(want);
+    const used = this.plannedMp();
+    for (const rung of failed ? [want] : [want, STREAM_RUNGS[k - 1]]) {
+      if (!(rung >= t.floor)) continue;
+      const plan = this.rungPlan(rung, ratio ?? 16 / 9);
+      if (used + plan.mp <= this.decodeBudget + 1e-9) return plan;
+    }
+    return false;
+  }
+
+  /** The frame Mux serves at rung t for aspect r (unitSpan.frameOf). At the pin
+   *  the plan requests the pool's pin verbatim (params null). short is null for a
+   *  box-limited frame (wider than 16:9: its short side is below the rung), which
+   *  the streamTier gate then skips. */
+  rungPlan(t, r) {
+    const [w, h] = frameOf(t, r);
+    return {
+      rung: t,
+      short: Math.min(w, h) === t ? t : null,
+      params: t === this.pinShort ? null : `min_resolution=${t}p&max_resolution=${t}p`,
+      mp: (w * h) / 1e6,
+    };
+  }
+
+  /** Σ planned decode MP of every stream started (a stream started without a plan counts at the pin). */
+  plannedMp() {
+    let n = 0;
+    for (const s of this.streams.values()) n += s.plan ? s.plan.mp : mp(this.pinShort, 16 / 9);
+    return n;
+  }
+
   /** texB's window. A single-only asset: today's cover of the clip's metadata
    *  aspect. A class texture: the clip's picture V (Mux's exact ratio; the decoded
    *  frame only when that won't parse, unitSpan.pictureAspect) seen through the
@@ -372,13 +450,20 @@ export default class LivePanelScheduler {
     return liveB(pictureAspect(a, video), aTex, A);
   }
 
-  startStream(id, slot) {
-    const stream = { id, slot, state: 'pending', texture: null, panels: new Set(), since: this.now, maxDwell: 0, releaseCall: null };
+  startStream(id, slot, plan = null) {
+    const stream = { id, slot, state: 'pending', texture: null, panels: new Set(), since: this.now, maxDwell: 0, releaseCall: null, plan, tierCall: null };
     this.streams.set(id, stream);
     this.slots[slot] = stream;
-    this.pool
-      .assign(slot, id)
+    if (plan?.params) {
+      stream.tierCall = gsap.delayedCall(TIER_PENDING_S, () => {
+        if (this.streams.get(id) !== stream || stream.state !== 'pending') return;
+        this.tierFail.add(id); // the asset has no such rendition: cap it, and free the slot now
+        this.releaseStream(stream);
+      });
+    }
+    (plan?.params ? this.pool.assign(slot, id, plan.params) : this.pool.assign(slot, id))
       .then((video) => {
+        stream.tierCall?.kill();
         if (this.disposed || this.streams.get(id) !== stream) return;
         const texture = new THREE.VideoTexture(video);
         texture.colorSpace = THREE.NoColorSpace; // raw upload — the tile mode's contract (promote)
@@ -394,7 +479,7 @@ export default class LivePanelScheduler {
       .catch(() => {
         // Slot released under it (releaseStream rejects the waiter) or the
         // stream failed — a released stream is already gone from the map.
-        if (this.streams.get(id) === stream) this.releaseStream(stream);
+        if (this.streams.get(id) === stream) { if (plan?.params) this.tierFail.add(id); this.releaseStream(stream); }
       });
   }
 
@@ -463,6 +548,7 @@ export default class LivePanelScheduler {
   releaseStream(stream) {
     if (this.streams.get(stream.id) !== stream) return;
     stream.releaseCall?.kill();
+    stream.tierCall?.kill();
     for (const p of stream.panels) this.clearCopy(p);
     stream.panels.clear();
     this.streams.delete(stream.id);
@@ -639,13 +725,14 @@ export default class LivePanelScheduler {
       for (const p of this.slots) if (p && (p.liveState === 'live' || p.liveState === 'demoting')) add(p.asset?.playbackId, p.liveVideo, null);
     }
     const mp = streams.reduce((n, s) => n + (s.w * s.h) / 1e6, 0);
-    return { mp: Math.round(mp * 1000) / 1000, streams };
+    return { mp: Math.round(mp * 1000) / 1000, budget: Math.round(this.decodeBudget * 1000) / 1000, pinShort: this.pinShort, bucket: this.bucket, streams };
   }
 
   dispose() {
     this.disposed = true;
     for (const s of this.streams.values()) {
       s.releaseCall?.kill();
+      s.tierCall?.kill();
       s.texture?.dispose();
     }
     this.streams.clear();

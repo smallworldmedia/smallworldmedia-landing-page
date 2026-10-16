@@ -57,6 +57,7 @@ export const POP_TRANSITIONS = ['tide', 'blink', 'surge', 'cut'];
 /** shared = one decoded stream feeds every tile showing that clip; tile = one
  *  decode per live tile (today's scheduler). */
 export const POP_LIVE = ['shared', 'tile'];
+export const POP_TIERS = ['auto', 'today', 'lean']; // ?poptier — auto = per-DPR-bucket rungs (unitSpan STREAM_TIERS), today = the pool's pin for every stream, lean = one rung lower
 export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES, NAME_MODES as POP_NAME_MODES };
 
 /** popmedia → the media kinds a world's pool keeps (null = its whole pool:
@@ -112,6 +113,7 @@ export const POP_DEFAULTS = Object.freeze({
   units: 0, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe
   unitMax: 1, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Nathan's Q7)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits
+  tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
@@ -151,6 +153,7 @@ const CHOICE = {
   share: ['popshare', POP_SHARES],
   layout: ['poplayout', POP_LAYOUTS],
   live: ['poplive', POP_LIVE],
+  tier: ['poptier', POP_TIERS],
   nameStyle: ['popnamestyle', NAME_STYLES],
   nameMode: ['popnamemode', NAME_MODES],
   grainOrder: ['popgrainorder', DELAY_ORDERS],

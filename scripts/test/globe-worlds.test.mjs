@@ -20,7 +20,7 @@ import TextureManager, { assetKey, computeCoverUv } from '../../src/components/g
 import { loadTile, windowA, unitWindowOf, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
-import { TUNING, POP_DEFAULTS, setPopTune } from '../../src/components/globe/popConfig.js'
+import { TUNING, POP_DEFAULTS, POP_TIERS, setPopTune } from '../../src/components/globe/popConfig.js'
 import {
   measureNameAspect,
   nameSpan,
@@ -68,6 +68,14 @@ import {
   liveB,
   pictureAspect,
   UNIT_CLASSES,
+  parseRatio,
+  STREAM_RUNGS,
+  TIER_RANK,
+  STREAM_TIERS,
+  PHONEHD_MIN_RATIO,
+  tierBucket,
+  rungAtMost,
+  pinShortOf,
 } from '../../src/components/globe/unitSpan.js'
 import { classOf } from '../../src/components/globe/mediaClass.js'
 
@@ -1545,6 +1553,68 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   // below level live none of the three is evaluated
   const vqOnly = atVQ([lit()])
   assert.equal(P6A.some((name) => name in vqOnly.detail), false)
+
+  // — P6b — level tier: decodeReal bounds the most decode MP any sample measured by --decodemax, else the first
+  // published budget, with no tolerance (B1); its n is the samples with two streams or more. streamTier bounds
+  // |decoded short − planned short| at 2 px over the planned streams with a frame that aren't box-limited (those are
+  // counted apart, never judged). videoDensityMax bounds each sample's worst member density by --densitymax, else
+  // max(2, pinShort / r1), + 1e-3; its n sums the measured members. Floors 1.
+  const P6B = ['decodeReal', 'streamTier', 'videoDensityMax']
+  const st = (short, plan, planShort = plan) => ({ id: `c${short}`, short, plan, planShort })
+  const tiered = (decode = {}, units = {}, r1 = 400) => ({
+    ...lit({ density: { n: 6, worst: 1.5 }, ...units }),
+    r1,
+    decode: { mp: 2.5, budget: 2.869, pinShort: 480, bucket: 'lodpi', streams: [st(720, 720), st(480, 480)], ...decode },
+  })
+  const atTier = (samples, over = {}) => judgeH(samples, { level: 'tier', ...over })
+  // (a stream started with no plan, plan and planShort null, is neither judged nor counted box-limited)
+  const unplanned = { id: 'pin', short: 480, plan: null, planShort: null }
+  const tr = atTier([tiered(), tiered({ mp: 2.869, streams: [st(482, 480), st(214, 480, null), unplanned] }, { density: { n: 4, worst: 2.0005 } })])
+  assert.deepEqual(row(tr, 'decodeReal'), [true, 2, 1, 2.869, 2.869]) // AT the published budget passes
+  assert.deepEqual([...row(tr, 'streamTier'), tr.detail.streamTier.boxLimited], [true, 3, 1, 2, 2, 1]) // 2 px off passes
+  assert.deepEqual(row(tr, 'videoDensityMax'), [true, 10, 1, 2.0005, 'max(2, pinShort / r1)']) // inside the 1e-3
+  // each fails non-vacuously just past its bound, whichever sample saw it
+  assert.ok(failsAlone(atTier([tiered(), tiered({ mp: 2.8691 })]), 'decodeReal'))
+  assert.ok(failsAlone(atTier([tiered({ mp: 2.8691 }), tiered()]), 'decodeReal'))
+  assert.ok(failsAlone(atTier([tiered(), tiered({ streams: [st(477, 480), st(720, 720)] })]), 'streamTier')) // 3 px under
+  assert.ok(failsAlone(atTier([tiered({ streams: [st(720, 720), st(483, 480)] }), tiered()]), 'streamTier')) // 3 px over
+  assert.ok(failsAlone(atTier([tiered(), tiered({}, { density: { n: 1, worst: 2.002 } })]), 'videoDensityMax'))
+  assert.ok(failsAlone(atTier([tiered({}, { density: { n: 1, worst: 2.002 } }), tiered()]), 'videoDensityMax'))
+  // the probe controls: --decodemax (nc-decode) and --densitymax (nc-density) replace the bounds; a stream decoding off
+  // its plan (nc-pin: a 720 plan served the 480 pin) fails streamTier
+  const nc = atTier([tiered()], { decodemax: 0.3, densitymax: 1 })
+  assert.ok(failsAlone(nc, 'decodeReal') && failsAlone(nc, 'videoDensityMax'))
+  assert.deepEqual([nc.detail.decodeReal.bound, nc.detail.videoDensityMax.bound], [0.3, 1])
+  assert.ok(failsAlone(atTier([tiered({ streams: [st(480, 720), st(480, 480)] })]), 'streamTier'))
+  // the density bound is the pin over R1 where that exceeds 2 (720 / 300 = 2.4), and 480 / R1 when no budget came
+  assert.equal(atTier([tiered({ pinShort: 720 }, { density: { n: 2, worst: 2.4 } }, 300)]).pass.videoDensityMax, true)
+  assert.ok(failsAlone(atTier([tiered({ pinShort: 720 }, { density: { n: 2, worst: 2.402 } }, 300)]), 'videoDensityMax'))
+  assert.ok(failsAlone(atTier([tiered({}, { density: { n: 2, worst: 2.4 } }, 300)]), 'videoDensityMax')) // 480 / 300 < 2
+  const undecoded = { ...tiered({}, { density: { n: 2, worst: 2.402 } }, 200), decode: undefined }
+  assert.ok(failsAlone(atTier([undecoded]), 'videoDensityMax')) // 480 / 200 = 2.4
+  // vacuous: no sample with two streams, no planned stream with a frame that isn't box-limited, no measured member or
+  // no R1; a sample with no published budget adds nothing to decodeReal or streamTier
+  const thinT = atTier([tiered({ streams: [st(214, 480, null)] }, { density: { n: 0, worst: 0 } })])
+  for (const name of P6B) assert.deepEqual([thinT.pass[name], thinT.detail[name].vacuous], [false, true], name)
+  assert.equal(thinT.detail.streamTier.boxLimited, 1)
+  const unframed = atTier([tiered({ streams: [st(0, 720), st(0, 480)] })])
+  assert.deepEqual([unframed.pass.streamTier, unframed.detail.streamTier.n, unframed.pass.decodeReal], [false, 0, true])
+  const noR1 = atTier([tiered({}, {}, null)])
+  assert.deepEqual([noR1.pass.videoDensityMax, noR1.detail.videoDensityMax.vacuous], [false, true])
+  const unbudgeted = atTier([tiered({ budget: null })])
+  assert.deepEqual(['decodeReal', 'streamTier'].map((name) => [unbudgeted.pass[name], unbudgeted.detail[name].n]), [[false, 0], [false, 0]])
+  // below level tier none of the three is evaluated
+  const liveOnly = atLive([tiered()])
+  assert.equal(P6B.some((name) => name in liveOnly.detail), false)
+  // the neighbour rule's references (§4.10's REF): the DSF-3 phone keys read off-phonehd, never the DSF-2 phone's
+  // off-mobile they'd fall back to; u-hidpi has no entry and falls back to off-desktop
+  const withPhonehd = { ...hCtx.baselines, 'off-phonehd': { adjMax: 3 } }
+  for (const key of ['u-phonehd', 'u-phonehd720', 'u-thumb-phonehd']) {
+    const g = judgeH([uS({}, { adj: 3 })], { key, mobile: true, baselines: withPhonehd })
+    assert.deepEqual([g.pass.neighbourRule, g.detail.neighbourRule.bound], [true, 3], key)
+  }
+  const hidpiRef = judgeH([uS({}, { adj: 1 })], { key: 'u-hidpi', baselines: withPhonehd })
+  assert.deepEqual([hidpiRef.pass.neighbourRule, hidpiRef.detail.neighbourRule.bound], [false, 0])
 })
 
 test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
@@ -1975,6 +2045,30 @@ test('spans: frameOf / mp give the frame Mux serves at a rung, box-limited past 
   near(7 * mp(480, 16 / 9), 2.86944, 1e-12)
   assert.ok(7 * old(480) < 7 * mp(480, 16 / 9))
   assert.ok(mp(480, 4) < (1920 * 480) / 1e6)
+  // — P6b — pinShortOf: the rung a pin is SERVED at, the largest rung at or below its max_resolution. P0's 480p is
+  // both devices' pin (STREAM_PARAMS, GLOBE_STREAM_PARAMS' default on both, P0c), and the old 540p pin was served at
+  // Mux's 480 rendition (B1); ?globeres=720p's pin is 720, and ?globeres=270p's 270, against which no tier plans (T34).
+  const PIN = (t) => `min_resolution=${t}p&max_resolution=${t}p`
+  assert.equal(STREAM_PARAMS, PIN(480))
+  for (const [params, t] of [[STREAM_PARAMS, 480], [PIN(540), 480], [PIN(720), 720], [PIN(270), 270], [PIN(1080), 1080], ['', 480]]) {
+    assert.equal(pinShortOf(params), t, params)
+  }
+  for (const [x, r] of [[0, 270], [270, 270], [479, 270], [480, 480], [540, 480], [719, 480], [720, 720], [1079, 720], [1080, 1080], [2160, 1080]]) {
+    assert.equal(rungAtMost(x), r, `${x}`)
+  }
+  // The decode budget is MAX_LIVE served pin frames: 7 on desktop (the scheduler's: node's MAX_LIVE), 4 on a phone.
+  for (const [t, desk, phone] of [[480, 2.86944, 1.63968], [720, 6.4512, 3.6864], [270, 0.9072, 0.5184]]) {
+    const sched = new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null, pinParams: PIN(t) })
+    assert.equal(sched.pinShort, t)
+    near(sched.decodeBudget, desk, 1e-12, `${t}p desktop`)
+    near(4 * mp(sched.pinShort, 16 / 9), phone, 1e-12, `${t}p phone`)
+  }
+  assert.equal(new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null }).pinShort, 480) // the pool's pin
+  // NC: the pin read literally (540) gives the phone 4 × 960×540 = 2.0736, a budget no served frame fills
+  const literal = Number(/max_resolution=(\d+)p/.exec(PIN(540))[1])
+  assert.deepEqual(frameOf(literal, 16 / 9), [960, 540])
+  near(4 * mp(literal, 16 / 9), 2.0736, 1e-12)
+  assert.ok(4 * mp(literal, 16 / 9) > 4 * mp(pinShortOf(PIN(540)), 16 / 9))
 })
 
 test('spans: unitSkewBound covers every member’s window slope over the ε window, and rises with ε (T30)', () => {
@@ -4362,6 +4456,28 @@ test('spans: the lead carries its unit’s centre for the chip; place() re-deriv
       shiftRows(panels, 0.1)
       director.place()
     }
+    // — P6b — unitStats(r1).density: texB texels per device px, vertically, over the unit members on a stream with a
+    // frame: max(videoHeight · uvScaleB.y / R1), to 1e-3. An unknown R1 (0) measures none; a parked member, one whose
+    // stream has no frame yet, and a single on a stream are left out. NC: uvScaleA in B's place reads another density.
+    const density = (r1) => director.unitStats(r1).density
+    const owedDensity = (r1, scale = 'uvScaleB') =>
+      Math.round(Math.max(...litM.map((m) => (m.liveStream.video.videoHeight * m.mesh.material.uniforms[scale].value.y) / r1)) * 1000) / 1000
+    assert.deepEqual(density(0), { n: 0, worst: 0 })
+    assert.deepEqual(density(300), { n: litM.length, worst: owedDensity(300) })
+    assert.ok(owedDensity(300) > 0 && owedDensity(300, 'uvScaleA') !== owedDensity(300))
+    for (const [name, p, fault, n] of [
+      ['parked', hm, (q) => (q.parked = true), litM.length - 1],
+      ['no frame yet', hm, (q) => (q.liveStream = { video: { videoWidth: 0, videoHeight: 0 } }), litM.length - 1],
+      ['a single', single, (q) => (q.liveStream = { video: frames.get(Hc) }), litM.length],
+      // It reads what the tile shows, not the record it is about to show: a single whose next record is a member's
+      // is still a single. NC: read from asset, the single counts.
+      ['planned as a member, showing a single', single, (q) => Object.assign(q, { liveStream: { video: frames.get(Hc) }, asset: hm.shownAsset }), litM.length],
+    ]) {
+      const was = { liveStream: p.liveStream, parked: p.parked, asset: p.asset }
+      fault(p)
+      assert.equal(density(300).n, n, name)
+      Object.assign(p, was)
+    }
     // B reads the bound texture's MEASURED aspect, as A does. Re-measured at 1.8, place() moves A, and B = C ∘ A
     // stays on the picture (texA's crop C = cover(V, aTex) and A's cover(aTex, S) both crop v here, so they compose
     // to cover(V, S) whatever aTex is: B holds to float error, inside its dead-band) and the register reads 0. NC:
@@ -4447,5 +4563,431 @@ test('spans: the lead carries its unit’s centre for the chip; place() re-deriv
   } finally {
     director.dispose()
     TUNING.units = 0
+  }
+})
+
+/* — Media spans, P6b: per-stream video tiers inside today's decode budget (T22, T23, T34; T10's pinShortOf half and
+   T20's and T25's — P6b — lines are above). — */
+/** tierFor as useGlobeScene builds it, for one ?poptier and DPR bucket: a class's rung; the floor 270 under lean, else 480. */
+const tiersFor = (tier, bucket) => (cls) => {
+  const rung = STREAM_TIERS[tier]?.[bucket]?.[cls]
+  return rung ? { rung, floor: tier === 'lean' ? 270 : 480 } : null
+}
+/** A shared-mode scheduler over `panels` with stream tiers (auto, hidpi and the pool's pin unless told). The pool logs
+ *  every assign's arguments as they came and answers per pool.answer: 'hold' stays pending until its slot is released
+ *  or reassigned, which rejects it as VideoSlotPool does; 'frame' resolves pool.frame; 'reject' rejects at once. The
+ *  page's pool has no load-error path (it rejects only on release or reassign), so 'reject' stands in for a failed
+ *  load the page catches only by the tier timer. start(id) plans the clip and starts it on the next free slot, as
+ *  updateShared does, and returns the plan. */
+function tierOver(panels, { tier = 'auto', bucket = 'hidpi', pinParams, tierFor = tiersFor(tier, bucket) } = {}) {
+  const pool = {
+    calls: [],
+    released: [],
+    waiters: [],
+    answer: 'hold',
+    frame: { videoWidth: 1280, videoHeight: 720 },
+    assign(slot) {
+      this.calls.push([...arguments])
+      this.waiters[slot]?.(new Error('slot reassigned'))
+      this.waiters[slot] = null
+      if (this.answer === 'reject') return Promise.reject(new Error('no such rendition'))
+      if (this.answer === 'frame') return Promise.resolve(this.frame)
+      return new Promise((resolve, reject) => (this.waiters[slot] = reject))
+    },
+    releaseSlot(slot) {
+      this.released.push(slot)
+      this.waiters[slot]?.(new Error('slot released'))
+      this.waiters[slot] = null
+    },
+  }
+  const sched = new LivePanelScheduler({ panels, assets: [{ playbackId: 'any' }], poolHandle: pool, textureManager: null, cycleThumbnails: false, tierFor, bucket, pinParams })
+  sched.setShared(true)
+  const start = (id) => {
+    const plan = sched.planOf(id)
+    if (plan !== false) sched.startStream(id, sched.slots.indexOf(null), plan)
+    return plan
+  }
+  return { sched, pool, start }
+}
+/** planOf with edits to its own source, each [from, to] found in it, over the same module helpers: the broken
+ *  variants the negative controls run. */
+const planVariant = (...edits) => {
+  let src = LivePanelScheduler.prototype.planOf.toString()
+  for (const [from, to] of edits) {
+    assert.ok(src.includes(from), from)
+    src = src.replace(from, to)
+  }
+  return new Function('TIER_RANK', 'parseRatio', 'sourceShort', 'rungAtMost', 'STREAM_RUNGS', `return function ${src}`)(TIER_RANK, parseRatio, sourceShort, rungAtMost, STREAM_RUNGS)
+}
+const PIN_AT = (t) => `min_resolution=${t}p&max_resolution=${t}p`
+const clip16 = (playbackId, extra = {}) => ({ kind: 'video', playbackId, videoAspectRatio: '16:9', ...extra })
+
+test('spans: hidpi admission spends the 2.86944 budget on the frames Mux serves — one rung lower, then the head of the line blocks; never above the source (T22)', async () => {
+  Object.assign(TUNING, POP_DEFAULTS)
+  gsap.globalTimeline.pause() // no tier timer fires on the wall clock
+  const boards = []
+  try {
+    // auto/hidpi: s 480, h 720, v 720, q 1080, floor 480; the pin 480 (the pool's), the budget 7 × 854×480.
+    const A = tierOver([
+      ...streamUnit('q', classedClip('quad', '1:1', 'q'), 0.5).members,
+      ...streamUnit('h', classedClip('pair1', '16:9', 'h'), 0.6, 2).members,
+      ...streamUnit('h', classedClip('pair2', '16:9', 'h'), 0.55, 4).members,
+      streamTile(clip16('solo'), 0.9),
+      streamTile({ kind: 'video', playbackId: 'wide', videoAspectRatio: '4:1' }, 0.3),
+    ])
+    boards.push(A)
+    const { sched, pool, start } = A
+    assert.deepEqual([sched.pinShort, sched.decodeBudget], [480, 7 * mp(480, 16 / 9)])
+    near(sched.decodeBudget, 2.86944, 1e-12)
+    const used = () => sched.plannedMp()
+    // The quad asks 1080 (its record carries no s: the source is TOP_RUNG), a 1:1 frame, 1080×1080.
+    assert.deepEqual(start('quad'), { rung: 1080, short: 1080, params: PIN_AT(1080), mp: 1.1664 })
+    // A 720 pair admits, 1280×720: 2.088.
+    assert.deepEqual(start('pair1'), { rung: 720, short: 720, params: PIN_AT(720), mp: 0.9216 })
+    near(used(), 2.088, 1e-9)
+    // A second 720 pair would reach 3.0096: it retries one rung lower, at the pin (verbatim), and admits at 2.49792.
+    // NC: with no retry, admission stops at 3.0096.
+    near(used() + mp(720, 16 / 9), 3.0096, 1e-9)
+    assert.equal(planVariant(['[want, STREAM_RUNGS[k - 1]]', '[want]']).call(sched, 'pair2'), false)
+    assert.deepEqual(start('pair2'), { rung: 480, short: 480, params: null, mp: 0.40992 })
+    near(used(), 2.49792, 1e-9)
+    // A demoting stream still decodes through its crossfade (decodeStats counts every stream not pending), so it still
+    // counts. NC: skipping it, the single below would admit mid-crossfade.
+    const p1 = sched.streams.get('pair1')
+    p1.state = 'demoting'
+    near(used(), 2.49792, 1e-9)
+    assert.equal(sched.planOf('solo'), false)
+    p1.state = 'pending'
+    // The next single at 480 would reach 2.90784, and its retry, 270 (2.62752), is below the 480 floor: refused.
+    // NC: with no floor it would take 270.
+    near(used() + mp(480, 16 / 9), 2.90784, 1e-9)
+    assert.equal(sched.planOf('solo'), false)
+    const at270 = planVariant(['if (!(rung >= t.floor)) continue;', '']).call(sched, 'solo')
+    assert.equal(at270.rung, 270)
+    near(used() + at270.mp, 2.62752, 1e-9)
+    // Head of the line: the refused single is the most prominent clip, so it blocks the beat, though the 4:1 clip
+    // behind it would fit (box-limited at 480, 854×214: short null).
+    assert.deepEqual(sched.planOf('wide'), { rung: 480, short: null, params: null, mp: 0.182756 })
+    sched.update(new THREE.Euler(), 10, null)
+    await settleTicks()
+    assert.deepEqual([pool.calls.length, sched.streams.size, sched.streams.has('wide')], [3, 3, false])
+
+    // M2: an upgrade never asks above the source. A quad whose s is 720 plans 720; one with s 0 (unknown) plans the
+    // pin, verbatim. NC: without the source clamp both plan 1080.
+    const B = tierOver([
+      ...streamUnit('q', { ...classedClip('q720', '1:1', 'q'), s: 720 }, 0.5).members,
+      ...streamUnit('q', { ...classedClip('q0', '1:1', 'q'), s: 0 }, 0.5, 4).members,
+    ])
+    boards.push(B)
+    assert.deepEqual(B.sched.planOf('q720'), { rung: 720, short: 720, params: PIN_AT(720), mp: 0.5184 })
+    assert.deepEqual(B.sched.planOf('q0'), { rung: 480, short: 480, params: null, mp: 0.2304 })
+    const unclamped = planVariant(['if (want > this.pinShort) want = ', 'if (false) want = '])
+    assert.deepEqual([unclamped.call(B.sched, 'q720').rung, unclamped.call(B.sched, 'q0').rung], [1080, 1080])
+
+    // A clip's rung is its brightest class over its unparked tiles, in any order: a single and an H pair of one clip
+    // ask h's 720, a quad of it 1080, but not while the quad is parked (a second single comes last, so the last tile's
+    // class would be s). A clip whose ratio won't parse plans a 16:9 frame.
+    const both = classedClip('both', '16:9', 'h')
+    const Qb = streamUnit('q', classedClip('both', '16:9', 'q'), 0.5, 8)
+    const C = tierOver([streamTile(both, 0.9), ...streamUnit('h', both, 0.7, 6).members, ...Qb.members, streamTile({ kind: 'video', playbackId: 'bare' }, 0.4), streamTile(both, 0.2)])
+    boards.push(C)
+    for (const m of Qb.members) m.parked = true
+    assert.equal(C.sched.planOf('both').rung, 720)
+    for (const m of Qb.members) m.parked = false
+    assert.equal(C.sched.planOf('both').rung, 1080)
+    assert.deepEqual(C.sched.planOf('bare'), { rung: 480, short: 480, params: null, mp: 0.40992 })
+
+    // The fit's 1e-9 slack: an exact fill can sum a hair over the budget in float. Two V pairs of a 161:201 clip at
+    // 720 (720×898), a 1:1 quad at 1080 and a 16:9 single at 480 are 7 × 854×480 px exactly, yet started in that
+    // order their sum is 2.8694400000000004. The single admits. NC: without the slack it is refused.
+    const D = tierOver([
+      ...streamUnit('v', classedClip('tall1', '161:201', 'v'), 0.6, 2).members,
+      ...streamUnit('v', classedClip('tall2', '161:201', 'v'), 0.55, 4).members,
+      ...streamUnit('q', classedClip('square', '1:1', 'q'), 0.5).members,
+      streamTile(clip16('last'), 0.3),
+    ])
+    boards.push(D)
+    for (const id of ['tall1', 'tall2']) assert.deepEqual(D.start(id), { rung: 720, short: 720, params: PIN_AT(720), mp: 0.64656 }, id)
+    assert.deepEqual(D.start('square'), { rung: 1080, short: 1080, params: PIN_AT(1080), mp: 1.1664 })
+    assert.equal(2 * 720 * 898 + 1080 * 1080 + 854 * 480, 7 * 854 * 480)
+    assert.ok(D.sched.plannedMp() + 0.40992 > D.sched.decodeBudget, 'the float sum lands over the budget')
+    assert.deepEqual(D.sched.planOf('last'), { rung: 480, short: 480, params: null, mp: 0.40992 })
+    assert.equal(planVariant(['<= this.decodeBudget + 1e-9', '<= this.decodeBudget']).call(D.sched, 'last'), false)
+  } finally {
+    for (const { sched } of boards) sched.dispose()
+    gsap.globalTimeline.resume()
+  }
+})
+
+test('spans: no plan is today’s two-argument assign, a plan passes its pin; a rung that fails marks the clip, which then asks the pin with no retry below it (T23)', async () => {
+  Object.assign(TUNING, POP_DEFAULTS)
+  gsap.globalTimeline.pause() // a tier timer fires when the test says so, never on the wall clock
+  const boards = []
+  try {
+    const beat = (b) => b.sched.update(new THREE.Euler(), 10, null)
+    // No tiers (units off, or ?poptier=today, where tierFor answers null): the pool's pin through assign(slot, id).
+    for (const tierFor of [null, () => null]) {
+      const off = tierOver([streamTile(clip16('solo'), 0.9)], { tierFor })
+      boards.push(off)
+      beat(off)
+      await settleTicks()
+      assert.deepEqual(off.pool.calls, [[0, 'solo']])
+      assert.equal(off.sched.streams.get('solo').plan, null)
+    }
+    // Tiered: the pair asks 720, three arguments; the single plans the pin, verbatim, so two.
+    const A = tierOver([...streamUnit('h', classedClip('pair', '16:9', 'h'), 0.8).members, streamTile(clip16('solo'), 0.3)])
+    boards.push(A)
+    beat(A)
+    await settleTicks()
+    assert.deepEqual(A.pool.calls, [[0, 'pair', PIN_AT(720)], [1, 'solo']])
+    // NC: the log tells an explicit third argument from none — assign(slot, id, undefined) logs three.
+    A.pool.assign(2, 'probe', undefined)
+    assert.equal(A.pool.calls.pop().length, 3)
+    // Only a plan off the pin arms the tier timer, two loops of the window. Fired on a stream still pending, it marks
+    // the clip and frees the slot at once.
+    const pairS = A.sched.streams.get('pair')
+    assert.deepEqual([pairS.tierCall.delay(), A.sched.streams.get('solo').tierCall], [2 * GLOBE_PREVIEW_SECONDS, null])
+    pairS.tierCall.progress(1)
+    assert.deepEqual([A.sched.tierFail.has('pair'), A.sched.streams.has('pair'), A.pool.released], [true, false, [0]])
+
+    // A stream that presents kills its timer: forced late, the timer finds it live and marks nothing. decodeStats
+    // reports its measured frame with the plan's rung and short side.
+    const R = tierOver([...streamUnit('h', classedClip('fast', '16:9', 'h'), 0.8).members])
+    boards.push(R)
+    R.pool.answer = 'frame'
+    R.start('fast')
+    const fast = R.sched.streams.get('fast')
+    assert.equal(fast.tierCall.parent, gsap.globalTimeline)
+    await settleTicks()
+    assert.deepEqual([fast.state, fast.tierCall.parent], ['live', null])
+    fast.tierCall.progress(1)
+    assert.deepEqual([R.sched.tierFail.has('fast'), R.sched.streams.get('fast')], [false, fast])
+    assert.deepEqual(R.sched.decodeStats().streams, [{ id: 'fast', w: 1280, h: 720, short: 720, mp: 0.92, plan: 720, planShort: 720 }])
+
+    // A load that rejects marks a planned clip and frees its slot; a stream at the pin is freed, never marked. The
+    // marked clip's next plan asks the pin itself, 480: params null, so two arguments. ('reject' stands in for a failed
+    // load: the page's pool rejects only on release or reassign, and there the tier timer catches a missing rung.)
+    const F = tierOver([...streamUnit('h', classedClip('miss', '16:9', 'h'), 0.8).members, streamTile(clip16('solo'), 0.5)])
+    boards.push(F)
+    F.pool.answer = 'reject'
+    F.start('miss')
+    F.start('solo')
+    await settleTicks()
+    assert.deepEqual([F.sched.tierFail.has('miss'), F.sched.tierFail.has('solo'), F.sched.streams.size, F.pool.released], [true, false, 0, [0, 1]])
+    F.pool.answer = 'hold'
+    assert.deepEqual(F.start('miss'), { rung: 480, short: 480, params: null, mp: 0.40992 })
+    assert.deepEqual(F.pool.calls, [[0, 'miss', PIN_AT(720)], [1, 'solo'], [0, 'miss']])
+    assert.equal(F.sched.streams.get('miss').tierCall, null)
+
+    // ...with no retry below it. Under lean (floor 270) a 4:3 quad asks 720; failed, it asks the pin, 480, and with the
+    // budget squeezed under the pin's 640×480 (0.3072) it waits. NC: retried like any other plan, it takes 270.
+    const L = tierOver([...streamUnit('q', classedClip('lq', '4:3', 'q'), 0.8).members], { tier: 'lean' })
+    boards.push(L)
+    L.pool.answer = 'reject'
+    assert.equal(L.start('lq').rung, 720)
+    await settleTicks()
+    assert.ok(L.sched.tierFail.has('lq'))
+    L.sched.decodeBudget = 0.3
+    assert.equal(L.sched.planOf('lq'), false)
+    const retried = planVariant(['failed ? [want] : [want, STREAM_RUNGS[k - 1]]', '[want, STREAM_RUNGS[k - 1]]'])
+    assert.deepEqual(retried.call(L.sched, 'lq'), { rung: 270, short: 270, params: PIN_AT(270), mp: 0.0972 })
+
+    // A pending planned stream released for any other reason, or at dispose, takes its timer with it.
+    const K = tierOver([...streamUnit('h', classedClip('k1', '16:9', 'h'), 0.8).members, ...streamUnit('h', classedClip('k2', '16:9', 'h'), 0.7, 2).members])
+    K.start('k1')
+    K.start('k2')
+    const [k1, k2] = ['k1', 'k2'].map((id) => K.sched.streams.get(id))
+    assert.deepEqual([k1.tierCall.parent, k2.tierCall.parent], [gsap.globalTimeline, gsap.globalTimeline])
+    K.sched.releaseStream(k1)
+    // The release rejects the pool's waiter ('slot released'); the catch finds the stream gone and marks nothing. NC:
+    // marked before the identity check, a release would mark the clip.
+    await settleTicks()
+    assert.deepEqual([K.pool.released, K.sched.tierFail.has('k1')], [[0], false])
+    assert.equal(k1.tierCall.parent, null)
+    k1.tierCall.progress(1) // forced after the release, the timer finds another stream (none) under the id: no mark
+    assert.equal(K.sched.tierFail.has('k1'), false)
+    K.sched.dispose()
+    assert.equal(k2.tierCall.parent, null)
+
+    // ?poptier: auto by default, today and lean by name, anything else (case included) keeps auto. A load-time knob:
+    // stub the window, evaluate a fresh copy of popConfig, restore the window in finally. The director reads the tier
+    // at each stream start, so a bench change re-lays nothing (a re-laid key, group, still does).
+    assert.deepEqual([POP_DEFAULTS.tier, POP_TIERS], ['auto', ['auto', 'today', 'lean']])
+    let fresh = 0
+    const tierAt = async (search) => {
+      const had = globalThis.window
+      globalThis.window = { location: { search } }
+      try {
+        return (await import(`../../src/components/globe/popConfig.js?t=p6b-${++fresh}`)).TUNING.tier
+      } finally {
+        if (had === undefined) delete globalThis.window
+        else globalThis.window = had
+      }
+    }
+    for (const [search, tier] of [['?poptier=lean', 'lean'], ['?poptier=today', 'today'], ['?poptier=auto', 'auto'], ['?poptier=LEAN', 'auto'], ['', 'auto']]) assert.equal(await tierAt(search), tier, search)
+    assert.match(fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8'), /^\| `\?poptier` \|.*\| `auto` \(.*\) \| `auto` \\\| `today` \\\| `lean` \| `POP_DEFAULTS\.tier` \|$/m)
+    const { director } = spanDirector(0)
+    try {
+      let relayouts = 0
+      director.relayout = () => (relayouts += 1)
+      director.onTune('tier')
+      director.onTune('group')
+      assert.equal(relayouts, 1)
+    } finally {
+      director.dispose()
+      Object.assign(TUNING, POP_DEFAULTS, { units: 0 })
+    }
+    // The scene builds the bucket and tierFor once, ahead of the scheduler, and hands both to it; the pool's assign
+    // takes the pin as an optional third argument (the tiersFor helper above is the scene's tierFor). Neither file runs
+    // in node: each line is one whole code line, found once — a commented-out copy or a guarded variant does not count.
+    const code = (file) => fs.readFileSync(new URL(`../../src/components/globe/${file}`, import.meta.url), 'utf8').split('\n').map((l) => l.trim())
+    const scene = code('useGlobeScene.js')
+    const slots = code('VideoSlotPool.jsx')
+    const at = [
+      [scene, "import { STREAM_TIERS, tierBucket } from './unitSpan.js';"],
+      [scene, 'const bucket = tierBucket(IS_MOBILE, renderer.getPixelRatio());'],
+      [scene, "if (!director || !POP_TUNING.units || POP_TUNING.tier === 'today') return null;"],
+      [scene, 'const rung = STREAM_TIERS[POP_TUNING.tier]?.[bucket]?.[cls];'],
+      [scene, "return rung ? { rung, floor: POP_TUNING.tier === 'lean' ? 270 : 480 } : null;"],
+      [scene, 'const startScheduler = () => {'],
+      [scene, 'tierFor,'],
+      [scene, 'bucket,'],
+      [slots, 'assign(slot, playbackId, params = streamParamsRef.current) {'],
+      [slots, 'srcsRef.current[slot] = streamUrl(playbackId, params);'],
+    ].map(([lines, s]) => {
+      const found = lines.flatMap((l, i) => (l === s ? [i] : []))
+      assert.equal(found.length, 1, s)
+      return found[0]
+    })
+    assert.ok(at[1] < at[2] && at[2] < at[5] && at[5] < at[6] && at[6] < at[7], JSON.stringify(at))
+  } finally {
+    for (const { sched } of boards) sched.dispose()
+    gsap.globalTimeline.resume()
+  }
+})
+
+test('spans: phonehd — a phone rendering at 2.25 or more plans lean/hidpi’s rungs in the phone’s budget; ?globeres=720p moves the pin, and under 270p the tiers stand down (T34)', async () => {
+  gsap.globalTimeline.pause()
+  const boards = []
+  try {
+    // The DPR bucket, from the renderer's effective ratio. NC: a 2.0 threshold puts a DPR-2 phone (a 2× phone at the
+    // default since bake B) in phonehd.
+    const buckets = [[true, 3, 'phonehd'], [true, 2.25, 'phonehd'], [true, 2.24, 'phone'], [true, 2, 'phone'], [true, 1.5, 'phone'], [false, 2, 'hidpi'], [false, 1.5, 'hidpi'], [false, 1.49, 'lodpi'], [false, 1, 'lodpi']]
+    for (const [mobile, ratio, want] of buckets) assert.equal(tierBucket(mobile, ratio), want, `${mobile ? 'phone' : 'desktop'} at ${ratio}`)
+    assert.equal(PHONEHD_MIN_RATIO, 2.25)
+    assert.equal(new Function('PHONEHD_MIN_RATIO', `return ${tierBucket}`)(2)(true, 2), 'phonehd')
+    // The tables: auto/phonehd IS lean/hidpi (one object), and lean/phonehd is lean/phone.
+    assert.deepEqual([STREAM_RUNGS, TIER_RANK], [[270, 480, 720, 1080], { s: 0, h: 1, v: 1, q: 2 }])
+    assert.deepEqual(STREAM_TIERS, {
+      auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720 }, phone: { s: 480, h: 480, v: 480, q: 480 }, phonehd: { s: 480, h: 480, v: 480, q: 720 } },
+      lean: { hidpi: { s: 480, h: 480, v: 480, q: 720 }, lodpi: { s: 480, h: 480, v: 480, q: 720 }, phone: { s: 270, h: 270, v: 270, q: 480 }, phonehd: { s: 270, h: 270, v: 270, q: 480 } },
+    })
+    assert.equal(STREAM_TIERS.auto.phonehd, STREAM_TIERS.lean.hidpi)
+    assert.equal(STREAM_TIERS.lean.phonehd, STREAM_TIERS.lean.phone)
+
+    // Admission under auto/phonehd at the default pin, the decode budget set to the phone's, 4 × 854×480 (node's
+    // MAX_LIVE is the desktop's 7): a 1:1 q720, an H pair at 480 and a single admit; the next single is refused.
+    const P = tierOver(
+      [
+        ...streamUnit('q', classedClip('quad', '1:1', 'q'), 0.5).members,
+        ...streamUnit('h', classedClip('pair', '16:9', 'h'), 0.5, 4).members,
+        streamTile(clip16('s1'), 0.9),
+        streamTile(clip16('s2'), 0.8),
+      ],
+      { bucket: 'phonehd' },
+    )
+    boards.push(P)
+    P.sched.decodeBudget = 4 * mp(P.sched.pinShort, 16 / 9)
+    near(P.sched.decodeBudget, 1.63968, 1e-12)
+    assert.deepEqual(P.start('quad'), { rung: 720, short: 720, params: PIN_AT(720), mp: 0.5184 })
+    assert.deepEqual(P.start('pair'), { rung: 480, short: 480, params: null, mp: 0.40992 })
+    near(P.sched.plannedMp(), 0.92832, 1e-9)
+    assert.deepEqual(P.start('s1'), { rung: 480, short: 480, params: null, mp: 0.40992 })
+    near(P.sched.plannedMp(), 1.33824, 1e-9)
+    near(P.sched.plannedMp() + mp(480, 16 / 9), 1.74816, 1e-9) // over, and its 270 retry is under the 480 floor
+    assert.equal(P.sched.planOf('s2'), false)
+    // A phone under 2.25 (auto/phone: every class at 480, the pin) admits exactly today's four streams: four singles
+    // fill the budget to the last megapixel and admit; the fifth is refused.
+    const Ph = tierOver(['t1', 't2', 't3', 't4', 't5'].map((id, i) => streamTile(clip16(id), 0.9 - 0.1 * i)), { bucket: 'phone' })
+    boards.push(Ph)
+    Ph.sched.decodeBudget = 4 * mp(Ph.sched.pinShort, 16 / 9)
+    for (const id of ['t1', 't2', 't3', 't4']) assert.deepEqual(Ph.start(id), { rung: 480, short: 480, params: null, mp: 0.40992 }, id)
+    assert.equal(Ph.sched.plannedMp(), Ph.sched.decodeBudget)
+    assert.equal(Ph.sched.planOf('t5'), false)
+    // After three singles (1.22976) a 4:3 quad's 720 (960×720, to 1.92096) won't fit: it retries at 480 (640×480) and
+    // admits at 1.53696. NC: without the retry the late quad is refused.
+    const R = tierOver([...['a', 'b', 'c'].map((id, i) => streamTile(clip16(id), 0.9 - 0.1 * i)), ...streamUnit('q', classedClip('late', '4:3', 'q'), 0.5).members], { bucket: 'phonehd' })
+    boards.push(R)
+    R.sched.decodeBudget = 4 * mp(R.sched.pinShort, 16 / 9)
+    for (const id of ['a', 'b', 'c']) R.start(id)
+    near(R.sched.plannedMp(), 1.22976, 1e-9)
+    near(R.sched.plannedMp() + mp(720, 4 / 3), 1.92096, 1e-9)
+    assert.equal(planVariant(['[want, STREAM_RUNGS[k - 1]]', '[want]']).call(R.sched, 'late'), false)
+    assert.deepEqual(R.start('late'), { rung: 480, short: 480, params: null, mp: 0.3072 })
+    near(R.sched.plannedMp(), 1.53696, 1e-9)
+
+    // ?globeres=720p: the pin is 720, the budget 4 × 1280×720 = 3.6864. A 4:3 q720 and three singles admit (1.92096):
+    // the quad, at the pin, asks for it verbatim (two arguments), and each single for 480.
+    const H = tierOver(
+      [...streamUnit('q', classedClip('q43', '4:3', 'q'), 0.5).members, ...['x1', 'x2', 'x3', 'x4'].map((id, i) => streamTile(clip16(id), 0.9 - 0.1 * i))],
+      { bucket: 'phonehd', pinParams: PIN_AT(720) },
+    )
+    boards.push(H)
+    assert.equal(H.sched.pinShort, 720)
+    H.sched.decodeBudget = 4 * mp(H.sched.pinShort, 16 / 9)
+    near(H.sched.decodeBudget, 3.6864, 1e-12)
+    assert.deepEqual(H.start('q43'), { rung: 720, short: 720, params: null, mp: 0.6912 })
+    for (const id of ['x1', 'x2', 'x3']) assert.deepEqual(H.start(id), { rung: 480, short: 480, params: PIN_AT(480), mp: 0.40992 }, id)
+    // A plan below the pin carries params, so it arms the tier timer as an upgrade does; the quad at the pin arms none.
+    // NC: a timer armed only above the pin leaves the 480 singles unwatched.
+    assert.deepEqual([H.sched.streams.get('x1').tierCall?.delay(), H.sched.streams.get('q43').tierCall], [2 * GLOBE_PREVIEW_SECONDS, null])
+    near(H.sched.plannedMp(), 1.92096, 1e-9)
+    assert.deepEqual(H.pool.calls, [[0, 'q43'], [1, 'x1', PIN_AT(480)], [2, 'x2', PIN_AT(480)], [3, 'x3', PIN_AT(480)]])
+    // A single whose 480 load rejects is marked, and its next plan is the pin, 720, not 480 again. NC: patch 1's cap,
+    // Math.min(t.rung, pinShort), has it ask for 480 again.
+    H.pool.answer = 'reject'
+    assert.equal(H.start('x4').rung, 480)
+    await settleTicks()
+    assert.ok(H.sched.tierFail.has('x4'))
+    assert.deepEqual(H.sched.planOf('x4'), { rung: 720, short: 720, params: null, mp: 0.9216 })
+    const capped = planVariant(['let want = failed ? this.pinShort : t.rung;', 'let want = Math.min(t.rung, this.pinShort);'])
+    assert.equal(capped.call(H.sched, 'x4').rung, 480)
+    assert.deepEqual(H.sched.decodeStats(), { mp: 0, budget: 3.686, pinShort: 720, bucket: 'phonehd', streams: [] })
+
+    // ?globeres=270p: the pin is 270, the budget 4 × 480×270 = 0.5184, and the tiers stand down: planOf is null for
+    // four singles, a marked id and a source whose s is 0, so all four start at the pin and fill the budget exactly.
+    const ids = ['y1', 'y2', 'y3', 'y4']
+    const low = () => {
+      const b = tierOver([...ids.map((id, i) => streamTile(clip16(id), 0.9 - 0.1 * i)), streamTile(clip16('y0', { s: 0 }), 0.4)], { bucket: 'phonehd', pinParams: PIN_AT(270) })
+      b.sched.decodeBudget = 4 * mp(b.sched.pinShort, 16 / 9)
+      b.sched.tierFail.add('y4')
+      boards.push(b)
+      return b
+    }
+    const D = low()
+    assert.equal(D.sched.pinShort, 270)
+    near(D.sched.decodeBudget, 0.5184, 1e-12)
+    for (const id of [...ids, 'y0']) assert.equal(D.sched.planOf(id), null, id)
+    for (const id of ids) D.start(id)
+    near(D.sched.plannedMp(), 0.5184, 1e-9)
+    assert.deepEqual(D.pool.calls, ids.map((id, i) => [i, id]))
+    const ds = D.sched.decodeStats()
+    assert.deepEqual([ds.pinShort, ds.budget, ds.bucket], [270, 0.518, 'phonehd'])
+    // NC: without the stand-down, the 270 pin admits one 480 single and refuses the next (0.81984; its 270 retry is
+    // under the floor), and refuses the marked id and the s 0 source on every beat. With the floor capped at the pin
+    // instead, the second single's 270 retry still overruns (0.53952 > 0.5184).
+    const E = low()
+    const STAND = 'if (this.pinShort < 480) return null;'
+    const noStand = planVariant([STAND, ''])
+    const first = noStand.call(E.sched, 'y1')
+    assert.deepEqual(first, { rung: 480, short: 480, params: PIN_AT(480), mp: 0.40992 })
+    E.sched.startStream('y1', 0, first)
+    near(E.sched.plannedMp() + mp(480, 16 / 9), 0.81984, 1e-9)
+    assert.deepEqual(['y2', 'y4', 'y0'].map((id) => noStand.call(E.sched, id)), [false, false, false])
+    near(E.sched.plannedMp() + mp(270, 16 / 9), 0.53952, 1e-9)
+    assert.equal(planVariant([STAND, ''], ['if (!(rung >= t.floor)) continue;', 'if (!(rung >= Math.min(t.floor, this.pinShort))) continue;']).call(E.sched, 'y2'), false)
+  } finally {
+    for (const { sched } of boards) sched.dispose()
+    gsap.globalTimeline.resume()
   }
 })

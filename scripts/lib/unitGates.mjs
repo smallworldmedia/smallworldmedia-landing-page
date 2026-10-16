@@ -174,7 +174,7 @@ export function unitGates(report, ctx) {
   }
   if (unitsOn && !ctx.record) {
     // Units must not add same-texture neighbours beyond what the units-off globe shows on the same view.
-    const REF = { 'u-desktop': 'off-desktop', 'u-mobile': 'off-mobile', 'u-rm': 'off-rm', 'u-tide': 'off-tide' };
+    const REF = { 'u-desktop': 'off-desktop', 'u-mobile': 'off-mobile', 'u-rm': 'off-rm', 'u-tide': 'off-tide', 'u-phonehd': 'off-phonehd', 'u-phonehd720': 'off-phonehd', 'u-thumb-phonehd': 'off-phonehd' };
     const bound = ctx.baselines?.[REF[ctx.key] ?? (ctx.mobile ? 'off-mobile' : 'off-desktop')]?.adjMax ?? null;
     const pooled = uHolds.filter((s) => (s.layout?.minPool ?? 0) >= 6);
     const adj = max(pooled.map((s) => s.layout.adj));
@@ -234,6 +234,27 @@ export function unitGates(report, ctx) {
   const regB = U.map((s) => s.units.registerB).filter(Boolean);
   const regBW = max(regB.map((x) => x.worst));
   gate(out, 'unitRegisterB', { n: sum(regB.map((x) => x.n)), ok: regBW <= 1e-3, worst: regBW, bound: 1e-3 });
+
+  // — P6b — tier: measured decode inside the pin's budget (today's at the default pin), rungs as planned, member density.
+  if (!at(ctx, 'tier')) return out;
+  const dec = S.map((s) => s.decode).filter((d) => d && d.budget != null);
+  const decodeMax = ctx.decodemax ?? (dec.length ? dec[0].budget : null); // the published budget: Mux's real frames (frameOf), no tolerance (B1)
+  const mp = max(dec.map((d) => d.mp));
+  gate(out, 'decodeReal', { n: decodeMax == null ? 0 : dec.filter((d) => d.streams.length >= 2).length, ok: mp <= decodeMax, worst: mp, bound: decodeMax });
+  const shown = dec.flatMap((d) => d.streams);
+  const planned = shown.filter((x) => x.planShort != null && x.short > 0);
+  // A box-limited plan (wider than 16:9) sits below its rung by design: counted, never judged.
+  const boxLimited = shown.filter((x) => x.plan != null && x.planShort == null).length;
+  const off = max(planned.map((x) => Math.abs(x.short - x.planShort)));
+  gate(out, 'streamTier', { n: planned.length, ok: off <= 2, worst: off, bound: 2, boxLimited });
+  const dens = U.filter((s) => s.units.density?.n > 0 && s.r1 > 0);
+  const over = max(dens.map((s) => s.units.density.worst - (ctx.densitymax ?? Math.max(2, (s.decode?.pinShort ?? 480) / s.r1))));
+  gate(out, 'videoDensityMax', {
+    n: sum(dens.map((s) => s.units.density.n)),
+    ok: over <= 1e-3,
+    worst: max(dens.map((s) => s.units.density.worst)),
+    bound: ctx.densitymax ?? 'max(2, pinShort / r1)',
+  });
   return out;
 }
 

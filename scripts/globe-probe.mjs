@@ -12,7 +12,9 @@
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
  *        [--units[=0|1]] [--level=off|tex|h|vq|live|tier] [--texmb=MiB]
  *        [--texpeak=MiB] [--record-baseline] [--baseline=KEY] [--negctl[=bind|pin]]
- *        [--decodemax=MP] [--densitymax=X]
+ *        [--decodemax=MP] [--densitymax=X] [--dsf=N]
+ *
+ * --dsf=N: the context's device scale factor (default desktop 1, --mobile 2); the globe renders at min(N, GLOBE_DPR_MAX). u-hidpi runs at 2, the phonehd keys at 3
  *
  * --base and --out also read GLOBE_PROBE_BASE / GLOBE_PROBE_OUT, for a pinned
  * verifier command that carries no flags (GLOBE_PROBE_OUT is the PARENT of the
@@ -237,6 +239,14 @@ if ((DETAIL || FOOTER) && (UNITS !== null || LEVEL_ASKED !== 'off' || NEGCTL || 
 }
 const DECODEMAX = arg('decodemax', null);
 const DENSITYMAX = arg('densitymax', null);
+// --dsf=N: the browser context's deviceScaleFactor (patch 4's C9). Absent, it is the context every key
+// and baseline before P6b ran in: desktop 1, --mobile 2. The globe renders at min(N, GLOBE_DPR_MAX).
+const DSF_ARG = arg('dsf', null);
+const DSF = DSF_ARG === null ? (MOBILE ? 2 : 1) : Number(DSF_ARG);
+if (DSF_ARG === true || !(DSF >= 1 && DSF <= 4)) {
+  console.error('globe-probe: --dsf takes a device scale factor, --dsf=N with N from 1 to 4');
+  process.exit(1);
+}
 // --footer expectations. These mirror the BAKES the scenario is gating, the
 // way texbound mirrors the texture budget: Hero's FOOTER_REST_MOBILE and
 // footerTune's liftK. Pass the matching --footerrest / --footerlift when you
@@ -304,7 +314,7 @@ const save = () => {
   fs.writeFileSync(file, JSON.stringify(report, null, 1) + '\n');
   console.error(`globe-probe: report → ${file}`);
 };
-const report = { url: URL_, viewport: [VW, VH], mobile: MOBILE, rm: RM, samples: [], shots: [], consoleErrors: [], pageErrors: [], imageFailures: [] };
+const report = { url: URL_, viewport: [VW, VH], dsf: DSF, mobile: MOBILE, rm: RM, samples: [], shots: [], consoleErrors: [], pageErrors: [], imageFailures: [] };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function waitServer() {
@@ -349,6 +359,17 @@ const readTint = (page) =>
       accent: getComputedStyle(html).getPropertyValue('--project-color').trim(),
     };
   });
+// Report-only (P6b; no gate reads it): the globe canvas's backing size, its CSS box, and the
+// renderer's pixel ratio as the backing over the box (three's setSize writes floor(box × ratio)).
+const readCanvas = (page) =>
+  page
+    .evaluate(() => {
+      const c = document.querySelector('.video-globe__canvas canvas');
+      if (!c) return null;
+      const ratio = c.clientWidth ? Math.round((c.width / c.clientWidth) * 1000) / 1000 : null;
+      return { width: c.width, height: c.height, cssWidth: c.clientWidth, cssHeight: c.clientHeight, ratio, dpr: window.devicePixelRatio };
+    })
+    .catch(() => null);
 const rgbOf = (hex) => {
   const h = hex.replace('#', '');
   return `rgb(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)})`;
@@ -947,7 +968,7 @@ function footerPass(f) {
   });
   const ctx = await browser.newContext({
     viewport: { width: VW, height: VH },
-    deviceScaleFactor: MOBILE ? 2 : 1,
+    deviceScaleFactor: DSF,
     hasTouch: MOBILE,
     isMobile: MOBILE,
     reducedMotion: RM ? 'reduce' : 'no-preference',
@@ -1075,6 +1096,7 @@ function footerPass(f) {
   // gesture, not the globe's clock, and the whole run is a few seconds.
   if (FOOTER) {
     report.footer = await footerScenario(page, ctx);
+    report.canvas = await readCanvas(page);
     report.pass = {
       ...footerPass(report.footer),
       clean: !report.consoleErrors.length && !report.pageErrors.length,
@@ -1154,6 +1176,7 @@ function footerPass(f) {
     const want = await page.evaluate(() => window.__swmPopStats?.color ?? null);
     report.colour = { ready, want, ...(await readTint(page)) };
   } else report.colour = await readTint(page);
+  report.canvas = await readCanvas(page);
   await shot(page, 'end');
   if (ENTER && MODE !== 'off') report.enter = await enterScenario(page);
   const diet = await finishNet();

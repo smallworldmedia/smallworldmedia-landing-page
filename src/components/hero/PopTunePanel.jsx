@@ -38,6 +38,7 @@ import {
   POP_LAYOUTS,
   POP_TRANSITIONS,
   POP_LIVE,
+  POP_TIERS,
   POP_NAME_MODES,
   POP_NAME_STYLES,
   setPopTune,
@@ -190,7 +191,7 @@ export default function PopTunePanel({ sceneApiRef }) {
               : '—'}
             <br />
             spans {stats.units ? `h ${stats.units.placed?.h ?? 0} · v ${stats.units.placed?.v ?? 0} · q ${stats.units.placed?.q ?? 0}` : 'off'} ·
-            tex {stats.tex?.mib ?? '—'} MiB (peak {stats.tex?.peak ?? '—'}) · decode {stats.decode?.mp ?? '—'} MP
+            tex {stats.tex?.mib ?? '—'} MiB (peak {stats.tex?.peak ?? '—'}) · decode {stats.decode?.mp ?? '—'} / {stats.decode?.budget ?? '—'} MP
           </>
         ) : on ? (
           'waiting for the globe…'
@@ -255,10 +256,12 @@ export default function PopTunePanel({ sceneApiRef }) {
       <Segmented label="spans" value={s.units ? 'on' : 'off'} options={['off', 'on']} onPick={(m) => set('units', m === 'on' ? 1 : 0)} />
       <Row label="units / asset" param="unitMax" value={s.unitMax} min={1} max={6} step={1} onChange={set} />
       <Row label="quads / world" param="quads" value={s.quads} min={0} max={2} step={1} onChange={set} />
+      <Segmented label="video tier" value={s.tier} options={POP_TIERS} onPick={(m) => set('tier', m)} />
       <p className="hero-tune__note">
-        ?popunits · ?popunitmax · ?popquads. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one
+        ?popunits · ?popunitmax · ?popquads · ?poptier. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one
         texture per asset, one stream and one chip per unit. off = today's globe. units / asset caps the units one
-        asset forms per plan; quads / world, the 2×2 quads each world elects.
+        asset forms per plan; quads / world, the 2×2 quads each world elects; video tier, the rendition each stream
+        asks for (auto = by unit class and screen; today = the pin for all; lean = one rung lower).
       </p>
 
       <div className="hero-tune__group">video · colour</div>

@@ -43,7 +43,8 @@ const POOL_HLS_CONFIG = {
 
 function streamUrl(playbackId, params) {
   // `params` pins ONE rendition server-side (min = max): the globe's
-  // STREAM_PARAMS, or the World Near tier's hi-res pin. preferMinQuality locks
+  // STREAM_PARAMS, the World Near tier's hi-res pin, or a globe tier's pin
+  // (LivePanelScheduler.rungPlan). preferMinQuality locks
   // the lowest remaining level, so the two always agree. The clip goes last,
   // once, after whatever params the caller passed (muxStream): Mux ends the
   // stream on the first segment boundary at or after the preview window, so
@@ -117,13 +118,14 @@ const VideoSlotPool = forwardRef(function VideoSlotPool(
     /**
      * Point a slot at a playback ID. Resolves with the <video> element once
      * frames are actually presenting (the no-abrupt-start gate).
+     * `params` defaults to the pool's streamParams; the globe's tiers pass a pin.
      */
-    assign(slot, playbackId) {
+    assign(slot, playbackId, params = streamParamsRef.current) {
       return new Promise((resolve, reject) => {
         const prev = waitersRef.current[slot];
         if (prev) prev.reject(new Error('slot reassigned'));
         waitersRef.current[slot] = { resolve, reject };
-        srcsRef.current[slot] = streamUrl(playbackId, streamParamsRef.current);
+        srcsRef.current[slot] = streamUrl(playbackId, params);
         const el = videoRefs.current[slot].current;
         if (el) el.dataset.playbackId = playbackId; // debug traceability
         setSrcs([...srcsRef.current]);
