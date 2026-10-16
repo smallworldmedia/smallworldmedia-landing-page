@@ -74,7 +74,7 @@ import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
 import { SCROLL_VISIBLE_ROWS, THUMB_WIDTH } from './globeConfig.js';
-import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE } from './unitSpan.js';
+import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -177,6 +177,13 @@ export default class PopulationDirector {
     this.step = 0;
   }
 
+  /** The pool a world places from: ?popmedia's kinds and ?popcap (P7 adds the
+   *  ?popequiv budget). makeGrouping places from it, and decorate() elects quads
+   *  over it, so a candidate the selection leaves out is never elected. */
+  selectFor(list) {
+    return selectPool(list, { kinds: MEDIA_KINDS[TUNING.media] ?? null, cap: TUNING.cap });
+  }
+
   makeGrouping({ pattern = null, step = this.step, lead = this.lead } = {}) {
     const n = this.worlds.length;
     const size = Math.min(TUNING.group, n);
@@ -187,8 +194,7 @@ export default class PopulationDirector {
       size === 1
         ? TUNING.layout // one world: mix | facets
         : pattern || set[Math.floor(mulberry32(seed ^ 0x9e3779b9)() * set.length)];
-    const kinds = MEDIA_KINDS[TUNING.media] ?? null;
-    let pools = members.map((w) => selectPool(this.pools[w], { kinds, cap: TUNING.cap }));
+    let pools = members.map((w) => this.selectFor(this.pools[w]));
     let regionWorld = members;
     if (size === 1 && name === 'facets') {
       // One world read as a system: its media kinds become the regions.
@@ -216,25 +222,33 @@ export default class PopulationDirector {
   }
 
   /** The pool records. Units off: exactly the old spread. Units on: each 'h'/'v'
-   *  asset also gets its ONE class texture (tex) and the unit class it may form
-   *  (unitCls; P5 adds the elected quads, per world). */
+   *  asset, and each 'q' candidate a world elected, also gets its ONE class
+   *  texture (tex, pooled by id) and the unit class it may form (unitCls: a
+   *  quad only in the world that elected it). */
   decorate() {
     const on = !!(TUNING.units && this.L);
     this.decorSig = this.sigOf();
-    // One texture variant per id (thumbVariants): an asset several worlds carry
-    // takes the class of its first classed occurrence, in world order.
-    const clsById = new Map();
+    // Each world elects its first ?popquads 'q' candidates (editorial order) in the pool it PLACES from
+    // (selectFor) whose real source short side ≥ 0.9 × the quad texture side. Keyed by world (m9).
+    const elected = new Set();
+    if (on && TUNING.quads > 0) this.worlds.forEach((w, wi) => {
+      for (const id of electQuads(this.selectFor(w.assets), TUNING.quads, THUMB_WIDTH, this.L)) elected.add(`${wi}|${id}`);
+    });
+    const qIds = new Set([...elected].map((k) => k.slice(k.indexOf('|') + 1)));
+    const clsById = new Map(); // the texture variant, pooled by id
     if (on) for (const w of this.worlds) for (const a of w.assets) {
       const id = a.playbackId || a.imageUrl;
-      if ((a.u === 'h' || a.u === 'v') && !clsById.has(id)) clsById.set(id, a.u);
+      const c = a.u === 'h' || a.u === 'v' ? a.u : a.u === 'q' && qIds.has(id) ? 'q' : null;
+      if (c && !clsById.has(id)) clsById.set(id, c);
     }
     return this.worlds.map((w, wi) =>
       w.assets.map((a) => {
         const r = { ...a, clientName: w.clientName, services: w.services, world: wi };
-        const c = on ? clsById.get(a.playbackId || a.imageUrl) : null;
+        const id = a.playbackId || a.imageUrl;
+        const c = on ? clsById.get(id) : null;
         if (c) {
           r.tex = texSpec(a, c, THUMB_WIDTH, this.L);
-          r.unitCls = c; // what planUnits / birthPairs form; P5: a quad only where THIS world elected it
+          if (c !== 'q' || elected.has(`${wi}|${id}`)) r.unitCls = c; // a quad only where this world elected it
         }
         return r;
       })
@@ -242,11 +256,12 @@ export default class PopulationDirector {
   }
 
   sigOf() {
-    // Constant with units off, so a knob never rebuilds today's records. P5 appends |quads|cap|media; P7 |equiv|T1.
-    return TUNING.units && this.L ? '1' : '0';
+    // Constant with units off, so a knob never rebuilds today's records. The selection knobs are in it because
+    // the quad election reads the selection (decorate → selectFor). P7 appends |equiv|T1.
+    return TUNING.units && this.L ? `1|${TUNING.quads}|${TUNING.cap}|${TUNING.media}` : '0';
   }
 
-  /** A knob that changes the records (units, quads) rebuilds them; the relayout that follows re-warms. */
+  /** A knob that changes the records (units, quads, cap, media) rebuilds them; the relayout that follows re-warms. */
   redecorate() {
     if (this.sigOf() !== this.decorSig) this.pools = this.decorate();
   }
@@ -937,7 +952,7 @@ export default class PopulationDirector {
 
   /** A popConfig change (useGlobeScene forwards the key). */
   onTune(key) {
-    if (key === '*' || key === 'units') {
+    if (key === '*' || key === 'units' || key === 'quads' || key === 'cap' || key === 'media') {
       this.redecorate();
       this.relayout();
       return;
@@ -956,7 +971,7 @@ export default class PopulationDirector {
     } else if (key === 'color') this.emitWorld(true);
     else if (key === 'trans' || key === 'live' || key === 'enter') {
       // read at the next change / the scene swaps the live tier / Hero reads it at Enter World
-    } else this.relayout(); // media, cap, share, group, the name knobs, reset
+    } else this.relayout(); // share, group, unitMax, the name knobs (media, cap and a reset's '*' re-decorate first, above)
   }
 
   /** The commit engaged its blue fill: land every in-flight swap now and
@@ -1154,6 +1169,42 @@ export default class PopulationDirector {
       snaps: this.unitSnaps,
       skewBad: this.skewBad,
       skewChecks: this.skewChecks,
+    });
+
+    // — P5 — V/Q: columns align across the row seam, rows keep the mullion, warp stays inside ε.
+    const cols = { n: 0, worst: 0 };
+    const rows = { n: 0, worst: 0 };
+    const warp = { n: 0, worst: 0 };
+    for (const [P] of places) {
+      if (P.rows !== 2 || !this.wholeUnit(P)) continue;
+      for (let kx = 0; kx < P.cols; kx++) {
+        const top = P.members[kx];
+        const bot = P.members[P.cols + kx];
+        const uT = top.mesh.material.uniforms;
+        const uB = bot.mesh.material.uniforms;
+        const [lt, rt] = rendered(uT.uvScaleA.value.x, uT.uvOffsetA.value.x, namePinch(top.centerDir.y));
+        const [lb, rb] = rendered(uB.uvScaleA.value.x, uB.uvOffsetA.value.x, namePinch(bot.centerDir.y));
+        cols.n += 1;
+        cols.worst = Math.max(cols.worst, Math.max(Math.abs(lt - lb), Math.abs(rt - rb)) / (rt - lt));
+        const hT = uT.uvScaleA.value.y;
+        const hB = uB.uvScaleA.value.y;
+        const gap = uT.uvOffsetA.value.y - (uB.uvOffsetA.value.y + hB); // Yt0 − Yb1
+        rows.n += 1;
+        rows.worst = Math.max(rows.worst, Math.abs(gap - (hB * P.L.Gth) / P.L.bandH), Math.abs(hT - hB));
+      }
+      for (const m of P.members) {
+        const vK = namePinch(m.centerDir.y);
+        const C = coverWindow(aTexOf(m), P.S);
+        const [a, b] = frac(m.shownAsset.kx, P.cols, P.L.Pphi, P.L.Gphi, P.L.phiLen);
+        const qMeas = (vK * m.mesh.material.uniforms.uvScaleA.value.x) / (C.s[0] * (b - a));
+        warp.n += 1;
+        warp.worst = Math.max(warp.worst, Math.abs(Math.log(vK / qMeas)));
+      }
+    }
+    Object.assign(out, {
+      cols: { n: cols.n, worst: r9(cols.worst) },
+      rows: { n: rows.n, worst: r9(rows.worst) },
+      warp: { n: warp.n, worst: r9(warp.worst) },
     });
     return out;
   }

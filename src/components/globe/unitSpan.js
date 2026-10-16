@@ -216,5 +216,5 @@ export function electQuads(pool, n, T1, L) {
    centre crop (aspect aTex), then through texA's own window A. — */
 export const liveB = (V, aTex, A) => compose(coverWindow(V, aTex), A);
 
-/* — P4a — the unit classes the planner forms (P5 widens this to h, v, q). — */
-export const UNIT_CLASSES = new Set(['h']);
+/* — P4a (h) / P5 (v, q) — the unit classes the planner forms. — */
+export const UNIT_CLASSES = new Set(['h', 'v', 'q']);

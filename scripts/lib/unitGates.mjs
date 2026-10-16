@@ -203,6 +203,25 @@ export function unitGates(report, ctx) {
   gate(out, 'snaps', { n: U.length, ok: snaps === 0, worst: snaps, bound: 0 });
   const skewBad = max(U.map((s) => s.units.skewBad ?? 0));
   gate(out, 'skew', { n: max(U.map((s) => s.units.skewChecks ?? 0)), floor: 20, ok: skewBad === 0, worst: skewBad, bound: 0 });
+
+  // — P5 — vq: columns across the row seam, the row mullion, warp inside ε, no V/Q at the first reveal.
+  if (!at(ctx, 'vq')) return out;
+  const cols = U.map((s) => s.units.cols).filter(Boolean);
+  const colsW = max(cols.map((x) => x.worst));
+  gate(out, 'unitColumns', { n: sum(cols.map((x) => x.n)), floor: 3, ok: colsW <= 1e-4, worst: colsW, bound: 1e-4 });
+  const rows = U.map((s) => s.units.rows).filter(Boolean);
+  const rowsW = max(rows.map((x) => x.worst));
+  gate(out, 'unitRows', { n: sum(rows.map((x) => x.n)), floor: 3, ok: rowsW <= 1e-4, worst: rowsW, bound: 1e-4 });
+  const warp = runHolds.map((s) => s.units.warp).filter(Boolean);
+  const WARP_MAX = Math.log(1.15) + 0.002; // UNIT_EPS = 0.15; float slack (holds sit inside the planned life by construction)
+  const warpW = max(warp.map((x) => x.worst));
+  gate(out, 'unitWarp', { n: sum(warp.map((x) => x.n)), floor: 3, ok: warpW <= WARP_MAX, worst: warpW, bound: WARP_MAX });
+  const initVQ = max(U.map((s) => s.units.initVQ ?? 0));
+  const initPosed = U.filter((s) => s.units.initThetaH != null).length; // the initial plan saw a horizon: useGlobeScene's posed latch failed
+  // 0 in every run: the initial layout is planned before the first pose, so its horizon is null and it places H only (M4).
+  gate(out, 'initVQ', { n: U.length, ok: initVQ === 0 && initPosed === 0, worst: initVQ, bound: 0, initPosed });
+  const placed = U.at(-1)?.units.placed ?? { h: 0, v: 0, q: 0 };
+  gate(out, 'unitShapes', { n: Math.min(placed.h, placed.v + placed.q), ok: true, placed });
   return out;
 }
 

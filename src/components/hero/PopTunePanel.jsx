@@ -254,10 +254,11 @@ export default function PopTunePanel({ sceneApiRef }) {
       <div className="hero-tune__group">spans</div>
       <Segmented label="spans" value={s.units ? 'on' : 'off'} options={['off', 'on']} onPick={(m) => set('units', m === 'on' ? 1 : 0)} />
       <Row label="units / asset" param="unitMax" value={s.unitMax} min={1} max={6} step={1} onChange={set} />
+      <Row label="quads / world" param="quads" value={s.quads} min={0} max={2} step={1} onChange={set} />
       <p className="hero-tune__note">
-        ?popunits · ?popunitmax. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one
+        ?popunits · ?popunitmax · ?popquads. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one
         texture per asset, one stream and one chip per unit. off = today's globe. units / asset caps the units one
-        asset forms per plan.
+        asset forms per plan; quads / world, the 2×2 quads each world elects.
       </p>
 
       <div className="hero-tune__group">video · colour</div>

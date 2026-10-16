@@ -61,6 +61,7 @@ import {
   sourceShort,
   texSpec,
   quadEligible,
+  electQuads,
   eligibleH,
   eligibleVQ,
   liveB,
@@ -1467,6 +1468,53 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   // below level h none of the four is evaluated
   const texOnly = unitGates({ requests: [classQ], samples: [drawn()] }, texCtx)
   assert.equal(['unitSeam', 'unitRegister', 'snaps', 'skew'].some((name) => name in texOnly.detail), false)
+
+  // — P5 — level vq: unitColumns and unitRows sum n over every units sample (floor 3) and bound the worst at 1e-4;
+  // unitWarp sums the running holds only (floor 3) against ln 1.15 + 0.002 (UNIT_EPS); initVQ wants no V/Q in the
+  // initial layout and a null initThetaH on every sample (M4); unitShapes is vacuity only: min(h, v + q) placed,
+  // from the last sample's cumulative counts.
+  const WARP = Math.log(1 + UNIT_EPS) + 0.002
+  const tall = (units = {}) =>
+    drawn({ cols: { n: 2, worst: 1e-5 }, rows: { n: 2, worst: 1e-5 }, warp: { n: 4, worst: 0.1 }, initVQ: 0, initThetaH: null, placed: { h: 3, v: 1, q: 1 }, ...units })
+  const atVQ = (samples, over = {}) => judgeH(samples, { level: 'vq', ...over })
+  const vq = atVQ([tall(), tall({ cols: { n: 1, worst: 1e-4 }, rows: { n: 1, worst: 1e-4 }, warp: { n: 2, worst: WARP } })])
+  assert.deepEqual(row(vq, 'unitColumns'), [true, 3, 3, 1e-4, 1e-4]) // a worst AT the bound passes
+  assert.deepEqual(row(vq, 'unitRows'), [true, 3, 3, 1e-4, 1e-4])
+  assert.deepEqual(row(vq, 'unitWarp'), [true, 6, 3, WARP, WARP])
+  assert.deepEqual([...row(vq, 'initVQ'), vq.detail.initVQ.initPosed], [true, 2, 1, 0, 0, 0])
+  assert.deepEqual([vq.pass.unitShapes, vq.detail.unitShapes.n, vq.detail.unitShapes.floor], [true, 2, 1]) // min(h 3, v + q 2)
+  // each fails non-vacuously just past its bound, whichever sample saw it
+  assert.ok(failsAlone(atVQ([tall(), tall({ cols: { n: 1, worst: 1.01e-4 } })]), 'unitColumns'))
+  assert.ok(failsAlone(atVQ([tall({ rows: { n: 3, worst: 1.01e-4 } }), tall()]), 'unitRows'))
+  assert.ok(failsAlone(atVQ([tall(), tall({ warp: { n: 4, worst: WARP + 1e-6 } })]), 'unitWarp'))
+  assert.ok(failsAlone(atVQ([tall({ cols: { n: 1, worst: 1.01e-4 } }), tall()]), 'unitColumns')) // the first sample too
+  assert.ok(failsAlone(atVQ([tall({ warp: { n: 4, worst: WARP + 1e-6 } }), tall()]), 'unitWarp'))
+  // columns and rows read every units sample (a change, a stopped clock: when windows move most); the warp reads only
+  // the running holds, where a unit sits inside its planned life (a change lays the next plan's units)
+  const changing = (units) => uS({ ...tall().units, clock: 'stopped', ...units }, { phase: 'change' })
+  assert.ok(failsAlone(atVQ([tall(), changing({ cols: { n: 2, worst: 2e-4 } })]), 'unitColumns'))
+  assert.ok(failsAlone(atVQ([tall(), changing({ rows: { n: 2, worst: 2e-4 } })]), 'unitRows'))
+  const quietWarp = atVQ([tall(), tall({ warp: { n: 4, worst: 0.5 }, clock: 'stopped' }), changing({ warp: { n: 4, worst: 0.5 }, clock: 'running' })])
+  assert.deepEqual([quietWarp.pass.unitWarp, quietWarp.detail.unitWarp.n, quietWarp.detail.unitWarp.worst], [true, 4, 0.1])
+  // initVQ: a V/Q in the initial layout, or an initial plan that saw a horizon (the posed latch failed), on any sample
+  assert.ok(failsAlone(atVQ([tall(), tall({ initVQ: 1 })]), 'initVQ'))
+  assert.ok(failsAlone(atVQ([tall({ initVQ: 1 }), tall()]), 'initVQ'))
+  const posed = atVQ([tall({ initThetaH: 127.5 }), tall()])
+  assert.ok(failsAlone(posed, 'initVQ'))
+  assert.deepEqual([posed.detail.initVQ.worst, posed.detail.initVQ.initPosed], [0, 1])
+  // vacuous under the floors: 2 columns, 2 rows, 2 warped members; unitShapes with no V/Q placed, or no H
+  const thinVQ = atVQ([tall({ cols: { n: 2, worst: 0 }, rows: { n: 2, worst: 0 }, warp: { n: 2, worst: 0 } })])
+  for (const name of ['unitColumns', 'unitRows', 'unitWarp']) assert.deepEqual([thinVQ.pass[name], thinVQ.detail[name].vacuous], [false, true], name)
+  for (const placed of [{ h: 4, v: 0, q: 0 }, { h: 0, v: 2, q: 1 }]) {
+    const g = atVQ([tall({ placed: { h: 9, v: 9, q: 9 } }), tall({ placed })])
+    assert.deepEqual([g.pass.unitShapes, g.detail.unitShapes.vacuous], [false, true], JSON.stringify(placed))
+  }
+  // a units sample without the P5 fields (a report from before P5, judged at vq) adds nothing to the three sums
+  const mixed = atVQ([drawn(), tall(), tall()])
+  assert.deepEqual(['unitColumns', 'unitRows', 'unitWarp'].map((name) => [mixed.pass[name], mixed.detail[name].n]), [[true, 4], [true, 4], [true, 8]])
+  // below level vq none of the five is evaluated
+  const hOnly = judgeH([tall()])
+  assert.equal(['unitColumns', 'unitRows', 'unitWarp', 'initVQ', 'unitShapes'].some((name) => name in hOnly.detail), false)
 })
 
 test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
@@ -1965,8 +2013,9 @@ test('spans: unitSkewBound covers every member’s window slope over the ε wind
 /* — Media spans, P3: ?popunits and class textures, one texture per asset at its measured aspect
    (T11, T12, T19, T21; T20's class requests are in the gate-module test above). — */
 /** Worlds whose assets carry mediaClass's `u` (and P2's `s`): h clips (two from a 480 source, whose class
- *  crop is clamped to it), v stills (600×900: clamped too), q clips (no class texture until P5's election),
- *  single-only stills, and one clip every world carries, classed h in the first world and v in the others. */
+ *  crop is clamped to it), v stills (600×900: clamped too), q clips (1:1, no `s`: each world elects its first
+ *  at ?popquads 1, P5), single-only stills, and one clip every world carries, classed h in the first world and
+ *  v in the others. */
 const classedWorlds = () =>
   ['Alpha', 'Beta', 'Gamma'].map((name, wi) => ({
     slug: name.toLowerCase(),
@@ -2013,11 +2062,13 @@ test('spans: decorate gives each h/v id ONE class texture, pooled across worlds;
     assert.deepEqual(on.L, lattice(panels[0], LON, 6))
     const records = on.pools.flat()
     for (const r of records.filter((x) => x.playbackId !== 'shared')) {
-      if (r.u === 'h' || r.u === 'v') {
-        assert.deepEqual(r.tex, texSpec(r, r.u, THUMB_WIDTH, on.L), assetKey(r))
-        assert.equal(r.unitCls, r.u)
+      // h and v: every candidate; q: the one each world elects (?popquads 1: its first, a 1080 source, P5)
+      const cls = r.u === 'h' || r.u === 'v' ? r.u : r.u === 'q' && r.playbackId.endsWith('-q0') ? 'q' : null
+      if (cls) {
+        assert.deepEqual(r.tex, texSpec(r, cls, THUMB_WIDTH, on.L), assetKey(r))
+        assert.equal(r.unitCls, cls)
         assert.equal(assetKey(r), r.tex.key) // the variant is in the cache key
-      } else assert.ok(!('tex' in r) && !('unitCls' in r), assetKey(r)) // q waits for P5; an unclassed asset stays single
+      } else assert.ok(!('tex' in r) && !('unitCls' in r), assetKey(r)) // an un-elected q and an unclassed asset stay single
     }
     // the source clamp reaches the records: a 480 clip and a 600×900 still ask for no more than they hold
     assert.ok(records.some((r) => r.tex?.url.endsWith('?width=853&height=419&fit_mode=crop&time=0')))
@@ -2358,7 +2409,9 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
 })
 
 /* — Media spans, P4a: H pairs planned as whole units (T13, T14, T15, T17, T29's H half, T31). — */
-/** A units-on director on fakeScrollScene, with tunings over spanDirector's (seed 42, chaos 0, no names). */
+/** A units-on director on fakeScrollScene, with tunings over spanDirector's (seed 42, chaos 0, no names). No
+ *  horizon unless one is passed, as useGlobeScene's before its first pose: a plan then forms H pairs only (M4),
+ *  which the H boards below are about. P5's V/Q tests pass `getHorizon`. */
 function unitDirector(tune = {}, { worlds = classedWorlds(), scene = fakeScrollScene(), ...opts } = {}) {
   Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, units: 1 }, tune)
   const director = new PopulationDirector({
@@ -2368,6 +2421,7 @@ function unitDirector(tune = {}, { worlds = classedWorlds(), scene = fakeScrollS
     getScheduler: () => null,
     getRotation: () => new THREE.Euler(),
     canAnimate: () => false,
+    getHorizon: () => null,
     ...opts,
   })
   return { director, ...scene }
@@ -2389,24 +2443,28 @@ function assertSpanNeighboursDiffer(panels) {
     }
   }
 }
-/** Every unit on the board is a whole H pair: its tiles are exactly its members, kx 0 then kx 1 along one
- *  row, each showing the unit's key on a fresh record, all in the lead's owner region. Returns units per key. */
-function assertWholeUnits(director, panels) {
+/** Every unit on the board is whole, of a class in `classes` (H pairs only by default: unitDirector's boards
+ *  plan with no horizon, M4): its tiles are exactly its members, member k at kx = k % cols along the row and
+ *  ky = ⌊k / cols⌋ rows south (tapeS − ky), each showing the unit's key on a fresh record, all in the lead's
+ *  owner region. Returns units per key. */
+function assertWholeUnits(director, panels, classes = ['h']) {
   const owner = (p) => director.grouping.pattern.owner(p.lonIndex, p.tapeS)
   const perKey = new Map()
   for (const [P, tiles] of placesOf(panels)) {
-    assert.equal(P.cls, 'h', P.uid)
+    assert.ok(classes.includes(P.cls), P.uid)
     assert.equal(tiles.length, P.members.length, P.uid)
     const [lead] = P.members
-    // the record: its slot in the uid, the pair's shape, its aspect on the live lattice
-    const shape = [`h:${lead.lonIndex}:${lead.tapeS}:${P.key}`, 2, 1, 2, unitAspect(2, 1, director.L), director.L]
+    const { cols, rows } = UNIT_SHAPE[P.cls]
+    // the record: its slot in the uid, the unit's shape, its aspect on the live lattice
+    const shape = [`${P.cls}:${lead.lonIndex}:${lead.tapeS}:${P.key}`, cols, rows, cols * rows, unitAspect(cols, rows, director.L), director.L]
     assert.deepEqual([P.uid, P.cols, P.rows, P.n, P.S, P.L], shape, P.uid)
     P.members.forEach((m, k) => {
+      const [kx, ky] = [k % cols, Math.floor(k / cols)]
       assert.ok(tiles.includes(m), P.uid)
       if (!P.born) assert.ok(!m.parked, `${P.uid}: a plan never claims a parked tile`) // a born row is born parked, north of the pole
       assert.equal(m.asset.place, P)
       assert.equal(assetKey(m.asset), P.key)
-      assert.deepEqual([m.asset.kx, m.asset.ky, m.tapeS, m.lonIndex], [k, 0, lead.tapeS, (lead.lonIndex + k) % LON], P.uid)
+      assert.deepEqual([m.asset.kx, m.asset.ky, m.tapeS, m.lonIndex], [kx, ky, lead.tapeS - ky, (lead.lonIndex + kx) % LON], P.uid)
       assert.equal(owner(m), owner(lead), `${P.uid}: one owner region`)
     })
     if (P.born) assert.equal(P.members[1].lonIndex, lead.lonIndex + 1, `${P.uid}: a born pair never wraps`)
@@ -2418,7 +2476,7 @@ function assertWholeUnits(director, panels) {
 }
 
 test('spans: planUnits forms whole H pairs in one region, clear of their own key, at most ?popunitmax per key; a kept unit takes the new world (T13)', async () => {
-  assert.deepEqual([...UNIT_CLASSES], ['h']) // P4a plans H pairs only (P5 adds v and q)
+  assert.deepEqual([...UNIT_CLASSES], ['h', 'v', 'q']) // P5 adds v and q; these boards have no horizon, so H pairs only (M4)
   // ?popunitmax: 1 by default, an integer 1–6, and its own guide row.
   assert.equal(POP_DEFAULTS.unitMax, 1)
   for (const [typed, want] of [[0, 1], [2.4, 2], [9, 6]]) {
@@ -2643,17 +2701,24 @@ test('spans: keep-first keeps only an intact unit — every member showing it, n
     two.namePlan = new Map()
     two.planUnits([A.members[1], B.members[0], A.members[0], B.members[1]], new Map(), tie, 0, false)
     assert.deepEqual([kept(tie, B), kept(tie, A)], [true, false])
-    // A unit of a class this level doesn't plan (a V pair, drawn by hand on a column a V could hold) is never kept.
+    // A V pair (drawn by hand on a column a V could hold) is kept only by a plan with a horizon: keep-first
+    // re-checks admissibility, and a V/Q is admissible only once the globe is posed (M4).
     const vRec = two.grouping.pools[0].find((a) => a.unitCls === 'v')
     const thetaV = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
     const top = board.find((p) => !p.parked && !p.asset.place && eligibleVQ(thetaV(p), 0, { ...two.W, thetaH: Math.PI }, 0))
     const bottom = board.find((p) => p.lonIndex === top.lonIndex && p.tapeS === top.tapeS - 1)
     const V = { uid: `v:${top.lonIndex}:${top.tapeS}:${assetKey(vRec)}`, key: assetKey(vRec), cls: 'v', cols: 1, rows: 2, n: 2, members: [top, bottom], born: false }
     for (const [k, m] of [top, bottom].entries()) m.asset = m.shownAsset = { ...vRec, place: V, kx: 0, ky: k }
-    const vPlan = new Map()
-    two.namePlan = new Map()
-    two.planUnits([top, bottom], new Map(), vPlan, 0, false)
-    assert.ok(vRec && !bottom.parked && !kept(vPlan, V))
+    const vPlan = (horizon) => {
+      two.getHorizon = () => horizon
+      const plan = new Map()
+      two.namePlan = new Map()
+      two.planUnits([top, bottom], new Map(), plan, 0, false)
+      return plan
+    }
+    assert.ok(vRec && !bottom.parked && !kept(vPlan(null), V))
+    assert.ok(kept(vPlan(Math.PI), V))
+    two.getHorizon = () => null
 
     // The grain (gT = grainStart + grainRamp + grainStagger): a unit, kept or new, needs an admissible lead
     // (eligibleH over the travel D). A board laid without it and re-planned with it drops the units the grain
@@ -2928,10 +2993,12 @@ test('spans: travelBudget is the landing, the longest hold and the next change a
   }
 })
 
-test('spans: the initial layout is planned before the first pose — no horizon, so H pairs only (T29, M4)', () => {
+test('spans: the initial layout is planned before the first pose — no horizon, so H pairs only; the first change, posed, places V/Q (T29, M4)', async () => {
   let horizon = null // useGlobeScene's getHorizon until the tick has posed the globe (the `posed` latch)
-  const { director } = unitDirector({}, { getPace: () => 2, revealHeld: true, getHorizon: () => horizon })
+  const { director, panels } = unitDirector({}, { getPace: () => 2, revealHeld: true, getHorizon: () => horizon })
   try {
+    // classedWorlds: every world holds v candidates and an elected q (P5), so only the missing horizon keeps them out
+    assert.ok(director.pools.every((pool) => pool.some((a) => a.unitCls === 'v') && pool.some((a) => a.unitCls === 'q')))
     director.initialLayout(director.byProminence())
     let units = director.sample(new THREE.Euler()).units
     assert.ok(units.placed.h >= 1, JSON.stringify(units.placed)) // an H pair needs no horizon
@@ -2939,12 +3006,18 @@ test('spans: the initial layout is planned before the first pose — no horizon,
     assert.equal(units.thetaH, null)
     assert.equal(units.initThetaH, null)
     assert.equal(units.D, 20.2) // arrive: the held entrance + the longest hold + the next change
-    // Posed: the next plan reads the live horizon, and the initial layout's stays null.
+    // Posed: the first change (⏭; a cut, the screens aren't free to animate) reads the live horizon and places
+    // V/Q, each lead admissible over the travel its plan used; the initial layout's horizon and count stay null and 0.
     horizon = rad(127.5)
-    director.planAll(director.byProminence(), { land: 0.9 })
+    director.advance()
+    await settleTicks()
     units = director.sample(new THREE.Euler()).units
-    assert.equal(units.thetaH, 127.5)
-    assert.equal(units.initThetaH, null)
+    assert.ok(units.placed.v + units.placed.q >= 1, JSON.stringify(units.placed))
+    assert.deepEqual([units.thetaH, units.D, units.initThetaH, units.initVQ], [127.5, 18, null, 0])
+    const leadOf = (P) => Math.acos(Math.min(Math.max(P.members[0].centerDir.y, -1), 1))
+    const tall = [...placesOf(panels).keys()].filter((P) => P.rows === 2)
+    assert.ok(tall.length >= 1)
+    for (const P of tall) assert.ok(eligibleVQ(leadOf(P), director.lastD, director.W, 0), `${P.uid} at ${degOf(leadOf(P)).toFixed(2)}°`)
     // NC: the pre-tick initialRotation horizon (≈ 133°) admits a V/Q lead whose bottom row travels to 132.4°,
     // past the posed limb at 127.5°.
     const D = rad(20.2)
@@ -3429,4 +3502,269 @@ test('spans: through a tide’s travel, place() after each frame’s scroll keep
   const none = travel(true)
   assert.ok(none.seamW > 0.5 && none.regW > 0.1, JSON.stringify(none))
   assert.deepEqual([none.skewChecks, none.skewBad, none.snaps], [0, 0, 0])
+})
+
+/* — Media spans, P5: vertical pairs and elected 2×2 quads inside the ε window. T11's quad election (M1), the V/Q
+   boards, §7's cols, rows and warp, and place()'s lead clause; T29's V/Q half is above, and T20's — P5 — block is
+   in the gate-module test. — */
+test('spans: each world elects its ?popquads quads over the pool it places from, keyed by world; the q texture stays pooled by id (T11, M1)', () => {
+  // ?popquads: 1 by default, an integer 0–2 (rounded: 1.6 is 2, which a floor or a trunc would make 1), and its own
+  // guide row, with that default and range.
+  assert.equal(POP_DEFAULTS.quads, 1)
+  for (const [typed, want] of [[-1, 0], [1.4, 1], [1.6, 2], [9, 2]]) {
+    setPopTune('quads', typed)
+    assert.equal(TUNING.quads, want)
+  }
+  assert.match(fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8'), /^\| `\?popquads` \|.*\| `1` \| 0–2 \(clamped\) \| `POP_DEFAULTS\.quads` \|$/m)
+  // electQuads: the first n 'q' candidates in editorial order whose REAL source short side reaches 0.9 × the quad
+  // texture side (classSizes' q, the 2×2 crop at T1), as ids. A 1:1 clip with no `s` is a 1080 source; an s 480
+  // clip, an 800² still, an unknown source (s 0) and an 'h' asset are not candidates.
+  const TQ = classSizes(THUMB_WIDTH).q[1]
+  assert.ok(0.9 * TQ > 800 && 0.9 * TQ < 1080, `${TQ}`)
+  const q = (id, extra = {}) => ({ kind: 'video', playbackId: id, videoAspectRatio: '1:1', u: 'q', ...extra })
+  const qStill = (id, side) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/${id}-${side}x${side}.jpg`, u: 'q' })
+  const pool = [q('low', { s: 480 }), qStill('small', 800), { kind: 'video', playbackId: 'wide', videoAspectRatio: '16:9', u: 'h' }, q('unknown', { s: 0 }), q('A'), qStill('B', 1200), q('C')]
+  assert.deepEqual([0, 1, 2, 3].map((n) => [...electQuads(pool, n, THUMB_WIDTH, SPAN_L)]), [[], ['A'], ['A', pool[5].imageUrl], ['A', pool[5].imageUrl, 'C']])
+
+  // The cap case: world 0 is 12 stills, then an eligible 'q' still X, then an eligible 'q' clip Y. At ?popcap 13
+  // selectPool's round-robin over kinds keeps the 12 stills and Y, so Y is world 0's quad and X is nobody's. World
+  // 1 carries Y too, behind its own first candidate Z, and opens with Zs, an 800² 'q' still too small to elect.
+  const stills = (name, n) => Array.from({ length: n }, (_, i) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/${name}-s${i}-800x600.jpg` }))
+  const X = qStill('X', 1200)
+  const [Y, Z] = [q('Y'), q('Z')]
+  const Zs = qStill('Zs', 800)
+  const world = (name, assets) => ({ slug: name, clientName: name, title: null, services: [], assets })
+  const worlds = [world('zero', [...stills('zero', 12), X, Y]), world('one', [Zs, Z, ...stills('one', 4), Y])]
+  const { director } = unitDirector({}, { worlds })
+  try {
+    const idOf = (a) => a.playbackId || a.imageUrl
+    const recOf = (wi, a) => director.pools[wi].find((r) => idOf(r) === idOf(a))
+    const sel0 = director.selectFor(worlds[0].assets)
+    assert.equal(TUNING.cap, 13)
+    assert.deepEqual([sel0.length, sel0.includes(X), sel0.includes(Y)], [13, false, true])
+    // selectPool reads only `kind` and keeps the list's order: the raw assets and the decorated records select alike
+    assert.deepEqual(director.selectFor(director.pools[0]).map(idOf), sel0.map(idOf))
+    const qTex = texSpec(Y, 'q', THUMB_WIDTH, director.L)
+    assert.deepEqual([recOf(0, Y).tex, recOf(0, Y).unitCls], [qTex, 'q'])
+    assert.ok(!('tex' in recOf(0, X)) && !('unitCls' in recOf(0, X))) // past the cap: a legacy single
+    assert.deepEqual([recOf(1, Z).tex, recOf(1, Z).unitCls], [texSpec(Z, 'q', THUMB_WIDTH, director.L), 'q']) // world 1's own first
+    assert.ok(!('tex' in recOf(1, Zs)) && !('unitCls' in recOf(1, Zs))) // short side 800 < 0.9 × TQ at THUMB_WIDTH: a legacy single
+    // Y in world 1, which elected Z: the q texture (pooled by id: ONE key, world 0's), but no unitCls, so a single there
+    assert.deepEqual([recOf(1, Y).tex, assetKey(recOf(1, Y)), 'unitCls' in recOf(1, Y)], [qTex, assetKey(recOf(0, Y)), false])
+    // makeGrouping places from the same selection: world 0's region pool holds Y as a quad, and never X
+    const g0 = director.makeGrouping({ lead: 0 })
+    assert.deepEqual(g0.pools[0].map(idOf), sel0.map(idOf))
+    assert.equal(g0.pools[0].find((r) => idOf(r) === 'Y').unitCls, 'q')
+    // NC: electing over w.assets (before the selection, the old wording) elects X, which the cap leaves out: world 0
+    // would form no quad at all.
+    const raw = electQuads(worlds[0].assets, 1, THUMB_WIDTH, director.L)
+    assert.deepEqual([...raw], [X.imageUrl])
+    assert.equal(sel0.some((a) => raw.has(idOf(a))), false)
+    // NC: a class texture only where the id is elected (no pooling by id) gives Y two keys: the q crop, the legacy one.
+    assert.notEqual(qTex.key, assetKey(Y))
+
+    // ?popquads, ?popcap and ?popmedia are in the signature (the election reads the selection): each re-decorates,
+    // then re-lays. `elected` = each world's records that may form a quad; `textured` = the ids on a q texture.
+    let relayouts = 0
+    director.relayout = () => (relayouts += 1)
+    const sig = director.decorSig
+    const elected = () => director.pools.map((p) => p.filter((r) => r.unitCls === 'q').map(idOf))
+    const textured = () => [...new Set(director.pools.flat().filter((r) => r.tex?.cls === 'q').map(idOf))]
+    assert.deepEqual([elected(), textured()], [[['Y'], ['Z']], ['Y', 'Z']])
+    const tune = (key, value) => {
+      TUNING[key] = value
+      director.onTune(key)
+      return [elected(), textured()]
+    }
+    // Each step moves ONE knob from the last decorate's values, so each knob alone must re-decorate.
+    assert.deepEqual(tune('quads', 0), [[[], []], []])
+    assert.deepEqual(tune('quads', 2), [[['Y'], ['Z', 'Y']], ['Y', 'Z']]) // world 0's selection holds one candidate
+    assert.deepEqual(tune('quads', 1), [[['Y'], ['Z']], ['Y', 'Z']])
+    assert.deepEqual(tune('cap', 14), [[[X.imageUrl], ['Z']], [X.imageUrl, 'Z']]) // X now selected, ahead of Y
+    assert.deepEqual(tune('cap', 13), [[['Y'], ['Z']], ['Y', 'Z']])
+    assert.deepEqual(tune('media', 'still'), [[[X.imageUrl], []], [X.imageUrl]]) // world 1's stills hold no candidate
+    assert.deepEqual(tune('media', 'all'), [[['Y'], ['Z']], ['Y', 'Z']])
+    assert.deepEqual([director.decorSig, relayouts], [sig, 7])
+    // Units off: the signature is constant, so these knobs never rebuild today's records (they still re-lay).
+    TUNING.units = 0
+    director.onTune('units')
+    assert.deepEqual(director.pools, todaysSpread(worlds))
+    const today = director.pools
+    for (const [key, value] of [['quads', 2], ['cap', 14], ['media', 'still']]) {
+      tune(key, value)
+      assert.equal(director.pools, today, key)
+    }
+    assert.equal(relayouts, 11)
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, POP_DEFAULTS, { units: 0 })
+  }
+})
+
+test('spans: with a horizon, V pairs and quads form whole inside the ε window — one region, the bottom row one pitch south, clear of their own key, a quad only where its world elected it (T13, M1)', () => {
+  // Two worlds (two owner regions), posed (θh π: no limb in the way), still rows (D 0). A stub, so this initial
+  // layout sees a horizon; useGlobeScene's never does (M4, T29), which is what the initVQ counters report.
+  const { director, panels } = unitDirector({ group: 2 }, { getHorizon: () => Math.PI })
+  try {
+    director.initialLayout(director.byProminence())
+    const perKey = assertWholeUnits(director, panels, ['h', 'v', 'q'])
+    const units = [...placesOf(panels).keys()]
+    assert.ok(director.placed.v >= 1 && director.placed.q >= 1, JSON.stringify(director.placed))
+    assert.deepEqual(['h', 'v', 'q'].map((c) => director.placed[c]), ['h', 'v', 'q'].map((c) => units.filter((P) => P.cls === c).length))
+    assert.deepEqual([director.initVQ, director.unitStats(0).initThetaH], [director.placed.v + director.placed.q, 180])
+    assert.deepEqual([...new Set(perKey.values())], [1]) // ?popunitmax 1
+    assertSpanNeighboursDiffer(panels)
+    const thetaAt = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
+    const tall = units.filter((P) => P.rows === 2)
+    for (const P of tall) {
+      const [lead] = P.members
+      assert.ok(eligibleVQ(thetaAt(lead), 0, director.W, 0), `${P.uid} at ${degOf(thetaAt(lead)).toFixed(2)}°`)
+      for (let kx = 0; kx < P.cols; kx++) near(thetaAt(P.members[P.cols + kx]) - thetaAt(P.members[kx]), director.L.Pth, 1e-12, P.uid) // one pitch south
+      if (P.cls !== 'q') continue
+      // a quad only where its world elected it: that world's election, recomputed over its selection
+      const id = lead.asset.playbackId || lead.asset.imageUrl
+      assert.ok(electQuads(director.selectFor(director.worlds[lead.asset.world].assets), TUNING.quads, THUMB_WIDTH, director.L).has(id), P.uid)
+    }
+    // NC: the shape check reads ky: one V with its rows swapped fails it; and the H-only check rejects this board.
+    const [a, b] = tall.find((P) => P.cls === 'v').members.map((m) => m.asset)
+    a.ky = 1
+    b.ky = 0
+    assert.throws(() => assertWholeUnits(director, panels, ['h', 'v', 'q']), assert.AssertionError)
+    a.ky = 0
+    b.ky = 1
+    assertWholeUnits(director, panels, ['h', 'v', 'q'])
+    assert.throws(() => assertWholeUnits(director, panels), assert.AssertionError)
+  } finally {
+    director.dispose()
+    TUNING.units = 0
+  }
+})
+
+test('spans: unitStats measures V/Q as they render (columns, mullions, warp), and place() judges a V/Q member for skew only while its lead is inside [θN, θS] (P5, §7)', () => {
+  const { director, panels } = unitDirector({}, { getHorizon: () => Math.PI })
+  try {
+    director.initialLayout(director.byProminence())
+    const thetaAt = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
+    const units = [...placesOf(panels).keys()]
+    const tall = units.filter((P) => P.rows === 2)
+    assert.ok(tall.some((P) => P.cls === 'v') && tall.some((P) => P.cls === 'q') && units.some((P) => P.rows === 1), JSON.stringify(director.placed))
+    assert.ok(units.every((P) => director.wholeUnit(P)))
+    const stats = () => director.unitStats(0)
+    const cols = tall.reduce((n, P) => n + P.cols, 0) // one per column: top member over bottom
+    const members = tall.reduce((n, P) => n + P.n, 0)
+    // The warp is |ln(vK / q)|: a member's own pinch against the scale its pair shares (kappaOwn), read back here from
+    // the pose alone.
+    const warpOf = (m) => {
+      const vK = namePinch(m.centerDir.y)
+      return Math.abs(Math.log(vK / kappaOwn(thetaAt(m), m.shownAsset.ky, director.L.Pth, vK)))
+    }
+    const warpAll = () => Math.max(...tall.flatMap((P) => P.members.map(warpOf)))
+    // At rest every column lines up across the row seam and every mullion is the lattice's own: exact. H pairs are
+    // not measured here (one row: no column, no mullion).
+    assert.deepEqual([stats().cols, stats().rows, stats().warp.n], [{ n: cols, worst: 0 }, { n: cols, worst: 0 }, members])
+    near(stats().warp.worst, warpAll(), 1e-9)
+    const w9 = stats().warp.worst
+    assert.equal(w9, Math.round(w9 * 1e9) / 1e9) // reported to 1e-9, as the columns and rows are
+
+    // NC: one V's bottom member 1e-3 off in x: its column is off by that over the top's rendered width; the mullion
+    // is untouched.
+    const ren = (p) => spanRendered(p.mesh.material.uniforms.uvScaleA.value.x, p.mesh.material.uniforms.uvOffsetA.value.x, namePinch(p.centerDir.y))
+    const V = tall.find((P) => P.cls === 'v')
+    const Q = tall.find((P) => P.cls === 'q')
+    const nudge = (p, k, c, by, read) => {
+      const u = p.mesh.material.uniforms[k].value
+      const was = u[c]
+      u[c] = by(was)
+      try {
+        return read()
+      } finally {
+        u[c] = was
+      }
+    }
+    const [lt, rt] = ren(V.members[0])
+    near(nudge(V.members[1], 'uvOffsetA', 'x', (x) => x + 1e-3, () => [stats().cols.worst, stats().rows.worst]), [1e-3 / (rt - lt), 0], 1e-8)
+    // Each edge on its own: the bottom's left edge 1e-3 in with its right edge held, then its right edge 1e-3 out
+    // with its left edge held (scale and offset moved together, through rendered()'s own formula).
+    const edge = (p, side, d, read) => {
+      const u = p.mesh.material.uniforms
+      const [s, o] = [u.uvScaleA.value.x, u.uvOffsetA.value.x]
+      const vK = namePinch(p.centerDir.y)
+      u.uvScaleA.value.x = side === 'left' ? s - d / vK : s + d / vK
+      u.uvOffsetA.value.x = side === 'left' ? o + ((0.5 + 0.5 * vK) * d) / vK : o - ((0.5 - 0.5 * vK) * d) / vK
+      try {
+        return read()
+      } finally {
+        u.uvScaleA.value.x = s
+        u.uvOffsetA.value.x = o
+      }
+    }
+    const [lb, rb] = ren(V.members[1])
+    for (const side of ['left', 'right']) {
+      const [moved, worst] = edge(V.members[1], side, 1e-3, () => [ren(V.members[1]), stats().cols.worst])
+      near(moved, side === 'left' ? [lb + 1e-3, rb] : [lb, rb + 1e-3], 1e-12, side)
+      near(worst, 1e-3 / (rt - lt), 1e-8, side)
+    }
+    // …and a quad's second column: the bottom-right member (k = cols + 1) is judged against the top-right (k = 1).
+    const [l1, r1] = ren(Q.members[1])
+    near(nudge(Q.members[3], 'uvOffsetA', 'x', (x) => x + 1e-3, () => stats().cols.worst), 1e-3 / (r1 - l1), 1e-8)
+    // NC: the top member 1e-3 lower in the picture (offset y), or 1e-3 taller (scale y): the mullion is off by that.
+    for (const k of ['uvOffsetA', 'uvScaleA']) near(nudge(V.members[0], k, 'y', (y) => y + 1e-3, () => stats().rows.worst), 1e-3, 1e-9, k)
+    // …and the mullion is judged against the BOTTOM member's height (§7: |gap − hB·Gth/bandH|): the top 1e-3 lower
+    // with the bottom 1e-4 taller reads 0.9e-3 − 1e-4·Gth/bandH (the height term is 1e-4), where the top's height
+    // would read 0.9e-3.
+    const mullionOfHB = (1e-4 * V.L.Gth) / V.L.bandH
+    assert.ok(mullionOfHB > 1e-6, `${mullionOfHB}`) // far past the 1e-9 the read is held to
+    near(nudge(V.members[0], 'uvOffsetA', 'y', (y) => y + 1e-3, () => nudge(V.members[1], 'uvScaleA', 'y', (y) => y + 1e-4, () => stats().rows.worst)), 0.9e-3 - mullionOfHB, 1e-9)
+    // NC: a member drawn 1.2× wide: warped past ε (ln 1.2 against ln 1.15).
+    assert.ok(nudge(Q.members[2], 'uvScaleA', 'x', (x) => 1.2 * x, () => stats().warp.worst) > Math.log(1 + UNIT_EPS))
+    assert.deepEqual([stats().cols.worst, stats().rows.worst], [0, 0])
+    // Only whole V/Q are measured: a torn V (its bottom showing a single) and a quad with a member parked drop out.
+    const vBottom = V.members[1].shownAsset
+    loadTile(director, V.members[1], { kind: 'video', playbackId: 'stray' })
+    Q.members[3].parked = true
+    assert.deepEqual([stats().cols.n, stats().rows.n, stats().warp.n], [cols - V.cols - Q.cols, cols - V.cols - Q.cols, members - V.n - Q.n])
+    Q.members[3].parked = false
+    loadTile(director, V.members[1], vBottom)
+    assert.deepEqual([stats().cols.n, stats().warp.n], [cols, members])
+
+    // The tape travels, 0.01 rad a frame with place() after each: south until every V/Q lead is past θS, then north
+    // until each is past θN. While a lead is inside [θN, θS] its members are judged for skew and none is skewed
+    // (unitSkewBound holds for V and Q, both edges), the columns and mullions stay exact, and the warp stays inside
+    // ε. Outside, its members drop out of the skew check while H pairs are judged anywhere (place()'s lead clause),
+    // and the warp leaves ε: the window IS the ε bound.
+    const { thetaN, thetaS } = director.W
+    const inside = (P) => thetaAt(P.members[0]) >= thetaN && thetaAt(P.members[0]) <= thetaS
+    const judged = (rule) =>
+      panels.filter((p) => {
+        const P = p.shownAsset?.place
+        if (!P || p._bound !== p.shownAsset || p.parked || !director.wholeUnit(P)) return false
+        return !rule || P.rows === 1 || inside(P)
+      }).length
+    const seen = { inside: 0, south: 0, north: 0 }
+    const frame = (d) => {
+      shiftRows(panels, d)
+      const [rule, anywhere, checks] = [judged(true), judged(false), director.skewChecks]
+      director.place()
+      assert.equal(director.skewChecks - checks, rule, `d ${d}`)
+      const s = stats()
+      assert.deepEqual([s.cols.worst, s.rows.worst, s.cols.n, s.warp.n], [0, 0, cols, members], `d ${d}`)
+      near(s.warp.worst, warpAll(), 1e-9, `d ${d}`)
+      if (tall.every(inside)) {
+        seen.inside += 1
+        assert.equal(rule, anywhere, `d ${d}`)
+        assert.ok(s.warp.worst <= Math.log(1 + UNIT_EPS) + 1e-12, `d ${d}: ${s.warp.worst}`)
+      } else if (!tall.some(inside)) {
+        seen[thetaAt(tall[0].members[0]) > thetaS ? 'south' : 'north'] += 1
+        assert.ok(rule < anywhere && rule > 0, `d ${d}: ${rule} of ${anywhere}`)
+        assert.ok(s.warp.worst > Math.log(1 + UNIT_EPS), `d ${d}: ${s.warp.worst}`)
+      }
+    }
+    for (let f = 1; f <= 50; f++) frame(0.01 * f)
+    for (let f = 49; f >= -50; f--) frame(0.01 * f)
+    assert.deepEqual([director.skewBad, director.unitSnaps], [0, 0])
+    assert.ok(seen.inside >= 80 && seen.south >= 1 && seen.north >= 1, JSON.stringify(seen))
+  } finally {
+    director.dispose()
+    TUNING.units = 0
+  }
 })
