@@ -74,7 +74,7 @@ import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
 import { SCROLL_VISIBLE_ROWS, THUMB_WIDTH } from './globeConfig.js';
-import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE } from './unitSpan.js';
+import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -521,7 +521,9 @@ export default class PopulationDirector {
    *  unit member's texA window from its own live pose, through a 1e-9 dead-band
    *  (unitSeam is relative to a member's rendered width, which shrinks with vK).
    *  The name strips do the same (placeNames); persistence forbids changing the
-   *  picture, not moving the window. A strict no-op with units off (T18). */
+   *  picture, not moving the window. A whole unit's lead also carries unitCentre
+   *  for its chip, and a live or demoting member that joined as its unit gets its
+   *  texB re-derived from this frame's A (P6a). A strict no-op with units off (T18). */
   place() {
     if (!TUNING.units || !this.L || globalThis.__swmNoUnitWindows === true) return;
     const W = this.W;
@@ -536,7 +538,8 @@ export default class PopulationDirector {
       const u = p.mesh.material.uniforms;
       const y = Math.min(Math.max(p.centerDir.y, -1), 1);
       const theta = Math.acos(y);
-      const w = unitA(m, namePinch(y), theta, u.texA.value?.userData?.aspect ?? m.tex?.aspect ?? 1);
+      const aTex = u.texA.value?.userData?.aspect ?? m.tex?.aspect ?? 1;
+      const w = unitA(m, namePinch(y), theta, aTex);
       const off = Math.max(
         Math.abs(u.uvScaleA.value.x - w.s[0]),
         Math.abs(u.uvScaleA.value.y - w.s[1]),
@@ -557,6 +560,33 @@ export default class PopulationDirector {
         u.uvOffsetA.value.set(w.o[0], w.o[1]);
       }
       p._skewTheta = theta;
+      // The lead carries the unit's centre for its chip (HeroLabels.dirOf).
+      if (P.members[0] === p) {
+        if (this.wholeUnit(P)) {
+          p._uc ??= new THREE.Vector3();
+          p._uc.set(0, 0, 0);
+          for (const q of P.members) p._uc.add(q.centerDir);
+          p.unitCentre = p._uc.normalize();
+        } else p.unitCentre = null;
+      }
+      // texB rides texA per frame: the clip's picture (metadata ratio; decoded only as a fallback) through this frame's A (B = cover(V, aTex) ∘ A).
+      // Only on a copy that joined as this unit: a tile still showing the record while its next clip loads may
+      // have joined that clip's stream as a single (canJoin), and its B is attach's single cover.
+      const video = p.liveStream?.video;
+      if (video && p.liveUid === P.uid && (p.liveState === 'live' || p.liveState === 'demoting')) {
+        const b = liveB(pictureAspect(m, video), aTex, w);
+        if (
+          Math.max(
+            Math.abs(u.uvScaleB.value.x - b.s[0]),
+            Math.abs(u.uvScaleB.value.y - b.s[1]),
+            Math.abs(u.uvOffsetB.value.x - b.o[0]),
+            Math.abs(u.uvOffsetB.value.y - b.o[1])
+          ) > 1e-9
+        ) {
+          u.uvScaleB.value.set(b.s[0], b.s[1]);
+          u.uvOffsetB.value.set(b.o[0], b.o[1]);
+        }
+      }
     }
   }
 
@@ -1206,6 +1236,31 @@ export default class PopulationDirector {
       rows: { n: rows.n, worst: r9(rows.worst) },
       warp: { n: warp.n, worst: r9(warp.worst) },
     });
+
+    // — P6a — a unit's stream and chip; texB's register on whole live units.
+    const liveSplit = { n: 0, split: 0 };
+    const registerB = { n: 0, worst: 0 };
+    let chipsPerUnit = 0;
+    for (const [P] of places) {
+      if (!this.wholeUnit(P)) continue;
+      chipsPerUnit = Math.max(chipsPerUnit, P.members.filter((m) => m.liveAnnounced).length);
+      const lit = P.members.filter((m) => m.liveStream);
+      if (!lit.length) continue;
+      const s = P.members[0].liveStream;
+      liveSplit.n += 1;
+      if (!s || !P.members.every((m) => m.liveStream === s && m.liveUid === P.uid)) liveSplit.split += 1;
+      for (const m of lit) {
+        if (m.liveUid !== P.uid) continue; // joined as something else (counted split above): not this unit's B
+        const video = m.liveStream.video;
+        if (!(video?.videoWidth > 0)) continue;
+        const u = m.mesh.material.uniforms;
+        const A = { s: [u.uvScaleA.value.x, u.uvScaleA.value.y], o: [u.uvOffsetA.value.x, u.uvOffsetA.value.y] };
+        const V = pictureAspect(m.shownAsset, video); // Mux's exact ratio; the decoded frame only as a fallback (m6)
+        registerB.n += 1;
+        registerB.worst = Math.max(registerB.worst, diff(u.uvScaleB.value, u.uvOffsetB.value, liveB(V, aTexOf(m), A)));
+      }
+    }
+    Object.assign(out, { liveSplit, chipsPerUnit, registerB: { n: registerB.n, worst: r9(registerB.worst) } });
     return out;
   }
 

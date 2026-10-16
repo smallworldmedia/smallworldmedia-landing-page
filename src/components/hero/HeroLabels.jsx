@@ -24,7 +24,8 @@
  * that turns away or cascades out of frame fades early and re-slots.
  *
  * Per frame (the overlay bridge cadence — no second rAF): each bound
- * slot projects panel.centerDir·RADIUS through globeGroup.localToWorld →
+ * slot projects dirOf(panel)·RADIUS (a unit lead's unitCentre, else
+ * panel.centerDir) through globeGroup.localToWorld →
  * project(camera) → px, then writes ONE chip transform (radial-outward by
  * ?labelstroke) and the leader's four endpoints + dot center. Module
  * scratch vectors, zero allocations beyond the write strings; the chip
@@ -116,13 +117,14 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
        heroOverlay; single-threaded, so the scratch vectors are safe from
        both cadences). — */
     let lastFrame = null;
+    const dirOf = (p) => p.unitCentre || p.centerDir; // a unit's chip anchors at the unit's centre (PopulationDirector.place)
     // Front-facing test: panel normal · (globe→camera) axis. >0 faces the
     // camera; a sphere projects the BACK hemisphere onto the disc too, so this
     // is what a bare on-screen bounds test can't do alone.
     const prominenceIn = (panel, f) => {
       vAnchor.setFromMatrixPosition(f.globeGroup.matrixWorld);
       vAxis.setFromMatrixPosition(f.camera.matrixWorld).sub(vAnchor).normalize();
-      vNormal.copy(panel.centerDir).transformDirection(f.globeGroup.matrixWorld);
+      vNormal.copy(dirOf(panel)).transformDirection(f.globeGroup.matrixWorld);
       return vNormal.dot(vAxis);
     };
     // Pick-time visibility (note 3): front-facing AND the anchor projects
@@ -131,7 +133,7 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
     const visibleAtPick = (panel) => {
       if (!lastFrame) return true; // no frame yet — accept; the tick guard corrects
       if (prominenceIn(panel, lastFrame) < FRONT_EPS) return false;
-      vProj.copy(panel.centerDir).multiplyScalar(RADIUS);
+      vProj.copy(dirOf(panel)).multiplyScalar(RADIUS);
       lastFrame.globeGroup.localToWorld(vProj);
       vProj.project(lastFrame.camera);
       return vProj.z <= 1 && Math.abs(vProj.x) < NDC_BIND && Math.abs(vProj.y) < NDC_BIND;
@@ -298,7 +300,8 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
 
     /* — Live-panel events (the scheduler's announcements, via the scene
        api's subscription — panels arrive as objects; we read asset text at
-       bind time and centerDir per frame, nothing else). — */
+       bind time and dirOf(panel) — centerDir, or a unit's centre — per
+       frame, nothing else). — */
     const unsubLive = api.onLiveChange((panel, state) => {
       if (disposed) return;
       if (state === 'live') {
@@ -348,7 +351,7 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
         const prominence = prominenceIn(panel, frame);
         // Anchor: the panel center at the surface, globe-local → world →
         // NDC (post-render matrices, heroOverlay's guarantee).
-        vAnchor.copy(panel.centerDir).multiplyScalar(RADIUS);
+        vAnchor.copy(dirOf(panel)).multiplyScalar(RADIUS);
         frame.globeGroup.localToWorld(vAnchor);
         vAnchor.project(frame.camera);
         // Viewport-based hold (note 3): let go when the anchor turns away or

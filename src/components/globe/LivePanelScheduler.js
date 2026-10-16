@@ -273,7 +273,7 @@ export default class LivePanelScheduler {
     for (const { panel, score, visible } of scored) {
       const s = panel.liveStream;
       if (!s) continue;
-      if (panel.parked || panel.asset?.playbackId !== s.id) this.detach(panel);
+      if (panel.parked || panel.asset?.playbackId !== s.id || (panel.asset?.place?.uid ?? null) !== (panel.liveUid ?? null)) this.detach(panel);
       else if (visible && score >= DEMOTE_SCORE && !this.grainHidden(panel)) seen.add(s);
     }
     for (const s of [...this.streams.values()]) {
@@ -285,19 +285,22 @@ export default class LivePanelScheduler {
     }
     // Joining costs no decode — it runs mid-drag too.
     for (const { panel } of scored) {
-      if (!this.canJoin(panel)) continue;
+      const grp = this.joinGroup(panel);
+      if (!grp) continue;
       const s = this.streams.get(panel.asset.playbackId);
-      if (s?.state === 'live') this.attach(panel, s);
+      if (s?.state === 'live') for (const m of grp) this.attach(m, s);
     }
     // New streams wait out a drag or a population relayout, like promotes.
     if (dragging) return;
     const clips = new Map();
     for (const { panel, score, visible } of scored) {
-      if (!visible || score <= PROMOTE_SCORE || !this.canJoin(panel)) continue;
+      if (!visible || score <= PROMOTE_SCORE) continue;
+      const grp = this.joinGroup(panel);
+      if (!grp) continue;
       const id = panel.asset.playbackId;
       if (this.streams.has(id)) continue;
       if (now - (this.clipLastEnd.get(id) ?? -Infinity) <= RELIVE_COOLDOWN_SECONDS) continue;
-      clips.set(id, (clips.get(id) || 0) + score);
+      clips.set(id, (clips.get(id) || 0) + score * grp.length);
     }
     let starts = 0;
     for (const [id] of [...clips].sort((a, b) => b[1] - a[1])) {
@@ -339,9 +342,18 @@ export default class LivePanelScheduler {
       !panel.parked &&
       !panel.swapping &&
       (!panel.asset.tex || panel.shownAsset === panel.asset) &&
-      !panel.asset.place &&
       !this.grainHidden(panel)
     );
+  }
+
+  /** The tiles that join a stream together: a single-only tile alone, or a whole
+   *  unit through its lead, all or none. One grain-hidden, parked or mid-swap
+   *  member keeps the whole unit off. */
+  joinGroup(panel) {
+    const pl = panel.asset?.place;
+    if (!pl) return this.canJoin(panel) ? [panel] : null;
+    if (pl.members[0] !== panel) return null;
+    return pl.members.every((m) => m.asset?.place?.uid === pl.uid && this.canJoin(m)) ? pl.members : null;
   }
 
   /** texB's window. A single-only asset: today's cover of the clip's metadata
@@ -376,7 +388,7 @@ export default class LivePanelScheduler {
         stream.state = 'live';
         stream.since = this.now;
         stream.maxDwell = MAX_LIVE_DWELL_SECONDS * (0.75 + Math.random() * 0.5);
-        for (const p of this.panels) if (p.asset?.playbackId === id && this.canJoin(p)) this.attach(p, stream);
+        for (const p of this.panels) if (p.asset?.playbackId === id) { const grp = this.joinGroup(p); if (grp) for (const m of grp) this.attach(m, stream); }
         if (!stream.panels.size) this.releaseStream(stream); // every copy left while it loaded
       })
       .catch(() => {
@@ -396,24 +408,29 @@ export default class LivePanelScheduler {
     stream.panels.add(panel);
     panel.liveStream = stream;
     panel.liveState = 'live';
+    panel.liveUid = panel.asset?.place?.uid ?? null; // the unit this copy joined as
     gsap.to(uniforms.uMix, {
       value: 1,
       duration: CROSSFADE_SECONDS,
       ease: 'power2.out',
       overwrite: true,
       onComplete: () => {
-        if (!this.disposed && panel.liveStream === stream && panel.liveState === 'live') this.announceLive(panel);
+        if (!this.disposed && panel.liveStream === stream && panel.liveState === 'live' && (!panel.liveUid || panel.asset?.place?.members[0] === panel)) this.announceLive(panel);
       },
     });
   }
 
   /** A copy leaves its stream at once (its content is changing or it has
-   *  collapsed past a pole) — the stream plays on for the others. */
+   *  collapsed past a pole) — the stream plays on for the others. A unit member
+   *  takes its whole unit with it (joined as one, leaves as one). */
   detach(panel) {
     const s = panel.liveStream;
     if (!s) return;
-    s.panels.delete(panel);
-    this.clearCopy(panel);
+    const uid = panel.liveUid;
+    for (const p of uid ? [...s.panels].filter((q) => q.liveUid === uid) : [panel]) {
+      s.panels.delete(p);
+      this.clearCopy(p);
+    }
   }
 
   clearCopy(panel) {
@@ -425,6 +442,7 @@ export default class LivePanelScheduler {
     uniforms.texB.value = getPlaceholderTexture(); // never leave a sampler unbound
     panel.liveStream = null;
     panel.liveState = null;
+    panel.liveUid = null;
   }
 
   /** Every copy crossfades back to its still, then the slot frees. */

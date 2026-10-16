@@ -9,6 +9,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import * as THREE from 'three'
+import gsap from 'gsap'
 import { parse, evaluate } from 'groq-js'
 import { FEATURED_WORLDS_QUERY } from '../../src/lib/queries.js'
 import { buildContentFlow } from '../../src/components/work/detail/buildContentFlow.js'
@@ -1515,6 +1516,35 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   // below level vq none of the five is evaluated
   const hOnly = judgeH([tall()])
   assert.equal(['unitColumns', 'unitRows', 'unitWarp', 'initVQ', 'unitShapes'].some((name) => name in hOnly.detail), false)
+
+  // — P6a — level live: unitLiveSplit sums the lit units (n) and the split ones over every units sample, and allows
+  // 2% of them split; chipsPerUnit bounds the most members announcing live in one unit at 1 (its n is the lit units);
+  // unitRegisterB sums the measured live members (n) and bounds texB's worst register at 1e-3. Floors 1.
+  const P6A = ['unitLiveSplit', 'chipsPerUnit', 'unitRegisterB']
+  const lit = (units = {}) => tall({ liveSplit: { n: 50, split: 0 }, chipsPerUnit: 1, registerB: { n: 100, worst: 1e-6 }, ...units })
+  const atLive = (samples, over = {}) => judgeH(samples, { level: 'live', ...over })
+  const lv = atLive([lit(), lit({ liveSplit: { n: 50, split: 2 }, registerB: { n: 20, worst: 1e-3 } })])
+  assert.deepEqual(row(lv, 'unitLiveSplit'), [true, 100, 1, 0.02, 0.02]) // 2 split of 100 lit: AT the bound passes
+  assert.deepEqual(row(lv, 'chipsPerUnit'), [true, 100, 1, 1, 1])
+  assert.deepEqual(row(lv, 'unitRegisterB'), [true, 120, 1, 1e-3, 1e-3])
+  // each fails non-vacuously just past its bound, whichever sample saw it
+  assert.ok(failsAlone(atLive([lit(), lit({ liveSplit: { n: 50, split: 3 } })]), 'unitLiveSplit')) // 3 of 100
+  assert.ok(failsAlone(atLive([lit({ liveSplit: { n: 1, split: 1 } })]), 'unitLiveSplit')) // the one lit unit, split
+  assert.ok(failsAlone(atLive([lit({ liveSplit: { n: 50, split: 1 } }), lit({ liveSplit: { n: 50, split: 2 } })]), 'unitLiveSplit')) // 1 + 2 of 100: the splits add up across samples
+  assert.ok(failsAlone(atLive([lit({ chipsPerUnit: 2 }), lit()]), 'chipsPerUnit'))
+  assert.ok(failsAlone(atLive([lit(), lit({ registerB: { n: 1, worst: 1.01e-3 } })]), 'unitRegisterB'))
+  assert.ok(failsAlone(atLive([lit({ registerB: { n: 1, worst: 1.01e-3 } }), lit()]), 'unitRegisterB'))
+  // vacuous with no lit unit (chipsPerUnit too: its n is the lit units) and no measured live member; the split
+  // share is then 0, never NaN
+  const dark = atLive([lit({ liveSplit: { n: 0, split: 0 }, chipsPerUnit: 0, registerB: { n: 0, worst: 0 } })])
+  for (const name of P6A) assert.deepEqual([dark.pass[name], dark.detail[name].vacuous], [false, true], name)
+  assert.equal(dark.detail.unitLiveSplit.worst, 0)
+  // a units sample without the P6a fields (a report from before P6a, judged at live) adds nothing to the sums
+  const before = atLive([tall(), lit()])
+  assert.deepEqual(P6A.map((name) => [before.pass[name], before.detail[name].n]), [[true, 50], [true, 50], [true, 100]])
+  // below level live none of the three is evaluated
+  const vqOnly = atVQ([lit()])
+  assert.equal(P6A.some((name) => name in vqOnly.detail), false)
 })
 
 test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
@@ -2357,22 +2387,29 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
     return { s: [u.uvScaleB.value.x, u.uvScaleB.value.y], o: [u.uvOffsetB.value.x, u.uvOffsetB.value.y] }
   }
   const pool = { assign: () => Promise.resolve(frame), releaseSlot() {} }
-  // — P4a — a unit member stays a still in tile mode and never joins a shared stream (the most prominent here).
-  const unitRec = { ...record, place: { uid: 'h:0:0:clip' }, kx: 0, ky: 0 }
-  const unitTile = Object.assign(liveTile(unitRec, 1), { asset: unitRec })
-  const live = new LivePanelScheduler({ panels: [unitTile, stale, bound], assets: [clip], poolHandle: pool, textureManager: null, cycleThumbnails: false })
+  // — P4a — a unit member stays a still in tile mode (the most prominent here). — P6a — on a shared stream its whole
+  // unit joins, through the lead: both members, each with B written on its own A.
+  const place = { uid: 'h:0:0:clip', key: assetKey(record), cls: 'h', cols: 2, rows: 1, n: 2, S: unitAspect(2, 1, SPAN_L), L: SPAN_L, members: [] }
+  const memberOf = (kx) => {
+    const rec = { ...record, place, kx, ky: 0 }
+    return Object.assign(liveTile(rec, 1), { asset: rec })
+  }
+  const unitTile = memberOf(0)
+  const partner = memberOf(1)
+  place.members.push(unitTile, partner)
+  const live = new LivePanelScheduler({ panels: [unitTile, partner, stale, bound], assets: [clip], poolHandle: pool, textureManager: null, cycleThumbnails: false })
   try {
-    assert.deepEqual([live.canJoin(bound), live.canJoin(stale), live.canJoin(unitTile)], [true, false, false])
+    assert.deepEqual([live.canJoin(bound), live.canJoin(stale), live.canJoin(unitTile), live.canJoin(partner)], [true, false, true, true])
     live.update(new THREE.Euler(), 10, null)
     await settleTicks()
-    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState], ['live', null, null])
+    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState, partner.liveState], ['live', null, null, null])
     assert.ok(err(B(bound), liveB(16 / 9, aTex, A1)) <= 1e-12)
     live.setShared(true)
     bound.mesh.material.uniforms.uvScaleB.value.set(0, 0) // attach must write it again
     live.update(new THREE.Euler(), 20, null)
     await settleTicks()
-    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState], ['live', null, null])
-    assert.ok(err(B(bound), liveB(16 / 9, aTex, A1)) <= 1e-12)
+    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState, partner.liveState], ['live', null, 'live', 'live'])
+    for (const p of [bound, unitTile, partner]) assert.ok(err(B(p), liveB(16 / 9, aTex, A1)) <= 1e-12)
   } finally {
     live.dispose()
   }
@@ -3763,6 +3800,650 @@ test('spans: unitStats measures V/Q as they render (columns, mullions, warp), an
     for (let f = 49; f >= -50; f--) frame(0.01 * f)
     assert.deepEqual([director.skewBad, director.unitSnaps], [0, 0])
     assert.ok(seen.inside >= 80 && seen.south >= 1 && seen.north >= 1, JSON.stringify(seen))
+  } finally {
+    director.dispose()
+    TUNING.units = 0
+  }
+})
+
+/* — Media spans, P6a: a unit joins and leaves its video stream as one, and shows one chip, at its centre (T24, T25;
+   T21's and T20's — P6a — lines are above). — */
+/** A class tile on the equator at z (vK 1, score z: centerDir (√(1 − z²), 0, z)) showing `asset`, its A window the
+ *  whole texture. A scroll tile (canonTop), so the grain gate applies to it. */
+function streamTile(asset, z) {
+  const v2 = (x, y) => ({ value: new THREE.Vector2(x, y) })
+  return {
+    asset,
+    shownAsset: asset,
+    panelAspect: SPAN_L.phiLen / SPAN_L.bandH,
+    parked: false,
+    swapping: false,
+    liveState: null,
+    canonTop: 0,
+    centerDir: new THREE.Vector3(Math.sqrt(1 - z * z), 0, z),
+    mesh: {
+      material: {
+        uniforms: {
+          texA: { value: { userData: { aspect: asset.tex?.aspect ?? 1 } } },
+          uvScaleA: v2(1, 1),
+          uvOffsetA: v2(0, 0),
+          uMix: { value: 0 },
+          texB: { value: null },
+          uVideoB: { value: 0 },
+          uvScaleB: v2(0, 0),
+          uvOffsetB: v2(0, 0),
+        },
+      },
+    },
+  }
+}
+/** A unit of class `cls` on `rec` (a classed clip), every member at z: each member its own record (as planUnits
+ *  makes them) and its own share of the picture in A, so each member's B is written on its own window. */
+function streamUnit(cls, rec, z, lon = 0) {
+  const { cols, rows } = UNIT_SHAPE[cls]
+  const key = assetKey(rec)
+  const P = { uid: `${cls}:${lon}:0:${key}`, key, cls, cols, rows, n: cols * rows, S: unitAspect(cols, rows, SPAN_L), L: SPAN_L, members: [] }
+  for (let k = 0; k < P.n; k++) {
+    const [kx, ky] = [k % cols, Math.floor(k / cols)]
+    const m = streamTile({ ...rec, place: P, kx, ky }, z)
+    m.mesh.material.uniforms.uvScaleA.value.set(1 / cols, 1 / rows)
+    m.mesh.material.uniforms.uvOffsetA.value.set(kx / cols, ky / rows)
+    P.members.push(m)
+  }
+  return P
+}
+/** A clip with its class texture (P3's decorate), as the pools carry it. */
+const classedClip = (playbackId, videoAspectRatio, u) => {
+  const a = { kind: 'video', playbackId, videoAspectRatio }
+  return { ...a, u, tex: texSpec(a, u, 512, SPAN_L) }
+}
+/** Every crossfade on these tiles runs to its end now, so its onComplete fires (the 'live' announce). */
+const finishFades = (panels) => {
+  for (const p of panels) for (const t of gsap.getTweensOf(p.mesh.material.uniforms.uMix)) t.progress(1)
+}
+/** A shared-mode scheduler over `panels`. The pool resolves every clip to one 854×480 frame and logs the order the
+ *  clips won slots in; `events` logs the label events as `${panel index}:${state}`; beat() is one update a quarter
+ *  second on, at the identity pose (a tile's score is its z), then the pool's resolves. */
+function sharedOver(panels) {
+  const frame = { videoWidth: 854, videoHeight: 480 }
+  const pool = {
+    assigned: [],
+    assign(slot, id) {
+      this.assigned.push(id)
+      return Promise.resolve(frame)
+    },
+    releaseSlot() {},
+  }
+  const events = []
+  const sched = new LivePanelScheduler({
+    panels,
+    assets: [{ playbackId: 'any' }],
+    poolHandle: pool,
+    textureManager: null,
+    onLiveChange: (p, state) => events.push(`${panels.indexOf(p)}:${state}`),
+    cycleThumbnails: false,
+  })
+  sched.setShared(true)
+  let now = 10
+  const beat = async () => {
+    sched.update(new THREE.Euler(), (now += 0.25), null)
+    await settleTicks()
+  }
+  return { sched, pool, events, frame, beat }
+}
+/** The probe's context for a live-level run (u-desktop's), and the units gates over one hold sample. */
+const LIVE_CTX = { key: 'u-desktop', seed: '42', units: 1, level: 'live', mode: 'tides', rm: false, t1: 512, texmb: 96, texpeak: null, record: false, baselines: {}, unitMax: 1 }
+const judgeLive = (units) => unitGates({ requests: [], samples: [{ phase: 'hold', step: 0, units }] }, LIVE_CTX)
+/** The gate fails for real: false, non-vacuous, and --expect-fail accepts it. */
+const failsFor = (g, name) => g.pass[name] === false && g.detail[name].vacuous === false && expectFail({ pass: g.pass, spans: { detail: g.detail } }, [name]).ok
+
+test('spans: joinGroup joins a whole unit or none of it, through its lead; a joint detach by uid frees it together; only the lead announces (T24)', async () => {
+  Object.assign(TUNING, POP_DEFAULTS)
+  gsap.globalTimeline.pause() // a crossfade ends when finishFades says so, never on the wall clock
+  const boards = []
+  let director = null
+  try {
+    const clip = classedClip('clip', '16:9', 'h')
+    const quad = classedClip('quad', '1:1', 'q')
+    const poleward = new THREE.Vector3(0, 0.95, Math.sqrt(1 - 0.95 ** 2)) // namePinch 0.31: under grainStart 0.45
+    const st = (p) => [p.liveState, p.liveStream?.id ?? null, p.liveUid]
+    const B = (p) => {
+      const u = p.mesh.material.uniforms
+      return { s: [u.uvScaleB.value.x, u.uvScaleB.value.y], o: [u.uvOffsetB.value.x, u.uvOffsetB.value.y] }
+    }
+    const err = (b, w) => Math.max(...[0, 1].flatMap((i) => [Math.abs(b.s[i] - w.s[i]), Math.abs(b.o[i] - w.o[i])]))
+
+    // — A — an H pair on the clip and a quad on another, each clip with a single copy too.
+    const H = streamUnit('h', clip, 0.7)
+    const Q = streamUnit('q', quad, 0.6, 4)
+    const single = streamTile(clip, 0.9)
+    const qSingle = streamTile(quad, 0.5)
+    const [h0, h1] = H.members
+    const [q0, q1, q2, q3] = Q.members
+    const panels = [h0, h1, q0, q1, q2, q3, single, qSingle]
+    const A = sharedOver(panels)
+    boards.push(A)
+    const { sched } = A
+    // A single joins alone; a unit joins through its lead, all its members; a member alone joins nothing, though
+    // it could join on its own.
+    assert.deepEqual(sched.joinGroup(single), [single])
+    assert.equal(sched.joinGroup(h0), H.members)
+    assert.equal(sched.joinGroup(q0), Q.members)
+    for (const m of [h1, q1, q2, q3]) assert.deepEqual([sched.canJoin(m), sched.joinGroup(m)], [true, null])
+    // One member that can't join keeps its whole unit off (all or none); undone, the unit joins again.
+    Object.assign(TUNING, { grainLive: 1, grainAmt: 0.5 })
+    const faults = {
+      parked: (p) => ((p.parked = true), () => (p.parked = false)),
+      'mid-swap': (p) => ((p.swapping = true), () => (p.swapping = false)),
+      'on a stream': (p) => ((p.liveState = 'pending'), () => (p.liveState = null)),
+      'under the grain': (p) => {
+        const was = p.centerDir.clone()
+        p.centerDir.copy(poleward)
+        return () => p.centerDir.copy(was)
+      },
+      'bound to another unit': (p) => {
+        const was = p.asset
+        p.asset = p.shownAsset = { ...was, place: { ...was.place, uid: `q:7:0:${Q.key}` } }
+        return () => (p.asset = p.shownAsset = was)
+      },
+      'bound to a single': (p) => {
+        const was = p.asset
+        p.asset = p.shownAsset = quad
+        return () => (p.asset = p.shownAsset = was)
+      },
+      'texA on the asset before': (p) => {
+        const was = p.shownAsset
+        p.shownAsset = quad
+        return () => (p.shownAsset = was)
+      },
+    }
+    for (const [name, fault] of Object.entries(faults)) {
+      const undo = fault(q3)
+      assert.equal(sched.joinGroup(q0), null, name)
+      undo()
+      assert.equal(sched.joinGroup(q0), Q.members, `${name}, undone`)
+    }
+    // …on the lead it keeps the unit off too, and on a single, the single.
+    for (const name of ['parked', 'mid-swap', 'on a stream', 'under the grain']) {
+      for (const p of [q0, single]) {
+        const undo = faults[name](p)
+        assert.equal(sched.joinGroup(p), null, `${name}: tile ${panels.indexOf(p)}`)
+        undo()
+      }
+    }
+
+    // The first beat: a clip scores its tiles' scores, a unit's once per member (the stream lights them all), so
+    // the quad (4 × 0.6 + 0.5 = 2.9) wins its slot before the clip (2 × 0.7 + 0.9 = 2.3); scored once per unit,
+    // the clip (1.6) would win first. Every tile joins, each unit under its uid, and each B is liveWindow's, on
+    // the tile's own A.
+    await A.beat()
+    assert.deepEqual(A.pool.assigned, ['quad', 'clip'])
+    assert.deepEqual(panels.map(st), [
+      ['live', 'clip', H.uid],
+      ['live', 'clip', H.uid],
+      ...Array(4).fill(['live', 'quad', Q.uid]),
+      ['live', 'clip', null],
+      ['live', 'quad', null],
+    ])
+    const clipS = sched.streams.get('clip')
+    const ix = (s) => [...s.panels].map((p) => panels.indexOf(p)).sort()
+    assert.deepEqual([ix(clipS), ix(sched.streams.get('quad'))], [[0, 1, 6], [2, 3, 4, 5, 7]])
+    for (const p of panels) assert.ok(err(B(p), sched.liveWindow(p, A.frame)) <= 1e-12, `tile ${panels.indexOf(p)}`)
+    assert.ok(err(B(h0), B(h1)) > 0.1 && err(B(q0), B(q3)) > 0.1) // each member on its own share of the picture
+    // One chip per unit: only the lead announces, once its crossfade completes; the singles keep theirs.
+    assert.deepEqual(A.events, [])
+    finishFades(panels)
+    assert.deepEqual([...A.events].sort(), ['0:live', '2:live', '6:live', '7:live'])
+    assert.deepEqual(
+      panels.map((p) => !!p.liveAnnounced),
+      [true, false, true, false, false, false, true, true]
+    )
+
+    // A member that leaves takes its unit with it, whichever member and whichever way (detach; dropLive: a
+    // swap's dip; notifyContentChange: a recycle). The stream plays on for the single, and the next beat rejoins
+    // the unit whole.
+    A.events.length = 0
+    for (const leave of ['detach', 'dropLive', 'notifyContentChange']) {
+      for (const who of [h1, h0]) {
+        const at = `${leave}(${panels.indexOf(who)})`
+        sched[leave](who)
+        for (const m of H.members) {
+          assert.deepEqual(st(m), [null, null, null], at)
+          assert.deepEqual([m.mesh.material.uniforms.uMix.value, m.mesh.material.uniforms.uVideoB.value], [0, 0], at)
+        }
+        assert.deepEqual([...clipS.panels], [single], at)
+        await A.beat()
+        assert.deepEqual(H.members.map(st), [['live', 'clip', H.uid], ['live', 'clip', H.uid]], `${at}: rejoined`)
+      }
+    }
+    // Parked (collapsed past a pole), a member leaves at the next update (updateShared) and takes its unit with it;
+    // the unit stays off while that member is parked, and unparked it rejoins whole.
+    for (const who of [h1, h0]) {
+      const at = `parked(${panels.indexOf(who)})`
+      who.parked = true
+      await A.beat()
+      for (const m of H.members) assert.deepEqual(st(m), [null, null, null], at)
+      assert.deepEqual([...clipS.panels], [single], at)
+      who.parked = false
+      await A.beat()
+      assert.deepEqual(H.members.map(st), [['live', 'clip', H.uid], ['live', 'clip', H.uid]], `${at}: rejoined`)
+    }
+    assert.deepEqual(A.events, ['0:off']) // the unit's one chip went off once (the rejoined unit's fade never ended)
+    // A single leaves alone.
+    sched.detach(single)
+    assert.deepEqual([st(single), st(h0), st(h1)], [[null, null, null], ['live', 'clip', H.uid], ['live', 'clip', H.uid]])
+    assert.deepEqual(A.events, ['0:off', '6:off'])
+    await A.beat()
+    assert.deepEqual(st(single), ['live', 'clip', null])
+
+    // A replan re-binds a member: its unit leaves the stream as one. Bound into another unit (led by a tile off this
+    // board), the member never joins through it, and its old partner can't join without it.
+    const stranger = streamTile(clip, 0.1)
+    const other = { ...H, uid: `h:9:0:${H.key}`, members: [stranger, h1] }
+    const rebind = (p, asset) => {
+      const was = p.asset
+      p.asset = p.shownAsset = asset
+      return was
+    }
+    const h1Rec = rebind(h1, { ...clip, place: other, kx: 1, ky: 0 })
+    await A.beat()
+    assert.deepEqual([st(h0), st(h1), st(single)], [[null, null, null], [null, null, null], ['live', 'clip', null]])
+    rebind(h1, h1Rec)
+    await A.beat()
+    assert.deepEqual(H.members.map(st), [['live', 'clip', H.uid], ['live', 'clip', H.uid]])
+    // Bound to the clip as a single, it leaves its unit and joins alone; bound back, it leaves alone and its unit
+    // rejoins whole.
+    rebind(h1, clip)
+    await A.beat()
+    assert.deepEqual([st(h0), st(h1)], [[null, null, null], ['live', 'clip', null]])
+    rebind(h1, h1Rec)
+    await A.beat()
+    assert.deepEqual(H.members.map(st), [['live', 'clip', H.uid], ['live', 'clip', H.uid]])
+    // A load in flight re-binds the asset first (texA still shows the record): the unit leaves all the same, at the
+    // next update, and its partner can't join without it. The load undone, the unit rejoins whole.
+    h1.asset = { ...clip, place: other, kx: 1, ky: 0 }
+    await A.beat()
+    assert.deepEqual([st(h0), st(h1)], [[null, null, null], [null, null, null]])
+    h1.asset = h1Rec
+    await A.beat()
+    assert.deepEqual(H.members.map(st), [['live', 'clip', H.uid], ['live', 'clip', H.uid]])
+    // A single bound into a unit leaves; bound back, it rejoins as a single.
+    const sRec = rebind(single, { ...clip, place: { ...other, uid: `h:10:0:${H.key}`, members: [stranger, single] }, kx: 1, ky: 0 })
+    await A.beat()
+    assert.deepEqual(st(single), [null, null, null])
+    rebind(single, sRec)
+    await A.beat()
+    assert.deepEqual(st(single), ['live', 'clip', null])
+    // A single on a clip with no class texture may join while its tile still shows the record it held before (canJoin
+    // lets it): it joins as what it is bound to — a single, liveUid null, with its own chip — even when that shown
+    // record was a unit member's.
+    sched.detach(single)
+    const sHeld = rebind(single, { ...clip, place: H, kx: 0, ky: 0 })
+    single.asset = { kind: 'video', playbackId: 'clip', videoAspectRatio: '16:9' }
+    A.events.length = 0
+    await A.beat()
+    assert.deepEqual(st(single), ['live', 'clip', null])
+    finishFades([single])
+    assert.deepEqual(A.events, ['6:live'])
+    rebind(single, sHeld)
+    // The member count is a factor of the promote score: with the quad's tiles low (4 × 0.2 + 0.2 = 1.0), the clip
+    // (2.3) wins its slot first. Added instead (score + members), the quad (4.2 + 1.2 = 5.4) would beat the clip
+    // (2.7 + 1.9 = 4.6).
+    const Hw = streamUnit('h', clip, 0.7)
+    const Qw = streamUnit('q', quad, 0.2, 4)
+    const Wb = sharedOver([...Hw.members, ...Qw.members, streamTile(clip, 0.9), streamTile(quad, 0.2)])
+    boards.push(Wb)
+    await Wb.beat()
+    assert.deepEqual(Wb.pool.assigned, ['clip', 'quad'])
+
+    // — B — a quad with one member under the grain stays a still, whole: it neither scores nor joins, while its
+    // clip's single plays. Scored per member it would win the first slot (3 × 0.8 + 0.3 = 2.7 against 2.3);
+    // joined per member it would play three quarters of its picture.
+    const Hb = streamUnit('h', clip, 0.7)
+    const Qb = streamUnit('q', quad, 0.8, 4)
+    const sB = streamTile(clip, 0.9)
+    const qsB = streamTile(quad, 0.3)
+    Qb.members[3].centerDir.copy(poleward)
+    const b = sharedOver([...Hb.members, ...Qb.members, sB, qsB])
+    boards.push(b)
+    await b.beat()
+    assert.deepEqual(b.pool.assigned, ['clip', 'quad']) // the clip 2 × 0.7 + 0.9 = 2.3; the quad's single alone, 0.3
+    await b.beat()
+    assert.deepEqual([...Hb.members, ...Qb.members, sB, qsB].map((p) => p.liveState), ['live', 'live', null, null, null, null, 'live', 'live'])
+    // NC: joined per member (each member that can, alone), the quad splits: three members play, one stays a still.
+    const split = (P) => P.members.some((m) => m.liveStream) && !P.members.every((m) => m.liveStream === P.members[0].liveStream && m.liveUid === P.uid)
+    for (const m of Qb.members) if (b.sched.canJoin(m)) b.sched.attach(m, b.sched.streams.get('quad'))
+    assert.deepEqual(Qb.members.map((m) => m.liveState), ['live', 'live', 'live', null])
+    assert.deepEqual([split(Qb), split(Hb)], [true, false])
+
+    // — C — on the director's board (H pairs; no horizon), every lit unit plays whole on one stream under its uid,
+    // with one chip and texB registered, and the live gates pass; each split, they fail.
+    const box = {}
+    director = unitDirector({}, { getScheduler: () => box.sched }).director
+    const tiles = director.panels
+    director.initialLayout(director.byProminence())
+    const c = sharedOver(tiles)
+    boards.push(c)
+    box.sched = c.sched
+    for (let i = 0; i < 4; i++) await c.beat()
+    const units = [...placesOf(tiles).keys()].filter((P) => director.wholeUnit(P))
+    const lit = units.filter((P) => P.members.some((m) => m.liveStream))
+    assert.ok(lit.length >= 2 && lit.length < 50, `${lit.length} lit of ${units.length}`) // one split unit is over 2%
+    for (const P of lit) assert.ok(P.members.every((m) => m.liveState === 'live' && m.liveStream === P.members[0].liveStream && m.liveUid === P.uid), P.uid)
+    const litMembers = lit.reduce((n, P) => n + P.n, 0)
+    const stats = () => director.unitStats(0)
+    assert.deepEqual([stats().liveSplit, stats().registerB, stats().chipsPerUnit], [{ n: lit.length, split: 0 }, { n: litMembers, worst: 0 }, 0])
+    finishFades(tiles)
+    assert.equal(stats().chipsPerUnit, 1)
+    const g = judgeLive(stats())
+    assert.deepEqual(
+      ['unitLiveSplit', 'chipsPerUnit', 'unitRegisterB'].map((name) => [g.pass[name], g.detail[name].n]),
+      [[true, lit.length], [true, lit.length], [true, litMembers]]
+    )
+    const [P, T] = lit
+    const [lead, m1] = P.members
+    // NC: a member announcing too: two chips on one unit.
+    c.sched.announceLive(m1)
+    assert.equal(stats().chipsPerUnit, 2)
+    assert.ok(failsFor(judgeLive(stats()), 'chipsPerUnit'))
+    c.sched.announceOff(m1)
+    // NC: a member joined under no unit or another unit's uid, or on another stream under the unit's uid: the unit is
+    // split.
+    m1.liveUid = null
+    assert.deepEqual(stats().liveSplit, { n: lit.length, split: 1 })
+    m1.liveUid = `h:99:0:${P.key}`
+    assert.deepEqual(stats().liveSplit, { n: lit.length, split: 1 })
+    m1.liveUid = P.uid
+    const s0 = lead.liveStream
+    m1.liveStream = [...c.sched.streams.values()].find((s) => s !== s0)
+    assert.deepEqual(stats().liveSplit, { n: lit.length, split: 1 })
+    m1.liveStream = s0
+    assert.deepEqual(stats().liveSplit, { n: lit.length, split: 0 })
+    // A torn unit (a member re-bound to a single) is not judged: it drops out of every count.
+    const tRec = T.members[1].shownAsset
+    loadTile(director, T.members[1], { kind: 'video', playbackId: 'stray' })
+    assert.deepEqual([stats().liveSplit, stats().registerB.n], [{ n: lit.length - 1, split: 0 }, litMembers - T.n])
+    loadTile(director, T.members[1], tRec)
+    assert.deepEqual([stats().liveSplit, stats().registerB.n], [{ n: lit.length, split: 0 }, litMembers])
+    // NC (T24's): one member mid-swap and the unit joined per member: the unit splits, and unitLiveSplit fails for
+    // real. joinGroup refuses the same unit whole.
+    c.sched.detach(lead)
+    assert.ok(P.members.every((m) => !m.liveStream))
+    m1.swapping = true
+    assert.equal(c.sched.joinGroup(lead), null)
+    for (const m of P.members) if (c.sched.canJoin(m)) c.sched.attach(m, s0)
+    assert.deepEqual(stats().liveSplit, { n: lit.length, split: 1 })
+    assert.ok(failsFor(judgeLive(stats()), 'unitLiveSplit'), JSON.stringify(judgeLive(stats()).detail.unitLiveSplit))
+  } finally {
+    for (const { sched } of boards) sched.dispose()
+    director?.dispose()
+    gsap.globalTimeline.resume()
+    Object.assign(TUNING, POP_DEFAULTS)
+  }
+})
+
+test('spans: the lead carries its unit’s centre for the chip; place() re-derives a live member’s B from this frame’s A, every frame (T25)', () => {
+  // Units off: no tile carries a centre, so every chip anchors at its own tile's, as today.
+  const { director: plain } = spanDirector(0)
+  try {
+    plain.initialLayout(plain.byProminence())
+    plain.place()
+    assert.ok(plain.panels.every((p) => p.unitCentre == null))
+  } finally {
+    plain.dispose()
+  }
+
+  const { director, panels } = unitDirector({}, { getHorizon: () => Math.PI })
+  try {
+    director.initialLayout(director.byProminence())
+    director.place()
+    const units = [...placesOf(panels).keys()]
+    assert.ok(units.every((P) => director.wholeUnit(P)) && units.some((P) => P.cls === 'h') && units.some((P) => P.cls === 'q'), JSON.stringify(director.placed))
+    const sumDir = (P) => P.members.reduce((v, m) => v.add(m.centerDir), new THREE.Vector3()).normalize()
+    const centred = (P, msg = P.uid) => near(P.members[0].unitCentre.toArray(), sumDir(P).toArray(), 1e-12, msg)
+    // The lead carries unitCentre: the normalized sum of its members' centres, in a vector it keeps (none is
+    // allocated per frame). No other tile has one, so its chip anchors at its own centre (HeroLabels.dirOf).
+    for (const P of units) {
+      centred(P)
+      assert.equal(P.members[0].unitCentre, P.members[0]._uc, P.uid)
+      // NC: the lead's own centre is not the unit's: it sits half a pitch or more away.
+      assert.ok(P.members[0].centerDir.angleTo(P.members[0].unitCentre) > 0.05, P.uid)
+    }
+    const leads = new Set(units.map((P) => P.members[0]))
+    assert.ok(panels.every((p) => leads.has(p) || p.unitCentre == null))
+    // An H pair's centre is the bisector: as far from one member as from the other.
+    for (const P of units.filter((P) => P.cls === 'h')) {
+      const [a, b] = P.members.map((m) => m.centerDir.angleTo(P.members[0].unitCentre))
+      near(a, b, 1e-12, P.uid)
+    }
+    // It follows the rows, frame after frame, in the same vector.
+    const kept = units.map((P) => P.members[0]._uc)
+    shiftRows(panels, 0.05)
+    director.place()
+    const whole = units.filter((P) => director.wholeUnit(P))
+    assert.ok(whole.length >= units.length - 2, `${whole.length} of ${units.length}`)
+    for (const P of whole) centred(P, `${P.uid} after the scroll`)
+    units.forEach((P, i) => assert.equal(P.members[0]._uc, kept[i], P.uid))
+    // A torn unit has none (its lead's chip falls back to the lead's own centre), nor has one with a member parked;
+    // whole again, the next frame gives it back.
+    const [P0] = whole
+    const [lead0, mem1] = P0.members
+    const rec1 = mem1.shownAsset
+    loadTile(director, mem1, { kind: 'video', playbackId: 'stray' })
+    director.place()
+    assert.equal(lead0.unitCentre, null)
+    loadTile(director, mem1, rec1)
+    director.place()
+    centred(P0)
+    mem1.parked = true
+    director.place()
+    assert.equal(lead0.unitCentre, null)
+    mem1.parked = false
+    director.place()
+    centred(P0)
+    // A fresh bind clears it (loadTile); the next frame's place() derives it again.
+    loadTile(director, lead0, lead0.shownAsset)
+    assert.equal(lead0.unitCentre, null)
+    director.place()
+    centred(P0)
+    // Re-bound to a single, the lead keeps none: place() visits only unit records, so the bind alone clears it.
+    const rec0 = lead0.shownAsset
+    loadTile(director, lead0, { kind: 'video', playbackId: 'stray' })
+    director.place()
+    assert.equal(lead0.unitCentre, null)
+    loadTile(director, lead0, rec0)
+    director.place()
+    centred(P0)
+
+    // HeroLabels anchors every chip through dirOf (the unit's centre when the tile has one, else its own) at all
+    // three reads: the facing test, the pick-time projection and the per-frame anchor. Each read is one whole code
+    // line, found once; no code line reads panel.centerDir any more.
+    const labels = fs.readFileSync(new URL('../../src/components/hero/HeroLabels.jsx', import.meta.url), 'utf8').split('\n').map((l) => l.trim())
+    const once = (match, what) => assert.equal(labels.filter(match).length, 1, what)
+    once((l) => l.startsWith('const dirOf = (p) => p.unitCentre || p.centerDir;'), 'dirOf')
+    for (const s of [
+      'vNormal.copy(dirOf(panel)).transformDirection(f.globeGroup.matrixWorld);',
+      'vProj.copy(dirOf(panel)).multiplyScalar(RADIUS);',
+      'vAnchor.copy(dirOf(panel)).multiplyScalar(RADIUS);',
+    ])
+      once((l) => l === s, s)
+    assert.deepEqual(labels.filter((l) => l.includes('panel.centerDir') && !l.startsWith('*') && !l.startsWith('//')), [])
+
+    // texB rides texA: on a live or demoting member, place() writes B = liveB(V, aTex, A) from the A it has just
+    // written, V the clip's metadata ratio (the decoded frame only when that won't parse), every frame.
+    shiftRows(panels, 0)
+    director.place()
+    const Hc = units.find((P) => P.cls === 'h' && P.key.includes('-h') && director.wholeUnit(P))
+    const Qc = units.find((P) => P.cls === 'q' && director.wholeUnit(P))
+    assert.ok(Hc && Qc && Hc.members[0].shownAsset.videoAspectRatio === '16:9' && Qc.members[0].shownAsset.videoAspectRatio === '1:1')
+    const frames = new Map([
+      [Hc, { videoWidth: 854, videoHeight: 480 }],
+      [Qc, { videoWidth: 480, videoHeight: 480 }],
+    ])
+    const lightUp = (P, liveState) => {
+      const stream = { video: frames.get(P) } // one stream per unit, as the scheduler's
+      for (const m of P.members) Object.assign(m, { liveStream: stream, liveUid: P.uid, liveState })
+    }
+    lightUp(Hc, 'live')
+    lightUp(Qc, 'demoting')
+    const litM = [...Hc.members, ...Qc.members]
+    const Bof = (p) => {
+      const u = p.mesh.material.uniforms
+      return [u.uvScaleB.value.x, u.uvScaleB.value.y, u.uvOffsetB.value.x, u.uvOffsetB.value.y]
+    }
+    const setB = (p, v) => {
+      const u = p.mesh.material.uniforms
+      u.uvScaleB.value.set(v[0], v[1])
+      u.uvOffsetB.value.set(v[2], v[3])
+    }
+    /** The B a member owes: liveB over the A and the texture aspect its uniforms hold. */
+    const owedB = (p, V = pictureAspect(p.shownAsset, p.liveStream.video), aTex = p.mesh.material.uniforms.texA.value.userData.aspect) => {
+      const u = p.mesh.material.uniforms
+      const b = liveB(V, aTex, { s: [u.uvScaleA.value.x, u.uvScaleA.value.y], o: [u.uvOffsetA.value.x, u.uvOffsetA.value.y] })
+      return [...b.s, ...b.o]
+    }
+    const gap = (x, y) => Math.max(...x.map((v, i) => Math.abs(v - y[i])))
+    const SENT = [0.123, 0.456, 0.789, 0.012]
+    for (const m of litM) setB(m, SENT)
+    director.place()
+    for (const m of litM) assert.deepEqual(Bof(m), owedB(m), `${m.shownAsset.place.uid} ${m.liveState}`)
+    // Mux's ratio, not the decoded frame: on 854×480 instead of 16:9 the H pair's B would be off by over 1e-5.
+    assert.ok(Math.max(...Hc.members.map((m) => gap(Bof(m), owedB(m, 854 / 480)))) > 1e-5)
+    assert.deepEqual([director.unitStats(0).liveSplit, director.unitStats(0).registerB], [{ n: 2, split: 0 }, { n: litM.length, worst: 0 }])
+    // The rows move: place() re-derives each B from the new A. NC: the B of the frame before misregisters by more
+    // than 1e-3, and unitRegisterB fails on it for real; the next place() puts it right.
+    const before = new Map(litM.map((m) => [m, Bof(m)]))
+    shiftRows(panels, 0.1)
+    director.place()
+    assert.ok(director.wholeUnit(Hc) && director.wholeUnit(Qc))
+    for (const m of litM) assert.deepEqual(Bof(m), owedB(m), `${m.shownAsset.place.uid} after the scroll`)
+    const stale = Math.max(...litM.map((m) => gap(before.get(m), owedB(m))))
+    assert.ok(stale > 1e-3, `${stale}`)
+    for (const m of litM) setB(m, before.get(m))
+    const staleB = director.unitStats(0).registerB
+    assert.ok(staleB.n === litM.length && staleB.worst > 1e-3, JSON.stringify(staleB))
+    assert.ok(failsFor(judgeLive(director.unitStats(0)), 'unitRegisterB'))
+    director.place()
+    assert.deepEqual(director.unitStats(0).registerB, { n: litM.length, worst: 0 })
+    // A 1e-9 dead-band, as A's: B 5e-10 off on one component is left alone; 2e-9 off on any one is rewritten.
+    const [hm] = Hc.members
+    const owedNow = owedB(hm)
+    for (let i = 0; i < 4; i++) {
+      for (const [d, kept] of [
+        [5e-10, true],
+        [2e-9, false],
+      ]) {
+        const v = [...owedNow]
+        v[i] += d
+        setB(hm, v)
+        director.place()
+        assert.deepEqual(Bof(hm), kept ? v : owedNow, `component ${i}, ${d} off`)
+      }
+    }
+    // Only a live or demoting member with a stream that has its <video> is written: a pending one, an idle one, one
+    // whose stream has no video yet, one with no stream, a parked one, and a single on a stream keep their B.
+    const single = panels.find((p) => !p.shownAsset?.place && p.shownAsset?.playbackId && !p.parked)
+    const guards = [
+      ['pending', hm, (p) => (p.liveState = 'pending')],
+      ['idle', hm, (p) => (p.liveState = null)],
+      ['no video yet', hm, (p) => (p.liveStream = { video: null })],
+      ['no stream', hm, (p) => (p.liveStream = null)],
+      ['parked', hm, (p) => (p.parked = true)],
+      ['a single', single, (p) => Object.assign(p, { liveStream: { video: frames.get(Hc) }, liveState: 'live' })],
+    ]
+    for (const [name, p, fault] of guards) {
+      shiftRows(panels, 0.12) // a pose that owes a new B (it re-poses parked too, so the fault comes after it)
+      const was = { liveState: p.liveState, liveStream: p.liveStream, parked: p.parked }
+      fault(p)
+      setB(p, SENT)
+      director.place()
+      assert.deepEqual(Bof(p), SENT, name)
+      Object.assign(p, was)
+      shiftRows(panels, 0.1)
+      director.place()
+    }
+    // B reads the bound texture's MEASURED aspect, as A does. Re-measured at 1.8, place() moves A, and B = C ∘ A
+    // stays on the picture (texA's crop C = cover(V, aTex) and A's cover(aTex, S) both crop v here, so they compose
+    // to cover(V, S) whatever aTex is: B holds to float error, inside its dead-band) and the register reads 0. NC:
+    // C on the record's aspect over the new A would be off by more than 1e-4.
+    const tex = hm.mesh.material.uniforms.texA.value
+    const measured = tex.userData.aspect
+    const A0 = windowOf(hm)
+    tex.userData.aspect = 1.8
+    director.place()
+    assert.ok(gap(windowOf(hm), A0) > 1e-3, `A ${windowOf(hm)} vs ${A0}`)
+    for (const m of Hc.members) near(Bof(m), owedB(m), 1e-12, 'at 1.8')
+    assert.ok(gap(Bof(hm), owedB(hm, undefined, hm.shownAsset.tex.aspect)) > 1e-4)
+    assert.deepEqual(director.unitStats(0).registerB, { n: litM.length, worst: 0 })
+    tex.userData.aspect = measured
+    director.place()
+
+    // unitStats.registerB: over the live members of whole units, |B − liveB(V, aTex, A)| off the uniforms, to 1e-9.
+    // A member whose stream has decoded no frame yet is skipped; so is a torn unit; a member 4e-10 off reads 0.
+    const qm = Qc.members[3]
+    const qs = qm.liveStream
+    qm.liveStream = { video: { videoWidth: 0, videoHeight: 0 } }
+    assert.equal(director.unitStats(0).registerB.n, litM.length - 1)
+    qm.liveStream = qs
+    const qRec = Qc.members[1].shownAsset
+    loadTile(director, Qc.members[1], { kind: 'video', playbackId: 'stray' })
+    assert.deepEqual([director.unitStats(0).liveSplit, director.unitStats(0).registerB], [{ n: 1, split: 0 }, { n: Hc.n, worst: 0 }])
+    loadTile(director, Qc.members[1], qRec)
+    assert.deepEqual(director.unitStats(0).registerB, { n: litM.length, worst: 0 })
+    const v = owedB(hm)
+    v[2] += 4e-10
+    setB(hm, v)
+    assert.equal(director.unitStats(0).registerB.worst, 0)
+    v[2] += 2e-9
+    setB(hm, v)
+    assert.equal(director.unitStats(0).registerB.worst, 2e-9)
+
+    // A member re-dealt to a clip with no class texture may join that clip's stream before its load lands (canJoin
+    // lets a single-only asset join while texA still shows the record): it joins as a single, liveUid null, on
+    // attach's single cover. place() leaves that B alone while the tile still shows the unit's record, and after the
+    // bind; registerB skips it, and the unit counts as split. A copy under another unit's uid is left alone too.
+    // NC: the unit's B for that tile (the record's picture through its member window) is another crop, over 0.1 off.
+    gsap.globalTimeline.pause() // attach's crossfade never completes here
+    const box = {}
+    const { director: d } = unitDirector({}, { getScheduler: () => box.sched })
+    const c = sharedOver(d.panels)
+    box.sched = c.sched
+    try {
+      d.initialLayout(d.byProminence())
+      d.place()
+      const Pm = [...placesOf(d.panels).keys()].find((Q) => d.wholeUnit(Q))
+      const m = Pm.members[1]
+      const video = { videoWidth: 640, videoHeight: 800 }
+      const stream = { id: 'bare', slot: 0, state: 'live', texture: { isTexture: true, dispose() {} }, video, panels: new Set(), since: 0, maxDwell: 99 }
+      c.sched.streams.set('bare', stream)
+      const bare = { kind: 'video', playbackId: 'bare', videoAspectRatio: '4:5' }
+      m.asset = bare // loadTile's first step; texA still shows the record while the texture loads
+      m.swapping = false // the swap envelope ended before the load did (or the change was a cut)
+      assert.deepEqual(c.sched.joinGroup(m), [m])
+      c.sched.attach(m, stream)
+      const lw = c.sched.liveWindow(m, video)
+      const cover = [...lw.s, ...lw.o]
+      assert.deepEqual([m.liveUid, Bof(m)], [null, cover])
+      d.place()
+      assert.deepEqual(Bof(m), cover)
+      assert.ok(gap(owedB(m), cover) > 0.1, `${owedB(m)} vs ${cover}`)
+      assert.deepEqual([d.unitStats(0).liveSplit, d.unitStats(0).registerB.n], [{ n: 1, split: 1 }, 0])
+      m.liveUid = `h:99:0:${Pm.key}` // joined as another unit, its bind landed before the update that frees it
+      setB(m, SENT)
+      d.place()
+      assert.deepEqual(Bof(m), SENT)
+      assert.equal(d.unitStats(0).registerB.n, 0)
+      m.liveUid = null
+      setB(m, cover)
+      // The load lands: the tile is a single, place() no longer visits it, and its B is still the single's cover.
+      loadTile(d, m, bare)
+      d.place()
+      assert.deepEqual(Bof(m), cover)
+    } finally {
+      c.sched.dispose()
+      d.dispose()
+      gsap.globalTimeline.resume()
+    }
   } finally {
     director.dispose()
     TUNING.units = 0

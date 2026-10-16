@@ -222,6 +222,18 @@ export function unitGates(report, ctx) {
   gate(out, 'initVQ', { n: U.length, ok: initVQ === 0 && initPosed === 0, worst: initVQ, bound: 0, initPosed });
   const placed = U.at(-1)?.units.placed ?? { h: 0, v: 0, q: 0 };
   gate(out, 'unitShapes', { n: Math.min(placed.h, placed.v + placed.q), ok: true, placed });
+
+  // — P6a — live: one stream and one chip per unit; texB registers on whole live units.
+  if (!at(ctx, 'live')) return out;
+  const split = U.map((s) => s.units.liveSplit).filter(Boolean);
+  const litN = sum(split.map((x) => x.n));
+  const splitN = sum(split.map((x) => x.split));
+  gate(out, 'unitLiveSplit', { n: litN, ok: splitN <= 0.02 * litN, worst: litN ? splitN / litN : 0, bound: 0.02 });
+  const chips = max(U.map((s) => s.units.chipsPerUnit ?? 0));
+  gate(out, 'chipsPerUnit', { n: litN, ok: chips <= 1, worst: chips, bound: 1 });
+  const regB = U.map((s) => s.units.registerB).filter(Boolean);
+  const regBW = max(regB.map((x) => x.worst));
+  gate(out, 'unitRegisterB', { n: sum(regB.map((x) => x.n)), ok: regBW <= 1e-3, worst: regBW, bound: 1e-3 });
   return out;
 }
 

@@ -75,6 +75,7 @@ export function loadTile(owner, panel, asset, onBound = null) {
     // the director's plan or MeridianScroll's born pair. The hook reads only panel and asset.
     if (asset.place) panel._skewTheta = Math.acos(Math.min(Math.max(panel.centerDir.y, -1), 1));
     panel._bound = asset; // place() counts any unit record shown without this bind (snaps, gated 0)
+    panel.unitCentre = null; // a fresh bind re-derives it next frame (place)
     panel.shownAsset = asset; // what texA shows (panel.asset leads it while a load is in flight)
     // Release what this tile WAS showing (already ref-bumped above, so a
     // same-key reload can never dip to 0), then take ownership.
