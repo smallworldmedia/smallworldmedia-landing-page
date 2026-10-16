@@ -24,6 +24,9 @@ export const LEVELS = ['off', 'tex', 'h', 'vq', 'live', 'tier'];
 const at = (ctx, level) => LEVELS.indexOf(ctx.level) >= LEVELS.indexOf(level);
 const max = (xs) => xs.reduce((m, x) => (x > m ? x : m), 0);
 const sum = (xs) => xs.reduce((a, x) => a + x, 0);
+// — P7 — max() skips null and NaN, and a NaN reaches report.json as null. The P4b gates take their worst through
+// this instead: one non-finite value (or a missing counter) makes the worst null, and the gate's finite check fails it.
+const finiteMax = (xs) => (xs.every((x) => Number.isFinite(x)) ? max(xs) : null);
 
 /** One gate: pass = non-vacuous && ok. A report-only gate is recorded in detail, never in pass. */
 function gate(out, name, { n, floor = 1, ok, worst = null, bound = null, reportOnly = false, ...extra }) {
@@ -192,17 +195,17 @@ export function unitGates(report, ctx) {
     });
   }
 
-  // — P4b — h: what the units render.
+  // — P4b — h: what the units render. (P7: each worst must be finite, so a null or NaN fails its gate.)
   const seam = U.map((s) => s.units.seam).filter(Boolean);
-  const seamW = max(seam.map((x) => x.worst));
-  gate(out, 'unitSeam', { n: sum(seam.map((x) => x.n)), floor: 20, ok: seamW <= 1e-4, worst: seamW, bound: 1e-4 });
+  const seamW = finiteMax(seam.map((x) => x.worst));
+  gate(out, 'unitSeam', { n: sum(seam.map((x) => x.n)), floor: 20, ok: Number.isFinite(seamW) && seamW <= 1e-4, worst: seamW, bound: 1e-4 });
   const reg = U.map((s) => s.units.register).filter(Boolean);
-  const regW = max(reg.map((x) => x.worst));
-  gate(out, 'unitRegister', { n: sum(reg.map((x) => x.n)), floor: 20, ok: regW <= 5e-6, worst: regW, bound: 5e-6 });
-  const snaps = max(U.map((s) => s.units.snaps ?? 0));
-  gate(out, 'snaps', { n: U.length, ok: snaps === 0, worst: snaps, bound: 0 });
-  const skewBad = max(U.map((s) => s.units.skewBad ?? 0));
-  gate(out, 'skew', { n: max(U.map((s) => s.units.skewChecks ?? 0)), floor: 20, ok: skewBad === 0, worst: skewBad, bound: 0 });
+  const regW = finiteMax(reg.map((x) => x.worst));
+  gate(out, 'unitRegister', { n: sum(reg.map((x) => x.n)), floor: 20, ok: Number.isFinite(regW) && regW <= 5e-6, worst: regW, bound: 5e-6 });
+  const snaps = finiteMax(U.map((s) => s.units.snaps));
+  gate(out, 'snaps', { n: U.length, ok: Number.isFinite(snaps) && snaps === 0, worst: snaps, bound: 0 });
+  const skewBad = finiteMax(U.map((s) => s.units.skewBad));
+  gate(out, 'skew', { n: max(U.map((s) => s.units.skewChecks ?? 0)), floor: 20, ok: Number.isFinite(skewBad) && skewBad === 0, worst: skewBad, bound: 0 });
 
   // — P5 — vq: columns across the row seam, the row mullion, warp inside ε, no V/Q at the first reveal.
   if (!at(ctx, 'vq')) return out;
@@ -256,6 +259,24 @@ export function unitGates(report, ctx) {
     bound: ctx.densitymax ?? 'max(2, pinShort / r1)',
   });
   return out;
+}
+
+/** — P7 — darkThumbs (report-only, Nathan's Q12): is a class texture near-black (luma mean < 16) or flat
+ *  (sd < 6), on the 0–255 scale? `px` holds raw greyscale pixels, as the probe's sharp
+ *  .greyscale().raw() gives them; with `channels` > 1, the other bytes of each pixel (alpha) are skipped.
+ *  Returns { mean, sd } to one decimal when the texture is listed, else null. No gate reads it. */
+export function darkThumb(px, channels = 1) {
+  let n = 0;
+  let s = 0;
+  let s2 = 0;
+  for (let i = 0; i < px.length; i += channels) {
+    s += px[i];
+    s2 += px[i] * px[i];
+    n += 1;
+  }
+  const mean = s / n; // no pixel: NaN, which is never listed
+  const sd = Math.sqrt(s2 / n - mean * mean);
+  return mean < 16 || sd < 6 ? { mean: Math.round(mean * 10) / 10, sd: Math.round(sd * 10) / 10 } : null;
 }
 
 /** A run's baseline record: what --record-baseline stores under its key. */

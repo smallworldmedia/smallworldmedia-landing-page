@@ -16,6 +16,12 @@
  *
  * --dsf=N: the context's device scale factor (default desktop 1, --mobile 2); the globe renders at min(N, GLOBE_DPR_MAX). u-hidpi runs at 2, the phonehd keys at 3
  *
+ * P7, all report-only (no gate reads them): report.argv (this run's arguments), report.negctl (--negctl as
+ * resolved: false, true, 'bind' or 'pin') and report.darkThumbs, Nathan's Q12 list: every class texture home
+ * received that is near-black or flat (unitGates.darkThumb: luma mean < 16 or sd < 6 on 0–255), as
+ * { id, cls, w, h, mean, sd }, measured from the bytes already received (no new request) on sharp's raw
+ * greyscale pixels. report.darkThumbsScan { measured, failed } counts the class textures read.
+ *
  * --base and --out also read GLOBE_PROBE_BASE / GLOBE_PROBE_OUT, for a pinned
  * verifier command that carries no flags (GLOBE_PROBE_OUT is the PARENT of the
  * per-run folder, so one setting serves every variant of a run).
@@ -149,7 +155,8 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS } from '../src/components/work/imageConfig.js';
 import { netBucket, netReport, masterId, LOOP_SAMPLE_MS, LOOP_END_S } from './lib/netReport.mjs';
-import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline } from './lib/unitGates.mjs';
+import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, darkThumb } from './lib/unitGates.mjs';
+import sharp from 'sharp';
 
 const require = createRequire(import.meta.url);
 // Playwright is not a project dependency — pager-probe's PLAYWRIGHT_PATH rule.
@@ -314,7 +321,7 @@ const save = () => {
   fs.writeFileSync(file, JSON.stringify(report, null, 1) + '\n');
   console.error(`globe-probe: report → ${file}`);
 };
-const report = { url: URL_, viewport: [VW, VH], dsf: DSF, mobile: MOBILE, rm: RM, samples: [], shots: [], consoleErrors: [], pageErrors: [], imageFailures: [] };
+const report = { url: URL_, argv: process.argv.slice(2), negctl: NEGCTL, viewport: [VW, VH], dsf: DSF, mobile: MOBILE, rm: RM, samples: [], shots: [], consoleErrors: [], pageErrors: [], imageFailures: [] };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function waitServer() {
@@ -992,6 +999,7 @@ function footerPass(f) {
   // master and rendition playlist bodies are kept for netReport.
   const asked = new WeakMap();
   const net = { log: [], bodies: [], pending: [] };
+  const dark = { seen: new Set(), list: [], measured: 0, failed: 0 }; // — P7 — report.darkThumbs
   page.on('request', (r) => asked.set(r, { url: r.url(), route: new URL(page.url()).pathname }));
   const onNetEnd = (failed) => (r) => {
     const bucket = netBucket(r.url());
@@ -1006,6 +1014,20 @@ function footerPass(f) {
         if (!failed && (bucket === 'mux-master' || bucket === 'mux-playlist')) {
           const res = await r.response();
           net.bodies.push({ ...e, body: res ? await res.text().catch(() => '') : '' });
+        }
+        // — P7 — darkThumbs (report-only; Q12): each class texture home received, measured from the bytes the
+        // page already has (no new request), on sharp's raw greyscale pixels (never .stats() after another op).
+        const c = !failed && route === '/' && (bucket === 'mux-thumb' || bucket === 'sanity-image') ? classifyRequest(e.asked, GATE_CTX.t1) : null;
+        if (c?.kind === 'class' && !dark.seen.has(e.asked)) {
+          dark.seen.add(e.asked);
+          try {
+            const { data, info } = await sharp(await (await r.response()).body()).greyscale().raw().toBuffer({ resolveWithObject: true });
+            dark.measured += 1;
+            const d = darkThumb(data, info.channels);
+            if (d) dark.list.push({ id: c.id, cls: c.shape, w: info.width, h: info.height, ...d });
+          } catch {
+            dark.failed += 1;
+          }
         }
       })().catch(() => {}) // a request still in flight at close is dropped, never fatal
     );
@@ -1443,6 +1465,8 @@ function footerPass(f) {
   // Media spans (scripts/lib/unitGates.mjs): mode off → the request gates only.
   // detail[gate] = { n, floor, vacuous, worst, bound }: --expect-fail accepts only a non-vacuous false.
   report.requests = report.net.log.filter((e) => e.route === '/' && ['mux-thumb', 'sanity-image', 'mux-master'].includes(e.bucket)).map((e) => e.asked); // §8.2
+  report.darkThumbs = dark.list; // — P7 — report-only: no gate reads it
+  report.darkThumbsScan = { measured: dark.measured, failed: dark.failed };
   const spans = unitGates(report, GATE_CTX);
   Object.assign(report.pass, spans.pass);
   report.spans = { key: GATE_CTX.key, level: LEVEL, asked: LEVEL_ASKED, units: UNITS, detail: spans.detail };

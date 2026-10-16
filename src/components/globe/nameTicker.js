@@ -45,7 +45,7 @@ export const NAME_QUADS = ['LL', 'UR', 'UL', 'LR'];
 
 const FACE = '"OT Neue Montreal Squeezed"'; // .fp-card__client (--font-display)
 const WEIGHT = 600;
-const STRIP_H = NAME_STRIP_H; // px — the strip's height (a tile's texture scale): 256 at the old default pixel-ratio cap, scaled by the ratio the canvas actually renders at so the names keep their texel density on a full-res canvas (a DSF-3 phone draws 512, a DSF-2 phone 341) — derived in globeConfig.js beside GLOBE_DPR_MAX
+export const STRIP_H = NAME_STRIP_H; // px — the strip's height (a tile's texture scale): 256 at the old default pixel-ratio cap, scaled by the ratio the canvas actually renders at so the names keep their texel density on a full-res canvas (a DSF-3 phone draws 512, a DSF-2 phone 341) — derived in globeConfig.js beside GLOBE_DPR_MAX
 const TRACKING = -0.02; // em — the card's --tracking-tight
 const GAP = 0.42; // strip heights of clear space around the name
 const BLACK = '#000000';

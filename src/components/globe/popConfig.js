@@ -114,6 +114,7 @@ export const POP_DEFAULTS = Object.freeze({
   unitMax: 1, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Nathan's Q7)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
+  equiv: 0, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, single 1); 0 = off, ?popcap alone
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
@@ -145,6 +146,7 @@ const NUMERIC = {
   units: ['popunits', (n) => (n > 0 ? 1 : 0)],
   unitMax: ['popunitmax', (n) => clamp(Math.round(n), 1, 6)],
   quads: ['popquads', (n) => clamp(Math.round(n), 0, 2)],
+  equiv: ['popequiv', (n) => (n <= 0 ? 0 : clamp(Math.round(n), 4, 32))],
 };
 /* — Single-choice knobs (value ∈ vocab) and set knobs (comma lists ⊂ vocab). — */
 const CHOICE = {

@@ -13,7 +13,7 @@ import gsap from 'gsap'
 import { parse, evaluate } from 'groq-js'
 import { FEATURED_WORLDS_QUERY } from '../../src/lib/queries.js'
 import { buildContentFlow } from '../../src/components/work/detail/buildContentFlow.js'
-import buildWorldPools, { selectPool, WORLD_POOL_CAP } from '../../src/components/globe/buildWorldPools.js'
+import buildWorldPools, { selectPool, WORLD_POOL_CAP, MIN_KIND_POOL } from '../../src/components/globe/buildWorldPools.js'
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import TextureManager, { assetKey, computeCoverUv } from '../../src/components/globe/TextureManager.js'
@@ -34,7 +34,8 @@ import {
 import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS, THUMB_WIDTH } from '../../src/components/globe/globeConfig.js'
 import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../../src/components/work/imageConfig.js'
 import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib/netReport.mjs'
-import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload, classSizes } from '../lib/unitGates.mjs'
+import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload, classSizes, darkThumb } from '../lib/unitGates.mjs'
+import sharp from 'sharp'
 import { stripAudioFromMaster, AUDIO_CODEC } from '../../src/components/work/hlsVideoOnly.js'
 import { videoOnlyLoader } from '../../src/components/work/useHls.js'
 import buildCascadeTimeline, { DELAY_ORDERS, panelDelay, delayOwner } from '../../src/components/globe/cascade.js'
@@ -127,6 +128,12 @@ test('buildWorldPools holds exactly the /work World media: hero, showcase Tiles,
   assert.equal(buildWorldPools(await query(FEATURED_WORLDS_QUERY, withTrack(null)))[0].assets[3].s, 0)
   assert.equal('s' in world.assets[3], false) // NC: a 1080p source carries nothing
   assert.equal(world.assets.some((a) => !a.playbackId && 's' in a), false) // NC: s is a video's alone; no still or album art carries one, not even 0
+  // the short side whatever the orientation, read off the video track wherever it sits in tracks (3 of today's 4 s = 720 are 9:16)
+  const portrait720 = documents.map((d) => (d._id === 'mux-a' ? { ...d, data: { status: 'ready', aspect_ratio: '9:16', tracks: [{ type: 'audio' }, { type: 'video', max_width: 720, max_height: 1280 }] } } : d))
+  assert.equal(buildWorldPools(await query(FEATURED_WORLDS_QUERY, portrait720))[0].assets[3].s, 720)
+  // NC: a null class leaves no key (no nulls): a 'preparing' stream has no trusted ratio
+  const preparing = documents.map((d) => (d._id === 'mux-a' ? { ...d, data: { status: 'preparing', aspect_ratio: '16:9' } } : d))
+  assert.equal('u' in buildWorldPools(await query(FEATURED_WORLDS_QUERY, preparing))[0].assets[3], false)
   // Parity with the World itself: every non-hero tile is a showcase Tile or album art.
   const flow = buildContentFlow(rows[0].assets)
   const worldKeys = new Set([...flow.showcase, ...flow.albumArt].map((a) => a.playbackId || a.imageUrl))
@@ -926,7 +933,7 @@ test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pi
     assert.equal(globe.DPR_MAX, mobile ? 1.5 : 2) // /process shares DPR_MAX: unchanged
     // Nathan, 10-09 (Q10): "yes to phone globe at full res" — phones bake 3, desktop keeps DPR_MAX
     assert.equal(globe.GLOBE_DPR_MAX, mobile ? 3 : globe.DPR_MAX)
-    assert.equal(globe.GLOBE_STREAM_PARAMS, STREAM_PARAMS) // "i think we can stay at 480p"
+    assert.equal(globe.GLOBE_STREAM_PARAMS, 'min_resolution=480p&max_resolution=480p') // "i think we can stay at 480p": the literal, not the constant against itself
     const world = await load('work/world/worldConfig.js', '', mobile)
     assert.equal(world.DPR_MAX, mobile ? 3 : 2) // Nathan, 10-09: full res
   }
@@ -941,6 +948,27 @@ test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pi
   assert.equal(await strip('?globedpr=3', false, 2), 256) // a 2× screen still renders 2 (the caps' ratio drew 384)
   assert.equal(await strip('?globedpr=3', false, 3), 384)
   assert.equal(await strip('?globedpr=1.5', true, 3), 256)
+  assert.equal(await strip('', true, 1.75), 299) // 256 · 1.75 / 1.5 = 298.67: round, not floor (298)
+  // the renderer's ratio (useGlobeScene): the screen's own, capped by GLOBE_DPR_MAX (X2)
+  const ratio = async (search, mobile, dpr) => (await load('globe/globeConfig.js', search, mobile, dpr)).globePixelRatio(dpr)
+  assert.equal(await ratio('', true, 3), 3)
+  assert.equal(await ratio('', true, 2), 2)
+  assert.equal(await ratio('', false, 3), 2)
+  assert.equal(await ratio('?globedpr=1.5', true, 3), 1.5)
+  const { readFileSync } = await import('node:fs')
+  const src = (file) => readFileSync(new URL(`../../src/components/${file}`, import.meta.url), 'utf8')
+  assert.match(src('globe/useGlobeScene.js'), /renderer\.setPixelRatio\(globePixelRatio\(window\.devicePixelRatio\)\)/) // X2
+  assert.match(src('globe/VideoSlotPool.jsx'), /streamParams = GLOBE_STREAM_PARAMS\b/) // X1: the pool's default pin
+  // nameTicker's own STRIP_H (X3): globeConfig evaluates once per process, so each screen is a child process.
+  // The stubbed window wakes gsap's ticker (dragMomentum.js), so the child exits as soon as it prints.
+  const { execFileSync } = await import('node:child_process')
+  const ticker = new URL('../../src/components/globe/nameTicker.js', import.meta.url).href
+  const tickerStrip = (mobile, dpr) => Number(execFileSync(process.execPath, ['--input-type=module', '-e',
+    `globalThis.window = { location: { search: '' }, matchMedia: (q) => ({ matches: ${mobile} && q.includes('max-width') }), devicePixelRatio: ${dpr} };` +
+    `const { STRIP_H } = await import(${JSON.stringify(ticker)}); process.stdout.write(String(STRIP_H), () => process.exit(0))`], { encoding: 'utf8' }))
+  assert.equal(tickerStrip(true, 3), 512)
+  assert.equal(tickerStrip(true, 2), 341)
+  assert.equal(tickerStrip(false, 2), 256)
   // the rung regex is anchored at both ends and case-exact: P0c's surviving mutations X5 and X7
   // ('720px' holds the trailing anchor, which the other three let go)
   for (const bad of ['1720p', '540p', '720P', '720px']) {
@@ -1260,7 +1288,7 @@ test('video diet: the videoOnly playlist loader rewrites the master alone, and h
 })
 
 /* — Media spans (docs/globe-worlds-plan.md § Media spans): the gate module, and the texture ledger — */
-test('spans: the gate module — vacuity, expect-fail, request classes, baselines, payload', () => {
+test('spans: the gate module — vacuity, expect-fail, request classes, baselines, payload', async () => {
   assert.deepEqual(LEVELS, ['off', 'tex', 'h', 'vq', 'live', 'tier'])
   const clip = `&asset_end_time=${GLOBE_PREVIEW_SECONDS}` // P0: VideoSlotPool.streamUrl's clip (muxStream: exactly the window, P0-ORDERS §1.2)
   const mux = (id, t1 = 512) => `https://image.mux.com/${id}/thumbnail.webp?width=${t1}&height=${t1}&fit_mode=smartcrop`
@@ -1292,6 +1320,10 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
     assert.equal(baselines['off-desktop'].peakMax, 50)
     assert.equal(Object.keys(baselines['off-desktop'].idQuery).length, 12)
     assert.deepEqual(baselines['off-desktop'].streamQueries, [`min_resolution=480p&max_resolution=480p${clip}`])
+    // a second record adds its key and keeps the first, keys sorted
+    writeBaseline(file, 'a-first', { seed: '7' })
+    assert.deepEqual(Object.keys(readBaselines(file)), ['a-first', 'off-desktop'])
+    assert.deepEqual(readBaselines(file)['off-desktop'], baselines['off-desktop'])
 
     const plain = unitGates(report, { ...ctx, record: false, baselines })
     assert.ok(Object.values(plain.pass).every(Boolean), JSON.stringify(plain.detail))
@@ -1310,6 +1342,8 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
     assert.equal(judge(each({ step: 0 })).detail.texPeak.vacuous, true) // no step change: nothing to bound
     assert.equal(judge(report, { key: 'nope' }).detail.legacyParity.vacuous, true) // no record under the key
     assert.equal(judge({ ...report, requests: report.requests.slice(3) }).detail.legacyParity.vacuous, true) // 9 shared ids < 10
+    assert.deepEqual(Object.keys(judge(report, { mode: 'off' }).pass).sort(), ['legacyParity', 'texReqShape', 'thumbVariants']) // no director: request gates only
+    assert.equal(judge(each({ step: 0 }), { rm: true }).detail.texPeak.vacuous, false) // RM: the initial layout is the peak, floor 1
 
     // NC: a stream pin that sneaks in while units are off fails legacyParity, non-vacuously.
     const pinned = { ...report, requests: [...report.requests, `https://stream.mux.com/id1.m3u8?min_resolution=720p&max_resolution=720p${clip}`] }
@@ -1329,6 +1363,10 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
     assert.equal(expectFail(asReport(empty), ['texReqShape']).ok, false)
     assert.equal(expectFail(asReport(bad), ['unitSeam']).ok, false)
     assert.equal(expectFail({ ...asReport(bad), fatal: 'Error: boom' }, ['legacyParity']).ok, false)
+    // P0's network gates keep their detail in report.net: expectFail reads it there too
+    const netNc = (vacuous) => ({ pass: { streamClip: false }, net: { detail: { streamClip: { n: 3, floor: 1, vacuous } } } })
+    assert.equal(expectFail(netNc(false), ['streamClip']).ok, true)
+    assert.equal(expectFail(netNc(true), ['streamClip']).ok, false)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -1474,6 +1512,23 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   for (const name of ['unitSeam', 'unitRegister', 'skew']) assert.deepEqual([thin.pass[name], thin.detail[name].vacuous], [false, true], name)
   const unitless = judgeH([{ ...drawn(), units: null }])
   assert.deepEqual([unitless.pass.snaps, unitless.detail.snaps.vacuous], [false, true])
+  // P7: each worst must be a finite number. max() skips null and NaN, and a NaN reaches report.json as null, so a
+  // worst that is not finite (or a units sample with no counter at all) fails its gate, alone, whichever sample saw it.
+  const P4B = ['unitSeam', 'unitRegister', 'snaps', 'skew']
+  const noSnaps = drawn()
+  delete noSnaps.units.snaps
+  for (const [name, samples] of [
+    ['unitSeam', [drawn(), drawn({ seam: { n: 10, worst: null } })]],
+    ['unitSeam', [drawn({ seam: { n: 10, worst: NaN } }), drawn()]],
+    ['unitRegister', [drawn(), drawn({ register: { n: 20, worst: null } })]],
+    ['snaps', [drawn(), drawn({ snaps: null })]],
+    ['snaps', [noSnaps, drawn()]],
+    ['skew', [drawn(), drawn({ skewBad: NaN })]],
+  ]) {
+    const g = judgeH(samples)
+    assert.ok(failsAlone(g, name), name)
+    assert.deepEqual([P4B.filter((x) => !g.pass[x]), g.detail[name].worst], [[name], null], name)
+  }
   // below level h none of the four is evaluated
   const texOnly = unitGates({ requests: [classQ], samples: [drawn()] }, texCtx)
   assert.equal(['unitSeam', 'unitRegister', 'snaps', 'skew'].some((name) => name in texOnly.detail), false)
@@ -1542,6 +1597,11 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   assert.ok(failsAlone(atLive([lit({ chipsPerUnit: 2 }), lit()]), 'chipsPerUnit'))
   assert.ok(failsAlone(atLive([lit(), lit({ registerB: { n: 1, worst: 1.01e-3 } })]), 'unitRegisterB'))
   assert.ok(failsAlone(atLive([lit({ registerB: { n: 1, worst: 1.01e-3 } }), lit()]), 'unitRegisterB'))
+  // ...and whichever phase saw it: all three read every units sample (a change, a stopped clock), never only the holds
+  const relit = (units) => uS({ ...lit().units, clock: 'stopped', ...units }, { phase: 'change' })
+  assert.ok(failsAlone(atLive([lit(), relit({ liveSplit: { n: 50, split: 3 } })]), 'unitLiveSplit'))
+  assert.ok(failsAlone(atLive([lit(), relit({ chipsPerUnit: 2 })]), 'chipsPerUnit'))
+  assert.ok(failsAlone(atLive([lit(), relit({ registerB: { n: 1, worst: 1.01e-3 } })]), 'unitRegisterB'))
   // vacuous with no lit unit (chipsPerUnit too: its n is the lit units) and no measured live member; the split
   // share is then 0, never NaN
   const dark = atLive([lit({ liveSplit: { n: 0, split: 0 }, chipsPerUnit: 0, registerB: { n: 0, worst: 0 } })])
@@ -1615,6 +1675,27 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   }
   const hidpiRef = judgeH([uS({}, { adj: 1 })], { key: 'u-hidpi', baselines: withPhonehd })
   assert.deepEqual([hidpiRef.pass.neighbourRule, hidpiRef.detail.neighbourRule.bound], [false, 0])
+
+  // — P7 — darkThumbs (report-only; Nathan's Q12): darkThumb lists a class texture whose luma mean is under 16 or whose
+  // sd is under 6 (0–255), on raw greyscale pixels as the probe reads them (sharp .greyscale().raw()), else null.
+  const thumbOf = async (img) => {
+    const { data, info } = await img.greyscale().raw().toBuffer({ resolveWithObject: true })
+    return darkThumb(data, info.channels)
+  }
+  const flatFrame = (r, g, b) => sharp({ create: { width: 64, height: 36, channels: 3, background: { r, g, b } } })
+  assert.deepEqual(await thumbOf(flatFrame(0, 0, 0)), { mean: 0, sd: 0 }) // black: listed
+  const red = await thumbOf(flatFrame(255, 0, 0))
+  assert.ok(red && red.mean >= 16 && red.sd === 0, JSON.stringify(red)) // flat red: bright enough, but flat: listed
+  const ramp = Buffer.alloc(64 * 36 * 3)
+  for (let i = 0; i < 64 * 36; i++) ramp.fill((i % 64) * 4, i * 3, i * 3 + 3) // a textured frame: a ramp across its width
+  assert.equal(await thumbOf(sharp(ramp, { raw: { width: 64, height: 36, channels: 3 } })), null) // not listed
+  // the bounds are strict: mean 16 with sd 6 is not listed; a mean under 16, or an sd under 6, alone lists it
+  const cycle = (values, n = 300) => Uint8Array.from({ length: n }, (_, i) => values[i % values.length])
+  assert.equal(darkThumb(cycle([10, 22])), null) // mean 16, sd 6
+  assert.deepEqual(darkThumb(cycle([0, 0, 46])), { mean: 15.3, sd: 21.7 }) // the mean alone (15.33, 21.68: one decimal)
+  assert.deepEqual(darkThumb(cycle([41, 52])), { mean: 46.5, sd: 5.5 }) // the sd alone
+  assert.deepEqual(darkThumb(cycle([0, 255]), 2), { mean: 0, sd: 0 }) // a second channel (alpha) is skipped, never read as luma
+  assert.equal(darkThumb(new Uint8Array(0)), null) // no pixel: nothing to list
 })
 
 test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
@@ -1662,6 +1743,16 @@ test('spans: a load that rejects is failed, never pending, so the ref ledger sti
   assert.equal(tm.cache.get(bad).refs, 1)
   assert.equal(director.busy, false)
   assert.equal(director.texStats().refDrift, 0) // quiet: every ref is a tile's or the warm set's
+  // ...and not quiet mid-change: a relayout, a rolling tide or a tile mid-swap holds the ledger open
+  director.busy = true
+  assert.equal(director.texStats().refDrift, null)
+  director.busy = false
+  director.tide = {}
+  assert.equal(director.texStats().refDrift, null)
+  director.tide = null
+  victim.swapping = true
+  assert.equal(director.texStats().refDrift, null)
+  victim.swapping = false
   // upload and layout telemetry (report-only; the off-* records' adjMax rests on layout): an upload frame
   // is counted apart from the idle ones; a same-key pair counts right and up; a parked tile is out.
   director.noteRender(20, 1)
@@ -1671,7 +1762,7 @@ test('spans: a load that rejects is failed, never pending, so the ref ledger sti
   panels.forEach((t, i) => (t.shownAsset = { kind: 'still', imageUrl: `own-${i}` })) // every tile its own key
   assert.equal(director.layoutStats().adj, 0)
   const tileAt = (lon, tape) => panels.find((t) => !t.parked && t.lonIndex === lon && t.tapeS === tape)
-  const pivot = panels.find((t) => !t.parked && tileAt(t.lonIndex, t.tapeS + 1) && tileAt((t.lonIndex + 1) % LON, t.tapeS))
+  const pivot = panels.find((t) => !t.parked && t.lonIndex === LON - 1 && tileAt(t.lonIndex, t.tapeS + 1) && tileAt(0, t.tapeS)) // the right pair wraps the seam
   const above = tileAt(pivot.lonIndex, pivot.tapeS + 1)
   above.shownAsset = pivot.shownAsset
   assert.equal(director.layoutStats().adj, 1) // the up pair
@@ -1680,6 +1771,9 @@ test('spans: a load that rejects is failed, never pending, so the ref ledger sti
   above.parked = true
   assert.equal(director.layoutStats().adj, 1) // a parked tile is out of the layout
   above.parked = false
+  const strip = { kind: 'name', nameKey: 'strip-0' }
+  for (const t of [pivot, above]) t.shownAsset = strip
+  assert.equal(director.layoutStats().adj, 0) // a name strip's slices share one key by design: never a pair
   for (const [t, a] of shown) t.shownAsset = a
   // NC: the old rule (pending = no texture) holds the rejected entry in flight forever, so the ledger never reads.
   tm.stats = function () {
@@ -2311,7 +2405,7 @@ test('spans: units off is today’s globe: records, texture URLs, random draws, 
       await Promise.all(director.initialLayout(director.byProminence()))
       director.advance() // a blink: one Math.random delay per tile that changes
       await settleTicks(5)
-      return { pools: director.pools, urls, draws, shown: panels.map((p) => assetKey(p.asset)), units: director.sample(new THREE.Euler()).units }
+      return { pools: director.pools, urls, draws, shown: panels.map((p) => assetKey(p.asset)), records: panels.map((p) => p.asset), units: director.sample(new THREE.Euler()).units }
     } finally {
       Math.random = random
       PopulationDirector.prototype.decorate = decorate
@@ -2335,6 +2429,10 @@ test('spans: units off is today’s globe: records, texture URLs, random draws, 
   const on = await run(1)
   assert.equal(on.urls.every(legacy), false)
   assert.ok(on.urls.some((u) => classifyRequest(u, 512).kind === 'class'))
+  // every shown record with a class texture asked its own crop, a v still among them (no playbackId), never the square
+  const classed = on.records.filter((r) => r?.tex)
+  assert.ok(classed.some((r) => !r.playbackId))
+  for (const r of classed) assert.ok(on.urls.includes(r.tex.url) && !on.urls.includes(r.playbackId ? new TextureManager().thumbnailUrl(r.playbackId) : new TextureManager().stillUrl(r.imageUrl)), r.tex.url)
   assert.ok(on.units?.texClass && on.units.liveReg, JSON.stringify(on.units))
 
   // liveWindow on a record without tex is today's cover of the clip's metadata aspect (bad ratio → 1).
@@ -2476,6 +2574,7 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
   }
   const bound = liveTile(record, 0.8)
   const stale = liveTile({ ...clip, playbackId: 'before' }, 1) // the more prominent: it would win the slot first
+  const staleSame = liveTile({ ...clip }, 0.95) // texA shows the same clip, but not the bound record: still not B's A
   const B = (p) => {
     const u = p.mesh.material.uniforms
     return { s: [u.uvScaleB.value.x, u.uvScaleB.value.y], o: [u.uvOffsetB.value.x, u.uvOffsetB.value.y] }
@@ -2491,18 +2590,18 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
   const unitTile = memberOf(0)
   const partner = memberOf(1)
   place.members.push(unitTile, partner)
-  const live = new LivePanelScheduler({ panels: [unitTile, partner, stale, bound], assets: [clip], poolHandle: pool, textureManager: null, cycleThumbnails: false })
+  const live = new LivePanelScheduler({ panels: [unitTile, partner, stale, staleSame, bound], assets: [clip], poolHandle: pool, textureManager: null, cycleThumbnails: false })
   try {
-    assert.deepEqual([live.canJoin(bound), live.canJoin(stale), live.canJoin(unitTile), live.canJoin(partner)], [true, false, true, true])
+    assert.deepEqual([live.canJoin(bound), live.canJoin(stale), live.canJoin(unitTile), live.canJoin(partner), live.canJoin(staleSame)], [true, false, true, true, false])
     live.update(new THREE.Euler(), 10, null)
     await settleTicks()
-    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState, partner.liveState], ['live', null, null, null])
+    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState, partner.liveState, staleSame.liveState], ['live', null, null, null, null])
     assert.ok(err(B(bound), liveB(16 / 9, aTex, A1)) <= 1e-12)
     live.setShared(true)
     bound.mesh.material.uniforms.uvScaleB.value.set(0, 0) // attach must write it again
     live.update(new THREE.Euler(), 20, null)
     await settleTicks()
-    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState, partner.liveState], ['live', null, 'live', 'live'])
+    assert.deepEqual([bound.liveState, stale.liveState, unitTile.liveState, partner.liveState, staleSame.liveState], ['live', null, 'live', 'live', null])
     for (const p of [bound, unitTile, partner]) assert.ok(err(B(p), liveB(16 / 9, aTex, A1)) <= 1e-12)
   } finally {
     live.dispose()
@@ -2521,6 +2620,7 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
       [record, record, 'demoting', { liveStream: { video: frame } }, 2e-3], // counted: a demoting tile still shows B
       [legacyClip, legacyClip, 'live', { liveVideo: frame }, 0.1], // a legacy tile keeps today's B
       [record, legacyClip, 'live', { liveVideo: frame }, 0.1], // texA still shows another asset
+      [record, { ...clip }, 'live', { liveVideo: frame }, 0.1], // or the same clip, but not the bound record
       [record, record, null, { liveVideo: frame }, 0.1], // not live
       [record, record, 'live', { liveVideo: { videoWidth: 0, videoHeight: 0 } }, 0.1], // no frame decoded yet
     ]
@@ -3339,12 +3439,14 @@ test('spans: a unit member is right on its first bound frame: windowA’s member
     let settle = null
     tm.peek = () => null
     tm.loadAsset = () => new Promise((resolve) => (settle = resolve))
-    const late = loadTile(director, m, { kind: 'video', playbackId: 'late' })
+    const late = loadTile(director, m, { ...rec, tex: { ...rec.tex, key: 'late|h' } }) // a member load, with its own key
     Object.assign(tm, { peek, loadAsset })
     loadTile(director, m, rec) // warm: binds at once
+    shiftRows(panels, 0.01) // the late settle comes at another pose; superseded, it stamps nothing, the pose included
+    const stamp = m._skewTheta
     settle({ userData: { aspect: 1 } })
     await late
-    assert.deepEqual([m._bound, m.shownAsset], [rec, rec])
+    assert.deepEqual([m._bound, m.shownAsset, m._skewTheta], [rec, rec, stamp])
   } finally {
     delete globalThis.__swmNoUnitWindows
     director.dispose()
@@ -3407,7 +3509,15 @@ test('spans: director.place() rewrites each member from its live pose: dead-band
       return director.skewBad - bad
     }
     assert.deepEqual([plant(0.9 * director.skewMax * 0.01, 0.01), plant(1.1 * director.skewMax * 0.01, 0.01)], [0, 1])
-    assert.deepEqual([plant(5e-7, 0), plant(2e-6, 0)], [0, 1])
+    assert.deepEqual([plant(0.9e-6, 0), plant(1.1e-6, 0)], [0, 1])
+    // A stamp of exactly 0 (a member bound at the north pole) is a pose, not a missing stamp: its allowance runs from θ 0.
+    director.place()
+    const bad0 = director.skewBad
+    p0._skewTheta = 0
+    u.uvOffsetA.value.x = owed(p0)[2] + 0.5 * director.skewMax * thetaOf(p0)
+    assert.ok(0.5 * director.skewMax * thetaOf(p0) > 1e-6) // NC: past the bare slack
+    director.place()
+    assert.equal(director.skewBad, bad0)
     // A member with no pose stamp gets no pose allowance, only the 1e-6 slack; place() stamps it.
     director.place()
     delete p0._skewTheta
@@ -3415,6 +3525,14 @@ test('spans: director.place() rewrites each member from its live pose: dead-band
     const unstamped = director.skewBad
     director.place()
     assert.deepEqual([director.skewBad - unstamped, p0._skewTheta], [1, thetaOf(p0)])
+    // A tide rolls the rows while the director is busy (and frozen or held): place() follows the pose all the same.
+    // NC: the move left them behind.
+    Object.assign(director, { busy: true, frozen: true, held: true })
+    shiftRows(panels, 0.015)
+    assert.ok(members.some((p) => !p.parked && Math.abs(windowOf(p)[2] - owed(p)[2]) > 1e-4))
+    director.place()
+    for (const p of members) if (!p.parked) assert.deepEqual(windowOf(p), owed(p))
+    Object.assign(director, { busy: false, frozen: false, held: false })
     // Mid-swap (a blink or a surge dip: swapping, swapAsset set) a member still shows its unit, so place() still
     // follows its pose; only a parked tile is skipped. NC: the move left its window behind.
     p0.swapping = true
@@ -4129,6 +4247,14 @@ test('spans: joinGroup joins a whole unit or none of it, through its lead; a joi
     assert.deepEqual(A.events, ['0:off', '6:off'])
     await A.beat()
     assert.deepEqual(st(single), ['live', 'clip', null])
+    // …and takes no other copy with it: two singles on one clip (their own board), the first detached, the second plays on.
+    const [s1, s2] = [streamTile(clip, 0.9), streamTile(clip, 0.15)]
+    const two = sharedOver([s1, s2])
+    boards.push(two)
+    await two.beat()
+    assert.deepEqual([st(s1), st(s2)], [['live', 'clip', null], ['live', 'clip', null]])
+    two.sched.detach(s1)
+    assert.deepEqual([st(s1), st(s2), [...two.sched.streams.get('clip').panels]], [[null, null, null], ['live', 'clip', null], [s2]])
 
     // A replan re-binds a member: its unit leaves the stream as one. Bound into another unit (led by a tile off this
     // board), the member never joins through it, and its old partner can't join without it.
@@ -4185,10 +4311,18 @@ test('spans: joinGroup joins a whole unit or none of it, through its lead; a joi
     // (2.7 + 1.9 = 4.6).
     const Hw = streamUnit('h', clip, 0.7)
     const Qw = streamUnit('q', quad, 0.2, 4)
-    const Wb = sharedOver([...Hw.members, ...Qw.members, streamTile(clip, 0.9), streamTile(quad, 0.2)])
+    const wSingle = streamTile(clip, 0.9)
+    const Wb = sharedOver([...Hw.members, ...Qw.members, wSingle, streamTile(quad, 0.2)])
     boards.push(Wb)
     await Wb.beat()
     assert.deepEqual(Wb.pool.assigned, ['clip', 'quad'])
+    // A member re-bound to another unit takes its unit off the stream while the stream demotes too, not only while it
+    // is live; the stream's single crossfades out on it.
+    assert.deepEqual([...Hw.members, wSingle].map(st), [['live', 'clip', Hw.uid], ['live', 'clip', Hw.uid], ['live', 'clip', null]])
+    Wb.sched.endStream(Wb.sched.streams.get('clip'))
+    Hw.members[1].asset = { ...clip, place: { ...Hw, uid: `h:9:0:${Hw.key}` }, kx: 1, ky: 0 }
+    await Wb.beat()
+    assert.deepEqual([...Hw.members, wSingle].map(st), [[null, null, null], [null, null, null], ['demoting', 'clip', null]])
 
     // — B — a quad with one member under the grain stays a still, whole: it neither scores nor joins, while its
     // clip's single plays. Scored per member it would win the first slot (3 × 0.8 + 0.3 = 2.7 against 2.3);
@@ -4351,8 +4485,9 @@ test('spans: the lead carries its unit’s centre for the chip; place() re-deriv
 
     // HeroLabels anchors every chip through dirOf (the unit's centre when the tile has one, else its own) at all
     // three reads: the facing test, the pick-time projection and the per-frame anchor. Each read is one whole code
-    // line, found once; no code line reads panel.centerDir any more.
-    const labels = fs.readFileSync(new URL('../../src/components/hero/HeroLabels.jsx', import.meta.url), 'utf8').split('\n').map((l) => l.trim())
+    // line, found once. The one code line that reads a tile's centerDir directly is a latched chip's own tile (P7-3).
+    const heroSrc = fs.readFileSync(new URL('../../src/components/hero/HeroLabels.jsx', import.meta.url), 'utf8')
+    const labels = heroSrc.split('\n').map((l) => l.trim())
     const once = (match, what) => assert.equal(labels.filter(match).length, 1, what)
     once((l) => l.startsWith('const dirOf = (p) => p.unitCentre || p.centerDir;'), 'dirOf')
     for (const s of [
@@ -4361,7 +4496,113 @@ test('spans: the lead carries its unit’s centre for the chip; place() re-deriv
       'vAnchor.copy(dirOf(panel)).multiplyScalar(RADIUS);',
     ])
       once((l) => l === s, s)
-    assert.deepEqual(labels.filter((l) => l.includes('panel.centerDir') && !l.startsWith('*') && !l.startsWith('//')), [])
+    assert.deepEqual(labels.filter((l) => l.includes('panel.centerDir') && !l.startsWith('*') && !l.startsWith('//')), ['} else c.copy(slot.panel.centerDir);'])
+    // P7-3: a chip fading after 'off' keeps what it anchored to then, so a re-deal mid-fade (a single as a new unit's
+    // lead, a lead as a single) cannot move it. Each slot carries a stand-in panel, allocated once. 'off' latches once
+    // per bind: a lead with a unitCentre keeps its unit's members, any other chip (every chip with units off) its own
+    // tile. While latched the frame loop re-derives the stand-in from live poses (the unit's centre as place() sums it,
+    // else the tile's centerDir), so the anchor rides the scroll, and the dirOf lines above read it. Each function's
+    // code lines are checked whole, in order, in that function (review mutants K05 and K13 moved or guarded one line),
+    // and the same lines are then run on this board.
+    once((l) => l.startsWith('held: { centerDir: new Vector3() },'), 'the stand-in, allocated once per slot')
+    once((l) => l.startsWith('heldMembers: null,'), 'no members held at mount')
+    once((l) => l.startsWith('latched: false,'), 'unlatched at mount')
+    const codeOf = (start, end) => {
+      const i = heroSrc.indexOf(start)
+      const j = heroSrc.indexOf(end, i)
+      assert.ok(i >= 0 && j > i && heroSrc.indexOf(start, i + 1) < 0, `${start} … ${end}`)
+      return heroSrc.slice(i, j).split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('//'))
+    }
+    const bindCode = codeOf('const bind = (slot, panel) => {', '\n      const name = panel.asset.clientName;')
+    assert.deepEqual(bindCode, ['const bind = (slot, panel) => {', 'slot.panel = panel;', 'slot.fading = false;', 'slot.latched = false;', 'slot.heldMembers = null;'])
+    const liveCode = codeOf('const unsubLive = api.onLiveChange((panel, state) => {', '\n    });')
+    const offCode = [
+      'const slot = slots.find((s) => s.panel === panel);',
+      'if (slot) {',
+      'if (!slot.latched) {',
+      'slot.heldMembers = panel.unitCentre ? panel.shownAsset.place.members : null;',
+      'slot.latched = true;',
+      '}',
+      'earlyFade(slot); // demoted mid-hold → fade early, re-slot',
+      '}',
+    ]
+    assert.deepEqual(liveCode.slice(-offCode.length - 1), [...offCode, '}'], 'the else branch ends with the latch')
+    assert.equal(liveCode.filter((l) => l === '} else {').length, 1)
+    assert.ok(liveCode.indexOf('} else {') < liveCode.length - offCode.length - 1)
+    const frameCode = codeOf('const onFrame = (frame) => {', '\n        const prominence = prominenceIn(panel, frame);')
+    const anchorCode = [
+      'if (slot.latched) {',
+      'const c = slot.held.centerDir;',
+      'const M = slot.heldMembers;',
+      'if (M) {',
+      'c.set(0, 0, 0);',
+      'for (let k = 0; k < M.length; k += 1) c.add(M[k].centerDir);',
+      'c.normalize();',
+      '} else c.copy(slot.panel.centerDir);',
+      '}',
+      'const panel = slot.latched ? slot.held : slot.panel;',
+    ]
+    assert.deepEqual(frameCode, [
+      'const onFrame = (frame) => {',
+      'lastFrame = frame; // event-time picks read the same matrices',
+      'for (let i = 0; i < slots.length; i += 1) {',
+      'const slot = slots[i];',
+      'if (!slot.panel) continue;',
+      ...anchorCode,
+    ])
+    // Run the file's own lines: bind's, the 'off' branch, and the frame loop's anchor through the file's dirOf.
+    const bindRun = new Function('slot', 'panel', bindCode.slice(1).join('\n'))
+    const offRun = new Function('slots', 'panel', 'earlyFade', liveCode.slice(-offCode.length - 1, -1).join('\n'))
+    const dirOfLine = labels.find((l) => l.startsWith('const dirOf = (p) => p.unitCentre || p.centerDir;'))
+    const anchorRun = new Function('slot', [dirOfLine, ...frameCode.slice(frameCode.indexOf('if (!slot.panel) continue;') + 1), 'return dirOf(panel);'].join('\n'))
+    const slot = { panel: null, held: { centerDir: new THREE.Vector3() }, heldMembers: null, latched: false }
+    const faded = []
+    const off = (p) => offRun([slot], p, (s) => faded.push(s))
+    const anchor = () => anchorRun(slot)
+    const stray = { kind: 'video', playbackId: 'stray' }
+    // A lead's chip: dirOf until 'off'; no move at the latch; then its unit's centre from the members' live poses,
+    // through a scroll and through the lead's re-deal as a single (place() then clears its unitCentre). A second
+    // 'off' in the same fade latches nothing new. NC: a copy taken at 'off' (the first P7-3) would lag the scroll.
+    bindRun(slot, lead0)
+    assert.equal(anchor(), lead0.unitCentre)
+    off(lead0)
+    assert.deepEqual(faded, [slot])
+    assert.ok(slot.latched && slot.heldMembers === P0.members)
+    near(anchor().toArray(), lead0.unitCentre.toArray(), 1e-12, 'the latch moves nothing')
+    const atOff = lead0.unitCentre.clone()
+    shiftRows(panels, 0)
+    director.place()
+    assert.ok(director.wholeUnit(P0))
+    near(anchor().toArray(), sumDir(P0).toArray(), 1e-12, 'rides the scroll')
+    assert.ok(anchor().angleTo(atOff) > 0.02, `${anchor().angleTo(atOff)}`)
+    loadTile(director, lead0, stray)
+    director.place()
+    assert.equal(lead0.unitCentre, null)
+    near(anchor().toArray(), sumDir(P0).toArray(), 1e-12, 'the lead re-dealt as a single')
+    assert.ok(anchor().angleTo(lead0.centerDir) > 0.05) // NC: dirOf(lead0) is now its own centre
+    off(lead0)
+    assert.ok(slot.heldMembers === P0.members && faded.length === 2)
+    // A single's chip (every chip with units off): its own tile's centre, bit for bit, through a re-deal as a unit's
+    // lead (the P6a LOOK's jump: dirOf would move it half a pitch to the new centre) and through a scroll.
+    bindRun(slot, lead0)
+    assert.ok(!slot.latched && slot.heldMembers === null)
+    assert.equal(anchor(), lead0.centerDir)
+    off(lead0)
+    assert.ok(slot.latched && slot.heldMembers === null)
+    loadTile(director, lead0, rec0)
+    director.place()
+    centred(P0)
+    assert.deepEqual(anchor().toArray(), lead0.centerDir.toArray())
+    assert.ok(anchor().angleTo(lead0.unitCentre) > 0.05) // NC: dirOf(lead0) is now the unit's centre
+    shiftRows(panels, 0.05)
+    director.place()
+    assert.deepEqual(anchor().toArray(), lead0.centerDir.toArray())
+    // Bind clears the latch; an 'off' for a panel no slot holds fades and latches nothing.
+    bindRun(slot, mem1)
+    assert.ok(!slot.latched && slot.heldMembers === null && anchor() === mem1.centerDir)
+    off(lead0)
+    assert.ok(!slot.latched && faded.length === 3)
+    centred(P0)
 
     // texB rides texA: on a live or demoting member, place() writes B = liveB(V, aTex, A) from the A it has just
     // written, V the clip's metadata ratio (the decoded frame only when that won't parse), every frame.
@@ -4544,7 +4785,12 @@ test('spans: the lead carries its unit’s centre for the chip; place() re-deriv
       assert.deepEqual(Bof(m), cover)
       assert.ok(gap(owedB(m), cover) > 0.1, `${owedB(m)} vs ${cover}`)
       assert.deepEqual([d.unitStats(0).liveSplit, d.unitStats(0).registerB.n], [{ n: 1, split: 1 }, 0])
+      // — P7 — density reads it the same way: the single's B is not the unit's. NC: joined as its unit, it is counted.
+      assert.deepEqual(d.unitStats(300).density, { n: 0, worst: 0 })
+      m.liveUid = Pm.uid
+      assert.equal(d.unitStats(300).density.n, 1)
       m.liveUid = `h:99:0:${Pm.key}` // joined as another unit, its bind landed before the update that frees it
+      assert.equal(d.unitStats(300).density.n, 0)
       setB(m, SENT)
       d.place()
       assert.deepEqual(Bof(m), SENT)
@@ -4555,6 +4801,20 @@ test('spans: the lead carries its unit’s centre for the chip; place() re-deriv
       loadTile(d, m, bare)
       d.place()
       assert.deepEqual(Bof(m), cover)
+      // — P7 — a lead re-dealt the same way, joined as a single, carries no unit centre: its chip anchors at its own
+      // tile. NC: before it joins, and joined as its unit, it carries the unit's.
+      const Pl = [...placesOf(d.panels).keys()].find((Q) => Q !== Pm && d.wholeUnit(Q))
+      const ld = Pl.members[0]
+      d.place()
+      assert.ok(ld.unitCentre)
+      ld.asset = bare
+      ld.swapping = false
+      c.sched.attach(ld, stream)
+      d.place()
+      assert.deepEqual([ld.liveUid, ld.unitCentre, d.wholeUnit(Pl)], [null, null, true])
+      ld.liveUid = Pl.uid
+      d.place()
+      assert.ok(ld.unitCentre)
     } finally {
       c.sched.dispose()
       d.dispose()
@@ -4989,5 +5249,177 @@ test('spans: phonehd — a phone rendering at 2.25 or more plans lean/hidpi’s 
   } finally {
     for (const { sched } of boards) sched.dispose()
     gsap.globalTimeline.resume()
+  }
+})
+
+/* — Media spans, P7: globe-only ?globethumb and the ?popequiv tile budget (T26; T33's, T20's, T21's, T24's and
+   T25's — P7 — lines are above). — */
+test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, quad 4, single 1), a null budget is today’s selection pick for pick; ?globethumb clamps T1 (T26)', async () => {
+  // — selectPool — with no budget, pick for pick the selection before P7 (cdcf25d's, verbatim below), over pools of
+  // every size around the caps, every ?popmedia kind set, and a weigh that would bite if it were read.
+  const before = (pool, { kinds = null, cap = WORLD_POOL_CAP } = {}) => {
+    let src = pool
+    if (kinds) {
+      const want = new Set(kinds)
+      const filtered = pool.filter((a) => want.has(a.kind))
+      if (filtered.length >= MIN_KIND_POOL) src = filtered
+    }
+    if (src.length <= cap) return src.slice()
+    const byKind = new Map()
+    src.forEach((a, i) => {
+      if (!byKind.has(a.kind)) byKind.set(a.kind, [])
+      byKind.get(a.kind).push(i)
+    })
+    const lanes = [...byKind.values()]
+    const picked = []
+    for (let pass = 0; picked.length < cap; pass++) {
+      for (const lane of lanes) {
+        if (pass < lane.length && picked.length < cap) picked.push(lane[pass])
+      }
+    }
+    return picked.sort((a, b) => a - b).map((i) => src[i])
+  }
+  const KINDS = ['video', 'still', 'art']
+  const pools = [0, 2, 5, 13, 14, 29, 41].map((n, pi) => Array.from({ length: n }, (_, i) => ({ kind: KINDS[(i * (pi + 2) + (i >> 2)) % 3], id: `${pi}-${i}` })))
+  pools.push(Array.from({ length: 20 }, (_, i) => ({ kind: 'video', id: `v-${i}` })))
+  const at = (pool, list) => list.map((a) => pool.indexOf(a))
+  let compared = 0
+  for (const pool of pools) {
+    for (const kinds of [null, ['video'], ['still'], ['art'], ['still', 'art']]) {
+      for (const cap of [undefined, 0, 1, 3, 12, 13, 32, 40]) {
+        const want = at(pool, before(pool, { kinds, cap }))
+        assert.deepEqual(at(pool, selectPool(pool, { kinds, cap })), want, `${pool.length} ${kinds} ${cap}`)
+        assert.deepEqual(at(pool, selectPool(pool, { kinds, cap, budget: null, weigh: () => 99 })), want, `${pool.length} ${kinds} ${cap}, weigh unread`)
+        compared += 1
+      }
+    }
+  }
+  assert.equal(compared, 8 * 5 * 8)
+  // NC: the reference is no prefix: over the cap, the round-robin across kinds is what picks.
+  assert.notDeepEqual(at(pools[4], before(pools[4], { cap: 3 })), [0, 1, 2])
+
+  // — a budget bites — Σ weigh ≤ budget: each lane's next asset is taken while it fits, and a lane whose next asset
+  // doesn't fit skips it (a lighter one later in the lane still gets its turn); the cap still holds. This pool is
+  // under the cap, and is budgeted all the same. NC: without a budget it is the whole pool.
+  const weigh = (a) => ({ q: 4, h: 2, v: 2 })[a.u] ?? 1
+  const mk = (id, kind, u) => ({ id, kind, ...(u ? { u } : {}) })
+  const src = [mk('Q1', 'video', 'q'), mk('S1', 'still', 'h'), mk('H1', 'video', 'h'), mk('S2', 'still'), mk('Q2', 'video', 'q'), mk('S3', 'still', 'q'), mk('C1', 'video'), mk('S4', 'still')]
+  const ids = (list) => list.map((a) => a.id)
+  const pick = (opts) => ids(selectPool(src, { cap: 13, weigh, ...opts }))
+  assert.deepEqual(pick({}), ids(src))
+  assert.deepEqual(pick({ budget: 13 }), ['Q1', 'S1', 'H1', 'S2', 'Q2']) // Σ 13: S3 (4) no longer fits, nor C1 or S4
+  assert.deepEqual(pick({ budget: 12 }), ['Q1', 'S1', 'H1', 'S2', 'C1', 'S4']) // Q2 and S3 skipped; C1 and S4 fit (Σ 11)
+  assert.deepEqual(pick({ budget: 13, cap: 3 }), ['Q1', 'S1', 'H1'])
+  assert.deepEqual(ids(selectPool([src[0], src[3]], { budget: 3, weigh })), ['S2']) // the video lane's quad never fits; the still lane runs on
+  for (const budget of [4, 7, 12, 13, 19]) assert.ok(selectPool(src, { cap: 13, budget, weigh }).reduce((n, a) => n + weigh(a), 0) <= budget, `${budget}`)
+
+  // — the director — under units, selectFor weighs the class each asset COULD form (h/v 2, a quad-eligible 'q' 4,
+  // else 1: an s 480 'q' clip is no quad candidate), never its election; decorate's election and makeGrouping read
+  // that selection. At 13, world 0 keeps its quad candidate F; world 1's only candidate, X, is its last still and
+  // falls out.
+  const vid = (id, u, extra = {}) => ({ kind: 'video', playbackId: id, videoAspectRatio: u === 'v' ? '9:16' : u === 'q' ? '1:1' : '16:9', u, ...extra })
+  const still = (id, w, h, u) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/${id}-${w}x${h}.jpg`, ...(u ? { u } : {}) })
+  const [F, X] = [still('F', 1200, 1200, 'q'), still('X', 1200, 1200, 'q')]
+  const world = (name, assets) => ({ slug: name, clientName: name, title: null, services: [], assets })
+  const worlds = [
+    world('zero', [vid('A', 'h'), still('E', 800, 600), vid('D', 'q', { s: 480 }), F, vid('C', 'q'), still('G', 1600, 900, 'h'), vid('B', 'v'), still('H', 800, 600)]),
+    world('one', [vid('A1', 'h'), still('E1', 800, 600), vid('B1', 'v'), still('G1', 1600, 900, 'h'), vid('C1', 'h'), still('F1', 800, 600), vid('D1', 'h'), X]),
+  ]
+  const idOf = (a) => a.playbackId || a.imageUrl
+  const all = worlds.map((w) => w.assets.map(idOf))
+  const sel = (d, wi) => d.selectFor(worlds[wi].assets).map(idOf)
+  const { director } = unitDirector({}, { worlds })
+  try {
+    assert.deepEqual([TUNING.equiv, sel(director, 0), sel(director, 1)], [0, ...all]) // 0: no budget, ?popcap alone (8 ≤ 13)
+    TUNING.equiv = 13
+    assert.deepEqual([sel(director, 0), sel(director, 1)], [[0, 1, 2, 3, 4, 7].map((i) => all[0][i]), all[1].slice(0, 7)])
+    assert.deepEqual(director.selectFor(director.pools[0]).map(idOf), sel(director, 0)) // the raw assets and the records select alike
+    assert.deepEqual(director.makeGrouping({ lead: 0 }).pools[0].map(idOf), sel(director, 0))
+    // NC: every 'q' weighed 4, eligible or not (D, the s 480 clip), world 0 selects otherwise.
+    const blind = (a) => (a.u === 'q' ? 4 : a.u ? 2 : 1)
+    assert.notDeepEqual(selectPool(worlds[0].assets, { cap: 13, budget: 13, weigh: blind }).map(idOf), sel(director, 0))
+    // ?popequiv is in the signature (the election reads the selection): onTune re-decorates, then re-lays. At 13 world
+    // 1 elects no quad; at 0, X again.
+    let relayouts = 0
+    director.relayout = () => (relayouts += 1)
+    const elected = () => director.pools.map((p) => p.filter((r) => r.unitCls === 'q').map(idOf))
+    const tune = (value) => {
+      TUNING.equiv = value
+      director.onTune('equiv')
+      return elected()
+    }
+    assert.deepEqual(elected(), [[F.imageUrl], [X.imageUrl]]) // decorated at 0
+    assert.deepEqual(tune(13), [[F.imageUrl], []])
+    assert.deepEqual(tune(0), [[F.imageUrl], [X.imageUrl]])
+    assert.equal(relayouts, 2)
+    // Units off, the budget never applies.
+    Object.assign(TUNING, { units: 0, equiv: 13 })
+    assert.deepEqual([sel(director, 0), sel(director, 1)], all)
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, POP_DEFAULTS, { units: 0 })
+  }
+  // No lattice (the fixed globe): no units, so no budget.
+  const { director: fixed } = spanDirector(1, { scene: fakeScene(), worlds })
+  try {
+    TUNING.equiv = 13
+    assert.deepEqual([fixed.L, sel(fixed, 0), sel(fixed, 1)], [null, ...all])
+  } finally {
+    fixed.dispose()
+    Object.assign(TUNING, POP_DEFAULTS, { units: 0 })
+  }
+
+  // — ?popequiv — 0 by default (off: ?popcap alone); else an integer 4–32, rounded; its guide row says so.
+  assert.equal(POP_DEFAULTS.equiv, 0)
+  try {
+    for (const [typed, want] of [[-1, 0], [0, 0], [2, 4], [13.4, 13], [13.6, 14], [99, 32]]) {
+      setPopTune('equiv', typed)
+      assert.equal(TUNING.equiv, want, String(typed))
+    }
+  } finally {
+    Object.assign(TUNING, POP_DEFAULTS)
+  }
+  const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
+  assert.match(guide, /^\| `\?popequiv` \|.*\| `0` \(off\) \| 0, or 4–32 \(clamped\) \| `POP_DEFAULTS\.equiv` \|$/m)
+  assert.match(guide, /^\| `\?globethumb` \|.*\| `THUMB_WIDTH` \(512 desktop, 384 phone\) \| 256–1024 \(clamped, rounded\) \| `globeConfig\.js GLOBE_T1` \|$/m)
+
+  // — ?globethumb — T1, load-time: a fresh globeConfig under a stubbed window (T33's pattern), restored in finally.
+  let fresh = 0
+  const t1 = async (search, mobile = false) => {
+    const had = globalThis.window
+    globalThis.window = { location: { search }, matchMedia: (q) => ({ matches: mobile && q.includes('max-width') }) }
+    try {
+      return (await import(`../../src/components/globe/globeConfig.js?t=p7-${++fresh}`)).GLOBE_T1
+    } finally {
+      if (had === undefined) delete globalThis.window
+      else globalThis.window = had
+    }
+  }
+  assert.equal(await t1('?globethumb=99999'), 1024)
+  assert.equal(Number(new URLSearchParams('?globethumb=99999').get('globethumb')), 99999) // NC: PARAM reads 99999; the clamp is what makes it 1024
+  assert.equal(await t1('?globethumb=10'), 256)
+  assert.equal(await t1('?globethumb=300.6'), 301) // rounded, not floored
+  assert.equal(await t1(''), THUMB_WIDTH) // 512: legacyParity holds at the default
+  assert.equal(await t1('', true), 384)
+  assert.equal(await t1('?globethumb=big', true), 384) // not a number: the device's THUMB_WIDTH
+  // Every texture the globe asks for derives from T1: TextureManager's legacy URLs (a child process: the import
+  // graph's globeConfig evaluates once per process, T33's pattern) and the director's weight, election, class sizes
+  // and signature, each read once, on GLOBE_T1, never THUMB_WIDTH. NC: in this process (no window) the same manager
+  // asks for THUMB_WIDTH.
+  const { execFileSync } = await import('node:child_process')
+  const tmHref = new URL('../../src/components/globe/TextureManager.js', import.meta.url).href
+  const legacyUrls = JSON.parse(
+    execFileSync(process.execPath, ['--input-type=module', '-e',
+      `globalThis.window = { location: { search: '?globethumb=300.6' }, matchMedia: () => ({ matches: false }), devicePixelRatio: 1 };` +
+      `const { default: TM } = await import(${JSON.stringify(tmHref)}); const tm = new TM();` +
+      `process.stdout.write(JSON.stringify([tm.thumbnailUrl('x'), tm.stillUrl('https://cdn.sanity.io/images/p/d/s-800x600.jpg')]), () => process.exit(0))`], { encoding: 'utf8' })
+  )
+  assert.deepEqual(legacyUrls, ['https://image.mux.com/x/thumbnail.webp?width=301&height=301&fit_mode=smartcrop', 'https://cdn.sanity.io/images/p/d/s-800x600.jpg?w=301&h=301&fit=crop&crop=entropy&auto=format'])
+  assert.equal(new TextureManager().thumbnailUrl('x'), `https://image.mux.com/x/thumbnail.webp?width=${THUMB_WIDTH}&height=${THUMB_WIDTH}&fit_mode=smartcrop`)
+  const source = (file) => fs.readFileSync(new URL(`../../src/components/globe/${file}`, import.meta.url), 'utf8')
+  for (const file of ['TextureManager.js', 'PopulationDirector.js']) assert.doesNotMatch(source(file), /THUMB_WIDTH/, file)
+  const pd = source('PopulationDirector.js')
+  for (const read of ['quadEligible(a, GLOBE_T1, this.L)', 'electQuads(this.selectFor(w.assets), TUNING.quads, GLOBE_T1, this.L)', 'texSpec(a, c, GLOBE_T1, this.L)', '|${TUNING.equiv}|${GLOBE_T1}`']) {
+    assert.equal(pd.split(read).length, 2, read)
   }
 })

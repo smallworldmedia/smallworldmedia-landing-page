@@ -256,11 +256,14 @@ export default function PopTunePanel({ sceneApiRef }) {
       <Segmented label="spans" value={s.units ? 'on' : 'off'} options={['off', 'on']} onPick={(m) => set('units', m === 'on' ? 1 : 0)} />
       <Row label="units / asset" param="unitMax" value={s.unitMax} min={1} max={6} step={1} onChange={set} />
       <Row label="quads / world" param="quads" value={s.quads} min={0} max={2} step={1} onChange={set} />
+      <Row label="tile budget" param="equiv" value={s.equiv} min={0} max={32} step={1} onChange={set} />
       <Segmented label="video tier" value={s.tier} options={POP_TIERS} onPick={(m) => set('tier', m)} />
       <p className="hero-tune__note">
-        ?popunits · ?popunitmax · ?popquads · ?poptier. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one
+        ?popunits · ?popunitmax · ?popquads · ?popequiv · ?poptier. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one
         texture per asset, one stream and one chip per unit. off = today's globe. units / asset caps the units one
-        asset forms per plan; quads / world, the 2×2 quads each world elects; video tier, the rendition each stream
+        asset forms per plan; quads / world, the 2×2 quads each world elects; tile budget (?popequiv), each world's
+        tile-equivalents on top of ?popcap (pair 2, quad 4, single 1: fewer assets, more tiles each), 0 = off; 13 = the
+        side-by-side for Nathan's Q8; video tier, the rendition each stream
         asks for (auto = by unit class and screen; today = the pin for all; lean = one rung lower).
       </p>
 

@@ -73,8 +73,8 @@ import { selectPool, WORLD_KINDS } from './buildWorldPools.js';
 import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
-import { SCROLL_VISIBLE_ROWS, THUMB_WIDTH } from './globeConfig.js';
-import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
+import { SCROLL_VISIBLE_ROWS, GLOBE_T1 } from './globeConfig.js';
+import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, quadEligible, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -177,11 +177,17 @@ export default class PopulationDirector {
     this.step = 0;
   }
 
-  /** The pool a world places from: ?popmedia's kinds and ?popcap (P7 adds the
-   *  ?popequiv budget). makeGrouping places from it, and decorate() elects quads
+  /** The pool a world places from: ?popmedia's kinds and ?popcap, and under
+   *  units the ?popequiv budget. makeGrouping places from it, and decorate() elects quads
    *  over it, so a candidate the selection leaves out is never elected. */
   selectFor(list) {
-    return selectPool(list, { kinds: MEDIA_KINDS[TUNING.media] ?? null, cap: TUNING.cap });
+    // ?popequiv (units on): a tile-equivalent budget per world. An asset weighs the
+    // class it COULD form (pair 2, quad-eligible 4, else 1), never its election,
+    // because the election reads this selection; an eligible 'q' left un-elected
+    // still counts 4, so the budget is never exceeded.
+    const budget = TUNING.units && this.L && TUNING.equiv > 0 ? TUNING.equiv : null;
+    const weigh = (a) => (a.u === 'h' || a.u === 'v' ? 2 : quadEligible(a, GLOBE_T1, this.L) ? 4 : 1);
+    return selectPool(list, { kinds: MEDIA_KINDS[TUNING.media] ?? null, cap: TUNING.cap, budget, weigh });
   }
 
   makeGrouping({ pattern = null, step = this.step, lead = this.lead } = {}) {
@@ -232,7 +238,7 @@ export default class PopulationDirector {
     // (selectFor) whose real source short side ≥ 0.9 × the quad texture side. Keyed by world (m9).
     const elected = new Set();
     if (on && TUNING.quads > 0) this.worlds.forEach((w, wi) => {
-      for (const id of electQuads(this.selectFor(w.assets), TUNING.quads, THUMB_WIDTH, this.L)) elected.add(`${wi}|${id}`);
+      for (const id of electQuads(this.selectFor(w.assets), TUNING.quads, GLOBE_T1, this.L)) elected.add(`${wi}|${id}`);
     });
     const qIds = new Set([...elected].map((k) => k.slice(k.indexOf('|') + 1)));
     const clsById = new Map(); // the texture variant, pooled by id
@@ -247,7 +253,7 @@ export default class PopulationDirector {
         const id = a.playbackId || a.imageUrl;
         const c = on ? clsById.get(id) : null;
         if (c) {
-          r.tex = texSpec(a, c, THUMB_WIDTH, this.L);
+          r.tex = texSpec(a, c, GLOBE_T1, this.L);
           if (c !== 'q' || elected.has(`${wi}|${id}`)) r.unitCls = c; // a quad only where this world elected it
         }
         return r;
@@ -257,11 +263,11 @@ export default class PopulationDirector {
 
   sigOf() {
     // Constant with units off, so a knob never rebuilds today's records. The selection knobs are in it because
-    // the quad election reads the selection (decorate → selectFor). P7 appends |equiv|T1.
-    return TUNING.units && this.L ? `1|${TUNING.quads}|${TUNING.cap}|${TUNING.media}` : '0';
+    // the quad election reads the selection (decorate → selectFor); ?popequiv's budget selects too, and T1 sizes both.
+    return TUNING.units && this.L ? `1|${TUNING.quads}|${TUNING.cap}|${TUNING.media}|${TUNING.equiv}|${GLOBE_T1}` : '0';
   }
 
-  /** A knob that changes the records (units, quads, cap, media) rebuilds them; the relayout that follows re-warms. */
+  /** A knob that changes the records (units, quads, cap, media, equiv) rebuilds them; the relayout that follows re-warms. */
   redecorate() {
     if (this.sigOf() !== this.decorSig) this.pools = this.decorate();
   }
@@ -560,9 +566,10 @@ export default class PopulationDirector {
         u.uvOffsetA.value.set(w.o[0], w.o[1]);
       }
       p._skewTheta = theta;
-      // The lead carries the unit's centre for its chip (HeroLabels.dirOf).
+      // The lead carries the unit's centre for its chip (HeroLabels.dirOf), unless it is lit as
+      // something else: a lead re-dealt to another clip may have joined that stream as a single.
       if (P.members[0] === p) {
-        if (this.wholeUnit(P)) {
+        if (this.wholeUnit(P) && (!p.liveStream || p.liveUid === P.uid)) {
           p._uc ??= new THREE.Vector3();
           p._uc.set(0, 0, 0);
           for (const q of P.members) p._uc.add(q.centerDir);
@@ -982,7 +989,7 @@ export default class PopulationDirector {
 
   /** A popConfig change (useGlobeScene forwards the key). */
   onTune(key) {
-    if (key === '*' || key === 'units' || key === 'quads' || key === 'cap' || key === 'media') {
+    if (key === '*' || key === 'units' || key === 'quads' || key === 'cap' || key === 'media' || key === 'equiv') {
       this.redecorate();
       this.relayout();
       return;
@@ -1268,6 +1275,7 @@ export default class PopulationDirector {
       for (const p of this.panels) {
         const video = p.liveStream?.video;
         if (!p.shownAsset?.place || p.parked || !(video?.videoHeight > 0)) continue;
+        if (p.liveUid !== p.shownAsset.place.uid) continue; // lit as something else: not this unit's B (A7)
         density.n += 1;
         density.worst = Math.max(density.worst, (video.videoHeight * p.mesh.material.uniforms.uvScaleB.value.y) / r1);
       }

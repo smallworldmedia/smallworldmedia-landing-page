@@ -145,7 +145,7 @@ export const GAP_COLOR = 0x0000ff;            // electric blue — the lat/long 
 export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-texture state
 
 /* — VideoGlobe-only device knobs (10-09, the media spans round): the home
-   globe and /lab, which share useGlobeScene, nameTicker and VideoSlotPool's
+   globe and /lab, which share useGlobeScene, nameTicker, TextureManager and VideoSlotPool's
    default pin. Load-time and checked: PARAM doesn't clamp, and
    setPixelRatio(0) would blank the canvas. /work has its own ?dpr and
    ?liveres (work/world/worldConfig.js). A bake of the globe's ratio belongs
@@ -178,3 +178,7 @@ const GLOBE_RES = typeof window === 'undefined' ? null : new URLSearchParams(win
 export const GLOBE_STREAM_PARAMS = /^(270|480|720|1080)p$/.test(GLOBE_RES ?? '')
   ? `min_resolution=${GLOBE_RES}&max_resolution=${GLOBE_RES}`
   : STREAM_PARAMS;
+/** ?globethumb — T1: the legacy square texture side, and the base every class texture size derives from (unitSpan.texSpec). */
+export const GLOBE_T1 = Math.round(clampTo(PARAM('globethumb', THUMB_WIDTH), 256, 1024));
+/** The VideoGlobe renderer's pixel ratio (useGlobeScene): the screen's own, capped by GLOBE_DPR_MAX. */
+export const globePixelRatio = (dpr) => Math.min(dpr, GLOBE_DPR_MAX);

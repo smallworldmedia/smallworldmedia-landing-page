@@ -69,16 +69,17 @@ function toGlobeAsset(asset) {
 
 /**
  * Round-robin across kinds (each kind in pool order) up to `cap`, then back
- * into pool order. `kinds` null = every kind.
+ * into pool order. `kinds` null = every kind. `budget` (?popequiv, units on):
+ * Σ weigh(asset) may not exceed it — a lane whose next asset doesn't fit skips it.
  */
-export function selectPool(pool, { kinds = null, cap = WORLD_POOL_CAP } = {}) {
+export function selectPool(pool, { kinds = null, cap = WORLD_POOL_CAP, budget = null, weigh = null } = {}) {
   let src = pool;
   if (kinds) {
     const want = new Set(kinds);
     const filtered = pool.filter((a) => want.has(a.kind));
     if (filtered.length >= MIN_KIND_POOL) src = filtered;
   }
-  if (src.length <= cap) return src.slice();
+  if (budget == null && src.length <= cap) return src.slice();
   const byKind = new Map();
   src.forEach((a, i) => {
     if (!byKind.has(a.kind)) byKind.set(a.kind, []);
@@ -86,9 +87,16 @@ export function selectPool(pool, { kinds = null, cap = WORLD_POOL_CAP } = {}) {
   });
   const lanes = [...byKind.values()];
   const picked = [];
-  for (let pass = 0; picked.length < cap; pass++) {
+  let used = 0;
+  for (let pass = 0, open = true; open && picked.length < cap; pass++) {
+    open = false;
     for (const lane of lanes) {
-      if (pass < lane.length && picked.length < cap) picked.push(lane[pass]);
+      if (pass >= lane.length || picked.length >= cap) continue;
+      open = true;
+      const w = budget == null ? 0 : weigh(src[lane[pass]]);
+      if (budget != null && used + w > budget) continue;
+      used += w;
+      picked.push(lane[pass]);
     }
   }
   return picked.sort((a, b) => a - b).map((i) => src[i]);

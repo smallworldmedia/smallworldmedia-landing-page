@@ -17,7 +17,7 @@
  * draws its strip locally — same refcount, no network beyond the face.
  */
 import * as THREE from 'three';
-import { THUMB_WIDTH } from './globeConfig.js';
+import { GLOBE_T1 } from './globeConfig.js';
 import { loadNameTexture } from './nameTicker.js';
 
 /** The texture cache key for a globe asset: a class texture's own key (its
@@ -36,11 +36,11 @@ export default class TextureManager {
   }
 
   thumbnailUrl(playbackId) {
-    return `https://image.mux.com/${playbackId}/thumbnail.webp?width=${THUMB_WIDTH}&height=${THUMB_WIDTH}&fit_mode=smartcrop`;
+    return `https://image.mux.com/${playbackId}/thumbnail.webp?width=${GLOBE_T1}&height=${GLOBE_T1}&fit_mode=smartcrop`;
   }
 
   stillUrl(imageUrl) {
-    return `${imageUrl}?w=${THUMB_WIDTH}&h=${THUMB_WIDTH}&fit=crop&crop=entropy&auto=format`;
+    return `${imageUrl}?w=${GLOBE_T1}&h=${GLOBE_T1}&fit=crop&crop=entropy&auto=format`;
   }
 
   /**

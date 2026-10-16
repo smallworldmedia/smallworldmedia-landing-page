@@ -159,13 +159,17 @@ test('the footer rest bake and the probe gate that checks it are one number', ()
    one line there (the ?footerblurbfill fill), so the floor moves with the
    viewport, not with a re-wrap. The larger of the two is the floor. */
 test('the desktop footer rest is its own bake', () => {
-  const m = fs
-    .readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
-    .match(/const FOOTER_REST_DESKTOP = ([0-9.]+)/)
+  const hero = fs.readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
+  const m = hero.match(/const FOOTER_REST_DESKTOP = ([0-9.]+)/)
   assert.ok(m, 'Hero.jsx no longer declares FOOTER_REST_DESKTOP the way this test reads it')
   const baked = Number(m[1])
   assert.ok(baked <= 1, `?footerrest is a 0..1 fraction, got ${baked}`)
   assert.ok(baked > 0.1966, `a desktop rest of ${baked} clips the blurb (floor is 0.1966 @1728x992)`)
+  const ROUTE = /IS_MOBILE \? FOOTER_REST_MOBILE : FOOTER_REST_DESKTOP/
+  assert.match(hero, ROUTE) // the routing: phones rest at the phone bake, desktop at its own
+  const swapped = hero.replace(ROUTE, 'IS_MOBILE ? FOOTER_REST_DESKTOP : FOOTER_REST_MOBILE')
+  assert.notEqual(swapped, hero) // the control ran: the anchor occurs, and the swap changed the text
+  assert.doesNotMatch(swapped, ROUTE) // a swapped ternary fails the match
 })
 
 test('the marks window opens before it closes and inside the rise', () => {
