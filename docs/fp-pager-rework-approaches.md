@@ -874,7 +874,10 @@ stale bundle.
    column width (a 1-column mobile wall drew 480px pages into a 704px
    column — a 1.5× upscale; decode-only fix), and the mobile canvas is
    896px (`?wallpx`, was 704; 1.6× the upload area — the one real compute
-   cost, dial to compare).
+   cost, dial to compare). *Note (P8, 10-16): since PF (`d2967ca`, 10-10)
+   the wall scrolls a static atlas in the shader and repaints only when a
+   page lands, so the canvas area now sets the texture memory and the
+   upload per landed page rather than a per-frame cost.*
 5. Nathan's note "by the outer two projects the slicing effect is
    nonexistent" — **open, needs his read**: with the step curve every row
    but the lens sits at roster scale, so neighbouring slices differ only by

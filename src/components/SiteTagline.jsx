@@ -94,8 +94,10 @@ const TAG_MORPH_MS = 600;
 // Word fade-ins share one total budget (s), so the 21-word blurb arrives on
 // the short tagline's beat instead of a 1.5 s crawl; the morph's is tighter.
 // Exported 10-07: the resting footer's on-load entrance fades the SAME copy
-// in (this pill's long layer lives in the panel at ≤768px), so it needs this
-// beat, not a re-typed copy of it — one house per-word budget.
+// in (this pill's long layer lives in the panel wherever home rests: phones
+// since 10-07, desktop too since bake A, ba7cf2c — [data-footer-rest] has no
+// viewport gate), so it needs this beat, not a re-typed copy of it — one
+// house per-word budget.
 export const wordStagger = (n, budget = 0.8) => Math.min(0.07, budget / Math.max(1, n - 1));
 const HOME_SAFETY_MS = 12000; // hero-chrome no-show fallback (odd intro paths)
 const REVEAL_ON = 0.85; // footer progress that arms the copyright/lockup
@@ -413,7 +415,8 @@ export default function SiteTagline({ siteCopy }) {
       // (global.css, [data-footer-rest]), so the corner empties out
       // completely. Tested the same way maskPill tests it eighteen lines up,
       // so a frozen IS_MOBILE and the live media query cannot disagree.
-      // THE DESKTOP CONSEQUENCE (10-09, desktop rests at 0.62): above 768px
+      // THE DESKTOP CONSEQUENCE (bake A, ba7cf2c, 10-09: home's desktop rests
+      // by default, at 0.62): above 768px
       // this loop now stays live for the whole home session — readReveal()'s
       // getComputedStyle every frame, maskPill()'s matchMedia early-out —
       // although the variant has taken the pill and the lockup at every width

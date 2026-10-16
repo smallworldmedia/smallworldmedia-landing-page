@@ -86,7 +86,7 @@ npm run dev -- --port 4322        # runs beside :4321 in this checkout
    {style, delay, ms})` has three styles:
    - `blink`: a CRT dip on `uPower` with the swap at the bottom (the cascade flicker vocabulary).
    - `surge`: the commit's blue two-beat on `uBlueMix` with the swap under full blue (the
-     `surgePanel` shape from `useGlobeScene.js:80-91`).
+     `surgePanel` shape from `useGlobeScene.js:108-119` as of P8, 10-16).
    - `cut`.
 
    A live tile first calls a new `scheduler.dropLive(panel)`, which releases the video instantly
@@ -237,13 +237,21 @@ pools ship tagged by kind up to the hard cap.
 
 - With no `popmode`, the globe is today's globe. The director is never built, MeridianScroll runs
   its old cursor, and video texture keys are unchanged.
-- **Untouched:** `panelMaterial.js`, `cascade.js` (`panelDelay` read-only), `buildGlobeGeometry.js`
-  (all three shared with /process), `VideoSlotPool.jsx` (/work), `buildAssetPool.js` and
-  `GLOBE_ASSETS_QUERY` (/process), and all of `src/components/process/`.
+- **Untouched:** `panelMaterial.js` and `buildGlobeGeometry.js` (both shared with /process),
+  `buildAssetPool.js` and `GLOBE_ASSETS_QUERY` (/process), and all of `src/components/process/`.
+  (Until the media spans, `cascade.js` and `VideoSlotPool.jsx` were on this list too.)
 - **Modified:** `index.astro`, `LandingPage.jsx`, `Hero.jsx`, `VideoGlobe.jsx`, `useGlobeScene.js`,
   `MeridianScroll.js`, `LivePanelScheduler.js`, `TextureManager.js`, and in P3
   `FeaturedProjects.jsx` and `useWorldScene.js`. The snap also reached `WorldScene.jsx`,
-  `GraticulePager.jsx` and `usePagerGesture.js`; see the P3 log.
+  `GraticulePager.jsx` and `usePagerGesture.js`; see the P3 log. The media spans (§ Media spans)
+  modified two files that were on the Untouched list:
+  - `VideoSlotPool.jsx` (/work too): every pooled stream is clipped to the preview window through
+    `muxStream` (P0) and fetches no audio (P0v); the globe's default pin is `GLOBE_STREAM_PARAMS`
+    (`?globeres`, P0c); an optional per-assign `params` (P6b) keeps the clip, and the default is
+    the pool's streamParams.
+  - `cascade.js`: `delayOwner`: a unit's members take their lead's delay, in the entrance and the
+    blue fill (P4a); a panel outside a unit owns itself, and /process's panels never form units,
+    so its cascade is unchanged.
 - **New:** `buildWorldPools.js`, `worldPatterns.js`, `PopulationDirector.js`, `tileSwap.js`,
   `popConfig.js`, `PopTunePanel.jsx`, `scripts/globe-probe.mjs`,
   `scripts/test/globe-worlds.test.mjs`, `docs/globe-worlds-plan.md`.
@@ -286,6 +294,450 @@ pools ship tagged by kind up to the hard cap.
 - **Stills crop to center.** `FEATURED_WORLDS_QUERY` has no `image.hotspot`. Add it only if the
   crops look wrong.
 - **The P3 /work change** must not regress the detail-page return restore.
+
+## Media spans
+
+Media spans join a globe tile to its neighbours so that one asset spans them as one picture. They
+were built on `refine/globe-worlds` from P0a to P7 (10-10 to 10-16; the commits are in the
+Status log). They ship OFF behind `?popunits`, and with units off the globe is today's: the
+probe's `legacyParity` holds every phase to the units-off records. The design contract for the
+round is a scratch file and not in the repo. This section is the repo's record of it. Where the
+code that landed differs from the contract's text, "As built" below states what landed and cites
+the commit. Code comments cite this section by name, and its question numbers (Q1–Q27) are the
+contract's, so comments that cite Q3, Q7 and Q8 still resolve.
+
+### What a unit is (O1, O2)
+
+- **Unit.** One classed asset across 2×1 tiles (`h`, a horizontal pair), 1×2 tiles (`v`, a
+  vertical pair) or 2×2 tiles (`q`, a quad). All members show the asset's one class texture,
+  and each member crops its own slice of it. The first member is the lead. A tile that isn't in
+  a unit is a single.
+- **Seams: the mullion (O2).** The unit texture runs behind the lattice gaps. Each gap hides its
+  own strip of the picture, `Gφ/(2Pφ − Gφ)` = **0.018676** of the unit's width per column seam,
+  and the same fraction of its height per row seam. A straight line in the picture continues
+  straight across the gap. Name strips keep their split windows (`nameWindow`), untouched.
+- **The CPU route (O1).** `panelMaterial.js` is not edited. `director.place()` re-derives each
+  member's A window (the poster's) every frame from its own live pose, right after
+  `scroller.update`.
+  - H: `q = vK`, so the picture is exact at every latitude. H has no latitude limit.
+  - V/Q: `q = kappaOwn = √(vK · sin θ₂)`, the geometric mean of the two rows' pinch. The columns
+    align exactly, and each row shows a warp of `½|ln(sin θtop / sin θbottom)|`.
+- **The video window.** `B = cover(V, aTex) ∘ A`, where `V` is Mux's exact picture ratio. texB
+  rides texA per frame, so the video registers with the poster.
+- **Eligibility.** A V/Q unit is placed only where its warp stays within `ε = UNIT_EPS = 0.15`
+  for its whole planned life:
+  - the top row starts at θ ≥ θN = 47.61°;
+  - it ends at θ + D ≤ θS = 102.39°;
+  - the bottom row stays in front of the live horizon: θ + Pθ + D ≤ θh;
+  - it clears the grain band when `?popgrainamt` > 0. With g = 0.67, that is sin θ ≥ g at both
+    ends.
+
+  H pairs take only the grain clause.
+- **Travel budget D** includes the landing time:
+
+  | Case | D |
+  |---|---|
+  | advance | 18.0° |
+  | relayout | 18.3° |
+  | held arrive | 20.2° |
+  | replay initial layout, or a single world | ∞, so H only |
+  | reduced motion | 0 |
+
+  Before the first tick the horizon is null, so the initial layout is H only (M4). The first V/Q
+  units come with the first change. Under `?poptransset=tide` every row is re-born, so V/Q
+  units leave with their rows. Tides carry H pairs only (Q16).
+
+### Derivations
+
+These are the figures `unitSpan.js` implements and `scripts/test/globe-worlds.test.mjs` pins
+(T1–T10, T30).
+
+```
+Lattice (read live off a scroll panel):
+  Pφ = 30°   Pθ = 30°   phiLen = bandH = 28.9°   Gφ = Gθ = 1.1°
+Member fractions (n = 2):
+  member 0 → [0, 0.490662]   member 1 → [0.509338, 1]   seam = Gφ/(2Pφ − Gφ) = 0.018676
+Unit aspects, S(cols, rows) = (cols·Pφ − Gφ) / (rows·Pθ − Gθ):
+  S_h = 2.038062   S_v = 0.490662   S_q = 1      (S follows the live lattice: ?gapdeg 2 → S_h 2.00692)
+Shader mirror (panelMaterial.js, read-only):
+  vK = sin(clamp(θc, 0, π))   mUv = (0.5 + (vUv.x − 0.5)·vK, vUv.y)   uv = mUv·s + o
+A = compose(coverWindow(aTex, S), memberWindow(…))    B = compose(coverWindow(V, aTex), A)
+V/Q scale: q = √(vK · max(sin θ₂, 1e-3)), θ₂ = θ ± Pθ (vK when θ₂ leaves (0, π))
+ε window: thetaBound(k, Pθ) = atan2(k·sin Pθ, 1 − k·cos Pθ)
+  θN = thetaBound((1 + ε)^−2) = 47.61°   θS = thetaBound((1 + ε)^2) = 102.39°   (ε = 0.15)
+Travel budget: pace·(land + hold·(1 + holdJit) + trans); defaults pace 2°/s, hold 6, holdJit 0.2, trans 0.9
+  advance (land 0.9 s) 18.0° · relayout (land 1.05 s) 18.3° · held arrive 20.2° · RM 0 · replay/single ∞
+Class texture: W × H = round(T1·(cols·Pφ − Gφ)/phiLen) × round(T1·(rows·Pθ − Gθ)/bandH)
+  T1 = GLOBE_T1 (THUMB_WIDTH: 512 desktop, 384 phone) → h 1043×512 (phone 783×384), v 512×1043, q 1043×1043
+  TQ = round(T1·(2Pθ − Gθ)/bandH) = 1043 at T1 512, 783 at T1 384
+Decode budget: MAX_LIVE × mp(pinShort, 16/9): desktop 7 × 0.40992 = 2.86944 MP, phone 4 × 0.40992 = 1.63968 MP
+  at the 480 pin (6.4512 / 3.6864 MP under ?globeres=720p)
+```
+
+### The class rule (O3)
+
+The label proposes, and the native ratio vetoes. `classOf` (`mediaClass.js`) runs once at
+build time, in `buildWorldPools.toGlobeAsset`.
+
+1. **Native ratio.** A video's is Mux's `videoAspectRatio`, and only when
+   `videoStatus === 'ready'`. Anything else, 'preparing' included, leaves it unknown: a video
+   never falls back to an image size. An image's (a still or album art) is Sanity's
+   `imageDimensions`, else the `-WxH` in the CDN URL. An asset whose ratio is unknown, or
+   extreme (|ln r| ≥ ln 2.4), is single only (Q5).
+2. **Bands.** The label's band and the native band are the two candidates. Each band is exact
+   ±10% in log space: `h` around 16:9, `v` around 9:16, otherwise `o` (Q4).
+3. **Winner.** The candidate whose slot keeps more of the native picture (`kept`) wins.
+4. **Result.** `h` or `v` gives that class. Otherwise r ∈ [0.75, 1.334] gives the `q`
+   candidate, and anything else is single.
+
+The result travels as `u` on the globe asset, beside `s`, the source's short side (P2). The
+switch is `CLASS_SOURCE = 'veto'`, and `'label'` is kept for Nathan's Q3. Example: RH8CMzFM is
+labelled 16x9 but is natively 9:16, so it is a V pair under veto. Under label it would be an H
+pair keeping 27.6% of its height.
+
+**Quads are elected per world** (`unitSpan.electQuads`; `?popquads`, default 1). The candidates
+are `q` assets whose real source short side is ≥ 0.9·TQ, so the source clamp shrinks a quad by
+at most 10%. Each asset loads **one texture per session**: its class texture, or the legacy
+square while it is single only or an un-elected `q`. Its singles and its members share that
+texture.
+
+### Knobs (the knob ledger)
+
+Every span knob is a `?param` with a tunables-guide row. No phase baked a default: each default
+is today's behaviour, or off.
+
+| Param | Key | Phase | Default | Range | Reload? |
+|---|---|---|---|---|---|
+| `?popunits` | `units` | P3 | `0` (off) | `n > 0` → 1, else 0 | live (bench segment) |
+| `?popunitmax` | `unitMax` | P4a | `1` | 1–6, rounded | live (bench row) |
+| `?popquads` | `quads` | P5 | `1` | 0–2, rounded | live (bench row) |
+| `?poptier` | `tier` | P6b | `auto` | `auto` \| `today` \| `lean` | live (read at each stream start) |
+| `?popequiv` | `equiv` | P7 | `0` (off) | ≤ 0 → 0, else 4–32 rounded | live (bench row) |
+| `?globedpr` | `GLOBE_DPR_MAX` | P0c | 3 on phones (bake B, `8732aa8`), `DPR_MAX` (2) on desktop | 1–3 | URL-only, load time |
+| `?globeres` | `GLOBE_STREAM_PARAMS` | P0c | `STREAM_PARAMS` (480p on both devices) | `270p` \| `480p` \| `720p` \| `1080p`, else the default | URL-only, load time |
+| `?globethumb` | `GLOBE_T1` | P7 | `THUMB_WIDTH` (512 desktop, 384 phone) | 256–1024, rounded | URL-only, load time |
+| `?popunitlook` | `unitLook` | P9 | `rows` | `rows` \| `flat` | not built: P9 only on Nathan's yes to Q2 |
+
+`?globedpr`, `?globeres` and `?globethumb` reach `/lab/globe` too, which mounts the same
+VideoGlobe (in dev and preview; Netlify redirects `/lab/globe` to `/` in production). `?popcap` and `?popmedia` re-decorate under units, because the quad election reads
+the selection (P5).
+
+The defaults set before P0a are outside the phases, and are recorded here:
+- /work's `?dpr` is 3 on phones and 2 on desktop (P0c, `113b085`).
+- /work's `?wallpx` has a desktop floor, `Math.round(768 * Math.max(1.5, WALL_DPR))`, and
+  `?fpstol` is 0, unbaked (PF, `d2967ca`; Q23).
+- `?globedpr`'s phone default is 3 (bake B, `8732aa8`).
+- Home's `?footerrest` is 0.62 on desktop by default (bake A, `ba7cf2c`), and 0.59 on phones.
+
+Both look bakes keep their `?param` as an A/B override: `?globedpr=1.5` is the old phone globe,
+and `?footerrest=0` is the old desktop footer (Q27). The guide rows for these knobs are their
+commits' own, and P8 checked each default against the code.
+
+### Modules
+
+**New:**
+- `src/components/globe/unitSpan.js` (P1, with later phases appending): the import-free
+  arithmetic. It holds the lattice, `frac`, `unitAspect`, `kappaOwn`, `memberWindow`,
+  `compose`, `coverWindow`, `unitA`, `thetaBound`, `unitSkewBound`, `texSpec`, `eligibleH`,
+  `eligibleVQ`, `grainClear`, `quadEligible`, `electQuads` and `liveB`. It also holds the
+  source and picture readers (`sourceShort`, `urlDims`, `parseRatio`, `sourceDims`,
+  `decodedAspect`, `pictureAspect`, `frameOf`, `mp`) and, from P6b, the tiers:
+  `STREAM_RUNGS`, `TIER_RANK`, `STREAM_TIERS`, `PHONEHD_MIN_RATIO` 2.25, `tierBucket`,
+  `rungAtMost` and `pinShortOf`.
+- `src/components/globe/mediaClass.js` (P1): `CLASS_SOURCE`, `nativeRatio`, `classOf`.
+- `scripts/lib/unitGates.mjs` (P0b; every later phase adds its gates): the span gates, the
+  baseline reader and writer, and the `--expect-fail` checker.
+- `scripts/baselines/globe-units.json` (P0b, P3, P4a, P5, P6b, P7): the records.
+
+**Existing files, and what each gained:**
+- `buildWorldPools.js`: `u` and `s` on every globe asset, from `classOf` and the video track
+  (P2). In P7, `selectPool` takes the `?popequiv` budget and weights.
+- `src/lib/queries.js`: `videoTrack` (`max_width`, `max_height`) on `FEATURED_WORLDS_QUERY`'s
+  assets (P2).
+- `buildContentFlow.js`: exports `MEDIA_TYPE_RATIOS` (P1).
+- `PopulationDirector.js`:
+  - `decorate` pools by class and elects quads (P3, P5).
+  - `planUnits`, keep-first and shared delays (P4a).
+  - `place()` runs after each frame's scroll and writes the A and B windows (P4b, P6a).
+  - The V/Q eligibility (P5); `joinGroup` and the unit chip (P6a); `onTune('tier')` (P6b).
+  - `selectFor`'s budget, and `GLOBE_T1` (P7).
+  - `unitStats` and the telemetry fields below (P0b to P7).
+- `MeridianScroll.js`: a re-born row cancels its in-flight swap (P0a); born pairs.
+- `tileSwap.js`: `windowA`, the one texA window rule. It gives a unit member its own window, and
+  loadTile's bind hook writes it on the member's first bound frame (P3, P4b). `placeKey` (the
+  asset key plus the place's uid and cell) lets the shared-delay swap skip a tile already
+  showing that placement (P4a).
+- `TextureManager.js`: class-texture URLs, a measured `userData.aspect`, and the residency
+  ledger `stats()` (P0b, P3, P7).
+- `LivePanelScheduler.js`: the live window and `decodeStats` (P0b). From P6a, a unit joins and
+  leaves its stream as one. From P6b: `tierFor`, `bucket`, `pinParams`, `decodeBudget`,
+  `planOf` and `tierCall`.
+- `useGlobeScene.js`: the per-frame `place()` after the scroll, `r1`, the stats clock, and the
+  DPR bucket read from the renderer (P0b to P6b).
+- `VideoSlotPool.jsx`: an optional per-assign `params` (P6b; see Parity).
+- `cascade.js`: `delayOwner` (P4a; see Parity).
+- `popConfig.js`, `PopTunePanel.jsx`: the knobs and the bench's spans group (P3 to P7).
+- `HeroLabels.jsx`: one chip per unit, at the unit's centre (P6a), and the fading-chip latch
+  (P7).
+- `globeConfig.js`: `GLOBE_T1` and `globePixelRatio` (P7).
+- `nameTicker.js`: exports `STRIP_H` (P7).
+
+### The probe: levels, gates, runs, controls, baselines
+
+`scripts/globe-probe.mjs` (its usage header lists every flag) runs the span gates through
+`scripts/lib/unitGates.mjs`. Each gate records `{ n, floor, vacuous, worst, bound }`, and a gate
+passes only when it is non-vacuous and ok. `--level` is cumulative: `off < tex < h < vq < live <
+tier`. A tide run caps at `h`; `--rm` and `&poplive=tile` cap at `vq`.
+
+| Level | Gates |
+|---|---|
+| off | `texReqShape`, `thumbVariants`, `legacyParity`, `unitsVacuous`, `staleLanded`, `texBudget`, `texPeak` |
+| tex | `liveReg` |
+| h | `unitWhole`, `bornWhole`, `unitRepeats`, `memberStills`, `neighbourRule`, `unitSeam`, `unitRegister`, `snaps`, `skew` |
+| vq | `unitColumns`, `unitRows`, `unitWarp`, `initVQ`, `unitShapes` |
+| live | `unitLiveSplit`, `chipsPerUnit`, `unitRegisterB` |
+| tier | `decodeReal`, `streamTier`, `videoDensityMax` |
+
+`report.net` adds P0's four network gates (`streamClip`, `segmentsPerRendition`, `loops`,
+`audio`). The Status log's older "N gates" counts (09-26, 10-07) count the pass block's keys. They
+are records, and they stay as written.
+
+**The run matrix (units on).** Every run passes `--units --level=<L>` and must exit 0. The keys
+are records in `scripts/baselines/globe-units.json`:
+
+| Key | Extra flags | From |
+|---|---|---|
+| `u-desktop` | none (1440×900 @1, lodpi) | P3 |
+| `u-mobile` | `--mobile` (390×844 @2, phone) | P3 |
+| `u-rm` | `--rm --next=1` (stills, capped at vq; see As built 1) | P3 |
+| `u-tide` | `--extra="&poptransset=tide&popunitmax=6" --secs=40` (capped at h) | P3 |
+| `u-tile` | `--extra="&poplive=tile"` (capped at vq) | P4a |
+| `u-arrive` | `--intro=full --warm=10 --secs=30` (held reveal; `initVQ` 0) | P5 |
+| `u-hidpi` | `--dsf=2` (hidpi) | P6b |
+| `u-phonehd` | `--mobile --dsf=3` (phonehd, 480 pin) | P6b |
+| `u-phonehd720` | `--mobile --dsf=3 --extra="&globeres=720p"` | P6b |
+| `u-equiv` | `--extra="&popequiv=13"` (`neighbourRule` report-only) | P7 |
+| `u-thumb-phonehd` | `--mobile --dsf=3 --extra="&globethumb=512" --texmb=96` | P7 |
+
+Levels by phase: P3 tex; P4a and P4b h; P5 vq; P6a live; P6b and P7 tier. The units-off keys
+are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the file's
+`recorded` date is 10-15), and `off-phonehd` (`--mobile --dsf=3`, P6b, 10-16).
+
+**Negative controls (MUSTFAIL).** Each control is one run that must exit 2. Then
+`node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` must exit 0:
+
+| Control | Flags | Must fail | Phase |
+|---|---|---|---|
+| `nc-texmb` | `--texmb=1 --baseline=off-desktop` | `texBudget` | P0b |
+| `nc-texpeak` | `--texpeak=1 --baseline=off-desktop` | `texPeak` | P0b |
+| `nc-sneak` | `--extra="&popunits=1" --baseline=off-desktop` | `legacyParity,texReqShape,unitsVacuous` | P3 |
+| `nc-units0` | `--units=0 --level=h --baseline=u-desktop` | `unitsVacuous` | P4a |
+| `nc-windows` | `--units --level=h --negctl --baseline=u-desktop` | `unitSeam,unitRegister` | P4b |
+| `nc-bind` | `--units --level=h --negctl=bind --baseline=u-desktop` | `skew` | P4b |
+| `nc-windows-vq` | `--units --level=vq --negctl --baseline=u-desktop` | `unitSeam,unitRegister,unitColumns,unitRows` (and `unitWarp`, As built 4) | P5 |
+| `nc-decode` | `--units --level=tier --decodemax=0.3 --baseline=u-desktop` | `decodeReal` | P6b |
+| `nc-density` | `--units --level=tier --densitymax=1 --baseline=u-desktop` | `videoDensityMax` | P6b |
+| `nc-density-hidpi` | `--units --level=tier --dsf=2 --densitymax=0.4 --baseline=u-hidpi` | `videoDensityMax` | P6b |
+| `nc-density-phonehd` | `--units --level=tier --mobile --dsf=3 --densitymax=0.4 --baseline=u-phonehd` | `videoDensityMax` | P6b |
+| `nc-pin` | `--units --level=tier --negctl=pin --baseline=u-desktop` | `streamTier` | P6b |
+| `nc-thumb` | `--extra="&globethumb=384" --baseline=off-desktop` | `legacyParity` | P7 |
+
+P6a's gates have no probe control. Their negative controls are unit tests: T24 (a per-member join
+splits a unit) and T25 (a stale B misregisters).
+
+**Baselines and seeds.** All 17 records in `scripts/baselines/globe-units.json` hold seed 42,
+which is the probe's default. A record stores the seed as the string `"42"`. So the first passing
+seed was 42 for every run type, and no key needed the vacuity retries (7, 9, 11, 13). A record
+is written only from an all-pass `--record-baseline` run. Re-run without the flag, on that seed,
+it must exit 0, and nobody edits the file by hand. A home run with no record under its key exits
+2: it fails `legacyParity` (units off) and, except under `--mode=off`, `texPeak` (unless
+`--texpeak` is passed) as vacuous. With no `--baseline`, the key
+is the `--out` folder's name, so pass the key that matches the run.
+
+**The one-rerun rule.** A one-off non-vacuous gate failure can hit a transition sample whose
+name placement lags a step (`namesSlice`). Rerun once after wait-quiet, and keep both runs in
+the evidence. Two failures stop the phase. A vacuous gate also gets one rerun. Never lower a
+floor or weaken a gate.
+
+### `window.__swmPopStats`
+
+The director publishes it about twice a second whenever `?popmode` ≠ off. It is not gated on
+`?debug`. The tunables guide's Debug globals row names every field. The span fields are `tex`,
+`upload`, `r1`, `decode` `{ mp, budget, pinShort, bucket, streams[…] }`, `layout`, `staleLanded`,
+`bornCancelled` and `units`. `units` is `null` unless `?popunits` is on and the lattice exists.
+Otherwise it holds:
+- `texClass` and `liveReg` (P3);
+- `placed`, `bornH`, `members`, `liveMembers`, `whole`, `orphans`, `orphansFront`, `repeats`,
+  `clock`, `D`, `thetaH`, `initVQ` and `initThetaH` (P4a);
+- `seam`, `register`, `snaps`, `skewBad` and `skewChecks` (P4b; the counters are cumulative);
+- `cols`, `rows` and `warp` (P5);
+- `liveSplit`, `chipsPerUnit` and `registerB` (P6a);
+- `density` `{ n, worst }` (P6b).
+
+**The A7 guards** (P6a, `8e74419`, and P7-6): `place()` writes a member's texB, and `registerB`
+and `density` count the member, only when its stream was lit for this unit
+(`liveUid === place.uid`).
+
+### As built (where the contract's text does not hold)
+
+1. **u-rm runs `--units --level=<L> --rm --next=1`** (A11), though the contract's §8.5 row
+   says `--rm`. RM's clock is static and the initial plan is H only (M4), so ⏭ poses the first
+   V/Q plan. A record stores no flags, so RECORD and UNITS both pass `--next=1`. P5, `56b6031`.
+2. **Born pairs.** The contract puts the bind hook's guarantee on every member (O6 point 1, and
+   §4.7's comment at `tileSwap.js`). It holds as written only for a planned member, which is
+   right on its first bound frame. A born member, from MeridianScroll's born pair, binds while
+   parked past the south pole (recycle runs before poseTile). `place()` writes its window before
+   its first unparked render. `nc-bind` covers planned binds only. Born pairs are covered by the
+   unit test "spans: through a tide’s travel, place() after each frame’s scroll keeps whole
+   units registered and seamless, born pairs from their first frame (P4b)". P4b, `d0e430f`. P8
+   rewords the tileSwap.js comment to match.
+3. **An elected id's class.** The contract's §4.8 says an elected id uses its q texture
+   everywhere. In fact `decorate()` pools an id by its FIRST classed occurrence. An id classed h
+   or v in an earlier world keeps that class in a later world that elects it, so no quad forms
+   there. No id is in two worlds today. P5, `56b6031`.
+4. **`nc-windows-vq` also fails `unitWarp`.** The contract's expect-fail row names only four
+   gates. P5, `56b6031`.
+5. **A7.** texB and `registerB` are written only when `liveUid === P.uid`. P6a, `8e74419`. P7
+   gives `density` the same guard (P7-6, `eadf842`).
+6. **`neighbourRule`'s REF.** Take the contract's §4.10 7-key line, or the code. Never take
+   §8.3's listing, which prints P4a's 4-key line. P6b, `cdcf25d`.
+7. **P3's latent `liveReg` false miss under `?poplive=tile`.** A recycled class tile keeps its
+   old B and `liveVideo` while loadTile binds a new A. It is known and has not fired: u-tile's
+   `liveReg` worst was 0 at P6a, and 0 against a bound of 0.001 at P7 (n 48). P3, `c7f382d`.
+8. **What P7 landed beyond the contract's text** (`eadf842`):
+   - `report.darkThumbs`, report-only: every class texture home received whose luma mean is
+     < 16 or whose sd is < 6 (0–255), measured from the bytes already received. It comes with
+     `darkThumbsScan { measured, failed }`.
+   - The finite guard: each P4b gate fails a non-finite worst (P7-1).
+   - `report.argv` and the resolved `report.negctl`, both report-only (P7-5).
+   - A lead lit as another clip's single carries no unit centre (P7-2).
+   - The fading-chip latch (P7-3, as landed after the fix round, A10). On 'off', a slot keeps
+     its unit's members (`heldMembers`) when the panel had a unit centre, and `null` otherwise.
+     While the latch is set, the frame loop re-derives the anchor every frame from live poses:
+     the members' normalized sum, or the tile's own `centerDir`. With units off, every chip
+     takes the own-tile branch. One LOOK desk run: 117 polls, 453 chip reads, 0 jumps to a new
+     centre.
+   - P7's Adaptations A1–A10 are in its commit message.
+9. **The guide's `__swmPopStats` row** gains `decode`'s `budget`, `pinShort` and `bucket`, and
+   `units.density`. It drops "both null until P6b". P6b, `cdcf25d`; reworded in P8.
+10. **Report-only fields.** `report.json` gains `dsf` and `canvas` in P6b (`cdcf25d`), and
+    `argv`, `negctl` and `darkThumbs` in P7 (`eadf842`). The probe's usage header names them.
+11. **`&poptier=today` and the tier level.** Under `&poptier=today`, no stream carries a tier
+    plan, so `streamTier` has no sample, and a `--level=tier` run exits 2 on `streamTier` alone.
+    Judge a today run at `--level=live`. The orchestrator's comparison capture found this on
+    10-16.
+
+### Defaults, and Nathan's questions
+
+Each question has a default, which is what ships if Nathan says nothing. His answers bake later,
+one commit per knob default. The numbers are the contract's §13, and code comments cite them.
+
+| # | Question | Default (or answer) |
+|---|---|---|
+| Q1 | Turn units on? | Off (`?popunits=0`) until he has looked at 1440 and 390: `/?popunits=1&poptune=1` |
+| Q2 | Build S2, the per-fragment crop (P9)? | No. The CPU route ships, and P9 is never built |
+| Q3 | Class source: the label alone, or the label with a native veto? | Veto (`CLASS_SOURCE = 'veto'`) |
+| Q4 | Class band width | ±10% in log space around 16:9 and 9:16 |
+| Q5 | Extremes (\|ln r\| ≥ ln 2.4): single, or span? | Single |
+| Q6 | Quads per world | 1 (`?popquads`) |
+| Q7 | Unit repeats: once per asset per plan, or at every admissible spot? | Once (`?popunitmax=1`; 6 = every spot) |
+| Q8 | Fewer assets? | `?popcap` 13 kept; `?popequiv` off. Compare `/?popunits=1&popequiv=13` with `/?popunits=1` |
+| Q9 | Phone renditions | Superseded: the phone pin is 480p (10-09), and P0 pins it on both devices |
+| Q10 | The phone's pixel ratio | Answered: 3 on phones at 480p (bake B, `8732aa8`); `?globedpr=1.5` is the old globe |
+| Q11 | T1 768 on large Retina displays? | 512 (`THUMB_WIDTH`); `?globethumb=768` to compare |
+| Q12 | Dark first frames | Keep `time=0`; darkThumbs is reported only. P7's lists (`eadf842`): u-desktop and u-mobile list the same four near-black class textures (mean < 16, none flat): jowrx35j (v), iYkHH8HX (h), fRj7mEI5 (v) and qRA02wwe (q). zNq4h02h and ewG9MiP4 were never requested as class textures at seed 42, so they were not measured. The only flat texture is bedouin's 2fInI023 (v, mean 126.9, sd 3.2), listed by u-tide only |
+| Q13 | Registered (`time=0` crop) posters for single-only videos too? | No: singles keep today's smartcrop square |
+| Q14 | HiDPI desktop: 720p pairs and a 1080p quad inside today's decode budget? | Yes (`?poptier=auto`); lodpi pairs stay at 480p; `?poptier=today` for the A/B |
+| Q15 | Seams: mullion or split? | Mullion |
+| Q16 | Tides carry H pairs only? | Accept |
+| Q17 | One chip per unit, at its centre? | Yes |
+| Q18 | Desktop /work at full res? | Answered: DPR 2 (P0c, `113b085`) |
+| Q19 | (inform) The strict 15 s detail cap | Done in P0 (`wrapAtDetailCap`) |
+| Q20 | The phone decode budget at DPR 3 | Follows the pin: 1.63968 MP at 480p, 3.6864 MP under `?globeres=720p` |
+| Q21 | COCO and bedouin show no live video on phones under the corner preset | Answered: a bug, which F2 (`876404c`) fixes |
+| Q22 | HiDPI tiers at the lowest rung with density ≥ 1? Desktop globe at 720p? | Measured; the desktop globe keeps the 480p pin unless his eye takes 720p (`/` against `/?globeres=720p`) |
+| Q23 | The deck wall's flicker | Fixed in PF (`d2967ca`). Open: (a) `?fpstol` 0; (b) the wall canvas on a 1× screen, 1152 |
+| Q24 | MSAA 2 at DPR ≥ 2; the globe without antialias | Neither taken |
+| Q25 | Desktop footer at rest, 0.62 | Keep 0.62, the value he approved |
+| Q26 | The tagline's per-frame watcher on desktop home | Leave it |
+| Q27 | Remove the baked knobs' `?param` reads at the fold? | Keep them as overrides until the fold, then ask again |
+
+### Open
+
+**Nathan's open calls:**
+- Should a single's corner touching its own unit count as a neighbour?
+- Should desktop quads favour frontal positions? P5's LOOK framed 0 frontal quads in over 600
+  desktop polls.
+- On a 3× phone, should pairs play at 720 as well as quads? The evidence is the orchestrator's
+  phone comparison of 10-16 (`/private/tmp/swm-units-probe/P6b-compare/CAPTURES.txt`). At the
+  held frame, the quad at 720 against 480 gave +24% and +25% Laplacian (390 and 430 wide),
+  decoded 1.338 MP against 1.357 MP, and ran 3 live streams against 4. Video bytes were within
+  run spread. The quad call stays open until he answers, and the default (q 720) ships.
+  `GLOBE_STREAM_PARAMS` stays the 480p literal that T33 asserts.
+- Q1, Q2, Q8, Q11, Q12, Q22, Q23(a) and (b), Q25 and Q27 above.
+
+**Next steps (P8 runs no probe):**
+- Re-measure the first units batch's frame rate on a quiet machine. At P7 it ran at about half
+  of P6b's rate (02:06-02:09). No load was logged during that batch. P7's PROGRESS.md logged a
+  load average of 9.5, with Illustrator near 85% CPU, at 02:10:39 just after it, then 4.7 and
+  14.4 at later runs (`eadf842`). u-desktop read 10 fps against P6b's 21, u-rm 23 against 51
+  (P7's commit message, from `fix/fps-changes.txt`).
+  P7 did not re-run the batch, so whether load caused this is not shown.
+- Give the watch run's `texPeak` a bound, with `--baseline=u-hidpi` or `--texpeak`. P7's
+  `watch/u-hidpi-today` passed no `--baseline`, so its key defaulted to the folder's name and
+  `texPeak` was vacuous. It was the only failing gate (39/40).
+
+**Deferred to this plan** (the P7 notes; no action taken yet):
+- **The born-pair control.** Born pairs are covered by the unit test only, and `nc-bind`
+  covers planned binds.
+- **The namesSlice decision.** The one-rerun rule stands.
+- **P3's latent `liveReg` false miss** under `?poplive=tile` (As built 7).
+- **The watches**, as P7 measured them (`eadf842`'s commit message):
+  - `bornCancelled` was 10 on u-hidpi (DSF 2, auto; 0 on its rerun) and 0 on
+    `watch/u-hidpi-today` (DSF 2, `&poptier=today`). rec/u-equiv read 7 (DSF 1) and
+    rec/u-thumb-phonehd 9 (DSF 3), both record runs; their check runs read 0. Every other P7
+    run read 0. So it is not a DSF-2 effect, and not recording either (u-hidpi is a check run)
+    (`eadf842`). Its cause is open. The probe does not gate it.
+  - `unitSeam`'s sampling floor is 20. Across the passing runs its n ran from 32 on u-tile to
+    123 on u-tide. The two stalled runs read exactly 20. Every worst was 0, against a bound of
+    0.0001.
+  - off-mobile's `texPeak` was 33.8 against a bound of 38.87.
+  - u-arrive's `decodeReal` was 2.67 against 2.869 (n 23, over 1 world change), below P6b's
+    2.856 (n 25, over 4 changes; about 0.45% headroom). Not like for like: P7's run saw fewer
+    changes at half P6b's frame rate (`eadf842`).
+
+**P7's "Left open"**, as written in `eadf842`'s commit message (each item with its tier):
+- SHOULD-B (a later hardening pass):
+  - P4a's review: R01/R01b, R02-R04, R05-R08, R17, R21, R62/R63.
+  - P1's review: T3 (R07); T3 and T7 (R15-R17); T4 (R02, R03); T7 (R01); T8 (C24, C29-C33);
+    T9 (R19, R20).
+  - P3's review: R03, R05.
+  - P5's review: a test for PopTunePanel's `quads / world` row, and the same for P7's
+    `tile budget` row. Mutant P01 (the row dropped) survives the suite and the scanner.
+- NIT:
+  - P1's nits, and T30.
+  - P2's R6 and R9.
+  - P3's R14-R17.
+  - P4a's gate-scope boundaries (R09-R11, R35, R57) and W01-W05 (the delay wiring).
+  - P4a's recycle/birthPairs `exclude` option.
+  - P6b's R6 (the probe's deviceScaleFactor line) and R13 (the bench's 'video tier' onPick).
+  - P6a's N10 (a parked lead keeps a frozen unitCentre, so its chip fading after the
+    park-detach anchors at a point that no longer follows the rows, for at most 0.3 s past the
+    pole). P7-3's latch engages on 'off' only, not on the frame loop's gone fade, so it does
+    not cover N10.
+  - The review round's: darkThumbs' listing has no test of its own (report-only; darkThumb's
+    cases are in T20).
+
+**Leftovers P8 did not take** (code outside P8's docs-and-comments scope):
+- `tunables-keys.mjs --check` counts a key as documented when its `?param` appears anywhere in
+  the guide, so deleting a knob's own row still passes while another row names it. A row check,
+  or a rule that a table row's first cell be the backticked `?param`, is open (P3's review).
+- `PopulationDirector`'s constructor JSDoc lacks `getPace`, `getHorizon` and `revealHeld`, and
+  the test file duplicates `GRID = 64` (P4a's review). `PopulationDirector.js:160` declares three
+  counters on one line (P4b's review).
+- A note on the wording only: the contract's §9 T21 and §8.3 mix two measures. 3.4e-4 is the
+  sample-point shift, while `liveReg` and `registerB` gate on the window-component difference,
+  which is about twice the shift (P3's t21.log: shift 3.409e-4, err 6.818e-4).
 
 ## Out of scope (later ideas)
 
@@ -717,3 +1169,46 @@ pools ship tagged by kind up to the hard cap.
     3.00; DSF-2 phone 2.00; desktop DSF 2 2.00. The strip heights were read at runtime and match.
     `globe-probe` default and `--mobile` exit 0. Mobile bytes are 13.09 MB, inside 480p's
     13–15 MB.
+
+- 2026-10-10 · P0a · `3232f6b` · a re-born row cancels its in-flight swap, so the born asset
+  survives (MeridianScroll, tileSwap; T16). Tests 30, `--check` 341 keys. OFFSET, units off, seed
+  42: every run exit 0 with every gate true.
+- 2026-10-14 · P0b · `ba9a7fa` · unit telemetry (`tex`, `upload`, `r1`, `decode`, `layout`,
+  `staleLanded`), `scripts/lib/unitGates.mjs`, and the five units-off records in
+  `scripts/baselines/globe-units.json`. Tests 32, 341 keys. RECORD: off-desktop, off-mobile, off-rm
+  and off-tide exit 0 with 23 pass keys each, off-flat 9; OFFSET against those records 25 each
+  (off-flat 10).
+  MUSTFAIL `nc-texmb` and `nc-texpeak` each fail only their gate.
+- 2026-10-15 · P1 · `cd6def0` · `unitSpan.js` and `mediaClass.js` arithmetic, inert. Tests 43,
+  341 keys.
+- 2026-10-15 · P2 · `7326e94` · globe assets classed at build (`u`, `s`; `videoTrack` on the
+  query). Tests 43, 341 keys. OFFSET exit 0, 25 pass keys (off-flat 10).
+- 2026-10-15 · P3 · `c7f382d` · `?popunits` class textures: one texture per asset, at its
+  measured aspect. Tests 47, 342 keys. u-* runs at level tex exit 0; MUSTFAIL `nc-sneak`.
+- 2026-10-15 · P4a · `7016521` · H pairs planned as whole units (`planUnits`, shared delays,
+  `placeKey`; `?popunitmax`). Tests 58, 343 keys. u-desktop 28 pass keys; MUSTFAIL `nc-units0`.
+- 2026-10-15 · P4b · `d0e430f` · per-frame unit windows after the scroll (loadTile's bind hook
+  and `director.place()`). Tests 63, 343 keys. u-desktop 32 pass keys; MUSTFAIL `nc-windows` and
+  `nc-bind`.
+- 2026-10-15 · P5 · `56b6031` · vertical pairs and elected 2×2 quads inside the warp window
+  (`?popquads`). Tests 66, 344 keys. u-desktop 37 pass keys; u-rm runs with `--next=1` (A11);
+  u-arrive new; the u-tide record rerun accepted; MUSTFAIL `nc-windows-vq`.
+- 2026-10-15 · P6a · `8e74419` · a unit joins and leaves its stream as one, with one chip at the
+  unit centre. Tests 68, 344 keys. u-desktop 40/40. No probe control; T24 and T25 are the unit
+  tests' controls.
+- 2026-10-16 · P6b · `cdcf25d` · per-stream video tiers inside today's decode budget
+  (`?poptier`). Tests 71, 345 keys. u-desktop, u-mobile, u-arrive, u-hidpi, u-phonehd and
+  u-phonehd720 43/43, u-rm 36/36, u-tide 33/33, u-tile 38/38; off-phonehd 25/25. MUSTFAIL
+  `nc-decode`, `nc-density`, `nc-density-hidpi`, `nc-density-phonehd` and `nc-pin`.
+- 2026-10-16 · P7 · `eadf842` · globe-only `?globethumb` and the `?popequiv` tile budget, plus
+  P7-1 to P7-6 (darkThumbs, the finite guard, argv and negctl, the fading-chip latch, density
+  parity). Tests 72, 347 keys. OFFSET 25/25 (off-flat 10/10); UNITS 43/43 on every tier key, u-rm
+  36/36, u-tide 33/33, u-tile 38/38 and u-equiv 42/42. u-hidpi's first run stalled under load,
+  and its one rerun passed 43/43. MUSTFAIL `nc-thumb` (`legacyParity`). The watch run
+  `watch/u-hidpi-today` failed `texPeak` alone, vacuously (no `--baseline`).
+- 2026-10-16 · P8 · docs: `## Media spans` above; Parity moves `VideoSlotPool.jsx` and
+  `cascade.js` to Modified; the tunables guide (header counts 347 params across 30 reader files,
+  the probe's span flags and gates, the `__swmPopStats` row, re-cited globe and World tables);
+  the probe's usage header (seed 42, the run matrix, the controls); the video diet's stale
+  claims in three older docs; the bakes' stale comments. No probe run and no browser: the
+  latest run counts are P7's, above.

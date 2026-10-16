@@ -74,11 +74,48 @@
  * negative controls: node scripts/lib/unitGates.mjs --expect-fail=<gates>
  * <report.json> exits 0 only when each named gate failed non-vacuously.
  * Seed 42 by default; for vacuity only, retry 7, 9, 11, 13 (first passing seed
- * per run type: <filled in by P8>). --record-baseline=0 is off, as --noclip=0
- * is. --negctl=pin refuses --noclip. --detail and --footer refuse --units,
- * --level, --negctl and --record-baseline; both exit before the span gates,
- * so --texmb, --texpeak, --baseline, --decodemax and --densitymax do nothing
- * there.
+ * per run type: 42 for every key in scripts/baselines/globe-units.json, all 17
+ * of them, as of P7 eadf842; a record stores it as the string "42"; P8,
+ * 10-16). --record-baseline=0 is off, as --noclip=0 is. --negctl=pin refuses
+ * --noclip. --detail and --footer refuse --units, --level, --negctl and
+ * --record-baseline; both exit before the span gates, so --texmb, --texpeak,
+ * --baseline, --decodemax and --densitymax do nothing there.
+ * A home run with no record under its KEY fails legacyParity (units off) and,
+ * except under --mode=off or with --texpeak, texPeak as vacuous, and exits 2:
+ * with no --baseline, KEY is the --out folder's name, so pass the recorded key
+ * the run matches. A bare value flag is taken silently: a bare --baseline
+ * reads key "true", and a bare --texmb or --texpeak reads 1 (a bound under any
+ * real value, so the run fails as a control would).
+ *
+ * The units-on run matrix (keys in scripts/baselines/globe-units.json; every
+ * run adds --units --level=<L> --base=… --out=…/<key> and must exit 0):
+ *   u-desktop        (none)                1440×900 @1, lodpi
+ *   u-mobile         --mobile              390×844 @2, phone bucket
+ *   u-rm             --rm --next=1         stills only, capped at vq; --next=1
+ *                    because RM's clock is static and its first plan is H only,
+ *                    so ⏭ poses the first V/Q (A11, as landed in P5 56b6031;
+ *                    the contract's §8.5 row says --rm alone)
+ *   u-tide           --extra="&poptransset=tide&popunitmax=6" --secs=40   capped at h
+ *   u-tile           --extra="&poplive=tile"                              capped at vq
+ *   u-arrive         --intro=full --warm=10 --secs=30   held reveal, initVQ 0
+ *   u-hidpi          --dsf=2               hidpi bucket
+ *   u-phonehd        --mobile --dsf=3      phonehd bucket at the 480 pin
+ *   u-phonehd720     --mobile --dsf=3 --extra="&globeres=720p"   the 720 pin
+ *   u-equiv          --extra="&popequiv=13"   neighbourRule report-only
+ *   u-thumb-phonehd  --mobile --dsf=3 --extra="&globethumb=512" --texmb=96
+ * Levels by phase: P3 tex; P4a, P4b h; P5 vq; P6a live; P6b, P7 tier. Units-off
+ * keys: off-desktop, off-mobile, off-rm, off-tide, off-flat, off-phonehd
+ * (--mobile --dsf=3). Under &poptier=today no stream carries a tier plan, so
+ * streamTier has no sample and a --level=tier run exits 2 on it alone: judge a
+ * today run at --level=live. The negative controls (--expect-fail): nc-texmb,
+ * nc-texpeak, nc-sneak, nc-units0, nc-windows, nc-bind, nc-windows-vq (as
+ * landed it also fails unitWarp, beside unitSeam, unitRegister, unitColumns
+ * and unitRows; P5), nc-decode, nc-density, nc-density-hidpi,
+ * nc-density-phonehd, nc-pin and nc-thumb; docs/globe-worlds-plan.md § Media
+ * spans has their flags.
+ *
+ * P6b, report-only: report.dsf (the context's device scale factor) and
+ * report.canvas { width, height, cssWidth, cssHeight, ratio, dpr }.
  *
  * Samples the stats (and the <html> accent: the pop-tint class, the computed
  * --project-color) once a second for --secs, clicks the bench's ⏭ next

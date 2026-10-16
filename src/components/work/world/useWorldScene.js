@@ -180,9 +180,12 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     if (!container) return undefined;
     let disposed = false;
 
-    // Transparent canvas: the black→blue gradient lives on the DOM (.fp-canvas)
-    // so it stays clean/monotonic like the home hero (the lens pass would warp a
-    // WebGL background). The grid + tiles composite over it.
+    // Transparent canvas: the backdrop lives on the DOM (.fp-canvas,
+    // featured-projects.css) so it stays clean/monotonic like the home hero
+    // (the lens pass would warp a WebGL background). The grid + tiles
+    // composite over it. Since the 08-28 ?fpfade 0 bake (FP_FADE,
+    // worldConfig.js) that backdrop reads solid black: the accent share of its
+    // gradient is 0, and ?fpfade > 0 brings the old black→accent fade back.
     // 10-09 (PW): a bare canvas, no MSAA and no depth. The canvas only ever
     // receives the lens pass's full-screen triangle; MSAA and depth live on the
     // composer target below. The context's own MSAA and depth buffers were dead
@@ -297,7 +300,8 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     // The lens is the last pass, so the composer renders it to the canvas. No
     // swap: a swap every frame would make RenderPass alternate between the
     // composer's two targets and allocate both. Without it the scene always
-    // lands in the same one, and the other is never allocated.
+    // lands in the composer's readBuffer, renderTarget2 (its clone of
+    // msaaTarget), and renderTarget1, msaaTarget itself, is never allocated.
     lensPass.needsSwap = false;
     composer.addPass(lensPass);
 

@@ -45,7 +45,8 @@ export function unitWindowOf(panel, m, aTex) {
  *  (userData.aspect: a class texture, a name strip; a legacy thumbnail has none
  *  and is square) covered onto the panel. A unit member (P4b) takes its own
  *  window inside the unit picture instead, unless the probe's kill switch
- *  globalThis.__swmNoUnitWindows is set (true or 'bind': --negctl, §8.1). */
+ *  globalThis.__swmNoUnitWindows is set (true or 'bind': globe-probe's --negctl
+ *  and --negctl=bind). */
 export function windowA(panel, asset, tex) {
   if (asset?.place && !globalThis.__swmNoUnitWindows) return unitWindowOf(panel, asset, tex?.userData?.aspect ?? asset.tex?.aspect ?? 1);
   const { scale, offset } = computeCoverUv(tex?.userData?.aspect ?? 1, panel.panelAspect);
@@ -71,8 +72,13 @@ export function loadTile(owner, panel, asset, onBound = null) {
     u.uvScaleA.value.set(scale[0], scale[1]);
     u.uvOffsetA.value.set(offset[0], offset[1]);
     u.uHasTexA.value = 1;
-    // A unit member is right on its FIRST bound frame (windowA, above), whoever binds it:
-    // the director's plan or MeridianScroll's born pair. The hook reads only panel and asset.
+    // A PLANNED member (the director's plan) is right on its FIRST bound frame (windowA,
+    // above). A BORN member (MeridianScroll's born pair) binds while parked past the south
+    // pole (recycle runs before poseTile), and place() writes its window before its first
+    // unparked render (P4b, d0e430f). The probe's nc-bind covers planned binds only; born
+    // pairs are covered by the unit test "spans: through a tide’s travel, place() after
+    // each frame’s scroll keeps whole units registered and seamless, born pairs from their
+    // first frame (P4b)". The hook reads only panel and asset.
     if (asset.place) panel._skewTheta = Math.acos(Math.min(Math.max(panel.centerDir.y, -1), 1));
     panel._bound = asset; // place() counts any unit record shown without this bind (snaps, gated 0)
     panel.unitCentre = null; // a fresh bind re-derives it next frame (place)

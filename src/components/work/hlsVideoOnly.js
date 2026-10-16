@@ -4,10 +4,12 @@
  * lightbox"). Pure and import-free, so the tests load it as is.
  */
 
-/** Every audio codec family a CODECS entry can name: AAC (mp4a), AC-3, E-AC-3,
- *  AC-4, Opus, FLAC, MP3, ALAC, DTS (dtsc, dtse, dtsh, dtsl, dtsx, dts+, dts-),
- *  MPEG-H (mha1, mha2, mhm1, mhm2), Dolby TrueHD (mlpa) and encrypted audio
- *  (enca). The video families (avc1, hvc1, av01, vp09, …) never match. */
+/** The audio codec families this pattern names in a CODECS entry: AAC (mp4a),
+ *  AC-3, E-AC-3, AC-4, Opus, FLAC, MP3, ALAC, DTS (dtsc, dtse, dtsh, dtsl, dtsx,
+ *  dts+, dts-), MPEG-H (mha1, mha2, mhm1, mhm2), Dolby TrueHD (mlpa) and
+ *  encrypted audio (enca). Not every family a CODECS entry could name; Mux
+ *  emits mp4a only, so the rest is margin. The video families (avc1, hvc1,
+ *  av01, vp09, …) never match. */
 export const AUDIO_CODEC = /^(mp4a|ac-3|ec-3|ac-4|opus|flac|mp3|alac|dts[a-z+-]|mha[12]|mhm[12]|mlpa|enca)(\.|$)/i;
 
 function attrList(s) {
@@ -17,8 +19,9 @@ function attrList(s) {
 
 /**
  * ── videoOnly: strip the audio rendition out of the master playlist ──
- * Mux HLS is demuxed: the master declares one #EXT-X-MEDIA TYPE=AUDIO group
- * and every variant points at it with AUDIO="...". hls.js loads that group
+ * Mux HLS is demuxed: the master of an asset with sound declares one
+ * #EXT-X-MEDIA TYPE=AUDIO group and every variant points at it with
+ * AUDIO="..." (a silent asset's master has none). hls.js loads that group
  * even into a muted <video>, and Mux has no playback modifier that drops it.
  * So for muted surfaces useHls's playlist loader rewrites ONLY the master
  * (context.type === 'manifest'): the TYPE=AUDIO lines go, the AUDIO="..."

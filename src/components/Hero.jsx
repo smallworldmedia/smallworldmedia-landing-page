@@ -209,7 +209,8 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    heroConfig so HeroIntro can compensate the glyph framing by the same amount
    (globe + stroke = the lockup "o"). — */
 
-/* — The MOBILE HOME footer floor (10-07, Nathan) — "On homepage load let's
+/* — The HOME footer floor (phones since 10-07, Nathan; desktop since 10-09,
+   bake A, ba7cf2c) — "On homepage load let's
    have the footer persistent and visible … show visible only the text blurb
    with the 'utilized by…' text fading out below to suggest there is more to
    scroll to". The footer's driven progress PARKS at this fraction instead of

@@ -120,17 +120,22 @@ function mayHaveMse() {
  * playlist, init or segments; level and segment loads pass through untouched.
  * The native-HLS fallback (attachNative) cannot be rewritten: it still
  * fetches audio. That path only runs where hls.js cannot: no MediaSource
- * family at all (iPhone before iOS 17.1 and its ManagedMediaSource), no
- * usable SourceBuffer, or an hls.js chunk that never arrived.
+ * family at all (an iPhone before iOS 17.1, which has neither MediaSource
+ * nor ManagedMediaSource), no usable SourceBuffer, or an hls.js chunk that
+ * never arrived.
  *
- * hls.js loads once per document (loadHls), so one class, built on first use,
- * serves every instance. Exported for the tests, which pass a stub Hls.
+ * hls.js loads once per document (loadHls), so one class serves every
+ * instance. The cache is keyed on the base loader: a different Hls gets a
+ * class built on its own DefaultConfig.loader, never the first one's. P0v's
+ * test calls it twice with one base and gets one class back; no test passes
+ * a second base. Exported for the tests, which pass a stub Hls.
  */
 let VideoOnlyLoader = null;
 
 export function videoOnlyLoader(Hls) {
-  if (!VideoOnlyLoader) {
-    VideoOnlyLoader = class extends Hls.DefaultConfig.loader {
+  const Base = Hls.DefaultConfig.loader;
+  if (!VideoOnlyLoader || Object.getPrototypeOf(VideoOnlyLoader) !== Base) {
+    VideoOnlyLoader = class extends Base {
       load(context, config, callbacks) {
         if (context.type === 'manifest') {
           const { onSuccess } = callbacks;

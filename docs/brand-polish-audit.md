@@ -275,10 +275,10 @@ page. Current state:
 
 | Surface | Mechanism | Rendition | Budget | Verdict |
 |---|---|---|---|---|
-| Home globe | `VideoSlotPool` + scheduler | 270p cap desktop / single 540p mobile, `preferMinQuality` | `MAX_LIVE` slots, 10s buffer, loops replay from buffer | ✅ tuned |
-| /work Near tier | Same pool, `WorldLiveScheduler` | pinned 720p/540p single rendition (no ABR) | ≤3 desktop / 2 mobile, serialized startups, Turn suspend | ✅ tuned |
-| Detail masonry + **hero band** (`MediaSlot.jsx`) | Per-slot hls.js, plain ABR, autoplay on manifest | **unpinned** — starts at hls.js default estimate, upshifts visibly | **none** — every in-view slot (+200px margin) decodes simultaneously | ⚠ the main showcase canvas is the least-controlled surface |
-| Next-project band (`NextProjectBand.jsx:116–117`) | Per-slot hls.js, plain ABR | unpinned | in-view gate | ⚠ same |
+| Home globe | `VideoSlotPool` + scheduler | 270p cap desktop / single 540p mobile, `preferMinQuality` *(10-16: one 480p pin on both devices since P0 `cb7b8e8` (`STREAM_PARAMS`; `?globeres` overrides it since P0c `113b085`); Mux has no 540 rung)* | `MAX_LIVE` slots, 10s buffer, loops replay from buffer *(10-16: each stream is clipped at the source to the 5 s preview window, `muxStream` + `asset_end_time`, so the clip bounds the download (P0); muted surfaces fetch no audio (P0v `f951497`))* | ✅ tuned |
+| /work Near tier | Same pool, `WorldLiveScheduler` | pinned 720p/540p single rendition (no ABR) *(10-16: 720p desktop / 480p phone, `LIVE_RES`, since P0 `cb7b8e8`; clipped to the preview window, no audio (P0v))* | ≤3 desktop / 2 mobile, serialized startups, Turn suspend | ✅ tuned |
+| Detail masonry + **hero band** (`MediaSlot.jsx`) | Per-slot hls.js, plain ABR, autoplay on manifest | **unpinned** — starts at hls.js default estimate, upshifts visibly | **none** — every in-view slot (+200px margin) decodes simultaneously *(10-16: each stream is now clipped at the source to `DETAIL_MAX_SECONDS` (15 s) and wraps there (P0 `cb7b8e8`), and fetches no audio (P0v `f951497`); the rendition is still unpinned)* | ⚠ the main showcase canvas is the least-controlled surface |
+| Next-project band (`NextProjectBand.jsx:116–117`) | Per-slot hls.js, plain ABR | unpinned | in-view gate *(10-16: clipped to 15 s, no audio, as above)* | ⚠ same |
 | Lightbox (disabled route) | `preferMaxQuality`: locks top rendition, **holds poster until first hi-res frag buffered** | ✅ | single | ✅ — the best pattern in the repo, currently unreachable |
 
 ### 5.1 Quality: kill the rendition pop on the showcase pages

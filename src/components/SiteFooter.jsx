@@ -489,8 +489,9 @@ export function playFooterEntrance(reduced = false) {
   /* The slide leads the timeline. It rides the footer's own wipe curve — the
      house glide Nathan recorded (steep launch, smooth decel, no overshoot) —
      on its OWN duration (?footerslides): it borrowed the word budget while it
-     was a 1.25rem nudge, but a full-reveal rise is ~157px at 1440x900, ~9x
-     that travel, and 0.45s over it reads as a snap rather than a glide. The
+     was a 1.25rem nudge, but a full-reveal rise is many times that travel
+     (the tunables guide's ?footerslides row carries bake A's measured rise),
+     and 0.45s over it reads as a snap rather than a glide. The
      var is removed on completion so the cascade goes inert again rather than
      carrying a pinned `translate: 0 0px` for the session. */
   if (slideFromPx > 0) {

@@ -90,10 +90,11 @@ export const FOOTER_TUNE_DEFAULTS = Object.freeze({
   //    0.935 vh. In PORTRAIT the fit axis is WIDTH, so the radius stops
   //    shrinking with height while the centre vh/2 keeps falling: the overlap
   //    then grows about 1px per 2px of lost height. Either way it GROWS as the
-  //    window shortens (measured 98.5px at 1440x900, 104.9 at 1280x800, 78.9
-  //    at 1440x1200), so no fixed rem can hold it. As a fraction of the
-  //    reveal the need is 0.63 / 0.66 / 0.50, rising to 0.71 at 1440x700 --
-  //    always < 1, so 1 (the panel starting flush at the fold) clears the
+  //    window shortens (measured at 1440x900, 1280x800, 1440x1200 and
+  //    1440x700 on the panel BEFORE the Sanity blurb re-wrapped it, so the
+  //    figures are retired, not restated), so no fixed rem can hold it. As a
+  //    fraction of the reveal the need stayed under 1 at every viewport
+  //    measured, so 1 (the panel starting flush at the fold) clears the
   //    globe at EVERY viewport, width- or height-fit, while the footer stays
   //    ignorant of the globe's geometry. At a full 390x844 the phone does not
   //    overlap at all, so the slide there is pure entrance -- but browser
