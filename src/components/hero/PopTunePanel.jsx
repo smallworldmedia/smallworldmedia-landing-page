@@ -262,8 +262,8 @@ export default function PopTunePanel({ sceneApiRef }) {
         ?popunits · ?popunitmax · ?popquads · ?popequiv · ?poptier. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one
         texture per asset, one stream and one chip per unit. off = today's globe. units / asset caps the units one
         asset forms per plan; quads / world, the 2×2 quads each world elects; tile budget (?popequiv), each world's
-        tile-equivalents on top of ?popcap (pair 2, quad 4, single 1: fewer assets, more tiles each), 0 = off; 13 = the
-        side-by-side for Nathan's Q8; video tier, the rendition each stream
+        tile-equivalents on top of ?popcap (pair 2, quad 4, single 1: fewer assets, more tiles each), 0 = off; 12 = Nathan's
+        Q8 (10-23); video tier, the rendition each stream
         asks for (auto = by unit class and screen; today = the pin for all; lean = one rung lower).
       </p>
 

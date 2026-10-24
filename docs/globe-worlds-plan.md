@@ -412,7 +412,7 @@ is today's behaviour, or off.
 | `?popunitmax` | `unitMax` | P4a | `4` (Nathan 10-23, Q7; was `1`) | 1–6, rounded | live (bench row) |
 | `?popquads` | `quads` | P5 | `1` | 0–2, rounded | live (bench row) |
 | `?poptier` | `tier` | P6b | `auto` | `auto` \| `today` \| `lean` | live (read at each stream start) |
-| `?popequiv` | `equiv` | P7 | `0` (off) | ≤ 0 → 0, else 4–32 rounded | live (bench row) |
+| `?popequiv` | `equiv` | P7 | `12` (Nathan 10-23, Q8; was `0`, off) | ≤ 0 → 0, else 4–32 rounded | live (bench row) |
 | `?globedpr` | `GLOBE_DPR_MAX` | P0c | 3 on phones (bake B, `8732aa8`), `DPR_MAX` (2) on desktop | 1–3 | URL-only, load time |
 | `?globeres` | `GLOBE_STREAM_PARAMS` | P0c | `STREAM_PARAMS` (480p on both devices) | `270p` \| `480p` \| `720p` \| `1080p`, else the default | URL-only, load time |
 | `?globethumb` | `GLOBE_T1` | P7 | `THUMB_WIDTH` (512 desktop, 384 phone) | 256–1024, rounded | URL-only, load time |
@@ -641,7 +641,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q5 | Extremes (\|ln r\| ≥ ln 2.4): single, or span? | Single |
 | Q6 | Quads per world | 1 (`?popquads`) |
 | Q7 | Unit repeats: once per asset per plan, or at every admissible spot? | Answered 10-23: up to 4 (`?popunitmax=4`; 1 = once, 6 = every spot) |
-| Q8 | Fewer assets? | `?popcap` 13 kept; `?popequiv` off. Compare `/?popunits=1&popequiv=13` with `/?popunits=1` |
+| Q8 | Fewer assets? | Answered 10-23: `?popequiv` 12, with `?popcap` 13 kept: a world places from at most 13 assets weighing 12 tile-equivalents |
 | Q9 | Phone renditions | Superseded: the phone pin is 480p (10-09), and P0 pins it on both devices |
 | Q10 | The phone's pixel ratio | Answered: 3 on phones at 480p (bake B, `8732aa8`); `?globedpr=1.5` is the old globe |
 | Q11 | T1 768 on large Retina displays? | 512 (`THUMB_WIDTH`); `?globethumb=768` to compare |

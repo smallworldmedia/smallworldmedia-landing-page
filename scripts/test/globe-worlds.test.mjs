@@ -81,9 +81,10 @@ import {
 import { classOf } from '../../src/components/globe/mediaClass.js'
 
 /** The tuning the fixtures below are laid at: POP_DEFAULTS with the media spans' knobs as the boards were
- *  written, before Nathan's 10-23 bake (one unit per key). A board asks for more explicitly (6 per key in
- *  T13's wide boards); 'spans: the shipped defaults' lays one at the baked values. */
-const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, unitMax: 1 })
+ *  written, before Nathan's 10-23 bake (one unit per key, no tile budget). A board asks for more explicitly
+ *  (6 per key in T13's wide boards, ?popequiv 13 in P7's); 'spans: the shipped defaults' lays one at the
+ *  baked values. */
+const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, unitMax: 1, equiv: 0 })
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -5374,8 +5375,8 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
     Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
   }
 
-  // — ?popequiv — 0 by default (off: ?popcap alone); else an integer 4–32, rounded; its guide row says so.
-  assert.equal(POP_DEFAULTS.equiv, 0)
+  // — ?popequiv — 12 by default (Nathan 10-23, Q8; 0 = off: ?popcap alone); else an integer 4–32, rounded; its guide row says so.
+  assert.equal(POP_DEFAULTS.equiv, 12)
   try {
     for (const [typed, want] of [[-1, 0], [0, 0], [2, 4], [13.4, 13], [13.6, 14], [99, 32]]) {
       setPopTune('equiv', typed)
@@ -5385,7 +5386,7 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
     Object.assign(TUNING, BOARD_DEFAULTS)
   }
   const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
-  assert.match(guide, /^\| `\?popequiv` \|.*\| `0` \(off\) \| 0, or 4–32 \(clamped\) \| `POP_DEFAULTS\.equiv` \|$/m)
+  assert.match(guide, /^\| `\?popequiv` \|.*\| `12` \(Nathan 10-23, Q8; was `0`, off\) \| 0, or 4–32 \(clamped\) \| `POP_DEFAULTS\.equiv` \|$/m)
   assert.match(guide, /^\| `\?globethumb` \|.*\| `THUMB_WIDTH` \(512 desktop, 384 phone\) \| 256–1024 \(clamped, rounded\) \| `globeConfig\.js GLOBE_T1` \|$/m)
 
   // — ?globethumb — T1, load-time: a fresh globeConfig under a stubbed window (T33's pattern), restored in finally.
@@ -5430,9 +5431,9 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
 })
 
 /* — Nathan's 10-23 bake: the boards above are laid at BOARD_DEFAULTS; this one at the shipped values. — */
-test('spans: the shipped defaults (Nathan 10-23) — up to ?popunitmax 4 units per key, every unit whole, outer neighbours clear', () => {
-  assert.equal(POP_DEFAULTS.unitMax, 4)
-  const { director, panels } = unitDirector({ unitMax: POP_DEFAULTS.unitMax }, { getHorizon: () => Math.PI })
+test('spans: the shipped defaults (Nathan 10-23) — up to ?popunitmax 4 units per key inside ?popequiv 12, every unit whole, outer neighbours clear', () => {
+  assert.deepEqual([POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv], [4, 12])
+  const { director, panels } = unitDirector({ unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv }, { getHorizon: () => Math.PI })
   try {
     director.initialLayout(director.byProminence())
     const perKey = assertWholeUnits(director, panels, ['h', 'v', 'q'])

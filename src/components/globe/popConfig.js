@@ -116,7 +116,7 @@ export const POP_DEFAULTS = Object.freeze({
   unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
-  equiv: 0, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, single 1); 0 = off, ?popcap alone
+  equiv: 12, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, single 1); 0 = off, ?popcap alone. Q8: Nathan 10-23, 12; was 0
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
