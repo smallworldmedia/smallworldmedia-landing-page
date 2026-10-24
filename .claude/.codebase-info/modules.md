@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-10-16*
+*Last Updated: 2026-10-23*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -53,7 +53,7 @@ initial layout, which runs before the scroller exists) · `InteractionController
 (yaw/pitch skin over `lib/dragMomentum`) · `globeConfig.js` (tunables; re-exports drag constants from
 `dragMomentum`; the VideoGlobe's device knobs: `GLOBE_DPR_MAX` (`?globedpr`, 3 on phones since bake B
 `8732aa8`, `DPR_MAX` 2 on desktop; /process keeps `DPR_MAX`), `GLOBE_STREAM_PARAMS` (`?globeres`, one
-Mux rung, else the 480p `STREAM_PARAMS`), `GLOBE_T1` (`?globethumb`, the legacy square side every
+Mux rung, else 720p on desktop since Nathan's 10-23 bake (Q22) and the 480p `STREAM_PARAMS` on phones), `GLOBE_T1` (`?globethumb`, the legacy square side every
 class texture derives from), `globePixelRatio`, and `NAME_STRIP_H`).
 
 **Population modes** (branch `refine/globe-worlds`, `docs/globe-worlds-plan.md`; `tides` is home's
@@ -75,8 +75,8 @@ renders its exact tape slice at any latitude) · `tileSwap.js` (THE refcount-saf
 (`?pop*` TUNING + pub/sub; Nathan's baked defaults).
 
 **Media spans** (`docs/globe-worlds-plan.md` § Media spans, which is the repo's record of the round's
-contract; built P0a–P7 on `refine/globe-worlds`, shipped OFF behind `?popunits`, and with units off
-the globe is today's): one classed asset spans 2×1 (`h`), 1×2 (`v`) or 2×2 (`q`) tiles as one
+contract; built P0a–P7 on `refine/globe-worlds`, shipped OFF behind `?popunits` until Nathan's 10-23
+bake turned them on (Q1, with `unitMax` 4 and `equiv` 12: Q7, Q8); `?popunits=0` is today's globe): one classed asset spans 2×1 (`h`), 1×2 (`v`) or 2×2 (`q`) tiles as one
 picture, each member cropping its own slice, the lattice gaps hiding their strip (the mullion).
 `unitSpan.js` is the import-free arithmetic (lattice, `memberWindow`, `coverWindow`, `compose`,
 `unitA`, `kappaOwn`, the ε window `thetaBound`, eligibility, `texSpec`, `electQuads`, `liveB`, the
