@@ -555,6 +555,14 @@ it must exit 0, and nobody edits the file by hand. A home run with no record und
 `--texpeak` is passed) as vacuous. With no `--baseline`, the key
 is the `--out` folder's name, so pass the key that matches the run.
 
+**Since Nathan's 10-23 bake the records are stale.** Every one was recorded at the old defaults:
+units off, `?popunitmax` 1, `?popequiv` 0, a hold of ± 0.2, a 0.9 s change, name size 0.62, band
+0.65, face 0.5, span max 6, and a 480p desktop pin. Re-record them at the next probe pass. Until
+then, a run reproduces its record only with the old values in `--extra`, placed after the run's
+own flags (the page and the probe both read a param's first value):
+`&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0`,
+plus `&globeres=480p` on desktop. The units-off keys also pass `--units=0`.
+
 **The one-rerun rule.** A one-off non-vacuous gate failure can hit a transition sample whose
 name placement lags a step (`namesSlice`). Rerun once after wait-quiet, and keep both runs in
 the evidence. Two failures stop the phase. A vacuous gate also gets one rerun. Never lower a
@@ -1216,3 +1224,10 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   the probe's usage header (seed 42, the run matrix, the controls); the video diet's stale
   claims in three older docs; the bakes' stale comments. No probe run and no browser: the
   latest run counts are P7's, above.
+- 2026-10-23 · bake · Nathan's dial (`/?popunits=1&poptune=1&popseed=690425&popholdjit=0.4&poptrans=0.6&popnamesize=0.83&popnameband=0.57&popnameface=0.44&popnamespanmax=4&popunitmax=4&popequiv=12&globeres=720p`)
+  baked as six commits, with coupled knobs sharing one: `f9ba340` the clock (hold ± 0.4, a 0.6 s
+  change), `a528914` the name strips (size 0.83, band 0.57, face 0.44, span max 4), `b3a5c9f` Q7
+  (`?popunitmax` 4), `525e04c` Q8 (`?popequiv` 12), `e117c98` Q1 (spans on) and `85656dc` Q22 (the
+  desktop pin 720p; phones keep 480p). Not baked: `popseed` (random per visit, his 10-06 call)
+  and `poptune` (the bench). The `?param` reads stay as overrides (Q27). Tests 93, 347 keys. No
+  probe run and no browser: the records predate the bake (Baselines and seeds above).
