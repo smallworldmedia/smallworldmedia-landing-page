@@ -404,13 +404,15 @@ texture.
 ### Knobs (the knob ledger)
 
 Every span knob is a `?param` with a tunables-guide row. No phase baked a default: each shipped
-as today's behaviour, or off. Nathan's 10-23 bake set three of them (Q1, Q7, Q8) and the desktop `?globeres` (Q22).
+as today's behaviour, or off. Nathan's 10-23 bake set three of them (Q1, Q7, Q8) and the desktop `?globeres` (Q22);
+his 10-24 shape set (Q28) added `?popshapes`, default `wide`.
 
 | Param | Key | Phase | Default | Range | Reload? |
 |---|---|---|---|---|---|
 | `?popunits` | `units` | P3 | `1` (on: Nathan 10-23, Q1; was `0`, off) | `n > 0` → 1, else 0 | live (bench segment) |
 | `?popunitmax` | `unitMax` | P4a | `4` (Nathan 10-23, Q7; was `1`) | 1–6, rounded | live (bench row) |
-| `?popquads` | `quads` | P5 | `1` | 0–2, rounded | live (bench row) |
+| `?popquads` | `quads` | P5 | `1` (classic only) | 0–2, rounded | live (bench row) |
+| `?popshapes` | `shapes` | 10-24 | `wide` (Nathan 10-24, Q28) | `wide` \| `classic` | live (bench segment) |
 | `?poptier` | `tier` | P6b | `auto` | `auto` \| `today` \| `lean` | live (read at each stream start) |
 | `?popequiv` | `equiv` | P7 | `12` (Nathan 10-23, Q8; was `0`, off) | ≤ 0 → 0, else 4–32 rounded | live (bench row) |
 | `?globedpr` | `GLOBE_DPR_MAX` | P0c | 3 on phones (bake B, `8732aa8`), `DPR_MAX` (2) on desktop | 1–3 | URL-only, load time |
@@ -671,7 +673,8 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q24 | MSAA 2 at DPR ≥ 2; the globe without antialias | Neither taken |
 | Q25 | Desktop footer at rest, 0.62 | Keep 0.62, the value he approved |
 | Q26 | The tagline's per-frame watcher on desktop home | Leave it |
-| Q27 | Remove the baked knobs' `?param` reads at the fold? | Keep them as overrides until the fold, then ask again |
+| Q27 | Remove the baked knobs' `?param` reads at the fold? | Answered 10-24: keep them as overrides for now ("keep URL parameters for now") |
+| Q28 | Which span for which aspect? | Answered 10-24: 16:9 and 4:3 a 3×2 (else its 2×1 pair, else a single); 9:16, 3:4 and 4:5 a 1×2 for now (his 2×3 later); every sharp square a quad, no election; `?popequiv` stays 12 with a 3×2 weighing 6, and he re-dials. Behind `?popshapes`: `wide` by default, `classic` = the 10-23 set |
 
 ### Open
 
@@ -1233,3 +1236,18 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   desktop pin 720p; phones keep 480p). Not baked: `popseed` (random per visit, his 10-06 call)
   and `poptune` (the bench). The `?param` reads stay as overrides (Q27). Tests 93, 347 keys. No
   probe run and no browser: the records predate the bake (Baselines and seeds above).
+- 2026-10-24 · shapes · Nathan's shape set (Q28), behind `?popshapes` (`wide`, the default;
+  `classic` = the 10-23 set). mediaClass stamps a second class `uw` by family (≥ √(4/3) a 3×2,
+  ≤ √(4/5) a 1×2, else a quad; the same label proposal and native veto). A sharp 3×2 (spanSharp)
+  forms one; a soft one, or one with no room (born rows, outside [θN, θS]), forms its 2×1 pair
+  (`UNIT_FALLBACK`); every sharp square is a quad (no election). One texture per asset keeps its
+  picture's aspect, clamped to the span of the slots it serves (its own, the fallback, the
+  single), so every slot crops as it would the source: a 3:4 single shows 75% of its picture,
+  not the 32% a 1×2-shaped texture would leave it. Wide plans the two-row units in a pass of
+  their own first; in one pass, the pairs of the row below took their cells (T37's board: h 29
+  v 4 q 0 w 0, then h 22 v 6 q 1 w 1). Census of the home island (283 assets, T1 512): 44 3×2s,
+  10 soft ones to pairs, 128 1×2s, 89 quads, 6 soft squares and 6 others single. At
+  `?popequiv` 12 a world selects 3–6 assets (6 3×2s over the 15 worlds) and its textures weigh
+  ≈ 1.5× classic's (worst world pair ≈ 43 MiB against 29, RGBA + mips, estimated). The gates
+  read `?popshapes` (a wide class size is a curve); the probe records are classic's, so a wide
+  run needs its own keys recorded. Tests 96, 348 keys. No probe run and no browser.
