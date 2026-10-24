@@ -74,7 +74,7 @@ import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
 import { SCROLL_VISIBLE_ROWS, GLOBE_T1 } from './globeConfig.js';
-import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, quadEligible, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
+import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, quadEligible, wideClass, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -152,7 +152,7 @@ export default class PopulationDirector {
     this.W = this.L
       ? { thetaN: thetaBound((1 + UNIT_EPS) ** -2, this.L.Pth), thetaS: thetaBound((1 + UNIT_EPS) ** 2, this.L.Pth), thetaH: null, Pth: this.L.Pth }
       : null;
-    this.placed = { h: 0, v: 0, q: 0 }; // units placed, cumulative (births included)
+    this.placed = { h: 0, v: 0, q: 0, w: 0 }; // units placed, cumulative (births included)
     this.bornH = 0; // H pairs formed inside a born row
     this.initVQ = 0; // V/Q units in the initial layout (0 by construction: its plan has no horizon, M4)
     this.initThetaH = null; // the horizon the initial layout's plan saw: null while useGlobeScene's `posed` latch holds (M4)
@@ -184,9 +184,16 @@ export default class PopulationDirector {
     // ?popequiv (units on): a tile-equivalent budget per world. An asset weighs the
     // class it COULD form (pair 2, quad-eligible 4, else 1), never its election,
     // because the election reads this selection; an eligible 'q' left un-elected
-    // still counts 4, so the budget is never exceeded.
+    // still counts 4, so the budget is never exceeded. Wide: its class's tiles
+    // (3×2 6, quad 4, pair 2), the largest it may form, never its fallback.
     const budget = TUNING.units && this.L && TUNING.equiv > 0 ? TUNING.equiv : null;
-    const weigh = (a) => (a.u === 'h' || a.u === 'v' ? 2 : quadEligible(a, GLOBE_T1, this.L) ? 4 : 1);
+    const weigh =
+      TUNING.shapes === 'classic'
+        ? (a) => (a.u === 'h' || a.u === 'v' ? 2 : quadEligible(a, GLOBE_T1, this.L) ? 4 : 1)
+        : (a) => {
+            const c = wideClass(a, GLOBE_T1, this.L);
+            return c ? UNIT_SHAPE[c].cols * UNIT_SHAPE[c].rows : 1;
+          };
     return selectPool(list, { kinds: MEDIA_KINDS[TUNING.media] ?? null, cap: TUNING.cap, budget, weigh });
   }
 
@@ -230,21 +237,23 @@ export default class PopulationDirector {
   /** The pool records. Units off: exactly the old spread. Units on: each 'h'/'v'
    *  asset, and each 'q' candidate a world elected, also gets its ONE class
    *  texture (tex, pooled by id) and the unit class it may form (unitCls: a
-   *  quad only in the world that elected it). */
+   *  quad only in the world that elected it). ?popshapes=wide (10-24): the
+   *  class is unitSpan.wideClass, in every world — no election. */
   decorate() {
     const on = !!(TUNING.units && this.L);
+    const wide = TUNING.shapes !== 'classic';
     this.decorSig = this.sigOf();
-    // Each world elects its first ?popquads 'q' candidates (editorial order) in the pool it PLACES from
+    // Classic: each world elects its first ?popquads 'q' candidates (editorial order) in the pool it PLACES from
     // (selectFor) whose real source short side ≥ 0.9 × the quad texture side. Keyed by world (m9).
     const elected = new Set();
-    if (on && TUNING.quads > 0) this.worlds.forEach((w, wi) => {
+    if (on && !wide && TUNING.quads > 0) this.worlds.forEach((w, wi) => {
       for (const id of electQuads(this.selectFor(w.assets), TUNING.quads, GLOBE_T1, this.L)) elected.add(`${wi}|${id}`);
     });
     const qIds = new Set([...elected].map((k) => k.slice(k.indexOf('|') + 1)));
     const clsById = new Map(); // the texture variant, pooled by id
     if (on) for (const w of this.worlds) for (const a of w.assets) {
       const id = a.playbackId || a.imageUrl;
-      const c = a.u === 'h' || a.u === 'v' ? a.u : a.u === 'q' && qIds.has(id) ? 'q' : null;
+      const c = wide ? wideClass(a, GLOBE_T1, this.L) : a.u === 'h' || a.u === 'v' ? a.u : a.u === 'q' && qIds.has(id) ? 'q' : null;
       if (c && !clsById.has(id)) clsById.set(id, c);
     }
     return this.worlds.map((w, wi) =>
@@ -253,8 +262,8 @@ export default class PopulationDirector {
         const id = a.playbackId || a.imageUrl;
         const c = on ? clsById.get(id) : null;
         if (c) {
-          r.tex = texSpec(a, c, GLOBE_T1, this.L);
-          if (c !== 'q' || elected.has(`${wi}|${id}`)) r.unitCls = c; // a quad only where this world elected it
+          r.tex = texSpec(a, c, GLOBE_T1, this.L, { wide });
+          if (wide || c !== 'q' || elected.has(`${wi}|${id}`)) r.unitCls = c; // classic: a quad only where this world elected it
         }
         return r;
       })
@@ -264,10 +273,10 @@ export default class PopulationDirector {
   sigOf() {
     // Constant with units off, so a knob never rebuilds today's records. The selection knobs are in it because
     // the quad election reads the selection (decorate → selectFor); ?popequiv's budget selects too, and T1 sizes both.
-    return TUNING.units && this.L ? `1|${TUNING.quads}|${TUNING.cap}|${TUNING.media}|${TUNING.equiv}|${GLOBE_T1}` : '0';
+    return TUNING.units && this.L ? `1|${TUNING.shapes}|${TUNING.quads}|${TUNING.cap}|${TUNING.media}|${TUNING.equiv}|${GLOBE_T1}` : '0';
   }
 
-  /** A knob that changes the records (units, quads, cap, media, equiv) rebuilds them; the relayout that follows re-warms. */
+  /** A knob that changes the records (units, shapes, quads, cap, media, equiv) rebuilds them; the relayout that follows re-warms. */
   redecorate() {
     if (this.sigOf() !== this.decorSig) this.pools = this.decorate();
   }
@@ -683,24 +692,29 @@ export default class PopulationDirector {
       count.set(P.key, (count.get(P.key) || 0) + 1);
     };
     // 1 — keep first: an intact unit whose asset is still in its region's pool (and may still form that class
-    // there), still admissible, keeps its records (zero flips), refreshed to the region's world (m10).
+    // there: its own or, for a 2×1 born of a 3×2, its fallback), still admissible, keeps its records (zero flips),
+    // refreshed to the region's world (m10).
     for (const p of order) {
       const P = p.shownAsset?.place;
       if (!P || P.members[0] !== p || !UNIT_CLASSES.has(P.cls)) continue;
       const intact = P.members.every((m) => free(m) && m.asset === m.shownAsset && m.asset?.place === P && !m.swapAsset);
       const r = ownerOf(p);
       const rec = g.pools[r]?.find((a) => assetKey(a) === P.key);
-      if (!intact || P.members.some((m) => ownerOf(m) !== r) || rec?.unitCls !== P.cls) continue;
+      if (!intact || P.members.some((m) => ownerOf(m) !== r) || !canForm(rec?.unitCls, P.cls)) continue;
       if ((count.get(P.key) || 0) >= TUNING.unitMax || !admissible(p, P.cls) || !outerFree(P.members, P.key)) continue;
       // The member records are the unit's own objects (claim/birthPairs spread them), so this never touches a pool
       // record. A shared id kept across a world change now announces the new world.
       for (const m of P.members) Object.assign(m.asset, { world: rec.world, clientName: rec.clientName, services: rec.services });
       claim(P, P.members.map((m) => m.asset));
     }
-    // 2 — new units, most prominent lead first, walking the region pool in editorial order.
+    // 2 — new units, most prominent lead first, walking the region pool in editorial order. An asset tries its
+    // own class, then its fallback at the same lead (a 3×2 that won't fit here forms the 2×1 pair: Nathan 10-24).
+    // — 10-24 — wide plans the two-row units in a pass of their own first: only leads inside [θN, θS] host one (a
+    // row band or two), and in one pass the pairs of the row below, as prominent, took the cells a 3×2 or a quad
+    // needs (T37's board: 0 of either). Classic keeps today's single pass.
     g.ucursor ??= [];
-    for (const p of order) {
-      if (!free(p)) continue;
+    for (const tall of TUNING.shapes !== 'classic' ? [true, false] : [false]) for (const p of order) {
+      if (!free(p) || (tall && !admissible(p, 'v'))) continue;
       const r = ownerOf(p);
       const pool = g.pools[r];
       if (!pool?.length) continue;
@@ -708,12 +722,21 @@ export default class PopulationDirector {
       for (let t = 0; t < pool.length; t++) {
         const i = (c0 + t) % pool.length;
         const a = pool[i];
-        const cls = a.unitCls; // the class THIS region's world may form (decorate)
-        if (!cls || !UNIT_CLASSES.has(cls)) continue;
+        const own = a.unitCls; // the class THIS region's world may form (decorate)
+        if (!own || !UNIT_CLASSES.has(own) || (tall && UNIT_SHAPE[own].rows < 2)) continue;
         const key = assetKey(a);
-        if ((count.get(key) || 0) >= TUNING.unitMax || !admissible(p, cls)) continue;
-        const members = footprint(p, cls);
-        if (!members || !outerFree(members, key)) continue;
+        if ((count.get(key) || 0) >= TUNING.unitMax) continue;
+        let cls = null;
+        let members = null;
+        for (const c of tall ? [own] : [own, UNIT_FALLBACK[own]]) {
+          if (!c || !admissible(p, c)) continue;
+          members = footprint(p, c);
+          if (members && outerFree(members, key)) {
+            cls = c;
+            break;
+          }
+        }
+        if (!cls) continue;
         const { cols, rows } = UNIT_SHAPE[cls];
         const P = { uid: `${cls}:${p.lonIndex}:${p.tapeS}:${key}`, key, cls, cols, rows, n: members.length, S: unitAspect(cols, rows, this.L), L: this.L, members, born: false };
         claim(P, members.map((m, k) => ({ ...a, place: P, kx: k % cols, ky: Math.floor(k / cols) })));
@@ -727,9 +750,9 @@ export default class PopulationDirector {
   }
 
   /** H pairs inside a born row (MeridianScroll.recycle → assignRow): lon pairs
-   *  never wrap; the pick must be an 'h' asset; same owner region; outer
-   *  neighbours free of its key; within ?popunitmax on the board. No V/Q: a born
-   *  row sits in the north buffer (θ < 0), outside [θN, θS]. */
+   *  never wrap; the pick must be an 'h' asset, or a 'w' one (its fallback pair);
+   *  same owner region; outer neighbours free of its key; within ?popunitmax on
+   *  the board. No V/Q/W: a born row sits in the north buffer (θ < 0), outside [θN, θS]. */
   birthPairs(tiles, picks, grid) {
     const g = this.grouping;
     const L = this.lon;
@@ -741,7 +764,7 @@ export default class PopulationDirector {
       const i = idx.get(lon);
       const j = idx.get(lon + 1);
       const a = picks[i];
-      if (i == null || j == null || a?.unitCls !== 'h' || a.place || picks[j]?.kind === 'name') continue;
+      if (i == null || j == null || !canForm(a?.unitCls, 'h') || a.place || picks[j]?.kind === 'name') continue;
       const key = assetKey(a);
       if ((onBoard.get(key) || 0) >= TUNING.unitMax || g.pattern.owner(lon, s) !== g.pattern.owner(lon + 1, s)) continue;
       if (keyAt(lon - 1) === key || keyAt(lon + 2) === key) continue;
@@ -989,7 +1012,7 @@ export default class PopulationDirector {
 
   /** A popConfig change (useGlobeScene forwards the key). */
   onTune(key) {
-    if (key === '*' || key === 'units' || key === 'quads' || key === 'cap' || key === 'media' || key === 'equiv') {
+    if (key === '*' || key === 'units' || key === 'shapes' || key === 'quads' || key === 'cap' || key === 'media' || key === 'equiv') {
       this.redecorate();
       this.relayout();
       return;
@@ -1118,7 +1141,7 @@ export default class PopulationDirector {
     // — P3 — which texture each cached key is; texB's register on live class textures.
     const clsOf = new Map();
     for (const pool of this.pools) for (const a of pool) clsOf.set(assetKey(a), a.tex?.cls ?? 'legacy');
-    out.texClass = { h: 0, v: 0, q: 0, legacy: 0 };
+    out.texClass = { h: 0, v: 0, q: 0, w: 0, legacy: 0 };
     for (const k of this.textureManager.cache.keys()) if (clsOf.has(k)) out.texClass[clsOf.get(k)] += 1;
     const sched = this.getScheduler();
     const liveReg = { n: 0, worst: 0 };
@@ -1187,10 +1210,11 @@ export default class PopulationDirector {
         register.n += 1;
         register.worst = Math.max(register.worst, diff(u.uvScaleA.value, u.uvOffsetA.value, unitA(m.shownAsset, namePinch(y), Math.acos(y), aTexOf(m))));
       }
-      if (P.cols !== 2) continue;
-      for (let ky = 0; ky < P.rows; ky++) {
-        const left = P.members[ky * 2];
-        const right = P.members[ky * 2 + 1];
+      // every column seam: kx | kx + 1 in each row (a 3×2 has two per row)
+      for (let k = 0; k < P.members.length; k++) {
+        if (k % P.cols === P.cols - 1) continue;
+        const left = P.members[k];
+        const right = P.members[k + 1];
         const uL = left.mesh.material.uniforms;
         const uR = right.mesh.material.uniforms;
         const [l0, r0] = rendered(uL.uvScaleA.value.x, uL.uvOffsetA.value.x, namePinch(left.centerDir.y));

@@ -54,8 +54,12 @@ function toGlobeAsset(asset) {
   if (asset.playbackId) out.playbackId = asset.playbackId;
   else out.imageUrl = asset.imageUrl;
   if (asset.playbackId && asset.videoAspectRatio) out.videoAspectRatio = asset.videoAspectRatio;
-  const u = classOf(asset); // 'h' | 'v' | 'q' | null: the span class (mediaClass.js), decided once, here
+  // The span class per shape set (mediaClass.js), decided once, here: u = classic ('h' | 'v' | 'q'),
+  // uw = wide ('w' | 'v' | 'q', Nathan 10-24). ?popshapes picks which one the director reads.
+  const u = classOf(asset);
   if (u) out.u = u;
+  const uw = classOf(asset, { shapes: 'wide' });
+  if (uw) out.uw = uw;
   // s: a video's SOURCE short side (the Mux video track), carried only below
   // TOP_RUNG; 0 = Sanity holds no track size. Absent = at least TOP_RUNG.
   // unitSpan.sourceShort reads it: quad election, class-texture and rung clamps.

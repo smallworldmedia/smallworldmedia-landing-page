@@ -39,6 +39,7 @@ import {
   POP_TRANSITIONS,
   POP_LIVE,
   POP_TIERS,
+  POP_SHAPES,
   POP_NAME_MODES,
   POP_NAME_STYLES,
   setPopTune,
@@ -190,7 +191,7 @@ export default function PopTunePanel({ sceneApiRef }) {
                 }`
               : '—'}
             <br />
-            spans {stats.units ? `h ${stats.units.placed?.h ?? 0} · v ${stats.units.placed?.v ?? 0} · q ${stats.units.placed?.q ?? 0}` : 'off'} ·
+            spans {stats.units ? `w ${stats.units.placed?.w ?? 0} · h ${stats.units.placed?.h ?? 0} · v ${stats.units.placed?.v ?? 0} · q ${stats.units.placed?.q ?? 0}` : 'off'} ·
             tex {stats.tex?.mib ?? '—'} MiB (peak {stats.tex?.peak ?? '—'}) · decode {stats.decode?.mp ?? '—'} / {stats.decode?.budget ?? '—'} MP
           </>
         ) : on ? (
@@ -254,15 +255,18 @@ export default function PopTunePanel({ sceneApiRef }) {
 
       <div className="hero-tune__group">spans</div>
       <Segmented label="spans" value={s.units ? 'on' : 'off'} options={['off', 'on']} onPick={(m) => set('units', m === 'on' ? 1 : 0)} />
+      <Segmented label="shapes" value={s.shapes} options={POP_SHAPES} onPick={(m) => set('shapes', m)} />
       <Row label="units / asset" param="unitMax" value={s.unitMax} min={1} max={6} step={1} onChange={set} />
       <Row label="quads / world" param="quads" value={s.quads} min={0} max={2} step={1} onChange={set} />
       <Row label="tile budget" param="equiv" value={s.equiv} min={0} max={32} step={1} onChange={set} />
       <Segmented label="video tier" value={s.tier} options={POP_TIERS} onPick={(m) => set('tier', m)} />
       <p className="hero-tune__note">
-        ?popunits · ?popunitmax · ?popquads · ?popequiv · ?poptier. on = tiles join into one picture across the gaps (pairs; quads per ?popquads), one
-        texture per asset, one stream and one chip per unit. off = today's globe. units / asset caps the units one
-        asset forms per plan; quads / world, the 2×2 quads each world elects; tile budget (?popequiv), each world's
-        tile-equivalents on top of ?popcap (pair 2, quad 4, single 1: fewer assets, more tiles each), 0 = off; 12 = Nathan's
+        ?popunits · ?popshapes · ?popunitmax · ?popquads · ?popequiv · ?poptier. on = tiles join into one picture across the gaps, one
+        texture per asset, one stream and one chip per unit. off = today's globe. shapes: wide (Nathan 10-24) = 16:9 and 4:3
+        span 3×2 (a 2×1 pair where a 3×2 won't fit), 9:16, 3:4 and 4:5 span 1×2, every square 2×2; classic = 16:9 2×1,
+        9:16 1×2, squares per ?popquads. units / asset caps the units one
+        asset forms per plan; quads / world (classic only), the 2×2 quads each world elects; tile budget (?popequiv), each world's
+        tile-equivalents on top of ?popcap (pair 2, quad 4, 3×2 6, single 1: fewer assets, more tiles each), 0 = off; 12 = Nathan's
         Q8 (10-23); video tier, the rendition each stream
         asks for (auto = by unit class and screen; today = the pin for all; lean = one rung lower).
       </p>

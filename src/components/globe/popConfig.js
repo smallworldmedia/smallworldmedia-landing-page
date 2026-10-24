@@ -23,7 +23,9 @@
  * weighted shares, a 6 s ± 0.2 hold, a 0.9 s surge, chaos 1. The seed stays
  * random per visit (his call). 10-23 bake (his dial, the media spans round):
  * the hold ± 0.4 and a 0.6 s change; media spans on (Q1), up to 4 units per
- * asset (Q7) in a 12 tile-equivalent world (Q8).
+ * asset (Q7) in a 12 tile-equivalent world (Q8). 10-24 (his shape set,
+ * ?popshapes=wide): 16:9 and 4:3 span 3×2, tall 1×2, every square 2×2; the
+ * set before it stays at ?popshapes=classic.
  * 10-06 = client-name strips (names, nameStyle — nameTicker.js).
  * 10-07 = their placement rework: the ticker is gone (the strips are still),
  * the span comes from the MEASURED name (nameSpanMin/nameSpanMax) instead of a
@@ -60,6 +62,10 @@ export const POP_TRANSITIONS = ['tide', 'blink', 'surge', 'cut'];
 /** shared = one decoded stream feeds every tile showing that clip; tile = one
  *  decode per live tile (today's scheduler). */
 export const POP_LIVE = ['shared', 'tile'];
+/** Which span each picture takes under ?popunits (mediaClass.js): wide = Nathan's 10-24 set (16:9 and 4:3 → 3×2,
+ *  else the 2×1 pair; 9:16, 3:4, 4:5 → 1×2; every square → 2×2); classic = the set before it (16:9 → 2×1,
+ *  9:16 → 1×2, ?popquads squares a world → 2×2, the rest single). */
+export const POP_SHAPES = ['wide', 'classic'];
 export const POP_TIERS = ['auto', 'today', 'lean']; // ?poptier — auto = per-DPR-bucket rungs (unitSpan STREAM_TIERS), today = the pool's pin for every stream, lean = one rung lower
 export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES, NAME_MODES as POP_NAME_MODES };
 
@@ -115,9 +121,10 @@ export const POP_DEFAULTS = Object.freeze({
   grainLive: 0, // ?popgrainlive — 1 = the grain band also withholds live video (real decode saving in ?poplive=tile only; in shared mode it just changes which clips win)
   units: 1, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe. Q1: Nathan 10-23, on; was 0
   unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
-  quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits
+  shapes: 'wide', // ?popshapes — the span each picture takes (POP_SHAPES); wide = Nathan's 10-24 set, classic = the one before it
+  quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
-  equiv: 12, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, single 1); 0 = off, ?popcap alone. Q8: Nathan 10-23, 12; was 0
+  equiv: 12, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Q8: Nathan 10-23, 12; was 0
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
@@ -159,6 +166,7 @@ const CHOICE = {
   layout: ['poplayout', POP_LAYOUTS],
   live: ['poplive', POP_LIVE],
   tier: ['poptier', POP_TIERS],
+  shapes: ['popshapes', POP_SHAPES],
   nameStyle: ['popnamestyle', NAME_STYLES],
   nameMode: ['popnamemode', NAME_MODES],
   grainOrder: ['popgrainorder', DELAY_ORDERS],

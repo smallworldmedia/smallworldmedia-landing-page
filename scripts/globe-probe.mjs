@@ -341,6 +341,7 @@ const GATE_CTX = {
   t1: extraNum('globethumb') != null ? Math.round(Math.min(Math.max(extraNum('globethumb'), 256), 1024)) : VW <= 768 ? 384 : 512,
   equiv: Math.max(0, extraNum('popequiv') ?? 12), // popConfig's default (Nathan 10-23, Q8)
   look: /[?&]popunitlook=flat\b/.test(EXTRA) ? 'flat' : 'rows',
+  shapes: /[?&]popshapes=classic\b/.test(EXTRA) ? 'classic' : 'wide', // popConfig's default (Nathan 10-24)
   texmb: TEXMB,
   texpeak: TEXPEAK === null ? null : Number(TEXPEAK),
   decodemax: DECODEMAX === null ? null : Number(DECODEMAX),
@@ -1066,7 +1067,7 @@ function footerPass(f) {
         }
         // — P7 — darkThumbs (report-only; Q12): each class texture home received, measured from the bytes the
         // page already has (no new request), on sharp's raw greyscale pixels (never .stats() after another op).
-        const c = !failed && route === '/' && (bucket === 'mux-thumb' || bucket === 'sanity-image') ? classifyRequest(e.asked, GATE_CTX.t1) : null;
+        const c = !failed && route === '/' && (bucket === 'mux-thumb' || bucket === 'sanity-image') ? classifyRequest(e.asked, GATE_CTX.t1, GATE_CTX.shapes) : null;
         if (c?.kind === 'class' && !dark.seen.has(e.asked)) {
           dark.seen.add(e.asked);
           try {

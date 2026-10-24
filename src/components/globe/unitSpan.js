@@ -1,6 +1,7 @@
 /**
  * unitSpan.js — the arithmetic of media spans on the home globe: horizontal
- * pairs (h, 2×1), vertical pairs (v, 1×2) and 2×2 quads (q). A unit shows ONE
+ * pairs (h, 2×1), vertical pairs (v, 1×2), 2×2 quads (q) and, since 10-24
+ * (?popshapes=wide), 3×2 wides (w) that fall back to a pair. A unit shows ONE
  * texture; each member crops its own slice, so the picture runs straight across
  * the lattice gaps — the gap hides its own strip, like a window mullion.
  * Import-free on purpose: PopulationDirector, LivePanelScheduler, mediaClass
@@ -18,7 +19,12 @@ export const T_ENTRANCE = 2;
 /** The Mux ladder's top rung (short side). A video at or above it carries no
  *  `s` on the island; buildWorldPools.toGlobeAsset writes `s` only below it. */
 export const TOP_RUNG = 1080;
-export const UNIT_SHAPE = { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 } };
+export const UNIT_SHAPE = { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 }, w: { cols: 3, rows: 2 } };
+/** The class a unit falls back to where its own won't form: a 3×2 that doesn't fit (a born row, a tide, a
+ *  lead outside [θN, θS], a crowded footprint) forms the 2×1 pair, else a single (Nathan 10-24). */
+export const UNIT_FALLBACK = { w: 'h' };
+/** A record of class cls may form a unit of class as: its own, or its fallback. */
+export const canForm = (cls, as) => !!cls && (cls === as || UNIT_FALLBACK[cls] === as);
 
 const D2R = Math.PI / 180;
 
@@ -94,17 +100,19 @@ export const SKEW_MARGIN = 1.1;
  *  Closed form at the ε window's north edge θN, where it peaks (§3.5; a V
  *  bottom member with the lead at θS is its mirror image and ties, T30):
  *    V  the top member's |d sx/dθ| = sin Pth / (2 (1 + ε) sin² θN)  (q/vK = 1 + ε there)
- *    H  |cos θ| · the member's centre offset ≤ Pphi / (2 (Pphi + phiLen))
- *    Q  H · |dq/dθ| at θN + ½ · the member's width fraction · V
- *  The cover crop only shrinks a window (scale ≤ 1), so these bound A too. A
- *  wider ε moves θN north and RAISES the bound; it never trips it (T30). */
+ *    H  |cos θ| · the outer member's centre offset, Pphi (n − 1) / (2 (n Pphi − Gphi)) for n columns
+ *    Q  H(n) · |dq/dθ| at θN + ½ · the member's width fraction, phiLen / (n Pphi − Gphi), · V
+ *  n = 2 for H and Q, 3 for W (a Q with three columns: 0.2271 at the default
+ *  against V's 0.3986, so V still binds). The cover crop only shrinks a window
+ *  (scale ≤ 1), so these bound A too. A wider ε moves θN north and RAISES the
+ *  bound; it never trips it (T30). */
 export function unitSkewBound(L, eps = UNIT_EPS) {
   const tN = thetaBound((1 + eps) ** -2, L.Pth);
   const v = Math.sin(L.Pth) / (2 * (1 + eps) * Math.sin(tN) ** 2);
-  const h = L.Pphi / (2 * (L.Pphi + L.phiLen));
+  const off = (n) => (L.Pphi * (n - 1)) / (2 * (n * L.Pphi - L.Gphi));
   const dq = 0.5 * Math.sqrt(Math.sin(tN) * Math.sin(tN + L.Pth)) * (1 / Math.tan(tN) + 1 / Math.tan(tN + L.Pth));
-  const q = h * dq + 0.5 * (L.phiLen / (L.Pphi + L.phiLen)) * v;
-  return SKEW_MARGIN * Math.max(v, h, q);
+  const q = (n) => off(n) * dq + 0.5 * (L.phiLen / (n * L.Pphi - L.Gphi)) * v;
+  return SKEW_MARGIN * Math.max(v, off(2), q(2), q(3));
 }
 
 const even = (x) => 2 * Math.round(x / 2);
@@ -140,6 +148,13 @@ export function parseRatio(ratio) {
   return w > 0 && h > 0 ? w / h : null;
 }
 
+/** An asset's picture aspect w/h: a video's Mux ratio, a still's -WxH. null = unknown. */
+export function sourceAspect(a) {
+  if (a.playbackId) return parseRatio(a.videoAspectRatio);
+  const d = urlDims(a.imageUrl);
+  return d ? d.w / d.h : null;
+}
+
 /** An asset's source frame { w, h }: a video's from sourceShort and its ratio,
  *  a still's from the URL's -WxH. null = unknown (s 0, no ratio, no -WxH). */
 export function sourceDims(a) {
@@ -165,10 +180,35 @@ export const grainClear = (a, b, g) => b <= Math.PI && Math.sin(a) >= g && Math.
 /* — P3 — the class texture: request size from T1 (each member samples ≈ T1
    texels per tile), the CDN URL, and the cache key (the variant folds into
    TextureManager.assetKey through tex.key). — */
-export function texSpec(a, cls, T1, L) {
+const slotPx = (cols, rows, T1, L) => [(T1 * (cols * L.Pphi - L.Gphi)) / L.phiLen, (T1 * (rows * L.Pth - L.Gth)) / L.bandH];
+/** The class texture's size [W, H] at T1 for a picture of aspect r (null:
+ *  unknown), before the source clamp. Classic: the class slot's size. Wide
+ *  (?popshapes=wide, and a 3×2 always): ONE texture serves the class slot, its
+ *  fallback (a 3×2's 2×1) and the single, so it keeps the picture's own aspect,
+ *  clamped to the span of those slots' aspects (1 to 2.038 for a 3×2, 0.491 to 1
+ *  for a 1×2 on the default lattice), at the least size that gives every slot
+ *  T1 texels per tile. Every slot's cover crop is then exactly the crop it would
+ *  take of the source: inside the span the texture is the whole picture, and
+ *  outside it every slot cuts the side the clamp cut. From slot-shaped textures
+ *  a 16:9 pair would keep 63% of its picture instead of 87%, and a 3:4 single
+ *  32% instead of 75% (10-24). Unknown aspect → the class slot's. */
+export function classSizeAt(cls, r, T1, L, { wide = cls === 'w' } = {}) {
   const { cols, rows } = UNIT_SHAPE[cls];
-  const W = Math.round((T1 * (cols * L.Pphi - L.Gphi)) / L.phiLen);
-  const H = Math.round((T1 * (rows * L.Pth - L.Gth)) / L.bandH);
+  const slots = [slotPx(cols, rows, T1, L)];
+  if (wide) {
+    slots.push(slotPx(1, 1, T1, L));
+    const fb = UNIT_SHAPE[UNIT_FALLBACK[cls]];
+    if (fb) slots.push(slotPx(fb.cols, fb.rows, T1, L));
+  }
+  const as = slots.map(([w, h]) => w / h);
+  const t = Math.min(Math.max(r ?? as[0], Math.min(...as)), Math.max(...as));
+  const H = Math.max(...slots.map(([w, h], i) => (as[i] <= t ? h : w / t)));
+  return [Math.round(t * H), Math.round(H)];
+}
+export const classSize = (a, cls, T1, L, opts) => classSizeAt(cls, sourceAspect(a), T1, L, opts);
+
+export function texSpec(a, cls, T1, L, opts) {
+  const [W, H] = classSize(a, cls, T1, L, opts);
   // Both CDNs upscale without limit (Sanity fit=crop, Mux thumbnails): never
   // ask for more than the source holds. Unknown source → today's unclamped size.
   const src = sourceDims(a);
@@ -195,13 +235,22 @@ export const eligibleVQ = (theta, D, W, g) =>
    source short side reaches 0.9 × the quad texture side, so a quad is at most
    a 10% upscale. An unknown source (s 0, no -WxH) is never elected. Returns
    their ids (playbackId || imageUrl); the caller keys them by world. — */
-/** A 'q' candidate whose real source short side reaches 0.9 × TQ, the quad
- *  texture side (texSpec's 2×2 size at T1). Unknown source → never. */
-export function quadEligible(a, T1, L) {
-  if (a.u !== 'q') return false;
-  const TQ = Math.round((T1 * (2 * L.Pth - L.Gth)) / L.bandH);
+/** The source fills the class texture to within a 10% upscale: min(w/W, h/H)
+ *  ≥ 0.9, with [W, H] = classSize. A quad's texture is square (TQ × TQ), so
+ *  there it is the short side ≥ 0.9 × TQ. Unknown source → never. */
+export function spanSharp(a, cls, T1, L, opts) {
+  const [W, H] = classSize(a, cls, T1, L, opts);
   const d = sourceDims(a);
-  return !!d && Math.min(d.w, d.h) >= 0.9 * TQ;
+  return !!d && Math.min(d.w / W, d.h / H) >= 0.9;
+}
+/** A 'q' candidate (classic) sharp enough to be a quad. */
+export const quadEligible = (a, T1, L) => a.u === 'q' && spanSharp(a, 'q', T1, L);
+/** — 10-24 — the class an asset forms under ?popshapes=wide: its `uw` (mediaClass), where a 3×2 or a quad
+ *  must be spanSharp. An unsharp 3×2 forms only its 2×1 pair; an unsharp square stays a single. */
+export function wideClass(a, T1, L) {
+  if (a.uw === 'w') return spanSharp(a, 'w', T1, L) ? 'w' : 'h';
+  if (a.uw === 'q') return spanSharp(a, 'q', T1, L) ? 'q' : null;
+  return a.uw === 'v' ? 'v' : null;
 }
 export function electQuads(pool, n, T1, L) {
   const out = new Set();
@@ -216,8 +265,8 @@ export function electQuads(pool, n, T1, L) {
    centre crop (aspect aTex), then through texA's own window A. — */
 export const liveB = (V, aTex, A) => compose(coverWindow(V, aTex), A);
 
-/* — P4a (h) / P5 (v, q) — the unit classes the planner forms. — */
-export const UNIT_CLASSES = new Set(['h', 'v', 'q']);
+/* — P4a (h) / P5 (v, q) / 10-24 (w) — the unit classes the planner forms. — */
+export const UNIT_CLASSES = new Set(['h', 'v', 'q', 'w']);
 
 /* — P6b — stream tiers. A rung is a pinned rendition's short side. The pin
    rung is the one the pool's pin is served at (pinShortOf(GLOBE_STREAM_PARAMS)):
@@ -227,14 +276,20 @@ export const UNIT_CLASSES = new Set(['h', 'v', 'q']);
    requests the pin verbatim. auto keeps texB within [1, 2] texels per device px
    where it can; phonehd (a phone at full res) takes the LOWEST rung at ≥ 1 on
    the binding phone, 430 at DPR 3 (A2), which is lean/hidpi's row. lean is one
-   rung lower, phone 270. — */
+   rung lower, phone 270. A 3×2 (w) is two rows tall, as a quad is, so it
+   takes the quad's rung everywhere. — */
 export const STREAM_RUNGS = [270, 480, 720, TOP_RUNG];
-export const TIER_RANK = { s: 0, h: 1, v: 1, q: 2 };
-const LEAN_HIDPI = { s: 480, h: 480, v: 480, q: 720 }; // lean/hidpi; auto/phonehd shares it (A2)
-const LEAN_PHONE = { s: 270, h: 270, v: 270, q: 480 }; // lean/phone; lean/phonehd shares it
+export const TIER_RANK = { s: 0, h: 1, v: 1, q: 2, w: 2 };
+const LEAN_HIDPI = { s: 480, h: 480, v: 480, q: 720, w: 720 }; // lean/hidpi; auto/phonehd shares it (A2)
+const LEAN_PHONE = { s: 270, h: 270, v: 270, q: 480, w: 480 }; // lean/phone; lean/phonehd shares it
 export const STREAM_TIERS = {
-  auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720 }, phone: { s: 480, h: 480, v: 480, q: 480 }, phonehd: LEAN_HIDPI },
-  lean: { hidpi: LEAN_HIDPI, lodpi: { s: 480, h: 480, v: 480, q: 720 }, phone: LEAN_PHONE, phonehd: LEAN_PHONE },
+  auto: {
+    hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080 },
+    lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 },
+    phone: { s: 480, h: 480, v: 480, q: 480, w: 480 },
+    phonehd: LEAN_HIDPI,
+  },
+  lean: { hidpi: LEAN_HIDPI, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: LEAN_PHONE, phonehd: LEAN_PHONE },
 };
 /** A phone at or above this effective pixel ratio is phonehd: the midpoint of
  *  the old phone cap 1.5 and full res 3 (§3.9). Since bake B's 3, a 3× phone

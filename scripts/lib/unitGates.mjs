@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // — P3 — (unitSpan.js lands in P1; globeConfig.js is node-safe: every window read is guarded)
-import { latticeOf, UNIT_SHAPE } from '../../src/components/globe/unitSpan.js';
+import { latticeOf, classSizeAt, UNIT_SHAPE } from '../../src/components/globe/unitSpan.js';
 import { LON_SEGMENTS, SCROLL_VISIBLE_ROWS, GAP_DEG, SCROLL_LAT_GAP_DEG } from '../../src/components/globe/globeConfig.js';
 
 /** Probe levels, cumulative: each adds its gates to the ones below it. */
@@ -35,33 +35,61 @@ function gate(out, name, { n, floor = 1, ok, worst = null, bound = null, reportO
   if (!reportOnly) out.pass[name] = !vacuous && !!ok;
 }
 
-// — P3 — the class texture sizes at T1: unitSpan.texSpec's arithmetic on the default lattice.
+// — P3 — the class texture sizes at T1: unitSpan.classSizeAt on the default lattice, each class at its slot's size
+// (classic). — 10-24 — ?popshapes=wide sizes a texture by its picture's aspect, so there a class's sizes are a curve:
+// classWideSizes lists every integer size on it, swept ≤ 0.25 px a step a little past the clamp's two ends (the
+// rounded ends' aspects fall inside the true span; classSizeAt clamps the overshoot back onto them).
 const SIZES = new Map();
+const gateL = () => latticeOf({ lon: LON_SEGMENTS, visibleRows: SCROLL_VISIBLE_ROWS, gapDeg: GAP_DEG, latGapDeg: SCROLL_LAT_GAP_DEG });
 export function classSizes(t1) {
   if (!SIZES.has(t1)) {
-    const L = latticeOf({ lon: LON_SEGMENTS, visibleRows: SCROLL_VISIBLE_ROWS, gapDeg: GAP_DEG, latGapDeg: SCROLL_LAT_GAP_DEG });
-    const sz = {};
-    for (const [cls, { cols, rows }] of Object.entries(UNIT_SHAPE)) {
-      sz[cls] = [Math.round((t1 * (cols * L.Pphi - L.Gphi)) / L.phiLen), Math.round((t1 * (rows * L.Pth - L.Gth)) / L.bandH)];
-    }
-    SIZES.set(t1, sz);
+    const L = gateL();
+    SIZES.set(t1, Object.fromEntries(Object.keys(UNIT_SHAPE).map((cls) => [cls, classSizeAt(cls, null, t1, L, { wide: false })])));
   }
   return SIZES.get(t1);
 }
+const WIDE_SIZES = new Map();
+export function classWideSizes(t1) {
+  if (!WIDE_SIZES.has(t1)) {
+    const L = gateL();
+    const sz = {};
+    for (const cls of Object.keys(UNIT_SHAPE)) {
+      const at = (r) => classSizeAt(cls, r, t1, L, { wide: true });
+      const [[w0, h0], [w1, h1]] = [at(0), at(Infinity)];
+      const [t0, t1x] = [(w0 - 1) / (h0 + 1), (w1 + 1) / (h1 - 1)];
+      const steps = Math.ceil((t1x - t0) * 4 * (Math.max(w0, w1) + Math.max(h0, h1)));
+      const seen = new Map();
+      for (let i = 0; i <= steps; i++) {
+        const s = at(t0 + ((t1x - t0) * i) / steps);
+        seen.set(s.join('x'), s);
+      }
+      sz[cls] = [...seen.values()];
+    }
+    WIDE_SIZES.set(t1, sz);
+  }
+  return WIDE_SIZES.get(t1);
+}
 
-/** — P3 — (w, h) is the class size (W, H) scaled by ONE k ≤ 1 and rounded: texSpec's source
+/** — P3 — (w, h) is the class size (W, H) scaled by ONE k in [kMin, 1] and rounded: texSpec's source
  *  clamp, on both CDNs. Exact (an interval test on k), so no aspect tolerance. */
-const scaledFrom = (w, h, W, H) => {
-  const lo = Math.max((w - 0.5) / W, (h - 0.5) / H);
+const scaledFrom = (w, h, W, H, kMin = 0) => {
+  const lo = Math.max((w - 0.5) / W, (h - 0.5) / H, kMin);
   const hi = Math.min((w + 0.5) / W, (h + 0.5) / H);
   return lo < hi && lo <= 1;
 };
-const classOfSize = (t1, w, h) => Object.entries(classSizes(t1)).find(([, [W, H]]) => scaledFrom(w, h, W, H))?.[0];
+/** The class of a (w, h) request. Wide: the first curve holding it, squares first (a 1×2 and a 2×1 at aspect 1
+ *  both meet the quad's size); a 3×2 only at k ≥ 0.9, as only a sharp asset forms one (unitSpan.spanSharp), which
+ *  keeps it apart from a scaled 2×1 (1100×540 would be a 3×2 at k 0.52). */
+const WIDE_ORDER = ['q', 'h', 'v', 'w'];
+const classOfSize = (t1, w, h, shapes) =>
+  shapes === 'classic'
+    ? Object.entries(classSizes(t1)).find(([, [W, H]]) => scaledFrom(w, h, W, H))?.[0]
+    : WIDE_ORDER.find((cls) => classWideSizes(t1)[cls].some(([W, H]) => scaledFrom(w, h, W, H, cls === 'w' ? 0.9 : 0)));
 
 /** A logged request → { kind: 'stream'|'legacy'|'class'|'other', id, query, shape }. id = host + path
  *  (a stream's: its playbackId). shape = the class, or for 'other' an id-free signature: path segments
  *  holding a digit or ≥ 16 characters become '*', query digits become '#' (the baseline's allow-list). */
-export function classifyRequest(url, t1) {
+export function classifyRequest(url, t1, shapes = 'wide') {
   const u = new URL(url);
   const query = u.search.slice(1);
   if (u.host === 'stream.mux.com') return { kind: 'stream', id: u.pathname.slice(1).replace(/\.m3u8$/, ''), query, shape: null };
@@ -72,14 +100,14 @@ export function classifyRequest(url, t1) {
     if (query === `width=${t1}&height=${t1}&fit_mode=smartcrop`) return { kind: 'legacy', id, query, shape: 'mux' };
     // — P3 — a class crop: the class size or its source clamp (M2), a true centre crop of frame 0.
     if (keys === 'width&height&fit_mode&time' && p.fit_mode === 'crop' && p.time === '0') {
-      const cls = classOfSize(t1, Number(p.width), Number(p.height));
+      const cls = classOfSize(t1, Number(p.width), Number(p.height), shapes);
       if (cls) return { kind: 'class', id, query, shape: cls };
     }
   } else if (u.host === 'cdn.sanity.io') {
     if (query === `w=${t1}&h=${t1}&fit=crop&crop=entropy&auto=format`) return { kind: 'legacy', id, query, shape: 'sanity' };
     // — P3 — a class crop: the class size or its source clamp.
     if (keys === 'w&h&fit&auto' && p.fit === 'crop' && p.auto === 'format') {
-      const cls = classOfSize(t1, Number(p.w), Number(p.h));
+      const cls = classOfSize(t1, Number(p.w), Number(p.h), shapes);
       if (cls) return { kind: 'class', id, query, shape: cls };
     }
   }
@@ -94,7 +122,7 @@ export function unitGates(report, ctx) {
   const unitsOn = ctx.units === 1;
 
   // Requests (the probe's request log): shapes, one variant per id, units-off parity.
-  const reqs = (report.requests || []).map((url) => classifyRequest(url, ctx.t1));
+  const reqs = (report.requests || []).map((url) => classifyRequest(url, ctx.t1, ctx.shapes));
   const imgs = reqs.filter((r) => r.kind !== 'stream');
   const streams = reqs.filter((r) => r.kind === 'stream');
   const allowed = new Set(base?.otherShapes ?? []);
@@ -223,8 +251,8 @@ export function unitGates(report, ctx) {
   const initPosed = U.filter((s) => s.units.initThetaH != null).length; // the initial plan saw a horizon: useGlobeScene's posed latch failed
   // 0 in every run: the initial layout is planned before the first pose, so its horizon is null and it places H only (M4).
   gate(out, 'initVQ', { n: U.length, ok: initVQ === 0 && initPosed === 0, worst: initVQ, bound: 0, initPosed });
-  const placed = U.at(-1)?.units.placed ?? { h: 0, v: 0, q: 0 };
-  gate(out, 'unitShapes', { n: Math.min(placed.h, placed.v + placed.q), ok: true, placed });
+  const placed = U.at(-1)?.units.placed ?? { h: 0, v: 0, q: 0, w: 0 };
+  gate(out, 'unitShapes', { n: Math.min(placed.h, placed.v + placed.q + (placed.w ?? 0)), ok: true, placed });
 
   // — P6a — live: one stream and one chip per unit; texB registers on whole live units.
   if (!at(ctx, 'live')) return out;
@@ -281,7 +309,7 @@ export function darkThumb(px, channels = 1) {
 
 /** A run's baseline record: what --record-baseline stores under its key. */
 export function baselineOf(report, ctx) {
-  const reqs = (report.requests || []).map((url) => classifyRequest(url, ctx.t1));
+  const reqs = (report.requests || []).map((url) => classifyRequest(url, ctx.t1, ctx.shapes));
   const S = (report.samples || []).filter((s) => s.phase);
   const uniq = (xs) => [...new Set(xs)].sort();
   const idQuery = {};
@@ -339,7 +367,7 @@ export function expectFail(report, gates) {
   return { ok: reasons.length === 0, reasons };
 }
 
-/** The island payload (dist/index.html): globeWorlds' assets stay lean, and `u` and `s` are exactly where they should be. */
+/** The island payload (dist/index.html): globeWorlds' assets stay lean, and `u`, `uw` and `s` are exactly where they should be. */
 export function checkPayload(html, { unitsAbsent = false } = {}) {
   const reasons = [];
   const unescape = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
@@ -347,31 +375,38 @@ export function checkPayload(html, { unitsAbsent = false } = {}) {
   const revive = ([t, v]) =>
     t === 1 ? v.map(revive) : t === 0 && v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, revive(x)])) : v;
   const props = [...html.matchAll(/<astro-island\b[^>]*?\sprops="([^"]*)"/g)].map((m) => m[1]).find((p) => p.includes('&quot;globeWorlds&quot;'));
-  if (!props) return { ok: false, reasons: ['no astro-island carries globeWorlds'], assets: 0, withU: 0, uBytes: 0, withS: 0, sBytes: 0 };
+  if (!props) return { ok: false, reasons: ['no astro-island carries globeWorlds'], assets: 0, withU: 0, uBytes: 0, withUw: 0, uwBytes: 0, withS: 0, sBytes: 0 };
   const worlds = revive(JSON.parse(unescape(props)).globeWorlds);
   const assets = worlds.flatMap((w) => w.assets || []);
-  const LEAN = new Set(['kind', 'playbackId', 'imageUrl', 'videoAspectRatio', 'u', 's']);
+  const LEAN = new Set(['kind', 'playbackId', 'imageUrl', 'videoAspectRatio', 'u', 'uw', 's']);
   const CLASSES = new Set(['h', 'v', 'q']);
+  const WIDE = new Set(['w', 'v', 'q']); // uw: ?popshapes=wide (10-24)
   for (const a of assets) {
     const extra = Object.keys(a).filter((k) => !LEAN.has(k));
     if (extra.length) reasons.push(`${a.playbackId || a.imageUrl}: extra keys ${extra.join(', ')}`);
     if ('u' in a && !CLASSES.has(a.u)) reasons.push(`${a.playbackId || a.imageUrl}: u = ${a.u}`);
+    if ('uw' in a && !WIDE.has(a.uw)) reasons.push(`${a.playbackId || a.imageUrl}: uw = ${a.uw}`);
     // s (P2, M2): a video's source short side below TOP_RUNG, or 0 = unknown; never on a still
     if ('s' in a && !(a.playbackId && Number.isInteger(a.s) && a.s >= 0)) reasons.push(`${a.playbackId || a.imageUrl}: s = ${a.s}`);
   }
   const withU = assets.filter((a) => 'u' in a).length;
+  const withUw = assets.filter((a) => 'uw' in a).length;
   const withS = assets.filter((a) => 's' in a).length;
   const esc = props.match(/,&quot;u&quot;:\[0,&quot;[a-z]+&quot;\]/g) || [];
+  const escW = props.match(/,&quot;uw&quot;:\[0,&quot;[a-z]+&quot;\]/g) || [];
   const escS = props.match(/,&quot;s&quot;:\[0,\d+\]/g) || [];
   const uBytes = sum(esc.map((s) => s.length));
+  const uwBytes = sum(escW.map((s) => s.length));
   const sBytes = sum(escS.map((s) => s.length));
   if (!assets.length) reasons.push('globeWorlds carries no assets');
-  if (esc.some((s) => s.length > 40)) reasons.push('a u entry is over 40 B');
+  if ([...esc, ...escW].some((s) => s.length > 40)) reasons.push('a u or uw entry is over 40 B');
   if (esc.length !== withU) reasons.push(`${esc.length} escaped u entries against ${withU} assets with u`);
+  if (escW.length !== withUw) reasons.push(`${escW.length} escaped uw entries against ${withUw} assets with uw`);
   if (escS.length !== withS) reasons.push(`${escS.length} escaped s entries against ${withS} assets with s`);
-  if (unitsAbsent && withU + withS > 0) reasons.push(`${withU} assets carry u and ${withS} carry s before P2`);
+  if (unitsAbsent && withU + withUw + withS > 0) reasons.push(`${withU} assets carry u, ${withUw} uw and ${withS} s before P2`);
   if (!unitsAbsent && withU === 0) reasons.push('no asset carries u');
-  return { ok: reasons.length === 0, reasons, assets: assets.length, withU, uBytes, withS, sBytes };
+  if (!unitsAbsent && withUw === 0) reasons.push('no asset carries uw');
+  return { ok: reasons.length === 0, reasons, assets: assets.length, withU, uBytes, withUw, uwBytes, withS, sBytes };
 }
 
 // CLI (the probe and the tests import this module; only a direct run gets here).
@@ -395,7 +430,7 @@ if (isMain) {
   } else if (args.includes('--payload') && files.length === 1) {
     const r = checkPayload(fs.readFileSync(files[0], 'utf8'), { unitsAbsent: args.includes('--units-absent') });
     for (const line of r.reasons) console.error(`unitGates: ${line}`);
-    console.log(`payload: ${r.assets} assets, ${r.withU} with u, ${r.uBytes} B of u, ${r.withS} with s, ${r.sBytes} B of s`);
+    console.log(`payload: ${r.assets} assets, ${r.withU} with u, ${r.uBytes} B of u, ${r.withUw} with uw, ${r.uwBytes} B of uw, ${r.withS} with s, ${r.sBytes} B of s`);
     ok = r.ok;
   } else {
     console.error('usage: node scripts/lib/unitGates.mjs --expect-fail=<gate>[,<gate>…] <report.json>');

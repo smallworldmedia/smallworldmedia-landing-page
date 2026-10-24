@@ -20,7 +20,7 @@ import TextureManager, { assetKey, computeCoverUv } from '../../src/components/g
 import { loadTile, windowA, unitWindowOf, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
-import { TUNING, POP_DEFAULTS, POP_TIERS, setPopTune } from '../../src/components/globe/popConfig.js'
+import { TUNING, POP_DEFAULTS, POP_TIERS, POP_SHAPES, setPopTune } from '../../src/components/globe/popConfig.js'
 import {
   measureNameAspect,
   nameSpan,
@@ -34,7 +34,7 @@ import {
 import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS, THUMB_WIDTH } from '../../src/components/globe/globeConfig.js'
 import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../../src/components/work/imageConfig.js'
 import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib/netReport.mjs'
-import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload, classSizes, darkThumb } from '../lib/unitGates.mjs'
+import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload, classSizes, classWideSizes, darkThumb } from '../lib/unitGates.mjs'
 import sharp from 'sharp'
 import { stripAudioFromMaster, AUDIO_CODEC } from '../../src/components/work/hlsVideoOnly.js'
 import { videoOnlyLoader } from '../../src/components/work/useHls.js'
@@ -62,6 +62,13 @@ import {
   mp,
   sourceShort,
   texSpec,
+  classSizeAt,
+  classSize,
+  sourceAspect,
+  spanSharp,
+  wideClass,
+  canForm,
+  UNIT_FALLBACK,
   quadEligible,
   electQuads,
   eligibleH,
@@ -81,10 +88,11 @@ import {
 import { classOf } from '../../src/components/globe/mediaClass.js'
 
 /** The tuning the fixtures below are laid at: POP_DEFAULTS with the media spans' knobs as the boards were
- *  written, before Nathan's 10-23 bake (units off, one unit per key, no tile budget). A board asks for more explicitly
- *  (6 per key in T13's wide boards, ?popequiv 13 in P7's); 'spans: the shipped defaults' lays one at the
- *  baked values. */
-const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, units: 0, unitMax: 1, equiv: 0 })
+ *  written, before Nathan's 10-23 bake (units off, one unit per key, no tile budget) and his 10-24 shape set
+ *  (classic: the fixtures carry `u`, not `uw`). A board asks for more explicitly (6 per key in T13's wide
+ *  boards, ?popequiv 13 in P7's); 'spans: the shipped defaults' lays one at the baked values, and the
+ *  ?popshapes=wide tests lay theirs at wide. */
+const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, units: 0, unitMax: 1, equiv: 0, shapes: 'classic' })
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -123,11 +131,14 @@ test('buildWorldPools holds exactly the /work World media: hero, showcase Tiles,
   // a duplicate stream is one texture.
   assert.deepEqual(world.assets.map(assetKey), ['pb-mux-hero', 'https://cdn.example/page.jpg', 'https://cdn.example/still.jpg', 'pb-mux-a'])
   assert.deepEqual(world.assets.map((a) => a.kind), ['video', 'art', 'still', 'video'])
-  assert.deepEqual(Object.keys(world.assets[0]), ['kind', 'playbackId', 'videoAspectRatio', 'u']) // lean props: no ids, no nulls
+  assert.deepEqual(Object.keys(world.assets[0]), ['kind', 'playbackId', 'videoAspectRatio', 'u', 'uw']) // lean props: no ids, no nulls
   assert.deepEqual(world.assets.map((a) => a.u), ['h', 'q', 'q', 'h']) // hero · cover · still · clip-a (mediaClass.classOf)
+  // uw, the wide set (10-24): the 16:9s span 3×2, the 4x5 still 1×2; the album-art cover's label (1:1) keeps more of its 4:5 picture as a quad
+  assert.deepEqual(world.assets.map((a) => a.uw), ['w', 'q', 'v', 'w'])
   // u is the veto, not the label alone: clip-a's stream as a 1080×1920 source keeps its motion_16x9 label and classes v (RH8CMzFM's case, T8)
   const portrait = documents.map((d) => (d._id === 'mux-a' ? { ...d, data: { status: 'ready', aspect_ratio: '9:16', tracks: [{ type: 'video', max_width: 1080, max_height: 1920 }] } } : d))
-  assert.equal(buildWorldPools(await query(FEATURED_WORLDS_QUERY, portrait))[0].assets.find((a) => a.playbackId === 'pb-mux-a').u, 'v')
+  const portraitA = buildWorldPools(await query(FEATURED_WORLDS_QUERY, portrait))[0].assets.find((a) => a.playbackId === 'pb-mux-a')
+  assert.deepEqual([portraitA.u, portraitA.uw], ['v', 'v'])
   // s: the source short side, only below TOP_RUNG; 0 = no track size
   const withTrack = (track) => documents.map((d) => (d._id === 'mux-a' ? { ...d, data: { status: 'ready', aspect_ratio: '16:9', ...(track ? { tracks: [{ type: 'video', ...track }] } : {}) } } : d))
   assert.equal(buildWorldPools(await query(FEATURED_WORLDS_QUERY, withTrack({ max_width: 1280, max_height: 720 })))[0].assets[3].s, 720)
@@ -1388,35 +1399,62 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   }
   const A = { kind: 'video', playbackId: 'p1', videoAspectRatio: '16:9' }
   assert.ok(checkPayload(island([A]), { unitsAbsent: true }).ok)
-  const withU = checkPayload(island([{ ...A, u: 'h' }, A]))
+  const withU = checkPayload(island([{ ...A, u: 'h', uw: 'w' }, A]))
   assert.ok(withU.ok, withU.reasons.join('; '))
-  assert.equal(withU.uBytes, 32)
-  // NC: u before P2, no u after it, a stray key, a foreign class.
-  assert.equal(checkPayload(island([{ ...A, u: 'h' }]), { unitsAbsent: true }).ok, false)
+  assert.deepEqual([withU.uBytes, withU.withUw, withU.uwBytes], [32, 1, 33])
+  // NC: u before P2, no u after it, a stray key, a foreign class; no uw after 10-24, a foreign wide class.
+  assert.equal(checkPayload(island([{ ...A, u: 'h', uw: 'w' }]), { unitsAbsent: true }).ok, false)
   assert.equal(checkPayload(island([A])).ok, false)
   assert.equal(checkPayload(island([{ ...A, id: 'x' }]), { unitsAbsent: true }).ok, false)
-  assert.equal(checkPayload(island([{ ...A, u: 'x' }])).ok, false)
+  assert.equal(checkPayload(island([{ ...A, u: 'x', uw: 'w' }])).ok, false)
+  assert.equal(checkPayload(island([{ ...A, u: 'h' }])).ok, false)
+  assert.equal(checkPayload(island([{ ...A, u: 'h', uw: 'h' }])).ok, false)
   // s (P2, M2): a video's source short side, only below TOP_RUNG; 0 = Mux holds no track size.
-  const withS = checkPayload(island([{ ...A, u: 'h', s: 720 }, { ...A, playbackId: 'p2', s: 0 }, A]))
+  const withS = checkPayload(island([{ ...A, u: 'h', uw: 'w', s: 720 }, { ...A, playbackId: 'p2', s: 0 }, A]))
   assert.ok(withS.ok, withS.reasons.join('; '))
   assert.equal(withS.withS, 2)
   assert.equal(withS.sBytes, 22 + 20)
   // NC: s on a still, a fractional s, s before P2.
   const still = { kind: 'still', imageUrl: 'https://cdn.sanity.io/images/p/d/x-800x600.jpg' }
-  assert.equal(checkPayload(island([{ ...A, u: 'h' }, { ...still, s: 600 }])).ok, false)
-  assert.equal(checkPayload(island([{ ...A, u: 'h', s: 1.5 }])).ok, false)
+  assert.equal(checkPayload(island([{ ...A, u: 'h', uw: 'w' }, { ...still, s: 600 }])).ok, false)
+  assert.equal(checkPayload(island([{ ...A, u: 'h', uw: 'w', s: 1.5 }])).ok, false)
   assert.equal(checkPayload(island([{ ...A, s: 720 }]), { unitsAbsent: true }).ok, false)
 
-  // — P3 — class requests (T1 512: h 1043×512, q 1043²; clamped to the source on both CDNs).
-  assert.deepEqual(classSizes(512), { h: [1043, 512], v: [512, 1043], q: [1043, 1043] })
-  assert.deepEqual(classSizes(384), { h: [783, 384], v: [384, 783], q: [783, 783] })
-  assert.equal(classifyRequest('https://image.mux.com/abc/thumbnail.webp?width=1043&height=512&fit_mode=crop&time=0', 512).shape, 'h')
-  assert.equal(classifyRequest('https://image.mux.com/abc/thumbnail.webp?width=853&height=419&fit_mode=crop&time=0', 512).shape, 'h') // M2: an s 480 source, clamped
+  // — P3 — class requests (T1 512: h 1043×512, q 1043²; clamped to the source on both CDNs). Classic: the slot sizes.
+  // — 10-24 — wide (the default): a class keeps its picture's aspect within its slots' span, so its sizes are a curve
+  // from the narrowest end to the widest (unitSpan.classSizeAt).
+  assert.deepEqual(classSizes(512), { h: [1043, 512], v: [512, 1043], q: [1043, 1043], w: [1575, 1043] })
+  assert.deepEqual(classSizes(384), { h: [783, 384], v: [384, 783], q: [783, 783], w: [1181, 783] })
+  const ends = (t1) => Object.fromEntries(Object.entries(classWideSizes(t1)).map(([c, s]) => [c, [s[0], s.at(-1)]]))
+  assert.deepEqual(ends(512), { h: [[1043, 1043], [1043, 512]], v: [[512, 1043], [1043, 1043]], q: [[1043, 1043], [1043, 1043]], w: [[1575, 1575], [2127, 1043]] })
+  assert.deepEqual(ends(384).w, [[1181, 1181], [1595, 783]])
+  const crop = (w, h) => `https://image.mux.com/abc/thumbnail.webp?width=${w}&height=${h}&fit_mode=crop&time=0`
+  const wideShapes = [
+    [1855, 1043, 'w'], // a 16:9 clip
+    [1575, 1181, 'w'], // a 4:3 still (1600×1200)
+    [1575, 1043, 'w'], // unknown aspect: the 3×2 slot's
+    [1700, 956, 'w'], // 16:9, clamped to a 1700-wide source
+    [1043, 587, 'h'], // a 16:9 clip too soft for its 3×2: the pair
+    [783, 1043, 'v'], // a 3:4 still
+    [587, 1043, 'v'], // a 9:16 clip
+    [1043, 1043, 'q'], // squares first: a 1×2 or 2×1 at aspect 1 meets the quad's size
+    [1040, 512, 'h'], // a 2.03:1 picture 1040 px wide (classic: off the class size, below)
+  ]
+  for (const [w, h, want] of wideShapes) assert.equal(classifyRequest(crop(w, h), 512).shape, want, `${w}×${h}`)
+  for (const [w, h, want] of [[1043, 512, 'h'], [853, 419, 'h'], [442, 900, 'v'], [1043, 1043, 'q']]) {
+    for (const shapes of ['classic', 'wide']) assert.equal(classifyRequest(crop(w, h), 512, shapes).shape, want, `${w}×${h} ${shapes}`) // M2: an s 480 source, clamped
+  }
   assert.equal(classifyRequest('https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=800&h=393&fit=crop&auto=format', 512).shape, 'h')
   assert.equal(classifyRequest('https://cdn.sanity.io/images/p/d/x-600x900.jpg?w=442&h=900&fit=crop&auto=format', 512).shape, 'v')
-  // NC: an upscaled Sanity crop, and a Mux crop off the class size, are not class requests.
-  assert.equal(classifyRequest('https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=1100&h=540&fit=crop&auto=format', 512).kind, 'other')
-  assert.equal(classifyRequest('https://image.mux.com/abc/thumbnail.webp?width=1040&height=512&fit_mode=crop&time=0', 512).kind, 'other')
+  // NC: an upscaled Sanity crop, and a Mux crop off the class size, are not class requests; nor a 3×2 past the 2×1
+  // slot's aspect, nor one below k 0.9 (only a sharp asset forms one); nor, classic, any size off a slot's.
+  for (const shapes of ['classic', 'wide']) {
+    assert.equal(classifyRequest('https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=1100&h=540&fit=crop&auto=format', 512, shapes).kind, 'other')
+    assert.equal(classifyRequest(crop(2200, 1043), 512, shapes).kind, 'other')
+    assert.equal(classifyRequest(crop(1400, 928), 512, shapes).kind, 'other') // the 3×2 slot's size at k 0.889
+  }
+  assert.equal(classifyRequest(crop(1418, 939), 512).shape, 'w') // … and at k 0.9 (texSpec: round(1575 × 0.9) = 1418)
+  for (const [w, h] of [[1040, 512], [1855, 1043], [1043, 587], [783, 1043]]) assert.equal(classifyRequest(crop(w, h), 512, 'classic').kind, 'other', `${w}×${h}`)
   // — P3 — one variant per id, now that an id can be asked two ways (P0b's leftover, M17): one query per id
   // passes; the same id as a legacy crop AND a class crop is two variants, which fails non-vacuously, worst 2.
   const classQ = 'https://image.mux.com/id0/thumbnail.webp?width=1043&height=512&fit_mode=crop&time=0'
@@ -1831,11 +1869,12 @@ test('spans: lattice() off a real scroll panel is latticeOf, and the unit aspect
   const wide = lattice(panelsAt(2)[0], 12, 6)
   const wideOf = latticeOf({ lon: 12, visibleRows: 6, gapDeg: 2, latGapDeg: 1.1 })
   for (const k of ['Pphi', 'Gphi', 'Pth', 'Gth', 'phiLen', 'bandH']) near(wide[k], wideOf[k], 1e-12, `2° gaps: ${k}`)
-  assert.deepEqual(UNIT_SHAPE, { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 } })
+  assert.deepEqual(UNIT_SHAPE, { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 }, w: { cols: 3, rows: 2 } })
   const S = (L, cls) => unitAspect(UNIT_SHAPE[cls].cols, UNIT_SHAPE[cls].rows, L)
   near(S(SPAN_L, 'h'), 2.038062, 1e-6, 'S_h')
   near(S(SPAN_L, 'v'), 0.490662, 1e-6, 'S_v')
   near(S(SPAN_L, 'q'), 1, 1e-6, 'S_q')
+  near(S(SPAN_L, 'w'), 1.509338, 1e-6, 'S_w') // 10-24: 3×2 is ≈ 3:2
   // NC: a globe built with 2° meridian gaps gives S_h 2.00692, which the S assertion refuses
   const wideH = S(wide, 'h')
   near(wideH, 2.00692, 1e-5)
@@ -2057,32 +2096,124 @@ test('spans: texSpec sizes each class texture from T1, and never asks a CDN for 
   }
 })
 
-test('spans: classOf: the label proposes, the native ratio vetoes, over the class table (T8)', async () => {
+test('spans: ?popshapes=wide — one texture per asset at its picture’s aspect, clamped to the slots it serves, so every slot crops as it would the source; a 3×2 or a quad only when sharp (T35)', () => {
+  const L = SPAN_L
+  const vid = (s, ratio = '16:9') => ({ kind: 'video', playbackId: 'id', videoAspectRatio: ratio, ...(s == null ? {} : { s }) })
+  const still = (dims) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/x${dims ? `-${dims}` : ''}.jpg` })
+  const size = (wh) => wh.join('x')
+  // the fallback: a 3×2 with no room (or too soft) forms its 2×1; canForm(record class, unit class)
+  assert.deepEqual(UNIT_FALLBACK, { w: 'h' })
+  const forms = [['w', 'w'], ['w', 'h'], ['h', 'h'], ['h', 'w'], ['v', 'h'], ['q', 'q'], ['q', 'h'], [null, 'h'], [undefined, 'h']]
+  assert.deepEqual(forms.map(([c, as]) => canForm(c, as)), [true, true, true, false, false, true, false, false, false])
+  // sourceAspect: Mux's exact ratio, a still's -WxH; unknown → null
+  assert.equal(sourceAspect(vid(720)), 16 / 9)
+  assert.equal(sourceAspect(still('1600x1200')), 4 / 3)
+  assert.equal(sourceAspect(still()), null)
+  // the sizes at T1 512: wide by its picture (a 3×2 always), classic by its slot whatever the picture
+  const wide = [
+    ['w', 16 / 9, '1855x1043'], ['w', 4 / 3, '1575x1181'], ['w', null, '1575x1043'], ['w', 2.4, '2127x1043'], ['w', 1, '1575x1575'],
+    ['h', 16 / 9, '1043x587'], ['h', 2.4, '1043x512'], ['h', null, '1043x512'],
+    ['v', 9 / 16, '587x1043'], ['v', 3 / 4, '783x1043'], ['v', 4 / 5, '835x1043'], ['v', 0.3, '512x1043'], ['v', null, '512x1043'],
+    ['q', 1.1, '1043x1043'], ['q', 0.9, '1043x1043'],
+  ]
+  for (const [cls, r, want] of wide) assert.equal(size(classSizeAt(cls, r, 512, L, { wide: true })), want, `${cls} ${r}`)
+  assert.equal(size(classSizeAt('w', 16 / 9, 512, L)), '1855x1043')
+  assert.equal(size(classSizeAt('w', 16 / 9, 384, L)), '1391x783')
+  for (const [cls, want] of [['h', '1043x512'], ['v', '512x1043'], ['q', '1043x1043']]) {
+    for (const r of [16 / 9, 3 / 4, null]) assert.equal(size(classSizeAt(cls, r, 512, L)), want, `classic ${cls} ${r}`)
+  }
+  assert.equal(size(classSize(still('1600x1200'), 'w', 512, L)), '1575x1181')
+  assert.equal(size(classSize(vid(720, '3:4'), 'v', 512, L, { wide: true })), '783x1043')
+  // Every slot a wide texture serves (its own, the fallback, the single) shows exactly the part of the source a
+  // direct cover crop would, at ≥ T1 texels per tile, over aspects inside and outside each clamp.
+  const px = (cols, rows) => [(512 * (cols * L.Pphi - L.Gphi)) / L.phiLen, (512 * (rows * L.Pth - L.Gth)) / L.bandH]
+  const serves = { w: [[3, 2], [2, 1], [1, 1]], h: [[2, 1], [1, 1]], v: [[1, 2], [1, 1]], q: [[2, 2], [1, 1]] }
+  let crops = 0
+  for (const [cls, slots] of Object.entries(serves)) {
+    for (const r of [0.3, 9 / 16, 0.6, 3 / 4, 0.8, 0.9, 1, 1.1, 1.2, 4 / 3, 1.5, 16 / 9, 2, 2.4, 3]) {
+      const [tw, th] = classSizeAt(cls, r, 512, L, { wide: true })
+      const inTex = coverWindow(r, tw / th) // the part of the source the texture holds
+      for (const [cols, rows] of slots) {
+        const [sw, sh] = px(cols, rows)
+        const inSlot = coverWindow(tw / th, sw / sh) // the part of the texture the slot shows
+        const msg = `${cls} r ${r.toFixed(3)} in ${cols}×${rows}`
+        near([inTex.s[0] * inSlot.s[0], inTex.s[1] * inSlot.s[1]], coverWindow(r, sw / sh).s, 2e-3, msg)
+        assert.ok(tw * inSlot.s[0] >= sw - 1 && th * inSlot.s[1] >= sh - 1, `${msg}: ${tw}×${th} under T1`)
+        crops += 1
+      }
+    }
+  }
+  assert.equal(crops, 15 * 9)
+  // NC: slot-shaped textures (classic's, or a 3×2 cut at its slot's aspect) — a 3:4 single keeps 32% of the
+  // picture instead of 75%, a 16:9 pair 63% instead of 87%
+  const area = (w) => w.s[0] * w.s[1]
+  const [S1, Sh, Sv, Sw] = [unitAspect(1, 1, L), unitAspect(2, 1, L), unitAspect(1, 2, L), unitAspect(3, 2, L)]
+  near([area(coverWindow(3 / 4, Sv)) * area(coverWindow(Sv, S1)), area(coverWindow(3 / 4, S1))], [0.32, 0.75], 0.005)
+  near([area(coverWindow(16 / 9, Sw)) * area(coverWindow(Sw, Sh)), area(coverWindow(16 / 9, Sh))], [0.63, 0.87], 0.005)
+  // A 3×2 or a quad must be sharp at its own size (≤ a 10% upscale): a 16:9 clip from s 940 (its width binds:
+  // 0.9 × 1855 = 1669.5 ≤ 940 × 16/9), a 4:3 still from 1575 wide; a quad from a 939 short side.
+  for (const [a, cls, want] of [
+    [vid(940), 'w', true], [vid(939), 'w', false], [still('1600x1200'), 'w', true], [still('1200x900'), 'w', false],
+    [vid(939, '1:1'), 'q', true], [vid(938, '1:1'), 'q', false], [vid(0), 'w', false], [still(), 'q', false],
+  ]) assert.equal(spanSharp(a, cls, 512, L), want, `${a.imageUrl || `s ${a.s} ${a.videoAspectRatio}`} ${cls}`)
+  const cases = [
+    [{ ...vid(), uw: 'w' }, 'w'], [{ ...vid(720), uw: 'w' }, 'h'], [{ ...still('1200x900'), uw: 'w' }, 'h'],
+    [{ ...vid(1080, '1:1'), uw: 'q' }, 'q'], [{ ...vid(720, '1:1'), uw: 'q' }, null],
+    [{ ...vid(360, '9:16'), uw: 'v' }, 'v'], // a 1×2 has no sharpness bar (nor has classic's)
+    [{ ...vid(), uw: null }, null], [vid(), null], // no uw (a classic-only payload): a single
+  ]
+  for (const [a, want] of cases) assert.equal(wideClass(a, 512, L), want, JSON.stringify(a))
+  assert.equal(wideClass({ ...vid(720), uw: 'w' }, 384, L), 'w') // at T1 384 the same clip is sharp: 1280 ≥ 0.9 × 1391
+  // Every wide request is its class to the probe's gate (unitGates.classifyRequest), clamped to its source or not.
+  const fams = { w: [1.2, 4 / 3, 1.5, 16 / 9, 2, 2.4], h: [1.2, 4 / 3, 16 / 9, 2.4], v: [0.3, 9 / 16, 0.6, 3 / 4, 0.8], q: [0.9, 1, 1.1] }
+  let reqs = 0
+  for (const [cls, rs] of Object.entries(fams)) {
+    for (const r of rs) {
+      for (const s of [300, 480, 720, 1080, 2000]) {
+        const dims = r >= 1 ? [Math.round(s * r), s] : [s, Math.round(s / r)]
+        const a = still(dims.join('x'))
+        if (cls === 'w' && !spanSharp(a, 'w', 512, L)) continue
+        const t = texSpec(a, cls, 512, L, { wide: true })
+        assert.ok(t.w <= dims[0] && t.h <= dims[1], `${cls} ${dims.join('x')}: ${t.w}×${t.h} upscales`)
+        assert.equal(classifyRequest(t.url, 512).shape, cls, `${cls} ${dims.join('x')} → ${t.w}×${t.h}`)
+        reqs += 1
+      }
+    }
+  }
+  assert.ok(reqs >= 60, `${reqs} requests`)
+})
+
+test('spans: classOf: the label proposes, the native ratio vetoes, over the class table, classic and wide (T8)', async () => {
   const still = (mediaType, w, h) => ({ mediaType, imageUrl: `https://cdn.sanity.io/images/p/d/x-${w}x${h}.jpg`, imageDimensions: { width: w, height: h } })
   const clip = (mediaType, ratio, videoStatus = 'ready') => ({ mediaType, playbackId: `pb-${ratio}`, videoAspectRatio: ratio, videoStatus })
   const rh8 = clip('motion_16x9', '9:16') // RH8CMzFM: labelled 16x9, natively 9:16
   const rows = (await query(FEATURED_WORLDS_QUERY))[0].assets
   const fixture = (id) => rows.find((r) => r._id === id)
   const table = [
-    ['Cheetah Print still (16x9 label, 3:2)', still('static_16x9', 1500, 1000), 'h'],
-    ['RH8CMzFM clip', rh8, 'v'],
-    ['a banner (4.77)', still('static_16x9', 477, 100), null],
-    ['Gallery Wall (2.4)', still('static_16x9', 2400, 1000), null],
-    ['Rossi clip (ready)', clip('motion_3x4', '3:4'), 'q'],
-    ['1.266 still', still('static_other', 1266, 1000), 'q'],
-    ['4:3 clip', clip('motion_4x3', '4:3'), 'q'],
-    ['16x9 label, 1:1 native', still('static_16x9', 1000, 1000), 'q'],
-    ['a 2:1 static_other', still('static_other', 2000, 1000), null],
-    ["Mux clip, 'preparing'", clip('motion_16x9', '16:9', 'preparing'), null],
-    ['fixture hero (mux 16:9, ready)', fixture('hero'), 'h'],
-    ['fixture cover (1200×1500)', fixture('cover'), 'q'],
-    ['fixture still (800×1000)', fixture('still'), 'q'],
-    ['fixture clip-a (mux 16:9)', fixture('clip-a'), 'h'],
+    ['Cheetah Print still (16x9 label, 3:2)', still('static_16x9', 1500, 1000), 'h', 'w'],
+    ['RH8CMzFM clip', rh8, 'v', 'v'],
+    ['a banner (4.77)', still('static_16x9', 477, 100), null, null],
+    ['Gallery Wall (2.4)', still('static_16x9', 2400, 1000), null, null],
+    ['Rossi clip (ready)', clip('motion_3x4', '3:4'), 'q', 'v'],
+    ['1.266 still', still('static_other', 1266, 1000), 'q', 'w'],
+    ['4:3 clip', clip('motion_4x3', '4:3'), 'q', 'w'],
+    ['16x9 label, 1:1 native', still('static_16x9', 1000, 1000), 'q', 'q'],
+    ['a 2:1 static_other', still('static_other', 2000, 1000), null, 'w'],
+    ["Mux clip, 'preparing'", clip('motion_16x9', '16:9', 'preparing'), null, null],
+    ['fixture hero (mux 16:9, ready)', fixture('hero'), 'h', 'w'],
+    ['fixture cover (1200×1500)', fixture('cover'), 'q', 'q'],
+    ['fixture still (800×1000)', fixture('still'), 'q', 'v'],
+    ['fixture clip-a (mux 16:9)', fixture('clip-a'), 'h', 'w'],
   ]
   assert.equal(table.length, 14)
-  for (const [name, row, want] of table) assert.equal(classOf(row), want, name)
-  // NC: the label alone classes RH8CMzFM as h
+  for (const [name, row, want, wide] of table) {
+    assert.equal(classOf(row), want, name)
+    // — 10-24 — wide: 16:9 to 4:3 a 3×2, 4:5 to 9:16 a 1×2, square a quad (between: the nearer family, √(4/3) and √(4/5))
+    assert.equal(classOf(row, { shapes: 'wide' }), wide, `${name} (wide)`)
+  }
+  // NC: the label alone classes RH8CMzFM as h (wide: w)
   assert.equal(classOf(rh8, { source: 'label' }), 'h')
+  assert.equal(classOf(rh8, { source: 'label', shapes: 'wide' }), 'w')
 })
 
 test('spans: eligibleVQ gives the lead windows on both devices; eligibleH is the grain alone (T9)', () => {
@@ -2179,10 +2310,12 @@ test('spans: unitSkewBound covers every member’s window slope over the ε wind
   const vKOf = (t) => Math.max(Math.sin(t), 1e-3) // poseTile's namePinch(centerDir.y)
   const S = (cls) => unitAspect(UNIT_SHAPE[cls].cols, UNIT_SHAPE[cls].rows, L)
   // each class: no crop (aTex = S, the widest window) and its texture's aspect at both T1s
+  // — 10-24 — and every aspect a ?popshapes=wide texture takes (its picture's, clamped to its slots: S_v to S_h)
+  const WIDE_TEX = [unitAspect(1, 2, L), 9 / 16, 3 / 4, 1, 4 / 3, unitAspect(3, 2, L), 16 / 9, unitAspect(2, 1, L)]
   const aspects = (cls) => {
     const { cols, rows } = UNIT_SHAPE[cls]
     const tex = (T1) => Math.round((T1 * (cols * L.Pphi - L.Gphi)) / L.phiLen) / Math.round((T1 * (rows * L.Pth - L.Gth)) / L.bandH)
-    return [S(cls), tex(512), tex(384)]
+    return [S(cls), tex(512), tex(384), ...WIDE_TEX]
   }
   // |d window / dθ| of one member in its own θ, by central differences on unitA
   const slope = (cls, kx, ky, t, aTex) => {
@@ -2196,7 +2329,7 @@ test('spans: unitSkewBound covers every member’s window slope over the ε wind
   // H members anywhere in (0, π)
   let maxH = 0
   for (let t = 0.5; t < 179.5; t += 0.25) for (const a of aspects('h')) for (const kx of [0, 1]) maxH = Math.max(maxH, slope('h', kx, 0, rad(t), a))
-  // V/Q members with the lead over the whole [θN, θS]
+  // V/Q/3×2 members with the lead over the whole [θN, θS]
   const sampled = (eps) => {
     const tN = thetaBound((1 + eps) ** -2, L.Pth)
     const tS = thetaBound((1 + eps) ** 2, L.Pth)
@@ -2205,9 +2338,9 @@ test('spans: unitSkewBound covers every member’s window slope over the ε wind
     leads.push(tS)
     let max = maxH
     for (const lead of leads) {
-      for (const cls of ['v', 'q']) {
+      for (const cls of ['v', 'q', 'w']) {
         for (const a of aspects(cls)) {
-          for (const ky of [0, 1]) for (const kx of cls === 'q' ? [0, 1] : [0]) max = Math.max(max, slope(cls, kx, ky, lead + ky * L.Pth, a))
+          for (const ky of [0, 1]) for (let kx = 0; kx < UNIT_SHAPE[cls].cols; kx++) max = Math.max(max, slope(cls, kx, ky, lead + ky * L.Pth, a))
         }
       }
     }
@@ -2368,8 +2501,8 @@ test('spans: with units on, every tile and the warm set hold one ref each, on th
     assert.ok(members >= 1 && singles >= 1, `${members} members, ${singles} singles checked`)
     // unitStats' census of the cache: each pool key once, by the class it was asked as; a key outside the
     // pools (a name strip's) is not a pool texture.
-    const census = { h: 0, v: 0, q: 0, legacy: 0 }
-    for (const k of textureManager.cache.keys()) census[/\|([hvq])\d+x\d+$/.exec(k)?.[1] ?? 'legacy'] += 1
+    const census = { h: 0, v: 0, q: 0, w: 0, legacy: 0 }
+    for (const k of textureManager.cache.keys()) census[/\|([hvqw])\d+x\d+$/.exec(k)?.[1] ?? 'legacy'] += 1
     assert.ok(census.h > 0 && census.v > 0 && census.legacy > 0, JSON.stringify(census))
     textureManager.cache.set('strip', { refs: 1, texture: {} })
     assert.deepEqual(director.unitStats(0).texClass, census)
@@ -2716,7 +2849,7 @@ function assertWholeUnits(director, panels, classes = ['h']) {
 }
 
 test('spans: planUnits forms whole H pairs in one region, clear of their own key, at most ?popunitmax per key; a kept unit takes the new world (T13)', async () => {
-  assert.deepEqual([...UNIT_CLASSES], ['h', 'v', 'q']) // P5 adds v and q; these boards have no horizon, so H pairs only (M4)
+  assert.deepEqual([...UNIT_CLASSES], ['h', 'v', 'q', 'w']) // P5 adds v and q, 10-24 w; these boards have no horizon, so H pairs only (M4)
   // ?popunitmax: 4 by default (Nathan 10-23, Q7), an integer 1–6, and its own guide row.
   assert.equal(POP_DEFAULTS.unitMax, 4)
   for (const [typed, want] of [[0, 1], [2.4, 2], [9, 6]]) {
@@ -2863,7 +2996,9 @@ test('spans: planUnits and birthPairs on crafted boards — the seam, outer neig
     assert.deepEqual(born({ 4: h('K'), 5: h('K') }, new Map([[(s + 1) * GRID + 5, 'K']])), []) // K one row up from the second member
     assert.deepEqual(born({ 4: h('K'), 5: h('K') }, new Map([[(s - 1) * GRID + 4, 'K']])), []) // K one row down from the first
     assert.deepEqual(born({ 1: h('K'), 2: h('K'), 6: h('K'), 7: h('K') }), ['1:K']) // ?popunitmax 1: the row's first pair counts
-    assert.deepEqual(born({ 4: h('V', 'v'), 5: h('V', 'v') }), []) // only an h pick pairs
+    assert.deepEqual(born({ 4: h('V', 'v'), 5: h('V', 'v') }), []) // only an h pick pairs …
+    assert.deepEqual(born({ 4: h('W', 'w'), 5: h('W', 'w') }), ['4:W']) // … or a 3×2's (— 10-24 — born as its 2×1)
+    assert.deepEqual(born({ 4: h('Q', 'q'), 5: h('Q', 'q') }), []) // NC: a quad has no pair to fall back to
     assert.deepEqual(born({ 4: h('K'), 5: { kind: 'name', nameKey: 'K-strip' } }), []) // a name strip never joins
 
     // The births' cap reads the board: units planned or in flight (a swap's target leads what texA shows), each
@@ -5146,10 +5281,11 @@ test('spans: phonehd — a phone rendering at 2.25 or more plans lean/hidpi’s 
     assert.equal(PHONEHD_MIN_RATIO, 2.25)
     assert.equal(new Function('PHONEHD_MIN_RATIO', `return ${tierBucket}`)(2)(true, 2), 'phonehd')
     // The tables: auto/phonehd IS lean/hidpi (one object), and lean/phonehd is lean/phone.
-    assert.deepEqual([STREAM_RUNGS, TIER_RANK], [[270, 480, 720, 1080], { s: 0, h: 1, v: 1, q: 2 }])
+    // w (10-24) is two rows tall, as a quad is: the quad's rank and rung everywhere
+    assert.deepEqual([STREAM_RUNGS, TIER_RANK], [[270, 480, 720, 1080], { s: 0, h: 1, v: 1, q: 2, w: 2 }])
     assert.deepEqual(STREAM_TIERS, {
-      auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720 }, phone: { s: 480, h: 480, v: 480, q: 480 }, phonehd: { s: 480, h: 480, v: 480, q: 720 } },
-      lean: { hidpi: { s: 480, h: 480, v: 480, q: 720 }, lodpi: { s: 480, h: 480, v: 480, q: 720 }, phone: { s: 270, h: 270, v: 270, q: 480 }, phonehd: { s: 270, h: 270, v: 270, q: 480 } },
+      auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: { s: 480, h: 480, v: 480, q: 480, w: 480 }, phonehd: { s: 480, h: 480, v: 480, q: 720, w: 720 } },
+      lean: { hidpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: { s: 270, h: 270, v: 270, q: 480, w: 480 }, phonehd: { s: 270, h: 270, v: 270, q: 480, w: 480 } },
     })
     assert.equal(STREAM_TIERS.auto.phonehd, STREAM_TIERS.lean.hidpi)
     assert.equal(STREAM_TIERS.lean.phonehd, STREAM_TIERS.lean.phone)
@@ -5428,14 +5564,146 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
   const source = (file) => fs.readFileSync(new URL(`../../src/components/globe/${file}`, import.meta.url), 'utf8')
   for (const file of ['TextureManager.js', 'PopulationDirector.js']) assert.doesNotMatch(source(file), /THUMB_WIDTH/, file)
   const pd = source('PopulationDirector.js')
-  for (const read of ['quadEligible(a, GLOBE_T1, this.L)', 'electQuads(this.selectFor(w.assets), TUNING.quads, GLOBE_T1, this.L)', 'texSpec(a, c, GLOBE_T1, this.L)', '|${TUNING.equiv}|${GLOBE_T1}`']) {
+  for (const read of ['quadEligible(a, GLOBE_T1, this.L)', 'electQuads(this.selectFor(w.assets), TUNING.quads, GLOBE_T1, this.L)', 'texSpec(a, c, GLOBE_T1, this.L, { wide })', '|${TUNING.equiv}|${GLOBE_T1}`']) {
     assert.equal(pd.split(read).length, 2, read)
   }
 })
 
 /* — Nathan's 10-23 bake: the boards above are laid at BOARD_DEFAULTS; this one at the shipped values. — */
+/** — 10-24 — the ?popshapes=wide boards: per world three sharp 16:9 clips (3×2s), two s 720 ones (too soft at
+ *  T1 512: their pair), a sharp and a soft 4:3 still, three 3:4 stills (1×2s), two 1:1 clips (quads), an 800²
+ *  still (too soft for a quad: a single) and two 3:1 stills (no class). `u` is classic's class, `uw` wide's;
+ *  `tag` names the case. */
+const wideWorlds = () =>
+  ['Alpha', 'Beta', 'Gamma'].map((name) => {
+    const vid = (tag, i, ratio, u, uw, extra = {}) => ({ kind: 'video', playbackId: `${name}-${tag}${i}`, videoAspectRatio: ratio, u, uw, tag, ...extra })
+    const still = (tag, i, w, h, u, uw) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/${name}-${tag}${i}-${w}x${h}.jpg`, u, uw, tag })
+    return {
+      slug: name.toLowerCase(),
+      clientName: name,
+      title: null,
+      services: [],
+      assets: [
+        ...[0, 1, 2].map((i) => vid('w', i, '16:9', 'h', 'w')),
+        ...[0, 1].map((i) => vid('ws', i, '16:9', 'h', 'w', { s: 720 })),
+        still('f0', 0, 1600, 1200, 'q', 'w'),
+        still('f1', 0, 1200, 900, 'q', 'w'),
+        ...[0, 1, 2].map((i) => still('t', i, 900, 1200, 'q', 'v')),
+        ...[0, 1].map((i) => vid('q', i, '1:1', 'q', 'q')),
+        still('qs', 0, 800, 800, 'q', 'q'),
+        ...[0, 1].map((i) => still('x', i, 2400, 800, null, null)),
+      ],
+    }
+  })
+const WIDE_WANT = Object.freeze({ w: 'w', ws: 'h', f0: 'w', f1: 'h', t: 'v', q: 'q', qs: null, x: null })
+
+test('spans: ?popshapes=wide (Nathan 10-24, the default) — decorate classes each asset by its picture: a sharp 16:9 to 4:3 a 3×2, else its pair; 4:5 to 9:16 a 1×2; every sharp square a quad, no election; selectFor weighs a 3×2 6; ?popshapes=classic is today’s set (T36)', () => {
+  assert.equal(POP_DEFAULTS.shapes, 'wide')
+  assert.deepEqual(POP_SHAPES, ['wide', 'classic'])
+  const worlds = wideWorlds()
+  const { director } = unitDirector({ shapes: 'wide', quads: 0 }, { worlds })
+  try {
+    const L = director.L
+    for (const pool of director.pools) {
+      assert.deepEqual([...new Set(pool.map((r) => r.tag))].sort(), Object.keys(WIDE_WANT).sort())
+      for (const r of pool) {
+        const want = WIDE_WANT[r.tag]
+        assert.equal(r.unitCls ?? null, want, assetKey(r))
+        // its texture: its class's, at its picture's aspect; none for a single
+        assert.deepEqual(r.tex ?? null, want ? texSpec(r, want, THUMB_WIDTH, L, { wide: true }) : null, assetKey(r))
+      }
+    }
+    // Every sharp square is a quad in every world, at ?popquads 0: wide holds no election.
+    assert.deepEqual(director.pools.map((p) => p.filter((r) => r.unitCls === 'q').length), [2, 2, 2])
+    // selectFor weighs the class an asset forms: a 3×2 6 (pair and 1×2 2, quad 4, else 1). Three 3×2 clips at
+    // ?popequiv 12: two fit. NC: classic weighs the same clips as pairs (u 'h', 2 each), and all three fit.
+    const three = worlds[0].assets.filter((a) => a.tag === 'w')
+    TUNING.equiv = 12
+    assert.equal(director.selectFor(three).length, 2)
+    TUNING.shapes = 'classic'
+    assert.equal(director.selectFor(three).length, 3)
+    TUNING.shapes = 'wide'
+    const weighs = { w: 6, ws: 2, f0: 6, f1: 2, t: 2, q: 4, qs: 1, x: 1 }
+    for (const w of worlds) {
+      const picked = director.selectFor(w.assets)
+      assert.ok(picked.length >= 2 && picked.reduce((n, a) => n + weighs[a.tag], 0) <= 12, picked.map((a) => a.tag).join())
+    }
+    TUNING.equiv = 0
+    // ?popshapes is in the signature: onTune re-decorates (then re-lays) under classic — no 3×2, a quad only where
+    // a world elected it (?popquads 1: its first eligible 'q', the 1600×1200 still), classic's slot-sized textures.
+    let relayouts = 0
+    director.relayout = () => (relayouts += 1)
+    TUNING.quads = 1
+    TUNING.shapes = 'classic'
+    director.onTune('shapes')
+    assert.equal(relayouts, 1)
+    for (const pool of director.pools) {
+      assert.deepEqual(pool.filter((r) => r.unitCls === 'q').map((r) => r.tag), ['f0'])
+      for (const r of pool) {
+        assert.equal(r.unitCls ?? null, r.u === 'q' ? (r.tag === 'f0' ? 'q' : null) : r.u, assetKey(r))
+        if (r.tex) assert.deepEqual(r.tex, texSpec(r, r.tex.cls, THUMB_WIDTH, L), assetKey(r))
+      }
+    }
+    TUNING.shapes = 'wide'
+    director.onTune('shapes')
+    assert.equal(relayouts, 2)
+    assert.deepEqual(director.pools[0].map((r) => r.unitCls ?? null), worlds[0].assets.map((a) => WIDE_WANT[a.tag]))
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+  // NC: wide with no `uw` on the payload (a classic-only island) makes every asset a single
+  const bare = wideWorlds().map((w) => ({ ...w, assets: w.assets.map(({ uw, ...a }) => a) }))
+  const { director: old } = unitDirector({ shapes: 'wide' }, { worlds: bare })
+  try {
+    assert.ok(old.pools.flat().every((r) => !r.unitCls && !r.tex))
+  } finally {
+    old.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+  // ?popshapes: wide by default, classic on ask; its guide row says so
+  try {
+    setPopTune('shapes', 'classic')
+    assert.equal(TUNING.shapes, 'classic')
+  } finally {
+    Object.assign(TUNING, BOARD_DEFAULTS)
+  }
+  const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
+  assert.match(guide, /^\| `\?popshapes` \|.*\| `wide` \(Nathan 10-24\) \| `wide` \\\| `classic` \| `POP_DEFAULTS\.shapes` \|$/m)
+})
+
+test('spans: ?popshapes=wide plans whole 3×2 units where one fits, else its 2×1; a soft 3×2 only ever pairs; a 3×2 has two column seams a row (T37)', () => {
+  // two worlds (two owner regions), posed (θh π), still rows: T13's V/Q board, at the shipped ?popunitmax
+  const { director, panels } = unitDirector({ shapes: 'wide', unitMax: POP_DEFAULTS.unitMax, group: 2 }, { worlds: wideWorlds(), getHorizon: () => Math.PI })
+  try {
+    director.initialLayout(director.byProminence())
+    assertWholeUnits(director, panels, ['w', 'h', 'v', 'q'])
+    const places = [...placesOf(panels).keys()]
+    const of = (cls) => places.filter((P) => P.cls === cls)
+    // the two-row units are planned first (wide), so the band inside [θN, θS] holds a 3×2 and a quad beside the
+    // 1×2s; in one pass, the pairs of the row below took their cells (h 29 v 4 q 0 w 0 on this board, 10-24)
+    assert.ok(of('w').length >= 1 && of('q').length >= 1 && director.placed.w >= of('w').length, JSON.stringify(director.placed))
+    for (const P of of('w')) assert.ok(['w', 'f0'].includes(P.members[0].asset.tag), `${P.uid}: only a sharp 3×2 forms one`)
+    for (const P of of('h')) assert.ok(['w', 'ws', 'f0', 'f1'].includes(P.members[0].asset.tag), `${P.uid}: a pair is a 3×2's`)
+    for (const P of of('v')) assert.equal(P.members[0].asset.tag, 't', P.uid)
+    for (const P of of('q')) assert.equal(P.members[0].asset.tag, 'q', P.uid)
+    // every whole unit's column seams: rows × (cols − 1), so two a row for a 3×2
+    const u = director.unitStats(0)
+    assert.equal(u.seam.n, places.reduce((n, P) => n + P.rows * (P.cols - 1), 0))
+    assert.ok(u.seam.n >= 4 * of('w').length + of('h').length)
+    // …and they render as one picture: seams, the register on its wide texture, columns across the row seam and the
+    // rows' mullion all exact (the P4b and P5 gates' measures)
+    assert.equal(u.register.n, places.reduce((n, P) => n + P.members.length, 0))
+    assert.equal(u.cols.n, places.filter((P) => P.rows === 2).reduce((n, P) => n + P.cols, 0))
+    for (const k of ['seam', 'register', 'cols', 'rows']) assert.ok(u[k].worst <= 1e-9, `${k} ${JSON.stringify(u[k])}`)
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+})
+
 test('spans: the shipped defaults (Nathan 10-23) — spans on, up to ?popunitmax 4 units per key inside ?popequiv 12, every unit whole, outer neighbours clear', () => {
-  assert.deepEqual([POP_DEFAULTS.units, POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv], [1, 4, 12])
+  assert.deepEqual([POP_DEFAULTS.units, POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv, POP_DEFAULTS.shapes], [1, 4, 12, 'wide'])
   const { director, panels } = unitDirector({ unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv }, { getHorizon: () => Math.PI })
   try {
     director.initialLayout(director.byProminence())
