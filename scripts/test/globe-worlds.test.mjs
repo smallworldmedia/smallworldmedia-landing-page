@@ -2098,9 +2098,9 @@ test('spans: eligibleVQ gives the lead windows on both devices; eligibleH is the
   const vq = (D, thetaH, grain = g) => windowOf((t) => eligibleVQ(t, rad(D), W(thetaH), grain))
   const fmt = (w) => w.map((t) => degOf(t).toFixed(2))
   const paths = [
-    ['advance', 18.0, ['47.61', '79.50'], ['47.61', '84.39']],
-    ['relayout', 18.3, ['47.61', '79.20'], ['47.61', '84.09']],
-    ['arrive', 20.2, ['47.61', '77.30'], ['47.61', '82.19']], // the function's window; no initial plan uses it (M4)
+    ['advance', 19.2, ['47.61', '78.30'], ['47.61', '83.19']],
+    ['relayout', 20.1, ['47.61', '77.40'], ['47.61', '82.29']],
+    ['arrive', 22.0, ['47.61', '75.50'], ['47.61', '80.39']], // the function's window; no initial plan uses it (M4)
     ['reduced motion', 0, ['47.61', '97.50'], ['47.61', '102.39']],
   ]
   for (const [name, D, desktop, phone] of paths) {
@@ -2120,8 +2120,8 @@ test('spans: eligibleVQ gives the lead windows on both devices; eligibleH is the
   assert.deepEqual(fmt(windowOf((t) => eligibleH(t, rad(18), g))), ['42.07', '119.93'])
   for (const t of [1, 90, 179]) assert.equal(eligibleH(rad(t), Infinity, 0), true, `grain off, ${t}°`)
   assert.equal(eligibleH(rad(90), Infinity, g), false) // an endless travel always reaches the grain
-  // NC: D without the landing (16.2°) lifts the desktop top to 81.3°
-  assert.deepEqual(fmt(vq(16.2, 127.5)), ['47.61', '81.30'])
+  // NC: D without the landing (18.0°) lifts the desktop top to 79.5°
+  assert.deepEqual(fmt(vq(18.0, 127.5)), ['47.61', '79.50'])
 })
 
 test('spans: frameOf / mp give the frame Mux serves at a rung, box-limited past 16:9 (T10)', () => {
@@ -2958,9 +2958,9 @@ test('spans: keep-first keeps only an intact unit — every member showing it, n
     const laid = [...placesOf(wb).keys()]
     TUNING.grainAmt = 1
     const gT = TUNING.grainStart + TUNING.grainRamp + TUNING.grainStagger
-    const grained = wide.planAll(wide.byProminence(), { land: 0.9 })
+    const grained = wide.planAll(wide.byProminence(), { land: 0.6 }) // a change's landing: ?poptrans
     const D = wide.lastD
-    near(degOf(D), 18, 1e-9)
+    near(degOf(D), 19.2, 1e-9)
     const thetaOf = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
     const leads = [...new Set([...grained.values()].map((a) => a.place).filter(Boolean))].map((Q) => Q.members[0])
     assert.ok(leads.length >= 1)
@@ -3177,7 +3177,7 @@ test('spans: placeKey keys the texture AND the unit slot: single ↔ member swap
 
 test('spans: travelBudget is the landing, the longest hold and the next change at the rows’ pace (T17)', async () => {
   const pace = ((180 / 6) * 2) / 30 // °/s: 6 rows × cascadeSpeed 2 / SCROLL_PACE_SCALE (the desktop pace)
-  assert.deepEqual([POP_DEFAULTS.hold, POP_DEFAULTS.holdJit, POP_DEFAULTS.trans], [6, 0.2, 0.9])
+  assert.deepEqual([POP_DEFAULTS.hold, POP_DEFAULTS.holdJit, POP_DEFAULTS.trans], [6, 0.4, 0.6]) // Nathan 10-23
   const directors = []
   const make = (opts, tune = {}) => {
     const { director } = unitDirector(tune, opts)
@@ -3191,13 +3191,13 @@ test('spans: travelBudget is the landing, the longest hold and the next change a
     assert.equal(still.unitStats(0).clock, 'static')
     const replay = make({ getPace: () => pace, canAnimate: () => true })
     assert.equal(replay.travelBudget(0, true), Infinity) // replay: the first hold's start is unbounded…
-    near(degOf(replay.travelBudget(0.9, false)), 18.0, 1e-9, 'replay advance') // …every later plan is bounded
+    near(degOf(replay.travelBudget(0.6, false)), 19.2, 1e-9, 'replay advance') // …every later plan is bounded
     assert.equal(replay.unitStats(0).clock, 'running')
     assert.equal(make({ getPace: () => pace, worlds: classedWorlds().slice(0, 1) }).travelBudget(0.9, false), Infinity) // one world: no clock
     const director = make({ getPace: () => pace, revealHeld: true })
-    near(degOf(director.travelBudget(0.9, false)), 18.0, 1e-9, 'advance')
-    near(degOf(director.travelBudget(1.05, false)), 18.3, 1e-9, 'relayout')
-    near(degOf(director.travelBudget(0, true)), 20.2, 1e-9, 'arrive')
+    near(degOf(director.travelBudget(0.6, false)), 19.2, 1e-9, 'advance')
+    near(degOf(director.travelBudget(1.05, false)), 20.1, 1e-9, 'relayout')
+    near(degOf(director.travelBudget(0, true)), 22.0, 1e-9, 'arrive')
     // Each path hands it its own landing: the held entrance, a change (spread + dur = ?poptrans), a bench relayout.
     const lands = []
     const budget = director.travelBudget
@@ -3206,18 +3206,18 @@ test('spans: travelBudget is the landing, the longest hold and the next change a
       return budget.call(this, land, initial)
     }
     director.initialLayout(director.byProminence())
-    assert.equal(director.sample(new THREE.Euler()).units.D, 20.2)
+    assert.equal(director.sample(new THREE.Euler()).units.D, 22)
     assert.equal(director.sample(new THREE.Euler()).units.clock, 'stopped') // the screens aren't free to animate
     director.advance() // the screens aren't free to animate: a cut
     await settleTicks()
-    assert.equal(director.sample(new THREE.Euler()).units.D, 18)
+    assert.equal(director.sample(new THREE.Euler()).units.D, 19.2)
     director.relayout()
     await settleTicks()
-    assert.equal(director.sample(new THREE.Euler()).units.D, 18.3)
+    assert.equal(director.sample(new THREE.Euler()).units.D, 20.1)
     assert.deepEqual(lands.map(([, initial]) => initial), [true, false, false])
-    near(lands.map(([land]) => land), [0, 0.9, 1.05], 1e-12, 'landings')
-    // NC: without the landing term, advance gives 16.2°.
-    near(degOf(director.travelBudget(0, false)), 16.2, 1e-9)
+    near(lands.map(([land]) => land), [0, 0.6, 1.05], 1e-12, 'landings')
+    // NC: without the landing term, advance gives 18.0°.
+    near(degOf(director.travelBudget(0, false)), 18.0, 1e-9)
   } finally {
     for (const d of directors) d.dispose()
     TUNING.units = 0
@@ -3236,7 +3236,7 @@ test('spans: the initial layout is planned before the first pose — no horizon,
     assert.deepEqual([units.placed.v, units.placed.q, units.initVQ], [0, 0, 0])
     assert.equal(units.thetaH, null)
     assert.equal(units.initThetaH, null)
-    assert.equal(units.D, 20.2) // arrive: the held entrance + the longest hold + the next change
+    assert.equal(units.D, 22) // arrive: the held entrance + the longest hold + the next change
     // Posed: the first change (⏭; a cut, the screens aren't free to animate) reads the live horizon and places
     // V/Q, each lead admissible over the travel its plan used; the initial layout's horizon and count stay null and 0.
     horizon = rad(127.5)
@@ -3244,15 +3244,15 @@ test('spans: the initial layout is planned before the first pose — no horizon,
     await settleTicks()
     units = director.sample(new THREE.Euler()).units
     assert.ok(units.placed.v + units.placed.q >= 1, JSON.stringify(units.placed))
-    assert.deepEqual([units.thetaH, units.D, units.initThetaH, units.initVQ], [127.5, 18, null, 0])
+    assert.deepEqual([units.thetaH, units.D, units.initThetaH, units.initVQ], [127.5, 19.2, null, 0])
     const leadOf = (P) => Math.acos(Math.min(Math.max(P.members[0].centerDir.y, -1), 1))
     const tall = [...placesOf(panels).keys()].filter((P) => P.rows === 2)
     assert.ok(tall.length >= 1)
     for (const P of tall) assert.ok(eligibleVQ(leadOf(P), director.lastD, director.W, 0), `${P.uid} at ${degOf(leadOf(P)).toFixed(2)}°`)
     // NC: the pre-tick initialRotation horizon (≈ 133°) admits a V/Q lead whose bottom row travels to 132.4°,
     // past the posed limb at 127.5°.
-    const D = rad(20.2)
-    const lead = rad(82.19) // the arrive window's θS edge (θS − D)
+    const D = rad(22)
+    const lead = rad(80.39) // the arrive window's θS edge (θS − D)
     assert.equal(eligibleVQ(lead, D, { ...director.W, thetaH: rad(133) }, 0), true)
     near(degOf(lead + director.W.Pth + D), 132.39, 1e-9)
     assert.equal(eligibleVQ(lead, D, { ...director.W, thetaH: rad(127.5) }, 0), false)

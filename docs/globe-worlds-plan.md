@@ -337,9 +337,9 @@ contract's, so comments that cite Q3, Q7 and Q8 still resolve.
 
   | Case | D |
   |---|---|
-  | advance | 18.0° |
-  | relayout | 18.3° |
-  | held arrive | 20.2° |
+  | advance | 19.2° |
+  | relayout | 20.1° |
+  | held arrive | 22.0° |
   | replay initial layout, or a single world | ∞, so H only |
   | reduced motion | 0 |
 
@@ -365,8 +365,8 @@ A = compose(coverWindow(aTex, S), memberWindow(…))    B = compose(coverWindow(
 V/Q scale: q = √(vK · max(sin θ₂, 1e-3)), θ₂ = θ ± Pθ (vK when θ₂ leaves (0, π))
 ε window: thetaBound(k, Pθ) = atan2(k·sin Pθ, 1 − k·cos Pθ)
   θN = thetaBound((1 + ε)^−2) = 47.61°   θS = thetaBound((1 + ε)^2) = 102.39°   (ε = 0.15)
-Travel budget: pace·(land + hold·(1 + holdJit) + trans); defaults pace 2°/s, hold 6, holdJit 0.2, trans 0.9
-  advance (land 0.9 s) 18.0° · relayout (land 1.05 s) 18.3° · held arrive 20.2° · RM 0 · replay/single ∞
+Travel budget: pace·(land + hold·(1 + holdJit) + trans); defaults pace 2°/s, hold 6, holdJit 0.4, trans 0.6 (Nathan 10-23)
+  advance (land 0.6 s) 19.2° · relayout (land 1.05 s) 20.1° · held arrive 22.0° · RM 0 · replay/single ∞
 Class texture: W × H = round(T1·(cols·Pφ − Gφ)/phiLen) × round(T1·(rows·Pθ − Gθ)/bandH)
   T1 = GLOBE_T1 (THUMB_WIDTH: 512 desktop, 384 phone) → h 1043×512 (phone 783×384), v 512×1043, q 1043×1043
   TQ = round(T1·(2Pθ − Gθ)/bandH) = 1043 at T1 512, 783 at T1 384

@@ -21,7 +21,8 @@
  * P3 = Enter World lands inside the world on the globe (enter).
  * 10-06 bake (Nathan's dial): tides on by default, all media, cap 13,
  * weighted shares, a 6 s ± 0.2 hold, a 0.9 s surge, chaos 1. The seed stays
- * random per visit (his call).
+ * random per visit (his call). 10-23 bake (his dial, the media spans round):
+ * the hold ± 0.4 and a 0.6 s change.
  * 10-06 = client-name strips (names, nameStyle — nameTicker.js).
  * 10-07 = their placement rework: the ticker is gone (the strips are still),
  * the span comes from the MEASURED name (nameSpanMin/nameSpanMax) instead of a
@@ -84,8 +85,8 @@ export const POP_DEFAULTS = Object.freeze({
   layout: 'mix', // ?poplayout — one world: mix | facets (POP_LAYOUTS)
   patterns: Object.freeze(['continents', 'archipelago', 'spiral']), // ?poppattern — 2–3 worlds: the set each grouping draws from (comma list)
   hold: 6, // ?pophold — seconds a world holds before the next
-  holdJit: 0.2, // ?popholdjit — ± fraction of the hold, drawn per change
-  trans: 0.9, // ?poptrans — seconds a change takes (a tide rolls a full span in it)
+  holdJit: 0.4, // ?popholdjit — ± fraction of the hold, drawn per change (Nathan 10-23; 0.2 from 10-06)
+  trans: 0.6, // ?poptrans — seconds a change takes (a tide rolls a full span in it); Nathan 10-23, 0.9 from 10-06
   transitions: Object.freeze(['surge']), // ?poptransset — the set changes draw from (comma list, POP_TRANSITIONS)
   chaos: 1, // ?popchaos — 0 = editorial order + the set in turn; 1 = a random next world + transition every change
   live: 'shared', // ?poplive — shared | tile (POP_LIVE)
