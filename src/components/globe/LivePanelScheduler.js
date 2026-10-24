@@ -105,7 +105,7 @@ export default class LivePanelScheduler {
     this.cycleThumbnails = cycleThumbnails;
     this.tierFor = tierFor; // (unit class) → { rung, floor } | null (useGlobeScene); null = the pool's pin for every stream
     this.bucket = bucket; // the DPR bucket tierFor reads (useGlobeScene, load-time): decodeStats reports it
-    this.pinShort = pinShortOf(pinParams); // the pool's pin (GLOBE_STREAM_PARAMS): 480 on both devices by default, 720 under ?globeres=720p
+    this.pinShort = pinShortOf(pinParams); // the pool's pin (GLOBE_STREAM_PARAMS): by default 720 on desktop (Nathan 10-23, Q22) and 480 on phones, else ?globeres's rung
     this.decodeBudget = MAX_LIVE * mp(this.pinShort, 16 / 9); // MAX_LIVE × the served pin frame: today's at the default (R4)
     this.tierFail = new Set(); // playbackIds whose planned rung failed: their next start asks the pin itself
     this.disposed = false;

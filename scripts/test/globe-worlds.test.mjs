@@ -939,11 +939,14 @@ test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pi
     assert.equal(globe.DPR_MAX, mobile ? 1.5 : 2) // /process shares DPR_MAX: unchanged
     // Nathan, 10-09 (Q10): "yes to phone globe at full res" — phones bake 3, desktop keeps DPR_MAX
     assert.equal(globe.GLOBE_DPR_MAX, mobile ? 3 : globe.DPR_MAX)
-    assert.equal(globe.GLOBE_STREAM_PARAMS, 'min_resolution=480p&max_resolution=480p') // "i think we can stay at 480p": the literal, not the constant against itself
+    // phones, "i think we can stay at 480p"; desktop 720p, Nathan 10-23 (Q22): literals, not the constants against themselves
+    assert.equal(globe.GLOBE_STREAM_PARAMS, mobile ? 'min_resolution=480p&max_resolution=480p' : 'min_resolution=720p&max_resolution=720p')
     const world = await load('work/world/worldConfig.js', '', mobile)
     assert.equal(world.DPR_MAX, mobile ? 3 : 2) // Nathan, 10-09: full res
   }
   assert.equal((await load('work/world/worldConfig.js', '?dpr=1.5', true)).DPR_MAX, 1.5) // ?dpr still A/Bs
+  assert.equal((await load('globe/globeConfig.js', '?globeres=480p', false)).GLOBE_STREAM_PARAMS, STREAM_PARAMS) // the old desktop pin, by URL
+  assert.equal((await load('globe/globeConfig.js', '?globeres=999p', false)).GLOBE_STREAM_PARAMS, 'min_resolution=720p&max_resolution=720p') // not a rung: the desktop pin stands
   assert.equal((await load('globe/globeConfig.js', '?globedpr=1.5', true)).GLOBE_DPR_MAX, 1.5) // the old phone look
   // The name strips scale with the ratio the canvas RENDERS at over the old default, not the caps'.
   const strip = async (search, mobile, dpr) => (await load('globe/globeConfig.js', search, mobile, dpr)).NAME_STRIP_H
@@ -2146,7 +2149,7 @@ test('spans: frameOf / mp give the frame Mux serves at a rung, box-limited past 
   assert.ok(7 * old(480) < 7 * mp(480, 16 / 9))
   assert.ok(mp(480, 4) < (1920 * 480) / 1e6)
   // — P6b — pinShortOf: the rung a pin is SERVED at, the largest rung at or below its max_resolution. P0's 480p is
-  // both devices' pin (STREAM_PARAMS, GLOBE_STREAM_PARAMS' default on both, P0c), and the old 540p pin was served at
+  // STREAM_PARAMS (GLOBE_STREAM_PARAMS' default on both devices from P0c; desktop 720p since 10-23, Q22), and the old 540p pin was served at
   // Mux's 480 rendition (B1); ?globeres=720p's pin is 720, and ?globeres=270p's 270, against which no tier plans (T34).
   const PIN = (t) => `min_resolution=${t}p&max_resolution=${t}p`
   assert.equal(STREAM_PARAMS, PIN(480))
@@ -2163,7 +2166,7 @@ test('spans: frameOf / mp give the frame Mux serves at a rung, box-limited past 
     near(sched.decodeBudget, desk, 1e-12, `${t}p desktop`)
     near(4 * mp(sched.pinShort, 16 / 9), phone, 1e-12, `${t}p phone`)
   }
-  assert.equal(new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null }).pinShort, 480) // the pool's pin
+  assert.equal(new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null }).pinShort, 720) // the pool's pin: node has no window, so the desktop's (720p since 10-23, Q22)
   // NC: the pin read literally (540) gives the phone 4 × 960×540 = 2.0736, a budget no served frame fills
   const literal = Number(/max_resolution=(\d+)p/.exec(PIN(540))[1])
   assert.deepEqual(frameOf(literal, 16 / 9), [960, 540])
@@ -4839,13 +4842,13 @@ const tiersFor = (tier, bucket) => (cls) => {
   const rung = STREAM_TIERS[tier]?.[bucket]?.[cls]
   return rung ? { rung, floor: tier === 'lean' ? 270 : 480 } : null
 }
-/** A shared-mode scheduler over `panels` with stream tiers (auto, hidpi and the pool's pin unless told). The pool logs
+/** A shared-mode scheduler over `panels` with stream tiers (auto, hidpi and the 480p pin the boards were written at, STREAM_PARAMS, unless told; the desktop default is 720p since 10-23). The pool logs
  *  every assign's arguments as they came and answers per pool.answer: 'hold' stays pending until its slot is released
  *  or reassigned, which rejects it as VideoSlotPool does; 'frame' resolves pool.frame; 'reject' rejects at once. The
  *  page's pool has no load-error path (it rejects only on release or reassign), so 'reject' stands in for a failed
  *  load the page catches only by the tier timer. start(id) plans the clip and starts it on the next free slot, as
  *  updateShared does, and returns the plan. */
-function tierOver(panels, { tier = 'auto', bucket = 'hidpi', pinParams, tierFor = tiersFor(tier, bucket) } = {}) {
+function tierOver(panels, { tier = 'auto', bucket = 'hidpi', pinParams = STREAM_PARAMS, tierFor = tiersFor(tier, bucket) } = {}) {
   const pool = {
     calls: [],
     released: [],
@@ -4893,7 +4896,7 @@ test('spans: hidpi admission spends the 2.86944 budget on the frames Mux serves 
   gsap.globalTimeline.pause() // no tier timer fires on the wall clock
   const boards = []
   try {
-    // auto/hidpi: s 480, h 720, v 720, q 1080, floor 480; the pin 480 (the pool's), the budget 7 × 854×480.
+    // auto/hidpi: s 480, h 720, v 720, q 1080, floor 480; the pin 480 (STREAM_PARAMS, the boards'), the budget 7 × 854×480.
     const A = tierOver([
       ...streamUnit('q', classedClip('quad', '1:1', 'q'), 0.5).members,
       ...streamUnit('h', classedClip('pair1', '16:9', 'h'), 0.6, 2).members,

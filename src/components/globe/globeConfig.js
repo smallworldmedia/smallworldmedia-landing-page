@@ -54,7 +54,8 @@ export const THUMB_WIDTH = IS_MOBILE ? 384 : 512; // Mux thumbnail request size 
 /* — Stream quality —
    Both tiers pin a SINGLE rendition (min+max collapse the Mux manifest to one
    choice), which also overrides native-HLS ABR that would otherwise pick low
-   for a hidden/small video element. Phone and desktop both pin 480p. Mux's
+   for a hidden/small video element. Phone and desktop both pin 480p here (the
+   home globe's desktop pin is 720p since 10-23: GLOBE_STREAM_PARAMS). Mux's
    ladder here (270p/480p/720p/1080p) has no 540p rung, so the phone's old
    540p pin was always served 480p; 480p names what plays (Nathan, 10-09:
    the lowest rung that stays sharp). min==max, so the preferMinQuality
@@ -155,8 +156,10 @@ export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-textu
    3 — "yes to phone globe at full res , it looks so much better and does not
    stutter". Desktop stays DPR_MAX (2). /process keeps DPR_MAX, unchanged at
    1.5 on phones and 2 on desktop. ?globedpr=1.5 is the old phone look.
-   ?globeres keeps its 480p pin (STREAM_PARAMS): "i think we can stay at
-   480p i see no discernable difference". — */
+   ?globeres kept its 480p pin (STREAM_PARAMS) on the phone: "i think we can
+   stay at 480p i see no discernable difference".
+   BAKED 10-23 (Nathan's Q22, the media spans round): the desktop globe pins
+   720p, from his dial (?globeres=720p). Phones keep 480p. — */
 const clampTo = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
 /** ?globedpr — the VideoGlobe's renderer pixel-ratio cap (useGlobeScene). */
 export const GLOBE_DPR_MAX = clampTo(PARAM('globedpr', IS_MOBILE ? 3 : DPR_MAX), 1, 3);
@@ -172,12 +175,15 @@ export const NAME_STRIP_H = Math.round(
 );
 const GLOBE_RES = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('globeres');
 /** ?globeres — the VideoGlobe's stream pin on any device: one Mux rung
- *  (270p | 480p | 720p | 1080p), else STREAM_PARAMS. The World's ?liveres,
+ *  (270p | 480p | 720p | 1080p), else the device's: 720p on desktop (Nathan
+ *  10-23, Q22), STREAM_PARAMS (480p) on phones. The World's ?liveres,
  *  but checked: Mux's ladder has no 540 rung. VideoSlotPool's default, so
  *  anything that sizes the globe's streams reads this, not STREAM_PARAMS. */
 export const GLOBE_STREAM_PARAMS = /^(270|480|720|1080)p$/.test(GLOBE_RES ?? '')
   ? `min_resolution=${GLOBE_RES}&max_resolution=${GLOBE_RES}`
-  : STREAM_PARAMS;
+  : IS_MOBILE
+    ? STREAM_PARAMS
+    : 'min_resolution=720p&max_resolution=720p';
 /** ?globethumb — T1: the legacy square texture side, and the base every class texture size derives from (unitSpan.texSpec). */
 export const GLOBE_T1 = Math.round(clampTo(PARAM('globethumb', THUMB_WIDTH), 256, 1024));
 /** The VideoGlobe renderer's pixel ratio (useGlobeScene): the screen's own, capped by GLOBE_DPR_MAX. */

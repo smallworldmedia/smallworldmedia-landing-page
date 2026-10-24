@@ -139,7 +139,7 @@ Leave filtering untouched (`LivePanelScheduler.js:190-195`, `TextureManager.js:3
 — adding mipmaps to a video texture is wasted at panel scale. Mobile (540p) is already
 correctly provisioned. *(10-16 note: since P0, `cb7b8e8`, the phone pin says 480p: Mux has
 no 540 rendition, so the old 540p pin was already served at 480p. Both devices now share
-`STREAM_PARAMS` = 480p, `globeConfig.js:62`, behind `?globeres`.)* Decode cost ~3×/panel at 480p is trivial for desktop hardware
+`STREAM_PARAMS` = 480p, `globeConfig.js:62`, behind `?globeres`. 10-23: the desktop globe pins 720p instead, Nathan's Q22.)* Decode cost ~3×/panel at 480p is trivial for desktop hardware
 decoders, and Workstream 1 frees the headroom.
 
 ---

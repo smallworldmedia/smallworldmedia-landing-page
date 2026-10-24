@@ -370,8 +370,8 @@ Travel budget: pace·(land + hold·(1 + holdJit) + trans); defaults pace 2°/s, 
 Class texture: W × H = round(T1·(cols·Pφ − Gφ)/phiLen) × round(T1·(rows·Pθ − Gθ)/bandH)
   T1 = GLOBE_T1 (THUMB_WIDTH: 512 desktop, 384 phone) → h 1043×512 (phone 783×384), v 512×1043, q 1043×1043
   TQ = round(T1·(2Pθ − Gθ)/bandH) = 1043 at T1 512, 783 at T1 384
-Decode budget: MAX_LIVE × mp(pinShort, 16/9): desktop 7 × 0.40992 = 2.86944 MP, phone 4 × 0.40992 = 1.63968 MP
-  at the 480 pin (6.4512 / 3.6864 MP under ?globeres=720p)
+Decode budget: MAX_LIVE × mp(pinShort, 16/9): desktop 7 × 0.9216 = 6.4512 MP at its 720 pin (Nathan 10-23, Q22;
+  2.86944 at 480), phone 4 × 0.40992 = 1.63968 MP at the 480 pin (3.6864 MP under ?globeres=720p)
 ```
 
 ### The class rule (O3)
@@ -404,7 +404,7 @@ texture.
 ### Knobs (the knob ledger)
 
 Every span knob is a `?param` with a tunables-guide row. No phase baked a default: each shipped
-as today's behaviour, or off. Nathan's 10-23 bake set three of them (Q1, Q7, Q8).
+as today's behaviour, or off. Nathan's 10-23 bake set three of them (Q1, Q7, Q8) and the desktop `?globeres` (Q22).
 
 | Param | Key | Phase | Default | Range | Reload? |
 |---|---|---|---|---|---|
@@ -414,7 +414,7 @@ as today's behaviour, or off. Nathan's 10-23 bake set three of them (Q1, Q7, Q8)
 | `?poptier` | `tier` | P6b | `auto` | `auto` \| `today` \| `lean` | live (read at each stream start) |
 | `?popequiv` | `equiv` | P7 | `12` (Nathan 10-23, Q8; was `0`, off) | ≤ 0 → 0, else 4–32 rounded | live (bench row) |
 | `?globedpr` | `GLOBE_DPR_MAX` | P0c | 3 on phones (bake B, `8732aa8`), `DPR_MAX` (2) on desktop | 1–3 | URL-only, load time |
-| `?globeres` | `GLOBE_STREAM_PARAMS` | P0c | `STREAM_PARAMS` (480p on both devices) | `270p` \| `480p` \| `720p` \| `1080p`, else the default | URL-only, load time |
+| `?globeres` | `GLOBE_STREAM_PARAMS` | P0c | 720p on desktop (Nathan 10-23, Q22; was `STREAM_PARAMS`, 480p), `STREAM_PARAMS` (480p) on phones | `270p` \| `480p` \| `720p` \| `1080p`, else the default | URL-only, load time |
 | `?globethumb` | `GLOBE_T1` | P7 | `THUMB_WIDTH` (512 desktop, 384 phone) | 256–1024, rounded | URL-only, load time |
 | `?popunitlook` | `unitLook` | P9 | `rows` | `rows` \| `flat` | not built: P9 only on Nathan's yes to Q2 |
 
@@ -656,7 +656,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q19 | (inform) The strict 15 s detail cap | Done in P0 (`wrapAtDetailCap`) |
 | Q20 | The phone decode budget at DPR 3 | Follows the pin: 1.63968 MP at 480p, 3.6864 MP under `?globeres=720p` |
 | Q21 | COCO and bedouin show no live video on phones under the corner preset | Answered: a bug, which F2 (`876404c`) fixes |
-| Q22 | HiDPI tiers at the lowest rung with density ≥ 1? Desktop globe at 720p? | Measured; the desktop globe keeps the 480p pin unless his eye takes 720p (`/` against `/?globeres=720p`) |
+| Q22 | HiDPI tiers at the lowest rung with density ≥ 1? Desktop globe at 720p? | Answered 10-23: the desktop globe pins 720p (`?globeres=720p` was in his dial); phones keep 480p. The tiers keep `auto`, which he did not dial |
 | Q23 | The deck wall's flicker | Fixed in PF (`d2967ca`). Open: (a) `?fpstol` 0; (b) the wall canvas on a 1× screen, 1152 |
 | Q24 | MSAA 2 at DPR ≥ 2; the globe without antialias | Neither taken |
 | Q25 | Desktop footer at rest, 0.62 | Keep 0.62, the value he approved |
@@ -674,8 +674,9 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   held frame, the quad at 720 against 480 gave +24% and +25% Laplacian (390 and 430 wide),
   decoded 1.338 MP against 1.357 MP, and ran 3 live streams against 4. Video bytes were within
   run spread. The quad call stays open until he answers, and the default (q 720) ships.
-  `GLOBE_STREAM_PARAMS` stays the 480p literal that T33 asserts.
-- Q2, Q11, Q12, Q22, Q23(a) and (b), Q25 and Q27 above.
+  On phones `GLOBE_STREAM_PARAMS` stays the 480p literal that T33 asserts (desktop pins 720p since 10-23,
+  Q22).
+- Q2, Q11, Q12, Q23(a) and (b), Q25 and Q27 above.
 
 **Next steps (P8 runs no probe):**
 - Re-measure the first units batch's frame rate on a quiet machine. At P7 it ran at about half

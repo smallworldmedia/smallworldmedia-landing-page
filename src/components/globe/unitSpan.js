@@ -221,8 +221,9 @@ export const UNIT_CLASSES = new Set(['h', 'v', 'q']);
 
 /* — P6b — stream tiers. A rung is a pinned rendition's short side. The pin
    rung is the one the pool's pin is served at (pinShortOf(GLOBE_STREAM_PARAMS)):
-   480 on both devices by default (P0 pins 480p; the old 540p pin was served at
-   Mux's 480p rendition, B1), 720 under ?globeres=720p. A plan at the pin
+   by default 720 on desktop (Nathan 10-23, Q22) and 480 on phones (P0 pins
+   480p; the old 540p pin was served at Mux's 480p rendition, B1), else
+   ?globeres's rung. A plan at the pin
    requests the pin verbatim. auto keeps texB within [1, 2] texels per device px
    where it can; phonehd (a phone at full res) takes the LOWEST rung at ≥ 1 on
    the binding phone, 430 at DPR 3 (A2), which is lean/hidpi's row. lean is one
