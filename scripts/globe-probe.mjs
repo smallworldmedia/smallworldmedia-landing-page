@@ -324,7 +324,7 @@ const extraNum = (k) => {
 const GATE_CTX = {
   key: String(arg('baseline', path.basename(OUT))),
   seed: SEED, units: UNITS, level: LEVEL, mode: MODE, rm: RM, mobile: MOBILE, tide: TIDE, tile: TILE, intro: INTRO,
-  unitMax: Math.min(Math.max(Math.round(extraNum('popunitmax') ?? 1), 1), 6), // popConfig's clamp
+  unitMax: Math.min(Math.max(Math.round(extraNum('popunitmax') ?? 4), 1), 6), // popConfig's default (Nathan 10-23, Q7) and clamp
   // GLOBE_T1: ?globethumb clamped and rounded, else THUMB_WIDTH (IS_MOBILE = max-width 768px, i.e. the CSS viewport)
   t1: extraNum('globethumb') != null ? Math.round(Math.min(Math.max(extraNum('globethumb'), 256), 1024)) : VW <= 768 ? 384 : 512,
   equiv: Math.max(0, extraNum('popequiv') ?? 0),

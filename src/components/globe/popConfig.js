@@ -113,7 +113,7 @@ export const POP_DEFAULTS = Object.freeze({
   grainOrder: 'sweep', // ?popgrainorder — which panelDelay ordering the stagger follows (DELAY_ORDERS)
   grainLive: 0, // ?popgrainlive — 1 = the grain band also withholds live video (real decode saving in ?poplive=tile only; in shared mode it just changes which clips win)
   units: 0, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe
-  unitMax: 1, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Nathan's Q7)
+  unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
   equiv: 0, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, single 1); 0 = off, ?popcap alone

@@ -409,7 +409,7 @@ is today's behaviour, or off.
 | Param | Key | Phase | Default | Range | Reload? |
 |---|---|---|---|---|---|
 | `?popunits` | `units` | P3 | `0` (off) | `n > 0` → 1, else 0 | live (bench segment) |
-| `?popunitmax` | `unitMax` | P4a | `1` | 1–6, rounded | live (bench row) |
+| `?popunitmax` | `unitMax` | P4a | `4` (Nathan 10-23, Q7; was `1`) | 1–6, rounded | live (bench row) |
 | `?popquads` | `quads` | P5 | `1` | 0–2, rounded | live (bench row) |
 | `?poptier` | `tier` | P6b | `auto` | `auto` \| `today` \| `lean` | live (read at each stream start) |
 | `?popequiv` | `equiv` | P7 | `0` (off) | ≤ 0 → 0, else 4–32 rounded | live (bench row) |
@@ -640,7 +640,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q4 | Class band width | ±10% in log space around 16:9 and 9:16 |
 | Q5 | Extremes (\|ln r\| ≥ ln 2.4): single, or span? | Single |
 | Q6 | Quads per world | 1 (`?popquads`) |
-| Q7 | Unit repeats: once per asset per plan, or at every admissible spot? | Once (`?popunitmax=1`; 6 = every spot) |
+| Q7 | Unit repeats: once per asset per plan, or at every admissible spot? | Answered 10-23: up to 4 (`?popunitmax=4`; 1 = once, 6 = every spot) |
 | Q8 | Fewer assets? | `?popcap` 13 kept; `?popequiv` off. Compare `/?popunits=1&popequiv=13` with `/?popunits=1` |
 | Q9 | Phone renditions | Superseded: the phone pin is 480p (10-09), and P0 pins it on both devices |
 | Q10 | The phone's pixel ratio | Answered: 3 on phones at 480p (bake B, `8732aa8`); `?globedpr=1.5` is the old globe |

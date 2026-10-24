@@ -80,6 +80,11 @@ import {
 } from '../../src/components/globe/unitSpan.js'
 import { classOf } from '../../src/components/globe/mediaClass.js'
 
+/** The tuning the fixtures below are laid at: POP_DEFAULTS with the media spans' knobs as the boards were
+ *  written, before Nathan's 10-23 bake (one unit per key). A board asks for more explicitly (6 per key in
+ *  T13's wide boards); 'spans: the shipped defaults' lays one at the baked values. */
+const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, unitMax: 1 })
+
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
 const image = { _type: 'image', asset: ref('image-page') }
@@ -388,7 +393,7 @@ function assertNeighboursDiffer(panels) {
 
 test('director: clustered layout follows the pattern, no neighbour repeats, rows keep pouring in', () => {
   // names off: a strip's adjacent tiles share its texture by design (tested below)
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, group: 2, chaos: 0, names: 0 })
+  Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides', seed: 42, group: 2, chaos: 0, names: 0 })
   const { panels, textureManager } = fakeScene()
   const director = new PopulationDirector({
     panels,
@@ -423,7 +428,7 @@ test('director: clustered layout follows the pattern, no neighbour repeats, rows
 })
 
 test('director: texture refs balance — one per tile, plus the warm set until dispose', () => {
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 9, group: 2, chaos: 0 })
+  Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides', seed: 9, group: 2, chaos: 0 })
   const { panels, textureManager } = fakeScene()
   const director = new PopulationDirector({
     panels,
@@ -453,7 +458,7 @@ test('director: texture refs balance — one per tile, plus the warm set until d
 
 /* — P2: one world at a time, changing on its own clock — */
 function makeDirector(tuning, opts = {}) {
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides' }, tuning)
+  Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides' }, tuning)
   const { panels, textureManager } = fakeScene()
   const director = new PopulationDirector({
     panels,
@@ -560,7 +565,7 @@ function fakeScrollScene() {
 
 test('director: a re-born row cancels its in-flight swap, so the born asset survives (P0a)', async () => {
   const random = Math.random
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', transitions: ['blink'], chaos: 0, names: 0 })
+  Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides', transitions: ['blink'], chaos: 0, names: 0 })
   const { panels, textureManager } = fakeScrollScene()
   let scroller = null
   let born = null
@@ -1700,7 +1705,7 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
 
 test('spans: a load that rejects is failed, never pending, so the ref ledger still goes quiet (M3)', async () => {
   // names off: in node a real TextureManager rejects every name strip (nameTicker draws on a canvas)
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, group: 2, chaos: 0, names: 0 })
+  Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides', seed: 42, group: 2, chaos: 0, names: 0 })
   const { panels } = fakeScene()
   const tm = new TextureManager()
   // A stub loader: every load settles a tick later, as on the network. The one key that rejects is
@@ -2253,7 +2258,7 @@ const classedWorlds = () =>
 const todaysSpread = (worlds) => worlds.map((w, wi) => w.assets.map((a) => ({ ...a, clientName: w.clientName, services: w.services, world: wi })))
 /** A director on fakeScrollScene (a live scroll lattice), ?popunits as given. */
 function spanDirector(units, { worlds = classedWorlds(), scene = fakeScrollScene(), ...opts } = {}) {
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, units })
+  Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, units })
   const director = new PopulationDirector({
     panels: scene.panels,
     worlds,
@@ -2376,7 +2381,7 @@ test('spans: units off is today’s globe: records, texture URLs, random draws, 
   const decorate = PopulationDirector.prototype.decorate
   // One layout + one change on a real TextureManager whose stub loader logs every URL it is asked for.
   const run = async (units, records = null) => {
-    Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, transitions: ['blink'], units })
+    Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, transitions: ['blink'], units })
     const { panels } = fakeScrollScene()
     const tm = new TextureManager()
     const urls = []
@@ -2644,7 +2649,7 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
  *  horizon unless one is passed, as useGlobeScene's before its first pose: a plan then forms H pairs only (M4),
  *  which the H boards below are about. P5's V/Q tests pass `getHorizon`. */
 function unitDirector(tune = {}, { worlds = classedWorlds(), scene = fakeScrollScene(), ...opts } = {}) {
-  Object.assign(TUNING, POP_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, units: 1 }, tune)
+  Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0, units: 1 }, tune)
   const director = new PopulationDirector({
     panels: scene.panels,
     worlds,
@@ -2708,8 +2713,8 @@ function assertWholeUnits(director, panels, classes = ['h']) {
 
 test('spans: planUnits forms whole H pairs in one region, clear of their own key, at most ?popunitmax per key; a kept unit takes the new world (T13)', async () => {
   assert.deepEqual([...UNIT_CLASSES], ['h', 'v', 'q']) // P5 adds v and q; these boards have no horizon, so H pairs only (M4)
-  // ?popunitmax: 1 by default, an integer 1–6, and its own guide row.
-  assert.equal(POP_DEFAULTS.unitMax, 1)
+  // ?popunitmax: 4 by default (Nathan 10-23, Q7), an integer 1–6, and its own guide row.
+  assert.equal(POP_DEFAULTS.unitMax, 4)
   for (const [typed, want] of [[0, 1], [2.4, 2], [9, 6]]) {
     setPopTune('unitMax', typed)
     assert.equal(TUNING.unitMax, want)
@@ -3846,7 +3851,7 @@ test('spans: each world elects its ?popquads quads over the pool it places from,
     assert.equal(relayouts, 11)
   } finally {
     director.dispose()
-    Object.assign(TUNING, POP_DEFAULTS, { units: 0 })
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
   }
 })
 
@@ -4110,7 +4115,7 @@ const judgeLive = (units) => unitGates({ requests: [], samples: [{ phase: 'hold'
 const failsFor = (g, name) => g.pass[name] === false && g.detail[name].vacuous === false && expectFail({ pass: g.pass, spans: { detail: g.detail } }, [name]).ok
 
 test('spans: joinGroup joins a whole unit or none of it, through its lead; a joint detach by uid frees it together; only the lead announces (T24)', async () => {
-  Object.assign(TUNING, POP_DEFAULTS)
+  Object.assign(TUNING, BOARD_DEFAULTS)
   gsap.globalTimeline.pause() // a crossfade ends when finishFades says so, never on the wall clock
   const boards = []
   let director = null
@@ -4406,7 +4411,7 @@ test('spans: joinGroup joins a whole unit or none of it, through its lead; a joi
     for (const { sched } of boards) sched.dispose()
     director?.dispose()
     gsap.globalTimeline.resume()
-    Object.assign(TUNING, POP_DEFAULTS)
+    Object.assign(TUNING, BOARD_DEFAULTS)
   }
 })
 
@@ -4883,7 +4888,7 @@ const PIN_AT = (t) => `min_resolution=${t}p&max_resolution=${t}p`
 const clip16 = (playbackId, extra = {}) => ({ kind: 'video', playbackId, videoAspectRatio: '16:9', ...extra })
 
 test('spans: hidpi admission spends the 2.86944 budget on the frames Mux serves — one rung lower, then the head of the line blocks; never above the source (T22)', async () => {
-  Object.assign(TUNING, POP_DEFAULTS)
+  Object.assign(TUNING, BOARD_DEFAULTS)
   gsap.globalTimeline.pause() // no tier timer fires on the wall clock
   const boards = []
   try {
@@ -4980,7 +4985,7 @@ test('spans: hidpi admission spends the 2.86944 budget on the frames Mux serves 
 })
 
 test('spans: no plan is today’s two-argument assign, a plan passes its pin; a rung that fails marks the clip, which then asks the pin with no retry below it (T23)', async () => {
-  Object.assign(TUNING, POP_DEFAULTS)
+  Object.assign(TUNING, BOARD_DEFAULTS)
   gsap.globalTimeline.pause() // a tier timer fires when the test says so, never on the wall clock
   const boards = []
   try {
@@ -5095,7 +5100,7 @@ test('spans: no plan is today’s two-argument assign, a plan passes its pin; a 
       assert.equal(relayouts, 1)
     } finally {
       director.dispose()
-      Object.assign(TUNING, POP_DEFAULTS, { units: 0 })
+      Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
     }
     // The scene builds the bucket and tierFor once, ahead of the scheduler, and hands both to it; the pool's assign
     // takes the pin as an optional third argument (the tiersFor helper above is the scene's tierFor). Neither file runs
@@ -5357,7 +5362,7 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
     assert.deepEqual([sel(director, 0), sel(director, 1)], all)
   } finally {
     director.dispose()
-    Object.assign(TUNING, POP_DEFAULTS, { units: 0 })
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
   }
   // No lattice (the fixed globe): no units, so no budget.
   const { director: fixed } = spanDirector(1, { scene: fakeScene(), worlds })
@@ -5366,7 +5371,7 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
     assert.deepEqual([fixed.L, sel(fixed, 0), sel(fixed, 1)], [null, ...all])
   } finally {
     fixed.dispose()
-    Object.assign(TUNING, POP_DEFAULTS, { units: 0 })
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
   }
 
   // — ?popequiv — 0 by default (off: ?popcap alone); else an integer 4–32, rounded; its guide row says so.
@@ -5377,7 +5382,7 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
       assert.equal(TUNING.equiv, want, String(typed))
     }
   } finally {
-    Object.assign(TUNING, POP_DEFAULTS)
+    Object.assign(TUNING, BOARD_DEFAULTS)
   }
   const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
   assert.match(guide, /^\| `\?popequiv` \|.*\| `0` \(off\) \| 0, or 4–32 \(clamped\) \| `POP_DEFAULTS\.equiv` \|$/m)
@@ -5421,5 +5426,22 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
   const pd = source('PopulationDirector.js')
   for (const read of ['quadEligible(a, GLOBE_T1, this.L)', 'electQuads(this.selectFor(w.assets), TUNING.quads, GLOBE_T1, this.L)', 'texSpec(a, c, GLOBE_T1, this.L)', '|${TUNING.equiv}|${GLOBE_T1}`']) {
     assert.equal(pd.split(read).length, 2, read)
+  }
+})
+
+/* — Nathan's 10-23 bake: the boards above are laid at BOARD_DEFAULTS; this one at the shipped values. — */
+test('spans: the shipped defaults (Nathan 10-23) — up to ?popunitmax 4 units per key, every unit whole, outer neighbours clear', () => {
+  assert.equal(POP_DEFAULTS.unitMax, 4)
+  const { director, panels } = unitDirector({ unitMax: POP_DEFAULTS.unitMax }, { getHorizon: () => Math.PI })
+  try {
+    director.initialLayout(director.byProminence())
+    const perKey = assertWholeUnits(director, panels, ['h', 'v', 'q'])
+    const counts = [...perKey.values()]
+    assert.ok(counts.length >= 1 && counts.every((n) => n <= POP_DEFAULTS.unitMax), JSON.stringify([...perKey]))
+    assert.ok(counts.some((n) => n > 1), JSON.stringify([...perKey])) // the default repeats an asset
+    assertSpanNeighboursDiffer(panels)
+  } finally {
+    director.dispose()
+    TUNING.units = 0
   }
 })
