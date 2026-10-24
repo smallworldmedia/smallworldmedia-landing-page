@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-10-23*
+*Last Updated: 2026-10-24*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -345,7 +345,9 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   (`--baseline=KEY`, default the `--out` folder's name), written only from an all-pass
   `--record-baseline` run and never by hand; a run with no record under its key exits 2 on
   `legacyParity` / `texPeak` as vacuous, so a bare `node scripts/globe-probe.mjs` exits 2 — pass the
-  key the run matches (`--units=0 --baseline=off-desktop` for a plain units-off desktop run; spans are on by default since 10-23). A one-off failure gets one rerun
+  key the run matches (`--units=0 --baseline=off-desktop` for a plain units-off desktop run; spans are on by default since 10-23). Every units-on record predates `?popshapes=wide` (10-24) and was
+  taken under the classic set, so a wide run has no record of its own yet: record one, or pass
+  `--extra=&popshapes=classic` to match an old one. A one-off failure gets one rerun
   on a quiet machine, both runs kept; never lower a floor or weaken a gate.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.

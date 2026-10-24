@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-10-23*
+*Last Updated: 2026-10-24*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -76,21 +76,29 @@ renders its exact tape slice at any latitude) · `tileSwap.js` (THE refcount-saf
 
 **Media spans** (`docs/globe-worlds-plan.md` § Media spans, which is the repo's record of the round's
 contract; built P0a–P7 on `refine/globe-worlds`, shipped OFF behind `?popunits` until Nathan's 10-23
-bake turned them on (Q1, with `unitMax` 4 and `equiv` 12: Q7, Q8); `?popunits=0` is today's globe): one classed asset spans 2×1 (`h`), 1×2 (`v`) or 2×2 (`q`) tiles as one
+bake turned them on (Q1, with `unitMax` 4 and `equiv` 12: Q7, Q8); `?popunits=0` is today's globe): one classed asset spans 2×1 (`h`), 1×2 (`v`), 2×2 (`q`) or 3×2 (`w`) tiles as one
 picture, each member cropping its own slice, the lattice gaps hiding their strip (the mullion).
 `unitSpan.js` is the import-free arithmetic (lattice, `memberWindow`, `coverWindow`, `compose`,
-`unitA`, `kappaOwn`, the ε window `thetaBound`, eligibility, `texSpec`, `electQuads`, `liveB`, the
+`unitA`, `kappaOwn`, the ε window `thetaBound`, eligibility, `classSizeAt` / `texSpec`, `spanSharp`,
+`wideClass`, `electQuads`, `UNIT_FALLBACK` / `canForm`, `liveB`, the
 source and picture readers, and the stream tiers `STREAM_RUNGS` / `STREAM_TIERS` / `tierBucket` /
 `rungAtMost` / `pinShortOf`). `mediaClass.js` (`CLASS_SOURCE`, `nativeRatio`, `classOf`) classes
-each asset once at build time: the label proposes, the native ratio vetoes. The span plumbing:
-`buildWorldPools.toGlobeAsset` stamps `u` (the class; absent = single only) on a classed asset, and
+each asset once at build time: the label proposes, the native ratio vetoes. **Two shape sets**
+(`?popshapes`, `POP_SHAPES`): `wide` (the default, Nathan 10-24) spans 16:9 and 4:3 3×2 (falling back to
+its 2×1, then a single), tall 1×2 and every sharp square 2×2 with no quad election, and sizes a wide
+texture at its picture's aspect clamped to the slots it serves (own, fallback, single), so every slot
+crops as the source would; `classic` (the 10-23 set) spans 2×1 / 1×2 and elects `?popquads` 2×2s,
+with slot-shaped textures. The span plumbing:
+`buildWorldPools.toGlobeAsset` stamps `u` (the classic class) and `uw` (the wide class; either absent = single only) on a classed asset, and
 `s` (the source short side; 0 = unknown, absent = at least `TOP_RUNG`) on a video below `TOP_RUNG`;
-`PopulationDirector` pools by class, elects quads, plans units (`planUnits`, shared delays), and
+`PopulationDirector` pools by class, elects quads (classic) or decorates by `wideClass` (wide), plans
+units (`planUnits`, shared delays; under wide the two-row units take a pass of their own first, since
+only about one row band admits them), and
 `place()` re-derives every member's A window and, when its stream was lit for this unit, its B
 window each frame; `tileSwap.windowA` is THE texA window rule, `tileSwap.placeKey` (asset key plus
 unit slot) is what `applyPlan` compares to skip a tile, and `loadTile`'s bind hook writes a planned
 member's window on its first bound frame; `HeroLabels` draws one chip per unit at
-its centre. Five `?pop*` knobs (`units`, `unitMax`, `quads`, `tier`, `equiv`) sit in `popConfig.js`
+its centre. Six `?pop*` knobs (`units`, `shapes`, `unitMax`, `quads`, `tier`, `equiv`) sit in `popConfig.js`
 with a spans group on the bench.
 
 **Panel grain** (`panelGrain.js` + the grain term in `panelMaterial.js`, 8 `?popgrain*` knobs, ships
@@ -122,8 +130,8 @@ the "o") · `heroOverlay.js` (scene→DOM disc projection)
 · `HeroIntro.jsx` · `HeroLabels.jsx` (the chips; under media spans one chip per unit, anchored at the
 unit's centre, and a fading chip's slot keeps its unit's members, `heldMembers`, re-deriving the anchor
 from live poses each frame so it never jumps) · `HeroTunePanel.jsx` / `CommitTunePanel.jsx` /
-`PopTunePanel.jsx` (benches; the last is `?poptune=1`, with a spans group: on/off, units / asset,
-quads / world, tile budget, video tier; the readout line above it shows spans, tex MiB and decode
+`PopTunePanel.jsx` (benches; the last is `?poptune=1`, with a spans group: on/off, shapes, units / asset,
+quads / world, tile budget, video tier; the readout line above it shows spans (`w · h · v · q`), tex MiB and decode
 mp / budget).
 
 ## /work (`src/components/work/`)
