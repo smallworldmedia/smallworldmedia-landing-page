@@ -58,7 +58,8 @@ const label = (text) => String(text ?? '').toUpperCase();
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
 
 /** The latitude gate: the |centerDir.y| a name tile may sit at for a band of
- *  `f` of pole-to-pole (0.65 = the middle 65%, |y| ≤ 0.85). centerDir is
+ *  `f` of pole-to-pole (0.57, the default since 10-23 = the middle 57%,
+ *  |y| ≤ 0.7804; 0.65 gave 0.85). centerDir is
  *  unrotated, so its y IS the latitude and |y| is pole proximity. */
 export const nameBandLimit = (f) => Math.sin((clamp(f, 0, 1) * Math.PI) / 2);
 /** The facing gate: the camera-rotated .z every tile of a strip must clear

@@ -29,7 +29,8 @@
  * random width, the type is smaller (nameSize), and the director places each
  * world's strip camera-relative — mid-latitude (nameBand), front-facing
  * (nameFace), in the quadrant opposite the last world's — or across a whole
- * latitude row (nameMode=band). Starting values, not yet dialed.
+ * latitude row (nameMode=band). Starting values, until Nathan dialed four of
+ * them on 10-23: size 0.83, band 0.57, face 0.44, span max 4.
  */
 import { PATTERNS } from './worldPatterns.js';
 import { WORLD_POOL_CAP } from './buildWorldPools.js';
@@ -94,11 +95,11 @@ export const POP_DEFAULTS = Object.freeze({
   enter: 1, // ?popenter — 1 = Enter World opens /work on the world on the globe; 0 = the first World
   names: 1, // ?popnames — name strips a world places (0 = none)
   nameMode: 'region', // ?popnamemode — region = a run of tiles sized to the name; band = a whole latitude row (NAME_MODES)
-  nameSize: 0.62, // ?popnamesize — font px per strip height (was a baked 0.86 — Nathan 10-07: "reduced slightly")
-  nameBand: 0.65, // ?popnameband — the middle fraction of pole-to-pole a strip may sit in
-  nameFace: 0.5, // ?popnameface — front-facing width as a fraction of the circumference (0.5 = the visible half)
+  nameSize: 0.83, // ?popnamesize — font px per strip height (Nathan 10-23; 10-07's 0.62 "reduced slightly" a baked 0.86)
+  nameBand: 0.57, // ?popnameband — the middle fraction of pole-to-pole a strip may sit in (Nathan 10-23; 0.65 from 10-07)
+  nameFace: 0.44, // ?popnameface — front-facing width as a fraction of the circumference (0.5 = the visible half; Nathan 10-23, 0.5 from 10-07)
   nameSpanMin: 2, // ?popnamespanmin — fewest tiles a strip may use
-  nameSpanMax: 6, // ?popnamespanmax — most tiles a strip may use (at the cap the type shrinks, the name is never cut)
+  nameSpanMax: 4, // ?popnamespanmax — most tiles a strip may use (at the cap the type shrinks, the name is never cut); Nathan 10-23, 6 from 10-07
   nameStyle: 'ink', // ?popnamestyle — ink = the world's colour on black; fill = black on the colour
   // — Panel grain (10-07): the FP pager scrim's dialed turbulence, carried onto
   //   the globe as a placeholder where the pole pinch would otherwise show warped,

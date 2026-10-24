@@ -1047,7 +1047,9 @@ one commit per knob default. The numbers are the contract's §13, and code comme
     still swapping, so a transition sample can hold the previous world's strip.
   - Open for Nathan's dial: every one of `?popnamesize`, `?popnameband`, `?popnameface`,
     `?popnamespanmin`, `?popnamespanmax`, `?popnames` and `?popnamemode` ships as a URL param with
-    a bench row and no baked number — he has given none.
+    a bench row and no baked number — he has given none. (10-23: he dialed four, now the
+    defaults: `?popnamesize` 0.83, `?popnameband` 0.57, `?popnameface` 0.44 and
+    `?popnamespanmax` 4. `?popnamespanmin`, `?popnames` and `?popnamemode` stay as they were.)
   - **The pole pinch — why the first world read "TOHOST" (10-07, second round).** The rework
     above shipped green and still rendered `TOBEHONEST` as `TOHOST` on the first world, while
     `ANDHERA RECORDS` lower down read perfectly. The texture, the published UVs, the panel
