@@ -502,7 +502,8 @@ tier`. A tide run caps at `h`; `--rm` and `&poplive=tile` cap at `vq`.
 `audio`). The Status log's older "N gates" counts (09-26, 10-07) count the pass block's keys. They
 are records, and they stay as written.
 
-**The run matrix (units on).** Every run passes `--units --level=<L>` and must exit 0. The keys
+**The run matrix (units on).** Every run passes `--units --level=<L>` and must exit 0. Since 10-23 the default `?popequiv` 12
+makes `neighbourRule` report-only in every run; only `--extra="&popequiv=0"` judges it. The keys
 are records in `scripts/baselines/globe-units.json`:
 
 | Key | Extra flags | From |
@@ -529,8 +530,8 @@ are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the f
 
 | Control | Flags | Must fail | Phase |
 |---|---|---|---|
-| `nc-texmb` | `--texmb=1 --baseline=off-desktop` | `texBudget` | P0b |
-| `nc-texpeak` | `--texpeak=1 --baseline=off-desktop` | `texPeak` | P0b |
+| `nc-texmb` | `--units=0 --texmb=1 --baseline=off-desktop` | `texBudget` | P0b |
+| `nc-texpeak` | `--units=0 --texpeak=1 --baseline=off-desktop` | `texPeak` | P0b |
 | `nc-sneak` | `--units=0 --extra="&popunits=1" --baseline=off-desktop` (`--units=0` since 10-23: `--extra` comes first in the URL, and its `&popunits` wins) | `legacyParity,texReqShape,unitsVacuous` | P3 |
 | `nc-units0` | `--units=0 --level=h --baseline=u-desktop` | `unitsVacuous` | P4a |
 | `nc-windows` | `--units --level=h --negctl --baseline=u-desktop` | `unitSeam,unitRegister` | P4b |
@@ -541,7 +542,7 @@ are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the f
 | `nc-density-hidpi` | `--units --level=tier --dsf=2 --densitymax=0.4 --baseline=u-hidpi` | `videoDensityMax` | P6b |
 | `nc-density-phonehd` | `--units --level=tier --mobile --dsf=3 --densitymax=0.4 --baseline=u-phonehd` | `videoDensityMax` | P6b |
 | `nc-pin` | `--units --level=tier --negctl=pin --baseline=u-desktop` | `streamTier` | P6b |
-| `nc-thumb` | `--extra="&globethumb=384" --baseline=off-desktop` | `legacyParity` | P7 |
+| `nc-thumb` | `--units=0 --extra="&globethumb=384" --baseline=off-desktop` | `legacyParity` | P7 |
 
 P6a's gates have no probe control. Their negative controls are unit tests: T24 (a per-member join
 splits a unit) and T25 (a stale B misregisters).
@@ -561,7 +562,8 @@ units off, `?popunitmax` 1, `?popequiv` 0, a hold of ± 0.2, a 0.9 s change, nam
 then, a run reproduces its record only with the old values in `--extra`, placed after the run's
 own flags (the page and the probe both read a param's first value):
 `&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0`,
-plus `&globeres=480p` on desktop. The units-off keys also pass `--units=0`.
+plus `&globeres=480p` on desktop. The units-off keys also pass `--units=0`. Both hold for the
+negative controls, which judge against the same records.
 
 **The one-rerun rule.** A one-off non-vacuous gate failure can hit a transition sample whose
 name placement lags a step (`namesSlice`). Rerun once after wait-quiet, and keep both runs in
@@ -651,7 +653,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q6 | Quads per world | 1 (`?popquads`) |
 | Q7 | Unit repeats: once per asset per plan, or at every admissible spot? | Answered 10-23: up to 4 (`?popunitmax=4`; 1 = once, 6 = every spot) |
 | Q8 | Fewer assets? | Answered 10-23: `?popequiv` 12, with `?popcap` 13 kept: a world places from at most 13 assets weighing 12 tile-equivalents |
-| Q9 | Phone renditions | Superseded: the phone pin is 480p (10-09), and P0 pins it on both devices |
+| Q9 | Phone renditions | Superseded: the phone pin is 480p (10-09), and P0 pinned it on both devices (the desktop globe pins 720p since 10-23, Q22) |
 | Q10 | The phone's pixel ratio | Answered: 3 on phones at 480p (bake B, `8732aa8`); `?globedpr=1.5` is the old globe |
 | Q11 | T1 768 on large Retina displays? | 512 (`THUMB_WIDTH`); `?globethumb=768` to compare |
 | Q12 | Dark first frames | Keep `time=0`; darkThumbs is reported only. P7's lists (`eadf842`): u-desktop and u-mobile list the same four near-black class textures (mean < 16, none flat): jowrx35j (v), iYkHH8HX (h), fRj7mEI5 (v) and qRA02wwe (q). zNq4h02h and ewG9MiP4 were never requested as class textures at seed 42, so they were not measured. The only flat texture is bedouin's 2fInI023 (v, mean 126.9, sd 3.2), listed by u-tide only |

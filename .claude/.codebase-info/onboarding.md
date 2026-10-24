@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-10-16*
+*Last Updated: 2026-10-23*
 
 ## Quick start
 ```bash
@@ -18,11 +18,12 @@ Probing after a build? Serve the built output, never the dev server — a build 
 reads as a probe failure. Each worktree has its own real `node_modules`, so the collision is confined to
 one worktree: to gate a revision while a live `--host` session keeps serving a phone, build in a
 different worktree. `npx astro preview --port 3333` then
-`GLOBE_PROBE_BASE=http://localhost:3333 node scripts/globe-probe.mjs --baseline=off-desktop` (3333 is
+`GLOBE_PROBE_BASE=http://localhost:3333 node scripts/globe-probe.mjs --units=0 --baseline=off-desktop` (3333 is
 CORS-allowlisted, so the stills load and the globe is not black). The `--baseline` key is required: a
 home run judges its gates against a record in `scripts/baselines/globe-units.json`, and the bare
 invocation has none, so it exits 2 (use `off-mobile` with `--mobile`; the probe's usage header lists
-every key).
+every key). Every record predates Nathan's 10-23 bake: until they are re-recorded, the plan's Baselines
+and seeds gives the `--extra` that reproduces one.
 
 ## Where things are decided
 - `docs/v1-launch-plan.md` — what ships when `feature/v1-launch` merges to `main`.

@@ -582,7 +582,7 @@ test('director: a re-born row cancels its in-flight swap, so the born asset surv
   try {
     director.initialLayout(director.byProminence())
     scroller = new MeridianScroll({ panels, assets: [], textureManager, cascadeSpeed: 0, scheduler: null, assignRow: (tiles) => (born = director.assignRow(tiles)) })
-    Math.random = () => 0.99 // every swap waits 0.594 s (0.99 × spread 0.6 = ?poptrans 0.9 − the 0.3 s blink)
+    Math.random = () => 0.99 // every swap waits 0.297 s (0.99 × spread 0.3 = ?poptrans 0.6 − the 0.3 s blink)
     director.advance()
     await settleTicks()
     const row6 = panels.filter((p) => p.row === 6)

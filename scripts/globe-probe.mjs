@@ -63,13 +63,15 @@
  * Media spans (scripts/lib/unitGates.mjs; docs/globe-worlds-plan.md § Media
  * spans): --units adds &popunits=1 (--units=0 adds &popunits=0). Absent, the
  * page's default holds, on since Nathan's 10-23 bake (Q1), and the gates read it
- * so: a bare run is a units run. --extra comes before &popunits in the URL, and
+ * so: a bare run is a units run (not under --mode=off, which has no director, nor
+ * with an &popunits=0 in --extra). --extra comes before &popunits in the URL, and
  * the page reads a param's first value, so an &popunits there wins (nc-sneak
  * runs --units=0 --extra="&popunits=1"). --level picks
  * the span gates, cumulatively: tex (class textures), h (horizontal units), vq
  * (vertical pairs, quads), live (one stream and one chip per unit), tier
  * (measured decode, rungs, density). A tide run caps at h; --rm and
- * &poplive=tile cap at vq. --units with no --level fails unitsVacuous by design.
+ * &poplive=tile cap at vq. A units run (--units, or no --units since 10-23) with
+ * no --level fails unitsVacuous by design.
  * The gates read scripts/baselines/globe-units.json under KEY (--baseline,
  * default the --out folder's name); --record-baseline writes KEY, and only from
  * an all-pass run. --negctl turns the unit windows off (=bind: loadTile's hook
@@ -92,7 +94,9 @@
  * real value, so the run fails as a control would).
  *
  * The units-on run matrix (keys in scripts/baselines/globe-units.json; every
- * run adds --units --level=<L> --base=… --out=…/<key> and must exit 0):
+ * run adds --units --level=<L> --base=… --out=…/<key> and must exit 0; since
+ * 10-23 the default &popequiv 12 makes neighbourRule report-only in every run,
+ * and only --extra="&popequiv=0" judges it):
  *   u-desktop        (none)                1440×900 @1, lodpi
  *   u-mobile         --mobile              390×844 @2, phone bucket
  *   u-rm             --rm --next=1         stills only, capped at vq; --next=1
@@ -329,8 +333,9 @@ const extraNum = (k) => {
 };
 const GATE_CTX = {
   key: String(arg('baseline', path.basename(OUT))),
-  // units: absent = popConfig's default (on: Nathan 10-23, Q1)
-  seed: SEED, units: UNITS ?? 1, level: LEVEL, mode: MODE, rm: RM, mobile: MOBILE, tide: TIDE, tile: TILE, intro: INTRO,
+  // units: --units, else what the page shows: none under --mode=off (no director), else --extra's &popunits, else
+  // popConfig's default (on: Nathan 10-23, Q1)
+  seed: SEED, units: UNITS ?? (MODE === 'off' ? 0 : (extraNum('popunits') ?? 1) > 0 ? 1 : 0), level: LEVEL, mode: MODE, rm: RM, mobile: MOBILE, tide: TIDE, tile: TILE, intro: INTRO,
   unitMax: Math.min(Math.max(Math.round(extraNum('popunitmax') ?? 4), 1), 6), // popConfig's default (Nathan 10-23, Q7) and clamp
   // GLOBE_T1: ?globethumb clamped and rounded, else THUMB_WIDTH (IS_MOBILE = max-width 768px, i.e. the CSS viewport)
   t1: extraNum('globethumb') != null ? Math.round(Math.min(Math.max(extraNum('globethumb'), 256), 1024)) : VW <= 768 ? 384 : 512,
@@ -1276,8 +1281,8 @@ function footerPass(f) {
   // band mode's repeat). Both errors are read AS A FRACTION OF THE SLICE,
   // because that is what legibility scales with and because the defect is
   // multiplicative: an uncompensated tile renders vK of its slice, so it is
-  // off by (1−vK) — 30% at the |y| 0.72 placement that read "TOHOST", 48% at
-  // the 0.85 band edge. The tolerance is 5%: the director writes the window
+  // off by (1−vK) — 30% at the |y| 0.72 placement that read "TOHOST", 37% at
+  // the default band's edge (|y| 0.78 since 10-23; 48% at 0.65's 0.85). The tolerance is 5%: the director writes the window
   // one frame before the scroll applies it, and one frame of pinch travel
   // measured up to 1.3% of a slice on a 12 fps warm-up frame. The honest
   // limit of the gate: where vK is already ≈ 1 (a row near the equator) an
@@ -1285,7 +1290,7 @@ function footerPass(f) {
   // since there it also renders ≥ 95% of its slice and the name reads.
   // Graded only while the tile is still a tile: below PINCH_FLOOR it is under
   // 40% of a band's width — far outside the latitude band it was placed in
-  // (the default admits vK ≥ 0.52), a sliver nothing reads, and a place where
+  // (the default admits vK ≥ 0.63), a sliver nothing reads, and a place where
   // the pinch changes fast enough per frame to swamp the measurement. Band
   // mode makes this routine: a whole row carries the strip, so the outgoing
   // row is still carrying it while it dies at the pole.

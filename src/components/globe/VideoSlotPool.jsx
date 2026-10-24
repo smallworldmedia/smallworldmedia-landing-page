@@ -43,7 +43,7 @@ const POOL_HLS_CONFIG = {
 
 function streamUrl(playbackId, params) {
   // `params` pins ONE rendition server-side (min = max): the globe's
-  // STREAM_PARAMS, the World Near tier's hi-res pin, or a globe tier's pin
+  // GLOBE_STREAM_PARAMS (720p desktop, 480p phones), the World Near tier's hi-res pin, or a globe tier's pin
   // (LivePanelScheduler.rungPlan). preferMinQuality locks
   // the lowest remaining level, so the two always agree. The clip goes last,
   // once, after whatever params the caller passed (muxStream): Mux ends the
