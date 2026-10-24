@@ -81,10 +81,10 @@ import {
 import { classOf } from '../../src/components/globe/mediaClass.js'
 
 /** The tuning the fixtures below are laid at: POP_DEFAULTS with the media spans' knobs as the boards were
- *  written, before Nathan's 10-23 bake (one unit per key, no tile budget). A board asks for more explicitly
+ *  written, before Nathan's 10-23 bake (units off, one unit per key, no tile budget). A board asks for more explicitly
  *  (6 per key in T13's wide boards, ?popequiv 13 in P7's); 'spans: the shipped defaults' lays one at the
  *  baked values. */
-const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, unitMax: 1, equiv: 0 })
+const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, units: 0, unitMax: 1, equiv: 0 })
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -2306,9 +2306,9 @@ test('spans: decorate gives each h/v id ONE class texture, pooled across worlds;
     const perRecord = worlds.flatMap((w) => w.assets.filter((a) => a.playbackId === 'shared')).map((a) => texSpec(a, a.u, THUMB_WIDTH, on.L).key)
     assert.equal(new Set(perRecord).size, 2)
 
-    // ?popunits ships off and stores 0 | 1. Toggling it rebuilds the records (onTune → redecorate → relayout);
+    // ?popunits ships on (Q1, Nathan 10-23) and stores 0 | 1. Toggling it rebuilds the records (onTune → redecorate → relayout);
     // a tune that leaves the signature alone keeps them.
-    assert.equal(POP_DEFAULTS.units, 0)
+    assert.equal(POP_DEFAULTS.units, 1)
     // its own guide row (tunables-keys --check also counts the __swmPopStats row's mention of ?popunits)
     assert.match(fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8'), /^\| `\?popunits` \|.*\| `POP_DEFAULTS\.units` \|$/m)
     const relayouts = []
@@ -2322,7 +2322,7 @@ test('spans: decorate gives each h/v id ONE class texture, pooled across worlds;
     off.onTune('units')
     assert.deepEqual(off.pools, on.pools)
     TUNING.units = 0
-    off.onTune('*') // the bench's reset
+    off.onTune('*') // back off (the bench's reset restores the default, on since 10-23)
     assert.deepEqual(off.pools, todaysSpread(worlds))
     assert.equal(relayouts.length, 3)
   } finally {
@@ -5431,8 +5431,8 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
 })
 
 /* — Nathan's 10-23 bake: the boards above are laid at BOARD_DEFAULTS; this one at the shipped values. — */
-test('spans: the shipped defaults (Nathan 10-23) — up to ?popunitmax 4 units per key inside ?popequiv 12, every unit whole, outer neighbours clear', () => {
-  assert.deepEqual([POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv], [4, 12])
+test('spans: the shipped defaults (Nathan 10-23) — spans on, up to ?popunitmax 4 units per key inside ?popequiv 12, every unit whole, outer neighbours clear', () => {
+  assert.deepEqual([POP_DEFAULTS.units, POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv], [1, 4, 12])
   const { director, panels } = unitDirector({ unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv }, { getHorizon: () => Math.PI })
   try {
     director.initialLayout(director.byProminence())

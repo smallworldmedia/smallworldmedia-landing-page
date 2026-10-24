@@ -61,7 +61,11 @@
  * --enter, which start on home.
  *
  * Media spans (scripts/lib/unitGates.mjs; docs/globe-worlds-plan.md § Media
- * spans): --units adds &popunits=1 (--units=0 adds &popunits=0). --level picks
+ * spans): --units adds &popunits=1 (--units=0 adds &popunits=0). Absent, the
+ * page's default holds, on since Nathan's 10-23 bake (Q1), and the gates read it
+ * so: a bare run is a units run. --extra comes before &popunits in the URL, and
+ * the page reads a param's first value, so an &popunits there wins (nc-sneak
+ * runs --units=0 --extra="&popunits=1"). --level picks
  * the span gates, cumulatively: tex (class textures), h (horizontal units), vq
  * (vertical pairs, quads), live (one stream and one chip per unit), tier
  * (measured decode, rungs, density). A tide run caps at h; --rm and
@@ -105,7 +109,8 @@
  *   u-thumb-phonehd  --mobile --dsf=3 --extra="&globethumb=512" --texmb=96
  * Levels by phase: P3 tex; P4a, P4b h; P5 vq; P6a live; P6b, P7 tier. Units-off
  * keys: off-desktop, off-mobile, off-rm, off-tide, off-flat, off-phonehd
- * (--mobile --dsf=3). Under &poptier=today no stream carries a tier plan, so
+ * (--mobile --dsf=3); since 10-23 each passes --units=0. Under &poptier=today
+ * no stream carries a tier plan, so
  * streamTier has no sample and a --level=tier run exits 2 on it alone: judge a
  * today run at --level=live. The negative controls (--expect-fail): nc-texmb,
  * nc-texpeak, nc-sneak, nc-units0, nc-windows, nc-bind, nc-windows-vq (as
@@ -248,7 +253,7 @@ const HOLD = arg('hold', '');
 if (HOLD === true || process.argv.includes('--hold=') || (HOLD && !DETAIL)) throw new Error('globe-probe: --hold takes a Mux id prefix and goes with --detail (--detail=SLUG --hold=PREFIX)');
 const STEP_MS = 2000; // --detail: each scroll step's hold, so the slots it reveals start their streams
 // — Media spans (scripts/lib/unitGates.mjs; docs/globe-worlds-plan.md § Media spans) —
-const UNITS_ARG = arg('units', null); // --units → &popunits=1; --units=0 → &popunits=0; absent → nothing added
+const UNITS_ARG = arg('units', null); // --units → &popunits=1; --units=0 → &popunits=0; absent → nothing added, and the page's default holds (on since Nathan's 10-23 bake, Q1)
 const UNITS = UNITS_ARG === null ? null : UNITS_ARG === true ? 1 : Number(UNITS_ARG) > 0 ? 1 : 0;
 const TIDE = /[?&]poptransset=tide\b/.test(EXTRA);
 const TILE = /[?&]poplive=tile\b/.test(EXTRA);
@@ -310,11 +315,12 @@ const OUT = arg(
 );
 // --footer loads home with NO bench: the pop panel's chip parks over the hero
 // and would swallow the touch scrub. --detail loads the detail page itself.
+// --extra before &popunits: the page reads a param's first value, so an &popunits in --extra wins (nc-sneak).
 const URL_ = DETAIL
   ? `${BASE}/work/${DETAIL}`
   : FOOTER
     ? `${BASE}/?intro=${INTRO}${EXTRA}`
-    : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${UNITS === null ? '' : `&popunits=${UNITS}`}${EXTRA}`;
+    : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}${UNITS === null ? '' : `&popunits=${UNITS}`}`;
 // The gates' context. Every value mirrors what the page will read, so a gate never guesses.
 const BASELINE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'baselines', 'globe-units.json');
 const extraNum = (k) => {
@@ -323,7 +329,8 @@ const extraNum = (k) => {
 };
 const GATE_CTX = {
   key: String(arg('baseline', path.basename(OUT))),
-  seed: SEED, units: UNITS, level: LEVEL, mode: MODE, rm: RM, mobile: MOBILE, tide: TIDE, tile: TILE, intro: INTRO,
+  // units: absent = popConfig's default (on: Nathan 10-23, Q1)
+  seed: SEED, units: UNITS ?? 1, level: LEVEL, mode: MODE, rm: RM, mobile: MOBILE, tide: TIDE, tile: TILE, intro: INTRO,
   unitMax: Math.min(Math.max(Math.round(extraNum('popunitmax') ?? 4), 1), 6), // popConfig's default (Nathan 10-23, Q7) and clamp
   // GLOBE_T1: ?globethumb clamped and rounded, else THUMB_WIDTH (IS_MOBILE = max-width 768px, i.e. the CSS viewport)
   t1: extraNum('globethumb') != null ? Math.round(Math.min(Math.max(extraNum('globethumb'), 256), 1024)) : VW <= 768 ? 384 : 512,
@@ -1506,7 +1513,7 @@ function footerPass(f) {
   report.darkThumbsScan = { measured: dark.measured, failed: dark.failed };
   const spans = unitGates(report, GATE_CTX);
   Object.assign(report.pass, spans.pass);
-  report.spans = { key: GATE_CTX.key, level: LEVEL, asked: LEVEL_ASKED, units: UNITS, detail: spans.detail };
+  report.spans = { key: GATE_CTX.key, level: LEVEL, asked: LEVEL_ASKED, units: GATE_CTX.units, detail: spans.detail };
   // A baseline is written only from a run whose every gate passed (§8.6).
   if (RECORD && Object.values(report.pass).every(Boolean)) writeBaseline(BASELINE_FILE, GATE_CTX.key, baselineOf(report, GATE_CTX));
   if (report.imageFailures.length) {

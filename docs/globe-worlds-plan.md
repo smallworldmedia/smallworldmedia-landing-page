@@ -299,8 +299,8 @@ pools ship tagged by kind up to the hard cap.
 
 Media spans join a globe tile to its neighbours so that one asset spans them as one picture. They
 were built on `refine/globe-worlds` from P0a to P7 (10-10 to 10-16; the commits are in the
-Status log). They ship OFF behind `?popunits`, and with units off the globe is today's: the
-probe's `legacyParity` holds every phase to the units-off records. The design contract for the
+Status log). They shipped OFF behind `?popunits` until Nathan turned them on on 10-23 (Q1), and
+`?popunits=0` is today's globe: the probe's `legacyParity` holds every phase to the units-off records. The design contract for the
 round is a scratch file and not in the repo. This section is the repo's record of it. Where the
 code that landed differs from the contract's text, "As built" below states what landed and cites
 the commit. Code comments cite this section by name, and its question numbers (Q1–Q27) are the
@@ -403,12 +403,12 @@ texture.
 
 ### Knobs (the knob ledger)
 
-Every span knob is a `?param` with a tunables-guide row. No phase baked a default: each default
-is today's behaviour, or off.
+Every span knob is a `?param` with a tunables-guide row. No phase baked a default: each shipped
+as today's behaviour, or off. Nathan's 10-23 bake set three of them (Q1, Q7, Q8).
 
 | Param | Key | Phase | Default | Range | Reload? |
 |---|---|---|---|---|---|
-| `?popunits` | `units` | P3 | `0` (off) | `n > 0` → 1, else 0 | live (bench segment) |
+| `?popunits` | `units` | P3 | `1` (on: Nathan 10-23, Q1; was `0`, off) | `n > 0` → 1, else 0 | live (bench segment) |
 | `?popunitmax` | `unitMax` | P4a | `4` (Nathan 10-23, Q7; was `1`) | 1–6, rounded | live (bench row) |
 | `?popquads` | `quads` | P5 | `1` | 0–2, rounded | live (bench row) |
 | `?poptier` | `tier` | P6b | `auto` | `auto` \| `today` \| `lean` | live (read at each stream start) |
@@ -521,7 +521,8 @@ are records in `scripts/baselines/globe-units.json`:
 
 Levels by phase: P3 tex; P4a and P4b h; P5 vq; P6a live; P6b and P7 tier. The units-off keys
 are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the file's
-`recorded` date is 10-15), and `off-phonehd` (`--mobile --dsf=3`, P6b, 10-16).
+`recorded` date is 10-15), and `off-phonehd` (`--mobile --dsf=3`, P6b, 10-16). Since Nathan's 10-23 bake (Q1), a units-off run passes
+`--units=0`, and a bare run is a units run, so it needs `--level`.
 
 **Negative controls (MUSTFAIL).** Each control is one run that must exit 2. Then
 `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` must exit 0:
@@ -530,7 +531,7 @@ are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the f
 |---|---|---|---|
 | `nc-texmb` | `--texmb=1 --baseline=off-desktop` | `texBudget` | P0b |
 | `nc-texpeak` | `--texpeak=1 --baseline=off-desktop` | `texPeak` | P0b |
-| `nc-sneak` | `--extra="&popunits=1" --baseline=off-desktop` | `legacyParity,texReqShape,unitsVacuous` | P3 |
+| `nc-sneak` | `--units=0 --extra="&popunits=1" --baseline=off-desktop` (`--units=0` since 10-23: `--extra` comes first in the URL, and its `&popunits` wins) | `legacyParity,texReqShape,unitsVacuous` | P3 |
 | `nc-units0` | `--units=0 --level=h --baseline=u-desktop` | `unitsVacuous` | P4a |
 | `nc-windows` | `--units --level=h --negctl --baseline=u-desktop` | `unitSeam,unitRegister` | P4b |
 | `nc-bind` | `--units --level=h --negctl=bind --baseline=u-desktop` | `skew` | P4b |
@@ -634,7 +635,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 
 | # | Question | Default (or answer) |
 |---|---|---|
-| Q1 | Turn units on? | Off (`?popunits=0`) until he has looked at 1440 and 390: `/?popunits=1&poptune=1` |
+| Q1 | Turn units on? | Answered 10-23: on (`?popunits=1`); `?popunits=0` is today's globe |
 | Q2 | Build S2, the per-fragment crop (P9)? | No. The CPU route ships, and P9 is never built |
 | Q3 | Class source: the label alone, or the label with a native veto? | Veto (`CLASS_SOURCE = 'veto'`) |
 | Q4 | Class band width | ±10% in log space around 16:9 and 9:16 |
@@ -674,7 +675,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   decoded 1.338 MP against 1.357 MP, and ran 3 live streams against 4. Video bytes were within
   run spread. The quad call stays open until he answers, and the default (q 720) ships.
   `GLOBE_STREAM_PARAMS` stays the 480p literal that T33 asserts.
-- Q1, Q2, Q8, Q11, Q12, Q22, Q23(a) and (b), Q25 and Q27 above.
+- Q2, Q11, Q12, Q22, Q23(a) and (b), Q25 and Q27 above.
 
 **Next steps (P8 runs no probe):**
 - Re-measure the first units batch's frame rate on a quiet machine. At P7 it ran at about half

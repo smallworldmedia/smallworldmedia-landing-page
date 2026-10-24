@@ -22,7 +22,8 @@
  * 10-06 bake (Nathan's dial): tides on by default, all media, cap 13,
  * weighted shares, a 6 s ± 0.2 hold, a 0.9 s surge, chaos 1. The seed stays
  * random per visit (his call). 10-23 bake (his dial, the media spans round):
- * the hold ± 0.4 and a 0.6 s change.
+ * the hold ± 0.4 and a 0.6 s change; media spans on (Q1), up to 4 units per
+ * asset (Q7) in a 12 tile-equivalent world (Q8).
  * 10-06 = client-name strips (names, nameStyle — nameTicker.js).
  * 10-07 = their placement rework: the ticker is gone (the strips are still),
  * the span comes from the MEASURED name (nameSpanMin/nameSpanMax) instead of a
@@ -112,7 +113,7 @@ export const POP_DEFAULTS = Object.freeze({
   grainStagger: 0.07, // ?popgrainstagger — per-tile threshold spread, so a row's tiles cross the reveal in order instead of blinking on together (a row is iso-latitude, so without this they ARE simultaneous)
   grainOrder: 'sweep', // ?popgrainorder — which panelDelay ordering the stagger follows (DELAY_ORDERS)
   grainLive: 0, // ?popgrainlive — 1 = the grain band also withholds live video (real decode saving in ?poplive=tile only; in shared mode it just changes which clips win)
-  units: 0, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe
+  units: 1, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe. Q1: Nathan 10-23, on; was 0
   unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
