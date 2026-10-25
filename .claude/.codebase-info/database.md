@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-10-23*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -12,7 +12,7 @@ media-library terms (Client Folder, Curated Collection, Artwork Catalog, Feature
 |---|---|---|
 | `client` | `name`, `slug`, `clientType` (artist/label/management/promoter-event), `city`, `country`, `affiliations[]{entity, relationship}`, `links[]{platform,url}` | `affiliations.entity` → client |
 | `project` | `title?`, `slug`, `description`, `yearStart/yearEnd/isOngoing`, `isFeatured`, `projectColor`, `projectColorSecondary`, `orderRank` (LexoRank) | `client` → client; `services[]` → serviceTag |
-| `mediaAsset` | `title`, `slug`, `mediaType` (album-art, logo, featured-project-reel, brand-deck, carousel-slide, `static_*`, `motion_*` by aspect), `image` (hotspot+alt) or `video` (`mux.video`), `releaseInfo{…}` (album-art), `brandDeckOrder`, `contentRole` (process/supporting; empty = showcase), `displayGroup`, `sourceFolder`/`sourceManifest` (read-only provenance), `orderRank` | `client` → client; `project` → project; `services[]` → serviceTag |
+| `mediaAsset` | `title`, `slug`, `mediaType` (album-art, logo, featured-project-reel, brand-deck, carousel-slide, `static_*`, `motion_*` by aspect), `image` (hotspot) or `video` (`mux.video`), `alt` (≤150) + `description` (≤300, screen-reader/search only — not the project blurb) for both, `releaseInfo{…}` (album-art), `brandDeckOrder`, `contentRole` (process/supporting; empty = showcase), `displayGroup`, `sourceFolder`/`sourceManifest` (read-only provenance), `orderRank` | `client` → client; `project` → project; `services[]` → serviceTag |
 | `serviceTag` | `name`, `slug`, `sortOrder` | — |
 | `globeSettings` | singleton `_id: "globeSettings"`, `picks[]` | → mediaAsset |
 
@@ -29,6 +29,9 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 | `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro` |
 | `FEATURED_PROJECT_PATHS_QUERY`, `FEATURED_PROJECT_DETAIL_QUERY` (`$projectId`) | `src/pages/work/[slug].astro`; paths order drives `NextProjectBand` adjacency |
 | `MEDIA_GRID_QUERY`, `ALBUM_ART_QUERY`, `SERVICE_TAGS_QUERY` | dormant `/work/directory` |
+
+Media descriptors: `FEATURED_PROJECT_DETAIL_QUERY` and `MEDIA_GRID_QUERY` project `alt` + `description`,
+`ALBUM_ART_QUERY` projects `alt`; the WebGL surfaces (globe, Worlds) don't need them.
 
 `scripts/test/cms-frontend.test.mjs` evaluates these real queries with `groq-js` against fixtures.
 

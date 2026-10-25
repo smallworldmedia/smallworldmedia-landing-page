@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-09-10*
+*Last Updated: 2026-10-23*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -57,7 +57,8 @@ albumArt/banners buckets; `isBannerGroup` routes any displayGroup ending `-banne
 hands `--socket-rows` to CSS) · `DeckScroller.jsx` (+ `BrandDeckViewer`, `AlbumArtViewer`,
 `BannerViewer` — one-column full-width wall sized to 1.5 banners, rows derived from the measured
 flow width through the grid row pitch; ≤1024 spans `--socket-rows`, masonry.css) ·
-`MediaSlot.jsx` · `ClientPanel.jsx` · `ScrambleLabel.jsx` · `DetailProgressBar.jsx` (shared with
+`MediaSlot.jsx` (img `alt` → title fallback, video `aria-label` from `alt`, `description` as an
+sr-only figcaption; the dormant `MediaCard`/`Lightbox` link it via `aria-describedby`) · `ClientPanel.jsx` · `ScrambleLabel.jsx` · `DetailProgressBar.jsx` (shared with
 /process) · `NextProjectBand.jsx` · `useKeywordWipe.js` · `BandPager.jsx` (tabled, unmounted).
 
 ## /process (`src/components/process/`)

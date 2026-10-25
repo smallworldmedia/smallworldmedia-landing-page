@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-09-10*
+*Last Updated: 2026-10-23*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -21,8 +21,12 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   `soundcloud-banners`, mediaType static_other) renders in the detail page's BannerViewer
   (`docs/_manifest-template.md`).
 - `contract.mjs` — field allowlist, validators, LexoRank helpers, `closestType()`,
-  `SUPPORTED_SCHEMA_HASH` (planner fails closed on schema drift).
-- `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`.
+  `SUPPORTED_SCHEMA_HASH` (planner fails closed on schema drift). `CAPS` mirrors the Studio caps on
+  media descriptors (mediaAsset `alt` 150, `description` 300; project blurbs uncapped); a `video`
+  patch must be the canonical weak `mux.video` reference and can never be unset.
+- `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A no-upload video rebind
+  (`set.video` → an existing `mux.videoAsset`) is guarded on the target doc; plan, apply and verify
+  each run `readyVideo()` (ready status, public playback id, aspect matching Mux).
 - `adapters.mjs` — Sanity + Mux clients (lazy credentials, streaming uploads, Mux direct upload with
   passthrough = op id; `preparing` resumes), sharp/ffprobe probes (rejects non-square SAR).
 - `state.mjs` — owner-only 0700/0600 run store outside the Dropbox checkout (default
