@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-10-24*
+*Last Updated: 2026-10-25*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -131,7 +131,8 @@ the "o") · `heroOverlay.js` (scene→DOM disc projection)
 unit's centre, and a fading chip's slot keeps its unit's members, `heldMembers`, re-deriving the anchor
 from live poses each frame so it never jumps) · `HeroTunePanel.jsx` / `CommitTunePanel.jsx` /
 `PopTunePanel.jsx` (benches; the last is `?poptune=1`, with a spans group: on/off, shapes, units / asset,
-quads / world, tile budget, video tier; the readout line above it shows spans (`w · h · v · q`), tex MiB and decode
+quads / world, tile budget, video tier, and an orientation group whose `tilt` toggle flips `?herotilt` between
+heroConfig `TILT_PRESETS` new −10 / old 45.5 through `setHeroTune`; the readout line above it shows spans (`w · h · v · q`), tex MiB and decode
 mp / budget).
 
 ## /work (`src/components/work/`)
