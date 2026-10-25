@@ -63,7 +63,7 @@ parity) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `
 (one world at a time by default; tile → world assignment; the change clock, a hold then a tide /
 blink / surge / cut; current + next world held warm; freeze under the commit's blue; `hold()` at the
 Enter World click stops the clock but lets a change in flight land; `onWorld` feeds the scene's
-colour; name strips placed camera-relative once per world change by `planNames` (`warmSet` holds
+colour; name strips (`?popnames`, 0 = none by default since 10-24) placed camera-relative once per world change by `planNames` (`warmSet` holds
 their textures), then reconciled per frame by `placeNames`; publishes `window.__swmPopStats`) ·
 `nameTicker.js` (client-name strips: the world's `clientName` in the FP card face baked once per
 world + style into a CanvasTexture `STRIP_H` = `globeConfig.NAME_STRIP_H` tall — 256 × the ratio the
@@ -76,7 +76,7 @@ renders its exact tape slice at any latitude) · `tileSwap.js` (THE refcount-saf
 
 **Media spans** (`docs/globe-worlds-plan.md` § Media spans, which is the repo's record of the round's
 contract; built P0a–P7 on `refine/globe-worlds`, shipped OFF behind `?popunits` until Nathan's 10-23
-bake turned them on (Q1, with `unitMax` 4 and `equiv` 12: Q7, Q8); `?popunits=0` is today's globe): one classed asset spans 2×1 (`h`), 1×2 (`v`), 2×2 (`q`) or 3×2 (`w`) tiles as one
+bake turned them on (Q1, with `unitMax` 4 and `equiv` 12: Q7, Q8; `equiv` re-dialed to 32 on 10-24); `?popunits=0` is today's globe): one classed asset spans 2×1 (`h`), 1×2 (`v`), 2×2 (`q`) or 3×2 (`w`) tiles as one
 picture, each member cropping its own slice, the lattice gaps hiding their strip (the mullion).
 `unitSpan.js` is the import-free arithmetic (lattice, `memberWindow`, `coverWindow`, `compose`,
 `unitA`, `kappaOwn`, the ε window `thetaBound`, eligibility, `classSizeAt` / `texSpec`, `spanSharp`,
