@@ -288,6 +288,18 @@ const HERO_INK_PARAM = 'heroink';
    PARAM_KEYS. */
 const LABELS_PARAM = 'herolabels';
 
+/* The worlds bench's tilt toggle (Nathan 10-25: "not sure which I'd like to go with yet"): his
+   10-24 rest and the 10-23 one. ?herotilt=45.5 opens on the old one, first layout included. */
+export const TILT_PRESETS = Object.freeze({ new: TUNING_DEFAULTS.tiltDeg, old: 45.5 });
+
+// The worlds bench's copy_url: `url` plus ?herotilt when the tilt is off its default.
+export function withHeroTilt(url) {
+  const u = new URL(url);
+  if (TUNING.tiltDeg !== TUNING_DEFAULTS.tiltDeg) u.searchParams.set('herotilt', String(TUNING.tiltDeg));
+  else u.searchParams.delete('herotilt');
+  return u.toString();
+}
+
 // Live, mutable tuning state (panel writes, Hero's rig effect reads).
 export const TUNING = { ...TUNING_DEFAULTS };
 

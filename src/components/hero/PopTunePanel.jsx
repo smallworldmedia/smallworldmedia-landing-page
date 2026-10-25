@@ -48,6 +48,13 @@ import {
   popTuneCopyUrl,
 } from '../globe/popConfig.js';
 import { WORLD_POOL_CAP } from '../globe/buildWorldPools.js';
+import {
+  TUNING as HERO_TUNING,
+  TILT_PRESETS,
+  setHeroTune,
+  subscribeHeroTune,
+  withHeroTilt,
+} from './heroConfig.js';
 
 function Row({ label, param, value, min, max, step, onChange }) {
   return (
@@ -94,6 +101,9 @@ export default function PopTunePanel({ sceneApiRef }) {
   const [s, setS] = useState(() => ({ ...TUNING }));
   const [stats, setStats] = useState(null);
   const [copied, setCopied] = useState(false);
+  // The resting tilt is a hero knob (?herotilt); mirrored so the hero bench's slider shows here too.
+  const [tilt, setTilt] = useState(() => HERO_TUNING.tiltDeg);
+  useEffect(() => subscribeHeroTune(() => setTilt(HERO_TUNING.tiltDeg)), []);
   // Phones start collapsed — the full bench devours a small viewport.
   const [open, setOpen] = useState(
     () => !(typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches)
@@ -140,7 +150,7 @@ export default function PopTunePanel({ sceneApiRef }) {
     if (toggle('patterns', name)) sceneApiRef?.current?.popShow(name);
   };
   const copyUrl = async () => {
-    const text = popTuneCopyUrl();
+    const text = withHeroTilt(popTuneCopyUrl()); // + the tilt toggle's ?herotilt (a hero knob)
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -266,9 +276,22 @@ export default function PopTunePanel({ sceneApiRef }) {
         span 3×2 (a 2×1 pair where a 3×2 won't fit), 9:16, 3:4 and 4:5 span 1×2, every square 2×2; classic = 16:9 2×1,
         9:16 1×2, squares per ?popquads. units / asset caps the units one
         asset forms per plan; quads / world (classic only), the 2×2 quads each world elects; tile budget (?popequiv), each world's
-        tile-equivalents on top of ?popcap (pair 2, quad 4, 3×2 6, single 1: fewer assets, more tiles each), 0 = off; 12 = Nathan's
-        Q8 (10-23); video tier, the rendition each stream
+        tile-equivalents on top of ?popcap (pair 2, quad 4, 3×2 6, single 1: fewer assets, more tiles each), 0 = off; 32 = Nathan's
+        (10-24; 12 on 10-23, Q8); video tier, the rendition each stream
         asks for (auto = by unit class and screen; today = the pin for all; lean = one rung lower).
+      </p>
+
+      <div className="hero-tune__group">orientation</div>
+      <Segmented
+        label="tilt"
+        value={Object.keys(TILT_PRESETS).find((k) => TILT_PRESETS[k] === tilt)}
+        options={Object.keys(TILT_PRESETS)}
+        onPick={(k) => setHeroTune('tiltDeg', TILT_PRESETS[k])}
+      />
+      <p className="hero-tune__note">
+        ?herotilt. new = {TILT_PRESETS.new}° (Nathan 10-24, the north pole out of sight), old = {TILT_PRESETS.old}° (10-23). flips
+        live; the first layout follows only on a reload, so open with ?herotilt={TILT_PRESETS.old} for the old load. copy_url
+        carries it; the hero bench (?herotune=1) has the full slider.
       </p>
 
       <div className="hero-tune__group">video · colour</div>

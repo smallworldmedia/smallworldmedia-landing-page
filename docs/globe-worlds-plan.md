@@ -1264,3 +1264,10 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   textures weigh ≈ 2.4× those at 12 (worst world pair ≈ 108 MiB against 43, estimated).
   `?popquads` does nothing under wide. Tests 96, 348 keys. A headless look at :4322 showed the
   new tilt; no probe run.
+- 2026-10-25 · bench · Nathan, undecided on the tilt: the worlds bench (`?poptune=1`) gains an
+  orientation group, a `tilt` toggle between `new` −10 and `old` 45.5 (heroConfig
+  `TILT_PRESETS`), written through `setHeroTune('tiltDeg')`, so it flips live. The first
+  layout's prominence order follows the tilt only on a reload (`?herotilt=45.5` for the old
+  load), and copy_url carries `?herotilt` when it is off the default (`withHeroTilt`, kept in
+  heroConfig so the key scanner does not read the bench's `['world', 'blue']` options as a key
+  pair). No default changed. Tests 96, 348 keys; a headless click flipped new → old → new.
