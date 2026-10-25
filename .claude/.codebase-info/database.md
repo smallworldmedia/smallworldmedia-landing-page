@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-10-23*
+*Last Updated: 2026-10-25*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -15,6 +15,11 @@ media-library terms (Client Folder, Curated Collection, Artwork Catalog, Feature
 | `mediaAsset` | `title`, `slug`, `mediaType` (album-art, logo, featured-project-reel, brand-deck, carousel-slide, `static_*`, `motion_*` by aspect), `image` (hotspot) or `video` (`mux.video`), `alt` (≤150) + `description` (≤300, screen-reader/search only — not the project blurb) for both, `releaseInfo{…}` (album-art), `brandDeckOrder`, `contentRole` (process/supporting; empty = showcase), `displayGroup`, `sourceFolder`/`sourceManifest` (read-only provenance), `orderRank` | `client` → client; `project` → project; `services[]` → serviceTag |
 | `serviceTag` | `name`, `slug`, `sortOrder` | — |
 | `globeSettings` | singleton `_id: "globeSettings"`, `picks[]` | → mediaAsset |
+| `siteSettings` | singleton `_id: "siteSettings"`, `footerBlurb` (≤400) + `tagline` (≤160): site-wide studio copy as marked plain `text` (the `keywords.jsx` markers), not Portable Text | — |
+
+`siteSettings` is Studio-only on this branch: its schema and desk item came from `ba600c9` so a Studio
+deploy keeps it editable; the site reader (`SITE_COPY_QUERY`, `src/lib/siteCopy.js`) arrives when
+refine/globe-worlds folds.
 
 Conventions: `isHero` is retired; the first asset by `orderRank` is the hero. Drafts are excluded
 from every site query. Ordering uses LexoRank via `@sanity/orderable-document-list` (Studio lists:

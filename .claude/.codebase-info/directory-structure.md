@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-09-10*
+*Last Updated: 2026-10-25*
 
 ```
 .
@@ -28,7 +28,8 @@
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, momentum, navAccent, projectColor, projectSlug,
 │   │                         #   keywords, formatYearRange, constants, sanityClient, queries, *Tune
-│   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag, globeSettings
+│   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
+│   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + per-route sheets + *-tune.css benches
 │   └── assets/               # fonts/ (woff2), client-logos/ (normalized + manifest.json), lockup svg
 ├── public/                   # favicons, og-image, robots, icons/ sprite + social marks
