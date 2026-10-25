@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = '40a66d7d407bdea0992b7a3d34ce6bf4dca5c28d0231a37d33e88bb12a927283'
+export const SUPPORTED_SCHEMA_HASH = 'a560e52de38464c51b0a0a939a41357c1106f5eab37bd05b66c4b66bb1e1f22e'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 export const MEDIA_TYPES = ['album-art', 'logo', 'featured-project-reel', 'brand-deck', 'carousel-slide', ...['1x1','3x4','4x5','9x16','16x9','other'].map(x => `static_${x}`), ...['1x1','3x4','4x3','4x5','9x16','16x9','other'].map(x => `motion_${x}`)]
@@ -31,11 +31,13 @@ export function appendRanks(docs, count) {
 }
 const common = ['slug','yearStart','yearEnd','isOngoing','services']
 export const FIELDS = {
-  mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank'],
+  mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
 }
 const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'] }
+// Media descriptors match the Studio caps (src/schemas/mediaAsset.ts); a project description is a blurb and stays uncapped here.
+export const CAPS = { mediaAsset: { alt: 150, description: 300 } }
 const text = (v, label) => invariant(typeof v === 'string' && v.trim().length > 0, `Invalid ${label}`)
 const number = (v, label) => invariant(typeof v === 'number' && Number.isFinite(v), `Invalid ${label}`)
 const enumValue = (v, values, label) => invariant(values.includes(v), `Invalid ${label}: ${v}`)
@@ -45,7 +47,9 @@ export function reference(v, arrayItem = false) { keys(v, arrayItem ? ['_type','
 function links(v, platforms) { array(v, 'links'); for (const item of v) { keys(item, ['_key','_type','platform','url'], 'link'); if (item._type !== undefined) invariant(item._type === 'object', 'Invalid link type'); if (item.platform !== undefined) enumValue(item.platform, platforms, 'platform'); url(item.url) } }
 export function validateField(field, v) {
   invariant(v !== null && v !== undefined, `Use unset to clear ${field}, not null`)
-  if (['title','name','description','city','country','displayGroup'].includes(field)) { text(v, field); return }
+  if (['title','name','description','city','country','displayGroup','alt'].includes(field)) { text(v, field); return }
+  // A video rebind points at an existing Mux document, in the shape the runner writes after an upload.
+  if (field === 'video') { keys(v, ['_type','asset'], 'video'); invariant(v._type === 'mux.video', 'Invalid video type'); keys(v.asset, ['_type','_ref','_weak'], 'video asset'); invariant(v.asset._type === 'reference' && validId(v.asset._ref) && v.asset._weak === true, 'Invalid video asset reference'); return }
   if (['projectColor','projectColorSecondary'].includes(field)) { invariant(/^#[0-9a-f]{6}$/i.test(v), `Invalid ${field}`); return }
   if (field === 'slug') { keys(v, ['_type','current'], 'slug'); invariant(v._type === 'slug' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(v.current), 'Invalid slug'); return }
   if (['yearStart','yearEnd'].includes(field)) { number(v, field); invariant(Number.isInteger(v) && v >= 2015 && v <= 2030, `Invalid ${field}`); return }
@@ -72,8 +76,8 @@ export function validateField(field, v) {
 export function validatePatch(type, set = {}, unset = []) {
   invariant(FIELDS[type], `Unsupported document type ${type}`); keys(set, FIELDS[type], 'set')
   invariant(Array.isArray(unset) && new Set(unset).size === unset.length, 'Invalid unset')
-  for (const k of unset) invariant(FIELDS[type].includes(k) && !required[type].includes(k) && !Object.hasOwn(set, k), `Rejected unset field ${k}`)
-  for (const [k, v] of Object.entries(set)) validateField(k, v)
+  for (const k of unset) invariant(FIELDS[type].includes(k) && !required[type].includes(k) && k !== 'video' && !Object.hasOwn(set, k), `Rejected unset field ${k}`)
+  for (const [k, v] of Object.entries(set)) { validateField(k, v); if (CAPS[type]?.[k]) invariant(v.length <= CAPS[type][k], `${k} over ${CAPS[type][k]} characters`) }
 }
 export function patched(before, set, unset) { const result = clean(before); Object.assign(result, clean(set)); for (const k of unset) delete result[k]; return result }
 export function validateDocument(doc, { creation = false } = {}) {

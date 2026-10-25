@@ -92,6 +92,13 @@ is ready. Explicit minimal client/project creates may be proposed in `creates`;
 media creation uses manifest intake. See `scripts/lib/cms/contract.mjs` for exact
 allowlisted fields, rather than treating arbitrary Studio fields as writable.
 
+Media descriptors (`alt` ≤150, `description` ≤300 on a mediaAsset) are capped as
+in the Studio schema; a project `description` is a blurb and stays uncapped. A
+video asset can be pointed at an existing Mux document without an upload:
+`"set": {"video": {"_type": "mux.video", "asset": {"_type": "reference", "_ref":
+"<mux.videoAsset id>", "_weak": true}}}`. Plan, apply and verify each confirm the
+target is ready, with matching playback and aspect; `video` cannot be unset.
+
 ## Editorial and publication rules
 
 Sanity is the current editorial authority; manifests are versioned intake.

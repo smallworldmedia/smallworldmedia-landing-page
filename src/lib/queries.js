@@ -14,6 +14,8 @@ export const MEDIA_GRID_QUERY = `
   *[_type == "mediaAsset" && mediaType != "album-art" && !(_id in path("drafts.**"))] | order(_createdAt desc) {
     _id,
     title,
+    alt,
+    description,
     mediaType,
     contentRole,
 
@@ -42,6 +44,7 @@ export const ALBUM_ART_QUERY = `
   *[_type == "mediaAsset" && mediaType == "album-art" && !(_id in path("drafts.**"))] | order(client->name asc) {
     _id,
     title,
+    alt,
     "imageUrl": image.asset->url,
     "imageDimensions": image.asset->metadata.dimensions,
     "clientName": client->name,
@@ -195,6 +198,8 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
   "assets": *[_type == "mediaAsset" && project._ref == $projectId && !(_id in path("drafts.**"))] | order(orderRank asc) {
     _id,
     title,
+    alt,
+    description,
     mediaType,
     contentRole,
     displayGroup,

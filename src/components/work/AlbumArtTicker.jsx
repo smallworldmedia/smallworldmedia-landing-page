@@ -39,7 +39,7 @@ function AlbumArtCard({ covers, clientName }) {
             key={art._id}
             className={`album-card__img${i === activeIndex ? ' album-card__img--active' : ''}`}
             src={`${art.imageUrl}?w=${IMG_WIDTH_STANDARD}&${IMG_FORMAT}`}
-            alt={art.title || `${clientName} album art`}
+            alt={art.alt || art.title || `${clientName} album art`}
             loading="lazy"
           />
         ))}

@@ -29,9 +29,17 @@ async function captureCollection(sanity, selector) {
 }
 function mediaGrouping(doc) { invariant(doc.client?._ref && doc.sourceManifest && doc.sourceFolder, `Missing grouping on ${doc._id}; explicit reconciliation required`); return { clientId: doc.client._ref, sourceManifest: doc.sourceManifest } }
 async function addCollection(collections, sanity, selector) { const old = collections.find(c => same(c.selector, selector)); if (old) return old; const c = await captureCollection(sanity, selector); collections.push(c); return c }
+// A video rebind (set.video) also pins the Mux document it points at, like any other reference.
+const opReferences = op => [...references(op.after), ...(Object.hasOwn(op.set || {}, 'video') ? [{ id: op.after.video.asset._ref, type: 'mux.videoAsset' }] : [])]
+function readyMuxDocument(video) { invariant(video?._type === 'mux.videoAsset' && video.status === 'ready' && video.playbackId && video.data?.aspect_ratio, 'Mux document missing readiness/playback/aspect'); return video }
+async function readyVideo(sanity, mux, id) {
+  const video = readyMuxDocument((await sanity.getDocuments([id])).find(Boolean))
+  const asset = await mux.getAsset(video.assetId)
+  invariant(readyMux(asset) && asset.id === video.assetId && asset.aspect_ratio === video.data.aspect_ratio && asset.playback_ids.some(p => p.policy === 'public' && p.id === video.playbackId), 'Mux readiness/playback/aspect verification failed')
+}
 async function resolveReferences(operations, sanity) {
   const created = new Map(operations.filter(o => o.action === 'create').map(o => [o.id, o.after]))
-  const wanted = operations.flatMap(o => references(o.after)), externalIds = [...new Set(wanted.map(r => r.id).filter(id => !created.has(id)))]
+  const wanted = operations.flatMap(opReferences), externalIds = [...new Set(wanted.map(r => r.id).filter(id => !created.has(id)))]
   const current = await fresh(sanity, externalIds)
   for (const r of wanted) { invariant(validId(r.id), 'Unresolved reference'); const d = created.get(r.id) || current.get(r.id); noDraft(current, r.id); invariant(d && d._type === r.type, `Unresolved/wrong-type ${r.type} reference ${r.id}`) }
   for (const op of operations) if (op.after._type === 'mediaAsset' && op.after.project?._ref) {
@@ -136,6 +144,10 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
       let source
       if (p.upload) { keys(p.upload, ['file'], 'upload'); invariant(p.type === 'mediaAsset', 'Uploads only attach to mediaAsset'); source = await inspectFile(scope.root, p.upload.file, after.mediaType, probe) }
       invariant(!Object.hasOwn(p.set || {}, 'mediaType') || isVideoType(before.mediaType) === isVideoType(after.mediaType), 'Image/video kind conversion requires editorial migration, not an ordinary patch')
+      if (Object.hasOwn(p.set || {}, 'video')) {
+        invariant(!p.upload && isVideoType(after.mediaType), 'A video rebind needs a video mediaType and no upload')
+        const id = after.video.asset._ref, target = await fresh(sanity, [id]); noDraft(target, id); readyMuxDocument(target.get(id))
+      }
       const action = same(withoutSystem(before), withoutSystem(after)) && !source ? 'unchanged' : 'patch'
       operations.push(clean({ id: p.id, action, type: p.type, before, after, set: p.set || {}, unset: p.unset || [], source, upload: !!source, diff: diffOf(before, after, p.set || {}, p.unset || []) }))
       if (p.type === 'mediaAsset') { await addCollection(collections, sanity, mediaGrouping(before)); await addCollection(collections, sanity, mediaGrouping(after)); if (before.project?._ref) await addCollection(collections, sanity, { projectId: before.project._ref }); if (after.project?._ref && after.project._ref !== before.project?._ref) await addCollection(collections, sanity, { projectId: after.project._ref }) }
@@ -195,9 +207,9 @@ export function validatePlan(plan) {
     if (plan.scope.kind === 'manifest') invariant(typeof op.rowFile === 'string' && op.rowFile === op.source?.relative, 'Manifest row/source mismatch')
   }
   invariant(Array.isArray(plan.guards) && Array.isArray(plan.collections) && Array.isArray(plan.informational), 'Invalid guards/collections')
-  for (const g of plan.guards) { keys(g, ['id','rev','type'], 'reference guard'); invariant(validId(g.id) && typeof g.rev === 'string' && ['client','project','serviceTag'].includes(g.type), 'Invalid reference guard') }
+  for (const g of plan.guards) { keys(g, ['id','rev','type'], 'reference guard'); invariant(validId(g.id) && typeof g.rev === 'string' && ['client','project','serviceTag','mux.videoAsset'].includes(g.type), 'Invalid reference guard') }
   const created = new Map(plan.operations.filter(o => o.action === 'create').map(o => [o.id,o.type]))
-  for (const r of plan.operations.flatMap(o => references(o.after))) invariant(created.get(r.id) === r.type || plan.guards.some(g => g.id === r.id && g.type === r.type), `Missing reference guard ${r.id}`)
+  for (const r of plan.operations.flatMap(opReferences)) invariant(created.get(r.id) === r.type || plan.guards.some(g => g.id === r.id && g.type === r.type), `Missing reference guard ${r.id}`)
   for (const c of plan.collections) {
     keys(c, ['selector','snapshot'], 'collection'); keys(c.selector, ['clientId','sourceManifest','projectId','projectOrder'], 'collection selector')
     invariant(c.selector.projectOrder === true || validId(c.selector.projectId) || validId(c.selector.clientId) && typeof c.selector.sourceManifest === 'string' && c.selector.sourceManifest.length, 'Unscoped collection selector')
@@ -374,7 +386,7 @@ async function uploadMedia(plan, op, state, journal, store, adapters, options) {
   state.stage = 'pending'; await save(); return false
 }
 async function readyMediaGuard(op, state, sanity, mux) {
-  if (!op.upload) return
+  if (!op.upload) { if (Object.hasOwn(op.set, 'video')) await readyVideo(sanity, mux, op.after.video.asset._ref); return }
   invariant(state.expected, 'Upload must have a verified expected document')
   if (op.source.kind === 'video') {
     const asset = await mux.getAsset(state.assetId)
@@ -461,10 +473,7 @@ export async function verifyRun({ plan, journal, sanity, mux }) {
       if (actual._type === 'mediaAsset') {
         if (isVideoType(actual.mediaType)) {
           invariant(actual.video?.asset?._ref, 'Missing video reference')
-          const video = (await sanity.getDocuments([actual.video.asset._ref])).find(Boolean)
-          invariant(video?.status === 'ready' && video.playbackId && video.data?.aspect_ratio, 'Mux document missing readiness/playback/aspect')
-          const asset = await mux.getAsset(video.assetId)
-          invariant(readyMux(asset) && asset.id === video.assetId && asset.aspect_ratio === video.data.aspect_ratio && asset.playback_ids.some(p => p.policy === 'public' && p.id === video.playbackId), 'Mux readiness/playback/aspect verification failed')
+          await readyVideo(sanity, mux, actual.video.asset._ref)
         } else {
           invariant(actual.image?.asset?._ref, 'Missing image reference')
           const image = (await sanity.getDocuments([actual.image.asset._ref])).find(Boolean)

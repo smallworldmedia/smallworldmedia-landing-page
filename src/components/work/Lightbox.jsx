@@ -51,7 +51,13 @@ export default function Lightbox({ asset, onClose }) {
     : null;
 
   return (
-    <div className="lightbox" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="lightbox"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-describedby={asset.description ? 'lightbox-desc' : undefined}
+    >
       <button
         className="lightbox__close"
         onClick={(e) => {
@@ -71,12 +77,13 @@ export default function Lightbox({ asset, onClose }) {
             poster={posterUrl}
             controls
             playsInline
+            aria-label={asset.alt || undefined}
           />
         ) : asset.imageUrl ? (
           <img
             className="lightbox__media"
             src={`${asset.imageUrl}?w=1920&auto=format`}
-            alt={asset.title || ''}
+            alt={asset.alt || asset.title || ''}
           />
         ) : null}
       </div>
@@ -84,6 +91,9 @@ export default function Lightbox({ asset, onClose }) {
       <div className="lightbox__meta">
         <div className="lightbox__client">{asset.clientName}</div>
         {asset.title && <div className="lightbox__title">{asset.title}</div>}
+        {asset.description && (
+          <div id="lightbox-desc" className="sr-only">{asset.description}</div>
+        )}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@
  * @param {Set}      props.activeSlugs - Currently active filter slugs (for dynamic metadata)
  * @param {(asset: Object) => void} props.onSelect - Opens the Lightbox
  */
-import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback, useId } from 'react';
 import useHls from './useHls.js';
 import { ratioOf } from './detail/buildContentFlow.js';
 import { IMG_WIDTH_STANDARD, IMG_WIDTH_WIDE, IMG_FORMAT } from './imageConfig.js';
@@ -110,6 +110,7 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
    * Dynamic metadata: hide redundant info based on active filters.
    */
   const hasActiveFilter = activeSlugs && activeSlugs.size > 0;
+  const descId = useId();
   const visibleServices = useMemo(() => {
     if (!asset.services?.length) return [];
     if (!hasActiveFilter) return asset.services;
@@ -125,6 +126,7 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
       role="button"
       tabIndex={0}
       aria-label={`${asset.clientName} — ${asset.title}`}
+      aria-describedby={asset.description ? descId : undefined}
     >
       {isVideo ? (
         <video
@@ -142,12 +144,16 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
         <img
           className={`media-card__media${isLoaded ? ' media-card__media--loaded' : ''}`}
           src={`${asset.imageUrl}?w=${imageWidth}&${IMG_FORMAT}`}
-          alt={asset.title || ''}
+          alt={asset.alt || asset.title || ''}
           loading="lazy"
           onLoad={() => setIsLoaded(true)}
         />
       ) : (
         <div className="media-card__media" aria-hidden="true" />
+      )}
+
+      {asset.description && (
+        <span id={descId} className="sr-only">{asset.description}</span>
       )}
 
       {/* Duotone overlay — fades in on hover via CSS opacity */}

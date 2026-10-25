@@ -77,12 +77,6 @@ export const mediaAsset = defineType({
       name: 'image',
       type: 'image',
       options: { hotspot: true },
-      fields: [
-        defineField({
-          name: 'alt',
-          type: 'string',
-        }),
-      ],
       hidden: ({ parent }) => isVideoType(parent?.mediaType),
     }),
     defineField({
@@ -90,6 +84,26 @@ export const mediaAsset = defineType({
       type: 'mux.video',
       title: 'Video (Mux)',
       hidden: ({ parent }) => !isVideoType(parent?.mediaType),
+    }),
+
+    // ── ACCESSIBILITY + SEARCH: one pair for images and videos alike ──
+    // (replaces the old image.alt subfield, which was never filled)
+    defineField({
+      name: 'alt',
+      title: 'Alt text',
+      type: 'string',
+      description:
+        'What the image or video shows, in one line, for screen readers and search. Name people and brands the references name; no ratio. Up to 150 characters.',
+      validation: (r) => r.max(150),
+    }),
+    defineField({
+      name: 'description',
+      title: 'Description',
+      type: 'text',
+      rows: 3,
+      description:
+        'A fuller description that only screen readers read (and search indexes). Never shown on the page. Up to 300 characters.',
+      validation: (r) => r.max(300),
     }),
 
     // ── SERVICE TAGS ──

@@ -10,6 +10,10 @@
  * enters the viewport; playback pauses off-screen. Images load from
  * the Sanity CDN. Both fade in via the shared load-gate pattern.
  *
+ * Accessibility: the figure is named by the title; the media itself by
+ * `alt` (title fallback for images); `description` rides along as a
+ * screen-reader-only figcaption — never shown on the page.
+ *
  * @param {Object} props
  * @param {Object}  props.asset - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY
  * @param {boolean} [props.eager=false] - Seed visibility at hydration (hero slot)
@@ -98,19 +102,21 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
           autoPlay
           loop
           playsInline
+          aria-label={asset.alt || undefined}
           onCanPlay={() => setIsLoaded(true)}
         />
       ) : asset.imageUrl ? (
         <img
           className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}
           src={`${asset.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
-          alt={asset.title || ''}
+          alt={asset.alt || asset.title || ''}
           loading="lazy"
           onLoad={() => setIsLoaded(true)}
         />
       ) : (
         <div className="media-slot__media" aria-hidden="true" />
       )}
+      {asset.description && <figcaption className="sr-only">{asset.description}</figcaption>}
     </figure>
   );
 }

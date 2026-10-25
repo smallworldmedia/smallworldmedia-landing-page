@@ -51,6 +51,13 @@ A classification on `mediaAsset` documents that controls frontend visibility. Th
 | `process` | Behind-the-scenes — screen recordings, exports, WIPs | ❌ Excluded | ✅ Visible (BTS section) |
 | `supporting` | Contextual — event photos, reference shots | ❌ Excluded | ✅ Visible |
 
+## Media Descriptors
+
+The per-asset accessibility and search text on a `mediaAsset`, one pair for images and videos alike: `alt` (one line of what it shows, ≤150 characters) and `description` (fuller, ≤300, read only by screen readers and search, never shown on the page). Names people and brands the references name; never a ratio.
+
+- _Avoid_: confusing `mediaAsset.description` with `project.description`, which is the project's editorial blurb (visible copy, uncapped). Descriptor rounds never touch blurbs.
+- _Retired_: the `image.alt` subfield (never filled), replaced by the top-level `alt` on 2026-10-23.
+
 ## Service Tag
 
 A Sanity `serviceTag` document representing a service SWM offers (e.g., "Branding", "3D Animation"). Assets reference service tags to power portfolio filtering. Service tags are **what you sell** — never use them for metadata roles like "process" or "supporting" (that's what Content Role is for).
