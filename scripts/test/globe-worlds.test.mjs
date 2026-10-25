@@ -5514,8 +5514,8 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
     Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
   }
 
-  // — ?popequiv — 12 by default (Nathan 10-23, Q8; 0 = off: ?popcap alone); else an integer 4–32, rounded; its guide row says so.
-  assert.equal(POP_DEFAULTS.equiv, 12)
+  // — ?popequiv — 32 by default (Nathan 10-24; 12 on 10-23, Q8; 0 = off: ?popcap alone); else an integer 4–32, rounded; its guide row says so.
+  assert.equal(POP_DEFAULTS.equiv, 32)
   try {
     for (const [typed, want] of [[-1, 0], [0, 0], [2, 4], [13.4, 13], [13.6, 14], [99, 32]]) {
       setPopTune('equiv', typed)
@@ -5525,7 +5525,7 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
     Object.assign(TUNING, BOARD_DEFAULTS)
   }
   const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
-  assert.match(guide, /^\| `\?popequiv` \|.*\| `12` \(Nathan 10-23, Q8; was `0`, off\) \| 0, or 4–32 \(clamped\) \| `POP_DEFAULTS\.equiv` \|$/m)
+  assert.match(guide, /^\| `\?popequiv` \|.*\| `32` \(Nathan 10-24, the top; `12` on 10-23, Q8; was `0`, off\) \| 0, or 4–32 \(clamped\) \| `POP_DEFAULTS\.equiv` \|$/m)
   assert.match(guide, /^\| `\?globethumb` \|.*\| `THUMB_WIDTH` \(512 desktop, 384 phone\) \| 256–1024 \(clamped, rounded\) \| `globeConfig\.js GLOBE_T1` \|$/m)
 
   // — ?globethumb — T1, load-time: a fresh globeConfig under a stubbed window (T33's pattern), restored in finally.
@@ -5702,8 +5702,8 @@ test('spans: ?popshapes=wide plans whole 3×2 units where one fits, else its 2×
   }
 })
 
-test('spans: the shipped defaults (Nathan 10-23) — spans on, up to ?popunitmax 4 units per key inside ?popequiv 12, every unit whole, outer neighbours clear', () => {
-  assert.deepEqual([POP_DEFAULTS.units, POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv, POP_DEFAULTS.shapes], [1, 4, 12, 'wide'])
+test('spans: the shipped defaults (Nathan 10-23, 10-24) — spans on, up to ?popunitmax 4 units per key inside ?popequiv 32, no name strips, every unit whole, outer neighbours clear', () => {
+  assert.deepEqual([POP_DEFAULTS.units, POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv, POP_DEFAULTS.shapes, POP_DEFAULTS.names], [1, 4, 32, 'wide', 0])
   const { director, panels } = unitDirector({ unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv }, { getHorizon: () => Math.PI })
   try {
     director.initialLayout(director.byProminence())

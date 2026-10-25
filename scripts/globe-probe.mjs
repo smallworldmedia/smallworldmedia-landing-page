@@ -95,7 +95,7 @@
  *
  * The units-on run matrix (keys in scripts/baselines/globe-units.json; every
  * run adds --units --level=<L> --base=… --out=…/<key> and must exit 0; since
- * 10-23 the default &popequiv 12 makes neighbourRule report-only in every run,
+ * 10-23 the default &popequiv (32 since 10-24) makes neighbourRule report-only in every run,
  * and only --extra="&popequiv=0" judges it):
  *   u-desktop        (none)                1440×900 @1, lodpi
  *   u-mobile         --mobile              390×844 @2, phone bucket
@@ -339,7 +339,7 @@ const GATE_CTX = {
   unitMax: Math.min(Math.max(Math.round(extraNum('popunitmax') ?? 4), 1), 6), // popConfig's default (Nathan 10-23, Q7) and clamp
   // GLOBE_T1: ?globethumb clamped and rounded, else THUMB_WIDTH (IS_MOBILE = max-width 768px, i.e. the CSS viewport)
   t1: extraNum('globethumb') != null ? Math.round(Math.min(Math.max(extraNum('globethumb'), 256), 1024)) : VW <= 768 ? 384 : 512,
-  equiv: Math.max(0, extraNum('popequiv') ?? 12), // popConfig's default (Nathan 10-23, Q8)
+  equiv: Math.max(0, extraNum('popequiv') ?? 32), // popConfig's default (Nathan 10-24)
   look: /[?&]popunitlook=flat\b/.test(EXTRA) ? 'flat' : 'rows',
   shapes: /[?&]popshapes=classic\b/.test(EXTRA) ? 'classic' : 'wide', // popConfig's default (Nathan 10-24)
   texmb: TEXMB,

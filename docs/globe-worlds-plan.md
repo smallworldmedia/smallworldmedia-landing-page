@@ -414,7 +414,7 @@ his 10-24 shape set (Q28) added `?popshapes`, default `wide`.
 | `?popquads` | `quads` | P5 | `1` (classic only) | 0–2, rounded | live (bench row) |
 | `?popshapes` | `shapes` | 10-24 | `wide` (Nathan 10-24, Q28) | `wide` \| `classic` | live (bench segment) |
 | `?poptier` | `tier` | P6b | `auto` | `auto` \| `today` \| `lean` | live (read at each stream start) |
-| `?popequiv` | `equiv` | P7 | `12` (Nathan 10-23, Q8; was `0`, off) | ≤ 0 → 0, else 4–32 rounded | live (bench row) |
+| `?popequiv` | `equiv` | P7 | `32` (Nathan 10-24; `12` on 10-23, Q8; was `0`, off) | ≤ 0 → 0, else 4–32 rounded | live (bench row) |
 | `?globedpr` | `GLOBE_DPR_MAX` | P0c | 3 on phones (bake B, `8732aa8`), `DPR_MAX` (2) on desktop | 1–3 | URL-only, load time |
 | `?globeres` | `GLOBE_STREAM_PARAMS` | P0c | 720p on desktop (Nathan 10-23, Q22; was `STREAM_PARAMS`, 480p), `STREAM_PARAMS` (480p) on phones | `270p` \| `480p` \| `720p` \| `1080p`, else the default | URL-only, load time |
 | `?globethumb` | `GLOBE_T1` | P7 | `THUMB_WIDTH` (512 desktop, 384 phone) | 256–1024, rounded | URL-only, load time |
@@ -504,7 +504,7 @@ tier`. A tide run caps at `h`; `--rm` and `&poplive=tile` cap at `vq`.
 `audio`). The Status log's older "N gates" counts (09-26, 10-07) count the pass block's keys. They
 are records, and they stay as written.
 
-**The run matrix (units on).** Every run passes `--units --level=<L>` and must exit 0. Since 10-23 the default `?popequiv` 12
+**The run matrix (units on).** Every run passes `--units --level=<L>` and must exit 0. Since 10-23 the default `?popequiv` (32 since 10-24)
 makes `neighbourRule` report-only in every run; only `--extra="&popequiv=0"` judges it. The keys
 are records in `scripts/baselines/globe-units.json`:
 
@@ -560,10 +560,11 @@ is the `--out` folder's name, so pass the key that matches the run.
 
 **Since Nathan's 10-23 bake the records are stale.** Every one was recorded at the old defaults:
 units off, `?popunitmax` 1, `?popequiv` 0, a hold of ± 0.2, a 0.9 s change, name size 0.62, band
-0.65, face 0.5, span max 6, and a 480p desktop pin. Re-record them at the next probe pass. Until
+0.65, face 0.5, span max 6, and a 480p desktop pin; and, since 10-24, the classic shapes, one name
+strip and a 45.5° tilt. Re-record them at the next probe pass. Until
 then, a run reproduces its record only with the old values in `--extra`, placed after the run's
 own flags (the page and the probe both read a param's first value):
-`&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0`,
+`&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0&popshapes=classic&popnames=1&herotilt=45.5`,
 plus `&globeres=480p` on desktop. The units-off keys also pass `--units=0`. Both hold for the
 negative controls, which judge against the same records.
 
@@ -654,7 +655,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q5 | Extremes (\|ln r\| ≥ ln 2.4): single, or span? | Single |
 | Q6 | Quads per world | 1 (`?popquads`) |
 | Q7 | Unit repeats: once per asset per plan, or at every admissible spot? | Answered 10-23: up to 4 (`?popunitmax=4`; 1 = once, 6 = every spot) |
-| Q8 | Fewer assets? | Answered 10-23: `?popequiv` 12, with `?popcap` 13 kept: a world places from at most 13 assets weighing 12 tile-equivalents |
+| Q8 | Fewer assets? | Answered 10-23: `?popequiv` 12, with `?popcap` 13 kept: a world places from at most 13 assets weighing 12 tile-equivalents. Re-dialed 10-24 under the wide shapes: 32 |
 | Q9 | Phone renditions | Superseded: the phone pin is 480p (10-09), and P0 pinned it on both devices (the desktop globe pins 720p since 10-23, Q22) |
 | Q10 | The phone's pixel ratio | Answered: 3 on phones at 480p (bake B, `8732aa8`); `?globedpr=1.5` is the old globe |
 | Q11 | T1 768 on large Retina displays? | 512 (`THUMB_WIDTH`); `?globethumb=768` to compare |
@@ -1251,3 +1252,15 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   ≈ 1.5× classic's (worst world pair ≈ 43 MiB against 29, RGBA + mips, estimated). The gates
   read `?popshapes` (a wide class size is a curve); the probe records are classic's, so a wide
   run needs its own keys recorded. Tests 96, 348 keys. No probe run and no browser.
+- 2026-10-24 · bake · Nathan's second round, from a bench screenshot ("doing what i am looking
+  for"): `?popequiv` 32 (the slider's top; Q8 re-dialed), `?popnames` 0 (no name strips) and
+  `?herotilt` −10 (was 45.5), the angle fitted to his screenshot's three latitude gap lines
+  under the desktop rest rig (fill 0.85, elevation 8: rms 0.08°, and a 5° step costs ≥ 0.46°),
+  so the north pole sits out of sight at load. Two fixes ride with the tilt: the drag clamp
+  bounds the SHOWN tilt to ±40°, widened to take in a rest set past it (clamping pitch alone
+  left −90° reachable from a −10° rest), and VideoGlobe seeds the first build's prominence order
+  with the rest tilt (it ranked panels under 40°, 58° from where the camera now faces). At 32 a
+  wide world selects 6–13 assets (17 3×2s, 79 1×2s and 39 quads over the 15 worlds) and its
+  textures weigh ≈ 2.4× those at 12 (worst world pair ≈ 108 MiB against 43, estimated).
+  `?popquads` does nothing under wide. Tests 96, 348 keys. A headless look at :4322 showed the
+  new tilt; no probe run.

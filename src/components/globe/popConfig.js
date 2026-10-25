@@ -100,7 +100,7 @@ export const POP_DEFAULTS = Object.freeze({
   live: 'shared', // ?poplive — shared | tile (POP_LIVE)
   color: 1, // ?popcolor — 1 = the world's projectColor drives the globe + chrome; 0 = brand blue
   enter: 1, // ?popenter — 1 = Enter World opens /work on the world on the globe; 0 = the first World
-  names: 1, // ?popnames — name strips a world places (0 = none)
+  names: 0, // ?popnames — name strips a world places (0 = none: Nathan 10-24; 1 from 10-07)
   nameMode: 'region', // ?popnamemode — region = a run of tiles sized to the name; band = a whole latitude row (NAME_MODES)
   nameSize: 0.83, // ?popnamesize — font px per strip height (Nathan 10-23; 10-07's 0.62 "reduced slightly" a baked 0.86)
   nameBand: 0.57, // ?popnameband — the middle fraction of pole-to-pole a strip may sit in (Nathan 10-23; 0.65 from 10-07)
@@ -124,7 +124,7 @@ export const POP_DEFAULTS = Object.freeze({
   shapes: 'wide', // ?popshapes — the span each picture takes (POP_SHAPES); wide = Nathan's 10-24 set, classic = the one before it
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
-  equiv: 12, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Q8: Nathan 10-23, 12; was 0
+  equiv: 32, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Nathan 10-24, 32 (the top; Q8 10-23 was 12, before that 0)
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
