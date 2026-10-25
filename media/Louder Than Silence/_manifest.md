@@ -7,6 +7,6 @@ year: 2026
 
 | file | mediaType | serviceType | title | isHero | sortOrder |
 |------|-----------|-------------|-------|--------|-----------|
-| Louder Than Silence Handwritten.png | static_other | branding | Louder Than Silence Handwritten | false | 1 |
-| Louder Than Silence Promo.mp4 | motion_other | promo video | Louder Than Silence Promo | false | 2 |
-| Louder Than Sliece Logo 01.jpg | static_other | logo design | Louder Than Silence Logo 01 | false | 3 |
+| Louder Than Silence Handwritten.png | static_16x9 | branding | Louder Than Silence Handwritten | false | 1 |
+| Louder Than Silence Promo.mp4 | motion_9x16 | promo video | Louder Than Silence Promo | false | 2 |
+| Louder Than Sliece Logo 01.jpg | static_1x1 | logo design | Louder Than Silence Logo 01 | false | 3 |

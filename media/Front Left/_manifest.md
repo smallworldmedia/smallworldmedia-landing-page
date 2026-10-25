@@ -19,13 +19,13 @@ year: 2026
 | front-left_janeret_062423_ad_4x5.mp4 | motion_4x5 | promo video | front left janeret 062423 ad 4x5 | false | 10 |
 | front-left_label-showcase_031724_4x5.png | static_4x5 | event / tour creative | front left label showcase 031724 4x5 | false | 11 |
 | front-left_lauren-lo-sun_110923_4x5.png | static_4x5 | event / tour creative | front left lauren lo sun 110923 4x5 | false | 12 |
-| front-left_logo_white.png | static_other | logo design | front left logo white | false | 13 |
+| front-left_logo_white.png | logo | logo design | front left logo white | false | 13 |
 | front-left_past-events-icon.png | static_1x1 | branding | front left past events icon | false | 14 |
 | front-left_past-events_icon_1.png | static_1x1 | branding | front left past events icon 1 | false | 15 |
 | front-left_sidney-charles_072723_4x5.png | static_4x5 | event / tour creative | front left sidney charles 072723 4x5 | false | 16 |
 | front-left_sidney-charles_072723_drawing-variant_4x5.png | static_4x5 | event / tour creative | front left sidney charles 072723 drawing variant 4x5 | false | 17 |
-| front-left_socials_background-1.png | static_other | branding | front left socials background 1 | false | 18 |
-| front-left_socials_pfp_IG-1.png | static_9x16 | branding | front left socials pfp IG 1 | false | 19 |
+| front-left_socials_background-1.png | static_4x5 | branding | front left socials background 1 | false | 18 |
+| front-left_socials_pfp_IG-1.png | static_1x1 | branding | front left socials pfp IG 1 | false | 19 |
 | front-left_submit-demos-story.png | static_9x16 | event / tour creative | front left submit demos story | false | 20 |
 | front-left_sydney-charles_072723_collab-promo_4x5_full.mp4 | motion_4x5 | event / tour creative | front left sydney charles 072723 collab promo 4x5 full | false | 21 |
 | front-left_upcoming-events_2023_4x5.png | static_4x5 | event / tour creative | front left upcoming events 2023 4x5 | false | 22 |

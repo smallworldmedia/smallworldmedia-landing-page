@@ -8,6 +8,6 @@ year: 2026
 
 | file | mediaType | title | isHero | sortOrder |
 |------|-----------|-------|--------|-----------|
-| fletch_spotlight_4x5.mp4 | motion_other | fletch spotlight 4x5 | false | 1 |
-| matt-egbert_spotlight_4x5.mp4 | motion_other | matt egbert spotlight 4x5 | false | 2 |
-| swingers_spotlight_4x5.mp4 | motion_other | swingers spotlight 4x5 | false | 3 |
+| fletch_spotlight_4x5.mp4 | motion_4x5 | fletch spotlight 4x5 | false | 1 |
+| matt-egbert_spotlight_4x5.mp4 | motion_4x5 | matt egbert spotlight 4x5 | false | 2 |
+| swingers_spotlight_4x5.mp4 | motion_4x5 | swingers spotlight 4x5 | false | 3 |

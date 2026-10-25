@@ -18,10 +18,10 @@ year: 2026
 | moonlght_prada.jpg | static_1x1 | album art | Prada | false | 9 |
 | moonlght_stuck-in-the-middle-with-you.jpg | static_1x1 | album art | Stuck In The Middle With You | false | 10 |
 | moonlght_what-do-djs-do.jpg | static_1x1 | album art | What Do DJs Do | false | 11 |
-| Liquid LED.mp4 | motion_other | live visuals | Liquid LED | false | 12 |
-| Logo 3D Explode.mp4 | motion_other | logo design | Logo 3D Explode | false | 13 |
-| Logo Stacked Pulse.mp4 | motion_other | logo design | Logo Stacked Pulse | false | 14 |
-| Logo Static Chrome.mp4 | motion_other | logo design | Logo Static Chrome | false | 15 |
-| Logo Static Light Rays.mp4 | motion_other | logo design | Logo Static Light Rays | false | 16 |
-| Moon Phases Stacked Pulse.mp4 | motion_other | live visuals | Moon Phases Stacked Pulse | false | 17 |
-| Moon Phases Tiles.mp4 | motion_other | live visuals | Moon Phases Tiles | false | 18 |
+| Liquid LED.mp4 | motion_16x9 | live visuals | Liquid LED | false | 12 |
+| Logo 3D Explode.mp4 | motion_16x9 | logo design | Logo 3D Explode | false | 13 |
+| Logo Stacked Pulse.mp4 | motion_16x9 | logo design | Logo Stacked Pulse | false | 14 |
+| Logo Static Chrome.mp4 | motion_16x9 | logo design | Logo Static Chrome | false | 15 |
+| Logo Static Light Rays.mp4 | motion_16x9 | logo design | Logo Static Light Rays | false | 16 |
+| Moon Phases Stacked Pulse.mp4 | motion_16x9 | live visuals | Moon Phases Stacked Pulse | false | 17 |
+| Moon Phases Tiles.mp4 | motion_16x9 | live visuals | Moon Phases Tiles | false | 18 |

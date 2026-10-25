@@ -39,5 +39,4 @@ year: 2024
 | sc46_jeff-sorkowitz_how-does-it-feel.jpg | album-art | Jeff Sorkowitz — How Does It Feel | false | 29 |
 | SC48-White-Off---You-n'-Me.jpg | album-art | White Off — You n' Me | false | 30 |
 | SC49 Mattia Scolaro - Mami.jpg | album-art | Mattia Scolaro — Mami | false | 31 |
-| SC50-Brad-Brunner---Neuromancer | album-art | Brad Brunner — Neuromancer | false | 32 |
 | SC51-Summer-Cutz-Vol-4.jpg | album-art | Short Circuit — Summer Cutz Vol 4 | false | 33 |

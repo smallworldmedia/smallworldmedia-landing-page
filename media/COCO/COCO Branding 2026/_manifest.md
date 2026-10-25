@@ -17,19 +17,19 @@ project: coco-branding-2026
 | COCO Rotating Instances.mp4 | motion_other | COCO Rotating Instances | Branding |  | mediaAsset-coco-coco-rotating-instances |
 | COCO Sliding Instances.mp4 | motion_other | COCO Sliding Instances | Branding |  | mediaAsset-coco-coco-sliding-instances |
 | 4x5.mp4 | motion_4x5 | COCO Promo 4x5 | Branding |  | mediaAsset-coco-coco-promo-4x5 |
-| COCO Liverpool Open Air Flyer v2.png | static_3x4 | COCO Flyer 3x4 v2 | Event / Tour Creative |  | mediaAsset-coco-coco-flyer-3x4-v2 |
-| COCO Bristol Document Flyer.png | static_3x4 | COCO Flyer 3x4 v5 | Event / Tour Creative |  | mediaAsset-coco-coco-flyer-3x4-v5 |
+| COCO Liverpool Open Air Flyer v2.png | static_3x4 | COCO Liverpool Open Air Flyer | Event / Tour Creative |  | mediaAsset-coco-coco-flyer-3x4-v2 |
+| COCO Bristol Document Flyer.png | static_3x4 | COCO Bristol Document Flyer | Event / Tour Creative |  | mediaAsset-coco-coco-flyer-3x4-v5 |
 | COCO Template 2026.jpg | static_1x1 | COCO Template 2026 | Branding |  | mediaAsset-coco-coco-template-2026 |
-| COCO-SC-Mockup.jpg | static_other | COCO SoundCloud Mockup | Branding |  | mediaAsset-coco-coco-soundcloud-mockup |
+| COCO-SC-Mockup.jpg | static_1x1 | COCO SoundCloud Mockup | Branding |  | mediaAsset-coco-coco-soundcloud-mockup |
 | COCO Logo White.png | logo | COCO Logo White | Logo Design |  | mediaAsset-5a8387fc-9233-492d-9b59-28783fab0f07 |
 | Artwork/COCO051-ESSED---Get-Down-EP.jpg | album-art | ESSED — Get Down EP | Branding, Album Art |  | mediaAsset-coco-essed-get-down-ep |
-| coco_cause_01.jpg | static_other | COCO @ The Cause — Photo 1 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-photo-1 |
-| coco_cause_06.jpg | static_other | COCO @ The Cause — Photo 6 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-photo-6 |
+| coco_cause_01.jpg | static_3x4 | COCO @ The Cause — Photo 1 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-photo-1 |
+| coco_cause_06.jpg | static_3x4 | COCO @ The Cause — Photo 6 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-photo-6 |
 | coco_cause-01.jpg | static_9x16 | COCO @ The Cause — Recap 1 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-recap-1 |
 | coco_cause-02.jpg | static_9x16 | COCO @ The Cause — Recap 2 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-recap-2 |
 | coco_cause-03.jpg | static_9x16 | COCO @ The Cause — Recap 3 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-recap-3 |
 | COCO050_9x16.mp4 | motion_9x16 | COCO50 Dale Howard - On Lock Track Preview 9x16 | 3D Animation |  | mediaAsset-coco-coco50-dale-howard-on-lock-track-preview-9x16 |
-| COCO050_CANVAS.mp4 | motion_1x1 | COCO50 Dale Howard - On Lock Track Preview Spotify Canvas | 3D Animation |  | mediaAsset-coco-coco50-dale-howard-on-lock-track-preview-spotify-canvas |
+| COCO050_CANVAS.mp4 | motion_9x16 | COCO50 Dale Howard - On Lock Track Preview Spotify Canvas | 3D Animation |  | mediaAsset-coco-coco50-dale-howard-on-lock-track-preview-spotify-canvas |
 | COCO050_YOUTUBE.mp4 | motion_16x9 | COCO50 Dale Howard - On Lock Full Track YouTube | 3D Animation |  | mediaAsset-coco-coco50-dale-howard-on-lock-full-track-youtube |
 | Artwork/COCO050 Dale Howard - On Lock.jpg | album-art | Dale Howard — On Lock | Album Art |  | mediaAsset-41bedbe4-bb14-4e9d-a1a2-7fae4710a901 |
 | Artwork/COCO052 Kidoo, Rushin - Save My Soul.jpg | album-art | Kidoo, Rushin — Save My Soul | Album Art |  | mediaAsset-f00289c4-e651-4be2-9f0c-8184c29cc7a3 |
@@ -52,3 +52,4 @@ project: coco-branding-2026
 | Banners/COCO052 Kidoo, Rushin - Save My Soul Banner.png | static_other | Kidoo, Rushin — Save My Soul SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-99f2f2c3-bf32-4d1d-9d41-cc6f3b3c67a8 |
 | Banners/COCO053 HIFI - Movin Banner.png | static_other | HIFI — Movin' SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-424c8756-c91f-4cb6-8e98-fb8c22e96b09 |
 | Banners/COCO054 Ellis Garner - Chicks In The Club EP Banner.png | static_other | Ellis Garner — Chicks In The Club EP SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-e8b89819-bad8-4231-a7d4-4fe7a20e6f83 |
+| coco-sticker_1.jpg | static_4x5 | coco sticker 1 |  |  |  |

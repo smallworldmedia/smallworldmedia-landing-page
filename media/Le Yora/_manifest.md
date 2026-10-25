@@ -7,4 +7,4 @@ year: 2026
 
 | file | mediaType | serviceType | title | isHero | sortOrder |
 |------|-----------|-------------|-------|--------|-----------|
-| Le Yora 3D Liquid Logo.mp4 | motion_other | logo design | Le Yora 3D Liquid Logo | false | 1 |
+| Le Yora 3D Liquid Logo.mp4 | motion_9x16 | logo design | Le Yora 3D Liquid Logo | false | 1 |

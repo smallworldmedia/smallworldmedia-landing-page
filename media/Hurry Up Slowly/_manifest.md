@@ -15,24 +15,24 @@ year: 2026
 | HUS MMWThurs 0323 Marten Lou 3x4.png | static_3x4 | event-tour-creative | HUS MMW Marten Lou 3x4 | false | 5 |  |  | mediaAsset-hurry-up-slowly-hus-mmw-marten-lou-3x4 |
 | butch_IAA_4x5.jpg | static_4x5 | album-art | Butch IAA 4x5 | false | 6 |  |  | mediaAsset-hurry-up-slowly-butch-iaa-4x5 |
 | nic-fanciulli_IAA_4x5.jpg | static_4x5 | album-art | Nic Fanciulli IAA 4x5 | false | 7 |  |  | mediaAsset-hurry-up-slowly-nic-fanciulli-iaa-4x5 |
-| HUS-Art-01.jpg | static_other | album-art | HUS Art 01 | false | 8 |  |  | mediaAsset-hurry-up-slowly-hus-art-01 |
-| HUS-Art-02.jpg | static_other | album-art | HUS Art 02 | false | 9 |  |  | mediaAsset-hurry-up-slowly-hus-art-02 |
-| HUS-Art-04.jpg | static_other | album-art | HUS Art 04 | false | 10 |  |  | mediaAsset-hurry-up-slowly-hus-art-04 |
-| HUS-Art-05.jpg | static_other | album-art | HUS Art 05 | false | 11 |  |  | mediaAsset-hurry-up-slowly-hus-art-05 |
-| HUS-BEATPORT-Mockup.jpg | static_other | branding | HUS Beatport Mockup | false | 12 |  |  | mediaAsset-hurry-up-slowly-hus-beatport-mockup |
-| HUS-SC-Banner-01.jpg | static_other | branding | HUS SC Banner 01 | false | 13 |  |  | mediaAsset-hurry-up-slowly-hus-sc-banner-01 |
-| HUS-SC-Banner-02.jpg | static_other | branding | HUS SC Banner 02 | false | 14 |  |  | mediaAsset-hurry-up-slowly-hus-sc-banner-02 |
-| HUS-SC-Banner-03.jpg | static_other | branding | HUS SC Banner 03 | false | 15 |  |  | mediaAsset-hurry-up-slowly-hus-sc-banner-03 |
-| HUS-SC-Banner-04.jpg | static_other | branding | HUS SC Banner 04 | false | 16 |  |  | mediaAsset-hurry-up-slowly-hus-sc-banner-04 |
-| HUS-SC-Banner-05.jpg | static_other | branding | HUS SC Banner 05 | false | 17 |  |  | mediaAsset-hurry-up-slowly-hus-sc-banner-05 |
-| HUS-SC-Mockup.jpg | static_other | branding | HUS SC Mockup | false | 18 |  |  | mediaAsset-hurry-up-slowly-hus-sc-mockup |
-| HUS-frames.jpg | static_other | branding | HUS Frames | false | 19 |  |  | mediaAsset-hurry-up-slowly-hus-frames |
-| HUS_logo-sheet.jpg | static_other | branding | HUS Logo Sheet | false | 20 |  |  | mediaAsset-hurry-up-slowly-hus-logo-sheet |
-| front.jpg | static_other | branding | Front | false | 21 |  |  | mediaAsset-hurry-up-slowly-front |
-| back-2-color_20x24.jpg | static_other | branding | Back 2 Color 20x24 | false | 22 |  |  | mediaAsset-hurry-up-slowly-back-2-color-20x24 |
-| back-3-color_1_20x24.jpg | static_other | branding | Back 3 Color 1 20x24 | false | 23 |  |  | mediaAsset-hurry-up-slowly-back-3-color-1-20x24 |
-| back-3-color_2_20x24.jpg | static_other | branding | Back 3 Color 2 20x24 | false | 24 |  |  | mediaAsset-hurry-up-slowly-back-3-color-2-20x24 |
-| back-3-color_3_20x24.jpg | static_other | branding | Back 3 Color 3 20x24 | false | 25 |  |  | mediaAsset-hurry-up-slowly-back-3-color-3-20x24 |
+| HUS-Art-01.jpg | static_1x1 | album-art | HUS Art 01 | false | 8 |  |  | mediaAsset-hurry-up-slowly-hus-art-01 |
+| HUS-Art-02.jpg | static_1x1 | album-art | HUS Art 02 | false | 9 |  |  | mediaAsset-hurry-up-slowly-hus-art-02 |
+| HUS-Art-04.jpg | static_1x1 | album-art | HUS Art 04 | false | 10 |  |  | mediaAsset-hurry-up-slowly-hus-art-04 |
+| HUS-Art-05.jpg | static_1x1 | album-art | HUS Art 05 | false | 11 |  |  | mediaAsset-hurry-up-slowly-hus-art-05 |
+| HUS-BEATPORT-Mockup.jpg | static_1x1 | branding | HUS Beatport Mockup | false | 12 |  |  | mediaAsset-hurry-up-slowly-hus-beatport-mockup |
+| HUS-SC-Banner-01.jpg | static_other | branding | HUS SC Banner 01 | false | 13 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-01 |
+| HUS-SC-Banner-02.jpg | static_other | branding | HUS SC Banner 02 | false | 14 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-02 |
+| HUS-SC-Banner-03.jpg | static_other | branding | HUS SC Banner 03 | false | 15 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-03 |
+| HUS-SC-Banner-04.jpg | static_other | branding | HUS SC Banner 04 | false | 16 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-04 |
+| HUS-SC-Banner-05.jpg | static_other | branding | HUS SC Banner 05 | false | 17 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-05 |
+| HUS-SC-Mockup.jpg | static_1x1 | branding | HUS SC Mockup | false | 18 |  |  | mediaAsset-hurry-up-slowly-hus-sc-mockup |
+| HUS-frames.jpg | static_9x16 | branding | HUS Frames | false | 19 |  |  | mediaAsset-hurry-up-slowly-hus-frames |
+| HUS_logo-sheet.jpg | static_9x16 | branding | HUS Logo Sheet | false | 20 |  |  | mediaAsset-hurry-up-slowly-hus-logo-sheet |
+| front.jpg | static_1x1 | branding | Front | false | 21 |  |  | mediaAsset-hurry-up-slowly-front |
+| back-2-color_20x24.jpg | static_1x1 | branding | Back 2 Color 20x24 | false | 22 |  |  | mediaAsset-hurry-up-slowly-back-2-color-20x24 |
+| back-3-color_1_20x24.jpg | static_1x1 | branding | Back 3 Color 1 20x24 | false | 23 |  |  | mediaAsset-hurry-up-slowly-back-3-color-1-20x24 |
+| back-3-color_2_20x24.jpg | static_1x1 | branding | Back 3 Color 2 20x24 | false | 24 |  |  | mediaAsset-hurry-up-slowly-back-3-color-2-20x24 |
+| back-3-color_3_20x24.jpg | static_1x1 | branding | Back 3 Color 3 20x24 | false | 25 |  |  | mediaAsset-hurry-up-slowly-back-3-color-3-20x24 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_01.jpg | brand-deck | branding | HUS Brand Guidelines Page 01 | false | 26 | brand-guidelines-deck | 1 | mediaAsset-hurry-up-slowly-label-artwork-page-01 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_02.jpg | brand-deck | branding | HUS Brand Guidelines Page 02 | false | 27 | brand-guidelines-deck | 2 | mediaAsset-hurry-up-slowly-label-artwork-page-02 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_03.jpg | brand-deck | branding | HUS Brand Guidelines Page 03 | false | 28 | brand-guidelines-deck | 3 | mediaAsset-hurry-up-slowly-label-artwork-page-03 |

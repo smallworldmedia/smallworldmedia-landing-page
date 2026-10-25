@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-10-23*
+*Last Updated: 2026-10-25*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -36,7 +36,8 @@ Env (process env only, never `.env` loading): `SANITY_READ_TOKEN`, `SANITY_WRITE
 `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`. Site build needs none (client hardcodes project/dataset).
 
 ## Intake
-`media/<Client>/<Collection>/_manifest.md` (83 manifests) is the unit of scope. Scaffold with
+`media/<Client>/<Collection>/_manifest.md` is the unit of scope: one per Sanity grouping
+(`sourceFolder` + `sourceManifest`), one row per mediaAsset; unbound rows are pending intake. Scaffold with
 `scripts/generate-manifests.mjs "Client" [--dry-run]` (TBD-filled, never uploads, never overwrites
 bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
 

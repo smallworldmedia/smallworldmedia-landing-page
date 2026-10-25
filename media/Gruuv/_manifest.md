@@ -7,4 +7,4 @@ year: 2026
 
 | file | mediaType | serviceType | title | isHero | sortOrder |
 |------|-----------|-------------|-------|--------|-----------|
-| REDRUM.mp4 | motion_other | promo video | REDRUM | false | 1 |
+| REDRUM.mp4 | motion_4x5 | promo video | REDRUM | false | 1 |

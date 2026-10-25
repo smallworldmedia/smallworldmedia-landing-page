@@ -7,4 +7,4 @@ year: 2026
 
 | file | mediaType | serviceType | title | isHero | sortOrder |
 |------|-----------|-------------|-------|--------|-----------|
-| no-pare-promo_final.mp4 | motion_other | promo video | No Pare Promo | false | 1 |
+| no-pare-promo_final.mp4 | motion_9x16 | promo video | No Pare Promo | false | 1 |

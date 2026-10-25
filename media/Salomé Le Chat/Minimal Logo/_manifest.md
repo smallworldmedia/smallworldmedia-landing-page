@@ -8,5 +8,5 @@ year: 2026
 
 | file | mediaType | title | isHero | sortOrder |
 |------|-----------|-------|--------|-----------|
-| aint-nobody_logo_minimal_black.png | static_other | aint nobody logo minimal black | false | 1 |
-| aint-nobody_logo_minimal_white.png | static_other | aint nobody logo minimal white | false | 2 |
+| aint-nobody_logo_minimal_black.png | static_16x9 | aint nobody logo minimal black | false | 1 |
+| aint-nobody_logo_minimal_white.png | static_16x9 | aint nobody logo minimal white | false | 2 |

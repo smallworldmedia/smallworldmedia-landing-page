@@ -18,14 +18,8 @@ project: jeff-sorkowitz
 | Tour Flyers/jeff-sorkowitz_tour_summer-2027_glass-wall.jpg | static_3x4 | Jeff Sorkowitz Summer 2027 Tour — Glass Wall | Event / Tour Creative |  |  |  | mediaAsset-e131e64d-85b8-4ae7-ab9c-b47d467d055e |
 | too-deep_preview_3x4.mp4 | motion_3x4 | Jeff Sorkowitz — Too Deep Animated Cover | Album Art |  |  |  | mediaAsset-54314318-feea-40ce-ac49-00741df76c21 |
 | too_deep_scene_no-thumb.mp4 | motion_3x4 | Jeff Sorkowitz — Too Deep Interactive Release Page | Web Design, Album Art |  |  |  | mediaAsset-d7107b46-3efc-44e2-bdb0-c4caef844e89 |
-| Tour Flyers/jeff-sorkowitz_single-show_flare.jpg | static_3x4 | Jeff Sorkowitz Single Show Admat — Flare | Event / Tour Creative |  |  |  | mediaAsset-86bb47ae-b075-4443-99d0-146079734896 |
-| Tour Flyers/jeff-sorkowitz_single-show_venue-logo.jpg | static_3x4 | Jeff Sorkowitz Single Show Admat — Venue Logo | Event / Tour Creative |  |  |  | mediaAsset-d03d7dea-9ab9-40ec-9709-4613feb2be17 |
 | Motion/jeff-sorkowitz_tour_vhs-flyer_photo.mp4 | motion_3x4 | Jeff Sorkowitz Fall 2027 Tour — VHS Flyer, Photo | Event / Tour Creative |  |  |  | mediaAsset-ed6eb0f6-307b-4fa0-ab89-54b405dfd01d |
 | Admat Colorways/jeff-sorkowitz_admat_original.jpg | static_3x4 | Jeff Sorkowitz Admat — Original | Event / Tour Creative |  |  |  | mediaAsset-2d1c3cb3-6440-410b-b9a1-d5e633fce893 |
-| Admat Colorways/jeff-sorkowitz_admat_deep-motel-red.jpg | static_3x4 | Jeff Sorkowitz Admat — Deep Motel Red | Event / Tour Creative |  |  |  | mediaAsset-ef19b981-c00f-4859-aae5-99b7db72bfab |
-| Admat Colorways/jeff-sorkowitz_admat_fluorescent-green.jpg | static_3x4 | Jeff Sorkowitz Admat — Fluorescent Green | Event / Tour Creative |  |  |  | mediaAsset-173a96c4-f111-4e05-a06e-9d8ffcbbc0a9 |
-| Admat Colorways/jeff-sorkowitz_admat_plum-and-mint.jpg | static_3x4 | Jeff Sorkowitz Admat — Plum and Mint | Event / Tour Creative |  |  |  | mediaAsset-76e1453b-b4f5-43b7-b251-9834ff43ff0b |
-| Admat Colorways/jeff-sorkowitz_admat_purple-and-green.jpg | static_3x4 | Jeff Sorkowitz Admat — Purple and Green | Event / Tour Creative |  |  |  | mediaAsset-7f4cc551-f6c1-4ca1-be7e-ebe38dc1cf7f |
 | Jeff Sorkowitz - Too Deep/Jeff-Sorkowitz---Too-Deep.jpg | album-art | Jeff Sorkowitz — Too Deep | Album Art |  |  |  | mediaAsset-3fb9d647-6690-45fc-bd8c-a006d198944f |
 | Jeff Sorkowitz, Braydon Terzo - Real Close/Jeff-Sorkowitz,-Braydon-Terzo---Real-Close.jpg | album-art | Jeff Sorkowitz, Braydon Terzo — Real Close | Album Art |  |  |  | mediaAsset-c518d345-96cd-4c72-ba80-f3a0d5fb8aca |
 | Jeff Sorkowitz, Braydon Terzo - Real Close/Jeff-Sorkowitz,-Braydon-Terzo---Real-Close_2.jpg | album-art | Jeff Sorkowitz, Braydon Terzo — Real Close (Alt) | Album Art |  |  |  | mediaAsset-b372c84e-c82b-410e-be23-224bf97ce787 |
