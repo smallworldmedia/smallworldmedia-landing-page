@@ -43,6 +43,7 @@ export default function VideoGlobe({
   sceneApiRef = null,
   holdEntrance = false,
   cascadeSpeed = null,
+  tiltDeg = null,
   cornerRadius = 0,
   worlds = null,
 }) {
@@ -64,6 +65,7 @@ export default function VideoGlobe({
     overlayRef,
     holdEntrance,
     cascadeSpeed,
+    tiltDeg,
     cornerRadius,
     worlds,
   });

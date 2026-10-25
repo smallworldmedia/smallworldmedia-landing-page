@@ -155,6 +155,7 @@ export default function useGlobeScene(
     overlayRef = null,
     holdEntrance = false,
     cascadeSpeed = null,
+    tiltDeg = null,
     cornerRadius = 0,
     worlds = null,
   } = {}
@@ -230,7 +231,9 @@ export default function useGlobeScene(
       wide: SCROLL_POLE_CORNER_WIDE,
       start: SCROLL_POLE_CORNER_START,
       cornerR: cornerRadius,
-      tiltDeg: INITIAL_PITCH_DEG, // brand tilt; the tick applies (tiltDeg − INITIAL) as an offset
+      // resting tilt; the tick applies (tiltDeg − INITIAL) as an offset. Seeded from the caller (home:
+      // ?herotilt) so the first build ranks its panels under the tilt the first frame shows.
+      tiltDeg: Number.isFinite(tiltDeg) ? tiltDeg : INITIAL_PITCH_DEG,
       yawDeg: 0, // static brand spin offset
       yawSpeed: 0, // steady auto-rotation, degrees/second (0 = fixed)
       cascadeSpeed: Number.isFinite(cascadeSpeed) ? cascadeSpeed : 4,
@@ -492,11 +495,11 @@ export default function useGlobeScene(
     globeGroup.add(innerSphere);
 
     /* — CMS thumbnails — */
-    // Assign the pool in initial-prominence order (under the brand-mark
-    // tilt) so curated picks (pool head) land on the panels facing the
-    // camera at load
+    // Assign the pool in initial-prominence order (under the resting tilt:
+    // the brand mark's INITIAL_PITCH on /lab, ?herotilt on home) so curated
+    // picks (pool head) land on the panels facing the camera at load
     const initialRotation = new THREE.Euler(
-      THREE.MathUtils.degToRad(INITIAL_PITCH_DEG), 0, 0
+      THREE.MathUtils.degToRad(tuneRef.current.tiltDeg), 0, 0
     );
     const initialScore = (p) => p.centerDir.clone().applyEuler(initialRotation).z;
     const byProminence = [...panels].sort((a, b) => initialScore(b) - initialScore(a));
@@ -527,7 +530,7 @@ export default function useGlobeScene(
               ? 0
               : ((180 / SCROLL_VISIBLE_ROWS) * tuneRef.current.cascadeSpeed) / SCROLL_PACE_SCALE, // before the scroller exists
         getHorizon: () => {
-          // No pose yet: no horizon, and the plan places H pairs only. initialRotation is the 40° build pose, not the 45.5° brand tilt (M4).
+          // No pose yet: no horizon, and the plan places H pairs only. initialRotation is the resting tilt without the camera's elevation, not the rendered pose (M4).
           if (!posed) return null;
           // camera → globe frame; θh = its colatitude + the visible cap's half-angle
           hzQ.setFromEuler(globeGroup.rotation).invert();
@@ -1021,15 +1024,19 @@ export default function useGlobeScene(
       const { dYaw, dPitch } = controller.update(step);
       yaw += dYaw;
       pitch += dPitch;
-      // Clamp drag pitch to ±limit in every mode — the globe holds a bounded
-      // orientation (fixed brand tilt under the conveyor, gentle yaw drift under
-      // legacy), so a drag can never strand it past vertical.
-      pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch));
-      // Dev-bench orientation offset (?herotune, read live): tilt is applied as
-      // (tiltDeg − INITIAL_PITCH) so the default 40 → 0 offset → parity; yaw is
-      // an absolute spin (default 0 → parity). Added AFTER the drag clamp so the
-      // bench can push the brand tilt past the ±40° drag range.
+      // Orientation offset (read live; home seeds it from ?herotilt): tilt is
+      // applied as (tiltDeg − INITIAL_PITCH), so /lab's default 40 → 0 offset →
+      // parity; yaw is an absolute spin (default 0 → parity).
       const orient = tuneRef.current;
+      const tiltOff = THREE.MathUtils.degToRad(orient.tiltDeg - INITIAL_PITCH_DEG);
+      // Clamp the drag in every mode so the SHOWN tilt (pitch + tiltOff) stays
+      // within ±limit, widened to take in a rest the bench parks past it — the
+      // globe holds a bounded orientation, so a drag can never strand it past
+      // vertical. (Clamping pitch alone, as before 10-24, bounded the shown
+      // tilt to rest − 2·limit … rest: fine at the 45.5° bake, past vertical at
+      // Nathan's −10°.) /lab (tiltOff 0, rest = limit) keeps ±limit exactly.
+      const rest = THREE.MathUtils.degToRad(orient.tiltDeg);
+      pitch = Math.max(Math.min(-pitchLimit, rest) - tiltOff, Math.min(Math.max(pitchLimit, rest) - tiltOff, pitch));
       // Steady auto-rotation (?yawspeed, read live): accumulate continuous yaw at
       // yawSpeed °/s, wrapped bounded. 0 → spinYaw stays 0 → parity (fixed globe).
       // Auto-rotation is MOTION, so it is suppressed under reduced motion (the
@@ -1038,7 +1045,7 @@ export default function useGlobeScene(
         spinYaw = (spinYaw + THREE.MathUtils.degToRad(orient.yawSpeed) * step) % (Math.PI * 2);
       }
       globeGroup.rotation.set(
-        pitch + THREE.MathUtils.degToRad(orient.tiltDeg - INITIAL_PITCH_DEG),
+        pitch + tiltOff,
         yaw + spinYaw + THREE.MathUtils.degToRad(orient.yawDeg),
         0
       );

@@ -1238,6 +1238,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
           sceneApiRef={sceneApiRef}
           holdEntrance={introMode === 'full'}
           cascadeSpeed={HERO_TUNING.cascadeSpeed}
+          tiltDeg={HERO_TUNING.tiltDeg}
           cornerRadius={PANEL_CORNER_RADIUS}
           worlds={globeWorlds}
         />
