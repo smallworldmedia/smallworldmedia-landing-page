@@ -6,9 +6,13 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = 'a560e52de38464c51b0a0a939a41357c1106f5eab37bd05b66c4b66bb1e1f22e'
+export const SUPPORTED_SCHEMA_HASH = 'ef72b8d3fdb180f4da602b8278be460de6def3b964b65f79ca59461a837cfb21'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
+// Explicit deletes only: a mediaAsset, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
+export const DELETE_TYPES = ['mediaAsset', 'mux.videoAsset', 'sanity.imageAsset', 'mux.asset']
+export const IRREVERSIBLE = 'Deletes are irreversible here: this runner never restores. An image delete removes the file; a Mux asset delete is permanent; a deleted document may be restorable from Sanity history only within the plan retention window.'
+export const validMuxId = id => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(id)
 export const MEDIA_TYPES = ['album-art', 'logo', 'featured-project-reel', 'brand-deck', 'carousel-slide', ...['1x1','3x4','4x5','9x16','16x9','other'].map(x => `static_${x}`), ...['1x1','3x4','4x3','4x5','9x16','16x9','other'].map(x => `motion_${x}`)]
 export const isVideoType = type => type?.startsWith('motion_') || type === 'featured-project-reel'
 export const clean = x => JSON.parse(JSON.stringify(x))
@@ -34,8 +38,9 @@ export const FIELDS = {
   mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
+  globeSettings: ['picks'],
 }
-const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'] }
+const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], globeSettings: [] }
 // Media descriptors match the Studio caps (src/schemas/mediaAsset.ts); a project description is a blurb and stays uncapped here.
 export const CAPS = { mediaAsset: { alt: 150, description: 300 } }
 const text = (v, label) => invariant(typeof v === 'string' && v.trim().length > 0, `Invalid ${label}`)
@@ -61,6 +66,8 @@ export function validateField(field, v) {
   if (field === 'orderRank') { invariant(validRank(v), 'Invalid orderRank'); return }
   if (['client','project'].includes(field)) return reference(v)
   if (field === 'services') { array(v, field); for (const r of v) reference(r, true); invariant(new Set(v.map(r => r._ref)).size === v.length, 'Duplicate service reference'); return }
+  // Globe picks are ordered; a repeated pick is an editorial call, so only keys must be unique.
+  if (field === 'picks') { array(v, field); for (const r of v) reference(r, true); return }
   if (field === 'links') return links(v, ['Website','Instagram','Spotify','SoundCloud','Apple Music','Beatport','Bandcamp','YouTube','Facebook','TikTok','Resident Advisor','Other'])
   if (field === 'affiliations') { array(v, field); for (const a of v) { keys(a, ['_key','_type','entity','relationship'], 'affiliation'); if (a._type !== undefined) invariant(a._type === 'object', 'Invalid affiliation type'); reference(a.entity); if (a.relationship !== undefined) enumValue(a.relationship, ['signed-to','label-of','managed-by'], 'relationship') } return }
   if (field === 'releaseInfo') {
@@ -96,10 +103,13 @@ export function references(doc) {
   for (const field of ['client','project']) if (doc[field]) refs.push({ id: doc[field]._ref, type: field })
   for (const r of doc.services || []) refs.push({ id: r._ref, type: 'serviceTag' })
   for (const r of doc.affiliations || []) refs.push({ id: r.entity?._ref, type: 'client' })
+  for (const r of doc.picks || []) refs.push({ id: r._ref, type: 'mediaAsset' })
   return refs
 }
+// Any reference, strong or weak, at any depth.
+export function refersTo(value, id) { return Array.isArray(value) ? value.some(v => refersTo(v, id)) : value && typeof value === 'object' ? value._ref === id || Object.values(value).some(v => refersTo(v, id)) : false }
 export function withoutSystem(doc) { return Object.fromEntries(Object.entries(doc || {}).filter(([k]) => !['_rev','_createdAt','_updatedAt'].includes(k))) }
-export async function schemaHash(checkout) { return digest(await Promise.all(['mediaAsset','project','client','serviceTag'].map(async name => [name, await readFile(path.join(checkout, 'src/schemas', `${name}.ts`), 'utf8')])) ) }
+export async function schemaHash(checkout) { return digest(await Promise.all(['mediaAsset','project','client','serviceTag','globeSettings'].map(async name => [name, await readFile(path.join(checkout, 'src/schemas', `${name}.ts`), 'utf8')])) ) }
 export function closestType(width, height, kind) {
   const ratios = { '1x1': 1, '3x4': 3/4, '4x5': 4/5, '9x16': 9/16, '16x9': 16/9, ...(kind === 'video' ? { '4x3': 4/3 } : {}) }
   const ratio = width / height

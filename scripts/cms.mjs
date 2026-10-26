@@ -15,6 +15,11 @@ const HELP = `SWM CMS — preview first, scoped, no implicit production target.
 Optional: --checkout PATH, --state-dir PATH (owner-only local storage outside synced media).
 Changes JSON: {"version":1,"patches":[{"id":"project-example","type":"project","set":{"description":"Reviewed copy"},"unset":[]}],"creates":[],"inspect":[]}
 Replacement/repair: add "upload":{"file":"relative/file.mp4"} to a mediaAsset patch.
+Deletes (irreversible; run last, in order): "deletes":[{"id":"mediaAsset-x","type":"mediaAsset"},
+  {"id":"muxAsset-y","type":"mux.videoAsset","muxAsset":true},{"id":"image-z","type":"sanity.imageAsset"},
+  {"id":"MUX_ASSET_ID","type":"mux.asset"}]. A target must be unreferenced (drafts and releases
+  included) once the plan's own patches and earlier deletes apply. "muxAsset": true also deletes
+  the Mux asset; "mux.asset" is a Mux asset no document describes. Both need Mux credentials to plan.
 Sources must stay inside the manifest/request directory. Plans bind target, checkout,
 source hashes, schema, revisions and ordering. Approval publishes affected documents
 only when no draft exists; never discards drafts or deploys the website.

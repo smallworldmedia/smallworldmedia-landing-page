@@ -209,3 +209,37 @@ test('probe fails closed on invalid media and skips attached pictures', async ()
   const broken = fixture({dependencies: {sharp() { return {async metadata() { return {} }} }}})
   await assert.rejects(() => broken.adapters().then(a => a.probe('broken', 'image')), /dimensions/)
 })
+
+test('delete commits only with a revision-guarded patch of the same document just before it', async () => {
+  const f = fixture(); const a = await f.adapters({write: true})
+  const guard = {patch: {id: 'a', ifRevisionID: 'r', unset: ['swmDeleteRevisionGuard']}}
+  for (const mutations of [[{delete: {id: 'a'}}], [{patch: {id: 'b', ifRevisionID: 'r'}}, {delete: {id: 'a'}}],
+    [{patch: {id: 'a', set: {title: 'x'}}}, {delete: {id: 'a'}}], [guard, {delete: {id: 'a', query: '*'}}], [guard, {delete: {query: '*[]'}}],
+    [guard, {create: {_id: 'c', _type: 'mediaAsset'}}, {delete: {id: 'a'}}]]) {
+    await assert.rejects(() => a.sanity.commit(mutations))
+  }
+  assert.ok(!f.calls.some(c => c[0] === 'commit'))
+  await a.sanity.commit([guard, {delete: {id: 'a'}}])
+  assert.deepEqual(f.calls.find(c => c[0] === 'commit')[1], [guard, {delete: {id: 'a'}}])
+  const readOnly = await f.adapters()
+  await assert.rejects(() => readOnly.sanity.commit([guard, {delete: {id: 'a'}}]), /read-only/)
+})
+
+test('delete-blocker and Mux-document queries are parameterised; Mux delete needs write and treats 404 as absent', async () => {
+  const f = fixture(); const a = await f.adapters()
+  await a.sanity.findDeleteBlockers('mediaAsset-one'); await a.sanity.findMuxDocuments('asset1')
+  const [blockers, muxDocs] = f.calls.filter(c => c[0] === 'query')
+  assert.match(blockers[1], /references\(\$id\) \|\| _id in path\(\$versions\)/); assert.deepEqual(blockers[2], {id: 'mediaAsset-one', versions: 'versions.*.mediaAsset-one'})
+  assert.match(muxDocs[1], /_type == "mux.videoAsset" && assetId == \$assetId/); assert.deepEqual(muxDocs[2], {assetId: 'asset1'})
+  await assert.rejects(() => a.mux.deleteAsset('asset1'), /read-only/)
+  const deletes = []
+  const g = fixture({dependencies: {createMuxClient: () => ({video: {assets: {
+    async retrieve(id) { if (id === 'gone') throw Object.assign(new Error('not found secret'), {status: 404}); if (id === 'boom') throw Object.assign(new Error('secret'), {status: 500}); return {id, status: 'ready'} },
+    async delete(id, options) { deletes.push([id, options]); if (id === 'gone') throw Object.assign(new Error('not found'), {status: 404}) },
+  }}})}})
+  const w = await g.adapters({write: true})
+  assert.equal(await w.mux.findAsset('gone'), null); assert.deepEqual(await w.mux.findAsset('here'), {id: 'here', status: 'ready'})
+  await assert.rejects(() => w.mux.findAsset('boom'), error => error.status === 500 && !/secret/.test(error.message))
+  assert.deepEqual(await w.mux.deleteAsset('here'), {deleted: true}); assert.deepEqual(await w.mux.deleteAsset('gone'), {deleted: false, absent: true})
+  assert.deepEqual(deletes, [['here', {maxRetries: 0}], ['gone', {maxRetries: 0}]])
+})

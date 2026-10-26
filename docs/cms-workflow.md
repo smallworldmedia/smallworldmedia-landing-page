@@ -33,6 +33,7 @@ reports, shell-history examples, or git.
 Sources must be within the selected manifest/request directory. No absolute
 source paths, parent traversal or escaping symlinks. No implicit all-library
 scope, automatic deletion, bulk reseeding, or automatic website deployment.
+Deletion exists only as an explicit, separately approved `deletes` request.
 
 ## Commands
 
@@ -78,7 +79,7 @@ that the runner detects every sync provider.
 }
 ```
 
-Only allowlisted `mediaAsset`, `project` and `client` fields are writable. Omitted
+Only allowlisted `mediaAsset`, `project`, `client` and `globeSettings` fields are writable. Omitted
 fields stay unchanged; `unset` explicitly clears fields. Titles do not implicitly
 change slugs. References must resolve; no invented services or silent dropping of
 missing tags. The runner validates against current schema rules/fingerprint.
@@ -98,6 +99,51 @@ video asset can be pointed at an existing Mux document without an upload:
 `"set": {"video": {"_type": "mux.video", "asset": {"_type": "reference", "_ref":
 "<mux.videoAsset id>", "_weak": true}}}`. Plan, apply and verify each confirm the
 target is ready, with matching playback and aspect; `video` cannot be unset.
+
+The `globeSettings` singleton's `picks` (the home globe's ordered video picks) is
+patchable as a whole keyed array. A newly added pick must be a published video
+mediaAsset; a repeated pick is left to editorial judgment. The preview prints
+keyed arrays per item, so a one-pick swap reads as one line.
+
+## Explicit deletions
+
+```json
+{
+  "version": 1,
+  "patches": [{"id": "globeSettings", "type": "globeSettings", "set": {"picks": ["…the whole reviewed array…"]}, "unset": []}],
+  "deletes": [
+    {"id": "mediaAsset-example", "type": "mediaAsset"},
+    {"id": "muxAsset-ASSET", "type": "mux.videoAsset", "muxAsset": true},
+    {"id": "image-HASH-1920x1080-jpg", "type": "sanity.imageAsset"},
+    {"id": "MUX_ASSET_ID", "type": "mux.asset"}
+  ]
+}
+```
+
+Deletes are **irreversible from this runner**: an image-asset delete removes the
+file, a Mux asset delete is permanent, and a deleted document may be restorable
+from Sanity history only within the plan's retention window. The preview says so
+and lists each target with its title, filename or Mux status.
+
+- Deletes run after every other operation, in request order, one transaction each.
+- A target must have **no incoming reference** (strong or weak, published, draft
+  or release version) once the plan's own patches and earlier deletes apply: the
+  planner allows a referrer only if this plan patches that reference away or deletes
+  the referrer first. Its own draft or release version blocks too.
+- Apply rechecks the live blockers just before each write, and the delete's
+  transaction opens with a revision-guarded no-op patch (Sanity has no
+  `ifRevisionID` on delete), so an edit since the last read stops it.
+- `"muxAsset": true` on a `mux.videoAsset` delete also deletes its Mux asset, after
+  the document and only once no Sanity document describes that asset. `mux.asset`
+  deletes a Mux asset that no document describes (an errored or orphaned upload).
+  Planning either needs Mux read credentials.
+- A mediaAsset delete guards its collection's membership, and the preview notes
+  when it changes a collection's first-ranked (hero) asset.
+- A crash between the two halves resumes only the Mux half; a Mux 404 on resume
+  counts as already deleted. Verify checks each document is gone and each Mux
+  asset returns 404.
+- Manifests are not edited by a delete; remove the deleted rows in a reviewed
+  commit.
 
 ## Editorial and publication rules
 
@@ -148,7 +194,8 @@ nonzero. Preserve the plan/journal and inspect reported counts and stages.
 - Changed inputs, revisions, drafts or ordering assumptions require resolution
   and a refreshed approved diff, not force/automatic merge.
 - Records support targeted recovery, **not automatic cross-provider rollback**.
-  Partial batches/unattached uploads must be reported; no destructive cleanup.
+  Partial batches/unattached uploads must be reported; no destructive cleanup
+  beyond the deletes an approved plan names. The runner never restores a delete.
 
 Verify by re-reading the affected documents/references, image dimensions,
 Mux readiness/aspect metadata and ordering. Report created/updated/unchanged/

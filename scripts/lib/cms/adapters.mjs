@@ -144,17 +144,34 @@ export async function createAdapters({target, env = process.env, write = false, 
     },
     // Explicit ordering snapshot only; not a general inventory query.
     findProjectOrder() { return query('_type == "project"', {}) },
+    // Everything that would block deleting one document: any document (drafts and release
+    // versions included, raw perspective) that references it strongly or weakly, plus its own versions.
+    findDeleteBlockers(id) {
+      text(id, 'document ID')
+      return query('references($id) || _id in path($versions)', {id, versions: `versions.*.${id}`})
+    },
+    findMuxDocuments(assetId) {
+      text(assetId, 'assetId')
+      return query('_type == "mux.videoAsset" && assetId == $assetId', {assetId})
+    },
     async commit(mutations) {
       allowWrite()
       if (!Array.isArray(mutations) || !mutations.length) throw new Error('Nonempty mutation array required')
-      for (const mutation of mutations) {
-        if (!mutation || Object.keys(mutation).length !== 1) throw new Error('Only strict create and guarded patch mutations are allowed')
+      for (const [index, mutation] of mutations.entries()) {
+        if (!mutation || Object.keys(mutation).length !== 1) throw new Error('Only strict create, guarded patch and guarded delete mutations are allowed')
         if (mutation.create) {
           text(mutation.create._id, 'create._id'); text(mutation.create._type, 'create._type')
         } else if (mutation.patch) {
           text(mutation.patch.id, 'patch.id'); text(mutation.patch.ifRevisionID, 'patch.ifRevisionID')
           if ('query' in mutation.patch) throw new Error('Query patches are not allowed')
-        } else throw new Error('Only strict create and guarded patch mutations are allowed')
+        } else if (mutation.delete) {
+          // Sanity has no ifRevisionID on delete: the guarded patch before it in the same
+          // (atomic) transaction carries the revision check.
+          const guard = mutations[index - 1]?.patch
+          if (Object.keys(mutation.delete).join() !== 'id' || !guard?.ifRevisionID || guard.id !== text(mutation.delete.id, 'delete.id')) {
+            throw new Error('A delete must name one ID and follow a revision-guarded patch of that document')
+          }
+        } else throw new Error('Only strict create, guarded patch and guarded delete mutations are allowed')
       }
       const client = await sanityClient()
       return providerCall('Sanity commit', () => client.mutate(mutations,
@@ -197,6 +214,18 @@ export async function createAdapters({target, env = process.env, write = false, 
       text(id, 'asset ID')
       const client = await muxClient()
       return providerCall('Mux get asset', () => client.video.assets.retrieve(id, {maxRetries: 0}))
+    },
+    // Absence is an answer (null), not an error: deletes plan against it and verify it.
+    async findAsset(id) {
+      try { return await mux.getAsset(id) } catch (error) { if (error.status === 404) return null; throw error }
+    },
+    async deleteAsset(id) {
+      allowWrite(); text(id, 'asset ID')
+      const client = await muxClient()
+      try {
+        await providerCall('Mux delete asset', () => client.video.assets.delete(id, {maxRetries: 0}))
+        return {deleted: true}
+      } catch (error) { if (error.status === 404) return {deleted: false, absent: true}; throw error }
     },
     async findUpload(operationId) {
       operation(operationId)
