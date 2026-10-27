@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-10-25*
+*Last Updated: 2026-10-27*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -36,10 +36,19 @@ grain band, gated in `canJoin` so the join loop, the clip score and the resolve-
 see it; under media spans a unit joins and leaves its stream as one, and each stream gets a planned
 rung inside `decodeBudget` = `MAX_LIVE × mp(pinShort, 16/9)` through `tierFor` / `bucket` /
 `pinParams`, `planOf` / `rungPlan` / `plannedMp` and the `tierCall` timer; `decodeStats` feeds the
-telemetry) · `VideoSlotPool.jsx`
+telemetry; under `?pophandoff=fast` it beats every `HANDOFF_BEAT_S` 0.1 s, and a change in flight hands
+it the `incoming` worlds, whose clips it starts mid-swap off `swapAsset` (`aheadScores` / `aheadGroup`;
+`planOf` waits rather than drop a rung; a stream that resolves before its tiles land is kept for them);
+`predictStarts` and the static `forecast` replay its admission for the fetch-ahead, and `handoffQuiet`
+says this world's streams are in) · `VideoSlotPool.jsx`
 (fixed HLS pool; every slot streams the preview window clipped at the source through
-`work/imageConfig.js`'s `muxStream`, video-only via `useHls`'s `videoOnly`, at `GLOBE_STREAM_PARAMS`
-unless `assign(slot, id, params)` passes a tier's pin) · `TextureManager.js` (refcounted Mux
+`streamPrefetch.js`'s `poolStreamUrl` (`work/imageConfig.js`'s `muxStream`), video-only via `useHls`'s
+`videoOnly`, at `GLOBE_STREAM_PARAMS` unless `assign(slot, id, params)` passes a tier's pin, and
+`primed`, so a playlist fetched ahead plays from memory) · `streamPrefetch.js` (the fast handoff's
+fetch-ahead, 10-27: `planUrl` is the pool's URL for a scheduler plan; `prefetchClip` fetches the master
+and rendition into `work/hlsPrimed.js`, since Mux serves both no-store, and the init and segment into
+the HTTP cache (max-age 7 days), at `priority: 'low'`; the module queue `prefetchClips` runs 3 at a
+time, 2 on phones, and a newer list replaces what an older one left unstarted) · `TextureManager.js` (refcounted Mux
 thumbnails + square Sanity stills + name strips, keyed by `assetKey` = playbackId | imageUrl |
 nameKey; under media spans also the class textures at their `texSpec` size with a measured
 `userData.aspect`, and the residency ledger `stats()`) · `buildAssetPool.js` (pure build-time ordering) · `MeridianScroll.js` (row conveyor;
@@ -64,7 +73,11 @@ parity) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `
 blink / surge / cut; current + next world held warm; freeze under the commit's blue; `hold()` at the
 Enter World click stops the clock but lets a change in flight land; `onWorld` feeds the scene's
 colour; name strips (`?popnames`, 0 = none by default since 10-24) placed camera-relative once per world change by `planNames` (`warmSet` holds
-their textures), then reconciled per frame by `placeNames`; publishes `window.__swmPopStats`) ·
+their textures), then reconciled per frame by `placeNames`; under `?pophandoff=fast` the next world's warm waits (`nextWarm`)
+until the scheduler is quiet, at least 0.3 s and at most 2 s, and then its forecast clips are fetched
+(`prefetchWorld`; the first world's from the laid tiles, `prefetchLaid`; both through the scene's
+`forecast` hook), and `incomingWorlds()` names the worlds a change is landing; publishes
+`window.__swmPopStats`) ·
 `nameTicker.js` (client-name strips: the world's `clientName` in the FP card face baked once per
 world + style into a CanvasTexture `STRIP_H` = `globeConfig.NAME_STRIP_H` tall — 256 × the ratio the
 canvas actually renders at over the one `DPR_MAX` would give it, so a DSF-3 phone under
@@ -132,8 +145,9 @@ unit's centre, and a fading chip's slot keeps its unit's members, `heldMembers`,
 from live poses each frame so it never jumps) · `HeroTunePanel.jsx` / `CommitTunePanel.jsx` /
 `PopTunePanel.jsx` (benches; the last is `?poptune=1`, with a spans group: on/off, shapes, units / asset,
 quads / world, tile budget, video tier, and an orientation group whose `tilt` toggle flips `?herotilt` between
-heroConfig `TILT_PRESETS` new −10 / old 45.5 through `setHeroTune`; the readout line above it shows spans (`w · h · v · q`), tex MiB and decode
-mp / budget).
+heroConfig `TILT_PRESETS` new −10 / old 45.5 through `setHeroTune`; a `handoff` row under live video picks
+`?pophandoff`; the readout line above it shows spans (`w · h · v · q`), tex MiB and decode
+mp / budget, and a handoff line: starts (mid-change, primed), clips fetched and MiB, the next world waiting).
 
 ## /work (`src/components/work/`)
 | File | Purpose |
@@ -143,7 +157,7 @@ mp / budget).
 | `CtaArrows.jsx`, `textExit.js` | Caret strips; text-out choreography (`TEXT_TUNABLES`) |
 | `pager/usePagerGesture.js` | Shared gesture engine: press-hold engage, scrub + detent magnet, wrap, end resistance, stall commit; only `requestGoTo` fires a Turn; `follow(i, instant)` steps without the glide |
 | `pager/GraticulePager.jsx` | The `scale` skin (SSR'd default). Tape/tuner arms removed; survive as tuning presets. On a `snapRef` arrival it jumps to the station and skips the announcement |
-| `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `hlsVideoOnly.js`, `ServiceTag.jsx` | Shared math/recipes/hooks. `scrimNoise.js` owns the house grain recipe and is now consumed by `globe/panelGrain.js` as well — the one `work/` → `globe/` dependency; `noiseDataUri()` (bare `data:` URI) is split out of `noiseUri()` (CSS `url()` wrapper) so WebGL and CSS share it. **`imageConfig.js` owns the video windows** (the video diet, P0 `cb7b8e8`, Nathan 10-09): `PREVIEW_SECONDS` 5 (the globe pool, /lab, the World's Near tier, MediaCard), `DETAIL_MAX_SECONDS` 15 (MediaSlot, NextProjectBand, with `wrapAtDetailCap`), and `muxStream(playbackId, end, params)`, the one builder of a clipped Mux master URL (`asset_end_time` last, once); every autoplay surface asks through it, the Lightbox does not. **`hlsVideoOnly.js`** (P0v `f951497`) is the pure master-playlist rewrite that strips the audio group from a muted surface's master; `useHls`'s `videoOnly` option installs it as the `pLoader` (`videoOnlyLoader`, cached per Hls base class), and every muted surface sets it — the Lightbox, which plays with sound, never does |
+| `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `hlsVideoOnly.js`, `hlsPrimed.js`, `ServiceTag.jsx` | Shared math/recipes/hooks. `scrimNoise.js` owns the house grain recipe and is now consumed by `globe/panelGrain.js` as well — the one `work/` → `globe/` dependency; `noiseDataUri()` (bare `data:` URI) is split out of `noiseUri()` (CSS `url()` wrapper) so WebGL and CSS share it. **`imageConfig.js` owns the video windows** (the video diet, P0 `cb7b8e8`, Nathan 10-09): `PREVIEW_SECONDS` 5 (the globe pool, /lab, the World's Near tier, MediaCard), `DETAIL_MAX_SECONDS` 15 (MediaSlot, NextProjectBand, with `wrapAtDetailCap`), and `muxStream(playbackId, end, params)`, the one builder of a clipped Mux master URL (`asset_end_time` last, once); every autoplay surface asks through it, the Lightbox does not. **`hlsVideoOnly.js`** (P0v `f951497`) is the pure master-playlist rewrite that strips the audio group from a muted surface's master; `useHls`'s `videoOnly` option installs it as the `pLoader` (`videoOnlyLoader`, cached per Hls base class), and every muted surface sets it — the Lightbox, which plays with sound, never does. **`hlsPrimed.js`** (10-27, the home globe's fast handoff) keeps playlist text fetched ahead, by URL (10 min TTL, 256 entries); `useHls`'s `primed` option layers `primedLoader` over `videoOnlyLoader` to answer hls.js from it, and `preloadHls()` loads the hls.js chunk early |
 | `*TunePanel.jsx`, `fp1Tune.js`, `FeaturedDeckDebugPanel.jsx` | `?entertune`, `?texttune`, `?scrimtune`, `?fp1tune` benches |
 | `ProjectDirectory.jsx`, `MediaGrid.jsx`, `MediaCard.jsx`, `AlbumArtTicker.jsx`, `FilterBar.jsx`, `Lightbox.jsx` | Dormant directory route |
 

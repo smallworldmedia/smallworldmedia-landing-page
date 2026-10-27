@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-10-16*
+*Last Updated: 2026-10-27*
 
 ```
 .
@@ -18,7 +18,8 @@
 │   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels
 │   │   ├── globe/            # video globe: scene hook, geometry, shader material, grain rig, schedulers,
 │   │   │                     #   textures, population modes (world pools, patterns, director, tile swaps,
-│   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass)
+│   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass),
+│   │   │                     #   clip fetch-ahead (streamPrefetch)
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
 │   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, directory stack
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)

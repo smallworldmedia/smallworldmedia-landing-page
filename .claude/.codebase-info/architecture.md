@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-10-24*
+*Last Updated: 2026-10-27*
 
 ## Summary
 
@@ -67,7 +67,9 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
    modes the globe scheduler shares streams: one decode per clip feeds every tile showing it (`?poplive`),
    and under media spans each stream takes a planned rung inside a fixed decode budget (`?poptier`).
    Every autoplay stream is a Mux clip of its surface's window, with no audio on muted surfaces
-   (`work/imageConfig.js`, `work/hlsVideoOnly.js`; the video diet, 10-09).
+   (`work/imageConfig.js`, `work/hlsVideoOnly.js`; the video diet, 10-09). On trial at `?pophandoff=fast`
+   (10-27), the globe fetches the next world's clips during the hold (`globe/streamPrefetch.js`,
+   `work/hlsPrimed.js`) and starts a change's clips while it lands.
 3. Content ingest: `media/<Client>/<Collection>/_manifest.md` → `npm run cms plan` → approve →
    `apply` (Sanity docs + Mux uploads, journaled) → `verify`. See `cms-pipeline.md`.
 

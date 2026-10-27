@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-10-16*
+*Last Updated: 2026-10-27*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -84,7 +84,9 @@ change) and where each one actually renders (`nameSlices`, per strip `{lo, hi, w
 after the pole-pinch compensation — the probe's slice and stillness gates read this). The media
 spans added `tex`, `upload`, `r1`, `decode` `{ mp, budget, pinShort, bucket, streams }`, `layout`,
 `staleLanded`, `bornCancelled` and `units` (`null` unless `?popunits` is on; otherwise the placement,
-seam, register, warp, live-split, chip and `density` counters the span gates read). The full field
+seam, register, warp, live-split, chip and `density` counters the span gates read). The video handoff
+(10-27) added `changedAt` / `landedAt` (`performance.now()` of the last change's start and landing, exact
+where the 2 Hz sample is not) and `handoff` `{ mode, waiting, fetch, primed, starts }` (`?pophandoff`). The full field
 list is `docs/globe-worlds-plan.md` § Media spans and the tunables guide's Debug globals row. It is
 read by `hero/PopTunePanel.jsx`'s readout and `scripts/globe-probe.mjs`. The `?debug`-gated `/work`
 globals are listed in `docs/tunables-guide.md`.
@@ -117,7 +119,7 @@ point of use rather than anywhere upstream. See `architecture.md` (Data Flow) fo
 |---|---|---|
 | Sanity (b60h4u7o/production) | build-time read; CLI write | `src/lib/sanityClient.js`, `src/lib/siteCopy.js` (every route), `scripts/lib/cms/adapters.mjs` |
 | Sanity CDN images | runtime read | `globe/TextureManager.js`, media slots |
-| Mux | runtime HLS + thumbnails; CLI uploads | `useHls.js`, `VideoSlotPool.jsx`, adapters. Every autoplay master is CLIPPED at the source (`work/imageConfig.js` `muxStream`: `asset_end_time` = `PREVIEW_SECONDS` for the pools and MediaCard, `DETAIL_MAX_SECONDS` on detail pages; P0 `cb7b8e8`), and muted surfaces fetch no audio (`useHls` `videoOnly` → `hlsVideoOnly.js`; P0v `f951497`). The Lightbox streams the whole asset with sound |
+| Mux | runtime HLS + thumbnails; CLI uploads | `useHls.js`, `VideoSlotPool.jsx`, adapters. Every autoplay master is CLIPPED at the source (`work/imageConfig.js` `muxStream`: `asset_end_time` = `PREVIEW_SECONDS` for the pools and MediaCard, `DETAIL_MAX_SECONDS` on detail pages; P0 `cb7b8e8`), and muted surfaces fetch no audio (`useHls` `videoOnly` → `hlsVideoOnly.js`; P0v `f951497`). The Lightbox streams the whole asset with sound. Under `?pophandoff=fast` the home globe also `fetch()`es the clips it expects ahead, at low priority (`globe/streamPrefetch.js`): their init and segment wait in the HTTP cache for the players' own requests, their no-store playlists in `work/hlsPrimed.js` |
 | Netlify Forms | inquiry POST | `ProjectOverlay.jsx` + hidden mirror form in `BaseLayout.astro` |
 | Google Fonts | Inter stylesheet | `BaseLayout.astro` |
 

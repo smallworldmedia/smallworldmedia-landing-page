@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-10-23*
+*Last Updated: 2026-10-27*
 
 ## Quick start
 ```bash
@@ -55,6 +55,7 @@ by scope.
 | Change /process | `process/useProcessScene.js`, `processConfig.js`, `processContent.js`, `src/styles/process.css`; probe with `scripts/process-probe.mjs` |
 | Chrome / footer / overlays | flat `src/components/*.jsx`, `src/styles/global.css`, `src/lib/overlayWipe.js`; the footer reveal channel is `SiteFooter.jsx` + `lib/footerTune.js` (bench `?footertune=1`), measured with `node scripts/globe-probe.mjs --footer` |
 | Change how much video a surface streams | `src/components/work/imageConfig.js` (`PREVIEW_SECONDS`, `DETAIL_MAX_SECONDS`, `muxStream`), `useHls.js`'s `videoOnly`; gate with `scripts/globe-probe.mjs` (`report.net`, `--detail=SLUG` for a detail page) |
+| Change when the home globe's videos load | `?pophandoff` (`globe/popConfig.js` `POP_HANDOFFS`, `today` by default); `globe/streamPrefetch.js` + `work/hlsPrimed.js` fetch ahead, `globe/LivePanelScheduler.js` (`predictStarts`, the 0.1 s beat) and `globe/PopulationDirector.js` (`nextWarm`, `prefetchWorld`) time it; read `window.__swmPopStats.handoff`, `changedAt`, `landedAt` |
 | Pick or add a house colour | the `--swm-*` extended palette and the `--ink-muted` role token in `src/styles/global.css`'s `:root`; consume a role token, never a raw hue, and check the contrast on black (`--swm-navy` and the brand electric blue are below 2.5:1 there) |
 | Add a client's media | write `_manifest.md` (`scripts/generate-manifests.mjs`), then `npm run cms -- plan` → `apply` → `verify` |
 | Add client logos | drop into `Client Logos/`, run `node scripts/prep-client-logos.mjs`, check `--check` |

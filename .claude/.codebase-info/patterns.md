@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-10-24*
+*Last Updated: 2026-10-27*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -284,6 +284,11 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   master it cannot rewrite safely is used as is. The file never names `URLSearchParams`,
   `location.search` or `searchParams`, comments included, because those are the tunables scanner's
   opt-in strings.
+- **A clip fetched ahead must ask for the player's exact URL, rung included**: Mux playlists are
+  `no-store`, so the fast handoff (`globe/streamPrefetch.js`) keeps their text in `work/hlsPrimed.js` for
+  `useHls`'s `primed` loader, while the init and segment (max-age 7 days) reach the players through the
+  HTTP cache. `planUrl` builds the URL the way the pool does. A clip that lands at another rung than the
+  forecast's fetches again: the 3×2 / 2×2 clips, sized by a layout planned only as their world lands.
 
 ## Verification
 - Motion/layout changes are verified on screen (Playwright at 1440 and 390), not by build success.
