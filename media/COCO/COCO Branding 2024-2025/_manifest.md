@@ -39,6 +39,4 @@ project: coco-branding-2024-2025
 | COCO UK Tour 2024/liverpool_settimes.jpg | static_4x5 | Event / Tour Creative | liverpool settimes |  |
 | COCO Live Visuals 2025/Morph-Cube.mp4 | motion_16x9 | Live Visuals | Morph Cube |  |
 | COCO UK Tour 2024/newcastle.mp4 | motion_4x5 | Event / Tour Creative | newcastle |  |
-| sosa 1.mp4 | motion_9x16 | Promo Video | sosa 1 |  |
-| sosa 2.mp4 | motion_9x16 | Promo Video | sosa 2 |  |
 | COCO Live Visuals 2025/Vinyl_Earth-Zoom.mp4 | motion_16x9 | Live Visuals | Vinyl Earth Zoom |  |
