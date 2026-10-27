@@ -15,10 +15,10 @@ year: 2026
 | HUS MMWThurs 0323 Marten Lou 3x4.png | static_3x4 | event-tour-creative | HUS MMW Marten Lou 3x4 | false | 5 |  |  | mediaAsset-hurry-up-slowly-hus-mmw-marten-lou-3x4 |
 | butch_IAA_4x5.jpg | static_4x5 | album-art | Butch IAA 4x5 | false | 6 |  |  | mediaAsset-hurry-up-slowly-butch-iaa-4x5 |
 | nic-fanciulli_IAA_4x5.jpg | static_4x5 | album-art | Nic Fanciulli IAA 4x5 | false | 7 |  |  | mediaAsset-hurry-up-slowly-nic-fanciulli-iaa-4x5 |
-| HUS-Art-01.jpg | static_1x1 | album-art | HUS Art 01 | false | 8 |  |  | mediaAsset-hurry-up-slowly-hus-art-01 |
-| HUS-Art-02.jpg | static_1x1 | album-art | HUS Art 02 | false | 9 |  |  | mediaAsset-hurry-up-slowly-hus-art-02 |
-| HUS-Art-04.jpg | static_1x1 | album-art | HUS Art 04 | false | 10 |  |  | mediaAsset-hurry-up-slowly-hus-art-04 |
-| HUS-Art-05.jpg | static_1x1 | album-art | HUS Art 05 | false | 11 |  |  | mediaAsset-hurry-up-slowly-hus-art-05 |
+| HUS-Art-01.jpg | album-art | album-art | HUS Art 01 | false | 8 |  |  | mediaAsset-hurry-up-slowly-hus-art-01 |
+| HUS-Art-02.jpg | album-art | album-art | HUS Art 02 | false | 9 |  |  | mediaAsset-hurry-up-slowly-hus-art-02 |
+| HUS-Art-04.jpg | album-art | album-art | HUS Art 04 | false | 10 |  |  | mediaAsset-hurry-up-slowly-hus-art-04 |
+| HUS-Art-05.jpg | album-art | album-art | HUS Art 05 | false | 11 |  |  | mediaAsset-hurry-up-slowly-hus-art-05 |
 | HUS-BEATPORT-Mockup.jpg | static_1x1 | branding | HUS Beatport Mockup | false | 12 |  |  | mediaAsset-hurry-up-slowly-hus-beatport-mockup |
 | HUS-SC-Banner-01.jpg | static_other | branding | HUS SC Banner 01 | false | 13 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-01 |
 | HUS-SC-Banner-02.jpg | static_other | branding | HUS SC Banner 02 | false | 14 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-02 |
