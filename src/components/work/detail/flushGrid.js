@@ -44,12 +44,16 @@ import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 
 /* ── Tessellating tile sizes ──
    Designed so 1 portrait = 2 squares = 2 landscapes (stacked),
-   guaranteeing the grid can always back-fill with zero gaps. */
-export const TILE_SIZES = {
-  portrait:  { colSpan: 1, rowSpan: 48 },
-  square:    { colSpan: 1, rowSpan: 24 },
-  landscape: { colSpan: 2, rowSpan: 24 },
-};
+   guaranteeing the grid can always back-fill with zero gaps. `sq` is a
+   square tile's row span. FeaturedProjectDetail derives it from the
+   measured column width so tiles hold their shape at every window width
+   (?tileshape, 10-27); the default 24 is the old fixed cell, 286px tall
+   whatever the column width. */
+const tileSizes = (sq) => ({
+  portrait:  { colSpan: 1, rowSpan: 2 * sq },
+  square:    { colSpan: 1, rowSpan: sq },
+  landscape: { colSpan: 2, rowSpan: sq },
+});
 
 export function classifyTile(ratio) {
   if (ratio >= PORTRAIT_THRESHOLD) return 'landscape';
@@ -115,12 +119,12 @@ function occupy(segs, c0, colSpan, row, rowSpan) {
 }
 
 /** Dense-place every showcase asset around the blocked rects. */
-function placeAll(showcase, cols, blocked) {
+function placeAll(showcase, cols, blocked, sizes) {
   const segs = freeSegments(cols, blocked);
 
   return showcase.map((asset) => {
     const type = classifyTile(ratioOf(asset));
-    const { colSpan, rowSpan } = TILE_SIZES[type];
+    const { colSpan, rowSpan } = sizes[type];
 
     let best = null;
     for (let c = 0; c <= cols - colSpan; c++) {
@@ -186,7 +190,7 @@ function guardedStretch(placements, regions, totalRows) {
  */
 const MAX_UNDERLAY_ROWS = 12; // half a landscape — a peek, never a second tile
 
-function forcedFill(placements, regions, cols, totalRows) {
+function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDERLAY_ROWS) {
   const covers = (x, xStart, xSpan, c) => xStart <= c && c < xStart + xSpan;
 
   for (let c = 0; c < cols; c++) {
@@ -232,7 +236,7 @@ function forcedFill(placements, regions, cols, totalRows) {
               );
             }
           }
-          if (target > above.rowEnd && collateral <= MAX_UNDERLAY_ROWS) {
+          if (target > above.rowEnd && collateral <= maxUnderlay) {
             above.rowEnd = target;
             above.underlay = true;
           }
@@ -251,6 +255,8 @@ function forcedFill(placements, regions, cols, totalRows) {
  * @param {number} [opts.cols=3]
  * @param {Array<{id: string, colStart: number, colSpan: number, rowSpan: number, anchor: 'top'|'mid'}>} [opts.regions=[]]
  *        Caller guarantees same-anchor regions don't overlap.
+ * @param {number} [opts.sqRows=24] - a square tile's row span (tileSizes);
+ *        the underlay bound scales with it (half a landscape).
  * @returns {{
  *   placements: Array<{col: number, colSpan: number, rowStart: number, rowEnd: number, type: string, underlay?: boolean}>,
  *   regions: Array<{id: string, colStart: number, colSpan: number, rowStart: number, rowEnd: number, anchor: string, domIndex: number}>,
@@ -259,7 +265,9 @@ function forcedFill(placements, regions, cols, totalRows) {
  *    order (single-column flow reads correctly); placements align 1:1 with
  *    the showcase array. `underlay` tiles must paint beneath intact tiles.
  */
-export function computeFlushGrid(showcase, { cols = 3, regions = [] } = {}) {
+export function computeFlushGrid(showcase, { cols = 3, regions = [], sqRows = 24 } = {}) {
+  const sizes = tileSizes(sqRows);
+
   // Clamp horizontal extent defensively; row geometry is the caller's contract.
   const norm = regions.map((r) => {
     const colSpan = Math.min(r.colSpan, cols);
@@ -278,10 +286,10 @@ export function computeFlushGrid(showcase, { cols = 3, regions = [] } = {}) {
 
   let placements;
   if (mids.length === 0) {
-    placements = placeAll(showcase, cols, resolved);
+    placements = placeAll(showcase, cols, resolved, sizes);
   } else {
     // Pass 1 — natural grid without the mid regions.
-    const natural = placeAll(showcase, cols, resolved);
+    const natural = placeAll(showcase, cols, resolved, sizes);
     const naturalEnd = Math.max(
       0,
       ...natural.map((p) => p.rowEnd),
@@ -304,7 +312,7 @@ export function computeFlushGrid(showcase, { cols = 3, regions = [] } = {}) {
     }
 
     // Pass 2 — re-place everything around the pinned regions.
-    placements = placeAll(showcase, cols, resolved);
+    placements = placeAll(showcase, cols, resolved, sizes);
   }
 
   // Bottom regions — pinned at the natural end AFTER placement (tiles can
@@ -328,7 +336,7 @@ export function computeFlushGrid(showcase, { cols = 3, regions = [] } = {}) {
   );
 
   guardedStretch(placements, resolved, totalRows);
-  forcedFill(placements, resolved, cols, totalRows);
+  forcedFill(placements, resolved, cols, totalRows, sqRows / 2);
 
   // DOM slot: before the first tile that starts at/below the region.
   for (const r of resolved) {

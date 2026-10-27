@@ -37,11 +37,13 @@
 const PORTRAIT_THRESHOLD = 1.2;
 
 /**
- * Minimum covers for an AlbumArtOrbit — a ring of 1–2 covers is nonsense,
- * and duplicating covers would read as fake in a portfolio. Below the gate,
- * covers fold back into the showcase flow instead of vanishing.
+ * Minimum covers for the album wall (AlbumArtViewer; the name is from the
+ * retired orbit ring). 10-27, Nathan: 4, so Hurry Up Slowly's four releases
+ * get the wall instead of sitting in the grid (was 6). The wall repeats
+ * covers to fill its columns, so a short catalog still fills the frame.
+ * Below the gate, covers fold back into the showcase flow as square tiles.
  */
-export const ORBIT_MIN = 6;
+export const ORBIT_MIN = 4;
 
 /** displayGroup convention that routes an asset to the BannerViewer. */
 const BANNER_GROUP_RE = /(^|-)banners?$/i;

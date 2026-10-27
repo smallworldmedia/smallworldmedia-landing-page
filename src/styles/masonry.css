@@ -36,10 +36,13 @@
      2. Stretches bottom items to the global max row
      → Flush bottom edge, zero gaps.
 
-   THREE TILE TYPES (data-tile attribute):
-     portrait  (ratio < 0.9):   1 col × 48 rows
-     square    (0.9–1.2):       1 col × 24 rows
-     landscape (ratio ≥ 1.2):   2 cols × 24 rows
+   THREE TILE TYPES (data-tile attribute), in squares:
+     portrait  (ratio < 0.9):   1 col × 2 squares
+     square    (0.9–1.2):       1 col × 1 square
+     landscape (ratio ≥ 1.2):   2 cols × 1 square
+   A square's row span comes from the measured column width, so
+   tiles hold their shape at every window width (10-27, 1:1 —
+   TILE_SHAPE in FeaturedProjectDetail.jsx, ?tileshape to re-dial).
    ============================================ */
 .masonry-grid--detail {
   /* Override masonry columns */
@@ -75,21 +78,6 @@
   object-fit: cover;
   width: 100%;
   height: 100%;
-}
-
-/* ── Square tiles: preserve 1:1 ratio ──
-   The flush-bottom algorithm may stretch row spans, so we
-   constrain the container with aspect-ratio and let the
-   excess cell height stay empty below the square tile. */
-.masonry-grid--detail > [data-tile="square"] {
-  aspect-ratio: 1 / 1;
-  height: auto;          /* let aspect-ratio govern, not the cell */
-  align-self: start;     /* pin to top of the grid cell */
-}
-
-.masonry-grid--detail > [data-tile="square"] .media-slot__media {
-  object-fit: cover;
-  aspect-ratio: 1 / 1;
 }
 
 /* ============================================
@@ -143,18 +131,20 @@
     transform: none !important;
     will-change: auto;
   }
-  /* Landscape tiles: clamp to available cols */
+  /* Landscape tiles: clamp to available cols. Row spans are measured in
+     FeaturedProjectDetail and handed down as --tile-*-rows; the fallbacks
+     hold the square shape on a ~900px two-column window until then. */
   .masonry-grid--detail > [data-tile="landscape"] {
     grid-column: span 2 !important;
-    grid-row: span 24 !important;
+    grid-row: span var(--tile-ls-rows, 38) !important;
   }
   .masonry-grid--detail > [data-tile="portrait"] {
     grid-column: span 1 !important;
-    grid-row: span 48 !important;
+    grid-row: span var(--tile-pt-rows, 76) !important;
   }
   .masonry-grid--detail > [data-tile="square"] {
     grid-column: span 1 !important;
-    grid-row: span 24 !important;
+    grid-row: span var(--tile-sq-rows, 38) !important;
   }
 }
 
@@ -163,11 +153,18 @@
   .masonry-grid--detail {
     grid-template-columns: 1fr;
   }
-  /* Single column — reset all explicit placements */
-  .masonry-grid--detail > [data-tile="portrait"],
-  .masonry-grid--detail > [data-tile="square"],
-  .masonry-grid--detail > [data-tile="landscape"] {
+  /* Single column — reset all explicit placements; measured spans as
+     above, fallbacks = a 390px phone. */
+  .masonry-grid--detail > [data-tile] {
     grid-column: 1 / -1 !important;
-    grid-row: span 24 !important;
+  }
+  .masonry-grid--detail > [data-tile="portrait"] {
+    grid-row: span var(--tile-pt-rows, 66) !important;
+  }
+  .masonry-grid--detail > [data-tile="square"] {
+    grid-row: span var(--tile-sq-rows, 33) !important;
+  }
+  .masonry-grid--detail > [data-tile="landscape"] {
+    grid-row: span var(--tile-ls-rows, 16) !important;
   }
 }

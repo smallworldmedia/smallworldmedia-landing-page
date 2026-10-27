@@ -446,7 +446,15 @@ The four shape knobs regenerate a live `HOUSE_PULSE_PATH`; at defaults the path 
 
 ## `/work/[slug]` — detail pages
 
-Readers: `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
+Readers: `detail/FeaturedProjectDetail.jsx` (`readTileShape()` in an effect), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
+
+### Grid tile shape (10-27)
+
+Row spans for the grid tiles come from the measured column width, so every tile holds one shape at every window width (portrait = 2 squares, landscape = 2 columns × 1 square). The 10px rows stay, so the wall and banner bands keep their heights.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?tileshape` | a square tile's width ÷ height; portraits and landscapes follow from it | `1` (Nathan's 10-27 bake: album art stays uncropped) | any number > 0 (`1.25` was the other option on the table) | `FeaturedProjectDetail.jsx TILE_SHAPE` |
 
 ### Deck / album walls (DeckScroller)
 
@@ -587,7 +595,7 @@ Worth tickets; none were fixed here.
 | `src/components/work/fp1Tune.js` | `FP1_DEFAULTS` (mirror of motion.js) |
 | `src/components/work/WorldCard.jsx` | the `fp1mix` / `fp1rest` literals |
 | `src/components/work/bandLayout.js` | `DECK_SPACING`, `BAND_ANGLE`, `HOME_X`, `FAN_Y`, `PILE_X` / `PILE_Y`, `VIEW_HOLD` |
-| `src/components/work/detail/{DeckScroller,BandPager,NextProjectBand,GridSocket}.jsx` | their module consts |
+| `src/components/work/detail/{FeaturedProjectDetail,DeckScroller,BandPager,NextProjectBand,GridSocket}.jsx` | their module consts |
 | `src/components/process/processConfig.js` | `TUNING_DEFAULTS`, globe-O consts, `CAM_LAG_S` |
 | `src/components/RouteFill.jsx`, `src/components/work/CtaArrows.jsx`, `src/lib/footerTune.js` | `fillcover` / `fillrelease`, `caret`, footer defaults |
 | `src/styles/global.css` | `--tape-*`, `--pager-stage-dim`, `--stepnav-*`, `--footer-lockup-h`, `--text-mono` tiers |

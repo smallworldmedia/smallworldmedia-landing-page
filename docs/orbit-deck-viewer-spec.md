@@ -56,7 +56,7 @@ The Pull-out's metadata chip panel — see component spec below. Named first-cla
 
 1. **Fix the deck-sort bug** (`buildContentFlow.js:146`): current code sorts all deck pages by `brandDeckOrder` globally, interleaving Bedouin's three decks (1,1,1,2,2,2…). Correct behavior: group by `displayGroup` → order groups by their lowest-`orderRank` member (controlled-adjacency convention) → `brandDeckOrder` within each group.
 2. **Emit decks grouped:** `brandDecks` becomes `[{ group, pages: [...] }]` so the viewer's tabs consume structure, not a flat array. (Update the `/work/index.astro` `hasBrandDeck` consumer.)
-3. **`ORBIT_MIN` gate (default 6, tunable):** when `albumArt.length < ORBIT_MIN`, fold the covers into `showcase` (1:1 squares tessellate as `square` tiles) and return `albumArt: []`. Gate lives here so the detail page and future World socket inherit identical behavior.
+3. **`ORBIT_MIN` gate (default 6, tunable; 4 since 10-27 so Hurry Up Slowly's four releases get the wall):** when `albumArt.length < ORBIT_MIN`, fold the covers into `showcase` (1:1 squares tessellate as `square` tiles) and return `albumArt: []`. Gate lives here so the detail page and future World socket inherit identical behavior.
 
 ## AlbumArtOrbit
 
