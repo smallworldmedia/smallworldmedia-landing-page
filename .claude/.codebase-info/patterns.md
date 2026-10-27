@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-10-27*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -43,7 +43,7 @@ bugs. Footer exits are masked via `--footer-peak`, never faded.
 - Benches are URL-gated and lazily `import()`ed in an effect so SSR and first client render stay
   byte-identical: `?lenistune`, `?footertune`, `?herotune`, `?committune`, `?entertune`, `?texttune`,
   `?scrimtune`, `?fp1tune`, `?debug` (process), `?fpgrid=1|2|3`, `?pager=rail`.
-- Inventory: `docs/tunables-guide.md` (285 params). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (287 keys in code as of 10-27). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. Same-key collisions across routes
   and `?lenistune=1` silently reverting the Lenis bake are known traps.
 

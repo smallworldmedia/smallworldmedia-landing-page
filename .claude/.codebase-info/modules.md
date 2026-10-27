@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-10-23*
+*Last Updated: 2026-10-27*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -51,14 +51,21 @@ graticule) · `seededLayout.js` · `fpGridCells.js` · `fpAtlas.js` / `fpForme.j
 `vendor/lensDistortion.js`.
 
 ### `work/detail/`
-`FeaturedProjectDetail.jsx` (orchestrator) · `buildContentFlow.js` (assets → hero/showcase/decks/
-albumArt/banners buckets; `isBannerGroup` routes any displayGroup ending `-banner(s)` to `banners`) ·
-`flushGrid.js` (pure placement with socket regions) · `GridSocket.jsx` (parallax on `gsap.ticker`;
+`FeaturedProjectDetail.jsx` (orchestrator; measures the grid and derives tile row spans from the
+column width through the 10px row pitch so every tile holds one shape at every width — `TILE_SHAPE`
+= 1, square 1:1, Nathan's 10-27 bake, `?tileshape` re-dials; `SQ_ROWS_FALLBACK` covers the server
+render; ≤1024/≤768 spans reach masonry.css as `--tile-sq/pt/ls-rows`) · `buildContentFlow.js`
+(assets → hero/showcase/decks/albumArt/banners buckets; `ORBIT_MIN` 4 = album covers needed for the
+album wall, fewer fold back into the grid; `isBannerGroup` routes any displayGroup ending
+`-banner(s)` to `banners`) · `flushGrid.js` (pure placement with socket regions; `sqRows` sets the
+square span — portrait 1 col × 2 squares, landscape 2 cols × 1 square, underlay bound half a
+square) · `GridSocket.jsx` (parallax on `gsap.ticker`;
 hands `--socket-rows` to CSS) · `DeckScroller.jsx` (+ `BrandDeckViewer`, `AlbumArtViewer`,
 `BannerViewer` — one-column full-width wall sized to 1.5 banners, rows derived from the measured
-flow width through the grid row pitch; ≤1024 spans `--socket-rows`, masonry.css) ·
+flow width through the grid row pitch; ≤1024 spans `--socket-rows`, masonry.css; the walls carry
+no name or count labels since 10-27, only BrandDeckViewer's deck tabs on multi-deck projects) ·
 `MediaSlot.jsx` (img `alt` → title fallback, video `aria-label` from `alt`, `description` as an
-sr-only figcaption; the dormant `MediaCard`/`Lightbox` link it via `aria-describedby`) · `ClientPanel.jsx` · `ScrambleLabel.jsx` · `DetailProgressBar.jsx` (shared with
+sr-only figcaption; the dormant `MediaCard`/`Lightbox` link it via `aria-describedby`) · `ClientPanel.jsx` · `DetailProgressBar.jsx` (shared with
 /process) · `NextProjectBand.jsx` · `useKeywordWipe.js` · `BandPager.jsx` (tabled, unmounted).
 
 ## /process (`src/components/process/`)
