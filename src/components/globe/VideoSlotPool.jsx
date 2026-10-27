@@ -28,8 +28,8 @@ import {
   createRef,
 } from 'react';
 import useHls from '../work/useHls.js';
-import { muxStream } from '../work/imageConfig.js';
 import { MAX_LIVE, GLOBE_PREVIEW_SECONDS, GLOBE_STREAM_PARAMS } from './globeConfig.js';
+import { poolStreamUrl } from './streamPrefetch.js';
 
 /** hls.js config for pool slots — locked rendition. maxBufferLength is a
  *  FLOOR, not a cap: hls.js aims its forward buffer at 8 × maxBufferSize ÷
@@ -48,12 +48,14 @@ function streamUrl(playbackId, params) {
   // the lowest remaining level, so the two always agree. The clip goes last,
   // once, after whatever params the caller passed (muxStream): Mux ends the
   // stream on the first segment boundary at or after the preview window, so
-  // a slot fetches nothing past the segment its loop point falls in.
-  return muxStream(playbackId, GLOBE_PREVIEW_SECONDS, params);
+  // a slot fetches nothing past the segment its loop point falls in. The
+  // home globe's fast handoff fetches clips ahead under this same URL.
+  return poolStreamUrl(playbackId, params);
 }
 
 function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
-  useHls(videoRef, src, POOL_HLS_CONFIG, { preferMinQuality: true, videoOnly: true });
+  // primed: a playlist the globe fetched ahead (streamPrefetch) plays from memory
+  useHls(videoRef, src, POOL_HLS_CONFIG, { preferMinQuality: true, videoOnly: true, primed: true });
 
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;

@@ -56,9 +56,14 @@
  * @param {boolean} [options.videoOnly=false] - Never fetch audio. For muted,
  *   never-unmuted surfaces only (globe/World pool, detail slots, next-project
  *   band, media cards). The Lightbox plays WITH sound and must not pass it.
+ * @param {boolean} [options.primed=false] - With videoOnly: a playlist the
+ *   home globe fetched ahead (its fast handoff, hlsPrimed.js) is read from
+ *   memory instead of the network. The pool slots only; a playlist nobody
+ *   primed loads from the network as before.
  */
 import { useEffect, useRef } from 'react';
 import { stripAudioFromMaster } from './hlsVideoOnly.js';
+import { takePrimedPlaylist } from './hlsPrimed.js';
 
 /**
  * Module-level memo for the lazily imported library.
@@ -92,6 +97,14 @@ function loadHls() {
     });
   }
   return hlsModulePromise;
+}
+
+/** Fetch the library before the first attach needs it (the home globe's fast
+ *  handoff, ?pophandoff=fast, once its stills are in), so that attach takes the
+ *  warm, synchronous path. Never rejects: a failed fetch is the memoised
+ *  failure loadHls describes, and the attach degrades as it would anyway. */
+export function preloadHls() {
+  if (mayHaveMse()) loadHls().catch(() => {});
 }
 
 /**
@@ -156,11 +169,65 @@ export function videoOnlyLoader(Hls) {
   return VideoOnlyLoader;
 }
 
+/**
+ * ── primed: the videoOnly loader, plus the playlists fetched ahead ──
+ * The home globe's fast handoff (?pophandoff=fast) fetches the next world's
+ * clips during the current hold (globe/streamPrefetch.js): the playlists' text
+ * goes to hlsPrimed, the init and the segment to the HTTP cache. A load whose
+ * URL is primed is answered from that text, with the master stripped as
+ * videoOnly strips it. The answer comes a task later, never inside load():
+ * useHls registers its MANIFEST_PARSED handler only after loadSource returns.
+ * Every other load is the videoOnly loader's. One class per base, as above.
+ * Exported for the tests.
+ */
+let PrimedLoader = null;
+
+export function primedLoader(Hls) {
+  const Base = videoOnlyLoader(Hls);
+  if (!PrimedLoader || Object.getPrototypeOf(PrimedLoader) !== Base) {
+    PrimedLoader = class extends Base {
+      load(context, config, callbacks) {
+        const text = takePrimedPlaylist(context.url);
+        if (text == null) {
+          super.load(context, config, callbacks);
+          return;
+        }
+        const { stats } = this;
+        if (stats.loading.start) throw new Error('Loader can only be used once.'); // the XHR loader's own contract
+        this.context = context;
+        this.config = config;
+        this.callbacks = callbacks;
+        stats.loading.start = performance.now();
+        this.primedTimer = setTimeout(() => {
+          this.primedTimer = null;
+          const cbs = this.callbacks;
+          if (!cbs || stats.aborted) return;
+          const data = context.type === 'manifest' ? stripAudioFromMaster(text) : text;
+          stats.loading.first = stats.loading.end = Math.max(performance.now(), stats.loading.start);
+          stats.loaded = stats.total = data.length;
+          cbs.onSuccess({ url: context.url, data, code: 200 }, stats, context, null);
+        }, 0);
+      }
+
+      // abort() and destroy() both come through here: a pending answer never lands.
+      abortInternal() {
+        if (this.primedTimer) {
+          clearTimeout(this.primedTimer);
+          this.primedTimer = null;
+          this.stats.aborted = true;
+        }
+        super.abortInternal();
+      }
+    };
+  }
+  return PrimedLoader;
+}
+
 export default function useHls(
   videoRef,
   src,
   hlsConfig = {},
-  { preferMaxQuality = false, preferMinQuality = false, videoOnly = false } = {}
+  { preferMaxQuality = false, preferMinQuality = false, videoOnly = false, primed = false } = {}
 ) {
   const hlsRef = useRef(null);
 
@@ -225,8 +292,9 @@ export default function useHls(
           ? { capLevelToPlayerSize: true }
           : {}),
         // Muted surfaces only: rewrite the master so no audio is fetched
-        // (see videoOnlyLoader). The Lightbox never sets this.
-        ...(videoOnly ? { pLoader: videoOnlyLoader(Hls) } : {}),
+        // (see videoOnlyLoader). The Lightbox never sets this. The pool slots
+        // also read the playlists the globe fetched ahead (primedLoader).
+        ...(videoOnly ? { pLoader: primed ? primedLoader(Hls) : videoOnlyLoader(Hls) } : {}),
         ...hlsConfig,
       });
       instance = hls;

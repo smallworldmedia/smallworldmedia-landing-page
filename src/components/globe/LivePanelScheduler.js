@@ -24,6 +24,12 @@
  * setShared(true) (?poplive=shared) spends the decode budget per CLIP instead
  * of per tile: one slot, one <video>, one VideoTexture per playbackId, bound
  * on every tile showing it (see updateShared).
+ *
+ * The fast handoff (?pophandoff=fast, shared streams; Nathan 10-27): a change
+ * starts its clips while its tiles still swap (update's `incoming`), on a
+ * 0.1 s beat (HANDOFF_BEAT_S), and a stream that loads before its tiles land
+ * waits for them. The director fetches the next world's clips ahead
+ * (predictStarts → streamPrefetch) once handoffQuiet says this world's are in.
  */
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -46,6 +52,8 @@ import {
 } from './globeConfig.js';
 import { liveB, pictureAspect, mp, frameOf, rungAtMost, sourceShort, parseRatio, STREAM_RUNGS, TIER_RANK, pinShortOf } from './unitSpan.js';
 import { windowA } from './tileSwap.js';
+import { planUrl } from './streamPrefetch.js';
+import { primedPlaylist } from '../work/hlsPrimed.js';
 
 // NDC margin for "on screen" — matters in mobile cover-overscan, where a
 // panel can face the camera yet sit cropped outside the viewport
@@ -56,6 +64,10 @@ const MAX_SWAPS_PER_UPDATE = 4; // spread thumbnail fetches out over time
 // at once, and refilling them all in one beat stacks player setups on a frame
 const MAX_PROMOTES_PER_UPDATE = 2;
 const TIER_PENDING_S = 2 * GLOBE_PREVIEW_SECONDS; // a pinned rung that hasn't presented within two loops is treated as missing
+// The fast handoff's beat (useGlobeScene reads it): a change's clips start while it lands and a tile joins within a
+// beat of landing, still at most MAX_PROMOTES_PER_UPDATE a beat.
+export const HANDOFF_BEAT_S = 0.1;
+const HANDOFF_QUIET_S = 0.3; // nothing loading and no start for this long: the world's videos are in (handoffQuiet)
 
 function parseAspect(ratio) {
   if (typeof ratio !== 'string') return 1;
@@ -108,6 +120,10 @@ export default class LivePanelScheduler {
     this.pinShort = pinShortOf(pinParams); // the pool's pin (GLOBE_STREAM_PARAMS): by default 720 on desktop (Nathan 10-23, Q22) and 480 on phones, else ?globeres's rung
     this.decodeBudget = MAX_LIVE * mp(this.pinShort, 16 / 9); // MAX_LIVE × the served pin frame: today's at the default (R4)
     this.tierFail = new Set(); // playbackIds whose planned rung failed: their next start asks the pin itself
+    this.pinParams = pinParams; // the pool's own URL params (streamPrefetch.planUrl, for the handoff's primed count)
+    this.incoming = null; // the fast handoff, mid-change: the worlds coming in (update)
+    this.lastStartAt = -Infinity; // when the last stream started (handoffQuiet)
+    this.handoff = { starts: 0, ahead: 0, primed: 0 }; // the fast handoff's starts: all, mid-change, onto a primed clip
     this.disposed = false;
 
     // Next pool index for hidden swaps — starts after the initial assignment
@@ -133,10 +149,15 @@ export default class LivePanelScheduler {
    * @param {boolean} [dragging=false] - user is mid-drag: skip promotions
    *        (no Hls startups during the gesture); demotes and hidden swaps
    *        still run
+   * @param {Set<number>|null} [incoming=null] - the fast handoff only: a
+   *        population change is landing these worlds, so their clips may
+   *        start while the tiles still swap (useGlobeScene passes it while the
+   *        director is busy instead of deferring as `dragging`)
    */
-  update(rotation, now, camera, dragging = false) {
+  update(rotation, now, camera, dragging = false, incoming = null) {
     if (this.disposed || !this.assets.length) return;
     this.now = now;
+    this.incoming = this.handoffFast ? incoming : null;
 
     const scored = this.panels.map((panel) => {
       const dir = this.scoreVec.copy(panel.centerDir).applyEuler(rotation);
@@ -260,6 +281,11 @@ export default class LivePanelScheduler {
    * streams (the population modes, ?poplive). Everything live drops first; the
    * next update re-lights the prominent tiles under the new mode.
    */
+  /** ?pophandoff=fast, read live: shared streams only (one decode per clip is what a clip fetched ahead feeds). */
+  get handoffFast() {
+    return this.shared && POP_TUNING.handoff === 'fast';
+  }
+
   setShared(on) {
     const want = !!on;
     if (this.disposed || want === this.shared) return;
@@ -292,10 +318,13 @@ export default class LivePanelScheduler {
       if (panel.parked || panel.asset?.playbackId !== s.id || (panel.asset?.place?.uid ?? null) !== (panel.liveUid ?? null)) this.detach(panel);
       else if (visible && score >= DEMOTE_SCORE && !this.grainHidden(panel)) seen.add(s);
     }
+    // The fast handoff: a stream that loaded before its tiles landed waits for them while one is still on its way
+    // (aheadScores), up to MIN_LIVE_DWELL unseen, instead of ending into its cooldown.
+    const ahead = this.handoffFast ? this.aheadScores(scored) : null;
     for (const s of [...this.streams.values()]) {
       if (s.state !== 'live') continue;
       const age = now - s.since;
-      if (!s.panels.size || (!seen.has(s) && age > MIN_LIVE_DWELL_SECONDS) || age > s.maxDwell) {
+      if ((!s.panels.size && !ahead?.has(s.id)) || (!seen.has(s) && age > MIN_LIVE_DWELL_SECONDS) || age > s.maxDwell) {
         this.endStream(s);
       }
     }
@@ -306,10 +335,16 @@ export default class LivePanelScheduler {
       const s = this.streams.get(panel.asset.playbackId);
       if (s?.state === 'live') for (const m of grp) this.attach(m, s);
     }
-    // New streams wait out a drag or a population relayout, like promotes.
+    // New streams wait out a drag or a population relayout, like promotes —
+    // except a fast handoff's change, which starts its own clips as it lands.
     if (dragging) return;
     const clips = new Map();
-    for (const { panel, score, visible } of scored) {
+    if (this.incoming) {
+      for (const [id, score] of ahead) {
+        if (this.streams.has(id) || now - (this.clipLastEnd.get(id) ?? -Infinity) <= RELIVE_COOLDOWN_SECONDS) continue;
+        clips.set(id, score);
+      }
+    } else for (const { panel, score, visible } of scored) {
       if (!visible || score <= PROMOTE_SCORE) continue;
       const grp = this.joinGroup(panel);
       if (!grp) continue;
@@ -364,6 +399,31 @@ export default class LivePanelScheduler {
     );
   }
 
+  /** The fast handoff's look ahead: clip → its summed score over the visible tiles about to show it, a tile mid-swap
+   *  by its incoming asset (swapAsset) and any other by its own, bound or not (aheadGroup). Mid-change only the
+   *  incoming worlds' tiles count, so the world going out starts nothing. */
+  aheadScores(scored) {
+    const out = new Map();
+    for (const { panel, score, visible } of scored) {
+      if (!visible || score <= PROMOTE_SCORE) continue;
+      const a = panel.swapAsset || panel.asset;
+      if (!a?.playbackId || (this.incoming && !this.incoming.has(a.world))) continue;
+      const grp = this.aheadGroup(panel, a);
+      if (grp) out.set(a.playbackId, (out.get(a.playbackId) || 0) + score * grp.length);
+    }
+    return out;
+  }
+
+  /** joinGroup for the tiles about to show `a`: none parked or under the grain, a unit whole in what its members will
+   *  show, whether or not they are mid-swap, bound yet or lit. */
+  aheadGroup(panel, a) {
+    if (panel.parked || this.grainHidden(panel)) return null;
+    const pl = a.place;
+    if (!pl) return [panel];
+    if (pl.members[0] !== panel) return null;
+    return pl.members.every((m) => (m.swapAsset || m.asset)?.place?.uid === pl.uid && !m.parked && !this.grainHidden(m)) ? pl.members : null;
+  }
+
   /** The tiles that join a stream together: a single-only tile alone, or a whole
    *  unit through its lead, all or none. One grain-hidden, parked or mid-swap
    *  member keeps the whole unit off. */
@@ -389,11 +449,12 @@ export default class LivePanelScheduler {
     let ratio = null;
     let src = null;
     for (const p of this.panels) {
-      if (p.parked || p.asset?.playbackId !== id) continue;
-      const c = p.asset.place ? p.asset.place.cls : 's';
+      const a = this.incoming ? p.swapAsset || p.asset : p.asset; // mid-change (the fast handoff): what the tile is about to show
+      if (p.parked || a?.playbackId !== id) continue;
+      const c = a.place ? a.place.cls : 's';
       if (TIER_RANK[c] > TIER_RANK[cls]) cls = c;
-      ratio ??= parseRatio(p.asset.videoAspectRatio);
-      src ??= sourceShort(p.asset); // the island's s (M2): TOP_RUNG when not carried, 0 when unknown
+      ratio ??= parseRatio(a.videoAspectRatio);
+      src ??= sourceShort(a); // the island's s (M2): TOP_RUNG when not carried, 0 when unknown
     }
     const t = this.tierFor(cls);
     if (!t) return null;
@@ -409,8 +470,42 @@ export default class LivePanelScheduler {
       if (!(rung >= t.floor)) continue;
       const plan = this.rungPlan(rung, ratio ?? 16 / 9);
       if (used + plan.mp <= this.decodeBudget + 1e-9) return plan;
+      if (this.incoming) return false; // mid-change the world going out still holds budget: wait for it, not a rung lower
     }
     return false;
+  }
+
+  /** The fast handoff's forecast: the plans `clips` (most wanted first, { id, asset }: the asset dressed as the unit
+   *  class it should light) would start on, with nothing streaming: planOf's own admission, a false ending the walk
+   *  as it ends a beat (head-of-line), at most one per slot. */
+  predictStarts(clips) {
+    let used = 0;
+    const sim = Object.create(this, { panels: { value: [], writable: true }, incoming: { value: null }, plannedMp: { value: () => used } });
+    const out = [];
+    for (const { id, asset } of clips) {
+      if (out.length >= this.slots.length) break;
+      sim.panels = [{ parked: false, asset }];
+      const plan = this.planOf.call(sim, id);
+      if (plan === false) break;
+      out.push({ id, plan });
+      used += plan ? plan.mp : mp(this.pinShort, 16 / 9);
+    }
+    return out;
+  }
+
+  /** predictStarts before the scheduler exists (the intro hold defers it, useGlobeScene): a fresh one's admission. */
+  static forecast(clips, { tierFor = null, pinParams = GLOBE_STREAM_PARAMS } = {}) {
+    return new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null, tierFor, pinParams }).predictStarts(clips);
+  }
+
+  /** The fast handoff's cue for the next world's loads: nothing is loading and nothing started for HANDOFF_QUIET_S. */
+  handoffQuiet() {
+    for (const s of this.streams.values()) if (s.state === 'pending') return false;
+    return this.now - this.lastStartAt >= HANDOFF_QUIET_S;
+  }
+
+  handoffStats() {
+    return { ...this.handoff };
   }
 
   /** The frame Mux serves at rung t for aspect r (unitSpan.frameOf). At the pin
@@ -454,6 +549,12 @@ export default class LivePanelScheduler {
     const stream = { id, slot, state: 'pending', texture: null, panels: new Set(), since: this.now, maxDwell: 0, releaseCall: null, plan, tierCall: null };
     this.streams.set(id, stream);
     this.slots[slot] = stream;
+    this.lastStartAt = this.now;
+    if (this.handoffFast) {
+      this.handoff.starts += 1;
+      if (this.incoming) this.handoff.ahead += 1;
+      if (primedPlaylist(planUrl(id, plan, this.pinParams)) != null) this.handoff.primed += 1;
+    }
     if (plan?.params) {
       stream.tierCall = gsap.delayedCall(TIER_PENDING_S, () => {
         if (this.streams.get(id) !== stream || stream.state !== 'pending') return;
@@ -474,7 +575,8 @@ export default class LivePanelScheduler {
         stream.since = this.now;
         stream.maxDwell = MAX_LIVE_DWELL_SECONDS * (0.75 + Math.random() * 0.5);
         for (const p of this.panels) if (p.asset?.playbackId === id) { const grp = this.joinGroup(p); if (grp) for (const m of grp) this.attach(m, stream); }
-        if (!stream.panels.size) this.releaseStream(stream); // every copy left while it loaded
+        // Every copy left while it loaded — or, under the fast handoff, none has landed yet (updateShared ends it if none is coming).
+        if (!stream.panels.size && !this.handoffFast) this.releaseStream(stream);
       })
       .catch(() => {
         // Slot released under it (releaseStream rejects the waiter) or the

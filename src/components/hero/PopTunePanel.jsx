@@ -39,6 +39,7 @@ import {
   POP_TRANSITIONS,
   POP_LIVE,
   POP_TIERS,
+  POP_HANDOFFS,
   POP_SHAPES,
   POP_NAME_MODES,
   POP_NAME_STYLES,
@@ -194,6 +195,11 @@ export default function PopTunePanel({ sceneApiRef }) {
             video {stats.streams} decode{stats.streams === 1 ? '' : 's'} → {stats.liveTiles} tiles ·{' '}
             {stats.live.length ? stats.live.join(', ') : '—'}
             <br />
+            handoff {stats.handoff?.mode ?? '—'}
+            {stats.handoff?.starts
+              ? ` · starts ${stats.handoff.starts.starts} (mid-change ${stats.handoff.starts.ahead}, primed ${stats.handoff.starts.primed}) · fetched ${stats.handoff.fetch.done}/${stats.handoff.fetch.asked} ${(stats.handoff.fetch.bytes / 1048576).toFixed(1)} MiB${stats.handoff.waiting ? ' · next world waiting' : ''}`
+              : ''}
+            <br />
             names {stats.nameTiles} tile{stats.nameTiles === 1 ? '' : 's'} ·{' '}
             {stats.namePlaced
               ? `${stats.namePlaced.mode} span ${stats.namePlaced.span} · ${stats.namePlaced.quad ?? '—'}${
@@ -296,6 +302,7 @@ export default function PopTunePanel({ sceneApiRef }) {
 
       <div className="hero-tune__group">video · colour</div>
       <Segmented label="live video" value={s.live} options={POP_LIVE} onPick={(m) => set('live', m)} />
+      <Segmented label="handoff" value={s.handoff} options={POP_HANDOFFS} onPick={(m) => set('handoff', m)} />
       <Segmented
         label="colour"
         value={s.color ? 'world' : 'blue'}
@@ -303,9 +310,13 @@ export default function PopTunePanel({ sceneApiRef }) {
         onPick={(m) => set('color', m === 'world' ? 1 : 0)}
       />
       <p className="hero-tune__note">
-        ?poplive · ?popcolor. shared = one decode per clip, bound on every tile showing it (the
-        repeats play in sync); tile = one decode per live tile. world = the projectColor takes
-        the lattice, ring, gradient, enter_world and the nav accents.
+        ?poplive · ?pophandoff · ?popcolor. shared = one decode per clip, bound on every tile showing it (the
+        repeats play in sync); tile = one decode per live tile. handoff (shared only; 10-27, on trial): fast = a
+        change starts its videos while it lands, on a 0.1 s beat; once they play, the next world's stills load,
+        then the clips it should start (a few at a time, low priority), so it lands on clips already in memory;
+        the first world's clips load while the intro holds. today = videos start after a change, 2 per 0.5 s.
+        the first-world fetch needs a reload. world = the projectColor takes the lattice, ring, gradient,
+        enter_world and the nav accents.
       </p>
 
       <div className="hero-tune__group">names</div>

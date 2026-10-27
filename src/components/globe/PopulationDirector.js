@@ -74,6 +74,8 @@ import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
 import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
 import { SCROLL_VISIBLE_ROWS, GLOBE_T1 } from './globeConfig.js';
+import { planUrl, prefetchClips, prefetchStats } from './streamPrefetch.js';
+import { primedPlaylistStats } from '../work/hlsPrimed.js';
 import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, quadEligible, wideClass, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
@@ -92,6 +94,10 @@ const GRID = 64; // tape grid key stride (lon < GRID)
 const FACING = 0.05; // prominence floor for "visible" in the stats
 const RECENT = 4; // chaos never jumps back to one of the last RECENT worlds
 const TIDE_EASE = gsap.parseEase('power3.out');
+// The fast handoff (?pophandoff=fast): the next world's loads wait for this world's videos (the scheduler's
+// handoffQuiet) at least NEXT_WARM_QUIET_S into the hold, and never past NEXT_WARM_CAP_S.
+const NEXT_WARM_QUIET_S = 0.3;
+const NEXT_WARM_CAP_S = 2;
 
 export default class PopulationDirector {
   /**
@@ -104,8 +110,11 @@ export default class PopulationDirector {
    * @param {() => THREE.Euler} opts.getRotation - the globe's live rotation
    * @param {() => boolean} opts.canAnimate - false → swaps land as cuts, the clock waits
    * @param {(world: Object|null, info: { animate: boolean }) => void} [opts.onWorld]
+   * @param {(clips: Array<{ id: string, asset: Object }>) => Array<{ id: string, plan: Object|null }>} [opts.forecast]
+   *        The fast handoff: the plans the scheduler would start clips on (LivePanelScheduler.predictStarts, or a
+   *        fresh scheduler's while the intro hold defers it). Default: the live scheduler's, if any.
    */
-  constructor({ panels, worlds, textureManager, getScheduler, getScroller = () => null, getRotation, canAnimate, onWorld = null, getPace = () => 0, getHorizon = () => Math.PI, revealHeld = false }) {
+  constructor({ panels, worlds, textureManager, getScheduler, getScroller = () => null, getRotation, canAnimate, onWorld = null, getPace = () => 0, getHorizon = () => Math.PI, revealHeld = false, forecast = null }) {
     this.panels = panels;
     this.worlds = worlds;
     this.textureManager = textureManager;
@@ -121,6 +130,8 @@ export default class PopulationDirector {
     this.busyCall = null;
     this.layoutToken = 0;
     this.changing = null; // the timed change in flight (tide | blink | surge | cut)
+    this.changedAt = null; // performance.now() of the last change's start and of its landing (sample(): the probe's
+    this.landedAt = null; // video timing reads them; the 2 Hz sample alone is ±0.5 s)
     this.tide = null; // { t, T, D, done, scroller } while a tide rolls
     this.greeted = false; // the first world announced (after the entrance)
     this.flips = 0; // tiles re-laid in place (monotonic; births aren't flips)
@@ -134,6 +145,8 @@ export default class PopulationDirector {
     this.warm = new Map(); // texture key → its load promise; one director ref per key
     this.upcoming = null; // the next grouping, pre-warmed
     this.upcomingKind = null; // …and the transition that will bring it
+    this.forecast = forecast;
+    this.nextWarm = null; // the fast handoff: { wait } while the next world's warm waits for this world's videos
     this.lon = 1 + Math.max(...panels.map((p) => p.lonIndex));
     const byRow = new Map();
     for (const p of panels) {
@@ -869,7 +882,81 @@ export default class PopulationDirector {
     const step = this.step + 1;
     this.upcoming = this.makeGrouping({ step, lead: this.nextLead(step) });
     this.upcomingKind = this.nextKind(step);
-    this.warmPools(this.warmSet(this.upcoming));
+    // The fast handoff: the next world's loads wait until this world's videos are in (update → waitNextWarm).
+    if (this.handoffFast) this.nextWarm = { wait: 0 };
+    else this.warmNext();
+  }
+
+  /** ?pophandoff=fast, read live; the scheduler's own gate (shared streams) with it. */
+  get handoffFast() {
+    return TUNING.handoff === 'fast' && TUNING.live === 'shared';
+  }
+
+  /** Warm the next world's stills — and under the fast handoff, once they settle, fetch its clips ahead. */
+  warmNext() {
+    this.nextWarm = null;
+    const g = this.upcoming;
+    if (!g) return;
+    const warm = this.warmPools(this.warmSet(g));
+    if (!this.handoffFast) return;
+    warm.then(() => {
+      if (!this.disposed && this.upcoming === g) this.prefetchWorld(g);
+    });
+  }
+
+  /** The fast handoff's deferred warm: once the scheduler is quiet (this world's streams are in), or at the cap —
+   *  at once if the dial went back to today meanwhile. */
+  waitNextWarm(dt) {
+    const w = this.nextWarm;
+    w.wait += dt;
+    if (!this.handoffFast || (w.wait >= NEXT_WARM_QUIET_S && this.getScheduler()?.handoffQuiet?.()) || w.wait >= NEXT_WARM_CAP_S) this.warmNext();
+  }
+
+  /** The clips grouping `g` should start when it lands, fetched ahead: its pools round-robined in order (the order
+   *  its tiles take them, pick), each clip once, the bigger unit class first (a unit's score counts every tile it
+   *  covers), dressed as that class for the forecast. A unit that lands smaller plans a lower rung: that fetch misses. */
+  prefetchWorld(g) {
+    const seen = new Set();
+    const recs = [];
+    const n = Math.max(0, ...g.pools.map((l) => l.length));
+    for (let i = 0; i < n; i++) {
+      for (const pool of g.pools) {
+        const a = pool[i];
+        if (!a?.playbackId || seen.has(a.playbackId)) continue;
+        seen.add(a.playbackId);
+        recs.push(a);
+      }
+    }
+    const tiles = (a) => (UNIT_SHAPE[a.unitCls] ? UNIT_SHAPE[a.unitCls].cols * UNIT_SHAPE[a.unitCls].rows : 1);
+    recs.sort((x, y) => tiles(y) - tiles(x)); // stable: pool order within a size
+    this.prefetchFor(recs.map((a) => ({ id: a.playbackId, asset: { ...a, place: UNIT_SHAPE[a.unitCls] ? { cls: a.unitCls } : null } })));
+  }
+
+  /** The first world, already laid (useGlobeScene, once its stills settle under the intro hold): a clip weighs its
+   *  front tiles' summed prominence, as the scheduler ranks it, and plans from its biggest unit anywhere (planOf). */
+  prefetchLaid() {
+    const rot = this.getRotation();
+    const by = new Map();
+    for (const p of this.panels) {
+      const a = p.asset;
+      if (p.parked || !a?.playbackId) continue;
+      const e = by.get(a.playbackId) ?? { id: a.playbackId, asset: a, w: 0 };
+      if ((a.place?.n ?? 0) > (e.asset.place?.n ?? 0)) e.asset = a;
+      e.w += Math.max(0, this._v.copy(p.centerDir).applyEuler(rot).z);
+      by.set(a.playbackId, e);
+    }
+    this.prefetchFor([...by.values()].filter((e) => e.w > 0).sort((x, y) => y.w - x.w));
+  }
+
+  /** Fetch ahead the clips (most wanted first) the scheduler would start (its own admission, forecast). */
+  prefetchFor(clips) {
+    const plans = this.forecast ? this.forecast(clips) : this.getScheduler()?.predictStarts(clips);
+    if (plans?.length) prefetchClips(plans.map(({ id, plan }) => planUrl(id, plan)));
+  }
+
+  /** The worlds a change in flight is landing: the fast handoff's scheduler starts their clips mid-change. */
+  incomingWorlds() {
+    return (this.grouping.incoming ??= new Set(this.grouping.members));
   }
 
   beginHold() {
@@ -888,6 +975,7 @@ export default class PopulationDirector {
       this.rollTide(dt);
       return;
     }
+    if (this.nextWarm && !this.busy && !this.held) this.waitNextWarm(dt);
     if (this.held || this.busy || this.worlds.length < 2) return;
     this.holdLeft -= dt;
     if (this.holdLeft <= 0) this.advance();
@@ -916,6 +1004,7 @@ export default class PopulationDirector {
     this.grouping = this.upcoming ?? this.makeGrouping({ lead: this.nextLead(this.step) });
     this.lead = this.grouping.members[0];
     this.changing = kind;
+    this.changedAt = performance.now();
     this.emitWorld(animate);
     if (kind === 'tide' && this.startTide()) return;
     // No scroll to surge (the scene is still held) → the tide lands as a blink.
@@ -948,6 +1037,7 @@ export default class PopulationDirector {
   settle() {
     this.busy = false;
     this.changing = null;
+    this.landedAt = performance.now();
     this.planNext();
     this.beginHold();
     this.releaseCold();
@@ -1029,8 +1119,9 @@ export default class PopulationDirector {
     } else if (key === 'transitions' || key === 'chaos') {
       if (!this.busy) this.planNext(); // re-draw the next world + transition
     } else if (key === 'color') this.emitWorld(true);
-    else if (key === 'trans' || key === 'live' || key === 'enter' || key === 'tier') {
-      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World / the scheduler reads the tier at each stream start
+    else if (key === 'trans' || key === 'live' || key === 'enter' || key === 'tier' || key === 'handoff') {
+      // read at the next change / the scene swaps the live tier / Hero reads it at Enter World / the scheduler reads the tier at each stream start /
+      // the scheduler and the scene read the handoff every beat (a warm it deferred runs on the next frame, from update)
     } else this.relayout(); // share, group, unitMax, the name knobs (media, cap and a reset's '*' re-decorate first, above)
   }
 
@@ -1370,6 +1461,8 @@ export default class PopulationDirector {
       next: this.upcoming ? label(this.upcoming.members[0]) : null,
       transition: this.changing ?? this.upcomingKind,
       holdLeft: this.busy ? null : Math.max(0, Math.round(this.holdLeft * 10) / 10),
+      changedAt: this.changedAt == null ? null : Math.round(this.changedAt),
+      landedAt: this.landedAt == null ? null : Math.round(this.landedAt),
       color: TUNING.color ? (this.worlds[this.lead]?.projectColor ?? null) : null,
       pattern: g.name,
       seed: this.seed,
@@ -1406,6 +1499,9 @@ export default class PopulationDirector {
       staleLanded: this.staleLanded,
       bornCancelled: this.getScroller()?.bornCancelled ?? 0,
       units: TUNING.units && this.L ? this.unitStats(r1) : null,
+      // The fast handoff: the next world's warm still deferred, the clips fetched ahead, the playlists players took
+      // from memory, the scheduler's starts (all · mid-change · onto a primed clip).
+      handoff: { mode: TUNING.handoff, waiting: !!this.nextWarm, fetch: prefetchStats(), primed: primedPlaylistStats(), starts: this.getScheduler()?.handoffStats?.() ?? null },
     };
     this.flipsSampled = this.flips;
     if (typeof window !== 'undefined') window.__swmPopStats = stats;
@@ -1419,6 +1515,7 @@ export default class PopulationDirector {
     for (const p of this.panels) cancelSwap(p);
     for (const k of this.warm.keys()) this.textureManager.release(k);
     this.warm.clear();
+    prefetchClips([]); // the clips not yet fetched ahead go with the globe (one in flight finishes)
     if (typeof window !== 'undefined') delete window.__swmPopStats;
   }
 }

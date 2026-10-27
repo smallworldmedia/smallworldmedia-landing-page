@@ -34,6 +34,9 @@
  * (nameFace), in the quadrant opposite the last world's — or across a whole
  * latitude row (nameMode=band). Starting values, until Nathan dialed four of
  * them on 10-23: size 0.83, band 0.57, face 0.44, span max 4.
+ * 10-27 = the video handoff (handoff), on trial at ?pophandoff=fast: the next
+ * world's clips load during the hold, after its own videos have started, and
+ * a change's videos start while it lands.
  */
 import { PATTERNS } from './worldPatterns.js';
 import { WORLD_POOL_CAP } from './buildWorldPools.js';
@@ -67,6 +70,10 @@ export const POP_LIVE = ['shared', 'tile'];
  *  9:16 → 1×2, ?popquads squares a world → 2×2, the rest single). */
 export const POP_SHAPES = ['wide', 'classic'];
 export const POP_TIERS = ['auto', 'today', 'lean']; // ?poptier — auto = per-DPR-bucket rungs (unitSpan STREAM_TIERS), today = the pool's pin for every stream, lean = one rung lower
+/** How a world's videos come in (shared streams only): today = they load once the world has landed, and the next
+ *  world's stills load as it lands; fast = the next world's clips load during the hold, after its own have started
+ *  (streamPrefetch.js), and a change starts its clips while its tiles still swap, on a 0.1 s beat. */
+export const POP_HANDOFFS = ['today', 'fast'];
 export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES, NAME_MODES as POP_NAME_MODES };
 
 /** popmedia → the media kinds a world's pool keeps (null = its whole pool:
@@ -125,6 +132,7 @@ export const POP_DEFAULTS = Object.freeze({
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
   equiv: 32, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Nathan 10-24, 32 (the top; Q8 10-23 was 12, before that 0)
+  handoff: 'today', // ?pophandoff — today | fast (POP_HANDOFFS): fast = the next world's videos load during the hold and a change's start while it lands (10-27, on trial)
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
@@ -166,6 +174,7 @@ const CHOICE = {
   layout: ['poplayout', POP_LAYOUTS],
   live: ['poplive', POP_LIVE],
   tier: ['poptier', POP_TIERS],
+  handoff: ['pophandoff', POP_HANDOFFS],
   shapes: ['popshapes', POP_SHAPES],
   nameStyle: ['popnamestyle', NAME_STYLES],
   nameMode: ['popnamemode', NAME_MODES],

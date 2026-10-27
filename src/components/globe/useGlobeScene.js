@@ -48,7 +48,8 @@ import { createPanelMaterial } from './panelMaterial.js';
 import TextureManager, { assetKey } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import { settleDebounce } from '../../lib/settleResize.js';
-import LivePanelScheduler from './LivePanelScheduler.js';
+import LivePanelScheduler, { HANDOFF_BEAT_S } from './LivePanelScheduler.js';
+import { preloadHls } from '../work/useHls.js';
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from './MeridianScroll.js';
 import PopulationDirector from './PopulationDirector.js';
 import { applyPlan, windowA } from './tileSwap.js';
@@ -539,6 +540,9 @@ export default function useGlobeScene(
           return Math.acos(THREE.MathUtils.clamp(hzV.y / d, -1, 1)) + Math.acos(Math.min(RADIUS / d, 1));
         },
         revealHeld: hold,
+        // The fast handoff's forecast: the live scheduler's admission, or a fresh one's while the intro hold defers
+        // it (called once stills settle, after this effect has run, so tierFor below is set).
+        forecast: (clips) => (scheduler ? scheduler.predictStarts(clips) : LivePanelScheduler.forecast(clips, { tierFor })),
       });
     const popAvailable = conveyorMode && worlds?.length > 0;
     if (popAvailable && POP_TUNING.mode !== 'off') director = buildDirector();
@@ -590,6 +594,12 @@ export default function useGlobeScene(
     // loaded above, so the cascade reveals real tiles whenever it comes.
     Promise.allSettled(thumbnailLoads).then(() => {
       if (!disposed && !hold) startCascade(variantRef.current);
+      // The fast handoff: the player and the first world's clips load in the stills' wake, while the intro hold
+      // still defers the scheduler (with no hold it is already starting them).
+      if (!disposed && director?.handoffFast) {
+        preloadHls();
+        if (!scheduler) director.prefetchLaid();
+      }
     });
     apiRef.current.replayCascade = (variant) => {
       if (!disposed) startCascade(variant);
@@ -1084,10 +1094,12 @@ export default function useGlobeScene(
       sceneTime += step;
 
       schedClock += step;
-      if (scheduler && schedClock >= 0.5) {
+      const fast = !!scheduler?.handoffFast; // ?pophandoff=fast: a 0.1 s beat, and a change starts its own clips
+      if (scheduler && schedClock >= (fast ? HANDOFF_BEAT_S : 0.5)) {
         // dragging defers promotions only — no Hls startups mid-gesture
-        // …and while a population relayout is mid-swap.
-        scheduler.update(globeGroup.rotation, sceneTime, camera, controller.dragging || !!director?.busy);
+        // …and while a population relayout is mid-swap (the fast handoff: the worlds it lands may start).
+        const busy = !!director?.busy;
+        scheduler.update(globeGroup.rotation, sceneTime, camera, controller.dragging || (busy && !fast), busy && fast ? director.incomingWorlds() : null);
         schedClock = 0;
       }
 

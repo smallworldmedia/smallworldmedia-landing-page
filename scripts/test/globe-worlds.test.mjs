@@ -31,13 +31,15 @@ import {
   nameRendered,
   NAME_QUADS,
 } from '../../src/components/globe/nameTicker.js'
-import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS, THUMB_WIDTH } from '../../src/components/globe/globeConfig.js'
+import { GLOBE_PREVIEW_SECONDS, STREAM_PARAMS, THUMB_WIDTH, GLOBE_STREAM_PARAMS, MAX_LIVE } from '../../src/components/globe/globeConfig.js'
 import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../../src/components/work/imageConfig.js'
 import { netReport, owedClip, cover, TICK_S, LOOP_END_S, STALL_MS } from '../lib/netReport.mjs'
 import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, expectFail, checkPayload, classSizes, classWideSizes, darkThumb } from '../lib/unitGates.mjs'
 import sharp from 'sharp'
 import { stripAudioFromMaster, AUDIO_CODEC } from '../../src/components/work/hlsVideoOnly.js'
-import { videoOnlyLoader } from '../../src/components/work/useHls.js'
+import { videoOnlyLoader, primedLoader } from '../../src/components/work/useHls.js'
+import { playlistKey, primePlaylist, primedPlaylist, takePrimedPlaylist, primedPlaylistStats, clearPrimedPlaylists, PRIMED_TTL_MS } from '../../src/components/work/hlsPrimed.js'
+import { lowestVariant, firstMedia, prefetchClip, prefetchClips, prefetchStats, clearPrefetch, planUrl, poolStreamUrl } from '../../src/components/globe/streamPrefetch.js'
 import buildCascadeTimeline, { DELAY_ORDERS, panelDelay, delayOwner } from '../../src/components/globe/cascade.js'
 import { buildScrollingGlobeGeometry } from '../../src/components/globe/buildGlobeGeometry.js'
 import {
@@ -5715,5 +5717,467 @@ test('spans: the shipped defaults (Nathan 10-23, 10-24) — spans on, up to ?pop
   } finally {
     director.dispose()
     TUNING.units = 0
+  }
+})
+
+/* — The fast handoff (?pophandoff=fast, Nathan 10-27): playlists fetched ahead (hlsPrimed), the pool's primed loader,
+   the clip prefetch (streamPrefetch), the scheduler's forecast and its mid-change starts, the director's deferred warm. — */
+test('handoff: primed playlists — one key per URL, a 10-minute life, the oldest out past 256, takes counted', () => {
+  clearPrimedPlaylists()
+  const url = 'https://stream.mux.com/abc.m3u8?min_resolution=720p&max_resolution=720p&asset_end_time=5'
+  assert.equal(playlistKey('HTTPS://STREAM.MUX.COM/abc.m3u8?x=1'), 'https://stream.mux.com/abc.m3u8?x=1')
+  assert.equal(playlistKey('not a url'), 'not a url')
+  primePlaylist(url, '#EXTM3U master', 1000)
+  assert.equal(primedPlaylist(url.replace('https://stream', 'HTTPS://STREAM'), 1000), '#EXTM3U master')
+  assert.equal(primedPlaylist(url, 1000 + PRIMED_TTL_MS), '#EXTM3U master') // its last good millisecond
+  assert.equal(primedPlaylist(url, 1001 + PRIMED_TTL_MS), null) // expired, and dropped
+  assert.equal(primedPlaylistStats().entries, 0)
+  // a take is counted, a miss is not
+  primePlaylist(url, 'm', 0)
+  assert.equal(takePrimedPlaylist(url, 1), 'm')
+  assert.equal(takePrimedPlaylist('https://stream.mux.com/other.m3u8', 1), null)
+  assert.deepEqual(primedPlaylistStats(), { entries: 1, served: 1 })
+  // 256 at most: the oldest goes first, and priming again moves a URL to the back
+  clearPrimedPlaylists()
+  const u = (i) => `https://stream.mux.com/c${i}.m3u8`
+  for (let i = 0; i < 256; i++) primePlaylist(u(i), `t${i}`, 0)
+  primePlaylist(u(0), 't0 again', 0)
+  primePlaylist(u(256), 't256', 0)
+  assert.equal(primedPlaylistStats().entries, 256)
+  assert.equal(primedPlaylist(u(1), 0), null)
+  assert.equal(primedPlaylist(u(0), 0), 't0 again')
+  assert.equal(primedPlaylist(u(256), 0), 't256')
+  clearPrimedPlaylists()
+  assert.deepEqual(primedPlaylistStats(), { entries: 0, served: 0 })
+})
+
+test('handoff: the primed loader answers a primed playlist from memory, later, as the XHR loader would; anything else loads (P0v) as before', async () => {
+  clearPrimedPlaylists()
+  // a stub hls.js: its default loader records loads, and keeps the XHR loader's stats and abort/destroy shape
+  const calls = []
+  class Base {
+    constructor() {
+      this.stats = { aborted: false, loaded: 0, total: 0, loading: { start: 0, first: 0, end: 0 } }
+    }
+    load(context, config, callbacks) {
+      calls.push({ context, config, callbacks })
+    }
+    abortInternal() {
+      this.baseAborts = (this.baseAborts || 0) + 1
+    }
+    abort() {
+      this.abortInternal()
+      this.callbacks?.onAbort?.(this.stats, this.context, null)
+    }
+    destroy() {
+      this.callbacks = null
+      this.abortInternal()
+    }
+  }
+  const Hls = { DefaultConfig: { loader: Base } }
+  const Loader = primedLoader(Hls)
+  assert.equal(primedLoader(Hls), Loader) // one class per base
+  assert.ok(new Loader() instanceof videoOnlyLoader(Hls))
+  const cbs = () => {
+    const got = []
+    const cb = { onSuccess: (...a) => got.push(['success', ...a]), onError: (...a) => got.push(['error', ...a]), onTimeout() {}, onAbort: (...a) => got.push(['abort', ...a]), onProgress() {} }
+    return { got, cb }
+  }
+  const master = '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",URI="https://m.mux.com/a.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=2376000,CODECS="mp4a.40.2,avc1.640020",AUDIO="audio",RESOLUTION=1280x720\nhttps://m.mux.com/v.m3u8\n'
+  const murl = 'https://stream.mux.com/p.m3u8?asset_end_time=5'
+  const config = { timeout: 1 }
+  // unprimed: through to the base, the master's callbacks wrapped (the video-only strip)
+  const a = cbs()
+  new Loader().load({ type: 'manifest', url: murl }, config, a.cb)
+  assert.equal(calls.length, 1)
+  assert.notEqual(calls[0].callbacks, a.cb)
+  // primed: no base load; the answer lands on a later task, stripped like a fetched master, on the loader's stats
+  primePlaylist(murl, master)
+  const b = cbs()
+  const ctx = { type: 'manifest', url: murl }
+  const loader = new Loader()
+  loader.load(ctx, config, b.cb)
+  assert.equal(calls.length, 1)
+  assert.equal(b.got.length, 0) // never synchronous: hls.js expects a load to answer later
+  await settleTicks()
+  assert.equal(b.got.length, 1)
+  const [kind, response, stats, context, details] = b.got[0]
+  assert.equal(kind, 'success')
+  assert.deepEqual(response, { url: murl, data: stripAudioFromMaster(master), code: 200 })
+  assert.ok(!response.data.includes('AUDIO'))
+  assert.equal(stats, loader.stats)
+  assert.equal(context, ctx)
+  assert.equal(details, null)
+  assert.ok(stats.loading.start > 0 && stats.loading.first >= stats.loading.start && stats.loading.end === stats.loading.first)
+  assert.deepEqual([stats.loaded, stats.total], [response.data.length, response.data.length])
+  assert.equal(primedPlaylistStats().served, 1)
+  // a loader is used once (the XHR loader's own contract)
+  assert.throws(() => loader.load(ctx, config, cbs().cb), /only be used once/)
+  // a rendition playlist comes back verbatim
+  const rurl = 'https://m.mux.com/v.m3u8'
+  const level = '#EXTM3U\n#EXT-X-TARGETDURATION:5\n'
+  primePlaylist(rurl, level)
+  const c = cbs()
+  new Loader().load({ type: 'level', url: rurl }, config, c.cb)
+  await settleTicks()
+  assert.equal(c.got[0][1].data, level)
+  // abort or destroy before the answer: it never lands; abort still reports itself, as the base does
+  const d = cbs()
+  const ld = new Loader()
+  ld.load({ type: 'level', url: rurl }, config, d.cb)
+  ld.abort()
+  await settleTicks()
+  assert.deepEqual(d.got.map((g) => g[0]), ['abort'])
+  assert.deepEqual([ld.stats.aborted, ld.baseAborts], [true, 1])
+  const e = cbs()
+  const le = new Loader()
+  le.load({ type: 'level', url: rurl }, config, e.cb)
+  le.destroy()
+  await settleTicks()
+  assert.equal(e.got.length, 0)
+  clearPrimedPlaylists()
+})
+
+test('handoff: the prefetch reads the variant hls.js plays (preferMinQuality: height, frame rate, bandwidth), then its init and first segment', () => {
+  const base = 'https://stream.mux.com/p.m3u8?x=1'
+  // Mux's shape: an audio group, a CODECS list with a comma inside its quotes, absolute URIs
+  const mux = '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",URI="https://m.mux.com/a.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=2376000,AVERAGE-BANDWIDTH=2376000,CODECS="mp4a.40.2,avc1.640020",RESOLUTION=1280x720,AUDIO="audio"\nhttps://m.mux.com/r720.m3u8?sig=1\n'
+  assert.equal(lowestVariant(mux, base), 'https://m.mux.com/r720.m3u8?sig=1')
+  const ladder = [
+    '#EXTM3U',
+    '#EXT-X-STREAM-INF:BANDWIDTH=900000,RESOLUTION=854x480,FRAME-RATE=60',
+    'v480p60.m3u8',
+    '#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080',
+    'v1080.m3u8',
+    '#EXT-X-STREAM-INF:BANDWIDTH=800000,AVERAGE-BANDWIDTH=700000,RESOLUTION=854x480,FRAME-RATE=30',
+    'v480a.m3u8',
+    '#EXT-X-STREAM-INF:BANDWIDTH=750000,AVERAGE-BANDWIDTH=720000,RESOLUTION=854x480,FRAME-RATE=30',
+    'v480b.m3u8',
+  ].join('\n')
+  // the lowest height, then frame rate, then average bandwidth; a relative URI resolves against the master
+  assert.equal(lowestVariant(ladder, base), 'https://stream.mux.com/v480a.m3u8')
+  assert.equal(lowestVariant('#EXTM3U\n#EXT-X-ENDLIST\n', base), null)
+  // Mux's rendition: one 5 s segment after its EXT-X-MAP
+  const rbase = 'https://m.mux.com/r720.m3u8?sig=1'
+  const rendition = '#EXTM3U\n#EXT-X-TARGETDURATION:5\n#EXT-X-MAP:URI="https://chunk.mux.com/i/18446744073709551615.m4s?s=1"\n#EXTINF:5,\nhttps://chunk.mux.com/i/0.m4s?s=1\n#EXT-X-ENDLIST\n'
+  assert.deepEqual(firstMedia(rendition, rbase), { init: 'https://chunk.mux.com/i/18446744073709551615.m4s?s=1', segment: 'https://chunk.mux.com/i/0.m4s?s=1' })
+  // relative URIs, no map, a second segment
+  assert.deepEqual(firstMedia('#EXTM3U\n#EXTINF:4,\nseg0.ts\n#EXTINF:4,\nseg1.ts\n', rbase), { init: null, segment: 'https://m.mux.com/seg0.ts' })
+  // byte ranges, and no segment: nothing to fetch whole
+  assert.equal(firstMedia('#EXTM3U\n#EXT-X-MAP:URI="f.mp4",BYTERANGE="700@0"\n#EXTINF:5,\n#EXT-X-BYTERANGE:1000@700\nf.mp4\n', rbase), null)
+  assert.equal(firstMedia('#EXTM3U\n#EXT-X-ENDLIST\n', rbase), null)
+  // the URL a plan fetches is the URL the pool plays: the plan's pin, else the pool's
+  assert.equal(planUrl('x', null), muxStream('x', GLOBE_PREVIEW_SECONDS, GLOBE_STREAM_PARAMS))
+  assert.equal(planUrl('x', { params: PIN_AT(1080) }), poolStreamUrl('x', PIN_AT(1080)))
+  assert.equal(planUrl('x', { params: null }, STREAM_PARAMS), muxStream('x', GLOBE_PREVIEW_SECONDS, STREAM_PARAMS))
+})
+
+/** A fetch stand-in over `files` (url → playlist text, or a media body's byte length; anything else 404s). It logs
+ *  every call; a url in `held` answers only once release(url) is called. */
+function fakeFetch(files) {
+  const calls = []
+  const gates = new Map()
+  const held = new Set()
+  const fetchImpl = async (url, init) => {
+    calls.push({ url, init })
+    if (held.has(url)) await new Promise((r) => gates.set(url, r))
+    const body = files[url]
+    if (body === undefined) return { ok: false, status: 404 }
+    return { ok: true, status: 200, text: async () => body, arrayBuffer: async () => new ArrayBuffer(body) }
+  }
+  return { fetchImpl, calls, held, release: (url) => gates.get(url)() }
+}
+/** A pinned pool clip as Mux serves it: master → one rendition → init + one segment. */
+function clipFiles(id, initBytes = 800, segBytes = 1_500_000) {
+  const urls = { m: planUrl(id, null), r: `https://m.mux.com/${id}/r.m3u8?sig=1`, i: `https://chunk.mux.com/${id}/init.m4s?s=1`, s: `https://chunk.mux.com/${id}/0.m4s?s=1` }
+  const files = {
+    [urls.m]: `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2376000,RESOLUTION=1280x720\n${urls.r}\n`,
+    [urls.r]: `#EXTM3U\n#EXT-X-TARGETDURATION:5\n#EXT-X-MAP:URI="${urls.i}"\n#EXTINF:5,\n${urls.s}\n#EXT-X-ENDLIST\n`,
+    [urls.i]: initBytes,
+    [urls.s]: segBytes,
+  }
+  return { urls, files }
+}
+
+test('handoff: a clip fetched ahead primes both playlists and pulls its init and segment at low priority; the queue dedupes, runs N at once, and a newer list replaces what has not started', async () => {
+  clearPrefetch()
+  clearPrimedPlaylists()
+  const [A, B, C, D, E] = ['A', 'B', 'C', 'D', 'E'].map((id) => clipFiles(id))
+  const net = fakeFetch(Object.assign({}, A.files, B.files, C.files, D.files, E.files))
+  // one clip: master → its variant → init + segment, both playlists primed under the URLs hls.js will load
+  assert.equal(await prefetchClip(A.urls.m, net.fetchImpl), 800 + 1_500_000)
+  assert.deepEqual(net.calls.map((c) => c.url), [A.urls.m, A.urls.r, A.urls.i, A.urls.s])
+  assert.ok(net.calls.every((c) => c.init.priority === 'low'))
+  assert.equal(primedPlaylist(A.urls.m), A.files[A.urls.m])
+  assert.equal(primedPlaylist(A.urls.r), A.files[A.urls.r])
+  // a failure rejects the clip (the queue counts it and never rejects)
+  await assert.rejects(prefetchClip('https://stream.mux.com/missing.m3u8', net.fetchImpl), /404/)
+  // the queue: A is primed (skipped), B asked twice (once), and C D E behind a concurrency of 2
+  net.calls.length = 0
+  net.held.add(B.urls.m).add(C.urls.m)
+  const first = prefetchClips([A.urls.m, B.urls.m, B.urls.m, C.urls.m, D.urls.m, E.urls.m], { concurrency: 2, fetchImpl: net.fetchImpl })
+  await settleTicks()
+  assert.deepEqual(net.calls.map((c) => c.url), [B.urls.m, C.urls.m])
+  assert.deepEqual(prefetchStats(), { asked: 4, done: 0, failed: 0, bytes: 0, queued: 2, running: 2 })
+  // a newer list replaces the unstarted (D, E); one in flight (C) is awaited, not fetched again
+  const second = prefetchClips([C.urls.m, E.urls.m], { concurrency: 2, fetchImpl: net.fetchImpl })
+  assert.equal(prefetchStats().queued, 1)
+  net.release(B.urls.m)
+  net.release(C.urls.m)
+  await first
+  await second
+  assert.deepEqual(net.calls.map((c) => c.url).filter((u) => u.startsWith('https://stream.mux.com/')), [B.urls.m, C.urls.m, E.urls.m])
+  assert.deepEqual(prefetchStats(), { asked: 5, done: 3, failed: 0, bytes: 3 * (800 + 1_500_000), queued: 0, running: 0 })
+  assert.equal(primedPlaylist(D.urls.m), null)
+  // a 404 is counted as failed
+  await prefetchClips(['https://stream.mux.com/missing.m3u8'], { fetchImpl: net.fetchImpl })
+  assert.equal(prefetchStats().failed, 1)
+  clearPrefetch()
+  clearPrimedPlaylists()
+})
+
+test('handoff: the forecast is the scheduler’s own admission from an empty budget — the head of the line ends it, one per slot — and touches nothing live', () => {
+  Object.assign(TUNING, BOARD_DEFAULTS)
+  gsap.globalTimeline.pause() // no tier timer fires on the wall clock
+  const tierFor = tiersFor('auto', 'hidpi')
+  const [quad, pair1, pair2] = [classedClip('quad', '1:1', 'q'), classedClip('pair1', '16:9', 'h'), classedClip('pair2', '16:9', 'h')]
+  const dress = (a, cls = null) => ({ id: a.playbackId, asset: { ...a, place: cls ? { cls } : null } })
+  const clips = [dress(quad, 'q'), dress(pair1, 'h'), dress(pair2, 'h'), dress(clip16('solo')), dress(clip16('late'))]
+  // T22's board admitted in order (the 480 pin, a 7 × 854×480 budget): the quad 1080, pair1 720, pair2 one rung lower
+  // at the pin; the single would pass the budget and the rung below it is under the floor, so the walk ends there.
+  const plans = LivePanelScheduler.forecast(clips, { tierFor, pinParams: STREAM_PARAMS })
+  assert.deepEqual(plans, [
+    { id: 'quad', plan: { rung: 1080, short: 1080, params: PIN_AT(1080), mp: 1.1664 } },
+    { id: 'pair1', plan: { rung: 720, short: 720, params: PIN_AT(720), mp: 0.9216 } },
+    { id: 'pair2', plan: { rung: 480, short: 480, params: null, mp: 0.40992 } },
+  ])
+  // no tiers: every clip plays the pin, one per slot
+  const flat = LivePanelScheduler.forecast(Array.from({ length: 12 }, (_, i) => dress(clip16(`c${i}`))))
+  assert.equal(flat.length, MAX_LIVE)
+  assert.ok(flat.every((p) => p.plan === null))
+  // a live scheduler forecasts the next world from an empty budget too, and leaves its own streams be
+  const L = tierOver([...streamUnit('q', quad, 0.5).members], { tierFor })
+  L.start('quad')
+  const before = [L.sched.plannedMp(), L.sched.streams.size, L.sched.panels.length, L.sched.slots.filter(Boolean).length]
+  assert.deepEqual(L.sched.predictStarts(clips), plans)
+  assert.deepEqual([L.sched.plannedMp(), L.sched.streams.size, L.sched.panels.length, L.sched.slots.filter(Boolean).length], before)
+  // a clip whose rung failed asks the pin, as planOf does
+  L.sched.tierFail.add('pair1')
+  assert.deepEqual(L.sched.predictStarts(clips)[1], { id: 'pair1', plan: { rung: 480, short: 480, params: null, mp: 0.40992 } })
+  L.sched.dispose()
+})
+
+test('handoff: fast — a change starts the incoming world’s clips while their tiles still swap, never the outgoing world’s; a stream that loads first waits for its tiles; today ignores the incoming worlds', async () => {
+  Object.assign(TUNING, BOARD_DEFAULTS, { handoff: 'fast' })
+  gsap.globalTimeline.pause()
+  const boards = []
+  try {
+    const out = { ...clip16('out'), world: 0 }
+    const inc = { ...clip16('in'), world: 1 }
+    const board = () => {
+      const swapping = (z) => Object.assign(streamTile(out, z), { swapping: true, swapAsset: inc })
+      const tiles = [swapping(0.9), swapping(0.8), streamTile(out, 0.7)]
+      const S = sharedOver(tiles)
+      boards.push(S)
+      return { tiles, ...S }
+    }
+    const incoming = new Set([1])
+    const beat = (S, t, worlds = incoming) => S.sched.update(new THREE.Euler(), t, null, false, worlds)
+    // mid-change: the incoming clip starts from the tiles about to show it; the outgoing one, bound and free, does not
+    const F = board()
+    assert.equal(F.sched.handoffFast, true)
+    beat(F, 10)
+    assert.deepEqual(F.pool.assigned, ['in'])
+    assert.deepEqual(F.sched.handoffStats(), { starts: 1, ahead: 1, primed: 0 })
+    // it loads before its tiles land: no copy yet, and it stays while they are on their way
+    await settleTicks()
+    const s = F.sched.streams.get('in')
+    assert.equal(s?.state, 'live')
+    assert.equal(s.panels.size, 0)
+    beat(F, 10.1)
+    assert.equal(F.sched.streams.get('in'), s)
+    // the swaps land: both tiles join on the next beat
+    for (const t of F.tiles.slice(0, 2)) Object.assign(t, { asset: inc, shownAsset: inc, swapping: false, swapAsset: null })
+    beat(F, 10.2, null)
+    assert.deepEqual([...s.panels], F.tiles.slice(0, 2))
+    // a stream whose tiles went elsewhere while it loaded ends at once
+    const G = board()
+    beat(G, 10)
+    await settleTicks()
+    const other = { ...clip16('other'), world: 1 }
+    for (const t of G.tiles.slice(0, 2)) t.swapAsset = other
+    beat(G, 10.1)
+    assert.equal(G.sched.streams.has('in'), false)
+    assert.deepEqual(G.pool.assigned, ['in', 'other'])
+    // today: the incoming worlds are ignored (the scene defers starts through a change), only a bound, free tile starts
+    TUNING.handoff = 'today'
+    const T = board()
+    assert.equal(T.sched.handoffFast, false)
+    beat(T, 10)
+    assert.deepEqual(T.pool.assigned, ['out'])
+    assert.deepEqual(T.sched.handoffStats(), { starts: 0, ahead: 0, primed: 0 })
+  } finally {
+    for (const S of boards) S.sched.dispose()
+    TUNING.handoff = 'today'
+  }
+})
+
+test('handoff: fast — mid-change planOf plans from what each tile is about to show, and waits for budget rather than drop a rung; quiet = nothing loading, no start for 0.3 s', async () => {
+  Object.assign(TUNING, BOARD_DEFAULTS, { handoff: 'fast' })
+  gsap.globalTimeline.pause()
+  try {
+    const [quad, pair1, pair2] = [classedClip('quad', '1:1', 'q'), classedClip('pair1', '16:9', 'h'), classedClip('pair2', '16:9', 'h')]
+    // pair2's unit is coming in over two tiles that show a single now
+    const P2 = streamUnit('h', pair2, 0.55, 4)
+    for (const m of P2.members) Object.assign(m, { swapAsset: m.asset, asset: clip16('solo'), shownAsset: clip16('solo'), swapping: true })
+    const B = tierOver([...streamUnit('q', quad, 0.5).members, ...streamUnit('h', pair1, 0.6, 2).members, ...P2.members])
+    B.start('quad')
+    B.start('pair1') // 2.088 of 2.86944
+    // outside a change no tile shows pair2 yet: a single's rung
+    assert.deepEqual(B.sched.planOf('pair2'), { rung: 480, short: 480, params: null, mp: 0.40992 })
+    // mid-change: its pair's 720 won't fit until the world going out frees budget — it waits rather than take 480
+    B.sched.incoming = new Set([1])
+    assert.equal(B.sched.planOf('pair2'), false)
+    // NC: without the wait it takes the rung below
+    assert.deepEqual(planVariant(['if (this.incoming) return false;', '']).call(B.sched, 'pair2'), { rung: 480, short: 480, params: null, mp: 0.40992 })
+    // the outgoing quad frees its share: the pair starts at its own rung
+    B.sched.releaseStream(B.sched.streams.get('quad'))
+    assert.deepEqual(B.sched.planOf('pair2'), { rung: 720, short: 720, params: PIN_AT(720), mp: 0.9216 })
+    B.sched.dispose()
+    // quiet
+    const Q = tierOver([streamTile(clip16('a'), 0.9), streamTile(clip16('b'), 0.8)])
+    Q.sched.now = 5
+    assert.equal(Q.sched.handoffQuiet(), true) // nothing ever started
+    Q.start('a') // the pool holds it: loading
+    assert.equal(Q.sched.handoffQuiet(), false)
+    Q.sched.releaseStream(Q.sched.streams.get('a'))
+    assert.equal(Q.sched.handoffQuiet(), false) // nothing loading, but a start 0 s ago
+    Q.sched.now = 5.31
+    assert.equal(Q.sched.handoffQuiet(), true)
+    Q.pool.answer = 'frame'
+    Q.start('b')
+    await settleTicks()
+    assert.equal(Q.sched.streams.get('b').state, 'live')
+    assert.equal(Q.sched.handoffQuiet(), false) // started this instant
+    Q.sched.now = 5.62
+    assert.equal(Q.sched.handoffQuiet(), true)
+    Q.sched.dispose()
+  } finally {
+    TUNING.handoff = 'today'
+  }
+})
+
+test('handoff: fast — the next world’s stills wait for this world’s videos (quiet from 0.3 s, else at 2 s), then its clips go to the forecast; today warms them at once', async () => {
+  const nextKeys = (d) => d.warmSet(d.upcoming).flat().map(assetKey)
+  // today: planNext warms the next world as it plans it
+  const today = makeDirector({ seed: 5, chaos: 0 })
+  assert.equal(today.director.nextWarm, null)
+  assert.ok(nextKeys(today.director).every((k) => today.director.warm.has(k)))
+  today.director.dispose()
+  try {
+    let quiet = false
+    const asked = []
+    const { director: d } = makeDirector(
+      { seed: 5, chaos: 0, handoff: 'fast' },
+      { canAnimate: () => true, getScheduler: () => ({ handoffQuiet: () => quiet }), forecast: (clips) => (asked.push(clips), []) },
+    )
+    assert.equal(d.handoffFast, true)
+    assert.deepEqual(d.nextWarm, { wait: 0 })
+    assert.ok(!nextKeys(d).some((k) => d.warm.has(k)))
+    d.update(0.25) // quiet or not, 0.3 s first
+    quiet = true
+    assert.ok(d.nextWarm)
+    d.update(0.25)
+    assert.equal(d.nextWarm, null)
+    assert.ok(nextKeys(d).every((k) => d.warm.has(k)))
+    await settleTicks()
+    // its clips, in pool order (no units: each weighs one tile), each dressed as a single
+    assert.equal(asked.length, 1)
+    assert.deepEqual(asked[0].map((c) => c.id), d.upcoming.pools[0].map((a) => a.playbackId))
+    assert.ok(asked[0].every((c) => c.asset.place === null))
+    d.dispose()
+    // never quiet (or no scheduler): the cap; and a held director (Enter World) never warms the next world
+    for (const getScheduler of [() => ({ handoffQuiet: () => false }), () => null]) {
+      const { director: c } = makeDirector({ seed: 5, chaos: 0, handoff: 'fast' }, { canAnimate: () => true, getScheduler, forecast: () => [] })
+      for (let i = 0; i < 7; i++) c.update(0.25)
+      assert.ok(c.nextWarm)
+      c.update(0.25) // 2 s
+      assert.equal(c.nextWarm, null)
+      c.dispose()
+    }
+    const { director: h } = makeDirector({ seed: 5, chaos: 0, handoff: 'fast' }, { canAnimate: () => true, getScheduler: () => ({ handoffQuiet: () => true }), forecast: () => [] })
+    h.hold()
+    for (let i = 0; i < 12; i++) h.update(0.25)
+    assert.ok(h.nextWarm)
+    // back to today: the deferred warm runs on the next frame, whatever the scheduler says
+    TUNING.handoff = 'today'
+    h.held = false
+    h.update(1 / 60)
+    assert.equal(h.nextWarm, null)
+    h.dispose()
+  } finally {
+    TUNING.handoff = 'today'
+  }
+})
+
+test('handoff: fast — the clips a world is fetched ahead for: pools round-robined, each clip once, the bigger unit first; the first world from its laid tiles; the URLs are the plans’', async () => {
+  const real = globalThis.fetch
+  clearPrefetch()
+  try {
+    const asked = []
+    const self = { forecast: (clips) => (asked.push(clips), []), getScheduler: () => null, prefetchFor: PopulationDirector.prototype.prefetchFor }
+    const v = (id, unitCls) => ({ kind: 'video', playbackId: id, ...(unitCls ? { unitCls } : {}) })
+    const still = { kind: 'image', imageUrl: 'x' }
+    // two pools, round-robined: w1 h1 · s1 (s1 again) · (a still) q1 → by tiles, stable: w1 (6) q1 (4) h1 (2) s1 (1)
+    PopulationDirector.prototype.prefetchWorld.call(self, { pools: [[v('w1', 'w'), v('s1'), still], [v('h1', 'h'), v('s1'), v('q1', 'q')]] })
+    assert.deepEqual(asked[0].map((c) => [c.id, c.asset.place?.cls ?? null]), [['w1', 'w'], ['q1', 'q'], ['h1', 'h'], ['s1', null]])
+    // the first world from its laid tiles: summed front prominence, the biggest unit's record, nothing parked or behind
+    const A = clip16('A')
+    const Bu = { ...clip16('B'), place: { n: 2, cls: 'h' } }
+    const tiles = [
+      streamTile(A, 0.9),
+      streamTile(A, 0.5),
+      streamTile(Bu, 0.6),
+      streamTile(Bu, 0.6),
+      streamTile(clip16('B'), 0.1),
+      streamTile(clip16('C'), -0.5),
+      Object.assign(streamTile(clip16('D'), 0.9), { parked: true }),
+      streamTile(still, 0.95),
+    ]
+    PopulationDirector.prototype.prefetchLaid.call({ ...self, panels: tiles, getRotation: () => new THREE.Euler(), _v: new THREE.Vector3() })
+    assert.deepEqual(asked[1].map((c) => c.id), ['A', 'B'])
+    near(asked[1][0].w, 1.4, 1e-12)
+    near(asked[1][1].w, 1.3, 1e-12)
+    assert.equal(asked[1][1].asset, Bu)
+    // the forecast's plans become the pool's URLs (a fetch stand-in: no network)
+    const net = fakeFetch({})
+    globalThis.fetch = net.fetchImpl
+    await PopulationDirector.prototype.prefetchFor.call({ forecast: () => [{ id: 'A', plan: null }, { id: 'B', plan: { params: PIN_AT(1080) } }] }, [])
+    await settleTicks()
+    assert.deepEqual(net.calls.map((c) => c.url), [planUrl('A', null), poolStreamUrl('B', PIN_AT(1080))])
+  } finally {
+    globalThis.fetch = real
+    clearPrefetch()
+  }
+})
+
+test('handoff: the incoming worlds are the grouping’s, one set per grouping; the stats carry the handoff', () => {
+  try {
+    const sched = { handoffQuiet: () => false, getStats: () => ({ live: 0 }), decodeStats: () => null, handoffStats: () => ({ starts: 3, ahead: 2, primed: 1 }) }
+    const { director: d } = makeDirector({ seed: 5, chaos: 0, handoff: 'fast' }, { getScheduler: () => sched, forecast: () => [] })
+    const w = d.incomingWorlds()
+    assert.deepEqual([...w], d.grouping.members)
+    assert.equal(d.incomingWorlds(), w)
+    d.grouping = d.makeGrouping({ lead: (d.lead + 1) % d.worlds.length })
+    assert.notEqual(d.incomingWorlds(), w)
+    const { handoff } = d.sample(new THREE.Euler())
+    assert.equal(handoff.mode, 'fast')
+    assert.equal(handoff.waiting, true)
+    assert.deepEqual(Object.keys(handoff.fetch), ['asked', 'done', 'failed', 'bytes', 'queued', 'running'])
+    assert.deepEqual(Object.keys(handoff.primed), ['entries', 'served'])
+    assert.deepEqual(handoff.starts, { starts: 3, ahead: 2, primed: 1 })
+    d.dispose()
+  } finally {
+    TUNING.handoff = 'today'
   }
 })

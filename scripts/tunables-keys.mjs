@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const GUIDE = join(ROOT, 'docs', 'tunables-guide.md');
-const IGNORE = new Set(['a', 'panels', 'email', 'equal', 'video', 'mix', 'shared', 'wide']);
+const IGNORE = new Set(['a', 'panels', 'email', 'equal', 'video', 'mix', 'shared', 'wide', 'today']);
 
 const files = [];
 (function walk(d) {
