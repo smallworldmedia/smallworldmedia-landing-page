@@ -10,14 +10,13 @@
  * banner and the top of the next — on phone and desktop alike.
  *
  * Grouping is the displayGroup convention (buildContentFlow.isBannerGroup):
- * a group whose name ends in `banner`/`banners`. The group name scrambles in
- * top-right, the count chip mirrors the album wall.
+ * a group whose name ends in `banner`/`banners`. No name or count labels
+ * (10-27, Nathan — none on any wall).
  *
  * @param {Object} props
  * @param {{group: string, items: Array<Object>}} props.banners - one banner group
  */
 import DeckScroller from './DeckScroller.jsx';
-import ScrambleLabel from './ScrambleLabel.jsx';
 import { ratioOf } from './buildContentFlow.js';
 
 /** Banners visible in the frame — the socket rows are derived from this. */
@@ -28,17 +27,6 @@ export default function BannerViewer({ banners }) {
   if (!items.length) return null;
   return (
     <div className="deck-scroller-shell banner-viewer">
-      <div className="deck-scroller__side deck-scroller__side--album">
-        <ScrambleLabel
-          key={banners.group}
-          scrambleOnMount
-          text={banners.group.replace(/-/g, '_')}
-          className="band-pager__name"
-        />
-        <span className="release-chip">
-          {String(items.length).padStart(2, '0')} BANNERS
-        </span>
-      </div>
       <DeckScroller pages={items} ratio={ratioOf(items[0])} cols={1} ariaLabel={banners.group} />
     </div>
   );

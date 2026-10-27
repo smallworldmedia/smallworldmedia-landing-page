@@ -569,16 +569,6 @@ html:has(.project-detail) body {
   font-variant-numeric: tabular-nums;
 }
 
-.band-pager__name {
-  padding: 0.143rem 0.571rem;
-  background: var(--color-near-black);
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  line-height: 1.571rem;
-  letter-spacing: -0.024em;
-  color: var(--color-white);
-}
-
 .band-pager__stage {
   position: relative;
   flex: 1;
@@ -661,23 +651,6 @@ html:has(.project-detail) body {
   gap: 0.571rem;
 }
 
-.deck-scroller__side {
-  position: absolute;
-  top: 0.571rem;
-  right: 1.143rem;
-  z-index: 3;
-  pointer-events: none;
-}
-
-/* Album wall (08-27): the catalog identity stack — name scramble over the
-   release-count chip — where the pager's counter/metadata rail used to sit. */
-.deck-scroller__side--album {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.4rem;
-}
-
 .deck-scroller {
   height: 100%;
   background: var(--color-black);
@@ -713,64 +686,6 @@ html:has(.project-detail) body {
   object-fit: cover;
   background: var(--color-near-black);
   /* pre-load ground */
-}
-
-/* ============================================
-   RELEASE META — focused cover's metadata
-   Black mono chips in the band's side column,
-   mirroring the ClientPanel base_in /
-   client_type family. Conditional chips only —
-   never placeholders.
-   ============================================ */
-.release-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.429rem;
-  animation: metaIn 0.4s ease both;
-}
-
-@keyframes metaIn {
-  from {
-    opacity: 0;
-    transform: translateX(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .release-meta {
-    animation: none;
-  }
-}
-
-.release-chip {
-  padding: 0.143rem 0.571rem;
-  background: var(--color-near-black);
-  font-family: var(--font-mono);
-  font-size: 1rem;
-  line-height: 1.571rem;
-  letter-spacing: -0.024em;
-  color: var(--color-white);
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-.release-chip--headline {
-  white-space: normal;
-  text-align: right;
-  max-width: 100%;
-}
-
-a.release-chip--link {
-  pointer-events: auto;
-}
-
-a.release-chip--link:hover {
-  background: var(--color-electric-blue);
 }
 
 /* ============================================

@@ -9,9 +9,9 @@
  *
  * This wrapper keeps the deck semantics — mono tab chips for multi-deck
  * projects (order = orderRank via buildContentFlow group order, first tab
- * default: position is prominence) and the active deck's name top-right,
- * scrambling in on every switch. The anonymous fallback group ('deck')
- * never shows a name.
+ * default: position is prominence). No deck-name label (10-27, Nathan —
+ * none on any wall); the tabs are the only chrome, and only when there is
+ * a choice to make.
  *
  * @param {Object} props
  * @param {Array<{group: string, pages: Array<Object>}>} props.decks
@@ -19,7 +19,6 @@
  */
 import { useState } from 'react';
 import DeckScroller from './DeckScroller.jsx';
-import ScrambleLabel from './ScrambleLabel.jsx';
 import { ratioOf } from './buildContentFlow.js';
 
 export default function BrandDeckViewer({ decks, cols }) {
@@ -29,7 +28,6 @@ export default function BrandDeckViewer({ decks, cols }) {
   // ratioOf prefers real page dims for brand-deck (08-25) — a compiled
   // poster deck keeps its native aspect on the wall.
   const pageRatio = pages.length > 0 ? ratioOf(pages[0]) : 16 / 9;
-  const showName = deck.group !== 'deck';
 
   return (
     <div className="deck-scroller-shell">
@@ -46,16 +44,6 @@ export default function BrandDeckViewer({ decks, cols }) {
               {d.group}
             </button>
           ))}
-        </div>
-      )}
-      {showName && (
-        <div className="deck-scroller__side">
-          <ScrambleLabel
-            key={deck.group} /* remount on switch = fresh scramble */
-            scrambleOnMount
-            text={deck.group}
-            className="band-pager__name"
-          />
         </div>
       )}
       <DeckScroller

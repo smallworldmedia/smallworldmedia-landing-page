@@ -10,29 +10,18 @@
  * cohesion with the brand-deck walls by construction, and the same wall
  * carries over to the /work grid (fpDrumWall). A wall has no focused cover,
  * so the per-release chips (catalog number, date, stream links) are tabled
- * with the pager; the side column keeps the catalog identity instead — an
- * album_catalog scramble over a release-count chip.
+ * with the pager. 10-27 (Nathan): no labels on any wall — the album_catalog
+ * name and release-count chip are gone; a wall of covers says what it is.
  *
  * @param {Object} props
  * @param {Array<Object>} props.covers - album-art assets (≥ ORBIT_MIN)
  */
 import DeckScroller from './DeckScroller.jsx';
-import ScrambleLabel from './ScrambleLabel.jsx';
 
 export default function AlbumArtViewer({ covers }) {
   if (!covers.length) return null;
   return (
     <div className="deck-scroller-shell">
-      <div className="deck-scroller__side deck-scroller__side--album">
-        <ScrambleLabel
-          scrambleOnMount
-          text="album_catalog"
-          className="band-pager__name"
-        />
-        <span className="release-chip">
-          {String(covers.length).padStart(2, '0')} RELEASES
-        </span>
-      </div>
       <DeckScroller pages={covers} ratio={1} ariaLabel="album artwork" />
     </div>
   );
