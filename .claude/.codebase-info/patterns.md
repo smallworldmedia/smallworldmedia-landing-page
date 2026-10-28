@@ -36,8 +36,8 @@ are cancelled.
 bugs. Footer exits are masked via `--footer-peak`, never faded — anything that fades on the way IN
 rides the peak's rest-normalized twin `--footer-rise-peak`, so a retreat slides the mask back over
 it instead of fading it out on screen (`communication.md`). `lib/dragMomentum.js` takes
-`drag: false` for an ambient-only engine (no pointer listeners at all), which is how the phone
-home globe hands the gesture back to the page.
+`drag: false` for an ambient-only engine (no pointer listeners at all), which is how the home
+globe hands the gesture back to the page (phones since 10-07, every screen since 10-27).
 
 Hard-hold motion is its own family: `steps(1, end)`, where every keyframe segment HOLDS its start
 value and jumps at the end, so nothing interpolates. It runs the FP pager scrim grain
@@ -287,8 +287,16 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
 - **A clip fetched ahead must ask for the player's exact URL, rung included**: Mux playlists are
   `no-store`, so the fast handoff (`globe/streamPrefetch.js`) keeps their text in `work/hlsPrimed.js` for
   `useHls`'s `primed` loader, while the init and segment (max-age 7 days) reach the players through the
-  HTTP cache. `planUrl` builds the URL the way the pool does. A clip that lands at another rung than the
-  forecast's fetches again: the 3×2 / 2×2 clips, sized by a layout planned only as their world lands.
+  HTTP cache. `planUrl` builds the URL the way the pool does. A clip that starts at another rung than the
+  forecast's fetches again. Since 10-27 the forecast scores the board planned ahead for the landing pose
+  (`PopulationDirector.planAhead`), so its rung was right for 27 of 30 clips on desktop and 20 of 21 on
+  phone (seed 4242). The ones it misses start just after landing, 0.6 to 1.1 s after the change-start pose
+  their clips were scored at.
+- **A what-if borrows live state and puts all of it back**: `planAhead` poses the tiles where the
+  globe will be (`posePanel`, CPU fields only, never the uniform), shadows the director's grouping, step,
+  rotation and horizon, plans, then restores every pose, birth, swap, cursor and counter in a `finally`.
+  The twin test lays the same world planned late and planned ahead and compares them tile for tile. A
+  negative control leaks one cursor and must be caught.
 
 ## Verification
 - Motion/layout changes are verified on screen (Playwright at 1440 and 390), not by build success.

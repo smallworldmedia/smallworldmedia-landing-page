@@ -39,7 +39,9 @@ rung inside `decodeBudget` = `MAX_LIVE × mp(pinShort, 16/9)` through `tierFor` 
 telemetry; under `?pophandoff=fast` it beats every `HANDOFF_BEAT_S` 0.1 s, and a change in flight hands
 it the `incoming` worlds, whose clips it starts mid-swap off `swapAsset` (`aheadScores` / `aheadGroup`;
 `planOf` waits rather than drop a rung; a stream that resolves before its tiles land is kept for them);
-`predictStarts` and the static `forecast` replay its admission for the fetch-ahead, and `handoffQuiet`
+`predictStarts` and the static `forecast` replay its admission for the fetch-ahead; `landingClips(rotation)`
+(and a static twin for before the scheduler exists, with no camera) scores a planned board at a given
+rotation through `scoreAll` and the last update's `camera`, for the director's plan ahead; and `handoffQuiet`
 says this world's streams are in) · `VideoSlotPool.jsx`
 (fixed HLS pool; every slot streams the preview window clipped at the source through
 `streamPrefetch.js`'s `poolStreamUrl` (`work/imageConfig.js`'s `muxStream`), video-only via `useHls`'s
@@ -53,13 +55,16 @@ thumbnails + square Sanity stills + name strips, keyed by `assetKey` = playbackI
 nameKey; under media spans also the class textures at their `texSpec` size with a measured
 `userData.aspect`, and the residency ledger `stats()`) · `buildAssetPool.js` (pure build-time ordering) · `MeridianScroll.js` (row conveyor;
 stamps tape coordinates `(lonIndex, tapeS)`, optional `assignRow` hook, `advance()` extra travel
-for the tide; a re-born row cancels its in-flight swap (`cancelSwap`, counted as `bornCancelled`)
+for the tide; `predict(dt)` gives every row's angle and birth `dt` seconds on at the current pace, as
+`update()` will leave them (null past a span − pitch of travel); a re-born row cancels its in-flight swap (`cancelSwap`, counted as `bornCancelled`)
 so a swap planned before the wrap cannot land the old row's asset over the born one; exports
 `poseTile(panel, theta)` — the ONE place the row angle becomes both the
-`uPolarTop` uniform and the live `centerDir` every CPU-side latitude reader uses — and
-`scrollZeroTheta(row, rows)`, the scroll-0 angle `useGlobeScene` needs to pose tiles for the
+`uPolarTop` uniform and the live `centerDir` every CPU-side latitude reader uses — its CPU half
+`posePanel` (centerDir and parked, no uniform: the plan ahead poses tiles where they will be and puts
+them back), and `scrollZeroTheta(row, rows)`, the scroll-0 angle `useGlobeScene` needs to pose tiles for the
 initial layout, which runs before the scroller exists) · `InteractionController.js`
-(yaw/pitch skin over `lib/dragMomentum`) · `globeConfig.js` (tunables; re-exports drag constants from
+(yaw/pitch skin over `lib/dragMomentum`; the home globe passes `drag: false` on every screen since
+10-27, phones since 10-07, so the pose it lands a world at is known ahead; /lab/globe keeps its drag) · `globeConfig.js` (tunables; re-exports drag constants from
 `dragMomentum`; the VideoGlobe's device knobs: `GLOBE_DPR_MAX` (`?globedpr`, 3 on phones since bake B
 `8732aa8`, `DPR_MAX` 2 on desktop; /process keeps `DPR_MAX`), `GLOBE_STREAM_PARAMS` (`?globeres`, one
 Mux rung, else 720p on desktop since Nathan's 10-23 bake (Q22) and the 480p `STREAM_PARAMS` on phones), `GLOBE_T1` (`?globethumb`, the legacy square side every
@@ -74,9 +79,16 @@ blink / surge / cut; current + next world held warm; freeze under the commit's b
 Enter World click stops the clock but lets a change in flight land; `onWorld` feeds the scene's
 colour; name strips (`?popnames`, 0 = none by default since 10-24) placed camera-relative once per world change by `planNames` (`warmSet` holds
 their textures), then reconciled per frame by `placeNames`; under `?pophandoff=fast` the next world's warm waits (`nextWarm`)
-until the scheduler is quiet, at least 0.3 s and at most 2 s, and then its forecast clips are fetched
-(`prefetchWorld`; the first world's from the laid tiles, `prefetchLaid`; both through the scene's
-`forecast` hook), and `incomingWorlds()` names the worlds a change is landing; publishes
+until the scheduler is quiet, at least 0.3 s and at most 2 s, and then its board is planned ahead for the
+pose the globe will hold as it lands (`planAhead`, a what-if that puts back every pose, birth, cursor and
+counter it borrows: the rows from `MeridianScroll.predict(holdLeft)`, the yaw from the scene's `getSpin`,
+the plan from `planBoard`; a tide re-births every row, so it plans nothing ahead) and the clips that board
+starts (the scene's `landing` hook = `LivePanelScheduler.landingClips`) are fetched (`prefetchFor`, through
+the scene's `forecast` hook; the first world's from the laid tiles, `prefetchLaid`); the change adopts that
+board when it lands within `AHEAD_TOL_RAD` 0.5° of the prediction on the same dials and births
+(`adoptAhead`; else `aheadMiss` names why: dials / pose / births / tiles / admission, and it plans late);
+`keysOf` counts the distinct textures a world needs (pool / board / front / on screen), all in
+`stats.handoff.ahead`; and `incomingWorlds()` names the worlds a change is landing; publishes
 `window.__swmPopStats`) ·
 `nameTicker.js` (client-name strips: the world's `clientName` in the FP card face baked once per
 world + style into a CanvasTexture `STRIP_H` = `globeConfig.NAME_STRIP_H` tall — 256 × the ratio the
@@ -198,7 +210,7 @@ material, api `{goTo, applyTuning, replay, stats, dispose}`) · `useProcessScrol
 ## Shared libs (`src/lib/`)
 | Module | Role | Consumers |
 |---|---|---|
-| `dragMomentum.js` | THE drag + inertia engine (`DragMomentum`, `DRAG_CHOREO`); `drag: false` installs no pointer listeners at all — ambient-only, the surface leaves the gesture to the page (the phone home globe) | `globe/InteractionController`, `ClientLogoTicker` |
+| `dragMomentum.js` | THE drag + inertia engine (`DragMomentum`, `DRAG_CHOREO`); `drag: false` installs no pointer listeners at all — ambient-only, the surface leaves the gesture to the page (the home globe: phones since 10-07, every screen since 10-27) | `globe/InteractionController`, `ClientLogoTicker` |
 | `overlayWipe.js` | THE overlay wipe (`wipeIn`/`wipeOut`, clip-path up from bottom, inverse out) | Privacy, Project overlays, mobile menu |
 | `scramble.js`, `charCut.js` | House scramble; random-letter hard cut (successor for arriving chrome text) | cards, chrome, tagline, pager |
 | `smoothScroll.js` | Single Lenis on `gsap.ticker`; off on `/` and `/work`; `getLenis()` may be null | layout script, process driver, GridSocket |

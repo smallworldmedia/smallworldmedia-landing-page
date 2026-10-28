@@ -86,7 +86,9 @@ spans added `tex`, `upload`, `r1`, `decode` `{ mp, budget, pinShort, bucket, str
 `staleLanded`, `bornCancelled` and `units` (`null` unless `?popunits` is on; otherwise the placement,
 seam, register, warp, live-split, chip and `density` counters the span gates read). The video handoff
 (10-27) added `changedAt` / `landedAt` (`performance.now()` of the last change's start and landing, exact
-where the 2 Hz sample is not) and `handoff` `{ mode, waiting, fetch, primed, starts }` (`?pophandoff`). The full field
+where the 2 Hz sample is not) and `handoff` `{ mode, waiting, fetch, primed, starts, ahead }` (`?pophandoff`;
+`ahead` is the plan-ahead ledger `{ planned, adopted, missed, why, keys }`, `why` counting the misses by
+reason and `keys` the distinct textures the last planned world needs: pool / board / front / onScreen). The full field
 list is `docs/globe-worlds-plan.md` § Media spans and the tunables guide's Debug globals row. It is
 read by `hero/PopTunePanel.jsx`'s readout and `scripts/globe-probe.mjs`. The `?debug`-gated `/work`
 globals are listed in `docs/tunables-guide.md`.
