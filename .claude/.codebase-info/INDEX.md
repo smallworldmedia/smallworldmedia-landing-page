@@ -1,12 +1,13 @@
 # Codebase Map — Small World Media site
 
-*Last Updated: 2026-10-27*
+*Last Updated: 2026-10-28*
 
 The Small World Media (SWM) portfolio site at smallworld.media: a static Astro 5 build whose
 routes are each one large React island driving a route-scoped three.js canvas (home video globe,
 /work "Worlds", /process stage machine), with persistent site chrome surviving ClientRouter swaps.
 Content comes from Sanity (project b60h4u7o, dataset production) with video on Mux; a
-preview-first CLI (`npm run cms`) ingests media from Dropbox-synced `media/` manifests.
+preview-first CLI (`npm run cms`) ingests media from Dropbox-synced `media/` manifests and audits
+the whole dataset read-only.
 
 **Stack:** Astro 5 (static) · React 19 (.jsx) · GSAP 3 + ScrollTrigger · three.js r184 · Lenis · hls.js · Sanity 5 · Mux · Netlify
 **Shape:** route-per-island monolith; one `src/lib/` layer of shared motion/data helpers; `scripts/` CMS toolchain with its own tests

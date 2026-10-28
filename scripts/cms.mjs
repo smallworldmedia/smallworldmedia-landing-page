@@ -6,12 +6,14 @@ import { createAdapters } from './lib/cms/adapters.mjs'
 import { planChanges, applyPlan, verifyRun, preview, validatePlan } from './lib/cms/runner.mjs'
 import { RunStore, defaultStateRoot, secureRead } from './lib/cms/state.mjs'
 import { invariant, same, targetOf } from './lib/cms/contract.mjs'
+import { runAudit } from './lib/cms/audit.mjs'
 
 const HELP = `SWM CMS — preview first, scoped, no implicit production target.
   node scripts/cms.mjs plan --manifest PATH --project-id ID --dataset NAME
   node scripts/cms.mjs plan --changes PATH --project-id ID --dataset NAME
   node scripts/cms.mjs apply --plan PATH --confirm PLAN_ID
   node scripts/cms.mjs verify --run PLAN_ID
+  node scripts/cms.mjs audit --project-id ID --dataset NAME
 Optional: --checkout PATH, --state-dir PATH (owner-only local storage outside synced media).
 Changes JSON: {"version":1,"patches":[{"id":"project-example","type":"project","set":{"description":"Reviewed copy"},"unset":[]}],"creates":[],"inspect":[]}
 Replacement/repair: add "upload":{"file":"relative/file.mp4"} to a mediaAsset patch.
@@ -26,6 +28,8 @@ only when no draft exists; never discards drafts or deploys the website.
 Credentials: SANITY_READ_TOKEN (or SANITY_WRITE_TOKEN) for authenticated preview;
 SANITY_WRITE_TOKEN for apply. MUX_TOKEN_ID/MUX_TOKEN_SECRET only for Mux operations.
 Environment variables are read from this process; no hidden target/env-file fallback.
+audit is read-only: the whole dataset (drafts included), live Mux when its credentials are set,
+and every media/**/_manifest.md. It prints a JSON report and exits 1 when it finds errors.
 `
 const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`
 function resumeCommand(plan, checkout, store) {
@@ -34,8 +38,8 @@ function resumeCommand(plan, checkout, store) {
 function parse(argv) {
   if (!argv.length || ['help','--help','-h'].includes(argv[0])) return { command: 'help', flags: {} }
   const [command, ...args] = argv
-  invariant(['plan','apply','verify'].includes(command), 'Unknown operation; use --help')
-  const allowed = { plan: ['manifest','changes','project-id','dataset','checkout','state-dir'], apply: ['plan','confirm','checkout','state-dir','project-id','dataset'], verify: ['run','checkout','state-dir','project-id','dataset'] }[command]
+  invariant(['plan','apply','verify','audit'].includes(command), 'Unknown operation; use --help')
+  const allowed = { plan: ['manifest','changes','project-id','dataset','checkout','state-dir'], apply: ['plan','confirm','checkout','state-dir','project-id','dataset'], verify: ['run','checkout','state-dir','project-id','dataset'], audit: ['project-id','dataset','checkout'] }[command]
   const flags = {}
   for (let i = 0; i < args.length; i += 2) { const key = args[i]?.replace(/^--/, ''); invariant(args[i]?.startsWith('--') && allowed.includes(key) && !Object.hasOwn(flags,key) && args[i+1] && !args[i+1].startsWith('--'), `Invalid/duplicate argument ${args[i]}`); flags[key] = args[i+1] }
   return { command, flags }
@@ -44,6 +48,14 @@ export async function main(argv = process.argv.slice(2), { env = process.env, lo
   const { command, flags } = parse(argv)
   if (command === 'help') { log(HELP); return 0 }
   const checkout = await realpath(path.resolve(flags.checkout || path.join(path.dirname(fileURLToPath(import.meta.url)), '..')))
+  if (command === 'audit') {
+    const target = targetOf({ projectId: flags['project-id'], dataset: flags.dataset })
+    const adapters = await adaptersFactory({ target, env, write: false })
+    // Mux is optional here: without credentials the report says so and statuses come from Sanity.
+    const report = await runAudit({ checkout, target, sanity: adapters.sanity, mux: env.MUX_TOKEN_ID && env.MUX_TOKEN_SECRET ? adapters.mux : null })
+    log(JSON.stringify(report, null, 2))
+    return report.summary.errors ? 1 : 0
+  }
   const store = new RunStore(flags['state-dir'] || defaultStateRoot(checkout))
   if (command === 'plan') {
     const target = targetOf({ projectId: flags['project-id'], dataset: flags.dataset })

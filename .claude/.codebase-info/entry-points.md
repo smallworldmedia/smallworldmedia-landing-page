@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-09-10*
+*Last Updated: 2026-10-28*
 
 ## Routes
 
@@ -37,7 +37,7 @@ purpose), server-computed `body.route-*` classes, skip link, hidden Netlify cont
 | `npm run dev` | `astro dev` on :4321 (`--host` for phone testing) |
 | `npm run build` | `astro build` → `dist/` (22 pages) |
 | `npm run preview` | serve `dist/` |
-| `npm run cms -- plan|apply|verify …` | CMS ingest CLI (`scripts/cms.mjs`), see `cms-pipeline.md` |
+| `npm run cms -- plan|apply|verify|audit …` | CMS ingest CLI (`scripts/cms.mjs`) and read-only dataset audit, see `cms-pipeline.md` |
 | `npm run test:cms` | `node --test` over `scripts/test/**` |
 | `node scripts/tunables-keys.mjs --check` | fails if a `?param` in code is missing from `docs/tunables-guide.md` |
 | `node scripts/pager-probe.mjs …` | headless Playwright probe of `/work` pager scenarios |

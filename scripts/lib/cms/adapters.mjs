@@ -154,6 +154,19 @@ export async function createAdapters({target, env = process.env, write = false, 
       text(assetId, 'assetId')
       return query('_type == "mux.videoAsset" && assetId == $assetId', {assetId})
     },
+    // Whole-dataset read for `cms audit`, drafts and release versions included, in pages of 500.
+    // Never fetched: system documents (_.*) and the Mux plugin's secrets (secrets.*, mux.apiKey).
+    async snapshot() {
+      const client = await sanityClient(), documents = []
+      for (let after = ''; ;) {
+        const page = await providerCall('Sanity snapshot', () => client.fetch(
+          '*[!(_id in path("_.**")) && !(_id in path("secrets.**")) && !(_id in path("drafts.secrets.**")) && _type != "mux.apiKey" && _id > $after] | order(_id asc)[0...500]',
+          {after}, {perspective: 'raw', cache: 'no-store'}))
+        documents.push(...page)
+        if (page.length < 500) return documents
+        after = page.at(-1)._id
+      }
+    },
     async commit(mutations) {
       allowWrite()
       if (!Array.isArray(mutations) || !mutations.length) throw new Error('Nonempty mutation array required')
@@ -214,6 +227,19 @@ export async function createAdapters({target, env = process.env, write = false, 
       text(id, 'asset ID')
       const client = await muxClient()
       return providerCall('Mux get asset', () => client.video.assets.retrieve(id, {maxRetries: 0}))
+    },
+    // Every Mux asset for `cms audit`, kept to id/status/aspect/duration.
+    async listAssets() {
+      const client = await muxClient(), assets = []
+      await providerCall('Mux asset list', async () => {
+        const pages = client.video.assets.list({limit: 100}, {maxRetries: 0})
+        if (typeof pages?.[Symbol.asyncIterator] !== 'function') throw new Error('Unsupported pagination')
+        for await (const asset of pages) {
+          if (assets.length >= 100000) throw new Error('Asset scan limit reached')
+          assets.push({id: asset.id, status: asset.status, aspect_ratio: asset.aspect_ratio, duration: asset.duration})
+        }
+      })
+      return assets
     },
     // Absence is an answer (null), not an error: deletes plan against it and verify it.
     async findAsset(id) {

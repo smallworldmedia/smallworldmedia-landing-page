@@ -2,7 +2,8 @@
 
 The website-local runner is `scripts/cms.mjs`; `/swm:cms` is its provider-neutral
 conversation entrypoint in the canonical SWM plugin (released in swm 1.12.0 on
-2026-09-10; each surface still refreshes on its own schedule). Old ingestion scripts are
+2026-09-10, with the dataset audit since swm 1.82.0 on 2026-10-28; each surface still
+refreshes on its own schedule). Old ingestion scripts are
 not alternative production-write workflows.
 
 **Scope → inspect → propose exact diff → approve once → apply → verify/report.**
@@ -44,6 +45,7 @@ node scripts/cms.mjs plan --manifest "media/Example Client/Branding/_manifest.md
 node scripts/cms.mjs plan --changes "changes/request.json" --project-id PROJECT_ID --dataset DATASET
 node scripts/cms.mjs apply --plan "/absolute/local/run/plan.json" --confirm PLAN_ID
 node scripts/cms.mjs verify --run PLAN_ID
+node scripts/cms.mjs audit --project-id PROJECT_ID --dataset DATASET
 ```
 
 Choose one planning scope, not both. Running without a command shows help, never
@@ -60,6 +62,43 @@ Directories/files require owner-only permissions (0700/0600); symlink state
 paths are rejected. Keep the same state directory for apply, retries and verify.
 The custom path's non-synced placement is an operator responsibility, not a claim
 that the runner detects every sync provider.
+
+## Dataset audit
+
+`audit` is a read-only health check of one whole dataset, safe to rerun any time.
+It reads a Sanity snapshot, the live Mux asset list, every `media/**/_manifest.md`
+and the local schema files, and prints a JSON report. It never writes, uploads or
+touches drafts. It skips secret and system documents (`secrets.**`, `_.**`,
+`mux.apiKey`), and the report carries ids, labels, titles, sizes and problems only.
+Exit code 1 means at least one error.
+
+- Credentials: `SANITY_READ_TOKEN` (or the write token). Mux is optional: without
+  `MUX_TOKEN_ID` and `MUX_TOKEN_SECRET` the report says live Mux was not checked,
+  and statuses come from Sanity.
+- **Errors** break a page or a CMS plan: dangling references, media with no file or
+  no client, image/video kind mismatch, values the runner contract rejects, slug
+  collisions, errored or missing Mux assets, and manifest rows bound to missing
+  documents.
+- **Warnings** are drift or waste:
+  - an aspect label off its native size (closest standard ratio within 10%,
+    otherwise `*_other`), and album art that isn't square;
+  - unused or duplicate files, Mux assets no document describes, and Mux videos
+    that aren't ready;
+  - missing alt text, text over the Studio caps, legacy fields, and shared ranks;
+  - pending drafts;
+  - manifest drift, duplicate rows, and unbound documents.
+- **Info** is context, such as pending manifest rows and album art without
+  `releaseInfo`.
+- `notChecked` lists what the audit cannot see: what's inside the frame, alt
+  quality, the deployed Studio schema, re-uploads of the same video, and where
+  slots land.
+
+`suggestedChanges` drafts a changes request for the mechanical fixes only: the
+suggested label, and legacy video shapes rewritten to the weak `mux.video`
+reference. It never covers a document with a draft. It is a starting point, not
+approval. Some labels are deliberate editorial calls, so review every row, save
+what you keep as a request, then run `plan` → approve that plan id → `apply` →
+`verify`.
 
 ## Explicit changes
 

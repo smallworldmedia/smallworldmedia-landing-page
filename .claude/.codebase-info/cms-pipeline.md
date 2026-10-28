@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-10-26*
+*Last Updated: 2026-10-28*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -12,6 +12,7 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
 | `plan` | `--manifest PATH` xor `--changes PATH`, `--project-id`, `--dataset`, `--checkout?`, `--state-dir?` | Read-only. Parses scope, resolves client/project/serviceTag refs, hashes + probes every file, computes create/patch/unchanged/delete ops and appended LexoRanks, saves a credential-free `plan.json` (id = sha256) and prints the exact resume command |
 | `apply` | `--plan PATH --confirm PLAN_ID` | Requires exact plan-id + matching checkout/target; per-checkout git mutex + per-run lock; uploads media, journals each op, writes docs, publishes only when no draft exists, runs approved deletes last, writes `sanityId` bindings back into the manifest |
 | `verify` | `--run PLAN_ID` | Read-only reconciliation of the journal against Sanity/Mux (readiness, aspect, corruption; deleted docs, drafts and Mux assets absent) |
+| `audit` | `--project-id`, `--dataset`, `--checkout?` | Read-only whole-dataset health check (`lib/cms/audit.mjs`): Sanity snapshot + live Mux list (optional) + every `media/**/_manifest.md` + local schema → JSON report of `CHECKS` (error/warning/info) and a draft `suggestedChanges` request (labels, legacy video shapes; never drafted docs). Exit 1 on errors; no run store |
 
 ## Modules (`scripts/lib/cms/`)
 - `manifest.mjs` — `parseManifest()` (headers client/services/year/project; columns file, mediaType,
@@ -37,10 +38,14 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   deletes the Mux asset after rechecking no other doc describes it; `mux.asset` deletes a Mux asset no
   doc describes. Journal stages make it resumable; nothing is ever restored.
 - `adapters.mjs` — Sanity + Mux clients (lazy credentials, streaming uploads, Mux direct upload with
-  passthrough = op id; `preparing` resumes), sharp/ffprobe probes (rejects non-square SAR). Delete
+  passthrough = op id; `preparing` resumes; audit reads `sanity.snapshot()` — paged raw perspective, secrets excluded — and `mux.listAssets()`), sharp/ffprobe probes (rejects non-square SAR). Delete
   support: `sanity.findDeleteBlockers()` / `findMuxDocuments()`, `mux.findAsset()` (404 → null) /
   `deleteAsset()` (404 → absent); `commit` accepts a `{delete}` only right after a revision-guarded
   patch of the same id.
+- `audit.mjs` — `runAudit()` (sequential reads) → `auditDataset()` (pure; testable): `CHECKS`
+  `{id: [severity, meaning]}`, `expectedType()` (log-space closest ratio, 10% tolerance, else
+  `*_other`), `secretDocument()` filter, `loadManifests()`, `schemaFields()` (unknown-field
+  allowlist; `orderRank` from `orderRankField(`). Ranks collide only within one project/collection.
 - `state.mjs` — owner-only 0700/0600 run store outside the Dropbox checkout (default
   `~/.local/state/swm-cms/<hash>/runs`).
 
@@ -54,10 +59,10 @@ Env (process env only, never `.env` loading): `SANITY_READ_TOKEN`, `SANITY_WRITE
 bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
 
 ## Tests — `npm run test:cms`
-`scripts/test/cms/{runner,adapters,safety,delete}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
+`scripts/test/cms/{runner,adapters,safety,delete,audit}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
 groq-js), `cms-generator.test.mjs`, `legacy-cms.test.mjs`. Covers parsing, zero-write previews,
 idempotent reruns, legacy-ID matching, tampered-plan rejection, Mux resume, replacement atomicity,
-lock refusal, schema-drift fail-closed, delete blockers/drift/resume/tamper, and that retired scripts
+lock refusal, schema-drift fail-closed, delete blockers/drift/resume/tamper, audit (clean-set negative control, every check seeded, secrets never reported, read-only CLI), and that retired scripts
 stay guidance-only.
 
 ## Retired / gated scripts

@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-10-25*
+*Last Updated: 2026-10-28*
 
 ```
 .
@@ -35,7 +35,7 @@
 ├── public/                   # favicons, og-image, robots, icons/ sprite + social marks
 ├── scripts/
 │   ├── cms.mjs               # npm run cms — plan / apply / verify
-│   ├── lib/cms/              # manifest, contract, runner, adapters, state
+│   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prepare-compress.mjs   # live utilities
