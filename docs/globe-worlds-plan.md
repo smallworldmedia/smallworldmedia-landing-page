@@ -1,6 +1,6 @@
 # Globe Worlds: three ways to populate the home globe by featured project
 
-*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23; re-scoped at the P2 checkpoint (2026-09-26: Blend becomes pointer / drag travel between worlds, Procession drops, Dive folds into P3). Status: P3 done (Enter World lands inside the world on the globe), at the P3 checkpoint — see the Status log at the end.*
+*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23; re-scoped at the P2 checkpoint (2026-09-26: Blend becomes pointer / drag travel between worlds, Procession drops, Dive folds into P3); Blend dropped 2026-10-28. Status: Tides ships with media spans and the fast video handoff (Nathan's bakes through 10-28) — see the Status log at the end.*
 
 ## Context
 
@@ -18,7 +18,7 @@ until you give the numbers.
 1. **Tides** (time-driven, your idea #1): groupings of 1–3 projects in irregular clusters, cycling
    through varied transitions and patterns, with dialable unpredictability.
 2. **Blend** (input-driven, your idea #2): the pointer's X-Y position, or dragging the globe,
-   scrubs one world into another.
+   scrubs one world into another. Dropped 10-28 (Option B).
 3. **Procession + Dive** (attention-driven, your pick): the meridian scroll carries a river of
    world territories. Hovering or tapping one blooms it across the globe, and Enter World dives
    into it.
@@ -162,6 +162,11 @@ npm run dev -- --port 4322        # runs beside :4321 in this checkout
 
 ## Option B: Blend
 
+**Dropped 2026-10-28** (Nathan: "lets drop the blend / mouse following from the plan"). The home
+globe takes no drag on any screen since 10-27, so the `drag` arm had nothing left to read, and the
+`pointer` arm would make the next world's board follow the cursor, which the fast handoff cannot
+plan ahead (Status log, 10-27). The design below is kept as the record.
+
 - Worlds A and B are both kept warm. Each tile carries a threshold τ from the coherent field and
   shows B once τ < m (the blend value). As m rises, B's islands grow organically through A like a
   level set, not a wipe.
@@ -198,7 +203,7 @@ npm run dev -- --port 4322        # runs beside :4321 in this checkout
 
 - `getFocusProject()` joins the scene api:
   - Tides: the grouping lead, or whichever world has the largest visible share.
-  - Blend: the dominant side of m.
+  - Blend (dropped 10-28): the dominant side of m.
   - Procession: the dived or facing territory.
 - `Hero.jsx` `beginEnvelopment` writes `sessionStorage['swm:enterWorld'] = slug` before
   `navigate('/work')`, when `popenter` is on.
@@ -215,7 +220,7 @@ npm run dev -- --port 4322        # runs beside :4321 in this checkout
 |---|---|
 | gate / global | `poptune=1` (strict gate) · `popmode` off\|tides\|blend\|procession (off; P1 ships off\|tides) · `popseed` (random per visit) · `popmedia` showcase\|all\|video\|still\|art (showcase = the /work showcase Tiles, videos + stills; all adds album art) · `popcap` (24 desktop / 16 mobile) · `popshare` equal\|weighted · `popenter` 1\|0 (1; live since P3) |
 | tides | `popgroup` (2) · `poppattern` (continents,archipelago,spiral) — both live since P1 · P2: `pophold` (8) · `popholdjit` (0.3) · `poptrans` (1.6) · `poptransset` (tide) · `poppair` (relay) · `popcarry` (0.5) · `popchaos` (0.35) · `popstray` (0) · `popstagger` (random). `popboost` is dropped: the surge's peak is whatever pours the new grouping in within `poptrans`. |
-| blend | `popinput` (pointer; drag on touch) · `popaxis` (grain) · `popgrain` (2.5) · `popfollow` (0.35) · `pophyst` (0.04) · `popflip` (160) · `popdragrange` (180) |
+| blend (dropped 10-28) | `popinput` (pointer; drag on touch) · `popaxis` (grain) · `popgrain` (2.5) · `popfollow` (0.35) · `pophyst` (0.04) · `popflip` (160) · `popdragrange` (180) |
 | procession | `popspan` (3) · `popflow` (2) · `poplanes` (1) · `popbloom` (1.2) · `popdive` (2.5) |
 
 Defaults are starting points. `media`, `cap` and `share` apply live on the client, because the
@@ -229,7 +234,7 @@ pools ship tagged by kind up to the hard cap.
 | P1 | engine items 1–8, `popmode=tides` with holds only (static first grouping) | Do the clusters read as client worlds on first load? Pattern family? Stills OK? |
 | P2 | Tides: groupings, all transitions, chaos, relay/lineage | Dial session, then send copy_url |
 | P3 | Enter the world you see (/work snap arrival); with one world on the globe, this is the Dive | Does home → /work land inside the right world? |
-| P4 | Blend, re-scoped 09-26: pointer / drag travel between worlds (not two worlds mixed) | Dial session |
+| P4 | Blend: dropped 10-28 (re-scoped 09-26 to pointer / drag travel between worlds; drag is off on every screen since 10-27, and a board that follows the pointer cannot be planned ahead) | — |
 | P5 | Procession + Dive: dropped 09-26 (one world at a time leaves no river; the Dive is P3) | — |
 | P6 | Your pick → bake only your numbers (bake law), park or remove the losing modes, final docs | — |
 
@@ -365,8 +370,8 @@ A = compose(coverWindow(aTex, S), memberWindow(…))    B = compose(coverWindow(
 V/Q scale: q = √(vK · max(sin θ₂, 1e-3)), θ₂ = θ ± Pθ (vK when θ₂ leaves (0, π))
 ε window: thetaBound(k, Pθ) = atan2(k·sin Pθ, 1 − k·cos Pθ)
   θN = thetaBound((1 + ε)^−2) = 47.61°   θS = thetaBound((1 + ε)^2) = 102.39°   (ε = 0.15)
-Travel budget: pace·(land + hold·(1 + holdJit) + trans); defaults pace 2°/s, hold 6, holdJit 0.4, trans 0.6 (Nathan 10-23)
-  advance (land 0.6 s) 19.2° · relayout (land 1.05 s) 20.1° · held arrive 22.0° · RM 0 · replay/single ∞
+Travel budget: pace·(land + hold·(1 + holdJit) + trans); defaults pace 2°/s, hold 7 (Nathan 10-28), holdJit 0.4, trans 0.6 (Nathan 10-23)
+  advance (land 0.6 s) 22.0° · relayout (land 1.05 s) 22.9° · held arrive 24.8° · RM 0 · replay/single ∞
 Class texture: W × H = round(T1·(cols·Pφ − Gφ)/phiLen) × round(T1·(rows·Pθ − Gθ)/bandH)
   T1 = GLOBE_T1 (THUMB_WIDTH: 512 desktop, 384 phone) → h 1043×512 (phone 783×384), v 512×1043, q 1043×1043
   TQ = round(T1·(2Pθ − Gθ)/bandH) = 1043 at T1 512, 783 at T1 384
@@ -561,10 +566,10 @@ is the `--out` folder's name, so pass the key that matches the run.
 **Since Nathan's 10-23 bake the records are stale.** Every one was recorded at the old defaults:
 units off, `?popunitmax` 1, `?popequiv` 0, a hold of ± 0.2, a 0.9 s change, name size 0.62, band
 0.65, face 0.5, span max 6, and a 480p desktop pin; and, since 10-24, the classic shapes, one name
-strip and a 45.5° tilt. Re-record them at the next probe pass. Until
+strip and a 45.5° tilt; and, since 10-28, a 6 s hold and the `today` handoff. Re-record them at the next probe pass. Until
 then, a run reproduces its record only with the old values in `--extra`, placed after the run's
 own flags (the page and the probe both read a param's first value):
-`&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0&popshapes=classic&popnames=1&herotilt=45.5`,
+`&pophold=6&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0&popshapes=classic&popnames=1&herotilt=45.5&pophandoff=today`,
 plus `&globeres=480p` on desktop. The units-off keys also pass `--units=0`. Both hold for the
 negative controls, which judge against the same records.
 
@@ -690,9 +695,13 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   run spread. The quad call stays open until he answers, and the default (q 720) ships.
   On phones `GLOBE_STREAM_PARAMS` stays the 480p literal that T33 asserts (desktop pins 720p since 10-23,
   Q22).
-- Q2, Q11, Q12, Q23(a) and (b), Q25 and Q27 above.
+- Q2, Q11, Q12, Q23(a) and (b) and Q25 above.
 
 **Next steps (P8 runs no probe):**
+- The fast handoff's last misses (`7d16642`'s runs: 5 clips on desktop and 2 on the phone that
+  start a rung below the forecast, or were not forecast). Each starts 0–0.5 s after landing,
+  0.6–1.1 s after the change-start pose the clips were scored at. Also scoring `landingClips` at
+  the landing pose (T + land) and fetching the union should catch most of them. Untested.
 - Re-measure the first units batch's frame rate on a quiet machine. At P7 it ran at about half
   of P6b's rate (02:06-02:09). No load was logged during that batch. P7's PROGRESS.md logged a
   load average of 9.5, with Illustrator near 85% CPU, at 02:10:39 just after it, then 4.7 and
@@ -1271,3 +1280,42 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   load), and copy_url carries `?herotilt` when it is off the default (`withHeroTilt`, kept in
   heroConfig so the key scanner does not read the bench's `['world', 'blue']` options as a key
   pair). No default changed. Tests 96, 348 keys; a headless click flipped new → old → new.
+- 2026-10-27 · handoff · `b22fbf1` · `?pophandoff=fast` (the default stayed `today`): the next
+  world's clips are fetched at low priority during the hold, once this world's videos have started
+  (`streamPrefetch.js`; the playlists kept in memory by `hlsPrimed.js`, since Mux serves them
+  no-store), its stills wait for a quiet scheduler, and a change starts the incoming world's clips
+  while it lands, on a 0.1 s beat. Tests 106, 349 keys.
+- 2026-10-27 · handoff · `7d16642` · the home globe takes no drag on any screen (phones since 10-07;
+  /lab/globe keeps its drag), so the pose a world lands at is known. Under `fast` the next world's
+  board is planned ahead for that pose (`planAhead`, `MeridianScroll.predict`), and only the clips
+  it starts are fetched, each at the rung it starts at (`LivePanelScheduler.landingClips`). The
+  change adopts that board when it lands within 0.5° on the same dials (`adoptAhead`); otherwise it
+  plans late. Tests 110, 349 keys. Timed in headless Chrome against :4322 (seed 4242, a fresh
+  context per run; `today` → `b22fbf1` → `7d16642`):
+  - the median wait from a landing to a clip's first frame: 1.1 s → 0 → 0 on desktop (45 s), and
+    2.0 s → 0 → 0 on a phone at 12 Mbps / 70 ms (50 s);
+  - video: 42.8 → 70.5 → 54.6 MB and 14.3 → 22.2 → 18.0 MB, of which 7.0 and 2.1 MB were the
+    next world's clips, fetched as the run ended;
+  - the board planned ahead was adopted 6/6 on both devices. Seven clips still started a rung
+    below the forecast or unforecast, all 0–0.5 s after landing (Next steps).
+- 2026-10-28 · bake · Nathan: "lets drop the blend / mouse following from the plan. lets go ahead
+  and have the default be fast. lets also up the time per world to 7 seconds, new tilt."
+  - `?pophandoff` defaults to `fast`; `?pophandoff=today` is the handoff before it.
+  - `?pophold` defaults to 7 s (6 from 10-06), still ± 0.4 per change, so 4.2–9.8 s.
+  - The tilt: the new −10° has been the default since 10-24, so nothing moved. The bench's toggle
+    stays.
+  - Blend (P4) is dropped (Option B).
+  - The test fixtures keep the handoff they were written under (`BOARD_DEFAULTS.handoff` is
+    `today`; the handoff tests ask for `fast`). The travel budgets the tests pin move to the
+    7 s hold: advance 22.0°, relayout 22.9°, arrive 24.8°. Tests 110, 349 keys.
+  - The stale records' `--extra` above gains `&pophold=6&pophandoff=today`.
+  - Timed as on 10-27, `?pophandoff=today` against the new default, both at the 7 s hold:
+    - desktop (45 s): the median wait 1.2 s → 0 (p90 2.0 → 0.4 s); 20 of 24 clips were playing
+      at landing and all 24 by +0.5 s (0 under `today`); video 36.5 → 43.6 MB, of which 6.3 MB
+      was the next world's clips at the run's end. Prefetched and never played: 0 MB. All 28
+      forecast clips played at the forecast rung. The board planned ahead was adopted 5/5.
+    - phone (12 Mbps / 70 ms, 50 s): the median wait 1.6 s → 0 (p90 2.7 → 0.4 s); 13 of 15 were
+      playing at landing (0 under `today`); video 12.1 → 16.4 MB. Prefetched and never played:
+      1.3 MB. 17 of 21 forecast clips played at the forecast rung; the other 4 never started.
+      `fast` also played more clips in the same 50 s: 22 attached, against 19. Kamino's third
+      clip still waits for a slot (the outgoing world holds all 4). Adopted 6/6.

@@ -202,7 +202,7 @@ export const TUNING_DEFAULTS = Object.freeze({
   /* globe · orientation — the brand tilt + spin, applied live in the render
      tick (setGlobeOrientation). tilt defaults to the brand INITIAL_PITCH; yaw
      is an absolute spin offset. Both 0-offset at default → parity. */
-  tiltDeg: -10, // ?herotilt — resting tilt (camera-facing pole lean, + tips the top pole toward you), degrees; −10 = Nathan's 10-24 bake, fitted to the lat lines of his screenshot (the north pole out of sight at load; was 45.5). The tick applies tiltDeg − INITIAL_PITCH as the offset, so /lab stays at INITIAL_PITCH; VideoGlobe seeds the first build with it
+  tiltDeg: -10, // ?herotilt — resting tilt (camera-facing pole lean, + tips the top pole toward you), degrees; −10 = Nathan's 10-24 bake, fitted to the lat lines of his screenshot (the north pole out of sight at load; was 45.5, and he kept −10 at the 10-28 pick). The tick applies tiltDeg − INITIAL_PITCH as the offset, so /lab stays at INITIAL_PITCH; VideoGlobe seeds the first build with it
   yawDeg: 0, // ?heroyaw — static globe spin about its axis, degrees
   yawSpeed: -2, // ?yawspeed — steady auto-rotation about the axis, degrees/second (0 = fixed); −2 = Nathan's 08-24 bake (slow reverse drift)
 
@@ -289,7 +289,8 @@ const HERO_INK_PARAM = 'heroink';
 const LABELS_PARAM = 'herolabels';
 
 /* The worlds bench's tilt toggle (Nathan 10-25: "not sure which I'd like to go with yet"): his
-   10-24 rest and the 10-23 one. ?herotilt=45.5 opens on the old one, first layout included. */
+   10-24 rest and the 10-23 one. ?herotilt=45.5 opens on the old one, first layout included.
+   He picked new on 10-28; the toggle stays for a look back. */
 export const TILT_PRESETS = Object.freeze({ new: TUNING_DEFAULTS.tiltDeg, old: 45.5 });
 
 // The worlds bench's copy_url: `url` plus ?herotilt when the tilt is off its default.

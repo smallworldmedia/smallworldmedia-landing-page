@@ -298,7 +298,7 @@ export default function PopTunePanel({ sceneApiRef }) {
         onPick={(k) => setHeroTune('tiltDeg', TILT_PRESETS[k])}
       />
       <p className="hero-tune__note">
-        ?herotilt. new = {TILT_PRESETS.new}° (Nathan 10-24, the north pole out of sight), old = {TILT_PRESETS.old}° (10-23). flips
+        ?herotilt. new = {TILT_PRESETS.new}° (Nathan 10-24, the north pole out of sight; his pick 10-28), old = {TILT_PRESETS.old}° (10-23). flips
         live; the first layout follows only on a reload, so open with ?herotilt={TILT_PRESETS.old} for the old load. copy_url
         carries it; the hero bench (?herotune=1) has the full slider.
       </p>
@@ -314,7 +314,7 @@ export default function PopTunePanel({ sceneApiRef }) {
       />
       <p className="hero-tune__note">
         ?poplive · ?pophandoff · ?popcolor. shared = one decode per clip, bound on every tile showing it (the
-        repeats play in sync); tile = one decode per live tile. handoff (shared only; 10-27, on trial): fast = a
+        repeats play in sync); tile = one decode per live tile. handoff (shared only; fast by default, Nathan 10-28): fast = a
         change starts its videos while it lands, on a 0.1 s beat; once they play, the next world's stills load
         and its board is planned ahead for where the globe will be as it lands (drag is off, so that pose is
         known), then the clips that board starts load (a few at a time, low priority, at the size they start),

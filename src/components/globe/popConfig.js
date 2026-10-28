@@ -25,7 +25,8 @@
  * the hold ± 0.4 and a 0.6 s change; media spans on (Q1), up to 4 units per
  * asset (Q7) in a 12 tile-equivalent world (Q8). 10-24 (his shape set,
  * ?popshapes=wide): 16:9 and 4:3 span 3×2, tall 1×2, every square 2×2; the
- * set before it stays at ?popshapes=classic.
+ * set before it stays at ?popshapes=classic. 10-28 (his call): a 7 s hold and
+ * the fast handoff by default.
  * 10-06 = client-name strips (names, nameStyle — nameTicker.js).
  * 10-07 = their placement rework: the ticker is gone (the strips are still),
  * the span comes from the MEASURED name (nameSpanMin/nameSpanMax) instead of a
@@ -34,9 +35,10 @@
  * (nameFace), in the quadrant opposite the last world's — or across a whole
  * latitude row (nameMode=band). Starting values, until Nathan dialed four of
  * them on 10-23: size 0.83, band 0.57, face 0.44, span max 4.
- * 10-27 = the video handoff (handoff), on trial at ?pophandoff=fast: the next
- * world's clips load during the hold, after its own videos have started, and
- * a change's videos start while it lands.
+ * 10-27 = the video handoff (handoff), fast: the next world's clips load
+ * during the hold, after its own videos have started, and a change's videos
+ * start while it lands. The default since Nathan's 10-28 call;
+ * ?pophandoff=today is the handoff before it.
  */
 import { PATTERNS } from './worldPatterns.js';
 import { WORLD_POOL_CAP } from './buildWorldPools.js';
@@ -99,7 +101,7 @@ export const POP_DEFAULTS = Object.freeze({
   group: 1, // ?popgroup — worlds on the globe at once, 1..3 (Nathan 09-26: one)
   layout: 'mix', // ?poplayout — one world: mix | facets (POP_LAYOUTS)
   patterns: Object.freeze(['continents', 'archipelago', 'spiral']), // ?poppattern — 2–3 worlds: the set each grouping draws from (comma list)
-  hold: 6, // ?pophold — seconds a world holds before the next
+  hold: 7, // ?pophold — seconds a world holds before the next (Nathan 10-28; 6 from 10-06)
   holdJit: 0.4, // ?popholdjit — ± fraction of the hold, drawn per change (Nathan 10-23; 0.2 from 10-06)
   trans: 0.6, // ?poptrans — seconds a change takes (a tide rolls a full span in it); Nathan 10-23, 0.9 from 10-06
   transitions: Object.freeze(['surge']), // ?poptransset — the set changes draw from (comma list, POP_TRANSITIONS)
@@ -132,7 +134,7 @@ export const POP_DEFAULTS = Object.freeze({
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
   equiv: 32, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Nathan 10-24, 32 (the top; Q8 10-23 was 12, before that 0)
-  handoff: 'today', // ?pophandoff — today | fast (POP_HANDOFFS): fast = the next world's videos load during the hold and a change's start while it lands (10-27, on trial)
+  handoff: 'fast', // ?pophandoff — today | fast (POP_HANDOFFS): fast = the next world's videos load during the hold and a change's start while it lands (Nathan 10-28; today until then)
 });
 
 const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
