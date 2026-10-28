@@ -43,9 +43,12 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   `deleteAsset()` (404 → absent); `commit` accepts a `{delete}` only right after a revision-guarded
   patch of the same id.
 - `audit.mjs` — `runAudit()` (sequential reads) → `auditDataset()` (pure; testable): `CHECKS`
-  `{id: [severity, meaning]}`, `expectedType()` (log-space closest ratio, 10% tolerance, else
-  `*_other`), `secretDocument()` filter, `loadManifests()`, `schemaFields()` (unknown-field
-  allowlist; `orderRank` from `orderRankField(`). Ranks collide only within one project/collection.
+  `{id: [severity, meaning]}`, `expectedType()` (Nathan's label policy R1–R4: within 10% →
+  `closestType()`, past 2.4:1 → `*_other`, a neighbouring label stays, else `closestType()`),
+  `secretDocument()` filter, `loadManifests()`, `loadAccepted()` (`media/_audit-accepted.json`:
+  decided findings hidden while they still match, unmatched ones → `accepted-stale`; malformed
+  stops the audit), `schemaFields()` (unknown-field allowlist; `orderRank` from `orderRankField(`).
+  Ranks collide only within one project/collection.
 - `state.mjs` — owner-only 0700/0600 run store outside the Dropbox checkout (default
   `~/.local/state/swm-cms/<hash>/runs`).
 

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { readFile, readdir, realpath } from 'node:fs/promises'
-import { invariant, same, targetOf, isVideoType, FIELDS, CAPS, validateField, validateDocument, validatePatch, schemaHash, SUPPORTED_SCHEMA_HASH } from './contract.mjs'
+import { invariant, same, targetOf, isVideoType, closestType, FIELDS, CAPS, validateField, validateDocument, validatePatch, schemaHash, SUPPORTED_SCHEMA_HASH } from './contract.mjs'
 import { parseManifest, legacySlug } from './manifest.mjs'
 
 // `cms audit`: a read-only health check of one whole dataset, rerunnable any time. It codifies the
@@ -28,7 +28,7 @@ export const CHECKS = {
   'manifest-missing-document': ['error', 'A manifest row is bound (sanityId) to a document that does not exist.'],
   'schema-fingerprint': ['warning', 'src/schemas changed since the runner contract was reviewed; plan refuses until SUPPORTED_SCHEMA_HASH is refreshed.'],
   'draft-pending': ['warning', 'An unpublished draft or release version exists; CMS plans touching that document stop until it is resolved in Studio.'],
-  'label-ratio': ['warning', 'The aspect label does not match the native size (closest standard ratio within 10%, otherwise *_other).'],
+  'label-ratio': ['warning', 'The aspect label breaks the approved label policy for its native size (see expectedType); padded files and eye calls belong in media/_audit-accepted.json.'],
   'album-art-not-square': ['warning', 'Album art is not square; the album wall crops it to 1:1.'],
   'album-art-without-release': ['info', 'Album art has no releaseInfo (queries.js fetches it; no component renders it today).'],
   'unused-image': ['warning', 'An image file no document references.'],
@@ -47,10 +47,12 @@ export const CHECKS = {
   'unbound-document': ['warning', 'A mediaAsset no manifest row resolves to.'],
   'manifest-pending-row': ['info', 'A manifest row with no document yet (pending intake; a video intake is a paid upload).'],
   'description-missing': ['info', 'A mediaAsset has no description.'],
+  'accepted-stale': ['info', 'An entry in media/_audit-accepted.json no longer matches a finding (the label changed or the problem is gone); remove it.'],
 }
+export const ACCEPTED_FILE = 'media/_audit-accepted.json'
 const SCHEMA_TYPES = ['mediaAsset', 'project', 'client', 'serviceTag', 'globeSettings', 'siteSettings']
 const STANDARD = { '1x1': 1, '3x4': 3 / 4, '4x5': 4 / 5, '9x16': 9 / 16, '16x9': 16 / 9, '4x3': 4 / 3 }
-const TOLERANCE = Math.log(1.1)
+const TOLERANCE = Math.log(1.1), EXTREME = Math.log(2.4)
 
 // The Mux plugin keeps its token in secrets.mux; system documents live under _.
 export const secretDocument = doc => doc?._type === 'mux.apiKey' || /^(?:drafts\.)?(?:secrets|_)\./.test(doc?._id ?? '')
@@ -58,12 +60,17 @@ const baseId = id => id.replace(/^drafts\./, '').replace(/^versions\.[^.]+\./, '
 const group = (items, key) => { const map = new Map(); for (const item of items) { const k = key(item); if (k == null) continue; if (!map.has(k)) map.set(k, []); map.get(k).push(item) } return map }
 const tally = (items, key) => Object.fromEntries([...group(items, key)].map(([k, v]) => [k, v.length]).sort())
 
-// Closest standard ratio in log space; past 10% the honest label is *_other. Stills have no 4:3 type.
-export function expectedType(width, height, kind) {
-  const r = Math.log(width / height)
-  const [best, distance] = Object.entries(STANDARD).filter(([k]) => kind === 'video' || k !== '4x3')
-    .map(([k, v]) => [k, Math.abs(r - Math.log(v))]).sort((a, b) => a[1] - b[1])[0]
-  return `${kind === 'video' ? 'motion' : 'static'}_${distance <= TOLERANCE ? best : 'other'}`
+// Nathan's label policy (decisions page, 10-09; R1–R4): a standard ratio within 10% → the runner's
+// closestType(); otherwise wider than 2.4:1 or taller than 1:2.4 → *_other; otherwise a label on the
+// other neighbouring standard stays (an eye call); otherwise closestType(). Stills have no 4:3 type.
+// Padding needs eyes (the label follows the content), so padded files go in the accepted list.
+export function expectedType(width, height, kind, current = null) {
+  const r = width / height, prefix = kind === 'video' ? 'motion' : 'static', closest = closestType(width, height, kind)
+  const ratios = Object.entries(STANDARD).filter(([k]) => kind === 'video' || k !== '4x3').sort((a, b) => a[1] - b[1])
+  if (ratios.some(([, v]) => Math.abs(Math.log(r / v)) <= TOLERANCE)) return closest
+  if (Math.abs(Math.log(r)) >= EXTREME) return `${prefix}_other`
+  const neighbours = [ratios.findLast(([, v]) => v < r), ratios.find(([, v]) => v > r)].filter(Boolean).map(([k]) => `${prefix}_${k}`)
+  return neighbours.includes(current) ? current : closest
 }
 // Native display size: Sanity image metadata for stills; Mux's display aspect (then track size) for video.
 function nativeSize(doc, images, videos) {
@@ -83,7 +90,7 @@ function* refsOf(value, at = '') {
   for (const [k, v] of Object.entries(value)) if (k !== '_system' && v && typeof v === 'object') yield* refsOf(v, at ? `${at}.${k}` : k)
 }
 
-export function auditDataset({ target, docs, muxAssets = null, manifests = null, schema = {}, fingerprint = true, checkedAt = new Date().toISOString() }) {
+export function auditDataset({ target, docs, muxAssets = null, manifests = null, accepted = null, schema = {}, fingerprint = true, checkedAt = new Date().toISOString() }) {
   const found = Object.fromEntries(Object.keys(CHECKS).map(k => [k, []]))
   const add = (check, item) => found[check].push(item)
   docs = docs.filter(d => !secretDocument(d))
@@ -110,7 +117,7 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
     if (wantsVideo && imageRef && !videoRef || wantsImage && videoRef && !imageRef) add('file-kind-mismatch', { id: doc._id, mediaType: doc.mediaType, file: videoRef ? 'video' : 'image' })
     const size = nativeSize(doc, images, videos), family = /^(static|motion)_/.exec(doc.mediaType || '')?.[1]
     if (size && family && (family === 'motion') === (size.kind === 'video')) {
-      const suggested = expectedType(size.width, size.height, size.kind)
+      const suggested = expectedType(size.width, size.height, size.kind, doc.mediaType)
       if (suggested !== doc.mediaType) add('label-ratio', { id: doc._id, title: doc.title ?? null, mediaType: doc.mediaType, native: `${size.width}×${size.height}`, ratio: +(size.width / size.height).toFixed(3), suggested })
     }
     if (doc.mediaType === 'album-art') {
@@ -175,6 +182,16 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
     for (const doc of media) if (!bound.has(doc._id)) add('unbound-document', { id: doc._id, sourceManifest: doc.sourceManifest ?? null })
   }
 
+  // Accepted exceptions are decisions already made: an entry hides only its exact finding (for a label,
+  // only while the label is the one decided), and one that matches nothing is reported so the list stays true.
+  const kept = [], used = new Set()
+  for (const [check, items] of Object.entries(found)) found[check] = items.filter(item => {
+    const index = (accepted || []).findIndex(a => a.check === check && a.id === item.id && (a.mediaType == null || a.mediaType === item.mediaType))
+    if (index < 0) return true
+    used.add(index); kept.push({ check, ...item, reason: accepted[index].reason }); return false
+  })
+  for (const [index, a] of (accepted || []).entries()) if (!used.has(index)) add('accepted-stale', { check: a.check, id: a.id, ...(a.mediaType ? { mediaType: a.mediaType } : {}) })
+
   const findings = Object.entries(found).filter(([, items]) => items.length).map(([check, items]) => ({ check, severity: CHECKS[check][0], meaning: CHECKS[check][1], count: items.length, items }))
   const summary = Object.fromEntries(['error', 'warning', 'info'].map(s => [`${s}s`, findings.filter(f => f.severity === s).reduce((n, f) => n + f.count, 0)]))
   // Only mechanical fixes become a draft request, never for a document with a pending draft: the
@@ -194,6 +211,7 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
     manifests: manifests ? `${manifests.length} manifests, ${rowCount} rows under media/` : 'not checked (no media/ folder in this checkout)',
     counts: { documents: tally(published, d => d._type), drafts: docs.length - published.length, mediaTypes: tally(media, d => d.mediaType) },
     summary, findings,
+    accepted: accepted ? { file: ACCEPTED_FILE, count: kept.length, items: kept } : null,
     suggestedChanges: patches.length ? { note: 'Review every row first: some labels are deliberate editorial calls. Save what you keep as a changes request, then plan it.', request: { version: 1, patches } } : null,
     notChecked: NOT_CHECKED,
   }
@@ -211,6 +229,21 @@ export async function loadManifests(checkout) {
   }
   try { await walk(root) } catch (error) { if (error.code === 'ENOENT' && error.path === root) return null; throw error }
   return found
+}
+// The accepted list: {version: 1, accepted: [{check, id, mediaType?, reason, decided?}]}. Absent is fine;
+// a malformed one stops the audit, since silently ignoring it would resurface or hide decisions.
+export async function loadAccepted(checkout) {
+  let raw
+  try { raw = await readFile(path.join(checkout, ACCEPTED_FILE), 'utf8') } catch (error) { if (error.code === 'ENOENT') return null; throw error }
+  let data
+  try { data = JSON.parse(raw) } catch { invariant(false, `${ACCEPTED_FILE} is not valid JSON`) }
+  invariant(data?.version === 1 && Array.isArray(data.accepted), `${ACCEPTED_FILE} needs version 1 and an accepted list`)
+  for (const [i, a] of data.accepted.entries()) {
+    invariant(CHECKS[a?.check] && a.check !== 'accepted-stale', `${ACCEPTED_FILE} entry ${i + 1}: unknown check ${a?.check}`)
+    invariant(typeof a.id === 'string' && a.id && typeof a.reason === 'string' && a.reason.trim(), `${ACCEPTED_FILE} entry ${i + 1}: id and reason are required`)
+    invariant(a.mediaType === undefined || typeof a.mediaType === 'string', `${ACCEPTED_FILE} entry ${i + 1}: mediaType must be text`)
+  }
+  return data.accepted
 }
 // Every name in each schema file (nested fields and orderings included): generous on purpose, so only
 // fields the schema never mentions are flagged.
@@ -232,7 +265,8 @@ export async function runAudit({ checkout, target, sanity, mux = null }) {
   const docs = await sanity.snapshot()
   const muxAssets = mux ? await mux.listAssets() : null
   const manifests = await loadManifests(checkout)
+  const accepted = await loadAccepted(checkout)
   const schema = await schemaFields(checkout)
   const fingerprint = await schemaHash(checkout) === SUPPORTED_SCHEMA_HASH
-  return auditDataset({ target, docs, muxAssets, manifests, schema, fingerprint })
+  return auditDataset({ target, docs, muxAssets, manifests, accepted, schema, fingerprint })
 }

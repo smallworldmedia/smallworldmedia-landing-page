@@ -3,7 +3,7 @@
   "tool": "codebase-mapper",
   "version": "2.15.10",
   "mappedAt": "2026-10-28",
-  "gitCommit": "d429ad106b0598badc4d7cdbe915dacce3ede96b",
+  "gitCommit": "5c5e02b634b9830324edf038d54dce22b9c67343",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -20,11 +20,11 @@
   "hashes": {
     "INDEX.md": "4c6756dae725dcc78a18c753e5a68f63c7a689fb02811ec671ba891b0810cd78",
     "architecture.md": "dacd933141f6e5a8e646bee2298401270bcb9e49e691f5221e6f9e65409d8306",
-    "cms-pipeline.md": "8721877cc954c44f39d4a5f565228ffba44590be4b3e4246aa2d13a3daab576e",
+    "cms-pipeline.md": "ffa1c5174f6d31e982a81c1102eabcf218c79d952c8b4e3ccab4ac72497967fd",
     "coding-style.md": "702f452f8d1d83068a16de873a136e9b89d168852e2c4a38b7958239ab30ad14",
     "communication.md": "b069500b742b16a7a1d23dc119051ed1850be4ca2cf589514be2e7e905daaea9",
     "database.md": "e1ba9d817f8d7f68b9c2b03dce98898cd1ee2ef8ee10c6e6ba7788742039005f",
-    "directory-structure.md": "98b0ca3147d8586e93c34d9d191331fafdff60f39ce1debf33a42c7e498816d5",
+    "directory-structure.md": "3649afa0a65e70c6b5d8c07e81eaaa9bc3216d0d558de348e5b503dea9acee6b",
     "entry-points.md": "5bb0bf3ff652d0948aea58d8074f24d58d31e405a827a8504159149fd34a9a13",
     "modules.md": "2a0d6a543b98bf21c79c3deb475ab92437662bbf09420a120b846ca91b658b15",
     "onboarding.md": "4f17050fd3afacfc251392f750dc190267e430cd150fd5a521bdadd4e13da72d",

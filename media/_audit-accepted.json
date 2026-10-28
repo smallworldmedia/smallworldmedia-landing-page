@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "note": "Audit findings Nathan has already decided. node scripts/cms.mjs audit hides an entry only while its finding still matches (for a label, while mediaType is the one decided) and reports stale entries. Add an entry only for a recorded decision, with its reason.",
+  "accepted": [
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-andhera-records-afterrr-ep-soundcloud-banner",
+      "mediaType": "static_16x9",
+      "reason": "Kept static_16x9 by your pick on the 10-23 decisions page; the policy would say static_other (4.8:1).",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-heavy-house-society-resolume-composition-export",
+      "mediaType": "motion_16x9",
+      "reason": "Your call resolume-export (10-23): the file is padded, so keep motion_16x9 and crop the file later.",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-imperfect-records-imperfect-club-kids-character-sheet",
+      "mediaType": "static_3x4",
+      "reason": "Your own label on the 10-23 decisions page; the policy would say static_1x1 (0.90, a near tie with 4:5).",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-imperfect-records-imperfect-records-logo-color",
+      "mediaType": "static_16x9",
+      "reason": "Your own label on the 10-23 decisions page; the policy would say static_other (wider than 2.4:1).",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-imperfect-records-imperfect-records-logo-color-bg",
+      "mediaType": "static_16x9",
+      "reason": "Your own label on the 10-23 decisions page; the policy would say static_other (wider than 2.4:1).",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-imperfect-records-imperfect-records-logo-color-black-box",
+      "mediaType": "static_16x9",
+      "reason": "Your own label on the 10-23 decisions page; the policy would say static_other (wider than 2.4:1).",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-imperfect-records-imperfect-records-logo-white-fill",
+      "mediaType": "static_16x9",
+      "reason": "Your own label on the 10-23 decisions page; the policy would say static_other (wider than 2.4:1).",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-pulse-artists-pulse-logo-white",
+      "mediaType": "static_16x9",
+      "reason": "Your own label on the 10-23 decisions page; the policy would say static_other (wider than 2.4:1).",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-ky-william-oa-tv-ad",
+      "mediaType": "static_1x1",
+      "reason": "Approved static_1x1 on the 10-23 decisions page: the label follows the 1.26:1 content inside uniform bars, not the 9:16 file.",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-momentum-records-momentum-05",
+      "mediaType": "static_1x1",
+      "reason": "Approved static_1x1 on the 10-23 decisions page: the square cover sits between flat bars in the 3:4 file.",
+      "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-rossi-printed",
+      "mediaType": "static_1x1",
+      "reason": "Approved static_1x1 on the 10-23 decisions page: the label follows the 1.27:1 photo inside blurred fill, not the 3:4 file.",
+      "decided": "2026-10-23"
+    }
+  ]
+}

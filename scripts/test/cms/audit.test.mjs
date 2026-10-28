@@ -4,7 +4,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises'
 import { checkout, clientDoc, tagDoc, reference, existingMedia } from './helpers.mjs'
-import { CHECKS, auditDataset, expectedType, schemaFields } from '../../lib/cms/audit.mjs'
+import { CHECKS, ACCEPTED_FILE, auditDataset, expectedType, schemaFields } from '../../lib/cms/audit.mjs'
 import { validatePatch } from '../../lib/cms/contract.mjs'
 import { main } from '../../cms.mjs'
 
@@ -25,12 +25,16 @@ const clean = () => ({
 })
 const checksOf = report => report.findings.map(f => f.check).sort()
 
-test('expectedType: closest standard ratio within 10% in log space, otherwise *_other; stills have no 4:3', () => {
+test('expectedType follows the approved label policy: fits, extreme, between, otherwise closest; stills have no 4:3', () => {
   assert.equal(expectedType(1920, 1080, 'image'), 'static_16x9')
-  assert.equal(expectedType(1650, 1000, 'image'), 'static_16x9')
-  assert.equal(expectedType(3840, 2560, 'image'), 'static_other')
-  assert.equal(expectedType(1080, 1350, 'image'), 'static_4x5')
-  assert.equal(expectedType(1440, 1080, 'image'), 'static_other')
+  assert.equal(expectedType(1650, 1000, 'image'), 'static_16x9', 'within 10%')
+  assert.equal(expectedType(1080, 1350, 'image', 'static_1x1'), 'static_4x5', 'a fitting size overrides any label')
+  assert.equal(expectedType(3840, 2560, 'image', 'static_other'), 'static_16x9', 'odd: the closest standard, never *_other')
+  assert.equal(expectedType(2480, 520, 'image', 'static_16x9'), 'static_other', 'extreme: wider than 2.4:1')
+  assert.equal(expectedType(520, 2480, 'video', 'motion_9x16'), 'motion_other', 'extreme: taller than 1:2.4')
+  assert.equal(expectedType(850, 937, 'video', 'motion_4x5'), 'motion_4x5', 'between: the other neighbour stays')
+  assert.equal(expectedType(850, 937, 'video', 'motion_3x4'), 'motion_1x1', 'not a neighbour: the closest standard')
+  assert.equal(expectedType(1440, 1080, 'image'), 'static_1x1')
   assert.equal(expectedType(1440, 1080, 'video'), 'motion_4x3')
   assert.equal(expectedType(1080, 1920, 'video'), 'motion_9x16')
 })
@@ -75,7 +79,8 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
     { file: 'media/Broken/_manifest.md', raw: 'not a manifest' },
     { file: 'media/Other/_manifest.md', raw: manifest([['gone.jpg', 'static_1x1', 'Gone', 'mediaAsset-never'], ['later.jpg', 'static_1x1', 'Later Shot', ''], ['wide.jpg', 'static_16x9', 'mediaAsset-wide', 'mediaAsset-wide'], ['again.jpg', 'static_1x1', 'mediaAsset-still', 'mediaAsset-still']]) },
   ]
-  const report = auditDataset({ target, docs: [...docs, ...seeded], muxAssets: [...live, { id: 'asset-orphan', status: 'ready' }], manifests: [...manifests, ...extraManifests], schema: await schemaFields(checkout), fingerprint: false })
+  const accepted = [{ check: 'unused-image', id: 'image-unused', reason: 'Decided.' }, { check: 'alt-missing', id: 'mediaAsset-long-gone', reason: 'Decided once.' }]
+  const report = auditDataset({ target, docs: [...docs, ...seeded], muxAssets: [...live, { id: 'asset-orphan', status: 'ready' }], manifests: [...manifests, ...extraManifests], accepted, schema: await schemaFields(checkout), fingerprint: false })
   assert.deepEqual(checksOf(report), Object.keys(CHECKS).sort(), 'every check needs a seeded case')
   const items = check => report.findings.find(f => f.check === check).items
   assert.deepEqual(items('label-ratio').map(i => [i.id, i.suggested]), [['mediaAsset-wide', 'static_16x9'], ['mediaAsset-widedraft', 'static_16x9']])
@@ -85,6 +90,9 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
   assert.deepEqual(items('unknown-field').map(i => `${i.type}.${i.field}`), ['mediaAsset.isHero'])
   assert.deepEqual(items('manifest-drift').map(i => [i.id, i.field, i.manifestValue, i.sanityValue]), [['mediaAsset-wide', 'mediaType', 'static_16x9', 'static_1x1']])
   assert.deepEqual(items('draft-pending').map(i => i.id), ['drafts.mediaAsset-widedraft'])
+  assert.deepEqual(items('unused-image').map(i => i.id), ['image-twin-a', 'image-twin-b'])
+  assert.deepEqual(report.accepted.items.map(i => [i.check, i.id, i.reason]), [['unused-image', 'image-unused', 'Decided.']])
+  assert.deepEqual(items('accepted-stale').map(i => [i.check, i.id]), [['alt-missing', 'mediaAsset-long-gone']])
   assert.equal(report.summary.errors, report.findings.filter(f => f.severity === 'error').reduce((n, f) => n + f.count, 0))
   // Suggestions: the label and the legacy video shape; the drafted twin of the label gets nothing.
   const patches = report.suggestedChanges.request.patches
@@ -98,6 +106,22 @@ test('manifest drift compares only the columns a manifest carries', async () => 
   const report = auditDataset({ target, docs, muxAssets, manifests: [{ file: 'media/Collection/_manifest.md', raw }], schema: await schemaFields(checkout) })
   assert.deepEqual(report.findings.find(f => f.check === 'manifest-drift').items.map(i => [i.field, i.manifestValue, i.sanityValue]), [['mediaType', 'static_4x5', 'static_1x1'], ['title', 'Renamed', 'mediaAsset-still']])
   assert.deepEqual(checksOf(report), ['manifest-drift'])
+})
+
+test('an accepted label hides only while the label is the one decided, and takes its suggestion with it', async () => {
+  const { docs, manifests, muxAssets } = clean()
+  const wide = docs.map(d => d._id === 'image-mediaAsset-still' ? image(d._id, 1600, 900) : d)
+  const schema = await schemaFields(checkout)
+  const run = accepted => auditDataset({ target, docs: wide, manifests, muxAssets, accepted, schema })
+  const decided = { check: 'label-ratio', id: 'mediaAsset-still', mediaType: 'static_1x1', reason: 'Padded: label the content.' }
+  const open = run(null)
+  assert.deepEqual(checksOf(open), ['label-ratio']); assert.equal(open.suggestedChanges.request.patches.length, 1); assert.equal(open.accepted, null)
+  const hidden = run([decided])
+  assert.deepEqual(hidden.findings, []); assert.equal(hidden.suggestedChanges, null)
+  assert.deepEqual(hidden.accepted, { file: ACCEPTED_FILE, count: 1, items: [{ check: 'label-ratio', ...open.findings[0].items[0], reason: decided.reason }] })
+  // Relabelled since the decision: the finding is back and the entry is stale.
+  const moved = run([{ ...decided, mediaType: 'static_4x5' }])
+  assert.deepEqual(checksOf(moved), ['accepted-stale', 'label-ratio'])
 })
 
 test('secrets and system documents never reach the report, even if the reader returns them', async () => {
@@ -136,4 +160,13 @@ test('cms audit: read-only adapters, Mux only with credentials, exit 1 only on e
   assert.equal(broken.code, 1); assert.ok(broken.report.summary.errors >= 1)
   assert.deepEqual(calls.write, [false, false, false])
   await assert.rejects(main(['audit', '--project-id', target.projectId], { adaptersFactory: async () => ({}) }), /Explicit projectId and dataset/)
+  // The accepted list loads from the checkout; a malformed one stops the audit instead of being ignored.
+  const decided = { check: 'label-ratio', id: 'mediaAsset-still', mediaType: 'static_1x1', reason: 'Decided.' }
+  await writeFile(path.join(root, ACCEPTED_FILE), JSON.stringify({ version: 1, accepted: [decided] }))
+  const listed = await run(docs, {})
+  assert.equal(listed.code, 0); assert.deepEqual(listed.report.accepted.count, 0); assert.deepEqual(checksOf(listed.report), ['accepted-stale'])
+  for (const bad of ['{', JSON.stringify({ version: 2, accepted: [] }), JSON.stringify({ version: 1, accepted: [{ ...decided, reason: ' ' }] }), JSON.stringify({ version: 1, accepted: [{ ...decided, check: 'made-up' }] })]) {
+    await writeFile(path.join(root, ACCEPTED_FILE), bad)
+    await assert.rejects(run(docs, {}), /_audit-accepted\.json/)
+  }
 })

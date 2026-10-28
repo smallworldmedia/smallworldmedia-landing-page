@@ -43,7 +43,7 @@
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated
 │   └── shots/                # probe screenshot dumps (untracked noise)
 ├── docs/                     # plans, specs, ADRs (adr/), agent conventions (agents/), tunables guide
-├── media/                    # Dropbox-synced client assets; gitignored except _manifest.md
+├── media/                    # Dropbox-synced client assets; gitignored except _manifest.md + _audit-accepted.json
 └── Client Logos/             # raw logo intake (gitignored) → scripts/prep-client-logos.mjs
 ```
 

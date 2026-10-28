@@ -80,18 +80,30 @@ Exit code 1 means at least one error.
   collisions, errored or missing Mux assets, and manifest rows bound to missing
   documents.
 - **Warnings** are drift or waste:
-  - an aspect label off its native size (closest standard ratio within 10%,
-    otherwise `*_other`), and album art that isn't square;
+  - an aspect label that breaks the approved label policy (decided 10-09),
+    and album art that isn't square. The policy:
+    - a standard ratio within 10% gets that standard;
+    - otherwise, wider than 2.4:1 or taller than 1:2.4 gets `*_other`;
+    - otherwise, a label on the other neighbouring standard stays (an eye call);
+    - otherwise, the closest standard;
   - unused or duplicate files, Mux assets no document describes, and Mux videos
     that aren't ready;
   - missing alt text, text over the Studio caps, legacy fields, and shared ranks;
   - pending drafts;
   - manifest drift, duplicate rows, and unbound documents.
-- **Info** is context, such as pending manifest rows and album art without
-  `releaseInfo`.
+- **Info** is context, such as pending manifest rows, album art without
+  `releaseInfo`, and stale accepted entries.
 - `notChecked` lists what the audit cannot see: what's inside the frame, alt
   quality, the deployed Studio schema, re-uploads of the same video, and where
   slots land.
+
+`media/_audit-accepted.json` records findings that are already decided: padded
+files labelled by their content, and labels Nathan chose against the policy. Each
+entry has `check`, `id`, an optional `mediaType` and a `reason`. An entry hides its
+finding only while the finding still matches; for a label, that means while the
+document keeps the decided `mediaType`. The report lists what it hid under
+`accepted`. An entry that matches nothing comes back as `accepted-stale`, so remove
+it. A malformed file stops the audit. Add an entry only for a recorded decision.
 
 `suggestedChanges` drafts a changes request for the mechanical fixes only: the
 suggested label, and legacy video shapes rewritten to the weak `mux.video`
