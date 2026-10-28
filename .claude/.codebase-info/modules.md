@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-10-27*
+*Last Updated: 2026-10-28*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -36,7 +36,7 @@ grain band, gated in `canJoin` so the join loop, the clip score and the resolve-
 see it; under media spans a unit joins and leaves its stream as one, and each stream gets a planned
 rung inside `decodeBudget` = `MAX_LIVE × mp(pinShort, 16/9)` through `tierFor` / `bucket` /
 `pinParams`, `planOf` / `rungPlan` / `plannedMp` and the `tierCall` timer; `decodeStats` feeds the
-telemetry; under `?pophandoff=fast` it beats every `HANDOFF_BEAT_S` 0.1 s, and a change in flight hands
+telemetry; under the fast handoff (`?pophandoff`, the default since 10-28) it beats every `HANDOFF_BEAT_S` 0.1 s, and a change in flight hands
 it the `incoming` worlds, whose clips it starts mid-swap off `swapAsset` (`aheadScores` / `aheadGroup`;
 `planOf` waits rather than drop a rung; a stream that resolves before its tiles land is kept for them);
 `predictStarts` and the static `forecast` replay its admission for the fetch-ahead; `landingClips(rotation)`
@@ -78,7 +78,7 @@ parity) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `
 blink / surge / cut; current + next world held warm; freeze under the commit's blue; `hold()` at the
 Enter World click stops the clock but lets a change in flight land; `onWorld` feeds the scene's
 colour; name strips (`?popnames`, 0 = none by default since 10-24) placed camera-relative once per world change by `planNames` (`warmSet` holds
-their textures), then reconciled per frame by `placeNames`; under `?pophandoff=fast` the next world's warm waits (`nextWarm`)
+their textures), then reconciled per frame by `placeNames`; under the fast handoff (the default since 10-28) the next world's warm waits (`nextWarm`)
 until the scheduler is quiet, at least 0.3 s and at most 2 s, and then its board is planned ahead for the
 pose the globe will hold as it lands (`planAhead`, a what-if that puts back every pose, birth, cursor and
 counter it borrows: the rows from `MeridianScroll.predict(holdLeft)`, the yaw from the scene's `getSpin`,
@@ -157,7 +157,7 @@ unit's centre, and a fading chip's slot keeps its unit's members, `heldMembers`,
 from live poses each frame so it never jumps) · `HeroTunePanel.jsx` / `CommitTunePanel.jsx` /
 `PopTunePanel.jsx` (benches; the last is `?poptune=1`, with a spans group: on/off, shapes, units / asset,
 quads / world, tile budget, video tier, and an orientation group whose `tilt` toggle flips `?herotilt` between
-heroConfig `TILT_PRESETS` new −10 / old 45.5 through `setHeroTune`; a `handoff` row under live video picks
+heroConfig `TILT_PRESETS` new −10 (Nathan's pick, 10-28) / old 45.5 through `setHeroTune`; a `handoff` row under live video picks
 `?pophandoff`; the readout line above it shows spans (`w · h · v · q`), tex MiB and decode
 mp / budget, and a handoff line: starts (mid-change, primed), clips fetched and MiB, the next world waiting).
 
