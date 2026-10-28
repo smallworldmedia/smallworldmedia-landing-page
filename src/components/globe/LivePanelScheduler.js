@@ -28,8 +28,9 @@
  * The fast handoff (?pophandoff=fast, shared streams; Nathan 10-27): a change
  * starts its clips while its tiles still swap (update's `incoming`), on a
  * 0.1 s beat (HANDOFF_BEAT_S), and a stream that loads before its tiles land
- * waits for them. The director fetches the next world's clips ahead
- * (predictStarts → streamPrefetch) once handoffQuiet says this world's are in.
+ * waits for them. The director plans the next world's board ahead and fetches
+ * the clips this scheduler would start on it (landingClips → predictStarts →
+ * streamPrefetch) once handoffQuiet says this world's are in.
  */
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -122,6 +123,7 @@ export default class LivePanelScheduler {
     this.tierFail = new Set(); // playbackIds whose planned rung failed: their next start asks the pin itself
     this.pinParams = pinParams; // the pool's own URL params (streamPrefetch.planUrl, for the handoff's primed count)
     this.incoming = null; // the fast handoff, mid-change: the worlds coming in (update)
+    this.camera = null; // the last update's camera: landingClips scores a board ahead with it
     this.lastStartAt = -Infinity; // when the last stream started (handoffQuiet)
     this.handoff = { starts: 0, ahead: 0, primed: 0 }; // the fast handoff's starts: all, mid-change, onto a primed clip
     this.disposed = false;
@@ -158,19 +160,9 @@ export default class LivePanelScheduler {
     if (this.disposed || !this.assets.length) return;
     this.now = now;
     this.incoming = this.handoffFast ? incoming : null;
+    this.camera = camera;
 
-    const scored = this.panels.map((panel) => {
-      const dir = this.scoreVec.copy(panel.centerDir).applyEuler(rotation);
-      const score = dir.z;
-      let visible = score > 0;
-      if (visible && camera) {
-        this.projVec.copy(dir).multiplyScalar(RADIUS).project(camera);
-        visible =
-          Math.abs(this.projVec.x) <= VIEWPORT_NDC_LIMIT &&
-          Math.abs(this.projVec.y) <= VIEWPORT_NDC_LIMIT;
-      }
-      return { panel, score, visible };
-    });
+    const scored = this.scoreAll(rotation, camera);
     this.lastVisibleCount = scored.filter((s) => s.visible).length;
 
     // Shared streams run on the scroll globe only, where the hidden-hemisphere
@@ -244,6 +236,23 @@ export default class LivePanelScheduler {
         }
       }
     }
+  }
+
+  /** Every panel's prominence at `rotation`: its score (the rotated centre on the camera axis) and whether it is
+   *  visible (facing, and inside the viewport when there is a camera). */
+  scoreAll(rotation, camera = this.camera) {
+    return this.panels.map((panel) => {
+      const dir = this.scoreVec.copy(panel.centerDir).applyEuler(rotation);
+      const score = dir.z;
+      let visible = score > 0;
+      if (visible && camera) {
+        this.projVec.copy(dir).multiplyScalar(RADIUS).project(camera);
+        visible =
+          Math.abs(this.projVec.x) <= VIEWPORT_NDC_LIMIT &&
+          Math.abs(this.projVec.y) <= VIEWPORT_NDC_LIMIT;
+      }
+      return { panel, score, visible };
+    });
   }
 
   /**
@@ -496,6 +505,37 @@ export default class LivePanelScheduler {
   /** predictStarts before the scheduler exists (the intro hold defers it, useGlobeScene): a fresh one's admission. */
   static forecast(clips, { tierFor = null, pinParams = GLOBE_STREAM_PARAMS } = {}) {
     return new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null, tierFor, pinParams }).predictStarts(clips);
+  }
+
+  /** The plan ahead (PopulationDirector.planAhead): the clips this scheduler would start as a board lands at
+   *  `rotation`, its tiles already posed and dressed as they will be (swapAsset). Scored as a change scores them
+   *  (aheadScores, every world counting), most wanted first, each clip dressed as its biggest unit class on an
+   *  unparked tile (planOf's class), the clips already streaming left out: predictStarts' input. */
+  landingClips(rotation) {
+    const incoming = this.incoming;
+    this.incoming = null;
+    let weight;
+    try {
+      weight = this.aheadScores(this.scoreAll(rotation));
+    } finally {
+      this.incoming = incoming;
+    }
+    const best = new Map();
+    for (const p of this.panels) {
+      const a = p.swapAsset || p.asset;
+      if (p.parked || !weight.has(a?.playbackId)) continue;
+      const b = best.get(a.playbackId);
+      if (!b || TIER_RANK[a.place?.cls ?? 's'] > TIER_RANK[b.place?.cls ?? 's']) best.set(a.playbackId, a);
+    }
+    return [...weight]
+      .filter(([id]) => !this.streams.has(id))
+      .sort((x, y) => y[1] - x[1])
+      .map(([id, w]) => ({ id, w, asset: best.get(id) }));
+  }
+
+  /** landingClips before the scheduler exists: a fresh one's, with no camera (every facing tile on screen). */
+  static landingClips(panels, rotation) {
+    return new LivePanelScheduler({ panels, assets: [], poolHandle: null, textureManager: null }).landingClips(rotation);
   }
 
   /** The fast handoff's cue for the next world's loads: nothing is loading and nothing started for HANDOFF_QUIET_S. */

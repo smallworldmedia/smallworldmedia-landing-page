@@ -15,7 +15,7 @@ import { FEATURED_WORLDS_QUERY } from '../../src/lib/queries.js'
 import { buildContentFlow } from '../../src/components/work/detail/buildContentFlow.js'
 import buildWorldPools, { selectPool, WORLD_POOL_CAP, MIN_KIND_POOL } from '../../src/components/globe/buildWorldPools.js'
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
-import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
+import MeridianScroll, { initialBirth, poseTile, posePanel, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import TextureManager, { assetKey, computeCoverUv } from '../../src/components/globe/TextureManager.js'
 import { loadTile, windowA, unitWindowOf, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
@@ -6067,7 +6067,7 @@ test('handoff: fast — mid-change planOf plans from what each tile is about to 
   }
 })
 
-test('handoff: fast — the next world’s stills wait for this world’s videos (quiet from 0.3 s, else at 2 s), then its clips go to the forecast; today warms them at once', async () => {
+test('handoff: fast — the next world’s stills wait for this world’s videos (quiet from 0.3 s, else at 2 s), then its board is planned ahead and the clips it starts go to the forecast; today warms them at once', async () => {
   const nextKeys = (d) => d.warmSet(d.upcoming).flat().map(assetKey)
   // today: planNext warms the next world as it plans it
   const today = makeDirector({ seed: 5, chaos: 0 })
@@ -6079,7 +6079,11 @@ test('handoff: fast — the next world’s stills wait for this world’s videos
     const asked = []
     const { director: d } = makeDirector(
       { seed: 5, chaos: 0, handoff: 'fast' },
-      { canAnimate: () => true, getScheduler: () => ({ handoffQuiet: () => quiet }), forecast: (clips) => (asked.push(clips), []) },
+      {
+        canAnimate: () => true,
+        getScheduler: () => ({ handoffQuiet: () => quiet, landingClips: (rot) => LivePanelScheduler.landingClips(d.panels, rot) }),
+        forecast: (clips) => (asked.push(clips), []),
+      },
     )
     assert.equal(d.handoffFast, true)
     assert.deepEqual(d.nextWarm, { wait: 0 })
@@ -6091,10 +6095,12 @@ test('handoff: fast — the next world’s stills wait for this world’s videos
     assert.equal(d.nextWarm, null)
     assert.ok(nextKeys(d).every((k) => d.warm.has(k)))
     await settleTicks()
-    // its clips, in pool order (no units: each weighs one tile), each dressed as a single
+    // its board, planned ahead, and the clips that board starts as it lands (units off: each a single)
+    const A = d.upcoming.ahead
+    assert.deepEqual([d.ahead.planned, A.plan.size], [1, d.panels.length])
     assert.equal(asked.length, 1)
-    assert.deepEqual(asked[0].map((c) => c.id), d.upcoming.pools[0].map((a) => a.playbackId))
-    assert.ok(asked[0].every((c) => c.asset.place === null))
+    assert.equal(asked[0], A.clips)
+    assert.ok(asked[0].length > 0 && asked[0].every((c) => c.asset.world === d.upcoming.members[0] && !c.asset.place), JSON.stringify(asked[0].map((c) => c.id)))
     d.dispose()
     // never quiet (or no scheduler): the cap; and a held director (Enter World) never warms the next world
     for (const getScheduler of [() => ({ handoffQuiet: () => false }), () => null]) {
@@ -6120,17 +6126,13 @@ test('handoff: fast — the next world’s stills wait for this world’s videos
   }
 })
 
-test('handoff: fast — the clips a world is fetched ahead for: pools round-robined, each clip once, the bigger unit first; the first world from its laid tiles; the URLs are the plans’', async () => {
+test('handoff: fast — the first world’s clips from its laid tiles; the URLs are the plans’', async () => {
   const real = globalThis.fetch
   clearPrefetch()
   try {
     const asked = []
     const self = { forecast: (clips) => (asked.push(clips), []), getScheduler: () => null, prefetchFor: PopulationDirector.prototype.prefetchFor }
-    const v = (id, unitCls) => ({ kind: 'video', playbackId: id, ...(unitCls ? { unitCls } : {}) })
     const still = { kind: 'image', imageUrl: 'x' }
-    // two pools, round-robined: w1 h1 · s1 (s1 again) · (a still) q1 → by tiles, stable: w1 (6) q1 (4) h1 (2) s1 (1)
-    PopulationDirector.prototype.prefetchWorld.call(self, { pools: [[v('w1', 'w'), v('s1'), still], [v('h1', 'h'), v('s1'), v('q1', 'q')]] })
-    assert.deepEqual(asked[0].map((c) => [c.id, c.asset.place?.cls ?? null]), [['w1', 'w'], ['q1', 'q'], ['h1', 'h'], ['s1', null]])
     // the first world from its laid tiles: summed front prominence, the biggest unit's record, nothing parked or behind
     const A = clip16('A')
     const Bu = { ...clip16('B'), place: { n: 2, cls: 'h' } }
@@ -6145,10 +6147,10 @@ test('handoff: fast — the clips a world is fetched ahead for: pools round-robi
       streamTile(still, 0.95),
     ]
     PopulationDirector.prototype.prefetchLaid.call({ ...self, panels: tiles, getRotation: () => new THREE.Euler(), _v: new THREE.Vector3() })
-    assert.deepEqual(asked[1].map((c) => c.id), ['A', 'B'])
-    near(asked[1][0].w, 1.4, 1e-12)
-    near(asked[1][1].w, 1.3, 1e-12)
-    assert.equal(asked[1][1].asset, Bu)
+    assert.deepEqual(asked[0].map((c) => c.id), ['A', 'B'])
+    near(asked[0][0].w, 1.4, 1e-12)
+    near(asked[0][1].w, 1.3, 1e-12)
+    assert.equal(asked[0][1].asset, Bu)
     // the forecast's plans become the pool's URLs (a fetch stand-in: no network)
     const net = fakeFetch({})
     globalThis.fetch = net.fetchImpl
@@ -6176,8 +6178,344 @@ test('handoff: the incoming worlds are the grouping’s, one set per grouping; t
     assert.deepEqual(Object.keys(handoff.fetch), ['asked', 'done', 'failed', 'bytes', 'queued', 'running'])
     assert.deepEqual(Object.keys(handoff.primed), ['entries', 'served'])
     assert.deepEqual(handoff.starts, { starts: 3, ahead: 2, primed: 1 })
+    assert.deepEqual(handoff.ahead, { planned: 0, adopted: 0, missed: 0, why: {}, keys: null })
     d.dispose()
   } finally {
+    TUNING.handoff = 'today'
+  }
+})
+
+/* — The plan ahead (10-27, with drag off on every screen): the next world's board planned during the hold for the
+   pose the globe lands at, and the clips that board starts fetched ahead at the size they start. — */
+test('plan ahead: MeridianScroll.predict(dt) is where update() leaves the rows dt on — each row’s pose and birth, the rows that wrap born in the order they wrap — and moves nothing', () => {
+  const { panels } = fakeScrollScene()
+  const deg = THREE.MathUtils.radToDeg
+  const scroller = new MeridianScroll({ panels, assets: [], textureManager: null, cascadeSpeed: 5, scheduler: null, assignRow: () => null }) // 5°/s
+  const state = () => JSON.stringify([scroller.scroll, scroller.extra, scroller.nextBirth, scroller.rowBirth, panels.map((p) => [p.centerDir.toArray(), p.parked, p.tapeS])])
+  const before = state()
+  const rows = scroller.predict(13) // 65° on: rows 5 and 6 wrap, 6 first (the nearer the end)
+  assert.equal(state(), before)
+  assert.deepEqual(rows.map((r) => [Math.round(deg(r.theta) * 1e6) / 1e6, r.s]), [[65, 6], [95, 5], [125, 4], [155, 3], [185, 2], [-25, 9], [5, 8], [35, 7]])
+  rows.forEach((r, j) => assert.equal(r.tiles, scroller.rows[j]))
+  // where each tile will be, posed off the prediction alone
+  const want = rows.map((r) => r.tiles.map((p) => {
+    const q = { bandHeight: p.bandHeight, phiC: p.phiC, centerDir: new THREE.Vector3() }
+    posePanel(q, r.theta)
+    return [q.centerDir, q.parked, r.s]
+  }))
+  for (let i = 0; i < 780; i++) scroller.update(1 / 60)
+  rows.forEach((r, j) => {
+    near(deg(scroller.thetaForRow(j)), deg(r.theta), 1e-9, `row ${j}`)
+    r.tiles.forEach((p, i) => {
+      const [dir, parked, s] = want[j][i]
+      assert.ok(p.centerDir.distanceTo(dir) < 1e-9, `row ${j} L${p.lonIndex}`)
+      assert.deepEqual([p.parked, p.tapeS], [parked, s], `row ${j} L${p.lonIndex}`)
+    })
+  })
+  // a queued surge (advance) travels too; past a span − pitch a row could wrap twice: no prediction; nor once disposed
+  scroller.advance(0.1)
+  scroller.predict(1).forEach((r, j) => near(r.theta, scroller.thetaForRow(j, scroller.scroll + 0.1 + THREE.MathUtils.degToRad(5)), 1e-12, `surge row ${j}`))
+  assert.equal(scroller.predict(1000), null)
+  scroller.dispose()
+  assert.equal(scroller.predict(0), null)
+  // a parked pace: every row stays, born as it is
+  const still = new MeridianScroll({ panels: fakeScrollScene().panels, assets: [], textureManager: null, cascadeSpeed: 0, scheduler: null, assignRow: () => null })
+  assert.deepEqual(still.predict(13).map((r) => [r.theta, r.s]), still.rows.map((_, j) => [still.thetaForRow(j), still.rowBirth[j]]))
+})
+
+test('plan ahead: landingClips — the clips a board landing at a pose starts: a unit’s lead weighs its score × its tiles, a clip’s tiles sum, nothing parked, behind, faint or streaming; a tile mid-swap counts what it is about to show; each clip dressed as its biggest class', () => {
+  Object.assign(TUNING, BOARD_DEFAULTS)
+  const U = classedClip('U', '16:9', 'h')
+  const unit = streamUnit('h', U, 0.6) // a pair: 0.6 × 2
+  const single = streamTile({ ...U }, 0.4) // U again, as a single: summed into U, which stays dressed as the pair
+  const center = streamTile(clip16('C'), 1)
+  const s1 = streamTile(clip16('S'), 0.5)
+  const s2 = streamTile(clip16('S'), 0.3) // S sums: 0.8
+  const parked = Object.assign(streamTile(clip16('P'), 0.9), { parked: true })
+  const behind = streamTile(clip16('B'), -0.5)
+  const faint = streamTile(clip16('F'), 0.02) // at or under PROMOTE_SCORE
+  const swap = Object.assign(streamTile(clip16('OLD'), 0.7), { swapAsset: clip16('NEW') }) // mid-swap: by its incoming clip
+  const streaming = streamTile(clip16('X'), 0.95)
+  const panels = [single, ...unit.members, center, s1, s2, parked, behind, faint, swap, streaming]
+  const ids = (clips) => clips.map((c) => c.id)
+  const fresh = LivePanelScheduler.landingClips(panels, new THREE.Euler())
+  assert.deepEqual(ids(fresh), ['U', 'C', 'X', 'S', 'NEW'])
+  near(fresh.map((c) => c.w), [1.6, 1, 0.95, 0.8, 0.7], 1e-12)
+  assert.equal(fresh[0].asset, unit.members[0].asset) // the pair's record, not the single's
+  assert.equal(fresh[3].asset, s1.asset)
+  assert.equal(fresh[4].asset, swap.swapAsset)
+  // the pose turns the board: half a turn, and only the tile that was behind faces the camera
+  assert.deepEqual(ids(LivePanelScheduler.landingClips(panels, new THREE.Euler(0, Math.PI, 0))), ['B'])
+  // a live scheduler: the same scoring with no camera and nothing streaming; a streaming clip is left out; mid-change
+  // only the incoming worlds count (update's `incoming`), but a board planned ahead counts every world, and the set is put back
+  const sched = new LivePanelScheduler({ panels, assets: [], poolHandle: null, textureManager: null })
+  assert.deepEqual(sched.landingClips(new THREE.Euler()), fresh)
+  sched.streams.set('X', { state: 'live' })
+  const incoming = new Set([7])
+  sched.incoming = incoming
+  assert.deepEqual(ids(sched.landingClips(new THREE.Euler())), ['U', 'C', 'S', 'NEW'])
+  assert.equal(sched.incoming, incoming)
+  // once it has a camera (its first beat), the viewport too: a 10° lens sees only the tile dead ahead
+  const narrow = new THREE.PerspectiveCamera(10, 1, 0.1, 100)
+  narrow.position.set(0, 0, 3)
+  narrow.lookAt(0, 0, 0)
+  narrow.updateMatrixWorld()
+  sched.camera = narrow
+  assert.deepEqual(ids(sched.landingClips(new THREE.Euler())), ['C'])
+})
+
+/** wideWorlds, with Alpha's three sharp 16:9 clips in every world (and each world's name as its service): a change
+ *  keeps the units they form (planUnits' keep-first), refreshed to the new world. */
+const aheadWorlds = () => {
+  const ws = wideWorlds()
+  const shared = ws[0].assets.filter((a) => a.tag === 'w')
+  for (const w of ws.slice(1)) w.assets = [...shared.map((a) => ({ ...a })), ...w.assets.filter((a) => a.tag !== 'w')]
+  return ws.map((w) => ({ ...w, services: [w.clientName] }))
+}
+
+test('plan ahead: a what-if — planAhead puts back every pose, birth, tile, cursor and counter it borrows, its kept units still on their old world; the change adopts it only on the dials, step, pose, births, tiles and horizon it was planned on', async () => {
+  try {
+    const { director: d, panels } = unitDirector(
+      { shapes: 'wide', unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv, handoff: 'fast' },
+      { worlds: aheadWorlds(), getHorizon: () => Math.PI, getPace: () => 2, revealHeld: true }, // a held reveal: the first board's units have a finite budget
+    )
+    d.initialLayout(d.byProminence())
+    await settleTicks() // the first board binds: the tiles show what they hold
+    const g = d.upcoming
+    const tiles = panels.map((p) => ({ dir: p.centerDir.clone(), parked: p.parked, s: p.tapeS, asset: p.asset, shown: p.shownAsset, swap: p.swapAsset, world: p.asset.world, services: p.asset.services }))
+    const was = { grouping: d.grouping, step: d.step, getRotation: d.getRotation, getHorizon: d.getHorizon, placed: { ...d.placed }, lastD: d.lastD, thetaH: d.W.thetaH, namePlaced: d.namePlaced, cursor: [...g.cursor] }
+    assert.equal(g.ucursor, undefined) // a fresh grouping: no unit cursor yet
+    const A = d.planAhead(g)
+    // put back: every tile, as it was and as it announces itself
+    panels.forEach((p, i) => {
+      const t = tiles[i]
+      assert.ok(p.centerDir.equals(t.dir) && p.parked === t.parked && p.tapeS === t.s, `tile ${i}: pose`)
+      assert.ok(p.asset === t.asset && p.shownAsset === t.shown && p.swapAsset === t.swap, `tile ${i}: what it shows`)
+      assert.deepEqual([p.asset.world, p.asset.services], [t.world, t.services], `tile ${i}: a kept unit announces its old world until the change adopts it`)
+    })
+    // …and the director: its grouping, step, hooks, counters, budget, horizon and the planned grouping's cursors
+    assert.ok(d.grouping === was.grouping && d.step === was.step && d.getRotation === was.getRotation && d.getHorizon === was.getHorizon && d.upcoming === g)
+    assert.deepEqual([d.placed, d.lastD, d.W.thetaH, d.namePlaced, d.namePlan.size, g.cursor, g.ucursor], [was.placed, was.lastD, was.thetaH, was.namePlaced, 0, was.cursor, undefined])
+    // the board it planned: every tile, units kept from the first board and two-row units new; no scheduler, no clips
+    assert.equal(g.ahead, A)
+    assert.equal(A.plan.size, panels.length)
+    assert.ok(A.kept.length > 0, 'keep-first kept a unit of a shared clip')
+    for (const [P, rec] of A.kept) {
+      assert.notEqual(rec.world, d.lead)
+      for (const m of P.members) assert.equal(m.asset.world, d.lead)
+    }
+    assert.ok([...A.plan.values()].some((a) => a.place?.rows === 2), 'a two-row unit, under the horizon')
+    assert.deepEqual(A.clips, [])
+    const keys = d.ahead.keys
+    assert.ok(keys.onScreen === null && keys.front > 0 && keys.front <= keys.board && keys.board <= keys.pool, JSON.stringify(keys))
+    assert.deepEqual([d.ahead.planned, d.ahead.adopted, d.ahead.missed], [1, 0, 0])
+    // nothing planned ahead: mid-change, for a tide (it re-births every row), or past what the scroll can predict
+    d.busy = true
+    assert.equal(d.planAhead(g), null)
+    d.busy = false
+    d.upcomingKind = 'tide'
+    d.getScroller = () => ({ predict: () => assert.fail('a tide plans nothing ahead') })
+    assert.equal(d.planAhead(g), null)
+    d.upcomingKind = 'surge'
+    d.getScroller = () => ({ predict: () => null })
+    assert.equal(d.planAhead(g), null)
+    d.getScroller = () => null
+    assert.equal(d.ahead.planned, 1)
+    // the change: advance() steps, then the board fits where it was planned
+    d.step += 1
+    assert.equal(d.aheadMiss(A, A.land), null)
+    // dials: a tuned knob, another landing span, another travel budget
+    d.tuneSeq += 1
+    assert.equal(d.aheadMiss(A, A.land), 'dials')
+    d.tuneSeq -= 1
+    assert.equal(d.aheadMiss(A, A.land + 0.1), 'dials')
+    TUNING.hold = 7
+    assert.equal(d.aheadMiss(A, A.land), 'dials')
+    TUNING.hold = BOARD_DEFAULTS.hold
+    // pose: the globe 0.4° off still lands it, 0.6° does not; one tile 0.6° off neither
+    const getRotation = d.getRotation
+    d.getRotation = () => new THREE.Euler(0, THREE.MathUtils.degToRad(0.4), 0)
+    assert.equal(d.aheadMiss(A, A.land), null)
+    d.getRotation = () => new THREE.Euler(0, THREE.MathUtils.degToRad(0.6), 0)
+    assert.equal(d.aheadMiss(A, A.land), 'pose')
+    d.getRotation = getRotation
+    const t0 = panels.find((p) => !p.parked && A.plan.get(p)?.place)
+    const dir = t0.centerDir.clone()
+    t0.centerDir.applyAxisAngle(new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize(), THREE.MathUtils.degToRad(0.6))
+    assert.equal(d.aheadMiss(A, A.land), 'pose')
+    t0.centerDir.copy(dir)
+    // births: a row born on another index, a tile parked other than predicted
+    t0.tapeS += 1
+    assert.equal(d.aheadMiss(A, A.land), 'births')
+    t0.tapeS -= 1
+    const pk = panels.find((p) => p.parked)
+    pk.parked = false
+    assert.equal(d.aheadMiss(A, A.land), 'births')
+    pk.parked = true
+    // tiles: keep-first read what each unparked tile showed; a parked one it never reads
+    const asset = t0.asset
+    t0.asset = { ...asset }
+    assert.equal(d.aheadMiss(A, A.land), 'tiles')
+    t0.asset = asset
+    const swapping = t0.swapAsset
+    t0.swapAsset = asset
+    assert.equal(d.aheadMiss(A, A.land), 'tiles')
+    t0.swapAsset = swapping
+    const pa = pk.asset
+    pk.asset = { ...pa }
+    assert.equal(d.aheadMiss(A, A.land), null)
+    pk.asset = pa
+    // admission: no horizon at the landing, no two-row unit
+    d.W.thetaH = null
+    assert.equal(d.aheadMiss(A, A.land), 'admission')
+    d.W.thetaH = Math.PI
+    // adopted: its board, cursors and counters, and the kept units now announce the new world
+    d.grouping = g // advance() takes the planned grouping
+    const placed = Object.fromEntries(Object.keys(was.placed).map((k) => [k, was.placed[k] + A.placed[k]]))
+    assert.equal(d.adoptAhead(A.land), A.plan)
+    assert.equal(g.ahead, null)
+    assert.deepEqual([g.cursor, g.ucursor, d.placed, d.lastD], [A.cursor, A.ucursor, placed, A.lastD])
+    for (const [P, rec] of A.kept) for (const m of P.members) assert.deepEqual([m.asset.world, m.asset.services], [rec.world, rec.services])
+    assert.deepEqual([d.ahead.planned, d.ahead.adopted, d.ahead.missed], [1, 1, 0])
+    // a board planned for another step is never adopted: the miss is counted by its reason
+    const B = d.planAhead(g)
+    assert.equal(d.adoptAhead(B.land), null)
+    assert.deepEqual([d.ahead.planned, d.ahead.adopted, d.ahead.missed, d.ahead.why], [2, 1, 1, { dials: 1 }])
+    d.dispose()
+  } finally {
+    TUNING.handoff = 'today'
+  }
+})
+
+/** The plan ahead's twin runs: a director on a live scroll (cascadeSpeed 2, 2°/s) under a −2°/s spin (Nathan's
+ *  ?yawspeed) at a 0.35 rad tilt, a 35° camera at z 3 (the horizon and a real scheduler's viewport), frames of
+ *  1/64 s in the scene's order until the first change lands. 'today' plans that change late; 'fast' plans it during
+ *  the hold. `nudge`: the frame the yaw jumps 2°, off the predicted pose (1° leaves this board as it is; 2° moves
+ *  it). `leak` (the negative control): a what-if that leaves its plan's cursors on the grouping. Returns the change's
+ *  board, the clips that board starts scored as it lands, the forecast's asks and the director. */
+async function aheadRun(handoff, { nudge = null, leak = false } = {}) {
+  const STEP = 1 / 64 // hold 6 = 384 frames exactly: the change lands at the very instant the plan ahead predicted
+  const spin = THREE.MathUtils.degToRad(-2)
+  const rot = new THREE.Euler(0.35, 0, 0)
+  const camera = new THREE.PerspectiveCamera(35, 16 / 9, 0.1, 100)
+  camera.position.set(0, 0, 3)
+  camera.lookAt(0, 0, 0)
+  camera.updateMatrixWorld()
+  const hzQ = new THREE.Quaternion()
+  const hzV = new THREE.Vector3()
+  const horizon = (r = rot) => {
+    // useGlobeScene's: the camera in the globe frame at `r`, its colatitude + the visible cap's half-angle
+    hzQ.setFromEuler(r).invert()
+    hzV.copy(camera.position).applyQuaternion(hzQ)
+    const dd = hzV.length()
+    return Math.acos(THREE.MathUtils.clamp(hzV.y / dd, -1, 1)) + Math.acos(Math.min(1 / dd, 1))
+  }
+  let scroller = null
+  let sched = null
+  const asked = []
+  const { director: d, panels, textureManager } = unitDirector(
+    { shapes: 'wide', unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv, hold: 6, holdJit: 0, trans: 0.6, transitions: ['surge'], handoff },
+    {
+      worlds: aheadWorlds(),
+      getScroller: () => scroller,
+      getScheduler: () => sched,
+      getRotation: () => rot,
+      getHorizon: horizon,
+      getPace: () => 2, // °/s, cascadeSpeed 2's
+      getSpin: () => spin,
+      canAnimate: () => true,
+      forecast: (clips) => (asked.push(clips), []),
+    },
+  )
+  const out = { d, panels, asked, board: null, clips: null, kept: 0, frames: 0 }
+  try {
+    d.initialLayout(d.byProminence())
+    await settleTicks()
+    scroller = new MeridianScroll({ panels, assets: [], textureManager, cascadeSpeed: 2, scheduler: null, assignRow: (tiles) => d.assignRow(tiles) })
+    scroller.advance(0.45) // row 6 wraps 4.2° (2.1 s) into the hold: a birth the plan ahead predicts
+    scroller.update(0)
+    sched = new LivePanelScheduler({ panels, assets: [], poolHandle: null, textureManager: null })
+    sched.camera = camera // as after its first beat
+    // the change's board, whichever path planned it, and the clips it starts, scored as it lands
+    const land = (plan) => {
+      if (!plan || out.board) return plan
+      out.board = plan
+      out.kept = [...plan].filter(([p, a]) => a.place && a === p.asset).length
+      const swaps = panels.map((p) => p.swapAsset)
+      for (const [p, a] of plan) p.swapAsset = a
+      out.clips = sched.landingClips(rot)
+      panels.forEach((p, i) => (p.swapAsset = swaps[i]))
+      return plan
+    }
+    const adopt = d.adoptAhead.bind(d)
+    const late = d.planAll.bind(d)
+    d.adoptAhead = (l) => land(adopt(l))
+    d.planAll = (order, opts) => land(late(order, opts))
+    if (leak) d.planAhead = (g) => {
+      const A = PopulationDirector.prototype.planAhead.call(d, g)
+      if (A) g.cursor = [...A.cursor]
+      return A
+    }
+    while (!out.board && out.frames < 400) {
+      out.frames += 1
+      if (out.frames === nudge) rot.y += THREE.MathUtils.degToRad(2)
+      rot.y += spin * STEP
+      d.update(STEP)
+      scroller.update(STEP)
+      d.place()
+      await new Promise((r) => setImmediate(r))
+    }
+  } finally {
+    d.dispose()
+    scroller?.dispose()
+  }
+  return out
+}
+
+test('plan ahead: fast — the board planned during the hold is the board the change would plan late, tile for tile, and the clips fetched ahead are the ones it starts; a pose off the prediction plans late, the what-if leaving no trace', async () => {
+  const paused = gsap.globalTimeline.paused()
+  gsap.globalTimeline.pause() // no swap lands on the wall clock
+  try {
+    const today = await aheadRun('today')
+    const fast = await aheadRun('fast')
+    const boardOf = (r) => [...r.board].map(([p, a]) => [r.panels.indexOf(p), placeKey(a), a.world])
+    const clipsOf = (clips) => clips.map((c) => [c.id, c.asset?.place?.cls ?? 's'])
+    const bornOf = (r) => r.panels.filter((p) => p.row === 6).map((p) => [p.tapeS, placeKey(p.asset)])
+    // the same change at the same frame (hold 6 at 1/64 s), planned ahead and adopted
+    assert.deepEqual([today.frames, fast.frames], [384, 384])
+    assert.deepEqual([today.d.ahead.planned, fast.d.ahead.planned, fast.d.ahead.adopted, fast.d.ahead.missed], [0, 1, 1, 0])
+    // the board, tile for tile and in order: keep-first's units, the new two-row units, the singles
+    assert.deepEqual(boardOf(fast), boardOf(today))
+    const classes = new Set([...fast.board.values()].map((a) => a.place?.cls).filter(Boolean))
+    assert.ok(classes.has('h') && [...classes].some((c) => c !== 'h'), [...classes].join())
+    assert.ok(fast.kept > 0 && fast.kept === today.kept, `${fast.kept} kept`)
+    // …and what it leaves behind: the budget, the units placed, the horizon, the cursors, the row born in the hold
+    assert.deepEqual([fast.d.lastD, fast.d.placed, fast.d.bornH, fast.d.W.thetaH], [today.d.lastD, today.d.placed, today.d.bornH, today.d.W.thetaH])
+    assert.deepEqual([fast.d.grouping.cursor, Array.from(fast.d.grouping.ucursor)], [today.d.grouping.cursor, Array.from(today.d.grouping.ucursor)])
+    assert.deepEqual(bornOf(fast), bornOf(today))
+    assert.ok(bornOf(fast).every(([s]) => s === 8))
+    // the clips fetched ahead (one ask, at the plan ahead) are the ones the landed board starts, at the class it starts them
+    assert.equal(fast.asked.length, 1)
+    assert.ok(fast.asked[0].length > 0)
+    assert.deepEqual(clipsOf(fast.asked[0]), clipsOf(today.clips))
+    assert.deepEqual(clipsOf(fast.clips), clipsOf(today.clips))
+    near(fast.asked[0].map((c) => c.w), today.clips.map((c) => c.w), 1e-9, 'weights')
+    // the measure behind "load only the visible panels": the pool, the board, its front, what is on screen
+    const k = fast.d.ahead.keys
+    assert.ok(k.onScreen > 0 && k.onScreen <= k.board && k.front <= k.board && k.board <= k.pool, JSON.stringify(k))
+    // a nudge off the predicted pose: a miss, and the late board is today's — the what-if left nothing behind
+    const todayN = await aheadRun('today', { nudge: 100 })
+    const fastN = await aheadRun('fast', { nudge: 100 })
+    assert.deepEqual([fastN.d.ahead.planned, fastN.d.ahead.adopted, fastN.d.ahead.missed, fastN.d.ahead.why], [1, 0, 1, { pose: 1 }])
+    assert.deepEqual(boardOf(fastN), boardOf(todayN))
+    assert.deepEqual(bornOf(fastN), bornOf(todayN))
+    assert.notDeepEqual(boardOf(todayN), boardOf(today)) // the nudge moved the board: the late plan read the live pose
+    // NC: a what-if that kept its cursors — the late board would not be today's
+    const leaky = await aheadRun('fast', { nudge: 100, leak: true })
+    assert.deepEqual(leaky.d.ahead.why, { pose: 1 })
+    assert.notDeepEqual(boardOf(leaky), boardOf(todayN))
+  } finally {
+    if (!paused) gsap.globalTimeline.resume()
     TUNING.handoff = 'today'
   }
 })

@@ -85,9 +85,16 @@ export const scrollZeroTheta = (j, rows) => {
  *  strictly inside (0, pi); the clamp keeps a parked row's centerDir pole-ward
  *  and sane rather than NaN. */
 export const poseTile = (p, theta) => {
+  p.mesh.material.uniforms.uPolarTop.value = theta;
+  posePanel(p, theta);
+};
+
+/** poseTile's CPU half: centerDir and parked, no uniform. PopulationDirector's
+ *  plan ahead poses a tile where it WILL be, plans, and puts it back; the
+ *  shader never sees that pose. */
+export const posePanel = (p, theta) => {
   const thetaC = theta + p.bandHeight / 2;
   p.parked = !(thetaC > 0 && thetaC < Math.PI);
-  p.mesh.material.uniforms.uPolarTop.value = theta;
   const tc = Math.min(Math.max(thetaC, 0), Math.PI);
   const st = Math.sin(tc);
   p.centerDir.set(-Math.cos(p.phiC) * st, Math.cos(tc), Math.sin(p.phiC) * st);
@@ -194,9 +201,28 @@ export default class MeridianScroll {
   }
 
   /** Current top polar angle of row j, wrapped into [lo, lo+span). */
-  thetaForRow(j) {
-    const raw = j * this.pitch + this.scroll - this.lo;
+  thetaForRow(j, scroll = this.scroll) {
+    const raw = j * this.pitch + scroll - this.lo;
     return this.lo + ((raw % this.span) + this.span) % this.span;
+  }
+
+  /** Where every row will be `dt` seconds on at the current pace (the
+   *  director's plan ahead): its top polar angle and its birth, as update()
+   *  will leave them. A row that wraps on the way takes the next birth, in
+   *  the order the rows wrap (the one nearest the bottom end first). Null
+   *  past a span − pitch of travel, where a row could wrap twice (the wrap
+   *  test's own limit; a hold travels a few degrees). */
+  predict(dt) {
+    const travel = (this.rate > 0 && this.rateScale > 0 ? this.rate * this.rateScale * Math.max(dt, 0) : 0) + this.extra;
+    if (this.disposed || travel >= this.span - this.pitch) return null;
+    const end = this.lo + this.span;
+    const out = this.rows.map((tiles, j) => {
+      const now = this.thetaForRow(j);
+      return { tiles, now, theta: this.thetaForRow(j, this.scroll + travel), s: this.rowBirth[j] };
+    });
+    let birth = this.nextBirth;
+    for (const r of out.filter((r) => r.now + travel >= end).sort((a, b) => b.now - a.now)) r.s = birth++;
+    return out.map(({ tiles, theta, s }) => ({ tiles, theta, s }));
   }
 
   /** Write every row's uPolarTop + refresh centerDir/parked; recycle on wrap. */

@@ -13,10 +13,10 @@
  * pitch clamp keeps it from being stranded. Callers that pass nothing (lab,
  * other) keep the legacy yaw auto-rotate. Reduced motion → still regardless.
  *
- * `drag: false` (10-07, Nathan — the home globe on phones) hands the gesture
- * back to the page: the engine installs no pointer listeners at all, so the
- * ambient drift and the pitch clamp still run but nothing grabs the canvas.
- * Pass it per CALLER — /lab/globe keeps its drag on phones.
+ * `drag: false` (Nathan — the home globe, on phones 10-07, on every screen
+ * 10-27) hands the gesture back to the page: the engine installs no pointer
+ * listeners at all, so the ambient drift and the pitch clamp still run but
+ * nothing grabs the canvas. Pass it per CALLER — /lab/globe keeps its drag.
  */
 import DragMomentum from '../../lib/dragMomentum.js';
 import {

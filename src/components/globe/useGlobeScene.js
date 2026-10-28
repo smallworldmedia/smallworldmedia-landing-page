@@ -530,11 +530,11 @@ export default function useGlobeScene(
             : PREFERS_REDUCED_MOTION
               ? 0
               : ((180 / SCROLL_VISIBLE_ROWS) * tuneRef.current.cascadeSpeed) / SCROLL_PACE_SCALE, // before the scroller exists
-        getHorizon: () => {
+        getHorizon: (rot = globeGroup.rotation) => {
           // No pose yet: no horizon, and the plan places H pairs only. initialRotation is the resting tilt without the camera's elevation, not the rendered pose (M4).
           if (!posed) return null;
-          // camera → globe frame; θh = its colatitude + the visible cap's half-angle
-          hzQ.setFromEuler(globeGroup.rotation).invert();
+          // camera → globe frame (at `rot`: the live pose, or the one the plan ahead predicts); θh = its colatitude + the visible cap's half-angle
+          hzQ.setFromEuler(rot).invert();
           hzV.copy(camera.position).sub(globeGroup.position).applyQuaternion(hzQ);
           const d = hzV.length();
           return Math.acos(THREE.MathUtils.clamp(hzV.y / d, -1, 1)) + Math.acos(Math.min(RADIUS / d, 1));
@@ -543,6 +543,9 @@ export default function useGlobeScene(
         // The fast handoff's forecast: the live scheduler's admission, or a fresh one's while the intro hold defers
         // it (called once stills settle, after this effect has run, so tierFor below is set).
         forecast: (clips) => (scheduler ? scheduler.predictStarts(clips) : LivePanelScheduler.forecast(clips, { tierFor })),
+        // The plan ahead: the clips a board landing at `rot` starts, and the spin that carries the globe there.
+        landing: (rot) => (scheduler ? scheduler.landingClips(rot) : LivePanelScheduler.landingClips(panels, rot)),
+        getSpin: () => (PREFERS_REDUCED_MOTION ? 0 : THREE.MathUtils.degToRad(tuneRef.current.yawSpeed)),
       });
     const popAvailable = conveyorMode && worlds?.length > 0;
     if (popAvailable && POP_TUNING.mode !== 'off') director = buildDirector();
@@ -976,12 +979,14 @@ export default function useGlobeScene(
     // clamp stays on in every mode, so a drag can never strand the globe.
     // 10-07 (Nathan): drag-to-spin is OFF on phones for the HOME globe —
     // "it's fighting with page scroll and is not worth having both" (that
-    // page's vertical gesture drives the resting footer's reveal). The gate
-    // is `conveyorMode`, not IS_MOBILE alone: this hook is also /lab/globe's
-    // scene, and the lab keeps its drag on a phone.
+    // page's vertical gesture drives the resting footer's reveal). 10-27
+    // (Nathan): off on desktop too, so the globe's pose is known ahead and a
+    // world's board can be planned (and its clips fetched) before it lands
+    // (PopulationDirector.planAhead). The gate is `conveyorMode`: this hook
+    // is also /lab/globe's scene, and the lab keeps its drag everywhere.
     const controller = new InteractionController(container, {
       still: conveyorMode,
-      drag: !(IS_MOBILE && conveyorMode),
+      drag: !conveyorMode,
     });
     const pitchLimit = THREE.MathUtils.degToRad(PITCH_LIMIT_DEG);
     let yaw = 0;

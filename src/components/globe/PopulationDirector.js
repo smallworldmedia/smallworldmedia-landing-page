@@ -76,6 +76,7 @@ import { TUNING, POP_DEFAULTS, MEDIA_KINDS } from './popConfig.js';
 import { SCROLL_VISIBLE_ROWS, GLOBE_T1 } from './globeConfig.js';
 import { planUrl, prefetchClips, prefetchStats } from './streamPrefetch.js';
 import { primedPlaylistStats } from '../work/hlsPrimed.js';
+import { posePanel } from './MeridianScroll.js';
 import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, quadEligible, wideClass, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
@@ -98,6 +99,10 @@ const TIDE_EASE = gsap.parseEase('power3.out');
 // handoffQuiet) at least NEXT_WARM_QUIET_S into the hold, and never past NEXT_WARM_CAP_S.
 const NEXT_WARM_QUIET_S = 0.3;
 const NEXT_WARM_CAP_S = 2;
+// The plan ahead (planAhead) is adopted only if the change lands within this of the pose it was planned for, every
+// tile's centre and the globe's rotation. A hold's prediction is off by at most one frame's travel (~0.03°).
+const AHEAD_TOL_RAD = THREE.MathUtils.degToRad(0.5);
+const colat = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1));
 
 export default class PopulationDirector {
   /**
@@ -113,8 +118,13 @@ export default class PopulationDirector {
    * @param {(clips: Array<{ id: string, asset: Object }>) => Array<{ id: string, plan: Object|null }>} [opts.forecast]
    *        The fast handoff: the plans the scheduler would start clips on (LivePanelScheduler.predictStarts, or a
    *        fresh scheduler's while the intro hold defers it). Default: the live scheduler's, if any.
+   * @param {(rotation: THREE.Euler) => Array<{ id: string, w: number, asset: Object }>|null} [opts.landing]
+   *        The plan ahead: the clips the scheduler would start on a board landing at `rotation`, its tiles posed and
+   *        dressed as they will be (LivePanelScheduler.landingClips, or a fresh scheduler's while the intro hold
+   *        defers it). Default: the live scheduler's, if any.
+   * @param {() => number} [opts.getSpin] - rad/s the steady yaw spin turns the globe (the plan ahead's pose)
    */
-  constructor({ panels, worlds, textureManager, getScheduler, getScroller = () => null, getRotation, canAnimate, onWorld = null, getPace = () => 0, getHorizon = () => Math.PI, revealHeld = false, forecast = null }) {
+  constructor({ panels, worlds, textureManager, getScheduler, getScroller = () => null, getRotation, canAnimate, onWorld = null, getPace = () => 0, getHorizon = () => Math.PI, revealHeld = false, forecast = null, landing = null, getSpin = () => 0 }) {
     this.panels = panels;
     this.worlds = worlds;
     this.textureManager = textureManager;
@@ -147,6 +157,10 @@ export default class PopulationDirector {
     this.upcomingKind = null; // …and the transition that will bring it
     this.forecast = forecast;
     this.nextWarm = null; // the fast handoff: { wait } while the next world's warm waits for this world's videos
+    this.landing = landing ?? ((rot) => this.getScheduler()?.landingClips?.(rot) ?? null);
+    this.getSpin = getSpin;
+    this.tuneSeq = 0; // bumped by every dial change (onTune): a board planned ahead on other dials is never adopted
+    this.ahead = { planned: 0, adopted: 0, missed: 0, why: {}, keys: null }; // the plan ahead's ledger (sample: handoff.ahead)
     this.lon = 1 + Math.max(...panels.map((p) => p.lonIndex));
     const byRow = new Map();
     for (const p of panels) {
@@ -159,7 +173,7 @@ export default class PopulationDirector {
     // The span lattice, read off a live scroll panel. Null on the fixed globe, so units never run there.
     this.L = panels[0]?.bandHeight > 0 ? lattice(panels[0], this.lon, SCROLL_VISIBLE_ROWS) : null;
     this.getPace = getPace; // °/s the rows travel right now (0 = still: reduced motion)
-    this.getHorizon = getHorizon; // rad: the live horizon colatitude θh (camera in the globe frame)
+    this.getHorizon = getHorizon; // (rotation = the live one) → rad: the horizon colatitude θh (camera in the globe frame)
     this.revealHeld = revealHeld; // the entrance waits on a held reveal (--intro=full)
     // The ε window (unitSpan.thetaBound): V/Q leads live inside [θN, θS] for their whole planned life.
     this.W = this.L
@@ -636,14 +650,29 @@ export default class PopulationDirector {
 
   /** A fresh board, tiles decided in `order` (most prominent first, so each
    *  world's lead assets land where the eye is). */
-  planAll(order, { land = 0, initial = false } = {}) {
+  planAll(order, opts) {
+    const { plan, kept } = this.planBoard(order, opts);
+    this.refreshKept(kept);
+    return plan;
+  }
+
+  /** planAll's board, with the units it keeps (planUnits' keep-first) still announcing their old world: the plan
+   *  ahead is a what-if, so their refresh waits for the change that adopts it. */
+  planBoard(order, { land = 0, initial = false } = {}) {
     this.namePlan = this.planNames();
     const grid = new Map();
     const plan = new Map();
-    if (TUNING.units && this.L) this.planUnits(order, grid, plan, this.travelBudget(land, initial), initial);
+    const kept = [];
+    if (TUNING.units && this.L) this.planUnits(order, grid, plan, this.travelBudget(land, initial), initial, kept);
     for (const p of order) if (!plan.has(p)) plan.set(p, this.pick(p, grid));
     this.namePlan = new Map(); // a strip is only ever placed by the plan that chose it
-    return plan;
+    return { plan, kept };
+  }
+
+  /** A kept unit now announces its region's world (m10). The member records are the unit's own objects
+   *  (claim/birthPairs spread them), so this never touches a pool record. */
+  refreshKept(kept) {
+    for (const [P, rec] of kept) for (const m of P.members) Object.assign(m.asset, { world: rec.world, clientName: rec.clientName, services: rec.services });
   }
 
   /** How far (rad) a unit's rows may travel before the next plan replaces it:
@@ -656,24 +685,35 @@ export default class PopulationDirector {
     return (pace * ((initial ? T_ENTRANCE : land) + TUNING.hold * (1 + TUNING.holdJit) + TUNING.trans) * Math.PI) / 180;
   }
 
+  /** The grain's reach (vK) a unit's lead must clear for its planned life; 0 = no grain. */
+  unitGrain() {
+    return TUNING.grainAmt > 0 ? TUNING.grainStart + TUNING.grainRamp + TUNING.grainStagger : 0;
+  }
+
+  /** May a `cls` unit lead at `lead` for D rad of travel: an H pair wherever the grain allows, a two-row unit only
+   *  under a horizon (W.thetaH), inside the ε window [θN, θS]. */
+  admits(lead, cls, D, gT = this.unitGrain()) {
+    const theta = colat(lead);
+    return cls === 'h' ? eligibleH(theta, D, gT) : this.W.thetaH != null && eligibleVQ(theta, D, this.W, gT);
+  }
+
   /** Units first, then (planAll) singles. Names were placed first and are never
    *  members. Every footprint lies in ONE owner region, and its outer
-   *  4-neighbours are free of its key. Records are fresh objects { ...asset, place, kx, ky }. */
-  planUnits(order, grid, plan, D, initial) {
+   *  4-neighbours are free of its key. Records are fresh objects { ...asset, place, kx, ky }. A kept unit is
+   *  refreshed to its new world at once, or pushed onto `kept` (planBoard) for the caller to refresh. */
+  planUnits(order, grid, plan, D, initial, kept = null) {
     const g = this.grouping;
     const L = this.lon;
-    const W = this.W;
-    W.thetaH = this.getHorizon(); // null until the tick has posed the globe: then H pairs only (M4)
-    if (initial) this.initThetaH = W.thetaH; // the latch, judged live by the initVQ gate
+    this.W.thetaH = this.getHorizon(); // null until the tick has posed the globe: then H pairs only (M4)
+    if (initial) this.initThetaH = this.W.thetaH; // the latch, judged live by the initVQ gate
     this.lastD = D;
-    const gT = TUNING.grainAmt > 0 ? TUNING.grainStart + TUNING.grainRamp + TUNING.grainStagger : 0;
+    const gT = this.unitGrain();
     const cell = new Map();
     for (const p of this.panels) cell.set(p.tapeS * GRID + p.lonIndex, p);
-    const thetaOf = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1));
     const ownerOf = (p) => g.pattern.owner(p.lonIndex, p.tapeS);
     const free = (p) => !!p && !p.parked && !plan.has(p) && !this.namePlan.has(p);
     const count = new Map(); // key → units in this plan
-    const admissible = (lead, cls) => (cls === 'h' ? eligibleH(thetaOf(lead), D, gT) : W.thetaH != null && eligibleVQ(thetaOf(lead), D, W, gT));
+    const admissible = (lead, cls) => this.admits(lead, cls, D, gT);
     const outerFree = (members, key) => {
       const inside = new Set(members);
       for (const m of members) {
@@ -715,9 +755,9 @@ export default class PopulationDirector {
       const rec = g.pools[r]?.find((a) => assetKey(a) === P.key);
       if (!intact || P.members.some((m) => ownerOf(m) !== r) || !canForm(rec?.unitCls, P.cls)) continue;
       if ((count.get(P.key) || 0) >= TUNING.unitMax || !admissible(p, P.cls) || !outerFree(P.members, P.key)) continue;
-      // The member records are the unit's own objects (claim/birthPairs spread them), so this never touches a pool
-      // record. A shared id kept across a world change now announces the new world.
-      for (const m of P.members) Object.assign(m.asset, { world: rec.world, clientName: rec.clientName, services: rec.services });
+      // A shared id kept across a world change now announces the new world (refreshKept).
+      if (kept) kept.push([P, rec]);
+      else this.refreshKept([[P, rec]]);
       claim(P, P.members.map((m) => m.asset));
     }
     // 2 — new units, most prominent lead first, walking the region pool in editorial order. An asset tries its
@@ -892,7 +932,8 @@ export default class PopulationDirector {
     return TUNING.handoff === 'fast' && TUNING.live === 'shared';
   }
 
-  /** Warm the next world's stills — and under the fast handoff, once they settle, fetch its clips ahead. */
+  /** Warm the next world's stills — and under the fast handoff, once they settle, plan its board ahead and fetch
+   *  the clips that board will start. */
   warmNext() {
     this.nextWarm = null;
     const g = this.upcoming;
@@ -900,8 +941,139 @@ export default class PopulationDirector {
     const warm = this.warmPools(this.warmSet(g));
     if (!this.handoffFast) return;
     warm.then(() => {
-      if (!this.disposed && this.upcoming === g) this.prefetchWorld(g);
+      if (this.disposed || this.upcoming !== g) return;
+      const A = this.planAhead(g);
+      if (A?.clips.length) this.prefetchFor(A.clips);
     });
+  }
+
+  /** The fast handoff's plan ahead (Nathan 10-27, with drag off on every screen so the pose is known): grouping
+   *  `g`'s board, planned during the hold for the pose the globe will hold as it lands (the rows `holdLeft` on at
+   *  the current pace, MeridianScroll.predict, and the spin likewise), and the clips the scheduler would start on
+   *  it (landing), so what is fetched ahead is what lands, at the size it lands. The change adopts it when it lands
+   *  where predicted (adoptAhead), else plans late as before. A what-if: the poses, births, cursors and counters
+   *  it borrows are all put back. A tide re-births every row, so it plans nothing ahead. */
+  planAhead(g) {
+    if (this.disposed || this.busy || this.held || this.frozen || g !== this.upcoming) return null;
+    const scroller = this.getScroller();
+    if (scroller && this.upcomingKind === 'tide') return null;
+    const T = Math.max(this.holdLeft, 0);
+    const rows = scroller ? scroller.predict(T) : null;
+    if (scroller && !rows) return null;
+    const live = this.getRotation();
+    const rot = new THREE.Euler(live.x, live.y + this.getSpin() * T, live.z, live.order);
+    const { spread, dur } = this.changeSpan();
+    const land = TUNING.units && this.L ? spread + dur : 0;
+    const was = { grouping: this.grouping, step: this.step, getRotation: this.getRotation, getHorizon: this.getHorizon, placed: { ...this.placed }, lastD: this.lastD, thetaH: this.W?.thetaH ?? null, namePlaced: this.namePlaced, namePlan: this.namePlan, cursor: [...g.cursor], ucursor: g.ucursor && [...g.ucursor] };
+    const tiles = this.panels.map((p) => ({ p, dir: p.centerDir.clone(), parked: p.parked, s: p.tapeS, asset: p.asset, shown: p.shownAsset, swap: p.swapAsset }));
+    let A;
+    try {
+      if (rows) for (const r of rows) for (const p of r.tiles) {
+        posePanel(p, r.theta);
+        p.tapeS = r.s;
+      }
+      this.grouping = g;
+      this.step = was.step + 1; // advance() steps before it lays the world in
+      this.getRotation = () => rot;
+      this.getHorizon = () => was.getHorizon(rot);
+      const { plan, kept } = this.planBoard(this.byProminence(), { land });
+      A = {
+        plan,
+        kept,
+        land,
+        step: this.step,
+        tune: this.tuneSeq,
+        rot: { x: rot.x, y: rot.y, z: rot.z, order: rot.order },
+        lastD: this.lastD,
+        namePlaced: this.namePlaced,
+        placed: Object.fromEntries(Object.keys(was.placed).map((k) => [k, this.placed[k] - was.placed[k]])),
+        cursor: [...g.cursor],
+        ucursor: g.ucursor && [...g.ucursor],
+        poses: this.panels.map((p) => [p.centerDir.clone(), p.parked, p.tapeS]),
+        tiles: tiles.map((t) => [t.asset, t.shown, t.swap]),
+      };
+      for (const [p, a] of plan) p.swapAsset = a; // what the scheduler sees as the change lands
+      A.clips = this.landing(rot) ?? [];
+      this.ahead.keys = this.keysOf(g, plan, rot);
+    } finally {
+      for (const t of tiles) {
+        t.p.centerDir.copy(t.dir);
+        t.p.parked = t.parked;
+        t.p.tapeS = t.s;
+        t.p.swapAsset = t.swap;
+      }
+      Object.assign(this, { grouping: was.grouping, step: was.step, getRotation: was.getRotation, getHorizon: was.getHorizon, lastD: was.lastD, namePlaced: was.namePlaced, namePlan: was.namePlan });
+      Object.assign(this.placed, was.placed);
+      if (this.W) this.W.thetaH = was.thetaH;
+      g.cursor = was.cursor;
+      g.ucursor = was.ucursor;
+    }
+    this.ahead.planned += 1;
+    g.ahead = A;
+    return A;
+  }
+
+  /** The distinct textures (keys) world `g` needs at `rot`: its pool (what the hold warms), its planned board, the
+   *  board's front-facing tiles, and the tiles on screen (the scheduler's viewport test; null without one). The
+   *  measure behind "load only the visible panels" (10-27). */
+  keysOf(g, plan, rot) {
+    const sched = this.getScheduler();
+    const shown = sched?.scoreAll ? new Set(sched.scoreAll(rot).filter((s) => s.visible).map((s) => s.panel)) : null;
+    const board = new Set();
+    const front = new Set();
+    const screen = new Set();
+    for (const [p, a] of plan) {
+      const k = assetKey(a);
+      board.add(k);
+      if (p.parked) continue;
+      if (this._v.copy(p.centerDir).applyEuler(rot).z > FACING) front.add(k);
+      if (shown?.has(p)) screen.add(k);
+    }
+    return { pool: new Set(this.warmSet(g).flat().map(assetKey)).size, board: board.size, front: front.size, onScreen: shown ? screen.size : null };
+  }
+
+  /** The change takes the board planned ahead for it if it is landing where that board was planned: the same dials
+   *  and step, every tile within AHEAD_TOL_RAD of its predicted centre and born as predicted, the tiles showing what
+   *  they showed, and every unit still admissible at the live horizon. Else null (the miss counted by reason), and
+   *  the change plans late. */
+  adoptAhead(land) {
+    const g = this.grouping;
+    const A = g.ahead;
+    if (!A) return null;
+    g.ahead = null;
+    if (this.W) this.W.thetaH = this.getHorizon(); // the live horizon, as the late plan would read it
+    const why = this.aheadMiss(A, land);
+    if (why) {
+      this.ahead.missed += 1;
+      this.ahead.why[why] = (this.ahead.why[why] || 0) + 1;
+      return null;
+    }
+    g.cursor = A.cursor;
+    g.ucursor = A.ucursor;
+    this.refreshKept(A.kept);
+    for (const k of Object.keys(A.placed)) this.placed[k] += A.placed[k];
+    this.lastD = A.lastD;
+    this.namePlaced = A.namePlaced;
+    this.ahead.adopted += 1;
+    return A.plan;
+  }
+
+  aheadMiss(A, land) {
+    const D = TUNING.units && this.L ? this.travelBudget(land, false) : null;
+    if (A.tune !== this.tuneSeq || A.land !== land || A.step !== this.step || (D != null && D !== A.lastD)) return 'dials';
+    const rot = this.getRotation();
+    const off = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+    if (rot.order !== A.rot.order || Math.max(off(rot.x, A.rot.x), off(rot.y, A.rot.y), off(rot.z, A.rot.z)) > AHEAD_TOL_RAD) return 'pose';
+    const n = this.panels.length;
+    for (let i = 0; i < n; i++) if (this.panels[i].centerDir.angleTo(A.poses[i][0]) > AHEAD_TOL_RAD) return 'pose';
+    for (let i = 0; i < n; i++) if (this.panels[i].parked !== A.poses[i][1] || this.panels[i].tapeS !== A.poses[i][2]) return 'births';
+    for (let i = 0; i < n; i++) {
+      const p = this.panels[i];
+      const [asset, shown, swap] = A.tiles[i];
+      if (!p.parked && (p.asset !== asset || p.shownAsset !== shown || p.swapAsset !== swap)) return 'tiles'; // keep-first read them
+    }
+    if (D != null) for (const P of new Set([...A.plan.values()].map((a) => a.place).filter(Boolean))) if (!this.admits(P.members[0], P.cls, D)) return 'admission';
+    return null;
   }
 
   /** The fast handoff's deferred warm: once the scheduler is quiet (this world's streams are in), or at the cap —
@@ -910,26 +1082,6 @@ export default class PopulationDirector {
     const w = this.nextWarm;
     w.wait += dt;
     if (!this.handoffFast || (w.wait >= NEXT_WARM_QUIET_S && this.getScheduler()?.handoffQuiet?.()) || w.wait >= NEXT_WARM_CAP_S) this.warmNext();
-  }
-
-  /** The clips grouping `g` should start when it lands, fetched ahead: its pools round-robined in order (the order
-   *  its tiles take them, pick), each clip once, the bigger unit class first (a unit's score counts every tile it
-   *  covers), dressed as that class for the forecast. A unit that lands smaller plans a lower rung: that fetch misses. */
-  prefetchWorld(g) {
-    const seen = new Set();
-    const recs = [];
-    const n = Math.max(0, ...g.pools.map((l) => l.length));
-    for (let i = 0; i < n; i++) {
-      for (const pool of g.pools) {
-        const a = pool[i];
-        if (!a?.playbackId || seen.has(a.playbackId)) continue;
-        seen.add(a.playbackId);
-        recs.push(a);
-      }
-    }
-    const tiles = (a) => (UNIT_SHAPE[a.unitCls] ? UNIT_SHAPE[a.unitCls].cols * UNIT_SHAPE[a.unitCls].rows : 1);
-    recs.sort((x, y) => tiles(y) - tiles(x)); // stable: pool order within a size
-    this.prefetchFor(recs.map((a) => ({ id: a.playbackId, asset: { ...a, place: UNIT_SHAPE[a.unitCls] ? { cls: a.unitCls } : null } })));
   }
 
   /** The first world, already laid (useGlobeScene, once its stills settle under the intro hold): a clip weighs its
@@ -1008,8 +1160,13 @@ export default class PopulationDirector {
     this.emitWorld(animate);
     if (kind === 'tide' && this.startTide()) return;
     // No scroll to surge (the scene is still held) → the tide lands as a blink.
+    this.layIn({ style: kind === 'tide' ? 'blink' : kind, ...this.changeSpan() });
+  }
+
+  /** An in-place change's stagger: one tile's swap (dur) inside ?poptrans, the rest of it the spread. */
+  changeSpan() {
     const dur = Math.min(Math.max(TUNING.trans * 0.3, 0.3), 0.9);
-    this.layIn({ style: kind === 'tide' ? 'blink' : kind, spread: Math.max(TUNING.trans - dur, 0), dur });
+    return { spread: Math.max(TUNING.trans - dur, 0), dur };
   }
 
   startTide() {
@@ -1049,13 +1206,14 @@ export default class PopulationDirector {
     const units = !!(TUNING.units && this.L);
     // Units off: planned now, as always. Units on: planned once the textures are
     // warm, against the poses the change lands on (travelBudget counts the landing).
-    let plan = units ? null : this.planAll(this.byProminence());
+    // Either way a board planned ahead for this change (the fast handoff) stands in, if it still fits.
+    let plan = units ? null : (this.adoptAhead(0) ?? this.planAll(this.byProminence()));
     const bornAt = plan ? new Map([...plan.keys()].map((p) => [p, p.tapeS])) : null;
     const token = ++this.layoutToken;
     this.busy = true;
     this.warmGrouping().then(() => {
       if (this.disposed || token !== this.layoutToken) return;
-      if (units) plan = this.planAll(this.byProminence(), { land: spread + dur });
+      if (units) plan = this.adoptAhead(spread + dur) ?? this.planAll(this.byProminence(), { land: spread + dur });
       // A row re-born while the textures warmed already took the new
       // grouping from assignRow — its planned picks belong to its old place.
       else for (const [p, s] of bornAt) if (p.tapeS !== s) plan.delete(p);
@@ -1102,6 +1260,7 @@ export default class PopulationDirector {
 
   /** A popConfig change (useGlobeScene forwards the key). */
   onTune(key) {
+    this.tuneSeq += 1;
     if (key === '*' || key === 'units' || key === 'shapes' || key === 'quads' || key === 'cap' || key === 'media' || key === 'equiv') {
       this.redecorate();
       this.relayout();
@@ -1500,8 +1659,16 @@ export default class PopulationDirector {
       bornCancelled: this.getScroller()?.bornCancelled ?? 0,
       units: TUNING.units && this.L ? this.unitStats(r1) : null,
       // The fast handoff: the next world's warm still deferred, the clips fetched ahead, the playlists players took
-      // from memory, the scheduler's starts (all · mid-change · onto a primed clip).
-      handoff: { mode: TUNING.handoff, waiting: !!this.nextWarm, fetch: prefetchStats(), primed: primedPlaylistStats(), starts: this.getScheduler()?.handoffStats?.() ?? null },
+      // from memory, the scheduler's starts (all · mid-change · onto a primed clip), and the boards planned ahead
+      // (planned · adopted · missed by reason, and the last one's texture keys: pool, board, front, on screen).
+      handoff: {
+        mode: TUNING.handoff,
+        waiting: !!this.nextWarm,
+        fetch: prefetchStats(),
+        primed: primedPlaylistStats(),
+        starts: this.getScheduler()?.handoffStats?.() ?? null,
+        ahead: { ...this.ahead, why: { ...this.ahead.why } },
+      },
     };
     this.flipsSampled = this.flips;
     if (typeof window !== 'undefined') window.__swmPopStats = stats;

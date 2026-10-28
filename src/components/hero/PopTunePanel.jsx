@@ -199,6 +199,9 @@ export default function PopTunePanel({ sceneApiRef }) {
             {stats.handoff?.starts
               ? ` · starts ${stats.handoff.starts.starts} (mid-change ${stats.handoff.starts.ahead}, primed ${stats.handoff.starts.primed}) · fetched ${stats.handoff.fetch.done}/${stats.handoff.fetch.asked} ${(stats.handoff.fetch.bytes / 1048576).toFixed(1)} MiB${stats.handoff.waiting ? ' · next world waiting' : ''}`
               : ''}
+            {stats.handoff?.ahead?.planned
+              ? ` · planned ahead ${stats.handoff.ahead.adopted}/${stats.handoff.ahead.planned} landed${Object.keys(stats.handoff.ahead.why).length ? ` (missed: ${Object.entries(stats.handoff.ahead.why).map(([why, n]) => `${why} ${n}`).join(', ')})` : ''}${stats.handoff.ahead.keys ? ` · textures pool ${stats.handoff.ahead.keys.pool} / board ${stats.handoff.ahead.keys.board} / front ${stats.handoff.ahead.keys.front} / screen ${stats.handoff.ahead.keys.onScreen ?? '—'}` : ''}`
+              : ''}
             <br />
             names {stats.nameTiles} tile{stats.nameTiles === 1 ? '' : 's'} ·{' '}
             {stats.namePlaced
@@ -312,9 +315,11 @@ export default function PopTunePanel({ sceneApiRef }) {
       <p className="hero-tune__note">
         ?poplive · ?pophandoff · ?popcolor. shared = one decode per clip, bound on every tile showing it (the
         repeats play in sync); tile = one decode per live tile. handoff (shared only; 10-27, on trial): fast = a
-        change starts its videos while it lands, on a 0.1 s beat; once they play, the next world's stills load,
-        then the clips it should start (a few at a time, low priority), so it lands on clips already in memory;
-        the first world's clips load while the intro holds. today = videos start after a change, 2 per 0.5 s.
+        change starts its videos while it lands, on a 0.1 s beat; once they play, the next world's stills load
+        and its board is planned ahead for where the globe will be as it lands (drag is off, so that pose is
+        known), then the clips that board starts load (a few at a time, low priority, at the size they start),
+        so it lands on clips already in memory; a change that lands off that pose plans late, as today. the
+        first world's clips load while the intro holds. today = videos start after a change, 2 per 0.5 s.
         the first-world fetch needs a reload. world = the projectColor takes the lattice, ring, gradient,
         enter_world and the nav accents.
       </p>
