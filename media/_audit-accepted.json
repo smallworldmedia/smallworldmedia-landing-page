@@ -4,13 +4,6 @@
   "accepted": [
     {
       "check": "label-ratio",
-      "id": "mediaAsset-andhera-records-afterrr-ep-soundcloud-banner",
-      "mediaType": "static_16x9",
-      "reason": "Kept static_16x9 by your pick on the 10-23 decisions page; the policy would say static_other (4.8:1).",
-      "decided": "2026-10-23"
-    },
-    {
-      "check": "label-ratio",
       "id": "mediaAsset-heavy-house-society-resolume-composition-export",
       "mediaType": "motion_16x9",
       "reason": "Your call resolume-export (10-23): the file is padded, so keep motion_16x9 and crop the file later.",

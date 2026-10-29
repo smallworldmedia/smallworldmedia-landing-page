@@ -105,6 +105,13 @@ document keeps the decided `mediaType`. The report lists what it hid under
 `accepted`. An entry that matches nothing comes back as `accepted-stale`, so remove
 it. A malformed file stops the audit. Add an entry only for a recorded decision.
 
+Run the audit before every deploy (a launch gate in `docs/v1-launch-plan.md`). It
+is the site's guard against a wrong aspect label. The site's `ratioOf` sizes media by
+the label on purpose, because some labels are meant to disagree with the file:
+padded files are labelled by the content inside, and near ties are eye calls.
+Nathan declined a runtime "the file's shape wins past 10%" guard on 2026-10-29, so
+fix a wrong label in Sanity, not in the site.
+
 `suggestedChanges` drafts a changes request for the mechanical fixes only: the
 suggested label, and legacy video shapes rewritten to the weak `mux.video`
 reference. It never covers a document with a draft. It is a starting point, not

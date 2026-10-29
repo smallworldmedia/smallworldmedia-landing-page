@@ -16,7 +16,7 @@ project: andhera-records-andhera-branding
 | andhera_yellow-logo_sticker_2-75x2-75_trimmed.jpg | logo | Andhera Logo Sticker | false | 1:1 | 5 |  |
 | MMW 2025 4x5.mp4 | motion_4x5 | MMW 2025 Promo | false | 4:5 | 6 | |
 | Chase the Ace Loop with Audio.mov | motion_9x16 | Chase the Ace Loop | false | 9:16 | 7 |  |
-| afterrr-ep_SC-banner.png | static_16x9 | Afterrr EP SoundCloud Banner | false | 16:9 | 8 | andhera-records-banners |
+| afterrr-ep_SC-banner.png | static_other | Afterrr EP SoundCloud Banner | false | 4.77:1 | 8 | andhera-records-banners |
 | afterrr-tracklisting_square.png | static_1x1 | Afterrr Tracklisting | false | 1:1 | 9 | |
 | black-friday_hero.png | static_1x1 | Black Friday Hero | false | 1:1 | 10 |  |
 | elsewhere-still-1.png | static_9x16 | Elsewhere Still 1 | false | 9:16 | 11 |  |
