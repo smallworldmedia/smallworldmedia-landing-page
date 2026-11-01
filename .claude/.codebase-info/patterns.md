@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-10-27*
+*Last Updated: 2026-10-31*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -41,8 +41,7 @@ globe hands the gesture back to the page (phones since 10-07, every screen since
 
 Hard-hold motion is its own family: `steps(1, end)`, where every keyframe segment HOLDS its start
 value and jumps at the end, so nothing interpolates. It runs the FP pager scrim grain
-(`work/scrimNoise.js`), the globe panel grain's jitter clock (`globe/panelGrain.js`), the odometer,
-and the footer band's "full spectrum" pulse (`.logo-ticker__spectrum`). Musical timing is a token,
+(`work/scrimNoise.js`), the odometer, and the footer band's "full spectrum" pulse (`.logo-ticker__spectrum`). Musical timing is a token,
 not a magic duration: `calc(240s / var(--swm-bpm, 127))` is two half notes at 127 BPM (1.88976 s),
 the first stepping five `--swm-cycle-*` frames at 10% each, the second holding `--ink-muted`. A
 CSS-keyframed ink pulse animates the ELEMENT'S OWN `color`, which is what keeps it clear of the
@@ -60,8 +59,8 @@ pole, a blink to black, a blue surge, a cut), never through a cross-dissolve. A 
 world change defaults to the tide: `MeridianScroll.advance()` surges the scroll one full span, so the
 next world arrives row by row from the top pole. Client-name strips are PLACED, not scrolled: `planNames()`
 picks their tiles once per world change against the live camera, `placeNames()` only reconciles the cover-fit
-uniforms per frame, and the horizontal ticker is gone. `panelMaterial.js` stays untouched, so its pole pinch
-(`vK = sin(thetaC)`) is compensated CPU-side in `nameTicker.js` (`namePinch` / `nameWindow` / `nameRendered`).
+uniforms per frame, and the horizontal ticker is gone. The strips leave `panelMaterial.js` alone: its pole
+pinch (`vK = sin(thetaC)`) is compensated CPU-side in `nameTicker.js` (`namePinch` / `nameWindow` / `nameRendered`).
 
 Posing a tile means writing BOTH halves. `buildGlobeGeometry` seeds every panel's `centerDir` at the
 canonical equator and leaves the driver to rewrite it per frame, so a tile's latitude is only true once
@@ -91,16 +90,18 @@ bind hook also writes a planned member's window on its first bound frame, so not
 with the single's window. And a member's texB, plus the telemetry that counts
 it (`registerB`, `density`), is written only when its stream was lit for this unit
 (`liveUid === place.uid`, the A7 guard, P6a `8e74419` and P7 `eadf842`): a tile still showing a unit
-record while its copy plays another clip as a single must not be judged as that unit. The shader is
-untouched; the whole compensation is CPU-side, like the name strips'. The probe's kill switch,
+record while its copy plays another clip as a single must not be judged as that unit. Under the rows
+look (`?popunitlook=rows`) the whole compensation is CPU-side, like the name strips'. Under the flat
+look, the default since P9 (`310ad84`, 10-31), `place()` still writes every window each frame, and the
+window carries a switch, `spanC`, that has the shader pinch each pixel row about the unit's centre
+(`uSpanA` / `uSpanB`), so a two-row picture neither warps nor kinks at the gap. The probe's kill switch,
 `globalThis.__swmNoUnitWindows` (`communication.md`), is how its negative controls prove the gates
 can see a missing window.
 
-Grain is the same one-place rule across surfaces: the globe's panel static is not a lookalike of the FP
-pager scrim's, it IS that recipe, imported from `work/scrimNoise.js`. A second turbulence recipe for the
-same look would be a bug. Where the grain must NOT inherit a surface's distortion, it samples the
-surface's own compensated UV rather than inventing a second correction — `panelGrain.js` reads
-`panelMaterial`'s `mUv`, so the no-warp guarantee is the media path's, reused.
+Grain is one recipe: the FP pager scrim's static is `work/scrimNoise.js`, and a second turbulence
+recipe for the same look would be a bug. (The globe's panel grain imported it, sampling
+`panelMaterial`'s compensated `mUv` rather than inventing a second correction, until Nathan had it
+removed on 10-31.)
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
@@ -173,12 +174,11 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   byte-identical: `?lenistune`, `?footertune`, `?herotune`, `?committune`, `?entertune`, `?texttune`,
   `?scrimtune`, `?fp1tune`, `?poptune`, `?debug` (process), `?fpgrid=1|2|3`, `?pager=rail`. Phone-sized
   benches start collapsed to a one-line chip (`?debug` process, `?deckdebug`, `?poptune`).
-- A knob is only half-landed until it has a bench row. The 8 `?popgrain*` knobs currently have URL
-  params and `tunables-guide.md` rows but NO rows in `hero/PopTunePanel.jsx`, so they dial by URL only.
+- A knob is only half-landed until it has a bench row.
 - A tier-split default reads as ONE knob: `GLOBE_STROKE_FRAC` resolves `IS_MOBILE ? 5 : 6`, and a single
   `?globestroke` overrides BOTH tiers (the `?grainsize` convention) rather than exposing two params.
-- Inventory: `docs/tunables-guide.md` (347 keys, as `node scripts/tunables-keys.mjs` printed at
-  `eadf842`, 10-16; read the count from that command, never by hand). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (345 keys, as `node scripts/tunables-keys.mjs --check` printed at
+  `cd03b9f`, 10-31; read the count from that command, never by hand). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
   idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
   regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
@@ -188,8 +188,9 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   than relaxing the guard for every key, because `?footerlift=0` is the one way to ask whether a parallax is
   carrying anything.
 - `footerTune.js` also splits its knobs by who reads them: `CSS_KNOBS` are mirrored to `<html>` custom
-  properties, while a knob the JS reads at play time (`introS`, `slideRem`, `slideLeadS`) stays out of
-  that map and is exposed through a getter instead. Adding a play-time knob to `CSS_KNOBS` publishes a
+  properties, while a knob the JS reads at play time (`introS`, `slideRem`, `slideLeadS`, and the
+  wheel's weight, `lerp` and `brake`, read per wheel event) stays out of that map and is exposed
+  through a getter instead. Adding a play-time knob to `CSS_KNOBS` publishes a
   var nothing consumes.
 - **A shipped default lives twice, so something must hold the copies equal.** Usually the twin is a CSS
   `var()` fallback (what the phone gets) against `FOOTER_TUNE_DEFAULTS` (what the bench and a copied URL
@@ -202,10 +203,12 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   PARSING both literals out of source, since Hero is an island and the probe opens a browser on import.
   Without it a re-bake that moved one copy would not fail a test — it would fail the probe later, reading
   as a footer regression rather than a stale gate (10-08, after `?footerrest` 0.62 → 0.59). Desktop's
-  own default, `FOOTER_REST_DESKTOP` 0.62 (bake A, `ba7cf2c`), has NO probe twin — `--footer` is
-  phone-only (`MOBILE = FOOTER || …`) — so `footer-reveal.test.mjs`'s "the desktop footer rest is its
-  own bake" holds it to its own clipping floor instead, and asserts the `IS_MOBILE ?` routing with a
-  swapped-ternary control.
+  own default, `FOOTER_REST_DESKTOP` 0.40 (Nathan's 10-31 sliver, `f2916d1`; 0.62 from bake A
+  `ba7cf2c`), has NO probe twin — `--footer` is phone-only (`MOBILE = FOOTER || …`) — so
+  `footer-reveal.test.mjs`'s "the desktop footer rest is its own bake" holds it to its own clipping
+  floor instead, and asserts the `IS_MOBILE ?` routing with a swapped-ternary control. A twin can
+  also be another module's bake: `?footerlerp`'s 0.165 is Lenis's `LENIS_TUNING.lerp`, and the test
+  parses that literal out of `motion.js`.
 - A measured number written into a comment is a claim about one baked state. When the measured thing
   moves, grep the OLD number across `src/ docs/ scripts/ .claude/.codebase-info/` — it is routinely in
   all four, and a figure that is really `(1 − rest) × panel-h` (`?footerlift`'s 106.86/53.39) moves with a
@@ -225,7 +228,7 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   `--footer-panel-h` is unaffected.
 - When a surface sits under a derived `opacity`, the veil outranks the ink. `.logo-ticker` is
   `opacity: var(--lt-p)`, clamped from `--footer-peak` against `--logo-reveal-from/-to`, which was
-  0.633 at the resting footer (`footerrest/0.98` at the desktop's 0.62 floor, the default since bake A `ba7cf2c`; 0.602 at the phone's 0.59): relighting the copy's ink alone moved composited contrast only
+  0.633 at the resting footer (`footerrest/0.98` at the desktop's then-0.62 floor, bake A `ba7cf2c`, 0.40 since 10-31; 0.602 at the phone's 0.59): relighting the copy's ink alone moved composited contrast only
   1.43:1 → 2.80:1, while lifting the veil got the shipped 4.61:1. Measure the
   composite, not the token — and a 2D-canvas pixel sample, because `getComputedStyle().color` on a
   `color-mix()` reports `oklab(...)` and a naive RGB parse of it reads as black. Under
@@ -334,8 +337,10 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   `page.mouse.wheel` — Playwright's pointer starts at (0, 0), where the wheel event never reaches
   Hero's `addDelta` — and wheel DOWN (`+120`); up leaves the band on its 0.4 floor with
   `--footer-band-p` at 0, which reads exactly like a broken fade. Since bake A (`ba7cf2c`, 10-09) the
-  desktop rests too, at `FOOTER_REST_DESKTOP` 0.62, so a desktop run needs no `?footerrest`; pass
-  `?footerrest=0` for the old retract-to-nothing footer.
+  desktop rests too, at `FOOTER_REST_DESKTOP` (0.40 since 10-31, 0.62 before), so a desktop run needs
+  no `?footerrest`; pass `?footerrest=0` for the old retract-to-nothing footer. Since 10-31 a wheel
+  delta GLIDES the panel (`createFooterDrive`): read the reveal once it holds still, or pass
+  `&footerlerp=0` for the old jump inside a frame.
 - Screenshot the VIEWPORT, not an element taller than the fold. Playwright stitches unpainted
   compositor content for the off-screen part, which reads as a solid block of the page's accent — a
   convincing-looking render bug that is not there. Confirm with `elementFromPoint` before believing a
@@ -358,9 +363,10 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   (`--baseline=KEY`, default the `--out` folder's name), written only from an all-pass
   `--record-baseline` run and never by hand; a run with no record under its key exits 2 on
   `legacyParity` / `texPeak` as vacuous, so a bare `node scripts/globe-probe.mjs` exits 2 — pass the
-  key the run matches (`--units=0 --baseline=off-desktop` for a plain units-off desktop run; spans are on by default since 10-23). Every units-on record predates `?popshapes=wide` (10-24) and was
-  taken under the classic set, so a wide run has no record of its own yet: record one, or pass
-  `--extra=&popshapes=classic` to match an old one. A one-off failure gets one rerun
+  key the run matches (`--units=0 --baseline=off-desktop` for a plain units-off desktop run; spans are on by default since 10-23). The 17 records were re-recorded at the defaults on 10-31, so a
+  run passes only its row's flags. Re-record a key when an approved default it measures moves, and in
+  the same pass re-derive any bound that was a forecast of the old default: `texBudget` was popcap
+  13's until then, and his 10-24 tile budget had put every units run over it. A one-off failure gets one rerun
   on a quiet machine, both runs kept; never lower a floor or weaken a gate.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.

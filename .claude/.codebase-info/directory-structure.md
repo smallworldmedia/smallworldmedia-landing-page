@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-10-27*
+*Last Updated: 2026-10-31*
 
 ```
 .
@@ -16,7 +16,7 @@
 │   │   ├── *.jsx             # site chrome: SiteShell, SiteNav, SiteFooter, SiteTagline, RouteFill,
 │   │   │                     #   InfoPanel, ProjectOverlay, PrivacyOverlay/Content, ClientLogoTicker,
 │   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels
-│   │   ├── globe/            # video globe: scene hook, geometry, shader material, grain rig, schedulers,
+│   │   ├── globe/            # video globe: scene hook, geometry, shader material, schedulers,
 │   │   │                     #   textures, population modes (world pools, patterns, director, tile swaps,
 │   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass),
 │   │   │                     #   clip fetch-ahead (streamPrefetch)
@@ -47,6 +47,7 @@
 │   │                         #   globe-worlds, footer-reveal)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs   # docs + probe tooling
+│   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated
 │   └── shots/                # probe screenshot dumps (untracked noise)
 ├── docs/                     # plans, specs, ADRs (adr/), agent conventions (agents/), tunables guide

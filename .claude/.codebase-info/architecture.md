@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-10-28*
+*Last Updated: 2026-10-31*
 
 ## Summary
 
@@ -84,4 +84,4 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
   `Astro.redirect` in frontmatter; their components are dormant, not deleted.
 - Every knob is a URL `?param` first, baked only on Nathan's stated value (`docs/tunables-guide.md`,
   gated by `scripts/tunables-keys.mjs --check`).
-- Playwright is deliberately not a dependency; `scripts/pager-probe.mjs`, `scripts/process-probe.mjs` and `scripts/globe-probe.mjs` resolve it from the npx cache.
+- Playwright is deliberately not a dependency; `scripts/pager-probe.mjs`, `scripts/process-probe.mjs`, `scripts/globe-probe.mjs` and `scripts/globe-timing.mjs` resolve it from the npx cache (`PLAYWRIGHT_PATH` overrides).

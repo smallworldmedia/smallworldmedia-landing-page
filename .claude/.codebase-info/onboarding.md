@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-10-28*
+*Last Updated: 2026-10-31*
 
 ## Quick start
 ```bash
@@ -22,8 +22,8 @@ different worktree. `npx astro preview --port 3333` then
 CORS-allowlisted, so the stills load and the globe is not black). The `--baseline` key is required: a
 home run judges its gates against a record in `scripts/baselines/globe-units.json`, and the bare
 invocation has none, so it exits 2 (use `off-mobile` with `--mobile`; the probe's usage header lists
-every key). Every record predates Nathan's 10-23 bake: until they are re-recorded, the plan's Baselines
-and seeds gives the `--extra` that reproduces one.
+every key). The records were re-recorded at the defaults on 10-31 (the plan's Baselines and seeds), so
+a run passes only its own row's flags.
 
 ## Where things are decided
 - `docs/v1-launch-plan.md` — what ships when `feature/v1-launch` merges to `main`.
