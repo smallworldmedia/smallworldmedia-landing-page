@@ -578,6 +578,22 @@ name placement lags a step (`namesSlice`). Rerun once after wait-quiet, and keep
 the evidence. Two failures stop the phase. A vacuous gate also gets one rerun. Never lower a
 floor or weaken a gate.
 
+### The timing instruments
+
+The handoff's timing is measured outside the probe, by two scripts folded on 10-31 from the 10-27
+instruments (`~/swm-globe-handoff-2026-10/`, which keeps the d/p runs at `b22fbf1`, d2/p2 at
+`7d16642` and d3/p3 at `2b92f7e`):
+
+- `node scripts/globe-timing.mjs out.json [--mobile] [--secs=45] [--throttle=12,70]
+  '--url=http://localhost:4322/?popseed=4242'` records the pool's attaches and first frames, the
+  director's `changedAt` and `landedAt`, the live count, and every Mux and Sanity request through
+  CDP (XHR = a player, Fetch = the prefetch). It stamps the commit it ran at. The comparable runs
+  are seed 4242: desktop 45 s unthrottled, phone 50 s at `--throttle=12,70`. Add
+  `&pophandoff=today` for the old handoff.
+- `node scripts/globe-timing-report.mjs run.json … [--clips] [--rungs] [--waste] [--all]` prints,
+  per world, the first frame against the landing, the median wait, bytes, the plan-ahead ledger
+  and the time-weighted live count, plus the three per-clip sections on request.
+
 ### `window.__swmPopStats`
 
 The director publishes it about twice a second whenever `?popmode` ≠ off. It is not gated on
