@@ -1078,6 +1078,9 @@ export default function useGlobeScene(
       // Unit windows (media spans): from the poses this frame renders, so the
       // scroll a tide just landed is in them. No-op with ?popunits off.
       if (director) director.place();
+      // Sequence tiles (one panel cycling a project's covers): cut to the shared
+      // clock's frame, after place() so the frame renders in this frame's window.
+      if (director) director.stepSequences();
       // Panel grain: reads the live pop knobs and steps the held jitter. No new
       // rAF — it rides this tick, and costs one uniform write per frame for the
       // whole globe because the holders are shared.

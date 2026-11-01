@@ -40,6 +40,7 @@ import {
 } from './fpGridCells.js';
 import { plateCover, spawnQuaternion } from './fpAtlas.js';
 import { createWallPlate } from './fpDrumWall.js';
+import { SEQUENCE_PAD_BG } from '../../../lib/mediaSequence.js';
 import {
   makeTabTexture,
   TAB_TEX_W,
@@ -120,6 +121,22 @@ const tileSrc = (t, thumb) =>
     : t.imageUrl
       ? `${t.imageUrl}?w=${thumb}&auto=format&fit=max`
       : null;
+
+/** A sequence frame's URL (src/lib/mediaSequence.js): an opaque frame at its
+ *  native aspect (plateCover crops it); a transparent one padded by the CDN to
+ *  the plate's own shape on near-black, so a logo shows whole. */
+const frameSrc = (f, thumb, coverAspect) =>
+  f.alpha
+    ? `${f.imageUrl}?w=${thumb}&h=${Math.max(1, Math.round(thumb / coverAspect))}&fit=fill&bg=${SEQUENCE_PAD_BG}&auto=format`
+    : `${f.imageUrl}?w=${thumb}&auto=format&fit=max`;
+
+/** A decoded image's own aspect (a frame fits by what arrived, not its label). */
+const imageAspect = (texture) => {
+  const img = texture.image;
+  const w = img?.naturalWidth || img?.width || 0;
+  const h = img?.naturalHeight || img?.height || 0;
+  return w > 0 && h > 0 ? w / h : 1;
+};
 
 /** Drum sector geometry: the shared sector with UVs remapped for the rotated
  *  body — screen-horizontal = theta (lat), screen-vertical = phi (lon) — so
@@ -656,6 +673,8 @@ export function buildDrumSlot(slot, w, ctx) {
       drumAdv: drum?.state?.adv,
       placedTiles: blocks.filter(Boolean).length,
       dropped: blocks.filter((b) => !b).length,
+      droppedIds: chosen.filter((_, i) => !blocks[i]).map((a) => a._id), // blocks[i] seats chosen[i]
+      chosenIds: chosen.map((a) => a._id),
       strips: stripBlocks.length,
       stripCols: stripDefs.map((d) => d.cols || 0), // r11: 0 = the auto column count
       balance: balanceStats,
@@ -667,6 +686,19 @@ export function buildDrumSlot(slot, w, ctx) {
         lon: [(b.lon1 / DEG2RAD).toFixed(1), (b.lon2 / DEG2RAD).toFixed(1)],
         lat: [(b.lat1 / DEG2RAD).toFixed(1), (b.lat2 / DEG2RAD).toFixed(1)],
       })),
+      // Sequence plates (mediaSequence), read live: frames loaded, the frame
+      // showing, and where the plate sits on screen (NDC; |x|, |y| ≤ 1 = in view).
+      get sequences() {
+        return slot.tiles
+          .filter((t) => t.frames)
+          .map((t) => {
+            const g = t.mesh.geometry; // a drum sector: built in place, so its centre (not the mesh origin) is the plate
+            if (!g.boundingSphere) g.computeBoundingSphere();
+            const p = g.boundingSphere.center.clone().applyMatrix4(t.mesh.matrixWorld).project(camera);
+            const r = (v) => Math.round(v * 100) / 100;
+            return { n: t.frameCount, loaded: t.frames.filter(Boolean).length, on: t.frames.indexOf(t.mesh.material.map), ndc: [r(p.x), r(p.y), r(p.z)] };
+          });
+      },
     };
   }
 
@@ -804,7 +836,12 @@ export function buildDrumSlot(slot, w, ctx) {
         overlay.renderOrder = ORDER_OVERLAY;
         return { mesh: overlay, texture };
       },
+      // A sequence: texture per frame (index k; frame 0 is rec.texture), cut
+      // on the shared clock by applyAtlasSlot. Never live: no playbackId.
+      frames: tile.frames ? [] : null,
+      frameCount: tile.frames?.length ?? 0,
       extraDispose: () => {
+        rec.frames?.forEach((t) => t && t !== rec.texture && t.dispose());
         border.geometry.dispose();
         border.material.dispose();
         if (tab) {
@@ -816,8 +853,24 @@ export function buildDrumSlot(slot, w, ctx) {
     };
     slot.tiles.push(rec);
 
-    const src = tileSrc(tile, thumb);
+    const src = tile.frames ? frameSrc(tile.frames[0], thumb, block.coverAspect) : tileSrc(tile, thumb);
     if (!src) return;
+    tile.frames?.forEach((f, k) => {
+      if (k === 0) return;
+      loader.load(
+        frameSrc(f, thumb, block.coverAspect),
+        (texture) => {
+          if (isStale() || !slot.tiles.includes(rec)) {
+            texture.dispose();
+            return;
+          }
+          plateCover(texture, block.coverAspect, imageAspect(texture));
+          rec.frames[k] = texture;
+        },
+        undefined,
+        () => {}
+      );
+    });
     loader.load(
       src,
       (texture) => {
@@ -826,7 +879,8 @@ export function buildDrumSlot(slot, w, ctx) {
           return;
         }
         rec.texture = texture;
-        plateCover(texture, block.coverAspect, tile.ratio || 1);
+        if (rec.frames) rec.frames[0] = texture;
+        plateCover(texture, block.coverAspect, tile.frames ? imageAspect(texture) : tile.ratio || 1);
         material.map = texture;
         material.color.set(0xffffff);
         material.needsUpdate = true;

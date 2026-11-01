@@ -292,6 +292,12 @@ pools ship tagged by kind up to the hard cap.
 
 - **Persistence doctrine.** `tide` is the default. The in-place styles (blink, surge, bloom) are
   there for you to judge, and you can drop them per mode.
+  - **The one exception (Nathan, 10-31): sequence tiles.** A tile showing a sequence cuts to the
+    next frame on the shared clock (`src/lib/mediaSequence.js`, `?seqms`, default 1 s). On the
+    globe that is a project's still album art collapsed into one panel (`buildWorldPools`), or an
+    authored `-sequence` group. It is a hard cut, never a blend, so the eye still never sees two
+    images mix. Every other tile holds its picture. `PopulationDirector.stepSequences` runs after
+    `place()`; frames past 0 load one ahead on the tile's own refs (`seqRefs`, in the ref ledger).
 - **Mobile texture residency.** Warm grouping plus prefetch has to stay near today's ~96 bound
   textures; the probe reports the count.
 - **Small pools.** Bedouin's showcase is 6 videos (its other 48 assets are deck pages), Nusonido
@@ -583,7 +589,9 @@ floor or weaken a gate.
 The director publishes it about twice a second whenever `?popmode` ≠ off. It is not gated on
 `?debug`. The tunables guide's Debug globals row names every field. The span fields are `tex`,
 `upload`, `r1`, `decode` `{ mp, budget, pinShort, bucket, streams[…] }`, `layout`, `staleLanded`,
-`bornCancelled` and `units`. `units` is `null` unless `?popunits` is on and the lattice exists.
+`bornCancelled` and `units`. `seq` (10-31, branch `refine/media-sequence`) counts the sequence
+tiles: panels bound, placements on screen in all and by world, frame refs, cuts. `units` is `null`
+unless `?popunits` is on and the lattice exists.
 Otherwise it holds:
 - `texClass` and `liveReg` (P3);
 - `placed`, `bornH`, `members`, `liveMembers`, `whole`, `orphans`, `orphansFront`, `repeats`,
@@ -1319,3 +1327,25 @@ one commit per knob default. The numbers are the contract's §13, and code comme
       1.3 MB. 17 of 21 forecast clips played at the forecast rung; the other 4 never started.
       `fast` also played more clips in the same 50 s: 22 attached, against 19. Kamino's third
       clip still waits for a slot (the outgoing world holds all 4). Adopted 6/6.
+- 2026-10-31 · sequences · Nathan: one tile cycles a set of stills on one clock, on the globe, the
+  /work Worlds and the detail grid; on the globe, a project's album art becomes one cycling panel.
+  Branch `refine/media-sequence` (worktree `../swm-media-sequence`, off `7488b7a`), uncommitted.
+  - `src/lib/mediaSequence.js` (the clock, `?seqms`, the tile ratio); `buildWorldPools` collapses
+    a project's still covers into one `art` sequence; `PopulationDirector.stepSequences` cuts texA
+    per rendered frame, frame 0 on the tile's own texture, the next frame loaded one ahead on the
+    tile's refs (`seqRefs`, in the `refDrift` ledger); `stats.seq` reports it.
+  - Verified on `:3333` under a temporary override (removed; Sanity untouched) that grouped the four
+    Imperfect wide logos:
+    - detail: one slot, 4 frames; the frame showing matched the clock in 5 of 5 mid-beat samples.
+    - /work: at 1440 px the drum takes 9 plates, 6 videos and then the first 3 stills, so the
+      sequence (the 5th still) is not chosen: the drum's budget, not the sequence. With
+      `?vtiles=3` it places, loads 4 of 4 frames and tracks the clock on 4 of 4 beats.
+    - home (120 s, desktop, SwiftShader): 1–3 sequence placements on screen per world (album art:
+      COCO, Hurry Up Slowly, HHS and Andhera 1–2; Jeff Sorkowitz 3, from a 13-asset pool;
+      the Imperfect logos 1–3). They repeat where any asset does, at the pool cursor's wrap.
+      `refDrift` 0 in every sample, frame refs at most 20, 374 cuts, no page errors.
+    - Album art's share of a world's pool falls from about a third to 3–8%.
+  - Tests 117 (frontend, globe, footer), CMS 86; tunables check PASS (350 keys).
+  - A `displayGroup` description hint in `src/schemas/mediaAsset.ts` was reverted: any schema
+    edit moves the CMS runner's schema fingerprint (`scripts/lib/cms/runner.mjs`), which refuses
+    planning and every saved plan until the fingerprint is reviewed and refreshed.

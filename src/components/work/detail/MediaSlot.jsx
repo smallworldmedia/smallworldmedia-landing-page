@@ -13,6 +13,11 @@
  * enters the viewport; playback pauses off-screen. Images load from the
  * Sanity CDN. Both fade in via the shared load-gate pattern.
  *
+ * A sequence (asset.frames, src/lib/mediaSequence.js) stacks its frames and
+ * hard-cuts between them on the shared clock while the slot is near the
+ * viewport: an opaque frame fills the slot (cover), a transparent one shows
+ * whole on the slot's near-black (contain).
+ *
  * @param {Object} props
  * @param {Object}  props.asset - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY
  * @param {boolean} [props.eager=false] - Seed visibility at hydration (hero slot)
@@ -21,6 +26,7 @@ import { useRef, useEffect, useState } from 'react';
 import useHls from '../useHls.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import { sequenceFrame, msToNextFrame } from '../../../lib/mediaSequence.js';
 
 /** Sanity image width for detail page slots */
 const SLOT_IMG_WIDTH = 1400;
@@ -42,6 +48,25 @@ const DETAIL_HLS_CONFIG = {
     vertical page. Wide enough that scrolled-to slots already stream. */
 const IO_MARGIN = '400px 0px';
 
+/** The frame a sequence of `n` shows, re-timed to each beat of the shared
+    clock while `active` (frame 0 at SSR and while parked off-screen). Each
+    slot keeps its own timer, but every timer lands on the same wall-clock
+    boundary, so slots never drift apart. */
+function useSequenceFrame(n, active) {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    if (!active || n < 2) return undefined;
+    let id;
+    const tick = () => {
+      setFrame(sequenceFrame(n));
+      id = setTimeout(tick, msToNextFrame() + 1);
+    };
+    tick();
+    return () => clearTimeout(id);
+  }, [n, active]);
+  return frame;
+}
+
 export default function MediaSlot({ asset, style, eager = false, ...rest }) {
   const slotRef = useRef(null);
   const videoRef = useRef(null);
@@ -51,6 +76,8 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
   const [isVisible, setIsVisible] = useState(eager);
   const [isLoaded, setIsLoaded] = useState(false);
   const isVideo = !!asset.playbackId;
+  const frames = asset.frames?.length > 1 ? asset.frames : null;
+  const frame = useSequenceFrame(frames?.length ?? 0, isVisible);
 
   const hlsSrc = isVideo && isVisible
     ? muxStream(asset.playbackId, DETAIL_MAX_SECONDS)
@@ -94,7 +121,24 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
       aria-label={asset.title || undefined}
       {...rest}
     >
-      {isVideo ? (
+      {frames ? (
+        <div
+          className={`media-slot__media media-slot__sequence${isLoaded ? ' media-slot__media--loaded' : ''}`}
+        >
+          {frames.map((f, k) => (
+            <img
+              key={f._id}
+              className="media-slot__frame"
+              data-fit={f.imageHasAlpha ? 'contain' : undefined}
+              data-on={k === frame || undefined}
+              src={`${f.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
+              alt={f.title || ''}
+              loading="lazy"
+              onLoad={k === 0 ? () => setIsLoaded(true) : undefined}
+            />
+          ))}
+        </div>
+      ) : isVideo ? (
         <video
           ref={videoRef}
           className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}

@@ -24,8 +24,16 @@
  * and the native ratio; absent means single only. `s` is a video's source
  * short side, present only below `TOP_RUNG`, or 0 when unknown
  * (docs/globe-worlds-plan.md § Media spans).
+ *
+ * Sequences (src/lib/mediaSequence.js, 10-31): an authored `-sequence` group
+ * arrives from buildContentFlow as one item, and a project's still album art
+ * (two covers or more) collapses here into one more, so ONE panel cycles the
+ * covers and the rest are free for other media. Animated covers keep their own
+ * tiles. A sequence asset adds `frames` ([{ imageUrl, alpha? }], frame 0 = its
+ * imageUrl) and `ar`, the tile ratio every frame is cut to.
  */
-import { buildContentFlow } from '../work/detail/buildContentFlow.js';
+import { buildContentFlow, ratioOf } from '../work/detail/buildContentFlow.js';
+import { makeSequence } from '../../lib/mediaSequence.js';
 import { toProjectSlug } from '../../lib/projectSlug.js';
 import { classOf } from './mediaClass.js';
 import { TOP_RUNG } from './unitSpan.js';
@@ -53,6 +61,10 @@ function toGlobeAsset(asset) {
   const out = { kind };
   if (asset.playbackId) out.playbackId = asset.playbackId;
   else out.imageUrl = asset.imageUrl;
+  if (asset.frames) {
+    out.frames = asset.frames.map((f) => (f.imageHasAlpha ? { imageUrl: f.imageUrl, alpha: true } : { imageUrl: f.imageUrl }));
+    out.ar = asset.sequenceRatio;
+  }
   if (asset.playbackId && asset.videoAspectRatio) out.videoAspectRatio = asset.videoAspectRatio;
   // The span class per shape set (mediaClass.js), decided once, here: u = classic ('h' | 'v' | 'q'),
   // uw = wide ('w' | 'v' | 'q', Nathan 10-24). ?popshapes picks which one the director reads.
@@ -118,12 +130,21 @@ export default function buildWorldPools(projects = []) {
     .map((p) => {
       const assets = p.assets || [];
       const flow = buildContentFlow(assets);
+      // The still covers → one sequence at the first cover's place, uncapped:
+      // the globe loads a sequence one frame ahead (PopulationDirector.stepSequences).
+      // Below ORBIT_MIN the covers ride the showcase, so both lists are searched.
+      const tiles = [...flow.showcase, ...flow.albumArt];
+      const covers = tiles.filter((a) => a.mediaType === 'album-art' && !a.frames && a.imageUrl && !a.playbackId);
+      const media =
+        covers.length > 1
+          ? [makeSequence('sequence:album-art', covers, covers.map(ratioOf), { cap: Infinity }), ...tiles.filter((a) => !covers.includes(a))]
+          : tiles;
       // Editorial order across the partition: the hero leads, then showcase
-      // and album art interleave back at their orderRank positions.
+      // and album art interleave back at their orderRank positions (a
+      // sequence at its first frame's).
       const rank = new Map(assets.map((a, i) => [a._id, i]));
-      const ordered = [assets[0], ...flow.showcase, ...flow.albumArt]
-        .filter(Boolean)
-        .sort((a, b) => (rank.get(a._id) ?? 0) - (rank.get(b._id) ?? 0));
+      const at = (a) => rank.get(a.frames?.[0]._id ?? a._id) ?? 0;
+      const ordered = [assets[0], ...media].filter(Boolean).sort((a, b) => at(a) - at(b));
       const seen = new Set();
       const pool = [];
       for (const a of ordered) {

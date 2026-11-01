@@ -148,8 +148,10 @@ export function parseRatio(ratio) {
   return w > 0 && h > 0 ? w / h : null;
 }
 
-/** An asset's picture aspect w/h: a video's Mux ratio, a still's -WxH. null = unknown. */
+/** An asset's picture aspect w/h: a sequence's tile ratio (`ar`, every frame
+ *  shares it), a video's Mux ratio, a still's -WxH. null = unknown. */
 export function sourceAspect(a) {
+  if (a.ar) return a.ar;
   if (a.playbackId) return parseRatio(a.videoAspectRatio);
   const d = urlDims(a.imageUrl);
   return d ? d.w / d.h : null;
@@ -211,15 +213,35 @@ export function texSpec(a, cls, T1, L, opts) {
   const [W, H] = classSize(a, cls, T1, L, opts);
   // Both CDNs upscale without limit (Sanity fit=crop, Mux thumbnails): never
   // ask for more than the source holds. Unknown source → today's unclamped size.
+  // A padded frame (alpha) only has to fit its source inside the texture.
   const src = sourceDims(a);
-  const k = src ? Math.min(1, src.w / W, src.h / H) : 1;
+  const fit = src ? (a.alpha ? Math.max(src.w / W, src.h / H) : Math.min(src.w / W, src.h / H)) : 1;
+  const k = Math.min(1, fit);
   const w = Math.round(W * k);
   const h = Math.round(H * k);
   const url = a.playbackId
     ? // fit_mode=crop is a true centre crop; time=0 registers with the loop's first frame
       `https://image.mux.com/${a.playbackId}/thumbnail.webp?width=${w}&height=${h}&fit_mode=crop&time=0`
-    : `${a.imageUrl}?w=${w}&h=${h}&fit=crop&auto=format`;
-  return { cls, w, h, aspect: w / h, key: `${a.playbackId || a.imageUrl}|${cls}${w}x${h}`, url };
+    : stillSrc(a, w, h, 'fit=crop');
+  return { cls, w, h, aspect: w / h, key: `${a.playbackId || a.imageUrl}|${cls}${w}x${h}${a.alpha ? 'f' : ''}`, url };
+}
+
+/** The padded frame's fill: mediaSequence.SEQUENCE_PAD_BG, restated because this
+ *  file stays import-free (the sequence test pins the two equal). */
+export const PAD_BG = '0a0a0a';
+/** A Sanity still at w×h: cropped (`fit`), or — a sequence frame with
+ *  transparency (`alpha`) — padded whole onto near-black by the CDN, which
+ *  also flattens the alpha (src/lib/mediaSequence.js). */
+const stillSrc = (a, w, h, fit) =>
+  a.alpha
+    ? `${a.imageUrl}?w=${w}&h=${h}&fit=fill&bg=${PAD_BG}&auto=format`
+    : `${a.imageUrl}?w=${w}&h=${h}&${fit}&auto=format`;
+
+/** A single-only sequence frame's texture: TextureManager.stillUrl's square
+ *  T1 entropy crop, or the padded square for a frame with transparency. Class
+ *  null, so the probe's texClass counts it with the legacy squares. */
+export function stillSpec(a, T1) {
+  return { cls: null, w: T1, h: T1, aspect: 1, key: `${a.imageUrl}|s${T1}${a.alpha ? 'f' : ''}`, url: stillSrc(a, T1, T1, 'fit=crop&crop=entropy') };
 }
 
 /* — P4a (H) / P5 (V, Q) — eligibility; θ = the lead's (top row's) colatitude, D in radians (Infinity allowed). — */

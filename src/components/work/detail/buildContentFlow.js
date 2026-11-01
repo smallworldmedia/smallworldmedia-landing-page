@@ -27,11 +27,19 @@
  *     reserved for the future BTS section.
  *  7. Everything else is `showcase` — rendered in the masonry grid
  *     in orderRank order.
+ *  8. sequences (10-31, Nathan): stills whose displayGroup ends in
+ *     `sequence` (e.g. `imperfect-records-wide-logo-sequence`) collapse into
+ *     ONE showcase item at the first member's position, carrying `frames`
+ *     (src/lib/mediaSequence.js) — checked first, so any still can join one.
+ *     A group of one stays a plain showcase item; a video member keeps its
+ *     own tile.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
  * @param {{orbitMin?: number}} [opts] - ORBIT_MIN override (live tuning)
  * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<Object>, banners: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
  */
+
+import { isSequenceGroup, makeSequence } from '../../../lib/mediaSequence.js';
 
 /** Ratio below which an asset is considered portrait/square. */
 const PORTRAIT_THRESHOLD = 1.2;
@@ -116,6 +124,9 @@ function ratioFromTitle(title) {
  * primary source.
  */
 export function ratioOf(asset) {
+  // A sequence: the tile shape that crops its frames least (makeSequence).
+  if (asset.frames?.length) return asset.sequenceRatio;
+
   // 0. brand-deck pages with real image dims (08-25): the native page
   //    aspect outranks the historical 16:9 default — a COMPILED poster
   //    deck (SA tour, 4:5 stills regrouped as a deck) keeps its aspect
@@ -163,6 +174,7 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
   // lowest-orderRank member (controlled-adjacency convention).
   const deckGroups = new Map();
   const bannerGroups = new Map();
+  const sequenceGroups = new Map();
 
   // assets[0] is the hero (first in drag-to-order ranking) — skip it.
   // showcase/albumArt entries carry their loop index so a gate fold-back
@@ -174,7 +186,11 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
     const hasMedia = !!asset.playbackId || !!asset.imageUrl;
     if (!hasMedia) continue;
 
-    if (asset.mediaType === 'album-art') albumArt.push({ i, asset });
+    if (isSequenceGroup(asset.displayGroup) && asset.imageUrl && !asset.playbackId) {
+      const key = asset.displayGroup;
+      if (!sequenceGroups.has(key)) sequenceGroups.set(key, []);
+      sequenceGroups.get(key).push({ i, asset });
+    } else if (asset.mediaType === 'album-art') albumArt.push({ i, asset });
     else if (asset.mediaType === 'brand-deck') {
       const key = asset.displayGroup ?? 'deck';
       if (!deckGroups.has(key)) deckGroups.set(key, []);
@@ -186,6 +202,16 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
       bannerGroups.get(key).push(asset);
     } else if (asset.contentRole) bts.push(asset);
     else showcase.push({ i, asset });
+  }
+
+  // A sequence takes its first member's place in the flow.
+  for (const [group, members] of sequenceGroups) {
+    if (members.length < 2) {
+      showcase.push(members[0]);
+      continue;
+    }
+    const frames = members.map((e) => e.asset);
+    showcase.push({ i: members[0].i, asset: makeSequence(`sequence:${group}`, frames, frames.map(ratioOf)) });
   }
 
   // ORBIT_MIN gate — below it, covers fold back into the showcase flow.

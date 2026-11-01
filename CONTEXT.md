@@ -221,6 +221,14 @@ Assets within a Featured Project can be sub-grouped by setting the `displayGroup
 - Assets with no `displayGroup` form a single implicit "ungrouped" cluster.
 - The `displayGroup` value is a **kebab-case slug** set in the manifest (e.g., `coachella-set-promo`, `developed-pitch-deck`, `womens-day-carousel`) — production data uses slugs, never display strings.
 
+### Sequence (one tile, many stills)
+
+A **sequence** is one tile that cuts through a set of stills on one shared clock, on the detail grid, the /work World and the home globe (`src/lib/mediaSequence.js`, Nathan 10-31). Set the same `displayGroup` ending in `-sequence` (e.g. `imperfect-records-logo-sequence`) on every member; Studio order is frame order. The group takes one tile at its first member's place instead of one tile per variant. Stills only: a video member keeps its own tile, and a group of one stays a plain tile. Up to 12 frames.
+
+- **Rate:** one rate for every sequence on every route, `?seqms` (default 1000 ms). A hard cut, never a blend; reduced motion holds frame 0.
+- **Shape:** the tile takes the member label shape that crops the set least (labels win, as in `ratioOf`). An opaque frame fills the tile (cover); a frame with transparency shows whole on near-black (contain), so a logo never loses its edges.
+- **Album art on the home globe:** a project's still covers become one sequence panel automatically (no Studio edit), freeing the other panels. Animated covers keep their own tiles. The detail page and /work keep their album walls.
+
 ### Album Art Dual-Feed Rule
 
 Any `album-art` asset within a Featured Project collection feeds into **two** components:
