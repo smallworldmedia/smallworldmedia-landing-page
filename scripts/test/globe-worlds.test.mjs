@@ -1495,6 +1495,17 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
     'https://cdn.sanity.io/images/p/d/x-800x600.jpg?w=800&h=393&fit=crop&auto=format&q=80',
   ])
     assert.equal(classifyRequest(url, 512).kind, 'other', url)
+  // — 11-01 — a sequence frame with transparency is asked padded onto near-black (unitSpan's stillSrc): the legacy
+  // square or a class size, judged as its crop would be, so a padded class in a units-off run is still a leak. NC: a
+  // pad on another colour, a pad without its colour, an extra parameter, and a pad off every class size.
+  const padQ = (w, h, bg = PAD_BG) => `https://cdn.sanity.io/images/p/d/x-1368x318.png?w=${w}&h=${h}&fit=fill&bg=${bg}&auto=format`
+  assert.deepEqual([classifyRequest(padQ(512, 512), 512).kind, classifyRequest(padQ(384, 384), 384).kind], ['legacy', 'legacy'])
+  assert.deepEqual([classifyRequest(padQ(1043, 587), 512).shape, classifyRequest(padQ(783, 440), 384).shape], ['h', 'h'])
+  for (const url of [padQ(512, 512, 'ffffff'), padQ(1043, 587, 'ffffff'), padQ(1043, 587).replace(`&bg=${PAD_BG}`, ''), `${padQ(1043, 587)}&q=80`, padQ(1100, 540)])
+    assert.equal(classifyRequest(url, 512).kind, 'other', url)
+  const offCtx = { ...ctx, units: 0, record: false, baselines: {} }
+  assert.equal(unitGates({ requests: [padQ(512, 512)], samples: [] }, offCtx).pass.texReqShape, true)
+  assert.equal(unitGates({ requests: [padQ(1043, 587)], samples: [] }, offCtx).pass.texReqShape, false)
   // — P3 — at level tex a run must ask for a class texture (texReqShape); liveReg sums the live class tiles over
   // the samples (n), bounds the worst register at 1e-3, and is skipped under RM.
   const legacyOnly = unitGates({ requests: [mux('id1')], samples: [] }, texCtx)
@@ -7101,6 +7112,9 @@ test('sequences: decorate gives every frame one texture of the shared shape — 
     assert.deepEqual(single.frameAssets.map((f) => f.tex.cls), [null, null, null]) // counted with the legacy squares
     assert.ok(single.frameAssets[0].tex.url.includes('fit=fill') && single.frameAssets[1].tex.url.includes('crop=entropy'))
     assert.deepEqual(single.tex, stillSpec(single.frames[0], single.tex.w))
+    // The probe reads both padded asks as their crops would read (unitGates.classifyRequest, 11-01).
+    assert.deepEqual([classifyRequest(specs[0].url, GLOBE_T1).kind, classifyRequest(specs[0].url, GLOBE_T1).shape], ['class', 'h'])
+    assert.equal(classifyRequest(single.frameAssets[0].tex.url, single.tex.w).kind, 'legacy')
   } finally {
     on.dispose()
     off.dispose()

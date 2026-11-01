@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 // — P3 — (unitSpan.js lands in P1; globeConfig.js is node-safe: every window read is guarded)
-import { latticeOf, classSizeAt, UNIT_SHAPE } from '../../src/components/globe/unitSpan.js';
+import { latticeOf, classSizeAt, UNIT_SHAPE, PAD_BG } from '../../src/components/globe/unitSpan.js';
 import { LON_SEGMENTS, SCROLL_VISIBLE_ROWS, GAP_DEG, SCROLL_LAT_GAP_DEG } from '../../src/components/globe/globeConfig.js';
 
 /** Probe levels, cumulative: each adds its gates to the ones below it. */
@@ -89,7 +89,9 @@ const classOfSize = (t1, w, h, shapes) =>
 
 /** A logged request → { kind: 'stream'|'legacy'|'class'|'other', id, query, shape }. id = host + path
  *  (a stream's: its playbackId). shape = the class, or for 'other' an id-free signature: path segments
- *  holding a digit or ≥ 16 characters become '*', query digits become '#' (the baseline's allow-list). */
+ *  holding a digit or ≥ 16 characters become '*', query digits become '#' (the baseline's allow-list).
+ *  A sequence frame with transparency is asked padded, `fit=fill&bg=PAD_BG` in place of the crop (unitSpan's
+ *  stillSrc, 11-01), and classes as its cropped twin would: the legacy square, or a class size. */
 export function classifyRequest(url, t1, shapes = 'wide') {
   const u = new URL(url);
   const query = u.search.slice(1);
@@ -106,8 +108,10 @@ export function classifyRequest(url, t1, shapes = 'wide') {
     }
   } else if (u.host === 'cdn.sanity.io') {
     if (query === `w=${t1}&h=${t1}&fit=crop&crop=entropy&auto=format`) return { kind: 'legacy', id, query, shape: 'sanity' };
-    // — P3 — a class crop: the class size or its source clamp.
-    if (keys === 'w&h&fit&auto' && p.fit === 'crop' && p.auto === 'format') {
+    if (query === `w=${t1}&h=${t1}&fit=fill&bg=${PAD_BG}&auto=format`) return { kind: 'legacy', id, query, shape: 'sanity-pad' };
+    // — P3 — a class crop: the class size or its source clamp (a padded frame's clamp fits the source inside).
+    const pad = keys === 'w&h&fit&bg&auto' && p.fit === 'fill' && p.bg === PAD_BG;
+    if (((keys === 'w&h&fit&auto' && p.fit === 'crop') || pad) && p.auto === 'format') {
       const cls = classOfSize(t1, Number(p.w), Number(p.h), shapes);
       if (cls) return { kind: 'class', id, query, shape: cls };
     }
