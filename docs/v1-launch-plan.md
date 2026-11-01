@@ -24,15 +24,25 @@ records (`docs/globe-worlds-plan.md`).
    finalize the scroll interaction on mobile. Right now, it is currently requiring either way too
    much of a scroll from position 1 to position 2 or the velocity of the scroll to trigger the next
    world (or anywhere where there is that rubber band interaction being employed site-wide on
-   mobile)." Every rubber band reads the house constants in `src/lib/motion.js`:
-   `SCROLL_TRIGGER_WORK_PX`, `SCROLL_TRIGGER_PROCESS_PX` and `SCROLL_TRIGGER_HOME_PX` (500 each),
-   `TOUCH_GAIN` (2) and `RELEASE_MS` (160). Their consumers are `/work`'s World Turn
-   (`FeaturedProjects.jsx`), the detail page's next-project band (`NextProjectBand.jsx`),
-   `/process`'s stages (`useProcessScrollDriver.js`) and home's footer reveal (`Hero.jsx`).
-   `?scroll` and `?swipepx` dial the first three's distance today; `TOUCH_GAIN`, `RELEASE_MS` and
-   home's distance have no dial yet, so the pass adds them first. Tune live on a real phone (the
-   dev server's `--host` LAN address), then bake his numbers. This is ws 6's "scroll-trigger
-   sensitivity field pass".
+   mobile)." The rubber bands and their house constants (`src/lib/motion.js`):
+   - `/work`'s World Turn (`FeaturedProjects.jsx`) and the detail page's next-project band
+     (`NextProjectBand.jsx`): `SCROLL_TRIGGER_WORK_PX` 500, live as `?scroll`;
+   - `/process`'s stages (`useProcessScrollDriver.js`): `SCROLL_TRIGGER_PROCESS_PX` 500, live as
+     `?swipepx`;
+   - the shared touch knobs, which have no dial yet: `TOUCH_GAIN` 2 (finger travel is doubled) and
+     `RELEASE_MS` 160 (a pause this long rubber-bands an uncommitted swipe back).
+
+   At a gain of 2, a 500 px trigger is 250 px of finger travel, about a third of a phone's height.
+   Two traps come first. `NextProjectBand.jsx` copies the gain (`* 2`) and the pause (`STALL_MS`
+   160) as literals, so it ignores a retune until it imports the house knobs (its header also still
+   says `?scroll=600`). And home's footer reveal (`Hero.jsx`) reads `TOUCH_GAIN` and `RELEASE_MS`
+   too, so a retune changes its drag and its release carry. The reveal itself is out of scope: it
+   is a direct drag, not a commit, and Enter World is tap-only. The `/work` pager is a 1:1 scrub,
+   not a rubber band: 48 px of finger per station (`SCALE_PITCH_MOBILE_PX`, live as `?detent`).
+   `PAGER_DETENT_TOUCH_PX` 56 is left over from the retired tape arm and reads nowhere. Add the two
+   missing dials, tune live on a real phone (the dev server's `--host` LAN address), measure both
+   the distance and the velocity it takes to commit, then bake his numbers. This is ws 6's
+   "scroll-trigger sensitivity field pass".
 2. Then `refine/media-sequence` (the image-cycling component, Nathan's session) rebases onto this
    fold and lands, and work returns to the launch branch.
 
