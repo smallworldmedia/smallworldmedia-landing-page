@@ -881,6 +881,12 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 - Give the watch run's `texPeak` a bound, with `--baseline=u-hidpi` or `--texpeak`. P7's
   `watch/u-hidpi-today` passed no `--baseline`, so its key defaulted to the folder's name and
   `texPeak` was vacuous. It was the only failing gate (39/40).
+- The change's upload. Each change uploads the incoming world's whole image set as it is first
+  drawn: 46–58 MiB on desktop and 26–32 on the phone, 6–13 textures with their mips, within
+  about half a second (Status log, texture memory). It may hitch a phone; nothing has measured
+  that on a device. Uploading during the hold instead (`renderer.initTexture`, a texture a
+  frame) would spread it out. The peak would not change, but both worlds would then be resident
+  for most of the hold, not half a second.
 
 **Deferred to this plan** (the P7 notes; no action taken yet):
 - **The born-pair control.** Born pairs are covered by the unit test only, and `nc-bind`
@@ -1514,21 +1520,44 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   @2, reduced motion, seed 42, one ⏭): 11 H, 9 V and 1 W placed; cols, rows, register and seam
   worst 0; the rows look's warp 0.0026, inside ε; skewBad 0 across both flips. Flat → rows →
   flat leaves the globe pixel-identical, and /process renders with no console errors.
-- 2026-10-31 · portraits · `f2c418f` · the 2×3s (his item 8): a world with room left in its tile budget grows
-  its sharp portraits from 1×2 to 2×3 (`?popportrait`, `fill` by default; the class rule, As built
-  13), planned the tallest first, once a plan each. Live at seed 42 on desktop: Bedouin grew 5
-  and placed 5, Munchietown 2 and 2, Nusonido 1 and 1, Imperfect Records 1 and 1, under travel
-  and reduced motion alike, every span measure worst 0. The Travel budget table moves to the 7 s
-  hold's figures (stale since 10-28). Tests 116, 343 keys.
-- 2026-10-31 · footer weight · the wheel's weight on the footer reveal (his item 17: "some sort
-  of weight to the scrolling when you reveal the full footer … just a bit of ease at the tail end
-  of the scroll so it 'pumps the brakes'"). Home and `/work`'s last World drive the panel from
-  raw wheel deltas (Lenis is off on both), so a delta now moves a target and the panel glides to
-  it with Lenis's own damp at the house lerp, 0.165 (`?footerlerp`; `createFooterDrive` in
-  `SiteFooter.jsx`). Over the last third of the rise a delta moves the target less, down to half
-  the rate at the top (`?footerbrake` 0.5, closed form, so a notch and a trackpad's stream land
-  alike). Touch and reduced motion are unchanged. Live on :4322 at 1440×900: one 100 px notch
-  glides 0.40 → 0.60 over 17 frames with no overshoot; three land on the braked 0.9722 (1.0
-  under `&footerbrake=0`); `&footerlerp=0` jumps inside a frame; `/work`'s last World reads
-  0.9537 after five notches and 1 after six, with no Turn. Tests 120, 345 keys. Open records the
-  picks.
+- 2026-10-31 · portraits · `f2c418f` · the 2×3s (his item 8): a world with room left in its
+  tile budget grows its sharp portraits from 1×2 to 2×3 (`?popportrait`, `fill` by default; the
+  class rule, As built 13), planned the tallest first, once a plan each. Live at seed 42 on
+  desktop: Bedouin grew 5 and placed 5, Munchietown 2 and 2, Nusonido 1 and 1, Imperfect
+  Records 1 and 1, under travel and reduced motion alike, every span measure worst 0. The
+  Travel budget table moves to the 7 s hold's figures (stale since 10-28). Tests 116, 343 keys.
+- 2026-10-31 · footer weight · `cd03b9f` · the wheel's weight on the footer reveal (his item
+  17: "some sort of weight to the scrolling when you reveal the full footer … just a bit of
+  ease at the tail end of the scroll so it 'pumps the brakes'"). Home and `/work`'s last World
+  drive the panel from raw wheel deltas (Lenis is off on both), so a delta now moves a target
+  and the panel glides to it with Lenis's own damp at the house lerp, 0.165 (`?footerlerp`;
+  `createFooterDrive` in `SiteFooter.jsx`). Over the last third of the rise a delta moves the
+  target less, down to half the rate at the top (`?footerbrake` 0.5, closed form, so a notch
+  and a trackpad's stream land alike). Touch and reduced motion are unchanged. Live on :4322 at
+  1440×900: one 100 px notch glides 0.40 → 0.60 over 17 frames with no overshoot; three land on
+  the braked 0.9722 (1.0 under `&footerbrake=0`); `&footerlerp=0` jumps inside a frame;
+  `/work`'s last World reads 0.9537 after five notches and 1 after six, with no Turn. Tests 120,
+  345 keys. Open records the picks.
+- 2026-10-31 · texture memory, measured (his "yes lets measure", item 12): a WebGL allocation
+  ledger counted every texture and renderbuffer the page allocates, by what was uploaded into it
+  (`~/swm-globe-handoff-2026-10/r1031/texmem/`: the ledger, its analysis and four runs), at seed
+  4242 with the defaults, 150 s a run, one browser. Desktop (1440×900 @2): the exact peak was
+  136.8 MiB, at the change from Rossi to Jeff Sorkowitz, the two heaviest worlds, back to back at
+  this seed: 113.8 MiB of images between them and 23 of Rossi's clip frames. A second run at the
+  same code peaked at 126.5 (images 103.6 + video 22.9, Kamino → Heavy House Society 2024-25);
+  no clips were playing through its Rossi → Jeff change. One world's images alone come to
+  43.0–58.3 MiB, and clip frames reach 24.4 (Nusonido). Phone (390×844 @3): 69.3 MiB at the same
+  change, images 63.1 and video 6.2; one world's images 25.9–31.9. The 10-24 estimate held
+  (≈ 108 against 113.8 for the worst pair's images; phone ≈ 60 against 63.1). The peak is a
+  change: a world's images reach the GPU when it is first drawn (nothing uploads ahead), so at
+  each change both worlds' sets are resident for about half a second (a median of 0.44–0.56 s
+  over three runs), then the outgoing set is freed. The bench's `tex` readout counts images as
+  they decode, so through a hold it also carries the next world, decoded in the hold's first
+  seconds: a median 48.8 MiB above the GPU then (phone 27.6). Its peak is the GPU's image peak,
+  and it never counts clip frames. The 2×3s, A/B against `?popportrait=pair`: Bedouin's images
+  18.7 → 52.3 MiB (5 grown), Nusonido 42.1 → 48.8, Imperfect Records 39.3 → 43.0 (Munchietown,
+  2 grown, never came up at this seed). Rossi and Jeff Sorkowitz grow none, so the peak does not
+  move (133.5 under pair, 113.8 of it images). Each change uploads the incoming world's whole set
+  at once (Next steps). No render targets; the canvas's own buffers are outside the ledger. The
+  samples' step and phase come from the director's 2 Hz stats, so a change can read as a hold;
+  one run's clock ran slow (11 worlds in 150 s, against 18).
