@@ -52,7 +52,7 @@ import LivePanelScheduler, { HANDOFF_BEAT_S } from './LivePanelScheduler.js';
 import { preloadHls } from '../work/useHls.js';
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from './MeridianScroll.js';
 import PopulationDirector from './PopulationDirector.js';
-import { applyPlan, windowA } from './tileSwap.js';
+import { applyPlan, windowA, setWindowA } from './tileSwap.js';
 import { TUNING as POP_TUNING, subscribePopTune } from './popConfig.js';
 import buildCascadeTimeline, { panelDelay, delayOwner } from './cascade.js';
 import { STREAM_TIERS, tierBucket } from './unitSpan.js';
@@ -556,10 +556,8 @@ export default function useGlobeScene(
               // unset and this is a no-op.
               if (conveyorMode && panel.heldThumbId != null && panel.heldThumbId !== assetKey(asset)) return;
               const { uniforms } = panel.mesh.material;
-              const { s: scale, o: offset } = windowA(panel, asset, texture);
               uniforms.texA.value = texture;
-              uniforms.uvScaleA.value.set(scale[0], scale[1]);
-              uniforms.uvOffsetA.value.set(offset[0], offset[1]);
+              setWindowA(uniforms, windowA(panel, asset, texture));
               uniforms.uHasTexA.value = 1;
             })
             .catch(() => {}); // failed thumb → panel keeps fallback color

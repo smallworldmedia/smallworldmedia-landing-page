@@ -51,7 +51,7 @@ import {
   GLOBE_PREVIEW_SECONDS,
 } from './globeConfig.js';
 import { liveB, pictureAspect, mp, frameOf, rungAtMost, sourceShort, parseRatio, STREAM_RUNGS, TIER_RANK, pinShortOf } from './unitSpan.js';
-import { windowA } from './tileSwap.js';
+import { windowA, setWindowA, setWindowB, shownWindowA } from './tileSwap.js';
 import { planUrl } from './streamPrefetch.js';
 import { primedPlaylist } from '../work/hlsPrimed.js';
 
@@ -545,7 +545,8 @@ export default class LivePanelScheduler {
   /** texB's window. A single-only asset: today's cover of the clip's metadata
    *  aspect. A class texture: the clip's picture V (Mux's exact ratio; the decoded
    *  frame only when that won't parse, unitSpan.pictureAspect) seen through the
-   *  texA window (texA is the centre crop of frame 0 at aspect aTex: B = cover(V, aTex) ∘ A). */
+   *  texA window (texA is the centre crop of frame 0 at aspect aTex: B = cover(V, aTex) ∘ A,
+   *  with A's flat crop if it has one, P9). */
   liveWindow(panel, video) {
     const a = panel.asset;
     if (!a?.tex) {
@@ -554,8 +555,7 @@ export default class LivePanelScheduler {
     }
     const u = panel.mesh.material.uniforms;
     const aTex = u.texA.value?.userData?.aspect ?? a.tex.aspect;
-    const A = { s: [u.uvScaleA.value.x, u.uvScaleA.value.y], o: [u.uvOffsetA.value.x, u.uvOffsetA.value.y] };
-    return liveB(pictureAspect(a, video), aTex, A);
+    return liveB(pictureAspect(a, video), aTex, shownWindowA(u));
   }
 
   startStream(id, slot, plan = null) {
@@ -600,11 +600,9 @@ export default class LivePanelScheduler {
 
   attach(panel, stream) {
     const { uniforms } = panel.mesh.material;
-    const { s: scale, o: offset } = this.liveWindow(panel, stream.video);
     uniforms.texB.value = stream.texture;
     uniforms.uVideoB.value = 1;
-    uniforms.uvScaleB.value.set(scale[0], scale[1]);
-    uniforms.uvOffsetB.value.set(offset[0], offset[1]);
+    setWindowB(uniforms, this.liveWindow(panel, stream.video));
     stream.panels.add(panel);
     panel.liveStream = stream;
     panel.liveState = 'live';
@@ -697,11 +695,9 @@ export default class LivePanelScheduler {
         panel.liveVideo = video;
 
         const { uniforms } = panel.mesh.material;
-        const { s: scale, o: offset } = this.liveWindow(panel, video);
         uniforms.texB.value = texture;
         uniforms.uVideoB.value = 1;
-        uniforms.uvScaleB.value.set(scale[0], scale[1]);
-        uniforms.uvOffsetB.value.set(offset[0], offset[1]);
+        setWindowB(uniforms, this.liveWindow(panel, video));
 
         panel.liveState = 'live';
         panel.liveSince = this.now;
@@ -789,10 +785,8 @@ export default class LivePanelScheduler {
         if (this.disposed) return;
         const previousId = panel.asset?.playbackId;
         const { uniforms } = panel.mesh.material;
-        const { s: scale, o: offset } = windowA(panel, nextAsset, texture);
         uniforms.texA.value = texture;
-        uniforms.uvScaleA.value.set(scale[0], scale[1]);
-        uniforms.uvOffsetA.value.set(offset[0], offset[1]);
+        setWindowA(uniforms, windowA(panel, nextAsset, texture));
         uniforms.uHasTexA.value = 1;
         panel.asset = nextAsset;
         if (previousId) this.textureManager.release(previousId);

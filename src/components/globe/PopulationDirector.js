@@ -68,7 +68,7 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
 import { assetKey } from './TextureManager.js';
-import { loadTile, applyPlan, cancelSwap, sharedDelays } from './tileSwap.js';
+import { loadTile, applyPlan, cancelSwap, sharedDelays, unitWindowOf, setWindowA, setWindowB, shownWindowA, offA, offB } from './tileSwap.js';
 import { selectPool, WORLD_KINDS } from './buildWorldPools.js';
 import { makePattern } from './worldPatterns.js';
 import { hashSeed, mulberry32 } from '../work/world/seededLayout.js';
@@ -77,7 +77,7 @@ import { SCROLL_VISIBLE_ROWS, GLOBE_T1 } from './globeConfig.js';
 import { planUrl, prefetchClips, prefetchStats } from './streamPrefetch.js';
 import { primedPlaylistStats } from '../work/hlsPrimed.js';
 import { posePanel } from './MeridianScroll.js';
-import { lattice, texSpec, unitAspect, thetaBound, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, quadEligible, wideClass, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
+import { lattice, texSpec, unitAspect, thetaBound, eligibleVQ, unitSkewBound, rendered, electQuads, quadEligible, wideClass, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -578,30 +578,23 @@ export default class PopulationDirector {
         continue;
       }
       const u = p.mesh.material.uniforms;
-      const y = Math.min(Math.max(p.centerDir.y, -1), 1);
-      const theta = Math.acos(y);
+      const theta = Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1));
       const aTex = u.texA.value?.userData?.aspect ?? m.tex?.aspect ?? 1;
-      const w = unitA(m, namePinch(y), theta, aTex);
-      const off = Math.max(
-        Math.abs(u.uvScaleA.value.x - w.s[0]),
-        Math.abs(u.uvScaleA.value.y - w.s[1]),
-        Math.abs(u.uvOffsetA.value.x - w.o[0]),
-        Math.abs(u.uvOffsetA.value.y - w.o[1])
-      );
+      const w = unitWindowOf(p, m, aTex); // flat (P9): pose-free, so only a bind or a look change moves it
+      const off = offA(u, w);
       // Skew: last frame's window may differ from this one only by the pose
       // change. skewMax is the closed-form max |d window / dθ| (unitSpan.unitSkewBound:
       // H anywhere; V/Q with the lead inside [θN, θS], where it lives by construction)
       // times SKEW_MARGIN, so a retuned UNIT_EPS raises the bound along with the slope.
+      // A look change (relook) re-windows on purpose: that frame is not judged.
       const lead = Math.acos(Math.min(Math.max(P.members[0].centerDir.y, -1), 1));
-      if (this.wholeUnit(P) && (P.rows === 1 || (lead >= W.thetaN && lead <= W.thetaS))) {
+      if (!p._relooked && this.wholeUnit(P) && (P.rows === 1 || (lead >= W.thetaN && lead <= W.thetaS))) {
         this.skewChecks += 1;
         if (off > this.skewMax * Math.abs(theta - (p._skewTheta ?? theta)) + 1e-6) this.skewBad += 1;
       }
-      if (off > 1e-9) {
-        u.uvScaleA.value.set(w.s[0], w.s[1]);
-        u.uvOffsetA.value.set(w.o[0], w.o[1]);
-      }
+      if (off > 1e-9) setWindowA(u, w);
       p._skewTheta = theta;
+      p._relooked = false;
       // The lead carries the unit's centre for its chip (HeroLabels.dirOf), unless it is lit as
       // something else: a lead re-dealt to another clip may have joined that stream as a single.
       if (P.members[0] === p) {
@@ -618,17 +611,7 @@ export default class PopulationDirector {
       const video = p.liveStream?.video;
       if (video && p.liveUid === P.uid && (p.liveState === 'live' || p.liveState === 'demoting')) {
         const b = liveB(pictureAspect(m, video), aTex, w);
-        if (
-          Math.max(
-            Math.abs(u.uvScaleB.value.x - b.s[0]),
-            Math.abs(u.uvScaleB.value.y - b.s[1]),
-            Math.abs(u.uvOffsetB.value.x - b.o[0]),
-            Math.abs(u.uvOffsetB.value.y - b.o[1])
-          ) > 1e-9
-        ) {
-          u.uvScaleB.value.set(b.s[0], b.s[1]);
-          u.uvOffsetB.value.set(b.o[0], b.o[1]);
-        }
+        if (offB(u, b) > 1e-9) setWindowB(u, b);
       }
     }
   }
@@ -784,7 +767,7 @@ export default class PopulationDirector {
         }
         if (!cls) continue;
         const { cols, rows } = UNIT_SHAPE[cls];
-        const P = { uid: `${cls}:${p.lonIndex}:${p.tapeS}:${key}`, key, cls, cols, rows, n: members.length, S: unitAspect(cols, rows, this.L), L: this.L, members, born: false };
+        const P = { uid: `${cls}:${p.lonIndex}:${p.tapeS}:${key}`, key, cls, cols, rows, n: members.length, S: unitAspect(cols, rows, this.L), L: this.L, members, born: false, look: TUNING.unitLook };
         claim(P, members.map((m, k) => ({ ...a, place: P, kx: k % cols, ky: Math.floor(k / cols) })));
         g.ucursor[r] = (i + 1) % pool.length; // the region's next unit takes the next classed asset
         if (i === g.cursor[r] % pool.length) g.cursor[r] = (i + 1) % pool.length; // …and singles don't open on it
@@ -815,7 +798,7 @@ export default class PopulationDirector {
       if ((onBoard.get(key) || 0) >= TUNING.unitMax || g.pattern.owner(lon, s) !== g.pattern.owner(lon + 1, s)) continue;
       if (keyAt(lon - 1) === key || keyAt(lon + 2) === key) continue;
       if ([s - 1, s + 1].some((r) => grid.get(r * GRID + lon) === key || grid.get(r * GRID + lon + 1) === key)) continue;
-      const P = { uid: `h:${lon}:${s}:${key}`, key, cls: 'h', cols: 2, rows: 1, n: 2, S: unitAspect(2, 1, this.L), L: this.L, members: [tiles[i], tiles[j]], born: true };
+      const P = { uid: `h:${lon}:${s}:${key}`, key, cls: 'h', cols: 2, rows: 1, n: 2, S: unitAspect(2, 1, this.L), L: this.L, members: [tiles[i], tiles[j]], born: true, look: TUNING.unitLook };
       picks[i] = { ...a, place: P, kx: 0, ky: 0 };
       picks[j] = { ...a, place: P, kx: 1, ky: 0 };
       onBoard.set(key, (onBoard.get(key) || 0) + 1);
@@ -1251,9 +1234,19 @@ export default class PopulationDirector {
     this.relayout({ pattern });
   }
 
+  /** P9 — ?popunitlook: every unit on the board (shown, loading or planned) takes the dial's look; place()
+   *  re-windows it next frame, and that frame skips the skew check (the knob moved the window, not the pose). */
+  relook() {
+    for (const p of this.panels) {
+      for (const a of [p.shownAsset, p.asset, p.swapAsset]) if (a?.place) a.place.look = TUNING.unitLook;
+      p._relooked = true;
+    }
+  }
+
   /** A popConfig change (useGlobeScene forwards the key). */
   onTune(key) {
     this.tuneSeq += 1;
+    if (key === '*' || key === 'unitLook') this.relook();
     if (key === '*' || key === 'units' || key === 'shapes' || key === 'quads' || key === 'cap' || key === 'media' || key === 'equiv') {
       this.redecorate();
       this.relayout();
@@ -1271,9 +1264,9 @@ export default class PopulationDirector {
     } else if (key === 'transitions' || key === 'chaos') {
       if (!this.busy) this.planNext(); // re-draw the next world + transition
     } else if (key === 'color') this.emitWorld(true);
-    else if (key === 'trans' || key === 'live' || key === 'enter' || key === 'tier' || key === 'handoff') {
+    else if (key === 'trans' || key === 'live' || key === 'enter' || key === 'tier' || key === 'handoff' || key === 'unitLook') {
       // read at the next change / the scene swaps the live tier / Hero reads it at Enter World / the scheduler reads the tier at each stream start /
-      // the scheduler and the scene read the handoff every beat (a warm it deferred runs on the next frame, from update)
+      // the scheduler and the scene read the handoff every beat (a warm it deferred runs on the next frame, from update) / relook, above
     } else this.relayout(); // share, group, unitMax, the name knobs (media, cap and a reset's '*' re-decorate first, above)
   }
 
@@ -1375,8 +1368,6 @@ export default class PopulationDirector {
    *  numbers only: never a panel, never a Place (it is cyclic). */
   unitStats(r1) {
     const r9 = (x) => Math.round(x * 1e9) / 1e9;
-    const diff = (s, o, w) =>
-      Math.max(Math.abs(s.x - w.s[0]), Math.abs(s.y - w.s[1]), Math.abs(o.x - w.o[0]), Math.abs(o.y - w.o[1]));
     const isLive = (p) => p.liveState === 'live' || p.liveState === 'demoting';
     const aTexOf = (p) => p.mesh.material.uniforms.texA.value?.userData?.aspect ?? p.shownAsset?.tex?.aspect ?? 1;
     const out = {};
@@ -1393,7 +1384,7 @@ export default class PopulationDirector {
       if (!p.asset?.tex || p.shownAsset !== p.asset || !isLive(p) || !(video?.videoWidth > 0) || !sched?.liveWindow) continue;
       const u = p.mesh.material.uniforms;
       liveReg.n += 1;
-      liveReg.worst = Math.max(liveReg.worst, diff(u.uvScaleB.value, u.uvOffsetB.value, sched.liveWindow(p, video)));
+      liveReg.worst = Math.max(liveReg.worst, offB(u, sched.liveWindow(p, video)));
     }
     out.liveReg = { n: liveReg.n, worst: r9(liveReg.worst) };
 
@@ -1442,16 +1433,16 @@ export default class PopulationDirector {
       initThetaH: deg(this.initThetaH),
     });
 
-    // — P4b — what whole units RENDER: the shader's mUv, re-derived from the uniforms and the pose.
+    // — P4b — what whole units RENDER: the shader's mUv, re-derived from the uniforms and the pose. A flat member
+    // (P9) is pinched per fragment: what is read here is its row-centre cross-section, at namePinch.
+    const spanOf = (u) => (u.uSpanA.value.x > 0.5 ? u.uSpanA.value.y : 0);
     const seam = { n: 0, worst: 0 };
     const register = { n: 0, worst: 0 };
     for (const [P] of places) {
       if (!this.wholeUnit(P)) continue;
       for (const m of P.members) {
-        const u = m.mesh.material.uniforms;
-        const y = Math.min(Math.max(m.centerDir.y, -1), 1);
         register.n += 1;
-        register.worst = Math.max(register.worst, diff(u.uvScaleA.value, u.uvOffsetA.value, unitA(m.shownAsset, namePinch(y), Math.acos(y), aTexOf(m))));
+        register.worst = Math.max(register.worst, offA(m.mesh.material.uniforms, unitWindowOf(m, m.shownAsset, aTexOf(m))));
       }
       // every column seam: kx | kx + 1 in each row (a 3×2 has two per row)
       for (let k = 0; k < P.members.length; k++) {
@@ -1460,14 +1451,15 @@ export default class PopulationDirector {
         const right = P.members[k + 1];
         const uL = left.mesh.material.uniforms;
         const uR = right.mesh.material.uniforms;
-        const [l0, r0] = rendered(uL.uvScaleA.value.x, uL.uvOffsetA.value.x, namePinch(left.centerDir.y));
-        const [l1, r1x] = rendered(uR.uvScaleA.value.x, uR.uvOffsetA.value.x, namePinch(right.centerDir.y));
+        const [l0, r0] = rendered(uL.uvScaleA.value.x, uL.uvOffsetA.value.x, namePinch(left.centerDir.y), spanOf(uL));
+        const [l1, r1x] = rendered(uR.uvScaleA.value.x, uR.uvOffsetA.value.x, namePinch(right.centerDir.y), spanOf(uR));
         const wL = r0 - l0;
         seam.n += 1;
         seam.worst = Math.max(seam.worst, Math.max(Math.abs(l1 - r0 - (wL * P.L.Gphi) / P.L.phiLen), Math.abs(r1x - l1 - wL)) / wL);
       }
     }
     Object.assign(out, {
+      look: TUNING.unitLook,
       seam: { n: seam.n, worst: r9(seam.worst) },
       register: { n: register.n, worst: r9(register.worst) },
       snaps: this.unitSnaps,
@@ -1475,19 +1467,23 @@ export default class PopulationDirector {
       skewChecks: this.skewChecks,
     });
 
-    // — P5 — V/Q: columns align across the row seam, rows keep the mullion, warp stays inside ε.
+    // — P5 — units two rows tall or more: columns align across every row seam, rows keep the mullion, warp stays
+    // inside ε. A flat unit (P9) maps every latitude alike, so its columns are read at ONE pinch (the upper
+    // member's), and it has no row warp to bound: warp counts the rows look's units only.
     const cols = { n: 0, worst: 0 };
     const rows = { n: 0, worst: 0 };
     const warp = { n: 0, worst: 0 };
     for (const [P] of places) {
-      if (P.rows !== 2 || !this.wholeUnit(P)) continue;
-      for (let kx = 0; kx < P.cols; kx++) {
-        const top = P.members[kx];
-        const bot = P.members[P.cols + kx];
+      if (P.rows < 2 || !this.wholeUnit(P)) continue;
+      const flat = P.look === 'flat';
+      for (let k = 0; k + P.cols < P.members.length; k++) {
+        const top = P.members[k];
+        const bot = P.members[k + P.cols];
         const uT = top.mesh.material.uniforms;
         const uB = bot.mesh.material.uniforms;
-        const [lt, rt] = rendered(uT.uvScaleA.value.x, uT.uvOffsetA.value.x, namePinch(top.centerDir.y));
-        const [lb, rb] = rendered(uB.uvScaleA.value.x, uB.uvOffsetA.value.x, namePinch(bot.centerDir.y));
+        const kT = namePinch(top.centerDir.y);
+        const [lt, rt] = rendered(uT.uvScaleA.value.x, uT.uvOffsetA.value.x, kT, spanOf(uT));
+        const [lb, rb] = rendered(uB.uvScaleA.value.x, uB.uvOffsetA.value.x, flat ? kT : namePinch(bot.centerDir.y), spanOf(uB));
         cols.n += 1;
         cols.worst = Math.max(cols.worst, Math.max(Math.abs(lt - lb), Math.abs(rt - rb)) / (rt - lt));
         const hT = uT.uvScaleA.value.y;
@@ -1496,6 +1492,7 @@ export default class PopulationDirector {
         rows.n += 1;
         rows.worst = Math.max(rows.worst, Math.abs(gap - (hB * P.L.Gth) / P.L.bandH), Math.abs(hT - hB));
       }
+      if (flat) continue;
       for (const m of P.members) {
         const vK = namePinch(m.centerDir.y);
         const C = coverWindow(aTexOf(m), P.S);
@@ -1528,10 +1525,9 @@ export default class PopulationDirector {
         const video = m.liveStream.video;
         if (!(video?.videoWidth > 0)) continue;
         const u = m.mesh.material.uniforms;
-        const A = { s: [u.uvScaleA.value.x, u.uvScaleA.value.y], o: [u.uvOffsetA.value.x, u.uvOffsetA.value.y] };
         const V = pictureAspect(m.shownAsset, video); // Mux's exact ratio; the decoded frame only as a fallback (m6)
         registerB.n += 1;
-        registerB.worst = Math.max(registerB.worst, diff(u.uvScaleB.value, u.uvOffsetB.value, liveB(V, aTexOf(m), A)));
+        registerB.worst = Math.max(registerB.worst, offB(u, liveB(V, aTexOf(m), shownWindowA(u))));
       }
     }
     Object.assign(out, { liveSplit, chipsPerUnit, registerB: { n: registerB.n, worst: r9(registerB.worst) } });

@@ -26,7 +26,8 @@
  * asset (Q7) in a 12 tile-equivalent world (Q8). 10-24 (his shape set,
  * ?popshapes=wide): 16:9 and 4:3 span 3×2, tall 1×2, every square 2×2; the
  * set before it stays at ?popshapes=classic. 10-28 (his call): a 7 s hold and
- * the fast handoff by default.
+ * the fast handoff by default. 10-31 (his yes to P9): a unit's crop is the
+ * shader's (?popunitlook=flat); ?popunitlook=rows is the CPU crop before it.
  * 10-06 = client-name strips (names, nameStyle — nameTicker.js).
  * 10-07 = their placement rework: the ticker is gone (the strips are still),
  * the span comes from the MEASURED name (nameSpanMin/nameSpanMax) instead of a
@@ -75,6 +76,10 @@ export const POP_TIERS = ['auto', 'today', 'lean']; // ?poptier — auto = per-D
  *  world's stills load as it lands; fast = the next world's clips load during the hold, after its own have started
  *  (streamPrefetch.js), and a change starts its clips while its tiles still swap, on a 0.1 s beat. */
 export const POP_HANDOFFS = ['today', 'fast'];
+/** How a unit member crops its picture under ?popunits (P9): flat = the shader pinches each fragment about the
+ *  unit's centre (one density over the unit: no row warp, no kink at the gaps; Nathan 10-31, "yes rebuild cropping
+ *  on the graphics card"); rows = the per-row CPU windows before it. */
+export const POP_UNIT_LOOKS = ['flat', 'rows'];
 export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES, NAME_MODES as POP_NAME_MODES };
 
 /** popmedia → the media kinds a world's pool keeps (null = its whole pool:
@@ -119,6 +124,7 @@ export const POP_DEFAULTS = Object.freeze({
   units: 1, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe. Q1: Nathan 10-23, on; was 0
   unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
   shapes: 'wide', // ?popshapes — the span each picture takes (POP_SHAPES); wide = Nathan's 10-24 set, classic = the one before it
+  unitLook: 'flat', // ?popunitlook — flat | rows (POP_UNIT_LOOKS): how a member crops its unit's picture (P9, 10-31; rows until then)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
   equiv: 32, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Nathan 10-24, 32 (the top; Q8 10-23 was 12, before that 0)
@@ -159,6 +165,7 @@ const CHOICE = {
   tier: ['poptier', POP_TIERS],
   handoff: ['pophandoff', POP_HANDOFFS],
   shapes: ['popshapes', POP_SHAPES],
+  unitLook: ['popunitlook', POP_UNIT_LOOKS],
   nameStyle: ['popnamestyle', NAME_STYLES],
   nameMode: ['popnamemode', NAME_MODES],
 };

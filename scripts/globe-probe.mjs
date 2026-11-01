@@ -340,7 +340,7 @@ const GATE_CTX = {
   // GLOBE_T1: ?globethumb clamped and rounded, else THUMB_WIDTH (IS_MOBILE = max-width 768px, i.e. the CSS viewport)
   t1: extraNum('globethumb') != null ? Math.round(Math.min(Math.max(extraNum('globethumb'), 256), 1024)) : VW <= 768 ? 384 : 512,
   equiv: Math.max(0, extraNum('popequiv') ?? 32), // popConfig's default (Nathan 10-24)
-  look: /[?&]popunitlook=flat\b/.test(EXTRA) ? 'flat' : 'rows',
+  look: /[?&]popunitlook=rows\b/.test(EXTRA) ? 'rows' : 'flat', // popConfig's default (P9: Nathan 10-31)
   shapes: /[?&]popshapes=classic\b/.test(EXTRA) ? 'classic' : 'wide', // popConfig's default (Nathan 10-24)
   texmb: TEXMB,
   texpeak: TEXPEAK === null ? null : Number(TEXPEAK),

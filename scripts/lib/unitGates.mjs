@@ -246,7 +246,8 @@ export function unitGates(report, ctx) {
   const warp = runHolds.map((s) => s.units.warp).filter(Boolean);
   const WARP_MAX = Math.log(1.15) + 0.002; // UNIT_EPS = 0.15; float slack (holds sit inside the planned life by construction)
   const warpW = max(warp.map((x) => x.worst));
-  gate(out, 'unitWarp', { n: sum(warp.map((x) => x.n)), floor: 3, ok: warpW <= WARP_MAX, worst: warpW, bound: WARP_MAX });
+  // P9's flat look pinches each fragment by its own latitude, so there is no row warp to bound (n counts rows-look units only).
+  gate(out, 'unitWarp', { n: sum(warp.map((x) => x.n)), floor: 3, ok: warpW <= WARP_MAX, worst: warpW, bound: WARP_MAX, reportOnly: ctx.look === 'flat' });
   const initVQ = max(U.map((s) => s.units.initVQ ?? 0));
   const initPosed = U.filter((s) => s.units.initThetaH != null).length; // the initial plan saw a horizon: useGlobeScene's posed latch failed
   // 0 in every run: the initial layout is planned before the first pose, so its horizon is null and it places H only (M4).

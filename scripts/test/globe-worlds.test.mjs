@@ -17,10 +17,10 @@ import buildWorldPools, { selectPool, WORLD_POOL_CAP, MIN_KIND_POOL } from '../.
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
 import MeridianScroll, { initialBirth, poseTile, posePanel, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import TextureManager, { assetKey, computeCoverUv } from '../../src/components/globe/TextureManager.js'
-import { loadTile, windowA, unitWindowOf, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
+import { loadTile, windowA, unitWindowOf, setWindowB, shownWindowA, offB, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
-import { TUNING, POP_DEFAULTS, POP_TIERS, POP_SHAPES, setPopTune } from '../../src/components/globe/popConfig.js'
+import { TUNING, POP_DEFAULTS, POP_TIERS, POP_SHAPES, POP_UNIT_LOOKS, setPopTune } from '../../src/components/globe/popConfig.js'
 import {
   measureNameAspect,
   nameSpan,
@@ -42,6 +42,7 @@ import { playlistKey, primePlaylist, primedPlaylist, takePrimedPlaylist, primedP
 import { lowestVariant, firstMedia, prefetchClip, prefetchClips, prefetchStats, clearPrefetch, planUrl, poolStreamUrl } from '../../src/components/globe/streamPrefetch.js'
 import buildCascadeTimeline, { DELAY_ORDERS, panelDelay, delayOwner } from '../../src/components/globe/cascade.js'
 import { buildScrollingGlobeGeometry } from '../../src/components/globe/buildGlobeGeometry.js'
+import { createPanelMaterial } from '../../src/components/globe/panelMaterial.js'
 import {
   UNIT_EPS,
   T_ENTRANCE,
@@ -58,6 +59,7 @@ import {
   coverWindow,
   rendered as spanRendered,
   unitA,
+  flatWindow,
   thetaBound,
   unitSkewBound,
   frameOf,
@@ -91,10 +93,11 @@ import { classOf } from '../../src/components/globe/mediaClass.js'
 /** The tuning the fixtures below are laid at: POP_DEFAULTS with the media spans' knobs as the boards were
  *  written, before Nathan's 10-23 bake (units off, one unit per key, no tile budget) and his 10-24 shape set
  *  (classic: the fixtures carry `u`, not `uw`), and the handoff they were written under, before his 10-28 call
- *  (today: the next world warms as it is planned). A board asks for more explicitly (6 per key in T13's wide
- *  boards, ?popequiv 13 in P7's, fast in the handoff tests); 'spans: the shipped defaults' lays one at the
- *  baked values, and the ?popshapes=wide tests lay theirs at wide. */
-const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, units: 0, unitMax: 1, equiv: 0, shapes: 'classic', handoff: 'today' })
+ *  (today: the next world warms as it is planned), and the crop they were written for, before his 10-31 yes to
+ *  P9 (rows: the per-row CPU windows). A board asks for more explicitly (6 per key in T13's wide boards,
+ *  ?popequiv 13 in P7's, fast in the handoff tests, flat in P9's); 'spans: the shipped defaults' lays one at
+ *  the baked values, and the ?popshapes=wide tests lay theirs at wide. */
+const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, units: 0, unitMax: 1, equiv: 0, shapes: 'classic', handoff: 'today', unitLook: 'rows' })
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -336,6 +339,8 @@ function fakeScene() {
               uVideoB: { value: 0 },
               uvScaleB: v2(),
               uvOffsetB: v2(),
+              uSpanA: v2(), // P9's flat crop switch, per texture (panelMaterial)
+              uSpanB: v2(),
               uMix: { value: 0 },
             },
           },
@@ -1629,6 +1634,13 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   // below level vq none of the five is evaluated
   const hOnly = judgeH([tall()])
   assert.equal(['unitColumns', 'unitRows', 'unitWarp', 'initVQ', 'unitShapes'].some((name) => name in hOnly.detail), false)
+  // — P9 — the flat look has no row warp to bound (unitStats counts the rows look's units only): unitWarp reports and
+  // never gates there, while the columns and mullions still do. NC: the rows look gates the same warp.
+  const warped = [tall(), tall({ warp: { n: 4, worst: 2 * WARP } })]
+  const flatVQ = atVQ(warped, { look: 'flat' })
+  assert.deepEqual(['unitWarp' in flatVQ.pass, flatVQ.detail.unitWarp.reportOnly, flatVQ.detail.unitWarp.worst], [false, true, 2 * WARP])
+  assert.ok(failsAlone(atVQ([tall(), tall({ cols: { n: 1, worst: 1.01e-4 } })], { look: 'flat' }), 'unitColumns'))
+  assert.ok(failsAlone(atVQ(warped, { look: 'rows' }), 'unitWarp'))
 
   // — P6a — level live: unitLiveSplit sums the lit units (n) and the split ones over every units sample, and allows
   // 2% of them split; chipsPerUnit bounds the most members announcing live in one unit at 1 (its n is the lit units);
@@ -2636,6 +2648,7 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
           texA: { value: { userData: { aspect: aTex } } },
           uvScaleA: { value: new THREE.Vector2(A.s[0], A.s[1]) },
           uvOffsetA: { value: new THREE.Vector2(A.o[0], A.o[1]) },
+          uSpanA: { value: new THREE.Vector2(0, 0) },
         },
       },
     },
@@ -2706,7 +2719,7 @@ test('spans: liveWindow registers texB with the bound class texture — Mux’s 
   // never streams into a class tile whose texA still shows the asset it held before (B derives from the bound A).
   const liveTile = (shownAsset, z) => {
     const p = tile(record, A1)
-    Object.assign(p.mesh.material.uniforms, { uMix: { value: 0 }, texB: { value: null }, uVideoB: { value: 0 }, uvScaleB: { value: new THREE.Vector2() }, uvOffsetB: { value: new THREE.Vector2() } })
+    Object.assign(p.mesh.material.uniforms, { uMix: { value: 0 }, texB: { value: null }, uVideoB: { value: 0 }, uvScaleB: { value: new THREE.Vector2() }, uvOffsetB: { value: new THREE.Vector2() }, uSpanB: { value: new THREE.Vector2() } })
     return Object.assign(p, { shownAsset, parked: false, liveState: null, centerDir: new THREE.Vector3(0, Math.sqrt(1 - z * z), z) })
   }
   const bound = liveTile(record, 0.8)
@@ -4132,6 +4145,270 @@ test('spans: unitStats measures V/Q as they render (columns, mullions, warp), an
   }
 })
 
+/* — Media spans, P9: the flat look (?popunitlook=flat, Nathan 10-31: "yes rebuild cropping on the graphics card").
+   The shader pinches a member per fragment, about its UNIT's centre (unitSpan.flatWindow's spanC), so the window is
+   pose-free and the picture keeps one density over the whole unit. The boards above are laid at the rows look
+   (BOARD_DEFAULTS); these ask for flat. — */
+/** What panelMaterial samples across a flat member at a fragment pinched by k (sin θ, θ the fragment's own
+ *  colatitude): mUv.x = ½ + (vUv.x − ½ + spanC)·k over vUv.x 0..1, through the window's scale s and offset o. */
+const flatRenders = (s, o, c, k) => [0, 1].map((x) => (0.5 + (x - 0.5 + c) * k) * s + o)
+/** A tile's texA switch as its uniforms hold it: [on, spanC]. */
+const spanA = (p) => p.mesh.material.uniforms.uSpanA.value.toArray()
+
+test('spans: flatWindow (P9) — a unit renders its cover crop narrowed about its own centre by the pinch: one member width, each seam the lattice’s gap at any pinch, each column one range, the vertical memberWindow’s; at the equator every member renders the rows look’s range', () => {
+  // rendered() is the shader's own line, or the stats measure nothing
+  for (const [s, o, c, k] of [[0.3, 0.1, 0, 1], [0.49, 0.2, -0.52, 0.6], [0.33, -0.01, 1.04, 0.31]]) near(spanRendered(s, o, k, c), flatRenders(s, o, c, k), 1e-15)
+  const L = SPAN_L
+  const gx = L.Gphi / L.phiLen
+  for (const cls of ['h', 'v', 'q', 'w']) {
+    const { cols, rows } = UNIT_SHAPE[cls]
+    const S = unitAspect(cols, rows, L)
+    // a texture at the unit's own aspect, a wider one (the crop trims u), a taller one (it trims v)
+    for (const aTex of [S, 1.4 * S, S / 1.3]) {
+      const tag = `${cls} at ${aTex.toFixed(3)}`
+      const C = coverWindow(aTex, S)
+      const P = { cls, cols, rows, n: cols * rows, S, L }
+      const ms = Array.from({ length: P.n }, (_, k) => ({ place: P, kx: k % cols, ky: Math.floor(k / cols) }))
+      const ws = ms.map((m) => flatWindow(m, aTex))
+      for (const [k, m] of ms.entries()) {
+        const w = ws[k]
+        // one width, one height and one u origin for every member (one density over the unit): only spanC, the
+        // member's centre off the unit's in member widths, tells the columns apart (a V's one column: 0)
+        assert.deepEqual([w.s, w.o[0]], [ws[0].s, ws[0].o[0]], tag)
+        near(w.spanC, m.kx * (1 + gx) + 0.5 - (cols + (cols - 1) * gx) / 2, 1e-15, tag)
+        // the rows look's member window at the equator (vK = q = 1), through the same crop: the same range, and the
+        // same vertical (memberWindow's is pinch-free)
+        const R = compose(C, memberWindow({ cols, rows, kx: m.kx, ky: m.ky }, 1, 1, L))
+        near(spanRendered(w.s[0], w.o[0], 1, w.spanC), spanRendered(R.s[0], R.o[0], 1), 1e-12, `${tag} k${k}`)
+        near([w.s[1], w.o[1]], [R.s[1], R.o[1]], 1e-12, `${tag} k${k} vertical`)
+      }
+      for (const pinch of [1, 0.8, 0.5, 0.2]) {
+        const at = `${tag} pinch ${pinch}`
+        const r = ws.map((w) => spanRendered(w.s[0], w.o[0], pinch, w.spanC))
+        // the whole unit: the crop's own centre, `pinch` of its width (its edges at the equator)
+        near([r[0][0], r[cols - 1][1]], [C.o[0] + (C.s[0] * (1 - pinch)) / 2, C.o[0] + (C.s[0] * (1 + pinch)) / 2], 1e-12, at)
+        for (let k = 0; k < P.n; k++) {
+          near(r[k][1] - r[k][0], pinch * ws[k].s[0], 1e-12, `${at} k${k}`)
+          if (k >= cols) assert.deepEqual(r[k], r[k - cols], `${at} k${k}`) // every row of a column renders one range
+          // each seam is the lattice's own gap, Gφ/φLen of a member's rendered width (the unitSeam measure)
+          if (k % cols < cols - 1) near(r[k + 1][0] - r[k][1], (r[k][1] - r[k][0]) * gx, 1e-12, `${at} seam ${k}`)
+        }
+      }
+    }
+  }
+  // NC: the rows look off the equator, at 60°. An H pair's row-centre cross-section IS the flat one (its q is its
+  // vK); a V member's is not: kappaOwn's shared scale renders q/vK = 1.0746 of it about the same centre, the warp
+  // the flat look removes.
+  const theta = Math.PI / 3
+  const vK = Math.sin(theta)
+  const at60 = (cls) => {
+    const { cols, rows } = UNIT_SHAPE[cls]
+    const m = { place: { cls, cols, rows, n: cols * rows, S: unitAspect(cols, rows, L), L }, kx: 0, ky: 0 }
+    const [F, A] = [flatWindow(m, m.place.S), unitA(m, vK, theta, m.place.S)]
+    return [spanRendered(F.s[0], F.o[0], vK, F.spanC), spanRendered(A.s[0], A.o[0], vK)]
+  }
+  const [hFlat, hRows] = at60('h')
+  near(hRows, hFlat, 1e-12)
+  const [[fl, fr], [al, ar]] = at60('v')
+  const q = kappaOwn(theta, 0, L.Pth, vK)
+  near([(al + ar) / 2, (ar - al) / (fr - fl)], [(fl + fr) / 2, q / vK], 1e-12)
+  near(q / vK, 1.07457, 1e-5)
+})
+
+test('spans: panelMaterial pinches a flat member per fragment (P9) — vT is each vertex’s own colatitude; texB’s switch reads the row-centre mUv before texA’s flat crop rewrites it; both switches start off', () => {
+  const mat = createPanelMaterial({ fallbackColor: new THREE.Color(0) })
+  try {
+    const lines = (src) => src.split('\n').map((l) => l.trim())
+    const at = (ls, line) => {
+      const i = ls.findIndex((l) => l.startsWith(line))
+      assert.ok(i >= 0, line)
+      return i
+    }
+    // vertex: π/2 off the scroll path (sin 1: the plain path's mUv), on it the very t the vertex is placed at
+    const vert = lines(mat.vertexShader)
+    assert.ok(at(vert, 'vT = 0.5 * 3.141592653589793;') < at(vert, 'if (uUsePolarScroll > 0.5) {'))
+    const placed = ['float t = clamp((theta - uCanonTop) + uPolarTop, 0.0, PI);', 'vT = t;', 'pos = vec3(-cos(phi) * st, cos(t), sin(phi) * st) * r;'].map((l) => at(vert, l))
+    assert.deepEqual(placed, [...placed].sort((a, b) => a - b))
+    // fragment: texB's mUvB off the row-centre mUv, then texA's flat crop rewrites mUv; each texture samples its own
+    const frag = lines(mat.fragmentShader)
+    const order = [
+      'uniform vec2 uSpanA;',
+      'uniform vec2 uSpanB;',
+      'varying float vT;',
+      'vec2 mUv = uUsePolarScroll > 0.5 ? vec2(0.5 + (vUv.x - 0.5) * vK, vUv.y) : vUv;',
+      'vec2 mUvB = uSpanB.x > 0.5 ? vec2(0.5 + (vUv.x - 0.5 + uSpanB.y) * sin(vT), vUv.y) : mUv;',
+      'if (uSpanA.x > 0.5) mUv.x = 0.5 + (vUv.x - 0.5 + uSpanA.y) * sin(vT);',
+      'vec3 colorA = texture2D(texA, mUv * uvScaleA + uvOffsetA).rgb;',
+      'vec3 colorB = texture2D(texB, mUvB * uvScaleB + uvOffsetB).rgb;',
+    ].map((l) => at(frag, l))
+    assert.deepEqual(order, [...order].sort((a, b) => a - b))
+    assert.deepEqual(['texture2D(texA', 'texture2D(texB'].map((s) => frag.filter((l) => l.includes(s)).length), [1, 1])
+    assert.deepEqual([mat.uniforms.uSpanA.value.toArray(), mat.uniforms.uSpanB.value.toArray()], [[0, 0], [0, 0]])
+  } finally {
+    mat.dispose()
+  }
+})
+
+test('spans: the flat look on the board (P9) — a bind writes each member’s switch with its window (a single’s resets it), texB carries texA’s, the tape never moves a flat window, and every unitStats measure is exact at every pose, with no warp to bound', () => {
+  const { director, panels } = unitDirector({ unitLook: 'flat' }, { getHorizon: () => Math.PI })
+  try {
+    director.initialLayout(director.byProminence())
+    const units = [...placesOf(panels).keys()]
+    const tall = units.filter((P) => P.rows === 2)
+    assert.ok(tall.some((P) => P.cls === 'v') && tall.some((P) => P.cls === 'q') && units.some((P) => P.rows === 1), JSON.stringify(director.placed))
+    assert.ok(units.every((P) => P.look === 'flat' && director.wholeUnit(P)))
+    const members = units.flatMap((P) => P.members)
+    const aTexOf = (p) => p.mesh.material.uniforms.texA.value.userData.aspect
+    const flatOf = (p) => {
+      const w = flatWindow(p.shownAsset, aTexOf(p))
+      return [[...w.s, ...w.o], [1, w.spanC]]
+    }
+    // The bind: a member's first bound frame holds its flat window, switch on (a V's spanC 0 too); a single's is off.
+    for (const p of members) assert.deepEqual([windowOf(p), spanA(p)], flatOf(p), p.shownAsset.place.uid)
+    assert.ok(members.some((p) => p.shownAsset.place.cls === 'v' && spanA(p)[1] === 0))
+    const singles = panels.filter((p) => p.shownAsset && !p.shownAsset.place)
+    assert.ok(singles.length > 0 && singles.every((p) => spanA(p).every((x) => x === 0)))
+    // A single bound where a member was takes its own window and resets the switch; the member's record back sets it.
+    const m0 = members.find((p) => p.shownAsset.place.cols === 2 && p.shownAsset.kx === 0)
+    const [rec, single] = [m0.shownAsset, singles[0].shownAsset]
+    loadTile(director, m0, single)
+    const W1 = windowA(m0, single, m0.mesh.material.uniforms.texA.value)
+    assert.deepEqual([windowOf(m0), spanA(m0)], [[...W1.s, ...W1.o], [0, 0]])
+    loadTile(director, m0, rec)
+    assert.deepEqual([windowOf(m0), spanA(m0)], flatOf(m0))
+    assert.ok(spanA(m0)[1] < -0.5) // a pair's left member: half a member and half a gap off the unit's centre
+
+    // texB rides texA's window, its switch included (LivePanelScheduler.liveWindow: liveB on shownWindowA).
+    const sched = new LivePanelScheduler({ panels: [], assets: [], poolHandle: null, textureManager: null, cycleThumbnails: false })
+    const frame = { videoWidth: 854, videoHeight: 480 }
+    const clip = members.find((p) => p.shownAsset.kind === 'video' && p.shownAsset.place.cols === 2 && p.shownAsset.kx === 0)
+    const u = clip.mesh.material.uniforms
+    const B = sched.liveWindow(clip, frame)
+    assert.deepEqual(B, liveB(pictureAspect(clip.shownAsset, frame), aTexOf(clip), shownWindowA(u)))
+    assert.equal(B.spanC, spanA(clip)[1])
+    setWindowB(u, B)
+    assert.deepEqual([u.uSpanB.value.toArray(), offB(u, B)], [[1, B.spanC], 0])
+    // a single's cover (a tile that joined another clip's stream as a single) resets texB's switch; texA's stays
+    setWindowB(u, { s: [1, 1], o: [0, 0] })
+    assert.deepEqual([u.uSpanB.value.toArray(), spanA(clip)], [[0, 0], [1, B.spanC]])
+    // NC: the register reads the switch: B's very scale and offset with the switch off are 1 off; a wrong spanC, its error
+    setWindowB(u, { s: B.s, o: B.o })
+    assert.equal(offB(u, B), 1)
+    setWindowB(u, { ...B, spanC: B.spanC + 0.25 })
+    near(offB(u, B), 0.25, 1e-12)
+    assert.equal('spanC' in liveB(16 / 9, 1, { s: [1, 1], o: [0, 0] }), false) // the rows look's B carries no switch
+
+    // The tape travels (P5's travel: 0.01 rad a frame, place() after each, south then north) and no flat window moves:
+    // it is pose-free, so only a bind or a look change writes one. Every judged member is a skew check and none is
+    // skewed; seams, register, columns and mullions stay exact on every whole unit; warp counts the rows look only.
+    const stats = () => director.unitStats(0)
+    const fixed = members.map(windowOf)
+    const checks = director.skewChecks
+    const frameAt = (d) => {
+      shiftRows(panels, d)
+      director.place()
+      members.forEach((p, i) => assert.deepEqual(windowOf(p), fixed[i], `d ${d}`))
+      const whole = units.filter((P) => director.wholeUnit(P))
+      const cols = whole.filter((P) => P.rows === 2).reduce((n, P) => n + P.cols, 0)
+      const s = stats()
+      assert.deepEqual(
+        [s.look, s.seam, s.register, s.cols, s.rows, s.warp],
+        ['flat', { n: whole.reduce((n, P) => n + P.rows * (P.cols - 1), 0), worst: 0 }, { n: whole.reduce((n, P) => n + P.n, 0), worst: 0 }, { n: cols, worst: 0 }, { n: cols, worst: 0 }, { n: 0, worst: 0 }],
+        `d ${d}`
+      )
+      assert.ok(cols > 0, `d ${d}`)
+    }
+    for (let f = 1; f <= 50; f++) frameAt(0.01 * f)
+    for (let f = 49; f >= -50; f--) frameAt(0.01 * f)
+    assert.deepEqual([director.skewBad, director.unitSnaps], [0, 0])
+    assert.ok(director.skewChecks > checks)
+
+    // NC: P5 reads a flat column at ONE pinch (the upper member's). At each row's own (the rows look's reading) a flat
+    // V's column would part by half the pinch difference over the top's width: an error the shader never draws.
+    shiftRows(panels, 0)
+    director.place()
+    const [top, bot] = tall.find((P) => P.cls === 'v').members
+    const ren = (p, k) => spanRendered(p.mesh.material.uniforms.uvScaleA.value.x, p.mesh.material.uniforms.uvOffsetA.value.x, k, spanA(p)[1])
+    const [kT, kB] = [namePinch(top.centerDir.y), namePinch(bot.centerDir.y)]
+    assert.deepEqual(ren(bot, kT), ren(top, kT))
+    const [lt, rt] = ren(top, kT)
+    near(Math.abs(ren(bot, kB)[0] - lt) / (rt - lt), Math.abs(kT - kB) / (2 * kT), 1e-12)
+    assert.ok(Math.abs(kT - kB) / (2 * kT) > 1e-3, `${kT} ${kB}`)
+    // NC: the register reads texA's switch too: a member's switched off is 1 off
+    top.mesh.material.uniforms.uSpanA.value.x = 0
+    assert.equal(stats().register.worst, 1)
+    top.mesh.material.uniforms.uSpanA.value.x = 1
+    assert.equal(stats().register.worst, 0)
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+})
+
+test('spans: ?popunitlook — flat by default (Nathan 10-31), rows on ask: a bench flip relooks every unit on the board, which place() re-windows the next frame, unjudged; the guide row says so (P9)', async () => {
+  assert.deepEqual([POP_DEFAULTS.unitLook, POP_UNIT_LOOKS], ['flat', ['flat', 'rows']])
+  // a load-time knob: stub the window, evaluate a fresh copy of popConfig, restore the window in finally
+  let fresh = 0
+  const lookAt = async (search) => {
+    const had = globalThis.window
+    globalThis.window = { location: { search } }
+    try {
+      return (await import(`../../src/components/globe/popConfig.js?t=p9-${++fresh}`)).TUNING.unitLook
+    } finally {
+      if (had === undefined) delete globalThis.window
+      else globalThis.window = had
+    }
+  }
+  for (const [search, look] of [['?popunitlook=rows', 'rows'], ['?popunitlook=flat', 'flat'], ['?popunitlook=ROWS', 'flat'], ['', 'flat']]) assert.equal(await lookAt(search), look, search)
+  const { director, panels } = unitDirector({ unitLook: 'flat' }, { getHorizon: () => Math.PI })
+  try {
+    director.initialLayout(director.byProminence())
+    const units = [...placesOf(panels).keys()]
+    const members = units.flatMap((P) => P.members)
+    let relayouts = 0
+    director.relayout = () => (relayouts += 1)
+    shiftRows(panels, 0.1) // off the scroll-0 pose, so a rows window is its pose's
+    director.place()
+    const flat = members.map(windowOf)
+    for (const [look, on] of [['rows', 0], ['flat', 1]]) {
+      // a unit still loading (a tile's next record) or swapping in takes the flip too
+      const [m0, m1] = members
+      const was = [m0.asset, m1.swapAsset]
+      const pending = (m0.asset = { ...m0.shownAsset, place: { ...m0.shownAsset.place } })
+      const swapping = (m1.swapAsset = { ...m1.shownAsset, place: { ...m1.shownAsset.place } })
+      setPopTune('unitLook', look)
+      const seq = director.tuneSeq
+      director.onTune('unitLook')
+      // the board stays (no relayout; a board planned ahead on the old look is never adopted: tuneSeq)
+      assert.deepEqual([director.tuneSeq, relayouts], [seq + 1, 0], look)
+      assert.ok(units.every((P) => P.look === look), look)
+      assert.deepEqual([pending.place.look, swapping.place.look], [look, look], look)
+      m0.asset = was[0]
+      m1.swapAsset = was[1]
+      const [checks, bad] = [director.skewChecks, director.skewBad]
+      director.place()
+      for (const p of members) if (!p.parked) assert.deepEqual([windowOf(p), spanA(p)[0]], [owed(p), on], look)
+      // that frame re-windowed every member on purpose and judged none; the next is judged as before
+      assert.deepEqual([director.skewChecks, director.skewBad], [checks, bad], look)
+      director.place()
+      assert.ok(director.skewChecks > checks, look)
+      assert.equal(director.skewBad, bad, look)
+    }
+    assert.deepEqual(members.map(windowOf), flat) // back on flat: the very windows it left
+    // NC: a look moved with no relook (no mark): place() judges the rewrite, and every member it judges is skewed
+    for (const P of units) P.look = 'rows'
+    const [c0, b0] = [director.skewChecks, director.skewBad]
+    director.place()
+    assert.ok(director.skewChecks > c0)
+    assert.equal(director.skewBad - b0, director.skewChecks - c0)
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+  const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
+  assert.match(guide, /^\| `\?popunitlook` \|.*\| `flat` \(Nathan 10-31\) \| `flat` \\\| `rows` \| `POP_DEFAULTS\.unitLook` \|$/m)
+})
+
 /* — Media spans, P6a: a unit joins and leaves its video stream as one, and shows one chip, at its centre (T24, T25;
    T21's and T20's — P6a — lines are above). — */
 /** A class tile on the equator at z (vK 1, score z: centerDir (√(1 − z²), 0, z)) showing `asset`, its A window the
@@ -4158,6 +4435,8 @@ function streamTile(asset, z) {
           uVideoB: { value: 0 },
           uvScaleB: v2(0, 0),
           uvOffsetB: v2(0, 0),
+          uSpanA: v2(0, 0),
+          uSpanB: v2(0, 0),
         },
       },
     },
@@ -5666,12 +5945,13 @@ test('spans: ?popshapes=wide plans whole 3×2 units where one fits, else its 2×
   }
 })
 
-test('spans: the shipped defaults (Nathan 10-23, 10-24) — spans on, up to ?popunitmax 4 units per key inside ?popequiv 32, no name strips, every unit whole, outer neighbours clear', () => {
-  assert.deepEqual([POP_DEFAULTS.units, POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv, POP_DEFAULTS.shapes, POP_DEFAULTS.names], [1, 4, 32, 'wide', 0])
-  const { director, panels } = unitDirector({ unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv }, { getHorizon: () => Math.PI })
+test('spans: the shipped defaults (Nathan 10-23, 10-24, 10-31) — spans on, up to ?popunitmax 4 units per key inside ?popequiv 32, no name strips, every unit whole and flat, outer neighbours clear', () => {
+  assert.deepEqual([POP_DEFAULTS.units, POP_DEFAULTS.unitMax, POP_DEFAULTS.equiv, POP_DEFAULTS.shapes, POP_DEFAULTS.names, POP_DEFAULTS.unitLook], [1, 4, 32, 'wide', 0, 'flat'])
+  const { director, panels } = unitDirector({ unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv, unitLook: POP_DEFAULTS.unitLook }, { getHorizon: () => Math.PI })
   try {
     director.initialLayout(director.byProminence())
     const perKey = assertWholeUnits(director, panels, ['h', 'v', 'q'])
+    assert.ok([...placesOf(panels).keys()].every((P) => P.look === 'flat'))
     const counts = [...perKey.values()]
     assert.ok(counts.length >= 1 && counts.every((n) => n <= POP_DEFAULTS.unitMax), JSON.stringify([...perKey]))
     assert.ok(counts.some((n) => n > 1), JSON.stringify([...perKey])) // the default repeats an asset

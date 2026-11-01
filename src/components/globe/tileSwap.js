@@ -32,13 +32,46 @@
 import gsap from 'gsap';
 import { assetKey, computeCoverUv } from './TextureManager.js';
 import { namePinch } from './nameTicker.js';
-import { unitA } from './unitSpan.js';
+import { unitA, flatWindow } from './unitSpan.js';
 
 /** A unit member's texA window from its own live pose: the ONE rule both writers
- *  use (windowA, so loadTile's bind; PopulationDirector.place). θ in the globe frame. */
+ *  use (windowA, so loadTile's bind; PopulationDirector.place). θ in the globe frame.
+ *  Under the flat look (P9: the unit's look, set when it formed) the window is
+ *  pose-free and carries spanC for the shader's own pinch. */
 export function unitWindowOf(panel, m, aTex) {
+  if (m.place.look === 'flat') return flatWindow(m, aTex);
   const y = Math.min(Math.max(panel.centerDir.y, -1), 1);
   return unitA(m, namePinch(y), Math.acos(y), aTex);
+}
+
+/** Write a window { s, o, spanC? } into texA's (setWindowA) or texB's (setWindowB)
+ *  uniforms: EVERY window write goes through these. spanC switches that texture's
+ *  flat crop on (P9's uSpanA / uSpanB); a window without it takes the row-centre
+ *  crop, so a single written where a flat member was resets the switch. */
+const writeWindow = (scale, offset, span, w) => {
+  scale.value.set(w.s[0], w.s[1]);
+  offset.value.set(w.o[0], w.o[1]);
+  span.value.set(w.spanC == null ? 0 : 1, w.spanC ?? 0);
+};
+export const setWindowA = (u, w) => writeWindow(u.uvScaleA, u.uvOffsetA, u.uSpanA, w);
+export const setWindowB = (u, w) => writeWindow(u.uvScaleB, u.uvOffsetB, u.uSpanB, w);
+const offOf = (scale, offset, span, w) =>
+  Math.max(
+    Math.abs(scale.value.x - w.s[0]),
+    Math.abs(scale.value.y - w.s[1]),
+    Math.abs(offset.value.x - w.o[0]),
+    Math.abs(offset.value.y - w.o[1]),
+    Math.abs(span.value.x - (w.spanC == null ? 0 : 1)),
+    Math.abs(span.value.y - (w.spanC ?? 0))
+  );
+/** How far texA's (offA) or texB's (offB) uniforms are from window w: the largest component, the span switch included. */
+export const offA = (u, w) => offOf(u.uvScaleA, u.uvOffsetA, u.uSpanA, w);
+export const offB = (u, w) => offOf(u.uvScaleB, u.uvOffsetB, u.uSpanB, w);
+/** The texA window the uniforms hold (setWindowA's inverse): what texB composes onto (unitSpan.liveB). */
+export function shownWindowA(u) {
+  const w = { s: [u.uvScaleA.value.x, u.uvScaleA.value.y], o: [u.uvOffsetA.value.x, u.uvOffsetA.value.y] };
+  if (u.uSpanA.value.x > 0.5) w.spanC = u.uSpanA.value.y;
+  return w;
 }
 
 /** THE texA window rule, for every texA writer: the texture's MEASURED aspect
@@ -67,10 +100,8 @@ export function loadTile(owner, panel, asset, onBound = null) {
       return;
     }
     const u = panel.mesh.material.uniforms;
-    const { s: scale, o: offset } = windowA(panel, asset, tex); // THE window rule (measured aspect; P4b: a member's own window)
     u.texA.value = tex;
-    u.uvScaleA.value.set(scale[0], scale[1]);
-    u.uvOffsetA.value.set(offset[0], offset[1]);
+    setWindowA(u, windowA(panel, asset, tex)); // THE window rule (measured aspect; P4b: a member's own window)
     u.uHasTexA.value = 1;
     // A PLANNED member (the director's plan) is right on its FIRST bound frame (windowA,
     // above). A BORN member (MeridianScroll's born pair) binds while parked past the south

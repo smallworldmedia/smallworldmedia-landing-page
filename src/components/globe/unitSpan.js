@@ -4,7 +4,9 @@
  * (?popshapes=wide), 3×2 wides (w) that fall back to a pair. A unit shows ONE
  * texture; each member crops its own slice, so the picture runs straight across
  * the lattice gaps — the gap hides its own strip, like a window mullion.
- * Import-free on purpose: PopulationDirector, LivePanelScheduler, mediaClass
+ * Two looks (?popunitlook): flat (P9, the default since 10-31) leaves the
+ * pole pinch to the shader, per fragment (flatWindow); rows = the per-row CPU
+ * windows (unitA). Import-free on purpose: PopulationDirector, LivePanelScheduler, mediaClass
  * (build time), scripts/test and scripts/lib/unitGates all import it bare.
  * Derivations: docs/globe-worlds-plan.md § Media spans; pinned by
  * scripts/test/globe-worlds.test.mjs (T1–T10, T30).
@@ -80,14 +82,37 @@ export const compose = (C, W) => ({
 export const coverWindow = (t, p) =>
   t > p ? { s: [p / t, 1], o: [(1 - p / t) / 2, 0] } : { s: [1, t / p], o: [0, (1 - t / p) / 2] };
 
-/** The texture u-range a window (scalar s, o) shows across a panel pinched by vK — the shader's mUv. */
-export const rendered = (s, o, vK) => [(0.5 - 0.5 * vK) * s + o, (0.5 + 0.5 * vK) * s + o];
+/** The texture u-range a window (scalar s, o) shows across a panel pinched by vK — the shader's mUv. c: a flat
+ *  member's spanC (uSpanA.y, P9). The shader pinches a flat member by each fragment's own latitude, so there vK
+ *  is sin θ of the cross-section read (the row centre's is namePinch, as for every other tile). */
+export const rendered = (s, o, vK, c = 0) => [(0.5 + (c - 0.5) * vK) * s + o, (0.5 + (c + 0.5) * vK) * s + o];
 
 /** A member record m ({ place, kx, ky }) → its full A window (uvScaleA / uvOffsetA). */
 export function unitA(m, vK, theta, aTex) {
   const P = m.place;
   const q = P.rows === 1 ? vK : kappaOwn(theta, m.ky, P.L.Pth, vK);
   return compose(coverWindow(aTex, P.S), memberWindow({ cols: P.cols, rows: P.rows, kx: m.kx, ky: m.ky }, vK, q, P.L));
+}
+
+/** — P9 — the flat look (?popunitlook=flat, Nathan 10-31: "yes rebuild cropping on the graphics card"): member
+ *  m's A window when the SHADER does the pinch. One member width of the unit's cover crop, centred on the unit,
+ *  with spanC (the member's centre offset from the unit's, in member widths) for the shader's
+ *  mUv.x = ½ + (vUv.x − ½ + spanC)·sin θ, θ each fragment's own colatitude. Pose-free: the picture keeps one
+ *  density over the whole unit, so its rows neither warp nor kink at the gaps. At the equator it is unitA's
+ *  window; the vertical is memberWindow's, exactly. */
+export function flatWindow({ place: P, kx, ky }, aTex) {
+  const gx = P.L.Gphi / P.L.phiLen;
+  const gy = P.L.Gth / P.L.bandH;
+  const Nx = P.cols + (P.cols - 1) * gx;
+  const Ny = P.rows + (P.rows - 1) * gy;
+  const C = coverWindow(aTex, P.S);
+  const sx = C.s[0] / Nx;
+  const f1 = (ky * (1 + gy) + 1) / Ny;
+  return {
+    s: [sx, C.s[1] / Ny],
+    o: [C.o[0] + C.s[0] / 2 - sx / 2, C.o[1] + C.s[1] * (1 - f1)],
+    spanC: kx * (1 + gx) + 0.5 - Nx / 2,
+  };
 }
 
 /** Top-row colatitude where sin θ / sin(θ + Pth) = k. */
@@ -258,8 +283,9 @@ export function electQuads(pool, n, T1, L) {
 }
 
 /* — P3 — texB through texA: the decoded frame (aspect V) mapped onto texA's
-   centre crop (aspect aTex), then through texA's own window A. — */
-export const liveB = (V, aTex, A) => compose(coverWindow(V, aTex), A);
+   centre crop (aspect aTex), then through texA's own window A. B samples at A's
+   mUv, so it keeps A's flat crop (spanC, P9) when A has one. — */
+export const liveB = (V, aTex, A) => ({ ...compose(coverWindow(V, aTex), A), ...(A.spanC == null ? {} : { spanC: A.spanC }) });
 
 /* — P4a (h) / P5 (v, q) / 10-24 (w) — the unit classes the planner forms. — */
 export const UNIT_CLASSES = new Set(['h', 'v', 'q', 'w']);

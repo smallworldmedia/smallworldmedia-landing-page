@@ -43,8 +43,9 @@ cd "../swm-globe-worlds" && npm install
 npm run dev -- --port 4322        # runs beside :4321 in this checkout
 ```
 - The worktree is a sibling of `swm-pass-2`. The uncommitted /process work in this checkout stays
-  untouched, and this plan never edits `panelMaterial.js` (the file that work modifies), so the
-  later merge will not conflict.
+  untouched. This plan's lasting edits to `panelMaterial.js` (the file that work modifies) are
+  both from 10-31: P9's flat crop, off unless a unit member switches it on, and one line left when
+  the panel grain (`ba600c9`) was removed (`f2916d1`) (Parity and blast radius).
 - The first commit on the branch is this plan as `docs/globe-worlds-plan.md`, then one commit per
   phase. Nothing is pushed unless you ask.
 - Execution runs inline in this session. The Explore subagents failed through the model-gateway
@@ -242,14 +243,14 @@ pools ship tagged by kind up to the hard cap.
 
 - With no `popmode`, the globe is today's globe. The director is never built, MeridianScroll runs
   its old cursor, and video texture keys are unchanged.
-- **Untouched:** `panelMaterial.js` and `buildGlobeGeometry.js` (both shared with /process),
-  `buildAssetPool.js` and `GLOBE_ASSETS_QUERY` (/process), and all of `src/components/process/`.
-  (Until the media spans, `cascade.js` and `VideoSlotPool.jsx` were on this list too.)
+- **Untouched:** `buildGlobeGeometry.js` (shared with /process), `buildAssetPool.js` and
+  `GLOBE_ASSETS_QUERY` (/process), and all of `src/components/process/`. (Until the media spans,
+  `cascade.js`, `VideoSlotPool.jsx` and `panelMaterial.js` were on this list too.)
 - **Modified:** `index.astro`, `LandingPage.jsx`, `Hero.jsx`, `VideoGlobe.jsx`, `useGlobeScene.js`,
   `MeridianScroll.js`, `LivePanelScheduler.js`, `TextureManager.js`, and in P3
   `FeaturedProjects.jsx` and `useWorldScene.js`. The snap also reached `WorldScene.jsx`,
   `GraticulePager.jsx` and `usePagerGesture.js`; see the P3 log. The media spans (§ Media spans)
-  modified two files that were on the Untouched list:
+  modified three files that were on the Untouched list:
   - `VideoSlotPool.jsx` (/work too): every pooled stream is clipped to the preview window through
     `muxStream` (P0) and fetches no audio (P0v); the globe's default pin is `GLOBE_STREAM_PARAMS`
     (`?globeres`, P0c); an optional per-assign `params` (P6b) keeps the clip, and the default is
@@ -257,6 +258,13 @@ pools ship tagged by kind up to the hard cap.
   - `cascade.js`: `delayOwner`: a unit's members take their lead's delay, in the entrance and the
     blue fill (P4a); a panel outside a unit owns itself, and /process's panels never form units,
     so its cascade is unchanged.
+  - `panelMaterial.js` (/process too): P9's flat crop (10-31), which adds the uniforms `uSpanA`
+    and `uSpanB`, the varying `vT` and the crop lines (What a unit is). Both uniforms default to
+    (0, 0), which leaves `mUv` as it was. Only tileSwap's window writers set them, for a unit
+    member under the flat look, so /process and every single render as before. Removing the
+    panel grain (`f2916d1`) left one line: `color *= uPower` on its own. feature/v1-launch has not
+    changed the file since the branch point. /process's haze (`refine/process`, `ebb6523`) edits
+    other lines of it: its uniforms, a varying and the fog mix.
 - **New:** `buildWorldPools.js`, `worldPatterns.js`, `PopulationDirector.js`, `tileSwap.js`,
   `popConfig.js`, `PopTunePanel.jsx`, `scripts/globe-probe.mjs`,
   `scripts/test/globe-worlds.test.mjs`, `docs/globe-worlds-plan.md`.
@@ -321,12 +329,21 @@ contract's, so comments that cite Q3, Q7 and Q8 still resolve.
   own strip of the picture, `Gφ/(2Pφ − Gφ)` = **0.018676** of the unit's width per column seam,
   and the same fraction of its height per row seam. A straight line in the picture continues
   straight across the gap. Name strips keep their split windows (`nameWindow`), untouched.
-- **The CPU route (O1).** `panelMaterial.js` is not edited. `director.place()` re-derives each
-  member's A window (the poster's) every frame from its own live pose, right after
-  `scroller.update`.
-  - H: `q = vK`, so the picture is exact at every latitude. H has no latitude limit.
-  - V/Q: `q = kappaOwn = √(vK · sin θ₂)`, the geometric mean of the two rows' pinch. The columns
-    align exactly, and each row shows a warp of `½|ln(sin θtop / sin θbottom)|`.
+- **The crop, in two looks (`?popunitlook`).**
+  - **Flat (P9, the default since 10-31).** The graphics card does the pole pinch, per fragment.
+    A member's A window (the poster's) is pose-free (`unitSpan.flatWindow`): one member's width of
+    the unit's cover crop, centred on the unit, plus `spanC`, the member's centre offset from the
+    unit's in member widths. panelMaterial samples `mUv.x = ½ + (vUv.x − ½ + spanC)·sin θ`, θ the
+    fragment's own colatitude, so the picture keeps one density over the whole unit: its rows
+    neither warp nor kink at a gap, and its columns align at every latitude. A window moves only
+    at a bind or a look change.
+  - **Rows: the CPU route (O1), the only look until 10-31.** `director.place()` re-derives each
+    member's A window every frame from its own live pose, right after `scroller.update`. The
+    shader pinches a member by its row centre's `vK` over the member's whole height.
+    - H: `q = vK`, so at any latitude the row's centre line is exact (there it equals the flat
+      look). Over the tile's height the crop stays the centre line's. H has no latitude limit.
+    - V/Q: `q = kappaOwn = √(vK · sin θ₂)`, the geometric mean of the two rows' pinch. The
+      columns align exactly, and each row shows a warp of `½|ln(sin θtop / sin θbottom)|`.
 - **The video window.** `B = cover(V, aTex) ∘ A`, where `V` is Mux's exact picture ratio. texB
   rides texA per frame, so the video registers with the poster.
 - **Eligibility.** A V/Q unit is placed only where its warp stays within `ε = UNIT_EPS = 0.15`
@@ -335,6 +352,7 @@ contract's, so comments that cite Q3, Q7 and Q8 still resolve.
   - it ends at θ + D ≤ θS = 102.39°;
   - the bottom row stays in front of the live horizon: θ + Pθ + D ≤ θh.
 
+  The flat look has no warp to bound, but it forms V/Q units in the same window (As built 12).
   H pairs are admissible anywhere. Their only clause was the grain band's (sin θ ≥ g at both ends,
   g = 0.67, under `?popgrainamt` > 0), and the panel grain was removed on 10-31 (Nathan: "we can
   get rid of the panel grain").
@@ -355,7 +373,7 @@ contract's, so comments that cite Q3, Q7 and Q8 still resolve.
 ### Derivations
 
 These are the figures `unitSpan.js` implements and `scripts/test/globe-worlds.test.mjs` pins
-(T1–T10, T30).
+(T1–T10, T30; the flat look's, the "(P9)" tests).
 
 ```
 Lattice (read live off a scroll panel):
@@ -364,10 +382,15 @@ Member fractions (n = 2):
   member 0 → [0, 0.490662]   member 1 → [0.509338, 1]   seam = Gφ/(2Pφ − Gφ) = 0.018676
 Unit aspects, S(cols, rows) = (cols·Pφ − Gφ) / (rows·Pθ − Gθ):
   S_h = 2.038062   S_v = 0.490662   S_q = 1      (S follows the live lattice: ?gapdeg 2 → S_h 2.00692)
-Shader mirror (panelMaterial.js, read-only):
+Shader mirror (panelMaterial.js):
   vK = sin(clamp(θc, 0, π))   mUv = (0.5 + (vUv.x − 0.5)·vK, vUv.y)   uv = mUv·s + o
-A = compose(coverWindow(aTex, S), memberWindow(…))    B = compose(coverWindow(V, aTex), A)
+  flat (uSpanA = (1, spanC), P9): mUv.x = 0.5 + (vUv.x − 0.5 + spanC)·sin θ, θ = the fragment's own (vT)
+Rows look: A = compose(coverWindow(aTex, S), memberWindow(…))    B = compose(coverWindow(V, aTex), A)
 V/Q scale: q = √(vK · max(sin θ₂, 1e-3)), θ₂ = θ ± Pθ (vK when θ₂ leaves (0, π))
+Flat look (unitSpan.flatWindow, pose-free): gx = Gφ/φLen   Nx = cols + (cols − 1)·gx   C = coverWindow(aTex, S)
+  s.x = C.s.x/Nx   o.x = C.o.x + C.s.x/2 − s.x/2   spanC = kx·(1 + gx) + 0.5 − Nx/2   (the vertical is the rows look's)
+  at pinch k = sin θ the unit spans [C.o.x + C.s.x(1 − k)/2, C.o.x + C.s.x(1 + k)/2], and each seam hides gx of a member's width
+  B = compose(coverWindow(V, aTex), A), carrying A's spanC (uSpanB)
 ε window: thetaBound(k, Pθ) = atan2(k·sin Pθ, 1 − k·cos Pθ)
   θN = thetaBound((1 + ε)^−2) = 47.61°   θS = thetaBound((1 + ε)^2) = 102.39°   (ε = 0.15)
 Travel budget: pace·(land + hold·(1 + holdJit) + trans); defaults pace 2°/s, hold 7 (Nathan 10-28), holdJit 0.4, trans 0.6 (Nathan 10-23)
@@ -410,7 +433,9 @@ texture.
 
 Every span knob is a `?param` with a tunables-guide row. No phase baked a default: each shipped
 as today's behaviour, or off. Nathan's 10-23 bake set three of them (Q1, Q7, Q8) and the desktop `?globeres` (Q22);
-his 10-24 shape set (Q28) added `?popshapes`, default `wide`.
+his 10-24 shape set (Q28) added `?popshapes`, default `wide`. His 10-31 yes to Q2 built P9, and
+`?popunitlook` defaults to its look, `flat`: the rebuild he asked for replaces the CPU crop, which
+stays at `rows` for the A/B.
 
 | Param | Key | Phase | Default | Range | Reload? |
 |---|---|---|---|---|---|
@@ -423,7 +448,7 @@ his 10-24 shape set (Q28) added `?popshapes`, default `wide`.
 | `?globedpr` | `GLOBE_DPR_MAX` | P0c | 3 on phones (bake B, `8732aa8`), `DPR_MAX` (2) on desktop | 1–3 | URL-only, load time |
 | `?globeres` | `GLOBE_STREAM_PARAMS` | P0c | 720p on desktop (Nathan 10-23, Q22; was `STREAM_PARAMS`, 480p), `STREAM_PARAMS` (480p) on phones | `270p` \| `480p` \| `720p` \| `1080p`, else the default | URL-only, load time |
 | `?globethumb` | `GLOBE_T1` | P7 | `THUMB_WIDTH` (512 desktop, 384 phone) | 256–1024, rounded | URL-only, load time |
-| `?popunitlook` | `unitLook` | P9 | `rows` | `rows` \| `flat` | not built: P9 only on Nathan's yes to Q2 |
+| `?popunitlook` | `unitLook` | P9 | `flat` (Nathan 10-31, Q2; `rows` until then) | `flat` \| `rows` | live (bench segment `crop`: every unit on the board re-windows the next frame, with no relayout) |
 
 `?globedpr`, `?globeres` and `?globethumb` reach `/lab/globe` too, which mounts the same
 VideoGlobe (in dev and preview; Netlify redirects `/lab/globe` to `/` in production). `?popcap` and `?popmedia` re-decorate under units, because the quad election reads
@@ -445,7 +470,7 @@ commits' own, and P8 checked each default against the code.
 **New:**
 - `src/components/globe/unitSpan.js` (P1, with later phases appending): the import-free
   arithmetic. It holds the lattice, `frac`, `unitAspect`, `kappaOwn`, `memberWindow`,
-  `compose`, `coverWindow`, `unitA`, `thetaBound`, `unitSkewBound`, `texSpec`,
+  `compose`, `coverWindow`, `unitA`, `flatWindow` (P9), `thetaBound`, `unitSkewBound`, `texSpec`,
   `eligibleVQ`, `quadEligible`, `electQuads` and `liveB`. It also holds the
   source and picture readers (`sourceShort`, `urlDims`, `parseRatio`, `sourceDims`,
   `decodedAspect`, `pictureAspect`, `frameOf`, `mp`) and, from P6b, the tiers:
@@ -469,11 +494,15 @@ commits' own, and P8 checked each default against the code.
   - The V/Q eligibility (P5); `joinGroup` and the unit chip (P6a); `onTune('tier')` (P6b).
   - `selectFor`'s budget, and `GLOBE_T1` (P7).
   - `unitStats` and the telemetry fields below (P0b to P7).
+  - Each unit's `look`, stamped when it forms, and `relook()` on a `?popunitlook` change (P9).
 - `MeridianScroll.js`: a re-born row cancels its in-flight swap (P0a); born pairs.
 - `tileSwap.js`: `windowA`, the one texA window rule. It gives a unit member its own window, and
   loadTile's bind hook writes it on the member's first bound frame (P3, P4b). `placeKey` (the
   asset key plus the place's uid and cell) lets the shared-delay swap skip a tile already
-  showing that placement (P4a).
+  showing that placement (P4a). P9: `unitWindowOf` takes a flat unit's window from `flatWindow`,
+  and every window write goes through `setWindowA` / `setWindowB`, which set the texture's span
+  switch with it; `offA` / `offB` and `shownWindowA` read the uniforms back.
+- `panelMaterial.js` (P9): the flat crop (see Parity).
 - `TextureManager.js`: class-texture URLs, a measured `userData.aspect`, and the residency
   ledger `stats()` (P0b, P3, P7).
 - `LivePanelScheduler.js`: the live window and `decodeStats` (P0b). From P6a, a unit joins and
@@ -483,7 +512,8 @@ commits' own, and P8 checked each default against the code.
   DPR bucket read from the renderer (P0b to P6b).
 - `VideoSlotPool.jsx`: an optional per-assign `params` (P6b; see Parity).
 - `cascade.js`: `delayOwner` (P4a; see Parity).
-- `popConfig.js`, `PopTunePanel.jsx`: the knobs and the bench's spans group (P3 to P7).
+- `popConfig.js`, `PopTunePanel.jsx`: the knobs and the bench's spans group (P3 to P7, and P9's
+  `crop` segment).
 - `HeroLabels.jsx`: one chip per unit, at the unit's centre (P6a), and the fading-chip latch
   (P7).
 - `globeConfig.js`: `GLOBE_T1` and `globePixelRatio` (P7).
@@ -501,7 +531,7 @@ tier`. A tide run caps at `h`; `--rm` and `&poplive=tile` cap at `vq`.
 | off | `texReqShape`, `thumbVariants`, `legacyParity`, `unitsVacuous`, `staleLanded`, `texBudget`, `texPeak` |
 | tex | `liveReg` |
 | h | `unitWhole`, `bornWhole`, `unitRepeats`, `memberStills`, `neighbourRule`, `unitSeam`, `unitRegister`, `snaps`, `skew` |
-| vq | `unitColumns`, `unitRows`, `unitWarp`, `initVQ`, `unitShapes` |
+| vq | `unitColumns`, `unitRows`, `unitWarp` (report-only under the flat look; As built 12), `initVQ`, `unitShapes` |
 | live | `unitLiveSplit`, `chipsPerUnit`, `unitRegisterB` |
 | tier | `decodeReal`, `streamTier`, `videoDensityMax` |
 
@@ -543,7 +573,7 @@ are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the f
 | `nc-units0` | `--units=0 --level=h --baseline=u-desktop` | `unitsVacuous` | P4a |
 | `nc-windows` | `--units --level=h --negctl --baseline=u-desktop` | `unitSeam,unitRegister` | P4b |
 | `nc-bind` | `--units --level=h --negctl=bind --baseline=u-desktop` | `skew` | P4b |
-| `nc-windows-vq` | `--units --level=vq --negctl --baseline=u-desktop` | `unitSeam,unitRegister,unitColumns,unitRows` (and `unitWarp`, As built 4) | P5 |
+| `nc-windows-vq` | `--units --level=vq --negctl --baseline=u-desktop` | `unitSeam,unitRegister,unitColumns,unitRows` (and `unitWarp`, As built 4), under the rows look (As built 12 for the flat look's list) | P5 |
 | `nc-decode` | `--units --level=tier --decodemax=0.3 --baseline=u-desktop` | `decodeReal` | P6b |
 | `nc-density` | `--units --level=tier --densitymax=1 --baseline=u-desktop` | `videoDensityMax` | P6b |
 | `nc-density-hidpi` | `--units --level=tier --dsf=2 --densitymax=0.4 --baseline=u-hidpi` | `videoDensityMax` | P6b |
@@ -566,10 +596,11 @@ is the `--out` folder's name, so pass the key that matches the run.
 **Since Nathan's 10-23 bake the records are stale.** Every one was recorded at the old defaults:
 units off, `?popunitmax` 1, `?popequiv` 0, a hold of ± 0.2, a 0.9 s change, name size 0.62, band
 0.65, face 0.5, span max 6, and a 480p desktop pin; and, since 10-24, the classic shapes, one name
-strip and a 45.5° tilt; and, since 10-28, a 6 s hold and the `today` handoff. Re-record them at the next probe pass. Until
+strip and a 45.5° tilt; since 10-28, a 6 s hold and the `today` handoff; and, since 10-31, the
+rows look. Re-record them at the next probe pass. Until
 then, a run reproduces its record only with the old values in `--extra`, placed after the run's
 own flags (the page and the probe both read a param's first value):
-`&pophold=6&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0&popshapes=classic&popnames=1&herotilt=45.5&pophandoff=today`,
+`&pophold=6&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0&popshapes=classic&popnames=1&herotilt=45.5&pophandoff=today&popunitlook=rows`,
 plus `&globeres=480p` on desktop. The units-off keys also pass `--units=0`. Both hold for the
 negative controls, which judge against the same records.
 
@@ -607,7 +638,8 @@ Otherwise it holds:
 - `seam`, `register`, `snaps`, `skewBad` and `skewChecks` (P4b; the counters are cumulative);
 - `cols`, `rows` and `warp` (P5);
 - `liveSplit`, `chipsPerUnit` and `registerB` (P6a);
-- `density` `{ n, worst }` (P6b).
+- `density` `{ n, worst }` (P6b);
+- `look` (P9): the dial's crop, `flat` or `rows`.
 
 **The A7 guards** (P6a, `8e74419`, and P7-6): `place()` writes a member's texB, and `registerB`
 and `density` count the member, only when its stream was lit for this unit
@@ -661,6 +693,35 @@ and `density` count the member, only when its stream was lit for this unit
     plan, so `streamTier` has no sample, and a `--level=tier` run exits 2 on `streamTier` alone.
     Judge a today run at `--level=live`. The orchestrator's comparison capture found this on
     10-16.
+12. **P9, the flat look** (10-31, Nathan's yes to Q2). What landed beyond What a unit is:
+    - **The ε window stays.** Flat V/Q units have no warp, yet they still form only inside
+      [θN, θS] and in front of the horizon, and `place()` judges skew only for a lead inside that
+      window. So the board, the travel budget and every unit count stay the rows look's, and the
+      A/B shows the crop alone. Widening the window under the flat look is open (a pick, flagged
+      10-31).
+    - **The look belongs to the unit.** A unit takes `?popunitlook` when it forms (`P.look`). A dial
+      change runs `relook()`: every unit on the board takes the new look, whether shown, loading
+      or planned. `place()` re-windows each one the next frame, and that frame skips the skew
+      check (the knob moved the window, not the pose). Nothing is re-laid, and a board planned
+      ahead is never adopted after a dial change (`tuneSeq`).
+    - **texB has its own switch** (`uSpanB`). A unit's stream samples through its A window's flat
+      crop, while a tile still showing a member can fade in another clip's single cover, and that
+      cover's window turns the switch off.
+    - **Telemetry.** `register` holds each member to its pose-free window and its span switch.
+      `seam` and `cols` read the range rendered along the row centre (`rendered` takes `spanC`),
+      and `cols` reads both members of a column at one pinch, the upper one's. `warp`
+      counts the rows look's units only. The probe's `unitWarp` is report-only under the flat look
+      (`GATE_CTX.look` follows popConfig's default), and `&popunitlook=rows` gates it again.
+    - **`nc-windows-vq` under the flat look.** `--negctl` gives every member of a unit the same
+      cover window. Read at one pinch, the columns of that window line up, so the control should
+      fail `unitSeam`, `unitRegister` and `unitRows` but not `unitColumns`, and `unitWarp` only
+      reports. This is derived from the code and not yet run: the controls are re-run when the
+      records are re-recorded. Under `&popunitlook=rows`, the control keeps its four gates and
+      `unitWarp`.
+    - **Where the looks differ.** At any latitude, the rows look's H pair shows the flat crop along
+      the row's centre line, so the two looks differ only over the tile's height. A rows-look V's
+      shared scale does not: at 60° its top member's centre line renders `q/vK` = 1.0746 of the
+      flat width, about the same centre. That is the warp the flat look removes (the "(P9)" tests).
 
 ### Defaults, and Nathan's questions
 
@@ -670,7 +731,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | # | Question | Default (or answer) |
 |---|---|---|
 | Q1 | Turn units on? | Answered 10-23: on (`?popunits=1`); `?popunits=0` is today's globe |
-| Q2 | Build S2, the per-fragment crop (P9)? | Answered 10-31: yes ("yes rebuild cropping on the graphics card"). The CPU route ships until P9 lands |
+| Q2 | Build S2, the per-fragment crop (P9)? | Answered 10-31: yes ("yes rebuild cropping on the graphics card"). Built 10-31 as P9: `?popunitlook=flat` is the default, and `rows` is the CPU route before it (As built 12) |
 | Q3 | Class source: the label alone, or the label with a native veto? | Veto (`CLASS_SOURCE = 'veto'`) |
 | Q4 | Class band width | ±10% in log space around 16:9 and 9:16 |
 | Q5 | Extremes (\|ln r\| ≥ ln 2.4): single, or span? | Single |
