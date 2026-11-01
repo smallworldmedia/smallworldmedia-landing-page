@@ -16,6 +16,11 @@
   persistent islands are rAF-deferred so their tweens are not adopted and reverted at unmount.
 - `client:only` islands: element refs captured in mount effects go stale under dev hydration churn;
   query the DOM lazily at animation-fire time.
+- Timeline traps (each fixed in `process/useProcessScene.js`, commented at the site):
+  `killTweensOf(target)` inside a timeline's own `.call()` kills that timeline's later tweens of the
+  target, so kill at build time; a live tween on `tl.timeScale` re-attaches a killed timeline, so
+  `killTweensOf(tl)` before `tl.kill()`; a repeating timeline's wrap rewinds every child `.to` to its
+  first-play start, so pass `repeatRefresh: true`.
 
 ## The commit-curve idiom
 One linear master proxy (`raw.p` 0→1, `ease:'none'`), each channel remapped through its own clamped
@@ -177,8 +182,8 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
 - A knob is only half-landed until it has a bench row.
 - A tier-split default reads as ONE knob: `GLOBE_STROKE_FRAC` resolves `IS_MOBILE ? 5 : 6`, and a single
   `?globestroke` overrides BOTH tiers (the `?grainsize` convention) rather than exposing two params.
-- Inventory: `docs/tunables-guide.md` (346 keys, as `node scripts/tunables-keys.mjs --check` printed at
-  the globe-worlds fold, 10-31; read the count from that command, never by hand). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (413 keys, as `node scripts/tunables-keys.mjs --check` printed at
+  the 11-01 fold of the media sequence and /process; read the count from that command, never by hand). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
   idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
   regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
@@ -273,6 +278,9 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
 - A `button.class` reset with `font: inherit` outranks `.class` size rules: keep resets at class
   specificity.
 - Resize: `lib/settleResize.js` `settleDebounce` — cheap per-event work, expensive re-solves after settle.
+- Depth in a scene is a colour mix, never opacity: `globe/panelMaterial.js` `uFogAmount` pulls fill
+  and stroke toward the field (off by default; /process drives it). Transparency on overlapping
+  sphere meshes is the draw-order bug the material exists to avoid.
 
 ## Video delivery (learned, the video diet 10-09)
 - **hls.js `maxBufferLength` is a floor, not a cap: bound a muted loop at the source.** hls.js aims its
@@ -307,6 +315,11 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   --enable-unsafe-swiftshader`, wait ~250 ms before reading state, treat `.fp.is-pager-engaged` as
   truth. Never click top-center to blur ([PREVIOUS] sits there). `scripts/pager-probe.mjs` embodies this;
   `scripts/globe-probe.mjs` shares its launch doctrine for the home globe.
+- `scripts/process-probe.mjs` is the /process instrument: `--walk` films every beat on the real GPU
+  (contact sheets + `walk.json`: fps, chip keep-out, draw calls per beat), `--walk --break` tracks
+  the break/reform flights (reversals, overshoots), `--buried` measures chip cover on real pixels.
+  Run GPU probes one at a time; pool stochastic metrics (cover, namings) over several runs, since a
+  single run has misled.
 - Probe output paths: derive them with `fileURLToPath(import.meta.url)`. `new URL(import.meta.url).pathname`
   percent-encodes the Dropbox path's spaces and mkdirs a stray `Small%20World%20Media` tree beside the
   real one. Both probes derive them that way (d4f471c, on `feature/v1-launch` since the

@@ -1,6 +1,6 @@
 # Codebase Map — Small World Media site
 
-*Last Updated: 2026-10-31*
+*Last Updated: 2026-11-01*
 
 The Small World Media (SWM) portfolio site at smallworld.media: a static Astro 5 build whose
 routes are each one large React island driving a route-scoped three.js canvas (home video globe,

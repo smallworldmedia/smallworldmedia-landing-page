@@ -50,6 +50,11 @@ export default class DragMomentum {
    *   velocity, there is simply nothing to grab (and no grab cursor), so the
    *   surface leaves the gesture to the page. 10-07, Nathan: that is the home
    *   globe on phones, where drag-to-spin fought the footer's scroll.
+   * @param {boolean} o.touch        accept TOUCH pointers (default true).
+   *        Pass false where a page-level touch gesture already owns the
+   *        screen — /process, where the swipe quantizer walks the sections
+   *        and a finger on the field must page, not spin. Mouse and pen
+   *        still drag there; nothing changes for the hosts that omit it.
    */
   constructor(el, o = {}) {
     this.el = el;
@@ -58,6 +63,7 @@ export default class DragMomentum {
     this.rm = !!o.reducedMotion;
     this.drag = o.drag ?? true;
     this.cursor = (o.cursor ?? true) && this.drag;
+    this.touch = o.touch ?? true;
     this.ambient = { x: o.ambient?.x ?? 0, y: o.ambient?.y ?? 0 };
     this.dragging = false;
     this.vel = { x: this.ambient.x, y: this.ambient.y };
@@ -97,6 +103,7 @@ export default class DragMomentum {
 
   onDown(e) {
     if (e.button !== 0) return; // right/middle click — the context menu eats the up
+    if (!this.touch && e.pointerType === 'touch') return; // a page gesture owns the finger
     this.el.setPointerCapture(e.pointerId);
     gsap.killTweensOf(this.vel);
     this.dragging = true;

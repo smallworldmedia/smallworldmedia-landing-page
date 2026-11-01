@@ -39,7 +39,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 | Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; a PopulationDirector (built on `refine/globe-worlds`, folded 10-31; on by default since the 10-06 bake; `?popmode=off` restores the flat pool) lays featured-project worlds over the tiles, one world at a time on its own change clock, with client-name strips placed camera-relative on each world change (`?popnames`, off by default since Nathan's 10-24 bake); the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /work (a snap, not a Turn from World 0), and the detail breadcrumb returns the same way. Media spans (`?popunits`, on by default since Nathan's 10-23 bake, Q1, and `?popunits=0` is the globe without them; `docs/globe-worlds-plan.md` § Media spans) let one classed asset span 2×1, 1×2, 2×2 or (`?popshapes=wide`, the default since 10-24) 3×2 tiles as one picture: classed at build (`mediaClass.js`), planned by the director, and windowed per frame on the CPU (`unitSpan.js`, `PopulationDirector.place()`), with one stream and one chip per unit. The globe rests at `?herotilt` −10° (10-24; the north pole out of sight) and takes no drag on any screen (phones since 10-07, desktop since 10-27; /lab/globe keeps its drag), so the pose a world lands at is known and the fast handoff (`?pophandoff`, the default since Nathan's 10-28 call; `today` is the one before it) plans that world's board ahead; a world holds `?pophold` 7 s (± 40%, 10-28) |
 | /work Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
-| /process | `src/components/process/` | Five-stage narrative: ScrollTrigger-driven stage machine reusing the globe geometry/material |
+| /process | `src/components/process/` | Scroll narrative in seven stages (hero globe-O break → five Stages → CTA finale): a ScrollTrigger + quantizer driver over one scene that reuses the globe geometry/material, with project-colour chips in the scene |
 | Persistent chrome | `src/components/SiteShell.jsx`, `SiteNav.jsx`, `SiteFooter.jsx`, `SiteTagline.jsx`, `RouteFill.jsx`, overlays | Nav, drawer, inquiry form (Netlify Forms), privacy, footer reveal, route-fill bridge, logo ticker |
 | Shared motion libs | `src/lib/` | `dragMomentum`, `overlayWipe`, `scramble`, `charCut`, `smoothScroll`, `settleResize` — single sources of truth |
 | Data layer | `src/lib/sanityClient.js`, `src/lib/queries.js`, `src/lib/siteCopy.js`, `src/schemas/` | Build-time fetch, GROQ, the memoized site-copy read, Sanity schema for the Studio at `/studio` |
@@ -49,8 +49,8 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 
 1. Build: each page runs `sanityFetch(QUERY)` (`src/lib/sanityClient.js`, CDN, drafts excluded), shapes
    the result (`buildAssetPool` for globe routes, `buildContentFlow` for /work, `buildWorldPools` for
-   the home globe's population modes), and passes plain props into the island. No client-side Sanity
-   calls.
+   the home globe's population modes, `colorPool` for the /process chips), and passes plain props into
+   the island. No client-side Sanity calls.
    **Site-wide copy is a special case of the same rule** (10-08): the footer blurb and the tagline
    live on the `siteSettings` singleton, and `src/lib/siteCopy.js` memoizes the PROMISE so the whole
    build makes one request for them. `BaseLayout.astro` awaits it — the one file every route passes

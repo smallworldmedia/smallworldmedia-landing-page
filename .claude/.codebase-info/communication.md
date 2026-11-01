@@ -20,6 +20,7 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:open-privacy` / `swm:privacy-state` | privacy pill, mobile menu / `PrivacyOverlay` | `PrivacyOverlay` / `SiteShell` | `{open}` |
 | `swm:hero-chrome`, `swm:hero-lockup-done`, `swm:tagline-exit` | `Hero` | `SiteNav`, `HeroLabels`, `SiteTagline` | — |
 | `swm:process-step` / `-home` / `-index` | `ProcessStepCtas`, driver, `DetailProgressBar` | `useProcessScrollDriver`, `useProcessCopy` | step deltas / index |
+| `swm:process-cta-hover` | `ProcessPage` (CTA hover/focus, rAF-deferred) | `useProcessScene` (the freed shard pulses) | `{on}` |
 
 Rule: dispatches that cross into a persistent island are `requestAnimationFrame`-deferred so the
 resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
@@ -43,6 +44,7 @@ resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
 | `data-nav-accent*` | detail pages | project accent for `RouteFill` / `lib/navAccent.js` |
 | `html.fp-tint` / `html.pop-tint`, `--project-color`, `-2`, `-fg`, `-text`, `-on-black`, `--project-globe-filter` | `lib/navAccent.js` (`applyNavAccent(…, { tint })`: /work → `fp-tint`, home under the population modes → `pop-tint`; `clearNavAccent` drops both, RouteFill on route-home / route-process) | chrome wears the accent; the classes carry the 1.7 s colour fade. The published list IS the contract — `--project-color-on-black` (the YIQ≥140 binary flip to white, so a dark accent inks pure white rather than gliding hue) was computed but unpublished until 10-08, and it must stay an UNREGISTERED custom property: registering it would resolve it to an initial-value and make it interpolable, reopening the paint trap. The privacy pill reads it through `--pill-ink-on-black` |
 | `body.route-home` / `body.route-process` | `BaseLayout.astro` (server) | route-scoped chrome CSS, no hydration flash |
+| `.process-page[data-opening]`, `[data-bg]` | `ProcessPage` (SSR), then `useProcessScene` (`setOpening`, `setBgAttr`) | /process field (w9c): `data-opening` (`black`\|`blue`) keys `process.css` `--ps-field-open`/`--ps-field-solid` and, via `:has()`, the html/body base; `data-bg` names the live field colour, which skins the steppers' keyline and the privacy pill's keyline on black |
 | `sessionStorage swm:hero-intro`, `swm:returnToWork`, `swm:enterWorld` | `Hero`, layout script | intro mode; back-nav to /work; the Enter World handoff (below) |
 
 ClientRouter wipes every `<html>` attribute on swap; persistent islands re-assert theirs on

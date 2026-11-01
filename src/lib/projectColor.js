@@ -46,6 +46,31 @@ export function projectInk(hex) {
   return y >= YIQ_THRESHOLD ? INK_DARK : INK_LIGHT;
 }
 
+/** WCAG relative luminance, 0–1 (sRGB → linear, Rec. 709 weights). null when unparseable. */
+export function relLum(hex) {
+  const c = parseHex(hex);
+  if (!c) return null;
+  const lin = (v) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+}
+
+/**
+ * 10-07 (w3): ink for the /process annotation CHIPS only — the higher
+ * CONTRAST of the two inks on `hex` (WCAG ratio), not the YIQ split. YIQ put
+ * white at 2.83–3.97:1 on four pool colours (#19A8C1 #6688B6 #FE2B09
+ * #FF090A), each of which clears AA in near-black. projectInk stays as it is:
+ * /work's fpDrum reads it (its identical failures are Nathan's call, not this
+ * helper's). 0.053 = L(#0a0a0a) + 0.05. undefined when unparseable.
+ */
+export function chipInk(hex) {
+  const L = relLum(hex);
+  if (L == null) return undefined;
+  return (L + 0.05) / 0.053 >= 1.05 / (L + 0.05) ? INK_DARK : INK_LIGHT;
+}
+
 /** True when the accent is light enough to need dark ink / a dark globe. */
 export function accentIsLight(hex) {
   const y = brightness(hex);
@@ -73,6 +98,26 @@ export function accentOnBlack(hex) {
   const y = brightness(hex);
   if (y == null) return undefined;
   return y >= YIQ_THRESHOLD ? hex : INK_LIGHT;
+}
+
+/**
+ * The distinct project colours, first-seen order — case-insensitive, with
+ * missing and unparseable values dropped. Two projects for one client share
+ * a colour (COCO 2024/2026), and a pool dealt in modulo order should not
+ * deal the same colour twice per lap. /process chips (10-07).
+ */
+export function colorPool(colors) {
+  const seen = new Set();
+  const pool = [];
+  for (const c of colors ?? []) {
+    if (brightness(c) == null) continue;
+    const hex = c.trim();
+    const key = hex.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pool.push(hex);
+  }
+  return pool;
 }
 
 /**

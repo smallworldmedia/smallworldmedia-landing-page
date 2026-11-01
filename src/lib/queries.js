@@ -101,6 +101,18 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
 `;
 
 /**
+ * PROJECT_COLORS_QUERY — the project colour tokens, in /work World order
+ * (orderRank, client-name tiebreak — FEATURED_WORLDS_QUERY's sort). One
+ * entry per featured project, null where a project has none; /process
+ * dedupes them (colorPool) and deals them to its annotation chips in
+ * modulo order (10-07).
+ */
+export const PROJECT_COLORS_QUERY = `
+  *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))]
+    | order(orderRank asc, client->name asc).projectColor
+`;
+
+/**
  * GLOBE_ASSETS_QUERY — Asset pool for the homepage video globe.
  *
  * Tier system (buildAssetPool.js merges these in priority order):

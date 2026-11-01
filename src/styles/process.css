@@ -2,7 +2,9 @@
    PROCESS PAGE — /process (v2 workstream)
    Scroll-told narrative: the ProcessScene canvas
    performs the five Stages behind a left-anchored
-   copy column on the brand-black field.
+   copy column on the scene-staged field (10-10,
+   w9c: black → blue → the home-hero gradient —
+   ?opening=blue keeps the pre-w9c blue → black).
    Spec: docs/process-page-spec.md.
    ============================================ */
 
@@ -14,13 +16,22 @@ html:has(body.route-process) {
   overflow: auto;
   height: auto;
   overscroll-behavior-y: none;
-  /* Rev: brand-BLUE field (the white blank-canvas start was jarring) */
-  background: var(--color-electric-blue);
+  /* Rev: brand-BLUE field (the white blank-canvas start was jarring).
+     10-10 (w9c, Nathan: "start on black instead of blue"): the OPENING
+     field — BLACK by default, in CSS, because the island is client:only:
+     html and body are all the first paint has (and the overscroll). The
+     ?opening=blue arm flips them once the root carries data-opening. */
+  background: var(--color-black);
 }
 
 body.route-process {
   overflow: visible;
   height: auto;
+  background: var(--color-black);
+}
+
+html:has(.process-page[data-opening='blue']),
+body.route-process:has(.process-page[data-opening='blue']) {
   background: var(--color-electric-blue);
 }
 
@@ -34,19 +45,36 @@ body.route-process .site-nav {
   position: relative;
   width: 100%;
   min-height: 100dvh;
-  /* Rev: brand-BLUE field base with white copy over it. The scene keeps the
-     blue field through S1–S4 and crossfades the gradient at S5; data-bg
-     re-skins copy (the white blank-canvas start is reverted). */
-  background: var(--color-electric-blue);
+  /* 10-10 (w9c): the two fields as tokens, keyed on the root's
+     data-opening (the scene's field table, processConfig FIELDS / fieldOf):
+     the OPENING (hero, S1, S2 — this base) and the SOLID (S3, S4 — the
+     layer the ignition grows out of the Core). Black opening by default;
+     ?opening=blue swaps them (the pre-w9c order). */
+  --ps-field-open: var(--color-black);
+  --ps-field-solid: var(--color-electric-blue);
+  /* Rev: the field base with white copy over it — the hero, S1 and S2 play
+     on it; the scene stages the rest over it (.process-bg below). Copy is
+     white on every field. */
+  background: var(--ps-field-open);
   color: var(--color-cream);
 }
 
+.process-page[data-opening='blue'] {
+  --ps-field-open: var(--color-electric-blue);
+  --ps-field-solid: var(--color-black);
+}
+
 /* --- Staged background (scene-driven) ---
-   Base is the brand-BLUE field (the page itself); Fragments gather on it with
-   STROKE_COLOR separating them, and white copy/chrome reads over it. The blue
-   field holds through S1–S4 (the S3 solidify keeps the Core light-up cascade
-   but no longer reveals blue from white); S5 crossfades the home hero's
-   gradient in. Layers sit under the canvas (same z, earlier in DOM order). */
+   10-10 (w9c — the order reversed; it was blue → black): the base is the
+   OPENING field (the page itself, BLACK): the hero, S1 and S2, the Fragments
+   gathering on it lit by their power. At S2→S3's ignition the SOLID field —
+   BLUE, the Core's light flooding the page — grows out of the Core's
+   screen-space disc and holds through S3/S4 (it shrinks back into the Core
+   on the S3→S2 step, opening the reconnect); S5 brings the home hero's
+   gradient in, and the CTA's ramp reaches higher (--ps-ramp). Jumps and
+   compressed catch-ups crossfade, monotonic (the scene's bgCrossfade). Layers
+   sit under the canvas (same z, earlier in DOM order): base < gradient <
+   solid. */
 .process-bg {
   position: fixed;
   inset: 0;
@@ -60,20 +88,27 @@ body.route-process .site-nav {
   inset: 0;
 }
 
-/* The SOLIDIFY FIELD — repurposed to brand BLACK. The base page carries the
-   blue opening (S1/S2); this layer grows from the Core at S3 to flood the
-   world black (useProcessScene bgMorph), and holds through S4. Kept the
-   __blue class/ref handle for minimal churn — it renders black. */
+/* The SOLID FIELD — the field that is NOT the opening: 10-10 (w9c) electric
+   BLUE by default (it rendered black from the P3 rev until w9c). The base
+   page carries the opening (S1/S2); this layer grows from the Core at S3's
+   ignition to flood the world (useProcessScene bgMorph), and holds through
+   S4. The __blue class/ref handle is historical (it named the layer's
+   colour before the P3 rev) — the colour is --ps-field-solid. Hidden until
+   the scene lays the field. */
 .process-bg__blue {
-  background: var(--color-black);
+  background: var(--ps-field-solid);
+  opacity: 0;
+  visibility: hidden;
 }
 
 .process-bg__gradient {
-  /* The home hero's globe-approved backdrop (global.css .hero) */
+  /* The home hero's globe-approved backdrop (global.css .hero). 10-10 (w9c):
+     its black stop is --ps-ramp of the viewport height up — S5 0.4 (the home
+     hero's), the CTA ?ctaramp; the scene writes it on this element. */
   background: linear-gradient(
     to top,
     var(--color-electric-blue) 0%,
-    var(--color-black) 40%
+    var(--color-black) calc(var(--ps-ramp, 0.4) * 100%)
   );
   opacity: 0;
   visibility: hidden;
@@ -81,7 +116,13 @@ body.route-process .site-nav {
 
 /* Fixed full-viewport scene layer behind the copy (spec §1). The scene
    composes the globe right-of-center via group offset — the copy column
-   and the globe share the frame rather than splitting it. */
+   and the globe share the frame rather than splitting it.
+
+   09-09: this layer is the DRAG SURFACE for the field (the home globe's
+   engine, useProcessScene). It only ever sees a pointer where the copy
+   column has handed one through — see the pointer-events pair below — so
+   the gesture lives in the open frame beside the words, which is exactly
+   where the Fragments are. */
 .process-page__canvas {
   position: fixed;
   inset: 0;
@@ -98,126 +139,75 @@ body.route-process .site-nav {
 }
 
 /* (The Thread is a depth-tested line INSIDE the WebGL scene since B3 —
-   no DOM layer. It draws ink-black, the Fragment stroke's color on the
-   blue field, and only ever shows there.) */
+   no DOM layer. It draws in the field table's thread ink for the opening
+   it shows on — 10-10, w9c ?threadink auto: white on black, the Fragment
+   stroke's black on blue.) */
 
-/* --- S1 blob-tracking labels (B4): mono chips latched to drifting
-   shards, scrambling the rolling DISCOVERY vocabulary. The scene owns
-   the spans and projects their targets per frame. --- */
+/* --- S1 annotation chips. The chips, their leaders and their anchor dots
+   are WebGL objects since 09-09 round 2 (useProcessScene): they sit at their
+   panel's own z so shards in front of them can cover them, which a DOM
+   overlay composited above the render could never do — the same move the
+   Thread made in the v2 deck.
+
+   What survives here is the TYPOGRAPHY. .process-label is never painted now;
+   the scene appends a hidden probe carrying this class, reads its face,
+   size, tracking and colour, and draws the chip into a canvas texture with
+   them. So this rule is still the single source of truth for how a chip
+   looks — it just reaches the screen through the canvas. --- */
 .process-labels {
+  /* Probe host only: no painting happens in the DOM, so it takes no space
+     and can never sit over the scene's drag surface. */
   position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
   overflow: hidden;
-}
-
-/* P1: one full-viewport stroke layer for the leaders + anchor dots (the
-   HeroLabels idiom). No viewBox → user units are CSS px, so the endpoints
-   land exactly on the projected shard anchor. */
-.process-labels__svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.process-labels__leader {
-  stroke: var(--color-white);
-  stroke-width: 1;
-}
-
-.process-labels__dot {
-  fill: var(--color-white);
-}
-
-/* On the white canvas (S1/S2) the leader ink goes electric blue to read
-   against the blank field (the chip text flips to blue via the data-bg
-   skin above). */
-.process-page[data-bg='white'] .process-labels__leader {
-  stroke: var(--color-electric-blue);
-}
-
-.process-page[data-bg='white'] .process-labels__dot {
-  fill: var(--color-electric-blue);
+  pointer-events: none;
 }
 
 .process-label {
   position: absolute;
   top: 0;
   left: 0;
-  opacity: 0;
   visibility: hidden;
-  will-change: transform;
-  font-family: var(--font-mono);
+  /* 09-09 (Nathan): the BODY face, not mono — the chips are notes being
+     gathered, and the body voice reads as material rather than as machine
+     chrome. Size/rhythm stay on the mono chrome tokens so the chip keeps
+     its place in the hierarchy. */
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
   font-size: var(--text-mono);
   line-height: var(--lh-mono);
   letter-spacing: -0.02em;
   text-transform: uppercase;
   color: var(--color-white);
   white-space: nowrap;
+  /* 10-07 (Nathan): chips are FILLED in the project colours — this is the
+     fill's inset around the glyph run (sharp corners; the ink flips with
+     the fill via chipInk — projectColor.js, the higher-contrast ink). */
+  padding: var(--space-1) var(--space-3);
 }
 
 /* --- Field-aware accents (data-bg, scene-set) ---
-   On the blue field the electric-blue accents vanish: mono accents go
-   white for contrast. Black/gradient fields keep the house electric
-   blue. */
+   10-07: every live field (blue, black, gradient) is one where the house
+   electric blue vanishes — the field, the lit world, or the gradient's foot
+   — so the mono accents (the PHASE token, the S2 caption, the hero token)
+   are WHITE in their base rules and no longer flip on data-bg. (The P2
+   white-canvas skin that turned them blue is gone with the white field;
+   what still reads data-bg: the steppers' keyline — 10-09, w9: the status
+   bar is white over its dark track on every field now.)
+   The colour ease stays on the type registers, dormant, so any future
+   field-scoped recolour glides over the ~0.6s dolly instead of snapping. */
 .process-stage__token,
 .process-stage__caption,
 .process-hero__token,
-/* P2: the display + prose registers recolor across the white↔blue field
-   flip too — an eased crossfade rather than a hard snap as the blue fill
-   grows/recedes over the ~0.6s dolly. */
 .process-hero__title,
 .process-stage__headline,
 .process-cta__display,
 .process-stage__blurb,
-.process-cta__line,
-.process-label {
+.process-cta__line {
   transition: color 0.4s ease;
-}
-
-.process-page[data-bg='blue'] .process-stage__token,
-.process-page[data-bg='blue'] .process-stage__caption,
-.process-page[data-bg='blue'] .process-hero__token,
-.process-page[data-bg='black'] .process-stage__token,
-.process-page[data-bg='black'] .process-stage__caption,
-.process-page[data-bg='black'] .process-hero__token {
-  color: var(--color-white);
-}
-
-/* --- P2: white-canvas skin (S1/S2) ---
-   The blank brand-white field. White copy would vanish on it, so the
-   surfaces flip to the house electric blue (display + chrome read as the
-   "blue elements" gathering on the canvas); long prose goes near-black for
-   comfortable reading. Colors eased through the shared transition on the
-   token/caption/headline surfaces. FLAG: exact prose vs. blue split is a
-   dial for Nathan. */
-.process-page[data-bg='white'] .process-hero__title,
-.process-page[data-bg='white'] .process-stage__headline,
-.process-page[data-bg='white'] .process-cta__display,
-.process-page[data-bg='white'] .process-hero__token,
-.process-page[data-bg='white'] .process-stage__chip,
-.process-page[data-bg='white'] .process-stage__token,
-.process-page[data-bg='white'] .process-stage__caption,
-.process-page[data-bg='white'] .process-label,
-.process-page[data-bg='white'] .process-tagline {
-  color: var(--color-electric-blue);
-}
-
-.process-page[data-bg='white'] .process-stage__blurb,
-.process-page[data-bg='white'] .process-cta__line {
-  color: var(--color-near-black);
-}
-
-/* Chip hover on the white field: the family's white/black charged state
-   would be boundary-less on white — flip to black fill/white ink (same
-   "goes neutral" language, inverted for the field). The blue REST fill
-   already reads on white, so no rest override is needed (08-26 pass). */
-.process-page[data-bg='white'] .process-stepnav__cta:not(:disabled):hover,
-.process-page[data-bg='white'] .process-stepnav__cta:not(:disabled):focus-visible {
-  background: var(--color-black);
-  color: var(--color-white);
 }
 
 /* --- Copy column: left-anchored, normal flow (spec §1) --- */
@@ -225,6 +215,16 @@ body.route-process .site-nav {
   position: relative;
   z-index: 2;
   padding: 0 1.143rem;
+  /* 09-09: the column spans the viewport, so at `auto` it swallowed every
+     pointer before the scene's drag surface could see one. The COLUMN is
+     transparent to pointers; its actual content takes them back (below), so
+     text still selects and every control still clicks — and the open frame
+     beside the copy drags the field. */
+  pointer-events: none;
+}
+
+.process-page__copy :where(p, h1, h2, a, button, .process-cta__actions) {
+  pointer-events: auto;
 }
 
 /* Scroll runway per state: hero 100vh · Stages 140vh · CTA = the room
@@ -239,8 +239,12 @@ body.route-process .site-nav {
   min-height: var(--ps-runway);
 }
 
+/* 10-07 (Nathan): the PROCESS lockup is CENTRED, not left-anchored — the
+   globe-O sits on the page's axis, which is where it breaks into the belt. */
 .process-hero {
   --ps-runway: 100vh;
+  align-items: center;
+  text-align: center;
 }
 
 .process-stage {
@@ -261,21 +265,43 @@ body.route-process .site-nav {
   --ps-runway: calc(100vh - var(--footer-panel-h, 15.5rem));
 }
 
-/* Keyword highlight tokens per field (src/lib/keywords.jsx): the box +
-   the wiped-in ink flip with the scene's data-bg. */
-.process-page {
-  --kw-bg: var(--color-electric-blue);
-  --kw-ink: var(--color-white);
+/* 10-07 (final review): REDUCED MOTION RESTS. Under reduced motion there is
+   no swipe quantizer (and no Lenis) — the page scrolls natively, and a
+   page-down or a fling landed between rests: the copy of one state over the
+   still of another, and a phone has no steppers to recover. Native snap
+   brings the rests back: each state's copy centres (its scroll-margin
+   shrinks the 140vh stage's snap area to the viewport — Chrome's covering
+   rule otherwise lets an area taller than the snapport rest anywhere along
+   it), and the CTA meets the document end. Mandatory, not proximity: with
+   proximity a page-down from a rest measured short of the next one. */
+@media (prefers-reduced-motion: reduce) {
+  html:has(body.route-process) {
+    scroll-snap-type: y mandatory;
+  }
+
+  .process-hero,
+  .process-stage {
+    scroll-snap-align: center;
+    scroll-margin-block: calc((100vh - var(--ps-runway)) / 2);
+  }
+
+  .process-cta {
+    scroll-snap-align: start;
+  }
 }
 
-.process-page[data-bg='blue'] {
+/* Keyword highlight tokens (src/lib/keywords.jsx): the box + the wiped-in
+   ink. 10-07: ONE skin for the whole walk — a white box with electric-blue
+   ink. The blue box this page wore off the blue field sank into the lit
+   world from S4 on (and blinked with S5's rhythm behind it); white holds on
+   blue, on black (21:1) and on the lit globe (8.6:1). */
+.process-page {
   --kw-bg: var(--color-white);
   --kw-ink: var(--color-electric-blue);
 }
 
 /* --- Chrome register: lowercase snake_case mono --- */
 .process-hero__token,
-.process-tagline,
 .process-stage__chip {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
@@ -291,15 +317,11 @@ body.route-process .site-nav {
   min-height: var(--lh-mono);
 }
 
-/* Flex + gap, not a leading space — ScrambleText trims leading
-   whitespace, so the separator spacing lives in layout */
-.process-stage__chip {
-  display: flex;
-  gap: 0.5ch;
-}
+/* 09-09: the chip is the PHASE token alone — the "/ chip_name" tail and
+   the flex row that spaced it away from the token are both retired. */
 
 .process-stage__token {
-  color: var(--color-electric-blue);
+  color: var(--color-white); /* 10-07: white on every field (S5's blue token was 2.4:1 on black) */
 }
 
 /* --- Display register: squeezed caps ---
@@ -407,12 +429,17 @@ body.route-process .site-nav {
 
 /* --- Prose register: sentence case, body face ---
    The detail-page blurb voice verbatim (.project-blurb__text) — same
-   fluid size, unit leading and tracking, per Nathan's 07-15 note. */
+   fluid size, unit leading and tracking, per Nathan's 07-15 note.
+   10-09 (w9): the size is a token — S2's lead line wears it too. */
+.process-page {
+  --ps-blurb-size: clamp(1.5rem, 2.78vw, 3.571rem);
+}
+
 .process-stage__blurb,
 .process-cta__line {
   font-family: var(--font-body);
   font-weight: 400;
-  font-size: clamp(1.5rem, 2.78vw, 3.571rem);
+  font-size: var(--ps-blurb-size);
   line-height: 1;
   letter-spacing: var(--tracking-body);
   color: var(--color-white);
@@ -420,57 +447,81 @@ body.route-process .site-nav {
   margin-top: var(--space-6);
 }
 
-/* --- Persistent tagline: fixed bottom-right, the mono chrome voice
-   (v2 deck — replaces the retired hero sub/cue; the meter vacated this
-   corner for bottom-center). Measured so it never crowds the meter. --- */
-.process-tagline {
-  /* 08-29 keep-out + shrink knobs (tokenized in the 08-29 sweep — values
-     unchanged from the verified bake): */
-  --caption-pill-reserve: 6.5rem;
-  /* the .site-privacy capsule (~5.3rem) + air — deliberately tighter than
-     the footer nav's --privacy-clearance (no row gap to mirror here) */
-  --caption-slope: 1.38vw;
-  /* viewport-tracking shrink rate of the nowrap line */
-  --caption-shrink: 0.5rem;
-  /* constant shed off the slope — see the font-size note below */
-  position: fixed;
-  /* 08-29: clear the persistent lower-right privacy pill (.site-privacy) —
-     the pill's own scrollbar-aware inset + the reserve above (the footer
-     nav's reservation idiom). */
-  right: calc(var(--chrome-right-inset) + var(--caption-pill-reserve));
-  bottom: var(--nav-inset);
-  z-index: 4;
-  /* P3: one line, all caps — the tagline reads as a single mono rule
-     along the bottom edge. max-width relaxed off the 24ch prose measure
-     so it never wraps; the font shrinks on narrower desktops (min())
-     so the nowrap line stays inside the viewport. */
-  max-width: none;
-  text-transform: uppercase;
-  white-space: nowrap;
-  /* Floor keeps it legible on narrow desktops; capped at the mono chrome
-     size on wide viewports. The middle term tracks the free band between
-     the CENTERED meter's right edge and the pill reservation (solved
-     08-29: the old 1.5vw never dropped below the cap on desktop, so the
-     constant-width line collided with the meter once the pill clearance
-     moved it left; 1.38vw − 0.5rem shrinks the line just fast enough to
-     clear the meter down to ~1000px — below that the floor crowds it, as
-     it always did — while still reaching the full cap by 1440). */
-  font-size: clamp(0.5rem, calc(var(--caption-slope) - var(--caption-shrink)), var(--text-mono));
-  text-align: right;
-  opacity: 0.65;
-  pointer-events: none;
+/* 10-07: the ask is one sentence — balanced, so it never leaves "own." alone
+   on a line and the highlighted [[start one of your own]] lands as the
+   second line (processContent.js keeps "your own" on a no-break space for
+   engines without balance). */
+.process-cta__line {
+  text-wrap: balance;
 }
 
-/* S2's Thread pings land here (references_folded → dots_connected →
-   core_assembled) — height reserved so the scramble never shifts layout */
-.process-stage__caption {
+/* The mono caption — S5's live readout (and, until 10-09, S2's Thread
+   pings) — height reserved so the scramble never shifts layout.
+   10-08 (w8): .process-stage__next (?nexttease, phone only) wears the same
+   register. */
+.process-stage__caption,
+.process-stage__next {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   line-height: var(--lh-mono);
   letter-spacing: -0.02em;
-  color: var(--color-electric-blue);
+  color: var(--color-white);
   min-height: var(--lh-mono);
   margin-top: var(--space-5);
+}
+
+/* 10-08 (w8, ?nexttease — Nathan's A/B, off by default): the PHONE's
+   `next: <phase>` line, the hidden stepnav's own words, on its own row under
+   the card (snug under a caption). Rendered only with the knob on; shown
+   only ≤768px (the phone block below). */
+.process-stage__next {
+  display: none;
+}
+
+.process-stage__caption + .process-stage__next {
+  margin-top: var(--space-2);
+}
+
+/* 10-09 (w9, s2-hold — Nathan: "once the dots are connected, then the main
+   blurb text comes up"): S2's Thread pings (references_folded →
+   dots_connected NN/NN) are the card's LEAD line now — ABOVE the blurb, at
+   the blurb's size and face (the count is what the card shows while the
+   dots connect; the blurb rises under it once they are). Tabular figures so
+   the counting never jitters the line; one line, its height reserved, so
+   the blurb's seat never moves as the text arrives. */
+.process-stage__caption--lead {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: var(--ps-blurb-size);
+  line-height: 1;
+  letter-spacing: var(--tracking-body);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-height: 1em;
+  margin-top: var(--space-6);
+}
+
+/* 10-07 (w6, s5-drop): S5's caption is the LIVE readout — `● count_in`, then
+   `● live_123_bpm` on the drop, then the brand-book pages. The ● is an LED:
+   unlit it is its own colour sunk toward black, lit (.is-on — the scene's
+   beat, on for the first half of every beat) the full colour. A COLOUR swap
+   on the beat grid, never opacity — and no transition, so the register's
+   dormant 0.4s colour ease above can never smear the blink. --beat-color is
+   the pool's first project colour (ProcessPage) or a chapter's remembered S3
+   spec fill (the scene). [data-key]: a fill under 3:1 on the black or the
+   blue end of the field (processConfig beatKeyed) keeps its colour and takes
+   a 1px white keyline, so the ● never sinks into the field. */
+.process-stage__beat {
+  color: color-mix(in oklab, var(--beat-color, currentColor) 32%, var(--color-black));
+  transition: none;
+}
+
+.process-stage__beat.is-on {
+  color: var(--beat-color, currentColor);
+}
+
+.process-stage__beat[data-key] {
+  -webkit-text-stroke: 1px var(--color-white);
 }
 
 /* --- Closing CTAs (base skin — the family treatment lands in P4) --- */
@@ -517,10 +568,12 @@ body.route-process .site-nav {
   border-color: var(--color-electric-blue);
 }
 
-/* Focus-visible — the house single recipe (spec §7) */
+/* Focus-visible — the house single recipe (spec §7). 10-07 (final review):
+   WHITE on this page — the CTA sits on black (blue reads 2.44:1 there) or
+   the gradient's blue foot (≈1:1); white holds 21:1 / 8.6:1. */
 .process-cta__primary:focus-visible,
 .process-cta__secondary:focus-visible {
-  outline: 1px dashed var(--color-electric-blue);
+  outline: 1px dashed var(--color-white);
   outline-offset: 4px;
 }
 
@@ -537,9 +590,11 @@ body.route-process .site-nav {
   gap: 0.5rem;
   margin-top: 2rem;
   border: none;
-  /* 08-26 nav-chip pass — same family skin as the stepnav steppers. */
-  background: var(--project-color, var(--color-electric-blue));
-  color: var(--project-color-fg, var(--color-white));
+  /* 08-26 nav-chip pass — same family skin as the stepnav steppers (10-07:
+     near-black at rest, keylined on the dark fields — see the steppers;
+     brand blue vanished into the S5 globe behind it). */
+  background: var(--color-near-black);
+  color: var(--color-white);
   font-family: var(--font-ui);
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
@@ -549,7 +604,8 @@ body.route-process .site-nav {
   transition:
     opacity 0.18s ease-out,
     background-color 0.18s ease-out,
-    color 0.18s ease-out;
+    color 0.18s ease-out,
+    box-shadow 0.4s ease;
 }
 
 .process-cta__top:hover,
@@ -559,7 +615,7 @@ body.route-process .site-nav {
 }
 
 .process-cta__top:focus-visible {
-  outline: 1px dashed var(--color-electric-blue);
+  outline: 1px dashed var(--color-white); /* 10-07 (final review): as the actions' */
   outline-offset: 4px;
 }
 
@@ -733,18 +789,23 @@ body.route-process .site-nav {
 
 /* --- Walkthrough steppers: the /work CTA chip family, re-cut small,
    subtle and left-aligned (Nathan 07-15). Same anatomy (mono label +
-   CtaArrows caret window), quieter voice: transparent at 0.65, filling
-   electric blue on hover (the house chip hover) — black on the blue
-   field where electric blue vanishes.
-   Placement (v2 deck): [previous] top-left below the nav (back is up),
-   [next] bottom-left (forward is down). --- */
+   CtaArrows caret window); the skin is the 08-26 nav-chip pass below,
+   resting near-black on this page (10-07).
+   Placement — 09-09 (Nathan): the steppers move onto the /work seat. The
+   chips are CENTERED horizontally (.fp-cta's left:50% + centering
+   translate, featured-projects.css), [previous] below the nav bar and
+   [next] above the status meter; the vertical tokens were already shared,
+   so this is the last piece of parity between the two pagers. The old
+   left-corner placement (v2 deck) is retired. (10-09 (w9): the meter
+   moved up — it rides ABOVE [next] now; see the status bar below.) --- */
 .process-stepnav {
   position: fixed;
-  left: var(--nav-inset);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 4;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.15rem;
   /* Nathan 07-30: both steppers step in from the viewport edges by the
      SAME amount — [previous] down, [next] up. One var, provably equal.
@@ -758,22 +819,33 @@ body.route-process .site-nav {
   top: calc(2.929rem + var(--space-4) + var(--stepnav-edge-offset));
 }
 
+/* 10-07 (w7): the slot RIDES THE FOOTER — the risen links panel (z 40)
+   covered back_to_top (the slot's end state) at the CTA rest; it now keeps
+   its inset above the panel's top edge, on the same scroll-linked
+   broadcast (SiteFooter: --footer-reveal 0..1 × --footer-panel-h), so it
+   stays reachable and the footer never moves. 0 everywhere else. */
 .process-stepnav--next {
-  bottom: calc(var(--nav-inset) + var(--stepnav-edge-offset));
+  bottom: calc(
+    var(--nav-inset) + var(--stepnav-edge-offset) + var(--footer-reveal, 0) * var(--footer-panel-h, 0px)
+  );
 }
 
-/* ?debug only: the tuning panel owns the lower-left corner — [next]
-   slides right of it so both stay clickable while dialing ([previous]
-   lives top-left now and clears the panel on its own) */
-.process-page:has(.process-debug) .process-stepnav--next {
-  left: calc(var(--nav-inset) + 300px);
-}
+/* (The ?debug shove is retired with the left-corner seat — a centered
+   [next] clears the lower-left tuning panel on its own.) */
 
 /* 08-26 nav-chip pass (family: /work [NEXT]/[PREVIOUS], detail breadcrumb):
-   rest = accent fill with readable ink (no process accent → brand blue),
-   sans UI face at the small stepper size; hover/focus = the family's
-   white/black charged state. Per-phase overrides below keep the chip
-   legible where the field matches one of its states. */
+   rest = accent fill with readable ink, sans UI face at the small stepper
+   size; hover/focus = the family's white/black charged state.
+   10-07: on /process the rest fill is NEAR-BLACK on every field — the
+   page's accent IS the world (the blue field, then the lit globe from S4
+   on, then the gradient's blue foot), so a brand-blue pill lost its box
+   there, and the old blue-phase-only dark rest flipped blue on the S2→S3
+   commit while the field under it was still blue. On the dark fields a 1px
+   white inset keyline keeps the box (near-black on black is 1.06:1); the
+   white hover fill swallows it. 10-10 (w9c): the dark fields are now the
+   OPENING (hero/S1/S2), S5 and the CTA — the keyline is on there; S3/S4's
+   blue field shows the bare near-black box (2.30:1, the pre-w9c blue
+   opening's look). Measured at every rest: the ink 19.8:1 on its box. */
 .process-stepnav__cta {
   display: flex;
   /* 08-31, Nathan: the stepper family stacks VERTICALLY, centered —
@@ -784,8 +856,8 @@ body.route-process .site-nav {
   /* previous/next as equals — the "previous" box is the floor (global token) */
   min-width: var(--stepnav-min-w);
   border: none;
-  background: var(--project-color, var(--color-electric-blue));
-  color: var(--project-color-fg, var(--color-white));
+  background: var(--color-near-black);
+  color: var(--color-white);
   font-family: var(--font-ui);
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
@@ -795,7 +867,8 @@ body.route-process .site-nav {
   transition:
     opacity 0.18s ease-out,
     background-color 0.18s ease-out,
-    color 0.18s ease-out;
+    color 0.18s ease-out,
+    box-shadow 0.4s ease;
 }
 
 .process-stepnav__cta:not(:disabled):hover,
@@ -814,18 +887,35 @@ body.route-process .site-nav {
   pointer-events: none;
 }
 
-/* Blue phase: the rest fill matches the field — the chip goes neutral-dark
-   (the chip-on-accent-surface precedent, client-panel__next). Hover stays
-   the family white/black. */
-.process-page[data-bg='blue'] .process-stepnav__cta {
-  background: var(--color-near-black);
-  color: var(--color-white);
+/* The dark fields' keyline (10-07 — a new edge on the nav-chip family:
+   Nathan's A/B). The phone's in-flow back_to_top chip wears it too. */
+.process-page[data-bg='black'] .process-stepnav__cta,
+.process-page[data-bg='gradient'] .process-stepnav__cta,
+.process-page[data-bg='black'] .process-cta__top,
+.process-page[data-bg='gradient'] .process-cta__top {
+  box-shadow: inset 0 0 0 1px var(--color-white);
 }
 
-.process-page[data-bg='blue'] .process-stepnav__cta:not(:disabled):hover,
-.process-page[data-bg='blue'] .process-stepnav__cta:not(:disabled):focus-visible {
-  background: var(--color-white);
-  color: var(--color-black);
+/* 10-10 (w9c fix, scr-3): the privacy pill's black capsule (SiteTagline's;
+   its look is global.css's) vanishes on the black opening (1.00:1 — only
+   its blue word stayed, 2.44:1), so on /process it takes the steppers'
+   keyline while the field is black — the capsule reads again. An inset
+   ring, so the pill's own clip-path wipe carries it; never on the open
+   state (white face). On blue and the gradient's blue foot the black face
+   reads by itself. */
+body.route-process .site-privacy {
+  transition: box-shadow 0.4s ease;
+}
+
+body.route-process:has(.process-page[data-bg='black']) .site-privacy:not([aria-expanded='true']) {
+  box-shadow: inset 0 0 0 1px var(--color-white);
+}
+
+/* 10-07 (w5, stepper-tease): [next] names the next section (`next:
+   core_assembly`) — one line, whatever its words measure (10-09 (w9):
+   plain text now, no scramble). */
+.process-stepnav .fp-cta__label {
+  white-space: nowrap;
 }
 
 /* The /work caret window at 60×34 outweighs the small label — re-cut.
@@ -848,15 +938,48 @@ body.route-process .site-nav {
 
 /* --- Walkthrough status bar (08-31, Nathan): the osboot ░▒▓█ cell meter
    RETIRED — the shared minimal capsule (.detail-progress, global.css)
-   carries the walk now. Only the FIELD-AWARE skins live here: the blue
-   phase's field IS the brand fill, so the bar flips to white-over-dark
-   (the stepnav chip-on-accent precedent); the white field keeps the
-   brand-blue fill, which reads natively there. --- */
-.process-page[data-bg='blue'] .detail-progress {
+   carries the walk now. The component and its global rules are /work's;
+   everything /process changes is OVERRIDDEN here, scoped to the page.
+
+   10-09 (w9, status-bar — Nathan: "move it above so it sits away from the
+   viewport more and is more visible as you scan the page … increase the
+   min width of the bar, having it scale"): the bar left the bottom edge
+   (bottom 4px, under [next] and the pills, and under the dev toolbar).
+   · SEAT — desktop: centred, its bottom edge --ps-bar-gap above the [next]
+     chip's top, built from the chip's own seat (--nav-inset +
+     --stepnav-edge-inset — the .process-stepnav--next offset — + the
+     footer ride) plus the chip's box, so the two move together. Phone (the
+     steppers are hidden): --ps-bar-gap above the privacy pill's top (its
+     footer inset + capsule: 2 × --pill-pad-y + --lh-pill), and the cards'
+     bottom anchor (--ps-mobile-bottom, below) rises to clear it by the
+     same gap.
+   · WIDTH — a larger floor that scales with the viewport (one clamp():
+     280px at 390, 30vw on desktop — 432px at 1440 — capped at 504px).
+   · SKIN — the white fill over the dark track on EVERY field (it was the
+     blue phase's alone; on the black and gradient fields the base
+     brand-blue capsule sank into the gradient's blue foot). The brand-blue
+     capsule is one rule away: drop the two background lines below. */
+.process-page {
+  --ps-bar-w: clamp(20rem, 30vw, 36rem);
+  --ps-bar-gap: 0.75rem;
+  /* the global capsule's 6px — the phone cards' anchor reads it */
+  --ps-bar-h: 0.429rem;
+  /* the [next] chip's box: 0.25rem pads + the mono label + the 20px caret
+     window (41px measured at 1440 — the nav bar's 2.929rem, by chance) */
+  --ps-stepnav-h: 2.929rem;
+  --ps-bar-bottom: calc(
+    var(--nav-inset) + var(--stepnav-edge-inset) + var(--footer-reveal, 0) * var(--footer-panel-h, 0px) +
+      var(--ps-stepnav-h) + var(--ps-bar-gap)
+  );
+}
+
+.process-page .detail-progress {
+  bottom: var(--ps-bar-bottom);
+  width: var(--ps-bar-w);
   background: color-mix(in srgb, var(--color-white), var(--color-black) 70%);
 }
 
-.process-page[data-bg='blue'] .detail-progress__fill {
+.process-page .detail-progress__fill {
   background: var(--color-white);
 }
 
@@ -874,18 +997,34 @@ body.route-process .site-nav {
     max-width: none;
   }
 
-  /* The detail-page blurb's own mobile cut */
+  /* The detail-page blurb's own mobile cut (10-09, w9: the token — S2's
+     lead line follows it) */
+  .process-page {
+    --ps-blurb-size: clamp(1.4rem, 5.5vw, 2.2rem);
+  }
+
   .process-stage__blurb,
   .process-cta__line {
-    font-size: clamp(1.4rem, 5.5vw, 2.2rem);
     max-width: none;
   }
 
-  /* One meter of chrome is enough on a phone — the steppers assume a
-     pointer anyway; swipe owns the walk. The tagline sits out too. */
-  .process-stepnav,
-  .process-tagline {
+  /* The steppers assume a pointer anyway; swipe owns the walk on a phone.
+     (The tagline that used to sit out here is retired outright, 09-09.) */
+  .process-stepnav {
     display: none;
+  }
+
+  /* 10-07 (final review): the phone's only way home gets a 44px TARGET —
+     the visible chip keeps its 21px nav-chip box; a transparent hit area
+     runs 12px above and below it. */
+  .process-cta__top {
+    position: relative;
+  }
+
+  .process-cta__top::before {
+    content: '';
+    position: absolute;
+    inset: -12px 0;
   }
 
 
@@ -902,9 +1041,37 @@ body.route-process .site-nav {
     );
   }
 
+  /* 10-09 (w9, status-bar): the bar rides above the privacy pill now, and
+     every card's last line (and the ?nexttease line) clears it by the same
+     gap — 4.5rem (63px) cleared the old bottom-edge bar; this is ≈77px. */
   .process-page {
+    --ps-bar-bottom: calc(var(--footer-bottom-inset) + 2 * var(--pill-pad-y) + var(--lh-pill) + var(--ps-bar-gap));
+    --ps-mobile-bottom: calc(var(--ps-bar-bottom) + var(--ps-bar-h) + var(--ps-bar-gap));
+  }
+
+  /* 10-09 (w9 fix): …the STAGE cards only. The hero and the CTA never share
+     a screen with the bar (not yet shown on the hero, wiped done at the CTA),
+     so they keep the pre-w9 anchor — the phone's PROCESS lockup and its
+     globe-O (the break's source, heroMark) stay where the break was tuned. */
+  .process-hero,
+  .process-cta {
     --ps-mobile-bottom: 4.5rem;
-    /* 63px — clears the bottom-centre meter + the footer inset */
+  }
+
+  /* 10-08 (w8, ?herov centre — Nathan's A/B; bottom stays the default):
+     the HERO card alone on the frame's vertical centre, so the phone's
+     globe-O (r ≈ 21px) breaks mid-screen instead of at ~85–88% of the
+     frame under ~650px of empty blue. The stage cards keep the 09-08
+     bottom anchor; the break source is the DOM mark (heroMark), so the
+     scene follows. */
+  .process-page[data-herov='centre'] .process-hero {
+    justify-content: center;
+    padding-bottom: 0;
+  }
+
+  /* 10-08 (w8, ?nexttease): the phone shows the next line (see above). */
+  .process-stage__next {
+    display: block;
   }
 
   /* 09-08 (Nathan): the copy scrim spans the FULL viewport width (it was
@@ -929,18 +1096,6 @@ body.route-process .site-nav {
       rgba(0, 0, 0, 0.6) 42%,
       rgba(0, 0, 0, 0.6) 58%,
       rgba(0, 0, 0, 0) 68%
-    );
-  }
-
-  /* P2: on the white canvas (S1/S2) the copy is dark — the black scrim
-     would bury it, so the phone scrim flips to a white wash instead. */
-  .process-page[data-scrim][data-bg='white'] .process-section::before {
-    background: linear-gradient(
-      to bottom,
-      rgba(250, 250, 250, 0) 32%,
-      rgba(250, 250, 250, 0.72) 42%,
-      rgba(250, 250, 250, 0.72) 58%,
-      rgba(250, 250, 250, 0) 68%
     );
   }
 

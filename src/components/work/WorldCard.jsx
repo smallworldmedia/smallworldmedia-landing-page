@@ -48,7 +48,12 @@ import {
 } from './fp1Tune.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 // House scramble tokens for the PROJECT_## reveal (chrome kit).
-import { SCRAMBLE_CHARS, SCRAMBLE_DURATION, SCRAMBLE_SPEED } from '../../lib/scramble.js';
+import {
+  SCRAMBLE_CHARS,
+  SCRAMBLE_DURATION,
+  SCRAMBLE_SPEED,
+  SCRAMBLE_REVEAL_DELAY,
+} from '../../lib/scramble.js';
 
 gsap.registerPlugin(useGSAP, SplitText, ScrambleTextPlugin, CustomEase);
 
@@ -283,8 +288,10 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
             scrambleText: {
               text: `PROJECT_${pad2(index)}`,
               chars: SCRAMBLE_CHARS,
+              // 09-09: the reveal beat is a house token now, so this tab and
+              // every scrambleTo elsewhere run byte-identical choreography.
               speed: SCRAMBLE_SPEED,
-              revealDelay: 0.1,
+              revealDelay: SCRAMBLE_REVEAL_DELAY,
             },
           },
           0
