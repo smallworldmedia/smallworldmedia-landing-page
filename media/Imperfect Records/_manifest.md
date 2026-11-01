@@ -14,10 +14,10 @@ year: 2026
 | IMPERFECT-CLUB-KIDS.gif | static_1x1 | 2d-animation | Imperfect Club Kids | false | 4 |  |  | mediaAsset-imperfect-records-imperfect-club-kids |
 | Imperfect Club Kids Club Character Sheet.png | static_3x4 | illustration | Imperfect Club Kids Character Sheet | false | 5 |  |  | mediaAsset-imperfect-records-imperfect-club-kids-character-sheet |
 | IMP010.jpg | album-art | album-art | IMP010 | false | 6 |  |  | mediaAsset-imperfect-records-imp010 |
-| Imperfect Records Logo Color BG.png | static_16x9 | branding | Imperfect Records Logo Color BG | false | 7 |  |  | mediaAsset-imperfect-records-imperfect-records-logo-color-bg |
-| Imperfect Records Logo Color Black Box.png | static_16x9 | branding | Imperfect Records Logo Color Black Box | false | 8 |  |  | mediaAsset-imperfect-records-imperfect-records-logo-color-black-box |
-| Imperfect Records Logo Color.png | static_16x9 | branding | Imperfect Records Logo Color | false | 9 |  |  | mediaAsset-imperfect-records-imperfect-records-logo-color |
-| Imperfect Records Logo White Fill.png | static_16x9 | branding | Imperfect Records Logo White Fill | false | 10 |  |  | mediaAsset-imperfect-records-imperfect-records-logo-white-fill |
+| Imperfect Records Logo Color BG.png | static_16x9 | branding | Imperfect Records Logo Color BG | false | 7 | imperfect-records-wide-logo-sequence |  | mediaAsset-imperfect-records-imperfect-records-logo-color-bg |
+| Imperfect Records Logo Color Black Box.png | static_16x9 | branding | Imperfect Records Logo Color Black Box | false | 8 | imperfect-records-wide-logo-sequence |  | mediaAsset-imperfect-records-imperfect-records-logo-color-black-box |
+| Imperfect Records Logo Color.png | static_16x9 | branding | Imperfect Records Logo Color | false | 9 | imperfect-records-wide-logo-sequence |  | mediaAsset-imperfect-records-imperfect-records-logo-color |
+| Imperfect Records Logo White Fill.png | static_16x9 | branding | Imperfect Records Logo White Fill | false | 10 | imperfect-records-wide-logo-sequence |  | mediaAsset-imperfect-records-imperfect-records-logo-white-fill |
 | Imperfect Stacked Black.png | static_1x1 | branding | Imperfect Stacked Black | false | 11 |  |  | mediaAsset-imperfect-records-imperfect-stacked-black |
 | Imperfect Stacked Color.png | logo | branding | Imperfect Stacked Color | false | 12 |  |  | mediaAsset-imperfect-records-imperfect-stacked-color |
 | Imperfect Stacked Logo COLORED.gif | static_1x1 | branding | Imperfect Stacked Logo Colored | false | 13 |  |  | mediaAsset-imperfect-records-imperfect-stacked-logo-colored |
