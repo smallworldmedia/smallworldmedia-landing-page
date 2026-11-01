@@ -432,7 +432,7 @@ the selection (P5).
 The defaults set before P0a are outside the phases, and are recorded here:
 - /work's `?dpr` is 3 on phones and 2 on desktop (P0c, `113b085`).
 - /work's `?wallpx` has a desktop floor, `Math.round(768 * Math.max(1.5, WALL_DPR))`, and
-  `?fpstol` is 0, unbaked (PF, `d2967ca`; Q23).
+  `?fpstol` is 2 since 10-31 (PF, `d2967ca`, left it 0 until Nathan's Q23(a)).
 - `?globedpr`'s phone default is 3 (bake B, `8732aa8`).
 - Home's `?footerrest` is 0.40 on desktop by default since 10-31 (0.62 from bake A, `ba7cf2c`), and 0.59 on phones.
 
@@ -719,11 +719,20 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 - Q2, Q11, Q12, Q23(a) and Q25 above.
 
 **Next steps (P8 runs no probe):**
-- The fast handoff's last misses (`7d16642`'s runs: 5 clips on desktop and 2 on the phone that
-  start a rung below the forecast, or were not forecast). Each starts 0–0.5 s after landing,
-  0.6–1.1 s after the change-start pose the clips were scored at. Also scoring `landingClips` at
-  the landing pose (T + land) and fetching the union should catch most of them. Untested;
-  building in the 10-31 round (his "proceed").
+- The fast handoff's last misses. Scoring `landingClips` again at the landing pose and fetching
+  the union was built on 10-31 and withdrawn (Status log): in 12 plans it found no clip that the
+  change-start pose had not. The misses left start after the landing, 0.25–0.9 s from attach to
+  first frame, each showing its still meanwhile (`d5-fast` and `p6-fast`, below). They are of
+  three kinds:
+  1. A rung below the forecast, right after landing. The forecast walks the budget from empty,
+     in its own order. At landing the outgoing world still holds part of the budget, and the
+     scheduler starts the clips in the change's real order. On desktop, zJvlrnqU and fRj7mEI5
+     were fetched at 720p and played at 480p. On the phone, DqzXZ00B took 750 ms to its first
+     frame.
+  2. World 0's own clips, r4VKMW01 and m1SiqlKj, unfetched, 2.7–6.0 s after its first clip, on
+     both devices in every run. `prefetchLaid` weighs only the laid pose's front tiles.
+  3. A clip that starts 0.4–0.5 s after landing as the budget frees, unforecast: Wga4WsRS on
+     desktop and zJvlrnqU on the phone.
 - Re-measure the first units batch's frame rate on a quiet machine. At P7 it ran at about half
   of P6b's rate (02:06-02:09). No load was logged during that batch. P7's PROGRESS.md logged a
   load average of 9.5, with Illustrator near 85% CPU, at 02:10:39 just after it, then 4.7 and
@@ -1341,3 +1350,22 @@ one commit per knob default. The numbers are the contract's §13, and code comme
       1.3 MB. 17 of 21 forecast clips played at the forecast rung; the other 4 never started.
       `fast` also played more clips in the same 50 s: 22 attached, against 19. Kamino's third
       clip still waits for a slot (the outgoing world holds all 4). Adopted 6/6.
+- 2026-10-31 · bake · `f2916d1` · Nathan's replies to the round's 17 open items, the quick ones:
+  pairs at 720 on 3× phones (`phonehd`), `?fpstol` 2, the desktop footer rest 0.40 (his
+  "sliver"), the panel grain removed, and his approval of `?pulsereps` 3, `?footerslides` 0.7 and
+  `?inkmuted` 0.58. Defaults and Open record the rest. Tests 110, 341 keys.
+- 2026-10-31 · instruments · `66526c7` · the 10-27 handoff instruments are folded into
+  `scripts/globe-timing.mjs` and `scripts/globe-timing-report.mjs` (his yes to item 13). The
+  time-weighted live count is new (The timing instruments).
+- 2026-10-31 · HD phone pairs, timed as on 10-27 (phone, 12 Mbps / 70 ms, 50 s;
+  `~/swm-globe-handoff-2026-10/r1031/`). Single runs are noisy. Two runs at the same code read a
+  median wait after landing of 303 and 0 ms (p90 1019 and 146). The steady cost is the live
+  count, which the prefetch does not touch: 2.67, 2.76 and 2.95 streams on average, against
+  3.33 with 480 pairs (`2b92f7e`, p3). The decode budget did not move, so an HD pair crowds out a
+  single's stream.
+- 2026-10-31 · the landing pose, built and withdrawn (his "proceed" on item 10). The plan ahead
+  scored `landingClips` a second time, at the pose the change lands at (spread + dur on, rows and
+  spin moved), and fetched the union. A ledger counted the clips only the second pose found. Over
+  12 plans (desktop `d5-fast`, phone `p6-fast`) it found 0. At `?poptrans` 0.6 a change spans
+  0.6 s, so the two poses are 1.2° of row travel and 1.2° of spin apart (2°/s each). No
+  behaviour came of it, so it did not land. Next steps lists the misses that remain.
