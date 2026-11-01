@@ -51,6 +51,10 @@ import {
   subscribeFooterTune,
   footerRise,
   footerSpan,
+  footerDamp,
+  footerBrakeStep,
+  getFooterLerp,
+  getFooterBrake,
 } from '../lib/footerTune.js';
 // The house resize doctrine (08-28): cheap work per event, the expensive
 // re-measure after the gesture SETTLES.
@@ -84,6 +88,57 @@ export function wipeReveal(from, set, to = 1) {
     ease: wipeEase(),
     onUpdate: () => set(proxy.p),
   });
+}
+
+/* The driven hosts' WHEEL (10-31, Nathan: "some sort of weight to the
+   scrolling when you reveal the full footer … implement lenis here, and have
+   just a bit of ease at the tail end of the scroll so it 'pumps the brakes'").
+   Home and /work's last World moved the panel by each raw wheel delta, so a
+   notch jumped it. A host hands its wheel deltas to this drive instead, which
+   does to them what Lenis does to a document's wheel: a delta moves a TARGET,
+   and the painted progress follows on gsap's ticker by Lenis's own damp at the
+   house's baked lerp (footerDamp, ?footerlerp). The target brakes in the
+   reveal's tail (footerBrakeStep, ?footerbrake), so the panel slows into the
+   full reveal instead of stopping dead on it. Touch keeps its finger tracking
+   and its release carry (Lenis leaves touch native too), and reduced motion
+   keeps its snap. Whatever else writes the progress (a wipe, a close, a
+   touch, a departure) stops the drive first, and so does the host's unmount. */
+export function createFooterDrive(set, rest = 0) {
+  let value = rest;
+  let target = rest;
+  let running = false;
+  const stop = () => {
+    if (running) gsap.ticker.remove(tick);
+    running = false;
+  };
+  function tick(_time, deltaMs) {
+    value = footerDamp(value, target, getFooterLerp(), Math.min(deltaMs, 100) / 1000);
+    if (Math.abs(target - value) < 1e-4) {
+      value = target;
+      stop();
+    }
+    set(value);
+  }
+  return {
+    /** A wheel delta in progress units (deltaY / the host's trigger px), taken
+        from the painted progress `from` when the drive is at rest. */
+    add(dp, from) {
+      if (!running) value = target = from;
+      target = footerBrakeStep(target, dp, rest, getFooterBrake());
+      if (!(getFooterLerp() > 0)) {
+        // ?footerlerp=0: the raw delta, painted with it, as before 10-31
+        stop();
+        value = target;
+        set(value);
+      } else if (!running && target !== value) {
+        running = true;
+        gsap.ticker.add(tick);
+      }
+    },
+    stop,
+    /** Where the reveal is headed: the target while the drive runs, else `from`. */
+    goal: (from) => (running ? target : from),
+  };
 }
 
 /* INVOKED footer (09-08, Nathan): the tagline pill raises the footer AS AN

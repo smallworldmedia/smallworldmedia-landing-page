@@ -16,6 +16,16 @@
  *               scroll-motion stretch instead of parking partway (the
  *               halfway-scoot fix, half b). SiteFooter reads it via
  *               getFooterTravelK() and re-sizes on publish.
+ *   lerp      — the WHEEL's weight where a host drives the panel (home, and
+ *               /work's last World; 10-31): the damp per 60 Hz frame by which
+ *               the painted reveal follows its target, Lenis's own
+ *               (createFooterDrive in SiteFooter). It defaults to the house's
+ *               baked Lenis lerp (LENIS_TUNING in motion.js), so the footer
+ *               weighs what a document scroll does; 0 = the raw delta, the
+ *               feel before it.
+ *   brake     — the tail's brake on that target (footerBrakeStep below): over
+ *               the last third of the rise a revealing delta's share falls,
+ *               quadratically, to 1 − brake at the full reveal; 0 = off.
  *
  * HOME ([data-footer-rest], 10-07; desktop too since 10-09) — the resting
  * footer's own four.
@@ -33,7 +43,8 @@
  *               `--footer-rise-peak` (`--footer-marks-from/-to/-lift`); the
  *               ?logofrom/?logoto shape, one tier in from the band's.
  *
- * URL params (`?footerlockup=<rem>`, `?footertravel=<K>`, `?footerlift=<k>`,
+ * URL params (`?footerlockup=<rem>`, `?footertravel=<K>`, `?footerlerp=<lerp>`,
+ * `?footerbrake=<b>`, `?footerlift=<k>`,
  * `?footermarksfrom`, `?footermarksto`, `?footermarkslift=<rem>`,
  * `?footerintro=<s>`) seed the state on load — with or without the bench
  * open, so a copied link previews the dialed values. copy_url emits only
@@ -64,6 +75,47 @@ export const footerRise = (progress, rest = 0) =>
     panel's own climb in px, so a consumer can convert the rise back to px. */
 export const footerSpan = (rest = 0) => Math.min(1, Math.max(0, 1 - rest));
 
+/* ── The driven reveal's weight (10-31, Nathan: "we need to implement some
+   sort of weight to the scrolling when you reveal the full footer with the
+   client logos. Right now, it's very sudden and slightly jarring. if there is
+   a way to implement lenis here, and have just a bit of ease at the tail end
+   of the scroll so it 'pumps the brakes'") ─────────────────────────────────
+   The math createFooterDrive (SiteFooter) runs, pure so the test holds it. */
+/** Lenis's damp (lenis.mjs `damp`: lerp(x, to, 1 − e^(−λ·dt)), λ = lerp × 60,
+    dt in s), so a lerp means here what it means to Lenis, at any frame rate.
+    lerp ≤ 0 lands at once. */
+export const footerDamp = (x, to, lerp, dt) =>
+  lerp > 0 ? x + (to - x) * (1 - Math.exp(-Math.min(lerp, 1) * 60 * dt)) : to;
+/** The share of the rise the tail brake works over: its last third. */
+export const FOOTER_BRAKE_TAIL = 1 / 3;
+/** The target after a delta `dp` (in progress) from `p`, clamped to [rest, 1].
+    A retracting delta moves it plainly. A revealing one brakes in the tail:
+    there d rise / d u = 1 − b·s², s running 0 → 1 across the tail and u being
+    the delta in rise units. Solved in closed form (u = T·atanh(√b·s)/√b), so a
+    delta of any size lands where the same distance in small steps would: a
+    mouse notch brakes as a trackpad's stream of deltas does. At b 0.5 the
+    tail asks 1.25× its distance, about 8% more wheel for the whole reveal. */
+export function footerBrakeStep(p, dp, rest = 0, brake = 0) {
+  const span = footerSpan(rest);
+  const b = Math.min(0.9, Math.max(0, brake));
+  if (!(dp > 0) || !(b > 0) || !(span > 0)) return Math.min(1, Math.max(rest, p + dp));
+  const T = FOOTER_BRAKE_TAIL;
+  const k = Math.sqrt(b);
+  const r0 = 1 - T;
+  let rise = footerRise(p, rest);
+  let du = dp / span;
+  if (rise < r0) {
+    const take = Math.min(du, r0 - rise);
+    rise += take;
+    du -= take;
+  }
+  if (du > 0) {
+    const u = (T * Math.atanh((k * (rise - r0)) / T)) / k + du;
+    rise = Math.min(1, r0 + (T * Math.tanh((k * u) / T)) / k);
+  }
+  return rest + rise * span;
+}
+
 export const FOOTER_TUNE_ACTIVE =
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).get('footertune') === '1';
@@ -71,6 +123,9 @@ export const FOOTER_TUNE_ACTIVE =
 export const FOOTER_TUNE_DEFAULTS = Object.freeze({
   lockupRem: 3.2, // mirrors the global.css `--footer-lockup-h` fallback
   travelK: 1.8, // reveal travel = K × panel height of scroll (1 = old feel)
+  // ── the driven hosts' wheel (home, /work's last World; 10-31, Nathan) ──
+  lerp: 0.165, // mirrors LENIS_TUNING.lerp (motion.js): the house's baked Lenis feel (the test holds the two equal); 0 = the raw delta
+  brake: 0.5, // the tail brake's strength, b (footerBrakeStep); 0 = off. A pick, flagged for Nathan 10-31
   // ── home rest ([data-footer-rest], both tiers since 10-09) ──
   liftK: 0.5, // mirrors the global.css `--footer-lift-k` fallback
   marksFrom: 0.6, // mirrors `--footer-marks-from` — MEASURED, see the guide
@@ -142,6 +197,8 @@ export const FOOTER_TUNE_DEFAULTS = Object.freeze({
 const PARAM_KEYS = {
   lockupRem: 'footerlockup',
   travelK: 'footertravel',
+  lerp: 'footerlerp',
+  brake: 'footerbrake',
   liftK: 'footerlift',
   marksFrom: 'footermarksfrom',
   marksTo: 'footermarksto',
@@ -174,8 +231,11 @@ const PARAM_KEYS = {
    ~0.863 at 1440w is ALREADY clamped by that floor and therefore inert, so
    admitting 0 would only publish a dial position that cannot do anything.
    bandFadeS joins the set: 0 is the one way to see the band without the
-   minimum fade. */
+   minimum fade. lerp and brake join it too (10-31): ?footerlerp=0 is the raw
+   delta the wheel drove before, and ?footerbrake=0 the target with no brake. */
 const ZERO_OK = new Set([
+  'lerp',
+  'brake',
   'liftK',
   'marksFrom',
   'marksLift',
@@ -205,6 +265,11 @@ export const getFooterTuneState = () => state;
 
 /** Reveal-travel multiplier — SiteFooter sizes its spacer by this. */
 export const getFooterTravelK = () => state.travelK;
+
+/** The driven hosts' wheel weight and tail brake (createFooterDrive), read per
+    frame and per delta, so the bench's sliders act on the next wheel event. */
+export const getFooterLerp = () => state.lerp;
+export const getFooterBrake = () => state.brake;
 
 /** The resting footer's on-load word fade — duration AND stagger budget, s.
     The slide used to borrow this; it carries its own `slideS` since 10-08,

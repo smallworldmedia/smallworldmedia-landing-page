@@ -29,7 +29,7 @@ import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
 import GraticulePager from './pager/GraticulePager.jsx';
-import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from '../SiteFooter.jsx';
+import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal, createFooterDrive } from '../SiteFooter.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
 // Only the tiny shared tune STATE is static here; the panel itself (and the
 // Deck Viewer bench below) is import()ed from its mount effect, so neither
@@ -99,16 +99,19 @@ export default function FeaturedProjects({ worlds = [] }) {
   useEffect(() => {
     const on = () => {
       footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
     };
     const off = () => {
       footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, 0);
     };
     window.addEventListener(FOOTER_REVEAL_EVENT, on);
     window.addEventListener(FOOTER_CLOSE_EVENT, off);
     return () => {
       footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
       window.removeEventListener(FOOTER_REVEAL_EVENT, on);
       window.removeEventListener(FOOTER_CLOSE_EVENT, off);
     };
@@ -118,6 +121,10 @@ export default function FeaturedProjects({ worlds = [] }) {
     footerPRef.current = v;
     setFooterP(v);
   };
+  // 10-31 (Nathan): the wheel's footer deltas glide and brake into the full
+  // reveal, as on home (createFooterDrive); touch and reduced motion as before.
+  const footerDriveRef = useRef(null);
+  footerDriveRef.current ??= createFooterDrive(setFooterReveal);
   // FP-1 bench: mount only AFTER hydration. FP1_TUNE_ACTIVE reads
   // window.location.search (false during SSR, true on the client), so gating
   // JSX on it directly hydration-mismatches (#418). Start null everywhere,
@@ -488,6 +495,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       // ~13rem tall, so an engage at full reveal would dim the logo row.
       // Retract instead; the post-end delta reveals it again on release.
       footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
       if (footerPRef.current > 0) setFooterReveal(0);
     }
     mainRef.current?.classList.toggle('is-pager-engaged', v);
@@ -524,7 +532,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     const el = mainRef.current;
     if (!el || !worlds.length) return undefined;
 
-    const addDelta = (dy) => {
+    const addDelta = (dy, wheel = false) => {
       if (departingRef.current) return; // reverse Envelopment committed — input is done here
       footerWipeRef.current?.kill(); // the user's delta supersedes the pill's wipe
       if (pagerEngagedRef.current) return; // pager owns input mid-scrub (a second finger must not Turn)
@@ -538,14 +546,19 @@ export default function FeaturedProjects({ worlds = [] }) {
       // leaves it — the continuous shell slide keeps any partial state calm.
       // 09-08: ALSO whenever the footer is up (the tagline pill can raise it
       // from any World) — an upward delta retracts it before any Turn.
-      if (activeRef.current >= lastIndex || footerPRef.current > 0) {
-        const p = footerPRef.current;
+      // 10-31: a wheel glide is judged by where it is headed (its target).
+      const drive = footerDriveRef.current;
+      if (activeRef.current >= lastIndex || drive.goal(footerPRef.current) > 0) {
+        const p = drive.goal(footerPRef.current);
         if (dy > 0 || p > 0) {
           if (PREFERS_REDUCED_MOTION) {
             // Reveal/retract without animation on the first delta.
             setFooterReveal(dy > 0 ? 1 : 0);
+          } else if (wheel) {
+            drive.add(dy / SCROLL_TRIGGER, footerPRef.current);
           } else {
-            setFooterReveal(Math.min(1, Math.max(0, p + dy / SCROLL_TRIGGER)));
+            drive.stop(); // the finger owns the panel: it tracks, unsmoothed
+            setFooterReveal(Math.min(1, Math.max(0, footerPRef.current + dy / SCROLL_TRIGGER)));
           }
           accumRef.current = 0;
           return; // swallow — no Turn/CTA math while the footer owns the delta
@@ -597,7 +610,7 @@ export default function FeaturedProjects({ worlds = [] }) {
 
     const onWheel = (e) => {
       e.preventDefault();
-      addDelta(e.deltaY);
+      addDelta(e.deltaY, true);
     };
     let touchY = null;
     const onTouchStart = (e) => {
@@ -634,6 +647,7 @@ export default function FeaturedProjects({ worlds = [] }) {
   // click, PREVIOUS CTA) drops a lingering footer reveal — earlier Worlds
   // must never show it. The Turn choreography covers the snap.
   useEffect(() => {
+    if (active < lastIndex) footerDriveRef.current.stop(); // a glide must not carry the footer up an earlier World
     if (active < lastIndex && footerPRef.current > 0) {
       footerWipeRef.current?.kill();
       setFooterReveal(0);

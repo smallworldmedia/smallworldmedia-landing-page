@@ -836,6 +836,11 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   details (4 tiles of room a 2×3, editorial order, sharp sources only, stills as well as clips);
   θT = 30°; and the planner's order, a 2×3 once a plan and planned before the 3×2s, which costs
   Nusonido its 3×2s while the rows travel (2 → 0; 2 → 1 under reduced motion).
+- The footer weight's picks (flagged 10-31; Status log, footer weight): the brake's strength,
+  `?footerbrake` 0.5 (the panel arrives at half the plain rate, and a full reveal takes 1.08×
+  the wheel travel); the tail, the last third of the rise; and the scope, the wheel only, since
+  touch keeps the finger's direct drive until the mobile pass. The lerp is not a pick: it is the
+  house's baked Lenis 0.165.
 
 **Answered 10-31** (his replies to the round's 17 open items):
 - A single's corner touching its own unit stays allowed ("stays as is").
@@ -1509,9 +1514,21 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   @2, reduced motion, seed 42, one ⏭): 11 H, 9 V and 1 W placed; cols, rows, register and seam
   worst 0; the rows look's warp 0.0026, inside ε; skewBad 0 across both flips. Flat → rows →
   flat leaves the globe pixel-identical, and /process renders with no console errors.
-- 2026-10-31 · portraits · the 2×3s (his item 8): a world with room left in its tile budget grows
+- 2026-10-31 · portraits · `f2c418f` · the 2×3s (his item 8): a world with room left in its tile budget grows
   its sharp portraits from 1×2 to 2×3 (`?popportrait`, `fill` by default; the class rule, As built
   13), planned the tallest first, once a plan each. Live at seed 42 on desktop: Bedouin grew 5
   and placed 5, Munchietown 2 and 2, Nusonido 1 and 1, Imperfect Records 1 and 1, under travel
   and reduced motion alike, every span measure worst 0. The Travel budget table moves to the 7 s
   hold's figures (stale since 10-28). Tests 116, 343 keys.
+- 2026-10-31 · footer weight · the wheel's weight on the footer reveal (his item 17: "some sort
+  of weight to the scrolling when you reveal the full footer … just a bit of ease at the tail end
+  of the scroll so it 'pumps the brakes'"). Home and `/work`'s last World drive the panel from
+  raw wheel deltas (Lenis is off on both), so a delta now moves a target and the panel glides to
+  it with Lenis's own damp at the house lerp, 0.165 (`?footerlerp`; `createFooterDrive` in
+  `SiteFooter.jsx`). Over the last third of the rise a delta moves the target less, down to half
+  the rate at the top (`?footerbrake` 0.5, closed form, so a notch and a trackpad's stream land
+  alike). Touch and reduced motion are unchanged. Live on :4322 at 1440×900: one 100 px notch
+  glides 0.40 → 0.60 over 17 frames with no overshoot; three land on the braked 0.9722 (1.0
+  under `&footerbrake=0`); `&footerlerp=0` jumps inside a frame; `/work`'s last World reads
+  0.9537 after five notches and 1 after six, with no Turn. Tests 120, 345 keys. Open records the
+  picks.

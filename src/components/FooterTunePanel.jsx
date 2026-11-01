@@ -11,13 +11,16 @@
  *   travel k — reveal-travel multiplier (spacer = K × panel height), the
  *              halfway-scoot fix's second half. SiteFooter re-measures on
  *              the shared pub/sub.
+ *   lerp, tail brake — the wheel's weight where a host drives the panel
+ *              (home, /work's last World; 10-31): Lenis's damp and the tail's
+ *              brake (createFooterDrive in SiteFooter).
  *   lift k, marks from/to/lift, intro s — the HOME resting footer
  *              (10-07; desktop too since 10-09): the hero parallax's share of
  *              the panel's climb, the client marks' own reveal window,
  *              and the on-load word fade.
  *
  * copy_url emits only non-default knobs (?footerlockup / ?footertravel /
- * ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
+ * ?footerlerp / ?footerbrake / ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
  * ?footerintro). Dial the first two on /process or a /work/[slug] page
  * (document-scroll routes); on /work the driven footer shows lockup size live
  * at the last World. The last five need a phone-width home, where the panel
@@ -119,6 +122,35 @@ export default function FooterTunePanel() {
       <p className="footer-tune__note">
         scroll distance for a full reveal = k × panel height. dial on /process
         or a project page.
+      </p>
+
+      {/* 10-31 — the driven hosts' wheel: home, and /work's last World. Live
+          on the next wheel event (createFooterDrive reads both per delta). */}
+      <div className="footer-tune__group">wheel weight · home + /work</div>
+      <Row
+        label={`lerp (per frame · def ${FOOTER_TUNE_DEFAULTS.lerp})`}
+        param="lerp"
+        value={s.lerp}
+        min={0}
+        max={0.5}
+        step={0.005}
+        fmt={(n) => n.toFixed(3)}
+        onChange={set}
+      />
+      <Row
+        label={`tail brake (def ${FOOTER_TUNE_DEFAULTS.brake})`}
+        param="brake"
+        value={s.brake}
+        min={0}
+        max={0.9}
+        step={0.05}
+        fmt={num2}
+        onChange={set}
+      />
+      <p className="footer-tune__note">
+        lerp = how fast the panel catches the wheel, Lenis&apos;s own (the house&apos;s baked 0.165); 0 = the raw
+        delta. tail brake = over the last third of the reveal a wheel delta moves the panel less, down to 1 −
+        brake at the top, so it slows into the full reveal; 0 = off.
       </p>
 
       {/* HOME ([data-footer-rest]) — these four only do anything where the

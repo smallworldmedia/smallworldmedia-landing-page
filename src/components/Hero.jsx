@@ -83,6 +83,7 @@ import SiteFooter, {
   FOOTER_REVEAL_EVENT,
   FOOTER_CLOSE_EVENT,
   wipeReveal,
+  createFooterDrive,
   paintDrivenFooter,
   armFooterEntrance,
   playFooterEntrance,
@@ -325,23 +326,34 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     footerPRef.current = v;
     paintDrivenFooter(v);
   };
+  // 10-31 (Nathan: the reveal is "very sudden and slightly jarring"): the
+  // wheel's deltas glide the panel, Lenis's way, and brake into the full
+  // reveal (createFooterDrive). One per island; its setter only touches refs.
+  const footerDriveRef = useRef(null);
+  footerDriveRef.current ??= createFooterDrive(setFooterReveal, FOOTER_REST);
   useEffect(() => {
     const el = heroRef.current;
     if (!el) return undefined;
-    const addDelta = (dy) => {
+    const drive = footerDriveRef.current;
+    const addDelta = (dy, wheel = false) => {
       if (departingRef.current) return;
-      const p = footerPRef.current;
+      // Where the reveal is headed: a wheel glide's target, else the panel.
+      const p = drive.goal(footerPRef.current);
       // A delta that cannot move the panel must not touch the pill's wipe:
       // the kill used to run BEFORE this return, so one stray upward
       // touchmove mid-wipe cancelled it and parked the panel partway.
       if (dy <= 0 && p <= FOOTER_REST) return;
       footerWipeRef.current?.kill();
       if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : FOOTER_REST);
-      else setFooterReveal(Math.min(1, Math.max(FOOTER_REST, p + dy / SCROLL_TRIGGER_HOME_PX)));
+      else if (wheel) drive.add(dy / SCROLL_TRIGGER_HOME_PX, footerPRef.current);
+      else {
+        drive.stop(); // the finger owns the panel: it tracks, unsmoothed
+        setFooterReveal(Math.min(1, Math.max(FOOTER_REST, footerPRef.current + dy / SCROLL_TRIGGER_HOME_PX)));
+      }
     };
     const onWheel = (e) => {
       e.preventDefault();
-      addDelta(e.deltaY);
+      addDelta(e.deltaY, true);
     };
     let touchY = null;
     let touchX = null;
@@ -407,15 +419,18 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       vel = 0;
       if (stalled || Math.abs(to - p) < 0.002) return;
       footerWipeRef.current?.kill();
+      drive.stop();
       footerWipeRef.current = wipeReveal(p, setFooterReveal, to);
     };
     const onReveal = () => {
       if (departingRef.current) return;
       footerWipeRef.current?.kill();
+      drive.stop();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
     };
     const onClose = () => {
       footerWipeRef.current?.kill();
+      drive.stop();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, FOOTER_REST);
     };
     // The CSS variant latch: global.css re-stacks the panel (blurb up top,
@@ -456,6 +471,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       resetFooterEntrance(); // a soft nav back to home runs it again
       window.removeEventListener(FOOTER_CLOSE_EVENT, onClose);
       footerWipeRef.current?.kill();
+      drive.stop();
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
@@ -1013,6 +1029,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   const onEnterClick = () => {
     if (departingRef.current) return;
     footerWipeRef.current?.kill();
+    footerDriveRef.current.stop();
     // The footer never rides the Envelopment — back to its resting floor,
     // which is NOT 0 (either tier since 10-09): dropping it to nothing yanked
     // the persistent footer off the screen under the dive.

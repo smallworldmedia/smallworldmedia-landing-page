@@ -17,7 +17,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { footerRise, footerSpan, FOOTER_TUNE_DEFAULTS } from '../../src/lib/footerTune.js'
+import {
+  footerRise,
+  footerSpan,
+  footerDamp,
+  footerBrakeStep,
+  FOOTER_BRAKE_TAIL,
+  FOOTER_TUNE_DEFAULTS,
+} from '../../src/lib/footerTune.js'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const css = fs.readFileSync(`${root}src/styles/global.css`, 'utf8')
@@ -334,4 +341,80 @@ test('a dialed knob reaches the cascade and an undialed page stays inert', async
   const plain = await freshTune('')
   assert.deepEqual({ ...plain.state }, { ...FOOTER_TUNE_DEFAULTS })
   assert.equal(plain.props.size, 0, 'a page off the bench pinned inline properties')
+})
+
+test('?footerlerp=0 and ?footerbrake=0 are honoured, and neither reaches the cascade', async () => {
+  // 0 is each one's A/B: the raw wheel delta from before 10-31, and the target
+  // with no tail brake. createFooterDrive reads them in JS, never as CSS.
+  const { state, props } = await freshTune('?footerlerp=0&footerbrake=0')
+  assert.equal(state.lerp, 0)
+  assert.equal(state.brake, 0)
+  assert.equal(props.size, 0)
+})
+
+/* — the driven hosts' wheel (10-31, Nathan: "some sort of weight to the
+   scrolling when you reveal the full footer … implement lenis here, and have
+   just a bit of ease at the tail end of the scroll so it 'pumps the brakes'") —
+   createFooterDrive (SiteFooter.jsx) is a ticker loop around these two. */
+
+test('footerDamp is Lenis’s damp: the same glide at any frame rate', () => {
+  // lenis.mjs: damp(x, y, lerp * 60, dt) = lerp(x, y, 1 - exp(-lerp * 60 * dt))
+  assert.equal(footerDamp(0, 1, 0.1, 1 / 60), 1 - Math.exp(-0.1))
+  const lerp = FOOTER_TUNE_DEFAULTS.lerp
+  const at30 = footerDamp(0.4, 1, lerp, 1 / 30)
+  const at60 = footerDamp(footerDamp(0.4, 1, lerp, 1 / 60), 1, lerp, 1 / 60)
+  const at120 = [1, 2, 3, 4].reduce((x) => footerDamp(x, 1, lerp, 1 / 120), 0.4)
+  assert.ok(Math.abs(at30 - at60) < 1e-12 && Math.abs(at30 - at120) < 1e-12, `${at30} ${at60} ${at120}`)
+  // It approaches and never passes the target: the house curve, no overshoot.
+  let x = 0.4
+  for (let i = 0; i < 120; i++) {
+    const next = footerDamp(x, 1, lerp, 1 / 60)
+    assert.ok(next > x && next < 1)
+    x = next
+  }
+  // lerp 0 is ?footerlerp=0, the raw delta: it lands at once.
+  assert.equal(footerDamp(0.4, 0.9, 0, 1 / 60), 0.9)
+})
+
+test('the house lerp is the footer wheel’s default: one number, two homes', () => {
+  // motion.js imports gsap's CustomEase, so it is read as source, like Hero.jsx above.
+  const src = fs.readFileSync(`${root}src/lib/motion.js`, 'utf8')
+  const m = src.match(/export const LENIS_TUNING = \{\s*lerp: ([0-9.]+)/)
+  assert.ok(m, 'motion.js no longer declares LENIS_TUNING.lerp the way this test reads it')
+  assert.equal(FOOTER_TUNE_DEFAULTS.lerp, Number(m[1]), 'the footer and the document scroll weigh differently')
+})
+
+test('footerBrakeStep: plain travel below the tail, a brake inside it, any delta size alike', () => {
+  const rest = 0.4
+  const b = 0.5
+  const span = footerSpan(rest)
+  const tail = rest + (1 - FOOTER_BRAKE_TAIL) * span // where the brake starts: 0.8
+  const near = (a, e, tol = 1e-9) => assert.ok(Math.abs(a - e) < tol, `${a} vs ${e}`)
+  // Below the tail, and on every retracting delta, the delta moves the target plainly.
+  near(footerBrakeStep(rest, 0.2, rest, b), 0.6)
+  near(footerBrakeStep(0.95, -0.1, rest, b), 0.85)
+  near(footerBrakeStep(0.45, -0.2, rest, b), rest) // clamped at the floor
+  near(footerBrakeStep(0.9, 0.05, rest, 0), 0.95) // ?footerbrake=0
+  // Inside the tail a revealing delta moves it less, and less the nearer the top.
+  const at = (p, d = 1e-8) => (footerBrakeStep(p, d, rest, b) - p) / d // a delta's share at p
+  near(at(tail), 1, 1e-4)
+  assert.ok(at(0.9) < 1 && at(0.95) < at(0.9))
+  near(at(1 - 1e-5), 1 - b, 1e-3) // the share at the top is 1 − brake
+  // A mouse notch lands where a trackpad's stream of small deltas does.
+  const one = footerBrakeStep(rest, 0.5, rest, b)
+  let many = rest
+  for (let i = 0; i < 5000; i++) many = footerBrakeStep(many, 0.5 / 5000, rest, b)
+  near(one, many, 1e-6)
+  // It reaches the full reveal, after the distance the closed form gives:
+  // the tail asks atanh(√b)/√b of its own length (1.2465 at b 0.5).
+  const k = Math.sqrt(b)
+  const full = span * (1 - FOOTER_BRAKE_TAIL + (FOOTER_BRAKE_TAIL * Math.atanh(k)) / k)
+  assert.ok(footerBrakeStep(rest, full * 0.999, rest, b) < 1)
+  near(footerBrakeStep(rest, full * 1.0001, rest, b), 1)
+  near(full / span, 1.0822, 1e-4) // about 8% more wheel for the whole reveal
+  // A brake past 0.9 is held there, so the target still reaches 1.
+  near(footerBrakeStep(rest, 10, rest, 5), 1)
+  // rest 0 is /work's footer: the same law over the whole travel.
+  near(footerBrakeStep(0, 0.5, 0, b), 0.5)
+  assert.ok(footerBrakeStep(0.9, 0.05, 0, b) < 0.95)
 })
