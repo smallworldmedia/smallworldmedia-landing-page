@@ -256,13 +256,24 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    scripts/globe-probe.mjs is this number's gate twin — move both, or --footer
    fails. — */
 const FOOTER_REST_MOBILE = 0.59;
-/* The DESKTOP rest (10-09, Nathan: "push the globe page footer work (visible
-   when i define ?footerrest) to be live"). 0.62 is the value every desktop
-   look of the variant ran at on 10-08 — the pose he approved — and the one the
-   desktop figures in docs/tunables-guide.md's footer rows were read at. It is
-   its own number, not the phone's: at 1440×900 the panel is 258px against the
-   phone's 281.2px, so the 0.59 sweep above does not transfer. */
-const FOOTER_REST_DESKTOP = 0.62;
+/* The DESKTOP rest. Baked 0.62 on 10-09 (Nathan: "push the globe page footer
+   work (visible when i define ?footerrest) to be live"), the pose every
+   desktop look of the variant ran at on 10-08. RE-BAKED 0.62 → 0.40 on 10-31
+   (Nathan: "lets lower it to a sliver so its more of a suggestion for the user
+   to scroll down to reveal"): 0.40 is the rest that gives desktop the phone's
+   own lead-in peek. SWEPT at DSF 2 with ?footerslide=0, settled; rest → blurb
+   clearance / "utilized by…" peek in px: 1440×900 0.62 → 112.7/75.7 · 0.42 →
+   61.1/24.1 · 0.40 → 55.9/19.0 · 0.38 → 50.8/13.8; 1728×992 0.62 → 114.4/77.5
+   · 0.40 → 55.0/18.0. The phone at 0.59 reads 49.3/18.3, so on both tiers the
+   top ~18px of the lead-in line shows above the fold, a hint rather than a
+   seated band. It holds from 1280 to 1728 (19.5px of peek at 1280×800). Below
+   the blurb fill's ~1130px crossover the blurb wraps to two lines and the peek
+   thins to 6.6px (1024×768, 820×1180 and 800×600 read alike), with the blurb
+   still clearing by 43.5px. It is its own number, not the phone's: at 1440×900
+   the panel is 258px against the phone's 281.2px, so the 0.59 sweep above does
+   not transfer. The clipping floor is that two-line band's 0.2371, held by
+   scripts/test/footer-reveal.test.mjs. */
+const FOOTER_REST_DESKTOP = 0.4;
 const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
   const n = parseFloat(new URLSearchParams(window.location.search).get(key));

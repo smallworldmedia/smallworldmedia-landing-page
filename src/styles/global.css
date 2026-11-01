@@ -2402,7 +2402,7 @@ html[data-footer-revealed] .detail-progress {
    at 188.98ms a frame.
 
    WHY steps(1, end) AND NOT A TWEEN. It is the scrim grain's own idiom
-   (scrimNoise, panelGrain): the timing function applies between every
+   (scrimNoise): the timing function applies between every
    keyframe pair, so each segment HOLDS its start value and jumps at the
    end. No interpolation anywhere, which is the brief, and it also means the
    colours need no @property registration to behave.
@@ -2749,9 +2749,10 @@ html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
    ============================================
    "A frictionless experience for users in knowing what small world media is
    and establishing our credentials right off the bat": the home footer RESTS
-   OPEN — on phones since 10-07 (0.59), on desktop since 10-09 (0.62, Hero's
-   FOOTER_REST_DESKTOP). Hero floors its driven progress at ?footerrest and
-   sets this attribute on <html> for exactly as long as that floor is live, so
+   OPEN — on phones since 10-07 (0.59), on desktop since 10-09 (Hero's
+   FOOTER_REST_DESKTOP: 0.62, re-baked to a 0.40 sliver on 10-31). Hero floors
+   its driven progress at ?footerrest and sets this attribute on <html> for
+   exactly as long as that floor is live, so
    the whole variant keys off ONE fact read at module load, never a media
    query that could disagree with it mid-session. ?footerrest=0 removes it on
    either tier.
@@ -2871,7 +2872,8 @@ html[data-footer-rest] .logo-ticker__copy {
    DESKTOP RESTING VARIANT — the panel's own layout (10-08, Nathan)
    ============================================
    The variant is on desktop home by default since 10-09 (Hero: desktop rests
-   at 0.62, the phone at 0.59, an explicit dial anywhere), so on desktop it
+   at 0.40 since 10-31 and 0.62 before, the phone at 0.59, an explicit dial
+   anywhere), so on desktop it
    inherits a panel built for a different pose. Everything here is gated at 769px because
    the three things it reckons with — the fixed lockup, the (c) line and the
    privacy pill — are all display:none at <=768px, where the phone's layout is
@@ -3053,8 +3055,9 @@ html[data-footer-rest] .site-footer__nav {
 
 /* F1 OFF while the footer rests: a nonzero resting progress would translate
    the shell up by that fraction of a nav height for the whole session. At
-   ≤768px it is already off; above 769px — desktop home, which rests at 0.62
-   since 10-09 — this rule is what keeps the nav bar in place. */
+   ≤768px it is already off; above 769px — desktop home, which rests open
+   since 10-09 (0.40 since 10-31) — this rule is what keeps the nav bar in
+   place. */
 html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell {
   transform: none;
 }
@@ -3063,7 +3066,7 @@ html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell
    the globe and Enter World button scroll up slightly, maybe at half the rate
    of the actual scroll") ──────────────────────────────────────────────────
    Driver: --footer-rise, NOT --footer-reveal. The raw var RESTS at ?footerrest
-   (0.59 on the phone, 0.62 on desktop since 10-09), so a consumer reading it
+   (0.59 on the phone, 0.40 on desktop since 10-31), so a consumer reading it
    lifts the globe a third of the way on the FIRST PAINT; the rise is 0 in the
    resting pose by construction.
 

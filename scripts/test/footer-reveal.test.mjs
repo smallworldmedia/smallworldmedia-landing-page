@@ -149,22 +149,26 @@ test('the footer rest bake and the probe gate that checks it are one number', ()
 })
 
 /* The DESKTOP rest (10-09, Nathan: "push the globe page footer work (visible
-   when i define ?footerrest) to be live") is its own bake, FOOTER_REST_DESKTOP,
-   not the phone's number. It has NO gate twin to pair with: the probe's
-   --footer scenario is phone-only (`MOBILE = FOOTER || …` in globe-probe.mjs),
-   so the pair test above has nothing to hold it against. What it CAN be held
-   to is its own clipping floor. Read 10-09 off the preview build at DSF 2,
-   ?footerslide=0, settled: (blurb bottom − panel top) / panel height is 0.1831
-   at 1440×900 (257.9px panel) and 0.1966 at 1728×992 (270.3px) — the blurb is
-   one line there (the ?footerblurbfill fill), so the floor moves with the
-   viewport, not with a re-wrap. The larger of the two is the floor. */
+   when i define ?footerrest) to be live"; re-baked to a 0.40 sliver on 10-31)
+   is its own bake, FOOTER_REST_DESKTOP, not the phone's number. It has NO gate
+   twin to pair with: the probe's --footer scenario is phone-only (`MOBILE =
+   FOOTER || …` in globe-probe.mjs), so the pair test above has nothing to hold
+   it against. What it CAN be held to is its own clipping floor, (blurb bottom −
+   panel top) / panel height, read at DSF 2 with ?footerslide=0, settled. 10-09,
+   off the preview build: 0.1831 at 1440×900 (257.9px panel) and 0.1966 at
+   1728×992 (270.3px), where the blurb is one line (the ?footerblurbfill fill).
+   10-31, off the dev server, which re-read both within 0.0002: the NARROW
+   desktop band, below the fill's ~1130px crossover, wraps the blurb to two
+   lines at the 1.4rem floor, which raises the floor to 0.2371 (266px panel;
+   1024×768, 820×1180 and 800×600 read alike). That band's floor is the
+   largest, so it is the one held. */
 test('the desktop footer rest is its own bake', () => {
   const hero = fs.readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
   const m = hero.match(/const FOOTER_REST_DESKTOP = ([0-9.]+)/)
   assert.ok(m, 'Hero.jsx no longer declares FOOTER_REST_DESKTOP the way this test reads it')
   const baked = Number(m[1])
   assert.ok(baked <= 1, `?footerrest is a 0..1 fraction, got ${baked}`)
-  assert.ok(baked > 0.1966, `a desktop rest of ${baked} clips the blurb (floor is 0.1966 @1728x992)`)
+  assert.ok(baked > 0.2371, `a desktop rest of ${baked} clips the two-line blurb (floor is 0.2371 @1024x768)`)
   const ROUTE = /IS_MOBILE \? FOOTER_REST_MOBILE : FOOTER_REST_DESKTOP/
   assert.match(hero, ROUTE) // the routing: phones rest at the phone bake, desktop at its own
   const swapped = hero.replace(ROUTE, 'IS_MOBILE ? FOOTER_REST_DESKTOP : FOOTER_REST_MOBILE')
@@ -207,8 +211,9 @@ test('--hero-lift is declared only under [data-footer-rest]', () => {
 })
 
 test('the hero lift drives off the normalized rise, never raw progress', () => {
-  // Correction 1's other half. --footer-reveal parks at 0.62, so a lift
-  // windowed over it starts a third of the way up on the very first paint.
+  // Correction 1's other half. --footer-reveal parks at the rest (0.40 on
+  // desktop, 0.59 on phones), so a lift windowed over it starts partway up on
+  // the very first paint.
   const { body } = ruleFor('--hero-lift: calc(')
   assert.match(body, /var\(--footer-rise,/)
   assert.doesNotMatch(body, /--footer-reveal/)

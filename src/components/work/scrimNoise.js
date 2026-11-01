@@ -37,8 +37,7 @@ export const GRAIN_TILE_PX = 256;
 
 /* The shipped 8-frame jitter, in tile pixels — the ONE source for the
    @keyframes fp-scrim-grain table in featured-projects.css (0.2667s /
-   steps(1,end) = the baked 30fps). The globe's WebGL grain steps this same
-   table so the two surfaces jitter identically instead of by coincidence. */
+   steps(1,end) = the baked 30fps). */
 export const GRAIN_JITTER = [
   [0, 0],
   [137, 61],

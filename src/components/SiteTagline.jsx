@@ -416,7 +416,7 @@ export default function SiteTagline({ siteCopy }) {
       // completely. Tested the same way maskPill tests it eighteen lines up,
       // so a frozen IS_MOBILE and the live media query cannot disagree.
       // THE DESKTOP CONSEQUENCE (bake A, ba7cf2c, 10-09: home's desktop rests
-      // by default, at 0.62): above 768px
+      // by default, at 0.62 then and 0.40 since 10-31): above 768px
       // this loop now stays live for the whole home session — readReveal()'s
       // getComputedStyle every frame, maskPill()'s matchMedia early-out —
       // although the variant has taken the pill and the lockup at every width

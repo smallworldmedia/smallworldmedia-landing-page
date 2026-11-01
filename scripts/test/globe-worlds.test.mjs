@@ -73,7 +73,6 @@ import {
   UNIT_FALLBACK,
   quadEligible,
   electQuads,
-  eligibleH,
   eligibleVQ,
   liveB,
   pictureAspect,
@@ -1021,12 +1020,13 @@ test('wall canvas: desktop keeps the 08-27 texel ratio above pixel ratio 1.5, ph
   assert.equal((await load('?wallpx=640', false, 2)).WALL_CANVAS_PX, 640) // ?wallpx still overrides
   assert.equal((await load('?dpr=1.5', false, 2)).WALL_CANVAS_PX, 1152) // the World's ratio, not the screen's
   assert.equal((await load(null)).WALL_CANVAS_PX, 1152) // SSR: the floor
-  assert.equal((await load('', false, 2)).FPS_TOL_MS, 0) // default: the strict gate, today's cadence
-  assert.equal((await load('?fpstol=2', false, 2)).FPS_TOL_MS, 2)
+  assert.equal((await load('', false, 2)).FPS_TOL_MS, 2) // default: Nathan's 10-31 bake, a steady 60
+  assert.equal((await load('?fpstol=0', false, 2)).FPS_TOL_MS, 0) // the strict gate, the cadence before it
+  assert.equal((await load(null)).FPS_TOL_MS, 2) // SSR: the bake too
   assert.equal((await load('?fpstol=-1', false, 2)).FPS_TOL_MS, 0) // the clamp's ends
   assert.equal((await load('?fpstol=9', false, 2)).FPS_TOL_MS, 2.5)
-  assert.equal((await load('', false, 2)).FPS_GATE_S, 1 / 60) // the tick's gate, in seconds: the strict 1/FPS_CAP
-  assert.equal((await load('?fpstol=2', false, 2)).FPS_GATE_S, 1 / 60 - 0.002) // 2 ms of slack = 0.002 s (pins the ms → s units)
+  assert.equal((await load('?fpstol=0', false, 2)).FPS_GATE_S, 1 / 60) // the tick's gate, in seconds: the strict 1/FPS_CAP
+  assert.equal((await load('', false, 2)).FPS_GATE_S, 1 / 60 - 0.002) // the default's 2 ms of slack = 0.002 s (pins the ms → s units)
 })
 
 /* — P0: the video diet (Mux instant clipping; Nathan, 10-09) — */
@@ -2219,12 +2219,11 @@ test('spans: classOf: the label proposes, the native ratio vetoes, over the clas
   assert.equal(classOf(rh8, { source: 'label', shapes: 'wide' }), 'w')
 })
 
-test('spans: eligibleVQ gives the lead windows on both devices; eligibleH is the grain alone (T9)', () => {
+test('spans: eligibleVQ gives the lead windows on both devices (T9)', () => {
   const { Pth } = SPAN_L
   const thetaN = thetaBound((1 + UNIT_EPS) ** -2, Pth)
   const thetaS = thetaBound((1 + UNIT_EPS) ** 2, Pth)
   const W = (thetaH) => ({ thetaN, thetaS, Pth, thetaH: rad(thetaH) })
-  const g = 0.67 // grainStart + grainRamp + grainStagger at the defaults (≈ 42.07°)
   // a window's two edges, by bisection: the predicate holds at 60° and fails at 0 and at π
   const windowOf = (ok) => {
     assert.ok(ok(rad(60)) && !ok(0) && !ok(Math.PI))
@@ -2238,7 +2237,7 @@ test('spans: eligibleVQ gives the lead windows on both devices; eligibleH is the
     }
     return [cut(0, rad(60)), cut(rad(60), Math.PI)]
   }
-  const vq = (D, thetaH, grain = g) => windowOf((t) => eligibleVQ(t, rad(D), W(thetaH), grain))
+  const vq = (D, thetaH) => windowOf((t) => eligibleVQ(t, rad(D), W(thetaH)))
   const fmt = (w) => w.map((t) => degOf(t).toFixed(2))
   const paths = [
     ['advance', 22.0, ['47.61', '75.50'], ['47.61', '80.39']],
@@ -2247,22 +2246,15 @@ test('spans: eligibleVQ gives the lead windows on both devices; eligibleH is the
     ['reduced motion', 0, ['47.61', '97.50'], ['47.61', '102.39']],
   ]
   for (const [name, D, desktop, phone] of paths) {
-    for (const grain of [g, 0]) {
-      // the grain never binds a V/Q window at its defaults
-      assert.deepEqual(fmt(vq(D, 127.5, grain)), desktop, `${name} desktop, g ${grain}`)
-      assert.deepEqual(fmt(vq(D, 134.6, grain)), phone, `${name} phone, g ${grain}`)
-    }
+    assert.deepEqual(fmt(vq(D, 127.5)), desktop, `${name} desktop`)
+    assert.deepEqual(fmt(vq(D, 134.6)), phone, `${name} phone`)
   }
   // the edges themselves: θN, the desktop horizon, the phone's θS
   near(vq(18, 127.5)[0], thetaN, 1e-12, 'θN')
   near(vq(18, 127.5)[1], rad(127.5) - Pth - rad(18), 1e-12, 'horizon-bound')
   near(vq(18, 134.6)[1], thetaS - rad(18), 1e-12, 'θS-bound')
   // replay and a single world (D ∞): no V/Q anywhere
-  for (let t = 1; t < 180; t++) assert.equal(eligibleVQ(rad(t), Infinity, W(134.6), 0), false, `${t}°`)
-  // H: no ε window and no horizon; with the grain on, sin ≥ g at both ends of the travel
-  assert.deepEqual(fmt(windowOf((t) => eligibleH(t, rad(18), g))), ['42.07', '119.93'])
-  for (const t of [1, 90, 179]) assert.equal(eligibleH(rad(t), Infinity, 0), true, `grain off, ${t}°`)
-  assert.equal(eligibleH(rad(90), Infinity, g), false) // an endless travel always reaches the grain
+  for (let t = 1; t < 180; t++) assert.equal(eligibleVQ(rad(t), Infinity, W(134.6)), false, `${t}°`)
   // NC: D without the landing (20.8°) lifts the desktop top to 76.7°
   assert.deepEqual(fmt(vq(20.8, 127.5)), ['47.61', '76.70'])
 })
@@ -2960,7 +2952,7 @@ test('spans: planUnits and birthPairs on crafted boards — the seam, outer neig
     assert.ok(classed.length >= 3, JSON.stringify(classed))
     const key = (i) => assetKey(pool[i])
     const at = (lon, row) => panels.find((p) => p.lonIndex === lon && p.row === row)
-    /** One lead through planUnits (still rows: D 0, no grain); the unit walk starts at `from`, singles' cursor at `cursor`. */
+    /** One lead through planUnits (still rows: D 0); the unit walk starts at `from`, singles' cursor at `cursor`. */
     const unitAt = (lead, { grid = new Map(), from = classed[0], cursor = 0 } = {}) => {
       g.ucursor = [from]
       g.cursor = [cursor]
@@ -3020,7 +3012,7 @@ test('spans: planUnits and birthPairs on crafted boards — the seam, outer neig
   }
 })
 
-test('spans: keep-first keeps only an intact unit — every member showing it, none loading or swapping, one region, under the cap, outer neighbours clear; under the grain every lead is admissible (T13, m10)', () => {
+test('spans: keep-first keeps only an intact unit — every member showing it, none loading or swapping, one region, under the cap, outer neighbours clear (T13, m10)', () => {
   const directors = []
   const make = (tune, opts) => {
     const out = unitDirector(tune, opts)
@@ -3083,7 +3075,7 @@ test('spans: keep-first keeps only an intact unit — every member showing it, n
     // re-checks admissibility, and a V/Q is admissible only once the globe is posed (M4).
     const vRec = two.grouping.pools[0].find((a) => a.unitCls === 'v')
     const thetaV = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
-    const top = board.find((p) => !p.parked && !p.asset.place && eligibleVQ(thetaV(p), 0, { ...two.W, thetaH: Math.PI }, 0))
+    const top = board.find((p) => !p.parked && !p.asset.place && eligibleVQ(thetaV(p), 0, { ...two.W, thetaH: Math.PI }))
     const bottom = board.find((p) => p.lonIndex === top.lonIndex && p.tapeS === top.tapeS - 1)
     const V = { uid: `v:${top.lonIndex}:${top.tapeS}:${assetKey(vRec)}`, key: assetKey(vRec), cls: 'v', cols: 1, rows: 2, n: 2, members: [top, bottom], born: false }
     for (const [k, m] of [top, bottom].entries()) m.asset = m.shownAsset = { ...vRec, place: V, kx: 0, ky: k }
@@ -3097,35 +3089,10 @@ test('spans: keep-first keeps only an intact unit — every member showing it, n
     assert.ok(vRec && !bottom.parked && !kept(vPlan(null), V))
     assert.ok(kept(vPlan(Math.PI), V))
     two.getHorizon = () => null
-
-    // The grain (gT = grainStart + grainRamp + grainStagger): a unit, kept or new, needs an admissible lead
-    // (eligibleH over the travel D). A board laid without it and re-planned with it drops the units the grain
-    // would reach, keeps the rest, and forms no new one where the grain reaches.
-    const { director: wide, panels: wb } = make({ unitMax: 6 }, { getPace: () => 2, revealHeld: true })
-    const laid = [...placesOf(wb).keys()]
-    TUNING.grainAmt = 1
-    const gT = TUNING.grainStart + TUNING.grainRamp + TUNING.grainStagger
-    const grained = wide.planAll(wide.byProminence(), { land: 0.6 }) // a change's landing: ?poptrans
-    const D = wide.lastD
-    near(degOf(D), 22.0, 1e-9)
-    const thetaOf = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1))
-    const leads = [...new Set([...grained.values()].map((a) => a.place).filter(Boolean))].map((Q) => Q.members[0])
-    assert.ok(leads.length >= 1)
-    for (const lead of leads) assert.ok(eligibleH(thetaOf(lead), D, gT), `lead at ${degOf(thetaOf(lead)).toFixed(1)}°`)
-    assert.ok(laid.some((Q) => !eligibleH(thetaOf(Q.members[0]), D, gT))) // the laid board had leads the grain rules out…
-    assert.ok(laid.some((Q) => kept(grained, Q))) // …and the re-plan kept the others
-    // A born row under the grain forms no pair; the same births without it do.
-    recycleRows(wide, wb, 12)
-    assert.equal(wide.bornH, 0)
-    TUNING.grainAmt = 0
-    const { director: twin, panels: tb } = make({ unitMax: 6 })
-    recycleRows(twin, tb, 12)
-    assert.ok(twin.bornH >= 1, `${twin.bornH} births without the grain`)
   } finally {
     for (const d of directors) d.dispose()
     TUNING.units = 0
     TUNING.unitMax = 1
-    TUNING.grainAmt = 0
   }
 })
 
@@ -3395,14 +3362,14 @@ test('spans: the initial layout is planned before the first pose — no horizon,
     const leadOf = (P) => Math.acos(Math.min(Math.max(P.members[0].centerDir.y, -1), 1))
     const tall = [...placesOf(panels).keys()].filter((P) => P.rows === 2)
     assert.ok(tall.length >= 1)
-    for (const P of tall) assert.ok(eligibleVQ(leadOf(P), director.lastD, director.W, 0), `${P.uid} at ${degOf(leadOf(P)).toFixed(2)}°`)
+    for (const P of tall) assert.ok(eligibleVQ(leadOf(P), director.lastD, director.W), `${P.uid} at ${degOf(leadOf(P)).toFixed(2)}°`)
     // NC: the pre-tick initialRotation horizon (≈ 133°) admits a V/Q lead whose bottom row travels to 132.4°,
     // past the posed limb at 127.5°.
     const D = rad(24.8)
     const lead = rad(77.59) // the arrive window's θS edge (θS − D)
-    assert.equal(eligibleVQ(lead, D, { ...director.W, thetaH: rad(133) }, 0), true)
+    assert.equal(eligibleVQ(lead, D, { ...director.W, thetaH: rad(133) }), true)
     near(degOf(lead + director.W.Pth + D), 132.39, 1e-9)
-    assert.equal(eligibleVQ(lead, D, { ...director.W, thetaH: rad(127.5) }, 0), false)
+    assert.equal(eligibleVQ(lead, D, { ...director.W, thetaH: rad(127.5) }), false)
   } finally {
     director.dispose()
     TUNING.units = 0
@@ -4014,7 +3981,7 @@ test('spans: with a horizon, V pairs and quads form whole inside the ε window �
     const tall = units.filter((P) => P.rows === 2)
     for (const P of tall) {
       const [lead] = P.members
-      assert.ok(eligibleVQ(thetaAt(lead), 0, director.W, 0), `${P.uid} at ${degOf(thetaAt(lead)).toFixed(2)}°`)
+      assert.ok(eligibleVQ(thetaAt(lead), 0, director.W), `${P.uid} at ${degOf(thetaAt(lead)).toFixed(2)}°`)
       for (let kx = 0; kx < P.cols; kx++) near(thetaAt(P.members[P.cols + kx]) - thetaAt(P.members[kx]), director.L.Pth, 1e-12, P.uid) // one pitch south
       if (P.cls !== 'q') continue
       // a quad only where its world elected it: that world's election, recomputed over its selection
@@ -4168,7 +4135,7 @@ test('spans: unitStats measures V/Q as they render (columns, mullions, warp), an
 /* — Media spans, P6a: a unit joins and leaves its video stream as one, and shows one chip, at its centre (T24, T25;
    T21's and T20's — P6a — lines are above). — */
 /** A class tile on the equator at z (vK 1, score z: centerDir (√(1 − z²), 0, z)) showing `asset`, its A window the
- *  whole texture. A scroll tile (canonTop), so the grain gate applies to it. */
+ *  whole texture. A scroll tile (canonTop). */
 function streamTile(asset, z) {
   const v2 = (x, y) => ({ value: new THREE.Vector2(x, y) })
   return {
@@ -4264,7 +4231,6 @@ test('spans: joinGroup joins a whole unit or none of it, through its lead; a joi
   try {
     const clip = classedClip('clip', '16:9', 'h')
     const quad = classedClip('quad', '1:1', 'q')
-    const poleward = new THREE.Vector3(0, 0.95, Math.sqrt(1 - 0.95 ** 2)) // namePinch 0.31: under grainStart 0.45
     const st = (p) => [p.liveState, p.liveStream?.id ?? null, p.liveUid]
     const B = (p) => {
       const u = p.mesh.material.uniforms
@@ -4290,16 +4256,10 @@ test('spans: joinGroup joins a whole unit or none of it, through its lead; a joi
     assert.equal(sched.joinGroup(q0), Q.members)
     for (const m of [h1, q1, q2, q3]) assert.deepEqual([sched.canJoin(m), sched.joinGroup(m)], [true, null])
     // One member that can't join keeps its whole unit off (all or none); undone, the unit joins again.
-    Object.assign(TUNING, { grainLive: 1, grainAmt: 0.5 })
     const faults = {
       parked: (p) => ((p.parked = true), () => (p.parked = false)),
       'mid-swap': (p) => ((p.swapping = true), () => (p.swapping = false)),
       'on a stream': (p) => ((p.liveState = 'pending'), () => (p.liveState = null)),
-      'under the grain': (p) => {
-        const was = p.centerDir.clone()
-        p.centerDir.copy(poleward)
-        return () => p.centerDir.copy(was)
-      },
       'bound to another unit': (p) => {
         const was = p.asset
         p.asset = p.shownAsset = { ...was, place: { ...was.place, uid: `q:7:0:${Q.key}` } }
@@ -4323,7 +4283,7 @@ test('spans: joinGroup joins a whole unit or none of it, through its lead; a joi
       assert.equal(sched.joinGroup(q0), Q.members, `${name}, undone`)
     }
     // …on the lead it keeps the unit off too, and on a single, the single.
-    for (const name of ['parked', 'mid-swap', 'on a stream', 'under the grain']) {
+    for (const name of ['parked', 'mid-swap', 'on a stream']) {
       for (const p of [q0, single]) {
         const undo = faults[name](p)
         assert.equal(sched.joinGroup(p), null, `${name}: tile ${panels.indexOf(p)}`)
@@ -4471,14 +4431,14 @@ test('spans: joinGroup joins a whole unit or none of it, through its lead; a joi
     await Wb.beat()
     assert.deepEqual([...Hw.members, wSingle].map(st), [[null, null, null], [null, null, null], ['demoting', 'clip', null]])
 
-    // — B — a quad with one member under the grain stays a still, whole: it neither scores nor joins, while its
+    // — B — a quad with one member mid-swap stays a still, whole: it neither scores nor joins, while its
     // clip's single plays. Scored per member it would win the first slot (3 × 0.8 + 0.3 = 2.7 against 2.3);
     // joined per member it would play three quarters of its picture.
     const Hb = streamUnit('h', clip, 0.7)
     const Qb = streamUnit('q', quad, 0.8, 4)
     const sB = streamTile(clip, 0.9)
     const qsB = streamTile(quad, 0.3)
-    Qb.members[3].centerDir.copy(poleward)
+    Qb.members[3].swapping = true
     const b = sharedOver([...Hb.members, ...Qb.members, sB, qsB])
     boards.push(b)
     await b.beat()
@@ -5273,7 +5233,7 @@ test('spans: no plan is today’s two-argument assign, a plan passes its pin; a 
   }
 })
 
-test('spans: phonehd — a phone rendering at 2.25 or more plans lean/hidpi’s rungs in the phone’s budget; ?globeres=720p moves the pin, and under 270p the tiers stand down (T34)', async () => {
+test('spans: phonehd — a phone rendering at 2.25 or more plans every unit at 720 and singles at 480 (Nathan 10-31) in the phone’s budget; ?globeres=720p moves the pin, and under 270p the tiers stand down (T34)', async () => {
   gsap.globalTimeline.pause()
   const boards = []
   try {
@@ -5283,18 +5243,21 @@ test('spans: phonehd — a phone rendering at 2.25 or more plans lean/hidpi’s 
     for (const [mobile, ratio, want] of buckets) assert.equal(tierBucket(mobile, ratio), want, `${mobile ? 'phone' : 'desktop'} at ${ratio}`)
     assert.equal(PHONEHD_MIN_RATIO, 2.25)
     assert.equal(new Function('PHONEHD_MIN_RATIO', `return ${tierBucket}`)(2)(true, 2), 'phonehd')
-    // The tables: auto/phonehd IS lean/hidpi (one object), and lean/phonehd is lean/phone.
+    // The tables: auto/phonehd is its own row since Nathan's 10-31 call, every unit at 720 and singles at 480 (it
+    // WAS lean/hidpi's object, pairs at 480, until then); lean/hidpi keeps that row, and lean/phonehd is lean/phone.
     // w (10-24) is two rows tall, as a quad is: the quad's rank and rung everywhere
     assert.deepEqual([STREAM_RUNGS, TIER_RANK], [[270, 480, 720, 1080], { s: 0, h: 1, v: 1, q: 2, w: 2 }])
     assert.deepEqual(STREAM_TIERS, {
-      auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: { s: 480, h: 480, v: 480, q: 480, w: 480 }, phonehd: { s: 480, h: 480, v: 480, q: 720, w: 720 } },
+      auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: { s: 480, h: 480, v: 480, q: 480, w: 480 }, phonehd: { s: 480, h: 720, v: 720, q: 720, w: 720 } },
       lean: { hidpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: { s: 270, h: 270, v: 270, q: 480, w: 480 }, phonehd: { s: 270, h: 270, v: 270, q: 480, w: 480 } },
     })
-    assert.equal(STREAM_TIERS.auto.phonehd, STREAM_TIERS.lean.hidpi)
+    assert.notEqual(STREAM_TIERS.auto.phonehd, STREAM_TIERS.lean.hidpi)
     assert.equal(STREAM_TIERS.lean.phonehd, STREAM_TIERS.lean.phone)
 
     // Admission under auto/phonehd at the default pin, the decode budget set to the phone's, 4 × 854×480 (node's
-    // MAX_LIVE is the desktop's 7): a 1:1 q720, an H pair at 480 and a single admit; the next single is refused.
+    // MAX_LIVE is the desktop's 7): a 1:1 q720 and an H pair at 720 admit, and the single after them is refused.
+    // That is the trade the HD pair makes inside a budget that did not move: before 10-31 the pair took 480
+    // (0.40992) and one single still admitted, at 1.33824.
     const P = tierOver(
       [
         ...streamUnit('q', classedClip('quad', '1:1', 'q'), 0.5).members,
@@ -5308,12 +5271,10 @@ test('spans: phonehd — a phone rendering at 2.25 or more plans lean/hidpi’s 
     P.sched.decodeBudget = 4 * mp(P.sched.pinShort, 16 / 9)
     near(P.sched.decodeBudget, 1.63968, 1e-12)
     assert.deepEqual(P.start('quad'), { rung: 720, short: 720, params: PIN_AT(720), mp: 0.5184 })
-    assert.deepEqual(P.start('pair'), { rung: 480, short: 480, params: null, mp: 0.40992 })
-    near(P.sched.plannedMp(), 0.92832, 1e-9)
-    assert.deepEqual(P.start('s1'), { rung: 480, short: 480, params: null, mp: 0.40992 })
-    near(P.sched.plannedMp(), 1.33824, 1e-9)
-    near(P.sched.plannedMp() + mp(480, 16 / 9), 1.74816, 1e-9) // over, and its 270 retry is under the 480 floor
-    assert.equal(P.sched.planOf('s2'), false)
+    assert.deepEqual(P.start('pair'), { rung: 720, short: 720, params: PIN_AT(720), mp: 0.9216 })
+    near(P.sched.plannedMp(), 1.44, 1e-9)
+    near(P.sched.plannedMp() + mp(480, 16 / 9), 1.84992, 1e-9) // over, and its 270 retry is under the 480 floor
+    assert.equal(P.sched.planOf('s1'), false)
     // A phone under 2.25 (auto/phone: every class at 480, the pin) admits exactly today's four streams: four singles
     // fill the budget to the last megapixel and admit; the fifth is refused.
     const Ph = tierOver(['t1', 't2', 't3', 't4', 't5'].map((id, i) => streamTile(clip16(id), 0.9 - 0.1 * i)), { bucket: 'phone' })

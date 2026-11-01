@@ -43,7 +43,7 @@
 
 /* ── The reveal, normalized against its resting floor ─────────────────────
    The footer channel's progress is ABSOLUTE 0..1, and on home it rests at
-   ?footerrest (0.59 on phones, 0.62 on desktop since 10-09) — never at 0. Everything that must be ABSENT
+   ?footerrest (0.59 on phones, 0.40 on desktop since 10-31) — never at 0. Everything that must be ABSENT
    in the resting pose (the hero parallax, the client marks) needs the
    reveal measured from that floor instead, which is the only number nobody
    held: broadcastReveal is the one place in the codebase with both the

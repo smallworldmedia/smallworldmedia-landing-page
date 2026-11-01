@@ -174,9 +174,6 @@ export const decodedAspect = (image, fallback) =>
  *  'ready' when classOf read it); the decoded aspect only if it won't parse. */
 export const pictureAspect = (a, video) => parseRatio(a?.videoAspectRatio) ?? decodedAspect(video, 1);
 
-/** Clear of the grain band over [a, b]: sin ≥ g at both ends (sin is concave on [0, π]). */
-export const grainClear = (a, b, g) => b <= Math.PI && Math.sin(a) >= g && Math.sin(b) >= g;
-
 /* — P3 — the class texture: request size from T1 (each member samples ≈ T1
    texels per tile), the CDN URL, and the cache key (the variant folds into
    TextureManager.assetKey through tex.key). — */
@@ -222,13 +219,12 @@ export function texSpec(a, cls, T1, L, opts) {
   return { cls, w, h, aspect: w / h, key: `${a.playbackId || a.imageUrl}|${cls}${w}x${h}`, url };
 }
 
-/* — P4a (H) / P5 (V, Q) — eligibility; θ = the lead's (top row's) colatitude, D in radians (Infinity allowed). — */
-export const eligibleH = (theta, D, g) => (g > 0 ? grainClear(theta, theta + D, g) : true);
-export const eligibleVQ = (theta, D, W, g) =>
+/* — P5 (V, Q) — eligibility; θ = the lead's (top row's) colatitude, D in radians (Infinity allowed). An H pair
+   is admissible anywhere: the grain band was its only gate, and the grain went on 10-31. — */
+export const eligibleVQ = (theta, D, W) =>
   theta >= W.thetaN &&
   theta + D <= W.thetaS &&
-  theta + W.Pth + D <= W.thetaH &&
-  (g > 0 ? grainClear(theta, theta + W.Pth + D, g) : true);
+  theta + W.Pth + D <= W.thetaH;
 
 /* — P5 — a world's quads: the first n u === 'q' assets of the world's SELECTED
    pool (after ?popcap, ?popmedia and ?popequiv; editorial order) whose REAL
@@ -274,20 +270,24 @@ export const UNIT_CLASSES = new Set(['h', 'v', 'q', 'w']);
    480p; the old 540p pin was served at Mux's 480p rendition, B1), else
    ?globeres's rung. A plan at the pin
    requests the pin verbatim. auto keeps texB within [1, 2] texels per device px
-   where it can; phonehd (a phone at full res) takes the LOWEST rung at ≥ 1 on
-   the binding phone, 430 at DPR 3 (A2), which is lean/hidpi's row. lean is one
-   rung lower, phone 270. A 3×2 (w) is two rows tall, as a quad is, so it
-   takes the quad's rung everywhere. — */
+   where it can; phonehd (a phone at full res) took the LOWEST rung at ≥ 1 on
+   the binding phone, 430 at DPR 3 (A2), which is lean/hidpi's row, until
+   Nathan's 10-31 call ("yes to HD"): its pairs (h, v) play 720 as its quads
+   do, so a 3× phone streams every unit at 720 and only singles at 480. The
+   phone's decode budget did not move (MAX_LIVE × the 480 pin frame), so an HD
+   pair can crowd out a single's stream. lean is one rung lower, phone 270. A
+   3×2 (w) is two rows tall, as a quad is, so it takes the quad's rung
+   everywhere. — */
 export const STREAM_RUNGS = [270, 480, 720, TOP_RUNG];
 export const TIER_RANK = { s: 0, h: 1, v: 1, q: 2, w: 2 };
-const LEAN_HIDPI = { s: 480, h: 480, v: 480, q: 720, w: 720 }; // lean/hidpi; auto/phonehd shares it (A2)
+const LEAN_HIDPI = { s: 480, h: 480, v: 480, q: 720, w: 720 }; // lean/hidpi (auto/phonehd shared it until 10-31)
 const LEAN_PHONE = { s: 270, h: 270, v: 270, q: 480, w: 480 }; // lean/phone; lean/phonehd shares it
 export const STREAM_TIERS = {
   auto: {
     hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080 },
     lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 },
     phone: { s: 480, h: 480, v: 480, q: 480, w: 480 },
-    phonehd: LEAN_HIDPI,
+    phonehd: { s: 480, h: 720, v: 720, q: 720, w: 720 }, // Nathan 10-31: pairs at 720 too (A2's lean/hidpi row before)
   },
   lean: { hidpi: LEAN_HIDPI, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: LEAN_PHONE, phonehd: LEAN_PHONE },
 };

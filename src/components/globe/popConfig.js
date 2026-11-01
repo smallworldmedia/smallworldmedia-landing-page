@@ -43,7 +43,6 @@
 import { PATTERNS } from './worldPatterns.js';
 import { WORLD_POOL_CAP } from './buildWorldPools.js';
 import { NAME_STYLES, NAME_MODES } from './nameTicker.js';
-import { DELAY_ORDERS } from './cascade.js';
 
 const search = () =>
   new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
@@ -117,17 +116,6 @@ export const POP_DEFAULTS = Object.freeze({
   nameSpanMin: 2, // ?popnamespanmin — fewest tiles a strip may use
   nameSpanMax: 4, // ?popnamespanmax — most tiles a strip may use (at the cap the type shrinks, the name is never cut); Nathan 10-23, 6 from 10-07
   nameStyle: 'ink', // ?popnamestyle — ink = the world's colour on black; fill = black on the colour
-  // — Panel grain (10-07): the FP pager scrim's dialed turbulence, carried onto
-  //   the globe as a placeholder where the pole pinch would otherwise show warped,
-  //   cropped media. Ships OFF (grainAmt 0) for Nathan to dial. —
-  grainAmt: 0, // ?popgrainamt — grain master mix; 0 = off, and the shader gates the whole branch on it
-  grainCells: 3.5, // ?popgraincells — grain tile repeats across ONE panel; tile-local, so the pole pinch never scales the cells
-  grainFps: 30, // ?popgrainfps — re-times the shipped 8-frame held jitter (scrimNoise GRAIN_JITTER); 0 = frozen, and forced 0 under reduced motion
-  grainStart: 0.45, // ?popgrainstart — the vK (= sin θ_center) below which grain is at FULL strength; sibling units to ?polestart (0.4), so the grain hands off to the pole cap with no gap
-  grainRamp: 0.15, // ?popgrainramp — width of the media handoff smoothstep, same vK units (a crossfade, not a hard line)
-  grainStagger: 0.07, // ?popgrainstagger — per-tile threshold spread, so a row's tiles cross the reveal in order instead of blinking on together (a row is iso-latitude, so without this they ARE simultaneous)
-  grainOrder: 'sweep', // ?popgrainorder — which panelDelay ordering the stagger follows (DELAY_ORDERS)
-  grainLive: 0, // ?popgrainlive — 1 = the grain band also withholds live video (real decode saving in ?poplive=tile only; in shared mode it just changes which clips win)
   units: 1, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe. Q1: Nathan 10-23, on; was 0
   unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
   shapes: 'wide', // ?popshapes — the span each picture takes (POP_SHAPES); wide = Nathan's 10-24 set, classic = the one before it
@@ -156,13 +144,6 @@ const NUMERIC = {
   nameFace: ['popnameface', (n) => clamp(Math.round(n * 100) / 100, 0.05, 1)],
   nameSpanMin: ['popnamespanmin', (n) => clamp(Math.round(n), 1, 12)],
   nameSpanMax: ['popnamespanmax', (n) => clamp(Math.round(n), 1, 12)],
-  grainAmt: ['popgrainamt', (n) => clamp(Math.round(n * 100) / 100, 0, 1)],
-  grainCells: ['popgraincells', (n) => clamp(Math.round(n * 10) / 10, 0.25, 32)],
-  grainFps: ['popgrainfps', (n) => clamp(Math.round(n), 0, 60)],
-  grainStart: ['popgrainstart', (n) => clamp(Math.round(n * 100) / 100, 0.02, 0.95)],
-  grainRamp: ['popgrainramp', (n) => clamp(Math.round(n * 100) / 100, 0.02, 0.6)],
-  grainStagger: ['popgrainstagger', (n) => clamp(Math.round(n * 100) / 100, 0, 0.4)],
-  grainLive: ['popgrainlive', (n) => (n > 0 ? 1 : 0)],
   units: ['popunits', (n) => (n > 0 ? 1 : 0)],
   unitMax: ['popunitmax', (n) => clamp(Math.round(n), 1, 6)],
   quads: ['popquads', (n) => clamp(Math.round(n), 0, 2)],
@@ -180,7 +161,6 @@ const CHOICE = {
   shapes: ['popshapes', POP_SHAPES],
   nameStyle: ['popnamestyle', NAME_STYLES],
   nameMode: ['popnamemode', NAME_MODES],
-  grainOrder: ['popgrainorder', DELAY_ORDERS],
 };
 const SETS = {
   patterns: ['poppattern', PATTERNS],

@@ -333,11 +333,11 @@ contract's, so comments that cite Q3, Q7 and Q8 still resolve.
   for its whole planned life:
   - the top row starts at θ ≥ θN = 47.61°;
   - it ends at θ + D ≤ θS = 102.39°;
-  - the bottom row stays in front of the live horizon: θ + Pθ + D ≤ θh;
-  - it clears the grain band when `?popgrainamt` > 0. With g = 0.67, that is sin θ ≥ g at both
-    ends.
+  - the bottom row stays in front of the live horizon: θ + Pθ + D ≤ θh.
 
-  H pairs take only the grain clause.
+  H pairs are admissible anywhere. Their only clause was the grain band's (sin θ ≥ g at both ends,
+  g = 0.67, under `?popgrainamt` > 0), and the panel grain was removed on 10-31 (Nathan: "we can
+  get rid of the panel grain").
 - **Travel budget D** includes the landing time:
 
   | Case | D |
@@ -434,7 +434,7 @@ The defaults set before P0a are outside the phases, and are recorded here:
 - /work's `?wallpx` has a desktop floor, `Math.round(768 * Math.max(1.5, WALL_DPR))`, and
   `?fpstol` is 0, unbaked (PF, `d2967ca`; Q23).
 - `?globedpr`'s phone default is 3 (bake B, `8732aa8`).
-- Home's `?footerrest` is 0.62 on desktop by default (bake A, `ba7cf2c`), and 0.59 on phones.
+- Home's `?footerrest` is 0.40 on desktop by default since 10-31 (0.62 from bake A, `ba7cf2c`), and 0.59 on phones.
 
 Both look bakes keep their `?param` as an A/B override: `?globedpr=1.5` is the old phone globe,
 and `?footerrest=0` is the old desktop footer (Q27). The guide rows for these knobs are their
@@ -445,8 +445,8 @@ commits' own, and P8 checked each default against the code.
 **New:**
 - `src/components/globe/unitSpan.js` (P1, with later phases appending): the import-free
   arithmetic. It holds the lattice, `frac`, `unitAspect`, `kappaOwn`, `memberWindow`,
-  `compose`, `coverWindow`, `unitA`, `thetaBound`, `unitSkewBound`, `texSpec`, `eligibleH`,
-  `eligibleVQ`, `grainClear`, `quadEligible`, `electQuads` and `liveB`. It also holds the
+  `compose`, `coverWindow`, `unitA`, `thetaBound`, `unitSkewBound`, `texSpec`,
+  `eligibleVQ`, `quadEligible`, `electQuads` and `liveB`. It also holds the
   source and picture readers (`sourceShort`, `urlDims`, `parseRatio`, `sourceDims`,
   `decodedAspect`, `pictureAspect`, `frameOf`, `mp`) and, from P6b, the tiers:
   `STREAM_RUNGS`, `TIER_RANK`, `STREAM_TIERS`, `PHONEHD_MIN_RATIO` 2.25, `tierBucket`,
@@ -654,7 +654,7 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | # | Question | Default (or answer) |
 |---|---|---|
 | Q1 | Turn units on? | Answered 10-23: on (`?popunits=1`); `?popunits=0` is today's globe |
-| Q2 | Build S2, the per-fragment crop (P9)? | No. The CPU route ships, and P9 is never built |
+| Q2 | Build S2, the per-fragment crop (P9)? | Answered 10-31: yes ("yes rebuild cropping on the graphics card"). The CPU route ships until P9 lands |
 | Q3 | Class source: the label alone, or the label with a native veto? | Veto (`CLASS_SOURCE = 'veto'`) |
 | Q4 | Class band width | ±10% in log space around 16:9 and 9:16 |
 | Q5 | Extremes (\|ln r\| ≥ ln 2.4): single, or span? | Single |
@@ -663,8 +663,8 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q8 | Fewer assets? | Answered 10-23: `?popequiv` 12, with `?popcap` 13 kept: a world places from at most 13 assets weighing 12 tile-equivalents. Re-dialed 10-24 under the wide shapes: 32 |
 | Q9 | Phone renditions | Superseded: the phone pin is 480p (10-09), and P0 pinned it on both devices (the desktop globe pins 720p since 10-23, Q22) |
 | Q10 | The phone's pixel ratio | Answered: 3 on phones at 480p (bake B, `8732aa8`); `?globedpr=1.5` is the old globe |
-| Q11 | T1 768 on large Retina displays? | 512 (`THUMB_WIDTH`); `?globethumb=768` to compare |
-| Q12 | Dark first frames | Keep `time=0`; darkThumbs is reported only. P7's lists (`eadf842`): u-desktop and u-mobile list the same four near-black class textures (mean < 16, none flat): jowrx35j (v), iYkHH8HX (h), fRj7mEI5 (v) and qRA02wwe (q). zNq4h02h and ewG9MiP4 were never requested as class textures at seed 42, so they were not measured. The only flat texture is bedouin's 2fInI023 (v, mean 126.9, sd 3.2), listed by u-tide only |
+| Q11 | T1 768 on large Retina displays? | Answered 10-31: keep 512 (`THUMB_WIDTH`, "stays as is"); `?globethumb=768` to compare |
+| Q12 | Dark first frames | Answered 10-31: keep `time=0` ("fast makes this not an issue, havent noticed it"); darkThumbs is reported only. P7's lists (`eadf842`): u-desktop and u-mobile list the same four near-black class textures (mean < 16, none flat): jowrx35j (v), iYkHH8HX (h), fRj7mEI5 (v) and qRA02wwe (q). zNq4h02h and ewG9MiP4 were never requested as class textures at seed 42, so they were not measured. The only flat texture is bedouin's 2fInI023 (v, mean 126.9, sd 3.2), listed by u-tide only |
 | Q13 | Registered (`time=0` crop) posters for single-only videos too? | No: singles keep today's smartcrop square |
 | Q14 | HiDPI desktop: 720p pairs and a 1080p quad inside today's decode budget? | Yes (`?poptier=auto`); lodpi pairs stay at 480p; `?poptier=today` for the A/B |
 | Q15 | Seams: mullion or split? | Mullion |
@@ -675,33 +675,39 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q20 | The phone decode budget at DPR 3 | Follows the pin: 1.63968 MP at 480p, 3.6864 MP under `?globeres=720p` |
 | Q21 | COCO and bedouin show no live video on phones under the corner preset | Answered: a bug, which F2 (`876404c`) fixes |
 | Q22 | HiDPI tiers at the lowest rung with density ≥ 1? Desktop globe at 720p? | Answered 10-23: the desktop globe pins 720p (`?globeres=720p` was in his dial); phones keep 480p. The tiers keep `auto`, which he did not dial |
-| Q23 | The deck wall's flicker | Fixed in PF (`d2967ca`). Open: (a) `?fpstol` 0; (b) the wall canvas on a 1× screen, 1152 |
+| Q23 | The deck wall's flicker | Fixed in PF (`d2967ca`). Answered 10-31: (a) `?fpstol` baked 2 ("the fpstol=2 60fps looks noticably smoother"). Open: (b) the wall canvas on a 1× screen, 1152 (unanswered 10-31, so it stays) |
 | Q24 | MSAA 2 at DPR ≥ 2; the globe without antialias | Neither taken |
-| Q25 | Desktop footer at rest, 0.62 | Keep 0.62, the value he approved |
+| Q25 | Desktop footer at rest, 0.62 | Answered 10-31: lower it "to a sliver so its more of a suggestion for the user to scroll down to reveal". Re-baked 0.40, the phone's ~18px lead-in peek (the `?footerrest` row of `docs/tunables-guide.md`) |
 | Q26 | The tagline's per-frame watcher on desktop home | Leave it |
 | Q27 | Remove the baked knobs' `?param` reads at the fold? | Answered 10-24: keep them as overrides for now ("keep URL parameters for now") |
-| Q28 | Which span for which aspect? | Answered 10-24: 16:9 and 4:3 a 3×2 (else its 2×1 pair, else a single); 9:16, 3:4 and 4:5 a 1×2 for now (his 2×3 later); every sharp square a quad, no election; `?popequiv` stays 12 with a 3×2 weighing 6, and he re-dials. Behind `?popshapes`: `wide` by default, `classic` = the 10-23 set |
+| Q28 | Which span for which aspect? | Answered 10-24: 16:9 and 4:3 a 3×2 (else its 2×1 pair, else a single); 9:16, 3:4 and 4:5 a 1×2 for now (his 2×3 later); every sharp square a quad, no election; `?popequiv` stays 12 with a 3×2 weighing 6, and he re-dials. Behind `?popshapes`: `wide` by default, `classic` = the 10-23 set. 10-31 (Nathan: "could we do sometimes 2x3 and sometimes 1x2? maybe depending on number of media assets in a project? (less would mean bigger portait video to compensate for less total assets)"): portraits go adaptive by asset count; building in the 10-31 round |
 
 ### Open
 
 **Nathan's open calls:**
-- Should a single's corner touching its own unit count as a neighbour?
-- Should desktop quads favour frontal positions? P5's LOOK framed 0 frontal quads in over 600
-  desktop polls.
-- On a 3× phone, should pairs play at 720 as well as quads? The evidence is the orchestrator's
-  phone comparison of 10-16 (`/private/tmp/swm-units-probe/P6b-compare/CAPTURES.txt`). At the
-  held frame, the quad at 720 against 480 gave +24% and +25% Laplacian (390 and 430 wide),
-  decoded 1.338 MP against 1.357 MP, and ran 3 live streams against 4. Video bytes were within
-  run spread. The quad call stays open until he answers, and the default (q 720) ships.
-  On phones `GLOBE_STREAM_PARAMS` stays the 480p literal that T33 asserts (desktop pins 720p since 10-23,
+- Q23(b) above: the deck wall's canvas on a 1× screen (1152). Unanswered on 10-31, so it stays.
+
+**Answered 10-31** (his replies to the round's 17 open items):
+- A single's corner touching its own unit stays allowed ("stays as is").
+- Desktop quads get no frontal steering ("stays as is, there are a fair amount of squares visible
+  already"). P5's LOOK had framed 0 frontal quads in over 600 desktop polls.
+- On a 3× phone, pairs play at 720 as well as quads ("yes to HD"): `STREAM_TIERS.auto.phonehd` is
+  `{ s: 480, h: 720, v: 720, q: 720, w: 720 }`. The evidence was the orchestrator's phone
+  comparison of 10-16 (`/private/tmp/swm-units-probe/P6b-compare/CAPTURES.txt`): at the held
+  frame, the quad at 720 against 480 gave +24% and +25% Laplacian (390 and 430 wide), decoded
+  1.338 MP against 1.357 MP, and ran 3 live streams against 4, with video bytes within run
+  spread. The phone's decode budget did not move (`MAX_LIVE` × the 480 pin frame, 1.63968 MP),
+  so an HD pair (0.9216 MP) can crowd out a single's stream; T34 holds that board. On phones
+  `GLOBE_STREAM_PARAMS` stays the 480p literal that T33 asserts (desktop pins 720p since 10-23,
   Q22).
-- Q2, Q11, Q12, Q23(a) and (b) and Q25 above.
+- Q2, Q11, Q12, Q23(a) and Q25 above.
 
 **Next steps (P8 runs no probe):**
 - The fast handoff's last misses (`7d16642`'s runs: 5 clips on desktop and 2 on the phone that
   start a rung below the forecast, or were not forecast). Each starts 0–0.5 s after landing,
   0.6–1.1 s after the change-start pose the clips were scored at. Also scoring `landingClips` at
-  the landing pose (T + land) and fetching the union should catch most of them. Untested.
+  the landing pose (T + land) and fetching the union should catch most of them. Untested;
+  building in the 10-31 round (his "proceed").
 - Re-measure the first units batch's frame rate on a quiet machine. At P7 it ran at about half
   of P6b's rate (02:06-02:09). No load was logged during that batch. P7's PROGRESS.md logged a
   load average of 9.5, with Illustrator near 85% CPU, at 02:10:39 just after it, then 4.7 and

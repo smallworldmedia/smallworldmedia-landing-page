@@ -37,7 +37,6 @@ import gsap from 'gsap';
 import { computeCoverUv } from './TextureManager.js';
 import { getPlaceholderTexture } from './panelMaterial.js';
 import { TUNING as POP_TUNING } from './popConfig.js';
-import { namePinch } from './nameTicker.js';
 import {
   MAX_LIVE,
   RADIUS,
@@ -184,10 +183,6 @@ export default class LivePanelScheduler {
           // Parked (past-pole, collapsed) scroll tiles demote immediately —
           // streaming video into an invisible about-to-recycle row is wasted.
           (panel.parked ||
-            // Drifting INTO the grain band gives the slot back — without this
-            // a tile promoted at mid-latitude holds its decode all the way to
-            // the pole, under static, and the gate buys nothing.
-            this.grainHidden(panel) ||
             ((score < DEMOTE_SCORE || !visible) && now - panel.liveSince > MIN_LIVE_DWELL_SECONDS) ||
             now - panel.liveSince > (panel.liveMaxDwell ?? MAX_LIVE_DWELL_SECONDS))
         ) {
@@ -208,7 +203,6 @@ export default class LivePanelScheduler {
               (!panel.asset.tex || panel.shownAsset === panel.asset) && // B derives from the bound A
               !panel.swapping &&
               !panel.parked && // never stream into a collapsed past-pole scroll tile
-              !this.grainHidden(panel) && // nor into one whose media is under static
               visible &&
               score > PROMOTE_SCORE &&
               now - (panel.lastLiveEnd ?? -Infinity) > RELIVE_COOLDOWN_SECONDS
@@ -325,7 +319,7 @@ export default class LivePanelScheduler {
       const s = panel.liveStream;
       if (!s) continue;
       if (panel.parked || panel.asset?.playbackId !== s.id || (panel.asset?.place?.uid ?? null) !== (panel.liveUid ?? null)) this.detach(panel);
-      else if (visible && score >= DEMOTE_SCORE && !this.grainHidden(panel)) seen.add(s);
+      else if (visible && score >= DEMOTE_SCORE) seen.add(s);
     }
     // The fast handoff: a stream that loaded before its tiles landed waits for them while one is still on its way
     // (aheadScores), up to MIN_LIVE_DWELL unseen, instead of ending into its cooldown.
@@ -374,37 +368,16 @@ export default class LivePanelScheduler {
     }
   }
 
-  /* The grain band (?popgrainlive, default 0). A tile whose media is fully
-     hidden under static has nothing to show, so it should not hold a decode —
-     the budget goes to mid-latitudes where the eye is. Nathan approved the
-     trade-off 10-07; the cost is more promote/demote churn where he is looking.
-
-     Threshold mirrors the shader through namePinch — the existing exact JS
-     mirror of vK — rather than a second sqrt that would disagree by a few
-     degrees. Uses grainStart alone, NOT the per-tile stagger: a slot decision
-     wants a stable boundary, not one that flickers with the reveal order.
-
-     Scroll tiles only (canonTop is stamped only in conveyor mode); the fixed
-     globe has no pinch and no grain, and must not be gated by latitude. */
-  grainHidden(panel) {
-    if (!POP_TUNING.grainLive || !(POP_TUNING.grainAmt > 0)) return false;
-    if (panel.canonTop === undefined || !panel.centerDir) return false;
-    return namePinch(panel.centerDir.y) < POP_TUNING.grainStart;
-  }
-
   /* The shared-mode choke point: the join loop, the clip-score accumulation
-     and the resolve-time attach sweep all pass through here, so the grain gate
-     lands in ONE place instead of three that could drift apart. (Gating the
-     score loop while the attach sweep still bound pole tiles would be strictly
-     worse than not gating at all.) */
+     and the resolve-time attach sweep all pass through here, so what may join
+     is decided in ONE place instead of three that could drift apart. */
   canJoin(panel) {
     return (
       !!panel.asset?.playbackId &&
       !panel.liveState &&
       !panel.parked &&
       !panel.swapping &&
-      (!panel.asset.tex || panel.shownAsset === panel.asset) &&
-      !this.grainHidden(panel)
+      (!panel.asset.tex || panel.shownAsset === panel.asset)
     );
   }
 
@@ -423,19 +396,19 @@ export default class LivePanelScheduler {
     return out;
   }
 
-  /** joinGroup for the tiles about to show `a`: none parked or under the grain, a unit whole in what its members will
+  /** joinGroup for the tiles about to show `a`: none parked, a unit whole in what its members will
    *  show, whether or not they are mid-swap, bound yet or lit. */
   aheadGroup(panel, a) {
-    if (panel.parked || this.grainHidden(panel)) return null;
+    if (panel.parked) return null;
     const pl = a.place;
     if (!pl) return [panel];
     if (pl.members[0] !== panel) return null;
-    return pl.members.every((m) => (m.swapAsset || m.asset)?.place?.uid === pl.uid && !m.parked && !this.grainHidden(m)) ? pl.members : null;
+    return pl.members.every((m) => (m.swapAsset || m.asset)?.place?.uid === pl.uid && !m.parked) ? pl.members : null;
   }
 
   /** The tiles that join a stream together: a single-only tile alone, or a whole
-   *  unit through its lead, all or none. One grain-hidden, parked or mid-swap
-   *  member keeps the whole unit off. */
+   *  unit through its lead, all or none. One parked or mid-swap member keeps
+   *  the whole unit off. */
   joinGroup(panel) {
     const pl = panel.asset?.place;
     if (!pl) return this.canJoin(panel) ? [panel] : null;

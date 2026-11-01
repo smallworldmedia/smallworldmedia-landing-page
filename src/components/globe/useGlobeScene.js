@@ -55,7 +55,6 @@ import PopulationDirector from './PopulationDirector.js';
 import { applyPlan, windowA } from './tileSwap.js';
 import { TUNING as POP_TUNING, subscribePopTune } from './popConfig.js';
 import buildCascadeTimeline, { panelDelay, delayOwner } from './cascade.js';
-import createPanelGrain from './panelGrain.js';
 import { STREAM_TIERS, tierBucket } from './unitSpan.js';
 import {
   LON_SEGMENTS,
@@ -424,11 +423,6 @@ export default function useGlobeScene(
     // LAT_BANDS + 2 (pole rings included).
     const totalRows = conveyorMode ? SCROLL_VISIBLE_ROWS + 2 : LAT_BANDS + 2;
 
-    // Panel grain rig (10-07): built only on the scroll globe. Off the scroll
-    // path vK is a constant 1, so the reveal band already resolves to 0 and the
-    // grain would be inert — no reason to hold the texture.
-    const grainRig = conveyorMode ? createPanelGrain() : null;
-
     const { panels, innerSphereGeometry } = conveyorMode
       ? buildScrollingGlobeGeometry({
           lonSegments: LON_SEGMENTS,
@@ -455,9 +449,6 @@ export default function useGlobeScene(
         createPanelMaterial({
           fallbackColor: PANEL_FALLBACK_COLOR,
           cornerRadius,
-          // Shared holders: one write per frame covers the whole globe. Null off
-          // the scroll path → the material makes its own, with uGrainMix 0.
-          grain: grainRig?.uniforms,
         })
       );
       // Scroll globe: spread the rows into a proper sphere from the very first
@@ -484,11 +475,6 @@ export default function useGlobeScene(
       }
       globeGroup.add(panel.mesh);
     });
-
-    // Stamp each tile's place in the staggered reveal (and its static
-    // decorrelation) now that every material exists. Re-stamped by the rig
-    // itself if ?popgrainorder changes.
-    grainRig?.assign(panels, POP_TUNING.grainOrder, totalRows);
 
     const innerMaterial = new THREE.MeshBasicMaterial({ color: GAP_COLOR });
     const innerSphere = new THREE.Mesh(innerSphereGeometry, innerMaterial);
@@ -1078,10 +1064,6 @@ export default function useGlobeScene(
       // Unit windows (media spans): from the poses this frame renders, so the
       // scroll a tide just landed is in them. No-op with ?popunits off.
       if (director) director.place();
-      // Panel grain: reads the live pop knobs and steps the held jitter. No new
-      // rAF — it rides this tick, and costs one uniform write per frame for the
-      // whole globe because the holders are shared.
-      if (grainRig) grainRig.update(step, POP_TUNING);
 
       const texBefore = renderer.info.memory.textures;
       const r0 = performance.now();
@@ -1194,7 +1176,6 @@ export default function useGlobeScene(
       if (scheduler) scheduler.dispose();
       if (scroller) scroller.dispose();
       if (director) director.dispose();
-      if (grainRig) grainRig.dispose();
       controller.dispose();
       textureManager.disposeAll();
       panels.forEach((panel) => {

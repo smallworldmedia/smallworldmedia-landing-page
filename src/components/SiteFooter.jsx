@@ -141,7 +141,7 @@ const STAGGER_DELAY_S = 0.25; // the house delayed-trigger beat
 // climb in px), and `--footer-rise-peak` is the rise's PEAK twin.
 //
 // Every consumer that must be ABSENT at rest reads the rise, never
-// --footer-reveal: the raw var rests at 0.59 (phone) / 0.62 (desktop) on home, so a parallax
+// --footer-reveal: the raw var rests at 0.59 (phone) / 0.40 (desktop) on home, so a parallax
 // reading it lifts the globe a third of the way on the FIRST PAINT, and a
 // threshold reading it (STAGGER_ON) can never fire from that floor.
 //
@@ -581,7 +581,7 @@ export default function SiteFooter({
       10-09; at ?footerrest=0 the tagline pill carries the blurb instead. */
   blurb = null,
   /** Driven mode: the progress this panel PARKS at (0 everywhere but home,
-      where Hero floors it at ?footerrest — 0.59 phone, 0.62 desktop). The
+      where Hero floors it at ?footerrest — 0.59 phone, 0.40 desktop). The
       peak broadcast resets here instead of at 0. */
   rest = 0,
   /** Scroll mode: spacer = K × panel height. Absent = the ?footertravel

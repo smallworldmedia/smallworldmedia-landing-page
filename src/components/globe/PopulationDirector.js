@@ -77,7 +77,7 @@ import { SCROLL_VISIBLE_ROWS, GLOBE_T1 } from './globeConfig.js';
 import { planUrl, prefetchClips, prefetchStats } from './streamPrefetch.js';
 import { primedPlaylistStats } from '../work/hlsPrimed.js';
 import { posePanel } from './MeridianScroll.js';
-import { lattice, texSpec, unitAspect, thetaBound, eligibleH, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, quadEligible, wideClass, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
+import { lattice, texSpec, unitAspect, thetaBound, eligibleVQ, unitA, unitSkewBound, rendered, electQuads, quadEligible, wideClass, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -644,7 +644,7 @@ export default class PopulationDirector {
       for (const p of row) grid.set(rs * GRID + p.lonIndex, assetKey(p.swapAsset || p.asset));
     }
     const picks = tiles.map((p) => this.pick(p, grid));
-    if (TUNING.units && this.L && !(TUNING.grainAmt > 0)) this.birthPairs(tiles, picks, grid);
+    if (TUNING.units && this.L) this.birthPairs(tiles, picks, grid);
     return picks;
   }
 
@@ -685,16 +685,10 @@ export default class PopulationDirector {
     return (pace * ((initial ? T_ENTRANCE : land) + TUNING.hold * (1 + TUNING.holdJit) + TUNING.trans) * Math.PI) / 180;
   }
 
-  /** The grain's reach (vK) a unit's lead must clear for its planned life; 0 = no grain. */
-  unitGrain() {
-    return TUNING.grainAmt > 0 ? TUNING.grainStart + TUNING.grainRamp + TUNING.grainStagger : 0;
-  }
-
-  /** May a `cls` unit lead at `lead` for D rad of travel: an H pair wherever the grain allows, a two-row unit only
-   *  under a horizon (W.thetaH), inside the ε window [θN, θS]. */
-  admits(lead, cls, D, gT = this.unitGrain()) {
-    const theta = colat(lead);
-    return cls === 'h' ? eligibleH(theta, D, gT) : this.W.thetaH != null && eligibleVQ(theta, D, this.W, gT);
+  /** May a `cls` unit lead at `lead` for D rad of travel: an H pair anywhere, a two-row unit only under a horizon
+   *  (W.thetaH), inside the ε window [θN, θS]. */
+  admits(lead, cls, D) {
+    return cls === 'h' || (this.W.thetaH != null && eligibleVQ(colat(lead), D, this.W));
   }
 
   /** Units first, then (planAll) singles. Names were placed first and are never
@@ -707,13 +701,12 @@ export default class PopulationDirector {
     this.W.thetaH = this.getHorizon(); // null until the tick has posed the globe: then H pairs only (M4)
     if (initial) this.initThetaH = this.W.thetaH; // the latch, judged live by the initVQ gate
     this.lastD = D;
-    const gT = this.unitGrain();
     const cell = new Map();
     for (const p of this.panels) cell.set(p.tapeS * GRID + p.lonIndex, p);
     const ownerOf = (p) => g.pattern.owner(p.lonIndex, p.tapeS);
     const free = (p) => !!p && !p.parked && !plan.has(p) && !this.namePlan.has(p);
     const count = new Map(); // key → units in this plan
-    const admissible = (lead, cls) => this.admits(lead, cls, D, gT);
+    const admissible = (lead, cls) => this.admits(lead, cls, D);
     const outerFree = (members, key) => {
       const inside = new Set(members);
       for (const m of members) {
