@@ -254,7 +254,9 @@ pools ship tagged by kind up to the hard cap.
   - `VideoSlotPool.jsx` (/work too): every pooled stream is clipped to the preview window through
     `muxStream` (P0) and fetches no audio (P0v); the globe's default pin is `GLOBE_STREAM_PARAMS`
     (`?globeres`, P0c); an optional per-assign `params` (P6b) keeps the clip, and the default is
-    the pool's streamParams.
+    the pool's streamParams. Since H (`e2227e9`) the first-frame gate opens only on the src the
+    waiting `assign()` asked for: a reassigned slot's previous stream plays on until React commits
+    the swap, and its events no longer count (Status log, the records at today's defaults).
   - `cascade.js`: `delayOwner`: a unit's members take their lead's delay, in the entrance and the
     blue fill (P4a); a panel outside a unit owns itself, and /process's panels never form units,
     so its cascade is unchanged.
@@ -586,14 +588,14 @@ are records in `scripts/baselines/globe-units.json`:
 | `u-tile` | `--extra="&poplive=tile"` (capped at vq) | P4a |
 | `u-arrive` | `--intro=full --warm=10 --secs=30` (held reveal; `initVQ` 0) | P5 |
 | `u-hidpi` | `--dsf=2` (hidpi) | P6b |
-| `u-phonehd` | `--mobile --dsf=3` (phonehd, 480 pin) | P6b |
+| `u-phonehd` | `--mobile --dsf=3` (phonehd, 480 pin; its pairs planned at 720 since 10-31, as its quads) | P6b |
 | `u-phonehd720` | `--mobile --dsf=3 --extra="&globeres=720p"` | P6b |
 | `u-equiv` | `--extra="&popequiv=13"` (`neighbourRule` report-only) | P7 |
-| `u-thumb-phonehd` | `--mobile --dsf=3 --extra="&globethumb=512" --texmb=96` | P7 |
+| `u-thumb-phonehd` | `--mobile --dsf=3 --extra="&globethumb=512" --texmb=131` (desktop's stills, so desktop's `texBudget`) | P7 |
 
 Levels by phase: P3 tex; P4a and P4b h; P5 vq; P6a live; P6b and P7 tier. The units-off keys
-are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the file's
-`recorded` date is 10-15), and `off-phonehd` (`--mobile --dsf=3`, P6b, 10-16). Since Nathan's 10-23 bake (Q1), a units-off run passes
+are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b), and `off-phonehd`
+(`--mobile --dsf=3`, P6b). Since Nathan's 10-23 bake (Q1), a units-off run passes
 `--units=0`, and a bare run is a units run, so it needs `--level`.
 
 **Negative controls (MUSTFAIL).** Each control is one run that must exit 2. Then
@@ -607,7 +609,8 @@ are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the f
 | `nc-units0` | `--units=0 --level=h --baseline=u-desktop` | `unitsVacuous` | P4a |
 | `nc-windows` | `--units --level=h --negctl --baseline=u-desktop` | `unitSeam,unitRegister` | P4b |
 | `nc-bind` | `--units --level=h --negctl=bind --baseline=u-desktop` | `skew` | P4b |
-| `nc-windows-vq` | `--units --level=vq --negctl --baseline=u-desktop` | `unitSeam,unitRegister,unitColumns,unitRows` (and `unitWarp`, As built 4), under the rows look (As built 12 for the flat look's list) | P5 |
+| `nc-windows-vq` | `--units --level=vq --negctl --baseline=u-desktop` | `unitSeam,unitRegister,unitRows` (the flat look, the default since 10-31; As built 12) | P5 |
+| `nc-windows-vq-rows` | `--units --level=vq --negctl --baseline=u-desktop --extra="&popunitlook=rows"` | `unitSeam,unitRegister,unitColumns,unitRows,unitWarp` (the rows look; As built 4) | H |
 | `nc-decode` | `--units --level=tier --decodemax=0.3 --baseline=u-desktop` | `decodeReal` | P6b |
 | `nc-density` | `--units --level=tier --densitymax=1 --baseline=u-desktop` | `videoDensityMax` | P6b |
 | `nc-density-hidpi` | `--units --level=tier --dsf=2 --densitymax=0.4 --baseline=u-hidpi` | `videoDensityMax` | P6b |
@@ -615,28 +618,34 @@ are `off-desktop`, `off-mobile`, `off-rm`, `off-tide` and `off-flat` (P0b; the f
 | `nc-pin` | `--units --level=tier --negctl=pin --baseline=u-desktop` | `streamTier` | P6b |
 | `nc-thumb` | `--units=0 --extra="&globethumb=384" --baseline=off-desktop` | `legacyParity` | P7 |
 
+At H (`e2227e9`) all 14 exited 2 with their lists met. A control may fail more than its list.
+These did: `nc-sneak` also fails `texPeak` (units on, judged against a units-off record);
+`nc-windows`, `nc-windows-vq` and `nc-windows-vq-rows` fail `skew` as vacuous; and `nc-units0`
+fails `texReqShape` and `legacyParity`, plus seven gates as vacuous (`liveReg` and six of h's).
+
 P6a's gates have no probe control. Their negative controls are unit tests: T24 (a per-member join
 splits a unit) and T25 (a stale B misregisters).
 
 **Baselines and seeds.** All 17 records in `scripts/baselines/globe-units.json` hold seed 42,
 which is the probe's default. A record stores the seed as the string `"42"`. So the first passing
-seed was 42 for every run type, and no key needed the vacuity retries (7, 9, 11, 13). A record
+seed was 42 for every run type, and no key needed the vacuity retries (7, 9, 11, 13). H recorded
+them at the defaults on 10-31 (the file's `recorded` is the UTC date, 2026-11-01): the six off-*
+keys, u-rm and u-equiv at `52ff2c2`; the other units keys at `4402081`, a probe-only change, so the
+same page; and u-phonehd720 at `e2227e9`, after the pool's gate. All 17 then re-ran at `e2227e9`
+without the flag and exited 0. A record
 is written only from an all-pass `--record-baseline` run. Re-run without the flag, on that seed,
 it must exit 0, and nobody edits the file by hand. A home run with no record under its key exits
 2: it fails `legacyParity` (units off) and, except under `--mode=off`, `texPeak` (unless
 `--texpeak` is passed) as vacuous. With no `--baseline`, the key
 is the `--out` folder's name, so pass the key that matches the run.
 
-**Since Nathan's 10-23 bake the records are stale.** Every one was recorded at the old defaults:
-units off, `?popunitmax` 1, `?popequiv` 0, a hold of ± 0.2, a 0.9 s change, name size 0.62, band
-0.65, face 0.5, span max 6, and a 480p desktop pin; and, since 10-24, the classic shapes, one name
-strip and a 45.5° tilt; since 10-28, a 6 s hold and the `today` handoff; and, since 10-31, the
-rows look. Re-record them at the next probe pass. Until
-then, a run reproduces its record only with the old values in `--extra`, placed after the run's
-own flags (the page and the probe both read a param's first value):
-`&pophold=6&popholdjit=0.2&poptrans=0.9&popnamesize=0.62&popnameband=0.65&popnameface=0.5&popnamespanmax=6&popunitmax=1&popequiv=0&popshapes=classic&popnames=1&herotilt=45.5&pophandoff=today&popunitlook=rows`,
-plus `&globeres=480p` on desktop. The units-off keys also pass `--units=0`. Both hold for the
-negative controls, which judge against the same records.
+**The records follow the defaults.** From Nathan's 10-23 bake to 10-31 every record was stale,
+and a run reproduced one only by passing the old defaults in `--extra` (the string is in this
+file's history before H). H re-recorded all 17 at the defaults (Status log, the records at today's
+defaults), so a run and a negative control pass only their own row's flags. When an approved
+default that a record measures moves, re-record the keys it moves in the same pass. Re-derive any
+bound that forecast the old default too: `texBudget` was popcap 13's forecast, and the 10-24 tile
+budget put every units run over it (As built 14).
 
 **The one-rerun rule.** A one-off non-vacuous gate failure can hit a transition sample whose
 name placement lags a step (`namesSlice`). Rerun once after wait-quiet, and keep both runs in
@@ -699,7 +708,9 @@ and `density` count the member, only when its stream was lit for this unit
    or v in an earlier world keeps that class in a later world that elects it, so no quad forms
    there. No id is in two worlds today. P5, `56b6031`.
 4. **`nc-windows-vq` also fails `unitWarp`.** The contract's expect-fail row names only four
-   gates. P5, `56b6031`.
+   gates. P5, `56b6031`. That is the rows look's list: since the flat default (P9) the control
+   under `&popunitlook=rows` is `nc-windows-vq-rows`, and `nc-windows-vq` fails three (As built
+   12). H ran both.
 5. **A7.** texB and `registerB` are written only when `liveUid === P.uid`. P6a, `8e74419`. P7
    gives `density` the same guard (P7-6, `eadf842`).
 6. **`neighbourRule`'s REF.** Take the contract's §4.10 7-key line, or the code. Never take
@@ -751,9 +762,9 @@ and `density` count the member, only when its stream was lit for this unit
     - **`nc-windows-vq` under the flat look.** `--negctl` gives every member of a unit the same
       cover window. Read at one pinch, the columns of that window line up, so the control should
       fail `unitSeam`, `unitRegister` and `unitRows` but not `unitColumns`, and `unitWarp` only
-      reports. This is derived from the code and not yet run: the controls are re-run when the
-      records are re-recorded. Under `&popunitlook=rows`, the control keeps its four gates and
-      `unitWarp`.
+      reports. H ran it at `e2227e9`, and it failed exactly those three (and `skew` as vacuous,
+      as `nc-windows` does). Under `&popunitlook=rows` (`nc-windows-vq-rows`) it failed its four
+      gates and `unitWarp`.
     - **Where the looks differ.** At any latitude, the rows look's H pair shows the flat crop along
       the row's centre line, so the two looks differ only over the tile's height. A rows-look V's
       shared scale does not: at 60° its top member's centre line renders `q/vK` = 1.0746 of the
@@ -788,6 +799,23 @@ and `density` count the member, only when its stream was lit for this unit
       regrows), and the planning (eligibleT's edges; on a still board each 2×3 a distinct key,
       flat, its lead in band; on a moving board exactly the four the world grew; `pair` forms
       none). Both earlier planners fail T38 (patched in place, then restored byte-identical).
+14. **H, the records at today's defaults** (10-31, Nathan's item 11). What landed beyond the
+    probe section's text:
+    - **`texBudget` follows the tile budget** (`4402081`). Its bounds were popcap 13's forecast
+      (64.4 desktop, 36.3 phone) plus headroom, 96 and 56, set when `?popequiv` was 0. At the
+      defaults every units record but u-rm and u-equiv read over them: 100.3 MiB at rest
+      against 96, 58.1 against 56.
+      The bound is now the heaviest adjacent pair's at-rest reading at the defaults, plus
+      `texPeak`'s 15%: 131 on desktop, 73 on the phone. That pair is Rossi's hold with Jeff
+      Sorkowitz decoded ahead, 113.8 and 63.2 (seed 4242, the texture ledger). u-thumb-phonehd
+      shows desktop's 512 stills on a phone, so it passes `--texmb=131`. A pick (Open).
+    - **`videoDensityMax` follows a planned rung** (`4402081`). The ceiling was
+      max(2, pin / r1), and phonehd's HD pairs, planned at 720 over the phone's 480 pin, read
+      2.025 and 2.033 on a 310 px tile. The ceiling's rung is now the higher of the pin and any
+      rung the sample's tier plans. A rung a stream merely plays never counts: `streamTier`
+      judges that. A pick (Open).
+    - **The pool's first-frame gate** (`e2227e9`; Parity). `clean` found it: 3 of the 28 record
+      runs logged "texImage2D: no video" (Status log).
 
 ### Defaults, and Nathan's questions
 
@@ -841,6 +869,10 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   the wheel travel); the tail, the last third of the rise; and the scope, the wheel only, since
   touch keeps the finger's direct drive until the mobile pass. The lerp is not a pick: it is the
   house's baked Lenis 0.165.
+- The probe's two re-derived bounds (flagged 10-31; As built 14). `texBudget` is the heaviest
+  adjacent pair's at-rest reading at the defaults, plus `texPeak`'s 15%: 131 MiB on desktop,
+  73 on the phone. `videoDensityMax`'s ceiling takes the higher of the pin and a rung the
+  sample's tier plans, so phonehd's HD pairs are judged at 720.
 
 **Answered 10-31** (his replies to the round's 17 open items):
 - A single's corner touching its own unit stays allowed ("stays as is").
@@ -1561,3 +1593,32 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   at once (Next steps). No render targets; the canvas's own buffers are outside the ledger. The
   samples' step and phase come from the director's 2 Hz stats, so a change can read as a hold;
   one run's clock ran slow (11 worlds in 150 s, against 18).
+- 2026-10-31 · records · `4402081`, `e2227e9` · the probe's 17 records, re-recorded at the
+  defaults (his item 11, "procced"; Baselines and seeds), seed 42, one browser, against :4322.
+  The first pass failed every units record but u-rm and u-equiv on `texBudget`: 100.3 MiB at
+  rest against 96 on desktop, 58.1 against 56 on the phone (110.5 in the tide run); u-phonehd
+  and u-thumb-phonehd failed `videoDensityMax` too. An A/B ruled out D and the
+  handoff: `&popportrait=pair` and `&pophandoff=today` read the same 100.3 and 58.1. That left
+  his 10-24 tile budget (`?popequiv` 32), against a bound that was still popcap 13's forecast.
+  Both of the probe's re-derived bounds are picks (As built 14, Open): `texBudget` 131 and 73,
+  the heaviest pair at the defaults plus 15%; and the density ceiling's rung, now the higher of
+  the pin and a planned rung, which phonehd's HD pairs (2.025, 2.033) had failed. At `4402081`,
+  `clean` failed 3 of the 28 record runs on "texImage2D: no video" (u-hidpi once, and its rerun passed;
+  u-phonehd720 twice). A trace of every VideoTexture's first frame callback (six runs of 45–60 s at
+  u-phonehd720's URL and device) found the pool's first-frame gate opening on a reassigned
+  slot's previous stream. `assign()` points the slot at the new src at once, React commits the
+  swap a few ms later, and in between Chrome fires `timeupdate` and `waiting` on every outgoing
+  stream, at readyState 4. The incoming clip's texture then had no frame, so its tiles
+  crossfaded toward black for 57–175 ms, until its first real frame; a late frame callback from
+  the outgoing stream could upload the emptied `<video>`, which is the warning. The gate now
+  opens only on the src its `assign()` asked for (`e2227e9`; Parity). Starts resolved on the
+  outgoing stream went from 6 of 28 and 2 of 27 to 0 of 27 and 0 of 29, with no warning, and
+  u-phonehd720 recorded clean, 34 of 34. Those starts no longer dip toward black, and `/work`'s
+  Near tier mounts the same pool. The handoff's measured waits may read a little longer for
+  them: they are now the true waits. All 17 checks then exited 0 without the flag, and the 14
+  controls exited 2 with their lists met, `nc-windows-vq` at the flat look for the first time
+  and `nc-windows-vq-rows` new (the probe section). The commit message calls every upload still
+  made without a frame the loop's seek back to 0. The trace says 4 of the 8 followed a seek
+  within 1 ms and 4 have no traced cause; all 8 are at readyState 1 with the width known, so
+  Chrome does not warn. Evidence: `~/swm-globe-handoff-2026-10/r1031/H/` (the matrix, the failed
+  records, the A/B, the traces and their analysis; shots left out). Tests 121, 345 keys.
