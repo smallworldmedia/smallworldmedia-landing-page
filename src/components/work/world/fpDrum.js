@@ -613,7 +613,7 @@ export function buildDrumSlot(slot, w, ctx) {
   const chosen = [...videoPool.slice(0, videoCount), ...stillTiles];
   const tierOf = (i) =>
     preset
-      ? plateSeats[i]?.big
+      ? plateSeats[i]?.big || i < videoCount
         ? 0
         : 1 + (i % 2)
       : videoCount > 0

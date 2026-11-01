@@ -63,11 +63,13 @@ const vertexShader = /* glsl */ `
   varying vec2 vEdgeUv;
   varying float vK; // media horizontal crop factor (1 = full; <1 = centre-crop)
   varying float vFlipPole; // 1 = tile nearer the TOP pole (pole-facing edge is vUv.y=1)
+  varying float vT; // this vertex's polar angle on the scroll globe (π/2 off it): a unit's flat crop pinches by sin(vT)
   void main() {
     vUv = uv;
     vEdgeUv = aEdgeUv;
     vK = 1.0;
     vFlipPole = 0.0;
+    vT = 0.5 * 3.141592653589793;
     vec3 pos = position;
     if (uUsePolarScroll > 0.5) {
       float PI = 3.141592653589793;
@@ -94,6 +96,7 @@ const vertexShader = /* glsl */ `
       // slivers, and content grows outward from / shrinks into the poles.
       float t = clamp((theta - uCanonTop) + uPolarTop, 0.0, PI);
       float st = sin(t);
+      vT = t; // affine in vUv.y along the tile (clamped only past a pole): it interpolates to each fragment's own latitude
       pos = vec3(-cos(phi) * st, cos(t), sin(phi) * st) * r;
     }
     vec4 localPos = vec4(pos, 1.0);
@@ -136,6 +139,9 @@ const fragmentShader = /* glsl */ `
   uniform float uPoleCornerWide;  // scroll globe: wide-end + straight-wall corner radius at the pole
   uniform float uPoleCornerStart; // scroll globe: sin(θ) below which the pole cap ramps in
   uniform float uPoleTipLift;     // scroll globe: pole-facing cap lift — bottom fraction dissolved to blue at the pole (terminate-short amount, UV units)
+  uniform vec2 uSpanA; // P9 (?popunitlook=flat): (1, spanC) = texA's flat unit crop; (0, 0) = the row-centre crop
+  uniform vec2 uSpanB; // the same switch for texB (a unit's stream rides its texA window; a single's cover never does)
+  varying float vT;
   varying vec2 vUv;
   varying vec2 vEdgeUv;
   varying float vK; // media horizontal crop factor / pole-proximity from the vertex stage
@@ -235,11 +241,18 @@ const fragmentShader = /* glsl */ `
     // density, so the panel CROPS undistorted media instead of squeezing it into
     // the pinch. vK = 1 off the scroll path → mUv = vUv → byte-identical.
     vec2 mUv = uUsePolarScroll > 0.5 ? vec2(0.5 + (vUv.x - 0.5) * vK, vUv.y) : vUv;
+    // P9 (?popunitlook=flat, unitSpan.flatWindow): a unit member samples about its UNIT's centre, spanC member
+    // widths from its own, at each fragment's own pinch sin(vT) — one density over the whole unit, so its rows
+    // neither warp nor kink at the gaps (a CPU window can only pinch a member by its row's centre). texB has its
+    // own switch: a tile still showing a member may fade in another clip's single cover. Off for every single.
+    vec2 mUvB = uSpanB.x > 0.5 ? vec2(0.5 + (vUv.x - 0.5 + uSpanB.y) * sin(vT), vUv.y) : mUv;
+    if (uSpanA.x > 0.5) mUv.x = 0.5 + (vUv.x - 0.5 + uSpanA.y) * sin(vT);
     vec3 colorA = texture2D(texA, mUv * uvScaleA + uvOffsetA).rgb;
-    vec3 colorB = texture2D(texB, mUv * uvScaleB + uvOffsetB).rgb;
+    vec3 colorB = texture2D(texB, mUvB * uvScaleB + uvOffsetB).rgb;
     colorB = mix(colorB, srgbToLinear(colorB), uVideoB);
     vec3 base = mix(uFallbackColor, colorA, uHasTexA);
-    vec3 color = mix(base, colorB, uMix) * uPower;
+    vec3 color = mix(base, colorB, uMix);
+    color *= uPower;
     // Edge stroke: distance to the nearest panel edge in aEdgeUv space,
     // converted to pixels via fwidth so the width holds under any camera
     // distance or panel scale. Applied after uPower — the stroke is ink,
@@ -323,6 +336,9 @@ export function createPanelMaterial({ fallbackColor, cornerRadius = 0 }) {
       uPoleCornerWide: { value: SCROLL_POLE_CORNER_WIDE },
       uPoleCornerStart: { value: SCROLL_POLE_CORNER_START },
       uPoleTipLift: { value: SCROLL_POLE_TIP_LIFT },
+      // P9's flat unit crop, per texture: tileSwap.setWindowA / setWindowB write it with each window. Off = (0, 0).
+      uSpanA: { value: new THREE.Vector2(0, 0) },
+      uSpanB: { value: new THREE.Vector2(0, 0) },
     },
   });
 }

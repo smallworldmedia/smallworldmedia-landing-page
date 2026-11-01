@@ -55,7 +55,7 @@ import { navigate } from 'astro:transitions/client';
 import useHls from '../useHls.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { SCROLL_TRIGGER_WORK_PX, GLIDE_MS } from '../../../lib/motion.js';
-import { IMG_FORMAT } from '../imageConfig.js';
+import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 
 gsap.registerPlugin(useGSAP, CustomEase);
@@ -103,7 +103,8 @@ const MEDIA_IMG_WIDTH = 1400;
 /* — hls.js config for the band's media window — prefetch the first fragment
    alongside manifest parsing and start two rungs up the ladder (~720p on
    Mux's typical ladder); ABR adapts from there (capLevelToPlayerSize stays
-   on inside useHls). maxBufferLength caps the forward buffer. — */
+   on inside useHls). maxBufferLength is a floor, not a cap; the stream
+   clip (DETAIL_MAX_SECONDS, muxStream) is what bounds the download. — */
 const BAND_HLS_CONFIG = {
   startFragPrefetch: true,
   startLevel: 2,
@@ -136,8 +137,8 @@ export default function NextProjectBand({ next }) {
 
   const isVideo = !!next?.hero?.playbackId;
   const hlsSrc =
-    isVideo && inView ? `https://stream.mux.com/${next.hero.playbackId}.m3u8` : null;
-  useHls(videoRef, hlsSrc, BAND_HLS_CONFIG);
+    isVideo && inView ? muxStream(next.hero.playbackId, DETAIL_MAX_SECONDS) : null;
+  useHls(videoRef, hlsSrc, BAND_HLS_CONFIG, { videoOnly: true });
 
   // ── Measure the rest-state shifts (and re-measure on resize) ──
   // CSS lays everything at its END position (text at the left edge, media
@@ -522,6 +523,7 @@ export default function NextProjectBand({ next }) {
               autoPlay
               loop
               playsInline
+              onTimeUpdate={wrapAtDetailCap}
             />
           ) : next.hero?.imageUrl ? (
             <img

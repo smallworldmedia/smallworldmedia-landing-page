@@ -7,11 +7,16 @@
  * slot's src triggers useHls's built-in teardown/reattach.
  *
  * Two MediaCard preview strategies carry over:
- *  - Abbreviated loop: timeupdate seeks back to 0 at GLOBE_PREVIEW_SECONDS,
- *    so loops replay from buffer (near-zero ongoing delivery per panel).
+ *  - Abbreviated loop: every slot streams the shared preview window,
+ *    GLOBE_PREVIEW_SECONDS, clipped at the source (muxStream, Mux instant
+ *    clipping), and loops it from buffer (near-zero ongoing delivery per
+ *    panel). `loop` wraps at the clip's end; timeupdate seeks back to 0 at
+ *    the window for a clip Mux ends on a later segment boundary.
  *  - No-abrupt-start gate: assign() resolves only after the `playing` event
  *    AND the first presented frame (requestVideoFrameCallback, falling back
  *    to the first timeupdate) — the crossfade never reveals a stalled frame.
+ *    Only the assigned src opens it: a reassigned slot's previous stream
+ *    plays on until React commits the new src, and its events don't count.
  *
  * Videos are hidden via offscreen near-invisible positioning, NOT
  * display:none (Safari throttles decoding of display:none videos).
@@ -19,35 +24,49 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
   createRef,
 } from 'react';
 import useHls from '../work/useHls.js';
-import { MAX_LIVE, GLOBE_PREVIEW_SECONDS, STREAM_PARAMS } from './globeConfig.js';
+import { MAX_LIVE, GLOBE_PREVIEW_SECONDS, GLOBE_STREAM_PARAMS } from './globeConfig.js';
+import { poolStreamUrl } from './streamPrefetch.js';
 
-/** hls.js config for pool slots — locked rendition, short buffer */
+/** hls.js config for pool slots — locked rendition. maxBufferLength is a
+ *  FLOOR, not a cap: hls.js aims its forward buffer at 8 × maxBufferSize ÷
+ *  bitrate seconds (up to maxMaxBufferLength), which at these bitrates runs
+ *  past the end of most assets. The stream clip (streamUrl) is what bounds
+ *  the download. */
 const POOL_HLS_CONFIG = {
-  maxBufferLength: 10, // ≥ GLOBE_PREVIEW_SECONDS — the whole loop stays buffered
+  maxBufferLength: 10, // the floor: ≥ GLOBE_PREVIEW_SECONDS, so the whole loop stays buffered
   startFragPrefetch: true, // fetch the first fragment alongside manifest parsing
 };
 
 function streamUrl(playbackId, params) {
-  // `params` shapes the manifest server-side (globe: single 540p rendition on
-  // mobile, 270p cap on desktop; World Near tier: one pinned hi-res rendition);
-  // preferMinQuality locks the lowest remaining level, so the two always agree.
-  return `https://stream.mux.com/${playbackId}.m3u8?${params}`;
+  // `params` pins ONE rendition server-side (min = max): the globe's
+  // GLOBE_STREAM_PARAMS (720p desktop, 480p phones), the World Near tier's hi-res pin, or a globe tier's pin
+  // (LivePanelScheduler.rungPlan). preferMinQuality locks
+  // the lowest remaining level, so the two always agree. The clip goes last,
+  // once, after whatever params the caller passed (muxStream): Mux ends the
+  // stream on the first segment boundary at or after the preview window, so
+  // a slot fetches nothing past the segment its loop point falls in. The
+  // home globe's fast handoff fetches clips ahead under this same URL.
+  return poolStreamUrl(playbackId, params);
 }
 
-function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
-  useHls(videoRef, src, POOL_HLS_CONFIG, { preferMinQuality: true });
+function PoolSlot({ videoRef, src, slotIndex, onFirstFrame, onAttached }) {
+  // primed: a playlist the globe fetched ahead (streamPrefetch) plays from memory
+  useHls(videoRef, src, POOL_HLS_CONFIG, { preferMinQuality: true, videoOnly: true, primed: true });
+  // After useHls's effect (declaration order): the previous stream is torn down and this src attached.
+  useEffect(() => onAttached(slotIndex, src), [slotIndex, src, onAttached]);
 
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     if (video.currentTime >= GLOBE_PREVIEW_SECONDS) {
-      video.currentTime = 0; // seamless-enough short loop, MediaCard convention
+      video.currentTime = 0; // loop at the window: Mux may end the clip on a later segment boundary
     }
     onFirstFrame(slotIndex, 'timeupdate');
   }, [videoRef, slotIndex, onFirstFrame]);
@@ -79,7 +98,7 @@ function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
 // shapes the Mux manifests; both default to the globe's values. The World
 // mounts a smaller, higher-resolution pool for its Near tier.
 const VideoSlotPool = forwardRef(function VideoSlotPool(
-  { size = MAX_LIVE, streamParams = STREAM_PARAMS },
+  { size = MAX_LIVE, streamParams = GLOBE_STREAM_PARAMS },
   ref
 ) {
   const videoRefs = useRef(
@@ -92,10 +111,20 @@ const VideoSlotPool = forwardRef(function VideoSlotPool(
   streamParamsRef.current = streamParams;
   // Per-slot waiter: { resolve, reject } for the in-flight assign()
   const waitersRef = useRef(Array(size).fill(null));
+  // Per-slot src the <video> has attached (PoolSlot). assign() sets srcsRef at
+  // once, but the slot's previous stream plays on until React commits, and
+  // Chrome fires timeupdate on it as the scheduler drops its texture: a waiter
+  // resolved then got a VideoTexture with no frame (its tiles crossfaded
+  // toward black) and, now and then, an upload of the emptied <video>
+  // ("texImage2D: no video").
+  const attachedRef = useRef(Array(size).fill(null));
+  const onAttached = useCallback((slot, src) => {
+    attachedRef.current[slot] = src;
+  }, []);
 
   const onFirstFrame = useCallback((slot, _via) => {
     const waiter = waitersRef.current[slot];
-    if (!waiter) return;
+    if (!waiter || attachedRef.current[slot] !== srcsRef.current[slot]) return;
     const video = videoRefs.current[slot].current;
     if (!video || video.readyState < 2 || video.paused) return;
     waitersRef.current[slot] = null;
@@ -106,13 +135,14 @@ const VideoSlotPool = forwardRef(function VideoSlotPool(
     /**
      * Point a slot at a playback ID. Resolves with the <video> element once
      * frames are actually presenting (the no-abrupt-start gate).
+     * `params` defaults to the pool's streamParams; the globe's tiers pass a pin.
      */
-    assign(slot, playbackId) {
+    assign(slot, playbackId, params = streamParamsRef.current) {
       return new Promise((resolve, reject) => {
         const prev = waitersRef.current[slot];
         if (prev) prev.reject(new Error('slot reassigned'));
         waitersRef.current[slot] = { resolve, reject };
-        srcsRef.current[slot] = streamUrl(playbackId, streamParamsRef.current);
+        srcsRef.current[slot] = streamUrl(playbackId, params);
         const el = videoRefs.current[slot].current;
         if (el) el.dataset.playbackId = playbackId; // debug traceability
         setSrcs([...srcsRef.current]);
@@ -147,6 +177,7 @@ const VideoSlotPool = forwardRef(function VideoSlotPool(
           videoRef={videoRef}
           src={srcs[i]}
           onFirstFrame={onFirstFrame}
+          onAttached={onAttached}
         />
       ))}
     </div>

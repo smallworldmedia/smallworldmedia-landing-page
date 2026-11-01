@@ -283,7 +283,7 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
         label="tilt deg"
         param="tiltDeg"
         value={s.tiltDeg}
-        min={0}
+        min={-90}
         max={90}
         step={0.5}
         fmt={num3}
@@ -312,7 +312,7 @@ export default function HeroTunePanel({ rigRef, onDryRun, onReplayIntro }) {
       <p className="hero-tune__note">
         cascade (?cascadespeed) is the meridian-scroll pace — rows of tiles
         travel pole-to-pole; higher = faster + more video load, 0 parks it. tilt
-        (?herotilt) is the brand lean (40 default), yaw (?heroyaw) is a static
+        (?herotilt) is the resting lean (−10, Nathan 10-24; + tips the top pole toward you), yaw (?heroyaw) is a static
         spin, yaw speed (?yawspeed) auto-rotates the globe at a steady °/s (± for
         direction, 0 = fixed). All apply LIVE.
       </p>

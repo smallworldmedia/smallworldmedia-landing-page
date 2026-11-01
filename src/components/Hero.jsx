@@ -72,11 +72,27 @@ import {
   subscribeHeroTune,
 } from './hero/heroConfig.js';
 import {
+  IS_MOBILE,
   PREFERS_REDUCED_MOTION,
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
-import { housePulseLoop, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
-import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from './SiteFooter.jsx';
+import { POP_TUNE_ACTIVE, TUNING as POP_TUNING } from './globe/popConfig.js';
+import { applyNavAccent, clearNavAccent } from '../lib/navAccent.js';
+import { housePulseLoop, RELEASE_MS, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
+import SiteFooter, {
+  FOOTER_REVEAL_EVENT,
+  FOOTER_CLOSE_EVENT,
+  wipeReveal,
+  createFooterDrive,
+  paintDrivenFooter,
+  armFooterEntrance,
+  playFooterEntrance,
+  resetFooterEntrance,
+} from './SiteFooter.jsx';
+// The studio blurb — in the resting footer variant it leaves the tagline pill
+// and is set in the panel (below). It is Sanity copy now, handed down from
+// index.astro, so only the no-Sanity fallback lives in code (10-08).
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 // 08-30 (3), Nathan: the home→/work transition carries the FP→detail
 // choreography — the SAME enter-tune vocabulary (cover duration, window
 // model, pow curve) WorldCard/useWorldScene ride, so the two passages can
@@ -189,11 +205,101 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
 /* — Globe outer stroke (Globe/Homepage): a flat electric-blue disc behind the
    canvas, sized GLOBE_STROKE_FRAC proud of the globe disc so only a thin ring
    shows at the silhouette (the lockup mark's outer stroke), scaling with the
-   intro zoom. The fraction (?globestroke, default 5%, 0 = off) is sourced from
+   intro zoom. The fraction (?globestroke, default 6% desktop / 5% mobile,
+   0 = off) is sourced from
    heroConfig so HeroIntro can compensate the glyph framing by the same amount
    (globe + stroke = the lockup "o"). — */
 
-export default function Hero({ globeAssets }) {
+/* — The HOME footer floor (phones since 10-07, Nathan; desktop since 10-09,
+   bake A, ba7cf2c) — "On homepage load let's
+   have the footer persistent and visible … show visible only the text blurb
+   with the 'utilized by…' text fading out below to suggest there is more to
+   scroll to". The footer's driven progress PARKS at this fraction instead of
+   0 on phones, so the studio blurb is up on load and the gesture reveals the
+   rest. Desktop rests too since 10-09 (FOOTER_REST_DESKTOP below); an
+   explicitly passed ?footerrest still reaches any width, and ?footerrest=0
+   restores the old retract-to-nothing footer (and the tagline-pill blurb) on
+   either tier.
+
+   The number is Nathan's to bake, so it ships as a dial: ?footerrest=<0..1>
+   (0 restores the old retract-to-nothing feel). Read at module load like
+   IS_MOBILE itself, so one frozen fact drives both the JS and the CSS
+   variant ([data-footer-rest], set below).
+
+   The default is MEASURED, not guessed — it is a fraction of the panel's own
+   height, and the panel is blurb + logo band, so a rest of p clears the blurb
+   when p >= blurbBottom / panelHeight. The floor wanted is the one that clears
+   the whole blurb AND brings the first "utilized by…" line into the frame,
+   dimmed by the band's own reveal window — Nathan's "visible only the text
+   blurb with the 'utilized by…' text fading out below".
+
+   RE-BAKED 0.62 → 0.59 on 10-08 (Nathan: "fix the over-clearing"), after the
+   blurb moved into Sanity and the shorter copy re-wrapped it 5 lines → 4. The
+   panel went 306px → 281.2px, so the SAME 0.62 revealed more of it: 57.7px of
+   blurb clearance where the dialed pose had ~50px, and 26.8px of the "utilized
+   by…" line showing instead of seated.
+
+   SWEPT at 390×844 with ?footerslide=0, so what is read is the settled pose:
+   the relationship is linear at the panel's own height — 2.81px of reveal per
+   0.01 of rest — and the blurb→lead-in gap is a CONSTANT 31.0px at every rest.
+   So 0.59 restores both halves of the dialed framing to within a pixel: blurb
+   clearance 49.3px (pre-Sanity ~50.0) and lead-in peek 18.3px (pre-Sanity
+   ~19.0, derived from that ~50.0 across the same constant gap, since the old
+   panel cannot be re-measured). The sweep also re-derives the clipping floor
+   independently — blurbClear hits 0 at rest 0.4147, i.e. the blurb box ends at
+   0.415 of the panel — so 0.59 holds 0.175 of headroom above it. It still
+   clears at 320px (5 lines, 291px, 0.449) and 430px (4 lines, 297px, 0.427).
+
+   THIS IS A COPY-DEPENDENT NUMBER — a longer blurb re-wraps and moves it, and
+   it has moved once already. docs/tunables-guide.md `?footerrest` carries the
+   full reading and the sweep table, including why the desktop variant needs
+   its own (its panel is 258px at 1440×900). FOOTER_REST_EXPECT in
+   scripts/globe-probe.mjs is this number's gate twin — move both, or --footer
+   fails. — */
+const FOOTER_REST_MOBILE = 0.59;
+/* The DESKTOP rest. Baked 0.62 on 10-09 (Nathan: "push the globe page footer
+   work (visible when i define ?footerrest) to be live"), the pose every
+   desktop look of the variant ran at on 10-08. RE-BAKED 0.62 → 0.40 on 10-31
+   (Nathan: "lets lower it to a sliver so its more of a suggestion for the user
+   to scroll down to reveal"): 0.40 is the rest that gives desktop the phone's
+   own lead-in peek. SWEPT at DSF 2 with ?footerslide=0, settled; rest → blurb
+   clearance / "utilized by…" peek in px: 1440×900 0.62 → 112.7/75.7 · 0.42 →
+   61.1/24.1 · 0.40 → 55.9/19.0 · 0.38 → 50.8/13.8; 1728×992 0.62 → 114.4/77.5
+   · 0.40 → 55.0/18.0. The phone at 0.59 reads 49.3/18.3, so on both tiers the
+   top ~18px of the lead-in line shows above the fold, a hint rather than a
+   seated band. It holds from 1280 to 1728 (19.5px of peek at 1280×800). Below
+   the blurb fill's ~1130px crossover the blurb wraps to two lines and the peek
+   thins to 6.6px (1024×768, 820×1180 and 800×600 read alike), with the blurb
+   still clearing by 43.5px. It is its own number, not the phone's: at 1440×900
+   the panel is 258px against the phone's 281.2px, so the 0.59 sweep above does
+   not transfer. The clipping floor is that two-line band's 0.2371, held by
+   scripts/test/footer-reveal.test.mjs. */
+const FOOTER_REST_DESKTOP = 0.4;
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+const REST_DIAL = PARAM('footerrest', NaN);
+const FOOTER_REST = Math.min(
+  1,
+  Math.max(
+    0,
+    Number.isFinite(REST_DIAL) ? REST_DIAL : IS_MOBILE ? FOOTER_REST_MOBILE : FOOTER_REST_DESKTOP
+  )
+);
+
+/* The resting footer's on-load entrance FAIL-OPEN deadline (10-07). The
+   entrance is armed from inside chromeBeat — the beat the CTA, the nav and
+   the tagline pill already arrive on — which lands at CHROME_BEAT_AT of the
+   settle: 0.78 × 2.2s = 1.72s on a first visit, 0.94s on a revisit. 3s is
+   comfortably past both and still bounded, so a beat that never comes at all
+   (a dead HeroIntro machine under ?intro=a|c) brings the blurb up un-animated
+   instead of leaving it blank. Absence of [data-footer-in] means VISIBLE. */
+const FOOTER_IN_SAFETY_MS = 3000;
+
+export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
+  const footerBlurb = siteCopy?.footerBlurb || SITE_COPY_FALLBACK.footerBlurb;
   const heroRef = useRef(null);
   const veilRef = useRef(null);
   const armedRef = useRef(false);
@@ -203,42 +309,100 @@ export default function Hero({ globeAssets }) {
   // drives SiteFooter's driven progress 0..1 directly; upward delta
   // retracts; it parks where the gesture leaves it. The tagline pill asks
   // for a full reveal; the enter_world commit retracts it.
-  const [footerP, setFooterP] = useState(0);
-  const footerPRef = useRef(0);
+  // 10-07: FOOTER_REST is the FLOOR, not 0 — the panel starts (and returns
+  // to) the resting fraction above: phones since 10-07, desktop since 10-09.
+  //
+  // 10-07 (2): no React state here any more. This used to be useState, so
+  // every touchmove frame re-rendered Hero → SiteFooter → ClientLogoTicker to
+  // recompute one inline transform and one `inert` — sixty subtree
+  // reconciliations a second beside the WebGL draw, which is the single
+  // largest per-frame cost on the page Nathan calls laggy. The panel paints
+  // itself imperatively from this one number now (paintDrivenFooter), the way
+  // scroll mode always has; the `progress` prop just seeds the resting pose.
+  const footerPRef = useRef(FOOTER_REST);
   const footerWipeRef = useRef(null); // the pill's wipe tween — the user's delta kills it
   const setFooterReveal = (v) => {
     if (footerPRef.current === v) return;
     footerPRef.current = v;
-    setFooterP(v);
+    paintDrivenFooter(v);
   };
+  // 10-31 (Nathan: the reveal is "very sudden and slightly jarring"): the
+  // wheel's deltas glide the panel, Lenis's way, and brake into the full
+  // reveal (createFooterDrive). One per island; its setter only touches refs.
+  const footerDriveRef = useRef(null);
+  footerDriveRef.current ??= createFooterDrive(setFooterReveal, FOOTER_REST);
   useEffect(() => {
     const el = heroRef.current;
     if (!el) return undefined;
-    const addDelta = (dy) => {
+    const drive = footerDriveRef.current;
+    const addDelta = (dy, wheel = false) => {
       if (departingRef.current) return;
+      // Where the reveal is headed: a wheel glide's target, else the panel.
+      const p = drive.goal(footerPRef.current);
+      // A delta that cannot move the panel must not touch the pill's wipe:
+      // the kill used to run BEFORE this return, so one stray upward
+      // touchmove mid-wipe cancelled it and parked the panel partway.
+      if (dy <= 0 && p <= FOOTER_REST) return;
       footerWipeRef.current?.kill();
-      const p = footerPRef.current;
-      if (dy <= 0 && p <= 0) return;
-      if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : 0);
-      else setFooterReveal(Math.min(1, Math.max(0, p + dy / SCROLL_TRIGGER_HOME_PX)));
+      if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : FOOTER_REST);
+      else if (wheel) drive.add(dy / SCROLL_TRIGGER_HOME_PX, footerPRef.current);
+      else {
+        drive.stop(); // the finger owns the panel: it tracks, unsmoothed
+        setFooterReveal(Math.min(1, Math.max(FOOTER_REST, footerPRef.current + dy / SCROLL_TRIGGER_HOME_PX)));
+      }
     };
     const onWheel = (e) => {
       e.preventDefault();
-      addDelta(e.deltaY);
+      addDelta(e.deltaY, true);
     };
     let touchY = null;
     let touchX = null;
+    // ── The release carry (10-07) ──
+    // Nathan's recorded curve is "no overshoot, steep launch carrying scroll
+    // momentum, smooth decel into rest", and addDelta is raw unfiltered
+    // per-frame delta: the panel stopped DEAD where the finger lifted, with
+    // no decel at all. So carry the gesture's last velocity one stall-gap
+    // further (RELEASE_MS, the house gap that already means "the finger has
+    // stopped") and settle it on the footerWipe curve — the SAME wipeReveal
+    // the pill and the close path ride, so the footer still has exactly one
+    // glide. A finger already at rest when it lifts gets no carry.
+    let vel = 0; // progress per ms, smoothed
+    let moveAt = 0;
     const onTouchStart = (e) => {
       touchY = e.touches[0].clientY;
       touchX = e.touches[0].clientX;
+      vel = 0;
+      moveAt = 0;
     };
     const onTouchMove = (e) => {
       if (touchY === null) return;
       const y = e.touches[0].clientY;
       const x = e.touches[0].clientX;
-      // a mostly-horizontal move is the globe's drag, not a reveal
-      if (Math.abs(x - touchX) > Math.abs(y - touchY) && footerPRef.current <= 0) return;
-      addDelta((touchY - y) * TOUCH_GAIN);
+      // A mostly-horizontal move is the globe's drag, not a reveal — and the
+      // globe only drags where IS_MOBILE is false now (10-07: the globe's
+      // pointer listeners are not installed on phones at all, so there is no
+      // drag to protect there). The test is FOOTER_REST, not 0: under a
+      // resting floor the panel never sits at 0, so `<= 0` made this bail
+      // dead — and DragMomentum listens on pointer events with no pointerType
+      // filter, so on a touch laptop at desktop width one sideways swipe would
+      // spin the globe AND climb the panel.
+      if (
+        !IS_MOBILE &&
+        Math.abs(x - touchX) > Math.abs(y - touchY) &&
+        footerPRef.current <= FOOTER_REST
+      ) {
+        return;
+      }
+      const dy = (touchY - y) * TOUCH_GAIN;
+      const now = performance.now();
+      if (moveAt) {
+        // dt floored at one frame so a two-event burst cannot read as an
+        // enormous velocity.
+        const dp = dy / SCROLL_TRIGGER_HOME_PX / Math.max(16, now - moveAt);
+        vel = vel === 0 ? dp : vel * 0.6 + dp * 0.4;
+      }
+      moveAt = now;
+      addDelta(dy);
       touchY = y;
       touchX = x;
       e.preventDefault();
@@ -246,16 +410,53 @@ export default function Hero({ globeAssets }) {
     const onTouchEnd = () => {
       touchY = null;
       touchX = null;
+      // RM snaps progress 0↔1 with no in-betweens, so there is nothing to
+      // carry there (and a glide would contradict the preference).
+      if (PREFERS_REDUCED_MOTION || departingRef.current) return;
+      const stalled = !moveAt || performance.now() - moveAt > RELEASE_MS;
+      const p = footerPRef.current;
+      const to = Math.min(1, Math.max(FOOTER_REST, p + vel * RELEASE_MS));
+      vel = 0;
+      if (stalled || Math.abs(to - p) < 0.002) return;
+      footerWipeRef.current?.kill();
+      drive.stop();
+      footerWipeRef.current = wipeReveal(p, setFooterReveal, to);
     };
     const onReveal = () => {
       if (departingRef.current) return;
       footerWipeRef.current?.kill();
+      drive.stop();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
     };
     const onClose = () => {
       footerWipeRef.current?.kill();
-      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, 0);
+      drive.stop();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, FOOTER_REST);
     };
+    // The CSS variant latch: global.css re-stacks the panel (blurb up top,
+    // logo band last), drops the tagline pill and holds F1 off for exactly as
+    // long as this floor is live. One attribute, one frozen fact — so the
+    // layout can never disagree with the number the gesture clamps to.
+    let inSafety = null;
+    if (FOOTER_REST) {
+      document.documentElement.setAttribute('data-footer-rest', '');
+      // The on-load entrance's hidden ground, set in the SAME frame as the
+      // variant latch so the blurb is never seen at full strength and then
+      // hidden. chromeBeat plays it; this is only the fail-open deadline for
+      // a beat that never comes.
+      // The slide is first-view only (Nathan: "doesn't have to slide up if the
+      // user has already been on the site recently"). introMode is ALREADY
+      // that answer — decideIntroMode's one sessionStorage flag, tab-scoped,
+      // the same mechanism the tagline's revisit skip uses — so this reuses it
+      // rather than minting a second key. 'replay' and 'rm' get the fade with
+      // no slide; ?intro=full forces it back for a look.
+      // (introMode is declared below this effect but read inside its callback,
+      // which React runs after the render body — and it is a render-once
+      // useState value, so the [] deps stay honest.)
+      if (armFooterEntrance(PREFERS_REDUCED_MOTION, introMode === 'full')) {
+        inSafety = setTimeout(() => playFooterEntrance(PREFERS_REDUCED_MOTION), FOOTER_IN_SAFETY_MS);
+      }
+    }
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -263,8 +464,14 @@ export default function Hero({ globeAssets }) {
     window.addEventListener(FOOTER_REVEAL_EVENT, onReveal);
     window.addEventListener(FOOTER_CLOSE_EVENT, onClose);
     return () => {
+      document.documentElement.removeAttribute('data-footer-rest');
+      // Every bail path ungrounds the entrance: absence means VISIBLE.
+      document.documentElement.removeAttribute('data-footer-in');
+      clearTimeout(inSafety);
+      resetFooterEntrance(); // a soft nav back to home runs it again
       window.removeEventListener(FOOTER_CLOSE_EVENT, onClose);
       footerWipeRef.current?.kill();
+      drive.stop();
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
@@ -360,6 +567,17 @@ export default function Hero({ globeAssets }) {
     requestAnimationFrame(() =>
       window.dispatchEvent(new CustomEvent('swm:hero-lockup-done'))
     );
+    // 10-07 (Nathan): the RESTING footer's text arrives on this beat too —
+    // the one page-load beat the CTA, the nav and the tagline pill already
+    // share, so the footer joins the page's single arrival instead of
+    // deriving its own latch, one-shot listener and safety timer in a child
+    // effect (SiteNav.jsx:259-281's idiom, which also carries a
+    // child-before-parent ordering hazard and a 6s worst case). The panel is
+    // already OPEN at ?footerrest, so there is no reveal progress to gate on:
+    // the abruptness Nathan reported is STAGGER_ON (0.85) sitting above that
+    // floor, which nothing on load can cross. rAF-deferred like the two
+    // dispatches above — the 08-25 gsap-context adoption doctrine.
+    requestAnimationFrame(() => playFooterEntrance(PREFERS_REDUCED_MOTION));
     const owned = hero.querySelectorAll('.hero__enter-wrap');
     if (instant) gsap.set(owned, { autoAlpha: 1 });
     else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
@@ -490,6 +708,63 @@ export default function Hero({ globeAssets }) {
     };
   }, []);
 
+  // Globe population bench (?poptune=1, docs/globe-worlds-plan.md) — the
+  // same post-hydration lazy mount as the hero bench above.
+  const [PopTunePanel, setPopTunePanel] = useState(null);
+  useEffect(() => {
+    if (!POP_TUNE_ACTIVE) return undefined;
+    let alive = true;
+    import('./hero/PopTunePanel.jsx')
+      .then((m) => {
+        if (alive) setPopTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Population worlds (?popmode): the world on the globe tints the home
+  // chrome — its projectColor rides the same <html> accent broadcast /work
+  // uses (navAccent), scoped by html.pop-tint (global.css), and colours the
+  // commit's passage (worldRef → swm:envelop). No world (off, or
+  // ?popcolor=0) eases back to brand blue. On a route swap the swap has
+  // already wiped <html> and RouteFill sets the next route's accent — only
+  // an unmount that leaves the tint in place clears it.
+  const worldRef = useRef(null); // { slug, color } — the world on the globe
+  useEffect(() => {
+    const api = sceneApiRef.current;
+    if (!api?.onWorldChange) return undefined;
+    const unsub = api.onWorldChange(({ slug, color, animate }) => {
+      worldRef.current = { slug, color };
+      applyNavAccent(color || undefined, undefined, animate, { tint: 'pop-tint' });
+    });
+    return () => {
+      unsub();
+      if (document.documentElement.classList.contains('pop-tint')) clearNavAccent();
+    };
+  }, []);
+
+  // Enter the world you see (globe-worlds P3): right before each Enter World
+  // navigation, the world on the globe goes to /work as `swm:enterWorld` (its
+  // slug) and FeaturedProjects opens INSIDE it — a snap, no Turn from the
+  // first World. No world (off, ?popenter=0) clears the key so a stale one
+  // can never reopen a world later. Before the entrance has named its world,
+  // the director's focus stands in.
+  const handOffWorld = (world = worldRef.current) => {
+    const slug = POP_TUNING.enter
+      ? world?.slug || sceneApiRef.current?.getFocusProject?.() || null
+      : null;
+    try {
+      if (slug) sessionStorage.setItem('swm:enterWorld', slug);
+      else sessionStorage.removeItem('swm:enterWorld');
+    } catch {
+      /* storage unavailable — /work opens at the first World */
+    }
+  };
+
   // Blob-tracking labels (chunk 6) — on by default now (TUNING.labels;
   // ?herolabels=0 forces off) with RM's outer guard here (HeroLabels dual-
   // guards inside). Same post-hydration gate — the URL-seeded flag must
@@ -529,6 +804,11 @@ export default function Hero({ globeAssets }) {
         armedRef.current = true;
         return;
       }
+      // The cover cuts in (10-06) — /work lets go once the entered card is up.
+      window.dispatchEvent(
+        new CustomEvent('swm:envelop', { detail: { duration: 0, color: worldRef.current?.color || undefined } })
+      );
+      handOffWorld();
       navigate('/work'); // /work initializes already inside
       return;
     }
@@ -627,8 +907,13 @@ export default function Hero({ globeAssets }) {
         // loader: true — the home→/work passage shows the overviews_loading
         // bar on the RouteFill while the World builds (08-25; other
         // passages stay bare).
-        new CustomEvent('swm:envelop', { detail: { duration: HANDOFF_COVER_SECONDS, loader: true } })
+        new CustomEvent('swm:envelop', {
+          detail: { duration: HANDOFF_COVER_SECONDS, loader: true, color: worldRef.current?.color || undefined },
+        })
       );
+      // The blue fill froze the director at its first beat — the world here
+      // is the one the commit swallowed.
+      handOffWorld();
       navigate('/work');
     };
 
@@ -744,10 +1029,25 @@ export default function Hero({ globeAssets }) {
   const onEnterClick = () => {
     if (departingRef.current) return;
     footerWipeRef.current?.kill();
-    setFooterReveal(0); // the footer never rides the Envelopment
+    footerDriveRef.current.stop();
+    // The footer never rides the Envelopment — back to its resting floor,
+    // which is NOT 0 (either tier since 10-09): dropping it to nothing yanked
+    // the persistent footer off the screen under the dive.
+    setFooterReveal(FOOTER_REST);
     setCtaPinned(true);
+    // The world you clicked is the world you land in: the change clock holds
+    // from here (no new world starts under the dive) and /work gets this one.
+    sceneApiRef.current?.popHold();
+    const entered = worldRef.current;
     if (PREFERS_REDUCED_MOTION) {
-      navigate('/work'); // RM: plain navigation, no theatrics
+      // RM: plain navigation, no theatrics — but the cover CUTS in (RouteFill
+      // sets it, no fade) so /work's server-rendered first World never shows
+      // before the entered one; /work lets go once that card is up (10-06).
+      window.dispatchEvent(
+        new CustomEvent('swm:envelop', { detail: { duration: 0, color: entered?.color || undefined } })
+      );
+      handOffWorld(entered);
+      navigate('/work');
       return;
     }
     departingRef.current = true;
@@ -755,11 +1055,29 @@ export default function Hero({ globeAssets }) {
     commitKillRef.current?.(); // a bench dry-run may still be settling
     const { enterMs, scale, moveStart, moveEnd, pow } = ENTER_TUNABLES;
     const coverS = enterMs / 1000;
+    // 10-06 (Nathan): the button leaves FIRST, quickly — the chrome exit's
+    // one real-time beat — and the loading bar waits until it is gone.
+    const chrome = heroRef.current?.querySelectorAll('.hero__lead-col, .hero-labels');
+    if (chrome?.length) {
+      gsap.to(chrome, { autoAlpha: 0, duration: CHROME_OUT_SECONDS, ease: 'power2.out', overwrite: true });
+    }
     window.dispatchEvent(
-      // loader: true — home→/work still shows overviews_loading while the
-      // World builds (the FP→detail passage stays bare). Brand blue: home
-      // never knows the arriving World's accent, and home IS blue.
-      new CustomEvent('swm:envelop', { detail: { duration: coverS, loader: true } })
+      // The fill wears the population world's accent when one holds the
+      // globe (?popmode) — otherwise brand blue: home IS blue.
+      new CustomEvent('swm:envelop', {
+        detail: { duration: coverS, color: entered?.color || undefined },
+      })
+    );
+    // overviews_loading (home→/work only — the FP→detail passage stays bare)
+    // opens ?loaderlead ms AFTER the button is out, never under it. rAF-
+    // deferred so RouteFill's tweens are not adopted by this island's context.
+    const loaderAtMs = Math.min(
+      enterMs,
+      CHROME_OUT_SECONDS * 1000 + Math.max(0, HERO_TUNING.loaderLeadMs)
+    );
+    setTimeout(
+      () => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('swm:loader-start'))),
+      loaderAtMs
     );
     // 08-31: the tagline's letters cut out in random order under the rising
     // cover — the FP→detail letter-exit carried to this passage (the
@@ -783,7 +1101,10 @@ export default function Hero({ globeAssets }) {
     commitKillRef.current = () => tl.kill();
     // setTimeout, not delayedCall — the island's gsap context dies with the
     // swap and must not take the navigation with it (WorldCard's idiom).
-    setTimeout(() => navigate('/work'), enterMs + 60);
+    setTimeout(() => {
+      handOffWorld(entered);
+      navigate('/work');
+    }, enterMs + 60);
   };
 
   // Bench rehearsal (?herotune) — pin the fill like a real commit, then
@@ -920,9 +1241,11 @@ export default function Hero({ globeAssets }) {
     // writes). Hover and the scroll charge pour WHITE over the breathing
     // base (ctaPct swamps the pulse — no gating logic), the label crossing
     // to blue for legibility — the chip lands on /work already wearing that
-    // page's white enter_world skin.
-    '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--color-electric-blue), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-white) ${ctaPct}%)`,
-    '--cta-fg': `color-mix(in srgb, var(--color-white), var(--color-electric-blue) ${ctaPct}%)`,
+    // page's white enter_world skin. Under a population world (?popmode) the
+    // blue is the world's accent: the fill takes it, the label its readable
+    // ink, the hovered label its accent-as-text (html.pop-tint).
+    '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-white) ${ctaPct}%)`,
+    '--cta-fg': `color-mix(in srgb, var(--project-color-fg, var(--color-white)), var(--project-color-text, var(--color-electric-blue)) ${ctaPct}%)`,
   };
 
   return (
@@ -943,7 +1266,9 @@ export default function Hero({ globeAssets }) {
           sceneApiRef={sceneApiRef}
           holdEntrance={introMode === 'full'}
           cascadeSpeed={HERO_TUNING.cascadeSpeed}
+          tiltDeg={HERO_TUNING.tiltDeg}
           cornerRadius={PANEL_CORNER_RADIUS}
+          worlds={globeWorlds}
         />
       </div>
       {/* enter_world column — CENTERED in the viewport on every breakpoint
@@ -965,7 +1290,7 @@ export default function Hero({ globeAssets }) {
             onPointerEnter={() => setCtaHover(true)}
             onPointerLeave={() => setCtaHover(false)}
           >
-            enter_world
+            zoom_in
           </button>
         </div>
       </div>
@@ -999,12 +1324,21 @@ export default function Hero({ globeAssets }) {
         />
       )}
       {/* 09-08 (Nathan): the links footer + logo ticker, driven by the
-          post-hero wheel/touch delta above (the /work idiom). */}
-      <SiteFooter driven progress={footerP} />
+          post-hero wheel/touch delta above (the /work idiom). 10-07: it
+          rests OPEN at FOOTER_REST carrying the studio blurb (phones 10-07,
+          desktop 10-09) —
+          `rest` moves the peak broadcast's reset to that floor so the logo
+          band's hint read returns on every retreat. */}
+      {/* 10-07 (2): `progress` is the RESTING pose only — a constant. The
+          gesture moves the panel through paintDrivenFooter (one style write
+          per frame) instead of through this prop, so a touchmove no longer
+          re-renders this subtree sixty times a second. */}
+      <SiteFooter driven progress={FOOTER_REST} rest={FOOTER_REST} blurb={footerBlurb} />
       {CommitTunePanel && <CommitTunePanel onDryRun={onCommitDryRun} />}
       {HeroTunePanel && (
         <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />
       )}
+      {PopTunePanel && <PopTunePanel sceneApiRef={sceneApiRef} />}
     </section>
   );
 }

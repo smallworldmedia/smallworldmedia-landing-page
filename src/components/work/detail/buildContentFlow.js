@@ -154,7 +154,7 @@ export function ratioOf(asset) {
   return 16 / 9;
 }
 
-export { PORTRAIT_THRESHOLD };
+export { PORTRAIT_THRESHOLD, MEDIA_TYPE_RATIOS };
 
 export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
   const albumArt = [];

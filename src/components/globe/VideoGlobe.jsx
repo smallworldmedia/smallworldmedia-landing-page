@@ -22,6 +22,8 @@
  *        scene dark (no auto cascade) with the live-video scheduler deferred
  *        until api.releaseScheduler(). Must be decided BEFORE mount (Hero's
  *        render-time mode call); no-op under reduced motion and for /lab.
+ * @param {Array} [props.worlds] - featured-project pools (buildWorldPools) for
+ *        the ?popmode population modes (home only; see useGlobeScene)
  */
 import { useRef, useState } from 'react';
 import useGlobeScene from './useGlobeScene.js';
@@ -41,7 +43,9 @@ export default function VideoGlobe({
   sceneApiRef = null,
   holdEntrance = false,
   cascadeSpeed = null,
+  tiltDeg = null,
   cornerRadius = 0,
+  worlds = null,
 }) {
   const containerRef = useRef(null);
   const poolRef = useRef(null);
@@ -61,7 +65,9 @@ export default function VideoGlobe({
     overlayRef,
     holdEntrance,
     cascadeSpeed,
+    tiltDeg,
     cornerRadius,
+    worlds,
   });
   // Home-hero commit bridge: mirror the scene api out to the owner (Hero
   // drives setBlueFill from its master timeline). The hook mutates

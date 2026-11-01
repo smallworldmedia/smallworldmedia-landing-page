@@ -54,12 +54,13 @@ export const THUMB_WIDTH = IS_MOBILE ? 384 : 512; // Mux thumbnail request size 
 /* — Stream quality —
    Both tiers pin a SINGLE rendition (min+max collapse the Mux manifest to one
    choice), which also overrides native-HLS ABR that would otherwise pick low
-   for a hidden/small video element. Mobile overscan shows few large panels →
-   540p. Desktop runs 6 small-but-crisp center panels → 480p (min==max so the
-   preferMinQuality level-0 lock lands ON 480p, not the lowest sub-480p rung). */
-export const STREAM_PARAMS = IS_MOBILE
-  ? 'min_resolution=540p&max_resolution=540p'
-  : 'min_resolution=480p&max_resolution=480p';
+   for a hidden/small video element. Phone and desktop both pin 480p here (the
+   home globe's desktop pin is 720p since 10-23: GLOBE_STREAM_PARAMS). Mux's
+   ladder here (270p/480p/720p/1080p) has no 540p rung, so the phone's old
+   540p pin was always served 480p; 480p names what plays (Nathan, 10-09:
+   the lowest rung that stays sharp). min==max, so the preferMinQuality
+   level-0 lock lands ON 480p, not a lower rung. */
+export const STREAM_PARAMS = 'min_resolution=480p&max_resolution=480p';
 
 /* — Live video tier (Stage 2) —
    Camera sits at ~3.9R (desktop), so the visible horizon is at score ≈ 0.26;
@@ -70,7 +71,7 @@ export const STREAM_PARAMS = IS_MOBILE
    MAX_LIVE_DWELL rotation + a re-live cooldown, not from demote alone.
    Knobs: ?promote ?demote ?dwellmax ?cooldown */
 export const MAX_LIVE = IS_MOBILE ? 4 : 7;     // concurrent video decode budget
-export const GLOBE_PREVIEW_SECONDS = 4;        // abbreviated loop, MediaCard convention
+export { PREVIEW_SECONDS as GLOBE_PREVIEW_SECONDS } from '../work/imageConfig.js'; // the shared preview window: VideoSlotPool's clip + loop
 export const CROSSFADE_SECONDS = 0.6;          // thumbnail ↔ video uMix tween
 export const PROMOTE_SCORE = PARAM('promote', 0.03);  // leading edge crests the rim
 export const DEMOTE_SCORE = PARAM('demote', 0.06);    // hysteresis — below this, fade back to still
@@ -143,3 +144,47 @@ export const INERTIA_SECONDS = DRAG_CHOREO.inertiaSeconds;      // decay back to
 /* — Colors (match global.css custom properties) — */
 export const GAP_COLOR = 0x0000ff;            // electric blue — the lat/long lines + occluding inner sphere
 export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-texture state
+
+/* — VideoGlobe-only device knobs (10-09, the media spans round): the home
+   globe and /lab, which share useGlobeScene, nameTicker, TextureManager and VideoSlotPool's
+   default pin. Load-time and checked: PARAM doesn't clamp, and
+   setPixelRatio(0) would blank the canvas. /work has its own ?dpr and
+   ?liveres (work/world/worldConfig.js). A bake of the globe's ratio belongs
+   in GLOBE_DPR_MAX's default, never DPR_MAX: /process shares DPR_MAX.
+
+   BAKED 10-09 (Nathan's Q10): phones render the globe at full resolution,
+   3 — "yes to phone globe at full res , it looks so much better and does not
+   stutter". Desktop stays DPR_MAX (2). /process keeps DPR_MAX, unchanged at
+   1.5 on phones and 2 on desktop. ?globedpr=1.5 is the old phone look.
+   ?globeres kept its 480p pin (STREAM_PARAMS) on the phone: "i think we can
+   stay at 480p i see no discernable difference".
+   BAKED 10-23 (Nathan's Q22, the media spans round): the desktop globe pins
+   720p, from his dial (?globeres=720p). Phones keep 480p. — */
+const clampTo = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
+/** ?globedpr — the VideoGlobe's renderer pixel-ratio cap (useGlobeScene). */
+export const GLOBE_DPR_MAX = clampTo(PARAM('globedpr', IS_MOBILE ? 3 : DPR_MAX), 1, 3);
+/** The name strips' height in px (nameTicker's STRIP_H): 256 at the old
+ *  default, scaled by the ratio the canvas ACTUALLY renders at over the one
+ *  DPR_MAX would give it — never by the caps' ratio, which over-draws
+ *  wherever the screen is under the cap (a DSF-2 phone renders 2/1.5, not
+ *  3/1.5; a 2× desktop at ?globedpr=3 still renders 2/2). The server has no
+ *  screen, so it reads the default cap and draws 256. */
+const DEVICE_DPR = typeof window === 'undefined' ? DPR_MAX : window.devicePixelRatio || 1;
+export const NAME_STRIP_H = Math.round(
+  (256 * Math.min(DEVICE_DPR, GLOBE_DPR_MAX)) / Math.min(DEVICE_DPR, DPR_MAX)
+);
+const GLOBE_RES = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('globeres');
+/** ?globeres — the VideoGlobe's stream pin on any device: one Mux rung
+ *  (270p | 480p | 720p | 1080p), else the device's: 720p on desktop (Nathan
+ *  10-23, Q22), STREAM_PARAMS (480p) on phones. The World's ?liveres,
+ *  but checked: Mux's ladder has no 540 rung. VideoSlotPool's default, so
+ *  anything that sizes the globe's streams reads this, not STREAM_PARAMS. */
+export const GLOBE_STREAM_PARAMS = /^(270|480|720|1080)p$/.test(GLOBE_RES ?? '')
+  ? `min_resolution=${GLOBE_RES}&max_resolution=${GLOBE_RES}`
+  : IS_MOBILE
+    ? STREAM_PARAMS
+    : 'min_resolution=720p&max_resolution=720p';
+/** ?globethumb — T1: the legacy square texture side, and the base every class texture size derives from (unitSpan.texSpec). */
+export const GLOBE_T1 = Math.round(clampTo(PARAM('globethumb', THUMB_WIDTH), 256, 1024));
+/** The VideoGlobe renderer's pixel ratio (useGlobeScene): the screen's own, capped by GLOBE_DPR_MAX. */
+export const globePixelRatio = (dpr) => Math.min(dpr, GLOBE_DPR_MAX);

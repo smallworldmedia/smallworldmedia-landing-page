@@ -16,6 +16,12 @@
 import gsap from 'gsap';
 
 export const CASCADE_VARIANTS = ['rows', 'poles', 'sweep'];
+/* Every ordering panelDelay's switch actually implements. CASCADE_VARIANTS is
+   the subset the entrance cascade offers (no 'random' — a random entrance reads
+   as a fault); heroConfig's BLUE_CASCADES is the same four for the commit fill.
+   The spans tests iterate THIS (T5), so every ordering the switch implements
+   is held to the entrance window. */
+export const DELAY_ORDERS = ['sweep', 'rows', 'poles', 'random'];
 export const DEFAULT_CASCADE_VARIANT = 'sweep'; // Nathan's pick
 
 // CRT flicker: uPower 0 → pulse → dip → overshoot (>1 over-brightens) → settle
@@ -52,6 +58,10 @@ export function panelDelay(panel, variant, totalRows) {
   }
 }
 
+/** Media spans: the panel whose stagger delay a panel takes, its unit's lead
+ *  (place.members[0]), so a unit powers on and fills blue as one picture. */
+export const delayOwner = (panel) => panel.asset?.place?.members[0] ?? panel;
+
 /**
  * @param {Array} panels - panel records carrying { mesh, lonIndex, row }
  * @param {string} variant - one of CASCADE_VARIANTS
@@ -60,10 +70,13 @@ export function panelDelay(panel, variant, totalRows) {
  */
 export default function buildCascadeTimeline(panels, variant, totalRows) {
   const tl = gsap.timeline();
+  const delays = new Map(); // owner panel → its ONE delay (units off: every panel is its own owner)
   panels.forEach((panel) => {
+    const owner = delayOwner(panel);
+    if (!delays.has(owner)) delays.set(owner, panelDelay(owner, variant, totalRows));
     const uPower = panel.mesh.material.uniforms.uPower;
     tl.set(uPower, { value: 0 }, 0);
-    tl.to(uPower, { keyframes: FLICKER_KEYFRAMES }, panelDelay(panel, variant, totalRows));
+    tl.to(uPower, { keyframes: FLICKER_KEYFRAMES }, delays.get(owner));
   });
   return tl;
 }

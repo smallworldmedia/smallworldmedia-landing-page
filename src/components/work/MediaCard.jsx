@@ -5,7 +5,8 @@
  * - Images: rendered as <img> with lazy loading.
  * - Videos: real <video> element with HLS streaming (via useHls).
  *   IntersectionObserver triggers play/pause and loads HLS only when visible.
- *   Capped to a 4-second preview loop, muted, auto-playing.
+ *   Streams the shared preview window, clipped at the source (muxStream
+ *   at PREVIEW_SECONDS), and loops there, muted, auto-playing.
  * - Duotone hover overlay fades in (opacity) with dynamic metadata.
  *
  * @param {Object} props
@@ -16,10 +17,7 @@
 import { useRef, useEffect, useState, useMemo, useCallback, useId } from 'react';
 import useHls from './useHls.js';
 import { ratioOf } from './detail/buildContentFlow.js';
-import { IMG_WIDTH_STANDARD, IMG_WIDTH_WIDE, IMG_FORMAT } from './imageConfig.js';
-
-/** Preview loop cap in seconds */
-const PREVIEW_SECONDS = 4;
+import { IMG_WIDTH_STANDARD, IMG_WIDTH_WIDE, IMG_FORMAT, PREVIEW_SECONDS, muxStream } from './imageConfig.js';
 
 /** hls.js config for grid previews — start at 720p for sharp tiles */
 const GRID_HLS_CONFIG = {
@@ -34,13 +32,16 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const isVideo = !!asset.playbackId;
 
-  // Only create the HLS source URL when the card is visible (lazy load)
+  // Only create the HLS source URL when the card is visible (lazy load). The
+  // stream ends on the first segment boundary at or after the preview window
+  // (Mux instant clipping), so a card fetches nothing past the segment its
+  // loop point falls in.
   const hlsSrc = isVideo && isVisible
-    ? `https://stream.mux.com/${asset.playbackId}.m3u8`
+    ? muxStream(asset.playbackId, PREVIEW_SECONDS)
     : null;
 
   // Attach HLS stream — only when hlsSrc is set (i.e. card is visible)
-  useHls(videoRef, hlsSrc, GRID_HLS_CONFIG);
+  useHls(videoRef, hlsSrc, GRID_HLS_CONFIG, { videoOnly: true });
 
   /**
    * Aspect ratio via the shared detail-page cascade (ratioOf):
@@ -92,8 +93,8 @@ export default function MediaCard({ asset, onSelect, activeSlugs }) {
   }, []);
 
   /**
-   * 4-second loop cap: when the video reaches PREVIEW_SECONDS,
-   * seek back to 0 for a seamless short loop.
+   * Preview loop: `loop` wraps at the clip's end; where Mux ends the clip on
+   * a later segment boundary, seek back to 0 at PREVIEW_SECONDS instead.
    */
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;

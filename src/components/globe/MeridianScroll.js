@@ -32,10 +32,73 @@
  * Texture lifetime is refcount-balanced (TextureManager): a recycle releases the
  * row's outgoing thumbnails and loads its incoming ones, so residency stays
  * bounded by the pool. Only the (invisible) wrapping row loads per cycle.
+ *
+ * Tape coordinates (globe-worlds population modes, docs/globe-worlds-plan.md):
+ * every row carries a monotonic BIRTH index — the initial rows are numbered in
+ * scroll-0 order (initialBirth), each recycle takes the next — stamped on its
+ * tiles as panel.tapeS. (lonIndex, tapeS) is the tile's place on an endless
+ * tape, which worldPatterns lays client worlds over. An optional assignRow
+ * hook (PopulationDirector) picks a recycled row's assets in place of the
+ * pool cursor; without it the cursor runs exactly as before. advance() adds
+ * extra travel for one frame: the director's tide transition surges the
+ * scroll a full span, so the next world pours in from the top pole as rows
+ * re-birth.
  */
 import * as THREE from 'three';
-import { computeCoverUv } from './TextureManager.js';
+import { assetKey } from './TextureManager.js';
+import { loadTile, cancelSwap } from './tileSwap.js';
 import { SCROLL_VISIBLE_ROWS, SCROLL_PACE_SCALE } from './globeConfig.js';
+
+/**
+ * Birth index of row j of N at scroll 0. Row N-1 starts in the top buffer
+ * (theta −pitch — the next to emerge, so the newest); rows 0..N-2 sit at
+ * theta j·pitch, so row N-2 is the oldest (parked at the bottom pole, first to
+ * wrap). Oldest → newest: N-2, N-3, …, 0, N-1. The scene stamps these at
+ * build, before this driver exists (the initial layout needs them).
+ */
+export const initialBirth = (j, N) => (j === N - 1 ? N - 1 : N - 2 - j);
+
+/** Row j's top polar angle at scroll 0 — exactly what thetaForRow(j) returns
+ *  before this driver exists. The scene needs it to pose the globe for the
+ *  initial layout, which runs ~250 lines before the constructor. */
+export const scrollZeroTheta = (j, rows) => {
+  const pitch = Math.PI / SCROLL_VISIBLE_ROWS;
+  const lo = -pitch;
+  const span = rows * pitch;
+  return lo + ((((j * pitch - lo) % span) + span) % span);
+};
+
+/** Write one tile's pose from its row's top polar angle: the shader uniform AND
+ *  the live centerDir every CPU-side consumer reads (the scheduler's score, the
+ *  name band, initial prominence), AND the parked flag. THE one place that
+ *  mapping lives, so a tile can never be posed for the shader but not for the
+ *  latitude readers.
+ *
+ *  That exact split was a real bug: buildGlobeGeometry seeds centerDir at the
+ *  canonical equator and the scene stamped only uPolarTop at scroll 0, so the
+ *  initial layout planned the first world's client-name strip against a globe
+ *  that reported every row at |y| = 0. The band gate admitted all 8 rows,
+ *  parked buffers included, and the strip could land on row 0 — 14.45 deg from
+ *  the pole, vK 0.25, four-times-condensed type for the whole first hold.
+ *
+ *  A row is "parked" (collapsed at/beyond a pole) when its center is not
+ *  strictly inside (0, pi); the clamp keeps a parked row's centerDir pole-ward
+ *  and sane rather than NaN. */
+export const poseTile = (p, theta) => {
+  p.mesh.material.uniforms.uPolarTop.value = theta;
+  posePanel(p, theta);
+};
+
+/** poseTile's CPU half: centerDir and parked, no uniform. PopulationDirector's
+ *  plan ahead poses a tile where it WILL be, plans, and puts it back; the
+ *  shader never sees that pose. */
+export const posePanel = (p, theta) => {
+  const thetaC = theta + p.bandHeight / 2;
+  p.parked = !(thetaC > 0 && thetaC < Math.PI);
+  const tc = Math.min(Math.max(thetaC, 0), Math.PI);
+  const st = Math.sin(tc);
+  p.centerDir.set(-Math.cos(p.phiC) * st, Math.cos(tc), Math.sin(p.phiC) * st);
+};
 
 export default class MeridianScroll {
   /**
@@ -45,12 +108,17 @@ export default class MeridianScroll {
    * @param {TextureManager} opts.textureManager
    * @param {number} opts.cascadeSpeed - flow-speed knob (heroConfig cascadeSpeed)
    * @param {LivePanelScheduler|null} [opts.scheduler]
+   * @param {(tiles: Array) => Array|null} [opts.assignRow] - a recycled row's
+   *        assets (same order as tiles, which arrive in lon order with tapeS
+   *        already stamped); null = the pool cursor
    */
-  constructor({ panels, assets, textureManager, cascadeSpeed, scheduler = null }) {
+  constructor({ panels, assets, textureManager, cascadeSpeed, scheduler = null, assignRow = null }) {
     this.assets = assets;
     this.textureManager = textureManager;
     this.scheduler = scheduler;
+    this.assignRow = assignRow;
     this.disposed = false;
+    this.bornCancelled = 0; // swaps cancelled because their row was re-born under them (probe telemetry)
 
     // Group panels into rows (each = the 12 longitude tiles at one row index).
     const byRow = new Map();
@@ -61,14 +129,23 @@ export default class MeridianScroll {
       p.mesh.material.uniforms.uUsePolarScroll.value = 1;
       p.mesh.material.uniforms.uCanonTop.value = p.canonTop;
       // Thumbnail-ownership bookkeeping. heldThumbId is the single source of
-      // truth for the playbackId currently bound to texA (seeded from the build-
-      // time assignment, whose loadThumbnail ref this tile now owns); scrollToken
-      // orders overlapping recycles so a stalled load can't double-release.
-      p.heldThumbId = p.asset?.playbackId ?? null;
-      p.scrollToken = 0;
+      // truth for the texture key currently bound to texA (seeded from the build-
+      // time assignment, whose loadThumbnail ref this tile now owns — unless the
+      // build already went through loadTile, which tracks it itself); scrollToken
+      // orders overlapping loads so a stalled one can't double-release (never
+      // reset — a build-time loadTile may still be in flight).
+      if (p.heldThumbId === undefined) p.heldThumbId = assetKey(p.asset);
+      p.scrollToken ||= 0;
     }
-    this.rows = [...byRow.entries()].sort((a, b) => a[0] - b[0]).map(([, tiles]) => tiles);
+    this.rows = [...byRow.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, tiles]) => tiles.sort((a, b) => a.lonIndex - b.lonIndex));
     const N = this.rows.length;
+    this.rowBirth = this.rows.map((_, j) => initialBirth(j, N));
+    this.nextBirth = N;
+    this.rows.forEach((tiles, j) => {
+      for (const p of tiles) p.tapeS = this.rowBirth[j];
+    });
 
     this.pitch = Math.PI / SCROLL_VISIBLE_ROWS;
     this.lo = -this.pitch; // one buffer above the top pole
@@ -77,6 +154,8 @@ export default class MeridianScroll {
     // Polar scroll rate (rad/s). Non-positive speed parks the flow.
     const speed = Number.isFinite(cascadeSpeed) && cascadeSpeed > 0 ? cascadeSpeed : 0;
     this.rate = (this.pitch * speed) / SCROLL_PACE_SCALE;
+    this.rateScale = 1; // population-mode multiplier on the pace (setRateScale)
+    this.extra = 0; // population-mode travel queued for the next update (advance)
 
     // Source pool cursor — start past the initial assignment so fresh rows don't
     // immediately repeat the tiles already on screen.
@@ -100,6 +179,21 @@ export default class MeridianScroll {
     this.rate = (this.pitch * speed) / SCROLL_PACE_SCALE;
   }
 
+  /** Population-mode pace multiplier (the tide surge, the procession flow) on
+   *  top of the bench pace — 1 = the plain cascadeSpeed pace. */
+  setRateScale(k) {
+    this.rateScale = Number.isFinite(k) && k > 0 ? k : 0;
+  }
+
+  /** Extra polar travel (rad) on top of the pace, landed by the next update —
+   *  the tide transition's surge, driven per frame by its own curve (even with
+   *  the pace parked). Rows wrap (and re-birth) as they cross the bottom pole,
+   *  exactly as at rest. The wrap test needs one frame's travel < span − pitch;
+   *  the tide stays far below it. */
+  advance(dTheta) {
+    if (Number.isFinite(dTheta) && dTheta > 0) this.extra += dTheta;
+  }
+
   nextPoolAsset() {
     const asset = this.assets[this.cursor % this.assets.length];
     this.cursor += 1;
@@ -107,9 +201,28 @@ export default class MeridianScroll {
   }
 
   /** Current top polar angle of row j, wrapped into [lo, lo+span). */
-  thetaForRow(j) {
-    const raw = j * this.pitch + this.scroll - this.lo;
+  thetaForRow(j, scroll = this.scroll) {
+    const raw = j * this.pitch + scroll - this.lo;
     return this.lo + ((raw % this.span) + this.span) % this.span;
+  }
+
+  /** Where every row will be `dt` seconds on at the current pace (the
+   *  director's plan ahead): its top polar angle and its birth, as update()
+   *  will leave them. A row that wraps on the way takes the next birth, in
+   *  the order the rows wrap (the one nearest the bottom end first). Null
+   *  past a span − pitch of travel, where a row could wrap twice (the wrap
+   *  test's own limit; a hold travels a few degrees). */
+  predict(dt) {
+    const travel = (this.rate > 0 && this.rateScale > 0 ? this.rate * this.rateScale * Math.max(dt, 0) : 0) + this.extra;
+    if (this.disposed || travel >= this.span - this.pitch) return null;
+    const end = this.lo + this.span;
+    const out = this.rows.map((tiles, j) => {
+      const now = this.thetaForRow(j);
+      return { tiles, now, theta: this.thetaForRow(j, this.scroll + travel), s: this.rowBirth[j] };
+    });
+    let birth = this.nextBirth;
+    for (const r of out.filter((r) => r.now + travel >= end).sort((a, b) => b.now - a.now)) r.s = birth++;
+    return out.map(({ tiles, theta, s }) => ({ tiles, theta, s }));
   }
 
   /** Write every row's uPolarTop + refresh centerDir/parked; recycle on wrap. */
@@ -119,76 +232,45 @@ export default class MeridianScroll {
       const prev = this.rowPrevTheta[j];
       // Wrap = theta jumped backward (bottom-pole buffer → top-pole buffer). The
       // row is parked/invisible here, so reassigning its assets is unseen.
-      if (prev != null && theta < prev - this.pitch) this.recycle(this.rows[j]);
+      if (prev != null && theta < prev - this.pitch) this.recycle(this.rows[j], j);
       this.rowTheta[j] = theta;
       this.rowPrevTheta[j] = theta;
 
-      const tiles = this.rows[j];
-      // Tile center latitude; a row is "parked" (collapsed at/beyond a pole) when
-      // its center is not strictly inside (0, π). Clamp the value used for
-      // centerDir so a parked row still yields a sane (pole-ward) direction.
-      for (const p of tiles) {
-        const thetaC = theta + p.bandHeight / 2;
-        p.parked = !(thetaC > 0 && thetaC < Math.PI);
-        p.mesh.material.uniforms.uPolarTop.value = theta;
-        const tc = Math.min(Math.max(thetaC, 0), Math.PI);
-        const st = Math.sin(tc);
-        p.centerDir.set(-Math.cos(p.phiC) * st, Math.cos(tc), Math.sin(p.phiC) * st);
-      }
+      for (const p of this.rows[j]) poseTile(p, theta);
     }
   }
 
-  /** Reassign a parked row's 12 tiles to fresh pool assets (refcount-balanced). */
-  recycle(tiles) {
-    if (this.disposed || !this.assets.length) return;
-    for (const p of tiles) {
-      const asset = this.nextPoolAsset();
+  /** Re-birth a parked row (the next tape index) and reassign its 12 tiles —
+   *  the assignRow hook's picks, else fresh pool assets. Instant, the row is
+   *  parked; refcount-balanced through loadTile (tileSwap.js). */
+  recycle(tiles, j) {
+    const s = (this.rowBirth[j] = this.nextBirth++);
+    for (const p of tiles) p.tapeS = s;
+    if (this.disposed) return;
+    const picks = this.assignRow ? this.assignRow(tiles) : null;
+    if (!picks && !this.assets.length) return;
+    tiles.forEach((p, i) => {
+      // A swap planned before the wrap would land the old row's asset over the
+      // born one. The row is parked (θc outside (0, π)), so cancelling is silent.
+      if (p.swapAsset) this.bornCancelled += 1;
+      cancelSwap(p);
+      const asset = picks ? picks[i] : this.nextPoolAsset();
+      if (!asset) return;
       // A live/pending video would now stream the wrong tile — demote it (the
       // row is parked/invisible, so this is silent).
       if (this.scheduler) this.scheduler.notifyContentChange(p);
-      this.loadThumb(p, asset);
-    }
-  }
-
-  /** Swap a tile's still (texA) to a new asset. Instant — the tile is parked.
-   *  Ownership is single-sourced through panel.heldThumbId (the id actually bound
-   *  to texA), NOT a per-call prevId snapshot of panel.asset — panel.asset
-   *  advances at load START, so under overlapping recycles a prevId snapshot
-   *  would leak the truly-displayed texture and double-release the intermediate
-   *  one. Each loadThumbnail(+1) is balanced by exactly one release: the winning
-   *  load releases the previously-held id (and becomes the new held ref), a
-   *  superseded/failed load releases its own id. */
-  loadThumb(panel, asset) {
-    const id = asset.playbackId;
-    const token = (panel.scrollToken = (panel.scrollToken || 0) + 1);
-    panel.asset = asset; // logical current asset (centerDir/scheduler); texA follows on resolve
-    this.textureManager
-      .loadThumbnail(id)
-      .then((tex) => {
-        if (this.disposed || panel.scrollToken !== token) {
-          this.textureManager.release(id); // superseded or torn down — release THIS load's ref
-          return;
-        }
-        const u = panel.mesh.material.uniforms;
-        const { scale, offset } = computeCoverUv(1, panel.panelAspect);
-        u.texA.value = tex;
-        u.uvScaleA.value.set(scale[0], scale[1]);
-        u.uvOffsetA.value.set(offset[0], offset[1]);
-        u.uHasTexA.value = 1;
-        // Release the texture this tile WAS displaying (already ref-bumped above,
-        // so a same-id reload can never dip to 0), then take ownership.
-        if (panel.heldThumbId) this.textureManager.release(panel.heldThumbId);
-        panel.heldThumbId = id;
-      })
-      .catch(() => {
-        this.textureManager.release(id); // failed load — release its own +1
-      });
+      loadTile(this, p, asset);
+    });
   }
 
   /** @param {number} dt - seconds since last frame (called every rendered frame) */
   update(dt) {
-    if (this.disposed || this.rate <= 0) return;
-    this.scroll += this.rate * dt;
+    if (this.disposed) return;
+    const pace = this.rate > 0 && this.rateScale > 0 ? this.rate * this.rateScale * dt : 0;
+    const travel = pace + this.extra;
+    this.extra = 0;
+    if (travel <= 0) return;
+    this.scroll += travel;
     if (this.scroll >= this.span) this.scroll -= this.span; // keep bounded
     this.applyScroll();
   }

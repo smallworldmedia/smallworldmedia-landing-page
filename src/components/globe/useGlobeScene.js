@@ -28,18 +28,34 @@
  * globe is glyph-sized; thumbnails still load normally). The hold ends
  * when the owner fires replayCascade + releaseScheduler. At identity the
  * rig is bit-identical to the old fixed framing — see applyRig.
+ *
+ * Population modes (globe-worlds, docs/globe-worlds-plan.md): with `worlds`
+ * (buildWorldPools) and ?popmode on, a PopulationDirector decides each
+ * scroll tile's asset — the initial layout and every re-born row — so the
+ * globe shows featured-project worlds in clusters. Mode changes on the
+ * ?poptune bench rebuild the director only, never the scene. Without a
+ * popmode the director is never built and the globe is unchanged. As each
+ * world takes the globe its projectColor becomes the lattice blue (the
+ * accent below) and goes out through onWorldChange — Hero tints the home
+ * chrome with it.
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import gsap from 'gsap';
+import { CustomEase } from 'gsap/CustomEase';
 import buildGlobeGeometry, { buildScrollingGlobeGeometry } from './buildGlobeGeometry.js';
 import { createPanelMaterial } from './panelMaterial.js';
-import TextureManager, { computeCoverUv } from './TextureManager.js';
+import TextureManager, { assetKey } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import { settleDebounce } from '../../lib/settleResize.js';
-import LivePanelScheduler from './LivePanelScheduler.js';
-import MeridianScroll from './MeridianScroll.js';
-import buildCascadeTimeline, { panelDelay } from './cascade.js';
+import LivePanelScheduler, { HANDOFF_BEAT_S } from './LivePanelScheduler.js';
+import { preloadHls } from '../work/useHls.js';
+import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from './MeridianScroll.js';
+import PopulationDirector from './PopulationDirector.js';
+import { applyPlan, windowA, setWindowA } from './tileSwap.js';
+import { TUNING as POP_TUNING, subscribePopTune } from './popConfig.js';
+import buildCascadeTimeline, { panelDelay, delayOwner } from './cascade.js';
+import { STREAM_TIERS, tierBucket } from './unitSpan.js';
 import {
   LON_SEGMENTS,
   LAT_BANDS,
@@ -50,19 +66,31 @@ import {
   FILL_FRACTION,
   INITIAL_PITCH_DEG,
   FPS_CAP,
-  DPR_MAX,
+  globePixelRatio,
   PITCH_LIMIT_DEG,
   GAP_COLOR,
+  IS_MOBILE,
   PANEL_FALLBACK_COLOR,
   PREFERS_REDUCED_MOTION,
   SCROLL_VISIBLE_ROWS,
   SCROLL_LAT_GAP_DEG,
+  SCROLL_PACE_SCALE,
   SCROLL_POLE_CORNER_TIP,
   SCROLL_POLE_CORNER_WIDE,
   SCROLL_POLE_CORNER_START,
   SCROLL_POLE_TIP_LIFT,
   SCROLL_POLE_CAP_DEG,
 } from './globeConfig.js';
+
+gsap.registerPlugin(CustomEase);
+
+/* — World accent clock (population modes) — the CSS accent's own fade,
+   --project-color-fade on --ease-panel (global.css), so the lattice, the
+   stroke ring and the home chrome change colour in lockstep. — */
+const ACCENT_SECONDS = 1.7;
+const ACCENT_EASE = 'swmAccentPanel';
+const accentEase = () =>
+  CustomEase.get(ACCENT_EASE) || CustomEase.create(ACCENT_EASE, 'M0,0 C0.22,1 0.36,1 1,1');
 
 /* — Blue-fill surge (home-hero chunk 4) — the inverted-CRT two-beat, ONE
    cheap shape per panel per frame. t is the panel's local 0..1 progress
@@ -105,10 +133,14 @@ function surgePanel(uniforms, t, dipEnd, dipDepth) {
  *        its .current.update(ctx) runs once per rendered frame, post-render
  * @param {boolean} [hero.holdEntrance] - chunk-5 intro hold: no auto cascade,
  *        no scheduler until releaseScheduler(). Forced off under reduced motion.
+ * @param {Array} [hero.worlds] - featured-project pools (buildWorldPools) for
+ *        the population modes; used only under ?popmode on the scroll globe
  * @returns {React.RefObject<{ replayCascade: (variant: string) => void,
  *          setBlueFill: (p: number, variant?: string) => void,
  *          setInk: (t: number) => void, releaseScheduler: () => void,
- *          onLiveChange: (cb: Function) => (() => void) }>}
+ *          onLiveChange: (cb: Function) => (() => void),
+ *          onWorldChange: (cb: Function) => (() => void),
+ *          getFocusProject: () => (string|null), popHold: () => void }>}
  */
 export default function useGlobeScene(
   containerRef,
@@ -123,7 +155,9 @@ export default function useGlobeScene(
     overlayRef = null,
     holdEntrance = false,
     cascadeSpeed = null,
+    tiltDeg = null,
     cornerRadius = 0,
+    worlds = null,
   } = {}
 ) {
   // Live-panel transition subscribers (chunk-6 labels) — hook-level, like
@@ -133,9 +167,15 @@ export default function useGlobeScene(
   // the Set a one-time allocation (Hero's overlayRef idiom).
   const liveSubsRef = useRef(null);
   if (liveSubsRef.current === null) liveSubsRef.current = new Set();
+  // Population-world subscribers (Hero's chrome tint) — hook-level the same
+  // way; the latest announcement replays on subscribe, since the scene can
+  // greet (reduced motion) before Hero's effect subscribes.
+  const worldHubRef = useRef(null);
+  if (worldHubRef.current === null) worldHubRef.current = { subs: new Set(), last: null };
   const apiRef = useRef(null);
   if (apiRef.current === null) {
     const liveSubs = liveSubsRef.current;
+    const worldHub = worldHubRef.current;
     apiRef.current = {
       replayCascade: () => {},
       setBlueFill: () => {},
@@ -148,6 +188,13 @@ export default function useGlobeScene(
       setGlobeOrientation: () => {},
       setCascadeSpeed: () => {},
       setPoleCap: () => {},
+      // Population modes (?popmode): the /work slug of the world in view
+      // (null when no director), the ?poptune bench's actions, and Enter
+      // World's hold on the change clock.
+      getFocusProject: () => null,
+      popNext: () => {},
+      popShow: () => {},
+      popHold: () => {},
       // Subscribe to live-panel transitions (LivePanelScheduler's
       // onLiveChange events, panel object included — the consumer projects
       // panel.centerDir itself). Scene-independent: never reset at
@@ -155,6 +202,13 @@ export default function useGlobeScene(
       onLiveChange: (cb) => {
         liveSubs.add(cb);
         return () => liveSubs.delete(cb);
+      },
+      // Subscribe to the population world taking the globe — { slug, color,
+      // animate }, color its projectColor (null = brand blue). Never reset.
+      onWorldChange: (cb) => {
+        worldHub.subs.add(cb);
+        if (worldHub.last) cb(worldHub.last);
+        return () => worldHub.subs.delete(cb);
       },
     };
   }
@@ -177,7 +231,9 @@ export default function useGlobeScene(
       wide: SCROLL_POLE_CORNER_WIDE,
       start: SCROLL_POLE_CORNER_START,
       cornerR: cornerRadius,
-      tiltDeg: INITIAL_PITCH_DEG, // brand tilt; the tick applies (tiltDeg − INITIAL) as an offset
+      // resting tilt; the tick applies (tiltDeg − INITIAL) as an offset. Seeded from the caller (home:
+      // ?herotilt) so the first build ranks its panels under the tilt the first frame shows.
+      tiltDeg: Number.isFinite(tiltDeg) ? tiltDeg : INITIAL_PITCH_DEG,
       yawDeg: 0, // static brand spin offset
       yawSpeed: 0, // steady auto-rotation, degrees/second (0 = fixed)
       cascadeSpeed: Number.isFinite(cascadeSpeed) ? cascadeSpeed : 4,
@@ -197,7 +253,7 @@ export default function useGlobeScene(
 
     /* — Renderer / scene / camera — */
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
+    renderer.setPixelRatio(globePixelRatio(window.devicePixelRatio));
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -390,7 +446,10 @@ export default function useGlobeScene(
         // Rounded tiles only when the caller asks (the home hero passes ~0.12
         // for lockup fidelity); /process (its own hook) and /lab (no override)
         // get the default 0 — hard edges, untouched.
-        createPanelMaterial({ fallbackColor: PANEL_FALLBACK_COLOR, cornerRadius })
+        createPanelMaterial({
+          fallbackColor: PANEL_FALLBACK_COLOR,
+          cornerRadius,
+        })
       );
       // Scroll globe: spread the rows into a proper sphere from the very first
       // frame (so the intro glyph reads as a globe, not an equatorial band) even
@@ -400,8 +459,19 @@ export default function useGlobeScene(
         const u = panel.mesh.material.uniforms;
         u.uUsePolarScroll.value = 1;
         u.uCanonTop.value = panel.canonTop;
-        u.uPolarTop.value = panel.row * scrollPitch; // MeridianScroll's scroll-0 layout
+        // MeridianScroll's scroll-0 pose through the driver's OWN writer, so the
+        // live centerDir/parked land here too — not just the shader uniform.
+        // Stamping the uniform alone is what let the initial layout plan the
+        // first world's client name against a globe still seeded at the
+        // canonical equator (every row reporting |y| = 0), so the name band
+        // admitted every row and the strip could be born at the pole.
+        // It also fixes the last row, whose old `row * scrollPitch` read 210 deg
+        // where thetaForRow says -30 deg.
+        poseTile(panel, scrollZeroTheta(panel.row, totalRows));
         panel.mesh.frustumCulled = false;
+        // Tape coordinate (the population modes' pattern space) — stamped
+        // now because the initial layout runs before MeridianScroll exists.
+        panel.tapeS = initialBirth(panel.row, totalRows);
       }
       globeGroup.add(panel.mesh);
     });
@@ -412,38 +482,86 @@ export default function useGlobeScene(
     globeGroup.add(innerSphere);
 
     /* — CMS thumbnails — */
-    // Assign the pool in initial-prominence order (under the brand-mark
-    // tilt) so curated picks (pool head) land on the panels facing the
-    // camera at load
+    // Assign the pool in initial-prominence order (under the resting tilt:
+    // the brand mark's INITIAL_PITCH on /lab, ?herotilt on home) so curated
+    // picks (pool head) land on the panels facing the camera at load
     const initialRotation = new THREE.Euler(
-      THREE.MathUtils.degToRad(INITIAL_PITCH_DEG), 0, 0
+      THREE.MathUtils.degToRad(tuneRef.current.tiltDeg), 0, 0
     );
     const initialScore = (p) => p.centerDir.clone().applyEuler(initialRotation).z;
     const byProminence = [...panels].sort((a, b) => initialScore(b) - initialScore(a));
     const textureManager = new TextureManager();
-    const thumbnailLoads = byProminence.map((panel, idx) => {
-      if (!assets?.length) return Promise.resolve();
-      const asset = assets[idx % assets.length];
-      panel.asset = asset;
-      return textureManager
-        .loadThumbnail(asset.playbackId)
-        .then((texture) => {
-          if (disposed) return;
-          // A slow initial load can resolve AFTER MeridianScroll has already
-          // recycled this tile (which released this asset's ref and re-owns
-          // texA). Bail then, or we'd bind texA to a released/disposed texture.
-          // heldThumbId is set once the scroll driver exists; before that (or off
-          // the scroll path) it's null and this is a no-op.
-          if (conveyorMode && panel.heldThumbId != null && panel.heldThumbId !== asset.playbackId) return;
-          const { uniforms } = panel.mesh.material;
-          const { scale, offset } = computeCoverUv(1, panel.panelAspect);
-          uniforms.texA.value = texture;
-          uniforms.uvScaleA.value.set(scale[0], scale[1]);
-          uniforms.uvOffsetA.value.set(offset[0], offset[1]);
-          uniforms.uHasTexA.value = 1;
-        })
-        .catch(() => {}); // failed thumb → panel keeps fallback color
-    });
+    // Declared ahead of their section (the live tier below) — the population
+    // director's hooks read them.
+    let scheduler = null;
+    let scroller = null;
+    let director = null;
+    let posed = false; // the tick has set the globe's rotation at least once (getHorizon is null until then, M4)
+    const hzQ = new THREE.Quaternion();
+    const hzV = new THREE.Vector3();
+    const buildDirector = () =>
+      new PopulationDirector({
+        panels,
+        worlds,
+        textureManager,
+        getScheduler: () => scheduler,
+        getScroller: () => scroller,
+        getRotation: () => globeGroup.rotation,
+        canAnimate: () => popCanAnimate(),
+        onWorld: (world, info) => onPopWorld(world, info), // the accent section below
+        // Span budget inputs (P4a, PopulationDirector.travelBudget / planUnits).
+        getPace: () =>
+          scroller
+            ? (scroller.rate * scroller.rateScale * 180) / Math.PI
+            : PREFERS_REDUCED_MOTION
+              ? 0
+              : ((180 / SCROLL_VISIBLE_ROWS) * tuneRef.current.cascadeSpeed) / SCROLL_PACE_SCALE, // before the scroller exists
+        getHorizon: (rot = globeGroup.rotation) => {
+          // No pose yet: no horizon, and the plan places H pairs only. initialRotation is the resting tilt without the camera's elevation, not the rendered pose (M4).
+          if (!posed) return null;
+          // camera → globe frame (at `rot`: the live pose, or the one the plan ahead predicts); θh = its colatitude + the visible cap's half-angle
+          hzQ.setFromEuler(rot).invert();
+          hzV.copy(camera.position).sub(globeGroup.position).applyQuaternion(hzQ);
+          const d = hzV.length();
+          return Math.acos(THREE.MathUtils.clamp(hzV.y / d, -1, 1)) + Math.acos(Math.min(RADIUS / d, 1));
+        },
+        revealHeld: hold,
+        // The fast handoff's forecast: the live scheduler's admission, or a fresh one's while the intro hold defers
+        // it (called once stills settle, after this effect has run, so tierFor below is set).
+        forecast: (clips) => (scheduler ? scheduler.predictStarts(clips) : LivePanelScheduler.forecast(clips, { tierFor })),
+        // The plan ahead: the clips a board landing at `rot` starts, and the spin that carries the globe there.
+        landing: (rot) => (scheduler ? scheduler.landingClips(rot) : LivePanelScheduler.landingClips(panels, rot)),
+        getSpin: () => (PREFERS_REDUCED_MOTION ? 0 : THREE.MathUtils.degToRad(tuneRef.current.yawSpeed)),
+      });
+    const popAvailable = conveyorMode && worlds?.length > 0;
+    if (popAvailable && POP_TUNING.mode !== 'off') director = buildDirector();
+    const thumbnailLoads = director
+      ? director.initialLayout(byProminence) // clustered worlds from the very first reveal
+      : byProminence.map((panel, idx) => {
+          if (!assets?.length) return Promise.resolve();
+          const asset = assets[idx % assets.length];
+          panel.asset = asset;
+          // The tile owns this build-time ref (MeridianScroll's recycles release
+          // it through heldThumbId; see tileSwap.loadTile).
+          if (conveyorMode) panel.heldThumbId = assetKey(asset);
+          return textureManager
+            .loadThumbnail(asset.playbackId)
+            .then((texture) => {
+              if (disposed) return;
+              // A slow initial load can resolve AFTER MeridianScroll has already
+              // recycled this tile (which released this asset's ref and re-owns
+              // texA). Bail then, or we'd bind texA to a released/disposed texture.
+              // heldThumbId holds this load's key from the start (conveyor mode)
+              // until a recycle's bind takes it over; off the scroll path it's
+              // unset and this is a no-op.
+              if (conveyorMode && panel.heldThumbId != null && panel.heldThumbId !== assetKey(asset)) return;
+              const { uniforms } = panel.mesh.material;
+              uniforms.texA.value = texture;
+              setWindowA(uniforms, windowA(panel, asset, texture));
+              uniforms.uHasTexA.value = 1;
+            })
+            .catch(() => {}); // failed thumb → panel keeps fallback color
+        });
 
     /* — Cascade — */
     let cascadeTl = null;
@@ -463,6 +581,12 @@ export default function useGlobeScene(
     // loaded above, so the cascade reveals real tiles whenever it comes.
     Promise.allSettled(thumbnailLoads).then(() => {
       if (!disposed && !hold) startCascade(variantRef.current);
+      // The fast handoff: the player and the first world's clips load in the stills' wake, while the intro hold
+      // still defers the scheduler (with no hold it is already starting them).
+      if (!disposed && director?.handoffFast) {
+        preloadHls();
+        if (!scheduler) director.prefetchLaid();
+      }
     });
     apiRef.current.replayCascade = (variant) => {
       if (!disposed) startCascade(variant);
@@ -477,10 +601,66 @@ export default function useGlobeScene(
        GAP_COLOR, and only a heroInk intro ever writes t < 1. — */
     const inkWhite = new THREE.Color(0xffffff);
     const inkBlue = new THREE.Color(GAP_COLOR);
+    let inkT = 1; // kept so a world accent change re-inks at the intro's point
+    const paintInk = () => innerMaterial.color.lerpColors(inkWhite, inkBlue, inkT);
     apiRef.current.setInk = (t) => {
       if (disposed) return;
-      innerMaterial.color.lerpColors(inkWhite, inkBlue, Math.min(Math.max(t, 0), 1));
+      inkT = Math.min(Math.max(t, 0), 1);
+      paintInk();
     };
+
+    /* — World accent (population modes) — the lattice blue becomes the
+       world's projectColor. inkBlue is the ink target (inner sphere + pole
+       caps — the lattice), and every panel's uBlueColor (the commit surge,
+       the rounded-corner fringe) shares that one Color, so a single write
+       retints the lot. Tweened on the CSS accent's clock and lerped in gamma
+       sRGB — how the browser interpolates the chrome's legacy colours — so
+       the stroke ring and the home chrome change in lockstep. onWorldChange
+       carries the change out to Hero. Idle without a director. — */
+    const accentFrom = { r: 0, g: 0, b: 0 };
+    const accentTo = { r: 0, g: 0, b: 0 };
+    const accentClock = { t: 1 };
+    const accentTarget = new THREE.Color();
+    let accentTween = null;
+    const paintAccent = () => {
+      const k = accentClock.t;
+      inkBlue.setRGB(
+        accentFrom.r + (accentTo.r - accentFrom.r) * k,
+        accentFrom.g + (accentTo.g - accentFrom.g) * k,
+        accentFrom.b + (accentTo.b - accentFrom.b) * k,
+        THREE.SRGBColorSpace
+      );
+      paintInk();
+    };
+    const setAccent = (color, animate) => {
+      inkBlue.getRGB(accentFrom, THREE.SRGBColorSpace); // from where it is — mid-change included
+      accentTarget.set(color || GAP_COLOR).getRGB(accentTo, THREE.SRGBColorSpace);
+      if (accentTween) accentTween.kill();
+      accentTween = null;
+      accentClock.t = animate ? 0 : 1;
+      if (animate) {
+        accentTween = gsap.to(accentClock, {
+          t: 1,
+          duration: ACCENT_SECONDS,
+          ease: accentEase(),
+          onUpdate: paintAccent,
+        });
+      } else paintAccent();
+    };
+    if (popAvailable) {
+      for (const p of panels) p.mesh.material.uniforms.uBlueColor.value = inkBlue;
+    }
+    const onPopWorld = (world, { animate }) => {
+      if (disposed) return;
+      const color = (POP_TUNING.color && world?.projectColor) || null;
+      setAccent(color, animate);
+      const hub = worldHubRef.current;
+      hub.last = { slug: world?.slug ?? null, color, animate };
+      hub.subs.forEach((cb) => cb(hub.last));
+    };
+    // Reduced motion has no clock and no entrance to wait for — the first
+    // world takes its colour at once.
+    if (director && PREFERS_REDUCED_MOTION) director.greet(false);
 
     /* — Commit blue-fill (home-hero chunk 4) — p 0..1 sweeps the whole
        cascade window: each panel's surge (surgePanel above) is delayed by
@@ -502,6 +682,7 @@ export default function useGlobeScene(
     let blueVariant = null;
     let blueWindow = 1;
     let blueEngaged = false;
+    const panelIndex = new Map(panels.map((p, i) => [p, i])); // a unit member → its lead's baked delay
     const bakeBlueDelays = (variant) => {
       if (blueDelays && blueVariant === variant) return;
       if (!blueDelays) blueDelays = new Float32Array(panels.length);
@@ -536,6 +717,8 @@ export default function useGlobeScene(
           u.uBlueMix.value = 0;
           u.uPower.value = 1;
         }
+        entranceSettled = true; // every screen is back at full power
+        if (director) director.unfreeze();
         return;
       }
       if (!blueEngaged) {
@@ -546,16 +729,32 @@ export default function useGlobeScene(
           cascadeTl.kill();
           cascadeTl = null;
         }
+        // …and so would a population swap: land them all, then hold still.
+        if (director) director.freeze();
       }
       bakeBlueDelays(variant);
       for (let i = 0; i < panels.length; i += 1) {
         surgePanel(
           panels[i].mesh.material.uniforms,
-          Math.min(Math.max((p * blueWindow - blueDelays[i]) / blueSurge, 0), 1),
+          Math.min(Math.max((p * blueWindow - blueDelays[panelIndex.get(delayOwner(panels[i]))]) / blueSurge, 0), 1),
           blueDipEnd,
           blueDipDepth
         );
       }
+    };
+
+    /* — Population swaps may blink a screen only when nothing else owns
+       uPower: after the entrance cascade has landed (or a dry-run restored
+       every screen), never during a cascade replay or the commit's fill,
+       never under reduced motion. Otherwise swaps land as cuts. — */
+    let entranceSettled = false;
+    const popCanAnimate = () => {
+      if (blueEngaged || PREFERS_REDUCED_MOTION) return false;
+      if (cascadeTl) {
+        if (cascadeTl.isActive()) return false;
+        if (cascadeTl.progress() >= 1) entranceSettled = true;
+      }
+      return entranceSettled;
     };
 
     /* — Live video tier (Stage 2; stills only under reduced motion) + the
@@ -565,8 +764,6 @@ export default function useGlobeScene(
        latches the release for any later rebuild; without a hold they start here
        exactly as before. (The scroll globe is already positioned as a sphere at
        build; deferring MeridianScroll only holds the MOTION, not the layout.) — */
-    let scheduler = null;
-    let scroller = null;
     // Live-event dispatcher — ONE stable closure handed to the scheduler
     // (whichever path constructs it, including a releaseScheduler under
     // holdEntrance), fanning out to the hook-level subscriber set. Hoisted
@@ -578,6 +775,16 @@ export default function useGlobeScene(
       liveEvtPanel = panel;
       liveEvtState = state;
       liveSubsRef.current.forEach(liveEmit);
+    };
+    // Stream tiers (?poptier, units only): a rung per stream from the unit class
+    // it lights and the DPR bucket. The bucket reads the renderer's effective
+    // ratio, min(devicePixelRatio, GLOBE_DPR_MAX), once (O9: no re-tier on
+    // resize). Null keeps the pool's pin (GLOBE_STREAM_PARAMS) for every stream.
+    const bucket = tierBucket(IS_MOBILE, renderer.getPixelRatio());
+    const tierFor = (cls) => {
+      if (!director || !POP_TUNING.units || POP_TUNING.tier === 'today') return null;
+      const rung = STREAM_TIERS[POP_TUNING.tier]?.[bucket]?.[cls];
+      return rung ? { rung, floor: POP_TUNING.tier === 'lean' ? 270 : 480 } : null;
     };
     const startScheduler = () => {
       if (disposed || scheduler || scroller) return;
@@ -592,8 +799,13 @@ export default function useGlobeScene(
               // The scroll driver owns panel.asset/texA under conveyor mode —
               // stop the scheduler's hidden-hemisphere swap fighting it over texA.
               cycleThumbnails: !conveyorMode,
+              tierFor,
+              bucket,
             })
           : null;
+      // One decode per clip (?poplive=shared) only under a population mode;
+      // the flat globe keeps its per-tile decodes.
+      scheduler?.setShared(!!director && POP_TUNING.live === 'shared');
       // Meridian scroll: independent of the video pool (thumbnails only), so it
       // runs whenever conveyor mode is on and motion is allowed, scheduler or
       // not. Handed the scheduler so it can demote live video as rows recycle.
@@ -605,6 +817,7 @@ export default function useGlobeScene(
               textureManager,
               cascadeSpeed: tuneRef.current.cascadeSpeed, // bench-tunable pace (seeded from the prop)
               scheduler,
+              assignRow: director ? director.assignRow : null,
             })
           : null;
     };
@@ -613,6 +826,53 @@ export default function useGlobeScene(
       schedulerReleasedRef.current = true;
       startScheduler();
     };
+
+    /* — Population modes (?popmode / the ?poptune bench) — a mode change
+       builds or drops the director (never the scene) and re-lays the globe;
+       any other pop knob goes to the director (onTune decides what to redo).
+       Dropping back to off re-lays the flat pool through the same swap path
+       and hands the lattice + chrome back to brand blue; every change
+       re-checks the live tier's mode (?poplive, a reset). */
+    const tileOwner = {
+      textureManager,
+      get disposed() {
+        return disposed;
+      },
+      dropLive: (p) => scheduler?.dropLive(p),
+    };
+    const relayoutFlat = () => {
+      if (!assets?.length) return;
+      const plan = new Map();
+      byProminence.forEach((p, i) => {
+        plan.set(p, scroller ? scroller.nextPoolAsset() : assets[i % assets.length]);
+      });
+      applyPlan(tileOwner, plan, { animate: popCanAnimate() });
+    };
+    const unsubscribePop = popAvailable
+      ? subscribePopTune((key) => {
+          if (disposed) return;
+          const want = POP_TUNING.mode !== 'off';
+          if (want && !director) {
+            director = buildDirector();
+            if (scroller) scroller.assignRow = director.assignRow;
+            director.relayout();
+            if (PREFERS_REDUCED_MOTION) director.greet(false);
+          } else if (!want && director) {
+            director.dispose();
+            director = null;
+            if (scroller) scroller.assignRow = null;
+            relayoutFlat();
+            onPopWorld(null, { animate: !PREFERS_REDUCED_MOTION });
+          } else if (director && key !== 'mode') {
+            director.onTune(key);
+          }
+          scheduler?.setShared(!!director && POP_TUNING.live === 'shared');
+        })
+      : null;
+    apiRef.current.getFocusProject = () => (director ? director.focusProject() : null);
+    apiRef.current.popNext = () => director?.next();
+    apiRef.current.popShow = (name) => director?.show(name);
+    apiRef.current.popHold = () => director?.hold();
 
     /* — Dev bench live tuning (?herotune) — pole cap / corner rounding uniforms,
        brand orientation, scroll pace. All gated by the owner opting in (Hero's
@@ -701,7 +961,17 @@ export default function useGlobeScene(
     // content flows via ContentConveyor, not rotation. Legacy callers (lab) keep
     // the yaw auto-rotate. A drag always settles back to rest and the ±40° pitch
     // clamp stays on in every mode, so a drag can never strand the globe.
-    const controller = new InteractionController(container, { still: conveyorMode });
+    // 10-07 (Nathan): drag-to-spin is OFF on phones for the HOME globe —
+    // "it's fighting with page scroll and is not worth having both" (that
+    // page's vertical gesture drives the resting footer's reveal). 10-27
+    // (Nathan): off on desktop too, so the globe's pose is known ahead and a
+    // world's board can be planned (and its clips fetched) before it lands
+    // (PopulationDirector.planAhead). The gate is `conveyorMode`: this hook
+    // is also /lab/globe's scene, and the lab keeps its drag everywhere.
+    const controller = new InteractionController(container, {
+      still: conveyorMode,
+      drag: !conveyorMode,
+    });
     const pitchLimit = THREE.MathUtils.degToRad(PITCH_LIMIT_DEG);
     let yaw = 0;
     let pitch = THREE.MathUtils.degToRad(INITIAL_PITCH_DEG);
@@ -713,6 +983,30 @@ export default function useGlobeScene(
     let schedClock = 0;
     let sceneTime = 0;
     const scoreVec = new THREE.Vector3();
+
+    // R1 (span telemetry, report-only): device-px height of the most
+    // camera-facing unparked tile, from its top and bottom edge on its own meridian.
+    const r1A = new THREE.Vector3();
+    const r1B = new THREE.Vector3();
+    const onSphere = (v, phi, theta) =>
+      v.set(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta)).multiplyScalar(RADIUS);
+    const frontRowPx = () => {
+      let best = null;
+      let bestZ = -Infinity;
+      for (const p of panels) {
+        if (p.parked || p.phiC == null) continue;
+        const z = scoreVec.copy(p.centerDir).applyEuler(globeGroup.rotation).z;
+        if (z > bestZ) {
+          bestZ = z;
+          best = p;
+        }
+      }
+      const top = best?.mesh.material.uniforms.uPolarTop?.value;
+      if (top == null) return null;
+      globeGroup.localToWorld(onSphere(r1A, best.phiC, top)).project(camera);
+      globeGroup.localToWorld(onSphere(r1B, best.phiC, top + best.bandHeight)).project(camera);
+      return Math.round((Math.abs(r1A.y - r1B.y) / 2) * viewH * renderer.getPixelRatio());
+    };
 
     const tick = (_time, deltaMs) => {
       const dt = deltaMs / 1000;
@@ -729,15 +1023,19 @@ export default function useGlobeScene(
       const { dYaw, dPitch } = controller.update(step);
       yaw += dYaw;
       pitch += dPitch;
-      // Clamp drag pitch to ±limit in every mode — the globe holds a bounded
-      // orientation (fixed brand tilt under the conveyor, gentle yaw drift under
-      // legacy), so a drag can never strand it past vertical.
-      pitch = Math.max(-pitchLimit, Math.min(pitchLimit, pitch));
-      // Dev-bench orientation offset (?herotune, read live): tilt is applied as
-      // (tiltDeg − INITIAL_PITCH) so the default 40 → 0 offset → parity; yaw is
-      // an absolute spin (default 0 → parity). Added AFTER the drag clamp so the
-      // bench can push the brand tilt past the ±40° drag range.
+      // Orientation offset (read live; home seeds it from ?herotilt): tilt is
+      // applied as (tiltDeg − INITIAL_PITCH), so /lab's default 40 → 0 offset →
+      // parity; yaw is an absolute spin (default 0 → parity).
       const orient = tuneRef.current;
+      const tiltOff = THREE.MathUtils.degToRad(orient.tiltDeg - INITIAL_PITCH_DEG);
+      // Clamp the drag in every mode so the SHOWN tilt (pitch + tiltOff) stays
+      // within ±limit, widened to take in a rest the bench parks past it — the
+      // globe holds a bounded orientation, so a drag can never strand it past
+      // vertical. (Clamping pitch alone, as before 10-24, bounded the shown
+      // tilt to rest − 2·limit … rest: fine at the 45.5° bake, past vertical at
+      // Nathan's −10°.) /lab (tiltOff 0, rest = limit) keeps ±limit exactly.
+      const rest = THREE.MathUtils.degToRad(orient.tiltDeg);
+      pitch = Math.max(Math.min(-pitchLimit, rest) - tiltOff, Math.min(Math.max(pitchLimit, rest) - tiltOff, pitch));
       // Steady auto-rotation (?yawspeed, read live): accumulate continuous yaw at
       // yawSpeed °/s, wrapped bounded. 0 → spinYaw stays 0 → parity (fixed globe).
       // Auto-rotation is MOTION, so it is suppressed under reduced motion (the
@@ -746,19 +1044,29 @@ export default function useGlobeScene(
         spinYaw = (spinYaw + THREE.MathUtils.degToRad(orient.yawSpeed) * step) % (Math.PI * 2);
       }
       globeGroup.rotation.set(
-        pitch + THREE.MathUtils.degToRad(orient.tiltDeg - INITIAL_PITCH_DEG),
+        pitch + tiltOff,
         yaw + spinYaw + THREE.MathUtils.degToRad(orient.yawDeg),
         0
       );
+      posed = true;
 
       // Meridian scroll (home hero): advance the pole-to-pole tile travel on the
       // fixed-tilt globe (writes each row's uPolarTop + refreshes centerDir).
       // Per frame — the polar scroll is continuous. Null-safe: lab/RM never
       // construct it. Runs before render so the frame reflects it, and before
       // the scheduler tick so prominence scores read the fresh centerDir.
+      // The population clock (?popmode) runs first: a tide queues its surge
+      // on the scroller, which lands it this same frame.
+      if (director) director.update(step);
       if (scroller) scroller.update(step);
+      // Unit windows (media spans): from the poses this frame renders, so the
+      // scroll a tide just landed is in them. No-op with ?popunits off.
+      if (director) director.place();
 
+      const texBefore = renderer.info.memory.textures;
+      const r0 = performance.now();
       renderer.render(scene, camera);
+      if (director) director.noteRender(performance.now() - r0, renderer.info.memory.textures - texBefore);
       // Overlay bridge (home hero): hand the just-rendered frame to the DOM
       // overlay — after render, so every matrix is the one drawn. Null-safe:
       // lab/other callers pass no overlayRef and skip entirely.
@@ -771,9 +1079,12 @@ export default function useGlobeScene(
       sceneTime += step;
 
       schedClock += step;
-      if (scheduler && schedClock >= 0.5) {
+      const fast = !!scheduler?.handoffFast; // ?pophandoff=fast: a 0.1 s beat, and a change starts its own clips
+      if (scheduler && schedClock >= (fast ? HANDOFF_BEAT_S : 0.5)) {
         // dragging defers promotions only — no Hls startups mid-gesture
-        scheduler.update(globeGroup.rotation, sceneTime, camera, controller.dragging);
+        // …and while a population relayout is mid-swap (the fast handoff: the worlds it lands may start).
+        const busy = !!director?.busy;
+        scheduler.update(globeGroup.rotation, sceneTime, camera, controller.dragging || (busy && !fast), busy && fast ? director.incomingWorlds() : null);
         schedClock = 0;
       }
 
@@ -786,8 +1097,17 @@ export default function useGlobeScene(
           }))
           .sort((a, b) => b.score - a.score)
           .slice(0, 6);
+        const fps = Math.round(framesRendered / statClock);
+        if (director) {
+          director.sample(globeGroup.rotation, {
+            fps,
+            gpuTextures: renderer.info.memory.textures,
+            dt: statClock,
+            r1: frontRowPx(),
+          });
+        }
         onStats({
-          fps: Math.round(framesRendered / statClock),
+          fps,
           textures: renderer.info.memory.textures,
           ...(scheduler ? scheduler.getStats() : {}),
           topPanels: top.map((t) => `${t.id}:${t.score.toFixed(2)}`),
@@ -838,6 +1158,12 @@ export default function useGlobeScene(
       apiRef.current.setGlobeOrientation = () => {};
       apiRef.current.setCascadeSpeed = () => {};
       apiRef.current.setPoleCap = () => {};
+      apiRef.current.getFocusProject = () => null;
+      apiRef.current.popNext = () => {};
+      apiRef.current.popShow = () => {};
+      apiRef.current.popHold = () => {};
+      if (unsubscribePop) unsubscribePop();
+      if (accentTween) accentTween.kill();
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
       fadeBackIn.cancel();
@@ -847,6 +1173,7 @@ export default function useGlobeScene(
       if (cascadeTl) cascadeTl.kill();
       if (scheduler) scheduler.dispose();
       if (scroller) scroller.dispose();
+      if (director) director.dispose();
       controller.dispose();
       textureManager.disposeAll();
       panels.forEach((panel) => {
@@ -863,7 +1190,7 @@ export default function useGlobeScene(
       renderer.forceContextLoss();
       renderer.domElement.remove();
     };
-  }, [assets, gapDeg, capDeg]);
+  }, [assets, worlds, gapDeg, capDeg]);
 
   return apiRef;
 }

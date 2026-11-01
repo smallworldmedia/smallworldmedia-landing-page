@@ -5,10 +5,13 @@
  * aspect-ratio from the asset's native dimensions. Portrait assets
  * are clamped to a 3:4 minimum container with object-fit: cover.
  *
- * Videos stream the full Mux HLS loop (no preview cap — these are
- * sizzle reels and showcase loops). HLS attaches lazily when the slot
- * enters the viewport; playback pauses off-screen. Images load from
- * the Sanity CDN. Both fade in via the shared load-gate pattern.
+ * Each video streams a clip of DETAIL_MAX_SECONDS (Nathan, 10-09: the
+ * page's hard cut on long assets), cut at the source (muxStream, Mux
+ * instant clipping) and ending on the first segment boundary at or after
+ * it, or at a shorter asset's own end; wrapAtDetailCap loops at the cap,
+ * and `loop` at a shorter clip's end. HLS attaches lazily when the slot
+ * enters the viewport; playback pauses off-screen. Images load from the
+ * Sanity CDN. Both fade in via the shared load-gate pattern.
  *
  * Accessibility: the figure is named by the title; the media itself by
  * `alt` (title fallback for images); `description` rides along as a
@@ -20,7 +23,7 @@
  */
 import { useRef, useEffect, useState } from 'react';
 import useHls from '../useHls.js';
-import { IMG_FORMAT } from '../imageConfig.js';
+import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 
 /** Sanity image width for detail page slots */
@@ -30,8 +33,9 @@ const SLOT_IMG_WIDTH = 1400;
     manifest parsing, and start two rungs up the ladder (~720p on Mux's
     typical ladder) so the first painted frame is sharp; ABR adapts from
     there (capLevelToPlayerSize stays on inside useHls). maxBufferLength
-    caps the forward buffer per active slot — the masonry can hold several
-    live streams at once (grid uses 8, pools use 10). */
+    is a floor, not a cap: hls.js buffers further when the bitrate allows.
+    The stream clip (DETAIL_MAX_SECONDS, muxStream) is what bounds each
+    slot's download. */
 const DETAIL_HLS_CONFIG = {
   startFragPrefetch: true,
   startLevel: 2,
@@ -53,13 +57,14 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
   const isVideo = !!asset.playbackId;
 
   const hlsSrc = isVideo && isVisible
-    ? `https://stream.mux.com/${asset.playbackId}.m3u8`
+    ? muxStream(asset.playbackId, DETAIL_MAX_SECONDS)
     : null;
 
-  useHls(videoRef, hlsSrc, DETAIL_HLS_CONFIG);
+  useHls(videoRef, hlsSrc, DETAIL_HLS_CONFIG, { videoOnly: true });
 
-  // time=0: playback starts at frame 0 (native loop, no seek), so the
-  // frame-0 poster is the aligned one — no poster→playback jump.
+  // time=0: playback starts at frame 0 and every wrap returns there (the
+  // native loop, or the cap's seek), so the frame-0 poster is the aligned
+  // one — no poster→playback jump.
   const posterUrl = isVideo
     ? `https://image.mux.com/${asset.playbackId}/thumbnail.webp?width=${SLOT_IMG_WIDTH}&fit_mode=preserve&time=0`
     : null;
@@ -103,6 +108,7 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
           loop
           playsInline
           aria-label={asset.alt || undefined}
+          onTimeUpdate={wrapAtDetailCap}
           onCanPlay={() => setIsLoaded(true)}
         />
       ) : asset.imageUrl ? (

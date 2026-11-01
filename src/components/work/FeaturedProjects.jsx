@@ -29,7 +29,7 @@ import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
 import CtaArrows from './CtaArrows.jsx';
 import GraticulePager from './pager/GraticulePager.jsx';
-import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal } from '../SiteFooter.jsx';
+import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal, createFooterDrive } from '../SiteFooter.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
 // Only the tiny shared tune STATE is static here; the panel itself (and the
 // Deck Viewer bench below) is import()ed from its mount effect, so neither
@@ -99,16 +99,19 @@ export default function FeaturedProjects({ worlds = [] }) {
   useEffect(() => {
     const on = () => {
       footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
     };
     const off = () => {
       footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
       footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, 0);
     };
     window.addEventListener(FOOTER_REVEAL_EVENT, on);
     window.addEventListener(FOOTER_CLOSE_EVENT, off);
     return () => {
       footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
       window.removeEventListener(FOOTER_REVEAL_EVENT, on);
       window.removeEventListener(FOOTER_CLOSE_EVENT, off);
     };
@@ -118,6 +121,10 @@ export default function FeaturedProjects({ worlds = [] }) {
     footerPRef.current = v;
     setFooterP(v);
   };
+  // 10-31 (Nathan): the wheel's footer deltas glide and brake into the full
+  // reveal, as on home (createFooterDrive); touch and reduced motion as before.
+  const footerDriveRef = useRef(null);
+  footerDriveRef.current ??= createFooterDrive(setFooterReveal);
   // FP-1 bench: mount only AFTER hydration. FP1_TUNE_ACTIVE reads
   // window.location.search (false during SSR, true on the client), so gating
   // JSX on it directly hydration-mismatches (#418). Start null everywhere,
@@ -300,31 +307,60 @@ export default function FeaturedProjects({ worlds = [] }) {
   // the breadcrumb arms `swm:returnToWork` on click, and BaseLayout's
   // popstate tracker arms it for browser back/forward. Any other entry —
   // the nav's featured_projects link, a direct load — starts at the first
-  // World. Restore sets `active` only: the card-staging effect rolls the
-  // restored card in through the normal exit/enter choreography (setting
-  // cards directly here raced that effect and left the entrance reverted —
-  // the "card never loads" bug).
+  // World. Restore sets `active` (+ the snap below) only: the card-staging
+  // effect boots the restored card (setting cards directly here raced that
+  // effect and left the entrance reverted — the "card never loads" bug).
+  // Since 10-06 the return is a snap like Enter World's, not a Turn.
+  //
+  // Enter World from the home globe (globe-worlds P3) hands over the world
+  // on the globe as `swm:enterWorld` (a slug — Hero) and /work opens INSIDE
+  // it: a SNAP, the page arriving there rather than a Turn from the first
+  // World. snapRef holds that index for exactly the arrival's commit — the
+  // children (WorldScene: an instant build; the pager: a jump, no glide) read
+  // it in their effects, which run before this component's, and the
+  // card-staging effect below clears it once it has booted the card fresh.
+  const snapRef = useRef(null);
   useEffect(() => {
     let armed = false;
     let saved = NaN;
+    let entered = null;
     try {
+      entered = sessionStorage.getItem('swm:enterWorld');
+      sessionStorage.removeItem('swm:enterWorld');
       armed = sessionStorage.getItem('swm:returnToWork') === '1';
       sessionStorage.removeItem('swm:returnToWork');
       saved = parseInt(sessionStorage.getItem('swm:worldIndex') ?? '', 10);
     } catch {
       /* storage unavailable → first World */
     }
+    const at = entered ? worlds.findIndex((fw) => fw.slug === entered) : -1;
+    if (at >= 0) {
+      if (at !== activeRef.current) {
+        snapRef.current = at;
+        setActive(at);
+      }
+      return;
+    }
     if (!armed || !Number.isFinite(saved)) return;
     const idx = Math.max(0, Math.min(lastIndex, saved));
-    if (idx !== activeRef.current) setActive(idx);
+    // 10-06 (Nathan): the detail-page return SNAPS too (continuity with Enter
+    // World) — the breadcrumb's cover holds until this World's card is up.
+    if (idx !== activeRef.current) {
+      snapRef.current = idx;
+      setActive(idx);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Scene is mounting — release the Envelopment fill if this arrival came
   // through it (home → /work under the persistent RouteFill, ADR-0002).
-  // No-op on direct loads: the fill is only ever up mid-passage.
+  // No-op on direct loads: the fill is only ever up mid-passage. An arrival
+  // snap holds it until the entered World's card is up (fillOnCardRef = that
+  // World's index) — the passage lifts onto that World, never the first.
+  const fillOnCardRef = useRef(null);
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+    if (snapRef.current != null) fillOnCardRef.current = snapRef.current;
+    else window.dispatchEvent(new CustomEvent('swm:fill-release'));
   }, []);
 
   useEffect(() => {
@@ -343,6 +379,9 @@ export default function FeaturedProjects({ worlds = [] }) {
   // detail page (no blue flash) and persists through the breadcrumb back.
   const firstNavAccent = useRef(true);
   useEffect(() => {
+    // An arrival snap is pending: the first World's accent must not flash
+    // under the passage — the snap's own commit applies the entered one.
+    if (snapRef.current != null && snapRef.current !== active) return;
     const fw = worlds[active];
     applyNavAccent(fw?.projectColor, fw?.projectColorSecondary, !firstNavAccent.current);
     firstNavAccent.current = false;
@@ -456,6 +495,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       // ~13rem tall, so an engage at full reveal would dim the logo row.
       // Retract instead; the post-end delta reveals it again on release.
       footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
       if (footerPRef.current > 0) setFooterReveal(0);
     }
     mainRef.current?.classList.toggle('is-pager-engaged', v);
@@ -492,7 +532,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     const el = mainRef.current;
     if (!el || !worlds.length) return undefined;
 
-    const addDelta = (dy) => {
+    const addDelta = (dy, wheel = false) => {
       if (departingRef.current) return; // reverse Envelopment committed — input is done here
       footerWipeRef.current?.kill(); // the user's delta supersedes the pill's wipe
       if (pagerEngagedRef.current) return; // pager owns input mid-scrub (a second finger must not Turn)
@@ -506,14 +546,19 @@ export default function FeaturedProjects({ worlds = [] }) {
       // leaves it — the continuous shell slide keeps any partial state calm.
       // 09-08: ALSO whenever the footer is up (the tagline pill can raise it
       // from any World) — an upward delta retracts it before any Turn.
-      if (activeRef.current >= lastIndex || footerPRef.current > 0) {
-        const p = footerPRef.current;
+      // 10-31: a wheel glide is judged by where it is headed (its target).
+      const drive = footerDriveRef.current;
+      if (activeRef.current >= lastIndex || drive.goal(footerPRef.current) > 0) {
+        const p = drive.goal(footerPRef.current);
         if (dy > 0 || p > 0) {
           if (PREFERS_REDUCED_MOTION) {
             // Reveal/retract without animation on the first delta.
             setFooterReveal(dy > 0 ? 1 : 0);
+          } else if (wheel) {
+            drive.add(dy / SCROLL_TRIGGER, footerPRef.current);
           } else {
-            setFooterReveal(Math.min(1, Math.max(0, p + dy / SCROLL_TRIGGER)));
+            drive.stop(); // the finger owns the panel: it tracks, unsmoothed
+            setFooterReveal(Math.min(1, Math.max(0, footerPRef.current + dy / SCROLL_TRIGGER)));
           }
           accumRef.current = 0;
           return; // swallow — no Turn/CTA math while the footer owns the delta
@@ -565,7 +610,7 @@ export default function FeaturedProjects({ worlds = [] }) {
 
     const onWheel = (e) => {
       e.preventDefault();
-      addDelta(e.deltaY);
+      addDelta(e.deltaY, true);
     };
     let touchY = null;
     const onTouchStart = (e) => {
@@ -602,6 +647,7 @@ export default function FeaturedProjects({ worlds = [] }) {
   // click, PREVIOUS CTA) drops a lingering footer reveal — earlier Worlds
   // must never show it. The Turn choreography covers the snap.
   useEffect(() => {
+    if (active < lastIndex) footerDriveRef.current.stop(); // a glide must not carry the footer up an earlier World
     if (active < lastIndex && footerPRef.current > 0) {
       footerWipeRef.current?.kill();
       setFooterReveal(0);
@@ -610,9 +656,13 @@ export default function FeaturedProjects({ worlds = [] }) {
   }, [active, lastIndex]);
 
   // On World change, stage the outgoing card (exit) under the incoming (enter);
-  // drop the exited card once the Turn finishes.
+  // drop the exited card once the Turn finishes. The arrival snap has no
+  // outgoing card: the entered World's card boots in fresh, as on any load.
   useEffect(() => {
+    const snap = snapRef.current === active;
+    if (snap) snapRef.current = null; // the arrival's commit is done with it
     setCards((prev) => {
+      if (snap) return [{ index: active, dir: 1, phase: 'enter' }];
       const top = prev.find((c) => c.phase === 'enter') || prev[prev.length - 1];
       if (!top || top.index === active) return prev;
       const d = Math.sign(active - top.index) || 1;
@@ -627,6 +677,14 @@ export default function FeaturedProjects({ worlds = [] }) {
     }, TURN_MS + 120);
     return () => clearTimeout(cardTimerRef.current);
   }, [active]);
+
+  // The arrival snap's card is committed (its entrance set pre-paint) — now
+  // the held passage fill lets go.
+  useEffect(() => {
+    if (fillOnCardRef.current == null || cards[0]?.index !== fillOnCardRef.current) return;
+    fillOnCardRef.current = null;
+    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+  }, [cards]);
 
   // Pager marker: one triangle that eases to the active number instead of
   // teleporting. Two damping modes, because the target moves for two
@@ -781,7 +839,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       {TextTunePanel && (
         <TextTunePanel getAccent={() => worlds[activeRef.current]?.projectColor} />
       )}
-      <WorldScene world={w} index={active} />
+      <WorldScene world={w} index={active} snapRef={snapRef} />
 
       {!legacyRail ? (
         <GraticulePager
@@ -789,6 +847,7 @@ export default function FeaturedProjects({ worlds = [] }) {
           active={active}
           commit={requestGoTo}
           onEngaged={onPagerEngaged}
+          snapRef={snapRef}
         />
       ) : (
       <nav

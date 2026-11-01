@@ -1,6 +1,6 @@
 # Tech Landscape
 
-*Last Updated: 2026-09-09*
+*Last Updated: 2026-10-16*
 
 ## Languages & Runtimes
 - JavaScript (ESM, `"type": "module"`); React components are `.jsx`, helpers `.js`/`.mjs`.
@@ -17,7 +17,7 @@
 | Scroll | `lenis` | Single instance in `src/lib/smoothScroll.js`, ticked by `gsap.ticker` |
 | Video | `hls.js`, Mux (`@mux/mux-node`, `sanity-plugin-mux-input`) | HLS playback pools; Mux uploads from the CMS CLI |
 | CMS | `sanity` 5, `@sanity/astro`, `@sanity/client`, `@sanity/orderable-document-list`, `@sanity/vision`, `lexorank` | Studio at `/studio`, build-time queries, drag ordering |
-| Images | `sharp` | CMS probe/dimension checks, client-logo prep |
+| Images | `sharp` | CMS probe/dimension checks, client-logo prep, and `globe-probe`'s report-only `darkThumbs` (luma read from raw pixels) |
 | SEO | `@astrojs/sitemap` | Sitemap with disabled-route exclusions |
 | Dev | `groq-js` (only devDependency) | Evaluates real GROQ against fixtures in tests |
 | Styling | `styled-components` is installed but plain CSS files under `src/styles/` are the system |

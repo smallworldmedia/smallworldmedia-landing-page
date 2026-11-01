@@ -69,9 +69,11 @@ export const PANE_PITCH = num('panepitch', 3); // FORME: macro-cell pitch as a m
 /* — Camera / render budget — */
 export const CAMERA_FOV = num('fov', 42); // vertical degrees
 export const CAM_LAG_S = num('camlag', 0.7); // resize: camera re-eval TRAILS the window (retargeted ease — the TouchDesigner lag feel); ~0 = instant. 08-28 bake 0.7 (Nathan's dial)
-export const DPR_MAX = num('dpr', 1.5); // 1.5 caps render-target memory (scales with DPR²; was desktop 2). ?dpr to A/B
+export const DPR_MAX = num('dpr', IS_MOBILE ? 3 : 2); // full res (Nathan, 10-09): phone 3, desktop 2, a Retina Mac's own ratio. The renderer takes min(devicePixelRatio, DPR_MAX), so a 1× screen still renders at 1. Render memory scales with DPR²: useWorldScene's 8-bit sRGB targets and bare canvas make 3 affordable on a phone. ?dpr to A/B
 export const MSAA_SAMPLES = num('msaa', 4); // composer target multisamples (08-25 grid AA); 0 = off, ?msaa to A/B
 export const FPS_CAP = 60;
+export const FPS_TOL_MS = Math.min(2.5, Math.max(0, num('fpstol', 2))); // ?fpstol: ms of slack in the World's FPS_CAP render gate (useWorldScene's tick). 2 = Nathan's 10-31 bake ("the fpstol=2 60fps looks noticeably smoother"): a steady 60. 0 = the strict gate, about 40 fps, the cadence before it. Clamped to 0–2.5: from 1000/60 − 14 ≈ 2.7 ms on, two 144 Hz frames (14 ms of whole-ms deltas) pass the gate, so a 144 Hz screen would render above the cap
+export const FPS_GATE_S = 1 / FPS_CAP - FPS_TOL_MS / 1000; // the tick's render gate in SECONDS (FPS_TOL_MS is ms, hence /1000) — named so the test pins its units
 export const MAX_TILES = num('max', IS_MOBILE ? 9 : 8); // desktop 8 — Nathan's 08-27 DRUM density bake (was 7)
 export const CORNER_PRESET = num('corners', IS_MOBILE ? 1 : 0) > 0; // 09-04 r9 (Nathan): the MOBILE four-corner media preset — one shared composition per project (the Bedouin read): tier-1 = two deck-scale plates on one diagonal, tier-2 = two smaller on the other; walls own tier-1 seats first; exactly 4 media surfaces load. Diagonal flips per slug (deterministic). Skips the seeded ring + balance pass entirely. ?corners=0 compares the dynamic layout on a phone; ?corners=1 previews the preset on desktop.
 /* r10 (Nathan: plates were getting cut off by the viewport — smaller +
@@ -89,11 +91,22 @@ export const CORNER_INSET = num('cornerin', 0.5); // seat pull-in factor (1 = th
 export const WALL_EXTRA_ROWS = num('wallrows', IS_MOBILE ? 1 : 0);
 export const WALL_DECK_COLS = num('deckcols', IS_MOBILE ? 1 : 0);
 export const WALL_ALBUM_COLS = num('albumcols', IS_MOBILE ? 2 : 0);
-// r11b (Nathan: "resolution still lacking"): the wall canvas width in px. The
-// per-frame upload cost scales with canvas AREA (repaints are movement-
-// gated), so this is the compute dial; the page TEXTURE request width is
-// derived per wall from the column width (decode-only, free per frame).
-export const WALL_CANVAS_PX = num('wallpx', IS_MOBILE ? 896 : 1152); // seat pull-in factor (1 = the r9 wall-anchor corners)
+// r11b (Nathan: "resolution still lacking"): the wall canvas width in px.
+// Since 10-09 the pages sit still in a per-column atlas the shader scrolls,
+// so the area sets texture memory and the one upload per landed page —
+// nothing uploads per frame; the page TEXTURE request width is derived per
+// wall from the column width (decode-only, free per frame).
+// 10-09 (deck-wall flicker): the scrolled atlas is resampled at a new phase
+// every frame, and it reads steadiest at the texel-to-pixel ratio of
+// Nathan's 08-27 bake (1152 when the World rendered at pixel ratio 1.5). A
+// fixed 1152 meets a 2× screen near 1:1 and shimmers, so above 1.5 the
+// desktop width keeps the bake's ratio: 768 per unit of the World's pixel
+// ratio (1536 at 2). It never drops below 1152: a smaller canvas reads
+// softer, rounds GAP's gutters thinner (W / 320) and can tip a wall's
+// perCol. Mobile walls stay 896.
+const WALL_DPR =
+  typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, DPR_MAX);
+export const WALL_CANVAS_PX = num('wallpx', IS_MOBILE ? 896 : Math.round(768 * Math.max(1.5, WALL_DPR)));
 // 08-28 (Nathan): DRUM density follows the SETTLED viewport width — his call:
 // the 08-27 bake (8) at laptop widths ramping to 12 on a wide window. Linear
 // between the anchors, rounded (the rounding is the rebuild quantum — the
@@ -196,11 +209,11 @@ export const WORLD_MAX_VIDEO_TILES = Math.max(
 export const LIVE_DWELL_SECONDS = num('livedwell', 9); // min time live before rotating to a waiting Near tile
 export const LIVE_CROSSFADE_SECONDS = num('livefade', 0.6); // still ↔ video crossfade (globe convention)
 export const LIVE_SUSPEND_SECONDS = 0.3; // fast fade back to stills when a Turn starts
-// Near Tiles are large on screen (unlike globe panels), so pin a single hi-res
-// rendition: min+max together collapse the Mux manifest to one choice — no ABR
-// decision, no quality jump, and the 4s loop replays from buffer so delivery
-// cost stays a few MB per promotion. ?liveres=1080p etc. to experiment.
-const LIVE_RES = PARAMS?.get('liveres') || (IS_MOBILE ? '540p' : '720p');
+// Near Tiles are large on screen (unlike globe panels), so pin one rendition:
+// min+max collapse the Mux manifest to one choice — no ABR decision, no quality
+// jump. Phones pin 480p, the lowest rung that stays sharp (Nathan, 10-09); the
+// pool clips every stream at the preview window. ?liveres=1080p to experiment.
+const LIVE_RES = PARAMS?.get('liveres') || (IS_MOBILE ? '480p' : '720p');
 export const WORLD_STREAM_PARAMS = `min_resolution=${LIVE_RES}&max_resolution=${LIVE_RES}`;
 
 /* — Composite bands (World-side deck/album mounts, ADR-0003) —

@@ -33,7 +33,9 @@ export default function Lightbox({ asset, onClose }) {
     };
   }, [asset, handleKeyDown]);
 
-  // HLS source — only set when lightbox has a video asset
+  // HLS source — only set when lightbox has a video asset. Full length on
+  // purpose (deliberate viewing, with sound); the muted autoplay surfaces
+  // clip their streams through muxStream in imageConfig.js.
   const hlsSrc = asset?.playbackId
     ? `https://stream.mux.com/${asset.playbackId}.m3u8`
     : null;

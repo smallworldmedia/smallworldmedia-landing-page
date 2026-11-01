@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "tool": "codebase-mapper",
   "version": "2.15.10",
-  "mappedAt": "2026-10-28",
-  "gitCommit": "5c5e02b634b9830324edf038d54dce22b9c67343",
+  "mappedAt": "2026-11-01",
+  "gitCommit": "aa0452b673caf08365709209f7c3cf21770eccd5",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -18,17 +18,17 @@
     "tech-landscape.md"
   ],
   "hashes": {
-    "INDEX.md": "4c6756dae725dcc78a18c753e5a68f63c7a689fb02811ec671ba891b0810cd78",
-    "architecture.md": "dacd933141f6e5a8e646bee2298401270bcb9e49e691f5221e6f9e65409d8306",
+    "INDEX.md": "2984684c8055973687948f18bfd127ee20f91da29a7f7e70b87f578be9a57afd",
+    "architecture.md": "27112306078213743ebace3508f38a3ff6203e61001c52ffd3ad2b17310bdabf",
     "cms-pipeline.md": "ffa1c5174f6d31e982a81c1102eabcf218c79d952c8b4e3ccab4ac72497967fd",
-    "coding-style.md": "702f452f8d1d83068a16de873a136e9b89d168852e2c4a38b7958239ab30ad14",
-    "communication.md": "b069500b742b16a7a1d23dc119051ed1850be4ca2cf589514be2e7e905daaea9",
-    "database.md": "e1ba9d817f8d7f68b9c2b03dce98898cd1ee2ef8ee10c6e6ba7788742039005f",
-    "directory-structure.md": "3649afa0a65e70c6b5d8c07e81eaaa9bc3216d0d558de348e5b503dea9acee6b",
-    "entry-points.md": "5bb0bf3ff652d0948aea58d8074f24d58d31e405a827a8504159149fd34a9a13",
-    "modules.md": "2a0d6a543b98bf21c79c3deb475ab92437662bbf09420a120b846ca91b658b15",
-    "onboarding.md": "4f17050fd3afacfc251392f750dc190267e430cd150fd5a521bdadd4e13da72d",
-    "patterns.md": "2622b171ea472676ccf8ac42d6bdb37b0fc25fd9eb51e8f1227273b2d15fc124",
-    "tech-landscape.md": "7407c07cfbc42cdb9d78655f7a1ceba400a0ee14822674949443a1b433ab24d2"
+    "coding-style.md": "856e2d0b893613d795e60ac41c216665b1b932f15dfbfd26b49620c21e04a05b",
+    "communication.md": "74f9288e8ad383ff1260becb677e360f6ac4fcf8fd4423b56ff4f05ae7a94367",
+    "database.md": "679bf244124754634df13eaec57c5400c4d8203b2e8f61d295b872604e279d18",
+    "directory-structure.md": "abd3e23c548bf6c4201c27359206265bcc272577451545ee3e1a408acb776dc2",
+    "entry-points.md": "d176545cf5cccac2692d3d50413fcb77bbe7cad4754588b51dafb5965c7f68f5",
+    "modules.md": "92acc3f4eda7f4c3d8701d7f29fceb60fe8c0d2078445b1650f89383b116c319",
+    "onboarding.md": "a3be2bab3be3ae41c949a1fbac57909fb7a0412b8a310127abd8dee60ee024ae",
+    "patterns.md": "f6d42eb91baed1d2459583ec3515f099c24baba099cff112dadd42c5c33f257a",
+    "tech-landscape.md": "c263d061931925ed76748241192c85af74fa449fcac254dd0bd9311f1927ee4f"
   }
 }

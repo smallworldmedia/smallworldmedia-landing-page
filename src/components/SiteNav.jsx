@@ -17,7 +17,7 @@
  *   onInfoToggle    — callback for info pill click
  *   isInfoOpen      — controls info pill label ("info" vs "close")
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 import { wipeIn, wipeOut } from '../lib/overlayWipe.js';
@@ -29,7 +29,10 @@ import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
 // Nathan): off-home ≤768px the page-level tagline is hidden (it ate
 // bottom real estate), so the takeover is the tagline's site-wide home.
 // 08-30 (3): uncapsuled three-line stack, blurb-size type.
-import { TAGLINE_LINES, EM_LINE } from './SiteTagline';
+// The menu renders the SAME tagline the pill does — one source for the words,
+// now the Sanity string rather than a shared word-array (10-08).
+import { keywordLines, renderWordTokens } from '../lib/keywords.jsx';
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 
 /* ── NAV micro-interaction (08-29, Nathan) ── The merged bracket/fxrule
    system is RETIRED (brackets forced label gutters between glyph and text;
@@ -78,7 +81,13 @@ export default function SiteNav({
   onStartProject,
   onInfoToggle,
   isInfoOpen = false,
+  /** `{ footerBlurb, tagline }` — threaded BaseLayout → SiteShell → InfoPanel. */
+  siteCopy,
 }) {
+  const shortLines = useMemo(
+    () => keywordLines(siteCopy?.tagline || SITE_COPY_FALLBACK.tagline),
+    [siteCopy?.tagline]
+  );
   const pillLabel = isInfoOpen ? 'close' : 'info';
   const PillIcon = isInfoOpen ? CloseIcon : EjectIcon;
 
@@ -106,6 +115,8 @@ export default function SiteNav({
     const menu = menuRef.current;
     if (!menu) return undefined;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // 10-06: a latch for SiteTagline — the blurb abbreviates while the menu is up.
+    document.documentElement.toggleAttribute('data-menu-open', menuOpen);
 
     if (menuOpen) {
       if (reducedMotion) {
@@ -287,6 +298,12 @@ export default function SiteNav({
     };
   }, []);
 
+  // 10-07 (Nathan): "move 2026 all rights reserved to the mobile menu" — the
+  // ©line left the footer band with the SWM lockup (both display:none at
+  // ≤768px now) and lands in the menu's foot, the takeover being the
+  // tagline's site-wide home on phones already.
+  const year = new Date().getFullYear();
+
   return (
     <nav className="site-nav" ref={navRef}>
       <div className="site-nav__brand">
@@ -438,17 +455,19 @@ export default function SiteNav({
               >
                 privacy
               </a>
+              {/* ABOVE the tagline, so the tagline keeps the foot's bottom —
+                  that seat is the home page tagline's own (--menu-pill-seat),
+                  which is what makes menu open/close read as one block. */}
+              <p className="mobile-menu__copy">©{year}. All rights reserved.</p>
               <p className="mobile-menu__tagline" aria-hidden="true">
-                {TAGLINE_LINES.map((line, li) => (
-                  <span className="site-tagline__line" key={line.join('-')}>
-                    {line.map((w) => (
-                      <span
-                        key={w}
-                        className={`site-tagline__word${li === EM_LINE ? ' site-tagline__word--em' : ''}`}
-                      >
-                        {w}
-                      </span>
-                    ))}
+                {shortLines.map((line, li) => (
+                  <span className="site-tagline__line" key={`menu-${li}`}>
+                    {renderWordTokens(line, {
+                      wordClass: 'site-tagline__word',
+                      emClass: 'site-tagline__word--em',
+                      keyPrefix: `menu-${li}`,
+                      separators: false,
+                    })}
                   </span>
                 ))}
               </p>

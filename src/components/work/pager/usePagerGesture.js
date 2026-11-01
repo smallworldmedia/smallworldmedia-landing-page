@@ -605,11 +605,12 @@ export function usePagerGesture({
     // External Turn (CTA scroll paging) — glide to the new index on the
     // marker's own τ so the tape follows the page. Refuse only while a
     // gesture owns the position; peeks follow along (an external Turn
-    // mid-peek must not strand the resting number).
-    apiRef.current.follow = (i) => {
+    // mid-peek must not strand the resting number). instant = the page
+    // arriving on a World (the arrival snap): land there, the RM step.
+    apiRef.current.follow = (i, instant = false) => {
       if (s.mode === 'pressed' || s.mode === 'peek-pressed' || s.mode === 'engaged') return;
       s.raw = s.p = rep(Math.min(max, Math.max(0, i)));
-      if (PREFERS_REDUCED_MOTION) stepRM();
+      if (instant || PREFERS_REDUCED_MOTION) stepRM();
       else startTicker();
     };
 

@@ -1,57 +1,184 @@
 # Modules
 
-*Last Updated: 2026-10-27*
+*Last Updated: 2026-10-31*
 
 ## Site chrome (`src/components/*.jsx`)
 
 | File | Purpose |
 |---|---|
-| `SiteShell.jsx` | Persistent island: `InfoPanel` + `ProjectOverlay` + `RouteFill`; owns `data-chrome-open`, `--scrollbar-w`; lazy-loads Lenis/Footer tune panels |
-| `SiteNav.jsx` | Fixed top bar (lockup, info pill, links); home/process variants are CSS off `body.route-*` |
-| `SiteFooter.jsx` | Hero bookend (`noFill`) or sticky-reveal links footer driven by `--footer-reveal` + `data-footer-revealed`; exports `FOOTER_REVEAL_EVENT` names |
-| `SiteTagline.jsx` | Persistent island: tagline pill + privacy pill, hosts `PrivacyOverlay`, letter-cut exit via `lib/charCut.js` |
+| `SiteShell.jsx` | Persistent island: `InfoPanel` + `ProjectOverlay` + `RouteFill`; owns `data-chrome-open`, `--scrollbar-w`; lazy-loads Lenis/Footer tune panels. Passes `siteCopy` straight through to `InfoPanel` → `SiteNav` (10-08) |
+| `SiteNav.jsx` | Fixed top bar (lockup, info pill, links); home/process variants are CSS off `body.route-*` — four fills repo-wide: base `--color-electric-blue` (`global.css:784`), `body.route-home` **brand black** (`--color-black`, new 10-08: it was the only transparent nav besides /process, so the turning sphere tracked through behind the links), `html:has(.fp)` / `html.fp-tint` the project accent, and `body.route-process` transparent (`process.css:28`). No JS ever writes a nav background — `lib/navAccent.js` only publishes custom properties on `<html>` — and the fill must live in `background`, never `opacity`, because the bar's own `autoAlpha` is animated on the home chrome gate; sets `html[data-menu-open]` while the mobile menu is up. The mobile menu's foot renders the SAME tagline the pill does, parsed from the `siteCopy` prop rather than a shared word-array (10-08) |
+| `SiteFooter.jsx` | Hero bookend (`noFill`) or sticky-reveal links footer, and THE writer of the reveal channel: absolute `--footer-reveal` / `--footer-peak`, their rest-normalized twins `--footer-rise` / `--footer-rise-peak` over `--footer-span`, and the measured `--footer-panel-h` (driven mode too, so home can use it as a parallax denominator). Home rests part-revealed wherever `?footerrest` is nonzero — by default on both tiers since bake A (`ba7cf2c`, 10-09: 0.59 on phones; 0.62 on desktop then, a 0.40 sliver since Nathan's 10-31 bake, `f2916d1`), at any width when the dial is passed explicitly, and `?footerrest=0` restores the old retract-to-nothing footer — so the on-load word entrance is armed off a fail-open `[data-footer-in]` ground instead of a progress threshold (the old `STAGGER_ON` watch loop is retired, and it never fired from the then-0.62 phone floor), and a touch scrub paints imperatively instead of through a React render. `armFooterEntrance(reduced, slide)` takes a second argument: with it the resting panel also rises into place on the wipe ease at timeline position 0 over `?footerslides` (0.7 s), written as `translate: 0 var(--footer-slide)` in px because `paint()` owns the panel's whole `transform` string (see `patterns.md`), with the words and the band line held back `?footerslidelead` (0.12 s) so the slide leads; the property is removed on completion and by `resetFooterEntrance()`. **The panel is parked LOW for as long as `--footer-slide` is set**, so one `dropSlide()` owns every non-animating exit — the reduced/no-words branch, `resetFooterEntrance()`, and the missing-blurb bail, which returns before `entranceShown` and so is re-entered by Hero's `FOOTER_IN_SAFETY_MS` timer: without the clear, a missing blurb parked the whole panel off the fold for the visit instead of being cosmetic (fixed 10-08). It also kills the held `slideTween`, so a soft nav mid-rise cannot keep rewriting the property after cleanup removed it. It also publishes `--footer-band-p` = `min(rise, elapsed / ?logofademin)`, the band's rise held back by a clock so a flick cannot skip the fade: the rise spans only ~95px at 1440×900, less than one wheel notch, so position alone made the dim band pop to full. A FLOOR, not a duration — a slow scrub beats the clock and `min()` leaves it alone, which is why it is a JS clock and not `transition: opacity` (a transition would impose its time on the slow case as lag, and the file says as much where it refuses one on the band). It owns a small rAF that runs only while the gate is closed, re-arms whenever the rise returns to its floor, and is torn down by `clearReveal()`. A separate effect publishes `--footer-blurb-em`, the blurb's width in em measured from a nowrap clone (weights, marks and all) and re-measured on `document.fonts.ready` — gated on the blurb's own computed first font-family via `document.fonts.check`/`load`, because every face is `font-display: swap` and a cold load would otherwise measure the fallback and publish a divisor ~7% too narrow. That measurement is what lets the one-line fill follow edited copy instead of one baked string, and it is what made the blurb safe to move into Sanity (10-08): `blurb` is now ONE MARKED STRING (`siteSettings.footerBlurb`, threaded `index.astro` → `LandingPage` → `Hero`), not the old `[emphasised opening, rest]` pair, parsed by `keywordLines()` and drawn by `renderWordTokens()`. Its highlights need BOTH a colour and a driver: `global.css` binds `--kw-bg`/`--kw-ink` on `.site-footer__blurb` and rests the box OPEN there, and `playFooterEntrance` winds them back with `kwSet(blurb, false)` before appending `kwWipe` to the same timeline as the words (reduced motion takes `kwSet(blurb, true)`). `broadcastReveal` additionally sets the one-way `[data-footer-seen]` latch (+ `sessionStorage 'swm:footer-seen'`, re-asserted on `astro:after-swap`) the first time the GATED `--footer-band-p` passes 0.999 — not the rise, because the latch is a hard `opacity: 1` at a specificity the ramp cannot beat, so latching on the rise would paint over the minimum fade on exactly the quick scroll it exists for — the threshold is that high because the CSS ramp has already reached 0.9994 there, so the handoff is invisible where latching at 0.6 would be a visible 0.24 jump. It is deliberately NOT cleared by `clearReveal()`, and an unreadable store fails toward the DIM pose. Note it also fires on `/work`, where `rest = 0`, so a full reveal there pre-brightens home's band. The distance is `?footerslide` × the panel's OWN resting reveal, resolved at arm time by `restingRevealPx()` (`innerHeight − panelTop`, forcing the one style flush that makes the rect the post-latch pose; channel fallback `(1 − --footer-span) × --footer-panel-h`). The default 1 starts it flush at the fold so **the whole hero globe is in view at load** (10-08): the ring's diameter is `fill × (1 + GLOBE_STROKE_FRAC) × cos α × min(vw, vh)` (0.87 × min desktop, 0.988 × min phone) centred at `vh/2`, so in landscape its bottom is `0.935 vh` and the panel-over-ring overlap is `rest × panel-h − 0.065 × vh` (the px figures first written here predate the Sanity blurb and are dropped; the guide's `?footerslides` row carries bake A's measured rise); in portrait the fit axis is WIDTH, so r stops shrinking while the centre falls. Either way it grows as the window shortens, so only a fraction of the reveal holds across viewports and a fixed rem cannot. The footer stays ignorant of the globe: nothing here reads hero geometry. Above 768px the variant also re-lays the panel (10-08): the August `min-height` reserve on `.site-footer__inner` paid for the fixed tagline stack when that stack sat over the panel's bottom, but under this variant the band is `order: 1` and the nav is hidden, so the reserve only pushed the blurb 64.9px down (`--footer-rest-top-pad`, 18px, replaces it) while the lockup it paid for is now `display: none` and the bottom-fixed © / privacy pill landed ON the marks row. What the reserve was really buying moved from above the blurb to below the band as `--ticker-foot-clearance` (fallback derived from the same tokens, so the two cannot drift): +12.02px and +27.99px of clearance at a full reveal. The blurb and the band's lead-in line share one `--footer-blurb-size` so the em-derived odometer scales coherently. It also HOLDS the band's word odometer through the entrance (10-08): `armFooterEntrance` sets `[data-footer-settling]` beside `--footer-slide` and `settleOdometer()` clears it from both the timeline's `onComplete` and `dropSlide()`, so the latch inherits the slide's already-hardened bail coverage and absence means running. The roll is a main-thread animation that froze and then jumped a whole word under the entrance's load — holding it beats phase-locking it for a word-indexed odometer (`patterns.md`). Since 10-31 (`cd03b9f`, Nathan's "pumps the brakes") it also exports `createFooterDrive(set, rest)`, the wheel's weight on a DRIVEN reveal (home and `/work`'s last World, where Lenis is off): a wheel delta moves a TARGET through `footerBrakeStep` (the tail brake), and the panel glides to it on `gsap.ticker` with `footerDamp`, Lenis's own damp (frame delta clamped at 100 ms); `add(dp, from)` / `stop()` / `goal(from)`, where `goal` is where a glide is headed, so the hosts' gates and a retract mid-glide read the target. Touch and reduced motion bypass it, and each host stops it wherever something else takes the panel. Exports `FOOTER_REVEAL_EVENT` names |
+| `SiteTagline.jsx` | Persistent island: tagline pill + privacy pill, hosts `PrivacyOverlay`, letter-cut exit via `lib/charCut.js`. Two states: the extended blurb while home is at rest (`body.route-home`, no `data-chrome-open` / `data-menu-open` / `data-footer-revealed`), else "VISUAL WORLDS for the music industry."; a GSAP morph between them (`?tagmorph`), re-evaluated by a MutationObserver on `<html>` and on `astro:after-swap`. Its `maskLive` rAF is the ONLY thing that un-hides `.site-tagline__copy` and `.site-tagline__lockup` (ungated `visibility:hidden` ground, `display:none` only at ≤768px), so its `[data-footer-rest]` stand-down tests the TIER (`matchMedia`), not the latch — keyed on the latch alone it blanks the white lockup and the © for the session at desktop width, and `global.css:3016` (`html[data-footer-rest] .site-tagline__pill`) has already taken the pill. **Its copy is Sanity data since 10-08** — a `siteCopy` prop from `BaseLayout`, parsed with `keywordLines()`. The three baked structures are GONE (`TAGLINE_LINES`, `TAGLINE_LONG_LINES`, `TAGLINE_LONG_SPLIT`) along with the `TAGLINE_LINES` / `EM_LINE` / `TAGLINE_LONG_SPLIT` exports: the Medium cut used to be POSITIONAL — a line index (`EM_LINE = 0`) and a word count (`LONG_EM_WORDS = 3`) — which cannot survive copy an editor can reword, so it is now the `**bold**` marker, travelling with the word. `labelLong` / `labelShort` / `shortChars` (the letter exit's budget) are derived from the live copy instead of a frozen string |
 | `RouteFill.jsx` | ADR-0002 blue bridge + `overviews_loading` bar; the single nav-accent control point |
 | `ProjectOverlay.jsx` / `PrivacyOverlay.jsx` / `PrivacyContent.jsx` | Inquiry form (Netlify Forms) and privacy overlay, both on `lib/overlayWipe.js`; privacy copy shared with `/privacy` |
-| `InfoPanel.jsx` | Slide-down client drawer with SiteNav seated at its bottom |
-| `ClientLogoTicker.jsx` | Logo band above the links footer; rides `DragMomentum`; assets via `import.meta.glob` + `src/assets/client-logos/manifest.json` |
-| `Hero.jsx` (~1000 lines) | Home hero: intro modes (full/replay/rm via sessionStorage), globe rig, `enter_world` commit, footer reveal |
-| `LandingPage.jsx`, `HeroText.jsx` | Island wrapper; hidden `<h1>` |
+| `InfoPanel.jsx` | Slide-down client drawer with SiteNav seated at its bottom; relays `siteCopy` to it. Its studio blurb is the ONE still baked in source — Nathan's deliberate call on 10-08, where the other two moved to `siteSettings` — and it is plain JSX with a `<strong>`, not marked copy, so it never reaches `keywords.jsx`. `.description__text strong` carries `--weight-medium` to match the footer's cut (both surfaces resolve to ABC Areal first, a variable face at 400..700, so 500 is a real instance) and KEEPS its 08-30 project-accent colour, so the drawer's subject wears weight AND hue where the footer's wears only weight |
+| `ClientLogoTicker.jsx` | Logo band above the links footer; rides `DragMomentum`; assets via `import.meta.glob` + `src/assets/client-logos/manifest.json`. Owns the band copy: `COPY`, `SPECTRUM_PHRASE` (`'full spectrum'`) and `leadParts(copy, phrase)` → `[before, phrase, after]`, so the phrase is wrapped in `.logo-ticker__spectrum` for the 127 BPM ink pulse without a hard-coded split. Its dials cover the band and the house pulse: `?logorestop` (resting band opacity) plus a `rootDial()` helper that writes bare numeric tokens on `<html>` for `?inkmuted` (`--ink-muted-l`), `?pulsebpm` (`--swm-bpm`) and `?pulsereps` (`--swm-pulse-reps`, clamped 1..5 — how many times the 5-hue walk sweeps per half note, so the cycling rate moves while the BPM boundary does not). The word odometer's CSS roll is gated by two `<html>` latches this island does NOT own: `[data-footer-revealed]` runs it, and `[data-footer-settling]` (`SiteFooter`) holds it through the on-load entrance |
+| `Hero.jsx` (~1000 lines) | Home hero: intro modes (full/replay/rm via sessionStorage), globe rig, `enter_world` commit (the CTA chrome fades out in 0.2 s, then `swm:loader-start`; under the population modes it holds the clock and hands /work the world on the globe, `swm:enterWorld`; RM covers instantly), footer reveal. It owns the resting-footer latch `[data-footer-rest]` and the scroll accumulator that advances the reveal off its `?footerrest` floor — `FOOTER_REST_MOBILE` 0.59 is the phone DEFAULT, not the gate (re-baked from 0.62 on 10-08 when the Sanity blurb re-wrapped the panel 306px → 281.2px and the old floor over-revealed it; `scripts/globe-probe.mjs` `FOOTER_REST_EXPECT` is its gate twin), and `FOOTER_REST_DESKTOP` 0.40 is desktop's own default (Nathan's 10-31 "sliver", `f2916d1`; 0.62 from bake A `ba7cf2c`, 10-09; no probe twin, since `--footer` is phone-only, so `scripts/test/footer-reveal.test.mjs` holds it to its own clipping floor and its routing): an explicitly passed `?footerrest` reaches any width, and the whole `[data-footer-rest]` CSS variant is viewport-ungated, so the desktop variant is dialable with no layout fork. `addDelta` has two callers, `onWheel` and `onTouchMove`, both registered unconditionally — the wheel drives the home footer on desktop through `SiteFooter`'s `createFooterDrive` (10-31: a delta moves the drive's target, and the gate reads `drive.goal`), while touch stops the drive and sets the panel directly; the `--hero-lift` parallax rides that channel (CSS-derived, half rate by default) and the footer's entrance is armed inside `chromeBeat`. Its centred CTA's visible label is **`zoom_in`** (10-08); `enter_world` survives as the name of the commit, its event and its CSS, so the two no longer match on screen — with `armFooterEntrance(PREFERS_REDUCED_MOTION, introMode === 'full')`, so the resting panel's slide plays only on the first view in a tab, reusing the existing `sessionStorage 'swm:hero-intro'` decision (`full` / `replay` / `rm`) rather than a second "recently" mechanism; `introMode` is declared below the effect but read inside its callback, which React runs after the render body. Under the `[data-footer-rest]` variant the footer links yield too (`.site-footer__nav { display: none }`, 10-08) |
+| `LandingPage.jsx`, `HeroText.jsx` | Island wrapper (relays `siteCopy` from `index.astro` to `Hero`); hidden `<h1>` |
 
 ## Globe (`src/components/globe/`)
 `VideoGlobe.jsx` (component) · `useGlobeScene.js` (the only three.js↔React boundary; `gsap.ticker`
-loop, `forceContextLoss` teardown) · `buildGlobeGeometry.js` (panelized sphere + pole wedges) ·
-`panelMaterial.js` (unlit shader: cover-fit, `uMix` A↔B, `uPower` cascade, `uBlueMix`) · `cascade.js`
-· `LivePanelScheduler.js` (~2 Hz promote/demote) · `VideoSlotPool.jsx` (fixed HLS pool) ·
-`TextureManager.js` (refcounted Mux thumbnails) · `buildAssetPool.js` (pure build-time ordering) ·
-`MeridianScroll.js` · `InteractionController.js` (yaw/pitch skin over `lib/dragMomentum`) ·
-`globeConfig.js` (tunables; re-exports drag constants from `dragMomentum`).
+loop, `forceContextLoss` teardown; under the population modes the world-colour ink tween and the api's
+`onWorldChange` and `popHold`; renders at `globePixelRatio(devicePixelRatio)`, and under media spans
+calls `director.place()` every frame right after `scroller.update` and hands the scheduler the DPR
+bucket read off `renderer.getPixelRatio()`) · `buildGlobeGeometry.js` (panelized sphere + pole wedges) ·
+`panelMaterial.js` (unlit shader: cover-fit, `uMix` A↔B, `uPower` cascade, `uBlueMix`; under media
+spans the flat look's unit crop, P9 `310ad84`: `uSpanA` / `uSpanB` = (1, `spanC`) sample about the
+unit's centre, pinched by `sin(vT)`, written with each window by `tileSwap.setWindowA` /
+`setWindowB`; the panel grain term and `panelGrain.js` were removed on 10-31, `f2916d1`) ·
+`cascade.js` (`DELAY_ORDERS` is the authority on the orderings `panelDelay` actually implements; the
+older `CASCADE_VARIANTS` omits `random`; `delayOwner(panel)` gives a unit's members their lead's
+delay, so a unit powers on and fills blue as one picture, and a panel outside a unit owns itself)
+· `LivePanelScheduler.js` (~2 Hz promote/demote; `dropLive` under a swap; `setShared` = one decode
+per clip on every tile showing it; `canJoin` is the one place the join loop, the clip score and the
+resolve-time attach sweep ask what may join; under media spans a unit joins and leaves its stream as one, and each stream gets a planned
+rung inside `decodeBudget` = `MAX_LIVE × mp(pinShort, 16/9)` through `tierFor` / `bucket` /
+`pinParams`, `planOf` / `rungPlan` / `plannedMp` and the `tierCall` timer; `decodeStats` feeds the
+telemetry; under the fast handoff (`?pophandoff`, the default since 10-28) it beats every `HANDOFF_BEAT_S` 0.1 s, and a change in flight hands
+it the `incoming` worlds, whose clips it starts mid-swap off `swapAsset` (`aheadScores` / `aheadGroup`;
+`planOf` waits rather than drop a rung; a stream that resolves before its tiles land is kept for them);
+`predictStarts` and the static `forecast` replay its admission for the fetch-ahead; `landingClips(rotation)`
+(and a static twin for before the scheduler exists, with no camera) scores a planned board at a given
+rotation through `scoreAll` and the last update's `camera`, for the director's plan ahead; and `handoffQuiet`
+says this world's streams are in) · `VideoSlotPool.jsx`
+(fixed HLS pool; every slot streams the preview window clipped at the source through
+`streamPrefetch.js`'s `poolStreamUrl` (`work/imageConfig.js`'s `muxStream`), video-only via `useHls`'s
+`videoOnly`, at `GLOBE_STREAM_PARAMS` unless `assign(slot, id, params)` passes a tier's pin, and
+`primed`, so a playlist fetched ahead plays from memory; `assign` resolves on the first frame of the src
+it asked for, never on a reassigned slot's previous stream, which plays on until React commits the swap,
+`e2227e9`) · `streamPrefetch.js` (the fast handoff's
+fetch-ahead, 10-27: `planUrl` is the pool's URL for a scheduler plan; `prefetchClip` fetches the master
+and rendition into `work/hlsPrimed.js`, since Mux serves both no-store, and the init and segment into
+the HTTP cache (max-age 7 days), at `priority: 'low'`; the module queue `prefetchClips` runs 3 at a
+time, 2 on phones, and a newer list replaces what an older one left unstarted) · `TextureManager.js` (refcounted Mux
+thumbnails + square Sanity stills + name strips, keyed by `assetKey` = playbackId | imageUrl |
+nameKey; under media spans also the class textures at their `texSpec` size with a measured
+`userData.aspect`, and the residency ledger `stats()`) · `buildAssetPool.js` (pure build-time ordering) · `MeridianScroll.js` (row conveyor;
+stamps tape coordinates `(lonIndex, tapeS)`, optional `assignRow` hook, `advance()` extra travel
+for the tide; `predict(dt)` gives every row's angle and birth `dt` seconds on at the current pace, as
+`update()` will leave them (null past a span − pitch of travel); a re-born row cancels its in-flight swap (`cancelSwap`, counted as `bornCancelled`)
+so a swap planned before the wrap cannot land the old row's asset over the born one; exports
+`poseTile(panel, theta)` — the ONE place the row angle becomes both the
+`uPolarTop` uniform and the live `centerDir` every CPU-side latitude reader uses — its CPU half
+`posePanel` (centerDir and parked, no uniform: the plan ahead poses tiles where they will be and puts
+them back), and `scrollZeroTheta(row, rows)`, the scroll-0 angle `useGlobeScene` needs to pose tiles for the
+initial layout, which runs before the scroller exists) · `InteractionController.js`
+(yaw/pitch skin over `lib/dragMomentum`; the home globe passes `drag: false` on every screen since
+10-27, phones since 10-07, so the pose it lands a world at is known ahead; /lab/globe keeps its drag) · `globeConfig.js` (tunables; re-exports drag constants from
+`dragMomentum`; the VideoGlobe's device knobs: `GLOBE_DPR_MAX` (`?globedpr`, 3 on phones since bake B
+`8732aa8`, `DPR_MAX` 2 on desktop; /process keeps `DPR_MAX`), `GLOBE_STREAM_PARAMS` (`?globeres`, one
+Mux rung, else 720p on desktop since Nathan's 10-23 bake (Q22) and the 480p `STREAM_PARAMS` on phones), `GLOBE_T1` (`?globethumb`, the legacy square side every
+class texture derives from), `globePixelRatio`, and `NAME_STRIP_H`).
+
+**Population modes** (branch `refine/globe-worlds`, `docs/globe-worlds-plan.md`; `tides` is home's
+default since Nathan's 10-06 bake, and `?popmode=off` restores the pre-worlds globe):
+`buildWorldPools.js` (pure: `FEATURED_WORLDS_QUERY` → one pool per featured project, /work showcase
+parity) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `PopulationDirector.js`
+(one world at a time by default; tile → world assignment; the change clock, a hold then a tide /
+blink / surge / cut; current + next world held warm; freeze under the commit's blue; `hold()` at the
+Enter World click stops the clock but lets a change in flight land; `onWorld` feeds the scene's
+colour; name strips (`?popnames`, 0 = none by default since 10-24) placed camera-relative once per world change by `planNames` (`warmSet` holds
+their textures), then reconciled per frame by `placeNames`; under the fast handoff (the default since 10-28) the next world's warm waits (`nextWarm`)
+until the scheduler is quiet, at least 0.3 s and at most 2 s, and then its board is planned ahead for the
+pose the globe will hold as it lands (`planAhead`, a what-if that puts back every pose, birth, cursor and
+counter it borrows: the rows from `MeridianScroll.predict(holdLeft)`, the yaw from the scene's `getSpin`,
+the plan from `planBoard`; a tide re-births every row, so it plans nothing ahead) and the clips that board
+starts (the scene's `landing` hook = `LivePanelScheduler.landingClips`) are fetched (`prefetchFor`, through
+the scene's `forecast` hook; the first world's from the laid tiles, `prefetchLaid`); the change adopts that
+board when it lands within `AHEAD_TOL_RAD` 0.5° of the prediction on the same dials and births
+(`adoptAhead`; else `aheadMiss` names why: dials / pose / births / tiles / admission, and it plans late);
+`keysOf` counts the distinct textures a world needs (pool / board / front / on screen), all in
+`stats.handoff.ahead`; and `incomingWorlds()` names the worlds a change is landing; publishes
+`window.__swmPopStats`) ·
+`nameTicker.js` (client-name strips: the world's `clientName` in the FP card face baked once per
+world + style into a CanvasTexture `STRIP_H` = `globeConfig.NAME_STRIP_H` tall — 256 × the ratio the
+canvas actually renders at over the one `DPR_MAX` would give it, so a DSF-3 phone under
+`GLOBE_DPR_MAX` 3 draws 512 — with `nameSpan` sizing the strip from the MEASURED text; pure
+`namePinch` / `nameWindow` / `nameRendered` compensate `panelMaterial`'s pole pinch so a strip
+renders its exact tape slice at any latitude) · `tileSwap.js` (THE refcount-safe `loadTile` + blink
+/ surge / cut swaps, `applyPlan`; cover-fit reads a texture's `userData.aspect`) · `popConfig.js`
+(`?pop*` TUNING + pub/sub; Nathan's baked defaults).
+
+**Media spans** (`docs/globe-worlds-plan.md` § Media spans, which is the repo's record of the round's
+contract; built P0a–P7 on `refine/globe-worlds`, shipped OFF behind `?popunits` until Nathan's 10-23
+bake turned them on (Q1, with `unitMax` 4 and `equiv` 12: Q7, Q8; `equiv` re-dialed to 32 on 10-24); `?popunits=0` is today's globe): one classed asset spans 2×1 (`h`), 1×2 (`v`), 2×2 (`q`), 3×2 (`w`) or 2×3 (`t`, a grown portrait,
+10-31) tiles as one picture, each member cropping its own slice, the lattice gaps hiding their strip (the mullion).
+`unitSpan.js` is the import-free arithmetic (lattice, `memberWindow`, `coverWindow`, `compose`,
+`unitA`, `kappaOwn`, the ε window `thetaBound`, eligibility, `classSizeAt` / `texSpec`, `spanSharp`,
+`wideClass`, `electQuads`, `UNIT_FALLBACK` / `canForm`, `liveB`, P9's `flatWindow` and
+`unitLookFor` (a three-row unit always takes the flat crop), the 2×3s' `eligibleT` / `TALL_THETA`
+and `growTall` (a world's portraits grow with the room its selection left in the tile budget), the
+source and picture readers, and the stream tiers `STREAM_RUNGS` / `STREAM_TIERS` / `tierBucket` /
+`rungAtMost` / `pinShortOf`). `mediaClass.js` (`CLASS_SOURCE`, `nativeRatio`, `classOf`) classes
+each asset once at build time: the label proposes, the native ratio vetoes. **Two shape sets**
+(`?popshapes`, `POP_SHAPES`): `wide` (the default, Nathan 10-24) spans 16:9 and 4:3 3×2 (falling back to
+its 2×1, then a single), tall 1×2 and every sharp square 2×2 with no quad election, and sizes a wide
+texture at its picture's aspect clamped to the slots it serves (own, fallback, single), so every slot
+crops as the source would; `classic` (the 10-23 set) spans 2×1 / 1×2 and elects `?popquads` 2×2s,
+with slot-shaped textures. The span plumbing:
+`buildWorldPools.toGlobeAsset` stamps `u` (the classic class) and `uw` (the wide class; either absent = single only) on a classed asset, and
+`s` (the source short side; 0 = unknown, absent = at least `TOP_RUNG`) on a video below `TOP_RUNG`;
+`PopulationDirector` pools by class, elects quads (classic) or decorates by `wideClass` (wide), plans
+units (`planUnits`, shared delays; under wide in three passes over the board's leads: the 2×3s alone,
+from leads inside `eligibleT`, one per grown portrait a plan; then the two-row units, since only about
+one row band admits them; then the rest), and
+`place()` re-derives every member's A window and, when its stream was lit for this unit, its B
+window each frame; `tileSwap.windowA` is THE texA window rule, `tileSwap.placeKey` (asset key plus
+unit slot) is what `applyPlan` compares to skip a tile, and `loadTile`'s bind hook writes a planned
+member's window on its first bound frame; `HeroLabels` draws one chip per unit at
+its centre. Eight `?pop*` knobs (`units`, `shapes`, `unitMax`, `quads`, `tier`, `equiv`, and since 10-31
+`unitLook` = `?popunitlook` flat | rows and `portrait` = `?popportrait` fill | pair) sit in `popConfig.js`
+with a spans group on the bench.
+
+**Panel grain is gone** (10-31, `f2916d1`, Nathan's item 16): `panelGrain.js`, the shader's grain term,
+the 8 `?popgrain*` knobs and the scheduler's grain-band gate were removed. The FP pager scrim's grain
+(`work/scrimNoise.js`) is untouched.
 
 ## Hero (`src/components/hero/`)
-`heroConfig.js` (TUNING store + pub/sub + ease paths) · `heroOverlay.js` (scene→DOM disc projection)
-· `HeroIntro.jsx` · `HeroLabels.jsx` · `HeroTunePanel.jsx` / `CommitTunePanel.jsx` (benches).
+`heroConfig.js` (TUNING store + pub/sub + ease paths; `GLOBE_STROKE_FRAC` — `?globestroke`, baked 6 %
+desktop / 5 % mobile — is ONE source of truth consumed by both `Hero` (ring `1+FRAC` proud) and
+`HeroIntro` (globe `1/(1+FRAC)` smaller inside the lockup "o"), so thinning the ring GROWS the globe in
+the "o") · `heroOverlay.js` (scene→DOM disc projection)
+· `HeroIntro.jsx` · `HeroLabels.jsx` (the chips; under media spans one chip per unit, anchored at the
+unit's centre, and a fading chip's slot keeps its unit's members, `heldMembers`, re-deriving the anchor
+from live poses each frame so it never jumps) · `HeroTunePanel.jsx` / `CommitTunePanel.jsx` /
+`PopTunePanel.jsx` (benches; the last is `?poptune=1`, with a spans group: on/off, shapes, crop
+(`?popunitlook`), portraits (`?popportrait`), units / asset, quads / world, tile budget, video tier, and an orientation group whose `tilt` toggle flips `?herotilt` between
+heroConfig `TILT_PRESETS` new −10 (Nathan's pick, 10-28) / old 45.5 through `setHeroTune`; a `handoff` row under live video picks
+`?pophandoff`; the readout line above it shows spans (`w · h · t · v · q`), tex MiB (decoded images: through a hold it also counts the next world, and never video frames; 10-31 measured it against the GPU, `docs/globe-worlds-plan.md` Status log) and decode
+mp / budget, and a handoff line: starts (mid-change, primed), clips fetched and MiB, the next world waiting).
 
 ## /work (`src/components/work/`)
 | File | Purpose |
 |---|---|
-| `FeaturedProjects.jsx` (~900) | Orchestrator: wheel/touch accumulator → CTA fill → World Turn; scroll-up-to-home at World 0; driven footer at last World; lazy benches; legacy `?pager=rail` |
-| `WorldCard.jsx` | Identity card, OS-window boot entrance; fires the real enter commit |
+| `FeaturedProjects.jsx` (~900) | Orchestrator: wheel/touch accumulator → CTA fill → World Turn; scroll-up-to-home at World 0; driven footer at last World; lazy benches; legacy `?pager=rail`. Enter World arrival: consumes `swm:enterWorld` once and snaps (`snapRef` = target index: one entering card and no Turn, direction 0 in `useWorldScene`, instant pager step; the fill is released on the snapped card). The `swm:returnToWork` restore (the detail breadcrumb back) snaps the same way |
+| `WorldCard.jsx` | Identity card, OS-window boot entrance; fires the real enter commit. Its card CTA's visible label is **`zoom_in`** (10-08, was `enter_world`) — one literal, rendered once per card, and `enter_world` survives as the name of the commit, its event and its CSS, so the two no longer match on screen (the same split as Hero's centred CTA) |
 | `CtaArrows.jsx`, `textExit.js` | Caret strips; text-out choreography (`TEXT_TUNABLES`) |
-| `pager/usePagerGesture.js` | Shared gesture engine: press-hold engage, scrub + detent magnet, wrap, end resistance, stall commit; only `requestGoTo` fires a Turn |
-| `pager/GraticulePager.jsx` | The `scale` skin (SSR'd default). Tape/tuner arms removed; survive as tuning presets |
-| `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `ServiceTag.jsx` | Shared math/recipes/hooks |
+| `pager/usePagerGesture.js` | Shared gesture engine: press-hold engage, scrub + detent magnet, wrap, end resistance, stall commit; only `requestGoTo` fires a Turn; `follow(i, instant)` steps without the glide |
+| `pager/GraticulePager.jsx` | The `scale` skin (SSR'd default). Tape/tuner arms removed; survive as tuning presets. On a `snapRef` arrival it jumps to the station and skips the announcement |
+| `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `hlsVideoOnly.js`, `hlsPrimed.js`, `ServiceTag.jsx` | Shared math/recipes/hooks. `scrimNoise.js` owns the house grain recipe, the FP pager scrim's (the globe's panel grain read it too until its removal on 10-31); `noiseDataUri()` (bare `data:` URI) is split out of `noiseUri()` (CSS `url()` wrapper). **`imageConfig.js` owns the video windows** (the video diet, P0 `cb7b8e8`, Nathan 10-09): `PREVIEW_SECONDS` 5 (the globe pool, /lab, the World's Near tier, MediaCard), `DETAIL_MAX_SECONDS` 15 (MediaSlot, NextProjectBand, with `wrapAtDetailCap`), and `muxStream(playbackId, end, params)`, the one builder of a clipped Mux master URL (`asset_end_time` last, once); every autoplay surface asks through it, the Lightbox does not. **`hlsVideoOnly.js`** (P0v `f951497`) is the pure master-playlist rewrite that strips the audio group from a muted surface's master; `useHls`'s `videoOnly` option installs it as the `pLoader` (`videoOnlyLoader`, cached per Hls base class), and every muted surface sets it — the Lightbox, which plays with sound, never does. **`hlsPrimed.js`** (10-27, the home globe's fast handoff) keeps playlist text fetched ahead, by URL (10 min TTL, 256 entries); `useHls`'s `primed` option layers `primedLoader` over `videoOnlyLoader` to answer hls.js from it, and `preloadHls()` loads the hls.js chunk early |
 | `*TunePanel.jsx`, `fp1Tune.js`, `FeaturedDeckDebugPanel.jsx` | `?entertune`, `?texttune`, `?scrimtune`, `?fp1tune` benches |
 | `ProjectDirectory.jsx`, `MediaGrid.jsx`, `MediaCard.jsx`, `AlbumArtTicker.jsx`, `FilterBar.jsx`, `Lightbox.jsx` | Dormant directory route |
 
 ### `work/world/`
-`useWorldScene.js` (~1200; renderer, slotA/slotB Turn, EffectComposer → lens distortion → output,
-enter ramp, resize, `swm:fp-freeze` gate) · `WorldScene.jsx` (shell + `VideoSlotPool`) ·
-`worldConfig.js` (all tunables, `FPGRID` default 3 = DRUM) · `buildShell.js` (inverse-sphere
+`useWorldScene.js` (~1200; renderer, slotA/slotB Turn, EffectComposer → lens distortion (writes sRGB
+to the canvas; OutputPass folded in PW, `1058b67`, with 8-bit sRGB render targets and a bare canvas),
+enter ramp, resize, `swm:fp-freeze` gate, the `FPS_CAP` render gate with `?fpstol` slack; a `snapRef`
+arrival drives direction 0, no Turn) ·
+`WorldScene.jsx` (shell + `VideoSlotPool`) ·
+`worldConfig.js` (all tunables, `FPGRID` default 3 = DRUM; `?dpr` 3 on phones / 2 on desktop since
+P0c `113b085`; `?wallpx` with its desktop floor `Math.round(768 * Math.max(1.5, WALL_DPR))` and
+`?fpstol` 2 since Nathan's 10-31 bake, `f2916d1`; 0 from PF `d2967ca`) · `buildShell.js` (inverse-sphere
 graticule) · `seededLayout.js` · `fpGridCells.js` · `fpAtlas.js` / `fpForme.js` / `fpDrum.js` (+
-`fpDrumTrim.js`, `fpDrumWall.js`) · `worldBands.js` · `worldLive.js` · `enterTune.js` ·
+`fpDrumTrim.js`, `fpDrumWall.js` — the deck wall: since PF each column's page cycle is painted ONCE
+into a static atlas, re-painted only as pages land, and the plate's shader scrolls it with one wrapped
+travel uniform, so the wall canvas area sets texture memory and the upload per landed page, not a
+per-frame repaint) · `worldBands.js` · `worldLive.js` · `enterTune.js` ·
 `vendor/lensDistortion.js`.
 
 ### `work/detail/`
-`FeaturedProjectDetail.jsx` (orchestrator; measures the grid and derives tile row spans from the
+`FeaturedProjectDetail.jsx` (orchestrator; the breadcrumb back covers in the project colour, then navigates; measures the grid and derives tile row spans from the
 column width through the 10px row pitch so every tile holds one shape at every width — `TILE_SHAPE`
 = 1, square 1:1, Nathan's 10-27 bake, `?tileshape` re-dials; `SQ_ROWS_FALLBACK` covers the server
 render; ≤1024/≤768 spans reach masonry.css as `--tile-sq/pt/ls-rows`) · `buildContentFlow.js`
@@ -79,11 +206,13 @@ material, api `{goTo, applyTuning, replay, stats, dispose}`) · `useProcessScrol
 ## Shared libs (`src/lib/`)
 | Module | Role | Consumers |
 |---|---|---|
-| `dragMomentum.js` | THE drag + inertia engine (`DragMomentum`, `DRAG_CHOREO`) | `globe/InteractionController`, `ClientLogoTicker` |
+| `dragMomentum.js` | THE drag + inertia engine (`DragMomentum`, `DRAG_CHOREO`); `drag: false` installs no pointer listeners at all — ambient-only, the surface leaves the gesture to the page (the home globe: phones since 10-07, every screen since 10-27) | `globe/InteractionController`, `ClientLogoTicker` |
 | `overlayWipe.js` | THE overlay wipe (`wipeIn`/`wipeOut`, clip-path up from bottom, inverse out) | Privacy, Project overlays, mobile menu |
 | `scramble.js`, `charCut.js` | House scramble; random-letter hard cut (successor for arriving chrome text) | cards, chrome, tagline, pager |
 | `smoothScroll.js` | Single Lenis on `gsap.ticker`; off on `/` and `/work`; `getLenis()` may be null | layout script, process driver, GridSocket |
 | `settleResize.js` | `settleDebounce` resize doctrine | scene hooks |
-| `motion.js`, `momentum.js`, `navAccent.js`, `projectColor.js`, `projectSlug.js`, `keywords.jsx`, `formatYearRange.js`, `constants.js` | Ease paths, accumulators, nav accent + `--project-color` writers, slug fallback, `[[word]]` keyword markers, formatting |
+| `motion.js`, `momentum.js`, `navAccent.js`, `projectColor.js`, `projectSlug.js`, `keywords.jsx`, `formatYearRange.js`, `constants.js` | Ease paths, accumulators, nav accent + `--project-color` writers, slug fallback, the house marker grammar, formatting. `navAccent`'s published-token list is the contract: a derivation it computes but does not write to `<html>` reaches nobody, and because the `--project-color*` fallbacks are dead code (`coding-style.md`) the consumer silently gets the registration's brand blue instead — `--project-color-on-black` was computed-but-unpublished until 10-08, which is why the privacy pill never inked from the accent |
+| `keywords.jsx` | THE house rich-text grammar and ITS TWO RENDERERS (10-08). Four markers: `**bold**`, `[[keyword]]`, `[[keyword]](/href)`, `[label](/href)` — one `KW_RE` 3-way alternation, bold is capture group **6**. `renderKeywords` emits PROSE; `keywordLines(text)` emits PER-WORD TOKENS (one array per line, newline = line break) for surfaces that animate word by word, and `renderWordTokens(tokens, {wordClass, emClass, separators})` builds the shared `<mark class="kw">` markup from them. Grammar, punctuation rule and `data-kw` reading order are shared, so copy behaves the same whichever surface renders it; `separators: false` suits a surface that spaces words in CSS rather than with text (the pill's short layer). Separators are reproduced FROM THE SOURCE — a keyword's non-final fragments keep their trailing space inside the box (`white-space: pre`) with a zero-width space between, plain words keep their real space, and `a[[b]]` stays glued. `kwWipe`/`kwSet` drive the box + ink. **Every capture group must be named in `stripKeywords`'s replace callback, in order**: the first `**bold**` version skipped the link-href group, shifted `bold` onto it, fell through to the keyword branch and rendered the literal string `"undefined"` into an aria-label | blurbs, `/process`, `SiteFooter`, `SiteTagline`, `SiteNav` |
 | `sanityClient.js`, `queries.js` | `sanityFetch`, all GROQ | pages |
-| `lenisTune.js`, `footerTune.js` | Bench publishers | tune panels |
+| `siteCopy.js` | The site-wide studio copy from the `siteSettings` singleton (10-08): `getSiteCopy()` + `SITE_COPY_FALLBACK`. **Memoizes the PROMISE, not the result**, so a 23-page build makes one request even though `BaseLayout` and `index.astro` both await it. Catches everything and degrades per FIELD to the baked copy, so a Sanity outage or a half-populated singleton cannot blank the chrome or fail the build | `BaseLayout.astro`, `index.astro`, and as the fallback import in `SiteNav` / `SiteTagline` / `SiteFooter` / `Hero` |
+| `lenisTune.js`, `footerTune.js` | Bench publishers; `footerTune` also owns the reveal maths (`footerRise`, `footerSpan`), the resting-footer dials (`?footerlift`, `?footermarksfrom` / `-to` / `-lift`, `?footerintro`, `?footerslide`, `?footerslides`, `?footerslidelead`), the wheel's weight since 10-31 (`footerDamp`, Lenis's damp; `footerBrakeStep` + `FOOTER_BRAKE_TAIL`, the tail brake in closed form, so a notch and a trackpad's stream land alike; `?footerlerp` 0.165, which must equal `motion.js` `LENIS_TUNING.lerp`, a test holds it, and `?footerbrake` 0.5, both read per wheel event through `getFooterLerp()` / `getFooterBrake()`) and a per-key `ZERO_OK` set so a dialed `0` survives the seeder. `slideK` / `slideS` / `slideLeadS` are read at play time through `getFooterSlideK()` / `getFooterSlideS()` / `getFooterSlideLeadS()` and deliberately stay out of `CSS_KNOBS`, the same shape as `introS`. `bandFadeS` (`?logofademin`, 0.55 s, ZERO_OK) joins them as a paint-time read for the band's minimum fade. `slideS` exists because the slide stopped borrowing `introS` when it grew from a 1.25rem nudge to a full-reveal rise (~9× the travel). The 10-08 desktop-layout knobs go the OTHER way, into `CSS_KNOBS` as inline `<html>` properties: `topPad` → `--footer-rest-top-pad`, `tickerFoot` → `--ticker-foot-clearance`, `blurbFill` → `--footer-blurb-fill`. A token declared on an ELEMENT cannot be dialed this way (the element's own declaration beats the inherited value), which is why these three are read with `var(--knob, fallback)` on `<html>` instead | tune panels, `SiteFooter`, `global.css` |

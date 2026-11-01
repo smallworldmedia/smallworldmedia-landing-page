@@ -41,7 +41,8 @@ export const HERO_TUNE_ACTIVE = search().get('herotune') === '1';
    not sliders; CommitTunePanel). Shares TUNING/pub-sub with the hero bench. */
 export const COMMIT_TUNE_ACTIVE = search().get('committune') === '1';
 
-/* — Globe outer stroke fraction (?globestroke, % → fraction; default 5%,
+/* — Globe outer stroke fraction (?globestroke, % → fraction; default 6%
+   desktop / 5% mobile,
    0 = off). ONE source of truth, shared by two consumers so they can never
    drift: Hero sizes the stroke disc 1+FRAC proud of the live silhouette, and
    HeroIntro frames the globe 1/(1+FRAC) SMALLER inside the lockup "o" so the
@@ -50,9 +51,12 @@ export const COMMIT_TUNE_ACTIVE = search().get('committune') === '1';
    the added ring must not overshoot the "o"). — */
 export const GLOBE_STROKE_FRAC = (() => {
   const n = parseFloat(search().get('globestroke'));
-  // 08-28 bake 8.2 (was 5, then 7): Nathan's dial — the blue outer stroke
-  // ring at lockup-mark weight.
-  return (Number.isFinite(n) ? n : 8.2) / 100;
+  // 10-07 bake 6 desktop / 5 mobile (was 8.2 from 08-28, before that 7, 5):
+  // Nathan's dial — 8.2 read too heavy on both tiers. The ring is now the
+  // first knob here to split by tier (the IS_MOBILE idiom FILL_FRACTION and
+  // COMP_DEFAULTS use); one ?globestroke overrides BOTH tiers, the
+  // ?grainsize convention.
+  return (Number.isFinite(n) ? n : IS_MOBILE ? 5 : 6) / 100;
 })();
 
 /* — Commit ease — the envelopment master curve (chunk 4). Starts life as
@@ -147,7 +151,7 @@ export const TUNING_DEFAULTS = Object.freeze({
      it only existed between the handoff and /work's release). Both read LIVE
      at fire time (Hero commit / RouteFill release), so the bench moves them
      without a reload. */
-  loaderLeadMs: 350, // ?loaderlead — ms after the commit STARTS before the loading chrome appears (over the spreading blue; was: only at handoff, ~commitMs later)
+  loaderLeadMs: 350, // ?loaderlead — ms after the Enter World button is OUT (the 0.2 s chrome exit) before the loading bar fades up (10-06: never under the button); the ?herotune dry run's commit path counts it from the commit's start
   loaderEndMs: 500, // ?loaderend — the bar's paced closing stretch once /work releases: the final % eases over this and the reveal WAITS for it
   /* Camera channels (08-25 refactor): each rides its OWN smooth power-inOut
      window as a fraction of the FULL timeline — recenter and zoom overlap
@@ -198,7 +202,7 @@ export const TUNING_DEFAULTS = Object.freeze({
   /* globe · orientation — the brand tilt + spin, applied live in the render
      tick (setGlobeOrientation). tilt defaults to the brand INITIAL_PITCH; yaw
      is an absolute spin offset. Both 0-offset at default → parity. */
-  tiltDeg: 45.5, // ?herotilt — brand tilt (camera-facing pole lean), degrees; 45.5 = Nathan's bake (tick applies tiltDeg − INITIAL_PITCH as the offset, so /lab stays at INITIAL_PITCH)
+  tiltDeg: -10, // ?herotilt — resting tilt (camera-facing pole lean, + tips the top pole toward you), degrees; −10 = Nathan's 10-24 bake, fitted to the lat lines of his screenshot (the north pole out of sight at load; was 45.5, and he kept −10 at the 10-28 pick). The tick applies tiltDeg − INITIAL_PITCH as the offset, so /lab stays at INITIAL_PITCH; VideoGlobe seeds the first build with it
   yawDeg: 0, // ?heroyaw — static globe spin about its axis, degrees
   yawSpeed: -2, // ?yawspeed — steady auto-rotation about the axis, degrees/second (0 = fixed); −2 = Nathan's 08-24 bake (slow reverse drift)
 
@@ -283,6 +287,19 @@ const HERO_INK_PARAM = 'heroink';
 /* Labels flag — boolean like ?heroink (1|0); the numeric knobs ride
    PARAM_KEYS. */
 const LABELS_PARAM = 'herolabels';
+
+/* The worlds bench's tilt toggle (Nathan 10-25: "not sure which I'd like to go with yet"): his
+   10-24 rest and the 10-23 one. ?herotilt=45.5 opens on the old one, first layout included.
+   He picked new on 10-28; the toggle stays for a look back. */
+export const TILT_PRESETS = Object.freeze({ new: TUNING_DEFAULTS.tiltDeg, old: 45.5 });
+
+// The worlds bench's copy_url: `url` plus ?herotilt when the tilt is off its default.
+export function withHeroTilt(url) {
+  const u = new URL(url);
+  if (TUNING.tiltDeg !== TUNING_DEFAULTS.tiltDeg) u.searchParams.set('herotilt', String(TUNING.tiltDeg));
+  else u.searchParams.delete('herotilt');
+  return u.toString();
+}
 
 // Live, mutable tuning state (panel writes, Hero's rig effect reads).
 export const TUNING = { ...TUNING_DEFAULTS };

@@ -34,45 +34,71 @@
  * footer band. (SiteFooter's own link-row stagger rides the same broadcast —
  * the two corners + the link row read as one settling moment.)
  *
+ * Two states (10-06, Nathan — "make it very clear what Small World Media is
+ * immediately on page load"): at REST ON HOME (body.route-home, no drawer /
+ * overlay / privacy [data-chrome-open], no mobile menu [data-menu-open], no
+ * footer [data-footer-revealed]) the pill carries the LONG blurb — "Small
+ * World Media is a multidisciplinary creative studio …". Any other state, or any
+ * other route, ABBREVIATES it to the short tagline: the capsule closes in
+ * from its top-right (bottom-left anchored, so the text never travels), the
+ * long words drop out, the short words fade up seated. Leaving that state
+ * on home expands it back. Re-checked on every latch change + after-swap.
+ *
  * Mounted in BaseLayout as its OWN persistent island (NOT inside .site-shell
  * — the footer-reveal rule translates the shell up by the nav height, which
  * would carry this off its footer alignment).
  */
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
 import { FOOTER_REVEAL_EVENT } from './SiteFooter.jsx';
-import PrivacyOverlay, { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
-
-/* The nav pill's close glyph (SiteNav CloseIcon) — the privacy pill swaps
-   to `close ×` while its overlay is up (09-08, the info pill convention). */
-function CloseIcon() {
-  return (
-    <svg className="site-privacy__icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-      <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+/* The privacy pill swaps to `close ×` while its overlay is up (09-08, the
+   info pill convention) — the glyph lives with the overlay now (10-07), which
+   needs the same mark for its own ≤768px close. */
+import PrivacyOverlay, { PRIVACY_OPEN_EVENT, CloseIcon } from './PrivacyOverlay.jsx';
 // The FP→detail letter-exit's pacing knob — one cut clock site-wide.
 import { TEXT_TUNABLES } from './work/textExit.js';
+// The pill's copy is CMS data in the house marker format (10-08).
+import { keywordLines, renderWordTokens, stripKeywords } from '../lib/keywords.jsx';
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 
 gsap.registerPlugin(SplitText);
 
 const REVEAL_KEY = 'swm:tagline-revealed';
-// Figma segments: the first two words carry Medium, the rest Regular.
-// Exported (08-30): the mobile menu renders its own copy (SiteNav) — one
-// source for the words. 08-30 (3), Nathan: structured as LINES — mobile
-// drops the capsule and stacks "VISUAL WORLDS / for the music / industry."
-// (line spans are display:contents on desktop, so the pill's single-row
-// flex read is unchanged there). Line 0 carries the Medium emphasis.
-export const TAGLINE_LINES = [
-  ['VISUAL', 'WORLDS'],
-  ['for', 'the', 'music'],
-  ['industry.'],
-];
-export const EM_LINE = 0;
+/* THE COPY IS SANITY DATA NOW (10-08, Nathan) — `siteSettings.footerBlurb`
+   and `siteSettings.tagline`, threaded in as props from BaseLayout (see
+   src/lib/siteCopy.js for why props and not a module lookup). Both are single
+   marked strings in the house format, so ONE parse yields the words, the
+   Medium cut and any highlights:
+
+     **VISUAL WORLDS**        the Medium cut, by marker rather than by position
+     \n                       a line break — the pill's three-line lockup
+
+   WHAT THIS REPLACED, and why it had to go: three baked structures that each
+   encoded the copy a different way. `TAGLINE_LINES` was a word-array whose
+   emphasis was a LINE INDEX (`EM_LINE = 0`); `TAGLINE_LONG_LINES`'s was a word
+   COUNT (`LONG_EM_WORDS = 3`); `TAGLINE_LONG_SPLIT` re-joined that array into
+   an [opening, rest] pair for the footer. All three are positional, so the
+   moment an editor reworded a line the Medium cut landed on the wrong words.
+   The marker travels WITH the word.
+
+   The two former exports are gone with them: SiteNav now parses the same
+   tagline string it is handed, and Hero is handed the blurb string directly. */
+const LABEL_SUFFIX = ' — open the footer';
+/** Marked copy → the pill's aria-label: prose, no markers, no line breaks. */
+const taglineLabel = (marked) =>
+  `${stripKeywords(marked || '').replace(/\s*\n\s*/g, ' ').trim()}${LABEL_SUFFIX}`;
+// ?tagmorph — the long ⇄ short morph, ms (the capsule's resize clock).
+const TAG_MORPH_MS = 600;
+// Word fade-ins share one total budget (s), so the 21-word blurb arrives on
+// the short tagline's beat instead of a 1.5 s crawl; the morph's is tighter.
+// Exported 10-07: the resting footer's on-load entrance fades the SAME copy
+// in (this pill's long layer lives in the panel wherever home rests: phones
+// since 10-07, desktop too since bake A, ba7cf2c — [data-footer-rest] has no
+// viewport gate), so it needs this beat, not a re-typed copy of it — one
+// house per-word budget.
+export const wordStagger = (n, budget = 0.8) => Math.min(0.07, budget / Math.max(1, n - 1));
 const HOME_SAFETY_MS = 12000; // hero-chrome no-show fallback (odd intro paths)
 const REVEAL_ON = 0.85; // footer progress that arms the copyright/lockup
 const REVEAL_OFF = 0.5; // (unused since 09-08 — exits are masked, not faded) // retreat threshold (hysteresis)
@@ -82,7 +108,23 @@ const prefersReduced = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export default function SiteTagline() {
+export default function SiteTagline({ siteCopy }) {
+  /* Falling back per FIELD, not per object: a half-populated singleton (the
+     blurb written, the tagline still empty) should lose only the empty one. */
+  const longMarked = siteCopy?.footerBlurb || SITE_COPY_FALLBACK.footerBlurb;
+  const shortMarked = siteCopy?.tagline || SITE_COPY_FALLBACK.tagline;
+  const longLines = useMemo(() => keywordLines(longMarked), [longMarked]);
+  const shortLines = useMemo(() => keywordLines(shortMarked), [shortMarked]);
+  const labelLong = useMemo(() => taglineLabel(longMarked), [longMarked]);
+  const labelShort = useMemo(() => taglineLabel(shortMarked), [shortMarked]);
+  /* The letter exit's budget — the SHORT tagline's letter count, so the long
+     blurb cuts out in the same total time (each cut comes faster). Derived
+     from the live copy now, so re-wording the tagline re-paces the exit
+     instead of silently pacing it against the old string. */
+  const shortChars = useMemo(
+    () => shortLines.flat().reduce((n, t) => n + t.text.trim().length, 0),
+    [shortLines]
+  );
   // 09-08 (Nathan): the privacy notice opens IN PLACE as an overlay; the
   // pill is its close control. Any surface can open it (the mobile menu's
   // twin) via PRIVACY_OPEN_EVENT.
@@ -100,7 +142,8 @@ export default function SiteTagline() {
     const root = rootRef.current;
     if (!root) return undefined;
     const pill = root.querySelector('.site-tagline__pill');
-    const words = root.querySelectorAll('.site-tagline__word');
+    const longEl = root.querySelector('.site-tagline__text--long');
+    const shortEl = root.querySelector('.site-tagline__text--short');
     const copy = root.querySelector('.site-tagline__copy');
     const lockup = root.querySelector('.site-tagline__lockup');
     const privacy = privacyRef.current;
@@ -124,14 +167,90 @@ export default function SiteTagline() {
     };
     document.addEventListener('astro:after-swap', onSwapLatch);
 
-    // ── Intro ──
+    // ── Long ⇄ short (10-06) ── `long` is what the DOM shows. The resting
+    // layer sits in flow and sizes the capsule; the other waits out of flow,
+    // unseen (global.css, keyed on data-tagline).
+    let long = false;
     let introPlayed = false;
     let introTl = null;
+    let morphTl = null;
+    const morphS = (() => {
+      const v = Number(new URLSearchParams(location.search).get('tagmorph'));
+      return (Number.isFinite(v) && v > 0 ? v : TAG_MORPH_MS) / 1000;
+    })();
+    const activeLayer = () => (long ? longEl : shortEl);
+    const layerWords = (el) => el.querySelectorAll('.site-tagline__word');
+    const atRest = () => {
+      const html = document.documentElement;
+      return (
+        document.body.classList.contains('route-home') &&
+        !html.hasAttribute('data-chrome-open') &&
+        !html.hasAttribute('data-menu-open') &&
+        !html.hasAttribute('data-footer-revealed')
+      );
+    };
+    const settleMorph = () => {
+      morphTl?.kill();
+      morphTl = null;
+      gsap.set(pill, { clearProps: 'width,height' });
+      gsap.set([longEl, shortEl], { clearProps: 'width' });
+      longEl.classList.remove('is-leaving');
+      shortEl.classList.remove('is-leaving');
+    };
+    const setLong = (next, animate) => {
+      if (next === long) return;
+      const outgoing = activeLayer();
+      // Measured before the settle: mid-morph, the capsule's live size IS
+      // where the reverse starts (no snap).
+      const from = pill.getBoundingClientRect();
+      const outW = outgoing.getBoundingClientRect().width;
+      settleMorph();
+      long = next;
+      pill.dataset.tagline = next ? 'long' : 'short';
+      pill.setAttribute('aria-label', next ? labelLong : labelShort);
+      const incoming = activeLayer();
+      const inWords = layerWords(incoming);
+      // Instant: RM, pre-intro (the intro reveals whichever is resting), or a
+      // pill that isn't drawn (phones hide it off home).
+      if (!animate || reduced || !introPlayed || !from.width) {
+        gsap.set(inWords, { autoAlpha: 1 });
+        return;
+      }
+      introTl?.progress(1); // a state change mid-intro lands the intro first
+      const to = pill.getBoundingClientRect();
+      // Both layers keep their own measure while the capsule resizes under
+      // them, so neither re-wraps mid-morph.
+      gsap.set(outgoing, { width: outW });
+      gsap.set(incoming, { width: incoming.getBoundingClientRect().width });
+      outgoing.classList.add('is-leaving');
+      morphTl = gsap
+        .timeline({ onComplete: settleMorph })
+        .fromTo(
+          pill,
+          { width: from.width, height: from.height },
+          { width: to.width, height: to.height, duration: morphS, ease: 'power3.out' },
+          0
+        )
+        .to(
+          layerWords(outgoing),
+          { autoAlpha: 0, duration: 0.18, ease: 'power1.in', stagger: { amount: 0.12, from: 'random' } },
+          0
+        )
+        .fromTo(
+          inWords,
+          { autoAlpha: 0 },
+          { autoAlpha: 1, duration: 0.4, ease: 'power2.out', stagger: wordStagger(inWords.length, 0.45) },
+          morphS * 0.35
+        );
+    };
+    setLong(atRest(), false);
+
+    // ── Intro ──
     let safetyId = 0;
     const showInstant = () => {
       introPlayed = true;
       gsap.set(pill, { clipPath: 'inset(0% 0% 0% 0%)', autoAlpha: 1 });
-      gsap.set(words, { autoAlpha: 1, yPercent: 0 });
+      gsap.set(layerWords(activeLayer()), { autoAlpha: 1, yPercent: 0 });
       if (privacy) {
         gsap.set(privacy, { clipPath: 'inset(0% 0% 0% 0%)', autoAlpha: 1 });
         gsap.set(privacyWord, { autoAlpha: 1 });
@@ -155,6 +274,7 @@ export default function SiteTagline() {
       // the per-word arrival — the sequential rise read as stutter; the
       // words fade in seated. The privacy pill mirrors on the same beat:
       // right→left (right anchored), its one word fading in behind the wipe.
+      const words = layerWords(activeLayer());
       introTl = gsap
         .timeline({ onComplete: markLanded })
         .set(pill, { autoAlpha: 1 })
@@ -170,7 +290,7 @@ export default function SiteTagline() {
           {
             autoAlpha: 1,
             duration: 0.45,
-            stagger: 0.07,
+            stagger: wordStagger(words.length),
             ease: 'power2.out',
           },
           0.12
@@ -276,6 +396,44 @@ export default function SiteTagline() {
     const unmask = () => {
       for (const el of [copy, lockup, pillEl]) if (el) el.style.clipPath = '';
     };
+    // 10-07 (Nathan, mobile chrome pass): the HOME footer rests OPEN (phones
+    // since 10-07, desktop since 10-09), so [data-footer-revealed] is set for
+    // the whole session there. On phones every element this loop masks (the
+    // copyright, the lockup, the pill) is display:none at ≤768px, so
+    // [data-footer-rest] (Hero, while that floor is live) retires it: without
+    // that this rAF would run at 60fps beside the WebGL globe and paint
+    // nothing.
+    const maskLive = () => {
+      const html = document.documentElement;
+      // The [data-footer-rest] stand-down is a PHONE fact, not a latch fact:
+      // this rAF is the only thing that un-hides .site-tagline__copy (and,
+      // off the variant, .site-tagline__lockup), whose ground
+      // (visibility:hidden; opacity:0) is ungated and which is display:none
+      // only at <=768px. Retiring the loop wherever the latch appears leaves
+      // the (c) line blank for the whole session at desktop width — and the
+      // variant has already taken the pill and the lockup at every width
+      // (global.css, [data-footer-rest]), so the corner empties out
+      // completely. Tested the same way maskPill tests it eighteen lines up,
+      // so a frozen IS_MOBILE and the live media query cannot disagree.
+      // THE DESKTOP CONSEQUENCE (bake A, ba7cf2c, 10-09: home's desktop rests
+      // by default, at 0.62 then and 0.40 since 10-31): above 768px
+      // this loop now stays live for the whole home session — readReveal()'s
+      // getComputedStyle every frame, maskPill()'s matchMedia early-out —
+      // although the variant has taken the pill and the lockup at every width
+      // and only the (c) line is left for it (its fade at REVEAL_ON and its
+      // mask). Measured at 1440×900 DSF 2, 10 s at rest against
+      // ?footerrest=0, three runs: +0.10–0.13 style recalcs per frame (one per
+      // frame, every frame); the recalc, script and task durations moved by
+      // less than either arm's own run-to-run spread. Not retired here: the
+      // (c) line still needs it on a full reveal.
+      return (
+        html.hasAttribute('data-footer-revealed') &&
+        !(
+          html.hasAttribute('data-footer-rest') &&
+          window.matchMedia('(max-width: 768px)').matches
+        )
+      );
+    };
     const watch = () => {
       raf = 0;
       const p = readReveal();
@@ -293,12 +451,12 @@ export default function SiteTagline() {
       // element above the panel's live top edge. Cleared on park (below).
       if (footShown) maskToPanel();
       maskPill();
-      if (document.documentElement.hasAttribute('data-footer-revealed')) {
+      if (maskLive()) {
         raf = requestAnimationFrame(watch);
       }
     };
     const mo = new MutationObserver(() => {
-      const on = document.documentElement.hasAttribute('data-footer-revealed');
+      const on = maskLive();
       if (on && !raf) raf = requestAnimationFrame(watch);
       if (!on) {
         // Panel parked / route swap: snap to the ground, unseen (09-08).
@@ -316,9 +474,15 @@ export default function SiteTagline() {
     });
     mo.observe(document.documentElement, {
       attributes: true,
+      // Only the reveal latch is observed. [data-footer-rest] lands once per
+      // mount (Hero's effect, after its SiteFooter child has already
+      // broadcast) and never flips again, so watch()'s own maskLive() check
+      // retires the loop on its next frame — one extra frame, no second
+      // filter entry. (A two-string attributeFilter also reads as a
+      // [param, option] pair to scripts/tunables-keys.mjs.)
       attributeFilter: ['data-footer-revealed'],
     });
-    if (document.documentElement.hasAttribute('data-footer-revealed')) {
+    if (maskLive()) {
       raf = requestAnimationFrame(watch);
     }
 
@@ -345,8 +509,9 @@ export default function SiteTagline() {
     const onTaglineExit = () => {
       restoreExit();
       if (!pill) return;
+      settleMorph();
       try {
-        exitSplit = SplitText.create(pill, { type: 'chars' });
+        exitSplit = SplitText.create(activeLayer(), { type: 'chars' });
       } catch {
         return; // unsplittable (hidden pre-intro edge) — the cover carries it
       }
@@ -355,9 +520,11 @@ export default function SiteTagline() {
         const j = Math.floor(Math.random() * (i + 1));
         [chars[i], chars[j]] = [chars[j], chars[i]];
       }
+      // 10-06: the long blurb cuts in the short tagline's total time.
+      const stepMs = TEXT_TUNABLES.charCutMs * Math.min(1, shortChars / Math.max(1, chars.length));
       chars.forEach((el, i) => {
         exitCalls.push(
-          gsap.delayedCall((i * TEXT_TUNABLES.charCutMs) / 1000, () => {
+          gsap.delayedCall((i * stepMs) / 1000, () => {
             el.style.visibility = 'hidden';
             exitCut.push(el);
           })
@@ -367,11 +534,24 @@ export default function SiteTagline() {
     window.addEventListener('swm:tagline-exit', onTaglineExit);
     document.addEventListener('astro:after-swap', restoreExit);
 
+    // Long ⇄ short follows the latches + the route (after restoreExit, so a
+    // cut blurb is whole again before it morphs).
+    const evaluate = () => setLong(atRest(), true);
+    const stateMo = new MutationObserver(evaluate);
+    stateMo.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-chrome-open', 'data-menu-open', 'data-footer-revealed'],
+    });
+    document.addEventListener('astro:after-swap', evaluate);
+
     return () => {
       window.removeEventListener('swm:hero-lockup-done', onChrome);
       document.removeEventListener('astro:after-swap', onSwapLatch);
       window.removeEventListener('swm:tagline-exit', onTaglineExit);
       document.removeEventListener('astro:after-swap', restoreExit);
+      document.removeEventListener('astro:after-swap', evaluate);
+      stateMo.disconnect();
+      settleMorph();
       restoreExit();
       window.clearTimeout(safetyId);
       mo.disconnect();
@@ -404,22 +584,39 @@ export default function SiteTagline() {
           <button
             type="button"
             className="site-tagline__pill"
-            aria-label="Visual worlds for the music industry — open the footer"
+            aria-label={labelShort}
             onClick={() => window.dispatchEvent(new Event(FOOTER_REVEAL_EVENT))}
           >
-            {TAGLINE_LINES.map((line, li) => (
-              <span className="site-tagline__line" key={line.join('-')}>
-                {line.map((w) => (
-                  <span
-                    key={w}
-                    className={`site-tagline__word${li === EM_LINE ? ' site-tagline__word--em' : ''}`}
-                    aria-hidden="true"
-                  >
-                    {w}
-                  </span>
-                ))}
-              </span>
-            ))}
+            {/* 10-06: two layers, one resting (data-tagline, set by the
+                effect). Long words are spaced by real spaces so phones can
+                wrap them as a paragraph. */}
+            <span className="site-tagline__text site-tagline__text--long" aria-hidden="true">
+              {longLines.map((line, li) => (
+                <span className="site-tagline__line" key={`long-${li}`}>
+                  {renderWordTokens(line, {
+                    wordClass: 'site-tagline__word',
+                    emClass: 'site-tagline__word--em',
+                    keyPrefix: `long-${li}`,
+                  })}
+                  {li < longLines.length - 1 && ' '}
+                </span>
+              ))}
+            </span>
+            {/* The short layer spaces its words in CSS (a flex gap in the
+                capsule, a 0.28em margin once the lines go block), so it takes
+                NO text separators — the same shape it has always had. */}
+            <span className="site-tagline__text site-tagline__text--short" aria-hidden="true">
+              {shortLines.map((line, li) => (
+                <span className="site-tagline__line" key={`short-${li}`}>
+                  {renderWordTokens(line, {
+                    wordClass: 'site-tagline__word',
+                    emClass: 'site-tagline__word--em',
+                    keyPrefix: `short-${li}`,
+                    separators: false,
+                  })}
+                </span>
+              ))}
+            </span>
           </button>
           <p className="site-tagline__copy">©{year}. All rights reserved.</p>
         </div>

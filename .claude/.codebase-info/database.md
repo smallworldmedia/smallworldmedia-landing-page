@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-10-26*
+*Last Updated: 2026-10-31*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -15,11 +15,19 @@ media-library terms (Client Folder, Curated Collection, Artwork Catalog, Feature
 | `mediaAsset` | `title`, `slug`, `mediaType` (album-art, logo, featured-project-reel, brand-deck, carousel-slide, `static_*`, `motion_*` by aspect), `image` (hotspot) or `video` (`mux.video`), `alt` (≤150) + `description` (≤300, screen-reader/search only — not the project blurb) for both, `releaseInfo{…}` (album-art), `brandDeckOrder`, `contentRole` (process/supporting; empty = showcase), `displayGroup`, `sourceFolder`/`sourceManifest` (read-only provenance), `orderRank` | `client` → client; `project` → project; `services[]` → serviceTag |
 | `serviceTag` | `name`, `slug`, `sortOrder` | — |
 | `globeSettings` | singleton `_id: "globeSettings"`, `picks[]` (writable through `npm run cms` changes as the whole keyed array) | → mediaAsset |
-| `siteSettings` | singleton `_id: "siteSettings"`, `footerBlurb` (≤400) + `tagline` (≤160): site-wide studio copy as marked plain `text` (the `keywords.jsx` markers), not Portable Text | — |
+| `siteSettings` | singleton `_id: "siteSettings"` (10-08), `footerBlurb` (≤400) + `tagline` (≤160): site-wide studio copy as marked plain `text` (the `keywords.jsx` markers), not Portable Text | — |
 
-`siteSettings` is Studio-only on this branch: its schema and desk item came from `ba600c9` so a Studio
-deploy keeps it editable; the site reader (`SITE_COPY_QUERY`, `src/lib/siteCopy.js`) arrives when
-refine/globe-worlds folds.
+**`siteSettings` holds MARKED PLAIN TEXT, not Portable Text.** Both fields are `type: 'text'`
+(`footerBlurb` rows 3 / max 400, `tagline` rows 2 / max 160) carrying the house marker vocabulary
+that `src/lib/keywords.jsx` parses — `**bold**`, `[[keyword]]`, `[[keyword]](/href)`,
+`[label](/href)` — the same format the `project.description` fields already use. One vocabulary,
+one parser, no new dependency; there is still **zero Portable Text in the repo**. A newline is a
+LINE BREAK, which is how the tagline pill's three-line lockup survives an editor rewording it.
+It is a second singleton rather than more fields on `globeSettings` because that document is named
+and iconned for the homepage globe. Both are pinned in `sanity.config.ts` via
+`S.document().documentId(…)` and filtered out of `newDocumentOptions`. Seeded and published in
+`production`. **The hosted Studio's deployed schema manifest is stale**, so the type will not appear
+there until the Studio is redeployed; a local Studio picks it up from the repo.
 
 Conventions: `isHero` is retired; the first asset by `orderRank` is the hero. Drafts are excluded
 from every site query. Ordering uses LexoRank via `@sanity/orderable-document-list` (Studio lists:
@@ -31,16 +39,20 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 | Query | Used by |
 |---|---|
 | `GLOBE_ASSETS_QUERY` (picks / featured / heroes / autoFill tiers) | `/`, `/process`, `/lab/globe` via `globe/buildAssetPool.js` |
-| `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro` |
+| `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro`; `src/pages/index.astro` via `globe/buildWorldPools.js` (the home globe's population modes, branch `refine/globe-worlds`). Its assets carry `imageDimensions`, Mux's `videoAspectRatio` / `videoStatus` and `videoTrack` (`max_width`, `max_height`), which `buildWorldPools.toGlobeAsset` turns into the media spans' class `u` (`globe/mediaClass.js`) and source short side `s` at build time |
 | `FEATURED_PROJECT_PATHS_QUERY`, `FEATURED_PROJECT_DETAIL_QUERY` (`$projectId`) | `src/pages/work/[slug].astro`; paths order drives `NextProjectBand` adjacency |
 | `MEDIA_GRID_QUERY`, `ALBUM_ART_QUERY`, `SERVICE_TAGS_QUERY` | dormant `/work/directory` |
+| `SITE_COPY_QUERY` (the `siteSettings` singleton) | `src/lib/siteCopy.js`, awaited by `BaseLayout.astro` (every route) and `src/pages/index.astro` |
 
 Media descriptors: `FEATURED_PROJECT_DETAIL_QUERY` and `MEDIA_GRID_QUERY` project `alt` + `description`,
 `ALBUM_ART_QUERY` projects `alt`; the WebGL surfaces (globe, Worlds) don't need them.
 
-`scripts/test/cms-frontend.test.mjs` evaluates these real queries with `groq-js` against fixtures.
+`scripts/test/cms-frontend.test.mjs` evaluates these real queries with `groq-js` against fixtures;
+`scripts/test/globe-worlds.test.mjs` does the same for `FEATURED_WORLDS_QUERY` → `buildWorldPools`.
 
 ## Content flow on the site
 `work/detail/buildContentFlow.js` partitions a project's assets into hero / showcase / brandDecks
 (cap 12 pages) / albumArt buckets; the same function feeds both `/work` Worlds and the detail grid.
-Project accent colors reach CSS through `lib/projectColor.js` as `--project-color*`.
+Project accent colors reach CSS through `lib/projectColor.js` as `--project-color*`. On home
+(branch `refine/globe-worlds`, `?popcolor`), the globe world's `projectColor` also drives the globe's
+ink and the home chrome.

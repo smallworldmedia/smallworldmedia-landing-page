@@ -30,6 +30,8 @@
  * @param {Object|null} world - the active World ({ slug, showcase: [...] })
  * @param {number} index - the active World's index (drives Turn direction)
  * @param {React.RefObject} poolRef - VideoSlotPool imperative handle (live tier)
+ * @param {React.RefObject} [snapRef] - the arrival snap's index (Enter World
+ *        from the home globe): that change builds at once, like the mount
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -37,7 +39,6 @@ import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { Pass, FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
 import { LensDistortionPassGen } from './vendor/lensDistortion.js';
 import { buildShell } from './buildShell.js';
@@ -66,7 +67,7 @@ import {
   CAMERA_FOV,
   DPR_MAX,
   MSAA_SAMPLES,
-  FPS_CAP,
+  FPS_GATE_S,
   MAX_TILES,
   CAM_LAG_S,
   MIN_TILES,
@@ -167,7 +168,7 @@ function applyCover(material, texture, planeAspect, texAspect) {
   material.needsUpdate = true;
 }
 
-export default function useWorldScene(containerRef, world, index, poolRef) {
+export default function useWorldScene(containerRef, world, index, poolRef, snapRef = null) {
   const apiRef = useRef(null);
   const prevIndexRef = useRef(null);
   const shellRef = useRef(null);
@@ -179,10 +180,17 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     if (!container) return undefined;
     let disposed = false;
 
-    // Transparent canvas: the black→blue gradient lives on the DOM (.fp-canvas)
-    // so it stays clean/monotonic like the home hero (the lens pass would warp a
-    // WebGL background). The grid + tiles composite over it.
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // Transparent canvas: the backdrop lives on the DOM (.fp-canvas,
+    // featured-projects.css) so it stays clean/monotonic like the home hero
+    // (the lens pass would warp a WebGL background). The grid + tiles
+    // composite over it. Since the 08-28 ?fpfade 0 bake (FP_FADE,
+    // worldConfig.js) that backdrop reads solid black: the accent share of its
+    // gradient is 0, and ?fpfade > 0 brings the old black→accent fade back.
+    // 10-09 (PW): a bare canvas, no MSAA and no depth. The canvas only ever
+    // receives the lens pass's full-screen triangle; MSAA and depth live on the
+    // composer target below. The context's own MSAA and depth buffers were dead
+    // weight that scales with DPR².
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, depth: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
     renderer.setClearColor(0x000000, 0);
     // fp-grid: page wipes (register plates / FORME re-deal) cut with world-space
@@ -262,15 +270,22 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     // seen before just snaps its tiles to rest (revisits don't re-animate).
     const seenWorlds = new Set();
 
-    // Post-processing: scene → lens distortion → sRGB output.
+    // Post-processing: scene → lens distortion, which also writes sRGB to the
+    // canvas. 10-09 (PW): the OutputPass is folded into the lens shader's
+    // colorspace_fragment (vendor/lensDistortion.js), so the frame no longer
+    // makes a second full-screen trip through a target.
     // 08-25 AA: the composer's internal targets bypass the context's MSAA
-    // (`antialias: true` on the renderer only covers direct-to-canvas), so
+    // (the context's antialias only ever covered direct-to-canvas draws), so
     // the tile grid rendered with hard jaggies. A multisampled target
     // (WebGL2) restores 4× MSAA through the whole pass chain; setSize
     // resizes it in place, samples preserved. ?msaa to A/B (0 = off).
+    // 10-09 (PW): sRGB8 (SRGB8_ALPHA8) instead of HalfFloat: half the bytes
+    // per sample, and the sRGB encoding keeps the dark gradient that linear
+    // 8-bit bands. The depth buffer stays: the World's materials test depth.
     const msaaTarget = new THREE.WebGLRenderTarget(1, 1, {
       samples: MSAA_SAMPLES,
-      type: THREE.HalfFloatType,
+      type: THREE.UnsignedByteType,
+      colorSpace: THREE.SRGBColorSpace,
     });
     const composer = new EffectComposer(renderer, msaaTarget);
     composer.setPixelRatio(Math.min(window.devicePixelRatio, DPR_MAX));
@@ -282,9 +297,13 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       focalLength: new THREE.Vector2(1, 1),
       skew: 0,
     });
+    // The lens is the last pass, so the composer renders it to the canvas. No
+    // swap: a swap every frame would make RenderPass alternate between the
+    // composer's two targets and allocate both. Without it the scene always
+    // lands in the composer's readBuffer, renderTarget2 (its clone of
+    // msaaTarget), and renderTarget1, msaaTarget itself, is never allocated.
+    lensPass.needsSwap = false;
     composer.addPass(lensPass);
-    const outputPass = new OutputPass();
-    composer.addPass(outputPass);
 
     // Lens spike (0..1) added to the base distortion during a Turn.
     const lensSpike = { v: 0 };
@@ -1030,7 +1049,13 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
     let schedClock = 0; // ~2Hz live-tier cadence, globe convention
     const tick = (_t, deltaMs) => {
       accumulated += deltaMs / 1000;
-      if (accumulated < 1 / FPS_CAP) return;
+      // gsap's ticker reports whole-ms deltas (16 or 17 at 60 Hz), so a strict
+      // 1/FPS_CAP gate skips every 16 ms frame: about 40 fps in a 17/33 ms
+      // rhythm. ?fpstol=2 (FPS_TOL_MS) gives a steady 60 (both measured
+      // 10-09), and the per-render PARALLAX_LERP then settles faster. 2 is
+      // the default since Nathan's 10-31 bake; ?fpstol=0 is the strict gate.
+      // FPS_GATE_S is 1/FPS_CAP − FPS_TOL_MS/1000, in seconds (worldConfig.js).
+      if (accumulated < FPS_GATE_S) return;
       const dt = accumulated; // seconds since last render (for time-based motion)
       accumulated = 0;
       sceneTime += dt;
@@ -1161,7 +1186,6 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
       shell.geometry.dispose();
       shell.material.dispose();
       lensPass.dispose();
-      outputPass.dispose?.();
       composer.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
@@ -1173,7 +1197,9 @@ export default function useWorldScene(containerRef, world, index, poolRef) {
   useEffect(() => {
     if (!apiRef.current) return;
     const prev = prevIndexRef.current;
-    const direction = prev == null ? 0 : Math.sign(index - prev);
+    // The arrival snap is the page landing inside a World, not a Turn.
+    const snap = snapRef?.current === index;
+    const direction = prev == null || snap ? 0 : Math.sign(index - prev);
     prevIndexRef.current = index;
     apiRef.current.goToWorld(world, direction);
     // S2: the background grid ingests the focused project's accent (dimmed to

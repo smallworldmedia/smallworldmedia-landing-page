@@ -4,17 +4,27 @@
  * absent otherwise. Sits top-LEFT — the free corner (lenistune + globe debug
  * own bottom-left, fp1tune bottom-right, herotune top-right).
  *
- * Two sliders in the LenisTunePanel shape:
+ * Sliders in the LenisTunePanel shape:
  *   lockup h — SWM lockup art height (rem) → `--footer-lockup-h` on <html>.
  *              Panel height follows, and SiteFooter's ResizeObserver
  *              re-sizes the spacer/travel automatically.
  *   travel k — reveal-travel multiplier (spacer = K × panel height), the
  *              halfway-scoot fix's second half. SiteFooter re-measures on
  *              the shared pub/sub.
+ *   lerp, tail brake — the wheel's weight where a host drives the panel
+ *              (home, /work's last World; 10-31): Lenis's damp and the tail's
+ *              brake (createFooterDrive in SiteFooter).
+ *   lift k, marks from/to/lift, intro s — the HOME resting footer
+ *              (10-07; desktop too since 10-09): the hero parallax's share of
+ *              the panel's climb, the client marks' own reveal window,
+ *              and the on-load word fade.
  *
- * copy_url emits only non-default knobs (?footerlockup / ?footertravel).
- * Dial on /process or a /work/[slug] page (document-scroll routes); on /work
- * the driven footer shows lockup size live at the last World.
+ * copy_url emits only non-default knobs (?footerlockup / ?footertravel /
+ * ?footerlerp / ?footerbrake / ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
+ * ?footerintro). Dial the first two on /process or a /work/[slug] page
+ * (document-scroll routes); on /work the driven footer shows lockup size live
+ * at the last World. The last five need a phone-width home, where the panel
+ * rests open — the URL is the real bench there (see the note by the group).
  *
  * SiteShell import()s this module (own chunk); footer-tune.css deliberately
  * stays imported from BaseLayout — see the note there.
@@ -112,6 +122,111 @@ export default function FooterTunePanel() {
       <p className="footer-tune__note">
         scroll distance for a full reveal = k × panel height. dial on /process
         or a project page.
+      </p>
+
+      {/* 10-31 — the driven hosts' wheel: home, and /work's last World. Live
+          on the next wheel event (createFooterDrive reads both per delta). */}
+      <div className="footer-tune__group">wheel weight · home + /work</div>
+      <Row
+        label={`lerp (per frame · def ${FOOTER_TUNE_DEFAULTS.lerp})`}
+        param="lerp"
+        value={s.lerp}
+        min={0}
+        max={0.5}
+        step={0.005}
+        fmt={(n) => n.toFixed(3)}
+        onChange={set}
+      />
+      <Row
+        label={`tail brake (def ${FOOTER_TUNE_DEFAULTS.brake})`}
+        param="brake"
+        value={s.brake}
+        min={0}
+        max={0.9}
+        step={0.05}
+        fmt={num2}
+        onChange={set}
+      />
+      <p className="footer-tune__note">
+        lerp = how fast the panel catches the wheel, Lenis&apos;s own (the house&apos;s baked 0.165); 0 = the raw
+        delta. tail brake = over the last third of the reveal a wheel delta moves the panel less, down to 1 −
+        brake at the top, so it slows into the full reveal; 0 = off.
+      </p>
+
+      {/* HOME ([data-footer-rest]) — these four only do anything where the
+          footer RESTS open, which is home on both tiers since 10-09 (phones
+          since 10-07). The bench is a fixed 17rem and covers most of a 390px
+          viewport, so the honest way to dial these on a phone is the URL on
+          the device: thumb between ?footerlift=0.35 and
+          ?footerlift=0.65 to answer "is half the rate right?". */}
+      <div className="footer-tune__group">home rest · hero lift</div>
+      <Row
+        label={`lift k (×panel climb · def ${FOOTER_TUNE_DEFAULTS.liftK})`}
+        param="liftK"
+        value={s.liftK}
+        min={0}
+        max={1.5}
+        step={0.05}
+        fmt={num2}
+        onChange={set}
+      />
+      <p className="footer-tune__note">
+        globe + ring + enter_world follow the panel at k × its own climb. 0 =
+        parallax off. Home only — ?footerlift on the phone.
+      </p>
+
+      <div className="footer-tune__group">home rest · client marks</div>
+      <Row
+        label={`marks from (rise · def ${FOOTER_TUNE_DEFAULTS.marksFrom})`}
+        param="marksFrom"
+        value={s.marksFrom}
+        min={0}
+        max={0.9}
+        step={0.05}
+        fmt={num2}
+        onChange={set}
+      />
+      <Row
+        label={`marks to (rise · def ${FOOTER_TUNE_DEFAULTS.marksTo})`}
+        param="marksTo"
+        value={s.marksTo}
+        min={0.1}
+        max={1}
+        step={0.05}
+        fmt={num2}
+        onChange={set}
+      />
+      <Row
+        label={`marks lift (rem · def ${FOOTER_TUNE_DEFAULTS.marksLift})`}
+        param="marksLift"
+        value={s.marksLift}
+        min={0}
+        max={4}
+        step={0.25}
+        fmt={num2}
+        onChange={set}
+      />
+      <p className="footer-tune__note">
+        the marks fade + settle over the PEAK rise, so they hold on a retreat.
+        from ≈ the rise where the roll's top edge crosses the fold
+        (globe-probe --footer reports it).
+      </p>
+
+      <div className="footer-tune__group">home rest · on-load entrance</div>
+      <Row
+        label={`intro s (def ${FOOTER_TUNE_DEFAULTS.introS})`}
+        param="introS"
+        value={s.introS}
+        min={0.15}
+        max={1.5}
+        step={0.05}
+        fmt={num2}
+        onChange={set}
+      />
+      <p className="footer-tune__note">
+        the blurb's per-word fade — duration AND stagger budget, so more words
+        arrive faster rather than crawling. read at the chrome beat: reload to
+        re-see it.
       </p>
 
       <div className="footer-tune__actions">

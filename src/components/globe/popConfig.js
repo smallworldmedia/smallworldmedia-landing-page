@@ -1,0 +1,251 @@
+/**
+ * popConfig.js — live tuning state for the home globe's POPULATION MODES
+ * (docs/globe-worlds-plan.md): the featured-project worlds laid over the
+ * meridian scroll, so the globe reads as client worlds instead of a sample of
+ * the media directory.
+ *
+ * Every knob seeds from the URL — always, not only under the bench, the
+ * heroConfig convention (?popmode=tides works on its own) — into the mutable
+ * TUNING object. ?poptune=1 mounts the PopTunePanel bench, which writes
+ * TUNING through setPopTune → publish(key). useGlobeScene subscribes: a mode
+ * change rebuilds the PopulationDirector (never the scene), poplive swaps the
+ * scheduler's video mode, a layout knob re-lays the current world, anything
+ * else is read at use time. popTuneCopyUrl() serializes the off-default values
+ * plus the seed (the seed is what reproduces the globe on screen).
+ *
+ * P1 = the engine + holds (mode, seed, media, cap, share, group, patterns).
+ * P2 (09-26, Nathan: ONE world at a time reads strongest — group defaults to
+ * 1) = the timed change between worlds (hold, holdJit, trans, transitions,
+ * chaos), the one-world layout, shared video streams (live) and the world's
+ * projectColor on the globe + chrome (color).
+ * P3 = Enter World lands inside the world on the globe (enter).
+ * 10-06 bake (Nathan's dial): tides on by default, all media, cap 13,
+ * weighted shares, a 6 s ± 0.2 hold, a 0.9 s surge, chaos 1. The seed stays
+ * random per visit (his call). 10-23 bake (his dial, the media spans round):
+ * the hold ± 0.4 and a 0.6 s change; media spans on (Q1), up to 4 units per
+ * asset (Q7) in a 12 tile-equivalent world (Q8). 10-24 (his shape set,
+ * ?popshapes=wide): 16:9 and 4:3 span 3×2, tall 1×2, every square 2×2; the
+ * set before it stays at ?popshapes=classic. 10-28 (his call): a 7 s hold and
+ * the fast handoff by default. 10-31 (his yes to P9): a unit's crop is the
+ * shader's (?popunitlook=flat); ?popunitlook=rows is the CPU crop before it.
+ * 10-31 (his item 8): a world with room left in its tile budget grows its
+ * sharp portraits from 1×2 to 2×3 (?popportrait=fill); pair keeps every 1×2.
+ * 10-06 = client-name strips (names, nameStyle — nameTicker.js).
+ * 10-07 = their placement rework: the ticker is gone (the strips are still),
+ * the span comes from the MEASURED name (nameSpanMin/nameSpanMax) instead of a
+ * random width, the type is smaller (nameSize), and the director places each
+ * world's strip camera-relative — mid-latitude (nameBand), front-facing
+ * (nameFace), in the quadrant opposite the last world's — or across a whole
+ * latitude row (nameMode=band). Starting values, until Nathan dialed four of
+ * them on 10-23: size 0.83, band 0.57, face 0.44, span max 4.
+ * 10-27 = the video handoff (handoff), fast: the next world's clips load
+ * during the hold, after its own videos have started, and a change's videos
+ * start while it lands. The default since Nathan's 10-28 call;
+ * ?pophandoff=today is the handoff before it.
+ */
+import { PATTERNS } from './worldPatterns.js';
+import { WORLD_POOL_CAP } from './buildWorldPools.js';
+import { NAME_STYLES, NAME_MODES } from './nameTicker.js';
+
+const search = () =>
+  new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+
+export const POP_TUNE_ACTIVE = search().get('poptune') === '1';
+
+/* — Vocabulary (the URL seed validates against these; the bench selects
+   from them). Modes join the list as their phases land. — */
+export const POP_MODES = ['off', 'tides'];
+export const POP_MEDIA = ['showcase', 'all', 'video', 'still', 'art'];
+export const POP_SHARES = ['equal', 'weighted'];
+/** One world on the globe: mix = its media interleaved (no asset on a
+ *  neighbour); facets = regions by media kind (the world read as a system). */
+export const POP_LAYOUTS = ['mix', 'facets'];
+/** How one world gives way to the next: tide = the scroll surges a full
+ *  pole-to-pole span, the new world pours in from the top pole as the old
+ *  drains out the bottom (persistent — no tile changes in place); blink /
+ *  surge = in place, each tile under a CRT dip / a flood of the accent;
+ *  cut = at once. */
+export const POP_TRANSITIONS = ['tide', 'blink', 'surge', 'cut'];
+/** shared = one decoded stream feeds every tile showing that clip; tile = one
+ *  decode per live tile (today's scheduler). */
+export const POP_LIVE = ['shared', 'tile'];
+/** Which span each picture takes under ?popunits (mediaClass.js): wide = Nathan's 10-24 set (16:9 and 4:3 → 3×2,
+ *  else the 2×1 pair; 9:16, 3:4, 4:5 → 1×2; every square → 2×2); classic = the set before it (16:9 → 2×1,
+ *  9:16 → 1×2, ?popquads squares a world → 2×2, the rest single). */
+export const POP_SHAPES = ['wide', 'classic'];
+export const POP_TIERS = ['auto', 'today', 'lean']; // ?poptier — auto = per-DPR-bucket rungs (unitSpan STREAM_TIERS), today = the pool's pin for every stream, lean = one rung lower
+/** How a world's videos come in (shared streams only): today = they load once the world has landed, and the next
+ *  world's stills load as it lands; fast = the next world's clips load during the hold, after its own have started
+ *  (streamPrefetch.js), and a change starts its clips while its tiles still swap, on a 0.1 s beat. */
+export const POP_HANDOFFS = ['today', 'fast'];
+/** How a unit member crops its picture under ?popunits (P9): flat = the shader pinches each fragment about the
+ *  unit's centre (one density over the unit: no row warp, no kink at the gaps; Nathan 10-31, "yes rebuild cropping
+ *  on the graphics card"); rows = the per-row CPU windows before it. */
+export const POP_UNIT_LOOKS = ['flat', 'rows'];
+/** A portrait's span under ?popshapes=wide and a ?popequiv budget: fill = a world grows its sharp 1×2s to 2×3
+ *  with the room its selection left, so a world with fewer assets shows bigger portraits (unitSpan.growTall;
+ *  Nathan 10-31, "sometimes 2x3 and sometimes 1x2"); pair = every portrait 1×2, the 10-24 set. */
+export const POP_PORTRAITS = ['fill', 'pair'];
+export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES, NAME_MODES as POP_NAME_MODES };
+
+/** popmedia → the media kinds a world's pool keeps (null = its whole pool:
+ *  hero + showcase Tiles + album art). showcase = the /work World's Tiles —
+ *  videos and stills, no album art. */
+export const MEDIA_KINDS = {
+  showcase: ['video', 'still'],
+  all: null,
+  video: ['video'],
+  still: ['still'],
+  art: ['art'],
+};
+
+// A fresh draw per visit unless ?popseed pins it (resolved once, at load).
+const randomSeed = () => Math.floor(Math.random() * 1e6);
+
+export const POP_DEFAULTS = Object.freeze({
+  mode: 'tides', // ?popmode — off | tides (POP_MODES). Nathan 10-06: tides is home's globe
+  seed: 0, // ?popseed — the draw (start world, patterns, the change clock); resolved per visit below
+  media: 'all', // ?popmedia — showcase | all | video | still | art (MEDIA_KINDS)
+  cap: 13, // ?popcap — assets per world, ≤ WORLD_POOL_CAP (bounds texture residency)
+  share: 'weighted', // ?popshare — equal | weighted (tape area ∝ each world's media count)
+  group: 1, // ?popgroup — worlds on the globe at once, 1..3 (Nathan 09-26: one)
+  layout: 'mix', // ?poplayout — one world: mix | facets (POP_LAYOUTS)
+  patterns: Object.freeze(['continents', 'archipelago', 'spiral']), // ?poppattern — 2–3 worlds: the set each grouping draws from (comma list)
+  hold: 7, // ?pophold — seconds a world holds before the next (Nathan 10-28; 6 from 10-06)
+  holdJit: 0.4, // ?popholdjit — ± fraction of the hold, drawn per change (Nathan 10-23; 0.2 from 10-06)
+  trans: 0.6, // ?poptrans — seconds a change takes (a tide rolls a full span in it); Nathan 10-23, 0.9 from 10-06
+  transitions: Object.freeze(['surge']), // ?poptransset — the set changes draw from (comma list, POP_TRANSITIONS)
+  chaos: 1, // ?popchaos — 0 = editorial order + the set in turn; 1 = a random next world + transition every change
+  live: 'shared', // ?poplive — shared | tile (POP_LIVE)
+  color: 1, // ?popcolor — 1 = the world's projectColor drives the globe + chrome; 0 = brand blue
+  enter: 1, // ?popenter — 1 = Enter World opens /work on the world on the globe; 0 = the first World
+  names: 0, // ?popnames — name strips a world places (0 = none: Nathan 10-24; 1 from 10-07)
+  nameMode: 'region', // ?popnamemode — region = a run of tiles sized to the name; band = a whole latitude row (NAME_MODES)
+  nameSize: 0.83, // ?popnamesize — font px per strip height (Nathan 10-23; 10-07's 0.62 "reduced slightly" a baked 0.86)
+  nameBand: 0.57, // ?popnameband — the middle fraction of pole-to-pole a strip may sit in (Nathan 10-23; 0.65 from 10-07)
+  nameFace: 0.44, // ?popnameface — front-facing width as a fraction of the circumference (0.5 = the visible half; Nathan 10-23, 0.5 from 10-07)
+  nameSpanMin: 2, // ?popnamespanmin — fewest tiles a strip may use
+  nameSpanMax: 4, // ?popnamespanmax — most tiles a strip may use (at the cap the type shrinks, the name is never cut); Nathan 10-23, 6 from 10-07
+  nameStyle: 'ink', // ?popnamestyle — ink = the world's colour on black; fill = black on the colour
+  units: 1, // ?popunits — media spans: tiles join into one picture across the gaps (docs/globe-worlds-plan.md § Media spans). 0 = off = today's globe. Q1: Nathan 10-23, on; was 0
+  unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
+  shapes: 'wide', // ?popshapes — the span each picture takes (POP_SHAPES); wide = Nathan's 10-24 set, classic = the one before it
+  unitLook: 'flat', // ?popunitlook — flat | rows (POP_UNIT_LOOKS): how a member crops its unit's picture (P9, 10-31; rows until then)
+  portrait: 'fill', // ?popportrait — fill | pair (POP_PORTRAITS): fill = a world's sharp portraits grow to 2×3 with its budget's room (Nathan 10-31, item 8; pair until then)
+  quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
+  tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
+  equiv: 32, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Nathan 10-24, 32 (the top; Q8 10-23 was 12, before that 0)
+  handoff: 'fast', // ?pophandoff — today | fast (POP_HANDOFFS): fast = the next world's videos load during the hold and a change's start while it lands (Nathan 10-28; today until then)
+});
+
+const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
+
+/* — URL param names + the clamp each NUMERIC knob stores through. — */
+const NUMERIC = {
+  seed: ['popseed', (n) => Math.abs(Math.round(n))],
+  cap: ['popcap', (n) => clamp(Math.round(n), 1, WORLD_POOL_CAP)],
+  group: ['popgroup', (n) => clamp(Math.round(n), 1, 3)],
+  hold: ['pophold', (n) => clamp(n, 2, 60)],
+  holdJit: ['popholdjit', (n) => clamp(n, 0, 0.9)],
+  trans: ['poptrans', (n) => clamp(n, 0.3, 8)],
+  chaos: ['popchaos', (n) => clamp(n, 0, 1)],
+  color: ['popcolor', (n) => (n > 0 ? 1 : 0)],
+  enter: ['popenter', (n) => (n > 0 ? 1 : 0)],
+  names: ['popnames', (n) => clamp(Math.round(n), 0, 4)],
+  nameSize: ['popnamesize', (n) => clamp(Math.round(n * 100) / 100, 0.3, 1.2)],
+  nameBand: ['popnameband', (n) => clamp(Math.round(n * 100) / 100, 0.1, 1)],
+  nameFace: ['popnameface', (n) => clamp(Math.round(n * 100) / 100, 0.05, 1)],
+  nameSpanMin: ['popnamespanmin', (n) => clamp(Math.round(n), 1, 12)],
+  nameSpanMax: ['popnamespanmax', (n) => clamp(Math.round(n), 1, 12)],
+  units: ['popunits', (n) => (n > 0 ? 1 : 0)],
+  unitMax: ['popunitmax', (n) => clamp(Math.round(n), 1, 6)],
+  quads: ['popquads', (n) => clamp(Math.round(n), 0, 2)],
+  equiv: ['popequiv', (n) => (n <= 0 ? 0 : clamp(Math.round(n), 4, 32))],
+};
+/* — Single-choice knobs (value ∈ vocab) and set knobs (comma lists ⊂ vocab). — */
+const CHOICE = {
+  mode: ['popmode', POP_MODES],
+  media: ['popmedia', POP_MEDIA],
+  share: ['popshare', POP_SHARES],
+  layout: ['poplayout', POP_LAYOUTS],
+  live: ['poplive', POP_LIVE],
+  tier: ['poptier', POP_TIERS],
+  handoff: ['pophandoff', POP_HANDOFFS],
+  shapes: ['popshapes', POP_SHAPES],
+  unitLook: ['popunitlook', POP_UNIT_LOOKS],
+  portrait: ['popportrait', POP_PORTRAITS],
+  nameStyle: ['popnamestyle', NAME_STYLES],
+  nameMode: ['popnamemode', NAME_MODES],
+};
+const SETS = {
+  patterns: ['poppattern', PATTERNS],
+  transitions: ['poptransset', POP_TRANSITIONS],
+};
+
+// Live, mutable tuning state (the bench writes, the director reads).
+export const TUNING = { ...POP_DEFAULTS, seed: randomSeed() };
+
+if (typeof window !== 'undefined') {
+  const p = search();
+  for (const [key, [param, store]] of Object.entries(NUMERIC)) {
+    const n = parseFloat(p.get(param));
+    if (Number.isFinite(n)) TUNING[key] = store(n);
+  }
+  for (const [key, [param, vocab]] of Object.entries(CHOICE)) {
+    const v = p.get(param);
+    if (vocab.includes(v)) TUNING[key] = v;
+  }
+  for (const [key, [param, vocab]] of Object.entries(SETS)) {
+    const list = (p.get(param) || '').split(',').filter((n) => vocab.includes(n));
+    if (list.length) TUNING[key] = Object.freeze([...new Set(list)]);
+  }
+}
+
+/* pub/sub — useGlobeScene subscribes; the key tells it what to redo. */
+const subs = new Set();
+export function subscribePopTune(fn) {
+  subs.add(fn);
+  return () => subs.delete(fn);
+}
+function publish(key) {
+  subs.forEach((fn) => fn(key));
+}
+
+export function setPopTune(key, value) {
+  let v = value;
+  if (NUMERIC[key]) v = NUMERIC[key][1](value);
+  else if (SETS[key]) v = Object.freeze([...value]);
+  if (TUNING[key] === v) return;
+  TUNING[key] = v;
+  publish(key);
+}
+
+/** Back to the defaults — the seed and mode stay (a reset re-dials the look,
+ *  it doesn't reroll the globe or switch the population off under you). */
+export function resetPopTune() {
+  const { seed, mode } = TUNING;
+  Object.assign(TUNING, POP_DEFAULTS, { seed, mode });
+  publish('*');
+}
+
+export const rerollSeed = () => setPopTune('seed', randomSeed());
+
+/** Shareable bench URL — poptune=1, the seed, and only off-default values. */
+export function popTuneCopyUrl() {
+  const p = new URLSearchParams(window.location.search);
+  p.set('poptune', '1');
+  for (const [key, [param]] of Object.entries(NUMERIC)) {
+    if (key === 'seed' || TUNING[key] !== POP_DEFAULTS[key]) p.set(param, String(TUNING[key]));
+    else p.delete(param);
+  }
+  for (const [key, [param]] of Object.entries(CHOICE)) {
+    if (TUNING[key] !== POP_DEFAULTS[key]) p.set(param, TUNING[key]);
+    else p.delete(param);
+  }
+  for (const [key, [param]] of Object.entries(SETS)) {
+    const val = TUNING[key].join(',');
+    if (val !== POP_DEFAULTS[key].join(',')) p.set(param, val);
+    else p.delete(param);
+  }
+  return `${window.location.origin}${window.location.pathname}?${p.toString()}`;
+}

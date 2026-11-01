@@ -24,7 +24,10 @@
  * that turns away or cascades out of frame fades early and re-slots.
  *
  * Per frame (the overlay bridge cadence — no second rAF): each bound
- * slot projects panel.centerDir·RADIUS through globeGroup.localToWorld →
+ * slot projects dirOf(panel)·RADIUS (a unit lead's unitCentre, else
+ * panel.centerDir; a chip fading after 'off' keeps what it anchored to
+ * then, its unit's centre or its own tile's, re-derived each frame so it
+ * rides the scroll) through globeGroup.localToWorld →
  * project(camera) → px, then writes ONE chip transform (radial-outward by
  * ?labelstroke) and the leader's four endpoints + dot center. Module
  * scratch vectors, zero allocations beyond the write strings; the chip
@@ -116,13 +119,14 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
        heroOverlay; single-threaded, so the scratch vectors are safe from
        both cadences). — */
     let lastFrame = null;
+    const dirOf = (p) => p.unitCentre || p.centerDir; // a unit's chip anchors at the unit's centre (PopulationDirector.place)
     // Front-facing test: panel normal · (globe→camera) axis. >0 faces the
     // camera; a sphere projects the BACK hemisphere onto the disc too, so this
     // is what a bare on-screen bounds test can't do alone.
     const prominenceIn = (panel, f) => {
       vAnchor.setFromMatrixPosition(f.globeGroup.matrixWorld);
       vAxis.setFromMatrixPosition(f.camera.matrixWorld).sub(vAnchor).normalize();
-      vNormal.copy(panel.centerDir).transformDirection(f.globeGroup.matrixWorld);
+      vNormal.copy(dirOf(panel)).transformDirection(f.globeGroup.matrixWorld);
       return vNormal.dot(vAxis);
     };
     // Pick-time visibility (note 3): front-facing AND the anchor projects
@@ -131,7 +135,7 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
     const visibleAtPick = (panel) => {
       if (!lastFrame) return true; // no frame yet — accept; the tick guard corrects
       if (prominenceIn(panel, lastFrame) < FRONT_EPS) return false;
-      vProj.copy(panel.centerDir).multiplyScalar(RADIUS);
+      vProj.copy(dirOf(panel)).multiplyScalar(RADIUS);
       lastFrame.globeGroup.localToWorld(vProj);
       vProj.project(lastFrame.camera);
       return vProj.z <= 1 && Math.abs(vProj.x) < NDC_BIND && Math.abs(vProj.y) < NDC_BIND;
@@ -175,6 +179,9 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
         tl: null, // the cycle timeline (scramble in → hold → fade)
         dc: null, // the re-slot breath (delayedCall)
         fading: false, // early fade in flight — the behind-guard's one-shot
+        held: { centerDir: new Vector3() }, // a stand-in panel: a fading chip's anchor after 'off' (allocated once per slot)
+        heldMembers: null, // the unit whose centre `held` re-derives each frame; null = the chip's own tile
+        latched: false, // a fading chip anchors at `held`; set once per bind, on 'off'
         w: 0, // chip box, cached at content change ONLY
         h: 0,
       });
@@ -211,6 +218,8 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
     const bind = (slot, panel) => {
       slot.panel = panel;
       slot.fading = false;
+      slot.latched = false;
+      slot.heldMembers = null;
       const name = panel.asset.clientName;
       const tags = serviceLine(panel.asset.services);
       // An early-fade re-bind can arrive inside the previous scramble's
@@ -298,7 +307,8 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
 
     /* — Live-panel events (the scheduler's announcements, via the scene
        api's subscription — panels arrive as objects; we read asset text at
-       bind time and centerDir per frame, nothing else). — */
+       bind time and dirOf(panel) — centerDir, or a unit's centre — per
+       frame, nothing else). — */
     const unsubLive = api.onLiveChange((panel, state) => {
       if (disposed) return;
       if (state === 'live') {
@@ -313,7 +323,17 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
           else cursor = 0;
         }
         const slot = slots.find((s) => s.panel === panel);
-        if (slot) earlyFade(slot); // demoted mid-hold → fade early, re-slot
+        if (slot) {
+          // Fade where it was, latched once per bind: the panel may be re-dealt
+          // mid-fade (a single as a new unit's lead, a lead as a single), and
+          // dirOf would jump. A unit lead's chip keeps its unit's centre, any
+          // other chip its own tile's (with units off, every chip).
+          if (!slot.latched) {
+            slot.heldMembers = panel.unitCentre ? panel.shownAsset.place.members : null;
+            slot.latched = true;
+          }
+          earlyFade(slot); // demoted mid-hold → fade early, re-slot
+        }
       }
     });
 
@@ -341,14 +361,27 @@ export default function HeroLabels({ overlay, sceneApiRef }) {
       lastFrame = frame; // event-time picks read the same matrices
       for (let i = 0; i < slots.length; i += 1) {
         const slot = slots[i];
-        const panel = slot.panel;
-        if (!panel) continue;
+        if (!slot.panel) continue;
+        // A chip fading after 'off' keeps what it anchored to then, from live
+        // poses so it rides the scroll: its unit's centre (place()'s sum over
+        // the members), else its own tile's centre. Its panel may be re-dealt
+        // mid-fade, so dirOf(slot.panel) would jump.
+        if (slot.latched) {
+          const c = slot.held.centerDir;
+          const M = slot.heldMembers;
+          if (M) {
+            c.set(0, 0, 0);
+            for (let k = 0; k < M.length; k += 1) c.add(M[k].centerDir);
+            c.normalize();
+          } else c.copy(slot.panel.centerDir);
+        }
+        const panel = slot.latched ? slot.held : slot.panel;
         // Front-facing test (a back-hemisphere panel still projects onto the
         // disc, so bounds alone can't reject it).
         const prominence = prominenceIn(panel, frame);
         // Anchor: the panel center at the surface, globe-local → world →
         // NDC (post-render matrices, heroOverlay's guarantee).
-        vAnchor.copy(panel.centerDir).multiplyScalar(RADIUS);
+        vAnchor.copy(dirOf(panel)).multiplyScalar(RADIUS);
         frame.globeGroup.localToWorld(vAnchor);
         vAnchor.project(frame.camera);
         // Viewport-based hold (note 3): let go when the anchor turns away or

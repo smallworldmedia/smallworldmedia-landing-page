@@ -2,6 +2,11 @@
 
 ## Context
 
+> **10-16 note (P8):** this plan's `file:line` cites are as of 07-23. The files have moved
+> since (e.g. the promote loop, the HLS pool config and the stream pins); find each site by
+> name, not by line. The video diet that followed (P0 `cb7b8e8`, P0v `f951497`, 10-09)
+> clipped every autoplay stream at the source and dropped audio on the muted surfaces.
+
 The homepage (`/`) and Featured Projects (`/work`) are the two most compute-heavy
 pages on the SWM site — each mounts a persistent three.js scene with a live-HLS
 video tier. Nathan reported five concrete issues plus openness to trimming bloat:
@@ -132,7 +137,9 @@ the ~250-500 device-px center panels.
 
 Leave filtering untouched (`LivePanelScheduler.js:190-195`, `TextureManager.js:34-37`)
 — adding mipmaps to a video texture is wasted at panel scale. Mobile (540p) is already
-correctly provisioned. Decode cost ~3×/panel at 480p is trivial for desktop hardware
+correctly provisioned. *(10-16 note: since P0, `cb7b8e8`, the phone pin says 480p: Mux has
+no 540 rendition, so the old 540p pin was already served at 480p. Both devices now share
+`STREAM_PARAMS` = 480p, `globeConfig.js:62`, behind `?globeres`. 10-23: the desktop globe pins 720p instead, Nathan's Q22.)* Decode cost ~3×/panel at 480p is trivial for desktop hardware
 decoders, and Workstream 1 frees the headroom.
 
 ---
@@ -209,7 +216,7 @@ if needed, nudge `CLUSTER_RADIUS` up ~0.05-0.1.
 | **Build-time preload** first ~7 globe panel stills (`<link rel=preload as=image crossorigin>`) from the already-computed pool, so they fetch in parallel with the `client:only` bundle instead of after hydration. Device-neutral width (512), stills-only (params branch on `IS_MOBILE`, unknowable at build) | `pages/index.astro:24` → BaseLayout head | M |
 | **MORE live videos + fill them fast** (Nathan) — raise `WORLD_MAX_LIVE` 3→**4** (desktop); pay for it with the tile cut. AND fix worldLive latency: **parallel first-fill** (promote all free slots on the first beat after `attach()`, gated by an "initial fill done" flag; keep one-at-a-time for later rotations) + **event-driven promote** (in `promote().then`, if slots free + candidates waiting, call `update()` immediately instead of waiting the next 0.5s beat) | `worldConfig.js:89`, `worldLive.js:73,76-80,129-164` | M |
 | **Right-size + webp /work stills** — `THUMB_SIZE` 1024 (2× oversampled even for Near at DPR2) → tier-aware (Near ~768 / Mid ~512 / Far ~384) or flat ~640, and `.jpg`→`.webp` on the Mux thumbnail branch (~40-60% fewer bytes). Apply the webp switch to globe stills + band pages too | `worldConfig.js:35`, `useWorldScene.js:102`, `TextureManager.js:20`, `worldBands.js:61` | S |
-| **(Secondary) HLS config** `POOL_HLS_CONFIG` + `lowLatencyMode:false` (Mux VOD isn't LL-HLS) + `backBufferLength:0` (4s loop replays from forward buffer). Minor startup shave + steadier memory | `VideoSlotPool.jsx:31-34` | S |
+| **(Secondary) HLS config** `POOL_HLS_CONFIG` + `lowLatencyMode:false` (Mux VOD isn't LL-HLS) + `backBufferLength:0` (4s loop replays from forward buffer; *10-16 note: since P0, `cb7b8e8`, previews loop at 5 s, `PREVIEW_SECONDS`, and the stream is clipped at the source, so the clip, not the buffer, bounds the download*). Minor startup shave + steadier memory | `VideoSlotPool.jsx:31-34` | S |
 | **(Optional) idle-prefetch ±1 Worlds' Near stills** so a Turn reveals stills instantly | `useWorldScene.js:454,500-505` | M |
 
 ---
@@ -263,7 +270,8 @@ three CORE only. Dev-only routes (`/lab/globe`, `/specimen`, `/work/directory`,
   panels still fill within ~2-3s after release (cap spreads them over beats).
 - **WS2 (resolution):** load `/` on desktop, compare a center panel's video sharpness
   before/after; confirm via network panel the Mux manifest returns a single 480p rung.
-  Sanity-check mobile still requests 540p.
+  Sanity-check mobile still requests 540p. *(10-16 note: 480p since P0, `cb7b8e8`; the 540p
+  pin was already served at 480p.)*
 - **WS3 (scroll-lag):** scroll-trigger to the next project repeatedly; the Turn should fire
   without a click-frame stall. Confirm tiles bloom outward in a staggered sequence, not a
   random pop. Sparse projects should read calmer (no duplicated covers).

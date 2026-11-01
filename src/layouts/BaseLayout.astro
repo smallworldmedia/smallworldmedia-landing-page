@@ -34,6 +34,7 @@ import '../styles/commit-tune.css';
 // JavaScript, not their styles.
 import SiteShell from '../components/SiteShell.jsx';
 import SiteTagline from '../components/SiteTagline.jsx';
+import { getSiteCopy } from '../lib/siteCopy.js';
 // ?url imports resolve to the same content-hashed asset the CSS @font-face
 // references, so these preloads hit the real built URLs.
 import fontBook from '../assets/fonts/PPNeueMontreal-Book.woff2?url';
@@ -62,6 +63,16 @@ const isHome = Astro.url.pathname === '/';
 // Process-page chrome variant (transparent nav over the brand-black field)
 // + the route's scroll unlock key off this one — same server-side rule.
 const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
+
+/* The site-wide studio copy (10-08, Nathan) — the footer blurb and the tagline,
+   from the `siteSettings` singleton in Sanity. Fetched HERE because this is the
+   one file every route passes through, /privacy and /404 included, and handed
+   to the two persistent islands as props: a module-level value would be visible
+   on the server only, and the islands would hydrate with the baked fallback.
+   getSiteCopy() memoizes its promise, so the whole build makes ONE request and
+   a Sanity outage degrades to the copy as it shipped rather than to blank
+   chrome. */
+const siteCopy = await getSiteCopy();
 ---
 
 <!doctype html>
@@ -130,12 +141,22 @@ const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
     </form>
 
     {/* Persistent shell — nav + drawer + overlay (survives page swaps) */}
-    <SiteShell client:load transition:persist="site-shell" transition:animate="none" />
+    <SiteShell
+      client:load
+      transition:persist="site-shell"
+      transition:animate="none"
+      siteCopy={siteCopy}
+    />
 
     {/* Persistent lower-left tagline pill (Figma Frame 19, 08-27). Its OWN
         island — the footer-reveal rule translates .site-shell up by the nav
         height, which would carry the pill off its footer alignment. */}
-    <SiteTagline client:load transition:persist="site-tagline" transition:animate="none" />
+    <SiteTagline
+      client:load
+      transition:persist="site-tagline"
+      transition:animate="none"
+      siteCopy={siteCopy}
+    />
 
     <div id="main">
       <slot />

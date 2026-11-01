@@ -277,8 +277,21 @@ export const FEATURED_WORLDS_QUERY = `
       "imageDimensions": image.asset->metadata.dimensions,
       "playbackId": video.asset->playbackId,
       "videoAspectRatio": video.asset->data.aspect_ratio,
+      "videoTrack": video.asset->data.tracks[type == "video"][0]{max_width, max_height},
       "videoStatus": video.asset->data.status,
       "services": services[]->{ name, "slug": slug.current }
     }
+  }
+`;
+
+/**
+ * The siteSettings singleton — the footer blurb and the tagline, as marked
+ * plain strings (see src/lib/siteCopy.js). Published only; a draft edit shows
+ * up after it is published, like every other query here.
+ */
+export const SITE_COPY_QUERY = `
+  *[_type == "siteSettings" && !(_id in path("drafts.**"))][0] {
+    footerBlurb,
+    tagline
   }
 `;

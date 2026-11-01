@@ -63,6 +63,11 @@
 >   + Turn-roll coupling `?wallgear` (|Δadv| stands in for Lenis velocity).
 >   `BAND_PAGE_CAP` 5 → 12 server-side (`?wallpages` client cap); the
 >   legacy/ATLAS register plates still slice `BAND_MAX_PAGES`.
+>   *Note (P8, 10-16): since PF (`d2967ca`, 10-10) the wall no longer
+>   repaints its canvas per frame. Each column's page cycle is painted once
+>   into a static atlas and the plate's shader scrolls it (the cycle wraps in
+>   the shader), so the canvas area sets the texture memory and the upload
+>   per landed page, not a per-frame cost.*
 > - **Trim toggles** (`fpDrumTrim.js`): `?fpglow=1` (default) — cell panels
 >   illuminate in the accent in a ring emanating from center on the
 >   house-pulse cadence (reinforces enter_world); `?fpglow=2` — pointer-trace

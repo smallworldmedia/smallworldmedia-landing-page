@@ -60,6 +60,16 @@ export const LOGOS = manifest
   .filter((l) => l.src);
 
 export const COPY = 'Utilized by a full spectrum of industry';
+
+/* The two words carrying the half-note spectrum pulse (.logo-ticker__spectrum).
+   Split OUT of COPY at render rather than hard-coded into the markup, so the
+   string stays the single source: a copy edit that drops the phrase degrades
+   to the plain line instead of silently orphaning a styled span. */
+export const SPECTRUM_PHRASE = 'full spectrum';
+export const leadParts = (copy = COPY, phrase = SPECTRUM_PHRASE) => {
+  const i = copy.indexOf(phrase);
+  return i < 0 ? [copy, '', ''] : [copy.slice(0, i), phrase, copy.slice(i + phrase.length)];
+};
 export const WORDS = ['artists', 'promoters', 'labels', 'agencies', 'venues'];
 
 // Optical balance (09-08, Nathan): height-fitting every mark makes a square
@@ -108,6 +118,28 @@ export default function ClientLogoTicker() {
     dial('--logo-reveal-from', '', PARAM('logofrom', NaN));
     dial('--logo-reveal-to', '', PARAM('logoto', NaN));
     dial('--logo-word-cycle', 'ms', PARAM('logowordcycle', NaN));
+    dial('--logo-rest-op', '', PARAM('logorestop', NaN));
+
+    // Root-scoped tokens: --ink-muted is a site-wide ink role and --swm-bpm a
+    // house tempo, so these land on <html> rather than this component's root.
+    const rootDial = (token, v) => {
+      if (Number.isFinite(v)) document.documentElement.style.setProperty(token, `${v}`);
+    };
+    rootDial('--ink-muted-l', PARAM('inkmuted', NaN));
+    rootDial('--swm-bpm', PARAM('pulsebpm', NaN));
+    // Palette sweeps inside the cycling half note — the colour RATE, held
+    // separate from the tempo above (10-08, Nathan: "much more rapid, but
+    // still have the same pausing intervals").
+    // THE CLAMP IS LOAD-BEARING, not defensive. Both bad values are SILENT:
+    // reps 0 does not invalidate the calc — the UA clamps the walk's duration
+    // to ~1.8e308s and it freezes on red with no console error — and a
+    // fraction lets the gate truncate a sweep mid-palette (at 0.5 only three
+    // of the five colours are ever painted). The ceiling is 5 because at 6 a
+    // colour gets a single 60Hz refresh and reads as noise, not a frame.
+    // NaN falls straight through rootDial's finite check, so an absent param
+    // leaves the CSS default alone.
+    const reps = PARAM('pulsereps', NaN);
+    rootDial('--swm-pulse-reps', Number.isFinite(reps) ? Math.min(5, Math.max(1, Math.round(reps))) : NaN);
     const k = PARAM('logobal', NaN);
     const ref = PARAM('logoref', NaN);
     if (Number.isFinite(k) || Number.isFinite(ref)) {
@@ -192,10 +224,16 @@ export default function ClientLogoTicker() {
     </ul>
   );
 
+  const [leadBefore, leadPhrase, leadAfter] = leadParts();
+
   return (
     <div className="logo-ticker" ref={rootRef}>
       <p className="logo-ticker__copy">
-        <span className="logo-ticker__lead">{COPY}</span>{' '}
+        <span className="logo-ticker__lead">
+          {leadBefore}
+          <span className="logo-ticker__spectrum">{leadPhrase}</span>
+          {leadAfter}
+        </span>{' '}
         <span className="logo-ticker__odo" aria-hidden="true">
           {/* sizer: every word in one grid cell → the box is as wide as the
               longest word, so the line never reflows as words swap */}
