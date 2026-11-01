@@ -1062,6 +1062,9 @@ export default function useGlobeScene(
       // Unit windows (media spans): from the poses this frame renders, so the
       // scroll a tide just landed is in them. No-op with ?popunits off.
       if (director) director.place();
+      // Sequence tiles (one panel cycling a project's covers): cut to the shared
+      // clock's frame, after place() so the frame renders in this frame's window.
+      if (director) director.stepSequences();
 
       const texBefore = renderer.info.memory.textures;
       const r0 = performance.now();

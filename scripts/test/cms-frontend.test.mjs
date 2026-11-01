@@ -8,6 +8,14 @@ import {
 } from '../../src/lib/queries.js'
 import { buildContentFlow, ratioOf } from '../../src/components/work/detail/buildContentFlow.js'
 import { toProjectSlug } from '../../src/lib/projectSlug.js'
+import {
+  isSequenceGroup,
+  makeSequence,
+  sequenceRatio,
+  sequenceFrame,
+  msToNextFrame,
+  SEQUENCE_MAX_FRAMES,
+} from '../../src/lib/mediaSequence.js'
 
 const ref = (_ref) => ({ _type: 'reference', _ref })
 const image = { _type: 'image', asset: ref('image-page') }
@@ -64,4 +72,51 @@ test('appended media stays in the same world and does not change hero or route',
   assert.equal(worlds[0].assets.at(-1)._id, 'new-media')
   assert.equal(worlds[0].assets.at(-1).videoAspectRatio, '4:3')
   assert.equal(worlds[0].assets.at(-1).videoStatus, 'ready')
+})
+
+test('a -sequence group is ONE showcase tile: frames in Studio order, the least-crop shape, stills only (10-31)', async () => {
+  const still = (id, url, width, height, hasAlpha = false) => ({ _id: id, _type: 'sanity.imageAsset', url, metadata: { dimensions: { width, height }, hasAlpha } })
+  const img = (id) => ({ _type: 'image', asset: ref(id) })
+  const seqDocs = [
+    ...documents,
+    still('image-logo-a', 'https://example.invalid/logo-a.png', 2000, 465, true),
+    still('image-logo-b', 'https://example.invalid/logo-b.png', 2000, 465, true),
+    still('image-logo-c', 'https://example.invalid/logo-c.jpg', 1920, 1080),
+    media('logo-a', '0|i0001e:', { mediaType: 'static_16x9', image: img('image-logo-a'), displayGroup: 'fixture-logo-sequence' }),
+    media('logo-b', '0|i0001f:', { mediaType: 'static_16x9', image: img('image-logo-b'), displayGroup: 'fixture-logo-sequence' }),
+    media('logo-clip', '0|i0001g:', { mediaType: 'motion_16x9', video, displayGroup: 'fixture-logo-sequence' }), // a video member keeps its own tile
+    media('logo-c', '0|i0001h:', { mediaType: 'static_16x9', image: img('image-logo-c'), displayGroup: 'fixture-logo-sequence' }),
+    media('solo', '0|i0001i:', { mediaType: 'static_4x5', image, displayGroup: 'solo-sequence' }), // a group of one stays a plain tile
+  ]
+  const detail = await query(FEATURED_PROJECT_DETAIL_QUERY, seqDocs, { projectId: 'project-fixture' })
+  const flow = buildContentFlow(detail.assets)
+  const ids = flow.showcase.map(({ _id }) => _id)
+  // ORBIT_MIN folds the one cover in; the sequence sits at its first frame's place, the clip and the solo at theirs.
+  assert.deepEqual(ids, ['cover', 'motion', 'sequence:fixture-logo-sequence', 'logo-clip', 'solo'])
+  const seq = flow.showcase[2]
+  assert.deepEqual(seq.frames.map(({ _id }) => _id), ['logo-a', 'logo-b', 'logo-c'])
+  assert.equal(seq.imageUrl, 'https://example.invalid/logo-a.png') // frame 0's fields: every one-image consumer keeps working
+  assert.deepEqual(seq.frames.map((f) => f.imageHasAlpha), [true, true, false]) // the query carries what the fit reads
+  assert.equal(ratioOf(seq), 16 / 9) // the labels' shape, not the 4.3:1 files (labels win, as in ratioOf)
+  assert.equal(isSequenceGroup('fixture-logo-sequence'), true)
+  assert.equal(isSequenceGroup('sequence'), true)
+  assert.equal(isSequenceGroup('sequences-archive'), false) // NC: the suffix, not a substring
+  assert.equal(isSequenceGroup(undefined), false)
+})
+
+test('sequence shape: the member ratio that crops the set least; the frame cap; one wall clock (10-31)', () => {
+  // Billboard mockups: two 16:9 boards and a 4:5 poster — the tile is 16:9 (cost 0.55), not 4:5 (1.10).
+  assert.equal(sequenceRatio([16 / 9, 4 / 5, 16 / 9]), 16 / 9)
+  assert.equal(sequenceRatio([4 / 5, 1, 9 / 16]), 4 / 5) // 0.50 vs 0.64 vs 0.73
+  assert.equal(sequenceRatio([1, 16 / 9]), 1) // a tie keeps the earlier frame
+  assert.equal(sequenceRatio([]), 1)
+  const frames = Array.from({ length: SEQUENCE_MAX_FRAMES + 2 }, (_, i) => ({ _id: `f${i}`, imageUrl: `u${i}` }))
+  const seq = makeSequence('sequence:x', frames, frames.map(() => 1))
+  assert.equal(seq.frames.length, SEQUENCE_MAX_FRAMES)
+  assert.equal(makeSequence('sequence:x', frames, frames.map(() => 1), { cap: Infinity }).frames.length, frames.length)
+  assert.equal(seq._id, 'sequence:x')
+  // The clock: floor(now / 1000 ms) mod n — every tile on every route in phase, nothing to subscribe to.
+  assert.deepEqual([0, 999, 1000, 2500, 3000].map((t) => sequenceFrame(3, t)), [0, 0, 1, 2, 0])
+  assert.equal(sequenceFrame(1, 5000), 0) // one frame never cycles
+  assert.equal(msToNextFrame(2500), 500)
 })

@@ -77,7 +77,8 @@ import { SCROLL_VISIBLE_ROWS, GLOBE_T1 } from './globeConfig.js';
 import { planUrl, prefetchClips, prefetchStats } from './streamPrefetch.js';
 import { primedPlaylistStats } from '../work/hlsPrimed.js';
 import { posePanel } from './MeridianScroll.js';
-import { lattice, texSpec, unitAspect, thetaBound, eligibleVQ, eligibleT, unitLookFor, unitSkewBound, rendered, electQuads, quadEligible, wideClass, growTall, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
+import { sequenceFrame } from '../../lib/mediaSequence.js';
+import { lattice, texSpec, stillSpec, unitAspect, thetaBound, eligibleVQ, eligibleT, unitLookFor, unitSkewBound, rendered, electQuads, quadEligible, wideClass, growTall, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
   nameSpan,
@@ -144,6 +145,8 @@ export default class PopulationDirector {
     this.landedAt = null; // video timing reads them; the 2 Hz sample alone is ±0.5 s)
     this.tide = null; // { t, T, D, done, scroller } while a tide rolls
     this.greeted = false; // the first world announced (after the entrance)
+    this.seqRefs = 0; // texture refs the cycling tiles hold on frames past 0 (stepSequences)
+    this.seqCuts = 0; // frame changes the cycling tiles have made (stats.seq)
     this.flips = 0; // tiles re-laid in place (monotonic; births aren't flips)
     this.flipsSampled = 0;
     this.countFlip = () => (this.flips += 1);
@@ -308,9 +311,25 @@ export default class PopulationDirector {
           if (c === 't') r.unitCls = tall.has(`${wi}|${id}`) ? 't' : 'v';
           else if (wide || c !== 'q' || elected.has(`${wi}|${id}`)) r.unitCls = c;
         }
+        if (a.frames) this.sequenceFrames(r, c, wide);
         return r;
       })
     );
+  }
+
+  /** A sequence record's frames (buildWorldPools; stepped by stepSequences):
+   *  each frame's texture at its class's size for the shared tile ratio `ar` —
+   *  every frame the same aspect, so one window serves them all — or the
+   *  square single. Frame 0's spec is the record's own (tex), so the warm set,
+   *  loadTile and the 4-neighbour rule see one ordinary tile. */
+  sequenceFrames(r, c, wide) {
+    const specs = r.frames.map((f) => {
+      const fa = { imageUrl: f.imageUrl, alpha: f.alpha, ar: r.ar };
+      return c ? texSpec(fa, c, GLOBE_T1, this.L, { wide }) : stillSpec(fa, GLOBE_T1);
+    });
+    r.tex = specs[0];
+    r.frameAssets = specs.map((tex, k) => ({ kind: r.kind, imageUrl: r.frames[k].imageUrl, tex }));
+    r.frameKeys = specs.map((t) => t.key);
   }
 
   sigOf() {
@@ -631,6 +650,63 @@ export default class PopulationDirector {
         if (offB(u, b) > 1e-9) setWindowB(u, b);
       }
     }
+  }
+
+  /** Per rendered frame, after place() (useGlobeScene): a sequence tile cuts
+   *  texA to the shared clock's frame (src/lib/mediaSequence.js) — the one
+   *  picture change a held tile makes (Nathan 10-31: one panel cycles a
+   *  project's covers; the 07-18 persistence rule holds for every other tile).
+   *  A hard cut, never a blend. Frame 0 is the record's own texture (the tile's
+   *  heldThumbId, warmed with its grouping); every other frame loads ONE ahead
+   *  on the tile's own refs (seqRefs, in the texStats ledger), so a cycling
+   *  tile holds at most three textures however many frames it has, and a
+   *  world's covers cost only the ones shown. A frame still loading holds the
+   *  one showing: the cut slips, never blanks. The frames share the class
+   *  texture's aspect, so the window windowA / place() wrote stays right.
+   *  Frozen, not free to animate, mid-swap or under reduced motion: the frame
+   *  holds. A tile re-bound to another asset gives its frame refs back here. */
+  stepSequences(now = performance.now()) {
+    if (this.disposed) return;
+    const tm = this.textureManager;
+    const live = !this.frozen && this.canAnimate();
+    for (const p of this.panels) {
+      const m = p.shownAsset;
+      const seq = m?.frameKeys && p._bound === m ? m : null;
+      if (p._seq && p._seq.rec !== seq) this.dropFrames(p);
+      if (!seq || p.parked) continue;
+      const st = (p._seq ??= { rec: seq, held: new Set(), shown: 0 });
+      const keys = seq.frameKeys;
+      const want = live && !p.swapping ? sequenceFrame(keys.length, now) : st.shown;
+      const next = (want + 1) % keys.length;
+      for (const j of [want, next]) {
+        if (j === 0 || st.held.has(keys[j])) continue;
+        st.held.add(keys[j]);
+        this.seqRefs += 1;
+        tm.loadAsset(seq.frameAssets[j]).catch(() => {}); // a failed frame never shows; its ref goes back below
+      }
+      const tex = tm.peek(keys[want]);
+      if (tex) {
+        const u = p.mesh.material.uniforms;
+        if (u.texA.value !== tex) {
+          if (u.texA.value) this.seqCuts += 1;
+          u.texA.value = tex;
+        }
+        st.shown = want;
+      }
+      for (const k of st.held) {
+        if (k === keys[st.shown] || k === keys[want] || k === keys[next]) continue;
+        st.held.delete(k);
+        this.seqRefs -= 1;
+        tm.release(k);
+      }
+    }
+  }
+
+  /** A tile's sequence frame refs back to the manager (re-bound, or the globe going). */
+  dropFrames(p) {
+    for (const k of p._seq.held) this.textureManager.release(k);
+    this.seqRefs -= p._seq.held.size;
+    p._seq = null;
   }
 
   /** MeridianScroll's hook: assets for a re-born row (lon order, tapeS set). */
@@ -1357,14 +1433,15 @@ export default class PopulationDirector {
     };
   }
 
-  /** Residency, plus the ref ledger: at rest every ref is a tile's (heldThumbId)
-   *  or the warm set's, so refs − tiles − warm must be 0. Null mid-change. A
-   *  FAILED load is not in flight, so it never holds the ledger open. */
+  /** Residency, plus the ref ledger: at rest every ref is a tile's (heldThumbId),
+   *  the warm set's or a cycling tile's frames (seqRefs), so refs − tiles − warm
+   *  − seqRefs must be 0. Null mid-change. A FAILED load is not in flight, so it
+   *  never holds the ledger open. */
   texStats() {
     const t = this.textureManager.stats();
     const quiet = !this.busy && !this.tide && t.pending === 0 && !this.panels.some((p) => p.swapping);
     const held = this.panels.reduce((n, p) => n + (p.heldThumbId ? 1 : 0), 0);
-    return { ...t, refDrift: quiet ? t.refs - held - this.warm.size : null };
+    return { ...t, refDrift: quiet ? t.refs - held - this.warm.size - this.seqRefs : null };
   }
 
   /** Same-texture neighbours: right and up pairs among unparked, non-name tiles.
@@ -1590,6 +1667,7 @@ export default class PopulationDirector {
     let liveTiles = 0;
     let nameTiles = 0;
     let nameMaxY = 0;
+    const seqFront = new Map(); // world → its on-screen sequence placements (a span unit counts once)
     // Strip slice k → { lo, hi } of the strip the tile actually RENDERS (so
     // after panelMaterial's pole-pinch crop — the uniforms alone cannot show
     // it, which is how "TOHOST" passed every gate), and `w`, the slice it
@@ -1617,6 +1695,7 @@ export default class PopulationDirector {
       const w = p.shownAsset?.world; // what texA shows, not the load in flight
       if (w == null) continue;
       shares.set(w, (shares.get(w) || 0) + 1);
+      if (p._seq) (seqFront.get(w) ?? seqFront.set(w, new Set()).get(w)).add(p.shownAsset.place ?? p);
       if (g.members.includes(w)) inGroup += 1;
       if (p.liveState === 'live') live.set(w, (live.get(w) || 0) + 1);
     }
@@ -1668,6 +1747,14 @@ export default class PopulationDirector {
       fps,
       // Span telemetry (docs/globe-worlds-plan.md § Media spans). Plain data: no panels, no cycles.
       tex: this.texStats(),
+      // Sequence tiles (stepSequences): panels bound now · placements on screen, in all and by world · frame refs held · cuts since load.
+      seq: {
+        tiles: this.panels.filter((p) => p._seq).length,
+        front: [...seqFront.values()].reduce((a, s) => a + s.size, 0),
+        byWorld: Object.fromEntries([...seqFront].map(([w, s]) => [this.worlds[w].slug, s.size])),
+        refs: this.seqRefs,
+        cuts: this.seqCuts,
+      },
       upload: this.uploadStats(),
       r1,
       decode: this.getScheduler()?.decodeStats?.() ?? null,
@@ -1696,7 +1783,10 @@ export default class PopulationDirector {
     this.disposed = true;
     this.tide = null;
     if (this.busyCall) this.busyCall.kill();
-    for (const p of this.panels) cancelSwap(p);
+    for (const p of this.panels) {
+      cancelSwap(p);
+      if (p._seq) this.dropFrames(p);
+    }
     for (const k of this.warm.keys()) this.textureManager.release(k);
     this.warm.clear();
     prefetchClips([]); // the clips not yet fetched ahead go with the globe (one in flight finishes)

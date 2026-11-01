@@ -56,6 +56,7 @@ import {
   DEPTH_TIERS,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
+import { sequenceFrame } from '../../../lib/mediaSequence.js';
 
 /* Radius scheme (camera inside: larger radius = farther = behind).
    plates BEHIND the shell lines → lattice runs over the media; borders just
@@ -530,7 +531,15 @@ const qFrame = new THREE.Quaternion();
  * multiplied by the slot's Turn crossfade.
  */
 export function applyAtlasSlot(slot) {
+  const now = performance.now();
   for (const t of slot.tiles) {
+    // A sequence plate (fpDrum) cuts to the shared clock's frame once frame 0
+    // has bound the map (null → texture needs a program change; texture →
+    // texture does not). A frame still loading holds the one showing.
+    if (t.frames && t.texture) {
+      const tex = t.frames[sequenceFrame(t.frameCount, now)];
+      if (tex && t.mesh.material.map !== tex) t.mesh.material.map = tex;
+    }
     const k = t.appear;
     qFrame.slerpQuaternions(t.qSpawn, IDENTITY_Q, k);
     t.mesh.quaternion.copy(qFrame);

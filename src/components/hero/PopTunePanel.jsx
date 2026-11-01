@@ -20,8 +20,10 @@
  * its transition; ↻ reroll = a new seed (a new start world and change
  * clock). The readout polls window.__swmPopStats, which the director
  * publishes at ~2 Hz (also what scripts/globe-probe.mjs reads) — it sits
- * right under mode so it never scrolls away while dialing. copy_url =
- * poptune=1 + the seed + only off-default values.
+ * right under mode so it never scrolls away while dialing. sequence frame
+ * (?seqms) dials the site-wide sequence rate (src/lib/mediaSequence.js), the
+ * globe's cycling cover panels among them. copy_url = poptune=1 + the seed +
+ * only off-default values.
  *
  * Voice/chrome: the hero bench's .hero-tune tree (mono, near-black,
  * lowercase), BOTTOM-RIGHT via .hero-tune--pop — ?herotune owns top-right,
@@ -58,6 +60,12 @@ import {
   subscribeHeroTune,
   withHeroTilt,
 } from './heroConfig.js';
+import {
+  SEQUENCE_INTERVAL_MS,
+  sequenceIntervalMs,
+  setSequenceIntervalMs,
+  withSequenceRate,
+} from '../../lib/mediaSequence.js';
 
 function Row({ label, param, value, min, max, step, onChange }) {
   return (
@@ -107,6 +115,8 @@ export default function PopTunePanel({ sceneApiRef }) {
   // The resting tilt is a hero knob (?herotilt); mirrored so the hero bench's slider shows here too.
   const [tilt, setTilt] = useState(() => HERO_TUNING.tiltDeg);
   useEffect(() => subscribeHeroTune(() => setTilt(HERO_TUNING.tiltDeg)), []);
+  // The sequence rate (?seqms) is site-wide (src/lib/mediaSequence.js); dialed here, read by every sequence tile.
+  const [seqMs, setSeqMs] = useState(() => sequenceIntervalMs());
   // Phones start collapsed — the full bench devours a small viewport.
   const [open, setOpen] = useState(
     () => !(typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches)
@@ -137,6 +147,8 @@ export default function PopTunePanel({ sceneApiRef }) {
   const reset = () => {
     resetPopTune();
     setS({ ...TUNING });
+    setSequenceIntervalMs(SEQUENCE_INTERVAL_MS);
+    setSeqMs(sequenceIntervalMs());
   };
   const reroll = () => {
     rerollSeed();
@@ -153,7 +165,7 @@ export default function PopTunePanel({ sceneApiRef }) {
     if (toggle('patterns', name)) sceneApiRef?.current?.popShow(name);
   };
   const copyUrl = async () => {
-    const text = withHeroTilt(popTuneCopyUrl()); // + the tilt toggle's ?herotilt (a hero knob)
+    const text = withSequenceRate(withHeroTilt(popTuneCopyUrl())); // + the tilt toggle's ?herotilt (a hero knob), the sequence rate
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -272,6 +284,23 @@ export default function PopTunePanel({ sceneApiRef }) {
       <p className="hero-tune__note">
         ?popmedia · ?popcap · ?popshare. showcase = the /work tiles, all adds album art;
         weighted = area ∝ media count. a lower cap repeats clips more (more tiles per decode).
+      </p>
+      <Row
+        label="sequence frame (ms)"
+        param="seqms"
+        value={seqMs}
+        min={250}
+        max={4000}
+        step={50}
+        onChange={(_, v) => {
+          setSequenceIntervalMs(v);
+          setSeqMs(sequenceIntervalMs());
+        }}
+      />
+      <p className="hero-tune__note">
+        ?seqms. how long each frame of a sequence tile holds: one panel cycling a project's covers, or a -sequence group (the
+        Imperfect logos). one rate for the globe, /work and the detail grid; a hard cut on one wall clock, so every sequence
+        changes on the same beat.
       </p>
 
       <div className="hero-tune__group">spans</div>

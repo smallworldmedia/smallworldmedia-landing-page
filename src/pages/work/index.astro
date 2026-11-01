@@ -76,6 +76,10 @@ const worlds = projects
     playbackId: a.playbackId || null,
     imageUrl: a.imageUrl || null,
     ratio: ratioOf(a),
+    // A sequence (src/lib/mediaSequence.js): the plate cuts through these.
+    ...(a.frames && {
+      frames: a.frames.map((f) => ({ imageUrl: f.imageUrl, alpha: !!f.imageHasAlpha })),
+    }),
   }));
 
   // Service tags: prefer the project doc, else union of the assets' tags.

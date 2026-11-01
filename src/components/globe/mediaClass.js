@@ -27,6 +27,8 @@ const EXTREME = Math.log(2.4); // |ln r| at or past this → single (banners, ga
 const BAND = Math.log(1.1); // ±10% in log around 16:9 and 9:16
 
 export function nativeRatio(row) {
+  // A sequence (src/lib/mediaSequence.js): the tile shape that crops its frames least.
+  if (row.frames?.length) return row.sequenceRatio;
   if (row.playbackId) return row.videoStatus === 'ready' ? parseRatio(row.videoAspectRatio) : null;
   const d = row.imageDimensions;
   if (d?.width > 0 && d?.height > 0) return d.width / d.height;

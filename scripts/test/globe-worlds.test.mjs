@@ -92,6 +92,9 @@ import {
   pinShortOf,
 } from '../../src/components/globe/unitSpan.js'
 import { classOf } from '../../src/components/globe/mediaClass.js'
+import { stillSpec, PAD_BG } from '../../src/components/globe/unitSpan.js'
+import { SEQUENCE_PAD_BG } from '../../src/lib/mediaSequence.js'
+import { GLOBE_T1 } from '../../src/components/globe/globeConfig.js'
 
 /** The tuning the fixtures below are laid at: POP_DEFAULTS with the media spans' knobs as the boards were
  *  written, before Nathan's 10-23 bake (units off, one unit per key, no tile budget) and his 10-24 shape set
@@ -7019,4 +7022,151 @@ test('plan ahead: fast — the board planned during the hold is the board the ch
     if (!paused) gsap.globalTimeline.resume()
     TUNING.handoff = 'today'
   }
+})
+
+/* — Sequences (src/lib/mediaSequence.js, Nathan 10-31): one panel cuts through a set of stills on the shared
+   clock — a project's still album art, or an authored `-sequence` group (the Imperfect logo variants). — */
+const imageDoc = (id, url, width, height, hasAlpha = false) => ({ _id: id, _type: 'sanity.imageAsset', url, metadata: { dimensions: { width, height }, hasAlpha } })
+const imageOf = (id) => ({ _type: 'image', asset: ref(id) })
+const seqDocuments = [
+  ...documents,
+  mux('mux-c'),
+  imageDoc('image-c2', 'https://cdn.example/c2.jpg', 3000, 3000),
+  imageDoc('image-c3', 'https://cdn.example/c3.jpg', 3000, 3000),
+  imageDoc('image-l1', 'https://cdn.example/l1.png', 2000, 465, true),
+  imageDoc('image-l2', 'https://cdn.example/l2.jpg', 1920, 1080),
+  media('cover-2', '0|k:', { mediaType: 'album-art', image: imageOf('image-c2') }),
+  media('cover-anim', '0|l:', { mediaType: 'album-art', video: video('mux-c') }), // animated: keeps its own tile
+  media('cover-3', '0|m:', { mediaType: 'album-art', image: imageOf('image-c3') }),
+  media('logo-1', '0|n:', { mediaType: 'static_16x9', image: imageOf('image-l1'), displayGroup: 'fixture-logo-sequence' }),
+  media('logo-2', '0|o:', { mediaType: 'static_16x9', image: imageOf('image-l2'), displayGroup: 'fixture-logo-sequence' }),
+]
+
+test('sequences: a project’s still covers are ONE globe panel at the first cover’s place; an authored group rides through; animated covers stay tiles', async () => {
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, seqDocuments))
+  assert.deepEqual(world.assets.map((a) => a.kind), ['video', 'art', 'still', 'video', 'art', 'still'])
+  const [, art, , , anim, logos] = world.assets
+  // Below ORBIT_MIN the covers ride the showcase: collected there all the same, uncapped, in Studio order.
+  assert.deepEqual(art.frames, [{ imageUrl: 'https://cdn.example/page.jpg' }, { imageUrl: 'https://cdn.example/c2.jpg' }, { imageUrl: 'https://cdn.example/c3.jpg' }])
+  assert.equal(art.imageUrl, art.frames[0].imageUrl) // frame 0 is the record's own picture
+  assert.deepEqual(Object.keys(art), ['kind', 'imageUrl', 'frames', 'ar', 'u', 'uw']) // lean props: no ids, no nulls
+  assert.deepEqual([art.ar, art.u, art.uw], [1, 'q', 'q']) // the covers' label shape classes the panel
+  assert.equal(anim.playbackId, 'pb-mux-c')
+  assert.deepEqual(logos.frames, [{ imageUrl: 'https://cdn.example/l1.png', alpha: true }, { imageUrl: 'https://cdn.example/l2.jpg' }])
+  assert.deepEqual([logos.ar, logos.u, logos.uw], [16 / 9, 'h', 'w']) // the labels (16:9), not the 4.3:1 file — which alone would be single-only
+  assert.equal(classOf({ mediaType: 'static_16x9', imageUrl: 'x', imageDimensions: { width: 2000, height: 465 } }), null) // NC: the file alone
+  // NC: no other asset grows frames, and the covers are gone as tiles of their own.
+  assert.equal(world.assets.filter((a) => a.frames).length, 2)
+  assert.equal(world.assets.some((a) => a.imageUrl === 'https://cdn.example/c2.jpg'), false)
+})
+
+const SEQ_URL = (name, w, h, ext = 'jpg') => `https://cdn.sanity.io/images/p/d/${name}-${w}x${h}.${ext}`
+const seqAsset = (tag, u = 'h') => ({
+  kind: 'still',
+  imageUrl: SEQ_URL(`${tag}-l1`, 2000, 465, 'png'),
+  frames: [{ imageUrl: SEQ_URL(`${tag}-l1`, 2000, 465, 'png'), alpha: true }, { imageUrl: SEQ_URL(`${tag}-l2`, 1920, 1080) }, { imageUrl: SEQ_URL(`${tag}-l3`, 960, 540) }],
+  ar: 16 / 9,
+  u,
+  uw: 'w',
+})
+const seqWorlds = () =>
+  ['Alpha', 'Beta', 'Gamma'].map((name) => ({
+    slug: name.toLowerCase(),
+    clientName: name,
+    title: null,
+    services: [],
+    assets: [...pool(8, 'video', `${name}-`), seqAsset(name)],
+  }))
+
+test('sequences: decorate gives every frame one texture of the shared shape — padded whole if it has alpha, cut if opaque; single-only frames are square', () => {
+  assert.equal(PAD_BG, SEQUENCE_PAD_BG) // unitSpan restates the fill to stay import-free
+  const { director: on } = spanDirector(1, { worlds: seqWorlds() })
+  const { director: off } = spanDirector(0, { worlds: seqWorlds(), scene: fakeScene() })
+  try {
+    const rec = on.pools[0].find((r) => r.frames)
+    assert.equal(rec.frameKeys.length, 3)
+    assert.equal(rec.tex, rec.frameAssets[0].tex) // frame 0 IS the record's texture: warm set, loadTile, neighbours unchanged
+    assert.equal(assetKey(rec), rec.frameKeys[0])
+    const specs = rec.frameAssets.map((f) => f.tex)
+    for (const t of specs) near(t.aspect, specs[0].aspect, 0.005, t.key) // one window serves every frame
+    assert.ok(specs[0].url.includes(`fit=fill&bg=${PAD_BG}`) && specs[0].key.endsWith('f'), specs[0].url)
+    assert.ok(specs[1].url.includes('fit=crop') && !specs[1].key.endsWith('f'), specs[1].url)
+    assert.ok(specs[2].w <= 960 && specs[2].h <= 540, `${specs[2].w}x${specs[2].h}`) // never past its own source
+    // The pad only has to fit its source inside: the 2000×465 logo takes the full class texture,
+    // where a crop of it would stop at its 465 px height.
+    assert.deepEqual([specs[0].w, specs[0].h], classSizeAt('h', 16 / 9, GLOBE_T1, on.L))
+    assert.ok(classSizeAt('h', 16 / 9, GLOBE_T1, on.L)[1] > 465)
+    const single = off.pools[0].find((r) => r.frames)
+    assert.deepEqual(single.frameAssets.map((f) => f.tex.aspect), [1, 1, 1])
+    assert.deepEqual(single.frameAssets.map((f) => f.tex.cls), [null, null, null]) // counted with the legacy squares
+    assert.ok(single.frameAssets[0].tex.url.includes('fit=fill') && single.frameAssets[1].tex.url.includes('crop=entropy'))
+    assert.deepEqual(single.tex, stillSpec(single.frames[0], single.tex.w))
+  } finally {
+    on.dispose()
+    off.dispose()
+  }
+})
+
+test('sequences: stepSequences cuts every showing tile to the clock’s frame, one frame ahead on its own refs, holding while a frame loads, frozen or re-bound', () => {
+  Object.assign(TUNING, BOARD_DEFAULTS, { mode: 'tides', seed: 42, chaos: 0, names: 0 })
+  const { panels, textureManager } = fakeScene()
+  const slow = new Set()
+  const peek = textureManager.peek.bind(textureManager)
+  textureManager.peek = (k) => (slow.has(k) ? null : peek(k)) // a frame still decoding
+  const director = new PopulationDirector({
+    panels,
+    worlds: seqWorlds(),
+    textureManager,
+    getScheduler: () => null,
+    getRotation: () => new THREE.Euler(),
+    canAnimate: () => true,
+  })
+  director.initialLayout(director.byProminence())
+  const showing = panels.filter((p) => p.shownAsset?.frameKeys && !p.parked)
+  assert.ok(showing.length >= 2, `sequence tiles ${showing.length}`)
+  const tex = (p) => p.mesh.material.uniforms.texA.value
+  const keysOf = (p) => p.shownAsset.frameKeys
+  const frame0 = new Map(showing.map((p) => [p, tex(p)]))
+  const ledger = () => assert.equal(director.texStats().refDrift, 0)
+
+  director.stepSequences(10) // frame 0: the record's own texture; frame 1 loads ahead
+  for (const p of showing) assert.equal(tex(p), frame0.get(p))
+  assert.equal(director.seqRefs, showing.length)
+  ledger()
+  director.stepSequences(1010) // frame 1, every tile on the same beat; frame 2 ahead
+  for (const p of showing) assert.equal(tex(p).k, keysOf(p)[1])
+  assert.equal(director.seqRefs, 2 * showing.length)
+  ledger()
+  director.stepSequences(2010) // frame 2; frame 1 goes back — at most three held however long the sequence
+  for (const p of showing) assert.equal(tex(p).k, keysOf(p)[2])
+  for (const p of showing) assert.equal(textureManager.cache.has(keysOf(p)[1]), false)
+  assert.equal(director.seqRefs, showing.length)
+  ledger()
+  director.stepSequences(3010) // back to frame 0 (held by the tile itself, so nothing to load)
+  for (const p of showing) assert.equal(tex(p), frame0.get(p))
+  // A frame still decoding holds the picture showing: the cut slips, never blanks.
+  for (const p of showing) slow.add(keysOf(p)[1])
+  director.stepSequences(4010)
+  for (const p of showing) assert.equal(tex(p), frame0.get(p))
+  slow.clear()
+  director.stepSequences(4020)
+  for (const p of showing) assert.equal(tex(p).k, keysOf(p)[1])
+  assert.equal(director.seqCuts, 4 * showing.length) // stats.seq.cuts: the four beats that cut, not the held one
+  // Frozen (the commit) and not free to animate: the frame holds.
+  director.frozen = true
+  director.stepSequences(5010)
+  for (const p of showing) assert.equal(tex(p).k, keysOf(p)[1])
+  director.frozen = false
+  // A tile re-bound to another asset gives its frame refs back on the next step.
+  const [p0] = showing
+  const held = p0._seq.held.size
+  const before = director.seqRefs
+  loadTile(director, p0, director.pools[p0.shownAsset.world].find((a) => !a.frames))
+  director.stepSequences(4030) // still frame 1's beat: the other tiles keep what they hold
+  assert.equal(p0._seq, null)
+  assert.equal(director.seqRefs, before - held)
+  ledger()
+  director.dispose()
+  assert.equal(director.seqRefs, 0)
+  assert.equal(textureManager.refs(), panels.length) // only the tiles' own pictures remain
 })
