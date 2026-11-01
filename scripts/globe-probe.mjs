@@ -107,10 +107,12 @@
  *   u-tile           --extra="&poplive=tile"                              capped at vq
  *   u-arrive         --intro=full --warm=10 --secs=30   held reveal, initVQ 0
  *   u-hidpi          --dsf=2               hidpi bucket
- *   u-phonehd        --mobile --dsf=3      phonehd bucket at the 480 pin
+ *   u-phonehd        --mobile --dsf=3      phonehd bucket at the 480 pin (its quads
+ *                    planned at 720, and its pairs too since 10-31's HD)
  *   u-phonehd720     --mobile --dsf=3 --extra="&globeres=720p"   the 720 pin
  *   u-equiv          --extra="&popequiv=13"   neighbourRule report-only
- *   u-thumb-phonehd  --mobile --dsf=3 --extra="&globethumb=512" --texmb=96
+ *   u-thumb-phonehd  --mobile --dsf=3 --extra="&globethumb=512" --texmb=131
+ *                    (desktop's stills, so desktop's texBudget)
  * Levels by phase: P3 tex; P4a, P4b h; P5 vq; P6a live; P6b, P7 tier. Units-off
  * keys: off-desktop, off-mobile, off-rm, off-tide, off-flat, off-phonehd
  * (--mobile --dsf=3); since 10-23 each passes --units=0. Under &poptier=today
@@ -268,9 +270,12 @@ if (!LEVELS.includes(LEVEL_ASKED)) {
 }
 // A tide re-births every row (V/Q leave with them): cap h. RM has no video, and tile mode never lights a member: cap vq.
 const LEVEL = LEVELS[Math.min(LEVELS.indexOf(LEVEL_ASKED), TIDE ? 2 : 5, RM || TILE ? 3 : 5)];
-// texBudget: resident MiB at rest. The warm-residency forecast at popcap 13 with units on (64.4 desktop,
-// 36.3 phone) plus headroom; texPeak, not this, bounds the change window's three groupings.
-const TEXMB = Number(arg('texmb', MOBILE ? 56 : 96));
+// texBudget: resident MiB at rest, as the director counts it: the world on screen and, through its hold, the next
+// one's images as they decode. At the defaults since Nathan's 10-24 tile budget (?popequiv 32) the heaviest adjacent
+// pair reads 113.8 desktop, 63.2 phone (Rossi and Jeff Sorkowitz, seed 4242, the 10-31 texture ledger), plus
+// texPeak's 15%. 96 / 56 were popcap 13's forecast (64.4, 36.3) plus headroom; texPeak, not this, bounds the
+// change window's three groupings.
+const TEXMB = Number(arg('texmb', MOBILE ? 73 : 131));
 const TEXPEAK = arg('texpeak', null); // texPeak's bound; default = the baseline's peak × 1.15
 // A bare flag is on; =0, =false, =off, =no or = (empty) is off: P0's --noclip parse (P0-AMEND §3.1.4, minor 9).
 const flagOn = (v) => v === true || (typeof v === 'string' && !/^(0|false|off|no)?$/i.test(v));

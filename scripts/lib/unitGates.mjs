@@ -280,13 +280,16 @@ export function unitGates(report, ctx) {
   const boxLimited = shown.filter((x) => x.plan != null && x.planShort == null).length;
   const off = max(planned.map((x) => Math.abs(x.short - x.planShort)));
   gate(out, 'streamTier', { n: planned.length, ok: off <= 2, worst: off, bound: 2, boxLimited });
+  // Density over 2 is judged against the rung the sample must show: the pin, or a rung its tier PLANS above the pin
+  // (phonehd's pairs at 720 over the phone's 480 pin, Nathan's 10-31 "yes to HD"), never a rung a stream merely plays.
+  const rungOf = (s) => Math.max(s.decode?.pinShort ?? 480, ...(s.decode?.streams ?? []).map((x) => x.planShort ?? 0));
   const dens = U.filter((s) => s.units.density?.n > 0 && s.r1 > 0);
-  const over = max(dens.map((s) => s.units.density.worst - (ctx.densitymax ?? Math.max(2, (s.decode?.pinShort ?? 480) / s.r1))));
+  const over = max(dens.map((s) => s.units.density.worst - (ctx.densitymax ?? Math.max(2, rungOf(s) / s.r1))));
   gate(out, 'videoDensityMax', {
     n: sum(dens.map((s) => s.units.density.n)),
     ok: over <= 1e-3,
     worst: max(dens.map((s) => s.units.density.worst)),
-    bound: ctx.densitymax ?? 'max(2, pinShort / r1)',
+    bound: ctx.densitymax ?? 'max(2, rung / r1)',
   });
   return out;
 }

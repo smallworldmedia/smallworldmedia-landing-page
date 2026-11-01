@@ -1689,7 +1689,8 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   // published budget, with no tolerance (B1); its n is the samples with two streams or more. streamTier bounds
   // |decoded short − planned short| at 2 px over the planned streams with a frame that aren't box-limited (those are
   // counted apart, never judged). videoDensityMax bounds each sample's worst member density by --densitymax, else
-  // max(2, pinShort / r1), + 1e-3; its n sums the measured members. Floors 1.
+  // max(2, rung / r1), + 1e-3, the rung the higher of the pin and the sample's planned shorts; its n sums the measured
+  // members. Floors 1.
   const P6B = ['decodeReal', 'streamTier', 'videoDensityMax']
   const st = (short, plan, planShort = plan) => ({ id: `c${short}`, short, plan, planShort })
   const tiered = (decode = {}, units = {}, r1 = 400) => ({
@@ -1703,7 +1704,7 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   const tr = atTier([tiered(), tiered({ mp: 2.869, streams: [st(482, 480), st(214, 480, null), unplanned] }, { density: { n: 4, worst: 2.0005 } })])
   assert.deepEqual(row(tr, 'decodeReal'), [true, 2, 1, 2.869, 2.869]) // AT the published budget passes
   assert.deepEqual([...row(tr, 'streamTier'), tr.detail.streamTier.boxLimited], [true, 3, 1, 2, 2, 1]) // 2 px off passes
-  assert.deepEqual(row(tr, 'videoDensityMax'), [true, 10, 1, 2.0005, 'max(2, pinShort / r1)']) // inside the 1e-3
+  assert.deepEqual(row(tr, 'videoDensityMax'), [true, 10, 1, 2.0005, 'max(2, rung / r1)']) // inside the 1e-3
   // each fails non-vacuously just past its bound, whichever sample saw it
   assert.ok(failsAlone(atTier([tiered(), tiered({ mp: 2.8691 })]), 'decodeReal'))
   assert.ok(failsAlone(atTier([tiered({ mp: 2.8691 }), tiered()]), 'decodeReal'))
@@ -1718,11 +1719,21 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   assert.deepEqual([nc.detail.decodeReal.bound, nc.detail.videoDensityMax.bound], [0.3, 1])
   assert.ok(failsAlone(atTier([tiered({ streams: [st(480, 720), st(480, 480)] })]), 'streamTier'))
   // the density bound is the pin over R1 where that exceeds 2 (720 / 300 = 2.4), and 480 / R1 when no budget came
+  const atPin = [st(480, 480), st(480, 480)]
   assert.equal(atTier([tiered({ pinShort: 720 }, { density: { n: 2, worst: 2.4 } }, 300)]).pass.videoDensityMax, true)
   assert.ok(failsAlone(atTier([tiered({ pinShort: 720 }, { density: { n: 2, worst: 2.402 } }, 300)]), 'videoDensityMax'))
-  assert.ok(failsAlone(atTier([tiered({}, { density: { n: 2, worst: 2.4 } }, 300)]), 'videoDensityMax')) // 480 / 300 < 2
+  assert.ok(failsAlone(atTier([tiered({ streams: atPin }, { density: { n: 2, worst: 2.4 } }, 300)]), 'videoDensityMax')) // 480 / 300 < 2
   const undecoded = { ...tiered({}, { density: { n: 2, worst: 2.402 } }, 200), decode: undefined }
   assert.ok(failsAlone(atTier([undecoded]), 'videoDensityMax')) // 480 / 200 = 2.4
+  // ...or a rung the tier plans above the pin, as the pin would (HD, 10-31: phonehd's pairs planned at 720 over the
+  // phone's 480 pin, R1 310 → 2.3226); with nothing planned above the pin the same density fails, and a stream PLAYING
+  // above its plan never raises the bound (streamTier fails it too)
+  const hd = [st(720, 720), st(720, 720)]
+  assert.equal(atTier([tiered({ streams: hd }, { density: { n: 2, worst: 2.3226 } }, 310)]).pass.videoDensityMax, true)
+  assert.ok(failsAlone(atTier([tiered({ streams: hd }, { density: { n: 2, worst: 2.3246 } }, 310)]), 'videoDensityMax'))
+  assert.ok(failsAlone(atTier([tiered({ streams: atPin }, { density: { n: 2, worst: 2.3226 } }, 310)]), 'videoDensityMax'))
+  const overPlay = atTier([tiered({ streams: [st(720, 480), st(480, 480)] }, { density: { n: 2, worst: 2.3226 } }, 310)])
+  assert.deepEqual([overPlay.pass.videoDensityMax, overPlay.pass.streamTier], [false, false])
   // vacuous: no sample with two streams, no planned stream with a frame that isn't box-limited, no measured member or
   // no R1; a sample with no published budget adds nothing to decodeReal or streamTier
   const thinT = atTier([tiered({ streams: [st(214, 480, null)] }, { density: { n: 0, worst: 0 } })])
