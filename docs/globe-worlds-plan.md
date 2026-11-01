@@ -356,13 +356,22 @@ contract's, so comments that cite Q3, Q7 and Q8 still resolve.
   H pairs are admissible anywhere. Their only clause was the grain band's (sin θ ≥ g at both ends,
   g = 0.67, under `?popgrainamt` > 0), and the panel grain was removed on 10-31 (Nathan: "we can
   get rid of the panel grain").
-- **Travel budget D** includes the landing time:
+
+  A 2×3 (10-31, `eligibleT`) always takes the flat look (`unitLookFor`: the rows look pairs two
+  rows, and there is no three-row CPU crop), so it has a band of its own. Its rows' centres stay
+  inside [θT, π − θT], θT = `TALL_THETA` = 30°, for its whole planned life, and its bottom row
+  stays in front of the horizon: θ ≥ θT, and θ + 2Pθ + D ≤ min(150°, θh). θT is a pick (flagged
+  10-31): it keeps a row off the polar band, where the pinch shows half its slice of the picture
+  or less (sin 30° = ½). At an advance (D 22.0°, θh 183° live), a 2×3 leads from 30° to 68° and a
+  1×2 from 47.6° to 80.4°.
+- **Travel budget D** includes the landing time (the 7 s hold, since 10-28; at 6 s they were
+  19.2°, 20.1° and 22.0°):
 
   | Case | D |
   |---|---|
-  | advance | 19.2° |
-  | relayout | 20.1° |
-  | held arrive | 22.0° |
+  | advance | 22.0° |
+  | relayout | 22.9° |
+  | held arrive | 24.8° |
   | replay initial layout, or a single world | ∞, so H only |
   | reduced motion | 0 |
 
@@ -398,6 +407,9 @@ Travel budget: pace·(land + hold·(1 + holdJit) + trans); defaults pace 2°/s, 
 Class texture: W × H = round(T1·(cols·Pφ − Gφ)/phiLen) × round(T1·(rows·Pθ − Gθ)/bandH)
   T1 = GLOBE_T1 (THUMB_WIDTH: 512 desktop, 384 phone) → h 1043×512 (phone 783×384), v 512×1043, q 1043×1043
   TQ = round(T1·(2Pθ − Gθ)/bandH) = 1043 at T1 512, 783 at T1 384
+2×3 (10-31): S_t = S(2, 3) = 0.662542   TALL_GROW = 2·3 − 1·2 = 4 tiles   θT = TALL_THETA = 30°
+  its texture serves its 1×2 and the single too, so it keeps the picture's aspect within [0.491, 1]:
+  a 9:16 portrait's is 1043×1855 at T1 512 (783×1391 at 384), its 1×2's 587×1043 (440×783)
 Decode budget: MAX_LIVE × mp(pinShort, 16/9): desktop 7 × 0.9216 = 6.4512 MP at its 720 pin (Nathan 10-23, Q22;
   2.86944 at 480), phone 4 × 0.40992 = 1.63968 MP at the 480 pin (3.6864 MP under ?globeres=720p)
 ```
@@ -429,13 +441,29 @@ at most 10%. Each asset loads **one texture per session**: its class texture, or
 square while it is single only or an un-elected `q`. Its singles and its members share that
 texture.
 
+**Portraits grow per world** (10-31, Nathan's item 8: "could we do sometimes 2x3 and sometimes
+1x2? maybe depending on number of media assets in a project?"; `unitSpan.growTall`,
+`?popportrait`, default `fill`). Under the wide shapes and a `?popequiv` budget, decorate() weighs
+each world's selection (`weigh`: a 3×2 6, a quad 4, a 1×2 or a pair 2, a single 1). The room it
+leaves, the budget less that weight, grows the world's sharp 1×2s to 2×3s in editorial order,
+`TALL_GROW` = 4 tiles each, while the room holds one. Sharp is `spanSharp` at the 2×3's texture,
+so a 9:16 clip needs a short side of 940 (1080p, never 720p); a still grows as a clip does. A
+grown portrait still weighs 2, so the growth never changes the selection, and a world that fills
+its budget grows none: fewer assets, bigger portraits. The growth is keyed by world, as the
+quads are, and the id's one texture is the 2×3's, which serves its 1×2 and its single too (an id
+shared with a world that did not grow it forms the 1×2 there). At seed 42 on desktop, Bedouin
+grows 5, Munchietown 2, Nusonido 1 and Imperfect Records 1, and the rest grow none.
+`?popportrait=pair` keeps every portrait a 1×2, the 10-24 set. How the planner places them is
+As built 13.
+
 ### Knobs (the knob ledger)
 
 Every span knob is a `?param` with a tunables-guide row. No phase baked a default: each shipped
 as today's behaviour, or off. Nathan's 10-23 bake set three of them (Q1, Q7, Q8) and the desktop `?globeres` (Q22);
 his 10-24 shape set (Q28) added `?popshapes`, default `wide`. His 10-31 yes to Q2 built P9, and
 `?popunitlook` defaults to its look, `flat`: the rebuild he asked for replaces the CPU crop, which
-stays at `rows` for the A/B.
+stays at `rows` for the A/B. His 10-31 item 8 built the adaptive portraits, and `?popportrait`
+defaults to `fill`, the behaviour he asked for; `pair` is the 10-24 set.
 
 | Param | Key | Phase | Default | Range | Reload? |
 |---|---|---|---|---|---|
@@ -449,10 +477,12 @@ stays at `rows` for the A/B.
 | `?globeres` | `GLOBE_STREAM_PARAMS` | P0c | 720p on desktop (Nathan 10-23, Q22; was `STREAM_PARAMS`, 480p), `STREAM_PARAMS` (480p) on phones | `270p` \| `480p` \| `720p` \| `1080p`, else the default | URL-only, load time |
 | `?globethumb` | `GLOBE_T1` | P7 | `THUMB_WIDTH` (512 desktop, 384 phone) | 256–1024, rounded | URL-only, load time |
 | `?popunitlook` | `unitLook` | P9 | `flat` (Nathan 10-31, Q2; `rows` until then) | `flat` \| `rows` | live (bench segment `crop`: every unit on the board re-windows the next frame, with no relayout) |
+| `?popportrait` | `portrait` | 10-31 | `fill` (Nathan 10-31, item 8; `pair` until then) | `fill` \| `pair` | live (bench segment `portraits`: re-decorates, then re-lays) |
 
 `?globedpr`, `?globeres` and `?globethumb` reach `/lab/globe` too, which mounts the same
-VideoGlobe (in dev and preview; Netlify redirects `/lab/globe` to `/` in production). `?popcap` and `?popmedia` re-decorate under units, because the quad election reads
-the selection (P5).
+VideoGlobe (in dev and preview; Netlify redirects `/lab/globe` to `/` in production). `?popcap`, `?popmedia` and `?popequiv` re-decorate under units, because the quad election reads
+the selection (P5) and the 2×3 growth reads its weight (10-31); `?popshapes` and `?popportrait`
+re-decorate too.
 
 The defaults set before P0a are outside the phases, and are recorded here:
 - /work's `?dpr` is 3 on phones and 2 on desktop (P0c, `113b085`).
@@ -534,6 +564,10 @@ tier`. A tide run caps at `h`; `--rm` and `&poplive=tile` cap at `vq`.
 | vq | `unitColumns`, `unitRows`, `unitWarp` (report-only under the flat look; As built 12), `initVQ`, `unitShapes` |
 | live | `unitLiveSplit`, `chipsPerUnit`, `unitRegisterB` |
 | tier | `decodeReal`, `streamTier`, `videoDensityMax` |
+
+Since 10-31 `unitShapes` counts 2×3s with the two-row units, and `classifyRequest` (which
+`texReqShape` reads) takes a request for a 2×3 only at k ≥ 0.9 (`SHARP_ONLY`), as it does a 3×2's,
+which keeps it apart from a scaled 1×2.
 
 `report.net` adds P0's four network gates (`streamClip`, `segmentsPerRendition`, `loops`,
 `audio`). The Status log's older "N gates" counts (09-26, 10-07) count the pass block's keys. They
@@ -639,7 +673,9 @@ Otherwise it holds:
 - `cols`, `rows` and `warp` (P5);
 - `liveSplit`, `chipsPerUnit` and `registerB` (P6a);
 - `density` `{ n, worst }` (P6b);
-- `look` (P9): the dial's crop, `flat` or `rows`.
+- `look` (P9): the dial's crop, `flat` or `rows`;
+- `grown` (10-31): `{ slug: n }`, the 2×3s each world grew, worlds with none left out; `texClass`
+  and `placed` gain `t`.
 
 **The A7 guards** (P6a, `8e74419`, and P7-6): `place()` writes a member's texB, and `registerB`
 and `density` count the member, only when its stream was lit for this unit
@@ -722,6 +758,36 @@ and `density` count the member, only when its stream was lit for this unit
       the row's centre line, so the two looks differ only over the tile's height. A rows-look V's
       shared scale does not: at 60° its top member's centre line renders `q/vK` = 1.0746 of the
       flat width, about the same centre. That is the warp the flat look removes (the "(P9)" tests).
+13. **The 2×3 portraits: the tallest first, once a plan** (10-31, Nathan's item 8; the class
+    rule's Portraits grow per world). What landed beyond that paragraph:
+    - **Three passes.** Wide plans its new units in three passes over the board's leads, the most
+      prominent first: the 2×3s alone, from leads inside `eligibleT`; then the two-row units, from
+      leads admissible for a 1×2; then the rest. A grown portrait forms its 2×3 once a plan, in
+      the first pass, and its other units (to `?popunitmax`) are 1×2s. Classic keeps one pass.
+    - **Why.** Planned in one pass with the two-row units (the 10-24 order), a grown portrait tried
+      at a lead outside its band formed its 1×2 there, and the units planned before it took the
+      rows a 2×3 needs. With `?popunitmax` 2×3s a key, a world that grew one portrait showed it
+      four times, and Nusonido lost its 3×2s. Measured live on desktop (1440×900 @1, seed 42, one
+      ⏭ loop through the worlds), the 2×3s each world's board placed:
+
+      | Planner | Bedouin (grew 5) | Munchietown (2) | Nusonido (1) | Imperfect Records (1) | Nusonido's 3×2s |
+      |---|---|---|---|---|---|
+      | The two-row pass, rows travelling (D 22.0°) | 1 | 1 | 0 | 1 | 2 |
+      | The two-row pass, reduced motion (D 0) | 3 | 2 | 0 | 1 | 2 |
+      | Tallest first, `?popunitmax` 2×3s a key, travelling | 6 | 6 | 4 | 4 | 0 |
+      | As landed, travelling | 5 | 2 | 1 | 1 | 0 |
+      | As landed, reduced motion | 5 | 2 | 1 | 1 | 1 |
+
+      Every run read seam, register, cols and rows worst 0 in every world, skewBad 0, integrity 1,
+      black 0 and no console errors. The worlds that grew none placed what they placed before.
+    - **The trade, flagged.** The 2×3 pass runs before the 3×2s, so Nusonido's one 2×3 takes rows
+      its 3×2s used: 2 → 0 while the rows travel (it shows a quad instead), 2 → 1 under reduced
+      motion. Planning the 3×2s first would reorder boards he has approved, so it is his call.
+    - **The tests** (T38): the growth (the fixture worlds grow 4, 0 and 1; the tile sums and the
+      selection unchanged; `pair`, `?popequiv` 0 and classic grow none, and dialling back
+      regrows), and the planning (eligibleT's edges; on a still board each 2×3 a distinct key,
+      flat, its lead in band; on a moving board exactly the four the world grew; `pair` forms
+      none). Both earlier planners fail T38 (patched in place, then restored byte-identical).
 
 ### Defaults, and Nathan's questions
 
@@ -757,12 +823,19 @@ one commit per knob default. The numbers are the contract's §13, and code comme
 | Q25 | Desktop footer at rest, 0.62 | Answered 10-31: lower it "to a sliver so its more of a suggestion for the user to scroll down to reveal". Re-baked 0.40, the phone's ~18px lead-in peek (the `?footerrest` row of `docs/tunables-guide.md`) |
 | Q26 | The tagline's per-frame watcher on desktop home | Leave it |
 | Q27 | Remove the baked knobs' `?param` reads at the fold? | Answered 10-24: keep them as overrides for now ("keep URL parameters for now") |
-| Q28 | Which span for which aspect? | Answered 10-24: 16:9 and 4:3 a 3×2 (else its 2×1 pair, else a single); 9:16, 3:4 and 4:5 a 1×2 for now (his 2×3 later); every sharp square a quad, no election; `?popequiv` stays 12 with a 3×2 weighing 6, and he re-dials. Behind `?popshapes`: `wide` by default, `classic` = the 10-23 set. 10-31 (Nathan: "could we do sometimes 2x3 and sometimes 1x2? maybe depending on number of media assets in a project? (less would mean bigger portait video to compensate for less total assets)"): portraits go adaptive by asset count; building in the 10-31 round |
+| Q28 | Which span for which aspect? | Answered 10-24: 16:9 and 4:3 a 3×2 (else its 2×1 pair, else a single); 9:16, 3:4 and 4:5 a 1×2 for now (his 2×3 later); every sharp square a quad, no election; `?popequiv` stays 12 with a 3×2 weighing 6, and he re-dials. Behind `?popshapes`: `wide` by default, `classic` = the 10-23 set. 10-31 (Nathan: "could we do sometimes 2x3 and sometimes 1x2? maybe depending on number of media assets in a project? (less would mean bigger portait video to compensate for less total assets)"): portraits go adaptive by asset count. Built 10-31: a world with room left in its budget grows its sharp portraits to 2×3 (`?popportrait=fill`; the class rule's Portraits grow per world, As built 13) |
 
 ### Open
 
 **Nathan's open calls:**
 - Q23(b) above: the deck wall's canvas on a 1× screen (1152). Unanswered on 10-31, so it stays.
+- P9's picks (flagged 10-31; As built 12): `flat` as the default, read from his yes as replacing
+  the CPU crop, and the ε window kept for the flat look's two-row units.
+- The 2×3 portraits' picks (flagged 10-31; the class rule's Portraits grow per world, Eligibility,
+  As built 13): the knob itself (`?popportrait`, `fill` by default as his ask); the growth's
+  details (4 tiles of room a 2×3, editorial order, sharp sources only, stills as well as clips);
+  θT = 30°; and the planner's order, a 2×3 once a plan and planned before the 3×2s, which costs
+  Nusonido its 3×2s while the rows travel (2 → 0; 2 → 1 under reduced motion).
 
 **Answered 10-31** (his replies to the round's 17 open items):
 - A single's corner touching its own unit stays allowed ("stays as is").
@@ -1430,3 +1503,15 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   12 plans (desktop `d5-fast`, phone `p6-fast`) it found 0. At `?poptrans` 0.6 a change spans
   0.6 s, so the two poses are 1.2° of row travel and 1.2° of spin apart (2°/s each). No
   behaviour came of it, so it did not land. Next steps lists the misses that remain.
+- 2026-10-31 · P9 · `310ad84` · the unit crop on the graphics card (his yes to item 9, Q2):
+  `?popunitlook` defaults to `flat`, and `rows` is the CPU crop before it (What a unit is, As
+  built 12). Tests 114, 342 keys; 23 mutants on a scratch copy, all killed. Headless (1440×900
+  @2, reduced motion, seed 42, one ⏭): 11 H, 9 V and 1 W placed; cols, rows, register and seam
+  worst 0; the rows look's warp 0.0026, inside ε; skewBad 0 across both flips. Flat → rows →
+  flat leaves the globe pixel-identical, and /process renders with no console errors.
+- 2026-10-31 · portraits · the 2×3s (his item 8): a world with room left in its tile budget grows
+  its sharp portraits from 1×2 to 2×3 (`?popportrait`, `fill` by default; the class rule, As built
+  13), planned the tallest first, once a plan each. Live at seed 42 on desktop: Bedouin grew 5
+  and placed 5, Munchietown 2 and 2, Nusonido 1 and 1, Imperfect Records 1 and 1, under travel
+  and reduced motion alike, every span measure worst 0. The Travel budget table moves to the 7 s
+  hold's figures (stale since 10-28). Tests 116, 343 keys.

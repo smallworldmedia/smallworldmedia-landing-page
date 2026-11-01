@@ -1,7 +1,8 @@
 /**
  * unitSpan.js — the arithmetic of media spans on the home globe: horizontal
  * pairs (h, 2×1), vertical pairs (v, 1×2), 2×2 quads (q) and, since 10-24
- * (?popshapes=wide), 3×2 wides (w) that fall back to a pair. A unit shows ONE
+ * (?popshapes=wide), 3×2 wides (w) that fall back to a pair, and since 10-31
+ * (?popportrait=fill) 2×3 portraits (t) that fall back to a 1×2. A unit shows ONE
  * texture; each member crops its own slice, so the picture runs straight across
  * the lattice gaps — the gap hides its own strip, like a window mullion.
  * Two looks (?popunitlook): flat (P9, the default since 10-31) leaves the
@@ -21,10 +22,11 @@ export const T_ENTRANCE = 2;
 /** The Mux ladder's top rung (short side). A video at or above it carries no
  *  `s` on the island; buildWorldPools.toGlobeAsset writes `s` only below it. */
 export const TOP_RUNG = 1080;
-export const UNIT_SHAPE = { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 }, w: { cols: 3, rows: 2 } };
+export const UNIT_SHAPE = { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 }, w: { cols: 3, rows: 2 }, t: { cols: 2, rows: 3 } };
 /** The class a unit falls back to where its own won't form: a 3×2 that doesn't fit (a born row, a tide, a
- *  lead outside [θN, θS], a crowded footprint) forms the 2×1 pair, else a single (Nathan 10-24). */
-export const UNIT_FALLBACK = { w: 'h' };
+ *  lead outside [θN, θS], a crowded footprint) forms the 2×1 pair, else a single (Nathan 10-24); a 2×3 that
+ *  doesn't (a lead outside its band, a crowded footprint) forms the 1×2. */
+export const UNIT_FALLBACK = { w: 'h', t: 'v' };
 /** A record of class cls may form a unit of class as: its own, or its fallback. */
 export const canForm = (cls, as) => !!cls && (cls === as || UNIT_FALLBACK[cls] === as);
 
@@ -205,16 +207,17 @@ export const pictureAspect = (a, video) => parseRatio(a?.videoAspectRatio) ?? de
 const slotPx = (cols, rows, T1, L) => [(T1 * (cols * L.Pphi - L.Gphi)) / L.phiLen, (T1 * (rows * L.Pth - L.Gth)) / L.bandH];
 /** The class texture's size [W, H] at T1 for a picture of aspect r (null:
  *  unknown), before the source clamp. Classic: the class slot's size. Wide
- *  (?popshapes=wide, and a 3×2 always): ONE texture serves the class slot, its
- *  fallback (a 3×2's 2×1) and the single, so it keeps the picture's own aspect,
- *  clamped to the span of those slots' aspects (1 to 2.038 for a 3×2, 0.491 to 1
- *  for a 1×2 on the default lattice), at the least size that gives every slot
+ *  (?popshapes=wide, and a class with a fallback always): ONE texture serves the
+ *  class slot, its fallback (a 3×2's 2×1, a 2×3's 1×2) and the single, so it keeps
+ *  the picture's own aspect, clamped to the span of those slots' aspects (1 to
+ *  2.038 for a 3×2, 0.491 to 1 for a 1×2 or a 2×3 on the default lattice), at the
+ *  least size that gives every slot
  *  T1 texels per tile. Every slot's cover crop is then exactly the crop it would
  *  take of the source: inside the span the texture is the whole picture, and
  *  outside it every slot cuts the side the clamp cut. From slot-shaped textures
  *  a 16:9 pair would keep 63% of its picture instead of 87%, and a 3:4 single
  *  32% instead of 75% (10-24). Unknown aspect → the class slot's. */
-export function classSizeAt(cls, r, T1, L, { wide = cls === 'w' } = {}) {
+export function classSizeAt(cls, r, T1, L, { wide = !!UNIT_FALLBACK[cls] } = {}) {
   const { cols, rows } = UNIT_SHAPE[cls];
   const slots = [slotPx(cols, rows, T1, L)];
   if (wide) {
@@ -251,6 +254,20 @@ export const eligibleVQ = (theta, D, W) =>
   theta + D <= W.thetaS &&
   theta + W.Pth + D <= W.thetaH;
 
+/* — 10-31 — a 2×3's band. A 2×3 always takes the flat crop (unitLookFor), which has no warp to bound, so the ε
+   window does not apply: its three rows' centres stay inside [θT, π − θT] over its planned life, and its bottom row
+   above the horizon, as a V's does. θT = 30° is a pick (flagged for Nathan): it keeps a row off the polar band,
+   where the pinch shows half its slice of the picture or less (sin 30° = ½). — */
+export const TALL_THETA = Math.PI / 6;
+export const eligibleT = (theta, D, W) =>
+  theta >= TALL_THETA &&
+  theta + 2 * W.Pth + D <= Math.PI - TALL_THETA &&
+  theta + 2 * W.Pth + D <= W.thetaH;
+
+/** The crop a unit takes under the ?popunitlook dial: a 2×3 always the flat one (P9). The rows look's per-row
+ *  windows pair two rows (kappaOwn), and there is no three-row CPU crop. */
+export const unitLookFor = (rows, look) => (rows > 2 ? 'flat' : look);
+
 /* — P5 — a world's quads: the first n u === 'q' assets of the world's SELECTED
    pool (after ?popcap, ?popmedia and ?popequiv; editorial order) whose REAL
    source short side reaches 0.9 × the quad texture side, so a quad is at most
@@ -273,6 +290,23 @@ export function wideClass(a, T1, L) {
   if (a.uw === 'q') return spanSharp(a, 'q', T1, L) ? 'q' : null;
   return a.uw === 'v' ? 'v' : null;
 }
+/** — 10-31 (Nathan, item 8: "sometimes 2x3 and sometimes 1x2 … depending on number of media assets", fewer assets
+ *  → bigger portraits) — the portraits a world grows to 2×3 under ?popportrait=fill. Its selected pool (editorial
+ *  order, inside its ?popequiv budget) weighs `used`; the room it left, budget − used, grows its sharp 1×2s
+ *  (wideClass 'v', spanSharp at 2×3) in editorial order, TALL_GROW tiles each, while the room holds one. A world
+ *  that fills its budget grows none. Returns their ids (playbackId || imageUrl). */
+export const TALL_GROW = UNIT_SHAPE.t.cols * UNIT_SHAPE.t.rows - UNIT_SHAPE.v.cols * UNIT_SHAPE.v.rows;
+export function growTall(pool, used, budget, T1, L) {
+  const out = new Set();
+  let room = budget - used;
+  for (const a of pool) {
+    if (room < TALL_GROW) break;
+    if (wideClass(a, T1, L) !== 'v' || !spanSharp(a, 't', T1, L)) continue;
+    out.add(a.playbackId || a.imageUrl);
+    room -= TALL_GROW;
+  }
+  return out;
+}
 export function electQuads(pool, n, T1, L) {
   const out = new Set();
   for (const a of pool) {
@@ -287,8 +321,8 @@ export function electQuads(pool, n, T1, L) {
    mUv, so it keeps A's flat crop (spanC, P9) when A has one. — */
 export const liveB = (V, aTex, A) => ({ ...compose(coverWindow(V, aTex), A), ...(A.spanC == null ? {} : { spanC: A.spanC }) });
 
-/* — P4a (h) / P5 (v, q) / 10-24 (w) — the unit classes the planner forms. — */
-export const UNIT_CLASSES = new Set(['h', 'v', 'q', 'w']);
+/* — P4a (h) / P5 (v, q) / 10-24 (w) / 10-31 (t) — the unit classes the planner forms. — */
+export const UNIT_CLASSES = new Set(['h', 'v', 'q', 'w', 't']);
 
 /* — P6b — stream tiers. A rung is a pinned rendition's short side. The pin
    rung is the one the pool's pin is served at (pinShortOf(GLOBE_STREAM_PARAMS)):
@@ -302,20 +336,20 @@ export const UNIT_CLASSES = new Set(['h', 'v', 'q', 'w']);
    do, so a 3× phone streams every unit at 720 and only singles at 480. The
    phone's decode budget did not move (MAX_LIVE × the 480 pin frame), so an HD
    pair can crowd out a single's stream. lean is one rung lower, phone 270. A
-   3×2 (w) is two rows tall, as a quad is, so it takes the quad's rung
-   everywhere. — */
+   3×2 (w) is two rows tall, as a quad is, and a 2×3 (t) three, so both take
+   the quad's rung everywhere. — */
 export const STREAM_RUNGS = [270, 480, 720, TOP_RUNG];
-export const TIER_RANK = { s: 0, h: 1, v: 1, q: 2, w: 2 };
-const LEAN_HIDPI = { s: 480, h: 480, v: 480, q: 720, w: 720 }; // lean/hidpi (auto/phonehd shared it until 10-31)
-const LEAN_PHONE = { s: 270, h: 270, v: 270, q: 480, w: 480 }; // lean/phone; lean/phonehd shares it
+export const TIER_RANK = { s: 0, h: 1, v: 1, q: 2, w: 2, t: 2 };
+const LEAN_HIDPI = { s: 480, h: 480, v: 480, q: 720, w: 720, t: 720 }; // lean/hidpi (auto/phonehd shared it until 10-31)
+const LEAN_PHONE = { s: 270, h: 270, v: 270, q: 480, w: 480, t: 480 }; // lean/phone; lean/phonehd shares it
 export const STREAM_TIERS = {
   auto: {
-    hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080 },
-    lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 },
-    phone: { s: 480, h: 480, v: 480, q: 480, w: 480 },
-    phonehd: { s: 480, h: 720, v: 720, q: 720, w: 720 }, // Nathan 10-31: pairs at 720 too (A2's lean/hidpi row before)
+    hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080, t: 1080 },
+    lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720, t: 720 },
+    phone: { s: 480, h: 480, v: 480, q: 480, w: 480, t: 480 },
+    phonehd: { s: 480, h: 720, v: 720, q: 720, w: 720, t: 720 }, // Nathan 10-31: pairs at 720 too (A2's lean/hidpi row before)
   },
-  lean: { hidpi: LEAN_HIDPI, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: LEAN_PHONE, phonehd: LEAN_PHONE },
+  lean: { hidpi: LEAN_HIDPI, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720, t: 720 }, phone: LEAN_PHONE, phonehd: LEAN_PHONE },
 };
 /** A phone at or above this effective pixel ratio is phonehd: the midpoint of
  *  the old phone cap 1.5 and full res 3 (§3.9). Since bake B's 3, a 3× phone

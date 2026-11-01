@@ -28,6 +28,8 @@
  * set before it stays at ?popshapes=classic. 10-28 (his call): a 7 s hold and
  * the fast handoff by default. 10-31 (his yes to P9): a unit's crop is the
  * shader's (?popunitlook=flat); ?popunitlook=rows is the CPU crop before it.
+ * 10-31 (his item 8): a world with room left in its tile budget grows its
+ * sharp portraits from 1×2 to 2×3 (?popportrait=fill); pair keeps every 1×2.
  * 10-06 = client-name strips (names, nameStyle — nameTicker.js).
  * 10-07 = their placement rework: the ticker is gone (the strips are still),
  * the span comes from the MEASURED name (nameSpanMin/nameSpanMax) instead of a
@@ -80,6 +82,10 @@ export const POP_HANDOFFS = ['today', 'fast'];
  *  unit's centre (one density over the unit: no row warp, no kink at the gaps; Nathan 10-31, "yes rebuild cropping
  *  on the graphics card"); rows = the per-row CPU windows before it. */
 export const POP_UNIT_LOOKS = ['flat', 'rows'];
+/** A portrait's span under ?popshapes=wide and a ?popequiv budget: fill = a world grows its sharp 1×2s to 2×3
+ *  with the room its selection left, so a world with fewer assets shows bigger portraits (unitSpan.growTall;
+ *  Nathan 10-31, "sometimes 2x3 and sometimes 1x2"); pair = every portrait 1×2, the 10-24 set. */
+export const POP_PORTRAITS = ['fill', 'pair'];
 export { PATTERNS as POP_PATTERNS, NAME_STYLES as POP_NAME_STYLES, NAME_MODES as POP_NAME_MODES };
 
 /** popmedia → the media kinds a world's pool keeps (null = its whole pool:
@@ -125,6 +131,7 @@ export const POP_DEFAULTS = Object.freeze({
   unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
   shapes: 'wide', // ?popshapes — the span each picture takes (POP_SHAPES); wide = Nathan's 10-24 set, classic = the one before it
   unitLook: 'flat', // ?popunitlook — flat | rows (POP_UNIT_LOOKS): how a member crops its unit's picture (P9, 10-31; rows until then)
+  portrait: 'fill', // ?popportrait — fill | pair (POP_PORTRAITS): fill = a world's sharp portraits grow to 2×3 with its budget's room (Nathan 10-31, item 8; pair until then)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
   equiv: 32, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Nathan 10-24, 32 (the top; Q8 10-23 was 12, before that 0)
@@ -166,6 +173,7 @@ const CHOICE = {
   handoff: ['pophandoff', POP_HANDOFFS],
   shapes: ['popshapes', POP_SHAPES],
   unitLook: ['popunitlook', POP_UNIT_LOOKS],
+  portrait: ['popportrait', POP_PORTRAITS],
   nameStyle: ['popnamestyle', NAME_STYLES],
   nameMode: ['popnamemode', NAME_MODES],
 };

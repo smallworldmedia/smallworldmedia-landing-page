@@ -42,6 +42,7 @@ import {
   POP_HANDOFFS,
   POP_SHAPES,
   POP_UNIT_LOOKS,
+  POP_PORTRAITS,
   POP_NAME_MODES,
   POP_NAME_STYLES,
   setPopTune,
@@ -211,7 +212,7 @@ export default function PopTunePanel({ sceneApiRef }) {
                 }`
               : '—'}
             <br />
-            spans {stats.units ? `w ${stats.units.placed?.w ?? 0} · h ${stats.units.placed?.h ?? 0} · v ${stats.units.placed?.v ?? 0} · q ${stats.units.placed?.q ?? 0}` : 'off'} ·
+            spans {stats.units ? `w ${stats.units.placed?.w ?? 0} · h ${stats.units.placed?.h ?? 0} · t ${stats.units.placed?.t ?? 0} · v ${stats.units.placed?.v ?? 0} · q ${stats.units.placed?.q ?? 0}` : 'off'} ·
             tex {stats.tex?.mib ?? '—'} MiB (peak {stats.tex?.peak ?? '—'}) · decode {stats.decode?.mp ?? '—'} / {stats.decode?.budget ?? '—'} MP
           </>
         ) : on ? (
@@ -277,16 +278,19 @@ export default function PopTunePanel({ sceneApiRef }) {
       <Segmented label="spans" value={s.units ? 'on' : 'off'} options={['off', 'on']} onPick={(m) => set('units', m === 'on' ? 1 : 0)} />
       <Segmented label="shapes" value={s.shapes} options={POP_SHAPES} onPick={(m) => set('shapes', m)} />
       <Segmented label="crop" value={s.unitLook} options={POP_UNIT_LOOKS} onPick={(m) => set('unitLook', m)} />
+      <Segmented label="portraits" value={s.portrait} options={POP_PORTRAITS} onPick={(m) => set('portrait', m)} />
       <Row label="units / asset" param="unitMax" value={s.unitMax} min={1} max={6} step={1} onChange={set} />
       <Row label="quads / world" param="quads" value={s.quads} min={0} max={2} step={1} onChange={set} />
       <Row label="tile budget" param="equiv" value={s.equiv} min={0} max={32} step={1} onChange={set} />
       <Segmented label="video tier" value={s.tier} options={POP_TIERS} onPick={(m) => set('tier', m)} />
       <p className="hero-tune__note">
-        ?popunits · ?popshapes · ?popunitlook · ?popunitmax · ?popquads · ?popequiv · ?poptier. on = tiles join into one picture across
+        ?popunits · ?popshapes · ?popunitlook · ?popportrait · ?popunitmax · ?popquads · ?popequiv · ?poptier. on = tiles join into one picture across
         the gaps, one texture per asset, one stream and one chip per unit. off = today's globe. shapes: wide (Nathan 10-24) = 16:9 and
         4:3 span 3×2 (a 2×1 pair where a 3×2 won't fit), 9:16, 3:4 and 4:5 span 1×2, every square 2×2; classic = 16:9 2×1,
         9:16 1×2, squares per ?popquads. crop: flat (Nathan 10-31) = the graphics card pinches each pixel row about the unit's
-        centre, so a two-row picture neither warps nor kinks at the gap; rows = the per-row crop before it. units / asset caps the units one
+        centre, so a two-row picture neither warps nor kinks at the gap; rows = the per-row crop before it. portraits: fill (Nathan
+        10-31) = a world with room left in its tile budget grows its sharp portraits to 2×3, so fewer assets means bigger
+        portraits (one 2×3 each a plan, its other units 1×2s; a 2×3 always takes the flat crop); pair = every portrait 1×2. units / asset caps the units one
         asset forms per plan; quads / world (classic only), the 2×2 quads each world elects; tile budget (?popequiv), each world's
         tile-equivalents on top of ?popcap (pair 2, quad 4, 3×2 6, single 1: fewer assets, more tiles each), 0 = off; 32 = Nathan's
         (10-24; 12 on 10-23, Q8); video tier, the rendition each stream

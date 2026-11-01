@@ -20,7 +20,7 @@ import TextureManager, { assetKey, computeCoverUv } from '../../src/components/g
 import { loadTile, windowA, unitWindowOf, setWindowB, shownWindowA, offB, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
-import { TUNING, POP_DEFAULTS, POP_TIERS, POP_SHAPES, POP_UNIT_LOOKS, setPopTune } from '../../src/components/globe/popConfig.js'
+import { TUNING, POP_DEFAULTS, POP_TIERS, POP_SHAPES, POP_UNIT_LOOKS, POP_PORTRAITS, setPopTune } from '../../src/components/globe/popConfig.js'
 import {
   measureNameAspect,
   nameSpan,
@@ -76,6 +76,9 @@ import {
   quadEligible,
   electQuads,
   eligibleVQ,
+  eligibleT,
+  TALL_THETA,
+  TALL_GROW,
   liveB,
   pictureAspect,
   UNIT_CLASSES,
@@ -94,10 +97,11 @@ import { classOf } from '../../src/components/globe/mediaClass.js'
  *  written, before Nathan's 10-23 bake (units off, one unit per key, no tile budget) and his 10-24 shape set
  *  (classic: the fixtures carry `u`, not `uw`), and the handoff they were written under, before his 10-28 call
  *  (today: the next world warms as it is planned), and the crop they were written for, before his 10-31 yes to
- *  P9 (rows: the per-row CPU windows). A board asks for more explicitly (6 per key in T13's wide boards,
- *  ?popequiv 13 in P7's, fast in the handoff tests, flat in P9's); 'spans: the shipped defaults' lays one at
- *  the baked values, and the ?popshapes=wide tests lay theirs at wide. */
-const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, units: 0, unitMax: 1, equiv: 0, shapes: 'classic', handoff: 'today', unitLook: 'rows' })
+ *  P9 (rows: the per-row CPU windows), and the portraits before his 10-31 item 8 (pair: every portrait 1×2).
+ *  A board asks for more explicitly (6 per key in T13's wide boards, ?popequiv 13 in P7's, fast in the handoff
+ *  tests, flat in P9's, fill in T38's); 'spans: the shipped defaults' lays one at the baked values, and the
+ *  ?popshapes=wide tests lay theirs at wide. */
+const BOARD_DEFAULTS = Object.freeze({ ...POP_DEFAULTS, units: 0, unitMax: 1, equiv: 0, shapes: 'classic', handoff: 'today', unitLook: 'rows', portrait: 'pair' })
 
 /* — buildWorldPools over the real query — */
 const ref = (_ref) => ({ _type: 'reference', _ref })
@@ -1431,11 +1435,12 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
   // — P3 — class requests (T1 512: h 1043×512, q 1043²; clamped to the source on both CDNs). Classic: the slot sizes.
   // — 10-24 — wide (the default): a class keeps its picture's aspect within its slots' span, so its sizes are a curve
   // from the narrowest end to the widest (unitSpan.classSizeAt).
-  assert.deepEqual(classSizes(512), { h: [1043, 512], v: [512, 1043], q: [1043, 1043], w: [1575, 1043] })
-  assert.deepEqual(classSizes(384), { h: [783, 384], v: [384, 783], q: [783, 783], w: [1181, 783] })
+  assert.deepEqual(classSizes(512), { h: [1043, 512], v: [512, 1043], q: [1043, 1043], w: [1575, 1043], t: [1043, 1575] })
+  assert.deepEqual(classSizes(384), { h: [783, 384], v: [384, 783], q: [783, 783], w: [1181, 783], t: [783, 1181] })
   const ends = (t1) => Object.fromEntries(Object.entries(classWideSizes(t1)).map(([c, s]) => [c, [s[0], s.at(-1)]]))
-  assert.deepEqual(ends(512), { h: [[1043, 1043], [1043, 512]], v: [[512, 1043], [1043, 1043]], q: [[1043, 1043], [1043, 1043]], w: [[1575, 1575], [2127, 1043]] })
+  assert.deepEqual(ends(512), { h: [[1043, 1043], [1043, 512]], v: [[512, 1043], [1043, 1043]], q: [[1043, 1043], [1043, 1043]], w: [[1575, 1575], [2127, 1043]], t: [[1043, 2127], [1575, 1575]] })
   assert.deepEqual(ends(384).w, [[1181, 1181], [1595, 783]])
+  assert.deepEqual(ends(384).t, [[783, 1595], [1181, 1181]])
   const crop = (w, h) => `https://image.mux.com/abc/thumbnail.webp?width=${w}&height=${h}&fit_mode=crop&time=0`
   const wideShapes = [
     [1855, 1043, 'w'], // a 16:9 clip
@@ -1445,6 +1450,9 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
     [1043, 587, 'h'], // a 16:9 clip too soft for its 3×2: the pair
     [783, 1043, 'v'], // a 3:4 still
     [587, 1043, 'v'], // a 9:16 clip
+    [1043, 1855, 't'], // a 9:16 clip its world grew to 2×3 (10-31)
+    [1181, 1575, 't'], // a 3:4 still (1500×2000), grown
+    [1000, 1778, 't'], // 9:16, clamped to a 1000-wide source (k 0.96)
     [1043, 1043, 'q'], // squares first: a 1×2 or 2×1 at aspect 1 meets the quad's size
     [1040, 512, 'h'], // a 2.03:1 picture 1040 px wide (classic: off the class size, below)
   ]
@@ -1462,7 +1470,8 @@ test('spans: the gate module — vacuity, expect-fail, request classes, baseline
     assert.equal(classifyRequest(crop(1400, 928), 512, shapes).kind, 'other') // the 3×2 slot's size at k 0.889
   }
   assert.equal(classifyRequest(crop(1418, 939), 512).shape, 'w') // … and at k 0.9 (texSpec: round(1575 × 0.9) = 1418)
-  for (const [w, h] of [[1040, 512], [1855, 1043], [1043, 587], [783, 1043]]) assert.equal(classifyRequest(crop(w, h), 512, 'classic').kind, 'other', `${w}×${h}`)
+  assert.equal(classifyRequest(crop(834, 1484), 512).kind, 'other') // a 9:16 2×3 at k 0.8: a 2×3 is sharp or it isn't one
+  for (const [w, h] of [[1040, 512], [1855, 1043], [1043, 587], [783, 1043], [1043, 1855]]) assert.equal(classifyRequest(crop(w, h), 512, 'classic').kind, 'other', `${w}×${h}`)
   // — P3 — one variant per id, now that an id can be asked two ways (P0b's leftover, M17): one query per id
   // passes; the same id as a legacy crop AND a class crop is two variants, which fails non-vacuously, worst 2.
   const classQ = 'https://image.mux.com/id0/thumbnail.webp?width=1043&height=512&fit_mode=crop&time=0'
@@ -1884,12 +1893,14 @@ test('spans: lattice() off a real scroll panel is latticeOf, and the unit aspect
   const wide = lattice(panelsAt(2)[0], 12, 6)
   const wideOf = latticeOf({ lon: 12, visibleRows: 6, gapDeg: 2, latGapDeg: 1.1 })
   for (const k of ['Pphi', 'Gphi', 'Pth', 'Gth', 'phiLen', 'bandH']) near(wide[k], wideOf[k], 1e-12, `2° gaps: ${k}`)
-  assert.deepEqual(UNIT_SHAPE, { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 }, w: { cols: 3, rows: 2 } })
+  assert.deepEqual(UNIT_SHAPE, { h: { cols: 2, rows: 1 }, v: { cols: 1, rows: 2 }, q: { cols: 2, rows: 2 }, w: { cols: 3, rows: 2 }, t: { cols: 2, rows: 3 } })
   const S = (L, cls) => unitAspect(UNIT_SHAPE[cls].cols, UNIT_SHAPE[cls].rows, L)
   near(S(SPAN_L, 'h'), 2.038062, 1e-6, 'S_h')
   near(S(SPAN_L, 'v'), 0.490662, 1e-6, 'S_v')
   near(S(SPAN_L, 'q'), 1, 1e-6, 'S_q')
   near(S(SPAN_L, 'w'), 1.509338, 1e-6, 'S_w') // 10-24: 3×2 is ≈ 3:2
+  near(S(SPAN_L, 't'), 0.662542, 1e-6, 'S_t') // 10-31: 2×3 is ≈ 2:3, the 3×2 turned on its side
+  near(S(SPAN_L, 't'), 1 / S(SPAN_L, 'w'), 1e-12, 'S_t S_w = 1 on a lattice with equal gaps')
   // NC: a globe built with 2° meridian gaps gives S_h 2.00692, which the S assertion refuses
   const wideH = S(wide, 'h')
   near(wideH, 2.00692, 1e-5)
@@ -2116,24 +2127,28 @@ test('spans: ?popshapes=wide — one texture per asset at its picture’s aspect
   const vid = (s, ratio = '16:9') => ({ kind: 'video', playbackId: 'id', videoAspectRatio: ratio, ...(s == null ? {} : { s }) })
   const still = (dims) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/x${dims ? `-${dims}` : ''}.jpg` })
   const size = (wh) => wh.join('x')
-  // the fallback: a 3×2 with no room (or too soft) forms its 2×1; canForm(record class, unit class)
-  assert.deepEqual(UNIT_FALLBACK, { w: 'h' })
-  const forms = [['w', 'w'], ['w', 'h'], ['h', 'h'], ['h', 'w'], ['v', 'h'], ['q', 'q'], ['q', 'h'], [null, 'h'], [undefined, 'h']]
-  assert.deepEqual(forms.map(([c, as]) => canForm(c, as)), [true, true, true, false, false, true, false, false, false])
+  // the fallback: a 3×2 with no room (or too soft) forms its 2×1, a 2×3 its 1×2 (10-31); canForm(record class, unit class)
+  assert.deepEqual(UNIT_FALLBACK, { w: 'h', t: 'v' })
+  const forms = [['w', 'w'], ['w', 'h'], ['h', 'h'], ['h', 'w'], ['v', 'h'], ['q', 'q'], ['q', 'h'], [null, 'h'], [undefined, 'h'], ['t', 't'], ['t', 'v'], ['v', 't'], ['t', 'h']]
+  assert.deepEqual(forms.map(([c, as]) => canForm(c, as)), [true, true, true, false, false, true, false, false, false, true, true, false, false])
   // sourceAspect: Mux's exact ratio, a still's -WxH; unknown → null
   assert.equal(sourceAspect(vid(720)), 16 / 9)
   assert.equal(sourceAspect(still('1600x1200')), 4 / 3)
   assert.equal(sourceAspect(still()), null)
-  // the sizes at T1 512: wide by its picture (a 3×2 always), classic by its slot whatever the picture
+  // the sizes at T1 512: wide by its picture (a 3×2 or a 2×3 always), classic by its slot whatever the picture
   const wide = [
     ['w', 16 / 9, '1855x1043'], ['w', 4 / 3, '1575x1181'], ['w', null, '1575x1043'], ['w', 2.4, '2127x1043'], ['w', 1, '1575x1575'],
     ['h', 16 / 9, '1043x587'], ['h', 2.4, '1043x512'], ['h', null, '1043x512'],
     ['v', 9 / 16, '587x1043'], ['v', 3 / 4, '783x1043'], ['v', 4 / 5, '835x1043'], ['v', 0.3, '512x1043'], ['v', null, '512x1043'],
     ['q', 1.1, '1043x1043'], ['q', 0.9, '1043x1043'],
+    // 10-31: a 2×3 serves its 1×2 and the single, so it spans their aspects (0.491 to 1) as the 1×2 does, three rows tall
+    ['t', 9 / 16, '1043x1855'], ['t', 2 / 3, '1050x1575'], ['t', 3 / 4, '1181x1575'], ['t', 0.3, '1043x2127'], ['t', 1, '1575x1575'], ['t', null, '1043x1575'],
   ]
   for (const [cls, r, want] of wide) assert.equal(size(classSizeAt(cls, r, 512, L, { wide: true })), want, `${cls} ${r}`)
   assert.equal(size(classSizeAt('w', 16 / 9, 512, L)), '1855x1043')
   assert.equal(size(classSizeAt('w', 16 / 9, 384, L)), '1391x783')
+  assert.equal(size(classSizeAt('t', 9 / 16, 512, L)), '1043x1855') // a class with a fallback is wide by default
+  assert.equal(size(classSizeAt('t', 9 / 16, 512, L, { wide: false })), '1043x1575') // NC: at its slot, a 9:16 loses 15% of its height
   for (const [cls, want] of [['h', '1043x512'], ['v', '512x1043'], ['q', '1043x1043']]) {
     for (const r of [16 / 9, 3 / 4, null]) assert.equal(size(classSizeAt(cls, r, 512, L)), want, `classic ${cls} ${r}`)
   }
@@ -2142,7 +2157,7 @@ test('spans: ?popshapes=wide — one texture per asset at its picture’s aspect
   // Every slot a wide texture serves (its own, the fallback, the single) shows exactly the part of the source a
   // direct cover crop would, at ≥ T1 texels per tile, over aspects inside and outside each clamp.
   const px = (cols, rows) => [(512 * (cols * L.Pphi - L.Gphi)) / L.phiLen, (512 * (rows * L.Pth - L.Gth)) / L.bandH]
-  const serves = { w: [[3, 2], [2, 1], [1, 1]], h: [[2, 1], [1, 1]], v: [[1, 2], [1, 1]], q: [[2, 2], [1, 1]] }
+  const serves = { w: [[3, 2], [2, 1], [1, 1]], h: [[2, 1], [1, 1]], v: [[1, 2], [1, 1]], q: [[2, 2], [1, 1]], t: [[2, 3], [1, 2], [1, 1]] }
   let crops = 0
   for (const [cls, slots] of Object.entries(serves)) {
     for (const r of [0.3, 9 / 16, 0.6, 3 / 4, 0.8, 0.9, 1, 1.1, 1.2, 4 / 3, 1.5, 16 / 9, 2, 2.4, 3]) {
@@ -2158,7 +2173,7 @@ test('spans: ?popshapes=wide — one texture per asset at its picture’s aspect
       }
     }
   }
-  assert.equal(crops, 15 * 9)
+  assert.equal(crops, 15 * 12)
   // NC: slot-shaped textures (classic's, or a 3×2 cut at its slot's aspect) — a 3:4 single keeps 32% of the
   // picture instead of 75%, a 16:9 pair 63% instead of 87%
   const area = (w) => w.s[0] * w.s[1]
@@ -2166,10 +2181,14 @@ test('spans: ?popshapes=wide — one texture per asset at its picture’s aspect
   near([area(coverWindow(3 / 4, Sv)) * area(coverWindow(Sv, S1)), area(coverWindow(3 / 4, S1))], [0.32, 0.75], 0.005)
   near([area(coverWindow(16 / 9, Sw)) * area(coverWindow(Sw, Sh)), area(coverWindow(16 / 9, Sh))], [0.63, 0.87], 0.005)
   // A 3×2 or a quad must be sharp at its own size (≤ a 10% upscale): a 16:9 clip from s 940 (its width binds:
-  // 0.9 × 1855 = 1669.5 ≤ 940 × 16/9), a 4:3 still from 1575 wide; a quad from a 939 short side.
+  // 0.9 × 1855 = 1669.5 ≤ 940 × 16/9), a 4:3 still from 1575 wide; a quad from a 939 short side. A 2×3 likewise
+  // (10-31): a 9:16 clip from s 940 (its height binds: 0.9 × 1855 = 1669.5 ≤ 940 × 16/9), a 3:4 still 1500×2000;
+  // a 1080p 4:5 clip is not (1080 < 0.9 × 1260), nor is any 720p portrait.
   for (const [a, cls, want] of [
     [vid(940), 'w', true], [vid(939), 'w', false], [still('1600x1200'), 'w', true], [still('1200x900'), 'w', false],
     [vid(939, '1:1'), 'q', true], [vid(938, '1:1'), 'q', false], [vid(0), 'w', false], [still(), 'q', false],
+    [vid(940, '9:16'), 't', true], [vid(939, '9:16'), 't', false], [vid(undefined, '9:16'), 't', true], [vid(720, '9:16'), 't', false],
+    [still('1500x2000'), 't', true], [still('1200x1500'), 't', true], [vid(undefined, '4:5'), 't', false], [vid(0, '9:16'), 't', false],
   ]) assert.equal(spanSharp(a, cls, 512, L), want, `${a.imageUrl || `s ${a.s} ${a.videoAspectRatio}`} ${cls}`)
   const cases = [
     [{ ...vid(), uw: 'w' }, 'w'], [{ ...vid(720), uw: 'w' }, 'h'], [{ ...still('1200x900'), uw: 'w' }, 'h'],
@@ -2180,14 +2199,14 @@ test('spans: ?popshapes=wide — one texture per asset at its picture’s aspect
   for (const [a, want] of cases) assert.equal(wideClass(a, 512, L), want, JSON.stringify(a))
   assert.equal(wideClass({ ...vid(720), uw: 'w' }, 384, L), 'w') // at T1 384 the same clip is sharp: 1280 ≥ 0.9 × 1391
   // Every wide request is its class to the probe's gate (unitGates.classifyRequest), clamped to its source or not.
-  const fams = { w: [1.2, 4 / 3, 1.5, 16 / 9, 2, 2.4], h: [1.2, 4 / 3, 16 / 9, 2.4], v: [0.3, 9 / 16, 0.6, 3 / 4, 0.8], q: [0.9, 1, 1.1] }
+  const fams = { w: [1.2, 4 / 3, 1.5, 16 / 9, 2, 2.4], h: [1.2, 4 / 3, 16 / 9, 2.4], v: [0.3, 9 / 16, 0.6, 3 / 4, 0.8], q: [0.9, 1, 1.1], t: [0.45, 9 / 16, 0.6, 2 / 3, 3 / 4, 0.8, 0.89] }
   let reqs = 0
   for (const [cls, rs] of Object.entries(fams)) {
     for (const r of rs) {
-      for (const s of [300, 480, 720, 1080, 2000]) {
+      for (const s of [300, 480, 720, 1080, 1200, 2000]) {
         const dims = r >= 1 ? [Math.round(s * r), s] : [s, Math.round(s / r)]
         const a = still(dims.join('x'))
-        if (cls === 'w' && !spanSharp(a, 'w', 512, L)) continue
+        if ((cls === 'w' || cls === 't') && !spanSharp(a, cls, 512, L)) continue
         const t = texSpec(a, cls, 512, L, { wide: true })
         assert.ok(t.w <= dims[0] && t.h <= dims[1], `${cls} ${dims.join('x')}: ${t.w}×${t.h} upscales`)
         assert.equal(classifyRequest(t.url, 512).shape, cls, `${cls} ${dims.join('x')} → ${t.w}×${t.h}`)
@@ -2508,8 +2527,8 @@ test('spans: with units on, every tile and the warm set hold one ref each, on th
     assert.ok(members >= 1 && singles >= 1, `${members} members, ${singles} singles checked`)
     // unitStats' census of the cache: each pool key once, by the class it was asked as; a key outside the
     // pools (a name strip's) is not a pool texture.
-    const census = { h: 0, v: 0, q: 0, w: 0, legacy: 0 }
-    for (const k of textureManager.cache.keys()) census[/\|([hvqw])\d+x\d+$/.exec(k)?.[1] ?? 'legacy'] += 1
+    const census = { h: 0, v: 0, q: 0, w: 0, t: 0, legacy: 0 }
+    for (const k of textureManager.cache.keys()) census[/\|([hvqwt])\d+x\d+$/.exec(k)?.[1] ?? 'legacy'] += 1
     assert.ok(census.h > 0 && census.v > 0 && census.legacy > 0, JSON.stringify(census))
     textureManager.cache.set('strip', { refs: 1, texture: {} })
     assert.deepEqual(director.unitStats(0).texClass, census)
@@ -2857,7 +2876,7 @@ function assertWholeUnits(director, panels, classes = ['h']) {
 }
 
 test('spans: planUnits forms whole H pairs in one region, clear of their own key, at most ?popunitmax per key; a kept unit takes the new world (T13)', async () => {
-  assert.deepEqual([...UNIT_CLASSES], ['h', 'v', 'q', 'w']) // P5 adds v and q, 10-24 w; these boards have no horizon, so H pairs only (M4)
+  assert.deepEqual([...UNIT_CLASSES], ['h', 'v', 'q', 'w', 't']) // P5 adds v and q, 10-24 w, 10-31 t; these boards have no horizon, so H pairs only (M4)
   // ?popunitmax: 4 by default (Nathan 10-23, Q7), an integer 1–6, and its own guide row.
   assert.equal(POP_DEFAULTS.unitMax, 4)
   for (const [typed, want] of [[0, 1], [2.4, 2], [9, 6]]) {
@@ -5524,11 +5543,11 @@ test('spans: phonehd — a phone rendering at 2.25 or more plans every unit at 7
     assert.equal(new Function('PHONEHD_MIN_RATIO', `return ${tierBucket}`)(2)(true, 2), 'phonehd')
     // The tables: auto/phonehd is its own row since Nathan's 10-31 call, every unit at 720 and singles at 480 (it
     // WAS lean/hidpi's object, pairs at 480, until then); lean/hidpi keeps that row, and lean/phonehd is lean/phone.
-    // w (10-24) is two rows tall, as a quad is: the quad's rank and rung everywhere
-    assert.deepEqual([STREAM_RUNGS, TIER_RANK], [[270, 480, 720, 1080], { s: 0, h: 1, v: 1, q: 2, w: 2 }])
+    // w (10-24) is two rows tall, as a quad is, and t (10-31) three: the quad's rank and rung everywhere
+    assert.deepEqual([STREAM_RUNGS, TIER_RANK], [[270, 480, 720, 1080], { s: 0, h: 1, v: 1, q: 2, w: 2, t: 2 }])
     assert.deepEqual(STREAM_TIERS, {
-      auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: { s: 480, h: 480, v: 480, q: 480, w: 480 }, phonehd: { s: 480, h: 720, v: 720, q: 720, w: 720 } },
-      lean: { hidpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720 }, phone: { s: 270, h: 270, v: 270, q: 480, w: 480 }, phonehd: { s: 270, h: 270, v: 270, q: 480, w: 480 } },
+      auto: { hidpi: { s: 480, h: 720, v: 720, q: 1080, w: 1080, t: 1080 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720, t: 720 }, phone: { s: 480, h: 480, v: 480, q: 480, w: 480, t: 480 }, phonehd: { s: 480, h: 720, v: 720, q: 720, w: 720, t: 720 } },
+      lean: { hidpi: { s: 480, h: 480, v: 480, q: 720, w: 720, t: 720 }, lodpi: { s: 480, h: 480, v: 480, q: 720, w: 720, t: 720 }, phone: { s: 270, h: 270, v: 270, q: 480, w: 480, t: 480 }, phonehd: { s: 270, h: 270, v: 270, q: 480, w: 480, t: 480 } },
     })
     assert.notEqual(STREAM_TIERS.auto.phonehd, STREAM_TIERS.lean.hidpi)
     assert.equal(STREAM_TIERS.lean.phonehd, STREAM_TIERS.lean.phone)
@@ -5959,6 +5978,216 @@ test('spans: the shipped defaults (Nathan 10-23, 10-24, 10-31) — spans on, up 
   } finally {
     director.dispose()
     TUNING.units = 0
+  }
+})
+
+/* — 10-31 (Nathan, item 8: "sometimes 2x3 and sometimes 1x2 … depending on number of media assets") — ?popportrait=fill:
+   a world grows its sharp portraits to 2×3 with the room its ?popequiv budget left (T38). — */
+/** Three worlds by size. Small: a sharp 16:9 clip (a 3×2, 6), three sharp 1080 9:16 clips, a soft (s 720) one and a
+ *  sharp 1500×2000 still (1×2s, 2 each): 16 of 32, so it grows its sharp portraits, 4 tiles each, until the room is
+ *  spent; the soft clip, too soft for a 2×3 (a 9:16 needs s 940 at T1 512), stays a 1×2. Big: five sharp 16:9 clips
+ *  and the small world's first portrait (its id, shared): 32 of 32, none grows. Medium: three 16:9 clips and four sharp
+ *  portraits: 26 of 32, its first grows. `u` is classic's class, `uw` wide's; `tag` names the case. */
+const tallWorlds = () => {
+  const vid = (name, tag, ratio, extra = {}) =>
+    ({ kind: 'video', playbackId: `${name}-${tag}`, videoAspectRatio: ratio, u: ratio === '16:9' ? 'h' : 'v', uw: ratio === '16:9' ? 'w' : 'v', tag, ...extra })
+  const world = (name, assets) => ({ slug: name.toLowerCase(), clientName: name, title: null, services: [], assets })
+  return [
+    world('Small', [
+      vid('Small', 'w0', '16:9'),
+      vid('Small', 'p0', '9:16'),
+      vid('Small', 'p1', '9:16'),
+      vid('Small', 'ps', '9:16', { s: 720 }),
+      vid('Small', 'p2', '9:16'),
+      { kind: 'still', imageUrl: 'https://cdn.sanity.io/images/p/d/Small-st-1500x2000.jpg', u: 'v', uw: 'v', tag: 'st' },
+    ]),
+    world('Big', [...[0, 1, 2, 3, 4].map((i) => vid('Big', `w${i}`, '16:9')), vid('Small', 'p0', '9:16')]),
+    world('Medium', [...[0, 1, 2].map((i) => vid('Medium', `w${i}`, '16:9')), ...[0, 1, 2, 3].map((i) => vid('Medium', `p${i}`, '9:16'))]),
+  ]
+}
+/** The class each record forms, per world, under fill; TALL_TEX its texture's (the shared id's is the 2×3's everywhere). */
+const TALL_WANT = Object.freeze([
+  { w0: 'w', p0: 't', p1: 't', ps: 'v', p2: 't', st: 't' },
+  { w0: 'w', w1: 'w', w2: 'w', w3: 'w', w4: 'w', p0: 'v' },
+  { w0: 'w', w1: 'w', w2: 'w', p0: 't', p1: 'v', p2: 'v', p3: 'v' },
+])
+const TALL_TEX = TALL_WANT.map((w, wi) => (wi === 1 ? { ...w, p0: 't' } : w))
+const asPairs = (want) => want.map((w) => Object.fromEntries(Object.entries(w).map(([tag, c]) => [tag, c === 't' ? 'v' : c])))
+
+test('spans: ?popportrait=fill (Nathan 10-31, item 8, the default) — a world grows its sharp portraits to 2×3, in editorial order, with the room its ?popequiv budget left: fewer assets, bigger portraits; a world that fills its budget grows none, a shared id forming the 1×2 there from the same texture; pair, ?popequiv 0 and classic grow none (T38)', () => {
+  assert.equal(POP_DEFAULTS.portrait, 'fill')
+  assert.deepEqual(POP_PORTRAITS, ['fill', 'pair'])
+  assert.equal(TALL_GROW, 4) // a 2×3 takes 6 tiles where its 1×2 weighed 2
+  const worlds = tallWorlds()
+  const { director } = unitDirector({ shapes: 'wide', portrait: 'fill', equiv: POP_DEFAULTS.equiv }, { worlds })
+  try {
+    const L = director.L
+    const check = (want, tex, msg) =>
+      director.pools.forEach((pool, wi) => {
+        assert.deepEqual(Object.fromEntries(pool.map((r) => [r.tag, r.unitCls ?? null])), want[wi], `${msg}: ${worlds[wi].slug}`)
+        for (const r of pool) assert.deepEqual(r.tex, texSpec(r, tex[wi][r.tag], THUMB_WIDTH, L, { wide: true }), `${msg}: ${assetKey(r)}`)
+      })
+    check(TALL_WANT, TALL_TEX, 'fill')
+    assert.deepEqual(director.grown, [4, 0, 1])
+    director.initialLayout(director.byProminence())
+    assert.deepEqual(director.unitStats(0).grown, { small: 4, medium: 1 })
+    // The room is spent, never exceeded: Σ the tiles each record forms ≤ ?popequiv (the small world's exactly). The
+    // selection still weighs a grown portrait as its 1×2, so growing never changes what a world shows.
+    const tiles = (r) => (r.unitCls ? UNIT_SHAPE[r.unitCls].cols * UNIT_SHAPE[r.unitCls].rows : 1)
+    assert.deepEqual(director.pools.map((pool) => pool.reduce((n, r) => n + tiles(r), 0)), [32, 32, 30])
+    assert.deepEqual(director.pools.map((pool) => director.selectFor(pool).length), worlds.map((w) => w.assets.length))
+    // NC: pair, then ?popequiv 0 (no budget, so no room), each grows none — onTune re-decorates, then re-lays; back
+    // to fill (and 32), the same worlds grow again
+    let relayouts = 0
+    director.relayout = () => (relayouts += 1)
+    for (const [key, off] of [['portrait', 'pair'], ['equiv', 0]]) {
+      TUNING[key] = off
+      director.onTune(key)
+      assert.deepEqual(director.grown, [0, 0, 0], key)
+      check(asPairs(TALL_WANT), asPairs(TALL_WANT), key)
+      assert.deepEqual(director.unitStats(0).grown, {}, key)
+      TUNING[key] = POP_DEFAULTS[key]
+      director.onTune(key)
+      assert.deepEqual(director.grown, [4, 0, 1], `${key} back`)
+    }
+    assert.equal(relayouts, 4)
+    // NC: classic grows none (its portraits pair; its 16:9s too)
+    TUNING.shapes = 'classic'
+    director.onTune('shapes')
+    assert.deepEqual(director.grown, [0, 0, 0])
+    assert.ok(director.pools.flat().every((r) => r.unitCls === (r.tag.startsWith('w') ? 'h' : 'v') && r.tex.cls === r.unitCls), 'classic')
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+  // ?popportrait: fill by default, pair on ask; its guide row says so
+  try {
+    setPopTune('portrait', 'pair')
+    assert.equal(TUNING.portrait, 'pair')
+  } finally {
+    Object.assign(TUNING, BOARD_DEFAULTS)
+  }
+  const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
+  assert.match(guide, /^\| `\?popportrait` \|.*\| `fill` \(Nathan 10-31\) \| `fill` \\\| `pair` \| `POP_DEFAULTS\.portrait` \|$/m)
+})
+
+test('spans: ?popportrait=fill plans whole 2×3 units inside their band — from a lead no 1×2 may take, the tallest first — always on the flat crop, two row seams a column, every measure exact; pair plans none (T38)', () => {
+  // The band: a 2×3's three rows inside [θT, π − θT] over its planned life (D), its bottom row above the horizon.
+  const { Pth } = SPAN_L
+  const W = (thetaH) => ({ thetaN: thetaBound((1 + UNIT_EPS) ** -2, Pth), thetaS: thetaBound((1 + UNIT_EPS) ** 2, Pth), Pth, thetaH: rad(thetaH) })
+  const e = 1e-9
+  const edge = (theta, D, w) => eligibleT(theta - e, D, w) && !eligibleT(theta + e, D, w)
+  assert.equal(TALL_THETA, Math.PI / 6)
+  assert.ok(eligibleT(TALL_THETA, 0, W(180)) && !eligibleT(TALL_THETA - e, 0, W(180)), 'θT')
+  near(degOf(Math.PI - TALL_THETA - 2 * Pth), 90, 1e-9) // the last lead on the home lattice: its bottom row's top at 150°
+  assert.ok(edge(rad(90), 0, W(180)), 'π − θT')
+  assert.ok(edge(rad(60), rad(30), W(180)), 'D: the rows travel 30°')
+  assert.ok(edge(rad(60), 0, W(120)), 'θh 120°')
+  // NC: 35° is inside the band but north of the ε window, where no 1×2, quad or 3×2 may lead
+  assert.ok(eligibleT(rad(35), 0, W(180)) && !eligibleVQ(rad(35), 0, W(180)))
+  // The small world alone (one region), posed (θh π), rows still (D 0): T37's board, at the shipped ?popunitmax.
+  const tune = { shapes: 'wide', portrait: 'fill', unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv }
+  const [small] = tallWorlds()
+  const { director, panels } = unitDirector(tune, { worlds: [small], getHorizon: () => Math.PI })
+  try {
+    director.initialLayout(director.byProminence())
+    assert.equal(director.lastD, 0)
+    assertWholeUnits(director, panels, ['t', 'w', 'h', 'v', 'q'])
+    const places = [...placesOf(panels).keys()]
+    const of = (cls) => places.filter((P) => P.cls === cls)
+    const at = (P) => degOf(thetaOf(P.members[0])).toFixed(2)
+    assert.ok(of('t').length >= 2 && director.placed.t === of('t').length, JSON.stringify(director.placed))
+    assert.equal(new Set(of('t').map((P) => P.key)).size, of('t').length) // a grown portrait's 2×3 once a plan
+    for (const P of of('t')) {
+      assert.ok(['p0', 'p1', 'p2', 'st'].includes(P.members[0].asset.tag), `${P.uid}: only a grown portrait forms one`)
+      assert.ok(eligibleT(thetaOf(P.members[0]), 0, director.W), `${P.uid} leads at ${at(P)}°`)
+    }
+    for (const P of places.filter((P) => P.rows === 2)) assert.ok(eligibleVQ(thetaOf(P.members[0]), 0, director.W), P.uid)
+    // the tall pass admits a 2×3's band: one leads north of θN (44.45° on this board), where no 1×2 may
+    assert.ok(of('t').some((P) => thetaOf(P.members[0]) < director.W.thetaN), of('t').map(at).join())
+    // BOARD_DEFAULTS' look is rows: every other unit takes it, a 2×3 the flat crop (there is no three-row CPU crop)
+    for (const P of places) assert.equal(P.look, P.cls === 't' ? 'flat' : 'rows', P.uid)
+    // The measures: rows × (cols − 1) column seams, cols × (rows − 1) row seams (columns across each, and its
+    // mullion) — two a column for a 2×3 — all exact on the flat crop's windows.
+    const u = director.unitStats(0)
+    assert.equal(u.seam.n, places.reduce((n, P) => n + P.rows * (P.cols - 1), 0))
+    assert.equal(u.register.n, places.reduce((n, P) => n + P.members.length, 0))
+    const across = places.reduce((n, P) => n + P.cols * (P.rows - 1), 0)
+    assert.deepEqual([u.cols.n, u.rows.n], [across, across])
+    assert.ok(across >= 4 * of('t').length)
+    for (const k of ['seam', 'register', 'cols', 'rows']) assert.ok(u[k].worst <= 1e-9, `${k} ${JSON.stringify(u[k])}`)
+    assert.equal(u.placed.t, of('t').length)
+    // relook: the dial moves every other unit; a 2×3 stays flat
+    for (const look of ['flat', 'rows']) {
+      TUNING.unitLook = look
+      director.relook()
+      for (const P of places) assert.equal(P.look, P.cls === 't' ? 'flat' : look, `${look}: ${P.uid}`)
+    }
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+  // The tallest first. With the rows travelling (D 20°) a 2×3 may lead only at 44.45° on this board and a two-row
+  // unit only at 74.45°. Planned in one pass with the two-row units (until 10-31's live check), a grown portrait tried
+  // at 74.45° formed its 1×2 there, and the others took the rows a 2×3 needs. Two small worlds, so the clock runs (a
+  // lone world's layout lives forever: D ∞), and a held reveal, so the first plan's D is finite.
+  const twin = {
+    ...small,
+    slug: 'twin',
+    clientName: 'Twin',
+    assets: small.assets.map((a) => (a.playbackId ? { ...a, playbackId: a.playbackId.replace('Small', 'Twin') } : { ...a, imageUrl: a.imageUrl.replace('Small', 'Twin') })),
+  }
+  const pace = 20 / (T_ENTRANCE + 3) // °/s: D = pace × (T_ENTRANCE + ?pophold 2 + ?poptrans 1) = 20°
+  const { director: moving, panels: movingPanels } = unitDirector(
+    { ...tune, hold: 2, holdJit: 0, trans: 1 },
+    { worlds: [small, twin], getHorizon: () => Math.PI, getPace: () => pace, revealHeld: true },
+  )
+  try {
+    moving.initialLayout(moving.byProminence())
+    near(degOf(moving.lastD), 20, 1e-9)
+    assertWholeUnits(moving, movingPanels, ['t', 'w', 'h', 'v', 'q'])
+    const places = [...placesOf(movingPanels).keys()]
+    const tall = places.filter((P) => P.cls === 't')
+    for (const P of tall) assert.ok(eligibleT(thetaOf(P.members[0]), moving.lastD, moving.W), P.uid)
+    for (const P of places.filter((P) => P.rows === 2)) assert.ok(eligibleVQ(thetaOf(P.members[0]), moving.lastD, moving.W), P.uid)
+    // every portrait the world grew shows as a 2×3, once
+    assert.deepEqual(tall.map((P) => P.members[0].asset.tag).sort(), ['p0', 'p1', 'p2', 'st'], places.map((P) => `${P.uid}@${degOf(thetaOf(P.members[0])).toFixed(1)}`).join(' '))
+  } finally {
+    moving.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+  // …once a plan: a world that grew one portrait (the medium world, twice) shows it as one 2×3, its other units
+  // 1×2s. With ?popunitmax 2×3s a key, the portrait took four, in the rows its 3×2s need.
+  const medium = tallWorlds()[2]
+  const mediumTwin = { ...medium, slug: 'twin', clientName: 'Twin', assets: medium.assets.map((a) => ({ ...a, playbackId: a.playbackId.replace('Medium', 'Twin') })) }
+  const { director: one, panels: onePanels } = unitDirector(
+    { ...tune, hold: 2, holdJit: 0, trans: 1 },
+    { worlds: [medium, mediumTwin], getHorizon: () => Math.PI, getPace: () => pace, revealHeld: true },
+  )
+  try {
+    one.initialLayout(one.byProminence())
+    assertWholeUnits(one, onePanels, ['t', 'w', 'h', 'v', 'q'])
+    const places = [...placesOf(onePanels).keys()]
+    const show = places.map((P) => `${P.uid}@${degOf(thetaOf(P.members[0])).toFixed(1)}`).join(' ')
+    const p0 = places.filter((P) => P.members[0].asset.tag === 'p0')
+    assert.equal(p0.filter((P) => P.cls === 't').length, 1, show)
+    assert.ok(p0.length > 1 && p0.every((P) => P.cls === 't' || P.cls === 'v'), show)
+  } finally {
+    one.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
+  // NC: the same board under pair plans no 2×3, and no unit taller than a row leads north of θN
+  const { director: pair, panels: pp } = unitDirector({ ...tune, portrait: 'pair' }, { worlds: [small], getHorizon: () => Math.PI })
+  try {
+    pair.initialLayout(pair.byProminence())
+    assertWholeUnits(pair, pp, ['w', 'h', 'v', 'q'])
+    const places = [...placesOf(pp).keys()]
+    assert.equal(pair.placed.t, 0)
+    assert.ok(places.some((P) => P.cls === 'v'))
+    assert.ok(places.filter((P) => P.rows > 1).every((P) => thetaOf(P.members[0]) >= pair.W.thetaN))
+  } finally {
+    pair.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
   }
 })
 

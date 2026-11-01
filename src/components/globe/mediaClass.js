@@ -4,9 +4,10 @@
  *   classic (u)  'h' (2×1 pair), 'v' (1×2 pair), 'q' (2×2 candidate —
  *                PopulationDirector elects the quads), or null (single only)
  *   wide (uw)    Nathan's set (10-24): 16:9 and 4:3 → 'w' (3×2, falling back
- *                to the 2×1 pair), 9:16, 3:4 and 4:5 → 'v' (1×2; his 2×3 asks
- *                for a 3-row window the ε warp can't hold, so tall stays 1×2
- *                for now), every square → 'q' (2×2), or null
+ *                to the 2×1 pair), 9:16, 3:4 and 4:5 → 'v' (1×2; since 10-31,
+ *                ?popportrait=fill, the director grows a world's sharp ones to
+ *                2×3 with its budget's room: unitSpan.growTall, not a class
+ *                here), every square → 'q' (2×2), or null
  * The mediaType label proposes, the native ratio vetoes: of the label's class and
  * the native class, the one whose slot keeps more of the native picture wins.
  * Native = a 'ready' Mux aspect (a 'preparing' snapshot is distrusted —

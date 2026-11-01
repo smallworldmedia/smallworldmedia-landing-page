@@ -78,13 +78,14 @@ const scaledFrom = (w, h, W, H, kMin = 0) => {
   return lo < hi && lo <= 1;
 };
 /** The class of a (w, h) request. Wide: the first curve holding it, squares first (a 1×2 and a 2×1 at aspect 1
- *  both meet the quad's size); a 3×2 only at k ≥ 0.9, as only a sharp asset forms one (unitSpan.spanSharp), which
- *  keeps it apart from a scaled 2×1 (1100×540 would be a 3×2 at k 0.52). */
-const WIDE_ORDER = ['q', 'h', 'v', 'w'];
+ *  both meet the quad's size); a 3×2 or a 2×3 only at k ≥ 0.9, as only a sharp asset forms one (unitSpan.spanSharp),
+ *  which keeps it apart from a scaled 2×1 or 1×2 (1100×540 would be a 3×2 at k 0.52). */
+const WIDE_ORDER = ['q', 'h', 'v', 'w', 't'];
+const SHARP_ONLY = new Set(['w', 't']);
 const classOfSize = (t1, w, h, shapes) =>
   shapes === 'classic'
     ? Object.entries(classSizes(t1)).find(([, [W, H]]) => scaledFrom(w, h, W, H))?.[0]
-    : WIDE_ORDER.find((cls) => classWideSizes(t1)[cls].some(([W, H]) => scaledFrom(w, h, W, H, cls === 'w' ? 0.9 : 0)));
+    : WIDE_ORDER.find((cls) => classWideSizes(t1)[cls].some(([W, H]) => scaledFrom(w, h, W, H, SHARP_ONLY.has(cls) ? 0.9 : 0)));
 
 /** A logged request → { kind: 'stream'|'legacy'|'class'|'other', id, query, shape }. id = host + path
  *  (a stream's: its playbackId). shape = the class, or for 'other' an id-free signature: path segments
@@ -252,8 +253,8 @@ export function unitGates(report, ctx) {
   const initPosed = U.filter((s) => s.units.initThetaH != null).length; // the initial plan saw a horizon: useGlobeScene's posed latch failed
   // 0 in every run: the initial layout is planned before the first pose, so its horizon is null and it places H only (M4).
   gate(out, 'initVQ', { n: U.length, ok: initVQ === 0 && initPosed === 0, worst: initVQ, bound: 0, initPosed });
-  const placed = U.at(-1)?.units.placed ?? { h: 0, v: 0, q: 0, w: 0 };
-  gate(out, 'unitShapes', { n: Math.min(placed.h, placed.v + placed.q + (placed.w ?? 0)), ok: true, placed });
+  const placed = U.at(-1)?.units.placed ?? { h: 0, v: 0, q: 0, w: 0, t: 0 };
+  gate(out, 'unitShapes', { n: Math.min(placed.h, placed.v + placed.q + (placed.w ?? 0) + (placed.t ?? 0)), ok: true, placed });
 
   // — P6a — live: one stream and one chip per unit; texB registers on whole live units.
   if (!at(ctx, 'live')) return out;
