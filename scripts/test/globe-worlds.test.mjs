@@ -5542,6 +5542,25 @@ test('spans: no plan is today’s two-argument assign, a plan passes its pin; a 
   }
 })
 
+test('pool: the first-frame gate opens only on the src its assign() asked for — a reassigned slot’s previous stream plays on until React commits the swap', () => {
+  // VideoSlotPool doesn't run in node: each line is one whole code line, found once, as the pin test above reads it.
+  // The browser evidence (each VideoTexture's first frame callback, traced at a world change) is in the fix's commit.
+  const lines = fs.readFileSync(new URL('../../src/components/globe/VideoSlotPool.jsx', import.meta.url), 'utf8').split('\n').map((l) => l.trim())
+  const at = [
+    'useHls(videoRef, src, POOL_HLS_CONFIG, { preferMinQuality: true, videoOnly: true, primed: true });',
+    'useEffect(() => onAttached(slotIndex, src), [slotIndex, src, onAttached]);',
+    'if (!waiter || attachedRef.current[slot] !== srcsRef.current[slot]) return;',
+    'onAttached={onAttached}',
+  ].map((s) => {
+    const found = lines.flatMap((l, i) => (l === s ? [i] : []))
+    assert.equal(found.length, 1, s)
+    return found[0]
+  })
+  // The marker's effect runs after useHls's (React runs a component's effects in declaration order): by then the
+  // previous stream is torn down.
+  assert.ok(at[0] < at[1], JSON.stringify(at))
+})
+
 test('spans: phonehd — a phone rendering at 2.25 or more plans every unit at 720 and singles at 480 (Nathan 10-31) in the phone’s budget; ?globeres=720p moves the pin, and under 270p the tiers stand down (T34)', async () => {
   gsap.globalTimeline.pause()
   const boards = []

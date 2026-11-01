@@ -15,6 +15,8 @@
  *  - No-abrupt-start gate: assign() resolves only after the `playing` event
  *    AND the first presented frame (requestVideoFrameCallback, falling back
  *    to the first timeupdate) — the crossfade never reveals a stalled frame.
+ *    Only the assigned src opens it: a reassigned slot's previous stream
+ *    plays on until React commits the new src, and its events don't count.
  *
  * Videos are hidden via offscreen near-invisible positioning, NOT
  * display:none (Safari throttles decoding of display:none videos).
@@ -22,6 +24,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -53,9 +56,11 @@ function streamUrl(playbackId, params) {
   return poolStreamUrl(playbackId, params);
 }
 
-function PoolSlot({ videoRef, src, slotIndex, onFirstFrame }) {
+function PoolSlot({ videoRef, src, slotIndex, onFirstFrame, onAttached }) {
   // primed: a playlist the globe fetched ahead (streamPrefetch) plays from memory
   useHls(videoRef, src, POOL_HLS_CONFIG, { preferMinQuality: true, videoOnly: true, primed: true });
+  // After useHls's effect (declaration order): the previous stream is torn down and this src attached.
+  useEffect(() => onAttached(slotIndex, src), [slotIndex, src, onAttached]);
 
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;
@@ -106,10 +111,20 @@ const VideoSlotPool = forwardRef(function VideoSlotPool(
   streamParamsRef.current = streamParams;
   // Per-slot waiter: { resolve, reject } for the in-flight assign()
   const waitersRef = useRef(Array(size).fill(null));
+  // Per-slot src the <video> has attached (PoolSlot). assign() sets srcsRef at
+  // once, but the slot's previous stream plays on until React commits, and
+  // Chrome fires timeupdate on it as the scheduler drops its texture: a waiter
+  // resolved then got a VideoTexture with no frame (its tiles crossfaded
+  // toward black) and, now and then, an upload of the emptied <video>
+  // ("texImage2D: no video").
+  const attachedRef = useRef(Array(size).fill(null));
+  const onAttached = useCallback((slot, src) => {
+    attachedRef.current[slot] = src;
+  }, []);
 
   const onFirstFrame = useCallback((slot, _via) => {
     const waiter = waitersRef.current[slot];
-    if (!waiter) return;
+    if (!waiter || attachedRef.current[slot] !== srcsRef.current[slot]) return;
     const video = videoRefs.current[slot].current;
     if (!video || video.readyState < 2 || video.paused) return;
     waitersRef.current[slot] = null;
@@ -162,6 +177,7 @@ const VideoSlotPool = forwardRef(function VideoSlotPool(
           videoRef={videoRef}
           src={srcs[i]}
           onFirstFrame={onFirstFrame}
+          onAttached={onAttached}
         />
       ))}
     </div>
