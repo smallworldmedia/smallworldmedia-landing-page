@@ -6,7 +6,7 @@
 ```bash
 npm install
 npm run dev            # http://localhost:4321  (add --host to test on a phone)
-npm run build          # dist/, 24 pages at 10-16 (/work/[slug] adds one per featured project)
+npm run build          # dist/, 24 pages at 11-01 (/work/[slug] adds one per featured project)
 npm run test:cms       # CMS toolchain tests (no credentials needed)
 node --test scripts/test/*.test.mjs    # every top-level suite (globe worlds, footer reveal, cms-*)
 ```
@@ -49,7 +49,7 @@ by scope.
 | Task | Start at |
 |---|---|
 | Tune a motion value | find the `?param` in `docs/tunables-guide.md`, dial it live, bake on Nathan's number, run `node scripts/tunables-keys.mjs --check` |
-| Change home hero / globe | `src/components/Hero.jsx`, `hero/heroConfig.js`, `globe/useGlobeScene.js`, `globe/globeConfig.js`; population modes: `globe/PopulationDirector.js` + `popConfig.js`, bench `?poptune=1`, probe with `scripts/globe-probe.mjs`; media spans (`?popunits`): `docs/globe-worlds-plan.md` § Media spans, `globe/unitSpan.js` + `mediaClass.js`, gates in `scripts/lib/unitGates.mjs` |
+| Change home hero / globe | `src/components/Hero.jsx`, `hero/heroConfig.js`, `globe/useGlobeScene.js`, `globe/globeConfig.js`; population modes: `globe/PopulationDirector.js` + `popConfig.js`, bench `?poptune=1`, probe with `scripts/globe-probe.mjs` (the whole run matrix: `scripts/globe-matrix.mjs check`); media spans (`?popunits`): `docs/globe-worlds-plan.md` § Media spans, `globe/unitSpan.js` + `mediaClass.js`, gates in `scripts/lib/unitGates.mjs` |
 | Change /work Worlds or pager | `work/FeaturedProjects.jsx`, `work/world/useWorldScene.js` + `worldConfig.js`, `work/pager/*`; probe with `scripts/pager-probe.mjs` |
 | Change a detail page | `work/detail/FeaturedProjectDetail.jsx`, `buildContentFlow.js`, `flushGrid.js`, `src/styles/project-detail.css` |
 | Change /process | `process/useProcessScene.js` (scene, chips, loops), `useProcessScrollDriver.js`, `useProcessCopy.js`, `processConfig.js`, `processContent.js`, `src/styles/process.css`; spec `docs/process-page-spec.md`; probe with `scripts/process-probe.mjs` (`--walk`, `--walk --break`, `--buried`) |
@@ -58,6 +58,7 @@ by scope.
 | Change when the home globe's videos load | `?pophandoff` (`globe/popConfig.js` `POP_HANDOFFS`, `fast` by default since 10-28, `today` the handoff before it); `globe/streamPrefetch.js` + `work/hlsPrimed.js` fetch ahead, `globe/LivePanelScheduler.js` (`predictStarts`, `landingClips`, the 0.1 s beat), `globe/PopulationDirector.js` (`nextWarm`, `planAhead` / `adoptAhead`) and `globe/MeridianScroll.js` (`predict`) time it; read `window.__swmPopStats.handoff` (`ahead`: planned / adopted / missed by reason, and the texture keys), `changedAt`, `landedAt` |
 | Pick or add a house colour | the `--swm-*` extended palette and the `--ink-muted` role token in `src/styles/global.css`'s `:root`; consume a role token, never a raw hue, and check the contrast on black (`--swm-navy` and the brand electric blue are below 2.5:1 there) |
 | Add a client's media | write `_manifest.md` (`scripts/generate-manifests.mjs`), then `npm run cms -- plan` → `apply` → `verify` |
+| Make a sequence (one tile, many stills) | give the stills one `displayGroup` ending `-sequence` in the manifest (Studio order = frame order), then `npm run cms -- plan` → `apply` → `verify`; code in `src/lib/mediaSequence.js`, rate `?seqms`, glossary in `CONTEXT.md` |
 | Add client logos | drop into `Client Logos/`, run `node scripts/prep-client-logos.mjs`, check `--check` |
 | Edit Sanity schema | `src/schemas/*.ts`; CMS contract hash in `scripts/lib/cms/contract.mjs` must be updated or `plan` fails closed |
 | Preview a build without touching production | `npm run build` then `npx netlify-cli deploy --dir=dist --no-build --site <id>` (no `--prod`) |

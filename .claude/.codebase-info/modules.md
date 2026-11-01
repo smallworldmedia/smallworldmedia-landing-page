@@ -74,7 +74,8 @@ class texture derives from), `globePixelRatio`, and `NAME_STRIP_H`).
 **Population modes** (`docs/globe-worlds-plan.md`; `tides` is home's
 default since Nathan's 10-06 bake, and `?popmode=off` restores the pre-worlds globe):
 `buildWorldPools.js` (pure: `FEATURED_WORLDS_QUERY` → one pool per featured project, /work showcase
-parity) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `PopulationDirector.js`
+parity; a project's still album art, two covers or more, collapses into one sequence asset, `frames`
+plus `ar`, so one panel cycles the covers) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `PopulationDirector.js`
 (one world at a time by default; tile → world assignment; the change clock, a hold then a tide /
 blink / surge / cut; current + next world held warm; freeze under the commit's blue; `hold()` at the
 Enter World click stops the clock but lets a change in flight land; `onWorld` feeds the scene's
@@ -89,8 +90,10 @@ the scene's `forecast` hook; the first world's from the laid tiles, `prefetchLai
 board when it lands within `AHEAD_TOL_RAD` 0.5° of the prediction on the same dials and births
 (`adoptAhead`; else `aheadMiss` names why: dials / pose / births / tiles / admission, and it plans late);
 `keysOf` counts the distinct textures a world needs (pool / board / front / on screen), all in
-`stats.handoff.ahead`; and `incomingWorlds()` names the worlds a change is landing; publishes
-`window.__swmPopStats`) ·
+`stats.handoff.ahead`; and `incomingWorlds()` names the worlds a change is landing; `stepSequences()`,
+which the scene runs right after `place()`, cuts each sequence tile's `texA` to the shared clock's frame
+(`lib/mediaSequence.js`) and holds one frame ahead (`seqRefs`, given back by `dropFrames` when the tile
+moves on; `stats.seq`); publishes `window.__swmPopStats`) ·
 `nameTicker.js` (client-name strips: the world's `clientName` in the FP card face baked once per
 world + style into a CanvasTexture `STRIP_H` = `globeConfig.NAME_STRIP_H` tall — 256 × the ratio the
 canvas actually renders at over the one `DPR_MAX` would give it, so a DSF-3 phone under
@@ -109,9 +112,11 @@ bake turned them on (Q1, with `unitMax` 4 and `equiv` 12: Q7, Q8; `equiv` re-dia
 `wideClass`, `electQuads`, `UNIT_FALLBACK` / `canForm`, `liveB`, P9's `flatWindow` and
 `unitLookFor` (a three-row unit always takes the flat crop), the 2×3s' `eligibleT` / `TALL_THETA`
 and `growTall` (a world's portraits grow with the room its selection left in the tile budget), the
-source and picture readers, and the stream tiers `STREAM_RUNGS` / `STREAM_TIERS` / `tierBucket` /
-`rungAtMost` / `pinShortOf`). `mediaClass.js` (`CLASS_SOURCE`, `nativeRatio`, `classOf`) classes
-each asset once at build time: the label proposes, the native ratio vetoes. **Two shape sets**
+source and picture readers, `stillSpec` (a sequence frame's square still; a frame with transparency
+comes padded whole onto `PAD_BG` near-black by the CDN), and the stream tiers `STREAM_RUNGS` /
+`STREAM_TIERS` / `tierBucket` / `rungAtMost` / `pinShortOf`). `mediaClass.js` (`CLASS_SOURCE`,
+`nativeRatio`, `classOf`) classes each asset once at build time: the label proposes, the native ratio
+vetoes (a sequence's is its `sequenceRatio`). **Two shape sets**
 (`?popshapes`, `POP_SHAPES`): `wide` (the default, Nathan 10-24) spans 16:9 and 4:3 3×2 (falling back to
 its 2×1, then a single), tall 1×2 and every sharp square 2×2 with no quad election, and sizes a wide
 texture at its picture's aspect clamped to the slots it serves (own, fallback, single), so every slot
@@ -147,7 +152,8 @@ from live poses each frame so it never jumps) · `HeroTunePanel.jsx` / `CommitTu
 (`?popunitlook`), portraits (`?popportrait`), units / asset, quads / world, tile budget, video tier, and an orientation group whose `tilt` toggle flips `?herotilt` between
 heroConfig `TILT_PRESETS` new −10 (Nathan's pick, 10-28) / old 45.5 through `setHeroTune`; a `handoff` row under live video picks
 `?pophandoff`; the readout line above it shows spans (`w · h · t · v · q`), tex MiB (decoded images: through a hold it also counts the next world, and never video frames; 10-31 measured it against the GPU, `docs/globe-worlds-plan.md` Status log) and decode
-mp / budget, and a handoff line: starts (mid-change, primed), clips fetched and MiB, the next world waiting).
+mp / budget, and a handoff line: starts (mid-change, primed), clips fetched and MiB, the next world waiting;
+a `sequence frame (ms)` row dials `?seqms`, the site-wide sequence rate, live over the URL until a reload).
 
 ## /work (`src/components/work/`)
 | File | Purpose |
@@ -174,7 +180,10 @@ graticule) · `seededLayout.js` · `fpGridCells.js` · `fpAtlas.js` / `fpForme.j
 `fpDrumTrim.js`, `fpDrumWall.js` — the deck wall: since PF each column's page cycle is painted ONCE
 into a static atlas, re-painted only as pages land, and the plate's shader scrolls it with one wrapped
 travel uniform, so the wall canvas area sets texture memory and the upload per landed page, not a
-per-frame repaint) · `worldBands.js` · `worldLive.js` · `enterTune.js` ·
+per-frame repaint; a sequence plate gets one texture per frame from `fpDrum`, a transparent frame
+padded by the CDN to the plate's shape on near-black, and `fpAtlas` cuts its map on the shared clock
+once frame 0 has bound; `/work?debug` reads `__fpDrum[slug].sequences`, `chosenIds`, `droppedIds`) ·
+`worldBands.js` · `worldLive.js` · `enterTune.js` ·
 `vendor/lensDistortion.js`.
 
 ### `work/detail/`
@@ -184,7 +193,9 @@ column width through the 10px row pitch so every tile holds one shape at every w
 render; ≤1024/≤768 spans reach masonry.css as `--tile-sq/pt/ls-rows`) · `buildContentFlow.js`
 (assets → hero/showcase/decks/albumArt/banners buckets; `ORBIT_MIN` 4 = album covers needed for the
 album wall, fewer fold back into the grid; `isBannerGroup` routes any displayGroup ending
-`-banner(s)` to `banners`) · `flushGrid.js` (pure placement with socket regions; `sqRows` sets the
+`-banner(s)` to `banners`; a displayGroup ending `-sequence` collapses its stills into ONE showcase
+item at the first member's place, carrying `frames` (`makeSequence`; checked first, a group of one
+stays plain, a video member keeps its own tile)) · `flushGrid.js` (pure placement with socket regions; `sqRows` sets the
 square span — portrait 1 col × 2 squares, landscape 2 cols × 1 square, underlay bound half a
 square) · `GridSocket.jsx` (parallax on `gsap.ticker`;
 hands `--socket-rows` to CSS) · `DeckScroller.jsx` (+ `BrandDeckViewer`, `AlbumArtViewer`,
@@ -192,7 +203,10 @@ hands `--socket-rows` to CSS) · `DeckScroller.jsx` (+ `BrandDeckViewer`, `Album
 flow width through the grid row pitch; ≤1024 spans `--socket-rows`, masonry.css; the walls carry
 no name or count labels since 10-27, only BrandDeckViewer's deck tabs on multi-deck projects) ·
 `MediaSlot.jsx` (img `alt` → title fallback, video `aria-label` from `alt`, `description` as an
-sr-only figcaption; the dormant `MediaCard`/`Lightbox` link it via `aria-describedby`) · `ClientPanel.jsx` · `DetailProgressBar.jsx` (shared with
+sr-only figcaption; the dormant `MediaCard`/`Lightbox` link it via `aria-describedby`; a sequence,
+`asset.frames`, stacks its frames and hard-cuts on the shared clock while near the viewport,
+`useSequenceFrame`, one timer per slot landing on the same wall-clock beat; each frame is named by its
+own `alt`, an opaque one cover-fit, a transparent one contained on near-black) · `ClientPanel.jsx` · `DetailProgressBar.jsx` (shared with
 /process) · `NextProjectBand.jsx` · `useKeywordWipe.js` · `BandPager.jsx` (tabled, unmounted).
 
 ## /process (`src/components/process/`)
@@ -242,6 +256,7 @@ layered by `LABEL_ORDER` (no leader or dot paints over a chip); N chips cost ≈
 | `smoothScroll.js` | Single Lenis on `gsap.ticker`; off on `/` and `/work`; `getLenis()` may be null | layout script, process driver, GridSocket |
 | `settleResize.js` | `settleDebounce` resize doctrine | scene hooks |
 | `projectColor.js` | `--project-color*` vars, ink pickers (`projectInk`, `chipInk`), `colorPool` (distinct colours in /work order) | /work cards + detail, `/process` chips |
+| `mediaSequence.js` | THE media sequence (10-31): one tile cutting through a set of stills on one wall clock, frame = ⌊now / `?seqms`⌋ mod n (`sequenceFrame`, `msToNextFrame`; 1000 ms default, 100 ms–10 s, the bench writes `setSequenceIntervalMs`); a hard cut, and reduced motion holds frame 0. `isSequenceGroup` (a displayGroup ending `-sequence`), `makeSequence` (the lead's fields plus `frames` and `sequenceRatio`, capped at `SEQUENCE_MAX_FRAMES` 12), `sequenceRatio` (the member ratio that crops the set least), `SEQUENCE_PAD_BG` | `work/detail/buildContentFlow` + `MediaSlot`, `work/world/fpDrum` + `fpAtlas`, `globe/buildWorldPools` + `PopulationDirector`, `hero/PopTunePanel` |
 | `motion.js`, `momentum.js`, `navAccent.js`, `projectSlug.js`, `keywords.jsx`, `formatYearRange.js`, `constants.js` | Ease paths, accumulators, nav accent + `--project-color` writers, slug fallback, the house marker grammar, formatting. `navAccent`'s published-token list is the contract: a derivation it computes but does not write to `<html>` reaches nobody, and because the `--project-color*` fallbacks are dead code (`coding-style.md`) the consumer silently gets the registration's brand blue instead — `--project-color-on-black` was computed-but-unpublished until 10-08, which is why the privacy pill never inked from the accent |
 | `keywords.jsx` | THE house rich-text grammar and ITS TWO RENDERERS (10-08). Four markers: `**bold**`, `[[keyword]]`, `[[keyword]](/href)`, `[label](/href)` — one `KW_RE` 3-way alternation, bold is capture group **6**. `renderKeywords` emits PROSE; `keywordLines(text)` emits PER-WORD TOKENS (one array per line, newline = line break) for surfaces that animate word by word, and `renderWordTokens(tokens, {wordClass, emClass, separators})` builds the shared `<mark class="kw">` markup from them. Grammar, punctuation rule and `data-kw` reading order are shared, so copy behaves the same whichever surface renders it; `separators: false` suits a surface that spaces words in CSS rather than with text (the pill's short layer). Separators are reproduced FROM THE SOURCE — a keyword's non-final fragments keep their trailing space inside the box (`white-space: pre`) with a zero-width space between, plain words keep their real space, and `a[[b]]` stays glued. `kwWipe`/`kwSet` drive the box + ink. **Every capture group must be named in `stripKeywords`'s replace callback, in order**: the first `**bold**` version skipped the link-href group, shifted `bold` onto it, fell through to the keyword branch and rendered the literal string `"undefined"` into an aria-label | blurbs, `/process`, `SiteFooter`, `SiteTagline`, `SiteNav` |
 | `sanityClient.js`, `queries.js` | `sanityFetch`, all GROQ | pages |

@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-10-28*
+*Last Updated: 2026-11-01*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -19,7 +19,9 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   serviceType, title, isHero, sortOrder, aspectRatio, contentRole, displayGroup, brandDeckOrder,
   sanityId; Mode 1 header services vs Mode 2 per-row) and `inspectFile()` (path/symlink guard,
   sha256, dimensions). displayGroup convention: a group ending `-banner(s)` (e.g.
-  `soundcloud-banners`, mediaType static_other) renders in the detail page's BannerViewer
+  `soundcloud-banners`, mediaType static_other) renders in the detail page's BannerViewer; a group
+  ending `-sequence` (e.g. `imperfect-records-wide-logo-sequence`) makes its stills one tile that
+  cuts through them on the site's one clock (`src/lib/mediaSequence.js`)
   (`docs/_manifest-template.md`).
 - `contract.mjs` — field allowlist, validators, LexoRank helpers, `closestType()`,
   `SUPPORTED_SCHEMA_HASH` (planner fails closed on schema drift). `CAPS` mirrors the Studio caps on

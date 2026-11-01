@@ -41,7 +41,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
 | /process | `src/components/process/` | Scroll narrative in seven stages (hero globe-O break → five Stages → CTA finale): a ScrollTrigger + quantizer driver over one scene that reuses the globe geometry/material, with project-colour chips in the scene |
 | Persistent chrome | `src/components/SiteShell.jsx`, `SiteNav.jsx`, `SiteFooter.jsx`, `SiteTagline.jsx`, `RouteFill.jsx`, overlays | Nav, drawer, inquiry form (Netlify Forms), privacy, footer reveal, route-fill bridge, logo ticker |
-| Shared motion libs | `src/lib/` | `dragMomentum`, `overlayWipe`, `scramble`, `charCut`, `smoothScroll`, `settleResize` — single sources of truth |
+| Shared motion libs | `src/lib/` | `dragMomentum`, `overlayWipe`, `scramble`, `charCut`, `mediaSequence` (the one clock every sequence tile cuts on), `smoothScroll`, `settleResize` — single sources of truth |
 | Data layer | `src/lib/sanityClient.js`, `src/lib/queries.js`, `src/lib/siteCopy.js`, `src/schemas/` | Build-time fetch, GROQ, the memoized site-copy read, Sanity schema for the Studio at `/studio` |
 | CMS toolchain | `scripts/cms.mjs`, `scripts/lib/cms/` | Preview-first ingest of manifests into Sanity + Mux; `node --test` suite |
 

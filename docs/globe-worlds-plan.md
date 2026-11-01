@@ -575,7 +575,11 @@ tier`. A tide run caps at `h`; `--rm` and `&poplive=tile` cap at `vq`.
 
 Since 10-31 `unitShapes` counts 2×3s with the two-row units, and `classifyRequest` (which
 `texReqShape` reads) takes a request for a 2×3 only at k ≥ 0.9 (`SHARP_ONLY`), as it does a 3×2's,
-which keeps it apart from a scaled 1×2.
+which keeps it apart from a scaled 1×2. Since 11-01 it also knows a sequence frame with
+transparency, which is asked padded onto near-black (`fit=fill&bg=0a0a0a`, unitSpan's `PAD_BG`) in
+place of the crop: the legacy square or a class size, judged as its crop would be, so a padded
+class in a units-off run is still a leak. Before that, the fold's first check failed 8 runs on
+`texReqShape` alone, every bad request one of the four Imperfect logos padded.
 
 `report.net` adds P0's four network gates (`streamClip`, `segmentsPerRendition`, `loops`,
 `audio`). The Status log's older "N gates" counts (09-26, 10-07) count the pass block's keys. They
@@ -631,6 +635,10 @@ fails `texReqShape` and `legacyParity`, plus seven gates as vacuous (`liveReg` a
 
 P6a's gates have no probe control. Their negative controls are unit tests: T24 (a per-member join
 splits a unit) and T25 (a stale B misregisters).
+
+`node scripts/globe-matrix.mjs <record|check|controls> [key …] [--base=URL] [--out=DIR]` runs both
+tables as written here, one browser at a time (H's runner, folded into `scripts/` on 11-01). Its
+tables change with these.
 
 **Baselines and seeds.** All 17 records in `scripts/baselines/globe-units.json` hold seed 42,
 which is the probe's default. A record stores the seed as the string `"42"`. So the first passing
@@ -881,6 +889,10 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   adjacent pair's at-rest reading at the defaults, plus `texPeak`'s 15%: 131 MiB on desktop,
   73 on the phone. `videoDensityMax`'s ceiling takes the higher of the pin and a rung the
   sample's tier plans, so phonehd's HD pairs are judged at 720.
+- The records after the 11-01 fold (Status log, the fold): the media sequence lifts u-equiv's
+  texture peak past `texPeak` (48.9 MiB against 44.39; its record 38.6), so `check` reads 16 of
+  17. Re-record the 17 at the folded defaults (`node scripts/globe-matrix.mjs record`), or keep
+  them and accept the one miss.
 
 **Answered 10-31** (his replies to the round's 17 open items):
 - A single's corner touching its own unit stays allowed ("stays as is").
@@ -1653,3 +1665,29 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   - A `displayGroup` description hint in `src/schemas/mediaAsset.ts` was reverted: any schema
     edit moves the CMS runner's schema fingerprint (`scripts/lib/cms/runner.mjs`), which refuses
     planning and every saved plan until the fingerprint is reviewed and refreshed.
+- 2026-11-01 · the fold · `e801bed`, `44fdf3e`, `140eac5`, `40c1cf7`, `bb0addc` · Nathan: fold the media
+  sequence in with this work, beside /process, so the launch branch takes both with no conflict. On
+  `fold/integrate-1101`, cut from the launch tip `58dbc5b`:
+  - The merges: `refine/media-sequence` (`e801bed`, its five conflicts resolved, and each frame named by its
+    own alt) and `refine/process` (`44fdf3e`).
+  - `140eac5`: the four wide Imperfect logos' manifest rows.
+  - This branch then fast-forwards to the result, so the launch branch takes it all as one fast-forward.
+  - `40c1cf7`: the run matrix in one command, `scripts/globe-matrix.mjs` (the records round's H/matrix.mjs,
+    made repo-relative; The probe).
+  - Its first check ran against a preview of the merged build on :4330 and passed 8 of 17. Two misses:
+    - `texReqShape` in 8 runs. Every bad request was one of the four Imperfect logos, padded
+      (`fit=fill&bg=0a0a0a`), a shape the classifier predated. `bb0addc` teaches it (The probe). Re-judged
+      offline, the 8 pass.
+    - `texPeak` in u-equiv: 48.9 MiB against 44.39 (its record 38.6 × 1.15). The same run against this
+      branch's tip on :4322, which has no sequence, read 38.6 and passed 35 of 35. So the rise is the
+      sequence's: album art collapses into one tile per project, the freed pool takes heavier tiles, and
+      each sequence holds its next frame. The other runs stayed inside the 15%: u-desktop 100.3 → 109.5,
+      u-mobile 58.1 → 61.7, u-tide 110.5 → 115. Not re-recorded: Nathan's call, as on 10-31.
+  - Re-run at `bb0addc`: 16 of 17, u-equiv's `texPeak` the one miss (48.9 again). No run had a page
+    error, a console error or a failed image, and the sequence cut in 13 of them.
+  - The other probes against the preview passed:
+    - /work's pager: wheel and keys commit, no page errors.
+    - /process's tour: 5 holds named, worst seat error 0.04.
+    - The Imperfect detail page: the sequence cuts 0→1→2→3 a second apart, one frame on and each named by
+      its own alt. The video diet passed 6 of 6.
+  - Tests 147, CMS 106, 413 keys; 24 pages built.

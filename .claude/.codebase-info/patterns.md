@@ -86,7 +86,9 @@ allowance wide enough to cover one world relaxes the limit to `|y|` 0.969 and sw
 and for V/Q the geometric mean of both rows' pinch), so it cannot be stamped once at bind time like a
 single's cover-fit. `PopulationDirector.place()` is the one per-frame writer: `useGlobeScene` calls it
 right after `scroller.update`, and it re-derives every member's A window from its own pose, and its B
-(video) window as `cover(V, aTex) ∘ A` so the video registers with the poster. Two rules keep it
+(video) window as `cover(V, aTex) ∘ A` so the video registers with the poster. A sequence tile's cut
+(`stepSequences`, right after `place()`) swaps only `texA.value`, every frame cut to one texture spec,
+so the window `place()` wrote holds for whichever frame shows. Two rules keep it
 honest. Every bind-time texA writer (`loadTile`'s bind, `LivePanelScheduler.swapHidden`,
 `useGlobeScene`'s initial load) goes through `tileSwap.windowA`, and `place()` computes the same
 `unitA(m, namePinch(y), θ, aTex)` that windowA's unit branch (`unitWindowOf`) does, so a bind and a
@@ -377,7 +379,8 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   `--record-baseline` run and never by hand; a run with no record under its key exits 2 on
   `legacyParity` / `texPeak` as vacuous, so a bare `node scripts/globe-probe.mjs` exits 2 — pass the
   key the run matches (`--units=0 --baseline=off-desktop` for a plain units-off desktop run; spans are on by default since 10-23). The 17 records were re-recorded at the defaults on 10-31, so a
-  run passes only its row's flags. Re-record a key when an approved default it measures moves, and in
+  run passes only its row's flags. `scripts/globe-matrix.mjs` runs the whole matrix against its records
+  (`check`), re-records it (`record`) or runs the controls (`controls`), one browser at a time. Re-record a key when an approved default it measures moves, and in
   the same pass re-derive any bound that was a forecast of the old default: `texBudget` was popcap
   13's until then, and his 10-24 tile budget had put every units run over it. A one-off failure gets one rerun
   on a quiet machine, both runs kept; never lower a floor or weaken a gate.

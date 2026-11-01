@@ -86,7 +86,9 @@ after the pole-pinch compensation — the probe's slice and stillness gates read
 spans added `tex`, `upload`, `r1`, `decode` `{ mp, budget, pinShort, bucket, streams }`, `layout`,
 `staleLanded`, `bornCancelled` and `units` (`null` unless `?popunits` is on; otherwise the placement,
 seam, register, warp, live-split, chip and `density` counters the span gates read, plus, since 10-31, the
-crop's `look` (`?popunitlook`) and `grown`, the 2×3s each world grew, by slug). The video handoff
+crop's `look` (`?popunitlook`) and `grown`, the 2×3s each world grew, by slug). The media sequence
+(10-31) added `seq` `{ tiles, front, byWorld, refs, cuts }`: the sequence tiles bound, their
+placements on screen (in all and by world slug), the frame refs held and the cuts since load. The video handoff
 (10-27) added `changedAt` / `landedAt` (`performance.now()` of the last change's start and landing, exact
 where the 2 Hz sample is not) and `handoff` `{ mode, waiting, fetch, primed, starts, ahead }` (`?pophandoff`;
 `ahead` is the plan-ahead ledger `{ planned, adopted, missed, why, keys }`, `why` counting the misses by

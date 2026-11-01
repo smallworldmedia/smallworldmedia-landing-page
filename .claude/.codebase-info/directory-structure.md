@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-10-31*
+*Last Updated: 2026-11-01*
 
 ```
 .
@@ -30,8 +30,8 @@
 │   │   └── ui/SocialButton.jsx
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, momentum, navAccent, projectColor, projectSlug,
-│   │                         #   keywords, formatYearRange, constants, sanityClient, queries,
-│   │                         #   siteCopy, *Tune
+│   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
+│   │                         #   queries, siteCopy, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + per-route sheets + *-tune.css benches

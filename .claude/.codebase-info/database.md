@@ -12,7 +12,7 @@ media-library terms (Client Folder, Curated Collection, Artwork Catalog, Feature
 |---|---|---|
 | `client` | `name`, `slug`, `clientType` (artist/label/management/promoter-event), `city`, `country`, `affiliations[]{entity, relationship}`, `links[]{platform,url}` | `affiliations.entity` → client |
 | `project` | `title?`, `slug`, `description`, `yearStart/yearEnd/isOngoing`, `isFeatured`, `projectColor`, `projectColorSecondary`, `orderRank` (LexoRank) | `client` → client; `services[]` → serviceTag |
-| `mediaAsset` | `title`, `slug`, `mediaType` (album-art, logo, featured-project-reel, brand-deck, carousel-slide, `static_*`, `motion_*` by aspect), `image` (hotspot) or `video` (`mux.video`), `alt` (≤150) + `description` (≤300, screen-reader/search only — not the project blurb) for both, `releaseInfo{…}` (album-art), `brandDeckOrder`, `contentRole` (process/supporting; empty = showcase), `displayGroup`, `sourceFolder`/`sourceManifest` (read-only provenance), `orderRank` | `client` → client; `project` → project; `services[]` → serviceTag |
+| `mediaAsset` | `title`, `slug`, `mediaType` (album-art, logo, featured-project-reel, brand-deck, carousel-slide, `static_*`, `motion_*` by aspect), `image` (hotspot) or `video` (`mux.video`), `alt` (≤150) + `description` (≤300, screen-reader/search only — not the project blurb) for both, `releaseInfo{…}` (album-art), `brandDeckOrder`, `contentRole` (process/supporting; empty = showcase), `displayGroup` (a name ending `-banner(s)` routes to the banner wall, one ending `-sequence` makes its stills one cycling tile), `sourceFolder`/`sourceManifest` (read-only provenance), `orderRank` | `client` → client; `project` → project; `services[]` → serviceTag |
 | `serviceTag` | `name`, `slug`, `sortOrder` | — |
 | `globeSettings` | singleton `_id: "globeSettings"`, `picks[]` (writable through `npm run cms` changes as the whole keyed array) | → mediaAsset |
 | `siteSettings` | singleton `_id: "siteSettings"` (10-08), `footerBlurb` (≤400) + `tagline` (≤160): site-wide studio copy as marked plain `text` (the `keywords.jsx` markers), not Portable Text | — |
@@ -40,13 +40,14 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 |---|---|
 | `GLOBE_ASSETS_QUERY` (picks / featured / heroes / autoFill tiers) | `/`, `/process`, `/lab/globe` via `globe/buildAssetPool.js` |
 | `PROJECT_COLORS_QUERY` (project colour tokens, /work World order) | `src/pages/process.astro` → `lib/projectColor.js` `colorPool` → /process chip fills |
-| `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro`; `src/pages/index.astro` via `globe/buildWorldPools.js` (the home globe's population modes). Its assets carry `imageDimensions`, Mux's `videoAspectRatio` / `videoStatus` and `videoTrack` (`max_width`, `max_height`), which `buildWorldPools.toGlobeAsset` turns into the media spans' class `u` (`globe/mediaClass.js`) and source short side `s` at build time |
+| `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro`; `src/pages/index.astro` via `globe/buildWorldPools.js` (the home globe's population modes). Its assets carry `imageDimensions`, Mux's `videoAspectRatio` / `videoStatus` and `videoTrack` (`max_width`, `max_height`), which `buildWorldPools.toGlobeAsset` turns into the media spans' class `u` (`globe/mediaClass.js`) and source short side `s` at build time, and `imageHasAlpha` (`image.asset->metadata.hasAlpha`), which pads a transparent sequence frame whole on near-black instead of cropping it |
 | `FEATURED_PROJECT_PATHS_QUERY`, `FEATURED_PROJECT_DETAIL_QUERY` (`$projectId`) | `src/pages/work/[slug].astro`; paths order drives `NextProjectBand` adjacency |
 | `MEDIA_GRID_QUERY`, `ALBUM_ART_QUERY`, `SERVICE_TAGS_QUERY` | dormant `/work/directory` |
 | `SITE_COPY_QUERY` (the `siteSettings` singleton) | `src/lib/siteCopy.js`, awaited by `BaseLayout.astro` (every route) and `src/pages/index.astro` |
 
 Media descriptors: `FEATURED_PROJECT_DETAIL_QUERY` and `MEDIA_GRID_QUERY` project `alt` + `description`,
 `ALBUM_ART_QUERY` projects `alt`; the WebGL surfaces (globe, Worlds) don't need them.
+`FEATURED_PROJECT_DETAIL_QUERY` also projects `imageHasAlpha`, for the detail grid's sequences.
 
 `scripts/test/cms-frontend.test.mjs` evaluates these real queries with `groq-js` against fixtures;
 `scripts/test/globe-worlds.test.mjs` does the same for `FEATURED_WORLDS_QUERY` → `buildWorldPools`.
@@ -54,6 +55,9 @@ Media descriptors: `FEATURED_PROJECT_DETAIL_QUERY` and `MEDIA_GRID_QUERY` projec
 ## Content flow on the site
 `work/detail/buildContentFlow.js` partitions a project's assets into hero / showcase / brandDecks
 (cap 12 pages) / albumArt buckets; the same function feeds both `/work` Worlds and the detail grid.
+A displayGroup ending `-sequence` collapses into one showcase item carrying `frames`
+(`lib/mediaSequence.js`); on the home globe, `buildWorldPools` also folds a project's still album art
+into one.
 Project accent colors reach CSS through `lib/projectColor.js` as `--project-color*`, and the
 /process chips through `colorPool` (distinct colours, dealt modulo). On home
 (`?popcolor`), the globe world's `projectColor` also drives the globe's
