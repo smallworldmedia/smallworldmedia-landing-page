@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-10-31*
+*Last Updated: 2026-11-01*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -39,7 +39,7 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 | Query | Used by |
 |---|---|
 | `GLOBE_ASSETS_QUERY` (picks / featured / heroes / autoFill tiers) | `/`, `/process`, `/lab/globe` via `globe/buildAssetPool.js` |
-| `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro`; `src/pages/index.astro` via `globe/buildWorldPools.js` (the home globe's population modes, branch `refine/globe-worlds`). Its assets carry `imageDimensions`, Mux's `videoAspectRatio` / `videoStatus` and `videoTrack` (`max_width`, `max_height`), which `buildWorldPools.toGlobeAsset` turns into the media spans' class `u` (`globe/mediaClass.js`) and source short side `s` at build time |
+| `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro`; `src/pages/index.astro` via `globe/buildWorldPools.js` (the home globe's population modes). Its assets carry `imageDimensions`, Mux's `videoAspectRatio` / `videoStatus` and `videoTrack` (`max_width`, `max_height`), which `buildWorldPools.toGlobeAsset` turns into the media spans' class `u` (`globe/mediaClass.js`) and source short side `s` at build time |
 | `FEATURED_PROJECT_PATHS_QUERY`, `FEATURED_PROJECT_DETAIL_QUERY` (`$projectId`) | `src/pages/work/[slug].astro`; paths order drives `NextProjectBand` adjacency |
 | `MEDIA_GRID_QUERY`, `ALBUM_ART_QUERY`, `SERVICE_TAGS_QUERY` | dormant `/work/directory` |
 | `SITE_COPY_QUERY` (the `siteSettings` singleton) | `src/lib/siteCopy.js`, awaited by `BaseLayout.astro` (every route) and `src/pages/index.astro` |
@@ -54,5 +54,5 @@ Media descriptors: `FEATURED_PROJECT_DETAIL_QUERY` and `MEDIA_GRID_QUERY` projec
 `work/detail/buildContentFlow.js` partitions a project's assets into hero / showcase / brandDecks
 (cap 12 pages) / albumArt buckets; the same function feeds both `/work` Worlds and the detail grid.
 Project accent colors reach CSS through `lib/projectColor.js` as `--project-color*`. On home
-(branch `refine/globe-worlds`, `?popcolor`), the globe world's `projectColor` also drives the globe's
+(`?popcolor`), the globe world's `projectColor` also drives the globe's
 ink and the home chrome.

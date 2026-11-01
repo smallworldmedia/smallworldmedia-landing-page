@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-10-31*
+*Last Updated: 2026-11-01*
 
 ## Quick start
 ```bash
@@ -31,7 +31,7 @@ a run passes only its own row's flags.
 - Specs/plans: `docs/featured-projects-preview-plan.md`, `docs/fpgrid-plan.md`,
   `docs/fp-pager-rework-approaches.md`, `docs/process-page-spec.md` + `-plan.md`,
   `docs/orbit-deck-viewer-spec.md`, `docs/perf-bloat-pass-plan.md`, `docs/brand-polish-audit.md`,
-  `docs/globe-worlds-plan.md` (home globe population modes, branch `refine/globe-worlds`).
+  `docs/globe-worlds-plan.md` (home globe population modes; built on `refine/globe-worlds`, folded 10-31).
 - `docs/adr/0001–0004` — the four standing architecture decisions.
 - `docs/tunables-guide.md` — every `?param` and bench.
 - `CONTEXT.md` — media-library glossary; `docs/naming-conventions.md` — media filenames.

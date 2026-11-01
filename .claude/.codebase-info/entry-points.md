@@ -1,12 +1,12 @@
 # Entry Points
 
-*Last Updated: 2026-10-31*
+*Last Updated: 2026-11-01*
 
 ## Routes
 
 | URL | Page | Island (directive) | Data | Status |
 |---|---|---|---|---|
-| `/` | `src/pages/index.astro` | `LandingPage.jsx` → `Hero.jsx` (`client:only="react"`) | `GLOBE_ASSETS_QUERY` → `globe/buildAssetPool.js`; `FEATURED_WORLDS_QUERY` → `globe/buildWorldPools.js` (population modes, default `tides`; branch `refine/globe-worlds`) | live; `body.route-home` |
+| `/` | `src/pages/index.astro` | `LandingPage.jsx` → `Hero.jsx` (`client:only="react"`) | `GLOBE_ASSETS_QUERY` → `globe/buildAssetPool.js`; `FEATURED_WORLDS_QUERY` → `globe/buildWorldPools.js` (population modes, default `tides`) | live; `body.route-home` |
 | `/process` | `src/pages/process.astro` | `process/ProcessPage.jsx` (`client:only`) | same globe pool + `process/processContent.js` | live; `body.route-process` |
 | `/work` | `src/pages/work/index.astro` | `work/FeaturedProjects.jsx` (`client:load`) | `FEATURED_WORLDS_QUERY` → `work/detail/buildContentFlow.js` | live |
 | `/work/[slug]` | `src/pages/work/[slug].astro` | `work/detail/FeaturedProjectDetail.jsx` (`client:load`) | `FEATURED_PROJECT_PATHS_QUERY` (paths + next chain), `FEATURED_PROJECT_DETAIL_QUERY` | live |

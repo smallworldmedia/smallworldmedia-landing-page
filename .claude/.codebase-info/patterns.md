@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-10-31*
+*Last Updated: 2026-11-01*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -309,8 +309,8 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   `scripts/globe-probe.mjs` shares its launch doctrine for the home globe.
 - Probe output paths: derive them with `fileURLToPath(import.meta.url)`. `new URL(import.meta.url).pathname`
   percent-encodes the Dropbox path's spaces and mkdirs a stray `Small%20World%20Media` tree beside the
-  real one. Both probes are fixed on `refine/globe-worlds` (d4f471c); until that merges,
-  `feature/v1-launch`'s `pager-probe.mjs` still needs `--out`.
+  real one. Both probes derive them that way (d4f471c, on `feature/v1-launch` since the
+  10-31 fold).
 - Pixel reads on the dev server: remove `astro-dev-toolbar` first. It sits bottom-centre over the
   page (globe-probe's `--paint` does this).
 - Timing a route arrival: polling from Node starves under SwiftShader (3 samples in 3.2 s missed

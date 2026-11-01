@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-10-31*
+*Last Updated: 2026-11-01*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -71,7 +71,7 @@ initial layout, which runs before the scroller exists) · `InteractionController
 Mux rung, else 720p on desktop since Nathan's 10-23 bake (Q22) and the 480p `STREAM_PARAMS` on phones), `GLOBE_T1` (`?globethumb`, the legacy square side every
 class texture derives from), `globePixelRatio`, and `NAME_STRIP_H`).
 
-**Population modes** (branch `refine/globe-worlds`, `docs/globe-worlds-plan.md`; `tides` is home's
+**Population modes** (`docs/globe-worlds-plan.md`; `tides` is home's
 default since Nathan's 10-06 bake, and `?popmode=off` restores the pre-worlds globe):
 `buildWorldPools.js` (pure: `FEATURED_WORLDS_QUERY` → one pool per featured project, /work showcase
 parity) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `PopulationDirector.js`

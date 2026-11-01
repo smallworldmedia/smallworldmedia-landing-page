@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-10-31*
+*Last Updated: 2026-11-01*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -50,7 +50,7 @@ ClientRouter wipes every `<html>` attribute on swap; persistent islands re-asser
 
 ## Scene → island subscriptions
 
-`globe/useGlobeScene.js`'s api `onWorldChange(cb)` (branch `refine/globe-worlds`) reports each world
+`globe/useGlobeScene.js`'s api `onWorldChange(cb)` reports each world
 the PopulationDirector puts on the globe as `{slug, color, animate}` and replays the latest world to
 a late subscriber. `Hero.jsx` subscribes: it applies `pop-tint` and keeps the colour for its
 `swm:envelop` dispatches. On unmount it clears the tint only if `pop-tint` is still on `<html>`, so
@@ -58,7 +58,7 @@ it never clobbers /work's `fp-tint` after a swap.
 
 ## Enter World handoff (home → /work)
 
-Branch `refine/globe-worlds`, `?popenter=1` (the default). At the Enter World click `Hero.jsx` calls
+Under `?popenter=1` (the default), at the Enter World click `Hero.jsx` calls
 the scene api's `popHold()`, which is `PopulationDirector.hold()`: no new change starts, and a change
 already in flight lands. It then writes `sessionStorage['swm:enterWorld']` = the slug of the world on
 the globe (the `onWorldChange` world, else `getFocusProject()`) before `navigate('/work')`, on the
@@ -75,8 +75,7 @@ a plain link.
 ## Stats globals
 
 Scene → bench / probe reads, polled (no events). `window.__swmPopStats` is published ~2 Hz by
-`globe/PopulationDirector.js` whenever `?popmode` ≠ off (not `?debug`-gated; branch
-`refine/globe-worlds`): the world and its `slug` (what Enter World hands /work), the change clock
+`globe/PopulationDirector.js` whenever `?popmode` ≠ off (not `?debug`-gated): the world and its `slug` (what Enter World hands /work), the change clock
 (`phase`, `holdLeft`, `next`, `transition`; `held` once Enter World stops it), its colour, and video
 decodes vs the tiles they light (`streams`, `liveTiles`), and the name strips: how many are visible
 (`nameTiles`), where this world placed them (`namePlaced`, measured off the live scene at the
