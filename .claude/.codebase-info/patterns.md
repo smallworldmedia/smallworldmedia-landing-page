@@ -378,7 +378,7 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   (`--baseline=KEY`, default the `--out` folder's name), written only from an all-pass
   `--record-baseline` run and never by hand; a run with no record under its key exits 2 on
   `legacyParity` / `texPeak` as vacuous, so a bare `node scripts/globe-probe.mjs` exits 2 — pass the
-  key the run matches (`--units=0 --baseline=off-desktop` for a plain units-off desktop run; spans are on by default since 10-23). The 17 records were re-recorded at the defaults on 10-31, so a
+  key the run matches (`--units=0 --baseline=off-desktop` for a plain units-off desktop run; spans are on by default since 10-23). The 17 records were re-recorded at the folded defaults on 11-01, so a
   run passes only its row's flags. `scripts/globe-matrix.mjs` runs the whole matrix against its records
   (`check`), re-records it (`record`) or runs the controls (`controls`), one browser at a time. Re-record a key when an approved default it measures moves, and in
   the same pass re-derive any bound that was a forecast of the old default: `texBudget` was popcap
