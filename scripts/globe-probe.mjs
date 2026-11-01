@@ -81,7 +81,7 @@
  * <report.json> exits 0 only when each named gate failed non-vacuously.
  * Seed 42 by default; for vacuity only, retry 7, 9, 11, 13 (first passing seed
  * per run type: 42 for every key in scripts/baselines/globe-units.json, all 17
- * of them, as re-recorded at the defaults on 10-31 (H); a record stores it as
+ * of them, as re-recorded at the folded defaults on 11-01; a record stores it as
  * the string "42"). --record-baseline=0 is off, as --noclip=0 is. --negctl=pin
  * refuses --noclip. --detail and --footer refuse --units, --level, --negctl and
  * --record-baseline; both exit before the span gates, so --texmb, --texpeak,

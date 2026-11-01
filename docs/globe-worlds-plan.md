@@ -642,11 +642,12 @@ tables change with these.
 
 **Baselines and seeds.** All 17 records in `scripts/baselines/globe-units.json` hold seed 42,
 which is the probe's default. A record stores the seed as the string `"42"`. So the first passing
-seed was 42 for every run type, and no key needed the vacuity retries (7, 9, 11, 13). H recorded
-them at the defaults on 10-31 (the file's `recorded` is the UTC date, 2026-11-01): the six off-*
-keys, u-rm and u-equiv at `52ff2c2`; the other units keys at `4402081`, a probe-only change, so the
-same page; and u-phonehd720 at `e2227e9`, after the pool's gate. All 17 then re-ran at `e2227e9`
-without the flag and exited 0. A record
+seed was 42 for every run type, and no key needed the vacuity retries (7, 9, 11, 13). All 17 were
+re-recorded at `3d1da03`, after the 11-01 fold put the media sequence in (Status log, the records
+after the fold). The file's `recorded` is the UTC date. H's 10-31 round had recorded them before
+that: the six off-* keys, u-rm and u-equiv at `52ff2c2`; the other units keys at `4402081`, a
+probe-only change, so the same page; and u-phonehd720 at `e2227e9`, after the pool's gate. All 17
+then re-ran at `e2227e9` without the flag and exited 0. A record
 is written only from an all-pass `--record-baseline` run. Re-run without the flag, on that seed,
 it must exit 0, and nobody edits the file by hand. A home run with no record under its key exits
 2: it fails `legacyParity` (units off) and, except under `--mode=off`, `texPeak` (unless
@@ -889,10 +890,9 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   adjacent pair's at-rest reading at the defaults, plus `texPeak`'s 15%: 131 MiB on desktop,
   73 on the phone. `videoDensityMax`'s ceiling takes the higher of the pin and a rung the
   sample's tier plans, so phonehd's HD pairs are judged at 720.
-- The records after the 11-01 fold (Status log, the fold): the media sequence lifts u-equiv's
-  texture peak past `texPeak` (48.9 MiB against 44.39; its record 38.6), so `check` reads 16 of
-  17. Re-record the 17 at the folded defaults (`node scripts/globe-matrix.mjs record`), or keep
-  them and accept the one miss.
+**Answered 11-01:**
+- The records after the fold: re-record the 17 ("go with your recommendation"). Done that day
+  (Status log, the records after the fold).
 
 **Answered 10-31** (his replies to the round's 17 open items):
 - A single's corner touching its own unit stays allowed ("stays as is").
@@ -1691,3 +1691,17 @@ one commit per knob default. The numbers are the contract's §13, and code comme
     - The Imperfect detail page: the sequence cuts 0→1→2→3 a second apart, one frame on and each named by
       its own alt. The video diet passed 6 of 6.
   - Tests 147, CMS 106, 413 keys; 24 pages built.
+- 2026-11-01 · the records after the fold · at `3d1da03` · Nathan: "go with your recommendation" (Open, the
+  records after the fold). All 17 re-recorded at the folded defaults (`node scripts/globe-matrix.mjs record`),
+  seed 42, one browser, against :4322 as on 10-31. Every run passed and wrote its record.
+  - The texture peaks moved with the sequence: u-equiv 38.6 → 48.9 MiB, u-desktop and u-arrive 100.3 →
+    110.3, u-mobile 58.1 → 62.8, u-phonehd and u-phonehd720 58.1 → 66, u-thumb-phonehd 100.3 → 115.8,
+    u-tide 110.5 → 115, and the off-* keys up to 12% (off-phonehd 18.8 → 21). u-hidpi, u-rm and u-tile
+    read the same.
+  - The runs ask more textures (off-desktop 69 → 91, u-desktop 64 → 87): the slots the album art's
+    collapse freed take other projects' tiles, an Imperfect logo frame among them. u-phonehd asks fewer
+    (65 → 57).
+  - `controls`: all 14 failed exactly their lists, with the same extras as on 10-31.
+  - Independent: the fold's own check at `bb0addc` (a preview of the same page on :4330), re-judged
+    offline against the new records, passes 17 of 17. Its peaks sat within 10% of these (u-thumb-phonehd
+    104.7 against 115.8): the run-to-run spread that `texPeak`'s 15% allows for.
