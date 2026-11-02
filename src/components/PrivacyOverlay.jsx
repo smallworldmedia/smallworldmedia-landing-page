@@ -17,6 +17,9 @@
  *
  * Cross-island: SiteShell folds `swm:privacy-state` into its
  * data-chrome-open latch (the footer shell-slide gate).
+ *
+ * 11-02: `data-lenis-prevent` — on the Lenis routes (detail pages) Lenis took
+ * the wheel, so the notice never scrolled and the page under it did.
  */
 import { useEffect, useRef } from 'react';
 import { wipeIn, wipeOut } from '../lib/overlayWipe.js';
@@ -74,7 +77,15 @@ export default function PrivacyOverlay({ open, onClose }) {
   }, [open, onClose]);
 
   return (
-    <div className="privacy-overlay" ref={ref} data-open={open} aria-hidden={!open} role="dialog" aria-label="Privacy">
+    <div
+      className="privacy-overlay"
+      ref={ref}
+      data-open={open}
+      aria-hidden={!open}
+      role="dialog"
+      aria-label="Privacy"
+      data-lenis-prevent
+    >
       <PrivacyContent home={false} />
       {/* ≤768px only (global.css gates): the pill that closes this on desktop
           is hidden there, so this IS the way out. Fixed inside the overlay —
