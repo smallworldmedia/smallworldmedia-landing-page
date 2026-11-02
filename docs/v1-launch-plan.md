@@ -43,10 +43,11 @@ records (`docs/globe-worlds-plan.md`).
    missing dials, tune live on a real phone (the dev server's `--host` LAN address), measure both
    the distance and the velocity it takes to commit, then bake his numbers. This is ws 6's
    "scroll-trigger sensitivity field pass".
-2. `refine/media-sequence` (the image-cycling component, Nathan's session) did not need the rebase:
-   on 11-01 it merged onto this fold's tip with `refine/process` (`e801bed`, `44fdf3e`), on
-   `refine/globe-worlds`, so both fold into this branch as one fast-forward. Then work returns to
-   the launch branch.
+2. **Done.** `refine/media-sequence` (the image-cycling component, Nathan's session) did not need
+   the rebase: on 11-01 it merged onto this fold's tip with `refine/process` (`e801bed`, `44fdf3e`),
+   on `refine/globe-worlds`, and this branch took both as one fast-forward (`c1517e5`, pushed). On
+   11-02 the side worktrees and `refine/globe-worlds` were retired. One workstream from here: this
+   branch, in the main checkout, with the dev server (`:4322 --host`) running there.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 

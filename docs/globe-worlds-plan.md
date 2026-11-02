@@ -1,6 +1,6 @@
 # Globe Worlds: three ways to populate the home globe by featured project
 
-*Branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Plan approved 2026-09-23; re-scoped at the P2 checkpoint (2026-09-26: Blend becomes pointer / drag travel between worlds, Procession drops, Dive folds into P3); Blend dropped 2026-10-28. Status: Tides ships with media spans and the fast video handoff (Nathan's bakes through 10-28) — see the Status log at the end.*
+*Built on branch `refine/globe-worlds` (worktree `../swm-globe-worlds`, off `feature/v1-launch` 18957ae). Folded into `feature/v1-launch` on 10-31 (`b153d8a`) and 11-01 (`c1517e5`); the branch and its worktree were retired on 11-02, and work continues on `feature/v1-launch` in the main checkout. Plan approved 2026-09-23; re-scoped at the P2 checkpoint (2026-09-26: Blend becomes pointer / drag travel between worlds, Procession drops, Dive folds into P3); Blend dropped 2026-10-28. Status: Tides ships with media spans and the fast video handoff (Nathan's bakes through 10-28) — see the Status log at the end.*
 
 ## Context
 
@@ -36,6 +36,10 @@ Facts the design rests on:
   detail-page return). Setting an index after mount plays a World Turn (`useWorldScene.js:1173-1178`).
 
 ## Setup (your answer: worktree)
+
+Retired 11-02: the worktree is gone and `refine/globe-worlds` is deleted. The dev server
+(`npx astro dev --port 4322 --host`) now runs from the main checkout on `feature/v1-launch`. The
+setup below is the original record.
 
 ```
 git worktree add "../swm-globe-worlds" -b refine/globe-worlds feature/v1-launch   # off 18957ae
