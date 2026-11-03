@@ -69,7 +69,7 @@
   font-display: swap;
 }
 
-/* ABC Areal (Dinamo) — THE MAIN SANS, 10-07 trial. One variable file carries
+/* ABC Areal (Dinamo) — THE MAIN SANS, licensed. One variable file carries
    the whole range the site asks for: wght 400–700 continuous, so 400/500/600
    and 700 are all real cuts rather than the synthetic 600 PP Neue Montreal
    was faking. 181 KB for the variable vs 189 KB for three statics, and one
@@ -169,7 +169,7 @@
   );
 
   /* Typography — font stacks.
-     ABC Areal is the main sans (10-07 trial); PP Neue Montreal stays one step
+     ABC Areal is the main sans; PP Neue Montreal stays one step
      behind it in every chain, so a face that fails to load degrades to the
      previous house sans rather than to a system font. --font-display keeps the
      Squeezed face at the front (Areal has no condensed width, and the globe
@@ -3585,7 +3585,19 @@ html[data-footer-in] .logo-ticker__copy {
   outline-offset: 3px;
 }
 
-/* The notice's measure — shared by /privacy and the overlay (PrivacyContent) */
+/* /privacy and /terms: full-bleed black behind the measure; the route's own
+   scroll room */
+body:has(.privacy-page) {
+  background: var(--color-black);
+}
+
+.privacy-page {
+  min-height: 100dvh;
+  background: var(--color-black);
+}
+
+/* The notice's measure — shared by /privacy, /terms and the overlay
+   (PrivacyContent) */
 .privacy {
   max-width: 46rem;
   margin: 0 auto;
@@ -3627,20 +3639,46 @@ html[data-footer-in] .logo-ticker__copy {
   line-height: 1.5;
 }
 
+.privacy__section ul {
+  margin-top: var(--space-4);
+  padding-left: 1.25em;
+  list-style: disc;
+}
+
+.privacy__section li {
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  line-height: 1.5;
+}
+
+.privacy__section li + li {
+  margin-top: var(--space-4);
+}
+
+.privacy__section strong {
+  font-weight: 500;
+}
+
 .privacy__section a {
   color: var(--color-white);
   text-decoration: underline;
 }
 
-.privacy__home {
-  display: inline-block;
+/* return_home + the other legal page; the overlay shows only the latter */
+.privacy__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) 2.5rem;
   margin-top: 3.5rem;
+}
+
+.privacy__links a {
   font-family: var(--font-body);
   font-size: var(--text-ui);
   color: var(--color-white);
 }
 
-.privacy__home:hover {
+.privacy__links a:hover {
   text-decoration: underline;
 }
 

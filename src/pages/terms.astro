@@ -1,0 +1,89 @@
+---
+/**
+ * /terms — the terms of use: the 10-13 copy from `main` (PR #42) in the
+ * privacy policy's design, less its QuickBooks integration section (gone with
+ * QuickBooks, 11-03). The typefaces are licensed, not ours, so "The site"
+ * credits "their respective owners" (Nathan, 11-03). No overlay twin;
+ * /privacy links here. Styles: global.css `.privacy*`.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const EMAIL = 'hello@smallworld.media';
+---
+
+<BaseLayout
+  title="Terms of Use — Small World Media™"
+  description="Terms for using smallworld.media, the Small World Media studio site."
+>
+  <main class="privacy-page">
+    <div class="privacy">
+      <h1 class="privacy__title">Terms of Use</h1>
+      <p class="privacy__updated">Last updated: November 3, 2026</p>
+
+      <div class="privacy__section">
+        <p>
+          These terms apply to smallworld.media (the “site”), run by Small World Media LLC (“Small
+          World Media”, “we”, “us”). By using the site, you agree to them.
+        </p>
+      </div>
+
+      <section class="privacy__section">
+        <h2>The site</h2>
+        <p>
+          The site presents our studio and its work. All work, imagery, video, typefaces and text on
+          it belong to Small World Media, our clients and collaborators, or their respective owners.
+          Please don’t copy, republish or use them commercially without our written permission.
+        </p>
+        <p>
+          Sending an inquiry through the contact form doesn’t create a client relationship. Projects
+          are governed by the separate proposal or agreement we sign with each client.
+        </p>
+        <p>
+          Don’t use the site to send spam, interfere with it, or try to access anything that isn’t
+          public.
+        </p>
+      </section>
+
+      <section class="privacy__section">
+        <h2>No warranty</h2>
+        <p>
+          The site is provided “as is”, without warranties of any kind. We don’t promise it will
+          always be available or error-free.
+        </p>
+      </section>
+
+      <section class="privacy__section">
+        <h2>Limitation of liability</h2>
+        <p>
+          To the extent the law allows, Small World Media isn’t liable for indirect, incidental or
+          consequential damages arising from use of the site.
+        </p>
+      </section>
+
+      <section class="privacy__section">
+        <h2>Governing law</h2>
+        <p>These terms are governed by the laws of the State of California.</p>
+      </section>
+
+      <section class="privacy__section">
+        <h2>Changes</h2>
+        <p>
+          We may update these terms. When we do, we’ll post the new version here and change the date
+          at the top.
+        </p>
+      </section>
+
+      <section class="privacy__section">
+        <h2>Contact</h2>
+        <p>
+          Small World Media LLC · San Diego, California · <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+        </p>
+      </section>
+
+      <nav class="privacy__links" aria-label="Legal">
+        <a href="/">← return_home</a>
+        <a href="/privacy">privacy_policy →</a>
+      </nav>
+    </div>
+  </main>
+</BaseLayout>

@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-01*
+*Last Updated: 2026-11-03*
 
 ```
 .
@@ -10,7 +10,7 @@
 ├── CONTEXT.md                # media-library domain glossary (read first for CMS work)
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
 ├── src/
-│   ├── pages/                # routes: index, process, privacy, 404, work/{index,[slug],directory}, lab/globe, specimen
+│   ├── pages/                # routes: index, process, privacy, terms, 404, work/{index,[slug],directory}, lab/globe, specimen
 │   ├── layouts/BaseLayout.astro   # head, fonts, ClientRouter, persistent SiteShell + SiteTagline
 │   ├── components/
 │   │   ├── *.jsx             # site chrome: SiteShell, SiteNav, SiteFooter, SiteTagline, RouteFill,

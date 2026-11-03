@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-01*
+*Last Updated: 2026-11-02*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -111,7 +111,7 @@ default. For `transition:persist` islands that is not a one-frame flash but the 
 for the visit. **So build-time content reaches an island as SERIALIZED PROPS, never a module lookup.**
 
 The site-wide copy (10-08) is the case to copy from. `BaseLayout.astro` is the fetch site because all
-nine pages route through it, `/privacy` and `/404` included, and it threads `siteCopy` down two
+ten pages route through it, `/privacy`, `/terms` and `/404` included, and it threads `siteCopy` down two
 chains — to `SiteTagline` (persistent) and through `SiteShell` → `InfoPanel` → `SiteNav`. The footer
 blurb takes a third, `index.astro` → `LandingPage` → `Hero` → `SiteFooter` (as `blurb`), because the
 footer hangs off Hero rather than the layout. Both entry points `await getSiteCopy()`, which memoizes

@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-11-01*
+*Last Updated: 2026-11-03*
 
 ## Routes
 
@@ -10,7 +10,8 @@
 | `/process` | `src/pages/process.astro` | `process/ProcessPage.jsx` (`client:only`) | same globe pool + `process/processContent.js` | live; `body.route-process` |
 | `/work` | `src/pages/work/index.astro` | `work/FeaturedProjects.jsx` (`client:load`) | `FEATURED_WORLDS_QUERY` → `work/detail/buildContentFlow.js` | live |
 | `/work/[slug]` | `src/pages/work/[slug].astro` | `work/detail/FeaturedProjectDetail.jsx` (`client:load`) | `FEATURED_PROJECT_PATHS_QUERY` (paths + next chain), `FEATURED_PROJECT_DETAIL_QUERY` | live |
-| `/privacy` | `src/pages/privacy.astro` | none (SSR `PrivacyContent.jsx`) | static | live |
+| `/privacy` | `src/pages/privacy.astro` | none (SSR `PrivacyContent.jsx`) | static | live; linked from the footer copy line (the privacy pill opens the same copy as an overlay). Billing copy names only the client-facing services (Postmark, Stripe, Wise), not the books (11-03) |
+| `/terms` | `src/pages/terms.astro` | none (static markup on the `.privacy*` styles) | static | live; linked from `/privacy` |
 | `/404` | `src/pages/404.astro` | none | static | live |
 | `/studio` | `@sanity/astro` integration | Sanity Studio | — | live, sitemap-excluded |
 | `/work/directory` | `src/pages/work/directory.astro` | `work/ProjectDirectory.jsx` | grid/album/tag queries | **redirected** → `/work` |
