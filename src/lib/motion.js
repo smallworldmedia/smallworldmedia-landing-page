@@ -77,7 +77,10 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
    The accumulator idiom: wheel/touch px fill toward a commit threshold,
    touch deltas gain ×TOUCH_GAIN, and a stall of RELEASE_MS rubber-bands
    back to rest. Surfaces read their own trigger (live-tunable via ?scroll;
-   /process gets its own param at rebase so surfaces dial independently). */
+   /process gets its own param at rebase so surfaces dial independently).
+   TOUCH_GAIN / RELEASE_MS are shared: their live dials (?touchgain /
+   ?releasems, 11-03) resolve in lib/touchTune.js, which every surface
+   imports instead of the two below. Bake here. */
 export const SCROLL_TRIGGER_WORK_PX = 500; // /work World Turn + detail next-project band
 export const SCROLL_TRIGGER_PROCESS_PX = 500; // /process quantizer
 export const SCROLL_TRIGGER_HOME_PX = 500; // / — post-hero delta drives the footer reveal (09-08)

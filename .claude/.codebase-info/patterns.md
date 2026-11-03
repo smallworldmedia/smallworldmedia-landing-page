@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-01*
+*Last Updated: 2026-11-03*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -184,8 +184,8 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
 - A knob is only half-landed until it has a bench row.
 - A tier-split default reads as ONE knob: `GLOBE_STROKE_FRAC` resolves `IS_MOBILE ? 5 : 6`, and a single
   `?globestroke` overrides BOTH tiers (the `?grainsize` convention) rather than exposing two params.
-- Inventory: `docs/tunables-guide.md` (413 keys, as `node scripts/tunables-keys.mjs --check` printed at
-  the 11-01 fold of the media sequence and /process; read the count from that command, never by hand). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (415 keys, as `node scripts/tunables-keys.mjs --check` printed on
+  11-03 after the `?touchgain` / `?releasems` dials; read the count from that command, never by hand). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
   idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
   regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of

@@ -5,7 +5,8 @@
  * asset (chain order == the /work World order, wrapping last → first), and
  * driven by the site's one resistance interaction: the wheel/touch
  * accumulator from /work's [NEXT]/[PREVIOUS] and the home scroll_to_enter
- * (same ?scroll=600 trigger, 160ms stall → rubber-band, ×2 touch gain).
+ * (same ?scroll trigger, and the house RELEASE_MS stall → rubber-band and
+ * TOUCH_GAIN, live as ?releasems / ?touchgain via lib/touchTune.js).
  *
  * The gesture engages only at the document's end. The fill drives three
  * staggered ramps (Figma: "next project card" states 15:385/401/417):
@@ -42,7 +43,7 @@
  * Reduced motion: no engine at all — the band is a plain link in its
  * resting composition (CSS default; the shifts are JS-applied).
  *
- * Knobs: ?scroll ?npms ?npcover ?nppre ?npsplit ?nplag ?npzoom ?nparm
+ * Knobs: ?scroll ?touchgain ?releasems ?npms ?npcover ?nppre ?npsplit ?nplag ?npzoom ?nparm
  *
  * @param {Object} props
  * @param {Object} props.next - { slug, clientName, title, services, hero, index }
@@ -55,6 +56,7 @@ import { navigate } from 'astro:transitions/client';
 import useHls from '../useHls.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { SCROLL_TRIGGER_WORK_PX, GLIDE_MS } from '../../../lib/motion.js';
+import { TOUCH_GAIN, RELEASE_MS } from '../../../lib/touchTune.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 
@@ -68,7 +70,6 @@ const PARAM = (key, fallback) => {
 
 /* — Resistance (the house accumulator constants) — */
 const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_WORK_PX); // px of wheel/touch to commit (house constant)
-const STALL_MS = 160; // scroll stalled this long → rubber-band back
 // Unlike / and /work (scroll-locked pages where every delta is deliberate),
 // the gesture here arrives mid-flight: a flick lands at the document end
 // with an inertial tail still streaming deltas, which would fill — or, in
@@ -381,7 +382,7 @@ export default function NextProjectBand({ next }) {
     // Stalled below the threshold → the unified snap-back.
     const scheduleRelease = () => {
       clearIdle();
-      idleRef.current = setTimeout(releaseToRest, STALL_MS);
+      idleRef.current = setTimeout(releaseToRest, RELEASE_MS);
     };
 
     const addDelta = (dy) => {
@@ -424,7 +425,7 @@ export default function NextProjectBand({ next }) {
     const onTouchMove = (e) => {
       if (touchY === null) return;
       const y = e.touches[0]?.clientY ?? touchY;
-      addDelta((touchY - y) * 2); // upward swipe = onward (the /work gain)
+      addDelta((touchY - y) * TOUCH_GAIN); // upward swipe = onward (the house gain)
       touchY = y;
     };
     const onTouchEnd = () => {

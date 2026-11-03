@@ -33,13 +33,14 @@ import { CustomEase } from 'gsap/CustomEase';
 import { getLenis } from '../../lib/smoothScroll.js';
 import { PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
 import { TURN_EASE_PATH } from '../work/world/worldConfig.js';
-import { TOUCH_GAIN, RELEASE_MS } from '../../lib/motion.js';
+import { TOUCH_GAIN, RELEASE_MS } from '../../lib/touchTune.js';
 import { TUNING } from './processConfig.js';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, CustomEase);
 
-/* TOUCH_GAIN / RELEASE_MS = the house gesture constants (motion.js) —
-   shared with the hero Envelopment + /work World Turn accumulators. */
+/* TOUCH_GAIN / RELEASE_MS = the house gesture constants (motion.js, live as
+   ?touchgain / ?releasems via lib/touchTune.js) — shared with home's footer
+   reveal, /work's World Turn and the detail next-project band. */
 const PEEK_PX = 24; // elastic copy-column tension at full fill
 
 /* Gestures inside interactive chrome stay native — the quantizer must

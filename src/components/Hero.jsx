@@ -78,7 +78,8 @@ import {
 } from './globe/globeConfig.js';
 import { POP_TUNE_ACTIVE, TUNING as POP_TUNING } from './globe/popConfig.js';
 import { applyNavAccent, clearNavAccent } from '../lib/navAccent.js';
-import { housePulseLoop, RELEASE_MS, SCROLL_TRIGGER_HOME_PX, TOUCH_GAIN } from '../lib/motion.js';
+import { housePulseLoop, SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
+import { RELEASE_MS, TOUCH_GAIN } from '../lib/touchTune.js';
 import SiteFooter, {
   FOOTER_REVEAL_EVENT,
   FOOTER_CLOSE_EVENT,

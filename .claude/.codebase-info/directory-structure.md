@@ -29,7 +29,7 @@
 │   │   ├── specimen/, lab/   # dormant routes (redirected)
 │   │   └── ui/SocialButton.jsx
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
-│   │                         #   settleResize, motion, momentum, navAccent, projectColor, projectSlug,
+│   │                         #   settleResize, motion, touchTune, momentum, navAccent, projectColor, projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
 │   │                         #   queries, siteCopy, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,

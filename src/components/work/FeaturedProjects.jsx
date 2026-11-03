@@ -43,12 +43,8 @@ import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 import { projectColorVars } from '../../lib/projectColor.js';
 import { applyNavAccent } from '../../lib/navAccent.js';
-import {
-  SCROLL_TRIGGER_WORK_PX,
-  TOUCH_GAIN,
-  RELEASE_MS,
-  GLIDE_MS,
-} from '../../lib/motion.js';
+import { SCROLL_TRIGGER_WORK_PX, GLIDE_MS } from '../../lib/motion.js';
+import { TOUCH_GAIN, RELEASE_MS } from '../../lib/touchTune.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 const falloff = (d, spread) => Math.max(0, 1 - d / spread);
