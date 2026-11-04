@@ -8,7 +8,11 @@
  * `isOpen` turns true it scales in (0.3 s power3.out, 0.6 s after, once the
  * entrance stagger has run), and when it turns false it retracts (0.2 s
  * power3.inOut). The scroll listener attaches only while `media` matches —
- * the drawer's thumb is phone-only. Markup and styling stay with the caller:
+ * the drawer's thumb is phone-only — and only then does the scroller carry
+ * data-lenis-prevent, so a wheel scrolls it natively where it scrolls and
+ * Lenis still smooths the page where it doesn't (11-03: a static attribute
+ * left the desktop drawer's names a dead patch for the wheel). Markup and
+ * styling stay with the caller:
  *
  *   const { trackRef, thumbRef } = useScrollThumb(scrollerRef, isOpen);
  *   <div className="…-track" ref={trackRef}><div className="…-thumb" ref={thumbRef} /></div>
@@ -66,6 +70,7 @@ export default function useScrollThumb(scrollerRef, isOpen, { media = '(max-widt
     // Only attach while `media` matches
     const mql = window.matchMedia(media);
     const attach = () => {
+      scroller.toggleAttribute('data-lenis-prevent', mql.matches);
       if (mql.matches) {
         scroller.addEventListener('scroll', handleScroll, { passive: true });
         syncThumbPosition();

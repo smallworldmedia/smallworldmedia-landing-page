@@ -2,7 +2,6 @@ import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import SiteNav from './SiteNav';
-import { CLIENTS } from '../lib/constants';
 import useScrollThumb from './ui/useScrollThumb.js';
 
 /**
@@ -30,6 +29,9 @@ export default function InfoPanel({
     /** `{ footerBlurb, tagline }` — passed straight through to SiteNav, which
         renders the tagline in the mobile menu's foot (10-08). */
     siteCopy,
+    /** The Client Roster, `[{ name, slug, live }]` by name — every published
+        client in Sanity (BaseLayout, src/lib/clientCoverage.js). */
+    roster = [],
 }) {
     const panelRef = useRef(null);
     const hasAnimatedRef = useRef(false);
@@ -85,8 +87,10 @@ export default function InfoPanel({
             {/* Content area — sits above the nav bar, clipped when closed.
                 (The 08-30 top-left close row was REMOVED 08-31, Nathan —
                 the nav's info pill, white-filled while open via
-                aria-expanded, is the one close affordance.) */}
-            <div className="info-panel" ref={panelRef}>
+                aria-expanded, is the one close affordance.)
+                Inert while closed: the drawer is off screen, so nothing in
+                it may take focus (11-03). */}
+            <div className="info-panel" ref={panelRef} inert={!isOpen}>
                 <div className="info-panel__layout">
                     {/* Left column: description */}
                     <div className="info-panel__left">
@@ -104,12 +108,12 @@ export default function InfoPanel({
                         <span className="clients__header">clients</span>
                         <div className="clients__grid">
                             {Array.from({ length: 3 }).map((_, colIndex) => {
-                                const chunkSize = Math.ceil(CLIENTS.length / 3);
-                                const colClients = CLIENTS.slice(colIndex * chunkSize, (colIndex + 1) * chunkSize);
+                                const chunkSize = Math.ceil(roster.length / 3);
+                                const colClients = roster.slice(colIndex * chunkSize, (colIndex + 1) * chunkSize);
                                 return (
                                     <div className="clients__col" key={`col-${colIndex}`}>
-                                        {colClients.map((name) => (
-                                            <span className="clients__item" key={name}>{name}</span>
+                                        {colClients.map((c) => (
+                                            <span className="clients__item" key={c.slug}>{c.name}</span>
                                         ))}
                                     </div>
                                 );
