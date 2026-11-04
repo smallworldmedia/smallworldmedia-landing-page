@@ -7,10 +7,11 @@
  * (NextProjectBand), /process's stages (useProcessScrollDriver) and home's
  * footer reveal (Hero: its drag gain and its release carry).
  *
- *   ?touchgain=2    finger px → gesture px, so a 500px trigger is 250px of
- *                   finger at the default
- *   ?releasems=160  the pause that rubber-bands an uncommitted gesture back,
- *                   wheel AND touch on /work, the band and /process
+ *   ?touchgain=5    finger px → gesture px, so a 500px trigger is 100px of
+ *                   finger at the default (Nathan's 11-03 bake; was 2)
+ *   ?releasems=240  the pause that rubber-bands an uncommitted gesture back,
+ *                   wheel AND touch on /work, the band and /process (11-03
+ *                   bake; was 160)
  *
  * Module-load class: put the params on the URL you hard-load. SSR resolves
  * to the baked constants. Bake Nathan's numbers into motion.js.

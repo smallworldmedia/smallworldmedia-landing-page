@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-02*
+*Last Updated: 2026-11-03*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -15,6 +15,7 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:loader-start` | `Hero`, `?loaderlead` ms after the 0.2 s Enter World chrome exit | `RouteFill` (fades the bar up over 0.3 s; ignored under RM) | — |
 | `swm:enter-world` | `WorldCard`; `EnterTunePanel`/`TextTunePanel` (dry run) | `work/world/useWorldScene.js` (enter ramp), `FeaturedProjects` (arms `textExit`) | — |
 | `swm:fp-freeze` | `pager/GraticulePager.jsx` | `useWorldScene` (halts render + decode while engaged) | `{on}` |
+| `swm:fp-drag` | `FeaturedProjects` (`setDragFollow`, on wheel AND touch building; deduped; skipped under RM. Release: a finger on lift (`touchend` / `touchcancel`, only when something is held), the wheel after the `RELEASE_MS` stall) | `WorldCard` (the entering card's wrap `y`), `useWorldScene` (the drum's `state.drag`) | `{value -1..1 (the fill), release}`: `release` picks the house release lane (`RELEASE_GLIDE_S`, `RELEASE_EASE`) over the drag lane (`DRAG_TRACK_S`). A commit sends nothing: the Turn carries on from the leaned pose (the scene folds `drag` into `adv`) |
 | `swm:footer-reveal` / `swm:footer-close` | tagline pill via `SiteFooter` consts | `Hero`, `FeaturedProjects` footer accumulator | progress |
 | `swm:open-overlay` | Hero CTA, ProcessPage CTA | `SiteShell` | — |
 | `swm:open-privacy` / `swm:privacy-state` | privacy pill, mobile menu / `PrivacyOverlay` | `PrivacyOverlay` / `SiteShell` | `{open}` |
@@ -43,6 +44,7 @@ resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
 | `--scrollbar-w` | `SiteShell` | re-measured on `astro:after-swap` |
 | `data-nav-accent*` | detail pages | project accent for `RouteFill` / `lib/navAccent.js` |
 | `html.fp-tint` / `html.pop-tint`, `--project-color`, `-2`, `-fg`, `-text`, `-on-black`, `--project-globe-filter` | `lib/navAccent.js` (`applyNavAccent(…, { tint })`: /work → `fp-tint`, home under the population modes → `pop-tint`; `clearNavAccent` drops both, RouteFill on route-home / route-process) | chrome wears the accent; the classes carry the 1.7 s colour fade. The published list IS the contract — `--project-color-on-black` (the YIQ≥140 binary flip to white, so a dark accent inks pure white rather than gliding hue) was computed but unpublished until 10-08, and it must stay an UNREGISTERED custom property: registering it would resolve it to an initial-value and make it interpolable, reopening the paint trap. The privacy pill reads it through `--pill-ink-on-black` |
+| `.fp[data-turning]` | `FeaturedProjects` (SSR'd prop: an exit card is staged) | `featured-projects.css`: the pager chip (`.fp-scale__lens`, `__den`) drops its own 0.4 s background lane for the Turn window, so it rides the 1.7 s `--project-color` fade in lockstep with the nav, and its ink switches to the snapping `--nav-ink` faded element-locally. Charged / open rules outrank it |
 | `body.route-home` / `body.route-process` | `BaseLayout.astro` (server) | route-scoped chrome CSS, no hydration flash |
 | `.process-page[data-opening]`, `[data-bg]` | `ProcessPage` (SSR), then `useProcessScene` (`setOpening`, `setBgAttr`) | /process field (w9c): `data-opening` (`black`\|`blue`) keys `process.css` `--ps-field-open`/`--ps-field-solid` and, via `:has()`, the html/body base; `data-bg` names the live field colour, which skins the steppers' keyline and the privacy pill's keyline on black |
 | `sessionStorage swm:hero-intro`, `swm:returnToWork`, `swm:enterWorld` | `Hero`, layout script | intro mode; back-nav to /work; the Enter World handoff (below) |

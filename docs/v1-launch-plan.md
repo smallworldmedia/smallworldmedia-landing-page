@@ -51,6 +51,33 @@ records (`docs/globe-worlds-plan.md`).
    *handled* move, so a main-thread stall over `RELEASE_MS` empties the fill while the finger is
    still moving (headless: every gap was over 160 ms). Measure that on the phone too. Next: Nathan
    dials on the phone.
+   **11-03, the bake (Nathan: "much better"):** `TOUCH_GAIN` 5 and `RELEASE_MS` 240 in
+   `motion.js` (the dials stay live "for now"), so home's footer drag, `/process` and the desktop
+   wheel stall move with them. `?swipepx` 400 reads only on `/process`
+   (`SCROLL_TRIGGER_PROCESS_PX`); `/work` keeps 500. `globe-probe` pins `&touchgain=2` so its
+   footer calibration holds. The same round also shipped four changes:
+   [PREVIOUS] wipes up (bottom edge first, on `overlayWipe`'s
+   `CLIP_CLOSED_UP`) instead of unmounting at World 0. The pager chip rides the 1.7 s
+   `--project-color` fade with no transition of its own while `.fp[data-turning]` (gap 0 against
+   the bar, 39/255 and about 180 ms late in the negative control). A lean (`swm:fp-drag`,
+   `?dragfollow`): the card and the drum preview the Turn and spring home on release, and a commit
+   carries on from the leaned pose. Touch no longer drives the camera look (mouse/pen only). On
+   home, zoom_in from a raised footer glides the reveal back to rest instead of snapping it.
+   **Round 2, same evening (Nathan):** the wheel leans too (desktop). A finger releases on lift
+   (on `touchend`, plus `touchcancel`), and a held finger keeps its fill, with no stall; the wheel's
+   let-go is still the `RELEASE_MS` stall, since a wheel has no lift. `?dragfollow` 0.1 → 0.06 ("a
+   little too strong"). The pulse he meant was the PAGER's: a Turn killed it and rebuilt it 500 ms
+   later, because the number's white flip tweened from the accent ink. The flip is now a white
+   twin of the number (`.fp-scale__peak`) faded on opacity, so the beat survives every Turn, and a
+   re-arm after intent joins the clock (`joinHousePulse`). The zoom_in pulse is back as it was.
+   **Round 3:** [NEXT] and [PREVIOUS] had the pager's lag, so they get the pager's fix. Their white
+   charge is now a registered `--cta-charge` that transitions on the CTA lanes, and the background
+   takes no transition, so it rides the accent fade. Through a Turn the label ink swaps to the
+   snapping `--nav-ink`. The committing chip keeps its pin and its 1.7 s glide (`--cta-ink-fade`).
+   Gap 0 against the bar at 1440 and 390, by computed style and by pixels; with the old chase lanes
+   re-injected (negative control) the gap is 70–74/255 and the chip lands 0.2–1.6 s late.
+   Verified headless at 390 and 1440. Touch and wheel probes must pin a long `?releasems`, because
+   headless input gaps run 250–450 ms.
 2. **Done.** `refine/media-sequence` (the image-cycling component, Nathan's session) did not need
    the rebase: on 11-01 it merged onto this fold's tip with `refine/process` (`e801bed`, `44fdf3e`),
    on `refine/globe-worlds`, and this branch took both as one fast-forward (`c1517e5`, pushed). On

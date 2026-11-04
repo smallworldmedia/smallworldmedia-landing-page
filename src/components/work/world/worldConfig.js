@@ -63,6 +63,11 @@ export const WALL_GEAR = num('wallgear', 12); // wall px of column travel per DE
 export const WALL_MAX_PAGES = Math.max(4, Math.round(num('wallpages', 12))); // pages a wall plate cycles — pairs with BAND_PAGE_CAP in work/index.astro (the register plates still slice BAND_MAX_PAGES)
 export const DRUM_CREEP = num('creep', 0); // DRUM idle: whole-body creep, deg/sec (0 = still — Nathan's toggle)
 export const ARC_DEG = num('arcdeg', 60); // DRUM: arc per project (6-fold). 60° keeps the conveyor CONTINUOUS — the incoming arc enters the frame before the outgoing exits; 120° left a long bare-grid beat mid-roll.
+// Drag-follow (11-03, Nathan): the share of a Turn a finger or the wheel
+// PREVIEWS at full fill — the drum leans this × ARC_DEG, the resting card this
+// × its CARD_TRAVEL — and a release rubber-bands both home. 0 = off. 0.06:
+// 0.1 read "a little too strong" on the phone.
+export const DRAG_FOLLOW = Math.min(1, Math.max(0, num('dragfollow', 0.06)));
 export const DRUM_TURN_MUL = num('drumturn', 1.15); // DRUM: Turn duration × (60° needs less stretch than the 120° sweep did)
 export const PANE_PITCH = num('panepitch', 3); // FORME: macro-cell pitch as a multiple of the shell's fine pitch
 

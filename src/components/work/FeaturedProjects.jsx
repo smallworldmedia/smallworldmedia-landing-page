@@ -43,8 +43,15 @@ import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 import { projectColorVars } from '../../lib/projectColor.js';
 import { applyNavAccent } from '../../lib/navAccent.js';
-import { SCROLL_TRIGGER_WORK_PX, GLIDE_MS } from '../../lib/motion.js';
+import {
+  SCROLL_TRIGGER_WORK_PX,
+  GLIDE_MS,
+  DRAG_TRACK_S,
+  RELEASE_GLIDE_S,
+  RELEASE_EASE_CSS,
+} from '../../lib/motion.js';
 import { TOUCH_GAIN, RELEASE_MS } from '../../lib/touchTune.js';
+import { wipeOut, WIPE_OUT_S, CLIP_OPEN_UP, CLIP_CLOSED_UP } from '../../lib/overlayWipe.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 const falloff = (d, spread) => Math.max(0, 1 - d / spread);
@@ -298,6 +305,35 @@ export default function FeaturedProjects({ worlds = [] }) {
   const atEnd = active >= lastIndex;
   const atStart = active <= 0;
 
+  // [PREVIOUS] leaves on a wipe, never a cut (11-03, Nathan): reaching the
+  // first World keeps it mounted (inert) while its bottom edge wipes up to
+  // the top — the house overlay wipe's curve and beat, edge flipped — then
+  // drops it. Leaving the first World re-mounts it whole, mid-wipe or not.
+  const prevRef = useRef(null);
+  const prevWipeRef = useRef(null);
+  const [prevMounted, setPrevMounted] = useState(!atStart);
+  useEffect(() => {
+    prevWipeRef.current?.kill();
+    prevWipeRef.current = null;
+    const el = prevRef.current;
+    if (!atStart) {
+      if (el) gsap.set(el, { clearProps: 'clipPath,visibility,opacity' });
+      setPrevMounted(true);
+      return;
+    }
+    if (!el) {
+      setPrevMounted(false);
+      return;
+    }
+    gsap.set(el, { clipPath: CLIP_OPEN_UP });
+    prevWipeRef.current = wipeOut(el, WIPE_OUT_S, CLIP_CLOSED_UP).eventCallback('onComplete', () => {
+      prevWipeRef.current = null;
+      setHoverPrev(false); // no pointerleave reaches an unmounted chip
+      setPrevMounted(false);
+    });
+  }, [atStart]);
+  useEffect(() => () => prevWipeRef.current?.kill(), []);
+
   // ── Return-position restore ──
   // Only an explicit return from a detail page reopens the World you left:
   // the breadcrumb arms `swm:returnToWork` on click, and BaseLayout's
@@ -403,17 +439,34 @@ export default function FeaturedProjects({ worlds = [] }) {
     );
   };
 
-  // Scroll stalled below the threshold → rubber-band the partly-filled CTA back
-  // to rest (you didn't commit, so it relaxes). Any upward-drag pre-cover
-  // relaxes with it on the same release curve.
+  // Drag-follow (11-03, Nathan): a finger or the wheel leans the current
+  // World into its Turn — the card and the drum preview ?dragfollow of it at
+  // full fill — and a release springs them home on the CTA's release lane.
+  // One event, two listeners (WorldCard, useWorldScene); a commit sends
+  // nothing, so the Turn carries on from the leaned pose.
+  const dragRef = useRef(0);
+  const setDragFollow = (value, release = false) => {
+    if (PREFERS_REDUCED_MOTION || value === dragRef.current) return;
+    dragRef.current = value;
+    window.dispatchEvent(new CustomEvent('swm:fp-drag', { detail: { value, release } }));
+  };
+
+  // Let go below the threshold → rubber-band the partly-filled CTA back to
+  // rest (you didn't commit, so it relaxes). Any upward-drag pre-cover and
+  // the lean relax with it on the same release curve. A finger lets go on
+  // lift (11-03, Nathan: "the moment you lift your finger"); a wheel has no
+  // lift, so its let-go is a RELEASE_MS stall.
+  const release = () => {
+    clearIdle();
+    accumRef.current = 0;
+    setCtaMode('release');
+    setFill(0);
+    setDragFollow(0, true);
+    if (homeFillRef.current > 0) setHomeFill(0, 0.4);
+  };
   const scheduleRelease = () => {
     clearIdle();
-    idleRef.current = setTimeout(() => {
-      accumRef.current = 0;
-      setCtaMode('release');
-      setFill(0);
-      if (homeFillRef.current > 0) setHomeFill(0, 0.4);
-    }, RELEASE_MS);
+    idleRef.current = setTimeout(release, RELEASE_MS);
   };
 
   // Threshold crossed upward at the first World → commit the reverse
@@ -447,6 +500,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     if (clamped === activeRef.current) return;
     clearIdle();
     accumRef.current = 0;
+    dragRef.current = 0; // the lean is the Turn's now (it starts from the leaned pose)
     lockRef.current = performance.now() + TURN_MS + 60; // one Turn at a time
     setDir(direction);
     setActive(clamped);
@@ -472,6 +526,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     lockRef.current = performance.now() + TURN_MS + 60;
     setDir(Math.sign(clamped - activeRef.current));
     accumRef.current = 0;
+    dragRef.current = 0; // a live lean rides out with the outgoing World
     setCtaMode('drag');
     setFill(0);
     if (homeFillRef.current > 0) setHomeFill(0, 0.4); // pager jump drops a live upward drag
@@ -582,8 +637,9 @@ export default function FeaturedProjects({ worlds = [] }) {
           const f = -a / SCROLL_TRIGGER;
           setCtaMode('drag');
           setFill(0);
+          setDragFollow(0, true);
           setHomeFill(HOME_PRE_COVER * f * f);
-          scheduleRelease();
+          if (wheel) scheduleRelease(); // a finger holds it until the lift
         }
         return;
       }
@@ -600,7 +656,8 @@ export default function FeaturedProjects({ worlds = [] }) {
         // case the user stops short of committing.
         setCtaMode('drag');
         setFill(a / SCROLL_TRIGGER);
-        scheduleRelease();
+        setDragFollow(a / SCROLL_TRIGGER);
+        if (wheel) scheduleRelease(); // a finger holds it until the lift
       }
     };
 
@@ -619,15 +676,20 @@ export default function FeaturedProjects({ worlds = [] }) {
       touchY = y;
       e.preventDefault();
     };
+    // Finger up below the threshold → relax now. Only when something is held:
+    // a commit already zeroed the count, and a lift right after it must not
+    // cut the Turn's own CTA glide short.
     const onTouchEnd = () => {
       touchY = null;
-      if (!departingRef.current) scheduleRelease(); // finger up below threshold → relax the CTA
+      if (departingRef.current) return;
+      if (accumRef.current !== 0 || dragRef.current !== 0 || homeFillRef.current > 0) release();
     };
 
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('touchstart', onTouchStart, { passive: false });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
     el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', onTouchEnd); // the lift is the only release now
     return () => {
       clearIdle();
       clearTimeout(pagerCommitRef.current); // deferred pager commit dies with the island
@@ -636,6 +698,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
     };
   }, [worlds.length, lastIndex]);
 
@@ -758,13 +821,13 @@ export default function FeaturedProjects({ worlds = [] }) {
       : ctaMode === 'commit'
         ? `${TURN_DURATION}s`
         : ctaMode === 'release'
-          ? '0.4s'
-          : '0.12s';
+          ? `${RELEASE_GLIDE_S}s`
+          : `${DRAG_TRACK_S}s`;
   const ctaEase =
     ctaMode === 'commit'
       ? 'cubic-bezier(0.65, 0, 0.35, 1)' // hold high, then settle to default as the Turn finishes
       : ctaMode === 'release'
-        ? 'cubic-bezier(0.16, 1, 0.3, 1)' // quick spring back
+        ? RELEASE_EASE_CSS // quick spring back
         : 'ease-out'; // drag / pin
   const ctaVars = { '--cta-return': ctaReturn, '--cta-ease': ctaEase };
 
@@ -783,17 +846,23 @@ export default function FeaturedProjects({ worlds = [] }) {
   // → pins white/black the instant the threshold is crossed (commit-pin) →
   // eases back to the DESTINATION project's accent over the Turn.
   // `committing` is true only for the CTA in the direction that was triggered.
+  // 11-03 (Nathan: [NEXT]/[PREVIOUS] lag the colour change, like the pager
+  // did): the charge is its own registered var (--cta-charge, the one thing
+  // that transitions) and the background takes NO transition, so it rides
+  // the accent fade in lockstep instead of chasing it. Through a Turn the ink
+  // swaps to the snapping --nav-ink (featured-projects.css); the committing
+  // chip keeps its own lane (pin, then the commit glide) via --cta-ink-fade.
   const ctaColor = (f, committing) => {
-    if (committing && ctaMode === 'commit-pin') {
-      return {
-        '--cta-bg': 'var(--color-white)',
-        '--cta-fg': 'var(--color-black)',
-      };
-    }
-    const pct = Math.round(Math.min(1, Math.max(0, f)) * 100);
+    const pin = committing && ctaMode === 'commit-pin';
+    const pct = pin ? 100 : Math.round(Math.min(1, Math.max(0, f)) * 100);
     return {
-      '--cta-bg': `color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-white) ${pct}%)`,
-      '--cta-fg': `color-mix(in srgb, var(--project-color-fg, var(--color-white)), var(--color-black) ${pct}%)`,
+      '--cta-charge': `${pct}%`,
+      '--cta-bg':
+        'color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-white) var(--cta-charge))',
+      '--cta-fg': `color-mix(in srgb, var(--cta-ink, var(--project-color-fg, var(--color-white))), var(--color-black) ${pct}%)`,
+      ...(committing && (pin || ctaMode === 'commit')
+        ? { '--cta-ink-fade': ctaReturn, '--cta-ink-ease': ctaEase }
+        : null),
     };
   };
   // Hover charges the colour fully (like the scale bump above) — white/black.
@@ -816,6 +885,9 @@ export default function FeaturedProjects({ worlds = [] }) {
       aria-label="Featured projects"
       ref={mainRef}
       data-pager={legacyRail ? undefined : 'scale'}
+      // The Turn window (an exit card is staged): the pager chip rides the
+      // accent fade in lockstep instead of chasing it (featured-projects.css).
+      data-turning={cards.some((c) => c.phase === 'exit') || undefined}
       // S2: the focused (active) project's accent, broadcast at the page root.
       // The left-pager active chip resolves --project-color from here; per-card
       // surfaces override it on their own .fp-card-wrap so a Turn keeps each
@@ -880,10 +952,12 @@ export default function FeaturedProjects({ worlds = [] }) {
       </nav>
       )}
 
-      {/* Top: previous-project control (hidden on the first project). */}
-      {!atStart && (
+      {/* Top: previous-project control (wipes away on the first project). */}
+      {prevMounted && (
         <button
           type="button"
+          ref={prevRef}
+          inert={atStart || undefined}
           className="fp-prev fp-cta"
           style={{ '--cta-scale': prevScale.toFixed(3), ...ctaVars, ...prevColor }}
           onClick={onPrev}

@@ -1031,16 +1031,18 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     if (departingRef.current) return;
     footerWipeRef.current?.kill();
     footerDriveRef.current.stop();
-    // The footer never rides the Envelopment — back to its resting floor,
-    // which is NOT 0 (either tier since 10-09): dropping it to nothing yanked
-    // the persistent footer off the screen under the dive.
-    setFooterReveal(FOOTER_REST);
+    // The footer never rides the Envelopment — it goes back to its resting
+    // floor, which is NOT 0 (either tier since 10-09): dropping it to nothing
+    // yanked the persistent footer off the screen under the dive. 11-03
+    // (Nathan: from a full reveal it "abruptly snaps back"): it GLIDES there
+    // now, below, on the house retract; only reduced motion still cuts.
     setCtaPinned(true);
     // The world you clicked is the world you land in: the change clock holds
     // from here (no new world starts under the dive) and /work gets this one.
     sceneApiRef.current?.popHold();
     const entered = worldRef.current;
     if (PREFERS_REDUCED_MOTION) {
+      setFooterReveal(FOOTER_REST);
       // RM: plain navigation, no theatrics — but the cover CUTS in (RouteFill
       // sets it, no fade) so /work's server-rendered first World never shows
       // before the entered one; /work lets go once that card is up (10-06).
@@ -1053,6 +1055,15 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     }
     departingRef.current = true;
     armedRef.current = false;
+    // The retract: wherever the scroll left the footer, it glides home on the
+    // footerWipe curve over the house glide × the distance (≈0.48s from a full
+    // desktop reveal, ≈0.33s on a phone) — done before the dive gathers pace
+    // and well inside the cover. --hero-lift rides the same channel, so the
+    // globe and the fading zoom_in come down WITH the panel. Set after
+    // departingRef, so no wheel or finger can kill it mid-glide.
+    if (footerPRef.current > FOOTER_REST + 0.001) {
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, FOOTER_REST);
+    }
     commitKillRef.current?.(); // a bench dry-run may still be settling
     const { enterMs, scale, moveStart, moveEnd, pow } = ENTER_TUNABLES;
     const coverS = enterMs / 1000;

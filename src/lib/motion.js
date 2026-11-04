@@ -73,6 +73,30 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
   return tl;
 }
 
+/**
+ * Play a PAUSED pulse loop ON the metronome (11-03; GraticulePager's rest
+ * pulse). A loop armed later — paused at creation, played after a delay — has
+ * drifted off the clock by the pause; play() alone resumes from that stale
+ * phase. This re-seeks first.
+ * The loop's own shape gives the period (hit = duration, rest = repeatDelay).
+ * Inside the rest the target sits at its rest value, so the seek is invisible
+ * and it plays now; inside a hit a seek would jump it mid-swell, so it waits
+ * for the next downbeat. Returns a cancel — call it before killing the loop:
+ * a late totalTime() on a killed timeline re-attaches it.
+ */
+export function joinHousePulse(tl) {
+  const on = tl.duration();
+  const periodS = on + tl.repeatDelay();
+  const seek = () => tl.totalTime((performance.now() / 1000) % periodS).play();
+  const phase = (performance.now() / 1000) % periodS;
+  if (phase >= on) {
+    seek();
+    return () => {};
+  }
+  const id = setTimeout(seek, (periodS - phase) * 1000);
+  return () => clearTimeout(id);
+}
+
 /* ── House scroll gesture ─────────────────────────────────────────────────
    The accumulator idiom: wheel/touch px fill toward a commit threshold,
    touch deltas gain ×TOUCH_GAIN, and a stall of RELEASE_MS rubber-bands
@@ -82,14 +106,26 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
    ?releasems, 11-03) resolve in lib/touchTune.js, which every surface
    imports instead of the two below. Bake here. */
 export const SCROLL_TRIGGER_WORK_PX = 500; // /work World Turn + detail next-project band
-export const SCROLL_TRIGGER_PROCESS_PX = 500; // /process quantizer
+export const SCROLL_TRIGGER_PROCESS_PX = 400; // /process quantizer (Nathan's 11-03 phone dial, ?swipepx=400)
 export const SCROLL_TRIGGER_HOME_PX = 500; // / — post-hero delta drives the footer reveal (09-08)
 // ^ unified at 500 per Nathan's 2026-07-16 dial (was 600/600/700) — the
 //   Notion "takes too much scroll power" note, answered. Per-surface
-//   exports stay so a future dial can split them again. (The HOME trigger
-//   retired 08-30 — the hero's enter_world is tap-only now.)
-export const TOUCH_GAIN = 2; // touch deltas 2× — parity with wheel feel
-export const RELEASE_MS = 160; // stall gap before the rubber-band release
+//   exports stay so a future dial can split them again; /process split off
+//   at 400 on 11-03. (The HOME trigger retired 08-30 — the hero's
+//   enter_world is tap-only now.)
+// The pair below is Nathan's 11-03 phone dial (/work?touchgain=5&releasems=240,
+// "much better"; was 2 / 160). At gain 5 a 500px trigger is 100px of finger.
+export const TOUCH_GAIN = 5; // touch deltas 5×
+export const RELEASE_MS = 240; // stall gap before the rubber-band release (wheel too)
+
+/* The rubber band's two lanes — what a dragged, uncommitted gesture rides
+   (11-03: one home for the /work CTAs' CSS lanes and the touch drag-follow's
+   GSAP ones). TRACK follows the finger; RELEASE springs back to rest —
+   CSS cubic-bezier(0.16, 1, 0.3, 1) is the expo-out twin. */
+export const DRAG_TRACK_S = 0.12; // CSS: ease-out
+export const RELEASE_GLIDE_S = 0.4;
+export const RELEASE_EASE = 'expo.out';
+export const RELEASE_EASE_CSS = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
 /* The house commit GLIDE — what a threshold-crossing gesture settles
    into (Nathan's 2026-07-16 dial, baked from the /process ?swipems):
@@ -162,8 +198,8 @@ export const SCALE_FLIP_TAU_S = 0.1; // flipper spring τ — box AND pointer si
    Calibration caveats:
    - NextProjectBand's NP_ARM_MS=250 (?nparm) is tuned to the default
      lerp-0.1 inertia tail — re-check flick tails at the band if lerp moves.
-   - TOUCH_GAIN=2 above encodes parity with the CURRENT touch feel — if the
-     Lenis bake shifts it (touchMultiplier default 1), re-check touch parity.
+   - TOUCH_GAIN above is Nathan's phone dial (5 since 11-03) — if the
+     Lenis bake shifts the touch feel (touchMultiplier default 1), re-dial it.
    - The spec'd-but-dormant orbit scroll-kick (momentum.js kick(), zero
      importers today) will read getLenis().velocity, whose magnitude scales
      with lerp/wheelMultiplier — record the baked values so ?orbitkick gets

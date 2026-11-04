@@ -35,9 +35,16 @@ import {
   TURN_DURATION,
   TURN_EASE_PATH,
   PREFERS_REDUCED_MOTION,
+  DRAG_FOLLOW,
 } from './world/worldConfig.js';
 import { ENTER_TUNABLES } from './world/enterTune.js';
-import { housePulseLoop, HOUSE_PULSE_PERIOD_S } from '../../lib/motion.js';
+import {
+  housePulseLoop,
+  HOUSE_PULSE_PERIOD_S,
+  DRAG_TRACK_S,
+  RELEASE_GLIDE_S,
+  RELEASE_EASE,
+} from '../../lib/motion.js';
 // FP-1 house-pulse tuning bench (dev-only, ?fp1tune=1). Absent without the
 // param: FP1_TUNE_ACTIVE is false and the shipped pulse stays motion.js default.
 import {
@@ -251,11 +258,26 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       cta.addEventListener('mouseleave', stir);
       cta.addEventListener('focusin', calm);
       cta.addEventListener('focusout', stir);
+      // Drag-follow (FeaturedProjects' swm:fp-drag, 11-03; wheel + touch): the resting
+      // card leans DRAG_FOLLOW of its Turn travel at full fill, on `y` — the
+      // Turn tweens yPercent, so the exit carries on from the leaned pose and
+      // only a release springs it home. Enter phase only (this run).
+      const lean = contextSafe((e) => {
+        const { value = 0, release = false } = e.detail || {};
+        gsap.to(wrap, {
+          y: -value * DRAG_FOLLOW * (CARD_TRAVEL / 100) * wrap.offsetHeight,
+          duration: release ? RELEASE_GLIDE_S : DRAG_TRACK_S,
+          ease: release ? RELEASE_EASE : 'power1.out',
+          overwrite: 'auto',
+        });
+      });
+      window.addEventListener('swm:fp-drag', lean);
       listenersRef.current = () => {
         cta.removeEventListener('mouseenter', calm);
         cta.removeEventListener('mouseleave', stir);
         cta.removeEventListener('focusin', calm);
         cta.removeEventListener('focusout', stir);
+        window.removeEventListener('swm:fp-drag', lean);
       };
 
       // FP-1 bench (?fp1tune): a slider move re-creates the live pulse on this

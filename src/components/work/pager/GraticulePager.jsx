@@ -113,6 +113,7 @@ import {
   ensureHousePulse,
   HOUSE_PULSE_PERIOD_S,
   HOUSE_PULSE_ON_RATIO,
+  joinHousePulse,
 } from '../../../lib/motion.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
@@ -454,56 +455,70 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
   // FP-1 house pulse at REST (09-02 round 2): the canonical envelope on a
   // dim-gray veil inside the lens + the number flipping white at the peak —
   // the enter_world pulse, re-seated on the number cell as the interaction
-  // hint. GSAP owns ONLY the veil opacity and the two inline colors
-  // (none carries a CSS transition, so no lane fight with the accent /
-  // charged flips); killed the moment intent lands (charge, engage) and
-  // re-armed 500ms after rest — past the 0.4s accent transition, so a Turn
-  // recolour never bakes a mid-fade colour into the loop. Never under RM.
+  // hint. GSAP owns ONLY opacities and the hint's inline colour (none carries
+  // a CSS transition, so no lane fight with the accent / charged flips);
+  // killed the moment intent lands (charge, engage), re-armed 500ms after
+  // rest. Never under RM.
   // 09-04 (Nathan): the rotated select_project HINT rides the same
   // timeline with the INVERSE ink — white while the cell shows the
   // project colour, dipping to its 55% rest ink exactly when the veil
-  // greys the cell (enter_world's dim polarity, so all three beat
-  // together) — and the timeline seeks the house METRONOME (shared wall
-  // clock, see housePulseLoop) so it phase-locks with enter_world.
+  // greys the cell (enter_world's dim polarity) — and the timeline seeks
+  // the house METRONOME (shared wall clock, see housePulseLoop).
+  // 11-03 (Nathan: the pager's pulse "recounts its timer" as each project
+  // settles): ONE beat for the pager's life, which a Turn never touches. A
+  // Turn used to kill it and rebuild it 500ms later, because the number's
+  // flip tweened its colour FROM the accent ink, a value GSAP records once.
+  // The flip is now a white twin of the number (.fp-scale__peak) faded on
+  // opacity, so nothing in the loop reads the accent: the veil and the twin
+  // are opacity, the hint's two inks are constants. A (re-)arm joins the
+  // clock at the next rest or downbeat (joinHousePulse), never mid-swell.
   const chargedRef = useRef(false);
   const pulseTlRef = useRef(null);
   const pulseElRef = useRef(null);
+  const peakRef = useRef(null);
   const hintRef = useRef(null);
   const pulseTimerRef = useRef(0);
+  const unjoinPulseRef = useRef(null);
   const killPulse = () => {
     clearTimeout(pulseTimerRef.current);
+    pulseTimerRef.current = 0;
+    unjoinPulseRef.current?.(); // first: a late seek re-attaches a killed timeline
+    unjoinPulseRef.current = null;
     pulseTlRef.current?.kill();
     pulseTlRef.current = null;
-    const targets = [pulseElRef.current, numRef.current, hintRef.current].filter(Boolean);
+    const targets = [pulseElRef.current, peakRef.current, hintRef.current].filter(Boolean);
     if (targets.length) gsap.set(targets, { clearProps: 'opacity,color' });
   };
   const armPulse = () => {
     killPulse();
     if (PREFERS_REDUCED_MOTION) return;
     pulseTimerRef.current = setTimeout(() => {
+      pulseTimerRef.current = 0;
       if (openRef.current || chargedRef.current) return; // intent landed meanwhile
       const veil = pulseElRef.current;
-      const num = numRef.current;
-      if (!veil || !num) return;
+      const peak = peakRef.current;
+      if (!veil || !peak) return;
       const on = HOUSE_PULSE_PERIOD_S * HOUSE_PULSE_ON_RATIO;
-      pulseTlRef.current = gsap
-        .timeline({ repeat: -1, repeatDelay: HOUSE_PULSE_PERIOD_S - on })
-        .to(veil, { opacity: 1, duration: on, ease: ensureHousePulse() }, 0)
-        .to(num, { color: '#ffffff', duration: on, ease: ensureHousePulse() }, 0);
+      const tl = gsap
+        .timeline({ repeat: -1, repeatDelay: HOUSE_PULSE_PERIOD_S - on, paused: true })
+        .to([veil, peak], { opacity: 1, duration: on, ease: ensureHousePulse() }, 0);
       if (hintRef.current) {
         gsap.set(hintRef.current, { color: '#ffffff' }); // armed base = white (accent phase)
-        pulseTlRef.current.to(
+        tl.to(
           hintRef.current,
           { color: 'rgba(255, 255, 255, 0.55)', duration: on, ease: ensureHousePulse() },
           0
         );
       }
-      pulseTlRef.current.totalTime((performance.now() / 1000) % HOUSE_PULSE_PERIOD_S);
+      pulseTlRef.current = tl;
+      unjoinPulseRef.current = joinHousePulse(tl);
     }, 500);
   };
+  // Intent kills the beat; rest arms it once and then leaves it running, so
+  // a Turn (which calls this too) finds it beating and lets it be.
   const syncPulse = () => {
     if (openRef.current || chargedRef.current) killPulse();
-    else armPulse();
+    else if (!pulseTlRef.current && !pulseTimerRef.current) armPulse();
   };
   useEffect(() => {
     armPulse();
@@ -753,6 +768,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     const w = worlds[i];
     if (!w) return;
     if (numRef.current) numRef.current.textContent = pad2(i);
+    if (peakRef.current) peakRef.current.textContent = pad2(i);
     cRef.current = un;
     rootRef.current?.style.setProperty('--scale-c', un);
     setMarquee(un);
@@ -868,7 +884,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     // on every page load.
     if (mountedRef.current && !openRef.current && !snap) announce(active);
     mountedRef.current = true;
-    syncPulse(); // rest pulse rebuilds on the DESTINATION accent (500ms arm delay)
+    syncPulse(); // re-arms only a beat intent killed; a running one rides the Turn
     const focused = document.activeElement;
     const rootEl = rootRef.current;
     // Roving tabstop: focus stranded on a stale station carries tabindex=-1
@@ -1009,6 +1025,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
           <span className="fp-scale__pulse" ref={pulseElRef} />
           <span className="fp-scale__pointer" />
           <span className="fp-scale__num" ref={numRef}>
+            {seedNum}
+          </span>
+          <span className="fp-scale__peak" ref={peakRef}>
             {seedNum}
           </span>
         </span>
