@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-11-01*
+*Last Updated: 2026-11-03*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -34,6 +34,12 @@ from every site query. Ordering uses LexoRank via `@sanity/orderable-document-li
 "Featured Projects (drag to order)" and per-project "Featured Project Assets", which exclude
 brand-deck/carousel-slide/album-art and any `contentRole`).
 
+Client Coverage (11-03, `src/lib/clientCoverage.js`) reads `client.affiliations[].entity` one hop: a
+name covers its own media plus that of every client naming it as entity, so a label, manager or
+owner pulls in its artists' work and an artist never pulls in a label's catalogue (Munchietown names
+DJ Tennis, `label-of`, so DJ Tennis filters to Munchietown's media). The drawer lists every published
+`client`; a name whose coverage holds no media stays a plain label until an affiliation lands.
+
 ## Queries (`src/lib/queries.js`) → consumers
 
 | Query | Used by |
@@ -42,14 +48,17 @@ brand-deck/carousel-slide/album-art and any `contentRole`).
 | `PROJECT_COLORS_QUERY` (project colour tokens, /work World order) | `src/pages/process.astro` → `lib/projectColor.js` `colorPool` → /process chip fills |
 | `FEATURED_WORLDS_QUERY` | `src/pages/work/index.astro`; `src/pages/index.astro` via `globe/buildWorldPools.js` (the home globe's population modes). Its assets carry `imageDimensions`, Mux's `videoAspectRatio` / `videoStatus` and `videoTrack` (`max_width`, `max_height`), which `buildWorldPools.toGlobeAsset` turns into the media spans' class `u` (`globe/mediaClass.js`) and source short side `s` at build time, and `imageHasAlpha` (`image.asset->metadata.hasAlpha`), which pads a transparent sequence frame whole on near-black instead of cropping it |
 | `FEATURED_PROJECT_PATHS_QUERY`, `FEATURED_PROJECT_DETAIL_QUERY` (`$projectId`) | `src/pages/work/[slug].astro`; paths order drives `NextProjectBand` adjacency |
-| `MEDIA_GRID_QUERY`, `ALBUM_ART_QUERY`, `SERVICE_TAGS_QUERY` | dormant `/work/directory` |
+| `DIRECTORY_QUERY` (11-03): `tags` in `sortOrder`, every published `client` with `umbrellas` (`affiliations[].entity->slug.current`), `worlds` (`FEATURED_PROJECT_PATHS_QUERY`, the World order) and every published asset with an image or video as `MEDIA_FIELDS` + `orderRank`, `clientSlug`, `projectId`, `projectRank` | `src/lib/directoryData.js` `getDirectoryData()` (one fetch per build) → `/work/directory` via `work/directory/buildDirectoryTiles.js`, and `BaseLayout.astro`'s Client Roster via `toDrawerRoster` |
 | `SITE_COPY_QUERY` (the `siteSettings` singleton) | `src/lib/siteCopy.js`, awaited by `BaseLayout.astro` (every route) and `src/pages/index.astro` |
 
-Media descriptors: `FEATURED_PROJECT_DETAIL_QUERY` and `MEDIA_GRID_QUERY` project `alt` + `description`,
-`ALBUM_ART_QUERY` projects `alt`; the WebGL surfaces (globe, Worlds) don't need them.
-`FEATURED_PROJECT_DETAIL_QUERY` also projects `imageHasAlpha`, for the detail grid's sequences.
+Media descriptors: `FEATURED_PROJECT_DETAIL_QUERY` projects `alt` + `description` through `MEDIA_FIELDS`
+(11-03), the asset fields every grid of slots reads, and `DIRECTORY_QUERY` projects the same; the
+directory's tiles then keep only the face MediaSlot reads, `alt` but not `description`. The WebGL
+surfaces (globe, Worlds) don't need them. `MEDIA_FIELDS` also carries `imageHasAlpha`, for the
+sequences and the directory's letterboxed logos.
 
-`scripts/test/cms-frontend.test.mjs` evaluates these real queries with `groq-js` against fixtures;
+`scripts/test/cms-frontend.test.mjs` evaluates these real queries with `groq-js` against fixtures
+(`DIRECTORY_QUERY` through `buildDirectoryTiles` too, 11-03);
 `scripts/test/globe-worlds.test.mjs` does the same for `FEATURED_WORLDS_QUERY` → `buildWorldPools`.
 
 ## Content flow on the site

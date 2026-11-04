@@ -140,8 +140,13 @@ Canonical names for UI components. All implementation work **must** use these te
 | **FeaturedProjectDetail** | Orchestrator for the `/work/[slug]` Single Project Page. Renders one Featured Project collection as an editorial page via the Content Population Hierarchy. | All `mediaAsset` docs sharing one `sourceFolder` + optional `project` doc |
 | **SiteNav** | Fixed top navigation bar — globe, info pill, sitemap links. | Static |
 | **ClientPanel** | Full-width blue info band below the nav: squeezed project title, client metadata chips (client_type, based_in), social links. | `client` document |
-| **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. | Single `mediaAsset` document |
-| **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only. | Single `serviceTag` reference |
+| **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. Also the Project Directory's tile, in directory mode: a poster until the shared player gate lets the video play, the 5 s preview clip, srcset, and a `contain` fit for banners and alpha logos. | Single `mediaAsset` document |
+| **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only; the directory's filter control is **FilterTag**. | Single `serviceTag` reference |
+| **DirectoryPage** | Route island for `/work/directory`, the **Project Directory**: the DirectoryFilter over the DirectoryGrid, then the SiteFooter in reveal mode. The filter lives in the URL (`?tag=a,b&client=slug`, rewritten with `replaceState`), and the drawer's client names re-filter it in place through `swm:directory-client`. | `getDirectoryData()`: the service tags, every client and the directory tiles (`DIRECTORY_QUERY`, fetched once per build) |
+| **DirectoryGrid** | The directory's media grid, built on the detail grid's tile units (`tileGrid.js`): `chunkFlushGrid` blocks that stack without seams and mount only near the viewport, with one shared player gate capping the videos that play at once. A featured project's tiles link to its page; the rest are media only. | The filtered directory tiles |
+| **DirectoryFilter** | The directory's sticky filter section under the nav, in the drawer's type, line height and scroll thumb: FilterTags (one row when shut, all of them when open; at ≤768 only the bar shows when shut) over a mono bar with `services (n)`, the active client's chip, the live count, `clear` and the `all_services` toggle. Opening pushes the grid down. | `serviceTag` docs in `sortOrder`, the tiles' tag presence |
+| **FilterTag** | One service-tag filter: the drawer's oversized name type, a CheckIndicator box before the label (an eye inside when on, empty when off), the name in Title Case as stored. Tags OR together, and none on shows everything. | Single `serviceTag` |
+| **CheckIndicator** | The shared check mark (`src/components/ui/CheckIndicator.jsx`): `circle-check` for the inquiry form, `square-eye` for FilterTag and the drawer's marked client. | Static |
 | **SiteFooter** | Simple footer — near-black bar with SWM globe mark + copyright. Expanded variant with footer nav is a future iteration. | Static |
 | **BandPager** | The shared band core both viewers assemble on (`BandPager.jsx`): fixed-height full-width Grid Socket occupant, pages at a slight isometric angle stacked right-of-center, transitions on the **World Turn curve** (same CustomEase + duration as Featured Project paging — one page per gesture, flicks never carry past the neighbor), idle auto-advance at the orbit cadence, depth as darkening (never opacity), top-right side column (counter + per-item content). | assets array + per-viewer side content |
 | **BrandDeckViewer** | Brand/pitch-deck pages (`brand-deck`, ordered by `brandDeckOrder`) on the BandPager. Multi-deck projects get mono tab chips top-left (group order = orderRank, first tab default); the active deck's name sits under the counter in the side column. In the World it floats as a single composite element. *(World mount deferred.)* | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
@@ -180,6 +185,17 @@ Canonical names for UI components. All implementation work **must** use these te
 - **the BREAK** — the hero→Stage-1 transition: the lockup's globe-O winds up, hitches on one white impact frame and bursts into the Fragments, which cool into the Stage-1 belt (`processShatter` falloff; `docs/process-page-spec.md` §3 Hero).
 - **the reform** — the BREAK in reverse, back up to the hero: the Fragments fly home into the O and the word returns first, the lockup taking the mark back as they land.
 
+### Project Directory — concepts
+
+- **Project Directory** — `/work/directory`: every published asset with an image or video, in one flush grid, filtered by service and by client. Reached from the nav's `project_directory` and the drawer's client names; `/work` still stops at its last World.
+- **Directory tile** — one per asset, except grouped media: a deck, a carousel, a banner group or a sequence becomes one tile, keyed by its lane, client, project and `displayGroup` (one group slug can repeat across clients). A deck shows its lowest-`brandDeckOrder` page, a banner group or carousel its first member by `orderRank`, and a sequence cycles. Album covers are single square tiles. Banners and alpha logos letterbox (`fit: contain`). Built by `buildDirectoryTiles.js`, whose lanes come from `assetLane`, so the directory and the detail pages agree.
+- **Directory order** — `project` by default: the featured projects first, in World order, then every other client by name. `?dirorder=mix` deals the clients round-robin.
+- **Directory filter** — tags OR together, none on shows everything, and the client narrows on top. A tag the active client would empty dims; a tag with no tiles is hidden.
+- **Client Roster** — every published `client` in Sanity, by name, listed in the info drawer (`toDrawerRoster`, `src/lib/clientCoverage.js`). A name is **live** when its Client Coverage holds a directory tile: a live name links to the directory filtered by that client, and the rest stay plain labels until a link lands in Sanity.
+- **Client Coverage** — the clients a name stands for: itself, plus every client that names it as an `affiliations[].entity`, one hop only (`coverageOf`). A label, manager or owner pulls in its artists' work; an artist never pulls in a label's catalogue. Munchietown names DJ Tennis as its entity (`label-of`), so DJ Tennis filters to Munchietown's media.
+
+## Content Population Hierarchy
+
 The system that turns a Featured Project directory's contents into a page layout. **Pages are populated, not authored** — current CMS metadata is the layout instruction set. Intake proposes `mediaType`, `contentRole`, and `displayGroup`; the runner appends new `orderRank` values without replaying existing editorial metadata.
 
 | Metadata | Layout role |
@@ -190,8 +206,8 @@ The system that turns a Featured Project directory's contents into a page layout
 | `mediaType` / aspect ratio | Slot sizing — landscape can go full-bleed; portrait/square always pairs into split rows |
 | `contentRole` | Flow membership — showcase (empty) populates the main flow; `process`/`supporting` reserved for the future BTS section |
 | `displayGroup` | Sub-grouping — assets sharing a `displayGroup` value render adjacent on the detail page (controlled adjacency) |
-| `album-art` mediaType | **Dual-feed rule** — populates the AlbumArtViewer (detail page) and the project directory (being rebuilt on the detail grid; the ticker is retired) |
-| `brand-deck` mediaType | **Dual-feed rule** — held out of the flow; populates the BrandDeckViewer accordion (detail page) and a grouped deck presence (project directory), sorted by `brandDeckOrder` |
+| `album-art` mediaType | **Dual-feed rule** — populates the AlbumArtViewer (detail page) and the Project Directory (one square tile per cover) |
+| `brand-deck` mediaType | **Dual-feed rule** — held out of the flow; populates the BrandDeckViewer accordion (detail page), sorted by `brandDeckOrder`, and the Project Directory (one tile per deck) |
 | `carousel-slide` mediaType | Held out of the flow — populates the to-be-built Carousel component, one carousel per `displayGroup`, slides in `orderRank` |
 
 ### Aspect Ratio Resolution Rules
@@ -236,7 +252,7 @@ A **sequence** is one tile that cuts through a set of stills on one shared clock
 
 Any `album-art` asset within a Featured Project collection feeds into **two** surfaces:
 1. **AlbumArtViewer** — the album-art band on the project detail page
-2. **The project directory** — being rebuilt on the detail page's grid; the old horizontal ticker is retired
+2. **The Project Directory** — each cover is one square tile in the directory's grid
 
 This is automatic — the `album-art` mediaType is the trigger; no additional tagging is needed.
 
@@ -246,9 +262,9 @@ This is automatic — the `album-art` mediaType is the trigger; no additional ta
 
 Mirrors album art: any `brand-deck` asset feeds **two** contexts:
 1. **BrandDeckViewer** — the horizontal deck pager on the Featured Project detail page / Featured Projects page
-2. **Project Directory** — a grouped deck presence (one card per deck, not per page)
+2. **Project Directory** — one tile per deck, not per page, showing the deck's first page (lowest `brandDeckOrder`)
 
-`mediaType: brand-deck` is the trigger; `displayGroup` (kebab-case deck slug) bounds the deck; `brandDeckOrder` sequences pages. *(Until the directory deck component exists, deck pages surface in the directory grid as individual cards.)*
+`mediaType: brand-deck` is the trigger; `displayGroup` (kebab-case deck slug) bounds the deck; `brandDeckOrder` sequences pages. In the directory a deck is keyed by client, project and `displayGroup`, since one deck slug can repeat across clients; supporting decks are in, as on the detail pages.
 
 ### Carousel Convention
 
@@ -268,7 +284,7 @@ Brand and pitch decks must be exported as per-page JPEGs and placed in a subfold
 |---|---|---|
 | `/` | Landing page — home globe; scroll triggers **Envelopment** into `/work` | `LandingPage` |
 | `/work` | **Featured Projects** — immersive sphere experience (primary work destination) | `FeaturedProjects` |
-| `/work/directory` | Project Directory — full media grid + filters (redirects to `/work` while it is rebuilt) | — |
+| `/work/directory` | Project Directory — every asset in one flush grid, filtered by service tag and by client (`?tag=a,b&client=slug`) | `DirectoryPage` |
 | `/work/[slug]` | Single Project Page (editorial layout) | `FeaturedProjectDetail` |
 | `/process` | Process page — five-Stage globe narrative (v2; gated by the disabled-route pattern until launch) | `ProcessPage` |
 

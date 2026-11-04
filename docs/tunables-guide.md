@@ -69,7 +69,7 @@ value living only in a `copy_url` link.
 | `?texttune` | `/work` | top-left | text-exit choreography: tag/char cut ms, tab + nav delays/durations, card + nav scale; `▶ dry-run`, `reset`; typed fields | current search + `texttune=1`, non-defaults only |
 | `?fp1tune=1` | `/work` | bottom-right | house-pulse shape (peak x, softness, hold end, fall ease) + envelope (period, dim [dead], rest, on-ratio) with an SVG plot; `↺ reset`; `copy values` emits the `HOUSE_PULSE_*` block | current search + `fp1tune=1`, non-defaults only |
 | `?deckdebug` | `/work` | bottom-right (collides with fp1tune); collapses to a `⌁ deck` chip ≤768px | deck viewer: cycle, spacing, home x, fan, pile, hold, album scale, deck x/y; `↺ reset` | **rebuilt from pathname**, other params dropped |
-| `?dirtune=1` | `/work/directory` (dev only until the route goes on) | top-right | order (`project` / `mix`), players (the gate's cap), dwell ms, phone cols (`1` / `2`); typed fields commit on Enter or blur; `reset` | current URL + `dirtune=1`, non-defaults only (the filter's `?tag` / `?client` ride along) |
+| `?dirtune=1` | `/work/directory` | top-right | order (`project` / `mix`), players (the gate's cap), dwell ms, phone cols (`1` / `2`); typed fields commit on Enter or blur; `reset` | current URL + `dirtune=1`, non-defaults only (the filter's `?tag` / `?client` ride along) |
 | `?debug` | `/process` | bottom-left; chip on phones | stage buttons 01–05, `↻ replay`, fps/draws/stage, 23 sliders + 5 selects for the whole process scene | **rebuilt from pathname** + `?debug`, ms knobs as ms |
 
 Corner map: top-left = texttune / footertune · top-right = herotune / entertune / dirtune · bottom-left = lenistune / globe debug / process debug · bottom-right = committune / poptune / fp1tune / deckdebug.
@@ -594,7 +594,7 @@ Row spans for the grid tiles come from the measured column width, so every tile 
 
 ## `/work/directory` — the Project Directory
 
-Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in DirectoryPage's mount effect) and `detail/tileGrid.js` (`?tileshape`, as on the detail pages). Bench: `?dirtune=1` (DirectoryTunePanel, top-right). The page renders in dev only until the route goes on; production still redirects to `/work`. The defaults are the agent's, pending Nathan's numbers.
+Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in DirectoryPage's mount effect) and `detail/tileGrid.js` (`?tileshape`, as on the detail pages). Bench: `?dirtune=1` (DirectoryTunePanel, top-right). The route is live since 11-03 (`251e7b3`). The defaults are the agent's, pending Nathan's numbers.
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|

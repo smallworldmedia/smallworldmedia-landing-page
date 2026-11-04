@@ -21,20 +21,22 @@
 │   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass),
 │   │   │                     #   clip fetch-ahead (streamPrefetch)
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
-│   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, directory stack
+│   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, video recipes (useHls, imageConfig)
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
 │   │   │   ├── world/        # three.js Worlds: useWorldScene, DRUM/ATLAS/FORME grids, bands, live video
-│   │   │   └── detail/       # detail page: content flow, flush grid, sockets, DeckScroller, viewers
+│   │   │   ├── detail/       # detail page: content flow, tile units (tileGrid), flush grid, sockets, DeckScroller, viewers
+│   │   │   └── directory/    # /work/directory: DirectoryPage, grid, filter + FilterTag, player gate, tiles, bench
 │   │   ├── process/          # /process stage machine, scroll driver, copy, debug panel, lockup globe
 │   │   ├── specimen/, lab/   # dormant routes (redirected)
-│   │   └── ui/SocialButton.jsx
+│   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb)
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, touchTune, momentum, navAccent, projectColor, projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
-│   │                         #   queries, siteCopy, *Tune
+│   │                         #   queries, siteCopy, directoryData, clientCoverage, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
-│   ├── styles/               # global.css (tokens + chrome) + per-route sheets + *-tune.css benches
+│   ├── styles/               # global.css (tokens + chrome) + per-route sheets (media-slot.css is shared by
+│   │                         #   the detail grid and the directory) + *-tune.css benches
 │   └── assets/               # fonts/ (woff2), client-logos/ (normalized + manifest.json), lockup svg
 ├── public/                   # favicons, og-image, robots, icons/ sprite + social marks
 ├── scripts/
@@ -44,7 +46,7 @@
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
-│   │                         #   globe-worlds, footer-reveal)
+│   │                         #   globe-worlds, footer-reveal, flush-grid, directory)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs   # docs + probe tooling
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
