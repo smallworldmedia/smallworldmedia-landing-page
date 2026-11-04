@@ -596,8 +596,16 @@ The description's first paragraph is the intro blurb; each later paragraph (a bl
 | `?npcover` | RouteFill snap window at the end of the commit | `120` ms | any finite | `NP_COVER_SECONDS` |
 | `?nppre` | in-window blue pre-cover opacity at full drag (f² curve) | `30` % | any finite | `NP_PRE_COVER` |
 | `?npzoom` | media push-in scale over the commit | `1.08` | any finite | `NP_ZOOM` |
-| `?npsplit` | label run length as a fraction of the fill (the title reuses it) | `0.55` | finite ≠ 0 | `NP_SPLIT` |
-| `?nplag` | title ramp start fraction; media ramps at 2 × lag over 1 − 2 × lag | `0.15` | finite < 0.5 | `NP_LAG` |
+| `?npbig` | entrance: the label's start size × its rest size (2.5 = Nathan's 11-03 "about this size"); capped by the content width, the headroom above the label in the band (it grows up off its rule) and, on desktop, the media window | `2.5` | ≥ 1 | `NextProjectBand.jsx NP_BIG` |
+| `?npfrom` | entrance: where the label starts. `center` = centred on the viewport, `left` = at the left gutter; either way it shrinks first, then slides to rest (phone: the rest seat is the gutter, so `left` only shrinks) | `center` | `center` / `left` | `NP_FROM` |
+| `?nprun` | entrance: the sticky run, in viewport heights. The band's runway is this much taller than the band; the band pins at its end composition for that stretch (the last `?nprun` × vh of the page) while the label shrinks and slides home. The label holds big until the band pins | `1` (CSS `--np-run`) | > 0 | `project-detail.css .np-runway::before` |
+| `?npinsplit` | entrance: share of the run spent shrinking; the slide to rest takes the rest | `0.5` | 0 < x < 1 | `NP_IN_SPLIT` |
+| `?nplabel` | rest size of the `Next Project:` label, px (unset = CSS `clamp(1.429rem, 1.667vw, 2.143rem)`, 20 → 24 @ 1440 → 30) | unset | any finite | `project-detail.css .np-band__label` |
+| `?nphint` | rest hint: seconds of `Next Project:` between `[Keep Scrolling]` hints while settled at the document end | `5` | > 0 | `NP_HINT_GAP` |
+| `?nphintin` | rest hint: seconds settled at the end (or after a released pull) before the first hint | `1.5` | ≥ 0 | `NP_HINT_IN` |
+| `?nphold` | rest hint: the hang on `[Keep Scrolling]` after the double pulse, ms (unset = two beats) | unset | ≥ 0 | `NP_HINT_HOLD_MS` |
+| `?npblink` | rest hint: the double pulse's floor, the two quick dips after the swap (opacity) | `0.3` | 0–1 | `NP_BLINK` |
+| `?npbeat` | rest hint: one beat, ms; each swap pulse takes two, each double pulse one (unset = an eighth of the house tempo, `--swm-bpm` / `?pulsebpm`: 236 ms at 127) | unset | > 0 | `NP_BEAT_MS` |
 | `?sockpar` | GridSocket parallax factor (`1` = pinned to grid); inert ≤1024px and under RM | `0.92` (prop) | any finite | `GridSocket.jsx:31` default prop |
 
 ## `/process`

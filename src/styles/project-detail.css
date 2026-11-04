@@ -788,9 +788,29 @@ html:has(.project-detail) body {
    — so the no-JS / reduced-motion paint is the
    readable intermediate composition, a plain link.
    ============================================ */
+
+/* The sticky runway (11-03, Nathan): the entrance plays as a sticky scroll.
+   The runway is the band plus --np-run viewport heights (?nprun); the band
+   sits at its foot and pins at its end composition (the engine sets its
+   `bottom` to the document's tail, the footer's reveal room), holding still
+   across that extra height while the scroll scrubs the label home. Until
+   the engine pins it, sticky is inert and the band sits at its end spot.
+   Reduced motion has no entrance, so no runway. */
+.np-runway::before {
+  content: '';
+  display: block;
+  height: calc(var(--np-run, 1) * 100vh);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-runway::before {
+    content: none;
+  }
+}
+
 .np-band {
   display: block;
-  position: relative;
+  position: sticky;
   width: 100%;
   /* 503/1800 canvas */
   height: clamp(320px, 27.94vw, 60vh);
@@ -818,15 +838,31 @@ html:has(.project-detail) body {
 }
 
 .np-band__label {
-  /* 08-30 (2), Nathan: the mono scramble voice retired — the label wears
-     the next_project CHIP's typography (the .detail-next token set: sans
-     UI face, chip size, chip tracking, uppercase), displayed in full on
-     the band's black ground. No ticker here. */
+  /* 11-03, Nathan: title case in the house sans, bold, larger than the
+     chip voice it wore since 08-30 (2). The entrance scales it about its
+     bottom-centre (it grows up off the rule) and slides it home; ?nplabel
+     overrides the rest size in px. */
+  position: relative;
+  display: block;
   font-family: var(--font-ui);
-  font-size: 1rem;
-  line-height: 1.571rem;
+  font-weight: 700;
+  /* 20px floor, 24px @ 1440, 30px cap */
+  font-size: var(--np-label-size, clamp(1.429rem, 1.667vw, 2.143rem));
+  line-height: 1.1;
   letter-spacing: -0.024em;
-  text-transform: uppercase;
+  white-space: nowrap;
+  transform-origin: 50% 100%;
+}
+
+/* The rest hint, [Keep Scrolling] (11-03, Nathan): stacked on the label,
+   sharing its right edge (the label is seated against the media window),
+   hidden between hints. Out of flow, so the label's box (and the entrance
+   geometry measured off it) stays the `Next Project:` box. */
+.np-band__keep {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  visibility: hidden;
 }
 
 .np-band__rule {
@@ -929,13 +965,21 @@ html:has(.project-detail) body {
     height: auto;
     display: flex;
     flex-direction: column;
-    padding: 1.143rem 0 0;
+    /* Headroom for the entrance: the label grows up from its rule, and the
+       band clips at its top (was 1.143rem). */
+    padding: 4rem 0 0;
   }
 
   .np-band__text {
     position: static;
     transform: none;
     padding: 0 var(--space-4);
+  }
+
+  /* Stacked: the label sits at the gutter, so the cue grows rightward. */
+  .np-band__keep {
+    right: auto;
+    left: 0;
   }
 
   .np-band__title {
