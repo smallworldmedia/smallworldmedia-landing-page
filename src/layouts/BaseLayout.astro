@@ -35,6 +35,8 @@ import '../styles/commit-tune.css';
 import SiteShell from '../components/SiteShell.jsx';
 import SiteTagline from '../components/SiteTagline.jsx';
 import { getSiteCopy } from '../lib/siteCopy.js';
+import { getDirectoryData } from '../lib/directoryData.js';
+import { toDrawerRoster } from '../lib/clientCoverage.js';
 // ?url imports resolve to the same content-hashed asset the CSS @font-face
 // references, so these preloads hit the real built URLs.
 import fontBook from '../assets/fonts/PPNeueMontreal-Book.woff2?url';
@@ -73,6 +75,19 @@ const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
    a Sanity outage degrades to the copy as it shipped rather than to blank
    chrome. */
 const siteCopy = await getSiteCopy();
+
+/* The drawer's Client Roster (11-03, Nathan): every published client, by name,
+   `live` when its Client Coverage holds a directory tile
+   (src/lib/clientCoverage.js). It reads the directory's own memoized fetch, so
+   the drawer and the grid can't disagree, and it is the same on every page, so
+   the persisted shell never re-renders for it. A failed read empties the
+   drawer rather than failing the build. */
+const roster = await getDirectoryData()
+  .then(({ clients, tiles }) => toDrawerRoster(clients, tiles))
+  .catch((err) => {
+    console.warn('[roster] Sanity read failed, the drawer lists no clients:', err?.message || err);
+    return [];
+  });
 ---
 
 <!doctype html>
@@ -146,6 +161,7 @@ const siteCopy = await getSiteCopy();
       transition:persist="site-shell"
       transition:animate="none"
       siteCopy={siteCopy}
+      roster={roster}
     />
 
     {/* Persistent lower-left tagline pill (Figma Frame 19, 08-27). Its OWN
@@ -168,11 +184,12 @@ const siteCopy = await getSiteCopy();
       document.addEventListener('astro:page-load', () => syncRoute());
 
       // Arm the /work return-restore for browser back/forward out of a
-      // detail page. `route` lags one navigation behind (astro:page-load
-      // hasn't fired yet when popstate lands), so it identifies the page
-      // being LEFT while location already points at the destination —
-      // the flag arms only for detail → /work traversals. The detail
-      // breadcrumb arms the same flag on click; the nav link never does.
+      // detail page or the directory. `route` lags one navigation behind
+      // (astro:page-load hasn't fired yet when popstate lands), so it
+      // identifies the page being LEFT while location already points at
+      // the destination — the flag arms only for /work/* → /work
+      // traversals. The detail breadcrumb arms the same flag on click; the
+      // nav link never does.
       let route = window.location.pathname;
       document.addEventListener('astro:page-load', () => {
         route = window.location.pathname;

@@ -8,7 +8,8 @@
  * Usage:
  *   node scripts/globe-probe.mjs [--mode=tides] [--secs=20] [--warm=6]
  *        [--next=2] [--seed=42] [--mobile] [--rm] [--intro=replay|full]
- *        [--paint] [--enter] [--footer] [--detail=SLUG] [--hold=PREFIX] [--noclip] [--channel=chrome]
+ *        [--paint] [--enter] [--footer] [--detail=SLUG] [--hold=PREFIX] [--directory[=QUERY]]
+ *        [--noclip] [--keyctl=escape|ring] [--channel=chrome]
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
  *        [--units[=0|1]] [--level=off|tex|h|vq|live|tier] [--texmb=MiB]
  *        [--texpeak=MiB] [--record-baseline] [--baseline=KEY] [--negctl[=bind|pin]]
@@ -34,14 +35,15 @@
  * fetched more than once (refetch: listed, not gated). Every master owes its
  * surface's clip, imported from src/components/work/imageConfig.js: the pool
  * (a min = max pin in the asked URL) PREVIEW_SECONDS, a detail page's bare
- * players DETAIL_MAX_SECONDS. Four gates (report.net.detail[gate] = { n,
- * floor, vacuous, worst, bound, … }): streamClip (every master carries the
+ * players DETAIL_MAX_SECONDS, the directory's players PREVIEW_SECONDS.
+ * Four gates (report.net.detail[gate] = { n, floor, vacuous, worst, bound,
+ * … }): streamClip (every master carries the
  * clip it owes), segmentsPerRendition (no segment fetched past it, none that
  * two playlists list), loops (no <video> plays past its loop point, the
  * window or its clip's end, by more than LOOP_END_S, fires `ended` or freezes
  * on its last frame, and one wraps there) and audio (P0v: no muted surface
  * fetches an audio rendition's playlist or chunk, while the masters on the
- * wire still list one; the Lightbox, which plays with sound, is exempt).
+ * wire still list one).
  * --noclip strips the clip from every master in flight (page.route): the
  * negative control, under which the clip gates (streamClip,
  * segmentsPerRendition) must fail non-vacuously. Every player still wraps at
@@ -59,6 +61,37 @@
  * plays past its window), and skips the globe's sampling. --detail refuses
  * --rm, which would drop every vacuity floor to zero, and --footer and
  * --enter, which start on home.
+ * --directory[=QUERY] loads /work/directory/?QUERY (the Project Directory;
+ * --directory=client=dj-tennis, say). It holds two preview windows at the
+ * top, takes 12 slow steps of most of a viewport (each held STEP_MS),
+ * flings 20 steps FLING_MS apart, then holds two windows more; a step turns
+ * back at either end of the page, so one client's short list takes every
+ * step too. It judges the four gates (its players owe the preview window),
+ * noErrors, directoryCovered (every video tile half in view at a hold's end
+ * plays and asked for its stream, unless the players were at their cap),
+ * playersCapped (never more live <video>s than the cap the page reads:
+ * ?dirplayers, else DIRECTORY_PLAYERS by the 768px split) and flingDwell
+ * (no master asked during the fling once a dwell into it; judged only while
+ * the dwell, ?dirdwell, outlasts three fling steps). With no players (--rm,
+ * or ?dirplayers=0), posterOnly (no master, no <video>, and every video
+ * tile in view at the long holds' ends shows its poster) replaces those
+ * three, and the diet gates' floors drop to zero. --directory refuses
+ * --detail, --hold, --footer and --enter. --noclip is its negative control:
+ * the run must fail streamClip.
+ * On desktop, --directory then reloads for the keyboard, after the diet's
+ * log closes, so none of it is judged there. tabReach: Tab from the top
+ * reaches the first tile without focusing inside [inert], and one Tab per
+ * link after it, flat out, lands on each next link in document order
+ * through the last (judged only when the page has links). ringShows: the
+ * focus ring is on the screen, read as pixels within 24 a channel of its
+ * colour: the first undimmed filter tag's outline band (a tag a client
+ * would empty is dimmed to 0.35, its ring with it), and the inset ring of
+ * the first tile and of the last one focused. Their negative controls:
+ * --keyctl=escape makes every chunk past the first inert, so Tab leaves
+ * the grid (run it on the whole directory; one chunk has nothing ahead to
+ * break), and must fail tabReach; --keyctl=ring puts back the tiles' old
+ * inset outline, which the slot paints over, and must fail ringShows.
+ * --keyctl needs --directory and refuses --mobile.
  *
  * Media spans (scripts/lib/unitGates.mjs; docs/globe-worlds-plan.md § Media
  * spans): --units adds &popunits=1 (--units=0 adds &popunits=0). Absent, the
@@ -201,7 +234,8 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS } from '../src/components/work/imageConfig.js';
+import { PREVIEW_SECONDS, DETAIL_MAX_SECONDS, DIRECTORY_PLAYERS } from '../src/components/work/imageConfig.js';
+import { readTune, SSR_TUNE } from '../src/components/work/directory/directoryTune.js';
 import { netBucket, netReport, masterId, LOOP_SAMPLE_MS, LOOP_END_S } from './lib/netReport.mjs';
 import { LEVELS, unitGates, baselineOf, readBaselines, writeBaseline, classifyRequest, darkThumb } from './lib/unitGates.mjs';
 import sharp from 'sharp';
@@ -257,7 +291,24 @@ if (DETAIL && RM) throw new Error('globe-probe: --detail with --rm drops every v
 if (DETAIL && (FOOTER || ENTER)) throw new Error('globe-probe: --detail probes /work/SLUG alone; run --footer and --enter without it');
 const HOLD = arg('hold', '');
 if (HOLD === true || process.argv.includes('--hold=') || (HOLD && !DETAIL)) throw new Error('globe-probe: --hold takes a Mux id prefix and goes with --detail (--detail=SLUG --hold=PREFIX)');
-const STEP_MS = 2000; // --detail: each scroll step's hold, so the slots it reveals start their streams
+const STEP_MS = 2000; // --detail, --directory: each scroll step's hold, so the slots it reveals start their streams
+// --directory[=QUERY]: /work/directory/?QUERY alone (bare: no query).
+const DIRECTORY_ARG = arg('directory', false);
+const DIRECTORY = DIRECTORY_ARG !== false;
+const DIR_QUERY = typeof DIRECTORY_ARG === 'string' ? DIRECTORY_ARG.replace(/^\?/, '') : '';
+if (DIRECTORY && (DETAIL || HOLD || FOOTER || ENTER)) throw new Error('globe-probe: --directory probes /work/directory alone; run --detail, --hold, --footer and --enter without it');
+// --keyctl=escape|ring: the keyboard gates' negative controls (directoryKeys).
+const KEYCTL = arg('keyctl', '');
+if (KEYCTL && (!['escape', 'ring'].includes(KEYCTL) || !DIRECTORY || MOBILE)) throw new Error('globe-probe: --keyctl takes escape or ring, with --directory and without --mobile');
+// What the directory's player gate will read (DirectoryPage → DirectoryGrid): the page's own parser over this
+// device's defaults (tuneDefaults: the phone's players at ≤768px), and no players under reduced motion.
+const DIR_TUNE = readTune(DIR_QUERY, { ...SSR_TUNE, players: VW <= 768 ? DIRECTORY_PLAYERS.phone : DIRECTORY_PLAYERS.desktop });
+const DIR_CAP = RM ? 0 : DIR_TUNE.players;
+const DIR_DWELL_MS = DIR_TUNE.dwell;
+const POSTERS_ONLY = DIRECTORY && DIR_CAP === 0;
+const DIR_SLOW = 12; // --directory: slow steps, each held STEP_MS,
+const DIR_FLING = 20; // then fling steps,
+const FLING_MS = 60; // this far apart: a tile is half in view for three steps at most, under the dwell
 // — Media spans (scripts/lib/unitGates.mjs; docs/globe-worlds-plan.md § Media spans) —
 const UNITS_ARG = arg('units', null); // --units → &popunits=1; --units=0 → &popunits=0; absent → nothing added, and the page's default holds (on since Nathan's 10-23 bake, Q1)
 const UNITS = UNITS_ARG === null ? null : UNITS_ARG === true ? 1 : Number(UNITS_ARG) > 0 ? 1 : 0;
@@ -290,9 +341,9 @@ if (NOCLIP && NEGCTL === 'pin') {
   console.error('globe-probe: --noclip and --negctl=pin are separate negative controls; run them apart');
   process.exit(1);
 }
-if ((DETAIL || FOOTER) && (UNITS !== null || LEVEL_ASKED !== 'off' || NEGCTL || RECORD)) {
-  // Both branches exit before the span gates: a span flag there would pass on nothing.
-  console.error('globe-probe: --detail and --footer have no span gates; run --units, --level, --negctl and --record-baseline without them');
+if ((DETAIL || FOOTER || DIRECTORY) && (UNITS !== null || LEVEL_ASKED !== 'off' || NEGCTL || RECORD)) {
+  // These branches exit before the span gates: a span flag there would pass on nothing.
+  console.error('globe-probe: --detail, --footer and --directory have no span gates; run --units, --level, --negctl and --record-baseline without them');
   process.exit(1);
 }
 const DECODEMAX = arg('decodemax', null);
@@ -312,7 +363,7 @@ if (DSF_ARG === true || !(DSF >= 1 && DSF <= 4)) {
 const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.59));
 const LIFT_K_EXPECT = Number(arg('footerlift', 0.5));
 const MARKS_FROM_EXPECT = Number(arg('footermarksfrom', 0.6));
-const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}${DETAIL ? `-detail-${DETAIL}` : ''}${HOLD ? `-hold-${HOLD}` : ''}${NOCLIP ? '-noclip' : ''}`;
+const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}${DETAIL ? `-detail-${DETAIL}` : ''}${HOLD ? `-hold-${HOLD}` : ''}${DIRECTORY ? `-directory${DIR_QUERY ? `-${DIR_QUERY.replace(/\W+/g, '-')}` : ''}` : ''}${NOCLIP ? '-noclip' : ''}${KEYCTL ? `-keyctl-${KEYCTL}` : ''}`;
 const OUT = arg(
   'out',
   // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
@@ -323,16 +374,19 @@ const OUT = arg(
   )
 );
 // --footer loads home with NO bench: the pop panel's chip parks over the hero
-// and would swallow the touch scrub. --detail loads the detail page itself.
+// and would swallow the touch scrub. --detail loads the detail page itself,
+// --directory the directory.
 // --extra before &popunits: the page reads a param's first value, so an &popunits in --extra wins (nc-sneak).
 // --footer pins &touchgain=2 AFTER --extra (so --extra can still override it): footerScenario's finger
 // distances and step counts were calibrated at gain 2, and motion.js bakes 5 since 11-03 — unpinned,
 // the up-scrub would hit the clamp in ~13 of its 32 steps and coarsen every number read off the grid.
-const URL_ = DETAIL
-  ? `${BASE}/work/${DETAIL}`
-  : FOOTER
-    ? `${BASE}/?intro=${INTRO}${EXTRA}&touchgain=2`
-    : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}${UNITS === null ? '' : `&popunits=${UNITS}`}`;
+const URL_ = DIRECTORY
+  ? `${BASE}/work/directory/${DIR_QUERY ? `?${DIR_QUERY}` : ''}`
+  : DETAIL
+    ? `${BASE}/work/${DETAIL}`
+    : FOOTER
+      ? `${BASE}/?intro=${INTRO}${EXTRA}&touchgain=2`
+      : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}${UNITS === null ? '' : `&popunits=${UNITS}`}`;
 // The gates' context. Every value mirrors what the page will read, so a gate never guesses.
 const BASELINE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'baselines', 'globe-units.json');
 const extraNum = (k) => {
@@ -611,13 +665,17 @@ async function enterScenario(page) {
    from the loop point as a wrap), whether it fired `ended`, and the longest
    it sat playing but frozen within endS of its end (hls.js's stalled end of
    stream), sampled every sampleMs. Its id is the pool slot's
-   data-playback-id, else the Mux id in its poster. The listeners capture on
-   the document: media events do not bubble, and the capture phase runs
-   before the element's own handlers (the pool's seek-back). */
+   data-playback-id, else the Mux id in its poster, else the one in its
+   slot's poster <img> (the directory's player carries no poster of its
+   own). The listeners capture on the document: media events do not bubble,
+   and the capture phase runs before the element's own handlers (the pool's
+   seek-back). */
 const LOOP_WATCH = ({ sampleMs, endS }) => {
   const sessions = (window.__swmLoops = []);
   const live = new WeakMap(); // element → its current session
-  const idOf = (v) => v.dataset.playbackId || /image\.mux\.com\/([^/?]+)/.exec(v.poster || '')?.[1] || null;
+  const muxIn = (url) => /image\.mux\.com\/([^/?]+)/.exec(url || '')?.[1];
+  const idOf = (v) =>
+    v.dataset.playbackId || muxIn(v.poster) || muxIn(v.closest('.media-slot')?.querySelector(':scope > img')?.getAttribute('src')) || null;
   const sessionOf = (v) => {
     let s = live.get(v);
     if (!s || s.src !== v.currentSrc) {
@@ -721,6 +779,214 @@ async function detailScenario(page) {
   }, HOLD);
   if (held.id) await sleep(hold + STEP_MS);
   return { ...seen, held };
+}
+
+/** --directory: the Project Directory. Hold two preview windows at the top
+ *  (the first rows' players wrap at least once), take DIR_SLOW steps of most
+ *  of a viewport, each held STEP_MS (past the gate's dwell and a stream's
+ *  start), fling DIR_FLING steps FLING_MS apart, then hold two windows more.
+ *  A step turns back at either end of the page. In the page, a sampler
+ *  counts the live players every LOOP_SAMPLE_MS; each hold's end snapshots
+ *  the video tiles in view: half in view by the gate's rule, playing, and
+ *  their posters shown. Masters are timed off the page's requests, for
+ *  flingDwell. */
+async function directoryScenario(page) {
+  await page.waitForSelector('.dir-page:not([data-pending])', { timeout: 30000 });
+  const masters = []; // { t, id }: every master the page asked for, and when
+  const onRequest = (r) => {
+    if (netBucket(r.url()) === 'mux-master') masters.push({ t: Date.now(), id: masterId(r.url()) });
+  };
+  page.on('request', onRequest);
+  await page.evaluate((sampleMs) => {
+    const s = (window.__swmDirPlayers = { samples: 0, live: 0, max: 0 });
+    setInterval(() => {
+      const n = document.querySelectorAll('.dir-flow video').length;
+      s.samples += 1;
+      if (n) s.live += 1;
+      s.max = Math.max(s.max, n);
+    }, sampleMs);
+  }, LOOP_SAMPLE_MS);
+  const holds = [];
+  const snap = async (label) =>
+    holds.push(
+      await page.evaluate((label) => {
+        const vh = innerHeight;
+        const out = { label, y: Math.round(scrollY), players: document.querySelectorAll('.dir-flow video').length, tiles: [] };
+        for (const slot of document.querySelectorAll('.dir-tile .media-slot')) {
+          // a video tile's poster is the slot's own <img> (GatedVideo carries none)
+          const img = slot.querySelector(':scope > img');
+          const id = /image\.mux\.com\/([^/?]+)/.exec(img?.getAttribute('src') || '')?.[1];
+          if (!id) continue;
+          const r = slot.getBoundingClientRect();
+          const vis = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+          if (vis <= 0) continue;
+          out.tiles.push({
+            id,
+            // the gate's half (half the tile or half the viewport, whichever comes first), clear of its 5% steps
+            half: vis >= Math.min(r.height, vh) / 2 + Math.max(4, 0.05 * r.height),
+            playing: !!slot.querySelector('video'),
+            poster: img.complete && img.naturalWidth > 0,
+          });
+        }
+        return out;
+      }, label)
+    );
+  let heading = 1;
+  const step = async () => {
+    const r = await page.evaluate((d) => {
+      const end = document.documentElement.scrollHeight - innerHeight;
+      if (end < 2) return { moved: false, d };
+      if ((d > 0 && scrollY >= end - 2) || (d < 0 && scrollY <= 2)) d = -d;
+      window.scrollTo(0, Math.max(0, Math.min(end, scrollY + d * 0.8 * innerHeight)));
+      return { moved: true, d };
+    }, heading);
+    heading = r.d;
+    return r.moved;
+  };
+  const hold = 2 * PREVIEW_SECONDS * 1000;
+  await sleep(hold);
+  await snap('top');
+  let slow = 0;
+  for (let i = 1; i <= DIR_SLOW; i++) {
+    if (await step()) slow += 1;
+    await sleep(STEP_MS);
+    await snap(`step ${i}`);
+  }
+  const fling = { steps: 0, t0: Date.now() };
+  for (let i = 0; i < DIR_FLING; i++) {
+    if (await step()) fling.steps += 1;
+    await sleep(FLING_MS);
+  }
+  fling.t1 = Date.now();
+  await sleep(hold);
+  await snap('end');
+  page.off('request', onRequest);
+  return {
+    route: await page.evaluate(() => location.pathname),
+    slow,
+    fling: {
+      steps: fling.steps,
+      ms: fling.t1 - fling.t0,
+      masters: masters.filter((m) => m.t >= fling.t0 + DIR_DWELL_MS && m.t <= fling.t1).map((m) => m.id),
+    },
+    players: await page.evaluate(() => window.__swmDirPlayers),
+    holds,
+  };
+}
+
+/** --directory on desktop: the keyboard, on a reload from the top. Tab from
+ *  the page's start to the first tile, noting any focus inside [inert], then
+ *  one Tab per link after it, flat out, under an in-page focusin recorder:
+ *  each focus should be the next a.dir-tile in document order, through the
+ *  last (11-03: Tab fell out of the mount window into the footer at link 131
+ *  of 376, so every chunk renders its tiles' boxes). The rings are read as
+ *  pixels, not computed style (11-03: the slot painted over the tiles' old
+ *  inset outline): the first undimmed filter tag's outline band, and the
+ *  inset ring (::after) of the first tile and of the one focus ends on,
+ *  half-way down its part below the filter. --keyctl=escape|ring breaks
+ *  each on purpose. */
+async function directoryKeys(page) {
+  await page.goto(URL_, { waitUntil: 'load' });
+  await page.waitForSelector('.dir-page:not([data-pending])', { timeout: 30000 });
+  await page.evaluate(() => document.fonts.ready);
+  await sleep(800);
+  const escaped =
+    KEYCTL === 'escape'
+      ? await page.evaluate(() => {
+          const ahead = [...document.querySelectorAll('.dir-grid')].slice(1);
+          for (const g of ahead) g.inert = true;
+          return ahead.length;
+        })
+      : null;
+  if (KEYCTL === 'ring') {
+    await page.addStyleTag({
+      content:
+        '.dir-tile:focus-visible::after { content: none !important; } ' +
+        '.dir-tile:focus-visible { outline: 2px solid var(--color-cream) !important; outline-offset: -2px !important; }',
+    });
+  }
+  await page.evaluate(() => document.activeElement?.blur());
+  const focused = () =>
+    page.evaluate(() => {
+      const a = document.activeElement;
+      const tiles = document.querySelectorAll('a.dir-tile');
+      const index = Array.prototype.indexOf.call(tiles, a);
+      const r = a.getBoundingClientRect();
+      // a tile's ring is its ::after border, inset; everything else wears the house outline
+      const cs = getComputedStyle(a, index >= 0 ? '::after' : null);
+      const width = parseFloat(index >= 0 ? cs.borderLeftWidth : cs.outlineWidth) || 0;
+      return {
+        el: `${a.tagName.toLowerCase()}.${typeof a.className === 'string' ? a.className.split(' ')[0] : ''}`,
+        index,
+        links: tiles.length,
+        tag: a.classList.contains('filter-tag'),
+        dim: a.hasAttribute('data-dim'),
+        inert: !!a.closest('[inert]'),
+        rect: { left: r.left, top: r.top, bottom: r.bottom },
+        filterBottom: document.querySelector('.dir-filter').getBoundingClientRect().bottom,
+        ring: {
+          color: index >= 0 ? cs.borderLeftColor : cs.outlineColor,
+          width,
+          offset: index >= 0 ? -width : parseFloat(cs.outlineOffset) || 0,
+        },
+      };
+    });
+  // The focused element's ring band, half-way down its part on screen (a tile's: below the filter).
+  const ring = async () => {
+    await sleep(300);
+    const d = await focused();
+    const x = Math.floor(d.rect.left - d.ring.offset - d.ring.width / 2);
+    const top = Math.max(d.rect.top, d.index >= 0 ? d.filterBottom : 0, 0);
+    const y = Math.floor((top + Math.min(d.rect.bottom, VH)) / 2);
+    const want = d.ring.color.match(/[\d.]+/g).slice(0, 3).map(Number);
+    const got = await pixel(page, x, y);
+    return { el: d.el, index: d.index, x, y, want, got, ok: d.ring.width > 0 && got.every((v, i) => Math.abs(v - want[i]) <= 24) };
+  };
+  const fromTop = [];
+  const rings = [];
+  let inertFocused = 0;
+  let first = null;
+  for (let i = 0; i < 60 && !first; i++) {
+    await page.keyboard.press('Tab');
+    const d = await focused();
+    fromTop.push(d.el);
+    if (d.inert) inertFocused += 1;
+    if (d.tag && !d.dim && !rings.length) rings.push(await ring());
+    if (d.index >= 0) {
+      first = d;
+      rings.push(await ring());
+    }
+  }
+  const links = first?.links ?? (await page.evaluate(() => document.querySelectorAll('a.dir-tile').length));
+  let walk = null;
+  if (first) {
+    // each focus: its link's index, or what took it instead
+    await page.evaluate(() => {
+      const log = (window.__swmKeyWalk = []);
+      document.addEventListener('focusin', (e) => {
+        const i = Array.prototype.indexOf.call(document.querySelectorAll('a.dir-tile'), e.target);
+        log.push(i >= 0 ? i : `${e.target.tagName.toLowerCase()}.${String(e.target.className).split(' ')[0]}`);
+      });
+    });
+    const presses = links - 1 - first.index;
+    for (let i = 0; i < presses; i++) await page.keyboard.press('Tab');
+    const log = await page.evaluate(() => window.__swmKeyWalk);
+    const miss = log.findIndex((f, k) => f !== first.index + 1 + k);
+    walk = { presses, focuses: log.length, miss: miss < 0 ? null : { at: miss, took: log[miss] }, last: log.length ? log.at(-1) : first.index };
+    rings.push(await ring());
+  }
+  return {
+    links,
+    escaped,
+    fromTop,
+    inertFocused,
+    firstIndex: first ? first.index : null,
+    walk,
+    rings,
+    reach: !!first && first.index === 0 && inertFocused === 0 && walk.focuses === walk.presses && !walk.miss && walk.last === links - 1,
+    // the tag's ring when an undimmed tag took focus; both tiles' whenever there are links
+    ringsOk: rings.length > 0 && rings.every((r) => r.ok) && (!first || rings.filter((r) => r.index >= 0).length === 2),
+  };
 }
 
 /* ── --footer: the MOBILE HOME resting footer's reveal ─────────────────────
@@ -1106,7 +1372,7 @@ function footerPass(f) {
     return netReport(net.log, net.bodies, sessions, {
       preview: PREVIEW_SECONDS,
       detail: DETAIL_MAX_SECONDS,
-      rm: RM,
+      rm: RM || POSTERS_ONLY, // the floors' reason: nothing plays
       noclip: NOCLIP,
     });
   };
@@ -1165,6 +1431,46 @@ function footerPass(f) {
       noErrors: !report.consoleErrors.some((m) => m.startsWith('error ')) && !report.pageErrors.length,
       // --hold: the held video wrapped at least once and never played past its window
       ...(HOLD ? { heldWrap: !!last && last.wraps >= 1 && !last.why } : {}),
+    };
+    console.log(JSON.stringify(report, null, 1));
+    save();
+    process.exit(Object.values(report.pass).some((v) => !v) ? 2 : 0);
+  }
+
+  // --directory: the directory alone, judged by the video diet and its player gate.
+  if (DIRECTORY) {
+    report.directory = await directoryScenario(page);
+    const diet = await finishNet();
+    // the keyboard on desktop, after the diet's log closes: a reload from the top
+    if (!MOBILE) report.directory.keys = await directoryKeys(page);
+    await browser.close().catch(() => {});
+    report.net = diet.net;
+    const d = report.directory;
+    // the masters off the net log, which is armed before the page loads
+    const masters = diet.net.log.filter((e) => e.bucket === 'mux-master' && e.route === d.route);
+    const streamed = new Set(masters.filter((e) => !e.failed).map((e) => masterId(e.sent)));
+    // every video tile half in view at a hold's end plays and asked for its stream, unless the players were at their cap
+    const judged = d.holds.flatMap((h) => h.tiles.filter((t) => t.half).map((t) => ({ ...t, at: h.label, capFull: h.players >= DIR_CAP })));
+    const uncovered = judged.filter((t) => !t.capFull && !(t.playing && streamed.has(t.id)));
+    // the long holds' ends: every video tile in view shows its poster
+    const posters = d.holds.filter((h) => h.label === 'top' || h.label === 'end').flatMap((h) => h.tiles);
+    d.gates = {
+      cap: DIR_CAP, dwellMs: DIR_DWELL_MS, judged: judged.length, uncovered: uncovered.slice(0, 5),
+      postersInView: posters.length, postersShown: posters.filter((t) => t.poster).length,
+    };
+    report.pass = {
+      ...diet.pass,
+      ...(POSTERS_ONLY
+        ? { posterOnly: masters.length === 0 && d.players.max === 0 && posters.length > 0 && posters.every((t) => t.poster) }
+        : {
+            directoryCovered: judged.length > 0 && uncovered.length === 0,
+            playersCapped: d.players.live > 0 && d.players.max <= DIR_CAP,
+            // a dwell under three fling steps lets a flung tile earn its grant: nothing to judge
+            ...(DIR_DWELL_MS > 3 * FLING_MS ? { flingDwell: d.fling.steps > 0 && d.fling.masters.length === 0 } : {}),
+          }),
+      // the keyboard (desktop): Tab walks every link in order, and the rings show on screen
+      ...(d.keys ? { ...(d.keys.links > 0 ? { tabReach: d.keys.reach } : {}), ringShows: d.keys.ringsOk } : {}),
+      noErrors: !report.consoleErrors.some((m) => m.startsWith('error ')) && !report.pageErrors.length,
     };
     console.log(JSON.stringify(report, null, 1));
     save();

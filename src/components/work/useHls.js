@@ -3,8 +3,8 @@
  *
  * Attaches an HLS stream to a <video> ref. hls.js is preferred on EVERY
  * browser, Safari included, because this codebase needs rendition control:
- * the globe panels pin the lowest level and the Lightbox pins the highest,
- * and native HLS exposes no such control. Native HLS stays a fallback only.
+ * the globe panels pin the lowest level, and native HLS exposes no such
+ * control. Native HLS stays a fallback only.
  * Cleans up the HLS instance on unmount or when the source changes.
  *
  * ── hls.js is loaded LAZILY (dynamic import), not statically ──
@@ -13,8 +13,8 @@
  * JS. It is now fetched on the first attach instead.
  *
  * This is deliberately NOT a "Safari uses native" carve-out. Flipping the
- * precedence would silently drop the quality pinning the globe panels and
- * the Lightbox depend on, so the order below is byte-for-byte the old one:
+ * precedence would silently drop the quality pinning the globe panels
+ * depend on, so the order below is byte-for-byte the old one:
  * hls.js first, native only where MSE is unsupported. Practically every
  * browser therefore still downloads the library — the win is that the
  * download no longer BLOCKS initial page JS, it rides in parallel after
@@ -35,13 +35,6 @@
  *    loadHls below for why a failed import cannot be retried — so it is the
  *    real failure mode, not a transient one.
  *
- * When preferMaxQuality is true (Lightbox mode):
- *  - Locks to the highest rendition, disables ABR.
- *  - Does NOT autoplay immediately. Instead, waits until the first
- *    high-res fragment is buffered, then plays. The poster thumbnail
- *    covers the element during this brief buffer period, so the user
- *    sees: sharp poster → sharp video (no quality jump).
- *
  * When preferMinQuality is true (globe panel mode):
  *  - Locks to the lowest rendition, disables ABR. Panels are small on
  *    screen, so the lowest level is visually lossless there and keeps
@@ -51,11 +44,10 @@
  * @param {string|null} src - Full HLS URL (e.g. https://stream.mux.com/{id}.m3u8)
  * @param {Object} [hlsConfig] - Optional hls.js constructor config overrides
  * @param {Object} [options]
- * @param {boolean} [options.preferMaxQuality=false] - Lock to highest rendition
  * @param {boolean} [options.preferMinQuality=false] - Lock to lowest rendition
  * @param {boolean} [options.videoOnly=false] - Never fetch audio. For muted,
  *   never-unmuted surfaces only (globe/World pool, detail slots, next-project
- *   band, media cards). The Lightbox plays WITH sound and must not pass it.
+ *   band). A surface that plays WITH sound must not pass it.
  * @param {boolean} [options.primed=false] - With videoOnly: a playlist the
  *   home globe fetched ahead (its fast handoff, hlsPrimed.js) is read from
  *   memory instead of the network. The pool slots only; a playlist nobody
@@ -227,7 +219,7 @@ export default function useHls(
   videoRef,
   src,
   hlsConfig = {},
-  { preferMaxQuality = false, preferMinQuality = false, videoOnly = false, primed = false } = {}
+  { preferMinQuality = false, videoOnly = false, primed = false } = {}
 ) {
   const hlsRef = useRef(null);
 
@@ -277,23 +269,19 @@ export default function useHls(
 
       const hls = new Hls({
         enableWorker: true,
-        // When max quality is requested, tell hls.js to start at
-        // the highest level from the very first segment request.
-        // startLevel: -1 = auto, any positive = that level index.
-        // We use 99 (higher than any real level count) — hls.js
-        // clamps to the actual highest level.
-        ...(preferMaxQuality ? { startLevel: 99 } : {}),
+        // The quality-locked mode starts on the lowest level from the very
+        // first segment request (startLevel: -1 = auto, n = that level).
         ...(preferMinQuality ? { startLevel: 0 } : {}),
         // Plain-ABR consumers (detail masonry/hero band, next-project band):
         // never auto-select renditions above the rendered size × DPR. The
-        // quality-locked modes pin an explicit level, so the cap only
+        // quality-locked mode pins an explicit level, so the cap only
         // applies where ABR is actually choosing.
-        ...(!preferMaxQuality && !preferMinQuality
+        ...(!preferMinQuality
           ? { capLevelToPlayerSize: true }
           : {}),
         // Muted surfaces only: rewrite the master so no audio is fetched
-        // (see videoOnlyLoader). The Lightbox never sets this. The pool slots
-        // also read the playlists the globe fetched ahead (primedLoader).
+        // (see videoOnlyLoader). The pool slots also read the playlists the
+        // globe fetched ahead (primedLoader).
         ...(videoOnly ? { pLoader: primed ? primedLoader(Hls) : videoOnlyLoader(Hls) } : {}),
         ...hlsConfig,
       });
@@ -303,30 +291,7 @@ export default function useHls(
       hls.loadSource(src);
       hls.attachMedia(video);
 
-      if (preferMaxQuality) {
-        // After manifest is parsed, triple-lock to highest rendition
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          const maxLevel = hls.levels.length - 1;
-          if (maxLevel >= 0) {
-            // Setting an explicit currentLevel disables ABR auto-selection
-            // (hls.autoLevelEnabled is a read-only getter — assigning it throws)
-            hls.loadLevel = maxLevel;    // force current load to this level
-            hls.nextLevel = maxLevel;    // force next segment to this level
-            hls.currentLevel = maxLevel; // set the active level
-          }
-        });
-
-        // Wait for the first high-res fragment to buffer, then play.
-        // Poster thumbnail shows during this brief wait — no quality jump.
-        // Remove ONLY this listener. A bare hls.off(FRAG_BUFFERED) clears
-        // every FRAG_BUFFERED listener, hls.js's own stream/ABR/level
-        // controllers included, and loading stops after the first fragment.
-        const playOnFirstFrag = () => {
-          hls.off(Hls.Events.FRAG_BUFFERED, playOnFirstFrag);
-          video.play().catch(() => {});
-        };
-        hls.on(Hls.Events.FRAG_BUFFERED, playOnFirstFrag);
-      } else if (preferMinQuality) {
+      if (preferMinQuality) {
         // After manifest is parsed, triple-lock to lowest rendition
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (hls.levels.length > 0) {

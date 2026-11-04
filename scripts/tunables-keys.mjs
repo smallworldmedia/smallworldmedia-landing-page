@@ -15,7 +15,8 @@
  *   stateKey: ['k', reader|VOCAB]              [param, reader] tuple maps (popConfig)
  *   location.search.includes('k')             substring gates (fpDrum / fpAtlas)
  * Known false positives (variant arrays, popConfig's two-option vocab
- * arrays, a form field) are listed in IGNORE.
+ * arrays, a form field, the directory filter's ?tag / ?client state) are
+ * listed in IGNORE.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -23,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const GUIDE = join(ROOT, 'docs', 'tunables-guide.md');
-const IGNORE = new Set(['a', 'panels', 'email', 'equal', 'video', 'mix', 'shared', 'wide', 'today', 'flat', 'fill']);
+const IGNORE = new Set(['a', 'panels', 'email', 'equal', 'video', 'mix', 'shared', 'wide', 'today', 'flat', 'fill', 'tag', 'client']);
 
 const files = [];
 (function walk(d) {

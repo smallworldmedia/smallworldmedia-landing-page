@@ -1,8 +1,38 @@
-import { useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import SiteNav from './SiteNav';
-import { CLIENTS } from '../lib/constants';
+import useScrollThumb from './ui/useScrollThumb.js';
+import CheckIndicator from './ui/CheckIndicator.jsx';
+
+/* The Project Directory, and the event its page re-filters on
+   (DirectoryPage): a literal there too, since importing the page would
+   pull its modules onto every route. */
+const DIRECTORY_PATH = '/work/directory';
+const CLIENT_EVENT = 'swm:directory-client';
+
+const onDirectory = () => window.location.pathname.replace(/\/$/, '') === DIRECTORY_PATH;
+
+/** The client the directory is filtered to (its URL's ?client), else null. */
+const directoryClient = () =>
+    onDirectory() ? new URLSearchParams(window.location.search).get('client') : null;
+
+/** One roster name: a plain label, or a live link into the directory. */
+function ClientName({ client, active, onName }) {
+    if (!client.live) return <span className="clients__item">{client.name}</span>;
+    return (
+        <a
+            className="clients__item"
+            href={active ? DIRECTORY_PATH : `${DIRECTORY_PATH}?client=${encodeURIComponent(client.slug)}`}
+            aria-current={active || undefined}
+            aria-label={active ? `Clear client: ${client.name}` : undefined}
+            onClick={(e) => onName(e, active ? null : client.slug)}
+        >
+            <span className="clients__name">{client.name}</span>
+            {active && <CheckIndicator checked variant="square-eye" className="clients__eye" />}
+        </a>
+    );
+}
 
 /**
  * InfoPanel — slide-down overlay with SiteNav at its bottom edge.
@@ -21,14 +51,26 @@ import { CLIENTS } from '../lib/constants';
  *
  * GSAP: On first open, description clip-reveals in,
  * then client items stagger in with slight y-offset.
+ *
+ * The roster's live names link to the Project Directory filtered by that
+ * client (?client=slug). On the directory the drawer marks the client it is
+ * filtered to (the accent, and the filter's eye after the name), whose link
+ * clears the filter, and a click re-filters in place through
+ * `swm:directory-client`; elsewhere ClientRouter takes the link. Either way
+ * the drawer closes. A modifier or middle click is left to the browser.
  */
 export default function InfoPanel({
     isOpen,
     onToggle,
+    /** Closes the drawer (SiteShell): a client name's click. */
+    onClose,
     onStartProject,
     /** `{ footerBlurb, tagline }` — passed straight through to SiteNav, which
         renders the tagline in the mobile menu's foot (10-08). */
     siteCopy,
+    /** The Client Roster, `[{ name, slug, live }]` by name — every published
+        client in Sanity (BaseLayout, src/lib/clientCoverage.js). */
+    roster = [],
 }) {
     const panelRef = useRef(null);
     const hasAnimatedRef = useRef(false);
@@ -75,102 +117,47 @@ export default function InfoPanel({
         );
     }, { scope: panelRef, dependencies: [isOpen] });
 
-    // Custom GSAP-animated scrollbar for mobile
-    const thumbRef = useRef(null);
-    const trackRef = useRef(null);
+    // Custom GSAP-animated scrollbar for mobile (src/components/ui/useScrollThumb.js)
+    const clientsRef = useRef(null);
+    const { trackRef, thumbRef } = useScrollThumb(clientsRef, isOpen);
 
-    const syncThumbPosition = useCallback(() => {
-        const clientsEl = panelRef.current?.querySelector('.clients');
-        const thumb = thumbRef.current;
-        const track = trackRef.current;
-        if (!clientsEl || !thumb || !track) return;
+    // The client the directory is filtered to, marked in the roster: read
+    // off the URL as the drawer opens, and again on a soft nav while it is
+    // open (the nav links leave it open), since the page keeps its filter
+    // there.
+    const [activeClient, setActiveClient] = useState(null);
+    useEffect(() => {
+        if (!isOpen) return;
+        const read = () => setActiveClient(directoryClient());
+        read();
+        document.addEventListener('astro:after-swap', read);
+        return () => document.removeEventListener('astro:after-swap', read);
+    }, [isOpen]);
 
-        const { scrollTop, scrollHeight, clientHeight } = clientsEl;
-        if (scrollHeight <= clientHeight) return; // no overflow
-
-        const trackHeight = track.clientHeight;
-        // Thumb size = proportion of visible area
-        const thumbHeight = Math.max((clientHeight / scrollHeight) * trackHeight, 20);
-        // Thumb position
-        const scrollRatio = scrollTop / (scrollHeight - clientHeight);
-        const thumbY = scrollRatio * (trackHeight - thumbHeight);
-
-        gsap.set(thumb, {
-            height: thumbHeight,
-            y: thumbY,
-        });
-    }, []);
-
-    useGSAP(() => {
-        const panel = panelRef.current;
-        if (!panel) return;
-
-        const clientsEl = panel.querySelector('.clients');
-        const thumb = thumbRef.current;
-        if (!clientsEl || !thumb) return;
-
-        let rafId = null;
-
-        const handleScroll = () => {
-            if (rafId) cancelAnimationFrame(rafId);
-            rafId = requestAnimationFrame(syncThumbPosition);
-        };
-
-        // Start hidden — entrance animation reveals it
-        gsap.set(thumb, { scaleY: 0, transformOrigin: 'center top' });
-        syncThumbPosition();
-
-        // Only attach on mobile
-        const mql = window.matchMedia('(max-width: 768px)');
-        const attach = () => {
-            if (mql.matches) {
-                clientsEl.addEventListener('scroll', handleScroll, { passive: true });
-                syncThumbPosition();
-            } else {
-                clientsEl.removeEventListener('scroll', handleScroll);
-            }
-        };
-
-        attach();
-        mql.addEventListener('change', attach);
-
-        return () => {
-            if (rafId) cancelAnimationFrame(rafId);
-            clientsEl.removeEventListener('scroll', handleScroll);
-            mql.removeEventListener('change', attach);
-        };
-    }, { scope: panelRef, dependencies: [syncThumbPosition] });
-
-    // Scrollbar entrance/exit — scaleY from top center
-    useGSAP(() => {
-        const thumb = thumbRef.current;
-        if (!thumb) return;
-
-        if (isOpen) {
-            // In: scaleY 0 → 1 (0.3s, after client stagger)
-            gsap.to(thumb, {
-                scaleY: 1,
-                duration: 0.3,
-                ease: 'power3.out',
-                delay: 0.6,
-            });
-        } else {
-            // Out: scaleY 1 → 0 (~65% of entrance = 0.2s, snappy)
-            gsap.to(thumb, {
-                scaleY: 0,
-                duration: 0.2,
-                ease: 'power3.inOut',
-            });
-        }
-    }, { dependencies: [isOpen] });
+    // A live name's click (slug null: the marked name, clearing). A modifier
+    // or middle click opens a tab, so it stays the browser's. Otherwise the
+    // drawer closes; on the directory the page re-filters in place, and
+    // elsewhere ClientRouter takes the link.
+    const onName = useCallback(
+        (e, slug) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            onClose?.();
+            if (!onDirectory()) return;
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent(CLIENT_EVENT, { detail: { slug } }));
+        },
+        [onClose]
+    );
 
     return (
         <div className="info-wrapper" data-open={isOpen}>
             {/* Content area — sits above the nav bar, clipped when closed.
                 (The 08-30 top-left close row was REMOVED 08-31, Nathan —
                 the nav's info pill, white-filled while open via
-                aria-expanded, is the one close affordance.) */}
-            <div className="info-panel" ref={panelRef}>
+                aria-expanded, is the one close affordance.)
+                Inert while closed: the drawer is off screen, so nothing in
+                it may take focus (11-03). */}
+            <div className="info-panel" ref={panelRef} inert={!isOpen}>
                 <div className="info-panel__layout">
                     {/* Left column: description */}
                     <div className="info-panel__left">
@@ -184,16 +171,21 @@ export default function InfoPanel({
                     </div>
 
                     {/* Right column: client list */}
-                    <div className="clients">
+                    <div className="clients" ref={clientsRef}>
                         <span className="clients__header">clients</span>
                         <div className="clients__grid">
                             {Array.from({ length: 3 }).map((_, colIndex) => {
-                                const chunkSize = Math.ceil(CLIENTS.length / 3);
-                                const colClients = CLIENTS.slice(colIndex * chunkSize, (colIndex + 1) * chunkSize);
+                                const chunkSize = Math.ceil(roster.length / 3);
+                                const colClients = roster.slice(colIndex * chunkSize, (colIndex + 1) * chunkSize);
                                 return (
                                     <div className="clients__col" key={`col-${colIndex}`}>
-                                        {colClients.map((name) => (
-                                            <span className="clients__item" key={name}>{name}</span>
+                                        {colClients.map((c) => (
+                                            <ClientName
+                                                key={c.slug}
+                                                client={c}
+                                                active={c.slug === activeClient}
+                                                onName={onName}
+                                            />
                                         ))}
                                     </div>
                                 );

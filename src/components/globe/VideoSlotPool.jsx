@@ -6,7 +6,7 @@
  * as the scheduler migrates "live" status between panels; reassigning a
  * slot's src triggers useHls's built-in teardown/reattach.
  *
- * Two MediaCard preview strategies carry over:
+ * Two preview strategies from the retired directory's media cards carry over:
  *  - Abbreviated loop: every slot streams the shared preview window,
  *    GLOBE_PREVIEW_SECONDS, clipped at the source (muxStream, Mux instant
  *    clipping), and loops it from buffer (near-zero ongoing delivery per

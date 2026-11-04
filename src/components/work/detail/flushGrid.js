@@ -43,20 +43,25 @@
  * Known ragged edge: a column whose final occupant is a region (no tile
  * below it while other columns run deeper) keeps a tail gap — nothing exists
  * to stretch. Curated content avoids this; the acceptance pass eyeballs it.
+ *
+ * Columns: the detail page places at 3; any count from 1 works (a landscape
+ * spans min(2, cols)). A list far longer than a detail page places in
+ * stacked chunks (chunkFlushGrid).
  */
 import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 
 /* ── Tessellating tile sizes ──
    Designed so 1 portrait = 2 squares = 2 landscapes (stacked),
    guaranteeing the grid can always back-fill with zero gaps. `sq` is a
-   square tile's row span. FeaturedProjectDetail derives it from the
+   square tile's row span. tileRowsFor (tileGrid.js) derives it from the
    measured column width so tiles hold their shape at every window width
    (?tileshape, 10-27); the default 24 is the old fixed cell, 286px tall
-   whatever the column width. */
-const tileSizes = (sq) => ({
+   whatever the column width. In a single column a landscape can't span
+   two, so it takes `ls` rows — the landscape's own shape at that width. */
+const tileSizes = (sq, cols = 3, ls = sq) => ({
   portrait:  { colSpan: 1, rowSpan: 2 * sq },
   square:    { colSpan: 1, rowSpan: sq },
-  landscape: { colSpan: 2, rowSpan: sq },
+  landscape: { colSpan: Math.min(2, cols), rowSpan: cols === 1 ? ls : sq },
 });
 
 export function classifyTile(ratio) {
@@ -122,29 +127,31 @@ function occupy(segs, c0, colSpan, row, rowSpan) {
   }
 }
 
+/** Dense-place one asset at its earliest fit (leftmost on a tie). */
+function placeOne(segs, asset, cols, sizes) {
+  const type = classifyTile(ratioOf(asset));
+  const { colSpan, rowSpan } = sizes[type];
+
+  let best = null;
+  for (let c = 0; c <= cols - colSpan; c++) {
+    const r = earliestFit(segs, c, colSpan, rowSpan);
+    if (r != null && (best === null || r < best.row)) best = { row: r, col: c };
+  }
+
+  occupy(segs, best.col, colSpan, best.row, rowSpan);
+  return {
+    col: best.col,
+    colSpan,
+    rowStart: best.row,
+    rowEnd: best.row + rowSpan,
+    type,
+  };
+}
+
 /** Dense-place every showcase asset around the blocked rects. */
 function placeAll(showcase, cols, blocked, sizes) {
   const segs = freeSegments(cols, blocked);
-
-  return showcase.map((asset) => {
-    const type = classifyTile(ratioOf(asset));
-    const { colSpan, rowSpan } = sizes[type];
-
-    let best = null;
-    for (let c = 0; c <= cols - colSpan; c++) {
-      const r = earliestFit(segs, c, colSpan, rowSpan);
-      if (r != null && (best === null || r < best.row)) best = { row: r, col: c };
-    }
-
-    occupy(segs, best.col, colSpan, best.row, rowSpan);
-    return {
-      col: best.col,
-      colSpan,
-      rowStart: best.row,
-      rowEnd: best.row + rowSpan,
-      type,
-    };
-  });
+  return showcase.map((asset) => placeOne(segs, asset, cols, sizes));
 }
 
 /**
@@ -345,6 +352,8 @@ function holeRows(showcase, cols, resolved, sizes, sqRows) {
  *        Caller guarantees same-anchor regions don't overlap.
  * @param {number} [opts.sqRows=24] - a square tile's row span (tileSizes);
  *        the underlay bound scales with it (half a landscape).
+ * @param {number} [opts.lsRows=sqRows] - a landscape's row span in a single
+ *        column (tileRowsFor's `ls`); two or more columns span 2 × sqRows.
  * @param {number} [opts.breaks=0] - break rows to cut (pinBreaks), ids
  *        `break:0`…; anchor `'break'`, zero rows.
  * @param {number} [opts.breakEvery=2] - break pitch in SQUARES (× sqRows),
@@ -359,9 +368,9 @@ function holeRows(showcase, cols, resolved, sizes, sqRows) {
  */
 export function computeFlushGrid(
   showcase,
-  { cols = 3, regions = [], sqRows = 24, breaks = 0, breakEvery = 2 } = {}
+  { cols = 3, regions = [], sqRows = 24, lsRows = sqRows, breaks = 0, breakEvery = 2 } = {}
 ) {
-  const sizes = tileSizes(sqRows);
+  const sizes = tileSizes(sqRows, cols, lsRows);
 
   // Clamp horizontal extent defensively; row geometry is the caller's contract.
   const norm = regions.map((r) => {
@@ -479,4 +488,73 @@ export function splitAtBreaks({ placements, regions }) {
       });
     return { tiles, sockets, breaks: cuts.filter((r) => r.rowStart === hi).map((r) => r.id) };
   });
+}
+
+/**
+ * One flush grid cut into stacked chunks, for lists far longer than a detail
+ * page (the Project Directory, ~700 tiles). Each chunk renders as its own
+ * grid one row gap below the last, so a chunk can unmount and still hold its
+ * height, and no grid nears the browsers' line limits (Firefox clamps a grid
+ * at 10,000 lines; a directory-sized list in one grid runs past that).
+ *
+ * A chunk ends at the first FLAT state after `minTiles`: every column's free
+ * space starts on the same row with nothing open above it. The rest then
+ * places exactly as a fresh grid would, so natural chunks stacked one row
+ * gap apart ARE the single grid, row for row. With no flat state by
+ * `maxTiles` (or past `maxRows`), the cut goes at the least ragged point
+ * seen and the chunk flushes like the bottom of a detail page (`forced`).
+ * Dense back-fill stays inside its chunk, so the list's order holds.
+ *
+ * @param {Array<Object>} items - assets in list order (ratioOf reads each)
+ * @param {Object} [opts] - cols / sqRows / lsRows as computeFlushGrid;
+ *        minTiles, maxTiles, maxRows bound each chunk
+ * @returns {Array<{start: number, end: number, placements: Array<Object>, totalRows: number, forced: boolean}>}
+ *   [start, end) indexes `items`; placements align 1:1 with that slice.
+ */
+export function chunkFlushGrid(
+  items,
+  { cols = 3, sqRows = 24, lsRows = sqRows, minTiles = 32, maxTiles = 64, maxRows = 6000 } = {}
+) {
+  const sizes = tileSizes(sqRows, cols, lsRows);
+  const chunks = [];
+  let start = 0;
+  while (start < items.length) {
+    const segs = freeSegments(cols, []);
+    let end = items.length;
+    let forced = false;
+    let best = null; // the least ragged cut seen past minTiles: { at, score }
+    for (let i = start; i < items.length; i++) {
+      placeOne(segs, items[i], cols, sizes);
+      const n = i - start + 1;
+      // Each column's open tail starts at its last segment; anything open
+      // above a tail is a hole. Ragged = the tails' shortfall + the holes.
+      const tails = segs.map((s) => s[s.length - 1].start);
+      const top = Math.max(...tails);
+      if (top > maxRows && n > 1) {
+        end = best ? best.at : i; // this tile overruns: cut before it
+        forced = true;
+        break;
+      }
+      if (n < minTiles) continue;
+      let score = 0;
+      for (const s of segs) {
+        score += top - s[s.length - 1].start;
+        for (let k = 0; k < s.length - 1; k++) score += s[k].end - s[k].start;
+      }
+      if (score === 0) {
+        end = i + 1;
+        break;
+      }
+      if (!best || score < best.score) best = { at: i + 1, score };
+      if (n >= maxTiles) {
+        end = best.at;
+        forced = true;
+        break;
+      }
+    }
+    const { placements, totalRows } = computeFlushGrid(items.slice(start, end), { cols, sqRows, lsRows });
+    chunks.push({ start, end, placements, totalRows, forced });
+    start = end;
+  }
+  return chunks;
 }

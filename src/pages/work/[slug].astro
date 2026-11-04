@@ -9,13 +9,14 @@
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import '../../styles/masonry.css';
+import '../../styles/media-slot.css';
 import '../../styles/project-detail.css';
 import { sanityFetch } from '../../lib/sanityClient.js';
 import {
   FEATURED_PROJECT_PATHS_QUERY,
   FEATURED_PROJECT_DETAIL_QUERY,
 } from '../../lib/queries.js';
-import { toProjectSlug } from '../../lib/projectSlug.js';
+import { featuredRoutes } from '../../lib/projectSlug.js';
 import FeaturedProjectDetail from '../../components/work/detail/FeaturedProjectDetail.jsx';
 
 export async function getStaticPaths() {
@@ -23,15 +24,11 @@ export async function getStaticPaths() {
 
   // One path per featured project doc; project._id is the grouping key.
   // The slug still derives from the first asset's sourceManifest
-  // (toProjectSlug) so existing URLs stay stable. Dedupe defensively in
-  // case two docs ever resolve to the same slug.
+  // (toProjectSlug) so existing URLs stay stable; featuredRoutes dedupes
+  // defensively in case two docs ever resolve to the same slug.
   // Row order == the /work World order (orderRank in the query), so
   // adjacency defines the next-project chain, wrapping last → first.
-  const seen = new Set();
-  const rows = featured
-    .filter((h) => h.collection && h.clientSlug)
-    .map((h) => ({ ...h, slug: h.slug || toProjectSlug(h.clientSlug, h.collection) }))
-    .filter((h) => !seen.has(h.slug) && seen.add(h.slug));
+  const rows = featuredRoutes(featured);
 
   return rows.map((h, i) => {
     const nextIndex = (i + 1) % rows.length;

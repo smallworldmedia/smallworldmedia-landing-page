@@ -1,0 +1,81 @@
+/* ============================================
+   DIRECTORY GRID — /work/directory (11-03)
+   DirectoryGrid: the flush grid (flushGrid.js), cut
+   into chunks (chunkFlushGrid) stacked one row gap
+   apart, so the stack reads as one grid. Placement
+   is inline (placementStyle, as on the detail grid);
+   the column count comes from DirectoryGrid
+   (--dir-cols: the detail grid's breakpoints, with
+   ?dirphonecols at ≤768px), not a media query.
+   ============================================ */
+
+/* The slot's own rules, pulled into this sheet rather than imported by the
+   page: a stylesheet two pages import becomes a chunk of its own, inlined
+   after global.css, which moved the detail pages' slot rules to the end of
+   their cascade (the 11-03 build). Vite inlines an @import, so [slug].astro
+   stays the file's one importer. */
+@import './media-slot.css';
+
+.dir-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1); /* = the grid's row gap: no seam between chunks */
+}
+
+/* Each chunk at its exact height: explicit 10px rows (GRID_ROW_PX,
+   tileGrid.js), so a chunk whose tiles are unmounted still holds its space. */
+.dir-grid {
+  line-height: normal;
+  display: grid;
+  grid-template-columns: repeat(var(--dir-cols, 3), 1fr);
+  grid-template-rows: repeat(var(--chunk-rows, 1), 10px);
+  grid-auto-rows: 10px;
+  gap: var(--space-1);
+}
+
+/* ── Tile reset (masonry.css's, scoped to the directory) ── */
+.dir-tile {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The cell sizes the slot, not its aspect ratio. A contain face
+   (media-slot.css, 0,3,0) still letterboxes over this cover. */
+.dir-tile > .media-slot,
+.dir-tile > .media-slot[data-portrait] {
+  aspect-ratio: auto;
+  width: 100%;
+  height: 100%;
+  background: var(--color-near-black);
+}
+
+.dir-tile .media-slot__media {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+/* The ring, inset: a neighbour would paint over an outer one. It is drawn
+   on ::after, after the slot, because the slot is positioned and painted
+   over the tile's own inset outline (measured 11-03). */
+.dir-tile:focus-visible {
+  outline: none;
+}
+
+.dir-tile:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--color-cream);
+  pointer-events: none;
+}
+
+/* A tile that Tab or Shift+Tab scrolls to lands below the nav and the
+   stuck filter, not under them. --dir-filter-h is the filter's settled
+   height, which DirectoryFilter writes onto .dir-page. */
+.dir-tile {
+  scroll-margin-top: calc(var(--dir-dock) + var(--dir-filter-h, 0px));
+}

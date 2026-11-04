@@ -5,7 +5,7 @@
  * "service-tag" component. Reused anywhere a serviceTag document
  * is displayed as a label (project detail blurb, next-project card).
  *
- * Display-only — for the interactive filter pills see FilterBar.
+ * Display-only.
  *
  * @param {Object} props
  * @param {string} props.name - Service tag display name (e.g. "Live Visuals")

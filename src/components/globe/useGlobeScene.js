@@ -1120,7 +1120,7 @@ export default function useGlobeScene(
       }
     };
 
-    /* — Pause when offscreen or tab hidden (MediaCard observer convention) — */
+    /* — Pause when offscreen or tab hidden — */
     let tickerActive = false;
     let inView = true;
     const syncTicker = () => {

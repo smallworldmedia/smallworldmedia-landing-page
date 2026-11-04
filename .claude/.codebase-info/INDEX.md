@@ -1,6 +1,6 @@
 # Codebase Map — Small World Media site
 
-*Last Updated: 2026-11-01*
+*Last Updated: 2026-11-03*
 
 The Small World Media (SWM) portfolio site at smallworld.media: a static Astro 5 build whose
 routes are each one large React island driving a route-scoped three.js canvas (home video globe,
@@ -20,7 +20,7 @@ the whole dataset read-only.
 | [tech-landscape.md](./tech-landscape.md) | Frameworks, hosting, source-of-truth files, categorized dependencies |
 | [directory-structure.md](./directory-structure.md) | Annotated tree of src/, scripts/, docs/, assets |
 | [entry-points.md](./entry-points.md) | Route table (live vs redirected), layout, npm scripts |
-| [modules.md](./modules.md) | Per-area module purposes: work, world, globe (incl. population modes and media spans), hero, process, chrome, lib, the video windows |
+| [modules.md](./modules.md) | Per-area module purposes: work, world, globe (incl. population modes and media spans), hero, process, the Project Directory, chrome, lib, the video windows |
 | [communication.md](./communication.md) | `swm:*` window events, `<html>` data-attribute latches, server-frontmatter → island props, external services |
 | [database.md](./database.md) | Sanity document types, relationships, GROQ queries and consumers |
 | [cms-pipeline.md](./cms-pipeline.md) | `npm run cms` plan/apply/verify, manifests, Mux, tests, retired scripts |

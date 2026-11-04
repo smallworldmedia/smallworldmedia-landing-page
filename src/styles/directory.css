@@ -1,0 +1,269 @@
+/* ============================================
+   PROJECT DIRECTORY — /work/directory (11-03)
+   DirectoryPage: the sticky filter (DirectoryFilter
+   + FilterTag) over the flush grid
+   (directory-grid.css), then the footer in reveal
+   mode. The filter's type and spacing are the
+   info drawer's (the --*-drawer-* tokens, global.css).
+   ============================================ */
+
+/* --- The global scroll lock off, as on the detail pages --- */
+html:has(.dir-page) {
+  overflow: auto;
+  height: auto;
+  overscroll-behavior-y: none;
+  /* The filter opening while stuck pushes the grid down; scroll anchoring
+     would follow a node in the grid and cancel the push. */
+  overflow-anchor: none;
+  background: var(--color-black);
+}
+
+html:has(.dir-page) body {
+  overflow: visible;
+  height: auto;
+  background: var(--color-black);
+}
+
+.dir-page {
+  /* The filter docks 2px under the nav's bottom edge and pads its top by the
+     same, so its content still starts at the nav height. The closed drawer's
+     transform leaves the bar's edge on a fraction of a pixel (40.47 for the
+     41.006 token at 1440, 11-03), soft across its last two rows at DPR 1,
+     and a flush seat showed the grid scrolling through that seam. The nav
+     paints over the tuck. */
+  --dir-tuck: 2px;
+  --dir-dock: calc(var(--nav-height) - var(--dir-tuck));
+  min-height: 100dvh;
+  padding-top: var(--dir-dock);
+  background: var(--color-black);
+  color: var(--color-white);
+}
+
+/* Until the URL is read, the grid measured and the scroll restored
+   (DirectoryPage): no unfiltered frame. The chunks keep their heights, and
+   the posters in view still load. */
+.dir-page[data-pending] .dir-flow,
+.dir-page[data-pending] .dir-filter__count {
+  visibility: hidden;
+}
+
+/* --- The filter: sticky under the nav --- */
+.dir-filter {
+  /* The bar's height: one line of its type plus the drawer's padding. The
+     open list's cap reads it too. */
+  --dir-bar-h: calc(max(var(--text-drawer-head), 0.786rem) + 2 * var(--space-4));
+  position: sticky;
+  top: var(--dir-dock);
+  z-index: 20; /* over the tiles, under the nav shell (100) */
+  padding-top: var(--dir-tuck);
+  background: var(--color-black);
+  /* the nav's back-off when the drawer opens mid-reveal (.site-shell's own) */
+  transition: top var(--duration-panel) var(--ease-panel);
+}
+
+/* The desktop footer reveal slides the nav up by one nav height (global.css,
+   F1, same gates); the filter follows it on `top`, since a transform would
+   drag an unstuck filter off the grid. ≤768px the nav stays, so the filter
+   does too. */
+html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-filter {
+  top: calc((1 - var(--footer-reveal, 1)) * var(--nav-height) - var(--dir-tuck));
+  transition: none;
+}
+
+@media (max-width: 768px) {
+  html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-filter {
+    top: var(--dir-dock);
+  }
+}
+
+/* The tags' window. Collapsed, one row above 768px (DirectoryFilter measures
+   it; this is the server's estimate of the same) and none at ≤768px; open,
+   the list's height, then auto. */
+.dir-filter__region {
+  position: relative;
+  overflow: hidden;
+  height: calc(var(--space-4) + var(--text-drawer-name) * var(--lh-drawer-name) + var(--space-2));
+}
+
+.dir-filter__tags {
+  position: relative; /* the tags' offsetParent, for the fold measure */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: clamp(0.571rem, 2vw, 1.714rem);
+  row-gap: var(--space-2);
+  /* The bottom is one row gap: at line-height 0.8 a row's descenders hang
+     below its box, so the fold (and the open list's end) leaves them room. */
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  /* Past the screen's room the list scrolls inside, wearing the drawer's
+     thumb (useScrollThumb). */
+  max-height: calc(100dvh - var(--nav-height) - var(--dir-bar-h));
+  overflow: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.dir-filter__tags::-webkit-scrollbar {
+  display: none;
+}
+
+.dir-filter[data-open] .dir-filter__tags {
+  overflow-y: auto;
+}
+
+/* The drawer's thumb, on the list's right edge. */
+.dir-filter__scrollbar-track {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-2);
+  bottom: 0;
+  width: 4px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.dir-filter__scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 0; /* useScrollThumb sizes it while the list overflows */
+  border-radius: var(--radius-pill);
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* --- A tag: the drawer's client-name type, the eye check before it --- */
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: var(--text-drawer-name);
+  font-weight: 400;
+  line-height: var(--lh-drawer-name);
+  letter-spacing: var(--tracking-tight);
+  text-align: left;
+  cursor: pointer;
+}
+
+.filter-tag__check {
+  flex: none;
+  width: 0.72em;
+  height: 0.72em;
+}
+
+/* Shut and at rest, the tags the fold hides are hidden as well as clipped
+   (DirectoryFilter): at line-height 0.8 the next row's capitals reach above
+   the fold line. */
+.dir-filter[data-folded] .filter-tag[inert] {
+  visibility: hidden;
+}
+
+/* The active client would empty it. */
+.filter-tag[data-dim] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* The house label underline (.site-nav__label) and focus ring. */
+.filter-tag:not([data-dim]):hover .filter-tag__label,
+.filter-tag:focus-visible .filter-tag__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.filter-tag:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* --- The bar: the drawer's mono header type --- */
+.dir-filter__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: var(--dir-bar-h);
+  padding: 0 var(--space-4);
+  font-family: var(--font-mono);
+  /* the drawer's header at 0.95vw, held at its phone size below 1158px */
+  font-size: max(var(--text-drawer-head), 0.786rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: var(--tracking-drawer-head);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dir-filter__bar button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.dir-filter__bar button:hover,
+.dir-filter__bar button:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dir-filter__bar button:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* The active client: an outlined capsule (the detail pages' service tag),
+   cut short with an ellipsis. */
+.dir-filter__bar .dir-filter__chip {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 45vw;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-capsule);
+}
+
+.dir-filter__chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dir-filter__toggle {
+  margin-left: auto;
+}
+
+.dir-filter__caret {
+  display: inline-block;
+  transition: transform 0.3s var(--ease-panel);
+}
+
+.dir-filter__toggle[aria-expanded='true'] .dir-filter__caret {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 768px) {
+  .dir-filter__region {
+    height: 0;
+  }
+
+  /* the toggle names them; the bar keeps its room for the client */
+  .dir-filter__head {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dir-filter,
+  .dir-filter__caret {
+    transition: none;
+  }
+}

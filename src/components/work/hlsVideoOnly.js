@@ -1,7 +1,8 @@
 /**
  * hlsVideoOnly — the muted surfaces' audio strip (useHls's `videoOnly`;
  * Nathan, 10-09: "disable the audio download anywhere other than the
- * lightbox"). Pure and import-free, so the tests load it as is.
+ * lightbox"; the lightbox retired with the old directory, 11-03). Pure and
+ * import-free, so the tests load it as is.
  */
 
 /** The audio codec families this pattern names in a CODECS entry: AAC (mp4a),

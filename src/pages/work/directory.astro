@@ -1,42 +1,23 @@
 ---
 /**
- * /work/directory — Project Directory (full media grid).
- *
- * The exhaustive, filterable catalogue. The curated Featured Projects
- * experience lives at /work; this is the "see everything" destination
- * (nav: project_directory). Relocated here from /work in P1.
+ * /work/directory — the Project Directory (11-03): every asset on the site as
+ * one flush grid under a sticky filter (DirectoryPage). Its props are
+ * getDirectoryData(), the build's one directory fetch, which the drawer's
+ * Client Roster reads too (BaseLayout), so the two can't disagree. A failed
+ * read fails the build here.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import '../../styles/masonry.css';
-import '../../styles/work.css';
-import { sanityFetch } from '../../lib/sanityClient.js';
-import {
-  MEDIA_GRID_QUERY,
-  ALBUM_ART_QUERY,
-  SERVICE_TAGS_QUERY,
-} from '../../lib/queries.js';
-import ProjectDirectory from '../../components/work/ProjectDirectory.jsx';
+import '../../styles/directory-grid.css';
+import '../../styles/directory.css';
+import { getDirectoryData } from '../../lib/directoryData.js';
+import DirectoryPage from '../../components/work/directory/DirectoryPage.jsx';
 
-// v1 launch: directory disabled — the site ships with the Featured Projects
-// experience + detail pages only. To re-enable: remove this redirect, restore
-// the SiteNav project_directory link, and restore the end-of-paging hand-off
-// in FeaturedProjects (clamp + hidden [NEXT] at the last World).
-// Previews: the grid's MediaCard streams the shared preview window, clipped at the source (muxStream at PREVIEW_SECONDS; Mux ends it on the first segment boundary at or after it); keep it on that helper when re-enabling. The Lightbox plays full length on purpose (deliberate viewing).
-return Astro.redirect('/work');
-
-const assets = await sanityFetch(MEDIA_GRID_QUERY);
-const albumArt = await sanityFetch(ALBUM_ART_QUERY);
-const serviceTags = await sanityFetch(SERVICE_TAGS_QUERY);
+const { tags, clients, tiles } = await getDirectoryData();
 ---
 
 <BaseLayout
   title="Project Directory — Small World Media™"
-  description="The complete project directory for Small World Media. Explore our work across branding, motion design, live visuals, and digital experiences for the music industry."
+  description="Every piece of work by Small World Media in one grid, filterable by service and client."
 >
-  <ProjectDirectory
-    client:load
-    assets={assets}
-    albumArt={albumArt}
-    serviceTags={serviceTags}
-  />
+  <DirectoryPage client:load tags={tags} clients={clients} tiles={tiles} />
 </BaseLayout>

@@ -1,66 +1,9 @@
 /**
- * queries.js — Centralized GROQ queries for the Project Directory.
+ * queries.js — Centralized GROQ queries for the site's build-time fetches.
  *
  * Terminology follows CONTEXT.md Frontend Component Vocabulary.
  * All queries exclude drafts and resolve references at build time.
  */
-
-/**
- * MEDIA_GRID_QUERY — All publishable non-album-art assets.
- * Feeds the ProjectDirectory → MediaGrid → MediaCard pipeline.
- * Album art is excluded here and fetched separately for the AlbumArtTicker.
- */
-export const MEDIA_GRID_QUERY = `
-  *[_type == "mediaAsset" && mediaType != "album-art" && !(_id in path("drafts.**"))] | order(_createdAt desc) {
-    _id,
-    title,
-    alt,
-    description,
-    mediaType,
-    contentRole,
-
-    // Image resolution
-    "imageUrl": image.asset->url,
-    "imageDimensions": image.asset->metadata.dimensions,
-
-    // Video resolution — dereference mux.videoAsset for playback
-    "playbackId": video.asset->playbackId,
-    "videoAspectRatio": video.asset->data.aspect_ratio,
-    "videoDuration": video.asset->data.duration,
-    "videoStatus": video.asset->data.status,
-
-    // Taxonomy
-    "clientName": client->name,
-    "clientSlug": client->slug.current,
-    "services": services[]->{ name, "slug": slug.current }
-  }
-`;
-
-/**
- * ALBUM_ART_QUERY — Album art assets for the AlbumArtTicker.
- * Ordered by client name so they can be grouped into per-client ticker rows.
- */
-export const ALBUM_ART_QUERY = `
-  *[_type == "mediaAsset" && mediaType == "album-art" && !(_id in path("drafts.**"))] | order(client->name asc) {
-    _id,
-    title,
-    alt,
-    "imageUrl": image.asset->url,
-    "imageDimensions": image.asset->metadata.dimensions,
-    "clientName": client->name,
-    "clientSlug": client->slug.current
-  }
-`;
-
-/**
- * SERVICE_TAGS_QUERY — All service tags for the FilterBar.
- */
-export const SERVICE_TAGS_QUERY = `
-  *[_type == "serviceTag"] | order(sortOrder asc) {
-    name,
-    "slug": slug.current
-  }
-`;
 
 /**
  * FEATURED_PROJECT_PATHS_QUERY — One row per Featured Project doc
@@ -196,18 +139,12 @@ export const GLOBE_ASSETS_QUERY = `{
 }`;
 
 /**
- * FEATURED_PROJECT_DETAIL_QUERY — Everything one Featured Project page needs.
- *
- * $projectId — the `project` document _id driving this page. Assets join via
- * the `mediaAsset.project` reference — the SAME grouping the /work Worlds use
- * (FEATURED_WORLDS_QUERY), so one project doc = one World = one detail page.
- * Client meta and editorial copy come straight off the project doc.
- *
- * Assets come back in drag-rank order (orderRank, set in Studio) — the
- * Content Population Hierarchy (see CONTEXT.md) turns that order into the layout.
+ * MEDIA_FIELDS — the asset fields MediaSlot and the content flow read
+ * (buildContentFlow, ratioOf): FEATURED_PROJECT_DETAIL_QUERY's asset
+ * projection, shared so every grid of slots reads the same fields. The field
+ * order is the order of the island props' keys.
  */
-export const FEATURED_PROJECT_DETAIL_QUERY = `{
-  "assets": *[_type == "mediaAsset" && project._ref == $projectId && !(_id in path("drafts.**"))] | order(orderRank asc) {
+export const MEDIA_FIELDS = `
     _id,
     title,
     alt,
@@ -231,7 +168,21 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
       catalogNumber,
       releaseDate,
       streamLinks[]{ platform, url }
-    }
+    }`;
+
+/**
+ * FEATURED_PROJECT_DETAIL_QUERY — Everything one Featured Project page needs.
+ *
+ * $projectId — the `project` document _id driving this page. Assets join via
+ * the `mediaAsset.project` reference — the SAME grouping the /work Worlds use
+ * (FEATURED_WORLDS_QUERY), so one project doc = one World = one detail page.
+ * Client meta and editorial copy come straight off the project doc.
+ *
+ * Assets come back in drag-rank order (orderRank, set in Studio) — the
+ * Content Population Hierarchy (see CONTEXT.md) turns that order into the layout.
+ */
+export const FEATURED_PROJECT_DETAIL_QUERY = `{
+  "assets": *[_type == "mediaAsset" && project._ref == $projectId && !(_id in path("drafts.**"))] | order(orderRank asc) {${MEDIA_FIELDS}
   },
   "client": *[_type == "project" && _id == $projectId][0].client->{
     name,
@@ -309,3 +260,33 @@ export const SITE_COPY_QUERY = `
     tagline
   }
 `;
+
+/**
+ * DIRECTORY_QUERY — everything the Project Directory (/work/directory) and the
+ * drawer's Client Roster read, in one fetch (src/lib/directoryData.js):
+ *   tags    — the service tags, in Studio order (sortOrder);
+ *   clients — every published client, `umbrellas` = the client slugs its
+ *             affiliations name (labels, managers, parents), for Client
+ *             Coverage (src/lib/clientCoverage.js);
+ *   worlds  — FEATURED_PROJECT_PATHS_QUERY: the World order and the routes;
+ *   assets  — every published asset with media, as MEDIA_FIELDS plus its
+ *             rank, client, project and project rank (buildDirectoryTiles).
+ */
+export const DIRECTORY_QUERY = `{
+  "tags": *[_type == "serviceTag" && !(_id in path("drafts.**"))] | order(sortOrder asc) {
+    name,
+    "slug": slug.current
+  },
+  "clients": *[_type == "client" && !(_id in path("drafts.**"))] {
+    name,
+    "slug": slug.current,
+    "umbrellas": affiliations[].entity->slug.current
+  },
+  "worlds": ${FEATURED_PROJECT_PATHS_QUERY},
+  "assets": *[_type == "mediaAsset" && !(_id in path("drafts.**")) && (defined(image.asset) || defined(video.asset))] {${MEDIA_FIELDS},
+    orderRank,
+    "clientSlug": client->slug.current,
+    "projectId": project._ref,
+    "projectRank": project->orderRank
+  }
+}`;

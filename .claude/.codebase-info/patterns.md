@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-04*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -16,6 +16,10 @@
   persistent islands are rAF-deferred so their tweens are not adopted and reverted at unmount.
 - `client:only` islands: element refs captured in mount effects go stale under dev hydration churn;
   query the DOM lazily at animation-fire time.
+- An SSR'd image in a `client:load` island that finishes before hydration never fires React's
+  `onLoad`: Astro hydrates inside a transition, and React attaches the handler only at its commit. A
+  load-gated image flags itself in a ref callback (`img.complete && img.naturalWidth > 0`), as
+  `MediaSlot`'s `flagIfLoaded` does (`4499fc3`).
 - Timeline traps (each fixed in `process/useProcessScene.js`, commented at the site):
   `killTweensOf(target)` inside a timeline's own `.call()` kills that timeline's later tweens of the
   target, so kill at build time; a live tween on `tl.timeScale` re-attaches a killed timeline, so
@@ -195,8 +199,8 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
 - A knob is only half-landed until it has a bench row.
 - A tier-split default reads as ONE knob: `GLOBE_STROKE_FRAC` resolves `IS_MOBILE ? 5 : 6`, and a single
   `?globestroke` overrides BOTH tiers (the `?grainsize` convention) rather than exposing two params.
-- Inventory: `docs/tunables-guide.md` (415 keys, as `node scripts/tunables-keys.mjs --check` printed on
-  11-03 after the `?touchgain` / `?releasems` dials; read the count from that command, never by hand). After adding/renaming/baking a param run
+- Inventory: `docs/tunables-guide.md` (420 keys, as `node scripts/tunables-keys.mjs --check` printed on
+  11-03 after the directory's `?dir*` knobs; read the count from that command, never by hand). After adding/renaming/baking a param run
   `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
   idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
   regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
@@ -308,13 +312,23 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   bitrates runs past the end of most assets, so without a clip a muted loop downloads its whole asset. Every autoplay
   surface asks for a Mux clip instead, through `work/imageConfig.js`'s `muxStream` (`asset_end_time`);
   Mux ends a clip on the first segment boundary at or after it, so players also wrap at the window
-  (`timeupdate`, `wrapAtDetailCap`) for a clip that ends later. The Lightbox streams whole on purpose.
+  (`timeupdate`, `wrapAt`) for a clip that ends later. The Project Directory's tiles take the 5 s preview
+  clip, not the detail cap (MediaSlot `clip`), and `globe-probe --directory` gates it.
 - **Mux has no playback modifier that drops audio, so muted surfaces drop it client-side**:
   `work/hlsVideoOnly.js` rewrites only the master playlist (the `TYPE=AUDIO` group, the `AUDIO="…"`
   attribute and the audio codec go), installed by `useHls`'s `videoOnly` as the playlist loader; a
   master it cannot rewrite safely is used as is. The file never names `URLSearchParams`,
   `location.search` or `searchParams`, comments included, because those are the tunables scanner's
   opt-in strings.
+- **Hundreds of video tiles share one player gate** (the Project Directory, 11-03). A player and an
+  observer per tile, as the detail page has, would start dozens of streams in one scroll past ~250
+  videos. `work/directory/playerGate.js` holds ONE IntersectionObserver for every video tile and at
+  most `cap` play grants (`?dirplayers`); a tile earns one after `?dirdwell` ms at least half in view
+  (half the tile or half the viewport, whichever comes first), so a fling never asks Mux for a
+  master; grants go first come, first served, and a tile dropping under half hands its grant to the
+  longest-waiting one. Every tile shows its poster meanwhile, and cap 0 (reduced motion) is posters
+  only. On revoke MediaSlot empties the `<video>` (`removeAttribute('src')`, `load()`) before it
+  unmounts, since `useHls`'s native path never detaches.
 - **A clip fetched ahead must ask for the player's exact URL, rung included**: Mux playlists are
   `no-store`, so the fast handoff (`globe/streamPrefetch.js`) keeps their text in `work/hlsPrimed.js` for
   `useHls`'s `primed` loader, while the init and segment (max-age 7 days) reach the players through the
@@ -402,6 +416,11 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   the same pass re-derive any bound that was a forecast of the old default: `texBudget` was popcap
   13's until then, and his 10-24 tile budget had put every units run over it. A one-off failure gets one rerun
   on a quiet machine, both runs kept; never lower a floor or weaken a gate.
+- The directory's keyboard gates (`globe-probe --directory`, desktop) read the screen, not computed
+  style. `ringShows` samples each focus ring's pixels, because a positioned child can paint over an
+  inset outline that the computed style still reports (the tiles' ring is drawn on `::after` for that
+  reason). `tabReach` records every focus in the page while Tab walks all the links flat out.
+  `--keyctl=escape|ring` are their negative controls.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 

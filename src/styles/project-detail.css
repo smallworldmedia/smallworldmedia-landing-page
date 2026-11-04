@@ -298,74 +298,6 @@ html:has(.project-detail) body {
   margin: 0 2.5px;
 }
 
-/* ============================================
-   MEDIA SLOTS — masonry-grid children
-   Each slot sizes itself via aspect-ratio from the
-   asset's native dimensions. In the masonry grid,
-   break-inside: avoid keeps each slot in one column.
-   ============================================ */
-.media-slot {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: var(--slot-ratio, 16 / 9);
-  background: var(--color-dark-gray);
-}
-
-/*
- * Portrait/square assets: clamp to a minimum 3:4 container.
- * Narrow ratios (9:16, 4:5) are gently cropped via cover;
- * wider portraits (3:4, 1:1) display near-native.
- * max() picks the wider ratio → shorter container.
- */
-.media-slot[data-portrait] {
-  aspect-ratio: max(var(--slot-ratio), 3 / 4);
-  background: var(--color-near-black);
-}
-
-.media-slot__media {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.5s ease;
-}
-
-/* Portrait media: cover-fill to crop into the clamped 3:4 frame */
-.media-slot[data-portrait] .media-slot__media {
-  object-fit: cover;
-}
-
-.media-slot__media--loaded {
-  opacity: 1;
-}
-
-/* A sequence (MediaSlot frames, src/lib/mediaSequence.js): the frames stack
-   and hard-cut — no transition, the eye never sees two of them mix. Opaque
-   frames fill the slot; a transparent one (a logo) shows whole on the
-   slot's near-black. */
-.media-slot__sequence {
-  position: relative;
-}
-
-.media-slot__frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  opacity: 0;
-}
-
-.media-slot__frame[data-fit='contain'] {
-  object-fit: contain;
-}
-
-.media-slot__frame[data-on] {
-  opacity: 1;
-}
-
 /* Detail masonry grid spacing */
 .masonry-grid--detail {
   padding: 0;
@@ -393,6 +325,13 @@ html:has(.project-detail) body {
   flex: 1 1 auto;
   min-width: 0;
   height: 100%;
+}
+
+/* Its shape and fill. The [data-portrait] selector out-specifies
+   media-slot.css's .media-slot[data-portrait], so the hero wins whichever
+   sheet loads last (11-03). */
+.hero-band>.media-slot,
+.hero-band>.media-slot[data-portrait] {
   aspect-ratio: max(var(--hero-ratio), 0.75);
   background: var(--color-black);
 }
@@ -490,9 +429,11 @@ html:has(.project-detail) body {
 
 /* ============================================
    SERVICE TAG — blue-fill display variant
-   Extends .stag base (global.css)
+   Extends .stag base (global.css). Both classes in the
+   selector: Astro ranks this sheet and global.css equal,
+   so which loads last is the bundle's accident (11-03).
    ============================================ */
-.service-tag {
+.stag.service-tag {
   /* Overrides: blue fill, black text, detail-page sizing */
   font-family: var(--font-mono);
   font-weight: 500;

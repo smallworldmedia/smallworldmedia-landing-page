@@ -8,8 +8,8 @@
  *  1. The hero is always assets[0] (first in drag-to-order ranking).
  *     It is excluded from the flow and rendered in the hero band above
  *     the project blurb.
- *  2. `album-art` assets are held out for the AlbumArtOrbit (and the
- *     AlbumArtTicker) — but only when the collection clears ORBIT_MIN.
+ *  2. `album-art` assets are held out for the AlbumArtOrbit — but only
+ *     when the collection clears ORBIT_MIN.
  *     Below the gate the covers fold back into the showcase flow at
  *     their original orderRank positions (they tessellate as squares).
  *  3. `brand-deck` assets are held out for the BrandDeckViewer, grouped
@@ -33,6 +33,9 @@
  *     (src/lib/mediaSequence.js) — checked first, so any still can join one.
  *     A group of one stays a plain showcase item; a video member keeps its
  *     own tile.
+ *
+ * Which bucket an asset joins is assetLane's precedence (sequence first,
+ * showcase last), exported so other grids sort assets the same way.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
  * @param {{orbitMin?: number}} [opts] - ORBIT_MIN override (live tuning)
@@ -167,6 +170,22 @@ export function ratioOf(asset) {
 
 export { PORTRAIT_THRESHOLD, MEDIA_TYPE_RATIOS };
 
+/**
+ * The content-flow lane an asset rides, first match wins: 'sequence',
+ * 'album-art', 'deck', 'carousel', 'banner', 'role' (any contentRole),
+ * 'showcase'. null for an empty shell (no uploaded media).
+ */
+export function assetLane(asset) {
+  if (!asset.playbackId && !asset.imageUrl) return null;
+  if (isSequenceGroup(asset.displayGroup) && asset.imageUrl && !asset.playbackId) return 'sequence';
+  if (asset.mediaType === 'album-art') return 'album-art';
+  if (asset.mediaType === 'brand-deck') return 'deck';
+  if (asset.mediaType === 'carousel-slide') return 'carousel';
+  if (isBannerGroup(asset.displayGroup)) return 'banner';
+  if (asset.contentRole) return 'role';
+  return 'showcase';
+}
+
 export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
   const albumArt = [];
   const carousels = [];
@@ -183,26 +202,26 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
   // can restore the original orderRank interleaving.
   for (let i = 1; i < assets.length; i++) {
     const asset = assets[i];
+    const lane = assetLane(asset);
 
     // Skip empty shells — assets with no uploaded media can't render
-    const hasMedia = !!asset.playbackId || !!asset.imageUrl;
-    if (!hasMedia) continue;
+    if (!lane) continue;
 
-    if (isSequenceGroup(asset.displayGroup) && asset.imageUrl && !asset.playbackId) {
+    if (lane === 'sequence') {
       const key = asset.displayGroup;
       if (!sequenceGroups.has(key)) sequenceGroups.set(key, []);
       sequenceGroups.get(key).push({ i, asset });
-    } else if (asset.mediaType === 'album-art') albumArt.push({ i, asset });
-    else if (asset.mediaType === 'brand-deck') {
+    } else if (lane === 'album-art') albumArt.push({ i, asset });
+    else if (lane === 'deck') {
       const key = asset.displayGroup ?? 'deck';
       if (!deckGroups.has(key)) deckGroups.set(key, []);
       deckGroups.get(key).push(asset);
-    } else if (asset.mediaType === 'carousel-slide') carousels.push(asset);
-    else if (isBannerGroup(asset.displayGroup)) {
+    } else if (lane === 'carousel') carousels.push(asset);
+    else if (lane === 'banner') {
       const key = asset.displayGroup;
       if (!bannerGroups.has(key)) bannerGroups.set(key, []);
       bannerGroups.get(key).push(asset);
-    } else if (asset.contentRole) bts.push(asset);
+    } else if (lane === 'role') bts.push(asset);
     else showcase.push({ i, asset });
   }
 

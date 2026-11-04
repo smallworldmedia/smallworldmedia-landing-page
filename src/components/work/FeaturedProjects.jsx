@@ -3,9 +3,9 @@
  * experience at /work (CONTEXT.md § "Featured Projects Preview — concepts").
  *
  * Paging is CTA-driven: wheel/touch fills a fixed control until it triggers a
- * World change. Scrolling down fills the bottom NEXT_PROJECT control (→ next, or
- * → project directory on the last project as MORE_WORK); scrolling up fills the
- * top PREVIOUS_PROJECT control (→ previous; hidden on the first project). The
+ * World change. Scrolling down fills the bottom NEXT_PROJECT control (→ next;
+ * hidden on the last project); scrolling up fills the top PREVIOUS_PROJECT
+ * control (→ previous; hidden on the first project). The
  * left pager is a cursor-proximity "dock" — each number scales by how close the
  * cursor is, independently of its neighbours.
  *
@@ -335,9 +335,10 @@ export default function FeaturedProjects({ worlds = [] }) {
   useEffect(() => () => prevWipeRef.current?.kill(), []);
 
   // ── Return-position restore ──
-  // Only an explicit return from a detail page reopens the World you left:
-  // the breadcrumb arms `swm:returnToWork` on click, and BaseLayout's
-  // popstate tracker arms it for browser back/forward. Any other entry —
+  // Only an explicit return reopens the World you left: the detail
+  // breadcrumb arms `swm:returnToWork` on click, and BaseLayout's
+  // popstate tracker arms it for browser back/forward out of any /work/*
+  // page, the directory's included. Any other entry —
   // the nav's featured_projects link, a direct load — starts at the first
   // World. Restore sets `active` (+ the snap below) only: the card-staging
   // effect boots the restored card (setting cards directly here raced that

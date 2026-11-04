@@ -114,9 +114,9 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
 
 ## v1 cuts (deliberate)
 
-- **`/work/directory` disabled** (committed `adc06ab`): route redirects to `/work` (Astro meta-refresh + forced Netlify 302), nav link removed, World paging clamps at the last World. Re-enable notes live in `directory.astro`.
+- ~~**`/work/directory` disabled** (committed `adc06ab`): route redirects to `/work` (Astro meta-refresh + forced Netlify 302), nav link removed, World paging clamps at the last World. Re-enable notes live in `directory.astro`.~~ — **un-cut 2026-11-03** on `feature/project-directory` (worktree `../swm-project-directory`; not folded or pushed yet): rebuilt from the detail page's grid with none of the old code; the route and the nav's `project_directory` are back on (`251e7b3`), and the drawer's client names filter it (`5c66f49`). World paging still clamps at the last World (Nathan, 11-03). Plan, status and open calls: `docs/project-directory-plan.md`.
 - ~~World-side composite mounts (orbit/deck in the World)~~ — **un-cut 2026-07-03**, shipped as F17 (`c9f15f3`).
-- Carousel component, BTS section, NextProjectCard, directory dual-feeds — unchanged/deferred.
+- Carousel component, BTS section, NextProjectCard — unchanged/deferred. The directory dual-feeds landed with the directory on 11-03 (one square tile per album cover, one tile per deck).
 - Full year-field retirement (`mediaAsset.year` behind `coalesce`, 716 docs) — only the 5 featured projects are launch-relevant.
 
 ## Launch gate

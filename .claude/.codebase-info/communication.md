@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-04*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -22,9 +22,13 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:hero-chrome`, `swm:hero-lockup-done`, `swm:tagline-exit` | `Hero` | `SiteNav`, `HeroLabels`, `SiteTagline` | — |
 | `swm:process-step` / `-home` / `-index` | `ProcessStepCtas`, driver, `DetailProgressBar` | `useProcessScrollDriver`, `useProcessCopy` | step deltas / index |
 | `swm:process-cta-hover` | `ProcessPage` (CTA hover/focus, rAF-deferred) | `useProcessScene` (the freed shard pulses) | `{on}` |
+| `swm:directory-client` | `InfoPanel` (a live client name clicked on `/work/directory`, inside the click) | `work/directory/DirectoryPage.jsx` (sets or clears the client in place; no navigation) | `{slug}`, `null` clears |
 
 Rule: dispatches that cross into a persistent island are `requestAnimationFrame`-deferred so the
-resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
+resulting tweens are not adopted by a dying gsap context (see `patterns.md`). `swm:directory-client`
+runs the other way, out of a persistent island from a React click handler, which runs in no gsap
+context, so it is sent synchronously. Its name is a literal in both files: importing the page into
+the drawer would pull the directory's modules onto every route.
 
 ## `<html>` / `<body>` latches
 
@@ -42,12 +46,14 @@ resulting tweens are not adopted by a dying gsap context (see `patterns.md`).
 | `--footer-lift-k`, `--footer-marks-from`, `--footer-marks-to`, `--footer-marks-lift` | `lib/footerTune.js` (fallbacks in `global.css`) | the resting footer's dials, seeded from `?footerlift` / `?footermarksfrom` / `?footermarksto` / `?footermarkslift` and written live by `?footertune=1`; each bake lives in both places (`FOOTER_TUNE_DEFAULTS` mirrors every `var(…, fallback)`) |
 | `data-privacy-landed` | `SiteTagline` | footer link stagger waits on it |
 | `--scrollbar-w` | `SiteShell` | re-measured on `astro:after-swap` |
-| `data-nav-accent*` | detail pages | project accent for `RouteFill` / `lib/navAccent.js` |
+| `data-nav-accent*` | detail pages; the Project Directory's bare `data-nav-accent-page` (11-03) | project accent for `RouteFill` / `lib/navAccent.js`; a bare one applies the brand default, so the directory never keeps the previous page's accent |
 | `html.fp-tint` / `html.pop-tint`, `--project-color`, `-2`, `-fg`, `-text`, `-on-black`, `--project-globe-filter` | `lib/navAccent.js` (`applyNavAccent(…, { tint })`: /work → `fp-tint`, home under the population modes → `pop-tint`; `clearNavAccent` drops both, RouteFill on route-home / route-process) | chrome wears the accent; the classes carry the 1.7 s colour fade. The published list IS the contract — `--project-color-on-black` (the YIQ≥140 binary flip to white, so a dark accent inks pure white rather than gliding hue) was computed but unpublished until 10-08, and it must stay an UNREGISTERED custom property: registering it would resolve it to an initial-value and make it interpolable, reopening the paint trap. The privacy pill reads it through `--pill-ink-on-black` |
 | `.fp[data-turning]` | `FeaturedProjects` (SSR'd prop: an exit card is staged) | `featured-projects.css`: the pager chip (`.fp-scale__lens`, `__den`) drops its own 0.4 s background lane for the Turn window, so it rides the 1.7 s `--project-color` fade in lockstep with the nav, and its ink switches to the snapping `--nav-ink` faded element-locally. Charged / open rules outrank it |
 | `body.route-home` / `body.route-process` | `BaseLayout.astro` (server) | route-scoped chrome CSS, no hydration flash |
 | `.process-page[data-opening]`, `[data-bg]` | `ProcessPage` (SSR), then `useProcessScene` (`setOpening`, `setBgAttr`) | /process field (w9c): `data-opening` (`black`\|`blue`) keys `process.css` `--ps-field-open`/`--ps-field-solid` and, via `:has()`, the html/body base; `data-bg` names the live field colour, which skins the steppers' keyline and the privacy pill's keyline on black |
 | `sessionStorage swm:hero-intro`, `swm:returnToWork`, `swm:enterWorld` | `Hero`, layout script | intro mode; back-nav to /work; the Enter World handoff (below) |
+| `sessionStorage swm:directory-place`, `.dir-page[data-pending]` | `work/directory/DirectoryPage.jsx` | the directory's own scroll place per history entry, re-seated once the grid is real (Astro restores scroll before the island hydrates, against the server's three-column layout, which clamps a phone's one-column place); until then `data-pending` holds the grid and the count at `visibility: hidden`, so no unfiltered frame shows |
+| `.dir-page` `--dir-filter-h` | `work/directory/DirectoryFilter.jsx` (one writer: a ResizeObserver on the filter) | the filter's settled height, written once a resize has held 120 ms, never per animation frame (a write re-styles every tile); `.dir-tile`'s `scroll-margin-top` adds it to `--dir-dock`, so a tile Tab reaches lands below the stuck filter (`6943ec8`) |
 
 ClientRouter wipes every `<html>` attribute on swap; persistent islands re-assert theirs on
 `astro:after-swap`.
@@ -75,6 +81,16 @@ The detail breadcrumb back (`FeaturedProjectDetail.jsx` `goBackToWork`) arms `sw
 covers in the project's colour for 0.6 s, then navigates; the restore arms `snapRef` too, so the
 return is the same snap (no Turn, the fill held until the card). Under RM it is an instant cover and
 a plain link.
+
+## The Project Directory's URL state
+
+`/work/directory?tag=a,b&client=slug` is the filter (11-03). `DirectoryPage` reads it once at mount
+(unknown slugs dropped, tags the client would empty pruned, the URL rewritten when anything changed)
+and writes each change with `history.replaceState(history.state, '', url)`: a null state breaks
+ClientRouter's Back. The drawer's live names link to `?client=slug`. Off the directory ClientRouter
+takes the link; on it the drawer cancels the link and sends `swm:directory-client`, and the marked
+name links to the bare route, which clears. `tag` and `client` sit in `scripts/tunables-keys.mjs`'s
+`IGNORE` set: route state, not tunables.
 
 ## Stats globals
 
@@ -121,13 +137,20 @@ its PROMISE, so the whole build still makes one request. Every consumer keeps
 `siteCopy?.field || SITE_COPY_FALLBACK.field` so a missing field degrades to the baked copy at the
 point of use rather than anywhere upstream. See `architecture.md` (Data Flow) for the fetch itself.
 
+The Client Roster (11-03) takes the same road: `BaseLayout.astro` awaits `getDirectoryData()`
+(`src/lib/directoryData.js`, memoized, so `/work/directory`'s own await shares the request), maps it
+through `toDrawerRoster` (`src/lib/clientCoverage.js`) and threads `roster` `SiteShell` → `InfoPanel`;
+the list is the same on every page. A failed read gives the drawer `[]` and a `[roster]` warning,
+where the directory page fails the build. `SiteShell` also hands `InfoPanel` an `onClose`, which a
+client name's click calls.
+
 ## External services
 
 | Service | Direction | Where |
 |---|---|---|
 | Sanity (b60h4u7o/production) | build-time read; CLI write | `src/lib/sanityClient.js`, `src/lib/siteCopy.js` (every route), `scripts/lib/cms/adapters.mjs` |
 | Sanity CDN images | runtime read | `globe/TextureManager.js`, media slots |
-| Mux | runtime HLS + thumbnails; CLI uploads | `useHls.js`, `VideoSlotPool.jsx`, adapters. Every autoplay master is CLIPPED at the source (`work/imageConfig.js` `muxStream`: `asset_end_time` = `PREVIEW_SECONDS` for the pools and MediaCard, `DETAIL_MAX_SECONDS` on detail pages; P0 `cb7b8e8`), and muted surfaces fetch no audio (`useHls` `videoOnly` → `hlsVideoOnly.js`; P0v `f951497`). The Lightbox streams the whole asset with sound. Under `?pophandoff=fast` the home globe also `fetch()`es the clips it expects ahead, at low priority (`globe/streamPrefetch.js`): their init and segment wait in the HTTP cache for the players' own requests, their no-store playlists in `work/hlsPrimed.js` |
+| Mux | runtime HLS + thumbnails; CLI uploads | `useHls.js`, `VideoSlotPool.jsx`, adapters. Every autoplay master is CLIPPED at the source (`work/imageConfig.js` `muxStream`: `asset_end_time` = `PREVIEW_SECONDS` for the pools and the Project Directory's tiles, `DETAIL_MAX_SECONDS` on detail pages; P0 `cb7b8e8`), and muted surfaces fetch no audio (`useHls` `videoOnly` → `hlsVideoOnly.js`; P0v `f951497`). The directory asks for a master only once the player gate grants a tile play, and its posters are Mux thumbnails (`muxPosterSrcSet`). Under `?pophandoff=fast` the home globe also `fetch()`es the clips it expects ahead, at low priority (`globe/streamPrefetch.js`): their init and segment wait in the HTTP cache for the players' own requests, their no-store playlists in `work/hlsPrimed.js` |
 | Netlify Forms | inquiry POST | `ProjectOverlay.jsx` + hidden mirror form in `BaseLayout.astro` |
 | Google Fonts | Inter stylesheet | `BaseLayout.astro` |
 

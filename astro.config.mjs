@@ -4,8 +4,8 @@ import sanity from '@sanity/astro';
 import sitemap from '@astrojs/sitemap';
 
 // Built routes that shouldn't be indexed: v1-disabled redirect stubs + the
-// Sanity Studio. (/process un-gated 08-29.)
-const SITEMAP_EXCLUDE = ['/work/directory', '/lab/globe', '/specimen'];
+// Sanity Studio. (/process un-gated 08-29, /work/directory 11-03.)
+const SITEMAP_EXCLUDE = ['/lab/globe', '/specimen'];
 
 // https://astro.build/config
 export default defineConfig({
