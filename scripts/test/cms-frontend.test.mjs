@@ -5,9 +5,12 @@ import {
   FEATURED_PROJECT_DETAIL_QUERY,
   FEATURED_PROJECT_PATHS_QUERY,
   FEATURED_WORLDS_QUERY,
+  DIRECTORY_QUERY,
 } from '../../src/lib/queries.js'
 import { buildContentFlow, ratioOf } from '../../src/components/work/detail/buildContentFlow.js'
 import { toProjectSlug } from '../../src/lib/projectSlug.js'
+import { buildDirectoryTiles, matchesFilter } from '../../src/components/work/directory/buildDirectoryTiles.js'
+import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
 import {
   isSequenceGroup,
   makeSequence,
@@ -102,6 +105,32 @@ test('a -sequence group is ONE showcase tile: frames in Studio order, the least-
   assert.equal(isSequenceGroup('sequence'), true)
   assert.equal(isSequenceGroup('sequences-archive'), false) // NC: the suffix, not a substring
   assert.equal(isSequenceGroup(undefined), false)
+})
+
+test('directory query: published media in World order, a deck as one tile, the label covering its child (11-03)', async () => {
+  const dirDocs = [
+    ...documents,
+    { _id: 'tag-branding', _type: 'serviceTag', name: 'Branding', slug: { current: 'branding' }, sortOrder: 2 },
+    { _id: 'tag-album', _type: 'serviceTag', name: 'Album Art', slug: { current: 'album-art' }, sortOrder: 1 },
+    { _id: 'drafts.tag-vfx', _type: 'serviceTag', name: 'VFX', slug: { current: 'vfx' }, sortOrder: 0 },
+    { _id: 'client-dj', _type: 'client', name: 'DJ Tennis', slug: { current: 'dj-tennis' } },
+    { _id: 'client-munchie', _type: 'client', name: 'Munchietown', slug: { current: 'munchietown' }, affiliations: [{ _key: 'a', entity: ref('client-dj'), relationship: 'label-of' }] },
+    { ...base, _id: 'munchie-cover', orderRank: '0|z00001:', title: 'munchie-cover', client: ref('client-munchie'), project: undefined, mediaType: 'album-art', image, services: [ref('tag-album')] },
+    { ...base, _id: 'munchie-shell', orderRank: '0|z00002:', title: 'munchie-shell', client: ref('client-munchie'), project: undefined, mediaType: 'static_4x5' },
+  ]
+  const data = await query(DIRECTORY_QUERY, dirDocs)
+  assert.deepEqual(data.tags.map((t) => t.slug), ['album-art', 'branding']) // sortOrder; drafts out
+  assert.deepEqual(data.clients.find((c) => c.slug === 'munchietown').umbrellas, ['dj-tennis'])
+  assert.ok(!data.assets.some((a) => a._id.startsWith('drafts.') || a._id === 'munchie-shell')) // published, with media
+  const tiles = buildDirectoryTiles(data)
+  // The featured World first (its hero included), the deck as one tile at its first page's place, its face page 1.
+  assert.deepEqual(tiles.map((t) => t._id), ['hero', 'cover', 'page-1', 'slide-1', 'motion', 'banner-2', 'other-project', 'munchie-cover'])
+  assert.equal(tiles[0].href, '/work/fixture-branding')
+  assert.equal(tiles[0].label, 'Studio title')
+  // ?client=dj-tennis: DJ Tennis has no media of its own; Munchietown names it, so its cover shows.
+  const dj = coverageOf('dj-tennis', data.clients)
+  assert.deepEqual(tiles.filter((t) => matchesFilter(t, { tags: new Set(), coverage: dj })).map((t) => t._id), ['munchie-cover'])
+  assert.deepEqual(toDrawerRoster(data.clients, tiles).map((r) => [r.name, r.live]), [['DJ Tennis', true], ['Fixture', true], ['Munchietown', true]])
 })
 
 test('sequence shape: the member ratio that crops the set least; the frame cap; one wall clock (10-31)', () => {

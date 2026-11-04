@@ -260,3 +260,33 @@ export const SITE_COPY_QUERY = `
     tagline
   }
 `;
+
+/**
+ * DIRECTORY_QUERY — everything the Project Directory (/work/directory) and the
+ * drawer's Client Roster read, in one fetch (src/lib/directoryData.js):
+ *   tags    — the service tags, in Studio order (sortOrder);
+ *   clients — every published client, `umbrellas` = the client slugs its
+ *             affiliations name (labels, managers, parents), for Client
+ *             Coverage (src/lib/clientCoverage.js);
+ *   worlds  — FEATURED_PROJECT_PATHS_QUERY: the World order and the routes;
+ *   assets  — every published asset with media, as MEDIA_FIELDS plus its
+ *             rank, client, project and project rank (buildDirectoryTiles).
+ */
+export const DIRECTORY_QUERY = `{
+  "tags": *[_type == "serviceTag" && !(_id in path("drafts.**"))] | order(sortOrder asc) {
+    name,
+    "slug": slug.current
+  },
+  "clients": *[_type == "client" && !(_id in path("drafts.**"))] {
+    name,
+    "slug": slug.current,
+    "umbrellas": affiliations[].entity->slug.current
+  },
+  "worlds": ${FEATURED_PROJECT_PATHS_QUERY},
+  "assets": *[_type == "mediaAsset" && !(_id in path("drafts.**")) && (defined(image.asset) || defined(video.asset))] {${MEDIA_FIELDS},
+    orderRank,
+    "clientSlug": client->slug.current,
+    "projectId": project._ref,
+    "projectRank": project->orderRank
+  }
+}`;
