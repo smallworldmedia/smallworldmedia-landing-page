@@ -7,12 +7,17 @@
  * on the next frame. It starts retracted (scaleY 0 from its top); when
  * `isOpen` turns true it scales in (0.3 s power3.out, 0.6 s after, once the
  * entrance stagger has run), and when it turns false it retracts (0.2 s
- * power3.inOut). The scroll listener attaches only while `media` matches —
- * the drawer's thumb is phone-only — and only then does the scroller carry
- * data-lenis-prevent, so a wheel scrolls it natively where it scrolls and
- * Lenis still smooths the page where it doesn't (11-03: a static attribute
- * left the desktop drawer's names a dead patch for the wheel). Markup and
- * styling stay with the caller:
+ * power3.inOut), sized afresh as it starts. The scroll listener attaches
+ * only while `media` matches — the drawer's thumb is phone-only.
+ *
+ * A wheel over the scroller marks it data-lenis-prevent only while it can
+ * scroll (overflow-y auto or scroll, and more content than box), so the
+ * wheel scrolls it natively there and Lenis still smooths the page where it
+ * can't: the drawer's names at desktop, the collapsed directory filter. The
+ * scroller's listener runs before Lenis's on window, so the mark is in place
+ * when Lenis reads the path. (11-03: a static attribute left the desktop
+ * drawer's names a dead patch for the wheel.) Markup and styling stay with
+ * the caller:
  *
  *   const { trackRef, thumbRef } = useScrollThumb(scrollerRef, isOpen);
  *   <div className="…-track" ref={trackRef}><div className="…-thumb" ref={thumbRef} /></div>
@@ -63,6 +68,16 @@ export default function useScrollThumb(scrollerRef, isOpen, { media = '(max-widt
       rafId = requestAnimationFrame(syncThumbPosition);
     };
 
+    // Lenis skips a wheel whose path carries data-lenis-prevent: mark the
+    // scroller only while it can scroll.
+    const markForWheel = () => {
+      const canScroll =
+        /auto|scroll/.test(getComputedStyle(scroller).overflowY) &&
+        scroller.scrollHeight > scroller.clientHeight + 1;
+      scroller.toggleAttribute('data-lenis-prevent', canScroll);
+    };
+    scroller.addEventListener('wheel', markForWheel, { passive: true });
+
     // Start hidden — entrance animation reveals it
     gsap.set(thumb, { scaleY: 0, transformOrigin: 'center top' });
     syncThumbPosition();
@@ -70,7 +85,6 @@ export default function useScrollThumb(scrollerRef, isOpen, { media = '(max-widt
     // Only attach while `media` matches
     const mql = window.matchMedia(media);
     const attach = () => {
-      scroller.toggleAttribute('data-lenis-prevent', mql.matches);
       if (mql.matches) {
         scroller.addEventListener('scroll', handleScroll, { passive: true });
         syncThumbPosition();
@@ -84,6 +98,7 @@ export default function useScrollThumb(scrollerRef, isOpen, { media = '(max-widt
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
+      scroller.removeEventListener('wheel', markForWheel);
       scroller.removeEventListener('scroll', handleScroll);
       mql.removeEventListener('change', attach);
     };
@@ -101,6 +116,7 @@ export default function useScrollThumb(scrollerRef, isOpen, { media = '(max-widt
         duration: 0.3,
         ease: 'power3.out',
         delay: 0.6,
+        onStart: syncThumbPosition, // the list may have changed since its last scroll
       });
     } else {
       // Out: scaleY 1 → 0 (~65% of entrance = 0.2s, snappy)

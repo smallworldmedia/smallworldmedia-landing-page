@@ -745,11 +745,20 @@ export default function SiteFooter({
     apply();
 
     // Re-measure when the panel's own box changes (font swap, wrap at
-    // breakpoints, a ?footertune lockup-height dial)
+    // breakpoints, a ?footertune lockup-height dial), and when the page above
+    // it does (11-03: the directory's filter grows and shrinks the page in
+    // place, and no scroll fires to re-paint the reveal). On the next frame:
+    // the spacer sits inside #main, and resizing it inside the callback would
+    // leave #main's own change undelivered (the ResizeObserver loop notice).
+    let roRaf = 0;
     const ro = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(() => { sizeSpacer(); onScroll(); })
+      ? new ResizeObserver(() => {
+          if (!roRaf) roRaf = requestAnimationFrame(() => { roRaf = 0; sizeSpacer(); apply(); });
+        })
       : null;
     ro?.observe(panel);
+    const main = document.getElementById('main');
+    if (main) ro?.observe(main);
     // …and when the bench dials travel K (no box change → no RO fire).
     const unsubTune = subscribeFooterTune(() => { sizeSpacer(); onScroll(); });
 
@@ -762,6 +771,7 @@ export default function SiteFooter({
     return () => {
       disposed = true;
       if (raf) cancelAnimationFrame(raf);
+      if (roRaf) cancelAnimationFrame(roRaf);
       ro?.disconnect();
       unsubTune();
       window.removeEventListener('scroll', onScroll);

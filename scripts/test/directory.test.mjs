@@ -1,5 +1,6 @@
 // The Project Directory's data: tiles (grouping, links, order, fit), the
-// filter, Client Coverage and the Client Roster; and the player gate.
+// filter and its URL state, Client Coverage and the Client Roster, the
+// images' sizes; and the player gate.
 //   node --test scripts/test/directory.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -9,6 +10,10 @@ import {
   matchesFilter,
   tagPresence,
   fitOf,
+  readFilter,
+  filterSearch,
+  sanitizeFilter,
+  sizesFor,
 } from '../../src/components/work/directory/buildDirectoryTiles.js'
 import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
 import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
@@ -276,4 +281,39 @@ test('playerGate: unwatching mid-dwell cancels it; destroy clears every timer', 
   t.mock.timers.tick(1000)
   assert.equal(b.state.play, false)
   assert.equal(io.els.size, 0)
+})
+
+// ── The filter's URL state and the images' sizes (DirectoryPage, DirectoryGrid) ──
+
+test('readFilter / filterSearch: ?tag=a,b&client=slug both ways, other params kept', () => {
+  assert.deepEqual(readFilter('?tag=branding,album-art&client=dj-tennis'), { tags: ['branding', 'album-art'], client: 'dj-tennis' })
+  assert.deepEqual(readFilter('?tag=&client='), { tags: [], client: null })
+  assert.deepEqual(readFilter('?tag=a,,a, b'), { tags: ['a', 'b'], client: null })
+  assert.equal(filterSearch('?dirtune=1', ['a', 'b'], 'x'), '?dirtune=1&tag=a,b&client=x')
+  assert.equal(filterSearch('?tag=a&client=x&dirorder=mix', [], null), '?dirorder=mix')
+  assert.equal(filterSearch('?tag=a', [], null), '')
+  const round = filterSearch('', ['a', 'b'], 'x')
+  assert.deepEqual(readFilter(round), { tags: ['a', 'b'], client: 'x' }, 'what it writes reads back')
+})
+
+test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio order and need tiles in the coverage', () => {
+  const tags = [{ slug: 'branding' }, { slug: 'album-art' }, { slug: 'vfx' }]
+  const clients = [{ slug: 'munchietown', umbrellas: ['dj-tennis'] }, { slug: 'dj-tennis' }, { slug: 'coco' }, { slug: 'plain' }]
+  const tiles = [
+    { client: 'munchietown', services: ['album-art'] },
+    { client: 'coco', services: ['branding'] },
+  ]
+  const data = { tags, clients, tiles }
+  assert.deepEqual(sanitizeFilter(data, ['album-art', 'branding'], 'dj-tennis'), { tags: ['album-art'], client: 'dj-tennis' }, 'DJ Tennis covers Munchietown; no branding there')
+  assert.deepEqual(sanitizeFilter(data, ['album-art', 'branding', 'vfx', 'nope'], null), { tags: ['branding', 'album-art'], client: null })
+  assert.deepEqual(sanitizeFilter(data, [], 'nobody'), { tags: [], client: null })
+  assert.deepEqual(sanitizeFilter(data, ['branding'], 'plain'), { tags: ['branding'], client: null }, 'a name with no tiles filters nothing')
+  assert.deepEqual(sanitizeFilter(data, [], ''), { tags: [], client: null })
+})
+
+test('sizesFor: the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
+  assert.equal(sizesFor('square', 1, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
+  assert.equal(sizesFor('landscape', 1.78, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 67vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'cover', 2), '(max-width: 768px) 56vw, (max-width: 1024px) 56vw, 38vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'contain'), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
 })

@@ -213,11 +213,21 @@
   --lh-link: 1.571rem;
   /* 22px — same line as --lh-pill by design (the 18px pill tier and the
      16px link tier share one rhythm); separate token so either can move. */
+  --text-drawer-name: 2.4vw;
+  /* The DRAWER tier (11-03): the info drawer's client names (.clients__item)
+     and the Project Directory's filter tags (.filter-tag), one recipe for
+     two consumers. The tokens are shared, not the classes: .clients__header
+     turns sticky on phones. */
+  --lh-drawer-name: 0.8;
+  --text-drawer-head: 0.95vw;
+  /* the drawer's mono header (.clients__header) and the filter's bar */
 
   /* Typography — tracking */
   --tracking-tight: -0.02em;
   --tracking-body: -0.005em;
   /* the body/chrome micro-tighten (nav links, footer lines, pills) */
+  --tracking-drawer-head: -0.07em;
+  /* the drawer's mono header and the directory filter's bar */
 
   /* Spacing (rem, base 14px) */
   --space-1: 0.143rem;
@@ -1633,11 +1643,11 @@ html[data-footer-revealed] .detail-progress {
 
 .clients__header {
   font-family: var(--font-mono);
-  font-size: .95vw;
+  font-size: var(--text-drawer-head);
   font-weight: 400;
   line-height: 1.0;
   color: var(--color-white);
-  letter-spacing: -.07em;
+  letter-spacing: var(--tracking-drawer-head);
   text-transform: uppercase;
   padding: 0;
 }
@@ -1663,9 +1673,9 @@ html[data-footer-revealed] .detail-progress {
    click affordance (no pointer cursor, no hover underline). */
 .clients__item {
   font-family: var(--font-body);
-  font-size: 2.4vw;
-  letter-spacing: -.02em;
-  line-height: 0.8;
+  font-size: var(--text-drawer-name);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-drawer-name);
   font-weight: 400;
   color: var(--color-white);
 }
@@ -4150,6 +4160,11 @@ body:has(.privacy-page) {
     /* 14px (16 desktop) */
     --lh-link: 1.286rem;
     /* 18px (22 desktop) */
+    --text-drawer-name: 1.571rem;
+    /* 22px (2.4vw desktop) */
+    --lh-drawer-name: 0.9;
+    --text-drawer-head: 0.786rem;
+    /* 11px (0.95vw desktop) */
     /* Lockup canvas steps down so the bar-centered lockup CLEARS the info
        and menu pills (08-30 probe: the 7rem canvas ≈ 240px of artwork —
        wider than the 390px bar's center seat; 5rem ≈ 172px fits). Every
@@ -4340,7 +4355,6 @@ body:has(.privacy-page) {
   }
 
   .clients__header {
-    font-size: 0.786rem;
     position: sticky;
     top: 0;
     background: var(--color-black);
@@ -4356,11 +4370,6 @@ body:has(.privacy-page) {
   .clients__col {
     flex: none;
     width: 100%;
-  }
-
-  .clients__item {
-    font-size: 1.571rem;
-    line-height: 0.9;
   }
 
   /* --- Hero & overlay mobile overrides --- */

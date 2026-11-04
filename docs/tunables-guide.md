@@ -69,9 +69,10 @@ value living only in a `copy_url` link.
 | `?texttune` | `/work` | top-left | text-exit choreography: tag/char cut ms, tab + nav delays/durations, card + nav scale; `▶ dry-run`, `reset`; typed fields | current search + `texttune=1`, non-defaults only |
 | `?fp1tune=1` | `/work` | bottom-right | house-pulse shape (peak x, softness, hold end, fall ease) + envelope (period, dim [dead], rest, on-ratio) with an SVG plot; `↺ reset`; `copy values` emits the `HOUSE_PULSE_*` block | current search + `fp1tune=1`, non-defaults only |
 | `?deckdebug` | `/work` | bottom-right (collides with fp1tune); collapses to a `⌁ deck` chip ≤768px | deck viewer: cycle, spacing, home x, fan, pile, hold, album scale, deck x/y; `↺ reset` | **rebuilt from pathname**, other params dropped |
+| `?dirtune=1` | `/work/directory` (dev only until the route goes on) | top-right | order (`project` / `mix`), players (the gate's cap), dwell ms, phone cols (`1` / `2`); typed fields commit on Enter or blur; `reset` | current URL + `dirtune=1`, non-defaults only (the filter's `?tag` / `?client` ride along) |
 | `?debug` | `/process` | bottom-left; chip on phones | stage buttons 01–05, `↻ replay`, fps/draws/stage, 23 sliders + 5 selects for the whole process scene | **rebuilt from pathname** + `?debug`, ms knobs as ms |
 
-Corner map: top-left = texttune / footertune · top-right = herotune / entertune · bottom-left = lenistune / globe debug / process debug · bottom-right = committune / poptune / fp1tune / deckdebug.
+Corner map: top-left = texttune / footertune · top-right = herotune / entertune / dirtune · bottom-left = lenistune / globe debug / process debug · bottom-right = committune / poptune / fp1tune / deckdebug.
 
 ## `/` home — hero rig, commit rehearsal, globe, intro, labels
 
@@ -540,7 +541,7 @@ The pill shows the long blurb while home is at rest and the short tagline everyw
 
 ## `/work/[slug]` — detail pages
 
-Readers: `detail/tileGrid.js` (`readTileShape()` in `useTileShape`'s effect, for FeaturedProjectDetail), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
+Readers: `detail/tileGrid.js` (`readTileShape()` in `useTileShape`'s effect, for FeaturedProjectDetail and the directory's DirectoryGrid), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
 
 ### Grid tile shape (10-27)
 
@@ -548,7 +549,7 @@ Row spans for the grid tiles come from the measured column width, so every tile 
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?tileshape` | a square tile's width ÷ height; portraits and landscapes follow from it | `1` (Nathan's 10-27 bake: album art stays uncropped) | any number > 0 (`1.25` was the other option on the table) | `tileGrid.js TILE_SHAPE` |
+| `?tileshape` | a square tile's width ÷ height; portraits and landscapes follow from it (the detail grid and `/work/directory`) | `1` (Nathan's 10-27 bake: album art stays uncropped) | any number > 0 (`1.25` was the other option on the table) | `tileGrid.js TILE_SHAPE` |
 
 ### Deck / album walls (DeckScroller)
 
@@ -590,6 +591,19 @@ Row spans for the grid tiles come from the measured column width, so every tile 
 | `?npsplit` | label run length as a fraction of the fill (the title reuses it) | `0.55` | finite ≠ 0 | `NP_SPLIT` |
 | `?nplag` | title ramp start fraction; media ramps at 2 × lag over 1 − 2 × lag | `0.15` | finite < 0.5 | `NP_LAG` |
 | `?sockpar` | GridSocket parallax factor (`1` = pinned to grid); inert ≤1024px and under RM | `0.92` (prop) | any finite | `GridSocket.jsx:31` default prop |
+
+## `/work/directory` — the Project Directory
+
+Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in DirectoryPage's mount effect) and `detail/tileGrid.js` (`?tileshape`, as on the detail pages). Bench: `?dirtune=1` (DirectoryTunePanel, top-right). The page renders in dev only until the route goes on; production still redirects to `/work`. The defaults are the agent's, pending Nathan's numbers.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?dirorder` | tile order: `project` = the featured projects first, in World order, then every other client by name; `mix` = clients dealt round-robin | `project` | `project` \| `mix` | `directoryTune.js SSR_TUNE.order` |
+| `?dirplayers` | videos playing at once (the player gate's cap); `0` = posters only | `6`, `3` ≤768px | integer ≥ 0 | `imageConfig.js DIRECTORY_PLAYERS` |
+| `?dirdwell` | ms a video tile stays half in view before it plays, so a fling past never asks Mux for a master | `300` ms | ≥ 0 | `imageConfig.js DIRECTORY_DWELL_MS` |
+| `?dirphonecols` | grid columns at ≤768px | `1` (the detail grid's phone layout) | `1` \| `2` | `directoryTune.js SSR_TUNE.phoneCols` |
+
+`?tag=a,b&client=slug` is the filter's state, not a tunable (see Inert, legacy, and dead knobs).
 
 ## `/process`
 
@@ -784,6 +798,7 @@ Don't dial these expecting a change.
 - **Retired (no longer read):** `?threadms` (10-07, w4 — the Thread's per-hop draw; `?threadsecs` is the whole trace now, and its default reproduces 100 ms × 42 hops exactly).
 - **Legacy aliases (lower precedence, retire):** `?entercover` → `?enterms`; `?deckexitx` / `?deckexity` → `?deckpilex` / `?deckpiley`; `?scroll` on `/process` → `?swipepx`.
 - **Not a tunable:** `ProjectOverlay.jsx` uses `URLSearchParams` to encode the inquiry form body.
+- **Not a tunable:** `?tag=a,b` and `?client=slug` on `/work/directory` are the filter's state: DirectoryPage reads them at mount and writes them back with `replaceState`. `scripts/tunables-keys.mjs` ignores both.
 
 ## Drift and latent bugs found while building this guide
 
@@ -820,6 +835,7 @@ Worth tickets; none were fixed here.
 | `src/components/RouteFill.jsx`, `src/components/work/CtaArrows.jsx`, `src/lib/footerTune.js` | `fillcover` / `fillrelease`, `caret`, footer defaults |
 | `src/styles/global.css` | `--tape-*`, `--pager-stage-dim`, `--stepnav-*`, `--footer-lockup-h`, `--text-mono` tiers |
 | `src/pages/work/index.astro:38` | `BAND_PAGE_CAP` (pairs with `wallpages`) |
+| `src/components/work/imageConfig.js`, `src/components/work/directory/directoryTune.js` | `DIRECTORY_PLAYERS`, `DIRECTORY_DWELL_MS`; `SSR_TUNE` (the directory's order and phone columns) |
 
 ## Regenerating this guide
 

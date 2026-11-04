@@ -22,11 +22,17 @@
  * order, each by orderRank; then everything else by client name, project
  * rank (no project last), orderRank, _id. A group sits at its first member's
  * place. orderTiles(tiles, 'mix') re-deals it across clients.
+ *
+ * The page's helpers live here too, pure like the rest: matchesFilter and
+ * tagPresence (what the filter shows), readFilter, sanitizeFilter and
+ * filterSearch (its URL state, ?tag=a,b&client=slug), and sizesFor (a
+ * tile's <img sizes>).
  */
 import { assetLane, ratioOf } from '../detail/buildContentFlow.js';
 import { classifyTile } from '../detail/flushGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
+import { coverageOf } from '../../../lib/clientCoverage.js';
 
 const GROUPED = new Set(['sequence', 'deck', 'carousel', 'banner']);
 
@@ -189,4 +195,57 @@ export function tagPresence(tiles, coverage) {
     }
   }
   return { any, inClient };
+}
+
+/**
+ * The <img sizes> for a tile at the detail grid's breakpoints: three columns
+ * above 1024px, two to 769px, then `phoneCols`; a landscape spans two (one
+ * in a single column). A cover crop fills the cell's height as well, so a
+ * picture wider than its cell renders wider than the cell, by ratio ÷ cell,
+ * and asks for that much more (a 9:16 portrait in a 1:2 cell: 1.125×).
+ */
+export function sizesFor(type, ratio, fit, phoneCols = 1) {
+  const span = type === 'landscape' ? 2 : 1;
+  const cell = CELL_RATIO[type] ?? 1;
+  const over = fit === 'cover' && ratio > cell ? ratio / cell : 1;
+  const vw = (cols) => `${Math.round((100 * Math.min(span, cols) * over) / cols)}vw`;
+  return `(max-width: 768px) ${vw(phoneCols)}, (max-width: 1024px) ${vw(2)}, ${vw(3)}`;
+}
+
+/** The filter the URL asks for, ?tag=a,b&client=slug, unchecked (sanitizeFilter). */
+export function readFilter(search) {
+  const params = new URLSearchParams(search);
+  const tags = (params.get('tag') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return { tags: [...new Set(tags)], client: params.get('client')?.trim() || null };
+}
+
+/**
+ * The filter as it can apply: the client only when its coverage holds a tile
+ * (a plain or unknown name filters nothing), and the tags with tiles inside
+ * that coverage, in Studio order.
+ */
+export function sanitizeFilter({ tags, clients, tiles }, wantTags, wantClient) {
+  let coverage = coverageOf(wantClient, clients);
+  if (coverage && !tiles.some((t) => coverage.has(t.client))) coverage = null;
+  const { inClient } = tagPresence(tiles, coverage);
+  const want = new Set(wantTags);
+  return {
+    tags: tags.filter((t) => want.has(t.slug) && inClient.has(t.slug)).map((t) => t.slug),
+    client: coverage ? wantClient : null,
+  };
+}
+
+/** `search` with the filter written in and every other param kept; '' when
+    nothing is left. Commas stay readable (?tag=a,b). */
+export function filterSearch(search, tags, client) {
+  const params = new URLSearchParams(search);
+  if (tags.length) params.set('tag', tags.join(','));
+  else params.delete('tag');
+  if (client) params.set('client', client);
+  else params.delete('client');
+  const s = params.toString().replace(/%2C/gi, ',');
+  return s ? `?${s}` : '';
 }
