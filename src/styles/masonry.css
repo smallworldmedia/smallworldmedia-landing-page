@@ -16,7 +16,7 @@
      landscape (ratio ≥ 1.2):   2 cols × 1 square
    A square's row span comes from the measured column width, so
    tiles hold their shape at every window width (10-27, 1:1 —
-   TILE_SHAPE in FeaturedProjectDetail.jsx, ?tileshape to re-dial).
+   TILE_SHAPE in tileGrid.js, ?tileshape to re-dial).
    ============================================ */
 .masonry-grid--detail {
   line-height: normal;
@@ -34,7 +34,7 @@
 
 /* ── Media slot overrides inside detail grid ──
    Grid cell height controls sizing, not aspect-ratio.
-   Higher specificity to override project-detail.css rules. */
+   Higher specificity to override media-slot.css rules. */
 .masonry-grid--detail > .media-slot,
 .masonry-grid--detail > .media-slot[data-portrait] {
   aspect-ratio: unset;

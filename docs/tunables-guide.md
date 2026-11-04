@@ -540,7 +540,7 @@ The pill shows the long blurb while home is at rest and the short tagline everyw
 
 ## `/work/[slug]` — detail pages
 
-Readers: `detail/FeaturedProjectDetail.jsx` (`readTileShape()` in an effect), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
+Readers: `detail/tileGrid.js` (`readTileShape()` in `useTileShape`'s effect, for FeaturedProjectDetail), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
 
 ### Grid tile shape (10-27)
 
@@ -548,7 +548,7 @@ Row spans for the grid tiles come from the measured column width, so every tile 
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?tileshape` | a square tile's width ÷ height; portraits and landscapes follow from it | `1` (Nathan's 10-27 bake: album art stays uncropped) | any number > 0 (`1.25` was the other option on the table) | `FeaturedProjectDetail.jsx TILE_SHAPE` |
+| `?tileshape` | a square tile's width ÷ height; portraits and landscapes follow from it | `1` (Nathan's 10-27 bake: album art stays uncropped) | any number > 0 (`1.25` was the other option on the table) | `tileGrid.js TILE_SHAPE` |
 
 ### Deck / album walls (DeckScroller)
 
