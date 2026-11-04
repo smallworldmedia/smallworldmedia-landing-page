@@ -7,10 +7,11 @@
  * Every master owes the clip of the surface that asked for it (owedClip):
  *  - pinned, i.e. the ASKED URL carries max_resolution: VideoSlotPool (the
  *    home globe, /lab, /work's World Near tier) clips at the preview window;
+ *  - bare, on the Project Directory (/work/directory): its gated players
+ *    (MediaSlot's GatedVideo) clip at the preview window too;
  *  - bare, on a detail page (/work/<slug>): MediaSlot and NextProjectBand
  *    clip at the detail cap;
- *  - anything else has no rule here and fails streamClip. /work/directory
- *    redirects today; when it returns, its players need a rule of their own.
+ *  - anything else has no rule here and fails streamClip.
  * The caller passes both windows in (the probe imports them from
  * src/components/work/imageConfig.js), so no second count is written here.
  *
@@ -30,19 +31,20 @@
  *    end of stream), and at least one wraps: jumps back from within LOOP_END_S
  *    of its loop point. A rewind from anywhere else (a detach, a seek) is not
  *    a wrap. Every player wraps at its window: the pool by its timeupdate
- *    guard, MediaSlot and NextProjectBand by wrapAtDetailCap, and
- *    a guard that fires a tick late still lands inside LOOP_END_S.
+ *    guard, MediaSlot and NextProjectBand by wrapAtDetailCap, the
+ *    directory's players by wrapAt(PREVIEW_SECONDS), and a guard that fires
+ *    a tick late still lands inside LOOP_END_S.
  *  - audio (P0v): no muted surface fetches audio. Every probed route is one,
  *    and each strips its master's audio group in the client (useHls's
  *    videoOnly), after the fetch, so the master on the wire still lists its
  *    audio rendition: n counts those masters (offered), which keeps the gate
  *    non-vacuous. worst = the audio rendition playlists fetched plus the
  *    chunks that map to an audio rendition, its init included; the bound is 0.
- *    /work/directory redirects, so no probe opens it today.
  * Each has a vacuity floor of one (none under reduced motion, where the globe
- * mounts no pool). The probe's --noclip is the clip gates' negative control;
- * players still wrap at their windows there, so loops is controlled by the
- * unit tests and by a build with the cap's seek removed (--hold). --noclip
+ * mounts no pool and the directory plays nothing). The probe's --noclip is
+ * the clip gates' negative control; players still wrap at their windows
+ * there, so loops is controlled by the unit tests and by a build with the
+ * cap's seek removed (--hold). --noclip
  * leaves the client's audio strip alone: audio is controlled by the unit
  * tests and by the reports of a build without the strip (P0's).
  * net.refetch counts the chunks fetched more than once. It is listed, never
@@ -79,11 +81,12 @@ export const masterId = (url) => new URL(url).pathname.slice(1).replace(/\.m3u8$
 export const pinnedMaster = (asked) => new URL(asked).searchParams.has('max_resolution');
 
 /** The clip, in seconds, a stream owes: the preview window for the pool (a
- *  pinned master, or a pool <video>), the detail cap for a bare stream on a
- *  detail page, else null (no rule: judged bad). */
+ *  pinned master, or a pool <video>) and for a bare stream on the directory,
+ *  the detail cap for a bare stream on a detail page, else null (no rule:
+ *  judged bad). */
 export function owedClip(route, pooled, { preview, detail }) {
-  if (pooled) return preview;
-  return /^\/work\/(?!directory\/?$)[^/]+\/?$/.test(route) ? detail : null;
+  if (pooled || /^\/work\/directory\/?$/.test(route)) return preview;
+  return /^\/work\/[^/]+\/?$/.test(route) ? detail : null;
 }
 
 /** What a clip at `clip` seconds keeps of a playlist whose segments last
