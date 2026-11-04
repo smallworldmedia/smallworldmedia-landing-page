@@ -4166,6 +4166,16 @@ body:has(.privacy-page) {
   }
 }
 
+/* 11-03: below the tablet breakpoint the five links run past the bar's
+   right edge (measured), so the row keeps the four it shipped with and
+   project_directory waits for the wider bar; the phone menu lists all
+   five. */
+@media (max-width: 991px) {
+  .site-nav__links .site-nav__link--directory {
+    display: none;
+  }
+}
+
 /* Tablet — Unicorn breakpoint: 576–991px */
 @media (max-width: 991px) {}
 

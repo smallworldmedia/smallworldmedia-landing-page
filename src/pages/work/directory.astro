@@ -5,18 +5,12 @@
  * getDirectoryData(), the build's one directory fetch, which the drawer's
  * Client Roster reads too (BaseLayout), so the two can't disagree. A failed
  * read fails the build here.
- *
- * Dev only while it's built: production redirects to /work, and
- * netlify.toml's forced 302 does the same at the CDN. Both come off when the
- * route goes on.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import '../../styles/directory-grid.css';
 import '../../styles/directory.css';
 import { getDirectoryData } from '../../lib/directoryData.js';
 import DirectoryPage from '../../components/work/directory/DirectoryPage.jsx';
-
-if (import.meta.env.PROD) return Astro.redirect('/work');
 
 const { tags, clients, tiles } = await getDirectoryData();
 ---
