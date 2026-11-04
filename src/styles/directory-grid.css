@@ -72,3 +72,10 @@
   border: 2px solid var(--color-cream);
   pointer-events: none;
 }
+
+/* A tile that Tab or Shift+Tab scrolls to lands below the nav and the
+   stuck filter, not under them. --dir-filter-h is the filter's settled
+   height, which DirectoryFilter writes onto .dir-page. */
+.dir-tile {
+  scroll-margin-top: calc(var(--dir-dock) + var(--dir-filter-h, 0px));
+}

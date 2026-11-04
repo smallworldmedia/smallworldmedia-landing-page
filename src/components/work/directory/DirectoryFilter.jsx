@@ -14,7 +14,9 @@
  * 0.15 s, then takes 0.48 s power2.inOut. Taller than the screen allows
  * (100dvh − nav − bar), the tags scroll inside and wear the drawer's scroll
  * thumb (useScrollThumb). Each toggle starts from the current height;
- * reduced motion is instant.
+ * reduced motion is instant. Its settled height, written to .dir-page as
+ * --dir-filter-h, sets the tiles' scroll-margin-top, so a tile that Tab
+ * reaches lands below the stuck filter.
  *
  * Props: tags (Studio order), presence ({ any, inClient }, tagPresence),
  * picked (tag slugs), client ({ slug, name } | null), shown / total (tile
@@ -105,6 +107,29 @@ export default function DirectoryFilter({
     if (open || !fold || tlRef.current?.isActive()) return;
     gsap.set(regionRef.current, { height: fold.height });
   }, [fold, open]);
+
+  // Focus scrolls land a tile below the stuck filter, not under it (11-03: a
+  // tile reached by Shift+Tab sat 111px under it at 1440): the tiles'
+  // scroll-margin-top (directory-grid.css) adds the filter's height to the
+  // dock. Written once the height settles, since a write re-styles every
+  // tile and a toggle resizes the filter on every frame.
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    const page = el.closest('.dir-page');
+    let timer = 0;
+    const write = () => page.style.setProperty('--dir-filter-h', `${el.offsetHeight}px`);
+    write();
+    const ro = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(write, 120);
+    });
+    ro.observe(el);
+    return () => {
+      clearTimeout(timer);
+      ro.disconnect();
+      page.style.removeProperty('--dir-filter-h');
+    };
+  }, []);
 
   const toggle = contextSafe(() => {
     const region = regionRef.current;
