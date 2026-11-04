@@ -9,7 +9,7 @@
  *   node scripts/globe-probe.mjs [--mode=tides] [--secs=20] [--warm=6]
  *        [--next=2] [--seed=42] [--mobile] [--rm] [--intro=replay|full]
  *        [--paint] [--enter] [--footer] [--detail=SLUG] [--hold=PREFIX] [--directory[=QUERY]]
- *        [--noclip] [--channel=chrome]
+ *        [--noclip] [--keyctl=escape|ring] [--channel=chrome]
  *        [--extra="&popgroup=3"] [--base=http://localhost:4322] [--out=DIR]
  *        [--units[=0|1]] [--level=off|tex|h|vq|live|tier] [--texmb=MiB]
  *        [--texpeak=MiB] [--record-baseline] [--baseline=KEY] [--negctl[=bind|pin]]
@@ -78,6 +78,20 @@
  * three, and the diet gates' floors drop to zero. --directory refuses
  * --detail, --hold, --footer and --enter. --noclip is its negative control:
  * the run must fail streamClip.
+ * On desktop, --directory then reloads for the keyboard, after the diet's
+ * log closes, so none of it is judged there. tabReach: Tab from the top
+ * reaches the first tile without focusing inside [inert], and one Tab per
+ * link after it, flat out, lands on each next link in document order
+ * through the last (judged only when the page has links). ringShows: the
+ * focus ring is on the screen, read as pixels within 24 a channel of its
+ * colour: the first undimmed filter tag's outline band (a tag a client
+ * would empty is dimmed to 0.35, its ring with it), and the inset ring of
+ * the first tile and of the last one focused. Their negative controls:
+ * --keyctl=escape makes every chunk past the first inert, so Tab leaves
+ * the grid (run it on the whole directory; one chunk has nothing ahead to
+ * break), and must fail tabReach; --keyctl=ring puts back the tiles' old
+ * inset outline, which the slot paints over, and must fail ringShows.
+ * --keyctl needs --directory and refuses --mobile.
  *
  * Media spans (scripts/lib/unitGates.mjs; docs/globe-worlds-plan.md § Media
  * spans): --units adds &popunits=1 (--units=0 adds &popunits=0). Absent, the
@@ -283,6 +297,9 @@ const DIRECTORY_ARG = arg('directory', false);
 const DIRECTORY = DIRECTORY_ARG !== false;
 const DIR_QUERY = typeof DIRECTORY_ARG === 'string' ? DIRECTORY_ARG.replace(/^\?/, '') : '';
 if (DIRECTORY && (DETAIL || HOLD || FOOTER || ENTER)) throw new Error('globe-probe: --directory probes /work/directory alone; run --detail, --hold, --footer and --enter without it');
+// --keyctl=escape|ring: the keyboard gates' negative controls (directoryKeys).
+const KEYCTL = arg('keyctl', '');
+if (KEYCTL && (!['escape', 'ring'].includes(KEYCTL) || !DIRECTORY || MOBILE)) throw new Error('globe-probe: --keyctl takes escape or ring, with --directory and without --mobile');
 // What the directory's player gate will read (DirectoryPage → DirectoryGrid): the page's own parser over this
 // device's defaults (tuneDefaults: the phone's players at ≤768px), and no players under reduced motion.
 const DIR_TUNE = readTune(DIR_QUERY, { ...SSR_TUNE, players: VW <= 768 ? DIRECTORY_PLAYERS.phone : DIRECTORY_PLAYERS.desktop });
@@ -346,7 +363,7 @@ if (DSF_ARG === true || !(DSF >= 1 && DSF <= 4)) {
 const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.59));
 const LIFT_K_EXPECT = Number(arg('footerlift', 0.5));
 const MARKS_FROM_EXPECT = Number(arg('footermarksfrom', 0.6));
-const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}${DETAIL ? `-detail-${DETAIL}` : ''}${HOLD ? `-hold-${HOLD}` : ''}${DIRECTORY ? `-directory${DIR_QUERY ? `-${DIR_QUERY.replace(/\W+/g, '-')}` : ''}` : ''}${NOCLIP ? '-noclip' : ''}`;
+const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}${DETAIL ? `-detail-${DETAIL}` : ''}${HOLD ? `-hold-${HOLD}` : ''}${DIRECTORY ? `-directory${DIR_QUERY ? `-${DIR_QUERY.replace(/\W+/g, '-')}` : ''}` : ''}${NOCLIP ? '-noclip' : ''}${KEYCTL ? `-keyctl-${KEYCTL}` : ''}`;
 const OUT = arg(
   'out',
   // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
@@ -854,6 +871,121 @@ async function directoryScenario(page) {
   };
 }
 
+/** --directory on desktop: the keyboard, on a reload from the top. Tab from
+ *  the page's start to the first tile, noting any focus inside [inert], then
+ *  one Tab per link after it, flat out, under an in-page focusin recorder:
+ *  each focus should be the next a.dir-tile in document order, through the
+ *  last (11-03: Tab fell out of the mount window into the footer at link 131
+ *  of 376, so every chunk renders its tiles' boxes). The rings are read as
+ *  pixels, not computed style (11-03: the slot painted over the tiles' old
+ *  inset outline): the first undimmed filter tag's outline band, and the
+ *  inset ring (::after) of the first tile and of the one focus ends on,
+ *  half-way down its part below the filter. --keyctl=escape|ring breaks
+ *  each on purpose. */
+async function directoryKeys(page) {
+  await page.goto(URL_, { waitUntil: 'load' });
+  await page.waitForSelector('.dir-page:not([data-pending])', { timeout: 30000 });
+  await page.evaluate(() => document.fonts.ready);
+  await sleep(800);
+  const escaped =
+    KEYCTL === 'escape'
+      ? await page.evaluate(() => {
+          const ahead = [...document.querySelectorAll('.dir-grid')].slice(1);
+          for (const g of ahead) g.inert = true;
+          return ahead.length;
+        })
+      : null;
+  if (KEYCTL === 'ring') {
+    await page.addStyleTag({
+      content:
+        '.dir-tile:focus-visible::after { content: none !important; } ' +
+        '.dir-tile:focus-visible { outline: 2px solid var(--color-cream) !important; outline-offset: -2px !important; }',
+    });
+  }
+  await page.evaluate(() => document.activeElement?.blur());
+  const focused = () =>
+    page.evaluate(() => {
+      const a = document.activeElement;
+      const tiles = document.querySelectorAll('a.dir-tile');
+      const index = Array.prototype.indexOf.call(tiles, a);
+      const r = a.getBoundingClientRect();
+      // a tile's ring is its ::after border, inset; everything else wears the house outline
+      const cs = getComputedStyle(a, index >= 0 ? '::after' : null);
+      const width = parseFloat(index >= 0 ? cs.borderLeftWidth : cs.outlineWidth) || 0;
+      return {
+        el: `${a.tagName.toLowerCase()}.${typeof a.className === 'string' ? a.className.split(' ')[0] : ''}`,
+        index,
+        links: tiles.length,
+        tag: a.classList.contains('filter-tag'),
+        dim: a.hasAttribute('data-dim'),
+        inert: !!a.closest('[inert]'),
+        rect: { left: r.left, top: r.top, bottom: r.bottom },
+        filterBottom: document.querySelector('.dir-filter').getBoundingClientRect().bottom,
+        ring: {
+          color: index >= 0 ? cs.borderLeftColor : cs.outlineColor,
+          width,
+          offset: index >= 0 ? -width : parseFloat(cs.outlineOffset) || 0,
+        },
+      };
+    });
+  // The focused element's ring band, half-way down its part on screen (a tile's: below the filter).
+  const ring = async () => {
+    await sleep(300);
+    const d = await focused();
+    const x = Math.floor(d.rect.left - d.ring.offset - d.ring.width / 2);
+    const top = Math.max(d.rect.top, d.index >= 0 ? d.filterBottom : 0, 0);
+    const y = Math.floor((top + Math.min(d.rect.bottom, VH)) / 2);
+    const want = d.ring.color.match(/[\d.]+/g).slice(0, 3).map(Number);
+    const got = await pixel(page, x, y);
+    return { el: d.el, index: d.index, x, y, want, got, ok: d.ring.width > 0 && got.every((v, i) => Math.abs(v - want[i]) <= 24) };
+  };
+  const fromTop = [];
+  const rings = [];
+  let inertFocused = 0;
+  let first = null;
+  for (let i = 0; i < 60 && !first; i++) {
+    await page.keyboard.press('Tab');
+    const d = await focused();
+    fromTop.push(d.el);
+    if (d.inert) inertFocused += 1;
+    if (d.tag && !d.dim && !rings.length) rings.push(await ring());
+    if (d.index >= 0) {
+      first = d;
+      rings.push(await ring());
+    }
+  }
+  const links = first?.links ?? (await page.evaluate(() => document.querySelectorAll('a.dir-tile').length));
+  let walk = null;
+  if (first) {
+    // each focus: its link's index, or what took it instead
+    await page.evaluate(() => {
+      const log = (window.__swmKeyWalk = []);
+      document.addEventListener('focusin', (e) => {
+        const i = Array.prototype.indexOf.call(document.querySelectorAll('a.dir-tile'), e.target);
+        log.push(i >= 0 ? i : `${e.target.tagName.toLowerCase()}.${String(e.target.className).split(' ')[0]}`);
+      });
+    });
+    const presses = links - 1 - first.index;
+    for (let i = 0; i < presses; i++) await page.keyboard.press('Tab');
+    const log = await page.evaluate(() => window.__swmKeyWalk);
+    const miss = log.findIndex((f, k) => f !== first.index + 1 + k);
+    walk = { presses, focuses: log.length, miss: miss < 0 ? null : { at: miss, took: log[miss] }, last: log.length ? log.at(-1) : first.index };
+    rings.push(await ring());
+  }
+  return {
+    links,
+    escaped,
+    fromTop,
+    inertFocused,
+    firstIndex: first ? first.index : null,
+    walk,
+    rings,
+    reach: !!first && first.index === 0 && inertFocused === 0 && walk.focuses === walk.presses && !walk.miss && walk.last === links - 1,
+    // the tag's ring when an undimmed tag took focus; both tiles' whenever there are links
+    ringsOk: rings.length > 0 && rings.every((r) => r.ok) && (!first || rings.filter((r) => r.index >= 0).length === 2),
+  };
+}
+
 /* ── --footer: the MOBILE HOME resting footer's reveal ─────────────────────
    The first scenario in this probe that GESTURES. Everything the footer round
    claims is geometry under a finger, and nothing in the repo could move a
@@ -1306,6 +1438,8 @@ function footerPass(f) {
   if (DIRECTORY) {
     report.directory = await directoryScenario(page);
     const diet = await finishNet();
+    // the keyboard on desktop, after the diet's log closes: a reload from the top
+    if (!MOBILE) report.directory.keys = await directoryKeys(page);
     await browser.close().catch(() => {});
     report.net = diet.net;
     const d = report.directory;
@@ -1331,6 +1465,8 @@ function footerPass(f) {
             // a dwell under three fling steps lets a flung tile earn its grant: nothing to judge
             ...(DIR_DWELL_MS > 3 * FLING_MS ? { flingDwell: d.fling.steps > 0 && d.fling.masters.length === 0 } : {}),
           }),
+      // the keyboard (desktop): Tab walks every link in order, and the rings show on screen
+      ...(d.keys ? { ...(d.keys.links > 0 ? { tabReach: d.keys.reach } : {}), ringShows: d.keys.ringsOk } : {}),
       noErrors: !report.consoleErrors.some((m) => m.startsWith('error ')) && !report.pageErrors.length,
     };
     console.log(JSON.stringify(report, null, 1));
