@@ -299,10 +299,10 @@ html:has(.project-detail) body {
 }
 
 /* ============================================
-   MEDIA SLOTS — masonry-grid children
+   MEDIA SLOTS — the detail grid's children
    Each slot sizes itself via aspect-ratio from the
-   asset's native dimensions. In the masonry grid,
-   break-inside: avoid keeps each slot in one column.
+   asset's native dimensions; inside the detail grid the
+   cell sizes it instead (masonry.css).
    ============================================ */
 .media-slot {
   position: relative;
@@ -490,9 +490,11 @@ html:has(.project-detail) body {
 
 /* ============================================
    SERVICE TAG — blue-fill display variant
-   Extends .stag base (global.css)
+   Extends .stag base (global.css). Both classes in the
+   selector: Astro ranks this sheet and global.css equal,
+   so which loads last is the bundle's accident (11-03).
    ============================================ */
-.service-tag {
+.stag.service-tag {
   /* Overrides: blue fill, black text, detail-page sizing */
   font-family: var(--font-mono);
   font-weight: 500;

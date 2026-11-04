@@ -3,9 +3,9 @@
  * experience at /work (CONTEXT.md § "Featured Projects Preview — concepts").
  *
  * Paging is CTA-driven: wheel/touch fills a fixed control until it triggers a
- * World change. Scrolling down fills the bottom NEXT_PROJECT control (→ next, or
- * → project directory on the last project as MORE_WORK); scrolling up fills the
- * top PREVIOUS_PROJECT control (→ previous; hidden on the first project). The
+ * World change. Scrolling down fills the bottom NEXT_PROJECT control (→ next;
+ * hidden on the last project); scrolling up fills the top PREVIOUS_PROJECT
+ * control (→ previous; hidden on the first project). The
  * left pager is a cursor-proximity "dock" — each number scales by how close the
  * cursor is, independently of its neighbours.
  *

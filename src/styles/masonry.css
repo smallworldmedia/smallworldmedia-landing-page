@@ -1,30 +1,4 @@
 /* ============================================
-   MASONRY GRID — Canonical layout system
-   ============================================
-   Shared between Project Directory (4-col CSS columns)
-   and Featured Project detail pages (dense CSS Grid).
-
-   Usage:
-     <div class="masonry-grid">                          → 4-col directory
-     <div class="masonry-grid masonry-grid--detail">     → 3-col flush grid
-   ============================================ */
-
-.masonry-grid {
-  columns: 4;
-  column-gap: var(--space-1);
-  line-height: 0; /* kill inline-block whitespace */
-}
-
-.masonry-grid > * {
-  break-inside: avoid;
-  display: inline-block;
-  width: 100%;
-  margin-bottom: var(--space-1);
-  vertical-align: top;
-  line-height: normal; /* restore for child content */
-}
-
-/* ============================================
    DETAIL GRID — Flush tessellating tile system
    ============================================
    Placement is computed server-side by computeFlushGrid()
@@ -45,10 +19,7 @@
    TILE_SHAPE in FeaturedProjectDetail.jsx, ?tileshape to re-dial).
    ============================================ */
 .masonry-grid--detail {
-  /* Override masonry columns */
-  columns: unset;
   line-height: normal;
-
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-auto-rows: 10px; /* fine row unit — items span multiples */
@@ -57,9 +28,7 @@
 
 /* ── Tile reset ── */
 .masonry-grid--detail > * {
-  break-inside: unset;
   display: block;
-  margin-bottom: 0;
   overflow: hidden;
 }
 
@@ -91,9 +60,7 @@
    tiles — bounded — hence overflow: visible.
    ============================================ */
 .masonry-grid--detail > .grid-socket {
-  break-inside: unset;
   display: block;
-  margin-bottom: 0;
   position: relative;
   overflow: visible;
   z-index: 2;
@@ -107,7 +74,6 @@
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {
-  .masonry-grid { columns: 3; }
   .masonry-grid--detail {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -149,7 +115,6 @@
 }
 
 @media (max-width: 768px) {
-  .masonry-grid { columns: 2; }
   .masonry-grid--detail {
     grid-template-columns: 1fr;
   }

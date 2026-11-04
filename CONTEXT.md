@@ -135,19 +135,13 @@ Canonical names for UI components. All implementation work **must** use these te
 
 | Component | Role | Data Source |
 |---|---|---|
-| **ProjectDirectory** | Top-level orchestrator for the `/work` route. Manages filter state, progressive loading, and lightbox. | All `mediaAsset` documents (excluding `album-art`) |
-| **MediaGrid** | Responsive, aspect-ratio-aware CSS grid container. Uses `grid-auto-flow: dense` for packing. | Filtered asset array from ProjectDirectory |
-| **MediaCard** | Individual grid cell. Handles image display and auto-playing Mux video previews. Duotone hover overlay with dynamic metadata. | Single `mediaAsset` document |
-| **AlbumArtTicker** | Horizontal auto-scrolling ticker for album art collections. Populates inline within the MediaGrid. | `album-art` mediaType assets, grouped by client |
-| **FilterBar** | Horizontal scrollable strip of service tag pills. Sticky below header while scrolling. | `serviceTag` documents |
-| **Lightbox** | Full-screen overlay for detailed asset viewing. Video mode with sound; image mode with full resolution. | Single `mediaAsset` (triggered from MediaCard) |
 | **FeaturedProjects** | Page orchestrator for the immersive Featured Projects experience: paginates vertically through featured projects, owns the shared WebGL canvas + pager, and receives the Envelopment hand-off from the home globe. *(Supersedes the legacy isHero-driven showcase.)* | `project` docs where `isFeatured == true`, ordered by `orderRank` |
 | **FeaturedProjectsPreview** | The instanced, full-bleed (100vw×100vh) component that renders one featured project's **World** — the **World Shell**, floating **Tiles** across 3 depth tiers, and the identity card with the `enter_world` CTA. One instance per featured project. | One `project` + its showcase media (joined via `mediaAsset.project`) |
 | **FeaturedProjectDetail** | Orchestrator for the `/work/[slug]` Single Project Page. Renders one Featured Project collection as an editorial page via the Content Population Hierarchy. | All `mediaAsset` docs sharing one `sourceFolder` + optional `project` doc |
 | **SiteNav** | Fixed top navigation bar — globe, info pill, sitemap links. | Static |
 | **ClientPanel** | Full-width blue info band below the nav: squeezed project title, client metadata chips (client_type, based_in), social links. | `client` document |
 | **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. | Single `mediaAsset` document |
-| **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only (FilterBar pills are the interactive variant). | Single `serviceTag` reference |
+| **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only. | Single `serviceTag` reference |
 | **SiteFooter** | Simple footer — near-black bar with SWM globe mark + copyright. Expanded variant with footer nav is a future iteration. | Static |
 | **BandPager** | The shared band core both viewers assemble on (`BandPager.jsx`): fixed-height full-width Grid Socket occupant, pages at a slight isometric angle stacked right-of-center, transitions on the **World Turn curve** (same CustomEase + duration as Featured Project paging — one page per gesture, flicks never carry past the neighbor), idle auto-advance at the orbit cadence, depth as darkening (never opacity), top-right side column (counter + per-item content). | assets array + per-viewer side content |
 | **BrandDeckViewer** | Brand/pitch-deck pages (`brand-deck`, ordered by `brandDeckOrder`) on the BandPager. Multi-deck projects get mono tab chips top-left (group order = orderRank, first tab default); the active deck's name sits under the counter in the side column. In the World it floats as a single composite element. *(World mount deferred.)* | `mediaAsset` docs with `mediaType: brand-deck`, grouped per project |
@@ -196,7 +190,7 @@ The system that turns a Featured Project directory's contents into a page layout
 | `mediaType` / aspect ratio | Slot sizing — landscape can go full-bleed; portrait/square always pairs into split rows |
 | `contentRole` | Flow membership — showcase (empty) populates the main flow; `process`/`supporting` reserved for the future BTS section |
 | `displayGroup` | Sub-grouping — assets sharing a `displayGroup` value render adjacent on the detail page (controlled adjacency) |
-| `album-art` mediaType | **Dual-feed rule** — populates both the AlbumArtViewer (detail page) and AlbumArtTicker (project directory) |
+| `album-art` mediaType | **Dual-feed rule** — populates the AlbumArtViewer (detail page) and the project directory (being rebuilt on the detail grid; the ticker is retired) |
 | `brand-deck` mediaType | **Dual-feed rule** — held out of the flow; populates the BrandDeckViewer accordion (detail page) and a grouped deck presence (project directory), sorted by `brandDeckOrder` |
 | `carousel-slide` mediaType | Held out of the flow — populates the to-be-built Carousel component, one carousel per `displayGroup`, slides in `orderRank` |
 
@@ -240,9 +234,9 @@ A **sequence** is one tile that cuts through a set of stills on one shared clock
 
 ### Album Art Dual-Feed Rule
 
-Any `album-art` asset within a Featured Project collection feeds into **two** components:
+Any `album-art` asset within a Featured Project collection feeds into **two** surfaces:
 1. **AlbumArtViewer** — the album-art band on the project detail page
-2. **AlbumArtTicker** — the horizontal scrolling ticker on the project directory page
+2. **The project directory** — being rebuilt on the detail page's grid; the old horizontal ticker is retired
 
 This is automatic — the `album-art` mediaType is the trigger; no additional tagging is needed.
 
@@ -274,7 +268,7 @@ Brand and pitch decks must be exported as per-page JPEGs and placed in a subfold
 |---|---|---|
 | `/` | Landing page — home globe; scroll triggers **Envelopment** into `/work` | `LandingPage` |
 | `/work` | **Featured Projects** — immersive sphere experience (primary work destination) | `FeaturedProjects` |
-| `/work/directory` | Project Directory — full media grid + filters | `ProjectDirectory` |
+| `/work/directory` | Project Directory — full media grid + filters (redirects to `/work` while it is rebuilt) | — |
 | `/work/[slug]` | Single Project Page (editorial layout) | `FeaturedProjectDetail` |
 | `/process` | Process page — five-Stage globe narrative (v2; gated by the disabled-route pattern until launch) | `ProcessPage` |
 

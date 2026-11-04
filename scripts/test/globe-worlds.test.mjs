@@ -1047,7 +1047,7 @@ test('video diet: one preview window, one detail cap, the clip last and once (P0
   assert.ok(PREVIEW_SECONDS > 0 && DETAIL_MAX_SECONDS > PREVIEW_SECONDS)
   // the pool: the caller's pin first, the clip last (VideoSlotPool.streamUrl)
   assert.equal(muxStream('abc', GLOBE_PREVIEW_SECONDS, STREAM_PARAMS), `https://stream.mux.com/abc.m3u8?${STREAM_PARAMS}&asset_end_time=${PREVIEW_SECONDS}`)
-  // a bare surface: the clip alone (MediaSlot, NextProjectBand, MediaCard)
+  // a bare surface: the clip alone (MediaSlot, NextProjectBand)
   assert.equal(muxStream('abc', DETAIL_MAX_SECONDS), `https://stream.mux.com/abc.m3u8?asset_end_time=${DETAIL_MAX_SECONDS}`)
   const q = new URL(muxStream('abc', PREVIEW_SECONDS, STREAM_PARAMS)).searchParams
   assert.deepEqual(q.getAll('asset_end_time'), [String(PREVIEW_SECONDS)])
@@ -1134,8 +1134,8 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   assert.equal(nc.net.detail.streamClip.worst, 2)
   assert.equal(nc.net.detail.segmentsPerRendition.worst, 5) // the hero's segments past its cap
   assert.equal(nc.net.detail.loops.bad[0].why, 'played past its clip')
-  // NC: a bare master off a detail page has no rule (the directory's case today)
-  assert.equal(run([master('/work/directory', heroUrl, 'h'), playlist('/work/directory', 'h', dv)], gets('/work/directory', 'h', dv), []).pass.streamClip, false)
+  // NC: a bare master off a detail page has no rule (a route with none, /about here)
+  assert.equal(run([master('/about', heroUrl, 'h'), playlist('/about', 'h', dv)], gets('/about', 'h', dv), []).pass.streamClip, false)
   // NC: a chunk no playlist lists fails segmentsPerRendition
   assert.equal(run([master('/', slotUrl, 'p'), playlist('/', 'p', pv)], [...gets('/', 'p', pv), get('/', 'q', 0)], [play('slot', '/', true, 1)]).pass.segmentsPerRendition, false)
   // the loop: within LOOP_END_S of its loop point passes (a guard a tick late included); past it,
@@ -1204,21 +1204,6 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   const once = run([...slot, playlist('/', 'p-audio', pv)], gets('/', 'p', pv), [play('slot', '/', true, PREVIEW_SECONDS)])
   assert.deepEqual(audio(once), { n: 1, vacuous: false, worst: 1, playlists: 1, chunks: 0 })
   assert.equal(once.pass.audio, false)
-  // NC: --noclip strips the clip from what Mux is sent, never from what the page asked, so a muted
-  // master is never taken for the Lightbox's
-  const ncSlot = [master('/', slotUrl, 'p', bare(slotUrl)), playlist('/', 'p', pv)]
-  const ncHeard = run([...ncSlot, playlist('/', 'p-audio', pv)], [...gets('/', 'p', pv), get('/', 'p-audio', 0)], [play('slot', '/', true, PREVIEW_SECONDS)])
-  assert.equal(ncHeard.pass.audio, false)
-  // judged, not exempted: a master taken for the Lightbox's would leave the gate vacuous (n 0) and fail it anyway
-  assert.deepEqual(audio(ncHeard), { n: 1, vacuous: false, worst: 2, playlists: 1, chunks: 1 })
-  // the Lightbox plays with sound: its master, the one that asks for no clip, is neither offered nor judged
-  const lightbox = run(
-    [...slot, master('/work/directory', 'https://stream.mux.com/lb.m3u8', 'l'), playlist('/work/directory', 'l-audio', 3)],
-    [...gets('/', 'p', pv), ...gets('/work/directory', 'l-audio', 3)],
-    [play('slot', '/', true, PREVIEW_SECONDS)],
-  )
-  assert.equal(lightbox.pass.audio, true)
-  assert.deepEqual(audio(lightbox), { n: 1, vacuous: false, worst: 0, playlists: 0, chunks: 0 })
   // vacuity: no master listing audio is a failure, never a pass (the floor is 0 under reduced motion, above)
   const silent = (m) => ({ ...m, body: m.body.replace(/^#EXT-X-MEDIA:.*\n/m, '').replace(',AUDIO="audio"', '') })
   assert.ok(slot[0].body.includes('TYPE=AUDIO') && !silent(slot[0]).body.includes('AUDIO'))

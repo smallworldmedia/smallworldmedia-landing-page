@@ -189,9 +189,6 @@
   /* PP Neue Montreal Medium — the pill emphasis (VISUAL WORLDS) + chip labels */
 
   /* Typography — sizes (rem, base 14px) */
-  --text-headline: 2rem;
-  /* 26.4px */
-  --lh-headline: 2rem;
   --text-secondary: 1.543rem;
   /* 21.6px */
   --lh-secondary: 1.543rem;
@@ -690,7 +687,6 @@
 
      .project-overlay__tag   — cream / ghost border (interactive)
      .service-tag            — blue fill (detail page)
-     .media-card__service-pill — cream / ghost border (card overlay)
    ============================================ */
 .stag {
   display: inline-flex;

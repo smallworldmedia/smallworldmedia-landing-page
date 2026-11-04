@@ -10,8 +10,7 @@
  *  - bare, on a detail page (/work/<slug>): MediaSlot and NextProjectBand
  *    clip at the detail cap;
  *  - anything else has no rule here and fails streamClip. /work/directory
- *    redirects today; when it returns, its MediaCard (the preview window) and
- *    its Lightbox (full length on purpose) each need a rule of their own.
+ *    redirects today; when it returns, its players need a rule of their own.
  * The caller passes both windows in (the probe imports them from
  * src/components/work/imageConfig.js), so no second count is written here.
  *
@@ -30,8 +29,8 @@
  *    none fires `ended`, none sits frozen on its end frame (hls.js's stalled
  *    end of stream), and at least one wraps: jumps back from within LOOP_END_S
  *    of its loop point. A rewind from anywhere else (a detach, a seek) is not
- *    a wrap. Every player wraps at its window: the pool and MediaCard by their
- *    timeupdate guards, MediaSlot and NextProjectBand by wrapAtDetailCap, and
+ *    a wrap. Every player wraps at its window: the pool by its timeupdate
+ *    guard, MediaSlot and NextProjectBand by wrapAtDetailCap, and
  *    a guard that fires a tick late still lands inside LOOP_END_S.
  *  - audio (P0v): no muted surface fetches audio. Every probed route is one,
  *    and each strips its master's audio group in the client (useHls's
@@ -39,9 +38,7 @@
  *    audio rendition: n counts those masters (offered), which keeps the gate
  *    non-vacuous. worst = the audio rendition playlists fetched plus the
  *    chunks that map to an audio rendition, its init included; the bound is 0.
- *    The Lightbox plays with sound, so its masters are exempt: the only ones
- *    that ask for no clip (full length on purpose). /work/directory
- *    redirects, so no probe opens it today.
+ *    /work/directory redirects, so no probe opens it today.
  * Each has a vacuity floor of one (none under reduced motion, where the globe
  * mounts no pool). The probe's --noclip is the clip gates' negative control;
  * players still wrap at their windows there, so loops is controlled by the
@@ -80,11 +77,6 @@ export const masterId = (url) => new URL(url).pathname.slice(1).replace(/\.m3u8$
 /** A pool master: the page ASKED for a pinned rendition. Read off the asked
  *  URL, so --noclip's in-flight rewrite never changes what a master owes. */
 export const pinnedMaster = (asked) => new URL(asked).searchParams.has('max_resolution');
-
-/** The Lightbox's master: the one stream the client asks for with no clip
- *  (full length on purpose, with sound), so the audio gate exempts it. Read
- *  off the asked URL, so --noclip's rewrite never exempts a muted surface. */
-const lightboxMaster = (asked) => !new URL(asked).searchParams.has('asset_end_time');
 
 /** The clip, in seconds, a stream owes: the preview window for the pool (a
  *  pinned master, or a pool <video>), the detail cap for a bare stream on a
@@ -181,7 +173,6 @@ export function netReport(log, bodies, sessions, { preview, detail, rm = false, 
       const had = owner.get(r.path);
       if (!had || (owed ?? Infinity) < (had.owed ?? Infinity)) owner.set(r.path, { id: masterId(m.sent), type: r.type, owed });
     }
-    if (lightboxMaster(m.asked)) continue; // it plays with sound
     const audio = listed.filter((r) => r.type === 'audio');
     if (audio.length) offered += 1;
     for (const r of audio) audioPaths.add(r.path);

@@ -6,7 +6,7 @@
  *
  * Usage:
  *   import { sanityFetch } from './sanityClient.js';
- *   const data = await sanityFetch(MEDIA_GRID_QUERY);
+ *   const data = await sanityFetch(FEATURED_WORLDS_QUERY);
  */
 import { createClient } from '@sanity/client';
 

@@ -528,7 +528,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
             their occupants over the reserved regions */}
         {(showcase.length > 0 || sockets.length > 0) && (
           <div
-            className="masonry-grid masonry-grid--detail"
+            className="masonry-grid--detail"
             style={
               tileRows
                 ? {

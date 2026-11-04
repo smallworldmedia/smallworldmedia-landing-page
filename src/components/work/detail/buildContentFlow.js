@@ -8,8 +8,8 @@
  *  1. The hero is always assets[0] (first in drag-to-order ranking).
  *     It is excluded from the flow and rendered in the hero band above
  *     the project blurb.
- *  2. `album-art` assets are held out for the AlbumArtOrbit (and the
- *     AlbumArtTicker) — but only when the collection clears ORBIT_MIN.
+ *  2. `album-art` assets are held out for the AlbumArtOrbit — but only
+ *     when the collection clears ORBIT_MIN.
  *     Below the gate the covers fold back into the showcase flow at
  *     their original orderRank positions (they tessellate as squares).
  *  3. `brand-deck` assets are held out for the BrandDeckViewer, grouped

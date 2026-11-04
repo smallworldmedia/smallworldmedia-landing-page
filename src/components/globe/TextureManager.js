@@ -2,7 +2,7 @@
  * TextureManager.js — Mux thumbnail / Sanity still → THREE.Texture loader
  * with refcounting.
  *
- * Thumbnail URL convention follows MediaCard/FeaturedProjects:
+ * Thumbnail URL convention:
  *   image.mux.com/{playbackId}/thumbnail.webp?width=…&fit_mode=smartcrop
  * Stills (the globe-worlds population modes' image assets) request the
  * Sanity CDN's square crop at the same size, cropped on the busiest region

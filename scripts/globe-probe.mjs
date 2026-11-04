@@ -41,7 +41,7 @@
  * window or its clip's end, by more than LOOP_END_S, fires `ended` or freezes
  * on its last frame, and one wraps there) and audio (P0v: no muted surface
  * fetches an audio rendition's playlist or chunk, while the masters on the
- * wire still list one; the Lightbox, which plays with sound, is exempt).
+ * wire still list one).
  * --noclip strips the clip from every master in flight (page.route): the
  * negative control, under which the clip gates (streamClip,
  * segmentsPerRendition) must fail non-vacuously. Every player still wraps at
