@@ -11,7 +11,9 @@
  * it, or at a shorter asset's own end; wrapAtDetailCap loops at the cap,
  * and `loop` at a shorter clip's end. HLS attaches lazily when the slot
  * enters the viewport; playback pauses off-screen. Images load from the
- * Sanity CDN. Both fade in via the shared load-gate pattern.
+ * Sanity CDN. Both fade in via the shared load-gate pattern. An image that
+ * finished before hydration is flagged as its element attaches, since its
+ * onLoad never fires.
  *
  * Accessibility: the figure is named by the title; the media itself by
  * `alt` (title fallback for images); `description` rides along as a
@@ -25,7 +27,7 @@
  * @param {Object}  props.asset - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY
  * @param {boolean} [props.eager=false] - Seed visibility at hydration (hero slot)
  */
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import useHls from '../useHls.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
@@ -98,6 +100,13 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
   const ratio = ratioOf(asset);
   const isPortrait = ratio < PORTRAIT_THRESHOLD;
 
+  // An SSR'd image that loaded before hydration never fires onLoad: Astro
+  // hydrates in a transition, and React attaches the handler only at its
+  // commit. Flag it as its element attaches.
+  const flagIfLoaded = useCallback((img) => {
+    if (img?.complete && img.naturalWidth > 0) setIsLoaded(true);
+  }, []);
+
   useEffect(() => {
     if (!slotRef.current) return;
 
@@ -131,6 +140,7 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
           {frames.map((f, k) => (
             <img
               key={f._id}
+              ref={k === 0 ? flagIfLoaded : undefined}
               className="media-slot__frame"
               data-fit={f.imageHasAlpha ? 'contain' : undefined}
               data-on={k === frame || undefined}
@@ -156,6 +166,7 @@ export default function MediaSlot({ asset, style, eager = false, ...rest }) {
         />
       ) : asset.imageUrl ? (
         <img
+          ref={flagIfLoaded}
           className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}
           src={`${asset.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
           alt={asset.alt || asset.title || ''}
