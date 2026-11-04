@@ -9,7 +9,7 @@
  * Each video streams a clip of DETAIL_MAX_SECONDS (Nathan, 10-09: the
  * page's hard cut on long assets), cut at the source (muxStream, Mux
  * instant clipping) and ending on the first segment boundary at or after
- * it, or at a shorter asset's own end; wrapAtDetailCap loops at the cap,
+ * it, or at a shorter asset's own end; wrapAt(clip) loops at the cap,
  * and `loop` at a shorter clip's end. HLS attaches lazily when the slot
  * enters the viewport; playback pauses off-screen. Images load from the
  * Sanity CDN. Both fade in via the shared load-gate pattern. An image that
@@ -51,7 +51,6 @@ import {
   muxPosterSrcSet,
   sanitySrcSet,
   wrapAt,
-  wrapAtDetailCap,
 } from '../imageConfig.js';
 import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { sequenceFrame, msToNextFrame } from '../../../lib/mediaSequence.js';
@@ -157,6 +156,7 @@ export default function MediaSlot({
     : null;
 
   useHls(videoRef, hlsSrc, DETAIL_HLS_CONFIG, { videoOnly: true });
+  const wrap = useMemo(() => wrapAt(clip), [clip]);
 
   // time=0: playback starts at frame 0 and every wrap returns there (the
   // native loop, or the cap's seek), so the frame-0 poster is the aligned
@@ -257,7 +257,7 @@ export default function MediaSlot({
           loop
           playsInline
           aria-label={asset.alt || undefined}
-          onTimeUpdate={wrapAtDetailCap}
+          onTimeUpdate={wrap}
           onCanPlay={() => setIsLoaded(true)}
         />
       ) : asset.imageUrl ? (

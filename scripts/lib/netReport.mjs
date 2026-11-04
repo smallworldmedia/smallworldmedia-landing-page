@@ -31,9 +31,10 @@
  *    end of stream), and at least one wraps: jumps back from within LOOP_END_S
  *    of its loop point. A rewind from anywhere else (a detach, a seek) is not
  *    a wrap. Every player wraps at its window: the pool by its timeupdate
- *    guard, MediaSlot and NextProjectBand by wrapAtDetailCap, the
- *    directory's players by wrapAt(PREVIEW_SECONDS), and a guard that fires
- *    a tick late still lands inside LOOP_END_S.
+ *    guard, NextProjectBand by wrapAtDetailCap, MediaSlot's players by
+ *    wrapAt(clip) (the cap on a detail page, PREVIEW_SECONDS in the
+ *    directory), and a guard that fires a tick late still lands inside
+ *    LOOP_END_S.
  *  - audio (P0v): no muted surface fetches audio. Every probed route is one,
  *    and each strips its master's audio group in the client (useHls's
  *    videoOnly), after the fetch, so the master on the wire still lists its

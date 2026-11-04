@@ -24,7 +24,7 @@ export const PREVIEW_SECONDS = 5;
 /** The detail page's cap, in seconds (Nathan, 10-09: strict): MediaSlot and
  *  NextProjectBand stream at most this much of an asset (plus the rest of the
  *  segment the cap falls in) and wrap at it: `loop` at the clip's end, and
- *  wrapAtDetailCap where Mux ends the clip on a later segment boundary. */
+ *  a wrapAt seek where Mux ends the clip on a later segment boundary. */
 export const DETAIL_MAX_SECONDS = 15;
 
 /** onTimeUpdate for a player that loops at `seconds`: back to frame 0
