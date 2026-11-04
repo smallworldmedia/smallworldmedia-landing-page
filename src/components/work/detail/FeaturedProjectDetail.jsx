@@ -13,7 +13,8 @@
  *      float the composite occupants: AlbumArtViewer and BrandDeckViewer
  *      (both full-width — tiles flow above/below; deck takes the top
  *      anchor when alone, mid when an orbit outranks it) —
- *      docs/orbit-deck-viewer-spec.md.
+ *      docs/orbit-deck-viewer-spec.md. The description's later
+ *      paragraphs cut it into stacked grids, a text band between each.
  *   5. SiteFooter
  *
  * SiteNav, info drawer, and project overlay are handled by the
@@ -26,7 +27,7 @@
  * @param {string}        props.collection - curated collection name (sourceManifest)
  * @param {Object|null}   props.nextProject - next-in-chain card data (NextProjectBand)
  */
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { navigate } from 'astro:transitions/client';
 import ClientPanel from './ClientPanel.jsx';
 import CtaArrows from '../CtaArrows.jsx';
@@ -41,7 +42,7 @@ import AlbumArtViewer from './AlbumArtViewer.jsx';
 import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
-import { computeFlushGrid } from './flushGrid.js';
+import { computeFlushGrid, splitAtBreaks } from './flushGrid.js';
 import {
   GRID_ROW_PX,
   SQ_ROWS_FALLBACK,
@@ -72,6 +73,34 @@ const DECK_REGION_ROWS = 68;
    below; this is only the pre-measure fallback (≈ a 1200px grid). */
 const BANNER_REGION_ROWS_FALLBACK = 38;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
+/* Text bands (11-03, Nathan): the description's first paragraph is the
+   intro blurb; each later one is its own band down the grid, "after a few
+   pieces of media". One every BLURB_ROWS squares of the 3-col grid from the
+   top of the tile field, closed up to an even spread only when the grid is
+   too short (flushGrid pinBreaks). Nathan 11-03: 2 approved ("the two
+   paragraphs look great"), and 3+ go "every couple of rows" — not spread
+   through the whole grid. ?blurbrows=<squares> re-dials it live. */
+const BLURB_ROWS = 2;
+const readBlurbRows = () => {
+  const v = parseFloat(new URLSearchParams(window.location.search).get('blurbrows'));
+  return Number.isFinite(v) && v > 0 ? v : BLURB_ROWS;
+};
+
+/* The blurb copy, with its own keyword wipe: the intro and each band play
+   theirs as they scroll in. */
+function BlurbCopy({ paragraphs }) {
+  const ref = useRef(null);
+  useKeywordWipe(ref);
+  return (
+    <div className="project-blurb__copy" ref={ref}>
+      {paragraphs.map((para, i) => (
+        <p className="project-blurb__text" key={i}>
+          {renderKeywords(para)}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 /* ── next_project chip (08-30, Nathan — moved out of the ClientPanel meta
    row): rides INLINE with the breadcrumb under the panel — right-anchored
@@ -222,6 +251,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const flowRef = useRef(null);
   const tileShape = useTileShape();
   const gridMetrics = useGridMetrics(flowRef);
+  const [blurbRows, setBlurbRows] = useState(BLURB_ROWS);
+  useEffect(() => setBlurbRows(readBlurbRows()), []);
   // A span of N rows is N tracks plus N-1 row gaps tall, so convert the
   // wanted pixel height through the row PITCH (track + gap), not the track.
   const bannerRows = (group) => {
@@ -324,27 +355,36 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     formatYearRange(project?.yearStart, project?.yearEnd, project?.isOngoing) ??
     (assets.reduce((max, a) => Math.max(max, a.yearStart ?? 0), 0) || null);
 
-  // Editorial copy comes from the optional project document
+  // Editorial copy comes from the optional project document. A blank line
+  // in the Sanity `description` (a `text` field, Enter works in Studio) is a
+  // paragraph break; single newlines stay soft.
   const displayTitle = project?.title || null;
-  const overview = project?.description ?? null;
+  const paragraphs = (project?.description ?? '')
+    .split(/\n\s*\n/)
+    .map((para) => para.trim())
+    .filter(Boolean);
+  const asides = paragraphs.slice(1);
 
   // ── Compute flush grid placements around the reserved regions ──
   // (≤ 1024 the CSS spans govern; the 3-col placement keeps the fallback
-  // there so the sockets' DOM order matches the server render.)
-  const { placements, regions: sockets } = computeFlushGrid(showcase, {
+  // there so the sockets' DOM order — and where the bands cut — matches the
+  // server render.) Each later paragraph cuts a break row.
+  const flush = computeFlushGrid(showcase, {
     regions,
     sqRows: tileRows?.cols === 3 ? tileRows.sq : SQ_ROWS_FALLBACK,
+    breaks: asides.length,
+    breakEvery: blurbRows,
   });
+  const segments = splitAtBreaks(flush);
+  // No tiles to break up → no breaks; the intro keeps every paragraph.
+  const introParas = flush.regions.some((r) => r.anchor === 'break')
+    ? paragraphs.slice(0, 1)
+    : paragraphs;
 
   // Sockets interleave with tiles at their domIndex so single-column
   // (in-flow) layouts read in the right order.
-  const socketsAt = new Map();
-  for (const s of sockets) {
-    if (!socketsAt.has(s.domIndex)) socketsAt.set(s.domIndex, []);
-    socketsAt.get(s.domIndex).push(s);
-  }
-  const socketNodes = (i) =>
-    (socketsAt.get(i) ?? []).map((s) => (
+  const socketNodes = (seg, i) =>
+    seg.sockets.filter((s) => s.domIndex === i).map((s) => (
       <GridSocket key={`socket-${s.id}`} region={s}>
         {s.id === 'deck' ? (
           // 2 fixed page columns (08-25 (2)) — big spreads, not a lattice
@@ -363,28 +403,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       </GridSocket>
     ));
 
-  // 09-08: keyword highlights wipe in once the blurb scrolls into view.
-  const blurbRef = useRef(null);
-  useKeywordWipe(blurbRef);
-
   /* ---- Blurb section (shared between portrait & landscape layouts) ---- */
   const blurbSection = (
     <section className="project-blurb">
-      {overview && (
-        // A blank line in the Sanity `description` (a `text` field, Enter
-        // works in Studio) is a paragraph break; single newlines stay soft.
-        <div className="project-blurb__copy" ref={blurbRef}>
-          {overview
-            .split(/\n\s*\n/)
-            .map((para) => para.trim())
-            .filter(Boolean)
-            .map((para, i) => (
-              <p className="project-blurb__text" key={i}>
-                {renderKeywords(para)}
-              </p>
-            ))}
-        </div>
-      )}
+      {introParas.length > 0 && <BlurbCopy paragraphs={introParas} />}
 
       <div className="project-blurb__details">
         <div className="detail-field">
@@ -462,7 +484,11 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           (only the breadcrumb pins; this scrolls up with the content). */}
       {nextProject && <DetailNextChip next={nextProject} />}
 
-      <main className="project-detail__flow" ref={flowRef}>
+      <main
+        className="project-detail__flow"
+        ref={flowRef}
+        style={tileRowVars(tileRows)}
+      >
         {/* Deck hero → the featured deck's wall leads the flow; portrait
             hero → side-by-side band; landscape → stacked full-bleed */}
         {heroDecks ? (
@@ -488,27 +514,36 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         )}
 
         {/* Dense grid — flush bottom via explicit placement; sockets float
-            their occupants over the reserved regions */}
-        {(showcase.length > 0 || sockets.length > 0) && (
-          <div
-            className="masonry-grid--detail"
-            style={tileRowVars(tileRows)}
-          >
-            {showcase.flatMap((a, i) => {
-              const p = placements[i];
-              return [
-                ...socketNodes(i),
-                <MediaSlot
-                  key={a._id}
-                  asset={a}
-                  data-tile={p.type}
-                  style={placementStyle(p)}
-                />,
-              ];
-            })}
-            {socketNodes(showcase.length)}
-          </div>
-        )}
+            their occupants over the reserved regions. Each break cuts it:
+            the grid above ends flush, the paragraph's band follows in flow
+            (the intro blurb's own styling), the next grid picks up below. */}
+        {segments.map((seg, k) => (
+          <Fragment key={k}>
+            {(seg.tiles.length > 0 || seg.sockets.length > 0) && (
+              <div className="masonry-grid--detail">
+                {seg.tiles.flatMap((p, i) => [
+                  ...socketNodes(seg, i),
+                  <MediaSlot
+                    key={showcase[p.index]._id}
+                    asset={showcase[p.index]}
+                    data-tile={p.type}
+                    style={placementStyle(p)}
+                  />,
+                ])}
+                {socketNodes(seg, seg.tiles.length)}
+              </div>
+            )}
+            {seg.breaks.length > 0 && (
+              // Keyed by its paragraphs: a regroup remounts the band, so its
+              // keyword wipe re-arms on the new copy.
+              <section className="project-blurb" key={seg.breaks.join()}>
+                <BlurbCopy
+                  paragraphs={seg.breaks.map((id) => asides[Number(id.split(':')[1])])}
+                />
+              </section>
+            )}
+          </Fragment>
+        ))}
       </main>
 
       {/* Continuation: the next project's card + the resistance gesture

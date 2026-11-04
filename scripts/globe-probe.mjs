@@ -377,12 +377,15 @@ const OUT = arg(
 // and would swallow the touch scrub. --detail loads the detail page itself,
 // --directory the directory.
 // --extra before &popunits: the page reads a param's first value, so an &popunits in --extra wins (nc-sneak).
+// --footer pins &touchgain=2 AFTER --extra (so --extra can still override it): footerScenario's finger
+// distances and step counts were calibrated at gain 2, and motion.js bakes 5 since 11-03 — unpinned,
+// the up-scrub would hit the clamp in ~13 of its 32 steps and coarsen every number read off the grid.
 const URL_ = DIRECTORY
   ? `${BASE}/work/directory/${DIR_QUERY ? `?${DIR_QUERY}` : ''}`
   : DETAIL
     ? `${BASE}/work/${DETAIL}`
     : FOOTER
-      ? `${BASE}/?intro=${INTRO}${EXTRA}`
+      ? `${BASE}/?intro=${INTRO}${EXTRA}&touchgain=2`
       : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}${UNITS === null ? '' : `&popunits=${UNITS}`}`;
 // The gates' context. Every value mirrors what the page will read, so a gate never guesses.
 const BASELINE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'baselines', 'globe-units.json');
@@ -1173,7 +1176,7 @@ async function footerScenario(page, ctx) {
   const rest = await footerRead(page);
   await shot(page, 'footer-rest');
 
-  // UP — the reveal. 120px of finger × TOUCH_GAIN 2 ÷ SCROLL_TRIGGER_HOME_PX
+  // UP — the reveal. 120px of finger × the pinned ?touchgain=2 (URL_) ÷ SCROLL_TRIGGER_HOME_PX
   // 500 = 0.48 of progress, which clears the 1.0 clamp from the 0.59 floor
   // (1.07, so the clamp absorbs the last 0.07) and the scrub ENDS at a full
   // reveal rather than at a number that depends on the gain. The re-bake

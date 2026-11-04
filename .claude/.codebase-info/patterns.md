@@ -33,11 +33,14 @@ FP→detail passage, so home→/work and /work→detail share one vocabulary (`m
 Motion taste: no overshoot, steep launch carrying scroll momentum, smooth decel into rest.
 
 ## Gesture model
-The house accumulator quantizer (px threshold, ×2 touch gain, rubber band, one commitment per
-gesture) appears in the Hero commit, the /work World Turn (`FeaturedProjects.jsx`), and
+The house accumulator quantizer (px threshold, `TOUCH_GAIN` touch gain (5 since 11-03), rubber band
+after `RELEASE_MS` (240) of stall, one commitment per gesture) appears in the Hero commit, the /work World Turn (`FeaturedProjects.jsx`), and
 `process/useProcessScrollDriver.js`. Pager input is `work/pager/usePagerGesture.js`; skins render
 only, and only `requestGoTo` fires a Turn. Every landing commits unconditionally so stale deferrals
-are cancelled.
+are cancelled. A gesture's live feedback rides two lanes in `motion.js`: `DRAG_TRACK_S` while the
+finger moves, `RELEASE_GLIDE_S` on `RELEASE_EASE` for the spring home (the CTA fill and the 11-03
+lean, `swm:fp-drag`, share them). On `/work` a finger's let-go is its lift, so a held finger keeps its
+fill; a wheel has no lift, so its let-go is the stall.
 
 ## One-place motion
 `src/lib/dragMomentum.js` (drag + inertia), `src/lib/overlayWipe.js` (overlay wipe, never a fade),
@@ -61,6 +64,14 @@ An always-on CSS animation on persistent chrome must be gated, not merely off-sc
 the spectrum pulse joins the odometer's `html[data-footer-revealed] { animation-play-state: running }`
 rule, so a 5 Hz text repaint cannot run beside the `/work` WebGL world or while the footer panel is
 parked. `prefers-reduced-motion` resolves to `animation: none` plus the flat resting ink.
+
+The GSAP house pulse (`housePulseLoop`) is phase-locked to the wall clock when it is built. A
+`pause()` then `play()` resumes from wherever it stopped, so the beat drifts off the clock. To
+start a loop on the beat, build it paused and hand it to `joinHousePulse(tl)`: it seeks to
+`now mod period` when the clock is in the rest, otherwise it waits for the next downbeat, and it
+returns a cancel (call it before `kill()`). The /work pager's rest pulse arms this way. A pulse
+that must survive a recolour cannot tween a colour FROM the accent, because GSAP records the start
+once; the pager fades a white twin of its number on opacity instead (`.fp-scale__peak`).
 
 Globe tiles: `globe/tileSwap.js` is the one refcount-safe way to put an asset on a tile (`loadTile`,
 `heldThumbId` ownership). A tile's asset changes only where its screen shows no media (the parked
@@ -231,6 +242,13 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   alpha, hold opacity 1.
 - Animating an inherited `@property` custom property does not repaint text/SVG consumers: snap the
   var and transition color/fill element-locally.
+- An element-local transition on a property that already follows the inherited 1.7 s
+  `--project-color` fade CHASES it: the transition restarts every frame and lands about its own
+  duration late (the /work pager chip, 11-03). For the fade window, give the background no
+  transition and swap the ink to the snapping `--nav-ink` (`.fp[data-turning]`, the nav pill's fix).
+  When the background also mixes in a local input, register that input and transition IT instead:
+  the [NEXT]/[PREVIOUS] chips' white charge is `@property --cta-charge` (FeaturedProjects `ctaColor`,
+  `featured-projects.css`), and their background has no transition lane at all.
 - A surface whose `transform` string is rewritten imperatively every frame cannot also be tweened on
   `transform`: use the individual `translate` / `rotate` / `scale` properties, which pre-multiply, so
   the two compose. `SiteFooter.jsx`'s `paint()` owns the panel's whole transform in both modes, so the

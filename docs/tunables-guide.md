@@ -278,12 +278,12 @@ Readers: `src/lib/smoothScroll.js` (raw params, per route), `src/lib/lenisTune.j
 
 ## Site-wide — the touch gesture (rubber bands)
 
-Reader: `src/lib/touchTune.js` (module-load, 11-03), imported by every rubber band in place of motion.js's two constants: `/work`'s World Turn (`FeaturedProjects.jsx`), the detail next-project band (`NextProjectBand.jsx`, which copied both as literals until 11-03), `/process`'s stages (`useProcessScrollDriver.js`) and home's footer reveal (`Hero.jsx`). One dial moves them all, so a value dialed for the World Turn also changes home's footer drag and its release carry. Each surface's commit DISTANCE stays its own (`?scroll`, `?swipepx`). Put both params on the URL you hard-load, for example `/work?touchgain=3&releasems=240` on the phone over the LAN dev server.
+Reader: `src/lib/touchTune.js` (module-load, 11-03), imported by every rubber band in place of motion.js's two constants: `/work`'s World Turn (`FeaturedProjects.jsx`), the detail next-project band (`NextProjectBand.jsx`, which copied both as literals until 11-03), `/process`'s stages (`useProcessScrollDriver.js`) and home's footer reveal (`Hero.jsx`). One dial moves them all, so a value dialed for the World Turn also changes home's footer drag and its release carry. Each surface's commit DISTANCE stays its own (`?scroll`, `?swipepx`). Put both params on the URL you hard-load, for example `/work?touchgain=3&releasems=240` on the phone over the LAN dev server. Nathan's 11-03 phone dial baked `5` / `240` (was `2` / `160`).
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?touchgain` | finger px → gesture px on every touch rubber band: the commit needs `trigger ÷ gain` px of finger, so at the default a 500px `?scroll` is 250px of finger, about a third of a phone's height. Home's footer reveal multiplies its drag by it too | `2` | any finite (no clamp; `0` freezes touch) | `motion.js TOUCH_GAIN` |
-| `?releasems` | the pause, ms, after which an uncommitted gesture rubber-bands back to rest. On `/work`, the band and `/process` it times the WHEEL's stall too, so it moves desktop as well; a finger that pauses this long mid-swipe loses its fill. Home's footer reveal uses it as the stall test and the release-carry window (`p + vel × this`) | `160` ms | any finite | `motion.js RELEASE_MS` |
+| `?touchgain` | finger px → gesture px on every touch rubber band: the commit needs `trigger ÷ gain` px of finger, so at the default a 500px `?scroll` is 100px of finger. Home's footer reveal multiplies its drag by it too | `5` (11-03 bake; was `2`) | any finite (no clamp; `0` freezes touch) | `motion.js TOUCH_GAIN` |
+| `?releasems` | the pause, ms, after which an uncommitted gesture rubber-bands back to rest. On `/work`, the band and `/process` it times the WHEEL's stall too, so it moves desktop as well. On `/work` a finger holds its fill until the lift (11-03), so there it is the wheel's let-go only; on the band and `/process` a finger that pauses this long mid-swipe loses its fill. Home's footer reveal uses it as the stall test and the release-carry window (`p + vel × this`) | `240` ms (11-03 bake; was `160`) | any finite | `motion.js RELEASE_MS` |
 
 ## `/work` — World scene (WebGL globe of Tiles)
 
@@ -298,12 +298,13 @@ Mode tags: **[all]** every field mode · **[DRUM]** `fpgrid=3` (the shipped defa
 | `?fpgrid` | field expression: `0` legacy floating tile field, `1` ATLAS on-sphere plates, `2` FORME letterpress pane, `3` DRUM revolving world [all] | `3` | `0` \| `1` \| `2` \| `3` (≥4 is unguarded and breaks) | `:35` |
 | `?platedeg` | plate longest side, degrees of arc [grid] | `12` deg | any finite | `:39` |
 | `?fpwin` | usable fraction of the frustum for placement; >1 lets edge blocks run off-frame [grid] | `1.1` | any finite | `:40` |
-| `?camlook` | pointer head-turn amplitude (DRUM ×0.8) [ATLAS][DRUM] | `0.025` rad | any finite | `:41` |
+| `?camlook` | pointer head-turn amplitude (DRUM ×0.8); a mouse or pen only since 11-03 (a finger is the Turn gesture on a phone) [ATLAS][DRUM] | `0.025` rad | any finite | `:41` |
 | `?fpbal` | 3×3-zone semi-balance pass over the seeded placement; `0` = raw ring for A/B [DRUM] | `1` | `0` off, else on | `:44` |
 | `?fpvis` | fraction of the frustum the lens crop shows; balance judges occupancy against it [DRUM] | `0.85` | any finite | `:45` |
 | `?fptab` | plate spine tabs (accent tab, −90° mono title/coordinates) [DRUM] | `1` | `0` off, else on | `:59` |
 | `?fpfurn` | drum furniture: registration crosses / captions / cell floods in empty cells [DRUM] | `0` | `0` off, else on | `:60` |
 | `?creep` | idle whole-drum creep outside a Turn (not under RM) [DRUM] | `0` deg/s | any finite | `:64` |
+| `?dragfollow` | drag-follow (11-03): the share of a Turn a finger or the wheel previews at full fill — the drum leans this × `?arcdeg`, the resting card this × its 70% travel (WorldCard `y`) — and a release springs both home on the CTA's release lane (`motion.js` `RELEASE_GLIDE_S` / `RELEASE_EASE`): on lift for a finger, after the `?releasems` stall for the wheel; a commit continues from the leaned pose. Off under RM. Module-load. 0.1 read "a little too strong" (Nathan, 11-03) | `0.06` | clamp 0–1 (`0` = off) | `worldConfig.js DRAG_FOLLOW` |
 | `?arcdeg` | arc per project on the drum; Turn target = index × arc [DRUM] | `60` deg | any finite | `:65` |
 | `?drumturn` | Turn duration multiplier, DRUM only (× `?turnms`) [DRUM] | `1.15` | any finite | `:66` |
 | `?panepitch` | FORME macro-cell pitch as a multiple of the shell's fine pitch [FORME] | `3` | any finite | `:67` |
@@ -495,7 +496,7 @@ Readers: `FeaturedProjects.jsx` (`PARAM()`, gates), `WorldCard.jsx`, `fp1Tune.js
 | `?tagpad` | fp-card mobile dial set: pill vertical padding px (`--fp-tag-pad-y`; shipped `--space-2`) | token | px > 0 | `FeaturedProjects.jsx` card-dial effect |
 | `?tagpadx` | fp-card mobile dial set: pill horizontal padding px (`--fp-tag-pad-x`; shipped `--space-5`) | token | px > 0 | `FeaturedProjects.jsx` card-dial effect |
 | `?taggap` | fp-card mobile dial set: gap between pills px (`--fp-tag-gap`; shipped `--space-4`). Media density/spacing dials are the EXISTING world knobs: `?max` (tile count), `?platedeg` (plate size), `?fpwin` (placement window), `?fpvis` (visible-frame judge) | token | px > 0 | `FeaturedProjects.jsx` card-dial effect |
-| `?scroll` | px of wheel/touch (touch × `TOUCH_GAIN` 2) that fills a CTA and fires a World Turn; the same value is the footer-reveal distance at the last World and the return-home threshold + f² pre-cover at the first | `500` px | any finite; no clamp (0 divides by zero) | `motion.js:74 SCROLL_TRIGGER_WORK_PX` |
+| `?scroll` | px of wheel/touch (touch × `TOUCH_GAIN` 5) that fills a CTA and fires a World Turn; the same value is the footer-reveal distance at the last World and the return-home threshold + f² pre-cover at the first | `500` px | any finite; no clamp (0 divides by zero) | `motion.js:74 SCROLL_TRIGGER_WORK_PX` |
 | `?caret` | seconds for one caret to travel one slot in the `[NEXT]` / `[PREVIOUS]` chevron strips (module-global: every CtaArrows on every route); static under RM | `6` s | any finite | `CtaArrows.jsx:21,23` |
 
 Pager constants with **no** URL knob, the engine's defaults (`motion.js`; the tape/tuner arms that also read them were deleted 09-05): `PAGER_HOLD_MS` 200, `PAGER_SLOP_PX` 8, `PAGER_STALL_COMMIT_MS` 450, `PAGER_PEEK_MS` 900, `PAGER_FLICK_CARRY_S` 0.12, `PAGER_TAU_SCRUB` 0.05, `PAGER_TAU_GLIDE` 0.27, `PAGER_END_RESIST` 0.3, `PAGER_KEY_COMMIT_MS` 400. Per-arm, no knob: `SCALE_END_RESIST` 0.2 (`SCALE_STALL_COMMIT_MS` deleted 09-03 r6 — the scale passes `stallMs: Infinity`, so a desktop wheel settle is a preview and the Turn evaluates only at disengage: pointerleave / touch release / keyboard). (`TUNER_*` deleted 09-05.) Engine-local: `TAU_SETTLE` 0.08, `READ_BEAT_MS` 240, `HOVER_INTENT_MS` 120, `END_OVERTRAVEL_CAP` 0.35, `CLICK_SUPPRESS_MS` 350 (`usePagerGesture.js`).
@@ -541,7 +542,7 @@ The pill shows the long blurb while home is at rest and the short tagline everyw
 
 ## `/work/[slug]` — detail pages
 
-Readers: `detail/tileGrid.js` (`readTileShape()` in `useTileShape`'s effect, for FeaturedProjectDetail and the directory's DirectoryGrid), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
+Readers: `detail/tileGrid.js` (`readTileShape()` in `useTileShape`'s effect, for FeaturedProjectDetail and the directory's DirectoryGrid), `detail/FeaturedProjectDetail.jsx` (`readBlurbRows()` in an effect), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
 
 ### Grid tile shape (10-27)
 
@@ -550,6 +551,14 @@ Row spans for the grid tiles come from the measured column width, so every tile 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
 | `?tileshape` | a square tile's width ÷ height; portraits and landscapes follow from it (the detail grid and `/work/directory`) | `1` (Nathan's 10-27 bake: album art stays uncropped) | any number > 0 (`1.25` was the other option on the table) | `tileGrid.js TILE_SHAPE` |
+
+### Description bands (11-03)
+
+The description's first paragraph is the intro blurb; each later paragraph (a blank line in Studio) is its own band down the grid, styled like the intro. Each band cuts the grid at a full-width break row (`flushGrid.js pinBreaks`), so the grid above it ends flush and the next grid starts below the band. The cut lands on a row where a tile ends. It takes the row that leaves no hole in the grid, then the one nearest the target. On cheetah-print that is 3 squares down, not 2. When a grid is too short to hold every band, the leftover paragraphs share the last band. With no grid tiles, every paragraph stays in the intro.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?blurbrows` | squares of the 3-col grid between bands, counted from the top of the tile field; closed up to an even spread only when the grid is too short to fit every band at this pitch | `2` (Nathan 11-03: "the two paragraphs look great"; 3+ paragraphs go "every couple of rows", not spread through the whole grid, so the `0` = even-spread mode was removed) | any number > 0 | `FeaturedProjectDetail.jsx BLURB_ROWS` |
 
 ### Deck / album walls (DeckScroller)
 
@@ -582,14 +591,22 @@ Row spans for the grid tiles come from the measured column width, so every tile 
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?scroll` | px of accumulated wheel/touch (touch ×2) that commits the passage | `500` px | any finite | `motion.js:74 SCROLL_TRIGGER_WORK_PX` |
+| `?scroll` | px of accumulated wheel/touch (touch × `TOUCH_GAIN` 5) that commits the passage | `500` px | any finite | `motion.js:74 SCROLL_TRIGGER_WORK_PX` |
 | `?nparm` | arming beat: deltas inside this window after the first at document end are dropped (flick tail); tuned against lerp 0.1, the bake is now 0.165, re-check | `250` ms | any finite | `NextProjectBand.jsx NP_ARM_MS` |
 | `?npms` | commit choreography length (proxy fill, box → viewport, cover, zoom) | `800` ms | any finite | `motion.js:89 GLIDE_MS` |
 | `?npcover` | RouteFill snap window at the end of the commit | `120` ms | any finite | `NP_COVER_SECONDS` |
 | `?nppre` | in-window blue pre-cover opacity at full drag (f² curve) | `30` % | any finite | `NP_PRE_COVER` |
 | `?npzoom` | media push-in scale over the commit | `1.08` | any finite | `NP_ZOOM` |
-| `?npsplit` | label run length as a fraction of the fill (the title reuses it) | `0.55` | finite ≠ 0 | `NP_SPLIT` |
-| `?nplag` | title ramp start fraction; media ramps at 2 × lag over 1 − 2 × lag | `0.15` | finite < 0.5 | `NP_LAG` |
+| `?npbig` | entrance: the label's start size × its rest size (2.5 = Nathan's 11-03 "about this size"); capped by the content width, the headroom above the label in the band (it grows up off its rule) and, on desktop, the media window | `2.5` | ≥ 1 | `NextProjectBand.jsx NP_BIG` |
+| `?npfrom` | entrance: where the label starts. `center` = centred on the viewport, `left` = at the left gutter; either way it shrinks first, then slides to rest (phone: the rest seat is the gutter, so `left` only shrinks) | `center` | `center` / `left` | `NP_FROM` |
+| `?nprun` | entrance: the sticky run, in viewport heights. The band's runway is this much taller than the band; the band pins at its end composition for that stretch (the last `?nprun` × vh of the page) while the label shrinks and slides home. The label holds big until the band pins | `1` (CSS `--np-run`) | > 0 | `project-detail.css .np-runway::before` |
+| `?npinsplit` | entrance: share of the run spent shrinking; the slide to rest takes the rest | `0.5` | 0 < x < 1 | `NP_IN_SPLIT` |
+| `?nplabel` | rest size of the `Next Project:` label, px (unset = CSS `clamp(1.429rem, 1.667vw, 2.143rem)`, 20 → 24 @ 1440 → 30) | unset | any finite | `project-detail.css .np-band__label` |
+| `?nphint` | rest hint: seconds of `Next Project:` between `[Keep Scrolling]` hints while settled at the document end | `5` | > 0 | `NP_HINT_GAP` |
+| `?nphintin` | rest hint: seconds settled at the end (or after a released pull) before the first hint | `1.5` | ≥ 0 | `NP_HINT_IN` |
+| `?nphold` | rest hint: the hang on `[Keep Scrolling]` after the double pulse, ms (unset = two beats) | unset | ≥ 0 | `NP_HINT_HOLD_MS` |
+| `?npblink` | rest hint: the double pulse's floor, the two quick dips after the swap (opacity) | `0.3` | 0–1 | `NP_BLINK` |
+| `?npbeat` | rest hint: one beat, ms; each swap pulse takes two, each double pulse one (unset = an eighth of the house tempo, `--swm-bpm` / `?pulsebpm`: 236 ms at 127) | unset | > 0 | `NP_BEAT_MS` |
 | `?sockpar` | GridSocket parallax factor (`1` = pinned to grid); inert ≤1024px and under RM | `0.92` (prop) | any finite | `GridSocket.jsx:31` default prop |
 
 ## `/work/directory` — the Project Directory
@@ -735,7 +752,7 @@ Reader: `src/components/process/processConfig.js` (`num()` / `str()`, module-loa
 | `?herov` | **10-08 (w8, phone-a11y-hero-vertical)** PHONE ONLY (≤768px): where the **hero card** sits. `bottom` = the 09-08 card rule (every section bottom-anchored; the phone globe-O, r ≈ 21 px, breaks at ~85–88% of the frame under ~650 px of empty blue); `centre` = the hero card alone on the frame's vertical centre (`.process-page[data-herov='centre'] .process-hero`), so the break lands mid-screen — the stage cards keep their bottom anchor, and the break's source is the DOM mark (heroMark), so the scene follows. Measured at 390×844 (`--walk --break`): the O's centre y 435 (51.5%, was 757); 0 reversals/overshoots on all three flights; the chords shorten (shatter median 95 px, was 363) — a closer source, a shorter flight. Live (`applyTuning` sets the attribute). Nathan's A/B | `bottom` | `bottom` \| `centre` (anything else = bottom) | `.heroV` |
 | `?nexttease` | **10-08 (w8, experience-6)** PHONE ONLY (≤768px), **reload only**: `on` = a `next: <phase>` line under each stage card S1–S5 (`.process-stage__next`, its own row under the caption — S2's caption writer owns that line's whole text) — the hidden stepnav's own words (`ProcessStepCtas` `nextLabel`, no new copy), cut in by the house cut (charCut — the chips' entrance) with the card's keyword wipe, out on the leave-back; parked `visibility:hidden` so it reserves its row from mount (the card never jumps; `phoneCardTop` frames the Core over the taller card). A keep-out box (`KEEP_COPY`). The bottom-anchored card grows UP one row (+28 px; +22 under S2's caption) and keeps its inset, so the privacy pill, the meter and the footer keep their clearance. Not on the hero (its card holds the globe-O) or the CTA (the end); reduced motion = simply there (the copy hook's still). Measured at 390×844 (`--walk --back`) and 375×667 (`--walk`): keep-out hits 0, errors 0. Nathan's A/B | `off` | `off` \| `on` | `.nextTease` |
 | `?swipe` | one-section-per-swipe quantizer; flipping off live restarts Lenis | `on` | `on` \| `off` (code also treats `0` as off) | `.swipe` |
-| `?swipepx` | wheel/touch px (touch ×2) to commit a section swipe; `?scroll` is the legacy alias, lower precedence | `500` px | slider 150–1200 / 25 | `motion.js:75 SCROLL_TRIGGER_PROCESS_PX` |
+| `?swipepx` | wheel/touch px (touch × `TOUCH_GAIN` 5) to commit a section swipe; `?scroll` is the legacy alias, lower precedence. `/process` only: it does nothing on `/work`, whose distance is `?scroll` | `400` px (Nathan's 11-03 phone dial; was `500`) | slider 150–1200 / 25 | `motion.js:75 SCROLL_TRIGGER_PROCESS_PX` |
 | `?swipems` | committed section glide length (house Turn curve) | `800` ms | slider 0.4–2.5 s / 0.05 | `.swipeSeconds` (mirrors `motion.js GLIDE_MS` 800: two literals to keep in sync) |
 | `?fog` | S1 atmospheric depth: how far the furthest shard's fill **and** stroke are pulled toward the field colour (never opacity); **10-10 (w9c)** the field colour is the LIVE field (`uFogColor` = the DOM layers' composite every frame — black on the black opening, riding every grow/crossfade) | `0.56` | slider 0–1 / 0.02 | `.fog` |
 | `?fogspan` | depth to full haze **behind** the belt's establishing distance, × `?scatter` (the window opens a quarter of this in front, so the near field stays crisp); anchored in world depth, so pushing the camera toward a far shard clears it | `0.7` | slider 0.3–3 / 0.05 | `.fogSpan` |

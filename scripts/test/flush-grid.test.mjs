@@ -4,7 +4,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { computeFlushGrid, chunkFlushGrid, classifyTile } from '../../src/components/work/detail/flushGrid.js'
+import { computeFlushGrid, chunkFlushGrid, classifyTile, splitAtBreaks } from '../../src/components/work/detail/flushGrid.js'
 
 const rng = (seed) => () => {
   seed |= 0
@@ -95,25 +95,34 @@ test('classifyTile: the portrait / square / landscape edges', () => {
 
 test("the detail page's call is unchanged (snapshot of the 3-column placement, 11-03)", () => {
   // [tiles, seed, regions, sqRows] → the sha256 prefix of the whole result,
-  // recorded from the code before columns and chunks were added.
+  // recorded from the code before columns and chunks were added. Re-taken
+  // 11-04 at the v1-launch merge: domIndex moved off computeFlushGrid's
+  // regions onto splitAtBreaks's sockets (the description bands), so every
+  // case with a region changed hash. Placements, totalRows and the rest of
+  // each region matched the old code, and `dom` pins the socket order
+  // splitAtBreaks gives a grid without breaks: the old domIndex.
   const CASES = [
-    [5, 1, [], 40, '1aab82f598ead89d'],
-    [12, 2, [ORBIT], 40, 'f557b8007e33bea3'],
-    [24, 3, [ORBIT, DECK('mid')], 40, '27c93a517f4c4781'],
-    [36, 4, [DECK('top')], 40, 'b5266be7043a5624'],
-    [18, 5, [SOLO, BANNER], 40, '59399bbaf877e7d7'],
-    [60, 6, [ORBIT, DECK('mid'), SOLO, BANNER], 40, 'e4907b90b7bf7719'],
-    [30, 7, [], 24, 'e7602e06ca3c1d66'],
-    [44, 8, [ORBIT], 33, '3ac7bc68d033214f'],
-    [9, 9, [BANNER], 52, '93d2768aa1e6bd4a'],
-    [50, 10, [DECK('top'), SOLO], 40, '08277a1e5fc5c71c'],
-    [1, 11, [ORBIT], 40, 'cdc9f4578ab1d711'],
-    [0, 12, [ORBIT, DECK('mid')], 40, 'd5b9811584585bd7'],
+    [5, 1, [], 40, '1aab82f598ead89d', ''],
+    [12, 2, [ORBIT], 40, '0edab619506b7925', '0'],
+    [24, 3, [ORBIT, DECK('mid')], 40, 'ef56ae67328468e3', '0,12'],
+    [36, 4, [DECK('top')], 40, '4794a39d2b68b773', '0'],
+    [18, 5, [SOLO, BANNER], 40, '7ffe7b87da977bfd', '18,18'],
+    [60, 6, [ORBIT, DECK('mid'), SOLO, BANNER], 40, '2fb3f79b89bc1aa3', '0,26,60,60'],
+    [30, 7, [], 24, 'e7602e06ca3c1d66', ''],
+    [44, 8, [ORBIT], 33, '01f48369cbf25ed4', '0'],
+    [9, 9, [BANNER], 52, '9109c438c7107bbe', '9'],
+    [50, 10, [DECK('top'), SOLO], 40, 'c8ac2ab154f236f1', '0,50'],
+    [1, 11, [ORBIT], 40, '689545a4433329f1', '0'],
+    [0, 12, [ORBIT, DECK('mid')], 40, 'da03f93c748e23d3', '0,0'],
   ]
-  for (const [n, seed, regions, sqRows, want] of CASES) {
+  for (const [n, seed, regions, sqRows, want, dom] of CASES) {
     const out = computeFlushGrid(seeded(n, seed), { regions, sqRows })
     const got = createHash('sha256').update(JSON.stringify(out)).digest('hex').slice(0, 16)
-    assert.equal(got, want, `${n} tiles, seed ${seed}, ${regions.map((r) => r.id).join('+') || 'no regions'}`)
+    const where = `${n} tiles, seed ${seed}, ${regions.map((r) => r.id).join('+') || 'no regions'}`
+    assert.equal(got, want, where)
+    const [seg, ...rest] = splitAtBreaks(out)
+    assert.equal(rest.length, 0, `${where}: one segment`)
+    assert.equal(seg.sockets.map((s) => s.domIndex).join(','), dom, `${where}: socket order`)
   }
 })
 

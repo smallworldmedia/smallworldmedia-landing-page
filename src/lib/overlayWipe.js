@@ -21,6 +21,10 @@ export const ensureOverlayWipe = () => {
 
 export const CLIP_OPEN = 'inset(0% 0 0 0)';
 export const CLIP_CLOSED = 'inset(100% 0 0 0)'; // hidden at the bottom edge — opens upward
+// The flipped edge (11-03, /work's [PREVIOUS]): the BOTTOM edge travels up to
+// the top — for chrome that leaves toward the top of the screen.
+export const CLIP_OPEN_UP = 'inset(0 0 0% 0)';
+export const CLIP_CLOSED_UP = 'inset(0 0 100% 0)';
 
 export const WIPE_IN_S = 0.45;
 export const WIPE_OUT_S = 0.35;
@@ -36,13 +40,14 @@ export function wipeIn(el, tl = gsap.timeline(), duration = WIPE_IN_S) {
   return tl;
 }
 
-/** The inverse wipe out; autoAlpha drops once it lands. Returns the timeline. */
-export function wipeOut(el, duration = WIPE_OUT_S) {
+/** The inverse wipe out; autoAlpha drops once it lands. Returns the timeline.
+ *  `closed` picks the edge (CLIP_CLOSED_UP from a CLIP_OPEN_UP start). */
+export function wipeOut(el, duration = WIPE_OUT_S, closed = CLIP_CLOSED) {
   if (PREFERS_REDUCED_MOTION) {
     return gsap.timeline().to(el, { autoAlpha: 0, duration: 0.3, ease: 'power2.inOut', overwrite: true });
   }
   return gsap
     .timeline()
-    .to(el, { clipPath: CLIP_CLOSED, duration, ease: ensureOverlayWipe(), overwrite: true })
+    .to(el, { clipPath: closed, duration, ease: ensureOverlayWipe(), overwrite: true })
     .set(el, { autoAlpha: 0 });
 }

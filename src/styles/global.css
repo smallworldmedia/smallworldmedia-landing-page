@@ -3198,8 +3198,9 @@ html[data-footer-rest] .hero__fill {
    full lift off. It is position:fixed inset:0, so lifting it would open a bare
    strip at the viewport bottom; one panel height of bottom bleed covers every
    reachable lift (max lift = k × span × panelH ≤ panelH). Static per layout —
-   not a per-frame value. The real commit never sees it: onEnterClick drops the
-   reveal to the floor first, so the rise is 0 before the bloom starts. */
+   not a per-frame value. The real commit never blooms it: onEnterClick dives
+   the camera instead (the bloom is beginEnvelopment's, the bench dry-run), and
+   since 11-03 it GLIDES the reveal back to the floor rather than cutting it. */
 html[data-footer-rest] .hero__fill {
   bottom: calc(var(--footer-panel-h, 0px) * -1);
 }

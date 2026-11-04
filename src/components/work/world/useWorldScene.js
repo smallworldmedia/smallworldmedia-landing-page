@@ -58,10 +58,12 @@ import {
 } from './fpForme.js';
 import { createDrum, buildDrumSlot } from './fpDrum.js';
 import { settleDebounce } from '../../../lib/settleResize.js';
+import { DRAG_TRACK_S, RELEASE_GLIDE_S, RELEASE_EASE } from '../../../lib/motion.js';
 import {
   FPGRID,
   CAM_LOOK,
   ARC_DEG,
+  DRAG_FOLLOW,
   DRUM_TURN_MUL,
   DRUM_CREEP,
   CAMERA_FOV,
@@ -839,7 +841,9 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
           if (direction) drumAdv += (direction > 0 ? 1 : -1) * ARC_DEG;
           activeSlot.drumArcOffset = -drumAdv;
           if (drum) {
+            gsap.killTweensOf(drum.state);
             drum.state.adv = drumAdv;
+            drum.state.drag = 0;
             drum.applyRoll();
           }
         }
@@ -885,6 +889,13 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
         incoming.pivot.position.z = 0;
         setSlotOpacity(incoming, 1);
         setSlotOpacity(outgoing, 1);
+        // The drag-follow's lean folds into the start, so a commit
+        // continues from the leaned pose instead of jumping back first.
+        if (drum) {
+          gsap.killTweensOf(drum.state);
+          drum.state.adv += drum.state.drag;
+          drum.state.drag = 0;
+        }
         const startAdv = drum ? drum.state.adv : drumAdv; // absorbs idle creep
         apply = (e) => {
           if (drum) drum.state.adv = startAdv + (drumTarget - startAdv) * e;
@@ -972,7 +983,9 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     const target = { x: 0, y: 0 };
     const eased = { x: 0, y: 0 };
     const onPointer = (e) => {
-      if (PREFERS_REDUCED_MOTION) return;
+      // Desktop only (11-03, Nathan): on a phone the finger is the Turn
+      // gesture, and the drum follows it through the drag-follow instead.
+      if (PREFERS_REDUCED_MOTION || e.pointerType === 'touch') return;
       target.x = (e.clientX / window.innerWidth) * 2 - 1;
       target.y = (e.clientY / window.innerHeight) * 2 - 1;
     };
@@ -1155,6 +1168,20 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
       syncTicker();
     };
     window.addEventListener('swm:fp-freeze', onFreeze);
+    // Drag-follow (FeaturedProjects' swm:fp-drag, 11-03; wheel + touch): the drum leans
+    // DRAG_FOLLOW of a Turn's arc at full fill and springs home on release;
+    // a Turn owns the roll, so a late event mid-Turn is ignored.
+    const onDrag = (e) => {
+      if (!drum || turnTween) return;
+      const { value = 0, release = false } = e.detail || {};
+      gsap.to(drum.state, {
+        drag: value * DRAG_FOLLOW * ARC_DEG,
+        duration: release ? RELEASE_GLIDE_S : DRAG_TRACK_S,
+        ease: release ? RELEASE_EASE : 'power1.out',
+        overwrite: true,
+      });
+    };
+    window.addEventListener('swm:fp-drag', onDrag);
     const ro = new ResizeObserver(resize);
     ro.observe(container);
     syncTicker();
@@ -1171,6 +1198,8 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
       ro.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('swm:fp-freeze', onFreeze);
+      window.removeEventListener('swm:fp-drag', onDrag);
+      if (drum) gsap.killTweensOf(drum.state);
       window.removeEventListener('pointermove', onPointer);
       window.removeEventListener('swm:enter-world', onEnterWorld);
       enterTween?.kill();

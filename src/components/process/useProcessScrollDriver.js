@@ -8,8 +8,8 @@
  * canvas is CSS-fixed — zero pin-spacer/Lenis interactions). The original
  * no-snap call is superseded by Nathan's direction: interaction parity
  * with the /work Featured Projects pager and the home hero's
- * scroll-to-enter — the SAME accumulator idiom (fill px threshold, ×2
- * touch gain, 160ms rubber-band, one commitment per gesture) now
+ * scroll-to-enter — the SAME accumulator idiom (fill px threshold, the
+ * house touch gain and rubber-band release, one commitment per gesture) now
  * quantizes the document into one-section swipes. The document itself is
  * unchanged — a commit is a Lenis scrollTo glide on the house Turn curve,
  * so the boundary triggers, the copy entrances, and the scene machine all

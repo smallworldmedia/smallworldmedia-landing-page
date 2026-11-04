@@ -670,6 +670,29 @@ body:has(.fp) {
     opacity var(--scale-close-ms) var(--ease-draw);
 }
 
+/* 11-03 (Nathan: the pager's colour change "lands after the next project
+   settles"): through a Turn the 0.4s lanes above CHASED the 1.7s inherited
+   @property fade — restarted on every frame of it, they trailed it and
+   landed ~0.4s late. The nav pill's fix: the background takes NO transition
+   here, so it rides --project-color in lockstep with the bar and the scrim;
+   the ink swaps to the SNAPPING --nav-ink (the nav links' twin — the same
+   white / near-black endpoints as --project-color-fg, so the swap back after
+   the Turn is invisible) and fades it element-locally over the Turn window:
+   one transition instead of a chase, and paint-trap-proof. data-turning =
+   FeaturedProjects' Turn window (an exit card is staged). Charged and open
+   outrank this (more specific), so a hover or press mid-Turn keeps its lanes. */
+.fp[data-turning] .fp-scale__lens,
+.fp[data-turning] .fp-scale__den {
+  color: var(--nav-ink, var(--color-white));
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+}
+
+.fp[data-turning] .fp-scale__den {
+  transition:
+    color var(--ink-fade, var(--project-color-fade)) var(--ease-ink),
+    opacity var(--scale-close-ms) var(--ease-draw);
+}
+
 /* Charged = held intent (press past the graze, hover on desktop). Snappy
    in (0.16s); HELD for the whole gesture — the accent returns only after
    the commit, on the 0.4s base transition above. */
@@ -715,6 +738,23 @@ body:has(.fp) {
 .fp .fp-scale__pointer,
 .fp .fp-scale__num {
   z-index: 1;
+}
+
+/* 11-03: the number's white peak is this twin, faded on opacity by the rest
+   pulse (GraticulePager), so the loop never records the accent ink and a
+   Turn never has to rebuild it. It fills the lens and inherits its padding,
+   so its digits land exactly on the number's. */
+.fp .fp-scale__peak {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: inherit;
+  color: var(--color-white);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Round 4 (09-03, Nathan): while DEPLOYED the chip YIELDS — bg to
@@ -1500,6 +1540,10 @@ body:has(.fp) {
     transition-property: background, color;
   }
 
+  .fp[data-turning] .fp-scale__den {
+    transition-property: color;
+  }
+
   /* 09-02 movers: scrim, engaged z hold, station names, hint wipe, pop,
      freeze label. (The warp transform carries no transition to drop, and
      the skin never builds the rest pulse under RM.) */
@@ -1557,6 +1601,14 @@ body:has(.fp) {
    .fp-cta base. Placement per Nathan (08-31): the chips STAY CENTERED on
    this page (the base left:50% + centering translate), wearing the
    stepper SKIN (small sans row, lowercase) and the shared inward seat. */
+/* 11-03: the chips' white charge (FeaturedProjects ctaColor), registered so
+   it can transition on its own lane while the background takes none. */
+@property --cta-charge {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
 .fp-cta.fp-prev,
 .fp-cta.fp-next {
   /* vertical stack (08-31): the base .fp-cta column/center/0.1rem-gap IS
@@ -1567,6 +1619,28 @@ body:has(.fp) {
   letter-spacing: var(--tracking-tight);
   /* previous/next as equals — the "previous" box is the floor (global token) */
   min-width: var(--stepnav-min-w);
+  /* 11-03 (Nathan: the chips' colour "lags", the pager's 11-03 fix again):
+     no background lane. A lane on a background that rides the 1.7s
+     inherited --project-color fade CHASES it and lands late; the charge
+     transitions instead, and the background follows both every frame. */
+  transition:
+    transform var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    --cta-charge var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    color var(--cta-return, 0.18s) var(--cta-ease, ease-out);
+}
+
+/* Through a Turn the ink would chase the fading --project-color-fg the same
+   way: it swaps to the SNAPPING --nav-ink (same endpoints) and fades over the
+   nav links' own lane. The committing chip passes its pin/commit lane in
+   --cta-ink-fade / --cta-ink-ease, so a flick still pins black at once. */
+.fp[data-turning] .fp-cta.fp-prev,
+.fp[data-turning] .fp-cta.fp-next {
+  --cta-ink: var(--nav-ink, var(--color-white));
+  transition:
+    transform var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    --cta-charge var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    color var(--cta-ink-fade, var(--ink-fade, var(--project-color-fade)))
+      var(--cta-ink-ease, var(--ease-ink));
 }
 
 .fp-cta.fp-prev {

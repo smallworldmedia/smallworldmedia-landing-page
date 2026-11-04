@@ -170,12 +170,14 @@ export function createDrum(scene, shell) {
     parallax,
     roll,
     body,
-    state: { adv: 0 }, // degrees of advance; +adv = content up (forward)
+    // degrees of advance; +adv = content up (forward). `drag` is the
+    // drag-follow's lean on top (goToWorld folds it into the Turn's start).
+    state: { adv: 0, drag: 0 },
     applyRoll() {
       // +adv rolls content UP through the frame (forward grammar): a point at
       // local lon (VIEW_LON − adv) lands exactly at view center under
       // Rx(+adv) — verified against the Rz(π/2) body mapping.
-      roll.rotation.x = drum.state.adv * DEG2RAD;
+      roll.rotation.x = (drum.state.adv + drum.state.drag) * DEG2RAD;
     },
     dispose() {
       scene.remove(parallax);
