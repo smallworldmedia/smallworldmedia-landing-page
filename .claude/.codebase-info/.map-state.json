@@ -3,7 +3,7 @@
   "tool": "codebase-mapper",
   "version": "2.15.10",
   "mappedAt": "2026-11-04",
-  "gitCommit": "ccb6a5a86558dafd018c956de1bb9dda363e02fa",
+  "gitCommit": "e468dd4f4ca23e63f7b5f6c3a9334f994d5d4ce5",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",

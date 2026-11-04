@@ -190,14 +190,26 @@ once frame 0 has bound; `/work?debug` reads `__fpDrum[slug].sequences`, `chosenI
 `FeaturedProjectDetail.jsx` (orchestrator; the breadcrumb back covers in the project colour, then navigates; measures the grid and derives tile row spans from the
 column width through the 10px row pitch so every tile holds one shape at every width — `TILE_SHAPE`
 = 1, square 1:1, Nathan's 10-27 bake, `?tileshape` re-dials; `SQ_ROWS_FALLBACK` covers the server
-render; ≤1024/≤768 spans reach masonry.css as `--tile-sq/pt/ls-rows`) · `buildContentFlow.js`
+render; ≤1024/≤768 spans reach masonry.css as `--tile-sq/pt/ls-rows`, set on `<main
+class="project-detail__flow">` so every grid segment inherits them. Description bands (11-03): the
+description's paragraphs split on blank lines — the first is the intro blurb, each later one is its
+own `.project-blurb` band between stacked `.masonry-grid--detail` segments (`splitAtBreaks`), one
+every `BLURB_ROWS` 2 squares (Nathan's 11-03 approval; 3+ paragraphs keep that pitch, closed up only
+on a short grid), `?blurbrows` re-dials; with no tiles every paragraph
+stays in the intro. `BlurbCopy` renders a blurb's paragraphs and owns its own `useKeywordWipe`) ·
+`buildContentFlow.js`
 (assets → hero/showcase/decks/albumArt/banners buckets; `ORBIT_MIN` 4 = album covers needed for the
 album wall, fewer fold back into the grid; `isBannerGroup` routes any displayGroup ending
 `-banner(s)` to `banners`; a displayGroup ending `-sequence` collapses its stills into ONE showcase
 item at the first member's place, carrying `frames` (`makeSequence`; checked first, a group of one
 stays plain, a video member keeps its own tile)) · `flushGrid.js` (pure placement with socket regions; `sqRows` sets the
 square span — portrait 1 col × 2 squares, landscape 2 cols × 1 square, underlay bound half a
-square) · `GridSocket.jsx` (parallax on `gsap.ticker`;
+square. Anchors `top`/`mid`/`bottom`, plus `break`: `opts.breaks` zero-height full-width cuts that
+no tile may straddle, pinned one at a time by `pinBreaks` on a tile-end row. The row that leaves the
+fewest hole rows after both stretch passes wins (`holeRows`), then the one nearest the target, because
+the nearest row can re-pack a hole into the tail. `splitAtBreaks` turns the result into rendered
+segments `{tiles (rows rebased, .index = showcase index), sockets (domIndex segment-local),
+breaks}`. `computeFlushGrid` no longer sets `domIndex`) · `GridSocket.jsx` (parallax on `gsap.ticker`;
 hands `--socket-rows` to CSS) · `DeckScroller.jsx` (+ `BrandDeckViewer`, `AlbumArtViewer`,
 `BannerViewer` — one-column full-width wall sized to 1.5 banners, rows derived from the measured
 flow width through the grid row pitch; ≤1024 spans `--socket-rows`, masonry.css; the walls carry

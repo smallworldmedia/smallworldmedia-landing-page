@@ -541,7 +541,7 @@ The pill shows the long blurb while home is at rest and the short tagline everyw
 
 ## `/work/[slug]` — detail pages
 
-Readers: `detail/FeaturedProjectDetail.jsx` (`readTileShape()` in an effect), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
+Readers: `detail/FeaturedProjectDetail.jsx` (`readTileShape()` and `readBlurbRows()` in an effect), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
 
 ### Grid tile shape (10-27)
 
@@ -550,6 +550,14 @@ Row spans for the grid tiles come from the measured column width, so every tile 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
 | `?tileshape` | a square tile's width ÷ height; portraits and landscapes follow from it | `1` (Nathan's 10-27 bake: album art stays uncropped) | any number > 0 (`1.25` was the other option on the table) | `FeaturedProjectDetail.jsx TILE_SHAPE` |
+
+### Description bands (11-03)
+
+The description's first paragraph is the intro blurb; each later paragraph (a blank line in Studio) is its own band down the grid, styled like the intro. Each band cuts the grid at a full-width break row (`flushGrid.js pinBreaks`), so the grid above it ends flush and the next grid starts below the band. The cut lands on a row where a tile ends. It takes the row that leaves no hole in the grid, then the one nearest the target. On cheetah-print that is 3 squares down, not 2. When a grid is too short to hold every band, the leftover paragraphs share the last band. With no grid tiles, every paragraph stays in the intro.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?blurbrows` | squares of the 3-col grid between bands, counted from the top of the tile field; closed up to an even spread only when the grid is too short to fit every band at this pitch | `2` (Nathan 11-03: "the two paragraphs look great"; 3+ paragraphs go "every couple of rows", not spread through the whole grid, so the `0` = even-spread mode was removed) | any number > 0 | `FeaturedProjectDetail.jsx BLURB_ROWS` |
 
 ### Deck / album walls (DeckScroller)
 

@@ -23,6 +23,10 @@
  *              region starts at the grid's natural end (bottoms stack), no
  *              tile ever places below it, and the guarded stretch flushes
  *              the tile field down to its top edge.
+ *   `break`  — zero-height full-width cuts (11-03, the description's later
+ *              paragraphs): `opts.breaks` of them, pinned last of the
+ *              in-field regions (pinBreaks). splitAtBreaks cuts the grid
+ *              there so each text band sits between two grids.
  *
  * Flush pass, two stages:
  *   1. Guarded — every tile stretches down to the next occupied thing in
@@ -248,24 +252,115 @@ function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDE
 }
 
 /**
+ * Break rows (11-03, Nathan: a description's later paragraphs get their own
+ * text bands down the grid). A break is a region of NO rows: it still splits
+ * every column's free segments, so no tile may straddle it, and both stretch
+ * passes flush the tiles above it down to its row — a clean cut.
+ *
+ * Spacing: one break every `every` rows down from the top of the tile field,
+ * closed up to an even spread only when the field is too short to hold them
+ * all at that pitch (Nathan 11-03: 3+ paragraphs go "every couple of rows",
+ * not spread through the whole grid). Pinned one at a
+ * time against the placement the break before it left, each on a row where
+ * a tile ends, at or below that break. A cut re-packs every tile after it,
+ * so the nearest row can strand a hole the single grid never had (cheetah
+ * print, 11-03: one square left open at the grid's foot): the row that
+ * leaves the fewest hole rows wins, then the one nearest the target (ties →
+ * the earlier row). With no tile below the last break, the rest share its
+ * row — one band. No tiles at all → no breaks.
+ */
+function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, every) {
+  if (count <= 0 || placements.length === 0) return placements;
+
+  const start = Math.min(...placements.map((p) => p.rowStart));
+  const end = Math.max(...placements.map((p) => p.rowEnd));
+  const even = (end - start) / (count + 1);
+  const step = Math.min(every, even);
+  // A full-width socket band is never cut.
+  const inside = (b) => resolved.some((r) => r.rowStart < b && b < r.rowEnd);
+  const cut = (i, row) => ({
+    id: `break:${i}`,
+    colStart: 0,
+    colSpan: cols,
+    rowSpan: 0,
+    rowStart: row,
+    rowEnd: row,
+    anchor: 'break',
+  });
+
+  let floor = start;
+  for (let i = 0; i < count; i++) {
+    const target = start + (i + 1) * step;
+    let best = { row: floor, holes: Infinity, dist: Infinity };
+    for (const row of new Set(placements.map((p) => p.rowEnd))) {
+      if (row < floor || inside(row)) continue;
+      const holes = holeRows(showcase, cols, [...resolved, cut(i, row)], sizes, sqRows);
+      const dist = Math.abs(row - target);
+      if (
+        holes < best.holes ||
+        (holes === best.holes && (dist < best.dist || (dist === best.dist && row < best.row)))
+      ) {
+        best = { row, holes, dist };
+      }
+    }
+    resolved.push(cut(i, best.row));
+    placements = placeAll(showcase, cols, resolved, sizes);
+    floor = best.row;
+  }
+  return placements;
+}
+
+/** Rows no tile or region covers, summed over the columns, once both
+ *  stretch passes have run on a trial layout: the open holes a cut leaves. */
+function holeRows(showcase, cols, resolved, sizes, sqRows) {
+  const placements = placeAll(showcase, cols, resolved, sizes);
+  const end = Math.max(0, ...placements.map((p) => p.rowEnd), ...resolved.map((r) => r.rowEnd));
+  guardedStretch(placements, resolved, end);
+  forcedFill(placements, resolved, cols, end, sqRows / 2);
+
+  const spans = [
+    ...placements.map((p) => [p.col, p.colSpan, p.rowStart, p.rowEnd]),
+    ...resolved.map((r) => [r.colStart, r.colSpan, r.rowStart, r.rowEnd]),
+  ].sort((a, b) => a[2] - b[2]);
+  let holes = 0;
+  for (let c = 0; c < cols; c++) {
+    let cursor = 0;
+    for (const [c0, n, s, e] of spans) {
+      if (c < c0 || c >= c0 + n) continue;
+      if (s > cursor) holes += s - cursor;
+      cursor = Math.max(cursor, e);
+    }
+    holes += end - cursor;
+  }
+  return holes;
+}
+
+/**
  * Compute flush-grid placements, flowing around reserved socket regions.
  *
  * @param {Array<Object>} showcase - showcase assets (orderRank order)
  * @param {Object} [opts]
  * @param {number} [opts.cols=3]
- * @param {Array<{id: string, colStart: number, colSpan: number, rowSpan: number, anchor: 'top'|'mid'}>} [opts.regions=[]]
+ * @param {Array<{id: string, colStart: number, colSpan: number, rowSpan: number, anchor: 'top'|'mid'|'bottom'}>} [opts.regions=[]]
  *        Caller guarantees same-anchor regions don't overlap.
  * @param {number} [opts.sqRows=24] - a square tile's row span (tileSizes);
  *        the underlay bound scales with it (half a landscape).
+ * @param {number} [opts.breaks=0] - break rows to cut (pinBreaks), ids
+ *        `break:0`…; anchor `'break'`, zero rows.
+ * @param {number} [opts.breakEvery=2] - break pitch in SQUARES (× sqRows),
+ *        > 0.
  * @returns {{
  *   placements: Array<{col: number, colSpan: number, rowStart: number, rowEnd: number, type: string, underlay?: boolean}>,
- *   regions: Array<{id: string, colStart: number, colSpan: number, rowStart: number, rowEnd: number, anchor: string, domIndex: number}>,
+ *   regions: Array<{id: string, colStart: number, colSpan: number, rowStart: number, rowEnd: number, anchor: string}>,
  *   totalRows: number
- * }} `regions[].domIndex` = showcase index where the socket belongs in DOM
- *    order (single-column flow reads correctly); placements align 1:1 with
- *    the showcase array. `underlay` tiles must paint beneath intact tiles.
+ * }} placements align 1:1 with the showcase array. `underlay` tiles must
+ *    paint beneath intact tiles. splitAtBreaks turns this into rendered
+ *    segments.
  */
-export function computeFlushGrid(showcase, { cols = 3, regions = [], sqRows = 24 } = {}) {
+export function computeFlushGrid(
+  showcase,
+  { cols = 3, regions = [], sqRows = 24, breaks = 0, breakEvery = 2 } = {}
+) {
   const sizes = tileSizes(sqRows);
 
   // Clamp horizontal extent defensively; row geometry is the caller's contract.
@@ -315,6 +410,8 @@ export function computeFlushGrid(showcase, { cols = 3, regions = [], sqRows = 24
     placements = placeAll(showcase, cols, resolved, sizes);
   }
 
+  placements = pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, breaks, breakEvery * sqRows);
+
   // Bottom regions — pinned at the natural end AFTER placement (tiles can
   // never flow below them), stacking downward. Added to `resolved` before
   // the flush passes so the guarded stretch clamps at the first bottom
@@ -338,11 +435,48 @@ export function computeFlushGrid(showcase, { cols = 3, regions = [], sqRows = 24
   guardedStretch(placements, resolved, totalRows);
   forcedFill(placements, resolved, cols, totalRows, sqRows / 2);
 
-  // DOM slot: before the first tile that starts at/below the region.
-  for (const r of resolved) {
-    const idx = placements.findIndex((p) => p.rowStart >= r.rowStart);
-    r.domIndex = idx === -1 ? placements.length : idx;
-  }
-
   return { placements, regions: resolved, totalRows };
+}
+
+/**
+ * Cut a resolved grid at its break rows into stacked segments, one CSS grid
+ * each with rows rebased to its own top, so the band at a break sits between
+ * two grids in normal flow at its own height. Tiles never straddle a break,
+ * so each lands whole in one segment. Without breaks: one segment, the whole
+ * grid.
+ *
+ * @returns {Array<{
+ *   tiles: Array<{index: number, col: number, colSpan: number, rowStart: number, rowEnd: number, type: string, underlay?: boolean}>,
+ *   sockets: Array<Object>,
+ *   breaks: Array<string>
+ * }>} `tiles[].index` = the showcase index. `sockets[].domIndex` = the
+ *    segment tile index the socket renders before (single-column flow reads
+ *    in order). `breaks` = ids of the breaks closing the segment (its band).
+ */
+export function splitAtBreaks({ placements, regions }) {
+  const cuts = regions.filter((r) => r.anchor === 'break');
+  const edges = [0, ...new Set(cuts.map((r) => r.rowStart).sort((a, b) => a - b))];
+
+  return edges.map((lo, k) => {
+    const hi = edges[k + 1] ?? Infinity;
+    const within = (row) => row >= lo && row < hi;
+    const tiles = placements.flatMap((p, index) =>
+      within(p.rowStart)
+        ? [{ ...p, index, rowStart: p.rowStart - lo, rowEnd: p.rowEnd - lo }]
+        : []
+    );
+    const sockets = regions
+      .filter((r) => r.anchor !== 'break' && within(r.rowStart))
+      .map((r) => {
+        // DOM slot: before the first tile that starts at/below the region.
+        const slot = tiles.findIndex((t) => t.rowStart >= r.rowStart - lo);
+        return {
+          ...r,
+          rowStart: r.rowStart - lo,
+          rowEnd: r.rowEnd - lo,
+          domIndex: slot === -1 ? tiles.length : slot,
+        };
+      });
+    return { tiles, sockets, breaks: cuts.filter((r) => r.rowStart === hi).map((r) => r.id) };
+  });
 }
