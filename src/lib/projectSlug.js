@@ -35,3 +35,18 @@ export function toProjectSlug(clientSlug, collection) {
   if (collSlug.startsWith(prefix)) return collSlug;
   return `${clientSlug}-${collSlug}`;
 }
+
+/**
+ * The featured projects that get a /work/[slug] page, in the incoming
+ * (FEATURED_PROJECT_PATHS_QUERY, World) order, each with its route `slug`:
+ * a row needs a collection and a client, the slug is the project doc's or
+ * toProjectSlug's, and a repeated slug is dropped (two docs resolving to one
+ * URL). Whatever links a detail page reads it, so a link can't miss a route.
+ */
+export function featuredRoutes(rows) {
+  const seen = new Set();
+  return rows
+    .filter((h) => h.collection && h.clientSlug)
+    .map((h) => ({ ...h, slug: h.slug || toProjectSlug(h.clientSlug, h.collection) }))
+    .filter((h) => !seen.has(h.slug) && seen.add(h.slug));
+}
