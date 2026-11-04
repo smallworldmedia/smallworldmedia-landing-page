@@ -1,8 +1,38 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import SiteNav from './SiteNav';
 import useScrollThumb from './ui/useScrollThumb.js';
+import CheckIndicator from './ui/CheckIndicator.jsx';
+
+/* The Project Directory, and the event its page re-filters on
+   (DirectoryPage): a literal there too, since importing the page would
+   pull its modules onto every route. */
+const DIRECTORY_PATH = '/work/directory';
+const CLIENT_EVENT = 'swm:directory-client';
+
+const onDirectory = () => window.location.pathname.replace(/\/$/, '') === DIRECTORY_PATH;
+
+/** The client the directory is filtered to (its URL's ?client), else null. */
+const directoryClient = () =>
+    onDirectory() ? new URLSearchParams(window.location.search).get('client') : null;
+
+/** One roster name: a plain label, or a live link into the directory. */
+function ClientName({ client, active, onName }) {
+    if (!client.live) return <span className="clients__item">{client.name}</span>;
+    return (
+        <a
+            className="clients__item"
+            href={active ? DIRECTORY_PATH : `${DIRECTORY_PATH}?client=${encodeURIComponent(client.slug)}`}
+            aria-current={active || undefined}
+            aria-label={active ? `Clear client: ${client.name}` : undefined}
+            onClick={(e) => onName(e, active ? null : client.slug)}
+        >
+            <span className="clients__name">{client.name}</span>
+            {active && <CheckIndicator checked variant="square-eye" className="clients__eye" />}
+        </a>
+    );
+}
 
 /**
  * InfoPanel — slide-down overlay with SiteNav at its bottom edge.
@@ -21,10 +51,19 @@ import useScrollThumb from './ui/useScrollThumb.js';
  *
  * GSAP: On first open, description clip-reveals in,
  * then client items stagger in with slight y-offset.
+ *
+ * The roster's live names link to the Project Directory filtered by that
+ * client (?client=slug). On the directory the drawer marks the client it is
+ * filtered to (the accent, and the filter's eye after the name), whose link
+ * clears the filter, and a click re-filters in place through
+ * `swm:directory-client`; elsewhere ClientRouter takes the link. Either way
+ * the drawer closes. A modifier or middle click is left to the browser.
  */
 export default function InfoPanel({
     isOpen,
     onToggle,
+    /** Closes the drawer (SiteShell): a client name's click. */
+    onClose,
     onStartProject,
     /** `{ footerBlurb, tagline }` — passed straight through to SiteNav, which
         renders the tagline in the mobile menu's foot (10-08). */
@@ -82,6 +121,34 @@ export default function InfoPanel({
     const clientsRef = useRef(null);
     const { trackRef, thumbRef } = useScrollThumb(clientsRef, isOpen);
 
+    // The client the directory is filtered to, marked in the roster: read
+    // off the URL as the drawer opens, and again on a soft nav while it is
+    // open (the nav links leave it open), since the page keeps its filter
+    // there.
+    const [activeClient, setActiveClient] = useState(null);
+    useEffect(() => {
+        if (!isOpen) return;
+        const read = () => setActiveClient(directoryClient());
+        read();
+        document.addEventListener('astro:after-swap', read);
+        return () => document.removeEventListener('astro:after-swap', read);
+    }, [isOpen]);
+
+    // A live name's click (slug null: the marked name, clearing). A modifier
+    // or middle click opens a tab, so it stays the browser's. Otherwise the
+    // drawer closes; on the directory the page re-filters in place, and
+    // elsewhere ClientRouter takes the link.
+    const onName = useCallback(
+        (e, slug) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            onClose?.();
+            if (!onDirectory()) return;
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent(CLIENT_EVENT, { detail: { slug } }));
+        },
+        [onClose]
+    );
+
     return (
         <div className="info-wrapper" data-open={isOpen}>
             {/* Content area — sits above the nav bar, clipped when closed.
@@ -113,7 +180,12 @@ export default function InfoPanel({
                                 return (
                                     <div className="clients__col" key={`col-${colIndex}`}>
                                         {colClients.map((c) => (
-                                            <span className="clients__item" key={c.slug}>{c.name}</span>
+                                            <ClientName
+                                                key={c.slug}
+                                                client={c}
+                                                active={c.slug === activeClient}
+                                                onName={onName}
+                                            />
                                         ))}
                                     </div>
                                 );

@@ -99,6 +99,11 @@ export default function SiteShell({ siteCopy, roster }) {
     setIsInfoOpen((prev) => !prev);
   }, []);
 
+  // A client name in the drawer closes it as it filters the directory.
+  const handleClose = useCallback(() => {
+    setIsInfoOpen(false);
+  }, []);
+
   const handleOpenOverlay = useCallback(() => {
     setIsOverlayOpen(true);
   }, []);
@@ -234,6 +239,7 @@ export default function SiteShell({ siteCopy, roster }) {
       <InfoPanel
         isOpen={isInfoOpen}
         onToggle={handleToggle}
+        onClose={handleClose}
         onStartProject={handleOpenOverlay}
         siteCopy={siteCopy}
         roster={roster}
