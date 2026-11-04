@@ -12,7 +12,9 @@
  * it, or at a shorter asset's own end; wrapAtDetailCap loops at the cap,
  * and `loop` at a shorter clip's end. HLS attaches lazily when the slot
  * enters the viewport; playback pauses off-screen. Images load from the
- * Sanity CDN. Both fade in via the shared load-gate pattern.
+ * Sanity CDN. Both fade in via the shared load-gate pattern. An image that
+ * finished before hydration is flagged as its element attaches, since its
+ * onLoad never fires.
  *
  * Accessibility: the figure is named by the title; the media itself by
  * `alt` (title fallback for images); `description` rides along as a
@@ -28,9 +30,8 @@
  * <video> (GatedVideo) only while the gate grants it play; a sequence cuts
  * only while the tile is in view. `clip` (PREVIEW_SECONDS there) bounds the
  * stream and the loop, `sizes` adds srcsets, and `fit` is written as
- * data-fit (contain letterboxes on near-black). An image that finished
- * before hydration is flagged on mount, since its onLoad never fires. The
- * detail page passes none of these props and renders as before.
+ * data-fit (contain letterboxes on near-black). The detail page passes none
+ * of these props and renders as before.
  *
  * @param {Object} props
  * @param {Object}  props.asset - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY, or a directory tile
@@ -165,12 +166,12 @@ export default function MediaSlot({
   const ratio = ratioOf(asset);
   const isPortrait = ratio < PORTRAIT_THRESHOLD;
 
-  // Directory mode: an SSR'd image that loaded before hydration never fires
-  // onLoad — flag it as its element attaches.
+  // An SSR'd image that loaded before hydration never fires onLoad: Astro
+  // hydrates in a transition, and React attaches the handler only at its
+  // commit. Flag it as its element attaches.
   const flagIfLoaded = useCallback((img) => {
     if (img?.complete && img.naturalWidth > 0) setIsLoaded(true);
   }, []);
-  const loadedRef = gate ? flagIfLoaded : undefined;
 
   useEffect(() => {
     const el = slotRef.current;
@@ -217,7 +218,7 @@ export default function MediaSlot({
           {frames.map((f, k) => (
             <img
               key={f._id}
-              ref={k === 0 ? loadedRef : undefined}
+              ref={k === 0 ? flagIfLoaded : undefined}
               className="media-slot__frame"
               data-fit={f.imageHasAlpha ? 'contain' : undefined}
               data-on={k === frame || undefined}
@@ -234,7 +235,7 @@ export default function MediaSlot({
       ) : isVideo && gate ? (
         <>
           <img
-            ref={loadedRef}
+            ref={flagIfLoaded}
             className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}
             src={posterUrl}
             srcSet={sizes ? muxPosterSrcSet(asset.playbackId) : undefined}
@@ -261,7 +262,7 @@ export default function MediaSlot({
         />
       ) : asset.imageUrl ? (
         <img
-          ref={loadedRef}
+          ref={flagIfLoaded}
           className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}
           src={`${asset.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
           srcSet={sizes ? sanitySrcSet(asset.imageUrl, asset.imageDimensions?.width) : undefined}
