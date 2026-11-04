@@ -1,6 +1,6 @@
 # Project Directory: rebuilt from the detail page's grid
 
-*Built on 2026-11-03 on branch `feature/project-directory` (worktree `../swm-project-directory`, off `feature/v1-launch` at `ccb6a5a`), while `feature/v1-launch` carried on in the main checkout. The plan was approved on 11-03, and its approved text is kept below. Status: all 13 commits have landed on the branch. Nothing is folded into `feature/v1-launch` or pushed yet; both wait on Nathan's word. The open calls come first.*
+*Built on 2026-11-03 on branch `feature/project-directory` (worktree `../swm-project-directory`, off `feature/v1-launch` at `ccb6a5a`), while `feature/v1-launch` carried on in the main checkout. The plan was approved on 11-03, and its approved text is kept below. Status: all 13 commits have landed on the branch, and the four small fixes of 11-04 after them. Nothing is folded into `feature/v1-launch` or pushed yet; both wait on Nathan's word. The open calls come first.*
 
 ## Open calls (Nathan)
 
@@ -31,7 +31,12 @@
    - It has 20 rows a column, up from 14.
    - The first-open cascade grows from 0.8 to 1.16 s.
    - Long names wrap to two lines: Mungo Sound Machine at 1440, and four names at 390.
-8. **The fold, a draft deploy, and the push.** The draft deploy should answer 200 at `/work/directory` and list it in the sitemap.
+8. **The fold, a draft deploy, and the push.**
+   - First, `feature/v1-launch` takes `fix/nav-and-image-race` on its own: `git merge --no-ff fix/nav-and-image-race` in the main checkout. The branch is off `ccb6a5a`, merges cleanly onto `e468dd4`, and touches none of the main checkout's uncommitted files.
+   - Once the description bands are committed, merge `feature/v1-launch` into this branch in the worktree, and resolve and verify the conflicts there: `FeaturedProjectDetail.jsx`, `flushGrid.js`, the map, the launch plan and the tunables guide.
+   - Then fold this branch onto the launch tip in the main checkout with `git merge --no-ff feature/project-directory`, the house merge commit.
+   - The draft deploy should answer 200 at `/work/directory` and list it in the sitemap.
+9. **A dimmed tag's focus ring.** A tag the active client would empty is dimmed to 0.35 as a whole button, so its focus ring dims with it: under `?client=dj-tennis` it reads 89,89,89 on black where an undimmed tag's reads 255,255,255. Keep it, or dim only the label and the box so that the ring stays full.
 
 ## What landed
 
@@ -51,7 +56,12 @@
 | 11 | `251e7b3` | The route goes on, with the nav's `project_directory` link. |
 | — | `79c3e03` | That link's mark is a folder (Nathan, 11-03). |
 | 12 | `5c66f49` | The drawer's names filter the directory. |
-| 13 | this commit | This doc, the glossary, the tunables guide and the codebase map. |
+| 13 | `759187c` | This doc, the glossary, the tunables guide and the codebase map. |
+| — | `ee8431d` | Merges `fix/nav-and-image-race`, which is off `ccb6a5a` so that `feature/v1-launch` can take it alone: the nav fix again, as `895b992`, and `4499fc3`, an image that loads before hydration shows, now in every mode (11-04). |
+| — | `d9914e5` | MediaSlot's plain `<video>` wraps at its clip, not the detail cap. |
+| — | `6943ec8` | A tile that Tab reaches lands below the stuck filter (`scroll-margin-top`, `--dir-filter-h`). |
+| — | `4251093` | `globe-probe --directory` gates the keyboard (`tabReach`, `ringShows`), with `--keyctl=escape\|ring` as the controls. |
+| — | this commit | This doc and the codebase map. |
 
 Each commit message carries its own checks.
 

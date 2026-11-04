@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-04*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -164,7 +164,7 @@ a `sequence frame (ms)` row dials `?seqms`, the site-wide sequence rate, live ov
 | `CtaArrows.jsx`, `textExit.js` | Caret strips; text-out choreography (`TEXT_TUNABLES`) |
 | `pager/usePagerGesture.js` | Shared gesture engine: press-hold engage, scrub + detent magnet, wrap, end resistance, stall commit; only `requestGoTo` fires a Turn; `follow(i, instant)` steps without the glide |
 | `pager/GraticulePager.jsx` | The `scale` skin (SSR'd default). Tape/tuner arms removed; survive as tuning presets. On a `snapRef` arrival it jumps to the station and skips the announcement |
-| `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `hlsVideoOnly.js`, `hlsPrimed.js`, `ServiceTag.jsx` | Shared math/recipes/hooks. `scrimNoise.js` owns the house grain recipe, the FP pager scrim's (the globe's panel grain read it too until its removal on 10-31); `noiseDataUri()` (bare `data:` URI) is split out of `noiseUri()` (CSS `url()` wrapper). **`imageConfig.js` owns the video windows** (the video diet, P0 `cb7b8e8`, Nathan 10-09): `PREVIEW_SECONDS` 5 (the globe pool, /lab, the World's Near tier, the Project Directory's tiles), `DETAIL_MAX_SECONDS` 15 (MediaSlot's default `clip`, NextProjectBand, with `wrapAtDetailCap`; `wrapAt(s)` builds either wrap), and `muxStream(playbackId, end, params)`, the one builder of a clipped Mux master URL (`asset_end_time` last, once); every autoplay surface asks through it. The directory's defaults live here too (11-03): `DIRECTORY_PLAYERS` `{desktop: 6, phone: 3}` (under the globe pool's 7 and 4), `DIRECTORY_DWELL_MS` 300, and `SRCSET_WIDTHS` with `sanitySrcSet` / `muxPosterSrcSet`. **`hlsVideoOnly.js`** (P0v `f951497`) is the pure master-playlist rewrite that strips the audio group from a muted surface's master; `useHls`'s `videoOnly` option installs it as the `pLoader` (`videoOnlyLoader`, cached per Hls base class), and every muted surface sets it (the Lightbox, the one surface that played with sound, retired with the old directory on 11-03). **`hlsPrimed.js`** (10-27, the home globe's fast handoff) keeps playlist text fetched ahead, by URL (10 min TTL, 256 entries); `useHls`'s `primed` option layers `primedLoader` over `videoOnlyLoader` to answer hls.js from it, and `preloadHls()` loads the hls.js chunk early |
+| `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `hlsVideoOnly.js`, `hlsPrimed.js`, `ServiceTag.jsx` | Shared math/recipes/hooks. `scrimNoise.js` owns the house grain recipe, the FP pager scrim's (the globe's panel grain read it too until its removal on 10-31); `noiseDataUri()` (bare `data:` URI) is split out of `noiseUri()` (CSS `url()` wrapper). **`imageConfig.js` owns the video windows** (the video diet, P0 `cb7b8e8`, Nathan 10-09): `PREVIEW_SECONDS` 5 (the globe pool, /lab, the World's Near tier, the Project Directory's tiles), `DETAIL_MAX_SECONDS` 15 (MediaSlot's default `clip`, its players wrapping at `wrapAt(clip)`; NextProjectBand, with `wrapAtDetailCap`; `wrapAt(s)` builds either wrap), and `muxStream(playbackId, end, params)`, the one builder of a clipped Mux master URL (`asset_end_time` last, once); every autoplay surface asks through it. The directory's defaults live here too (11-03): `DIRECTORY_PLAYERS` `{desktop: 6, phone: 3}` (under the globe pool's 7 and 4), `DIRECTORY_DWELL_MS` 300, and `SRCSET_WIDTHS` with `sanitySrcSet` / `muxPosterSrcSet`. **`hlsVideoOnly.js`** (P0v `f951497`) is the pure master-playlist rewrite that strips the audio group from a muted surface's master; `useHls`'s `videoOnly` option installs it as the `pLoader` (`videoOnlyLoader`, cached per Hls base class), and every muted surface sets it (the Lightbox, the one surface that played with sound, retired with the old directory on 11-03). **`hlsPrimed.js`** (10-27, the home globe's fast handoff) keeps playlist text fetched ahead, by URL (10 min TTL, 256 entries); `useHls`'s `primed` option layers `primedLoader` over `videoOnlyLoader` to answer hls.js from it, and `preloadHls()` loads the hls.js chunk early |
 | `*TunePanel.jsx`, `fp1Tune.js`, `FeaturedDeckDebugPanel.jsx` | `?entertune`, `?texttune`, `?scrimtune`, `?fp1tune` benches |
 
 ### `work/world/`
@@ -208,7 +208,9 @@ no name or count labels since 10-27, only BrandDeckViewer's deck tabs on multi-d
 sr-only figcaption; a sequence,
 `asset.frames`, stacks its frames and hard-cuts on the shared clock while near the viewport,
 `useSequenceFrame`, one timer per slot landing on the same wall-clock beat; each frame is named by its
-own `alt`, an opaque one cover-fit, a transparent one contained on near-black; directory mode (11-03),
+own `alt`, an opaque one cover-fit, a transparent one contained on near-black; an image that loaded
+before hydration is flagged as its element attaches, since its onLoad never fires (every mode since
+`4499fc3`); every `<video>` wraps at `wrapAt(clip)`; directory mode (11-03),
 through props the detail page never passes: `clip` (`PREVIEW_SECONDS`), `sizes` (a srcset on images,
 frames and posters), `gate` (a poster always, the `<video>` only while the player gate grants play,
 emptied before it unmounts) and `fit` (`data-fit="contain"` letterboxes banners and alpha logos);
@@ -230,7 +232,8 @@ project, the rest are media only) · `DirectoryFilter.jsx` (sticky under the nav
 with media as a FilterTag over a bar of `services (n)`, the client chip, the live count, `clear` and
 `all_services`; shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
 `inert`; it opens on the drawer's recipe, pushing the grid down, and past `100dvh − nav − bar` the
-tags scroll inside with the drawer's thumb) · `FilterTag.jsx` (a `role="checkbox"` button:
+tags scroll inside with the drawer's thumb; its settled height, `--dir-filter-h` on `.dir-page`, sets
+the tiles' `scroll-margin-top`, so a tile Tab reaches lands below the stuck filter) · `FilterTag.jsx` (a `role="checkbox"` button:
 `CheckIndicator`'s `square-eye`, the name as stored, the drawer's name type; dim and
 `aria-disabled` when the client would empty it) · `playerGate.js` (`createPlayerGate({cap,
 dwellMs})`: one IntersectionObserver for every watched tile and at most `cap` play grants;

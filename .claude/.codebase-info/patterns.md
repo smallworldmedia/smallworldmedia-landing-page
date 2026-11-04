@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-04*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -16,6 +16,10 @@
   persistent islands are rAF-deferred so their tweens are not adopted and reverted at unmount.
 - `client:only` islands: element refs captured in mount effects go stale under dev hydration churn;
   query the DOM lazily at animation-fire time.
+- An SSR'd image in a `client:load` island that finishes before hydration never fires React's
+  `onLoad`: Astro hydrates inside a transition, and React attaches the handler only at its commit. A
+  load-gated image flags itself in a ref callback (`img.complete && img.naturalWidth > 0`), as
+  `MediaSlot`'s `flagIfLoaded` does (`4499fc3`).
 - Timeline traps (each fixed in `process/useProcessScene.js`, commented at the site):
   `killTweensOf(target)` inside a timeline's own `.call()` kills that timeline's later tweens of the
   target, so kill at build time; a live tween on `tl.timeScale` re-attaches a killed timeline, so
@@ -394,6 +398,11 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   the same pass re-derive any bound that was a forecast of the old default: `texBudget` was popcap
   13's until then, and his 10-24 tile budget had put every units run over it. A one-off failure gets one rerun
   on a quiet machine, both runs kept; never lower a floor or weaken a gate.
+- The directory's keyboard gates (`globe-probe --directory`, desktop) read the screen, not computed
+  style. `ringShows` samples each focus ring's pixels, because a positioned child can paint over an
+  inset outline that the computed style still reports (the tiles' ring is drawn on `::after` for that
+  reason). `tabReach` records every focus in the page while Tab walks all the links flat out.
+  `--keyctl=escape|ring` are their negative controls.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 

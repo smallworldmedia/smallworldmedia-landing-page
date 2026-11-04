@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-04*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -51,6 +51,7 @@ the drawer would pull the directory's modules onto every route.
 | `.process-page[data-opening]`, `[data-bg]` | `ProcessPage` (SSR), then `useProcessScene` (`setOpening`, `setBgAttr`) | /process field (w9c): `data-opening` (`black`\|`blue`) keys `process.css` `--ps-field-open`/`--ps-field-solid` and, via `:has()`, the html/body base; `data-bg` names the live field colour, which skins the steppers' keyline and the privacy pill's keyline on black |
 | `sessionStorage swm:hero-intro`, `swm:returnToWork`, `swm:enterWorld` | `Hero`, layout script | intro mode; back-nav to /work; the Enter World handoff (below) |
 | `sessionStorage swm:directory-place`, `.dir-page[data-pending]` | `work/directory/DirectoryPage.jsx` | the directory's own scroll place per history entry, re-seated once the grid is real (Astro restores scroll before the island hydrates, against the server's three-column layout, which clamps a phone's one-column place); until then `data-pending` holds the grid and the count at `visibility: hidden`, so no unfiltered frame shows |
+| `.dir-page` `--dir-filter-h` | `work/directory/DirectoryFilter.jsx` (one writer: a ResizeObserver on the filter) | the filter's settled height, written once a resize has held 120 ms, never per animation frame (a write re-styles every tile); `.dir-tile`'s `scroll-margin-top` adds it to `--dir-dock`, so a tile Tab reaches lands below the stuck filter (`6943ec8`) |
 
 ClientRouter wipes every `<html>` attribute on swap; persistent islands re-assert theirs on
 `astro:after-swap`.
