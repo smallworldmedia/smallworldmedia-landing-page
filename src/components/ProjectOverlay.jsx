@@ -5,6 +5,7 @@ import { CustomEase } from 'gsap/CustomEase';
 import { SERVICE_TAGS } from '../lib/constants';
 import { PREFERS_REDUCED_MOTION } from './work/world/worldConfig.js';
 import { wipeIn, wipeOut } from '../lib/overlayWipe.js';
+import CheckIndicator from './ui/CheckIndicator.jsx';
 import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
 
 gsap.registerPlugin(useGSAP, CustomEase);
@@ -18,80 +19,6 @@ const FORM_FIELDS = [
     { name: 'name', label: 'Name', type: 'text', required: true },
     { name: 'email', label: 'Email', type: 'email', required: true },
 ];
-
-/* ── SVG check indicator ─────────────────────────────────────────────
- * Open circle → animated checkmark fill.
- * Uses stroke-dashoffset animation via GSAP (DrawSVG-style without plugin).
- */
-const CheckIndicator = ({ checked }) => {
-    const checkRef = useRef(null);
-    const circleRef = useRef(null);
-
-    useGSAP(() => {
-        const check = checkRef.current;
-        const circle = circleRef.current;
-        if (!check || !circle) return;
-
-        if (checked) {
-            // Circle shrinks opacity slightly, check draws in
-            gsap.to(circle, {
-                stroke: 'rgba(250,250,250,1)',
-                duration: 0.2,
-                ease: 'power3.out',
-            });
-            gsap.fromTo(check,
-                { strokeDashoffset: 14 },
-                {
-                    strokeDashoffset: 0,
-                    duration: 0.35,
-                    ease: 'power3.out',
-                }
-            );
-        } else {
-            gsap.to(circle, {
-                stroke: 'rgba(250,250,250,0.35)',
-                duration: 0.2,
-                ease: 'power2.inOut',
-            });
-            gsap.to(check, {
-                strokeDashoffset: 14,
-                duration: 0.2,
-                ease: 'power2.inOut',
-            });
-        }
-    }, { dependencies: [checked] });
-
-    return (
-        <svg
-            className="project-overlay__check"
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden="true"
-        >
-            <circle
-                ref={circleRef}
-                cx="8"
-                cy="8"
-                r="7"
-                stroke="rgba(250,250,250,0.35)"
-                strokeWidth="1.25"
-                fill="none"
-            />
-            <path
-                ref={checkRef}
-                d="M4.5 8.2L7 10.5L11.5 5.5"
-                stroke="var(--color-cream)"
-                strokeWidth="1.25"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray="14"
-                strokeDashoffset="14"
-            />
-        </svg>
-    );
-};
 
 /**
  * ProjectOverlay — Full-screen blue contact form.
@@ -407,7 +334,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
                                 className={`project-overlay__field${fieldValues[field.name]?.trim() ? ' project-overlay__field--filled' : ''}${nextClass(field.name)}`}
                                 key={field.name}
                             >
-                                <CheckIndicator checked={fieldValues[field.name]?.trim() !== ''} />
+                                <CheckIndicator checked={fieldValues[field.name]?.trim() !== ''} className="project-overlay__check" />
                                 <div className="project-overlay__field-content">
                                     <label
                                         className="project-overlay__label"
@@ -433,7 +360,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
 
                         {/* Project type — multi-select tag pills */}
                         <div className={`project-overlay__field${selectedTags.length > 0 ? ' project-overlay__field--filled' : ''}${nextClass('project')}`}>
-                            <CheckIndicator checked={selectedTags.length > 0} />
+                            <CheckIndicator checked={selectedTags.length > 0} className="project-overlay__check" />
                             <div className="project-overlay__field-content">
                                 <span className={`project-overlay__label${selectedTags.length > 0 ? ' project-overlay__label--active' : ''}`}>
                                     Project Type
@@ -466,7 +393,7 @@ export default function ProjectOverlay({ isOpen, onClose }) {
 
                         {/* Message textarea */}
                         <div className={`project-overlay__field${fieldValues.message?.trim() ? ' project-overlay__field--filled' : ''}${nextClass('message')}`}>
-                            <CheckIndicator checked={fieldValues.message?.trim() !== ''} />
+                            <CheckIndicator checked={fieldValues.message?.trim() !== ''} className="project-overlay__check" />
                             <div className="project-overlay__field-content">
                                 <label
                                     className="project-overlay__label"

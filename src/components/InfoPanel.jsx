@@ -1,8 +1,9 @@
-import { useRef, useCallback } from 'react';
+import { useRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import SiteNav from './SiteNav';
 import { CLIENTS } from '../lib/constants';
+import useScrollThumb from './ui/useScrollThumb.js';
 
 /**
  * InfoPanel — slide-down overlay with SiteNav at its bottom edge.
@@ -75,94 +76,9 @@ export default function InfoPanel({
         );
     }, { scope: panelRef, dependencies: [isOpen] });
 
-    // Custom GSAP-animated scrollbar for mobile
-    const thumbRef = useRef(null);
-    const trackRef = useRef(null);
-
-    const syncThumbPosition = useCallback(() => {
-        const clientsEl = panelRef.current?.querySelector('.clients');
-        const thumb = thumbRef.current;
-        const track = trackRef.current;
-        if (!clientsEl || !thumb || !track) return;
-
-        const { scrollTop, scrollHeight, clientHeight } = clientsEl;
-        if (scrollHeight <= clientHeight) return; // no overflow
-
-        const trackHeight = track.clientHeight;
-        // Thumb size = proportion of visible area
-        const thumbHeight = Math.max((clientHeight / scrollHeight) * trackHeight, 20);
-        // Thumb position
-        const scrollRatio = scrollTop / (scrollHeight - clientHeight);
-        const thumbY = scrollRatio * (trackHeight - thumbHeight);
-
-        gsap.set(thumb, {
-            height: thumbHeight,
-            y: thumbY,
-        });
-    }, []);
-
-    useGSAP(() => {
-        const panel = panelRef.current;
-        if (!panel) return;
-
-        const clientsEl = panel.querySelector('.clients');
-        const thumb = thumbRef.current;
-        if (!clientsEl || !thumb) return;
-
-        let rafId = null;
-
-        const handleScroll = () => {
-            if (rafId) cancelAnimationFrame(rafId);
-            rafId = requestAnimationFrame(syncThumbPosition);
-        };
-
-        // Start hidden — entrance animation reveals it
-        gsap.set(thumb, { scaleY: 0, transformOrigin: 'center top' });
-        syncThumbPosition();
-
-        // Only attach on mobile
-        const mql = window.matchMedia('(max-width: 768px)');
-        const attach = () => {
-            if (mql.matches) {
-                clientsEl.addEventListener('scroll', handleScroll, { passive: true });
-                syncThumbPosition();
-            } else {
-                clientsEl.removeEventListener('scroll', handleScroll);
-            }
-        };
-
-        attach();
-        mql.addEventListener('change', attach);
-
-        return () => {
-            if (rafId) cancelAnimationFrame(rafId);
-            clientsEl.removeEventListener('scroll', handleScroll);
-            mql.removeEventListener('change', attach);
-        };
-    }, { scope: panelRef, dependencies: [syncThumbPosition] });
-
-    // Scrollbar entrance/exit — scaleY from top center
-    useGSAP(() => {
-        const thumb = thumbRef.current;
-        if (!thumb) return;
-
-        if (isOpen) {
-            // In: scaleY 0 → 1 (0.3s, after client stagger)
-            gsap.to(thumb, {
-                scaleY: 1,
-                duration: 0.3,
-                ease: 'power3.out',
-                delay: 0.6,
-            });
-        } else {
-            // Out: scaleY 1 → 0 (~65% of entrance = 0.2s, snappy)
-            gsap.to(thumb, {
-                scaleY: 0,
-                duration: 0.2,
-                ease: 'power3.inOut',
-            });
-        }
-    }, { dependencies: [isOpen] });
+    // Custom GSAP-animated scrollbar for mobile (src/components/ui/useScrollThumb.js)
+    const clientsRef = useRef(null);
+    const { trackRef, thumbRef } = useScrollThumb(clientsRef, isOpen);
 
     return (
         <div className="info-wrapper" data-open={isOpen}>
@@ -184,7 +100,7 @@ export default function InfoPanel({
                     </div>
 
                     {/* Right column: client list */}
-                    <div className="clients">
+                    <div className="clients" ref={clientsRef}>
                         <span className="clients__header">clients</span>
                         <div className="clients__grid">
                             {Array.from({ length: 3 }).map((_, colIndex) => {
