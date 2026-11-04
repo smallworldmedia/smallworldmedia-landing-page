@@ -72,3 +72,21 @@
 .media-slot__frame[data-on] {
   opacity: 1;
 }
+
+/* Directory mode (MediaSlot `gate`, 11-03): the player mounts over its
+   poster and fades in once it can play; a contain face letterboxes on
+   near-black (fitOf, buildDirectoryTiles.js). After the portrait rule,
+   which has the same specificity. */
+.media-slot__player {
+  position: absolute;
+  inset: 0;
+}
+
+.media-slot[data-fit='contain'] {
+  background: var(--color-near-black);
+}
+
+.media-slot[data-fit='contain'] .media-slot__media,
+.media-slot[data-fit='contain'] .media-slot__frame {
+  object-fit: contain;
+}

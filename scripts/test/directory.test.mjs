@@ -1,5 +1,5 @@
 // The Project Directory's data: tiles (grouping, links, order, fit), the
-// filter, Client Coverage and the Client Roster.
+// filter, Client Coverage and the Client Roster; and the player gate.
 //   node --test scripts/test/directory.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -11,6 +11,7 @@ import {
   fitOf,
 } from '../../src/components/work/directory/buildDirectoryTiles.js'
 import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
+import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
 
 const img = (w, h, extra = {}) => ({
   imageUrl: `https://cdn.example.invalid/${w}x${h}.jpg`,
@@ -170,4 +171,109 @@ test('roster: every client by name, live when its coverage holds a tile', () => 
   assert.deepEqual(roster.map((r) => r.name), ['Annabel Englund', 'Bellaire', 'COCO', 'DJ Tennis', 'easier said', 'Munchietown'])
   const live = Object.fromEntries(roster.map((r) => [r.slug, r.live]))
   assert.deepEqual(live, { 'annabel-englund': true, bellaire: true, coco: true, 'dj-tennis': true, 'easier-said': false, munchietown: true })
+})
+
+// ── playerGate (directory/playerGate.js): who may play ──
+
+class FakeObserver {
+  constructor(cb, opts) {
+    this.cb = cb
+    this.opts = opts
+    this.els = new Set()
+    FakeObserver.last = this
+  }
+  observe(el) { this.els.add(el) }
+  unobserve(el) { this.els.delete(el) }
+  disconnect() { this.els.clear() }
+  /** `share` of a `tileH` tile in a `viewH` viewport */
+  show(el, share, { tileH = 400, viewH = 900 } = {}) {
+    this.cb([{ target: el, isIntersecting: share > 0, intersectionRatio: share, intersectionRect: { height: share * tileH }, rootBounds: { height: viewH } }])
+  }
+}
+
+function harness(t, cap) {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const gate = createPlayerGate({ cap, dwellMs: 300, Observer: FakeObserver })
+  const io = FakeObserver.last
+  const tile = (video = true) => {
+    const el = {}
+    const state = { near: false, play: false, changes: 0 }
+    const unwatch = gate.watch(el, { video }, (s) => Object.assign(state, s, { changes: state.changes + 1 }))
+    return { el, state, unwatch }
+  }
+  return { gate, io, tile }
+}
+
+test('playerGate: a video plays after the dwell; a fling past it never does', (t) => {
+  const { io, tile } = harness(t, 6)
+  const a = tile()
+  const b = tile()
+  assert.deepEqual(FakeObserver.last.opts.threshold, [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5])
+  io.show(a.el, 0.6)
+  t.mock.timers.tick(299)
+  assert.deepEqual([a.state.near, a.state.play], [true, false], 'near at once, no play before the dwell')
+  t.mock.timers.tick(1)
+  assert.equal(a.state.play, true, 'plays at the dwell')
+  io.show(b.el, 0.6)
+  t.mock.timers.tick(150)
+  io.show(b.el, 0)
+  t.mock.timers.tick(1000)
+  assert.equal(b.state.play, false, 'a fling past never plays')
+  io.show(a.el, 0.3)
+  assert.deepEqual([a.state.near, a.state.play], [true, false], 'under half: the grant goes back, the tile stays near')
+})
+
+test('playerGate: the cap, and a released grant goes to the longest-waiting tile', (t) => {
+  const { gate, io, tile } = harness(t, 2)
+  const [a, b, c, d] = [tile(), tile(), tile(), tile()]
+  for (const x of [a, b, c, d]) io.show(x.el, 1)
+  t.mock.timers.tick(300)
+  assert.deepEqual([a, b, c, d].map((x) => x.state.play), [true, true, false, false])
+  assert.equal(gate.held, 2)
+  io.show(a.el, 0)
+  assert.deepEqual([a, b, c, d].map((x) => x.state.play), [false, true, true, false], 'c waited longest')
+  b.unwatch()
+  assert.deepEqual([c, d].map((x) => x.state.play), [true, true], 'an unwatched tile hands its grant on too')
+  io.show(c.el, 0.4)
+  assert.equal(gate.held, 1, 'nobody left waiting')
+})
+
+test('playerGate: stills get near only; cap 0 (reduced motion) never plays; a tall tile plays at half the viewport', (t) => {
+  const { io, tile } = harness(t, 0)
+  const seq = tile(false)
+  const vid = tile()
+  io.show(seq.el, 0.1)
+  io.show(vid.el, 1)
+  t.mock.timers.tick(1000)
+  assert.deepEqual([seq.state.near, seq.state.play], [true, false])
+  assert.deepEqual([vid.state.near, vid.state.play], [true, false], 'cap 0: posters only')
+
+  t.mock.timers.reset()
+  const tall = harness(t, 1)
+  const p = tall.tile()
+  tall.io.show(p.el, 0.3, { tileH: 2000, viewH: 900 }) // 600px of a 2000px tile: under half of it, over half the view
+  t.mock.timers.tick(300)
+  assert.equal(p.state.play, true)
+  // A tile k views tall is over half the view between shares 1/2k and 1/k: a
+  // threshold must fall there, or the observer never reports it half.
+  const th = tall.io.opts.threshold
+  for (let k = 1; k <= 10; k += 0.25) {
+    assert.ok(th.some((s) => s >= 1 / (2 * k) && s <= 1 / k), `a tile ${k} views tall`)
+  }
+})
+
+test('playerGate: unwatching mid-dwell cancels it; destroy clears every timer', (t) => {
+  const { gate, io, tile } = harness(t, 3)
+  const a = tile()
+  io.show(a.el, 1)
+  a.unwatch()
+  t.mock.timers.tick(1000)
+  assert.equal(a.state.play, false)
+  assert.equal(gate.held, 0)
+  const b = tile()
+  io.show(b.el, 1)
+  gate.destroy()
+  t.mock.timers.tick(1000)
+  assert.equal(b.state.play, false)
+  assert.equal(io.els.size, 0)
 })
