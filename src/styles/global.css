@@ -1005,6 +1005,35 @@ body.route-home .site-nav__pill {
   fill: var(--color-white);
 }
 
+/* 11-03: the lockup's svg canvas is taller than the bar (98px on the 41px
+   bar at 1440, the artwork centred), so the brand row's transparent
+   overhang, about 28px under the bar, took clicks meant for what sits just
+   below the nav: the detail breadcrumb once scrolled, /work's SCALE
+   stations at 1024px, the directory's filter tags. Hits now stop at the
+   bar: the row and the link let clicks through, and a bar-tall band on the
+   link takes them. No box moves. Scoped to the nav's brand row: the mobile
+   menu's own logo sits in a layer that is pointer-events: none while
+   closed, and an `auto` band would arm it. */
+.site-nav__brand {
+  pointer-events: none;
+}
+
+.site-nav__brand .site-nav__pill {
+  pointer-events: auto;
+}
+
+/* the band's containing block; ≤768px the logo's absolute seat (below) wins */
+.site-nav__logo {
+  position: relative;
+}
+
+.site-nav__brand .site-nav__logo::after {
+  content: '';
+  position: absolute;
+  inset: calc(50% - var(--nav-height) / 2) 0;
+  pointer-events: auto;
+}
+
 /* 08-30 (Nathan, tap-only comp): the nav LOCKUP lives in the bar on HOME
    too now — the centered hero lockup retired, so the brand row reads the
    same on every route (desktop: left seat beside the info pill; ≤768px:
