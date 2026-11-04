@@ -728,33 +728,20 @@ html:has(.project-detail) body {
    and clips the window back to compose the rest state
    — so the no-JS / reduced-motion paint is the
    readable intermediate composition, a plain link.
+
+   The band continues the media grid (11-04, Nathan:
+   no black between them): the window hangs one grid
+   gutter (--space-1, the masonry gap) below the
+   grid's last row, flush with its right edge, and
+   the band is the window's height — the Figma's 49px
+   head and 8px foot are gone.
    ============================================ */
-
-/* The sticky runway (11-03, Nathan): the entrance plays as a sticky scroll.
-   The runway is the band plus --np-run viewport heights (?nprun); the band
-   sits at its foot and pins at its end composition (the engine sets its
-   `bottom` to the document's tail, the footer's reveal room), holding still
-   across that extra height while the scroll scrubs the label home. Until
-   the engine pins it, sticky is inert and the band sits at its end spot.
-   Reduced motion has no entrance, so no runway. */
-.np-runway::before {
-  content: '';
-  display: block;
-  height: calc(var(--np-run, 1) * 100vh);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .np-runway::before {
-    content: none;
-  }
-}
-
 .np-band {
   display: block;
-  position: sticky;
+  position: relative;
   width: 100%;
-  /* 503/1800 canvas */
-  height: clamp(320px, 27.94vw, 60vh);
+  /* the window (446/1800 canvas, the old 503 band × 446/503) + the gutter */
+  height: calc(clamp(284px, 24.78vw, 53.2vh) + var(--space-1));
   background: var(--color-black);
   color: var(--color-white);
   text-decoration: none;
@@ -780,11 +767,14 @@ html:has(.project-detail) body {
 
 .np-band__label {
   /* 11-03, Nathan: title case in the house sans, bold, larger than the
-     chip voice it wore since 08-30 (2). The entrance scales it about its
-     bottom-centre (it grows up off the rule) and slides it home; ?nplabel
-     overrides the rest size in px. */
-  position: relative;
-  display: block;
+     chip voice it wore since 08-30 (2). The entrance slides it in from the
+     right (and under ?npbig scales it about its bottom-right, growing up
+     off the rule); ?nplabel overrides the rest size in px.
+     11-04, Nathan: both phrases share one grid cell, so the box is the
+     wider `[Keep Scrolling]`'s and the rule never moves between them; the
+     engine seats the box on the client name's left edge. */
+  display: grid;
+  justify-items: start;
   font-family: var(--font-ui);
   font-weight: 700;
   /* 20px floor, 24px @ 1440, 30px cap */
@@ -792,17 +782,15 @@ html:has(.project-detail) body {
   line-height: 1.1;
   letter-spacing: -0.024em;
   white-space: nowrap;
-  transform-origin: 50% 100%;
+  transform-origin: 100% 100%;
 }
 
-/* The rest hint, [Keep Scrolling] (11-03, Nathan): stacked on the label,
-   sharing its right edge (the label is seated against the media window),
-   hidden between hints. Out of flow, so the label's box (and the entrance
-   geometry measured off it) stays the `Next Project:` box. */
+.np-band__label > * {
+  grid-area: 1 / 1;
+}
+
+/* The rest hint, [Keep Scrolling] (11-03, Nathan): hidden between hints. */
 .np-band__keep {
-  position: absolute;
-  right: 0;
-  bottom: 0;
   visibility: hidden;
 }
 
@@ -850,16 +838,17 @@ html:has(.project-detail) body {
 
 /* Media window — right edge pinned, height locked, sized by the COMPONENT
    (4:3 landscape at full open), never by the asset: whatever populates it
-   (16:9, 3:4, 9:16) best-fits via object-fit. The scroll pulls the window
-   open leftward — a clip reveal, compositor-only, no scaling. At commit the
+   (16:9, 3:4, 9:16) best-fits via object-fit. The entrance pushes it out
+   from its right edge to the rest reveal and the drag pulls it open the
+   rest of the way — a clip reveal, compositor-only, no scaling. At commit the
    engine promotes this node inline to position:fixed at its measured rect
    (z-index 90, under the z-100 shell) and grows it to the full viewport. */
 .np-band__media {
   position: absolute;
-  right: var(--space-4);
-  /* 49/503, 446/503 canvas */
-  top: 9.74%;
-  height: 88.67%;
+  /* one grid gutter under the grid's last row, flush with its right edge */
+  right: 0;
+  top: var(--space-1);
+  height: calc(100% - var(--space-1));
   aspect-ratio: 4 / 3;
   z-index: 2;
   overflow: hidden;
@@ -898,29 +887,22 @@ html:has(.project-detail) body {
   pointer-events: none;
 }
 
-/* ── Stacked mobile band: text block above, media full-width below.
-   Same physics — the engine zeroes the text shifts; the media reveal,
-   pre-cover, and commit passage carry the gesture. ── */
+/* ── Stacked mobile band: media full-width on top (11-04: it meets the
+   grid one gutter down, like desktop), text block below. Same physics —
+   the engine zeroes the text shifts; the media reveal, pre-cover, and
+   commit passage carry the gesture. ── */
 @media (max-width: 768px) {
   .np-band {
     height: auto;
     display: flex;
     flex-direction: column;
-    /* Headroom for the entrance: the label grows up from its rule, and the
-       band clips at its top (was 1.143rem). */
-    padding: 4rem 0 0;
+    padding: 0 0 1.143rem;
   }
 
   .np-band__text {
     position: static;
     transform: none;
-    padding: 0 var(--space-4);
-  }
-
-  /* Stacked: the label sits at the gutter, so the cue grows rightward. */
-  .np-band__keep {
-    right: auto;
-    left: 0;
+    padding: 0.857rem var(--space-4) 0;
   }
 
   .np-band__title {
@@ -935,10 +917,11 @@ html:has(.project-detail) body {
 
   .np-band__media {
     position: static;
+    order: -1;
     width: 100%;
     height: auto;
     aspect-ratio: 4 / 3;
-    margin-top: 0.857rem;
+    margin-top: var(--space-1);
   }
 }
 

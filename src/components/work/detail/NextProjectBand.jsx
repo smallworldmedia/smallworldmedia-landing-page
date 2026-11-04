@@ -4,21 +4,27 @@
  * Populated with the next Featured Project's identity + first-order media
  * asset (chain order == the /work World order, wrapping last → first).
  *
- * Entrance (11-03, Nathan): a sticky scroll. The band sits at the foot of a
- * taller runway (?nprun viewport heights more than the band) and pins at its
- * end composition, holding still across that extra height while the scroll
- * scrubs the label home; the run ends at the document end, where the gesture
- * arms. The `Next Project:` label rises into view at ?npbig × its rest size
- * (it grows up from its rule, so the title below never moves), scales down
- * over the first ?npinsplit of the run, then slides to its rest seat above
- * the client name. It starts (?npfrom) centred on the viewport (`center`,
- * default) or at the left gutter (`left`). The rule rides under the label's
- * visible extent the whole way.
+ * The band continues the media grid: its window hangs one grid gutter below
+ * the grid's last row, flush with its right edge (11-04, Nathan: no black
+ * between them; phones stack the window above the text for the same seam).
  *
- * Past the entrance, the band is driven by the site's one resistance interaction: the wheel/touch
- * accumulator from /work's [NEXT]/[PREVIOUS] and the home scroll_to_enter
- * (same ?scroll trigger, and the house RELEASE_MS stall → rubber-band and
- * TOUCH_GAIN, live as ?releasems / ?touchgain via lib/touchTune.js).
+ * Entrance (11-04, Nathan: every motion leans toward turning the page),
+ * scrubbed by the page scroll from the label reaching ?npinstart of the
+ * viewport to the document end, where the gesture arms. A cascade, right to
+ * left and then up: the `Next Project:` label slides in from the far right
+ * to its rest seat; the media window pushes out from its right edge (0 →
+ * its rest width), ?nplag behind the label; then the client name rises,
+ * and ?npstep after it the service tags (masked slide-ups). ?npbig starts
+ * the label larger, shrinking toward its right edge as it slides (default
+ * 1). The rule rides under the label the whole way.
+ *
+ * Past the entrance, the band is driven by the site's one resistance
+ * interaction: the wheel/touch accumulator from /work's [NEXT]/[PREVIOUS]
+ * (same ?scroll trigger), with /work's rubber band (11-04, Nathan): the
+ * fill tracks on DRAG_TRACK_S and springs home on RELEASE_GLIDE_S /
+ * RELEASE_EASE (lib/motion.js), a finger holds it until the lift, and the
+ * wheel lets go on the RELEASE_MS stall (?releasems / ?touchgain via
+ * lib/touchTune.js).
  *
  * The gesture engages only at the document's end. The fill drives the media
  * and the client name together, from the first delta (11-03, Nathan — no
@@ -39,11 +45,13 @@
  * the text; it suspends the hint until the band settles again.
  *
  * The rule always runs from the label's visible left edge to the container's
- * right edge (11-03, Nathan); the window covers its far end. The hint is
- * wider than the label, so it carries the rule's left end out while it shows.
+ * right edge (11-03, Nathan); the window covers its far end. Both phrases
+ * share one box, as wide as the longer `[Keep Scrolling]`, so the rule
+ * never moves between them; the box starts at the client name's left edge
+ * (11-04, Nathan), held clear of the window when the name is narrower.
  *
- * Stalling rubber-bands the fill itself back to 0 on the release curve; with
- * no stagger left, every channel comes home together.
+ * The release rubber-bands the fill itself back to 0; with no stagger left,
+ * every channel comes home together.
  *
  * Commit rides the Envelopment bridge (ADR-0002), staged inside the media
  * window: the drag's blue pre-cover (f², like the globe's lean) is an
@@ -64,7 +72,7 @@
  * resting composition (CSS default; the shifts are JS-applied).
  *
  * Knobs: ?scroll ?touchgain ?releasems ?npms ?npcover ?nppre ?npzoom ?nparm
- *        ?npbig ?npfrom ?nprun ?npinsplit ?nplabel
+ *        ?npinstart ?nplag ?npstep ?npbig ?nplabel
  *        ?nphint ?nphintin ?nphold ?npblink ?npbeat
  *
  * @param {Object} props
@@ -77,7 +85,14 @@ import { CustomEase } from 'gsap/CustomEase';
 import { navigate } from 'astro:transitions/client';
 import useHls from '../useHls.js';
 import ServiceTag from '../ServiceTag.jsx';
-import { SCROLL_TRIGGER_WORK_PX, GLIDE_MS, ensureHousePulse } from '../../../lib/motion.js';
+import {
+  SCROLL_TRIGGER_WORK_PX,
+  GLIDE_MS,
+  DRAG_TRACK_S,
+  RELEASE_GLIDE_S,
+  RELEASE_EASE,
+  ensureHousePulse,
+} from '../../../lib/motion.js';
 import { TOUCH_GAIN, RELEASE_MS } from '../../../lib/touchTune.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
@@ -88,10 +103,6 @@ const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
   const n = parseFloat(new URLSearchParams(window.location.search).get(key));
   return Number.isFinite(n) ? n : fallback;
-};
-const str = (key, fallback) => {
-  if (typeof window === 'undefined') return fallback;
-  return new URLSearchParams(window.location.search).get(key) || fallback;
 };
 
 /* — Resistance (the house accumulator constants) — */
@@ -114,24 +125,56 @@ const NP_PRE_COVER = PARAM('nppre', 30) / 100; // in-window blue at full drag (f
 // Keep it a breath (?npzoom still overrides for dialing).
 const NP_ZOOM = PARAM('npzoom', 1.08);
 
-/* — Entrance (a sticky scroll: scrubbed across the band's pinned stretch) — */
-// The label's start size as a multiple of its rest size (11-03, Nathan's
-// "about this size": 0.645 of the HEAVY HOUSE SOCIETY title's width, which
-// is 2.5× anywhere both type clamps scale with the viewport). Capped so it
-// never clips at the band's top (it grows upward from its rule), never runs
-// under the media window, and never outgrows the content.
-const NP_BIG = PARAM('npbig', 2.5);
-// Where it starts (11-03, Nathan's alternate): 'center' (on the viewport) or
-// 'left' (at the left gutter). Either way it scales down, then slides home.
-const NP_FROM = str('npfrom', 'center');
-// The run, in viewport heights: the runway's extra height over the band,
-// the stretch the band holds pinned while the label comes home (11-03,
-// Nathan: the old run, band entry → document end, was about half a screen,
-// and a quick scroll rushed it). Unset = the CSS default (--np-run).
-const NP_RUN = PARAM('nprun', null);
-const NP_IN_SPLIT = PARAM('npinsplit', 0.5); // share of the run spent scaling; the slide takes the rest
+/* — Entrance (scroll-scrubbed, band entry → document end). A cascade timed
+   in units of the label's slide (1) and normalised to land at the document
+   end: the label [0, 1]; the media window ?nplag behind it; the client name
+   rising from just before the window lands (RISE_AT, inside its ease tail);
+   the tags ?npstep after the client name. — */
+// The run starts when the label's top reaches this fraction of the viewport
+// height (1 = the bottom edge), so it is just in view as it sets off, clear
+// of the fixed privacy pill in the bottom-right corner.
+const NP_IN_START = PARAM('npinstart', 0.9);
+const NP_LAG = PARAM('nplag', 0.25); // the media window behind the label
+const NP_STEP = PARAM('npstep', 0.25); // the tags behind the client name
+const RISE = 0.5; // each slide-up
+const RISE_AT = 0.25; // the client name sets off this long before the window lands
+// The label's start size × its rest size, shrinking toward its right edge
+// as it slides (11-03, Nathan's "about this size" was 2.5; the 11-04 page
+// turn starts it at rest size). Capped by the content width and the room
+// above the label (it grows up off its rule).
+const NP_BIG = PARAM('npbig', 1);
 const NP_LABEL_PX = PARAM('nplabel', null); // rest label size override, px (CSS clamp otherwise)
-const SLIDE_EASE = gsap.parseEase('power2.out'); // steep launch off the scale, settles at the end
+const SLIDE_EASE = gsap.parseEase('power2.out'); // steep launch, settles into rest
+
+// Each lane's eased 0..1 at entrance progress e. Without tags the cascade
+// ends with the client name.
+const cascade = (e, hasTags) => {
+  const mediaEnd = NP_LAG + 1;
+  const titleAt = mediaEnd - RISE_AT;
+  const tagsAt = titleAt + NP_STEP;
+  const t = e * Math.max(mediaEnd, (hasTags ? tagsAt : titleAt) + RISE);
+  const lane = (at, dur) => SLIDE_EASE(clamp01((t - at) / dur));
+  return { label: lane(0, 1), media: lane(NP_LAG, 1), title: lane(titleAt, RISE), tags: lane(tagsAt, RISE) };
+};
+
+// A masked slide-up: the element rises its own height (plus RISE_GAP) into
+// its rest box, clipped at the box's foot (open above and to the sides, where
+// the display face overflows its 0.78 line box). The gap keeps the waiting
+// line's top edge off the mask's foot: sharing that edge, its antialiased
+// row leaked a sliver of the chips' top borders (11-04, Nathan; lit 192/255
+// at 1728 @2x, where the foot lands on a fractional device pixel).
+const RISE_GAP = 2; // px
+const rise = (p) => {
+  const q = 1 - p;
+  return {
+    yPercent: q * 100,
+    y: q * RISE_GAP,
+    clipPath:
+      p >= 1
+        ? 'none'
+        : `inset(-50% -10% calc(${(q * 100).toFixed(2)}% + ${(q * RISE_GAP).toFixed(2)}px) -10%)`,
+  };
+};
 
 /* — The rest hint: a pulse (two beats) swaps the line to [Keep Scrolling],
    a double pulse (one beat each), a hang, a pulse back. A beat is an eighth
@@ -151,11 +194,10 @@ const cueBeat = () => {
 
 /* — Media window: sizing is the COMPONENT's, not the asset's. The box is
    4:3 landscape at full open (CSS aspect-ratio, locked height) — landscape
-   without over-cropping portrait assets — and the drag pulls it open from
-   this rest fraction of its width. — */
+   without over-cropping portrait assets. The entrance pushes it out to this
+   rest fraction of its width; the drag pulls it open from there. — */
 const REST_REVEAL = 0.57; // window reveal at rest (fraction of full width)
-const CLIP_MAX = (1 - REST_REVEAL) * 100; // clip-path inset % at rest
-const GUTTER = 8; // page edge + element gap (--space-4)
+const GUTTER = 8; // text edge + element gap (--space-4)
 const MEDIA_IMG_WIDTH = 1400;
 
 /* — hls.js config for the band's media window — prefetch the first fragment
@@ -172,7 +214,6 @@ const BAND_HLS_CONFIG = {
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 export default function NextProjectBand({ next }) {
-  const runwayRef = useRef(null);
   const bandRef = useRef(null);
   const labelWrapRef = useRef(null);
   const labelRef = useRef(null);
@@ -191,11 +232,9 @@ export default function NextProjectBand({ next }) {
   const idleRef = useRef(null);
   const departingRef = useRef(false);
   const proxyRef = useRef({ f: 0 }); // single fill scalar; all motion derives
-  const entranceRef = useRef(1); // scroll-in progress (0 = big + centred, 1 = rest)
-  const swapRef = useRef({ k: 0 }); // hint handover (0 = Next Project:, 1 = [Keep Scrolling])
+  const entranceRef = useRef(1); // scroll-in progress (0 = off to the right, 1 = rest)
   const hintRef = useRef({ timer: null, tl: null }); // the rest hint's pending call + live run
   const measureRef = useRef(null); // per-layout px shifts (null until measured)
-  const pinRef = useRef(-1); // the band's sticky `bottom` as last written, px
 
   const [pinned, setPinned] = useState(false);
   const [inView, setInView] = useState(false);
@@ -220,118 +259,95 @@ export default function NextProjectBand({ next }) {
     if (departingRef.current) return;
     const bandW = band.clientWidth;
     const stacked = window.matchMedia('(max-width: 768px)').matches;
-    const restMediaLeft = bandW - GUTTER - REST_REVEAL * media.offsetWidth;
+    // The window's visible left edge at rest, off its pinned right edge.
+    const restMediaLeft = media.offsetLeft + (1 - REST_REVEAL) * media.offsetWidth;
     const shiftFor = (el) =>
       stacked || !el
         ? 0
         : Math.max(0, restMediaLeft - GUTTER - el.offsetWidth - GUTTER);
     // Entrance geometry, in the text block's coordinates (gutter-relative).
     // The wrap carries only the gesture's x, so its box is the label's
-    // unscaled layout box.
+    // unscaled layout box (as wide as `[Keep Scrolling]`).
     const wrap = labelWrapRef.current;
     const contentW = bandW - 2 * GUTTER;
     const labelW = wrap?.offsetWidth || 1;
     const labelH = wrap?.offsetHeight || 1;
-    const labelBottom = wrap
-      ? wrap.getBoundingClientRect().bottom - band.getBoundingClientRect().top
-      : labelH;
+    const bandTop = band.getBoundingClientRect().top;
+    const labelBottom = wrap ? wrap.getBoundingClientRect().bottom - bandTop : labelH;
+    // Stacked, the window sits above the text, so the label grows up to it.
+    const ceiling = stacked ? media.getBoundingClientRect().bottom - bandTop : 0;
     const bigScale = Math.max(
       1,
-      Math.min(
-        NP_BIG,
-        contentW / labelW,
-        (labelBottom - 2 * GUTTER) / labelH, // headroom under the band's top
-        // Clear of the media window, from where the label starts.
-        stacked
-          ? Infinity
-          : NP_FROM === 'left'
-            ? (restMediaLeft - 2 * GUTTER) / labelW
-            : (2 * (restMediaLeft - 2 * GUTTER - contentW / 2)) / labelW
-      )
+      Math.min(NP_BIG, contentW / labelW, (labelBottom - ceiling - 2 * GUTTER) / labelH)
     );
+    // The label (and so its rule) starts at the client name's left edge
+    // (11-04, Nathan), held clear of the window when the name is narrower
+    // than the label.
+    const title = titleRef.current;
+    const titleShift = shiftFor(title);
+    const labelShift =
+      wrap && title
+        ? Math.max(0, Math.min(shiftFor(wrap), title.offsetLeft + titleShift - wrap.offsetLeft))
+        : 0;
     measureRef.current = {
       bandW,
       stacked,
       mediaW: media.offsetWidth,
-      labelShift: shiftFor(wrap),
-      titleShift: shiftFor(titleRef.current),
+      labelShift,
+      titleShift,
       tagsShift: shiftFor(tagsRef.current),
       ruleBase: ruleRef.current?.offsetWidth || 1,
       contentW,
       labelW,
-      centerLeft: (contentW - labelW) / 2,
       bigScale,
-      // How far the cue's left edge sits past the label's (desktop: they
-      // share the right edge; stacked: the left).
-      keepEdge: stacked ? 0 : Math.max(0, (keepRef.current?.offsetWidth || 0) - labelW),
+      hasTags: !!tagsRef.current,
     };
   };
 
-  // ── The sticky pin: the band's bottom on the document's tail (whatever
-  // follows the runway — the footer's reveal room), which is exactly where
-  // it sits at the document end, so it holds its end composition across the
-  // runway's extra height. Re-read on every scroll: the footer sizes that
-  // room after this mounts, and again on its own resize. ──
-  const pin = () => {
-    const runway = runwayRef.current;
-    const band = bandRef.current;
-    if (!runway || !band) return;
-    const doc = document.documentElement.scrollHeight;
-    const tail = Math.max(0, doc - (runway.getBoundingClientRect().bottom + window.scrollY));
-    if (Math.abs(tail - pinRef.current) < 0.5) return;
-    pinRef.current = tail;
-    band.style.bottom = `${tail}px`;
-  };
-
-  // ── Entrance progress from the live scroll: 0 as the band pins, 1 at the
-  // document end (where the gesture arms). The pinned stretch is the
-  // runway's extra height, the last `run` px of the page. ──
+  // ── Entrance progress from the live scroll: 0 with the label's top at
+  // ?npinstart of the viewport, 1 at the document end (where the gesture
+  // arms). Keyed to the label, not the band, because phones stack the
+  // window above it. ──
   const readEntrance = () => {
-    const runway = runwayRef.current;
-    const band = bandRef.current;
-    if (!runway || !band) return 1;
-    const toEnd =
-      document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
-    const run = runway.offsetHeight - band.offsetHeight;
-    if (toEnd <= 2 || run <= 0) return 1; // atEnd()'s tolerance
-    return clamp01(1 - toEnd / run);
+    const wrap = labelWrapRef.current;
+    if (!wrap) return 1;
+    const vh = window.innerHeight;
+    const y = window.scrollY;
+    const start = wrap.getBoundingClientRect().top + y - vh * NP_IN_START;
+    const end = document.documentElement.scrollHeight - vh;
+    if (end - y <= 2 || end <= start) return 1; // atEnd()'s tolerance
+    return clamp01((y - start) / (end - start));
   };
 
   // ── Every animated element's target values at a given fill ──
   const targetsAt = (f) => {
     const m = measureRef.current;
     if (!m) return null;
-    // The window opens over the whole fill; the client name rides its left
-    // edge (stacked: the window sits below the text, so the name holds).
+    const c = cascade(entranceRef.current, m.hasTags);
+    // The window: pushed out to its rest reveal by the entrance, then
+    // opened the rest of the way by the fill; the client name rides its
+    // left edge (stacked: the window sits above the text, so the name holds).
     const labelX = m.labelShift;
     const opened = m.stacked ? 0 : m.mediaW * f * (1 - REST_REVEAL);
+    const reveal = REST_REVEAL * c.media + (1 - REST_REVEAL) * f;
     const t = {
       labelX,
       titleX: m.titleShift - opened,
       tagsX: m.tagsShift,
-      clip: `inset(0% 0% 0% ${(CLIP_MAX * (1 - f)).toFixed(2)}%)`,
+      clip: `inset(0% 0% 0% ${((1 - reveal) * 100).toFixed(2)}%)`,
       // In-window pre-cover: same f² curve + ?nppre knob the RouteFill
       // pre-cover rode, now confined to the media window.
       cover: NP_PRE_COVER * f * f,
+      // The label comes in from the content's right edge to its rest seat,
+      // shrinking toward its right edge (geometric, so the shrink reads at
+      // one rate) when ?npbig starts it larger.
+      inX: (m.contentW - labelX - m.labelW) * (1 - c.label),
+      inScale: Math.pow(m.bigScale, 1 - c.label),
+      titleRise: c.title,
+      tagsRise: c.tags,
     };
-
-    // Entrance: the label shrinks about its bottom-centre (geometric, so the
-    // shrink reads at one rate), then slides to its rest seat. Centre holds
-    // its centre on the viewport's through the shrink; left holds its
-    // visible left edge on the gutter.
-    const e = entranceRef.current;
-    const slideP = SLIDE_EASE(clamp01((e - NP_IN_SPLIT) / (1 - NP_IN_SPLIT)));
-    t.inScale = Math.pow(m.bigScale, 1 - clamp01(e / NP_IN_SPLIT));
-    t.inX =
-      NP_FROM === 'left'
-        ? -m.labelShift * (1 - slideP) - (m.labelW * (1 - t.inScale)) / 2
-        : (m.centerLeft - m.labelShift) * (1 - slideP);
-
-    // Rule: the label's visible left edge → the container's right edge. The
-    // label scales about its bottom-centre; the cue handover (k) carries the
-    // edge out by keepEdge.
-    const half = m.labelW / 2;
-    t.ruleX = labelX + t.inX + half - (half + m.keepEdge * swapRef.current.k) * t.inScale;
+    // Rule: the label's visible left edge → the container's right edge.
+    t.ruleX = labelX + t.inX + m.labelW * (1 - t.inScale);
     t.ruleScale = Math.max(0, m.contentW - t.ruleX) / m.ruleBase;
     return t;
   };
@@ -343,8 +359,8 @@ export default function NextProjectBand({ next }) {
     if (!t) return;
     gsap.set(labelWrapRef.current, { x: t.labelX });
     gsap.set(labelRef.current, { x: t.inX, scale: t.inScale });
-    gsap.set(titleRef.current, { x: t.titleX });
-    gsap.set(tagsRef.current, { x: t.tagsX });
+    gsap.set(titleRef.current, { x: t.titleX, ...rise(t.titleRise) });
+    if (tagsRef.current) gsap.set(tagsRef.current, { x: t.tagsX, ...rise(t.tagsRise) });
     gsap.set(mediaRef.current, { clipPath: t.clip });
     gsap.set(ruleRef.current, { x: t.ruleX, scaleX: t.ruleScale });
     // During departure the commit timeline owns the cover (raising it to
@@ -402,17 +418,10 @@ export default function NextProjectBand({ next }) {
     if (!label || !nextEl || !keepEl) return;
     const beat = cueBeat();
     const envelope = ensureHousePulse();
+    // Both phrases share the label's box, so the swap is visibility alone.
     const show = (keep) => () => {
       nextEl.style.visibility = keep ? 'hidden' : 'visible';
       keepEl.style.visibility = keep ? 'visible' : 'hidden';
-      // The rule's left end follows the text that's rising.
-      gsap.to(swapRef.current, {
-        k: keep ? 1 : 0,
-        duration: 1.1 * beat,
-        ease: 'expo.out',
-        overwrite: 'auto',
-        onUpdate: apply,
-      });
     };
     // A swap pulse: two beats, split like the house envelope (down 45%, the
     // change at black, up 55%).
@@ -439,7 +448,7 @@ export default function NextProjectBand({ next }) {
     h.tl = tl;
   };
 
-  // ── Snap-back: the fill returns to 0 on the release curve, and every
+  // ── Snap-back: the fill springs home on /work's release lane, and every
   // channel follows it through apply(). (11-03: the old per-element return
   // tweened the media's clip-path STRING, which GSAP held at its start and
   // swapped at the end — the window jumped shut while the text glided.) A
@@ -448,8 +457,8 @@ export default function NextProjectBand({ next }) {
     accumRef.current = 0;
     gsap.to(proxyRef.current, {
       f: 0,
-      duration: 0.4,
-      ease: 'expo.out',
+      duration: RELEASE_GLIDE_S,
+      ease: RELEASE_EASE,
       overwrite: 'auto',
       onUpdate: apply,
       onComplete: syncHint, // home again: the hint resumes
@@ -458,7 +467,7 @@ export default function NextProjectBand({ next }) {
     // — this zero is residual-safety only, so no stray shell opacity can
     // outlive a gesture. Other fill-progress consumers are unaffected.
     window.dispatchEvent(
-      new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: 0.4 } })
+      new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: RELEASE_GLIDE_S } })
     );
   };
 
@@ -491,13 +500,10 @@ export default function NextProjectBand({ next }) {
     // (mobile's static stacking) can't collapse the band and jolt the
     // end-of-document scroll position. Margins are zeroed for the same
     // reason: fixed + top must place the border box AT the rect (mobile's
-    // margin-top would otherwise push it below its measurement). The band
-    // takes the box's layer too: sticky makes it a stacking context, so the
-    // box's z 90 counts only inside it (the z-40 footer would paint over the
-    // grown window).
+    // margin-top would otherwise push it below its measurement).
     const media = mediaRef.current;
     const rect = media.getBoundingClientRect();
-    gsap.set(bandRef.current, { height: bandRef.current.offsetHeight, zIndex: 90 });
+    gsap.set(bandRef.current, { height: bandRef.current.offsetHeight });
     gsap.set(media, {
       position: 'fixed',
       top: rect.top,
@@ -553,19 +559,15 @@ export default function NextProjectBand({ next }) {
       // Set here, not in render: the param is client-only, and a style the
       // SSR markup lacks would be a hydration mismatch.
       if (NP_LABEL_PX) bandRef.current?.style.setProperty('--np-label-size', `${NP_LABEL_PX}px`);
-      if (NP_RUN != null) runwayRef.current?.style.setProperty('--np-run', String(NP_RUN));
       const onResize = () => {
         measure();
-        pin();
         entranceRef.current = readEntrance();
         apply();
         syncHint();
-        requestAnimationFrame(pin); // after the footer has re-sized its room
       };
       onResize();
       const onScroll = () => {
         if (departingRef.current) return;
-        pin();
         const e = readEntrance();
         if (Math.abs(e - entranceRef.current) < 1e-4) return;
         entranceRef.current = e;
@@ -599,25 +601,25 @@ export default function NextProjectBand({ next }) {
       document.documentElement.scrollHeight - 2;
 
     const dragTo = (f) => {
-      // overwrite: 'auto' takes the proxy over from a mid-flight return.
-      // The blue pre-cover rides apply() now — confined to the media
-      // window's cover layer, not dispatched to the full-viewport shell.
+      // /work's track lane (the lean's). overwrite: 'auto' takes the proxy
+      // over from a mid-flight return. The blue pre-cover rides apply() —
+      // confined to the media window's cover layer, not the shell.
       gsap.to(proxyRef.current, {
         f,
-        duration: 0.25,
-        ease: 'power3.out',
+        duration: DRAG_TRACK_S,
+        ease: 'power1.out',
         overwrite: 'auto',
         onUpdate: apply,
       });
     };
 
-    // Stalled below the threshold → the unified snap-back.
+    // A wheel has no lift, so its let-go is a stall below the threshold.
     const scheduleRelease = () => {
       clearIdle();
       idleRef.current = setTimeout(releaseToRest, RELEASE_MS);
     };
 
-    const addDelta = (dy) => {
+    const addDelta = (dy, wheel = false) => {
       if (departingRef.current) return;
       // The inquiry overlay owns the screen — never arm under it.
       if (document.querySelector('.project-overlay')?.dataset.open === 'true') return;
@@ -646,11 +648,11 @@ export default function NextProjectBand({ next }) {
         commit();
       } else {
         dragTo(a / SCROLL_TRIGGER);
-        scheduleRelease();
+        if (wheel) scheduleRelease(); // a finger holds it until the lift
       }
     };
 
-    const onWheel = (e) => addDelta(e.deltaY);
+    const onWheel = (e) => addDelta(e.deltaY, true);
     let touchY = null;
     const onTouchStart = (e) => {
       touchY = e.touches[0]?.clientY ?? null;
@@ -661,24 +663,29 @@ export default function NextProjectBand({ next }) {
       addDelta((touchY - y) * TOUCH_GAIN); // upward swipe = onward (the house gain)
       touchY = y;
     };
+    // The lift is a finger's let-go (/work's, 11-03): below the threshold
+    // the fill springs home now.
     const onTouchEnd = () => {
       touchY = null;
-      if (!departingRef.current && accumRef.current > 0) scheduleRelease();
+      if (departingRef.current || accumRef.current === 0) return;
+      clearIdle();
+      releaseToRest();
     };
 
     window.addEventListener('wheel', onWheel, { passive: true });
     window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('touchmove', onTouchMove, { passive: true });
     window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
     return () => {
       clearIdle();
       // The hint re-arms itself — it must not outlive the band.
       killHint();
-      gsap.killTweensOf(swapRef.current);
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -714,75 +721,71 @@ export default function NextProjectBand({ next }) {
     commit();
   };
 
-  // The runway (11-03, Nathan): the extra scroll height the band holds
-  // pinned across while the entrance plays.
   return (
-    <div className="np-runway" ref={runwayRef}>
-      <a
-        href={`/work/${next.slug}`}
-        className={`np-band${pinned ? ' is-pinned' : ''}`}
-        ref={bandRef}
-        // S2: the next project's accent palette drives the pinned title/rule and
-        // the in-window cover (blank → brand blue). gsap.set(height/…) at commit
-        // writes other inline props and leaves these custom properties intact.
-        style={{
-          '--project-color': next.color || undefined,
-          '--project-color-2': next.colorSecondary || undefined,
-        }}
-        onClick={onClick}
-        aria-label={`Next project: ${next.clientName} — ${next.title}`}
-      >
-        <div className="np-band__text">
-          <div className="np-band__label-wrap" ref={labelWrapRef}>
-            {/* 11-03, Nathan: title case in the bold sans (was the chip voice). */}
-            <span className="np-band__label" ref={labelRef}>
-              <span ref={nextTextRef}>Next Project:</span>
-              {/* 11-03, Nathan: the rest hint, shown now and then at the end. */}
-              <span className="np-band__keep" ref={keepRef} aria-hidden="true">
-                [Keep Scrolling]
-              </span>
+    <a
+      href={`/work/${next.slug}`}
+      className={`np-band${pinned ? ' is-pinned' : ''}`}
+      ref={bandRef}
+      // S2: the next project's accent palette drives the pinned title/rule and
+      // the in-window cover (blank → brand blue). gsap.set(height/…) at commit
+      // writes other inline props and leaves these custom properties intact.
+      style={{
+        '--project-color': next.color || undefined,
+        '--project-color-2': next.colorSecondary || undefined,
+      }}
+      onClick={onClick}
+      aria-label={`Next project: ${next.clientName} — ${next.title}`}
+    >
+      <div className="np-band__text">
+        <div className="np-band__label-wrap" ref={labelWrapRef}>
+          {/* 11-03, Nathan: title case in the bold sans (was the chip voice). */}
+          <span className="np-band__label" ref={labelRef}>
+            <span ref={nextTextRef}>Next Project:</span>
+            {/* 11-03, Nathan: the rest hint, shown now and then at the end. */}
+            <span className="np-band__keep" ref={keepRef} aria-hidden="true">
+              [Keep Scrolling]
             </span>
+          </span>
+        </div>
+        <span className="np-band__rule" ref={ruleRef} aria-hidden="true" />
+        <h2 className="np-band__title" ref={titleRef}>
+          {next.clientName}
+        </h2>
+        {next.services?.length > 0 && (
+          <div className="np-band__tags" ref={tagsRef}>
+            {next.services.map((s) => (
+              <ServiceTag key={s.slug} name={s.name} />
+            ))}
           </div>
-          <span className="np-band__rule" ref={ruleRef} aria-hidden="true" />
-          <h2 className="np-band__title" ref={titleRef}>
-            {next.clientName}
-          </h2>
-          {next.services?.length > 0 && (
-            <div className="np-band__tags" ref={tagsRef}>
-              {next.services.map((s) => (
-                <ServiceTag key={s.slug} name={s.name} />
-              ))}
-            </div>
+        )}
+      </div>
+
+      <div className="np-band__media" ref={mediaRef}>
+        <div className="np-band__media-inner" ref={innerRef}>
+          {isVideo ? (
+            <video
+              ref={videoRef}
+              className="np-band__media-el"
+              poster={posterUrl}
+              muted
+              autoPlay
+              loop
+              playsInline
+              onTimeUpdate={wrapAtDetailCap}
+            />
+          ) : next.hero?.imageUrl ? (
+            <img
+              className="np-band__media-el"
+              src={`${next.hero.imageUrl}?w=${MEDIA_IMG_WIDTH}&${IMG_FORMAT}`}
+              alt=""
+              loading="lazy"
+            />
+          ) : (
+            <div className="np-band__media-el" aria-hidden="true" />
           )}
         </div>
-
-        <div className="np-band__media" ref={mediaRef}>
-          <div className="np-band__media-inner" ref={innerRef}>
-            {isVideo ? (
-              <video
-                ref={videoRef}
-                className="np-band__media-el"
-                poster={posterUrl}
-                muted
-                autoPlay
-                loop
-                playsInline
-                onTimeUpdate={wrapAtDetailCap}
-              />
-            ) : next.hero?.imageUrl ? (
-              <img
-                className="np-band__media-el"
-                src={`${next.hero.imageUrl}?w=${MEDIA_IMG_WIDTH}&${IMG_FORMAT}`}
-                alt=""
-                loading="lazy"
-              />
-            ) : (
-              <div className="np-band__media-el" aria-hidden="true" />
-            )}
-          </div>
-          <div className="np-band__cover" ref={coverRef} aria-hidden="true" />
-        </div>
-      </a>
-    </div>
+        <div className="np-band__cover" ref={coverRef} aria-hidden="true" />
+      </div>
+    </a>
   );
 }
