@@ -105,6 +105,16 @@ const NEXT_WARM_CAP_S = 2;
 const AHEAD_TOL_RAD = THREE.MathUtils.degToRad(0.5);
 const colat = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1));
 
+/** stats.seq (11-05): the on-screen sequence UNITS by class, and `split`, those whose cycling members show more
+ *  than one picture now (every member cuts on the same beat, so 0 between frames). `front`: world → placements. */
+function seqUnitStats(front) {
+  const units = [...front.values()].flatMap((s) => [...s]).filter((P) => P.members);
+  const byCls = {};
+  for (const P of units) byCls[P.cls] = (byCls[P.cls] || 0) + 1;
+  const split = units.filter((P) => new Set(P.members.filter((m) => m._seq).map((m) => m.mesh.material.uniforms.texA.value)).size > 1).length;
+  return { units: byCls, split };
+}
+
 export default class PopulationDirector {
   /**
    * @param {Object} opts
@@ -1760,6 +1770,7 @@ export default class PopulationDirector {
         byWorld: Object.fromEntries([...seqFront].map(([w, s]) => [this.worlds[w].slug, s.size])),
         refs: this.seqRefs,
         cuts: this.seqCuts,
+        ...seqUnitStats(seqFront),
       },
       upload: this.uploadStats(),
       r1,
@@ -1781,8 +1792,7 @@ export default class PopulationDirector {
       },
     };
     this.flipsSampled = this.flips;
-    if (typeof window !== 'undefined') window.__swmPopStats = stats;
-    return stats;
+    if (typeof window !== 'undefined') window.__swmPopStats = stats;    return stats;
   }
 
   dispose() {
