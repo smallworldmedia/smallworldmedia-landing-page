@@ -128,6 +128,17 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
 - One dedicated media update session before launch (Nathan, 11-05): every project's missing media
   uploaded and added in one focused pass through `npm run cms` (plan, his yes to the plan id, apply,
   verify). The first known items are Munchietown's Signorvino photos and the pending client logos.
+  Added 11-05, the code for each already on the stream:
+  - Retag media one by one (Mode 2 `serviceType`). A project's tags are now the union of its media's
+    tags (SQ-14), so Andhera, Kamino and Nusonido show fewer tags until this is done. The worksheet is from SQ-14.
+  - `splitIntoThirds = true` on `mediaAsset-bedouin-brooklyn-knockdown-center-promo` (SQ-15). The
+    Studio needs the new schema first: the embedded `/studio`, or `npx sanity deploy` for the hosted one.
+  - The Project Directory's shuffle: Studio, Site Settings, "Project Directory: shuffle the order",
+    Publish. Nathan flips it himself, and it takes effect on the next deploy (SQ-12).
+  - The logo cleanup from SQ-13 (its `redundant-variants.json`): delete 3 twins and 3 colour
+    duplicates, re-export 5 logos as clean transparents, and fix the `logo-design` tags. Then re-run
+    `node scripts/prep-directory-logos.mjs` and commit `src/data`. SQ-13 itself has to fold first.
+  - Last, and on its own: retire `project.services`. It is a hashed-schema edit, so it lands alone.
 - `npm run cms audit` on b60h4u7o/production before every deploy: 0 errors, and every
   label-ratio finding either fixed or recorded in `media/_audit-accepted.json`, with
   no stale entries. This is the mislabel guard (`docs/cms-workflow.md` § Dataset
