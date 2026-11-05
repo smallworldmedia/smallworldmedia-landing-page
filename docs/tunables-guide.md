@@ -560,6 +560,15 @@ The description's first paragraph is the intro blurb; each later paragraph (a bl
 |---|---|---|---|---|
 | `?blurbrows` | squares of the 3-col grid between bands, counted from the top of the tile field; closed up to an even spread only when the grid is too short to fit every band at this pitch | `2` (Nathan 11-03: "the two paragraphs look great"; 3+ paragraphs go "every couple of rows", not spread through the whole grid, so the `0` = even-spread mode was removed) | any number > 0 | `FeaturedProjectDetail.jsx BLURB_ROWS` |
 
+### Video chunks (11-05)
+
+A video asset with `splitIntoThirds` on in Sanity shows as three tiles, each playing its own whole third (no overlap, clipped at the source with Mux `asset_start_time` + `asset_end_time`, own poster). The flag is data, so it needs no param; these two are the dev dials. Reader: `detail/FeaturedProjectDetail.jsx` (`readChunkTune()` in an effect) → `buildContentFlow.js expandChunks`.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?chunks` | splits the named video(s) without the Sanity flag: the asset `_id`, or its slug (the `_id` after `mediaAsset-` / the tail after any `-`); try `?chunks=brooklyn-knockdown-center-promo` on `/work/bedouin` | none | comma list | none (the Sanity flag is the real switch) |
+| `?chunkgap` | tiles between one chunk and the next: `0` = the three sit together, `1` = one other tile between each | `0` | integer > 0 | `FeaturedProjectDetail.jsx CHUNKS_NONE` |
+
 ### Deck / album walls (DeckScroller)
 
 `?deckvrows` only applies to the album-art wall (BrandDeckViewer passes `cols={2}`); the other three apply to both walls. Drift and gear are inert under RM.

@@ -39,17 +39,77 @@ export function wrapAt(seconds) {
 /** onTimeUpdate for a detail player: back to frame 0 at the cap. */
 export const wrapAtDetailCap = wrapAt(DETAIL_MAX_SECONDS);
 
-/** A Mux master playlist URL that ends the stream at `end` seconds. `params`
- *  (a min = max rendition pin, say) go first; the clip goes last, once. */
-export function muxStream(playbackId, end, params = '') {
+/** A Mux master playlist URL that ends the stream at `end` seconds, and with
+ *  a `start` above 0 begins it there (asset_start_time). `params` (a min =
+ *  max rendition pin, say) go first; the clip goes last, once. */
+export function muxStream(playbackId, end, params = '', start = 0) {
   const pre = params ? `${params}&` : '';
-  return `https://stream.mux.com/${playbackId}.m3u8?${pre}asset_end_time=${end}`;
+  const from = start > 0 ? `asset_start_time=${start}&` : '';
+  return `https://stream.mux.com/${playbackId}.m3u8?${pre}${from}asset_end_time=${end}`;
 }
 
-/** A video's poster (Mux thumbnail) at `width`: frame 0, where playback
- *  starts and every wrap returns. */
-export function muxPoster(playbackId, width) {
-  return `https://image.mux.com/${playbackId}/thumbnail.webp?width=${width}&fit_mode=preserve&time=0`;
+/** A video's poster (Mux thumbnail) at `width`: by default frame 0, where
+ *  playback starts and every wrap returns. A chunk (chunkRanges) passes the
+ *  time its own range starts at. */
+export function muxPoster(playbackId, width, time = 0) {
+  return `https://image.mux.com/${playbackId}/thumbnail.webp?width=${width}&fit_mode=preserve&time=${time}`;
+}
+
+/* — Chunks (11-05, Nathan): a video flagged `splitIntoThirds` in Sanity shows
+   on the detail page as CHUNK_COUNT tiles, each playing its own whole share of
+   the asset, no overlap. Each is clipped at the source with both ends of
+   muxStream. Nathan: "each chunk plays its third", so a chunk is exempt from
+   DETAIL_MAX_SECONDS. — */
+
+/** Tiles a flagged video splits into (the thirds; a later count field would replace it). */
+export const CHUNK_COUNT = 3;
+
+/** Mux cuts a clip's start back to the segment boundary at or before it, so a
+ *  clipped stream's own timeline begins there, not at asset_start_time.
+ *  Measured 11-05 on seven assets from old and new uploads: 5 s segments
+ *  (EXT-X-TARGETDURATION 5) on every one. chunkWindow uses it. */
+export const MUX_SEGMENT_SECONDS = 5;
+
+/** `count` equal, adjacent ranges that cover [0, duration] with no overlap:
+ *  each ends exactly where the next starts (boundaries rounded to ms once and
+ *  shared), the last ends at `duration`. null for a duration that is not a
+ *  positive number, so the caller leaves the video as one tile. */
+export function chunkRanges(duration, count = CHUNK_COUNT) {
+  if (!(duration > 0) || !(count >= 2)) return null;
+  const edge = (k) => (k === 0 ? 0 : k === count ? duration : Math.round((duration * k * 1000) / count) / 1000);
+  return Array.from({ length: count }, (_, k) => ({ start: edge(k), end: edge(k + 1) }));
+}
+
+/** Where a chunk plays inside its own clipped stream: `from` and `to`, in
+ *  seconds on the stream's timeline, which starts at the segment boundary at
+ *  or before `start`. */
+export function chunkWindow({ start, end }) {
+  const base = Math.floor(start / MUX_SEGMENT_SECONDS) * MUX_SEGMENT_SECONDS;
+  return { from: start - base, to: end - base };
+}
+
+/** The handlers of a player that loops the window [from, to) of its stream:
+ *  playback starts at `from` (a native-HLS player that began earlier seeks on
+ *  metadata), and at `to`, or at the stream's end when that comes first, it
+ *  goes back to `from`. A chunk never uses `loop`: that returns to the
+ *  stream's own start, which can sit up to a segment inside the previous
+ *  chunk's range. */
+export function windowLoop(from, to) {
+  return {
+    onLoadedMetadata: (e) => {
+      const v = e.currentTarget;
+      if (from > 0 && v.currentTime < from - 0.1) v.currentTime = from;
+    },
+    onTimeUpdate: (e) => {
+      const v = e.currentTarget;
+      if (v.currentTime >= to) v.currentTime = from;
+    },
+    onEnded: (e) => {
+      const v = e.currentTarget;
+      v.currentTime = from;
+      v.play().catch(() => {});
+    },
+  };
 }
 
 /* — The Project Directory (11-03): its players and its image widths — */
