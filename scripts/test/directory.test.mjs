@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import {
   buildDirectoryTiles,
   orderTiles,
+  logoFirst,
   matchesFilter,
   tagPresence,
   fitOf,
@@ -380,4 +381,17 @@ test('sizesFor: the column share at each breakpoint; a cover crop wider than its
   const dir = { phone: 2, tablet: 4, desktop: 5 }
   assert.equal(sizesFor('square', 1, 'cover', dir), '(max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw')
   assert.equal(sizesFor('landscape', 1.78, 'cover', dir), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw')
+})
+
+test('logoFirst: under exactly logo-design the logo tiles lead, each block keeps its order', () => {
+  const ts = [
+    { id: 'a', logo: null }, { id: 'b', logo: {} }, { id: 'c', logo: null },
+    { id: 'd', logo: {} }, { id: 'e', logo: null },
+  ]
+  const out = logoFirst(ts, new Set(['logo-design']))
+  assert.deepEqual(out.map((t) => t.id), ['b', 'd', 'a', 'c', 'e'])
+  assert.deepEqual(ts.map((t) => t.id), ['a', 'b', 'c', 'd', 'e'], 'the input is left alone')
+  for (const tags of [new Set(), new Set(['logo-design', 'motion']), new Set(['motion'])]) {
+    assert.equal(logoFirst(ts, tags), ts, 'every other filter is unchanged')
+  }
 })

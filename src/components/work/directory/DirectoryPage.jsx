@@ -48,6 +48,7 @@ import {
   hasFilterParams,
   matchesFilter,
   orderTiles,
+  logoFirst,
   readFilter,
   sameFilter,
   sanitizeFilter,
@@ -227,7 +228,7 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
   const ordered = useMemo(() => orderTiles(tiles, tune.order, seed), [tiles, tune.order, seed]);
   const shown = useMemo(() => {
     const on = new Set(filter.tags);
-    return ordered.filter((t) => matchesFilter(t, { tags: on, coverage }));
+    return logoFirst(ordered.filter((t) => matchesFilter(t, { tags: on, coverage })), on);
   }, [ordered, filter.tags, coverage]);
   const logoDials = useMemo(
     () => ({ pad: tune.logoPad, weight: tune.logoWeight, land: tune.logoLand, center: tune.logoCenter }),
