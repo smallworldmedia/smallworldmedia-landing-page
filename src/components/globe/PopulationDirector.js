@@ -105,6 +105,16 @@ const NEXT_WARM_CAP_S = 2;
 const AHEAD_TOL_RAD = THREE.MathUtils.degToRad(0.5);
 const colat = (p) => Math.acos(Math.min(Math.max(p.centerDir.y, -1), 1));
 
+/** stats.seq (11-05): the on-screen sequence UNITS by class, and `split`, those whose cycling members show more
+ *  than one picture now (every member cuts on the same beat, so 0 between frames). `front`: world → placements. */
+function seqUnitStats(front) {
+  const units = [...front.values()].flatMap((s) => [...s]).filter((P) => P.members);
+  const byCls = {};
+  for (const P of units) byCls[P.cls] = (byCls[P.cls] || 0) + 1;
+  const split = units.filter((P) => new Set(P.members.filter((m) => m._seq).map((m) => m.mesh.material.uniforms.texA.value)).size > 1).length;
+  return { units: byCls, split };
+}
+
 export default class PopulationDirector {
   /**
    * @param {Object} opts
@@ -278,7 +288,10 @@ export default class PopulationDirector {
     // (selectFor) whose real source short side ≥ 0.9 × the quad texture side. Keyed by world (m9).
     const elected = new Set();
     if (on && !wide && TUNING.quads > 0) this.worlds.forEach((w, wi) => {
-      for (const id of electQuads(this.selectFor(w.assets), TUNING.quads, GLOBE_T1, this.L)) elected.add(`${wi}|${id}`);
+      const pool = this.selectFor(w.assets);
+      // ?popseqquad: the album-art sequence stands first for the election (11-05)
+      const ranked = TUNING.seqQuad ? [...pool.filter((a) => a.frames), ...pool.filter((a) => !a.frames)] : pool;
+      for (const id of electQuads(ranked, TUNING.quads, GLOBE_T1, this.L)) elected.add(`${wi}|${id}`);
     });
     // Wide, under a budget: each world grows its sharp portraits to 2×3 with the room its selection left (Nathan
     // 10-31: fewer assets, bigger portraits). Keyed by world, as the quads are.
@@ -336,7 +349,7 @@ export default class PopulationDirector {
     // Constant with units off, so a knob never rebuilds today's records. The selection knobs are in it because
     // the quad election and the 2×3 growth read the selection (decorate → selectFor); ?popequiv's budget selects
     // too, and T1 sizes both.
-    return TUNING.units && this.L ? `1|${TUNING.shapes}|${TUNING.portrait}|${TUNING.quads}|${TUNING.cap}|${TUNING.media}|${TUNING.equiv}|${GLOBE_T1}` : '0';
+    return TUNING.units && this.L ? `1|${TUNING.shapes}|${TUNING.portrait}|${TUNING.quads}|${TUNING.seqQuad}|${TUNING.cap}|${TUNING.media}|${TUNING.equiv}|${GLOBE_T1}` : '0';
   }
 
   /** A knob that changes the records (units, shapes, portrait, quads, cap, media, equiv) rebuilds them; the relayout that follows re-warms. */
@@ -850,8 +863,11 @@ export default class PopulationDirector {
       const pool = g.pools[r];
       if (!pool?.length) continue;
       const c0 = g.ucursor[r] ?? g.cursor[r];
-      for (let t = 0; t < pool.length; t++) {
-        const i = (c0 + t) % pool.length;
+      // — 11-05 (Nathan: the cycling covers belong on the 2×2s) — ?popseqquad: a region's album-art sequence
+      // tries for its world's quad first, out of turn, until this plan holds one of it; then editorial order.
+      const sq = TUNING.seqQuad ? pool.findIndex((a) => a.frames && a.unitCls === 'q' && !count.get(assetKey(a))) : -1;
+      for (let t = sq < 0 ? 0 : -1; t < pool.length; t++) {
+        const i = t < 0 ? sq : (c0 + t) % pool.length;
         const a = pool[i];
         const own = a.unitCls; // the class THIS region's world may form (decorate)
         if (!own || !UNIT_CLASSES.has(own) || UNIT_SHAPE[own].rows < minRows) continue;
@@ -871,7 +887,7 @@ export default class PopulationDirector {
         const { cols, rows } = UNIT_SHAPE[cls];
         const P = { uid: `${cls}:${p.lonIndex}:${p.tapeS}:${key}`, key, cls, cols, rows, n: members.length, S: unitAspect(cols, rows, this.L), L: this.L, members, born: false, look: unitLookFor(rows, TUNING.unitLook) };
         claim(P, members.map((m, k) => ({ ...a, place: P, kx: k % cols, ky: Math.floor(k / cols) })));
-        g.ucursor[r] = (i + 1) % pool.length; // the region's next unit takes the next classed asset
+        if (t >= 0) g.ucursor[r] = (i + 1) % pool.length; // the region's next unit takes the next classed asset
         if (i === g.cursor[r] % pool.length) g.cursor[r] = (i + 1) % pool.length; // …and singles don't open on it
         this.placed[cls] += 1;
         if (initial && cls !== 'h') this.initVQ += 1;
@@ -1754,6 +1770,7 @@ export default class PopulationDirector {
         byWorld: Object.fromEntries([...seqFront].map(([w, s]) => [this.worlds[w].slug, s.size])),
         refs: this.seqRefs,
         cuts: this.seqCuts,
+        ...seqUnitStats(seqFront),
       },
       upload: this.uploadStats(),
       r1,
@@ -1775,8 +1792,7 @@ export default class PopulationDirector {
       },
     };
     this.flipsSampled = this.flips;
-    if (typeof window !== 'undefined') window.__swmPopStats = stats;
-    return stats;
+    if (typeof window !== 'undefined') window.__swmPopStats = stats;    return stats;
   }
 
   dispose() {
