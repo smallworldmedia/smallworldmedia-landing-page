@@ -25,8 +25,8 @@
    - COCO (92 assets) sits beside COCO Records (none), and Rossi. beside HOMEGRWXN.
    - The options: merge them, rename them, or keep them.
 6. **The directory's numbers.**
-   - `?dirorder`, `?dirplayers`, `?dirdwell` and `?dirphonecols` hold the agent's defaults until Nathan names numbers.
-   - Phone columns, 1 or 2, are best judged on the phone.
+   - `?dirplayers` and `?dirdwell` hold the agent's defaults until Nathan names numbers.
+   - 11-05, Nathan: five columns on a desktop (`?dircols`) and two on a phone (`?dirphonecols`); the filter loads open with `album-art` ticked; the order is a Studio switch (`siteSettings.directoryShuffle`, a new random order every load, `?dirorder=shuffle` to try it). The tablet band (769–1024px) holds 4 (`?dirtabletcols`), the agent's pick, open for Nathan.
 7. **The drawer at 59 names.**
    - It has 20 rows a column, up from 14.
    - The first-open cascade grows from 0.8 to 1.16 s.

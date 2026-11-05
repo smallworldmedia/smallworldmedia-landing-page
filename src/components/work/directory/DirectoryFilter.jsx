@@ -5,7 +5,8 @@
  * active client as a chip, a live count of works, clear (while anything
  * filters), and the all_services toggle.
  *
- * Collapsed, it shows one row of tags above 768px and the bar alone at
+ * It loads open (11-05), the server's render too, and closes from there on the
+ * recipe below. Collapsed, it shows one row of tags above 768px and the bar alone at
  * ≤768px; the tags the collapse hides are inert (re-measured on resize), so
  * Tab never lands on one, and hidden once it is shut. Expanding pushes the
  * grid down, on the drawer's recipe (SiteShell / InfoPanel): the region
@@ -47,7 +48,9 @@ export default function DirectoryFilter({
   const regionRef = useRef(null);
   const tagsRef = useRef(null);
   const tlRef = useRef(null);
-  const [open, setOpen] = useState(false);
+  // Open on load (Nathan, 11-05): the server renders it open too
+  // (directory.css), so hydration changes nothing on screen.
+  const [open, setOpen] = useState(true);
   // Closing: the shrinking region clips the rows the fold hides. Once shut,
   // data-folded hides them outright (directory.css), since at line-height
   // 0.8 the next row's capitals reach above the fold line.

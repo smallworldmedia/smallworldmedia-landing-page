@@ -24,9 +24,9 @@
  * place. orderTiles(tiles, 'mix') re-deals it across clients.
  *
  * The page's helpers live here too, pure like the rest: matchesFilter and
- * tagPresence (what the filter shows), readFilter, sanitizeFilter and
- * filterSearch (its URL state, ?tag=a,b&client=slug), and sizesFor (a
- * tile's <img sizes>).
+ * tagPresence (what the filter shows), readFilter, sanitizeFilter,
+ * defaultFilter and filterSearch (its URL state, ?tag=a,b&client=slug), and
+ * sizesFor (a tile's <img sizes>).
  */
 import { assetLane, ratioOf } from '../detail/buildContentFlow.js';
 import { classifyTile } from '../detail/flushGrid.js';
@@ -151,12 +151,35 @@ export function buildDirectoryTiles({ assets, worlds, clients = [] }) {
   });
 }
 
+/* mulberry32: a small seeded generator, so a shuffle repeats for one seed. */
+function seeded(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /**
  * The tiles in a display order. 'project' is the build order; 'mix' deals
  * the clients round-robin (each client's tiles keep their own order), so no
- * two neighbours share a client while two clients remain.
+ * two neighbours share a client while two clients remain; 'shuffle' is a
+ * Fisher–Yates shuffle for `seed` (the page draws one seed per load, so every
+ * load is a new order and a filter change never re-deals it).
  */
-export function orderTiles(tiles, mode = 'project') {
+export function orderTiles(tiles, mode = 'project', seed = 0) {
+  if (mode === 'shuffle') {
+    const out = [...tiles];
+    const rand = seeded(seed);
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
   if (mode !== 'mix') return tiles;
   const queues = new Map();
   for (const t of tiles) {
@@ -198,19 +221,39 @@ export function tagPresence(tiles, coverage) {
 }
 
 /**
- * The <img sizes> for a tile at the detail grid's breakpoints: three columns
- * above 1024px, two to 769px, then `phoneCols`; a landscape spans two (one
- * in a single column). A cover crop fills the cell's height as well, so a
- * picture wider than its cell renders wider than the cell, by ratio ÷ cell,
- * and asks for that much more (a 9:16 portrait in a 1:2 cell: 1.125×).
+ * The <img sizes> for a tile at the detail grid's breakpoints, given the
+ * columns each band holds (`cols`: desktop above 1024px, tablet to 769px,
+ * phone below; DirectoryGrid passes the dialed counts, and the defaults are
+ * the detail grid's). A landscape spans two (one in a single column). A cover
+ * crop fills the cell's height as well, so a picture wider than its cell
+ * renders wider than the cell, by ratio ÷ cell, and asks for that much more
+ * (a 9:16 portrait in a 1:2 cell: 1.125×).
  */
-export function sizesFor(type, ratio, fit, phoneCols = 1) {
+export function sizesFor(type, ratio, fit, { phone = 1, tablet = 2, desktop = 3 } = {}) {
   const span = type === 'landscape' ? 2 : 1;
   const cell = CELL_RATIO[type] ?? 1;
   const over = fit === 'cover' && ratio > cell ? ratio / cell : 1;
   const vw = (cols) => `${Math.round((100 * Math.min(span, cols) * over) / cols)}vw`;
-  return `(max-width: 768px) ${vw(phoneCols)}, (max-width: 1024px) ${vw(2)}, ${vw(3)}`;
+  return `(max-width: 768px) ${vw(phone)}, (max-width: 1024px) ${vw(tablet)}, ${vw(desktop)}`;
 }
+
+/** The tag a load with no filter in its URL starts on (Nathan, 11-05). */
+export const DEFAULT_TAG = 'album-art';
+
+/** The filter a bare load starts from: DEFAULT_TAG where it has tiles, else every work. */
+export function defaultFilter(data) {
+  return sanitizeFilter(data, [DEFAULT_TAG], null);
+}
+
+/** Whether the URL names a filter at all (a `tag` or `client` key, even empty). */
+export function hasFilterParams(search) {
+  const params = new URLSearchParams(search);
+  return params.has('tag') || params.has('client');
+}
+
+/** The same tags, in order, and client. */
+export const sameFilter = (a, b) =>
+  a.client === b.client && a.tags.length === b.tags.length && a.tags.every((t, i) => t === b.tags[i]);
 
 /** The filter the URL asks for, ?tag=a,b&client=slug, unchecked (sanitizeFilter). */
 export function readFilter(search) {
@@ -239,10 +282,13 @@ export function sanitizeFilter({ tags, clients, tiles }, wantTags, wantClient) {
 }
 
 /** `search` with the filter written in and every other param kept; '' when
-    nothing is left. Commas stay readable (?tag=a,b). */
-export function filterSearch(search, tags, client) {
+    nothing is left. Commas stay readable (?tag=a,b). A URL with no filter
+    means the default (hasFilterParams), so the default itself (`isDefault`)
+    writes none, and a filter of nothing writes `?tag=` to stay "every work". */
+export function filterSearch(search, tags, client, isDefault = false) {
   const params = new URLSearchParams(search);
-  if (tags.length) params.set('tag', tags.join(','));
+  if (tags.length && !isDefault) params.set('tag', tags.join(','));
+  else if (!client && !isDefault) params.set('tag', '');
   else params.delete('tag');
   if (client) params.set('client', client);
   else params.delete('client');

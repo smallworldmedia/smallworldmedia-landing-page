@@ -611,16 +611,18 @@ The description's first paragraph is the intro blurb; each later paragraph (a bl
 
 ## `/work/directory` — the Project Directory
 
-Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in DirectoryPage's mount effect) and `detail/tileGrid.js` (`?tileshape`, as on the detail pages). Bench: `?dirtune=1` (DirectoryTunePanel, top-right). The route is live since 11-03 (`251e7b3`). The defaults are the agent's, pending Nathan's numbers.
+Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in DirectoryPage's mount effect) and `detail/tileGrid.js` (`?tileshape`, as on the detail pages). Bench: `?dirtune=1` (DirectoryTunePanel, top-right). The route is live since 11-03 (`251e7b3`). The order's default is the Studio's `siteSettings.directoryShuffle` switch (below); the columns are Nathan's (11-05: 5 desktop, 2 phone); the rest are the agent's, pending Nathan's numbers.
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?dirorder` | tile order: `project` = the featured projects first, in World order, then every other client by name; `mix` = clients dealt round-robin | `project` | `project` \| `mix` | `directoryTune.js SSR_TUNE.order` |
+| `?dirorder` | tile order: `project` = the featured projects first, in World order, then every other client by name; `mix` = clients dealt round-robin; `shuffle` = a new random order on every load (drawn once at mount, so a filter change keeps it) | `project`, or `shuffle` while the Studio's Site Settings → "Project Directory: shuffle the order" is on (read at build) | `project` \| `mix` \| `shuffle` | `directoryTune.js SSR_TUNE.order` (the switch: `siteSettings.directoryShuffle`) |
 | `?dirplayers` | videos playing at once (the player gate's cap); `0` = posters only | `6`, `3` ≤768px | integer ≥ 0 | `imageConfig.js DIRECTORY_PLAYERS` |
 | `?dirdwell` | ms a video tile stays half in view before it plays, so a fling past never asks Mux for a master | `300` ms | ≥ 0 | `imageConfig.js DIRECTORY_DWELL_MS` |
-| `?dirphonecols` | grid columns at ≤768px | `1` (the detail grid's phone layout) | `1` \| `2` | `directoryTune.js SSR_TUNE.phoneCols` |
+| `?dircols` | grid columns above 1024px (Nathan, 11-05) | `5` | integer 1–10 | `directoryTune.js SSR_TUNE.cols` |
+| `?dirtabletcols` | grid columns from 769 to 1024px (the agent's pick: 4 keeps a cell at 190–260px, between the phone's 195 and the desktop's 205–285) | `4` | integer 1–8 | `directoryTune.js SSR_TUNE.tabletCols` |
+| `?dirphonecols` | grid columns at ≤768px (Nathan, 11-05) | `2` | `1` \| `2` | `directoryTune.js SSR_TUNE.phoneCols` |
 
-`?tag=a,b&client=slug` is the filter's state, not a tunable (see Inert, legacy, and dead knobs).
+`?tag=a,b&client=slug` is the filter's state, not a tunable (see Inert, legacy, and dead knobs). A URL with neither key starts on `album-art` (`DEFAULT_TAG`, buildDirectoryTiles.js, Nathan 11-05) and stays bare while it holds that default; `?tag=` (empty) is "every work", which is what `clear` writes; `?client=x` alone shows every tag of that client.
 
 ## `/process`
 

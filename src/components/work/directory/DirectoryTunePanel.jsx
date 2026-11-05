@@ -10,17 +10,19 @@
  * Styles: commit-tune.css + the --tr corner modifier.
  */
 import { useEffect, useState } from 'react';
-import { TUNE_OK, tuneCopyUrl } from './directoryTune.js';
+import { ORDERS, TUNE_OK, tuneCopyUrl } from './directoryTune.js';
 
 const FIELDS = [
   {
     key: 'order',
     label: 'order',
-    hint: 'project = featured first, in World order; mix = clients dealt round-robin',
-    options: ['project', 'mix'],
+    hint: 'project = featured first, in World order; mix = clients dealt round-robin; shuffle = a new random order each load',
+    options: ORDERS,
   },
   { key: 'players', label: 'players', hint: 'videos playing at once (the gate cap); 0 = posters only' },
   { key: 'dwell', label: 'dwell ms', hint: 'how long a video tile stays half in view before it plays' },
+  { key: 'cols', label: 'cols', hint: 'columns above 1024px' },
+  { key: 'tabletCols', label: 'tablet cols', hint: 'columns from 769 to 1024px' },
   { key: 'phoneCols', label: 'phone cols', hint: 'columns at ≤768px', options: [1, 2] },
 ];
 

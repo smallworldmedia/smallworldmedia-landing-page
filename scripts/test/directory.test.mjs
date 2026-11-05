@@ -13,8 +13,12 @@ import {
   readFilter,
   filterSearch,
   sanitizeFilter,
+  defaultFilter,
+  hasFilterParams,
+  sameFilter,
   sizesFor,
 } from '../../src/components/work/directory/buildDirectoryTiles.js'
+import { SSR_TUNE, readTune } from '../../src/components/work/directory/directoryTune.js'
 import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
 import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
 
@@ -114,6 +118,18 @@ test("order: 'project' runs World order, then clients by name; 'mix' re-deals ac
     if (left(i - 1) >= 2) assert.notEqual(mixed[i].client, mixed[i - 1].client, `neighbours ${i - 1}/${i}`)
   }
   assert.equal(orderTiles(ts, 'project'), ts)
+})
+
+test("order: 'shuffle' is the same tiles in a seeded new order, and leaves its input alone", () => {
+  const ts = tiles()
+  const before = ids(ts)
+  const a = orderTiles(ts, 'shuffle', 1)
+  assert.deepEqual([...ids(a)].sort(), [...before].sort(), 'the same tiles')
+  assert.deepEqual(ids(ts), before, 'the input keeps its order')
+  assert.deepEqual(ids(orderTiles(ts, 'shuffle', 1)), ids(a), 'one seed, one order')
+  const orders = new Set([1, 2, 3, 4, 5, 6].map((seed) => ids(orderTiles(ts, 'shuffle', seed)).join()))
+  assert.ok(orders.size > 1, 'other seeds deal other orders')
+  assert.ok(![...orders].every((o) => o === before.join()), 'not the build order')
 })
 
 test('matchesFilter: the truth table', () => {
@@ -290,10 +306,54 @@ test('readFilter / filterSearch: ?tag=a,b&client=slug both ways, other params ke
   assert.deepEqual(readFilter('?tag=&client='), { tags: [], client: null })
   assert.deepEqual(readFilter('?tag=a,,a, b'), { tags: ['a', 'b'], client: null })
   assert.equal(filterSearch('?dirtune=1', ['a', 'b'], 'x'), '?dirtune=1&tag=a,b&client=x')
-  assert.equal(filterSearch('?tag=a&client=x&dirorder=mix', [], null), '?dirorder=mix')
-  assert.equal(filterSearch('?tag=a', [], null), '')
+  assert.equal(filterSearch('?tag=a&client=x&dirorder=mix', [], null), '?tag=&dirorder=mix')
+  assert.equal(filterSearch('?tag=a&client=x', [], 'x'), '?client=x', 'a client alone is explicit enough')
+  assert.equal(filterSearch('?tag=a', [], null), '?tag=', 'nothing picked stays "every work", not the default')
+  assert.equal(filterSearch('?tag=a&client=x&dirorder=mix', ['a'], null, true), '?dirorder=mix', 'the default keeps the URL bare')
   const round = filterSearch('', ['a', 'b'], 'x')
   assert.deepEqual(readFilter(round), { tags: ['a', 'b'], client: 'x' }, 'what it writes reads back')
+})
+
+test('the default filter: a bare URL starts on album-art, any filter key in the URL wins', () => {
+  const tags = [{ slug: 'branding' }, { slug: 'album-art' }]
+  const clients = [{ slug: 'munchietown' }, { slug: 'coco' }]
+  const tiles = [
+    { client: 'munchietown', services: ['album-art'] },
+    { client: 'coco', services: ['branding'] },
+  ]
+  const data = { tags, clients, tiles }
+  const base = defaultFilter(data)
+  assert.deepEqual(base, { tags: ['album-art'], client: null })
+  assert.deepEqual(defaultFilter({ ...data, tiles: [tiles[1]] }), { tags: [], client: null }, 'no album-art tiles: every work')
+  assert.equal(hasFilterParams(''), false)
+  assert.equal(hasFilterParams('?dirtune=1&dirorder=mix'), false, 'tunables are not a filter')
+  for (const q of ['?tag=branding', '?client=coco', '?tag=', '?client=']) assert.equal(hasFilterParams(q), true, q)
+  // what the page writes reads back to the same filter
+  for (const next of [base, { tags: [], client: null }, { tags: ['branding'], client: null }, { tags: [], client: 'coco' }]) {
+    const search = filterSearch('', next.tags, next.client, sameFilter(next, base))
+    const back = hasFilterParams(search) ? readFilter(search) : base
+    assert.ok(sameFilter(sanitizeFilter(data, back.tags, back.client), next), `${JSON.stringify(next)} via "${search}"`)
+  }
+  assert.equal(filterSearch('', ['album-art'], null, true), '', 'the default is a bare URL')
+  assert.equal(filterSearch('', [], null, false), '?tag=', 'clear is "every work"')
+})
+
+test('readTune: the order and the columns per band, from the URL over the defaults', () => {
+  assert.deepEqual(
+    { cols: SSR_TUNE.cols, tabletCols: SSR_TUNE.tabletCols, phoneCols: SSR_TUNE.phoneCols, order: SSR_TUNE.order },
+    { cols: 5, tabletCols: 4, phoneCols: 2, order: 'project' },
+    'Nathan: five wide, two on a phone'
+  )
+  assert.equal(readTune('', SSR_TUNE).order, 'project')
+  assert.equal(readTune('?dirorder=shuffle', SSR_TUNE).order, 'shuffle')
+  assert.equal(readTune('?dirorder=nonsense', SSR_TUNE).order, 'project')
+  const shuffled = { ...SSR_TUNE, order: 'shuffle' }
+  assert.equal(readTune('', shuffled).order, 'shuffle', 'the Studio switch sets the default')
+  assert.equal(readTune('?dirorder=project', shuffled).order, 'project', 'the URL overrides it')
+  const t = readTune('?dircols=6&dirtabletcols=3&dirphonecols=1', SSR_TUNE)
+  assert.deepEqual([t.cols, t.tabletCols, t.phoneCols], [6, 3, 1])
+  const bad = readTune('?dircols=0&dirtabletcols=2.5&dirphonecols=3', SSR_TUNE)
+  assert.deepEqual([bad.cols, bad.tabletCols, bad.phoneCols], [5, 4, 2], 'garbage falls back')
 })
 
 test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio order and need tiles in the coverage', () => {
@@ -314,6 +374,10 @@ test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio or
 test('sizesFor: the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
   assert.equal(sizesFor('square', 1, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
   assert.equal(sizesFor('landscape', 1.78, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 67vw')
-  assert.equal(sizesFor('portrait', 0.5625, 'cover', 2), '(max-width: 768px) 56vw, (max-width: 1024px) 56vw, 38vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'cover', { phone: 2 }), '(max-width: 768px) 56vw, (max-width: 1024px) 56vw, 38vw')
   assert.equal(sizesFor('portrait', 0.5625, 'contain'), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
+  // the directory's bands: five wide, four on a tablet, two on a phone
+  const dir = { phone: 2, tablet: 4, desktop: 5 }
+  assert.equal(sizesFor('square', 1, 'cover', dir), '(max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw')
+  assert.equal(sizesFor('landscape', 1.78, 'cover', dir), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw')
 })
