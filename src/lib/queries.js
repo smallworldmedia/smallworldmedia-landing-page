@@ -195,7 +195,9 @@ export const MEDIA_FIELDS = `
  * Content Population Hierarchy (see CONTEXT.md) turns that order into the layout.
  */
 export const FEATURED_PROJECT_DETAIL_QUERY = `{
-  "assets": *[_type == "mediaAsset" && project._ref == $projectId && !(_id in path("drafts.**"))] | order(orderRank asc) {${MEDIA_FIELDS}
+  "assets": *[_type == "mediaAsset" && project._ref == $projectId && !(_id in path("drafts.**"))] | order(orderRank asc) {${MEDIA_FIELDS},
+    splitIntoThirds,
+    "videoDuration": video.asset->data.duration
   },
   "client": *[_type == "project" && _id == $projectId][0].client->{
     name,

@@ -144,6 +144,11 @@ missing tags. The runner validates against current schema rules/fingerprint.
 For a scoped read-only audit, use `inspect` with explicit published document IDs
 and no patches/creates; planning never requires an apply for an audit.
 
+`splitIntoThirds` (a boolean on a video `mediaAsset`, off when missing) turns on the detail
+page's three-chunk split for that video: `{"set": {"splitIntoThirds": true}}`, or `unset` to
+return it to one tile. It is refused on a still. The detail page reads the Mux asset's
+duration from Sanity, so the asset must be ready.
+
 A replacement/repair mediaAsset patch can add
 `"upload": {"file": "relative/file.mp4"}`. That source is relative to the changes
 JSON's directory. Existing media remains attached until its approved replacement

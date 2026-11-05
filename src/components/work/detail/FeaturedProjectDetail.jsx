@@ -86,6 +86,23 @@ const readBlurbRows = () => {
   return Number.isFinite(v) && v > 0 ? v : BLURB_ROWS;
 };
 
+/* Chunks (11-05, Nathan): a video flagged `splitIntoThirds` in Sanity shows
+   as three tiles, each its own third (expandChunks, buildContentFlow.js). The
+   flag arrives with the data, so the server render already splits. Dev
+   overrides, read after mount: ?chunks=<asset slug or id>[,…] splits that
+   video without the flag (what to try before the flag is on in Sanity);
+   ?chunkgap=<tiles> puts that many tiles between one chunk and the next
+   (default 0: the three sit together). */
+const CHUNKS_NONE = { only: [], gap: 0 };
+const readChunkTune = () => {
+  const q = new URLSearchParams(window.location.search);
+  const gap = parseInt(q.get('chunkgap'), 10);
+  return {
+    only: (q.get('chunks') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    gap: Number.isFinite(gap) && gap > 0 ? gap : 0,
+  };
+};
+
 /* The blurb copy, with its own keyword wipe: the intro and each band play
    theirs as they scroll in. */
 function BlurbCopy({ paragraphs }) {
@@ -242,7 +259,9 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // post-hydration broadcast, no brand-blue flash.
 
   const hero = assets[0] ?? null;
-  const { showcase, albumArt, brandDecks, banners } = buildContentFlow(assets);
+  const [chunkTune, setChunkTune] = useState(CHUNKS_NONE);
+  useEffect(() => setChunkTune(readChunkTune()), []);
+  const { showcase, albumArt, brandDecks, banners } = buildContentFlow(assets, { chunks: chunkTune });
 
   // Banner sockets want a height in BANNERS, not rows, and tiles a shape:
   // measure the flow width (the grid is full-bleed inside it) and convert.

@@ -16,6 +16,13 @@
  * finished before hydration is flagged as its element attaches, since its
  * onLoad never fires.
  *
+ * A chunk (11-05: asset.chunk, from expandChunks when the video is flagged
+ * `splitIntoThirds`) is one third of such a video: the stream is clipped at
+ * both ends (muxStream start + end), plays its WHOLE range (no DETAIL_MAX_SECONDS
+ * cap), starts and wraps at windowLoop's from/to on the stream's own timeline
+ * (Mux begins a clip on the segment boundary before its start), and its
+ * poster is the frame at its own start.
+ *
  * Accessibility: the figure is named by the title; the media itself by
  * `alt` (title fallback for images); `description` rides along as a
  * screen-reader-only figcaption — never shown on the page.
@@ -50,6 +57,7 @@ import {
   muxPoster,
   muxPosterSrcSet,
   sanitySrcSet,
+  windowLoop,
   wrapAt,
 } from '../imageConfig.js';
 import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
@@ -150,18 +158,30 @@ export default function MediaSlot({
   const frames = asset.frames?.length > 1 ? asset.frames : null;
   const frame = useSequenceFrame(frames?.length ?? 0, isVisible);
 
+  // A chunk (expandChunks) plays its own range of the asset: the stream is
+  // clipped at both ends, it starts at `from` on the stream's own timeline
+  // and wraps at `to`, whole, whatever `clip` says. Not in directory mode,
+  // where the video stays one tile.
+  const chunk = gate ? null : asset.chunk;
+  const chunkLoop = useMemo(() => (chunk ? windowLoop(chunk.from, chunk.to) : null), [chunk]);
+
   // Directory mode streams through GatedVideo instead.
   const hlsSrc = isVideo && isVisible && !gate
-    ? muxStream(asset.playbackId, clip)
+    ? muxStream(asset.playbackId, chunk ? chunk.end : clip, '', chunk ? chunk.start : 0)
     : null;
 
-  useHls(videoRef, hlsSrc, DETAIL_HLS_CONFIG, { videoOnly: true });
+  useHls(
+    videoRef,
+    hlsSrc,
+    chunk && chunk.from > 0 ? { ...DETAIL_HLS_CONFIG, startPosition: chunk.from } : DETAIL_HLS_CONFIG,
+    { videoOnly: true }
+  );
   const wrap = useMemo(() => wrapAt(clip), [clip]);
 
   // time=0: playback starts at frame 0 and every wrap returns there (the
   // native loop, or the cap's seek), so the frame-0 poster is the aligned
-  // one — no poster→playback jump.
-  const posterUrl = isVideo ? muxPoster(asset.playbackId, SLOT_IMG_WIDTH) : null;
+  // one — no poster→playback jump. A chunk's poster is its own first frame.
+  const posterUrl = isVideo ? muxPoster(asset.playbackId, SLOT_IMG_WIDTH, chunk ? chunk.start : 0) : null;
 
   const ratio = ratioOf(asset);
   const isPortrait = ratio < PORTRAIT_THRESHOLD;
@@ -208,7 +228,7 @@ export default function MediaSlot({
       data-portrait={isPortrait || undefined}
       data-fit={fit}
       style={{ '--slot-ratio': ratio, ...style }}
-      aria-label={asset.title || undefined}
+      aria-label={asset.title ? `${asset.title}${asset.chunk ? ` (part ${asset.chunk.index + 1} of ${asset.chunk.count})` : ''}` : undefined}
       {...rest}
     >
       {frames ? (
@@ -254,10 +274,12 @@ export default function MediaSlot({
           poster={posterUrl}
           muted
           autoPlay
-          loop
+          loop={!chunk}
           playsInline
           aria-label={asset.alt || undefined}
-          onTimeUpdate={wrap}
+          onTimeUpdate={chunkLoop ? chunkLoop.onTimeUpdate : wrap}
+          onLoadedMetadata={chunkLoop?.onLoadedMetadata}
+          onEnded={chunkLoop?.onEnded}
           onCanPlay={() => setIsLoaded(true)}
         />
       ) : asset.imageUrl ? (

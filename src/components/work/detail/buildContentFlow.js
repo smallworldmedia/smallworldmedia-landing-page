@@ -38,11 +38,15 @@
  * showcase last), exported so other grids sort assets the same way.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
- * @param {{orbitMin?: number}} [opts] - ORBIT_MIN override (live tuning)
+ * 9. chunks (11-05, Nathan): a showcase video flagged `splitIntoThirds`
+ *     becomes three tiles in its place, each its own third (expandChunks).
+ *
+ * @param {{orbitMin?: number, chunks?: {only?: string[], gap?: number}}} [opts] - ORBIT_MIN override (live tuning); expandChunks' ?chunks / ?chunkgap
  * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<Object>, banners: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
  */
 
 import { isSequenceGroup, makeSequence } from '../../../lib/mediaSequence.js';
+import { chunkRanges, chunkWindow } from '../imageConfig.js';
 
 /** Ratio below which an asset is considered portrait/square. */
 const PORTRAIT_THRESHOLD = 1.2;
@@ -186,7 +190,51 @@ export function assetLane(asset) {
   return 'showcase';
 }
 
-export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
+/** Does `want` (an entry of ?chunks) name this asset: its _id, or the tail of
+ *  its _id after the `mediaAsset-` prefix or after any `-` (its slug). */
+const namesAsset = (want, asset) =>
+  asset._id === want || asset._id === `mediaAsset-${want}` || asset._id.endsWith(`-${want}`);
+
+/**
+ * Chunks (11-05, Nathan): a showcase video flagged `splitIntoThirds` in
+ * Sanity (or named by the dev override `?chunks=<slug or id>[,…]`) becomes
+ * CHUNK_COUNT tiles in its place, each a copy of the asset carrying its own
+ * `chunk` range (chunkRanges, imageConfig) and a `<_id>~<k>of<n>` id.
+ * `gap` tiles (?chunkgap, default 0) sit between one chunk and the next. A
+ * video with no known duration stays one tile. The hero is never split: it
+ * is not in the flow.
+ */
+export function expandChunks(list, { only = [], gap = 0 } = {}) {
+  const out = [];
+  for (const asset of list) {
+    const flagged = asset.playbackId && (asset.splitIntoThirds || only.some((w) => namesAsset(w, asset)));
+    const ranges = flagged ? chunkRanges(asset.videoDuration) : null;
+    if (!ranges) {
+      out.push(asset);
+      continue;
+    }
+    ranges.forEach((range, k) =>
+      out.push({
+        ...asset,
+        _id: `${asset._id}~${k + 1}of${ranges.length}`,
+        // the descriptor is read once, not once per tile
+        ...(k > 0 ? { description: undefined } : {}),
+        chunk: { of: asset._id, index: k, count: ranges.length, ...range, ...chunkWindow(range) },
+      })
+    );
+  }
+  if (!(gap > 0)) return out;
+  // Spread: chunk k > 0 moves to `gap` tiles after chunk k - 1.
+  const spread = out.filter((a) => !(a.chunk?.index > 0));
+  for (const a of out) {
+    if (!(a.chunk?.index > 0)) continue;
+    const home = spread.findIndex((b) => b.chunk?.index === 0 && b.chunk.of === a.chunk.of);
+    spread.splice(Math.min(home + a.chunk.index * (gap + 1), spread.length), 0, a);
+  }
+  return spread;
+}
+
+export function buildContentFlow(assets, { orbitMin = ORBIT_MIN, chunks } = {}) {
   const albumArt = [];
   const carousels = [];
   const bts = [];
@@ -237,9 +285,10 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN } = {}) {
 
   // ORBIT_MIN gate — below it, covers fold back into the showcase flow.
   const orbits = albumArt.length >= orbitMin;
-  const showcaseOut = (orbits ? showcase : [...showcase, ...albumArt])
-    .sort((a, b) => a.i - b.i)
-    .map((e) => e.asset);
+  const showcaseOut = expandChunks(
+    (orbits ? showcase : [...showcase, ...albumArt]).sort((a, b) => a.i - b.i).map((e) => e.asset),
+    chunks
+  );
   const albumArtOut = orbits ? albumArt.map((e) => e.asset) : [];
 
   // Decks: pages sequence by brandDeckOrder within each group (stable sort
