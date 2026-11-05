@@ -1,0 +1,329 @@
+{
+  "image-031f81c24cdb148c681a045d7950b0b5d0c2f877-602x587-png": {
+    "hold": "multi-colour",
+    "title": "Imperfect Stacked Color",
+    "client": "Imperfect Records",
+    "doc": "mediaAsset-imperfect-records-imperfect-stacked-color"
+  },
+  "image-113c06d9ab6a6f7947ce7a911d146081c0a3a4a6-413x413-jpg": {
+    "file": "113c06d9ab6a.png",
+    "w": 349,
+    "h": 328,
+    "aspect": 1.064,
+    "density": 0.4341,
+    "cx": 0.4999,
+    "cy": 0.4876,
+    "title": "Andhera Logo Sticker",
+    "client": "Andhera Records",
+    "doc": "mediaAsset-andhera-records-andhera-logo-sticker"
+  },
+  "image-16669c7dd9a2098e60aaff485cbbe5a76e3461cc-901x750-png": {
+    "hold": "busy-ground",
+    "title": "Andhera Logo (Yellow)",
+    "client": "Andhera Records",
+    "doc": "mediaAsset-andhera-records-andhera-logo-yellow"
+  },
+  "image-241604c40aa74020111059642bc4faaafde66265-1772x224-png": {
+    "hold": "multi-colour",
+    "title": "Short Circuit Logo Full Gradient",
+    "client": "Short Circuit",
+    "doc": "mediaAsset-short-circuit-short-circuit-logo-full-gradient"
+  },
+  "image-2589ad8cb2783129a03a510836da05f0e5c318a5-1506x689-png": {
+    "file": "2589ad8cb278.png",
+    "w": 1000,
+    "h": 458,
+    "aspect": 2.1834,
+    "density": 0.1964,
+    "cx": 0.5004,
+    "cy": 0.6853,
+    "title": "aint nobody logo minimal black",
+    "client": "Salomé Le Chat",
+    "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-minimal-black"
+  },
+  "image-26e57148c763943904b8d3cd33047d5715e88647-1229x1077-png": {
+    "file": "26e57148c763.png",
+    "w": 1000,
+    "h": 876,
+    "aspect": 1.1416,
+    "density": 0.4003,
+    "cx": 0.4764,
+    "cy": 0.4524,
+    "title": "Andhera Logo (White)",
+    "client": "Andhera Records",
+    "doc": "mediaAsset-andhera-records-andhera-logo-white"
+  },
+  "image-3142c9cf4c313a629d0785fc436a864e346f089f-1506x689-png": {
+    "file": "3142c9cf4c31.png",
+    "w": 1000,
+    "h": 458,
+    "aspect": 2.1834,
+    "density": 0.1964,
+    "cx": 0.5004,
+    "cy": 0.6848,
+    "title": "aint nobody logo minimal white",
+    "client": "Salomé Le Chat",
+    "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-minimal-white",
+    "twinOf": "image-2589ad8cb2783129a03a510836da05f0e5c318a5-1506x689-png"
+  },
+  "image-314cb9560eece92198992d4331723fe8c8839524-1200x1200-png": {
+    "file": "314cb9560eec.png",
+    "w": 834,
+    "h": 404,
+    "aspect": 2.0644,
+    "density": 0.319,
+    "cx": 0.4814,
+    "cy": 0.482,
+    "title": "front left logo white",
+    "client": "Front Left",
+    "doc": "mediaAsset-front-left-front-left-logo-white"
+  },
+  "image-3c0a752df36cb007934cb82b31057390a5c5a772-2456x2422-png": {
+    "file": "3c0a752df36c.png",
+    "w": 1000,
+    "h": 986,
+    "aspect": 1.0142,
+    "density": 0.6362,
+    "cx": 0.5137,
+    "cy": 0.454,
+    "title": "SB Logo Single Stack White",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sb-logo-single-stack-white"
+  },
+  "image-472f3eb337009fe5502ef17552ec7456239a9e82-3573x2427-png": {
+    "file": "472f3eb33700.png",
+    "w": 1000,
+    "h": 679,
+    "aspect": 1.4728,
+    "density": 0.5805,
+    "cx": 0.5058,
+    "cy": 0.4947,
+    "title": "SB Logo Double Stack White",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sb-logo-double-stack-white"
+  },
+  "image-47517da0a9643c8498dc2fcebd6448e1f9bc8432-2554x978-png": {
+    "file": "47517da0a964.png",
+    "w": 950,
+    "h": 133,
+    "aspect": 7.1429,
+    "density": 0.7438,
+    "cx": 0.4949,
+    "cy": 0.5016,
+    "title": "Maximo Logo",
+    "client": "Maximo",
+    "doc": "mediaAsset-maximo-maximo-logo"
+  },
+  "image-4df96d03ddef33b8b255241457f5a2da407059d1-1400x203-png": {
+    "file": "4df96d03ddef.png",
+    "w": 1000,
+    "h": 145,
+    "aspect": 6.8966,
+    "density": 0.4815,
+    "cx": 0.5263,
+    "cy": 0.5112,
+    "title": "Pulse Logo White",
+    "client": "Pulse Artists",
+    "doc": "mediaAsset-pulse-artists-pulse-logo-white"
+  },
+  "image-513cce8481aaf4fab18e220791de84e61ba3a4d4-3373x1689-png": {
+    "file": "513cce8481aa.png",
+    "w": 1000,
+    "h": 501,
+    "aspect": 1.996,
+    "density": 0.361,
+    "cx": 0.464,
+    "cy": 0.5687,
+    "title": "Offstage Logo White",
+    "client": "Offstage",
+    "doc": "mediaAsset-offstage-offstage-logo-white"
+  },
+  "image-5bd976730c4628149ef8c63c9677bfb03486d686-521x310-png": {
+    "file": "5bd976730c46.png",
+    "w": 521,
+    "h": 310,
+    "aspect": 1.6806,
+    "density": 0.4812,
+    "cx": 0.4601,
+    "cy": 0.3942,
+    "title": "Pulse Icon Beige",
+    "client": "Pulse Artists",
+    "doc": "mediaAsset-pulse-artists-pulse-icon-beige"
+  },
+  "image-62552f84237b08807f272204a337163efac220e5-2501x677-png": {
+    "file": "62552f84237b.png",
+    "w": 1000,
+    "h": 271,
+    "aspect": 3.69,
+    "density": 0.2969,
+    "cx": 0.4801,
+    "cy": 0.4981,
+    "title": "Ky William Logo Inline White",
+    "client": "Ky William",
+    "doc": "mediaAsset-ky-william-ky-william-logo-inline-white"
+  },
+  "image-6637912b94083c43034da1e3facb2db4d038a5d4-2401x270-png": {
+    "file": "6637912b9408.png",
+    "w": 1000,
+    "h": 113,
+    "aspect": 8.8496,
+    "density": 0.511,
+    "cx": 0.506,
+    "cy": 0.4895,
+    "title": "TBH Logo White",
+    "client": "TOBEHONEST",
+    "doc": "mediaAsset-tobehonest-tbh-logo-white"
+  },
+  "image-66d5b97625f29eb9e8a7191f7ad9827a14d86316-3573x2457-png": {
+    "hold": "multi-colour",
+    "title": "SB Logo Double Stack Color",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sb-logo-double-stack-color"
+  },
+  "image-76fb06d08b88a92d87f591dac1fbbab8093dcba0-830x762-png": {
+    "file": "76fb06d08b88.png",
+    "w": 830,
+    "h": 762,
+    "aspect": 1.0892,
+    "density": 0.2326,
+    "cx": 0.4812,
+    "cy": 0.42,
+    "title": "Cheetah Print Primary Logo — Red",
+    "client": "Cheetah Print",
+    "doc": "mediaAsset-3ea3229e-49b0-4ddf-afd7-3ca0127b8f6c",
+    "twinOf": "image-93d120cb4b70a886aaec69a6790ab1d50738a935-830x762-png"
+  },
+  "image-785076511ed94f899ec8352a044da3df7ce52007-1577x2100-png": {
+    "file": "785076511ed9.png",
+    "w": 751,
+    "h": 1000,
+    "aspect": 0.751,
+    "density": 0.2625,
+    "cx": 0.4943,
+    "cy": 0.5042,
+    "title": "COCO Logo White",
+    "client": "COCO",
+    "doc": "mediaAsset-5a8387fc-9233-492d-9b59-28783fab0f07"
+  },
+  "image-93d120cb4b70a886aaec69a6790ab1d50738a935-830x762-png": {
+    "file": "93d120cb4b70.png",
+    "w": 830,
+    "h": 762,
+    "aspect": 1.0892,
+    "density": 0.2342,
+    "cx": 0.4804,
+    "cy": 0.4203,
+    "title": "Cheetah Print Primary Logo — Gold",
+    "client": "Cheetah Print",
+    "doc": "mediaAsset-b5ce1a5e-d7eb-444d-adfc-44ed2f3103eb"
+  },
+  "image-9f83deb98dad04b316fe212d75e5f8193e84968b-871x105-png": {
+    "hold": "multi-colour",
+    "title": "Jeff Sorkowitz Wordmark — White",
+    "client": "Jeff Sorkowitz",
+    "doc": "mediaAsset-1ffd2d59-3b99-4174-8672-762a7d2efa2d"
+  },
+  "image-a93a7906f6a7c6503e86a35238e48f43c0916724-1200x1200-jpg": {
+    "hold": "two copies of the mark in one file",
+    "title": "Louder Than Silence Logo 01",
+    "client": "Louder Than Silence",
+    "doc": "mediaAsset-louder-than-silence-louder-than-silence-logo-01"
+  },
+  "image-b0b14c1828efed14d6dcd161c36a148739a098c9-1506x801-png": {
+    "file": "b0b14c1828ef.png",
+    "w": 1000,
+    "h": 532,
+    "aspect": 1.8797,
+    "density": 0.1989,
+    "cx": 0.4849,
+    "cy": 0.5822,
+    "title": "Ain't Nobody Logo Black",
+    "client": "Salomé Le Chat",
+    "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-black",
+    "twinOf": "image-eaf959eccb1c4c630c7c71fbb3c68507617f798b-1506x800-png"
+  },
+  "image-bdce4208f097507539a418d7a8129fb8bb6d7f9e-1500x1080-png": {
+    "hold": "busy-ground",
+    "title": "James Wyler Logo",
+    "client": "James Wyler",
+    "doc": "mediaAsset-james-wyler-james-wyler-logo"
+  },
+  "image-cbddaa9c854ba560a6ed7d1e85e7a73dbfec9774-1024x1024-svg": {
+    "file": "cbddaa9c854b.png",
+    "w": 911,
+    "h": 430,
+    "aspect": 2.1186,
+    "density": 0.4291,
+    "cx": 0.5131,
+    "cy": 0.5263,
+    "title": "Sidney Charles Logo 01",
+    "client": "Sidney Charles",
+    "doc": "mediaAsset-sidney-charles-sidney-charles-logo-01"
+  },
+  "image-cf109be3b7e2859051b3d443e91f577bd01dc9ee-3356x1698-png": {
+    "hold": "a board of logo options, not a mark",
+    "title": "Pulse Portfolio Logo Options",
+    "client": "Pulse Artists",
+    "doc": "mediaAsset-pulse-artists-pulse-portfolio-logo-options"
+  },
+  "image-d1d4f8b724c6bcd46df1d4808dcbb1ac3863c017-1644x1647-png": {
+    "file": "d1d4f8b724c6.png",
+    "w": 998,
+    "h": 1000,
+    "aspect": 0.998,
+    "density": 0.2532,
+    "cx": 0.4925,
+    "cy": 0.4992,
+    "title": "heavy house society logo white",
+    "client": "Heavy House Society",
+    "doc": "mediaAsset-heavy-house-society-heavy-house-society-logo-white"
+  },
+  "image-d20c88d31bb37135415b08ec269eb4c386d317c5-2917x1048-png": {
+    "file": "d20c88d31bb3.png",
+    "w": 1000,
+    "h": 359,
+    "aspect": 2.7855,
+    "density": 0.3152,
+    "cx": 0.4771,
+    "cy": 0.51,
+    "title": "Gio Lucca Logo White",
+    "client": "Gio Lucca",
+    "doc": "mediaAsset-gio-lucca-gio-lucca-logo-white"
+  },
+  "image-d3f8958b029e95d13ee3ea9db383b39aa2adf99d-1400x333-png": {
+    "file": "d3f8958b029e.png",
+    "w": 1000,
+    "h": 238,
+    "aspect": 4.2017,
+    "density": 0.3324,
+    "cx": 0.5253,
+    "cy": 0.3797,
+    "title": "Pulse Artists Logo Beige",
+    "client": "Pulse Artists",
+    "doc": "mediaAsset-pulse-artists-pulse-artists-logo-beige"
+  },
+  "image-e08b61cc01176774084494ec37480e853fedbb3c-2486x2450-png": {
+    "hold": "multi-colour",
+    "title": "SB Logo Single Stack Color",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sb-logo-single-stack-color"
+  },
+  "image-ea91b09f5dbcc2c6482abce664bbe9c7086ef4f2-2558x2390-png": {
+    "hold": "multi-colour",
+    "title": "Sunday Brunch Logo Concepts",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sunday-brunch-logo-concepts"
+  },
+  "image-eaf959eccb1c4c630c7c71fbb3c68507617f798b-1506x800-png": {
+    "file": "eaf959eccb1c.png",
+    "w": 1000,
+    "h": 531,
+    "aspect": 1.8832,
+    "density": 0.1994,
+    "cx": 0.4849,
+    "cy": 0.5826,
+    "title": "Ain't Nobody Logo White",
+    "client": "Salomé Le Chat",
+    "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-white"
+  }
+}

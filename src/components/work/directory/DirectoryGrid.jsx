@@ -24,6 +24,8 @@
  */
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import MediaSlot from '../detail/MediaSlot.jsx';
+import LogoMark from './LogoMark.jsx';
+import { CANVAS_RATIO, canvasOf } from './logoTile.js';
 import { chunkFlushGrid } from '../detail/flushGrid.js';
 import { ratioOf } from '../detail/buildContentFlow.js';
 import {
@@ -49,17 +51,26 @@ const sameSet = (a, b) => a.size === b.size && [...a].every((k) => b.has(k));
 
 /* A tile's box always renders; its media only while `live` (the window). A
    window change re-renders only the tiles it flips. */
-const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, phoneCols, live }) {
-  const slot = live && (
-    <MediaSlot
-      asset={tile}
-      gate={gate}
-      clip={PREVIEW_SECONDS}
-      sizes={sizesFor(placement.type, ratioOf(tile), tile.fit, phoneCols)}
-      fit={tile.fit}
-    />
-  );
-  const props = { className: 'dir-tile', 'data-tile': placement.type, style: placementStyle(placement) };
+const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, phoneCols, live, logoDials }) {
+  const slot =
+    live &&
+    (tile.logo ? (
+      <LogoMark tile={tile} dials={logoDials} />
+    ) : (
+      <MediaSlot
+        asset={tile}
+        gate={gate}
+        clip={PREVIEW_SECONDS}
+        sizes={sizesFor(placement.type, ratioOf(tile), tile.fit, phoneCols)}
+        fit={tile.fit}
+      />
+    ));
+  const props = {
+    className: 'dir-tile',
+    'data-tile': placement.type,
+    'data-logo': tile.logo ? '' : undefined,
+    style: placementStyle(placement),
+  };
   return tile.href ? (
     <a {...props} href={tile.href} aria-label={tile.label}>
       {slot}
@@ -75,9 +86,17 @@ const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, phone
  * @param {number} [props.phoneCols=1] - columns at ≤768px (?dirphonecols)
  * @param {number} props.cap - players at once (the gate's cap; 0 under reduced motion regardless)
  * @param {number} props.dwellMs - the gate's dwell
+ * @param {Object} [props.logoDials] - the logo tiles' pad / weight / land / center (logoTile.js)
  * @param {() => void} [props.onReady] - once, after the first render at the measured width
  */
-export default function DirectoryGrid({ tiles, phoneCols = 1, cap, dwellMs, onReady }) {
+export default function DirectoryGrid({ tiles: shown, phoneCols = 1, cap, dwellMs, logoDials, onReady }) {
+  // A logo tile's canvas (a square, or a landscape for a wide mark) is its
+  // shape in the flush grid: tileRatio is what ratioOf reads (logoTile.js).
+  const tiles = useMemo(
+    () =>
+      shown.map((t) => (t.logo ? { ...t, tileRatio: CANVAS_RATIO[canvasOf(t.logo.aspect, logoDials?.land)] } : t)),
+    [shown, logoDials?.land]
+  );
   const flowRef = useRef(null);
   const tileShape = useTileShape();
   const metrics = useGridMetrics(flowRef, '.dir-grid');
@@ -162,6 +181,7 @@ export default function DirectoryGrid({ tiles, phoneCols = 1, cap, dwellMs, onRe
                 placement={p}
                 gate={gate}
                 phoneCols={phoneCols}
+                logoDials={logoDials}
                 live={near.has(k)}
               />
             );

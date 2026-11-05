@@ -22,6 +22,14 @@ const FIELDS = [
   { key: 'players', label: 'players', hint: 'videos playing at once (the gate cap); 0 = posters only' },
   { key: 'dwell', label: 'dwell ms', hint: 'how long a video tile stays half in view before it plays' },
   { key: 'phoneCols', label: 'phone cols', hint: 'columns at ≤768px', options: [1, 2] },
+  { key: 'logoPad', label: 'logo pad', hint: "a logo tile's margin, a share of its height (0 to 0.4)" },
+  {
+    key: 'logoWeight',
+    label: 'logo weight',
+    hint: '0 = every mark fills its box; 1 = every mark gets the same ink area (0 to 1)',
+  },
+  { key: 'logoLand', label: 'logo land', hint: 'the aspect from which a mark takes a landscape canvas, not a square' },
+  { key: 'logoCenter', label: 'logo centre', hint: "0 = centre the mark's box; 1 = centre its centre of mass (0 to 1)" },
 ];
 
 function NumberField({ field, value, isDefault, onCommit }) {

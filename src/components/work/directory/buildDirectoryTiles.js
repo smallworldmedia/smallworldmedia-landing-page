@@ -16,7 +16,10 @@
  *
  * A tile is the slim face MediaSlot reads, plus `client` (slug), `services`
  * (tag slugs, a group's union), `href` + `label` when its project has a
- * detail page, and `fit`.
+ * detail page, and `fit`. A logo's tile carries `logo` instead of showing
+ * its file: the baked white mark and its numbers (logoTile.js,
+ * prep-directory-logos.mjs); a twin of a mark, and a logo that can't
+ * flatten to white cleanly, stay out (logoVerdict).
  *
  * Order ('project', the build order): the featured projects first, in World
  * order, each by orderRank; then everything else by client name, project
@@ -74,11 +77,27 @@ const NAME_ORDER = { sensitivity: 'base', ignorePunctuation: true };
 const byRank = (a = '', b = '') => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
- * @param {{assets: Array<Object>, worlds: Array<Object>, clients?: Array<{name: string, slug: string}>}} data
- *        DIRECTORY_QUERY's result
+ * What the logo marks (scripts/prep-directory-logos.mjs) decide about an
+ * asset: 'mark' (a logo tile: white on black, logoTile.js), 'drop' (left out
+ * of the directory: a twin of a mark already shown, or a `logo` (or a still
+ * tagged logo-design) whose colours can't flatten to white cleanly) or null
+ * (not in the set, so a tile as ever).
+ */
+function logoVerdict(asset, logos) {
+  const m = logos?.[asset.imageAssetId];
+  if (!m) return null;
+  if (m.twinOf) return 'drop';
+  if (m.hold) return asset.mediaType === 'logo' || asset.services?.some((s) => s.slug === 'logo-design') ? 'drop' : null;
+  return 'mark';
+}
+
+/**
+ * @param {{assets: Array<Object>, worlds: Array<Object>, clients?: Array<{name: string, slug: string}>, logos?: Object}} data
+ *        DIRECTORY_QUERY's result; `logos` is the prep manifest by image asset
+ *        id, each mark with its `src` (directoryData.js)
  * @returns {Array<Object>} tiles in 'project' order
  */
-export function buildDirectoryTiles({ assets, worlds, clients = [] }) {
+export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null }) {
   const routes = new Map(
     featuredRoutes(worlds).map((w, i) => [
       w.projectId,
@@ -104,8 +123,8 @@ export function buildDirectoryTiles({ assets, worlds, clients = [] }) {
   };
 
   const kept = assets
-    .map((asset) => ({ asset, lane: assetLane(asset) }))
-    .filter(({ lane }) => lane && lane !== 'role')
+    .map((asset) => ({ asset, lane: assetLane(asset), logo: logoVerdict(asset, logos) }))
+    .filter(({ lane, logo }) => lane && lane !== 'role' && logo !== 'drop')
     .sort((x, y) => order(x.asset, y.asset));
 
   const groups = [];
@@ -142,6 +161,11 @@ export function buildDirectoryTiles({ assets, worlds, clients = [] }) {
       services: [...new Set(members.flatMap((m) => (m.services ?? []).map((s) => s.slug)))],
       fit: fitOf(face),
     };
+    if (lane === 'showcase' && logoVerdict(members[0], logos) === 'mark') {
+      const { w, h, aspect, density, cx, cy, src } = logos[members[0].imageAssetId];
+      tile.logo = { src, w, h, aspect, density, cx, cy };
+      tile.fit = 'contain';
+    }
     const route = routes.get(members[0].projectId);
     if (route) {
       tile.href = route.href;

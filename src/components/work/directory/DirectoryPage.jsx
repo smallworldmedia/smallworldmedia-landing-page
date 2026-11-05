@@ -23,8 +23,8 @@
  * filter's sticking point (a glide would load every tile on the way and could
  * land in the footer), then applies.
  *
- * ?dirtune=1 opens the bench (DirectoryTunePanel): order, players, dwell and
- * phone columns (directoryTune.js).
+ * ?dirtune=1 opens the bench (DirectoryTunePanel): order, players, dwell,
+ * phone columns and the logo tiles' four dials (directoryTune.js).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import DirectoryFilter from './DirectoryFilter.jsx';
@@ -207,6 +207,10 @@ export default function DirectoryPage({ tags, clients, tiles }) {
     const on = new Set(filter.tags);
     return ordered.filter((t) => matchesFilter(t, { tags: on, coverage }));
   }, [ordered, filter.tags, coverage]);
+  const logoDials = useMemo(
+    () => ({ pad: tune.logoPad, weight: tune.logoWeight, land: tune.logoLand, center: tune.logoCenter }),
+    [tune.logoPad, tune.logoWeight, tune.logoLand, tune.logoCenter]
+  );
   const clientEntry = filter.client ? clients.find((c) => c.slug === filter.client) : null;
 
   return (
@@ -235,6 +239,7 @@ export default function DirectoryPage({ tags, clients, tiles }) {
           phoneCols={tune.phoneCols}
           cap={tune.players}
           dwellMs={tune.dwell}
+          logoDials={logoDials}
           onReady={onReady}
         />
       </main>
