@@ -8,7 +8,10 @@ Sanity is the editorial authority. Use the scoped preview-first runner in
 
 ### Mode 1 — Curated Collection
 
-Header `services:` applies to rows without their own `serviceType`.
+Header `services:` applies to rows without their own `serviceType`, and it is
+stamped onto every new row, so a featured project's tags (the union of its
+media's) would all be that one list. The runner therefore accepts a header of
+more than one service only when each new row has its own `serviceType`.
 
 ```markdown
 # Example Client — Branding

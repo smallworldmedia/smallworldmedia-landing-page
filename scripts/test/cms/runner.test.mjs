@@ -90,6 +90,12 @@ test('missing service reference blocks without silently dropping tag', async t =
   await assert.rejects(h.plan({manifest:await h.manifest([row('new.jpg')])}),/Service.*not found/)
   assert.equal(h.stats.images,0)
 })
+test('a Mode 1 header naming several services cannot stamp them onto a new row: the row needs its own serviceType', async t => {
+  const h = await harness(t); await h.file('new.jpg')
+  await assert.rejects(h.plan({manifest:await h.manifest([row('new.jpg')],'client: Example\nservices: branding, album art')}),/own serviceType/)
+  assert.equal(h.stats.images,0)
+  await h.plan({manifest:await h.manifest([row('new.jpg')])}) // one service in the header still stamps
+})
 for (const conflict of ['source','manifest','revision','draft','member','target','schema']) test(`${conflict} drift blocks apply before upload`, async t => {
   const old = existingMedia('mediaAsset-old'), h = await harness(t,{docs:[old]}); await h.file('old.jpg'); await h.file('new.jpg')
   const manifest = await h.manifest([row('old.jpg','static_1x1','Old',old._id),row('new.jpg')]), p = await h.plan({manifest})
