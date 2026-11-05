@@ -16,6 +16,7 @@
    their cascade (the 11-03 build). Vite inlines an @import, so [slug].astro
    stays the file's one importer. */
 @import './media-slot.css';
+@import './directory-logos.css';
 
 .dir-flow {
   display: flex;

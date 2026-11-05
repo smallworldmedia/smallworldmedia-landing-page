@@ -136,6 +136,10 @@ export function ratioOf(asset) {
   // A sequence: the tile shape that crops its frames least (makeSequence).
   if (asset.frames?.length) return asset.sequenceRatio;
 
+  // A directory logo tile: the canvas it was given (1 square, 2 landscape;
+  // directory/logoTile.js), whatever its mark's own shape.
+  if (asset.tileRatio) return asset.tileRatio;
+
   // 0. brand-deck pages with real image dims (08-25): the native page
   //    aspect outranks the historical 16:9 default — a COMPILED poster
   //    deck (SA tour, 4:5 stills regrouped as a deck) keeps its aspect

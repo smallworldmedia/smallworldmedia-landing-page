@@ -13,8 +13,13 @@
  *   ?dircols       grid columns above 1024px (Nathan, 11-05: 5)
  *   ?dirtabletcols grid columns from 769 to 1024px (4, so a cell stays 190-260px wide)
  *   ?dirphonecols  grid columns at ≤768px (Nathan, 11-05: 2)
+ *   ?dirlogopad    a logo tile's margin, a share of the canvas's height (logoTile.js)
+ *   ?dirlogoweight 0 = every mark fills its box … 1 = every mark has the same ink area
+ *   ?dirlogoland   the aspect from which a mark takes a landscape canvas, not a square
+ *   ?dirlogocenter 0 = centre the mark's box … 1 = centre its centre of mass
  */
 import { DIRECTORY_PLAYERS, DIRECTORY_DWELL_MS } from '../imageConfig.js';
+import { LOGO_DIALS } from './logoTile.js';
 
 /** Bench state ↔ URL params. */
 export const PARAM_KEYS = {
@@ -24,6 +29,10 @@ export const PARAM_KEYS = {
   cols: 'dircols',
   tabletCols: 'dirtabletcols',
   phoneCols: 'dirphonecols',
+  logoPad: 'dirlogopad',
+  logoWeight: 'dirlogoweight',
+  logoLand: 'dirlogoland',
+  logoCenter: 'dirlogocenter',
 };
 
 /** The orders ?dirorder takes. */
@@ -37,6 +46,10 @@ export const SSR_TUNE = {
   cols: 5,
   tabletCols: 4,
   phoneCols: 2,
+  logoPad: LOGO_DIALS.pad,
+  logoWeight: LOGO_DIALS.weight,
+  logoLand: LOGO_DIALS.land,
+  logoCenter: LOGO_DIALS.center,
 };
 
 /** What each numeric knob accepts, from the URL or the bench. */
@@ -46,6 +59,10 @@ export const TUNE_OK = {
   cols: (n) => Number.isInteger(n) && n >= 1 && n <= 10,
   tabletCols: (n) => Number.isInteger(n) && n >= 1 && n <= 8,
   phoneCols: (n) => n === 1 || n === 2,
+  logoPad: (n) => n >= 0 && n <= 0.4,
+  logoWeight: (n) => n >= 0 && n <= 1,
+  logoLand: (n) => n >= 1,
+  logoCenter: (n) => n >= 0 && n <= 1,
 };
 
 /** The defaults on this device: the phone's players cap at ≤768px, the
@@ -75,6 +92,10 @@ export function readTune(search, defaults) {
     cols: numberAt('cols'),
     tabletCols: numberAt('tabletCols'),
     phoneCols: numberAt('phoneCols'),
+    logoPad: numberAt('logoPad'),
+    logoWeight: numberAt('logoWeight'),
+    logoLand: numberAt('logoLand'),
+    logoCenter: numberAt('logoCenter'),
   };
 }
 

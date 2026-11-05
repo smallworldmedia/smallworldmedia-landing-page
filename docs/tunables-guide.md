@@ -629,8 +629,14 @@ Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in D
 | `?dirplayers` | videos playing at once (the player gate's cap); `0` = posters only | `8`, `4` ≤768px | integer ≥ 0 | `imageConfig.js DIRECTORY_PLAYERS` |
 | `?dirdwell` | ms a video tile stays half in view before it plays, so a fling past never asks Mux for a master | `300` ms | ≥ 0 | `imageConfig.js DIRECTORY_DWELL_MS` |
 | `?dircols` | grid columns above 1024px (Nathan, 11-05) | `5` | integer 1–10 | `directoryTune.js SSR_TUNE.cols` |
-| `?dirtabletcols` | grid columns from 769 to 1024px (the agent's pick: 4 keeps a cell at 190–260px, between the phone's 195 and the desktop's 205–285) | `4` | integer 1–8 | `directoryTune.js SSR_TUNE.tabletCols` |
+| `?dirtabletcols` | grid columns from 769 to 1024px (Nathan approved 4 on 11-05: it keeps a cell at 190–260px, between the phone's 195 and the desktop's 205–285) | `4` | integer 1–8 | `directoryTune.js SSR_TUNE.tabletCols` |
 | `?dirphonecols` | grid columns at ≤768px (Nathan, 11-05) | `2` | `1` \| `2` | `directoryTune.js SSR_TUNE.phoneCols` |
+| `?dirlogopad` | a logo tile's margin on every side, a share of the canvas's height (the same on a square and a landscape) | `0.13` | 0 to 0.4 | `logoTile.js LOGO_DIALS.pad` |
+| `?dirlogoweight` | how a mark is sized: `0` = every mark fills its padded box, `1` = every mark gets the same ink area (a dense badge shrinks, a thin script grows), in between mixes the two | `0.4` | 0 to 1 | `logoTile.js LOGO_DIALS.weight` |
+| `?dirlogoland` | the trimmed aspect (width ÷ height) from which a mark takes a landscape canvas (2:1) instead of a square | `1.6` | ≥ 1 | `logoTile.js LOGO_DIALS.land` |
+| `?dirlogocenter` | optical centring: `0` = the mark's box on the canvas's centre, `1` = its centre of mass | `0.5` | 0 to 1 | `logoTile.js LOGO_DIALS.center` |
+
+The four `?dirlogo*` dials only touch logo tiles (a white mark on black, baked by `scripts/prep-directory-logos.mjs`); `logoTile.js` holds the layout and its fixed constant (`EQUAL_INK`, the ink area every mark is brought to at weight 1).
 
 `?tag=a,b&client=slug` is the filter's state, not a tunable (see Inert, legacy, and dead knobs). A URL with neither key starts on `album-art` (`DEFAULT_TAG`, buildDirectoryTiles.js, Nathan 11-05) and stays bare while it holds that default; `?tag=` (empty) is "every work", which is what `clear` writes; `?client=x` alone shows every tag of that client.
 
