@@ -102,11 +102,16 @@ export default function DirectoryFilter({
     };
   }, []);
 
-  // Closed, the region sits at the fold; a re-measure moves it there.
+  // Closed, the region sits at the fold; a re-measure moves it there. Not
+  // while a toggle's timeline is unfinished: right after the close click it
+  // has not ticked yet, so isActive() is false and this used to snap the
+  // region shut, then the tween restarted from open (11-05, Nathan: "it
+  // closes, opens back up, and then closes again"). The close's last beat
+  // flips `closing`, which re-runs this for a fold measured mid-close.
   useLayoutEffect(() => {
-    if (open || !fold || tlRef.current?.isActive()) return;
+    if (open || !fold || (tlRef.current && tlRef.current.progress() < 1)) return;
     gsap.set(regionRef.current, { height: fold.height });
-  }, [fold, open]);
+  }, [fold, open, closing]);
 
   // Focus scrolls land a tile below the stuck filter, not under it (11-03: a
   // tile reached by Shift+Tab sat 111px under it at 1440): the tiles'
