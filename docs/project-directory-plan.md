@@ -1,6 +1,6 @@
 # Project Directory: rebuilt from the detail page's grid
 
-*Built on 2026-11-03 on branch `feature/project-directory` (worktree `../swm-project-directory`, off `feature/v1-launch` at `ccb6a5a`), while `feature/v1-launch` carried on in the main checkout. The plan was approved on 11-03, and its approved text is kept below. Status: all 13 commits have landed on the branch, and the four small fixes of 11-04 after them. Nothing is folded into `feature/v1-launch` or pushed yet; both wait on Nathan's word. The open calls come first.*
+*Built on 2026-11-03 on branch `feature/project-directory` (worktree `../swm-project-directory`, off `feature/v1-launch` at `ccb6a5a`), while `feature/v1-launch` carried on in the main checkout. The plan was approved on 11-03, and its approved text is kept below. Status: all 13 commits have landed on the branch, and the four small fixes of 11-04 after them. It was folded into `feature/v1-launch` on 11-04 (`0032532`) and pushed on 11-05 (`4168495`); the worktree and both branches are retired. The open calls come first.*
 
 ## Open calls (Nathan)
 
