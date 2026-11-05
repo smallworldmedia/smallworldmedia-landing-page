@@ -22,6 +22,17 @@
       "include": []
     },
     {
+      "path": "rules/parallel-sessions.md",
+      "hash": "6b65cf86b97273f92449823425e2d3292786a23e24271de8693b4ff54ddf608d",
+      "description": "Parallel sessions: one stream toward deploy",
+      "globs": [],
+      "dirs": [],
+      "prompt": [],
+      "priority": 80,
+      "enabled": true,
+      "include": []
+    },
+    {
       "path": "rules/prettier-never-write.md",
       "hash": "55ac54b498de7f5230cca855a4ebb92b980a845724daac5aeb6d89f023717a8f",
       "description": "No prettier --write (the repo has no prettier config)",
@@ -45,6 +56,17 @@
       "dirs": [],
       "prompt": [],
       "priority": 90,
+      "enabled": true,
+      "include": []
+    },
+    {
+      "path": "rules/sanity-one-writer.md",
+      "hash": "b40b4e103ae90ce23adcc6b786d4541a7827f6b82a26827fd47b9459fc35cda7",
+      "description": "Sanity: one live dataset, one writer at a time",
+      "globs": [],
+      "dirs": [],
+      "prompt": [],
+      "priority": 85,
       "enabled": true,
       "include": []
     },
