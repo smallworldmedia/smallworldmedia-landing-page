@@ -4,7 +4,7 @@ import path from 'node:path'
 import { readFile, writeFile, symlink, chmod } from 'node:fs/promises'
 import { harness, existingMedia, reference, clientDoc, checkout, target } from './helpers.mjs'
 import { parseManifest, boundManifest } from '../../lib/cms/manifest.mjs'
-import { appendRanks, validatePatch, digest, clean } from '../../lib/cms/contract.mjs'
+import { appendRanks, validatePatch, validateDocument, digest, clean } from '../../lib/cms/contract.mjs'
 import { validatePlan, verifyRun } from '../../lib/cms/runner.mjs'
 import { main } from '../../cms.mjs'
 
@@ -214,4 +214,13 @@ test('video rebind refuses an unready or wrong-type target, an image asset, an u
   h.assets.set('asset-mux-right',muxAsset('mux-right','preparing'))
   await assert.rejects(h.apply(p),/Mux readiness/)
   assert.equal(h.db.get(old._id).video.asset._ref,'mux-wrong'); assert.equal(h.stats.commits,0)
+})
+
+test('splitIntoThirds: a boolean flag on video assets only; null and non-booleans are rejected', async t => {
+  validatePatch('mediaAsset',{splitIntoThirds:true},[]); validatePatch('mediaAsset',{},['splitIntoThirds'])
+  for (const set of [{splitIntoThirds:'yes'},{splitIntoThirds:1},{splitIntoThirds:null}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
+  assert.throws(() => validatePatch('project',{splitIntoThirds:true},[]))
+  validateDocument(existingMedia('mediaAsset-motion',{mediaType:'motion_16x9',splitIntoThirds:true}))
+  assert.throws(() => validateDocument(existingMedia('mediaAsset-still',{splitIntoThirds:true})),/video media only/)
+  validateDocument(existingMedia('mediaAsset-still-off',{splitIntoThirds:false}))
 })

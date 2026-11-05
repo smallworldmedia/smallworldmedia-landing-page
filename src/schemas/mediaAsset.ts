@@ -85,6 +85,15 @@ export const mediaAsset = defineType({
       title: 'Video (Mux)',
       hidden: ({ parent }) => !isVideoType(parent?.mediaType),
     }),
+    defineField({
+      name: 'splitIntoThirds',
+      title: 'Split into thirds on the project page',
+      type: 'boolean',
+      initialValue: false,
+      description:
+        'Off by default. On: the project page shows this video as three tiles, each playing its own third of the video, with no overlap. Use it for a long video that deserves more room in the grid than one tile.',
+      hidden: ({ parent }) => !isVideoType(parent?.mediaType),
+    }),
 
     // ── ACCESSIBILITY + SEARCH: one pair for images and videos alike ──
     // (replaces the old image.alt subfield, which was never filled)
