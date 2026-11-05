@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = 'ef72b8d3fdb180f4da602b8278be460de6def3b964b65f79ca59461a837cfb21'
+export const SUPPORTED_SCHEMA_HASH = '8165cbfe3e33d15c847fe8891fe06d80dba1ee7c0217992048f0da5efa15b047'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -35,7 +35,7 @@ export function appendRanks(docs, count) {
 }
 const common = ['slug','yearStart','yearEnd','isOngoing','services']
 export const FIELDS = {
-  mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video'],
+  mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
   globeSettings: ['picks'],
@@ -59,7 +59,7 @@ export function validateField(field, v) {
   if (field === 'slug') { keys(v, ['_type','current'], 'slug'); invariant(v._type === 'slug' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(v.current), 'Invalid slug'); return }
   if (['yearStart','yearEnd'].includes(field)) { number(v, field); invariant(Number.isInteger(v) && v >= 2015 && v <= 2030, `Invalid ${field}`); return }
   if (field === 'brandDeckOrder') { number(v, field); invariant(Number.isInteger(v) && v >= 1, 'Invalid brandDeckOrder'); return }
-  if (['isOngoing','isFeatured'].includes(field)) { invariant(typeof v === 'boolean', `Invalid ${field}`); return }
+  if (['isOngoing','isFeatured','splitIntoThirds'].includes(field)) { invariant(typeof v === 'boolean', `Invalid ${field}`); return }
   if (field === 'mediaType') return enumValue(v, MEDIA_TYPES, field)
   if (field === 'contentRole') return enumValue(v, ['process','supporting'], field)
   if (field === 'clientType') return enumValue(v, ['artist','label','management','promoter-event'], field)
@@ -96,6 +96,7 @@ export function validateDocument(doc, { creation = false } = {}) {
   if (doc._type === 'mediaAsset') {
     if (doc.mediaType === 'brand-deck') invariant(Number.isInteger(doc.brandDeckOrder) && doc.brandDeckOrder > 0 && !!doc.displayGroup, 'Deck pages require displayGroup and positive brandDeckOrder')
     if (doc.mediaType === 'carousel-slide') invariant(!!doc.displayGroup, 'Carousel slides require displayGroup')
+    if (doc.splitIntoThirds) invariant(isVideoType(doc.mediaType), 'splitIntoThirds applies to video media only')
   }
 }
 export function references(doc) {
