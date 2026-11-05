@@ -224,7 +224,8 @@ export function orderTiles(tiles, mode = 'project', seed = 0) {
  * bare default, are returned as they are.
  */
 export function logoFirst(tiles, tags) {
-  if (!tags || tags.size !== 1 || !tags.has('logo-design')) return tiles;
+  const [only] = tags ?? [];
+  if (tags?.size !== 1 || only !== 'logo-design') return tiles;
   return [...tiles.filter((t) => t.logo), ...tiles.filter((t) => !t.logo)];
 }
 
