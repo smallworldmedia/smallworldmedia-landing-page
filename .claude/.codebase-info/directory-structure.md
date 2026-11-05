@@ -37,6 +37,8 @@
 │   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + per-route sheets (media-slot.css is shared by
 │   │                         #   the detail grid and the directory) + *-tune.css benches
+│   ├── data/                 # directory-logos/ (baked white marks) + directory-logos.json (11-05;
+│   │                         #   written by scripts/prep-directory-logos.mjs only)
 │   └── assets/               # fonts/ (woff2), client-logos/ (normalized + manifest.json), lockup svg
 ├── public/                   # favicons, og-image, robots, icons/ sprite + social marks
 ├── scripts/
@@ -44,10 +46,11 @@
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
+│   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
 │   │                         #   globe-worlds, footer-reveal, flush-grid, directory)
-│   ├── generate-manifests.mjs, prep-client-logos.mjs, prepare-compress.mjs   # live utilities
+│   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs   # docs + probe tooling
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated

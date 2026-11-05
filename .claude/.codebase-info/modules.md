@@ -76,7 +76,8 @@ class texture derives from), `globePixelRatio`, and `NAME_STRIP_H`).
 default since Nathan's 10-06 bake, and `?popmode=off` restores the pre-worlds globe):
 `buildWorldPools.js` (pure: `FEATURED_WORLDS_QUERY` → one pool per featured project, /work showcase
 parity; a project's still album art, two covers or more, collapses into one sequence asset, `frames`
-plus `ar`, so one panel cycles the covers) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `PopulationDirector.js`
+plus `ar`, so one panel cycles the covers; a cover that is the project's hero, `assets[0]`, leads it as
+frame 0, and a lone cover hero stays a single, 11-05 SQ-16) · `worldPatterns.js` (pure, seeded cluster patterns over the tape) · `PopulationDirector.js`
 (one world at a time by default; tile → world assignment; the change clock, a hold then a tide /
 blink / surge / cut; current + next world held warm; freeze under the commit's blue; `hold()` at the
 Enter World click stops the clock but lets a change in flight land; `onWorld` feeds the scene's
@@ -94,7 +95,10 @@ board when it lands within `AHEAD_TOL_RAD` 0.5° of the prediction on the same d
 `stats.handoff.ahead`; and `incomingWorlds()` names the worlds a change is landing; `stepSequences()`,
 which the scene runs right after `place()`, cuts each sequence tile's `texA` to the shared clock's frame
 (`lib/mediaSequence.js`) and holds one frame ahead (`seqRefs`, given back by `dropFrames` when the tile
-moves on; `stats.seq`); publishes `window.__swmPopStats`) ·
+moves on; `stats.seq`, with `units` by class and `split`, units whose members show different frames,
+which should be 0); under `?popseqquad` (`popConfig` `seqQuad`, default 1, 11-05 SQ-16) a sequence
+stands first in `electQuads` and `planUnits` tries it before the cursor walk, so the covers take the
+world's 2×2 and cut there, `0` restores the editorial order; publishes `window.__swmPopStats`) ·
 `nameTicker.js` (client-name strips: the world's `clientName` in the FP card face baked once per
 world + style into a CanvasTexture `STRIP_H` = `globeConfig.NAME_STRIP_H` tall — 256 × the ratio the
 canvas actually renders at over the one `DPR_MAX` would give it, so a DSF-3 phone under
@@ -259,15 +263,22 @@ the tiles' `scroll-margin-top`, so a tile Tab reaches lands below the stuck filt
 `CheckIndicator`'s `square-eye`, the name as stored, the drawer's name type; dim and
 `aria-disabled` when the client would empty it) · `playerGate.js` (`createPlayerGate({cap,
 dwellMs})`: one IntersectionObserver for every watched tile and at most `cap` play grants;
-`patterns.md`) · `buildDirectoryTiles.js` (pure, build time: lanes from `assetLane`; decks,
+`patterns.md`) · `LogoMark.jsx` + `logoTile.js` (11-05, SQ-13: a logo tile is a baked white mark on
+black in a fixed-aspect canvas, a square or 2:1 by `canvasOf(aspect, land)`, centred in the tile, so a
+tile the flush grid stretches keeps the mark in proportion; `logoLayout(logo, dials)` pads, scales to
+equal ink and centres optically; `LOGO_DIALS`, `CANVAS_RATIO`; `DirectoryGrid` hands the canvas
+ratio to the flush grid as `tileRatio`, the one seam `ratioOf` honours, directory only; styles
+`src/styles/directory-logos.css`) · `buildDirectoryTiles.js` (pure, build time: lanes from `assetLane`; decks,
 carousels, banner groups and sequences collapse to one tile per `lane:client:project:displayGroup`,
 the `role` lane stays out; a tile is the slim face MediaSlot reads plus `client`, `services`,
-`href` / `label` and `fit`; `orderTiles(tiles, mode, seed)`: `project`, featured first in World
+`href` / `label` and `fit`, and a logo-typed image its `logo` mark through `logoVerdict` (mark,
+drop for a twin or a held logo, or none); `orderTiles(tiles, mode, seed)`: `project`, featured first in World
 order, `mix`, or `shuffle` (seeded, uniform); and the page's pure helpers: `matchesFilter`,
 `tagPresence`, `DEFAULT_TAG` / `defaultFilter` / `hasFilterParams` / `sameFilter`, `readFilter` /
 `sanitizeFilter` / `filterSearch`, `sizesFor` with per-band column counts) · `directoryTune.js` +
 `DirectoryTunePanel.jsx` (`ORDERS`, `tuneDefaults(shuffle)`; `?dirorder`, `?dirplayers`,
-`?dirdwell`, `?dircols`, `?dirtabletcols`, `?dirphonecols`; bench `?dirtune=1`, top right). Styles:
+`?dirdwell`, `?dircols`, `?dirtabletcols`, `?dirphonecols`, `?dirlogopad`, `?dirlogoweight`,
+`?dirlogoland`, `?dirlogocenter`; bench `?dirtune=1`, top right). Styles:
 `src/styles/directory.css` (the scroll unlock with `overflow-anchor: none`, and the sticky filter,
 which follows the nav's footer-reveal slide on `top`) and `directory-grid.css` (`@import`s
 `media-slot.css`). Plan and open calls: `docs/project-directory-plan.md`.
@@ -324,7 +335,9 @@ layered by `LABEL_ORDER` (no leader or dot paints over a chip); N chips cost ≈
 | `keywords.jsx` | THE house rich-text grammar and ITS TWO RENDERERS (10-08). Four markers: `**bold**`, `[[keyword]]`, `[[keyword]](/href)`, `[label](/href)` — one `KW_RE` 3-way alternation, bold is capture group **6**. `renderKeywords` emits PROSE; `keywordLines(text)` emits PER-WORD TOKENS (one array per line, newline = line break) for surfaces that animate word by word, and `renderWordTokens(tokens, {wordClass, emClass, separators})` builds the shared `<mark class="kw">` markup from them. Grammar, punctuation rule and `data-kw` reading order are shared, so copy behaves the same whichever surface renders it; `separators: false` suits a surface that spaces words in CSS rather than with text (the pill's short layer). Separators are reproduced FROM THE SOURCE — a keyword's non-final fragments keep their trailing space inside the box (`white-space: pre`) with a zero-width space between, plain words keep their real space, and `a[[b]]` stays glued. `kwWipe`/`kwSet` drive the box + ink. **Every capture group must be named in `stripKeywords`'s replace callback, in order**: the first `**bold**` version skipped the link-href group, shifted `bold` onto it, fell through to the keyword branch and rendered the literal string `"undefined"` into an aria-label | blurbs, `/process`, `SiteFooter`, `SiteTagline`, `SiteNav` |
 | `sanityClient.js`, `queries.js` | `sanityFetch`, all GROQ; `MEDIA_FIELDS` (11-03) is the asset projection the detail query and `DIRECTORY_QUERY` share | pages, `directoryData.js` |
 | `siteCopy.js` | The site-wide studio copy from the `siteSettings` singleton (10-08): `getSiteCopy()` + `SITE_COPY_FALLBACK`. **Memoizes the PROMISE, not the result**, so a 23-page build makes one request even though `BaseLayout` and `index.astro` both await it. Catches everything and degrades per FIELD to the baked copy, so a Sanity outage or a half-populated singleton cannot blank the chrome or fail the build | `BaseLayout.astro`, `index.astro`, and as the fallback import in `SiteNav` / `SiteTagline` / `SiteFooter` / `Hero` |
-| `directoryData.js` | `getDirectoryData()` (11-03): the Project Directory's one fetch (`DIRECTORY_QUERY`) and its tiles (`buildDirectoryTiles`), memoized as a PROMISE for the whole build, like `getSiteCopy()`. No fallback: a rejection is dropped from the memo, so the next caller retries, and the directory page fails the build | `src/pages/work/directory.astro`, `BaseLayout.astro` (the Client Roster) |
+| `directoryData.js` | `getDirectoryData()` (11-03): the Project Directory's one fetch (`DIRECTORY_QUERY`) and its tiles (`buildDirectoryTiles`), memoized as a PROMISE for the whole build, like `getSiteCopy()`. It joins the baked logo marks
+(`src/data/directory-logos.json`, keyed by `imageAssetId`, and the PNGs beside it via
+`import.meta.glob`) into the tiles (11-05, SQ-13). No fallback: a rejection is dropped from the memo, so the next caller retries, and the directory page fails the build | `src/pages/work/directory.astro`, `BaseLayout.astro` (the Client Roster) |
 | `clientCoverage.js` | Client Coverage and the Client Roster (pure, 11-03): `coverageOf(slug, clients)` → the slug plus every client whose affiliations name it, one hop (a label pulls in its artists, never the reverse), or `null` for an unknown slug; `toDrawerRoster(clients, tiles)` → `[{name, slug, live}]` by name, `live` when the coverage holds a tile | `BaseLayout.astro`, `DirectoryPage`, `buildDirectoryTiles` |
 | `lenisTune.js`, `footerTune.js` | Bench publishers; `footerTune` also owns the reveal maths (`footerRise`, `footerSpan`), the resting-footer dials (`?footerlift`, `?footermarksfrom` / `-to` / `-lift`, `?footerintro`, `?footerslide`, `?footerslides`, `?footerslidelead`), the wheel's weight since 10-31 (`footerDamp`, Lenis's damp; `footerBrakeStep` + `FOOTER_BRAKE_TAIL`, the tail brake in closed form, so a notch and a trackpad's stream land alike; `?footerlerp` 0.165, which must equal `motion.js` `LENIS_TUNING.lerp`, a test holds it, and `?footerbrake` 0.5, both read per wheel event through `getFooterLerp()` / `getFooterBrake()`) and a per-key `ZERO_OK` set so a dialed `0` survives the seeder. `slideK` / `slideS` / `slideLeadS` are read at play time through `getFooterSlideK()` / `getFooterSlideS()` / `getFooterSlideLeadS()` and deliberately stay out of `CSS_KNOBS`, the same shape as `introS`. `bandFadeS` (`?logofademin`, 0.55 s, ZERO_OK) joins them as a paint-time read for the band's minimum fade. `slideS` exists because the slide stopped borrowing `introS` when it grew from a 1.25rem nudge to a full-reveal rise (~9× the travel). The 10-08 desktop-layout knobs go the OTHER way, into `CSS_KNOBS` as inline `<html>` properties: `topPad` → `--footer-rest-top-pad`, `tickerFoot` → `--ticker-foot-clearance`, `blurbFill` → `--footer-blurb-fill`. A token declared on an ELEMENT cannot be dialed this way (the element's own declaration beats the inherited value), which is why these three are read with `var(--knob, fallback)` on `<html>` instead | tune panels, `SiteFooter`, `global.css` |
 | `touchTune.js` | The live dials for the house touch gesture (11-03): resolves `?touchgain` / `?releasems` ONCE at module load (SSR → `motion.js`'s `TOUCH_GAIN` 5 / `RELEASE_MS` 240, Nathan's 11-03 phone bake; was 2 / 160), so every rubber band reads one pair. The dials stay live "for now". The bake targets stay in `motion.js`, which must remain plain exports because it runs during SSR | `FeaturedProjects` (World Turn), `NextProjectBand`, `useProcessScrollDriver`, `Hero` (footer drag + release carry) |
