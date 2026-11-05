@@ -5866,7 +5866,7 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
   const source = (file) => fs.readFileSync(new URL(`../../src/components/globe/${file}`, import.meta.url), 'utf8')
   for (const file of ['TextureManager.js', 'PopulationDirector.js']) assert.doesNotMatch(source(file), /THUMB_WIDTH/, file)
   const pd = source('PopulationDirector.js')
-  for (const read of ['quadEligible(a, GLOBE_T1, this.L)', 'electQuads(this.selectFor(w.assets), TUNING.quads, GLOBE_T1, this.L)', 'texSpec(a, c, GLOBE_T1, this.L, { wide })', '|${TUNING.equiv}|${GLOBE_T1}`']) {
+  for (const read of ['quadEligible(a, GLOBE_T1, this.L)', 'electQuads(ranked, TUNING.quads, GLOBE_T1, this.L)', 'texSpec(a, c, GLOBE_T1, this.L, { wide })', '|${TUNING.equiv}|${GLOBE_T1}`']) {
     assert.equal(pd.split(read).length, 2, read)
   }
 })
@@ -7179,4 +7179,108 @@ test('sequences: stepSequences cuts every showing tile to the clock’s frame, o
   director.dispose()
   assert.equal(director.seqRefs, 0)
   assert.equal(textureManager.refs(), panels.length) // only the tiles' own pictures remain
+})
+
+test('sequences: a cover HERO leads its project’s sequence as frame 0, never a static tile of its own (11-05, HHS Pre-2026’s Hidde van Wee)', async () => {
+  const heroImage = imageDoc('image-h', 'https://cdn.example/h.jpg', 3000, 3000)
+  const coverHero = [...seqDocuments.map((d) => (d._id === 'hero' ? media('hero', '0|a:', { mediaType: 'album-art', image: imageOf('image-h') }) : d)), heroImage]
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, coverHero))
+  const art = world.assets.filter((a) => a.kind === 'art' && !a.playbackId)
+  assert.equal(art.length, 1, 'one cover panel: the sequence')
+  assert.equal(world.assets[0], art[0]) // the hero's place: first
+  assert.deepEqual(art[0].frames.map((f) => f.imageUrl), ['https://cdn.example/h.jpg', 'https://cdn.example/page.jpg', 'https://cdn.example/c2.jpg', 'https://cdn.example/c3.jpg'])
+  // NC: a video hero stays a tile of its own ahead of the sequence (the 10-31 shape, above)
+  const [plain] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, seqDocuments))
+  assert.equal(plain.assets[0].playbackId, 'pb-mux-hero')
+  // NC: a cover hero with no other still cover stays a single tile (no one-frame sequence)
+  const lone = coverHero.filter((d) => !['cover', 'cover-2', 'cover-3'].includes(d._id))
+  const [solo] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, lone))
+  assert.equal(solo.assets[0].imageUrl, 'https://cdn.example/h.jpg')
+  assert.equal(solo.assets.some((a) => a.frames && a.kind === 'art'), false)
+})
+
+/** wideWorlds plus a square cover sequence at the END of each pool (editorial last): the quads' late-comer. */
+const seqQuadWorlds = () =>
+  wideWorlds().map((w) => ({
+    ...w,
+    assets: [
+      ...w.assets,
+      {
+        kind: 'art',
+        imageUrl: SEQ_URL(`${w.clientName}-c0`, 3000, 3000),
+        frames: [0, 1, 2].map((k) => ({ imageUrl: SEQ_URL(`${w.clientName}-c${k}`, 3000, 3000) })),
+        ar: 1,
+        u: 'q',
+        uw: 'q',
+      },
+    ],
+  }))
+
+test('sequences: ?popseqquad 1 seats a world’s cover sequence in its 2×2 first; every member cuts on the same beat, the picture whole, the ledger even (11-05)', () => {
+  const quadsOf = (panels) => [...placesOf(panels).keys()].filter((P) => P.cls === 'q')
+  const firstQuadIsSeq = (panels) => {
+    const byWorld = new Map()
+    for (const P of quadsOf(panels)) {
+      const w = P.members[0].asset.world
+      if (!byWorld.has(w)) byWorld.set(w, [])
+      byWorld.get(w).push(P)
+    }
+    return byWorld
+  }
+  // 0 — editorial order: the 1:1 clips earlier in the pool take the quads, the sequence waits its turn
+  const { director: off, panels: offPanels } = unitDirector({ shapes: 'wide', unitMax: POP_DEFAULTS.unitMax, group: 2, seqQuad: 0 }, { worlds: seqQuadWorlds(), getHorizon: () => Math.PI })
+  let offSeq
+  try {
+    off.initialLayout(off.byProminence())
+    offSeq = quadsOf(offPanels).filter((P) => P.members[0].asset.frames).length
+    assert.ok(quadsOf(offPanels).length >= 1, 'the board forms quads')
+  } finally {
+    off.dispose()
+  }
+  const { director, panels, textureManager } = unitDirector({ shapes: 'wide', unitMax: POP_DEFAULTS.unitMax, group: 2, seqQuad: 1 }, { worlds: seqQuadWorlds(), getHorizon: () => Math.PI, canAnimate: () => true })
+  try {
+    director.initialLayout(director.byProminence())
+    assertWholeUnits(director, panels, ['w', 'h', 'v', 'q'])
+    const quads = quadsOf(panels)
+    const seqQuads = quads.filter((P) => P.members[0].asset.frames)
+    assert.ok(seqQuads.length >= 1, `sequence quads ${seqQuads.length} of ${quads.length}`)
+    assert.ok(seqQuads.length > offSeq, `seqquad 1: ${seqQuads.length} vs 0: ${offSeq}`)
+    // in every world that formed a quad, the sequence holds one
+    for (const [, Ps] of firstQuadIsSeq(panels)) assert.ok(Ps.some((P) => P.members[0].asset.frames), Ps.map((P) => P.uid).join())
+    // the class texture: every frame at the quad's size and one aspect, so one window serves each cut
+    const rec = seqQuads[0].members[0].asset
+    assert.ok(rec.frameKeys.every((k) => k.includes('|q')), rec.frameKeys.join())
+    const tex = (p) => p.mesh.material.uniforms.texA.value
+    const ledger = () => assert.equal(director.texStats().refDrift, 0)
+    for (const [t, k] of [[10, 0], [1010, 1], [2010, 2], [3010, 0]]) {
+      director.stepSequences(t)
+      for (const P of seqQuads) {
+        // all four members on the same frame of the same clock: one texture, the frame's key
+        const shown = new Set(P.members.map(tex))
+        assert.equal(shown.size, 1, `${P.uid} at ${t}`)
+        assert.equal(tex(P.members[0]).k, P.members[0].shownAsset.frameKeys[k], `${P.uid} at ${t}`)
+      }
+      ledger()
+    }
+    // the picture stays whole after the cuts: seams, register and columns exact
+    director.place()
+    const u = director.unitStats(0)
+    for (const k of ['seam', 'register', 'cols']) assert.ok(u[k].worst <= 1e-9, `${k} ${JSON.stringify(u[k])}`)
+    // frozen: the quad holds its frame
+    director.frozen = true
+    const before = seqQuads.map((P) => tex(P.members[0]))
+    director.stepSequences(4010)
+    seqQuads.forEach((P, i) => P.members.forEach((m) => assert.equal(tex(m), before[i])))
+    director.frozen = false
+    // mid-swap holds too (stepSequences: !p.swapping)
+    for (const m of seqQuads[0].members) m.swapping = true
+    const held = tex(seqQuads[0].members[0])
+    director.stepSequences(5010)
+    for (const m of seqQuads[0].members) assert.equal(tex(m), held)
+    for (const m of seqQuads[0].members) m.swapping = false
+    assert.ok(textureManager.refs() > 0)
+  } finally {
+    director.dispose()
+    Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+  }
 })

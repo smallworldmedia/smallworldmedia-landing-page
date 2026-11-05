@@ -133,8 +133,12 @@ export default function buildWorldPools(projects = []) {
       // The still covers → one sequence at the first cover's place, uncapped:
       // the globe loads a sequence one frame ahead (PopulationDirector.stepSequences).
       // Below ORBIT_MIN the covers ride the showcase, so both lists are searched.
+      // A cover HERO (buildContentFlow skips assets[0]) leads the sequence as its
+      // frame 0 (11-05: HHS Pre-2026's Hidde van Wee hero stayed a static tile
+      // and took the world's 2×2 from the cycling covers).
       const tiles = [...flow.showcase, ...flow.albumArt];
-      const covers = tiles.filter((a) => a.mediaType === 'album-art' && !a.frames && a.imageUrl && !a.playbackId);
+      const isCover = (a) => a?.mediaType === 'album-art' && !a.frames && a.imageUrl && !a.playbackId;
+      const covers = [assets[0], ...tiles].filter(isCover);
       const media =
         covers.length > 1
           ? [makeSequence('sequence:album-art', covers, covers.map(ratioOf), { cap: Infinity }), ...tiles.filter((a) => !covers.includes(a))]
@@ -144,7 +148,8 @@ export default function buildWorldPools(projects = []) {
       // sequence at its first frame's).
       const rank = new Map(assets.map((a, i) => [a._id, i]));
       const at = (a) => rank.get(a.frames?.[0]._id ?? a._id) ?? 0;
-      const ordered = [assets[0], ...media].filter(Boolean).sort((a, b) => at(a) - at(b));
+      const hero = covers.length > 1 && covers[0] === assets[0] ? [] : [assets[0]]; // a cover hero rides its sequence
+      const ordered = [...hero, ...media].filter(Boolean).sort((a, b) => at(a) - at(b));
       const seen = new Set();
       const pool = [];
       for (const a of ordered) {
