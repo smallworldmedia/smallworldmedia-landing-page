@@ -340,15 +340,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
 
   const isPortraitHero = hero && !heroIsDeck && ratioOf(hero) < PORTRAIT_THRESHOLD;
 
-  // Service tags — prefer project-level tags, fall back to asset-derived union
-  const services =
-    project?.services?.length > 0
-      ? project.services
-      : [
-          ...new Map(
-            assets.flatMap((a) => a.services ?? []).map((s) => [s.slug, s])
-          ).values(),
-        ];
+  // Service tags — the union of the media's tags (queries.js PROJECT_SERVICES)
+  const services = project?.services ?? [];
 
   // Project date — prefer project doc, fall back to newest asset yearStart
   const yearDisplay =

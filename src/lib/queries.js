@@ -6,6 +6,19 @@
  */
 
 /**
+ * PROJECT_SERVICES — a featured project's service tags: the union of its
+ * media's own tags, deduplicated, in the serviceTag documents' Studio order
+ * (sortOrder, name breaking ties). Spliced in as `"services": ${PROJECT_SERVICES}`
+ * inside a `project` projection (`^.^` there is the project: the media filter
+ * sits inside the serviceTag filter). The project's own `services` field is
+ * not read, so it can be retired; a project whose media carry no tags gets an
+ * empty array.
+ */
+const PROJECT_SERVICES = `*[_type == "serviceTag" && !(_id in path("drafts.**"))
+      && _id in *[_type == "mediaAsset" && project._ref == ^.^._id && !(_id in path("drafts.**"))].services[]._ref]
+    | order(sortOrder asc, name asc) { name, "slug": slug.current }`;
+
+/**
  * FEATURED_PROJECT_PATHS_QUERY — One row per Featured Project doc
  * (isFeatured == true). The project doc _id is the grouping key the detail
  * page fetches by (FEATURED_PROJECT_DETAIL_QUERY); `collection` is resolved
@@ -32,7 +45,7 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
     "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
     "clientName": client->name,
     "clientSlug": client->slug.current,
-    "services": services[]->{ name, "slug": slug.current },
+    "services": ${PROJECT_SERVICES},
     "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
       | order(orderRank asc) [0] {
       "imageUrl": image.asset->url,
@@ -200,7 +213,7 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
     isOngoing,
     projectColor,
     projectColorSecondary,
-    "services": services[]->{ name, "slug": slug.current }
+    "services": ${PROJECT_SERVICES}
   }
 }`;
 
@@ -228,7 +241,7 @@ export const FEATURED_WORLDS_QUERY = `
     "clientName": client->name,
     "clientSlug": client->slug.current,
     "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
-    "services": services[]->{ name, "slug": slug.current },
+    "services": ${PROJECT_SERVICES},
     "assets": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
       | order(orderRank asc) {
       _id,
@@ -243,8 +256,7 @@ export const FEATURED_WORLDS_QUERY = `
       "playbackId": video.asset->playbackId,
       "videoAspectRatio": video.asset->data.aspect_ratio,
       "videoTrack": video.asset->data.tracks[type == "video"][0]{max_width, max_height},
-      "videoStatus": video.asset->data.status,
-      "services": services[]->{ name, "slug": slug.current }
+      "videoStatus": video.asset->data.status
     }
   }
 `;

@@ -155,15 +155,9 @@ export default function buildWorldPools(projects = []) {
         seen.add(key);
         pool.push(g);
       }
-      // Service tags (the chips' bracketed line): the project doc, else the
-      // union of its assets' tags — the /work World rule.
-      let services = (p.services || []).filter((s) => s?.slug);
-      if (!services.length) {
-        const tags = new Map();
-        for (const a of assets)
-          for (const s of a.services || []) if (s?.slug && !tags.has(s.slug)) tags.set(s.slug, s);
-        services = [...tags.values()];
-      }
+      // Service tags (the chips' bracketed line): p.services is already the
+      // union of the project's media tags (queries.js PROJECT_SERVICES).
+      const services = (p.services || []).filter((s) => s?.slug);
       return {
         slug: p.slug || toProjectSlug(p.clientSlug, p.collection),
         clientName: p.clientName,

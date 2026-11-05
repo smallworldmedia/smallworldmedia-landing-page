@@ -82,16 +82,6 @@ const worlds = projects
     }),
   }));
 
-  // Service tags: prefer the project doc, else union of the assets' tags.
-  let services = p.services || [];
-  if (!services.length) {
-    const seen = new Map();
-    for (const a of assets)
-      for (const s of a.services || [])
-        if (s?.slug && !seen.has(s.slug)) seen.set(s.slug, s);
-    services = [...seen.values()];
-  }
-
   return {
     // Authored doc slug is the route (Studio-editable, merge-proof);
     // toProjectSlug stays as the fallback for docs without one.
@@ -102,7 +92,8 @@ const worlds = projects
     // everywhere the surfaces resolve --project-color).
     projectColor: p.projectColor || null,
     projectColorSecondary: p.projectColorSecondary || null,
-    services,
+    // The union of the project's media tags (queries.js PROJECT_SERVICES).
+    services: p.services || [],
     hero: hero
       ? {
           _id: hero._id,

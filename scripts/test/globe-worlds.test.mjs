@@ -115,7 +115,7 @@ const media = (id, rank, fields) => ({ ...base, _id: id, orderRank: rank, title:
 const mux = (id, status = 'ready') => ({ _id: id, _type: 'mux.videoAsset', playbackId: `pb-${id}`, data: { status, aspect_ratio: '16:9', tracks: [{ type: 'video', max_width: 1920, max_height: 1080 }] } })
 const documents = [
   { _id: 'client-fixture', _type: 'client', name: 'Fixture', slug: { current: 'fixture' } },
-  { _id: 'svc', _type: 'service', name: 'Motion Design', slug: { current: 'motion-design' } },
+  { _id: 'svc', _type: 'serviceTag', name: 'Motion Design', slug: { current: 'motion-design' } },
   { _id: 'project-fixture', _type: 'project', title: 'Studio title', slug: { current: 'fixture-branding' }, client: ref('client-fixture'), isFeatured: true, orderRank: '0|hzzzzz:' },
   { _id: 'image-page', _type: 'sanity.imageAsset', url: 'https://cdn.example/page.jpg', metadata: { dimensions: { width: 1200, height: 1500 } } },
   mux('mux-hero'), mux('mux-a'), mux('mux-b'), mux('mux-bad', 'errored'),
@@ -138,7 +138,7 @@ test('buildWorldPools holds exactly the /work World media: hero, showcase Tiles,
   const [world] = buildWorldPools(rows)
   assert.equal(world.slug, 'fixture-branding')
   assert.equal(world.clientName, 'Fixture')
-  assert.deepEqual(world.services, [{ name: 'Motion Design', slug: 'motion-design' }]) // asset-tag fallback
+  assert.deepEqual(world.services, [{ name: 'Motion Design', slug: 'motion-design' }]) // the union of the media's tags
   // Deck pages, carousels, logos, process/BTS and unplayable streams stay out;
   // a duplicate stream is one texture.
   assert.deepEqual(world.assets.map(assetKey), ['pb-mux-hero', 'https://cdn.example/page.jpg', 'https://cdn.example/still.jpg', 'pb-mux-a'])
