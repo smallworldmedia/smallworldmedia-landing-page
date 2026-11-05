@@ -25,8 +25,8 @@
    - COCO (92 assets) sits beside COCO Records (none), and Rossi. beside HOMEGRWXN.
    - The options: merge them, rename them, or keep them.
 6. **The directory's numbers.**
-   - `?dirplayers` and `?dirdwell` hold the agent's defaults until Nathan names numbers.
-   - 11-05, Nathan: five columns on a desktop (`?dircols`) and two on a phone (`?dirphonecols`); the filter loads open with `album-art` ticked; the order is a Studio switch (`siteSettings.directoryShuffle`, a new random order every load, `?dirorder=shuffle` to try it). The tablet band (769–1024px) holds 4 (`?dirtabletcols`), the agent's pick, open for Nathan.
+   - `?dirdwell` holds the agent's default until Nathan names a number. `?dirplayers` went from 6 and 3 to 8 and 4 on Nathan's 11-05 "up the number of videos playing".
+   - 11-05, Nathan: five columns on a desktop (`?dircols`) and two on a phone (`?dirphonecols`); the filter loads open with `album-art` ticked; the order is a Studio switch (`siteSettings.directoryShuffle`, a new random order every load, `?dirorder=shuffle` to try it). The tablet band (769–1024px) holds 4 (`?dirtabletcols`), the agent's pick, approved by Nathan 11-05.
 7. **The drawer at 59 names.**
    - It has 20 rows a column, up from 14.
    - The first-open cascade grows from 0.8 to 1.16 s.
@@ -376,8 +376,8 @@ renders as today.
 
 **New knobs.** Each ships as a `?param` with a bench control, per the tunables rule. Defaults hold
 until Nathan names a number.
-- `?dirorder`: `project` or `mix`.
-- `?dirplayers`: 6 on desktop, 3 on phones.
+- `?dirorder`: `project`, `mix` or `shuffle`.
+- `?dirplayers`: 8 on desktop, 4 on phones (6 and 3 until 11-05).
 - `?dirdwell`: 300 ms.
 - `?dirphonecols`: 1, the detail grid's phone layout, or 2 to compare.
 - All four are read in DirectoryPage's mount effect.

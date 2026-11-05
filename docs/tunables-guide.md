@@ -625,7 +625,7 @@ Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in D
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
 | `?dirorder` | tile order: `project` = the featured projects first, in World order, then every other client by name; `mix` = clients dealt round-robin; `shuffle` = a new random order on every load (drawn once at mount, so a filter change keeps it) | `project`, or `shuffle` while the Studio's Site Settings → "Project Directory: shuffle the order" is on (read at build) | `project` \| `mix` \| `shuffle` | `directoryTune.js SSR_TUNE.order` (the switch: `siteSettings.directoryShuffle`) |
-| `?dirplayers` | videos playing at once (the player gate's cap); `0` = posters only | `6`, `3` ≤768px | integer ≥ 0 | `imageConfig.js DIRECTORY_PLAYERS` |
+| `?dirplayers` | videos playing at once (the player gate's cap); `0` = posters only | `8`, `4` ≤768px | integer ≥ 0 | `imageConfig.js DIRECTORY_PLAYERS` |
 | `?dirdwell` | ms a video tile stays half in view before it plays, so a fling past never asks Mux for a master | `300` ms | ≥ 0 | `imageConfig.js DIRECTORY_DWELL_MS` |
 | `?dircols` | grid columns above 1024px (Nathan, 11-05) | `5` | integer 1–10 | `directoryTune.js SSR_TUNE.cols` |
 | `?dirtabletcols` | grid columns from 769 to 1024px (the agent's pick: 4 keeps a cell at 190–260px, between the phone's 195 and the desktop's 205–285) | `4` | integer 1–8 | `directoryTune.js SSR_TUNE.tabletCols` |

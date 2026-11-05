@@ -114,9 +114,10 @@ export function windowLoop(from, to) {
 
 /* — The Project Directory (11-03): its players and its image widths — */
 
-/** Players at once (playerGate's cap; ?dirplayers): under the globe pool's
- *  7 and 4, since a directory tile is larger on screen than a globe panel. */
-export const DIRECTORY_PLAYERS = { desktop: 6, phone: 3 };
+/** Players at once (playerGate's cap; ?dirplayers). Nathan 11-05 asked for more than
+ *  6 and 3 once five columns put about 15 tiles in view (8 on a phone): one past
+ *  the globe pool's 7 on desktop, and the globe's proven 4 on a phone. */
+export const DIRECTORY_PLAYERS = { desktop: 8, phone: 4 };
 
 /** ms a video tile stays half in view before it plays (?dirdwell), so a
  *  fling past never asks Mux for a master. */
