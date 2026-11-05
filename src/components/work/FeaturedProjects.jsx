@@ -22,7 +22,7 @@
  * @param {Object} props
  * @param {Array<Object>} props.worlds - one entry per featured project
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { navigate } from 'astro:transitions/client';
 import WorldScene from './world/WorldScene.jsx';
@@ -51,7 +51,7 @@ import {
   RELEASE_EASE_CSS,
 } from '../../lib/motion.js';
 import { TOUCH_GAIN, RELEASE_MS } from '../../lib/touchTune.js';
-import { wipeOut, WIPE_OUT_S, CLIP_OPEN_UP, CLIP_CLOSED_UP } from '../../lib/overlayWipe.js';
+import { wipeIn, wipeOut, WIPE_IN_S, WIPE_OUT_S, CLIP_OPEN_UP, CLIP_CLOSED_UP } from '../../lib/overlayWipe.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 const falloff = (d, spread) => Math.max(0, 1 - d / spread);
@@ -308,30 +308,54 @@ export default function FeaturedProjects({ worlds = [] }) {
   // [PREVIOUS] leaves on a wipe, never a cut (11-03, Nathan): reaching the
   // first World keeps it mounted (inert) while its bottom edge wipes up to
   // the top — the house overlay wipe's curve and beat, edge flipped — then
-  // drops it. Leaving the first World re-mounts it whole, mid-wipe or not.
+  // drops it. Leaving the first World wipes it back in, the exit's inverse
+  // (11-05, Nathan: "give [previous] an entrance"): mounted, it unrolls down
+  // from its top edge at WIPE_IN_S; caught mid-wipe either way, it reverses
+  // from its current clip instead of snapping.
   const prevRef = useRef(null);
   const prevWipeRef = useRef(null);
+  const prevEnterRef = useRef(false); // the next mount wipes in
   const [prevMounted, setPrevMounted] = useState(!atStart);
+  const settlePrev = (el) => () => {
+    prevWipeRef.current = null;
+    gsap.set(el, { clearProps: 'clipPath,visibility,opacity' }); // an inset clip would crop the focus ring
+  };
   useEffect(() => {
+    const midWipe = !!prevWipeRef.current;
     prevWipeRef.current?.kill();
     prevWipeRef.current = null;
     const el = prevRef.current;
     if (!atStart) {
-      if (el) gsap.set(el, { clearProps: 'clipPath,visibility,opacity' });
-      setPrevMounted(true);
+      if (!el) {
+        prevEnterRef.current = true;
+        setPrevMounted(true);
+      } else if (midWipe) {
+        prevWipeRef.current = wipeIn(el, undefined, WIPE_IN_S, null, CLIP_OPEN_UP).eventCallback('onComplete', settlePrev(el));
+      } else {
+        gsap.set(el, { clearProps: 'clipPath,visibility,opacity' });
+      }
       return;
     }
     if (!el) {
       setPrevMounted(false);
       return;
     }
-    gsap.set(el, { clipPath: CLIP_OPEN_UP });
+    if (!midWipe) gsap.set(el, { clipPath: CLIP_OPEN_UP }); // mid-entrance, it leaves from where it is
     prevWipeRef.current = wipeOut(el, WIPE_OUT_S, CLIP_CLOSED_UP).eventCallback('onComplete', () => {
       prevWipeRef.current = null;
       setHoverPrev(false); // no pointerleave reaches an unmounted chip
       setPrevMounted(false);
     });
   }, [atStart]);
+  // Before paint, so the fresh mount never shows a frame fully open: the
+  // timeline's own set() waits for the next GSAP tick, so close it here.
+  useLayoutEffect(() => {
+    const el = prevRef.current;
+    if (!prevMounted || !prevEnterRef.current || !el) return;
+    prevEnterRef.current = false;
+    if (!PREFERS_REDUCED_MOTION) gsap.set(el, { clipPath: CLIP_CLOSED_UP });
+    prevWipeRef.current = wipeIn(el, undefined, WIPE_IN_S, CLIP_CLOSED_UP, CLIP_OPEN_UP).eventCallback('onComplete', settlePrev(el));
+  }, [prevMounted]);
   useEffect(() => () => prevWipeRef.current?.kill(), []);
 
   // ── Return-position restore ──

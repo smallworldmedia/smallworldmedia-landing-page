@@ -29,14 +29,19 @@ export const CLIP_CLOSED_UP = 'inset(0 0 100% 0)';
 export const WIPE_IN_S = 0.45;
 export const WIPE_OUT_S = 0.35;
 
-/** Append the wipe-in to `tl` (creates one if absent). Returns the timeline. */
-export function wipeIn(el, tl = gsap.timeline(), duration = WIPE_IN_S) {
+/** Append the wipe-in to `tl` (creates one if absent). Returns the timeline.
+ *  `closed`/`open` pick the edge (CLIP_CLOSED_UP → CLIP_OPEN_UP: the inverse
+ *  of wipeOut's up-edge exit); `closed: null` runs from the current clip — a
+ *  re-entry caught mid-wipe-out reverses from where it is. */
+export function wipeIn(el, tl = gsap.timeline(), duration = WIPE_IN_S, closed = CLIP_CLOSED, open = CLIP_OPEN) {
   if (PREFERS_REDUCED_MOTION) {
-    tl.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35, ease: 'power2.out', overwrite: true });
+    const to = { autoAlpha: 1, duration: 0.35, ease: 'power2.out', overwrite: true };
+    if (closed) tl.fromTo(el, { autoAlpha: 0 }, to);
+    else tl.to(el, to);
     return tl;
   }
-  tl.set(el, { autoAlpha: 1, clipPath: CLIP_CLOSED, overwrite: true });
-  tl.to(el, { clipPath: CLIP_OPEN, duration, ease: ensureOverlayWipe() });
+  tl.set(el, closed ? { autoAlpha: 1, clipPath: closed, overwrite: true } : { autoAlpha: 1, overwrite: true });
+  tl.to(el, { clipPath: open, duration, ease: ensureOverlayWipe() });
   return tl;
 }
 
