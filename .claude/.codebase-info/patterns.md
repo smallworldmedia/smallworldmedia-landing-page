@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-04*
+*Last Updated: 2026-11-05*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -421,6 +421,10 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   inset outline that the computed style still reports (the tiles' ring is drawn on `::after` for that
   reason). `tabReach` records every focus in the page while Tab walks all the links flat out.
   `--keyctl=escape|ring` are their negative controls.
+- A merge or a fold that touches the media grids is checked with `scripts/layout-probe.mjs`: record
+  each side's built preview, then `--compare` (exit 2 on any difference). Its negative control is
+  `--query=tileshape=1.25`, which must fail on every page@width. A difference in a band's
+  `text` / `paras` or a page's `blurbs` is Sanity content moving between the two builds, not code.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 

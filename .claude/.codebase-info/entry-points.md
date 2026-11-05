@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-11-04*
+*Last Updated: 2026-11-05*
 
 ## Routes
 
@@ -56,6 +56,7 @@ Client Roster (`getDirectoryData()` → `toDrawerRoster`, `src/lib/clientCoverag
 | `node scripts/globe-timing.mjs <out.json> [--mobile] [--secs=45] [--throttle=mbps,rtt] ['--url=…?popseed=4242']` | read-only: records the home globe's video timing in headless Chrome against :4322 (the pool's `<video>` assign / attach / release / first frame, `__swmPopStats` every 50 ms, each Mux and Sanity request through CDP) and the commit it ran at. Every comparable run pins `?popseed=4242`; a `today`-handoff run passes `&pophandoff=today` |
 | `node scripts/globe-timing-report.mjs run.json [more.json …] [--clips] [--rungs] [--waste] [--all]` | reads globe-timing runs: per world, when its videos play against its exact landing, attach → first frame, the requests (wire or cache, prefetch used or not), bytes, the plan-ahead ledger and the live count; `--clips` / `--rungs` / `--waste` break the prefetch down per clip, per rung and by bytes |
 | `node scripts/process-probe.mjs [--mobile] [--secs=30] [--extra="&knob=…"]` | headless probe of `/process?debug=1`: samples the S1 tour (`window.__swmProcessStats` + the live `__swmProcessPeek()`) for chip count, duplicate terms, overlaps, keep-out and each tour hold's subject vs seat. Modes: `--walk [--back]` (contact sheets + `walk.json` per beat: fps, keep-out, draw calls), `--walk --break` (`break-track.json`: reversals / overshoots), `--buried [--every=120] [--secs=150] [--cpu=4]` (chip cover on real pixels, readable namings, pick cost), `--transition` (S1→S2 camera path); `report.json` also carries `chipStats`, the scene's `?debug` chip bench (per-station fill, binds, draw calls, leader×chip crossings, bank wraps) |
+| `node scripts/layout-probe.mjs --base=URL --out=FILE [--paths=…] [--widths=…] [--query=k=v]`, then `--compare WANT GOT` | layout A/B of the media grids: each detail page's segments, bands and tiles and the directory's chunks (inline style, offset box, docH), pages from the build's sitemap; compare exits 2 on a difference; negative control `--query=tileshape=1.25`. The A/B recipe (build each side from an export, serve it with `astro preview`) is in its header |
 | `node scripts/prep-client-logos.mjs [--check]` | normalize `Client Logos/` into `src/assets/client-logos/` |
 | `node scripts/generate-manifests.mjs "Client" [--dry-run]` | scaffold TBD manifests |
 

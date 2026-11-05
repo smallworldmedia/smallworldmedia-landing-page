@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-05*
 
 ```
 .
@@ -48,7 +48,7 @@
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
 │   │                         #   globe-worlds, footer-reveal, flush-grid, directory)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prepare-compress.mjs   # live utilities
-│   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs   # docs + probe tooling
+│   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs   # docs + probe tooling
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated
 │   └── shots/                # probe screenshot dumps (untracked noise)
