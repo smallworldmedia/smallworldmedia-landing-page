@@ -592,7 +592,7 @@ The description's first paragraph is the intro blurb; each later paragraph (a bl
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
 | `?scroll` | px of accumulated wheel/touch (touch × `TOUCH_GAIN` 5) that commits the passage | `500` px | any finite | `motion.js:74 SCROLL_TRIGGER_WORK_PX` |
-| `?nparm` | arming beat: deltas inside this window after the first at document end are dropped (flick tail); tuned against lerp 0.1, the bake is now 0.165, re-check | `250` ms | any finite | `NextProjectBand.jsx NP_ARM_MS` |
+| `?nparm` | arming beat, wheel only: deltas inside this window after the first at document end are dropped (flick tail); a finger counts from its first move (11-05, Nathan); tuned against lerp 0.1, the bake is now 0.165, re-check | `250` ms | any finite | `NextProjectBand.jsx NP_ARM_MS` |
 | `?npms` | commit choreography length (proxy fill, box → viewport, cover, zoom) | `800` ms | any finite | `motion.js:89 GLIDE_MS` |
 | `?npcover` | RouteFill snap window at the end of the commit | `120` ms | any finite | `NP_COVER_SECONDS` |
 | `?nppre` | in-window blue pre-cover opacity at full drag (f² curve) | `30` % | any finite | `NP_PRE_COVER` |

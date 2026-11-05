@@ -108,10 +108,12 @@ const PARAM = (key, fallback) => {
 /* — Resistance (the house accumulator constants) — */
 const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_WORK_PX); // px of wheel/touch to commit (house constant)
 // Unlike / and /work (scroll-locked pages where every delta is deliberate),
-// the gesture here arrives mid-flight: a flick lands at the document end
-// with an inertial tail still streaming deltas, which would fill — or, in
-// one large boundary event, instantly commit — the band unseen. The
-// accumulator only arms after the page has sat at the end for this beat.
+// the gesture here arrives mid-flight: a wheel flick lands at the document
+// end with an inertial tail still streaming deltas, which would fill — or,
+// in one large boundary event, instantly commit — the band unseen. The
+// wheel only arms after the page has sat at the end for this beat. A finger
+// skips it (11-05, Nathan): its moves stop at the lift, so it has no tail,
+// and the beat only swallowed the first quarter second of a swipe.
 const NP_ARM_MS = PARAM('nparm', 250);
 
 /* — Passage (Envelopment family defaults) — */
@@ -630,14 +632,17 @@ export default function NextProjectBand({ next }) {
           armAtRef.current = 0;
           return;
         }
-        // First delta at the end opens the arming window; deltas inside it
-        // (the flick's inertial tail) are dropped, deliberate ones count.
-        const now = performance.now();
-        if (!armAtRef.current) {
-          armAtRef.current = now + NP_ARM_MS;
-          return;
+        // A wheel's first delta at the end opens the arming window; deltas
+        // inside it (the flick's inertial tail) are dropped, deliberate ones
+        // count. A finger counts from its first move.
+        if (wheel) {
+          const now = performance.now();
+          if (!armAtRef.current) {
+            armAtRef.current = now + NP_ARM_MS;
+            return;
+          }
+          if (now < armAtRef.current) return;
         }
-        if (now < armAtRef.current) return;
       }
       const a = Math.max(0, accumRef.current + dy);
       accumRef.current = a;
