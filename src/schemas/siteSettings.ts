@@ -61,6 +61,16 @@ export const siteSettings = defineType({
         'Same markers as the footer blurb; **bold** carries the Medium opening weight.',
       validation: (Rule) => Rule.required().max(160),
     }),
+    defineField({
+      name: 'directoryShuffle',
+      title: 'Project Directory: shuffle the order',
+      type: 'boolean',
+      initialValue: false,
+      description:
+        'On: /work/directory shows its works in a new random order on every load, so no single ' +
+        'client leads. Off (or never set): the set order, the featured projects first and then ' +
+        'every client by name. Read at build time, so it takes effect on the next site deploy.',
+    }),
   ],
   preview: {
     prepare() {

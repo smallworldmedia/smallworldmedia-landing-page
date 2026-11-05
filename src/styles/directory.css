@@ -85,6 +85,12 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   height: calc(var(--space-4) + var(--text-drawer-name) * var(--lh-drawer-name) + var(--space-2));
 }
 
+/* It loads open (11-05), in the server's markup too: the list's own height,
+   which is what an opened toggle leaves behind (its inline `auto`). */
+.dir-filter[data-open] .dir-filter__region {
+  height: auto;
+}
+
 .dir-filter__tags {
   position: relative; /* the tags' offsetParent, for the fold measure */
   display: flex;

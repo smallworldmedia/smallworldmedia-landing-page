@@ -282,9 +282,12 @@ export const SITE_COPY_QUERY = `
  *             Coverage (src/lib/clientCoverage.js);
  *   worlds  — FEATURED_PROJECT_PATHS_QUERY: the World order and the routes;
  *   assets  — every published asset with media, as MEDIA_FIELDS plus its
- *             rank, client, project and project rank (buildDirectoryTiles).
+ *             rank, client, project and project rank (buildDirectoryTiles);
+ *   shuffle — siteSettings.directoryShuffle, the Studio's switch for a new
+ *             random order on every load (null while the field is unset).
  */
 export const DIRECTORY_QUERY = `{
+  "shuffle": *[_type == "siteSettings" && !(_id in path("drafts.**"))][0].directoryShuffle,
   "tags": *[_type == "serviceTag" && !(_id in path("drafts.**"))] | order(sortOrder asc) {
     name,
     "slug": slug.current

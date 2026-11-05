@@ -1,8 +1,8 @@
 /**
  * directoryData.js — the Project Directory's data, fetched once per build:
- * the service tags, the clients and the tiles (buildDirectoryTiles). The
- * directory page and the drawer's Client Roster both await it, so the two
- * read one result and can't disagree.
+ * the service tags, the clients, the tiles (buildDirectoryTiles) and the
+ * Studio's shuffle switch. The directory page and the drawer's Client Roster
+ * both await it, so the two read one result and can't disagree.
  *
  * Unlike getSiteCopy there is no fallback: a failed read rejects, and each
  * caller decides — the directory page fails the build, the roster goes empty.
@@ -16,8 +16,10 @@ import { buildDirectoryTiles } from '../components/work/directory/buildDirectory
 let pending = null;
 
 /**
- * `{ tags, clients, tiles }` — tags in Studio order, clients with their
- * `umbrellas` (clientCoverage.js), tiles in 'project' order. Only the first
+ * `{ tags, clients, tiles, shuffle }` — tags in Studio order, clients with
+ * their `umbrellas` (clientCoverage.js), tiles in 'project' order, and
+ * `shuffle` (siteSettings.directoryShuffle: true only when the Studio set it;
+ * a missing field or document reads false, today's order). Only the first
  * caller in a build hits the network.
  */
 export function getDirectoryData() {
@@ -26,6 +28,7 @@ export function getDirectoryData() {
       tags: data.tags ?? [],
       clients: data.clients ?? [],
       tiles: buildDirectoryTiles(data),
+      shuffle: data.shuffle === true,
     }));
     pending.catch(() => {
       pending = null;

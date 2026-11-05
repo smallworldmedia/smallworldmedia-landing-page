@@ -11,11 +11,14 @@
  * the image memory over a long scroll. (11-03: with the boxes in the window
  * too, Tab fell through it into the footer, since a chunk's last tile in
  * DOM order can sit rows above its end, out of the window's reach.) The
- * first window is chunk 0, so the server render — chunk 0 at three columns,
+ * first window is chunk 0, so the server render — chunk 0 at five columns,
  * exact at 1440 like the detail page's first paint, and bare boxes for the
- * rest — matches the first client render.
+ * rest — matches the first client render. (A shuffled page, whose order is
+ * drawn after hydration, starts with no window and so no media: the server's
+ * chunk 0 would be tiles that are about to move.)
  * The column count comes from here, not from CSS (--dir-cols): the
- * detail grid's breakpoints, with ?dirphonecols at ≤768px.
+ * detail grid's breakpoints, with the count dialed per band (?dircols above
+ * 1024px, ?dirtabletcols to 769px, ?dirphonecols below).
  *
  * Videos play through one playerGate (playerGate.js): every video tile shows
  * its poster, and a player mounts only while the gate grants it. A tile with
@@ -27,8 +30,9 @@ import MediaSlot from '../detail/MediaSlot.jsx';
 import { chunkFlushGrid } from '../detail/flushGrid.js';
 import { ratioOf } from '../detail/buildContentFlow.js';
 import {
-  SQ_ROWS_FALLBACK,
+  TILE_SHAPE,
   placementStyle,
+  rowsFor,
   tileRowsFor,
   useGridMetrics,
   useTileShape,
@@ -47,15 +51,20 @@ const MOUNT_REACH = 2; // the same, in viewport heights (seedNear)
 
 const sameSet = (a, b) => a.size === b.size && [...a].every((k) => b.has(k));
 
+/* A square's rows before the grid is measured (the server render, the first
+   client frame): the detail grid's SQ_ROWS_FALLBACK for this column count — a
+   1440px laptop, the 2px --space-1 gap — so a laptop's first paint is final. */
+const fallbackRows = (cols) => rowsFor((1440 - (cols - 1) * 2) / cols / TILE_SHAPE, 2);
+
 /* A tile's box always renders; its media only while `live` (the window). A
    window change re-renders only the tiles it flips. */
-const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, phoneCols, live }) {
+const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSpec, live }) {
   const slot = live && (
     <MediaSlot
       asset={tile}
       gate={gate}
       clip={PREVIEW_SECONDS}
-      sizes={sizesFor(placement.type, ratioOf(tile), tile.fit, phoneCols)}
+      sizes={sizesFor(placement.type, ratioOf(tile), tile.fit, colSpec)}
       fit={tile.fit}
     />
   );
@@ -72,19 +81,38 @@ const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, phone
 /**
  * @param {Object} props
  * @param {Array<Object>} props.tiles - the tiles to show, in display order
- * @param {number} [props.phoneCols=1] - columns at ≤768px (?dirphonecols)
+ * @param {number} [props.cols=5] - columns above 1024px (?dircols)
+ * @param {number} [props.tabletCols=4] - columns from 769 to 1024px (?dirtabletcols)
+ * @param {number} [props.phoneCols=2] - columns at ≤768px (?dirphonecols)
  * @param {number} props.cap - players at once (the gate's cap; 0 under reduced motion regardless)
  * @param {number} props.dwellMs - the gate's dwell
+ * @param {boolean} [props.shuffled=false] - the order is drawn after hydration: mount no media before the first measure
  * @param {() => void} [props.onReady] - once, after the first render at the measured width
  */
-export default function DirectoryGrid({ tiles, phoneCols = 1, cap, dwellMs, onReady }) {
+export default function DirectoryGrid({
+  tiles,
+  cols: deskCols = 5,
+  tabletCols = 4,
+  phoneCols = 2,
+  cap,
+  dwellMs,
+  shuffled = false,
+  onReady,
+}) {
   const flowRef = useRef(null);
   const tileShape = useTileShape();
   const metrics = useGridMetrics(flowRef, '.dir-grid');
 
-  const cols = metrics ? (metrics.cols === 1 ? phoneCols : metrics.cols) : 3;
+  // useGridMetrics counts the detail grid's bands (1 / 2 / 3): each maps to its dial.
+  const cols = !metrics
+    ? deskCols
+    : metrics.cols === 1 ? phoneCols : metrics.cols === 2 ? tabletCols : deskCols;
+  const colSpec = useMemo(
+    () => ({ phone: phoneCols, tablet: tabletCols, desktop: deskCols }),
+    [phoneCols, tabletCols, deskCols]
+  );
   const rows = metrics ? tileRowsFor({ ...metrics, cols }, tileShape) : null;
-  const sqRows = rows?.sq ?? SQ_ROWS_FALLBACK;
+  const sqRows = rows?.sq ?? fallbackRows(deskCols);
   const lsRows = rows?.ls ?? sqRows;
   const chunks = useMemo(
     () => chunkFlushGrid(tiles, { cols, sqRows, lsRows }),
@@ -105,7 +133,7 @@ export default function DirectoryGrid({ tiles, phoneCols = 1, cap, dwellMs, onRe
   // filter, a column count, a restored place): the observer's first report
   // lands a frame later, and the old window's chunks left the view empty for
   // that frame (measured 11-03, jumping from chunk 5 into a filter).
-  const [near, setNear] = useState(() => new Set([0]));
+  const [near, setNear] = useState(() => new Set(shuffled ? [] : [0]));
   const seedNear = useCallback(() => {
     const flow = flowRef.current;
     if (!flow) return;
@@ -161,7 +189,7 @@ export default function DirectoryGrid({ tiles, phoneCols = 1, cap, dwellMs, onRe
                 tile={tile}
                 placement={p}
                 gate={gate}
-                phoneCols={phoneCols}
+                colSpec={colSpec}
                 live={near.has(k)}
               />
             );

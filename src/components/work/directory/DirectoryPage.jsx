@@ -8,14 +8,24 @@
  * (unknown slugs dropped, tags the client would empty pruned, the URL
  * rewritten when anything changed) and written with replaceState, which keeps
  * Astro's history state (a null state breaks its Back). Tags OR together, and
- * no tag means every tag. The drawer's names set or clear the client in place
- * through `swm:directory-client` ({ slug | null }).
+ * no tag means every tag. A URL with neither key starts on the default
+ * filter, album-art (defaultFilter, Nathan 11-05): the server renders it too,
+ * so a bare load is open and ticked from the first paint, and the default
+ * state keeps the URL bare. An explicit URL wins (?client=x shows every tag),
+ * and `clear` writes `?tag=`, which reads back as every work. The drawer's
+ * names set or clear the client in place through `swm:directory-client`
+ * ({ slug | null }).
+ *
+ * The order is the build's ('project'), or a shuffle drawn once per load
+ * when the Studio's directoryShuffle is on (the `shuffle` prop; ?dirorder
+ * overrides). The draw and the filter both land before the grid shows, and
+ * the filter keeps the order it drew.
  *
  * Until the URL is read, the grid measured and the scroll restored,
  * data-pending holds the grid at visibility: hidden, so there is no
  * unfiltered frame and the chunks keep their heights. Astro restores scroll
- * before the island hydrates, against the server's three-column layout, which
- * clamps a one-column place on a phone (and its scrollend then records the
+ * before the island hydrates, against the server's five-column layout, which
+ * clamps a place on a phone (and its scrollend then records the
  * clamped value). So the page keeps its own place per history entry in
  * sessionStorage and re-seats once the grid is real.
  *
@@ -33,10 +43,13 @@ import SiteFooter from '../../SiteFooter.jsx';
 import { getLenis } from '../../../lib/smoothScroll.js';
 import { coverageOf } from '../../../lib/clientCoverage.js';
 import {
+  defaultFilter,
   filterSearch,
+  hasFilterParams,
   matchesFilter,
   orderTiles,
   readFilter,
+  sameFilter,
   sanitizeFilter,
   tagPresence,
 } from './buildDirectoryTiles.js';
@@ -48,8 +61,6 @@ const CLIENT_EVENT = 'swm:directory-client';
 
 /* The page's own scroll place per history entry: { [index]: { y, href } }. */
 const PLACE_KEY = 'swm:directory-place';
-
-const EMPTY_FILTER = { tags: [], client: null };
 
 const here = () => window.location.pathname + window.location.search;
 
@@ -86,8 +97,12 @@ function scrollToY(y) {
   }
 }
 
-function writeUrl(next) {
-  const search = filterSearch(window.location.search, next.tags, next.client);
+/* The URL for a filter: the default (`base`) keeps it bare. */
+function urlSearch(next, base) {
+  return filterSearch(window.location.search, next.tags, next.client, sameFilter(next, base));
+}
+
+function writeUrl(search) {
   history.replaceState(history.state, '', window.location.pathname + search + window.location.hash);
 }
 
@@ -106,28 +121,35 @@ function jumpToSeat(seat, root) {
  * @param {Array<{name: string, slug: string}>} props.tags - service tags, Studio order
  * @param {Array<{name: string, slug: string, umbrellas?: string[]}>} props.clients
  * @param {Array<Object>} props.tiles - buildDirectoryTiles, 'project' order
+ * @param {boolean} [props.shuffle=false] - the Studio's directoryShuffle: a new random order every load
  */
-export default function DirectoryPage({ tags, clients, tiles }) {
+export default function DirectoryPage({ tags, clients, tiles, shuffle = false }) {
   const rootRef = useRef(null);
   const seatRef = useRef(null);
-  const [filter, setFilter] = useState(EMPTY_FILTER);
-  const filterRef = useRef(EMPTY_FILTER);
+  // The filter a bare URL starts on: the server renders it, so the first
+  // client render matches.
+  const base = useMemo(() => defaultFilter({ tags, clients, tiles }), [tags, clients, tiles]);
+  const [filter, setFilter] = useState(base);
+  const filterRef = useRef(base);
   const [pending, setPending] = useState(true);
   const [tune, setTune] = useState(SSR_TUNE);
   const [defaults, setDefaults] = useState(SSR_TUNE);
+  // The shuffle's seed, drawn at mount (the server renders the build order).
+  const [seed, setSeed] = useState(0);
 
-  // The URL's filter and tunables, before the first paint after hydration.
+  // The URL's filter and tunables, and the shuffle's draw, before the first
+  // paint after hydration.
   useLayoutEffect(() => {
-    const d = tuneDefaults();
+    const d = tuneDefaults(shuffle);
     setDefaults(d);
     setTune(readTune(window.location.search, d));
-    const want = readFilter(window.location.search);
+    setSeed((Math.random() * 2 ** 32) >>> 0);
+    const want = hasFilterParams(window.location.search) ? readFilter(window.location.search) : base;
     const next = sanitizeFilter({ tags, clients, tiles }, want.tags, want.client);
     filterRef.current = next;
     setFilter(next);
-    if (filterSearch(window.location.search, next.tags, next.client) !== window.location.search) {
-      writeUrl(next);
-    }
+    const search = urlSearch(next, base);
+    if (search !== window.location.search) writeUrl(search);
     // Mount only: the props are the build's and never change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -138,9 +160,9 @@ export default function DirectoryPage({ tags, clients, tiles }) {
       jumpToSeat(seatRef.current, rootRef.current);
       filterRef.current = next;
       setFilter(next);
-      writeUrl(next);
+      writeUrl(urlSearch(next, base));
     },
-    [tags, clients, tiles]
+    [tags, clients, tiles, base]
   );
 
   const onToggle = useCallback(
@@ -202,7 +224,7 @@ export default function DirectoryPage({ tags, clients, tiles }) {
 
   const coverage = useMemo(() => coverageOf(filter.client, clients), [filter.client, clients]);
   const presence = useMemo(() => tagPresence(tiles, coverage), [tiles, coverage]);
-  const ordered = useMemo(() => orderTiles(tiles, tune.order), [tiles, tune.order]);
+  const ordered = useMemo(() => orderTiles(tiles, tune.order, seed), [tiles, tune.order, seed]);
   const shown = useMemo(() => {
     const on = new Set(filter.tags);
     return ordered.filter((t) => matchesFilter(t, { tags: on, coverage }));
@@ -232,9 +254,12 @@ export default function DirectoryPage({ tags, clients, tiles }) {
       <main className="dir-page__main">
         <DirectoryGrid
           tiles={shown}
+          cols={tune.cols}
+          tabletCols={tune.tabletCols}
           phoneCols={tune.phoneCols}
           cap={tune.players}
           dwellMs={tune.dwell}
+          shuffled={shuffle}
           onReady={onReady}
         />
       </main>

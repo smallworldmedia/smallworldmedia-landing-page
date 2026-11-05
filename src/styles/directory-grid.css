@@ -5,8 +5,9 @@
    apart, so the stack reads as one grid. Placement
    is inline (placementStyle, as on the detail grid);
    the column count comes from DirectoryGrid
-   (--dir-cols: the detail grid's breakpoints, with
-   ?dirphonecols at ≤768px), not a media query.
+   (--dir-cols: the detail grid's breakpoints, dialed
+   per band: ?dircols, ?dirtabletcols, ?dirphonecols),
+   not a media query.
    ============================================ */
 
 /* The slot's own rules, pulled into this sheet rather than imported by the
@@ -27,7 +28,7 @@
 .dir-grid {
   line-height: normal;
   display: grid;
-  grid-template-columns: repeat(var(--dir-cols, 3), 1fr);
+  grid-template-columns: repeat(var(--dir-cols, 5), 1fr);
   grid-template-rows: repeat(var(--chunk-rows, 1), 10px);
   grid-auto-rows: 10px;
   gap: var(--space-1);
