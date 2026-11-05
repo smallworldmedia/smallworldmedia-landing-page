@@ -314,6 +314,12 @@ SAME timeline as the words, so a reverse retracts it in kind. Reduced motion tak
   Mux ends a clip on the first segment boundary at or after it, so players also wrap at the window
   (`timeupdate`, `wrapAt`) for a clip that ends later. The Project Directory's tiles take the 5 s preview
   clip, not the detail cap (MediaSlot `clip`), and `globe-probe --directory` gates it.
+- **A clip's start rounds DOWN to its segment, so a clipped stream's timeline is offset** (SQ-15,
+  11-05, pixel-checked against Mux thumbnails): with `asset_start_time`, Mux starts the stream on the
+  5 s segment at or before the requested start, so the player's `currentTime` 0 is that boundary
+  (15.574 s → 15 s). A window that must show only its own range seeks and wraps at `start mod 5`
+  (`imageConfig.js` `chunkWindow` / `windowLoop`), never native `loop`, or it replays the range
+  before it.
 - **Mux has no playback modifier that drops audio, so muted surfaces drop it client-side**:
   `work/hlsVideoOnly.js` rewrites only the master playlist (the `TYPE=AUDIO` group, the `AUDIO="…"`
   attribute and the audio codec go), installed by `useHls`'s `videoOnly` as the playlist loader; a

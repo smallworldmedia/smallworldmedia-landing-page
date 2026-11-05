@@ -28,6 +28,8 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   media descriptors (mediaAsset `alt` 150, `description` 300; project blurbs uncapped); a `video`
   patch must be the canonical weak `mux.video` reference and can never be unset. `globeSettings.picks`
   is writable as a whole keyed array (newly added picks must be published video mediaAssets).
+  mediaAsset `splitIntoThirds` (11-05) is allowlisted as a boolean, refused on a non-video document;
+  its schema landed alone with the hash `8165cbfe` (`d47079e`).
   Deletes: `DELETE_TYPES` (mediaAsset, mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1

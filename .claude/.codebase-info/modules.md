@@ -164,7 +164,7 @@ a `sequence frame (ms)` row dials `?seqms`, the site-wide sequence rate, live ov
 | `CtaArrows.jsx`, `textExit.js` | Caret strips; text-out choreography (`TEXT_TUNABLES`) |
 | `pager/usePagerGesture.js` | Shared gesture engine: press-hold engage, scrub + detent magnet, wrap, end resistance, stall commit; only `requestGoTo` fires a Turn; `follow(i, instant)` steps without the glide |
 | `pager/GraticulePager.jsx` | The `scale` skin (SSR'd default). Tape/tuner arms removed; survive as tuning presets. On a `snapRef` arrival it jumps to the station and skips the announcement. Its rest pulse is ONE beat that rides every Turn (11-03): the number's white flip is a twin span `.fp-scale__peak` faded on opacity, so the loop never records the accent ink; only intent (charge, engage) kills it, and rest re-arms it 500 ms later through `joinHousePulse` |
-| `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `hlsVideoOnly.js`, `hlsPrimed.js`, `ServiceTag.jsx` | Shared math/recipes/hooks. `scrimNoise.js` owns the house grain recipe, the FP pager scrim's (the globe's panel grain read it too until its removal on 10-31); `noiseDataUri()` (bare `data:` URI) is split out of `noiseUri()` (CSS `url()` wrapper). **`imageConfig.js` owns the video windows** (the video diet, P0 `cb7b8e8`, Nathan 10-09): `PREVIEW_SECONDS` 5 (the globe pool, /lab, the World's Near tier, the Project Directory's tiles), `DETAIL_MAX_SECONDS` 15 (MediaSlot's default `clip`, its players wrapping at `wrapAt(clip)`; NextProjectBand, with `wrapAtDetailCap`; `wrapAt(s)` builds either wrap), and `muxStream(playbackId, end, params)`, the one builder of a clipped Mux master URL (`asset_end_time` last, once); every autoplay surface asks through it. The directory's defaults live here too (11-03): `DIRECTORY_PLAYERS` `{desktop: 6, phone: 3}` (under the globe pool's 7 and 4), `DIRECTORY_DWELL_MS` 300, and `SRCSET_WIDTHS` with `sanitySrcSet` / `muxPosterSrcSet`. **`hlsVideoOnly.js`** (P0v `f951497`) is the pure master-playlist rewrite that strips the audio group from a muted surface's master; `useHls`'s `videoOnly` option installs it as the `pLoader` (`videoOnlyLoader`, cached per Hls base class), and every muted surface sets it (the Lightbox, the one surface that played with sound, retired with the old directory on 11-03). **`hlsPrimed.js`** (10-27, the home globe's fast handoff) keeps playlist text fetched ahead, by URL (10 min TTL, 256 entries); `useHls`'s `primed` option layers `primedLoader` over `videoOnlyLoader` to answer hls.js from it, and `preloadHls()` loads the hls.js chunk early |
+| `bandLayout.js`, `scrimNoise.js`, `useHls.js`, `imageConfig.js`, `hlsVideoOnly.js`, `hlsPrimed.js`, `ServiceTag.jsx` | Shared math/recipes/hooks. `scrimNoise.js` owns the house grain recipe, the FP pager scrim's (the globe's panel grain read it too until its removal on 10-31); `noiseDataUri()` (bare `data:` URI) is split out of `noiseUri()` (CSS `url()` wrapper). **`imageConfig.js` owns the video windows** (the video diet, P0 `cb7b8e8`, Nathan 10-09): `PREVIEW_SECONDS` 5 (the globe pool, /lab, the World's Near tier, the Project Directory's tiles), `DETAIL_MAX_SECONDS` 15 (MediaSlot's default `clip`, its players wrapping at `wrapAt(clip)`; NextProjectBand, with `wrapAtDetailCap`; `wrapAt(s)` builds either wrap), and `muxStream(playbackId, end, params, start = 0)`, the one builder of a clipped Mux master URL (`asset_start_time` when `start` > 0, `asset_end_time` last, once; a start-less URL is byte-identical to before); every autoplay surface asks through it, and `muxPoster(playbackId, width, time = 0)` builds the posters. The video chunks (11-05, SQ-15): `CHUNK_COUNT` 3, `chunkRanges(duration)` (equal ms-rounded thirds that touch and cover the video), `MUX_SEGMENT_SECONDS` 5 with `chunkWindow` (a clipped stream starts on the segment at or before its start, so the window's `from`/`to` are offset by start mod 5, `patterns.md`) and `windowLoop(from, to)` (wrap to `from`, never native `loop`). The directory's defaults live here too (11-03): `DIRECTORY_PLAYERS` `{desktop: 8, phone: 4}` (6 and 3 until Nathan's 11-05 "up the number": one past the globe pool's 7, and its 4), `DIRECTORY_DWELL_MS` 300, and `SRCSET_WIDTHS` with `sanitySrcSet` / `muxPosterSrcSet`. **`hlsVideoOnly.js`** (P0v `f951497`) is the pure master-playlist rewrite that strips the audio group from a muted surface's master; `useHls`'s `videoOnly` option installs it as the `pLoader` (`videoOnlyLoader`, cached per Hls base class), and every muted surface sets it (the Lightbox, the one surface that played with sound, retired with the old directory on 11-03). **`hlsPrimed.js`** (10-27, the home globe's fast handoff) keeps playlist text fetched ahead, by URL (10 min TTL, 256 entries); `useHls`'s `primed` option layers `primedLoader` over `videoOnlyLoader` to answer hls.js from it, and `preloadHls()` loads the hls.js chunk early |
 | `*TunePanel.jsx`, `fp1Tune.js`, `FeaturedDeckDebugPanel.jsx` | `?entertune`, `?texttune`, `?scrimtune`, `?fp1tune` benches |
 
 ### `work/world/`
@@ -196,13 +196,15 @@ description's paragraphs split on blank lines — the first is the intro blurb, 
 own `.project-blurb` band between stacked `.masonry-grid--detail` segments (`splitAtBreaks`), one
 every `BLURB_ROWS` 2 squares (Nathan's 11-03 approval; 3+ paragraphs keep that pitch, closed up only
 on a short grid), `?blurbrows` re-dials; with no tiles every paragraph
-stays in the intro. `BlurbCopy` renders a blurb's paragraphs and owns its own `useKeywordWipe`) ·
+stays in the intro. `BlurbCopy` renders a blurb's paragraphs and owns its own `useKeywordWipe`;
+`?chunks` (split an unflagged video by id or slug tail) and `?chunkgap` (tiles between its thirds)
+are read after mount, like `?blurbrows`, and handed to `buildContentFlow`) ·
 `buildContentFlow.js`
 (assets → hero/showcase/decks/albumArt/banners buckets; `ORBIT_MIN` 4 = album covers needed for the
 album wall, fewer fold back into the grid; `isBannerGroup` routes any displayGroup ending
 `-banner(s)` to `banners`; a displayGroup ending `-sequence` collapses its stills into ONE showcase
 item at the first member's place, carrying `frames` (`makeSequence`; checked first, a group of one
-stays plain, a video member keeps its own tile); `assetLane(asset)` names the lane its loop switches on, first match wins: sequence, album-art, deck, carousel, banner, role, showcase, and the directory groups by it) · `flushGrid.js` (pure placement with socket regions; `sqRows` sets the
+stays plain, a video member keeps its own tile); `assetLane(asset)` names the lane its loop switches on, first match wins: sequence, album-art, deck, carousel, banner, role, showcase, and the directory groups by it; `expandChunks(list, {only, gap})` (11-05) turns a showcase video with `splitIntoThirds` (or named by `?chunks`) into three tiles in place, ids `<id>~1of3`…, each carrying `chunk` `{index, count, start, end, from, to}`; no flag or no Mux `videoDuration` leaves it whole, and the hero and the other lanes never split) · `flushGrid.js` (pure placement with socket regions; `sqRows` sets the
 square span — portrait 1 col × 2 squares, landscape 2 cols × 1 square, underlay bound half a
 square; column-aware since 11-03, a landscape spanning `min(2, cols)`, so one and two columns place.
 Anchors `top`/`mid`/`bottom`, plus `break`: `opts.breaks` zero-height full-width cuts that
@@ -221,7 +223,10 @@ sr-only figcaption; a sequence,
 `useSequenceFrame`, one timer per slot landing on the same wall-clock beat; each frame is named by its
 own `alt`, an opaque one cover-fit, a transparent one contained on near-black; an image that loaded
 before hydration is flagged as its element attaches, since its onLoad never fires (every mode since
-`4499fc3`); every `<video>` wraps at `wrapAt(clip)`; directory mode (11-03),
+`4499fc3`); every `<video>` wraps at `wrapAt(clip)`, except a chunk (11-05: `asset.chunk`), which
+streams its own range clipped at both ends, plays it whole (no `DETAIL_MAX_SECONDS`) through
+`windowLoop` with `loop` off and hls.js `startPosition` at `from`, takes its poster at its own start,
+and is labelled "(part n of 3)" with the `description` on part 1 only; directory mode (11-03, never chunked),
 through props the detail page never passes: `clip` (`PREVIEW_SECONDS`), `sizes` (a srcset on images,
 frames and posters), `gate` (a poster always, the `<video>` only while the player gate grants play,
 emptied before it unmounts) and `fit` (`data-fit="contain"` letterboxes banners and alpha logos);
@@ -230,15 +235,21 @@ styles in `src/styles/media-slot.css`, lifted out of project-detail.css) · `Cli
 
 ### `work/directory/` (the Project Directory, 11-03)
 `DirectoryPage.jsx` (the route's one `client:load` island: DirectoryFilter over DirectoryGrid, then
-`SiteFooter` in reveal mode; props `{tags, clients, tiles}` from `getDirectoryData()`. It owns the
-filter's URL state and the hidden first frame (`communication.md`), keeps its own scroll place per
+`SiteFooter` in reveal mode; props `{tags, clients, tiles, shuffle}` from `getDirectoryData()`. It owns the
+filter's URL state and the hidden first frame (`communication.md`). A URL with neither `tag` nor
+`client` starts on `defaultFilter` (`DEFAULT_TAG` `album-art`, filter open), rendered so on the server
+and kept bare while it holds; `clear` writes `?tag=` (every work). With `shuffle` (the Studio's
+`siteSettings.directoryShuffle`) it draws one seed at mount, before the grid shows, for
+`orderTiles(…, 'shuffle', seed)`; the server renders the build order and a shuffled page mounts no
+media until then (11-05, SQ-12). It keeps its own scroll place per
 history entry, jumps a filter change made while the filter is stuck to the sticking point first (a
 glide would load every tile on the way), and reads the `?dir*` knobs once at mount) ·
 `DirectoryGrid.jsx` (stacked `.dir-grid` chunks from `chunkFlushGrid`, each at its exact height,
 `--chunk-rows`, one row gap apart, so the stack reads as one grid and an unmounted chunk keeps its
 space; every chunk renders its tiles' boxes, so the focus order and the links are whole, but only
-chunks within two viewports mount media, through one IntersectionObserver; columns from the detail
-grid's breakpoints, `?dirphonecols` at ≤768; a featured project's tile is a link named by the
+chunks within two viewports mount media, through one IntersectionObserver; columns 5 above 1024px
+(`?dircols`), 4 at 769–1024 (`?dirtabletcols`) and 2 at ≤768 (`?dirphonecols`), Nathan's 11-05
+numbers; a featured project's tile is a link named by the
 project, the rest are media only) · `DirectoryFilter.jsx` (sticky under the nav: every service tag
 with media as a FilterTag over a bar of `services (n)`, the client chip, the live count, `clear` and
 `all_services`; shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
@@ -251,10 +262,12 @@ dwellMs})`: one IntersectionObserver for every watched tile and at most `cap` pl
 `patterns.md`) · `buildDirectoryTiles.js` (pure, build time: lanes from `assetLane`; decks,
 carousels, banner groups and sequences collapse to one tile per `lane:client:project:displayGroup`,
 the `role` lane stays out; a tile is the slim face MediaSlot reads plus `client`, `services`,
-`href` / `label` and `fit`; order `project`, featured first in World order, or `mix`; and the
-page's pure helpers: `matchesFilter`, `tagPresence`, `readFilter` / `sanitizeFilter` /
-`filterSearch`, `sizesFor`) · `directoryTune.js` + `DirectoryTunePanel.jsx` (`?dirorder`,
-`?dirplayers`, `?dirdwell`, `?dirphonecols`; bench `?dirtune=1`, top right). Styles:
+`href` / `label` and `fit`; `orderTiles(tiles, mode, seed)`: `project`, featured first in World
+order, `mix`, or `shuffle` (seeded, uniform); and the page's pure helpers: `matchesFilter`,
+`tagPresence`, `DEFAULT_TAG` / `defaultFilter` / `hasFilterParams` / `sameFilter`, `readFilter` /
+`sanitizeFilter` / `filterSearch`, `sizesFor` with per-band column counts) · `directoryTune.js` +
+`DirectoryTunePanel.jsx` (`ORDERS`, `tuneDefaults(shuffle)`; `?dirorder`, `?dirplayers`,
+`?dirdwell`, `?dircols`, `?dirtabletcols`, `?dirphonecols`; bench `?dirtune=1`, top right). Styles:
 `src/styles/directory.css` (the scroll unlock with `overflow-anchor: none`, and the sticky filter,
 which follows the nav's footer-reveal slide on `top`) and `directory-grid.css` (`@import`s
 `media-slot.css`). Plan and open calls: `docs/project-directory-plan.md`.
