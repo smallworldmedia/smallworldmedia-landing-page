@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-05*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -11,7 +11,7 @@ media-library terms (Client Folder, Curated Collection, Artwork Catalog, Feature
 | Type | Key fields | References |
 |---|---|---|
 | `client` | `name`, `slug`, `clientType` (artist/label/management/promoter-event), `city`, `country`, `affiliations[]{entity, relationship}`, `links[]{platform,url}` | `affiliations.entity` → client |
-| `project` | `title?`, `slug`, `description`, `yearStart/yearEnd/isOngoing`, `isFeatured`, `projectColor`, `projectColorSecondary`, `orderRank` (LexoRank) | `client` → client; `services[]` → serviceTag |
+| `project` | `title?`, `slug`, `description`, `yearStart/yearEnd/isOngoing`, `isFeatured`, `projectColor`, `projectColorSecondary`, `orderRank` (LexoRank) | `client` → client; `services[]` → serviceTag (dead data since 11-05: no query reads it; retirement = a hashed-schema edit, after the retag) |
 | `mediaAsset` | `title`, `slug`, `mediaType` (album-art, logo, featured-project-reel, brand-deck, carousel-slide, `static_*`, `motion_*` by aspect), `image` (hotspot) or `video` (`mux.video`), `alt` (≤150) + `description` (≤300, screen-reader/search only — not the project blurb) for both, `releaseInfo{…}` (album-art), `brandDeckOrder`, `contentRole` (process/supporting; empty = showcase), `displayGroup` (a name ending `-banner(s)` routes to the banner wall, one ending `-sequence` makes its stills one cycling tile), `sourceFolder`/`sourceManifest` (read-only provenance), `orderRank` | `client` → client; `project` → project; `services[]` → serviceTag |
 | `serviceTag` | `name`, `slug`, `sortOrder` | — |
 | `globeSettings` | singleton `_id: "globeSettings"`, `picks[]` (writable through `npm run cms` changes as the whole keyed array) | → mediaAsset |
@@ -56,6 +56,11 @@ Media descriptors: `FEATURED_PROJECT_DETAIL_QUERY` projects `alt` + `description
 directory's tiles then keep only the face MediaSlot reads, `alt` but not `description`. The WebGL
 surfaces (globe, Worlds) don't need them. `MEDIA_FIELDS` also carries `imageHasAlpha`, for the
 sequences and the directory's letterboxed logos.
+
+A project's service tags (11-05, SQ-14): the `PROJECT_SERVICES` fragment is their one owner. It
+returns the deduplicated union of the project's media's own `services`, in serviceTag `sortOrder`
+(name breaks ties), through a nested `^.^`. The worlds, paths, directory-worlds and detail queries
+all use it; untagged media give `[]`. `scripts/test/project-services.test.mjs` pins it with `groq-js`.
 
 `scripts/test/cms-frontend.test.mjs` evaluates these real queries with `groq-js` against fixtures
 (`DIRECTORY_QUERY` through `buildDirectoryTiles` too, 11-03);

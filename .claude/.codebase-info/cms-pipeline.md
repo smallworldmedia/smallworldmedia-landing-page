@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-01*
+*Last Updated: 2026-11-05*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -30,7 +30,10 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   is writable as a whole keyed array (newly added picks must be published video mediaAssets).
   Deletes: `DELETE_TYPES` (mediaAsset, mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
-- `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A no-upload video rebind
+- `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
+  header naming more than one service is refused unless the row sets its own `serviceType`
+  (11-05: the header used to stamp a project's whole tag list onto every asset). A one-service
+  header still stamps, and bound rows are unaffected. A no-upload video rebind
   (`set.video` → an existing `mux.videoAsset`) is guarded on the target doc; plan, apply and verify
   each run `readyVideo()` (ready status, public playback id, aspect matching Mux).
   Explicit deletes (`"deletes"` in a changes request; never inferred) run last, in request order: a
