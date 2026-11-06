@@ -142,9 +142,9 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
       09090281, applied and verified).
     - DONE 11-05, on Nathan's yes: `media-session/retag-changes.json`, 23 retags (re-planned as run
       b1b6f229, applied and verified).
-    - The other 50 Andhera media lose `2d-animation` and keep `branding` + `web-design` (Nathan, 11-05).
-      This is planned as run 0101ed38 and awaits his yes to that id. Andhera Hero, retagged to
-      `event-tour-creative` in the Studio, is not part of it.
+    - DONE 11-05, on Nathan's yes: the other 50 Andhera media lost `2d-animation` and keep `branding` +
+      `web-design` (run 0101ed38, applied and verified, 50 updated). Andhera Hero, retagged to
+      `event-tour-creative` in the Studio, was not part of it.
     - `media-session/album-art-untag-changes.json`: 14 non-square pieces lose `album-art`. Nathan's rule
       (11-05) is that `album-art` goes only on 1:1 media. The same file sets his replacement tags: the
       COCO SoundCloud banners → `branding`, Sunday Brunch → `illustration`, Jeff's animated cover →
