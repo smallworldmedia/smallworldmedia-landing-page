@@ -15,15 +15,26 @@
  * opens in 0.6 s power3.out while the tags slide in from x −16 and
  * fade up, 0.35 s power3.out, 0.02 s apart from 0.15 s; closing waits
  * 0.15 s, then takes 0.48 s power2.inOut. Taller than the screen allows
- * (100dvh − nav − bar), the tags scroll inside and wear the drawer's scroll
+ * (100dvh − nav − tabs − bar), the tags scroll inside and wear the drawer's scroll
  * thumb (useScrollThumb). Each toggle starts from the current height;
  * reduced motion is instant. Its settled height, written to .dir-page as
  * --dir-filter-h, sets the tiles' scroll-margin-top, so a tile that Tab
  * reaches lands below the stuck filter.
  *
+ * Above the tags a pair of tabs (SQ-21, Nathan): "services" (the tags) and
+ * "clients" (the live clients, one at a time, the bar's chip showing the pick).
+ * The tabs overlap by ?dirtaboverlap px, and the active one lies on top. The
+ * services panel stays in flow and so sets the open height; the clients panel
+ * is laid over the same box (directory.css), scrolls inside it, and wears the
+ * thumb too, so a tab switch never moves the grid. Left / Right / Home / End
+ * move between the tabs, the inactive panel is inert and hidden, and a shut
+ * filter makes both inert.
+ *
  * Props: tags (Studio order), presence ({ any, inClient }, tagPresence),
- * picked (tag slugs), client ({ slug, name } | null), shown / total (tile
- * counts), onToggle(slug), onClearClient(), onClear().
+ * picked (tag slugs), client ({ slug, name } | null), clientOptions (the live
+ * clients, by name), clientsPresent (the slugs clientPresence keeps lit),
+ * shown / total (tile counts), tabOverlap (px), onToggle(slug),
+ * onPickClient(slug), onClearClient(), onClear().
  */
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
@@ -48,25 +59,35 @@ function ArrowIcon() {
   );
 }
 
+const TABS = ['services', 'clients'];
+
 export default function DirectoryFilter({
   tags,
   presence,
   picked,
   client,
+  clientOptions,
+  clientsPresent,
   shown,
   total,
+  tabOverlap,
   onToggle,
+  onPickClient,
   onClearClient,
   onClear,
 }) {
   const rootRef = useRef(null);
   const regionRef = useRef(null);
+  const tabsRef = useRef(null);
   const tagsRef = useRef(null);
+  const clientsRef = useRef(null);
   const tlRef = useRef(null);
   // Open on load (Nathan, 11-05): the server renders it open too
   // (directory.css), so hydration changes nothing on screen.
   const [open, setOpen] = useState(true);
-  const { trackRef, thumbRef } = useScrollThumb(tagsRef, open, { media: 'all' });
+  const [tab, setTab] = useState('services');
+  const tagsThumb = useScrollThumb(tagsRef, open, { media: 'all' });
+  const clientsThumb = useScrollThumb(clientsRef, open, { media: 'all' });
   const { contextSafe } = useGSAP({ scope: rootRef });
 
   const visible = tags.filter((t) => presence.any.has(t.slug));
@@ -96,6 +117,22 @@ export default function DirectoryFilter({
     };
   }, []);
 
+  // Left / Right wrap between the two tabs, Home / End jump; the one reached
+  // is shown and focused (roving tabindex: only the shown tab is in the Tab order).
+  const onTabKey = (e) => {
+    const at = TABS.indexOf(tab);
+    const to =
+      e.key === 'ArrowRight' ? (at + 1) % TABS.length
+      : e.key === 'ArrowLeft' ? (at + TABS.length - 1) % TABS.length
+      : e.key === 'Home' ? 0
+      : e.key === 'End' ? TABS.length - 1
+      : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    setTab(TABS[to]);
+    tabsRef.current?.querySelector(`#dir-filter-tab-${TABS[to]}`)?.focus();
+  };
+
   const toggle = contextSafe(() => {
     const region = regionRef.current;
     const list = tagsRef.current;
@@ -104,14 +141,15 @@ export default function DirectoryFilter({
     const next = !open;
     tlRef.current?.kill();
     const from = region.offsetHeight;
-    const revealed = list.querySelectorAll('.filter-tag');
+    const revealed = (tab === 'clients' ? clientsRef : tagsRef).current.querySelectorAll('.filter-tag');
     const tl = gsap.timeline();
     if (next) {
       tl.fromTo(
         region,
         { height: from },
         {
-          height: list.offsetHeight,
+          // the tab row and the services panel, which sets the open height
+          height: tabsRef.current.offsetHeight + list.offsetHeight,
           duration: 0.6 * k,
           ease: 'power3.out',
           onComplete: () => gsap.set(region, { height: 'auto' }),
@@ -139,7 +177,11 @@ export default function DirectoryFilter({
         { height: 0, duration: 0.48 * k, ease: 'power2.inOut' },
         0.15 * k
       );
-      tl.to(list, { scrollTop: 0, duration: 0.48 * k, ease: 'power2.inOut' }, 0.15 * k);
+      tl.to(
+        [list, clientsRef.current],
+        { scrollTop: 0, duration: 0.48 * k, ease: 'power2.inOut' },
+        0.15 * k
+      );
     }
     tlRef.current = tl;
     setOpen(next);
@@ -151,28 +193,86 @@ export default function DirectoryFilter({
       ref={rootRef}
       aria-label="Filter the directory"
       data-open={open || undefined}
+      style={{ '--dir-tab-overlap': `${tabOverlap}px` }}
     >
-      <div className="dir-filter__region" ref={regionRef}>
+      <div className="dir-filter__region" id="dir-filter-region" ref={regionRef}>
         <div
-          className="dir-filter__tags"
-          ref={tagsRef}
-          id="dir-filter-tags"
-          role="group"
-          aria-label="Services"
+          className="dir-filter__tablist"
+          ref={tabsRef}
+          role="tablist"
+          aria-label="Filter by"
+          inert={!open}
+          onKeyDown={onTabKey}
         >
-          {visible.map((t) => (
-            <FilterTag
-              key={t.slug}
-              tag={t}
-              checked={pickedSet.has(t.slug)}
-              dim={!presence.inClient.has(t.slug)}
-              inert={!open}
-              onToggle={onToggle}
-            />
+          {TABS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`dir-filter-tab-${id}`}
+              className="dir-filter__tab"
+              aria-selected={tab === id}
+              aria-controls={`dir-filter-panel-${id}`}
+              tabIndex={tab === id ? 0 : -1}
+              onClick={() => setTab(id)}
+            >
+              {id}
+            </button>
           ))}
         </div>
-        <div className="dir-filter__scrollbar-track" ref={trackRef} aria-hidden="true">
-          <div className="dir-filter__scrollbar-thumb" ref={thumbRef} />
+        <div className="dir-filter__panes">
+          <div
+            className="dir-filter__pane"
+            data-active={tab === 'services' || undefined}
+            inert={!open || tab !== 'services'}
+          >
+            <div
+              className="dir-filter__tags"
+              ref={tagsRef}
+              id="dir-filter-panel-services"
+              role="tabpanel"
+              aria-labelledby="dir-filter-tab-services"
+            >
+              {visible.map((t) => (
+                <FilterTag
+                  key={t.slug}
+                  tag={t}
+                  checked={pickedSet.has(t.slug)}
+                  dim={!presence.inClient.has(t.slug)}
+                  onToggle={onToggle}
+                />
+              ))}
+            </div>
+            <div className="dir-filter__scrollbar-track" ref={tagsThumb.trackRef} aria-hidden="true">
+              <div className="dir-filter__scrollbar-thumb" ref={tagsThumb.thumbRef} />
+            </div>
+          </div>
+          <div
+            className="dir-filter__pane dir-filter__pane--clients"
+            data-active={tab === 'clients' || undefined}
+            inert={!open || tab !== 'clients'}
+          >
+            <div
+              className="dir-filter__tags"
+              ref={clientsRef}
+              id="dir-filter-panel-clients"
+              role="tabpanel"
+              aria-labelledby="dir-filter-tab-clients"
+            >
+              {clientOptions.map((c) => (
+                <FilterTag
+                  key={c.slug}
+                  tag={c}
+                  checked={client?.slug === c.slug}
+                  dim={!clientsPresent.has(c.slug)}
+                  onToggle={onPickClient}
+                />
+              ))}
+            </div>
+            <div className="dir-filter__scrollbar-track" ref={clientsThumb.trackRef} aria-hidden="true">
+              <div className="dir-filter__scrollbar-thumb" ref={clientsThumb.thumbRef} />
+            </div>
+          </div>
         </div>
       </div>
       <div className="dir-filter__bar">
@@ -209,7 +309,7 @@ export default function DirectoryFilter({
             type="button"
             className="dir-filter__toggle"
             aria-expanded={open}
-            aria-controls="dir-filter-tags"
+            aria-controls="dir-filter-region"
             onClick={toggle}
           >
             {open ? 'close filters' : 'filters'}

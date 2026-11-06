@@ -10,6 +10,7 @@ import {
   logoFirst,
   matchesFilter,
   tagPresence,
+  clientPresence,
   fitOf,
   readFilter,
   filterSearch,
@@ -174,6 +175,23 @@ test('tagPresence: hidden where no tile has the tag, dimmed where the client wou
   const dj = tagPresence(ts, coverageOf('dj-tennis', CLIENTS))
   assert.deepEqual([...dj.inClient].sort(), ['branding'])
   assert.ok(dj.any.has('promo-video'))
+})
+
+test('clientPresence - lit where the client has a tile under the picked tags, dimmed where they would empty it', () => {
+  const ts = tiles()
+  const lit = (...tags) => [...clientPresence(ts, new Set(tags), CLIENTS)].sort()
+  assert.deepEqual(lit(), ['annabel-englund', 'bellaire', 'coco', 'dj-tennis', 'munchietown'], 'no tag = every tile counts')
+  assert.deepEqual(lit('promo-video'), ['annabel-englund'], 'only Annabel has a promo video')
+  assert.deepEqual(lit('album-art'), ['coco'])
+  assert.deepEqual(lit('album-art', 'promo-video'), ['annabel-englund', 'coco'], 'tags OR together, as matchesFilter does')
+  // DJ Tennis holds nothing of its own: its coverage reaches Munchietown's tiles one hop down
+  assert.ok(lit('branding').includes('dj-tennis'))
+  assert.ok(!lit('promo-video').includes('dj-tennis'))
+  assert.ok(!lit('web-design').includes('munchietown'), 'web-design is only COCO')
+  // a client with no tile at all is never lit
+  const more = [...CLIENTS, { name: 'easier said', slug: 'easier-said', umbrellas: null }]
+  assert.ok(!clientPresence(ts, new Set(), more).has('easier-said'))
+  assert.ok(!clientPresence(ts, null, more).has('easier-said'), 'a missing tag set is every tile too')
 })
 
 test('fit: contain for transparency or a crop past half, else cover', () => {
@@ -361,6 +379,12 @@ test('readTune — the order and the columns per band, from the URL over the def
   assert.equal(readTune('?dirpack=masonry', SSR_TUNE).pack, 'flush')
   assert.equal(readTune('?dirlook=12', SSR_TUNE).look, 12)
   assert.equal(readTune('?dirlook=0', SSR_TUNE).look, SSR_TUNE.look, 'a lookahead of 0 falls back')
+  // the filter tabs' overlap (SQ-21): proposed 6px, 0 to 24
+  assert.equal(readTune('', SSR_TUNE).tabOverlap, 6)
+  assert.equal(readTune('?dirtaboverlap=0', SSR_TUNE).tabOverlap, 0, 'no overlap is a value')
+  assert.equal(readTune('?dirtaboverlap=10.5', SSR_TUNE).tabOverlap, 10.5)
+  assert.equal(readTune('?dirtaboverlap=-2', SSR_TUNE).tabOverlap, 6, 'negative falls back')
+  assert.equal(readTune('?dirtaboverlap=99', SSR_TUNE).tabOverlap, 6, 'past 24 falls back')
 })
 
 test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio order and need tiles in the coverage', () => {

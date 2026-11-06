@@ -472,9 +472,32 @@ until Nathan names a number.
   - It shows the bar alone, at every width (SQ-21, Nathan: the phone's behaviour carried to the
     desktop; the one-row fold and its measure are gone).
   - Shut tags are `inert`, so Tab never lands on one.
+- **Tabs (SQ-21, Nathan):** a `role="tablist"` row inside the open region, above the tags: `services`
+  (active on load) and `clients`, in the toggle's type, each wrapped in a 1px stroke (the client chip's)
+  with no bottom edge.
+  - The row's left padding is the tags' (`--space-4`), so the strokes line up with the check boxes.
+  - The tabs overlap by `?dirtaboverlap` px (proposed 6, Nathan dials it). The active tab has
+    `z-index` 2 and an opaque black background, so its stroke covers its neighbour's.
+  - Left / Right (wrapping), Home and End move between the tabs, with a roving `tabindex`.
+    `role="tab"` carries `aria-selected` and `aria-controls`; each panel is `role="tabpanel"` with
+    `aria-labelledby`. The inactive panel is `inert` and `visibility: hidden`; a shut filter makes both inert.
+  - **Height:** the services panel stays in flow and sets the open height, under the cap
+    `100dvh − nav − bar − tab row` (`--dir-tabs-h`). The clients panel is absolutely laid over the same
+    box, scrolls inside it (`overflow-y: auto`) and wears the same thumb, so a tab switch never moves
+    the grid. The open / close tween measures the tab row plus the services panel.
+  - **Clients tab (assumption to confirm):**
+    - It lists the clients whose coverage holds at least one directory tile (`toDrawerRoster(...)`'s
+      `live`), by name, as FilterTag rows.
+    - It is single-select, mapped onto `?client=` through `apply` and `sanitizeFilter`: a pick sets the
+      client, the picked one clears it, like the chip's ×.
+    - A row is dimmed (`aria-disabled`, a click does nothing) when the picked tags would leave that
+      client no tile (`clientPresence`, beside `tagPresence`).
+    - Picking a client prunes picked tags it has no tile for, as the drawer's names already do.
+  - **Layout cost:** the open filter is the tab row taller (29px at 1440 and 1024, 27px at 390), so the
+    grid starts that much lower while it is open; nothing else in the grid changes (layout-probe).
 - **Tags:**
   - Each is a `<button role="checkbox" aria-checked>` inside
-    `#dir-filter-tags[role=group][data-lenis-prevent]`, showing `name` as stored.
+    `#dir-filter-panel-services[role=tabpanel]` (`data-lenis-prevent` while it can scroll), showing `name` as stored.
   - A tag with no tiles is hidden (VFX today).
   - A tag the active client would empty is dimmed to 0.35 with `aria-disabled`.
 - **Type tokens:**

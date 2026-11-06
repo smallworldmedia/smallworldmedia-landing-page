@@ -22,6 +22,8 @@
  *                  Nathan bakes 'aspect' after a device pass
  *   ?dirlook       aspect packing's lookahead: the tiles it picks among, and the most
  *                  places one moves from the list order
+ *   ?dirtaboverlap px the active filter tab overlaps its neighbour (SQ-21; proposed 6,
+ *                  Nathan dials it)
  */
 import { DIRECTORY_PLAYERS, DIRECTORY_DWELL_MS } from '../imageConfig.js';
 import { LOGO_DIALS } from './logoTile.js';
@@ -41,6 +43,7 @@ export const PARAM_KEYS = {
   logoCenter: 'dirlogocenter',
   pack: 'dirpack',
   look: 'dirlook',
+  tabOverlap: 'dirtaboverlap',
 };
 
 /** The orders ?dirorder takes. */
@@ -63,6 +66,7 @@ export const SSR_TUNE = {
   logoCenter: LOGO_DIALS.center,
   pack: 'flush',
   look: LOOK,
+  tabOverlap: 6,
 };
 
 /** What each numeric knob accepts, from the URL or the bench. */
@@ -77,6 +81,7 @@ export const TUNE_OK = {
   logoLand: (n) => n >= 1,
   logoCenter: (n) => n >= 0 && n <= 1,
   look: (n) => Number.isInteger(n) && n >= 1 && n <= 32,
+  tabOverlap: (n) => n >= 0 && n <= 24,
 };
 
 /** The defaults on this device: the phone's players cap at ≤768px, the
@@ -112,6 +117,7 @@ export function readTune(search, defaults) {
     logoCenter: numberAt('logoCenter'),
     pack: PACKS.includes(params.get(PARAM_KEYS.pack)) ? params.get(PARAM_KEYS.pack) : defaults.pack,
     look: numberAt('look'),
+    tabOverlap: numberAt('tabOverlap'),
   };
 }
 

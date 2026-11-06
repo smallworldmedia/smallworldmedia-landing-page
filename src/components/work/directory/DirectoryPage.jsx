@@ -14,7 +14,8 @@
  * state keeps the URL bare. An explicit URL wins (?client=x shows every tag),
  * and `clear` writes `?tag=`, which reads back as every work. The drawer's
  * names set or clear the client in place through `swm:directory-client`
- * ({ slug | null }).
+ * ({ slug | null }); the filter's clients tab picks one the same way, one at
+ * a time.
  *
  * The order is the build's ('project'), or a shuffle drawn once per load
  * when the Studio's directoryShuffle is on (the `shuffle` prop; ?dirorder
@@ -41,8 +42,9 @@ import DirectoryFilter from './DirectoryFilter.jsx';
 import DirectoryGrid from './DirectoryGrid.jsx';
 import SiteFooter from '../../SiteFooter.jsx';
 import { getLenis } from '../../../lib/smoothScroll.js';
-import { coverageOf } from '../../../lib/clientCoverage.js';
+import { coverageOf, toDrawerRoster } from '../../../lib/clientCoverage.js';
 import {
+  clientPresence,
   defaultFilter,
   filterSearch,
   hasFilterParams,
@@ -173,6 +175,14 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
     },
     [apply]
   );
+  // The clients tab is single-select: a pick sets the client, the picked one clears it.
+  const onPickClient = useCallback(
+    (slug) => {
+      const { tags: on, client } = filterRef.current;
+      apply(on, client === slug ? null : slug);
+    },
+    [apply]
+  );
   const onClearClient = useCallback(() => apply(filterRef.current.tags, null), [apply]);
   const onClear = useCallback(() => apply([], null), [apply]);
 
@@ -225,6 +235,13 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
 
   const coverage = useMemo(() => coverageOf(filter.client, clients), [filter.client, clients]);
   const presence = useMemo(() => tagPresence(tiles, coverage), [tiles, coverage]);
+  // The clients tab: the clients whose coverage holds a tile, lit while the
+  // picked tags leave them one.
+  const clientOptions = useMemo(() => toDrawerRoster(clients, tiles).filter((c) => c.live), [clients, tiles]);
+  const clientsPresent = useMemo(
+    () => clientPresence(tiles, new Set(filter.tags), clients),
+    [tiles, filter.tags, clients]
+  );
   const ordered = useMemo(() => orderTiles(tiles, tune.order, seed), [tiles, tune.order, seed]);
   const shown = useMemo(() => {
     const on = new Set(filter.tags);
@@ -250,9 +267,13 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
         presence={presence}
         picked={filter.tags}
         client={clientEntry ? { slug: clientEntry.slug, name: clientEntry.name } : null}
+        clientOptions={clientOptions}
+        clientsPresent={clientsPresent}
         shown={shown.length}
         total={tiles.length}
+        tabOverlap={tune.tabOverlap}
         onToggle={onToggle}
+        onPickClient={onPickClient}
         onClearClient={onClearClient}
         onClear={onClear}
       />

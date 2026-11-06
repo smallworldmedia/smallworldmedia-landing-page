@@ -32,6 +32,7 @@ const FIELDS = [
   },
   { key: 'logoLand', label: 'logo land', hint: 'the aspect from which a mark takes a landscape canvas, not a square' },
   { key: 'logoCenter', label: 'logo centre', hint: "0 = centre the mark's box; 1 = centre its centre of mass (0 to 1)" },
+  { key: 'tabOverlap', label: 'tab overlap', hint: 'px the active filter tab overlaps its neighbour (0 to 24)' },
 ];
 
 function NumberField({ field, value, isDefault, onCommit }) {
