@@ -1,9 +1,9 @@
 /**
  * DirectoryFilter — the Project Directory's filter section (11-03): full
  * width, sticky under the nav, every service tag that has media as a
- * FilterTag, and a bar along its bottom edge: the services count, the
- * active client as a chip, a live count of works (the numbers alone, mono),
- * then clear (while anything filters) and the toggle, in the sans link tier
+ * FilterTag, and a bar along its bottom edge: the active client as a chip,
+ * a live count of works (the numbers alone, mono), then clear (while
+ * anything filters) and the toggle, in the sans link tier
  * (11-05, Nathan): see_all / see_less, and filters / close_filters at ≤768px,
  * where shut means no tags at all.
  *
@@ -229,7 +229,6 @@ export default function DirectoryFilter({
         </div>
       </div>
       <div className="dir-filter__bar">
-        <span className="dir-filter__head">services ({visible.length})</span>
         {client && (
           <button
             type="button"

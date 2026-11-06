@@ -255,7 +255,7 @@ chunks within two viewports mount media, through one IntersectionObserver; colum
 (`?dircols`), 4 at 769–1024 (`?dirtabletcols`) and 2 at ≤768 (`?dirphonecols`), Nathan's 11-05
 numbers; a featured project's tile is a link named by the
 project, the rest are media only) · `DirectoryFilter.jsx` (sticky under the nav: every service tag
-with media as a FilterTag over a bar of `services (n)`, the client chip and the live count (mono, the
+with media as a FilterTag over a bar of the client chip and the live count (mono, the
 numbers alone), then `clear` and the toggle in the sans link tier (`see_all` / `see_less`, and
 `filters` / `close_filters` at ≤768); shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
 `inert`; it opens on the drawer's recipe, pushing the grid down, and past `100dvh − nav − bar` the

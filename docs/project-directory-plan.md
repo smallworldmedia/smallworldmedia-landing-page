@@ -462,7 +462,7 @@ until Nathan names a number.
 ┌ .dir-filter (sticky, under the nav) ──────────────────────────────────────┐
 │ ▢ Branding  ◉ Album Art  ▢ Event / Tour Creative  ▢ 2D Animation  …      │ row 1, collapsed (>768)
 │ ▢ Promo Video  ▢ Logo Design  ▢ Web Design  …                            │ revealed on expand
-├ SERVICES (14) · [DJ Tennis ×] · 12 OF 705 · clear           see_less ▴ ┤ bar rides the bottom edge
+├ [DJ Tennis ×] · 12 OF 705 · clear                          see_less ▴ ┤ bar rides the bottom edge
 └───────────────────────────────────────────────────────────────────────────┘
   grid, pushed down as the section opens
 ```
@@ -491,7 +491,7 @@ until Nathan names a number.
     - **Off:** everything goes in 0.2 s `power2.inOut`.
     - **Reduced motion:** zero durations.
 - **The bar**, in the mono header type:
-  - `services (n)`;
+  - (`services (n)` dropped 11-05, Nathan);
   - the active client as a chip (`aria-label="Clear client: DJ Tennis"`, truncated at 45vw);
   - a polite live count, the numbers alone in mono ("works" is for screen readers only, 11-05);
   - `clear`, only while something is filtered;

@@ -303,11 +303,6 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
     height: 0;
   }
 
-  /* the toggle names them; the bar keeps its room for the client */
-  .dir-filter__head {
-    display: none;
-  }
-
   .dir-filter__toggle-wide {
     display: none;
   }
