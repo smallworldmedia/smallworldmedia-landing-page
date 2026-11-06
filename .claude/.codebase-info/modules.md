@@ -242,7 +242,7 @@ styles in `src/styles/media-slot.css`, lifted out of project-detail.css) · `Cli
 `SiteFooter` in reveal mode; props `{tags, clients, tiles, shuffle}` from `getDirectoryData()`. It owns the
 filter's URL state and the hidden first frame (`communication.md`). A URL with neither `tag` nor
 `client` starts on `defaultFilter` (`DEFAULT_TAG` `album-art`, filter open), rendered so on the server
-and kept bare while it holds; `clear` writes `?tag=` (every work). With `shuffle` (the Studio's
+and kept bare while it holds; `clear all` writes `?tag=` (every work). With `shuffle` (the Studio's
 `siteSettings.directoryShuffle`) it draws one seed at mount, before the grid shows, for
 `orderTiles(…, 'shuffle', seed)`; the server renders the build order and a shuffled page mounts no
 media until then (11-05, SQ-12). It keeps its own scroll place per
@@ -256,8 +256,9 @@ chunks within two viewports mount media, through one IntersectionObserver; colum
 numbers; a featured project's tile is a link named by the
 project, the rest are media only) · `DirectoryFilter.jsx` (sticky under the nav: every service tag
 with media as a FilterTag over a bar of the client chip and the live count (mono, the
-numbers alone), then `clear` and the toggle in the sans link tier (`see_all` / `see_less`, and
-`filters` / `close_filters` at ≤768); shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
+numbers alone), then "× clear all" (the house `CloseIcon`) and the toggle in the sans link tier
+(`see all` / `see less` and a stemmed arrow, and `filters` / `close filters` at ≤768, with `n active`
+beside it while shut and anything is ticked); shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
 `inert`; it opens on the drawer's recipe, pushing the grid down, and past `100dvh − nav − bar` the
 tags scroll inside with the drawer's thumb; its settled height, `--dir-filter-h` on `.dir-page`, sets
 the tiles' `scroll-margin-top`, so a tile Tab reaches lands below the stuck filter) · `FilterTag.jsx` (a `role="checkbox"` button:

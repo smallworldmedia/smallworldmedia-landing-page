@@ -2,10 +2,11 @@
  * DirectoryFilter — the Project Directory's filter section (11-03): full
  * width, sticky under the nav, every service tag that has media as a
  * FilterTag, and a bar along its bottom edge: the active client as a chip,
- * a live count of works (the numbers alone, mono), then clear (while
- * anything filters) and the toggle, in the sans link tier
- * (11-05, Nathan): see_all / see_less, and filters / close_filters at ≤768px,
- * where shut means no tags at all.
+ * a live count of works (the numbers alone, mono), then "× clear all" (while
+ * anything filters) and the toggle, in the sans link tier (11-05, Nathan):
+ * "see all" / "see less" and an arrow, and at ≤768px, where shut means no
+ * tags at all, "filters" / "close filters", with "n active" beside it while
+ * shut and anything is ticked.
  *
  * It loads open (11-05), the server's render too, and closes from there on the
  * recipe below. Collapsed, it shows one row of tags above 768px and the bar alone at
@@ -30,10 +31,23 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import FilterTag from './FilterTag.jsx';
 import useScrollThumb from '../../ui/useScrollThumb.js';
+import { CloseIcon } from '../../PrivacyOverlay.jsx';
 
 gsap.registerPlugin(useGSAP);
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* The toggle's arrow (11-05, Nathan: an arrow with a line, not a triangle),
+   drawn like the house close glyph (CloseIcon): a 10-unit box, 1.5 strokes,
+   round caps. It points down; open, the caret rule turns it up. */
+function ArrowIcon() {
+  return (
+    <svg className="dir-filter__arrow" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <line x1="5" y1="1.25" x2="5" y2="8.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <polyline points="1.75,5.5 5,8.75 8.25,5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export default function DirectoryFilter({
   tags,
@@ -246,8 +260,14 @@ export default function DirectoryFilter({
         </span>
         {filtered && (
           <button type="button" className="dir-filter__clear" onClick={onClear}>
-            clear
+            <CloseIcon />
+            clear all
           </button>
+        )}
+        {/* ≤768px, shut, the ticked tags' count beside the toggle (11-05,
+            Nathan); open, the tags show it. Wider, directory.css hides it. */}
+        {!open && picked.length > 0 && (
+          <span className="dir-filter__active">{picked.length} active</span>
         )}
         <button
           type="button"
@@ -256,9 +276,11 @@ export default function DirectoryFilter({
           aria-controls="dir-filter-tags"
           onClick={toggle}
         >
-          <span className="dir-filter__toggle-wide">{open ? 'see_less' : 'see_all'}</span>
-          <span className="dir-filter__toggle-narrow">{open ? 'close_filters' : 'filters'}</span>{' '}
-          <span className="dir-filter__caret" aria-hidden="true">▾</span>
+          <span className="dir-filter__toggle-wide">{open ? 'see less' : 'see all'}</span>
+          <span className="dir-filter__toggle-narrow">{open ? 'close filters' : 'filters'}</span>
+          <span className="dir-filter__caret" aria-hidden="true">
+            <ArrowIcon />
+          </span>
         </button>
       </div>
     </section>

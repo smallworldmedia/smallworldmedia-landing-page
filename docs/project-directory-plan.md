@@ -462,7 +462,7 @@ until Nathan names a number.
 ┌ .dir-filter (sticky, under the nav) ──────────────────────────────────────┐
 │ ▢ Branding  ◉ Album Art  ▢ Event / Tour Creative  ▢ 2D Animation  …      │ row 1, collapsed (>768)
 │ ▢ Promo Video  ▢ Logo Design  ▢ Web Design  …                            │ revealed on expand
-├ [DJ Tennis ×] · 12 OF 705 · clear                          see_less ▴ ┤ bar rides the bottom edge
+├ [DJ Tennis ×] · 12 OF 705 · × clear all                     see less ↑ ┤ bar rides the bottom edge
 └───────────────────────────────────────────────────────────────────────────┘
   grid, pushed down as the section opens
 ```
@@ -494,10 +494,13 @@ until Nathan names a number.
   - (`services (n)` dropped 11-05, Nathan);
   - the active client as a chip (`aria-label="Clear client: DJ Tennis"`, truncated at 45vw);
   - a polite live count, the numbers alone in mono ("works" is for screen readers only, 11-05);
-  - `clear`, only while something is filtered;
-  - the toggle (`aria-expanded`, `aria-controls`): `see_all ▾` shut and `see_less` open, and at ≤768
-    `filters` / `close_filters`, since shut there hides every tag (11-05, Nathan). `clear` and the
-    toggle are in the sans link tier (`--text-link`), lowercase; the rest of the bar keeps the mono header type.
+  - "× clear all" (the house `CloseIcon` before it), only while something is filtered;
+  - at ≤768, while shut and anything is ticked, `n active` ("1 active") just left of the toggle; open,
+    the tags show it, so it goes;
+  - the toggle (`aria-expanded`, `aria-controls`): `see all` shut and `see less` open, and at ≤768
+    `filters` / `close filters`, since shut there hides every tag, then an arrow with a stem (drawn
+    like `CloseIcon`), down shut and turned up open (11-05, Nathan; no underscores, no triangle).
+    These are in the sans link tier (`--text-link`), lowercase; the count keeps the mono header type.
   - A ticked tag's label fills: the keyword highlight's box, brand blue under white ink, wiping in
     while the eye draws (11-05, Nathan: the default album-art tick read as off).
 - **Motion:** `useGSAP` + `contextSafe`. Each toggle kills the previous timeline and starts from the

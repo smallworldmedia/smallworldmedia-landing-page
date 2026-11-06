@@ -268,30 +268,54 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   text-overflow: ellipsis;
 }
 
-/* clear and the toggle read as buttons (11-05, Nathan): the sans link tier
-   (the nav's links), lowercase as written; the count beside them keeps the
-   mono header type. */
+/* "× clear all" and the toggle read as buttons (11-05, Nathan): the sans
+   link tier (the nav's links), lowercase as written, each word beside its
+   icon; the works count keeps the mono header type. */
 .dir-filter__bar .dir-filter__clear,
-.dir-filter__bar .dir-filter__toggle {
+.dir-filter__bar .dir-filter__toggle,
+.dir-filter__bar .dir-filter__active {
   font-family: var(--font-body);
   font-size: var(--text-link);
   letter-spacing: var(--tracking-body);
   text-transform: none;
 }
 
+.dir-filter__bar .dir-filter__clear,
+.dir-filter__bar .dir-filter__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+/* the house close glyph (CloseIcon), at the word's scale */
+.dir-filter__clear svg {
+  width: 0.6em;
+  height: 0.6em;
+}
+
 .dir-filter__toggle {
   margin-left: auto;
 }
 
-/* Its words: see_all / see_less, and at ≤768px, where shut means no tags at
-   all, filters / close_filters. */
+/* Its words: see all / see less, and at ≤768px, where shut means no tags at
+   all, filters / close filters. */
 .dir-filter__toggle-narrow {
   display: none;
 }
 
+/* "n active": ≤768px only, while shut (DirectoryFilter renders it then). */
+.dir-filter__active {
+  display: none;
+}
+
 .dir-filter__caret {
-  display: inline-block;
+  display: inline-flex;
   transition: transform 0.3s var(--ease-panel);
+}
+
+.dir-filter__arrow {
+  width: 0.7em;
+  height: 0.7em;
 }
 
 .dir-filter__toggle[aria-expanded='true'] .dir-filter__caret {
@@ -309,6 +333,16 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 
   .dir-filter__toggle-narrow {
     display: inline;
+  }
+
+  .dir-filter__active {
+    display: inline;
+    margin-left: auto;
+  }
+
+  /* the bar's gap spaces the pair */
+  .dir-filter__active + .dir-filter__toggle {
+    margin-left: 0;
   }
 }
 
