@@ -142,14 +142,22 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
       `scratchpad andhera-retag`, mirrored in `media-session/`).
     - `media-session/retag-changes.json`: 23 retags (checked as plan d0b78d77).
     - `media-session/album-art-untag-changes.json`: 14 non-square pieces lose `album-art`. Nathan's rule
-      (11-05) is that `album-art` goes only on 1:1 media (checked as plan d51d46e1).
+      (11-05) is that `album-art` goes only on 1:1 media. The same file sets his replacement tags: the
+      COCO SoundCloud banners → `branding`, Sunday Brunch → `illustration`, Jeff's animated cover →
+      `promo-video`, the Hurry Up Slowly IAA posts → `event-tour-creative`, and the Short Circuit press
+      photos → none (checked as plan ef412f50).
+    - COCO's artwork mockups and Template 2026 stay `branding` and stay off album art; they aren't
+      finished covers. Finished album art in the new COCO branding comes to this session as uploads.
     - Upload the 16 release covers whose manifest rows have no Sanity document (Front Left, Heavy
       House Society, Short Circuit, WIKKA, MOONLGHT, Kamino) as `album-art`. All are 1:1. Jamback's
       "Landslide" needs a manifest first.
     - Kamino's 9 CDs (ID·1–ID·8, Stuck In The Middle) exist only as the one sheet `kamino_ids.png`
       (the "Kamino IDs" document, which stays). Export each disc square and upload it as `album-art`.
-    - Upload Kamino's fisheye photos as `branding`. A photo-treatment service tag is possible later;
-      the wording is Nathan's.
+    - Kamino's photos are on hold (Nathan, 11-05): he picks the selects for Kamino's branding project
+      first. That covers the LA set (19) and the fisheye set, and they go up as `branding`. A
+      photo-treatment service tag is possible later, and Nathan picks the wording.
+    - Munchietown's 9 photos are on hold too. They join more event clips and images in Munchietown's
+      branding project, to break up the flyers.
   - The logo cleanup from SQ-13 (its `redundant-variants.json`): delete 3 twins and 3 colour
     duplicates, re-export 5 logos as clean transparents, and fix the `logo-design` tags. Then re-run
     `node scripts/prep-directory-logos.mjs` and commit `src/data`. SQ-13 itself has to fold first.
