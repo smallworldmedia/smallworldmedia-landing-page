@@ -133,8 +133,23 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
     tags (SQ-14), so Andhera, Kamino and Nusonido show fewer tags until this is done. The worksheet is from SQ-14.
   - `splitIntoThirds = true` on `mediaAsset-bedouin-brooklyn-knockdown-center-promo` (SQ-15). The
     Studio needs the new schema first: the embedded `/studio`, or `npx sanity deploy` for the hosted one.
-  - The Project Directory's shuffle: Studio, Site Settings, "Project Directory: shuffle the order",
-    Publish. Nathan flips it himself, and it takes effect on the next deploy (SQ-12).
+  - DONE 11-05: the Project Directory's shuffle (`siteSettings.directoryShuffle`) is on in Sanity, on
+    Nathan's yes; it reaches the site on the next deploy (SQ-12).
+  - Missing artwork, from audits SQ-18 and SQ-19 and Nathan's calls of 11-05. The files are in
+    `~/swm-media-audit-2026-11/` (outside the repo); `media-session/decisions.md` lists every call.
+    Re-plan each item at the session, since a plan binds the revisions it read:
+    - Retag the 20 Andhera covers to `album-art` only (built as plan 85ec33a2; the request is
+      `scratchpad andhera-retag`, mirrored in `media-session/`).
+    - `media-session/retag-changes.json`: 23 retags (checked as plan d0b78d77).
+    - `media-session/album-art-untag-changes.json`: 14 non-square pieces lose `album-art`. Nathan's rule
+      (11-05) is that `album-art` goes only on 1:1 media (checked as plan d51d46e1).
+    - Upload the 16 release covers whose manifest rows have no Sanity document (Front Left, Heavy
+      House Society, Short Circuit, WIKKA, MOONLGHT, Kamino) as `album-art`. All are 1:1. Jamback's
+      "Landslide" needs a manifest first.
+    - Kamino's 9 CDs (ID·1–ID·8, Stuck In The Middle) exist only as the one sheet `kamino_ids.png`
+      (the "Kamino IDs" document, which stays). Export each disc square and upload it as `album-art`.
+    - Upload Kamino's fisheye photos as `branding`. A photo-treatment service tag is possible later;
+      the wording is Nathan's.
   - The logo cleanup from SQ-13 (its `redundant-variants.json`): delete 3 twins and 3 colour
     duplicates, re-export 5 logos as clean transparents, and fix the `logo-design` tags. Then re-run
     `node scripts/prep-directory-logos.mjs` and commit `src/data`. SQ-13 itself has to fold first.
