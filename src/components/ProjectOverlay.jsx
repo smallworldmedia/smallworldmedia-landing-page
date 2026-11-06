@@ -265,9 +265,9 @@ export default function ProjectOverlay({ isOpen, onClose }) {
             data-open={isOpen}
             aria-hidden={!isOpen}
         >
-            {/* SWM lockup — lower-left, the EXACT seat + size of the footer's
-                lockup (SiteTagline .site-tagline__lockup) — 09-08, Nathan:
-                replaces the top-left globe. */}
+            {/* SWM lockup — top-left, in the nav lockup's seat and size
+                (--lockup-left, --nav-height; centred at ≤768px) — 09-08,
+                Nathan: replaces the top-left globe. */}
             <div
                 className="project-overlay__lockup"
                 aria-label="Small World Media"
