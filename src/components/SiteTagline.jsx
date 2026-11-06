@@ -372,8 +372,23 @@ export default function SiteTagline({ siteCopy }) {
       if (!panelEl || !panelEl.isConnected) panelEl = document.querySelector('.site-footer--links');
       return panelEl ? panelEl.getBoundingClientRect().top : Infinity;
     };
+    // 11-05 (Nathan: the lower footer sits "behind the logo ticker"): the logo
+    // band's box while it rides the TOP of the panel, else null. Nothing this
+    // island pins to the corners may cross the band's gray line (its
+    // border-bottom); measured at 1440×900 before this, the lockup sat up to
+    // 27px and both pills 38px inside the band, over the marks. Under
+    // [data-footer-rest] the band is ordered LAST (global.css), so it does not
+    // ride the top and the panel's own edge holds.
+    const bandBox = () => {
+      const top = panelEdge();
+      const band = panelEl?.querySelector('.logo-ticker');
+      if (!band) return null;
+      const b = band.getBoundingClientRect();
+      return Math.abs(b.top - top) < 1 ? b : null;
+    };
     const maskToPanel = () => {
-      const edge = panelEdge();
+      const band = bandBox();
+      const edge = band ? band.bottom : panelEdge();
       if (!Number.isFinite(edge)) return;
       for (const el of [copy, lockup]) {
         if (!el) continue;
@@ -386,15 +401,45 @@ export default function SiteTagline({ siteCopy }) {
     // tagline pill — everything of it below the panel's top edge is hidden,
     // so the footer wipes the blurb out as its lockup + copyright land.
     const pillEl = root.querySelector('.site-tagline__pill');
+    // The pills' masks write only on a change, so an idle frame never clears
+    // the intro's clip-path wipe mid-tween.
+    const pillClip = new Map();
+    const setClip = (el, v) => {
+      if ((pillClip.get(el) ?? '') === v) return;
+      el.style.clipPath = v;
+      pillClip.set(el, v);
+    };
+    // Above 768px (11-05) both corner pills stay on screen and pass BEHIND the
+    // band (bandBox): the part inside its box is cut, from the bottom while
+    // the band's top edge crosses a pill, from the top while its gray line
+    // does. Not while a drawer or overlay is up: it covers the footer, and the
+    // privacy pill is then its `close ×`.
+    const maskUnderBand = (el, band) => {
+      const r = el.getBoundingClientRect();
+      let clip = '';
+      if (band && band.bottom > r.top && band.top < r.bottom) {
+        clip =
+          band.top <= r.top
+            ? `inset(${Math.min(r.height, band.bottom - r.top).toFixed(1)}px 0 0 0)`
+            : `inset(0 0 ${(r.bottom - band.top).toFixed(1)}px 0)`;
+      }
+      setClip(el, clip);
+    };
     const maskPill = () => {
-      if (!pillEl || !window.matchMedia('(max-width: 768px)').matches) return;
+      if (!pillEl) return;
+      if (!window.matchMedia('(max-width: 768px)').matches) {
+        const band = document.documentElement.hasAttribute('data-chrome-open') ? null : bandBox();
+        for (const el of [pillEl, privacy]) if (el) maskUnderBand(el, band);
+        return;
+      }
       const edge = panelEdge();
       const r = pillEl.getBoundingClientRect();
       const cut = Number.isFinite(edge) ? Math.max(0, r.bottom - edge) : 0;
-      pillEl.style.clipPath = cut > 0 ? `inset(0 0 ${cut.toFixed(1)}px 0)` : '';
+      setClip(pillEl, cut > 0 ? `inset(0 0 ${cut.toFixed(1)}px 0)` : '');
     };
     const unmask = () => {
-      for (const el of [copy, lockup, pillEl]) if (el) el.style.clipPath = '';
+      for (const el of [copy, lockup]) if (el) el.style.clipPath = '';
+      for (const el of [pillEl, privacy]) if (el) setClip(el, '');
     };
     // 10-07 (Nathan, mobile chrome pass): the HOME footer rests OPEN (phones
     // since 10-07, desktop since 10-09), so [data-footer-revealed] is set for
@@ -448,7 +493,8 @@ export default function SiteTagline({ siteCopy }) {
       // 09-08 (Nathan): no retreat fade — the stack is MASKED by the panel's
       // top edge. This island is fixed to the viewport (it never rides the
       // panel's transform), so the mask is explicit: every frame, clip each
-      // element above the panel's live top edge. Cleared on park (below).
+      // element above the logo band's gray line (11-05; the panel's live top
+      // edge where the band does not ride it). Cleared on park (below).
       if (footShown) maskToPanel();
       maskPill();
       if (maskLive()) {
