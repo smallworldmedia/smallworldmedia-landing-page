@@ -138,9 +138,13 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
   - Missing artwork, from audits SQ-18 and SQ-19 and Nathan's calls of 11-05. The files are in
     `~/swm-media-audit-2026-11/` (outside the repo); `media-session/decisions.md` lists every call.
     Re-plan each item at the session, since a plan binds the revisions it read:
-    - Retag the 20 Andhera covers to `album-art` only (built as plan 85ec33a2; the request is
-      `scratchpad andhera-retag`, mirrored in `media-session/`).
-    - `media-session/retag-changes.json`: 23 retags (checked as plan d0b78d77).
+    - DONE 11-05, on Nathan's yes: the 20 Andhera covers are `album-art` only (re-planned as run
+      09090281, applied and verified).
+    - DONE 11-05, on Nathan's yes: `media-session/retag-changes.json`, 23 retags (re-planned as run
+      b1b6f229, applied and verified).
+    - The other 50 Andhera media lose `2d-animation` and keep `branding` + `web-design` (Nathan, 11-05).
+      This is planned as run 0101ed38 and awaits his yes to that id. Andhera Hero, retagged to
+      `event-tour-creative` in the Studio, is not part of it.
     - `media-session/album-art-untag-changes.json`: 14 non-square pieces lose `album-art`. Nathan's rule
       (11-05) is that `album-art` goes only on 1:1 media. The same file sets his replacement tags: the
       COCO SoundCloud banners → `branding`, Sunday Brunch → `illustration`, Jeff's animated cover →
