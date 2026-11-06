@@ -3,34 +3,48 @@
  * width, sticky under the nav, every service tag that has media as a
  * FilterTag, and a bar along its bottom edge: a live count of works (the
  * numbers alone, mono) and "× clear all" (while anything filters), then at
- * the right the active client as a chip, "n active" while anything is ticked,
- * and the toggle, all but the count in the sans link tier (11-05, Nathan):
- * "see all" / "see less" and an arrow, and at ≤768px, where shut means no
- * tags at all, "filters" / "close filters", with "n active" only while shut.
+ * the right the active client as a chip, "n active" while anything is ticked
+ * and the filter is shut, and the toggle, all but the count in the sans link
+ * tier (11-05, Nathan): "filters" / "close filters" and an arrow, the same at
+ * every width (SQ-21, Nathan: the phone's behaviour carried to the desktop).
  *
  * It loads open (11-05), the server's render too, and closes from there on the
- * recipe below. Collapsed, it shows one row of tags above 768px and the bar alone at
- * ≤768px; the tags the collapse hides are inert (re-measured on resize), so
- * Tab never lands on one, and hidden once it is shut. Expanding pushes the
+ * recipe below. Shut, it is the bar alone, at every width: the region folds to
+ * 0 and the tags are inert, so Tab never lands on one. Expanding pushes the
  * grid down, on the drawer's recipe (SiteShell / InfoPanel): the region
- * opens in 0.6 s power3.out while the revealed tags slide in from x −16 and
+ * opens in 0.6 s power3.out while the tags slide in from x −16 and
  * fade up, 0.35 s power3.out, 0.02 s apart from 0.15 s; closing waits
  * 0.15 s, then takes 0.48 s power2.inOut. Taller than the screen allows
- * (100dvh − nav − bar), the tags scroll inside and wear the drawer's scroll
+ * (100dvh − nav − tabs − bar), the tags scroll inside and wear the drawer's scroll
  * thumb (useScrollThumb). Each toggle starts from the current height;
  * reduced motion is instant. Its settled height, written to .dir-page as
  * --dir-filter-h, sets the tiles' scroll-margin-top, so a tile that Tab
  * reaches lands below the stuck filter.
  *
+ * Above the tags a pair of tabs (SQ-21, Nathan): "services" (the tags) and
+ * "clients" (the live clients, one at a time, the bar's chip showing the pick).
+ * Each is a rounded folder tab, a 1px stroke over an opaque fill, drawn in SVG
+ * from dials (directoryTune.js tabCap / tabSkirt): a cap (the left side and the
+ * rounded corner), the flat top over the word, and a skirt (the shoulder, the
+ * diagonal, the foot and a short bottom run). The next tab's left stroke meets the
+ * previous tab's diagonal (?dirtabmeet), and the active one lies on top. The services panel stays in flow and so sets the open height; the clients panel
+ * is laid over the same box (directory.css), scrolls inside it, and wears the
+ * thumb too, so a tab switch never moves the grid. Left / Right / Home / End
+ * move between the tabs, the inactive panel is inert and hidden, and a shut
+ * filter makes both inert.
+ *
  * Props: tags (Studio order), presence ({ any, inClient }, tagPresence),
- * picked (tag slugs), client ({ slug, name } | null), shown / total (tile
- * counts), onToggle(slug), onClearClient(), onClear().
+ * picked (tag slugs), client ({ slug, name } | null), clientOptions (the live
+ * clients, by name), clientsPresent (the slugs clientPresence keeps lit),
+ * shown / total (tile counts), tabShape (the tab dials: angle, tr, tl, br, foot, meet), onToggle(slug),
+ * onPickClient(slug), onClearClient(), onClear().
  */
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import FilterTag from './FilterTag.jsx';
 import useScrollThumb from '../../ui/useScrollThumb.js';
+import { tabCap, tabSkirt, TAB_TOP } from './directoryTune.js';
 import { CloseIcon } from '../../PrivacyOverlay.jsx';
 
 gsap.registerPlugin(useGSAP);
@@ -49,88 +63,42 @@ function ArrowIcon() {
   );
 }
 
+const TABS = ['services', 'clients'];
+
 export default function DirectoryFilter({
   tags,
   presence,
   picked,
   client,
+  clientOptions,
+  clientsPresent,
   shown,
   total,
+  tabShape,
   onToggle,
+  onPickClient,
   onClearClient,
   onClear,
 }) {
   const rootRef = useRef(null);
   const regionRef = useRef(null);
+  const tabsRef = useRef(null);
   const tagsRef = useRef(null);
+  const clientsRef = useRef(null);
   const tlRef = useRef(null);
   // Open on load (Nathan, 11-05): the server renders it open too
   // (directory.css), so hydration changes nothing on screen.
   const [open, setOpen] = useState(true);
-  // Closing: the shrinking region clips the rows the fold hides. Once shut,
-  // data-folded hides them outright (directory.css), since at line-height
-  // 0.8 the next row's capitals reach above the fold line.
-  const [closing, setClosing] = useState(false);
-  // Collapsed: the region's height and the tags it hides (all of them at ≤768px).
-  const [fold, setFold] = useState(null);
-  const { trackRef, thumbRef } = useScrollThumb(tagsRef, open, { media: 'all' });
+  const [tab, setTab] = useState('services');
+  const tagsThumb = useScrollThumb(tagsRef, open, { media: 'all' });
+  const clientsThumb = useScrollThumb(clientsRef, open, { media: 'all' });
   const { contextSafe } = useGSAP({ scope: rootRef });
 
   const visible = tags.filter((t) => presence.any.has(t.slug));
   const pickedSet = new Set(picked);
   const filtered = picked.length > 0 || !!client;
-
-  // The fold: the first row's bottom, plus the list's bottom padding, above
-  // 768px; nothing at ≤768px.
-  useLayoutEffect(() => {
-    const list = tagsRef.current;
-    if (!list) return undefined;
-    let alive = true;
-    const measure = () => {
-      if (!alive) return;
-      const items = [...list.querySelectorAll('.filter-tag')];
-      const hidden = new Set();
-      let height = 0;
-      if (!window.matchMedia('(max-width: 768px)').matches && items.length) {
-        const top = items[0].offsetTop;
-        let bottom = 0;
-        for (const el of items) {
-          if (el.offsetTop > top + 1) hidden.add(el.dataset.slug);
-          else bottom = Math.max(bottom, el.offsetTop + el.offsetHeight);
-        }
-        height = bottom + parseFloat(getComputedStyle(list).paddingBottom);
-      } else {
-        for (const el of items) hidden.add(el.dataset.slug);
-      }
-      setFold((prev) =>
-        prev &&
-        prev.height === height &&
-        prev.hidden.size === hidden.size &&
-        [...hidden].every((s) => prev.hidden.has(s))
-          ? prev
-          : { height, hidden }
-      );
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(list);
-    document.fonts?.ready?.then(measure);
-    return () => {
-      alive = false;
-      ro.disconnect();
-    };
-  }, []);
-
-  // Closed, the region sits at the fold; a re-measure moves it there. Not
-  // while a toggle's timeline is unfinished: right after the close click it
-  // has not ticked yet, so isActive() is false and this used to snap the
-  // region shut, then the tween restarted from open (11-05, Nathan: "it
-  // closes, opens back up, and then closes again"). The close's last beat
-  // flips `closing`, which re-runs this for a fold measured mid-close.
-  useLayoutEffect(() => {
-    if (open || !fold || (tlRef.current && tlRef.current.progress() < 1)) return;
-    gsap.set(regionRef.current, { height: fold.height });
-  }, [fold, open, closing]);
+  const skirt = tabSkirt(tabShape);
+  const cap = tabCap(tabShape.tl);
 
   // Focus scrolls land a tile below the stuck filter, not under it (11-03: a
   // tile reached by Shift+Tab sat 111px under it at 1440): the tiles'
@@ -155,57 +123,71 @@ export default function DirectoryFilter({
     };
   }, []);
 
+  // Left / Right wrap between the two tabs, Home / End jump; the one reached
+  // is shown and focused (roving tabindex: only the shown tab is in the Tab order).
+  const onTabKey = (e) => {
+    const at = TABS.indexOf(tab);
+    const to =
+      e.key === 'ArrowRight' ? (at + 1) % TABS.length
+      : e.key === 'ArrowLeft' ? (at + TABS.length - 1) % TABS.length
+      : e.key === 'Home' ? 0
+      : e.key === 'End' ? TABS.length - 1
+      : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    setTab(TABS[to]);
+    tabsRef.current?.querySelector(`#dir-filter-tab-${TABS[to]}`)?.focus();
+  };
+
   const toggle = contextSafe(() => {
     const region = regionRef.current;
     const list = tagsRef.current;
-    if (!region || !list || !fold) return;
+    if (!region || !list) return;
     const k = reducedMotion() ? 0 : 1;
     const next = !open;
     tlRef.current?.kill();
     const from = region.offsetHeight;
-    const revealed = [...list.querySelectorAll('.filter-tag')].filter((el) =>
-      fold.hidden.has(el.dataset.slug)
-    );
+    const revealed = (tab === 'clients' ? clientsRef : tagsRef).current.querySelectorAll('.filter-tag');
     const tl = gsap.timeline();
     if (next) {
-      setClosing(false);
       tl.fromTo(
         region,
         { height: from },
         {
-          height: list.offsetHeight,
+          // the tab row and the services panel, which sets the open height
+          height: tabsRef.current.offsetHeight + list.offsetHeight,
           duration: 0.6 * k,
           ease: 'power3.out',
           onComplete: () => gsap.set(region, { height: 'auto' }),
         },
         0
       );
-      if (revealed.length) {
-        tl.fromTo(
-          revealed,
-          { x: -16, opacity: 0 },
-          {
-            x: 0,
-            opacity: 1,
-            duration: 0.35 * k,
-            ease: 'power3.out',
-            stagger: { each: 0.02 * k, from: 'start' },
-            clearProps: 'transform,opacity',
-          },
-          0.15 * k
-        );
-      }
+      tl.fromTo(
+        revealed,
+        { x: -16, opacity: 0 },
+        {
+          x: 0,
+          opacity: 1,
+          duration: 0.35 * k,
+          ease: 'power3.out',
+          stagger: { each: 0.02 * k, from: 'start' },
+          clearProps: 'transform,opacity',
+        },
+        0.15 * k
+      );
     } else {
-      setClosing(true);
       gsap.set(revealed, { clearProps: 'transform,opacity' });
       tl.fromTo(
         region,
         { height: from },
-        { height: fold.height, duration: 0.48 * k, ease: 'power2.inOut' },
+        { height: 0, duration: 0.48 * k, ease: 'power2.inOut' },
         0.15 * k
       );
-      tl.to(list, { scrollTop: 0, duration: 0.48 * k, ease: 'power2.inOut' }, 0.15 * k);
-      tl.call(() => setClosing(false));
+      tl.to(
+        [list, clientsRef.current],
+        { scrollTop: 0, duration: 0.48 * k, ease: 'power2.inOut' },
+        0.15 * k
+      );
     }
     tlRef.current = tl;
     setOpen(next);
@@ -217,29 +199,113 @@ export default function DirectoryFilter({
       ref={rootRef}
       aria-label="Filter the directory"
       data-open={open || undefined}
-      data-folded={(!open && !closing) || undefined}
+      style={{
+        '--dir-skirt-ratio': `${skirt.width} / 1000`,
+        '--dir-skirt-tuck': skirt.tuck,
+        '--dir-tab-tl': cap.ratio,
+      }}
     >
-      <div className="dir-filter__region" ref={regionRef}>
+      <div className="dir-filter__region" id="dir-filter-region" ref={regionRef}>
         <div
-          className="dir-filter__tags"
-          ref={tagsRef}
-          id="dir-filter-tags"
-          role="group"
-          aria-label="Services"
+          className="dir-filter__tablist"
+          ref={tabsRef}
+          role="tablist"
+          aria-label="Filter by"
+          inert={!open}
+          onKeyDown={onTabKey}
         >
-          {visible.map((t) => (
-            <FilterTag
-              key={t.slug}
-              tag={t}
-              checked={pickedSet.has(t.slug)}
-              dim={!presence.inClient.has(t.slug)}
-              inert={!open && !!fold?.hidden.has(t.slug)}
-              onToggle={onToggle}
-            />
+          {TABS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`dir-filter-tab-${id}`}
+              className="dir-filter__tab"
+              aria-selected={tab === id}
+              aria-controls={`dir-filter-panel-${id}`}
+              tabIndex={tab === id ? 0 : -1}
+              onClick={() => setTab(id)}
+            >
+              <span className="dir-filter__tab-label">
+                <svg className="dir-filter__tab-cap" viewBox={`0 0 ${cap.width} 1000`} aria-hidden="true" focusable="false">
+                  <path className="dir-filter__tab-line dir-filter__tab-line--cap" d={cap.stroke} />
+                </svg>
+                <svg
+                  className="dir-filter__tab-top"
+                  viewBox="0 0 100 1000"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path className="dir-filter__tab-line" d={TAB_TOP} />
+                </svg>
+                {id}
+              </span>
+              <svg
+                className="dir-filter__tab-skirt"
+                viewBox={`0 0 ${skirt.width} 1000`}
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path className="dir-filter__tab-fill" d={skirt.fill} />
+                <path className="dir-filter__tab-line" d={skirt.stroke} />
+              </svg>
+            </button>
           ))}
         </div>
-        <div className="dir-filter__scrollbar-track" ref={trackRef} aria-hidden="true">
-          <div className="dir-filter__scrollbar-thumb" ref={thumbRef} />
+        <div className="dir-filter__panes">
+          <div
+            className="dir-filter__pane"
+            data-active={tab === 'services' || undefined}
+            inert={!open || tab !== 'services'}
+          >
+            <div
+              className="dir-filter__tags"
+              ref={tagsRef}
+              id="dir-filter-panel-services"
+              role="tabpanel"
+              aria-labelledby="dir-filter-tab-services"
+            >
+              {visible.map((t) => (
+                <FilterTag
+                  key={t.slug}
+                  tag={t}
+                  checked={pickedSet.has(t.slug)}
+                  dim={!presence.inClient.has(t.slug)}
+                  onToggle={onToggle}
+                />
+              ))}
+            </div>
+            <div className="dir-filter__scrollbar-track" ref={tagsThumb.trackRef} aria-hidden="true">
+              <div className="dir-filter__scrollbar-thumb" ref={tagsThumb.thumbRef} />
+            </div>
+          </div>
+          <div
+            className="dir-filter__pane dir-filter__pane--clients"
+            data-active={tab === 'clients' || undefined}
+            inert={!open || tab !== 'clients'}
+          >
+            <div
+              className="dir-filter__tags"
+              ref={clientsRef}
+              id="dir-filter-panel-clients"
+              role="tabpanel"
+              aria-labelledby="dir-filter-tab-clients"
+            >
+              {clientOptions.map((c) => (
+                <FilterTag
+                  key={c.slug}
+                  tag={c}
+                  checked={client?.slug === c.slug}
+                  dim={!clientsPresent.has(c.slug)}
+                  onToggle={onPickClient}
+                />
+              ))}
+            </div>
+            <div className="dir-filter__scrollbar-track" ref={clientsThumb.trackRef} aria-hidden="true">
+              <div className="dir-filter__scrollbar-thumb" ref={clientsThumb.thumbRef} />
+            </div>
+          </div>
         </div>
       </div>
       <div className="dir-filter__bar">
@@ -255,8 +321,8 @@ export default function DirectoryFilter({
         )}
         {/* The right-hand group (11-05, Nathan): the active client's chip
             directly left of the ticked tags' count, then the toggle. The
-            count shows at every width; ≤768px only while shut, since open
-            the tags show it (directory.css). */}
+            count shows only while shut, since open the tags show it
+            (directory.css). */}
         <div className="dir-filter__end">
           {client && (
             <button
@@ -276,11 +342,10 @@ export default function DirectoryFilter({
             type="button"
             className="dir-filter__toggle"
             aria-expanded={open}
-            aria-controls="dir-filter-tags"
+            aria-controls="dir-filter-region"
             onClick={toggle}
           >
-            <span className="dir-filter__toggle-wide">{open ? 'see less' : 'see all'}</span>
-            <span className="dir-filter__toggle-narrow">{open ? 'close filters' : 'filters'}</span>
+            {open ? 'close filters' : 'filters'}
             <span className="dir-filter__caret" aria-hidden="true">
               <ArrowIcon />
             </span>

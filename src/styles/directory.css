@@ -52,6 +52,14 @@ html:has(.dir-page) body {
   /* The bar's height: one line of its type plus the drawer's padding. The
      open list's cap reads it too. */
   --dir-bar-h: calc(max(var(--text-drawer-head), 0.786rem) + 2 * var(--space-4));
+  /* A tab's height H (SQ-21): its 1px top stroke, one line of its type and the
+     drawer's small padding above and below. The tab row adds its top padding,
+     and the open list's cap reads that, so the region stays under
+     100dvh − nav − bar. */
+  --dir-tab-h: calc(var(--text-link) + 2 * var(--space-1) + 1px);
+  /* The tab's stroke centreline height: half a pixel in from its top and bottom. */
+  --dir-tab-c: calc(var(--dir-tab-h) - 1px);
+  --dir-tabs-h: calc(var(--space-4) + var(--dir-tab-h));
   position: sticky;
   top: var(--dir-dock);
   z-index: 20; /* over the tiles, under the nav shell (100) */
@@ -76,13 +84,12 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   }
 }
 
-/* The tags' window. Collapsed, one row above 768px (DirectoryFilter measures
-   it; this is the server's estimate of the same) and none at ≤768px; open,
+/* The tags' window. Shut, none: the bar alone, at every width (SQ-21); open,
    the list's height, then auto. */
 .dir-filter__region {
   position: relative;
   overflow: hidden;
-  height: calc(var(--space-4) + var(--text-drawer-name) * var(--lh-drawer-name) + var(--space-2));
+  height: 0;
 }
 
 /* It loads open (11-05), in the server's markup too: the list's own height,
@@ -91,8 +98,34 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   height: auto;
 }
 
+/* The two panels (services, clients) share one box: services stays in flow
+   and sets the open height, clients is laid over it and scrolls inside
+   (SQ-21), so a tab switch never moves the grid. The hidden one is
+   visibility: hidden (it keeps its layout; DirectoryFilter makes it inert). */
+.dir-filter__panes {
+  position: relative;
+}
+
+.dir-filter__pane {
+  position: relative;
+}
+
+.dir-filter__pane--clients {
+  position: absolute;
+  inset: 0;
+}
+
+.dir-filter__pane:not([data-active]) {
+  visibility: hidden;
+}
+
+.dir-filter__pane--clients .dir-filter__tags {
+  height: 100%;
+  max-height: none;
+  align-content: flex-start;
+}
+
 .dir-filter__tags {
-  position: relative; /* the tags' offsetParent, for the fold measure */
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -103,7 +136,7 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   padding: var(--space-4) var(--space-4) var(--space-2);
   /* Past the screen's room the list scrolls inside, wearing the drawer's
      thumb (useScrollThumb). */
-  max-height: calc(100dvh - var(--nav-height) - var(--dir-bar-h));
+  max-height: calc(100dvh - var(--nav-height) - var(--dir-bar-h) - var(--dir-tabs-h));
   overflow: hidden;
   overscroll-behavior: contain;
   scrollbar-width: none;
@@ -115,6 +148,123 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 
 .dir-filter[data-open] .dir-filter__tags {
   overflow-y: auto;
+}
+
+/* The tabs (SQ-21, Nathan 11-05): rounded folder tabs in the toggle's type. A
+   1px stroke (the client chip's) runs up the left side, round the top-left
+   corner and along the flat top over the word, then turns a rounded shoulder
+   down a diagonal to a rounded foot and a short bottom run, with no stroke
+   under the word. The label's box draws the left and the top (the corner is a
+   border-radius of ?dirtabtl H); the SVG skirt draws the rest from the same
+   dials (directoryTune.js tabSkirt), uniformly scaled so the radii stay round.
+   The container is padded on the left like the tags, so the strokes line up
+   with the check boxes. The next tab's left stroke meets the previous one's
+   diagonal (?dirtabmeet: --dir-skirt-tuck is the skirt's width past that
+   point, in thousandths of its height); the active one lies on top, on opaque
+   black, so its outline is the whole one. */
+.dir-filter__tablist {
+  display: flex;
+  padding: var(--space-4) var(--space-4) 0;
+}
+
+.dir-filter__tab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  height: var(--dir-tab-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: var(--tracking-body);
+  cursor: pointer;
+}
+
+.dir-filter__tab + .dir-filter__tab {
+  /* The skirt's width past the meeting point, plus the half pixel from the
+     tab's edge to its stroke's centre, so that centre lands on the diagonal. */
+  margin-left: calc(-1 * (var(--dir-skirt-tuck, 0.5) * var(--dir-tab-c) + 0.5px));
+}
+
+.dir-filter__tab[aria-selected='true'] {
+  z-index: 2;
+}
+
+.dir-filter__tab-label {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-top-left-radius: calc(var(--dir-tab-h) * var(--dir-tab-tl, 0.161));
+  background: var(--color-black);
+}
+
+/* The three strokes are boxes of the stroke's centreline, C tall: half a pixel
+   in from the top and the bottom, so each 1px line lies on the tab's top edge
+   and its bottom edge. They share one top, so they snap to the same pixel row
+   at any zoom and never part at a joint. The cap and the skirt are as wide as
+   their ratio makes them, so nothing but the flat top stretches. */
+.dir-filter__tab-cap,
+.dir-filter__tab-top,
+.dir-filter__tab-skirt {
+  overflow: visible;
+  height: var(--dir-tab-c);
+  pointer-events: none;
+}
+
+.dir-filter__tab-cap {
+  position: absolute;
+  top: 0.5px;
+  left: 0.5px;
+  aspect-ratio: var(--dir-tab-tl, 0.161);
+}
+
+.dir-filter__tab-top {
+  position: absolute;
+  top: 0.5px;
+  left: calc(0.5px + var(--dir-tab-c) * var(--dir-tab-tl, 0.161));
+  width: calc(100% - 0.5px - var(--dir-tab-c) * var(--dir-tab-tl, 0.161));
+}
+
+.dir-filter__tab-skirt {
+  flex: none;
+  margin-top: 0.5px;
+  aspect-ratio: var(--dir-skirt-ratio, 1.6 / 1);
+}
+
+.dir-filter__tab-fill {
+  fill: var(--color-black);
+  stroke: none;
+}
+
+.dir-filter__tab-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The cap's vertical ends square, so it reaches the tab's bottom edge. */
+.dir-filter__tab-line--cap {
+  stroke-linecap: square;
+}
+
+.dir-filter__tab:hover .dir-filter__tab-label,
+.dir-filter__tab:focus-visible .dir-filter__tab-label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dir-filter__tab:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
 }
 
 /* The drawer's thumb, on the list's right edge. */
@@ -185,13 +335,6 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 .filter-tag[aria-checked='true'] .filter-tag__label::before {
   transform: scaleX(1);
   transition: transform 0.35s var(--ease-draw);
-}
-
-/* Shut and at rest, the tags the fold hides are hidden as well as clipped
-   (DirectoryFilter): at line-height 0.8 the next row's capitals reach above
-   the fold line. */
-.dir-filter[data-folded] .filter-tag[inert] {
-  visibility: hidden;
 }
 
 /* The active client would empty it. */
@@ -308,12 +451,6 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   margin-left: auto;
 }
 
-/* Its words: see all / see less, and at ≤768px, where shut means no tags at
-   all, filters / close filters. */
-.dir-filter__toggle-narrow {
-  display: none;
-}
-
 .dir-filter__caret {
   display: inline-flex;
   transition: transform 0.3s var(--ease-panel);
@@ -328,23 +465,9 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   transform: rotate(180deg);
 }
 
-@media (max-width: 768px) {
-  .dir-filter__region {
-    height: 0;
-  }
-
-  .dir-filter__toggle-wide {
-    display: none;
-  }
-
-  .dir-filter__toggle-narrow {
-    display: inline;
-  }
-
-  /* "n active" only while shut: open, the tags show it. */
-  .dir-filter[data-open] .dir-filter__active {
-    display: none;
-  }
+/* "n active" only while shut: open, the tags show it. */
+.dir-filter[data-open] .dir-filter__active {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

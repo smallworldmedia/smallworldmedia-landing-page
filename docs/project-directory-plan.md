@@ -461,19 +461,62 @@ until Nathan names a number.
 
 ```
 ┌ .dir-filter (sticky, under the nav) ──────────────────────────────────────┐
-│ ▢ Branding  ◉ Album Art  ▢ Event / Tour Creative  ▢ 2D Animation  …      │ row 1, collapsed (>768)
-│ ▢ Promo Video  ▢ Logo Design  ▢ Web Design  …                            │ revealed on expand
-├ [DJ Tennis ×] · 12 OF 705 · × clear all                     see less ↑ ┤ bar rides the bottom edge
+│ ▢ Branding  ◉ Album Art  ▢ Event / Tour Creative  ▢ 2D Animation  …      │ shut: none of these show
+│ ▢ Promo Video  ▢ Logo Design  ▢ Web Design  …                            │ (the open filter, every width)
+├ [DJ Tennis ×] · 12 OF 705 · × clear all                close filters ↑ ┤ bar rides the bottom edge
 └───────────────────────────────────────────────────────────────────────────┘
   grid, pushed down as the section opens
 ```
 
 - **Collapsed:**
-  - Above 768px it shows one row of tags. At ≤768 it shows the bar alone.
-  - Tags the collapse hides are `inert` and re-measured on resize, so Tab never lands on one.
+  - It shows the bar alone, at every width (SQ-21, Nathan: the phone's behaviour carried to the
+    desktop; the one-row fold and its measure are gone).
+  - Shut tags are `inert`, so Tab never lands on one.
+- **Tabs (SQ-21, Nathan):** a `role="tablist"` row inside the open region, above the tags: `services`
+  (active on load) and `clients`, in the toggle's type, each a rounded folder tab in a 1px stroke (the
+  client chip's) with no stroke under the word (Nathan 11-05: "a rounded off folder tab ... the right
+  side having more of an obtuse diagonal line that travels to the bottom of the tab container, rounding
+  off and following along the bottom edge briefly").
+  - **Shape** (Nathan 11-05 reference, 11-06 tightening), as ratios of the tab's height H (the stroke
+    centreline's height): a straight left side up to a rounded top-left corner, a flat top over the
+    word, a rounded shoulder into a straight diagonal, a rounded foot and a bottom run. All PROPOSED
+    dials: the diagonal `?dirtabangle` (55deg; 46.4 before), the bottom run `?dirtabfoot` (0.5 H) and
+    the three corners by their REACH, the distance a curve runs along each edge from the sharp corner,
+    r·tan(turn/2): `?dirtabtr` (shoulder, 0.161 H), `?dirtabtl` (top-left, 0.161 H; was 0.375 H, which
+    read 2.3x rounder than the shoulder) and `?dirtabbr` (foot, 0.11 H, tighter than the shoulder
+    because a concave curve into a short run reads rounder). Reach, not radius, so a corner keeps its
+    look when the angle moves. Three SVGs draw it, all as tall as the stroke's centreline and at one top
+    (so they snap to the same pixel row): a cap (the left side and the corner; `tabCap`), a stretched
+    straight line (the flat top) and a skirt (shoulder, diagonal, foot, bottom run; `tabSkirt`). Each
+    curved piece is uniformly scaled with a non-scaling 1px stroke, so the radii stay round at any text
+    size.
+  - The row's left padding is the tags' (`--space-4`), so the strokes line up with the check boxes.
+  - The next tab's left stroke meets the previous tab's straight diagonal (`?dirtabmeet`, PROPOSED 0.5 of
+    the way down; 0 = the shoulder arc's end, 1 = the foot arc's start), derived from the skirt's own
+    geometry so it follows the angle, the corners and the text size (Nathan 11-06: the services tab in
+    front of the clients tab). The active tab has `z-index` 2 and an opaque black fill, so its outline is
+    the whole one: services active, the clients' left line shows only above the diagonal; clients
+    active, its left edge runs the full height and its label hides the services skirt.
+  - Left / Right (wrapping), Home and End move between the tabs, with a roving `tabindex`.
+    `role="tab"` carries `aria-selected` and `aria-controls`; each panel is `role="tabpanel"` with
+    `aria-labelledby`. The inactive panel is `inert` and `visibility: hidden`; a shut filter makes both inert.
+  - **Height:** the services panel stays in flow and sets the open height, under the cap
+    `100dvh − nav − bar − tab row` (`--dir-tabs-h`). The clients panel is absolutely laid over the same
+    box, scrolls inside it (`overflow-y: auto`) and wears the same thumb, so a tab switch never moves
+    the grid. The open / close tween measures the tab row plus the services panel.
+  - **Clients tab (assumption to confirm):**
+    - It lists the clients whose coverage holds at least one directory tile (`toDrawerRoster(...)`'s
+      `live`), by name, as FilterTag rows.
+    - It is single-select, mapped onto `?client=` through `apply` and `sanitizeFilter`: a pick sets the
+      client, the picked one clears it, like the chip's ×.
+    - A row is dimmed (`aria-disabled`, a click does nothing) when the picked tags would leave that
+      client no tile (`clientPresence`, beside `tagPresence`).
+    - Picking a client prunes picked tags it has no tile for, as the drawer's names already do.
+  - **Layout cost:** the open filter is the tab row taller (29px at 1440 and 1024, 27px at 390), so the
+    grid starts that much lower while it is open; nothing else in the grid changes (layout-probe).
 - **Tags:**
   - Each is a `<button role="checkbox" aria-checked>` inside
-    `#dir-filter-tags[role=group][data-lenis-prevent]`, showing `name` as stored.
+    `#dir-filter-panel-services[role=tabpanel]` (`data-lenis-prevent` while it can scroll), showing `name` as stored.
   - A tag with no tiles is hidden (VFX today).
   - A tag the active client would empty is dimmed to 0.35 with `aria-disabled`.
 - **Type tokens:**
@@ -496,10 +539,10 @@ until Nathan names a number.
   - the active client as a chip (`aria-label="Clear client: DJ Tennis"`, truncated at 45vw);
   - a polite live count, the numbers alone in mono ("works" is for screen readers only, 11-05);
   - "× clear all" (the house `CloseIcon` before it), only while something is filtered;
-  - at ≤768, while shut and anything is ticked, `n active` ("1 active") just left of the toggle; open,
+  - while shut and anything is ticked, `n active` ("1 active") just left of the toggle; open,
     the tags show it, so it goes;
-  - the toggle (`aria-expanded`, `aria-controls`): `see all` shut and `see less` open, and at ≤768
-    `filters` / `close filters`, since shut there hides every tag, then an arrow with a stem (drawn
+  - the toggle (`aria-expanded`, `aria-controls`): `filters` shut and `close filters` open at every
+    width (SQ-21; it read `see all` / `see less` above 768 before), then an arrow with a stem (drawn
     like `CloseIcon`), down shut and turned up open (11-05, Nathan; no underscores, no triangle).
     These are in the sans link tier (`--text-link`), lowercase; the count keeps the mono header type.
   - A ticked tag's label fills: the keyword highlight's box, brand blue under white ink, wiping in
