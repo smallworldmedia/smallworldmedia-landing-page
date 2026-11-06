@@ -22,7 +22,8 @@
    - Nathan says which client or clients each one stands for.
    - The links then land through one `--changes` plan, where `plan` prints the id and `apply` and `verify` run on his yes. Or he edits them in Studio.
 5. **Near-duplicate clients.**
-   - COCO (92 assets) sits beside COCO Records (none), and Rossi. beside HOMEGRWXN.
+   - COCO Records (no assets) was deleted on 11-05 on Nathan's yes, so COCO stands alone; Rossi. still sits
+     beside HOMEGRWXN.
    - The options: merge them, rename them, or keep them.
 6. **The directory's numbers.**
    - `?dirdwell` holds the agent's default until Nathan names a number. `?dirplayers` went from 6 and 3 to 8 and 4 on Nathan's 11-05 "up the number of videos playing".
@@ -631,10 +632,10 @@ island.
     a whole label's catalogue.
 - **Today:** Munchietown → `label-of` → DJ Tennis, so "DJ Tennis" already filters to Munchietown's
   12 assets.
-- **Still unlinked:** Annabel Englund, Audiojack, COCO Records, Circus Music, D'Witches, Easier Said,
+- **Still unlinked:** Annabel Englund, Audiojack, Circus Music, D'Witches, Easier Said,
   HOMEGRWXN, Helix Records, Malóne, Panorama360, Ultra Records. Each is a plain name until linked.
 - **How the links land:**
-  - Nathan says which client or clients each name stands for, for example "COCO Records ← COCO" or
+  - Nathan says which client or clients each name stands for, for example
     "HOMEGRWXN ← Rossi.".
   - One `--changes` file patches each child's `affiliations` as the whole keyed array.
     `contract.mjs:40,72` already validates the field.
@@ -642,8 +643,9 @@ island.
     in the plain `node --env-file=.env.local scripts/cms.mjs …` form.
   - Or he edits them in Studio himself.
 - **Spelling:** names follow Sanity's spelling, for example "Le Yora" and "HOMEGRWXN".
-- **Near-duplicates:** "COCO" (92 assets) beside "COCO Records" (0), and "Rossi." beside
-  "HOMEGRWXN", stay until the data changes. Merging, renaming or keeping them is his call.
+- **Near-duplicates:** "COCO Records" (0 assets) was deleted on 11-05 on Nathan's yes (its backup is in
+  `~/swm-media-audit-2026-11/media-session/`, outside the repo). "Rossi." beside "HOMEGRWXN" stays until the
+  data changes; merging, renaming or keeping it is his call.
 
 ### 7. Docs and bookkeeping (commit 13)
 
