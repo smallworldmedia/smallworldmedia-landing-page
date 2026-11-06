@@ -3,14 +3,16 @@
  * (DirectoryFilter, 11-03): a checkbox button, its square-eye indicator
  * (CheckIndicator) before the label, the name as stored in Sanity (Title
  * Case, no transform), in the drawer's client-name type. ServiceTag is the
- * read-only pill the detail pages show; this is the control.
+ * read-only pill the detail pages show; this is the control. The clients tab
+ * (SQ-21) lists clients on the same row ({ name, slug } is all it reads).
  *
- * `dim`: the active client would empty it — shown at 0.35, aria-disabled,
- * and a click does nothing. `inert`: the collapsed filter hides it.
+ * `dim`: the active client would empty it (a client: the picked tags would) —
+ * shown at 0.35, aria-disabled, and a click does nothing. A shut filter or a
+ * hidden tab makes its whole panel inert (DirectoryFilter).
  */
 import CheckIndicator from '../../ui/CheckIndicator.jsx';
 
-export default function FilterTag({ tag, checked, dim = false, inert = false, onToggle }) {
+export default function FilterTag({ tag, checked, dim = false, onToggle }) {
   return (
     <button
       type="button"
@@ -20,7 +22,6 @@ export default function FilterTag({ tag, checked, dim = false, inert = false, on
       className="filter-tag"
       data-slug={tag.slug}
       data-dim={dim || undefined}
-      inert={inert}
       onClick={() => {
         if (!dim) onToggle(tag.slug);
       }}
