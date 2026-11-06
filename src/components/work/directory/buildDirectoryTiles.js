@@ -218,6 +218,18 @@ export function orderTiles(tiles, mode = 'project', seed = 0) {
 }
 
 /**
+ * Under exactly the logo-design filter, the logo tiles (the baked white marks)
+ * sit together ahead of the rest, so they read as one clean grid. The order
+ * (project / mix / shuffle) holds inside each block; any other filter, and the
+ * bare default, are returned as they are.
+ */
+export function logoFirst(tiles, tags) {
+  const [only] = tags ?? [];
+  if (tags?.size !== 1 || only !== 'logo-design') return tiles;
+  return [...tiles.filter((t) => t.logo), ...tiles.filter((t) => !t.logo)];
+}
+
+/**
  * Whether a tile shows: inside the client's coverage (null = every client)
  * and carrying any of the tags (an empty set = every tag).
  */
