@@ -635,6 +635,8 @@ Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in D
 | `?dirlogoweight` | how a mark is sized: `0` = every mark fills its padded box, `1` = every mark gets the same ink area (a dense badge shrinks, a thin script grows), in between mixes the two | `0.4` | 0 to 1 | `logoTile.js LOGO_DIALS.weight` |
 | `?dirlogoland` | the trimmed aspect (width ÷ height) from which a mark takes a landscape canvas (2:1) instead of a square | `1.6` | ≥ 1 | `logoTile.js LOGO_DIALS.land` |
 | `?dirlogocenter` | optical centring: `0` = the mark's box on the canvas's centre, `1` = its centre of mass | `0.5` | 0 to 1 | `logoTile.js LOGO_DIALS.center` |
+| `?dirpack` | the packer (SQ-20): `flush` = three cell classes (portrait 1:2, square, landscape 2:1; `chunkFlushGrid`), `aspect` = each tile at its own shape (span 1 below 1.2:1, 2 below 3:1, the full width from 3:1), the lowest column taking the best fit of the next `?dirlook` tiles, mismatches levelled by resizing whichever neighbours crop least (`aspectGrid.js`). Waits for Nathan's device pass before `aspect` is baked | `flush` | `flush` \| `aspect` | `directoryTune.js SSR_TUNE.pack` |
+| `?dirlook` | `aspect` only: how many upcoming tiles the packer picks among, and so the most places a tile moves from the list order (shuffle stays random, logo-first and project order hold within it) | `8` | integer 1–32 | `aspectGrid.js LOOK` |
 
 The four `?dirlogo*` dials only touch logo tiles (a white mark on black, baked by `scripts/prep-directory-logos.mjs`); `logoTile.js` holds the layout and its fixed constant (`EQUAL_INK`, the ink area every mark is brought to at weight 1).
 

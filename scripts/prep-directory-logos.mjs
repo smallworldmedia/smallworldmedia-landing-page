@@ -4,6 +4,14 @@
  *
  *   node scripts/prep-directory-logos.mjs            read Sanity, bake the set, print the report
  *   node scripts/prep-directory-logos.mjs --check    verify the baked set (offline): every mark pure white
+ *   node scripts/prep-directory-logos.mjs --alpha    re-measure the faces' transparency (src/data/directory-alpha.json)
+ *
+ * --alpha (SQ-20): every published image with an alpha channel that Sanity
+ * doesn't call opaque, measured at 300px (alphaStats): `clear`, the share of
+ * pixels under alpha 250, and `lum`, the ink's mean luminance, keyed by IMAGE
+ * asset id with the title for reading. buildDirectoryTiles letterboxes only a
+ * face that measures clear (fitOf) and gives dark ink a light ground. Re-run
+ * after uploading transparent PNGs; until then a new one contains, as before.
  *
  * A logo tile is a white mark on black (Nathan, 11-05). Sanity keeps each
  * logo in whatever colour it was exported in, so this script bakes one white
@@ -32,7 +40,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { analyseLogo, silhouette, twinScore } from './lib/logoInk.mjs';
+import { ALPHA_SIDE, alphaStats, analyseLogo, silhouette, twinScore } from './lib/logoInk.mjs';
 
 const require = createRequire(import.meta.url);
 const sharp = require('sharp');
@@ -41,6 +49,7 @@ const { createClient } = require('@sanity/client');
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'src', 'data', 'directory-logos');
 const MANIFEST = join(ROOT, 'src', 'data', 'directory-logos.json');
+const ALPHA = join(ROOT, 'src', 'data', 'directory-alpha.json');
 const CHECK = process.argv.includes('--check');
 
 /** Two marks overlapping by this much (twinScore) are one mark in two files. */
@@ -95,8 +104,35 @@ const checkSet = async () => {
   process.exit(bad ? 1 : 0);
 };
 
+const ALPHA_QUERY = `*[_type == "mediaAsset" && !(_id in path("drafts.**")) && defined(image.asset)
+  && image.asset->metadata.hasAlpha == true && image.asset->metadata.isOpaque != true] {
+  title,
+  "assetId": image.asset._ref,
+  "url": image.asset->url,
+  "mime": image.asset->mimeType
+}`;
+
+const bakeAlpha = async () => {
+  const client = createClient({ projectId: 'b60h4u7o', dataset: 'production', apiVersion: '2024-01-01', useCdn: false });
+  const docs = await client.fetch(ALPHA_QUERY);
+  const out = {};
+  for (const d of docs) {
+    if (out[d.assetId] || d.mime === 'image/svg+xml') continue;
+    const res = await fetch(`${d.url}?w=${ALPHA_SIDE}&fit=max`);
+    if (!res.ok) throw new Error(`${d.title}: ${res.status} ${d.url}`);
+    out[d.assetId] = { ...(await alphaStats(Buffer.from(await res.arrayBuffer()))), title: d.title };
+  }
+  const sorted = Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+  await writeFile(ALPHA, JSON.stringify(sorted, null, 2) + '\n');
+  console.log(`${Object.keys(sorted).length} faces → src/data/directory-alpha.json`);
+  for (const m of Object.values(sorted).sort((a, b) => a.clear - b.clear)) {
+    console.log(`  ${m.title.slice(0, 44).padEnd(44)} clear ${(100 * m.clear).toFixed(1).padStart(5)}%  lum ${m.lum.toFixed(2)}`);
+  }
+};
+
 const main = async () => {
   if (CHECK) return checkSet();
+  if (process.argv.includes('--alpha')) return bakeAlpha();
 
   const client = createClient({ projectId: 'b60h4u7o', dataset: 'production', apiVersion: '2024-01-01', useCdn: false });
   const docs = await client.fetch(QUERY);

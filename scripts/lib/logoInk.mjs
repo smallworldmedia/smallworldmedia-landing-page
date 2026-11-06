@@ -274,3 +274,34 @@ export function twinScore(a, b) {
   }
   return union ? inter / union : 0;
 }
+
+/** The side the transparency census looks at, px (SQ-20's 11-05 measure). */
+export const ALPHA_SIDE = 300;
+
+/**
+ * How transparent a face really is, for the directory's fit (SQ-20): `clear`,
+ * the share of pixels under alpha 250, and `lum`, the mean luminance (0..1)
+ * of the pixels at least half opaque — the ink a near-black ground would show
+ * (0.5 when there are none). Rounded to 3 places, so a re-bake diffs cleanly.
+ */
+export async function alphaStats(buf) {
+  const { data, info } = await sharp(buf)
+    .resize({ width: ALPHA_SIDE, height: ALPHA_SIDE, fit: 'inside', withoutEnlargement: true })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const n = info.width * info.height;
+  let clear = 0;
+  let ink = 0;
+  let lum = 0;
+  for (let i = 0; i < data.length; i += info.channels) {
+    const a = data[i + 3];
+    if (a < 250) clear++;
+    if (a >= 128) {
+      ink++;
+      lum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+    }
+  }
+  const round = (x) => Math.round(x * 1000) / 1000;
+  return { clear: round(clear / n), lum: round(ink ? lum / ink : 0.5) };
+}

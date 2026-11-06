@@ -17,9 +17,15 @@
  *   ?dirlogoweight 0 = every mark fills its box … 1 = every mark has the same ink area
  *   ?dirlogoland   the aspect from which a mark takes a landscape canvas, not a square
  *   ?dirlogocenter 0 = centre the mark's box … 1 = centre its centre of mass
+ *   ?dirpack       'flush' (three cell classes, chunkFlushGrid) | 'aspect' (each tile its
+ *                  own shape, levelled crop-least: aspectGrid.js, SQ-20); 'flush' until
+ *                  Nathan bakes 'aspect' after a device pass
+ *   ?dirlook       aspect packing's lookahead: the tiles it picks among, and the most
+ *                  places one moves from the list order
  */
 import { DIRECTORY_PLAYERS, DIRECTORY_DWELL_MS } from '../imageConfig.js';
 import { LOGO_DIALS } from './logoTile.js';
+import { LOOK } from './aspectGrid.js';
 
 /** Bench state ↔ URL params. */
 export const PARAM_KEYS = {
@@ -33,10 +39,15 @@ export const PARAM_KEYS = {
   logoWeight: 'dirlogoweight',
   logoLand: 'dirlogoland',
   logoCenter: 'dirlogocenter',
+  pack: 'dirpack',
+  look: 'dirlook',
 };
 
 /** The orders ?dirorder takes. */
 export const ORDERS = ['project', 'mix', 'shuffle'];
+
+/** The packers ?dirpack takes. */
+export const PACKS = ['flush', 'aspect'];
 
 /** The server render and the first client frame (no gate runs yet). */
 export const SSR_TUNE = {
@@ -50,6 +61,8 @@ export const SSR_TUNE = {
   logoWeight: LOGO_DIALS.weight,
   logoLand: LOGO_DIALS.land,
   logoCenter: LOGO_DIALS.center,
+  pack: 'flush',
+  look: LOOK,
 };
 
 /** What each numeric knob accepts, from the URL or the bench. */
@@ -63,6 +76,7 @@ export const TUNE_OK = {
   logoWeight: (n) => n >= 0 && n <= 1,
   logoLand: (n) => n >= 1,
   logoCenter: (n) => n >= 0 && n <= 1,
+  look: (n) => Number.isInteger(n) && n >= 1 && n <= 32,
 };
 
 /** The defaults on this device: the phone's players cap at ≤768px, the
@@ -96,6 +110,8 @@ export function readTune(search, defaults) {
     logoWeight: numberAt('logoWeight'),
     logoLand: numberAt('logoLand'),
     logoCenter: numberAt('logoCenter'),
+    pack: PACKS.includes(params.get(PARAM_KEYS.pack)) ? params.get(PARAM_KEYS.pack) : defaults.pack,
+    look: numberAt('look'),
   };
 }
 
