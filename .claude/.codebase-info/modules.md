@@ -254,7 +254,17 @@ space; every chunk renders its tiles' boxes, so the focus order and the links ar
 chunks within two viewports mount media, through one IntersectionObserver; columns 5 above 1024px
 (`?dircols`), 4 at 769–1024 (`?dirtabletcols`) and 2 at ≤768 (`?dirphonecols`), Nathan's 11-05
 numbers; a featured project's tile is a link named by the
-project, the rest are media only) · `DirectoryFilter.jsx` (sticky under the nav: every service tag
+project, the rest are media only. Under `?dirpack=aspect` it packs with `chunkAspectGrid` instead, at
+the measured width (1440px on the server render), each placement naming its tile by `index`, and a
+face covers unless `tile.clear`; `tile.ground` becomes `data-ground`) · `aspectGrid.js` (SQ-20,
+11-05: the aspect-aware packer, `chunkAspectGrid(items, {cols, width, gap, look})`, `spanOf`,
+`lossOf`, `LOOK` 8. Each tile takes its OWN shape at its cell width, spanning one column below a 1.2
+ratio, two up to 3, and every column from 3. A skyline places the cheapest of the next `look`
+tiles, so no tile moves more than `look` places from list order. Columns are levelled by resizing the
+tiles on top, to the line whose worst crop is least (Nathan's "whichever edge will be cropped
+less"). Chunks close as `chunkFlushGrid`'s do. A list of ≤64 tiles (a small filter) is also laid as
+justified bands in list order, kept when it crops less, which makes short lists tall. The default
+stays `flush` until Nathan's device pass; probe `scripts/directory-grid-probe.mjs`) · `DirectoryFilter.jsx` (sticky under the nav: every service tag
 with media as a FilterTag over a bar: the live count (mono, the numbers alone) and "× clear all"
 (the house `CloseIcon`) at the left, then `.dir-filter__end` at the right holding the client chip
 (its name as Sanity spells it, then `CloseIcon`), `n active` while anything is ticked (every width;
@@ -276,13 +286,19 @@ ratio to the flush grid as `tileRatio`, the one seam `ratioOf` honours, director
 carousels, banner groups and sequences collapse to one tile per `lane:client:project:displayGroup`,
 the `role` lane stays out; a tile is the slim face MediaSlot reads plus `client`, `services`,
 `href` / `label` and `fit`, and a logo-typed image its `logo` mark through `logoVerdict` (mark,
-drop for a twin or a held logo, or none); `orderTiles(tiles, mode, seed)`: `project`, featured first in World
+drop for a twin or a held logo, or none). Since SQ-20 `fitOf(face, alpha)` letterboxes only a face
+that is really transparent (`isTransparent`: an alpha channel Sanity doesn't call opaque that
+measures ≥2% clear in the baked `src/data/directory-alpha.json`; an unmeasured one counts as
+transparent) or that a cover crop would cut by more than half (the extreme-ratio banners, kept
+letterboxed under flush). A really transparent tile gets `clear`, and dark ink on it gets
+`ground: 'light'` (`groundOf`; directory-grid.css paints that cell the house cream); `orderTiles(tiles, mode, seed)`: `project`, featured first in World
 order, `mix`, or `shuffle` (seeded, uniform); `logoFirst(tiles, tags)` (11-05, SQ-17: under exactly
 `logo-design` the logo tiles lead as one block, the order holding inside each; any other filter is
 returned as is; DirectoryPage applies it to `shown`); and the page's pure helpers: `matchesFilter`,
 `tagPresence`, `DEFAULT_TAG` / `defaultFilter` / `hasFilterParams` / `sameFilter`, `readFilter` /
 `sanitizeFilter` / `filterSearch`, `sizesFor` with per-band column counts) · `directoryTune.js` +
-`DirectoryTunePanel.jsx` (`ORDERS`, `tuneDefaults(shuffle)`; `?dirorder`, `?dirplayers`,
+`DirectoryTunePanel.jsx` (`ORDERS`, `PACKS`, `tuneDefaults(shuffle)`; `?dirpack` (`flush` | `aspect`),
+`?dirlook` (aspect's lookahead, 1..32), `?dirorder`, `?dirplayers`,
 `?dirdwell`, `?dircols`, `?dirtabletcols`, `?dirphonecols`, `?dirlogopad`, `?dirlogoweight`,
 `?dirlogoland`, `?dirlogocenter`; bench `?dirtune=1`, top right). Styles:
 `src/styles/directory.css` (the scroll unlock with `overflow-anchor: none`, and the sticky filter,

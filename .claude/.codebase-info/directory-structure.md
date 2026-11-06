@@ -37,8 +37,9 @@
 │   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + per-route sheets (media-slot.css is shared by
 │   │                         #   the detail grid and the directory) + *-tune.css benches
-│   ├── data/                 # directory-logos/ (baked white marks) + directory-logos.json (11-05;
-│   │                         #   written by scripts/prep-directory-logos.mjs only)
+│   ├── data/                 # directory-logos/ (baked white marks) + directory-logos.json (11-05) and
+│   │                         #   directory-alpha.json (measured transparency, SQ-20); all written by
+│   │                         #   scripts/prep-directory-logos.mjs only
 │   └── assets/               # fonts/ (woff2), client-logos/ (normalized + manifest.json), lockup svg
 ├── public/                   # favicons, og-image, robots, icons/ sprite + social marks
 ├── scripts/
