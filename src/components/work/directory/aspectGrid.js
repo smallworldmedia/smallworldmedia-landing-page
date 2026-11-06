@@ -31,6 +31,11 @@
  * tiles it can't level are laid as justified bands (spans shared by ratio,
  * one height), which is also how fewer tiles than columns fill the width.
  *
+ * Short lists (one chunk's worth, a small filter; Nathan's option b, 11-05):
+ * the whole list is also laid as justified bands in list order, split where
+ * the squared crop is least, so a short list gets wider tiles; that layout
+ * wins when it crops less than the skyline's.
+ *
  * Output: chunkFlushGrid's shape. A chunk's placements are in the order
  * placed (the DOM and focus order), each naming its tile by `index` into
  * `items`; [start, end) counts placements, not items.
@@ -439,6 +444,64 @@ export function chunkAspectGrid(items, { cols, width, gap = 2, look = LOOK, minT
     placed = [];
   }
 
+  /* A short list (one chunk's worth, a small filter) may do better as
+     justified bands in list order: every tile wider, the whole list one
+     chunk. The bands are the cheapest split by squared crop (so one bad crop
+     costs more than several small ones); each band's spans are the split of
+     the columns, and its height the one, up to four squares, that crops it
+     least. */
+  const penalty = (t, s, n) => lossAt({ ...t, s }, n) ** 2;
+  function bandCost(band) {
+    let best = null;
+    const spans = new Array(band.length);
+    const split = (i, left) => {
+      if (i === band.length - 1) {
+        spans[i] = left;
+        for (let n = minRows; n <= 2 * maxRows; n++) {
+          let cost = 0;
+          for (let k = 0; k < band.length; k++) cost += penalty(band[k], spans[k], n);
+          if (!best || cost < best.cost - 1e-12) best = { cost, n, spans: spans.slice() };
+        }
+        return;
+      }
+      for (let s = 1; s <= left - (band.length - 1 - i); s++) {
+        spans[i] = s;
+        split(i + 1, left - s);
+      }
+    };
+    split(0, cols);
+    return best;
+  }
+  function justify() {
+    const n = info.length;
+    const cost = new Array(n + 1).fill(Infinity);
+    const from = new Array(n + 1);
+    cost[0] = 0;
+    for (let i = 1; i <= n; i++) {
+      for (let k = 1; k <= Math.min(cols, i); k++) {
+        const b = bandCost(info.slice(i - k, i));
+        if (cost[i - k] + b.cost < cost[i]) {
+          cost[i] = cost[i - k] + b.cost;
+          from[i] = { k, b };
+        }
+      }
+    }
+    const rows = [];
+    for (let i = n; i > 0; i -= from[i].k) rows.unshift({ at: i - from[i].k, ...from[i] });
+    const tiles = [];
+    let at = 0;
+    for (const { at: i0, k, b } of rows) {
+      let col = 0;
+      for (let j = 0; j < k; j++) {
+        const t = info[i0 + j];
+        tiles.push({ index: t.index, r: t.r, weight: t.weight, s: b.spans[j], col, rowStart: at, rowEnd: at + b.n });
+        col += b.spans[j];
+      }
+      at += b.n;
+    }
+    return { tiles, rows: at, cost: cost[n] };
+  }
+
   while (pool.length) {
     placeNext();
     if (!pool.length) break;
@@ -453,5 +516,19 @@ export function chunkAspectGrid(items, { cols, width, gap = 2, look = LOOK, minT
     if (placed.length >= maxTiles) close(false);
   }
   if (placed.length) close(true);
+
+  if (info.length > 1 && info.length <= maxTiles) {
+    let skyline = 0;
+    for (const ch of chunks) {
+      for (const p of ch.placements) skyline += (info[p.index].weight * lossOf(info[p.index].r, p.cell)) ** 2;
+    }
+    const j = justify();
+    if (j.cost < skyline - 1e-12) {
+      chunks.length = 0;
+      done = 0;
+      placed = j.tiles;
+      finish(j.rows, false);
+    }
+  }
   return chunks;
 }

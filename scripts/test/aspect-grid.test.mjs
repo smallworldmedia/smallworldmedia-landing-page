@@ -102,7 +102,24 @@ test('n = 1…12: flush, every tile once, crop bounded, at 2 / 4 / 5 columns', (
       }
     }
     const mean = all.reduce((s, c) => s + c.loss, 0) / all.length
-    assert.ok(mean <= 0.2, `${view.cols} cols: small-list mean ${mean.toFixed(3)}`)
+    assert.ok(mean <= 0.1, `${view.cols} cols: small-list mean ${mean.toFixed(3)}`)
+  }
+})
+
+/* A short filtered list (one chunk's worth) is laid as justified bands when
+   that crops less (Nathan's option b, 11-05): bigger tiles, and across
+   n = 13…64 the mean stays ≤ 6% with ≤ 2% of tiles over 25% (measured: 5
+   columns 5.0% / 1.6%). */
+test('n = 13…64: short lists take wider tiles; mean ≤ 6%, ≤ 2% over 25%', () => {
+  for (const view of VIEWS) {
+    const all = []
+    for (let n = 13; n <= 64; n++) {
+      for (const seed of [1, 2, 3, 4, 5]) all.push(...check(list(n, seed * 100 + n), view))
+    }
+    const mean = all.reduce((s, c) => s + c.loss, 0) / all.length
+    const over = all.filter((c) => c.loss > 0.25).length
+    assert.ok(mean <= 0.06, `${view.cols} cols: short-list mean ${mean.toFixed(3)}`)
+    assert.ok(over <= 0.02 * all.length, `${view.cols} cols: ${over} of ${all.length} over 25%`)
   }
 })
 

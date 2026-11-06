@@ -9,7 +9,7 @@
  * Read-only: one Sanity read (published), no writes. It runs the page's own
  * code: DIRECTORY_QUERY, buildDirectoryTiles with the baked logo and alpha
  * manifests, then chunkFlushGrid (`flush`, today's default) or chunkAspectGrid
- * (`aspect`), at phone 393px / 2 columns, tablet 900 / 4 and desktop 1440 / 5,
+ * (`aspect`), at phone 393px / 2 columns, tablet 900 / 4 and 1024 / 4, desktop 1440 / 5,
  * unfiltered and under every single tag (logo-design's logo-first order
  * included), plus three shuffle seeds.
  *
@@ -63,6 +63,7 @@ const GAP = 2;
 const VIEWS = {
   phone: { width: 393, cols: 2 },
   tablet: { width: 900, cols: 4 },
+  tablet1024: { width: 1024, cols: 4 },
   desktop: { width: 1440, cols: 5 },
 };
 const lossOf = (a, b) => 1 - Math.min(a, b) / Math.max(a, b);
