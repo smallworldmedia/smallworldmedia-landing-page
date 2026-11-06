@@ -289,6 +289,23 @@ export function tagPresence(tiles, coverage) {
 }
 
 /**
+ * The clients the clients tab keeps lit: those whose coverage holds a tile that
+ * `matchesFilter` shows under `tags` (an empty set = every tile), so a client
+ * the picked tags would empty is dimmed. `clients` is DIRECTORY_QUERY's list;
+ * returns a Set of slugs.
+ */
+export function clientPresence(tiles, tags, clients) {
+  const owners = new Set();
+  for (const t of tiles) if (matchesFilter(t, { tags, coverage: null })) owners.add(t.client);
+  const lit = new Set();
+  for (const c of clients) {
+    const coverage = coverageOf(c.slug, clients);
+    if (coverage && [...coverage].some((slug) => owners.has(slug))) lit.add(c.slug);
+  }
+  return lit;
+}
+
+/**
  * The <img sizes> for a tile at the detail grid's breakpoints, given the
  * columns each band holds (`cols`: desktop above 1024px, tablet to 769px,
  * phone below; DirectoryGrid passes the dialed counts, and the defaults are

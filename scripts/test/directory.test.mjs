@@ -10,6 +10,7 @@ import {
   logoFirst,
   matchesFilter,
   tagPresence,
+  clientPresence,
   fitOf,
   readFilter,
   filterSearch,
@@ -19,7 +20,7 @@ import {
   sameFilter,
   sizesFor,
 } from '../../src/components/work/directory/buildDirectoryTiles.js'
-import { SSR_TUNE, readTune } from '../../src/components/work/directory/directoryTune.js'
+import { SSR_TUNE, readTune, tabSkirt, TAB_RADIUS, TAB_SLOPE } from '../../src/components/work/directory/directoryTune.js'
 import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
 import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
 
@@ -174,6 +175,23 @@ test('tagPresence: hidden where no tile has the tag, dimmed where the client wou
   const dj = tagPresence(ts, coverageOf('dj-tennis', CLIENTS))
   assert.deepEqual([...dj.inClient].sort(), ['branding'])
   assert.ok(dj.any.has('promo-video'))
+})
+
+test('clientPresence - lit where the client has a tile under the picked tags, dimmed where they would empty it', () => {
+  const ts = tiles()
+  const lit = (...tags) => [...clientPresence(ts, new Set(tags), CLIENTS)].sort()
+  assert.deepEqual(lit(), ['annabel-englund', 'bellaire', 'coco', 'dj-tennis', 'munchietown'], 'no tag = every tile counts')
+  assert.deepEqual(lit('promo-video'), ['annabel-englund'], 'only Annabel has a promo video')
+  assert.deepEqual(lit('album-art'), ['coco'])
+  assert.deepEqual(lit('album-art', 'promo-video'), ['annabel-englund', 'coco'], 'tags OR together, as matchesFilter does')
+  // DJ Tennis holds nothing of its own: its coverage reaches Munchietown's tiles one hop down
+  assert.ok(lit('branding').includes('dj-tennis'))
+  assert.ok(!lit('promo-video').includes('dj-tennis'))
+  assert.ok(!lit('web-design').includes('munchietown'), 'web-design is only COCO')
+  // a client with no tile at all is never lit
+  const more = [...CLIENTS, { name: 'easier said', slug: 'easier-said', umbrellas: null }]
+  assert.ok(!clientPresence(ts, new Set(), more).has('easier-said'))
+  assert.ok(!clientPresence(ts, null, more).has('easier-said'), 'a missing tag set is every tile too')
 })
 
 test('fit: contain for transparency or a crop past half, else cover', () => {
@@ -361,6 +379,39 @@ test('readTune — the order and the columns per band, from the URL over the def
   assert.equal(readTune('?dirpack=masonry', SSR_TUNE).pack, 'flush')
   assert.equal(readTune('?dirlook=12', SSR_TUNE).look, 12)
   assert.equal(readTune('?dirlook=0', SSR_TUNE).look, SSR_TUNE.look, 'a lookahead of 0 falls back')
+  // the filter tabs' overlap (SQ-21): proposed 14px, 0 to 24
+  assert.equal(readTune('', SSR_TUNE).tabOverlap, 14)
+  assert.equal(readTune('?dirtaboverlap=0', SSR_TUNE).tabOverlap, 0, 'no overlap is a value')
+  assert.equal(readTune('?dirtaboverlap=10.5', SSR_TUNE).tabOverlap, 10.5)
+  assert.equal(readTune('?dirtaboverlap=-2', SSR_TUNE).tabOverlap, 14, 'negative falls back')
+  assert.equal(readTune('?dirtaboverlap=99', SSR_TUNE).tabOverlap, 14, 'past 24 falls back')
+  // the tab's bottom run (SQ-21): proposed 0.5 H, 0 to 2
+  assert.equal(readTune('', SSR_TUNE).tabFoot, 0.5)
+  assert.equal(readTune('?dirtabfoot=0', SSR_TUNE).tabFoot, 0, 'no bottom run is a value')
+  assert.equal(readTune('?dirtabfoot=1.25', SSR_TUNE).tabFoot, 1.25)
+  assert.equal(readTune('?dirtabfoot=-1', SSR_TUNE).tabFoot, 0.5, 'negative falls back')
+  assert.equal(readTune('?dirtabfoot=3', SSR_TUNE).tabFoot, 0.5, 'past 2 falls back')
+})
+
+test('tabSkirt draws the reference folder tab, an obtuse diagonal over rounded ends and a short bottom run', () => {
+  const s = tabSkirt(0.5)
+  // the shoulder arc ends at (r1x, r1y), the diagonal at (sx, sy), the foot arc at (fx, fy)
+  const m = s.stroke.match(/^M-20 0H0A(\d+) \d+ 0 0 1 ([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)A\d+ \d+ 0 0 0 ([\d.]+) ([\d.]+)H([\d.]+)$/)
+  assert.ok(m, s.stroke)
+  const [radius, r1x, r1y, sx, sy, fx, fy, runTo] = m.slice(1).map(Number)
+  assert.equal(radius, TAB_RADIUS * 1000, 'the shoulder is as round as the corner')
+  // the diagonal's slope is the reference's (about 46 degrees, 134 to the flat top)
+  assert.ok(Math.abs((sy - r1y) / (sx - r1x) - TAB_SLOPE) < 0.01, 'the diagonal keeps the reference slope')
+  // it lands on the bottom edge and runs 0.5 H past the foot
+  assert.equal(fy, 1000, 'the foot finishes on the bottom edge')
+  assert.equal(runTo, s.width)
+  assert.ok(Math.abs(runTo - fx - 500) < 0.01, 'a bottom run of 0.5 H')
+  // the shoulder to the foot's end is about 1.2 H wide (the reference's 1.25)
+  assert.ok(s.run > 1.2 && s.run < 1.32, `run ${s.run}`)
+  // open stroke, closed fill
+  assert.ok(!s.stroke.includes('Z') && s.fill.endsWith('Z'))
+  // no bottom run, no foot dial: the skirt ends where the foot does
+  assert.equal(tabSkirt(0).width, Math.round(tabSkirt(0).run * 1000 * 100) / 100)
 })
 
 test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio order and need tiles in the coverage', () => {

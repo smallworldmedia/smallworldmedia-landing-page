@@ -22,6 +22,10 @@
  *                  Nathan bakes 'aspect' after a device pass
  *   ?dirlook       aspect packing's lookahead: the tiles it picks among, and the most
  *                  places one moves from the list order
+ *   ?dirtaboverlap px the next filter tab's left side sits under the previous tab's
+ *                  diagonal skirt (SQ-21; proposed, Nathan dials it)
+ *   ?dirtabfoot    the filter tab's bottom run past its rounded foot, in units of the tab's
+ *                  height (SQ-21; proposed, Nathan dials it)
  */
 import { DIRECTORY_PLAYERS, DIRECTORY_DWELL_MS } from '../imageConfig.js';
 import { LOGO_DIALS } from './logoTile.js';
@@ -41,6 +45,8 @@ export const PARAM_KEYS = {
   logoCenter: 'dirlogocenter',
   pack: 'dirpack',
   look: 'dirlook',
+  tabOverlap: 'dirtaboverlap',
+  tabFoot: 'dirtabfoot',
 };
 
 /** The orders ?dirorder takes. */
@@ -63,6 +69,8 @@ export const SSR_TUNE = {
   logoCenter: LOGO_DIALS.center,
   pack: 'flush',
   look: LOOK,
+  tabOverlap: 14,
+  tabFoot: 0.5,
 };
 
 /** What each numeric knob accepts, from the URL or the bench. */
@@ -77,7 +85,60 @@ export const TUNE_OK = {
   logoLand: (n) => n >= 1,
   logoCenter: (n) => n >= 0 && n <= 1,
   look: (n) => Number.isInteger(n) && n >= 1 && n <= 32,
+  tabOverlap: (n) => n >= 0 && n <= 24,
+  tabFoot: (n) => n >= 0 && n <= 2,
 };
+
+/* The filter tab's shape (SQ-21, Nathan 11-05: "a rounded off folder tab ... the
+   right side having more of an obtuse diagonal line that travels to the bottom of
+   the tab container, rounding off and following along the bottom edge briefly").
+   Measured off his reference icon's stroke centreline, as ratios of the tab's
+   height H (top edge to bottom edge, 68px in the reference): a rounded top-left
+   corner of 0.375 H, a flat top, a rounded shoulder and a rounded foot of 0.375 H
+   each side of a straight diagonal at slope 1.05 (about 46deg, so 134deg to the
+   top edge), the run from the shoulder to the foot's end about 1.26 H. All baked
+   from the reference; only the bottom run past the foot is a proposal (?dirtabfoot,
+   in H). Here H is the stroke centreline's height (the tab's box less its 1px).
+   Three SVGs draw the outline, all as tall as the centreline and at the same top, so
+   they snap to the same pixel row at any zoom: the left cap (the vertical and the
+   rounded corner, TAB_CAP), a stretched straight line (the flat top; a stretch moves
+   nothing but its length), and the right-hand skirt (tabSkirt). Each cap and skirt
+   is drawn in a box 1000 units high, so a uniform scale keeps every radius round at
+   any text size. */
+export const TAB_RADIUS = 0.375;
+export const TAB_SLOPE = 1.05;
+
+/** The left cap's viewBox width (its height is 1000) and open stroke: up the left
+    side, round the corner and to where the flat top begins. */
+export const TAB_CAP_W = TAB_RADIUS * 1000;
+export const TAB_CAP = `M0 1000V${TAB_CAP_W}A${TAB_CAP_W} ${TAB_CAP_W} 0 0 1 ${TAB_CAP_W} 0`;
+
+/** The flat top: a straight line in a stretched 100-unit-wide box, 2 units past
+    each end so it overlaps the cap and the skirt. */
+export const TAB_TOP = 'M-2 0H102';
+
+/** The tab's right-hand skirt for a bottom run of `foot` H: the viewBox width
+    (its height is 1000), the open stroke (shoulder, diagonal, foot, bottom run),
+    the fill that closes it along the bottom, and the run in H up to the foot's
+    end. The stroke starts 20 units left of the label's edge, so the two never
+    part at a fractional pixel. */
+export function tabSkirt(foot) {
+  const k = 1000;
+  const r = TAB_RADIUS * k;
+  const th = Math.atan(TAB_SLOPE);
+  const [sin, cos] = [Math.sin(th), Math.cos(th)];
+  const [ax, ay] = [r * sin, r * (1 - cos)];
+  const len = (k - 2 * ay) / sin;
+  const bx = ax + len * cos;
+  const by = ay + len * sin;
+  const num = (n) => Number(n.toFixed(2));
+  const footX = bx + ax;
+  const width = num(footX + foot * k);
+  const stroke =
+    `M-20 0H0A${r} ${r} 0 0 1 ${num(ax)} ${num(ay)}L${num(bx)} ${num(by)}` +
+    `A${r} ${r} 0 0 0 ${num(footX)} ${k}H${width}`;
+  return { width, stroke, fill: `${stroke}H-20Z`, run: footX / k };
+}
 
 /** The defaults on this device: the phone's players cap at ≤768px, the
     globe pool's split (globeConfig.js IS_MOBILE), and the order the Studio's
@@ -112,6 +173,8 @@ export function readTune(search, defaults) {
     logoCenter: numberAt('logoCenter'),
     pack: PACKS.includes(params.get(PARAM_KEYS.pack)) ? params.get(PARAM_KEYS.pack) : defaults.pack,
     look: numberAt('look'),
+    tabOverlap: numberAt('tabOverlap'),
+    tabFoot: numberAt('tabFoot'),
   };
 }
 
