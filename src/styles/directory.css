@@ -162,6 +162,31 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   height: 0.72em;
 }
 
+/* Ticked, the label's box fills (11-05, Nathan: album-art's default tick read
+   as off): the keyword highlight's box on black, brand blue under the white
+   ink, wiping in from the left while the eye draws (CheckIndicator, 0.35 s)
+   and back out on the untick's 0.2 s. */
+.filter-tag__label {
+  position: relative;
+  isolation: isolate;
+}
+
+.filter-tag__label::before {
+  content: '';
+  position: absolute;
+  inset: -0.08em -0.12em -0.1em;
+  z-index: -1;
+  background: var(--kw-bg, var(--color-electric-blue));
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 0.2s var(--ease-micro);
+}
+
+.filter-tag[aria-checked='true'] .filter-tag__label::before {
+  transform: scaleX(1);
+  transition: transform 0.35s var(--ease-draw);
+}
+
 /* Shut and at rest, the tags the fold hides are hidden as well as clipped
    (DirectoryFilter): at line-height 0.8 the next row's capitals reach above
    the fold line. */
@@ -243,8 +268,25 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   text-overflow: ellipsis;
 }
 
+/* clear and the toggle read as buttons (11-05, Nathan): the sans link tier
+   (the nav's links), lowercase as written; the count beside them keeps the
+   mono header type. */
+.dir-filter__bar .dir-filter__clear,
+.dir-filter__bar .dir-filter__toggle {
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  letter-spacing: var(--tracking-body);
+  text-transform: none;
+}
+
 .dir-filter__toggle {
   margin-left: auto;
+}
+
+/* Its words: see_all / see_less, and at ≤768px, where shut means no tags at
+   all, filters / close_filters. */
+.dir-filter__toggle-narrow {
+  display: none;
 }
 
 .dir-filter__caret {
@@ -265,11 +307,21 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   .dir-filter__head {
     display: none;
   }
+
+  .dir-filter__toggle-wide {
+    display: none;
+  }
+
+  .dir-filter__toggle-narrow {
+    display: inline;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .dir-filter,
-  .dir-filter__caret {
+  .dir-filter__caret,
+  .filter-tag__label::before,
+  .filter-tag[aria-checked='true'] .filter-tag__label::before {
     transition: none;
   }
 }

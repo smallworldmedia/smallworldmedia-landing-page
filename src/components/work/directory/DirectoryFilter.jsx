@@ -2,8 +2,10 @@
  * DirectoryFilter — the Project Directory's filter section (11-03): full
  * width, sticky under the nav, every service tag that has media as a
  * FilterTag, and a bar along its bottom edge: the services count, the
- * active client as a chip, a live count of works, clear (while anything
- * filters), and the all_services toggle.
+ * active client as a chip, a live count of works (the numbers alone, mono),
+ * then clear (while anything filters) and the toggle, in the sans link tier
+ * (11-05, Nathan): see_all / see_less, and filters / close_filters at ≤768px,
+ * where shut means no tags at all.
  *
  * It loads open (11-05), the server's render too, and closes from there on the
  * recipe below. Collapsed, it shows one row of tags above 768px and the bar alone at
@@ -240,7 +242,8 @@ export default function DirectoryFilter({
           </button>
         )}
         <span className="dir-filter__count" aria-live="polite">
-          {shown} of {total} works
+          {shown} of {total}
+          <span className="sr-only"> works</span>
         </span>
         {filtered && (
           <button type="button" className="dir-filter__clear" onClick={onClear}>
@@ -254,7 +257,9 @@ export default function DirectoryFilter({
           aria-controls="dir-filter-tags"
           onClick={toggle}
         >
-          all_services <span className="dir-filter__caret" aria-hidden="true">▾</span>
+          <span className="dir-filter__toggle-wide">{open ? 'see_less' : 'see_all'}</span>
+          <span className="dir-filter__toggle-narrow">{open ? 'close_filters' : 'filters'}</span>{' '}
+          <span className="dir-filter__caret" aria-hidden="true">▾</span>
         </button>
       </div>
     </section>

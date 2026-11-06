@@ -255,12 +255,14 @@ chunks within two viewports mount media, through one IntersectionObserver; colum
 (`?dircols`), 4 at 769–1024 (`?dirtabletcols`) and 2 at ≤768 (`?dirphonecols`), Nathan's 11-05
 numbers; a featured project's tile is a link named by the
 project, the rest are media only) · `DirectoryFilter.jsx` (sticky under the nav: every service tag
-with media as a FilterTag over a bar of `services (n)`, the client chip, the live count, `clear` and
-`all_services`; shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
+with media as a FilterTag over a bar of `services (n)`, the client chip and the live count (mono, the
+numbers alone), then `clear` and the toggle in the sans link tier (`see_all` / `see_less`, and
+`filters` / `close_filters` at ≤768); shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
 `inert`; it opens on the drawer's recipe, pushing the grid down, and past `100dvh − nav − bar` the
 tags scroll inside with the drawer's thumb; its settled height, `--dir-filter-h` on `.dir-page`, sets
 the tiles' `scroll-margin-top`, so a tile Tab reaches lands below the stuck filter) · `FilterTag.jsx` (a `role="checkbox"` button:
-`CheckIndicator`'s `square-eye`, the name as stored, the drawer's name type; dim and
+`CheckIndicator`'s `square-eye`, the name as stored, the drawer's name type; ticked, the label's box
+fills brand blue (directory.css `::before`, wiping in with the eye); dim and
 `aria-disabled` when the client would empty it) · `playerGate.js` (`createPlayerGate({cap,
 dwellMs})`: one IntersectionObserver for every watched tile and at most `cap` play grants;
 `patterns.md`) · `LogoMark.jsx` + `logoTile.js` (11-05, SQ-13: a logo tile is a baked white mark on

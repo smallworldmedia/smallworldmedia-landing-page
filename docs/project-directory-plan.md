@@ -462,7 +462,7 @@ until Nathan names a number.
 ┌ .dir-filter (sticky, under the nav) ──────────────────────────────────────┐
 │ ▢ Branding  ◉ Album Art  ▢ Event / Tour Creative  ▢ 2D Animation  …      │ row 1, collapsed (>768)
 │ ▢ Promo Video  ▢ Logo Design  ▢ Web Design  …                            │ revealed on expand
-├ SERVICES (14) · [DJ Tennis ×] · 12 of 705 works · clear    all_services ▾ ┤ bar rides the bottom edge
+├ SERVICES (14) · [DJ Tennis ×] · 12 OF 705 · clear           see_less ▴ ┤ bar rides the bottom edge
 └───────────────────────────────────────────────────────────────────────────┘
   grid, pushed down as the section opens
 ```
@@ -493,9 +493,13 @@ until Nathan names a number.
 - **The bar**, in the mono header type:
   - `services (n)`;
   - the active client as a chip (`aria-label="Clear client: DJ Tennis"`, truncated at 45vw);
-  - a polite live count;
+  - a polite live count, the numbers alone in mono ("works" is for screen readers only, 11-05);
   - `clear`, only while something is filtered;
-  - the toggle, `all_services ▾` (`aria-expanded`, `aria-controls`).
+  - the toggle (`aria-expanded`, `aria-controls`): `see_all ▾` shut and `see_less` open, and at ≤768
+    `filters` / `close_filters`, since shut there hides every tag (11-05, Nathan). `clear` and the
+    toggle are in the sans link tier (`--text-link`), lowercase; the rest of the bar keeps the mono header type.
+  - A ticked tag's label fills: the keyword highlight's box, brand blue under white ink, wiping in
+    while the eye draws (11-05, Nathan: the default album-art tick read as off).
 - **Motion:** `useGSAP` + `contextSafe`. Each toggle kills the previous timeline and starts from the
   current height.
   - **Open:**
