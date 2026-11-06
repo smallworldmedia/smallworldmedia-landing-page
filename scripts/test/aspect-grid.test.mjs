@@ -90,7 +90,7 @@ function check(items, view, look = LOOK) {
 const BOUND = 0.35
 const SMALL_BOUND = 0.45
 
-test('n = 1…12: flush, every tile once, crop bounded, at 2 / 4 / 5 columns', () => {
+test('n = 1…12 — flush, every tile once, crop bounded, at 2 / 4 / 5 columns', () => {
   for (const view of VIEWS) {
     const all = []
     for (let n = 1; n <= 12; n++) {
@@ -110,7 +110,7 @@ test('n = 1…12: flush, every tile once, crop bounded, at 2 / 4 / 5 columns', (
    that crops less (Nathan's option b, 11-05): bigger tiles, and across
    n = 13…64 the mean stays ≤ 6% with ≤ 2% of tiles over 25% (measured: 5
    columns 5.0% / 1.6%). */
-test('n = 13…64: short lists take wider tiles; mean ≤ 6%, ≤ 2% over 25%', () => {
+test('n = 13…64 — short lists take wider tiles; mean ≤ 6%, ≤ 2% over 25%', () => {
   for (const view of VIEWS) {
     const all = []
     for (let n = 13; n <= 64; n++) {
@@ -132,7 +132,7 @@ test('every ratio class alone, and one of each', () => {
   }
 })
 
-test('n = 700: flush and chunked; mean crop ≤ 5%, ≤ 2% of tiles over 25%', () => {
+test('n = 700 — flush and chunked; mean crop ≤ 5%, ≤ 2% of tiles over 25%', () => {
   for (const view of VIEWS) {
     for (const seed of [7, 8]) {
       const items = list(700, seed)
@@ -150,23 +150,23 @@ test('n = 700: flush and chunked; mean crop ≤ 5%, ≤ 2% of tiles over 25%', (
   }
 })
 
-test('many mixes: flush and no tile moves more than the lookahead', () => {
+test('many mixes — flush and no tile moves more than the lookahead', () => {
   for (const view of VIEWS) for (let seed = 1; seed <= 40; seed++) check(list(300, 1000 + seed), view)
 })
 
-test('the lookahead bounds the move: look 1 keeps the list order', () => {
+test('the lookahead bounds the move — look 1 keeps the list order', () => {
   const items = list(120, 9)
   check(items, VIEWS[2], 3)
   const order = chunkAspectGrid(items, { ...VIEWS[2], gap: GAP, look: 1 }).flatMap((c) => c.placements.map((p) => p.index))
   assert.deepEqual(order.slice(0, 20), [...Array(20).keys()])
 })
 
-test('deterministic: the same input gives the same output', () => {
+test('deterministic — the same input gives the same output', () => {
   const items = list(300, 11)
   assert.deepEqual(chunkAspectGrid(items, { ...VIEWS[0], gap: GAP }), chunkAspectGrid(items, { ...VIEWS[0], gap: GAP }))
 })
 
-test('spans: 1 below 1.2, 2 below 3, every column from 3', () => {
+test('spans — 1 below 1.2, 2 below 3, every column from 3', () => {
   assert.equal(spanOf(0.8, 5), 1)
   assert.equal(spanOf(1.19, 5), 1)
   assert.equal(spanOf(1.2, 5), 2)
@@ -183,7 +183,7 @@ const face = (extra = {}) => ({
   ...extra,
 })
 
-test('fitOf: opaque alpha covers, measured clear contains, unknown alpha contains', () => {
+test('fitOf — opaque alpha covers, measured clear contains, unknown alpha contains', () => {
   assert.equal(fitOf(face({ imageHasAlpha: true, imageIsOpaque: true })), 'cover', 'isOpaque: an alpha channel with nothing clear')
   const measured = { 'image-abc-1000x1000-png': { clear: 0.004, lum: 0.5 } }
   assert.equal(fitOf(face({ imageHasAlpha: true, imageIsOpaque: false }), measured), 'cover', 'measured under 2% clear')

@@ -339,7 +339,7 @@ test('the default filter: a bare URL starts on album-art, any filter key in the 
   assert.equal(filterSearch('', [], null, false), '?tag=', 'clear is "every work"')
 })
 
-test('readTune: the order and the columns per band, from the URL over the defaults', () => {
+test('readTune — the order and the columns per band, from the URL over the defaults', () => {
   assert.deepEqual(
     { cols: SSR_TUNE.cols, tabletCols: SSR_TUNE.tabletCols, phoneCols: SSR_TUNE.phoneCols, order: SSR_TUNE.order },
     { cols: 5, tabletCols: 4, phoneCols: 2, order: 'project' },
@@ -378,7 +378,7 @@ test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio or
   assert.deepEqual(sanitizeFilter(data, [], ''), { tags: [], client: null })
 })
 
-test('sizesFor: the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
+test('sizesFor — the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
   assert.equal(sizesFor('square', 1, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
   assert.equal(sizesFor('landscape', 1.78, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 67vw')
   assert.equal(sizesFor('portrait', 0.5625, 'cover', { phone: 2 }), '(max-width: 768px) 56vw, (max-width: 1024px) 56vw, 38vw')
