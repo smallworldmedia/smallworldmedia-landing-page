@@ -374,7 +374,7 @@ export default function SiteTagline({ siteCopy }) {
     };
     // 11-05 (Nathan: the lower footer sits "behind the logo ticker"): the logo
     // band's box while it rides the TOP of the panel, else null. Nothing this
-    // island pins to the corners may cross the band's gray line (its
+    // island pins to the corners, the privacy pill aside, may cross the band's gray line (its
     // border-bottom); measured at 1440×900 before this, the lockup sat up to
     // 27px and both pills 38px inside the band, over the marks. Under
     // [data-footer-rest] the band is ordered LAST (global.css), so it does not
@@ -409,11 +409,11 @@ export default function SiteTagline({ siteCopy }) {
       el.style.clipPath = v;
       pillClip.set(el, v);
     };
-    // Above 768px (11-05) both corner pills stay on screen and pass BEHIND the
-    // band (bandBox): the part inside its box is cut, from the bottom while
-    // the band's top edge crosses a pill, from the top while its gray line
-    // does. Not while a drawer or overlay is up: it covers the footer, and the
-    // privacy pill is then its `close ×`.
+    // Above 768px (11-05) the tagline pill stays on screen and passes BEHIND
+    // the band (bandBox): the part inside its box is cut, from the bottom while
+    // the band's top edge crosses the pill, from the top while its gray line
+    // does. Not while a drawer or overlay is up: it covers the footer. The
+    // privacy pill stays IN FRONT of the band (Nathan, 11-05), unmasked.
     const maskUnderBand = (el, band) => {
       const r = el.getBoundingClientRect();
       let clip = '';
@@ -429,7 +429,7 @@ export default function SiteTagline({ siteCopy }) {
       if (!pillEl) return;
       if (!window.matchMedia('(max-width: 768px)').matches) {
         const band = document.documentElement.hasAttribute('data-chrome-open') ? null : bandBox();
-        for (const el of [pillEl, privacy]) if (el) maskUnderBand(el, band);
+        maskUnderBand(pillEl, band);
         return;
       }
       const edge = panelEdge();
@@ -439,7 +439,7 @@ export default function SiteTagline({ siteCopy }) {
     };
     const unmask = () => {
       for (const el of [copy, lockup]) if (el) el.style.clipPath = '';
-      for (const el of [pillEl, privacy]) if (el) setClip(el, '');
+      if (pillEl) setClip(pillEl, '');
     };
     // 10-07 (Nathan, mobile chrome pass): the HOME footer rests OPEN (phones
     // since 10-07, desktop since 10-09), so [data-footer-revealed] is set for
