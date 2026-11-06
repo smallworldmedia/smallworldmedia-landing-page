@@ -3,17 +3,16 @@
  * width, sticky under the nav, every service tag that has media as a
  * FilterTag, and a bar along its bottom edge: a live count of works (the
  * numbers alone, mono) and "× clear all" (while anything filters), then at
- * the right the active client as a chip, "n active" while anything is ticked,
- * and the toggle, all but the count in the sans link tier (11-05, Nathan):
- * "see all" / "see less" and an arrow, and at ≤768px, where shut means no
- * tags at all, "filters" / "close filters", with "n active" only while shut.
+ * the right the active client as a chip, "n active" while anything is ticked
+ * and the filter is shut, and the toggle, all but the count in the sans link
+ * tier (11-05, Nathan): "filters" / "close filters" and an arrow, the same at
+ * every width (SQ-21, Nathan: the phone's behaviour carried to the desktop).
  *
  * It loads open (11-05), the server's render too, and closes from there on the
- * recipe below. Collapsed, it shows one row of tags above 768px and the bar alone at
- * ≤768px; the tags the collapse hides are inert (re-measured on resize), so
- * Tab never lands on one, and hidden once it is shut. Expanding pushes the
+ * recipe below. Shut, it is the bar alone, at every width: the region folds to
+ * 0 and the tags are inert, so Tab never lands on one. Expanding pushes the
  * grid down, on the drawer's recipe (SiteShell / InfoPanel): the region
- * opens in 0.6 s power3.out while the revealed tags slide in from x −16 and
+ * opens in 0.6 s power3.out while the tags slide in from x −16 and
  * fade up, 0.35 s power3.out, 0.02 s apart from 0.15 s; closing waits
  * 0.15 s, then takes 0.48 s power2.inOut. Taller than the screen allows
  * (100dvh − nav − bar), the tags scroll inside and wear the drawer's scroll
@@ -67,70 +66,12 @@ export default function DirectoryFilter({
   // Open on load (Nathan, 11-05): the server renders it open too
   // (directory.css), so hydration changes nothing on screen.
   const [open, setOpen] = useState(true);
-  // Closing: the shrinking region clips the rows the fold hides. Once shut,
-  // data-folded hides them outright (directory.css), since at line-height
-  // 0.8 the next row's capitals reach above the fold line.
-  const [closing, setClosing] = useState(false);
-  // Collapsed: the region's height and the tags it hides (all of them at ≤768px).
-  const [fold, setFold] = useState(null);
   const { trackRef, thumbRef } = useScrollThumb(tagsRef, open, { media: 'all' });
   const { contextSafe } = useGSAP({ scope: rootRef });
 
   const visible = tags.filter((t) => presence.any.has(t.slug));
   const pickedSet = new Set(picked);
   const filtered = picked.length > 0 || !!client;
-
-  // The fold: the first row's bottom, plus the list's bottom padding, above
-  // 768px; nothing at ≤768px.
-  useLayoutEffect(() => {
-    const list = tagsRef.current;
-    if (!list) return undefined;
-    let alive = true;
-    const measure = () => {
-      if (!alive) return;
-      const items = [...list.querySelectorAll('.filter-tag')];
-      const hidden = new Set();
-      let height = 0;
-      if (!window.matchMedia('(max-width: 768px)').matches && items.length) {
-        const top = items[0].offsetTop;
-        let bottom = 0;
-        for (const el of items) {
-          if (el.offsetTop > top + 1) hidden.add(el.dataset.slug);
-          else bottom = Math.max(bottom, el.offsetTop + el.offsetHeight);
-        }
-        height = bottom + parseFloat(getComputedStyle(list).paddingBottom);
-      } else {
-        for (const el of items) hidden.add(el.dataset.slug);
-      }
-      setFold((prev) =>
-        prev &&
-        prev.height === height &&
-        prev.hidden.size === hidden.size &&
-        [...hidden].every((s) => prev.hidden.has(s))
-          ? prev
-          : { height, hidden }
-      );
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(list);
-    document.fonts?.ready?.then(measure);
-    return () => {
-      alive = false;
-      ro.disconnect();
-    };
-  }, []);
-
-  // Closed, the region sits at the fold; a re-measure moves it there. Not
-  // while a toggle's timeline is unfinished: right after the close click it
-  // has not ticked yet, so isActive() is false and this used to snap the
-  // region shut, then the tween restarted from open (11-05, Nathan: "it
-  // closes, opens back up, and then closes again"). The close's last beat
-  // flips `closing`, which re-runs this for a fold measured mid-close.
-  useLayoutEffect(() => {
-    if (open || !fold || (tlRef.current && tlRef.current.progress() < 1)) return;
-    gsap.set(regionRef.current, { height: fold.height });
-  }, [fold, open, closing]);
 
   // Focus scrolls land a tile below the stuck filter, not under it (11-03: a
   // tile reached by Shift+Tab sat 111px under it at 1440): the tiles'
@@ -158,17 +99,14 @@ export default function DirectoryFilter({
   const toggle = contextSafe(() => {
     const region = regionRef.current;
     const list = tagsRef.current;
-    if (!region || !list || !fold) return;
+    if (!region || !list) return;
     const k = reducedMotion() ? 0 : 1;
     const next = !open;
     tlRef.current?.kill();
     const from = region.offsetHeight;
-    const revealed = [...list.querySelectorAll('.filter-tag')].filter((el) =>
-      fold.hidden.has(el.dataset.slug)
-    );
+    const revealed = list.querySelectorAll('.filter-tag');
     const tl = gsap.timeline();
     if (next) {
-      setClosing(false);
       tl.fromTo(
         region,
         { height: from },
@@ -180,32 +118,28 @@ export default function DirectoryFilter({
         },
         0
       );
-      if (revealed.length) {
-        tl.fromTo(
-          revealed,
-          { x: -16, opacity: 0 },
-          {
-            x: 0,
-            opacity: 1,
-            duration: 0.35 * k,
-            ease: 'power3.out',
-            stagger: { each: 0.02 * k, from: 'start' },
-            clearProps: 'transform,opacity',
-          },
-          0.15 * k
-        );
-      }
+      tl.fromTo(
+        revealed,
+        { x: -16, opacity: 0 },
+        {
+          x: 0,
+          opacity: 1,
+          duration: 0.35 * k,
+          ease: 'power3.out',
+          stagger: { each: 0.02 * k, from: 'start' },
+          clearProps: 'transform,opacity',
+        },
+        0.15 * k
+      );
     } else {
-      setClosing(true);
       gsap.set(revealed, { clearProps: 'transform,opacity' });
       tl.fromTo(
         region,
         { height: from },
-        { height: fold.height, duration: 0.48 * k, ease: 'power2.inOut' },
+        { height: 0, duration: 0.48 * k, ease: 'power2.inOut' },
         0.15 * k
       );
       tl.to(list, { scrollTop: 0, duration: 0.48 * k, ease: 'power2.inOut' }, 0.15 * k);
-      tl.call(() => setClosing(false));
     }
     tlRef.current = tl;
     setOpen(next);
@@ -217,7 +151,6 @@ export default function DirectoryFilter({
       ref={rootRef}
       aria-label="Filter the directory"
       data-open={open || undefined}
-      data-folded={(!open && !closing) || undefined}
     >
       <div className="dir-filter__region" ref={regionRef}>
         <div
@@ -233,7 +166,7 @@ export default function DirectoryFilter({
               tag={t}
               checked={pickedSet.has(t.slug)}
               dim={!presence.inClient.has(t.slug)}
-              inert={!open && !!fold?.hidden.has(t.slug)}
+              inert={!open}
               onToggle={onToggle}
             />
           ))}
@@ -255,8 +188,8 @@ export default function DirectoryFilter({
         )}
         {/* The right-hand group (11-05, Nathan): the active client's chip
             directly left of the ticked tags' count, then the toggle. The
-            count shows at every width; ≤768px only while shut, since open
-            the tags show it (directory.css). */}
+            count shows only while shut, since open the tags show it
+            (directory.css). */}
         <div className="dir-filter__end">
           {client && (
             <button
@@ -279,8 +212,7 @@ export default function DirectoryFilter({
             aria-controls="dir-filter-tags"
             onClick={toggle}
           >
-            <span className="dir-filter__toggle-wide">{open ? 'see less' : 'see all'}</span>
-            <span className="dir-filter__toggle-narrow">{open ? 'close filters' : 'filters'}</span>
+            {open ? 'close filters' : 'filters'}
             <span className="dir-filter__caret" aria-hidden="true">
               <ArrowIcon />
             </span>

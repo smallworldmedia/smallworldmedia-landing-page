@@ -461,16 +461,17 @@ until Nathan names a number.
 
 ```
 ┌ .dir-filter (sticky, under the nav) ──────────────────────────────────────┐
-│ ▢ Branding  ◉ Album Art  ▢ Event / Tour Creative  ▢ 2D Animation  …      │ row 1, collapsed (>768)
-│ ▢ Promo Video  ▢ Logo Design  ▢ Web Design  …                            │ revealed on expand
-├ [DJ Tennis ×] · 12 OF 705 · × clear all                     see less ↑ ┤ bar rides the bottom edge
+│ ▢ Branding  ◉ Album Art  ▢ Event / Tour Creative  ▢ 2D Animation  …      │ shut: none of these show
+│ ▢ Promo Video  ▢ Logo Design  ▢ Web Design  …                            │ (the open filter, every width)
+├ [DJ Tennis ×] · 12 OF 705 · × clear all                close filters ↑ ┤ bar rides the bottom edge
 └───────────────────────────────────────────────────────────────────────────┘
   grid, pushed down as the section opens
 ```
 
 - **Collapsed:**
-  - Above 768px it shows one row of tags. At ≤768 it shows the bar alone.
-  - Tags the collapse hides are `inert` and re-measured on resize, so Tab never lands on one.
+  - It shows the bar alone, at every width (SQ-21, Nathan: the phone's behaviour carried to the
+    desktop; the one-row fold and its measure are gone).
+  - Shut tags are `inert`, so Tab never lands on one.
 - **Tags:**
   - Each is a `<button role="checkbox" aria-checked>` inside
     `#dir-filter-tags[role=group][data-lenis-prevent]`, showing `name` as stored.
@@ -496,10 +497,10 @@ until Nathan names a number.
   - the active client as a chip (`aria-label="Clear client: DJ Tennis"`, truncated at 45vw);
   - a polite live count, the numbers alone in mono ("works" is for screen readers only, 11-05);
   - "× clear all" (the house `CloseIcon` before it), only while something is filtered;
-  - at ≤768, while shut and anything is ticked, `n active` ("1 active") just left of the toggle; open,
+  - while shut and anything is ticked, `n active` ("1 active") just left of the toggle; open,
     the tags show it, so it goes;
-  - the toggle (`aria-expanded`, `aria-controls`): `see all` shut and `see less` open, and at ≤768
-    `filters` / `close filters`, since shut there hides every tag, then an arrow with a stem (drawn
+  - the toggle (`aria-expanded`, `aria-controls`): `filters` shut and `close filters` open at every
+    width (SQ-21; it read `see all` / `see less` above 768 before), then an arrow with a stem (drawn
     like `CloseIcon`), down shut and turned up open (11-05, Nathan; no underscores, no triangle).
     These are in the sans link tier (`--text-link`), lowercase; the count keeps the mono header type.
   - A ticked tag's label fills: the keyword highlight's box, brand blue under white ink, wiping in

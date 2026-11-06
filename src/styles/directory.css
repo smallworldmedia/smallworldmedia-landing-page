@@ -76,13 +76,12 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   }
 }
 
-/* The tags' window. Collapsed, one row above 768px (DirectoryFilter measures
-   it; this is the server's estimate of the same) and none at ≤768px; open,
+/* The tags' window. Shut, none: the bar alone, at every width (SQ-21); open,
    the list's height, then auto. */
 .dir-filter__region {
   position: relative;
   overflow: hidden;
-  height: calc(var(--space-4) + var(--text-drawer-name) * var(--lh-drawer-name) + var(--space-2));
+  height: 0;
 }
 
 /* It loads open (11-05), in the server's markup too: the list's own height,
@@ -92,7 +91,6 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 }
 
 .dir-filter__tags {
-  position: relative; /* the tags' offsetParent, for the fold measure */
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -185,13 +183,6 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 .filter-tag[aria-checked='true'] .filter-tag__label::before {
   transform: scaleX(1);
   transition: transform 0.35s var(--ease-draw);
-}
-
-/* Shut and at rest, the tags the fold hides are hidden as well as clipped
-   (DirectoryFilter): at line-height 0.8 the next row's capitals reach above
-   the fold line. */
-.dir-filter[data-folded] .filter-tag[inert] {
-  visibility: hidden;
 }
 
 /* The active client would empty it. */
@@ -308,12 +299,6 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   margin-left: auto;
 }
 
-/* Its words: see all / see less, and at ≤768px, where shut means no tags at
-   all, filters / close filters. */
-.dir-filter__toggle-narrow {
-  display: none;
-}
-
 .dir-filter__caret {
   display: inline-flex;
   transition: transform 0.3s var(--ease-panel);
@@ -328,23 +313,9 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   transform: rotate(180deg);
 }
 
-@media (max-width: 768px) {
-  .dir-filter__region {
-    height: 0;
-  }
-
-  .dir-filter__toggle-wide {
-    display: none;
-  }
-
-  .dir-filter__toggle-narrow {
-    display: inline;
-  }
-
-  /* "n active" only while shut: open, the tags show it. */
-  .dir-filter[data-open] .dir-filter__active {
-    display: none;
-  }
+/* "n active" only while shut: open, the tags show it. */
+.dir-filter[data-open] .dir-filter__active {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
