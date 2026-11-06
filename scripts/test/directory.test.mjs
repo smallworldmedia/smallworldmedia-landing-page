@@ -410,6 +410,8 @@ test('tabSkirt draws the reference folder tab, an obtuse diagonal over rounded e
   assert.ok(s.run > 1.2 && s.run < 1.32, `run ${s.run}`)
   // open stroke, closed fill
   assert.ok(!s.stroke.includes('Z') && s.fill.endsWith('Z'))
+  // the fill runs past the bottom stroke so the next tab's line ends under it
+  assert.ok(s.fill.startsWith(s.stroke + 'V') && Number(s.fill.match(/V([\d.]+)H-20Z$/)[1]) > 1000, 'the fill runs below the bottom stroke')
   // no bottom run, no foot dial: the skirt ends where the foot does
   assert.equal(tabSkirt(0).width, Math.round(tabSkirt(0).run * 1000 * 100) / 100)
 })

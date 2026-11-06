@@ -108,6 +108,13 @@ export const TUNE_OK = {
 export const TAB_RADIUS = 0.375;
 export const TAB_SLOPE = 1.05;
 
+/** How far the skirt's black fill runs past the bottom stroke's centreline (units
+    of the 1000-high skirt box, about 1.2px at the 1440 tab): the next tab's
+    square-capped line ends at the tab's bottom edge, half a pixel below the
+    centreline, and a fill that stops short leaves that end half-covered, so it
+    peeks out under the foot. Black on the black panel top, so nothing shows. */
+export const TAB_FILL_BELOW = 60;
+
 /** The left cap's viewBox width (its height is 1000) and open stroke: up the left
     side, round the corner and to where the flat top begins. */
 export const TAB_CAP_W = TAB_RADIUS * 1000;
@@ -137,7 +144,7 @@ export function tabSkirt(foot) {
   const stroke =
     `M-20 0H0A${r} ${r} 0 0 1 ${num(ax)} ${num(ay)}L${num(bx)} ${num(by)}` +
     `A${r} ${r} 0 0 0 ${num(footX)} ${k}H${width}`;
-  return { width, stroke, fill: `${stroke}H-20Z`, run: footX / k };
+  return { width, stroke, fill: `${stroke}V${k + TAB_FILL_BELOW}H-20Z`, run: footX / k };
 }
 
 /** The defaults on this device: the phone's players cap at ≤768px, the
