@@ -11,12 +11,15 @@
  *
  * The logo marks (`src/data/directory-logos/`, baked by
  * scripts/prep-directory-logos.mjs) join here: their manifest is keyed by
- * image asset id, and each mark gets the URL Vite serves it at.
+ * image asset id, and each mark gets the URL Vite serves it at. So does the
+ * faces' measured transparency (`src/data/directory-alpha.json`, the same
+ * script's --alpha), which decides each face's fit (fitOf).
  */
 import { sanityFetch } from './sanityClient.js';
 import { DIRECTORY_QUERY } from './queries.js';
 import { buildDirectoryTiles } from '../components/work/directory/buildDirectoryTiles.js';
 import manifest from '../data/directory-logos.json';
+import alpha from '../data/directory-alpha.json';
 
 const MARK_URLS = import.meta.glob('../data/directory-logos/*.png', {
   eager: true,
@@ -47,7 +50,7 @@ export function getDirectoryData() {
     pending = sanityFetch(DIRECTORY_QUERY).then((data) => ({
       tags: data.tags ?? [],
       clients: data.clients ?? [],
-      tiles: buildDirectoryTiles({ ...data, logos: LOGOS }),
+      tiles: buildDirectoryTiles({ ...data, logos: LOGOS, alpha }),
       shuffle: data.shuffle === true,
     }));
     pending.catch(() => {

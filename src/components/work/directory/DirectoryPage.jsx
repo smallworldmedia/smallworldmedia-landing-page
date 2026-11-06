@@ -266,6 +266,8 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
           dwellMs={tune.dwell}
           shuffled={shuffle}
           logoDials={logoDials}
+          pack={tune.pack}
+          look={tune.look}
           onReady={onReady}
         />
       </main>
