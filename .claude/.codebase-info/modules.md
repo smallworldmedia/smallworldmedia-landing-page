@@ -255,10 +255,11 @@ chunks within two viewports mount media, through one IntersectionObserver; colum
 (`?dircols`), 4 at 769–1024 (`?dirtabletcols`) and 2 at ≤768 (`?dirphonecols`), Nathan's 11-05
 numbers; a featured project's tile is a link named by the
 project, the rest are media only) · `DirectoryFilter.jsx` (sticky under the nav: every service tag
-with media as a FilterTag over a bar of the client chip and the live count (mono, the
-numbers alone), then "× clear all" (the house `CloseIcon`) and the toggle in the sans link tier
-(`see all` / `see less` and a stemmed arrow, and `filters` / `close filters` at ≤768, with `n active`
-beside it while shut and anything is ticked); shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
+with media as a FilterTag over a bar: the live count (mono, the numbers alone) and "× clear all"
+(the house `CloseIcon`) at the left, then `.dir-filter__end` at the right holding the client chip
+(its name as Sanity spells it, then `CloseIcon`), `n active` while anything is ticked (every width;
+≤768 only while shut) and the toggle (`see all` / `see less` and a stemmed arrow, and `filters` /
+`close filters` at ≤768), all but the count in the sans link tier (11-05, 409012d); shut, one row of tags above 768px and the bar alone at ≤768, the hidden tags
 `inert`; it opens on the drawer's recipe, pushing the grid down, and past `100dvh − nav − bar` the
 tags scroll inside with the drawer's thumb; its settled height, `--dir-filter-h` on `.dir-page`, sets
 the tiles' `scroll-margin-top`, so a tile Tab reaches lands below the stuck filter) · `FilterTag.jsx` (a `role="checkbox"` button:
