@@ -22,10 +22,20 @@
  *                  Nathan bakes 'aspect' after a device pass
  *   ?dirlook       aspect packing's lookahead: the tiles it picks among, and the most
  *                  places one moves from the list order
- *   ?dirtaboverlap px the next filter tab's left side sits under the previous tab's
- *                  diagonal skirt (SQ-21; proposed, Nathan dials it)
+ *   ?dirtabmeet    where the next filter tab's left stroke meets the previous tab's
+ *                  straight diagonal, as a fraction down it: 0 = where the shoulder
+ *                  arc ends, 1 = where the foot arc begins (SQ-21, Nathan 11-06: the
+ *                  services tab in front of the clients tab; proposed 0.5)
  *   ?dirtabfoot    the filter tab's bottom run past its rounded foot, in units of the tab's
  *                  height (SQ-21; proposed, Nathan dials it)
+ *   ?dirtabangle   the tab's diagonal, degrees from horizontal (SQ-21, Nathan 11-06
+ *                  "a bit steeper"; proposed 55, was 46.4)
+ *   ?dirtabtr      the tab's top-right shoulder, as its reach in tab heights (proposed
+ *                  0.161, the look it had at 46.4deg)
+ *   ?dirtabtl      the tab's top-left corner, the same way (proposed 0.161, so it reads
+ *                  as tight as the shoulder; was 0.375)
+ *   ?dirtabbr      the tab's bottom-right foot, the same way (proposed 0.11, tighter than
+ *                  the shoulder because a concave curve into a short run reads rounder)
  */
 import { DIRECTORY_PLAYERS, DIRECTORY_DWELL_MS } from '../imageConfig.js';
 import { LOGO_DIALS } from './logoTile.js';
@@ -45,8 +55,12 @@ export const PARAM_KEYS = {
   logoCenter: 'dirlogocenter',
   pack: 'dirpack',
   look: 'dirlook',
-  tabOverlap: 'dirtaboverlap',
+  tabMeet: 'dirtabmeet',
   tabFoot: 'dirtabfoot',
+  tabAngle: 'dirtabangle',
+  tabTR: 'dirtabtr',
+  tabTL: 'dirtabtl',
+  tabBR: 'dirtabbr',
 };
 
 /** The orders ?dirorder takes. */
@@ -69,8 +83,12 @@ export const SSR_TUNE = {
   logoCenter: LOGO_DIALS.center,
   pack: 'flush',
   look: LOOK,
-  tabOverlap: 14,
+  tabMeet: 0.5,
   tabFoot: 0.5,
+  tabAngle: 55,
+  tabTR: 0.161,
+  tabTL: 0.161,
+  tabBR: 0.11,
 };
 
 /** What each numeric knob accepts, from the URL or the bench. */
@@ -85,28 +103,34 @@ export const TUNE_OK = {
   logoLand: (n) => n >= 1,
   logoCenter: (n) => n >= 0 && n <= 1,
   look: (n) => Number.isInteger(n) && n >= 1 && n <= 32,
-  tabOverlap: (n) => n >= 0 && n <= 24,
+  tabMeet: (n) => n >= 0 && n <= 1,
   tabFoot: (n) => n >= 0 && n <= 2,
+  tabAngle: (n) => n >= 40 && n <= 75,
+  tabTR: (n) => n >= 0 && n <= 0.4,
+  tabTL: (n) => n >= 0 && n <= 0.4,
+  tabBR: (n) => n >= 0 && n <= 0.4,
 };
 
 /* The filter tab's shape (SQ-21, Nathan 11-05: "a rounded off folder tab ... the
    right side having more of an obtuse diagonal line that travels to the bottom of
-   the tab container, rounding off and following along the bottom edge briefly").
-   Measured off his reference icon's stroke centreline, as ratios of the tab's
-   height H (top edge to bottom edge, 68px in the reference): a rounded top-left
-   corner of 0.375 H, a flat top, a rounded shoulder and a rounded foot of 0.375 H
-   each side of a straight diagonal at slope 1.05 (about 46deg, so 134deg to the
-   top edge), the run from the shoulder to the foot's end about 1.26 H. All baked
-   from the reference; only the bottom run past the foot is a proposal (?dirtabfoot,
-   in H). Here H is the stroke centreline's height (the tab's box less its 1px).
+   the tab container, rounding off and following along the bottom edge briefly";
+   11-06: "the angle a bit steeper on the right side ... the left corner and bottom
+   right corner ... tighter like the top right corner").
+   Ratios of the tab's height H (here the stroke centreline's height, the tab's box
+   less its 1px): a straight left side up to a rounded top-left corner, a flat top, a
+   rounded shoulder, a straight diagonal, a rounded foot, a short bottom run. The
+   angle, the three corners and the run are PROPOSED dials, not baked (?dirtabangle,
+   ?dirtabtr, ?dirtabtl, ?dirtabbr, ?dirtabfoot).
+   A corner is set by its REACH, how far its curve runs along each edge from the sharp
+   corner, which is r * tan(turn / 2): corners that turn through different angles (the
+   top-left turns 90deg, the shoulder and the foot turn by the diagonal's angle) read
+   alike when their reaches match, and a corner keeps its look as the angle moves.
    Three SVGs draw the outline, all as tall as the centreline and at the same top, so
    they snap to the same pixel row at any zoom: the left cap (the vertical and the
-   rounded corner, TAB_CAP), a stretched straight line (the flat top; a stretch moves
+   rounded corner, tabCap), a stretched straight line (the flat top; a stretch moves
    nothing but its length), and the right-hand skirt (tabSkirt). Each cap and skirt
    is drawn in a box 1000 units high, so a uniform scale keeps every radius round at
    any text size. */
-export const TAB_RADIUS = 0.375;
-export const TAB_SLOPE = 1.05;
 
 /** How far the skirt's black fill runs past the bottom stroke's centreline (units
     of the 1000-high skirt box, about 1.2px at the 1440 tab): the next tab's
@@ -115,36 +139,49 @@ export const TAB_SLOPE = 1.05;
     peeks out under the foot. Black on the black panel top, so nothing shows. */
 export const TAB_FILL_BELOW = 60;
 
-/** The left cap's viewBox width (its height is 1000) and open stroke: up the left
-    side, round the corner and to where the flat top begins. */
-export const TAB_CAP_W = TAB_RADIUS * 1000;
-export const TAB_CAP = `M0 1000V${TAB_CAP_W}A${TAB_CAP_W} ${TAB_CAP_W} 0 0 1 ${TAB_CAP_W} 0`;
+/** The left cap for a top-left reach of `tl` H: the viewBox width (its height is
+    1000), the width as a share of the height, and the open stroke, up the left side,
+    round the corner and to where the flat top begins. A 90deg turn, so the radius IS
+    the reach; a floor of 0.001 keeps a zero reach a drawable box. */
+export function tabCap(tl) {
+  const w = Math.max(tl, 0.001) * 1000;
+  return { width: w, ratio: w / 1000, stroke: `M0 1000V${w}A${w} ${w} 0 0 1 ${w} 0` };
+}
 
 /** The flat top: a straight line in a stretched 100-unit-wide box, 2 units past
     each end so it overlaps the cap and the skirt. */
 export const TAB_TOP = 'M-2 0H102';
 
-/** The tab's right-hand skirt for a bottom run of `foot` H: the viewBox width
-    (its height is 1000), the open stroke (shoulder, diagonal, foot, bottom run),
-    the fill that closes it along the bottom, and the run in H up to the foot's
-    end. The stroke starts 20 units left of the label's edge, so the two never
-    part at a fractional pixel. */
-export function tabSkirt(foot) {
+/** The tab's right-hand skirt: the diagonal at `angle` degrees from horizontal, the
+    shoulder and the foot curved to reaches `tr` and `br` (H), then a bottom run of
+    `foot` H. Returns the viewBox width (its height is 1000), the open stroke, the
+    fill that closes it along the bottom, the run in H up to the foot's end, and the
+    tuck: how far, in thousandths of the skirt box's height, the next tab's left
+    stroke sits back from the skirt's right end so it meets the straight diagonal
+    `meet` of the way down (0 at the shoulder arc's end, 1 at the foot arc's start). The
+    stroke starts 20 units left of the label's edge, so the two never part at a
+    fractional pixel. The two radii shrink together if their curves would use more
+    than the box's height, so the diagonal's length never goes negative. */
+export function tabSkirt({ angle, tr, br, foot, meet }) {
   const k = 1000;
-  const r = TAB_RADIUS * k;
-  const th = Math.atan(TAB_SLOPE);
+  const th = (angle * Math.PI) / 180;
   const [sin, cos] = [Math.sin(th), Math.cos(th)];
-  const [ax, ay] = [r * sin, r * (1 - cos)];
-  const len = (k - 2 * ay) / sin;
+  const half = Math.tan(th / 2);
+  let [rs, rf] = [(tr * k) / half, (br * k) / half];
+  const drop = (rs + rf) * (1 - cos);
+  if (drop > k) [rs, rf] = [(rs * k) / drop, (rf * k) / drop];
+  const [ax, ay] = [rs * sin, rs * (1 - cos)];
+  const len = (k - (rs + rf) * (1 - cos)) / sin;
   const bx = ax + len * cos;
   const by = ay + len * sin;
   const num = (n) => Number(n.toFixed(2));
-  const footX = bx + ax;
+  const footX = bx + rf * sin;
   const width = num(footX + foot * k);
   const stroke =
-    `M-20 0H0A${r} ${r} 0 0 1 ${num(ax)} ${num(ay)}L${num(bx)} ${num(by)}` +
-    `A${r} ${r} 0 0 0 ${num(footX)} ${k}H${width}`;
-  return { width, stroke, fill: `${stroke}V${k + TAB_FILL_BELOW}H-20Z`, run: footX / k };
+    `M-20 0H0A${num(rs)} ${num(rs)} 0 0 1 ${num(ax)} ${num(ay)}L${num(bx)} ${num(by)}` +
+    `A${num(rf)} ${num(rf)} 0 0 0 ${num(footX)} ${k}H${width}`;
+  const meetX = ax + meet * (bx - ax);
+  return { width, stroke, fill: `${stroke}V${k + TAB_FILL_BELOW}H-20Z`, run: footX / k, tuck: (width - meetX) / k };
 }
 
 /** The defaults on this device: the phone's players cap at ≤768px, the
@@ -180,8 +217,12 @@ export function readTune(search, defaults) {
     logoCenter: numberAt('logoCenter'),
     pack: PACKS.includes(params.get(PARAM_KEYS.pack)) ? params.get(PARAM_KEYS.pack) : defaults.pack,
     look: numberAt('look'),
-    tabOverlap: numberAt('tabOverlap'),
+    tabMeet: numberAt('tabMeet'),
     tabFoot: numberAt('tabFoot'),
+    tabAngle: numberAt('tabAngle'),
+    tabTR: numberAt('tabTR'),
+    tabTL: numberAt('tabTL'),
+    tabBR: numberAt('tabBR'),
   };
 }
 

@@ -477,18 +477,26 @@ until Nathan names a number.
   client chip's) with no stroke under the word (Nathan 11-05: "a rounded off folder tab ... the right
   side having more of an obtuse diagonal line that travels to the bottom of the tab container, rounding
   off and following along the bottom edge briefly").
-  - **Shape**, measured off his reference icon's stroke centreline, as ratios of the tab's height H:
-    a straight left side up to a rounded corner (0.375 H), a flat top over the word, a rounded
-    shoulder (0.375 H) into a straight diagonal at slope 1.05 (about 134deg to the top), a rounded
-    foot (0.375 H) and a bottom run (`?dirtabfoot`, proposed 0.5 H; the reference is cropped there).
-    Three SVGs draw it, all as tall as the stroke's centreline and at one top (so they snap to the
-    same pixel row): a cap (the left side and the corner), a stretched straight line (the flat top)
-    and a skirt (shoulder, diagonal, foot, bottom run; `tabSkirt`). Each curved piece is uniformly
-    scaled with a non-scaling 1px stroke, so the radii stay round at any text size. H here is the
-    centreline's height: 20px at 1440 (radii 7.5px), 18px at 390 (6.75px).
+  - **Shape** (Nathan 11-05 reference, 11-06 tightening), as ratios of the tab's height H (the stroke
+    centreline's height): a straight left side up to a rounded top-left corner, a flat top over the
+    word, a rounded shoulder into a straight diagonal, a rounded foot and a bottom run. All PROPOSED
+    dials: the diagonal `?dirtabangle` (55deg; 46.4 before), the bottom run `?dirtabfoot` (0.5 H) and
+    the three corners by their REACH, the distance a curve runs along each edge from the sharp corner,
+    r·tan(turn/2): `?dirtabtr` (shoulder, 0.161 H), `?dirtabtl` (top-left, 0.161 H; was 0.375 H, which
+    read 2.3x rounder than the shoulder) and `?dirtabbr` (foot, 0.11 H, tighter than the shoulder
+    because a concave curve into a short run reads rounder). Reach, not radius, so a corner keeps its
+    look when the angle moves. Three SVGs draw it, all as tall as the stroke's centreline and at one top
+    (so they snap to the same pixel row): a cap (the left side and the corner; `tabCap`), a stretched
+    straight line (the flat top) and a skirt (shoulder, diagonal, foot, bottom run; `tabSkirt`). Each
+    curved piece is uniformly scaled with a non-scaling 1px stroke, so the radii stay round at any text
+    size.
   - The row's left padding is the tags' (`--space-4`), so the strokes line up with the check boxes.
-  - The next tab tucks `?dirtaboverlap` px under the previous tab's skirt (proposed 14, Nathan dials
-    it). The active tab has `z-index` 2 and an opaque black fill, so its outline is the whole one.
+  - The next tab's left stroke meets the previous tab's straight diagonal (`?dirtabmeet`, PROPOSED 0.5 of
+    the way down; 0 = the shoulder arc's end, 1 = the foot arc's start), derived from the skirt's own
+    geometry so it follows the angle, the corners and the text size (Nathan 11-06: the services tab in
+    front of the clients tab). The active tab has `z-index` 2 and an opaque black fill, so its outline is
+    the whole one: services active, the clients' left line shows only above the diagonal; clients
+    active, its left edge runs the full height and its label hides the services skirt.
   - Left / Right (wrapping), Home and End move between the tabs, with a roving `tabindex`.
     `role="tab"` carries `aria-selected` and `aria-controls`; each panel is `role="tabpanel"` with
     `aria-labelledby`. The inactive panel is `inert` and `visibility: hidden`; a shut filter makes both inert.

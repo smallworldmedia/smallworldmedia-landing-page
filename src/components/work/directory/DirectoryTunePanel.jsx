@@ -32,7 +32,11 @@ const FIELDS = [
   },
   { key: 'logoLand', label: 'logo land', hint: 'the aspect from which a mark takes a landscape canvas, not a square' },
   { key: 'logoCenter', label: 'logo centre', hint: "0 = centre the mark's box; 1 = centre its centre of mass (0 to 1)" },
-  { key: 'tabOverlap', label: 'tab overlap', hint: "px the next filter tab sits under the previous tab's diagonal skirt (0 to 24)" },
+  { key: 'tabMeet', label: 'tab meet', hint: "where the next filter tab's left stroke meets the previous tab's diagonal, as a fraction down it (0 = shoulder, 1 = foot)" },
+  { key: 'tabAngle', label: 'tab angle', hint: "a filter tab's diagonal, degrees from horizontal (40 to 75)" },
+  { key: 'tabTR', label: 'tab top-right', hint: "the tab's shoulder, as its reach along each edge in tab heights (0 to 0.4)" },
+  { key: 'tabTL', label: 'tab top-left', hint: "the tab's top-left corner, the same way (0 to 0.4)" },
+  { key: 'tabBR', label: 'tab foot corner', hint: "the tab's foot where the diagonal meets the bottom, the same way (0 to 0.4)" },
   { key: 'tabFoot', label: 'tab foot', hint: "a filter tab's bottom run past its rounded foot, in tab heights (0 to 2)" },
 ];
 

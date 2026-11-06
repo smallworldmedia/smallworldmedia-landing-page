@@ -57,6 +57,8 @@ html:has(.dir-page) body {
      and the open list's cap reads that, so the region stays under
      100dvh − nav − bar. */
   --dir-tab-h: calc(var(--text-link) + 2 * var(--space-1) + 1px);
+  /* The tab's stroke centreline height: half a pixel in from its top and bottom. */
+  --dir-tab-c: calc(var(--dir-tab-h) - 1px);
   --dir-tabs-h: calc(var(--space-4) + var(--dir-tab-h));
   position: sticky;
   top: var(--dir-dock);
@@ -153,12 +155,13 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
    corner and along the flat top over the word, then turns a rounded shoulder
    down a diagonal to a rounded foot and a short bottom run, with no stroke
    under the word. The label's box draws the left and the top (the corner is a
-   border-radius of 0.375 H); the SVG skirt draws the rest from the same
-   ratios (directoryTune.js tabSkirt), uniformly scaled so the radii stay round.
+   border-radius of ?dirtabtl H); the SVG skirt draws the rest from the same
+   dials (directoryTune.js tabSkirt), uniformly scaled so the radii stay round.
    The container is padded on the left like the tags, so the strokes line up
-   with the check boxes. The next tab tucks ?dirtaboverlap px under the
-   previous one's skirt; the active one lies on top, on opaque black, so its
-   outline is the whole one. */
+   with the check boxes. The next tab's left stroke meets the previous one's
+   diagonal (?dirtabmeet: --dir-skirt-tuck is the skirt's width past that
+   point, in thousandths of its height); the active one lies on top, on opaque
+   black, so its outline is the whole one. */
 .dir-filter__tablist {
   display: flex;
   padding: var(--space-4) var(--space-4) 0;
@@ -183,7 +186,9 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 }
 
 .dir-filter__tab + .dir-filter__tab {
-  margin-left: calc(-1 * var(--dir-tab-overlap, 14px));
+  /* The skirt's width past the meeting point, plus the half pixel from the
+     tab's edge to its stroke's centre, so that centre lands on the diagonal. */
+  margin-left: calc(-1 * (var(--dir-skirt-tuck, 0.5) * var(--dir-tab-c) + 0.5px));
 }
 
 .dir-filter__tab[aria-selected='true'] {
@@ -197,7 +202,7 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   align-items: center;
   height: 100%;
   padding: 0 var(--space-2) 0 var(--space-3);
-  border-top-left-radius: calc(var(--dir-tab-h) * 0.375);
+  border-top-left-radius: calc(var(--dir-tab-h) * var(--dir-tab-tl, 0.161));
   background: var(--color-black);
 }
 
@@ -209,7 +214,6 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 .dir-filter__tab-cap,
 .dir-filter__tab-top,
 .dir-filter__tab-skirt {
-  --dir-tab-c: calc(var(--dir-tab-h) - 1px);
   overflow: visible;
   height: var(--dir-tab-c);
   pointer-events: none;
@@ -219,14 +223,14 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   position: absolute;
   top: 0.5px;
   left: 0.5px;
-  aspect-ratio: 375 / 1000;
+  aspect-ratio: var(--dir-tab-tl, 0.161);
 }
 
 .dir-filter__tab-top {
   position: absolute;
   top: 0.5px;
-  left: calc(0.5px + var(--dir-tab-c) * 0.375);
-  width: calc(100% - 0.5px - var(--dir-tab-c) * 0.375);
+  left: calc(0.5px + var(--dir-tab-c) * var(--dir-tab-tl, 0.161));
+  width: calc(100% - 0.5px - var(--dir-tab-c) * var(--dir-tab-tl, 0.161));
 }
 
 .dir-filter__tab-skirt {

@@ -20,7 +20,7 @@ import {
   sameFilter,
   sizesFor,
 } from '../../src/components/work/directory/buildDirectoryTiles.js'
-import { SSR_TUNE, readTune, tabSkirt, TAB_RADIUS, TAB_SLOPE } from '../../src/components/work/directory/directoryTune.js'
+import { SSR_TUNE, readTune, tabCap, tabSkirt } from '../../src/components/work/directory/directoryTune.js'
 import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
 import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
 
@@ -379,12 +379,21 @@ test('readTune — the order and the columns per band, from the URL over the def
   assert.equal(readTune('?dirpack=masonry', SSR_TUNE).pack, 'flush')
   assert.equal(readTune('?dirlook=12', SSR_TUNE).look, 12)
   assert.equal(readTune('?dirlook=0', SSR_TUNE).look, SSR_TUNE.look, 'a lookahead of 0 falls back')
-  // the filter tabs' overlap (SQ-21): proposed 14px, 0 to 24
-  assert.equal(readTune('', SSR_TUNE).tabOverlap, 14)
-  assert.equal(readTune('?dirtaboverlap=0', SSR_TUNE).tabOverlap, 0, 'no overlap is a value')
-  assert.equal(readTune('?dirtaboverlap=10.5', SSR_TUNE).tabOverlap, 10.5)
-  assert.equal(readTune('?dirtaboverlap=-2', SSR_TUNE).tabOverlap, 14, 'negative falls back')
-  assert.equal(readTune('?dirtaboverlap=99', SSR_TUNE).tabOverlap, 14, 'past 24 falls back')
+  // where the next tab's left stroke meets the previous tab's diagonal (SQ-21): proposed 0.5 of the way down, 0 to 1
+  assert.equal(readTune('', SSR_TUNE).tabMeet, 0.5)
+  assert.equal(readTune('?dirtabmeet=0', SSR_TUNE).tabMeet, 0, 'the shoulder end is a value')
+  assert.equal(readTune('?dirtabmeet=0.7', SSR_TUNE).tabMeet, 0.7)
+  assert.equal(readTune('?dirtabmeet=-0.1', SSR_TUNE).tabMeet, 0.5, 'negative falls back')
+  assert.equal(readTune('?dirtabmeet=1.5', SSR_TUNE).tabMeet, 0.5, 'past 1 falls back')
+  // the tab's diagonal and its three corners (SQ-21, Nathan 11-06): proposed 55deg, reaches 0.161 / 0.161 / 0.11 H
+  const shape = (t) => [t.tabAngle, t.tabTR, t.tabTL, t.tabBR]
+  assert.deepEqual(shape(readTune('', SSR_TUNE)), [55, 0.161, 0.161, 0.11])
+  assert.deepEqual(
+    shape(readTune('?dirtabangle=46.4&dirtabtr=0.161&dirtabtl=0.375&dirtabbr=0.161', SSR_TUNE)),
+    [46.4, 0.161, 0.375, 0.161],
+    'the earlier look is reachable by URL'
+  )
+  assert.deepEqual(shape(readTune('?dirtabangle=20&dirtabtr=0.5&dirtabtl=-1&dirtabbr=x', SSR_TUNE)), [55, 0.161, 0.161, 0.11], 'out of range falls back')
   // the tab's bottom run (SQ-21): proposed 0.5 H, 0 to 2
   assert.equal(readTune('', SSR_TUNE).tabFoot, 0.5)
   assert.equal(readTune('?dirtabfoot=0', SSR_TUNE).tabFoot, 0, 'no bottom run is a value')
@@ -393,27 +402,54 @@ test('readTune — the order and the columns per band, from the URL over the def
   assert.equal(readTune('?dirtabfoot=3', SSR_TUNE).tabFoot, 0.5, 'past 2 falls back')
 })
 
-test('tabSkirt draws the reference folder tab, an obtuse diagonal over rounded ends and a short bottom run', () => {
-  const s = tabSkirt(0.5)
-  // the shoulder arc ends at (r1x, r1y), the diagonal at (sx, sy), the foot arc at (fx, fy)
-  const m = s.stroke.match(/^M-20 0H0A(\d+) \d+ 0 0 1 ([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)A\d+ \d+ 0 0 0 ([\d.]+) ([\d.]+)H([\d.]+)$/)
-  assert.ok(m, s.stroke)
-  const [radius, r1x, r1y, sx, sy, fx, fy, runTo] = m.slice(1).map(Number)
-  assert.equal(radius, TAB_RADIUS * 1000, 'the shoulder is as round as the corner')
-  // the diagonal's slope is the reference's (about 46 degrees, 134 to the flat top)
-  assert.ok(Math.abs((sy - r1y) / (sx - r1x) - TAB_SLOPE) < 0.01, 'the diagonal keeps the reference slope')
-  // it lands on the bottom edge and runs 0.5 H past the foot
-  assert.equal(fy, 1000, 'the foot finishes on the bottom edge')
-  assert.equal(runTo, s.width)
-  assert.ok(Math.abs(runTo - fx - 500) < 0.01, 'a bottom run of 0.5 H')
-  // the shoulder to the foot's end is about 1.2 H wide (the reference's 1.25)
-  assert.ok(s.run > 1.2 && s.run < 1.32, `run ${s.run}`)
-  // open stroke, closed fill
-  assert.ok(!s.stroke.includes('Z') && s.fill.endsWith('Z'))
-  // the fill runs past the bottom stroke so the next tab's line ends under it
-  assert.ok(s.fill.startsWith(s.stroke + 'V') && Number(s.fill.match(/V([\d.]+)H-20Z$/)[1]) > 1000, 'the fill runs below the bottom stroke')
-  // no bottom run, no foot dial: the skirt ends where the foot does
-  assert.equal(tabSkirt(0).width, Math.round(tabSkirt(0).run * 1000 * 100) / 100)
+const SKIRT_PATH = /^M-20 0H0A([\d.]+) [\d.]+ 0 0 1 ([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)A([\d.]+) [\d.]+ 0 0 0 ([\d.]+) ([\d.]+)H([\d.]+)$/
+
+test('tabSkirt draws the dialed angle and corner reaches, and the tuck meets the diagonal', () => {
+  const sets = [
+    { angle: 55, tr: 0.161, br: 0.11, foot: 0.5, meet: 0.5 },
+    { angle: 46.4, tr: 0.161, br: 0.161, foot: 0.5, meet: 0.5 },
+    { angle: 70, tr: 0.3, br: 0.05, foot: 0, meet: 0.3 },
+    { angle: 42, tr: 0.02, br: 0.4, foot: 1.5, meet: 1 },
+  ]
+  for (const dial of sets) {
+    const s = tabSkirt(dial)
+    const m = s.stroke.match(SKIRT_PATH)
+    assert.ok(m, s.stroke)
+    // the shoulder arc ends at (ax, ay), the diagonal at (bx, by), the foot arc at (fx, fy)
+    const [rs, ax, ay, bx, by, rf, fx, fy, runTo] = m.slice(1).map(Number)
+    const tan = Math.tan((dial.angle * Math.PI) / 180)
+    // the diagonal's angle is the dial
+    const deg = (Math.atan2(by - ay, bx - ax) * 180) / Math.PI
+    assert.ok(Math.abs(deg - dial.angle) < 0.05, `angle ${deg} for ${dial.angle}`)
+    // each corner's reach (how far its curve runs along the flat edge from the sharp corner) is its dial
+    assert.ok(Math.abs(ax - ay / tan - dial.tr * 1000) < 0.5, 'the shoulder reach is the dial')
+    assert.ok(Math.abs(fx - (bx + (1000 - by) / tan) - dial.br * 1000) < 0.5, 'the foot reach is the dial')
+    assert.ok(rs > 0 && rf > 0 && by >= ay, 'the diagonal never runs backwards')
+    // it lands on the bottom edge and runs `foot` H past the foot
+    assert.equal(fy, 1000, 'the foot finishes on the bottom edge')
+    assert.equal(runTo, s.width)
+    assert.ok(Math.abs(runTo - fx - dial.foot * 1000) < 0.01, 'the bottom run is the dial')
+    // the next tab's left stroke sits `meet` of the way down the straight diagonal
+    const at = (s.width - s.tuck * 1000 - ax) / (bx - ax)
+    assert.ok(Math.abs(at - dial.meet) < 0.001, `meets at ${at} for ${dial.meet}`)
+    // open stroke, closed fill that runs past the bottom stroke so the next tab's line ends under it
+    assert.ok(!s.stroke.includes('Z') && s.fill.endsWith('Z'))
+    assert.ok(s.fill.startsWith(s.stroke + 'V') && Number(s.fill.match(/V([\d.]+)H-20Z$/)[1]) > 1000, 'the fill runs below the bottom stroke')
+  }
+})
+
+test('tabSkirt keeps the diagonal when both corners ask for more than the box', () => {
+  const s = tabSkirt({ angle: 75, tr: 4, br: 4, foot: 0, meet: 0.5 })
+  const [, ax, ay, bx, by] = s.stroke.match(SKIRT_PATH).slice(1).map(Number)
+  assert.ok(by - ay >= -0.01 && bx >= ax, 'a zero-length diagonal at worst')
+})
+
+test('tabCap rounds the top-left corner to its reach and never collapses', () => {
+  const c = tabCap(0.161)
+  assert.equal(c.width, 161)
+  assert.equal(c.stroke, 'M0 1000V161A161 161 0 0 1 161 0', 'a 90deg turn, so the radius is the reach')
+  assert.ok(Math.abs(c.ratio - 0.161) < 1e-9)
+  assert.ok(tabCap(0).width > 0, 'a zero reach is still a drawable box')
 })
 
 test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio order and need tiles in the coverage', () => {
