@@ -24,12 +24,18 @@
  * its poster, and a player mounts only while the gate grants it. A tile with
  * a featured project links to it (named by the project); the rest are media
  * only. No hover label.
+ *
+ * ?dirpack=aspect (SQ-20) packs with chunkAspectGrid (aspectGrid.js) instead:
+ * each tile at its own shape, the same chunks, a placement naming its tile by
+ * `index` (the packer may reorder within ?dirlook), every face covering
+ * unless it is really transparent. The server render packs it at 1440px too.
  */
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import MediaSlot from '../detail/MediaSlot.jsx';
 import LogoMark from './LogoMark.jsx';
 import { CANVAS_RATIO, canvasOf } from './logoTile.js';
 import { chunkFlushGrid } from '../detail/flushGrid.js';
+import { chunkAspectGrid, LOOK } from './aspectGrid.js';
 import { ratioOf } from '../detail/buildContentFlow.js';
 import {
   TILE_SHAPE,
@@ -60,7 +66,10 @@ const fallbackRows = (cols) => rowsFor((1440 - (cols - 1) * 2) / cols / TILE_SHA
 
 /* A tile's box always renders; its media only while `live` (the window). A
    window change re-renders only the tiles it flips. */
-const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSpec, live, logoDials }) {
+const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSpec, live, logoDials, aspect }) {
+  // aspect: the cell is the tile's own shape, so only real transparency contains
+  const fit = aspect ? (tile.clear ? 'contain' : 'cover') : tile.fit;
+  const actual = aspect ? { span: placement.colSpan, cell: placement.cell } : null;
   const slot =
     live &&
     (tile.logo ? (
@@ -70,14 +79,15 @@ const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSp
         asset={tile}
         gate={gate}
         clip={PREVIEW_SECONDS}
-        sizes={sizesFor(placement.type, ratioOf(tile), tile.fit, colSpec)}
-        fit={tile.fit}
+        sizes={sizesFor(placement.type, ratioOf(tile), fit, colSpec, actual)}
+        fit={fit}
       />
     ));
   const props = {
     className: 'dir-tile',
     'data-tile': placement.type,
     'data-logo': tile.logo ? '' : undefined,
+    'data-ground': tile.ground,
     style: placementStyle(placement),
   };
   return tile.href ? (
@@ -99,6 +109,8 @@ const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSp
  * @param {number} props.dwellMs - the gate's dwell
  * @param {boolean} [props.shuffled=false] - the order is drawn after hydration: mount no media before the first measure
  * @param {Object} [props.logoDials] - the logo tiles' pad / weight / land / center (logoTile.js)
+ * @param {'flush'|'aspect'} [props.pack='flush'] - the packer (?dirpack)
+ * @param {number} [props.look] - aspect packing's lookahead (?dirlook)
  * @param {() => void} [props.onReady] - once, after the first render at the measured width
  */
 export default function DirectoryGrid({
@@ -110,8 +122,11 @@ export default function DirectoryGrid({
   dwellMs,
   shuffled = false,
   logoDials,
+  pack = 'flush',
+  look = LOOK,
   onReady,
 }) {
+  const aspect = pack === 'aspect';
   // A logo tile's canvas (a square, or a landscape for a wide mark) is its
   // shape in the flush grid: tileRatio is what ratioOf reads (logoTile.js).
   const tiles = useMemo(
@@ -134,9 +149,15 @@ export default function DirectoryGrid({
   const rows = metrics ? tileRowsFor({ ...metrics, cols }, tileShape) : null;
   const sqRows = rows?.sq ?? fallbackRows(deskCols);
   const lsRows = rows?.ls ?? sqRows;
+  // aspect packs by the measured width (the server render: 1440, the 2px gap)
+  const width = metrics?.width ?? 1440;
+  const gap = metrics ? metrics.rowGap : 2;
   const chunks = useMemo(
-    () => chunkFlushGrid(tiles, { cols, sqRows, lsRows }),
-    [tiles, cols, sqRows, lsRows]
+    () =>
+      aspect
+        ? chunkAspectGrid(tiles, { cols, width, gap, look })
+        : chunkFlushGrid(tiles, { cols, sqRows, lsRows }),
+    [aspect, tiles, cols, width, gap, look, sqRows, lsRows]
   );
 
   const [gate, setGate] = useState(NO_GATE);
@@ -202,7 +223,7 @@ export default function DirectoryGrid({
       {chunks.map((c, k) => (
         <div key={k} className="dir-grid" data-chunk={k} style={{ '--chunk-rows': c.totalRows }}>
           {c.placements.map((p, i) => {
-            const tile = tiles[c.start + i];
+            const tile = tiles[p.index ?? c.start + i];
             return (
               <DirectoryTile
                 key={tile._id}
@@ -211,6 +232,7 @@ export default function DirectoryGrid({
                 gate={gate}
                 colSpec={colSpec}
                 logoDials={logoDials}
+                aspect={aspect}
                 live={near.has(k)}
               />
             );

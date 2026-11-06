@@ -339,7 +339,7 @@ test('the default filter: a bare URL starts on album-art, any filter key in the 
   assert.equal(filterSearch('', [], null, false), '?tag=', 'clear is "every work"')
 })
 
-test('readTune: the order and the columns per band, from the URL over the defaults', () => {
+test('readTune — the order and the columns per band, from the URL over the defaults', () => {
   assert.deepEqual(
     { cols: SSR_TUNE.cols, tabletCols: SSR_TUNE.tabletCols, phoneCols: SSR_TUNE.phoneCols, order: SSR_TUNE.order },
     { cols: 5, tabletCols: 4, phoneCols: 2, order: 'project' },
@@ -355,6 +355,12 @@ test('readTune: the order and the columns per band, from the URL over the defaul
   assert.deepEqual([t.cols, t.tabletCols, t.phoneCols], [6, 3, 1])
   const bad = readTune('?dircols=0&dirtabletcols=2.5&dirphonecols=3', SSR_TUNE)
   assert.deepEqual([bad.cols, bad.tabletCols, bad.phoneCols], [5, 4, 2], 'garbage falls back')
+  // the packer (SQ-20): flush until baked; aspect's lookahead
+  assert.equal(readTune('', SSR_TUNE).pack, 'flush')
+  assert.equal(readTune('?dirpack=aspect', SSR_TUNE).pack, 'aspect')
+  assert.equal(readTune('?dirpack=masonry', SSR_TUNE).pack, 'flush')
+  assert.equal(readTune('?dirlook=12', SSR_TUNE).look, 12)
+  assert.equal(readTune('?dirlook=0', SSR_TUNE).look, SSR_TUNE.look, 'a lookahead of 0 falls back')
 })
 
 test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio order and need tiles in the coverage', () => {
@@ -372,7 +378,7 @@ test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio or
   assert.deepEqual(sanitizeFilter(data, [], ''), { tags: [], client: null })
 })
 
-test('sizesFor: the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
+test('sizesFor — the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
   assert.equal(sizesFor('square', 1, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
   assert.equal(sizesFor('landscape', 1.78, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 67vw')
   assert.equal(sizesFor('portrait', 0.5625, 'cover', { phone: 2 }), '(max-width: 768px) 56vw, (max-width: 1024px) 56vw, 38vw')
@@ -381,6 +387,9 @@ test('sizesFor: the column share at each breakpoint; a cover crop wider than its
   const dir = { phone: 2, tablet: 4, desktop: 5 }
   assert.equal(sizesFor('square', 1, 'cover', dir), '(max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw')
   assert.equal(sizesFor('landscape', 1.78, 'cover', dir), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw')
+  // ?dirpack=aspect: the placement's own span and cell
+  assert.equal(sizesFor('landscape', 4.77, 'cover', dir, { span: 5, cell: 4.77 }), '(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 100vw')
+  assert.equal(sizesFor('square', 1, 'cover', dir, { span: 1, cell: 0.9 }), '(max-width: 768px) 56vw, (max-width: 1024px) 28vw, 22vw')
 })
 
 test('logoFirst: under exactly logo-design the logo tiles lead, each block keeps its order', () => {

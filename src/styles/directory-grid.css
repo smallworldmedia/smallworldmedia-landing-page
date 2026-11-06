@@ -54,6 +54,14 @@
   background: var(--color-near-black);
 }
 
+/* Dark ink on a clear ground (groundOf: "tagline black", the black Ain't
+   Nobody marks) would read as an empty tile on near-black: it gets the house
+   cream instead. Out-specifies the contain ground (media-slot.css). */
+.dir-tile[data-ground='light'] > .media-slot,
+.dir-tile[data-ground='light'] > .media-slot[data-fit='contain'] {
+  background: var(--color-cream);
+}
+
 .dir-tile .media-slot__media {
   object-fit: cover;
   width: 100%;

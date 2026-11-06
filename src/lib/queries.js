@@ -301,6 +301,7 @@ export const DIRECTORY_QUERY = `{
   },
   "worlds": ${FEATURED_PROJECT_PATHS_QUERY},
   "assets": *[_type == "mediaAsset" && !(_id in path("drafts.**")) && (defined(image.asset) || defined(video.asset))] {${MEDIA_FIELDS},
+    "imageIsOpaque": image.asset->metadata.isOpaque,
     orderRank,
     "imageAssetId": image.asset._ref,
     "clientSlug": client->slug.current,

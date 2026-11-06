@@ -61,13 +61,38 @@ const slim = (a) => {
    portrait is two squares tall, a landscape two columns wide. */
 const CELL_RATIO = { portrait: 0.5, square: 1, landscape: 2 };
 
+/* Transparency (SQ-20): `alpha` is the baked measure of every face with an
+   alpha channel that Sanity doesn't call opaque (src/data/directory-alpha.json,
+   prep-directory-logos.mjs --alpha), by image asset id: `clear`, the share of
+   pixels under alpha 250, and `lum`, the opaque pixels' mean luminance. */
+const CLEAR_MIN = 0.02;
+const DARK_INK = 0.3;
+
 /**
- * 'contain' when the picture has transparency (a logo keeps its edges) or a
- * cover crop would lose more than half of it (a 4.77:1 banner in a 2:1
- * cell); otherwise 'cover'.
+ * Whether a face really shows its ground: an alpha channel that Sanity doesn't
+ * call opaque and that measures at least CLEAR_MIN clear. One not measured yet
+ * (a new upload before a re-bake) counts as transparent, the safe default.
  */
-export function fitOf(face) {
-  if (face.imageHasAlpha) return 'contain';
+export function isTransparent(face, alpha) {
+  if (!face.imageHasAlpha || face.imageIsOpaque === true) return false;
+  const m = alpha?.[face.imageAssetId];
+  return m ? m.clear >= CLEAR_MIN : true;
+}
+
+/** 'light' for dark ink on a clear ground (on near-black it would read as an empty tile). */
+export function groundOf(face, alpha) {
+  const m = alpha?.[face.imageAssetId];
+  return isTransparent(face, alpha) && m && m.lum < DARK_INK ? 'light' : undefined;
+}
+
+/**
+ * 'contain' when the picture is really transparent (a logo keeps its edges)
+ * or a cover crop would lose more than half of it (a 4.77:1 banner in a 2:1
+ * cell); otherwise 'cover'. (Under ?dirpack=aspect a tile has its own shape,
+ * so only transparency contains: DirectoryGrid.)
+ */
+export function fitOf(face, alpha) {
+  if (isTransparent(face, alpha)) return 'contain';
   const r = ratioOf(face);
   const cell = CELL_RATIO[classifyTile(r)];
   return Math.min(r, cell) / Math.max(r, cell) < 0.5 ? 'contain' : 'cover';
@@ -97,7 +122,7 @@ function logoVerdict(asset, logos) {
  *        id, each mark with its `src` (directoryData.js)
  * @returns {Array<Object>} tiles in 'project' order
  */
-export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null }) {
+export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null, alpha = null }) {
   const routes = new Map(
     featuredRoutes(worlds).map((w, i) => [
       w.projectId,
@@ -146,25 +171,32 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
 
   return groups.map(({ lane, key, members }) => {
     let face;
+    let source = members[0]; // the asset the face shows (a sequence: its first frame)
     if (members.length > 1 && lane === 'sequence') {
       const frames = members.map(slim);
       face = makeSequence(key, frames, frames.map(ratioOf));
     } else if (members.length > 1 && lane === 'deck') {
       // stable: equal brandDeckOrder keeps orderRank order
-      face = slim([...members].sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0))[0]);
+      source = [...members].sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0))[0];
+      face = slim(source);
     } else {
-      face = slim(members[0]);
+      face = slim(source);
     }
+    const seen = { ...face, imageAssetId: source.imageAssetId, imageIsOpaque: source.imageIsOpaque };
     const tile = {
       ...face,
       client: members[0].clientSlug,
       services: [...new Set(members.flatMap((m) => (m.services ?? []).map((s) => s.slug)))],
-      fit: fitOf(face),
+      fit: fitOf(seen, alpha),
     };
+    if (isTransparent(seen, alpha)) tile.clear = true;
+    const ground = groundOf(seen, alpha);
+    if (ground) tile.ground = ground;
     if (lane === 'showcase' && logoVerdict(members[0], logos) === 'mark') {
       const { w, h, aspect, density, cx, cy, src } = logos[members[0].imageAssetId];
       tile.logo = { src, w, h, aspect, density, cx, cy };
       tile.fit = 'contain';
+      delete tile.ground;
     }
     const route = routes.get(members[0].projectId);
     if (route) {
@@ -263,11 +295,12 @@ export function tagPresence(tiles, coverage) {
  * the detail grid's). A landscape spans two (one in a single column). A cover
  * crop fills the cell's height as well, so a picture wider than its cell
  * renders wider than the cell, by ratio ÷ cell, and asks for that much more
- * (a 9:16 portrait in a 1:2 cell: 1.125×).
+ * (a 9:16 portrait in a 1:2 cell: 1.125×). `actual` ({ span, cell }: the
+ * placement's colSpan and width ÷ height, ?dirpack=aspect) replaces the class's.
  */
-export function sizesFor(type, ratio, fit, { phone = 1, tablet = 2, desktop = 3 } = {}) {
-  const span = type === 'landscape' ? 2 : 1;
-  const cell = CELL_RATIO[type] ?? 1;
+export function sizesFor(type, ratio, fit, { phone = 1, tablet = 2, desktop = 3 } = {}, actual = null) {
+  const span = actual?.span ?? (type === 'landscape' ? 2 : 1);
+  const cell = actual?.cell ?? CELL_RATIO[type] ?? 1;
   const over = fit === 'cover' && ratio > cell ? ratio / cell : 1;
   const vw = (cols) => `${Math.round((100 * Math.min(span, cols) * over) / cols)}vw`;
   return `(max-width: 768px) ${vw(phone)}, (max-width: 1024px) ${vw(tablet)}, ${vw(desktop)}`;
