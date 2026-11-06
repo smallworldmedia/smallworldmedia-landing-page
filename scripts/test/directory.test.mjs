@@ -20,7 +20,7 @@ import {
   sameFilter,
   sizesFor,
 } from '../../src/components/work/directory/buildDirectoryTiles.js'
-import { SSR_TUNE, readTune, tabCap, tabSkirt } from '../../src/components/work/directory/directoryTune.js'
+import { PARAM_KEYS, SSR_TUNE, TAB_SHAPE, readTune, tabCap, tabSkirt } from '../../src/components/work/directory/directoryTune.js'
 import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
 import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
 
@@ -379,27 +379,16 @@ test('readTune — the order and the columns per band, from the URL over the def
   assert.equal(readTune('?dirpack=masonry', SSR_TUNE).pack, 'flush')
   assert.equal(readTune('?dirlook=12', SSR_TUNE).look, 12)
   assert.equal(readTune('?dirlook=0', SSR_TUNE).look, SSR_TUNE.look, 'a lookahead of 0 falls back')
-  // where the next tab's left stroke meets the previous tab's diagonal (SQ-21): proposed 0.5 of the way down, 0 to 1
-  assert.equal(readTune('', SSR_TUNE).tabMeet, 0.5)
-  assert.equal(readTune('?dirtabmeet=0', SSR_TUNE).tabMeet, 0, 'the shoulder end is a value')
-  assert.equal(readTune('?dirtabmeet=0.7', SSR_TUNE).tabMeet, 0.7)
-  assert.equal(readTune('?dirtabmeet=-0.1', SSR_TUNE).tabMeet, 0.5, 'negative falls back')
-  assert.equal(readTune('?dirtabmeet=1.5', SSR_TUNE).tabMeet, 0.5, 'past 1 falls back')
-  // the tab's diagonal and its three corners (SQ-21, Nathan 11-06): proposed 55deg, reaches 0.161 / 0.161 / 0.11 H
-  const shape = (t) => [t.tabAngle, t.tabTR, t.tabTL, t.tabBR]
-  assert.deepEqual(shape(readTune('', SSR_TUNE)), [55, 0.161, 0.161, 0.11])
-  assert.deepEqual(
-    shape(readTune('?dirtabangle=46.4&dirtabtr=0.161&dirtabtl=0.375&dirtabbr=0.161', SSR_TUNE)),
-    [46.4, 0.161, 0.375, 0.161],
-    'the earlier look is reachable by URL'
-  )
-  assert.deepEqual(shape(readTune('?dirtabangle=20&dirtabtr=0.5&dirtabtl=-1&dirtabbr=x', SSR_TUNE)), [55, 0.161, 0.161, 0.11], 'out of range falls back')
-  // the tab's bottom run (SQ-21): proposed 0.5 H, 0 to 2
-  assert.equal(readTune('', SSR_TUNE).tabFoot, 0.5)
-  assert.equal(readTune('?dirtabfoot=0', SSR_TUNE).tabFoot, 0, 'no bottom run is a value')
-  assert.equal(readTune('?dirtabfoot=1.25', SSR_TUNE).tabFoot, 1.25)
-  assert.equal(readTune('?dirtabfoot=-1', SSR_TUNE).tabFoot, 0.5, 'negative falls back')
-  assert.equal(readTune('?dirtabfoot=3', SSR_TUNE).tabFoot, 0.5, 'past 2 falls back')
+})
+
+test('TAB_SHAPE holds the six numbers Nathan baked and the URL no longer moves them', () => {
+  assert.deepEqual(TAB_SHAPE, { angle: 55, tr: 0.161, tl: 0.161, br: 0.11, foot: 0.5, meet: 0.5 })
+  const t = readTune('?dirtabangle=60&dirtabmeet=0.3&dirtabtr=0.2&dirtabtl=0.2&dirtabbr=0.2&dirtabfoot=1', SSR_TUNE)
+  assert.deepEqual(t, readTune('', SSR_TUNE), 'the old tab params change nothing')
+  for (const key of ['tabMeet', 'tabFoot', 'tabAngle', 'tabTR', 'tabTL', 'tabBR'])
+    assert.equal(key in t, false, `${key} is gone from the tune`)
+  for (const key of ['tabMeet', 'tabFoot', 'tabAngle', 'tabTR', 'tabTL', 'tabBR'])
+    assert.equal(key in PARAM_KEYS, false, `${key} is gone from PARAM_KEYS`)
 })
 
 const SKIRT_PATH = /^M-20 0H0A([\d.]+) [\d.]+ 0 0 1 ([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)A([\d.]+) [\d.]+ 0 0 0 ([\d.]+) ([\d.]+)H([\d.]+)$/

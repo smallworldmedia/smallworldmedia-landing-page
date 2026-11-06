@@ -22,20 +22,6 @@
  *                  Nathan bakes 'aspect' after a device pass
  *   ?dirlook       aspect packing's lookahead: the tiles it picks among, and the most
  *                  places one moves from the list order
- *   ?dirtabmeet    where the next filter tab's left stroke meets the previous tab's
- *                  straight diagonal, as a fraction down it: 0 = where the shoulder
- *                  arc ends, 1 = where the foot arc begins (SQ-21, Nathan 11-06: the
- *                  services tab in front of the clients tab; proposed 0.5)
- *   ?dirtabfoot    the filter tab's bottom run past its rounded foot, in units of the tab's
- *                  height (SQ-21; proposed, Nathan dials it)
- *   ?dirtabangle   the tab's diagonal, degrees from horizontal (SQ-21, Nathan 11-06
- *                  "a bit steeper"; proposed 55, was 46.4)
- *   ?dirtabtr      the tab's top-right shoulder, as its reach in tab heights (proposed
- *                  0.161, the look it had at 46.4deg)
- *   ?dirtabtl      the tab's top-left corner, the same way (proposed 0.161, so it reads
- *                  as tight as the shoulder; was 0.375)
- *   ?dirtabbr      the tab's bottom-right foot, the same way (proposed 0.11, tighter than
- *                  the shoulder because a concave curve into a short run reads rounder)
  */
 import { DIRECTORY_PLAYERS, DIRECTORY_DWELL_MS } from '../imageConfig.js';
 import { LOGO_DIALS } from './logoTile.js';
@@ -55,12 +41,6 @@ export const PARAM_KEYS = {
   logoCenter: 'dirlogocenter',
   pack: 'dirpack',
   look: 'dirlook',
-  tabMeet: 'dirtabmeet',
-  tabFoot: 'dirtabfoot',
-  tabAngle: 'dirtabangle',
-  tabTR: 'dirtabtr',
-  tabTL: 'dirtabtl',
-  tabBR: 'dirtabbr',
 };
 
 /** The orders ?dirorder takes. */
@@ -83,12 +63,6 @@ export const SSR_TUNE = {
   logoCenter: LOGO_DIALS.center,
   pack: 'flush',
   look: LOOK,
-  tabMeet: 0.5,
-  tabFoot: 0.5,
-  tabAngle: 55,
-  tabTR: 0.161,
-  tabTL: 0.161,
-  tabBR: 0.11,
 };
 
 /** What each numeric knob accepts, from the URL or the bench. */
@@ -103,12 +77,6 @@ export const TUNE_OK = {
   logoLand: (n) => n >= 1,
   logoCenter: (n) => n >= 0 && n <= 1,
   look: (n) => Number.isInteger(n) && n >= 1 && n <= 32,
-  tabMeet: (n) => n >= 0 && n <= 1,
-  tabFoot: (n) => n >= 0 && n <= 2,
-  tabAngle: (n) => n >= 40 && n <= 75,
-  tabTR: (n) => n >= 0 && n <= 0.4,
-  tabTL: (n) => n >= 0 && n <= 0.4,
-  tabBR: (n) => n >= 0 && n <= 0.4,
 };
 
 /* The filter tab's shape (SQ-21, Nathan 11-05: "a rounded off folder tab ... the
@@ -119,8 +87,8 @@ export const TUNE_OK = {
    Ratios of the tab's height H (here the stroke centreline's height, the tab's box
    less its 1px): a straight left side up to a rounded top-left corner, a flat top, a
    rounded shoulder, a straight diagonal, a rounded foot, a short bottom run. The
-   angle, the three corners and the run are PROPOSED dials, not baked (?dirtabangle,
-   ?dirtabtr, ?dirtabtl, ?dirtabbr, ?dirtabfoot).
+   angle, the three corners, the run and the meeting point are BAKED (TAB_SHAPE,
+   Nathan 11-06); tabCap and tabSkirt stay parametric.
    A corner is set by its REACH, how far its curve runs along each edge from the sharp
    corner, which is r * tan(turn / 2): corners that turn through different angles (the
    top-left turns 90deg, the shoulder and the foot turn by the diagonal's angle) read
@@ -131,6 +99,11 @@ export const TUNE_OK = {
    nothing but its length), and the right-hand skirt (tabSkirt). Each cap and skirt
    is drawn in a box 1000 units high, so a uniform scale keeps every radius round at
    any text size. */
+
+/** The filter tab's shape, baked by Nathan on 11-06 (angle in degrees from horizontal;
+    tr, tl, br are corner reaches in tab heights H; foot is the bottom run in H; meet is
+    where the next tab's left stroke meets the diagonal, as a fraction down it). */
+export const TAB_SHAPE = { angle: 55, tr: 0.161, tl: 0.161, br: 0.11, foot: 0.5, meet: 0.5 };
 
 /** How far the skirt's black fill runs past the bottom stroke's centreline (units
     of the 1000-high skirt box, about 1.2px at the 1440 tab): the next tab's
@@ -217,12 +190,6 @@ export function readTune(search, defaults) {
     logoCenter: numberAt('logoCenter'),
     pack: PACKS.includes(params.get(PARAM_KEYS.pack)) ? params.get(PARAM_KEYS.pack) : defaults.pack,
     look: numberAt('look'),
-    tabMeet: numberAt('tabMeet'),
-    tabFoot: numberAt('tabFoot'),
-    tabAngle: numberAt('tabAngle'),
-    tabTR: numberAt('tabTR'),
-    tabTL: numberAt('tabTL'),
-    tabBR: numberAt('tabBR'),
   };
 }
 

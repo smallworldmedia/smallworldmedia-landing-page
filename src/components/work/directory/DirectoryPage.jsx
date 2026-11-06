@@ -271,14 +271,6 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
         clientsPresent={clientsPresent}
         shown={shown.length}
         total={tiles.length}
-        tabShape={{
-          angle: tune.tabAngle,
-          tr: tune.tabTR,
-          tl: tune.tabTL,
-          br: tune.tabBR,
-          foot: tune.tabFoot,
-          meet: tune.tabMeet,
-        }}
         onToggle={onToggle}
         onPickClient={onPickClient}
         onClearClient={onClearClient}

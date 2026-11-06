@@ -27,7 +27,7 @@
  * from dials (directoryTune.js tabCap / tabSkirt): a cap (the left side and the
  * rounded corner), the flat top over the word, and a skirt (the shoulder, the
  * diagonal, the foot and a short bottom run). The next tab's left stroke meets the
- * previous tab's diagonal (?dirtabmeet), and the active one lies on top. The services panel stays in flow and so sets the open height; the clients panel
+ * previous tab's diagonal (TAB_SHAPE.meet), and the active one lies on top. The services panel stays in flow and so sets the open height; the clients panel
  * is laid over the same box (directory.css), scrolls inside it, and wears the
  * thumb too, so a tab switch never moves the grid. Left / Right / Home / End
  * move between the tabs, the inactive panel is inert and hidden, and a shut
@@ -36,7 +36,7 @@
  * Props: tags (Studio order), presence ({ any, inClient }, tagPresence),
  * picked (tag slugs), client ({ slug, name } | null), clientOptions (the live
  * clients, by name), clientsPresent (the slugs clientPresence keeps lit),
- * shown / total (tile counts), tabShape (the tab dials: angle, tr, tl, br, foot, meet), onToggle(slug),
+ * shown / total (tile counts), onToggle(slug),
  * onPickClient(slug), onClearClient(), onClear().
  */
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -44,7 +44,7 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import FilterTag from './FilterTag.jsx';
 import useScrollThumb from '../../ui/useScrollThumb.js';
-import { tabCap, tabSkirt, TAB_TOP } from './directoryTune.js';
+import { tabCap, tabSkirt, TAB_SHAPE, TAB_TOP } from './directoryTune.js';
 import { CloseIcon } from '../../PrivacyOverlay.jsx';
 
 gsap.registerPlugin(useGSAP);
@@ -74,7 +74,6 @@ export default function DirectoryFilter({
   clientsPresent,
   shown,
   total,
-  tabShape,
   onToggle,
   onPickClient,
   onClearClient,
@@ -97,8 +96,8 @@ export default function DirectoryFilter({
   const visible = tags.filter((t) => presence.any.has(t.slug));
   const pickedSet = new Set(picked);
   const filtered = picked.length > 0 || !!client;
-  const skirt = tabSkirt(tabShape);
-  const cap = tabCap(tabShape.tl);
+  const skirt = tabSkirt(TAB_SHAPE);
+  const cap = tabCap(TAB_SHAPE.tl);
 
   // Focus scrolls land a tile below the stuck filter, not under it (11-03: a
   // tile reached by Shift+Tab sat 111px under it at 1440): the tiles'

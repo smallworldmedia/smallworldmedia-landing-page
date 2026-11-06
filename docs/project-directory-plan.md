@@ -479,19 +479,21 @@ until Nathan names a number.
   off and following along the bottom edge briefly").
   - **Shape** (Nathan 11-05 reference, 11-06 tightening), as ratios of the tab's height H (the stroke
     centreline's height): a straight left side up to a rounded top-left corner, a flat top over the
-    word, a rounded shoulder into a straight diagonal, a rounded foot and a bottom run. All PROPOSED
-    dials: the diagonal `?dirtabangle` (55deg; 46.4 before), the bottom run `?dirtabfoot` (0.5 H) and
-    the three corners by their REACH, the distance a curve runs along each edge from the sharp corner,
-    r·tan(turn/2): `?dirtabtr` (shoulder, 0.161 H), `?dirtabtl` (top-left, 0.161 H; was 0.375 H, which
-    read 2.3x rounder than the shoulder) and `?dirtabbr` (foot, 0.11 H, tighter than the shoulder
-    because a concave curve into a short run reads rounder). Reach, not radius, so a corner keeps its
+    word, a rounded shoulder into a straight diagonal, a rounded foot and a bottom run. **BAKED 11-06**
+    (Nathan agreed the proposed values; `TAB_SHAPE` in directoryTune.js, no `?param`): the diagonal at
+    55deg (46.4 before), the bottom run 0.5 H, the meeting point 0.5 and the three corners by their
+    REACH, the distance a curve runs along each edge from the sharp corner, r·tan(turn/2): the shoulder
+    0.161 H, the top-left 0.161 H (was 0.375 H, which read 2.3x rounder than the shoulder) and the foot
+    0.11 H (tighter than the shoulder because a concave curve into a short run reads rounder). The dials
+    that proposed them (`?dirtabangle`, `?dirtabtr`, `?dirtabtl`, `?dirtabbr`, `?dirtabfoot`,
+    `?dirtabmeet`) are removed; `tabCap` and `tabSkirt` stay parametric. Reach, not radius, so a corner keeps its
     look when the angle moves. Three SVGs draw it, all as tall as the stroke's centreline and at one top
     (so they snap to the same pixel row): a cap (the left side and the corner; `tabCap`), a stretched
     straight line (the flat top) and a skirt (shoulder, diagonal, foot, bottom run; `tabSkirt`). Each
     curved piece is uniformly scaled with a non-scaling 1px stroke, so the radii stay round at any text
     size.
   - The row's left padding is the tags' (`--space-4`), so the strokes line up with the check boxes.
-  - The next tab's left stroke meets the previous tab's straight diagonal (`?dirtabmeet`, PROPOSED 0.5 of
+  - The next tab's left stroke meets the previous tab's straight diagonal (`TAB_SHAPE.meet`, BAKED 0.5 of
     the way down; 0 = the shoulder arc's end, 1 = the foot arc's start), derived from the skirt's own
     geometry so it follows the angle, the corners and the text size (Nathan 11-06: the services tab in
     front of the clients tab). The active tab has `z-index` 2 and an opaque black fill, so its outline is
