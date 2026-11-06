@@ -23,8 +23,12 @@
  *
  * Above the tags a pair of tabs (SQ-21, Nathan): "services" (the tags) and
  * "clients" (the live clients, one at a time, the bar's chip showing the pick).
- * The tabs overlap by ?dirtaboverlap px, and the active one lies on top. The
- * services panel stays in flow and so sets the open height; the clients panel
+ * Each is a rounded folder tab, a 1px stroke over an opaque fill, drawn in SVG
+ * from ratios measured off Nathan's reference (directoryTune.js): a cap (the left
+ * side and the rounded corner), the flat top over the word, and a skirt (the
+ * shoulder, the diagonal, the foot and a short bottom run). The next tab tucks
+ * ?dirtaboverlap px under the previous tab's skirt, and the active one lies on
+ * top. The services panel stays in flow and so sets the open height; the clients panel
  * is laid over the same box (directory.css), scrolls inside it, and wears the
  * thumb too, so a tab switch never moves the grid. Left / Right / Home / End
  * move between the tabs, the inactive panel is inert and hidden, and a shut
@@ -33,7 +37,7 @@
  * Props: tags (Studio order), presence ({ any, inClient }, tagPresence),
  * picked (tag slugs), client ({ slug, name } | null), clientOptions (the live
  * clients, by name), clientsPresent (the slugs clientPresence keeps lit),
- * shown / total (tile counts), tabOverlap (px), onToggle(slug),
+ * shown / total (tile counts), tabOverlap (px), tabFoot (tab heights), onToggle(slug),
  * onPickClient(slug), onClearClient(), onClear().
  */
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -41,6 +45,7 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import FilterTag from './FilterTag.jsx';
 import useScrollThumb from '../../ui/useScrollThumb.js';
+import { tabSkirt, TAB_CAP, TAB_CAP_W, TAB_TOP } from './directoryTune.js';
 import { CloseIcon } from '../../PrivacyOverlay.jsx';
 
 gsap.registerPlugin(useGSAP);
@@ -71,6 +76,7 @@ export default function DirectoryFilter({
   shown,
   total,
   tabOverlap,
+  tabFoot,
   onToggle,
   onPickClient,
   onClearClient,
@@ -93,6 +99,7 @@ export default function DirectoryFilter({
   const visible = tags.filter((t) => presence.any.has(t.slug));
   const pickedSet = new Set(picked);
   const filtered = picked.length > 0 || !!client;
+  const skirt = tabSkirt(tabFoot);
 
   // Focus scrolls land a tile below the stuck filter, not under it (11-03: a
   // tile reached by Shift+Tab sat 111px under it at 1440): the tiles'
@@ -193,7 +200,7 @@ export default function DirectoryFilter({
       ref={rootRef}
       aria-label="Filter the directory"
       data-open={open || undefined}
-      style={{ '--dir-tab-overlap': `${tabOverlap}px` }}
+      style={{ '--dir-tab-overlap': `${tabOverlap}px`, '--dir-skirt-ratio': `${skirt.width} / 1000` }}
     >
       <div className="dir-filter__region" id="dir-filter-region" ref={regionRef}>
         <div
@@ -216,7 +223,30 @@ export default function DirectoryFilter({
               tabIndex={tab === id ? 0 : -1}
               onClick={() => setTab(id)}
             >
-              {id}
+              <span className="dir-filter__tab-label">
+                <svg className="dir-filter__tab-cap" viewBox={`0 0 ${TAB_CAP_W} 1000`} aria-hidden="true" focusable="false">
+                  <path className="dir-filter__tab-line dir-filter__tab-line--cap" d={TAB_CAP} />
+                </svg>
+                <svg
+                  className="dir-filter__tab-top"
+                  viewBox="0 0 100 1000"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path className="dir-filter__tab-line" d={TAB_TOP} />
+                </svg>
+                {id}
+              </span>
+              <svg
+                className="dir-filter__tab-skirt"
+                viewBox={`0 0 ${skirt.width} 1000`}
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path className="dir-filter__tab-fill" d={skirt.fill} />
+                <path className="dir-filter__tab-line" d={skirt.stroke} />
+              </svg>
             </button>
           ))}
         </div>

@@ -473,11 +473,22 @@ until Nathan names a number.
     desktop; the one-row fold and its measure are gone).
   - Shut tags are `inert`, so Tab never lands on one.
 - **Tabs (SQ-21, Nathan):** a `role="tablist"` row inside the open region, above the tags: `services`
-  (active on load) and `clients`, in the toggle's type, each wrapped in a 1px stroke (the client chip's)
-  with no bottom edge.
+  (active on load) and `clients`, in the toggle's type, each a rounded folder tab in a 1px stroke (the
+  client chip's) with no stroke under the word (Nathan 11-05: "a rounded off folder tab ... the right
+  side having more of an obtuse diagonal line that travels to the bottom of the tab container, rounding
+  off and following along the bottom edge briefly").
+  - **Shape**, measured off his reference icon's stroke centreline, as ratios of the tab's height H:
+    a straight left side up to a rounded corner (0.375 H), a flat top over the word, a rounded
+    shoulder (0.375 H) into a straight diagonal at slope 1.05 (about 134deg to the top), a rounded
+    foot (0.375 H) and a bottom run (`?dirtabfoot`, proposed 0.5 H; the reference is cropped there).
+    Three SVGs draw it, all as tall as the stroke's centreline and at one top (so they snap to the
+    same pixel row): a cap (the left side and the corner), a stretched straight line (the flat top)
+    and a skirt (shoulder, diagonal, foot, bottom run; `tabSkirt`). Each curved piece is uniformly
+    scaled with a non-scaling 1px stroke, so the radii stay round at any text size. H here is the
+    centreline's height: 20px at 1440 (radii 7.5px), 18px at 390 (6.75px).
   - The row's left padding is the tags' (`--space-4`), so the strokes line up with the check boxes.
-  - The tabs overlap by `?dirtaboverlap` px (proposed 6, Nathan dials it). The active tab has
-    `z-index` 2 and an opaque black background, so its stroke covers its neighbour's.
+  - The next tab tucks `?dirtaboverlap` px under the previous tab's skirt (proposed 14, Nathan dials
+    it). The active tab has `z-index` 2 and an opaque black fill, so its outline is the whole one.
   - Left / Right (wrapping), Home and End move between the tabs, with a roving `tabindex`.
     `role="tab"` carries `aria-selected` and `aria-controls`; each panel is `role="tabpanel"` with
     `aria-labelledby`. The inactive panel is `inert` and `visibility: hidden`; a shut filter makes both inert.

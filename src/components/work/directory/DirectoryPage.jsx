@@ -272,6 +272,7 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
         shown={shown.length}
         total={tiles.length}
         tabOverlap={tune.tabOverlap}
+        tabFoot={tune.tabFoot}
         onToggle={onToggle}
         onPickClient={onPickClient}
         onClearClient={onClearClient}
