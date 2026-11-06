@@ -268,10 +268,12 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   text-overflow: ellipsis;
 }
 
-/* "× clear all" and the toggle read as buttons (11-05, Nathan): the sans
-   link tier (the nav's links), lowercase as written, each word beside its
-   icon; the works count keeps the mono header type. */
+/* "× clear all", the client chip and the toggle read as buttons (11-05,
+   Nathan): the sans link tier (the nav's links), as written (lowercase
+   words; the client's name as Sanity spells it), each word beside its icon;
+   the works count keeps the mono header type. */
 .dir-filter__bar .dir-filter__clear,
+.dir-filter__bar .dir-filter__chip,
 .dir-filter__bar .dir-filter__toggle,
 .dir-filter__bar .dir-filter__active {
   font-family: var(--font-body);
@@ -281,6 +283,7 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 }
 
 .dir-filter__bar .dir-filter__clear,
+.dir-filter__bar .dir-filter__chip,
 .dir-filter__bar .dir-filter__toggle {
   display: inline-flex;
   align-items: center;
@@ -288,23 +291,26 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 }
 
 /* the house close glyph (CloseIcon), at the word's scale */
-.dir-filter__clear svg {
+.dir-filter__clear svg,
+.dir-filter__chip svg {
+  flex: none;
   width: 0.6em;
   height: 0.6em;
 }
 
-.dir-filter__toggle {
+/* The right-hand group: the client chip, "n active", the toggle. It can
+   shrink, so a long client name ellipsizes before the bar overflows. */
+.dir-filter__end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
   margin-left: auto;
 }
 
 /* Its words: see all / see less, and at ≤768px, where shut means no tags at
    all, filters / close filters. */
 .dir-filter__toggle-narrow {
-  display: none;
-}
-
-/* "n active": ≤768px only, while shut (DirectoryFilter renders it then). */
-.dir-filter__active {
   display: none;
 }
 
@@ -335,14 +341,9 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
     display: inline;
   }
 
-  .dir-filter__active {
-    display: inline;
-    margin-left: auto;
-  }
-
-  /* the bar's gap spaces the pair */
-  .dir-filter__active + .dir-filter__toggle {
-    margin-left: 0;
+  /* "n active" only while shut: open, the tags show it. */
+  .dir-filter[data-open] .dir-filter__active {
+    display: none;
   }
 }
 
