@@ -293,6 +293,29 @@ test('the footer link row is not drawn under the resting variant, at any width',
   )
 })
 
+test('the footer band reserves ONE tagline row, not a lockup-over-pill column', () => {
+  // 11-05 (Nathan): the lockup took the VISUAL WORLDS pill's seat beside the
+  // copyright, so the band's min-height counts the taller of the lockup art
+  // and the pill box once. The stacked calc added the lockup art + --space-2 on
+  // top of the pill; a regression to it puts that dead height back in every
+  // links footer (detail, process, /work).
+  assert.match(
+    css,
+    /--tagline-row-h:\s*max\(var\(--lockup-art-h\),\s*calc\(var\(--lh-link\) \+ 2 \* var\(--pill-pad-y\)\)\);/,
+    'the row token is not the taller of the lockup art and the pill box',
+  )
+  const inner = ruleFor('min-height: calc(var(--tagline-row-h)')
+  const minHeight = inner.body.match(/^\s*min-height:.*$/m)
+  assert.ok(minHeight, 'the band lost its min-height')
+  assert.equal(
+    minHeight[0].trim(),
+    'min-height: calc(var(--tagline-row-h) + var(--footer-top-pad) + var(--footer-bottom-inset));',
+    'the band no longer counts the one row plus its pads',
+  )
+  // the lockup wrapper is that same row height, so the row cannot outgrow what the band reserves
+  assert.match(ruleFor('margin-left: calc(-1 * var(--lockup-bleed))').body, /height: var\(--tagline-row-h\)/)
+})
+
 /* — the URL seeder — */
 
 /** A fresh footerTune instance under a stubbed window/document. */

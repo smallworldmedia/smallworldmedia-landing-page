@@ -27,12 +27,16 @@
  *     wipe; the privacy pill wipes right→left on the same beat.
  *
  * Footer-reveal choreography (SiteFooter broadcasts `--footer-reveal` 0..1 +
- * `data-footer-revealed` on <html>): once the reveal crosses REVEAL_ON, a
- * short delay then "©<year>. All rights reserved." fades up inline after the
- * pill while the WHITE SWM lockup (nav scale) slides in from the left just
- * above it. Scrolling back out reverses; both live only inside the revealed
- * footer band. (SiteFooter's own link-row stagger rides the same broadcast —
- * the two corners + the link row read as one settling moment.)
+ * `data-footer-revealed` on <html>): above 768px the pill passes BEHIND the
+ * logo band as it rises and stays covered once the band's top edge is past it
+ * (11-05, Nathan: the lockup takes its seat). Once the reveal crosses
+ * REVEAL_ON, a short delay then the WHITE SWM lockup (nav scale) slides in
+ * from the left in the pill's seat while "©<year>. All rights reserved." fades
+ * up inline after it. Both emerge from under the band's gray line (the
+ * maskToPanel clip). Scrolling back out reverses; both live only inside the
+ * revealed footer band, and the pill returns as the band drops back past it.
+ * (SiteFooter's own link-row stagger rides the same broadcast — the two
+ * corners + the link row read as one settling moment.)
  *
  * Two states (10-06, Nathan — "make it very clear what Small World Media is
  * immediately on page load"): at REST ON HOME (body.route-home, no drawer /
@@ -352,7 +356,7 @@ export default function SiteTagline({ siteCopy }) {
           { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power2.out' },
           REVEAL_DELAY_S
         )
-        // …while the white lockup subtly slides in from the left above it.
+        // …while the white lockup slides in from the left, in the pill's seat.
         .fromTo(
           lockup,
           { autoAlpha: 0, x: -18 },
@@ -409,21 +413,24 @@ export default function SiteTagline({ siteCopy }) {
       el.style.clipPath = v;
       pillClip.set(el, v);
     };
-    // Above 768px (11-05) the tagline pill stays on screen and passes BEHIND
-    // the band (bandBox): the part inside its box is cut, from the bottom while
-    // the band's top edge crosses the pill, from the top while its gray line
-    // does. Not while a drawer or overlay is up: it covers the footer. The
-    // privacy pill stays IN FRONT of the band (Nathan, 11-05), unmasked.
+    // Above 768px (11-05) the tagline pill passes BEHIND the band (bandBox):
+    // the part inside its box is cut from the bottom while the band's top edge
+    // crosses the pill. Once that edge is past the pill's top the pill is
+    // covered, and it STAYS covered for the rest of the reveal (the lockup
+    // takes its seat in the revealed footer, so it must not re-emerge below
+    // the gray line); scrolling back out undoes the cut as the band drops back
+    // past it. A covered pill is also `inert`: a clip-path only hides it, and
+    // a hidden button must not stay focusable. Not while a drawer or overlay is
+    // up: it covers the footer. The privacy pill stays IN FRONT of the band
+    // (Nathan, 11-05), unmasked.
     const maskUnderBand = (el, band) => {
       const r = el.getBoundingClientRect();
+      const covered = !!band && band.top <= r.top;
       let clip = '';
-      if (band && band.bottom > r.top && band.top < r.bottom) {
-        clip =
-          band.top <= r.top
-            ? `inset(${Math.min(r.height, band.bottom - r.top).toFixed(1)}px 0 0 0)`
-            : `inset(0 0 ${(r.bottom - band.top).toFixed(1)}px 0)`;
-      }
+      if (covered) clip = `inset(${r.height.toFixed(1)}px 0 0 0)`;
+      else if (band && band.top < r.bottom) clip = `inset(0 0 ${(r.bottom - band.top).toFixed(1)}px 0)`;
       setClip(el, clip);
+      if (el.inert !== covered) el.inert = covered;
     };
     const maskPill = () => {
       if (!pillEl) return;
@@ -436,10 +443,14 @@ export default function SiteTagline({ siteCopy }) {
       const r = pillEl.getBoundingClientRect();
       const cut = Number.isFinite(edge) ? Math.max(0, r.bottom - edge) : 0;
       setClip(pillEl, cut > 0 ? `inset(0 0 ${cut.toFixed(1)}px 0)` : '');
+      if (pillEl.inert) pillEl.inert = false; // a desktop → phone resize mid-reveal
     };
     const unmask = () => {
       for (const el of [copy, lockup]) if (el) el.style.clipPath = '';
-      if (pillEl) setClip(pillEl, '');
+      if (pillEl) {
+        setClip(pillEl, '');
+        pillEl.inert = false;
+      }
     };
     // 10-07 (Nathan, mobile chrome pass): the HOME footer rests OPEN (phones
     // since 10-07, desktop since 10-09), so [data-footer-revealed] is set for
@@ -612,19 +623,21 @@ export default function SiteTagline({ siteCopy }) {
   return (
     <>
       <div className="site-tagline" ref={rootRef}>
-        {/* White lockup, nav scale — appears only inside the revealed footer. */}
-        <a
-          href="/"
-          className="site-tagline__lockup"
-          aria-label="Small World Media home"
-        >
-          <span
-            className="site-tagline__lockup-art"
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: LOCKUP_SVG }}
-          />
-        </a>
         <div className="site-tagline__row">
+          {/* White lockup, nav scale — appears only inside the revealed footer,
+              in the pill's seat (11-05): the pill is covered by the band by
+              then, and the copyright runs on after the lockup. */}
+          <a
+            href="/"
+            className="site-tagline__lockup"
+            aria-label="Small World Media home"
+          >
+            <span
+              className="site-tagline__lockup-art"
+              aria-hidden="true"
+              dangerouslySetInnerHTML={{ __html: LOCKUP_SVG }}
+            />
+          </a>
           {/* 09-08 (Nathan): the pill INVOKES the footer — one event, each
               route answers in its own idiom (SiteFooter FOOTER_REVEAL_EVENT). */}
           <button

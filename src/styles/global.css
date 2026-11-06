@@ -319,8 +319,12 @@
   --lockup-bleed: calc(var(--lockup-svg-h) * 0.1585);
   --lockup-art-h: calc(var(--lockup-svg-h) * 0.28);
   /* the artwork's optical height inside that canvas (~28%, measured 08-27)
-     — the tagline lockup wrapper clamps to it; the footer band min-height
-     counts it. */
+     — the tagline lockup art centres in it. */
+  /* The revealed footer's ONE row (11-05, Nathan: the lockup takes the VISUAL
+     WORLDS pill's seat beside the copyright): the taller of the lockup art and
+     the pill's box (its --lh-link line + 2 × --pill-pad-y). The lockup wrapper
+     is this tall, and the footer band's min-height counts it once. */
+  --tagline-row-h: max(var(--lockup-art-h), calc(var(--lh-link) + 2 * var(--pill-pad-y)));
 
   /* Nav bar height — the sticky-reveal footer slides the page + nav up by
      exactly this so the bar clears the top of the viewport (F1). Mirrors the
@@ -2185,14 +2189,18 @@ a.clients__item:focus-visible {
   /* 08-27: the left column lives OUTSIDE this panel now (the persistent
      SiteTagline pill + its reveal-state lockup/copyright) — this min-height
      reserves the band that stack occupies. 08-29, Nathan: the old 5rem
-     under-reserved and the lockup poked above the band — now computed from
-     the stack's OWN tokens (border-box): lockup art + the tagline column's
-     --space-2 gap + the pill's box (--lh-link line + 2 × --pill-pad-y),
-     plus this box's top padding and bottom inset. (≈ the 4.96rem content
-     row of the 08-29 bake.) */
+     under-reserved and the lockup poked above the band — computed from the
+     stack's OWN tokens (border-box) since: lockup art + the tagline column's
+     --space-2 gap + the pill's box (--lh-link line + 2 × --pill-pad-y), plus
+     this box's top padding and bottom inset. 11-05, Nathan: the lockup moved
+     down into the pill's seat beside the copyright, so the stack is ONE row,
+     not a column: --tagline-row-h (the taller of the lockup art and the
+     pill's box) plus the same pad and inset. The panel is shorter by exactly
+     what the column added on top of the pill box: the lockup art + the
+     --space-2 gap. */
   --footer-top-pad: 1.286rem;
   /* 18px */
-  min-height: calc(var(--lockup-art-h) + var(--space-2) + var(--lh-link) + 2 * var(--pill-pad-y) + var(--footer-top-pad) + var(--footer-bottom-inset));
+  min-height: calc(var(--tagline-row-h) + var(--footer-top-pad) + var(--footer-bottom-inset));
   /* Nav's shared hug; bottom rides the shared --footer-bottom-inset (the
      corner pills seat on the same token); extra right clearance mirrors the
      nav's scrollbar idiom. */
@@ -3284,30 +3292,31 @@ html[data-footer-in] .logo-ticker__copy {
    --footer-bottom-inset), so the rising footer settles around it by
    construction. The copyright + white lockup start hidden; SiteTagline.jsx
    reveals them on the footer's --footer-reveal broadcast. z: above the
-   footer panel (40), below the inquiry overlay (50) and nav shell (100). */
+   footer panel (40), below the inquiry overlay (50) and nav shell (100).
+   ONE child, the row (11-05: the lockup left the column above it). */
 .site-tagline {
   position: fixed;
   left: var(--nav-inset);
   bottom: var(--footer-bottom-inset);
   z-index: 45;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   pointer-events: none;
 }
 
 /* White SWM lockup at the NAV lockup's scale (svg height 7rem — the shared
-   asset's viewBox carries ~72% whitespace, so the wrapper clamps to the
-   art's optical height and centers the oversize svg inside it; left margin
-   backs out the internal left whitespace so the optical edge seats on the
-   pill's text inset, per the Frame 19 end-state). Hidden until the footer
+   asset's viewBox carries ~72% whitespace, so the wrapper is the row's
+   height (--tagline-row-h) and centers the oversize svg inside it). 11-05,
+   Nathan: it takes the VISUAL WORLDS pill's seat, inline before the
+   copyright at the row's gap; the pill leaves the row's flow above 768px
+   (below) and is covered for the rest of the reveal, so nothing but this
+   and the copyright is left in the row. The left margin backs out the
+   internal left whitespace so the optical edge seats on the pill's LEFT edge
+   (where the capsule was), not its text inset. Hidden until the footer
    reveal; visibility (autoAlpha) also gates its pointer target. */
 .site-tagline__lockup {
-  height: var(--lockup-art-h);
+  height: var(--tagline-row-h);
   display: flex;
   align-items: center;
-  /* optical edge seats on the pill's text inset (--pill-pad-x) */
-  margin-left: calc(var(--pill-pad-x) - var(--lockup-bleed));
+  margin-left: calc(-1 * var(--lockup-bleed));
   pointer-events: auto;
   visibility: hidden;
   opacity: 0;
@@ -3333,7 +3342,7 @@ html[data-footer-in] .logo-ticker__copy {
 .site-tagline__row {
   display: flex;
   align-items: center;
-  gap: 1.5rem; /* pill → copyright run-on (Figma: 21px) */
+  gap: 1.5rem; /* lockup → copyright run-on (Figma: 21px, pill → copyright) */
 }
 
 /* The pill — the shared black capsule skin (--pill-pad-* / --radius-capsule).
@@ -3354,8 +3363,17 @@ html[data-footer-in] .logo-ticker__copy {
   pointer-events: auto;
   /* 10-06: the long/short layers stack BOTTOM-anchored, so the morph's
      resize closes the capsule from its top-right while the text holds
-     still (SiteTagline setLong). */
-  position: relative;
+     still (SiteTagline setLong).
+     11-05 (Nathan: the lockup takes this pill's seat): above 768px the pill
+     is OUT of the row's flow, seated on the tagline's bottom-left corner, so
+     the lockup that replaces it in the revealed footer — and the copyright
+     after it — run on at the row's own gap instead of after the pill's
+     width. The bottom edge is the same line the in-flow pill sat on. The
+     ≤768px block puts it back in flow (there is no lockup or copyright
+     beside it). */
+  position: absolute;
+  left: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -3450,6 +3468,10 @@ html[data-footer-in] .logo-ticker__copy {
   }
 
   .site-tagline__pill {
+    /* back in the row's flow (the desktop pill is seated out of it) */
+    position: relative;
+    left: auto;
+    bottom: auto;
     width: max-content;
     padding: 0;
     background: none;
