@@ -3309,14 +3309,16 @@ html[data-footer-in] .logo-ticker__copy {
    copyright at the row's gap; the pill leaves the row's flow above 768px
    (below) and is covered for the rest of the reveal, so nothing but this
    and the copyright is left in the row. The left margin backs out the
-   internal left whitespace so the optical edge seats on the pill's LEFT edge
-   (where the capsule was), not its text inset. Hidden until the footer
-   reveal; visibility (autoAlpha) also gates its pointer target. */
+   internal left whitespace so the optical edge seats on the pill's TEXT
+   inset (--pill-pad-x) — where the lockup sat before it moved down (Nathan
+   11-05: "retain the same 11px positioning"), not on the capsule's edge.
+   Hidden until the footer reveal; visibility (autoAlpha) also gates its
+   pointer target. */
 .site-tagline__lockup {
   height: var(--tagline-row-h);
   display: flex;
   align-items: center;
-  margin-left: calc(-1 * var(--lockup-bleed));
+  margin-left: calc(var(--pill-pad-x) - var(--lockup-bleed));
   pointer-events: auto;
   visibility: hidden;
   opacity: 0;

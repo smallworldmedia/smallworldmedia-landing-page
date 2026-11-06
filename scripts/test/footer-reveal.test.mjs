@@ -312,8 +312,14 @@ test('the footer band reserves ONE tagline row, not a lockup-over-pill column', 
     'min-height: calc(var(--tagline-row-h) + var(--footer-top-pad) + var(--footer-bottom-inset));',
     'the band no longer counts the one row plus its pads',
   )
-  // the lockup wrapper is that same row height, so the row cannot outgrow what the band reserves
-  assert.match(ruleFor('margin-left: calc(-1 * var(--lockup-bleed))').body, /height: var\(--tagline-row-h\)/)
+  // the lockup wrapper is that same row height, so the row cannot outgrow what the band reserves;
+  // its optical left edge keeps the pre-SQ-22 seat, the pill's text inset (Nathan 11-05: "retain the
+  // same 11px positioning"), derived from the same tokens as before
+  assert.match(
+    ruleFor('margin-left: calc(var(--pill-pad-x) - var(--lockup-bleed))').body,
+    /height: var\(--tagline-row-h\)/,
+    'the lockup lost its row height or its --pill-pad-x optical seat',
+  )
 })
 
 /* — the URL seeder — */
