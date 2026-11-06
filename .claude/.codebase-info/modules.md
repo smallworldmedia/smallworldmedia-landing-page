@@ -273,7 +273,9 @@ carousels, banner groups and sequences collapse to one tile per `lane:client:pro
 the `role` lane stays out; a tile is the slim face MediaSlot reads plus `client`, `services`,
 `href` / `label` and `fit`, and a logo-typed image its `logo` mark through `logoVerdict` (mark,
 drop for a twin or a held logo, or none); `orderTiles(tiles, mode, seed)`: `project`, featured first in World
-order, `mix`, or `shuffle` (seeded, uniform); and the page's pure helpers: `matchesFilter`,
+order, `mix`, or `shuffle` (seeded, uniform); `logoFirst(tiles, tags)` (11-05, SQ-17: under exactly
+`logo-design` the logo tiles lead as one block, the order holding inside each; any other filter is
+returned as is; DirectoryPage applies it to `shown`); and the page's pure helpers: `matchesFilter`,
 `tagPresence`, `DEFAULT_TAG` / `defaultFilter` / `hasFilterParams` / `sameFilter`, `readFilter` /
 `sanitizeFilter` / `filterSearch`, `sizesFor` with per-band column counts) · `directoryTune.js` +
 `DirectoryTunePanel.jsx` (`ORDERS`, `tuneDefaults(shuffle)`; `?dirorder`, `?dirplayers`,
