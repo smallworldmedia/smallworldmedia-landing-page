@@ -78,7 +78,7 @@ import {
 } from './globe/globeConfig.js';
 import { POP_TUNE_ACTIVE, TUNING as POP_TUNING } from './globe/popConfig.js';
 import { applyNavAccent, clearNavAccent } from '../lib/navAccent.js';
-import { housePulseLoop, SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
+import { SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
 import { RELEASE_MS, TOUCH_GAIN } from '../lib/touchTune.js';
 import SiteFooter, {
   FOOTER_REVEAL_EVENT,
@@ -480,24 +480,12 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       window.removeEventListener(FOOTER_REVEAL_EVENT, onReveal);
     };
   }, []);
-  const enterWrapRef = useRef(null); // FP-1 fill-pulse target (see the pulse effect)
   const strokeRef = useRef(null); // globe outer-stroke disc (tracks the overlay disc)
 
   // enter_world button state — tap-only (08-30): the drag fill model reduced
   // to one commit-pin flag; hover pours via ctaHover below.
   const [ctaPinned, setCtaPinned] = useState(false);
 
-  // FP-1 fill pulse, home reading (08-27): loop --cta-pulse 0 → 1 → 0 on the
-  // house envelope. Lives on the wrap (no React inline style there); the
-  // button's --cta-bg color-mix folds it in below. Reduced motion: never runs.
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const wrap = enterWrapRef.current;
-    if (!wrap) return undefined;
-    gsap.set(wrap, { '--cta-pulse': 0 }); // explicit start value for the var tween
-    const pulse = housePulseLoop(gsap, wrap, { '--cta-pulse': 1 });
-    return () => pulse.kill();
-  }, []);
   const [ctaHover, setCtaHover] = useState(false);
 
   // Camera rig + overlay bridge (home-hero rework, chunk 2). The scene fills
@@ -1242,21 +1230,19 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   // release and the RouteFill pre-cover all went with it. ──
 
   // ── enter_world button presentation vars — tap-only model (08-30): the
-  // pill rests on the pulsing brand-blue base, hover pours WHITE over it,
+  // pill rests STATIC on the brand-blue base (no pulse, SQ-24), hover pours WHITE over it,
   // and a commit pins the poured state while the passage plays. No slide,
   // no scaling — the button lives at the viewport center. ──
   const ctaPct = ctaPinned || ctaHover ? 100 : 0;
   const ctaColor = {
-    // 08-27 (4) redial (Nathan): the DEFAULT state is BRAND BLUE, pulsing
-    // down to --color-dim-gray on the house pulse (--cta-pulse 0..1, tweened
-    // on the wrap so React's inline style here never fights GSAP's var
-    // writes). Hover and the scroll charge pour WHITE over the breathing
-    // base (ctaPct swamps the pulse — no gating logic), the label crossing
+    // 08-27 (4) redial (Nathan): the DEFAULT state is BRAND BLUE, held
+    // static (the pulse was removed, SQ-24). Hover and the scroll charge pour
+    // WHITE over the base, the label crossing
     // to blue for legibility — the chip lands on /work already wearing that
     // page's white enter_world skin. Under a population world (?popmode) the
     // blue is the world's accent: the fill takes it, the label its readable
     // ink, the hovered label its accent-as-text (html.pop-tint).
-    '--cta-bg': `color-mix(in srgb, color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-dim-gray) calc(var(--cta-pulse, 0) * 100%)), var(--color-white) ${ctaPct}%)`,
+    '--cta-bg': `color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-white) ${ctaPct}%)`,
     '--cta-fg': `color-mix(in srgb, var(--project-color-fg, var(--color-white)), var(--project-color-text, var(--color-electric-blue)) ${ctaPct}%)`,
   };
 
@@ -1293,7 +1279,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
           NodeList). HeroText keeps the sr-only h1 (SEO/a11y). */}
       <div className="hero__lead-col">
         <HeroText />
-        <div className="hero__enter-wrap" ref={enterWrapRef}>
+        <div className="hero__enter-wrap">
           <button
             type="button"
             className="cta-primary hero__enter"
