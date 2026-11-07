@@ -22,7 +22,8 @@
  * interaction: the wheel/touch accumulator from /work's [NEXT]/[PREVIOUS]
  * (same ?scroll trigger), with /work's rubber band (11-04, Nathan): the
  * fill tracks on DRAG_TRACK_S and springs home on RELEASE_GLIDE_S /
- * RELEASE_EASE (lib/motion.js), a finger holds it until the lift, and the
+ * RELEASE_EASE (lib/motion.js; the step itself is lib/rubberBand.js, shared
+ * with the phone blurb hold), a finger holds it until the lift, and the
  * wheel lets go on the RELEASE_MS stall (?releasems / ?touchgain via
  * lib/touchTune.js).
  *
@@ -88,12 +89,11 @@ import ServiceTag from '../ServiceTag.jsx';
 import {
   SCROLL_TRIGGER_WORK_PX,
   GLIDE_MS,
-  DRAG_TRACK_S,
   RELEASE_GLIDE_S,
-  RELEASE_EASE,
   ensureHousePulse,
 } from '../../../lib/motion.js';
-import { TOUCH_GAIN, RELEASE_MS } from '../../../lib/touchTune.js';
+import { TOUCH_GAIN } from '../../../lib/touchTune.js';
+import { createRubberBand } from '../../../lib/rubberBand.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 
@@ -229,14 +229,33 @@ export default function NextProjectBand({ next }) {
   const coverRef = useRef(null);
   const videoRef = useRef(null);
 
-  const accumRef = useRef(0);
   const armAtRef = useRef(0); // deltas count only past this timestamp
-  const idleRef = useRef(null);
   const departingRef = useRef(false);
   const proxyRef = useRef({ f: 0 }); // single fill scalar; all motion derives
+  const gestureRef = useRef(null); // the house rubber band (lib/rubberBand.js), made once
   const entranceRef = useRef(1); // scroll-in progress (0 = off to the right, 1 = rest)
   const hintRef = useRef({ timer: null, tl: null }); // the rest hint's pending call + live run
   const measureRef = useRef(null); // per-layout px shifts (null until measured)
+
+  // The accumulator + rubber band is lib/rubberBand.js's (shared with the
+  // phone blurb hold). The band supplies only what it DRAWS and what a
+  // commit DOES; the callbacks are looked up when they fire.
+  if (!gestureRef.current) {
+    gestureRef.current = createRubberBand({
+      proxy: proxyRef.current,
+      trigger: SCROLL_TRIGGER,
+      apply: () => apply(),
+      onCommit: () => commit(),
+      // The drag no longer feeds the RouteFill (the pre-cover is in-band now)
+      // — this zero is residual-safety only, so no stray shell opacity can
+      // outlive a gesture. Other fill-progress consumers are unaffected.
+      onRelease: () =>
+        window.dispatchEvent(
+          new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: RELEASE_GLIDE_S } })
+        ),
+      onRest: () => syncHint(), // home again: the hint resumes
+    });
+  }
 
   const [pinned, setPinned] = useState(false);
   const [inView, setInView] = useState(false);
@@ -378,7 +397,7 @@ export default function NextProjectBand({ next }) {
   // playing plays out. ──
   const settled = () =>
     !departingRef.current &&
-    accumRef.current === 0 &&
+    gestureRef.current.accum === 0 &&
     proxyRef.current.f < 1e-3 &&
     entranceRef.current >= 1;
 
@@ -455,23 +474,7 @@ export default function NextProjectBand({ next }) {
   // tweened the media's clip-path STRING, which GSAP held at its start and
   // swapped at the end — the window jumped shut while the text glided.) A
   // resumed drag or a commit takes over the proxy mid-return. ──
-  const releaseToRest = () => {
-    accumRef.current = 0;
-    gsap.to(proxyRef.current, {
-      f: 0,
-      duration: RELEASE_GLIDE_S,
-      ease: RELEASE_EASE,
-      overwrite: 'auto',
-      onUpdate: apply,
-      onComplete: syncHint, // home again: the hint resumes
-    });
-    // The drag no longer feeds the RouteFill (the pre-cover is in-band now)
-    // — this zero is residual-safety only, so no stray shell opacity can
-    // outlive a gesture. Other fill-progress consumers are unaffected.
-    window.dispatchEvent(
-      new CustomEvent('swm:fill-progress', { detail: { value: 0, duration: RELEASE_GLIDE_S } })
-    );
-  };
+  const releaseToRest = () => gestureRef.current.release();
 
   // ── Commit: the media window becomes the envelopment — promoted to a
   // fixed box at its measured rect, it grows to the full viewport while its
@@ -480,7 +483,7 @@ export default function NextProjectBand({ next }) {
   const commit = () => {
     if (departingRef.current) return;
     departingRef.current = true;
-    clearTimeout(idleRef.current);
+    gestureRef.current.clearIdle();
     try {
       sessionStorage.setItem('swm:worldIndex', String(next.index));
     } catch {
@@ -593,41 +596,18 @@ export default function NextProjectBand({ next }) {
   useEffect(() => {
     if (PREFERS_REDUCED_MOTION) return undefined;
 
-    const clearIdle = () => {
-      clearTimeout(idleRef.current);
-      idleRef.current = null;
-    };
-
     const atEnd = () =>
       window.innerHeight + window.scrollY >=
       document.documentElement.scrollHeight - 2;
-
-    const dragTo = (f) => {
-      // /work's track lane (the lean's). overwrite: 'auto' takes the proxy
-      // over from a mid-flight return. The blue pre-cover rides apply() —
-      // confined to the media window's cover layer, not the shell.
-      gsap.to(proxyRef.current, {
-        f,
-        duration: DRAG_TRACK_S,
-        ease: 'power1.out',
-        overwrite: 'auto',
-        onUpdate: apply,
-      });
-    };
-
-    // A wheel has no lift, so its let-go is a stall below the threshold.
-    const scheduleRelease = () => {
-      clearIdle();
-      idleRef.current = setTimeout(releaseToRest, RELEASE_MS);
-    };
 
     const addDelta = (dy, wheel = false) => {
       if (departingRef.current) return;
       // The inquiry overlay owns the screen — never arm under it.
       if (document.querySelector('.project-overlay')?.dataset.open === 'true') return;
+      const g = gestureRef.current;
       // Engage only at the document's end; retreating drains the fill while
       // the page scrolls away, so the rubber-band plays as you leave.
-      if (accumRef.current === 0) {
+      if (g.accum === 0) {
         if (!atEnd() || dy <= 0) {
           armAtRef.current = 0;
           return;
@@ -644,17 +624,10 @@ export default function NextProjectBand({ next }) {
           if (now < armAtRef.current) return;
         }
       }
-      const a = Math.max(0, accumRef.current + dy);
-      accumRef.current = a;
+      // A wheel has no lift, so its let-go is a stall below the threshold;
+      // a finger holds it until the lift.
+      g.push(dy, { stall: wheel });
       syncHint(); // a live gesture suspends the rest hint (the text never changes for it)
-
-      if (a >= SCROLL_TRIGGER) {
-        clearIdle();
-        commit();
-      } else {
-        dragTo(a / SCROLL_TRIGGER);
-        if (wheel) scheduleRelease(); // a finger holds it until the lift
-      }
     };
 
     const onWheel = (e) => addDelta(e.deltaY, true);
@@ -672,8 +645,7 @@ export default function NextProjectBand({ next }) {
     // the fill springs home now.
     const onTouchEnd = () => {
       touchY = null;
-      if (departingRef.current || accumRef.current === 0) return;
-      clearIdle();
+      if (departingRef.current || gestureRef.current.accum === 0) return;
       releaseToRest();
     };
 
@@ -683,7 +655,7 @@ export default function NextProjectBand({ next }) {
     window.addEventListener('touchend', onTouchEnd);
     window.addEventListener('touchcancel', onTouchEnd);
     return () => {
-      clearIdle();
+      gestureRef.current.clearIdle();
       // The hint re-arms itself — it must not outlive the band.
       killHint();
       window.removeEventListener('wheel', onWheel);

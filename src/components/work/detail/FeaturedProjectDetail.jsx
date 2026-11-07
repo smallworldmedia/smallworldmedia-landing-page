@@ -55,6 +55,8 @@ import {
 import { formatYearRange } from '../../../lib/formatYearRange.js';
 import { renderKeywords } from '../../../lib/keywords.jsx';
 import useKeywordWipe from './useKeywordWipe.js';
+import { holdWanted, attachBlurbHold, ARM_EVENT } from '../../../lib/blurbHold.js';
+import { HOLD_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js';
 
 /* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
    Px-fixed height (~65vh on a laptop) so the reserved region stays rigid.
@@ -103,11 +105,28 @@ const readChunkTune = () => {
   };
 };
 
+/* The keyword wipe, mounted when its blurb may play (its hook arms on mount). */
+function KeywordWipe({ target }) {
+  useKeywordWipe(target);
+  return null;
+}
+
 /* The blurb copy, with its own keyword wipe: the intro and each band play
-   theirs as they scroll in. */
+   theirs as they scroll in. On a phone with the reading hold (SQ-26) the
+   entrance waits for the section to SEAT (blurbHold's ARM_EVENT), not for it
+   to scroll in; with no hold (desktop, reduced motion, ?blurbhold=0) it
+   plays as before. */
 function BlurbCopy({ paragraphs }) {
   const ref = useRef(null);
-  useKeywordWipe(ref);
+  const [armed, setArmed] = useState(() => !holdWanted());
+  useEffect(() => {
+    if (armed) return undefined;
+    const section = ref.current?.closest('.project-blurb');
+    if (!section) return undefined;
+    const arm = () => setArmed(true);
+    section.addEventListener(ARM_EVENT, arm, { once: true });
+    return () => section.removeEventListener(ARM_EVENT, arm);
+  }, [armed]);
   return (
     <div className="project-blurb__copy" ref={ref}>
       {paragraphs.map((para, i) => (
@@ -115,8 +134,38 @@ function BlurbCopy({ paragraphs }) {
           {renderKeywords(para)}
         </p>
       ))}
+      {armed && <KeywordWipe target={ref} />}
     </div>
   );
+}
+
+/* The phone reading sections (SQ-26): each blurb is a CSS section
+   (project-detail.css, ≤768px) and, for a finger, the page holds on it —
+   lib/blurbHold.js. This owns the lifecycle: attach while the phone query
+   matches, detach when it stops (resize-aware), and the ?blurbsec dial. */
+function useBlurbHold(rootRef) {
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+    const { sec } = readBlurbTune(window.location.search);
+    if (sec != null) root.style.setProperty('--blurb-sec', String(sec));
+    const mq = window.matchMedia(HOLD_MQ);
+    let detach = null;
+    const sync = () => {
+      if (holdWanted()) detach ??= attachBlurbHold(root);
+      else if (detach) {
+        detach();
+        detach = null;
+      }
+    };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => {
+      mq.removeEventListener('change', sync);
+      detach?.();
+      root.style.removeProperty('--blurb-sec');
+    };
+  }, [rootRef]);
 }
 
 /* ── next_project chip (08-30, Nathan — moved out of the ClientPanel meta
@@ -268,6 +317,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // Runs at every width — the ≤1024 in-flow bands read the same rows via
   // --socket-rows and --tile-*-rows.
   const flowRef = useRef(null);
+  const pageRef = useRef(null);
+  useBlurbHold(pageRef);
   const tileShape = useTileShape();
   const gridMetrics = useGridMetrics(flowRef);
   const [blurbRows, setBlurbRows] = useState(BLURB_ROWS);
@@ -448,6 +499,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     // brand-blue fallback). data-nav-accent-page marks this as an accent route.
     <div
       className="project-detail"
+      ref={pageRef}
       data-nav-accent-page=""
       data-nav-accent={project?.projectColor || undefined}
       data-nav-accent-2={project?.projectColorSecondary || undefined}
