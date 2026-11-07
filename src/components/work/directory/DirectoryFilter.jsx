@@ -161,6 +161,11 @@ export default function DirectoryFilter({
         },
         0
       );
+      // A 2D translate (force3D: false), not GSAP's default translate3d: a 3D
+      // transform gives each tag a compositing layer for the tween's life, and
+      // iOS WebKit re-places the sticky filter by a device pixel as those layers
+      // come and go, so the tabs dipped and came back (SQ-23, Nathan's iPhone;
+      // headless engines never showed it, so his device is the proof).
       tl.fromTo(
         revealed,
         { x: -16, opacity: 0 },
@@ -170,6 +175,7 @@ export default function DirectoryFilter({
           duration: 0.35 * k,
           ease: 'power3.out',
           stagger: { each: 0.02 * k, from: 'start' },
+          force3D: false,
           clearProps: 'transform,opacity',
         },
         0.15 * k
@@ -238,7 +244,7 @@ export default function DirectoryFilter({
                 >
                   <path className="dir-filter__tab-line" d={TAB_TOP} />
                 </svg>
-                {id}
+                <span className="dir-filter__tab-word">{id}</span>
               </span>
               <svg
                 className="dir-filter__tab-skirt"
