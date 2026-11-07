@@ -989,4 +989,21 @@ html:has(.project-detail) body {
     flex-wrap: wrap;
     gap: 1rem;
   }
+
+  /* Reading sections (SQ-26, 11-07, Nathan: "80% scroll sections", phones
+     only): every blurb — the intro and each later band — is its own
+     0.8-of-the-viewport moment, its copy centred. svh, so the iOS toolbar
+     never jumps it; min-height, so a long paragraph is never clipped.
+     ?blurbsec sets --blurb-sec on .project-detail. The hold on top of it
+     (lib/blurbHold.js) is JS. Reduced motion keeps these plain sections. */
+  .project-blurb {
+    min-height: calc(var(--blurb-sec, 0.8) * 100vh);
+    min-height: calc(var(--blurb-sec, 0.8) * 100svh);
+    justify-content: center;
+    padding-block: 0.857rem;
+  }
+
+  .hero-band>.project-blurb {
+    justify-content: center;
+  }
 }

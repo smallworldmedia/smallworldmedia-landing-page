@@ -289,7 +289,7 @@ Readers: `src/lib/smoothScroll.js` (raw params, per route), `src/lib/lenisTune.j
 
 ## Site-wide — the touch gesture (rubber bands)
 
-Reader: `src/lib/touchTune.js` (module-load, 11-03), imported by every rubber band in place of motion.js's two constants: `/work`'s World Turn (`FeaturedProjects.jsx`), the detail next-project band (`NextProjectBand.jsx`, which copied both as literals until 11-03), `/process`'s stages (`useProcessScrollDriver.js`) and home's footer reveal (`Hero.jsx`). One dial moves them all, so a value dialed for the World Turn also changes home's footer drag and its release carry. Each surface's commit DISTANCE stays its own (`?scroll`, `?swipepx`). Put both params on the URL you hard-load, for example `/work?touchgain=3&releasems=240` on the phone over the LAN dev server. Nathan's 11-03 phone dial baked `5` / `240` (was `2` / `160`).
+Reader: `src/lib/touchTune.js` (module-load, 11-03), imported by every rubber band in place of motion.js's two constants: `/work`'s World Turn (`FeaturedProjects.jsx`), the detail next-project band (`NextProjectBand.jsx`, which copied both as literals until 11-03), `/process`'s stages (`useProcessScrollDriver.js`) home's footer reveal (`Hero.jsx`) and the phone blurb hold (`lib/blurbHold.js`). One dial moves them all, so a value dialed for the World Turn also changes home's footer drag and its release carry. Each surface's commit DISTANCE stays its own (`?scroll`, `?swipepx`). Put both params on the URL you hard-load, for example `/work?touchgain=3&releasems=240` on the phone over the LAN dev server. Nathan's 11-03 phone dial baked `5` / `240` (was `2` / `160`).
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
@@ -569,6 +569,17 @@ The description's first paragraph is the intro blurb; each later paragraph (a bl
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
 | `?blurbrows` | squares of the 3-col grid between bands, counted from the top of the tile field; closed up to an even spread only when the grid is too short to fit every band at this pitch | `2` (Nathan 11-03: "the two paragraphs look great"; 3+ paragraphs go "every couple of rows", not spread through the whole grid, so the `0` = even-spread mode was removed) | any number > 0 | `FeaturedProjectDetail.jsx BLURB_ROWS` |
+
+### Phone reading sections (SQ-26, 11-07)
+
+On a phone (≤768px) every description blurb, the intro and each later band, is its own **0.8-of-the-viewport section**, its copy centred (`project-detail.css`, `min-height` in `svh`). With a finger (`(max-width: 768px) and (pointer: coarse)`), the page **holds** on it: native scroll carries a section in, the page settles onto its seat when the section's centre crosses the viewport's, and the gesture there is the house rubber band (`lib/rubberBand.js`, the same step the next-project band runs). The copy tracks the finger on the drag lane, the lift springs it home on the release lane, and a pull past the trigger (`SCROLL_TRIGGER_WORK_PX` of gained delta, 100px of finger at `TOUCH_GAIN` 5) glides the page on to the next content on the commit curve (`GLIDE_MS`). Both directions work. Desktop (≥769px) is untouched. Reduced motion keeps plain 80% sections with natural scroll, no hold. The blurb's keyword wipe plays when the section seats. These two read at mount, so reload after changing them.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?blurbhold` | the hold on the sections; `0` leaves plain 80% sections with natural scroll, to compare | on (Nathan asked for the hold) | `0` = off | `blurbHoldMath.js readBlurbTune` |
+| `?blurbsec` | the section's height as a fraction of the viewport | `0.8` (Nathan's) | any number > 0 | `blurbHoldMath.js BLURB_SEC`, `project-detail.css --blurb-sec` |
+
+The commit trigger is the shared `?scroll` (also the World Turn's and the next-project band's); `?touchgain` and `?releasems` apply as for every rubber band.
 
 ### Video chunks (11-05)
 
