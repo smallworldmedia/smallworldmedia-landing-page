@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-05*
+*Last Updated: 2026-11-07*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -186,6 +186,11 @@ degraded state "the highlight is simply present", and `playFooterEntrance` winds
 `kwSet(blurb, false)` — inline styles outrank the resting rule — before appending `kwWipe` to the
 SAME timeline as the words, so a reverse retracts it in kind. Reduced motion takes
 `kwSet(blurb, true)`.
+
+All of this is dormant since 11-07: `KW_HIGHLIGHT = false` in `keywords.jsx` (SQ-25, Nathan) makes
+both renderers emit plain words, `kwWipe` return 0 and `kwSet` no-op, while the markers stay in the
+copy and the CSS above stays whole. Every caller already handles "0 keywords appended", so no
+entrance timing changed. `?kwhighlight=1` brings the highlights back for one page view.
 
 ## Tunables and tune panels
 - Idiom: module-level `PARAMS = new URLSearchParams(location.search)` (null on server) with
