@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-05*
+*Last Updated: 2026-11-07*
 
 ```
 .
@@ -30,7 +30,8 @@
 │   │   ├── specimen/, lab/   # dormant routes (redirected)
 │   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb)
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
-│   │                         #   settleResize, motion, touchTune, momentum, navAccent, projectColor, projectSlug,
+│   │                         #   settleResize, motion, touchTune, rubberBand, blurbHold(+Math), momentum,
+│   │                         #   navAccent, projectColor, projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
 │   │                         #   queries, siteCopy, directoryData, clientCoverage, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,

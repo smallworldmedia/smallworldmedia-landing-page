@@ -42,6 +42,13 @@ finger moves, `RELEASE_GLIDE_S` on `RELEASE_EASE` for the spring home (the CTA f
 lean, `swm:fp-drag`, share them). On `/work` a finger's let-go is its lift, so a held finger keeps its
 fill; a wheel has no lift, so its let-go is the stall.
 
+`src/lib/rubberBand.js` (11-07, SQ-26) is the accumulator plus both lanes as ONE step:
+`createRubberBand({ trigger, signed, apply, onCommit, onRelease, onRest })` returns `push(dy,
+{ stall })`, `lift()`, `release()`, `reset()` and `accum`; `stepAccum` is its pure arithmetic. The
+detail page runs it twice: `NextProjectBand.jsx` (one-sided, at the document's end) and the phone
+blurb hold, `src/lib/blurbHold.js` (`signed`, both directions). A third surface that needs a rubber
+band uses it rather than copying the lanes.
+
 ## One-place motion
 `src/lib/dragMomentum.js` (drag + inertia), `src/lib/overlayWipe.js` (overlay wipe, never a fade),
 `src/lib/scramble.js` / `charCut.js` (text arrival). New surfaces consume these; forked numbers are
