@@ -207,6 +207,16 @@ Reader: `src/components/globe/globeConfig.js` (`PARAM()`, module-load). Consumer
 | `?globethumb` | T1: the VideoGlobe's legacy square texture side, and the base every class texture size derives from: home and /lab, which share TextureManager (load-time) | `THUMB_WIDTH` (512 desktop, 384 phone) | 256–1024 (clamped, rounded) | `globeConfig.js GLOBE_T1` |
 | `?debug` | mounts the VideoGlobe debug aside (on `/lab/globe` it is on in dev regardless) | off | presence | — (its gap/cap sliders bake to `globeConfig.js:31-32 GAP_DEG` 1.1 / `CAP_DEG` 24) |
 
+## Site-wide — keyword highlight (`[[word]]` accents)
+
+Reader: `src/lib/keywords.jsx` (`kwHighlightOn()`, read at call time on the client; SSR is always the baked default, so an SSR'd island re-renders on hydration when the param is set).
+
+**Off sitewide since 11-07 (Nathan).** A `[[keyword]]` renders as its plain word in the surrounding ink: no box, no second ink, no wipe, and `kwWipe` / `kwSet` do nothing. A linked keyword (`[[kw]](/href)`) stays a link in the prose-link style. The bracket syntax is kept, so the Sanity copy and `processContent.js` still carry it; `**bold**` is not an accent and is unchanged.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?kwhighlight` | turns the keyword highlights back on for this page view, on every surface that renders them (footer blurb, tagline pill, mobile menu foot, `/process` blurbs and CTA line, detail descriptions) | off | `1` on; absent or `0` off | `keywords.jsx KW_HIGHLIGHT` (`true` = on for everyone; nothing else changes) |
+
 ## Site-wide — RouteFill passage
 
 Reader: `src/components/RouteFill.jsx` (`PARAM()`, read once when the persistent shell first mounts).
@@ -856,6 +866,7 @@ Worth tickets; none were fixed here.
 
 | file | what lives there |
 |---|---|
+| `src/lib/keywords.jsx` | `KW_HIGHLIGHT` (off since 11-07; `?kwhighlight=1` previews it on) |
 | `src/lib/mediaSequence.js` | `SEQUENCE_INTERVAL_MS` (the sequence rate), `SEQUENCE_MAX_FRAMES` |
 | `src/lib/motion.js` | `HOUSE_PULSE_*`, `SCROLL_TRIGGER_WORK_PX` / `_PROCESS_PX`, `TOUCH_GAIN`, `RELEASE_MS`, `GLIDE_MS`, `PAGER_*`, `LENIS_TUNING` |
 | `src/components/hero/heroConfig.js` | `TUNING_DEFAULTS`, `COMP_DEFAULTS`, `HERO_LABELS`, the `globestroke` / `introease` literals |
