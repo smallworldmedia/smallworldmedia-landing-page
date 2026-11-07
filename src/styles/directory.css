@@ -256,8 +256,20 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   stroke-linecap: square;
 }
 
-.dir-filter__tab:hover .dir-filter__tab-label,
-.dir-filter__tab:focus-visible .dir-filter__tab-label {
+/* The word, and its underline: the shown tab wears it steadily (Nathan
+   11-06), the other on hover and focus. The word's box is padded down past the
+   underline (and pulled back by the same margin, so nothing moves), so the
+   line lies inside a box that repaints with it. Drawn below the text's own
+   box, it was left a hairline after a shut→reopen on Nathan's iPhone (SQ-23;
+   the suspected cause, which only his device can confirm). */
+.dir-filter__tab-word {
+  padding-bottom: calc(0.4em + 3px);
+  margin-bottom: calc(-0.4em - 3px);
+}
+
+.dir-filter__tab[aria-selected='true'] .dir-filter__tab-word,
+.dir-filter__tab:hover .dir-filter__tab-word,
+.dir-filter__tab:focus-visible .dir-filter__tab-word {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -284,6 +296,9 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   right: 0;
   width: 4px;
   height: 0; /* useScrollThumb sizes it while the list overflows */
+  /* its scaleY entrance runs at the open's end: a steady layer, not one made
+     and dropped mid-open inside the sticky filter (SQ-23, as the caret) */
+  will-change: transform;
   border-radius: var(--radius-pill);
   background: var(--project-color, var(--color-electric-blue));
 }
@@ -454,6 +469,17 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 .dir-filter__caret {
   display: inline-flex;
   transition: transform 0.3s var(--ease-panel);
+}
+
+/* On a phone, will-change holds the caret's layer for good: its turn is a CSS
+   transform transition, which makes and drops a compositing layer inside the
+   sticky filter on every open, the churn suspected of moving the tabs on
+   Nathan's iPhone (SQ-23). Not wider: at 1440 the held layer re-rasters the
+   tab row's anti-aliasing at rest. */
+@media (max-width: 768px) {
+  .dir-filter__caret {
+    will-change: transform;
+  }
 }
 
 .dir-filter__arrow {
