@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-11-06*
+*Last Updated: 2026-11-07*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -279,6 +279,9 @@ the region folded to 0 and both panels `inert`.
   - The clients tab is tucked left, so its left stroke meets the services diagonal at
     `TAB_SHAPE.meet` (`--dir-skirt-tuck`). Services reads as in front.
   - The active tab lies on top, and its left edge clips the other tab's skirt.
+  - The shown tab's word (`.dir-filter__tab-word`) wears a steady underline; the other underlines
+    on hover and focus. The word's box is padded down past the line and pulled back by the same
+    margin, so the line repaints with the box on iOS (SQ-23).
   - A skirt's fill runs `TAB_FILL_BELOW` past its bottom stroke, so the next tab's line never peeks
     out under the foot.
 - **The panels.**
@@ -289,6 +292,10 @@ the region folded to 0 and both panels `inert`.
   `100dvh − nav − tabs − bar`, a panel scrolls inside with the drawer's thumb. Its settled height,
   `--dir-filter-h` on `.dir-page`, sets the tiles' `scroll-margin-top`, so a tile Tab reaches lands
   below the stuck filter.)
+- **No layer churn mid-open (SQ-23).** The open's tag stagger is a 2D translate (`force3D: false`),
+  and the scroll thumb (and, on phones, the caret) hold `will-change: transform`, so no compositing
+  layer is made and dropped inside the sticky filter while it opens: the suspected cause of the
+  tabs dipping on an iPhone, which only a device confirms.
 · `FilterTag.jsx` (a `role="checkbox"` button, which is also the clients tab's row; `{name, slug}` is
 all it reads there:
 `CheckIndicator`'s `square-eye`, the name as stored, the drawer's name type; ticked, the label's box
