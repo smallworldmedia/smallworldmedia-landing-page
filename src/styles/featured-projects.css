@@ -197,9 +197,8 @@ body:has(.fp) {
 /* enter_world skin now comes from the shared PRIMARY button component
    (.cta-primary in global.css — white/blue → hover blue/white, borderless);
    .fp-card__cta remains as the card's layout/GSAP hook only.
-   08-27: the FP-1 pulse now animates the FILL (background/color) via GSAP —
-   the shared 0.2s CSS transition would lag every tick of that tween, so this
-   card's CTA opts out; hover easing is handled by the pulse's calm tween. */
+   The card's CTA opts out of the shared 0.2s fill transition (the pulse that
+   needed this is gone, SQ-24; the opt-out stays so hover keeps its snap). */
 .fp-card__cta.cta-primary {
   transition: none;
 }

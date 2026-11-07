@@ -451,7 +451,7 @@ Readers: `FeaturedProjects.jsx` (`PARAM()`, gates), `WorldCard.jsx`, `fp1Tune.js
 |---|---|---|---|---|
 | `?deckdebug` | mounts FeaturedDeckDebugPanel (knobs in the World § bands). Side effect: the substring match in fpDrum/fpAtlas also arms `window.__fpDrum` / `__fpAtlas` | off | presence | — |
 | `?texttune` | mounts TextTunePanel (the `tx*` seeds apply regardless) | off | presence | — |
-| `?fp1tune` | mounts Fp1TunePanel AND switches WorldCard's enter_world pulse to the live bench-built ease; enables the fp1 shape seeds | off | exactly `1` | — |
+| `?fp1tune` | mounts Fp1TunePanel (the enter_world pulse is gone, SQ-24, so the bench only plots the house curve now; it drives nothing on the card) | off | exactly `1` | — |
 | `?pager` | pager arm: lazy-swaps a skin in for the legacy `.fp-pager` rail after mount **Since 09-06 the SCALE arm is the DEFAULT and is SSR'd** — no param = `scale` (the graticule, built 09-01 over the shared engine `pager/usePagerGesture.js`; spec in `docs/fp-pager-rework-approaches.md`), rendered server-side and on first paint (static import, `data-pager='scale'` in the markup — no rail flash, no chunk swap). `rail` swaps the legacy rail in after mount (the lazy gate, inverted); other values are ignored. The `tape` and `tuner` arms were DELETED 09-05 | `scale` | `scale` \| `rail` | default flipped 09-06; the rail stays as the parked rail-arm proposal's front end |
 | `?detent` | finger-travel px per station while engaged, and the flick-velocity divisor. On `scale` it ALSO re-pitches the visual scale (the skin writes it back as the inline `--scale-pitch`), so touch stays exactly 1:1 with the ticks | scale `48` both tiers (09-04 r8 vertical-space bump — was 44 desktop) px | any finite; **floored at 8px** in all three arms (09-01 — `0` used to divide by zero → NaN landing) | `motion.js SCALE_PITCH_PX` + `SCALE_PITCH_MOBILE_PX` (`PAGER_DETENT_TOUCH_PX` is the engine default) |
 | `?wheeldetent` | desktop wheel deltaY px per station (`hover:hover` + `pointer:fine` only). Per-render | scale `100` px | any finite; floored at 8px | `motion.js SCALE_WHEEL_DETENT_PX` (`PAGER_DETENT_WHEEL_PX` is the engine default) |
@@ -508,7 +508,7 @@ Chrome tokens — scale: `--scale-w` `--scale-num-h` `--scale-pitch` (pre-hydrat
 
 ### House pulse (`?fp1tune=1`)
 
-The four shape knobs regenerate a live `HOUSE_PULSE_PATH`; at defaults the path is byte-identical to `motion.js:36`. `?fp1period` / `?fp1rest` / `?fp1mix` are also read directly in WorldCard, so they work without the bench; the shape knobs and `?fp1on` need `?fp1tune=1`.
+The four shape knobs regenerate a live `HOUSE_PULSE_PATH`; at defaults the path is byte-identical to `motion.js:36`. Since SQ-24 the enter_world buttons no longer pulse (home hero and /work card rest static), so every knob here is a bench-only plot input and drives no live element; `?fp1mix` was removed with its only reader.
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
@@ -516,10 +516,9 @@ The four shape knobs regenerate a live `HOUSE_PULSE_PATH`; at defaults the path 
 | `?fp1soft` | attack softness, 0 hard → 1 very soft (0.5 = house control points) | `1` | slider 0–1 / 0.01 | `HOUSE_PULSE_PATH` |
 | `?fp1holdx` | hold end x, clamped ≥ peakX (the default < peakX gives a zero-length crest) | `0.235` | slider peakX–0.95 / 0.005 | `HOUSE_PULSE_PATH` |
 | `?fp1fall` | fall ease: 0 linear, >0 bows into a held-high S | `0.65` | slider 0–1 / 0.01 | `HOUSE_PULSE_PATH` |
-| `?fp1period` | full pulse cycle (hit + rest) of the enter_world dip | `2.3` s | slider 1–8 / 0.1 | `motion.js:40 HOUSE_PULSE_PERIOD_S` |
+| `?fp1period` | full pulse cycle (hit + rest), bench plot only | `2.3` s | slider 1–8 / 0.1 | `motion.js:40 HOUSE_PULSE_PERIOD_S` |
 | `?fp1on` | fraction of the period the hit occupies (bench only) | `0.75` | slider 0.2–0.8 / 0.05 | `motion.js:41 HOUSE_PULSE_ON_RATIO` |
-| `?fp1rest` | rest beat between the boot entrance's end and the first dip | `1.05` s | slider 0–2 / 0.05 | `WorldCard.jsx:104` |
-| `?fp1mix` | how far the enter_world fill travels toward `--color-dim-gray` at the dip (label → white by the same amount); not on the panel, never in `copy_url` | `1` | 0–1 (clamped) | `WorldCard.jsx:102` |
+| `?fp1rest` | rest beat before the first hit, bench plot only | `1.05` s | slider 0–2 / 0.05 | `fp1Tune.js FP1_DEFAULTS` |
 | `?fp1dim` | **dead**: old opacity-dip depth; read, serialized and on a slider, never applied since the fill-pulse redial | `0.3` | slider 0–1 | nothing (superseded by `?fp1mix`) |
 
 ### Text exit (`?texttune`; seeds apply on every load)
@@ -865,7 +864,6 @@ Worth tickets; none were fixed here.
 | `src/components/work/world/enterTune.js` | `ENTER_TUNE_DEFAULTS` |
 | `src/components/work/textExit.js` | `TEXT_TUNE_DEFAULTS` |
 | `src/components/work/fp1Tune.js` | `FP1_DEFAULTS` (mirror of motion.js) |
-| `src/components/work/WorldCard.jsx` | the `fp1mix` / `fp1rest` literals |
 | `src/components/work/bandLayout.js` | `DECK_SPACING`, `BAND_ANGLE`, `HOME_X`, `FAN_Y`, `PILE_X` / `PILE_Y`, `VIEW_HOLD` |
 | `src/components/work/detail/{FeaturedProjectDetail,DeckScroller,BandPager,NextProjectBand,GridSocket}.jsx` | their module consts |
 | `src/components/process/processConfig.js` | `TUNING_DEFAULTS`, globe-O consts, `CAM_LAG_S` |
