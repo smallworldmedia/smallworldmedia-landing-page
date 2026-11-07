@@ -28,9 +28,37 @@
  * overshoot), each offset KW_STAGGER_S from the last, first to last in
  * reading order. It lives on the SAME timeline as the text entrance so a
  * reverse (leave-back) retracts it in kind. Reduced motion: final state.
+ *
+ * THE SWITCH (11-07, Nathan: "disable the accent highlighting sitewide … we
+ * will keep the bracket tagging syntax so we can turn them back on"):
+ * KW_HIGHLIGHT below. OFF (the shipped state) a `[[keyword]]` is the plain
+ * word in the surrounding ink — no <mark>, no box, no second ink, no wipe —
+ * and `kwWipe` / `kwSet` do nothing, so no timeline waits on a highlight.
+ * A linked keyword `[[kw]](/href)` stays a link, in the prose-link style. The
+ * grammar is untouched: the markers are still parsed and stripped, so the
+ * Sanity copy and processContent keep their brackets, `**bold**` is not an
+ * accent and is unaffected, and flipping the switch is the only step to get
+ * the highlights back. The CSS is left whole for that reason; with the
+ * switch off no `.kw` is ever emitted, so none of it matches. `?kwhighlight=1`
+ * turns them back on for one page view (the preview dial).
  */
 import { Fragment } from 'react';
 import gsap from 'gsap';
+
+/** Accent highlighting on or off, sitewide. Off since 11-07 (Nathan). */
+export const KW_HIGHLIGHT = false;
+
+/**
+ * Whether highlights draw right now: the switch, or `?kwhighlight=1` (any
+ * value but `0`) on this page view. The server never reads the URL, so SSR is
+ * always the baked default, like every other tunable (docs/tunables-guide.md).
+ */
+export function kwHighlightOn() {
+  if (KW_HIGHLIGHT) return true;
+  if (typeof window === 'undefined') return false;
+  const v = new URLSearchParams(window.location.search).get('kwhighlight');
+  return v !== null && v !== '0';
+}
 
 export const KW_DURATION_S = 0.5;
 export const KW_STAGGER_S = 0.09;
@@ -69,6 +97,7 @@ function linkTo(href, className, children, key) {
 /** Plain string → React nodes; keywords become <mark class="kw">, links <a>. */
 export function renderKeywords(text) {
   if (!text) return text;
+  const on = kwHighlightOn();
   const out = [];
   let last = 0;
   let i = 0;
@@ -83,6 +112,10 @@ export function renderKeywords(text) {
       );
     } else if (m[4] !== undefined) {
       out.push(linkTo(m[5], 'prose-link', m[4], key));
+    } else if (!on) {
+      // Highlighting off: the plain word, as a prose link when it carries one.
+      const word = m[1] + (m[2] || '');
+      out.push(m[3] ? linkTo(m[3], 'prose-link', word, key) : word);
     } else {
       const word = m[1] + (m[2] || '');
       // One inline-block per WORD so a long keyword wraps at word boundaries
@@ -134,6 +167,7 @@ export const stripKeywords = (text) =>
  * Returns the number of keywords found (0 = nothing appended).
  */
 export function kwWipe(tl, root, at = 0, { duration = KW_DURATION_S, stagger = KW_STAGGER_S } = {}) {
+  if (!kwHighlightOn()) return 0;
   const marks = root ? Array.from(root.querySelectorAll('.kw')) : [];
   if (!marks.length) return 0;
   const boxes = marks.map((m) => m.querySelector('.kw__box'));
@@ -167,7 +201,7 @@ export function kwWipe(tl, root, at = 0, { duration = KW_DURATION_S, stagger = K
 
 /** Snap every keyword under `root` to its final (1) or resting (0) state. */
 export function kwSet(root, on) {
-  if (!root) return;
+  if (!root || !kwHighlightOn()) return;
   gsap.set(root.querySelectorAll('.kw__box'), { scaleX: on ? 1 : 0 });
   gsap.set(root.querySelectorAll('.kw__ink'), { clipPath: on ? 'inset(-0.35em 0% -0.35em 0)' : 'inset(-0.35em 100% -0.35em 0)' });
 }
@@ -202,6 +236,7 @@ export function kwSet(root, on) {
  */
 export function keywordLines(text) {
   if (!text) return [];
+  const on = kwHighlightOn();
   let kwIndex = 0;
   return text.split('\n').map((line) => {
     const out = [];
@@ -237,6 +272,10 @@ export function keywordLines(text) {
         words.forEach((w, j) => {
           push({ text: w, sep: j === 0 && !needSpace ? '' : ' ', em: false, kw: false, href: m[5] });
         });
+      } else if (!on) {
+        // Highlighting off: a keyword is ordinary words (a link keeps its
+        // href, so it draws as a prose link), spaced like the prose around it.
+        plain(m[1] + (m[2] || ''), m[3] ? { href: m[3] } : undefined);
       } else {
         const ix = kwIndex++;
         const frags = (m[1] + (m[2] || '')).split(' ');
