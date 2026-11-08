@@ -487,7 +487,7 @@ export default function useGlobeScene(
         lens: () => (enterLens ? [enterLens.pass.distortion.x, enterLens.pass.distortion.y] : null),
         diff: (keep) => {
           if (!enterLens) return null;
-          renderer.render(scene, camera);
+          renderer.render(scene, camera); // the direct path, for the read-back (not the tick's call)
           const a = grab();
           const was = lensRouted;
           if (!was) sizeEnterLens(true);
@@ -1203,8 +1203,11 @@ export default function useGlobeScene(
 
       const texBefore = renderer.info.memory.textures;
       const r0 = performance.now();
-      if (lensRouted) enterLens.composer.render(step); // the Enter World dive only
-      else renderer.render(scene, camera);
+      if (lensRouted) {
+        enterLens.composer.render(step); // the Enter World dive only
+      } else {
+        renderer.render(scene, camera);
+      }
       if (director) director.noteRender(performance.now() - r0, renderer.info.memory.textures - texBefore);
       // Overlay bridge (home hero): hand the just-rendered frame to the DOM
       // overlay — after render, so every matrix is the one drawn. Null-safe:
