@@ -2565,6 +2565,16 @@ a.clients__item:focus-visible {
   }
 }
 
+/* THE WHITE SWITCH (11-07, Nathan): the phrase in the odometer word's own
+   ink (.logo-ticker__odo above), with both animations dropped so nothing
+   repaints. (0,3,0) outranks the base rule, the play-state latch and the
+   reduced-motion hold. SPECTRUM_WHITE in ClientLogoTicker.jsx is the bake,
+   ?spectrumwhite the dial. */
+.logo-ticker[data-spectrum='white'] .logo-ticker__spectrum {
+  animation: none;
+  color: var(--color-white);
+}
+
 /* sizer: all five words stacked in ONE cell → box = the longest word */
 .logo-ticker__odo-sizer {
   display: inline-grid;

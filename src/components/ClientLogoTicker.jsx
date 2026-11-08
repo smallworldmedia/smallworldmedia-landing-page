@@ -70,6 +70,15 @@ export const leadParts = (copy = COPY, phrase = SPECTRUM_PHRASE) => {
   const i = copy.indexOf(phrase);
   return i < 0 ? [copy, '', ''] : [copy.slice(0, i), phrase, copy.slice(i + phrase.length)];
 };
+
+/* THE WHITE SWITCH (11-07, Nathan: "a toggle to change the 'full-spectrum'
+   color cycle to just full brightness text white to match the rotating
+   artists, promoters, etc"). true = the phrase takes the odometer word's own
+   white and the colour walk never runs; false = the 127 BPM pulse. The bake
+   is SSR'd as data-spectrum on the band; ?spectrumwhite=1 / =0 overrides it
+   for the page view (global.css .logo-ticker[data-spectrum='white']). */
+export const SPECTRUM_WHITE = false;
+
 export const WORDS = ['artists', 'promoters', 'labels', 'agencies', 'venues'];
 
 // Optical balance (09-08, Nathan): height-fitting every mark makes a square
@@ -140,6 +149,13 @@ export default function ClientLogoTicker() {
     // leaves the CSS default alone.
     const reps = PARAM('pulsereps', NaN);
     rootDial('--swm-pulse-reps', Number.isFinite(reps) ? Math.min(5, Math.max(1, Math.round(reps))) : NaN);
+    // The phrase's ink, either way round from the SPECTRUM_WHITE bake:
+    // 1 = plain white, 0 = the colour walk.
+    const white = PARAM('spectrumwhite', NaN);
+    if (Number.isFinite(white)) {
+      if (white) root.dataset.spectrum = 'white';
+      else delete root.dataset.spectrum;
+    }
     const k = PARAM('logobal', NaN);
     const ref = PARAM('logoref', NaN);
     if (Number.isFinite(k) || Number.isFinite(ref)) {
@@ -227,7 +243,7 @@ export default function ClientLogoTicker() {
   const [leadBefore, leadPhrase, leadAfter] = leadParts();
 
   return (
-    <div className="logo-ticker" ref={rootRef}>
+    <div className="logo-ticker" ref={rootRef} data-spectrum={SPECTRUM_WHITE ? 'white' : undefined}>
       <p className="logo-ticker__copy">
         <span className="logo-ticker__lead">
           {leadBefore}
