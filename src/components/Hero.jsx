@@ -893,9 +893,9 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       unsub();
       commitKillRef.current = null;
       window.dispatchEvent(
-        // loader: true — the home→/work passage shows the overviews_loading
-        // bar on the RouteFill while the World builds (08-25; other
-        // passages stay bare).
+        // loader: true — the home→/work passage shows the globe loader
+        // on the RouteFill while the World builds (08-25, the globe since
+        // SQ-32; the FP→detail passage opts in with loaderAfterCover).
         new CustomEvent('swm:envelop', {
           detail: { duration: HANDOFF_COVER_SECONDS, loader: true, color: worldRef.current?.color || undefined },
         })
@@ -950,7 +950,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
        real-time chrome exit (house-sanctioned exception). — */
     const raw = { p: 0 };
     const tl = gsap.timeline({ onComplete: dryRun ? releaseDryRun : handoff });
-    // 08-27 (4), Nathan: the overviews_loading chrome opens EARLY —
+    // 08-27 (4), Nathan: the loader (the globe, SQ-32) opens EARLY —
     // ?loaderlead ms after the commit starts, over the spreading blue (it
     // used to exist only between the handoff and /work's release, no time to
     // run its charge). rAF-deferred dispatch so RouteFill's tweens are never
@@ -1068,8 +1068,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
         detail: { duration: coverS, color: entered?.color || undefined },
       })
     );
-    // overviews_loading (home→/work only — the FP→detail passage stays bare)
-    // opens ?loaderlead ms AFTER the button is out, never under it. rAF-
+    // The loader (home→/work; the FP→detail passage opens its own from
+    // RouteFill) opens ?loaderlead ms AFTER the button is out, never under it. rAF-
     // deferred so RouteFill's tweens are not adopted by this island's context.
     const loaderAtMs = Math.min(
       enterMs,

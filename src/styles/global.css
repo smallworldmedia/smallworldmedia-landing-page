@@ -1431,75 +1431,32 @@ html.fp-tint .mobile-menu__item {
   pointer-events: none;
 }
 
-/* overviews_loading (08-25, Nathan; 08-27 (4): a fixed SIBLING of the fill,
-   not a child — the hero's early swm:loader-start raises it over the
-   commit's own spreading blue, ?loaderlead ms in, and RouteFill fades it in
-   mirror with the fill on release). Viewport-centered; mono label over a
-   hairline track; the bar is GSAP-scaled from the left. */
+/* The loader (overviews_loading 08-25, Nathan; 08-27 (4): a fixed SIBLING of
+   the fill, not a child — the hero's early swm:loader-start raises it over
+   the commit's own spreading blue, and RouteFill fades it in mirror with the
+   fill on release). SQ-32: the lockup globe (GlobeLoader, globe-loader.css)
+   replaced the percentage bar. Viewport-centered; GSAP drives autoAlpha. */
 .route-fill__loader {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.571rem;
-  /* 8px */
-  width: min(60vw, 15.714rem);
-  /* 220px */
   opacity: 0;
   visibility: hidden;
-}
-
-/* 08-30 (3), Nathan — the detail-progress treatment in WHITE: rounded
-   capsule track (white stroke) + white fill, with a readout row aligned to
-   the bar's bounds: mono percentage (no % mark) at the LEFT bound, the
-   chip-voice label at the RIGHT bound. */
-.route-fill__loader-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  width: 100%;
-}
-
-.route-fill__loader-pct {
-  font-family: var(--font-mono);
-  font-size: var(--text-mono);
-  line-height: var(--lh-mono);
-  letter-spacing: -0.024em;
-  color: var(--color-white);
 }
 
 .route-fill__loader-label {
   /* 08-30 (2), Nathan: the loader joins the CHIP type voice (the
      .detail-next / breadcrumb token set — sans UI face, chip size and
-     tracking, uppercase); the mono face left with it. (A broader loading-
-     bar refinement pass is queued post-mobile — see memory.) */
+     tracking, uppercase); the mono face left with it. GlobeLoader's two
+     words wear this class (lowercased by .globe-loader--lower). */
   font-family: var(--font-ui);
   font-size: 1rem;
   line-height: 1.571rem;
   letter-spacing: -0.024em;
   text-transform: uppercase;
   color: var(--color-white);
-}
-
-.route-fill__loader-track {
-  height: 0.571rem;
-  /* 8px */
-  border: 1px solid var(--color-white);
-  border-radius: var(--radius-capsule);
-  overflow: hidden;
-  /* clips the width-driven fill to the capsule's rounded ends */
-}
-
-.route-fill__loader-bar {
-  height: 100%;
-  width: 0%;
-  /* width-driven (RouteFill writes it per frame) — a scaleX would squash
-     the capsule radius; the detail-progress precedent */
-  border-radius: inherit;
-  background: var(--color-white);
 }
 
 /* ============================================
@@ -1523,7 +1480,7 @@ html.fp-tint .mobile-menu__item {
   transform: translateX(-50%);
   bottom: var(--nav-inset);
   z-index: 4;
-  /* the overviews_loading track's width language — one loader vocabulary */
+  /* the old overviews_loading track's width language (the bar is gone, SQ-32) */
   width: min(60vw, 15.714rem);
   height: 0.429rem;
   /* 6px */

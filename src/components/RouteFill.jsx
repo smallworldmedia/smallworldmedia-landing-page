@@ -14,15 +14,23 @@
  *     (detail.value 0..1, detail.duration optional). Input stays live —
  *     this is the scroll-anchored pre-cover, not the passage itself.
  *
+ * The globe loader (SQ-32) rides this same layer for the two passages with a
+ * wait in them: home → /work (opens over the hero's blue, `swm:loader-start`)
+ * and FP card → detail (`swm:envelop` with `loaderAfterCover`: opens
+ * ?loaderlead ms after the cover is fully up, and never opens if the page is
+ * ready first). One path, GlobeLoader's start/stop handle.
+ *
  * Safety valve: if a page loads while covered and nothing asks for a release
  * (a failed navigation, a route without the handshake), the fill lets go on
  * its own — the user is never stranded on a blue screen.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { applyNavAccent, reapplyNavAccent, clearNavAccent } from '../lib/navAccent.js';
-// overviews_loading pacing knobs (?loaderlead / ?loaderend, ?committune
-// bench) — read at fire time so the bench moves them live.
+import { buildTimeline } from '../lib/globeLoaderGeometry.js';
+import GlobeLoader, { readLoaderDials } from './ui/GlobeLoader.jsx';
+// Loader pacing knobs (?loaderlead / ?loaderend, ?committune bench) — read at
+// fire time so the bench moves them live.
 import { TUNING as HERO_TUNING } from './hero/heroConfig.js';
 
 // Live tuning (?key=value, ms) — read once when the persistent shell first
@@ -36,88 +44,99 @@ const PARAM = (key, fallback) => {
 const COVER_SECONDS = PARAM('fillcover', 100) / 1000; // fallback only — dispatchers pass their own
 const RELEASE_SECONDS = PARAM('fillrelease', 400) / 1000; // fade off over the arriving scene
 const RELEASE_DELAY = 0.1; // one settle beat so the arriving scene has a frame up
-const LOADER_IN_SECONDS = 0.3; // overviews_loading's fade up (10-06)
+const LOADER_IN_SECONDS = 0.3; // the loader's fade up (10-06)
+// FP card → detail waits far less than home → /work, so its draw-in is
+// compressed: ?loaderquick scales the loader's stagger/draw times (1 = the
+// full draw). home → /work always draws full. Dial read once, like the above.
+const LOADER_QUICK = PARAM('loaderquick', 0.4);
 const SAFETY_MS = 2500;
+
+const scaleTiming = (t, k) => ({
+  ...t,
+  meridianStaggerMs: t.meridianStaggerMs * k,
+  drawMs: t.drawMs * k,
+  parallelStaggerMs: t.parallelStaggerMs * k,
+});
 
 export default function RouteFill() {
   const fillRef = useRef(null);
-  const loaderRef = useRef(null); // the overviews_loading chrome (08-25)
-  const barRef = useRef(null); // the bar fill — width 0..100% (08-30 (3): width, not scaleX — the capsule radius must not squash)
-  const pctRef = useRef(null); // the mono percentage readout (08-30 (3))
+  const loaderRef = useRef(null); // the loader layer (08-25; the globe since SQ-32)
+  const globeRef = useRef(null); // GlobeLoader's { start, stop } handle
+  // The ?loader… draw dials (docs/tunables-guide.md), read once after mount
+  // (null until then, and the globe mounts with them); `quick` swaps in the
+  // compressed FP → detail draw.
+  const [dials, setDials] = useState(null);
+  const [quick, setQuick] = useState(false);
+  const timing = dials && (quick ? scaleTiming(dials.timing, LOADER_QUICK) : dials.timing);
+  const timingRef = useRef(timing);
+  timingRef.current = timing;
+  useEffect(() => setDials(readLoaderDials()), []);
 
   useEffect(() => {
     const fill = fillRef.current;
     if (!fill) return undefined;
     const loader = loaderRef.current;
-    const bar = barRef.current;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let covered = false;
     let safetyTimer = null;
     let loaderUp = false;
+    let loaderAt = 0; // performance.now() when the draw-in started
+    let loaderTimer = null; // the pending FP → detail "after the cover" start
 
-    // ── overviews_loading (08-25, Nathan; 08-27 (4) repaced) — a dummy
-    // loading bar bridging the home→/work gap. The loader is a SIBLING of
-    // the fill now (not a child), so the departing hero can open it EARLY —
-    // `swm:loader-start`, ?loaderlead ms into the commit, over the hero's
-    // own spreading blue — instead of waiting for the handoff envelop
-    // (detail.loader stays as the fallback trigger). On release the bar
-    // takes a paced ?loaderend closing stretch to 100% and the fill reveal
-    // WAITS for it. Dummy by design: it paces the WAIT, it does not measure
-    // progress. Both knobs live on the ?committune bench (read at fire time).
-    // The bar is WIDTH-driven (08-30 (3): the capsule's rounded ends must
-    // not squash — the detail-progress precedent); the mono readout tracks
-    // the same proxy, no % mark.
-    const pct = { v: 0 };
-    const writeBar = () => {
-      if (bar) bar.style.width = `${pct.v.toFixed(2)}%`;
-      if (pctRef.current) pctRef.current.textContent = String(Math.round(pct.v));
-    };
+    // ── The loader (overviews_loading 08-25, Nathan; 08-27 (4) repaced; the
+    // lockup globe since SQ-32 — it replaced the percentage bar). It bridges
+    // the two passages with a wait in them. A SIBLING of the fill, so the
+    // departing hero can open it EARLY — `swm:loader-start`, ?loaderlead ms
+    // after the button is out, over the hero's own spreading blue (detail.loader
+    // stays as the fallback trigger) — and the FP card → detail passage opens it
+    // ?loaderlead ms after its cover is fully up (detail.loaderAfterCover).
+    // Dummy by design: the globe paces the WAIT, it does not measure progress.
     const loaderStart = () => {
-      if (!loader || !bar || reducedMotion || loaderUp) return;
+      if (!loader || reducedMotion || loaderUp) return;
       loaderUp = true;
-      gsap.killTweensOf([loader, pct]);
-      pct.v = 0;
-      writeBar();
+      loaderAt = performance.now();
+      gsap.killTweensOf(loader);
+      globeRef.current?.start();
       // 10-06 (Nathan: it "comes in too quickly"): a short fade up, not a pop.
       gsap.fromTo(loader, { autoAlpha: 0 }, { autoAlpha: 1, duration: LOADER_IN_SECONDS, ease: 'power2.out' });
-      // Fast optimistic charge, then a slow creep — never lands on its own.
-      const tl = gsap.timeline();
-      tl.to(pct, { v: 82, duration: 1.1, ease: 'power2.out', onUpdate: writeBar });
-      tl.to(pct, { v: 96, duration: 3.5, ease: 'none', onUpdate: writeBar });
     };
-    const loaderEndSeconds = () =>
-      Math.max(0.05, (HERO_TUNING.loaderEndMs ?? 500) / 1000);
-    const loaderFinish = () => {
-      if (!loaderUp || !loader || !bar) return;
+    // ?loaderend, read live: the most the reveal may WAIT after the page is
+    // ready for the draw-in to finish (0 = cut with the reveal).
+    const loaderEndSeconds = () => Math.max(0, (HERO_TUNING.loaderEndMs ?? 300) / 1000);
+    // How long the reveal waits: whatever is left of the draw-in, capped at
+    // ?loaderend. A page that was slow enough to outlast the draw adds nothing.
+    const loaderHoldSeconds = () => {
+      if (!loaderUp) return 0;
+      const left = buildTimeline(timingRef.current).drawEnd - (performance.now() - loaderAt) / 1000;
+      return Math.min(loaderEndSeconds(), Math.max(0, left));
+    };
+    const loaderFinish = (holdS) => {
+      if (!loaderUp || !loader) return;
       loaderUp = false;
-      gsap.killTweensOf(pct);
-      // The paced close (?loaderend): the final stretch eases to 100% and
-      // the fill's reveal delay below holds until it lands.
-      const endS = loaderEndSeconds();
-      gsap.to(pct, { v: 100, duration: endS, ease: 'power1.inOut', onUpdate: writeBar });
       // A sibling no longer rides the fill's fade — mirror it exactly
-      // (same delay + duration + curve), then reset for the next passage.
+      // (same delay + duration + curve), then park the globe for the next passage.
       gsap.to(loader, {
         autoAlpha: 0,
         duration: RELEASE_SECONDS,
-        delay: endS + RELEASE_DELAY,
+        delay: holdS + RELEASE_DELAY,
         ease: 'power2.inOut',
         onComplete: () => {
-          pct.v = 0;
-          writeBar();
+          globeRef.current?.stop();
+          setQuick(false);
         },
       });
     };
 
     const release = () => {
       clearTimeout(safetyTimer);
+      loaderTimer?.kill();
       if (!covered) return;
       covered = false;
       fill.style.pointerEvents = 'none';
-      // Capture BEFORE loaderFinish flips loaderUp: when the bar is up, the
-      // reveal waits out its paced close (the loader-less passages don't).
-      const holdS = loaderUp ? loaderEndSeconds() : 0;
-      loaderFinish();
+      // Read BEFORE loaderFinish flips loaderUp: the reveal waits out the rest
+      // of the draw-in (capped); the loader-less passages don't wait at all.
+      const holdS = loaderHoldSeconds();
+      loaderFinish(holdS);
       if (reducedMotion) {
         gsap.set(fill, { autoAlpha: 0 });
         return;
@@ -141,14 +160,27 @@ export default function RouteFill() {
       const color = e?.detail?.color;
       if (color) fill.style.setProperty('--project-color', color);
       else fill.style.removeProperty('--project-color');
-      if (e?.detail?.loader) loaderStart();
+      const coverS = e?.detail?.duration ?? COVER_SECONDS;
+      loaderTimer?.kill();
+      if (e?.detail?.loader) {
+        if (e.detail.loaderAfterCover) {
+          // FP card → detail: the loader opens once the cover is fully up
+          // (+ ?loaderlead), on the compressed draw — unless the page is
+          // ready first, in which case release() cancels it and it never shows.
+          setQuick(true);
+          loaderTimer = gsap.delayedCall(coverS + Math.max(0, HERO_TUNING.loaderLeadMs) / 1000, loaderStart);
+        } else {
+          setQuick(false);
+          loaderStart();
+        }
+      }
       if (reducedMotion) {
         gsap.set(fill, { autoAlpha: 1 });
         return;
       }
       gsap.to(fill, {
         autoAlpha: 1,
-        duration: e?.detail?.duration ?? COVER_SECONDS,
+        duration: coverS,
         ease: 'power2.in',
         overwrite: true,
       });
@@ -209,6 +241,7 @@ export default function RouteFill() {
     syncNavAccent();
     return () => {
       clearTimeout(safetyTimer);
+      loaderTimer?.kill();
       window.removeEventListener('swm:envelop', cover);
       window.removeEventListener('swm:fill-release', release);
       window.removeEventListener('swm:fill-progress', progress);
@@ -221,20 +254,16 @@ export default function RouteFill() {
   return (
     <>
       <div ref={fillRef} className="route-fill" aria-hidden="true" />
-      {/* overviews_loading (08-27 (4): a SIBLING of the fill, so the hero's
-          early `swm:loader-start` can raise it over its own spreading blue
-          before the envelop; painted after the fill in the shell, faded in
-          mirror with it on release. */}
+      {/* The loader (08-27 (4): a SIBLING of the fill, so the hero's early
+          `swm:loader-start` can raise it over its own spreading blue before
+          the envelop; painted after the fill in the shell, faded in mirror
+          with it on release). SQ-32: the lockup globe, parked until started. */}
       <div className="route-fill__loader" ref={loaderRef} aria-hidden="true">
-        {/* 08-30 (3), Nathan: percentage (mono token, no % mark) seats on
-            the bar's LEFT bound; the label justifies to its RIGHT bound. */}
-        <div className="route-fill__loader-row">
-          <span className="route-fill__loader-pct" ref={pctRef}>0</span>
-          <p className="route-fill__loader-label">overviews_loading</p>
-        </div>
-        <div className="route-fill__loader-track">
-          <div className="route-fill__loader-bar" ref={barRef} />
-        </div>
+        {/* Mounted after hydration (once `dials` is read), not server-rendered:
+            its SVG is ~30 KB of path data that every page's HTML would carry. */}
+        {dials && (
+          <GlobeLoader ref={globeRef} active={false} timing={timing} lowercase={dials.lowercase} />
+        )}
       </div>
     </>
   );

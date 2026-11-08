@@ -5,8 +5,9 @@
 
    Type: the label wears .route-fill__loader-label
    from global.css (chip voice: UI face, 1rem,
-   -0.024em, uppercase), so this loader and the
-   overviews_loading bar read as one system.
+   -0.024em, uppercase), so the loader reads in
+   the site's chip voice. RouteFill mounts it
+   (SQ-32) in its fixed .route-fill__loader layer.
    ============================================ */
 
 .globe-loader {
