@@ -7,7 +7,10 @@
  * section was abrupt, the way out was a timed glide, and media showed above).
  *
  * The sections are CSS (project-detail.css, ≤768px: each `.project-blurb` is
- * 1 − BLURB_PEEK of the small viewport, its copy centred). A SEAT is the page
+ * 1 − BLURB_PEEK of the viewport once GROWN, its copy centred; SQ-30: with
+ * the hold running a section is its content until it comes into view and
+ * grows at its bottom to that height as the page brings it to its seat, see
+ * growFrame below). A SEAT is the page
  * position that puts a section's top on the viewport's top, so no media shows
  * above it and BLURB_PEEK of the next media shows below. This is the
  * choreography on top, for a FINGER on a phone (HOLD_MQ):
@@ -85,6 +88,11 @@ import {
   REST_COVER,
   BLURB_TEXT,
   seatY,
+  grownHeight,
+  growHeight,
+  entryProgress,
+  latchProgress,
+  resetSide,
   holdable,
   seatWindow,
   fitTextScale,
@@ -104,6 +112,8 @@ import {
 
 /** Fired on a section when it may play its entrance (seated, at rest on screen, or the hold is gone). */
 export const ARM_EVENT = 'swm:blurb-arm';
+/** Fired on a section when a grown one goes back to compact: detail { side: +1 below | -1 above, lost: px the page was moved by, busy: a finger, drive, coast or carry was live }. The probe's seam. */
+export const RESET_EVENT = 'swm:blurb-reset';
 
 /* Gestures inside interactive chrome stay native (the process quantizer's list). */
 const CHROME_SELECTOR =
@@ -137,6 +147,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   const tune = readBlurbTune(window.location.search);
   const trigger = tune.trigger ?? SCROLL_TRIGGER_WORK_PX;
   const peek = tune.peek ?? BLURB_PEEK;
+  const growOn = tune.grow;
   const omega = catchOmega(tune.catchLerp ?? LENIS_TUNING.lerp);
   const decay = tune.decel ?? MOMENTUM_DECAY;
   const endOn = tune.end; // the document's end is an arrival target
@@ -155,6 +166,9 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   let frameMs = 16.7;
   let restTimer = 0;
   let moveOn = false;
+  let growing = false; // the sections grow as they come into view
+  let lastW = window.innerWidth;
+  const grow = new Map(); // el -> { p: entry progress latch, px: the min-height written, hc: compact height, side: edge entered from }
 
   const sections = () => [...root.querySelectorAll(selector)];
   const docMax = () => Math.max(0, html.scrollHeight - window.innerHeight);
@@ -200,6 +214,122 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
     if (endOn && dir > 0 && !list.some((s) => s.end)) list.push({ el: null, y: docMax(), top: 0, h: 0, end: true });
     return list;
   };
+
+  // GROW (SQ-30). A section is its content until it comes into view; from its
+  // position, every frame, it grows at its bottom to (1 - peek) of the visible
+  // viewport, so it follows whatever moves the page (finger, native momentum,
+  // the catch spring, this module's coast). Its top, the seat, never moves
+  // because of it. Progress only increases within an entry: a section keeps its
+  // height leaving either way, and is compact again once it is off screen
+  // (resetSide): below at once, above only at rest, with the page moved by what
+  // was lost (a programmatic scroll ends iOS's native momentum).
+  const busy = () => touching || Boolean(drive || coast || carry);
+  const stateOf = (el) => {
+    let st = grow.get(el);
+    if (!st) grow.set(el, (st = { p: 0, px: 0, hc: 0, side: 1 }));
+    return st;
+  };
+  const setMin = (el, st, px) => {
+    st.px = px;
+    el.style.minHeight = px ? `${px.toFixed(2)}px` : '';
+  };
+  const reportReset = (el, side, lost) =>
+    el.dispatchEvent(new CustomEvent(RESET_EVENT, { detail: { side, lost, busy: busy() } }));
+
+  // One frame: reads every section's rect, then writes only the sections that
+  // are entering (one style write each, and none once nothing is). Called after
+  // whatever moved the page, never before it, so no read follows the write.
+  // A section entering at the page's very end pushes the end away as it grows:
+  // a scroll that arrives there (a swipe) ends exactly on it, a jump (scrollTo)
+  // lands a few px short of the grown end, and the next drag finishes the gap.
+  function growFrame() {
+    if (!growing) return;
+    const vh = window.innerHeight;
+    const list = sections();
+    const rects = list.map((el) => el.getBoundingClientRect());
+    list.forEach((el, i) => {
+      const st = stateOf(el);
+      const { top, height: h } = rects[i];
+      if (st.p === 0) {
+        st.hc = h; // compact: its height is its content
+        if (top >= vh) st.side = 1;
+        else if (top + h <= 0) st.side = -1;
+      } else if (resetSide(top, h, vh, false) > 0) {
+        st.p = 0;
+        setMin(el, st, 0); // fully below: nothing visible moves
+        st.side = 1;
+        reportReset(el, 1, 0);
+        return;
+      }
+      if (st.p >= 1) return;
+      const p = latchProgress(st.p, entryProgress(top, st.hc, vh, st.side));
+      if (p === 0) return;
+      st.p = p;
+      const px = Math.max(st.px, growHeight(st.hc, grownHeight(st.hc, vh, peek), p));
+      if (px - st.px >= 0.05) setMin(el, st, px);
+    });
+  }
+
+  // The start: each section by where it is. At or above the viewport top it is
+  // grown as it stands (nothing moves; the rest reset takes it from there), below
+  // it by its progress; a top section at scrollY 0 is grown, with no animation.
+  function initGrow() {
+    for (const el of sections()) el.style.minHeight = '';
+    grow.clear();
+    root.removeAttribute('data-blurb-grow');
+    const vh = window.innerHeight;
+    const list = sections();
+    const before = list.map((el) => el.getBoundingClientRect());
+    list.forEach((el, i) => {
+      if (before[i].top > SEAT_TOL_PX) return;
+      const st = stateOf(el);
+      st.p = 1;
+      st.side = -1;
+      setMin(el, st, before[i].height);
+    });
+    root.setAttribute('data-blurb-grow', '');
+    list.forEach((el) => {
+      const st = stateOf(el);
+      if (st.p >= 1) return;
+      const { top, height } = el.getBoundingClientRect(); // read in order: an entering section pushes the next one down
+      st.hc = height;
+      const p = entryProgress(top, height, vh, 1);
+      if (p === 0) return;
+      st.p = p;
+      setMin(el, st, growHeight(height, grownHeight(height, vh, peek), p));
+    });
+    growing = true;
+  }
+
+  // Fully above the viewport and the page at rest: back to compact, the page
+  // moved by exactly the height lost, in this task (it never paints between).
+  function resetAbove() {
+    if (!growing) return;
+    const vh = window.innerHeight;
+    const hit = [];
+    for (const el of sections()) {
+      const st = stateOf(el);
+      if (st.px === 0) continue;
+      const { top, height } = el.getBoundingClientRect();
+      if (resetSide(top, height, vh, true) < 0) hit.push([el, st, height]);
+    }
+    if (!hit.length) return;
+    for (const [el, st] of hit) {
+      st.p = 0;
+      setMin(el, st, 0);
+      st.side = -1;
+    }
+    let lost = 0;
+    for (const [el, , h0] of hit) lost += h0 - el.getBoundingClientRect().height;
+    if (lost) {
+      scrollNow(window.scrollY - lost);
+      if (seated) {
+        const r = seated.el.getBoundingClientRect();
+        seated.y = seatY(r.top, window.scrollY, docMax());
+      }
+    }
+    for (const [el] of hit) reportReset(el, -1, lost);
+  }
 
   // The non-passive touchmove lives only while it has work: a seat to hold,
   // or a committed gesture the finger still carries.
@@ -286,8 +416,13 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
     if (shouldCatch(Math.abs(list[i].y - y), speed, omega, frame)) startDrive(list[i], y, speed);
   }
 
-  // One frame of whatever this module is moving.
+  // One frame of whatever this module is moving, then the growth that follows it.
   function tick(_time, deltaMs) {
+    stepMotion(deltaMs);
+    growFrame();
+  }
+
+  function stepMotion(deltaMs) {
     const dt = Math.min(deltaMs, 50);
     if (drive) {
       drive.t += dt;
@@ -324,6 +459,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   function restCheck() {
     restTimer = 0;
     if (touching || drive || coast || carry) return;
+    resetAbove();
     armShown();
     if (seated) return;
     const y = scrollPos();
@@ -362,6 +498,12 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   }
 
   function onScroll() {
+    handleScroll();
+    // What this module moves it grows in the same frame (tick, the carry): a second write here would be a second layout.
+    if (!drive && !coast && !carry) growFrame();
+  }
+
+  function handleScroll() {
     const now = performance.now();
     const y = scrollPos();
     if (drive || coast || carry) {
@@ -415,6 +557,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
         carry.y = clamp(carry.y + dy, 0, docMax()); // float: a browser rounds scrollY to its pixels
         scrollNow(carry.y);
         carry.vel = emaVelocity(carry.vel, dy / Math.max(now - carry.at, 8));
+        growFrame();
       }
       carry.prev = y;
       carry.at = now;
@@ -454,6 +597,10 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   }
 
   function onResize() {
+    if (window.innerWidth !== lastW) {
+      lastW = window.innerWidth; // a new width reflows every section: start over from where each is
+      if (growOn && !busy()) initGrow();
+    }
     if (!seated || drive || coast) return;
     const r = seated.el.getBoundingClientRect();
     const y = seatY(r.top, window.scrollY, docMax());
@@ -466,6 +613,11 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   window.addEventListener('touchend', onTouchEnd);
   window.addEventListener('touchcancel', onTouchEnd);
   window.addEventListener('resize', onResize);
+  if (growOn) {
+    html.style.overflowAnchor = 'none'; // the growth is ours: the browser must not counter-scroll it
+    initGrow();
+    resetAbove(); // a page that opens scrolled: the sections above it start compact like the rest, the page moved by what that costs
+  }
   armShown(); // a restored scroll or a deep link opens with a section already on screen
 
   return function detach() {
@@ -475,6 +627,13 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
     window.removeEventListener('touchcancel', onTouchEnd);
     window.removeEventListener('resize', onResize);
     clearTimeout(restTimer);
+    if (growing) {
+      growing = false;
+      root.removeAttribute('data-blurb-grow');
+      html.style.overflowAnchor = '';
+      for (const el of sections()) el.style.minHeight = '';
+      grow.clear();
+    }
     carry = null;
     syncMove();
     stopMotion();
