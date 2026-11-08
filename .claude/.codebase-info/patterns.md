@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-07*
+*Last Updated: 2026-11-08*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -29,7 +29,8 @@
 ## The commit-curve idiom
 One linear master proxy (`raw.p` 0→1, `ease:'none'`), each channel remapped through its own clamped
 window (`seg()` + `powInOut()`). Used by `Hero.beginEnvelopment`, `work/world/enterTune.js` and the
-FP→detail passage, so home→/work and /work→detail share one vocabulary (`moveStart/moveEnd/pow`).
+FP→detail passage, so home→/work and /work→detail share one vocabulary (`moveStart/moveEnd/pow`,
+and since SQ-34 the lens channel too: `enterLens()` on `lensStart/lensEnd/pow`).
 Motion taste: no overshoot, steep launch carrying scroll momentum, smooth decel into rest.
 
 ## Gesture model
