@@ -116,6 +116,7 @@ Readers: `src/components/hero/heroConfig.js` (module-load seed of `TUNING`, alwa
 | `?bluedipend` / `?bluedipdepth` | dip beat's share of the surge / brightness floor = 1 − depth | `0.4` / `0.2` | typed only | `heroConfig.js:173-174` |
 | `?loaderlead` | **live (10-06; SQ-32 extends it)**: when the globe loader comes up. On home → /work, ms after the Enter World button is out (the 0.2 s `CHROME_OUT_SECONDS` exit) before `swm:loader-start` fades it up, so it never shows under the button (capped at `?enterms`). On FP card → detail, ms after the cover is fully up (`?enterms` + this); a page that is ready first cancels it, so the loader never shows | `350` ms (home: at 550 ms) | typed only | `heroConfig.js:153` |
 | `?loaderend` | **redefined (SQ-32; was the bar's closing stretch, 500 ms)**: the most the fill reveal WAITS, once the page is ready, for the globe loader's draw-in to finish. The wait is `min(?loaderend, what is left of the draw-in)`: a page slow enough to outlast the draw adds nothing, `0` cuts the loader with the reveal. Proposed default, not Nathan's number | `300` ms | typed only; floor 0 | `heroConfig.js:154` |
+| `?homelens` | **PROPOSAL (SQ-34, live)**: the lens deepen the Enter World dive carries over from the FP card → detail passage. The home globe is routed through the World's `LensDistortionPass` for the dive only (at rest it renders straight to the canvas, 0 composer renders); the ramp is `?enterlens` × the lens window (`?enterlensa` / `?enterlensb`) and `?enterpow` on the same master timeline as the dive's zoom. This is the full-ramp x distortion on the home dive; y = 1.1 × x like the World. Unset follows `?enterlens`, so the literal carry-over is `-0.07`; `-0.22` is the curvature the World reaches at the end of its own dive. Read at the click. Reduced motion has no dive and no lens | follows `?enterlens` (`-0.07`) | any finite (negative deepens; positive bows out and blanks the corners) | `heroConfig.js:158` |
 
 ### Globe flow, orientation, pole cap (live)
 
@@ -453,7 +454,7 @@ Reader: `src/components/work/world/enterTune.js` (`ENTER_TUNABLES`, module-load 
 | `?entertune` | mounts EnterTunePanel | off | presence | — |
 | `?enterms` | master timeline length AND RouteFill cover duration; on `/` also the dive tween and the `navigate('/work')` delay (`enterMs + 60`) | `1100` ms | any finite | `.enterMs` |
 | `?entercover` | **legacy alias** of `?enterms` (loses when both present; `copy_url` deletes it) | — | any finite | retire |
-| `?enterlens` | additive distortion at full ramp; negative deepens the pull | `-0.07` | any finite | `.lens` |
+| `?enterlens` | additive distortion at full ramp; negative deepens the pull; also the home dive's full-ramp amount unless `?homelens` sets one (SQ-34) | `-0.07` | any finite | `.lens` |
 | `?enterlensa` / `?enterlensb` | timeline fractions where the lens deepen begins / lands | `0` / `1` | any finite | `.lensStart` / `.lensEnd` |
 | `?enterscale` | projection-zoom destination, `1` = off | `3.2` | any finite (floor 0.05) | `.scale` |
 | `?enterzoom` | camera dolly toward the tiles (historical name: "zoom" = dolly) | `1` world units | any finite | `.dolly` |

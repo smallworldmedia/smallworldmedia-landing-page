@@ -103,7 +103,10 @@ const accentEase = () =>
    Continuous at the seam (both beats meet at 0.7), no overshoot at either
    end. Writes both uniforms; t ≤ 0 leaves the panel untouched — the
    setBlueFill(0) restore path owns that state. — */
-const SURGE_DIP_END = 0.35; // default dip share — live-tunable via setBlueFillTuning (08-25)
+// Enter World lens target multisamples — the /work World's MSAA_SAMPLES default, so
+// the dive's AA matches the direct render the frame before it (SQ-34).
+const ENTER_LENS_MSAA = 4;
+const SURGE_DIP_END =0.35; // default dip share — live-tunable via setBlueFillTuning (08-25)
 const SURGE_DIP_DEPTH = 0.3; // default brightness floor = 1 − depth = 0.7
 function surgePanel(uniforms, t, dipEnd, dipDepth) {
   if (t <= 0) return;
@@ -195,6 +198,9 @@ export default function useGlobeScene(
       popNext: () => {},
       popShow: () => {},
       popHold: () => {},
+      // Enter World dive lens (SQ-34): (x, y) routes frames through the lens
+      // pass at that distortion, (null) back to the direct render.
+      setEnterLens: () => {},
       // Subscribe to live-panel transitions (LivePanelScheduler's
       // onLiveChange events, panel object included — the consumer projects
       // panel.centerDir itself). Scene-independent: never reset at
@@ -373,6 +379,120 @@ export default function useGlobeScene(
       },
       { settleMs: 300, maxWaitMs: 2000 }
     );
+    /* — Enter lens (SQ-34) —
+       The home → /work dive carries the lens deepen the /work World plays on
+       the FP card → detail passage. The globe renders straight to the canvas
+       at rest; for the passage ONLY it routes through the World's recipe — an
+       MSAA sRGB target, then LensDistortionPass last (needsSwap false, so the
+       composer allocates one target, not two) — so the first composer frame at
+       lens 0 matches the direct one (same AA, same output encoding; there is
+       no tone mapping on either renderer). Built at idle after mount in its own
+       lazy chunk (the same modules /work loads, so the home bundle does not
+       grow) and warmed there: the scene's render-target shader variants and
+       the lens program compile now, so the commit pays only for sizing the
+       target. At rest the target is 1x1 and nothing renders through it.
+       setEnterLens(x, y) engages it and sets the distortion; (null) releases. */
+    let enterLens = null; // { composer, pass, target } once built; null before the idle build lands
+    let lensRouted = false; // true while frames go through the composer
+    let lensIdle = null; // pending idle build — { cancel }
+    const sizeEnterLens = (full) => {
+      // Exactly the canvas's drawing buffer (integers), so lens 0 is a texel-exact copy.
+      const buf = renderer.getDrawingBufferSize(new THREE.Vector2());
+      enterLens.composer.setPixelRatio(1);
+      enterLens.composer.setSize(full ? buf.x : 1, full ? buf.y : 1);
+    };
+    const buildEnterLens = async () => {
+      const [{ EffectComposer }, { RenderPass }, { Pass, FullScreenQuad }, { LensDistortionPassGen }] =
+        await Promise.all([
+          import('three/examples/jsm/postprocessing/EffectComposer.js'),
+          import('three/examples/jsm/postprocessing/RenderPass.js'),
+          import('three/examples/jsm/postprocessing/Pass.js'),
+          import('../work/world/vendor/lensDistortion.js'),
+        ]);
+      if (disposed) return;
+      const target = new THREE.WebGLRenderTarget(1, 1, {
+        samples: ENTER_LENS_MSAA,
+        type: THREE.UnsignedByteType,
+        colorSpace: THREE.SRGBColorSpace,
+      });
+      const composer = new EffectComposer(renderer, target);
+      composer.addPass(new RenderPass(scene, camera));
+      const LensDistortionPass = LensDistortionPassGen({ THREE, Pass, FullScreenQuad });
+      const pass = new LensDistortionPass({ distortion: new THREE.Vector2(0, 0) });
+      pass.needsSwap = false;
+      composer.addPass(pass);
+      enterLens = { composer, pass, target };
+      sizeEnterLens(false);
+      // Warm: the scene's materials for a render target (their output colour
+      // space differs from the canvas's, so a second program set), then the
+      // lens quad for the canvas (the null target, where its sRGB encode lives).
+      renderer.setRenderTarget(target);
+      renderer.compile(scene, camera);
+      renderer.setRenderTarget(null);
+      renderer.compile(new THREE.Mesh(new THREE.BufferGeometry(), pass._fsQuad.material), camera);
+    };
+    const scheduleEnterLens = () => {
+      if (PREFERS_REDUCED_MOTION) return; // RM cuts the cover, no dive
+      const run = () => buildEnterLens().catch(() => {}); // a failed chunk = the passage goes lens-less
+      if (typeof requestIdleCallback === 'function') {
+        const id = requestIdleCallback(run, { timeout: 4000 });
+        lensIdle = { cancel: () => cancelIdleCallback(id) };
+      } else {
+        const id = setTimeout(run, 1500);
+        lensIdle = { cancel: () => clearTimeout(id) };
+      }
+    };
+    scheduleEnterLens();
+    apiRef.current.setEnterLens = (x, y) => {
+      if (disposed || !enterLens) return; // not warmed yet: the passage goes lens-less
+      if (x == null) {
+        if (!lensRouted) return;
+        lensRouted = false;
+        sizeEnterLens(false); // hand the big target back
+        return;
+      }
+      if (!lensRouted) {
+        sizeEnterLens(true);
+        lensRouted = true;
+      }
+      enterLens.pass.distortion.set(x, y);
+    };
+    // ?debug probe: the same scene state through both paths, read back. Lens 0
+    // on the composer path must equal the direct render (no pop at the switch).
+    // programs = GL programs, so the probe can show the commit compiled none.
+    if (new URLSearchParams(window.location.search).has('debug')) {
+      const grab = () => {
+        const gl = renderer.getContext();
+        const buf = renderer.getDrawingBufferSize(new THREE.Vector2());
+        const px = new Uint8Array(buf.x * buf.y * 4);
+        gl.readPixels(0, 0, buf.x, buf.y, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        return px;
+      };
+      window.__globeLens = {
+        ready: () => !!enterLens,
+        programs: () => renderer.info.programs.length,
+        routed: () => lensRouted,
+        diff: () => {
+          if (!enterLens) return null;
+          renderer.render(scene, camera);
+          const a = grab();
+          const was = lensRouted;
+          if (!was) sizeEnterLens(true);
+          enterLens.pass.distortion.set(0, 0);
+          enterLens.composer.render(0);
+          const b = grab();
+          if (!was) sizeEnterLens(false);
+          let max = 0, sum = 0, over8 = 0;
+          for (let i = 0; i < a.length; i++) {
+            const d = Math.abs(a[i] - b[i]);
+            if (d > max) max = d;
+            if (d > 8) over8++;
+            sum += d;
+          }
+          return { pixels: a.length / 4, max, mean: sum / a.length, over8 };
+        },
+      };
+    }
     const measure = () => {
       if (disposed) return;
       const w = container.clientWidth || 1;
@@ -391,6 +511,7 @@ export default function useGlobeScene(
       }
       fadeBackIn();
       renderer.setSize(w, h, false);
+      if (lensRouted) sizeEnterLens(true); // the target follows the canvas mid-passage
       applyRig();
     };
     // Seed the cache + first frame UNCONDITIONALLY (measure()'s change-guard
@@ -1068,7 +1189,8 @@ export default function useGlobeScene(
 
       const texBefore = renderer.info.memory.textures;
       const r0 = performance.now();
-      renderer.render(scene, camera);
+      if (lensRouted) enterLens.composer.render(step); // the Enter World dive only
+      else renderer.render(scene, camera);
       if (director) director.noteRender(performance.now() - r0, renderer.info.memory.textures - texBefore);
       // Overlay bridge (home hero): hand the just-rendered frame to the DOM
       // overlay — after render, so every matrix is the one drawn. Null-safe:
@@ -1165,6 +1287,13 @@ export default function useGlobeScene(
       apiRef.current.popNext = () => {};
       apiRef.current.popShow = () => {};
       apiRef.current.popHold = () => {};
+      apiRef.current.setEnterLens = () => {};
+      lensIdle?.cancel();
+      if (enterLens) {
+        enterLens.composer.dispose(); // both targets + the copy pass
+        enterLens.pass.dispose();
+      }
+      if (window.__globeLens) delete window.__globeLens;
       if (unsubscribePop) unsubscribePop();
       if (accentTween) accentTween.kill();
       intersectionObserver.disconnect();
