@@ -9,10 +9,10 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 
 | Event | Dispatched by | Listened by | Payload |
 |---|---|---|---|
-| `swm:envelop` | `Hero.jsx` (its reduced-motion paths too, `duration: 0`), `work/WorldCard.jsx`, `work/detail/FeaturedProjectDetail.jsx` (the breadcrumb back, in the project colour), benches | `RouteFill.jsx` | `{duration, color?, loader?}` (Hero sends the globe world's colour under the population modes; `loader` is now only a fallback trigger) |
+| `swm:envelop` | `Hero.jsx` (its reduced-motion paths too, `duration: 0`), `work/WorldCard.jsx`, `work/detail/FeaturedProjectDetail.jsx` (the breadcrumb back, in the project colour), benches | `RouteFill.jsx` | `{duration, color?, loader?, loaderAfterCover?}` (Hero sends the globe world's colour under the population modes; from Hero `loader` is only a fallback trigger; WorldCard sends `loader` + `loaderAfterCover`, SQ-32: the globe loader opens `?loaderlead` ms after the cover is up, never if the page is ready first) |
 | `swm:fill-release` | `Hero`, `FeaturedProjects` (after an Enter World snap, only once the snapped card commits), `FeaturedProjectDetail`, `ProcessPage`, benches | `RouteFill` | — (2.5 s safety release if unclaimed) |
 | `swm:fill-progress` | gesture surfaces | `RouteFill` | `{value 0..1, duration?}` |
-| `swm:loader-start` | `Hero`, `?loaderlead` ms after the 0.2 s Enter World chrome exit | `RouteFill` (fades the bar up over 0.3 s; ignored under RM) | — |
+| `swm:loader-start` | `Hero`, `?loaderlead` ms after the 0.2 s Enter World chrome exit | `RouteFill` (fades the globe loader up over 0.3 s and starts its draw; ignored under RM) | — |
 | `swm:enter-world` | `WorldCard`; `EnterTunePanel`/`TextTunePanel` (dry run) | `work/world/useWorldScene.js` (enter ramp), `FeaturedProjects` (arms `textExit`) | — |
 | `swm:fp-freeze` | `pager/GraticulePager.jsx` | `useWorldScene` (halts render + decode while engaged) | `{on}` |
 | `swm:fp-drag` | `FeaturedProjects` (`setDragFollow`, on wheel AND touch building; deduped; skipped under RM. Release: a finger on lift (`touchend` / `touchcancel`, only when something is held), the wheel after the `RELEASE_MS` stall) | `WorldCard` (the entering card's wrap `y`), `useWorldScene` (the drum's `state.drag`) | `{value -1..1 (the fill), release}`: `release` picks the house release lane (`RELEASE_GLIDE_S`, `RELEASE_EASE`) over the drag lane (`DRAG_TRACK_S`). A commit sends nothing: the Turn carries on from the leaned pose (the scene folds `drag` into `adv`) |

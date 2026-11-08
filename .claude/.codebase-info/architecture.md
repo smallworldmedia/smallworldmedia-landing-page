@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-08*
 
 ## Summary
 
@@ -16,7 +16,8 @@ pill + overlay). Routes talk to them only through `window` CustomEvents (`swm:*`
 attributes, never through shared React state. See `communication.md`.
 
 Cross-route transitions follow ADR-0002 "Envelopment": a route swap bridged by the persisted
-`RouteFill` blue panel and `overviews_loading` bar, not a shared canvas. The leaving island dispatches
+`RouteFill` blue panel and the globe loader (`ui/GlobeLoader.jsx`; it replaced the `overviews_loading`
+bar in SQ-32, 11-08), not a shared canvas. The leaving island dispatches
 `swm:envelop`, navigates with `setTimeout` + `navigate()`, and the arriving island releases the fill.
 
 ## High-Level Diagram
