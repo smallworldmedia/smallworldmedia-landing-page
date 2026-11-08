@@ -139,16 +139,16 @@ function BlurbCopy({ paragraphs }) {
   );
 }
 
-/* The phone reading sections (SQ-26): each blurb is a CSS section
+/* The phone reading sections (SQ-26, SQ-27): each blurb is a CSS section
    (project-detail.css, ≤768px) and, for a finger, the page holds on it —
    lib/blurbHold.js. This owns the lifecycle: attach while the phone query
-   matches, detach when it stops (resize-aware), and the ?blurbsec dial. */
+   matches, detach when it stops (resize-aware), and the ?blurbpeek dial. */
 function useBlurbHold(rootRef) {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
-    const { sec } = readBlurbTune(window.location.search);
-    if (sec != null) root.style.setProperty('--blurb-sec', String(sec));
+    const { peek } = readBlurbTune(window.location.search);
+    if (peek != null) root.style.setProperty('--blurb-peek', String(peek));
     const mq = window.matchMedia(HOLD_MQ);
     let detach = null;
     const sync = () => {
@@ -163,7 +163,7 @@ function useBlurbHold(rootRef) {
     return () => {
       mq.removeEventListener('change', sync);
       detach?.();
-      root.style.removeProperty('--blurb-sec');
+      root.style.removeProperty('--blurb-peek');
     };
   }, [rootRef]);
 }
