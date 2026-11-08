@@ -17,11 +17,11 @@
  * (IntersectionObserver) and while the document is hidden; under
  * prefers-reduced-motion it parks on the finished, static globe.
  *
- * Not wired into any real loading flow (Nathan's call, after review).
+ * Wired into no loading flow here: SQ-32 mounts it in RouteFill's cover layer.
  * <GlobeLoaderStage /> is the /lab/loader review harness: tap to replay, the
  * ?loader… dials (docs/tunables-guide.md), the timing readout.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   VIEWBOX,
   RING,
@@ -38,7 +38,21 @@ import {
 // The house draw curve (--ease-draw, an expo-out) as a SMIL spline.
 const DRAW_SPLINE = '0.16 1 0.3 1';
 
-export default function GlobeLoader({ timing, lowercase = false, className = '' }) {
+/**
+ * Props
+ *   timing     { meridianStaggerMs, drawMs, parallelStaggerMs, spin } (any subset;
+ *              defaults are DEFAULT_TIMING). A short transition shortens the draw-in
+ *              by lowering these; globeLoaderGeometry's buildTimeline(timing).drawEnd
+ *              is the draw-in length in seconds. readLoaderDials() gives the ?loader… values.
+ *   active     true (default) plays on mount; flip false → true to replay, true → false to stop.
+ *   ref        { start(), replay(), stop() } for a parent that drives it imperatively.
+ *   lowercase  the words as typed instead of the label's uppercase.
+ *   className  extra class on the root.
+ * The root is one inline flex column, sized by --globe-loader-size (default 240px):
+ * it assumes nothing about owning the page, so it mounts inside any positioned layer
+ * (a fixed cover, a card). Position and fade it from the parent.
+ */
+export default function GlobeLoader({ timing, lowercase = false, className = '', active = true, ref }) {
   const rootRef = useRef(null);
   const svgRef = useRef(null);
   const { meridianStaggerMs, drawMs, parallelStaggerMs, spin } = { ...DEFAULT_TIMING, ...timing };
@@ -57,20 +71,47 @@ export default function GlobeLoader({ timing, lowercase = false, className = '' 
   const meridianBegin = useMemo(() => Object.fromEntries(t.meridians.map((m) => [m.k, m.begin])), [t]);
   const parallelBegin = useMemo(() => Object.fromEntries(t.parallels.map((p) => [p.j, p.begin])), [t]);
 
+  // The timeline controller: start / replay / stop, behind the visibility gates.
+  const ctl = useRef({ start() {}, stop() {} });
+  useImperativeHandle(
+    ref,
+    () => ({
+      /** Draw in from the top (also the replay). */
+      start: () => ctl.current.start(),
+      replay: () => ctl.current.start(),
+      /** Halt and reset: lines hidden again, ring and words stay. Free to start() again. */
+      stop: () => ctl.current.stop(),
+    }),
+    [],
+  );
+
   useEffect(() => {
     const svg = svgRef.current;
     const root = rootRef.current;
     if (!svg || !root || !svg.pauseAnimations) return undefined;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      svg.setCurrentTime(t.drawEnd); // the finished globe, held
+      svg.setCurrentTime(t.drawEnd); // the finished globe, held; start/stop are no-ops
       svg.pauseAnimations();
+      ctl.current = { start() {}, stop() {} };
       return undefined;
     }
+    let running = false;
     let onScreen = false;
     let tabShown = !document.hidden;
-    const sync = () => (onScreen && tabShown ? svg.unpauseAnimations() : svg.pauseAnimations());
-    svg.pauseAnimations();
-    svg.setCurrentTime(0);
+    const sync = () => (running && onScreen && tabShown ? svg.unpauseAnimations() : svg.pauseAnimations());
+    ctl.current = {
+      start() {
+        svg.setCurrentTime(0);
+        running = true;
+        sync();
+      },
+      stop() {
+        running = false;
+        svg.setCurrentTime(0);
+        sync();
+      },
+    };
+    ctl.current.stop(); // parked at frame 0 until started
     const io = new IntersectionObserver((entries) => {
       onScreen = entries[entries.length - 1].isIntersecting;
       sync();
@@ -81,11 +122,25 @@ export default function GlobeLoader({ timing, lowercase = false, className = '' 
       sync();
     };
     document.addEventListener('visibilitychange', onVisibility);
+    if (activeRef.current) ctl.current.start();
     return () => {
       io.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [t]);
+
+  // `active` drives it declaratively: flip false → true to (re)play, true → false to stop.
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const firstActive = useRef(true);
+  useEffect(() => {
+    if (firstActive.current) {
+      firstActive.current = false; // the mount effect above already honoured the initial value
+      return;
+    }
+    if (active) ctl.current.start();
+    else ctl.current.stop();
+  }, [active]);
 
   const trim = (begin) => (
     <animate
@@ -160,7 +215,7 @@ const num = (key, fallback) => {
 const str = (key, fallback) => params().get(key) || fallback;
 
 /** The ?loader… dials, read once when the lab page mounts. */
-function readDials() {
+export function readLoaderDials() {
   const raw = params().get('loaderreplay');
   return {
     timing: {
@@ -176,9 +231,9 @@ function readDials() {
 }
 
 export function GlobeLoaderStage() {
-  const [dials] = useState(readDials);
-  const [run, setRun] = useState(0);
-  const replay = () => setRun((n) => n + 1);
+  const [dials] = useState(readLoaderDials);
+  const loader = useRef(null);
+  const replay = () => loader.current?.replay(); // the same entry point SQ-32 will use
   useEffect(() => {
     if (!dials.autoReplayS) return undefined;
     const id = setInterval(replay, dials.autoReplayS * 1000);
@@ -194,7 +249,7 @@ export function GlobeLoaderStage() {
       onClick={replay}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && replay()}
     >
-      <GlobeLoader key={run} timing={dials.timing} lowercase={dials.lowercase} />
+      <GlobeLoader ref={loader} timing={dials.timing} lowercase={dials.lowercase} />
       <p className="globe-loader-stage__readout">
         tap to replay
         <br />
