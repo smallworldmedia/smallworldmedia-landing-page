@@ -44,9 +44,9 @@ const FIELDS = [
   { key: 'blueSurge', label: 'blue surge', hint: 'per-panel length (delay units)' },
   { key: 'blueDipEnd', label: 'blue dip end', hint: 'dip share of surge 0..0.9' },
   { key: 'blueDipDepth', label: 'blue dip depth', hint: 'brightness drop 0..1' },
-  /* overviews_loading (home→/work passage) */
-  { key: 'loaderLeadMs', label: 'loader lead', hint: 'ms after commit start → bar appears' },
-  { key: 'loaderEndMs', label: 'loader end', hint: 'ms the bar takes to close; reveal waits' },
+  /* globe loader (home→/work passage) */
+  { key: 'loaderLeadMs', label: 'loader lead', hint: 'ms after commit start → globe appears' },
+  { key: 'loaderEndMs', label: 'loader end', hint: 'max ms the reveal waits for the draw-in' },
   /* lockup h / lockup beat rows retired 08-30 with the hero lockup itself
      (the nav carries the brand on home now). */
 ];

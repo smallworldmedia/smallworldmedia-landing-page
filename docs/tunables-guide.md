@@ -78,7 +78,7 @@ Corner map: top-left = texttune / footertune · top-right = herotune / entertune
 
 Readers: `src/components/hero/heroConfig.js` (module-load seed of `TUNING`, always on) and `src/components/Hero.jsx` (`?intro`, per mount). Panels: `?herotune=1` (sliders), `?committune=1` (typed). Bake home for the family: `heroConfig.js TUNING_DEFAULTS` / `COMP_DEFAULTS`, or the `globeConfig.js` constant named.
 
-**Live vs rehearsal.** Since 08-30 the real `enter_world` click runs `onEnterClick` (Hero.jsx:669-710) on the `?enterms` family, then `swm:envelop {loader:true}` and `navigate('/work')`. The commit-choreography knobs marked *dry-run only* shape `beginEnvelopment`, which only the benches' `▶ dry-run` still calls. Of that family only `?loaderend` (and site-wide `?fillrelease`) still paces the real passage.
+**Live vs rehearsal.** Since 08-30 the real `enter_world` click runs `onEnterClick` (Hero.jsx:669-710) on the `?enterms` family, then `swm:envelop {loader:true}` and `navigate('/work')`. The commit-choreography knobs marked *dry-run only* shape `beginEnvelopment`, which only the benches' `▶ dry-run` still calls. Of that family only `?loaderlead` / `?loaderend` (and site-wide `?fillrelease`) still pace the real passage.
 
 ### Gates and curve strings
 
@@ -114,8 +114,8 @@ Readers: `src/components/hero/heroConfig.js` (module-load seed of `TUNING`, alwa
 | `?envscale` | dolly destination `rig.zoom` | `3.0` | typed only | `heroConfig.js:165` |
 | `?bluesurge` | per-panel blue-surge transition length | `0.1` cascade delay-units | typed only | `heroConfig.js:172` |
 | `?bluedipend` / `?bluedipdepth` | dip beat's share of the surge / brightness floor = 1 − depth | `0.4` / `0.2` | typed only | `heroConfig.js:173-174` |
-| `?loaderlead` | **live again (10-06)**: ms after the Enter World button is out (the 0.2 s `CHROME_OUT_SECONDS` exit) before `swm:loader-start` fades the overviews_loading bar up, so the bar never shows under the button. Capped at `?enterms` | `350` ms (bar at 550 ms) | typed only | `heroConfig.js:150` |
-| `?loaderend` | **live**: overviews_loading bar's paced close to 100% and the fill-reveal wait (RouteFill) | `500` ms | typed only; floor 0.05 s | `heroConfig.js:151` |
+| `?loaderlead` | **live (10-06; SQ-32 extends it)**: when the globe loader comes up. On home → /work, ms after the Enter World button is out (the 0.2 s `CHROME_OUT_SECONDS` exit) before `swm:loader-start` fades it up, so it never shows under the button (capped at `?enterms`). On FP card → detail, ms after the cover is fully up (`?enterms` + this); a page that is ready first cancels it, so the loader never shows | `350` ms (home: at 550 ms) | typed only | `heroConfig.js:153` |
+| `?loaderend` | **redefined (SQ-32; was the bar's closing stretch, 500 ms)**: the most the fill reveal WAITS, once the page is ready, for the globe loader's draw-in to finish. The wait is `min(?loaderend, what is left of the draw-in)`: a page slow enough to outlast the draw adds nothing, `0` cuts the loader with the reveal. Proposed default, not Nathan's number | `300` ms | typed only; floor 0 | `heroConfig.js:154` |
 
 ### Globe flow, orientation, pole cap (live)
 
@@ -223,10 +223,11 @@ Reader: `src/components/RouteFill.jsx` (`PARAM()`, read once when the persistent
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?fillcover` | fallback cover fade-in when a `swm:envelop` omits `detail.duration`; **unreachable**, every dispatcher passes one | `100` ms | any finite | `RouteFill.jsx:36` |
-| `?fillrelease` | **live** fill fade-off over the arriving scene + the mirrored loader fade; instant under RM | `400` ms | any finite | `RouteFill.jsx:37` |
+| `?fillcover` | fallback cover fade-in when a `swm:envelop` omits `detail.duration`; **unreachable**, every dispatcher passes one | `100` ms | any finite | `RouteFill.jsx:44` |
+| `?fillrelease` | **live** fill fade-off over the arriving scene + the mirrored loader fade; instant under RM | `400` ms | any finite | `RouteFill.jsx:45` |
+| `?loaderquick` | **SQ-32, proposed**: scales the globe loader's draw-in (the three stagger/draw times) on the FP card → detail passage only; home → /work always draws full. `1` = the full 2.4 s draw, `0.4` = 0.95 s. Measured gaps (cover up → reveal) are 0–0.8 s there against 2.8–4 s on home → /work, so the full draw can never finish | `0.4` | any finite > 0 | `RouteFill.jsx:51` |
 
-Non-param constants: `RELEASE_DELAY` 0.1 s, `SAFETY_MS` 2500 (auto-release if a page loads covered), loader charge 0→82 over 1.1 s then →96 over 3.5 s (RouteFill.jsx:38-39, 83-84). `?loaderend` (hero family) paces the bar's close.
+The globe loader (SQ-32, replaces the overviews_loading bar) rides this layer for home → /work and FP card → detail. It also reads the `/lab/loader` draw dials (`?loadermstag` `?loaderdraw` `?loaderpstag` `?loaderspin` `?loadercase`, below) once after mount, so they dial the real passages too. Under reduced motion it never shows, as the bar didn't. Non-param constants: `RELEASE_DELAY` 0.1 s, `LOADER_IN_SECONDS` 0.3 s (fade up), `SAFETY_MS` 2500 (auto-release if a page loads covered) (RouteFill.jsx:46-47, 52). The loader leaves on the fill's own reveal (same delay, `?fillrelease` duration and curve), after the `?loaderend` wait.
 
 ## Site-wide — media sequences
 
@@ -688,7 +689,7 @@ The four `?dirlogo*` dials only touch logo tiles (a white mark on black, baked b
 
 ## `/lab/loader` — the globe loader (SQ-31)
 
-Reader: `src/components/ui/GlobeLoader.jsx` (`GlobeLoaderStage`, read once when the page mounts; the page is `client:only`, because the build is static). The loader itself takes the same numbers as props and is wired into no loading flow. Geometry and timing live in `src/lib/globeLoaderGeometry.js`; pitch comes from `INITIAL_PITCH_DEG` and the spin from `O_SPIN_DPS` (so `?ospin` turns this globe too). Tap the page to replay. Defaults are proposals, not Nathan's numbers. None of the six collide with RouteFill's `?loaderlead` / `?loaderend`.
+Reader: `src/components/ui/GlobeLoader.jsx` (`GlobeLoaderStage`, read once when the page mounts; the page is `client:only`, because the build is static). The loader itself takes the same numbers as props; RouteFill mounts it (SQ-32) and reads these dials too (see Site-wide — RouteFill passage). Geometry and timing live in `src/lib/globeLoaderGeometry.js`; pitch comes from `INITIAL_PITCH_DEG` and the spin from `O_SPIN_DPS` (so `?ospin` turns this globe too). Tap the page to replay. Defaults are proposals, not Nathan's numbers. None of the six collide with RouteFill's `?loaderlead` / `?loaderend`.
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
@@ -697,7 +698,7 @@ Reader: `src/components/ui/GlobeLoader.jsx` (`GlobeLoaderStage`, read once when 
 | `?loaderpstag` | gap between one parallel starting and the next (top down); the first starts when the last meridian is in | `150` ms | any finite ≥ 0 | `globeLoaderGeometry.js` `DEFAULT_TIMING` |
 | `?loaderspin` | multiplier on `O_SPIN_DPS` (−20°/s, westward); one 40° step is 2 s at ×1; `0` = no rotation | `1` | any finite ≥ 0 | `globeLoaderGeometry.js` `DEFAULT_TIMING` |
 | `?loaderreplay` | loop the whole draw-in every N s (bare `?loaderreplay` = every 6 s) | off | seconds | typed only |
-| `?loadercase` | `lower` shows the words as typed ("world" / "loading", Nathan 11-08); `upper` wears the overviews_loading label's uppercase | `lower` | `lower`, `upper` | typed only |
+| `?loadercase` | `lower` shows the words as typed ("world" / "loading", Nathan 11-08); `upper` wears the chip label's uppercase | `lower` | `lower`, `upper` | typed only |
 
 ## `/process`
 

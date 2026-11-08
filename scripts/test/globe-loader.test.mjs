@@ -24,6 +24,7 @@ import {
   parallelPath,
   parallelDrawOrder,
   buildTimeline,
+  DEFAULT_TIMING,
 } from '../../src/lib/globeLoaderGeometry.js';
 
 const near = (a, b, eps = 0.02, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} ${a} vs ${b}`);
@@ -172,4 +173,17 @@ test('timing dials scale the timeline and the spin multiplier scales the step', 
   const still = buildTimeline({ spin: 0 });
   assert.equal(still.spinning, false);
   assert.equal(still.stepSeconds, 0);
+});
+
+test('scaling the three draw times by k scales the draw-in by k, which is how RouteFill shortens it for FP to detail (SQ-32)', () => {
+  const full = buildTimeline();
+  const k = 0.4; // RouteFill's LOADER_QUICK default
+  const quick = buildTimeline({
+    meridianStaggerMs: DEFAULT_TIMING.meridianStaggerMs * k,
+    drawMs: DEFAULT_TIMING.drawMs * k,
+    parallelStaggerMs: DEFAULT_TIMING.parallelStaggerMs * k,
+  });
+  near(quick.drawEnd, full.drawEnd * k, 1e-9, 'the whole draw-in is linear in the three times');
+  assert.ok(quick.drawEnd < 1, 'the compressed draw fits inside a second');
+  assert.equal(quick.spinning, full.spinning, 'the spin is left alone');
 });

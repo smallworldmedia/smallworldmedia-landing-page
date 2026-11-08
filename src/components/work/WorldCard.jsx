@@ -72,7 +72,9 @@ function enterWorld(e, slug, color) {
   const coverS = ENTER_TUNABLES.enterMs / 1000;
   window.dispatchEvent(
     // S2: the enter fill ingests the project's accent (blank → blue in RouteFill).
-    new CustomEvent('swm:envelop', { detail: { duration: coverS, color } })
+    // SQ-32: loader + loaderAfterCover — the globe loader opens over the cover
+    // once it is fully up (+ ?loaderlead), and not at all if the page is ready first.
+    new CustomEvent('swm:envelop', { detail: { duration: coverS, color, loader: true, loaderAfterCover: true } })
   );
   window.dispatchEvent(
     // Scene choreography: useWorldScene answers with the synced lens-deepen +

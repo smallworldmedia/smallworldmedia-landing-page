@@ -17,11 +17,12 @@
  * (IntersectionObserver) and while the document is hidden; under
  * prefers-reduced-motion it parks on the finished, static globe.
  *
- * Wired into no loading flow here: SQ-32 mounts it in RouteFill's cover layer.
- * <GlobeLoaderStage /> is the /lab/loader review harness: tap to replay, the
+ * RouteFill's cover layer mounts it (SQ-32) for home → /work and FP card → detail,
+ * driving the handle below. <GlobeLoaderStage /> is the /lab/loader review harness: tap to replay, the
  * ?loader… dials (docs/tunables-guide.md), the timing readout.
  */
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import '../../styles/globe-loader.css';
 import {
   VIEWBOX,
   RING,
