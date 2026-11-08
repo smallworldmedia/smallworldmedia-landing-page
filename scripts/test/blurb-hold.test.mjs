@@ -29,6 +29,12 @@ import {
   MIN_V,
   seatY,
   holdable,
+  seatWindow,
+  fitTextScale,
+  seatAtEnd,
+  clampScroll,
+  BLURB_TEXT,
+  FIT_PASSES,
   shownPx,
   shownEnough,
   nextSeat,
@@ -81,6 +87,88 @@ test('a section that fits its seat window is held, a taller one is read natively
   assert.equal(holdable(900, 667), false)
   assert.equal(holdable(0.6 * 844 + 40, 844, 0.4), false) // the peek dial moves the window
   assert.equal(holdable(0.6 * 844, 844, 0.4), true)
+})
+
+test('the seat window is what holdable measures against', () => {
+  for (const [vh, peek] of [[844, 0.1], [660, 0.1], [553, 0.1], [844, 0.4]]) {
+    const w = seatWindow(vh, peek)
+    assert.equal(w, (1 - peek) * vh + SEAT_TOL_PX)
+    assert.equal(holdable(w, vh, peek), true)
+    assert.equal(holdable(w + 0.01, vh, peek), false)
+  }
+})
+
+/* — the text fit (SQ-28) — */
+
+// The measured model: padding that does not scale + copy that rewraps, so height ~ a·s² + b.
+const model = (a, b) => (s) => a * s * s + b
+const WIN = seatWindow(844) // 0.9 × 844 + 2
+
+test('a page whose tallest blurb fits at the target keeps the target in one measurement', () => {
+  let n = 0
+  const s = fitTextScale((x) => (n++, model(300, 100)(x)), WIN)
+  assert.equal(s, BLURB_TEXT)
+  assert.equal(n, 1)
+})
+
+test('a page with a long blurb takes the largest scale that measured as fitting', () => {
+  // bedouin-like at 393×660 (svh): 0.942 of the window at scale 1 → over at 1.25
+  const win = seatWindow(660)
+  const a = (0.942 * 0.9 * 660 - 90) // height 0.942 of the window at s=1, 90px of padding
+  const h = model(a, 90)
+  const seen = []
+  const s = fitTextScale((x) => (seen.push(x), h(x)), win)
+  assert.ok(s >= 1 && s < BLURB_TEXT, `scale ${s}`)
+  assert.ok(h(s) <= win, 'the answer measured as fitting')
+  assert.ok(seen.includes(s), 'and it was measured')
+  assert.ok(seen.length <= FIT_PASSES)
+  assert.ok(s > 1.02, 'it is not needlessly small') // the model fits well above 1
+})
+
+test('the fit never measures more than its passes and never answers a scale it did not measure fitting except the floor', () => {
+  for (const a of [150, 300, 450, 600, 900, 1500]) {
+    for (const vh of [553, 660, 844, 932]) {
+      const win = seatWindow(vh)
+      const seen = []
+      const h = model(a, 120)
+      const s = fitTextScale((x) => (seen.push(x), h(x)), win)
+      assert.ok(seen.length <= FIT_PASSES)
+      assert.ok(s >= 1 && s <= BLURB_TEXT)
+      assert.ok(s === 1 || (h(s) <= win && seen.includes(s)), `a=${a} vh=${vh} s=${s}`)
+    }
+  }
+})
+
+test('a blurb that does not fit even at today’s size leaves the page at the floor', () => {
+  assert.equal(fitTextScale(model(900, 100), seatWindow(553)), 1) // h(1) = 1000 > 499
+  // and it stops measuring once it is at the floor
+  let n = 0
+  fitTextScale((x) => (n++, model(900, 100)(x)), seatWindow(553))
+  assert.ok(n <= FIT_PASSES)
+})
+
+test('the floor is 1, or the target when that is lower', () => {
+  assert.equal(fitTextScale(model(100, 50), WIN, 0.8), 0.8)
+  assert.equal(fitTextScale(model(2000, 50), WIN, 0.8), 0.8) // nothing smaller to try
+  assert.equal(fitTextScale(model(50, 50), WIN, 3), 3)
+  assert.ok(fitTextScale(model(500, 50), WIN, 3) < 3)
+})
+
+test('an unmeasurable page keeps today’s size', () => {
+  assert.equal(fitTextScale(() => NaN, WIN), 1)
+  assert.equal(fitTextScale(() => Infinity, WIN), 1)
+})
+
+test('the page end and an overscroll', () => {
+  assert.equal(seatAtEnd(5000, 5000), true)
+  assert.equal(seatAtEnd(4998.5, 5000), true) // a section seat the end clamped
+  assert.equal(seatAtEnd(4990, 5000), false)
+  assert.equal(clampScroll(-42, 5000), 0) // the top bounce
+  assert.equal(clampScroll(5060, 5000), 5000) // the bottom bounce
+  assert.equal(clampScroll(1234.5, 5000), 1234.5)
+  // a bounce that settles back never counts as movement: every sample reads 0
+  const samples = [-30, -18, -9, -2, 0].map((y) => clampScroll(y, 5000))
+  assert.deepEqual(samples.map((y, i) => (i ? y - samples[i - 1] : 0)), [0, 0, 0, 0, 0])
 })
 
 test('shownPx counts the part of a section on screen', () => {
@@ -292,7 +380,25 @@ test('the release velocity is an average that follows the finger', () => {
 /* — the dials — */
 
 test('the dials default to the hold on and the house numbers', () => {
-  assert.deepEqual(readBlurbTune(''), { hold: true, peek: null, catchLerp: null, decel: null, trigger: null })
+  assert.deepEqual(readBlurbTune(''), { hold: true, end: true, peek: null, text: null, catchLerp: null, decel: null, trigger: null })
+})
+
+test('?blurbtext takes a target above 0 up to 3 and nothing else', () => {
+  assert.equal(readBlurbTune('?blurbtext=1.25').text, 1.25)
+  assert.equal(readBlurbTune('?blurbtext=1').text, 1)
+  assert.equal(readBlurbTune('?blurbtext=3').text, 3)
+  assert.equal(readBlurbTune('?blurbtext=0.8').text, 0.8)
+  assert.equal(readBlurbTune('?blurbtext=0').text, null)
+  assert.equal(readBlurbTune('?blurbtext=-1').text, null)
+  assert.equal(readBlurbTune('?blurbtext=3.01').text, null)
+  assert.equal(readBlurbTune('?blurbtext=nope').text, null)
+})
+
+test('?blurbend=0 turns the page-end slowdown off and nothing else does', () => {
+  assert.equal(readBlurbTune('?blurbend=0').end, false)
+  assert.equal(readBlurbTune('?blurbend=1').end, true)
+  assert.equal(readBlurbTune('?blurbend=junk').end, true)
+  assert.equal(readBlurbTune('?blurbhold=0').end, true)
 })
 
 test('?blurbhold=0 turns the hold off and nothing else does', () => {
@@ -385,6 +491,16 @@ test('the reading section rule lives only inside the phone query', () => {
     outside += line + '\n'
   }
   assert.ok(!/--blurb-peek/.test(outside), 'section height leaked outside the phone query')
+  assert.ok(!/--blurb-text|--blurb-clear|data-blurb-fit/.test(outside), 'the text fit or the nav clearance leaked outside the phone query')
+  // the detail blurbs scale from the shared token, which itself stays untouched
+  assert.match(css, /font-size: calc\(var\(--text-blurb\) \* var\(--blurb-text, 1\)\)/)
+  // the copy clears the nav and the pinned breadcrumb chip: one custom property, derived, used by both section rules
+  assert.match(css, /--blurb-clear: calc\(var\(--nav-height, 2\.929rem\) \+ 0\.857rem \+ 1\.857rem \+ 0\.571rem\)/)
+  assert.match(css, /padding-block: var\(--blurb-clear\) 0\.857rem/)
+  assert.match(css, /\.hero-band>\.project-blurb \{\s*justify-content: center;\s*padding-top: var\(--blurb-clear\)/)
+  // the chip really does pin at nav + 0.857rem and stand 1.857rem tall (what --blurb-clear is derived from)
+  assert.match(css, /\.detail-breadcrumb \{\s*position: sticky;\s*top: calc\(2\.929rem \+ 0\.857rem\)/)
+  assert.match(css, /margin: 0\.571rem 0 calc\(-1\.857rem - 0\.571rem\) 0\.571rem/)
   assert.ok(!/--blurb-sec/.test(css), 'the retired ?blurbsec variable is still styled')
   assert.match(css, /min-height: calc\(\(1 - var\(--blurb-peek, 0\.1\)\) \* 100svh\)/)
 })

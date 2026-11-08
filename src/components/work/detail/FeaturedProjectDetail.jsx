@@ -55,8 +55,8 @@ import {
 import { formatYearRange } from '../../../lib/formatYearRange.js';
 import { renderKeywords, KW_HIGHLIGHT_DETAIL } from '../../../lib/keywords.jsx';
 import useKeywordWipe from './useKeywordWipe.js';
-import { holdWanted, attachBlurbHold, ARM_EVENT } from '../../../lib/blurbHold.js';
-import { HOLD_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js';
+import { holdWanted, attachBlurbHold, attachBlurbFit, ARM_EVENT } from '../../../lib/blurbHold.js';
+import { HOLD_MQ, PHONE_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js';
 
 /* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
    Px-fixed height (~65vh on a laptop) so the reserved region stays rigid.
@@ -142,16 +142,26 @@ function BlurbCopy({ paragraphs }) {
 /* The phone reading sections (SQ-26, SQ-27): each blurb is a CSS section
    (project-detail.css, ≤768px) and, for a finger, the page holds on it —
    lib/blurbHold.js. This owns the lifecycle: attach while the phone query
-   matches, detach when it stops (resize-aware), and the ?blurbpeek dial. */
+   matches, detach when it stops (resize-aware), and the ?blurbpeek dial. The
+   text fit (SQ-28, attachBlurbFit) rides the phone query alone: the sections
+   are CSS on every phone, held or not, and it goes on first so the hold reads
+   the fitted heights. */
 function useBlurbHold(rootRef) {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
     const { peek } = readBlurbTune(window.location.search);
     if (peek != null) root.style.setProperty('--blurb-peek', String(peek));
+    const phone = window.matchMedia(PHONE_MQ);
     const mq = window.matchMedia(HOLD_MQ);
+    let detachFit = null;
     let detach = null;
     const sync = () => {
+      if (phone.matches) detachFit ??= attachBlurbFit(root);
+      else if (detachFit) {
+        detachFit();
+        detachFit = null;
+      }
       if (holdWanted()) detach ??= attachBlurbHold(root);
       else if (detach) {
         detach();
@@ -159,10 +169,13 @@ function useBlurbHold(rootRef) {
       }
     };
     sync();
+    phone.addEventListener('change', sync);
     mq.addEventListener('change', sync);
     return () => {
+      phone.removeEventListener('change', sync);
       mq.removeEventListener('change', sync);
       detach?.();
+      detachFit?.();
       root.style.removeProperty('--blurb-peek');
     };
   }, [rootRef]);
