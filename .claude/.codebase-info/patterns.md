@@ -60,7 +60,7 @@ globe hands the gesture back to the page (phones since 10-07, every screen since
 
 Hard-hold motion is its own family: `steps(1, end)`, where every keyframe segment HOLDS its start
 value and jumps at the end, so nothing interpolates. It runs the FP pager scrim grain
-(`work/scrimNoise.js`), the odometer, and the footer band's "full spectrum" pulse (`.logo-ticker__spectrum`). Musical timing is a token,
+(`work/scrimNoise.js`), the odometer, and the footer band's "full spectrum" pulse (`.logo-ticker__spectrum`; off by default since 11-07, `SPECTRUM_WHITE`, `?spectrumwhite=0` runs it). Musical timing is a token,
 not a magic duration: `calc(240s / var(--swm-bpm, 127))` is two half notes at 127 BPM (1.88976 s),
 the first stepping five `--swm-cycle-*` frames at 10% each, the second holding `--ink-muted`. A
 CSS-keyframed ink pulse animates the ELEMENT'S OWN `color`, which is what keeps it clear of the

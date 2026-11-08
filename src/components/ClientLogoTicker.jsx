@@ -74,10 +74,13 @@ export const leadParts = (copy = COPY, phrase = SPECTRUM_PHRASE) => {
 /* THE WHITE SWITCH (11-07, Nathan: "a toggle to change the 'full-spectrum'
    color cycle to just full brightness text white to match the rotating
    artists, promoters, etc"). true = the phrase takes the odometer word's own
-   white and the colour walk never runs; false = the 127 BPM pulse. The bake
-   is SSR'd as data-spectrum on the band; ?spectrumwhite=1 / =0 overrides it
-   for the page view (global.css .logo-ticker[data-spectrum='white']). */
-export const SPECTRUM_WHITE = false;
+   white and the colour walk never runs; false = the 127 BPM pulse. Baked
+   true 11-07 (Nathan: "commit the white full spectrum text, keep the color
+   cycle on hand but just turned off"), so the pulse stays wired for
+   ?spectrumwhite=0. The bake is SSR'd as data-spectrum on the band;
+   ?spectrumwhite=1 / =0 overrides it for the page view (global.css
+   .logo-ticker[data-spectrum='white']). */
+export const SPECTRUM_WHITE = true;
 
 export const WORDS = ['artists', 'promoters', 'labels', 'agencies', 'venues'];
 
