@@ -106,7 +106,7 @@ const accentEase = () =>
 // Enter World lens target multisamples — the /work World's MSAA_SAMPLES default, so
 // the dive's AA matches the direct render the frame before it (SQ-34).
 const ENTER_LENS_MSAA = 4;
-const SURGE_DIP_END =0.35; // default dip share — live-tunable via setBlueFillTuning (08-25)
+const SURGE_DIP_END = 0.35; // default dip share — live-tunable via setBlueFillTuning (08-25)
 const SURGE_DIP_DEPTH = 0.3; // default brightness floor = 1 − depth = 0.7
 function surgePanel(uniforms, t, dipEnd, dipDepth) {
   if (t <= 0) return;
