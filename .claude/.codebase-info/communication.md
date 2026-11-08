@@ -22,7 +22,7 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:hero-chrome`, `swm:hero-lockup-done`, `swm:tagline-exit` | `Hero` | `SiteNav`, `HeroLabels`, `SiteTagline` | — |
 | `swm:process-step` / `-home` / `-index` | `ProcessStepCtas`, driver, `DetailProgressBar` | `useProcessScrollDriver`, `useProcessCopy` | step deltas / index |
 | `swm:process-cta-hover` | `ProcessPage` (CTA hover/focus, rAF-deferred) | `useProcessScene` (the freed shard pulses) | `{on}` |
-| `swm:blurb-arm` (`ARM_EVENT`; on the `.project-blurb` ELEMENT, not `window`) | `lib/blurbHold.js` (a section seats; every section on detach) | `BlurbCopy` in `work/detail/FeaturedProjectDetail.jsx` (mounts its keyword wipe) | — |
+| `swm:blurb-arm` (`ARM_EVENT`; on the `.project-blurb` ELEMENT, not `window`) | `lib/blurbHold.js` (a section seats; a section is on screen when the page rests or the hold attaches; every section on detach) | `BlurbCopy` in `work/detail/FeaturedProjectDetail.jsx` (mounts its keyword wipe) | — |
 | `swm:directory-client` | `InfoPanel` (a live client name clicked on `/work/directory`, inside the click) | `work/directory/DirectoryPage.jsx` (sets or clears the client in place; no navigation) | `{slug}`, `null` clears |
 
 Rule: dispatches that cross into a persistent island are `requestAnimationFrame`-deferred so the
