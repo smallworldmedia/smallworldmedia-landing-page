@@ -10,7 +10,7 @@
 ├── CONTEXT.md                # media-library domain glossary (read first for CMS work)
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
 ├── src/
-│   ├── pages/                # routes: index, process, privacy, terms, 404, work/{index,[slug],directory}, lab/globe, specimen
+│   ├── pages/                # routes: index, process, privacy, terms, 404, work/{index,[slug],directory}, lab/{globe,loader}, specimen
 │   ├── layouts/BaseLayout.astro   # head, fonts, ClientRouter, persistent SiteShell + SiteTagline
 │   ├── components/
 │   │   ├── *.jsx             # site chrome: SiteShell, SiteNav, SiteFooter, SiteTagline, RouteFill,
@@ -28,7 +28,7 @@
 │   │   │   └── directory/    # /work/directory: DirectoryPage, grid, filter + FilterTag, player gate, tiles, bench
 │   │   ├── process/          # /process stage machine, scroll driver, copy, debug panel, lockup globe
 │   │   ├── specimen/, lab/   # dormant routes (redirected)
-│   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb)
+│   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb), GlobeLoader (the globe loader)
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, touchTune, rubberBand, blurbHold(+Math), momentum,
 │   │                         #   navAccent, projectColor, projectSlug,

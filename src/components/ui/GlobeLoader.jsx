@@ -46,13 +46,14 @@ const DRAW_SPLINE = '0.16 1 0.3 1';
  *              is the draw-in length in seconds. readLoaderDials() gives the ?loader… values.
  *   active     true (default) plays on mount; flip false → true to replay, true → false to stop.
  *   ref        { start(), replay(), stop() } for a parent that drives it imperatively.
- *   lowercase  the words as typed instead of the label's uppercase.
+ *   lowercase  the words as typed ("world" / "loading", Nathan 11-08; the default);
+ *              false wears the label's uppercase.
  *   className  extra class on the root.
  * The root is one inline flex column, sized by --globe-loader-size (default 240px):
  * it assumes nothing about owning the page, so it mounts inside any positioned layer
  * (a fixed cover, a card). Position and fade it from the parent.
  */
-export default function GlobeLoader({ timing, lowercase = false, className = '', active = true, ref }) {
+export default function GlobeLoader({ timing, lowercase = true, className = '', active = true, ref }) {
   const rootRef = useRef(null);
   const svgRef = useRef(null);
   const { meridianStaggerMs, drawMs, parallelStaggerMs, spin } = { ...DEFAULT_TIMING, ...timing };
@@ -224,7 +225,7 @@ export function readLoaderDials() {
       parallelStaggerMs: num('loaderpstag', DEFAULT_TIMING.parallelStaggerMs),
       spin: num('loaderspin', DEFAULT_TIMING.spin),
     },
-    lowercase: str('loadercase', 'upper') === 'lower',
+    lowercase: str('loadercase', 'lower') !== 'upper',
     // ?loaderreplay alone loops the draw-in every 6 s; ?loaderreplay=9 every 9 s
     autoReplayS: raw === null ? 0 : parseFloat(raw) > 0 ? parseFloat(raw) : 6,
   };

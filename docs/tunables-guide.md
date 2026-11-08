@@ -697,7 +697,7 @@ Reader: `src/components/ui/GlobeLoader.jsx` (`GlobeLoaderStage`, read once when 
 | `?loaderpstag` | gap between one parallel starting and the next (top down); the first starts when the last meridian is in | `150` ms | any finite ≥ 0 | `globeLoaderGeometry.js` `DEFAULT_TIMING` |
 | `?loaderspin` | multiplier on `O_SPIN_DPS` (−20°/s, westward); one 40° step is 2 s at ×1; `0` = no rotation | `1` | any finite ≥ 0 | `globeLoaderGeometry.js` `DEFAULT_TIMING` |
 | `?loaderreplay` | loop the whole draw-in every N s (bare `?loaderreplay` = every 6 s) | off | seconds | typed only |
-| `?loadercase` | `lower` shows the words as typed ("world" / "loading"); the default uses the overviews_loading label's uppercase | `upper` | `upper`, `lower` | typed only |
+| `?loadercase` | `lower` shows the words as typed ("world" / "loading", Nathan 11-08); `upper` wears the overviews_loading label's uppercase | `lower` | `lower`, `upper` | typed only |
 
 ## `/process`
 

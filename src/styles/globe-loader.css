@@ -37,7 +37,8 @@
   text-align: center;
 }
 
-/* The proposed alternative to the label's uppercase: the words as typed. */
+/* The words as typed, "world" / "loading" (Nathan 11-08; the default).
+   ?loadercase=upper drops this class for the label's uppercase. */
 .globe-loader--lower .globe-loader__label {
   text-transform: none;
 }

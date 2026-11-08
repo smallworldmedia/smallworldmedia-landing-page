@@ -16,6 +16,7 @@
 | `/404` | `src/pages/404.astro` | none | static | live |
 | `/studio` | `@sanity/astro` integration | Sanity Studio | — | live, sitemap-excluded |
 | `/lab/globe` | `src/pages/lab/globe.astro` | `lab/VideoGlobeLab.jsx` | globe pool | **redirected** → `/` |
+| `/lab/loader` | `src/pages/lab/loader.astro` | `ui/GlobeLoader.jsx` (`GlobeLoaderStage`) | static | live review page (11-08), unlinked, sitemap-excluded |
 | `/specimen` | `src/pages/specimen.astro` | `specimen/FontSpecimen.jsx` | static | **redirected** → `/` |
 
 Disabled pages (`/lab/globe`, `/specimen`) return `Astro.redirect()` above their fetches, and
