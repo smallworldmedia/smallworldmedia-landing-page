@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-07*
+*Last Updated: 2026-11-08*
 
 ```
 .
@@ -12,6 +12,7 @@
 ├── src/
 │   ├── pages/                # routes: index, process, privacy, terms, 404, work/{index,[slug],directory}, lab/{globe,loader}, specimen
 │   ├── layouts/BaseLayout.astro   # head, fonts, ClientRouter, persistent SiteShell + SiteTagline
+│   ├── layouts/homeWarm.js        # the way home: warm copy of / for the router (SQ-33, ?homewarm)
 │   ├── components/
 │   │   ├── *.jsx             # site chrome: SiteShell, SiteNav, SiteFooter, SiteTagline, RouteFill,
 │   │   │                     #   InfoPanel, ProjectOverlay, PrivacyOverlay/Content, ClientLogoTicker,

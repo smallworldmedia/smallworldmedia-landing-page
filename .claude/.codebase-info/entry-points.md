@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-11-05*
+*Last Updated: 2026-11-08*
 
 ## Routes
 
@@ -32,7 +32,10 @@ touches four files in one commit: the page's redirect, its `netlify.toml` block,
 purpose), server-computed `body.route-*` classes, skip link, hidden Netlify contact form,
 `<SiteShell client:load transition:persist>` and `<SiteTagline client:load transition:persist>`,
 `<div id="main"><slot /></div>`, and an inline script that runs Lenis `syncRoute()` on
-`astro:page-load` and arms the `swm:returnToWork` sessionStorage flag on popstate. It also awaits the
+`astro:page-load`, installs `homeWarm.js` (SQ-33, 11-08: on every route but home it fetches `/` into
+memory on an idle beat, and `astro:before-preparation` for `/` wraps the router's own `e.loader` so
+its one fetch of `/` is served that copy; 3-min TTL, form posts and `/?query` fall through;
+`?homewarm=0` off) and arms the `swm:returnToWork` sessionStorage flag on popstate. It also awaits the
 Client Roster (`getDirectoryData()` → `toDrawerRoster`, `src/lib/clientCoverage.js`; `[]` and a
 `[roster]` warning if the read fails) and hands it to `SiteShell` as `roster` (11-03).
 
