@@ -69,6 +69,7 @@ import {
   COMMIT_TUNE_ACTIVE,
   HERO_INTRO_EASE_PATH,
   GLOBE_STROKE_FRAC,
+  HOME_LENS,
   subscribeHeroTune,
 } from './hero/heroConfig.js';
 import {
@@ -1093,9 +1094,9 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     // SQ-34: the FP→detail LENS deepen rides this same master p — the
     // World's window + pow, x then 1.1 × on y. The scene routes its frames
     // through the lens pass for the dive only; engaging it at lens 0 here
-    // makes frame 0 a texel-exact copy of the direct render. ?homelens sets
-    // the full-ramp amount; unset follows ?enterlens (the World's own).
-    const lensFull = HERO_TUNING.homeLens ?? ENTER_TUNABLES.lens;
+    // makes frame 0 a texel-exact copy of the direct render. The full-ramp
+    // amount is HOME_LENS (Nathan's 11-08 bake, -0.22).
+    const lensFull = HOME_LENS;
     sceneApiRef.current?.setEnterLens(0, 0);
     const tl = gsap.to(raw, {
       p: 1,

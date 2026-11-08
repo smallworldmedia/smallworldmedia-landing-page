@@ -152,10 +152,6 @@ export const TUNING_DEFAULTS = Object.freeze({
      the bench moves them without a reload. */
   loaderLeadMs: 350, // ?loaderlead — when the globe loader comes up: ms after the Enter World button is OUT (the 0.2 s chrome exit) on home → /work (10-06: never under the button), ms after the cover is fully up on FP card → detail (SQ-32); the ?herotune dry run's commit path counts it from the commit's start
   loaderEndMs: 300, // ?loaderend — the most the reveal WAITS, once the page is ready, for the globe loader's draw-in to finish (SQ-32; 0 = cut with the reveal). Nothing is added when the draw has already finished
-  /* The home → /work dive carries the FP → detail lens deepen (SQ-34, a
-     PROPOSAL). null = follow ENTER_TUNABLES.lens (the World's own amount, so
-     ?enterlens moves both passages); a number is the home passage's own. */
-  homeLens: null, // ?homelens — full-ramp x distortion of the home dive's lens (y = 1.1 × x); read LIVE at the click
   /* Camera channels (08-25 refactor): each rides its OWN smooth power-inOut
      window as a fraction of the FULL timeline — recenter and zoom overlap
      with each other AND the blue as one fluid gesture, no lurch at either
@@ -229,6 +225,12 @@ export const TUNING_DEFAULTS = Object.freeze({
   labelStroke: 48, // ?labelstroke — chip offset / leader-line length from its panel anchor, px (note 3)
 });
 
+/* The home → /work dive's lens deepen (SQ-34): the full-ramp x distortion, y = 1.1 × x
+   like the World. It rides the World's lens window + pow (ENTER_TUNABLES) on the dive's
+   master timeline; this amount is the home passage's own. Nathan's 11-08 bake: -0.22, the
+   curvature the World reaches at the end of its own dive (was ?homelens). */
+export const HOME_LENS = -0.22;
+
 /* URL param names for seed-on-load / copy_url, by section — NUMERIC knobs
    only; fitCover rides ?herofit=contain|cover (handled specially below).
    zoom is absent on purpose: it belongs to the scroll gesture, never to a
@@ -246,7 +248,6 @@ const PARAM_KEYS = {
   blueEnd: 'blueend',
   loaderLeadMs: 'loaderlead',
   loaderEndMs: 'loaderend',
-  homeLens: 'homelens',
   recenterStart: 'recenterstart',
   recenterEnd: 'recenterend',
   zoomStart: 'zoomstart',
