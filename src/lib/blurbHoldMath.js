@@ -26,6 +26,14 @@ export const SNAP_PX = 0.5;
 export const MOMENTUM_DECAY = 0.998;
 /** px/ms under which a momentum has stopped. */
 export const MIN_V = 0.01;
+/** The detail blurbs' text scale TARGET on a phone, a multiple of --text-blurb (SQ-28 11-07, Nathan:
+    "increase the size of the description text on mobile"). A proposal: Nathan bakes the number;
+    ?blurbtext re-dials it. The fit lowers it per page until every blurb sits inside its seat window. */
+export const BLURB_TEXT = 1.25;
+/** Measurements the fit may take (measure, guess, measure, guess, measure). */
+export const FIT_PASSES = 3;
+/** A re-guess aims this far under the fit: lines rewrap, so height is only roughly s². */
+export const FIT_MARGIN = 0.97;
 /** Share of the viewport a section must cover for a resting page to be eased onto its seat. */
 export const REST_COVER = 0.5;
 /** Share of a section (or the viewport, whichever is smaller) that must be on screen for its entrance to play at rest. */
@@ -45,7 +53,40 @@ export const seatY = (top, scrollY, max) => clamp(scrollY + top, 0, max);
  * the hold does not let the page scroll to: it is seated at its top and read
  * with native scroll.
  */
-export const holdable = (h, vh, peek = BLURB_PEEK) => h <= (1 - peek) * vh + SEAT_TOL_PX;
+export const holdable = (h, vh, peek = BLURB_PEEK) => h <= seatWindow(vh, peek);
+
+/** The tallest a section may be and still be held: the seat window plus the seat tolerance. */
+export const seatWindow = (vh, peek = BLURB_PEEK) => (1 - peek) * vh + SEAT_TOL_PX;
+
+/**
+ * The text scale one page's blurbs share (SQ-28): `target`, or the largest
+ * scale under it at which the tallest blurb (content height, min-height
+ * disregarded) still fits `win` (seatWindow of the SMALL viewport, so the hold
+ * works in either iOS toolbar state). `heightAt(s)` measures that tallest
+ * height at scale s. Height grows about with s² (lines rewrap), so each pass
+ * re-guesses from its own measurement; at most `passes` measurements, and the
+ * answer is a scale that measured as fitting. Floor 1, today's size (or the
+ * target, when that is lower): a blurb that does not fit even there stays read
+ * natively, as before.
+ */
+export function fitTextScale(heightAt, win, target = BLURB_TEXT, passes = FIT_PASSES) {
+  const floor = Math.min(1, target);
+  let s = target;
+  for (let i = 0; i < passes; i++) {
+    const h = heightAt(s);
+    if (!Number.isFinite(h)) return floor;
+    if (h <= win) return s;
+    if (s <= floor) return floor;
+    s = Math.max(floor, s * Math.sqrt(win / h) * FIT_MARGIN);
+  }
+  return floor;
+}
+
+/** Does a section's seat coincide with the document's end? (a seat clamps to the end when the section sits within the last viewport) */
+export const seatAtEnd = (seat, max) => Math.abs(seat - max) <= SEAT_TOL_PX;
+
+/** The scroll position a sample can mean: an overscroll at either end (iOS's bounce) is not movement. */
+export const clampScroll = (y, max) => clamp(y, 0, max);
 
 /** px of a section on screen. */
 export const shownPx = (top, h, vh) => Math.max(0, Math.min(top + h, vh) - Math.max(top, 0));
@@ -131,10 +172,12 @@ export const emaVelocity = (avg, sample, alpha = 0.4) => (avg === 0 ? sample : a
  * The preview dials, read from a URL search string:
  *   ?blurbhold=0         the hold off (plain sections); default on
  *   ?blurbpeek=<f>       the media left showing below a seat, a fraction of the viewport; default BLURB_PEEK
+ *   ?blurbtext=<f>       the detail blurbs' text scale target, a multiple of --text-blurb (0 < f <= 3); default BLURB_TEXT, lowered per page to fit
+ *   ?blurbend=0          the page's end is not an arrival target (no slowdown onto it); default on
  *   ?blurbcatch=<lerp>   the arrival slowdown's lerp (0…1]; default LENIS_TUNING.lerp
  *   ?blurbdecel=<f>      the exit momentum's per-ms velocity factor (0…1); default MOMENTUM_DECAY
  *   ?scroll=<px>         the commit trigger, shared with /work and the next-project band
- * @returns {{ hold: boolean, peek: number|null, catchLerp: number|null, decel: number|null, trigger: number|null }} null = unset
+ * @returns {{ hold: boolean, end: boolean, peek: number|null, text: number|null, catchLerp: number|null, decel: number|null, trigger: number|null }} null = unset
  */
 export function readBlurbTune(search) {
   const q = new URLSearchParams(search);
@@ -146,9 +189,12 @@ export function readBlurbTune(search) {
   const peek = num('blurbpeek');
   const catchLerp = num('blurbcatch');
   const trigger = num('scroll');
+  const text = num('blurbtext');
   return {
     hold: num('blurbhold') !== 0,
+    end: num('blurbend') !== 0,
     peek: within(peek, 0, 1),
+    text: text != null && text > 0 && text <= 3 ? text : null,
     catchLerp: catchLerp != null && catchLerp > 0 ? Math.min(catchLerp, 1) : null,
     decel: within(num('blurbdecel'), 0, 1),
     trigger: trigger != null && trigger > 0 ? trigger : null,

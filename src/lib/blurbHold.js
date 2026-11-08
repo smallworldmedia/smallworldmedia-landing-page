@@ -47,6 +47,23 @@
  * A section taller than its seat window (holdable()) is seated at its top and
  * read with native scroll, not held.
  *
+ * The document's end is the last ARRIVE target, downward only (SQ-28, Nathan:
+ * "apply this slow down to the bottom of the detail page"): momentum heading
+ * for it is taken v/ω before it by the same velocity-continuous spring and
+ * lands exactly on it. It is a stop, not a hold: no seat, no touch-action,
+ * no ARM_EVENT; the NextProjectBand owns the gesture there as before. The rest
+ * ease never targets it, and a section seat the end clamps to is the end, not
+ * a seat. ?blurbend=0 turns it off.
+ *
+ * Every scroll sample is clamped to [0, docMax] before it is read as movement,
+ * so an iOS overscroll bounce (scrollY < 0 settling back up) never flips the
+ * direction, and the page's very top is a rest of its own: the rest ease never
+ * pulls a page that rests at the top onto the first section (a 16:9 hero leaves
+ * the intro more than half the viewport, which is what the bounce used to trip).
+ *
+ * attachBlurbFit (below) is the text size: CSS sections on every phone, so it
+ * is not gated on a finger or on the hold.
+ *
  * The blurb's entrance (BlurbCopy's keyword wipe) waits for ARM_EVENT, fired
  * on a section when it seats, when the page rests with it on screen, when the
  * hold attaches with it on screen, and on every section if the hold detaches.
@@ -66,8 +83,13 @@ import {
   MOMENTUM_DECAY,
   MIN_V,
   REST_COVER,
+  BLURB_TEXT,
   seatY,
   holdable,
+  seatWindow,
+  fitTextScale,
+  seatAtEnd,
+  clampScroll,
   shownPx,
   shownEnough,
   nextSeat,
@@ -117,6 +139,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   const peek = tune.peek ?? BLURB_PEEK;
   const omega = catchOmega(tune.catchLerp ?? LENIS_TUNING.lerp);
   const decay = tune.decel ?? MOMENTUM_DECAY;
+  const endOn = tune.end; // the document's end is an arrival target
   const travel = trigger / TOUCH_GAIN; // the copy follows the finger 1:1; a full pull is the trigger's worth of finger
 
   let seated = null; // { el, y } — the section holding the page
@@ -130,16 +153,18 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   let dir = 1; // the page's direction of travel, +1 = down the document
   let vel = 0; // the page's own scroll velocity, px/ms (EMA over scroll events)
   let frameMs = 16.7;
-  let lastY = window.scrollY;
-  let lastT = performance.now();
   let restTimer = 0;
   let moveOn = false;
 
   const sections = () => [...root.querySelectorAll(selector)];
   const docMax = () => Math.max(0, html.scrollHeight - window.innerHeight);
+  // Where the page is, for movement: an overscroll bounce at either end is not.
+  const scrollPos = () => clampScroll(window.scrollY, docMax());
+  let lastY = scrollPos();
+  let lastT = performance.now();
   const scrollNow = (y) => {
     window.scrollTo({ top: y, behavior: 'instant' });
-    lastY = window.scrollY; // our own scroll is never the page's velocity
+    lastY = scrollPos(); // our own scroll is never the page's velocity
   };
   const arm = (el) => el.dispatchEvent(new CustomEvent(ARM_EVENT));
   const clearCopy = () => {
@@ -158,13 +183,22 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   });
 
   // The seats, as the page positions that put each section's top on the viewport's.
+  // A seat the document's end clamps to is flagged `end`: it is the end, not a seat.
   const seats = () => {
     const y = window.scrollY;
     const max = docMax();
     return sections().map((el) => {
       const r = el.getBoundingClientRect();
-      return { el, y: seatY(r.top, y, max), top: r.top, h: r.height };
+      const sy = seatY(r.top, y, max);
+      return { el, y: sy, top: r.top, h: r.height, end: endOn && seatAtEnd(sy, max) };
     });
+  };
+
+  // What an arrival may be taken for: the seats and, going down, the document's end.
+  const targets = () => {
+    const list = seats();
+    if (endOn && dir > 0 && !list.some((s) => s.end)) list.push({ el: null, y: docMax(), top: 0, h: 0, end: true });
+    return list;
   };
 
   // The non-passive touchmove lives only while it has work: a seat to hold,
@@ -229,16 +263,20 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
     const { seat } = drive;
     drive = null;
     syncTick();
-    scrollNow(seat.y);
+    scrollNow(seat.end ? Math.min(seat.y, docMax()) : seat.y);
     vel = 0;
+    if (seat.end) {
+      armShown(); // a stop, not a hold: the next-project band owns the gesture from here
+      return;
+    }
     if (holdable(seat.h, window.innerHeight, peek)) enter(seat.el, seat.y);
     else arm(seat.el); // too tall to hold: seated at its top, read with native scroll
   }
 
-  // Is there a seat ahead that the page, moving `speed` px/ms in `dir` (negative
-  // when it has just turned back), should be taken for now?
+  // Is there a seat (or, going down, the end) ahead that the page, moving `speed`
+  // px/ms in `dir` (negative when it has just turned back), should be taken for now?
   function tryCatch(y, speed, frame) {
-    const list = seats();
+    const list = targets();
     const i = nextSeat(
       list.map((s) => s.y),
       y,
@@ -288,9 +326,10 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
     if (touching || drive || coast || carry) return;
     armShown();
     if (seated) return;
-    const y = window.scrollY;
+    const y = scrollPos();
+    if (y <= SEAT_TOL_PX) return; // the page's very top is a rest of its own, never eased off (a top bounce settles here)
     const vh = window.innerHeight;
-    const list = seats();
+    const list = seats().filter((s) => !s.end); // the rest ease never targets the end
     const i = nextSeat(
       list.map((s) => s.y),
       y,
@@ -308,7 +347,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   function commit(d) {
     if (!seated) return;
     dir = d;
-    carry = { prev: null, vel: 0, at: 0, y: window.scrollY }; // onTouchMove fills the rest from this very move
+    carry = { prev: null, vel: 0, at: 0, y: scrollPos() }; // onTouchMove fills the rest from this very move
     band.reset();
     leave({ springHome: false }); // the release lane would pull the copy home at once: a jump
     // The copy eases home while the page carries on from where the finger is.
@@ -324,7 +363,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
 
   function onScroll() {
     const now = performance.now();
-    const y = window.scrollY;
+    const y = scrollPos();
     if (drive || coast || carry) {
       lastY = y; // ours
       lastT = now;
@@ -358,7 +397,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
     if (drive || coast) {
       // The finger takes the page back from a slowdown or from momentum.
       stopMotion();
-      lastY = window.scrollY;
+      lastY = scrollPos();
       vel = 0;
     }
     if (seated && !chromeOwns(e)) finger = e.touches[0].clientY;
@@ -444,5 +483,71 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
     clearCopy();
     // No hold, no seat to wait for: every blurb may play.
     for (const el of sections()) arm(el);
+  };
+}
+
+/**
+ * The detail blurbs' text size (SQ-28, Nathan: "increase the size of the
+ * description text on mobile … extra real estate with the extra vh"). One
+ * scale per page, written to `--blurb-text` on the page (project-detail.css
+ * reads it on `.project-blurb__text`, ≤768px): the target (BLURB_TEXT,
+ * ?blurbtext) or the largest scale under it at which EVERY blurb still fits
+ * its seat window, measured against the SMALL viewport (a 100svh probe, so
+ * the hold works in either iOS toolbar state) with the section's min-height
+ * disregarded (`data-blurb-fit` lifts it for the measurement, which lands in
+ * the same task as the write, so it never paints). Floor 1: a blurb too long
+ * even then is read natively, as before. Re-fit when the width or the small
+ * viewport changes and when the fonts land; not gated on a finger or on the
+ * hold, since the sections are CSS on every phone.
+ *
+ * @param {Element} root  the page (`.project-detail`)
+ * @returns {() => void} detach
+ */
+export function attachBlurbFit(root, { selector = '.project-blurb' } = {}) {
+  const tune = readBlurbTune(window.location.search);
+  const peek = tune.peek ?? BLURB_PEEK;
+  const target = tune.text ?? BLURB_TEXT;
+  const probe = document.createElement('div');
+  probe.setAttribute('aria-hidden', 'true');
+  probe.style.cssText =
+    'position:fixed;top:0;left:0;width:0;height:100vh;height:100svh;visibility:hidden;pointer-events:none';
+  document.body.appendChild(probe);
+  let key = '';
+  let live = true;
+
+  const tallest = (s) => {
+    root.style.setProperty('--blurb-text', String(s));
+    let h = 0;
+    for (const el of root.querySelectorAll(selector)) h = Math.max(h, el.getBoundingClientRect().height);
+    return h;
+  };
+  const fit = () => {
+    const svh = probe.offsetHeight || window.innerHeight;
+    const k = `${window.innerWidth}x${svh}`;
+    if (k === key) return; // an iOS toolbar moving changes innerHeight, not this
+    key = k;
+    root.setAttribute('data-blurb-fit', '');
+    const s = fitTextScale(tallest, seatWindow(svh, peek), target);
+    root.removeAttribute('data-blurb-fit');
+    root.style.setProperty('--blurb-text', String(+s.toFixed(3)));
+  };
+  const refit = () => {
+    if (!live) return; // fonts.ready may land after detach
+    key = '';
+    fit();
+  };
+
+  fit();
+  document.fonts?.ready.then(refit);
+  document.fonts?.addEventListener?.('loadingdone', refit);
+  window.addEventListener('resize', fit);
+
+  return function detach() {
+    window.removeEventListener('resize', fit);
+    document.fonts?.removeEventListener?.('loadingdone', refit);
+    live = false;
+    probe.remove();
+    root.removeAttribute('data-blurb-fit');
+    root.style.removeProperty('--blurb-text');
   };
 }

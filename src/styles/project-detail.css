@@ -981,8 +981,20 @@ html:has(.project-detail) body {
 
   .project-blurb__text {
     /* the shared mobile blurb token (global.css ≤768px :root — the
-       tagline stack rides the same scale); value-identical swap 08-30 (3) */
-    font-size: var(--text-blurb);
+       tagline stack rides the same scale), times the detail page's own
+       --blurb-text (SQ-28, Nathan 11-07: "increase the size of the
+       description text on mobile"). blurbHold.js attachBlurbFit writes it on
+       .project-detail: the target (1.25, ?blurbtext), lowered per page until
+       every blurb fits its 0.9-of-the-viewport section; 1 until it runs (the
+       server render, so a late fit only ever grows the copy) and wherever a
+       blurb is too long for any bigger. --text-blurb itself is shared (menu,
+       tagline, pill) and is not touched. */
+    font-size: calc(var(--text-blurb) * var(--blurb-text, 1));
+  }
+
+  /* The fit measures a section by its copy, not by the 0.9 min-height. */
+  .project-detail[data-blurb-fit] .project-blurb {
+    min-height: 0;
   }
 
   .project-blurb__details {
@@ -1001,13 +1013,21 @@ html:has(.project-detail) body {
      ?blurbpeek sets --blurb-peek on .project-detail. The hold on top of it
      (lib/blurbHold.js) is JS. Reduced motion keeps these plain sections. */
   .project-blurb {
+    /* Where the pinned chrome ends, so copy never starts under it (SQ-28,
+       Nathan: Bedouin's intro "is cutting off the top"). A seat puts the
+       section's top on the viewport's top, under the fixed nav (--nav-height)
+       and the pinned .detail-breadcrumb chip (sticky top = nav + 0.857rem,
+       1.857rem tall), so the top padding is their bottom plus a small gap; a
+       short blurb centres in the area below it. */
+    --blurb-clear: calc(var(--nav-height, 2.929rem) + 0.857rem + 1.857rem + 0.571rem);
     min-height: calc((1 - var(--blurb-peek, 0.1)) * 100vh);
     min-height: calc((1 - var(--blurb-peek, 0.1)) * 100svh);
     justify-content: center;
-    padding-block: 0.857rem;
+    padding-block: var(--blurb-clear) 0.857rem;
   }
 
   .hero-band>.project-blurb {
     justify-content: center;
+    padding-top: var(--blurb-clear);
   }
 }
