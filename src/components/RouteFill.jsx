@@ -49,6 +49,10 @@ const LOADER_IN_SECONDS = 0.3; // the loader's fade up (10-06)
 // compressed: ?loaderquick scales the loader's stagger/draw times (1 = the
 // full draw). home → /work always draws full. Dial read once, like the above.
 const LOADER_QUICK = PARAM('loaderquick', 0.4);
+// Nathan 11-08: "disable the globe loader for now by just toggling it off".
+// Off, both passages are the bare fill and the globe never mounts; the wiring
+// below stays for when it comes back. ?globeloader=1 previews it on.
+const LOADER_ON = PARAM('globeloader', 0) === 1;
 const SAFETY_MS = 2500;
 
 const scaleTiming = (t, k) => ({
@@ -70,7 +74,9 @@ export default function RouteFill() {
   const timing = dials && (quick ? scaleTiming(dials.timing, LOADER_QUICK) : dials.timing);
   const timingRef = useRef(timing);
   timingRef.current = timing;
-  useEffect(() => setDials(readLoaderDials()), []);
+  useEffect(() => {
+    if (LOADER_ON) setDials(readLoaderDials());
+  }, []);
 
   useEffect(() => {
     const fill = fillRef.current;
@@ -92,7 +98,7 @@ export default function RouteFill() {
     // ?loaderlead ms after its cover is fully up (detail.loaderAfterCover).
     // Dummy by design: the globe paces the WAIT, it does not measure progress.
     const loaderStart = () => {
-      if (!loader || reducedMotion || loaderUp) return;
+      if (!LOADER_ON || !loader || reducedMotion || loaderUp) return;
       loaderUp = true;
       loaderAt = performance.now();
       gsap.killTweensOf(loader);
@@ -162,7 +168,7 @@ export default function RouteFill() {
       else fill.style.removeProperty('--project-color');
       const coverS = e?.detail?.duration ?? COVER_SECONDS;
       loaderTimer?.kill();
-      if (e?.detail?.loader) {
+      if (LOADER_ON && e?.detail?.loader) {
         if (e.detail.loaderAfterCover) {
           // FP card → detail: the loader opens once the cover is fully up
           // (+ ?loaderlead), on the compressed draw — unless the page is
