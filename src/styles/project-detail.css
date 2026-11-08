@@ -969,6 +969,9 @@ html:has(.project-detail) body {
   }
 
   .hero-band>.project-blurb {
+    /* the desktop rule's `flex: 0 0 50vw` is a HEIGHT in this column: a compact
+       intro (no min-height under it) would be 50vw tall whatever its copy */
+    flex: 0 0 auto;
     justify-content: flex-start;
     padding: 0.857rem 0.571rem 1.143rem;
   }
@@ -985,16 +988,17 @@ html:has(.project-detail) body {
        --blurb-text (SQ-28, Nathan 11-07: "increase the size of the
        description text on mobile"). blurbHold.js attachBlurbFit writes it on
        .project-detail: the target (1.25, ?blurbtext), lowered per page until
-       every blurb fits its 0.9-of-the-viewport section; 1 until it runs (the
+       every blurb fits its 0.88-of-the-viewport section; 1 until it runs (the
        server render, so a late fit only ever grows the copy) and wherever a
        blurb is too long for any bigger. --text-blurb itself is shared (menu,
        tagline, pill) and is not touched. */
     font-size: calc(var(--text-blurb) * var(--blurb-text, 1));
   }
 
-  /* The fit measures a section by its copy, not by the 0.9 min-height. */
+  /* The fit measures a section by its copy, not by its grown min-height (a
+     growing section carries its height inline, hence !important). */
   .project-detail[data-blurb-fit] .project-blurb {
-    min-height: 0;
+    min-height: 0 !important;
   }
 
   .project-blurb__details {
@@ -1008,10 +1012,20 @@ html:has(.project-detail) body {
      the intro and each later band — is its own moment, (1 - peek) of the
      viewport tall, its copy centred. The hold seats a section with its TOP on
      the viewport's top, so the black section fills up under the nav and
-     --blurb-peek (0.1) of the next media shows below it. svh, so the iOS
-     toolbar never jumps it; min-height, so a long paragraph is never clipped.
-     ?blurbpeek sets --blurb-peek on .project-detail. The hold on top of it
-     (lib/blurbHold.js) is JS. Reduced motion keeps these plain sections. */
+     --blurb-peek (0.12, Nathan's 88%) of the next media shows below it.
+     min-height, so a long paragraph is never clipped. ?blurbpeek sets
+     --blurb-peek on .project-detail. This is the GROWN size, in svh: what
+     the page shows with no script, in reduced motion, with ?blurbgrow=0 and
+     on a narrow desktop window. With the hold running (SQ-30, Nathan 11-08:
+     "their vh grows to 88% tethered to the same motion curve as the scroll")
+     blurbHold.js sets data-blurb-grow on .project-detail: a section is then
+     its content (the rule below) until it comes into view, and the script
+     grows its min-height inline, in px of the VISIBLE viewport (svh reads
+     ~78% with the toolbars collapsed), from its position each frame.
+     --blurb-air is the extra black above the copy, beyond the chrome
+     clearance (?blurbair, rem; a proposal, Nathan 11-08: "a bit more empty
+     black space at the top"). The hold on top of it (lib/blurbHold.js) is JS.
+     Reduced motion keeps these plain sections. */
   .project-blurb {
     /* Where the pinned chrome ends, so copy never starts under it (SQ-28,
        Nathan: Bedouin's intro "is cutting off the top"). A seat puts the
@@ -1020,14 +1034,21 @@ html:has(.project-detail) body {
        1.857rem tall), so the top padding is their bottom plus a small gap; a
        short blurb centres in the area below it. */
     --blurb-clear: calc(var(--nav-height, 2.929rem) + 0.857rem + 1.857rem + 0.571rem);
-    min-height: calc((1 - var(--blurb-peek, 0.1)) * 100vh);
-    min-height: calc((1 - var(--blurb-peek, 0.1)) * 100svh);
+    min-height: calc((1 - var(--blurb-peek, 0.12)) * 100vh);
+    min-height: calc((1 - var(--blurb-peek, 0.12)) * 100svh);
     justify-content: center;
-    padding-block: var(--blurb-clear) 0.857rem;
+    padding-block: calc(var(--blurb-clear) + var(--blurb-air, 1.5rem)) 0.857rem;
+    /* The growth is the script's: the browser must not counter-scroll it. */
+    overflow-anchor: none;
   }
 
   .hero-band>.project-blurb {
     justify-content: center;
-    padding-top: var(--blurb-clear);
+    padding-top: calc(var(--blurb-clear) + var(--blurb-air, 1.5rem));
+  }
+
+  /* Growing: compact until the script gives a section its entry height. */
+  .project-detail[data-blurb-grow] .project-blurb {
+    min-height: 0;
   }
 }

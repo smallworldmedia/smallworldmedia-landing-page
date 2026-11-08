@@ -142,7 +142,8 @@ function BlurbCopy({ paragraphs }) {
 /* The phone reading sections (SQ-26, SQ-27): each blurb is a CSS section
    (project-detail.css, ≤768px) and, for a finger, the page holds on it —
    lib/blurbHold.js. This owns the lifecycle: attach while the phone query
-   matches, detach when it stops (resize-aware), and the ?blurbpeek dial. The
+   matches, detach when it stops (resize-aware), and the ?blurbpeek and
+   ?blurbair dials (the growth, ?blurbgrow, lives in the hold). The
    text fit (SQ-28, attachBlurbFit) rides the phone query alone: the sections
    are CSS on every phone, held or not, and it goes on first so the hold reads
    the fitted heights. */
@@ -150,8 +151,9 @@ function useBlurbHold(rootRef) {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
-    const { peek } = readBlurbTune(window.location.search);
+    const { peek, air } = readBlurbTune(window.location.search);
     if (peek != null) root.style.setProperty('--blurb-peek', String(peek));
+    if (air != null) root.style.setProperty('--blurb-air', `${air}rem`);
     const phone = window.matchMedia(PHONE_MQ);
     const mq = window.matchMedia(HOLD_MQ);
     let detachFit = null;
@@ -177,6 +179,7 @@ function useBlurbHold(rootRef) {
       detach?.();
       detachFit?.();
       root.style.removeProperty('--blurb-peek');
+      root.style.removeProperty('--blurb-air');
     };
   }, [rootRef]);
 }

@@ -16,8 +16,10 @@ export const PHONE_MQ = '(max-width: 768px)';
 export const HOLD_MQ = `${PHONE_MQ} and (pointer: coarse)`;
 /** The next media a seated section leaves showing below it, as a fraction of the
     viewport (Nathan 11-07: "retain the same percent of the upcoming media being
-    visible at the bottom"; ?blurbpeek re-dials it). A section is 1 - peek tall. */
-export const BLURB_PEEK = 0.1;
+    visible at the bottom"; ?blurbpeek re-dials it). A GROWN section is 1 - peek
+    tall: 0.12 is Nathan's 88% (SQ-30 11-08: "their vh grows to 88%"), of the
+    VISIBLE viewport, whatever state the toolbars are in. */
+export const BLURB_PEEK = 0.12;
 /** px a seated page may drift before it stops counting as seated (NextProjectBand's atEnd tolerance). */
 export const SEAT_TOL_PX = 2;
 /** A catch lands when the page is within this many px of the seat (then it snaps). */
@@ -81,6 +83,50 @@ export function fitTextScale(heightAt, win, target = BLURB_TEXT, passes = FIT_PA
   }
   return floor;
 }
+
+/* ── growth: a section is its content until it comes into view, then grows to its seat (SQ-30) ── */
+
+/**
+ * The height a section grows to: (1 - peek) of the VISIBLE viewport (`innerH`,
+ * window.innerHeight, so the toolbars' state counts: svh would read ~78% with
+ * them collapsed), never under its own content `hc`.
+ */
+export const grownHeight = (hc, innerH, peek = BLURB_PEEK) => Math.max(hc, (1 - peek) * innerH);
+
+/** The height at entry progress p (0 = compact, 1 = grown). */
+export const growHeight = (hc, gh, p) => hc + (gh - hc) * clamp(p, 0, 1);
+
+/**
+ * Entry progress of a section from where it is: `top` its rect top, `hc` its
+ * COMPACT height (so the mapping never moves with its own growth), `vh` the
+ * viewport, `side` the edge it is entering from, +1 below (scrolling down),
+ * -1 above (scrolling up).
+ *   below: 0 with the top on the bottom edge, 1 with the top on the seat.
+ *   above: 0 with the compact bottom on the top edge, 1 with the top on the seat.
+ * Past the seat (the top beyond it) is 1 either way: it has been seated.
+ */
+export function entryProgress(top, hc, vh, side) {
+  const tol = SEAT_TOL_PX; // a page within the seat tolerance IS seated: the browser's pixel snapping must not leave p at 0.9998
+  if (side > 0) return clamp((vh - top) / Math.max(vh - tol, 1), 0, 1);
+  return top >= -tol ? 1 : clamp((top + hc) / Math.max(hc - tol, 1), 0, 1);
+}
+
+/** Progress only increases within an entry: leaving, in either direction, keeps the height. */
+export const latchProgress = (prev, next) => Math.max(prev, next);
+
+/** Which edge a section is entirely off: +1 below the viewport, -1 above it, 0 = some of it is on screen. */
+export const offscreenSide = (top, h, vh) => (top >= vh ? 1 : top + h <= 0 ? -1 : 0);
+
+/**
+ * May a grown section go back to compact now? Fully below the viewport: at
+ * once, nothing visible moves (+1). Fully above: only with the page at rest,
+ * and the page position compensated by the height lost (-1), because on iOS a
+ * programmatic scrollTo ends native momentum. Otherwise 0.
+ */
+export const resetSide = (top, h, vh, atRest) => {
+  const side = offscreenSide(top, h, vh);
+  return side > 0 || (side < 0 && atRest) ? side : 0;
+};
 
 /** Does a section's seat coincide with the document's end? (a seat clamps to the end when the section sits within the last viewport) */
 export const seatAtEnd = (seat, max) => Math.abs(seat - max) <= SEAT_TOL_PX;
@@ -171,13 +217,15 @@ export const emaVelocity = (avg, sample, alpha = 0.4) => (avg === 0 ? sample : a
 /**
  * The preview dials, read from a URL search string:
  *   ?blurbhold=0         the hold off (plain sections); default on
- *   ?blurbpeek=<f>       the media left showing below a seat, a fraction of the viewport; default BLURB_PEEK
+ *   ?blurbpeek=<f>       the media left showing below a seat, a fraction of the viewport; a grown section is 1 - this tall; default BLURB_PEEK
+ *   ?blurbair=<rem>      the extra black above the copy, beyond the nav clearance (0 <= f <= 8); default 1.5 (project-detail.css)
+ *   ?blurbgrow=0         no growth: the sections sit at their grown size; default on
  *   ?blurbtext=<f>       the detail blurbs' text scale target, a multiple of --text-blurb (0 < f <= 3); default BLURB_TEXT, lowered per page to fit
  *   ?blurbend=0          the page's end is not an arrival target (no slowdown onto it); default on
  *   ?blurbcatch=<lerp>   the arrival slowdown's lerp (0…1]; default LENIS_TUNING.lerp
  *   ?blurbdecel=<f>      the exit momentum's per-ms velocity factor (0…1); default MOMENTUM_DECAY
  *   ?scroll=<px>         the commit trigger, shared with /work and the next-project band
- * @returns {{ hold: boolean, end: boolean, peek: number|null, text: number|null, catchLerp: number|null, decel: number|null, trigger: number|null }} null = unset
+ * @returns {{ hold: boolean, end: boolean, grow: boolean, peek: number|null, air: number|null, text: number|null, catchLerp: number|null, decel: number|null, trigger: number|null }} null = unset
  */
 export function readBlurbTune(search) {
   const q = new URLSearchParams(search);
@@ -187,13 +235,16 @@ export function readBlurbTune(search) {
   };
   const within = (n, lo, hi) => (n != null && n > lo && n < hi ? n : null);
   const peek = num('blurbpeek');
+  const air = num('blurbair');
   const catchLerp = num('blurbcatch');
   const trigger = num('scroll');
   const text = num('blurbtext');
   return {
     hold: num('blurbhold') !== 0,
     end: num('blurbend') !== 0,
+    grow: num('blurbgrow') !== 0,
     peek: within(peek, 0, 1),
+    air: air != null && air >= 0 && air <= 8 ? air : null,
     text: text != null && text > 0 && text <= 3 ? text : null,
     catchLerp: catchLerp != null && catchLerp > 0 ? Math.min(catchLerp, 1) : null,
     decel: within(num('blurbdecel'), 0, 1),
