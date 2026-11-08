@@ -55,6 +55,15 @@ export const powInOut = (t, pow) =>
   t < 0.5 ? 0.5 * Math.pow(2 * t, pow) : 1 - 0.5 * Math.pow(2 * (1 - t), pow);
 export const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / ((b - a) || 1e-6)));
 
+/* The lens channel on the master progress `p` (0..1): `full` (default
+   ENTER_TUNABLES.lens) at full ramp, shaped by the lens window + pow. The
+   World adds this to its base warp on both axes (y x ENTER_LENS_Y); the home
+   dive (SQ-34) is the same ramp on a globe with no base warp, so the two
+   passages deepen on one curve. Reads the live tunables, like the World. */
+export const ENTER_LENS_Y = 1.1;
+export const enterLens = (p, t = ENTER_TUNABLES, full = t.lens) =>
+  full * powInOut(seg(p, t.lensStart, t.lensEnd), t.pow);
+
 /* URL param names — ?enterzoom keeps its historical meaning (the dolly,
    world units); the new projection zoom is ?enterscale. ?enterlens keeps its
    name but its default FLIPS SIGN with the bug fix (was +0.32). */

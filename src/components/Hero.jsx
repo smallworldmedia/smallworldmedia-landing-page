@@ -100,6 +100,8 @@ import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 // never drift apart.
 import {
   ENTER_TUNABLES,
+  ENTER_LENS_Y,
+  enterLens,
   powInOut as enterPow,
   seg as enterSeg,
 } from './work/world/enterTune.js';
@@ -1088,6 +1090,13 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     gsap.killTweensOf(zoomRef.current);
     const startZoom = zoomRef.current.v;
     const raw = { p: 0 };
+    // SQ-34: the FP→detail LENS deepen rides this same master p — the
+    // World's window + pow, x then 1.1 × on y. The scene routes its frames
+    // through the lens pass for the dive only; engaging it at lens 0 here
+    // makes frame 0 a texel-exact copy of the direct render. ?homelens sets
+    // the full-ramp amount; unset follows ?enterlens (the World's own).
+    const lensFull = HERO_TUNING.homeLens ?? ENTER_TUNABLES.lens;
+    sceneApiRef.current?.setEnterLens(0, 0);
     const tl = gsap.to(raw, {
       p: 1,
       duration: coverS,
@@ -1096,6 +1105,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
         const z = enterPow(enterSeg(raw.p, moveStart, moveEnd), pow);
         zoomRef.current.v = startZoom + (scale - startZoom) * z;
         applyZoom();
+        const lx = enterLens(raw.p, ENTER_TUNABLES, lensFull);
+        sceneApiRef.current?.setEnterLens(lx, lx * ENTER_LENS_Y);
       },
     });
     commitKillRef.current = () => tl.kill();
