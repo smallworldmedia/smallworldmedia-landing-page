@@ -228,6 +228,14 @@ Reader: `src/components/RouteFill.jsx` (`PARAM()`, read once when the persistent
 
 Non-param constants: `RELEASE_DELAY` 0.1 s, `SAFETY_MS` 2500 (auto-release if a page loads covered), loader charge 0→82 over 1.1 s then →96 over 3.5 s (RouteFill.jsx:38-39, 83-84). `?loaderend` (hero family) paces the bar's close.
 
+## Site-wide — the way home (warm copy of `/`)
+
+Reader: `src/layouts/BaseLayout.astro` (`params.get`, read once per full page load); logic in `src/layouts/homeWarm.js` (SQ-33).
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?homewarm` | on every page but home, fetch `/` into memory on an idle beat; a client navigation home (nav lockup, menu, `/work` scroll-up) is then served that copy instead of a network round trip. `0` = the old behaviour, for an A/B | on | `0` off; anything else / absent = on | `homeWarm.js TTL_MS` (3 min copy lifetime) |
+
 ## Site-wide — media sequences
 
 Reader: `src/lib/mediaSequence.js` (`sequenceIntervalMs()`, re-read whenever `location.search` changes; the `?poptune` bench's `sequence frame` row writes it live). Consumers: the detail grid (`MediaSlot.jsx`), the /work World's DRUM plates (`fpAtlas.applyAtlasSlot`) and the home globe (`PopulationDirector.stepSequences`). A sequence is a `-sequence` displayGroup of stills, or, on the globe only, a project's still album art; frame = ⌊now / rate⌋ mod n on the wall clock, a hard cut, frame 0 under RM.

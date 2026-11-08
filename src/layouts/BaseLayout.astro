@@ -181,7 +181,13 @@ const roster = await getDirectoryData()
     {/* Lenis smooth scroll — per-route start/stop (off on /work + reduced motion) */}
     <script>
       import { syncRoute } from '../lib/smoothScroll.js';
+      import { installHomeWarm } from './homeWarm.js';
       document.addEventListener('astro:page-load', () => syncRoute());
+
+      // SQ-33: the way home (nav lockup, menu, /work scroll-up) rides an
+      // in-memory copy of `/` instead of a network round trip. ?homewarm=0 = off.
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('homewarm') !== '0') installHomeWarm();
 
       // Arm the /work return-restore for browser back/forward out of a
       // detail page or the directory. `route` lags one navigation behind
