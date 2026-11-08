@@ -686,6 +686,19 @@ The four `?dirlogo*` dials only touch logo tiles (a white mark on black, baked b
 
 `?tag=a,b&client=slug` is the filter's state, not a tunable (see Inert, legacy, and dead knobs). A URL with neither key starts on `album-art` (`DEFAULT_TAG`, buildDirectoryTiles.js, Nathan 11-05) and stays bare while it holds that default; `?tag=` (empty) is "every work", which is what `clear` writes; `?client=x` alone shows every tag of that client.
 
+## `/lab/loader` — the globe loader (SQ-31)
+
+Reader: `src/components/ui/GlobeLoader.jsx` (`GlobeLoaderStage`, read once when the page mounts; the page is `client:only`, because the build is static). The loader itself takes the same numbers as props and is wired into no loading flow. Geometry and timing live in `src/lib/globeLoaderGeometry.js`; pitch comes from `INITIAL_PITCH_DEG` and the spin from `O_SPIN_DPS` (so `?ospin` turns this globe too). Tap the page to replay. Defaults are proposals, not Nathan's numbers. None of the six collide with RouteFill's `?loaderlead` / `?loaderend`.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?loadermstag` | gap between one meridian starting to draw and the next (left to right) | `90` ms | any finite ≥ 0 | `globeLoaderGeometry.js` `DEFAULT_TIMING` |
+| `?loaderdraw` | how long each line (meridian or parallel) takes to draw, on the house draw curve | `600` ms | floor 50 ms | `globeLoaderGeometry.js` `DEFAULT_TIMING` |
+| `?loaderpstag` | gap between one parallel starting and the next (top down); the first starts when the last meridian is in | `150` ms | any finite ≥ 0 | `globeLoaderGeometry.js` `DEFAULT_TIMING` |
+| `?loaderspin` | multiplier on `O_SPIN_DPS` (−20°/s, westward); one 40° step is 2 s at ×1; `0` = no rotation | `1` | any finite ≥ 0 | `globeLoaderGeometry.js` `DEFAULT_TIMING` |
+| `?loaderreplay` | loop the whole draw-in every N s (bare `?loaderreplay` = every 6 s) | off | seconds | typed only |
+| `?loadercase` | `lower` shows the words as typed ("world" / "loading"); the default uses the overviews_loading label's uppercase | `upper` | `upper`, `lower` | typed only |
+
 ## `/process`
 
 > **10-08 (w8): PROPOSED, not baked.** Every `/process` key added 10-07 or later (the rows marked 10-07/10-08 below, and the BREAK block's knobs) carries the agent's PROPOSED default pending Nathan's dial — not a bake until his `copy_url` lands (`processConfig.js` header). Never freeze them as his.

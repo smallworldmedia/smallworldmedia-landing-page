@@ -1,0 +1,79 @@
+/* ============================================
+   GLOBE LOADER (SQ-31) — the lockup globe that
+   draws itself in, then turns. SVG only; the
+   rotation is SMIL, so no JS runs per frame.
+
+   Type: the label wears .route-fill__loader-label
+   from global.css (chip voice: UI face, 1rem,
+   -0.024em, uppercase), so this loader and the
+   overviews_loading bar read as one system.
+   ============================================ */
+
+.globe-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 16px — the label sits one text-line's air off the mark */
+  gap: 1.143rem;
+  color: var(--color-white);
+  /* 240px (the 14px root makes 17.143rem = 240): the size the art is checked at */
+  --globe-loader-size: min(62vw, 17.143rem);
+}
+
+.globe-loader__svg {
+  display: block;
+  width: var(--globe-loader-size);
+  height: var(--globe-loader-size);
+  /* the dash trick parks lines OFF the path; nothing may spill past the ring */
+  overflow: hidden;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.globe-loader__label {
+  margin: 0;
+  text-align: center;
+}
+
+/* The proposed alternative to the label's uppercase: the words as typed. */
+.globe-loader--lower .globe-loader__label {
+  text-transform: none;
+}
+
+/* --- /lab/loader review page ------------------ */
+
+.globe-loader-stage {
+  position: fixed;
+  inset: 0;
+  /* under the site shell (z 100) so the nav still gets you out */
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: var(--color-black);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.globe-loader-stage:focus-visible {
+  outline: 1px solid var(--color-white);
+  outline-offset: -8px;
+}
+
+.globe-loader-stage__readout {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--nav-inset, 1rem);
+  margin: 0;
+  padding: 0 1rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  letter-spacing: -0.024em;
+  color: color-mix(in srgb, var(--color-white), var(--color-black) 45%);
+  pointer-events: none;
+}
