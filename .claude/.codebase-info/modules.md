@@ -243,7 +243,7 @@ through props the detail page never passes: `clip` (`PREVIEW_SECONDS`), `sizes` 
 frames and posters), `gate` (a poster always, the `<video>` only while the player gate grants play,
 emptied before it unmounts) and `fit` (`data-fit="contain"` letterboxes banners and alpha logos);
 styles in `src/styles/media-slot.css`, lifted out of project-detail.css) · `ClientPanel.jsx` · `DetailProgressBar.jsx` (shared with
-/process) · `NextProjectBand.jsx` · `useKeywordWipe.js` · `BandPager.jsx` (tabled, unmounted).
+/process; on phones it sits 20px up, `--detail-progress-bottom` / `?barbottom`, 11-07) · `NextProjectBand.jsx` · `useKeywordWipe.js` · `BandPager.jsx` (tabled, unmounted).
 
 ### `work/directory/` (the Project Directory, 11-03)
 `DirectoryPage.jsx` (the route's one `client:load` island: DirectoryFilter over DirectoryGrid, then
