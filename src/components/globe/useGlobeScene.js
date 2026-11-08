@@ -143,7 +143,8 @@ function surgePanel(uniforms, t, dipEnd, dipDepth) {
  *          setInk: (t: number) => void, releaseScheduler: () => void,
  *          onLiveChange: (cb: Function) => (() => void),
  *          onWorldChange: (cb: Function) => (() => void),
- *          getFocusProject: () => (string|null), popHold: () => void }>}
+ *          getFocusProject: () => (string|null), popHold: () => void,
+ *          setEnterLens: (x: number|null, y?: number) => void }>}
  */
 export default function useGlobeScene(
   containerRef,
@@ -417,7 +418,18 @@ export default function useGlobeScene(
       });
       const composer = new EffectComposer(renderer, target);
       composer.addPass(new RenderPass(scene, camera));
-      const LensDistortionPass = LensDistortionPassGen({ THREE, Pass, FullScreenQuad });
+      // The three members the vendored pass uses — never the THREE namespace itself:
+      // handing the whole object over keeps all of three out of tree-shaking (+208 KB
+      // on the home bundle, measured).
+      const LensDistortionPass = LensDistortionPassGen({
+        THREE: {
+          Vector2: THREE.Vector2,
+          ShaderMaterial: THREE.ShaderMaterial,
+          UniformsUtils: THREE.UniformsUtils,
+        },
+        Pass,
+        FullScreenQuad,
+      });
       const pass = new LensDistortionPass({ distortion: new THREE.Vector2(0, 0) });
       pass.needsSwap = false;
       composer.addPass(pass);
@@ -472,7 +484,8 @@ export default function useGlobeScene(
         ready: () => !!enterLens,
         programs: () => renderer.info.programs.length,
         routed: () => lensRouted,
-        diff: () => {
+        lens: () => (enterLens ? [enterLens.pass.distortion.x, enterLens.pass.distortion.y] : null),
+        diff: (keep) => {
           if (!enterLens) return null;
           renderer.render(scene, camera);
           const a = grab();
@@ -489,6 +502,7 @@ export default function useGlobeScene(
             if (d > 8) over8++;
             sum += d;
           }
+          if (keep) window.__globeLens.last = { w: renderer.getDrawingBufferSize(new THREE.Vector2()).x, a, b };
           return { pixels: a.length / 4, max, mean: sum / a.length, over8 };
         },
       };
