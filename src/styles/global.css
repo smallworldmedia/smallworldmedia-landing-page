@@ -1563,6 +1563,19 @@ html.fp-tint .mobile-menu__item {
   background: var(--project-color, var(--color-electric-blue));
 }
 
+/* 11-07 (Nathan, on his phone: "move the status bar upward from the bottom of
+   the viewport, currently too close to the bottom edge"). --nav-inset is 4px;
+   on phones the capsule sits at the page tagline's seat instead
+   (--footer-bottom-inset + --pill-pad-y = 20px, .mobile-menu's
+   --menu-pill-seat), the line the phone's bottom chrome already holds.
+   ?barbottom=<px> re-dials it. /process keeps its own --ps-bar-bottom:
+   `.process-page .detail-progress` outranks this. */
+@media (max-width: 768px) {
+  .detail-progress {
+    bottom: var(--detail-progress-bottom, calc(var(--footer-bottom-inset) + var(--pill-pad-y)));
+  }
+}
+
 /* The footer reveal slides up over the page bottom — the bar yields (same
    html-level hook the shell nav rides; normally the data-done wipe has
    already fired by then — this is the belt). */

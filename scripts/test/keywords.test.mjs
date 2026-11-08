@@ -9,6 +9,9 @@
 //                  and stripped, and `**bold**` is untouched.
 //   ON (?kwhighlight=1, or KW_HIGHLIGHT = true)  the three-layer mark as
 //                  before.
+//   PER SURFACE (11-07)  a surface passes its own switch; the detail blurbs'
+//                  KW_HIGHLIGHT_DETAIL is on, and the dial overrides it
+//                  either way.
 //
 // keywords.jsx is JSX that pulls in react + gsap, so it is bundled with esbuild
 // (already in node_modules via vite) into a temp CJS file and rendered with
@@ -185,4 +188,36 @@ test('a zero value of the dial keeps the highlights off', () => {
   assert.equal(withSearch('?kwhighlight=0', () => kw.kwHighlightOn()), false)
   assert.equal(withSearch('?other=1', () => kw.kwHighlightOn()), false)
   assert.equal(withSearch('?kwhighlight=1', () => kw.kwHighlightOn()), true)
+})
+
+/* — per surface (the detail blurbs, 11-07) — */
+
+test('the detail blurbs switch is on while the sitewide one stays off', () => {
+  assert.equal(kw.KW_HIGHLIGHT_DETAIL, true)
+  assert.equal(kw.kwHighlightOn(kw.KW_HIGHLIGHT_DETAIL), true)
+  assert.equal(kw.kwHighlightOn(), false)
+})
+
+test('a surface switch draws the mark with no dial and leaves the default surface plain', () => {
+  const src = 'the [[core]] of'
+  assert.ok(html(kw.renderKeywords(src, kw.KW_HIGHLIGHT_DETAIL)).includes('<mark class="kw"'))
+  assert.equal(html(kw.renderKeywords(src)), 'the core of')
+})
+
+test('the dial overrides a surface switch both ways', () => {
+  assert.equal(withSearch('?kwhighlight=0', () => kw.kwHighlightOn(true)), false)
+  assert.equal(withSearch('?kwhighlight=1', () => kw.kwHighlightOn(false)), true)
+  assert.equal(withSearch('?other=1', () => kw.kwHighlightOn(true)), true)
+})
+
+test('kwWipe and kwSet follow the surface switch they are given', () => {
+  const boom = { querySelectorAll: () => assert.fail('the root must not be queried') }
+  const tl = { to: () => assert.fail('nothing may be appended to the timeline') }
+  assert.equal(withSearch('?kwhighlight=0', () => kw.kwWipe(tl, boom, 0, { surface: true })), 0)
+  assert.equal(withSearch('?kwhighlight=0', () => kw.kwSet(boom, true, true)), undefined)
+  const marks = [{ dataset: { kw: '0' }, querySelector: (sel) => ({ sel }) }]
+  const calls = []
+  const rec = { to(...a) { calls.push(a); return this } }
+  assert.equal(kw.kwWipe(rec, { querySelectorAll: () => marks }, 0, { surface: true }), 1)
+  assert.equal(calls.length, 2)
 })

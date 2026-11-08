@@ -32,6 +32,7 @@ export default function DetailProgressBar({
   broadcast = false,
   sectionSelector = '.process-section',
 }) {
+  const barRef = useRef(null);
   const fillRef = useRef(null);
   const [shown, setShown] = useState(false);
   const [done, setDone] = useState(false);
@@ -81,6 +82,13 @@ export default function DetailProgressBar({
     };
   }, [flowSelector, measure, broadcast, sectionSelector]);
 
+  // ?barbottom=<px>: the phone capsule's lift off the viewport's bottom edge
+  // (11-07; the CSS seat is global.css --detail-progress-bottom).
+  useEffect(() => {
+    const v = parseFloat(new URLSearchParams(window.location.search).get('barbottom'));
+    if (Number.isFinite(v) && barRef.current) barRef.current.style.setProperty('--detail-progress-bottom', `${v}px`);
+  }, []);
+
   // The ProcessMeter broadcast contract, verbatim: 0-based active index,
   // re-fired only when it moves (ProcessStepCtas consumes).
   const cur = Math.round(frac * (total - 1));
@@ -94,6 +102,7 @@ export default function DetailProgressBar({
   return (
     <div
       className="detail-progress"
+      ref={barRef}
       data-shown={shown || undefined}
       data-done={done || undefined}
       aria-hidden="true"

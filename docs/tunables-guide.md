@@ -211,11 +211,11 @@ Reader: `src/components/globe/globeConfig.js` (`PARAM()`, module-load). Consumer
 
 Reader: `src/lib/keywords.jsx` (`kwHighlightOn()`, read at call time on the client; SSR is always the baked default, so an SSR'd island re-renders on hydration when the param is set).
 
-**Off sitewide since 11-07 (Nathan).** A `[[keyword]]` renders as its plain word in the surrounding ink: no box, no second ink, no wipe, and `kwWipe` / `kwSet` do nothing. A linked keyword (`[[kw]](/href)`) stays a link in the prose-link style. The bracket syntax is kept, so the Sanity copy and `processContent.js` still carry it; `**bold**` is not an accent and is unchanged.
+**Off sitewide since 11-07 (Nathan), except the detail page's blurbs**, which have their own switch, `KW_HIGHLIGHT_DETAIL`, back on since the evening of 11-07 (Nathan: "toggle back on the text highlighting for these project detail blurbs"). Elsewhere a `[[keyword]]` renders as its plain word in the surrounding ink: no box, no second ink, no wipe, and `kwWipe` / `kwSet` do nothing. A linked keyword (`[[kw]](/href)`) stays a link in the prose-link style. The bracket syntax is kept, so the Sanity copy and `processContent.js` still carry it; `**bold**` is not an accent and is unchanged.
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?kwhighlight` | turns the keyword highlights back on for this page view, on every surface that renders them (footer blurb, tagline pill, mobile menu foot, `/process` blurbs and CTA line, detail descriptions) | off | `1` on; absent or `0` off | `keywords.jsx KW_HIGHLIGHT` (`true` = on for everyone; nothing else changes) |
+| `?kwhighlight` | overrides every surface's switch for this page view, both ways: `1` turns the highlights on everywhere that renders them (footer blurb, tagline pill, mobile menu foot, `/process` blurbs and CTA line), `0` turns them off everywhere, the detail blurbs included | each surface's switch: off, detail blurbs on | `1` (any value but `0`) on; `0` off; absent = the switches | `keywords.jsx KW_HIGHLIGHT` (sitewide) and `KW_HIGHLIGHT_DETAIL` (the detail blurbs) |
 
 ## Site-wide — RouteFill passage
 
@@ -555,6 +555,14 @@ The pill shows the long blurb while home is at rest and the short tagline everyw
 
 Readers: `detail/tileGrid.js` (`readTileShape()` in `useTileShape`'s effect, for FeaturedProjectDetail and the directory's DirectoryGrid), `detail/FeaturedProjectDetail.jsx` (`readBlurbRows()` in an effect), `detail/DeckScroller.jsx` (`num()`, module-load), `detail/BandPager.jsx` (`qNum()` in an effect), `detail/NextProjectBand.jsx` (`PARAM()`, module-load), `detail/GridSocket.jsx` (effect). No bench panel here; this is the intended dial route for `?lenistune=1` / `?footertune=1`.
 
+### Scroll status bar (11-07)
+
+The detail page's progress capsule (`DetailProgressBar.jsx`, an effect at mount). On phones it sat at `--nav-inset`, 4px off the bottom edge; Nathan, 11-07: "move the status bar upward from the bottom of the viewport, currently too close to the bottom edge". `/process` keeps its own seat (`--ps-bar-bottom`).
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?barbottom` | the capsule's lift off the viewport's bottom edge on phones (≤768px), in px. Desktop keeps `--nav-inset` (4px) and ignores the dial | `20` (the page tagline's seat, `--footer-bottom-inset` + `--pill-pad-y`) | finite px; non-numeric ignored | `global.css --detail-progress-bottom` fallback |
+
 ### Grid tile shape (10-27)
 
 Row spans for the grid tiles come from the measured column width, so every tile holds one shape at every window width (portrait = 2 squares, landscape = 2 columns × 1 square). The 10px rows stay, so the wall and banner bands keep their heights.
@@ -877,7 +885,7 @@ Worth tickets; none were fixed here.
 
 | file | what lives there |
 |---|---|
-| `src/lib/keywords.jsx` | `KW_HIGHLIGHT` (off since 11-07; `?kwhighlight=1` previews it on) |
+| `src/lib/keywords.jsx` | `KW_HIGHLIGHT` (off since 11-07; `?kwhighlight=1` previews it on), `KW_HIGHLIGHT_DETAIL` (the detail blurbs, on since 11-07 evening; `?kwhighlight=0` previews them off) |
 | `src/components/ClientLogoTicker.jsx` | `SPECTRUM_WHITE` (the colour walk by default; `?spectrumwhite=1` previews plain white) |
 | `src/lib/mediaSequence.js` | `SEQUENCE_INTERVAL_MS` (the sequence rate), `SEQUENCE_MAX_FRAMES` |
 | `src/lib/motion.js` | `HOUSE_PULSE_*`, `SCROLL_TRIGGER_WORK_PX` / `_PROCESS_PX`, `TOUCH_GAIN`, `RELEASE_MS`, `GLIDE_MS`, `PAGER_*`, `LENIS_TUNING` |

@@ -53,7 +53,7 @@ import {
   placementStyle,
 } from './tileGrid.js';
 import { formatYearRange } from '../../../lib/formatYearRange.js';
-import { renderKeywords } from '../../../lib/keywords.jsx';
+import { renderKeywords, KW_HIGHLIGHT_DETAIL } from '../../../lib/keywords.jsx';
 import useKeywordWipe from './useKeywordWipe.js';
 import { holdWanted, attachBlurbHold, ARM_EVENT } from '../../../lib/blurbHold.js';
 import { HOLD_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js';
@@ -131,7 +131,7 @@ function BlurbCopy({ paragraphs }) {
     <div className="project-blurb__copy" ref={ref}>
       {paragraphs.map((para, i) => (
         <p className="project-blurb__text" key={i}>
-          {renderKeywords(para)}
+          {renderKeywords(para, KW_HIGHLIGHT_DETAIL)}
         </p>
       ))}
       {armed && <KeywordWipe target={ref} />}

@@ -41,6 +41,12 @@
  * the highlights back. The CSS is left whole for that reason; with the
  * switch off no `.kw` is ever emitted, so none of it matches. `?kwhighlight=1`
  * turns them back on for one page view (the preview dial).
+ *
+ * PER SURFACE (11-07, Nathan: "toggle back on the text highlighting for these
+ * project detail blurbs"): a surface with its own switch passes it to
+ * `kwHighlightOn` / `renderKeywords` / `kwWipe` / `kwSet` in place of the
+ * sitewide one. The detail blurbs' is KW_HIGHLIGHT_DETAIL, on. The dial
+ * overrides every surface either way: `=1` on everywhere, `=0` off everywhere.
  */
 import { Fragment } from 'react';
 import gsap from 'gsap';
@@ -48,16 +54,22 @@ import gsap from 'gsap';
 /** Accent highlighting on or off, sitewide. Off since 11-07 (Nathan). */
 export const KW_HIGHLIGHT = false;
 
+/** The detail page's blurbs (BlurbCopy + useKeywordWipe). Back on 11-07 (Nathan). */
+export const KW_HIGHLIGHT_DETAIL = true;
+
 /**
- * Whether highlights draw right now: the switch, or `?kwhighlight=1` (any
- * value but `0`) on this page view. The server never reads the URL, so SSR is
- * always the baked default, like every other tunable (docs/tunables-guide.md).
+ * Whether highlights draw right now: the surface's switch (the sitewide one by
+ * default), unless `?kwhighlight` is on this page view — any value but `0`
+ * turns them on, `0` turns them off. The server never reads the URL, so SSR
+ * is always the baked default, like every other tunable
+ * (docs/tunables-guide.md).
  */
-export function kwHighlightOn() {
-  if (KW_HIGHLIGHT) return true;
-  if (typeof window === 'undefined') return false;
-  const v = new URLSearchParams(window.location.search).get('kwhighlight');
-  return v !== null && v !== '0';
+export function kwHighlightOn(surface = KW_HIGHLIGHT) {
+  if (typeof window !== 'undefined') {
+    const v = new URLSearchParams(window.location.search).get('kwhighlight');
+    if (v !== null) return v !== '0';
+  }
+  return surface;
 }
 
 export const KW_DURATION_S = 0.5;
@@ -95,9 +107,9 @@ function linkTo(href, className, children, key) {
 }
 
 /** Plain string → React nodes; keywords become <mark class="kw">, links <a>. */
-export function renderKeywords(text) {
+export function renderKeywords(text, surface) {
   if (!text) return text;
-  const on = kwHighlightOn();
+  const on = kwHighlightOn(surface);
   const out = [];
   let last = 0;
   let i = 0;
@@ -166,8 +178,8 @@ export const stripKeywords = (text) =>
  * Append the wipe to `tl` at `at` for every .kw under `root`.
  * Returns the number of keywords found (0 = nothing appended).
  */
-export function kwWipe(tl, root, at = 0, { duration = KW_DURATION_S, stagger = KW_STAGGER_S } = {}) {
-  if (!kwHighlightOn()) return 0;
+export function kwWipe(tl, root, at = 0, { duration = KW_DURATION_S, stagger = KW_STAGGER_S, surface } = {}) {
+  if (!kwHighlightOn(surface)) return 0;
   const marks = root ? Array.from(root.querySelectorAll('.kw')) : [];
   if (!marks.length) return 0;
   const boxes = marks.map((m) => m.querySelector('.kw__box'));
@@ -200,8 +212,8 @@ export function kwWipe(tl, root, at = 0, { duration = KW_DURATION_S, stagger = K
 }
 
 /** Snap every keyword under `root` to its final (1) or resting (0) state. */
-export function kwSet(root, on) {
-  if (!root || !kwHighlightOn()) return;
+export function kwSet(root, on, surface) {
+  if (!root || !kwHighlightOn(surface)) return;
   gsap.set(root.querySelectorAll('.kw__box'), { scaleX: on ? 1 : 0 });
   gsap.set(root.querySelectorAll('.kw__ink'), { clipPath: on ? 'inset(-0.35em 0% -0.35em 0)' : 'inset(-0.35em 100% -0.35em 0)' });
 }

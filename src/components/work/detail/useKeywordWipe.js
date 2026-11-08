@@ -7,7 +7,7 @@
 import { useEffect } from 'react';
 import gsap from 'gsap';
 import { PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
-import { kwWipe, kwSet } from '../../../lib/keywords.jsx';
+import { kwWipe, kwSet, KW_HIGHLIGHT_DETAIL } from '../../../lib/keywords.jsx';
 
 const DELAY_S = 0.35; // the house delayed-trigger beat
 
@@ -16,7 +16,7 @@ export default function useKeywordWipe(ref) {
     const el = ref.current;
     if (!el || !el.querySelector('.kw')) return undefined;
     if (PREFERS_REDUCED_MOTION) {
-      kwSet(el, true);
+      kwSet(el, true, KW_HIGHLIGHT_DETAIL);
       return undefined;
     }
     let tl = null;
@@ -25,7 +25,7 @@ export default function useKeywordWipe(ref) {
         if (!entry.isIntersecting) return;
         io.disconnect();
         tl = gsap.timeline();
-        kwWipe(tl, el, DELAY_S);
+        kwWipe(tl, el, DELAY_S, { surface: KW_HIGHLIGHT_DETAIL });
       },
       { threshold: 0.35 },
     );
