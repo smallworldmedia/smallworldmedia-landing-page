@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-07*
+*Last Updated: 2026-11-08*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -23,6 +23,7 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:process-step` / `-home` / `-index` | `ProcessStepCtas`, driver, `DetailProgressBar` | `useProcessScrollDriver`, `useProcessCopy` | step deltas / index |
 | `swm:process-cta-hover` | `ProcessPage` (CTA hover/focus, rAF-deferred) | `useProcessScene` (the freed shard pulses) | `{on}` |
 | `swm:blurb-arm` (`ARM_EVENT`; on the `.project-blurb` ELEMENT, not `window`) | `lib/blurbHold.js` (a section seats; a section is on screen when the page rests or the hold attaches; every section on detach) | `BlurbCopy` in `work/detail/FeaturedProjectDetail.jsx` (mounts its keyword wipe) | — |
+| `swm:blurb-reset` (`RESET_EVENT`; on the `.project-blurb` ELEMENT) | `lib/blurbHold.js` (a grown section goes back to compact off screen, SQ-30) | headless probes only (no in-app listener) | `{side, lost, busy}` |
 | `swm:directory-client` | `InfoPanel` (a live client name clicked on `/work/directory`, inside the click) | `work/directory/DirectoryPage.jsx` (sets or clears the client in place; no navigation) | `{slug}`, `null` clears |
 
 Rule: dispatches that cross into a persistent island are `requestAnimationFrame`-deferred so the
