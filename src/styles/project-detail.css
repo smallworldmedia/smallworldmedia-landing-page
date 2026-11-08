@@ -990,15 +990,19 @@ html:has(.project-detail) body {
     gap: 1rem;
   }
 
-  /* Reading sections (SQ-26, 11-07, Nathan: "80% scroll sections", phones
-     only): every blurb — the intro and each later band — is its own
-     0.8-of-the-viewport moment, its copy centred. svh, so the iOS toolbar
-     never jumps it; min-height, so a long paragraph is never clipped.
-     ?blurbsec sets --blurb-sec on .project-detail. The hold on top of it
+  /* Reading sections (SQ-26 11-07, reworked SQ-27 11-07, Nathan: "no media
+     is visible above the text section … retain the same percent of the
+     upcoming media being visible at the bottom", phones only): every blurb —
+     the intro and each later band — is its own moment, (1 - peek) of the
+     viewport tall, its copy centred. The hold seats a section with its TOP on
+     the viewport's top, so the black section fills up under the nav and
+     --blurb-peek (0.1) of the next media shows below it. svh, so the iOS
+     toolbar never jumps it; min-height, so a long paragraph is never clipped.
+     ?blurbpeek sets --blurb-peek on .project-detail. The hold on top of it
      (lib/blurbHold.js) is JS. Reduced motion keeps these plain sections. */
   .project-blurb {
-    min-height: calc(var(--blurb-sec, 0.8) * 100vh);
-    min-height: calc(var(--blurb-sec, 0.8) * 100svh);
+    min-height: calc((1 - var(--blurb-peek, 0.1)) * 100vh);
+    min-height: calc((1 - var(--blurb-peek, 0.1)) * 100svh);
     justify-content: center;
     padding-block: 0.857rem;
   }

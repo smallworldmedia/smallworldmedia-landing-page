@@ -571,14 +571,24 @@ The description's first paragraph is the intro blurb; each later paragraph (a bl
 |---|---|---|---|---|
 | `?blurbrows` | squares of the 3-col grid between bands, counted from the top of the tile field; closed up to an even spread only when the grid is too short to fit every band at this pitch | `2` (Nathan 11-03: "the two paragraphs look great"; 3+ paragraphs go "every couple of rows", not spread through the whole grid, so the `0` = even-spread mode was removed) | any number > 0 | `FeaturedProjectDetail.jsx BLURB_ROWS` |
 
-### Phone reading sections (SQ-26, 11-07)
+### Phone reading sections (SQ-26, reworked SQ-27, 11-07)
 
-On a phone (≤768px) every description blurb, the intro and each later band, is its own **0.8-of-the-viewport section**, its copy centred (`project-detail.css`, `min-height` in `svh`). With a finger (`(max-width: 768px) and (pointer: coarse)`), the page **holds** on it: native scroll carries a section in, the page settles onto its seat when the section's centre crosses the viewport's, and the gesture there is the house rubber band (`lib/rubberBand.js`, the same step the next-project band runs). The copy tracks the finger on the drag lane, the lift springs it home on the release lane, and a pull past the trigger (`SCROLL_TRIGGER_WORK_PX` of gained delta, 100px of finger at `TOUCH_GAIN` 5) glides the page on to the next content on the commit curve (`GLIDE_MS`). Both directions work. Desktop (≥769px) is untouched. Reduced motion keeps plain 80% sections with natural scroll, no hold. The blurb's keyword wipe plays when the section seats. These two read at mount, so reload after changing them.
+On a phone (≤768px) every description blurb, the intro and each later band, is its own **section 0.9 of the viewport tall** (1 − the peek), its copy centred (`project-detail.css`, `min-height` in `svh`). The page **seats** a section with its **top on the viewport's top**, so no media shows above it (the black section fills up under the nav) and the peek, 0.1 of the viewport, of the next media shows below it. With a finger (`(max-width: 768px) and (pointer: coarse)`), the page **holds** there:
+
+- **Arrival** is the driven footer's slowdown. The page's scroll velocity is tracked (native momentum, and the hold's own). For the next seat in the direction of travel, the page is taken when it is v/ω from the seat, where ω is Lenis's own λ (lerp × 60 per second) at the house lerp, the damp the footer's full reveal runs. A critically damped spring starts at exactly the page's speed (no velocity step) and never passes the seat, snapping within 0.5px. A page that comes to rest short of a seat, with a section covering half the viewport, is eased onto it from rest. A finger down is never taken mid-drag, and a new touch takes the page back; the lift decides. The section just left is not caught again until the direction reverses.
+- **Hold**: the gesture on a seat is the house rubber band (`lib/rubberBand.js`, the same step the next-project band runs). The copy tracks the finger, the lift springs it home.
+- **Exit** is natural momentum. A pull past the trigger (`SCROLL_TRIGGER_WORK_PX` of gained delta, 100px of finger at `TOUCH_GAIN` 5) commits: the page follows the finger 1:1 from there, then carries the finger's release velocity as momentum decaying at iOS's native rate (0.998 per ms, τ about 500ms, distance v·τ). No target, no fixed duration. The copy, offset by the band at the commit, eases home while the page carries, so neither it nor the media jumps. If that momentum reaches another section, the arrival applies to it. Both directions work.
+- A section taller than its seat window (more than 0.9 of the viewport, long copy on a short phone) is seated at its top and read with native scroll, not held.
+- A blurb's keyword wipe plays when its section seats, when the page rests with it on screen, and when the page opens with it on screen.
+
+Desktop (≥769px) is untouched. Reduced motion keeps plain 0.9 sections with natural scroll, no hold. These read at mount, so reload after changing them.
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?blurbhold` | the hold on the sections; `0` leaves plain 80% sections with natural scroll, to compare | on (Nathan asked for the hold) | `0` = off | `blurbHoldMath.js readBlurbTune` |
-| `?blurbsec` | the section's height as a fraction of the viewport | `0.8` (Nathan's) | any number > 0 | `blurbHoldMath.js BLURB_SEC`, `project-detail.css --blurb-sec` |
+| `?blurbhold` | the hold on the sections; `0` leaves plain 0.9 sections with natural scroll, to compare | on (Nathan asked for the hold) | `0` = off | `blurbHoldMath.js readBlurbTune` |
+| `?blurbpeek` | the next media left showing below a seated section, as a fraction of the viewport; the section is 1 − this tall | `0.1` (the old seat's bottom peek, Nathan 11-07) | 0 to 1, exclusive | `blurbHoldMath.js BLURB_PEEK`, `project-detail.css --blurb-peek` |
+| `?blurbcatch` | the arrival slowdown's lerp, Lenis's meaning: higher stops shorter and harder, lower takes the page earlier and longer | `0.165`, the house lerp (`LENIS_TUNING.lerp`) | 0 to 1 | `motion.js LENIS_TUNING` |
+| `?blurbdecel` | the exit momentum's velocity factor per ms: closer to 1 coasts farther | `0.998`, iOS's own (`MOMENTUM_DECAY`) | 0 to 1, exclusive | `blurbHoldMath.js MOMENTUM_DECAY` |
 
 The commit trigger is the shared `?scroll` (also the World Turn's and the next-project band's); `?touchgain` and `?releasems` apply as for every rubber band.
 
