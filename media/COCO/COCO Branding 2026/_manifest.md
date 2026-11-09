@@ -52,4 +52,17 @@ project: coco-branding-2026
 | Banners/COCO052 Kidoo, Rushin - Save My Soul Banner.png | static_other | Kidoo, Rushin — Save My Soul SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-99f2f2c3-bf32-4d1d-9d41-cc6f3b3c67a8 |
 | Banners/COCO053 HIFI - Movin Banner.png | static_other | HIFI — Movin' SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-424c8756-c91f-4cb6-8e98-fb8c22e96b09 |
 | Banners/COCO054 Ellis Garner - Chicks In The Club EP Banner.png | static_other | Ellis Garner — Chicks In The Club EP SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-e8b89819-bad8-4231-a7d4-4fe7a20e6f83 |
-| coco-sticker_1.jpg | static_4x5 | coco sticker 1 |  |  |  |
+| COCO052 Save My Soul/9x16.mp4 | motion_9x16 | Kidoo, Rushin — Save My Soul Preview | Promo Video |  | mediaAsset-5467e7ad-8a34-4201-b321-b6d6d622bf42 |
+| COCO053 Movin/9x16.mp4 | motion_9x16 | HIFI — Movin' Preview | Promo Video |  | mediaAsset-f36c87d6-9099-47b7-997f-393954f2d75b |
+| COCO054 Chicks In The Club/Chicks In The Club 01 9x16.mp4 | motion_9x16 | Ellis Garner — Chicks In The Club Preview 01 | Promo Video |  | mediaAsset-82982933-252a-4f9b-aa8e-3d862a4c3318 |
+| COCO055 The Knowledge/BANNER.png | static_other | Carvalho — The Knowledge SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-5ac20e2f-3e10-4acc-9df1-31bc143f9859 |
+| COCO055 The Knowledge/COCO055-Carvalho---The-Knowledge.jpg | album-art | Carvalho — The Knowledge | Album Art |  | mediaAsset-1ad1680c-4968-43db-a8a9-85d802fe7ab0 |
+| Document Bristol 101026/Lineup Added 3x4.png | static_3x4 | COCO Document Bristol 101026 Lineup Added | Event / Tour Creative |  | mediaAsset-d451067c-e066-4f9a-8416-d4718b6faaef |
+| Liverpool 091226/Know Before You Go 01.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 01 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-e418cc4e-9d65-430b-aaa3-ba2b538cbe88 |
+| Liverpool 091226/Know Before You Go 02.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 02 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-2be06903-855a-4c98-b22a-2c0993c556e7 |
+| Liverpool 091226/Know Before You Go 03.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 03 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-1fb0a493-3a38-47fa-8a2b-c41bdedb1bf6 |
+| Liverpool 091226/Know Before You Go 04.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 04 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-edfce699-0895-46af-84f3-95e8e2a2846c |
+| Liverpool 091226/Know Before You Go 06.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 06 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-dc5c8472-288e-4010-a020-7faf0f4602f8 |
+| Liverpool 091226/B2B Lineup 3x4.png | static_3x4 | COCO Liverpool 091226 B2B Lineup | Event / Tour Creative |  | mediaAsset-04d4e307-e704-4654-b21a-eb5fd21e22ea |
+| Liverpool 091226/B2B Lineup 9x16.png | static_9x16 | COCO Liverpool 091226 B2B Lineup Story | Event / Tour Creative |  | mediaAsset-5618e316-7b83-4033-b767-bda4287eb364 |
+| The Cause 050226/Announce 4x5.mp4 | motion_4x5 | COCO @ The Cause 050226 Announce | Event / Tour Creative |  | mediaAsset-4a76a206-9f5f-4053-9a2a-66196495c2b4 |

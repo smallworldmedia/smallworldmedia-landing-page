@@ -52,19 +52,12 @@ project: bedouin
 | 03 Human By Default Guidelines/03 Human By Default Guidelines_page_09.jpg | brand-deck | Branding | Human By Default Guidelines — Page 9 | supporting | hbd | 9 | mediaAsset-bedouin-hbd-page-09 |
 | 03 Human By Default Guidelines/03 Human By Default Guidelines_page_10.jpg | brand-deck | Branding | Human By Default Guidelines — Page 10 | supporting | hbd | 10 | mediaAsset-bedouin-hbd-page-10 |
 | 03 Human By Default Guidelines/03 Human By Default Guidelines_page_11.jpg | brand-deck | Branding | Human By Default Guidelines — Page 11 | supporting | hbd | 11 | mediaAsset-bedouin-hbd-page-11 |
-| Bedouin Promo Videos/bedouin_spotify-promo_v2.mp4 | motion_9x16 | Promo Video | bedouin spotify promo |  |  |  |  |
-| Bedouin Promo Videos/BKC Promo/bedouin-saga_promo_v2-beat_story.mp4 | motion_9x16 | Promo Video | Brooklyn Knockdown Center Promo |  |  |  |  |
-| Bedouin Promo Videos/dear-miami_promo_1_v1.mp4 | motion_9x16 | Promo Video | dear miami promo 1 |  |  |  |  |
-| Bedouin Promo Videos/Tulum Saga/saga-tulum_bedouin-account_v1.mp4 | motion_9x16 | Promo Video | Saga Tulum — Bedouin Account |  |  |  |  |
-| Bedouin Promo Videos/Tulum Saga/saga-tulum_saga-account_v3.mp4 | motion_9x16 | Promo Video | Saga Tulum — Saga Account |  |  |  |  |
-| Bedouin Promo Videos/Tulum Saga/saga_tulum_trailer_final.mp4 | motion_9x16 | Promo Video | Saga Tulum — Trailer Final |  |  |  |  |
-| tour-listing.jpg | brand-deck | Event / Tour Creative | South America Tour — Listing |  | south-america-tour | 1 |  |
-| 01_bedouin_costa-rica_122724.jpg | brand-deck | Event / Tour Creative | South America Tour — Costa Rica 12/27 |  | south-america-tour | 2 |  |
-| 02_bedouin_rio_122924.jpg | brand-deck | Event / Tour Creative | South America Tour — Rio 12/29 |  | south-america-tour | 3 |  |
-| 03_bedouin_tamandare_123024.jpg | brand-deck | Event / Tour Creative | South America Tour — Tamandare 12/30 |  | south-america-tour | 4 |  |
-| 04_bedouin_punta-del-este_123124.jpg | brand-deck | Event / Tour Creative | South America Tour — Punta del Este 12/31 |  | south-america-tour | 5 |  |
-| 05_bedouin_tulum_010725.jpg | brand-deck | Event / Tour Creative | South America Tour — Tulum 01/07 |  | south-america-tour | 6 |  |
-| Bedouin Promo Videos/Tulum Saga/saga-tulum_frames.jpg | static_9x16 | Promo Video | Saga Tulum — Frame Selects |  |  |  |  |
-| Bedouin Promo Videos/saga_la-frames.jpg | static_9x16 | Promo Video | Saga LA — Frame Selects |  |  |  |  |
-| Bedouin Promo Videos/BKC Promo/saga_nyc_frames-1.jpg | static_9x16 | Promo Video | Saga NYC — Frame Selects 1 |  |  |  |  |
-| Bedouin Promo Videos/BKC Promo/saga_nyc_frames-2.jpg | static_9x16 | Promo Video | Saga NYC — Frame Selects 2 |  |  |  |  |
+| Bedouin Promo Videos/bedouin_spotify-promo_v2.mp4 | motion_9x16 | Promo Video | bedouin spotify promo |  |  |  | mediaAsset-bedouin-bedouin-spotify-promo |
+| Bedouin Promo Videos/BKC Promo/bedouin-saga_promo_v2-beat_story.mp4 | motion_9x16 | Promo Video | Brooklyn Knockdown Center Promo |  |  |  | mediaAsset-bedouin-brooklyn-knockdown-center-promo |
+| Bedouin Promo Videos/dear-miami_promo_1_v1.mp4 | motion_9x16 | Promo Video | dear miami promo 1 |  |  |  | mediaAsset-bedouin-dear-miami-promo-1 |
+| Bedouin Promo Videos/Tulum Saga/saga-tulum_bedouin-account_v1.mp4 | motion_9x16 | Promo Video | Saga Tulum — Bedouin Account |  |  |  | mediaAsset-bedouin-saga-tulum-bedouin-account |
+| Bedouin Promo Videos/Tulum Saga/saga-tulum_saga-account_v3.mp4 | motion_9x16 | Promo Video | Saga Tulum — Saga Account |  |  |  | mediaAsset-bedouin-saga-tulum-saga-account |
+| Bedouin Promo Videos/Tulum Saga/saga_tulum_trailer_final.mp4 | motion_9x16 | Promo Video | Saga Tulum — Trailer Final |  |  |  | mediaAsset-bedouin-saga-tulum-trailer-final |
+| Open Air Brooklyn 062125/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 |  |  |  | mediaAsset-feea2d7d-263e-431d-90ac-c292f0de6ea7 |
+| Open Air Brooklyn 062125/NYC Flyer 4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 (NYC Flyer) |  |  |  | mediaAsset-f291f3da-9cb4-4a37-8ffe-d65719a1bffe |
+| Roundhouse London 051025/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Roundhouse London 051025 |  |  |  | mediaAsset-601d9bf7-2dea-4be9-917c-9d163896a074 |
