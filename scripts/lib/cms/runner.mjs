@@ -151,7 +151,7 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
         continue
       }
       // A Mode 1 header is stamped onto every new row, and a project's tags are the union of its media's: more than one needs each row's own serviceType.
-      invariant(row.servicetype || header.services.length === 1, `Row ${row.file}: the header names ${header.services.length} services and would stamp them all on this media; give the row its own serviceType`)
+      invariant(row.servicetype || header.services.length === 1, `Row ${row.file}: the header names ${header.services?.length ?? 0} services and would stamp them all on this media; give the row its own serviceType`)
       const tags = (row.servicetype ? row.servicetype.split(',').map(t => t.trim()) : header.services).map(legacySlug)
       const tagDocs = await sanity.findTags(tags), services = []
       for (const slug of tags) { const tag = await uniqueResolve(tagDocs.filter(d => d.slug?.current === slug || d._id === `serviceTag-${slug}` || d._id === `drafts.serviceTag-${slug}`), `Service ${slug}`, sanity); services.push({ ...ref(tag._id), _key: slug }) }

@@ -96,6 +96,13 @@ test('a Mode 1 header naming several services cannot stamp them onto a new row: 
   assert.equal(h.stats.images,0)
   await h.plan({manifest:await h.manifest([row('new.jpg')])}) // one service in the header still stamps
 })
+test('a Mode 2 manifest (no header services) plans a new row from its own serviceType', async t => {
+  const h = await harness(t); await h.file('new.jpg')
+  const manifest = await h.manifest([row('new.jpg')])
+  await writeFile(manifest, '# Collection\nclient: Example\n\n| file | mediaType | serviceType | title |\n|---|---|---|---|\n| new.jpg | static_1x1 | branding | New |\n')
+  const p = await h.plan({manifest})
+  assert.equal(p.operations.filter(o => o.action === 'create').length, 1)
+})
 for (const conflict of ['source','manifest','revision','draft','member','target','schema']) test(`${conflict} drift blocks apply before upload`, async t => {
   const old = existingMedia('mediaAsset-old'), h = await harness(t,{docs:[old]}); await h.file('old.jpg'); await h.file('new.jpg')
   const manifest = await h.manifest([row('old.jpg','static_1x1','Old',old._id),row('new.jpg')]), p = await h.plan({manifest})
