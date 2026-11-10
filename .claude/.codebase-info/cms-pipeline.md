@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-05*
+*Last Updated: 2026-11-10*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -38,6 +38,9 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   header still stamps, and bound rows are unaffected. A no-upload video rebind
   (`set.video` → an existing `mux.videoAsset`) is guarded on the target doc; plan, apply and verify
   each run `readyVideo()` (ready status, public playback id, aspect matching Mux).
+  A changes request's `creates` may hold minimal client, project or serviceTag documents
+  (serviceTag: `name`, `slug`, integer `sortOrder`; 11-10, Release Packs). References count the
+  plan's own creates, so one plan can create a tag and tag media with it.
   Explicit deletes (`"deletes"` in a changes request; never inferred) run last, in request order: a
   target must be unreferenced (weak refs, drafts and release versions included) once the plan's own
   patches and earlier deletes apply — checked at plan time and again just before the write; each
@@ -55,7 +58,9 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   `secretDocument()` filter, `loadManifests()`, `loadAccepted()` (`media/_audit-accepted.json`:
   decided findings hidden while they still match, unmatched ones → `accepted-stale`; malformed
   stops the audit), `schemaFields()` (unknown-field allowlist; `orderRank` from `orderRankField(`).
-  Ranks collide only within one project/collection.
+  Ranks collide only within one project/collection. `album-art-tag-off-cover` (warning, 11-10) flags
+  the Album Art serviceTag (by slug `album-art`) on a mediaAsset not typed `album-art`: either a
+  cover to retype or a supporting piece to retag Release Packs / Event / Tour Creative.
 - `state.mjs` — owner-only 0700/0600 run store outside the Dropbox checkout (default
   `~/.local/state/swm-cms/<hash>/runs`).
 
