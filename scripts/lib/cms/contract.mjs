@@ -38,9 +38,11 @@ export const FIELDS = {
   mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
+  // A new tag shows in the directory filters; the inquiry form keeps its own list (src/lib/constants.js SERVICE_TAGS).
+  serviceTag: ['name','slug','sortOrder'],
   globeSettings: ['picks'],
 }
-const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], globeSettings: [] }
+const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], serviceTag: ['name','slug'], globeSettings: [] }
 // Media descriptors match the Studio caps (src/schemas/mediaAsset.ts); a project description is a blurb and stays uncapped here.
 export const CAPS = { mediaAsset: { alt: 150, description: 300 } }
 const text = (v, label) => invariant(typeof v === 'string' && v.trim().length > 0, `Invalid ${label}`)
@@ -59,6 +61,7 @@ export function validateField(field, v) {
   if (field === 'slug') { keys(v, ['_type','current'], 'slug'); invariant(v._type === 'slug' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(v.current), 'Invalid slug'); return }
   if (['yearStart','yearEnd'].includes(field)) { number(v, field); invariant(Number.isInteger(v) && v >= 2015 && v <= 2030, `Invalid ${field}`); return }
   if (field === 'brandDeckOrder') { number(v, field); invariant(Number.isInteger(v) && v >= 1, 'Invalid brandDeckOrder'); return }
+  if (field === 'sortOrder') { number(v, field); invariant(Number.isInteger(v) && v >= 0, 'Invalid sortOrder'); return }
   if (['isOngoing','isFeatured','splitIntoThirds'].includes(field)) { invariant(typeof v === 'boolean', `Invalid ${field}`); return }
   if (field === 'mediaType') return enumValue(v, MEDIA_TYPES, field)
   if (field === 'contentRole') return enumValue(v, ['process','supporting'], field)

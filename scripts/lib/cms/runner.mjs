@@ -175,7 +175,7 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
     invariant(['patches','creates','inspect','deletes'].every(k => Array.isArray(request[k] || [])), 'Changes arrays required')
     invariant(['patches','creates','inspect','deletes'].some(k => request[k]?.length), 'Empty changes scope')
     for (const doc of request.creates || []) {
-      invariant(['client','project'].includes(doc._type), 'Only explicit minimal client/project creations supported outside manifest')
+      invariant(['client','project','serviceTag'].includes(doc._type), 'Only explicit minimal client/project/serviceTag creations supported outside manifest')
       validateDocument(doc, { creation: true })
       const current = await fresh(sanity, [doc._id]); noDraft(current, doc._id); invariant(!current.has(doc._id), `Strict create conflict: ${doc._id}`)
       const { _id, _type, ...set } = doc

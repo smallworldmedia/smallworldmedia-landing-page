@@ -195,6 +195,18 @@ test('media descriptors: alt and description patch within their caps; a project 
   const result = await h.apply(p); assert.equal(result.updated,1); assert.equal(result.failed,0)
   const actual = h.db.get(old._id); assert.equal(actual.alt,'Reviewed alt'); assert.equal(actual.description,'Reviewed description'); assert.deepEqual(actual.image,old.image)
 })
+
+test('a new service tag and the media tagged with it plan and apply as one change; a malformed tag is refused', async t => {
+  const tag = { _id: 'serviceTag-release-packs', _type: 'serviceTag', name: 'Release Packs', slug: { _type: 'slug', current: 'release-packs' }, sortOrder: 45 }
+  const services = [{ ...reference(tag._id), _key: 'release-packs' }]
+  const old = existingMedia('mediaAsset-tagged'), h = await harness(t,{docs:[old]})
+  const p = await h.plan({changes:await h.changes({creates:[tag],patches:[{id:old._id,type:'mediaAsset',set:{services},unset:[]}]})})
+  assert.deepEqual(p.operations.map(o => [o.id,o.action]),[[tag._id,'create'],[old._id,'patch']])
+  const result = await h.apply(p); assert.equal(result.created,1); assert.equal(result.updated,1); assert.equal(result.failed,0)
+  assert.equal(h.db.get(tag._id).name,'Release Packs'); assert.deepEqual(h.db.get(old._id).services,services)
+  for (const bad of [{...tag,sortOrder:4.5},{...tag,sortOrder:-1},{...tag,description:'x'},{...tag,name:undefined}]) await assert.rejects(h.plan({changes:await h.changes({creates:[bad]})}))
+  await assert.rejects(h.plan({changes:await h.changes({patches:[{id:old._id,type:'mediaAsset',set:{services:[{...reference('serviceTag-missing'),_key:'missing'}]},unset:[]}]})}),/Unresolved\/wrong-type serviceTag reference/)
+})
 const muxDoc = (id, fields = {}) => ({ _id: id, _type: 'mux.videoAsset', _rev: 'r-' + id, assetId: 'asset-' + id, playbackId: 'play-' + id, status: 'ready', data: { aspect_ratio: '16:9' }, ...fields })
 const muxAsset = (id, status = 'ready') => ({ id: 'asset-' + id, status, playback_ids: [{ id: 'play-' + id, policy: 'public' }], aspect_ratio: '16:9' })
 const videoRef = id => ({ _type: 'mux.video', asset: { _type: 'reference', _ref: id, _weak: true } })
