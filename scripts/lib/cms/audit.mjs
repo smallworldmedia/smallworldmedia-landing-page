@@ -30,6 +30,7 @@ export const CHECKS = {
   'draft-pending': ['warning', 'An unpublished draft or release version exists; CMS plans touching that document stop until it is resolved in Studio.'],
   'label-ratio': ['warning', 'The aspect label breaks the approved label policy for its native size (see expectedType); padded files and eye calls belong in media/_audit-accepted.json.'],
   'album-art-not-square': ['warning', 'Album art is not square; the album wall crops it to 1:1.'],
+  'album-art-tag-off-cover': ['warning', 'Tagged Album Art but not typed album-art: a cover takes mediaType album-art; a preview, banner, YouTube visualizer or press photo takes Release Packs, an event flyer Event / Tour Creative.'],
   'album-art-without-release': ['info', 'Album art has no releaseInfo (queries.js fetches it; no component renders it today).'],
   'unused-image': ['warning', 'An image file no document references.'],
   'unused-video': ['warning', 'A Mux video document no document references (its Mux asset is stored and billed).'],
@@ -99,6 +100,7 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
   const ofType = type => published.filter(d => d._type === type)
   const media = ofType('mediaAsset')
   const images = new Map(ofType('sanity.imageAsset').map(d => [d._id, d])), videos = new Map(ofType('mux.videoAsset').map(d => [d._id, d]))
+  const albumArtTags = new Set(ofType('serviceTag').filter(t => t.slug?.current === 'album-art').map(t => t._id))
   if (!fingerprint) add('schema-fingerprint', { problem: 'src/schemas hash differs from SUPPORTED_SCHEMA_HASH' })
 
   // Drafts and release versions count as users: a draft still showing a file keeps it in use.
@@ -123,7 +125,7 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
     if (doc.mediaType === 'album-art') {
       if (size && Math.abs(Math.log(size.width / size.height)) > TOLERANCE) add('album-art-not-square', { id: doc._id, native: `${size.width}×${size.height}` })
       if (!doc.releaseInfo) add('album-art-without-release', { id: doc._id, title: doc.title ?? null })
-    }
+    } else if ((doc.services || []).some(r => albumArtTags.has(r._ref))) add('album-art-tag-off-cover', { id: doc._id, title: doc.title ?? null, mediaType: doc.mediaType ?? null })
     if (!doc.alt?.trim?.()) add('alt-missing', { id: doc._id, title: doc.title ?? null })
     if (!doc.description?.trim?.()) add('description-missing', { id: doc._id })
     for (const field of ['alt', 'description']) if (typeof doc[field] === 'string' && doc[field].length > CAPS.mediaAsset[field]) add('text-too-long', { id: doc._id, field, length: doc[field].length, limit: CAPS.mediaAsset[field] })

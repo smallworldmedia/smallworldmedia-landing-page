@@ -57,7 +57,10 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
     ...framed(still('mediaAsset-kind', { mediaType: 'motion_16x9', orderRank: '0|920000:' })),
     ...framed(still('mediaAsset-wide', { orderRank: '0|a00000:' }), 1600, 900),
     ...framed(still('mediaAsset-widedraft', { orderRank: '0|a10000:' }), 1600, 900), { ...still('mediaAsset-widedraft'), _id: 'drafts.mediaAsset-widedraft' },
-    ...framed(still('mediaAsset-album', { mediaType: 'album-art', releaseInfo: undefined, orderRank: '0|b00000:' }), 1000, 600),
+    // Album Art on the cover itself is fine; on a press photo it is the off-cover tag.
+    { _id: 'serviceTag-album-art', _type: 'serviceTag', name: 'Album Art', slug: { _type: 'slug', current: 'album-art' } },
+    ...framed(still('mediaAsset-album', { mediaType: 'album-art', releaseInfo: undefined, services: [{ ...reference('serviceTag-album-art'), _key: 'album-art' }], orderRank: '0|b00000:' }), 1000, 600),
+    ...framed(still('mediaAsset-pressphoto', { mediaType: 'static_4x5', services: [{ ...reference('serviceTag-album-art'), _key: 'album-art' }], orderRank: '0|b10000:' }), 800, 1000),
     image('image-unused', 10, 10), muxDoc('mux-unused'),
     still('mediaAsset-share-a', { image: { _type: 'image', asset: reference('image-shared') }, orderRank: '0|c00000:' }),
     still('mediaAsset-share-b', { image: { _type: 'image', asset: reference('image-shared') }, orderRank: '0|d00000:' }), image('image-shared', 1000, 1000),
@@ -88,6 +91,7 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
   assert.deepEqual(items('mux-asset-missing').map(i => i.id), ['mux-mediaAsset-gone'])
   assert.deepEqual(items('mux-asset-undocumented').map(i => i.assetId), ['asset-orphan'])
   assert.deepEqual(items('unknown-field').map(i => `${i.type}.${i.field}`), ['mediaAsset.isHero'])
+  assert.deepEqual(items('album-art-tag-off-cover').map(i => [i.id, i.mediaType]), [['mediaAsset-pressphoto', 'static_4x5']])
   assert.deepEqual(items('manifest-drift').map(i => [i.id, i.field, i.manifestValue, i.sanityValue]), [['mediaAsset-wide', 'mediaType', 'static_16x9', 'static_1x1']])
   assert.deepEqual(items('draft-pending').map(i => i.id), ['drafts.mediaAsset-widedraft'])
   assert.deepEqual(items('unused-image').map(i => i.id), ['image-twin-a', 'image-twin-b'])
