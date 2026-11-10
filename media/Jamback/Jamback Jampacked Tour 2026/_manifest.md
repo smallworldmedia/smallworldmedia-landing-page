@@ -1,6 +1,7 @@
 # Jamback — Jamback Jampacked Tour 2026
 
 client: Jamback
+project: jamback
 services: event / tour creative
 year: 2026
 

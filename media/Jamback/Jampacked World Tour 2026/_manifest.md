@@ -1,6 +1,7 @@
 # Jamback — Jampacked Headline World Tour 2026
 
 client: Jamback
+project: jamback
 year: 2026
 
 ## Assets

@@ -1,6 +1,7 @@
 # Jamback — Root Assets
 
 client: Jamback
+project: jamback
 year: 2026
 
 ## Assets
