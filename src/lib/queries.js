@@ -21,10 +21,12 @@ const PROJECT_SERVICES = `*[_type == "serviceTag" && !(_id in path("drafts.**"))
 /**
  * FEATURED_PROJECT_PATHS_QUERY — One row per Featured Project doc
  * (isFeatured == true). The project doc _id is the grouping key the detail
- * page fetches by (FEATURED_PROJECT_DETAIL_QUERY); `collection` is resolved
- * from the first asset's sourceManifest purely to derive the route slug
- * (toProjectSlug — must stay stable for existing URLs). No isHero flags
- * needed — first-in-order IS the hero.
+ * page fetches by (FEATURED_PROJECT_DETAIL_QUERY); `collection` is the
+ * first-RANKED asset's sourceManifest: the route-slug fallback
+ * (toProjectSlug — must stay stable for existing URLs) and the page title
+ * when the project doc has none. Unordered, [0] lands on whichever asset id
+ * sorts first, so a new collection under a project could retitle its page
+ * (Rossi, 11-10). No isHero flags needed — first-in-order IS the hero.
  *
  * Ordered identically to FEATURED_WORLDS_QUERY (orderRank, client-name
  * tiebreak) so the row order IS the /work World order — /work/[slug]
@@ -42,7 +44,7 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
     title,
     "color": projectColor,
     "colorSecondary": projectColorSecondary,
-    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
+    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))] | order(orderRank asc)[0].sourceManifest,
     "clientName": client->name,
     "clientSlug": client->slug.current,
     "services": ${PROJECT_SERVICES},
@@ -242,7 +244,7 @@ export const FEATURED_WORLDS_QUERY = `
     projectColorSecondary,
     "clientName": client->name,
     "clientSlug": client->slug.current,
-    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))][0].sourceManifest,
+    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))] | order(orderRank asc)[0].sourceManifest,
     "services": ${PROJECT_SERVICES},
     "assets": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
       | order(orderRank asc) {
