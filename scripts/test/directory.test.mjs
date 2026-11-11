@@ -551,21 +551,47 @@ test('admat set - a pre-11-10 brand-deck with no groupType reads the same as one
   assert.equal(marked._id, 'admat:jamback:p-jam:tour-flyers', 'the stored type alone makes the set, whatever the displayGroup')
 })
 
-test('admat set - a motion admat keeps its own tile; a set of one is a plain tile', () => {
-  rank = 0
-  const motion = asset('flyer-motion', 'jamback', {
-    ...JAM, mediaType: 'brand-deck', displayGroup: 'tour-admats', brandDeckOrder: 99,
-    imageUrl: undefined, imageDimensions: undefined, playbackId: 'pb', videoAspectRatio: '4:5',
+const motionFlyer = (id, order, extra = {}) =>
+  asset(id, 'jamback', {
+    ...JAM, mediaType: 'brand-deck', displayGroup: 'tour-admats', brandDeckOrder: order,
+    imageUrl: undefined, imageDimensions: undefined, playbackId: `pb-${id}`, videoAspectRatio: '4:5', videoDuration: 20,
+    ...extra,
   })
-  const ts = jamTiles([...admatSet(3), motion])
-  assert.equal(ts.length, 2)
-  assert.deepEqual(ts.find((t) => t.frames).frames.map((f) => f._id), ['flyer-02', 'flyer-01', 'flyer-00'], 'the stills cycle, the clip not among them')
-  const own = ts.find((t) => t._id === 'flyer-motion')
-  assert.ok(own && !own.frames && own.playbackId === 'pb', 'the motion piece is its own tile')
+
+test('admat set - an animated flyer is a frame of the set, carrying its clip and length; a set of one is a plain tile', () => {
+  rank = 0
+  const ts = jamTiles([...admatSet(3), motionFlyer('flyer-motion', 99)])
+  assert.equal(ts.length, 1, 'the whole set is one tile, the animated flyer inside it')
+  const [tile] = ts
+  assert.deepEqual(tile.frames.map((f) => f._id), ['flyer-02', 'flyer-01', 'flyer-00', 'flyer-motion'], 'brandDeckOrder')
+  const clipFrame = tile.frames[3]
+  assert.equal(clipFrame.playbackId, 'pb-flyer-motion')
+  assert.equal(clipFrame.videoDuration, 20, "the beats it holds come from the clip's own length")
+  assert.equal(clipFrame.imageUrl, undefined)
+  assert.ok(tile.frames.slice(0, 3).every((f) => f.playbackId === undefined && f.videoDuration === undefined), 'a still carries no length')
+  // A motion flyer leading the set: the tile's own face is frame 0, but the frames own the players.
+  rank = 0
+  const led = jamTiles([...admatSet(2), motionFlyer('lead', -1)])[0]
+  assert.equal(led.frames[0]._id, 'lead')
+  assert.equal(led.frames.length, 3)
   rank = 0
   const solo = jamTiles(admatSet(1))
   assert.deepEqual(ids(solo), ['flyer-00'])
   assert.ok(!solo[0].frames)
+  rank = 0
+  const soloClip = jamTiles([motionFlyer('only', 1)])
+  assert.ok(!soloClip[0].frames && soloClip[0].playbackId === 'pb-only', 'one animated flyer is a plain video tile')
+})
+
+test('admat set - HHS 2024-2025 (10 stills + 23 animated) is one tile, at most SEQUENCE_MAX_FRAMES frames', () => {
+  rank = 0
+  const stills = admatSet(10)
+  const clips = Array.from({ length: 23 }, (_, i) => motionFlyer(`clip-${String(i).padStart(2, '0')}`, 100 + i))
+  const [tile, ...rest] = jamTiles([...stills, ...clips])
+  assert.equal(rest.length, 0)
+  assert.equal(tile.frames.length, SEQUENCE_MAX_FRAMES)
+  assert.equal(tile.frames.filter((f) => f.playbackId).length, SEQUENCE_MAX_FRAMES - 10, 'the stills lead, the clips fill what is left')
+  assert.ok(tile.frames.every((f) => f.playbackId ? f.videoDuration === 20 : !f.videoDuration))
 })
 
 test('album art stays one tile per cover; decks, carousels and banners keep their grouped tile', () => {

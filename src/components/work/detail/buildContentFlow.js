@@ -234,9 +234,10 @@ export function opensOn(asset, surface) {
  * With no `surface` the lanes follow mediaType / displayGroup alone (every
  * admat rides 'deck'). With a `surface` they follow the asset's group type
  * (groupTypeOf), and null also means its set does not open on that surface.
- * 'admat' is for still members only, except on 'detail', where a motion
- * admat is a member too (it plays in the set's wall, SQ-52); on the globe and
- * the directory it rides 'role' / 'showcase' as its own tile.
+ * 'admat' is for still members only on the globe, where a motion admat rides
+ * 'role' / 'showcase' as its own tile. On 'detail' a motion admat is a member
+ * too (it plays in the set's wall, SQ-52), and on 'directory' (SQ-53) it is a
+ * frame of the set's cycling tile, which plays it through on the shared beat.
  */
 export function assetLane(asset, surface) {
   if (!asset.playbackId && !asset.imageUrl) return null;
@@ -251,7 +252,7 @@ export function assetLane(asset, surface) {
     if (type) {
       if (!opensOn(asset, surface)) return null;
       if (type !== 'admat') return type;
-      if (surface === 'detail' || (asset.imageUrl && !asset.playbackId)) return 'admat';
+      if (surface !== 'globe' || (asset.imageUrl && !asset.playbackId)) return 'admat';
     }
   }
   if (asset.contentRole) return 'role';

@@ -11,13 +11,22 @@
  *     or a set of mockups take one tile instead of one tile each.
  *   - on the home globe only, a project's album art (buildWorldPools): one
  *     panel cycles the covers instead of a panel per cover.
- * Stills only: a video member keeps its own tile.
+ *   - on the directory only, an admat set (11-10): its animated flyers are
+ *     frames too, each a motion member that holds the tile for its preview
+ *     clip (frameBeats) — see "Beats" below. Everywhere else a sequence is
+ *     stills only: a video member keeps its own tile.
  *
  * The clock is the wall clock: frame = floor(now / interval) mod n. Every
  * sequence on every route changes on the same beat with nothing to subscribe
  * to (the house metronome idea, motion.js housePulseLoop). A hard cut, never a
  * blend (the globe's rule: the eye never sees two images mix). Reduced motion
  * holds frame 0.
+ *
+ * Beats: a still weighs 1 beat; a motion member weighs as many beats as its
+ * clip (min(duration, the preview clip) ÷ interval, rounded up), so it plays
+ * through before the cut. The frame is the member that owns beat
+ * floor(now / interval) mod Σweights (weightedFrame) — still a pure function
+ * of the wall clock, so every cut lands on the shared beat.
  *
  * Fit (Nathan, 10-31): the tile takes the shape that crops the set LEAST
  * (sequenceRatio, over the members' label ratios — the label wins, as in
@@ -78,6 +87,33 @@ const prefersReducedMotion = () =>
 export function sequenceFrame(n, now = performance.now()) {
   if (!(n > 1) || prefersReducedMotion()) return 0;
   return Math.floor(now / sequenceIntervalMs()) % n;
+}
+
+/**
+ * The beats a frame holds the tile: 1 for a still, ceil(min(duration, clip) ÷
+ * interval) for a motion member (`playbackId`). An unknown duration plays the
+ * whole `clip`. `clipSeconds` is the preview clip the player is given.
+ */
+export function frameBeats(frame, clipSeconds, intervalMs = sequenceIntervalMs()) {
+  if (!frame?.playbackId) return 1;
+  const d = Number(frame.videoDuration);
+  const seconds = d > 0 ? Math.min(d, clipSeconds) : clipSeconds;
+  return Math.max(1, Math.ceil((seconds * 1000) / intervalMs));
+}
+
+/**
+ * The frame that owns the beat at `now`, for frames of the given `weights`
+ * (frameBeats each): beat floor(now / interval) mod Σweights, walked down the
+ * weights. All weights 1 is sequenceFrame.
+ */
+export function weightedFrame(weights, now = performance.now()) {
+  if (!(weights.length > 1) || prefersReducedMotion()) return 0;
+  let beat = Math.floor(now / sequenceIntervalMs()) % weights.reduce((sum, w) => sum + w, 0);
+  for (let i = 0; i < weights.length; i++) {
+    if (beat < weights[i]) return i;
+    beat -= weights[i];
+  }
+  return 0;
 }
 
 /** ms until the next frame change — a DOM slot schedules its next cut here. */

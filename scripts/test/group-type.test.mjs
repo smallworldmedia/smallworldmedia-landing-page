@@ -77,11 +77,12 @@ test('assetLane with a surface applies the table', () => {
   const admat = still('ad', 'brand-deck', { displayGroup: 'jamback-world-tour-2026-admats' })
   assert.deepEqual(SURFACES.map((s) => assetLane(admat, s)), ['admat', null, 'admat', 'admat'])
   const motionAdmat = clip('ad-m', 'motion_4x5', { groupType: 'admat', displayGroup: 'jamback-world-tour-2026-admats' })
-  // SQ-52: an animated flyer is a member of its set's wall on the project page only.
-  assert.deepEqual(SURFACES.map((s) => assetLane(motionAdmat, s)), ['showcase', null, 'admat', 'showcase'])
+  // SQ-52 / SQ-53: an animated flyer is a member of its set on the project page (its wall) and on
+  // the directory (a frame of the cycling tile); the globe stays stills-only.
+  assert.deepEqual(SURFACES.map((s) => assetLane(motionAdmat, s)), ['showcase', null, 'admat', 'admat'])
   assert.equal(assetLane({ ...motionAdmat, contentRole: 'process' }, 'globe'), 'role')
-  assert.equal(assetLane({ ...motionAdmat, contentRole: 'process' }, 'directory'), 'role')
-  assert.equal(assetLane({ ...motionAdmat, contentRole: 'process' }, 'detail'), 'admat') // the type outranks the role on the page that plays it
+  assert.equal(assetLane({ ...motionAdmat, contentRole: 'process' }, 'directory'), 'admat') // the type outranks the role where the set plays it
+  assert.equal(assetLane({ ...motionAdmat, contentRole: 'process' }, 'detail'), 'admat')
 
   const deck = still('d', 'brand-deck', { displayGroup: 'guidelines' })
   assert.deepEqual(SURFACES.map((s) => assetLane(deck, s)), [null, 'deck', 'deck', 'deck'])
@@ -202,7 +203,7 @@ test("buildContentFlow(surface 'detail'): admats group by displayGroup in brandD
   assert.deepEqual(ids(tied.showcase), ['n-1']) // a set of one is a showcase tile
 })
 
-test('an admat set of one rides the showcase at its orderRank place; a motion member keeps its own tile off the page', () => {
+test('an admat set of one rides the showcase at its orderRank place; a motion member keeps its own tile on the globe', () => {
   const assets = [
     clip('hero', 'featured-project-reel'),
     still('shot-a', 'static_4x5'),
@@ -211,11 +212,13 @@ test('an admat set of one rides the showcase at its orderRank place; a motion me
     clip('flyer-motion', 'motion_4x5', { groupType: 'admat', displayGroup: 'rossi-admats' }),
     still('shot-c', 'static_4x5'),
   ]
-  for (const surface of ['globe', 'directory']) {
-    const flow = buildContentFlow(assets, { surface })
-    assert.deepEqual(flow.admats, [], surface) // the still member is alone: the clip is not a member
-    assert.deepEqual(ids(flow.showcase), ['shot-a', 'lone', 'shot-b', 'flyer-motion', 'shot-c'], surface)
-  }
+  const globe = buildContentFlow(assets, { surface: 'globe' })
+  assert.deepEqual(globe.admats, []) // the still member is alone: the clip is not a member
+  assert.deepEqual(ids(globe.showcase), ['shot-a', 'lone', 'shot-b', 'flyer-motion', 'shot-c'])
+  // SQ-53: on the directory the clip is a member, so the two are one set (one cycling tile).
+  const directory = buildContentFlow(assets, { surface: 'directory' })
+  assert.deepEqual(directory.admats.map((s) => [s.group, ids(s.items)]), [['rossi-admats', ['lone', 'flyer-motion']]])
+  assert.deepEqual(ids(directory.showcase), ['shot-a', 'shot-b', 'shot-c'])
   const work = buildContentFlow(assets, { surface: 'work' })
   assert.deepEqual(ids(work.showcase), ['shot-a', 'shot-b', 'shot-c']) // admats are not on /work
   assert.deepEqual(work.admats, [])
@@ -235,12 +238,14 @@ test("buildContentFlow(surface 'detail'): an animated flyer joins its set's wall
   assert.deepEqual(detail.admats.map((s) => [s.group, ids(s.items)]), [['hhs-admats', ['motion-1', 'motion-2', 'still-3']]])
   assert.deepEqual(ids(detail.showcase), ['shot-a', 'solo-motion', 'shot-b']) // a set of one is a showcase tile, played by its own slot
   assert.deepEqual(detail.brandDecks, [])
-  // NC: the same page on the globe and the directory keeps each animated flyer its own tile; only the stills are a set.
-  for (const surface of ['globe', 'directory']) {
-    const flow = buildContentFlow(assets, { surface })
-    assert.deepEqual(flow.admats, [], surface)
-    assert.deepEqual(ids(flow.showcase), ['shot-a', 'still-3', 'motion-1', 'motion-2', 'solo-motion', 'shot-b'], surface)
-  }
+  // NC: the globe keeps each animated flyer its own tile; only the stills are a set.
+  const globe = buildContentFlow(assets, { surface: 'globe' })
+  assert.deepEqual(globe.admats, [])
+  assert.deepEqual(ids(globe.showcase), ['shot-a', 'still-3', 'motion-1', 'motion-2', 'solo-motion', 'shot-b'])
+  // SQ-53: the directory's set carries its animated flyers, as the page's wall does.
+  const directory = buildContentFlow(assets, { surface: 'directory' })
+  assert.deepEqual(directory.admats.map((s) => [s.group, ids(s.items)]), [['hhs-admats', ['motion-1', 'motion-2', 'still-3']]])
+  assert.deepEqual(ids(directory.showcase), ['shot-a', 'solo-motion', 'shot-b'])
 })
 
 test("buildContentFlow(surface 'detail'): carousels group like decks; /work and detail open them, the globe does not", () => {

@@ -11,7 +11,9 @@
  *   - the face is a deck's lowest brandDeckOrder page, a carousel's or a
  *     banner group's first member (orderRank); a sequence cycles its stills
  *     (makeSequence), and so does an admat set, in brandDeckOrder then
- *     orderRank (11-10, Nathan); a group of one is a plain tile;
+ *     orderRank (11-10, Nathan), its animated flyers among the frames (each
+ *     plays through on the shared beat, MediaSlot); a group of one is a plain
+ *     tile;
  *   - process / supporting media (the 'role' lane) stays out; album covers
  *     and heroes are single tiles.
  *
@@ -56,6 +58,13 @@ const slim = (a) => {
   const face = {};
   for (const k of FACE_FIELDS) if (a[k] != null) face[k] = a[k];
   return face;
+};
+/* A sequence's frame: the face, and for a motion member its length, which sets
+   how many beats it holds the tile (frameBeats, mediaSequence.js). */
+const frameOf = (a) => {
+  const f = slim(a);
+  if (a.playbackId && a.videoDuration != null) f.videoDuration = a.videoDuration;
+  return f;
 };
 
 /* The cell each tile class fills, width ÷ height at the baked tile shape: a
@@ -177,7 +186,7 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
       // an admat set cuts in brandDeckOrder (stable: equal keeps orderRank order)
       const cut = lane === 'admat' ? [...members].sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0)) : members;
       source = cut[0];
-      const frames = cut.map(slim);
+      const frames = cut.map(frameOf);
       face = makeSequence(key, frames, frames.map(ratioOf));
     } else if (members.length > 1 && lane === 'deck') {
       // stable: equal brandDeckOrder keeps orderRank order

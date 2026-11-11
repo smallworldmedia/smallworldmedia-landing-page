@@ -29,7 +29,14 @@
  * A sequence (asset.frames, src/lib/mediaSequence.js) stacks its frames and
  * hard-cuts between them on the shared clock while the slot is near the
  * viewport: an opaque frame fills the slot (cover), a transparent one shows
- * whole on the slot's near-black (contain).
+ * whole on the slot's near-black (contain). A directory sequence may hold
+ * animated flyers (a frame with a playbackId): each holds the tile for its
+ * clip (frameBeats), shows its frame-0 poster until it plays, and plays
+ * through in a GatedVideo under the one grant the gate gives the tile. The
+ * NEXT animated frame mounts a beat early, parked (GatedVideo `hold`), so it
+ * is buffered at its cut: at most two players per tile, one of them playing.
+ * With no grant the tile steps every frame a beat at a time, posters for the
+ * animated ones.
  *
  * Directory mode (11-03: DirectoryGrid passes `gate`): the slot has no
  * observer of its own — one playerGate (directory/playerGate.js) watches
@@ -48,7 +55,7 @@
  * @param {Object}  [props.gate] - A playerGate: directory mode
  * @param {'cover'|'contain'} [props.fit] - How the face fills the tile (data-fit)
  */
-import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { useRef, useEffect, useState, useMemo, useCallback, Fragment } from 'react';
 import useHls from '../useHls.js';
 import {
   IMG_FORMAT,
@@ -62,7 +69,7 @@ import {
 } from '../imageConfig.js';
 import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import GatedVideo, { DETAIL_HLS_CONFIG } from './GatedVideo.jsx';
-import { sequenceFrame, msToNextFrame } from '../../../lib/mediaSequence.js';
+import { frameBeats, weightedFrame, msToNextFrame, sequenceIntervalMs } from '../../../lib/mediaSequence.js';
 
 /** Sanity image width for detail page slots */
 const SLOT_IMG_WIDTH = 1400;
@@ -71,23 +78,32 @@ const SLOT_IMG_WIDTH = 1400;
     vertical page. Wide enough that scrolled-to slots already stream. */
 const IO_MARGIN = '400px 0px';
 
-/** The frame a sequence of `n` shows, re-timed to each beat of the shared
-    clock while `active` (frame 0 at SSR and while parked off-screen). Each
-    slot keeps its own timer, but every timer lands on the same wall-clock
-    boundary, so slots never drift apart. */
-function useSequenceFrame(n, active) {
-  const [frame, setFrame] = useState(0);
+/** The frame a sequence shows, re-timed to each beat of the shared clock
+    while `active` (frame 0 at SSR and while parked off-screen), and `ahead`:
+    the animated frame that takes over at the next cut (-1 if none), which is
+    mounted a beat early. An animated frame holds the tile for its clip while
+    `play` (the gate's grant); without it every frame is one beat. Each slot
+    keeps its own timer, but every timer lands on the same wall-clock boundary,
+    so slots never drift apart. */
+function useSequenceFrame(frames, active, play, clip) {
+  const n = frames?.length ?? 0;
+  const [at, setAt] = useState({ frame: 0, ahead: -1 });
   useEffect(() => {
     if (!active || n < 2) return undefined;
     let id;
     const tick = () => {
-      setFrame(sequenceFrame(n));
+      const beats = frames.map((f) => (play ? frameBeats(f, clip) : 1));
+      const now = performance.now();
+      const frame = weightedFrame(beats, now);
+      const next = weightedFrame(beats, now + sequenceIntervalMs());
+      const ahead = next !== frame && frames[next].playbackId ? next : -1;
+      setAt((was) => (was.frame === frame && was.ahead === ahead ? was : { frame, ahead }));
       id = setTimeout(tick, msToNextFrame() + 1);
     };
     tick();
     return () => clearTimeout(id);
-  }, [n, active]);
-  return frame;
+  }, [frames, n, active, play, clip]);
+  return at;
 }
 
 export default function MediaSlot({
@@ -108,9 +124,11 @@ export default function MediaSlot({
   const [isVisible, setIsVisible] = useState(eager);
   const [canPlay, setCanPlay] = useState(false); // directory mode: the gate's grant
   const [isLoaded, setIsLoaded] = useState(false);
-  const isVideo = !!asset.playbackId;
   const frames = asset.frames?.length > 1 ? asset.frames : null;
-  const frame = useSequenceFrame(frames?.length ?? 0, isVisible);
+  // A sequence led by an animated flyer carries its playbackId; the frames own the players.
+  const isVideo = !!asset.playbackId && !frames;
+  const hasMotion = !!frames?.some((f) => f.playbackId);
+  const { frame, ahead } = useSequenceFrame(frames, isVisible, canPlay && hasMotion, clip);
 
   // A chunk (expandChunks) plays its own range of the asset: the stream is
   // clipped at both ends, it starts at `from` on the stream's own timeline
@@ -155,7 +173,7 @@ export default function MediaSlot({
     // its lazy <img> loads itself.
     if (gate) {
       if (!isVideo && !frames) return undefined;
-      return gate.watch(el, { video: isVideo }, ({ near, play }) => {
+      return gate.watch(el, { video: isVideo || hasMotion }, ({ near, play }) => {
         setIsVisible(near);
         setCanPlay(play);
       });
@@ -190,20 +208,29 @@ export default function MediaSlot({
           className={`media-slot__media media-slot__sequence${isLoaded ? ' media-slot__media--loaded' : ''}`}
         >
           {frames.map((f, k) => (
-            <img
-              key={f._id}
-              ref={k === 0 ? flagIfLoaded : undefined}
-              className="media-slot__frame"
-              data-fit={f.imageHasAlpha ? 'contain' : undefined}
-              data-on={k === frame || undefined}
-              src={`${f.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
-              srcSet={sizes ? sanitySrcSet(f.imageUrl, f.imageDimensions?.width) : undefined}
-              sizes={sizes}
-              alt={f.alt || f.title || ''}
-              loading="lazy"
-              decoding={gate ? 'async' : undefined}
-              onLoad={k === 0 ? () => setIsLoaded(true) : undefined}
-            />
+            <Fragment key={f._id}>
+              <img
+                ref={k === 0 ? flagIfLoaded : undefined}
+                className="media-slot__frame"
+                data-fit={f.imageHasAlpha ? 'contain' : undefined}
+                data-on={k === frame || undefined}
+                src={f.playbackId ? muxPoster(f.playbackId, SLOT_IMG_WIDTH, 0) : `${f.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
+                srcSet={
+                  !sizes ? undefined : f.playbackId ? muxPosterSrcSet(f.playbackId) : sanitySrcSet(f.imageUrl, f.imageDimensions?.width)
+                }
+                sizes={sizes}
+                alt={f.alt || f.title || ''}
+                loading="lazy"
+                decoding={gate ? 'async' : undefined}
+                onLoad={k === 0 ? () => setIsLoaded(true) : undefined}
+              />
+              {/* An animated frame's player: the current one, and the next one parked a beat early. */}
+              {canPlay && f.playbackId && (k === frame || k === ahead) && (
+                <div style={{ position: 'absolute', inset: 0, visibility: k === frame ? 'visible' : 'hidden' }}>
+                  <GatedVideo playbackId={f.playbackId} clip={clip} hold={k !== frame} />
+                </div>
+              )}
+            </Fragment>
           ))}
         </div>
       ) : isVideo && gate ? (
