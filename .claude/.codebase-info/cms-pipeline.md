@@ -30,6 +30,9 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   is writable as a whole keyed array (newly added picks must be published video mediaAssets).
   mediaAsset `splitIntoThirds` (11-05) is allowlisted as a boolean, refused on a non-video document;
   its schema landed alone with the hash `8165cbfe` (`d47079e`).
+  mediaAsset `groupType` (11-10) is allowlisted as `GROUP_TYPES` (album-art, deck, banner, admat,
+  carousel); `validateDocument` requires `displayGroup` for every type but album-art. It landed alone
+  with the hash `70b35be3` (`1d181ae`).
   Deletes: `DELETE_TYPES` (mediaAsset, mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
