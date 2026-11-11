@@ -2,15 +2,16 @@
  * buildDirectoryTiles — the Project Directory's tiles, built once per build
  * from DIRECTORY_QUERY (pure; directoryData.js memoizes the result).
  *
- * Grouping follows the detail pages (assetLane, buildContentFlow.js), so a
- * deck is one tile here as it is one viewer there (CONTEXT.md, the Brand Deck
- * Dual-Feed Rule):
- *   - decks, carousels, banner groups and sequences collapse into one tile
- *     per lane:client:project:displayGroup (a displayGroup name repeats
- *     across clients);
+ * Grouping follows the detail pages (assetLane at the 'directory' surface,
+ * buildContentFlow.js: every group type opens here), so a deck is one tile
+ * here as it is one viewer there (CONTEXT.md, the Brand Deck Dual-Feed Rule):
+ *   - decks, carousels, banner groups, admat sets and sequences collapse into
+ *     one tile per lane:client:project:displayGroup (a displayGroup name
+ *     repeats across clients);
  *   - the face is a deck's lowest brandDeckOrder page, a carousel's or a
  *     banner group's first member (orderRank); a sequence cycles its stills
- *     (makeSequence); a group of one is a plain tile;
+ *     (makeSequence), and so does an admat set, in brandDeckOrder then
+ *     orderRank (11-10, Nathan); a group of one is a plain tile;
  *   - process / supporting media (the 'role' lane) stays out; album covers
  *     and heroes are single tiles.
  *
@@ -37,7 +38,7 @@ import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
 import { coverageOf } from '../../../lib/clientCoverage.js';
 
-const GROUPED = new Set(['sequence', 'deck', 'carousel', 'banner']);
+const GROUPED = new Set(['sequence', 'admat', 'deck', 'carousel', 'banner']);
 
 /* The fields of an asset a tile keeps — what MediaSlot and ratioOf read. */
 const FACE_FIELDS = [
@@ -148,7 +149,7 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
   };
 
   const kept = assets
-    .map((asset) => ({ asset, lane: assetLane(asset), logo: logoVerdict(asset, logos) }))
+    .map((asset) => ({ asset, lane: assetLane(asset, 'directory'), logo: logoVerdict(asset, logos) }))
     .filter(({ lane, logo }) => lane && lane !== 'role' && logo !== 'drop')
     .sort((x, y) => order(x.asset, y.asset));
 
@@ -172,8 +173,11 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
   return groups.map(({ lane, key, members }) => {
     let face;
     let source = members[0]; // the asset the face shows (a sequence: its first frame)
-    if (members.length > 1 && lane === 'sequence') {
-      const frames = members.map(slim);
+    if (members.length > 1 && (lane === 'sequence' || lane === 'admat')) {
+      // an admat set cuts in brandDeckOrder (stable: equal keeps orderRank order)
+      const cut = lane === 'admat' ? [...members].sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0)) : members;
+      source = cut[0];
+      const frames = cut.map(slim);
       face = makeSequence(key, frames, frames.map(ratioOf));
     } else if (members.length > 1 && lane === 'deck') {
       // stable: equal brandDeckOrder keeps orderRank order
