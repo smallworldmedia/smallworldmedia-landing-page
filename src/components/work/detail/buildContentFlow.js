@@ -17,7 +17,8 @@
  *     member, per the controlled-adjacency convention), pages sequenced
  *     by brandDeckOrder within each group.
  *  4. `carousel-slide` assets are held out — reserved for the
- *     Carousel component, grouped by displayGroup (orderRank within group).
+ *     Carousel component, grouped by displayGroup like decks (group order =
+ *     first appearance, orderRank within a group).
  *  5. banner assets (09-10, Nathan — COCO SoundCloud banners) are held
  *     out for the BannerViewer: any asset whose displayGroup ends in
  *     `banner`/`banners` (e.g. `soundcloud-banners`), grouped by that
@@ -33,16 +34,25 @@
  *     (src/lib/mediaSequence.js) — checked first, so any still can join one.
  *     A group of one stays a plain showcase item; a video member keeps its
  *     own tile.
+ *  9. chunks (11-05, Nathan): a showcase video flagged `splitIntoThirds`
+ *     becomes three tiles in its place, each its own third (expandChunks).
+ * 10. group types (11-10, Nathan): a set's `groupType` (album-art, deck,
+ *     banner, admat, carousel — a mediaAsset field) says which surfaces open
+ *     its viewer (GROUP_SURFACES). Pass `surface` and a piece whose set does
+ *     not open there is dropped; leave it out and the lanes above run as
+ *     they always did. groupTypeOf reads the field and, on a document from
+ *     before the field, infers the type from mediaType / displayGroup.
+ *     `admat` sets (still flyers, displayGroup `…-admats`) group like decks,
+ *     pages in brandDeckOrder; a set of one rides the showcase at its place,
+ *     and a motion member keeps its own tile. Without a surface the admats
+ *     bucket stays empty and admat pages ride the decks, as before.
  *
  * Which bucket an asset joins is assetLane's precedence (sequence first,
  * showcase last), exported so other grids sort assets the same way.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
- * 9. chunks (11-05, Nathan): a showcase video flagged `splitIntoThirds`
- *     becomes three tiles in its place, each its own third (expandChunks).
- *
- * @param {{orbitMin?: number, chunks?: {only?: string[], gap?: number}}} [opts] - ORBIT_MIN override (live tuning); expandChunks' ?chunks / ?chunkgap
- * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<Object>, banners: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
+ * @param {{surface?: 'globe'|'work'|'detail'|'directory', orbitMin?: number, chunks?: {only?: string[], gap?: number}}} [opts] - surface: the GROUP_SURFACES column to apply (none = every set opens); ORBIT_MIN override (live tuning); expandChunks' ?chunks / ?chunkgap
+ * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<{group: string, pages: Array<Object>}>, banners: Array<{group: string, items: Array<Object>}>, admats: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
  */
 
 import { isSequenceGroup, makeSequence } from '../../../lib/mediaSequence.js';
@@ -178,18 +188,69 @@ export function ratioOf(asset) {
 
 export { PORTRAIT_THRESHOLD, MEDIA_TYPE_RATIOS };
 
+/** The group types (mediaAsset.groupType); mirrors scripts/lib/cms/contract.mjs,
+ *  which site code never imports. */
+export const GROUP_TYPES = ['album-art', 'deck', 'banner', 'admat', 'carousel'];
+
+/** Where each type opens its viewer or cycler (11-10, Nathan). A surface a
+ *  type leaves out does not show its pieces. */
+export const GROUP_SURFACES = {
+  'album-art': ['globe', 'work', 'detail', 'directory'],
+  deck: ['work', 'detail', 'directory'],
+  banner: ['detail', 'directory'],
+  admat: ['globe', 'detail', 'directory'],
+  carousel: ['work', 'detail', 'directory'],
+};
+
+/** displayGroup convention that marks a brand-deck set as admats (flyers). */
+const ADMAT_GROUP_RE = /(^|-)admats?$/i;
+
 /**
- * The content-flow lane an asset rides, first match wins: 'sequence',
- * 'album-art', 'deck', 'carousel', 'banner', 'role' (any contentRole),
- * 'showcase'. null for an empty shell (no uploaded media).
+ * An asset's group type: its `groupType` when it is one of GROUP_TYPES, else
+ * the inference documents from before the field rely on. null = not grouped.
  */
-export function assetLane(asset) {
-  if (!asset.playbackId && !asset.imageUrl) return null;
-  if (isSequenceGroup(asset.displayGroup) && asset.imageUrl && !asset.playbackId) return 'sequence';
+export function groupTypeOf(asset) {
+  if (GROUP_TYPES.includes(asset.groupType)) return asset.groupType;
   if (asset.mediaType === 'album-art') return 'album-art';
-  if (asset.mediaType === 'brand-deck') return 'deck';
+  if (asset.mediaType === 'brand-deck') return ADMAT_GROUP_RE.test(asset.displayGroup ?? '') ? 'admat' : 'deck';
   if (asset.mediaType === 'carousel-slide') return 'carousel';
   if (isBannerGroup(asset.displayGroup)) return 'banner';
+  return null;
+}
+
+/** Does this asset's set open its viewer on `surface`? false for an ungrouped asset. */
+export function opensOn(asset, surface) {
+  const type = groupTypeOf(asset);
+  return !!type && GROUP_SURFACES[type].includes(surface);
+}
+
+/**
+ * The content-flow lane an asset rides, first match wins: 'sequence',
+ * 'album-art', 'deck', 'carousel', 'banner', 'admat', 'role' (any
+ * contentRole), 'showcase'. null for an empty shell (no uploaded media).
+ *
+ * With no `surface` the lanes follow mediaType / displayGroup alone (every
+ * admat rides 'deck'). With a `surface` they follow the asset's group type
+ * (groupTypeOf), and null also means its set does not open on that surface.
+ * 'admat' is for still members only; a motion admat rides 'role' /
+ * 'showcase' as its own tile.
+ */
+export function assetLane(asset, surface) {
+  if (!asset.playbackId && !asset.imageUrl) return null;
+  if (isSequenceGroup(asset.displayGroup) && asset.imageUrl && !asset.playbackId) return 'sequence';
+  if (surface === undefined) {
+    if (asset.mediaType === 'album-art') return 'album-art';
+    if (asset.mediaType === 'brand-deck') return 'deck';
+    if (asset.mediaType === 'carousel-slide') return 'carousel';
+    if (isBannerGroup(asset.displayGroup)) return 'banner';
+  } else {
+    const type = groupTypeOf(asset);
+    if (type) {
+      if (!opensOn(asset, surface)) return null;
+      if (type !== 'admat') return type;
+      if (asset.imageUrl && !asset.playbackId) return 'admat';
+    }
+  }
   if (asset.contentRole) return 'role';
   return 'showcase';
 }
@@ -238,15 +299,18 @@ export function expandChunks(list, { only = [], gap = 0 } = {}) {
   return spread;
 }
 
-export function buildContentFlow(assets, { orbitMin = ORBIT_MIN, chunks } = {}) {
+const sortByDeckOrder = (pages) => [...pages].sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0));
+
+export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks } = {}) {
   const albumArt = [];
-  const carousels = [];
   const bts = [];
   const showcase = [];
   // Map preserves insertion order → group order = first appearance =
   // lowest-orderRank member (controlled-adjacency convention).
   const deckGroups = new Map();
+  const carouselGroups = new Map();
   const bannerGroups = new Map();
+  const admatGroups = new Map();
   const sequenceGroups = new Map();
 
   // assets[0] is the hero (first in drag-to-order ranking) — skip it.
@@ -254,7 +318,7 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN, chunks } = {}) 
   // can restore the original orderRank interleaving.
   for (let i = 1; i < assets.length; i++) {
     const asset = assets[i];
-    const lane = assetLane(asset);
+    const lane = assetLane(asset, surface);
 
     // Skip empty shells — assets with no uploaded media can't render
     if (!lane) continue;
@@ -268,8 +332,15 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN, chunks } = {}) 
       const key = asset.displayGroup ?? 'deck';
       if (!deckGroups.has(key)) deckGroups.set(key, []);
       deckGroups.get(key).push(asset);
-    } else if (lane === 'carousel') carousels.push(asset);
-    else if (lane === 'banner') {
+    } else if (lane === 'carousel') {
+      const key = asset.displayGroup ?? 'carousel';
+      if (!carouselGroups.has(key)) carouselGroups.set(key, []);
+      carouselGroups.get(key).push(asset);
+    } else if (lane === 'admat') {
+      const key = asset.displayGroup ?? 'admat';
+      if (!admatGroups.has(key)) admatGroups.set(key, []);
+      admatGroups.get(key).push({ i, asset });
+    } else if (lane === 'banner') {
       const key = asset.displayGroup;
       if (!bannerGroups.has(key)) bannerGroups.set(key, []);
       bannerGroups.get(key).push(asset);
@@ -287,6 +358,14 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN, chunks } = {}) 
     showcase.push({ i: members[0].i, asset: makeSequence(`sequence:${group}`, frames, frames.map(ratioOf)) });
   }
 
+  // An admat set of one rides the showcase at its place, as a one-member
+  // sequence does.
+  const admats = [];
+  for (const [group, members] of admatGroups) {
+    if (members.length < 2) showcase.push(members[0]);
+    else admats.push({ group, items: sortByDeckOrder(members.map((e) => e.asset)) });
+  }
+
   // ORBIT_MIN gate — below it, covers fold back into the showcase flow.
   const orbits = albumArt.length >= orbitMin;
   const showcaseOut = expandChunks(
@@ -299,19 +378,15 @@ export function buildContentFlow(assets, { orbitMin = ORBIT_MIN, chunks } = {}) 
   // keeps orderRank order for ties).
   const brandDecks = [...deckGroups.entries()].map(([group, pages]) => ({
     group,
-    pages: [...pages].sort(
-      (a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0)
-    ),
+    pages: sortByDeckOrder(pages),
   }));
 
-  // Group carousels by displayGroup; the sort is stable so within each group
-  // assets keep their incoming order (orderRank, set via drag-to-order).
-  carousels.sort((a, b) =>
-    (a.displayGroup ?? '').localeCompare(b.displayGroup ?? '')
-  );
+  // Carousels group like decks: group order = first appearance, slides keep
+  // their incoming order (orderRank, set via drag-to-order) within a group.
+  const carousels = [...carouselGroups.entries()].map(([group, pages]) => ({ group, pages }));
 
   // Banners keep incoming orderRank order within each group.
   const banners = [...bannerGroups.entries()].map(([group, items]) => ({ group, items }));
 
-  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, banners, bts };
+  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, banners, admats, bts };
 }

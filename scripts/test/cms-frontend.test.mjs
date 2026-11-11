@@ -36,8 +36,8 @@ const documents = [
   media('hero', '0|hzzzzz:', { mediaType: 'featured-project-reel', video }),
   media('cover', '0|i00007:', { mediaType: 'album-art', image, releaseInfo: { releaseArtist: 'Studio artist', releaseTitle: 'Studio release' } }),
   media('page-2', '0|i0000f:', { mediaType: 'brand-deck', image, displayGroup: 'reviewed-deck', brandDeckOrder: 2 }),
-  media('page-1', '0|i0000n:', { mediaType: 'brand-deck', image, displayGroup: 'reviewed-deck', brandDeckOrder: 1 }),
-  media('slide-1', '0|i0000v:', { mediaType: 'carousel-slide', image, displayGroup: 'reviewed-carousel' }),
+  media('page-1', '0|i0000n:', { mediaType: 'brand-deck', image, displayGroup: 'reviewed-deck', brandDeckOrder: 1, groupType: 'deck' }),
+  media('slide-1', '0|i0000v:', { mediaType: 'carousel-slide', image, displayGroup: 'reviewed-carousel', groupType: 'carousel' }),
   media('slide-2', '0|i00013:', { mediaType: 'carousel-slide', image, displayGroup: 'reviewed-carousel' }),
   media('motion', '0|i0001b:', { mediaType: 'motion_other', video }),
   media('banner-2', '0|i0001c:', { mediaType: 'static_other', image, displayGroup: 'soundcloud-banners' }),
@@ -54,7 +54,12 @@ test('published scoped detail query preserves hero, deck/carousel order and rele
   assert.equal(detail.assets[1].releaseInfo.releaseTitle, 'Studio release')
   const flow = buildContentFlow(detail.assets)
   assert.deepEqual(flow.brandDecks[0].pages.map(({ _id }) => _id), ['page-1', 'page-2'])
-  assert.deepEqual(flow.carousels.map(({ _id }) => _id), ['slide-1', 'slide-2'])
+  // Carousels group like decks (11-10): [{group, pages}], orderRank order within a group.
+  assert.deepEqual(flow.carousels.map(({ group, pages }) => [group, pages.map(({ _id }) => _id)]), [['reviewed-carousel', ['slide-1', 'slide-2']]])
+  assert.deepEqual(flow.admats, [])
+  // groupType (11-10) rides the query where the documents carry it, and reads as null where they don't.
+  const typeOf = (id) => detail.assets.find((a) => a._id === id).groupType
+  assert.deepEqual([typeOf('page-1'), typeOf('slide-1'), typeOf('slide-2'), typeOf('cover')], ['deck', 'carousel', null, null])
   // Banner groups (09-10): routed by displayGroup, orderRank order kept, out of the showcase.
   assert.deepEqual(flow.banners, [{ group: 'soundcloud-banners', items: flow.banners[0].items }])
   assert.deepEqual(flow.banners[0].items.map(({ _id }) => _id), ['banner-2', 'banner-1'])
@@ -75,6 +80,9 @@ test('appended media stays in the same world and does not change hero or route',
   assert.equal(worlds[0].assets.at(-1)._id, 'new-media')
   assert.equal(worlds[0].assets.at(-1).videoAspectRatio, '4:3')
   assert.equal(worlds[0].assets.at(-1).videoStatus, 'ready')
+  // The Worlds projection carries groupType too: the globe's pools read it (11-10).
+  assert.equal(worlds[0].assets.find((a) => a._id === 'slide-1').groupType, 'carousel')
+  assert.equal(worlds[0].assets.find((a) => a._id === 'cover').groupType, null)
 })
 
 test('a -sequence group is ONE showcase tile: frames in Studio order, the least-crop shape, stills only (10-31)', async () => {
