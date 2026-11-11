@@ -8,13 +8,16 @@
  *     "Vertical" is a ratio under PORTRAIT_THRESHOLD (a square counts, as it
  *     does for a tile). Members keep their order: a row is a run of one
  *     orientation, filled to its column count, so a change of orientation (or
- *     the end of the set) leaves a partial row. A partial row is LEFT-ALIGNED
- *     at the full row's cell size — every piece of one orientation stays one
- *     size, none stretches to fill. Each orientation crops (cover) to ONE
- *     shape, "shortest asset wins": the WIDEST ratio among its members.
+ *     the end of the set) leaves a partial row. A partial row of verticals is
+ *     LEFT-ALIGNED at the full row's cell size; a LONE horizontal fills the
+ *     container's full width at the horizontal shape (Nathan 11-11). Each
+ *     orientation crops (cover) to ONE shape, "shortest asset wins": the
+ *     WIDEST ratio among its members.
  *   - visuals: horizontal loops on the deck wall (AlbumArtViewer): 2 columns on
  *     a desktop, 1 (the container's full width) on a phone, at the set's
- *     sequenceRatio, a socket one whole loop tall.
+ *     sequenceRatio. The socket is as tall as the whole set (every loop once,
+ *     so no loop repeats in view) up to `maxRows`, the deck wall's height by
+ *     default (FeaturedProjectDetail, ?visualsrows); past it the wall drifts.
  *
  * The socket height in grid rows comes from the measured grid (width + row
  * gap, useGridMetrics), through the row pitch like the banner and admat
@@ -55,6 +58,8 @@ export function liveFootageLayout(items, { cols }) {
     if (last && last.kind === kind && last.items.length < cols[kind]) last.items.push(asset);
     else rows.push({ kind, cols: cols[kind], ratio: widest[kind], items: [asset] });
   });
+  // A lone horizontal fills the full width (Nathan 11-11), not half a row.
+  for (const row of rows) if (row.kind === 'h' && row.items.length === 1) row.cols = 1;
   return rows;
 }
 
@@ -74,13 +79,16 @@ export function liveFootagePlan(items, { phone = false, width, gap } = {}) {
 
 /**
  * A visuals set's wall: the page shape (sequenceRatio over the members), the
- * column count and the socket's height in grid rows (one whole loop tall).
+ * column count and the socket's height in grid rows: the whole set (its loops
+ * stacked in `cols` columns) capped at `maxRows`, never under one loop.
  */
-export function visualsWall(items, { phone = false, width, gap } = {}) {
+export function visualsWall(items, { phone = false, width, gap, maxRows = Infinity } = {}) {
   const w = width || FOOTAGE_WIDTH_FALLBACK;
   const g = width ? (gap ?? 0) : FOOTAGE_GAP_FALLBACK;
   const cols = phone ? VISUALS_COLS.phone : VISUALS_COLS.desktop;
   const ratio = sequenceRatio(items.map((a) => ratioOf(a)));
   const pageH = (w - (cols - 1) * g) / cols / ratio;
-  return { ratio, cols, spanRows: rowsForPx(pageH, g) };
+  const perCol = Math.max(1, Math.ceil(items.length / cols));
+  const setRows = rowsForPx(perCol * pageH + (perCol - 1) * g, g);
+  return { ratio, cols, spanRows: Math.max(rowsForPx(pageH, g), Math.min(setRows, maxRows)) };
 }

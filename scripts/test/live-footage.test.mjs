@@ -44,7 +44,7 @@ test('desktop: verticals 3 across, horizontals 2 across', () => {
     ['v', 3, ['v-34-a', 'v-916-a', 'v-34-b'], 0.75],
     ['v', 3, ['v-916-b', 'v-34-c'], 0.75],
     ['h', 2, ['h-43', 'h-169'], +(16 / 9).toFixed(4)], // shortest wins: the widest horizontal ratio
-    ['h', 2, ['h-43b'], +(16 / 9).toFixed(4)],
+    ['h', 1, ['h-43b'], +(16 / 9).toFixed(4)], // a lone horizontal fills the full width (Nathan 11-11)
   ])
 })
 
@@ -52,6 +52,8 @@ test('members keep their order: a change of orientation ends the row, nothing is
   const items = [still('v1', 'static_3x4'), clip('h1', 'motion_16x9'), still('v2', 'static_3x4'), still('v3', 'static_3x4')]
   const rows = liveFootageLayout(items, { cols: FOOTAGE_COLS.desktop })
   assert.deepEqual(rows.map((r) => [r.kind, ids(r)]), [['v', ['v1']], ['h', ['h1']], ['v', ['v2', 'v3']]])
+  // a partial row of verticals keeps the full row's cell size; a lone horizontal goes full width
+  assert.deepEqual(rows.map((r) => r.cols), [3, 1, 3])
   assert.deepEqual(rows.flatMap(ids), ['v1', 'h1', 'v2', 'v3'])
   // a square counts as vertical, as it does for a tile; one shape per orientation across the whole set
   const sq = liveFootageLayout([still('sq', 'static_1x1'), still('v', 'static_3x4')], { cols: FOOTAGE_COLS.desktop })
@@ -79,16 +81,24 @@ test('plan: row heights follow the cell width ÷ the row shape; the socket is wh
   assert.equal(liveFootagePlan(items, {}).spanRows, plan.spanRows)
 })
 
-test('visuals wall: 2 columns on a desktop, 1 on a phone, one whole loop tall at the set ratio', () => {
+test('visuals wall: 2 columns on a desktop, 1 on a phone; as tall as the whole set, capped at maxRows', () => {
   const items = [clip('l1', 'motion_16x9'), clip('l2', 'motion_16x9'), clip('l3', 'motion_4x3')]
+  const pitch = (px) => Math.ceil((px + 2) / (GRID_ROW_PX + 2))
   const desk = visualsWall(items, { phone: false, width: 1440, gap: 2 })
   assert.equal(desk.cols, VISUALS_COLS.desktop)
   assert.equal(desk.cols, 2)
   assert.equal(desk.ratio, 16 / 9) // sequenceRatio: the shape that crops the set least
   const deskPx = (1440 - 2) / 2 / (16 / 9)
-  assert.equal(desk.spanRows, Math.ceil((deskPx + 2) / (GRID_ROW_PX + 2)))
+  // 3 loops in 2 columns: 2 loops per column, every loop once
+  assert.equal(desk.spanRows, pitch(2 * deskPx + 2))
   const phone = visualsWall(items, { phone: true, width: 390, gap: 2 })
   assert.equal(phone.cols, 1)
-  assert.equal(phone.spanRows, Math.ceil((390 / (16 / 9) + 2) / (GRID_ROW_PX + 2)))
+  assert.equal(phone.spanRows, pitch(3 * (390 / (16 / 9)) + 2 * 2))
   assert.ok(phone.spanRows < desk.spanRows)
+  // a long set stops at the cap and drifts; the cap never cuts under one loop
+  const many = Array.from({ length: 18 }, (_, i) => clip(`m${i}`, 'motion_16x9'))
+  assert.equal(visualsWall(many, { phone: false, width: 1440, gap: 2, maxRows: 68 }).spanRows, 68)
+  assert.equal(visualsWall(many, { phone: false, width: 1440, gap: 2, maxRows: 3 }).spanRows, pitch(deskPx))
+  // one loop: one loop tall
+  assert.equal(visualsWall([items[0]], { phone: false, width: 1440, gap: 2, maxRows: 68 }).spanRows, pitch(deskPx))
 })

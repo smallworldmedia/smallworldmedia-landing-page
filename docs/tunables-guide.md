@@ -589,6 +589,7 @@ The description's first paragraph is the intro blurb; each later paragraph (a bl
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
 | `?blurbrows` | squares of the 3-col grid between bands, counted from the top of the tile field; closed up to an even spread only when the grid is too short to fit every band at this pitch | `2` (Nathan 11-03: "the two paragraphs look great"; 3+ paragraphs go "every couple of rows", not spread through the whole grid, so the `0` = even-spread mode was removed) | any number > 0 | `FeaturedProjectDetail.jsx BLURB_ROWS` |
+| `?visualsrows` | US-4 (11-11): the most grid rows (10px tracks + gap) a VISUALS wall may take. The wall is as tall as its whole set (every loop once, 2 columns desktop / 1 phone) up to this cap; past it the loops drift like a deck. One value for every width | deck wall height: `68` (`DECK_REGION_ROWS`), `26` on a 1-column phone | any number > 0 | `FeaturedProjectDetail.jsx VISUALS_ROWS_PHONE` / `DECK_REGION_ROWS` |
 
 ### Phone reading sections (SQ-26, reworked SQ-27, text fit + page end + top bounce + nav clearance SQ-28, 11-07; growth + air SQ-30, 11-08)
 

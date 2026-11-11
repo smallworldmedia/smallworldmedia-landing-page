@@ -114,6 +114,15 @@ const CAROUSEL_REGION_ROWS_FALLBACK = 43;
    paragraphs look great"), and 3+ go "every couple of rows" — not spread
    through the whole grid. ?blurbrows=<squares> re-dials it live. */
 const BLURB_ROWS = 2;
+/* US-4 (11-11): a visuals wall is as tall as its whole set, up to the deck
+   wall's height (DECK_REGION_ROWS; a phone, VISUALS_ROWS_PHONE = the deck's
+   ≤1024 band), so a long set drifts like a deck. ?visualsrows=<grid rows>
+   re-dials the cap live (one value for every width). */
+const VISUALS_ROWS_PHONE = 26;
+const readVisualsRows = () => {
+  const v = parseFloat(new URLSearchParams(window.location.search).get('visualsrows'));
+  return Number.isFinite(v) && v > 0 ? v : null;
+};
 const readBlurbRows = () => {
   const v = parseFloat(new URLSearchParams(window.location.search).get('blurbrows'));
   return Number.isFinite(v) && v > 0 ? v : BLURB_ROWS;
@@ -373,6 +382,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const gridMetrics = useGridMetrics(flowRef);
   const [blurbRows, setBlurbRows] = useState(BLURB_ROWS);
   useEffect(() => setBlurbRows(readBlurbRows()), []);
+  const [visualsRowsParam, setVisualsRowsParam] = useState(null);
+  useEffect(() => setVisualsRowsParam(readVisualsRows()), []);
   // A span of N rows is N tracks plus N-1 row gaps tall, so convert the
   // wanted pixel height through the row PITCH (track + gap), not the track.
   const bannerRows = (group) => {
@@ -406,9 +417,11 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   };
 
   // US-4 sets (liveFootageLayout.js): a visuals wall (2 columns, 1 on a phone,
-  // one whole loop tall) and a live-footage grid per set, sized from the measured grid.
+  // the whole set up to the deck wall's height) and a live-footage grid per
+  // set, sized from the measured grid.
   const setGeo = { phone: gridMetrics?.cols === 1, width: gridMetrics?.width, gap: gridMetrics?.rowGap };
-  const visualsWalls = visuals.map((set) => ({ ...set, ...visualsWall(set.items, setGeo) }));
+  const visualsMaxRows = visualsRowsParam ?? (setGeo.phone ? VISUALS_ROWS_PHONE : DECK_REGION_ROWS);
+  const visualsWalls = visuals.map((set) => ({ ...set, ...visualsWall(set.items, { ...setGeo, maxRows: visualsMaxRows }) }));
   const footageGrids = liveFootage.map((set) => ({ ...set, plan: liveFootagePlan(set.items, setGeo) }));
 
   // Tile spans, through the same pitch (tileGrid.js). ≤ 1024 the spans

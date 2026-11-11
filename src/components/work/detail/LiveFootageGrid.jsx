@@ -4,8 +4,9 @@
  *
  * Phone: vertical media 2 across, horizontal media full width. Desktop:
  * vertical 3 across, horizontal 2 across. Each orientation crops (cover) to
- * ONE shape — the widest ratio among its members — and a partial row is
- * left-aligned at the full row's cell size (liveFootageLayout.js owns the
+ * ONE shape — the widest ratio among its members. A partial row of verticals
+ * is left-aligned at the full row's cell size; a lone horizontal fills the
+ * full width (liveFootageLayout.js owns the
  * geometry and the socket's height; FeaturedProjectDetail hands the plan in).
  *
  * Every member is a MediaSlot (the page's own player: a clip loops muted
