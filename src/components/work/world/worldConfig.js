@@ -93,9 +93,15 @@ export const CORNER_INSET = num('cornerin', 0.5); // seat pull-in factor (1 = th
 // one cell TALLER (?wallrows extra lon cells on the reserved footprint) and
 // re-column: decks show ONE column of pages, album art TWO (was the
 // DeckScroller auto count, 3 for squares). 0 = the auto column math.
+// 11-11 (US-4, Nathan): album art reads 4 across on desktop (was the auto 3)
+// and its plate is 1.5× taller at the same width (fpDrum's album stripDef).
 export const WALL_EXTRA_ROWS = num('wallrows', IS_MOBILE ? 1 : 0);
 export const WALL_DECK_COLS = num('deckcols', IS_MOBILE ? 1 : 0);
-export const WALL_ALBUM_COLS = num('albumcols', IS_MOBILE ? 2 : 0);
+export const WALL_ALBUM_COLS = num('albumcols', IS_MOBILE ? 2 : 4);
+// 11-11 (US-4): a carousel wall plate runs horizontally like the detail page's
+// strip — this many slides across the plate (the next slide peeks). Same
+// param and defaults as the detail page's DeckScroller reads.
+export const WALL_CAROUSEL_VIS = Math.max(1, num('carouselvis', IS_MOBILE ? 1.5 : 3.5));
 // r11b (Nathan: "resolution still lacking"): the wall canvas width in px.
 // Since 10-09 the pages sit still in a per-column atlas the shader scrolls,
 // so the area sets texture memory and the one upload per landed page —

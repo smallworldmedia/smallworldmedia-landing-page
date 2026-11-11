@@ -26,6 +26,13 @@
  * grid, per Nathan's 08-27 call. Replaces createRegisterPlate in DRUM only
  * (ATLAS keeps its meridian-wipe register plates).
  *
+ * 11-11 (US-4): a second AXIS. A carousel reads like a social feed, so its
+ * plate lays the atlas out as ROWS and the shader travels on u: slides run
+ * left to right, row 0 drifts leftward, odd rows the other way, the same
+ * WALL_DRIFT idle and |Δ roll| kick. One row by default (the detail page's
+ * strip: ?carouselvis slides across). The x atlas is the y atlas transposed;
+ * the y path is untouched.
+ *
  * Record contract (slot.bands): { group, appear, qSpawn, paint(opacity),
  * dispose() } — applyAtlasSlot slerps group by appear and calls paint with the
  * composited fade × slot opacity every frame.
@@ -57,6 +64,9 @@ const BORDER_ALPHA = 0.9;
    ATLAS only, so a mip texel never mixes a neighbouring column's pages. */
 const ATLAS_ROW_Q = 16;
 const ATLAS_COL_PAD = 16;
+/* The x axis holds a whole carousel on one strip (slides side by side), so
+   its atlas is the long one: capped at a width every WebGL2 GPU samples. */
+const ATLAS_MAX_W = 8192;
 
 // r11b (Nathan: walls read soft): the per-page texture request width follows
 // the wall's COLUMN width — a fixed 480 drawn into a 704px single column
@@ -70,8 +80,9 @@ const pageSrc = (p, reqW) =>
       : null;
 
 /** drawImage cover-fit (the CSS object-fit:cover the DOM wall relies on):
- *  crops to the w × h page, then draws it dh tall (the atlas row stretch). */
-function drawCover(c, img, x, y, w, h, dh = h) {
+ *  crops to the w × h page, then draws it dh tall (the y atlas's row stretch)
+ *  and dw wide (the x atlas's). */
+function drawCover(c, img, x, y, w, h, dh = h, dw = w) {
   const iw = img.naturalWidth;
   const ih = img.naturalHeight;
   if (!iw || !ih) return;
@@ -88,7 +99,7 @@ function drawCover(c, img, x, y, w, h, dh = h) {
     sh = iw / ca;
     sy = (ih - sh) / 2;
   }
-  c.drawImage(img, sx, sy, sw, sh, x, y, w, dh);
+  c.drawImage(img, sx, sy, sw, sh, x, y, dw, dh);
 }
 
 /* The plate's map lookup, scrolled. vMapUv (plateCover's U-flip + crop) is
@@ -113,6 +124,125 @@ const WALL_MAP_FRAGMENT = /* glsl */ `
 #endif
 `;
 
+/* The x axis's lookup: the same map, transposed. Rows (not columns) own the
+   cross axis and the travel runs on u: row 0 +, odd rows −, so row 0's
+   content moves LEFT. uWallGeom = (W, H, row pitch, rows); uWallAtlas =
+   (atlasW, atlasH, sigma, ROW_PAD), sigma = atlas columns per canvas px
+   along the stretched cycle. */
+const WALL_MAP_FRAGMENT_X = /* glsl */ `
+#ifdef USE_MAP
+	float wallX = vMapUv.x * uWallGeom.x;
+	float wallY = ( 1.0 - vMapUv.y ) * uWallGeom.y;
+	float wallRow = clamp( floor( wallY / uWallGeom.z ), 0.0, uWallGeom.w - 1.0 );
+	float wallDir = 1.0 - 2.0 * mod( wallRow, 2.0 );
+	vec2 wallUv = vec2(
+		( uWallAtlas.z * wallX + wallDir * uWallTravel ) / uWallAtlas.x,
+		1.0 - ( wallY + wallRow * uWallAtlas.w ) / uWallAtlas.y
+	);
+	vec2 wallGrad = vec2( uWallAtlas.z * uWallGeom.x / uWallAtlas.x, uWallGeom.y / uWallAtlas.y );
+	vec4 sampledDiffuseColor = textureGrad( map, wallUv, dFdx( vMapUv ) * wallGrad, dFdy( vMapUv ) * wallGrad );
+	diffuseColor *= sampledDiffuseColor;
+#endif
+`;
+
+/* Layout per axis. Both return the same shape: the atlas size, `cycle` (the
+   canvas px length the travel wraps at) with its atlas stretch `sigma`, the
+   shader's two vec4s, the page request width, and one cell per painted page. */
+
+// y — DeckScroller's column math, verbatim in canvas px. Column i cycles
+// pages (i + n·cols) mod N: reading order runs across the wall then wraps
+// (every column stays populated).
+export function layoutCols({ W, H, GAP, ratio, pages, colsOverride }) {
+  const idealPageH = H / VISIBLE_ROWS;
+  // r11: a caller-fixed column count (the mobile re-tier: deck 1 / album
+  // 2) replaces the VISIBLE_ROWS-derived auto count when given.
+  const cols =
+    colsOverride > 0 ? Math.round(colsOverride) : Math.max(2, Math.round(W / (idealPageH * ratio)));
+  const colW = (W - (cols - 1) * GAP) / cols;
+  const pageH = colW / ratio;
+  const perCol = Math.max(2, Math.ceil((H + pageH) / (pageH + GAP)));
+  const pitch = pageH + GAP;
+  const cycle = perCol * pitch;
+  const atlasH = Math.ceil(cycle / ATLAS_ROW_Q) * ATLAS_ROW_Q;
+  const sigma = atlasH / cycle; // atlas rows per canvas px (≥ 1)
+  const atlasW = W + (cols - 1) * ATLAS_COL_PAD;
+  const cells = [];
+  for (let col = 0; col < cols; col++) {
+    const x = col * (colW + GAP + ATLAS_COL_PAD);
+    for (let n = 0; n < perCol; n++) {
+      cells.push({
+        page: pages[(col + n * cols) % pages.length],
+        x,
+        y: n * pitch * sigma,
+        w: colW,
+        h: pageH,
+        dh: pageH * sigma,
+        dw: colW,
+      });
+    }
+  }
+  return {
+    cols,
+    rows: 0,
+    pageW: colW,
+    atlasW,
+    atlasH,
+    sigma,
+    cycle,
+    geom: [W, H, colW + GAP, cols],
+    pad: ATLAS_COL_PAD,
+    cells,
+  };
+}
+
+// x — the transpose. `across` slides fit the plate's width; rows follow the
+// plate's height (one, when the footprint was sized for it). Row r cycles
+// pages (r + n·rows) mod N, so a single row reads 1..N left to right, and
+// the cycle holds the WHOLE set (not just a window's worth) up to the atlas
+// cap, repeated whole when the set is shorter than the window.
+export function layoutRows({ W, H, GAP, ratio, pages, across }) {
+  const vis = Math.max(1, across);
+  const slideW = (W - (vis - 1) * GAP) / vis;
+  const pitch = slideW + GAP;
+  const rows = Math.max(1, Math.round((H + GAP) / (slideW / ratio + GAP)));
+  const slideH = (H - (rows - 1) * GAP) / rows; // slides fill the plate (cover-cropped)
+  const n = pages.length;
+  const minPer = Math.ceil(W / pitch) + 1;
+  const wholeSets = n >= minPer ? n : n * Math.ceil(minPer / n);
+  const perRow = Math.min(wholeSets, Math.max(minPer, Math.floor(ATLAS_MAX_W / pitch)));
+  const cycle = perRow * pitch;
+  const atlasW = Math.ceil(cycle / ATLAS_ROW_Q) * ATLAS_ROW_Q;
+  const sigma = atlasW / cycle; // atlas columns per canvas px (≥ 1)
+  const atlasH = H + (rows - 1) * ATLAS_COL_PAD;
+  const cells = [];
+  for (let row = 0; row < rows; row++) {
+    const y = row * (slideH + GAP + ATLAS_COL_PAD);
+    for (let k = 0; k < perRow; k++) {
+      cells.push({
+        page: pages[(row + k * rows) % n],
+        x: k * pitch * sigma,
+        y,
+        w: slideW,
+        h: slideH,
+        dh: slideH,
+        dw: slideW * sigma,
+      });
+    }
+  }
+  return {
+    cols: 0,
+    rows,
+    pageW: slideW,
+    atlasW,
+    atlasH,
+    sigma,
+    cycle,
+    geom: [W, H, slideH + GAP, rows],
+    pad: ATLAS_COL_PAD,
+    cells,
+  };
+}
+
 /**
  * Build a scrolling wall plate for one block.
  *
@@ -120,6 +250,10 @@ const WALL_MAP_FRAGMENT = /* glsl */ `
  *   block        - placed drum block (finalized: lon/lat bounds + coverAspect)
  *   pages        - ordered page records ({ imageUrl, playbackId, ratio })
  *   pageRatio    - uniform page aspect for the wall (deck: pages[0].ratio, album: 1)
+ *   cols         - y axis: caller-fixed column count (0 = the auto count)
+ *   axis         - 'y' (columns of pages, travel on v — decks, album art) or
+ *                  'x' (rows of pages, travel on u — carousels)
+ *   across       - x axis: slides across the plate's width (?carouselvis)
  *   accent       - project color (hex number)
  *   parent       - THREE.Group to mount into (slot tier group)
  *   drum         - the drum record (roll-velocity coupling reads state.adv)
@@ -140,34 +274,23 @@ export function createWallPlate({
   spawnTarget,
   orders,
   cols: colsOverride = 0,
+  axis = 'y',
+  across = 0,
 }) {
   const W = CANVAS_W;
   const H = Math.max(64, Math.round(W / Math.max(0.2, block.coverAspect)));
   const GAP = Math.max(1, Math.round(W / 320)); // ≈2px per 640 — hairline gutters
 
-  // DeckScroller layout math, verbatim in canvas px.
+  const isX = axis === 'x';
   const ratio = pageRatio && pageRatio > 0 ? pageRatio : 16 / 9;
-  const idealPageH = H / VISIBLE_ROWS;
-  // r11: a caller-fixed column count (the mobile re-tier: deck 1 / album
-  // 2) replaces the VISIBLE_ROWS-derived auto count when given.
-  const cols =
-    colsOverride > 0 ? Math.round(colsOverride) : Math.max(2, Math.round(W / (idealPageH * ratio)));
-  const colW = (W - (cols - 1) * GAP) / cols;
-  const pageH = colW / ratio;
-  const perCol = Math.max(2, Math.ceil((H + pageH) / (pageH + GAP)));
-  const reqW = Math.min(1024, Math.ceil(colW / 64) * 64);
+  const layout = isX
+    ? layoutRows({ W, H, GAP, ratio, pages, across })
+    : layoutCols({ W, H, GAP, ratio, pages, colsOverride });
+  const { cols, rows, atlasW, atlasH, sigma, cycle } = layout;
+  const reqW = Math.min(1024, Math.ceil(layout.pageW / 64) * 64);
   const srcOf = (p) => pageSrc(p, reqW);
-  const pitch = pageH + GAP;
-  const cycleH = perCol * pitch;
-  // Column i cycles pages (i + n·cols) mod N — reading order runs across the
-  // wall then wraps (the DeckScroller idiom, every column stays populated).
-  const columnPages = (col) =>
-    Array.from({ length: perCol }, (_, n) => pages[(col + n * cols) % pages.length]);
 
-  // The static atlas: one page cycle per column, top to bottom.
-  const atlasH = Math.ceil(cycleH / ATLAS_ROW_Q) * ATLAS_ROW_Q;
-  const sigma = atlasH / cycleH; // atlas rows per canvas px (≥ 1)
-  const atlasW = W + (cols - 1) * ATLAS_COL_PAD;
+  // The static atlas: one page cycle per column (y) or row (x).
   const canvas = document.createElement('canvas');
   canvas.width = atlasW;
   canvas.height = atlasH;
@@ -205,14 +328,9 @@ export function createWallPlate({
   const paintAtlas = () => {
     c.fillStyle = '#000000';
     c.fillRect(0, 0, atlasW, atlasH);
-    for (let col = 0; col < cols; col++) {
-      const cycle = columnPages(col);
-      const x = col * (colW + GAP + ATLAS_COL_PAD);
-      for (let n = 0; n < perCol; n++) {
-        const p = cycle[n];
-        const entry = p && images.get(srcOf(p));
-        if (entry?.ready) drawCover(c, entry.img, x, n * pitch * sigma, colW, pageH, pageH * sigma);
-      }
+    for (const cell of layout.cells) {
+      const entry = cell.page && images.get(srcOf(cell.page));
+      if (entry?.ready) drawCover(c, entry.img, cell.x, cell.y, cell.w, cell.h, cell.dh, cell.dw);
     }
   };
   paintAtlas();
@@ -220,15 +338,16 @@ export function createWallPlate({
   const texture = new THREE.CanvasTexture(canvas);
   // plateCover maps the VIRTUAL W × H canvas (aspect == block coverAspect by
   // construction: the BackSide U-flip, no crop); the shader takes it on into
-  // the atlas. The cycle repeats down the strip.
+  // the atlas. The cycle repeats down the strip (y) or along it (x).
   plateCover(texture, block.coverAspect, W / H);
-  texture.wrapT = THREE.RepeatWrapping;
+  if (isX) texture.wrapS = THREE.RepeatWrapping;
+  else texture.wrapT = THREE.RepeatWrapping;
   const uniforms = {
-    // Column travel in atlas rows, wrapped on the CPU to [0, atlasH) so
-    // float32 stays exact however long the session runs.
+    // Travel in atlas texels along the cycle, wrapped on the CPU to
+    // [0, atlas length) so float32 stays exact however long the session runs.
     uWallTravel: { value: 0 },
-    uWallGeom: { value: new THREE.Vector4(W, H, colW + GAP, cols) },
-    uWallAtlas: { value: new THREE.Vector4(atlasW, atlasH, sigma, ATLAS_COL_PAD) },
+    uWallGeom: { value: new THREE.Vector4(...layout.geom) },
+    uWallAtlas: { value: new THREE.Vector4(atlasW, atlasH, sigma, layout.pad) },
   };
   const material = new THREE.MeshBasicMaterial({
     map: texture,
@@ -244,9 +363,9 @@ export function createWallPlate({
         'void main() {',
         'uniform float uWallTravel;\nuniform vec4 uWallGeom;\nuniform vec4 uWallAtlas;\nvoid main() {'
       )
-      .replace('#include <map_fragment>', WALL_MAP_FRAGMENT);
+      .replace('#include <map_fragment>', isX ? WALL_MAP_FRAGMENT_X : WALL_MAP_FRAGMENT);
   };
-  material.customProgramCacheKey = () => 'fpDrumWall-atlas';
+  material.customProgramCacheKey = () => (isX ? 'fpDrumWall-atlas-x' : 'fpDrumWall-atlas');
   const mesh = new THREE.Mesh(geometryFor(block, 0), material);
   mesh.renderOrder = orders.front;
 
@@ -266,7 +385,7 @@ export function createWallPlate({
   let lastNow = performance.now();
   let lastAdv = drum?.state?.adv ?? 0;
   let dirty = true;
-  let travel = 0; // canvas px, [0, cycleH)
+  let travel = 0; // canvas px, [0, cycle)
 
   const record = {
     group,
@@ -295,8 +414,44 @@ export function createWallPlate({
       lastAdv = adv;
       // Knobs are calibrated at the original 640px canvas — scale with the
       // shipped resolution so the on-screen rate is resolution-independent.
-      travel = (travel + (WALL_DRIFT * dt + kick) * (W / 640)) % cycleH;
+      travel = (travel + (WALL_DRIFT * dt + kick) * (W / 640)) % cycle;
       uniforms.uWallTravel.value = travel * sigma;
+    },
+    // Debug handle only (?debug → window.__fpDrum[slug].seekWalls): park the
+    // travel at a fraction of the cycle — how a probe checks the Repeat wrap.
+    seek(frac) {
+      travel = (((frac % 1) + 1) % 1) * cycle;
+      uniforms.uWallTravel.value = travel * sigma;
+    },
+    // Read-only snapshot for the debug handle (window.__fpDrum[slug].walls).
+    probe(camera) {
+      const g = mesh.geometry; // a drum sector, built in place: project its vertices for the on-screen rect
+      const pos = g.attributes.position;
+      const v = new THREE.Vector3();
+      const ndc = [Infinity, Infinity, -Infinity, -Infinity];
+      mesh.updateWorldMatrix(true, false);
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld).project(camera);
+        ndc[0] = Math.min(ndc[0], v.x);
+        ndc[1] = Math.min(ndc[1], v.y);
+        ndc[2] = Math.max(ndc[2], v.x);
+        ndc[3] = Math.max(ndc[3], v.y);
+      }
+      const r = (n) => Math.round(n * 100) / 100;
+      return {
+        axis,
+        travelAxis: isX ? 'u' : 'v', // which texture axis uWallTravel scrolls
+        cols,
+        rows,
+        pageRatio: ratio,
+        coverAspect: r(block.coverAspect), // the plate's projected w/h
+        canvas: [W, H],
+        atlas: [atlasW, atlasH],
+        uWallTravel: uniforms.uWallTravel.value,
+        sigma,
+        travelLen: isX ? atlasW : atlasH, // the uniform wraps here (atlas texels along the travel axis)
+        ndc: ndc.map(r),
+      };
     },
     dispose() {
       record.disposed = true;
