@@ -235,8 +235,8 @@ test('video rebind refuses an unready or wrong-type target, an image asset, an u
   assert.equal(h.db.get(old._id).video.asset._ref,'mux-wrong'); assert.equal(h.stats.commits,0)
 })
 
-test('groupType: one of the eight set types; every type but album art names its set with displayGroup', async t => {
-  for (const groupType of ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage']) validatePatch('mediaAsset',{groupType},[])
+test('groupType: one of the ten set types; every type but album art names its set with displayGroup', async t => {
+  for (const groupType of ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']) validatePatch('mediaAsset',{groupType},[])
   validatePatch('mediaAsset',{},['groupType'])
   for (const set of [{groupType:'sequence'},{groupType:'Album Art'},{groupType:null},{groupType:1}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
   assert.throws(() => validatePatch('project',{groupType:'deck'},[]))
@@ -245,6 +245,9 @@ test('groupType: one of the eight set types; every type but album art names its 
   assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-admat',{mediaType:'static_4x5',groupType:'admat'})),/admat piece requires displayGroup/)
   assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-merch',{mediaType:'static_1x1',groupType:'merch'})),/merch piece requires displayGroup/)
   assert.throws(() => validatePatch('mediaAsset',{groupType:'live footage'},[]))
+  assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-mockup',{mediaType:'static_16x9',groupType:'mockups'})),/mockups piece requires displayGroup/)
+  assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-progression',{mediaType:'static_3x4',groupType:'flyer-progression'})),/flyer-progression piece requires displayGroup/)
+  for (const set of [{groupType:'mockup'},{groupType:'flyer progression'}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
 })
 
 test('splitIntoThirds: a boolean flag on video assets only; null and non-booleans are rejected', async t => {
