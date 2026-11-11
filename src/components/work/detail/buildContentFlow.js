@@ -235,10 +235,12 @@ export const GROUP_SURFACES = {
 
 /** The lane a type's piece rides on each surface it opens on, for the types
  *  whose lane differs by surface (US-5). A surface a type leaves out of
- *  GROUP_SURFACES never gets here: that piece is dropped. */
+ *  GROUP_SURFACES never gets here: that piece is dropped. The directory tile
+ *  flips through either set like a sequence (Nathan 11-11), so both ride the
+ *  'sequence' lane there. */
 const SURFACE_LANE = {
-  mockups: { globe: 'sequence', detail: 'mockups', directory: 'mockups' },
-  'flyer-progression': { globe: 'sequence', work: 'sequence', detail: 'carousel', directory: 'carousel' },
+  mockups: { globe: 'sequence', detail: 'mockups', directory: 'sequence' },
+  'flyer-progression': { globe: 'sequence', work: 'sequence', detail: 'carousel', directory: 'sequence' },
 };
 
 /** Types whose pieces are NOT dropped off their surfaces (US-4 decision): they

@@ -384,17 +384,17 @@ test('merch stills collapse into ONE sequence item on every surface, frames in r
 
 const POSTER = (id) => `https://image.mux.com/pb-${id}/thumbnail.webp`
 
-test('assetLane (US-5): mockups follow the surface table and are dropped on /work; flyer-progression is a sequence on globe + work, a carousel on detail + directory', () => {
+test('assetLane (US-5): mockups follow the surface table and are dropped on /work; flyer-progression is a carousel on detail and a sequence everywhere else (the directory flips both, 11-11)', () => {
   const mockStill = still('mk', 'static_4x5', { groupType: 'mockups', displayGroup: 'billboards' })
   const mockClip = clip('mk-m', 'motion_4x5', { groupType: 'mockups', displayGroup: 'billboards' })
-  assert.deepEqual(SURFACES.map((s) => assetLane(mockStill, s)), ['sequence', null, 'mockups', 'mockups'])
-  assert.deepEqual(SURFACES.map((s) => assetLane(mockClip, s)), ['sequence', null, 'mockups', 'mockups'])
+  assert.deepEqual(SURFACES.map((s) => assetLane(mockStill, s)), ['sequence', null, 'mockups', 'sequence'])
+  assert.deepEqual(SURFACES.map((s) => assetLane(mockClip, s)), ['sequence', null, 'mockups', 'sequence'])
   const flyer = still('fp', 'static_4x5', { groupType: 'flyer-progression', displayGroup: 'rollout' })
   const flyerClip = clip('fp-m', 'motion_4x5', { groupType: 'flyer-progression', displayGroup: 'rollout' })
-  assert.deepEqual(SURFACES.map((s) => assetLane(flyer, s)), ['sequence', 'sequence', 'carousel', 'carousel'])
-  assert.deepEqual(SURFACES.map((s) => assetLane(flyerClip, s)), ['sequence', 'sequence', 'carousel', 'carousel'])
+  assert.deepEqual(SURFACES.map((s) => assetLane(flyer, s)), ['sequence', 'sequence', 'carousel', 'sequence'])
+  assert.deepEqual(SURFACES.map((s) => assetLane(flyerClip, s)), ['sequence', 'sequence', 'carousel', 'sequence'])
   // A typed piece with a role still rides its type's lane where the set opens, and the empty shell nothing.
-  assert.deepEqual(SURFACES.map((s) => assetLane({ ...flyerClip, contentRole: 'process' }, s)), ['sequence', 'sequence', 'carousel', 'carousel'])
+  assert.deepEqual(SURFACES.map((s) => assetLane({ ...flyerClip, contentRole: 'process' }, s)), ['sequence', 'sequence', 'carousel', 'sequence'])
   assert.deepEqual(SURFACES.map((s) => assetLane({ _id: 'e', groupType: 'mockups' }, s)), [null, null, null, null])
   // The undefined-surface chain ignores groupType, as it does for every type.
   assert.equal(assetLane(mockStill), 'showcase')
@@ -414,19 +414,19 @@ test("buildContentFlow(surface 'detail'): a mockups set fills flow.mockups in in
     still('mk-3', 'static_16x9', { groupType: 'mockups', displayGroup: 'billboards' }),
     still('shot-b', 'static_4x5'),
   ]
-  for (const surface of ['detail', 'directory']) {
-    const flow = buildContentFlow(assets, { surface })
-    assert.deepEqual(flow.mockups.map((s) => [s.group, ids(s.items)]), [['billboards', ['mk-1', 'mk-2', 'mk-3']]], surface)
-    assert.deepEqual(ids(flow.showcase), ['shot-a', 'solo', 'shot-b'], surface) // the lone one rides at its place
-    assert.deepEqual([flow.carousels, flow.visuals, flow.liveFootage, flow.admats], [[], [], [], []], surface)
-  }
-  // /work: the pieces are gone, no bucket; the globe: one sequence, no bucket.
+  const flow = buildContentFlow(assets, { surface: 'detail' })
+  assert.deepEqual(flow.mockups.map((s) => [s.group, ids(s.items)]), [['billboards', ['mk-1', 'mk-2', 'mk-3']]])
+  assert.deepEqual(ids(flow.showcase), ['shot-a', 'solo', 'shot-b']) // the lone one rides at its place
+  assert.deepEqual([flow.carousels, flow.visuals, flow.liveFootage, flow.admats], [[], [], [], []])
+  // /work: the pieces are gone, no bucket; the globe and the directory (it flips the set, 11-11): one sequence, no bucket.
   const work = buildContentFlow(assets, { surface: 'work' })
   assert.deepEqual(work.mockups, [])
   assert.deepEqual(ids(work.showcase), ['shot-a', 'shot-b'])
-  const globe = buildContentFlow(assets, { surface: 'globe' })
-  assert.deepEqual(globe.mockups, [])
-  assert.deepEqual(ids(globe.showcase), ['shot-a', 'sequence:billboards', 'solo', 'shot-b'])
+  for (const surface of ['globe', 'directory']) {
+    const seqFlow = buildContentFlow(assets, { surface })
+    assert.deepEqual(seqFlow.mockups, [], surface)
+    assert.deepEqual(ids(seqFlow.showcase), ['shot-a', 'sequence:billboards', 'solo', 'shot-b'], surface)
+  }
   // No surface: the bucket stays empty, as every group type's does.
   assert.deepEqual(buildContentFlow(assets).mockups, [])
 })
@@ -447,7 +447,7 @@ test('mockups: the globe set is ONE sequence in input order, and a motion member
   assert.equal(seq.groupType, 'mockups')
 })
 
-test("flyer-progression: a set joins flow.carousels on detail and the directory; on the globe and /work it is ONE sequence, its motion member a poster frame", () => {
+test("flyer-progression: a set joins flow.carousels on detail; on the globe, /work and the directory it is ONE sequence, its motion member a poster frame", () => {
   const assets = [
     clip('hero', 'featured-project-reel'),
     still('shot-a', 'static_4x5'),
@@ -456,13 +456,13 @@ test("flyer-progression: a set joins flow.carousels on detail and the directory;
     still('fp-3', 'static_4x5', { groupType: 'flyer-progression', displayGroup: 'rollout' }),
     still('shot-b', 'static_4x5'),
   ]
-  for (const surface of ['detail', 'directory']) {
+  for (const surface of ['detail']) {
     const flow = buildContentFlow(assets, { surface })
     assert.deepEqual(flow.carousels.map((c) => [c.group, ids(c.pages)]), [['rollout', ['fp-1', 'fp-2', 'fp-3']]], surface)
     assert.deepEqual(ids(flow.showcase), ['shot-a', 'shot-b'], surface)
     assert.equal(flow.carousels[0].pages[1].playbackId, 'pb-fp-2', 'the carousel keeps its motion member as it is')
   }
-  for (const surface of ['globe', 'work']) {
+  for (const surface of ['globe', 'work', 'directory']) {
     const flow = buildContentFlow(assets, { surface })
     assert.deepEqual(flow.carousels, [], surface)
     assert.deepEqual(ids(flow.showcase), ['shot-a', 'sequence:rollout', 'shot-b'], surface)
