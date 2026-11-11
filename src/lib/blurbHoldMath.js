@@ -28,6 +28,11 @@ export const SNAP_PX = 0.5;
 export const MOMENTUM_DECAY = 0.998;
 /** px/ms under which a momentum has stopped. */
 export const MIN_V = 0.01;
+/** Gained delta (finger px × TOUCH_GAIN) that lets a held section go, either way. Its own number since
+    Nathan's 11-11 "reduce the threshold to advance … out of the text blurb areas": 300, 60px of finger at
+    the house gain 5, where the house SCROLL_TRIGGER_WORK_PX 500 (100px) stays the World Turn's and the
+    next-project band's. A proposal: Nathan bakes it on the phone; ?blurbscroll re-dials it. */
+export const BLURB_TRIGGER_PX = 300;
 /** The detail blurbs' text scale TARGET on a phone, a multiple of --text-blurb (SQ-28 11-07, Nathan:
     "increase the size of the description text on mobile"). A proposal: Nathan bakes the number;
     ?blurbtext re-dials it. The fit lowers it per page until every blurb sits inside its seat window. */
@@ -224,7 +229,8 @@ export const emaVelocity = (avg, sample, alpha = 0.4) => (avg === 0 ? sample : a
  *   ?blurbend=0          the page's end is not an arrival target (no slowdown onto it); default on
  *   ?blurbcatch=<lerp>   the arrival slowdown's lerp (0…1]; default LENIS_TUNING.lerp
  *   ?blurbdecel=<f>      the exit momentum's per-ms velocity factor (0…1); default MOMENTUM_DECAY
- *   ?scroll=<px>         the commit trigger, shared with /work and the next-project band
+ *   ?blurbscroll=<px>    the gained delta that lets a held section go (finger px × the touch gain); default BLURB_TRIGGER_PX.
+ *                        Its own key: ?scroll stays the World Turn's and the next-project band's
  * @returns {{ hold: boolean, end: boolean, grow: boolean, peek: number|null, air: number|null, text: number|null, catchLerp: number|null, decel: number|null, trigger: number|null }} null = unset
  */
 export function readBlurbTune(search) {
@@ -237,7 +243,7 @@ export function readBlurbTune(search) {
   const peek = num('blurbpeek');
   const air = num('blurbair');
   const catchLerp = num('blurbcatch');
-  const trigger = num('scroll');
+  const trigger = num('blurbscroll');
   const text = num('blurbtext');
   return {
     hold: num('blurbhold') !== 0,

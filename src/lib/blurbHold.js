@@ -27,8 +27,8 @@
  *           band (lib/rubberBand.js, the next-project band's own step): the
  *           section's copy tracks the finger on DRAG_TRACK_S, the finger's
  *           px gain TOUCH_GAIN, and the lift springs it home.
- *   PASS    past the trigger (SCROLL_TRIGGER_WORK_PX of gained delta, 100px of
- *           finger) the section commits. From there to the lift the page
+ *   PASS    past the trigger (BLURB_TRIGGER_PX 300 of gained delta, 60px of
+ *           finger, Nathan 11-11; ?blurbscroll) the section commits. From there to the lift the page
  *           follows the finger 1:1 (the browser will not pan inside a touch
  *           that began on a held page, so each move scrolls it here), and the
  *           lift hands it the finger's release velocity as momentum that
@@ -74,7 +74,7 @@
  * document's end, where no section holds.
  */
 import gsap from 'gsap';
-import { SCROLL_TRIGGER_WORK_PX, GLIDE_SECONDS, LENIS_TUNING } from './motion.js';
+import { GLIDE_SECONDS, LENIS_TUNING } from './motion.js';
 import { TOUCH_GAIN, RELEASE_MS } from './touchTune.js';
 import { createRubberBand } from './rubberBand.js';
 import { PREFERS_REDUCED_MOTION } from '../components/work/world/worldConfig.js';
@@ -108,6 +108,7 @@ import {
   momentumStep,
   emaVelocity,
   readBlurbTune,
+  BLURB_TRIGGER_PX,
 } from './blurbHoldMath.js';
 
 /** Fired on a section when it may play its entrance (seated, at rest on screen, or the hold is gone). */
@@ -145,7 +146,7 @@ export function holdWanted() {
 export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   const html = document.documentElement;
   const tune = readBlurbTune(window.location.search);
-  const trigger = tune.trigger ?? SCROLL_TRIGGER_WORK_PX;
+  const trigger = tune.trigger ?? BLURB_TRIGGER_PX;
   const peek = tune.peek ?? BLURB_PEEK;
   const growOn = tune.grow;
   const omega = catchOmega(tune.catchLerp ?? LENIS_TUNING.lerp);

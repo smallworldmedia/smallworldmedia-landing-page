@@ -27,6 +27,7 @@ import {
   SNAP_PX,
   MOMENTUM_DECAY,
   MIN_V,
+  BLURB_TRIGGER_PX,
   seatY,
   grownHeight,
   growHeight,
@@ -439,15 +440,18 @@ test('?blurbpeek takes a fraction between 0 and 1 only', () => {
   assert.equal(readBlurbTune('?blurbsec=0.6').peek, null) // the old dial is gone
 })
 
-test('?blurbcatch is a lerp, ?blurbdecel a per-ms factor, ?scroll px', () => {
+test('?blurbcatch is a lerp, ?blurbdecel a per-ms factor, ?blurbscroll px', () => {
   assert.equal(readBlurbTune('?blurbcatch=0.3').catchLerp, 0.3)
   assert.equal(readBlurbTune('?blurbcatch=5').catchLerp, 1)
   assert.equal(readBlurbTune('?blurbcatch=0').catchLerp, null)
   assert.equal(readBlurbTune('?blurbdecel=0.99').decel, 0.99)
   assert.equal(readBlurbTune('?blurbdecel=1').decel, null)
   assert.equal(readBlurbTune('?blurbdecel=0').decel, null)
-  assert.equal(readBlurbTune('?scroll=300').trigger, 300)
-  assert.equal(readBlurbTune('?scroll=nope').trigger, null)
+  assert.equal(readBlurbTune('?blurbscroll=200').trigger, 200)
+  assert.equal(readBlurbTune('?blurbscroll=nope').trigger, null)
+  assert.equal(readBlurbTune('?blurbscroll=0').trigger, null)
+  // ?scroll is the World Turn's and the next-project band's; it no longer moves the hold
+  assert.equal(readBlurbTune('?scroll=300').trigger, null)
 })
 
 test('a lower lerp takes the page earlier and a higher one later', () => {
@@ -478,10 +482,22 @@ test('a signed band runs both ways, commits with its sign, and crosses zero', ()
 })
 
 test('the house trigger is 100px of finger at the house gain', () => {
-  // The hold's copy travels trigger / gain: its full pull is the finger's.
   assert.equal(SCROLL_TRIGGER_WORK_PX / TOUCH_GAIN, 100)
   assert.equal(stepAccum(0, 99 * TOUCH_GAIN, SCROLL_TRIGGER_WORK_PX).commit, 0)
   assert.equal(stepAccum(0, 100 * TOUCH_GAIN, SCROLL_TRIGGER_WORK_PX).commit, 1)
+})
+
+test('a held blurb lets go sooner: 60px of finger, either way (Nathan 11-11)', () => {
+  // The hold's copy travels trigger / gain: its full pull is the finger's.
+  assert.equal(BLURB_TRIGGER_PX / TOUCH_GAIN, 60)
+  assert.ok(BLURB_TRIGGER_PX < SCROLL_TRIGGER_WORK_PX)
+  assert.equal(stepAccum(0, 59 * TOUCH_GAIN, BLURB_TRIGGER_PX, true).commit, 0)
+  assert.equal(stepAccum(0, 60 * TOUCH_GAIN, BLURB_TRIGGER_PX, true).commit, 1)
+  assert.equal(stepAccum(0, -60 * TOUCH_GAIN, BLURB_TRIGGER_PX, true).commit, -1)
+  // the hold reads its own constant, never the house one
+  const src = fs.readFileSync(fileURLToPath(new URL('../../src/lib/blurbHold.js', import.meta.url)), 'utf8')
+  assert.match(src, /tune\.trigger \?\? BLURB_TRIGGER_PX/)
+  assert.doesNotMatch(src, /SCROLL_TRIGGER_WORK_PX/)
 })
 
 /* — the source contract — */

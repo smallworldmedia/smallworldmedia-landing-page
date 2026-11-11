@@ -618,8 +618,9 @@ Desktop (≥769px) is untouched. Reduced motion keeps plain 0.88 sections with n
 | `?blurbend` | the slowdown onto the bottom of the detail page; `0` leaves the end to the browser, to compare | on | `0` = off | `blurbHoldMath.js readBlurbTune` |
 | `?blurbcatch` | the arrival slowdown's lerp, Lenis's meaning: higher stops shorter and harder, lower takes the page earlier and longer | `0.165`, the house lerp (`LENIS_TUNING.lerp`) | 0 to 1 | `motion.js LENIS_TUNING` |
 | `?blurbdecel` | the exit momentum's velocity factor per ms: closer to 1 coasts farther | `0.998`, iOS's own (`MOMENTUM_DECAY`) | 0 to 1, exclusive | `blurbHoldMath.js MOMENTUM_DECAY` |
+| `?blurbscroll` | the gained delta (finger px × `?touchgain`) that lets a held section go, up or down; the copy's full pull is this ÷ the gain | `300`, 60px of finger at gain 5 (Nathan 11-11: "reduce the threshold to advance … out of the text blurb areas"; was the shared `?scroll` 500, 100px; a proposal until Nathan bakes it on the phone) | above 0 | `blurbHoldMath.js BLURB_TRIGGER_PX` |
 
-The commit trigger is the shared `?scroll` (also the World Turn's and the next-project band's); `?touchgain` and `?releasems` apply as for every rubber band.
+The commit trigger is the hold's own since 11-11 (`?blurbscroll`); `?scroll` no longer moves it and stays the World Turn's and the next-project band's. `?touchgain` and `?releasems` apply as for every rubber band.
 
 ### Video chunks (11-05)
 
