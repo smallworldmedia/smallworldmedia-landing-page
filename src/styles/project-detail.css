@@ -655,6 +655,27 @@ html:has(.project-detail) body {
   /* pre-load ground */
 }
 
+/* Horizontal axis (US-4, 11-11 — the carousel strip, DeckScroller axis 'x'):
+   the frame stacks its rows, each row's strip lays its pages left to right and
+   travels on X. A page is as wide as its row is tall × the wall's ratio. */
+.deck-scroller--x {
+  flex-direction: column;
+}
+.deck-scroller--x .deck-scroller__col {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.deck-scroller--x .deck-scroller__strip {
+  right: auto;
+  bottom: 0;
+  flex-direction: row;
+}
+.deck-scroller--x .deck-scroller__page {
+  flex: none;
+  width: auto;
+  height: 100%;
+}
+
 /* ============================================
    BREADCRUMB — back to Featured Projects
    Black chip under the client panel, left.

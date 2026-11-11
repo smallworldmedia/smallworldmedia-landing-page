@@ -13,7 +13,8 @@
  *      float the composite occupants: AlbumArtViewer and BrandDeckViewer
  *      (both full-width — tiles flow above/below; deck takes the top
  *      anchor when alone, mid when an orbit outranks it) —
- *      docs/orbit-deck-viewer-spec.md. Carousels ride the deck walls; an
+ *      docs/orbit-deck-viewer-spec.md. A carousel is one horizontal strip in
+ *      a socket of its own; an
  *      admat set gets its own flyer wall in the album-art slot. The description's later
  *      paragraphs cut it into stacked grids, a text band between each.
  *   5. SiteFooter
@@ -40,6 +41,9 @@ import SiteFooter from '../../SiteFooter.jsx';
 import GridSocket from './GridSocket.jsx';
 import BrandDeckViewer from './BrandDeckViewer.jsx';
 import AlbumArtViewer from './AlbumArtViewer.jsx';
+import { DECK_GAP_PX } from './DeckScroller.jsx';
+import { carouselVisible, carouselSlideH, carouselRows } from './horizontalStrip.js';
+import { sequenceRatio } from '../../../lib/mediaSequence.js';
 import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, groupTypeOf, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
@@ -65,8 +69,10 @@ import { HOLD_MQ, PHONE_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js'
    re-choreographed left-anchored conveyor (bandLayout.js) spans the row,
    so tiles flow above/below it — not beside — and no shadowed page
    overhangs a left-column tile (the old "floating above the grid" bug).
-   Orbit still outranks deck for the top slot when a page has both. */
-const ORBIT_REGION_ROWS = 34;
+   Orbit still outranks deck for the top slot when a page has both.
+   11-11 (Nathan, US-4): the cover wall 1.5x taller (34 → 51 rows ≈ 609px; its
+   ≤1024 band, 26 → 39, is in masonry.css), at a fixed 4 columns desktop / 2 phone. */
+const ORBIT_REGION_ROWS = 51;
 /* 08-25 (2), Nathan: the deck sockets DOUBLED (34 → 68 rows ≈ 814px) — the
    tabbed viewer shows 2 big page columns (cols forced below), the poster
    wall gets ~4 larger flyers. The orbit keeps its original band height. */
@@ -78,16 +84,25 @@ const BANNER_REGION_ROWS_FALLBACK = 38;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
 /* 11-10, Nathan — "Big flyers that play": an admat set gets one wall in the
    album-art slot, at a FIXED column count (4 desktop, 2 phone ≤ 768) so the
-   flyers read big, and a socket one flyer tall so a whole flyer fits (the
-   34-row orbit band is ~406px; a 4x5 page in 4 columns is ~447px, so it would
-   crop every one). One page tall also bounds the half-visible pages at
-   cols × 2 = 8 desktop / 4 phone — the player cap the playing flyers will
-   ride (SQ-52: DeckScroller `play`, one playerGate for the wall). Rows come from the measured grid (admatRows below); this is
-   only the width they assume before it is measured. */
-const ADMAT_COLS = 4;
-const ADMAT_COLS_PHONE = 2;
+   flyers read big, and a socket sized from one flyer's height at the set's
+   ratio (the old 34-row orbit band is ~406px; a 4x5 page in 4 columns is
+   ~447px, so it would crop every one). The playing flyers ride one
+   playerGate for the wall (SQ-52: DeckScroller `play`), which caps the
+   players at 8 desktop / 4 phone however many pages show. 11-11 (Nathan,
+   US-4): the wall 1.5 flyers tall (ADMAT_PAGES_TALL), and the cover wall
+   shares the same fixed columns. Rows come from the measured grid (admatRows
+   below); this is only the width they assume before it is measured. */
+const WALL_COLS = 4;
+const WALL_COLS_PHONE = 2;
+const ADMAT_PAGES_TALL = 1.5;
 const ADMAT_WIDTH_FALLBACK = 1440;
 const ADMAT_GAP_FALLBACK = 2;
+/* 11-11, Nathan (US-4): a carousel is ONE row of slides travelling sideways
+   (DeckScroller axis 'x'), in a socket of its own one slide tall at the
+   width ?carouselvis slides share (horizontalStrip.js) — the rows come from
+   the measured grid (carouselRegionRows below); this is the 1440px-grid
+   fallback before it is measured (3.5 slides of 4x5 across). */
+const CAROUSEL_REGION_ROWS_FALLBACK = 43;
 /* Text bands (11-03, Nathan): the description's first paragraph is the
    intro blurb; each later one is its own band down the grid, "after a few
    pieces of media". One every BLURB_ROWS squares of the 3-col grid from the
@@ -365,14 +380,26 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     return Math.max(8, Math.ceil((wantPx + gridMetrics.rowGap) / pitch));
   };
 
-  // An admat wall: fixed columns, and rows tall enough for ONE whole flyer
-  // (the same row-pitch conversion as the banners, rounded up).
-  const admatCols = gridMetrics?.cols === 1 ? ADMAT_COLS_PHONE : ADMAT_COLS;
+  // The cover and flyer walls: fixed columns, 4 desktop / 2 phone.
+  const wallCols = gridMetrics?.cols === 1 ? WALL_COLS_PHONE : WALL_COLS;
+  // An admat wall: rows 1.5 flyers tall (the same row-pitch conversion as the
+  // banners, rounded up) at the shape that crops the set's flyers least — a
+  // set can mix 4x5 and 9x16 motion with 3x4 stills, so not the first one's.
+  const admatRatio = (set) => sequenceRatio(set.items.map(ratioOf));
   const admatRows = (set) => {
     const width = gridMetrics?.width || ADMAT_WIDTH_FALLBACK;
     const gap = gridMetrics?.width ? gridMetrics.rowGap : ADMAT_GAP_FALLBACK;
-    const pageH = width / admatCols / ratioOf(set.items[0]);
-    return Math.max(8, Math.ceil((pageH + gap) / (GRID_ROW_PX + gap)));
+    const pageH = width / wallCols / admatRatio(set);
+    return Math.max(8, Math.ceil((ADMAT_PAGES_TALL * pageH + gap) / (GRID_ROW_PX + gap)));
+  };
+  // A carousel: one slide tall at ?carouselvis slides across (the set's
+  // least-crop shape again, since the strip holds one shape).
+  const carouselRatio = (set) => sequenceRatio(set.pages.map(ratioOf));
+  const carouselRegionRows = (set) => {
+    if (!gridMetrics?.width) return CAROUSEL_REGION_ROWS_FALLBACK;
+    const vis = carouselVisible(gridMetrics.cols === 1, window.location.search);
+    const slideH = carouselSlideH(gridMetrics.width, vis, DECK_GAP_PX, carouselRatio(set));
+    return carouselRows(slideH, gridMetrics.rowGap, GRID_ROW_PX);
   };
 
   // Tile spans, through the same pitch (tileGrid.js). ≤ 1024 the spans
@@ -402,20 +429,19 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     ];
     deckSets = brandDecks.filter((d) => d.group !== key);
   }
-  // Carousels are deck walls too (11-10, Nathan — "show the slides as a
-  // scrolling wall, the way deck pages show today"): they follow the decks
-  // through the same tabbed / poster split below.
-  const gridDecks = [...deckSets, ...carousels];
+  // Carousels left the deck walls (11-11, Nathan — "carousels read like
+  // socials"): each is a horizontal strip in a socket of its own (below), not
+  // a tab or a poster column, so the decks lay out exactly as before.
 
   // ── Poster decks split out (08-25 (2), Nathan — bedouin SA tour) ──
   // Deck groups whose pages are PORTRAIT (flyers/posters compiled as a
   // deck) each get their OWN dedicated socket instead of riding the tabbed
   // guidelines viewer — a 4:5 wall wants its own frame, and the flyers
   // read as a separate body of work. Landscape decks share the tab socket.
-  const tabbedDecks = gridDecks.filter(
+  const tabbedDecks = deckSets.filter(
     (d) => !(d.pages[0] && ratioOf(d.pages[0]) < PORTRAIT_THRESHOLD)
   );
-  const posterDecks = gridDecks.filter(
+  const posterDecks = deckSets.filter(
     (d) => d.pages[0] && ratioOf(d.pages[0]) < PORTRAIT_THRESHOLD
   );
 
@@ -444,6 +470,26 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       colSpan: 3,
       rowSpan: DECK_REGION_ROWS,
       anchor: albumArt.length > 0 || admats.length > 0 ? 'mid' : 'top',
+    });
+  }
+  // Carousel strips (11-11): one socket each, placed where the deck walls put
+  // them before — a portrait set (4x5 posts) closes the tile field like a
+  // poster deck; a landscape set takes the top anchor when nothing else holds
+  // it, else sits mid-grid.
+  let topFree = albumArt.length === 0 && admats.length === 0 && tabbedDecks.length === 0;
+  for (const set of carousels) {
+    let anchor = 'mid';
+    if (carouselRatio(set) < PORTRAIT_THRESHOLD) anchor = 'bottom';
+    else if (topFree) {
+      anchor = 'top';
+      topFree = false;
+    }
+    regions.push({
+      id: `carousel:${set.group}`,
+      colStart: 0,
+      colSpan: 3,
+      rowSpan: carouselRegionRows(set),
+      anchor,
     });
   }
   for (const d of posterDecks) {
@@ -502,18 +548,35 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     ? paragraphs.slice(0, 1)
     : paragraphs;
 
-  // An admat set's wall: the album-art DeckScroller at the set's ratio, fixed
-  // columns, every flyer on it (showAll), animated ones playing (play).
+  // An admat set's wall: the album-art DeckScroller at the set's least-crop
+  // ratio, fixed columns, every flyer on it (showAll), animated ones playing
+  // (play). Nothing until the grid is measured, so a phone never flashes the
+  // desktop column count.
   const admatWall = (id) => {
     const set = admats.find((a) => `admat:${a.group}` === id);
+    if (!gridMetrics) return null;
     return (
       <AlbumArtViewer
         covers={set.items}
-        ratio={ratioOf(set.items[0])}
-        cols={admatCols}
+        ratio={admatRatio(set)}
+        cols={wallCols}
         showAll
         play
         ariaLabel="tour flyers"
+      />
+    );
+  };
+
+  // A carousel's strip: ONE row of slides in reading order travelling left.
+  const carouselWall = (id) => {
+    const set = carousels.find((c) => `carousel:${c.group}` === id);
+    return (
+      <AlbumArtViewer
+        covers={set.pages}
+        ratio={carouselRatio(set)}
+        axis="x"
+        rows={1}
+        ariaLabel={`${set.group} carousel`}
       />
     );
   };
@@ -536,9 +599,11 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           <BannerViewer banners={banners.find((b) => `banner:${b.group}` === s.id)} />
         ) : s.id.startsWith('admat:') ? (
           admatWall(s.id)
-        ) : (
-          <AlbumArtViewer covers={albumArt} />
-        )}
+        ) : s.id.startsWith('carousel:') ? (
+          carouselWall(s.id)
+        ) : gridMetrics ? (
+          <AlbumArtViewer covers={albumArt} cols={wallCols} />
+        ) : null}
       </GridSocket>
     ));
 

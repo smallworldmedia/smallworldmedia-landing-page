@@ -23,6 +23,8 @@
  * @param {number} [props.cols] - fixed column count (omit = geometry-derived)
  * @param {boolean} [props.showAll] - every page reaches the wall (DeckScroller)
  * @param {boolean} [props.play] - an animated flyer plays in the wall (DeckScroller `play`)
+ * @param {'y'|'x'} [props.axis] - 'x' = a horizontal strip (the carousel; DeckScroller `axis`)
+ * @param {number} [props.rows] - horizontal strips (axis 'x')
  * @param {string} [props.ariaLabel]
  */
 import DeckScroller from './DeckScroller.jsx';
@@ -33,6 +35,8 @@ export default function AlbumArtViewer({
   cols,
   showAll,
   play,
+  axis,
+  rows,
   ariaLabel = 'album artwork',
 }) {
   if (!covers.length) return null;
@@ -44,6 +48,8 @@ export default function AlbumArtViewer({
         cols={cols}
         showAll={showAll}
         play={play}
+        axis={axis}
+        rows={rows}
         ariaLabel={ariaLabel}
       />
     </div>
