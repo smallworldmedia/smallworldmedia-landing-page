@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = '8165cbfe3e33d15c847fe8891fe06d80dba1ee7c0217992048f0da5efa15b047'
+export const SUPPORTED_SCHEMA_HASH = '70b35be33c6bd32206c68f741b6273dded0f481fe1bb8b08a156d4c1ae7ce560'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -33,9 +33,11 @@ export function appendRanks(docs, count) {
   for (let i = 0; i < count; i++) { const next = last ? lexo.LexoRank.parse(last).genNext().toString() : lexo.LexoRank.middle().toString(); invariant(!last || next > last, 'Cannot append rank; explicit curation needed'); result.push(next); last = next }
   return result
 }
+// The set a piece belongs to (src/schemas/mediaAsset.ts groupType); where each type opens its viewer is site code.
+export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel']
 const common = ['slug','yearStart','yearEnd','isOngoing','services']
 export const FIELDS = {
-  mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds'],
+  mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
   // A new tag shows in the directory filters; the inquiry form keeps its own list (src/lib/constants.js SERVICE_TAGS).
@@ -65,6 +67,7 @@ export function validateField(field, v) {
   if (['isOngoing','isFeatured','splitIntoThirds'].includes(field)) { invariant(typeof v === 'boolean', `Invalid ${field}`); return }
   if (field === 'mediaType') return enumValue(v, MEDIA_TYPES, field)
   if (field === 'contentRole') return enumValue(v, ['process','supporting'], field)
+  if (field === 'groupType') return enumValue(v, GROUP_TYPES, field)
   if (field === 'clientType') return enumValue(v, ['artist','label','management','promoter-event'], field)
   if (field === 'orderRank') { invariant(validRank(v), 'Invalid orderRank'); return }
   if (['client','project'].includes(field)) return reference(v)
@@ -100,6 +103,7 @@ export function validateDocument(doc, { creation = false } = {}) {
     if (doc.mediaType === 'brand-deck') invariant(Number.isInteger(doc.brandDeckOrder) && doc.brandDeckOrder > 0 && !!doc.displayGroup, 'Deck pages require displayGroup and positive brandDeckOrder')
     if (doc.mediaType === 'carousel-slide') invariant(!!doc.displayGroup, 'Carousel slides require displayGroup')
     if (doc.splitIntoThirds) invariant(isVideoType(doc.mediaType), 'splitIntoThirds applies to video media only')
+    if (doc.groupType && doc.groupType !== 'album-art') invariant(!!doc.displayGroup, `A ${doc.groupType} piece requires displayGroup`)
   }
 }
 export function references(doc) {

@@ -251,6 +251,24 @@ export const mediaAsset = defineType({
       description:
         'Sub-group within a featured project (e.g., "Coachella Set Promo", "Brand Guidelines"). Assets sharing a displayGroup render adjacent on the detail page. Leave empty for ungrouped assets.',
     }),
+    // ── GROUP TYPE: which viewer a set opens, and where (the table is in the site code) ──
+    defineField({
+      name: 'groupType',
+      title: 'Group Type',
+      type: 'string',
+      description:
+        'Marks this piece as part of a set the site shows together. Each type opens its own viewer or cycler on some pages and shows as an ordinary piece elsewhere. Album Art sets are a project\'s covers; every other type also needs a Display Group naming its set. Leave empty for a standalone piece.',
+      options: {
+        list: [
+          { title: 'Album Art', value: 'album-art' },
+          { title: 'Deck', value: 'deck' },
+          { title: 'Banner', value: 'banner' },
+          { title: 'Admat', value: 'admat' },
+          { title: 'Carousel', value: 'carousel' },
+        ],
+        layout: 'dropdown',
+      },
+    }),
     defineField({
       name: 'sourceFolder',
       type: 'string',
