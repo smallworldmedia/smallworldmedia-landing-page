@@ -13,16 +13,36 @@
  * with the pager. 10-27 (Nathan): no labels on any wall — the album_catalog
  * name and release-count chip are gone; a wall of covers says what it is.
  *
+ * 11-10 (Nathan): the same wall carries an admat set, one wall per set —
+ * flyers at the set's ratio, a fixed column count, every flyer on it
+ * (FeaturedProjectDetail sizes the socket so a whole flyer fits).
+ *
  * @param {Object} props
- * @param {Array<Object>} props.covers - album-art assets (≥ ORBIT_MIN)
+ * @param {Array<Object>} props.covers - album-art assets (≥ ORBIT_MIN), or an admat set's flyers
+ * @param {number} [props.ratio=1] - page aspect (w/h)
+ * @param {number} [props.cols] - fixed column count (omit = geometry-derived)
+ * @param {boolean} [props.showAll] - every page reaches the wall (DeckScroller)
+ * @param {string} [props.ariaLabel]
  */
 import DeckScroller from './DeckScroller.jsx';
 
-export default function AlbumArtViewer({ covers }) {
+export default function AlbumArtViewer({
+  covers,
+  ratio = 1,
+  cols,
+  showAll,
+  ariaLabel = 'album artwork',
+}) {
   if (!covers.length) return null;
   return (
     <div className="deck-scroller-shell">
-      <DeckScroller pages={covers} ratio={1} ariaLabel="album artwork" />
+      <DeckScroller
+        pages={covers}
+        ratio={ratio}
+        cols={cols}
+        showAll={showAll}
+        ariaLabel={ariaLabel}
+      />
     </div>
   );
 }

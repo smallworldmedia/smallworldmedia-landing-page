@@ -33,6 +33,11 @@
  * @param {number} [props.cols] - FIXED column count (08-25 (2): the tabbed
  *        grid viewer forces 2 big spreads). Omitted = derived from
  *        ?deckvrows against the frame height, as before.
+ * @param {boolean} [props.showAll] - opt-in (11-10, the admat wall): every
+ *        page reaches the wall. Each strip cycle is raised to at least
+ *        ceil(pages ÷ cols) pages, so cols × perCol ≥ N — a frame about one
+ *        page tall would otherwise cycle only cols × 2 of them. Off = the
+ *        frame-derived cycle, unchanged.
  * @param {string} [props.ariaLabel]
  */
 import { useEffect, useRef, useState } from 'react';
@@ -60,7 +65,21 @@ const pageSrc = (p) =>
     ? `${p.imageUrl}?w=${IMG_WIDTH}&${IMG_FORMAT}`
     : `https://image.mux.com/${p.playbackId}/thumbnail.webp?width=${IMG_WIDTH}&fit_mode=preserve`;
 
-export default function DeckScroller({ pages, ratio, cols: fixedCols, ariaLabel }) {
+/* One page of the wall. Its own component so a page can grow more than a
+   still (the admat wall's playing flyers) without touching the layout. */
+function DeckPage({ page }) {
+  return (
+    <img
+      className="deck-scroller__page"
+      src={pageSrc(page)}
+      alt=""
+      loading="lazy"
+      draggable={false}
+    />
+  );
+}
+
+export default function DeckScroller({ pages, ratio, cols: fixedCols, showAll, ariaLabel }) {
   const frameRef = useRef(null);
   const stripRefs = useRef([]);
   // Per-column scroll offsets + cycle heights, owned by the ticker (never state).
@@ -81,7 +100,10 @@ export default function DeckScroller({ pages, ratio, cols: fixedCols, ariaLabel 
       const pageH = colW / ratio;
       // Enough pages per strip cycle that TWO rendered copies cover the
       // frame at any wrap offset.
-      const perCol = Math.max(2, Math.ceil((h + pageH) / (pageH + GAP_PX)));
+      const framePerCol = Math.max(2, Math.ceil((h + pageH) / (pageH + GAP_PX)));
+      const perCol = showAll
+        ? Math.max(framePerCol, Math.ceil(pages.length / cols))
+        : framePerCol;
       motionRef.current.cycleH = perCol * (pageH + GAP_PX);
       setLayout((cur) =>
         cur && cur.cols === cols && cur.perCol === perCol ? cur : { cols, perCol }
@@ -91,7 +113,7 @@ export default function DeckScroller({ pages, ratio, cols: fixedCols, ariaLabel 
     const ro = new ResizeObserver(measure);
     ro.observe(frame);
     return () => ro.disconnect();
-  }, [ratio, pages.length, fixedCols]);
+  }, [ratio, pages.length, fixedCols, showAll]);
 
   // ── Drive: idle drift + Lenis scroll coupling, alternating per column ──
   useEffect(() => {
@@ -166,16 +188,7 @@ export default function DeckScroller({ pages, ratio, cols: fixedCols, ariaLabel 
               >
                 {/* the cycle twice — the wrap shows copy 2 while copy 1 rewinds */}
                 {[0, 1].map((copy) =>
-                  cycle.map((p, n) => (
-                    <img
-                      key={`${copy}-${n}`}
-                      className="deck-scroller__page"
-                      src={pageSrc(p)}
-                      alt=""
-                      loading="lazy"
-                      draggable={false}
-                    />
-                  ))
+                  cycle.map((p, n) => <DeckPage key={`${copy}-${n}`} page={p} />)
                 )}
               </div>
             </div>
