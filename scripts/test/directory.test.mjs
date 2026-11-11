@@ -23,6 +23,7 @@ import {
 import { PARAM_KEYS, SSR_TUNE, TAB_SHAPE, readTune, tabCap, tabSkirt } from '../../src/components/work/directory/directoryTune.js'
 import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
 import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
+import { SEQUENCE_MAX_FRAMES } from '../../src/lib/mediaSequence.js'
 
 const img = (w, h, extra = {}) => ({
   imageUrl: `https://cdn.example.invalid/${w}x${h}.jpg`,
@@ -481,4 +482,102 @@ test('logoFirst: under exactly logo-design the logo tiles lead, each block keeps
   for (const tags of [new Set(), new Set(['logo-design', 'motion']), new Set(['motion'])]) {
     assert.equal(logoFirst(ts, tags), ts, 'every other filter is unchanged')
   }
+})
+
+// US-3 W2b (11-10, Nathan): every group type opens on the directory; an admat
+// set is ONE cycling tile, built like a sequence.
+const ADMAT_WORLDS = [{ projectId: 'p-jam', slug: 'jamback', title: 'Jamback', collection: 'Jamback', clientSlug: 'jamback' }]
+const JAM = { clientSlug: 'jamback', projectId: 'p-jam' }
+const admatSet = (n, extra = {}) =>
+  Array.from({ length: n }, (_, i) =>
+    asset(`flyer-${String(i).padStart(2, '0')}`, 'jamback', {
+      ...JAM,
+      mediaType: 'brand-deck',
+      displayGroup: 'tour-admats',
+      brandDeckOrder: n - i, // the authored order runs against orderRank
+      services: tag('promo', ...(i === 3 ? ['tour-art'] : [])),
+      ...img(1080, 1350),
+      ...extra,
+    })
+  )
+const jamTiles = (assets) =>
+  buildDirectoryTiles({ assets, worlds: ADMAT_WORLDS, clients: [{ name: 'Jamback', slug: 'jamback', umbrellas: null }] })
+
+test('admat set: 16 stills are one cycling tile, capped at SEQUENCE_MAX_FRAMES, in brandDeckOrder', () => {
+  rank = 0
+  const flyers = admatSet(16)
+  const ts = jamTiles(flyers)
+  assert.equal(ts.length, 1, 'one tile for the whole set')
+  const [tile] = ts
+  assert.equal(tile._id, 'admat:jamback:p-jam:tour-admats', 'lane:client:project:displayGroup')
+  assert.equal(tile.frames.length, SEQUENCE_MAX_FRAMES, 'the house cap')
+  assert.deepEqual(
+    tile.frames.map((f) => f._id),
+    [...flyers].sort((a, b) => a.brandDeckOrder - b.brandDeckOrder).slice(0, SEQUENCE_MAX_FRAMES).map((f) => f._id),
+    'brandDeckOrder, not orderRank'
+  )
+  assert.equal(tile.imageUrl, tile.frames[0].imageUrl, 'the lead is frame 0, so one-image consumers keep working')
+  assert.equal(tile.sequenceRatio, 1080 / 1350)
+})
+
+test('admat set: filters, tags, client coverage and the link read the set as the deck tile did', () => {
+  rank = 0
+  const ts = jamTiles(admatSet(16))
+  const [tile] = ts
+  assert.equal(tile.client, 'jamback')
+  assert.deepEqual(tile.services, ['promo', 'tour-art'], "the group's services, unioned")
+  assert.equal(tile.href, '/work/jamback')
+  assert.equal(tile.label, 'Jamback')
+  assert.ok(matchesFilter(tile, { tags: new Set(['tour-art']), coverage: null }), 'a tag on one flyer filters the set in')
+  assert.ok(!matchesFilter(tile, { tags: new Set(['branding']), coverage: null }))
+  assert.ok(matchesFilter(tile, { tags: new Set(), coverage: new Set(['jamback']) }))
+  assert.ok(!matchesFilter(tile, { tags: new Set(), coverage: new Set(['coco']) }))
+  assert.deepEqual([...tagPresence(ts, null).any].sort(), ['promo', 'tour-art'])
+  // The deck tile it replaces: same client, services, link (the deck face is a page, the set cycles them).
+  rank = 0
+  const asDeck = jamTiles(admatSet(16, { displayGroup: 'tour-deck' }))[0]
+  assert.equal(asDeck.mediaType, 'brand-deck')
+  assert.equal(asDeck.frames, undefined, 'a deck is still a face, not a cycle')
+  for (const k of ['client', 'services', 'href', 'label']) assert.deepEqual(tile[k], asDeck[k], k)
+})
+
+test('admat set: a pre-11-10 brand-deck with no groupType reads the same as one marked admat', () => {
+  rank = 0
+  const inferred = jamTiles(admatSet(5))[0]
+  rank = 0
+  const marked = jamTiles(admatSet(5, { groupType: 'admat', mediaType: 'static_4x5', displayGroup: 'tour-flyers' }))[0]
+  assert.equal(inferred.frames.length, 5)
+  assert.deepEqual(inferred.frames.map((f) => f._id), marked.frames.map((f) => f._id))
+  assert.equal(marked._id, 'admat:jamback:p-jam:tour-flyers', 'the stored type alone makes the set, whatever the displayGroup')
+})
+
+test('admat set: a motion admat keeps its own tile; a set of one is a plain tile', () => {
+  rank = 0
+  const motion = asset('flyer-motion', 'jamback', {
+    ...JAM, mediaType: 'brand-deck', displayGroup: 'tour-admats', brandDeckOrder: 99,
+    imageUrl: undefined, imageDimensions: undefined, playbackId: 'pb', videoAspectRatio: '4:5',
+  })
+  const ts = jamTiles([...admatSet(3), motion])
+  assert.equal(ts.length, 2)
+  assert.deepEqual(ts.find((t) => t.frames).frames.map((f) => f._id), ['flyer-02', 'flyer-01', 'flyer-00'], 'the stills cycle, the clip not among them')
+  const own = ts.find((t) => t._id === 'flyer-motion')
+  assert.ok(own && !own.frames && own.playbackId === 'pb', 'the motion piece is its own tile')
+  rank = 0
+  const solo = jamTiles(admatSet(1))
+  assert.deepEqual(ids(solo), ['flyer-00'])
+  assert.ok(!solo[0].frames)
+})
+
+test('album art stays one tile per cover; decks, carousels and banners keep their grouped tile', () => {
+  rank = 0
+  const covers = [0, 1, 2].map((i) => asset(`cover-${i}`, 'jamback', { ...JAM, mediaType: 'album-art' }))
+  const typed = [
+    ...[0, 1].map((i) => asset(`d${i}`, 'jamback', { ...JAM, groupType: 'deck', mediaType: 'brand-deck', displayGroup: 'guide', brandDeckOrder: 2 - i })),
+    ...[0, 1].map((i) => asset(`c${i}`, 'jamback', { ...JAM, groupType: 'carousel', mediaType: 'carousel-slide', displayGroup: 'slides' })),
+    ...[0, 1].map((i) => asset(`b${i}`, 'jamback', { ...JAM, groupType: 'banner', displayGroup: 'banners' })),
+  ]
+  const ts = jamTiles([...covers, ...typed])
+  assert.deepEqual(ids(ts.filter((t) => t._id.startsWith('cover-'))), ['cover-0', 'cover-1', 'cover-2'], 'one tile per cover')
+  assert.ok(ts.every((t) => !t.frames), 'no cycler among them')
+  assert.deepEqual(ids(ts.filter((t) => !t._id.startsWith('cover-'))), ['d1', 'c0', 'b0'], 'a tile per set: deck face = lowest brandDeckOrder, carousel and banner = first member')
 })
