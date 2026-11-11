@@ -82,6 +82,7 @@ import {
   WALL_EXTRA_ROWS,
   WALL_DECK_COLS,
   WALL_ALBUM_COLS,
+  WALL_CAROUSEL_VIS,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 
@@ -554,37 +555,48 @@ export function buildDrumSlot(slot, w, ctx) {
   // page's orthographic DeckScroller brought over to the grid (fpDrumWall).
   // `ratio` is the wall plate's FOOTPRINT aspect (drives cell span); the
   // wall's internal column math derives its column count from it: deck 16:9
-  // pages → 2 big spreads, album squares → a 3×2 record bin. (Assembled
-  // BEFORE the density math since r9 — the corner preset's media budget is
-  // 4 minus the walls.)
+  // pages → 2 big spreads, album squares → a 4×4 record bin (11-11: 4 across,
+  // the plate 1.5× taller than the old 3:2 footprint). (Assembled BEFORE the
+  // density math since r9 — the corner preset's media budget is 4 minus the
+  // walls.)
+  // 11-11 (US-4): a CAROUSEL wall (axis 'x', marked in work/index.astro) runs
+  // horizontally — one row of WALL_CAROUSEL_VIS slides across, so its
+  // footprint is that strip (a wide set caps at 4:1 and takes a second row).
+  // Decks keep axis 'y' and the 16:9 footprint exactly as before.
+  const deckDef = (pages, axis) => {
+    const pageRatio = pages[0].ratio || 16 / 9;
+    const x = axis === 'x';
+    return {
+      pages: pages.slice(0, WALL_MAX_PAGES),
+      pageRatio,
+      ratio: x ? Math.min(4, WALL_CAROUSEL_VIS * pageRatio) : 16 / 9,
+      // r10: under the preset the walls ride the tier-1 multiplier
+      // (footprint parity with the tier-1 plates — ?t1deg dials both).
+      baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.8),
+      cols: x ? 0 : WALL_DECK_COLS,
+      axis: x ? 'x' : 'y',
+      across: x ? WALL_CAROUSEL_VIS : 0,
+      extraRows: x ? 0 : WALL_EXTRA_ROWS, // a strip is already as tall as its slides
+    };
+  };
   const stripDefs = BANDS_ENABLED
     ? [
-        w?.brandDecks?.length && {
-          pages: w.brandDecks.slice(0, WALL_MAX_PAGES),
-          pageRatio: w.brandDecks[0].ratio || 16 / 9,
-          ratio: 16 / 9,
-          // r10: under the preset the walls ride the tier-1 multiplier
-          // (footprint parity with the tier-1 plates — ?t1deg dials both).
-          baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.8),
-          cols: WALL_DECK_COLS,
-        },
+        w?.brandDecks?.length && deckDef(w.brandDecks, w.brandDecksAxis),
         w?.albumArt?.length && {
           pages: w.albumArt.slice(0, WALL_MAX_PAGES),
           pageRatio: 1,
-          ratio: 1.5,
+          ratio: 1, // 11-11: was 1.5 (3:2) — the plate runs 1.5× taller at the same width
           baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.6),
           cols: WALL_ALBUM_COLS,
+          axis: 'y',
+          across: 0,
+          extraRows: WALL_EXTRA_ROWS,
         },
         // 08-28 (Nathan): the second deck group fills the album anchor on
         // deck-heavy Worlds — album art keeps priority (two-anchor budget).
         !w?.albumArt?.length &&
-          w?.brandDecks2?.length && {
-            pages: w.brandDecks2.slice(0, WALL_MAX_PAGES),
-            pageRatio: w.brandDecks2[0].ratio || 16 / 9,
-            ratio: 16 / 9,
-            baseDeg: PLATE_DEG * (CORNER_PRESET ? CORNER_T1_MUL : 1.8),
-            cols: WALL_DECK_COLS,
-          },
+          w?.brandDecks2?.length &&
+          deckDef(w.brandDecks2, w.brandDecks2Axis),
       ].filter(Boolean)
     : [];
   // r10: the preset's seats pull IN from the wall-anchor corners
@@ -649,7 +661,7 @@ export function buildDrumSlot(slot, w, ctx) {
     ny: preset ? seatT1[j].ny : j === 0 ? anchorNy : -anchorNy,
     ratio: def.ratio,
     baseDeg: def.baseDeg,
-    extraRows: WALL_EXTRA_ROWS,
+    extraRows: def.extraRows,
   }));
 
   const { blocks, reserved: stripBlocks, balanceStats } = placeDrumBlocks(chosen, {
@@ -688,6 +700,18 @@ export function buildDrumSlot(slot, w, ctx) {
         lon: [(b.lon1 / DEG2RAD).toFixed(1), (b.lon2 / DEG2RAD).toFixed(1)],
         lat: [(b.lat1 / DEG2RAD).toFixed(1), (b.lat2 / DEG2RAD).toFixed(1)],
       })),
+      // Wall plates (fpDrumWall), read live: the layout they resolved (axis,
+      // cols/rows, canvas + atlas size), the travel uniform's axis ('u' for a
+      // carousel, 'v' for decks and album art), the footprint ratio the strip
+      // reserved, and the plate's on-screen rect (NDC; |x|, |y| ≤ 1 = in view).
+      get walls() {
+        return slot.bands
+          .filter((b) => b.probe)
+          .map((b, j) => ({ ...b.probe(camera), footprint: stripDefs[j]?.ratio }));
+      },
+      seekWalls(frac) {
+        for (const b of slot.bands) b.seek?.(frac);
+      },
       // Sequence plates (mediaSequence), read live: frames loaded, the frame
       // showing, and where the plate sits on screen (NDC; |x|, |y| ≤ 1 = in view).
       get sequences() {
@@ -917,6 +941,8 @@ export function buildDrumSlot(slot, w, ctx) {
       pages: def.pages,
       pageRatio: def.pageRatio,
       cols: def.cols,
+      axis: def.axis,
+      across: def.across,
       accent,
       parent: slot.tierGroups[BAND_TIER],
       drum,
