@@ -240,6 +240,22 @@ Assets within a Featured Project can be sub-grouped by setting the `displayGroup
 - Assets with no `displayGroup` form a single implicit "ungrouped" cluster.
 - The `displayGroup` value is a **kebab-case slug** set in the manifest (e.g., `coachella-set-promo`, `developed-pitch-deck`, `womens-day-carousel`) — production data uses slugs, never display strings.
 
+### Group Type (which viewer a set opens, and where)
+
+A grouped asset's **group type** (`mediaAsset.groupType`, Nathan 11-10) names what kind of set it belongs to: `album-art`, `deck`, `banner`, `admat` or `carousel`. Every type except `album-art` also needs a `displayGroup` naming the set. Each type opens its viewer or cycler only on the surfaces it lists. On every other surface its pieces don't show, not even as ordinary tiles. The table lives in site code (`GROUP_SURFACES` in `buildContentFlow.js`), not in Studio:
+
+| Type | Opens on |
+|---|---|
+| Album art | globe, /work, project page, directory (one tile per cover) |
+| Deck | /work, project page, directory |
+| Banner | project page, directory |
+| Admat | globe, project page, directory |
+| Carousel | /work, project page, directory |
+
+- Decks, banners and carousels stay off the globe on purpose: "they aren't visually that dynamic to populate the globe as standalone assets".
+- A document without the field still resolves (`groupTypeOf`): `album-art` and `carousel-slide` mediaTypes, a `brand-deck` (an admat when its `displayGroup` ends in `-admats`), and a `-banner(s)` group.
+- An **admat** set is a tour's or event's flyers, all 3x4 or all 4x5 (whichever the set uses). An animated flyer joins the set and its static twin stays out. On the project page the set is one wall: 4 columns on desktop, 2 on phone, every flyer shown whole, the animated ones playing (`DeckScroller` `play`, one player gate per wall). On the globe and in the directory the stills cycle as one panel or tile, and each animated flyer keeps its own tile.
+
 ### Sequence (one tile, many stills)
 
 A **sequence** is one tile that cuts through a set of stills on one shared clock, on the detail grid, the /work World and the home globe (`src/lib/mediaSequence.js`, Nathan 10-31). Set the same `displayGroup` ending in `-sequence` (e.g. `imperfect-records-logo-sequence`) on every member; Studio order is frame order. The group takes one tile at its first member's place instead of one tile per variant. Stills only: a video member keeps its own tile, and a group of one stays a plain tile. Up to 12 frames.
@@ -268,7 +284,7 @@ Mirrors album art: any `brand-deck` asset feeds **two** contexts:
 
 ### Carousel Convention
 
-Social/editorial carousels (multi-slide posts) live in a subfolder, one image per slide. Each slide row uses `mediaType: carousel-slide`, `displayGroup` = the kebab-case slug of the carousel name (e.g. `womens-day-carousel`), and `orderRank` sequences the slides. `buildContentFlow` holds carousel slides out of the masonry flow — reserved for the to-be-built Carousel component, which renders one carousel per `displayGroup`.
+Social/editorial carousels (multi-slide posts) live in a subfolder, one image per slide. Each slide row uses `mediaType: carousel-slide`, `displayGroup` = the kebab-case slug of the carousel name (e.g. `womens-day-carousel`), and `orderRank` sequences the slides. A carousel (group type `carousel`) opens as a scrolling wall like a deck's pages, one wall per `displayGroup`, on /work and the project page, and as one tile in the directory (Nathan 11-10, "Wall like decks").
 
 ### Brand Deck Convention
 
