@@ -151,14 +151,19 @@ test('mockups wall: a 9x16 beside a 16x9 — shortest column next, set order kep
   assert.equal(order.length, 5)
 })
 
-test('mockups wall: the socket holds the tallest column, capped at maxRows, never under the shortest piece', () => {
+test('mockups wall: the socket holds the tallest column, capped at maxRows, never under the tallest piece', () => {
   const colW = (1440 - 2) / 2
   const wall = mockupsWall(mockupSet(), { phone: false, width: 1440, gap: 2 })
   assert.equal(wall.spanRows, pitchRows(Math.max(...wall.heights) - 2))
-  const capped = mockupsWall(mockupSet(), { phone: false, width: 1440, gap: 2, maxRows: 60 })
-  assert.equal(capped.spanRows, 60)
-  // the cap never cuts under the shortest piece (a 16x9)
-  assert.equal(mockupsWall(mockupSet(), { phone: false, width: 1440, gap: 2, maxRows: 1 }).spanRows, pitchRows(colW / (16 / 9)))
+  // a long set of wide pieces stops at the cap and drifts
+  const wide = Array.from({ length: 12 }, (_, i) => clip(`w${i}`, 'motion_16x9'))
+  assert.equal(mockupsWall(wide, { phone: false, width: 1440, gap: 2, maxRows: 60 }).spanRows, 60)
+  // the cap never cuts under the tallest piece (the 9x16): a frame under half a piece never holds a playing video
+  const floor = mockupsWall(mockupSet(), { phone: false, width: 1440, gap: 2, maxRows: 1 }).spanRows
+  assert.equal(floor, pitchRows(colW / (9 / 16)))
+  assert.equal(mockupsWall(mockupSet(), { phone: false, width: 1440, gap: 2, maxRows: 60 }).spanRows, floor)
+  // a phone's 390px column holds a 9x16 whole at the floor
+  assert.equal(mockupsWall(mockupSet(), { phone: true, width: 390, gap: 2, maxRows: 26 }).spanRows, pitchRows(390 / (9 / 16)))
   // a phone is one narrow column of everything
   const phone = mockupsWall(mockupSet(), { phone: true, width: 390, gap: 2 })
   assert.equal(phone.spanRows, pitchRows(phone.heights[0] - 2))

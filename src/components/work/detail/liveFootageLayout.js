@@ -107,8 +107,9 @@ export const MOCKUPS_COLS = { desktop: 2, phone: 1 };
  * bottom), `heights` (each column's px, gaps included), the fallback page
  * `ratio` and the socket's height in grid rows: the tallest column (the whole
  * set once, so no piece repeats in view) capped at `maxRows`, never under the
- * shortest piece. A 9x16 on a desktop is 1.8 times as tall as it is wide, so
- * the cap is what keeps a long set drifting.
+ * TALLEST piece: a frame shorter than half a piece would never hold a playing
+ * video (playerGate wants half of it in view), and a 9x16 in a phone's one
+ * column is 1.8 times as tall as the column is wide.
  */
 export function mockupsWall(items, { phone = false, width, gap, maxRows = Infinity } = {}) {
   const w = width || FOOTAGE_WIDTH_FALLBACK;
@@ -117,16 +118,16 @@ export function mockupsWall(items, { phone = false, width, gap, maxRows = Infini
   const colW = (w - (cols - 1) * g) / cols;
   const columns = Array.from({ length: cols }, () => []);
   const heights = new Array(cols).fill(0);
-  let shortest = Infinity;
+  let tallestPiece = 0;
   for (const asset of items) {
     const h = colW / ratioOf(asset);
-    shortest = Math.min(shortest, h);
+    tallestPiece = Math.max(tallestPiece, h);
     const at = heights.indexOf(Math.min(...heights));
     columns[at].push(asset);
     heights[at] += h + g;
   }
   const tallest = Math.max(0, ...heights) - g;
-  const floorRows = Number.isFinite(shortest) ? rowsForPx(shortest, g) : 8;
+  const floorRows = rowsForPx(tallestPiece, g);
   return {
     ratio: sequenceRatio(items.map((a) => ratioOf(a))),
     cols,

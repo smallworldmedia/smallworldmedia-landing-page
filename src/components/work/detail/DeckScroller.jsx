@@ -298,7 +298,9 @@ export default function DeckScroller({
       aria-label={ariaLabel}
       style={{ '--deck-wgap': `${GAP_PX}px`, '--deck-ratio': ratio }}
     >
+      {/* a mixed wall waits for the layout of ITS columns (the phone re-packs 2 → 1) */}
       {layout &&
+        (!columns || layout.lines === columns.length) &&
         Array.from({ length: layout.lines }, (_, line) => {
           const cycle = linePages(line, layout.perLine);
           return (
