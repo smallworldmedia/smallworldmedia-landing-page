@@ -37,10 +37,11 @@
  *  9. chunks (11-05, Nathan): a showcase video flagged `splitIntoThirds`
  *     becomes three tiles in its place, each its own third (expandChunks).
  * 10. group types (11-10, Nathan): a set's `groupType` (album-art, deck,
- *     banner, admat, carousel — a mediaAsset field) says which surfaces open
- *     its viewer (GROUP_SURFACES). Pass `surface` and a piece whose set does
- *     not open there is dropped; leave it out and the lanes above run as
- *     they always did. groupTypeOf reads the field and, on a document from
+ *     banner, admat, carousel, merch, visuals, live-footage — a mediaAsset
+ *     field) says which surfaces open its viewer (GROUP_SURFACES). Pass
+ *     `surface` and a piece whose set does not open there is dropped (except
+ *     visuals and live-footage, below); leave it out and the lanes above run
+ *     as they always did. groupTypeOf reads the field and, on a document from
  *     before the field, infers the type from mediaType / displayGroup.
  *     `admat` sets (still flyers, displayGroup `…-admats`) group like decks,
  *     pages in brandDeckOrder; a set of one rides the showcase at its place.
@@ -48,13 +49,23 @@
  *     the wall plays it; on the globe and the directory it keeps its own
  *     tile. Without a surface the admats bucket stays empty and admat pages
  *     ride the decks, as before.
+ * 11. US-4 (11-11, Nathan): three more types.
+ *     `merch` stills collapse like a `-sequence` group (lane 'sequence', keyed
+ *     by displayGroup) on every surface, so a merch set is the cycler album
+ *     art gets on the globe; a motion merch piece keeps its own tile.
+ *     `visuals` (videos) and `live-footage` (clips and photos) sets open on
+ *     detail and directory only: `visuals` / `liveFootage` hold one
+ *     {group, items} per set of two or more, items in input (orderRank)
+ *     order, and a set of one rides the showcase at its place. On the globe
+ *     and /work their pieces are NOT dropped: they ride 'role' / 'showcase'
+ *     as ordinary pieces (OFF_SURFACE_ORDINARY).
  *
  * Which bucket an asset joins is assetLane's precedence (sequence first,
  * showcase last), exported so other grids sort assets the same way.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
  * @param {{surface?: 'globe'|'work'|'detail'|'directory', orbitMin?: number, chunks?: {only?: string[], gap?: number}}} [opts] - surface: the GROUP_SURFACES column to apply (none = every set opens); ORBIT_MIN override (live tuning); expandChunks' ?chunks / ?chunkgap
- * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<{group: string, pages: Array<Object>}>, banners: Array<{group: string, items: Array<Object>}>, admats: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
+ * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<{group: string, pages: Array<Object>}>, banners: Array<{group: string, items: Array<Object>}>, admats: Array<{group: string, items: Array<Object>}>, visuals: Array<{group: string, items: Array<Object>}>, liveFootage: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
  */
 
 import { isSequenceGroup, makeSequence } from '../../../lib/mediaSequence.js';
@@ -192,7 +203,7 @@ export { PORTRAIT_THRESHOLD, MEDIA_TYPE_RATIOS };
 
 /** The group types (mediaAsset.groupType); mirrors scripts/lib/cms/contract.mjs,
  *  which site code never imports. */
-export const GROUP_TYPES = ['album-art', 'deck', 'banner', 'admat', 'carousel'];
+export const GROUP_TYPES = ['album-art', 'deck', 'banner', 'admat', 'carousel', 'merch', 'visuals', 'live-footage'];
 
 /** Where each type opens its viewer or cycler (11-10, Nathan). A surface a
  *  type leaves out does not show its pieces. */
@@ -202,7 +213,14 @@ export const GROUP_SURFACES = {
   banner: ['detail', 'directory'],
   admat: ['globe', 'detail', 'directory'],
   carousel: ['work', 'detail', 'directory'],
+  merch: ['globe', 'work', 'detail', 'directory'],
+  visuals: ['detail', 'directory'],
+  'live-footage': ['detail', 'directory'],
 };
+
+/** Types whose pieces are NOT dropped off their surfaces (US-4 decision): they
+ *  ride the 'role' / 'showcase' lane there as ordinary pieces. */
+const OFF_SURFACE_ORDINARY = ['visuals', 'live-footage'];
 
 /** displayGroup convention that marks a brand-deck set as admats (flyers). */
 const ADMAT_GROUP_RE = /(^|-)admats?$/i;
@@ -228,8 +246,8 @@ export function opensOn(asset, surface) {
 
 /**
  * The content-flow lane an asset rides, first match wins: 'sequence',
- * 'album-art', 'deck', 'carousel', 'banner', 'admat', 'role' (any
- * contentRole), 'showcase'. null for an empty shell (no uploaded media).
+ * 'album-art', 'deck', 'carousel', 'banner', 'admat', 'visuals',
+ * 'live-footage', 'role' (any contentRole), 'showcase'. null for an empty shell (no uploaded media).
  *
  * With no `surface` the lanes follow mediaType / displayGroup alone (every
  * admat rides 'deck'). With a `surface` they follow the asset's group type
@@ -238,6 +256,9 @@ export function opensOn(asset, surface) {
  * 'role' / 'showcase' as its own tile. On 'detail' a motion admat is a member
  * too (it plays in the set's wall, SQ-52), and on 'directory' (SQ-53) it is a
  * frame of the set's cycling tile, which plays it through on the shared beat.
+ * A `merch` still rides 'sequence' on every surface (a motion one is an
+ * ordinary piece). `visuals` / `live-footage` take their own lane where they
+ * open and ride 'role' / 'showcase' elsewhere, never null (OFF_SURFACE_ORDINARY).
  */
 export function assetLane(asset, surface) {
   if (!asset.playbackId && !asset.imageUrl) return null;
@@ -250,9 +271,13 @@ export function assetLane(asset, surface) {
   } else {
     const type = groupTypeOf(asset);
     if (type) {
-      if (!opensOn(asset, surface)) return null;
-      if (type !== 'admat') return type;
-      if (surface !== 'globe' || (asset.imageUrl && !asset.playbackId)) return 'admat';
+      const still = asset.imageUrl && !asset.playbackId;
+      if (!opensOn(asset, surface)) {
+        if (!OFF_SURFACE_ORDINARY.includes(type)) return null;
+      } else if (type === 'merch') {
+        if (still) return 'sequence';
+      } else if (type !== 'admat') return type;
+      else if (surface !== 'globe' || still) return 'admat';
     }
   }
   if (asset.contentRole) return 'role';
@@ -315,6 +340,8 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   const carouselGroups = new Map();
   const bannerGroups = new Map();
   const admatGroups = new Map();
+  const visualsGroups = new Map();
+  const footageGroups = new Map();
   const sequenceGroups = new Map();
 
   // assets[0] is the hero (first in drag-to-order ranking) — skip it.
@@ -328,7 +355,7 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     if (!lane) continue;
 
     if (lane === 'sequence') {
-      const key = asset.displayGroup;
+      const key = asset.displayGroup ?? 'merch';
       if (!sequenceGroups.has(key)) sequenceGroups.set(key, []);
       sequenceGroups.get(key).push({ i, asset });
     } else if (lane === 'album-art') albumArt.push({ i, asset });
@@ -344,6 +371,11 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
       const key = asset.displayGroup ?? 'admat';
       if (!admatGroups.has(key)) admatGroups.set(key, []);
       admatGroups.get(key).push({ i, asset });
+    } else if (lane === 'visuals' || lane === 'live-footage') {
+      const groups = lane === 'visuals' ? visualsGroups : footageGroups;
+      const key = asset.displayGroup ?? lane;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ i, asset });
     } else if (lane === 'banner') {
       const key = asset.displayGroup;
       if (!bannerGroups.has(key)) bannerGroups.set(key, []);
@@ -370,6 +402,19 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     else admats.push({ group, items: sortByDeckOrder(members.map((e) => e.asset)) });
   }
 
+  // Visuals and live-footage sets: two members or more make a set (items in
+  // input order); a set of one rides the showcase at its place, as admats do.
+  const setsOf = (groups) => {
+    const sets = [];
+    for (const [group, members] of groups) {
+      if (members.length < 2) showcase.push(members[0]);
+      else sets.push({ group, items: members.map((e) => e.asset) });
+    }
+    return sets;
+  };
+  const visuals = setsOf(visualsGroups);
+  const liveFootage = setsOf(footageGroups);
+
   // ORBIT_MIN gate — below it, covers fold back into the showcase flow.
   const orbits = albumArt.length >= orbitMin;
   const showcaseOut = expandChunks(
@@ -392,5 +437,5 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   // Banners keep incoming orderRank order within each group.
   const banners = [...bannerGroups.entries()].map(([group, items]) => ({ group, items }));
 
-  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, banners, admats, bts };
+  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, banners, admats, visuals, liveFootage, bts };
 }

@@ -8,9 +8,10 @@
  * (buildContentFlow) — so a cluster on the globe holds exactly the media of
  * that project's /work World: the hero, the showcase Tiles and the album art.
  * Which group types show is the surface table (GROUP_SURFACES, 11-10): album
- * art and admats open on the globe; deck pages, carousels, banners, logos and
- * process/BTS assets stay out (wide or transparent sheets never read in a
- * square tile).
+ * art, admats and merch (stills cycle as a sequence) open on the globe; deck
+ * pages, carousels, banners, logos and process/BTS assets stay out (wide or
+ * transparent sheets never read in a square tile). Visuals and live-footage
+ * pieces ride as ordinary tiles (assetLane, US-4).
  *
  * Client (PopulationDirector): selectPool() narrows a pool live for the
  * ?popmedia / ?popcap bench knobs. Both sides select round-robin across the
@@ -35,7 +36,7 @@
  * motion admats keep their own tiles. A sequence asset adds `frames` ([{ imageUrl, alpha? }], frame 0 = its
  * imageUrl) and `ar`, the tile ratio every frame is cut to.
  */
-import { buildContentFlow, ratioOf, groupTypeOf, opensOn } from '../work/detail/buildContentFlow.js';
+import { buildContentFlow, ratioOf, groupTypeOf, assetLane } from '../work/detail/buildContentFlow.js';
 import { makeSequence } from '../../lib/mediaSequence.js';
 import { toProjectSlug } from '../../lib/projectSlug.js';
 import { classOf } from './mediaClass.js';
@@ -59,7 +60,7 @@ function toGlobeAsset(asset) {
   if (!asset || asset.mediaType === 'logo' || asset.contentRole) return null;
   // The surface table, for the hero too (buildContentFlow skips assets[0]): a deck, carousel or
   // banner page never tiles.
-  if (groupTypeOf(asset) && !opensOn(asset, 'globe')) return null;
+  if (groupTypeOf(asset) && assetLane(asset, 'globe') === null) return null;
   if (asset.playbackId && asset.videoStatus && !PLAYABLE.includes(asset.videoStatus)) return null;
   const kind = kindOf(asset);
   if (!kind) return null;

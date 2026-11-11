@@ -599,6 +599,27 @@ html:has(.project-detail) body {
   height: 100%;
 }
 
+/* Live-footage grid (US-4, LiveFootageGrid.jsx): rows share the socket's
+   height by their px heights (inline fr), each row a grid of cells that the
+   slots fill. Black hairline gutters like the deck walls. */
+.live-footage {
+  display: grid;
+  height: 100%;
+  background: var(--color-black);
+  overflow: hidden;
+}
+
+.live-footage__row {
+  display: grid;
+  min-height: 0;
+}
+
+.live-footage__cell {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Deck-as-featured (08-25, bedouin/saga): when the top-ranked asset is a
    brand-deck page, the wall leads the flow in the hero slot — a tall
    full-width stage between the client panel and the blurb. */

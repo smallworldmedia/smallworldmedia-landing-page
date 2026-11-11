@@ -51,8 +51,11 @@ test('groupType beats the inference; an unknown value falls back to it', () => {
   }
 })
 
-test('opensOn matches the table for all 20 (type, surface) pairs', () => {
+test('opensOn matches the table for all 32 (type, surface) pairs', () => {
   const expected = {
+    merch: { globe: true, work: true, detail: true, directory: true },
+    visuals: { globe: false, work: false, detail: true, directory: true },
+    'live-footage': { globe: false, work: false, detail: true, directory: true },
     'album-art': { globe: true, work: true, detail: true, directory: true },
     deck: { globe: false, work: true, detail: true, directory: true },
     banner: { globe: false, work: false, detail: true, directory: true },
@@ -68,7 +71,7 @@ test('opensOn matches the table for all 20 (type, surface) pairs', () => {
       pairs++
     }
   }
-  assert.equal(pairs, 20)
+  assert.equal(pairs, 32)
   assert.equal(opensOn(still('x', 'static_4x5'), 'detail'), false) // an ungrouped piece opens no viewer
   assert.equal(opensOn(still('x', 'static_4x5', { groupType: 'deck' }), 'sheet'), false) // an unknown surface opens nothing
 })
@@ -153,7 +156,8 @@ test('NEGATIVE CONTROL buildContentFlow with no surface keeps the legacy output'
     bts: ['bts-1'],
   }
   const flow = buildContentFlow(mixed())
-  assert.deepEqual(Object.keys(flow), ['showcase', 'albumArt', 'brandDecks', 'carousels', 'banners', 'admats', 'bts'])
+  assert.deepEqual(Object.keys(flow), ['showcase', 'albumArt', 'brandDecks', 'carousels', 'banners', 'admats', 'visuals', 'liveFootage', 'bts'])
+  assert.deepEqual([flow.visuals, flow.liveFootage], [[], []]) // US-4: empty without a typed set
   assert.deepEqual(ids(flow.showcase), legacy.showcase)
   assert.deepEqual(ids(flow.albumArt), legacy.albumArt)
   assert.deepEqual(flow.brandDecks.map((d) => ({ group: d.group, pages: ids(d.pages) })), legacy.brandDecks)
@@ -280,4 +284,96 @@ test('a surface drops the pieces of a set it does not open', () => {
   assert.equal(dir.banners.length, 1)
   assert.equal(dir.admats.length, 1)
   assert.equal(dir.brandDecks.length, 1)
+})
+
+// ── US-4 (11-11): merch, visuals, live-footage ──
+
+test('assetLane: merch stills are a sequence everywhere, merch motion an ordinary piece; visuals and live-footage never null', () => {
+  const merchStill = still('m', 'static_4x5', { groupType: 'merch', displayGroup: 'tees' })
+  assert.deepEqual(SURFACES.map((s) => assetLane(merchStill, s)), ['sequence', 'sequence', 'sequence', 'sequence'])
+  const merchClip = clip('mc', 'motion_4x5', { groupType: 'merch', displayGroup: 'tees' })
+  assert.deepEqual(SURFACES.map((s) => assetLane(merchClip, s)), ['showcase', 'showcase', 'showcase', 'showcase'])
+  assert.deepEqual(SURFACES.map((s) => assetLane({ ...merchClip, contentRole: 'process' }, s)), ['role', 'role', 'role', 'role'])
+  // The undefined-surface chain ignores groupType, as it does for every type.
+  assert.equal(assetLane(merchStill), 'showcase')
+
+  for (const [groupType, lane] of [['visuals', 'visuals'], ['live-footage', 'live-footage']]) {
+    const piece = clip(`${groupType}-p`, 'motion_16x9', { groupType, displayGroup: 'set' })
+    // own lane on detail + directory; an ordinary piece on globe + work (the US-4 decision), never null
+    assert.deepEqual(SURFACES.map((s) => assetLane(piece, s)), ['showcase', 'showcase', lane, lane], groupType)
+    const photo = still(`${groupType}-i`, 'static_4x5', { groupType, displayGroup: 'set', contentRole: 'process' })
+    assert.deepEqual(SURFACES.map((s) => assetLane(photo, s)), ['role', 'role', lane, lane], groupType)
+    assert.equal(assetLane(piece), 'showcase')
+  }
+  // NC: the existing types still drop where they do not open.
+  assert.equal(assetLane(still('b', 'static_other', { groupType: 'banner', displayGroup: 'x' }), 'globe'), null)
+})
+
+test("buildContentFlow(surface 'detail'): a visuals set and a live-footage set each fill their bucket, in input order, out of the showcase", () => {
+  const assets = [
+    clip('hero', 'featured-project-reel'),
+    still('shot-a', 'static_4x5'),
+    clip('vis-2', 'motion_16x9', { groupType: 'visuals', displayGroup: 'loops', brandDeckOrder: 1 }), // brandDeckOrder is not consulted
+    clip('lf-1', 'motion_16x9', { groupType: 'live-footage', displayGroup: 'show' }),
+    still('vis-1', 'static_16x9', { groupType: 'visuals', displayGroup: 'loops', brandDeckOrder: 9 }),
+    still('lf-2', 'static_4x5', { groupType: 'live-footage', displayGroup: 'show' }),
+    clip('vis-3', 'motion_16x9', { groupType: 'visuals', displayGroup: 'loops' }),
+    still('lf-3', 'static_3x4', { groupType: 'live-footage', displayGroup: 'show' }),
+    still('lf-4', 'static_9x16', { groupType: 'live-footage', displayGroup: 'show' }),
+    clip('lf-5', 'motion_9x16', { groupType: 'live-footage', displayGroup: 'show' }),
+    clip('lf-6', 'motion_16x9', { groupType: 'live-footage', displayGroup: 'show' }),
+    still('shot-b', 'static_4x5'),
+  ]
+  for (const surface of ['detail', 'directory']) {
+    const flow = buildContentFlow(assets, { surface })
+    assert.deepEqual(flow.visuals.map((s) => [s.group, ids(s.items)]), [['loops', ['vis-2', 'vis-1', 'vis-3']]], surface)
+    assert.deepEqual(flow.liveFootage.map((s) => [s.group, ids(s.items)]), [['show', ['lf-1', 'lf-2', 'lf-3', 'lf-4', 'lf-5', 'lf-6']]], surface)
+    assert.deepEqual(ids(flow.showcase), ['shot-a', 'shot-b'], surface)
+  }
+  // The globe and /work: not dropped, ordinary pieces at their place, no bucket.
+  for (const surface of ['globe', 'work']) {
+    const flow = buildContentFlow(assets, { surface })
+    assert.deepEqual([flow.visuals, flow.liveFootage], [[], []], surface)
+    assert.deepEqual(ids(flow.showcase), ids(assets.slice(1)), surface)
+  }
+})
+
+test('a visuals or live-footage set of ONE rides the showcase at its place; sets keep their own groups', () => {
+  const assets = [
+    clip('hero', 'featured-project-reel'),
+    still('shot-a', 'static_4x5'),
+    clip('vis-solo', 'motion_16x9', { groupType: 'visuals', displayGroup: 'solo-loops' }),
+    still('lf-solo', 'static_4x5', { groupType: 'live-footage', displayGroup: 'solo-show' }),
+    still('shot-b', 'static_4x5'),
+    clip('vis-a1', 'motion_16x9', { groupType: 'visuals', displayGroup: 'a' }),
+    clip('vis-b1', 'motion_16x9', { groupType: 'visuals', displayGroup: 'b' }),
+    clip('vis-a2', 'motion_16x9', { groupType: 'visuals', displayGroup: 'a' }),
+  ]
+  const flow = buildContentFlow(assets, { surface: 'detail' })
+  assert.deepEqual(flow.visuals.map((s) => [s.group, ids(s.items)]), [['a', ['vis-a1', 'vis-a2']]])
+  assert.deepEqual(flow.liveFootage, [])
+  assert.deepEqual(ids(flow.showcase), ['shot-a', 'vis-solo', 'lf-solo', 'shot-b', 'vis-b1'])
+})
+
+test('merch stills collapse into ONE sequence item on every surface, frames in rank order; a motion piece keeps its tile', () => {
+  const tees = Array.from({ length: 10 }, (_, k) => still(`tee-${k}`, 'static_4x5', { groupType: 'merch', displayGroup: 'tees' }))
+  const assets = [clip('hero', 'featured-project-reel'), still('shot-a', 'static_4x5'), ...tees.slice(0, 5), clip('tee-reel', 'motion_4x5', { groupType: 'merch', displayGroup: 'tees' }), ...tees.slice(5), still('shot-b', 'static_4x5')]
+  for (const surface of SURFACES) {
+    const flow = buildContentFlow(assets, { surface })
+    assert.deepEqual(ids(flow.showcase), ['shot-a', 'sequence:tees', 'tee-reel', 'shot-b'], surface)
+    const seq = flow.showcase[1]
+    assert.deepEqual(ids(seq.frames), tees.map((t) => t._id), surface)
+    assert.equal(seq.frames.length, 10)
+    assert.equal(seq.groupType, 'merch') // the lead's fields ride along, so the globe's surface table still reads it
+    assert.equal(seq.sequenceRatio, 4 / 5)
+  }
+  // More than SEQUENCE_MAX_FRAMES keeps the first twelve; a merch set of one rides the showcase as itself.
+  const many = Array.from({ length: 15 }, (_, k) => still(`m-${k}`, 'static_4x5', { groupType: 'merch', displayGroup: 'drop' }))
+  assert.equal(buildContentFlow([clip('hero', 'featured-project-reel'), ...many], { surface: 'detail' }).showcase[0].frames.length, 12)
+  const solo = buildContentFlow([clip('hero', 'featured-project-reel'), still('one', 'static_4x5', { groupType: 'merch', displayGroup: 'drop' })], { surface: 'work' })
+  assert.deepEqual(ids(solo.showcase), ['one'])
+  assert.equal(solo.showcase[0].frames, undefined)
+  // NC: a merch piece with no displayGroup still groups (one 'merch' set), it never throws.
+  const ungrouped = buildContentFlow([clip('hero', 'featured-project-reel'), still('u1', 'static_4x5', { groupType: 'merch' }), still('u2', 'static_4x5', { groupType: 'merch' })], { surface: 'globe' })
+  assert.deepEqual(ids(ungrouped.showcase), ['sequence:merch'])
 })

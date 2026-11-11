@@ -175,6 +175,31 @@ test('buildWorldPools drops projects without a client/collection or any tile-abl
   assert.equal(buildWorldPools([{ ...rows[0], assets: [rows[0].assets.find((a) => a._id === 'logo')] }]).length, 0)
 })
 
+test('buildWorldPools (US-4): merch stills ride as one sequence panel; visuals and live-footage pieces ride as ordinary tiles, not dropped', async () => {
+  const merch = ['a', 'b', 'c'].map((k, i) => media(`merch-${k}`, `0|m${i}:`, { mediaType: 'static_4x5', groupType: 'merch', displayGroup: 'tees', image: { _type: 'image', asset: ref(`image-merch-${k}`) } }))
+  const merchImages = ['a', 'b', 'c'].map((k) => ({ _id: `image-merch-${k}`, _type: 'sanity.imageAsset', url: `https://cdn.example/merch-${k}.jpg`, metadata: { dimensions: { width: 800, height: 1000 } } }))
+  const extra = [
+    ...merch,
+    ...merchImages,
+    mux('mux-vis'),
+    mux('mux-lf'),
+    media('vis-1', '0|v1:', { mediaType: 'motion_16x9', groupType: 'visuals', displayGroup: 'loops', video: video('mux-vis') }),
+    media('lf-1', '0|l1:', { mediaType: 'motion_16x9', groupType: 'live-footage', displayGroup: 'show', video: video('mux-lf') }),
+    // NC: a banner page is still dropped off the globe
+    { _id: 'image-banner', _type: 'sanity.imageAsset', url: 'https://cdn.example/banner.jpg', metadata: { dimensions: { width: 1500, height: 500 } } },
+    media('banner-1', '0|b1:', { mediaType: 'static_other', groupType: 'banner', displayGroup: 'x-banners', image: { _type: 'image', asset: ref('image-banner') } }),
+  ]
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, [...documents, ...extra]))
+  const keys = world.assets.map(assetKey)
+  assert.ok(keys.includes('pb-mux-vis') && keys.includes('pb-mux-lf'), 'visuals / live-footage pieces ride the globe as ordinary tiles')
+  const seq = world.assets.filter((a) => a.frames)
+  assert.equal(seq.length, 1, 'the merch set is one panel')
+  assert.deepEqual(seq[0].frames.map((f) => f.imageUrl), ['a', 'b', 'c'].map((k) => `https://cdn.example/merch-${k}.jpg`))
+  assert.equal(seq[0].kind, 'still')
+  assert.equal(world.assets.filter((a) => !a.frames && a.imageUrl === 'https://cdn.example/merch-a.jpg').length, 0, 'the merch frames are not tiles of their own')
+  assert.ok(!keys.includes('https://cdn.example/banner.jpg'), 'a banner page stays off')
+})
+
 const pool = (n, kind, tag = kind) => Array.from({ length: n }, (_, i) => ({ kind, playbackId: `${tag}${i}` }))
 
 test('selectPool caps round-robin across kinds, then restores editorial order', () => {

@@ -5,11 +5,12 @@
  * Grouping follows the detail pages (assetLane at the 'directory' surface,
  * buildContentFlow.js: every group type opens here), so a deck is one tile
  * here as it is one viewer there (CONTEXT.md, the Brand Deck Dual-Feed Rule):
- *   - decks, carousels, banner groups, admat sets and sequences collapse into
+ *   - decks, carousels, banner groups, admat sets, visuals and live-footage
+ *     sets, and sequences (merch stills too, 11-11) collapse into
  *     one tile per lane:client:project:displayGroup (a displayGroup name
  *     repeats across clients);
- *   - the face is a deck's lowest brandDeckOrder page, a carousel's or a
- *     banner group's first member (orderRank); a sequence cycles its stills
+ *   - the face is a deck's lowest brandDeckOrder page, a carousel's, banner
+ *     group's, visuals set's or live-footage set's first member (orderRank); a sequence cycles its stills
  *     (makeSequence), and so does an admat set, in brandDeckOrder then
  *     orderRank (11-10, Nathan), its animated flyers among the frames (each
  *     plays through on the shared beat, MediaSlot); a group of one is a plain
@@ -40,7 +41,7 @@ import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
 import { coverageOf } from '../../../lib/clientCoverage.js';
 
-const GROUPED = new Set(['sequence', 'admat', 'deck', 'carousel', 'banner']);
+const GROUPED = new Set(['sequence', 'admat', 'deck', 'carousel', 'banner', 'visuals', 'live-footage']);
 
 /* The fields of an asset a tile keeps — what MediaSlot and ratioOf read. */
 const FACE_FIELDS = [
