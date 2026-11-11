@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = 'eb3c783ad1d16330d6c192d43ad13d898aeed842ac65b483d665360daa0118ca'
+export const SUPPORTED_SCHEMA_HASH = 'fc3c0040e8dbcff68b7b17e6b04c8b1f7c2cc5ee4852532d5dcb2d60dd249d20'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
