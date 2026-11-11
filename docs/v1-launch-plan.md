@@ -78,12 +78,35 @@ records (`docs/globe-worlds-plan.md`).
    re-injected (negative control) the gap is 70–74/255 and the chip lands 0.2–1.6 s late.
    Verified headless at 390 and 1440. Touch and wheel probes must pin a long `?releasems`, because
    headless input gaps run 250–450 ms.
+   **Closed 11-05:** Nathan approved it on his phone at the baked numbers (gain 5, release 240,
+   `/work` 500, `/process` 400).
 2. **Done.** `refine/media-sequence` (the image-cycling component, Nathan's session) did not need
    the rebase: on 11-01 it merged onto this fold's tip with `refine/process` (`e801bed`, `44fdf3e`),
    on `refine/globe-worlds`, and this branch took both as one fast-forward (`c1517e5`, pushed). On
    11-02 the side worktrees and `refine/globe-worlds` were retired. `origin/refine/globe-worlds` was
    deleted the same day, once its Sidequest tickets closed. One workstream from here: this branch,
    in the main checkout, with the dev server (`:4322 --host`) running there.
+3. **Done 11-10: the type property** (Nathan, story US-3, SQ-46 and SQ-48…SQ-53, pushed at
+   `6dd4b3b`). Grouped media get a type (album art, deck, banner, admat, carousel), and each type
+   opens its viewer only on the surfaces listed in `GROUP_SURFACES` (`buildContentFlow.js`;
+   CONTEXT.md § Group Type).
+   - Carousels open as walls, and admats left /work.
+   - An admat set is one wall on the project page (4 columns, 2 on a phone, animated flyers playing
+     in place), one cycling tile in the directory and one panel on the globe.
+   - In Sanity: the groupType backfill (5 plans) and the tour-flyer regroup `ef1d6831`. HHS 2024–25,
+     HHS 2026 and Short Circuit are now admat sets.
+   - The hosted Studio was redeployed. The branch preview was rebuilt 11-11 with the new data.
+   - Left: Nathan's iPhone check of the HHS pages and the directory.
+4. **Next: Nathan's 11-11 round** (not started; `docs/.session-context.md` task 1):
+   - the carousel viewer scrolls horizontally;
+   - album art goes to 2 columns on a phone and 4 on desktop, with +50% height;
+   - the admat wall gets +50% height;
+   - three new types: `merch` (the album-art cycler on all four surfaces), `visuals` and
+     `live-footage`;
+   - a Jam Packed summer tour admat set;
+   - the COCO 2026 cleanup: two admat sets and three deletes.
+
+   The order is the schema first, then the content plans on Nathan's yes, then the code (US-4).
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
