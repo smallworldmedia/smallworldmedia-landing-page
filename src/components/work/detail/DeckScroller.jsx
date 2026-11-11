@@ -38,12 +38,25 @@
  *        ceil(pages ÷ cols) pages, so cols × perCol ≥ N — a frame about one
  *        page tall would otherwise cycle only cols × 2 of them. Off = the
  *        frame-derived cycle, unchanged.
+ * @param {boolean} [props.play] - opt-in (11-10, the admat wall): a page with
+ *        a playbackId plays while ONE playerGate for the wall grants it (the
+ *        directory's cap and dwell; the detail clip, DETAIL_MAX_SECONDS). Its
+ *        frame-0 poster is the loading and ungranted state. Off = every page
+ *        a still, unchanged.
  * @param {string} [props.ariaLabel]
  */
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { getLenis } from '../../../lib/smoothScroll.js';
-import { IMG_FORMAT } from '../imageConfig.js';
+import {
+  IMG_FORMAT,
+  DETAIL_MAX_SECONDS,
+  DIRECTORY_PLAYERS,
+  DIRECTORY_DWELL_MS,
+  muxPoster,
+} from '../imageConfig.js';
+import { createPlayerGate } from '../directory/playerGate.js';
+import GatedVideo from './GatedVideo.jsx';
 
 const PARAMS =
   typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -66,25 +79,76 @@ const pageSrc = (p) =>
     : `https://image.mux.com/${p.playbackId}/thumbnail.webp?width=${IMG_WIDTH}&fit_mode=preserve`;
 
 /* One page of the wall. Its own component so a page can grow more than a
-   still (the admat wall's playing flyers) without touching the layout. */
-function DeckPage({ page }) {
+   still: in play mode, a page with a playbackId is the media-slot
+   directory face — its frame-0 poster, and a fresh keyed GatedVideo over it
+   while the gate grants it play. The wrapper takes the wall's ratio, so the
+   strip's cycle height holds whatever the page is. */
+function DeckPage({ page, play, gate }) {
+  const ref = useRef(null);
+  const [canPlay, setCanPlay] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const live = !!play && !!page.playbackId; // the poster face from the first paint; the gate arrives after
+
+  useEffect(() => {
+    if (!live || !gate) return undefined;
+    return gate.watch(ref.current, { video: true }, (state) => setCanPlay(state.play));
+  }, [gate, live]);
+
+  if (!live) {
+    return (
+      <img
+        className="deck-scroller__page"
+        src={pageSrc(page)}
+        alt=""
+        loading="lazy"
+        draggable={false}
+      />
+    );
+  }
   return (
-    <img
-      className="deck-scroller__page"
-      src={pageSrc(page)}
-      alt=""
-      loading="lazy"
-      draggable={false}
-    />
+    <div ref={ref} className="media-slot" style={{ '--slot-ratio': 'var(--deck-ratio)' }}>
+      <img
+        className={`media-slot__media${loaded ? ' media-slot__media--loaded' : ''}`}
+        src={muxPoster(page.playbackId, IMG_WIDTH)}
+        alt=""
+        loading="lazy"
+        draggable={false}
+        onLoad={() => setLoaded(true)}
+      />
+      {canPlay && <GatedVideo key={page.playbackId} playbackId={page.playbackId} clip={DETAIL_MAX_SECONDS} />}
+    </div>
   );
 }
 
-export default function DeckScroller({ pages, ratio, cols: fixedCols, showAll, ariaLabel }) {
+/* The wall's one playerGate (play mode): ONE observer over every playing
+   page, DIRECTORY_PLAYERS grants at once (8 desktop, 4 phone, the directory's
+   split), none under reduced motion. null until the effect has built it. */
+function useWallGate(play) {
+  const [gate, setGate] = useState(null);
+  useEffect(() => {
+    if (!play) return undefined;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const phone = window.matchMedia('(max-width: 768px)').matches;
+    const g = createPlayerGate({
+      cap: reduced ? 0 : phone ? DIRECTORY_PLAYERS.phone : DIRECTORY_PLAYERS.desktop,
+      dwellMs: DIRECTORY_DWELL_MS,
+    });
+    setGate(g);
+    return () => {
+      g.destroy();
+      setGate(null);
+    };
+  }, [play]);
+  return gate;
+}
+
+export default function DeckScroller({ pages, ratio, cols: fixedCols, showAll, play, ariaLabel }) {
   const frameRef = useRef(null);
   const stripRefs = useRef([]);
   // Per-column scroll offsets + cycle heights, owned by the ticker (never state).
   const motionRef = useRef({ offsets: [], cycleH: 0, dirs: [] });
   const [layout, setLayout] = useState(null); // { cols, perCol }
+  const gate = useWallGate(play);
 
   // ── Layout: columns sized so ~VISIBLE_ROWS page-rows fill the frame ──
   useEffect(() => {
@@ -188,7 +252,7 @@ export default function DeckScroller({ pages, ratio, cols: fixedCols, showAll, a
               >
                 {/* the cycle twice — the wrap shows copy 2 while copy 1 rewinds */}
                 {[0, 1].map((copy) =>
-                  cycle.map((p, n) => <DeckPage key={`${copy}-${n}`} page={p} />)
+                  cycle.map((p, n) => <DeckPage key={`${copy}-${n}`} page={p} play={play} gate={gate} />)
                 )}
               </div>
             </div>

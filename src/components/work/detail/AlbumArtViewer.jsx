@@ -22,6 +22,7 @@
  * @param {number} [props.ratio=1] - page aspect (w/h)
  * @param {number} [props.cols] - fixed column count (omit = geometry-derived)
  * @param {boolean} [props.showAll] - every page reaches the wall (DeckScroller)
+ * @param {boolean} [props.play] - an animated flyer plays in the wall (DeckScroller `play`)
  * @param {string} [props.ariaLabel]
  */
 import DeckScroller from './DeckScroller.jsx';
@@ -31,6 +32,7 @@ export default function AlbumArtViewer({
   ratio = 1,
   cols,
   showAll,
+  play,
   ariaLabel = 'album artwork',
 }) {
   if (!covers.length) return null;
@@ -41,6 +43,7 @@ export default function AlbumArtViewer({
         ratio={ratio}
         cols={cols}
         showAll={showAll}
+        play={play}
         ariaLabel={ariaLabel}
       />
     </div>

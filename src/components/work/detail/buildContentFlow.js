@@ -43,9 +43,11 @@
  *     they always did. groupTypeOf reads the field and, on a document from
  *     before the field, infers the type from mediaType / displayGroup.
  *     `admat` sets (still flyers, displayGroup `…-admats`) group like decks,
- *     pages in brandDeckOrder; a set of one rides the showcase at its place,
- *     and a motion member keeps its own tile. Without a surface the admats
- *     bucket stays empty and admat pages ride the decks, as before.
+ *     pages in brandDeckOrder; a set of one rides the showcase at its place.
+ *     A motion member (an animated flyer) joins its set on `detail`, where
+ *     the wall plays it; on the globe and the directory it keeps its own
+ *     tile. Without a surface the admats bucket stays empty and admat pages
+ *     ride the decks, as before.
  *
  * Which bucket an asset joins is assetLane's precedence (sequence first,
  * showcase last), exported so other grids sort assets the same way.
@@ -232,8 +234,9 @@ export function opensOn(asset, surface) {
  * With no `surface` the lanes follow mediaType / displayGroup alone (every
  * admat rides 'deck'). With a `surface` they follow the asset's group type
  * (groupTypeOf), and null also means its set does not open on that surface.
- * 'admat' is for still members only; a motion admat rides 'role' /
- * 'showcase' as its own tile.
+ * 'admat' is for still members only, except on 'detail', where a motion
+ * admat is a member too (it plays in the set's wall, SQ-52); on the globe and
+ * the directory it rides 'role' / 'showcase' as its own tile.
  */
 export function assetLane(asset, surface) {
   if (!asset.playbackId && !asset.imageUrl) return null;
@@ -248,7 +251,7 @@ export function assetLane(asset, surface) {
     if (type) {
       if (!opensOn(asset, surface)) return null;
       if (type !== 'admat') return type;
-      if (asset.imageUrl && !asset.playbackId) return 'admat';
+      if (surface === 'detail' || (asset.imageUrl && !asset.playbackId)) return 'admat';
     }
   }
   if (asset.contentRole) return 'role';

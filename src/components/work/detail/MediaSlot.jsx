@@ -61,23 +61,11 @@ import {
   wrapAt,
 } from '../imageConfig.js';
 import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import GatedVideo, { DETAIL_HLS_CONFIG } from './GatedVideo.jsx';
 import { sequenceFrame, msToNextFrame } from '../../../lib/mediaSequence.js';
 
 /** Sanity image width for detail page slots */
 const SLOT_IMG_WIDTH = 1400;
-
-/** hls.js config for detail slots — prefetch the first fragment alongside
-    manifest parsing, and start two rungs up the ladder (~720p on Mux's
-    typical ladder) so the first painted frame is sharp; ABR adapts from
-    there (capLevelToPlayerSize stays on inside useHls). maxBufferLength
-    is a floor, not a cap: hls.js buffers further when the bitrate allows.
-    The stream clip (DETAIL_MAX_SECONDS, muxStream) is what bounds each
-    slot's download. */
-const DETAIL_HLS_CONFIG = {
-  startFragPrefetch: true,
-  startLevel: 2,
-  maxBufferLength: 12,
-};
 
 /** IO pre-load band — vertical-only; horizontal margin is inert on a
     vertical page. Wide enough that scrolled-to slots already stream. */
@@ -100,40 +88,6 @@ function useSequenceFrame(n, active) {
     return () => clearTimeout(id);
   }, [n, active]);
   return frame;
-}
-
-/** The directory's player, mounted only while the gate grants play. It sits
-    over the poster and fades in once it can play. */
-function GatedVideo({ playbackId, clip }) {
-  const videoRef = useRef(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const wrap = useMemo(() => wrapAt(clip), [clip]);
-
-  useHls(videoRef, muxStream(playbackId, clip), DETAIL_HLS_CONFIG, { videoOnly: true });
-
-  // useHls's native path sets src and never detaches: empty the element as
-  // it unmounts, or the detached <video> keeps fetching.
-  useEffect(() => {
-    const video = videoRef.current;
-    return () => {
-      video.removeAttribute('src');
-      video.load();
-    };
-  }, []);
-
-  return (
-    <video
-      ref={videoRef}
-      className={`media-slot__media media-slot__player${isLoaded ? ' media-slot__media--loaded' : ''}`}
-      muted
-      autoPlay
-      loop
-      playsInline
-      aria-hidden="true"
-      onTimeUpdate={wrap}
-      onCanPlay={() => setIsLoaded(true)}
-    />
-  );
 }
 
 export default function MediaSlot({

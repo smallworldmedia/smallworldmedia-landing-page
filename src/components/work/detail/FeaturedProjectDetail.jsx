@@ -82,7 +82,7 @@ const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: ORBIT_REGI
    34-row orbit band is ~406px; a 4x5 page in 4 columns is ~447px, so it would
    crop every one). One page tall also bounds the half-visible pages at
    cols × 2 = 8 desktop / 4 phone — the player cap the playing flyers will
-   ride (SQ-52). Rows come from the measured grid (admatRows below); this is
+   ride (SQ-52: DeckScroller `play`, one playerGate for the wall). Rows come from the measured grid (admatRows below); this is
    only the width they assume before it is measured. */
 const ADMAT_COLS = 4;
 const ADMAT_COLS_PHONE = 2;
@@ -503,7 +503,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     : paragraphs;
 
   // An admat set's wall: the album-art DeckScroller at the set's ratio, fixed
-  // columns, every flyer on it (showAll).
+  // columns, every flyer on it (showAll), animated ones playing (play).
   const admatWall = (id) => {
     const set = admats.find((a) => `admat:${a.group}` === id);
     return (
@@ -512,7 +512,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         ratio={ratioOf(set.items[0])}
         cols={admatCols}
         showAll
-        ariaLabel={`${set.group} flyers`}
+        play
+        ariaLabel="tour flyers"
       />
     );
   };
