@@ -104,7 +104,7 @@ test('assetLane with a surface applies the table', () => {
   assert.deepEqual(SURFACES.map((s) => assetLane(still('x', 'static_4x5', { contentRole: 'process' }), s)), ['role', 'role', 'role', 'role'])
 })
 
-test('assetLane with no surface keeps the legacy chain: groupType is not read', () => {
+test('assetLane with no surface keeps the legacy chain and ignores groupType', () => {
   assert.equal(assetLane(still('ad', 'brand-deck', { displayGroup: 'x-admats' })), 'deck')
   assert.equal(assetLane(still('p', 'brand-deck', { displayGroup: 'guidelines', groupType: 'admat' })), 'deck')
   assert.equal(assetLane(still('c', 'static_1x1', { groupType: 'album-art' })), 'showcase')
@@ -139,7 +139,7 @@ const mixed = () => [
   clip('reel-b', 'motion_16x9'),
 ]
 
-test('NEGATIVE CONTROL: buildContentFlow with no surface keeps the legacy output (carousels reshaped, admats empty)', () => {
+test('NEGATIVE CONTROL buildContentFlow with no surface keeps the legacy output', () => {
   // Captured from the pre-11-10 function on this fixture, before the change.
   const legacy = {
     showcase: ['shot-a', 'reel-a', 'sequence:logo-sequence', 'reel-b'],
