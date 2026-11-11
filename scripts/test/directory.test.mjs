@@ -503,7 +503,7 @@ const admatSet = (n, extra = {}) =>
 const jamTiles = (assets) =>
   buildDirectoryTiles({ assets, worlds: ADMAT_WORLDS, clients: [{ name: 'Jamback', slug: 'jamback', umbrellas: null }] })
 
-test('admat set: 16 stills are one cycling tile, capped at SEQUENCE_MAX_FRAMES, in brandDeckOrder', () => {
+test('admat set - 16 stills are one cycling tile, capped at SEQUENCE_MAX_FRAMES, in brandDeckOrder', () => {
   rank = 0
   const flyers = admatSet(16)
   const ts = jamTiles(flyers)
@@ -520,7 +520,7 @@ test('admat set: 16 stills are one cycling tile, capped at SEQUENCE_MAX_FRAMES, 
   assert.equal(tile.sequenceRatio, 1080 / 1350)
 })
 
-test('admat set: filters, tags, client coverage and the link read the set as the deck tile did', () => {
+test('admat set - filters, tags, client coverage and the link read the set as the deck tile did', () => {
   rank = 0
   const ts = jamTiles(admatSet(16))
   const [tile] = ts
@@ -541,7 +541,7 @@ test('admat set: filters, tags, client coverage and the link read the set as the
   for (const k of ['client', 'services', 'href', 'label']) assert.deepEqual(tile[k], asDeck[k], k)
 })
 
-test('admat set: a pre-11-10 brand-deck with no groupType reads the same as one marked admat', () => {
+test('admat set - a pre-11-10 brand-deck with no groupType reads the same as one marked admat', () => {
   rank = 0
   const inferred = jamTiles(admatSet(5))[0]
   rank = 0
@@ -551,7 +551,7 @@ test('admat set: a pre-11-10 brand-deck with no groupType reads the same as one 
   assert.equal(marked._id, 'admat:jamback:p-jam:tour-flyers', 'the stored type alone makes the set, whatever the displayGroup')
 })
 
-test('admat set: a motion admat keeps its own tile; a set of one is a plain tile', () => {
+test('admat set - a motion admat keeps its own tile; a set of one is a plain tile', () => {
   rank = 0
   const motion = asset('flyer-motion', 'jamback', {
     ...JAM, mediaType: 'brand-deck', displayGroup: 'tour-admats', brandDeckOrder: 99,
