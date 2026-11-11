@@ -257,7 +257,7 @@ export const mediaAsset = defineType({
       title: 'Group Type',
       type: 'string',
       description:
-        'Marks this piece as part of a set the site shows together. Each type opens its own viewer or cycler on some pages and shows as an ordinary piece elsewhere. Album Art sets are a project\'s covers; every other type also needs a Display Group naming its set. Order a Merch set like with like (short sleeves together, then long sleeves, hats…). A Live Footage set leaves its hero clips out: they stay standalone pieces. A Flyer Progression set is one event's flyers in announcement order (teaser, lineup, set times…). Leave empty for a standalone piece.',
+        'Marks this piece as part of a set the site shows together. Each type opens its own viewer or cycler on some pages and shows as an ordinary piece elsewhere. Album Art sets are a project\'s covers; every other type also needs a Display Group naming its set. Order a Merch set like with like (short sleeves together, then long sleeves, hats…). A Live Footage set leaves its hero clips out: they stay standalone pieces. A Flyer Progression set is the flyers of one event in announcement order (teaser, lineup, set times…). Leave empty for a standalone piece.',
       options: {
         list: [
           { title: 'Album Art', value: 'album-art' },
