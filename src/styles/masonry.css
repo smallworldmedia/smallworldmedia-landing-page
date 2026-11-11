@@ -90,13 +90,19 @@
   }
   /* Banner walls (09-10): 1.5 banners tall at THIS width — the rows are
      measured in FeaturedProjectDetail and handed down as --socket-rows.
-     Admat walls (11-10) the same: one whole flyer tall at THIS width.
-     Visuals walls and live-footage grids (US-4) likewise. */
+     Admat walls (11-10) the same: 1.5 flyers tall at THIS width (11-11);
+     carousel strips (11-11): one slide tall. Visuals walls and
+     live-footage grids (US-4) likewise. */
   .masonry-grid--detail > .grid-socket[data-socket^="banner:"],
   .masonry-grid--detail > .grid-socket[data-socket^="admat:"],
+  .masonry-grid--detail > .grid-socket[data-socket^="carousel:"],
   .masonry-grid--detail > .grid-socket[data-socket^="visuals:"],
   .masonry-grid--detail > .grid-socket[data-socket^="footage:"] {
     grid-row: span var(--socket-rows, 12) !important;
+  }
+  /* The cover wall (11-11): 1.5x the 26-row band. */
+  .masonry-grid--detail > .grid-socket[data-socket="orbit"] {
+    grid-row: span 39 !important;
   }
   .grid-socket__layer {
     transform: none !important;

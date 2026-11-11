@@ -43,6 +43,13 @@
  *        directory's cap and dwell; the detail clip, DETAIL_MAX_SECONDS). Its
  *        frame-0 poster is the loading and ungranted state. Off = every page
  *        a still, unchanged.
+ * @param {'y'|'x'} [props.axis='y'] - 'x' (US-4, 11-11, the carousel): `rows`
+ *        horizontal strips instead of columns. Row 0 reads forward (page 1 → N,
+ *        left to right) and travels LEFTWARD, odd rows the other way; the same
+ *        idle drift, Lenis kick, viewport gate and reduced-motion hold as the
+ *        columns. Each page is as wide as its row is tall × ratio, so the
+ *        frame's height sets how many slides show (horizontalStrip.js).
+ * @param {number} [props.rows=1] - horizontal strips (axis 'x' only)
  * @param {string} [props.ariaLabel]
  */
 import { useEffect, useRef, useState } from 'react';
@@ -57,6 +64,7 @@ import {
 } from '../imageConfig.js';
 import { createPlayerGate } from '../directory/playerGate.js';
 import GatedVideo from './GatedVideo.jsx';
+import { horizontalLayout } from './horizontalStrip.js';
 
 const PARAMS =
   typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -67,6 +75,7 @@ const num = (key, fallback) => {
 
 const VISIBLE_ROWS = num('deckvrows', 2); // Nathan's 08-25 bake (was 2.5)
 const GAP_PX = num('deckwgap', 2); // 1–2px black between pages
+export const DECK_GAP_PX = GAP_PX; // the carousel socket sizes its slides through the same gutter
 const DRIFT_PX_S = num('deckdrift', 8); // idle rate — Nathan's 08-25 bake (was 12)
 const SCROLL_GEAR = num('deckgear', 0.08); // column px per scrolled px — Nathan's 08-25 bake (was 0.5 → 0.3 → 0.08)
 
@@ -142,15 +151,27 @@ function useWallGate(play) {
   return gate;
 }
 
-export default function DeckScroller({ pages, ratio, cols: fixedCols, showAll, play, ariaLabel }) {
+export default function DeckScroller({
+  pages,
+  ratio,
+  cols: fixedCols,
+  showAll,
+  play,
+  axis = 'y',
+  rows = 1,
+  ariaLabel,
+}) {
+  const horizontal = axis === 'x';
   const frameRef = useRef(null);
   const stripRefs = useRef([]);
-  // Per-column scroll offsets + cycle heights, owned by the ticker (never state).
-  const motionRef = useRef({ offsets: [], cycleH: 0, dirs: [] });
-  const [layout, setLayout] = useState(null); // { cols, perCol }
+  // Per-line (column on y, row on x) scroll offsets + cycle lengths, owned by
+  // the ticker (never state).
+  const motionRef = useRef({ offsets: [], cycle: 0, dirs: [] });
+  const [layout, setLayout] = useState(null); // { lines, perLine }
   const gate = useWallGate(play);
 
-  // ── Layout: columns sized so ~VISIBLE_ROWS page-rows fill the frame ──
+  // ── Layout: columns sized so ~VISIBLE_ROWS page-rows fill the frame
+  //    (x: `rows` strips, page width from the row height × ratio) ──
   useEffect(() => {
     const frame = frameRef.current;
     if (!frame) return undefined;
@@ -158,34 +179,43 @@ export default function DeckScroller({ pages, ratio, cols: fixedCols, showAll, p
       const w = frame.clientWidth;
       const h = frame.clientHeight;
       if (!w || !h) return;
-      const idealPageH = h / VISIBLE_ROWS;
-      const cols = fixedCols ?? Math.max(2, Math.round(w / (idealPageH * ratio)));
-      const colW = (w - (cols - 1) * GAP_PX) / cols;
-      const pageH = colW / ratio;
-      // Enough pages per strip cycle that TWO rendered copies cover the
-      // frame at any wrap offset.
-      const framePerCol = Math.max(2, Math.ceil((h + pageH) / (pageH + GAP_PX)));
-      const perCol = showAll
-        ? Math.max(framePerCol, Math.ceil(pages.length / cols))
-        : framePerCol;
-      motionRef.current.cycleH = perCol * (pageH + GAP_PX);
+      let lines;
+      let perLine;
+      if (horizontal) {
+        lines = rows;
+        const x = horizontalLayout({ w, h, lines, ratio, gap: GAP_PX, n: pages.length });
+        perLine = x.perLine;
+        motionRef.current.cycle = x.cycle;
+      } else {
+        const idealPageH = h / VISIBLE_ROWS;
+        lines = fixedCols ?? Math.max(2, Math.round(w / (idealPageH * ratio)));
+        const colW = (w - (lines - 1) * GAP_PX) / lines;
+        const pageH = colW / ratio;
+        // Enough pages per strip cycle that TWO rendered copies cover the
+        // frame at any wrap offset.
+        const framePerCol = Math.max(2, Math.ceil((h + pageH) / (pageH + GAP_PX)));
+        perLine = showAll
+          ? Math.max(framePerCol, Math.ceil(pages.length / lines))
+          : framePerCol;
+        motionRef.current.cycle = perLine * (pageH + GAP_PX);
+      }
       setLayout((cur) =>
-        cur && cur.cols === cols && cur.perCol === perCol ? cur : { cols, perCol }
+        cur && cur.lines === lines && cur.perLine === perLine ? cur : { lines, perLine }
       );
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(frame);
     return () => ro.disconnect();
-  }, [ratio, pages.length, fixedCols, showAll]);
+  }, [ratio, pages.length, fixedCols, showAll, horizontal, rows]);
 
-  // ── Drive: idle drift + Lenis scroll coupling, alternating per column ──
+  // ── Drive: idle drift + Lenis scroll coupling, alternating per line ──
   useEffect(() => {
     if (!layout) return undefined;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
     const m = motionRef.current;
-    m.offsets = new Array(layout.cols).fill(0);
-    m.dirs = Array.from({ length: layout.cols }, (_, i) => (i % 2 === 0 ? 1 : -1));
+    m.offsets = new Array(layout.lines).fill(0);
+    m.dirs = Array.from({ length: layout.lines }, (_, i) => (i % 2 === 0 ? 1 : -1));
 
     const mod = (x, n) => ((x % n) + n) % n;
     const tick = (_t, deltaMs) => {
@@ -197,8 +227,11 @@ export default function DeckScroller({ pages, ratio, cols: fixedCols, showAll, p
       for (let i = 0; i < m.offsets.length; i++) {
         m.offsets[i] += m.dirs[i] * step;
         const strip = stripRefs.current[i];
-        if (strip && m.cycleH > 0) {
-          strip.style.transform = `translate3d(0, ${(-mod(m.offsets[i], m.cycleH)).toFixed(2)}px, 0)`;
+        if (strip && m.cycle > 0) {
+          const at = (-mod(m.offsets[i], m.cycle)).toFixed(2);
+          strip.style.transform = horizontal
+            ? `translate3d(${at}px, 0, 0)`
+            : `translate3d(0, ${at}px, 0)`;
         }
       }
     };
@@ -222,32 +255,32 @@ export default function DeckScroller({ pages, ratio, cols: fixedCols, showAll, p
       io.disconnect();
       if (ticking) gsap.ticker.remove(tick);
     };
-  }, [layout]);
+  }, [layout, horizontal]);
 
   if (!pages.length) return null;
 
-  // Column i cycles pages (i + n·cols) mod N — reading order runs across
-  // the wall then wraps, and every column stays populated on short decks.
-  const columnPages = (col, perCol) =>
-    Array.from({ length: perCol }, (_, n) => pages[(col + n * layout.cols) % pages.length]);
+  // Line i cycles pages (i + n·lines) mod N — reading order runs across the
+  // wall then wraps, and every line stays populated on short sets.
+  const linePages = (line, perLine) =>
+    Array.from({ length: perLine }, (_, n) => pages[(line + n * layout.lines) % pages.length]);
 
   return (
     <div
-      className="deck-scroller"
+      className={`deck-scroller${horizontal ? ' deck-scroller--x' : ''}`}
       ref={frameRef}
       role="img"
       aria-label={ariaLabel}
       style={{ '--deck-wgap': `${GAP_PX}px`, '--deck-ratio': ratio }}
     >
       {layout &&
-        Array.from({ length: layout.cols }, (_, col) => {
-          const cycle = columnPages(col, layout.perCol);
+        Array.from({ length: layout.lines }, (_, line) => {
+          const cycle = linePages(line, layout.perLine);
           return (
-            <div className="deck-scroller__col" key={col}>
+            <div className="deck-scroller__col" key={line}>
               <div
                 className="deck-scroller__strip"
                 ref={(el) => {
-                  stripRefs.current[col] = el;
+                  stripRefs.current[line] = el;
                 }}
               >
                 {/* the cycle twice — the wrap shows copy 2 while copy 1 rewinds */}
