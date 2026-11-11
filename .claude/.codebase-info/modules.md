@@ -217,7 +217,7 @@ velocity is tracked and, v/ω from the next seat in its direction of travel (ω 
 `LENIS_TUNING.lerp`, the driven footer's damp; `?blurbcatch`), a critically damped spring takes it in
 at its own speed, never past the seat; a page resting short of a seat that covers half the viewport
 is eased on from rest. HOLD: a drag rides `lib/rubberBand.js` (copy tracks the finger, the lift
-springs it home). EXIT: `SCROLL_TRIGGER_WORK_PX` of gained delta commits; the page then follows the
+springs it home). EXIT: `BLURB_TRIGGER_PX` 300 of gained delta commits (60px of finger, its own since Nathan's 11-11 ask, `?blurbscroll`; the house `SCROLL_TRIGGER_WORK_PX` 500 stays the World Turn's and the next-project band's); the page then follows the
 finger 1:1 and the lift hands its release velocity to a momentum decaying 0.998/ms (iOS's own,
 `?blurbdecel`), no target and no duration. A section taller than its seat window is read natively.
 SQ-28: the document's end is a downward ARRIVE target too (a stop, not a hold, so NextProjectBand
