@@ -13,7 +13,8 @@
  *      float the composite occupants: AlbumArtViewer and BrandDeckViewer
  *      (both full-width — tiles flow above/below; deck takes the top
  *      anchor when alone, mid when an orbit outranks it) —
- *      docs/orbit-deck-viewer-spec.md. The description's later
+ *      docs/orbit-deck-viewer-spec.md. Carousels ride the deck walls; an
+ *      admat set gets its own flyer wall in the album-art slot. The description's later
  *      paragraphs cut it into stacked grids, a text band between each.
  *   5. SiteFooter
  *
@@ -41,7 +42,7 @@ import BrandDeckViewer from './BrandDeckViewer.jsx';
 import AlbumArtViewer from './AlbumArtViewer.jsx';
 import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
 import ServiceTag from '../ServiceTag.jsx';
-import { buildContentFlow, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import { buildContentFlow, groupTypeOf, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid, splitAtBreaks } from './flushGrid.js';
 import {
   GRID_ROW_PX,
@@ -75,6 +76,18 @@ const DECK_REGION_ROWS = 68;
    below; this is only the pre-measure fallback (≈ a 1200px grid). */
 const BANNER_REGION_ROWS_FALLBACK = 38;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
+/* 11-10, Nathan — "Big flyers that play": an admat set gets one wall in the
+   album-art slot, at a FIXED column count (4 desktop, 2 phone ≤ 768) so the
+   flyers read big, and a socket one flyer tall so a whole flyer fits (the
+   34-row orbit band is ~406px; a 4x5 page in 4 columns is ~447px, so it would
+   crop every one). One page tall also bounds the half-visible pages at
+   cols × 2 = 8 desktop / 4 phone — the player cap the playing flyers will
+   ride (SQ-52). Rows come from the measured grid (admatRows below); this is
+   only the width they assume before it is measured. */
+const ADMAT_COLS = 4;
+const ADMAT_COLS_PHONE = 2;
+const ADMAT_WIDTH_FALLBACK = 1440;
+const ADMAT_GAP_FALLBACK = 2;
 /* Text bands (11-03, Nathan): the description's first paragraph is the
    intro blurb; each later one is its own band down the grid, "after a few
    pieces of media". One every BLURB_ROWS squares of the 3-col grid from the
@@ -326,7 +339,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const hero = assets[0] ?? null;
   const [chunkTune, setChunkTune] = useState(CHUNKS_NONE);
   useEffect(() => setChunkTune(readChunkTune()), []);
-  const { showcase, albumArt, brandDecks, banners } = buildContentFlow(assets, { chunks: chunkTune });
+  const { showcase, albumArt, brandDecks, carousels, banners, admats } = buildContentFlow(assets, {
+    surface: 'detail',
+    chunks: chunkTune,
+  });
 
   // Banner sockets want a height in BANNERS, not rows, and tiles a shape:
   // measure the flow width (the grid is full-bleed inside it) and convert.
@@ -349,6 +365,16 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     return Math.max(8, Math.ceil((wantPx + gridMetrics.rowGap) / pitch));
   };
 
+  // An admat wall: fixed columns, and rows tall enough for ONE whole flyer
+  // (the same row-pitch conversion as the banners, rounded up).
+  const admatCols = gridMetrics?.cols === 1 ? ADMAT_COLS_PHONE : ADMAT_COLS;
+  const admatRows = (set) => {
+    const width = gridMetrics?.width || ADMAT_WIDTH_FALLBACK;
+    const gap = gridMetrics?.width ? gridMetrics.rowGap : ADMAT_GAP_FALLBACK;
+    const pageH = width / admatCols / ratioOf(set.items[0]);
+    return Math.max(8, Math.ceil((pageH + gap) / (GRID_ROW_PX + gap)));
+  };
+
   // Tile spans, through the same pitch (tileGrid.js). ≤ 1024 the spans
   // reach CSS as custom properties.
   const tileRows = tileRowsFor(gridMetrics, tileShape);
@@ -359,9 +385,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // leads the flow where the hero slot would sit, and the group leaves the
   // grid socket (any other decks keep it). buildContentFlow skipped the
   // hero page (assets[0] convention), so it folds back into its group here.
-  const heroIsDeck = hero?.mediaType === 'brand-deck';
+  // 11-10: by GROUP TYPE — an admat or carousel hero is a plain hero image.
+  const heroIsDeck = !!hero && groupTypeOf(hero) === 'deck';
   let heroDecks = null;
-  let gridDecks = brandDecks;
+  let deckSets = brandDecks;
   if (heroIsDeck) {
     const key = hero.displayGroup ?? 'deck';
     const rest = brandDecks.find((d) => d.group === key)?.pages ?? [];
@@ -373,8 +400,12 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         ),
       },
     ];
-    gridDecks = brandDecks.filter((d) => d.group !== key);
+    deckSets = brandDecks.filter((d) => d.group !== key);
   }
+  // Carousels are deck walls too (11-10, Nathan — "show the slides as a
+  // scrolling wall, the way deck pages show today"): they follow the decks
+  // through the same tabbed / poster split below.
+  const gridDecks = [...deckSets, ...carousels];
 
   // ── Poster decks split out (08-25 (2), Nathan — bedouin SA tour) ──
   // Deck groups whose pages are PORTRAIT (flyers/posters compiled as a
@@ -395,13 +426,24 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // wall closes the tile field as a 'bottom' region).
   const regions = [];
   if (albumArt.length > 0) regions.push(ORBIT_REGION);
+  // Admat walls take the album-art slot (11-10): the first holds the top
+  // anchor when no cover wall does, the rest stack mid-grid after it. A deck
+  // yields the top anchor to any of them.
+  admats.forEach((set, i) => {
+    regions.push({
+      ...ORBIT_REGION,
+      id: `admat:${set.group}`,
+      rowSpan: admatRows(set),
+      anchor: albumArt.length === 0 && i === 0 ? 'top' : 'mid',
+    });
+  });
   if (tabbedDecks.length > 0) {
     regions.push({
       id: 'deck',
       colStart: 0,
       colSpan: 3,
       rowSpan: DECK_REGION_ROWS,
-      anchor: albumArt.length > 0 ? 'mid' : 'top',
+      anchor: albumArt.length > 0 || admats.length > 0 ? 'mid' : 'top',
     });
   }
   for (const d of posterDecks) {
@@ -460,6 +502,21 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     ? paragraphs.slice(0, 1)
     : paragraphs;
 
+  // An admat set's wall: the album-art DeckScroller at the set's ratio, fixed
+  // columns, every flyer on it (showAll).
+  const admatWall = (id) => {
+    const set = admats.find((a) => `admat:${a.group}` === id);
+    return (
+      <AlbumArtViewer
+        covers={set.items}
+        ratio={ratioOf(set.items[0])}
+        cols={admatCols}
+        showAll
+        ariaLabel={`${set.group} flyers`}
+      />
+    );
+  };
+
   // Sockets interleave with tiles at their domIndex so single-column
   // (in-flow) layouts read in the right order.
   const socketNodes = (seg, i) =>
@@ -476,6 +533,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           />
         ) : s.id.startsWith('banner:') ? (
           <BannerViewer banners={banners.find((b) => `banner:${b.group}` === s.id)} />
+        ) : s.id.startsWith('admat:') ? (
+          admatWall(s.id)
         ) : (
           <AlbumArtViewer covers={albumArt} />
         )}
