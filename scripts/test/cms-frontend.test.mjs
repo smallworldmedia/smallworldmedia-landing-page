@@ -16,6 +16,8 @@ import {
   makeSequence,
   sequenceRatio,
   sequenceFrame,
+  frameBeats,
+  weightedFrame,
   msToNextFrame,
   SEQUENCE_MAX_FRAMES,
 } from '../../src/lib/mediaSequence.js'
@@ -115,6 +117,18 @@ test('a -sequence group is ONE showcase tile: frames in Studio order, the least-
   assert.equal(isSequenceGroup(undefined), false)
 })
 
+test('directory query carries a video\'s length (an admat set holds an animated flyer for its clip), null for a still', async () => {
+  const timed = [
+    ...documents,
+    { _id: 'mux-long', _type: 'mux.videoAsset', playbackId: 'long-playback', status: 'ready', data: { status: 'ready', aspect_ratio: '4:5', duration: 19.5 } },
+    media('flyer-clip', '0|i0001e:', { mediaType: 'brand-deck', groupType: 'admat', displayGroup: 'tour-admats', video: { _type: 'mux.video', asset: ref('mux-long') } }),
+  ]
+  const { assets } = await query(DIRECTORY_QUERY, timed)
+  const durationOf = (id) => assets.find((a) => a._id === id).videoDuration
+  assert.equal(durationOf('flyer-clip'), 19.5)
+  assert.equal(durationOf('cover'), null)
+})
+
 test('directory query: published media in World order, a deck as one tile, the label covering its child (11-03)', async () => {
   const dirDocs = [
     ...documents,
@@ -156,4 +170,30 @@ test('sequence shape: the member ratio that crops the set least; the frame cap; 
   assert.deepEqual([0, 999, 1000, 2500, 3000].map((t) => sequenceFrame(3, t)), [0, 0, 1, 2, 0])
   assert.equal(sequenceFrame(1, 5000), 0) // one frame never cycles
   assert.equal(msToNextFrame(2500), 500)
+})
+
+test('weighted beats: a still weighs 1, an animated flyer its clip (<= the preview) in beats; every cut lands on the wall clock (SQ-53)', () => {
+  const still = { _id: 's' }
+  const flyer = (d) => ({ _id: 'f', playbackId: 'pb', videoDuration: d })
+  assert.equal(frameBeats(still, 5), 1)
+  assert.equal(frameBeats(flyer(20), 5), 5, 'capped at the preview clip')
+  assert.equal(frameBeats(flyer(3.2), 5), 4, 'a shorter clip rounds up to whole beats')
+  assert.equal(frameBeats(flyer(5), 5), 5)
+  assert.equal(frameBeats(flyer(undefined), 5), 5, 'an unknown length plays the whole clip')
+  assert.equal(frameBeats(flyer(20), 5, 500), 10, 'beats follow the interval')
+  // 1 still + one 20 s flyer at 1000 ms: Σ6 beats, the still owns beat 0, the flyer beats 1-5.
+  const weights = [still, flyer(20)].map((f) => frameBeats(f, 5))
+  assert.deepEqual(weights, [1, 5])
+  const at = (beat) => weightedFrame(weights, beat * 1000)
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(at), [0, 1, 1, 1, 1, 1, 0, 1], 'the cycle repeats every 6 beats')
+  // Cuts land on whole beats: nothing changes inside a beat, and the frame is a pure function of the clock.
+  assert.deepEqual([1000, 1001, 1999.9, 5999].map((t) => weightedFrame(weights, t)), [1, 1, 1, 1])
+  assert.equal(weightedFrame(weights, 6000), 0)
+  assert.equal(weightedFrame(weights, 6000 + 6 * 1000 * 1234), 0)
+  // All weights 1 is sequenceFrame; one frame never cycles.
+  assert.deepEqual([0, 999, 1000, 2500, 3000].map((t) => weightedFrame([1, 1, 1], t)), [0, 0, 1, 2, 0])
+  assert.equal(weightedFrame([5], 3000), 0)
+  // 4 flyers (Short Circuit): 4 x 5 beats = 20, each owns 5.
+  const four = [20, 19, 20, 19].map((d) => frameBeats(flyer(d), 5))
+  assert.deepEqual([0, 4999, 5000, 10000, 15000, 19999, 20000].map((t) => weightedFrame(four, t)), [0, 0, 1, 2, 3, 3, 0])
 })

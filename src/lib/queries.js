@@ -288,7 +288,9 @@ export const SITE_COPY_QUERY = `
  *             Coverage (src/lib/clientCoverage.js);
  *   worlds  — FEATURED_PROJECT_PATHS_QUERY: the World order and the routes;
  *   assets  — every published asset with media, as MEDIA_FIELDS plus its
- *             rank, client, project and project rank (buildDirectoryTiles);
+ *             rank, client, project and project rank (buildDirectoryTiles),
+ *             and a video's length, which sets how long an admat set's
+ *             cycling tile holds that flyer (frameBeats);
  *   shuffle — siteSettings.directoryShuffle, the Studio's switch for a new
  *             random order on every load (null while the field is unset).
  */
@@ -306,6 +308,7 @@ export const DIRECTORY_QUERY = `{
   "worlds": ${FEATURED_PROJECT_PATHS_QUERY},
   "assets": *[_type == "mediaAsset" && !(_id in path("drafts.**")) && (defined(image.asset) || defined(video.asset))] {${MEDIA_FIELDS},
     "imageIsOpaque": image.asset->metadata.isOpaque,
+    "videoDuration": video.asset->data.duration,
     orderRank,
     "imageAssetId": image.asset._ref,
     "clientSlug": client->slug.current,
