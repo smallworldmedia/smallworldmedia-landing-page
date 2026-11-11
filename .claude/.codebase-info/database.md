@@ -71,7 +71,7 @@ all use it; untagged media give `[]`. `scripts/test/project-services.test.mjs` p
 (cap 12 pages) / albumArt buckets; the same function feeds both `/work` Worlds and the detail grid.
 Each caller names its surface (`{surface: 'work' | 'detail' | 'globe' | 'directory'}`, 11-10), so a
 set shows only where its group type opens (`GROUP_SURFACES`): on `/work` carousels join the deck walls
-(`wallDecks`) and admats and banners leave; on the detail page each admat set is one playing wall.
+(`wallDecks`, a carousel plate travelling sideways since 11-11) and admats and banners leave; on the detail page each admat set is one playing wall, each carousel a horizontal strip, and (US-4, 11-11) the `visuals` and `liveFootage` buckets a loop wall and a live-footage grid; merch stills collapse into one sequence on all four surfaces.
 A displayGroup ending `-sequence` collapses into one showcase item carrying `frames`
 (`lib/mediaSequence.js`); on the home globe, `buildWorldPools` also folds a project's still album art
 into one.

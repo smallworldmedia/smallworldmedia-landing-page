@@ -242,7 +242,7 @@ Assets within a Featured Project can be sub-grouped by setting the `displayGroup
 
 ### Group Type (which viewer a set opens, and where)
 
-A grouped asset's **group type** (`mediaAsset.groupType`, Nathan 11-10) names what kind of set it belongs to: `album-art`, `deck`, `banner`, `admat` or `carousel`. Every type except `album-art` also needs a `displayGroup` naming the set. Each type opens its viewer or cycler only on the surfaces it lists. On every other surface its pieces don't show, not even as ordinary tiles. The table lives in site code (`GROUP_SURFACES` in `buildContentFlow.js`), not in Studio:
+A grouped asset's **group type** (`mediaAsset.groupType`, Nathan 11-10) names what kind of set it belongs to: `album-art`, `deck`, `banner`, `admat` or `carousel`, and since 11-11 `merch`, `visuals` or `live-footage`. Every type except `album-art` also needs a `displayGroup` naming the set. Each type opens its viewer or cycler only on the surfaces it lists. On every other surface its pieces don't show, not even as ordinary tiles, except visuals and live footage, whose pieces stay ordinary pieces there. The table lives in site code (`GROUP_SURFACES` in `buildContentFlow.js`), not in Studio:
 
 | Type | Opens on |
 |---|---|
@@ -251,10 +251,18 @@ A grouped asset's **group type** (`mediaAsset.groupType`, Nathan 11-10) names wh
 | Banner | project page, directory |
 | Admat | globe, project page, directory |
 | Carousel | /work, project page, directory |
+| Merch | globe, /work, project page, directory (one cycling tile) |
+| Visuals | project page, directory (ordinary pieces on /work and the globe) |
+| Live footage | project page, directory (ordinary pieces on /work and the globe) |
 
 - Decks, banners and carousels stay off the globe on purpose: "they aren't visually that dynamic to populate the globe as standalone assets".
 - A document without the field still resolves (`groupTypeOf`): `album-art` and `carousel-slide` mediaTypes, a `brand-deck` (an admat when its `displayGroup` ends in `-admats`), and a `-banner(s)` group.
-- An **admat** set is a tour's or event's flyers, all 3x4 or all 4x5 (whichever the set uses). An animated flyer joins the set and its static twin stays out. On the project page the set is one wall: 4 columns on desktop, 2 on phone, every flyer shown whole, the animated ones playing (`DeckScroller` `play`, one player gate per wall). In the directory the set is one tile that cycles every flyer (up to 12) on the shared beat, and each animated flyer holds the tile while its preview plays through. On the globe the stills cycle as one panel, and each animated flyer keeps its own tile.
+- An **admat** set is a tour's or event's flyers, all 3x4 or all 4x5 (whichever the set uses). An animated flyer joins the set and its static twin stays out. On the project page the set is one wall 1.5 flyers tall (11-11), 4 columns on desktop, 2 on phone, every flyer shown whole, the animated ones playing (`DeckScroller` `play`, one player gate per wall). In the directory the set is one tile that cycles every flyer (up to 12) on the shared beat, and each animated flyer holds the tile while its preview plays through. On the globe the stills cycle as one panel, and each animated flyer keeps its own tile.
+- **Album art** on the project page and /work (11-11): 4 columns on desktop, 2 on a phone, the wall 50% taller than before.
+- A **carousel** reads like it does on socials (11-11): one row, slide 1 → N left to right, drifting left and sped up by scrolling, about 3.5 slides across on desktop and 1.5 on a phone so the next one peeks (`?carouselvis`). On the project page it is a strip in a socket of its own; on /work its wall plate travels sideways.
+- A **merch** set is a client's merch design stills. It cycles one by one in a single tile on every surface, like album art on the globe (a sequence, up to 12 frames). Order it like with like: short sleeves, then long sleeves and hoodies, then hats, each colourway's front before its back. A merch video keeps its own tile.
+- A **visuals** set groups a client's horizontal visual loops into one wall on the project page: 2 columns on desktop, one full-width column on a phone, the loops playing. In the directory it is one tile.
+- A **live footage** set is a show's clips and photos as one grid on the project page: vertical pieces 3 across on desktop and 2 on a phone, horizontal pieces 2 across on desktop and full width on a phone. Each orientation crops to one shape, the widest among its members ("shortest asset wins"). One or two hero clips stay out of the set as standalone pieces. In the directory it is one tile.
 
 ### Sequence (one tile, many stills)
 
