@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = '70b35be33c6bd32206c68f741b6273dded0f481fe1bb8b08a156d4c1ae7ce560'
+export const SUPPORTED_SCHEMA_HASH = '94b8dbe68972cb37ab56b408faef6ea080aa0de0cd85468ab70755cde7830372'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -34,7 +34,7 @@ export function appendRanks(docs, count) {
   return result
 }
 // The set a piece belongs to (src/schemas/mediaAsset.ts groupType); where each type opens its viewer is site code.
-export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel']
+export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage']
 const common = ['slug','yearStart','yearEnd','isOngoing','services']
 export const FIELDS = {
   mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType'],

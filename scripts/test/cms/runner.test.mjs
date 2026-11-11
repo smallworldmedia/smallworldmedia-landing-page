@@ -235,14 +235,16 @@ test('video rebind refuses an unready or wrong-type target, an image asset, an u
   assert.equal(h.db.get(old._id).video.asset._ref,'mux-wrong'); assert.equal(h.stats.commits,0)
 })
 
-test('groupType: one of the five set types; every type but album art names its set with displayGroup', async t => {
-  for (const groupType of ['album-art','deck','banner','admat','carousel']) validatePatch('mediaAsset',{groupType},[])
+test('groupType: one of the eight set types; every type but album art names its set with displayGroup', async t => {
+  for (const groupType of ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage']) validatePatch('mediaAsset',{groupType},[])
   validatePatch('mediaAsset',{},['groupType'])
   for (const set of [{groupType:'sequence'},{groupType:'Album Art'},{groupType:null},{groupType:1}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
   assert.throws(() => validatePatch('project',{groupType:'deck'},[]))
   validateDocument(existingMedia('mediaAsset-cover',{mediaType:'album-art',groupType:'album-art'}))
   validateDocument(existingMedia('mediaAsset-admat',{mediaType:'static_4x5',groupType:'admat',displayGroup:'tour-admats'}))
   assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-admat',{mediaType:'static_4x5',groupType:'admat'})),/admat piece requires displayGroup/)
+  assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-merch',{mediaType:'static_1x1',groupType:'merch'})),/merch piece requires displayGroup/)
+  assert.throws(() => validatePatch('mediaAsset',{groupType:'live footage'},[]))
 })
 
 test('splitIntoThirds: a boolean flag on video assets only; null and non-booleans are rejected', async t => {
