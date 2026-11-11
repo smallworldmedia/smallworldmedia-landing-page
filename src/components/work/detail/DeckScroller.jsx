@@ -50,6 +50,11 @@
  *        columns. Each page is as wide as its row is tall × ratio, so the
  *        frame's height sets how many slides show (horizontalStrip.js).
  * @param {number} [props.rows=1] - horizontal strips (axis 'x' only)
+ * @param {Array<Array<Object>>} [props.columns] - US-5, the mockups wall: the
+ *        pieces already packed into columns (liveFootageLayout mockupsWall,
+ *        shortest column next). Each piece keeps its OWN aspect (no crop, no
+ *        shared `ratio`), and each column wraps on its own cycle (mixedCycle).
+ *        Omitted = the one-ratio wall, unchanged.
  * @param {string} [props.ariaLabel]
  */
 import { useEffect, useRef, useState } from 'react';
@@ -65,6 +70,8 @@ import {
 import { createPlayerGate } from '../directory/playerGate.js';
 import GatedVideo from './GatedVideo.jsx';
 import { horizontalLayout } from './horizontalStrip.js';
+import { mixedCycle } from './liveFootageLayout.js';
+import { ratioOf } from './buildContentFlow.js';
 
 const PARAMS =
   typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -92,7 +99,7 @@ const pageSrc = (p) =>
    directory face — its frame-0 poster, and a fresh keyed GatedVideo over it
    while the gate grants it play. The wrapper takes the wall's ratio, so the
    strip's cycle height holds whatever the page is. */
-function DeckPage({ page, play, gate }) {
+function DeckPage({ page, play, gate, own }) {
   const ref = useRef(null);
   const [canPlay, setCanPlay] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -111,11 +118,12 @@ function DeckPage({ page, play, gate }) {
         alt=""
         loading="lazy"
         draggable={false}
+        style={own ? { aspectRatio: own } : undefined}
       />
     );
   }
   return (
-    <div ref={ref} className="media-slot" style={{ '--slot-ratio': 'var(--deck-ratio)' }}>
+    <div ref={ref} className="media-slot" style={{ '--slot-ratio': own ?? 'var(--deck-ratio)' }}>
       <img
         className={`media-slot__media${loaded ? ' media-slot__media--loaded' : ''}`}
         src={muxPoster(page.playbackId, IMG_WIDTH)}
@@ -159,6 +167,7 @@ export default function DeckScroller({
   play,
   axis = 'y',
   rows = 1,
+  columns,
   ariaLabel,
 }) {
   const horizontal = axis === 'x';
@@ -166,7 +175,9 @@ export default function DeckScroller({
   const stripRefs = useRef([]);
   // Per-line (column on y, row on x) scroll offsets + cycle lengths, owned by
   // the ticker (never state).
-  const motionRef = useRef({ offsets: [], cycle: 0, dirs: [] });
+  const motionRef = useRef({ offsets: [], cycle: 0, cycles: null, dirs: [] });
+  // A mixed wall (columns): which pieces, so the layout re-measures only on a new set.
+  const mixKey = columns ? columns.map((c) => c.map((p) => p._id).join('.')).join('|') : '';
   const [layout, setLayout] = useState(null); // { lines, perLine }
   const gate = useWallGate(play);
 
@@ -181,7 +192,16 @@ export default function DeckScroller({
       if (!w || !h) return;
       let lines;
       let perLine;
-      if (horizontal) {
+      let reps = null;
+      motionRef.current.cycles = null;
+      if (columns) {
+        lines = columns.length;
+        const colW = (w - (lines - 1) * GAP_PX) / lines;
+        const cyc = columns.map((col) => mixedCycle(col.map(ratioOf), { colW, h, gap: GAP_PX }));
+        reps = cyc.map((c) => c.reps);
+        perLine = 0;
+        motionRef.current.cycles = cyc.map((c) => c.cycle);
+      } else if (horizontal) {
         lines = rows;
         const x = horizontalLayout({ w, h, lines, ratio, gap: GAP_PX, n: pages.length });
         perLine = x.perLine;
@@ -200,14 +220,16 @@ export default function DeckScroller({
         motionRef.current.cycle = perLine * (pageH + GAP_PX);
       }
       setLayout((cur) =>
-        cur && cur.lines === lines && cur.perLine === perLine ? cur : { lines, perLine }
+        cur && cur.lines === lines && cur.perLine === perLine && String(cur.reps) === String(reps)
+          ? cur
+          : { lines, perLine, reps }
       );
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(frame);
     return () => ro.disconnect();
-  }, [ratio, pages.length, fixedCols, showAll, horizontal, rows]);
+  }, [ratio, pages.length, fixedCols, showAll, horizontal, rows, mixKey]);
 
   // ── Drive: idle drift + Lenis scroll coupling, alternating per line ──
   useEffect(() => {
@@ -227,8 +249,9 @@ export default function DeckScroller({
       for (let i = 0; i < m.offsets.length; i++) {
         m.offsets[i] += m.dirs[i] * step;
         const strip = stripRefs.current[i];
-        if (strip && m.cycle > 0) {
-          const at = (-mod(m.offsets[i], m.cycle)).toFixed(2);
+        const cycle = m.cycles ? m.cycles[i] : m.cycle;
+        if (strip && cycle > 0) {
+          const at = (-mod(m.offsets[i], cycle)).toFixed(2);
           strip.style.transform = horizontal
             ? `translate3d(${at}px, 0, 0)`
             : `translate3d(0, ${at}px, 0)`;
@@ -261,8 +284,11 @@ export default function DeckScroller({
 
   // Line i cycles pages (i + n·lines) mod N — reading order runs across the
   // wall then wraps, and every line stays populated on short sets.
+  // A mixed wall (columns): the column's own pieces, repeated whole to its cycle.
   const linePages = (line, perLine) =>
-    Array.from({ length: perLine }, (_, n) => pages[(line + n * layout.lines) % pages.length]);
+    columns
+      ? Array.from({ length: layout.reps[line] }, () => columns[line]).flat()
+      : Array.from({ length: perLine }, (_, n) => pages[(line + n * layout.lines) % pages.length]);
 
   return (
     <div
@@ -285,7 +311,9 @@ export default function DeckScroller({
               >
                 {/* the cycle twice — the wrap shows copy 2 while copy 1 rewinds */}
                 {[0, 1].map((copy) =>
-                  cycle.map((p, n) => <DeckPage key={`${copy}-${n}`} page={p} play={play} gate={gate} />)
+                  cycle.map((p, n) => (
+                    <DeckPage key={`${copy}-${n}`} page={p} play={play} gate={gate} own={columns ? ratioOf(p) : undefined} />
+                  ))
                 )}
               </div>
             </div>

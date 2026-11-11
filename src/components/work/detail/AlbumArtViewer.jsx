@@ -25,6 +25,8 @@
  * @param {boolean} [props.play] - an animated flyer plays in the wall (DeckScroller `play`)
  * @param {'y'|'x'} [props.axis] - 'x' = a horizontal strip (the carousel; DeckScroller `axis`)
  * @param {number} [props.rows] - horizontal strips (axis 'x')
+ * @param {Array<Array<Object>>} [props.columns] - a mockups set already packed into columns,
+ *        every piece at its own aspect (DeckScroller `columns`; `ratio` and `cols` unused)
  * @param {string} [props.ariaLabel]
  */
 import DeckScroller from './DeckScroller.jsx';
@@ -37,6 +39,7 @@ export default function AlbumArtViewer({
   play,
   axis,
   rows,
+  columns,
   ariaLabel = 'album artwork',
 }) {
   if (!covers.length) return null;
@@ -50,6 +53,7 @@ export default function AlbumArtViewer({
         play={play}
         axis={axis}
         rows={rows}
+        columns={columns}
         ariaLabel={ariaLabel}
       />
     </div>

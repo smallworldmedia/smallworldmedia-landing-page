@@ -47,7 +47,7 @@ import { carouselVisible, carouselSlideH, carouselRows } from './horizontalStrip
 import { sequenceRatio } from '../../../lib/mediaSequence.js';
 import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
 import LiveFootageGrid from './LiveFootageGrid.jsx';
-import { liveFootagePlan, visualsWall } from './liveFootageLayout.js';
+import { liveFootagePlan, visualsWall, mockupsWall } from './liveFootageLayout.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, groupTypeOf, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid, splitAtBreaks } from './flushGrid.js';
@@ -366,7 +366,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const hero = assets[0] ?? null;
   const [chunkTune, setChunkTune] = useState(CHUNKS_NONE);
   useEffect(() => setChunkTune(readChunkTune()), []);
-  const { showcase, albumArt, brandDecks, carousels, banners, admats, visuals, liveFootage } = buildContentFlow(assets, {
+  // `mockups` (US-5, SQ-58's lane) is absent until that lands: default it empty.
+  const { showcase, albumArt, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups = [] } = buildContentFlow(assets, {
     surface: 'detail',
     chunks: chunkTune,
   });
@@ -422,6 +423,9 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const setGeo = { phone: gridMetrics?.cols === 1, width: gridMetrics?.width, gap: gridMetrics?.rowGap };
   const visualsMaxRows = visualsRowsParam ?? (setGeo.phone ? VISUALS_ROWS_PHONE : DECK_REGION_ROWS);
   const visualsWalls = visuals.map((set) => ({ ...set, ...visualsWall(set.items, { ...setGeo, maxRows: visualsMaxRows }) }));
+  // A mockups wall (US-5): masonry columns, every piece at its own aspect, the
+  // same height cap as a visuals wall.
+  const mockupsWalls = mockups.map((set) => ({ ...set, ...mockupsWall(set.items, { ...setGeo, maxRows: visualsMaxRows }) }));
   const footageGrids = liveFootage.map((set) => ({ ...set, plan: liveFootagePlan(set.items, setGeo) }));
 
   // Tile spans, through the same pitch (tileGrid.js). ≤ 1024 the spans
@@ -488,6 +492,9 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // Visuals walls and live-footage grids (US-4) stack mid-grid after the admats.
   for (const set of visualsWalls) {
     regions.push({ ...ORBIT_REGION, id: `visuals:${set.group}`, rowSpan: set.spanRows, anchor: 'mid' });
+  }
+  for (const set of mockupsWalls) {
+    regions.push({ ...ORBIT_REGION, id: `mockups:${set.group}`, rowSpan: set.spanRows, anchor: 'mid' });
   }
   for (const set of footageGrids) {
     regions.push({ ...ORBIT_REGION, id: `footage:${set.group}`, rowSpan: set.plan.spanRows, anchor: 'mid' });
@@ -602,7 +609,14 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     return <AlbumArtViewer covers={set.items} ratio={set.ratio} cols={set.cols} showAll play ariaLabel="visuals" />;
   };
 
+  // A mockups set's wall (US-5): the same wall, each piece at its own aspect.
+  const mockupsWallNode = (id) => {
+    const set = mockupsWalls.find((m) => `mockups:${m.group}` === id);
+    return <AlbumArtViewer covers={set.items} ratio={set.ratio} columns={set.columns} showAll play ariaLabel="mockups" />;
+  };
+
   // A carousel's strip: ONE row of slides in reading order travelling left.
+  // A motion page plays while it is on screen (an animated flyer progression).
   const carouselWall = (id) => {
     const set = carousels.find((c) => `carousel:${c.group}` === id);
     return (
@@ -611,6 +625,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         ratio={carouselRatio(set)}
         axis="x"
         rows={1}
+        play
         ariaLabel={`${set.group} carousel`}
       />
     );
@@ -638,6 +653,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           carouselWall(s.id)
         ) : s.id.startsWith('visuals:') ? (
           visualsWallNode(s.id)
+        ) : s.id.startsWith('mockups:') ? (
+          mockupsWallNode(s.id)
         ) : s.id.startsWith('footage:') ? (
           <LiveFootageGrid plan={footageGrids.find((f) => `footage:${f.group}` === s.id).plan} />
         ) : gridMetrics ? (

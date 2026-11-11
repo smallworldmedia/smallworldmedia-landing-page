@@ -97,6 +97,7 @@
   .masonry-grid--detail > .grid-socket[data-socket^="admat:"],
   .masonry-grid--detail > .grid-socket[data-socket^="carousel:"],
   .masonry-grid--detail > .grid-socket[data-socket^="visuals:"],
+  .masonry-grid--detail > .grid-socket[data-socket^="mockups:"],
   .masonry-grid--detail > .grid-socket[data-socket^="footage:"] {
     grid-row: span var(--socket-rows, 12) !important;
   }
