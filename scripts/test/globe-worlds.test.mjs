@@ -7199,6 +7199,99 @@ test('sequences: a cover HERO leads its project’s sequence as frame 0, never a
   assert.equal(solo.assets.some((a) => a.frames && a.kind === 'art'), false)
 })
 
+/* — The group-type table on the globe (US-3 W2a, 11-10): album art and admats open here; decks, carousels and
+   banners never tile. buildWorldPools passes surface 'globe' and routes the hero through the same table. — */
+const ADMAT_N = 16
+const admatUrl = (k) => `https://cdn.example/admat-${k}.jpg`
+const admatDocs = (group = 'tour-admats', n = ADMAT_N) =>
+  Array.from({ length: n }, (_, k) => [
+    imageDoc(`image-ad${k}`, admatUrl(k), 1200, 1500),
+    // brandDeckOrder runs against the rank order, so a sort by it is visible in the frames
+    media(`admat-${k}`, `0|q${String(k).padStart(2, '0')}:`, { mediaType: 'brand-deck', displayGroup: group, brandDeckOrder: n - k, image: imageOf(`image-ad${k}`) }),
+  ]).flat()
+const tileUrls = (world) => world.assets.filter((a) => !a.frames && a.imageUrl).map((a) => a.imageUrl)
+
+test('admats: a 16-still set is ONE panel with 16 frames in brandDeckOrder, no single admat tile; a motion admat keeps its own tile', async () => {
+  const docs = [...documents, mux('mux-m'), ...admatDocs(), media('admat-motion', '0|r:', { mediaType: 'brand-deck', displayGroup: 'tour-admats', video: video('mux-m') })]
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, docs))
+  const panels = world.assets.filter((a) => a.frames)
+  assert.equal(panels.length, 1, 'one admat panel')
+  assert.equal(panels[0].frames.length, ADMAT_N)
+  assert.deepEqual(panels[0].frames.map((f) => f.imageUrl), Array.from({ length: ADMAT_N }, (_, k) => admatUrl(ADMAT_N - 1 - k))) // brandDeckOrder, not orderRank
+  assert.equal(panels[0].kind, 'still')
+  assert.equal(panels[0].imageUrl, panels[0].frames[0].imageUrl)
+  assert.equal(panels[0].ar, 0.8) // the 4:5 flyers' shape
+  // NC: no frame is also a tile of its own
+  assert.equal(tileUrls(world).some((u) => u.includes('admat-')), false)
+  assert.equal(world.assets.some((a) => a.playbackId === 'pb-mux-m'), true) // the motion member keeps its tile
+  // the 11-09 world is otherwise untouched: hero, cover, still, clip-a
+  assert.deepEqual(world.assets.filter((a) => !a.frames && !a.playbackId?.includes('mux-m')).map(assetKey), ['pb-mux-hero', 'https://cdn.example/page.jpg', 'https://cdn.example/still.jpg', 'pb-mux-a'])
+})
+
+test('admats: the panel stands at its first item’s orderRank place, between the pieces around it', async () => {
+  const late = media('late', '0|z:', { mediaType: 'static_4x5', image: imageOf('image-late') })
+  const docs = [...documents, imageDoc('image-late', 'https://cdn.example/late.jpg', 1200, 1500), ...admatDocs('tour-admats', 3), late]
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, docs))
+  // ranks: hero a … clip-a d, the admats from q00, then late z: the panel sits where its first item does
+  assert.deepEqual(world.assets.map((a) => a.frames?.length ?? a.playbackId ?? a.imageUrl), ['pb-mux-hero', 'https://cdn.example/page.jpg', 'https://cdn.example/still.jpg', 'pb-mux-a', 3, 'https://cdn.example/late.jpg'])
+})
+
+test('admats: a set of ONE still is a plain tile', async () => {
+  const docs = [...documents, ...admatDocs('tour-admats', 1)]
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, docs))
+  assert.equal(world.assets.some((a) => a.frames), false)
+  const lone = world.assets.find((a) => a.imageUrl === admatUrl(0))
+  assert.equal(lone.kind, 'still')
+  assert.equal(lone.frames, undefined)
+})
+
+test('admats: an admat hero leads its set as frame 0, never a tile of its own; a hero with no set stays a plain tile', async () => {
+  const docs = [...documents.filter((d) => d._id !== 'hero'), imageDoc('image-hero-ad', 'https://cdn.example/hero-ad.jpg', 1200, 1500), media('hero', '0|a:', { mediaType: 'brand-deck', displayGroup: 'tour-admats', image: imageOf('image-hero-ad') }), ...admatDocs('tour-admats', 3)]
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, docs))
+  const [lead] = world.assets
+  assert.deepEqual(lead.frames.map((f) => f.imageUrl), ['https://cdn.example/hero-ad.jpg', admatUrl(2), admatUrl(1), admatUrl(0)]) // the hero leads; the rest in brandDeckOrder
+  assert.equal(tileUrls(world).includes('https://cdn.example/hero-ad.jpg'), false)
+  // NC: alone it is the world's first tile, as a still
+  const solo = documents.filter((d) => d._id !== 'hero').concat(docs.filter((d) => d._id === 'hero' || d._id === 'image-hero-ad'))
+  const [plain] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, solo))
+  assert.deepEqual([plain.assets[0].imageUrl, plain.assets[0].frames], ['https://cdn.example/hero-ad.jpg', undefined])
+})
+
+test('group types: a deck, carousel or banner piece never reaches the pool — hero or not, typed or inferred', async () => {
+  const bannerDoc = (id, rank, fields) => media(id, rank, { image: imageOf('image-banner'), ...fields })
+  const withHero = (fields) => [...documents.filter((d) => d._id !== 'hero'), imageDoc('image-banner', 'https://cdn.example/banner.jpg', 3000, 1000), bannerDoc('hero', '0|a:', fields)]
+  const heroes = {
+    deck: { mediaType: 'brand-deck', displayGroup: 'deck' },
+    carousel: { mediaType: 'carousel-slide', displayGroup: 'carousel' },
+    banner: { mediaType: 'static_16x9', displayGroup: 'launch-banners' },
+    'typed deck': { mediaType: 'static_4x5', groupType: 'deck' },
+    'typed banner': { mediaType: 'static_4x5', groupType: 'banner' },
+    'typed carousel': { mediaType: 'static_4x5', groupType: 'carousel' },
+  }
+  for (const [name, fields] of Object.entries(heroes)) {
+    const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, withHero(fields)))
+    assert.equal(tileUrls(world).includes('https://cdn.example/banner.jpg'), false, `${name} hero stays untiled`)
+    assert.deepEqual(world.assets.map(assetKey), ['https://cdn.example/page.jpg', 'https://cdn.example/still.jpg', 'pb-mux-a'], `${name}: the rest of the world is unchanged`)
+  }
+  // …and the same pieces in the flow (not the hero): the deck, carousel and banner fixtures, plus typed ones
+  const flowDocs = [...documents, imageDoc('image-banner', 'https://cdn.example/banner.jpg', 3000, 1000), bannerDoc('b1', '0|s:', { mediaType: 'static_16x9', displayGroup: 'launch-banners' }), bannerDoc('t1', '0|t:', { mediaType: 'static_4x5', groupType: 'deck' }), bannerDoc('t2', '0|u:', { mediaType: 'static_4x5', groupType: 'carousel' })]
+  const [flowWorld] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, flowDocs))
+  assert.equal(tileUrls(flowWorld).includes('https://cdn.example/banner.jpg'), false)
+  assert.deepEqual(flowWorld.assets.map(assetKey), ['pb-mux-hero', 'https://cdn.example/page.jpg', 'https://cdn.example/still.jpg', 'pb-mux-a'])
+})
+
+test('group types: a piece typed album-art joins the cover sequence whatever its mediaType (Gio Lucca’s Lineup)', async () => {
+  const lineup = media('lineup', '0|v:', { mediaType: 'static_4x5', groupType: 'album-art', image: imageOf('image-lineup') })
+  const docs = [...seqDocuments, imageDoc('image-lineup', 'https://cdn.example/lineup.jpg', 1200, 1500), lineup]
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, docs))
+  const art = world.assets.find((a) => a.frames && a.kind === 'art')
+  assert.deepEqual(art.frames.map((f) => f.imageUrl), ['https://cdn.example/page.jpg', 'https://cdn.example/c2.jpg', 'https://cdn.example/c3.jpg', 'https://cdn.example/lineup.jpg'])
+  assert.equal(tileUrls(world).includes('https://cdn.example/lineup.jpg'), false)
+  // NC: without the type it is the plain 4:5 still it was
+  const [plain] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, [...docs.filter((d) => d._id !== 'lineup'), media('lineup', '0|v:', { mediaType: 'static_4x5', image: imageOf('image-lineup') })]))
+  assert.equal(plain.assets.find((a) => a.imageUrl === 'https://cdn.example/lineup.jpg').kind, 'still')
+})
+
 /** wideWorlds plus a square cover sequence at the END of each pool (editorial last): the quads' late-comer. */
 const seqQuadWorlds = () =>
   wideWorlds().map((w) => ({

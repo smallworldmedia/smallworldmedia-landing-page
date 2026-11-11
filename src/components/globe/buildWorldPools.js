@@ -7,8 +7,10 @@
  * project, partitioned by the Content Population Hierarchy
  * (buildContentFlow) — so a cluster on the globe holds exactly the media of
  * that project's /work World: the hero, the showcase Tiles and the album art.
- * Deck pages, carousels, banners, logos and process/BTS assets stay out (wide
- * or transparent sheets never read in a square tile).
+ * Which group types show is the surface table (GROUP_SURFACES, 11-10): album
+ * art and admats open on the globe; deck pages, carousels, banners, logos and
+ * process/BTS assets stay out (wide or transparent sheets never read in a
+ * square tile).
  *
  * Client (PopulationDirector): selectPool() narrows a pool live for the
  * ?popmedia / ?popcap bench knobs. Both sides select round-robin across the
@@ -28,11 +30,12 @@
  * Sequences (src/lib/mediaSequence.js, 10-31): an authored `-sequence` group
  * arrives from buildContentFlow as one item, and a project's still album art
  * (two covers or more) collapses here into one more, so ONE panel cycles the
- * covers and the rest are free for other media. Animated covers keep their own
- * tiles. A sequence asset adds `frames` ([{ imageUrl, alpha? }], frame 0 = its
+ * covers and the rest are free for other media. An admat set (two stills or
+ * more under one displayGroup) is one such panel too. Animated covers and
+ * motion admats keep their own tiles. A sequence asset adds `frames` ([{ imageUrl, alpha? }], frame 0 = its
  * imageUrl) and `ar`, the tile ratio every frame is cut to.
  */
-import { buildContentFlow, ratioOf } from '../work/detail/buildContentFlow.js';
+import { buildContentFlow, ratioOf, groupTypeOf, opensOn } from '../work/detail/buildContentFlow.js';
 import { makeSequence } from '../../lib/mediaSequence.js';
 import { toProjectSlug } from '../../lib/projectSlug.js';
 import { classOf } from './mediaClass.js';
@@ -45,16 +48,18 @@ export const WORLD_KINDS = ['video', 'still', 'art'];
 export const MIN_KIND_POOL = 3;
 
 const PLAYABLE = ['ready', 'preparing']; // the buildAssetPool rule (stale Mux snapshots)
-const NEVER_TILED = new Set(['logo', 'brand-deck', 'carousel-slide']);
 
 function kindOf(asset) {
-  if (asset.mediaType === 'album-art') return 'art';
+  if (groupTypeOf(asset) === 'album-art') return 'art';
   if (asset.playbackId) return 'video';
   return asset.imageUrl ? 'still' : null;
 }
 
 function toGlobeAsset(asset) {
-  if (!asset || NEVER_TILED.has(asset.mediaType) || asset.contentRole) return null;
+  if (!asset || asset.mediaType === 'logo' || asset.contentRole) return null;
+  // The surface table, for the hero too (buildContentFlow skips assets[0]): a deck, carousel or
+  // banner page never tiles.
+  if (groupTypeOf(asset) && !opensOn(asset, 'globe')) return null;
   if (asset.playbackId && asset.videoStatus && !PLAYABLE.includes(asset.videoStatus)) return null;
   const kind = kindOf(asset);
   if (!kind) return null;
@@ -129,7 +134,7 @@ export default function buildWorldPools(projects = []) {
     .filter((p) => p.clientSlug && p.collection) // the /work World filter
     .map((p) => {
       const assets = p.assets || [];
-      const flow = buildContentFlow(assets);
+      const flow = buildContentFlow(assets, { surface: 'globe' });
       // The still covers → one sequence at the first cover's place, uncapped:
       // the globe loads a sequence one frame ahead (PopulationDirector.stepSequences).
       // Below ORBIT_MIN the covers ride the showcase, so both lists are searched.
@@ -137,18 +142,30 @@ export default function buildWorldPools(projects = []) {
       // frame 0 (11-05: HHS Pre-2026's Hidde van Wee hero stayed a static tile
       // and took the world's 2×2 from the cycling covers).
       const tiles = [...flow.showcase, ...flow.albumArt];
-      const isCover = (a) => a?.mediaType === 'album-art' && !a.frames && a.imageUrl && !a.playbackId;
+      const isCover = (a) => a && groupTypeOf(a) === 'album-art' &&!a.frames && a.imageUrl && !a.playbackId;
       const covers = [assets[0], ...tiles].filter(isCover);
-      const media =
+      const coverMedia =
         covers.length > 1
           ? [makeSequence('sequence:album-art', covers, covers.map(ratioOf), { cap: Infinity }), ...tiles.filter((a) => !covers.includes(a))]
           : tiles;
+      // Each admat set (buildContentFlow: two stills or more) is one more panel, at its first
+      // item's place and uncapped like the covers. Its items ride only here, never as tiles
+      // of their own. An admat HERO of the same group leads the set as frame 0, as a cover
+      // hero does.
+      const heroSet = flow.admats.find(
+        (s) => s.group === (assets[0]?.displayGroup ?? 'admat') && groupTypeOf(assets[0]) === 'admat' && assets[0].imageUrl && !assets[0].playbackId
+      );
+      const admatMedia = flow.admats.map((s) => {
+        const frames = s === heroSet ? [assets[0], ...s.items] : s.items;
+        return makeSequence(`sequence:admat:${s.group}`, frames, frames.map(ratioOf), { cap: Infinity });
+      });
+      const media = [...coverMedia, ...admatMedia];
       // Editorial order across the partition: the hero leads, then showcase
       // and album art interleave back at their orderRank positions (a
       // sequence at its first frame's).
       const rank = new Map(assets.map((a, i) => [a._id, i]));
       const at = (a) => rank.get(a.frames?.[0]._id ?? a._id) ?? 0;
-      const hero = covers.length > 1 && covers[0] === assets[0] ? [] : [assets[0]]; // a cover hero rides its sequence
+      const hero = heroSet || (covers.length > 1 && covers[0] === assets[0]) ? [] : [assets[0]]; // a cover or admat hero rides its sequence
       const ordered = [...hero, ...media].filter(Boolean).sort((a, b) => at(a) - at(b));
       const seen = new Set();
       const pool = [];
