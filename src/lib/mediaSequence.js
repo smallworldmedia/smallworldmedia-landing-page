@@ -13,8 +13,11 @@
  *     panel cycles the covers instead of a panel per cover.
  *   - on the directory only, an admat set (11-10): its animated flyers are
  *     frames too, each a motion member that holds the tile for its preview
- *     clip (frameBeats) — see "Beats" below. Everywhere else a sequence is
- *     stills only: a video member keeps its own tile.
+ *     clip (frameBeats) — see "Beats" below.
+ *   - a flyer-progression set (US-5) on the globe and /work, and a mockups
+ *     set on the globe: its animated members join as their poster still
+ *     (posterStill), so a mostly-animated set still cycles.
+ *     Everywhere else a sequence is stills only: a video member keeps its own tile.
  *
  * The clock is the wall clock: frame = floor(now / interval) mod n. Every
  * sequence on every route changes on the same beat with nothing to subscribe
@@ -141,6 +144,23 @@ export function sequenceRatio(ratios) {
     }
   }
   return best;
+}
+
+/**
+ * A motion member as a still frame of a sequence: its Mux poster, with the
+ * motion fields dropped so every consumer reads it as an ordinary still
+ * (kindOf, frameBeats, the cycler's loaders). The URL is bare: the consumers
+ * append Sanity's ?w=… params, which Mux does not read, so its default size
+ * and frame serve. A still is returned as it is.
+ */
+export function posterStill(asset) {
+  if (!asset.playbackId) return asset;
+  return {
+    ...asset,
+    playbackId: null,
+    imageUrl: `https://image.mux.com/${asset.playbackId}/thumbnail.webp`,
+    imageHasAlpha: false,
+  };
 }
 
 /**

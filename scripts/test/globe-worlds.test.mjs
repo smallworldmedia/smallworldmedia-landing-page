@@ -200,6 +200,34 @@ test('buildWorldPools (US-4): merch stills ride as one sequence panel; visuals a
   assert.ok(!keys.includes('https://cdn.example/banner.jpg'), 'a banner page stays off')
 })
 
+test('buildWorldPools (US-5): a mockups set and a flyer-progression are one sequence panel each, a motion member its poster frame', async () => {
+  const stillDoc = (k, groupType, displayGroup, i) =>
+    media(`${groupType}-${k}`, `0|u${groupType.length}${i}:`, { mediaType: 'static_4x5', groupType, displayGroup, image: { _type: 'image', asset: ref(`image-${groupType}-${k}`) } })
+  const imageDoc = (k, groupType) => ({ _id: `image-${groupType}-${k}`, _type: 'sanity.imageAsset', url: `https://cdn.example/${groupType}-${k}.jpg`, metadata: { dimensions: { width: 800, height: 1000 } } })
+  const extra = [
+    ...['a', 'b', 'c'].map((k, i) => stillDoc(k, 'mockups', 'billboards', i)),
+    ...['a', 'b', 'c'].map((k) => imageDoc(k, 'mockups')),
+    ...['a', 'c'].map((k, i) => stillDoc(k, 'flyer-progression', 'rollout', i)),
+    ...['a', 'c'].map((k) => imageDoc(k, 'flyer-progression')),
+    mux('mux-fp'),
+    media('flyer-progression-b', '0|u170b:', { mediaType: 'motion_4x5', groupType: 'flyer-progression', displayGroup: 'rollout', video: video('mux-fp') }),
+  ]
+  const [world] = buildWorldPools(await query(FEATURED_WORLDS_QUERY, [...documents, ...extra]))
+  const seqs = world.assets.filter((a) => a.frames)
+  assert.equal(seqs.length, 2, 'one panel per set')
+  const byFirst = (prefix) => seqs.find((s) => s.frames[0].imageUrl.includes(prefix))
+  assert.deepEqual(byFirst('mockups').frames.map((f) => f.imageUrl), ['a', 'b', 'c'].map((k) => `https://cdn.example/mockups-${k}.jpg`))
+  assert.deepEqual(byFirst('flyer-progression').frames.map((f) => f.imageUrl), [
+    'https://cdn.example/flyer-progression-a.jpg',
+    'https://image.mux.com/pb-mux-fp/thumbnail.webp', // the animated member, as its poster
+    'https://cdn.example/flyer-progression-c.jpg',
+  ])
+  for (const s of seqs) assert.equal(s.kind, 'still')
+  const keys = world.assets.map(assetKey)
+  assert.ok(!keys.includes('pb-mux-fp'), 'the animated member is not a tile of its own')
+  assert.equal(world.assets.filter((a) => !a.frames && /mockups-|flyer-progression-/.test(a.imageUrl ?? '')).length, 0, 'no frame is a tile of its own')
+})
+
 const pool = (n, kind, tag = kind) => Array.from({ length: n }, (_, i) => ({ kind, playbackId: `${tag}${i}` }))
 
 test('selectPool caps round-robin across kinds, then restores editorial order', () => {

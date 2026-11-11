@@ -636,6 +636,36 @@ test('US-4 sets - visuals and live-footage are one tile per set, merch stills on
   assert.deepEqual(ids(split), ['a-1', 'b-1'])
 })
 
+// US-5 (11-11, Nathan): a mockups set is ONE static face tile (the first member, as a
+// visuals set's); a flyer-progression rides the carousel lane, so it is the same.
+test('US-5 sets - a mockups set and a flyer-progression are one tile each, the face their first member, no cycle', () => {
+  rank = 0
+  const member = (id, groupType, displayGroup, extra = {}) => asset(id, 'jamback', { ...JAM, groupType, displayGroup, ...img(1080, 1350), ...extra })
+  const ts = jamTiles([
+    member('mk-1', 'mockups', 'billboards'),
+    member('mk-2', 'mockups', 'billboards', { ...img(1600, 900) }),
+    member('mk-3', 'mockups', 'billboards'),
+    member('fp-1', 'flyer-progression', 'rollout'),
+    asset('fp-2', 'jamback', { ...JAM, groupType: 'flyer-progression', displayGroup: 'rollout', imageUrl: undefined, imageDimensions: undefined, playbackId: 'pb-fp-2', videoAspectRatio: '4:5' }),
+    member('fp-3', 'flyer-progression', 'rollout'),
+    member('mk-solo', 'mockups', 'solo-mock'),
+  ])
+  assert.deepEqual(ids(ts), ['mk-1', 'fp-1', 'mk-solo'])
+  for (const t of ts) {
+    assert.equal(t.frames, undefined, `${t._id} does not cycle`)
+    assert.equal(t.href, '/work/jamback')
+  }
+  assert.equal(ts[0].imageUrl, 'https://cdn.example.invalid/1080x1350.jpg') // the first member's picture
+  // NC: a mockups set on another client stays its own tile
+  rank = 0
+  const split = buildDirectoryTiles({
+    assets: [member('a-1', 'mockups', 'billboards'), member('a-2', 'mockups', 'billboards'), asset('b-1', 'bellaire', { groupType: 'mockups', displayGroup: 'billboards' }), asset('b-2', 'bellaire', { groupType: 'mockups', displayGroup: 'billboards' })],
+    worlds: ADMAT_WORLDS,
+    clients: [{ name: 'Jamback', slug: 'jamback', umbrellas: null }, { name: 'Bellaire', slug: 'bellaire', umbrellas: null }],
+  })
+  assert.deepEqual(ids(split), ['a-1', 'b-1'])
+})
+
 test('album art stays one tile per cover; decks, carousels and banners keep their grouped tile', () => {
   rank = 0
   const covers = [0, 1, 2].map((i) => asset(`cover-${i}`, 'jamback', { ...JAM, mediaType: 'album-art' }))
