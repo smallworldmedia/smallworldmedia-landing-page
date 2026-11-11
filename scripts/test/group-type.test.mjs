@@ -51,7 +51,7 @@ test('groupType beats the inference; an unknown value falls back to it', () => {
   }
 })
 
-test('opensOn matches the table for all 32 (type, surface) pairs', () => {
+test('opensOn matches the table for all 40 (type, surface) pairs', () => {
   const expected = {
     merch: { globe: true, work: true, detail: true, directory: true },
     visuals: { globe: false, work: false, detail: true, directory: true },
@@ -61,6 +61,8 @@ test('opensOn matches the table for all 32 (type, surface) pairs', () => {
     banner: { globe: false, work: false, detail: true, directory: true },
     admat: { globe: true, work: false, detail: true, directory: true },
     carousel: { globe: false, work: true, detail: true, directory: true },
+    mockups: { globe: true, work: false, detail: true, directory: true },
+    'flyer-progression': { globe: true, work: true, detail: true, directory: true },
   }
   assert.deepEqual([...GROUP_TYPES].sort(), Object.keys(expected).sort())
   assert.deepEqual(Object.keys(GROUP_SURFACES).sort(), Object.keys(expected).sort())
@@ -71,7 +73,7 @@ test('opensOn matches the table for all 32 (type, surface) pairs', () => {
       pairs++
     }
   }
-  assert.equal(pairs, 32)
+  assert.equal(pairs, 40)
   assert.equal(opensOn(still('x', 'static_4x5'), 'detail'), false) // an ungrouped piece opens no viewer
   assert.equal(opensOn(still('x', 'static_4x5', { groupType: 'deck' }), 'sheet'), false) // an unknown surface opens nothing
 })
@@ -156,8 +158,8 @@ test('NEGATIVE CONTROL buildContentFlow with no surface keeps the legacy output'
     bts: ['bts-1'],
   }
   const flow = buildContentFlow(mixed())
-  assert.deepEqual(Object.keys(flow), ['showcase', 'albumArt', 'brandDecks', 'carousels', 'banners', 'admats', 'visuals', 'liveFootage', 'bts'])
-  assert.deepEqual([flow.visuals, flow.liveFootage], [[], []]) // US-4: empty without a typed set
+  assert.deepEqual(Object.keys(flow), ['showcase', 'albumArt', 'brandDecks', 'carousels', 'banners', 'admats', 'visuals', 'liveFootage', 'mockups', 'bts'])
+  assert.deepEqual([flow.visuals, flow.liveFootage, flow.mockups], [[], [], []]) // US-4 / US-5: empty without a typed set
   assert.deepEqual(ids(flow.showcase), legacy.showcase)
   assert.deepEqual(ids(flow.albumArt), legacy.albumArt)
   assert.deepEqual(flow.brandDecks.map((d) => ({ group: d.group, pages: ids(d.pages) })), legacy.brandDecks)
@@ -376,4 +378,136 @@ test('merch stills collapse into ONE sequence item on every surface, frames in r
   // NC: a merch piece with no displayGroup still groups (one 'merch' set), it never throws.
   const ungrouped = buildContentFlow([clip('hero', 'featured-project-reel'), still('u1', 'static_4x5', { groupType: 'merch' }), still('u2', 'static_4x5', { groupType: 'merch' })], { surface: 'globe' })
   assert.deepEqual(ids(ungrouped.showcase), ['sequence:merch'])
+})
+
+// ── US-5 (11-11): mockups, flyer-progression ──
+
+const POSTER = (id) => `https://image.mux.com/pb-${id}/thumbnail.webp`
+
+test('assetLane (US-5): mockups follow the surface table and are dropped on /work; flyer-progression is a sequence on globe + work, a carousel on detail + directory', () => {
+  const mockStill = still('mk', 'static_4x5', { groupType: 'mockups', displayGroup: 'billboards' })
+  const mockClip = clip('mk-m', 'motion_4x5', { groupType: 'mockups', displayGroup: 'billboards' })
+  assert.deepEqual(SURFACES.map((s) => assetLane(mockStill, s)), ['sequence', null, 'mockups', 'mockups'])
+  assert.deepEqual(SURFACES.map((s) => assetLane(mockClip, s)), ['sequence', null, 'mockups', 'mockups'])
+  const flyer = still('fp', 'static_4x5', { groupType: 'flyer-progression', displayGroup: 'rollout' })
+  const flyerClip = clip('fp-m', 'motion_4x5', { groupType: 'flyer-progression', displayGroup: 'rollout' })
+  assert.deepEqual(SURFACES.map((s) => assetLane(flyer, s)), ['sequence', 'sequence', 'carousel', 'carousel'])
+  assert.deepEqual(SURFACES.map((s) => assetLane(flyerClip, s)), ['sequence', 'sequence', 'carousel', 'carousel'])
+  // A typed piece with a role still rides its type's lane where the set opens, and the empty shell nothing.
+  assert.deepEqual(SURFACES.map((s) => assetLane({ ...flyerClip, contentRole: 'process' }, s)), ['sequence', 'sequence', 'carousel', 'carousel'])
+  assert.deepEqual(SURFACES.map((s) => assetLane({ _id: 'e', groupType: 'mockups' }, s)), [null, null, null, null])
+  // The undefined-surface chain ignores groupType, as it does for every type.
+  assert.equal(assetLane(mockStill), 'showcase')
+  assert.equal(assetLane(flyer), 'showcase')
+  // NC: merch is unchanged by the table.
+  const merchClip = clip('mc', 'motion_4x5', { groupType: 'merch', displayGroup: 'tees' })
+  assert.deepEqual(SURFACES.map((s) => assetLane(merchClip, s)), ['showcase', 'showcase', 'showcase', 'showcase'])
+})
+
+test("buildContentFlow(surface 'detail'): a mockups set fills flow.mockups in input order, out of the showcase; a set of one rides the showcase", () => {
+  const assets = [
+    clip('hero', 'featured-project-reel'),
+    still('shot-a', 'static_4x5'),
+    still('mk-1', 'static_4x5', { groupType: 'mockups', displayGroup: 'billboards' }),
+    clip('mk-2', 'motion_16x9', { groupType: 'mockups', displayGroup: 'billboards' }),
+    still('solo', 'static_4x5', { groupType: 'mockups', displayGroup: 'one-off' }),
+    still('mk-3', 'static_16x9', { groupType: 'mockups', displayGroup: 'billboards' }),
+    still('shot-b', 'static_4x5'),
+  ]
+  for (const surface of ['detail', 'directory']) {
+    const flow = buildContentFlow(assets, { surface })
+    assert.deepEqual(flow.mockups.map((s) => [s.group, ids(s.items)]), [['billboards', ['mk-1', 'mk-2', 'mk-3']]], surface)
+    assert.deepEqual(ids(flow.showcase), ['shot-a', 'solo', 'shot-b'], surface) // the lone one rides at its place
+    assert.deepEqual([flow.carousels, flow.visuals, flow.liveFootage, flow.admats], [[], [], [], []], surface)
+  }
+  // /work: the pieces are gone, no bucket; the globe: one sequence, no bucket.
+  const work = buildContentFlow(assets, { surface: 'work' })
+  assert.deepEqual(work.mockups, [])
+  assert.deepEqual(ids(work.showcase), ['shot-a', 'shot-b'])
+  const globe = buildContentFlow(assets, { surface: 'globe' })
+  assert.deepEqual(globe.mockups, [])
+  assert.deepEqual(ids(globe.showcase), ['shot-a', 'sequence:billboards', 'solo', 'shot-b'])
+  // No surface: the bucket stays empty, as every group type's does.
+  assert.deepEqual(buildContentFlow(assets).mockups, [])
+})
+
+test('mockups: the globe set is ONE sequence in input order, and a motion member is its poster frame', () => {
+  const assets = [
+    clip('hero', 'featured-project-reel'),
+    still('mk-1', 'static_4x5', { groupType: 'mockups', displayGroup: 'billboards' }),
+    clip('mk-2', 'motion_4x5', { groupType: 'mockups', displayGroup: 'billboards' }),
+    still('mk-3', 'static_4x5', { groupType: 'mockups', displayGroup: 'billboards' }),
+  ]
+  const flow = buildContentFlow(assets, { surface: 'globe' })
+  assert.deepEqual(ids(flow.showcase), ['sequence:billboards'])
+  const seq = flow.showcase[0]
+  assert.deepEqual(ids(seq.frames), ['mk-1', 'mk-2', 'mk-3'])
+  assert.equal(seq.frames[1].imageUrl, POSTER('mk-2'))
+  assert.equal(seq.frames[1].playbackId, null)
+  assert.equal(seq.groupType, 'mockups')
+})
+
+test("flyer-progression: a set joins flow.carousels on detail and the directory; on the globe and /work it is ONE sequence, its motion member a poster frame", () => {
+  const assets = [
+    clip('hero', 'featured-project-reel'),
+    still('shot-a', 'static_4x5'),
+    still('fp-1', 'static_4x5', { groupType: 'flyer-progression', displayGroup: 'rollout' }),
+    clip('fp-2', 'motion_16x9', { groupType: 'flyer-progression', displayGroup: 'rollout', videoDuration: 8 }),
+    still('fp-3', 'static_4x5', { groupType: 'flyer-progression', displayGroup: 'rollout' }),
+    still('shot-b', 'static_4x5'),
+  ]
+  for (const surface of ['detail', 'directory']) {
+    const flow = buildContentFlow(assets, { surface })
+    assert.deepEqual(flow.carousels.map((c) => [c.group, ids(c.pages)]), [['rollout', ['fp-1', 'fp-2', 'fp-3']]], surface)
+    assert.deepEqual(ids(flow.showcase), ['shot-a', 'shot-b'], surface)
+    assert.equal(flow.carousels[0].pages[1].playbackId, 'pb-fp-2', 'the carousel keeps its motion member as it is')
+  }
+  for (const surface of ['globe', 'work']) {
+    const flow = buildContentFlow(assets, { surface })
+    assert.deepEqual(flow.carousels, [], surface)
+    assert.deepEqual(ids(flow.showcase), ['shot-a', 'sequence:rollout', 'shot-b'], surface)
+    const seq = flow.showcase[1]
+    assert.deepEqual(ids(seq.frames), ['fp-1', 'fp-2', 'fp-3'], surface)
+    // the motion member is a still frame carrying its Mux poster, so every consumer reads it as an image
+    const poster = seq.frames[1]
+    assert.equal(poster.imageUrl, POSTER('fp-2'), surface)
+    assert.equal(poster.playbackId, null, surface)
+    assert.ok(seq.frames.every((f) => f.imageUrl && !f.playbackId), surface)
+    assert.equal(seq.playbackId ?? null, null, surface) // the lead is a still, so the sequence reads as one
+    assert.equal(seq.imageUrl, 'https://cdn.example.invalid/fp-1.jpg', surface)
+    // the tile shape is judged on the labels: two 4:5 and one 16:9 → 4:5
+    assert.equal(seq.sequenceRatio, 4 / 5, surface)
+  }
+  // The poster leads when the motion member is first: no video fields on the sequence.
+  const motionFirst = buildContentFlow(
+    [clip('hero', 'featured-project-reel'), clip('fp-m', 'motion_4x5', { groupType: 'flyer-progression', displayGroup: 'r2' }), still('fp-s', 'static_4x5', { groupType: 'flyer-progression', displayGroup: 'r2' })],
+    { surface: 'work' }
+  )
+  assert.equal(motionFirst.showcase[0].imageUrl, POSTER('fp-m'))
+  assert.equal(motionFirst.showcase[0].playbackId, null)
+  // NC: merch keeps its rule, a motion merch piece is not folded in as a poster.
+  const merch = buildContentFlow(
+    [clip('hero', 'featured-project-reel'), still('t1', 'static_4x5', { groupType: 'merch', displayGroup: 'tees' }), clip('t2', 'motion_4x5', { groupType: 'merch', displayGroup: 'tees' }), still('t3', 'static_4x5', { groupType: 'merch', displayGroup: 'tees' })],
+    { surface: 'globe' }
+  )
+  assert.deepEqual(ids(merch.showcase), ['sequence:tees', 't2'])
+  assert.deepEqual(ids(merch.showcase[0].frames), ['t1', 't3'])
+})
+
+test('flyer-progression of one rides the showcase as itself on every surface (no empty viewer, no one-frame sequence)', () => {
+  const assets = [clip('hero', 'featured-project-reel'), clip('fp-solo', 'motion_4x5', { groupType: 'flyer-progression', displayGroup: 'lone' }), still('fp-still', 'static_4x5', { groupType: 'flyer-progression', displayGroup: 'lone-b' })]
+  for (const surface of ['globe', 'work']) {
+    const flow = buildContentFlow(assets, { surface })
+    assert.deepEqual(ids(flow.showcase), ['fp-solo', 'fp-still'], surface)
+    assert.equal(flow.showcase[0].playbackId, 'pb-fp-solo', surface) // a lone clip stays a video tile
+    assert.equal(flow.showcase[0].frames, undefined, surface)
+  }
+  for (const surface of ['detail', 'directory']) {
+    const flow = buildContentFlow(assets, { surface })
+    assert.deepEqual(flow.carousels, [], surface)
+    assert.deepEqual(ids(flow.showcase), ['fp-solo', 'fp-still'], surface)
+  }
+  // NC: a lone carousel slide keeps its one-slide carousel.
+  const slide = buildContentFlow([clip('hero', 'featured-project-reel'), still('s1', 'carousel-slide', { displayGroup: 'one-slide' })], { surface: 'detail' })
+  assert.deepEqual(slide.carousels.map((c) => ids(c.pages)), [['s1']])
 })
