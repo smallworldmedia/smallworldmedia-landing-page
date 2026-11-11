@@ -14,7 +14,9 @@
  *      (both full-width — tiles flow above/below; deck takes the top
  *      anchor when alone, mid when an orbit outranks it) —
  *      docs/orbit-deck-viewer-spec.md. Carousels ride the deck walls; an
- *      admat set gets its own flyer wall in the album-art slot. The description's later
+ *      admat set gets its own flyer wall in the album-art slot; a visuals set
+ *      gets a loop wall and a live-footage set a LiveFootageGrid, both mid-grid
+ *      sockets (liveFootageLayout.js). The description's later
  *      paragraphs cut it into stacked grids, a text band between each.
  *   5. SiteFooter
  *
@@ -41,6 +43,8 @@ import GridSocket from './GridSocket.jsx';
 import BrandDeckViewer from './BrandDeckViewer.jsx';
 import AlbumArtViewer from './AlbumArtViewer.jsx';
 import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
+import LiveFootageGrid from './LiveFootageGrid.jsx';
+import { liveFootagePlan, visualsWall } from './liveFootageLayout.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, groupTypeOf, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid, splitAtBreaks } from './flushGrid.js';
@@ -339,7 +343,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const hero = assets[0] ?? null;
   const [chunkTune, setChunkTune] = useState(CHUNKS_NONE);
   useEffect(() => setChunkTune(readChunkTune()), []);
-  const { showcase, albumArt, brandDecks, carousels, banners, admats } = buildContentFlow(assets, {
+  const { showcase, albumArt, brandDecks, carousels, banners, admats, visuals, liveFootage } = buildContentFlow(assets, {
     surface: 'detail',
     chunks: chunkTune,
   });
@@ -374,6 +378,12 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     const pageH = width / admatCols / ratioOf(set.items[0]);
     return Math.max(8, Math.ceil((pageH + gap) / (GRID_ROW_PX + gap)));
   };
+
+  // US-4 sets (liveFootageLayout.js): a visuals wall (2 columns, 1 on a phone,
+  // one whole loop tall) and a live-footage grid per set, sized from the measured grid.
+  const setGeo = { phone: gridMetrics?.cols === 1, width: gridMetrics?.width, gap: gridMetrics?.rowGap };
+  const visualsWalls = visuals.map((set) => ({ ...set, ...visualsWall(set.items, setGeo) }));
+  const footageGrids = liveFootage.map((set) => ({ ...set, plan: liveFootagePlan(set.items, setGeo) }));
 
   // Tile spans, through the same pitch (tileGrid.js). ≤ 1024 the spans
   // reach CSS as custom properties.
@@ -437,6 +447,13 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       anchor: albumArt.length === 0 && i === 0 ? 'top' : 'mid',
     });
   });
+  // Visuals walls and live-footage grids (US-4) stack mid-grid after the admats.
+  for (const set of visualsWalls) {
+    regions.push({ ...ORBIT_REGION, id: `visuals:${set.group}`, rowSpan: set.spanRows, anchor: 'mid' });
+  }
+  for (const set of footageGrids) {
+    regions.push({ ...ORBIT_REGION, id: `footage:${set.group}`, rowSpan: set.plan.spanRows, anchor: 'mid' });
+  }
   if (tabbedDecks.length > 0) {
     regions.push({
       id: 'deck',
@@ -518,6 +535,12 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     );
   };
 
+  // A visuals set's wall (US-4): the deck wall at the set's ratio, loops playing.
+  const visualsWallNode = (id) => {
+    const set = visualsWalls.find((v) => `visuals:${v.group}` === id);
+    return <AlbumArtViewer covers={set.items} ratio={set.ratio} cols={set.cols} showAll play ariaLabel="visuals" />;
+  };
+
   // Sockets interleave with tiles at their domIndex so single-column
   // (in-flow) layouts read in the right order.
   const socketNodes = (seg, i) =>
@@ -536,6 +559,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           <BannerViewer banners={banners.find((b) => `banner:${b.group}` === s.id)} />
         ) : s.id.startsWith('admat:') ? (
           admatWall(s.id)
+        ) : s.id.startsWith('visuals:') ? (
+          visualsWallNode(s.id)
+        ) : s.id.startsWith('footage:') ? (
+          <LiveFootageGrid plan={footageGrids.find((f) => `footage:${f.group}` === s.id).plan} />
         ) : (
           <AlbumArtViewer covers={albumArt} />
         )}

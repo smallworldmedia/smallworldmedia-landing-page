@@ -594,6 +594,48 @@ test('admat set - HHS 2024-2025 (10 stills + 23 animated) is one tile, at most S
   assert.ok(tile.frames.every((f) => f.playbackId ? f.videoDuration === 20 : !f.videoDuration))
 })
 
+// US-4 (11-11, Nathan): visuals and live-footage sets are ONE tile each (the
+// face = the first member, as a carousel's); merch stills cycle like a sequence.
+test('US-4 sets - visuals and live-footage are one tile per set, merch stills one cycling tile; a set of one is a plain tile', () => {
+  rank = 0
+  const member = (id, groupType, displayGroup, extra = {}) => asset(id, 'jamback', { ...JAM, groupType, displayGroup, ...img(1600, 900), ...extra })
+  const ts = jamTiles([
+    member('vis-1', 'visuals', 'loops'),
+    member('vis-2', 'visuals', 'loops'),
+    member('vis-3', 'visuals', 'loops'),
+    member('lf-1', 'live-footage', 'show', { ...img(1080, 1350) }),
+    member('lf-2', 'live-footage', 'show'),
+    member('merch-1', 'merch', 'tees', { ...img(1080, 1350) }),
+    member('merch-2', 'merch', 'tees', { ...img(1080, 1350) }),
+    member('merch-3', 'merch', 'tees', { ...img(1080, 1350) }),
+    member('vis-solo', 'visuals', 'solo-loops'),
+    member('lf-solo', 'live-footage', 'solo-show'),
+  ])
+  // a set's tile wears its first member's id (as a carousel's does); a cycler gets lane:client:project:group
+  assert.deepEqual(ids(ts), ['vis-1', 'lf-1', 'sequence:jamback:p-jam:tees', 'vis-solo', 'lf-solo'])
+  const byId = Object.fromEntries(ts.map((t) => [t._id, t]))
+  // the face is the first member: its picture, no cycle
+  assert.equal(byId['vis-1'].imageUrl, 'https://cdn.example.invalid/1600x900.jpg')
+  assert.equal(byId['vis-1'].frames, undefined)
+  assert.equal(byId['lf-1'].frames, undefined)
+  assert.equal(byId['lf-1'].imageUrl, 'https://cdn.example.invalid/1080x1350.jpg')
+  // merch stills cut through their frames in orderRank order
+  assert.deepEqual(byId['sequence:jamback:p-jam:tees'].frames.map((f) => f._id), ['merch-1', 'merch-2', 'merch-3'])
+  // a set of one is a plain tile
+  assert.equal(byId['vis-solo'].frames, undefined)
+  assert.equal(byId['lf-solo'].frames, undefined)
+  // every tile still links to its project page
+  assert.ok(ts.every((t) => t.href === '/work/jamback'))
+  // NC: two sets with the same displayGroup under different clients stay apart
+  rank = 0
+  const split = buildDirectoryTiles({
+    assets: [member('a-1', 'visuals', 'loops'), member('a-2', 'visuals', 'loops'), asset('b-1', 'bellaire', { groupType: 'visuals', displayGroup: 'loops' }), asset('b-2', 'bellaire', { groupType: 'visuals', displayGroup: 'loops' })],
+    worlds: ADMAT_WORLDS,
+    clients: [{ name: 'Jamback', slug: 'jamback', umbrellas: null }, { name: 'Bellaire', slug: 'bellaire', umbrellas: null }],
+  })
+  assert.deepEqual(ids(split), ['a-1', 'b-1'])
+})
+
 test('album art stays one tile per cover; decks, carousels and banners keep their grouped tile', () => {
   rank = 0
   const covers = [0, 1, 2].map((i) => asset(`cover-${i}`, 'jamback', { ...JAM, mediaType: 'album-art' }))
