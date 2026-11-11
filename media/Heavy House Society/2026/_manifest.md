@@ -11,16 +11,16 @@ project: heavy-house-society-branding-2026
 | file | mediaType | serviceType | title | contentRole | displayGroup | sanityId |
 | --- | --- | --- | --- | --- | --- | --- |
 | Live Visuals 2026/Logos Falling Color Dither.mp4 | motion_16x9 | Logo Design | Logos Falling Color Dither |  |  | mediaAsset-heavy-house-society-logos-falling-color-dither |
-| HHS Invisible Wind Factory - Liverpool 022826.mp4 | motion_4x5 | Event / Tour Creative | HHS Invisible Wind Factory Liverpool 022826 |  |  | mediaAsset-heavy-house-society-hhs-invisible-wind-factory-liverpool-022826 |
+| HHS Invisible Wind Factory - Liverpool 022826.mp4 | motion_4x5 | Event / Tour Creative | HHS Invisible Wind Factory Liverpool 022826 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-invisible-wind-factory-liverpool-022826 |
 | Live Visuals 2026/Logo 01 - Graffiti Pink.mp4 | motion_16x9 | Logo Design | Logo Graffiti Pink |  |  | mediaAsset-heavy-house-society-logo-graffiti-pink |
 | Live Visuals 2026/Logo 02 - Pattern BG 02 Memphis Colors.mp4 | motion_16x9 | Logo Design | Logo Memphis Colors |  |  | mediaAsset-heavy-house-society-logo-memphis-colors |
 | Use Ya Head Youtube.mp4 | motion_16x9 | Promo Video | Use Ya Head Youtube |  |  | mediaAsset-heavy-house-society-use-ya-head-youtube |
 | Live Visuals 2026/Logo 01 - Graffiti Indigo.mp4 | motion_16x9 | Logo Design | Logo Graffiti Indigo |  |  | mediaAsset-heavy-house-society-logo-graffiti-indigo |
 | Bass Rider Youtube.mp4 | motion_16x9 | Promo Video | Bass Rider Youtube |  |  | mediaAsset-heavy-house-society-bass-rider-youtube |
-| HHS OFFBCN 062025.png | static_4x5 | Event / Tour Creative | HHS OFFBCN 062025 |  |  | mediaAsset-heavy-house-society-hhs-offbcn-062025 |
+| HHS OFFBCN 062025.png | static_4x5 | Event / Tour Creative | HHS OFFBCN 062025 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-offbcn-062025 |
 | hhs_straight-from-the-underground_charcoal-back.jpg | static_1x1 | Merch Design | hhs straight from the underground charcoal back |  |  | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-charcoal-back |
 | hhs_straight-from-the-underground_white-back.jpg | static_1x1 | Merch Design | hhs straight from the underground white back |  |  | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-white-back |
-| HHS USA listing 2026.png | static_4x5 | Event / Tour Creative | HHS USA listing 2026 |  |  | mediaAsset-heavy-house-society-hhs-usa-listing-2026 |
+| HHS USA listing 2026.png | static_4x5 | Event / Tour Creative | HHS USA listing 2026 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-usa-listing-2026 |
 | pure-perfection_4x5.mp4 | motion_4x5 | Promo Video | pure perfection 4x5 |  |  | mediaAsset-heavy-house-society-pure-perfection-4x5 |
 | HHS047 SC Banner.png | static_16x9 | Branding | HHS047 SC Banner |  |  | mediaAsset-heavy-house-society-hhs047-sc-banner |
 | HHS059 Banner.png | static_other | Branding | HHS059 Banner |  | heavy-house-society-banners | mediaAsset-heavy-house-society-hhs059-banner |
@@ -29,7 +29,7 @@ project: heavy-house-society-branding-2026
 | Live Visuals 2026/Logo 02 - Halftone Stroke.mp4 | motion_16x9 | Logo Design | Logo Halftone Stroke |  |  | mediaAsset-heavy-house-society-logo-halftone-stroke |
 | Live Visuals 2026/Logo 01 - Neon Palms.mp4 | motion_16x9 | Logo Design | Logo Neon Palms |  |  | mediaAsset-heavy-house-society-logo-neon-palms |
 | Live Visuals 2026/Logo 02 - Pattern BG 01.mp4 | motion_16x9 | Logo Design | Logo Pattern BG |  |  | mediaAsset-heavy-house-society-logo-pattern-bg |
-| HHS Shelter - Amsterdam 041826.png | static_4x5 | Event / Tour Creative | HHS Shelter Amsterdam 041826 |  |  | mediaAsset-heavy-house-society-hhs-shelter-amsterdam-041826 |
+| HHS Shelter - Amsterdam 041826.png | static_4x5 | Event / Tour Creative | HHS Shelter Amsterdam 041826 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-shelter-amsterdam-041826 |
 | Live Visuals 2026/Visuals-Live-Photo-Crowd.jpg | static_9x16 | Live Visuals | HHS Live Visuals in Action | supporting |  | mediaAsset-heavy-house-society-hhs-live-visuals-in-action |
 | Live Visuals 2026/Resolume-Export.mp4 | motion_16x9 | Live Visuals | Resolume Composition Export | process |  | mediaAsset-heavy-house-society-resolume-composition-export |
 | Live Visuals 2026/hhs_viewport-view.mp4 | motion_4x5 | Live Visuals | Resolume Viewport Recording | process |  | mediaAsset-heavy-house-society-resolume-viewport-recording |

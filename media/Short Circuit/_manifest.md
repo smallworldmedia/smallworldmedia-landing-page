@@ -10,10 +10,10 @@ year: 2026
 | SCTV_1_ORIGINS.mp4 | motion_9x16 | promo video | SCTV 1 — Origins | false | 1 |  | mediaAsset-short-circuit-sctv-1-origins |
 | SCTV_2_EVENTS.mp4 | motion_9x16 | promo video | SCTV 2 — Events | false | 2 |  | mediaAsset-short-circuit-sctv-2-events |
 | Short Circuit Logo Loop RGB_30sec.mp4 | motion_16x9 | logo design | Short Circuit Logo Loop RGB | false | 3 |  | mediaAsset-short-circuit-short-circuit-logo-loop-rgb |
-| sc tour 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour 4x5 | false | 4 |  | mediaAsset-short-circuit-sc-tour-4x5 |
-| sc tour brookyln 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour Brooklyn 4x5 | false | 5 |  | mediaAsset-short-circuit-sc-tour-brooklyn-4x5 |
-| sc tour la 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour LA 4x5 | false | 6 |  | mediaAsset-short-circuit-sc-tour-la-4x5 |
-| sc tour miami 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour Miami 4x5 | false | 7 |  | mediaAsset-short-circuit-sc-tour-miami-4x5 |
+| sc tour 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour 4x5 | false | 4 | short-circuit-tour-admats | mediaAsset-short-circuit-sc-tour-4x5 |
+| sc tour brookyln 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour Brooklyn 4x5 | false | 5 | short-circuit-tour-admats | mediaAsset-short-circuit-sc-tour-brooklyn-4x5 |
+| sc tour la 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour LA 4x5 | false | 6 | short-circuit-tour-admats | mediaAsset-short-circuit-sc-tour-la-4x5 |
+| sc tour miami 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour Miami 4x5 | false | 7 | short-circuit-tour-admats | mediaAsset-short-circuit-sc-tour-miami-4x5 |
 | sc-sound_art.png | static_1x1 | album art | SC Sound Art | false | 8 |  | mediaAsset-short-circuit-sc-sound-art |
 | sc18_summercutz_FB_banner.png | static_16x9 | branding | SC18 Summercutz FB Banner | false | 9 |  | mediaAsset-short-circuit-sc18-summercutz-fb-banner |
 | sc18_summercutz_SC_banner.png | static_other | branding | SC18 Summercutz SC Banner | false | 10 | short-circuit-banners | mediaAsset-short-circuit-sc18-summercutz-sc-banner |
