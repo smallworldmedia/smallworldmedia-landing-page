@@ -254,7 +254,7 @@ A grouped asset's **group type** (`mediaAsset.groupType`, Nathan 11-10) names wh
 
 - Decks, banners and carousels stay off the globe on purpose: "they aren't visually that dynamic to populate the globe as standalone assets".
 - A document without the field still resolves (`groupTypeOf`): `album-art` and `carousel-slide` mediaTypes, a `brand-deck` (an admat when its `displayGroup` ends in `-admats`), and a `-banner(s)` group.
-- An **admat** set is a tour's or event's flyers, all 3x4 or all 4x5 (whichever the set uses). An animated flyer joins the set and its static twin stays out. On the project page the set is one wall: 4 columns on desktop, 2 on phone, every flyer shown whole, the animated ones playing (`DeckScroller` `play`, one player gate per wall). On the globe and in the directory the stills cycle as one panel or tile, and each animated flyer keeps its own tile.
+- An **admat** set is a tour's or event's flyers, all 3x4 or all 4x5 (whichever the set uses). An animated flyer joins the set and its static twin stays out. On the project page the set is one wall: 4 columns on desktop, 2 on phone, every flyer shown whole, the animated ones playing (`DeckScroller` `play`, one player gate per wall). In the directory the set is one tile that cycles every flyer (up to 12) on the shared beat, and each animated flyer holds the tile while its preview plays through. On the globe the stills cycle as one panel, and each animated flyer keeps its own tile.
 
 ### Sequence (one tile, many stills)
 
