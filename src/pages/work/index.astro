@@ -24,6 +24,7 @@ import { sanityFetch } from '../../lib/sanityClient.js';
 import { FEATURED_WORLDS_QUERY } from '../../lib/queries.js';
 import {
   buildContentFlow,
+  groupTypeOf,
   ratioOf,
 } from '../../components/work/detail/buildContentFlow.js';
 import { toProjectSlug } from '../../lib/projectSlug.js';
@@ -53,21 +54,25 @@ const worlds = projects
   .map((p) => {
   const assets = p.assets || [];
   const hero = assets[0] || null;
-  const flow = buildContentFlow(assets);
+  const flow = buildContentFlow(assets, { surface: 'work' });
 
   // Wall-deck order: buildContentFlow's group order is first appearance by
   // orderRank with the hero SKIPPED — so a hero that is itself a deck page
   // (bedouin: saga p.01) swallows its group's first appearance and the wrong
   // deck leads the walls. Re-lead with the hero's own deck when it has one;
-  // detail pages keep the flow's native order.
+  // detail pages keep the flow's native order. Carousels (US-3: "show the
+  // slides as a scrolling wall, the way deck pages show today") follow the
+  // decks as walls of the same {group, pages} shape; admats and banners never
+  // reach this surface (the group-type table).
   const heroDeckGroup =
-    hero?.mediaType === 'brand-deck' ? (hero.displayGroup ?? 'deck') : null;
-  const wallDecks = heroDeckGroup
+    hero && groupTypeOf(hero) === 'deck' ? (hero.displayGroup ?? 'deck') : null;
+  const deckWalls = heroDeckGroup
     ? [
         ...flow.brandDecks.filter((d) => d.group === heroDeckGroup),
         ...flow.brandDecks.filter((d) => d.group !== heroDeckGroup),
       ]
     : flow.brandDecks;
+  const wallDecks = [...deckWalls, ...flow.carousels];
 
   const showcase = flow.showcase.map((a) => ({
     _id: a._id,
