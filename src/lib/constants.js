@@ -15,7 +15,6 @@ export const SERVICE_TAGS = [
   'Album Art',
   'Event / Tour Creative',
   'Illustration',
-  'Character Design',
   '2D Animation',
   '3D Animation',
   'Logo Design',
