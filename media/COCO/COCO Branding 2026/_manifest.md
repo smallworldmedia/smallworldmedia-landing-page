@@ -61,4 +61,4 @@ project: coco-branding-2026
 | Liverpool 091226/Know Before You Go 06.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 06 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-dc5c8472-288e-4010-a020-7faf0f4602f8 |
 | Liverpool 091226/B2B Lineup 3x4.png | static_3x4 | COCO Liverpool 091226 B2B Lineup | Event / Tour Creative |  | mediaAsset-04d4e307-e704-4654-b21a-eb5fd21e22ea |
 | The Cause 050226/Announce 4x5.mp4 | motion_4x5 | COCO @ The Cause 050226 Announce | Event / Tour Creative |  | mediaAsset-4a76a206-9f5f-4053-9a2a-66196495c2b4 |
-| coco_ig-mockup.png | static_9x16 | COCO Instagram Mockup | Branding | coco-mockups |  |
+| coco_ig-mockup.png | static_9x16 | COCO Instagram Mockup | Branding | coco-mockups | mediaAsset-542817b3-52cc-49ee-bb03-79ff86326f40 |
