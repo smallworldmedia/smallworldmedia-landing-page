@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-11-11*
+*Last Updated: 2026-11-12*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -187,7 +187,7 @@ arrival drives direction 0, no Turn) ·
 P0c `113b085`; `?wallpx` with its desktop floor `Math.round(768 * Math.max(1.5, WALL_DPR))` and
 `?fpstol` 2 since Nathan's 10-31 bake, `f2916d1`; 0 from PF `d2967ca`) · `buildShell.js` (inverse-sphere
 graticule) · `seededLayout.js` · `fpGridCells.js` · `fpAtlas.js` / `fpForme.js` / `fpDrum.js` (+
-`fpDrumTrim.js`, `fpDrumWall.js` — the deck wall, which since 11-10 also carries carousels (SQ-50: `work/index.astro` builds with `surface: 'work'`, `wallDecks = [...deckWalls, ...flow.carousels]`, and a hero is a deck only by `groupTypeOf`; since 11-11 US-4 a carousel plate has `axis` 'x', marked via `brandDecksAxis` / `brandDecks2Axis`: the atlas is laid out as rows and the shader travels on u, row 0 leftward, odd rows opposite, footprint `min(4, ?carouselvis × pageRatio)`; the album plate is 4 columns on desktop (`WALL_ALBUM_COLS`) with a 50% taller footprint; `probe()` / `seek()` back the `?debug` handle's `walls` / `seekWalls`): since PF each column's page cycle is painted ONCE
+`fpDrumTrim.js`, `fpDrumWall.js` — the deck wall, which since 11-10 also carries carousels (SQ-50: `work/index.astro` builds with `surface: 'work'`, `wallDecks = [...deckWalls, ...flow.carousels]`, and a hero is a deck only by `groupTypeOf`; since 11-11 US-4 a carousel plate has `axis` 'x', marked via `brandDecksAxis` / `brandDecks2Axis`: the atlas is laid out as rows and the shader travels on u, row 0 leftward, odd rows opposite, footprint `min(4, ?carouselvis × pageRatio)`; the album plate is 3 columns on desktop since 11-12 (`WALL_ALBUM_COLS`, `?albumcols`; 2 on a phone) with a 50% taller footprint, and its reserved block (`album: true` on the stripDef) takes `shiftCells` toward the vertical centre: `WALL_ALBUM_UP` (`?albumup`) cells up from the lower seat (a World with a deck), `WALL_ALBUM_DOWN` (`?albumdown`) down from the upper one, 1 on desktop and 0 on a phone, applied in `placeDrumBlocks` AFTER the card-collision walk (the seat sits flush on the card keep-out box, so a step before the walk is walked back); `probe()` / `seek()` back the `?debug` handle's `walls` / `seekWalls`): since PF each column's page cycle is painted ONCE
 into a static atlas, re-painted only as pages land, and the plate's shader scrolls it with one wrapped
 travel uniform, so the wall canvas area sets texture memory and the upload per landed page, not a
 per-frame repaint; a sequence plate gets one texture per frame from `fpDrum`, a transparent frame
