@@ -95,9 +95,15 @@ export const CORNER_INSET = num('cornerin', 0.5); // seat pull-in factor (1 = th
 // DeckScroller auto count, 3 for squares). 0 = the auto column math.
 // 11-11 (US-4, Nathan): album art reads 4 across on desktop (was the auto 3)
 // and its plate is 1.5× taller at the same width (fpDrum's album stripDef).
+// 11-12 (Nathan): 3 across on desktop, and the taller plate, which ran off the
+// frame, steps one grid cell toward the vertical centre from either seat: UP
+// from the lower seat (a World with a deck), DOWN from the upper one (no deck).
+// The phone keeps 2 across and its seats (both shifts 0).
 export const WALL_EXTRA_ROWS = num('wallrows', IS_MOBILE ? 1 : 0);
 export const WALL_DECK_COLS = num('deckcols', IS_MOBILE ? 1 : 0);
-export const WALL_ALBUM_COLS = num('albumcols', IS_MOBILE ? 2 : 4);
+export const WALL_ALBUM_COLS = num('albumcols', IS_MOBILE ? 2 : 3);
+export const WALL_ALBUM_UP = num('albumup', IS_MOBILE ? 0 : 1);
+export const WALL_ALBUM_DOWN = num('albumdown', IS_MOBILE ? 0 : 1);
 // 11-11 (US-4): a carousel wall plate runs horizontally like the detail page's
 // strip — this many slides across the plate (the next slide peeks). Same
 // param and defaults as the detail page's DeckScroller reads.
