@@ -135,6 +135,10 @@ removed on 10-31.)
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
+A passage changes colour on the page background's clock, never on a timer of its own (SQ-64, 11-12).
+The nav's fade starts from the cover or lift tween's `onStart`, at that tween's duration, curve and
+phase, because a main-thread stall makes a separate timer start late. `scripts/color-sync-probe.mjs`
+measures the offset in frames.
 
 ## One grammar, two renderers (marked copy)
 Rich text in this repo is a MARKED PLAIN STRING, never Portable Text — `**bold**`, `[[keyword]]`,
