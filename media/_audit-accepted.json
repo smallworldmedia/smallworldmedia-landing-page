@@ -85,13 +85,6 @@
       "mediaType": "static_other",
       "reason": "Nathan 2026-11-11: \"Keep static other\". The site shows static_other at the file's own shape; a static_16x9 label would force 16:9 onto a 1.52:1 mockup. No static 4:3 label yet: one 4:3 still in the library.",
       "decided": "2026-11-11"
-    },
-    {
-      "check": "label-ratio",
-      "id": "mediaAsset-bda9d9e3-2edb-4cd8-a86f-90849848e31a",
-      "mediaType": "static_other",
-      "reason": "Nathan 2026-11-11: \"Keep static other\". The site shows static_other at the file's own shape; a static_1x1 label would force a square onto a 4:3 mockup. No static 4:3 label yet: one 4:3 still in the library.",
-      "decided": "2026-11-11"
     }
   ]
 }
