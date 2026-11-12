@@ -11,7 +11,9 @@
  * art, admats and merch (stills cycle as a sequence) open on the globe; deck
  * pages, carousels, banners, logos and process/BTS assets stay out (wide or
  * transparent sheets never read in a square tile). Visuals and live-footage
- * pieces ride as ordinary tiles (assetLane, US-4).
+ * pieces ride as ordinary tiles (assetLane, US-4). Mockups and flyer-progression
+ * sets (US-5) are one cycling panel each, an animated member in it as its
+ * poster still (posterStill).
  *
  * Client (PopulationDirector): selectPool() narrows a pool live for the
  * ?popmedia / ?popcap bench knobs. Both sides select round-robin across the

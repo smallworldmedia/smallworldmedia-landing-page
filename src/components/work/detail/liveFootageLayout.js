@@ -19,6 +19,9 @@
  *     so no loop repeats in view) up to `maxRows`, the deck wall's height by
  *     default (FeaturedProjectDetail, ?visualsrows); past it the wall drifts.
  *
+ *   - mockups (US-5): the same deck-wall frame, but every piece at its OWN
+ *     aspect, packed masonry-style (mockupsWall; DeckScroller `columns`).
+ *
  * The socket height in grid rows comes from the measured grid (width + row
  * gap, useGridMetrics), through the row pitch like the banner and admat
  * walls; the fallbacks are the pre-measure server render.
@@ -91,4 +94,59 @@ export function visualsWall(items, { phone = false, width, gap, maxRows = Infini
   const perCol = Math.max(1, Math.ceil(items.length / cols));
   const setRows = rowsForPx(perCol * pageH + (perCol - 1) * g, g);
   return { ratio, cols, spanRows: Math.max(rowsForPx(pageH, g), Math.min(setRows, maxRows)) };
+}
+
+/** Mockups wall columns (US-5): masonry, 2 across on a desktop, 1 on a phone. */
+export const MOCKUPS_COLS = { desktop: 2, phone: 1 };
+
+/**
+ * A mockups set's wall (US-5): each piece at its OWN aspect (no crop, no shared
+ * ratio), packed like masonry. Members go in set order, each into the SHORTEST
+ * column so far (a tie takes the leftmost), so the columns end up within one
+ * piece of each other. Returns `columns` (the assets per column, top to
+ * bottom), `heights` (each column's px, gaps included), the fallback page
+ * `ratio` and the socket's height in grid rows: the tallest column (the whole
+ * set once, so no piece repeats in view) capped at `maxRows`, never under the
+ * TALLEST piece: a frame shorter than half a piece would never hold a playing
+ * video (playerGate wants half of it in view), and a 9x16 in a phone's one
+ * column is 1.8 times as tall as the column is wide.
+ */
+export function mockupsWall(items, { phone = false, width, gap, maxRows = Infinity } = {}) {
+  const w = width || FOOTAGE_WIDTH_FALLBACK;
+  const g = width ? (gap ?? 0) : FOOTAGE_GAP_FALLBACK;
+  const cols = phone ? MOCKUPS_COLS.phone : MOCKUPS_COLS.desktop;
+  const colW = (w - (cols - 1) * g) / cols;
+  const columns = Array.from({ length: cols }, () => []);
+  const heights = new Array(cols).fill(0);
+  let tallestPiece = 0;
+  for (const asset of items) {
+    const h = colW / ratioOf(asset);
+    tallestPiece = Math.max(tallestPiece, h);
+    const at = heights.indexOf(Math.min(...heights));
+    columns[at].push(asset);
+    heights[at] += h + g;
+  }
+  const tallest = Math.max(0, ...heights) - g;
+  const floorRows = rowsForPx(tallestPiece, g);
+  return {
+    ratio: sequenceRatio(items.map((a) => ratioOf(a))),
+    cols,
+    columns,
+    heights,
+    spanRows: Math.max(floorRows, Math.min(rowsForPx(tallest, g), maxRows)),
+  };
+}
+
+/**
+ * One mockups column's wrap cycle in a frame `h` tall (DeckScroller `columns`):
+ * the column's pieces (`ratios`, each `colW` wide, `gap` between) repeat whole
+ * until the cycle is at least the frame tall, so two rendered copies cover the
+ * frame at any wrap offset and the seam reads last piece → first. `reps` = how
+ * many times the column's list runs per copy, `cycle` = its px length.
+ */
+export function mixedCycle(ratios, { colW, h, gap }) {
+  if (!ratios.length) return { reps: 0, cycle: 0 };
+  const one = ratios.reduce((sum, r) => sum + colW / r + gap, 0);
+  const reps = Math.max(1, Math.ceil(h / one));
+  return { reps, cycle: reps * one };
 }

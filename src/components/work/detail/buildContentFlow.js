@@ -59,16 +59,29 @@
  *     order, and a set of one rides the showcase at its place. On the globe
  *     and /work their pieces are NOT dropped: they ride 'role' / 'showcase'
  *     as ordinary pieces (OFF_SURFACE_ORDINARY).
+ * 12. US-5 (11-11, Nathan): two more types, each with a lane per surface
+ *     (SURFACE_LANE, assetLane).
+ *     `mockups` open on globe, detail and directory (NOT /work, where their
+ *     pieces are dropped): a cycling sequence on the globe, and on detail a
+ *     `mockups` bucket (one {group, items} per set of two or more, items in
+ *     input order, a set of one riding the showcase at its place). The
+ *     directory tile is one face, as visuals.
+ *     `flyer-progression` opens everywhere: a cycling sequence on the globe
+ *     and /work, and the carousel lane on detail and the directory (a set of
+ *     one rides the showcase at its place, as every set of one does). In a
+ *     sequence an animated member joins as its poster still (posterStill)
+ *     instead of keeping its own tile, so a mostly-animated progression still
+ *     cycles; merch keeps its stills-only rule.
  *
  * Which bucket an asset joins is assetLane's precedence (sequence first,
  * showcase last), exported so other grids sort assets the same way.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
  * @param {{surface?: 'globe'|'work'|'detail'|'directory', orbitMin?: number, chunks?: {only?: string[], gap?: number}}} [opts] - surface: the GROUP_SURFACES column to apply (none = every set opens); ORBIT_MIN override (live tuning); expandChunks' ?chunks / ?chunkgap
- * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<{group: string, pages: Array<Object>}>, banners: Array<{group: string, items: Array<Object>}>, admats: Array<{group: string, items: Array<Object>}>, visuals: Array<{group: string, items: Array<Object>}>, liveFootage: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
+ * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<{group: string, pages: Array<Object>}>, banners: Array<{group: string, items: Array<Object>}>, admats: Array<{group: string, items: Array<Object>}>, visuals: Array<{group: string, items: Array<Object>}>, liveFootage: Array<{group: string, items: Array<Object>}>, mockups: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
  */
 
-import { isSequenceGroup, makeSequence } from '../../../lib/mediaSequence.js';
+import { isSequenceGroup, makeSequence, posterStill } from '../../../lib/mediaSequence.js';
 import { chunkRanges, chunkWindow } from '../imageConfig.js';
 
 /** Ratio below which an asset is considered portrait/square. */
@@ -203,7 +216,7 @@ export { PORTRAIT_THRESHOLD, MEDIA_TYPE_RATIOS };
 
 /** The group types (mediaAsset.groupType); mirrors scripts/lib/cms/contract.mjs,
  *  which site code never imports. */
-export const GROUP_TYPES = ['album-art', 'deck', 'banner', 'admat', 'carousel', 'merch', 'visuals', 'live-footage'];
+export const GROUP_TYPES = ['album-art', 'deck', 'banner', 'admat', 'carousel', 'merch', 'visuals', 'live-footage', 'mockups', 'flyer-progression'];
 
 /** Where each type opens its viewer or cycler (11-10, Nathan). A surface a
  *  type leaves out does not show its pieces. */
@@ -216,6 +229,18 @@ export const GROUP_SURFACES = {
   merch: ['globe', 'work', 'detail', 'directory'],
   visuals: ['detail', 'directory'],
   'live-footage': ['detail', 'directory'],
+  mockups: ['globe', 'detail', 'directory'],
+  'flyer-progression': ['globe', 'work', 'detail', 'directory'],
+};
+
+/** The lane a type's piece rides on each surface it opens on, for the types
+ *  whose lane differs by surface (US-5). A surface a type leaves out of
+ *  GROUP_SURFACES never gets here: that piece is dropped. The directory tile
+ *  flips through either set like a sequence (Nathan 11-11), so both ride the
+ *  'sequence' lane there. */
+const SURFACE_LANE = {
+  mockups: { globe: 'sequence', detail: 'mockups', directory: 'sequence' },
+  'flyer-progression': { globe: 'sequence', work: 'sequence', detail: 'carousel', directory: 'sequence' },
 };
 
 /** Types whose pieces are NOT dropped off their surfaces (US-4 decision): they
@@ -247,7 +272,7 @@ export function opensOn(asset, surface) {
 /**
  * The content-flow lane an asset rides, first match wins: 'sequence',
  * 'album-art', 'deck', 'carousel', 'banner', 'admat', 'visuals',
- * 'live-footage', 'role' (any contentRole), 'showcase'. null for an empty shell (no uploaded media).
+ * 'live-footage', 'mockups', 'role' (any contentRole), 'showcase'. null for an empty shell (no uploaded media).
  *
  * With no `surface` the lanes follow mediaType / displayGroup alone (every
  * admat rides 'deck'). With a `surface` they follow the asset's group type
@@ -259,6 +284,9 @@ export function opensOn(asset, surface) {
  * A `merch` still rides 'sequence' on every surface (a motion one is an
  * ordinary piece). `visuals` / `live-footage` take their own lane where they
  * open and ride 'role' / 'showcase' elsewhere, never null (OFF_SURFACE_ORDINARY).
+ * `mockups` and `flyer-progression` follow SURFACE_LANE, motion members
+ * included (a sequence shows a motion member as its poster); mockups on
+ * 'work' is null.
  */
 export function assetLane(asset, surface) {
   if (!asset.playbackId && !asset.imageUrl) return null;
@@ -276,7 +304,8 @@ export function assetLane(asset, surface) {
         if (!OFF_SURFACE_ORDINARY.includes(type)) return null;
       } else if (type === 'merch') {
         if (still) return 'sequence';
-      } else if (type !== 'admat') return type;
+      } else if (SURFACE_LANE[type]) return SURFACE_LANE[type][surface];
+      else if (type !== 'admat') return type;
       else if (surface !== 'globe' || still) return 'admat';
     }
   }
@@ -342,6 +371,7 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   const admatGroups = new Map();
   const visualsGroups = new Map();
   const footageGroups = new Map();
+  const mockupGroups = new Map();
   const sequenceGroups = new Map();
 
   // assets[0] is the hero (first in drag-to-order ranking) — skip it.
@@ -355,7 +385,7 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     if (!lane) continue;
 
     if (lane === 'sequence') {
-      const key = asset.displayGroup ?? 'merch';
+      const key = asset.displayGroup ?? groupTypeOf(asset);
       if (!sequenceGroups.has(key)) sequenceGroups.set(key, []);
       sequenceGroups.get(key).push({ i, asset });
     } else if (lane === 'album-art') albumArt.push({ i, asset });
@@ -366,13 +396,13 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     } else if (lane === 'carousel') {
       const key = asset.displayGroup ?? 'carousel';
       if (!carouselGroups.has(key)) carouselGroups.set(key, []);
-      carouselGroups.get(key).push(asset);
+      carouselGroups.get(key).push({ i, asset });
     } else if (lane === 'admat') {
       const key = asset.displayGroup ?? 'admat';
       if (!admatGroups.has(key)) admatGroups.set(key, []);
       admatGroups.get(key).push({ i, asset });
-    } else if (lane === 'visuals' || lane === 'live-footage') {
-      const groups = lane === 'visuals' ? visualsGroups : footageGroups;
+    } else if (lane === 'visuals' || lane === 'live-footage' || lane === 'mockups') {
+      const groups = lane === 'visuals' ? visualsGroups : lane === 'mockups' ? mockupGroups : footageGroups;
       const key = asset.displayGroup ?? lane;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push({ i, asset });
@@ -390,8 +420,10 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
       showcase.push(members[0]);
       continue;
     }
-    const frames = members.map((e) => e.asset);
-    showcase.push({ i: members[0].i, asset: makeSequence(`sequence:${group}`, frames, frames.map(ratioOf)) });
+    // A motion member (flyer-progression, mockups) is a frame as its poster; the tile
+    // shape is judged on the members' labels, which the poster twin would not carry.
+    const frames = members.map((e) => posterStill(e.asset));
+    showcase.push({ i: members[0].i, asset: makeSequence(`sequence:${group}`, frames, members.map((e) => ratioOf(e.asset))) });
   }
 
   // An admat set of one rides the showcase at its place, as a one-member
@@ -402,7 +434,7 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     else admats.push({ group, items: sortByDeckOrder(members.map((e) => e.asset)) });
   }
 
-  // Visuals and live-footage sets: two members or more make a set (items in
+  // Visuals, live-footage and mockups sets: two members or more make a set (items in
   // input order); a set of one rides the showcase at its place, as admats do.
   const setsOf = (groups) => {
     const sets = [];
@@ -414,6 +446,17 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   };
   const visuals = setsOf(visualsGroups);
   const liveFootage = setsOf(footageGroups);
+  const mockups = setsOf(mockupGroups);
+
+  // Carousels group like decks: group order = first appearance, slides keep
+  // their incoming order (orderRank, set via drag-to-order) within a group. A
+  // flyer-progression of one rides the showcase at its place like any set of
+  // one; a lone carousel slide stays a one-slide carousel, as it always was.
+  const carousels = [];
+  for (const [group, members] of carouselGroups) {
+    if (members.length < 2 && groupTypeOf(members[0].asset) === 'flyer-progression') showcase.push(members[0]);
+    else carousels.push({ group, pages: members.map((e) => e.asset) });
+  }
 
   // ORBIT_MIN gate — below it, covers fold back into the showcase flow.
   const orbits = albumArt.length >= orbitMin;
@@ -430,12 +473,8 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     pages: sortByDeckOrder(pages),
   }));
 
-  // Carousels group like decks: group order = first appearance, slides keep
-  // their incoming order (orderRank, set via drag-to-order) within a group.
-  const carousels = [...carouselGroups.entries()].map(([group, pages]) => ({ group, pages }));
-
   // Banners keep incoming orderRank order within each group.
   const banners = [...bannerGroups.entries()].map(([group, items]) => ({ group, items }));
 
-  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, banners, admats, visuals, liveFootage, bts };
+  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups, bts };
 }

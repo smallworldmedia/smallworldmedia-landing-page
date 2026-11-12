@@ -6,12 +6,14 @@
  * buildContentFlow.js: every group type opens here), so a deck is one tile
  * here as it is one viewer there (CONTEXT.md, the Brand Deck Dual-Feed Rule):
  *   - decks, carousels, banner groups, admat sets, visuals and live-footage
- *     sets, and sequences (merch stills too, 11-11) collapse into
- *     one tile per lane:client:project:displayGroup (a displayGroup name
- *     repeats across clients);
+ *     sets, and sequences (merch stills too, 11-11; mockups sets and flyer
+ *     progressions ride this lane here, SURFACE_LANE) collapse into one tile
+ *     per lane:client:project:displayGroup (a displayGroup name repeats across
+ *     clients);
  *   - the face is a deck's lowest brandDeckOrder page, a carousel's, banner
- *     group's, visuals set's or live-footage set's first member (orderRank); a sequence cycles its stills
- *     (makeSequence), and so does an admat set, in brandDeckOrder then
+ *     group's, visuals or live-footage set's first member (orderRank); a
+ *     sequence flips through its members in orderRank, mixed aspects on the
+ *     least-cropping tile (makeSequence), and so does an admat set, in brandDeckOrder then
  *     orderRank (11-10, Nathan), its animated flyers among the frames (each
  *     plays through on the shared beat, MediaSlot); a group of one is a plain
  *     tile;

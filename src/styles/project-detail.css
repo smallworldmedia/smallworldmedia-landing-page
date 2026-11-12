@@ -691,7 +691,8 @@ html:has(.project-detail) body {
   bottom: 0;
   flex-direction: row;
 }
-.deck-scroller--x .deck-scroller__page {
+.deck-scroller--x .deck-scroller__page,
+.deck-scroller--x .media-slot {
   flex: none;
   width: auto;
   height: 100%;

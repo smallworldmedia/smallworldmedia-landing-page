@@ -636,6 +636,41 @@ test('US-4 sets - visuals and live-footage are one tile per set, merch stills on
   assert.deepEqual(ids(split), ['a-1', 'b-1'])
 })
 
+// US-5 (11-11, Nathan): "the directory should flip through the contents of the set" — a
+// mockups set and a flyer-progression are ONE tile each that cycles its members in
+// orderRank (the sequence lane), a motion member among the frames; a set of one is plain.
+test('US-5 sets - a mockups set and a flyer-progression are one tile each that flips through its members', () => {
+  rank = 0
+  const member = (id, groupType, displayGroup, extra = {}) => asset(id, 'jamback', { ...JAM, groupType, displayGroup, ...img(1080, 1350), ...extra })
+  const ts = jamTiles([
+    member('mk-1', 'mockups', 'billboards'),
+    member('mk-2', 'mockups', 'billboards', { ...img(1600, 900) }),
+    member('mk-3', 'mockups', 'billboards'),
+    member('fp-1', 'flyer-progression', 'rollout'),
+    asset('fp-2', 'jamback', { ...JAM, groupType: 'flyer-progression', displayGroup: 'rollout', imageUrl: undefined, imageDimensions: undefined, playbackId: 'pb-fp-2', videoAspectRatio: '4:5' }),
+    member('fp-3', 'flyer-progression', 'rollout'),
+    member('mk-solo', 'mockups', 'solo-mock'),
+  ])
+  assert.equal(ts.length, 3)
+  const [mk, fp, solo] = ts
+  assert.deepEqual(ids(mk.frames), ['mk-1', 'mk-2', 'mk-3'], 'the mockups set flips in orderRank')
+  assert.deepEqual(ids(fp.frames), ['fp-1', 'fp-2', 'fp-3'], 'the flyer-progression flips in orderRank')
+  assert.equal(fp.frames[1].playbackId, 'pb-fp-2', 'its motion member stays motion (it plays through, as in an admat set)')
+  assert.equal(mk.sequenceRatio, 0.8, 'mixed aspects: the least-cropping member ratio (two 4:5 beat one 16:9)')
+  assert.equal(mk.imageUrl, 'https://cdn.example.invalid/1080x1350.jpg') // the first frame shows first
+  assert.equal(solo._id, 'mk-solo')
+  assert.equal(solo.frames, undefined, 'a set of one is a plain tile')
+  for (const t of ts) assert.equal(t.href, '/work/jamback')
+  // NC: a mockups set on another client stays its own tile
+  rank = 0
+  const split = buildDirectoryTiles({
+    assets: [member('a-1', 'mockups', 'billboards'), member('a-2', 'mockups', 'billboards'), asset('b-1', 'bellaire', { groupType: 'mockups', displayGroup: 'billboards' }), asset('b-2', 'bellaire', { groupType: 'mockups', displayGroup: 'billboards' })],
+    worlds: ADMAT_WORLDS,
+    clients: [{ name: 'Jamback', slug: 'jamback', umbrellas: null }, { name: 'Bellaire', slug: 'bellaire', umbrellas: null }],
+  })
+  assert.deepEqual(split.map((t) => ids(t.frames)), [['a-1', 'a-2'], ['b-1', 'b-2']])
+})
+
 test('album art stays one tile per cover; decks, carousels and banners keep their grouped tile', () => {
   rank = 0
   const covers = [0, 1, 2].map((i) => asset(`cover-${i}`, 'jamback', { ...JAM, mediaType: 'album-art' }))
