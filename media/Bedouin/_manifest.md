@@ -62,3 +62,6 @@ project: bedouin
 | Open Air Brooklyn 062125/NYC Flyer 4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 (NYC Flyer) |  |  |  | mediaAsset-f291f3da-9cb4-4a37-8ffe-d65719a1bffe |
 | Roundhouse London 051025/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Roundhouse London 051025 |  |  |  | mediaAsset-601d9bf7-2dea-4be9-917c-9d163896a074 |
 | Bedouin_IG-Mockups.png | static_other | Branding | Bedouin Instagram Mockups |  | bedouin-mockups |  | mediaAsset-bda9d9e3-2edb-4cd8-a86f-90849848e31a |
+| Instagram Mockups/bedouin_ig-mockup_1_bedouinsaga.png | static_9x16 | Branding | Bedouin Instagram Mockup — SAGA (@bedouinsaga) |  | bedouin-mockups |  | mediaAsset-d62c3810-1cb0-44a9-9bfd-8e24edf149cd |
+| Instagram Mockups/bedouin_ig-mockup_2_bedouin-official.png | static_9x16 | Branding | Bedouin Instagram Mockup — Bedouin (@bedouin_official) |  | bedouin-mockups |  | mediaAsset-242f49d7-bc7e-47fd-aada-2509754de86a |
+| Instagram Mockups/bedouin_ig-mockup_3_humanxdefault.png | static_9x16 | Branding | Bedouin Instagram Mockup — Human By Default (@humanxdefault) |  | bedouin-mockups |  | mediaAsset-bf466cac-b207-4759-9121-3190c5fa32eb |
