@@ -97,16 +97,28 @@ records (`docs/globe-worlds-plan.md`).
      HHS 2026 and Short Circuit are now admat sets.
    - The hosted Studio was redeployed. The branch preview was rebuilt 11-11 with the new data.
    - Left: Nathan's iPhone check of the HHS pages and the directory.
-4. **Next: Nathan's 11-11 round** (not started; `docs/.session-context.md` task 1):
-   - the carousel viewer scrolls horizontally;
-   - album art goes to 2 columns on a phone and 4 on desktop, with +50% height;
-   - the admat wall gets +50% height;
-   - three new types: `merch` (the album-art cycler on all four surfaces), `visuals` and
-     `live-footage`;
-   - a Jam Packed summer tour admat set;
-   - the COCO 2026 cleanup: two admat sets and three deletes.
-
-   The order is the schema first, then the content plans on Nathan's yes, then the code (US-4).
+4. **Done 11-11: Nathan's 11-11 round** (US-4 and US-5, every piece pushed, the stream at
+   `2a6576f`; `cms audit` 0 errors):
+   - **US-4** (schema `b73fd3b`, sets plan `941ec0be`, code SQ-54/55/56 + `0aecd71`):
+     - the carousel viewer scrolls horizontally;
+     - album art is 2 columns on a phone and 4 on desktop, +50% height (/work included);
+     - the admat wall is +50% height;
+     - three new types: `merch` (the album-art cycler on all four surfaces), `visuals` and
+       `live-footage`;
+     - the COCO 2026 cleanup, with its deletes applied as `ecde6bb9`.
+   - **US-5** (schema `893361b`, fixed by `54fac5d`; SQ-58, SQ-59 and `03b70f2`; fold `f25f7ae`):
+     - two more types: `mockups` (a masonry wall at each piece's own aspect) and
+       `flyer-progression` (a strip on the project page, a cycler on the globe and /work; the
+       directory flips through both);
+     - content Rounds A, B (`29e1b2d3`) and C (`71d7ccd4`, alt text, the Rossi labels,
+       Short Circuit 2023) applied and verified.
+   - **The manifest's `groupType` column** (`b54bf9f`) types new rows at intake.
+   - **Left:**
+     - redeploy the hosted Studio for the five new options;
+     - retire `../swm-gate-us5`;
+     - CONTEXT.md for `mockups` and `flyer-progression`;
+     - Nathan's iPhone check;
+     - the /work album plate overflow call.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
