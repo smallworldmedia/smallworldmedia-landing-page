@@ -82,6 +82,8 @@ import {
   WALL_EXTRA_ROWS,
   WALL_DECK_COLS,
   WALL_ALBUM_COLS,
+  WALL_ALBUM_UP,
+  WALL_ALBUM_DOWN,
   WALL_CAROUSEL_VIS,
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
@@ -301,6 +303,10 @@ function placeDrumBlocks(items, { seed, aspect, arcLon, reserved = [], anchors =
       b.j1 += Math.sign(r.nx || 1); // + lat = right
       b.i1 += Math.sign(r.ny || 1); // + lon = up
     }
+    // 11-12: the album plate's step toward the centre (+ = up) lands AFTER the
+    // walk. Its seat sits flush on the card keep-out box, which it only grazes
+    // at a corner, so a step taken before the walk was walked straight back.
+    b.i1 += r.shiftCells || 0;
     placed.push(b);
     return finalize(b, Math.hypot(r.nx, r.ny));
   });
@@ -591,6 +597,7 @@ export function buildDrumSlot(slot, w, ctx) {
           axis: 'y',
           across: 0,
           extraRows: WALL_EXTRA_ROWS,
+          album: true,
         },
         // 08-28 (Nathan): the second deck group fills the album anchor on
         // deck-heavy Worlds — album art keeps priority (two-anchor budget).
@@ -656,13 +663,18 @@ export function buildDrumSlot(slot, w, ctx) {
   const radius = SHELL_RADIUS - PLATE_R_IN - (slot.atlasBias || 0);
   const accent = w?.projectColor || 0x020098;
 
-  const reserved = stripDefs.map((def, j) => ({
-    nx: preset ? seatT1[j].nx : j === 0 ? anchorNx : -anchorNx,
-    ny: preset ? seatT1[j].ny : j === 0 ? anchorNy : -anchorNy,
-    ratio: def.ratio,
-    baseDeg: def.baseDeg,
-    extraRows: def.extraRows,
-  }));
+  const reserved = stripDefs.map((def, j) => {
+    const ny = preset ? seatT1[j].ny : j === 0 ? anchorNy : -anchorNy;
+    return {
+      nx: preset ? seatT1[j].nx : j === 0 ? anchorNx : -anchorNx,
+      ny,
+      ratio: def.ratio,
+      baseDeg: def.baseDeg,
+      extraRows: def.extraRows,
+      // 11-12 (Nathan): ?albumup cells up from a lower seat, ?albumdown down from an upper one
+      shiftCells: def.album ? (ny < 0 ? WALL_ALBUM_UP : -WALL_ALBUM_DOWN) : 0,
+    };
+  });
 
   const { blocks, reserved: stripBlocks, balanceStats } = placeDrumBlocks(chosen, {
     seed: w.slug,
