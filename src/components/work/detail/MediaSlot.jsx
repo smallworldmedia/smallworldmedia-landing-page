@@ -10,11 +10,15 @@
  * page's hard cut on long assets), cut at the source (muxStream, Mux
  * instant clipping) and ending on the first segment boundary at or after
  * it, or at a shorter asset's own end; wrapAt(clip) loops at the cap,
- * and `loop` at a shorter clip's end. HLS attaches lazily when the slot
- * enters the viewport; playback pauses off-screen. Images load from the
- * Sanity CDN. Both fade in via the shared load-gate pattern. An image that
- * finished before hydration is flagged as its element attaches, since its
- * onLoad never fires.
+ * and `loop` at a shorter clip's end. A video's face is its poster <img>
+ * (11-12): the <video> sits over it and fades in once it can play, so a
+ * tile is never empty while its stream starts. HLS attaches once the slot
+ * has stayed near the viewport for the directory's dwell (a fling past asks
+ * Mux for nothing) and is torn down off-screen, where the poster is the face
+ * again. Images load from the Sanity CDN. Both fade in via the shared
+ * load-gate pattern. An image that finished before hydration is flagged as
+ * its element attaches, since its onLoad never fires. The hero (`eager`)
+ * loads its image or poster eagerly, at high priority.
  *
  * A chunk (11-05: asset.chunk, from expandChunks when the video is flagged
  * `splitIntoThirds`) is one third of such a video: the stream is clipped at
@@ -44,8 +48,10 @@
  * <video> (GatedVideo) only while the gate grants it play; a sequence cuts
  * only while the tile is in view. `clip` (PREVIEW_SECONDS there) bounds the
  * stream and the loop, `sizes` adds srcsets, and `fit` is written as
- * data-fit (contain letterboxes on near-black). The detail page passes none
- * of these props and renders as before.
+ * data-fit (contain letterboxes on near-black). A tile whose media unmounts
+ * (its chunk left DirectoryGrid's mount window) drops the images it is still
+ * fetching (11-12), so a fast scroll leaves no queue of downloads ahead of
+ * the tiles it stops on. The detail page passes none of these props.
  *
  * @param {Object} props
  * @param {Object}  props.asset - mediaAsset doc from FEATURED_PROJECT_DETAIL_QUERY, or a directory tile
@@ -60,6 +66,7 @@ import useHls from '../useHls.js';
 import {
   IMG_FORMAT,
   DETAIL_MAX_SECONDS,
+  DIRECTORY_DWELL_MS,
   muxStream,
   muxPoster,
   muxPosterSrcSet,
@@ -124,6 +131,7 @@ export default function MediaSlot({
   const [isVisible, setIsVisible] = useState(eager);
   const [canPlay, setCanPlay] = useState(false); // directory mode: the gate's grant
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isPlayable, setIsPlayable] = useState(false); // the detail <video> has reached canplay
   const frames = asset.frames?.length > 1 ? asset.frames : null;
   // A sequence led by an animated flyer carries its playbackId; the frames own the players.
   const isVideo = !!asset.playbackId && !frames;
@@ -179,19 +187,49 @@ export default function MediaSlot({
       });
     }
 
+    // The slot counts as visible only once it has stayed in the band for the
+    // dwell, so a fling past never asks Mux for a master (the directory's
+    // rule, playerGate.js). Its poster is its face meanwhile.
+    let dwell = 0;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsVisible(entry.isIntersecting);
-        if (!entry.isIntersecting && videoRef.current) {
-          videoRef.current.pause();
+        clearTimeout(dwell);
+        if (entry.isIntersecting) {
+          dwell = setTimeout(() => setIsVisible(true), DIRECTORY_DWELL_MS);
+        } else {
+          // The stream is torn down out of the band: the poster is the face
+          // again until the next attach can play.
+          setIsVisible(false);
+          setIsPlayable(false);
+          videoRef.current?.pause();
         }
       },
       { rootMargin: IO_MARGIN, threshold: 0.05 }
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      clearTimeout(dwell);
+      observer.disconnect();
+    };
   }, [gate]);
+
+  // Directory mode: a tile whose media unmounts (its chunk left the mount
+  // window) drops the images it is still fetching. The browser would finish
+  // them otherwise, ahead of the tiles now in view.
+  const gated = useRef(false);
+  gated.current = !!gate;
+  useEffect(() => {
+    const el = slotRef.current;
+    return () => {
+      if (!gated.current) return;
+      for (const img of el.querySelectorAll('img')) {
+        if (img.complete) continue;
+        img.removeAttribute('srcset');
+        img.removeAttribute('src');
+      }
+    };
+  }, []);
 
   return (
     <figure
@@ -233,36 +271,41 @@ export default function MediaSlot({
             </Fragment>
           ))}
         </div>
-      ) : isVideo && gate ? (
+      ) : isVideo ? (
         <>
+          {/* The poster is the tile's face from the moment it loads; the player
+              sits over it and fades in once it can play. On the detail page the
+              <video> names the media, so its poster is decorative there. */}
           <img
             ref={flagIfLoaded}
             className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}
             src={posterUrl}
             srcSet={sizes ? muxPosterSrcSet(asset.playbackId) : undefined}
             sizes={sizes}
-            alt={asset.alt || asset.title || ''}
-            loading="lazy"
+            alt={gate ? asset.alt || asset.title || '' : ''}
+            loading={eager ? 'eager' : 'lazy'}
+            fetchPriority={eager ? 'high' : undefined}
             decoding="async"
             onLoad={() => setIsLoaded(true)}
           />
-          {canPlay && <GatedVideo playbackId={asset.playbackId} clip={clip} />}
+          {gate ? (
+            canPlay && <GatedVideo playbackId={asset.playbackId} clip={clip} />
+          ) : (
+            <video
+              ref={videoRef}
+              className={`media-slot__media media-slot__player${isPlayable ? ' media-slot__media--loaded' : ''}`}
+              muted
+              autoPlay
+              loop={!chunk}
+              playsInline
+              aria-label={asset.alt || undefined}
+              onTimeUpdate={chunkLoop ? chunkLoop.onTimeUpdate : wrap}
+              onLoadedMetadata={chunkLoop?.onLoadedMetadata}
+              onEnded={chunkLoop?.onEnded}
+              onCanPlay={() => setIsPlayable(true)}
+            />
+          )}
         </>
-      ) : isVideo ? (
-        <video
-          ref={videoRef}
-          className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}
-          poster={posterUrl}
-          muted
-          autoPlay
-          loop={!chunk}
-          playsInline
-          aria-label={asset.alt || undefined}
-          onTimeUpdate={chunkLoop ? chunkLoop.onTimeUpdate : wrap}
-          onLoadedMetadata={chunkLoop?.onLoadedMetadata}
-          onEnded={chunkLoop?.onEnded}
-          onCanPlay={() => setIsLoaded(true)}
-        />
       ) : asset.imageUrl ? (
         <img
           ref={flagIfLoaded}
@@ -271,7 +314,8 @@ export default function MediaSlot({
           srcSet={sizes ? sanitySrcSet(asset.imageUrl, asset.imageDimensions?.width) : undefined}
           sizes={sizes}
           alt={asset.alt || asset.title || ''}
-          loading="lazy"
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : undefined}
           decoding={gate ? 'async' : undefined}
           onLoad={() => setIsLoaded(true)}
         />

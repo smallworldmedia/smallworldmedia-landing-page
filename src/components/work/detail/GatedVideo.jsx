@@ -25,13 +25,18 @@ import { muxStream, wrapAt } from '../imageConfig.js';
     manifest parsing, and start two rungs up the ladder (~720p on Mux's
     typical ladder) so the first painted frame is sharp; ABR adapts from
     there (capLevelToPlayerSize stays on inside useHls). maxBufferLength
-    is a floor, not a cap: hls.js buffers further when the bitrate allows.
-    The stream clip (DETAIL_MAX_SECONDS, muxStream) is what bounds each
-    slot's download. */
+    is a floor, not a cap: hls.js buffers to 8 × maxBufferSize ÷ bitrate
+    when that is longer, which at these bitrates is the whole clip, fetched
+    the moment the slot attaches. maxMaxBufferLength is the cap: just under
+    one segment (MUX_SEGMENT_SECONDS), so a slot fetches one segment to
+    start and the next ones as it plays into them, and a slot scrolled past
+    costs one segment, not the clip. The stream clip (DETAIL_MAX_SECONDS,
+    muxStream) still bounds each slot's total. */
 export const DETAIL_HLS_CONFIG = {
   startFragPrefetch: true,
   startLevel: 2,
-  maxBufferLength: 12,
+  maxBufferLength: 4,
+  maxMaxBufferLength: 4,
 };
 
 export default function GatedVideo({ playbackId, clip, hold = false }) {
