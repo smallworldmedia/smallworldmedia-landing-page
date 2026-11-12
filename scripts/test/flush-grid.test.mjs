@@ -4,7 +4,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { computeFlushGrid, chunkFlushGrid, classifyTile, splitAtBreaks } from '../../src/components/work/detail/flushGrid.js'
+import {
+  computeFlushGrid,
+  chunkFlushGrid,
+  classifyTile,
+  leastCropTile,
+  tileClassOf,
+  TILE_RATIO,
+  splitAtBreaks,
+} from '../../src/components/work/detail/flushGrid.js'
+import { cropLoss, sequenceRatio } from '../../src/lib/mediaSequence.js'
 
 const rng = (seed) => () => {
   seed |= 0
@@ -13,7 +22,10 @@ const rng = (seed) => () => {
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296
 }
-const tile = (i, ratio) => ({ _id: `a${i}`, mediaType: 'static_other', imageDimensions: { width: Math.round(1000 * ratio), height: 1000 } })
+// A tile with no mediaType: ratioOf reads its dimensions and it takes the label
+// edges (classifyTile). `_other` tiles (leastCropTile) are built with otherTile.
+const tile = (i, ratio) => ({ _id: `a${i}`, imageDimensions: { width: Math.round(1000 * ratio), height: 1000 } })
+const otherTile = (i, ratio) => ({ ...tile(i, ratio), mediaType: 'static_other' })
 const RATIOS = [9 / 16, 4 / 5, 3 / 4, 1, 1.14, 4 / 3, 3 / 2, 16 / 9, 2, 4.77]
 const seeded = (n, seed) => {
   const r = rng(seed)
@@ -91,6 +103,63 @@ test('classifyTile: the portrait / square / landscape edges', () => {
   assert.equal(classifyTile(0.9), 'square')
   assert.equal(classifyTile(0.8999), 'portrait')
   assert.equal(classifyTile(4.77), 'landscape')
+})
+
+test('an _other asset takes the class that crops it least (a tall, a wide and a near-square ratio); bucketed ones keep the label edges (11-12)', () => {
+  // tall: 0.55 is near the 1:2 portrait (loss 0.09, a square's 0.45)
+  assert.equal(tileClassOf(otherTile(0, 0.55)), 'portrait')
+  // wide: 3:1 is nearer the 2:1 landscape (loss 0.33, a square's 0.67)
+  assert.equal(tileClassOf(otherTile(0, 3)), 'landscape')
+  // near-square: 1.3 loses 0.23 in a square, 0.35 in a landscape; the label edge (1.2) says landscape
+  assert.equal(tileClassOf(otherTile(0, 1.3)), 'square')
+  assert.equal(classifyTile(1.3), 'landscape')
+  // and 0.85 (label: portrait) loses 0.15 in a square, 0.41 in a portrait
+  assert.equal(tileClassOf(otherTile(0, 0.85)), 'square')
+  assert.equal(classifyTile(0.85), 'portrait')
+  // a bucketed asset (no _other label) keeps classifyTile at the same ratios
+  assert.equal(tileClassOf(tile(0, 1.3)), 'landscape')
+  assert.equal(tileClassOf(tile(0, 0.85)), 'portrait')
+  // the edges are the shapes' geometric middles, √½ and √2
+  assert.equal(leastCropTile(Math.SQRT1_2 - 0.001), 'portrait')
+  assert.equal(leastCropTile(Math.SQRT1_2 + 0.001), 'square')
+  assert.equal(leastCropTile(Math.SQRT2 - 0.001), 'square')
+  assert.equal(leastCropTile(Math.SQRT2 + 0.001), 'landscape')
+  // it is the lowest cropLoss of the three shapes, for every ratio on a sweep
+  for (let r = 0.2; r <= 6; r += 0.013) {
+    const best = Math.min(...Object.values(TILE_RATIO).map((s) => cropLoss(r, s)))
+    assert.ok(Math.abs(cropLoss(r, TILE_RATIO[leastCropTile(r)]) - best) < 1e-9, `ratio ${r}`)
+  }
+  // a sequence counts when a frame is _other; its own ratio is the least-crop tile of the set
+  const seq = { ...tile(0, 1.3), mediaType: 'static_4x5', frames: [tile(1, 1.3), otherTile(2, 1.3)], sequenceRatio: sequenceRatio([1.3, 1.3]) }
+  assert.equal(tileClassOf(seq), 'square')
+})
+
+test('cropLoss: 0 at the same shape, symmetric in the pair, and the cost sequenceRatio sums', () => {
+  assert.equal(cropLoss(2, 2), 0)
+  assert.equal(cropLoss(4, 2), cropLoss(2, 4))
+  assert.equal(cropLoss(1, 2), 0.5)
+  assert.equal(sequenceRatio([1, 2, 2]), 2)
+})
+
+test('an _other mix in the bands where the pick differs from classifyTile still lays out valid and deterministic', () => {
+  // Ratios in [0.707, 0.9) and [1.2, 1.414). Whether a given mix closes flush is the packer's own luck
+  // (the same for any class mix); the real-asset hole comparison lives in the ticket's probe evidence.
+  for (const w of WIDTHS) {
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const rnd = rng(seed)
+      const items = Array.from({ length: 60 }, (_, i) => {
+        const r = rnd()
+        // a mix: bucketed shapes with a few in-between _other ones
+        if (r < 0.3) return otherTile(i, 0.72 + rnd() * 0.17)
+        if (r < 0.6) return otherTile(i, 1.2 + rnd() * 0.2)
+        return tile(i, RATIOS[Math.floor(rnd() * RATIOS.length)])
+      })
+      const out = computeFlushGrid(items, { cols: w.cols, sqRows: w.sqRows, lsRows: w.lsRows })
+      assertValid(out, w, `${w.cols} cols, seed ${seed}`)
+      assert.deepEqual(computeFlushGrid(items, { cols: w.cols, sqRows: w.sqRows, lsRows: w.lsRows }), out, 'deterministic')
+      out.placements.forEach((p, i) => assert.equal(p.type, tileClassOf(items[i]), 'placed in the class it was picked for'))
+    }
+  }
 })
 
 test("the detail page's call is unchanged (snapshot of the 3-column placement, 11-03)", () => {

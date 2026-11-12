@@ -126,18 +126,25 @@ export function msToNextFrame(now = performance.now()) {
 }
 
 /**
+ * The share of a ratio-`r` picture that a cover fit into a ratio-`t` tile
+ * loses (or a contain fit leaves empty): 0 at r = t, up to 1. The house's one
+ * crop cost: sequenceRatio sums it over a set; the aspect packer and a
+ * flush-grid class pick (tileClassOf) read it per tile.
+ */
+export const cropLoss = (r, t) => 1 - Math.min(r, t) / Math.max(r, t);
+
+/**
  * The tile ratio that crops the set least: of the members' ratios, the one
- * that minimises Σ (1 − min(r, t) / max(r, t)) — the share of each picture a
- * cover fit loses (or a contain fit leaves empty). The sum is concave between
- * neighbouring ratios, so the best tile is always one of the members' own;
- * ties keep the earlier frame.
+ * that minimises Σ cropLoss(r, t) over the members. The sum is concave
+ * between neighbouring ratios, so the best tile is always one of the members'
+ * own; ties keep the earlier frame.
  */
 export function sequenceRatio(ratios) {
   let best = ratios[0] ?? 1;
   let bestCost = Infinity;
   for (const t of ratios) {
     let cost = 0;
-    for (const r of ratios) cost += 1 - Math.min(r, t) / Math.max(r, t);
+    for (const r of ratios) cost += cropLoss(r, t);
     if (cost < bestCost - 1e-9) {
       best = t;
       bestCost = cost;

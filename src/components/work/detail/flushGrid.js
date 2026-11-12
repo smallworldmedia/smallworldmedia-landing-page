@@ -48,7 +48,8 @@
  * spans min(2, cols)). A list far longer than a detail page places in
  * stacked chunks (chunkFlushGrid).
  */
-import { ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import { ratioOf, isOtherAsset, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import { cropLoss } from '../../../lib/mediaSequence.js';
 
 /* ── Tessellating tile sizes ──
    Designed so 1 portrait = 2 squares = 2 landscapes (stacked),
@@ -68,6 +69,42 @@ export function classifyTile(ratio) {
   if (ratio >= PORTRAIT_THRESHOLD) return 'landscape';
   if (ratio >= 0.9) return 'square';
   return 'portrait';
+}
+
+/** The shape each class gives its media, width ÷ height, at the baked tile
+ *  shape (TILE_SHAPE 1): a portrait is two squares tall, a landscape two
+ *  columns wide. */
+export const TILE_RATIO = { portrait: 0.5, square: 1, landscape: 2 };
+
+/**
+ * The class whose shape crops a ratio-`ratio` picture least (cropLoss, the
+ * house's one cost); a tie keeps the earlier of portrait, square, landscape.
+ * Equal crop sits at the geometric middle of two shapes: √½ between portrait
+ * and square, √2 between square and landscape.
+ */
+export function leastCropTile(ratio) {
+  let best = 'square';
+  let bestLoss = Infinity;
+  for (const [type, shape] of Object.entries(TILE_RATIO)) {
+    const loss = cropLoss(ratio, shape);
+    if (loss < bestLoss - 1e-9) {
+      best = type;
+      bestLoss = loss;
+    }
+  }
+  return best;
+}
+
+/**
+ * The class a tile takes. The ratio-bucketed assets keep the label edges
+ * (classifyTile): their shape is editorial. An `_other` asset (isOtherAsset)
+ * has no bucket, and Nathan's note (11-12) is that it FILLS its tile "favoring
+ * whichever side will get cropped less", so it takes the class that crops it
+ * least: a 1.3:1 still is a square, not a landscape.
+ */
+export function tileClassOf(asset) {
+  const ratio = ratioOf(asset);
+  return isOtherAsset(asset) ? leastCropTile(ratio) : classifyTile(ratio);
 }
 
 /** Free segments for each column, minus the given blocked rects. */
@@ -129,7 +166,7 @@ function occupy(segs, c0, colSpan, row, rowSpan) {
 
 /** Dense-place one asset at its earliest fit (leftmost on a tie). */
 function placeOne(segs, asset, cols, sizes) {
-  const type = classifyTile(ratioOf(asset));
+  const type = tileClassOf(asset);
   const { colSpan, rowSpan } = sizes[type];
 
   let best = null;

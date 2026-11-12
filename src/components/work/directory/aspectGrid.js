@@ -42,6 +42,7 @@
  */
 import { ratioOf } from '../detail/buildContentFlow.js';
 import { GRID_ROW_PX } from '../detail/tileGrid.js';
+import { cropLoss } from '../../../lib/mediaSequence.js';
 
 /** The lookahead window's default (?dirlook). */
 export const LOOK = 8;
@@ -64,8 +65,8 @@ export function spanOf(ratio, cols) {
   return Math.min(ratio >= 1.2 ? 2 : 1, cols);
 }
 
-/** The crop (or letterbox) share of a ratio-`r` face in a w × h cell. */
-export const lossOf = (r, cell) => 1 - Math.min(r, cell) / Math.max(r, cell);
+/** The crop (or letterbox) share of a ratio-`r` face in a w × h cell: the house's cropLoss. */
+export const lossOf = cropLoss;
 
 /**
  * @param {Array<Object>} items - tiles in list order (ratioOf reads each)
