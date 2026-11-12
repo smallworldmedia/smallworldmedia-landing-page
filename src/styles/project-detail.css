@@ -881,11 +881,14 @@ html:has(.project-detail) body {
 
 /* Media window — right edge pinned, height locked, sized by the COMPONENT
    (4:3 landscape at full open), never by the asset: whatever populates it
-   (16:9, 3:4, 9:16) best-fits via object-fit. The entrance pushes it out
-   from its right edge to the rest reveal and the drag pulls it open the
-   rest of the way — a clip reveal, compositor-only, no scaling. At commit the
-   engine promotes this node inline to position:fixed at its measured rect
-   (z-index 90, under the z-100 shell) and grows it to the full viewport. */
+   (16:9, 3:4, 9:16) best-fits via object-fit. The slot is that full-open
+   box (geometry only). The WINDOW inside it is the container: the entrance
+   pushes its real width out from the right edge to the rest reveal and the
+   drag opens it the rest of the way (11-12, Nathan). The media fills the
+   window, cover-fit and centred, so it stays centred as the window opens
+   and scales up with it. At commit the engine promotes the window inline
+   to position:fixed at its measured rect (the slot rises to z-index 90,
+   under the z-100 shell) and grows it to the full viewport. */
 .np-band__media {
   position: absolute;
   /* one grid gutter under the grid's last row, flush with its right edge */
@@ -894,13 +897,20 @@ html:has(.project-detail) body {
   height: calc(100% - var(--space-1));
   aspect-ratio: 4 / 3;
   z-index: 2;
-  overflow: hidden;
-  /* rest reveal: 57% of the full window */
-  clip-path: inset(0% 0% 0% 43%);
 }
 
-/* Zoom target for the commit passage only (push INTO the next world's
-   media as the blue covers); rests untransformed. */
+.np-band__window {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  /* rest reveal: 57% of the full window (the engine writes the live width) */
+  width: 57%;
+}
+
+/* Zoom target for the commit passage only (?npzoom > 1 pushes INTO the
+   next world's media as the blue covers); rests untransformed. */
 .np-band__media-inner {
   width: 100%;
   height: 100%;
@@ -959,7 +969,7 @@ html:has(.project-detail) body {
   }
 
   .np-band__media {
-    position: static;
+    position: relative;
     order: -1;
     width: 100%;
     height: auto;
