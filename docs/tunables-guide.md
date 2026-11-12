@@ -669,7 +669,7 @@ A video asset with `splitIntoThirds` on in Sanity shows as three tiles, each pla
 | `?npms` | commit choreography length (proxy fill, box → viewport, cover, zoom) | `800` ms | any finite | `motion.js:89 GLIDE_MS` |
 | `?npcover` | RouteFill snap window at the end of the commit | `120` ms | any finite | `NP_COVER_SECONDS` |
 | `?nppre` | in-window blue pre-cover opacity at full drag (f² curve) | `30` % | any finite | `NP_PRE_COVER` |
-| `?npzoom` | media push-in scale over the commit | `1.08` | any finite | `NP_ZOOM` |
+| `?npzoom` | extra media push-in scale over the commit, on top of the window growing to the viewport. `1` = none (11-12, Nathan: the media never exceeds the container, so at the page turn it is exactly the viewport wide; was `1.08`); > 1 dials the push back in | `1` | any finite | `NP_ZOOM` |
 | `?npinstart` | entrance: the scroll run starts when the label's top reaches this fraction of the viewport height (`1` = the bottom edge) and ends at the document end; the default puts the label just in view as it sets off, clear of the fixed privacy pill (keyed to the label, not the band, since phones stack the window above it) | `0.9` | 0–1 | `NP_IN_START` |
 | `?nplag` | entrance: how far the media window's push-out trails the label's slide, in label-slides (`0` = together); the client name rises as the window lands and the tags `?npstep` after it, and the whole cascade is normalised to end at the document end | `0.25` | ≥ 0 | `NP_LAG` |
 | `?npstep` | entrance: how far the service tags' rise trails the client name's, in label-slides | `0.25` | ≥ 0 | `NP_STEP` |
