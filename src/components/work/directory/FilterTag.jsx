@@ -21,6 +21,7 @@ export default function FilterTag({ tag, checked, dim = false, onToggle }) {
       aria-disabled={dim || undefined}
       className="filter-tag"
       data-slug={tag.slug}
+      data-child={tag.child}
       data-dim={dim || undefined}
       onClick={() => {
         if (!dim) onToggle(tag.slug);

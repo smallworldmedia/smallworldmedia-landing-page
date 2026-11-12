@@ -703,7 +703,7 @@ Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in D
 
 The four `?dirlogo*` dials only touch logo tiles (a white mark on black, baked by `scripts/prep-directory-logos.mjs`); `logoTile.js` holds the layout and its fixed constant (`EQUAL_INK`, the ink area every mark is brought to at weight 1).
 
-`?tag=a,b&client=slug` is the filter's state, not a tunable (see Inert, legacy, and dead knobs). A URL with neither key starts on `album-art` (`DEFAULT_TAG`, buildDirectoryTiles.js, Nathan 11-05) and stays bare while it holds that default; `?tag=` (empty) is "every work", which is what `clear` writes; `?client=x` alone shows every tag of that client.
+`?tag=a,b&client=slug` is the filter's state, not a tunable (see Inert, legacy, and dead knobs). A URL with neither key starts on `album-art` (`DEFAULT_TAG`, buildDirectoryTiles.js, Nathan 11-05) and stays bare while it holds that default; `?tag=` (empty) is "every work", which is what `clear` writes; `?client=x` alone shows every tag of that client. **`motion-video` is a code-side parent tag** (SQ-67, Nathan 11-12; `serviceGroups.js`, no Sanity document): `?tag=motion-video` shows the union of `2d-animation`, `3d-animation`, `live-visuals` and `promo-video` and opens their chips (labelled 2D / 3D / live visuals / promo video in the filter only); `?tag=motion-video,2d-animation` narrows to the ticked children; a child alone (`?tag=promo-video`) is rewritten to carry its parent. No new tunable.
 
 ## `/lab/loader` — the globe loader (SQ-31)
 

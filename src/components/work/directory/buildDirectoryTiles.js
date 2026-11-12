@@ -33,7 +33,8 @@
  * place. orderTiles(tiles, 'mix') re-deals it across clients.
  *
  * The page's helpers live here too, pure like the rest: matchesFilter and
- * tagPresence (what the filter shows), readFilter, sanitizeFilter,
+ * tagPresence (what the filter shows; serviceGroups.js adds the motion/video
+ * parent), readFilter, sanitizeFilter,
  * defaultFilter and filterSearch (its URL state, ?tag=a,b&client=slug), and
  * sizesFor (a tile's <img sizes>).
  */
@@ -42,6 +43,7 @@ import { classifyTile } from '../detail/flushGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
 import { coverageOf } from '../../../lib/clientCoverage.js';
+import { addGroupPresence, effectiveTags, withGroups, withParents } from './serviceGroups.js';
 
 const GROUPED = new Set(['sequence', 'admat', 'deck', 'carousel', 'banner', 'visuals', 'live-footage']);
 
@@ -289,7 +291,7 @@ export function matchesFilter(tile, { tags, coverage }) {
 /**
  * The tags with tiles at all (`any`: a tag outside it is hidden) and with
  * tiles inside the coverage (`inClient`: a tag outside it is dimmed — the
- * client would empty it).
+ * client would empty it). A group's parent is present while any child is.
  */
 export function tagPresence(tiles, coverage) {
   const any = new Set();
@@ -301,7 +303,7 @@ export function tagPresence(tiles, coverage) {
       if (inside) inClient.add(s);
     }
   }
-  return { any, inClient };
+  return { any: addGroupPresence(any), inClient: addGroupPresence(inClient) };
 }
 
 /**
@@ -312,7 +314,8 @@ export function tagPresence(tiles, coverage) {
  */
 export function clientPresence(tiles, tags, clients) {
   const owners = new Set();
-  for (const t of tiles) if (matchesFilter(t, { tags, coverage: null })) owners.add(t.client);
+  const on = effectiveTags(tags ?? []);
+  for (const t of tiles) if (matchesFilter(t, { tags: on, coverage: null })) owners.add(t.client);
   const lit = new Set();
   for (const c of clients) {
     const coverage = coverageOf(c.slug, clients);
@@ -370,15 +373,16 @@ export function readFilter(search) {
 /**
  * The filter as it can apply: the client only when its coverage holds a tile
  * (a plain or unknown name filters nothing), and the tags with tiles inside
- * that coverage, in Studio order.
+ * that coverage, in Studio order (a group's parent first, then its children).
+ * A child without its parent brings the parent (a deep link to the child).
  */
 export function sanitizeFilter({ tags, clients, tiles }, wantTags, wantClient) {
   let coverage = coverageOf(wantClient, clients);
   if (coverage && !tiles.some((t) => coverage.has(t.client))) coverage = null;
   const { inClient } = tagPresence(tiles, coverage);
-  const want = new Set(wantTags);
+  const want = withParents(wantTags);
   return {
-    tags: tags.filter((t) => want.has(t.slug) && inClient.has(t.slug)).map((t) => t.slug),
+    tags: withGroups(tags).filter((t) => want.has(t.slug) && inClient.has(t.slug)).map((t) => t.slug),
     client: coverage ? wantClient : null,
   };
 }

@@ -33,7 +33,11 @@
  * move between the tabs, the inactive panel is inert and hidden, and a shut
  * filter makes both inert.
  *
- * Props: tags (Studio order), presence ({ any, inClient }, tagPresence),
+ * The services panel carries one parent tag, motion/video (serviceGroups.js,
+ * SQ-67): ticked, its children (2D / 3D / live visuals / promo video) follow
+ * it on the open's tag entrance; unticked they are gone.
+ *
+ * Props: tags (Studio order, withGroups), presence ({ any, inClient }, tagPresence),
  * picked (tag slugs), client ({ slug, name } | null), clientOptions (the live
  * clients, by name), clientsPresent (the slugs clientPresence keeps lit),
  * shown / total (tile counts), onToggle(slug),
@@ -45,6 +49,7 @@ import gsap from 'gsap';
 import FilterTag from './FilterTag.jsx';
 import useScrollThumb from '../../ui/useScrollThumb.js';
 import { tabCap, tabSkirt, TAB_SHAPE, TAB_TOP } from './directoryTune.js';
+import { openGroups } from './serviceGroups.js';
 import { CloseIcon } from '../../PrivacyOverlay.jsx';
 
 gsap.registerPlugin(useGSAP);
@@ -93,11 +98,32 @@ export default function DirectoryFilter({
   const clientsThumb = useScrollThumb(clientsRef, open, { media: 'all' });
   const { contextSafe } = useGSAP({ scope: rootRef });
 
-  const visible = tags.filter((t) => presence.any.has(t.slug));
+  // A parent tag's children (serviceGroups.js) show only while it is ticked.
   const pickedSet = new Set(picked);
+  const visible = tags.filter((t) => presence.any.has(t.slug) && (!t.child || pickedSet.has(t.child)));
   const filtered = picked.length > 0 || !!client;
   const skirt = tabSkirt(TAB_SHAPE);
   const cap = tabCap(TAB_SHAPE.tl);
+
+  // A parent ticked after load reveals its children with the open's tag
+  // entrance (toggle below), and nothing else moves; unticking hides them at once.
+  const groups = openGroups(picked);
+  const seenGroups = useRef(groups);
+  useGSAP(
+    () => {
+      const fresh = groups.filter((g) => !seenGroups.current.includes(g));
+      seenGroups.current = groups;
+      if (!open || !fresh.length) return;
+      const kids = fresh.flatMap((g) => [...tagsRef.current.querySelectorAll(`.filter-tag[data-child="${g}"]`)]);
+      const k = reducedMotion() ? 0 : 1;
+      gsap.fromTo(
+        kids,
+        { x: -16, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.35 * k, ease: 'power3.out', stagger: { each: 0.02 * k, from: 'start' }, force3D: false, clearProps: 'transform,opacity' }
+      );
+    },
+    { scope: rootRef, dependencies: [groups.join()] }
+  );
 
   // Focus scrolls land a tile below the stuck filter, not under it (11-03: a
   // tile reached by Shift+Tab sat 111px under it at 1440): the tiles'
