@@ -200,8 +200,8 @@ export default function SiteNav({
   // Derived from window.location on hydrate and on every astro:after-swap
   // (the island never remounts). Href-keyed by construction: start_project
   // is an interception (never current) and follow_us is external (never
-  // current) — only featured_projects (/work and its detail pages),
-  // project_directory (/work/directory) and process (/process) can
+  // current) — only featured_projects (/work and its detail pages)
+  // and project_directory (/work/directory) can
   // match. The attributes survive the route-swap hygiene
   // wipe (killTweensOf + clearProps strips inline STYLES only, never
   // attributes). UNCONDITIONAL: aria-current is a strict a11y win and
