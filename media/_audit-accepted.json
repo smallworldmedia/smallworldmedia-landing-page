@@ -71,6 +71,27 @@
       "mediaType": "static_1x1",
       "reason": "Approved static_1x1 on the 10-23 decisions page: the label follows the 1.27:1 photo inside blurred fill, not the 3:4 file.",
       "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-6e966cf0-6921-4122-95a0-97878e2b1bfb",
+      "mediaType": "static_other",
+      "reason": "Nathan 2026-11-11: \"Keep static other\". The site shows static_other at the file's own shape; a static_16x9 label would force 16:9 onto a 1.52:1 mockup. No static 4:3 label yet: one 4:3 still in the library.",
+      "decided": "2026-11-11"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-396ca9e8-0084-450f-9865-dbf57e40a10f",
+      "mediaType": "static_other",
+      "reason": "Nathan 2026-11-11: \"Keep static other\". The site shows static_other at the file's own shape; a static_16x9 label would force 16:9 onto a 1.52:1 mockup. No static 4:3 label yet: one 4:3 still in the library.",
+      "decided": "2026-11-11"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-bda9d9e3-2edb-4cd8-a86f-90849848e31a",
+      "mediaType": "static_other",
+      "reason": "Nathan 2026-11-11: \"Keep static other\". The site shows static_other at the file's own shape; a static_1x1 label would force a square onto a 4:3 mockup. No static 4:3 label yet: one 4:3 still in the library.",
+      "decided": "2026-11-11"
     }
   ]
 }
