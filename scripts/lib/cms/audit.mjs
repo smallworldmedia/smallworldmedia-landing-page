@@ -174,7 +174,7 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
         if (doc?._type !== 'mediaAsset') { add(row.sanityid ? 'manifest-missing-document' : 'manifest-pending-row', { manifest, file: row.file, ...(row.sanityid ? { id } : {}) }); continue }
         if (!bound.has(id)) bound.set(id, [])
         bound.get(id).push({ manifest, file: row.file })
-        for (const [column, field, value] of [['mediatype', 'mediaType', row.mediatype], ['title', 'title', row.title || undefined], ['contentrole', 'contentRole', row.contentrole || undefined], ['displaygroup', 'displayGroup', row.displaygroup || undefined], ['branddeckorder', 'brandDeckOrder', row.branddeckorder ? Number(row.branddeckorder) : undefined]]) {
+        for (const [column, field, value] of [['mediatype', 'mediaType', row.mediatype], ['title', 'title', row.title || undefined], ['contentrole', 'contentRole', row.contentrole || undefined], ['displaygroup', 'displayGroup', row.displaygroup || undefined], ['grouptype', 'groupType', row.grouptype || undefined], ['branddeckorder', 'brandDeckOrder', row.branddeckorder ? Number(row.branddeckorder) : undefined]]) {
           if (!columns.includes(column) || column === 'title' && value === undefined) continue
           if ((value ?? null) !== (doc[field] ?? null)) add('manifest-drift', { id, manifest, file: row.file, field, manifestValue: value ?? null, sanityValue: doc[field] ?? null })
         }

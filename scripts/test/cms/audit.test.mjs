@@ -112,6 +112,13 @@ test('manifest drift compares only the columns a manifest carries', async () => 
   assert.deepEqual(checksOf(report), ['manifest-drift'])
 })
 
+test('manifest drift covers a groupType column like any other column a manifest carries', async () => {
+  const { docs, muxAssets } = clean()
+  const raw = '# Collection\nclient: Example\nservices: branding\n\n| file | mediaType | title | groupType | sanityId |\n|---|---|---|---|---|\n| still.jpg | static_1x1 | mediaAsset-still | mockups | mediaAsset-still |\n| clip.mp4 | motion_9x16 | mediaAsset-clip | | mediaAsset-clip |\n'
+  const report = auditDataset({ target, docs, muxAssets, manifests: [{ file: 'media/Collection/_manifest.md', raw }], schema: await schemaFields(checkout) })
+  assert.deepEqual(report.findings.find(f => f.check === 'manifest-drift').items.map(i => [i.id, i.field, i.manifestValue, i.sanityValue]), [['mediaAsset-still', 'groupType', 'mockups', null]])
+})
+
 test('an accepted label hides only while the label is the one decided, and takes its suggestion with it', async () => {
   const { docs, manifests, muxAssets } = clean()
   const wide = docs.map(d => d._id === 'image-mediaAsset-still' ? image(d._id, 1600, 900) : d)

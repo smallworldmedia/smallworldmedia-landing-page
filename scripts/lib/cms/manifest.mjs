@@ -2,11 +2,11 @@ import path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { readFile, realpath, stat, lstat, open, rename, unlink } from 'node:fs/promises'
-import { invariant, MEDIA_TYPES, isVideoType, digest } from './contract.mjs'
+import { invariant, MEDIA_TYPES, GROUP_TYPES, isVideoType, digest } from './contract.mjs'
 
 export const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.svg']
 export const VIDEO_EXTS = ['.mp4','.mov','.webm']
-const columnsAllowed = ['file','mediatype','servicetype','title','ishero','sortorder','aspectratio','contentrole','displaygroup','branddeckorder','sanityid']
+const columnsAllowed = ['file','mediatype','servicetype','title','ishero','sortorder','aspectratio','contentrole','displaygroup','grouptype','branddeckorder','sanityid']
 const placeholder = v => /^(?:—|-|tbd|todo|pending|\?|\[.*\]|<.*>)$/i.test(v)
 export const legacySlug = value => String(value).toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 function cells(line) { invariant(!line.includes('\\|'), 'Escaped pipe cells are unsupported; rename/review intake'); return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim()) }
@@ -39,8 +39,9 @@ export function parseManifest(raw) {
     const row = Object.fromEntries(columns.map((c, i) => [c, values[i]])); row.line = index
     invariant(row.file && !placeholder(row.file), `Missing file at line ${index+1}`)
     invariant(MEDIA_TYPES.includes(row.mediatype), `Invalid/placeholder classification ${row.mediatype} at line ${index+1}`)
-    for (const key of ['title','servicetype','sanityid','contentrole','displaygroup']) invariant(!row[key] || !placeholder(row[key]), `Unresolved ${key} at line ${index+1}`)
+    for (const key of ['title','servicetype','sanityid','contentrole','displaygroup','grouptype']) invariant(!row[key] || !placeholder(row[key]), `Unresolved ${key} at line ${index+1}`)
     invariant(!row.contentrole || ['process','supporting'].includes(row.contentrole), `Invalid contentRole at line ${index+1}`)
+    invariant(!row.grouptype || GROUP_TYPES.includes(row.grouptype), `Invalid groupType at line ${index+1}`)
     invariant(!row.ishero || ['true','false'].includes(row.ishero), `Invalid legacy isHero at line ${index+1}`)
     for (const key of ['sortorder','branddeckorder']) invariant(!row[key] || /^\d+$/.test(row[key]), `Invalid ${key} at line ${index+1}`)
     assets.push(row)

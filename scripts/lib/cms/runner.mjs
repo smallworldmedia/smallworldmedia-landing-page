@@ -158,7 +158,7 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
       const title = row.title || path.basename(row.file), set = { title, slug: { _type: 'slug', current: legacySlug(title) }, mediaType: row.mediatype, client: ref(client._id), services }
       if (project) set.project = ref(project._id)
       if (header.year) set.yearStart = +header.year
-      for (const [col, field] of [['contentrole','contentRole'],['displaygroup','displayGroup']]) if (row[col]) set[field] = row[col]
+      for (const [col, field] of [['contentrole','contentRole'],['displaygroup','displayGroup'],['grouptype','groupType']]) if (row[col]) set[field] = row[col]
       if (row.branddeckorder) set.brandDeckOrder = +row.branddeckorder
       const after = { _id: id, _type: 'mediaAsset', ...set, sourceFolder, sourceManifest }
       operations.push({ id, action: 'create', type: 'mediaAsset', before: null, after, set, unset: [], source, upload: true, rowFile: row.file, diff: [] })

@@ -42,12 +42,12 @@ year: 2026
 
 ## Assets
 
-| file | mediaType | serviceType | title | contentRole | displayGroup | sanityId |
-| --- | --- | --- | --- | --- | --- | --- |
-| promo.mp4 | motion_4x3 | promo video | Promo | | | |
-| poster.jpg | static_4x5 | event / tour creative | Tour Poster | | | |
-| Carousel/slide_01.jpg | carousel-slide | social media | Slide 01 | | campaign-carousel | |
-| Carousel/slide_02.jpg | carousel-slide | social media | Slide 02 | | campaign-carousel | |
+| file | mediaType | serviceType | title | contentRole | displayGroup | groupType | sanityId |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| promo.mp4 | motion_4x3 | promo video | Promo | | | | |
+| poster.jpg | static_4x5 | event / tour creative | Tour Poster | | | | |
+| Carousel/slide_01.jpg | carousel-slide | social media | Slide 01 | | campaign-carousel | carousel | |
+| Carousel/slide_02.jpg | carousel-slide | social media | Slide 02 | | campaign-carousel | carousel | |
 ```
 
 Examples assume these client, service and project documents already exist; names
@@ -79,6 +79,7 @@ must retain their pipe delimiters. Unknown columns and duplicate files/IDs fail.
 | `title` | Reviewed display title; recommended for every row. Changing it does not change a bound ID or implicitly rename a slug/route. |
 | `contentRole` | Empty for showcase; `process` for BTS or `supporting` for contextual material. |
 | `displayGroup` | Optional kebab-case group slug, e.g. `brand-guidelines` or `campaign-carousel`. A group ending in `-banners` (e.g. `soundcloud-banners`) routes wide static assets to the project page's BannerViewer wall; keep their `mediaType` as `static_other`. A group ending in `-sequence` (e.g. `imperfect-records-logo-sequence`) makes its stills ONE tile that cuts through them on the site's shared clock (frame order = row order; up to 12; a video in the group keeps its own tile). |
+| `groupType` | Optional set type for a new row: `album-art`, `deck`, `banner`, `admat`, `carousel`, `merch`, `visuals`, `live-footage`, `mockups` or `flyer-progression`. Every type but `album-art` also needs `displayGroup` naming the set, or the plan refuses. Like every column it is written only when the row is created: on a bound row the audit compares it (`manifest-drift`) but a plan never replays it, so change a bound piece with a changes request. |
 | `brandDeckOrder` | Page number for deck pages, starting at 1. |
 | `sanityId` | Optional stable published document ID. Leave blank for new assets; the runner records successful bindings back into this selected manifest. Preserve existing bindings. |
 

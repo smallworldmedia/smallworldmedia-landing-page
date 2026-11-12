@@ -30,12 +30,13 @@ test('scaffolds use current columns, optional blank identities and review placeh
 test('reviewed collection scaffold parses with nested deck fields and no invented rank or ID', () => {
   const raw = generateManifest('Example', 'Branding', ['Deck/page_01.jpg'])
     .replace('services: TBD', 'services: branding')
-    .replace('| Deck/page_01.jpg | TBD | page 01 |  |  |  |  |', '| Deck/page_01.jpg | brand-deck | page 01 |  | brand-guidelines | 1 |  |')
+    .replace('| Deck/page_01.jpg | TBD | page 01 |  |  |  |  |  |', '| Deck/page_01.jpg | brand-deck | page 01 |  | brand-guidelines | deck | 1 |  |')
   const parsed = parseManifest(raw)
   assert.equal(parsed.assets[0].file, 'Deck/page_01.jpg')
   assert.equal(parsed.assets[0].branddeckorder, '1')
   assert.equal(parsed.assets[0].sanityid, '')
   assert.equal(parsed.assets[0].displaygroup, 'brand-guidelines')
+  assert.equal(parsed.assets[0].grouptype, 'deck')
 })
 
 test('artwork uses Mode 1, but non-image files still require classification', () => {

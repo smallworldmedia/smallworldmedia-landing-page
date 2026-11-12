@@ -250,6 +250,22 @@ test('groupType: one of the ten set types; every type but album art names its se
   for (const set of [{groupType:'mockup'},{groupType:'flyer progression'}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
 })
 
+test('a manifest groupType column types new rows; a bad value, or a set type without its set, refuses', async t => {
+  const table = rows => `# Collection\nclient: Example\nservices: branding\n\n| file | mediaType | title | displayGroup | groupType | sanityId |\n|---|---|---|---|---|---|\n${rows.map(r => `| ${r.join(' | ')} |`).join('\n')}\n`
+  assert.throws(() => parseManifest(table([['a.jpg','static_1x1','A','set-mockups','mockup','']])),/Invalid groupType/)
+  const loose = await harness(t); await loose.file('a.jpg')
+  await writeFile(path.join(loose.media,'_manifest.md'), table([['a.jpg','static_1x1','A','','admat','']]))
+  await assert.rejects(loose.plan({manifest:path.join(loose.media,'_manifest.md')}),/admat piece requires displayGroup/)
+  assert.equal(loose.stats.commits,0)
+  const h = await harness(t); await h.file('a.jpg'); await h.file('b.jpg')
+  const manifest = path.join(h.media,'_manifest.md')
+  await writeFile(manifest, table([['a.jpg','static_1x1','A','tour-mockups','mockups',''],['b.jpg','static_1x1','B','','','']]))
+  const p = await h.plan({manifest})
+  assert.deepEqual(p.operations.map(o => [o.action,o.set.displayGroup,o.set.groupType]),[['create','tour-mockups','mockups'],['create',undefined,undefined]])
+  const result = await h.apply(p); assert.equal(result.created,2); assert.equal(result.failed,0)
+  assert.equal(h.db.get(p.operations[0].id).groupType,'mockups'); assert.equal(h.db.get(p.operations[1].id).groupType,undefined)
+})
+
 test('splitIntoThirds: a boolean flag on video assets only; null and non-booleans are rejected', async t => {
   validatePatch('mediaAsset',{splitIntoThirds:true},[]); validatePatch('mediaAsset',{},['splitIntoThirds'])
   for (const set of [{splitIntoThirds:'yes'},{splitIntoThirds:1},{splitIntoThirds:null}]) assert.throws(() => validatePatch('mediaAsset',set,[]))

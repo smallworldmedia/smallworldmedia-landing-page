@@ -33,8 +33,8 @@ export function getIngestibleFiles(directory, recursive = false, prefix = '') {
 export function generateManifest(client, collection, files) {
   safeCell(client); if (collection) safeCell(collection)
   const artwork = collection?.toLowerCase() === 'artwork'
-  const columns = ['file', 'mediaType', ...(!collection ? ['serviceType'] : []), 'title', 'contentRole', 'displayGroup', 'brandDeckOrder', 'sanityId']
-  const rows = files.map(file => [file, artwork && IMAGE_EXTS.includes(path.extname(file).toLowerCase()) ? 'album-art' : 'TBD', ...(!collection ? ['TBD'] : []), titleOf(file), '', '', '', ''])
+  const columns = ['file', 'mediaType', ...(!collection ? ['serviceType'] : []), 'title', 'contentRole', 'displayGroup', 'groupType', 'brandDeckOrder', 'sanityId']
+  const rows = files.map(file => [file, artwork && IMAGE_EXTS.includes(path.extname(file).toLowerCase()) ? 'album-art' : 'TBD', ...(!collection ? ['TBD'] : []), titleOf(file), '', '', '', '', ''])
   return `# ${client} — ${collection || 'Root Assets'}\n\nclient: ${client}\n${collection ? `services: ${artwork ? 'album art' : 'TBD'}\n` : ''}year: ${new Date().getFullYear()}\n\nScaffold only — resolve every TBD using actual dimensions and visual review.\nUse the closest suitable aspect bucket; generic other types are not unreviewed defaults.\nNested deck/carousel pages need reviewed mediaType, displayGroup and page sequence.\nLeave sanityId empty for new files; the approved runner records stable bindings.\nRow order sequences new additions only; existing Studio orderRank remains authoritative.\nValid mediaType values — ${MEDIA_TYPES.join(', ')}.\n\n## Assets\n\n| ${columns.join(' | ')} |\n| ${columns.map(() => '---').join(' | ')} |\n${rows.map(row => `| ${row.join(' | ')} |`).join('\n')}\n`
 }
 
