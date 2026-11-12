@@ -115,10 +115,30 @@ records (`docs/globe-worlds-plan.md`).
    - **The manifest's `groupType` column** (`b54bf9f`) types new rows at intake.
    - **Left:**
      - redeploy the hosted Studio for the five new options;
-     - retire `../swm-gate-us5`;
-     - CONTEXT.md for `mockups` and `flyer-progression`;
+     - ~~retire `../swm-gate-us5`~~ done;
+     - ~~CONTEXT.md for `mockups` and `flyer-progression`~~ done 11-12 (`9b69f97`);
      - Nathan's iPhone check;
      - the /work album plate overflow call.
+5. **Done 11-12: Nathan's 11-12 round** (US-6 and a content round, pushed with the fold
+   `8a8b89d`; `cms audit` 0 errors):
+   - **US-6** (SQ-63…SQ-68, gate `6e53067`, fold `8a8b89d`):
+     - `/process` is off for v1: it redirects to `/` and is out of the sitemap;
+     - the nav and CTA colour change rides the passage's clock on every transition;
+     - the next-project band keeps its media centred while it expands;
+     - `static_other` and `motion_other` cover their tile at the least-crop shape, so the six
+       SoundCloud banners in the directory crop about 58%;
+     - the directory's Motion/Video parent filter (the label as written, Nathan 11-12), with
+       Character Design dropped;
+     - the blurb's tension only on the way in.
+   - **Content** (plans `bb344a63`, `b15965b6`, `70f878f1`, `ba374e6e`, `82598cb6`): House Hats
+     leaves the site; the service-tag retag (Web Design, Merch Design, Illustration, Promo Video,
+     Logo Design); Character Design retired; Bedouin's Instagram mockups split into three 9:16
+     phones.
+   - **Left:**
+     - Nathan's Studio deletes of `client-house-hats` and `serviceTag-character-design` (approved
+       11-12; the runner can't delete those types);
+     - `?npzoom` at 1 (SQ-65) and `?homefade` at 400 ms (SQ-64);
+     - Nathan's iPhone check of SQ-68.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
