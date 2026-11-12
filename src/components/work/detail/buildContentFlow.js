@@ -64,11 +64,12 @@
  *     `mockups` open on globe, detail and directory (NOT /work, where their
  *     pieces are dropped): a cycling sequence on the globe, and on detail a
  *     `mockups` bucket (one {group, items} per set of two or more, items in
- *     input order, a set of one riding the showcase at its place). The
- *     directory tile is one face, as visuals.
+ *     input order, a set of one riding the showcase at its place).
  *     `flyer-progression` opens everywhere: a cycling sequence on the globe
- *     and /work, and the carousel lane on detail and the directory (a set of
- *     one rides the showcase at its place, as every set of one does). In a
+ *     and /work, and the carousel lane on detail (a set of one rides the
+ *     showcase at its place, as every set of one does). On the directory both
+ *     types ride the 'sequence' lane: one tile that flips through the set's
+ *     members (Nathan 11-11). In a
  *     sequence an animated member joins as its poster still (posterStill)
  *     instead of keeping its own tile, so a mostly-animated progression still
  *     cycles; merch keeps its stills-only rule.
