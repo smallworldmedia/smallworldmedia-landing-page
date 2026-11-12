@@ -96,6 +96,7 @@ import {
 } from '../../../lib/motion.js';
 import { TOUCH_GAIN } from '../../../lib/touchTune.js';
 import { createRubberBand } from '../../../lib/rubberBand.js';
+import { retargetNavAccent } from '../../../lib/navAccent.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 
@@ -542,7 +543,27 @@ export default function NextProjectBand({ next }) {
       0
     );
     // … its confined blue rises to solid (the window IS the envelopment) …
-    tl.to(coverRef.current, { opacity: 1, duration: NP_SECONDS, ease }, 0);
+    // The nav + every tagged element cross-fade to the next project's colour on
+    // this tween's clock: same start, duration and curve as the window's blue
+    // rising to solid (the page-background change), not at the swap. Started from
+    // onStart at the tween's own phase (GSAP stamps a tween with the last tick's
+    // time, up to a frame behind "now", which a CSS fade started now would trail).
+    tl.to(
+      coverRef.current,
+      {
+        opacity: 1,
+        duration: NP_SECONDS,
+        ease,
+        onStart() {
+          retargetNavAccent(next.color || undefined, next.colorSecondary || undefined, {
+            seconds: NP_SECONDS,
+            ease,
+            delay: -this.time(),
+          });
+        },
+      },
+      0
+    );
     // … while the subject pushes in. The growing box supplies the travel
     // now, so this is a breath on top — not the old full-frame zoom.
     tl.to(innerRef.current, { scale: NP_ZOOM, duration: NP_SECONDS, ease }, 0);

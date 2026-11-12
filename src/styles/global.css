@@ -555,6 +555,11 @@
   --duration-panel: 600ms;
   /* S2: accent cross-fade duration, synced to the World Turn (TURN_DURATION). */
   --project-color-fade: 1700ms;
+  /* 11-12: navAccent.js overrides --project-color-fade (duration) and
+     --accent-ease (a sampled linear() curve) and --accent-delay (negative =
+     start part-way in) for the one style flush that starts a passage's colour
+     change, so the nav + every tagged element fade on the passage's OWN
+     clock. Unset, the accent rides the panel curve with no delay. */
   /* Ink cross-fade curve — the ONE knob for every text-ink fade (the
      element-local nav color/fill transitions + the fg/text colour twins).
      08-29 (Nathan, post paint-fix): tracks the accent wash — ink and bar
@@ -564,7 +569,7 @@
      past the WebGL stall (~t 420-490ms); with element-local transitions
      painting reliably, Nathan chose the tight sync. Dial the mid-weighted
      bezier back in here if the flip ever reads snappy under turn jank. */
-  --ease-ink: var(--ease-panel);
+  --ease-ink: var(--accent-ease, var(--ease-panel));
   --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-micro: 220ms;
   /* Steep launch, smooth decel into rest — mathematically overshoot-free
@@ -889,10 +894,10 @@ html.pop-tint,
      consumer below animates its OWN color/fill — an element-local
      transition guarantees invalidation. */
   transition:
-    --project-color var(--project-color-fade) var(--ease-panel),
-    --project-color-2 var(--project-color-fade) var(--ease-panel),
-    --project-color-fg var(--project-color-fade) var(--ease-ink),
-    --project-color-text var(--project-color-fade) var(--ease-ink);
+    --project-color var(--project-color-fade) var(--accent-ease, var(--ease-panel)) var(--accent-delay, 0s),
+    --project-color-2 var(--project-color-fade) var(--accent-ease, var(--ease-panel)) var(--accent-delay, 0s),
+    --project-color-fg var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s),
+    --project-color-text var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s);
   /* Perceptually-even nav ink: oklab mix of near-black↔white from the
      (snapping) scalar. The color-mix() result is a NON-LEGACY colour, so
      the consumers' own color/fill transitions interpolate it in Oklab —
@@ -917,7 +922,7 @@ html:has(.fp) .site-nav__label,
 html.fp-tint .site-nav__link,
 html.fp-tint .site-nav__label {
   color: var(--nav-ink, var(--color-white));
-  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
 }
 
 /* info pill: accent fill + readable ink; hover inverts to ink-fill.
@@ -933,8 +938,8 @@ html.fp-tint .site-nav__pill {
   border-color: var(--nav-ink, var(--color-white));
   color: var(--nav-ink, var(--color-white));
   transition:
-    color var(--ink-fade, var(--project-color-fade)) var(--ease-ink),
-    border-color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+    color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s),
+    border-color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
 }
 
 /* Hover is REAL-POINTER-ONLY (08-31, Nathan's report: on touch the :hover
@@ -960,7 +965,7 @@ html.fp-tint .site-nav__pill {
    (transparent bar over the black field) keeps the native blue artwork. */
 body:not(.route-home) .site-nav__lockup svg * {
   fill: var(--nav-ink, var(--color-white));
-  transition: fill var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+  transition: fill var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
 }
 
 body.route-home .site-nav__pill {
@@ -1157,7 +1162,7 @@ html.fp-tint .mobile-menu {
 html:has(.fp) .mobile-menu__item,
 html.fp-tint .mobile-menu__item {
   color: var(--nav-ink, var(--color-white));
-  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
 }
 
 .mobile-menu[data-open="true"] {
@@ -1247,7 +1252,7 @@ html.fp-tint .mobile-menu__item {
   letter-spacing: var(--tracking-body);
   font-weight: var(--weight-medium);
   color: var(--pill-ink-on-black);
-  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
   white-space: nowrap;
 }
 
@@ -3558,7 +3563,7 @@ html[data-footer-in] .logo-ticker__copy {
   letter-spacing: var(--tracking-body);
   font-weight: var(--weight-medium);
   color: var(--pill-ink-on-black);
-  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
   white-space: nowrap;
   /* pre-JS ground: hidden until the intro (or the session-revisit set) */
   visibility: hidden;
@@ -3640,7 +3645,7 @@ html[data-footer-in] .logo-ticker__copy {
   border-radius: var(--radius-capsule);
   background: var(--color-white);
   color: var(--pill-ink-on-white);
-  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
   font-family: var(--font-body);
   font-size: var(--text-link);
   line-height: var(--lh-link);
