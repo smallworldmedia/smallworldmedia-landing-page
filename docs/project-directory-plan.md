@@ -314,8 +314,10 @@ links.
     - `href` (the featured route, or null);
     - `label` (the project title);
     - `fit`.
-  - **Fit:** `'contain'` when the image has alpha or when a cover crop would lose more than half of
-    it. Banners (4.77:1) and wide logos letterbox on near-black.
+  - **Fit:** `'contain'` when the image has real transparency, else `'cover'`. (11-12, Nathan: an
+    `_other` face fills its tile. The old second clause, a crop past half, is gone, so a 4.77:1 banner
+    covers its 2:1 cell instead of letterboxing; a really transparent wide logo still letterboxes on
+    near-black.) An `_other` face's class is the one that crops it least (`flushGrid.tileClassOf`).
   - **Order:**
     - `project` (the default): featured projects first, in World order and each by `orderRank`.
       Then everything else by client name, project rank (no project last), `orderRank`, then
@@ -775,7 +777,7 @@ on Nathan's yes.
     - Reopening shows the eye, and clicking that name again clears the filter in place.
   - **Grid:**
     - Chunk seams are invisible.
-    - Banners letterbox.
+    - Banners letterbox. (Retired 11-12: opaque banners cover their cell; see Fit above.)
     - Featured tiles link to their project; the others don't.
     - Tabbing through 100 tiles keeps focus visible, and the mount window follows it.
     - `dist/work/directory/index.html` gzips to 150 KB or less.

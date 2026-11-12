@@ -215,6 +215,19 @@ export function ratioOf(asset) {
 
 export { PORTRAIT_THRESHOLD, MEDIA_TYPE_RATIOS };
 
+const OTHER_TYPE_RE = /_other$/;
+
+/**
+ * Whether an asset is labelled `static_other` / `motion_other`: a shape no
+ * ratio bucket suits, so its own (ratioOf) is the only truth about it. Such
+ * media fill their container, and a surface that picks the container's shape
+ * picks the one that crops them least (flushGrid.tileClassOf). A sequence
+ * counts when any of its frames does.
+ */
+export function isOtherAsset(asset) {
+  return OTHER_TYPE_RE.test(asset.mediaType ?? '') || !!asset.frames?.some((f) => OTHER_TYPE_RE.test(f.mediaType ?? ''));
+}
+
 /** The group types (mediaAsset.groupType); mirrors scripts/lib/cms/contract.mjs,
  *  which site code never imports. */
 export const GROUP_TYPES = ['album-art', 'deck', 'banner', 'admat', 'carousel', 'merch', 'visuals', 'live-footage', 'mockups', 'flyer-progression'];

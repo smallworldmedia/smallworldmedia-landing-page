@@ -67,8 +67,8 @@ const fallbackRows = (cols) => rowsFor((1440 - (cols - 1) * 2) / cols / TILE_SHA
 /* A tile's box always renders; its media only while `live` (the window). A
    window change re-renders only the tiles it flips. */
 const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSpec, live, logoDials, aspect }) {
-  // aspect: the cell is the tile's own shape, so only real transparency contains
-  const fit = aspect ? (tile.clear ? 'contain' : 'cover') : tile.fit;
+  // every face covers its cell unless it is really transparent (fitOf)
+  const fit = tile.fit;
   const actual = aspect ? { span: placement.colSpan, cell: placement.cell } : null;
   const slot =
     live &&

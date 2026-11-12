@@ -195,14 +195,13 @@ test('clientPresence - lit where the client has a tile under the picked tags, di
   assert.ok(!clientPresence(ts, null, more).has('easier-said'), 'a missing tag set is every tile too')
 })
 
-test('fit: contain for transparency or a crop past half, else cover', () => {
+test('fit: contain only for transparency, else cover (an _other face fills its tile, 11-12)', () => {
   const face = (w, h, extra) => ({ mediaType: 'static_other', ...img(w, h, extra) })
-  assert.equal(fitOf(face(4770, 1000)), 'contain', '4.77:1 in a 2:1 cell')
-  assert.equal(fitOf(face(4000, 1000)), 'cover', '4:1 loses exactly half')
+  assert.equal(fitOf(face(4770, 1000)), 'cover', '4.77:1 banner in a 2:1 cell: fills, no letterbox')
+  assert.equal(fitOf(face(4000, 1000)), 'cover', '4:1')
   assert.equal(fitOf(face(1000, 1000, { imageHasAlpha: true })), 'contain', 'alpha')
   assert.equal(fitOf(face(900, 1600)), 'cover', '9:16 in a 1:2 cell')
-  assert.equal(fitOf(face(1000, 4000)), 'cover', '1:4 in a 1:2 cell loses exactly half')
-  assert.equal(fitOf(face(1000, 5000)), 'contain', '1:5 in a 1:2 cell')
+  assert.equal(fitOf(face(1000, 5000)), 'cover', '1:5 in a 1:2 cell: fills')
   assert.equal(fitOf({ mediaType: 'motion_16x9', playbackId: 'x' }), 'cover')
 })
 
