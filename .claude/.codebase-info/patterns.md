@@ -47,7 +47,7 @@ fill; a wheel has no lift, so its let-go is the stall.
 `createRubberBand({ trigger, signed, apply, onCommit, onRelease, onRest })` returns `push(dy,
 { stall })`, `lift()`, `release()`, `reset()` and `accum`; `stepAccum` is its pure arithmetic. The
 detail page runs it twice: `NextProjectBand.jsx` (one-sided, at the document's end) and the phone
-blurb hold, `src/lib/blurbHold.js` (`signed`, both directions). A third surface that needs a rubber
+blurb hold, `src/lib/blurbHold.js` (`signed`, both directions; only under `?blurbexit=1` since SQ-68, where a seat is a stop and leaving it is native scroll). A third surface that needs a rubber
 band uses it rather than copying the lanes.
 
 ## One-place motion
@@ -135,6 +135,10 @@ removed on 10-31.)
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
+A passage changes colour on the page background's clock, never on a timer of its own (SQ-64, 11-12).
+The nav's fade starts from the cover or lift tween's `onStart`, at that tween's duration, curve and
+phase, because a main-thread stall makes a separate timer start late. `scripts/color-sync-probe.mjs`
+measures the offset in frames.
 
 ## One grammar, two renderers (marked copy)
 Rich text in this repo is a MARKED PLAIN STRING, never Portable Text — `**bold**`, `[[keyword]]`,

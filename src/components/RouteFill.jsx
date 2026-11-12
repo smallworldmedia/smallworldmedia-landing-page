@@ -20,13 +20,27 @@
  * ?loaderlead ms after the cover is fully up, and never opens if the page is
  * ready first). One path, GlobeLoader's start/stop handle.
  *
+ * The nav and every colour-tagged element ride the SAME clock as the cover
+ * (navAccent, one control point): a `swm:envelop` with `detail.navSync` starts
+ * the nav's cross-fade to `detail.color` (+ `color2`) on the cover's own
+ * duration and curve; a passage the hero HELD black (home → /work) lets the
+ * project colour go when the cover starts to lift, on the lift's own duration
+ * and curve. Same start, same duration, same ease: the nav never changes early
+ * or late against the page background.
+ *
  * Safety valve: if a page loads while covered and nothing asks for a release
  * (a failed navigation, a route without the handshake), the fill lets go on
  * its own — the user is never stranded on a blue screen.
  */
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { applyNavAccent, reapplyNavAccent, clearNavAccent } from '../lib/navAccent.js';
+import {
+  applyNavAccent,
+  reapplyNavAccent,
+  clearNavAccent,
+  retargetNavAccent,
+  releaseNavAccent,
+} from '../lib/navAccent.js';
 import { buildTimeline } from '../lib/globeLoaderGeometry.js';
 import GlobeLoader, { readLoaderDials } from './ui/GlobeLoader.jsx';
 // Loader pacing knobs (?loaderlead / ?loaderend, ?committune bench) — read at
@@ -54,6 +68,9 @@ const LOADER_QUICK = PARAM('loaderquick', 0.4);
 // below stays for when it comes back. ?globeloader=1 previews it on.
 const LOADER_ON = PARAM('globeloader', 0) === 1;
 const SAFETY_MS = 2500;
+// The cover's two curves, named once so the nav's colour fade can follow them.
+const COVER_EASE = 'power2.in';
+const RELEASE_EASE = 'power2.inOut';
 
 const scaleTiming = (t, k) => ({
   ...t,
@@ -84,6 +101,7 @@ export default function RouteFill() {
     const loader = loaderRef.current;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let covered = false;
+    let lifting = false; // release() has scheduled the lift (cleared by the next cover)
     let safetyTimer = null;
     let loaderUp = false;
     let loaderAt = 0; // performance.now() when the draw-in started
@@ -136,8 +154,15 @@ export default function RouteFill() {
     const release = () => {
       clearTimeout(safetyTimer);
       loaderTimer?.kill();
-      if (!covered) return;
+      if (!covered) {
+        // A held accent never outlives its passage — unless the lift that will
+        // release it is already scheduled (the safety valve fired first and the
+        // page's own release arrives behind it).
+        if (!lifting) releaseNavAccent(null);
+        return;
+      }
       covered = false;
+      lifting = true;
       fill.style.pointerEvents = 'none';
       // Read BEFORE loaderFinish flips loaderUp: the reveal waits out the rest
       // of the draw-in (capped); the loader-less passages don't wait at all.
@@ -145,19 +170,34 @@ export default function RouteFill() {
       loaderFinish(holdS);
       if (reducedMotion) {
         gsap.set(fill, { autoAlpha: 0 });
+        releaseNavAccent(null);
         return;
       }
       gsap.to(fill, {
         autoAlpha: 0,
         duration: RELEASE_SECONDS,
         delay: RELEASE_DELAY + holdS,
-        ease: 'power2.inOut',
+        ease: RELEASE_EASE,
         overwrite: true,
+        // A held accent (home → /work) is released the frame the lift STARTS, on
+        // its duration and curve, so the nav + every tagged element arrive with
+        // it. Not on a timer of its own: /work building its scene stalls the main
+        // thread across the hold, and the tween then starts late (or already
+        // part-way in). The CSS fade starts at the lift's own phase, so the two
+        // clocks are locked at their one shared start.
+        onStart() {
+          releaseNavAccent({
+            seconds: RELEASE_SECONDS,
+            ease: gsap.parseEase(RELEASE_EASE),
+            delay: -this.time(),
+          });
+        },
       });
     };
 
     const cover = (e) => {
       covered = true;
+      lifting = false;
       fill.style.pointerEvents = 'auto'; // swallow input during the passage
       // S2: tint the fill to the destination project's accent for this
       // passage. Set the same --project-color token the CSS resolves through;
@@ -167,6 +207,14 @@ export default function RouteFill() {
       if (color) fill.style.setProperty('--project-color', color);
       else fill.style.removeProperty('--project-color');
       const coverS = e?.detail?.duration ?? COVER_SECONDS;
+      // The nav's colour starts to change WITH the cover: same start, duration
+      // and curve (a cut — RM or a zero-length cover — cuts the nav too). A cut
+      // goes now; a fade goes from the cover tween's onStart, at the tween's own
+      // phase (GSAP stamps a tween with the last tick's time, which is up to a
+      // frame behind the event, so a CSS fade started "now" would trail it).
+      const navSync = !!e?.detail?.navSync;
+      const cutNav = navSync && (reducedMotion || !(coverS > 0));
+      if (cutNav) retargetNavAccent(color || undefined, e.detail.color2 || undefined, null);
       loaderTimer?.kill();
       if (LOADER_ON && e?.detail?.loader) {
         if (e.detail.loaderAfterCover) {
@@ -187,8 +235,18 @@ export default function RouteFill() {
       gsap.to(fill, {
         autoAlpha: 1,
         duration: coverS,
-        ease: 'power2.in',
+        ease: COVER_EASE,
         overwrite: true,
+        onStart:
+          navSync && !cutNav
+            ? function onCoverStart() {
+                retargetNavAccent(color || undefined, e.detail.color2 || undefined, {
+                  seconds: coverS,
+                  ease: gsap.parseEase(COVER_EASE),
+                  delay: -this.time(),
+                });
+              }
+            : undefined,
       });
     };
 

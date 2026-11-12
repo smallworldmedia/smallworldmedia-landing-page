@@ -33,15 +33,17 @@
  * place. orderTiles(tiles, 'mix') re-deals it across clients.
  *
  * The page's helpers live here too, pure like the rest: matchesFilter and
- * tagPresence (what the filter shows), readFilter, sanitizeFilter,
+ * tagPresence (what the filter shows; serviceGroups.js adds the motion/video
+ * parent), readFilter, sanitizeFilter,
  * defaultFilter and filterSearch (its URL state, ?tag=a,b&client=slug), and
  * sizesFor (a tile's <img sizes>).
  */
 import { assetLane, ratioOf } from '../detail/buildContentFlow.js';
-import { classifyTile } from '../detail/flushGrid.js';
+import { TILE_RATIO } from '../detail/flushGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
 import { coverageOf } from '../../../lib/clientCoverage.js';
+import { addGroupPresence, effectiveTags, withGroups, withParents } from './serviceGroups.js';
 
 const GROUPED = new Set(['sequence', 'admat', 'deck', 'carousel', 'banner', 'visuals', 'live-footage']);
 
@@ -70,10 +72,6 @@ const frameOf = (a) => {
   return f;
 };
 
-/* The cell each tile class fills, width ÷ height at the baked tile shape: a
-   portrait is two squares tall, a landscape two columns wide. */
-const CELL_RATIO = { portrait: 0.5, square: 1, landscape: 2 };
-
 /* Transparency (SQ-20): `alpha` is the baked measure of every face with an
    alpha channel that Sanity doesn't call opaque (src/data/directory-alpha.json,
    prep-directory-logos.mjs --alpha), by image asset id: `clear`, the share of
@@ -99,16 +97,15 @@ export function groundOf(face, alpha) {
 }
 
 /**
- * 'contain' when the picture is really transparent (a logo keeps its edges)
- * or a cover crop would lose more than half of it (a 4.77:1 banner in a 2:1
- * cell); otherwise 'cover'. (Under ?dirpack=aspect a tile has its own shape,
- * so only transparency contains: DirectoryGrid.)
+ * 'contain' when the picture is really transparent (a logo keeps its edges),
+ * otherwise 'cover': the media fills its tile (Nathan 11-12, "static and
+ * motion media tagged as other should fill its container"). A crop that loses
+ * more than half no longer letterboxes: a 4.77:1 banner in a 2:1 cell was
+ * the one case, and the class an `_other` asset gets is the one that crops it
+ * least (flushGrid.tileClassOf).
  */
 export function fitOf(face, alpha) {
-  if (isTransparent(face, alpha)) return 'contain';
-  const r = ratioOf(face);
-  const cell = CELL_RATIO[classifyTile(r)];
-  return Math.min(r, cell) / Math.max(r, cell) < 0.5 ? 'contain' : 'cover';
+  return isTransparent(face, alpha) ? 'contain' : 'cover';
 }
 
 const NAME_ORDER = { sensitivity: 'base', ignorePunctuation: true };
@@ -289,7 +286,7 @@ export function matchesFilter(tile, { tags, coverage }) {
 /**
  * The tags with tiles at all (`any`: a tag outside it is hidden) and with
  * tiles inside the coverage (`inClient`: a tag outside it is dimmed — the
- * client would empty it).
+ * client would empty it). A group's parent is present while any child is.
  */
 export function tagPresence(tiles, coverage) {
   const any = new Set();
@@ -301,7 +298,7 @@ export function tagPresence(tiles, coverage) {
       if (inside) inClient.add(s);
     }
   }
-  return { any, inClient };
+  return { any: addGroupPresence(any), inClient: addGroupPresence(inClient) };
 }
 
 /**
@@ -312,7 +309,8 @@ export function tagPresence(tiles, coverage) {
  */
 export function clientPresence(tiles, tags, clients) {
   const owners = new Set();
-  for (const t of tiles) if (matchesFilter(t, { tags, coverage: null })) owners.add(t.client);
+  const on = effectiveTags(tags ?? []);
+  for (const t of tiles) if (matchesFilter(t, { tags: on, coverage: null })) owners.add(t.client);
   const lit = new Set();
   for (const c of clients) {
     const coverage = coverageOf(c.slug, clients);
@@ -333,7 +331,7 @@ export function clientPresence(tiles, tags, clients) {
  */
 export function sizesFor(type, ratio, fit, { phone = 1, tablet = 2, desktop = 3 } = {}, actual = null) {
   const span = actual?.span ?? (type === 'landscape' ? 2 : 1);
-  const cell = actual?.cell ?? CELL_RATIO[type] ?? 1;
+  const cell = actual?.cell ?? TILE_RATIO[type] ?? 1;
   const over = fit === 'cover' && ratio > cell ? ratio / cell : 1;
   const vw = (cols) => `${Math.round((100 * Math.min(span, cols) * over) / cols)}vw`;
   return `(max-width: 768px) ${vw(phone)}, (max-width: 1024px) ${vw(tablet)}, ${vw(desktop)}`;
@@ -370,15 +368,16 @@ export function readFilter(search) {
 /**
  * The filter as it can apply: the client only when its coverage holds a tile
  * (a plain or unknown name filters nothing), and the tags with tiles inside
- * that coverage, in Studio order.
+ * that coverage, in Studio order (a group's parent first, then its children).
+ * A child without its parent brings the parent (a deep link to the child).
  */
 export function sanitizeFilter({ tags, clients, tiles }, wantTags, wantClient) {
   let coverage = coverageOf(wantClient, clients);
   if (coverage && !tiles.some((t) => coverage.has(t.client))) coverage = null;
   const { inClient } = tagPresence(tiles, coverage);
-  const want = new Set(wantTags);
+  const want = withParents(wantTags);
   return {
-    tags: tags.filter((t) => want.has(t.slug) && inClient.has(t.slug)).map((t) => t.slug),
+    tags: withGroups(tags).filter((t) => want.has(t.slug) && inClient.has(t.slug)).map((t) => t.slug),
     client: coverage ? wantClient : null,
   };
 }

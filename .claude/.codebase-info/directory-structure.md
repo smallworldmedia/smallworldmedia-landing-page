@@ -26,7 +26,7 @@
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
 │   │   │   ├── world/        # three.js Worlds: useWorldScene, DRUM/ATLAS/FORME grids, bands, live video
 │   │   │   ├── detail/       # detail page: content flow, tile units (tileGrid), flush grid, sockets, DeckScroller, viewers
-│   │   │   └── directory/    # /work/directory: DirectoryPage, grid, filter + FilterTag, player gate, tiles, bench
+│   │   │   └── directory/    # /work/directory: DirectoryPage, grid, filter + FilterTag, serviceGroups, player gate, tiles, bench
 │   │   ├── process/          # /process stage machine, scroll driver, copy, debug panel, lockup globe
 │   │   ├── specimen/, lab/   # dormant routes (redirected)
 │   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb), GlobeLoader (the globe loader)

@@ -24,6 +24,8 @@ import { PARAM_KEYS, SSR_TUNE, TAB_SHAPE, readTune, tabCap, tabSkirt } from '../
 import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
 import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
 import { SEQUENCE_MAX_FRAMES } from '../../src/lib/mediaSequence.js'
+import { SERVICE_TAGS } from '../../src/lib/constants.js'
+import { effectiveTags, openGroups, toggleTag, withGroups, withParents } from '../../src/components/work/directory/serviceGroups.js'
 
 const img = (w, h, extra = {}) => ({
   imageUrl: `https://cdn.example.invalid/${w}x${h}.jpg`,
@@ -171,11 +173,13 @@ test('coverage: one hop down the affiliations', () => {
 test('tagPresence: hidden where no tile has the tag, dimmed where the client would empty it', () => {
   const ts = tiles()
   const all = tagPresence(ts, null)
-  assert.deepEqual([...all.any].sort(), ['album-art', 'branding', 'promo-video', 'web-design'])
+  // motion-video is the code-side parent: present because promo-video is
+  assert.deepEqual([...all.any].sort(), ['album-art', 'branding', 'motion-video', 'promo-video', 'web-design'])
   assert.deepEqual([...all.inClient].sort(), [...all.any].sort())
   const dj = tagPresence(ts, coverageOf('dj-tennis', CLIENTS))
   assert.deepEqual([...dj.inClient].sort(), ['branding'])
-  assert.ok(dj.any.has('promo-video'))
+  assert.ok(dj.any.has('promo-video') && dj.any.has('motion-video'))
+  assert.ok(!dj.inClient.has('motion-video'), 'the client would empty the parent as it empties its children')
 })
 
 test('clientPresence - lit where the client has a tile under the picked tags, dimmed where they would empty it', () => {
@@ -195,14 +199,13 @@ test('clientPresence - lit where the client has a tile under the picked tags, di
   assert.ok(!clientPresence(ts, null, more).has('easier-said'), 'a missing tag set is every tile too')
 })
 
-test('fit: contain for transparency or a crop past half, else cover', () => {
+test('fit: contain only for transparency, else cover (an _other face fills its tile, 11-12)', () => {
   const face = (w, h, extra) => ({ mediaType: 'static_other', ...img(w, h, extra) })
-  assert.equal(fitOf(face(4770, 1000)), 'contain', '4.77:1 in a 2:1 cell')
-  assert.equal(fitOf(face(4000, 1000)), 'cover', '4:1 loses exactly half')
+  assert.equal(fitOf(face(4770, 1000)), 'cover', '4.77:1 banner in a 2:1 cell: fills, no letterbox')
+  assert.equal(fitOf(face(4000, 1000)), 'cover', '4:1')
   assert.equal(fitOf(face(1000, 1000, { imageHasAlpha: true })), 'contain', 'alpha')
   assert.equal(fitOf(face(900, 1600)), 'cover', '9:16 in a 1:2 cell')
-  assert.equal(fitOf(face(1000, 4000)), 'cover', '1:4 in a 1:2 cell loses exactly half')
-  assert.equal(fitOf(face(1000, 5000)), 'contain', '1:5 in a 1:2 cell')
+  assert.equal(fitOf(face(1000, 5000)), 'cover', '1:5 in a 1:2 cell: fills')
   assert.equal(fitOf({ mediaType: 'motion_16x9', playbackId: 'x' }), 'cover')
 })
 
@@ -683,4 +686,92 @@ test('album art stays one tile per cover; decks, carousels and banners keep thei
   assert.deepEqual(ids(ts.filter((t) => t._id.startsWith('cover-'))), ['cover-0', 'cover-1', 'cover-2'], 'one tile per cover')
   assert.ok(ts.every((t) => !t.frames), 'no cycler among them')
   assert.deepEqual(ids(ts.filter((t) => !t._id.startsWith('cover-'))), ['d1', 'c0', 'b0'], 'a tile per set: deck face = lowest brandDeckOrder, carousel and banner = first member')
+})
+
+// ── motion/video: the code-side parent tag (SQ-67) ──
+
+const LIVE_TAGS = [
+  'branding', 'merch-design', 'live-visuals', 'album-art', 'release-packs', 'event-tour-creative', 'illustration',
+  'character-design', '2d-animation', '3d-animation', 'logo-design', 'web-design', 'audio-reactive-media', 'promo-video', 'vfx', 'generative-media',
+].map((slug) => ({ name: slug, slug }))
+const MOTION = ['2d-animation', '3d-animation', 'live-visuals', 'promo-video']
+const motionTiles = [
+  { client: 'coco', services: ['2d-animation'] },
+  { client: 'coco', services: ['3d-animation', 'branding'] },
+  { client: 'coco', services: ['live-visuals'] },
+  { client: 'coco', services: ['promo-video'] },
+  { client: 'coco', services: ['album-art'] },
+]
+const motionData = { tags: LIVE_TAGS, clients: [{ slug: 'coco' }], tiles: motionTiles }
+const shownUnder = (tags) => motionTiles.filter((t) => matchesFilter(t, { tags: effectiveTags(tags), coverage: null }))
+
+test('motion/video: the parent takes the earliest child slot and the children follow it, abbreviated 2D / 3D', () => {
+  const grouped = withGroups(LIVE_TAGS)
+  const slugs = grouped.map((t) => t.slug)
+  assert.equal(slugs.indexOf('motion-video'), LIVE_TAGS.findIndex((t) => t.slug === 'live-visuals'), 'the parent sits where live-visuals (the earliest child) was')
+  assert.deepEqual(slugs.slice(slugs.indexOf('motion-video') + 1, slugs.indexOf('motion-video') + 5), ['2d-animation', '3d-animation', 'live-visuals', 'promo-video'])
+  assert.equal(slugs.length, LIVE_TAGS.length + 1, 'one parent added, no tag lost or doubled')
+  const byName = Object.fromEntries(grouped.map((t) => [t.slug, t]))
+  assert.equal(byName['motion-video'].name, 'Motion/Video')
+  assert.equal(byName['2d-animation'].name, '2D')
+  assert.equal(byName['3d-animation'].name, '3D')
+  assert.equal(byName['live-visuals'].name, 'live-visuals', 'a child the group does not abbreviate keeps its stored name')
+  assert.ok(MOTION.every((s) => byName[s].child === 'motion-video'), 'every child names its parent')
+  assert.equal(byName['branding'].child, undefined)
+  // a retired or missing child: the rest still group; none at all: no parent
+  assert.ok(!withGroups(LIVE_TAGS.filter((t) => t.slug !== 'promo-video')).some((t) => t.slug === 'promo-video'))
+  assert.deepEqual(withGroups(tag('branding')).map((t) => t.slug), ['branding'])
+})
+
+test('motion/video: the parent alone is the union of its children, a ticked child narrows it', () => {
+  assert.deepEqual(shownUnder(['motion-video']).length, 4, 'the four motion tiles, not the album art')
+  assert.deepEqual([...effectiveTags(['motion-video'])].sort(), [...MOTION].sort())
+  assert.equal(shownUnder(['motion-video', '2d-animation']).length, 1, 'the 2D tile only')
+  assert.deepEqual([...effectiveTags(['motion-video', '2d-animation', '3d-animation'])].sort(), ['2d-animation', '3d-animation'])
+  assert.equal(shownUnder(['album-art', 'motion-video']).length, 5, 'ticks OR together with other tags')
+  assert.equal(shownUnder([]).length, 5, 'nothing ticked is every tile')
+  assert.equal(shownUnder(['promo-video']).length, 1, 'a bare child is its own tag')
+  assert.deepEqual([...clientPresence(motionTiles, new Set(['motion-video']), [{ slug: 'coco', umbrellas: null }])], ['coco'], 'the clients tab reads the parent as its children')
+})
+
+test('motion/video: toggling the parent off takes its children with it', () => {
+  assert.deepEqual(toggleTag(['album-art'], 'motion-video'), ['album-art', 'motion-video'])
+  assert.deepEqual(toggleTag(['album-art', 'motion-video', '2d-animation', 'promo-video'], 'motion-video'), ['album-art'])
+  assert.deepEqual(toggleTag(['motion-video', '2d-animation'], '2d-animation'), ['motion-video'], 'a child off leaves the parent')
+  assert.deepEqual(toggleTag(['motion-video'], '3d-animation'), ['motion-video', '3d-animation'])
+  assert.deepEqual(openGroups(['album-art', 'motion-video']), ['motion-video'])
+  assert.deepEqual(openGroups(['album-art']), [])
+})
+
+test('motion/video: a deep link to a child opens the parent; the URL carries the parent as its own key', () => {
+  assert.deepEqual([...withParents(['promo-video'])].sort(), ['motion-video', 'promo-video'])
+  assert.deepEqual(sanitizeFilter(motionData, ['promo-video'], null), { tags: ['motion-video', 'promo-video'], client: null })
+  assert.deepEqual(sanitizeFilter(motionData, ['motion-video', 'promo-video', '2d-animation'], null), {
+    tags: ['motion-video', '2d-animation', 'promo-video'],
+    client: null,
+  }, 'Studio order: parent, then children in the group order')
+  assert.deepEqual(sanitizeFilter(motionData, ['motion-video'], null), { tags: ['motion-video'], client: null })
+  const next = sanitizeFilter(motionData, ['motion-video', '3d-animation'], null)
+  assert.equal(filterSearch('', next.tags, null), '?tag=motion-video,3d-animation')
+  assert.deepEqual(readFilter('?tag=motion-video,3d-animation').tags, next.tags, 'what it writes reads back')
+  // character-design present (the doc not yet deleted) or absent changes nothing about the group
+  const without = { ...motionData, tags: LIVE_TAGS.filter((t) => t.slug !== 'character-design') }
+  assert.deepEqual(sanitizeFilter(without, ['promo-video'], null), sanitizeFilter(motionData, ['promo-video'], null))
+})
+
+test('motion/video: the parent hides only when every child is empty, and a client that empties them dims it', () => {
+  const some = tagPresence([{ client: 'coco', services: ['3d-animation'] }], null)
+  assert.ok(some.any.has('motion-video') && some.any.has('3d-animation'))
+  assert.ok(!some.any.has('2d-animation'), 'an empty child stays hidden')
+  const none = tagPresence([{ client: 'coco', services: ['branding'] }], null)
+  assert.ok(!none.any.has('motion-video'))
+  assert.deepEqual(sanitizeFilter({ ...motionData, tiles: [{ client: 'coco', services: ['branding'] }] }, ['motion-video'], null), { tags: [], client: null }, 'no motion media at all: the tick drops')
+  const other = tagPresence(motionTiles, new Set(['bellaire']))
+  assert.ok(other.any.has('motion-video') && !other.inClient.has('motion-video'))
+})
+
+test('SERVICE_TAGS (the inquiry form) keeps the full names, has no Character Design and no motion/video', () => {
+  assert.ok(!SERVICE_TAGS.some((n) => /character design/i.test(n)))
+  assert.ok(!SERVICE_TAGS.some((n) => /motion/i.test(n)))
+  for (const n of ['2D Animation', '3D Animation', 'Live Visuals', 'Promo Video']) assert.ok(SERVICE_TAGS.includes(n), n)
 })

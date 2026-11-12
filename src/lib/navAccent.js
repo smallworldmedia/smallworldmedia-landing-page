@@ -14,8 +14,43 @@
  *   • home — the population world on the globe (Hero, ?popmode), under
  *     html.pop-tint instead of fp-tint: home keeps its own chrome and only
  *     its brand-blue accents take the colour.
+ *
+ * Colour-change choreography across passages (11-12, Nathan): the nav and every
+ * colour-tagged element read ONE var on <html> (--project-color), so a change
+ * is synchronised by starting that var's cross-fade on the SAME frame, with the
+ * SAME duration and curve, as the page-background change it belongs to (the
+ * RouteFill cover rising or lifting, the next-project band's window).
+ *   • `fade` ({ seconds, ease }) on applyNavAccent / retargetNavAccent rides the
+ *     CSS cross-fade at that duration and curve (the curve is sampled into a CSS
+ *     `linear()` so ANY GSAP ease, a CustomEase included, matches exactly).
+ *   • hold / release: home → /work keeps the nav BLACK through the swap (the
+ *     globe's black bar) and releases the project colour only when the cover
+ *     lifts, so the nav and every tagged element arrive on one frame.
  */
 import { projectColorVars } from './projectColor.js';
+
+/** The globe page's black: the passage cover, and the nav a held passage wears. */
+export const NAV_BLACK = '#000000';
+
+/**
+ * Sample an easing function (t 0..1 → progress) into a CSS `linear()` timing
+ * function, so a CSS transition can follow a GSAP curve exactly. Endpoints are
+ * pinned to 0 and 1.
+ */
+export function easeToCss(ease, samples = 48) {
+  if (typeof ease !== 'function') return null;
+  const pts = [];
+  for (let i = 0; i <= samples; i++) {
+    const v = i === 0 ? 0 : i === samples ? 1 : ease(i / samples);
+    pts.push(Number.isFinite(v) ? +v.toFixed(4) : i / samples);
+  }
+  return `linear(${pts.join(', ')})`;
+}
+
+// linear() is Chrome 113 / Safari 17.2 / Firefox 112. Where it is missing the
+// fade keeps the house panel curve at the passage's duration (close, not exact).
+const supportsLinear = () =>
+  typeof CSS !== 'undefined' && CSS.supports?.('transition-timing-function', 'linear(0, 1)');
 
 const KEYS = [
   '--project-color',
@@ -55,16 +90,71 @@ function commitInstant(root, mutate) {
   root.style.removeProperty('--ink-fade');
 }
 
+// A cross-fade at a passage's own duration and curve (see the header). The
+// overrides only have to be in force for the style flush that STARTS the
+// transitions (a running transition keeps the duration/curve it started with),
+// so they are dropped straight after it.
+function commitFaded(root, mutate, { seconds, ease, delay = 0 }) {
+  root.style.setProperty('--project-color-fade', `${Math.round(seconds * 1000)}ms`);
+  if (delay) root.style.setProperty('--accent-delay', `${Math.round(delay * 1000)}ms`);
+  const css = supportsLinear() ? easeToCss(ease) : null;
+  if (css) root.style.setProperty('--accent-ease', css);
+  mutate();
+  void root.offsetWidth; // start every accent transition on this duration + curve
+  root.style.removeProperty('--project-color-fade');
+  root.style.removeProperty('--accent-ease');
+  root.style.removeProperty('--accent-delay');
+}
+
+// While held, every accent write paints the globe's black instead and only
+// REMEMBERS the colour it was given (`last`), for releaseNavAccent to ride in.
+let held = false;
+
+/** Keep the nav (and every tagged element) black until releaseNavAccent. */
+export function holdNavAccent() {
+  held = true;
+}
+
+export function isNavAccentHeld() {
+  return held;
+}
+
+/**
+ * Let go of a hold: paint the colour remembered while held. `fade` rides the
+ * CSS cross-fade at the lifting cover's duration and curve; no `fade` = instant.
+ * `fade.delay` (seconds, negative = already that far in) phase-locks the fade to
+ * a lift whose own clock was late to start.
+ */
+export function releaseNavAccent(fade) {
+  if (!held) return;
+  held = false;
+  applyNavAccent(last.primary, last.secondary, !!fade, { fade });
+}
+
+/**
+ * Begin a passage's colour change NOW, on the passage's own clock: the nav and
+ * every tagged element cross-fade to `primary` over `fade` ({ seconds, ease }).
+ * Does nothing when the accent already is (or is held to) that colour. `fade`
+ * null = cut. Returns true when it started a change.
+ */
+export function retargetNavAccent(primary, secondary, fade) {
+  if (held) return false;
+  if ((primary ?? null) === (last.primary ?? null) && (secondary ?? null) === (last.secondary ?? null)) return false;
+  applyNavAccent(primary ?? undefined, secondary ?? undefined, !!fade, { fade });
+  return true;
+}
+
 /**
  * Write the accent vars to <html>. `animate` false = instant (page arrivals);
- * true = ride the CSS cross-fade (in-page /work project changes). `tint` is
- * the <html> class that scopes which chrome takes it (pop-tint on home).
+ * true = ride the CSS cross-fade (in-page /work project changes), at `fade`'s
+ * duration and curve when given. `tint` is the <html> class that scopes which
+ * chrome takes it (pop-tint on home).
  */
-export function applyNavAccent(primary, secondary, animate = true, { tint = 'fp-tint' } = {}) {
+export function applyNavAccent(primary, secondary, animate = true, { tint = 'fp-tint', fade } = {}) {
   if (typeof document === 'undefined') return;
   last = { primary, secondary };
   const root = document.documentElement;
-  const vars = projectColorVars(primary, secondary);
+  const vars = held ? projectColorVars(NAV_BLACK) : projectColorVars(primary, secondary);
   const write = () => {
     for (const k of KEYS) {
       const v = vars[k];
@@ -76,8 +166,9 @@ export function applyNavAccent(primary, secondary, animate = true, { tint = 'fp-
     }
     root.classList.add(tint);
   };
-  if (animate) write();
-  else commitInstant(root, write);
+  if (!animate) commitInstant(root, write);
+  else if (fade) commitFaded(root, write, fade);
+  else write();
 }
 
 /** Re-assert the last accent instantly (post-swap, for routes without a static
@@ -90,6 +181,7 @@ export function reapplyNavAccent() {
 export function clearNavAccent() {
   if (typeof document === 'undefined') return;
   last = { primary: undefined, secondary: undefined };
+  held = false;
   const root = document.documentElement;
   commitInstant(root, () => {
     for (const k of KEYS) root.style.removeProperty(k);

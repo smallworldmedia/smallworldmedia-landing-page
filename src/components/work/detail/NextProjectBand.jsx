@@ -31,10 +31,12 @@
  * and the client name together, from the first delta (11-03, Nathan — no
  * stagger; the Figma states 15:385/401/417 ran a staggered text exit):
  *
- *   media  — a fixed WINDOW (component-defined 4:3 landscape at full open,
- *            locked height; the media best-fits it via object-fit regardless
- *            of the asset's own ratio) that the scroll pulls open leftward
- *            off its pinned right edge — a clip reveal, never a scale
+ *   media  — a WINDOW (component-defined 4:3 landscape at full open,
+ *            locked height) whose real width the scroll pulls open leftward
+ *            off its pinned right edge (11-12, Nathan). The media fills it,
+ *            cover-fit and centred on every frame, so it stays centred and
+ *            scales up with the window; at the page turn the window is the
+ *            viewport and the media exactly as wide, no extra zoom
  *   title  — the client name rides the window's left edge, its gutter away
  *   label, rule, tags — stationary: the opening window wipes over them
  *
@@ -59,7 +61,7 @@
  * in-band cover layer CONFINED to the window — the page around it stays
  * clean while the gesture charges. The threshold pins the title blue,
  * promotes the window to a fixed box at its measured rect, and one
- * Turn-curve timeline finishes the choreography: the clip opens fully, the
+ * Turn-curve timeline finishes the choreography: the window opens fully, the
  * box grows to the full viewport, and the confined blue rises to solid —
  * the window itself becomes the envelopment. `swm:envelop` fires only for
  * the final snap window (?npcover), so the persistent RouteFill goes solid
@@ -94,6 +96,7 @@ import {
 } from '../../../lib/motion.js';
 import { TOUCH_GAIN } from '../../../lib/touchTune.js';
 import { createRubberBand } from '../../../lib/rubberBand.js';
+import { retargetNavAccent } from '../../../lib/navAccent.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 
@@ -122,10 +125,11 @@ const NP_SECONDS = PARAM('npms', GLIDE_MS) / 1000; // commit choreography length
 // solid under the near-fullscreen, near-solid box just before the swap.
 const NP_COVER_SECONDS = PARAM('npcover', 120) / 1000;
 const NP_PRE_COVER = PARAM('nppre', 30) / 100; // in-window blue at full drag (f² curve)
-// Media push-in over the commit. The box itself now grows to the viewport,
-// so this rides ON TOP of that growth — the old 1.35 default double-zooms.
-// Keep it a breath (?npzoom still overrides for dialing).
-const NP_ZOOM = PARAM('npzoom', 1.08);
+// Extra media push-in over the commit, ON TOP of the window's growth to the
+// viewport. 1 = none (11-12, Nathan): the media's largest size is the
+// container's largest width, so at the page turn it is exactly the viewport
+// wide, matching the next page's cover. ?npzoom > 1 dials a push back in.
+const NP_ZOOM = PARAM('npzoom', 1);
 
 /* — Entrance (scroll-scrubbed, band entry → document end). A cascade timed
    in units of the label's slide (1) and normalised to land at the document
@@ -224,7 +228,8 @@ export default function NextProjectBand({ next }) {
   const ruleRef = useRef(null);
   const titleRef = useRef(null);
   const tagsRef = useRef(null);
-  const mediaRef = useRef(null);
+  const mediaRef = useRef(null); // the slot: the window's full-open box (geometry reference)
+  const winRef = useRef(null); // the window: the container that opens; the media fills it, centred
   const innerRef = useRef(null);
   const coverRef = useRef(null);
   const videoRef = useRef(null);
@@ -267,7 +272,7 @@ export default function NextProjectBand({ next }) {
 
   // ── Measure the rest-state shifts (and re-measure on resize) ──
   // CSS lays everything at its END position (text at the left edge, media
-  // box at full width); the engine translates text right / clips the media
+  // box at full width); the engine translates text right / narrows the media window
   // back to compose the rest state. Mobile (stacked) zeroes the text shifts —
   // the media reveal + pre-cover carry the same physics there.
   const measure = () => {
@@ -355,7 +360,7 @@ export default function NextProjectBand({ next }) {
       labelX,
       titleX: m.titleShift - opened,
       tagsX: m.tagsShift,
-      clip: `inset(0% 0% 0% ${((1 - reveal) * 100).toFixed(2)}%)`,
+      win: `${(reveal * 100).toFixed(3)}%`,
       // In-window pre-cover: same f² curve + ?nppre knob the RouteFill
       // pre-cover rode, now confined to the media window.
       cover: NP_PRE_COVER * f * f,
@@ -382,7 +387,10 @@ export default function NextProjectBand({ next }) {
     gsap.set(labelRef.current, { x: t.inX, scale: t.inScale });
     gsap.set(titleRef.current, { x: t.titleX, ...rise(t.titleRise) });
     if (tagsRef.current) gsap.set(tagsRef.current, { x: t.tagsX, ...rise(t.tagsRise) });
-    gsap.set(mediaRef.current, { clipPath: t.clip });
+    // The window's real width (a % of the slot), right edge pinned: the media
+    // fills it, cover-fit and centred, so it stays centred as the window
+    // opens. During departure the commit timeline owns the window's box.
+    if (!departingRef.current) gsap.set(winRef.current, { width: t.win });
     gsap.set(ruleRef.current, { x: t.ruleX, scaleX: t.ruleScale });
     // During departure the commit timeline owns the cover (raising it to
     // solid on the Turn curve); apply() only tracks the drag's f² curve.
@@ -498,17 +506,15 @@ export default function NextProjectBand({ next }) {
     setPinned(true); // title/rule flash blue, held through the passage
     gsap.killTweensOf(proxyRef.current); // take over from a mid-flight return
 
-    // Promote the ORIGINAL media node (a clone would restart HLS) to a
-    // fixed box at its exact on-screen rect. z-index 90 keeps it under the
-    // z-100 site shell — the nav rides above the passage, as it always
-    // has. The band's height is frozen first so the box leaving the flow
-    // (mobile's static stacking) can't collapse the band and jolt the
-    // end-of-document scroll position. Margins are zeroed for the same
-    // reason: fixed + top must place the border box AT the rect (mobile's
-    // margin-top would otherwise push it below its measurement).
-    const media = mediaRef.current;
+    // Promote the ORIGINAL window node (a clone would restart HLS) to a
+    // fixed box at its exact on-screen rect — the container as it is now,
+    // media centred in it. z-index 90 (on the slot, whose stacking context
+    // holds it) keeps it under the z-100 site shell — the nav rides above
+    // the passage, as it always has. The slot stays in the flow, so the
+    // band keeps its height and the end-of-document scroll position holds.
+    const media = winRef.current;
     const rect = media.getBoundingClientRect();
-    gsap.set(bandRef.current, { height: bandRef.current.offsetHeight });
+    gsap.set(mediaRef.current, { zIndex: 90 });
     gsap.set(media, {
       position: 'fixed',
       top: rect.top,
@@ -516,15 +522,13 @@ export default function NextProjectBand({ next }) {
       width: rect.width,
       height: rect.height,
       right: 'auto',
-      margin: 0,
-      aspectRatio: 'auto',
-      zIndex: 90,
+      bottom: 'auto',
     });
 
     const ease = CustomEase.create('swmNextBand', TURN_EASE_PATH);
     const tl = gsap.timeline({ onComplete: () => navigate(`/work/${next.slug}`) });
     // Finish the drag choreography — text completes its run to the left
-    // edge, the clip window opens fully off its pinned edge.
+    // edge, the media window opens fully off its pinned edge.
     tl.to(proxyRef.current, {
       f: 1,
       duration: NP_SECONDS,
@@ -539,7 +543,27 @@ export default function NextProjectBand({ next }) {
       0
     );
     // … its confined blue rises to solid (the window IS the envelopment) …
-    tl.to(coverRef.current, { opacity: 1, duration: NP_SECONDS, ease }, 0);
+    // The nav + every tagged element cross-fade to the next project's colour on
+    // this tween's clock: same start, duration and curve as the window's blue
+    // rising to solid (the page-background change), not at the swap. Started from
+    // onStart at the tween's own phase (GSAP stamps a tween with the last tick's
+    // time, up to a frame behind "now", which a CSS fade started now would trail).
+    tl.to(
+      coverRef.current,
+      {
+        opacity: 1,
+        duration: NP_SECONDS,
+        ease,
+        onStart() {
+          retargetNavAccent(next.color || undefined, next.colorSecondary || undefined, {
+            seconds: NP_SECONDS,
+            ease,
+            delay: -this.time(),
+          });
+        },
+      },
+      0
+    );
     // … while the subject pushes in. The growing box supplies the travel
     // now, so this is a breath on top — not the old full-frame zoom.
     tl.to(innerRef.current, { scale: NP_ZOOM, duration: NP_SECONDS, ease }, 0);
@@ -738,30 +762,32 @@ export default function NextProjectBand({ next }) {
       </div>
 
       <div className="np-band__media" ref={mediaRef}>
-        <div className="np-band__media-inner" ref={innerRef}>
-          {isVideo ? (
-            <video
-              ref={videoRef}
-              className="np-band__media-el"
-              poster={posterUrl}
-              muted
-              autoPlay
-              loop
-              playsInline
-              onTimeUpdate={wrapAtDetailCap}
-            />
-          ) : next.hero?.imageUrl ? (
-            <img
-              className="np-band__media-el"
-              src={`${next.hero.imageUrl}?w=${MEDIA_IMG_WIDTH}&${IMG_FORMAT}`}
-              alt=""
-              loading="lazy"
-            />
-          ) : (
-            <div className="np-band__media-el" aria-hidden="true" />
-          )}
+        <div className="np-band__window" ref={winRef}>
+          <div className="np-band__media-inner" ref={innerRef}>
+            {isVideo ? (
+              <video
+                ref={videoRef}
+                className="np-band__media-el"
+                poster={posterUrl}
+                muted
+                autoPlay
+                loop
+                playsInline
+                onTimeUpdate={wrapAtDetailCap}
+              />
+            ) : next.hero?.imageUrl ? (
+              <img
+                className="np-band__media-el"
+                src={`${next.hero.imageUrl}?w=${MEDIA_IMG_WIDTH}&${IMG_FORMAT}`}
+                alt=""
+                loading="lazy"
+              />
+            ) : (
+              <div className="np-band__media-el" aria-hidden="true" />
+            )}
+          </div>
+          <div className="np-band__cover" ref={coverRef} aria-hidden="true" />
         </div>
-        <div className="np-band__cover" ref={coverRef} aria-hidden="true" />
       </div>
     </a>
   );

@@ -17,6 +17,19 @@
   status = 302
   force = true
 
+# v1 launch (11-12): /process disabled the same way.
+[[redirects]]
+  from = "/process"
+  to = "/"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/process/"
+  to = "/"
+  status = 302
+  force = true
+
 # FP-4b (2026-07-16): homegrwxn merged INTO rossi — permanent move; bellaire
 # unfeatured for now — soft redirect until it returns.
 [[redirects]]
