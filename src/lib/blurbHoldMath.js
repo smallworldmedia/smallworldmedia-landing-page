@@ -248,6 +248,7 @@ export function readBlurbTune(search) {
   return {
     hold: num('blurbhold') !== 0,
     end: num('blurbend') !== 0,
+    exit: (num('blurbexit') ?? 0) !== 0, // off unless asked: a seat is a stop (SQ-68)
     grow: num('blurbgrow') !== 0,
     peek: within(peek, 0, 1),
     air: air != null && air >= 0 && air <= 8 ? air : null,
