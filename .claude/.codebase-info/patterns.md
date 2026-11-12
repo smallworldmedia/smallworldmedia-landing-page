@@ -462,6 +462,14 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   each side's built preview, then `--compare` (exit 2 on any difference). Its negative control is
   `--query=tileshape=1.25`, which must fail on every page@width. A difference in a band's
   `text` / `paras` or a page's `blurbs` is Sanity content moving between the two builds, not code.
+  While the Studio's "Project Directory: shuffle the order" is on, record the directory with
+  `--query=tag=&dirorder=project`: a shuffled page draws a new order every load, so without it even
+  a build compared with itself differs on every width (measured 11-12: 0/3 without, 3/3 with).
+- "Does media hang while scrolling?" is measured with `scripts/media-load-probe.mjs`, before and
+  after, on production builds only (a dev build takes about 19 s to hydrate under the 4g throttle).
+  Run each case twice and keep the second, because the image CDNs transform on first hit. A phone
+  run scrolls by touch with `--query=blurbhold=0`. The throttle is Chrome's and does not model a
+  server's stream ordering, so a 4g wait is indicative.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 
