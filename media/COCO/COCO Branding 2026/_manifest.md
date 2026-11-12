@@ -16,12 +16,8 @@ project: coco-branding-2026
 | COCO DVD Bounce.mp4 | motion_other | COCO DVD Bounce | Branding |  | mediaAsset-coco-coco-dvd-bounce |
 | COCO Rotating Instances.mp4 | motion_other | COCO Rotating Instances | Branding |  | mediaAsset-coco-coco-rotating-instances |
 | COCO Sliding Instances.mp4 | motion_other | COCO Sliding Instances | Branding |  | mediaAsset-coco-coco-sliding-instances |
-| 4x5.mp4 | motion_4x5 | COCO Promo 4x5 | Branding |  | mediaAsset-coco-coco-promo-4x5 |
-| COCO Liverpool Open Air Flyer v2.png | static_3x4 | COCO Liverpool Open Air Flyer | Event / Tour Creative |  | mediaAsset-coco-coco-flyer-3x4-v2 |
 | COCO Bristol Document Flyer.png | static_3x4 | COCO Bristol Document Flyer | Event / Tour Creative |  | mediaAsset-coco-coco-flyer-3x4-v5 |
 | COCO Template 2026.jpg | static_1x1 | COCO Template 2026 | Branding |  | mediaAsset-coco-coco-template-2026 |
-| COCO-SC-Mockup.jpg | static_1x1 | COCO SoundCloud Mockup | Branding |  | mediaAsset-coco-coco-soundcloud-mockup |
-| COCO Logo White.png | logo | COCO Logo White | Logo Design |  | mediaAsset-5a8387fc-9233-492d-9b59-28783fab0f07 |
 | Artwork/COCO051-ESSED---Get-Down-EP.jpg | album-art | ESSED — Get Down EP | Branding, Album Art |  | mediaAsset-coco-essed-get-down-ep |
 | coco_cause_01.jpg | static_3x4 | COCO @ The Cause — Photo 1 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-photo-1 |
 | coco_cause_06.jpg | static_3x4 | COCO @ The Cause — Photo 6 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-photo-6 |
@@ -64,5 +60,5 @@ project: coco-branding-2026
 | Liverpool 091226/Know Before You Go 04.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 04 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-edfce699-0895-46af-84f3-95e8e2a2846c |
 | Liverpool 091226/Know Before You Go 06.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 06 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-dc5c8472-288e-4010-a020-7faf0f4602f8 |
 | Liverpool 091226/B2B Lineup 3x4.png | static_3x4 | COCO Liverpool 091226 B2B Lineup | Event / Tour Creative |  | mediaAsset-04d4e307-e704-4654-b21a-eb5fd21e22ea |
-| Liverpool 091226/B2B Lineup 9x16.png | static_9x16 | COCO Liverpool 091226 B2B Lineup Story | Event / Tour Creative |  | mediaAsset-5618e316-7b83-4033-b767-bda4287eb364 |
 | The Cause 050226/Announce 4x5.mp4 | motion_4x5 | COCO @ The Cause 050226 Announce | Event / Tour Creative |  | mediaAsset-4a76a206-9f5f-4053-9a2a-66196495c2b4 |
+| coco_ig-mockup.png | static_9x16 | COCO Instagram Mockup | Branding | coco-mockups |  |

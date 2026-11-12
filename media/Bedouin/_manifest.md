@@ -61,3 +61,4 @@ project: bedouin
 | Open Air Brooklyn 062125/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 |  |  |  | mediaAsset-feea2d7d-263e-431d-90ac-c292f0de6ea7 |
 | Open Air Brooklyn 062125/NYC Flyer 4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 (NYC Flyer) |  |  |  | mediaAsset-f291f3da-9cb4-4a37-8ffe-d65719a1bffe |
 | Roundhouse London 051025/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Roundhouse London 051025 |  |  |  | mediaAsset-601d9bf7-2dea-4be9-917c-9d163896a074 |
+| Bedouin_IG-Mockups.png | static_other | Branding | Bedouin Instagram Mockups |  | bedouin-mockups |  | mediaAsset-bda9d9e3-2edb-4cd8-a86f-90849848e31a |

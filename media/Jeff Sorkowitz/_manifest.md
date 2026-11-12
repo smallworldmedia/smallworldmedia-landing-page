@@ -58,3 +58,6 @@ project: jeff-sorkowitz
 | Brand Guidelines Deck/Brand Guidelines Deck_page_33.jpg | brand-deck | Jeff Sorkowitz Brand Guidelines Page 33 | Branding |  | brand-guidelines-deck | 33 | mediaAsset-5fb4dceb-1bd1-4de4-a30d-d57ae94448e4 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_34.jpg | brand-deck | Jeff Sorkowitz Brand Guidelines Page 34 | Branding |  | brand-guidelines-deck | 34 | mediaAsset-f66eaaa3-db96-4396-845a-6771e823d861 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_35.jpg | brand-deck | Jeff Sorkowitz Brand Guidelines Page 35 | Branding |  | brand-guidelines-deck | 35 | mediaAsset-f256775b-5717-4c64-8060-1f5da3f33bb8 |
+| Mockups/Instagram/instagram-mockup-1.png | static_9x16 | Jeff Sorkowitz Instagram Mockup 1 | Branding |  | jeff-sorkowitz-mockups |  | mediaAsset-d13ac381-6758-4790-a2ce-0f9b5f9d41cb |
+| Mockups/Instagram/instagram-mockup-2.png | static_9x16 | Jeff Sorkowitz Instagram Mockup 2 | Branding |  | jeff-sorkowitz-mockups |  | mediaAsset-77e98024-867e-43c0-b76b-3274bb748584 |
+| Mockups/Instagram/instagram-mockup-3.png | static_9x16 | Jeff Sorkowitz Instagram Mockup 3 | Branding |  | jeff-sorkowitz-mockups |  | mediaAsset-5494f428-692c-4f25-b848-3f1523870670 |

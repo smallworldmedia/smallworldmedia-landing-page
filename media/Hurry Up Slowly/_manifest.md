@@ -76,3 +76,4 @@ year: 2026
 | HUS001 Darmon - Talk About It/HUS001 Darmon - Talk About It.jpg | static_1x1 | Album Art | Darmon — Talk About It |  |  |  |  | mediaAsset-bf889898-5986-4377-b0bf-714d05f67b17 |
 | HUS 3D Loops/HUS-3D_1_4x5.mp4 | motion_4x5 | Logo Design, 3D Animation | HUS Infinite Logo 3D Loop 4x5 |  |  |  |  | mediaAsset-3a79eb00-7ed0-48e4-a2de-0418432f68f3 |
 | Label Submissions/HUS Label Submissions v2.mp4 | motion_9x16 | Promo Video | HUS Label Submissions Promo |  |  |  |  | mediaAsset-74a4b652-ca3c-4763-a2a3-0df36f7c919b |
+| Mockups/Instagram/instagram-mockup-1.png | static_9x16 | branding | Hurry Up Slowly Instagram Mockup 1 | false |  | hurry-up-slowly-mockups |  | mediaAsset-528b4278-4d68-4fb0-bd7e-67436607d580 |

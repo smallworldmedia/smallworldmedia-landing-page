@@ -28,4 +28,3 @@ project: rossi
 | Rossi In The Park 071826/9x16.jpg | static_9x16 | Event / Tour Creative | In The Park 9x16 (Still) |  |
 | Rossi In The Park 071826/9x16.mp4 | motion_9x16 | Event / Tour Creative | In The Park 9x16 (Animated) |  |
 | dusk-till-dawn_frames.png | static_9x16 | Branding | Dusk Till Dawn Frames |  |
-| dusk-till-dawn_movie-poster_sign-up.jpg | static_9x16 | Event / Tour Creative | Dusk Till Dawn Movie Poster Sign-Up |  |

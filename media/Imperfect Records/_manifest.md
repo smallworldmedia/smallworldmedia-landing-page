@@ -65,3 +65,4 @@ year: 2026
 | imperfect_logo-timelapse_01.mp4 | motion_4x3 | branding | Imperfect Logo Timelapse 01 | false | 55 |  |  | mediaAsset-fe17c1b7-190f-4abc-add4-6edecdb323db |
 | imperfect_logo-timelapse_02.mp4 | motion_4x3 | branding | Imperfect Logo Timelapse 02 | false | 56 |  |  | mediaAsset-9b839c4f-646f-4109-88a6-1e1ecba8b5a9 |
 | club-kid_timelapse_01.mp4 | motion_1x1 | illustration | Club Kid Timelapse 01 | false | 57 |  |  | mediaAsset-604ba202-c10e-44ac-aec0-93d93fa8deb3 |
+| Mockups/Instagram/instagram-mockup-1.png | static_9x16 | branding | Imperfect Records Instagram Mockup 1 | false |  | imperfect-records-mockups |  | mediaAsset-4784503b-0b6a-403e-8195-2151aeae803e |

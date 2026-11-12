@@ -68,3 +68,4 @@ project: cheetah-print
 | Flyers/Cheetah-Print-Flyer-Monochrome.jpg | static_9x16 | Cheetah Print Flyer Monochrome | Event / Tour Creative |  |  |  | mediaAsset-a6bf2e79-ec5f-4a86-8ef6-3507cf859cb9 |
 | Tulum 010527/Teaser 3x4.png | static_3x4 | Cheetah Print Tulum 010527 Teaser | Event / Tour Creative |  |  |  | mediaAsset-e31912d4-8ac2-4e7b-b7e5-6a104c44bee9 |
 | Tulum 010527/Venue Details 3x4.png | static_3x4 | Cheetah Print Tulum 010527 Venue Details | Event / Tour Creative |  |  |  | mediaAsset-12543720-dd35-405b-9859-f480cdf27389 |
+| Mockups/Instagram/instagram-mockup-1.png | static_9x16 | Cheetah Print Instagram Mockup 1 | Branding |  | cheetah-print-mockups |  | mediaAsset-9808ddcc-6935-42dd-b840-d828e07be19f |

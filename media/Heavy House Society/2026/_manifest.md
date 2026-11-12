@@ -24,6 +24,12 @@ project: heavy-house-society-branding-2026
 | pure-perfection_4x5.mp4 | motion_4x5 | Promo Video | pure perfection 4x5 |  |  | mediaAsset-heavy-house-society-pure-perfection-4x5 |
 | HHS047 SC Banner.png | static_16x9 | Branding | HHS047 SC Banner |  |  | mediaAsset-heavy-house-society-hhs047-sc-banner |
 | HHS059 Banner.png | static_other | Branding | HHS059 Banner |  | heavy-house-society-banners | mediaAsset-heavy-house-society-hhs059-banner |
+| HHS057 Banner.png | static_other | Branding, Release Packs | HHS057 Banner |  | heavy-house-society-banners | mediaAsset-85c49b91-5cbb-4394-97c9-830f9bc3a80d |
+| HHS060 Banner.png | static_other | Branding, Release Packs | HHS060 Banner |  | heavy-house-society-banners | mediaAsset-527e6811-492b-43c9-9b4a-eed21c4aec36 |
+| HHS061 Banner.png | static_other | Branding, Release Packs | HHS061 Banner |  | heavy-house-society-banners | mediaAsset-0d23f3f0-c522-4baf-9d2b-c229429dbd4e |
+| HHS062 Banner.png | static_other | Branding, Release Packs | HHS062 Banner |  | heavy-house-society-banners | mediaAsset-0672550c-3d71-4ee1-9188-485f7028f852 |
+| HHS063 Banner.png | static_other | Branding, Release Packs | HHS063 Banner |  | heavy-house-society-banners | mediaAsset-f5b881d3-896b-429b-9505-665175b6f9b4 |
+| HHS064 Banner.png | static_other | Branding, Release Packs | HHS064 Banner |  | heavy-house-society-banners | mediaAsset-dba174ad-b9c1-45ca-9e66-4c22e164b8ef |
 | Jump_4x5.mp4 | motion_4x5 | Promo Video | Jump 4x5 |  |  | mediaAsset-heavy-house-society-jump-4x5 |
 | Live Visuals 2026/Logo 01 - Graffiti Mirrored.mp4 | motion_16x9 | Logo Design | Logo Graffiti Mirrored |  |  | mediaAsset-heavy-house-society-logo-graffiti-mirrored |
 | Live Visuals 2026/Logo 02 - Halftone Stroke.mp4 | motion_16x9 | Logo Design | Logo Halftone Stroke |  |  | mediaAsset-heavy-house-society-logo-halftone-stroke |

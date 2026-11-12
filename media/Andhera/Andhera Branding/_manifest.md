@@ -75,3 +75,6 @@ project: andhera-records-andhera-branding
 | Women's Day Carousel/MS MADA.jpg | carousel-slide | MS MADA | false | 4:5 | 64 | womens-day-carousel |  | mediaAsset-andhera-records-ms-mada |
 | Women's Day Carousel/OLIVIA MANCUSO.jpg | carousel-slide | OLIVIA MANCUSO | false | 4:5 | 65 | womens-day-carousel |  | mediaAsset-andhera-records-olivia-mancuso |
 | Fun Run 031825/4x5.jpg | static_4x5 | Andhera Fun Run 031825 |  |  |  |  | Event / Tour Creative | mediaAsset-a3de0e82-1370-4fbe-916b-c78cf748ae47 |
+| Mockups/andhera-sc_mockup_2.jpg | static_other | Andhera SC Mockup 2 | false | 3:2 |  | andhera-records-mockups | Branding | mediaAsset-6e966cf0-6921-4122-95a0-97878e2b1bfb |
+| Mockups/andhera-sc_mockup_4.jpg | static_other | Andhera SC Mockup 4 | false | 3:2 |  | andhera-records-mockups | Branding | mediaAsset-396ca9e8-0084-450f-9865-dbf57e40a10f |
+| Mockups/Instagram/instagram-mockup-1.jpg | static_9x16 | Andhera Instagram Mockup 1 | false | 9:16 |  | andhera-records-mockups | Branding | mediaAsset-fc8b9896-a1b3-4fac-9237-fa3050f16758 |
