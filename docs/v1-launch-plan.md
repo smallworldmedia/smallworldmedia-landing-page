@@ -200,6 +200,11 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
   - The logo cleanup from SQ-13 (its `redundant-variants.json`): delete 3 twins and 3 colour
     duplicates, re-export 5 logos as clean transparents, and fix the `logo-design` tags. Then re-run
     `node scripts/prep-directory-logos.mjs` and commit `src/data`. SQ-13 itself has to fold first.
+  - Upload the white PNG logos SWM made, each tagged `logo-design` (Nathan, 11-12): MOONLGHT, Kamino
+    (current, pill and graffiti), Andhera, Hurry Up Slowly, Munchietown, Fletch, Imperfect Records,
+    Momentum Records, One Of Us, Louder Than Silence. Since 11-12, `logo-design` on Heavy House
+    Society and TOBEHONEST is only their white logo, and Hurry Up Slowly and MOONLGHT have none until
+    theirs land.
   - Last, and on its own: retire `project.services`. It is a hashed-schema edit, so it lands alone.
 - `npm run cms audit` on b60h4u7o/production before every deploy: 0 errors, and every
   label-ratio finding either fixed or recorded in `media/_audit-accepted.json`, with
