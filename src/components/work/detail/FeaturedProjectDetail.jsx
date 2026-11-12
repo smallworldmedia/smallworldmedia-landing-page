@@ -251,7 +251,15 @@ function goNextProject(e, next) {
   departing = true;
   window.dispatchEvent(
     // S2: the enter fill ingests the NEXT project's accent (blank → blue).
-    new CustomEvent('swm:envelop', { detail: { duration: NEXT_COVER_SECONDS, color: next.color } })
+    // navSync: the nav + tagged elements fade to it on the cover's own clock.
+    new CustomEvent('swm:envelop', {
+      detail: {
+        duration: NEXT_COVER_SECONDS,
+        color: next.color,
+        color2: next.colorSecondary,
+        navSync: true,
+      },
+    })
   );
   setTimeout(() => {
     departing = false;

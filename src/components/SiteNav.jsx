@@ -20,8 +20,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
+import { navigate } from 'astro:transitions/client';
 import { wipeIn, wipeOut } from '../lib/overlayWipe.js';
 import { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
+import { NAV_BLACK } from '../lib/navAccent.js';
 // The brand lockup, inlined (footer precedent) — one source of truth in
 // src/assets; native blue artwork, no recolor filter.
 import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
@@ -45,6 +47,16 @@ import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
    (HeroText's CHROME_SAFETY_MS idiom), so it can never preempt the
    choreography it backs up; a failed hero can never leave the nav hidden. */
 const CHROME_SAFETY_MS = 6000;
+
+// Lockup → home: how long the page background and the nav take to reach the
+// globe's black (?homefade, ms, read once at load like the other shell knobs;
+// PROPOSAL 400, the FP→detail cover is 600). Reduced motion cuts (0).
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+const HOME_FADE_S = PARAM('homefade', 400) / 1000;
 
 /** Minimal inline glyph icons (Figma uses Simple Design System icons) */
 function HeartIcon() {
@@ -114,6 +126,26 @@ export default function SiteNav({
   useEffect(() => {
     setShellEl(document.querySelector('.site-shell'));
   }, []);
+
+  // The lockup goes HOME: the page background and the nav leave the page's colour
+  // together and both land on the globe's black (RouteFill: a black cover and the
+  // nav's colour fade on one clock), and only then does the swap run, behind the
+  // solid cover, so neither lands half-way when home mounts (the cover holds
+  // until home releases it). A same-route tap and a new-tab click are plain links.
+  const handleHome = (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    // Only the accent-tinted routes (a project page, /work, the directory) wear a
+    // page colour to leave; home, /process and the legal pages keep their plain swap.
+    if (!document.documentElement.classList.contains('fp-tint')) return;
+    const cut = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const fadeS = cut ? 0 : HOME_FADE_S;
+    if (!(fadeS > 0)) return; // a cut: the plain link, RouteFill cuts nothing to wait for
+    e.preventDefault();
+    window.dispatchEvent(
+      new CustomEvent('swm:envelop', { detail: { duration: fadeS, color: NAV_BLACK, navSync: true } })
+    );
+    setTimeout(() => navigate('/'), fadeS * 1000 + 60);
+  };
 
   const handleStartProject = (e) => {
     if (onStartProject) {
@@ -324,7 +356,7 @@ export default function SiteNav({
   return (
     <nav className="site-nav" ref={navRef}>
       <div className="site-nav__brand">
-        <a href="/" className="site-nav__logo" aria-label="Small World Media home">
+        <a href="/" className="site-nav__logo" aria-label="Small World Media home" onClick={handleHome}>
           <span
             className="site-nav__lockup"
             aria-hidden="true"
@@ -414,7 +446,10 @@ export default function SiteNav({
                 href="/"
                 className="site-nav__logo"
                 aria-label="Small World Media home"
-                onClick={() => setMenuOpen(false)}
+                onClick={(e) => {
+                  setMenuOpen(false);
+                  handleHome(e);
+                }}
               >
                 <span
                   className="site-nav__lockup"

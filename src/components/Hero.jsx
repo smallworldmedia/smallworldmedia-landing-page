@@ -78,7 +78,16 @@ import {
   PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
 } from './globe/globeConfig.js';
 import { POP_TUNE_ACTIVE, TUNING as POP_TUNING } from './globe/popConfig.js';
-import { applyNavAccent, clearNavAccent } from '../lib/navAccent.js';
+import { applyNavAccent, clearNavAccent, holdNavAccent, NAV_BLACK } from '../lib/navAccent.js';
+
+/* Home → /work runs through the globe's BLACK (Nathan 11-12): the passage cover
+   goes from the world's colour to black to match the nav bar, the nav is HELD
+   black through the swap, and RouteFill lets the project colour go — nav + every
+   colour-tagged element on one frame — when the cover lifts off /work. */
+function coverToWork(detail) {
+  holdNavAccent();
+  window.dispatchEvent(new CustomEvent('swm:envelop', { detail: { ...detail, color: NAV_BLACK } }));
+}
 import { SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
 import { RELEASE_MS, TOUCH_GAIN } from '../lib/touchTune.js';
 import SiteFooter, {
@@ -720,8 +729,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
 
   // Population worlds (?popmode): the world on the globe tints the home
   // chrome — its projectColor rides the same <html> accent broadcast /work
-  // uses (navAccent), scoped by html.pop-tint (global.css), and colours the
-  // commit's passage (worldRef → swm:envelop). No world (off, or
+  // uses (navAccent), scoped by html.pop-tint (global.css); the commit's
+  // passage itself goes black (coverToWork) and hands the colour to /work. No world (off, or
   // ?popcolor=0) eases back to brand blue. On a route swap the swap has
   // already wiped <html> and RouteFill sets the next route's accent — only
   // an unmount that leaves the tint in place clears it.
@@ -797,9 +806,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
         return;
       }
       // The cover cuts in (10-06) — /work lets go once the entered card is up.
-      window.dispatchEvent(
-        new CustomEvent('swm:envelop', { detail: { duration: 0, color: worldRef.current?.color || undefined } })
-      );
+      coverToWork({ duration: 0 });
       handOffWorld();
       navigate('/work'); // /work initializes already inside
       return;
@@ -895,14 +902,10 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     const handoff = () => {
       unsub();
       commitKillRef.current = null;
-      window.dispatchEvent(
-        // loader: true — the home→/work passage shows the globe loader
-        // on the RouteFill while the World builds (08-25, the globe since
-        // SQ-32; the FP→detail passage opts in with loaderAfterCover).
-        new CustomEvent('swm:envelop', {
-          detail: { duration: HANDOFF_COVER_SECONDS, loader: true, color: worldRef.current?.color || undefined },
-        })
-      );
+      // loader: true — the home→/work passage shows the globe loader
+      // on the RouteFill while the World builds (08-25, the globe since
+      // SQ-32; the FP→detail passage opts in with loaderAfterCover).
+      coverToWork({ duration: HANDOFF_COVER_SECONDS, loader: true });
       // The blue fill froze the director at its first beat — the world here
       // is the one the commit swallowed.
       handOffWorld();
@@ -1037,9 +1040,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       // RM: plain navigation, no theatrics — but the cover CUTS in (RouteFill
       // sets it, no fade) so /work's server-rendered first World never shows
       // before the entered one; /work lets go once that card is up (10-06).
-      window.dispatchEvent(
-        new CustomEvent('swm:envelop', { detail: { duration: 0, color: entered?.color || undefined } })
-      );
+      coverToWork({ duration: 0 });
       handOffWorld(entered);
       navigate('/work');
       return;
@@ -1064,13 +1065,9 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     if (chrome?.length) {
       gsap.to(chrome, { autoAlpha: 0, duration: CHROME_OUT_SECONDS, ease: 'power2.out', overwrite: true });
     }
-    window.dispatchEvent(
-      // The fill wears the population world's accent when one holds the
-      // globe (?popmode) — otherwise brand blue: home IS blue.
-      new CustomEvent('swm:envelop', {
-        detail: { duration: coverS, color: entered?.color || undefined },
-      })
-    );
+    // The cover goes black (matching the nav bar); the world's colour comes
+    // back with /work's own accent when the cover lifts (coverToWork).
+    coverToWork({ duration: coverS });
     // The loader (home→/work; the FP→detail passage opens its own from
     // RouteFill) opens ?loaderlead ms AFTER the button is out, never under it. rAF-
     // deferred so RouteFill's tweens are not adopted by this island's context.
