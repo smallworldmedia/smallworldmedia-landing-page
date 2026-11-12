@@ -87,9 +87,11 @@ function installSampler() {
     const cta = q('.fp-card__cta') || q('.hero__enter');
     const link = q('.site-nav__link');
     const np = q('.np-band__cover');
-    // The band's commit promotes its media to a fixed box: that frame is the start of the
-    // commit timeline (before it the cover only follows the drag), so mark it once.
-    const npm = q('.np-band__media');
+    // The band's commit promotes its window to a fixed box: that frame is the start of the
+    // commit timeline (before it the cover only follows the drag), so mark it once. The
+    // window (.np-band__window, SQ-65) is what's promoted; an older build promoted
+    // .np-band__media. Without the mark the reference starts at the drag, not the commit.
+    const npm = q('.np-band__window') || q('.np-band__media');
     if (!S.npCommit && npm && getComputedStyle(npm).position === 'fixed') {
       S.npCommit = true;
       mark('np-commit');
