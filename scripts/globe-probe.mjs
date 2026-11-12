@@ -760,7 +760,11 @@ async function detailScenario(page) {
   }
   await sleep(hold);
   const seen = await page.evaluate((n) => {
-    const idOf = (v) => /image\.mux\.com\/([^/?]+)/.exec(v.poster || '')?.[1] ?? null;
+    // LOOP_WATCH's id: a detail slot's <video> carries no poster of its own since
+    // the poster-first face (its slot's poster <img> names it).
+    const muxIn = (url) => /image\.mux\.com\/([^/?]+)/.exec(url || '')?.[1];
+    const idOf = (v) =>
+      v.dataset.playbackId || muxIn(v.poster) || muxIn(v.closest('.media-slot')?.querySelector(':scope > img')?.getAttribute('src')) || null;
     return {
       route: location.pathname,
       steps: n,
@@ -769,9 +773,12 @@ async function detailScenario(page) {
   }, steps);
   if (!HOLD) return seen;
   // LOOP_WATCH's id (a pool slot's data-playback-id, else the Mux id in the
-  // poster), so heldWrap reads the same sessions.
+  // poster, else the one in its slot's poster <img>), so heldWrap reads the
+  // same sessions.
   const held = await page.evaluate((prefix) => {
-    const idOf = (v) => v.dataset.playbackId || /image\.mux\.com\/([^/?]+)/.exec(v.poster || '')?.[1] || null;
+    const muxIn = (url) => /image\.mux\.com\/([^/?]+)/.exec(url || '')?.[1];
+    const idOf = (v) =>
+      v.dataset.playbackId || muxIn(v.poster) || muxIn(v.closest('.media-slot')?.querySelector(':scope > img')?.getAttribute('src')) || null;
     const v = [...document.querySelectorAll('video')].find((x) => (idOf(x) || '').startsWith(prefix));
     if (!v) return { prefix, id: null };
     v.scrollIntoView({ block: 'center' });

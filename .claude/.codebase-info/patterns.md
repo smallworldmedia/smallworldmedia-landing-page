@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-08*
+*Last Updated: 2026-11-12*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -328,6 +328,23 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   Mux ends a clip on the first segment boundary at or after it, so players also wrap at the window
   (`timeupdate`, `wrapAt`) for a clip that ends later. The Project Directory's tiles take the 5 s preview
   clip, not the detail cap (MediaSlot `clip`), and `globe-probe --directory` gates it.
+- **`maxMaxBufferLength` is the cap, and a tile's face is its poster, never its player** (11-12,
+  measured on /work/andhera-records-andhera-branding). The clip bounds a stream's total, not its
+  pace: with only the floor set, every detail slot entering the band fetched its whole 15 s clip at
+  once (73 to 91 MB in one scroll), which starved the posters, the images and the hero, and a tile
+  stayed empty until its stream reached `canplay` because the poster sat on a `<video>` held at
+  opacity 0. `DETAIL_HLS_CONFIG` (`work/detail/GatedVideo.jsx`, shared by the detail slots, the
+  directory and the walls) now sets `maxBufferLength` and `maxMaxBufferLength` to 4, just under one
+  5 s segment: a slot fetches one segment to start and the next as it plays into them. Every video
+  tile shows a poster `<img>` with its `<video>` over it, and a detail slot attaches only after the
+  directory's dwell. `globe-probe --detail --hold=PREFIX` proves a paced stream still plays through
+  and wraps at its window.
+- **A browser never cancels an image whose element left the page** (11-12): after a fast scroll down
+  the directory every tile flown past was still downloading (0 of 282 to 490 image requests
+  cancelled; on an emulated phone link 10 to 17 MB still arriving after the stop), ahead of the
+  tiles on screen. A directory `MediaSlot` that unmounts strips `src` and `srcset` from its
+  unfinished images, which aborts them. Mounting is by chunk (32 to 64 tiles), so the tiles of the
+  chunks still in the window keep loading.
 - **A clip's start rounds DOWN to its segment, so a clipped stream's timeline is offset** (SQ-15,
   11-05, pixel-checked against Mux thumbnails): with `asset_start_time`, Mux starts the stream on the
   5 s segment at or before the requested start, so the player's `currentTime` 0 is that boundary
@@ -445,6 +462,14 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   each side's built preview, then `--compare` (exit 2 on any difference). Its negative control is
   `--query=tileshape=1.25`, which must fail on every page@width. A difference in a band's
   `text` / `paras` or a page's `blurbs` is Sanity content moving between the two builds, not code.
+  While the Studio's "Project Directory: shuffle the order" is on, record the directory with
+  `--query=tag=&dirorder=project`: a shuffled page draws a new order every load, so without it even
+  a build compared with itself differs on every width (measured 11-12: 0/3 without, 3/3 with).
+- "Does media hang while scrolling?" is measured with `scripts/media-load-probe.mjs`, before and
+  after, on production builds only (a dev build takes about 19 s to hydrate under the 4g throttle).
+  Run each case twice and keep the second, because the image CDNs transform on first hit. A phone
+  run scrolls by touch with `--query=blurbhold=0`. The throttle is Chrome's and does not model a
+  server's stream ordering, so a 4g wait is indicative.
 - Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
 - CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
 

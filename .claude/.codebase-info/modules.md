@@ -263,13 +263,19 @@ sr-only figcaption; a sequence,
 `useSequenceFrame`, one timer per slot landing on the same wall-clock beat; each frame is named by its
 own `alt`, an opaque one cover-fit, a transparent one contained on near-black; an image that loaded
 before hydration is flagged as its element attaches, since its onLoad never fires (every mode since
-`4499fc3`); every `<video>` wraps at `wrapAt(clip)`, except a chunk (11-05: `asset.chunk`), which
+`4499fc3`); 11-12: a video's face is its poster `<img>` on the detail page too, the `<video>` laid over
+it and faded in at `canplay` with no `poster` of its own, so a tile is never empty while its stream
+starts; a detail slot attaches HLS only after `DIRECTORY_DWELL_MS` inside its 400px observer band and
+goes back to the poster when it leaves; the hero (`eager`) loads its image or poster eagerly at high
+priority; every `<video>` wraps at `wrapAt(clip)`, except a chunk (11-05: `asset.chunk`), which
 streams its own range clipped at both ends, plays it whole (no `DETAIL_MAX_SECONDS`) through
 `windowLoop` with `loop` off and hls.js `startPosition` at `from`, takes its poster at its own start,
 and is labelled "(part n of 3)" with the `description` on part 1 only; directory mode (11-03, never chunked),
 through props the detail page never passes: `clip` (`PREVIEW_SECONDS`), `sizes` (a srcset on images,
 frames and posters), `gate` (a poster always, the `<video>` only while the player gate grants play,
 emptied before it unmounts) and `fit` (`data-fit="contain"` letterboxes banners and alpha logos);
+11-12: a directory slot that unmounts (its chunk left `DirectoryGrid`'s mount window) strips `src` and
+`srcset` from the images it is still fetching, which cancels them;
 a directory admat sequence (SQ-53, 11-10) may hold animated flyers: under the tile's one grant each holds the
 tile for `frameBeats` beats and plays in a `GatedVideo`, the next animated frame mounted a beat early with
 `hold` (paused on its first frame), so at most two players per tile; without the grant every frame is one
