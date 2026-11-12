@@ -31,9 +31,11 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   mediaAsset `splitIntoThirds` (11-05) is allowlisted as a boolean, refused on a non-video document;
   its schema landed alone with the hash `8165cbfe` (`d47079e`).
   mediaAsset `groupType` (11-10) is allowlisted as `GROUP_TYPES` (album-art, deck, banner, admat,
-  carousel, and since 11-11 merch, visuals, live-footage); `validateDocument` requires `displayGroup`
-  for every type but album-art. It landed alone with the hash `70b35be3` (`1d181ae`); the three new
-  types landed alone with the hash `94b8dbe6` (`b73fd3b`).
+  carousel, and since 11-11 merch, visuals, live-footage, mockups, flyer-progression); `validateDocument`
+  requires `displayGroup` for every type but album-art. It landed alone with the hash `70b35be3`
+  (`1d181ae`); merch/visuals/live-footage with `94b8dbe6` (`b73fd3b`); mockups/flyer-progression with
+  `eb3c783a` (`893361b`), then `fc3c0040` (`54fac5d`, the description's apostrophe had closed its
+  single-quoted string and broken `astro build`: esbuild every schema file before committing).
   Deletes: `DELETE_TYPES` (mediaAsset, mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
