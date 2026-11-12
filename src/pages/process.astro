@@ -19,8 +19,10 @@ import { GLOBE_ASSETS_QUERY, PROJECT_COLORS_QUERY } from '../lib/queries.js';
 import buildAssetPool from '../components/globe/buildAssetPool.js';
 import { colorPool } from '../lib/projectColor.js';
 
-// 08-29: launch gate REMOVED (redirect here + netlify.toml 302 + sitemap
-// exclude — the planned 3-file un-gate). /process is live.
+// v1 launch (11-12): /process disabled again — remove this redirect (and the
+// matching forced 302 in netlify.toml, the SITEMAP_EXCLUDE entry and the
+// robots Disallow) to bring it back. The nav and footer links are gone too.
+return Astro.redirect('/');
 
 // The finalized homepage globe now stands in for PROCESS's "O" (B9) — same
 // Sanity asset pool the home hero uses.

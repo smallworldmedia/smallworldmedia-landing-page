@@ -200,8 +200,8 @@ export default function SiteNav({
   // Derived from window.location on hydrate and on every astro:after-swap
   // (the island never remounts). Href-keyed by construction: start_project
   // is an interception (never current) and follow_us is external (never
-  // current) — only featured_projects (/work and its detail pages),
-  // project_directory (/work/directory) and process (/process) can
+  // current) — only featured_projects (/work and its detail pages)
+  // and project_directory (/work/directory) can
   // match. The attributes survive the route-swap hygiene
   // wipe (killTweensOf + clearProps strips inline STYLES only, never
   // attributes). UNCONDITIONAL: aria-current is a strict a11y win and
@@ -217,10 +217,9 @@ export default function SiteNav({
       const inDirectory = path === '/work/directory';
       const isCurrent = (href) =>
         (href === '/work' && (path === '/work' || (path.startsWith('/work/') && !inDirectory))) ||
-        (href === '/work/directory' && inDirectory) ||
-        (href === '/process' && path === '/process');
+        (href === '/work/directory' && inDirectory);
       [linksRef.current, menuRef.current].filter(Boolean).forEach((root) => {
-        root.querySelectorAll('a[href="/work"], a[href="/work/directory"], a[href="/process"]').forEach((el) => {
+        root.querySelectorAll('a[href="/work"], a[href="/work/directory"]').forEach((el) => {
           if (isCurrent(el.getAttribute('href'))) {
             el.setAttribute('data-current', 'true');
             el.setAttribute('aria-current', 'page');
@@ -366,10 +365,6 @@ export default function SiteNav({
             <FolderIcon />
             <span className="site-nav__label">project_directory</span>
           </a>
-          <a href="/process" className="site-nav__link">
-            <span className="site-nav__glyph">⊙</span>
-            <span className="site-nav__label">process</span>
-          </a>
           <a
             href="https://instagram.com/smallworldmedia"
             className="site-nav__link"
@@ -443,10 +438,6 @@ export default function SiteNav({
               <a href="/work/directory" className="mobile-menu__item">
                 <FolderIcon />
                 <span className="site-nav__label">project_directory</span>
-              </a>
-              <a href="/process" className="mobile-menu__item">
-                <span className="site-nav__glyph">⊙</span>
-                <span className="site-nav__label">process</span>
               </a>
               <a
                 href="https://instagram.com/smallworldmedia"

@@ -1163,10 +1163,6 @@ export default function SiteFooter({
               <span className="site-footer__glyph">⁕</span>
               <span className="site-footer__label">featured_projects</span>
             </a>
-            <a href="/process" className="site-footer__link">
-              <span className="site-footer__glyph">⊙</span>
-              <span className="site-footer__label">process</span>
-            </a>
             <a
               href="https://instagram.com/smallworldmedia"
               className="site-footer__link"
