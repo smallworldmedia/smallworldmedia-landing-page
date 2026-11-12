@@ -16,9 +16,13 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
 
 ## Modules (`scripts/lib/cms/`)
 - `manifest.mjs` — `parseManifest()` (headers client/services/year/project; columns file, mediaType,
-  serviceType, title, isHero, sortOrder, aspectRatio, contentRole, displayGroup, brandDeckOrder,
-  sanityId; Mode 1 header services vs Mode 2 per-row) and `inspectFile()` (path/symlink guard,
-  sha256, dimensions). displayGroup convention: a group ending `-banner(s)` (e.g.
+  serviceType, title, isHero, sortOrder, aspectRatio, contentRole, displayGroup, groupType,
+  brandDeckOrder, sanityId; Mode 1 header services vs Mode 2 per-row) and `inspectFile()`
+  (path/symlink guard, sha256, dimensions). `groupType` (b54bf9f, 11-11) must be one of
+  `GROUP_TYPES` and, like every column, is written only when the row is created (`runner.mjs`
+  create path); on a bound row the audit's `manifest-drift` compares it, but a plan never replays
+  it. A set type other than album-art without a `displayGroup` is refused at plan time
+  (`validateDocument`). displayGroup convention: a group ending `-banner(s)` (e.g.
   `soundcloud-banners`, mediaType static_other) renders in the detail page's BannerViewer; a group
   ending `-sequence` (e.g. `imperfect-records-wide-logo-sequence`) makes its stills one tile that
   cuts through them on the site's one clock (`src/lib/mediaSequence.js`)
@@ -76,8 +80,8 @@ Env (process env only, never `.env` loading): `SANITY_READ_TOKEN`, `SANITY_WRITE
 ## Intake
 `media/<Client>/<Collection>/_manifest.md` is the unit of scope: one per Sanity grouping
 (`sourceFolder` + `sourceManifest`), one row per mediaAsset; unbound rows are pending intake. Scaffold with
-`scripts/generate-manifests.mjs "Client" [--dry-run]` (TBD-filled, never uploads, never overwrites
-bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
+`scripts/generate-manifests.mjs "Client" [--dry-run]` (TBD-filled, with an empty `groupType`
+column after `displayGroup`; never uploads, never overwrites bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
 
 ## Tests — `npm run test:cms`
 `scripts/test/cms/{runner,adapters,safety,delete,audit}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
