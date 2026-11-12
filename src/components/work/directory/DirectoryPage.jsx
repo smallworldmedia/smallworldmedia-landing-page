@@ -8,7 +8,9 @@
  * (unknown slugs dropped, tags the client would empty pruned, the URL
  * rewritten when anything changed) and written with replaceState, which keeps
  * Astro's history state (a null state breaks its Back). Tags OR together, and
- * no tag means every tag. A URL with neither key starts on the default
+ * no tag means every tag. motion/video is a parent tag (serviceGroups.js): its
+ * children show only while it is ticked, it alone is the union of them, and a
+ * ticked child narrows it (?tag=promo-video opens the parent too). A URL with neither key starts on the default
  * filter, album-art (defaultFilter, Nathan 11-05): the server renders it too,
  * so a bare load is open and ticked from the first paint, and the default
  * state keeps the URL bare. An explicit URL wins (?client=x shows every tag),
@@ -57,6 +59,7 @@ import {
   tagPresence,
 } from './buildDirectoryTiles.js';
 import { SSR_TUNE, readTune, tuneDefaults } from './directoryTune.js';
+import { effectiveTags, toggleTag, withGroups } from './serviceGroups.js';
 
 /* Sent by the drawer's client names (InfoPanel). A literal, not an import
    from here: the shell would pull this page's modules onto every route. */
@@ -171,7 +174,7 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
   const onToggle = useCallback(
     (slug) => {
       const { tags: on, client } = filterRef.current;
-      apply(on.includes(slug) ? on.filter((s) => s !== slug) : [...on, slug], client);
+      apply(toggleTag(on, slug), client);
     },
     [apply]
   );
@@ -245,8 +248,11 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
   const ordered = useMemo(() => orderTiles(tiles, tune.order, seed), [tiles, tune.order, seed]);
   const shown = useMemo(() => {
     const on = new Set(filter.tags);
-    return logoFirst(ordered.filter((t) => matchesFilter(t, { tags: on, coverage })), on);
+    const match = effectiveTags(filter.tags);
+    return logoFirst(ordered.filter((t) => matchesFilter(t, { tags: match, coverage })), on);
   }, [ordered, filter.tags, coverage]);
+  // The filter's tags: motion/video as a parent, its children behind it.
+  const filterTags = useMemo(() => withGroups(tags), [tags]);
   const logoDials = useMemo(
     () => ({ pad: tune.logoPad, weight: tune.logoWeight, land: tune.logoLand, center: tune.logoCenter }),
     [tune.logoPad, tune.logoWeight, tune.logoLand, tune.logoCenter]
@@ -263,7 +269,7 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
       <h1 className="sr-only">Project Directory</h1>
       <div className="dir-page__seat" ref={seatRef} aria-hidden="true" />
       <DirectoryFilter
-        tags={tags}
+        tags={filterTags}
         presence={presence}
         picked={filter.tags}
         client={clientEntry ? { slug: clientEntry.slug, name: clientEntry.name } : null}
