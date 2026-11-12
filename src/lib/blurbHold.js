@@ -23,6 +23,22 @@
  *           there is no velocity step, and never passes the seat. A page that
  *           comes to rest short of a seat, with a section covering half the
  *           viewport, is eased onto it from rest.
+ *   STOP    a seated page is a stop, not a hold (SQ-68, Nathan 11-12: "toggle
+ *           off the scroll tension when scrolling out of a text blurb area.
+ *           Keep it on for as you scroll into a text area, for both scrolling
+ *           down and up"). The tension is the ARRIVE catch, in both
+ *           directions: down into a blurb from the media above it, up into
+ *           one from the media below. Out of one there is none: the next
+ *           gesture, either way, is the browser's own scroll, 1:1 from the
+ *           finger's first move and with its own momentum, the way the
+ *           document's end already lands. No touch-action, no touchmove, no
+ *           rubber band, no dead zone.
+ *   BOTH    the same in both directions: the seat ahead is the next one in the
+ *           direction of travel, so the section just left is not caught again
+ *           until the direction reverses.
+ *
+ * ?blurbexit=1 brings back the old way out, for a device compare:
+ *
  *   HOLD    a seated page does not scroll. The gesture is the house rubber
  *           band (lib/rubberBand.js, the next-project band's own step): the
  *           section's copy tracks the finger on DRAG_TRACK_S, the finger's
@@ -36,16 +52,14 @@
  *           target, no duration. The copy, which sits offset by the band at
  *           the commit, eases home while the page carries; neither it nor the
  *           media jumps.
- *   BOTH    the same in both directions: the seat ahead is the next one in the
- *           direction of travel, so the section just left is not caught again
- *           until the direction reverses.
  *
  * It rides the page's native scroll (no second engine): Lenis leaves touch
- * alone, so the seat only claims the gesture, `touch-action: pinch-zoom` while
- * seated, plus a non-passive touchmove that exists only while seated or
- * carrying a committed gesture, so ordinary scrolling never waits on the main
- * thread. A finger down is never taken mid-drag, and a new touch takes the
- * page back from a slowdown or from momentum; the lift decides.
+ * alone. Only with ?blurbexit=1 does a seat claim the gesture, with
+ * `touch-action: pinch-zoom` while seated plus a non-passive touchmove that
+ * exists only while seated or carrying a committed gesture; by default
+ * ordinary scrolling never waits on the main thread. A finger down is never
+ * taken mid-drag, and a new touch takes the page back from a slowdown or from
+ * momentum; the lift decides.
  *
  * A section taller than its seat window (holdable()) is seated at its top and
  * read with native scroll, not held.
@@ -152,6 +166,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   const omega = catchOmega(tune.catchLerp ?? LENIS_TUNING.lerp);
   const decay = tune.decel ?? MOMENTUM_DECAY;
   const endOn = tune.end; // the document's end is an arrival target
+  const exitHold = tune.exit; // ?blurbexit=1: the old way out (HOLD, PASS); by default a seat is a stop
   const travel = trigger / TOUCH_GAIN; // the copy follows the finger 1:1; a full pull is the trigger's worth of finger
 
   let seated = null; // { el, y } — the section holding the page
@@ -335,7 +350,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   // The non-passive touchmove lives only while it has work: a seat to hold,
   // or a committed gesture the finger still carries.
   const syncMove = () => {
-    const want = Boolean(seated) || Boolean(carry);
+    const want = (exitHold && Boolean(seated)) || Boolean(carry);
     if (want && !moveOn) window.addEventListener('touchmove', onTouchMove, { passive: false });
     else if (!want && moveOn) window.removeEventListener('touchmove', onTouchMove);
     moveOn = want;
@@ -361,7 +376,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
   function enter(el, y) {
     seated = { el, y };
     animEl = el;
-    html.style.touchAction = 'pinch-zoom'; // the page itself does not pan while it holds
+    if (exitHold) html.style.touchAction = 'pinch-zoom'; // the page itself does not pan while it holds
     el.dataset.blurbSeated = '';
     syncMove();
     arm(el);
@@ -373,7 +388,7 @@ export function attachBlurbHold(root, { selector = '.project-blurb' } = {}) {
     seated = null;
     finger = null;
     html.style.touchAction = '';
-    if (springHome) band.release(); // the copy comes home
+    if (springHome && exitHold) band.release(); // the copy comes home (a stop never pulled it anywhere)
     syncMove();
   }
 

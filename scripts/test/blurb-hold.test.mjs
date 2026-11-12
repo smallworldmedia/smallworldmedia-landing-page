@@ -60,6 +60,7 @@ import { SCROLL_TRIGGER_WORK_PX, TOUCH_GAIN, LENIS_TUNING } from '../../src/lib/
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const css = fs.readFileSync(`${root}src/styles/project-detail.css`, 'utf8')
+const blurbHoldSrc = fs.readFileSync(`${root}src/lib/blurbHold.js`, 'utf8')
 const omega = catchOmega(LENIS_TUNING.lerp)
 const FRAME = 1000 / 60
 
@@ -388,7 +389,7 @@ test('the release velocity is an average that follows the finger', () => {
 /* — the dials — */
 
 test('the dials default to the hold on and the house numbers', () => {
-  assert.deepEqual(readBlurbTune(''), { hold: true, end: true, grow: true, peek: null, air: null, text: null, catchLerp: null, decel: null, trigger: null })
+  assert.deepEqual(readBlurbTune(''), { hold: true, end: true, exit: false, grow: true, peek: null, air: null, text: null, catchLerp: null, decel: null, trigger: null })
 })
 
 test('?blurbgrow=0 turns the growth off and nothing else does', () => {
@@ -423,6 +424,34 @@ test('?blurbend=0 turns the page-end slowdown off and nothing else does', () => 
   assert.equal(readBlurbTune('?blurbend=1').end, true)
   assert.equal(readBlurbTune('?blurbend=junk').end, true)
   assert.equal(readBlurbTune('?blurbhold=0').end, true)
+})
+
+test('?blurbexit=1 brings back the hold on the way out, and nothing else does (SQ-68)', () => {
+  assert.equal(readBlurbTune('').exit, false) // the default: a seat is a stop
+  assert.equal(readBlurbTune('?blurbexit=0').exit, false)
+  assert.equal(readBlurbTune('?blurbexit=junk').exit, false)
+  assert.equal(readBlurbTune('?blurbexit=1').exit, true)
+  assert.equal(readBlurbTune('?blurbhold=0').exit, false)
+  assert.equal(readBlurbTune('?blurbhold=1&blurbend=0').exit, false)
+})
+
+test('a seat is a stop: the arrival catch stays both ways, the hold and pass on the way out are behind ?blurbexit (SQ-68)', () => {
+  // INTO a blurb, down and up: the next seat in the direction of travel is the one ahead, so both arrivals are caught.
+  const seats = [1000, 2600]
+  assert.equal(nextSeat(seats, 400, 1), 0) // down into the first blurb from the media above it
+  assert.equal(nextSeat(seats, 1800, -1), 0) // up into it from the media below it
+  assert.equal(nextSeat(seats, 2200, -1), 0)
+  assert.ok(shouldCatch(300, 3, catchOmega(0.165), 16.7)) // 3 px/ms is taken 300 px out
+  assert.ok(!shouldCatch(600, 3, catchOmega(0.165), 16.7)) // too far out to take yet
+  // OUT of one, down and up: the section just left is behind in its direction, so it is never caught again on the way out.
+  assert.equal(nextSeat(seats, 1000 + 40, 1), 1)
+  assert.equal(nextSeat(seats, 1000 - 40, -1), -1)
+  // the gesture on a seat is claimed only with the dial: touch-action, the non-passive touchmove
+  assert.match(blurbHoldSrc, /const exitHold = tune\.exit;/)
+  assert.match(blurbHoldSrc, /if \(exitHold\) html\.style\.touchAction = 'pinch-zoom'/)
+  assert.match(blurbHoldSrc, /const want = \(exitHold && Boolean\(seated\)\) \|\| Boolean\(carry\);/)
+  assert.match(blurbHoldSrc, /if \(springHome && exitHold\) band\.release\(\);/) // a stop never pulled the copy anywhere
+  assert.equal((blurbHoldSrc.match(/touchAction = 'pinch-zoom'/g) || []).length, 1) // the only place a seat takes the page's pan
 })
 
 test('?blurbhold=0 turns the hold off and nothing else does', () => {
