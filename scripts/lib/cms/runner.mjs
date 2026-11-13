@@ -314,6 +314,7 @@ function diffLines(d) {
 function deleteSummary(op) {
   const b = op.before, created = Number.isFinite(+b.created_at) ? `, created ${new Date(+b.created_at * 1000).toISOString().slice(0,10)}` : ''
   if (op.type === 'mediaAsset') return `${JSON.stringify(b.title)} ${b.mediaType}${b.project?._ref ? ` in ${b.project._ref}` : ''}`
+  if (op.type === 'client') return `${JSON.stringify(b.name)}${b.clientType ? ` (${b.clientType})` : ''}`
   if (op.type === 'mux.videoAsset') return `${b.filename ? `${JSON.stringify(b.filename)}, ` : ''}asset ${b.assetId}, ${b.status}${op.mux ? `\n  + Mux asset ${op.mux.id} (${op.mux.status}), deleted permanently` : '\n  Mux asset kept'}`
   if (op.type === 'sanity.imageAsset') return `${b.originalFilename ? `${JSON.stringify(b.originalFilename)} ` : ''}${b.metadata?.dimensions?.width}x${b.metadata?.dimensions?.height}, ${b.size} bytes; file removed`
   return `Mux asset ${b.status}${created}; no Sanity document; deleted permanently`

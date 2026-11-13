@@ -116,6 +116,19 @@ test('an unreferenced image asset deletes; a still-used one is blocked; the hero
   assert.ok(hero.informational.some(n => /hero\) asset changes mediaAsset-keep -> mediaAsset-dupe/.test(n)))
 })
 
+test('an unreferenced client deletes; a client a project, piece or affiliation still names is blocked', async t => {
+  const unused = { _id: 'client-unused', _type: 'client', _rev: 'r-unused', name: 'Unused', slug: { _type: 'slug', current: 'unused' }, clientType: 'promoter-event' }
+  const named = { _id: 'client-named', _type: 'client', _rev: 'r-named', name: 'Named', slug: { _type: 'slug', current: 'named' } }
+  const child = { _id: 'client-child', _type: 'client', _rev: 'r-child', name: 'Child', slug: { _type: 'slug', current: 'child' }, affiliations: [{ _key: 'a', entity: reference('client-named'), relationship: 'label-of' }] }
+  const h = await sosaHarness(t, [unused, named, child])
+  await assert.rejects(h.plan({ changes: await h.changes({ deletes: [{ id: 'client-example', type: 'client' }] }) }), /blocked by (project-example|mediaAsset-)/)
+  await assert.rejects(h.plan({ changes: await h.changes({ deletes: [{ id: 'client-named', type: 'client' }] }) }), /blocked by client-child/)
+  const p = await h.plan({ changes: await h.changes({ deletes: [{ id: 'client-unused', type: 'client' }] }) })
+  assert.match(preview(p), /DELETE client client-unused: "Unused" \(promoter-event\)/)
+  assert.equal((await h.apply(p)).deleted, 1); assert.ok(!h.db.has('client-unused') && h.db.has('client-named'))
+  assert.equal((await verifyRun({ plan: p, journal: await h.store.journal(p.id), sanity: h.sanity, mux: h.mux })).failed, 0)
+})
+
 test('saved delete plans cannot be tampered into field writes, early deletes or kept-and-deleted targets', async t => {
   const h = await sosaHarness(t)
   const p = await h.plan({ changes: await h.changes({ patches: [swapPick], deletes: dropDupe }) })

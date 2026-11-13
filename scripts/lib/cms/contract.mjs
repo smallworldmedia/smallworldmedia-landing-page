@@ -9,8 +9,8 @@ export const VERSION = 1
 export const SUPPORTED_SCHEMA_HASH = 'b346ff27165b29f7f13644d43f686cbd33a26b3f383e2c7bf075a4a2ccca15f9'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
-// Explicit deletes only: a mediaAsset, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
-export const DELETE_TYPES = ['mediaAsset', 'mux.videoAsset', 'sanity.imageAsset', 'mux.asset']
+// Explicit deletes only: a mediaAsset, a client nothing references, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
+export const DELETE_TYPES = ['mediaAsset', 'client', 'mux.videoAsset', 'sanity.imageAsset', 'mux.asset']
 export const IRREVERSIBLE = 'Deletes are irreversible here: this runner never restores. An image delete removes the file; a Mux asset delete is permanent; a deleted document may be restorable from Sanity history only within the plan retention window.'
 export const validMuxId = id => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(id)
 export const MEDIA_TYPES = ['album-art', 'logo', 'featured-project-reel', 'brand-deck', 'carousel-slide', ...['1x1','3x4','4x5','9x16','16x9','other'].map(x => `static_${x}`), ...['1x1','3x4','4x3','4x5','9x16','16x9','other'].map(x => `motion_${x}`)]
