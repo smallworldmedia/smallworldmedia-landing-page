@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-11*
+*Last Updated: 2026-11-13*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -40,7 +40,10 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   (`1d181ae`); merch/visuals/live-footage with `94b8dbe6` (`b73fd3b`); mockups/flyer-progression with
   `eb3c783a` (`893361b`), then `fc3c0040` (`54fac5d`, the description's apostrophe had closed its
   single-quoted string and broken `astro build`: esbuild every schema file before committing).
-  Deletes: `DELETE_TYPES` (mediaAsset, mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
+  mediaAsset `collaborators` (SQ-76, 11-13) is a keyed array of client references: a duplicate ref is
+  refused, and `references()` types each one as a client, so a ref to any other document type fails;
+  it landed with the hash `b346ff27` (`8e99697`, `2cb87e1`).
+  Deletes: `DELETE_TYPES` (mediaAsset, client since 11-13 (`2c73a76`), mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
   header naming more than one service is refused unless the row sets its own `serviceType`
@@ -56,9 +59,15 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   patches and earlier deletes apply — checked at plan time and again just before the write; each
   Sanity delete is a revision-guarded no-op patch + delete in one transaction; `muxAsset: true` also
   deletes the Mux asset after rechecking no other doc describes it; `mux.asset` deletes a Mux asset no
-  doc describes. Journal stages make it resumable; nothing is ever restored.
+  doc describes. A `client` delete is blocked while a project, a piece (its `client` or
+  `collaborators`) or another client's affiliation still names it; its preview line names the client
+  and its `clientType`. Journal stages make it resumable; nothing is ever restored.
+  A manifest service may name a tag by its current Studio name or by its slug's words (11-13,
+  `419bdb5`: 2D Motion keeps the slug `2d-animation`); both resolve to one reference, and a
+  misspelling is still refused.
 - `adapters.mjs` — Sanity + Mux clients (lazy credentials, streaming uploads, Mux direct upload with
-  passthrough = op id; `preparing` resumes; audit reads `sanity.snapshot()` — paged raw perspective, secrets excluded — and `mux.listAssets()`), sharp/ffprobe probes (rejects non-square SAR). Delete
+  passthrough = op id; `preparing` resumes; audit reads `sanity.snapshot()` — paged raw perspective, secrets excluded — and `mux.listAssets()`), sharp/ffprobe probes (rejects non-square SAR). `sanity.findTags(slugs, names)` also
+  matches `lower(name)` (a renamed tag). Delete
   support: `sanity.findDeleteBlockers()` / `findMuxDocuments()`, `mux.findAsset()` (404 → null) /
   `deleteAsset()` (404 → absent); `commit` accepts a `{delete}` only right after a revision-guarded
   patch of the same id.
