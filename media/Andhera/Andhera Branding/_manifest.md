@@ -58,7 +58,7 @@ project: andhera-records-andhera-branding
 | Artwork/Ky-William---Divine.jpg | album-art | Ky William — Divine | false | 1:1 | 53 |  |  | mediaAsset-andhera-records-ky-william-divine |
 | Artwork/Mellizos---Bite-This.jpg | album-art | Mellizos — Bite This | false | 1:1 | 54 |  |  | mediaAsset-andhera-records-mellizos-bite-this |
 | Artwork/Monty-Kiddo---Maestro.jpg | album-art | Monty Kiddo — Maestro | false | 1:1 | 55 |  |  | mediaAsset-andhera-records-monty-kiddo-maestro |
-| Artwork/andhera_eyes-on_template.jpg | static_1x1 | Andhera Eyes On Template | false | 1:1 | 56 |  |  | mediaAsset-andhera-records-andhera-eyes-on-template |
+| Artwork/andhera_eyes-on_template.jpg | album-art | Andhera Eyes On Template | false | 1:1 | 56 |  |  | mediaAsset-andhera-records-andhera-eyes-on-template |
 | Women's Day Carousel/ABBY.jpg | carousel-slide | ABBY | false | 4:5 | 57 | womens-day-carousel |  | mediaAsset-andhera-records-abby |
 | Women's Day Carousel/DESTA TOMAIN.jpg | carousel-slide | DESTA TOMAIN | false | 4:5 | 58 | womens-day-carousel |  | mediaAsset-andhera-records-desta-tomain |
 | Women's Day Carousel/GAB SIO.jpg | carousel-slide | GAB SIO | false | 4:5 | 59 | womens-day-carousel |  | mediaAsset-andhera-records-gab-sio |
