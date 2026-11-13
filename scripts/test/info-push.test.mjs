@@ -188,6 +188,8 @@ test('an empty, blank, missing or failed infoBlurb leaves the panel on today\'s 
   for (const reply of [{ infoBlurb: '' }, { infoBlurb: '  \n ' }, {}, null, new Error('offline')]) {
     const { copy, fallback } = await copyFor(reply)
     assert.equal(copy.infoBlurb, fallback.infoBlurb)
+    // Not vacuous: the fallback itself must be real copy, or undefined === undefined passes.
+    assert.ok(typeof copy.infoBlurb === 'string' && copy.infoBlurb.length > 0)
   }
 })
 
