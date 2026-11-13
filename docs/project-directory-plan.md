@@ -690,8 +690,9 @@ island.
     in the plain `node --env-file=.env.local scripts/cms.mjs …` form.
   - Or he edits them in Studio himself.
 - **Per-piece collaborators (SQ-76, 11-13):** a name can also be live through one piece instead of a
-  whole client. `mediaAsset.collaborators` (references to `client`, after `client`) credits an artist on
-  a piece that is not theirs (a feature or co-artist). A tile counts for a name when its client or any
+  whole client. `mediaAsset.collaborators` (references to `client`, after `client`) credits another client
+  on a piece that is not theirs (a featured or co-billed artist, or a co-presenting promoter or label,
+  e.g. Circus Music on Rossi's Dusk Till Dawn). A tile counts for a name when its client or any
   collaborator is in that name's coverage (`tileInCoverage`, `src/lib/clientCoverage.js`), so the
   roster, the `?client=` filter and its tag counts agree. The piece stays the host client's, and the
   hop stays one: the collaborator's coverage never pulls in the host's other work. A label's release

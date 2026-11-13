@@ -289,7 +289,7 @@ export const SITE_COPY_QUERY = `
  *             Coverage (src/lib/clientCoverage.js);
  *   worlds  — FEATURED_PROJECT_PATHS_QUERY: the World order and the routes;
  *   assets  — every published asset with media, as MEDIA_FIELDS plus its
- *             rank, client, collaborators (the credited artists' client
+ *             rank, client, collaborators (the other credited clients'
  *             slugs; null while unset), project and project rank
  *             (buildDirectoryTiles),
  *             and a video's length, which sets how long an admat set's

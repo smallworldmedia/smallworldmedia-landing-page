@@ -8,8 +8,9 @@
  * label's catalogue. Munchietown names DJ Tennis (label-of), so DJ Tennis
  * covers Munchietown's media; Munchietown covers only its own.
  *
- * A piece also counts for the artists credited on it (mediaAsset.collaborators:
- * a feature or a co-artist, who is not the piece's client): a tile counts for a
+ * A piece also counts for the other clients credited on it
+ * (mediaAsset.collaborators: a featured or co-billed artist, or a
+ * co-presenting promoter or label, who is not the piece's client): a tile counts for a
  * name when its client OR any collaborator is in that name's coverage
  * (tileInCoverage). The piece stays its client's own, and the hop stays one: a
  * collaborator's coverage never pulls in the host client's other work.

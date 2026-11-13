@@ -27,7 +27,7 @@
  *     (orderTiles deals them as one unit; Nathan 11-13).
  *
  * A tile is the slim face MediaSlot reads, plus `client` (slug), `collaborators`
- * (the credited artists' client slugs, a group's union; [] when none, and the
+ * (the other credited clients' slugs, a group's union; [] when none, and the
  * client filter counts them: clientCoverage.js tileInCoverage), `services`
  * (tag slugs, a group's union), `href` + `label` when its project has a
  * detail page, and `fit`. A logo's tile carries `logo` instead of showing
