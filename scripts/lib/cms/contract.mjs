@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = '5a256e81c26ab530377a31c43de20d5b6e3af365c9b02bdbc5047a9f1f425afe'
+export const SUPPORTED_SCHEMA_HASH = 'b346ff27165b29f7f13644d43f686cbd33a26b3f383e2c7bf075a4a2ccca15f9'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -71,7 +71,7 @@ export function validateField(field, v) {
   if (field === 'clientType') return enumValue(v, ['artist','label','management','promoter-event'], field)
   if (field === 'orderRank') { invariant(validRank(v), 'Invalid orderRank'); return }
   if (['client','project'].includes(field)) return reference(v)
-  // Credited artists on a piece (a feature or co-artist): published client refs, no repeats.
+  // Other clients credited on a piece (a feature, co-artist, co-presenting promoter or label): published client refs, no repeats.
   if (field === 'collaborators') { array(v, field); for (const r of v) reference(r, true); invariant(new Set(v.map(r => r._ref)).size === v.length, 'Duplicate collaborator reference'); return }
   if (field === 'services') { array(v, field); for (const r of v) reference(r, true); invariant(new Set(v.map(r => r._ref)).size === v.length, 'Duplicate service reference'); return }
   // Globe picks are ordered; a repeated pick is an editorial call, so only keys must be unique.

@@ -146,7 +146,7 @@ export const mediaAsset = defineType({
         }),
       ],
       description:
-        "Credited artists on this piece who are not its client (a feature or a co-artist). Their Client Roster name filters the Project Directory to this piece; the piece stays the client's own. Never add a label's release artists.",
+        "Other clients credited on this piece who are not its client: a featured or co-billed artist, or a co-presenting promoter or label. Their Client Roster name filters the Project Directory to this piece. A label's release artists are never added.",
       validation: (r) => r.unique(),
     }),
     defineField({
