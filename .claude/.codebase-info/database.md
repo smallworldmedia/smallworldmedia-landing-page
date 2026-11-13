@@ -1,6 +1,6 @@
 # Data Model (Sanity)
 
-*Last Updated: 2026-11-11*
+*Last Updated: 2026-11-12*
 
 Sanity project `b60h4u7o`, dataset `production`. Schema in `src/schemas/*.ts`, registered by
 `src/schemas/index.ts`; Studio structure in `sanity.config.ts`. `CONTEXT.md` is the glossary for the
@@ -32,7 +32,9 @@ there until the Studio is redeployed; a local Studio picks it up from the repo.
 Conventions: `isHero` is retired; the first asset by `orderRank` is the hero. Drafts are excluded
 from every site query. Ordering uses LexoRank via `@sanity/orderable-document-list` (Studio lists:
 "Featured Projects (drag to order)" and per-project "Featured Project Assets", which exclude
-brand-deck/carousel-slide/album-art and any `contentRole`).
+brand-deck/carousel-slide and any `contentRole`; album art is listed since 11-12, because the hero
+is `assets[0]` by `orderRank` across all of a project's media, so a cover on a low legacy rank
+takes the hero and has to be draggable).
 
 Client Coverage (11-03, `src/lib/clientCoverage.js`) reads `client.affiliations[].entity` one hop: a
 name covers its own media plus that of every client naming it as entity, so a label, manager or

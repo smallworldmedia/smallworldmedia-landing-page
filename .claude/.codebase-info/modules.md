@@ -317,10 +317,11 @@ justified bands in list order, kept when it crops less, which makes short lists 
 stays `flush` until Nathan's device pass; probe `scripts/directory-grid-probe.mjs`) · `DirectoryFilter.jsx` (sticky under the nav. Since SQ-21 (merge `61960f3`, 11-06) it opens and
 shuts ONE way at every width: it loads open, the server's render too, and shut it is the bar alone,
 the region folded to 0 and both panels `inert`.
-- **The bar.** The live count (mono, the numbers alone) and "× clear all" (the house `CloseIcon`)
+- **The bar.** The live count (the numbers alone, tabular figures) and "× clear all" (the house `CloseIcon`)
   sit at the left. `.dir-filter__end` at the right holds the client chip (its name as Sanity spells
   it, then `CloseIcon`), `n active` while anything is ticked and the filter is shut, and the toggle
-  (`filters` / `close filters` and a stemmed arrow). All but the count are in the sans link tier.
+  (`filters` / `close filters` and a stemmed arrow). All of them, the count too since 11-12, set the
+  sans link tier (`--font-body`, `--text-link`, `--tracking-body`) in `src/styles/directory.css`.
 - **The tabs.** A pair of folder tabs sits above the panels: `services` (every service tag with
   media, as FilterTags, the four motion tags under one parent since SQ-67) and `clients` (the live clients, one pick at a time, which the chip shows).
   - Each tab is a 1px non-scaling SVG stroke over an opaque fill, built from `directoryTune.js`.
