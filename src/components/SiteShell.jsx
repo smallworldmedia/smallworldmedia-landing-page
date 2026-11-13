@@ -32,6 +32,15 @@ import { PRIVACY_STATE_EVENT } from './PrivacyOverlay.jsx';
 import RouteFill from './RouteFill';
 import { LENIS_TUNE_ACTIVE } from '../lib/lenisTune.js';
 import { FOOTER_TUNE_ACTIVE } from '../lib/footerTune.js';
+import {
+  INFO_OPEN,
+  INFO_CLOSE,
+  INFO_CLOSE_EVENT,
+  infoPush,
+  measureInfoPush,
+  pushTo,
+  watchInfoPush,
+} from '../lib/infoPush.js';
 
 gsap.registerPlugin(useGSAP, Flip);
 
@@ -204,6 +213,24 @@ export default function SiteShell({ siteCopy, roster }) {
     return () => resizeObserver.disconnect();
   }, { scope: shellRef });
 
+  // The close in flight, and what waits on it (home's zoom_in: requestInfoClose).
+  const closingRef = useRef(false);
+  const afterCloseRef = useRef(null);
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    const onCloseRequest = (e) => {
+      if (!isOpenRef.current && !closingRef.current) return; // nothing to wait for
+      e.detail.deferred = true;
+      afterCloseRef.current = e.detail.done;
+      setIsInfoOpen(false);
+    };
+    window.addEventListener(INFO_CLOSE_EVENT, onCloseRequest);
+    return () => window.removeEventListener(INFO_CLOSE_EVENT, onCloseRequest);
+  }, []);
+
+  // Home's page content rides the drawer: keep the push honest while it is open.
+  useEffect(() => watchInfoPush(() => isOpenRef.current), []);
+
   // GSAP: open/close slide animation
   useGSAP(() => {
     const wrapper = shellRef.current?.querySelector('.info-wrapper');
@@ -211,23 +238,39 @@ export default function SiteShell({ siteCopy, roster }) {
     if (!wrapper || !panelContent) return;
 
     const currentHeight = panelContent.getBoundingClientRect().height;
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = isInfoOpen;
+
+    // The push-down (src/lib/infoPush.js) rides the drawer's own tween: the
+    // same call, duration, delay and ease, so the two cannot drift. Zero off
+    // home, where the drawer behaves exactly as before.
+    const push = isInfoOpen ? measureInfoPush() : 0;
+    const pushing = push > 0 || infoPush.to > 0;
+    const slide = isInfoOpen ? INFO_OPEN : INFO_CLOSE;
+    // Reduced motion: the home page and the drawer cut together, to the same end positions.
+    const motion = pushing && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? { duration: 0, delay: 0 }
+      : slide;
 
     if (isInfoOpen) {
-      gsap.to(wrapper, {
-        y: 0,
-        duration: 0.6,
-        ease: 'power3.out',
-        overwrite: true,
-      });
+      closingRef.current = false;
+      afterCloseRef.current = null; // reopened before the close landed: drop what waited
+      gsap.to(wrapper, { y: 0, ...motion, overwrite: true });
     } else {
+      closingRef.current = wasOpen;
       gsap.to(wrapper, {
         y: -Math.ceil(currentHeight), // the ceil idiom — see the closed-set note
-        duration: 0.48,
-        ease: 'power2.inOut',
-        delay: 0.15,
+        ...motion,
         overwrite: true,
+        onComplete: () => {
+          closingRef.current = false;
+          const done = afterCloseRef.current;
+          afterCloseRef.current = null;
+          done?.();
+        },
       });
     }
+    if (pushing) pushTo(push, motion);
   }, { scope: shellRef, dependencies: [isInfoOpen] });
 
   return (

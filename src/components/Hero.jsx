@@ -90,6 +90,7 @@ function coverToWork(detail) {
 }
 import { SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
 import { RELEASE_MS, TOUCH_GAIN } from '../lib/touchTune.js';
+import { requestInfoClose } from '../lib/infoPush.js';
 import SiteFooter, {
   FOOTER_REVEAL_EVENT,
   FOOTER_CLOSE_EVENT,
@@ -1021,7 +1022,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   // gesture vocabulary across home→/work→detail. The old chunk-4 master
   // timeline (blue cascade + recenter + fill spread) is retired from this
   // path — the ?herotune bench's dry-run still rehearses it for reference.
-  const onEnterClick = () => {
+  const enterWorld = () => {
     if (departingRef.current) return;
     footerWipeRef.current?.kill();
     footerDriveRef.current.stop();
@@ -1114,6 +1115,18 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       handOffWorld(entered);
       navigate('/work');
     }, enterMs + 60);
+  };
+
+  // The button's handler. With the info drawer open (a phone's drawer leaves
+  // the button reachable) the tap closes the drawer on the drawer's own close
+  // tween, the home page riding back up with it, and the zoom starts when that
+  // lands — no snap, no zoom under a half-open drawer (SQ-70, Nathan 11-12).
+  // Closed, it runs at once. The guard covers a route swap in the gap.
+  const onEnterClick = () => {
+    if (departingRef.current) return;
+    requestInfoClose(() => {
+      if (heroRef.current?.isConnected) enterWorld();
+    });
   };
 
   // Bench rehearsal (?herotune) — pin the fill like a real commit, then

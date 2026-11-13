@@ -275,6 +275,7 @@ export const FEATURED_WORLDS_QUERY = `
 export const SITE_COPY_QUERY = `
   *[_type == "siteSettings" && !(_id in path("drafts.**"))][0] {
     footerBlurb,
+    infoBlurb,
     tagline
   }
 `;

@@ -10,7 +10,7 @@ import { CogIcon } from '@sanity/icons'
  * "Globe Settings" form holding the footer blurb is the kind of drift that
  * makes a Studio hard to trust.
  *
- * BOTH FIELDS ARE PLAIN `text`, NOT PORTABLE TEXT. The house rich-text format
+ * THE COPY FIELDS ARE PLAIN `text`, NOT PORTABLE TEXT. The house rich-text format
  * is a marked plain string parsed by src/lib/keywords.jsx — the same format
  * the 15 featured-project `description` fields already use in production. One
  * vocabulary, one parser, no new dependency:
@@ -50,6 +50,18 @@ export const siteSettings = defineType({
         'It is sized to fill one line on desktop, so it re-measures itself when you change it — ' +
         'a longer sentence simply sets smaller.',
       validation: (Rule) => Rule.required().max(400),
+    }),
+    defineField({
+      name: 'infoBlurb',
+      title: 'Info panel blurb',
+      type: 'text',
+      rows: 4,
+      description:
+        'The blurb at the top left of the info panel (the drawer the nav\'s info pill opens). ' +
+        'Same markers as the footer blurb: **bold** for the Medium cut, [[keyword]] for a highlight, ' +
+        '[[keyword]](/href) for a highlighted link, [label](/href) for a plain link. ' +
+        'Optional: left empty, the panel keeps the copy it shipped with.',
+      validation: (Rule) => Rule.max(400),
     }),
     defineField({
       name: 'tagline',

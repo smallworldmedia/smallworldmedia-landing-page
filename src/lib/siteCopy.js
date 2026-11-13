@@ -33,6 +33,10 @@ export const SITE_COPY_FALLBACK = Object.freeze({
   footerBlurb:
     '**Small World Media** is a multidisciplinary [[creative studio]] that builds ' +
     'high-impact [[brand worlds]] and [[visuals]] for the music industry.',
+  // The info panel's blurb (11-12, Nathan): the drawer's copy as it shipped.
+  infoBlurb:
+    '**Small World Media** is a multidisciplinary creative studio specializing in design ' +
+    'and motion across 2D, 3D, and experimental techniques for the music industry.',
   // Three lines, as the pill sets them; line 1 carries the Medium cut.
   tagline: '**VISUAL WORLDS**\nfor the music\nindustry.',
 });
@@ -45,7 +49,7 @@ const clean = (v, fallback) => {
 let pending = null;
 
 /**
- * The site copy, shaped `{ footerBlurb, tagline }` — marked strings, ready for
+ * The site copy, shaped `{ footerBlurb, infoBlurb, tagline }` — marked strings, ready for
  * `keywordLines()`. Safe to await from any .astro frontmatter; only the first
  * caller in a build actually hits the network.
  */
@@ -54,6 +58,7 @@ export function getSiteCopy() {
     pending = sanityFetch(SITE_COPY_QUERY)
       .then((doc) => ({
         footerBlurb: clean(doc?.footerBlurb, SITE_COPY_FALLBACK.footerBlurb),
+        infoBlurb: clean(doc?.infoBlurb, SITE_COPY_FALLBACK.infoBlurb),
         tagline: clean(doc?.tagline, SITE_COPY_FALLBACK.tagline),
       }))
       .catch((err) => {
