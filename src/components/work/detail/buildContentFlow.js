@@ -338,8 +338,8 @@ const namesAsset = (want, asset) =>
  * CHUNK_COUNT tiles in its place, each a copy of the asset carrying its own
  * `chunk` range (chunkRanges, imageConfig) and a `<_id>~<k>of<n>` id.
  * `gap` tiles (?chunkgap, default 0) sit between one chunk and the next. A
- * video with no known duration stays one tile. The hero is never split: it
- * is not in the flow.
+ * video with no known duration stays one tile. The hero is not in this list;
+ * splitHero (below) splits it.
  */
 export function expandChunks(list, { only = [], gap = 0 } = {}) {
   const out = [];
@@ -369,6 +369,22 @@ export function expandChunks(list, { only = [], gap = 0 } = {}) {
     spread.splice(Math.min(home + a.chunk.index * (gap + 1), spread.length), 0, a);
   }
   return spread;
+}
+
+/** Where a split hero's thirds 2 and 3 land in the showcase (Nathan 11-12):
+ *  the 5th and 6th tiles of the reading order, so index 4. A showcase of fewer
+ *  than four tiles takes them at its end. */
+export const HERO_SPLIT_AT = 4;
+
+/** The hero (assets[0]) when it is a video flagged `splitIntoThirds` (or named
+ *  by ?chunks): it keeps the hero slot as its third 1 and hands the other two
+ *  thirds back as `rest`, to be spliced into the showcase at HERO_SPLIT_AT. An
+ *  unflagged hero, one with no duration, or an image stays whole (`rest` []).
+ *  ?chunkgap does not apply: the two thirds sit side by side. */
+export function splitHero(hero, { only = [] } = {}) {
+  if (!hero) return { hero, rest: [] };
+  const [first, ...rest] = expandChunks([hero], { only });
+  return { hero: first, rest };
 }
 
 const sortByDeckOrder = (pages) => [...pages].sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0));
@@ -478,6 +494,8 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     (orbits ? showcase : [...showcase, ...albumArt]).sort((a, b) => a.i - b.i).map((e) => e.asset),
     chunks
   );
+  const { rest: heroRest } = splitHero(assets[0], chunks);
+  showcaseOut.splice(Math.min(HERO_SPLIT_AT, showcaseOut.length), 0, ...heroRest);
   const albumArtOut = orbits ? albumArt.map((e) => e.asset) : [];
 
   // Decks: pages sequence by brandDeckOrder within each group (stable sort
