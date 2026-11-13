@@ -55,9 +55,10 @@
    A socket is a grid child pinned to a flushGrid reserved region
    (explicit grid-column/row inline styles, like tiles). The inner
    layer floats the composite occupant (AlbumArtOrbit /
-   BrandDeckViewer) above the tiles and carries the parallax
-   transform (GridSocket.jsx). Occupants may overhang neighboring
-   tiles — bounded — hence overflow: visible.
+   BrandDeckViewer) above the tiles and sits still: the scroll drift
+   is off (Nathan 11-12, it opened a gap at the wall's edges).
+   Occupants may overhang neighboring tiles — bounded — hence
+   overflow: visible.
    ============================================ */
 .masonry-grid--detail > .grid-socket {
   display: block;
@@ -69,7 +70,6 @@
 .grid-socket__layer {
   position: absolute;
   inset: 0;
-  will-change: transform;
 }
 
 /* ── Responsive ── */
@@ -79,8 +79,8 @@
   }
 
   /* Sockets degrade to plain full-width bands: explicit placement dies
-     at this width (span overrides below), so the layered treatment —
-     overlap + parallax — goes with it. Rows are 10px implicit tracks,
+     at this width (span overrides below), so the overlap goes with
+     it. Rows are 10px implicit tracks,
      so `auto` would collapse to one track; a fixed span (like every
      mobile tile) gives the anchor real height and the occupant keeps
      filling it. */
@@ -104,10 +104,6 @@
   /* The cover wall (11-11): 1.5x the 26-row band. */
   .masonry-grid--detail > .grid-socket[data-socket="orbit"] {
     grid-row: span 39 !important;
-  }
-  .grid-socket__layer {
-    transform: none !important;
-    will-change: auto;
   }
   /* Landscape tiles: clamp to available cols. Row spans are measured in
      FeaturedProjectDetail and handed down as --tile-*-rows; the fallbacks
