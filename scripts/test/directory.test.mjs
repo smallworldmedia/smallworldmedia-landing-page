@@ -704,12 +704,80 @@ test('thirds - a flagged showcase video is three tiles whose ranges touch and co
   assert.ok(!ts.some((t) => 'videoDuration' in t || 'splitIntoThirds' in t), 'tiles carry the slim face plus chunk only')
 })
 
-test('thirds - the thirds are ordinary tiles after the build: orderTiles mixes and shuffles them like any other', () => {
+// the first orderTiles, which dealt single tiles: the reference a list with no split video must match
+function singleTileOrder(tiles, mode, seed) {
+  if (mode === 'shuffle') {
+    const out = [...tiles]
+    let a = seed >>> 0
+    const rand = () => {
+      a = (a + 0x6d2b79f5) >>> 0
+      let t = a
+      t = Math.imul(t ^ (t >>> 15), t | 1)
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1))
+      ;[out[i], out[j]] = [out[j], out[i]]
+    }
+    return out
+  }
+  const queues = new Map()
+  for (const t of tiles) {
+    if (!queues.has(t.client)) queues.set(t.client, [])
+    queues.get(t.client).push(t)
+  }
+  const out = []
+  for (let k = 0; out.length < tiles.length; k++) {
+    for (const q of queues.values()) if (k < q.length) out.push(q[k])
+  }
+  return out
+}
+
+// two clients, two split videos back to back in one of them (their thirds must not run together)
+const thirdsDeal = () => {
   rank = 0
-  const ts = jamTiles([thirdsVideo('vid'), asset('other', 'jamback', JAM)])
+  const mk = (id, client, extra = {}) => asset(id, client, { ...JAM, ...extra })
+  const split = (id, client) =>
+    [0, 1, 2].map((i) => ({ ...mk(`${id}~${i + 1}of3`, client), chunk: { of: id, index: i, count: 3 } }))
+  return [
+    mk('a-1', 'jamback'), ...split('vid-x', 'jamback'), ...split('vid-y', 'jamback'), mk('a-2', 'jamback'),
+    mk('b-1', 'bellaire'), mk('b-2', 'bellaire'), ...split('vid-z', 'bellaire'), mk('b-3', 'bellaire'),
+  ].map((t) => ({ ...t, client: t.clientSlug }))
+}
+
+// every video's thirds sit adjacent and in order (1of3, 2of3, 3of3)
+const keptTogether = (ts) => {
+  const out = ids(ts)
+  return ['vid-x', 'vid-y', 'vid-z'].every((v) => {
+    const at = out.indexOf(`${v}~1of3`)
+    return at >= 0 && out[at + 1] === `${v}~2of3` && out[at + 2] === `${v}~3of3`
+  })
+}
+
+test('thirds - a split video stays together, in order, under shuffle (many seeds) and mix', () => {
+  const ts = thirdsDeal()
   assert.equal(orderTiles(ts, 'project'), ts, "'project' keeps them side by side")
-  assert.equal(orderTiles(ts, 'shuffle', 7).length, 4)
-  assert.deepEqual(orderTiles(ts, 'mix').map((t) => t._id).sort(), ids(ts).sort())
+  const moved = new Set()
+  for (let seed = 0; seed < 200; seed++) {
+    const out = orderTiles(ts, 'shuffle', seed)
+    assert.deepEqual([...ids(out)].sort(), [...ids(ts)].sort(), `seed ${seed}: the same tiles`)
+    assert.ok(keptTogether(out), `seed ${seed}: thirds adjacent and in order`)
+    moved.add(ids(out).join())
+  }
+  assert.ok(moved.size > 50, 'the units still scatter across seeds')
+  const mixed = orderTiles(ts, 'mix')
+  assert.deepEqual([...ids(mixed)].sort(), [...ids(ts)].sort(), 'mix: the same tiles')
+  assert.ok(keptTogether(mixed), 'mix: thirds adjacent and in order')
+})
+
+test('thirds NC - with no split video, orderTiles gives the old single-tile order for every seed', () => {
+  const ts = tiles()
+  assert.ok(!ts.some((t) => t.chunk))
+  for (let seed = 0; seed < 25; seed++) {
+    assert.deepEqual(ids(orderTiles(ts, 'shuffle', seed)), ids(singleTileOrder(ts, 'shuffle', seed)), `shuffle seed ${seed}`)
+  }
+  assert.deepEqual(ids(orderTiles(ts, 'mix')), ids(singleTileOrder(ts, 'mix')), 'mix')
 })
 
 test('thirds NC - an unflagged video, or a flagged one with no usable duration, is one tile as before', () => {
