@@ -49,7 +49,7 @@ import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
 import LiveFootageGrid from './LiveFootageGrid.jsx';
 import { liveFootagePlan, visualsWall, mockupsWall } from './liveFootageLayout.js';
 import ServiceTag from '../ServiceTag.jsx';
-import { buildContentFlow, groupTypeOf, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import { buildContentFlow, splitHero, groupTypeOf, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid, splitAtBreaks } from './flushGrid.js';
 import {
   GRID_ROW_PX,
@@ -130,7 +130,9 @@ const readBlurbRows = () => {
 
 /* Chunks (11-05, Nathan): a video flagged `splitIntoThirds` in Sanity shows
    as three tiles, each its own third (expandChunks, buildContentFlow.js). The
-   flag arrives with the data, so the server render already splits. Dev
+   flag arrives with the data, so the server render already splits. A flagged
+   HERO plays its first third in the hero slot; thirds 2 and 3 are the 5th and
+   6th showcase tiles (splitHero, HERO_SPLIT_AT). Dev
    overrides, read after mount: ?chunks=<asset slug or id>[,…] splits that
    video without the flag (what to try before the flag is on in Sanity);
    ?chunkgap=<tiles> puts that many tiles between one chunk and the next
@@ -371,8 +373,9 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // the shell nav is already this project's colour on the first frame — no
   // post-hydration broadcast, no brand-blue flash.
 
-  const hero = assets[0] ?? null;
   const [chunkTune, setChunkTune] = useState(CHUNKS_NONE);
+  // A flagged hero plays its first third here; the other two ride the showcase (buildContentFlow).
+  const hero = splitHero(assets[0], chunkTune).hero ?? null;
   useEffect(() => setChunkTune(readChunkTune()), []);
   // `mockups` (US-5, SQ-58's lane) is absent until that lands: default it empty.
   const { showcase, albumArt, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups = [] } = buildContentFlow(assets, {

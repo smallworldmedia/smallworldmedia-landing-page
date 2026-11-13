@@ -4,7 +4,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { muxStream, muxPoster, chunkRanges, chunkWindow, windowLoop, CHUNK_COUNT, MUX_SEGMENT_SECONDS } from '../../src/components/work/imageConfig.js'
-import { buildContentFlow, expandChunks } from '../../src/components/work/detail/buildContentFlow.js'
+import { buildContentFlow, expandChunks, splitHero, HERO_SPLIT_AT } from '../../src/components/work/detail/buildContentFlow.js'
 
 const D = 46.722633 // the Bedouin Knockdown Center promo's Mux duration
 const video = (id, extra = {}) => ({ _id: id, title: id, mediaType: 'motion_9x16', playbackId: `pb-${id}`, videoDuration: D, ...extra })
@@ -104,13 +104,62 @@ test('expandChunks: the ?chunks override names an asset by id or slug tail; ?chu
   assert.deepEqual(ids(expandChunks([a], { only: ['promo'], gap: 2 })), ['1', '2', '3'], 'a short list: chunks bunch at the end')
 })
 
-test('buildContentFlow: chunks land in showcase; the hero is never split; other lanes ignore the flag', () => {
-  const hero = video('hero', { splitIntoThirds: true })
+test('buildContentFlow: showcase chunks stay in showcase; other lanes ignore the flag', () => {
+  const hero = video('hero')
   const flagged = video('flagged', { splitIntoThirds: true })
   const roleVideo = video('role', { splitIntoThirds: true, contentRole: 'process' })
   const flow = buildContentFlow([hero, flagged, roleVideo])
   assert.deepEqual(flow.showcase.map((a) => a._id), ['flagged~1of3', 'flagged~2of3', 'flagged~3of3'])
   assert.deepEqual(flow.bts.map((a) => a._id), ['role'])
+  assert.equal(splitHero(hero).hero, hero, "an unflagged hero is the asset itself")
   assert.equal(buildContentFlow([hero, video('x')]).showcase.length, 1, 'no flag, no split')
   assert.equal(buildContentFlow([hero, video('x')], { chunks: { only: ['x'] } }).showcase.length, 3)
 })
+
+// Split hero (11-12, Nathan): the hero plays third 1; thirds 2 and 3 are showcase tiles 5 and 6.
+const ids = (l) => l.map((a) => a._id)
+const tiles = (n) => Array.from({ length: n }, (_, k) => video(`t${k + 1}`))
+
+test('split hero: a flagged hero is chunk 0; thirds 2 and 3 land at showcase indices 4 and 5, the others in order', () => {
+  assert.equal(HERO_SPLIT_AT, 4)
+  const hero = video('hero', { splitIntoThirds: true, description: 'a caption' })
+  const flow = buildContentFlow([hero, ...tiles(6)])
+  const heroTile = splitHero(hero).hero
+  assert.equal(heroTile._id, 'hero~1of3')
+  assert.equal(heroTile.chunk.index, 0)
+  assert.equal(heroTile.chunk.count, 3)
+  assert.equal(heroTile.description, 'a caption', 'the hero keeps its descriptor')
+  assert.deepEqual(ids(flow.showcase), ['t1', 't2', 't3', 't4', 'hero~2of3', 'hero~3of3', 't5', 't6'])
+  assert.deepEqual([flow.showcase[4].chunk.index, flow.showcase[5].chunk.index], [1, 2])
+  assert.equal(flow.showcase[4].description, undefined)
+  assert.deepEqual([heroTile, flow.showcase[4], flow.showcase[5]].map((a) => [a.chunk.start, a.chunk.end]), chunkRanges(D).map((r) => [r.start, r.end]))
+})
+
+test('split hero: a showcase under four tiles takes thirds 2 and 3 at its end, in order', () => {
+  const hero = video('hero', { splitIntoThirds: true })
+  assert.deepEqual(ids(buildContentFlow([hero, ...tiles(2)]).showcase), ['t1', 't2', 'hero~2of3', 'hero~3of3'])
+  assert.deepEqual(ids(buildContentFlow([hero]).showcase), ['hero~2of3', 'hero~3of3'])
+  assert.deepEqual(ids(buildContentFlow([hero, ...tiles(4)]).showcase), ['t1', 't2', 't3', 't4', 'hero~2of3', 'hero~3of3'])
+})
+
+test('split hero: an unflagged hero, a flagged hero with no duration, and an image hero stay whole', () => {
+  const tl = tiles(5)
+  const whole = [video('hero'), video('hero', { splitIntoThirds: true, videoDuration: null }), video('hero', { splitIntoThirds: true, playbackId: undefined }), { _id: 'img', mediaType: 'static_1x1', imageUrl: 'x' }]
+  for (const hero of whole) {
+    const flow = buildContentFlow([hero, ...tl])
+    assert.equal(splitHero(hero).hero, hero)
+    assert.equal(splitHero(hero).hero.chunk, undefined)
+    assert.deepEqual(ids(flow.showcase), ids(tl))
+  }
+  assert.equal(splitHero(undefined).hero, undefined, 'no assets, no hero')
+})
+
+test('split hero: ?chunks names the hero and splits it; ?chunkgap leaves the two thirds side by side', () => {
+  const hero = video('mediaAsset-rossi-dusk-till-dawn')
+  const chunks = { only: ['dusk-till-dawn'], gap: 3 }
+  const flow = buildContentFlow([hero, ...tiles(6)], { chunks })
+  assert.equal(splitHero(hero, chunks).hero.chunk.index, 0)
+  assert.deepEqual(ids(flow.showcase).slice(4, 6), ['mediaAsset-rossi-dusk-till-dawn~2of3', 'mediaAsset-rossi-dusk-till-dawn~3of3'])
+  assert.deepEqual(ids(buildContentFlow([hero, ...tiles(6)], { chunks: { only: ['nope'] } }).showcase), ids(tiles(6)))
+})
+
