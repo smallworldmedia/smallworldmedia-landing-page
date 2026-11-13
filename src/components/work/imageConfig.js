@@ -88,6 +88,16 @@ export function chunkWindow({ start, end }) {
   return { from: start - base, to: end - base };
 }
 
+/** The window a chunk's preview plays in the Project Directory: `seconds`
+ *  (PREVIEW_SECONDS) from the chunk's own start, cut short at the chunk's end.
+ *  `end` ends the clipped stream (muxStream) and `to` is the loop's wrap on the
+ *  stream's own timeline (windowLoop), which starts at the segment boundary at
+ *  or before the chunk's start (`from` sits that far into it). */
+export function chunkPreview(chunk, seconds = PREVIEW_SECONDS) {
+  const end = Math.min(chunk.start + seconds, chunk.end);
+  return { end, to: chunk.from + (end - chunk.start) };
+}
+
 /** The handlers of a player that loops the window [from, to) of its stream:
  *  playback starts at `from` (a native-HLS player that began earlier seeks on
  *  metadata), and at `to`, or at the stream's end when that comes first, it

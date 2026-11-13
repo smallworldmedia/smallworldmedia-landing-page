@@ -674,6 +674,142 @@ test('US-5 sets - a mockups set and a flyer-progression are one tile each that f
   assert.deepEqual(split.map((t) => ids(t.frames)), [['a-1', 'a-2'], ['b-1', 'b-2']])
 })
 
+// SQ-73: a showcase video flagged splitIntoThirds is three tiles, one per third.
+const thirdsVideo = (id, extra = {}) =>
+  asset(id, 'jamback', {
+    ...JAM, mediaType: 'motion_9x16', services: tag('promo', 'motion'),
+    imageUrl: undefined, imageDimensions: undefined, playbackId: `pb-${id}`, videoAspectRatio: '9:16',
+    splitIntoThirds: true, videoDuration: 46.722633,
+    ...extra,
+  })
+
+test('thirds - a flagged showcase video is three tiles whose ranges touch and cover the duration, sharing the whole tile data', () => {
+  rank = 0
+  const ts = jamTiles([asset('before', 'jamback', JAM), thirdsVideo('vid'), asset('after', 'jamback', JAM)])
+  assert.deepEqual(ids(ts), ['before', 'vid~1of3', 'vid~2of3', 'vid~3of3', 'after'], 'adjacent, in the build order')
+  const parts = ts.slice(1, 4)
+  assert.deepEqual(parts.map((t) => t.chunk.index), [0, 1, 2])
+  assert.ok(parts.every((t) => t.chunk.count === 3 && t.chunk.of === 'vid' && t.playbackId === 'pb-vid'))
+  assert.equal(parts[0].chunk.start, 0)
+  assert.equal(parts[2].chunk.end, 46.722633)
+  parts.forEach((t, k) => k && assert.equal(t.chunk.start, parts[k - 1].chunk.end, 'each third starts where the last ends'))
+  for (const k of ['client', 'services', 'href', 'label', 'fit', 'mediaType', 'videoAspectRatio']) {
+    assert.deepEqual(parts[1][k], parts[0][k], k)
+    assert.deepEqual(parts[2][k], parts[0][k], k)
+  }
+  assert.equal(parts[0].href, '/work/jamback')
+  assert.deepEqual(parts[0].services, ['promo', 'motion'])
+  assert.ok(ts.every((t) => !t.frames), 'none of them cycles')
+  assert.equal(new Set(ids(ts)).size, ts.length, 'DirectoryGrid keys tiles by _id: every id is its own')
+  assert.ok(!ts.some((t) => 'videoDuration' in t || 'splitIntoThirds' in t), 'tiles carry the slim face plus chunk only')
+})
+
+// the first orderTiles, which dealt single tiles: the reference a list with no split video must match
+function singleTileOrder(tiles, mode, seed) {
+  if (mode === 'shuffle') {
+    const out = [...tiles]
+    let a = seed >>> 0
+    const rand = () => {
+      a = (a + 0x6d2b79f5) >>> 0
+      let t = a
+      t = Math.imul(t ^ (t >>> 15), t | 1)
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1))
+      ;[out[i], out[j]] = [out[j], out[i]]
+    }
+    return out
+  }
+  const queues = new Map()
+  for (const t of tiles) {
+    if (!queues.has(t.client)) queues.set(t.client, [])
+    queues.get(t.client).push(t)
+  }
+  const out = []
+  for (let k = 0; out.length < tiles.length; k++) {
+    for (const q of queues.values()) if (k < q.length) out.push(q[k])
+  }
+  return out
+}
+
+// two clients, two split videos back to back in one of them (their thirds must not run together)
+const thirdsDeal = () => {
+  rank = 0
+  const mk = (id, client, extra = {}) => asset(id, client, { ...JAM, ...extra })
+  const split = (id, client) =>
+    [0, 1, 2].map((i) => ({ ...mk(`${id}~${i + 1}of3`, client), chunk: { of: id, index: i, count: 3 } }))
+  return [
+    mk('a-1', 'jamback'), ...split('vid-x', 'jamback'), ...split('vid-y', 'jamback'), mk('a-2', 'jamback'),
+    mk('b-1', 'bellaire'), mk('b-2', 'bellaire'), ...split('vid-z', 'bellaire'), mk('b-3', 'bellaire'),
+  ].map((t) => ({ ...t, client: t.clientSlug }))
+}
+
+// every video's thirds sit adjacent and in order (1of3, 2of3, 3of3)
+const keptTogether = (ts) => {
+  const out = ids(ts)
+  return ['vid-x', 'vid-y', 'vid-z'].every((v) => {
+    const at = out.indexOf(`${v}~1of3`)
+    return at >= 0 && out[at + 1] === `${v}~2of3` && out[at + 2] === `${v}~3of3`
+  })
+}
+
+test('thirds - a split video stays together, in order, under shuffle (many seeds) and mix', () => {
+  const ts = thirdsDeal()
+  assert.equal(orderTiles(ts, 'project'), ts, "'project' keeps them side by side")
+  const moved = new Set()
+  for (let seed = 0; seed < 200; seed++) {
+    const out = orderTiles(ts, 'shuffle', seed)
+    assert.deepEqual([...ids(out)].sort(), [...ids(ts)].sort(), `seed ${seed}: the same tiles`)
+    assert.ok(keptTogether(out), `seed ${seed}: thirds adjacent and in order`)
+    moved.add(ids(out).join())
+  }
+  assert.ok(moved.size > 50, 'the units still scatter across seeds')
+  const mixed = orderTiles(ts, 'mix')
+  assert.deepEqual([...ids(mixed)].sort(), [...ids(ts)].sort(), 'mix: the same tiles')
+  assert.ok(keptTogether(mixed), 'mix: thirds adjacent and in order')
+})
+
+test('thirds NC - with no split video, orderTiles gives the old single-tile order for every seed', () => {
+  const ts = tiles()
+  assert.ok(!ts.some((t) => t.chunk))
+  for (let seed = 0; seed < 25; seed++) {
+    assert.deepEqual(ids(orderTiles(ts, 'shuffle', seed)), ids(singleTileOrder(ts, 'shuffle', seed)), `shuffle seed ${seed}`)
+  }
+  assert.deepEqual(ids(orderTiles(ts, 'mix')), ids(singleTileOrder(ts, 'mix')), 'mix')
+})
+
+test('thirds NC - an unflagged video, or a flagged one with no usable duration, is one tile as before', () => {
+  rank = 0
+  for (const extra of [{ splitIntoThirds: undefined }, { splitIntoThirds: false }, { videoDuration: undefined }, { videoDuration: null }, { videoDuration: 0 }]) {
+    const ts = jamTiles([thirdsVideo('vid', extra)])
+    assert.deepEqual(ids(ts), ['vid'], JSON.stringify(extra))
+    assert.equal(ts[0].chunk, undefined)
+    assert.equal(ts[0].playbackId, 'pb-vid')
+  }
+  // a flagged still is not a video: nothing to split
+  assert.deepEqual(ids(jamTiles([asset('still', 'jamback', { ...JAM, splitIntoThirds: true, videoDuration: 30 })])), ['still'])
+})
+
+test('thirds NC - a flagged video inside an admat or sequence set stays a frame of that one tile', () => {
+  rank = 0
+  const admat = jamTiles([...admatSet(3), thirdsVideo('flagged-flyer', { mediaType: 'brand-deck', displayGroup: 'tour-admats', brandDeckOrder: 99 })])
+  assert.equal(admat.length, 1, 'the admat set stays one tile')
+  assert.deepEqual(ids(admat[0].frames).at(-1), 'flagged-flyer')
+  assert.equal(admat[0].chunk, undefined)
+  assert.ok(admat[0].frames.every((f) => !f.chunk))
+  rank = 0
+  const seq = jamTiles([
+    asset('mk-1', 'jamback', { ...JAM, groupType: 'mockups', displayGroup: 'billboards' }),
+    thirdsVideo('mk-vid', { groupType: 'mockups', displayGroup: 'billboards' }),
+  ])
+  assert.equal(seq.length, 1, 'the mockups set stays one tile')
+  assert.deepEqual(ids(seq[0].frames), ['mk-1', 'mk-vid'])
+  assert.equal(seq[0].chunk, undefined)
+  assert.ok(seq[0].frames.every((f) => !f.chunk))
+})
+
 test('album art stays one tile per cover; decks, carousels and banners keep their grouped tile', () => {
   rank = 0
   const covers = [0, 1, 2].map((i) => asset(`cover-${i}`, 'jamback', { ...JAM, mediaType: 'album-art' }))

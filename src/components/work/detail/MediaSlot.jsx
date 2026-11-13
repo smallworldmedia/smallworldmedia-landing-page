@@ -46,7 +46,9 @@
  * observer of its own — one playerGate (directory/playerGate.js) watches
  * every tile. A video shows a lazy poster <img> always and mounts its
  * <video> (GatedVideo) only while the gate grants it play; a sequence cuts
- * only while the tile is in view. `clip` (PREVIEW_SECONDS there) bounds the
+ * only while the tile is in view. A chunk tile (a splitIntoThirds video's
+ * third) posts its own first frame and plays `clip` seconds from there
+ * (GatedVideo `chunk`). `clip` (PREVIEW_SECONDS there) bounds the
  * stream and the loop, `sizes` adds srcsets, and `fit` is written as
  * data-fit (contain letterboxes on near-black). A tile whose media unmounts
  * (its chunk left DirectoryGrid's mount window) drops the images it is still
@@ -140,9 +142,10 @@ export default function MediaSlot({
 
   // A chunk (expandChunks) plays its own range of the asset: the stream is
   // clipped at both ends, it starts at `from` on the stream's own timeline
-  // and wraps at `to`, whole, whatever `clip` says. Not in directory mode,
-  // where the video stays one tile.
-  const chunk = gate ? null : asset.chunk;
+  // and wraps at `to`, whole, whatever `clip` says. In directory mode (a third
+  // is its own tile, buildDirectoryTiles) GatedVideo plays only `clip` seconds
+  // of it, from its start, and the poster is still its own first frame.
+  const chunk = asset.chunk;
   const chunkLoop = useMemo(() => (chunk ? windowLoop(chunk.from, chunk.to) : null), [chunk]);
 
   // Directory mode streams through GatedVideo instead.
@@ -289,7 +292,7 @@ export default function MediaSlot({
             onLoad={() => setIsLoaded(true)}
           />
           {gate ? (
-            canPlay && <GatedVideo playbackId={asset.playbackId} clip={clip} />
+            canPlay && <GatedVideo playbackId={asset.playbackId} clip={clip} chunk={chunk} />
           ) : (
             <video
               ref={videoRef}

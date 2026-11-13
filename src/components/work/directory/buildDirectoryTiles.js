@@ -18,7 +18,13 @@
  *     plays through on the shared beat, MediaSlot); a group of one is a plain
  *     tile;
  *   - process / supporting media (the 'role' lane) stays out; album covers
- *     and heroes are single tiles.
+ *     and heroes are single tiles;
+ *   - a single showcase video flagged `splitIntoThirds` (with a known
+ *     duration) is three tiles, one per third (expandChunks, the detail
+ *     page's splitter): ids `<_id>~1of3`…, each carrying its `chunk` and the
+ *     whole video's client, services and link. They sit side by side in the
+ *     build order and stay together, in order, under every display order
+ *     (orderTiles deals them as one unit; Nathan 11-13).
  *
  * A tile is the slim face MediaSlot reads, plus `client` (slug), `services`
  * (tag slugs, a group's union), `href` + `label` when its project has a
@@ -38,7 +44,7 @@
  * defaultFilter and filterSearch (its URL state, ?tag=a,b&client=slug), and
  * sizesFor (a tile's <img sizes>).
  */
-import { assetLane, ratioOf } from '../detail/buildContentFlow.js';
+import { assetLane, expandChunks, ratioOf } from '../detail/buildContentFlow.js';
 import { TILE_RATIO } from '../detail/flushGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
@@ -166,7 +172,11 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
   const byKey = new Map();
   for (const { asset, lane } of kept) {
     if (!GROUPED.has(lane)) {
-      groups.push({ lane, key: asset._id, members: [asset] });
+      // a showcase video flagged splitIntoThirds is its thirds (expandChunks,
+      // as on the detail page), each a tile of its own, adjacent here
+      for (const piece of lane === 'showcase' ? expandChunks([asset]) : [asset]) {
+        groups.push({ lane, key: piece._id, members: [piece] });
+      }
       continue;
     }
     const key = `${lane}:${asset.clientSlug}:${asset.projectId ?? ''}:${asset.displayGroup ?? ''}`;
@@ -202,6 +212,7 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
       services: [...new Set(members.flatMap((m) => (m.services ?? []).map((s) => s.slug)))],
       fit: fitOf(seen, alpha),
     };
+    if (source.chunk) tile.chunk = source.chunk;
     if (isTransparent(seen, alpha)) tile.clear = true;
     const ground = groundOf(seen, alpha);
     if (ground) tile.ground = ground;
@@ -232,32 +243,49 @@ function seeded(seed) {
   };
 }
 
+/* The tiles as units to deal: a run of consecutive tiles carrying a `chunk`
+   of one source video (the id before `~`) is one unit, so a split video's
+   thirds stay adjacent and in order; every other tile is a unit of one. */
+function unitsOf(tiles) {
+  const units = [];
+  let source = null;
+  for (const t of tiles) {
+    const from = t.chunk ? String(t._id).split('~')[0] : null;
+    if (from && from === source) units[units.length - 1].push(t);
+    else units.push([t]);
+    source = from;
+  }
+  return units;
+}
+
 /**
  * The tiles in a display order. 'project' is the build order; 'mix' deals
  * the clients round-robin (each client's tiles keep their own order), so no
  * two neighbours share a client while two clients remain; 'shuffle' is a
  * Fisher–Yates shuffle for `seed` (the page draws one seed per load, so every
- * load is a new order and a filter change never re-deals it).
+ * load is a new order and a filter change never re-deals it). Both deal units
+ * (unitsOf), so a split video's thirds stay together, in order.
  */
 export function orderTiles(tiles, mode = 'project', seed = 0) {
   if (mode === 'shuffle') {
-    const out = [...tiles];
+    const out = unitsOf(tiles);
     const rand = seeded(seed);
     for (let i = out.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1));
       [out[i], out[j]] = [out[j], out[i]];
     }
-    return out;
+    return out.flat();
   }
   if (mode !== 'mix') return tiles;
   const queues = new Map();
-  for (const t of tiles) {
-    if (!queues.has(t.client)) queues.set(t.client, []);
-    queues.get(t.client).push(t);
+  for (const u of unitsOf(tiles)) {
+    const client = u[0].client;
+    if (!queues.has(client)) queues.set(client, []);
+    queues.get(client).push(u);
   }
   const out = [];
   for (let k = 0; out.length < tiles.length; k++) {
-    for (const q of queues.values()) if (k < q.length) out.push(q[k]);
+    for (const q of queues.values()) if (k < q.length) out.push(...q[k]);
   }
   return out;
 }
