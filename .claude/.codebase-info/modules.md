@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-11-12*
+*Last Updated: 2026-11-13*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -276,7 +276,9 @@ goes back to the poster when it leaves; the hero (`eager`) loads its image or po
 priority; every `<video>` wraps at `wrapAt(clip)`, except a chunk (11-05: `asset.chunk`), which
 streams its own range clipped at both ends, plays it whole (no `DETAIL_MAX_SECONDS`) through
 `windowLoop` with `loop` off and hls.js `startPosition` at `from`, takes its poster at its own start,
-and is labelled "(part n of 3)" with the `description` on part 1 only; directory mode (11-03, never chunked),
+and is labelled "(part n of 3)" with the `description` on part 1 only; directory mode (11-03; since
+SQ-73, 11-13, a directory chunk plays a `PREVIEW_SECONDS` window from its own start: `GatedVideo`'s
+`chunk` prop, `imageConfig.js` `chunkPreview`, its poster at the chunk's start),
 through props the detail page never passes: `clip` (`PREVIEW_SECONDS`), `sizes` (a srcset on images,
 frames and posters), `gate` (a poster always, the `<video>` only while the player gate grants play,
 emptied before it unmounts) and `fit` (`data-fit="contain"` letterboxes really transparent faces such as alpha logos; banners cover since SQ-66; on a detail page
@@ -380,8 +382,11 @@ that is really transparent (`isTransparent`: an alpha channel Sanity doesn't cal
 measures ≥2% clear in the baked `src/data/directory-alpha.json`; an unmeasured one counts as
 transparent); every other face covers its cell (SQ-66, 11-12: the over-half-crop letterbox the
 4.77:1 banners took is gone), and the cell shape is the tile class's `TILE_RATIO`. A really transparent tile gets `clear`, and dark ink on it gets
-`ground: 'light'` (`groundOf`; directory-grid.css paints that cell the house cream); `orderTiles(tiles, mode, seed)`: `project`, featured first in World
-order, `mix`, or `shuffle` (seeded, uniform); `logoFirst(tiles, tags)` (11-05, SQ-17: under exactly
+`ground: 'light'` (`groundOf`; directory-grid.css paints that cell the house cream); a showcase video
+flagged `splitIntoThirds` is three tiles (SQ-73, 11-13: `expandChunks`, ids `<_id>~1of3`…, each
+with its `chunk` and the whole video's client, services and link); `orderTiles(tiles, mode, seed)`: `project`, featured first in World
+order, `mix`, or `shuffle` (seeded, uniform), both of the latter dealing `unitsOf(tiles)`, so a split
+video's thirds stay together and in order (Nathan 11-13), and a list with no split video deals as before; `logoFirst(tiles, tags)` (11-05, SQ-17: under exactly
 `logo-design` the logo tiles lead as one block, the order holding inside each; any other filter is
 returned as is; DirectoryPage applies it to `shown`); and the page's pure helpers: `matchesFilter`,
 `tagPresence`, `clientPresence(tiles, tags, clients)` (SQ-21: the clients the clients tab keeps lit
