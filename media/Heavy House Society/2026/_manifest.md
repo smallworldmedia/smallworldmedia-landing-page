@@ -14,14 +14,14 @@ project: heavy-house-society-branding-2026
 | HHS Invisible Wind Factory - Liverpool 022826.mp4 | motion_4x5 | Event / Tour Creative | HHS Invisible Wind Factory Liverpool 022826 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-invisible-wind-factory-liverpool-022826 |
 | Live Visuals 2026/Logo 01 - Graffiti Pink.mp4 | motion_16x9 | Logo Design | Logo Graffiti Pink |  |  | mediaAsset-heavy-house-society-logo-graffiti-pink |
 | Live Visuals 2026/Logo 02 - Pattern BG 02 Memphis Colors.mp4 | motion_16x9 | Logo Design | Logo Memphis Colors |  |  | mediaAsset-heavy-house-society-logo-memphis-colors |
-| Use Ya Head Youtube.mp4 | motion_16x9 | Promo Video | Use Ya Head Youtube |  |  | mediaAsset-heavy-house-society-use-ya-head-youtube |
+| Use Ya Head Youtube.mp4 | motion_16x9 | Promo Video | Kepler & Boss Priester — Use Ya Head (YouTube) |  | heavy-house-society-2026-youtube | mediaAsset-heavy-house-society-use-ya-head-youtube |
 | Live Visuals 2026/Logo 01 - Graffiti Indigo.mp4 | motion_16x9 | Logo Design | Logo Graffiti Indigo |  |  | mediaAsset-heavy-house-society-logo-graffiti-indigo |
-| Bass Rider Youtube.mp4 | motion_16x9 | Promo Video | Bass Rider Youtube |  |  | mediaAsset-heavy-house-society-bass-rider-youtube |
+| Bass Rider Youtube.mp4 | motion_16x9 | Promo Video | Sidney Charles — Bass Rider (YouTube) |  | heavy-house-society-2026-youtube | mediaAsset-heavy-house-society-bass-rider-youtube |
 | HHS OFFBCN 062025.png | static_4x5 | Event / Tour Creative | HHS OFFBCN 062025 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-offbcn-062025 |
 | hhs_straight-from-the-underground_charcoal-back.jpg | static_1x1 | Merch Design | hhs straight from the underground charcoal back |  | heavy-house-society-2026-merch | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-charcoal-back |
 | hhs_straight-from-the-underground_white-back.jpg | static_1x1 | Merch Design | hhs straight from the underground white back |  | heavy-house-society-2026-merch | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-white-back |
 | HHS USA listing 2026.png | static_4x5 | Event / Tour Creative | HHS USA listing 2026 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-usa-listing-2026 |
-| pure-perfection_4x5.mp4 | motion_4x5 | Promo Video | pure perfection 4x5 |  |  | mediaAsset-heavy-house-society-pure-perfection-4x5 |
+| pure-perfection_4x5.mp4 | motion_4x5 | Promo Video | Dennis Quin — Pure Perfection Preview |  | heavy-house-society-2026-track-previews | mediaAsset-heavy-house-society-pure-perfection-4x5 |
 | HHS047 SC Banner.png | static_16x9 | Branding | HHS047 SC Banner |  |  | mediaAsset-heavy-house-society-hhs047-sc-banner |
 | HHS059 Banner.png | static_other | Branding | HHS059 Banner |  | heavy-house-society-banners | mediaAsset-heavy-house-society-hhs059-banner |
 | HHS057 Banner.png | static_other | Branding, Release Packs | HHS057 Banner |  | heavy-house-society-banners | mediaAsset-85c49b91-5cbb-4394-97c9-830f9bc3a80d |
@@ -30,7 +30,7 @@ project: heavy-house-society-branding-2026
 | HHS062 Banner.png | static_other | Branding, Release Packs | HHS062 Banner |  | heavy-house-society-banners | mediaAsset-0672550c-3d71-4ee1-9188-485f7028f852 |
 | HHS063 Banner.png | static_other | Branding, Release Packs | HHS063 Banner |  | heavy-house-society-banners | mediaAsset-f5b881d3-896b-429b-9505-665175b6f9b4 |
 | HHS064 Banner.png | static_other | Branding, Release Packs | HHS064 Banner |  | heavy-house-society-banners | mediaAsset-dba174ad-b9c1-45ca-9e66-4c22e164b8ef |
-| Jump_4x5.mp4 | motion_4x5 | Promo Video | Jump 4x5 |  |  | mediaAsset-heavy-house-society-jump-4x5 |
+| Jump_4x5.mp4 | motion_4x5 | Promo Video | Ozzie Guven, Luke Dean — JUMP! Preview |  | heavy-house-society-2026-track-previews | mediaAsset-heavy-house-society-jump-4x5 |
 | Live Visuals 2026/Logo 01 - Graffiti Mirrored.mp4 | motion_16x9 | Logo Design | Logo Graffiti Mirrored |  |  | mediaAsset-heavy-house-society-logo-graffiti-mirrored |
 | Live Visuals 2026/Logo 02 - Halftone Stroke.mp4 | motion_16x9 | Logo Design | Logo Halftone Stroke |  |  | mediaAsset-heavy-house-society-logo-halftone-stroke |
 | Live Visuals 2026/Logo 01 - Neon Palms.mp4 | motion_16x9 | Logo Design | Logo Neon Palms |  |  | mediaAsset-heavy-house-society-logo-neon-palms |
