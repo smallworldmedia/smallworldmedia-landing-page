@@ -29,3 +29,4 @@ year: 2026
 | Right Here Right Now/RHRN_Drop-1_1.mp4 | motion_1x1 | Promo Video | Kamino Right Here Right Now Drop 1 |  |  | mediaAsset-57f5d2d5-9a02-480d-b7f5-729b195012b1 |
 | Right Here Right Now/RHRN_Drop-2_2.mp4 | motion_1x1 | Promo Video | Kamino Right Here Right Now Drop 2 |  |  | mediaAsset-819de8f7-0f06-4be0-a6db-94d84f1b0736 |
 | kamino_tyriqueordie_bk-warehouse.jpg | album-art | album art | Kamino, TyriqueOrDie — BK Warehouse |  |  | mediaAsset-e37aeb22-fdcf-43c9-8040-f1387b63f9f8 |
+| kamino_stuck-in-the-middle.jpg | album-art | album art | Kamino — Stuck In The Middle |  |  | mediaAsset-f5f15efc-a526-4850-9719-cbf15f804ca8 |
