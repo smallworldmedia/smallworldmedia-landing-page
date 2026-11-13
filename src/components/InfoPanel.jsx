@@ -4,6 +4,8 @@ import gsap from 'gsap';
 import SiteNav from './SiteNav';
 import useScrollThumb from './ui/useScrollThumb.js';
 import CheckIndicator from './ui/CheckIndicator.jsx';
+import { renderKeywords, kwSet } from '../lib/keywords.jsx';
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 
 /* The Project Directory, and the event its page re-filters on
    (DirectoryPage): a literal there too, since importing the page would
@@ -65,8 +67,9 @@ export default function InfoPanel({
     /** Closes the drawer (SiteShell): a client name's click. */
     onClose,
     onStartProject,
-    /** `{ footerBlurb, tagline }` — passed straight through to SiteNav, which
-        renders the tagline in the mobile menu's foot (10-08). */
+    /** `{ footerBlurb, infoBlurb, tagline }` — infoBlurb is the drawer's own
+        copy (11-12); the whole object goes on to SiteNav, which renders the
+        tagline in the mobile menu's foot (10-08). */
     siteCopy,
     /** The Client Roster, `[{ name, slug, live }]` by name — every published
         client in Sanity (BaseLayout, src/lib/clientCoverage.js). */
@@ -74,6 +77,15 @@ export default function InfoPanel({
 }) {
     const panelRef = useRef(null);
     const hasAnimatedRef = useRef(false);
+
+    // The drawer's blurb is CMS copy in the house marker format, with today's
+    // copy as the empty-field fallback (src/lib/siteCopy.js).
+    const infoBlurb = siteCopy?.infoBlurb || SITE_COPY_FALLBACK.infoBlurb;
+    // A [[keyword]] highlight is invisible without a driver; the drawer has no
+    // wipe, so seat it at its final state (a no-op while highlights are off).
+    useEffect(() => {
+        kwSet(panelRef.current?.querySelector('.description__text'), true);
+    }, [infoBlurb]);
 
     // First-open entrance animation (plays once)
     useGSAP(() => {
@@ -162,11 +174,7 @@ export default function InfoPanel({
                     {/* Left column: description */}
                     <div className="info-panel__left">
                         <div className="description">
-                            <p className="description__text">
-                                <strong>Small World Media</strong> is a multidisciplinary creative
-                                studio specializing in design and motion across 2D, 3D, and
-                                experimental techniques for the music industry.
-                            </p>
+                            <p className="description__text">{renderKeywords(infoBlurb)}</p>
                         </div>
                     </div>
 

@@ -1625,7 +1625,11 @@ html[data-footer-revealed] .detail-progress {
   font-weight: 400;
 }
 
-.description__text strong {
+/* `strong` is the drawer's old hard-coded bold; `.kw-em` is the `**bold**`
+   marker, which the Site Settings blurb (infoBlurb, 11-12) renders through
+   renderKeywords. One look for both. */
+.description__text strong,
+.description__text .kw-em {
   /* 08-30 (2), Nathan: the drawer's brand accents ride the PROJECT accent
      wherever one is broadcast (<html> --project-color on /work + detail
      routes); everywhere else the fallback keeps them brand blue. */
@@ -2835,8 +2839,10 @@ html[data-footer-rest] .site-footer--links {
      0px is the inert ground: the var is set only while the slide is armed,
      and removed when it lands. Layout is untouched — offsetHeight and
      ResizeObserver report the layout box, so --footer-panel-h (the
-     denominator of both the rest fraction and --hero-lift) does not move. */
-  translate: 0 var(--footer-slide, 0px);
+     denominator of both the rest fraction and --hero-lift) does not move.
+     --info-push (11-12) rides the same property: the open info drawer pushes
+     the panel down with it (see the INFO PUSH block below). */
+  translate: 0 calc(var(--footer-slide, 0px) + var(--info-push, 0px));
 }
 
 /* the blurb is the band's own content now — left-aligned, full measure */
@@ -3181,8 +3187,43 @@ html[data-footer-rest] .hero__globe-stroke,
 html[data-footer-rest] .hero-labels,
 html[data-footer-rest] .hero__lead-col,
 html[data-footer-rest] .hero__fill {
-  translate: 0 calc(var(--hero-lift, 0px) * -1);
+  translate: 0 calc(var(--hero-lift, 0px) * -1 + var(--info-push, 0px));
   transition: none;
+}
+
+/* ── INFO PUSH (11-12, Nathan) ────────────────────────────────────────────
+   "When the info panel is expanded, push down the footer, globe logo, ticker
+   and essentially everything behind it, in lockstep — to the point where the
+   footer's blurb bar is just outside the bottom of the viewport, so there
+   aren't two descriptions on screen."
+
+   --info-push (px, on <html>) is written by SiteShell's drawer tween through
+   src/lib/infoPush.js: the same call, duration and ease as the drawer's own
+   slide, and the distance is MEASURED (the footer bar's top edge to the
+   viewport's bottom edge), never the drawer's height. It is absent (0) while
+   the drawer is closed, so every rule here rests byte-identical.
+
+   What it moves, all on the individual `translate` property so it composes
+   with the transforms each one already writes (the footer's per-frame reveal,
+   the globe's centering, --hero-lift):
+     · the links footer + its logo ticker — folded into the --footer-slide
+       rule above;
+     · the globe, its ring, the chips, the zoom_in column and the commit fill —
+       folded into the --hero-lift list above;
+     · the tagline column (the copyright) and the lower-right privacy pill,
+       below;
+     · the hero's gradient backdrop, so the horizon travels with the globe
+       instead of staying put behind it.
+   All of it keys off the [data-footer-rest] latch, so only home ever moves. */
+html[data-footer-rest] .site-tagline,
+html[data-footer-rest] .site-privacy {
+  translate: 0 var(--info-push, 0px);
+}
+
+html[data-footer-rest] .hero {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: 0 var(--info-push, 0px);
 }
 
 /* The commit fill is in the list because its clip-path circle is written from
