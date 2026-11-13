@@ -225,6 +225,25 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
     Momentum Records, One Of Us, Louder Than Silence. Since 11-12, `logo-design` on Heavy House
     Society and TOBEHONEST is only their white logo, and Hurry Up Slowly and MOONLGHT have none until
     theirs land.
+  - Every name in the info drawer's Client Roster links to its work in the Project Directory (Nathan,
+    11-13: "link and connect all client names / affiliations to the correct media so that all client
+    names in the info panel link to media in the project directory"). A name is live when its
+    coverage holds a directory tile (`src/lib/clientCoverage.js`). On 11-13 ten names covered none:
+    Annabel Englund, Audiojack, Circus Music, D'Witches, Easier Said, HOME//GRXWN, Helix Records,
+    Malóne, Panorama360 and Ultra Records, plus Cristoph once his client lands (11-13 plan). DJ Tennis
+    is live through Munchietown. Each dead name takes one of three routes:
+    - **A label, manager or parent:** an affiliation on each child client
+      (`docs/project-directory-plan.md` §6). Nathan names the children, for example "HOMEGRWXN ←
+      Rossi.".
+    - **A collaborator on another client's piece** (Cristoph on Kamino's Falling, Annabel Englund on
+      Belong To Me): an affiliation would pull the whole client's work under the name, so this needs
+      a per-piece field. One shape: `mediaAsset.collaborators[]` as client refs, which coverage
+      counts. It is a hashed-schema edit, so it goes schema, then data, then code, and the schema
+      lands alone. It needs a design and Nathan's call first.
+    - **Its own work uploaded:** Malóne's client folder is gone (Nathan, 11-13: "I've deleted the
+      client folder for Malone so I'm going to have to pull our work from instagram"). He pulls the
+      work from Instagram, then it goes up under `client-mal-ne`. One Of Us's ThereAfter Malone
+      Latmun flyer already credits Malóne, so the collaborator field would also cover it.
   - Last, and on its own: retire `project.services`. It is a hashed-schema edit, so it lands alone.
 - `npm run cms audit` on b60h4u7o/production before every deploy: 0 errors, and every
   label-ratio finding either fixed or recorded in `media/_audit-accepted.json`, with
