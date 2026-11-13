@@ -689,6 +689,14 @@ island.
   - `plan` is read-only and prints the plan id. `apply` and `verify` run only on his yes to that id,
     in the plain `node --env-file=.env.local scripts/cms.mjs …` form.
   - Or he edits them in Studio himself.
+- **Per-piece collaborators (SQ-76, 11-13):** a name can also be live through one piece instead of a
+  whole client. `mediaAsset.collaborators` (references to `client`, after `client`) credits another client
+  on a piece that is not theirs (a featured or co-billed artist, or a co-presenting promoter or label,
+  e.g. Circus Music on Rossi's Dusk Till Dawn). A tile counts for a name when its client or any
+  collaborator is in that name's coverage (`tileInCoverage`, `src/lib/clientCoverage.js`), so the
+  roster, the `?client=` filter and its tag counts agree. The piece stays the host client's, and the
+  hop stays one: the collaborator's coverage never pulls in the host's other work. A label's release
+  artists are never added (curation rule). Linking real pieces is a CMS plan Nathan approves by id.
 - **Spelling:** names follow Sanity's spelling, for example "Le Yora" and "HOMEGRWXN".
 - **Near-duplicates:** "COCO Records" (0 assets) was deleted on 11-05 on Nathan's yes (its backup is in
   `~/swm-media-audit-2026-11/media-session/`, outside the repo). "Rossi." beside "HOMEGRWXN" stays until the

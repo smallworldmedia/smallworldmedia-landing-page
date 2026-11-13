@@ -217,6 +217,61 @@ test('roster: every client by name, live when its coverage holds a tile', () => 
   assert.deepEqual(live, { 'annabel-englund': true, bellaire: true, coco: true, 'dj-tennis': true, 'easier-said': false, munchietown: true })
 })
 
+// ── collaborators (SQ-76): a credited artist's name filters to the pieces they are on ──
+
+test('collaborators: a collaborator-only name is live, filters to exactly its pieces, and the host still shows them', () => {
+  rank = 0
+  const clients = [
+    { name: 'Kamino', slug: 'kamino', umbrellas: null },
+    { name: 'Anabel', slug: 'anabel', umbrellas: null },
+    { name: 'Anabel Label', slug: 'anabel-label', umbrellas: ['anabel'] },
+    { name: 'Idle', slug: 'idle', umbrellas: null },
+  ]
+  const assets = [
+    asset('belong', 'kamino', { collaboratorSlugs: ['anabel'], services: tag('album-art') }),
+    asset('falling', 'kamino', { collaboratorSlugs: ['anabel', null], services: tag('promo-video') }),
+    asset('own', 'kamino', { services: tag('branding') }),
+  ]
+  const ts = buildDirectoryTiles({ assets, worlds: [], clients })
+  assert.deepEqual(ts.map((t) => [t._id, t.collaborators]), [['belong', ['anabel']], ['falling', ['anabel']], ['own', []]], 'missing reads [], a dangling ref drops')
+  const shows = (slug, tags) => ts.filter((t) => matchesFilter(t, { tags, coverage: coverageOf(slug, clients) })).map((t) => t._id)
+  assert.deepEqual(shows('anabel'), ['belong', 'falling'])
+  assert.deepEqual(shows('kamino'), ['belong', 'falling', 'own'])
+  assert.deepEqual(shows('anabel', new Set(['branding'])), [], 'a tag outside her pieces empties her filter')
+  // one hop: Anabel's label covers her pieces, but her coverage never reaches Kamino's other work
+  assert.deepEqual(shows('anabel-label'), [], 'a label under Anabel is not above her')
+  assert.ok(!shows('anabel').includes('own'))
+  // tag presence under the collaborator filter counts only her pieces
+  const p = tagPresence(ts, coverageOf('anabel', clients))
+  assert.deepEqual([...p.inClient].sort(), ['album-art', 'motion-video', 'promo-video'])
+  assert.ok(p.any.has('branding') && !p.inClient.has('branding'))
+  // the roster, the clients tab and the URL filter agree
+  const live = Object.fromEntries(toDrawerRoster(clients, ts).map((r) => [r.slug, r.live]))
+  assert.deepEqual(live, { kamino: true, anabel: true, 'anabel-label': false, idle: false })
+  assert.deepEqual([...clientPresence(ts, new Set(['promo-video']), clients)].sort(), ['anabel', 'kamino'])
+  assert.deepEqual([...clientPresence(ts, new Set(['branding']), clients)], ['kamino'], 'her pieces carry no branding')
+  assert.deepEqual(sanitizeFilter({ tags: tag('album-art', 'promo-video', 'branding'), clients, tiles: ts }, ['album-art', 'branding'], 'anabel'), { tags: ['album-art'], client: 'anabel' })
+  assert.equal(sanitizeFilter({ tags: tag('album-art'), clients, tiles: ts }, [], 'idle').client, null, 'a name with no piece filters nothing')
+})
+
+test('collaborators: a group tile carries the union of its members; assets with no field build the same tiles as before', () => {
+  rank = 0
+  const grouped = buildDirectoryTiles({
+    assets: [
+      asset('d1', 'kamino', { mediaType: 'brand-deck', displayGroup: 'deck', brandDeckOrder: 1, collaboratorSlugs: ['a'] }),
+      asset('d2', 'kamino', { mediaType: 'brand-deck', displayGroup: 'deck', brandDeckOrder: 2, collaboratorSlugs: ['b', 'a'] }),
+    ],
+    worlds: [],
+  })
+  assert.equal(grouped.length, 1)
+  assert.deepEqual(grouped[0].collaborators, ['a', 'b'])
+  const before = tiles()
+  assert.ok(before.every((t) => Array.isArray(t.collaborators) && t.collaborators.length === 0))
+  const bare = before.map(({ collaborators, ...rest }) => rest)
+  assert.deepEqual(toDrawerRoster(CLIENTS, bare), toDrawerRoster(CLIENTS, before), 'a tile without the field reads as one with none')
+  assert.deepEqual([...tagPresence(bare, coverageOf('dj-tennis', CLIENTS)).inClient], [...tagPresence(before, coverageOf('dj-tennis', CLIENTS)).inClient])
+})
+
 // ── playerGate (directory/playerGate.js): who may play ──
 
 class FakeObserver {

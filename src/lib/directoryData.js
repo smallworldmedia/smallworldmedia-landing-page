@@ -40,7 +40,8 @@ let pending = null;
 
 /**
  * `{ tags, clients, tiles, shuffle }` — tags in Studio order, clients with
- * their `umbrellas` (clientCoverage.js), tiles in 'project' order, and
+ * their `umbrellas` (clientCoverage.js), tiles in 'project' order (each with
+ * its client and credited `collaborators`, [] while unset), and
  * `shuffle` (siteSettings.directoryShuffle: true only when the Studio set it;
  * a missing field or document reads false, today's order). Only the first
  * caller in a build hits the network.

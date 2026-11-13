@@ -136,6 +136,20 @@ export const mediaAsset = defineType({
       validation: (r) => r.required(),
     }),
     defineField({
+      name: 'collaborators',
+      title: 'Collaborators',
+      type: 'array',
+      of: [
+        defineArrayMember({
+          type: 'reference',
+          to: [{ type: 'client' }],
+        }),
+      ],
+      description:
+        "Other clients credited on this piece who are not its client: a featured or co-billed artist, or a co-presenting promoter or label. Their Client Roster name filters the Project Directory to this piece. A label's release artists are never added.",
+      validation: (r) => r.unique(),
+    }),
+    defineField({
       name: 'project',
       type: 'reference',
       to: [{ type: 'project' }],

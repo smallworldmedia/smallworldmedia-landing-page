@@ -286,3 +286,27 @@ test('splitIntoThirds: a boolean flag on video assets only; null and non-boolean
   assert.throws(() => validateDocument(existingMedia('mediaAsset-still',{splitIntoThirds:true})),/video media only/)
   validateDocument(existingMedia('mediaAsset-still-off',{splitIntoThirds:false}))
 })
+
+test('collaborators on a mediaAsset: client refs plan and apply, and the host client stays the piece\'s own', async t => {
+  const guest = { _id: 'client-guest', _type: 'client', _rev: 'r-guest', name: 'Guest', slug: { _type: 'slug', current: 'guest' } }
+  const old = existingMedia('mediaAsset-feature'), h = await harness(t, { docs: [guest, old] })
+  const collaborators = [{ ...reference(guest._id), _key: 'guest' }]
+  const p = await h.plan({ changes: await h.changes({ patches: [{ id: old._id, type: 'mediaAsset', set: { collaborators }, unset: [] }] }) })
+  assert.ok(p.guards.some(g => g.id === guest._id))
+  const result = await h.apply(p); assert.equal(result.updated, 1); assert.equal(result.failed, 0)
+  assert.deepEqual(h.db.get(old._id).collaborators, collaborators); assert.equal(h.db.get(old._id).client._ref, clientDoc._id)
+  // Unset clears it; the field is optional.
+  const cleared = await h.plan({ changes: await h.changes({ patches: [{ id: old._id, type: 'mediaAsset', set: {}, unset: ['collaborators'] }] }) })
+  await h.apply(cleared); assert.equal(h.db.get(old._id).collaborators, undefined)
+})
+test('collaborators refuses a service tag, a missing id, a duplicate key or ref, null, a keyless item, and a non-media owner', async t => {
+  const old = existingMedia('mediaAsset-feature'), h = await harness(t, { docs: [old] })
+  const planWith = async collaborators => h.plan({ changes: await h.changes({ patches: [{ id: old._id, type: 'mediaAsset', set: { collaborators }, unset: [] }] }) })
+  await assert.rejects(planWith([{ ...reference('serviceTag-branding'), _key: 'tag' }]), /Unresolved\/wrong-type client reference/)
+  await assert.rejects(planWith([{ ...reference('client-missing'), _key: 'missing' }]), /Unresolved\/wrong-type client reference/)
+  assert.throws(() => validatePatch('mediaAsset', { collaborators: [{ ...reference(clientDoc._id), _key: 'a' }, { ...reference('client-other'), _key: 'a' }] }, []), /Duplicate collaborators key/)
+  assert.throws(() => validatePatch('mediaAsset', { collaborators: [{ ...reference(clientDoc._id), _key: 'a' }, { ...reference(clientDoc._id), _key: 'b' }] }, []), /Duplicate collaborator reference/)
+  assert.throws(() => validatePatch('mediaAsset', { collaborators: null }, []), /Use unset to clear collaborators/)
+  assert.throws(() => validatePatch('mediaAsset', { collaborators: [{ ...reference(clientDoc._id) }] }, []), /collaborators\._key/)
+  assert.throws(() => validatePatch('project', { collaborators: [] }, []), /Rejected set field: collaborators/)
+})
