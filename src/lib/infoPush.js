@@ -13,8 +13,8 @@
  * which composes with the transforms those surfaces already write (the footer's
  * per-frame reveal, the globe's centering, --hero-lift) instead of fighting
  * them — the --footer-slide / --hero-lift idiom. The tween's target is a plain
- * proxy object, so nothing here touches another island's DOM and no gsap
- * context can revert it.
+ * proxy object, so it touches no island's DOM: the home island's unmount has
+ * nothing of it to revert, and it runs in the always-mounted shell's context.
  *
  * HOW FAR. Measured, never the drawer's height: the distance that carries the
  * top edge of the footer's blurb bar (the resting `.site-footer--links` panel)
