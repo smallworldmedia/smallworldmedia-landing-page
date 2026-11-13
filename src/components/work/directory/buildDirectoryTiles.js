@@ -18,7 +18,12 @@
  *     plays through on the shared beat, MediaSlot); a group of one is a plain
  *     tile;
  *   - process / supporting media (the 'role' lane) stays out; album covers
- *     and heroes are single tiles.
+ *     and heroes are single tiles;
+ *   - a single showcase video flagged `splitIntoThirds` (with a known
+ *     duration) is three tiles, one per third (expandChunks, the detail
+ *     page's splitter): ids `<_id>~1of3`…, each carrying its `chunk` and the
+ *     whole video's client, services and link. They sit side by side in the
+ *     build order and are dealt like any other tile after that.
  *
  * A tile is the slim face MediaSlot reads, plus `client` (slug), `services`
  * (tag slugs, a group's union), `href` + `label` when its project has a
@@ -38,7 +43,7 @@
  * defaultFilter and filterSearch (its URL state, ?tag=a,b&client=slug), and
  * sizesFor (a tile's <img sizes>).
  */
-import { assetLane, ratioOf } from '../detail/buildContentFlow.js';
+import { assetLane, expandChunks, ratioOf } from '../detail/buildContentFlow.js';
 import { TILE_RATIO } from '../detail/flushGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
@@ -166,7 +171,11 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
   const byKey = new Map();
   for (const { asset, lane } of kept) {
     if (!GROUPED.has(lane)) {
-      groups.push({ lane, key: asset._id, members: [asset] });
+      // a showcase video flagged splitIntoThirds is its thirds (expandChunks,
+      // as on the detail page), each a tile of its own, adjacent here
+      for (const piece of lane === 'showcase' ? expandChunks([asset]) : [asset]) {
+        groups.push({ lane, key: piece._id, members: [piece] });
+      }
       continue;
     }
     const key = `${lane}:${asset.clientSlug}:${asset.projectId ?? ''}:${asset.displayGroup ?? ''}`;
@@ -202,6 +211,7 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
       services: [...new Set(members.flatMap((m) => (m.services ?? []).map((s) => s.slug)))],
       fit: fitOf(seen, alpha),
     };
+    if (source.chunk) tile.chunk = source.chunk;
     if (isTransparent(seen, alpha)) tile.clear = true;
     const ground = groundOf(seen, alpha);
     if (ground) tile.ground = ground;

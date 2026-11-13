@@ -3,7 +3,7 @@
 //   node --test scripts/test/video-chunks.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { muxStream, muxPoster, chunkRanges, chunkWindow, windowLoop, CHUNK_COUNT, MUX_SEGMENT_SECONDS } from '../../src/components/work/imageConfig.js'
+import { muxStream, muxPoster, chunkRanges, chunkWindow, chunkPreview, windowLoop, CHUNK_COUNT, MUX_SEGMENT_SECONDS, PREVIEW_SECONDS } from '../../src/components/work/imageConfig.js'
 import { buildContentFlow, expandChunks, splitHero, HERO_SPLIT_AT } from '../../src/components/work/detail/buildContentFlow.js'
 
 const D = 46.722633 // the Bedouin Knockdown Center promo's Mux duration
@@ -50,6 +50,28 @@ test('chunkWindow: the stream starts at the segment boundary at or before the st
     const w = [a, b, c][k]
     assert.ok(Math.abs(base + w.from - r.start) < 1e-9 && Math.abs(base + w.to - r.end) < 1e-9)
   })
+})
+
+test('chunkPreview: the directory plays PREVIEW_SECONDS from the chunk start, never past its end, on the stream timeline', () => {
+  assert.equal(PREVIEW_SECONDS, 5)
+  chunkRanges(D).forEach((range, k) => {
+    const chunk = { ...range, ...chunkWindow(range) }
+    const p = chunkPreview(chunk)
+    assert.ok(Math.abs(p.end - (range.start + 5)) < 1e-9, `third ${k + 1}: ends 5 s after its own start`)
+    assert.ok(p.end <= range.end)
+    // the loop's wrap is the same instant on the stream's clock (from + the 5 s window)
+    assert.ok(Math.abs(p.to - p.end + (range.start - chunk.from)) < 1e-9)
+    assert.ok(Math.abs(p.to - chunk.from - 5) < 1e-9)
+    // clipped at both ends: it begins at its own third (the first needs no start) and ends 5 s on
+    const url = muxStream('abc', p.end, '', range.start)
+    assert.ok(url.endsWith(`asset_end_time=${p.end}`))
+    assert.equal(url.includes('asset_start_time='), range.start > 0)
+  })
+  // a chunk shorter than the window ends at its own end
+  const short = { start: 10, end: 12.5, ...chunkWindow({ start: 10, end: 12.5 }) }
+  assert.deepEqual(chunkPreview(short), { end: 12.5, to: 2.5 })
+  // `seconds` is the caller's
+  assert.equal(chunkPreview({ start: 0, end: 30, from: 0, to: 30 }, 8).end, 8)
 })
 
 test('windowLoop: wraps to `from`, not to the stream start; seeks to `from` on metadata only when behind it', () => {
