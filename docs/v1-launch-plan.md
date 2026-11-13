@@ -235,15 +235,16 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
     - **A label, manager or parent:** an affiliation on each child client
       (`docs/project-directory-plan.md` §6). Nathan names the children, for example "HOMEGRWXN ←
       Rossi.".
-    - **A collaborator on another client's piece** (Cristoph on Kamino's Falling, Annabel Englund on
-      Belong To Me): an affiliation would pull the whole client's work under the name, so this needs
-      a per-piece field. One shape: `mediaAsset.collaborators[]` as client refs, which coverage
-      counts. It is a hashed-schema edit, so it goes schema, then data, then code, and the schema
-      lands alone. It needs a design and Nathan's call first.
+    - **A collaborator on another client's piece** (Cristoph on Kamino's Falling visualizer, Anabel
+      Englund on Kamino's Belong To Me album art and 4x5): an affiliation would pull the whole
+      client's work under the name, so this needs a per-piece field, `mediaAsset.collaborators[]` as
+      client refs, which coverage counts. Nathan's go 11-13 ("let's go ahead and proceed with the
+      affiliations"). It is a hashed-schema edit, so it goes schema, then data, then code, and the
+      schema lands alone.
     - **Its own work uploaded:** Malóne's client folder is gone (Nathan, 11-13: "I've deleted the
       client folder for Malone so I'm going to have to pull our work from instagram"). He pulls the
-      work from Instagram, then it goes up under `client-mal-ne`. One Of Us's ThereAfter Malone
-      Latmun flyer already credits Malóne, so the collaborator field would also cover it.
+      work from Instagram, then it goes up under `client-mal-ne`. Malóne is not linked to One Of Us's
+      ThereAfter pieces (Nathan, 11-13: "Malone does not go with thereafter").
   - Last, and on its own: retire `project.services`. It is a hashed-schema edit, so it lands alone.
 - `npm run cms audit` on b60h4u7o/production before every deploy: 0 errors, and every
   label-ratio finding either fixed or recorded in `media/_audit-accepted.json`, with
