@@ -233,12 +233,14 @@ test('the lift is written to `translate`, not `transform`', () => {
   // Correction 3. The hero elements already carry `transform` from the globe
   // dolly and the lockup scale; `translate` pre-multiplies it instead of
   // fighting it, and is the only one of the two that is safe to clobber.
-  assert.match(css, /translate: 0 calc\(var\(--hero-lift, 0px\) \* -1\)/)
+  // 11-12 (SQ-70): the open info drawer's --info-push rides the same property,
+  // so the lift may carry that one extra term (scripts/test/info-push.test.mjs).
+  assert.match(css, /translate: 0 calc\(var\(--hero-lift, 0px\) \* -1( \+ var\(--info-push, 0px\))?\)/)
   assert.doesNotMatch(css, /transform:[^;]*--hero-lift/)
 })
 
 test('the lift selector group holds the whole hero but not the label SVG', () => {
-  const { selector } = ruleFor('translate: 0 calc(var(--hero-lift, 0px) * -1)')
+  const { selector } = ruleFor('translate: 0 calc(var(--hero-lift, 0px) * -1')
   for (const sel of ['.hero__globe', '.hero__globe-stroke', '.hero-labels', '.hero__lead-col', '.hero__fill']) {
     assert.ok(selector.includes(sel), `the lift misses ${sel}`)
   }
