@@ -73,13 +73,16 @@ export default defineConfig({
 
                 // Each orderableDocumentListDeskItem returns a complete ListItem,
                 // so use them directly as items in the nested list.
+                // Album art is listed (11-12, Nathan): a page's hero is its
+                // lowest-ranked media of any kind (assets[0]), so a hidden cover
+                // on a legacy rank took the hero where it couldn't be dragged.
                 return S.list()
                   .title('Featured Project Assets')
                   .items(
                     projects.map((project: { _id: string; title?: string; clientName?: string }) =>
                       orderableDocumentListDeskItem({
                         type: 'mediaAsset',
-                        filter: `project._ref == $projectId && !(mediaType in ["brand-deck", "carousel-slide", "album-art"]) && !defined(contentRole)`,
+                        filter: `project._ref == $projectId && !(mediaType in ["brand-deck", "carousel-slide"]) && !defined(contentRole)`,
                         params: { projectId: project._id },
                         title: `${project.title || project.clientName || 'Untitled'} — Assets`,
                         id: `project-assets-${project._id}`,
