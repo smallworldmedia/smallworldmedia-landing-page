@@ -21,7 +21,12 @@
 .masonry-grid--detail {
   line-height: normal;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* 3 columns; FeaturedProjectDetail sets --grid-cols from the measured tier
+     (SQ-74: GRID_LARGE_PX in tileGrid.js, 4 from 1920px, ?detaillargecols).
+     The large tier is not a media query here: the server render's placement
+     is 3 columns, so a CSS step would leave a hole until the tier is measured.
+     The ≤1024 / ≤768 rules below stay literal. */
+  grid-template-columns: repeat(var(--grid-cols, 3), 1fr);
   grid-auto-rows: 10px; /* fine row unit — items span multiples */
   gap: var(--space-1);
 }

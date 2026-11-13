@@ -286,6 +286,7 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
         <DirectoryGrid
           tiles={shown}
           cols={tune.cols}
+          largeCols={tune.largeCols}
           tabletCols={tune.tabletCols}
           phoneCols={tune.phoneCols}
           cap={tune.players}

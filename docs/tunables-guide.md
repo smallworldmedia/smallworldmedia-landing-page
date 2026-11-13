@@ -592,6 +592,8 @@ Row spans for the grid tiles come from the measured column width, so every tile 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
 | `?tileshape` | a square tile's width ÷ height; portraits and landscapes follow from it (the detail grid and `/work/directory`) | `1` (Nathan's 10-27 bake: album art stays uncropped) | any number > 0 (`1.25` was the other option on the table) | `tileGrid.js TILE_SHAPE` |
+| `?gridlarge` | the large-screen tier's width in CSS px (SQ-74): from it up the detail grid gains columns (3 → `?detaillargecols`) and `/work/directory` takes `?dirlargecols`; the `<img sizes>` clause follows it. Below it nothing changes (the 1024 / 768 steps, phone and tablet). The server render keeps today's 3 columns; the tier applies after mount (masonry.css reads `--grid-cols`, written from the measured tier, so there is no CSS media query to keep in step) | `1920` | any number > 1024 | `tileGrid.js GRID_LARGE_PX` |
+| `?detaillargecols` | the detail grid's columns at the large tier (Nathan 11-13: compare 4 and 5; a wall keeps its own fixed count, the cover and flyer walls are already 4) | `4` | integer 3–6 | `tileGrid.js DETAIL_LARGE_COLS` |
 
 ### Description bands (11-03)
 
@@ -703,7 +705,8 @@ Readers: `directory/directoryTune.js` (`readTune()` over `PARAM_KEYS`, once in D
 | `?dirorder` | tile order: `project` = the featured projects first, in World order, then every other client by name; `mix` = clients dealt round-robin; `shuffle` = a new random order on every load (drawn once at mount, so a filter change keeps it) | `project`, or `shuffle` while the Studio's Site Settings → "Project Directory: shuffle the order" is on (read at build) | `project` \| `mix` \| `shuffle` | `directoryTune.js SSR_TUNE.order` (the switch: `siteSettings.directoryShuffle`) |
 | `?dirplayers` | videos playing at once (the player gate's cap); `0` = posters only | `8`, `4` ≤768px | integer ≥ 0 | `imageConfig.js DIRECTORY_PLAYERS` |
 | `?dirdwell` | ms a video tile stays half in view before it plays, so a fling past never asks Mux for a master | `300` ms | ≥ 0 | `imageConfig.js DIRECTORY_DWELL_MS` |
-| `?dircols` | grid columns above 1024px (Nathan, 11-05) | `5` | integer 1–10 | `directoryTune.js SSR_TUNE.cols` |
+| `?dircols` | grid columns above 1024px, below the large tier (Nathan, 11-05); an explicit value keeps winning this band | `5` | integer 1–10 | `directoryTune.js SSR_TUNE.cols` |
+| `?dirlargecols` | grid columns from the large tier (`?gridlarge`, 1920px) up (SQ-74) | `6` | integer 1–12 | `directoryTune.js SSR_TUNE.largeCols` |
 | `?dirtabletcols` | grid columns from 769 to 1024px (Nathan approved 4 on 11-05: it keeps a cell at 190–260px, between the phone's 195 and the desktop's 205–285) | `4` | integer 1–8 | `directoryTune.js SSR_TUNE.tabletCols` |
 | `?dirphonecols` | grid columns at ≤768px (Nathan, 11-05) | `2` | `1` \| `2` | `directoryTune.js SSR_TUNE.phoneCols` |
 | `?dirlogopad` | a logo tile's margin on every side, a share of the canvas's height (the same on a square and a landscape) | `0.13` | 0 to 0.4 | `logoTile.js LOGO_DIALS.pad` |

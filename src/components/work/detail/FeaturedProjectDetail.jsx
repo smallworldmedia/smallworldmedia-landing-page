@@ -68,7 +68,7 @@ import { HOLD_MQ, PHONE_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js'
 
 /* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
    Px-fixed height (~65vh on a laptop) so the reserved region stays rigid.
-   Both ORBIT and DECK reserve the full-width band (colSpan 3): the
+   Both ORBIT and DECK reserve the full-width band (FULL_BAND): the
    re-choreographed left-anchored conveyor (bandLayout.js) spans the row,
    so tiles flow above/below it — not beside — and no shadowed page
    overhangs a left-column tile (the old "floating above the grid" bug).
@@ -84,7 +84,10 @@ const DECK_REGION_ROWS = 68;
    banners at the grid's current width — rows derive from the measured width
    below; this is only the pre-measure fallback (≈ a 1200px grid). */
 const BANNER_REGION_ROWS_FALLBACK = 38;
-const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: 3, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
+/* A full-width band: computeFlushGrid clamps a region's span to the grid's
+   columns (3, or the large tier's 4-6, tileGrid.js). */
+const FULL_BAND = Infinity;
+const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: FULL_BAND, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
 /* 11-10, Nathan — "Big flyers that play": an admat set gets one wall in the
    album-art slot, at a FIXED column count (4 desktop, 2 phone ≤ 768) so the
    flyers read big, and a socket sized from one flyer's height at the set's
@@ -514,7 +517,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     regions.push({
       id: 'deck',
       colStart: 0,
-      colSpan: 3,
+      colSpan: FULL_BAND,
       rowSpan: DECK_REGION_ROWS,
       anchor: albumArt.length > 0 || admats.length > 0 ? 'mid' : 'top',
     });
@@ -534,7 +537,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     regions.push({
       id: `carousel:${set.group}`,
       colStart: 0,
-      colSpan: 3,
+      colSpan: FULL_BAND,
       rowSpan: carouselRegionRows(set),
       anchor,
     });
@@ -543,7 +546,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     regions.push({
       id: `deck-solo:${d.group}`,
       colStart: 0,
-      colSpan: 3,
+      colSpan: FULL_BAND,
       rowSpan: DECK_REGION_ROWS,
       anchor: 'bottom',
     });
@@ -553,7 +556,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     regions.push({
       id: `banner:${b.group}`,
       colStart: 0,
-      colSpan: 3,
+      colSpan: FULL_BAND,
       rowSpan: bannerRows(b),
       anchor: 'bottom',
     });
@@ -582,10 +585,13 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // ── Compute flush grid placements around the reserved regions ──
   // (≤ 1024 the CSS spans govern; the 3-col placement keeps the fallback
   // there so the sockets' DOM order — and where the bands cut — matches the
-  // server render.) Each later paragraph cuts a break row.
+  // server render. At the large tier (SQ-74) it places in that tier's columns.)
+  // Each later paragraph cuts a break row.
+  const placeCols = Math.max(3, tileRows?.cols ?? 3);
   const flush = computeFlushGrid(showcase, {
     regions,
-    sqRows: tileRows?.cols === 3 ? tileRows.sq : SQ_ROWS_FALLBACK,
+    cols: placeCols,
+    sqRows: tileRows?.cols === placeCols ? tileRows.sq : SQ_ROWS_FALLBACK,
     breaks: asides.length,
     breakEvery: blurbRows,
   });
