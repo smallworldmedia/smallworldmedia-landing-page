@@ -1245,3 +1245,50 @@ or a knob away from changing.
 
 Full panel output (6 complete specs + 3 judge cards + 4 audits): session scratchpad
 `tasks/wil411eyg.output` (2026-08-31 session; ephemeral — this doc is the survivor).
+
+## 11-13 round 12 — the pager simplified toward the mobile menu (SQ-75)
+
+Nathan, 11-13: the /work pager should look like the mobile menu — the selected name at the
+menu item's size in white, the other rows faint white, a black scrim with no box fill, and on
+desktop no repeating client-name ticker; "apply these color updates to the desktop version as
+well". And, binding the whole round: "The dialed-in scrolling, interaction, and selection
+choreography that we have should remain the same." Skin only — the engine, detents, springs,
+wrap, warp, the chip and hint, and the scrim's fade are untouched (probe-verified, below).
+
+What changed:
+
+- **Phone selected name = the menu item's size.** `--text-menu-item` (global.css,
+  `clamp(2.286rem, 9vw, 3.429rem)`) is now THE number: `.mobile-menu__item` reads it (menu
+  unchanged) and the ≤768 `.fp-scale__name` base size is `token ÷ (--scale-sel ×
+  --scale-sel-bump)`, so the row's own ×sel×bump transform lands the selected name EXACTLY on
+  the token at any width (computed 35.10 px at 390, 38.70 px at 430 — the menu item's computed
+  size, 0 px apart). Only the END size moved: every row's multiplier (`--sel`, the falloff,
+  the hold, the bump, the timing) is as before, so the whole NAME curve scaled together —
+  name base 14 → 22.29 px at 390 (×1.59), roster rows 14 → 22.29 painted, selected 22.05 →
+  35.10. The digits keep their own size. Family (ABC Areal, weight 500, uppercase) stays the
+  pager's; the menu's is `--font-headline`, weight/case its own.
+- **Phone scrim = plain black.** ≤768: `--scrim-tint: 0`, `--scrim-bf: none`,
+  `--scrim-noise: none`, grain driver stilled, `--pager-scrim: 1` (opaque, the menu's own). The
+  desktop recipe (75 % tint, 7.5 px blur, RGB grain at 0.4) is untouched. The ≤768 grain tile
+  and `SCRIM_GRAIN_MOBILE` are deleted. **The depth is a proposal, not Nathan's number** —
+  `?scrimtune` opens on the phone values at ≤768; `shots/scrimtune-phone-engaged-depth-0.4.png`
+  vs `-1.png` is the comparison (0.4 lets the scene show through the rows).
+- **Ink.** Selected row `--color-white` (name and number, via `--w1`, the detent's own
+  step); other rows `--ink-faint` (new role token, `--ink-faint-l` .9, the `--ink-muted`
+  idiom in oklab ≈ sRGB 0.87; `?inkfaint`), with the `?inkfloor/?inkexp/?inkreach` falloff on
+  top unchanged. `--ink-muted` (.58) not moved.
+- **Box fill off.** `.fp-scale__box` paints nothing (was `--color-near-black`). The element
+  and its spring stay (choreography); the selected number reads clear of the hairline on both
+  tiers (screenshots). A follow-up could delete the now-invisible box + `--box-dy`.
+- **Desktop fill ticker removed.** It was live (`fill` armed on every desktop detent,
+  `data-fill` + `fp-scale-fill` rolling, `--scale-fill-pxs` 30 fallback). Deleted with its
+  `?fillpxs`, `?unfill` and `?boxgap` dials, `--scale-fill-pxs`, `--scale-box-gap` and the
+  `[data-fill]` rules; the desktop fixed-width box branch went with it. Nothing rolls on
+  desktop (name cap 2400 px — no name clips at 1440×900, widest 348 px). The ≤768 clip marquee
+  stays: at the new size 5 names marquee at 390 and 430 (Heavy House Society (Pre-2026),
+  Andhera Records, Imperfect Records, Heavy House Society, Hurry Up Slowly; was 1 — HHS
+  (Pre-2026) — before).
+
+Verification: `scripts/test/pager-simplify.test.mjs`; pager-probe touch/peek (phone, DPR 3)
+and hover/wheel (desktop) on the base (:4322) and this build read the same open/charged/engaged
+state, selected index and aria-live at every step.

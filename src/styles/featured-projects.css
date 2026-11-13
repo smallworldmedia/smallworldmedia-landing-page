@@ -403,16 +403,20 @@ body:has(.fp) {
   --scrim-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%20width%3D'100%25'%20height%3D'100%25'%3E%3CfeTurbulence%20type%3D'turbulence'%20baseFrequency%3D'0.84'%20numOctaves%3D'1'%20seed%3D'7'%20stitchTiles%3D'stitch'%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D'linear'%20slope%3D'0.82'%20intercept%3D'0'%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D'256'%20height%3D'256'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
 }
 
-/* ≤768 grain re-dial (09-04 r9, Nathan's device bake:
-   ?grainamt=.56&grainsize=90&grainfreq=.85): finer tile, lighter slope,
-   same turbulence/1-octave/rgb character. Regenerate with
-   scrimNoise.js noiseUri({...SCRIM_GRAIN, freq: 0.85, amount: 0.56}) —
-   the mirror lives there as SCRIM_GRAIN_MOBILE. URL dials still override
-   (inline beats the tier block). */
+/* ≤768 (11-13, Nathan: simplify toward the mobile menu): the phone scrim is
+   plain --color-black, like .mobile-menu — no project tint, no backdrop
+   blur, no grain (and its steps() driver is stilled). OPAQUE by default
+   (depth 1, the menu's own); rows far from the lens recede into it through
+   their feather + ink falloff. The depth is Nathan's to dial: ?scrimtune
+   (the bench opens on this tier's values at ≤768) — 0.4 was the old
+   translucent depth. The desktop recipe above is untouched. */
 @media (max-width: 768px) {
   .fp[data-pager='scale'] {
-    --scrim-noise-size: 90px;
-    --scrim-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%20width%3D'100%25'%20height%3D'100%25'%3E%3CfeTurbulence%20type%3D'turbulence'%20baseFrequency%3D'0.85'%20numOctaves%3D'1'%20seed%3D'7'%20stitchTiles%3D'stitch'%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D'linear'%20slope%3D'0.56'%20intercept%3D'0'%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D'256'%20height%3D'256'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
+    --pager-scrim: 1;
+    --scrim-tint: 0;
+    --scrim-bf: none;
+    --scrim-noise: none;
+    --scrim-grain-anim: none;
   }
 }
 
@@ -834,14 +838,16 @@ body:has(.fp) {
    holds the lens line in screen space with zero extra per-frame writes),
    then --box-dy deflects it; translateY leftmost applies AFTER the scale,
    so both stay screen px. Origin 0 50% = the row's own origin, so box and
-   row scale in lockstep. */
+   row scale in lockstep.
+   11-13 (Nathan: "no box fill"): the fill is OFF — the box paints nothing
+   now (the scaled digits cross the bare hairline; the number is white on
+   black either way). The element and its spring ride on untouched. */
 .fp .fp-scale__box {
   position: absolute;
   left: 0;
   top: calc(var(--scale-box-h) / -2);
   width: 0;
   height: var(--scale-box-h);
-  background: var(--color-near-black);
   opacity: 0;
   pointer-events: none;
   transform-origin: 0 50%;
@@ -1108,11 +1114,17 @@ body:has(.fp) {
   );
   /* r11g (Nathan: "much more gradual"): the ink rides its OWN continuous
      curve (--ndr, per frame) — white at the lens, --scale-ink-floor at
-     --scale-ink-reach stations — decoupled from the detented size step. */
+     --scale-ink-reach stations — decoupled from the detented size step.
+     11-13 (Nathan): the BASE ink is now two-tone — pure --color-white on
+     the selected row (--w1 is 1 only on the detented row, 0 on every other
+     integer station, the same step the size lands on), --ink-faint (the
+     faint-white role token, .9) on the rest. The falloff above rides on
+     top of that base unchanged. */
   --wi: pow(clamp(0, 1 - var(--ndr) / var(--scale-ink-reach), 1), var(--scale-ink-exp));
   color: color-mix(
     in srgb,
-    var(--color-white) calc((var(--scale-ink-floor) + (1 - var(--scale-ink-floor)) * var(--wi)) * 100%),
+    color-mix(in srgb, var(--color-white) calc(var(--w1) * 100%), var(--ink-faint))
+      calc((var(--scale-ink-floor) + (1 - var(--scale-ink-floor)) * var(--wi)) * 100%),
     transparent
   );
   opacity: 0;
@@ -1302,28 +1314,8 @@ body:has(.fp) {
   opacity: var(--scale-sub-ink);
 }
 
-.fp .fp-scale__name:not([data-marquee]):not([data-fill]) .fp-scale__name-track > span + span {
+.fp .fp-scale__name:not([data-marquee]) .fp-scale__name-track > span + span {
   display: none;
-}
-
-/* 09-07: the FILL TICKER (desktop selected row): the copy repeats to fill
-   the fixed box and rolls by exactly one copy + gap (--fill-shift, px,
-   skin-measured) per --fill-s — the skin derives the duration from
-   --scale-fill-pxs, phase-locked to the wall clock (r11h idiom). Distinct
-   from data-marquee (the two-copy −50% roll the roster/≤768 rows keep).
-   (The services readout that rolled under it was dropped 09-07.) */
-.fp .fp-scale__name[data-fill] .fp-scale__name-track {
-  animation: fp-scale-fill var(--fill-s, 6s) linear infinite;
-}
-
-@keyframes fp-scale-fill {
-  from {
-    transform: translateX(0);
-  }
-
-  to {
-    transform: translateX(calc(-1 * var(--fill-shift, 50%)));
-  }
 }
 
 /* The SELECTED row's clipping name gets the next-project chip's ticker
@@ -1489,6 +1481,18 @@ body:has(.fp) {
     );
   }
 
+  /* 11-13 (Nathan: the selected name at the mobile menu's size): the name's
+     base size is back-divided by the selected paint (--scale-sel ×
+     --scale-sel-bump, the same factor the row's transform lands on at the
+     lens), so the SELECTED name paints EXACTLY --text-menu-item at every
+     phone width. The proximity curve is untouched — every row's multiplier
+     (--sel) is as before, so the whole name curve just scales together:
+     roster rows paint at the token ÷ (sel × bump). The digits keep their
+     own size (the station's font-size). */
+  .fp .fp-scale__name {
+    font-size: calc(var(--text-menu-item) / (var(--scale-sel) * var(--scale-sel-bump)));
+  }
+
   .fp .fp-scale__seam {
     width: 100vw;
   }
@@ -1562,8 +1566,7 @@ body:has(.fp) {
     animation: none;
   }
 
-  .fp .fp-scale__name[data-marquee] .fp-scale__name-track,
-  .fp .fp-scale__name[data-fill] .fp-scale__name-track {
+  .fp .fp-scale__name[data-marquee] .fp-scale__name-track {
     animation: none;
   }
 

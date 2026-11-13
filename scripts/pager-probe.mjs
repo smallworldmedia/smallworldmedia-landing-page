@@ -4,7 +4,7 @@
  *
  * Usage:
  *   node pager-probe.mjs --variant=scale --root=.fp-scale [--vw=1440 --vh=900]
- *        [--mobile] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
+ *        [--mobile] [--dpr=3] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
  *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
  *
  * Prints a JSON report to stdout (console errors, page errors, readouts per
@@ -51,6 +51,7 @@ const MOBILE = !!arg('mobile', false);
 const VW = Number(arg('vw', MOBILE ? 390 : 1440));
 const VH = Number(arg('vh', MOBILE ? 844 : 900));
 const RM = !!arg('rm', false);
+const DPR = Number(arg('dpr', MOBILE ? 2 : 1)); // --dpr=3 for the phone fidelity shots
 // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
 // mkdir a stray "Small%20World%20Media" tree beside the real one).
 const OUT = arg('out', path.join(path.dirname(fileURLToPath(import.meta.url)), 'shots', `${VARIANT}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}`));
@@ -136,7 +137,7 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
   });
   const ctx = await browser.newContext({
     viewport: { width: VW, height: VH },
-    deviceScaleFactor: MOBILE ? 2 : 1,
+    deviceScaleFactor: DPR,
     hasTouch: MOBILE,
     isMobile: MOBILE,
     reducedMotion: RM ? 'reduce' : 'no-preference',

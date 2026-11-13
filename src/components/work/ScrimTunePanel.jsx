@@ -42,14 +42,23 @@ import { SCRIM_GRAIN, noiseUri } from './scrimNoise.js';
 // The BAKED recipe (Nathan's 09-04 dial — featured-projects.css scrim rule
 // + --pager-scrim in global.css; grain settings shared via scrimNoise.js):
 // defaults mirror the shipped scrim, so opening the bench (and ↺ reset)
-// starts from what visitors see.
-const DEFAULTS = {
+// starts from what visitors see (the desktop recipe; ≤768 below).
+const DESKTOP_DEFAULTS = {
   scrim: 0.4, // --pager-scrim token (global.css)
   tint: 0.75, // 0–1 mix of the live --project-color into the flood (0 = black)
   blur: 7.5, // px; 0 = no backdrop-filter at all
   ...SCRIM_GRAIN, // type / freq / oct / amount / size / fps / mono
   hold: true, // paint the scrim without engaging
 };
+
+// 11-13: at ≤768 the shipped scrim is plain black (featured-projects.css:
+// depth 1, no tint / blur / grain), so the bench opens on THAT — set the
+// depth slider to 0.4 for the old translucent comparison. Read at mount
+// and on ↺ reset, not cached.
+const defaults = () =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+    ? { ...DESKTOP_DEFAULTS, scrim: 1, tint: 0, blur: 0, type: 'none', amount: 0 }
+    : DESKTOP_DEFAULTS;
 
 const copyBlock = (s) =>
   [
@@ -83,7 +92,7 @@ function Row({ label, param, value, min, max, step, onChange }) {
 }
 
 export default function ScrimTunePanel() {
-  const [s, setS] = useState(DEFAULTS);
+  const [s, setS] = useState(defaults);
   const [copied, setCopied] = useState(false);
   const set = (key, value) => setS((prev) => ({ ...prev, [key]: value }));
 
@@ -145,7 +154,7 @@ export default function ScrimTunePanel() {
     <aside className="scrim-tune" aria-label="Pager scrim tuning">
       <header className="scrim-tune__head">
         <span>r7 · pager scrim</span>
-        <button type="button" className="scrim-tune__btn" onClick={() => setS(DEFAULTS)}>
+        <button type="button" className="scrim-tune__btn" onClick={() => setS(defaults())}>
           ↺ reset
         </button>
       </header>
