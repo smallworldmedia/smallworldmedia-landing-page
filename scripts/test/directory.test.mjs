@@ -906,8 +906,10 @@ test('motion/video: the parent hides only when every child is empty, and a clien
   assert.ok(other.any.has('motion-video') && !other.inClient.has('motion-video'))
 })
 
-test('SERVICE_TAGS (the inquiry form) keeps the full names, has no Character Design and no motion/video', () => {
+test('SERVICE_TAGS (the inquiry form) keeps the full names, has no Character Design and no Motion/Video parent', () => {
   assert.ok(!SERVICE_TAGS.some((n) => /character design/i.test(n)))
-  assert.ok(!SERVICE_TAGS.some((n) => /motion/i.test(n)))
-  for (const n of ['2D Animation', '3D Animation', 'Live Visuals', 'Promo Video']) assert.ok(SERVICE_TAGS.includes(n), n)
+  assert.ok(!SERVICE_TAGS.some((n) => /motion\s*\/\s*video/i.test(n)))
+  // 2D/3D Motion were 2D/3D Animation until 11-13 (Nathan); their Studio slugs kept the old words.
+  for (const n of ['2D Motion', '3D Motion', 'Live Visuals', 'Promo Video']) assert.ok(SERVICE_TAGS.includes(n), n)
+  assert.ok(!SERVICE_TAGS.some((n) => /animation/i.test(n)))
 })

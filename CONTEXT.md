@@ -60,11 +60,11 @@ The per-asset accessibility and search text on a `mediaAsset`, one pair for imag
 
 ## Service Tag
 
-A Sanity `serviceTag` document representing a service SWM offers (e.g., "Branding", "3D Animation"). Assets reference service tags to power portfolio filtering. Service tags are **what you sell** — never use them for metadata roles like "process" or "supporting" (that's what Content Role is for).
+A Sanity `serviceTag` document representing a service SWM offers (e.g., "Branding", "3D Motion"). Assets reference service tags to power portfolio filtering. Service tags are **what you sell** — never use them for metadata roles like "process" or "supporting" (that's what Content Role is for).
 
 ## Cross-Tagging
 
-The practice of assigning multiple service tags to a single asset when the work genuinely spans services. Example: HHS logo animations are tagged `live visuals` + `branding` + `3d animation` because the work serves all three. Applied on a case-by-case basis — not every asset in a multi-service project gets every tag.
+The practice of assigning multiple service tags to a single asset when the work genuinely spans services. Example: HHS logo animations are tagged `live visuals` + `branding` + `3d motion` because the work serves all three. Applied on a case-by-case basis — not every asset in a multi-service project gets every tag.
 
 ## Manifest Modes
 

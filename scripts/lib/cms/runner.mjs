@@ -152,9 +152,10 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
       }
       // A Mode 1 header is stamped onto every new row, and a project's tags are the union of its media's: more than one needs each row's own serviceType.
       invariant(row.servicetype || header.services.length === 1, `Row ${row.file}: the header names ${header.services?.length ?? 0} services and would stamp them all on this media; give the row its own serviceType`)
-      const tags = (row.servicetype ? row.servicetype.split(',').map(t => t.trim()) : header.services).map(legacySlug)
-      const tagDocs = await sanity.findTags(tags), services = []
-      for (const slug of tags) { const tag = await uniqueResolve(tagDocs.filter(d => d.slug?.current === slug || d._id === `serviceTag-${slug}` || d._id === `drafts.serviceTag-${slug}`), `Service ${slug}`, sanity); services.push({ ...ref(tag._id), _key: slug }) }
+      // A tag renamed in Studio keeps its slug (2D Motion is 2d-animation), so a row may name it by its slug's words or its current name; both resolve to one ref.
+      const words = row.servicetype ? row.servicetype.split(',').map(t => t.trim()) : header.services, tags = words.map(legacySlug)
+      const tagDocs = await sanity.findTags(tags, words.map(w => w.toLowerCase())), services = []
+      for (const slug of tags) { const tag = await uniqueResolve(tagDocs.filter(d => d.slug?.current === slug || d._id === `serviceTag-${slug}` || d._id === `drafts.serviceTag-${slug}` || legacySlug(d.name ?? '') === slug), `Service ${slug}`, sanity); if (!services.some(s => s._ref === tag._id)) services.push({ ...ref(tag._id), _key: tag.slug.current }) }
       const title = row.title || path.basename(row.file), set = { title, slug: { _type: 'slug', current: legacySlug(title) }, mediaType: row.mediatype, client: ref(client._id), services }
       if (project) set.project = ref(project._id)
       if (header.year) set.yearStart = +header.year

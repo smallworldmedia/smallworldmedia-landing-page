@@ -103,6 +103,18 @@ test('a Mode 2 manifest (no header services) plans a new row from its own servic
   const p = await h.plan({manifest})
   assert.equal(p.operations.filter(o => o.action === 'create').length, 1)
 })
+test('a tag renamed in Studio keeps its slug: a row names it by either, once, and a misspelling is still refused', async t => {
+  // Nathan 11-13 renamed 2D Animation to 2D Motion; the slug 2d-animation stays because filters and URLs key on it.
+  const motion = { _id: 'serviceTag-2d-animation', _type: 'serviceTag', _rev: 'r-motion', name: '2D Motion', slug: { _type: 'slug', current: '2d-animation' } }
+  const h = await harness(t, {docs: [motion]}); await h.file('new.jpg')
+  const manifest = await h.manifest([row('new.jpg')])
+  const write = cell => writeFile(manifest, `# Collection\nclient: Example\n\n| file | mediaType | serviceType | title |\n|---|---|---|---|\n| new.jpg | static_1x1 | ${cell} | New |\n`)
+  for (const cell of ['2D Motion', '2D Animation', '2D Motion, 2D Animation']) {
+    await write(cell); const p = await h.plan({manifest})
+    assert.deepEqual(p.operations.find(o => o.action === 'create').after.services.map(s => [s._ref, s._key]), [['serviceTag-2d-animation', '2d-animation']], cell)
+  }
+  await write('2D Moton'); await assert.rejects(h.plan({manifest}), /Service 2d-moton: not found/)
+})
 for (const conflict of ['source','manifest','revision','draft','member','target','schema']) test(`${conflict} drift blocks apply before upload`, async t => {
   const old = existingMedia('mediaAsset-old'), h = await harness(t,{docs:[old]}); await h.file('old.jpg'); await h.file('new.jpg')
   const manifest = await h.manifest([row('old.jpg','static_1x1','Old',old._id),row('new.jpg')]), p = await h.plan({manifest})

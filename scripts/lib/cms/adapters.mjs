@@ -136,11 +136,12 @@ export async function createAdapters({target, env = process.env, write = false, 
       text(slug, 'slug')
       return query('_type == "client" && slug.current == $slug', {slug})
     },
-    findTags(slugs) {
-      if (!Array.isArray(slugs)) throw new Error('slugs must be an array')
-      slugs.forEach(slug => text(slug, 'slug'))
+    // names: the manifest's own words, lowercased, for a tag renamed in Studio whose slug kept its old words.
+    findTags(slugs, names = []) {
+      if (!Array.isArray(slugs) || !Array.isArray(names)) throw new Error('slugs and names must be arrays')
+      slugs.forEach(slug => text(slug, 'slug')); names.forEach(name => text(name, 'name'))
       if (!slugs.length) return Promise.resolve([])
-      return query('_type == "serviceTag" && slug.current in $slugs', {slugs})
+      return query('_type == "serviceTag" && (slug.current in $slugs || lower(name) in $names)', {slugs, names})
     },
     // Explicit ordering snapshot only; not a general inventory query.
     findProjectOrder() { return query('_type == "project"', {}) },

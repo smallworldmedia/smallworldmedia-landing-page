@@ -102,21 +102,26 @@ media/                                  # gitignored (except _manifest.md files)
 
 ---
 
-## Service Tags (14)
+## Service Tags (15)
 
-Use these exact names when tagging assets:
+Use these exact names when tagging assets (Studio order, `sortOrder`):
 
 1. Branding
-2. Live Visuals
-3. Album Art
-4. Event / Tour Creative
-5. Illustration
-6. Character Design
-7. 2D Animation
-8. 3D Animation
-9. Logo Design
-10. Web Design
-11. Audio Reactive Media
-12. Promo Video
-13. VFX
-14. Generative Media
+2. Merch Design
+3. Live Visuals
+4. Album Art
+5. Release Packs
+6. Event / Tour Creative
+7. Illustration
+8. 2D Motion (slug `2d-animation`)
+9. 3D Motion (slug `3d-animation`)
+10. Logo Design
+11. Web Design
+12. Audio Reactive Media
+13. Promo Video
+14. VFX
+15. Generative Media
+
+2D Motion and 3D Motion were 2D Animation and 3D Animation until 11-13 (Nathan: "a better fit"). Their slugs
+and `_id`s kept the old words because the directory filters, `?tag=` URLs and tests key on them, so a manifest
+may write either name.

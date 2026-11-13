@@ -31,7 +31,7 @@ export async function harness(t, { docs = [], videoStatus = 'ready' } = {}) {
     target,
     async getDocuments(ids) { stats.reads++; return clean(ids.map(id => db.get(id)).filter(Boolean)) },
     async findClients(slug) { return clean([...db.values()].filter(d => d._type === 'client' && d.slug?.current === slug)) },
-    async findTags(slugs) { return clean([...db.values()].filter(d => d._type === 'serviceTag' && slugs.includes(d.slug?.current))) },
+    async findTags(slugs, names = []) { return clean([...db.values()].filter(d => d._type === 'serviceTag' && (slugs.includes(d.slug?.current) || names.includes(d.name?.toLowerCase())))) },
     async findProjects({clientId,slug}) { return clean([...db.values()].filter(d => d._type === 'project' && d.client?._ref === clientId && d.slug?.current === slug)) },
     async findProjectOrder() { return clean([...db.values()].filter(d => d._type === 'project')) },
     async findDeleteBlockers(id) { return clean([...db.values()].filter(d => d._id !== id && refersTo(d, id) || d._id.startsWith('versions.') && d._id.endsWith(`.${id}`))) },
