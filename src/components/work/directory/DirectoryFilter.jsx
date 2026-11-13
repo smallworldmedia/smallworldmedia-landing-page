@@ -2,10 +2,10 @@
  * DirectoryFilter — the Project Directory's filter section (11-03): full
  * width, sticky under the nav, every service tag that has media as a
  * FilterTag, and a bar along its bottom edge: a live count of works (the
- * numbers alone, mono) and "× clear all" (while anything filters), then at
+ * numbers alone) and "× clear all" (while anything filters), then at
  * the right the active client as a chip, "n active" while anything is ticked
- * and the filter is shut, and the toggle, all but the count in the sans link
- * tier (11-05, Nathan): "filters" / "close filters" and an arrow, the same at
+ * and the filter is shut, and the toggle, all in the sans link tier (11-05,
+ * Nathan; the count joined it 11-12): "filters" / "close filters" and an arrow, the same at
  * every width (SQ-21, Nathan: the phone's behaviour carried to the desktop).
  *
  * It loads open (11-05), the server's render too, and closes from there on the

@@ -370,7 +370,8 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   outline-offset: 3px;
 }
 
-/* --- The bar: the drawer's mono header type --- */
+/* --- The bar: the drawer's mono header type (every item on it now sets
+   the sans link tier, below; the mono stays as the bar's base) --- */
 .dir-filter__bar {
   display: flex;
   align-items: center;
@@ -428,8 +429,11 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
 
 /* "× clear all", the client chip and the toggle read as buttons (11-05,
    Nathan): the sans link tier (the nav's links), as written (lowercase
-   words; the client's name as Sanity spells it), each word beside its icon;
-   the works count keeps the mono header type. */
+   words; the client's name as Sanity spells it), each word beside its icon.
+   The works count joins them (11-12, Nathan: "match the text style and
+   tokens of the media count to the other project directory controls"), on
+   tabular figures so "clear all" holds still while the count changes. */
+.dir-filter__bar .dir-filter__count,
 .dir-filter__bar .dir-filter__clear,
 .dir-filter__bar .dir-filter__chip,
 .dir-filter__bar .dir-filter__toggle,
@@ -438,6 +442,10 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   font-size: var(--text-link);
   letter-spacing: var(--tracking-body);
   text-transform: none;
+}
+
+.dir-filter__bar .dir-filter__count {
+  font-variant-numeric: tabular-nums;
 }
 
 .dir-filter__bar .dir-filter__clear,
