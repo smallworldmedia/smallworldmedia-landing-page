@@ -36,7 +36,7 @@ export const ownersOf = (tile) => [tile.client, ...(tile.collaborators ?? [])];
 /** Whether a tile counts for a coverage (a Set from coverageOf). */
 export const tileInCoverage = (tile, coverage) => ownersOf(tile).some((s) => coverage.has(s));
 
-const NAME_ORDER ={ sensitivity: 'base', ignorePunctuation: true };
+const NAME_ORDER = { sensitivity: 'base', ignorePunctuation: true };
 
 /**
  * The drawer's Client Roster: every client by name, `live` when its coverage
