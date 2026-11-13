@@ -16,10 +16,14 @@
  * @param {string} props.playbackId
  * @param {number} props.clip - the stream's clip and the loop's wrap, in seconds
  * @param {boolean} [props.hold=false] - stay paused while true
+ * @param {Object} [props.chunk] - one third of a split video (expandChunks): the
+ *   player streams the `clip` seconds from the chunk's own start (cut short at
+ *   its end, chunkPreview), starts there and loops inside that window
+ *   (windowLoop). Without it the player is the whole-asset loop from 0.
  */
 import { useRef, useEffect, useState, useMemo } from 'react';
 import useHls from '../useHls.js';
-import { muxStream, wrapAt } from '../imageConfig.js';
+import { muxStream, wrapAt, chunkPreview, windowLoop } from '../imageConfig.js';
 
 /** hls.js config for detail slots — prefetch the first fragment alongside
     manifest parsing, and start two rungs up the ladder (~720p on Mux's
@@ -39,15 +43,25 @@ export const DETAIL_HLS_CONFIG = {
   maxMaxBufferLength: 4,
 };
 
-export default function GatedVideo({ playbackId, clip, hold = false }) {
+export default function GatedVideo({ playbackId, clip, hold = false, chunk }) {
   const videoRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const wrap = useMemo(() => wrapAt(clip), [clip]);
+  // A chunk loops its own window, on the clipped stream's timeline; `from` is
+  // where playback starts on it (0 for a whole-asset loop).
+  const win = useMemo(() => (chunk ? chunkPreview(chunk, clip) : null), [chunk, clip]);
+  const chunkLoop = useMemo(() => (win ? windowLoop(chunk.from, win.to) : null), [win, chunk]);
+  const from = chunk ? chunk.from : 0;
   const held = useRef(hold);
   const wasHeld = useRef(hold);
   held.current = hold;
 
-  useHls(videoRef, muxStream(playbackId, clip), DETAIL_HLS_CONFIG, { videoOnly: true });
+  useHls(
+    videoRef,
+    win ? muxStream(playbackId, win.end, '', chunk.start) : muxStream(playbackId, clip),
+    from > 0 ? { ...DETAIL_HLS_CONFIG, startPosition: from } : DETAIL_HLS_CONFIG,
+    { videoOnly: true }
+  );
 
   // useHls starts playback itself once the manifest parses, so a held video is
   // stopped as it starts (onPlay below) and set going when the hold lifts. A
@@ -58,7 +72,7 @@ export default function GatedVideo({ playbackId, clip, hold = false }) {
     if (hold) {
       wasHeld.current = true;
       video.pause();
-      video.currentTime = 0;
+      video.currentTime = from;
     } else if (wasHeld.current) {
       video.play().catch(() => {});
     }
@@ -80,11 +94,13 @@ export default function GatedVideo({ playbackId, clip, hold = false }) {
       className={`media-slot__media media-slot__player${isLoaded ? ' media-slot__media--loaded' : ''}`}
       muted
       autoPlay={!hold}
-      loop
+      loop={!chunkLoop}
       playsInline
       aria-hidden="true"
       onPlay={() => held.current && videoRef.current.pause()}
-      onTimeUpdate={wrap}
+      onTimeUpdate={chunkLoop ? chunkLoop.onTimeUpdate : wrap}
+      onLoadedMetadata={chunkLoop?.onLoadedMetadata}
+      onEnded={chunkLoop?.onEnded}
       onCanPlay={() => setIsLoaded(true)}
     />
   );
