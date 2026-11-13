@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = 'fc3c0040e8dbcff68b7b17e6b04c8b1f7c2cc5ee4852532d5dcb2d60dd249d20'
+export const SUPPORTED_SCHEMA_HASH = '5a256e81c26ab530377a31c43de20d5b6e3af365c9b02bdbc5047a9f1f425afe'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -37,7 +37,7 @@ export function appendRanks(docs, count) {
 export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']
 const common = ['slug','yearStart','yearEnd','isOngoing','services']
 export const FIELDS = {
-  mediaAsset: ['title',...common,'mediaType','client','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType'],
+  mediaAsset: ['title',...common,'mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
   // A new tag shows in the directory filters; the inquiry form keeps its own list (src/lib/constants.js SERVICE_TAGS).
@@ -71,6 +71,8 @@ export function validateField(field, v) {
   if (field === 'clientType') return enumValue(v, ['artist','label','management','promoter-event'], field)
   if (field === 'orderRank') { invariant(validRank(v), 'Invalid orderRank'); return }
   if (['client','project'].includes(field)) return reference(v)
+  // Credited artists on a piece (a feature or co-artist): published client refs, no repeats.
+  if (field === 'collaborators') { array(v, field); for (const r of v) reference(r, true); invariant(new Set(v.map(r => r._ref)).size === v.length, 'Duplicate collaborator reference'); return }
   if (field === 'services') { array(v, field); for (const r of v) reference(r, true); invariant(new Set(v.map(r => r._ref)).size === v.length, 'Duplicate service reference'); return }
   // Globe picks are ordered; a repeated pick is an editorial call, so only keys must be unique.
   if (field === 'picks') { array(v, field); for (const r of v) reference(r, true); return }
@@ -110,6 +112,7 @@ export function references(doc) {
   const refs = []
   for (const field of ['client','project']) if (doc[field]) refs.push({ id: doc[field]._ref, type: field })
   for (const r of doc.services || []) refs.push({ id: r._ref, type: 'serviceTag' })
+  for (const r of doc.collaborators || []) refs.push({ id: r._ref, type: 'client' })
   for (const r of doc.affiliations || []) refs.push({ id: r.entity?._ref, type: 'client' })
   for (const r of doc.picks || []) refs.push({ id: r._ref, type: 'mediaAsset' })
   return refs
