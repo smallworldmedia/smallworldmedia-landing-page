@@ -11,39 +11,33 @@ project: andhera-records-andhera-branding
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 4x5_v2.jpg | static_4x5 | Andhera Hero | true | 4:5 | 1 |  |  | mediaAsset-andhera-records-andhera-hero |
 | andhera-logo_white.png | logo | Andhera Logo (White) | false | 1.14:1 | 2 |  |  | mediaAsset-andhera-records-andhera-logo-white |
-| andhera-logo_yellow-cutout_black-bg.png | logo | Andhera Logo (Yellow) | false | 1.20:1 | 3 |  |  | mediaAsset-andhera-records-andhera-logo-yellow |
 | andhera_pattern.jpg | static_1x1 | Andhera Pattern | false | 1:1 | 4 |  |  | mediaAsset-andhera-records-andhera-pattern |
 | andhera_yellow-logo_sticker_2-75x2-75_trimmed.jpg | logo | Andhera Logo Sticker | false | 1:1 | 5 |  |  | mediaAsset-andhera-records-andhera-logo-sticker |
 | MMW 2025 4x5.mp4 | motion_4x5 | MMW 2025 Promo | false | 4:5 | 6 |  |  | mediaAsset-andhera-records-mmw-2025-promo |
 | Chase the Ace Loop with Audio.mov | motion_9x16 | Chase the Ace Loop | false | 9:16 | 7 |  |  | mediaAsset-andhera-records-chase-the-ace-loop |
-| afterrr-ep_SC-banner.png | static_other | Afterrr EP SoundCloud Banner | false | 4.77:1 | 8 | andhera-records-banners |  | mediaAsset-andhera-records-afterrr-ep-soundcloud-banner |
 | afterrr-tracklisting_square.png | static_1x1 | Afterrr Tracklisting | false | 1:1 | 9 |  |  | mediaAsset-andhera-records-afterrr-tracklisting |
-| black-friday_hero.png | static_1x1 | Black Friday Hero | false | 1:1 | 10 |  |  | mediaAsset-andhera-records-black-friday-hero |
-| elsewhere-still-1.png | static_9x16 | Elsewhere Still 1 | false | 9:16 | 11 |  |  | mediaAsset-andhera-records-elsewhere-still-1 |
-| elsewhere-still-2.jpg | static_9x16 | Elsewhere Still 2 | false | 9:16 | 12 |  |  | mediaAsset-andhera-records-elsewhere-still-2 |
+| black-friday_hero.png | static_1x1 | Black Friday Hero | false | 1:1 | 10 | andhera-records-mockups |  | mediaAsset-andhera-records-black-friday-hero |
 | elsewhere-promo_v2.mp4 | motion_9x16 | Elsewhere Promo | false | 9:16 | 13 |  |  | mediaAsset-andhera-records-elsewhere-promo |
-| makers-market.jpg | static_9x16 | Makers Market | false | 9:16 | 14 |  |  | mediaAsset-andhera-records-makers-market |
+| makers-market.jpg | static_9x16 | Makers Market | false | 9:16 | 14 | andhera-records-mockups |  | mediaAsset-andhera-records-makers-market |
 | alves kool aid promo.mp4 | motion_9x16 | Alves Kool Aid Promo | false | 9:16 | 15 |  |  | mediaAsset-andhera-records-alves-kool-aid-promo |
 | amnesia_preview_story.mp4 | motion_9x16 | Amnesia Preview | false | 9:16 | 16 |  |  | mediaAsset-andhera-records-amnesia-preview |
 | baila-le-digo_montage-story.mp4 | motion_9x16 | Baila Le Digo Montage | false | 9:16 | 17 |  |  | mediaAsset-andhera-records-baila-le-digo-montage |
 | freak_reel.mp4 | motion_9x16 | Freak Reel | false | 9:16 | 18 |  |  | mediaAsset-andhera-records-freak-reel |
 | in-the-dark-preview_4x5.mp4 | motion_4x5 | In the Dark Preview | false | 4:5 | 19 |  |  | mediaAsset-andhera-records-in-the-dark-preview |
 | maestro-preview.mp4 | motion_9x16 | Maestro Preview | false | 9:16 | 20 |  |  | mediaAsset-andhera-records-maestro-preview |
-| mailer-bag-rising-ocean-1.mp4 | motion_9x16 | Mailer Bag Rising Ocean | false | 9:16 | 21 |  |  | mediaAsset-andhera-records-mailer-bag-rising-ocean |
+| mailer-bag-rising-ocean-1.mp4 | motion_9x16 | Mailer Bag Rising Ocean | false | 9:16 | 21 | andhera-records-mockups |  | mediaAsset-andhera-records-mailer-bag-rising-ocean |
 | teka-teka_preview_4x5.mp4 | motion_4x5 | Teka Teka Preview | false | 4:5 | 22 |  |  | mediaAsset-andhera-records-teka-teka-preview |
 | Apparel/Andhera Website - Homepage, Shop.mp4 | motion_1x1 | Andhera Website — Homepage & Shop | false | 1:1 | 23 |  |  | mediaAsset-andhera-records-andhera-website-homepage-shop |
 | Apparel/andhera shop item pages.mp4 | motion_4x3 | Andhera Shop Item Pages | false | 4:3 | 24 |  |  | mediaAsset-andhera-records-andhera-shop-item-pages |
 | Apparel/hear-no-evil_promo_v1.mp4 | motion_9x16 | Hear No Evil Promo | false | 9:16 | 25 |  |  | mediaAsset-andhera-records-hear-no-evil-promo |
 | Apparel/never-asleep_full-cut_for-audio.mp4 | motion_9x16 | Never Asleep Full Cut | false | 9:16 | 26 |  |  | mediaAsset-andhera-records-never-asleep-full-cut |
-| Apparel/_0000_andhera never not awake 01.jpg | static_1x1 | Andhera Never Not Awake 01 | false | 1:1 | 27 |  |  | mediaAsset-andhera-records-andhera-never-not-awake-01 |
-| Apparel/_0001_andhera never asleep 02.jpg | static_1x1 | Andhera Never Asleep 02 | false | 1:1 | 28 |  |  | mediaAsset-andhera-records-andhera-never-asleep-02 |
-| Apparel/_0002_andhera never asleep 01.jpg | static_1x1 | Andhera Never Asleep 01 | false | 1:1 | 29 |  |  | mediaAsset-andhera-records-andhera-never-asleep-01 |
-| Apparel/andhera-raw-cuts-robertas-pizza-shirt-back.jpg | static_1x1 | Roberta's Pizza Shirt Back | false | 1:1 | 30 |  |  | mediaAsset-andhera-records-robertas-pizza-shirt-back |
-| Apparel/andhera-raw-cuts-robertas-pizza-shirt-front.jpg | static_1x1 | Roberta's Pizza Shirt Front | false | 1:1 | 31 |  |  | mediaAsset-andhera-records-robertas-pizza-shirt-front |
-| Apparel/apparel_homepage-banner.png | static_16x9 | Apparel Homepage Banner | false | 16:9 | 32 |  |  | mediaAsset-andhera-records-apparel-homepage-banner |
+| Apparel/_0000_andhera never not awake 01.jpg | static_1x1 | Andhera Never Not Awake 01 | false | 1:1 | 27 | andhera-records-merch |  | mediaAsset-andhera-records-andhera-never-not-awake-01 |
+| Apparel/_0001_andhera never asleep 02.jpg | static_1x1 | Andhera Never Asleep 02 | false | 1:1 | 28 | andhera-records-merch |  | mediaAsset-andhera-records-andhera-never-asleep-02 |
+| Apparel/_0002_andhera never asleep 01.jpg | static_1x1 | Andhera Never Asleep 01 | false | 1:1 | 29 | andhera-records-merch |  | mediaAsset-andhera-records-andhera-never-asleep-01 |
+| Apparel/andhera-raw-cuts-robertas-pizza-shirt-back.jpg | static_1x1 | Roberta's Pizza Shirt Back | false | 1:1 | 30 | andhera-records-merch |  | mediaAsset-andhera-records-robertas-pizza-shirt-back |
+| Apparel/andhera-raw-cuts-robertas-pizza-shirt-front.jpg | static_1x1 | Roberta's Pizza Shirt Front | false | 1:1 | 31 | andhera-records-merch |  | mediaAsset-andhera-records-robertas-pizza-shirt-front |
 | Apparel/apparel_homepage-banner_16x9.jpg | static_16x9 | Apparel Homepage Banner 16x9 | false | 16:9 | 33 |  |  | mediaAsset-andhera-records-apparel-homepage-banner-16x9 |
 | Apparel/pizza-carousel_post.jpg | static_16x9 | Pizza Carousel Post | false | 16:9 | 34 |  |  | mediaAsset-andhera-records-pizza-carousel-post |
-| andhera_apparel-sheet.jpg | static_1x1 | Andhera Apparel Sheet | false | 1:1 | 35 |  |  | mediaAsset-andhera-records-andhera-apparel-sheet |
 | Artwork/alves_koolaid.jpg | album-art | Alves — Kool Aid | false | 1:1 | 36 |  |  | mediaAsset-andhera-records-alves-kool-aid |
 | Artwork/anatta_galo_otherside.jpg | album-art | Anatta & Galo — Otherside | false | 1:1 | 37 |  |  | mediaAsset-andhera-records-anatta-galo-otherside |
 | Artwork/Andhera-Summer-VAcation.jpg | album-art | Andhera Summer Vacation VA | false | 1:1 | 38 |  |  | mediaAsset-andhera-records-andhera-summer-vacation-va |

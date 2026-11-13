@@ -19,20 +19,20 @@ year: 2026
 | HUS-Art-02.jpg | album-art | album-art | HUS Art 02 | false | 9 |  |  | mediaAsset-hurry-up-slowly-hus-art-02 |
 | HUS-Art-04.jpg | album-art | album-art | HUS Art 04 | false | 10 |  |  | mediaAsset-hurry-up-slowly-hus-art-04 |
 | HUS-Art-05.jpg | album-art | album-art | HUS Art 05 | false | 11 |  |  | mediaAsset-hurry-up-slowly-hus-art-05 |
-| HUS-BEATPORT-Mockup.jpg | static_1x1 | branding | HUS Beatport Mockup | false | 12 |  |  | mediaAsset-hurry-up-slowly-hus-beatport-mockup |
+| HUS-BEATPORT-Mockup.jpg | static_1x1 | branding | HUS Beatport Mockup | false | 12 | hurry-up-slowly-mockups |  | mediaAsset-hurry-up-slowly-hus-beatport-mockup |
 | HUS-SC-Banner-01.jpg | static_other | branding | HUS SC Banner 01 | false | 13 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-01 |
 | HUS-SC-Banner-02.jpg | static_other | branding | HUS SC Banner 02 | false | 14 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-02 |
 | HUS-SC-Banner-03.jpg | static_other | branding | HUS SC Banner 03 | false | 15 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-03 |
 | HUS-SC-Banner-04.jpg | static_other | branding | HUS SC Banner 04 | false | 16 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-04 |
 | HUS-SC-Banner-05.jpg | static_other | branding | HUS SC Banner 05 | false | 17 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-05 |
-| HUS-SC-Mockup.jpg | static_1x1 | branding | HUS SC Mockup | false | 18 |  |  | mediaAsset-hurry-up-slowly-hus-sc-mockup |
+| HUS-SC-Mockup.jpg | static_1x1 | branding | HUS SC Mockup | false | 18 | hurry-up-slowly-mockups |  | mediaAsset-hurry-up-slowly-hus-sc-mockup |
 | HUS-frames.jpg | static_9x16 | branding | HUS Frames | false | 19 |  |  | mediaAsset-hurry-up-slowly-hus-frames |
 | HUS_logo-sheet.jpg | static_9x16 | branding | HUS Logo Sheet | false | 20 |  |  | mediaAsset-hurry-up-slowly-hus-logo-sheet |
-| front.jpg | static_1x1 | branding | Front | false | 21 |  |  | mediaAsset-hurry-up-slowly-front |
-| back-2-color_20x24.jpg | static_1x1 | branding | Back 2 Color 20x24 | false | 22 |  |  | mediaAsset-hurry-up-slowly-back-2-color-20x24 |
-| back-3-color_1_20x24.jpg | static_1x1 | branding | Back 3 Color 1 20x24 | false | 23 |  |  | mediaAsset-hurry-up-slowly-back-3-color-1-20x24 |
-| back-3-color_2_20x24.jpg | static_1x1 | branding | Back 3 Color 2 20x24 | false | 24 |  |  | mediaAsset-hurry-up-slowly-back-3-color-2-20x24 |
-| back-3-color_3_20x24.jpg | static_1x1 | branding | Back 3 Color 3 20x24 | false | 25 |  |  | mediaAsset-hurry-up-slowly-back-3-color-3-20x24 |
+| front.jpg | static_1x1 | branding | Front | false | 21 | hurry-up-slowly-merch |  | mediaAsset-hurry-up-slowly-front |
+| back-2-color_20x24.jpg | static_1x1 | branding | Back 2 Color 20x24 | false | 22 | hurry-up-slowly-merch |  | mediaAsset-hurry-up-slowly-back-2-color-20x24 |
+| back-3-color_1_20x24.jpg | static_1x1 | branding | Back 3 Color 1 20x24 | false | 23 | hurry-up-slowly-merch |  | mediaAsset-hurry-up-slowly-back-3-color-1-20x24 |
+| back-3-color_2_20x24.jpg | static_1x1 | branding | Back 3 Color 2 20x24 | false | 24 | hurry-up-slowly-merch |  | mediaAsset-hurry-up-slowly-back-3-color-2-20x24 |
+| back-3-color_3_20x24.jpg | static_1x1 | branding | Back 3 Color 3 20x24 | false | 25 | hurry-up-slowly-merch |  | mediaAsset-hurry-up-slowly-back-3-color-3-20x24 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_01.jpg | brand-deck | branding | HUS Brand Guidelines Page 01 | false | 26 | brand-guidelines-deck | 1 | mediaAsset-hurry-up-slowly-label-artwork-page-01 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_02.jpg | brand-deck | branding | HUS Brand Guidelines Page 02 | false | 27 | brand-guidelines-deck | 2 | mediaAsset-hurry-up-slowly-label-artwork-page-02 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_03.jpg | brand-deck | branding | HUS Brand Guidelines Page 03 | false | 28 | brand-guidelines-deck | 3 | mediaAsset-hurry-up-slowly-label-artwork-page-03 |
@@ -73,7 +73,7 @@ year: 2026
 | Brand Guidelines Deck/Brand Guidelines Deck_page_38.jpg | brand-deck | branding | HUS Brand Guidelines Page 38 | false | 63 | brand-guidelines-deck | 38 | mediaAsset-88dd4b70-37e0-476f-bee8-8eacb5afd561 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_39.jpg | brand-deck | branding | HUS Brand Guidelines Page 39 | false | 64 | brand-guidelines-deck | 39 | mediaAsset-69e3eedf-8847-4283-84c5-a53c04c82bb0 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_40.jpg | brand-deck | branding | HUS Brand Guidelines Page 40 | false | 65 | brand-guidelines-deck | 40 | mediaAsset-1e7be552-f69a-4fb5-b107-0d75f1f7516a |
-| HUS001 Darmon - Talk About It/HUS001 Darmon - Talk About It.jpg | static_1x1 | Album Art | Darmon — Talk About It |  |  |  |  | mediaAsset-bf889898-5986-4377-b0bf-714d05f67b17 |
+| HUS001 Darmon - Talk About It/HUS001 Darmon - Talk About It.jpg | album-art | Album Art | Darmon — Talk About It |  |  |  |  | mediaAsset-bf889898-5986-4377-b0bf-714d05f67b17 |
 | HUS 3D Loops/HUS-3D_1_4x5.mp4 | motion_4x5 | Logo Design, 3D Animation | HUS Infinite Logo 3D Loop 4x5 |  |  |  |  | mediaAsset-3a79eb00-7ed0-48e4-a2de-0418432f68f3 |
 | Label Submissions/HUS Label Submissions v2.mp4 | motion_9x16 | Promo Video | HUS Label Submissions Promo |  |  |  |  | mediaAsset-74a4b652-ca3c-4763-a2a3-0df36f7c919b |
 | Mockups/Instagram/instagram-mockup-1.png | static_9x16 | branding | Hurry Up Slowly Instagram Mockup 1 | false |  | hurry-up-slowly-mockups |  | mediaAsset-528b4278-4d68-4fb0-bd7e-67436607d580 |

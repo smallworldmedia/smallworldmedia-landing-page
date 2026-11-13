@@ -7,7 +7,7 @@ year: 2026
 
 | file | mediaType | serviceType | title | isHero | sortOrder | sanityId |
 | --- | --- | --- | --- | --- | --- | --- |
-| ky-william_365-playlist.jpg | static_1x1 | branding | Ky William 365 Playlist | false | 1 | mediaAsset-ky-william-ky-william-365-playlist |
+| ky-william_365-playlist.jpg | album-art | branding | Ky William 365 Playlist | false | 1 | mediaAsset-ky-william-ky-william-365-playlist |
 | ky-william_logo_inline_white.png | logo | logo design | Ky William Logo Inline White | false | 2 | mediaAsset-ky-william-ky-william-logo-inline-white |
 | ky_fall-winter-2024_4x5.jpg | static_4x5 | event / tour creative | Ky Fall Winter 2024 | false | 3 | mediaAsset-ky-william-ky-fall-winter-2024 |
 | ky_solo-to_banner_v1.png | static_other | branding | Ky Solo To Banner | false | 4 | mediaAsset-ky-william-ky-solo-to-banner |

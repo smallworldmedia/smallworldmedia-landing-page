@@ -58,9 +58,9 @@ project: bedouin
 | Bedouin Promo Videos/Tulum Saga/saga-tulum_bedouin-account_v1.mp4 | motion_9x16 | Promo Video | Saga Tulum — Bedouin Account |  |  |  | mediaAsset-bedouin-saga-tulum-bedouin-account |
 | Bedouin Promo Videos/Tulum Saga/saga-tulum_saga-account_v3.mp4 | motion_9x16 | Promo Video | Saga Tulum — Saga Account |  |  |  | mediaAsset-bedouin-saga-tulum-saga-account |
 | Bedouin Promo Videos/Tulum Saga/saga_tulum_trailer_final.mp4 | motion_9x16 | Promo Video | Saga Tulum — Trailer Final |  |  |  | mediaAsset-bedouin-saga-tulum-trailer-final |
-| Open Air Brooklyn 062125/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 |  |  |  | mediaAsset-feea2d7d-263e-431d-90ac-c292f0de6ea7 |
-| Open Air Brooklyn 062125/NYC Flyer 4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 (NYC Flyer) |  |  |  | mediaAsset-f291f3da-9cb4-4a37-8ffe-d65719a1bffe |
-| Roundhouse London 051025/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Roundhouse London 051025 |  |  |  | mediaAsset-601d9bf7-2dea-4be9-917c-9d163896a074 |
+| Open Air Brooklyn 062125/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 |  | bedouin-2025-admats |  | mediaAsset-feea2d7d-263e-431d-90ac-c292f0de6ea7 |
+| Open Air Brooklyn 062125/NYC Flyer 4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Open Air Brooklyn 062125 (NYC Flyer) |  | bedouin-2025-admats |  | mediaAsset-f291f3da-9cb4-4a37-8ffe-d65719a1bffe |
+| Roundhouse London 051025/4x5.jpg | static_4x5 | Event / Tour Creative | Bedouin Roundhouse London 051025 |  | bedouin-2025-admats |  | mediaAsset-601d9bf7-2dea-4be9-917c-9d163896a074 |
 | Instagram Mockups/bedouin_ig-mockup_1_bedouinsaga.png | static_9x16 | Branding | Bedouin Instagram Mockup — SAGA (@bedouinsaga) |  | bedouin-mockups |  | mediaAsset-d62c3810-1cb0-44a9-9bfd-8e24edf149cd |
 | Instagram Mockups/bedouin_ig-mockup_2_bedouin-official.png | static_9x16 | Branding | Bedouin Instagram Mockup — Bedouin (@bedouin_official) |  | bedouin-mockups |  | mediaAsset-242f49d7-bc7e-47fd-aada-2509754de86a |
 | Instagram Mockups/bedouin_ig-mockup_3_humanxdefault.png | static_9x16 | Branding | Bedouin Instagram Mockup — Human By Default (@humanxdefault) |  | bedouin-mockups |  | mediaAsset-bf466cac-b207-4759-9121-3190c5fa32eb |

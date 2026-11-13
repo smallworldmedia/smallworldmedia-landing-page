@@ -13,4 +13,4 @@ year: 2026
 | 04.png | static_3x4 | branding | Momentum 04 | false | 4 |
 | 05.png | static_1x1 | branding | Momentum 05 | false | 5 |
 | 06.png | static_3x4 | branding | Momentum 06 | false | 6 |
-| mtm001_malcolm-zeller_time-after-time-ep.jpg | static_1x1 | album art | MTM001 Malcolm Zeller — Time After Time EP | false | 7 |
+| mtm001_malcolm-zeller_time-after-time-ep.jpg | album-art | album art | MTM001 Malcolm Zeller — Time After Time EP | false | 7 |

@@ -13,4 +13,4 @@ year: 2026
 | gio-lucca_press-kit_cover_2.png | static_4x5 | branding | Gio Lucca Press Kit Cover 2 | false | 4 |
 | gio-lucca_sc-PFP_v2.png | static_1x1 | branding | Gio Lucca SC PFP | false | 5 |
 | gio-lucca_spotify-banner_v1.png | static_16x9 | branding | Gio Lucca Spotify Banner | false | 6 |
-| gio-luccas-lineup_v2.jpg | static_1x1 | event / tour creative | Gio Lucca's Lineup | false | 7 |
+| gio-luccas-lineup_v2.jpg | album-art | event / tour creative | Gio Lucca's Lineup | false | 7 |

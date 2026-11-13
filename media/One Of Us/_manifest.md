@@ -13,13 +13,13 @@ year: 2026
 | Hot Since 82 IAA 4x5.png | static_4x5 | event / tour creative | Hot Since 82 IAA 4x5 | false | 4 |  | mediaAsset-one-of-us-hot-since-82-iaa-4x5 |
 | Miss Monique 050925 4x5.mp4 | motion_4x5 | promo video | Miss Monique 050925 4x5 | false | 5 |  | mediaAsset-one-of-us-miss-monique-050925-4x5 |
 | Miss Monique Ticket Update 050925 4x5.mp4 | motion_4x5 | promo video | Miss Monique Ticket Update 050925 4x5 | false | 6 |  | mediaAsset-one-of-us-miss-monique-ticket-update-050925-4x5 |
-| Moon Landing 2025 Carl Cox IAA 4x5.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Carl Cox IAA 4x5 | false | 7 |  | mediaAsset-one-of-us-moon-landing-2025-carl-cox-iaa-4x5 |
-| Moon Landing 2025 Enamour IAA 4x5.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Enamour IAA 4x5 | false | 8 |  | mediaAsset-one-of-us-moon-landing-2025-enamour-iaa-4x5 |
-| Moon Landing 2025 Full Lineup 4x5.mp4 | motion_4x5 | event / tour creative | Moon Landing 2025 Full Lineup 4x5 | false | 9 |  | mediaAsset-one-of-us-moon-landing-2025-full-lineup-4x5 |
-| Moon Landing 2025 Save the Date 4x5.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Save the Date 4x5 | false | 10 |  | mediaAsset-one-of-us-moon-landing-2025-save-the-date-4x5 |
-| Moon Landing 2025 Set Times Main Stage.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Set Times Main Stage | false | 11 |  | mediaAsset-one-of-us-moon-landing-2025-set-times-main-stage |
-| Moon Landing 2025 Set Times Outdoor Stage 4x5.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Set Times Outdoor Stage 4x5 | false | 12 |  | mediaAsset-one-of-us-moon-landing-2025-set-times-outdoor-stage-4x5 |
-| Moon Landing 2025 Tickets Sold Out 4x5.mp4 | motion_4x5 | event / tour creative | Moon Landing 2025 Tickets Sold Out 4x5 | false | 13 |  | mediaAsset-one-of-us-moon-landing-2025-tickets-sold-out-4x5 |
+| Moon Landing 2025 Carl Cox IAA 4x5.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Carl Cox IAA 4x5 | false | 7 | one-of-us-moon-landing-2025-flyer-progression | mediaAsset-one-of-us-moon-landing-2025-carl-cox-iaa-4x5 |
+| Moon Landing 2025 Enamour IAA 4x5.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Enamour IAA 4x5 | false | 8 | one-of-us-moon-landing-2025-flyer-progression | mediaAsset-one-of-us-moon-landing-2025-enamour-iaa-4x5 |
+| Moon Landing 2025 Full Lineup 4x5.mp4 | motion_4x5 | event / tour creative | Moon Landing 2025 Full Lineup 4x5 | false | 9 | one-of-us-moon-landing-2025-flyer-progression | mediaAsset-one-of-us-moon-landing-2025-full-lineup-4x5 |
+| Moon Landing 2025 Save the Date 4x5.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Save the Date 4x5 | false | 10 | one-of-us-moon-landing-2025-flyer-progression | mediaAsset-one-of-us-moon-landing-2025-save-the-date-4x5 |
+| Moon Landing 2025 Set Times Main Stage.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Set Times Main Stage | false | 11 | one-of-us-moon-landing-2025-flyer-progression | mediaAsset-one-of-us-moon-landing-2025-set-times-main-stage |
+| Moon Landing 2025 Set Times Outdoor Stage 4x5.jpg | static_4x5 | event / tour creative | Moon Landing 2025 Set Times Outdoor Stage 4x5 | false | 12 | one-of-us-moon-landing-2025-flyer-progression | mediaAsset-one-of-us-moon-landing-2025-set-times-outdoor-stage-4x5 |
+| Moon Landing 2025 Tickets Sold Out 4x5.mp4 | motion_4x5 | event / tour creative | Moon Landing 2025 Tickets Sold Out 4x5 | false | 13 | one-of-us-moon-landing-2025-flyer-progression | mediaAsset-one-of-us-moon-landing-2025-tickets-sold-out-4x5 |
 | OOU ThereAfter Loco Dice 041726.mp4 | motion_3x4 | promo video | OOU ThereAfter Loco Dice 041726 | false | 14 |  | mediaAsset-one-of-us-oou-thereafter-loco-dice-041726 |
 | ThereAfter 2025 Latmun IAA 4x5.jpg | static_4x5 | event / tour creative | ThereAfter 2025 Latmun IAA 4x5 | false | 15 |  | mediaAsset-one-of-us-thereafter-2025-latmun-iaa-4x5 |
 | ThereAfter 2025 Malone IAA 4x5.jpg | static_4x5 | event / tour creative | ThereAfter 2025 Malone IAA 4x5 | false | 16 |  | mediaAsset-one-of-us-thereafter-2025-malone-iaa-4x5 |

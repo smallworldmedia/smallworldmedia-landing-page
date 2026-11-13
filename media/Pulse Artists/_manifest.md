@@ -13,6 +13,6 @@ year: 2026
 | pulse_logo_white.png | static_16x9 | logo design | Pulse Logo White | false | 4 |
 | pulse_portfolio_logo-options.png | static_16x9 | logo design | Pulse Portfolio Logo Options | false | 5 |
 | pulse_splitin3_story.mp4 | motion_9x16 | promo video | Pulse Splitin3 Story | false | 6 |
-| pulsecheck_cover.png | static_1x1 | album art | Pulsecheck Cover | false | 7 |
-| pulsecheck_cover_color.jpg | static_1x1 | album art | Pulsecheck Cover Color | false | 8 |
+| pulsecheck_cover.png | album-art | album art | Pulsecheck Cover | false | 7 |
+| pulsecheck_cover_color.jpg | album-art | album art | Pulsecheck Cover Color | false | 8 |
 | pulsecheck_withaudio.mp4 | motion_9x16 | promo video | Pulsecheck With Audio | false | 9 |

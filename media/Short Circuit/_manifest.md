@@ -14,16 +14,14 @@ year: 2023
 | sc tour brookyln 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour Brooklyn 4x5 | false | 5 | short-circuit-tour-admats | mediaAsset-short-circuit-sc-tour-brooklyn-4x5 |
 | sc tour la 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour LA 4x5 | false | 6 | short-circuit-tour-admats | mediaAsset-short-circuit-sc-tour-la-4x5 |
 | sc tour miami 4x5.mp4 | motion_4x5 | event / tour creative | SC Tour Miami 4x5 | false | 7 | short-circuit-tour-admats | mediaAsset-short-circuit-sc-tour-miami-4x5 |
-| sc-sound_art.png | static_1x1 | album art | SC Sound Art | false | 8 |  | mediaAsset-short-circuit-sc-sound-art |
-| sc18_summercutz_FB_banner.png | static_16x9 | branding | SC18 Summercutz FB Banner | false | 9 |  | mediaAsset-short-circuit-sc18-summercutz-fb-banner |
+| sc-sound_art.png | album-art | album art | SC Sound Art | false | 8 |  | mediaAsset-short-circuit-sc-sound-art |
 | sc18_summercutz_SC_banner.png | static_other | branding | SC18 Summercutz SC Banner | false | 10 | short-circuit-banners | mediaAsset-short-circuit-sc18-summercutz-sc-banner |
 | sc49  PHOTO_4x5.png | static_4x5 | release packs | SC49 Photo 4x5 | false | 11 |  | mediaAsset-short-circuit-sc49-photo-4x5 |
 | sc49 4x5.mp4 | motion_4x5 | promo video | SC49 4x5 | false | 12 |  | mediaAsset-short-circuit-sc49-4x5 |
 | sc50 PHOTO_4x5.png | static_4x5 | release packs | SC50 Photo 4x5 | false | 13 |  | mediaAsset-short-circuit-sc50-photo-4x5 |
 | sc50_preview_4x5.mp4 | motion_4x5 | promo video | SC50 Preview 4x5 | false | 14 |  | mediaAsset-short-circuit-sc50-preview-4x5 |
-| sc_sc-banner.jpg | static_other | branding | SC SoundCloud Banner | false | 15 |  | mediaAsset-short-circuit-sc-soundcloud-banner |
+| sc_sc-banner.jpg | static_other | branding | SC SoundCloud Banner | false | 15 | short-circuit-banners | mediaAsset-short-circuit-sc-soundcloud-banner |
 | short-circuit-sound.mp4 | motion_9x16 | branding | Short Circuit Sound | false | 16 |  | mediaAsset-short-circuit-short-circuit-sound |
-| shortcircuit_logo_full_gradient_white_transparent_bg.png | logo | logo design | Short Circuit Logo Full Gradient | false | 17 |  | mediaAsset-short-circuit-short-circuit-logo-full-gradient |
 | SC48/4x5.mp4 | motion_4x5 | Promo Video | SC48 Preview 4x5 |  |  |  | mediaAsset-4e46de28-8a22-4f18-9a2d-9b2002165df4 |
 | SC48/PHOTO_4x5.png | static_4x5 | release packs | SC48 Photo 4x5 |  |  |  | mediaAsset-caa63334-86b6-403b-b6d6-96a131b42bf2 |
 | SC51/03_maxmash-antonello_4x5.mp4 | motion_4x5 | Promo Video | SC51 Preview 4x5 |  |  |  | mediaAsset-e0019d1b-00a8-4ca4-a803-19b4d3a33ab4 |

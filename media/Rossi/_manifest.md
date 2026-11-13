@@ -17,7 +17,6 @@ project: rossi
 | rossi_+++-tour_4x5.mp4 | motion_4x5 | Event / Tour Creative | Rossi. +++ Tour (Key Art) | mediaAsset-rossi-rossi-tour-4x5 |
 | Rossi In The Park 071826/3x4.mp4 | motion_3x4 | Event / Tour Creative | Rossi. In The Park | mediaAsset-rossi-in-the-park-3x4-animated |
 | Rossi Coachella Set Promo/3x4.png | static_3x4 | Promo Video | Rossi. Coachella Set Promo | mediaAsset-rossi-coachella-set-promo-3x4 |
-| Rossi Coachella Set Promo/Rossi_Timelapse.mp4 | motion_3x4 | Promo Video | Rossi. Coachella Promo - Lettering Timelapse | mediaAsset-rossi-rossi-timelapse |
 | Rossi Coachella Set Promo/printed.jpg | static_1x1 | Promo Video | Rossi. Coachella Promo - Full Building Spread | mediaAsset-rossi-printed |
 | Rossi Coachella Set Promo/01.jpg | static_3x4 | Promo Video | Coachella Set Promo 01 |  |
 | Rossi Coachella Set Promo/02.jpg | static_3x4 | Promo Video | Coachella Set Promo 02 |  |

@@ -10,30 +10,29 @@ project: coco-branding-2026
 | file | mediaType | title | serviceType | displayGroup | sanityId |
 | --- | --- | --- | --- | --- | --- |
 | VISIONSEVEN x COCO @ THE CAUSE - SOSA - CLIP  27.mp4 | motion_4x3 | VISIONSEVEN x COCO @ THE CAUSE - SOSA - CLIP 27 | Live Visuals |  | mediaAsset-coco-visionseven-x-coco-the-cause-sosa-clip-27 |
-| VISIONSEVEN x COCO @ THE CAUSE - SOSA - CLIP  23.mp4 | motion_4x3 | VISIONSEVEN x COCO @ THE CAUSE - SOSA - CLIP 23 | Live Visuals |  | mediaAsset-coco-visionseven-x-coco-the-cause-sosa-clip-23 |
+| VISIONSEVEN x COCO @ THE CAUSE - SOSA - CLIP  23.mp4 | motion_4x3 | VISIONSEVEN x COCO @ THE CAUSE - SOSA - CLIP 23 | Live Visuals | coco-2026-the-cause-live-footage | mediaAsset-coco-visionseven-x-coco-the-cause-sosa-clip-23 |
 | VISIONSEVEN x COCO @ THE CAUSE - SOSA - CLIP  25.mp4 | motion_4x3 | VISIONSEVEN x COCO @ THE CAUSE - SOSA - CLIP 25 | Live Visuals |  | mediaAsset-coco-visionseven-x-coco-the-cause-sosa-clip-25 |
-| COCO 3Peat.mp4 | motion_other | COCO 3Peat | Branding |  | mediaAsset-coco-coco-3peat |
-| COCO DVD Bounce.mp4 | motion_other | COCO DVD Bounce | Branding |  | mediaAsset-coco-coco-dvd-bounce |
-| COCO Rotating Instances.mp4 | motion_other | COCO Rotating Instances | Branding |  | mediaAsset-coco-coco-rotating-instances |
-| COCO Sliding Instances.mp4 | motion_other | COCO Sliding Instances | Branding |  | mediaAsset-coco-coco-sliding-instances |
-| COCO Bristol Document Flyer.png | static_3x4 | COCO Bristol Document Flyer | Event / Tour Creative |  | mediaAsset-coco-coco-flyer-3x4-v5 |
-| COCO Template 2026.jpg | static_1x1 | COCO Template 2026 | Branding |  | mediaAsset-coco-coco-template-2026 |
+| COCO 3Peat.mp4 | motion_other | COCO 3Peat | Branding | coco-2026-visuals | mediaAsset-coco-coco-3peat |
+| COCO DVD Bounce.mp4 | motion_other | COCO DVD Bounce | Branding | coco-2026-visuals | mediaAsset-coco-coco-dvd-bounce |
+| COCO Rotating Instances.mp4 | motion_other | COCO Rotating Instances | Branding | coco-2026-visuals | mediaAsset-coco-coco-rotating-instances |
+| COCO Sliding Instances.mp4 | motion_other | COCO Sliding Instances | Branding | coco-2026-visuals | mediaAsset-coco-coco-sliding-instances |
+| COCO Bristol Document Flyer.png | static_3x4 | COCO Bristol Document Flyer | Event / Tour Creative | coco-2026-admats | mediaAsset-coco-coco-flyer-3x4-v5 |
 | Artwork/COCO051-ESSED---Get-Down-EP.jpg | album-art | ESSED — Get Down EP | Branding, Album Art |  | mediaAsset-coco-essed-get-down-ep |
-| coco_cause_01.jpg | static_3x4 | COCO @ The Cause — Photo 1 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-photo-1 |
-| coco_cause_06.jpg | static_3x4 | COCO @ The Cause — Photo 6 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-photo-6 |
-| coco_cause-01.jpg | static_9x16 | COCO @ The Cause — Recap 1 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-recap-1 |
-| coco_cause-02.jpg | static_9x16 | COCO @ The Cause — Recap 2 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-recap-2 |
-| coco_cause-03.jpg | static_9x16 | COCO @ The Cause — Recap 3 | Event / Tour Creative |  | mediaAsset-coco-coco-the-cause-recap-3 |
-| COCO050_9x16.mp4 | motion_9x16 | COCO50 Dale Howard - On Lock Track Preview 9x16 | 3D Animation |  | mediaAsset-coco-coco50-dale-howard-on-lock-track-preview-9x16 |
-| COCO050_CANVAS.mp4 | motion_9x16 | COCO50 Dale Howard - On Lock Track Preview Spotify Canvas | 3D Animation |  | mediaAsset-coco-coco50-dale-howard-on-lock-track-preview-spotify-canvas |
+| coco_cause_01.jpg | static_3x4 | COCO @ The Cause — Photo 1 | Event / Tour Creative | coco-2026-the-cause-live-footage | mediaAsset-coco-coco-the-cause-photo-1 |
+| coco_cause_06.jpg | static_3x4 | COCO @ The Cause — Photo 6 | Event / Tour Creative | coco-2026-the-cause-live-footage | mediaAsset-coco-coco-the-cause-photo-6 |
+| coco_cause-01.jpg | static_9x16 | COCO @ The Cause — Recap 1 | Event / Tour Creative | coco-2026-the-cause-live-footage | mediaAsset-coco-coco-the-cause-recap-1 |
+| coco_cause-02.jpg | static_9x16 | COCO @ The Cause — Recap 2 | Event / Tour Creative | coco-2026-the-cause-live-footage | mediaAsset-coco-coco-the-cause-recap-2 |
+| coco_cause-03.jpg | static_9x16 | COCO @ The Cause — Recap 3 | Event / Tour Creative | coco-2026-the-cause-live-footage | mediaAsset-coco-coco-the-cause-recap-3 |
+| COCO050_9x16.mp4 | motion_9x16 | COCO50 Dale Howard - On Lock Track Preview 9x16 | 3D Animation | coco-2026-track-previews | mediaAsset-coco-coco50-dale-howard-on-lock-track-preview-9x16 |
+| COCO050_CANVAS.mp4 | motion_9x16 | COCO50 Dale Howard - On Lock Track Preview Spotify Canvas | 3D Animation | coco-2026-track-previews | mediaAsset-coco-coco50-dale-howard-on-lock-track-preview-spotify-canvas |
 | COCO050_YOUTUBE.mp4 | motion_16x9 | COCO50 Dale Howard - On Lock Full Track YouTube | 3D Animation |  | mediaAsset-coco-coco50-dale-howard-on-lock-full-track-youtube |
 | Artwork/COCO050 Dale Howard - On Lock.jpg | album-art | Dale Howard — On Lock | Album Art |  | mediaAsset-41bedbe4-bb14-4e9d-a1a2-7fae4710a901 |
 | Artwork/COCO052 Kidoo, Rushin - Save My Soul.jpg | album-art | Kidoo, Rushin — Save My Soul | Album Art |  | mediaAsset-f00289c4-e651-4be2-9f0c-8184c29cc7a3 |
 | Artwork/COCO053 HIFI - Movin.jpg | album-art | HIFI — Movin' | Album Art |  | mediaAsset-f6684853-8075-44e3-9945-7e38ef7c8e26 |
 | Artwork/COCO054 Ellis Garner - Chicks In The Club EP.jpg | album-art | Ellis Garner — Chicks In The Club EP | Album Art |  | mediaAsset-d708b954-1dcb-40f9-b177-423a5031d912 |
-| COCO051 ESSED - Get Down Track Preview 9x16.mp4 | motion_9x16 | ESSED — Get Down Track Preview 9x16 | 3D Animation |  | mediaAsset-d51fdc65-8b49-4fd5-9ca8-629e540b4caa |
-| COCO Wax Seal Spotify Canvas Green.mp4 | motion_9x16 | COCO Wax Seal Spotify Canvas — Green | 3D Animation |  | mediaAsset-ffed11c1-6054-419c-93d4-d1fd0aa240f2 |
-| COCO Liverpool Tickets On Sale 9x16.mp4 | motion_9x16 | COCO Liverpool — Tickets On Sale 9x16 | Event / Tour Creative |  | mediaAsset-95e1810d-8ae6-4fd8-a1bb-7c7a7c0f3f36 |
+| COCO051 ESSED - Get Down Track Preview 9x16.mp4 | motion_9x16 | ESSED — Get Down Track Preview 9x16 | 3D Animation | coco-2026-track-previews | mediaAsset-d51fdc65-8b49-4fd5-9ca8-629e540b4caa |
+| COCO Wax Seal Spotify Canvas Green.mp4 | motion_9x16 | COCO Wax Seal Spotify Canvas — Green | 3D Animation | coco-2026-track-previews | mediaAsset-ffed11c1-6054-419c-93d4-d1fd0aa240f2 |
+| COCO Liverpool Tickets On Sale 9x16.mp4 | motion_9x16 | COCO Liverpool — Tickets On Sale 9x16 | Event / Tour Creative | coco-2026-admats | mediaAsset-95e1810d-8ae6-4fd8-a1bb-7c7a7c0f3f36 |
 | COCO Liverpool Promo 16x9.mp4 | motion_16x9 | COCO Liverpool — Promo 16x9 | Event / Tour Creative |  | mediaAsset-ff86d47a-5322-4809-9c29-0d850b5d62de |
 | Artwork/COCO Artwork Mockup 01.jpg | album-art | COCO Artwork Mockup 01 | Branding |  | mediaAsset-83157c19-9a78-4b50-b6d4-dae7b9e615e2 |
 | Artwork/COCO Artwork Mockup 02.jpg | album-art | COCO Artwork Mockup 02 | Branding |  | mediaAsset-463904eb-7b73-445a-aae0-d9da9486e106 |
@@ -48,17 +47,17 @@ project: coco-branding-2026
 | Banners/COCO052 Kidoo, Rushin - Save My Soul Banner.png | static_other | Kidoo, Rushin — Save My Soul SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-99f2f2c3-bf32-4d1d-9d41-cc6f3b3c67a8 |
 | Banners/COCO053 HIFI - Movin Banner.png | static_other | HIFI — Movin' SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-424c8756-c91f-4cb6-8e98-fb8c22e96b09 |
 | Banners/COCO054 Ellis Garner - Chicks In The Club EP Banner.png | static_other | Ellis Garner — Chicks In The Club EP SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-e8b89819-bad8-4231-a7d4-4fe7a20e6f83 |
-| COCO052 Save My Soul/9x16.mp4 | motion_9x16 | Kidoo, Rushin — Save My Soul Preview | Promo Video |  | mediaAsset-5467e7ad-8a34-4201-b321-b6d6d622bf42 |
-| COCO053 Movin/9x16.mp4 | motion_9x16 | HIFI — Movin' Preview | Promo Video |  | mediaAsset-f36c87d6-9099-47b7-997f-393954f2d75b |
-| COCO054 Chicks In The Club/Chicks In The Club 01 9x16.mp4 | motion_9x16 | Ellis Garner — Chicks In The Club Preview 01 | Promo Video |  | mediaAsset-82982933-252a-4f9b-aa8e-3d862a4c3318 |
+| COCO052 Save My Soul/9x16.mp4 | motion_9x16 | Kidoo, Rushin — Save My Soul Preview | Promo Video | coco-2026-track-previews | mediaAsset-5467e7ad-8a34-4201-b321-b6d6d622bf42 |
+| COCO053 Movin/9x16.mp4 | motion_9x16 | HIFI — Movin' Preview | Promo Video | coco-2026-track-previews | mediaAsset-f36c87d6-9099-47b7-997f-393954f2d75b |
+| COCO054 Chicks In The Club/Chicks In The Club 01 9x16.mp4 | motion_9x16 | Ellis Garner — Chicks In The Club Preview 01 | Promo Video | coco-2026-track-previews | mediaAsset-82982933-252a-4f9b-aa8e-3d862a4c3318 |
 | COCO055 The Knowledge/BANNER.png | static_other | Carvalho — The Knowledge SoundCloud Banner | Album Art | soundcloud-banners | mediaAsset-5ac20e2f-3e10-4acc-9df1-31bc143f9859 |
 | COCO055 The Knowledge/COCO055-Carvalho---The-Knowledge.jpg | album-art | Carvalho — The Knowledge | Album Art |  | mediaAsset-1ad1680c-4968-43db-a8a9-85d802fe7ab0 |
-| Document Bristol 101026/Lineup Added 3x4.png | static_3x4 | COCO Document Bristol 101026 Lineup Added | Event / Tour Creative |  | mediaAsset-d451067c-e066-4f9a-8416-d4718b6faaef |
+| Document Bristol 101026/Lineup Added 3x4.png | static_3x4 | COCO Document Bristol 101026 Lineup Added | Event / Tour Creative | coco-2026-admats | mediaAsset-d451067c-e066-4f9a-8416-d4718b6faaef |
 | Liverpool 091226/Know Before You Go 01.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 01 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-e418cc4e-9d65-430b-aaa3-ba2b538cbe88 |
 | Liverpool 091226/Know Before You Go 02.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 02 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-2be06903-855a-4c98-b22a-2c0993c556e7 |
 | Liverpool 091226/Know Before You Go 03.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 03 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-1fb0a493-3a38-47fa-8a2b-c41bdedb1bf6 |
 | Liverpool 091226/Know Before You Go 04.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 04 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-edfce699-0895-46af-84f3-95e8e2a2846c |
 | Liverpool 091226/Know Before You Go 06.jpg | carousel-slide | COCO Liverpool 091226 Know Before You Go 06 | Event / Tour Creative | coco-liverpool-know-before-you-go | mediaAsset-dc5c8472-288e-4010-a020-7faf0f4602f8 |
-| Liverpool 091226/B2B Lineup 3x4.png | static_3x4 | COCO Liverpool 091226 B2B Lineup | Event / Tour Creative |  | mediaAsset-04d4e307-e704-4654-b21a-eb5fd21e22ea |
-| The Cause 050226/Announce 4x5.mp4 | motion_4x5 | COCO @ The Cause 050226 Announce | Event / Tour Creative |  | mediaAsset-4a76a206-9f5f-4053-9a2a-66196495c2b4 |
+| Liverpool 091226/B2B Lineup 3x4.png | static_3x4 | COCO Liverpool 091226 B2B Lineup | Event / Tour Creative | coco-2026-admats | mediaAsset-04d4e307-e704-4654-b21a-eb5fd21e22ea |
+| The Cause 050226/Announce 4x5.mp4 | motion_4x5 | COCO @ The Cause 050226 Announce | Event / Tour Creative | coco-2026-admats | mediaAsset-4a76a206-9f5f-4053-9a2a-66196495c2b4 |
 | coco_ig-mockup.png | static_9x16 | COCO Instagram Mockup | Branding | coco-mockups | mediaAsset-542817b3-52cc-49ee-bb03-79ff86326f40 |

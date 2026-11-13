@@ -42,5 +42,5 @@ year: 2024
 | SC51-Summer-Cutz-Vol-4.jpg | album-art | Short Circuit — Summer Cutz Vol 4 | false | 33 | mediaAsset-short-circuit-short-circuit-summer-cutz-vol-4 |
 | SC52-Jeff-Sorkowitz---Feel-The-Same.jpg | album-art | Jeff Sorkowitz — Feel The Same |  |  | mediaAsset-a02a49dd-3147-4d4e-b97f-1f796820c67d |
 | SC53-Joe-Vanditti,-White-Off---In-My-Head.jpg | album-art | Joe Vanditti & White Off — In My Head |  |  | mediaAsset-b8c795ed-cca2-4ad0-a903-a9bc7a68d04d |
-| SC54-Kirkie---Do-Ya-Thing-EP.jpg | album-art | Kirkie — Do Ya Thing EP |  |  | mediaAsset-4e7d1d44-ed1e-4b56-b51d-dc0a6d570c57 |
+| SC54-Kirkie---Do-Ya-Thing-EP.jpg | album-art | KiRKie — Do Ya Thang EP |  |  | mediaAsset-4e7d1d44-ed1e-4b56-b51d-dc0a6d570c57 |
 | SC55-The-Beatboys-Wilder---Moonlight-EP.jpg | album-art | The Beatboy's & Wilder — Moonlight EP |  |  | mediaAsset-a1afed77-0461-47b4-ad13-049242bd46c5 |

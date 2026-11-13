@@ -11,7 +11,6 @@ year: 2026
 | Nusonido Promo 1-1 Trimmed.mp4 | motion_9x16 | promo video | Nusonido Promo 1 | false | 2 | mediaAsset-nusonido-nusonido-promo-1 |
 | Nusonido Promo 2.mp4 | motion_9x16 | promo video | Nusonido Promo 2 | false | 3 | mediaAsset-nusonido-nusonido-promo-2 |
 | nusonido_mmw-promo.mp4 | motion_9x16 | event / tour creative | Nusonido MMW Promo | false | 4 | mediaAsset-nusonido-nusonido-mmw-promo |
-| nusonido_visualizer_16x9.mp4 | motion_16x9 | live visuals | Nusonido Visualizer 16x9 | false | 5 | mediaAsset-nusonido-nusonido-visualizer-16x9 |
 | nusonido_wynwood_teaser_no-text.mp4 | motion_9x16 | event / tour creative | Nusonido Wynwood Teaser | false | 6 | mediaAsset-nusonido-nusonido-wynwood-teaser |
 | pixel-diffuse.mp4 | motion_1x1 | live visuals | Pixel Diffuse | false | 7 | mediaAsset-nusonido-pixel-diffuse |
 | pixel-loop_metallic.mp4 | motion_4x5 | live visuals | Pixel Loop Metallic | false | 8 | mediaAsset-nusonido-pixel-loop-metallic |

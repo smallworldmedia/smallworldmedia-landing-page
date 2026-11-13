@@ -8,4 +8,4 @@ year: 2026
 
 | file | mediaType | title | isHero | sortOrder |
 |------|-----------|-------|--------|-----------|
-| real-close.gif | static_1x1 | Real Close Animated | false | 3 |
+| real-close.gif | album-art | Real Close Animated | false | 3 |

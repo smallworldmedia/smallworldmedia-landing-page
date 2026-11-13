@@ -18,8 +18,8 @@ project: heavy-house-society-branding-2026
 | Live Visuals 2026/Logo 01 - Graffiti Indigo.mp4 | motion_16x9 | Logo Design | Logo Graffiti Indigo |  |  | mediaAsset-heavy-house-society-logo-graffiti-indigo |
 | Bass Rider Youtube.mp4 | motion_16x9 | Promo Video | Bass Rider Youtube |  |  | mediaAsset-heavy-house-society-bass-rider-youtube |
 | HHS OFFBCN 062025.png | static_4x5 | Event / Tour Creative | HHS OFFBCN 062025 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-offbcn-062025 |
-| hhs_straight-from-the-underground_charcoal-back.jpg | static_1x1 | Merch Design | hhs straight from the underground charcoal back |  |  | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-charcoal-back |
-| hhs_straight-from-the-underground_white-back.jpg | static_1x1 | Merch Design | hhs straight from the underground white back |  |  | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-white-back |
+| hhs_straight-from-the-underground_charcoal-back.jpg | static_1x1 | Merch Design | hhs straight from the underground charcoal back |  | heavy-house-society-2026-merch | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-charcoal-back |
+| hhs_straight-from-the-underground_white-back.jpg | static_1x1 | Merch Design | hhs straight from the underground white back |  | heavy-house-society-2026-merch | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-white-back |
 | HHS USA listing 2026.png | static_4x5 | Event / Tour Creative | HHS USA listing 2026 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-usa-listing-2026 |
 | pure-perfection_4x5.mp4 | motion_4x5 | Promo Video | pure perfection 4x5 |  |  | mediaAsset-heavy-house-society-pure-perfection-4x5 |
 | HHS047 SC Banner.png | static_16x9 | Branding | HHS047 SC Banner |  |  | mediaAsset-heavy-house-society-hhs047-sc-banner |
@@ -41,7 +41,7 @@ project: heavy-house-society-branding-2026
 | Live Visuals 2026/hhs_viewport-view.mp4 | motion_4x5 | Live Visuals | Resolume Viewport Recording | process |  | mediaAsset-heavy-house-society-resolume-viewport-recording |
 | Album Art/HHS057-DAETOR-Eclipse-EP.jpg | album-art | Album Art | DAETOR — Eclipse EP |  |  | mediaAsset-heavy-house-society-daetor-eclipse-ep |
 | Album Art/HHS059-Ozzie-Guven-Zero-Degrees-EP.jpg | album-art | Album Art | Ozzie Guven — Zero Degrees EP |  |  | mediaAsset-heavy-house-society-ozzie-guven-zero-degrees-ep |
-| Album Art/HHS058-Dennis-Quin---The-Mind-Shaker-EP.jpg | album-art | Album Art | Dennis Quin — The Mind Shaker EP |  |  | mediaAsset-81165a7b-f99e-47fb-b0da-a49a12f2e36f |
+| Album Art/HHS058-Dennis-Quin---The-Mind-Shaker-EP.jpg | album-art | Album Art | Dennis Quin — The Mindshaker EP |  |  | mediaAsset-81165a7b-f99e-47fb-b0da-a49a12f2e36f |
 | Album Art/HHS060-Sidney-Charles---Bass-Rider-EP.jpg | album-art | Album Art | Sidney Charles — Bass Rider EP |  |  | mediaAsset-8fd82bf8-7bd3-4cce-b5ea-0eeda785aad3 |
 | Album Art/HHS061-Kepler-&-Boss-Priester---Use-Ya-Head-EP.jpg | album-art | Album Art | Kepler & Boss Priester — Use Ya Head EP |  |  | mediaAsset-96a17068-6647-4318-bddf-65728b9df867 |
 | Album Art/HHS062-Hidde-Van-Wee---Apollo-EP.jpg | album-art | Album Art | Hidde Van Wee — Apollo EP |  |  | mediaAsset-3f33ba9f-0a58-4aae-9de8-eacbab80c386 |

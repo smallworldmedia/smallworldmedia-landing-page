@@ -10,22 +10,22 @@ project: cheetah-print
 | file | mediaType | title | serviceType | contentRole | displayGroup | brandDeckOrder | sanityId |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Cheetah-Print_Logo-In_w-Grain_01.mp4 | motion_1x1 | Cheetah Print Logo Reveal | Branding, Logo Design |  |  |  | mediaAsset-ce920c75-e0ad-4316-87f0-53474f60c0ea |
-| Mockups/cheetah-print_billboard_highway-sunset.jpg | static_16x9 | Cheetah Print Billboard — Highway at Sunset | Branding, Event / Tour Creative |  |  |  | mediaAsset-a0d6012b-9def-47f9-9ad5-51ce6428fd4b |
-| Mockups/cheetah-print_billboard_nyc-corner.jpg | static_9x16 | Cheetah Print Billboard — Miami Teaser on the Corner | Branding, Event / Tour Creative |  |  |  | mediaAsset-f8bc7019-5faa-4603-8a22-88ac6433d2d4 |
-| Cheetah-Print-Flyer-RED-BG.jpg | static_9x16 | Cheetah Print Key Art — Red | Event / Tour Creative |  |  |  | mediaAsset-84a6dcb7-2517-4d2e-ad26-99d590d20a38 |
-| Mockups/cheetah-print_billboard_highway-spotlight.jpg | static_16x9 | Cheetah Print Billboard — Rafael Spotlight | Branding, Event / Tour Creative |  |  |  | mediaAsset-1fba2ba0-b5cf-4ddd-93ec-02f3316f83f4 |
-| Cheetah-Print-Flyer-Gold-BG.jpg | static_9x16 | Cheetah Print Key Art — Gold | Event / Tour Creative |  |  |  | mediaAsset-96ca3799-af2f-459e-8c41-eb2214a146b4 |
-| Mockups/cheetah-print_wallscape_underpass.jpg | static_16x9 | Cheetah Print Wallscape — Underpass | Branding, Event / Tour Creative |  |  |  | mediaAsset-48d5d89b-3377-4454-9eb2-36644e27b570 |
+| Mockups/cheetah-print_billboard_highway-sunset.jpg | static_16x9 | Cheetah Print Billboard — Highway at Sunset | Branding, Event / Tour Creative |  | cheetah-print-mockups |  | mediaAsset-a0d6012b-9def-47f9-9ad5-51ce6428fd4b |
+| Mockups/cheetah-print_billboard_nyc-corner.jpg | static_9x16 | Cheetah Print Billboard — Miami Teaser on the Corner | Branding, Event / Tour Creative |  | cheetah-print-mockups |  | mediaAsset-f8bc7019-5faa-4603-8a22-88ac6433d2d4 |
+| Cheetah-Print-Flyer-RED-BG.jpg | static_9x16 | Cheetah Print Key Art — Red | Event / Tour Creative |  | cheetah-print-flyer-admats |  | mediaAsset-84a6dcb7-2517-4d2e-ad26-99d590d20a38 |
+| Mockups/cheetah-print_billboard_highway-spotlight.jpg | static_16x9 | Cheetah Print Billboard — Rafael Spotlight | Branding, Event / Tour Creative |  | cheetah-print-mockups |  | mediaAsset-1fba2ba0-b5cf-4ddd-93ec-02f3316f83f4 |
+| Cheetah-Print-Flyer-Gold-BG.jpg | static_9x16 | Cheetah Print Key Art — Gold | Event / Tour Creative |  | cheetah-print-flyer-admats |  | mediaAsset-96ca3799-af2f-459e-8c41-eb2214a146b4 |
+| Mockups/cheetah-print_wallscape_underpass.jpg | static_16x9 | Cheetah Print Wallscape — Underpass | Branding, Event / Tour Creative |  | cheetah-print-mockups |  | mediaAsset-48d5d89b-3377-4454-9eb2-36644e27b570 |
 | Venue/cheetah-print_venue_booth-previs.jpg | static_16x9 | Cheetah Print Booth — Venue Pre-Vis | Branding |  |  |  | mediaAsset-826c5f81-de0c-4f8e-a64c-45c0193a6635 |
 | Cheetah-Print_Primary_Red.png | logo | Cheetah Print Primary Logo — Red | Logo Design |  |  |  | mediaAsset-3ea3229e-49b0-4ddf-afd7-3ca0127b8f6c |
 | Cheetah-Print_Primary_Gold.png | logo | Cheetah Print Primary Logo — Gold | Logo Design |  |  |  | mediaAsset-b5ce1a5e-d7eb-444d-adfc-44ed2f3103eb |
 | Venue/cheetah-print_venue_rafael-booth.jpg | static_16x9 | Rafael at the Cheetah Print Booth — Pre-Vis | Branding |  |  |  | mediaAsset-540bc1ce-f20d-4d1a-a857-3e416b13beb9 |
-| cheetah-print_miami_teaser_3x4.png | static_3x4 | Cheetah Print Miami — Teaser | Event / Tour Creative |  |  |  | mediaAsset-d1bfd9e3-3b3a-45ec-9644-fc7f7787497c |
-| cheetah-print_miami_venue-details_3x4.png | static_3x4 | Cheetah Print Miami — Venue Details | Event / Tour Creative |  |  |  | mediaAsset-3a01426b-54b2-4638-ad5e-699b555f6f4d |
-| cheetah-print_miami_lineup_3x4.png | static_3x4 | Cheetah Print Miami — Lineup | Event / Tour Creative |  |  |  | mediaAsset-39f278ef-d49d-4c78-a345-2e0430d59cf5 |
-| cheetah-print_miami_set-times_3x4.png | static_3x4 | Cheetah Print Miami — Set Times | Event / Tour Creative |  |  |  | mediaAsset-320bef4f-0b2a-400a-87cd-a4c17a5254dd |
-| Mockups/cheetah-print_wallscape_gallery.jpg | static_3x4 | Cheetah Print Wallscape — Gallery Wall | Branding, Event / Tour Creative |  |  |  | mediaAsset-5b5f3993-d153-4ceb-b830-6cae277fa8ed |
-| Mockups/cheetah-print_billboard_roadside-daylight.jpg | static_16x9 | Cheetah Print Billboard — Roadside Daylight | Branding, Event / Tour Creative |  |  |  | mediaAsset-79607c59-ddcf-4f9b-a438-3d985385f9a1 |
+| cheetah-print_miami_teaser_3x4.png | static_3x4 | Cheetah Print Miami — Teaser | Event / Tour Creative |  | cheetah-print-miami-flyer-progression |  | mediaAsset-d1bfd9e3-3b3a-45ec-9644-fc7f7787497c |
+| cheetah-print_miami_venue-details_3x4.png | static_3x4 | Cheetah Print Miami — Venue Details | Event / Tour Creative |  | cheetah-print-miami-flyer-progression |  | mediaAsset-3a01426b-54b2-4638-ad5e-699b555f6f4d |
+| cheetah-print_miami_lineup_3x4.png | static_3x4 | Cheetah Print Miami — Lineup | Event / Tour Creative |  | cheetah-print-miami-flyer-progression |  | mediaAsset-39f278ef-d49d-4c78-a345-2e0430d59cf5 |
+| cheetah-print_miami_set-times_3x4.png | static_3x4 | Cheetah Print Miami — Set Times | Event / Tour Creative |  | cheetah-print-miami-flyer-progression |  | mediaAsset-320bef4f-0b2a-400a-87cd-a4c17a5254dd |
+| Mockups/cheetah-print_wallscape_gallery.jpg | static_3x4 | Cheetah Print Wallscape — Gallery Wall | Branding, Event / Tour Creative |  | cheetah-print-mockups |  | mediaAsset-5b5f3993-d153-4ceb-b830-6cae277fa8ed |
+| Mockups/cheetah-print_billboard_roadside-daylight.jpg | static_16x9 | Cheetah Print Billboard — Roadside Daylight | Branding, Event / Tour Creative |  | cheetah-print-mockups |  | mediaAsset-79607c59-ddcf-4f9b-a438-3d985385f9a1 |
 | cheetah-print_stamp_cheetah-branch.jpg | static_1x1 | Cheetah Branch Stamp | Branding |  |  |  | mediaAsset-2c738a3e-f761-47ec-a06e-c5817da9f51d |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_01.jpg | brand-deck | Cheetah Print Brand Guidelines Page 01 | Branding |  | brand-guidelines-deck | 1 | mediaAsset-3d22e3cd-03c5-4e4d-a484-3d6afed6b069 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_02.jpg | brand-deck | Cheetah Print Brand Guidelines Page 02 | Branding |  | brand-guidelines-deck | 2 | mediaAsset-f345e7e9-fd6f-49dc-82f6-ad3ed0021cc1 |
@@ -65,7 +65,7 @@ project: cheetah-print
 | Brand Guidelines Deck/Brand Guidelines Deck_page_36.jpg | brand-deck | Cheetah Print Brand Guidelines Page 36 | Branding |  | brand-guidelines-deck | 36 | mediaAsset-275d0055-7f0c-4776-b0b0-57411f772397 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_37.jpg | brand-deck | Cheetah Print Brand Guidelines Page 37 | Branding |  | brand-guidelines-deck | 37 | mediaAsset-22030145-9c8c-47e6-9c6a-5b15a93442e3 |
 | Art Basel 120626/Lineup Added 3x4.mp4 | motion_3x4 | Cheetah Print Art Basel 120626 Lineup Added | Event / Tour Creative |  |  |  | mediaAsset-397d9695-dcca-4214-a3db-b00fcbc5d43c |
-| Flyers/Cheetah-Print-Flyer-Monochrome.jpg | static_9x16 | Cheetah Print Flyer Monochrome | Event / Tour Creative |  |  |  | mediaAsset-a6bf2e79-ec5f-4a86-8ef6-3507cf859cb9 |
-| Tulum 010527/Teaser 3x4.png | static_3x4 | Cheetah Print Tulum 010527 Teaser | Event / Tour Creative |  |  |  | mediaAsset-e31912d4-8ac2-4e7b-b7e5-6a104c44bee9 |
-| Tulum 010527/Venue Details 3x4.png | static_3x4 | Cheetah Print Tulum 010527 Venue Details | Event / Tour Creative |  |  |  | mediaAsset-12543720-dd35-405b-9859-f480cdf27389 |
+| Flyers/Cheetah-Print-Flyer-Monochrome.jpg | static_9x16 | Cheetah Print Flyer Monochrome | Event / Tour Creative |  | cheetah-print-flyer-admats |  | mediaAsset-a6bf2e79-ec5f-4a86-8ef6-3507cf859cb9 |
+| Tulum 010527/Teaser 3x4.png | static_3x4 | Cheetah Print Tulum 010527 Teaser | Event / Tour Creative |  | cheetah-print-tulum-010527-flyer-progression |  | mediaAsset-e31912d4-8ac2-4e7b-b7e5-6a104c44bee9 |
+| Tulum 010527/Venue Details 3x4.png | static_3x4 | Cheetah Print Tulum 010527 Venue Details | Event / Tour Creative |  | cheetah-print-tulum-010527-flyer-progression |  | mediaAsset-12543720-dd35-405b-9859-f480cdf27389 |
 | Mockups/Instagram/instagram-mockup-1.png | static_9x16 | Cheetah Print Instagram Mockup 1 | Branding |  | cheetah-print-mockups |  | mediaAsset-9808ddcc-6935-42dd-b840-d828e07be19f |
