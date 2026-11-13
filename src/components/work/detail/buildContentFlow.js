@@ -495,7 +495,10 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     chunks
   );
   const { rest: heroRest } = splitHero(assets[0], chunks);
-  showcaseOut.splice(Math.min(HERO_SPLIT_AT, showcaseOut.length), 0, ...heroRest);
+  let heroAt = Math.min(HERO_SPLIT_AT, showcaseOut.length);
+  // Never between another video's thirds: land right after the run it would cut.
+  while (showcaseOut[heroAt]?.chunk?.index > 0 && showcaseOut[heroAt - 1]?.chunk?.of === showcaseOut[heroAt].chunk.of) heroAt += 1;
+  showcaseOut.splice(heroAt, 0, ...heroRest);
   const albumArtOut = orbits ? albumArt.map((e) => e.asset) : [];
 
   // Decks: pages sequence by brandDeckOrder within each group (stable sort

@@ -142,6 +142,19 @@ test('split hero: a showcase under four tiles takes thirds 2 and 3 at its end, i
   assert.deepEqual(ids(buildContentFlow([hero, ...tiles(4)]).showcase), ['t1', 't2', 't3', 't4', 'hero~2of3', 'hero~3of3'])
 })
 
+test('split hero: thirds 2 and 3 never cut another video\'s thirds apart; they land right after that run', () => {
+  // Nusonido (11-12): Promo 1's first third sat at index 3, so a splice at 4
+  // pushed its other two thirds to 7 and 8.
+  const hero = video('hero', { splitIntoThirds: true })
+  const promo = video('promo', { splitIntoThirds: true })
+  const t = tiles(4)
+  const flow = buildContentFlow([hero, t[0], t[1], t[2], promo, t[3]])
+  assert.deepEqual(ids(flow.showcase), ['t1', 't2', 't3', 'promo~1of3', 'promo~2of3', 'promo~3of3', 'hero~2of3', 'hero~3of3', 't4'])
+  // A run that ENDS at index 3 leaves the splice at 4.
+  const flow2 = buildContentFlow([hero, t[0], promo, t[1], t[2], t[3]])
+  assert.deepEqual(ids(flow2.showcase).slice(4, 6), ['hero~2of3', 'hero~3of3'])
+})
+
 test('split hero: an unflagged hero, a flagged hero with no duration, and an image hero stay whole', () => {
   const tl = tiles(5)
   const whole = [video('hero'), video('hero', { splitIntoThirds: true, videoDuration: null }), video('hero', { splitIntoThirds: true, playbackId: undefined }), { _id: 'img', mediaType: 'static_1x1', imageUrl: 'x' }]
