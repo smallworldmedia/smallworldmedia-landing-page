@@ -8,8 +8,17 @@
  * label's catalogue. Munchietown names DJ Tennis (label-of), so DJ Tennis
  * covers Munchietown's media; Munchietown covers only its own.
  *
+ * A piece also counts for the artists credited on it (mediaAsset.collaborators:
+ * a feature or a co-artist, who is not the piece's client): a tile counts for a
+ * name when its client OR any collaborator is in that name's coverage
+ * (tileInCoverage). The piece stays its client's own, and the hop stays one: a
+ * collaborator's coverage never pulls in the host client's other work.
+ * toDrawerRoster, the directory's client filter and its tag counts all ask
+ * tileInCoverage, so they cannot disagree.
+ *
  * Pure; `clients` is DIRECTORY_QUERY's list: { name, slug, umbrellas } with
- * `umbrellas` the slugs a client's affiliations name.
+ * `umbrellas` the slugs a client's affiliations name; a tile carries `client`
+ * and `collaborators` (slugs; missing reads as none).
  */
 
 /** The client slugs a name covers (itself first), or null for an unknown slug. */
@@ -20,7 +29,13 @@ export function coverageOf(slug, clients) {
   return covered;
 }
 
-const NAME_ORDER = { sensitivity: 'base', ignorePunctuation: true };
+/** The client slugs a tile belongs to: its client, then its credited collaborators. */
+export const ownersOf = (tile) => [tile.client, ...(tile.collaborators ?? [])];
+
+/** Whether a tile counts for a coverage (a Set from coverageOf). */
+export const tileInCoverage = (tile, coverage) => ownersOf(tile).some((s) => coverage.has(s));
+
+const NAME_ORDER ={ sensitivity: 'base', ignorePunctuation: true };
 
 /**
  * The drawer's Client Roster: every client by name, `live` when its coverage
@@ -28,7 +43,7 @@ const NAME_ORDER = { sensitivity: 'base', ignorePunctuation: true };
  * rest stay plain until their links land).
  */
 export function toDrawerRoster(clients, tiles) {
-  const withTiles = new Set(tiles.map((t) => t.client));
+  const withTiles = new Set(tiles.flatMap(ownersOf));
   return clients
     .filter((c) => c.slug && c.name)
     .map((c) => ({

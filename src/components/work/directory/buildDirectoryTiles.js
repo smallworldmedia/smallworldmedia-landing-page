@@ -26,7 +26,9 @@
  *     build order and stay together, in order, under every display order
  *     (orderTiles deals them as one unit; Nathan 11-13).
  *
- * A tile is the slim face MediaSlot reads, plus `client` (slug), `services`
+ * A tile is the slim face MediaSlot reads, plus `client` (slug), `collaborators`
+ * (the credited artists' client slugs, a group's union; [] when none, and the
+ * client filter counts them: clientCoverage.js tileInCoverage), `services`
  * (tag slugs, a group's union), `href` + `label` when its project has a
  * detail page, and `fit`. A logo's tile carries `logo` instead of showing
  * its file: the baked white mark and its numbers (logoTile.js,
@@ -48,7 +50,7 @@ import { assetLane, expandChunks, ratioOf } from '../detail/buildContentFlow.js'
 import { TILE_RATIO } from '../detail/flushGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
-import { coverageOf } from '../../../lib/clientCoverage.js';
+import { coverageOf, ownersOf, tileInCoverage } from '../../../lib/clientCoverage.js';
 import { addGroupPresence, effectiveTags, withGroups, withParents } from './serviceGroups.js';
 
 const GROUPED = new Set(['sequence', 'admat', 'deck', 'carousel', 'banner', 'visuals', 'live-footage']);
@@ -209,6 +211,7 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
     const tile = {
       ...face,
       client: members[0].clientSlug,
+      collaborators: [...new Set(members.flatMap((m) => (m.collaboratorSlugs ?? []).filter(Boolean)))],
       services: [...new Set(members.flatMap((m) => (m.services ?? []).map((s) => s.slug)))],
       fit: fitOf(seen, alpha),
     };
@@ -307,7 +310,7 @@ export function logoFirst(tiles, tags) {
  * and carrying any of the tags (an empty set = every tag).
  */
 export function matchesFilter(tile, { tags, coverage }) {
-  if (coverage && !coverage.has(tile.client)) return false;
+  if (coverage && !tileInCoverage(tile, coverage)) return false;
   return !tags?.size || tile.services.some((s) => tags.has(s));
 }
 
@@ -320,7 +323,7 @@ export function tagPresence(tiles, coverage) {
   const any = new Set();
   const inClient = new Set();
   for (const t of tiles) {
-    const inside = !coverage || coverage.has(t.client);
+    const inside = !coverage || tileInCoverage(t, coverage);
     for (const s of t.services) {
       any.add(s);
       if (inside) inClient.add(s);
@@ -338,7 +341,7 @@ export function tagPresence(tiles, coverage) {
 export function clientPresence(tiles, tags, clients) {
   const owners = new Set();
   const on = effectiveTags(tags ?? []);
-  for (const t of tiles) if (matchesFilter(t, { tags: on, coverage: null })) owners.add(t.client);
+  for (const t of tiles) if (matchesFilter(t, { tags: on, coverage: null })) for (const s of ownersOf(t)) owners.add(s);
   const lit = new Set();
   for (const c of clients) {
     const coverage = coverageOf(c.slug, clients);
@@ -401,7 +404,7 @@ export function readFilter(search) {
  */
 export function sanitizeFilter({ tags, clients, tiles }, wantTags, wantClient) {
   let coverage = coverageOf(wantClient, clients);
-  if (coverage && !tiles.some((t) => coverage.has(t.client))) coverage = null;
+  if (coverage && !tiles.some((t) => tileInCoverage(t, coverage))) coverage = null;
   const { inClient } = tagPresence(tiles, coverage);
   const want = withParents(wantTags);
   return {

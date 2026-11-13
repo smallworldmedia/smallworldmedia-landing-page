@@ -155,6 +155,36 @@ test('directory query: published media in World order, a deck as one tile, the l
   assert.deepEqual(toDrawerRoster(data.clients, tiles).map((r) => [r.name, r.live]), [['DJ Tennis', true], ['Fixture', true], ['Munchietown', true]])
 })
 
+test('directory query: a collaborator-only name is live and filters to exactly its pieces; the host client keeps them (SQ-76)', async () => {
+  const mk = (id, rank, fields) => ({ ...base, _id: id, orderRank: rank, title: id, project: undefined, mediaType: 'album-art', image, ...fields })
+  const tag = { _id: 'tag-album', _type: 'serviceTag', name: 'Album Art', slug: { current: 'album-art' }, sortOrder: 1 }
+  const clients = [
+    { _id: 'client-kamino', _type: 'client', name: 'Kamino', slug: { current: 'kamino' } },
+    { _id: 'client-guest', _type: 'client', name: 'Guest Artist', slug: { current: 'guest-artist' } },
+    { _id: 'client-nobody', _type: 'client', name: 'Nobody', slug: { current: 'nobody' } },
+  ]
+  const dirDocs = [
+    ...documents.filter((d) => d._type === 'sanity.imageAsset'),
+    tag,
+    ...clients,
+    mk('belong', '0|a00001:', { client: ref('client-kamino'), collaborators: [{ _key: 'a', ...ref('client-guest') }], services: [ref('tag-album')] }),
+    mk('falling', '0|a00002:', { client: ref('client-kamino'), collaborators: [{ _key: 'a', ...ref('client-guest') }], services: [ref('tag-album')] }),
+    mk('solo', '0|a00003:', { client: ref('client-kamino'), services: [ref('tag-album')] }),
+  ]
+  const data = await query(DIRECTORY_QUERY, dirDocs)
+  assert.deepEqual(data.assets.find((a) => a._id === 'belong').collaboratorSlugs, ['guest-artist'])
+  assert.equal(data.assets.find((a) => a._id === 'solo').collaboratorSlugs ?? null, null, 'no field: nothing read')
+  const tiles = buildDirectoryTiles(data)
+  assert.deepEqual(tiles.map((t) => [t._id, t.client, t.collaborators]), [
+    ['belong', 'kamino', ['guest-artist']], ['falling', 'kamino', ['guest-artist']], ['solo', 'kamino', []],
+  ])
+  const show = (slug) => tiles.filter((t) => matchesFilter(t, { tags: new Set(), coverage: coverageOf(slug, data.clients) })).map((t) => t._id)
+  assert.deepEqual(show('guest-artist'), ['belong', 'falling'], 'the collaborator filters to exactly its pieces')
+  assert.deepEqual(show('kamino'), ['belong', 'falling', 'solo'], 'the host client still shows them')
+  const live = Object.fromEntries(toDrawerRoster(data.clients, tiles).map((r) => [r.slug, r.live]))
+  assert.deepEqual(live, { kamino: true, 'guest-artist': true, nobody: false })
+})
+
 test('sequence shape: the member ratio that crops the set least; the frame cap; one wall clock (10-31)', () => {
   // Billboard mockups: two 16:9 boards and a 4:5 poster — the tile is 16:9 (cost 0.55), not 4:5 (1.10).
   assert.equal(sequenceRatio([16 / 9, 4 / 5, 16 / 9]), 16 / 9)
