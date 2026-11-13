@@ -795,6 +795,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
                   <MediaSlot
                     key={showcase[p.index]._id}
                     asset={showcase[p.index]}
+                    // A logo keeps its edges (Nathan 11-12: TBH Logo White, an
+                    // 8.9:1 wordmark, showed 23% of its width in a 2:1 tile):
+                    // it scales down to fit, on the slot's near-black.
+                    fit={showcase[p.index].mediaType === 'logo' ? 'contain' : undefined}
                     data-tile={p.type}
                     style={placementStyle(p)}
                   />,
