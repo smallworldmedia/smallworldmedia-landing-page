@@ -43,6 +43,8 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   mediaAsset `collaborators` (SQ-76, 11-13) is a keyed array of client references: a duplicate ref is
   refused, and `references()` types each one as a client, so a ref to any other document type fails;
   it landed with the hash `b346ff27` (`8e99697`, `2cb87e1`).
+  mediaAsset `hideFromSite` (SQ-83, 11-13) is allowlisted as a boolean; it landed alone with the
+  hash `4df34a46` (`295f4c5`).
   Deletes: `DELETE_TYPES` (mediaAsset, client since 11-13 (`2c73a76`), mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
@@ -80,6 +82,8 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   Ranks collide only within one project/collection. `album-art-tag-off-cover` (warning, 11-10) flags
   the Album Art serviceTag (by slug `album-art`) on a mediaAsset not typed `album-art`: either a
   cover to retype or a supporting piece to retag Release Packs / Event / Tour Creative.
+  `hidden-from-site` (info, SQ-83) lists each mediaAsset ticked `hideFromSite` (id, title); its
+  files stay in use, so it never warns.
 - `state.mjs` — owner-only 0700/0600 run store outside the Dropbox checkout (default
   `~/.local/state/swm-cms/<hash>/runs`).
 
