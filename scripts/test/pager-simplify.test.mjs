@@ -137,36 +137,84 @@ test('the desktop fill ticker is gone: no data-fill, ?fillpxs, ?unfill or --scal
   assert.match(PAGER, /toggleAttribute\('data-marquee'/)
 })
 
-test('phone scrim: plain black (no tint, blur or grain); the desktop recipe is intact', () => {
-  const phone = find(FP, ".fp[data-pager='scale']", '(max-width: 768px)')
-  assert.equal(phone.length, 1)
-  const p = phone[0]
-  assert.equal(decl(p, '--scrim-tint'), '0')
-  assert.equal(decl(p, '--scrim-bf'), 'none')
-  assert.equal(decl(p, '--scrim-noise'), 'none')
-  assert.equal(decl(p, '--scrim-grain-anim'), 'none')
-  assert.equal(decl(p, '--pager-scrim'), '1', 'opaque by default (the menu\'s own); ?scrimtune dials it')
-  assert.equal(decl(p, '--scrim-noise-size'), null, 'the ≤768 grain tile size is gone')
+test('the scrim is plain black on EVERY tier (no tint, blur or grain; opaque) — the 09-04 bake is gone', () => {
+  // r12b (11-13, Nathan: the black pager on desktop too): nothing is declared on
+  // .fp for the scrim any more — the ::before's own fallbacks are the recipe.
+  const fpRules = rules(FP).filter((r) => r.selector.startsWith(".fp[data-pager='scale']") && !r.selector.includes('::before'))
+  for (const r of fpRules) {
+    for (const prop of ['--scrim-tint', '--scrim-bf', '--scrim-noise', '--scrim-noise-size', '--scrim-grain-anim', '--pager-scrim']) {
+      assert.equal(decl(r, prop), null, `${r.selector} (${r.media ?? 'all tiers'}) must not declare ${prop}`)
+    }
+  }
+  assert.ok(!/data:image\/svg\+xml,[^"]*baseFrequency/.test(FP), 'the baked RGB-turbulence data-URI is deleted')
+  assert.ok(!FP.includes('blur(7.5px)'), 'no baked 7.5px backdrop blur')
 
-  const desk = find(FP, ".fp[data-pager='scale']")[0]
-  assert.equal(decl(desk, '--scrim-tint'), '0.75')
-  assert.equal(decl(desk, '--scrim-bf'), 'blur(7.5px)')
-  assert.equal(decl(desk, '--scrim-noise-size'), '184px')
-  assert.match(decl(desk, '--scrim-noise'), /^url\("data:image\/svg\+xml,.*baseFrequency%3D'0\.84'.*slope%3D'0\.82'/)
+  // depth 1 on every tier: the global token (no ≤768 override left)
+  const depth = find(GLOBAL, ':root').map((r) => decl(r, '--pager-scrim')).find(Boolean)
+  assert.equal(depth, '1', 'opaque by default (the menu\'s own); ?scrimtune dials it')
+
   const before = find(FP, ".fp[data-pager='scale']::before")[0]
-  assert.match(decl(before, 'background-color'), /var\(--scrim-tint, 0\)/)
-  assert.ok(FP.includes('@keyframes fp-scrim-grain'), 'the desktop grain driver stays')
-  assert.equal((decl(find(FP, ".fp[data-pager='scale'].is-pager-engaged::before, .fp[data-pager='scale'].is-scrimtune-hold::before")[0], 'animation') || '').startsWith('var(--scrim-grain-anim, fp-scrim-grain'), true)
+  assert.match(decl(before, 'background-color'), /var\(--scrim-tint, 0\)/, 'tint falls back to 0')
+  assert.match(decl(before, 'background-color'), /var\(--color-black\)/)
+  assert.equal(decl(before, 'background-image'), 'var(--scrim-noise, none)')
+  assert.equal(decl(before, 'backdrop-filter'), 'var(--scrim-bf, none)')
+  const hold = find(FP, ".fp[data-pager='scale'].is-pager-engaged::before, .fp[data-pager='scale'].is-scrimtune-hold::before")[0]
+  assert.equal(decl(hold, 'animation'), 'var(--scrim-grain-anim, none)', 'no grain driver runs by default')
+  assert.ok(FP.includes('@keyframes fp-scrim-grain'), 'the keyframes stay for the ?grainfps dial')
 
-  // the phone-only grain recipe is deleted: no mobile grain constant, no mobile tier in the dials
+  // the phone-only grain recipe is deleted: no mobile grain constant
   const noise = read('src/components/work/scrimNoise.js')
   assert.ok(!noise.includes('SCRIM_GRAIN_MOBILE'))
   assert.ok(!PAGER.includes('SCRIM_GRAIN_MOBILE'))
-  assert.ok(!/--scrim-noise-size:\s*90px/.test(FP))
 })
 
-test('the ?scrimtune bench opens on the phone scrim at ≤768', () => {
+test('the ?scrimtune bench opens on the black scrim at every width', () => {
   const bench = read('src/components/work/ScrimTunePanel.jsx')
-  assert.match(bench, /matchMedia\('\(max-width: 768px\)'\)/)
-  assert.match(bench, /scrim: 1, tint: 0, blur: 0, type: 'none'/)
+  assert.ok(!/matchMedia/.test(bench), 'no width-dependent defaults')
+  assert.match(bench, /const DEFAULTS = \{[\s\S]*?scrim: 1,[\s\S]*?tint: 0,[\s\S]*?blur: 0,[\s\S]*?type: 'none',[\s\S]*?amount: 0,/)
+  assert.match(bench, /useState\(DEFAULTS\)/)
+  assert.match(bench, /setS\(DEFAULTS\)/)
+})
+
+test('phone clip edge: the selected-name cap runs to the VIEWPORT edge — no right pad (desktop caps unchanged)', () => {
+  const root = find(GLOBAL, ':root', '(max-width: 768px)')
+  const cap = root.map((r) => decl(r, '--scale-name-sel-max')).find(Boolean)
+  assert.ok(cap, 'the ≤768 sel cap is declared')
+  // painted right edge = (seat + cap) × (sel × bump) = 100vw exactly: derived, never a px constant
+  assert.equal(
+    cap.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')'),
+    'calc(100vw / (var(--scale-sel) * var(--scale-sel-bump)) - var(--scale-w) - var(--space-2))'
+  )
+  assert.ok(!/--space-4/.test(cap), 'the --space-4 right pad is gone')
+  assert.ok(!/\d+px/.test(cap), 'no hard-coded px value')
+  // the roster cap IS the sel cap (r11d), so every clipping row ends at the same place
+  assert.equal(root.map((r) => decl(r, '--scale-name-max')).find(Boolean), 'var(--scale-name-sel-max)')
+  // desktop: untouched
+  const desk = find(GLOBAL, ':root')
+  assert.equal(desk.map((r) => decl(r, '--scale-name-max')).find(Boolean), '2400px')
+  assert.equal(desk.map((r) => decl(r, '--scale-name-sel-max')).find(Boolean), 'var(--scale-name-max)')
+  // the box width write still follows the (computed) cap
+  assert.match(PAGER, /const capOf = \(el\) => parseFloat\(getComputedStyle\(el\)\.maxWidth\)/)
+  assert.match(PAGER, /Math\.min\(selW, selCap\)/)
+})
+
+test('seamless marquee: the loop travels exactly one copy + one gap (trailing pad = the gap)', () => {
+  const track = find(FP, '.fp .fp-scale__name-track')[0]
+  const gapVar = decl(track, '--marquee-gap')
+  assert.equal(gapVar, 'var(--space-6)')
+  assert.equal(decl(track, 'gap'), 'var(--marquee-gap)')
+  const rolling = find(FP, '.fp .fp-scale__name[data-marquee] .fp-scale__name-track')[0]
+  assert.equal(decl(rolling, 'padding-right'), 'var(--marquee-gap)', 'the track = 2(w + gap), so -50% = w + gap')
+  // the loop still ends at -50%, linear, on --marquee-s; the wall-clock phase lock and the RM gate are unchanged
+  assert.equal(decl(rolling, 'animation'), 'fp-scale-marquee var(--marquee-s, 6s) linear infinite')
+  const kf = stripComments(FP).match(/@keyframes fp-scale-marquee\s*\{[\s\S]*?\n\}/)[0]
+  assert.match(kf, /to\s*\{\s*transform:\s*translateX\(-50%\)/)
+  assert.match(PAGER, /track\.style\.animationDelay = `\$\{-\(\(performance\.now\(\) \/ 1000\) % durS\)\.toFixed\(3\)\}s`/)
+  assert.ok(find(FP, '.fp .fp-scale__name[data-marquee] .fp-scale__name-track', '(prefers-reduced-motion').length > 0)
+  // geometry: translateX(-50%) of the track must equal one copy + one gap, for any copy width w
+  const gap = 12
+  for (const w of [119, 257, 324]) {
+    const track = 2 * w + gap + gap // two copies, the gap between them, the trailing pad
+    assert.equal(track / 2, w + gap)
+  }
 })

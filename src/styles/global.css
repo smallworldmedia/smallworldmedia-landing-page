@@ -365,14 +365,16 @@
      arms; the scale arm's tokens follow below. */
   --pager-stage-dim: 0.35;
   /* stage opacity while the pager owns the gesture (scene-not-turning tell) */
-  --pager-scrim: 0.4;
+  --pager-scrim: 1;
   /* 09-02 (Nathan, scale arm): engaged FULL-VIEWPORT scrim depth — over
      everything but the pager (nav lockup included), replacing the stage
      dim for ?pager=scale (.fp[data-pager='scale']::before). Since the
      09-04 blur fix this is the scrim's background-color ALPHA (element
-     opacity holds 1 engaged); 0.65 → 0.4 in Nathan's 09-04 scrimtune bake
-     (the rest of the recipe — tint/blur/grain — lives with the scrim rule
-     in featured-projects.css). */
+     opacity holds 1 engaged); 0.65 → 0.4 in Nathan's 09-04 scrimtune bake,
+     then 0.4 → 1 (plain opaque black, like .mobile-menu) on every tier
+     11-13 (Nathan: the black pager on desktop too). The scrim is plain
+     black — no tint, blur or grain by default; the ?scrimtune bench dials
+     those back (featured-projects.css scrim rule). */
   --pager-scrim-ms: 240ms;
   /* scrim fade; also the delay before the engaged pager drops back under
      the site chrome (z-index snap rides this so the chip never dims
@@ -4317,15 +4319,16 @@ body:has(.privacy-page) {
        on a 667px phone (333 − 288 = 45px), the shortest device in the
        gate; drop to 5 if the fit reads tight there. */
     /* r11d (Nathan): the SELECTED slot spans the viewport — its cap is
-       EVALUATED: (100vw − --space-4 right pad) at the painted ×sel×bump,
-       back in the row's own px, minus the name's seat (chip + --space-2).
-       The roster cap IS this value, so a long name clips (and tickers)
-       identically in every row — no jump at the detent. Was min(28vw,
-       8rem) sel / min(45vw, 12rem) roster. JS reads the computed value
-       (no px mirror any more). */
+       EVALUATED: the full 100vw at the painted ×sel×bump, back in the
+       row's own px, minus the name's seat (chip + --space-2). The roster
+       cap IS this value, so a long name clips (and tickers) identically in
+       every row — no jump at the detent. Was min(28vw, 8rem) sel / min(45vw,
+       12rem) roster. JS reads the computed value (no px mirror any more).
+       11-13 r12b (Nathan: "extend to the actual edge of the viewport"): the
+       --space-4 right pad that held the clip short of the edge is gone —
+       the selected name's painted right edge IS the viewport edge. */
     --scale-name-sel-max: calc(
-      (100vw - var(--space-4)) / (var(--scale-sel) * var(--scale-sel-bump)) - var(--scale-w) -
-        var(--space-2)
+      100vw / (var(--scale-sel) * var(--scale-sel-bump)) - var(--scale-w) - var(--space-2)
     );
     --scale-name-max: var(--scale-name-sel-max);
     /* r11h: the roster multiplier is a DESKTOP dial (1.9 baked there) —

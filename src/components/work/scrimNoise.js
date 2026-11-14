@@ -1,15 +1,15 @@
 /**
  * scrimNoise — the ?pager=scale scrim's grain settings + tile builder,
  * shared by the ScrimTunePanel bench and the GraticulePager's URL dials
- * (?grainsize ?grainamt ?grainfreq ?grainfps — the 09-04 r8 mobile set),
- * so the baked recipe lives in exactly one place beside the CSS bake in
- * featured-projects.css (.fp[data-pager='scale'] custom props).
+ * (?grainsize ?grainamt ?grainfreq ?grainfps — the 09-04 r8 mobile set).
+ * The shipped scrim is plain black on every tier (11-13), so nothing here
+ * is baked into featured-projects.css any more — this is the dials' start.
  */
 
-/* The BAKED grain recipe (Nathan's 09-04 scrimtune dial). Keep in sync
-   with the --scrim-noise data-URI + --scrim-noise-size baked into
-   featured-projects.css — regenerate that URI with noiseUri(SCRIM_GRAIN)
-   whenever this changes. */
+/* The RETIRED grain recipe (Nathan's 09-04 scrimtune dial) — the start
+   point the bench and the URL dials draw from when grain is dialed back in.
+   `size` is also the ::before's background-size fallback in
+   featured-projects.css (keep the two in step). */
 export const SCRIM_GRAIN = {
   type: 'turbulence', // none | fractalNoise | turbulence
   freq: 0.84, // feTurbulence baseFrequency

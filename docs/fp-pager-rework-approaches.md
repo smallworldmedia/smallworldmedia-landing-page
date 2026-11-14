@@ -1269,7 +1269,8 @@ What changed:
   pager's; the menu's is `--font-headline`, weight/case its own.
 - **Phone scrim = plain black.** ≤768: `--scrim-tint: 0`, `--scrim-bf: none`,
   `--scrim-noise: none`, grain driver stilled, `--pager-scrim: 1` (opaque, the menu's own). The
-  desktop recipe (75 % tint, 7.5 px blur, RGB grain at 0.4) is untouched. The ≤768 grain tile
+  desktop recipe (75 % tint, 7.5 px blur, RGB grain at 0.4) was untouched in 12a — **12b
+  (below) extends the black scrim to desktop**. The ≤768 grain tile
   and `SCRIM_GRAIN_MOBILE` are deleted. **The depth is a proposal, not Nathan's number** —
   `?scrimtune` opens on the phone values at ≤768; `shots/scrimtune-phone-engaged-depth-0.4.png`
   vs `-1.png` is the comparison (0.4 lets the scene show through the rows).
@@ -1292,3 +1293,41 @@ What changed:
 Verification: `scripts/test/pager-simplify.test.mjs`; pager-probe touch/peek (phone, DPR 3)
 and hover/wheel (desktop) on the base (:4322) and this build read the same open/charged/engaged
 state, selected index and aria-live at every step.
+
+### 11-13 round 12b — Nathan's review of 12a: edge-to-edge clip, seamless ticker, black on desktop
+
+Nathan on 5c43954, verbatim: "for pager on mobile: looks good with the black background. id
+like the text on the selected client to extend to the actual edge on the right of the viewpoet
+and not get clipped leaving black space where the padding presumably is. im also noticing a bit
+of jerkiness in the ticker client names where it looks like it is "looping" to the client name's
+starting position, but it jumps and is not smooth. lets extend the updated black background
+pager to desktop as well". Everything in 12a stays (the phone look, the name curve, the opaque
+phone scrim, the choreography lock); this round is the three items.
+
+- **Clip edge = the viewport edge (≤768).** `--scale-name-sel-max` was
+  `(100vw − --space-4) / (sel × bump) − seat`, so every clipping row stopped 8 px (--space-4)
+  short of the edge. It is now `100vw / (sel × bump) − --scale-w − --space-2`: the selected
+  name's painted right edge = (seat + cap) × (sel × bump) = 100vw, derived from the same
+  tokens, no px constant. The roster cap IS the sel cap (r11d), so every clipping row shares
+  it; `setMarquee` still reads the computed cap, so the box-width write follows. Measured at
+  390 / 430 (Heavy House Society, marqueeing): right edge 381.99 → 389.98 and 421.98 → 429.98
+  (gap to the viewport 8.0 px → 0.02 px). Desktop caps unchanged (2400 px).
+- **Seamless marquee wrap.** Cause (the integrator's read, confirmed by measurement): the
+  track is two copies with ONE `gap` between them, `2w + gap` wide, and the loop ends at
+  `translateX(−50%)` = `w + gap/2` — gap/2 short of where copy two starts, so each wrap
+  snapped back by gap/2 × the row's paint scale. Fix: the marqueeing track gets a trailing
+  `padding-right` equal to the gap (one shared `--marquee-gap`), so the track is `2(w + gap)`
+  and −50% = `w + gap` exactly. Duration, linear ease, the wall-clock phase lock and the RM
+  gate are untouched. Measured per frame (both copies' left edges, across ≥1 wrap) at 390:
+  the step at the wrap was −10.0 px (5c43954, twice) and is now −0.59 / −0.63 / −0.59 px —
+  one frame of travel (0.55–0.59 px/frame). At 430: −10.1 / −10.05 → −0.64 / −0.65 px
+  (frame travel 0.64–0.71). `pager-probe.mjs --scenario=edge` repeats the measurement (and
+  reports `seamless` per wrap; it reads `false` on 5c43954 — the negative control).
+- **Black scrim on desktop too.** The 09-04 recipe is retired on every tier: the `.fp`
+  declarations (tint 0.75, 7.5 px blur, 184 px RGB turbulence data-URI, the ≤768 override)
+  are deleted, `--pager-scrim` is 1 in global.css, and the `::before`'s own fallbacks (tint 0,
+  blur none, noise none, grain driver none) are the recipe. The fade (`--pager-scrim-ms`) and
+  every motion constant are as before. `?scrimtune` opens on the black values at any width;
+  `?grainamt/?grainfreq/?grainfps/?scrimblur` still re-add grain/blur for comparison (the
+  keyframes stay for `?grainfps`). Nothing else desktop-specific blocks the look: no second
+  grain or tint layer sits outside the scrim (the stage dim is under the scrim).

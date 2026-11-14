@@ -388,38 +388,15 @@ body:has(.fp) {
   opacity: 1;
 }
 
-/* BAKED scrimtune recipe (09-04, Nathan's dial): depth 0.4
-   (--pager-scrim, global.css) over a 75% project-colour tint, 7.5px
-   backdrop blur, RGB turbulence grain (freq 0.84, 1 octave, amount 0.82)
-   on a 184px tile, dancing at 30fps via the fp-scrim-grain steps() driver
-   below. Declared on .fp (not the ::before) so the ?scrimtune bench's
-   inline writes still override every dial — the bench also stills the
-   shipped driver via --scrim-grain-anim while its own interval owns the
-   jitter. */
-.fp[data-pager='scale'] {
-  --scrim-tint: 0.75;
-  --scrim-bf: blur(7.5px);
-  --scrim-noise-size: 184px;
-  --scrim-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%20width%3D'100%25'%20height%3D'100%25'%3E%3CfeTurbulence%20type%3D'turbulence'%20baseFrequency%3D'0.84'%20numOctaves%3D'1'%20seed%3D'7'%20stitchTiles%3D'stitch'%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D'linear'%20slope%3D'0.82'%20intercept%3D'0'%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D'256'%20height%3D'256'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
-}
-
-/* ≤768 (11-13, Nathan: simplify toward the mobile menu): the phone scrim is
-   plain --color-black, like .mobile-menu — no project tint, no backdrop
-   blur, no grain (and its steps() driver is stilled). OPAQUE by default
-   (depth 1, the menu's own); rows far from the lens recede into it through
-   their feather + ink falloff. The depth is Nathan's to dial: ?scrimtune
-   (the bench opens on this tier's values at ≤768) — 0.4 was the old
-   translucent depth. The desktop recipe above is untouched. */
-@media (max-width: 768px) {
-  .fp[data-pager='scale'] {
-    --pager-scrim: 1;
-    --scrim-tint: 0;
-    --scrim-bf: none;
-    --scrim-noise: none;
-    --scrim-grain-anim: none;
-  }
-}
-
+/* The engaged SCRIM — plain --color-black on EVERY tier, like .mobile-menu
+   (11-13, Nathan: the black pager on desktop too): opaque (--pager-scrim 1,
+   global.css), no project tint, no backdrop blur, no grain. Rows far from
+   the lens recede into it through their feather + ink falloff. Nothing is
+   declared on .fp: the ::before's own fallbacks (tint 0, blur none, noise
+   none, grain driver none) ARE the shipped recipe, and the ?scrimtune bench
+   (and the ?grain* / ?scrimblur URL dials) write inline custom props that
+   override them. The 09-04 grain/tint/blur bake (depth 0.4, 75% tint, 7.5px
+   blur, RGB turbulence on a 184px tile) was retired with this. */
 .fp[data-pager='scale']::before {
   content: '';
   position: fixed;
@@ -446,10 +423,10 @@ body:has(.fp) {
   /* ?scrimtune hooks (09-04 round 7): the bench writes these inline on
      .fp — a tiled feTurbulence data-URI (grain), its display size, a
      per-frame jitter offset (the grain "fps"), a backdrop blur, and the
-     tint above. All default to no-ops, so the shipped scrim is visually
-     identical until a dial moves; blessed values get baked here. */
+     tint above. All default to no-ops (plain black), so the shipped scrim
+     is identical until a dial moves; blessed values get baked here. */
   background-image: var(--scrim-noise, none);
-  background-size: var(--scrim-noise-size, auto);
+  background-size: var(--scrim-noise-size, 184px); /* scrimNoise.js SCRIM_GRAIN.size */
   background-position: var(--scrim-noise-pos, 0 0);
   background-repeat: repeat;
   -webkit-backdrop-filter: var(--scrim-bf, none);
@@ -462,13 +439,14 @@ body:has(.fp) {
 .fp[data-pager='scale'].is-pager-engaged::before,
 .fp[data-pager='scale'].is-scrimtune-hold::before {
   opacity: 1;
-  /* The shipped grain driver: 8 held frames over 8/30s = the baked 30fps
-     jitter (keyframed background-position outranks the base var while
-     active). Runs only while the scrim shows; deliberately NOT stilled by
-     the pause freeze — the grain belongs to the scrim, not the page (the
-     projector idiom), matching what the bench previewed. The bench sets
-     --scrim-grain-anim: none and drives its own interval instead. */
-  animation: var(--scrim-grain-anim, fp-scrim-grain 0.2667s steps(1, end) infinite);
+  /* The grain driver — OFF by default (the scrim is plain black, so there
+     is nothing to dance): ?grainfps writes --scrim-grain-anim to run the
+     8 held frames of fp-scrim-grain below over 8/fps (keyframed
+     background-position outranks the base var while active). Runs only
+     while the scrim shows; deliberately NOT stilled by the pause freeze —
+     the grain belongs to the scrim, not the page (the projector idiom).
+     The bench sets --scrim-grain-anim: none and drives its own interval. */
+  animation: var(--scrim-grain-anim, none);
 }
 
 @keyframes fp-scrim-grain {
@@ -1296,8 +1274,9 @@ body:has(.fp) {
 }
 
 .fp .fp-scale__name-track {
+  --marquee-gap: var(--space-6);
   display: inline-flex;
-  gap: var(--space-6);
+  gap: var(--marquee-gap);
 }
 
 /* 09-07 (Nathan): the project TITLE as a secondary token after the client
@@ -1326,6 +1305,13 @@ body:has(.fp) {
    pad while marqueeing, so clip edge = box edge). Never under RM (the
    skin gates the animation; a static clipped name is fine). */
 .fp .fp-scale__name[data-marquee] .fp-scale__name-track {
+  /* 11-13 r12b (Nathan: the ticker "jumps" at the loop): the loop travels
+     -50% of the track. With two copies (w) and ONE gap between them the
+     track is 2w + gap, so -50% = w + gap/2 — gap/2 short of where copy two
+     starts, and the wrap snapped back by gap/2. The trailing pad (the same
+     --marquee-gap) makes the track 2(w + gap): -50% = w + gap, exactly one
+     copy plus one gap, so the wrap lands copy one where copy two stood. */
+  padding-right: var(--marquee-gap);
   animation: fp-scale-marquee var(--marquee-s, 6s) linear infinite;
 }
 

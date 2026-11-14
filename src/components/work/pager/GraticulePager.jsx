@@ -406,14 +406,14 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ?grainsize ?grainamt ?grainfreq ?grainfps ?scrimblur — the MOBILE
-  // scrim dial set (09-04 r8): URL-side overrides of the baked recipe for
-  // on-device dialing (the bench panel is fiddly on a phone; a URL is
-  // not). Each writes the same inline .fp custom props the bench uses —
-  // absent params leave the bake untouched; blessed values get baked as a
-  // ≤768 tier block in featured-projects.css. ?grainfps re-times the
-  // shipped steps() driver (0 = static); ?scrimblur=0 kills the
-  // backdrop-filter entirely (the mobile GPU question).
+  // ?grainsize ?grainamt ?grainfreq ?grainfps ?scrimblur — the scrim dial
+  // set (09-04 r8): URL-side overrides of the scrim for on-device dialing
+  // (the bench panel is fiddly on a phone; a URL is not). Each writes the
+  // same inline .fp custom props the bench uses — absent params leave the
+  // shipped scrim (plain black, 11-13: every tier) untouched. ?grainfps
+  // runs the fp-scrim-grain steps() driver at that rate (absent / 0 =
+  // static); ?scrimblur=N adds a backdrop blur (0 = none, the default —
+  // the mobile GPU question).
   useEffect(() => {
     const fp = rootRef.current?.closest('.fp');
     if (!fp) return undefined;
@@ -569,7 +569,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
   // the feathered edge. JS mirrors of --scale-name-sel-max: 28vw/112px
   // mobile (r10 — widened once the [select_project] chip left the lens
   // band; the viewport is the only bound now), 168px desktop; the
-  // trailing pad mirrors --space-3 (6px).
+  // trailing pad mirrors --space-3 (6px). (Stale mirrors — the ≤768 cap is
+  // now 100vw/(sel×bump) − seat in CSS, read by capOf below; r12b: the
+  // viewport edge itself, no right pad.)
   // Round 6: the fill runs from the SEAT EDGE (x=0) so the project number
   // sits on solid black in front of the axis line — the name's start
   // offset is measured (offsetLeft tracks the --scale-w/--space-* tokens;
