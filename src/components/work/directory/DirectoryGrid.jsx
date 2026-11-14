@@ -70,7 +70,12 @@ const fallbackRows = (cols) => rowsFor((1440 - (cols - 1) * 2) / cols / TILE_SHA
 const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSpec, live, logoDials, aspect }) {
   // every face covers its cell unless it is really transparent (fitOf)
   const fit = tile.fit;
-  const actual = aspect ? { span: placement.colSpan, cell: placement.cell } : null;
+  // A cover promoted to 2×2 (flushGrid, SQ-78) asks for two columns' width.
+  const actual = aspect
+    ? { span: placement.colSpan, cell: placement.cell }
+    : placement.type === 'square' && placement.colSpan === 2
+      ? { span: 2, cell: 1 }
+      : null;
   const slot =
     live &&
     (tile.logo ? (

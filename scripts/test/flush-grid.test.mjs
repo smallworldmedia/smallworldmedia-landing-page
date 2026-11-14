@@ -282,3 +282,111 @@ test('the live mix: forced cuts stay at or under 10%, and nothing is left open',
     assert.ok(forced <= Math.floor(0.1 * cuts), `${w.cols} cols: ${forced} of ${cuts} cuts forced`)
   }
 })
+
+/* ── SQ-78: square album art always renders square (Nathan 11-13, every client) ── */
+const cover = (i) => ({ _id: `c${i}`, mediaType: 'album-art' })
+const SQ = 40
+/** Every cover sits in a square box: 1×1, or 2×2 (two columns, two squares' rows). */
+function assertCoversSquare(placements, items, where) {
+  placements.forEach((p, i) => {
+    if (items[i].mediaType !== 'album-art') return
+    assert.ok(p.colSpan === 1 || p.colSpan === 2, `${where}: cover ${i} spans ${p.colSpan} columns`)
+    assert.equal(p.rowEnd - p.rowStart, p.colSpan * SQ, `${where}: cover ${i} is ${p.colSpan} col × ${(p.rowEnd - p.rowStart) / SQ} sq`)
+    assert.ok(!p.underlay, `${where}: cover ${i} is an underlay`)
+  })
+}
+/** Whether n covers can close flat in `cols` columns with up to three 2×2s:
+ *  each adds three squares of area, the rows must come out whole, and the
+ *  2×2s must fit side by side in row pairs (the 1×1s fill any rest). */
+const flatExists = (n, cols) =>
+  [0, 1, 2, 3].some((p) => {
+    const area = n + 3 * p
+    const rows = area / cols
+    return p <= n && area % cols === 0 && p <= Math.floor(rows / 2) * Math.floor(cols / 2)
+  })
+
+test("Nathan's Gruuv case: 15 covers at 6 columns close flat with one 2×2, none cropped to 1×2", () => {
+  const items = Array.from({ length: 15 }, (_, i) => cover(i))
+  for (const out of [computeFlushGrid(items, { cols: 6, sqRows: SQ }), chunkFlushGrid(items, { cols: 6, sqRows: SQ })[0]]) {
+    assertCoversSquare(out.placements, items, '15 @ 6')
+    assert.equal(out.placements.filter((p) => p.colSpan === 2).length, 1, 'one 2×2')
+    assert.equal(openRows(out, 6), 0, 'flush bottom')
+    assert.equal(out.totalRows, 3 * SQ, '15 + 3 = 18 squares = 3 full rows')
+  }
+})
+
+test('1–20 covers at 2, 4, 5 and 6 columns: always square, flat wherever a square-preserving fill exists', () => {
+  for (const cols of [2, 4, 5, 6]) {
+    for (let n = 1; n <= 20; n++) {
+      const items = Array.from({ length: n }, (_, i) => cover(i))
+      const out = computeFlushGrid(items, { cols, sqRows: SQ })
+      const where = `${n} covers @ ${cols}`
+      assertCoversSquare(out.placements, items, where)
+      assertValid(out, { cols, sqRows: SQ }, where)
+      if (flatExists(n, cols)) assert.equal(openRows(out, cols), 0, `${where}: flat`)
+      const [chunk, ...rest] = chunkFlushGrid(items, { cols, sqRows: SQ })
+      assert.equal(rest.length, 0, `${where}: one chunk`)
+      assert.deepEqual(chunk.placements, out.placements, `${where}: the directory places as the detail grid`)
+    }
+  }
+})
+
+test('covers mixed with portraits, landscapes and plain squares stay square on both surfaces', () => {
+  const kind = { A: cover, P: (i) => tile(i, 0.5), L: (i) => tile(i, 16 / 9), S: (i) => tile(i, 1) }
+  for (const cols of [2, 4, 5, 6]) {
+    for (let seed = 1; seed <= 12; seed++) {
+      for (let n = 1; n <= 20; n++) {
+        const r = rng(seed * 100 + n)
+        const items = Array.from({ length: n }, (_, i) => kind['AAAPPLS'[Math.floor(r() * 7)]](i))
+        const out = computeFlushGrid(items, { cols, sqRows: SQ })
+        const where = `${n} mixed @ ${cols}, seed ${seed}`
+        assertCoversSquare(out.placements, items, where)
+        assertValid(out, { cols, sqRows: SQ }, where)
+        assert.deepEqual(computeFlushGrid(items, { cols, sqRows: SQ }), out, `${where}: deterministic`)
+      }
+    }
+    // Directory scale: every chunk keeps its covers square.
+    const r = rng(cols)
+    const long = Array.from({ length: 240 }, (_, i) => kind['AAAPPLS'[Math.floor(r() * 7)]](i))
+    for (const c of chunkFlushGrid(long, { cols, sqRows: SQ })) {
+      assertCoversSquare(c.placements, long.slice(c.start, c.end), `${cols} cols, chunk ${c.start}`)
+      assertValid(c, { cols, sqRows: SQ }, `${cols} cols, chunk ${c.start}`)
+    }
+  }
+})
+
+test('non-album squares still stretch as before; where no square fill exists the gap stays or a neighbour stretches', () => {
+  // 15 plain squares at 6 columns: the three over the short last row stretch to 1 × 2 sq, as today.
+  const plain = Array.from({ length: 15 }, (_, i) => tile(i, 1))
+  const out = computeFlushGrid(plain, { cols: 6, sqRows: SQ })
+  assert.equal(out.placements.filter((p) => p.rowEnd - p.rowStart === 2 * SQ).length, 3)
+  assert.ok(out.placements.every((p) => p.colSpan === 1))
+
+  // 4 covers at 3 columns: 4 + 3p never makes whole rows of 3 and no 2×2
+  // closes the gap, so the covers stay 1×1 and two squares stay open (the
+  // accepted ragged edge), where the old flush cropped two covers to 1 × 2.
+  const four = Array.from({ length: 4 }, (_, i) => cover(i))
+  const f = computeFlushGrid(four, { cols: 3, sqRows: SQ })
+  assertCoversSquare(f.placements, four, '4 @ 3')
+  assert.ok(f.placements.every((p) => p.colSpan === 1), 'nothing promotes')
+  assert.equal(openRows(f, 3), 2 * SQ, 'two squares stay open')
+
+  // Swap the last cover for a plain square: a 2×2 cover plus the plain
+  // square stretching over its short column closes it flat.
+  const mix = [cover(0), cover(1), cover(2), tile(3, 1)]
+  const m = computeFlushGrid(mix, { cols: 3, sqRows: SQ })
+  assertCoversSquare(m.placements, mix, 'mix @ 3')
+  assert.ok(m.placements[3].rowEnd - m.placements[3].rowStart > SQ, 'the plain square stretches')
+  assert.equal(openRows(m, 3), 0, 'flat')
+
+  // One column: no 2×2 exists, every cover stays 1×1.
+  const one = computeFlushGrid([cover(0), tile(1, 0.5), cover(2)], { cols: 1, sqRows: 33, lsRows: 16 })
+  assert.ok(one.placements.every((p) => p.colSpan === 1))
+  assert.equal(one.placements[0].rowEnd - one.placements[0].rowStart, 33)
+
+  // A full-width top region: the covers flow below it and still close flat.
+  const items = Array.from({ length: 15 }, (_, i) => cover(i))
+  const reg = computeFlushGrid(items, { cols: 6, sqRows: SQ, regions: [{ id: 'orbit', colStart: 0, colSpan: 6, rowSpan: 34, anchor: 'top' }] })
+  assertCoversSquare(reg.placements, items, 'below a region')
+  assert.equal(openRows(reg, 6), 0)
+})
