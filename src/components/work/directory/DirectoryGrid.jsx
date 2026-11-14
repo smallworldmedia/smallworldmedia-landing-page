@@ -38,6 +38,7 @@ import { chunkFlushGrid } from '../detail/flushGrid.js';
 import { chunkAspectGrid, LOOK } from './aspectGrid.js';
 import { ratioOf } from '../detail/buildContentFlow.js';
 import {
+  GRID_LARGE_PX,
   TILE_SHAPE,
   placementStyle,
   rowsFor,
@@ -102,7 +103,8 @@ const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSp
 /**
  * @param {Object} props
  * @param {Array<Object>} props.tiles - the tiles to show, in display order
- * @param {number} [props.cols=5] - columns above 1024px (?dircols)
+ * @param {number} [props.cols=5] - columns above 1024px, below the large tier (?dircols)
+ * @param {number} [props.largeCols=6] - columns from the large tier up (?dirlargecols)
  * @param {number} [props.tabletCols=4] - columns from 769 to 1024px (?dirtabletcols)
  * @param {number} [props.phoneCols=2] - columns at ≤768px (?dirphonecols)
  * @param {number} props.cap - players at once (the gate's cap; 0 under reduced motion regardless)
@@ -116,6 +118,7 @@ const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSp
 export default function DirectoryGrid({
   tiles: shown,
   cols: deskCols = 5,
+  largeCols = 6,
   tabletCols = 4,
   phoneCols = 2,
   cap,
@@ -138,14 +141,13 @@ export default function DirectoryGrid({
   const tileShape = useTileShape();
   const metrics = useGridMetrics(flowRef, '.dir-grid');
 
-  // useGridMetrics counts the detail grid's bands (1 / 2 / 3): each maps to its dial.
-  const cols = !metrics
-    ? deskCols
-    : metrics.cols === 1 ? phoneCols : metrics.cols === 2 ? tabletCols : deskCols;
+  // useGridMetrics names the grid's tier (phone / tablet / desktop / large): each maps to its dial.
+  const largeFrom = metrics?.largePx ?? GRID_LARGE_PX;
   const colSpec = useMemo(
-    () => ({ phone: phoneCols, tablet: tabletCols, desktop: deskCols }),
-    [phoneCols, tabletCols, deskCols]
+    () => ({ phone: phoneCols, tablet: tabletCols, desktop: deskCols, large: largeCols, largeFrom }),
+    [phoneCols, tabletCols, deskCols, largeCols, largeFrom]
   );
+  const cols = metrics ? colSpec[metrics.tier] : deskCols;
   const rows = metrics ? tileRowsFor({ ...metrics, cols }, tileShape) : null;
   const sqRows = rows?.sq ?? fallbackRows(deskCols);
   const lsRows = rows?.ls ?? sqRows;

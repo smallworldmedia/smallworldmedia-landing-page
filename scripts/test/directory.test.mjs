@@ -516,17 +516,20 @@ test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio or
 })
 
 test('sizesFor — the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
-  assert.equal(sizesFor('square', 1, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
-  assert.equal(sizesFor('landscape', 1.78, 'cover'), '(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 67vw')
-  assert.equal(sizesFor('portrait', 0.5625, 'cover', { phone: 2 }), '(max-width: 768px) 56vw, (max-width: 1024px) 56vw, 38vw')
-  assert.equal(sizesFor('portrait', 0.5625, 'contain'), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
+  assert.equal(sizesFor('square', 1, 'cover'), '(min-width: 1920px) 25vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
+  assert.equal(sizesFor('landscape', 1.78, 'cover'), '(min-width: 1920px) 50vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, 67vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'cover', { phone: 2 }), '(min-width: 1920px) 28vw, (max-width: 768px) 56vw, (max-width: 1024px) 56vw, 38vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'contain'), '(min-width: 1920px) 25vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
   // the directory's bands: five wide, four on a tablet, two on a phone
-  const dir = { phone: 2, tablet: 4, desktop: 5 }
-  assert.equal(sizesFor('square', 1, 'cover', dir), '(max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw')
-  assert.equal(sizesFor('landscape', 1.78, 'cover', dir), '(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw')
+  const dir = { phone: 2, tablet: 4, desktop: 5, large: 6 }
+  assert.equal(sizesFor('square', 1, 'cover', dir), '(min-width: 1920px) 17vw, (max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw')
+  assert.equal(sizesFor('landscape', 1.78, 'cover', dir), '(min-width: 1920px) 33vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw')
+  // the large clause comes first (the first matching condition wins) and follows the ?gridlarge dial
+  assert.ok(sizesFor('square', 1, 'cover', dir).startsWith('(min-width: 1920px) '))
+  assert.ok(sizesFor('square', 1, 'cover', { ...dir, largeFrom: 2200 }).startsWith('(min-width: 2200px) 17vw, '))
   // ?dirpack=aspect: the placement's own span and cell
-  assert.equal(sizesFor('landscape', 4.77, 'cover', dir, { span: 5, cell: 4.77 }), '(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 100vw')
-  assert.equal(sizesFor('square', 1, 'cover', dir, { span: 1, cell: 0.9 }), '(max-width: 768px) 56vw, (max-width: 1024px) 28vw, 22vw')
+  assert.equal(sizesFor('landscape', 4.77, 'cover', dir, { span: 5, cell: 4.77 }), '(min-width: 1920px) 83vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, 100vw')
+  assert.equal(sizesFor('square', 1, 'cover', dir, { span: 1, cell: 0.9 }), '(min-width: 1920px) 19vw, (max-width: 768px) 56vw, (max-width: 1024px) 28vw, 22vw')
 })
 
 test('logoFirst: under exactly logo-design the logo tiles lead, each block keeps its order', () => {

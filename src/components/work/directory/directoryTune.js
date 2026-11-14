@@ -10,7 +10,8 @@
  *                  (siteSettings), else 'project'.
  *   ?dirplayers    videos playing at once (the player gate's cap); 0 = posters only
  *   ?dirdwell      ms a video tile stays half in view before it plays
- *   ?dircols       grid columns above 1024px (Nathan, 11-05: 5)
+ *   ?dircols       grid columns above 1024px, below the large tier (Nathan, 11-05: 5)
+ *   ?dirlargecols  grid columns from the large tier up (SQ-74: GRID_LARGE_PX, 1920px, tileGrid.js; 6)
  *   ?dirtabletcols grid columns from 769 to 1024px (4, so a cell stays 190-260px wide)
  *   ?dirphonecols  grid columns at ≤768px (Nathan, 11-05: 2)
  *   ?dirlogopad    a logo tile's margin, a share of the canvas's height (logoTile.js)
@@ -33,6 +34,7 @@ export const PARAM_KEYS = {
   players: 'dirplayers',
   dwell: 'dirdwell',
   cols: 'dircols',
+  largeCols: 'dirlargecols',
   tabletCols: 'dirtabletcols',
   phoneCols: 'dirphonecols',
   logoPad: 'dirlogopad',
@@ -55,6 +57,7 @@ export const SSR_TUNE = {
   players: DIRECTORY_PLAYERS.desktop,
   dwell: DIRECTORY_DWELL_MS,
   cols: 5,
+  largeCols: 6,
   tabletCols: 4,
   phoneCols: 2,
   logoPad: LOGO_DIALS.pad,
@@ -70,6 +73,7 @@ export const TUNE_OK = {
   players: (n) => Number.isInteger(n) && n >= 0,
   dwell: (n) => n >= 0,
   cols: (n) => Number.isInteger(n) && n >= 1 && n <= 10,
+  largeCols: (n) => Number.isInteger(n) && n >= 1 && n <= 12,
   tabletCols: (n) => Number.isInteger(n) && n >= 1 && n <= 8,
   phoneCols: (n) => n === 1 || n === 2,
   logoPad: (n) => n >= 0 && n <= 0.4,
@@ -182,6 +186,7 @@ export function readTune(search, defaults) {
     players: numberAt('players'),
     dwell: numberAt('dwell'),
     cols: numberAt('cols'),
+    largeCols: numberAt('largeCols'),
     tabletCols: numberAt('tabletCols'),
     phoneCols: numberAt('phoneCols'),
     logoPad: numberAt('logoPad'),

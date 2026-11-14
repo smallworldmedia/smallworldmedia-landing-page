@@ -48,6 +48,7 @@
  */
 import { assetLane, expandChunks, ratioOf } from '../detail/buildContentFlow.js';
 import { TILE_RATIO } from '../detail/flushGrid.js';
+import { GRID_LARGE_PX } from '../detail/tileGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
 import { coverageOf, ownersOf, tileInCoverage } from '../../../lib/clientCoverage.js';
@@ -352,20 +353,27 @@ export function clientPresence(tiles, tags, clients) {
 
 /**
  * The <img sizes> for a tile at the detail grid's breakpoints, given the
- * columns each band holds (`cols`: desktop above 1024px, tablet to 769px,
- * phone below; DirectoryGrid passes the dialed counts, and the defaults are
- * the detail grid's). A landscape spans two (one in a single column). A cover
+ * columns each band holds (`cols`: large from `largeFrom` px up (SQ-74,
+ * tileGrid.js GRID_LARGE_PX, the first clause so it wins), desktop above
+ * 1024px, tablet to 769px, phone below; DirectoryGrid passes the dialed
+ * counts, and the defaults are the detail grid's). A landscape spans two (one in a single column). A cover
  * crop fills the cell's height as well, so a picture wider than its cell
  * renders wider than the cell, by ratio ÷ cell, and asks for that much more
  * (a 9:16 portrait in a 1:2 cell: 1.125×). `actual` ({ span, cell }: the
  * placement's colSpan and width ÷ height, ?dirpack=aspect) replaces the class's.
  */
-export function sizesFor(type, ratio, fit, { phone = 1, tablet = 2, desktop = 3 } = {}, actual = null) {
+export function sizesFor(
+  type,
+  ratio,
+  fit,
+  { phone = 1, tablet = 2, desktop = 3, large = 4, largeFrom = GRID_LARGE_PX } = {},
+  actual = null
+) {
   const span = actual?.span ?? (type === 'landscape' ? 2 : 1);
   const cell = actual?.cell ?? TILE_RATIO[type] ?? 1;
   const over = fit === 'cover' && ratio > cell ? ratio / cell : 1;
   const vw = (cols) => `${Math.round((100 * Math.min(span, cols) * over) / cols)}vw`;
-  return `(max-width: 768px) ${vw(phone)}, (max-width: 1024px) ${vw(tablet)}, ${vw(desktop)}`;
+  return `(min-width: ${largeFrom}px) ${vw(large)}, (max-width: 768px) ${vw(phone)}, (max-width: 1024px) ${vw(tablet)}, ${vw(desktop)}`;
 }
 
 /** The tag a load with no filter in its URL starts on (Nathan, 11-05). */
