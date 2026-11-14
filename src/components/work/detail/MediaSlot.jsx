@@ -62,6 +62,10 @@
  * @param {string}  [props.sizes] - The <img sizes>; with it, images and posters get srcsets
  * @param {Object}  [props.gate] - A playerGate: directory mode
  * @param {'cover'|'contain'} [props.fit] - How the face fills the tile (data-fit)
+ * @param {{ratio: number, box: Object, img?: Object}} [props.logo] - a logo's layout on the detail
+ *        grid (detailLogo, directory/logoTile.js): the canvas it was given and where its picture sits
+ *        in it, in percent of the canvas. `img` places the original by its ink; without it the
+ *        picture is `contain`ed in `box`. The slot then draws a logo canvas, not a filled face.
  */
 import { useRef, useEffect, useState, useMemo, useCallback, Fragment } from 'react';
 import useHls from '../useHls.js';
@@ -82,6 +86,10 @@ import { frameBeats, weightedFrame, msToNextFrame, sequenceIntervalMs } from '..
 
 /** Sanity image width for detail page slots */
 const SLOT_IMG_WIDTH = 1400;
+
+/** A logo placed by its ink is drawn larger than its ink (the file's margins
+    hang off the canvas), so it asks for more pixels. */
+const LOGO_IMG_WIDTH = 2000;
 
 /** IO pre-load band — vertical-only; horizontal margin is inert on a
     vertical page. Wide enough that scrolled-to slots already stream. */
@@ -123,6 +131,7 @@ export default function MediaSlot({
   sizes,
   gate,
   fit,
+  logo,
   ...rest
 }) {
   const slotRef = useRef(null);
@@ -309,6 +318,23 @@ export default function MediaSlot({
             />
           )}
         </>
+      ) : asset.imageUrl && logo ? (
+        <span className="logo-canvas" style={{ aspectRatio: logo.ratio }}>
+          <img
+            ref={flagIfLoaded}
+            className={`logo-mark${isLoaded ? ' logo-mark--loaded' : ''}`}
+            src={`${asset.imageUrl}?w=${LOGO_IMG_WIDTH}&${IMG_FORMAT}`}
+            alt={asset.alt || asset.title || ''}
+            loading="lazy"
+            onLoad={() => setIsLoaded(true)}
+            style={{
+              left: `${(logo.img ?? logo.box).left}%`,
+              top: `${(logo.img ?? logo.box).top}%`,
+              width: `${(logo.img ?? logo.box).width}%`,
+              height: `${(logo.img ?? logo.box).height}%`,
+            }}
+          />
+        </span>
       ) : asset.imageUrl ? (
         <img
           ref={flagIfLoaded}

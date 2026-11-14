@@ -16,7 +16,7 @@
  *   ?dirphonecols  grid columns at ≤768px (Nathan, 11-05: 2)
  *   ?dirlogopad    a logo tile's margin, a share of the canvas's height (logoTile.js)
  *   ?dirlogoweight 0 = every mark fills its box … 1 = every mark has the same ink area
- *   ?dirlogoland   the aspect from which a mark takes a landscape canvas, not a square
+ *   ?dirlogoshrink how much smaller than it wants a mark may go to take a square, not a landscape canvas
  *   ?dirlogocenter 0 = centre the mark's box … 1 = centre its centre of mass
  *   ?dirpack       'flush' (three cell classes, chunkFlushGrid) | 'aspect' (each tile its
  *                  own shape, levelled crop-least: aspectGrid.js, SQ-20); 'flush' until
@@ -41,7 +41,7 @@ export const PARAM_KEYS = {
   phoneCols: 'dirphonecols',
   logoPad: 'dirlogopad',
   logoWeight: 'dirlogoweight',
-  logoLand: 'dirlogoland',
+  logoShrink: 'dirlogoshrink',
   logoCenter: 'dirlogocenter',
   pack: 'dirpack',
   look: 'dirlook',
@@ -65,7 +65,7 @@ export const SSR_TUNE = {
   phoneCols: 2,
   logoPad: LOGO_DIALS.pad,
   logoWeight: LOGO_DIALS.weight,
-  logoLand: LOGO_DIALS.land,
+  logoShrink: LOGO_DIALS.shrink,
   logoCenter: LOGO_DIALS.center,
   pack: 'flush',
   look: LOOK,
@@ -82,7 +82,7 @@ export const TUNE_OK = {
   phoneCols: (n) => n === 1 || n === 2,
   logoPad: (n) => n >= 0 && n <= 0.4,
   logoWeight: (n) => n >= 0 && n <= 1,
-  logoLand: (n) => n >= 1,
+  logoShrink: (n) => n >= 0 && n < 1,
   logoCenter: (n) => n >= 0 && n <= 1,
   look: (n) => Number.isInteger(n) && n >= 1 && n <= 32,
   tabClear: (n) => n >= 0 && n <= 16,
@@ -196,12 +196,21 @@ export function readTune(search, defaults) {
     phoneCols: numberAt('phoneCols'),
     logoPad: numberAt('logoPad'),
     logoWeight: numberAt('logoWeight'),
-    logoLand: numberAt('logoLand'),
+    logoShrink: numberAt('logoShrink'),
     logoCenter: numberAt('logoCenter'),
     pack: PACKS.includes(params.get(PARAM_KEYS.pack)) ? params.get(PARAM_KEYS.pack) : defaults.pack,
     look: numberAt('look'),
     tabClear: numberAt('tabClear'),
   };
+}
+
+/**
+ * The logo tiles' dials from the URL: the detail page lays its logos out by the
+ * same ?dirlogo* params as the directory (logoTile.js), with no bench of its own.
+ */
+export function readLogoDials(search) {
+  const t = readTune(search, SSR_TUNE);
+  return { pad: t.logoPad, weight: t.logoWeight, shrink: t.logoShrink, center: t.logoCenter };
 }
 
 /** The current URL with the bench gate and only the off-default values. */

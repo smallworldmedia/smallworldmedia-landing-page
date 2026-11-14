@@ -50,7 +50,10 @@ import LiveFootageGrid from './LiveFootageGrid.jsx';
 import { liveFootagePlan, visualsWall, mockupsWall } from './liveFootageLayout.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, splitHero, groupTypeOf, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
-import { computeFlushGrid, splitAtBreaks } from './flushGrid.js';
+import { computeFlushGrid, splitAtBreaks, classifyTile, TILE_RATIO } from './flushGrid.js';
+import { LOGO_DIALS, assetIdOfUrl, detailLogo } from '../directory/logoTile.js';
+import { readLogoDials } from '../directory/directoryTune.js';
+import logoManifest from '../../../data/directory-logos.json';
 import {
   GRID_ROW_PX,
   SQ_ROWS_FALLBACK,
@@ -149,6 +152,23 @@ const readChunkTune = () => {
     gap: Number.isFinite(gap) && gap > 0 ? gap : 0,
   };
 };
+
+/* A logo on the detail grid is laid out as it is on the directory's logo tiles
+   (SQ-81, Nathan 11-13: "there shouldnt be this kind of disconnect between the
+   detail page and project directory media grids"): the same canvas choice, pad,
+   balanced size and centring (directory/logoTile.js, steered by the same
+   ?dirlogo* dials), but the asset's OWN artwork, its colours as uploaded,
+   placed by its ink. A logo with no baked mark (held, or new) or an opaque
+   file keeps its tile class's shape with a padded contain. The canvas is the
+   tile's shape in the flush grid (`tileRatio`, ratioOf), as on the directory.
+   A sequence or a video is left as it is. */
+const LOGO_MARKS = logoManifest;
+function withLogo(asset, dials) {
+  if (asset.mediaType !== 'logo' || !asset.imageUrl || asset.playbackId || asset.frames?.length) return asset;
+  const own = TILE_RATIO[classifyTile(ratioOf(asset))];
+  const logo = detailLogo(LOGO_MARKS[assetIdOfUrl(asset.imageUrl)], { hasAlpha: !!asset.imageHasAlpha, own }, dials);
+  return { ...asset, tileRatio: logo.ratio, logo };
+}
 
 /* The keyword wipe, mounted when its blurb may play (its hook arms on mount). */
 function KeywordWipe({ target }) {
@@ -381,10 +401,13 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const hero = splitHero(assets[0], chunkTune).hero ?? null;
   useEffect(() => setChunkTune(readChunkTune()), []);
   // `mockups` (US-5, SQ-58's lane) is absent until that lands: default it empty.
-  const { showcase, albumArt, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups = [] } = buildContentFlow(assets, {
+  const [logoDials, setLogoDials] = useState(LOGO_DIALS);
+  useEffect(() => setLogoDials(readLogoDials(window.location.search)), []);
+  const { showcase: flowShowcase, albumArt, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups = [] } = buildContentFlow(assets, {
     surface: 'detail',
     chunks: chunkTune,
   });
+  const showcase = flowShowcase.map((a) => withLogo(a, logoDials));
 
   // Banner sockets want a height in BANNERS, not rows, and tiles a shape:
   // measure the flow width (the grid is full-bleed inside it) and convert.
@@ -806,8 +829,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
                     asset={showcase[p.index]}
                     // A logo keeps its edges (Nathan 11-12: TBH Logo White, an
                     // 8.9:1 wordmark, showed 23% of its width in a 2:1 tile):
-                    // it scales down to fit, on the slot's near-black.
+                    // it scales down to fit, on the slot's near-black, padded
+                    // and balanced as on the directory (withLogo, SQ-81).
                     fit={showcase[p.index].mediaType === 'logo' ? 'contain' : undefined}
+                    logo={showcase[p.index].logo}
                     data-tile={p.type}
                     style={placementStyle(p)}
                   />,

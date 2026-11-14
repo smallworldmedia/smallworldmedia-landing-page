@@ -115,7 +115,7 @@ const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSp
  * @param {number} props.cap - players at once (the gate's cap; 0 under reduced motion regardless)
  * @param {number} props.dwellMs - the gate's dwell
  * @param {boolean} [props.shuffled=false] - the order is drawn after hydration: mount no media before the first measure
- * @param {Object} [props.logoDials] - the logo tiles' pad / weight / land / center (logoTile.js)
+ * @param {Object} [props.logoDials] - the logo tiles' pad / weight / shrink / center (logoTile.js)
  * @param {'flush'|'aspect'} [props.pack='flush'] - the packer (?dirpack)
  * @param {number} [props.look] - aspect packing's lookahead (?dirlook)
  * @param {() => void} [props.onReady] - once, after the first render at the measured width
@@ -139,8 +139,8 @@ export default function DirectoryGrid({
   // shape in the flush grid: tileRatio is what ratioOf reads (logoTile.js).
   const tiles = useMemo(
     () =>
-      shown.map((t) => (t.logo ? { ...t, tileRatio: CANVAS_RATIO[canvasOf(t.logo.aspect, logoDials?.land)] } : t)),
-    [shown, logoDials?.land]
+      shown.map((t) => (t.logo ? { ...t, tileRatio: CANVAS_RATIO[canvasOf(t.logo, logoDials)] } : t)),
+    [shown, logoDials]
   );
   const flowRef = useRef(null);
   const tileShape = useTileShape();

@@ -16,7 +16,8 @@
  * A logo tile is a white mark on black (Nathan, 11-05). Sanity keeps each
  * logo in whatever colour it was exported in, so this script bakes one white
  * mark per image: pure #fff on transparent, cropped to its ink, with the
- * numbers the page scales and centres it by (scripts/lib/logoInk.mjs, and
+ * numbers the page scales and centres it by, and `trim`, the ink's box inside the
+ * original as fractions (the detail page places the original by it; scripts/lib/logoInk.mjs, and
  * src/components/work/directory/logoTile.js for the layout). Read-only
  * against Sanity: published still images that are a `logo` or carry the
  * logo-design tag, fetched from the CDN.
@@ -24,7 +25,7 @@
  * Output (tracked): src/data/directory-logos/<hash>.png and
  * src/data/directory-logos.json, keyed by the IMAGE asset id (a re-upload is a
  * new id, so a stale mark can never show on a new file):
- *   { file, w, h, aspect, density, cx, cy, title, client }     a mark
+ *   { file, w, h, aspect, density, cx, cy, trim, title, client }     a mark
  *   { hold, title, client }                                    held back
  *   { twinOf, ... }                                            the same mark as `twinOf`
  * buildDirectoryTiles reads it: a mark becomes a logo tile, a held logo-typed
@@ -172,6 +173,7 @@ const main = async () => {
       density: r.density,
       cx: r.cx,
       cy: r.cy,
+      trim: r.trim,
       ...entry,
     };
     marks.push({ d, file, png: r.png, sil: await silhouette(r.png) });

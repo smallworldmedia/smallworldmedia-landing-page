@@ -254,8 +254,8 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
   // The filter's tags: motion/video as a parent, its children behind it.
   const filterTags = useMemo(() => withGroups(tags), [tags]);
   const logoDials = useMemo(
-    () => ({ pad: tune.logoPad, weight: tune.logoWeight, land: tune.logoLand, center: tune.logoCenter }),
-    [tune.logoPad, tune.logoWeight, tune.logoLand, tune.logoCenter]
+    () => ({ pad: tune.logoPad, weight: tune.logoWeight, shrink: tune.logoShrink, center: tune.logoCenter }),
+    [tune.logoPad, tune.logoWeight, tune.logoShrink, tune.logoCenter]
   );
   const clientEntry = filter.client ? clients.find((c) => c.slug === filter.client) : null;
 

@@ -18,7 +18,7 @@ import { logoLayout } from './logoTile.js';
 /**
  * @param {Object} props
  * @param {Object} props.tile - a directory tile with `logo` ({src, w, h, aspect, density, cx, cy})
- * @param {Object} props.dials - { pad, weight, land, center } (logoTile.js LOGO_DIALS)
+ * @param {Object} props.dials - { pad, weight, shrink, center } (logoTile.js LOGO_DIALS)
  */
 export default function LogoMark({ tile, dials }) {
   const { logo } = tile;
@@ -29,10 +29,10 @@ export default function LogoMark({ tile, dials }) {
   }, []);
 
   return (
-    <span className="dir-logo-canvas" style={{ aspectRatio: box.ratio }}>
+    <span className="logo-canvas" style={{ aspectRatio: box.ratio }}>
       <img
         ref={flagIfLoaded}
-        className={`dir-logo${loaded ? ' dir-logo--loaded' : ''}`}
+        className={`logo-mark${loaded ? ' logo-mark--loaded' : ''}`}
         src={logo.src}
         width={logo.w}
         height={logo.h}
