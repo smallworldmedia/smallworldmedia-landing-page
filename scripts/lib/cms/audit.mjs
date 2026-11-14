@@ -48,6 +48,7 @@ export const CHECKS = {
   'unbound-document': ['warning', 'A mediaAsset no manifest row resolves to.'],
   'manifest-pending-row': ['info', 'A manifest row with no document yet (pending intake; a video intake is a paid upload).'],
   'description-missing': ['info', 'A mediaAsset has no description.'],
+  'hidden-from-site': ['info', 'A mediaAsset has "Hide from site" ticked: the site skips it everywhere, and it stays published with its rank, set and files in use. Untick it in Studio, or set hideFromSite false in a changes request, to bring it back.'],
   'accepted-stale': ['info', 'An entry in media/_audit-accepted.json no longer matches a finding (the label changed or the problem is gone); remove it.'],
 }
 export const ACCEPTED_FILE = 'media/_audit-accepted.json'
@@ -128,6 +129,7 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
     } else if ((doc.services || []).some(r => albumArtTags.has(r._ref))) add('album-art-tag-off-cover', { id: doc._id, title: doc.title ?? null, mediaType: doc.mediaType ?? null })
     if (!doc.alt?.trim?.()) add('alt-missing', { id: doc._id, title: doc.title ?? null })
     if (!doc.description?.trim?.()) add('description-missing', { id: doc._id })
+    if (doc.hideFromSite === true) add('hidden-from-site', { id: doc._id, title: doc.title ?? null })
     for (const field of ['alt', 'description']) if (typeof doc[field] === 'string' && doc[field].length > CAPS.mediaAsset[field]) add('text-too-long', { id: doc._id, field, length: doc[field].length, limit: CAPS.mediaAsset[field] })
   }
   for (const [file, ids] of group(media, d => d.video?.asset?._ref || d.image?.asset?._ref)) if (ids.length > 1) add('shared-file', { file, ids: ids.map(d => d._id) })

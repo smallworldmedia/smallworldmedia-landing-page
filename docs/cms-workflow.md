@@ -149,6 +149,15 @@ page's three-chunk split for that video: `{"set": {"splitIntoThirds": true}}`, o
 return it to one tile. It is refused on a still. The detail page reads the Mux asset's
 duration from Sanity, so the asset must be ready.
 
+`hideFromSite` (a boolean on a `mediaAsset`, off when missing; "Hide from site" in Studio) makes
+the whole site skip that piece: project pages, `/work` heroes and pager, the Project Directory and
+the home globe (auto-fill and `globeSettings.picks`). The piece stays published and keeps its rank
+and set, so `{"set": {"hideFromSite": false}}` (or `unset`) brings it back in place. The next
+visible piece by rank becomes the hero. The plan prints the before/after; a non-boolean is refused.
+`cms audit` lists hidden pieces in one `info` row (`hidden-from-site`: id, title); a hidden piece is
+no error or warning, and its image or video still counts as in use. The site reads this at build
+time, so a toggle reaches a deployed page with the next build.
+
 A replacement/repair mediaAsset patch can add
 `"upload": {"file": "relative/file.mp4"}`. That source is relative to the changes
 JSON's directory. Existing media remains attached until its approved replacement
