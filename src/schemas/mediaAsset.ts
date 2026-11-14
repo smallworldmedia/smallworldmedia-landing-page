@@ -26,6 +26,14 @@ export const mediaAsset = defineType({
       options: { source: 'title' },
       validation: (r) => r.required(),
     }),
+    defineField({
+      name: 'hideFromSite',
+      title: 'Hide from site',
+      type: 'boolean',
+      initialValue: false,
+      description:
+        "On: the site skips this piece everywhere until you turn it off. Use it for work that isn't announced yet.",
+    }),
 
     // ── MEDIA TYPE: Format + Layout Purpose (select first) ──
     defineField({

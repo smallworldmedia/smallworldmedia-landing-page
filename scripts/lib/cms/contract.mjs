@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = 'b346ff27165b29f7f13644d43f686cbd33a26b3f383e2c7bf075a4a2ccca15f9'
+export const SUPPORTED_SCHEMA_HASH = '4df34a46777439d751664f6dbab0ee214a0fea3792c4943236d25405282433cc'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a client nothing references, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -37,7 +37,7 @@ export function appendRanks(docs, count) {
 export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']
 const common = ['slug','yearStart','yearEnd','isOngoing','services']
 export const FIELDS = {
-  mediaAsset: ['title',...common,'mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType'],
+  mediaAsset: ['title',...common,'mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType','hideFromSite'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
   // A new tag shows in the directory filters; the inquiry form keeps its own list (src/lib/constants.js SERVICE_TAGS).
@@ -64,7 +64,7 @@ export function validateField(field, v) {
   if (['yearStart','yearEnd'].includes(field)) { number(v, field); invariant(Number.isInteger(v) && v >= 2015 && v <= 2030, `Invalid ${field}`); return }
   if (field === 'brandDeckOrder') { number(v, field); invariant(Number.isInteger(v) && v >= 1, 'Invalid brandDeckOrder'); return }
   if (field === 'sortOrder') { number(v, field); invariant(Number.isInteger(v) && v >= 0, 'Invalid sortOrder'); return }
-  if (['isOngoing','isFeatured','splitIntoThirds'].includes(field)) { invariant(typeof v === 'boolean', `Invalid ${field}`); return }
+  if (['isOngoing','isFeatured','splitIntoThirds','hideFromSite'].includes(field)) { invariant(typeof v === 'boolean', `Invalid ${field}`); return }
   if (field === 'mediaType') return enumValue(v, MEDIA_TYPES, field)
   if (field === 'contentRole') return enumValue(v, ['process','supporting'], field)
   if (field === 'groupType') return enumValue(v, GROUP_TYPES, field)

@@ -51,6 +51,10 @@ A classification on `mediaAsset` documents that controls frontend visibility. Th
 | `process` | Behind-the-scenes — screen recordings, exports, WIPs | ❌ Excluded | ✅ Visible (BTS section) |
 | `supporting` | Contextual — event photos, reference shots | ❌ Excluded | ✅ Visible |
 
+## Hide from Site
+
+A checkbox on a `mediaAsset` (`hideFromSite`, off when missing). On, the whole site skips the piece: project pages, the `/work` heroes and pager, the Project Directory, and the home globe (auto-fill and `globeSettings.picks`). It stays published in Sanity and keeps its `orderRank` and set membership, so unticking it puts it back exactly where it was. Every `mediaAsset` selection in `src/lib/queries.js` carries `hideFromSite != true`; the next visible piece by `orderRank` becomes a hero. For work that is not announced yet. Unlike Content Role it hides the piece from every page, not one section.
+
 ## Media Descriptors
 
 The per-asset accessibility and search text on a `mediaAsset`, one pair for images and videos alike: `alt` (one line of what it shows, ≤150 characters) and `description` (fuller, ≤300, read only by screen readers and search, never shown on the page). Names people and brands the references name; never a ratio.

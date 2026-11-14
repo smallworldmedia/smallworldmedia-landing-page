@@ -75,6 +75,8 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
     clip('mediaAsset-muxvideo', { video: { _type: 'muxVideo', asset: { _type: 'reference', _ref: 'mux-mediaAsset-muxvideo' } }, orderRank: '0|n00000:' }), muxDoc('mux-mediaAsset-muxvideo'),
     { ...project, _id: 'project-twin', orderRank: '0|200000:' },
     ...framed(still('mediaAsset-rank', { orderRank: '0|hzzzzz:' })),
+    // Hidden from the site: an info row only; its image stays in use (not an unused-image).
+    ...framed(still('mediaAsset-hidden', { hideFromSite: true, orderRank: '0|p00000:' })),
   ]
   const live = [...docs, ...seeded].filter(d => d._type === 'mux.videoAsset' && d._id !== 'mux-mediaAsset-gone')
     .map(d => ({ id: d.assetId, status: d._id === 'mux-mediaAsset-errored' ? 'errored' : d._id === 'mux-mediaAsset-preparing' ? 'preparing' : 'ready' }))
@@ -94,7 +96,9 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
   assert.deepEqual(items('album-art-tag-off-cover').map(i => [i.id, i.mediaType]), [['mediaAsset-pressphoto', 'static_4x5']])
   assert.deepEqual(items('manifest-drift').map(i => [i.id, i.field, i.manifestValue, i.sanityValue]), [['mediaAsset-wide', 'mediaType', 'static_16x9', 'static_1x1']])
   assert.deepEqual(items('draft-pending').map(i => i.id), ['drafts.mediaAsset-widedraft'])
-  assert.deepEqual(items('unused-image').map(i => i.id), ['image-twin-a', 'image-twin-b'])
+  assert.deepEqual(items('unused-image').map(i => i.id), ['image-twin-a', 'image-twin-b'], 'a hidden piece keeps its image in use')
+  assert.deepEqual(items('hidden-from-site').map(i => [i.id, i.title]), [['mediaAsset-hidden', 'mediaAsset-hidden']])
+  assert.equal(report.findings.find(f => f.check === 'hidden-from-site').severity, 'info')
   assert.deepEqual(report.accepted.items.map(i => [i.check, i.id, i.reason]), [['unused-image', 'image-unused', 'Decided.']])
   assert.deepEqual(items('accepted-stale').map(i => [i.check, i.id]), [['alt-missing', 'mediaAsset-long-gone']])
   assert.equal(report.summary.errors, report.findings.filter(f => f.severity === 'error').reduce((n, f) => n + f.count, 0))

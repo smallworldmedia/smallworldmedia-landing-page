@@ -3,6 +3,9 @@
  *
  * Terminology follows CONTEXT.md Frontend Component Vocabulary.
  * All queries exclude drafts and resolve references at build time.
+ * Every mediaAsset selection also skips a piece whose "Hide from site" box is
+ * ticked (`hideFromSite != true`, so a document without the field reads as
+ * visible); a hidden piece stays published and keeps its rank and set.
  */
 
 /**
@@ -15,7 +18,7 @@
  * empty array.
  */
 const PROJECT_SERVICES = `*[_type == "serviceTag" && !(_id in path("drafts.**"))
-      && _id in *[_type == "mediaAsset" && project._ref == ^.^._id && !(_id in path("drafts.**"))].services[]._ref]
+      && _id in *[_type == "mediaAsset" && project._ref == ^.^._id && !(_id in path("drafts.**")) && hideFromSite != true].services[]._ref]
     | order(sortOrder asc, name asc) { name, "slug": slug.current }`;
 
 /**
@@ -44,11 +47,11 @@ export const FEATURED_PROJECT_PATHS_QUERY = `
     title,
     "color": projectColor,
     "colorSecondary": projectColorSecondary,
-    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))] | order(orderRank asc)[0].sourceManifest,
+    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**")) && hideFromSite != true] | order(orderRank asc)[0].sourceManifest,
     "clientName": client->name,
     "clientSlug": client->slug.current,
     "services": ${PROJECT_SERVICES},
-    "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
+    "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**")) && hideFromSite != true]
       | order(orderRank asc) [0] {
       "imageUrl": image.asset->url,
       "imageDimensions": image.asset->metadata.dimensions,
@@ -99,7 +102,7 @@ export const PROJECT_COLORS_QUERY = `
  * Tighten to ready-only once the statuses re-sync.
  */
 export const GLOBE_ASSETS_QUERY = `{
-  "picks": *[_type == "globeSettings" && _id == "globeSettings"][0].picks[]->{
+  "picks": *[_type == "globeSettings" && _id == "globeSettings"][0].picks[@->hideFromSite != true]->{
     _id,
     title,
     "playbackId": video.asset->playbackId,
@@ -118,7 +121,7 @@ export const GLOBE_ASSETS_QUERY = `{
   "heroes": *[_type == "project"
       && isFeatured == true
       && !(_id in path("drafts.**"))] {
-    "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
+    "hero": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**")) && hideFromSite != true]
       | order(orderRank asc) [0] {
       _id,
       title,
@@ -138,7 +141,8 @@ export const GLOBE_ASSETS_QUERY = `{
       && mediaType match "motion_*"
       && defined(video.asset->playbackId)
       && video.asset->data.status in ["ready", "preparing"]
-      && !(_id in path("drafts.**"))]
+      && !(_id in path("drafts.**"))
+      && hideFromSite != true]
     | order(_createdAt desc) [0...128] {
     _id,
     title,
@@ -198,7 +202,7 @@ export const MEDIA_FIELDS = `
  * Content Population Hierarchy (see CONTEXT.md) turns that order into the layout.
  */
 export const FEATURED_PROJECT_DETAIL_QUERY = `{
-  "assets": *[_type == "mediaAsset" && project._ref == $projectId && !(_id in path("drafts.**"))] | order(orderRank asc) {${MEDIA_FIELDS},
+  "assets": *[_type == "mediaAsset" && project._ref == $projectId && !(_id in path("drafts.**")) && hideFromSite != true] | order(orderRank asc) {${MEDIA_FIELDS},
     splitIntoThirds,
     "videoDuration": video.asset->data.duration
   },
@@ -245,9 +249,9 @@ export const FEATURED_WORLDS_QUERY = `
     projectColorSecondary,
     "clientName": client->name,
     "clientSlug": client->slug.current,
-    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))] | order(orderRank asc)[0].sourceManifest,
+    "collection": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**")) && hideFromSite != true] | order(orderRank asc)[0].sourceManifest,
     "services": ${PROJECT_SERVICES},
-    "assets": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**"))]
+    "assets": *[_type == "mediaAsset" && project._ref == ^._id && !(_id in path("drafts.**")) && hideFromSite != true]
       | order(orderRank asc) {
       _id,
       title,
@@ -310,7 +314,7 @@ export const DIRECTORY_QUERY = `{
     "umbrellas": affiliations[].entity->slug.current
   },
   "worlds": ${FEATURED_PROJECT_PATHS_QUERY},
-  "assets": *[_type == "mediaAsset" && !(_id in path("drafts.**")) && (defined(image.asset) || defined(video.asset))] {${MEDIA_FIELDS},
+  "assets": *[_type == "mediaAsset" && !(_id in path("drafts.**")) && hideFromSite != true && (defined(image.asset) || defined(video.asset))] {${MEDIA_FIELDS},
     "imageIsOpaque": image.asset->metadata.isOpaque,
     splitIntoThirds,
     "videoDuration": video.asset->data.duration,
