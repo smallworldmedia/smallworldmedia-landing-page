@@ -331,7 +331,9 @@ the region folded to 0 and both panels `inert`.
   media, as FilterTags, the four motion tags under one parent since SQ-67) and `clients` (the live clients, one pick at a time, which the chip shows).
   - Each tab is a 1px non-scaling SVG stroke over an opaque fill, built from `directoryTune.js`.
     `tabCap` draws the left side and the top-left corner, `TAB_TOP` the flat top over the word, and
-    `tabSkirt` the shoulder, diagonal, foot and bottom run.
+    `tabSkirt` the shoulder, diagonal, foot and bottom run. Since 11-13 the tab's height
+    carries `--dir-tab-clear` (4 px, `?dirtabclear`) padded under the word, so the shape grows down
+    and the underline clears the bottom stroke.
   - The clients tab is tucked left, so its left stroke meets the services diagonal at
     `TAB_SHAPE.meet` (`--dir-skirt-tuck`). Services reads as in front.
   - The active tab lies on top, and its left edge clips the other tab's skirt.
@@ -400,7 +402,7 @@ r·tan(turn/2), so it keeps its look if the angle changes. The six `?dirtab*` di
 these values were baked; `?dirpack` (`flush` | `aspect`),
 `?dirlook` (aspect's lookahead, 1..32), `?dirorder`, `?dirplayers`,
 `?dirdwell`, `?dircols`, `?dirtabletcols`, `?dirphonecols`, `?dirlogopad`, `?dirlogoweight`,
-`?dirlogoland`, `?dirlogocenter`; bench `?dirtune=1`, top right). Styles:
+`?dirlogoland`, `?dirlogocenter`, `?dirtabclear` (px under a filter tab's word so its underline clears the bottom stroke, 0..16, 11-13); bench `?dirtune=1`, top right). Styles:
 `src/styles/directory.css` (the scroll unlock with `overflow-anchor: none`, and the sticky filter,
 which follows the nav's footer-reveal slide on `top`) and `directory-grid.css` (`@import`s
 `media-slot.css`). Plan and open calls: `docs/project-directory-plan.md`.
