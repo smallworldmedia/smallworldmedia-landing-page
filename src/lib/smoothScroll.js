@@ -80,7 +80,8 @@ export function syncRoute(pathname = window.location.pathname) {
 
 /**
  * The live Lenis instance, or null (reduced motion / wheel-owned route).
- * Consumers: `getLenis()?.velocity` for scroll-kick, `scroll` for parallax.
+ * Consumers: scroll-kick reads velocity through userScrollVelocity()
+ * (scrollKick.js — only a user scroll kicks), parallax reads `scroll`.
  */
 export function getLenis() {
   return lenis;

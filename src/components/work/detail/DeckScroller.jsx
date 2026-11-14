@@ -60,6 +60,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { getLenis } from '../../../lib/smoothScroll.js';
+import { userScrollVelocity } from '../../../lib/scrollKick.js';
 import {
   IMG_FORMAT,
   DETAIL_MAX_SECONDS,
@@ -243,8 +244,10 @@ export default function DeckScroller({
     const tick = (_t, deltaMs) => {
       const dt = Math.min(deltaMs, 100) / 1000; // clamp tab-return spikes
       // Lenis velocity ≈ px advanced this frame (already smoothed) — the
-      // wall follows the same scroll weight as the page.
-      const kick = Math.abs(getLenis()?.velocity ?? 0) * SCROLL_GEAR;
+      // wall follows the same scroll weight as the page. Only a scroll the
+      // user made counts: a restore, a swap or a scrollTo is one huge
+      // sample Lenis holds for 400 ms, and the wall raced (SQ-77).
+      const kick = Math.abs(userScrollVelocity(getLenis())) * SCROLL_GEAR;
       const step = DRIFT_PX_S * dt + kick;
       for (let i = 0; i < m.offsets.length; i++) {
         m.offsets[i] += m.dirs[i] * step;
