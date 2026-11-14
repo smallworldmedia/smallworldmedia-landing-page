@@ -72,7 +72,6 @@ project: heavy-house-society-branding-2024-2025
 | shirt-2.jpg | static_4x5 | Merch Design | shirt 2 | mediaAsset-heavy-house-society-shirt-2 |
 | Sidney Charles02023569.mp4 | motion_16x9 | Promo Video | Sidney Charles02023569 | mediaAsset-heavy-house-society-sidney-charles02023569 |
 | Sidney Charles02036541.mp4 | motion_16x9 | Promo Video | Sidney Charles02036541 | mediaAsset-heavy-house-society-sidney-charles02036541 |
-| Sidney Charles02067817.mov | motion_16x9 | Promo Video | Sidney Charles02067817 | mediaAsset-heavy-house-society-sidney-charles02067817 |
 | Album Art/HHS052-Sidney-Charles-&-Archie-Hamilton---Reset-EP.jpg | album-art | Album Art | Sidney Charles & Archie Hamilton — Reset EP | mediaAsset-b32b564b-a812-4667-87bb-694ae123f7d0 |
 | Album Art/HHS053-GIGSTA---Try-Change-Me-EP_2.jpg | album-art | Album Art | GIGSTA — Try Change Me EP | mediaAsset-fc67af36-e6d4-4e8b-9cfe-6b13ddb87c4c |
 | Album Art/HHS054-Sidney-Charles---Take-It-Back-EP.jpg | album-art | Album Art | Sidney Charles — Take It Back EP | mediaAsset-38b03c2a-4d70-450f-8460-4db06603f17f |

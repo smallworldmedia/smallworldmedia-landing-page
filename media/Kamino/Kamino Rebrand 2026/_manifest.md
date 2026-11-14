@@ -18,7 +18,5 @@ year: 2026
 | kamino_wall-jump_1.mp4 | motion_9x16 | promo-video | Kamino Wall Jump | 8 | mediaAsset-kamino-kamino-wall-jump |
 | warp-tool_audio-reactive_2.mp4 | motion_1x1 | 2d-animation | Warp Tool Audio Reactive | 9 | mediaAsset-kamino-warp-tool-audio-reactive |
 | 360_text.gif | static_9x16 | 2d-animation | Kamino 360 Text | 10 | mediaAsset-kamino-kamino-360-text |
-| Kamino Logo ROYGBIV.png | static_16x9 | branding | Kamino Logo ROYGBIV | 11 | mediaAsset-998fd251-37e8-4d9d-bb44-6adfd8999a38 |
 | kamino_lowercase.gif | static_16x9 | branding | Kamino Lowercase | 12 | mediaAsset-kamino-kamino-lowercase |
-| kamino-smiley_YOYGBIV.jpg | static_1x1 | branding | Kamino Smiley ROYGBIV | 14 | mediaAsset-eaaa3ce8-6ba6-44ce-8f4e-786838718d95 |
 | Pump Up White 60fps.mp4 | motion_1x1 | audio-reactive-media | Kamino Pump Up White | 15 | mediaAsset-kamino-kamino-pump-up-white |
