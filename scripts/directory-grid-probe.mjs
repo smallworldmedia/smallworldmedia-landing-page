@@ -61,7 +61,7 @@ const client = createClient({
 });
 const data = await client.fetch(DIRECTORY_QUERY);
 const tiles = buildDirectoryTiles({ ...data, logos, alpha }).map((t) =>
-  t.logo ? { ...t, tileRatio: CANVAS_RATIO[canvasOf(t.logo.aspect)] } : t
+  t.logo ? { ...t, tileRatio: CANVAS_RATIO[canvasOf(t.logo)] } : t
 );
 
 const GAP = 2;

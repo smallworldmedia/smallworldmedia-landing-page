@@ -166,9 +166,10 @@ function colourLoss(data, strength, W, H) {
 /**
  * @param {Buffer} buf - the file's bytes (png, jpg, svg)
  * @param {{svg?: boolean}} [opts]
- * @returns {Promise<Object>} { hold?, mode, w, h, aspect, density, cx, cy, inner,
+ * @returns {Promise<Object>} { hold?, mode, w, h, aspect, density, cx, cy, trim, inner,
  *   ground?, png? } — `png` is the white mark (Buffer) unless held for
- *   `no-ink`; cx / cy are the centre of mass in the box (0..1).
+ *   `no-ink`; cx / cy are the centre of mass in the box (0..1); `trim` is the
+ *   box inside the file as fractions [x, y, w, h], so the original can be placed by its ink.
  */
 export async function analyseLogo(buf, { svg = false } = {}) {
   let input = sharp(buf, svg ? { density: 72 } : {});
@@ -221,6 +222,7 @@ export async function analyseLogo(buf, { svg = false } = {}) {
     density: +(sum / (w * h)).toFixed(4),
     cx: +((sx / sum + 0.5 - x0) / w).toFixed(4),
     cy: +((sy / sum + 0.5 - y0) / h).toFixed(4),
+    trim: [x0 / W, y0 / H, w / W, h / H].map((v) => +v.toFixed(4)),
     inner: +loss.inner.toFixed(4),
     spread: +loss.spread.toFixed(4),
     ...(mode === 'keyed' ? { specks: +specks.toFixed(4) } : {}),

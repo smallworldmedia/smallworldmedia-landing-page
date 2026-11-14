@@ -86,6 +86,31 @@
   background: var(--color-near-black);
 }
 
+/* A logo (logoTile.js, SQ-81): the same layout on the directory's logo tiles
+   (LogoMark) and the detail grid's (MediaSlot `logo`). The canvas is the
+   tile's square or landscape shape, kept at its aspect and centred, so a tile
+   the flush grid stretches taller doesn't move the mark; the mark's box is
+   placed inline in percent of the canvas. */
+.logo-canvas {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  transform: translateY(-50%);
+}
+
+.logo-mark {
+  position: absolute;
+  display: block;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.logo-mark--loaded {
+  opacity: 1;
+}
+
 .media-slot[data-fit='contain'] .media-slot__media,
 .media-slot[data-fit='contain'] .media-slot__frame {
   object-fit: contain;

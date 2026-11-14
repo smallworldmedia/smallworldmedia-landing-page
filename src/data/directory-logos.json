@@ -13,21 +13,15 @@
     "density": 0.4341,
     "cx": 0.4999,
     "cy": 0.4876,
+    "trim": [
+      0.0799,
+      0.0969,
+      0.845,
+      0.7942
+    ],
     "title": "Andhera Logo Sticker",
     "client": "Andhera Records",
     "doc": "mediaAsset-andhera-records-andhera-logo-sticker"
-  },
-  "image-16669c7dd9a2098e60aaff485cbbe5a76e3461cc-901x750-png": {
-    "hold": "busy-ground",
-    "title": "Andhera Logo (Yellow)",
-    "client": "Andhera Records",
-    "doc": "mediaAsset-andhera-records-andhera-logo-yellow"
-  },
-  "image-241604c40aa74020111059642bc4faaafde66265-1772x224-png": {
-    "hold": "multi-colour",
-    "title": "Short Circuit Logo Full Gradient",
-    "client": "Short Circuit",
-    "doc": "mediaAsset-short-circuit-short-circuit-logo-full-gradient"
   },
   "image-2589ad8cb2783129a03a510836da05f0e5c318a5-1506x689-png": {
     "file": "2589ad8cb278.png",
@@ -37,6 +31,12 @@
     "density": 0.1964,
     "cx": 0.5004,
     "cy": 0.6853,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "aint nobody logo minimal black",
     "client": "Salomé Le Chat",
     "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-minimal-black"
@@ -49,6 +49,12 @@
     "density": 0.4003,
     "cx": 0.4764,
     "cy": 0.4524,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Andhera Logo (White)",
     "client": "Andhera Records",
     "doc": "mediaAsset-andhera-records-andhera-logo-white"
@@ -61,6 +67,12 @@
     "density": 0.1964,
     "cx": 0.5004,
     "cy": 0.6848,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "aint nobody logo minimal white",
     "client": "Salomé Le Chat",
     "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-minimal-white",
@@ -74,9 +86,33 @@
     "density": 0.319,
     "cx": 0.4814,
     "cy": 0.482,
+    "trim": [
+      0.083,
+      0.298,
+      0.834,
+      0.404
+    ],
     "title": "front left logo white",
     "client": "Front Left",
     "doc": "mediaAsset-front-left-front-left-logo-white"
+  },
+  "image-35666b96734ac7fd548cbe10af41d60b6e333464-1200x1200-jpg": {
+    "file": "35666b96734a.png",
+    "w": 970,
+    "h": 930,
+    "aspect": 1.043,
+    "density": 0.076,
+    "cx": 0.5065,
+    "cy": 0.5156,
+    "trim": [
+      0.026,
+      0.022,
+      0.97,
+      0.93
+    ],
+    "title": "Friends & Disco Initials Logo (Light)",
+    "client": "Friends & Disco",
+    "doc": "mediaAsset-baa15aba-114f-4268-bcc1-2dfc1a7c98dd"
   },
   "image-3c0a752df36cb007934cb82b31057390a5c5a772-2456x2422-png": {
     "file": "3c0a752df36c.png",
@@ -86,6 +122,12 @@
     "density": 0.6362,
     "cx": 0.5137,
     "cy": 0.454,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "SB Logo Single Stack White",
     "client": "Sunday Brunch",
     "doc": "mediaAsset-sunday-brunch-sb-logo-single-stack-white"
@@ -98,6 +140,12 @@
     "density": 0.5805,
     "cx": 0.5058,
     "cy": 0.4947,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "SB Logo Double Stack White",
     "client": "Sunday Brunch",
     "doc": "mediaAsset-sunday-brunch-sb-logo-double-stack-white"
@@ -110,9 +158,33 @@
     "density": 0.7438,
     "cx": 0.4949,
     "cy": 0.5016,
+    "trim": [
+      0.025,
+      0.3264,
+      0.95,
+      0.3473
+    ],
     "title": "Maximo Logo",
     "client": "Maximo",
     "doc": "mediaAsset-maximo-maximo-logo"
+  },
+  "image-4da771c90ceea2d1a74886cdbe522ca2bad97135-1626x339-png": {
+    "file": "4da771c90cee.png",
+    "w": 1000,
+    "h": 209,
+    "aspect": 4.7847,
+    "density": 0.2258,
+    "cx": 0.4662,
+    "cy": 0.4417,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "RozálesD Logo (Solid White)",
+    "client": "RozálesD",
+    "doc": "mediaAsset-c476a5a3-9a55-4eb9-aee5-d587d1bc8ef6"
   },
   "image-4df96d03ddef33b8b255241457f5a2da407059d1-1400x203-png": {
     "file": "4df96d03ddef.png",
@@ -122,6 +194,12 @@
     "density": 0.4815,
     "cx": 0.5263,
     "cy": 0.5112,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Pulse Logo White",
     "client": "Pulse Artists",
     "doc": "mediaAsset-pulse-artists-pulse-logo-white"
@@ -134,6 +212,12 @@
     "density": 0.361,
     "cx": 0.464,
     "cy": 0.5687,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Offstage Logo White",
     "client": "Offstage",
     "doc": "mediaAsset-offstage-offstage-logo-white"
@@ -146,6 +230,12 @@
     "density": 0.4812,
     "cx": 0.4601,
     "cy": 0.3942,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Pulse Icon Beige",
     "client": "Pulse Artists",
     "doc": "mediaAsset-pulse-artists-pulse-icon-beige"
@@ -158,6 +248,12 @@
     "density": 0.2969,
     "cx": 0.4801,
     "cy": 0.4981,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Ky William Logo Inline White",
     "client": "Ky William",
     "doc": "mediaAsset-ky-william-ky-william-logo-inline-white"
@@ -170,6 +266,12 @@
     "density": 0.511,
     "cx": 0.506,
     "cy": 0.4895,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "TBH Logo White",
     "client": "TOBEHONEST",
     "doc": "mediaAsset-tobehonest-tbh-logo-white"
@@ -188,22 +290,16 @@
     "density": 0.2326,
     "cx": 0.4812,
     "cy": 0.42,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Cheetah Print Primary Logo — Red",
     "client": "Cheetah Print",
     "doc": "mediaAsset-3ea3229e-49b0-4ddf-afd7-3ca0127b8f6c",
     "twinOf": "image-93d120cb4b70a886aaec69a6790ab1d50738a935-830x762-png"
-  },
-  "image-785076511ed94f899ec8352a044da3df7ce52007-1577x2100-png": {
-    "file": "785076511ed9.png",
-    "w": 751,
-    "h": 1000,
-    "aspect": 0.751,
-    "density": 0.2625,
-    "cx": 0.4943,
-    "cy": 0.5042,
-    "title": "COCO Logo White",
-    "client": "COCO",
-    "doc": "mediaAsset-5a8387fc-9233-492d-9b59-28783fab0f07"
   },
   "image-93d120cb4b70a886aaec69a6790ab1d50738a935-830x762-png": {
     "file": "93d120cb4b70.png",
@@ -213,6 +309,12 @@
     "density": 0.2342,
     "cx": 0.4804,
     "cy": 0.4203,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Cheetah Print Primary Logo — Gold",
     "client": "Cheetah Print",
     "doc": "mediaAsset-b5ce1a5e-d7eb-444d-adfc-44ed2f3103eb"
@@ -237,6 +339,12 @@
     "density": 0.1989,
     "cx": 0.4849,
     "cy": 0.5822,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Ain't Nobody Logo Black",
     "client": "Salomé Le Chat",
     "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-black",
@@ -256,6 +364,12 @@
     "density": 0.4291,
     "cx": 0.5131,
     "cy": 0.5263,
+    "trim": [
+      0.045,
+      0.285,
+      0.911,
+      0.43
+    ],
     "title": "Sidney Charles Logo 01",
     "client": "Sidney Charles",
     "doc": "mediaAsset-sidney-charles-sidney-charles-logo-01"
@@ -274,6 +388,12 @@
     "density": 0.2532,
     "cx": 0.4925,
     "cy": 0.4992,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "heavy house society logo white",
     "client": "Heavy House Society",
     "doc": "mediaAsset-heavy-house-society-heavy-house-society-logo-white"
@@ -286,6 +406,12 @@
     "density": 0.3152,
     "cx": 0.4771,
     "cy": 0.51,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Gio Lucca Logo White",
     "client": "Gio Lucca",
     "doc": "mediaAsset-gio-lucca-gio-lucca-logo-white"
@@ -298,6 +424,12 @@
     "density": 0.3324,
     "cx": 0.5253,
     "cy": 0.3797,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Pulse Artists Logo Beige",
     "client": "Pulse Artists",
     "doc": "mediaAsset-pulse-artists-pulse-artists-logo-beige"
@@ -322,6 +454,12 @@
     "density": 0.1994,
     "cx": 0.4849,
     "cy": 0.5826,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
     "title": "Ain't Nobody Logo White",
     "client": "Salomé Le Chat",
     "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-white"
