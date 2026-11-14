@@ -71,6 +71,8 @@ const DirectoryTile = memo(function DirectoryTile({ tile, placement, gate, colSp
   // every face covers its cell unless it is really transparent (fitOf)
   const fit = tile.fit;
   // A cover promoted to 2×2 (flushGrid, SQ-78) asks for two columns' width.
+  // A piece demoted to one cell (SQ-82) is placed as a `square` of one
+  // column, so sizesFor already gives it a single cell's width.
   const actual = aspect
     ? { span: placement.colSpan, cell: placement.cell }
     : placement.type === 'square' && placement.colSpan === 2

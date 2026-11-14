@@ -42,7 +42,9 @@
  *
  * Square album art (SQ-78) never stretches in either stage: where the bottom
  * would need it, computeFlushGrid promotes covers to 2×2 instead (see
- * isSquareArt), and a gap no promotion closes stays open.
+ * isSquareArt), and a gap no promotion closes stays open. Where promoting
+ * alone cannot close it, a non-album portrait or landscape may take a single
+ * 1×1 cell instead (SQ-82, demotable), rigid like a cover.
  *
  * Known ragged edge: a column whose final occupant is a region (no tile
  * below it while other columns run deeper) keeps a tail gap — nothing exists
@@ -180,11 +182,12 @@ function occupy(segs, c0, colSpan, row, rowSpan) {
 export const isSquareArt = (asset) => asset.mediaType === 'album-art' && tileClassOf(asset) === 'square';
 const RIGID = new WeakSet();
 
-/** Dense-place one asset at its earliest fit (leftmost on a tie). `big`: a
- *  square promoted to 2×2 (two columns, two squares' rows). */
-function placeOne(segs, asset, cols, sizes, big = false) {
-  const type = tileClassOf(asset);
-  const { colSpan, rowSpan } = big ? { colSpan: 2, rowSpan: 2 * sizes.square.rowSpan } : sizes[type];
+/** Dense-place one asset at its earliest fit (leftmost on a tie). `how`
+ *  resizes it: 'big' a square cover promoted to 2×2 (two columns, two
+ *  squares' rows), 'small' a piece demoted to one square cell (SQ-82). */
+function placeOne(segs, asset, cols, sizes, how) {
+  const type = how === 'small' ? 'square' : tileClassOf(asset);
+  const { colSpan, rowSpan } = how === 'big' ? { colSpan: 2, rowSpan: 2 * sizes.square.rowSpan } : sizes[type];
 
   let best = null;
   for (let c = 0; c <= cols - colSpan; c++) {
@@ -200,17 +203,17 @@ function placeOne(segs, asset, cols, sizes, big = false) {
     rowEnd: best.row + rowSpan,
     type,
   };
-  if (isSquareArt(asset)) RIGID.add(p);
+  if (how === 'small' || isSquareArt(asset)) RIGID.add(p);
   return p;
 }
 
-/** Dense-place every showcase asset around the blocked rects; `big` holds
- *  the indexes promoted to 2×2. */
-function placeAll(showcase, cols, blocked, sizes, big = NONE) {
+/** Dense-place every showcase asset around the blocked rects; `resize` maps
+ *  an index to 'big' or 'small' (placeOne). */
+function placeAll(showcase, cols, blocked, sizes, resize = NONE) {
   const segs = freeSegments(cols, blocked);
-  return showcase.map((asset, i) => placeOne(segs, asset, cols, sizes, big.has(i)));
+  return showcase.map((asset, i) => placeOne(segs, asset, cols, sizes, resize.get(i)));
 }
-const NONE = new Set();
+const NONE = new Map();
 
 /**
  * Stage 1 — guarded stretch: each tile extends down to the next occupied
@@ -335,7 +338,7 @@ function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDE
  * the earlier row). With no tile below the last break, the rest share its
  * row — one band. No tiles at all → no breaks.
  */
-function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, every, big) {
+function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, every, resize) {
   if (count <= 0 || placements.length === 0) return placements;
 
   const start = Math.min(...placements.map((p) => p.rowStart));
@@ -360,7 +363,7 @@ function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, e
     let best = { row: floor, holes: Infinity, dist: Infinity };
     for (const row of new Set(placements.map((p) => p.rowEnd))) {
       if (row < floor || inside(row)) continue;
-      const holes = holeRows(showcase, cols, [...resolved, cut(i, row)], sizes, sqRows, big);
+      const holes = holeRows(showcase, cols, [...resolved, cut(i, row)], sizes, sqRows, resize);
       const dist = Math.abs(row - target);
       if (
         holes < best.holes ||
@@ -370,7 +373,7 @@ function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, e
       }
     }
     resolved.push(cut(i, best.row));
-    placements = placeAll(showcase, cols, resolved, sizes, big);
+    placements = placeAll(showcase, cols, resolved, sizes, resize);
     floor = best.row;
   }
   return placements;
@@ -378,8 +381,8 @@ function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, e
 
 /** Rows no tile or region covers, summed over the columns, once both
  *  stretch passes have run on a trial layout: the open holes a cut leaves. */
-function holeRows(showcase, cols, resolved, sizes, sqRows, big) {
-  const placements = placeAll(showcase, cols, resolved, sizes, big);
+function holeRows(showcase, cols, resolved, sizes, sqRows, resize) {
+  const placements = placeAll(showcase, cols, resolved, sizes, resize);
   const end = Math.max(0, ...placements.map((p) => p.rowEnd), ...resolved.map((r) => r.rowEnd));
   guardedStretch(placements, resolved, end);
   forcedFill(placements, resolved, cols, end, sqRows / 2);
@@ -428,16 +431,20 @@ function openRows(placements, resolved, cols, end) {
  * }} placements align 1:1 with the showcase array. `underlay` tiles must
  *    paint beneath intact tiles. splitAtBreaks turns this into rendered
  *    segments. Square album art (isSquareArt) is 1×1 or, promoted, a
- *    2-column `square` of 2 × sqRows rows; it never stretches.
+ *    2-column `square` of 2 × sqRows rows; it never stretches. A piece
+ *    demoted to one cell (demotable, SQ-82) is a `square` of sqRows rows, its
+ *    `type` the cell it fills rather than its class, and rigid the same way.
  */
 export function computeFlushGrid(showcase, opts = {}) {
   const base = layoutFlush(showcase, opts, NONE);
   const cols = opts.cols ?? 3;
   const holes = (out) => openRows(out.placements, out.regions, cols, out.totalRows);
   let best = { out: base, holes: holes(base) };
-  // Nothing open, or nothing to promote (one column has no 2×2): done.
-  const art = cols < 2 || best.holes === 0 ? [] : showcase.flatMap((a, i) => (isSquareArt(a) ? [i] : [])).reverse();
-  if (art.length === 0) return base;
+  // Nothing open, or nothing to resize (one column has no 2×2): done.
+  if (cols < 2 || best.holes === 0) return base;
+  const art = showcase.flatMap((a, i) => (isSquareArt(a) ? [i] : [])).reverse();
+  const trial = (small, big) =>
+    layoutFlush(showcase, opts, new Map([...small.map((i) => [i, 'small']), ...big.map((i) => [i, 'big'])]));
 
   // Promote covers to 2×2 (SQ-78): one 2×2 adds three squares of area, so a
   // short last row closes with the right count. Fewest promotions first,
@@ -445,15 +452,62 @@ export function computeFlushGrid(showcase, opts = {}) {
   // With none, the fewest open rows wins, and an unhelped grid keeps its
   // ragged edge rather than a stretched cover.
   const pools = [art.slice(0, 3 * cols), art.slice(0, 2 * cols), art.slice(0, 2 * cols)];
-  for (let k = 1; k <= pools.length; k++) {
+  for (let k = 1; k <= pools.length && art.length > 0; k++) {
     for (const pick of combos(pools[k - 1], k)) {
-      const out = layoutFlush(showcase, opts, new Set(pick));
+      const out = trial([], pick);
       const h = holes(out);
       if (h === 0) return out;
       if (h < best.holes) best = { out, holes: h };
     }
   }
+
+  // Demote non-album pieces to one square cell (SQ-82), alone or beside
+  // promotions (a demotion shifts the area count by one, a promotion by
+  // three: only together do some counts close). Fewest swaps first; of the
+  // flat layouts at that count, the least crop, then the nearest the end.
+  // Up to three swaps, from the 2 × cols pieces and the `cols` covers nearest
+  // the end: a wider pool closed no more of the live directory's views (11-13)
+  // and costs layouts in proportion.
+  const swaps = demotable(showcase, base, opts.sqRows ?? 24).slice(0, 2 * cols);
+  const near = art.slice(0, cols);
+  const cost = (small) => small.reduce((s, i) => s + cropLoss(ratioOf(showcase[i]), 1), 0);
+  for (let k = 1; k <= 3 && swaps.length > 0; k++) {
+    let flat = null;
+    for (let d = 1; d <= Math.min(k, swaps.length); d++) {
+      for (const small of combos(swaps, d)) {
+        for (const big of combos(near, k - d)) {
+          const out = trial(small, big);
+          const h = holes(out);
+          if (h === 0) {
+            const c = cost(small);
+            if (!flat || c < flat.cost - 1e-9) flat = { out, cost: c };
+          } else if (h < best.holes) best = { out, holes: h };
+        }
+      }
+    }
+    if (flat) return flat.out;
+  }
   return best.out;
+}
+
+/**
+ * The pieces that may take a single square cell (SQ-82), nearest the list's
+ * end first. Not a cover (square album art is rigid already) and not a
+ * square-class piece (its tile IS 1×1; non-album squares keep stretching),
+ * and a square must crop the piece less than the box the base layout gives
+ * it today (a 4:5 portrait loses 20% as a square against 37.5% stretched
+ * over a 1×2), so the swap never costs the piece more.
+ */
+function demotable(showcase, base, sqRows) {
+  const out = [];
+  showcase.forEach((a, i) => {
+    if (isSquareArt(a) || tileClassOf(a) === 'square') return;
+    const p = base.placements[i];
+    const slot = p.colSpan / ((p.rowEnd - p.rowStart) / sqRows);
+    const r = ratioOf(a);
+    if (cropLoss(r, 1) < cropLoss(r, slot) - 1e-9) out.push(i);
+  });
+  return out.reverse();
 }
 
 /** Every k-subset of `list`, in lexicographic order of its positions. */
@@ -467,11 +521,11 @@ function* combos(list, k, from = 0) {
   }
 }
 
-/** computeFlushGrid's layout with the covers in `big` promoted to 2×2. */
+/** computeFlushGrid's layout with the pieces in `resize` promoted (2×2) or demoted (1×1). */
 function layoutFlush(
   showcase,
   { cols = 3, regions = [], sqRows = 24, lsRows = sqRows, breaks = 0, breakEvery = 2 },
-  big
+  resize
 ) {
   const sizes = tileSizes(sqRows, cols, lsRows);
 
@@ -493,10 +547,10 @@ function layoutFlush(
 
   let placements;
   if (mids.length === 0) {
-    placements = placeAll(showcase, cols, resolved, sizes, big);
+    placements = placeAll(showcase, cols, resolved, sizes, resize);
   } else {
     // Pass 1 — natural grid without the mid regions.
-    const natural = placeAll(showcase, cols, resolved, sizes, big);
+    const natural = placeAll(showcase, cols, resolved, sizes, resize);
     const naturalEnd = Math.max(
       0,
       ...natural.map((p) => p.rowEnd),
@@ -519,10 +573,10 @@ function layoutFlush(
     }
 
     // Pass 2 — re-place everything around the pinned regions.
-    placements = placeAll(showcase, cols, resolved, sizes, big);
+    placements = placeAll(showcase, cols, resolved, sizes, resize);
   }
 
-  placements = pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, breaks, breakEvery * sqRows, big);
+  placements = pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, breaks, breakEvery * sqRows, resize);
 
   // Bottom regions — pinned at the natural end AFTER placement (tiles can
   // never flow below them), stacking downward. Added to `resolved` before

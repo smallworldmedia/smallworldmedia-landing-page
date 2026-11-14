@@ -157,7 +157,11 @@ test('an _other mix in the bands where the pick differs from classifyTile still 
       const out = computeFlushGrid(items, { cols: w.cols, sqRows: w.sqRows, lsRows: w.lsRows })
       assertValid(out, w, `${w.cols} cols, seed ${seed}`)
       assert.deepEqual(computeFlushGrid(items, { cols: w.cols, sqRows: w.sqRows, lsRows: w.lsRows }), out, 'deterministic')
-      out.placements.forEach((p, i) => assert.equal(p.type, tileClassOf(items[i]), 'placed in the class it was picked for'))
+      // placed in the class it was picked for, or (SQ-82) demoted to one square cell
+      out.placements.forEach((p, i) => {
+        if (p.type === tileClassOf(items[i])) return
+        assert.ok(p.type === 'square' && p.colSpan === 1 && p.rowEnd - p.rowStart === w.sqRows, `${w.cols} cols, seed ${seed}: tile ${i} is neither its class nor one square cell`)
+      })
     }
   }
 })
@@ -170,9 +174,13 @@ test("the detail page's call is unchanged (snapshot of the 3-column placement, 1
   // case with a region changed hash. Placements, totalRows and the rest of
   // each region matched the old code, and `dom` pins the socket order
   // splitAtBreaks gives a grid without breaks: the old domIndex.
+  // Re-taken 11-13 (SQ-82): two cases (12 tiles seed 2, 50 tiles seed 10) left
+  // 80 and 40 rows open under a 4:5 portrait stretched 1 × 3; it now takes one
+  // square cell and both close flat (0 open rows, same totalRows). The other
+  // ten hashes are the old ones.
   const CASES = [
     [5, 1, [], 40, '1aab82f598ead89d', ''],
-    [12, 2, [ORBIT], 40, '0edab619506b7925', '0'],
+    [12, 2, [ORBIT], 40, '8853341d6a7ba680', '0'],
     [24, 3, [ORBIT, DECK('mid')], 40, 'ef56ae67328468e3', '0,12'],
     [36, 4, [DECK('top')], 40, '4794a39d2b68b773', '0'],
     [18, 5, [SOLO, BANNER], 40, '7ffe7b87da977bfd', '18,18'],
@@ -180,7 +188,7 @@ test("the detail page's call is unchanged (snapshot of the 3-column placement, 1
     [30, 7, [], 24, 'e7602e06ca3c1d66', ''],
     [44, 8, [ORBIT], 33, '01f48369cbf25ed4', '0'],
     [9, 9, [BANNER], 52, '9109c438c7107bbe', '9'],
-    [50, 10, [DECK('top'), SOLO], 40, 'c8ac2ab154f236f1', '0,50'],
+    [50, 10, [DECK('top'), SOLO], 40, '424a6e83b4d37038', '0,50'],
     [1, 11, [ORBIT], 40, '689545a4433329f1', '0'],
     [0, 12, [ORBIT, DECK('mid')], 40, 'da03f93c748e23d3', '0,0'],
   ]
@@ -389,4 +397,106 @@ test('non-album squares still stretch as before; where no square fill exists the
   const reg = computeFlushGrid(items, { cols: 6, sqRows: SQ, regions: [{ id: 'orbit', colStart: 0, colSpan: 6, rowSpan: 34, anchor: 'top' }] })
   assertCoversSquare(reg.placements, items, 'below a region')
   assert.equal(openRows(reg, 6), 0)
+})
+
+/* ── SQ-82: a non-album piece takes one square cell when that closes the bottom (Nathan 11-13) ── */
+const motion45 = (i = 'm') => ({ _id: `m${i}`, mediaType: 'motion_4x5' })
+/** A piece that took one square cell its class does not give it. */
+const isDemoted = (p, item) => p.type !== tileClassOf(item)
+/** Gruuv's shape: 14 covers and one 4:5 motion piece at index `at`. */
+const gruuv = (at) => {
+  const items = Array.from({ length: 14 }, (_, i) => cover(i))
+  items.splice(at, 0, motion45())
+  return items
+}
+
+test("Nathan's Gruuv shape: a 4:5 motion piece among 14 covers at 6 columns takes one square cell and the bottom closes", () => {
+  for (const at of [0, 7, 14]) {
+    const items = gruuv(at)
+    for (const out of [computeFlushGrid(items, { cols: 6, sqRows: SQ }), chunkFlushGrid(items, { cols: 6, sqRows: SQ })[0]]) {
+      const where = `motion piece at ${at}`
+      assert.equal(openRows(out, 6), 0, `${where}: flush bottom`)
+      const p = out.placements[at]
+      assert.ok(isDemoted(p, items[at]), `${where}: the portrait is demoted`)
+      assert.equal(p.type, 'square')
+      assert.equal(p.colSpan, 1)
+      assert.equal(p.rowEnd - p.rowStart, SQ, `${where}: one square, not stretched`)
+      assert.ok(!p.underlay)
+      assertCoversSquare(out.placements, items, where)
+      assert.equal(out.placements.filter((q, i) => isDemoted(q, items[i])).length, 1, `${where}: nothing else demoted`)
+      assert.equal(out.placements.filter((q) => q.colSpan === 2).length, 1, `${where}: one cover promoted beside it`)
+      assert.equal(out.totalRows, 3 * SQ)
+    }
+    assert.deepEqual(chunkFlushGrid(items, { cols: 6, sqRows: SQ })[0].placements, computeFlushGrid(items, { cols: 6, sqRows: SQ }).placements, `${at}: the directory places as the detail grid`)
+  }
+})
+
+test('no demotion where the layout is already flat', () => {
+  // 3 columns: a 4:5 portrait (1 × 2) beside 4 covers fills two full rows
+  const items = [motion45(), cover(0), cover(1), cover(2), cover(3)]
+  const out = computeFlushGrid(items, { cols: 3, sqRows: SQ })
+  assert.equal(openRows(out, 3), 0)
+  assert.ok(out.placements.every((p, i) => !isDemoted(p, items[i])))
+  assert.equal(out.placements[0].rowEnd - out.placements[0].rowStart, 2 * SQ)
+  // and where covers alone close it, a portrait that cannot help stays a portrait
+  const nine = [...Array.from({ length: 9 }, (_, i) => cover(i)), motion45()]
+  const n = computeFlushGrid(nine, { cols: 3, sqRows: SQ })
+  assert.equal(openRows(n, 3), 0)
+  assert.ok(n.placements.every((p, i) => !isDemoted(p, nine[i])))
+})
+
+test('no demotion where the square would crop the piece more than the slot it has today', () => {
+  // 9:16 loses 44% as a square against 11% in its 1 × 2 tile; 16:9 loses 44% against 11% in 2 × 1.
+  // Gruuv's shape with the 4:5 swapped for a 9:16 is the same count, so it closes only by cropping
+  // the piece to a square: it stays a portrait and the ragged edge stays (square cover wins).
+  const tall = { _id: 'tall', mediaType: 'motion_9x16' }
+  const items = [...Array.from({ length: 14 }, (_, i) => cover(i)), tall]
+  const out = computeFlushGrid(items, { cols: 6, sqRows: SQ })
+  assertCoversSquare(out.placements, items, '9:16')
+  assert.ok(out.placements.every((p, i) => !isDemoted(p, items[i])), '9:16 kept its class')
+  assert.ok(openRows(out, 6) > 0, 'the ragged edge stays')
+  // a 16:9 never qualifies either, wherever the list ends
+  for (let n = 5; n <= 16; n++) {
+    const wide = [...Array.from({ length: n }, (_, i) => cover(i)), tile(99, 16 / 9)]
+    const w = computeFlushGrid(wide, { cols: 6, sqRows: SQ })
+    assert.ok(w.placements.every((p, i) => !isDemoted(p, wide[i])), `${n} covers + a 16:9`)
+  }
+})
+
+test('square album art is never demoted or stretched, and a demotion is the swap the rule allows', () => {
+  const kind = { A: cover, P: () => motion45(), W: (i) => tile(i, 1.25), T: (i) => tile(i, 0.75), L: (i) => tile(i, 16 / 9) }
+  let demoted = 0
+  for (const cols of [2, 4, 5, 6]) {
+    for (let seed = 1; seed <= 12; seed++) {
+      for (let n = 3; n <= 24; n++) {
+        const r = rng(seed * 1000 + n)
+        const items = Array.from({ length: n }, (_, i) => kind['AAAAPWTL'[Math.floor(r() * 8)]](i))
+        const out = computeFlushGrid(items, { cols, sqRows: SQ })
+        const where = `${n} @ ${cols}, seed ${seed}`
+        assertCoversSquare(out.placements, items, where)
+        assertValid(out, { cols, sqRows: SQ }, where)
+        out.placements.forEach((p, i) => {
+          if (!isDemoted(p, items[i])) return
+          demoted++
+          assert.notEqual(items[i].mediaType, 'album-art', `${where}: a cover is never demoted`)
+          assert.ok(p.colSpan === 1 && p.rowEnd - p.rowStart === SQ && !p.underlay, `${where}: tile ${i} is one rigid square`)
+          // the rule: the square crops it less than its class tile does
+          const ratio = items[i].imageDimensions ? items[i].imageDimensions.width / items[i].imageDimensions.height : 0.8
+          assert.ok(cropLoss(ratio, 1) < cropLoss(ratio, TILE_RATIO[tileClassOf(items[i])]) + 1e-9, `${where}: tile ${i} (${ratio}) loses more as a square`)
+        })
+        assert.deepEqual(computeFlushGrid(items, { cols, sqRows: SQ }), out, `${where}: deterministic`)
+      }
+    }
+  }
+  assert.ok(demoted > 0, 'the mix does demote somewhere')
+})
+
+test('the promotions run first: where a 2×2 cover alone closes the bottom, the portrait keeps its class', () => {
+  // a 4:5 portrait (2 squares) and 7 covers = 9 squares at 4 columns: one 2×2 makes 12, three whole rows
+  const items = [motion45(), ...Array.from({ length: 7 }, (_, i) => cover(i))]
+  const out = computeFlushGrid(items, { cols: 4, sqRows: SQ })
+  assert.equal(openRows(out, 4), 0)
+  assert.ok(out.placements.every((p, i) => !isDemoted(p, items[i])))
+  assert.equal(out.placements.filter((p) => p.colSpan === 2).length, 1)
+  assert.equal(out.placements[0].rowEnd - out.placements[0].rowStart, 2 * SQ, 'the portrait keeps its 1 × 2')
 })
