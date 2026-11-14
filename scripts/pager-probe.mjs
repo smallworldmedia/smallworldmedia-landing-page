@@ -147,7 +147,8 @@ const chipsReadout = (page) =>
               return {
                 s: getComputedStyle(track).animationDuration,
                 delay: getComputedStyle(track).animationDelay,
-                phaseS: a ? +(((a.currentTime / 1000) % dur)).toFixed(3) : null,
+                // progress is the iteration fraction INCLUDING the negative delay
+                phaseS: a ? +(a.effect.getComputedTiming().progress * dur).toFixed(3) : null,
                 wallS: +(((performance.now() / 1000) % dur)).toFixed(3),
               };
             })()

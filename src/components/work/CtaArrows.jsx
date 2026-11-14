@@ -75,11 +75,11 @@ export function CtaName({ name }) {
   const [roll, setRoll] = useState(null);
   useLayoutEffect(() => {
     const win = winRef.current;
-    const text = textRef.current;
-    if (!win || !text || PREFERS_REDUCED_MOTION) return undefined;
+    if (!win || PREFERS_REDUCED_MOTION) return undefined;
     let live = true;
     const measure = () => {
-      if (!live) return;
+      const text = textRef.current; // re-read: a re-timed roll remounts the track
+      if (!live || !text) return;
       const pxs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scale-fill-pxs'));
       const g = rollGeometry({
         textW: text.offsetWidth,
@@ -119,7 +119,10 @@ export function CtaName({ name }) {
           : undefined
       }
     >
-      <span className="fp-cta__name-track">
+      {/* keyed by the loop's geometry: changing an animation's duration or
+          delay mid-run keeps its start time and so jumps its phase off the
+          wall clock — a re-timed roll is a fresh element, a fresh phase */}
+      <span className="fp-cta__name-track" key={roll ? `${roll.shiftPx.toFixed(1)}|${roll.durS.toFixed(2)}` : 'still'}>
         <span className="fp-cta__name-copy">
           <span ref={textRef}>{name}</span>
         </span>
