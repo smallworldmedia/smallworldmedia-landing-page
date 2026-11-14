@@ -12,9 +12,10 @@
  * ?caret=<seconds> tunes the drift (seconds per slot); reduced motion
  * renders the strip static.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
+import { NAME_GAP_EM, rollGeometry } from '../../lib/ctaNames.js';
 
 // Seconds for one caret to travel one slot — higher = slower drift.
 const ARROW_LOOP_SECONDS = (() => {
@@ -50,6 +51,81 @@ function Chevron({ direction }) {
         strokeLinecap="square"
       />
     </svg>
+  );
+}
+
+// Same loop, same geometry: a roll whose shift/duration did not move keeps its
+// object, so a resize tick that measures the same never re-phases the ticker.
+const sameRoll = (a, b) =>
+  a === b || (a && b && Math.abs(a.shiftPx - b.shiftPx) < 0.05 && Math.abs(a.durS - b.durS) < 0.005);
+
+/**
+ * CtaName — the /work chip's label as a CLIENT NAME (SQ-80). A fixed-width
+ * box between the carets: a name that fits sits centred and still; a wider
+ * one rolls as the house two-copy marquee, hard-clipped at the box. Each copy
+ * carries its own trailing gap (padding), so the track's -50% travel is
+ * exactly one copy + one gap — no half-gap wrap jump — and the phase is the
+ * wall clock's (negative animation-delay), so a remount joins mid-roll.
+ * Reduced motion: no roll, the name clipped static. Face and weight live in
+ * featured-projects.css (the pager's name tokens).
+ */
+export function CtaName({ name }) {
+  const winRef = useRef(null);
+  const textRef = useRef(null);
+  const [roll, setRoll] = useState(null);
+  useLayoutEffect(() => {
+    const win = winRef.current;
+    const text = textRef.current;
+    if (!win || !text || PREFERS_REDUCED_MOTION) return undefined;
+    let live = true;
+    const measure = () => {
+      if (!live) return;
+      const pxs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scale-fill-pxs'));
+      const g = rollGeometry({
+        textW: text.offsetWidth,
+        windowW: win.clientWidth,
+        gapPx: NAME_GAP_EM * (parseFloat(getComputedStyle(win).fontSize) || 0),
+        pxs: pxs || 30, // the pager's ticker speed (--scale-fill-pxs)
+        nowMs: performance.now(),
+      });
+      setRoll((prev) => {
+        const next = g.rolls ? g : null;
+        return sameRoll(prev, next) ? prev : next;
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(win);
+    document.fonts?.ready.then(measure); // the face may land after first paint
+    return () => {
+      live = false;
+      ro.disconnect();
+    };
+  }, [name]);
+
+  return (
+    <span
+      className="fp-cta__label fp-cta__name"
+      ref={winRef}
+      aria-hidden="true"
+      data-roll={roll ? '' : undefined}
+      style={
+        roll
+          ? {
+              '--cta-name-gap': `${NAME_GAP_EM}em`,
+              '--cta-name-s': `${roll.durS.toFixed(3)}s`,
+              '--cta-name-delay': `${roll.delayS.toFixed(3)}s`,
+            }
+          : undefined
+      }
+    >
+      <span className="fp-cta__name-track">
+        <span className="fp-cta__name-copy">
+          <span ref={textRef}>{name}</span>
+        </span>
+        <span className="fp-cta__name-copy">{name}</span>
+      </span>
+    </span>
   );
 }
 

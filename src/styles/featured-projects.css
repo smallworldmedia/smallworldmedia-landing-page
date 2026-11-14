@@ -1668,6 +1668,78 @@ body:has(.fp) {
   margin: 0 0 -0.25rem;
 }
 
+/* SQ-80 (Nathan 11-13, "try"): the chips read the NEIGHBOURING client names
+   (?ctanames=0 restores the words). The width the words used to floor
+   (--stepnav-min-w) is the FIXED width now, so a long name never widens the
+   chip; the label is a box between the carets that hard-clips and — past its
+   width — rolls (CtaName in CtaArrows.jsx). Skin only: no colour, charge,
+   scale, wipe or timing moves. data-names is set only while a name is shown,
+   so the words' chip keeps its min-width. */
+.fp-cta.fp-prev[data-names],
+.fp-cta.fp-next[data-names] {
+  width: var(--stepnav-min-w);
+}
+
+/* The label wears the PAGER's client-name face and weight: the very tokens
+   .fp-scale__station sets (--font-body, --weight-medium) — no copied value —
+   and the case comes through uppercase from .fp-cta, like .fp-scale__name's.
+   Size is the chip's own (--text-mono, from the rule above). */
+.fp-cta .fp-cta__name {
+  align-self: stretch;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  white-space: nowrap;
+  /* line-height 1 would shave a Q/J tail at the clip; the padding gives it
+     room and the equal negative margin hands the chip its height back */
+  padding-block: 0.12em;
+  margin-block: -0.12em;
+}
+
+/* A name that fits: ONE copy, centred, still. */
+.fp-cta__name-track {
+  display: block;
+}
+
+.fp-cta__name-copy + .fp-cta__name-copy {
+  display: none;
+}
+
+/* A name that overflows (CtaName arms data-roll): two copies, each carrying
+   its own trailing gap as padding, so the track is 2 × (copy + gap) and its
+   -50% travel is EXACTLY one copy + one gap — the wrap lands on the same
+   pixels (inline-flex + gap would travel copy + gap/2). The duration and the
+   negative wall-clock delay (the r11h phase-lock) come from the component. */
+.fp-cta__name[data-roll] .fp-cta__name-track {
+  display: flex;
+  width: max-content;
+  animation: fp-cta-name-roll var(--cta-name-s, 6s) linear infinite;
+  animation-delay: var(--cta-name-delay, 0s);
+}
+
+.fp-cta__name[data-roll] .fp-cta__name-copy {
+  flex: none;
+  padding-right: var(--cta-name-gap, 1.5em);
+}
+
+.fp-cta__name[data-roll] .fp-cta__name-copy + .fp-cta__name-copy {
+  display: block;
+}
+
+@keyframes fp-cta-name-roll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-cta__name[data-roll] .fp-cta__name-track {
+    animation: none;
+  }
+}
+
 @media (max-width: 768px) {
 
   /* Pager client names were pinned to the desktop mono size (~12.8px) and

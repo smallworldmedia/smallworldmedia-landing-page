@@ -102,10 +102,60 @@ const readout = (page) =>
     };
   }, ROOT);
 
+// SQ-80: the /work [PREVIOUS] / [NEXT] chips — the label (a neighbour's client
+// name, or the words under ?ctanames=0), its box, the face it wears next to the
+// pager's own names, and the marquee's wrap step (the copy period vs the
+// track's -50% travel; both unscaled px — offsetLeft/offsetWidth ignore the
+// chip's transform scale). The base (:4322) carries the words, so a chips
+// diff against it is expected; every OTHER readout field must match.
+const chipsReadout = (page) =>
+  page.evaluate(() => {
+    const one = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const win = el.querySelector('.fp-cta__name');
+      const lab = win || el.querySelector('.fp-cta__label');
+      const cs = lab && getComputedStyle(lab);
+      const copies = win ? win.querySelectorAll('.fp-cta__name-copy') : [];
+      const track = win?.querySelector('.fp-cta__name-track');
+      const roll = win ? win.hasAttribute('data-roll') : null;
+      // fractional: rects, undone for the chip's own scale (offset* rounds to whole px)
+      const k = r.width / el.offsetWidth || 1;
+      const period = roll ? (copies[1].getBoundingClientRect().left - copies[0].getBoundingClientRect().left) / k : null;
+      const travel = roll ? track.getBoundingClientRect().width / 2 / k : null;
+      const pxs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scale-fill-pxs')) || 30;
+      return {
+        aria: el.getAttribute('aria-label'),
+        text: win ? copies[0]?.textContent : el.querySelector('.fp-cta__label')?.textContent,
+        names: !!win,
+        rect: { x: +r.x.toFixed(1), y: +r.y.toFixed(1), w: +r.width.toFixed(1), h: +r.height.toFixed(1) },
+        chipW: el.offsetWidth,
+        font: cs && { family: cs.fontFamily, weight: cs.fontWeight, size: cs.fontSize, transform: cs.textTransform },
+        winW: win?.clientWidth ?? null,
+        textW: win?.querySelector('.fp-cta__name-copy > span')?.offsetWidth ?? null,
+        roll,
+        period: roll ? +period.toFixed(3) : null,
+        travel: roll ? +travel.toFixed(3) : null,
+        wrapStepPx: roll ? +Math.abs(period - travel).toFixed(3) : null,
+        frameTravelPx: roll ? +(pxs / 60).toFixed(3) : null,
+        anim: roll ? { s: getComputedStyle(track).animationDuration, delay: getComputedStyle(track).animationDelay } : null,
+      };
+    };
+    const pn = document.querySelector('.fp-scale__name');
+    const pcs = pn && getComputedStyle(pn.closest('.fp-scale__station') || pn);
+    const pns = pn && getComputedStyle(pn);
+    return {
+      prev: one('.fp-prev'),
+      next: one('.fp-next'),
+      pagerName: pcs && { family: pcs.fontFamily, weight: pcs.fontWeight, transform: pns.textTransform },
+    };
+  });
+
 async function step(page, name, fn) {
   if (fn) await fn();
   if (SETTLE) await sleep(SETTLE);
-  const r = await readout(page);
+  const r = { ...(await readout(page)), chips: await chipsReadout(page) };
   const file = path.join(OUT, `${String(report.steps.length + 1).padStart(2, '0')}-${name}.png`);
   await page.screenshot({ path: file });
   report.steps.push({ name, ...r, shot: file });
@@ -157,7 +207,23 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
 
   if (!report.fatal) {
     const cdp = MOBILE ? await ctx.newCDPSession(page) : null;
-    await step(page, 'rest');
+    // --at=N|last: walk to World N (or the last) through the [NEXT] chip before
+    // the scenarios run (SQ-80 chip shots). Each Turn gets ~2.6s to settle.
+    const AT = arg('at', '');
+    if (AT) {
+      for (let i = 0; AT === 'last' ? await page.locator('.fp-next').count() : i < Number(AT); i++) {
+        await page.locator('.fp-next').click();
+        await sleep(2600);
+      }
+      await page.mouse.move(VW / 2, VH / 2);
+      await sleep(1500);
+    }
+    await step(page, AT ? `rest-at-${AT}` : 'rest');
+    if (want('chips')) {
+      // the roll, sampled twice (it must advance) and a held look at the box
+      await sleep(900);
+      await step(page, 'chips-roll-sample');
+    }
 
     if (!MOBILE && want('hover')) {
       const c = await rootCenter(page);

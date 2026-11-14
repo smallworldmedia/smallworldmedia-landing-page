@@ -27,7 +27,8 @@ import gsap from 'gsap';
 import { navigate } from 'astro:transitions/client';
 import WorldScene from './world/WorldScene.jsx';
 import WorldCard from './WorldCard.jsx';
-import CtaArrows from './CtaArrows.jsx';
+import CtaArrows, { CtaName } from './CtaArrows.jsx';
+import { ctaNamesOn, neighbourName } from '../../lib/ctaNames.js';
 import GraticulePager from './pager/GraticulePager.jsx';
 import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal, createFooterDrive } from '../SiteFooter.jsx';
 // FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
@@ -199,6 +200,13 @@ export default function FeaturedProjects({ worlds = [] }) {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('pager') === 'rail') setLegacyRail(true);
   }, []);
+  // ?ctanames (SQ-80): the [PREVIOUS] / [NEXT] chips read the neighbouring
+  // client names — ON by default, ?ctanames=0 restores the words (the A/B).
+  // Hydration-safe like the rail gate above: the server renders the default.
+  const [ctaNames, setCtaNames] = useState(true);
+  useEffect(() => {
+    setCtaNames(ctaNamesOn(window.location.search));
+  }, []);
   // ?cardname ?tagtext ?tagpad ?tagpadx ?taggap — the fp-card MOBILE dial
   // set (09-04 r8): px overrides for the client-name headline, service-tag
   // text, pill padding and pill gap, written inline as --fp-* custom props
@@ -304,6 +312,16 @@ export default function FeaturedProjects({ worlds = [] }) {
   const lastIndex = worlds.length - 1;
   const atEnd = active >= lastIndex;
   const atStart = active <= 0;
+  // The chips' labels: the neighbours' client names (the pager's own names,
+  // never the project title). [PREVIOUS] wipes out at World 0 while still
+  // mounted, so it holds the last real name through the wipe instead of
+  // blanking; [NEXT] drops at once at the last World. At a Turn the label is a
+  // plain swap — the chip's own lanes (charge, colour, scale) carry the beat,
+  // and the pager's name is a position change, not a text one.
+  const keptPrevName = useRef('');
+  const prevName = neighbourName(worlds, active, -1, keptPrevName.current);
+  keptPrevName.current = prevName;
+  const nextName = neighbourName(worlds, active, 1);
 
   // [PREVIOUS] leaves on a wipe, never a cut (11-03, Nathan): reaching the
   // first World keeps it mounted (inert) while its bottom edge wipes up to
@@ -984,14 +1002,15 @@ export default function FeaturedProjects({ worlds = [] }) {
           ref={prevRef}
           inert={atStart || undefined}
           className="fp-prev fp-cta"
+          data-names={ctaNames && prevName ? '' : undefined}
           style={{ '--cta-scale': prevScale.toFixed(3), ...ctaVars, ...prevColor }}
           onClick={onPrev}
           onPointerEnter={() => setHoverPrev(true)}
           onPointerLeave={() => setHoverPrev(false)}
-          aria-label="Previous project"
+          aria-label={ctaNames && prevName ? `Previous project: ${prevName}` : 'Previous project'}
         >
           <CtaArrows direction="up" />
-          <span className="fp-cta__label">previous</span>
+          {ctaNames && prevName ? <CtaName name={prevName} /> : <span className="fp-cta__label">previous</span>}
         </button>
       )}
 
@@ -1014,13 +1033,14 @@ export default function FeaturedProjects({ worlds = [] }) {
         <button
           type="button"
           className="fp-next fp-cta"
+          data-names={ctaNames && nextName ? '' : undefined}
           style={{ '--cta-scale': nextScale.toFixed(3), ...ctaVars, ...nextColor }}
           onClick={onNext}
           onPointerEnter={() => setHoverNext(true)}
           onPointerLeave={() => setHoverNext(false)}
-          aria-label="Next project"
+          aria-label={ctaNames && nextName ? `Next project: ${nextName}` : 'Next project'}
         >
-          <span className="fp-cta__label">next</span>
+          {ctaNames && nextName ? <CtaName name={nextName} /> : <span className="fp-cta__label">next</span>}
           <CtaArrows direction="down" />
         </button>
       )}
