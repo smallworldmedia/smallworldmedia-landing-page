@@ -10,8 +10,12 @@
  * code: DIRECTORY_QUERY, buildDirectoryTiles with the baked logo and alpha
  * manifests, then chunkFlushGrid (`flush`, today's default) or chunkAspectGrid
  * (`aspect`), at phone 393px / 2 columns, tablet 900 / 4 and 1024 / 4, desktop 1440 / 5,
- * unfiltered and under every single tag (logo-design's logo-first order
- * included), plus three shuffle seeds.
+ * large 2000 / 6, unfiltered, under every single tag (logo-design's logo-first
+ * order included) and under every client, plus three shuffle seeds. Each view's
+ * line ends with `demoted`, the pieces a flush grid gave one square cell their
+ * class does not (SQ-82); a `-- <view>` line counts the views with any
+ * uncovered cell and the pieces demoted over them. FLUSHGRID=<path> swaps in
+ * another copy of flushGrid.js (from the repo root) to compare against.
  *
  * Per view: n, contain (how many are really transparent), black>10% (contain
  * tiles showing over 10% ground) and how many of those have NO measured
@@ -27,8 +31,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const imp = (p) => import(pathToFileURL(join(ROOT, p)).href);
 const { createClient } = await imp('node_modules/@sanity/client/dist/index.js');
 const { DIRECTORY_QUERY } = await imp('src/lib/queries.js');
-const { buildDirectoryTiles, orderTiles, logoFirst, DEFAULT_TAG } = await imp('src/components/work/directory/buildDirectoryTiles.js');
-const { chunkFlushGrid } = await imp('src/components/work/detail/flushGrid.js');
+const { buildDirectoryTiles, orderTiles, logoFirst, matchesFilter, DEFAULT_TAG } = await imp('src/components/work/directory/buildDirectoryTiles.js');
+const { chunkFlushGrid, tileClassOf } = await imp(process.env.FLUSHGRID ?? 'src/components/work/detail/flushGrid.js');
+const { coverageOf } = await imp('src/lib/clientCoverage.js');
 const { chunkAspectGrid, LOOK } = await imp('src/components/work/directory/aspectGrid.js');
 const { ratioOf } = await imp('src/components/work/detail/buildContentFlow.js');
 const { tileRowsFor } = await imp('src/components/work/detail/tileGrid.js');
@@ -65,6 +70,7 @@ const VIEWS = {
   tablet: { width: 900, cols: 4 },
   tablet1024: { width: 1024, cols: 4 },
   desktop: { width: 1440, cols: 5 },
+  large: { width: 2000, cols: 6 },
 };
 const lossOf = (a, b) => 1 - Math.min(a, b) / Math.max(a, b);
 
@@ -83,12 +89,14 @@ function measure(list, view) {
   let cells = 0;
   let moved = 0;
   let pos = 0;
+  let demoted = 0; // flush pieces placed in a square cell their class is not (SQ-82)
   for (const ch of chunks) {
     const cover = Array.from({ length: cols }, () => new Array(ch.totalRows).fill(0));
     ch.placements.forEach((p, k) => {
       const index = p.index ?? ch.start + k;
       moved = Math.max(moved, Math.abs(pos++ - index));
       const t = list[index];
+      if (PACK === 'flush' && p.type !== tileClassOf(t)) demoted++;
       const w = p.colSpan * colW + (p.colSpan - 1) * GAP;
       const n = p.rowEnd - p.rowStart;
       const h = n * 10 + (n - 1) * GAP;
@@ -114,7 +122,7 @@ function measure(list, view) {
       if (!v) holes++;
     }
   }
-  return { tiles: out, chunks: chunks.length, holeFrac: cells ? holes / cells : 0, moved };
+  return { tiles: out, chunks: chunks.length, holeFrac: cells ? holes / cells : 0, holes, moved, demoted };
 }
 
 const pct = (x) => `${(100 * x).toFixed(1)}%`;
@@ -131,22 +139,37 @@ function summary(label, m) {
   return (
     `${label.padEnd(24)} n=${String(m.tiles.length).padStart(3)} contain=${String(contain.length).padStart(2)} (clear ${contain.filter((x) => x.clear).length})` +
     ` black>10%=${String(black.length).padStart(2)} opaque-black=${opaqueBlack.length} | crop>25%=${String(crop25.length).padStart(3)} >50%=${crop50.length}` +
-    ` | mean ${pct(mean).padStart(5)} | holes ${pct(m.holeFrac)} | moved ${m.moved} | worst ${w}`
+    ` | mean ${pct(mean).padStart(5)} | holes ${pct(m.holeFrac)} | moved ${m.moved} | demoted ${m.demoted} | worst ${w}`
   );
 }
 
 const report = {};
 const lines = [`pack ${PACK}${PACK === 'aspect' ? ` look ${LOOK_N}` : ''}; tiles ${tiles.length} (logos ${tiles.filter((t) => t.logo).length}, clear ${tiles.filter((t) => t.clear).length}, light ground ${tiles.filter((t) => t.ground).length})`];
 const filters = [['ALL (no filter)', null], ...data.tags.map((t) => [t.slug, t.slug])];
+// the clients tab's views (a client's coverage, no tag), after the tags
+const clientViews = (data.clients ?? []).map((c) => [
+  `client:${c.slug}`,
+  tiles.filter((t) => matchesFilter(t, { tags: new Set(), coverage: coverageOf(c.slug, data.clients) })),
+]);
 for (const view of Object.keys(VIEWS)) {
   lines.push(`\n== ${view} (${VIEWS[view].cols} cols @ ${VIEWS[view].width}) — project order ==`);
-  for (const [label, tag] of filters) {
-    const list = tag ? logoFirst(tiles.filter((t) => t.services.includes(tag)), new Set([tag])) : tiles;
+  let views = 0;
+  let ragged = 0; // views with any uncovered cell (SQ-82: "not flush")
+  let demoted = 0;
+  const views_ = [
+    ...filters.map(([label, tag]) => [label, tag, tag ? logoFirst(tiles.filter((t) => t.services.includes(tag)), new Set([tag])) : tiles]),
+    ...clientViews.map(([label, list]) => [label, null, list]),
+  ];
+  for (const [label, tag, list] of views_) {
     if (!list.length) continue;
     const m = measure(list, view);
     report[`${view}:${label}`] = m;
+    views++;
+    if (m.holes > 0) ragged++;
+    demoted += m.demoted;
     lines.push(summary(label + (tag === DEFAULT_TAG ? ' *default' : ''), m));
   }
+  lines.push(`-- ${view}: ${ragged} of ${views} views not flush, ${demoted} pieces demoted to a square cell`);
   lines.push('-- shuffle seeds, no filter --');
   for (const seed of [1, 2, 3]) lines.push(summary(`shuffle ${seed}`, measure(orderTiles(tiles, 'shuffle', seed), view)));
 }
