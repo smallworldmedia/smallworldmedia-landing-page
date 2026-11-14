@@ -23,6 +23,8 @@
  *                  Nathan bakes 'aspect' after a device pass
  *   ?dirlook       aspect packing's lookahead: the tiles it picks among, and the most
  *                  places one moves from the list order
+ *   ?dirtabclear   px under a filter tab's word, so its underline clears the tab's
+ *                  bottom stroke (Nathan 11-13); the shape grows down, the word stays
  */
 import { DIRECTORY_PLAYERS, DIRECTORY_DWELL_MS } from '../imageConfig.js';
 import { LOGO_DIALS } from './logoTile.js';
@@ -43,6 +45,7 @@ export const PARAM_KEYS = {
   logoCenter: 'dirlogocenter',
   pack: 'dirpack',
   look: 'dirlook',
+  tabClear: 'dirtabclear',
 };
 
 /** The orders ?dirorder takes. */
@@ -66,6 +69,7 @@ export const SSR_TUNE = {
   logoCenter: LOGO_DIALS.center,
   pack: 'flush',
   look: LOOK,
+  tabClear: 4,
 };
 
 /** What each numeric knob accepts, from the URL or the bench. */
@@ -81,6 +85,7 @@ export const TUNE_OK = {
   logoLand: (n) => n >= 1,
   logoCenter: (n) => n >= 0 && n <= 1,
   look: (n) => Number.isInteger(n) && n >= 1 && n <= 32,
+  tabClear: (n) => n >= 0 && n <= 16,
 };
 
 /* The filter tab's shape (SQ-21, Nathan 11-05: "a rounded off folder tab ... the
@@ -195,6 +200,7 @@ export function readTune(search, defaults) {
     logoCenter: numberAt('logoCenter'),
     pack: PACKS.includes(params.get(PARAM_KEYS.pack)) ? params.get(PARAM_KEYS.pack) : defaults.pack,
     look: numberAt('look'),
+    tabClear: numberAt('tabClear'),
   };
 }
 

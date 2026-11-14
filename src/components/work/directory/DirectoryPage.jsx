@@ -281,6 +281,7 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
         onPickClient={onPickClient}
         onClearClient={onClearClient}
         onClear={onClear}
+        tabClear={tune.tabClear}
       />
       <main className="dir-page__main">
         <DirectoryGrid

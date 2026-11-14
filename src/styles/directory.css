@@ -55,8 +55,12 @@ html:has(.dir-page) body {
   /* A tab's height H (SQ-21): its 1px top stroke, one line of its type and the
      drawer's small padding above and below. The tab row adds its top padding,
      and the open list's cap reads that, so the region stays under
-     100dvh − nav − bar. */
-  --dir-tab-h: calc(var(--text-link) + 2 * var(--space-1) + 1px);
+     100dvh − nav − bar. Plus a foot (Nathan 11-13): room under the word so
+     its hover underline clears the bottom stroke. The label pads it out at
+     the bottom, so the word stays put and only the shape grows down.
+     DirectoryFilter writes it inline from ?dirtabclear (directoryTune.js). */
+  --dir-tab-clear: 4px;
+  --dir-tab-h: calc(var(--text-link) + 2 * var(--space-1) + 1px + var(--dir-tab-clear));
   /* The tab's stroke centreline height: half a pixel in from its top and bottom. */
   --dir-tab-c: calc(var(--dir-tab-h) - 1px);
   --dir-tabs-h: calc(var(--space-4) + var(--dir-tab-h));
@@ -201,7 +205,7 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   display: flex;
   align-items: center;
   height: 100%;
-  padding: 0 var(--space-2) 0 var(--space-3);
+  padding: 0 var(--space-2) var(--dir-tab-clear) var(--space-3);
   border-top-left-radius: calc(var(--dir-tab-h) * var(--dir-tab-tl, 0.161));
   background: var(--color-black);
 }

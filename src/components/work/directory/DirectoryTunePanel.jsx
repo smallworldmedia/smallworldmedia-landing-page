@@ -33,6 +33,7 @@ const FIELDS = [
   },
   { key: 'logoLand', label: 'logo land', hint: 'the aspect from which a mark takes a landscape canvas, not a square' },
   { key: 'logoCenter', label: 'logo centre', hint: "0 = centre the mark's box; 1 = centre its centre of mass (0 to 1)" },
+  { key: 'tabClear', label: 'tab clear px', hint: "room under a filter tab's word, so its underline clears the bottom stroke (0 to 16)" },
 ];
 
 function NumberField({ field, value, isDefault, onCommit }) {

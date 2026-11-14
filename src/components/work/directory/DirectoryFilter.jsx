@@ -41,7 +41,8 @@
  * picked (tag slugs), client ({ slug, name } | null), clientOptions (the live
  * clients, by name), clientsPresent (the slugs clientPresence keeps lit),
  * shown / total (tile counts), onToggle(slug),
- * onPickClient(slug), onClearClient(), onClear().
+ * onPickClient(slug), onClearClient(), onClear(), tabClear (px under a tab's
+ * word, ?dirtabclear; written as --dir-tab-clear).
  */
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
@@ -83,6 +84,7 @@ export default function DirectoryFilter({
   onPickClient,
   onClearClient,
   onClear,
+  tabClear,
 }) {
   const rootRef = useRef(null);
   const regionRef = useRef(null);
@@ -234,6 +236,7 @@ export default function DirectoryFilter({
         '--dir-skirt-ratio': `${skirt.width} / 1000`,
         '--dir-skirt-tuck': skirt.tuck,
         '--dir-tab-tl': cap.ratio,
+        '--dir-tab-clear': tabClear === undefined ? undefined : `${tabClear}px`,
       }}
     >
       <div className="dir-filter__region" id="dir-filter-region" ref={regionRef}>
