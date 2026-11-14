@@ -33,7 +33,9 @@
  * The visual pitch IS the finger's px-per-detent: --scale-pitch is written
  * inline from the engine's detentPx (single source of truth; the global.css
  * token is the pre-hydration fallback), so a ?detent override re-pitches the
- * scale too and the two can never drift apart.
+ * scale too and the two can never drift apart. (r12c: that is the ≤768 tier
+ * and ?detent; on desktop the pitch is the CSS's — 48 × the viewport-scaled
+ * pager unit — and detentPx READS it back, so the same single source holds.)
  *
  * 09-02 refinements (Nathan's post-pick notes):
  * - Every station carries its CLIENT NAME right of the axis while deployed
@@ -240,13 +242,27 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
   const pauseOn = PARAM('pause', 1) > 0;
   const warpOn = PARAM('scalewarp', 1) > 0;
 
-  // Per-render tuning: the pitch defaults per tier (SCALE_PITCH_*) and is
-  // written back to the CSS as --scale-pitch, so the scale and the finger
-  // share ONE number whatever ?detent says.
+  // r12c (Nathan 11-13): the desktop pager scales with the viewport (the
+  // directory filter's vw, global.css --pager-vw) — ?pagervw is its dial
+  // (the roster name in vw; 0 = the fixed pre-r12c size).
+  const pagerVw = PARAM('pagervw', -1);
+
+  // Per-render tuning. ≤768: the pitch is the fixed tier constant
+  // (SCALE_PITCH_MOBILE_PX), written to the CSS as --scale-pitch. DESKTOP
+  // (r12c): the pitch is a CSS quantity that moves with the viewport (48 ×
+  // the pager unit), so the skin READS it back (the measure effect below)
+  // and the finger's detent, the wheel and the scale share that one number.
+  // ?detent overrides either tier with a fixed px, as before.
+  const detentDial = PARAM('detent', null);
+  const [deskPitch, setDeskPitch] = useState(SCALE_PITCH_PX);
   const detentPx = Math.max(
     MIN_DETENT_PX,
-    PARAM('detent', mobileTier() ? SCALE_PITCH_MOBILE_PX : SCALE_PITCH_PX)
+    detentDial ?? (mobileTier() ? SCALE_PITCH_MOBILE_PX : deskPitch)
   );
+  // The desktop scale factor (1 at the floor and on every other tier/dial):
+  // every px this skin owns on desktop rides it (the wheel detent, the box
+  // pad).
+  const pitchK = mobileTier() || detentDial !== null ? 1 : deskPitch / SCALE_PITCH_PX;
 
   // React writes the readout ONCE, at mount. After that only setStation
   // touches these nodes — React re-rendering `active` mid-gesture (a Turn
@@ -350,7 +366,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
   const rootStyle = {
     '--scale-i': active,
     '--scale-n': count,
-    '--scale-pitch': `${detentPx}px`,
+    // Desktop without ?detent: NOT written — the CSS owns the pitch there.
+    ...(mobileTier() || detentDial !== null ? { '--scale-pitch': `${detentPx}px` } : {}),
+    ...(pagerVw >= 0 ? { '--pager-vw': pagerVw } : {}),
     '--scale-clones': cloneOff,
     ...(featherPx > 0 ? { '--scale-feather': `${featherPx}px` } : {}),
     ...(falloff > 0 ? { '--scale-falloff': falloff } : {}),
@@ -405,6 +423,25 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     return () => mq.removeEventListener('change', onTier);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // r12c: the desktop pitch is READ from the CSS — --scale-pitch is
+  // @property-registered (global.css), so its computed value is resolved px
+  // (48 × the pager unit, vw and all). Read at mount, on every tier change
+  // (after React has dropped / written the inline token) and on resize;
+  // the state bails out when the px is unchanged, and a new value re-keys
+  // the geometry effect above. A browser without @property reads back the
+  // calc() text (NaN) and keeps the fixed 48.
+  useEffect(() => {
+    const measure = () => {
+      if (detentDial !== null || mobileTier() || !rootRef.current) return;
+      const px = parseFloat(getComputedStyle(rootRef.current).getPropertyValue('--scale-pitch'));
+      if (px > 0) setDeskPitch((p) => (Math.abs(p - px) < 0.01 ? p : px));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tierN]);
 
   // ?grainsize ?grainamt ?grainfreq ?grainfps ?scrimblur — the scrim dial
   // set (09-04 r8): URL-side overrides of the scrim for on-device dialing
@@ -664,7 +701,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     selRef.current = nameEl;
     boxRef.current?.style.setProperty(
       'width',
-      `${nameEl.offsetLeft + Math.round(Math.min(selW, selCap)) + (selRolls ? 0 : 6)}px`
+      `${nameEl.offsetLeft + Math.round(Math.min(selW, selCap)) + (selRolls ? 0 : Math.round(6 * pitchK))}px`
     );
   };
   const setStation = (i, un = i) => {
@@ -749,7 +786,13 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     },
     tuning: {
       detentPx, // 1:1 with the pitch — the finger moves the scale exactly
-      wheelDetentPx: Math.max(MIN_DETENT_PX, PARAM('wheeldetent', SCALE_WHEEL_DETENT_PX)),
+      // r12c: the wheel's deltaY per station follows the desktop scale
+      // (pitchK), so a notch moves the same fraction of a station at every
+      // width; ?wheeldetent stays an absolute override.
+      wheelDetentPx: Math.max(
+        MIN_DETENT_PX,
+        PARAM('wheeldetent', SCALE_WHEEL_DETENT_PX * pitchK)
+      ),
       endResist: SCALE_END_RESIST,
       // Round 6 (Nathan): NO stall-commit — a wheel settle is a preview
       // only, and the Turn evaluates at DISENGAGE (pointerleave / touch

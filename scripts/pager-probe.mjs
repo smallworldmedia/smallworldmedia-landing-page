@@ -63,6 +63,9 @@ const DETENTS = Number(arg('detents', 2));
 const BASE = arg('base', 'http://localhost:4321');
 const PEEKWAIT = Number(arg('peekwait', 250));
 const GPU = arg('gpu', 'swiftshader'); // swiftshader (default: ~30ms timer lag) | default (GPU path: ~250ms main-thread starvation)
+// r12c: where the pointer parks to LEAVE the pager. Was the viewport centre — but the scaled selected name
+// (≈620px wide at 1440) now reaches it and keeps the pager engaged (it is hoverable by design).
+const LEAVE_X = Math.round(VW * 0.75);
 const SETTLE = Number(arg('settle', 250)); // extra ms before every readout (headless render lag)
 const URL_ = `${BASE}/work?pager=${VARIANT}${EXTRA}`;
 const want = (s) => SCEN.includes('all') || SCEN.includes(s);
@@ -99,6 +102,9 @@ const readout = (page) =>
       current: q('[aria-current="true"]')?.textContent?.trim() ?? null,
       slider: q('[role="slider"]') ? { now: q('[role="slider"]').getAttribute('aria-valuenow'), text: q('[role="slider"]').getAttribute('aria-valuetext') } : null,
       rootRect: rect ? { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) } : null,
+      // r12c: the pager's resolved pitch (px; @property-registered) — the
+      // desktop readouts are compared NORMALISED by it against the base.
+      pitch: r ? parseFloat(getComputedStyle(r).getPropertyValue('--scale-pitch')) || null : null,
       projectColor: document.querySelector('.fp')?.style.getPropertyValue('--project-color') || null,
       html: r ? r.outerHTML.replace(/\s+/g, ' ').slice(0, 900) : null,
     };
@@ -166,7 +172,39 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       await page.mouse.move(c.x, c.y);
       await sleep(400);
       await step(page, 'hover-engaged');
-      await page.mouse.move(VW / 2, VH / 2);
+      // r12c: the scaled geometry, engaged — pitch, the roster/selected name
+      // sizes, the window's reach vs the viewport (--scale-rows × pitch must
+      // fit the half-height; reported, never silently cut) and the project
+      // directory's filter-tag size (--text-drawer-name) it must match.
+      report.geometry = await page.evaluate((root) => {
+        const r = document.querySelector(root);
+        const cs = getComputedStyle(r);
+        const px = (v) => parseFloat(v) || null;
+        const rows = px(cs.getPropertyValue('--scale-rows'));
+        const pitch = px(cs.getPropertyValue('--scale-pitch'));
+        const roster = [...r.querySelectorAll('.fp-scale__name')].find((n) => !n.hasAttribute('data-sel'));
+        const sel = r.querySelector('.fp-scale__name[data-sel]');
+        const dummy = document.createElement('span');
+        dummy.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--text-drawer-name)';
+        document.body.appendChild(dummy);
+        const filterTag = px(getComputedStyle(dummy).fontSize);
+        dummy.remove();
+        return {
+          vw: innerWidth,
+          vh: innerHeight,
+          pitch,
+          rows,
+          windowHalfPx: rows && pitch ? +(rows * pitch).toFixed(1) : null,
+          halfViewportPx: innerHeight / 2,
+          fitsViewport: rows && pitch ? rows * pitch <= innerHeight / 2 : null,
+          rosterNameFontPx: roster ? px(getComputedStyle(roster).fontSize) : null,
+          selectedPaintedPx: sel ? +(px(getComputedStyle(sel).fontSize) * (px(cs.getPropertyValue('--scale-sel')) || 1.5) * (px(cs.getPropertyValue('--scale-sel-bump')) || 1.05)).toFixed(2) : null,
+          filterTagPx: filterTag,
+          scaleW: +r.getBoundingClientRect().width.toFixed(2), // = --scale-w (unregistered token: measured)
+          numH: r.querySelector('.fp-scale__lens') ? +r.querySelector('.fp-scale__lens').getBoundingClientRect().height.toFixed(2) : null,
+        };
+      }, ROOT);
+      await page.mouse.move(LEAVE_X, VH / 2);
       await sleep(700);
       await step(page, 'hover-left');
     }
@@ -174,15 +212,23 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       const c = await rootCenter(page);
       await page.mouse.move(c.x, c.y);
       await sleep(50);
+      // r12c: the wheel's deltaY per station scales with the desktop pitch
+      // (the skin's wheel detent = 100 × pitch/48), so a 90 notch is 90 ×
+      // pitch/48 here — the same fraction of a station at every width.
+      const pitchK = await page.evaluate(
+        (root) => (parseFloat(getComputedStyle(document.querySelector(root)).getPropertyValue('--scale-pitch')) || 48) / 48,
+        ROOT
+      );
+      report.pitchK = +pitchK.toFixed(4);
       for (let i = 0; i < DETENTS; i++) {
-        await page.mouse.wheel(0, 90);
+        await page.mouse.wheel(0, Math.round(90 * pitchK));
         await sleep(60);
       }
       await sleep(120);
       await step(page, 'wheel-mid');
       await sleep(900); // > stall commit
       await step(page, 'wheel-committed');
-      await page.mouse.move(VW / 2, VH / 2);
+      await page.mouse.move(LEAVE_X, VH / 2);
       await sleep(2200); // Turn + retract
       await step(page, 'wheel-after-turn');
     }

@@ -1331,3 +1331,61 @@ phone scrim, the choreography lock); this round is the three items.
   `?grainamt/?grainfreq/?grainfps/?scrimblur` still re-add grain/blur for comparison (the
   keyframes stay for `?grainfps`). Nothing else desktop-specific blocks the look: no second
   grain or tint layer sits outside the scrim (the stage dim is under the scrim).
+
+### 11-13 round 12c — the desktop pager scales with the viewport, cohesive with the directory filter
+
+Nathan, 11-13, verbatim, while reviewing 12b: "lets increase the size of the pager overall on
+desktop - we want it to feel cohesive with the way the filter area scales on the project
+directory." Everything in 12a/12b stays (the phone look, the clip edge, the seamless marquee, the
+black scrim on every tier, the choreography lock). Phones (≤768) do not change.
+
+- **The anchor.** The Project Directory's filter tags use `--text-drawer-name: 2.4vw` (34.6 px at
+  1440, 61 px at 2560). The desktop roster name was fixed at `--text-mono` 0.9141rem ×
+  `--scale-roster` 1.9 = 24.315 px. It is now `max(24.315 px, --pager-vw × 1vw)` with
+  `--pager-vw: 2.4` (global.css), so it equals the filter tag at every width above ≈1012 px and
+  never shrinks below today's size. Measured (probe `report.geometry`): roster name 34.56 /
+  46.08 / 61.44 px at 1440 / 1920 / 2560 = the filter tag's computed size exactly.
+- **One factor.** `--pager-u` (featured-projects.css, the `.fp-scale` root) = `max(1px,
+  --pager-vw·1vw ÷ 24.315px)`: 1.42 / 1.90 / 2.53 px at 1440 / 1920 / 2560, and 1 px on the ≤768
+  tier (the base rule; the desktop block is `min-width: 769px`). `--pager-rem` = 14 × the unit.
+  The tokens the pager reads are re-declared on the pager root in the units they had — rem →
+  `calc(N × --pager-rem)`, px → `calc(N × --pager-u)` — so every consumer follows without a
+  restyle and every ratio holds (selected = roster × 1.5 × 1.05; the curves scale, never
+  reshape): `--scale-pitch` 48, `--scale-w` 3rem, `--scale-num-h` 1.714rem, `--text-mono`,
+  `--text-link` (the chip + hint), `--text-secondary` (the pause chip), `--lh-mono`,
+  `--space-1…6` (gaps, seat, the marquee gap), the 2400 px name cap, the hit-pad insets
+  (`-0.75/-1/-4rem`) and the lens pointer triangle. `--scale-box-h` moved from `:root` to the
+  pager root (a `:root` token resolves against the root's own pitch). Feather stays `2 × pitch`.
+  Stays physical: the 1 px / 0.5 px hairlines, the 2 px outline, the −2 px clip overdraw.
+- **One source of truth for the pitch.** On desktop the CSS owns it (`48 × --pager-u`);
+  `@property --scale-pitch` (global.css, `<length>`, inherits) makes its computed value resolved
+  px, and GraticulePager reads it back (`getComputedStyle(...)`, at mount, on a tier change and on
+  `resize`) into `detentPx`, so the touch detent, the strip, the hairline, the hit test and the
+  wheel/hover all use the same number. ≤768 and `?detent` still write the inline px as before; the
+  desktop skin writes no inline pitch.
+- **Dial.** `?pagervw` = the roster name in vw (`0` = the fixed 24.3 px pager, u = 1 px). Guide row
+  added; `tunables-keys --check` passes.
+- **Every px-valued constant on desktop that moved** (all by the same factor): the station pitch
+  (= the touch detent); the wheel detent 100 → `100 × pitch/48` (a notch is the same fraction of a
+  station at every width; `?wheeldetent` is still an absolute override); the box-width pad 6 →
+  `6 × pitch/48` (JS, an invisible box); and the CSS lengths above. **Not touched:** every
+  duration, ease, spring (`SCALE_FLIP_TAU_S`), magnet, wrap, falloff / slice / warp / ink reach
+  (all in stations or unitless), the roster→selected handoff, the bump, the chip / hint
+  entrances, the scrim fade, `usePagerGesture.js` (incl. `PAGER_SLOP_PX` / `PAGER_HOLD_MS`,
+  finger-physical), the ≤768 tier, `--scale-fill-pxs` (kept at `:root` unscaled — the SQ-80
+  PREVIOUS/NEXT name ticker reads it, and those chips sit outside the pager).
+- **Height check (reported, rows not cut).** `--scale-rows` (7) × pitch vs half the viewport:
+  1440×900 — 477.6 vs 450 (does NOT fit); 1920×1080 — 636.8 vs 540 (does NOT fit); 2560×1440 —
+  849.0 vs 720 (does NOT fit). Before: 336 px at every width. The outermost station or two now
+  runs off the top and bottom edge of the viewport: at 1440×900 the window shows ≈ ±6.6 stations,
+  so the feather (2 pitches, deployed window) no longer lands inside the screen and the end rows
+  are cut by the viewport edge instead of fading. It fits only while pitch ≤ half the viewport height ÷ 7 (64 px at 900 tall).
+  Cutting `--scale-rows` on desktop (7 → 5 fits all three at 16:9 / 16:10)
+  is the one-line fix if Nathan wants the fade back — his call.
+- **Verification.** pager-probe desktop hover, wheel (notch scaled by pitch/48) and keys at
+  1440 / 1920 / 2560 read the same open / charged / engaged / aria-live / selected index as the
+  base (wheel → 03, key → 04); phone touch and peek at 390 (DPR 3) read the same nine steps and
+  the same computed pager geometry (pitch 48, root 44 px, lens 25.98 px, pointer 6 / 7 px, hit-pad
+  insets −10.5 / −14 px). The probe's "leave" point is now 75 % of the width — at the old centre
+  the 54 px selected name (≈620 px wide at 1440) reaches the pointer and, by design, keeps the
+  pager engaged. Evidence: verification/SQ-75/r3/.

@@ -530,6 +530,20 @@ body:has(.fp) {
      and stations share it so the digits line up under the lens). */
   --scale-lens-y: calc(var(--scale-num-h) / 2);
   --scale-pad: var(--space-4);
+  /* r12c (Nathan 11-13: the pager grows on desktop, cohesive with the
+     project directory's filter): ONE pager unit scales the whole
+     instrument. --pager-u is 1px — every length below at its pre-r12c size
+     — on the ≤768 tier (phones do not change) and under the desktop block
+     right after this rule; --pager-rem is the pager's own rem (14 units,
+     the root's 14px at u = 1px). Every px / rem / --text-* / --space-* the
+     pager paints is a multiple of one of them. */
+  --pager-u: 1px;
+  --pager-rem: calc(14 * var(--pager-u));
+  /* The flipper box's row-tall height: pitch back-divided by the selected
+     paint (the box scales ×sel×bump). Re-declared HERE (it was a :root
+     token) so it resolves against this element's own pitch — the
+     desktop-scaled one, or a ?detent inline override. */
+  --scale-box-h: calc(var(--scale-pitch) / (var(--scale-sel) * var(--scale-sel-bump)));
   /* The row under the lens RIGHT NOW. The skin writes --scale-c at every
      detent (--scale-q at every landing), so every derived distance below
      keys off the live instrument instead of React's `active` — a commit
@@ -569,6 +583,41 @@ body:has(.fp) {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* r12c DESKTOP SCALE (Nathan 11-13: "increase the size of the pager overall
+   on desktop — cohesive with the way the filter area scales on the project
+   directory"). The unit = the roster name's vw (--pager-vw 2.4, the
+   directory filter tags' --text-drawer-name) over today's fixed 24.315px
+   roster name (0.9141rem × 1.9 × 14px), floored at 1px so it never
+   shrinks: u = 1.42px at 1440, 1.90 at 1920, 2.53 at 2560. The tokens the
+   pager reads are RE-DECLARED here on the pager root (descendants inherit
+   them), in the units they had — rem → --pager-rem, px → --pager-u. The
+   selected name's ×sel×bump and every ratio hold, so the curves scale
+   proportionally and are never reshaped. The pitch is read back by the
+   skin (GraticulePager, @property --scale-pitch in global.css), so the
+   finger's detent, the wheel and the hover follow it. Hairlines (1px), the
+   2px outline and the −2px clip overdraw stay physical. ?pagervw dials
+   --pager-vw (0 = the fixed pre-r12c size). */
+@media (min-width: 769px) {
+  .fp .fp-scale {
+    --pager-u: max(1px, calc(var(--pager-vw) * 1vw / 24.315));
+    --scale-pitch: calc(48 * var(--pager-u));
+    --scale-w: calc(3 * var(--pager-rem));
+    --scale-num-h: calc(1.714 * var(--pager-rem));
+    --scale-name-max: calc(2400 * var(--pager-u));
+    --scale-name-sel-max: var(--scale-name-max);
+    --text-mono: calc(0.9141 * var(--pager-rem));
+    --lh-mono: calc(1.2 * var(--pager-rem));
+    --text-link: calc(1.143 * var(--pager-rem));
+    --text-secondary: calc(1.543 * var(--pager-rem));
+    --space-1: calc(0.143 * var(--pager-rem));
+    --space-2: calc(0.286 * var(--pager-rem));
+    --space-3: calc(0.429 * var(--pager-rem));
+    --space-4: calc(0.571 * var(--pager-rem));
+    --space-5: calc(0.714 * var(--pager-rem));
+    --space-6: calc(0.857 * var(--pager-rem));
+  }
+}
+
 /* Press target inflated around the small chip — never leftward (the screen
    edge belongs to system gestures; flush seat = zero room anyway). z -1
    keeps the pad behind the strip so desktop station clicks land on their
@@ -576,7 +625,7 @@ body:has(.fp) {
 .fp .fp-scale::after {
   content: '';
   position: absolute;
-  inset: -0.75rem -1rem -0.75rem 0;
+  inset: calc(-0.75 * var(--pager-rem)) calc(-1 * var(--pager-rem)) calc(-0.75 * var(--pager-rem)) 0;
   z-index: -1;
 }
 
@@ -590,7 +639,7 @@ body:has(.fp) {
 .fp .fp-scale[data-open]::after {
   top: calc((var(--scale-up) + 0.5) * var(--scale-pitch) * -1);
   bottom: calc((var(--scale-down) + 0.5) * var(--scale-pitch) * -1);
-  right: -4rem;
+  right: calc(-4 * var(--pager-rem));
 }
 
 /* The chip = lens row + fraction rule + denominator row. Decorative
@@ -772,10 +821,10 @@ body:has(.fp) {
   width: 0;
   height: 0;
   /* Round 7 (Nathan): bigger selection arrow — 12×8px (was 7×5). */
-  margin-top: -0.429rem;
-  border-top: 0.429rem solid transparent;
-  border-bottom: 0.429rem solid transparent;
-  border-left: 0.571rem solid currentColor;
+  margin-top: calc(-0.429 * var(--pager-rem));
+  border-top: calc(0.429 * var(--pager-rem)) solid transparent;
+  border-bottom: calc(0.429 * var(--pager-rem)) solid transparent;
+  border-left: calc(0.571 * var(--pager-rem)) solid currentColor;
   opacity: 0;
   /* r11f (Nathan): the pointer rides the FLIPPER'S spring — --box-dy is
      the box's screen-space deflection (the strip's own motion cancels

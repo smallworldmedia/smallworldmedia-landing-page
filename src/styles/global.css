@@ -391,14 +391,28 @@
   --scale-num-h: 1.714rem;
   /* 24px — one fraction row (body line + breathing); chip = 2 rows + 1px */
   --scale-pitch: 48px;
-  /* station pitch = touch detent (SCALE_PITCH_PX). PRE-HYDRATION FALLBACK
-     only: the skin writes --scale-pitch inline from the engine's resolved
-     detentPx (motion.js + ?detent), so the scale and the finger can never
-     drift out of 1:1. Keep this equal to SCALE_PITCH_PX per tier anyway —
-     it is what the SSR base transform lays out on. 44 → 48 in r8
-     (Nathan: "slightly more vertical space on select" — breathing room
-     for the scaled-up near trio; the ≤768 tier HOLDS at 48, hard-bounded
-     by the 667px-phone window check below). */
+  /* station pitch = touch detent (SCALE_PITCH_PX). On the ≤768 tier it is
+     a PRE-HYDRATION FALLBACK only: the skin writes --scale-pitch inline
+     from the engine's resolved detentPx (motion.js + ?detent), so the scale
+     and the finger can never drift out of 1:1. Keep this equal to
+     SCALE_PITCH_PX per tier anyway — it is what the SSR base transform lays
+     out on. 44 → 48 in r8 (Nathan: "slightly more vertical space on
+     select" — breathing room for the scaled-up near trio; the ≤768 tier
+     HOLDS at 48, hard-bounded by the 667px-phone window check below).
+     r12c (11-13): on DESKTOP the direction flips — the pitch is the CSS
+     (featured-projects.css, .fp-scale: 48 × the pager unit) and the skin
+     READS it back (the @property below makes the computed value a px
+     length), so the wheel/hover detent follows it. */
+  --pager-vw: 2.4;
+  /* r12c (Nathan 11-13: "increase the size of the pager overall on desktop —
+     cohesive with the way the filter area scales on the project directory"):
+     the DESKTOP roster name in vw — the directory filter tags' own size,
+     --text-drawer-name 2.4vw (34.6px at 1440, 61px at 2560). ONE factor
+     scales the whole pager: the unit --pager-u (featured-projects.css
+     .fp-scale) = max(1px, this·1vw ÷ 24.315px), 24.315 = today's fixed
+     roster name (0.9141rem × 1.9 × 14px). Floored at today's size, so it
+     never shrinks (above ≈1012px wide it grows). ?pagervw dials it; 0 = the
+     fixed pre-r12c size. The ≤768 tier ignores it. */
   --scale-rows: 7;
   /* Deployed WINDOW reach, in stations each side of the lens (±336px here).
      Bounds the scale so 13 stations can't run under the fixed nav lockup or
@@ -425,6 +439,12 @@
   /* one station's own fade inside the cascade */
   --scale-flash-ms: 160ms;
   /* crossed major tick: white, then decays */
+  --scale-fill-pxs: 30;
+  /* The /work PREVIOUS/NEXT chips' client-name ticker speed, in UNSCALED
+     px/s (SQ-80: CtaArrows.jsx reads this off <html> and falls back to 30).
+     Nathan's dial 30 (09-07). It began as the pager's desktop fill-ticker
+     speed; that ticker is retired (r12, 11-13) but the token stays, at
+     :root and unscaled by --pager-u — the chips sit outside the pager. */
   --scale-name-max: 2400px;
   /* 09-02: per-station client-name cap right of the axis (roster rows).
      09-07 (Nathan: "no need to cut off so suddenly" on desktop): 12rem →
@@ -834,6 +854,17 @@ button {
    fading the element would fade the links with it. */
 body.route-home .site-nav {
   background: var(--color-black);
+}
+
+/* r12c: the /work pager's station pitch, registered as a <length> so its
+   COMPUTED value is resolved px (48 × the pager unit, vw and all). The skin
+   reads it back (GraticulePager getComputedStyle) so the finger's detent
+   and the scale can never disagree. Unregistered it would read back as the
+   calc() source text. Inherited, initial = the fixed pre-r12c pitch. */
+@property --scale-pitch {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 48px;
 }
 
 /* ── /work focused-project accent (S2) ──

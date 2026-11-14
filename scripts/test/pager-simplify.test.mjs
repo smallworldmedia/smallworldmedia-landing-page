@@ -114,7 +114,7 @@ test('.fp-scale__box paints no fill', () => {
   }
 })
 
-test('the desktop fill ticker is gone, with no data-fill, ?fillpxs, ?unfill or --scale-fill-pxs in src', () => {
+test('the desktop fill ticker is gone, with no data-fill, ?fillpxs or ?unfill in src (--scale-fill-pxs stays at :root for the SQ-80 chips)', () => {
   const files = []
   ;(function walk(d) {
     for (const e of readdirSync(d)) {
@@ -125,10 +125,17 @@ test('the desktop fill ticker is gone, with no data-fill, ?fillpxs, ?unfill or -
   })(join(ROOT, 'src'))
   for (const f of files) {
     const s = readFileSync(f, 'utf8')
-    for (const needle of ['data-fill', 'fillpxs', '--scale-fill-pxs', 'fp-scale-fill', "PARAM('unfill'", '--scale-box-gap', 'boxgap']) {
+    for (const needle of ['data-fill', 'fillpxs', 'fp-scale-fill', "PARAM('unfill'", '--scale-box-gap', 'boxgap']) {
       assert.ok(!s.includes(needle), `${f} still mentions ${needle}`)
     }
   }
+  // r12c (integrator): the token itself STAYS — SQ-80's CtaArrows reads it off <html> as the
+  // PREVIOUS/NEXT name ticker's speed (falls back to 30). At :root, unscaled by the pager unit.
+  const fillPxs = find(GLOBAL, ':root').map((r) => decl(r, '--scale-fill-pxs')).find(Boolean)
+  assert.equal(fillPxs, '30')
+  assert.ok(!PAGER.includes('--scale-fill-pxs'), 'the pager no longer reads it')
+  assert.ok(!FP.includes('--scale-fill-pxs'), 'no pager rule re-declares or scales it')
+  assert.match(GLOBAL, /PREVIOUS\/NEXT chips' client-name ticker speed/)
   const guide = read('docs/tunables-guide.md')
   assert.ok(!/`\?(fillpxs|unfill|boxgap)`/.test(guide), 'the tunables guide drops the removed dials')
   assert.match(guide, /`\?inkfaint`/, 'and documents the new faint-ink dial')
@@ -217,4 +224,91 @@ test('seamless marquee: the loop travels exactly one copy + one gap (trailing pa
     const track = 2 * w + gap + gap // two copies, the gap between them, the trailing pad
     assert.equal(track / 2, w + gap)
   }
+})
+
+// ── r12c (Nathan 11-13): the desktop pager scales with the viewport, cohesive with the
+// project directory's filter ─────────────────────────────────────────────────────────
+
+const DESK = '(min-width: 769px)'
+const motion = read('src/lib/motion.js')
+const rootDecl = (prop) => find(GLOBAL, ':root').map((r) => decl(r, prop)).find(Boolean)
+
+test('desktop scale: ONE unit anchored on the directory filter tag (2.4vw), floored at today\'s roster name', () => {
+  // the anchor IS the directory filter tags' size token
+  assert.equal(rootDecl('--text-drawer-name'), '2.4vw')
+  assert.equal(rootDecl('--pager-vw'), '2.4', 'the roster name in vw defaults to the filter tag\'s 2.4vw')
+  const desk = find(FP, '.fp .fp-scale', DESK)[0]
+  assert.ok(desk, 'a desktop-only .fp-scale rule declares the scale')
+  assert.equal(decl(desk, '--pager-u'), 'max(1px, calc(var(--pager-vw) * 1vw / 24.315))')
+  // 24.315 = today's fixed roster name: --text-mono × --scale-roster × the 14px root (derived, so a drift fails here)
+  const mono = parseFloat(rootDecl('--text-mono')) // rem
+  const roster = parseFloat(rootDecl('--scale-roster'))
+  assert.ok(Math.abs(mono * roster * 14 - 24.315) < 0.01, `${mono} × ${roster} × 14 ≠ 24.315`)
+  // phones do not change: the base unit is 1px and nothing re-declares it on the phone tier
+  const base = find(FP, '.fp .fp-scale')[0]
+  assert.equal(decl(base, '--pager-u'), '1px')
+  assert.equal(decl(base, '--pager-rem'), 'calc(14 * var(--pager-u))')
+  for (const r of rules(FP).filter((r) => r.media?.includes('max-width: 768px'))) {
+    assert.equal(decl(r, '--pager-u'), null, 'the ≤768 tier never touches the unit')
+  }
+})
+
+test('desktop scale: every px / rem / text / space the pager paints is a multiple of the unit, in the units it had', () => {
+  const desk = find(FP, '.fp .fp-scale', DESK)[0]
+  // pitch: the CSS source of truth, = motion.js SCALE_PITCH_PX × u (the floor reproduces today's 48)
+  const pitchPx = Number(motion.match(/SCALE_PITCH_PX = (\d+)/)[1])
+  assert.equal(decl(desk, '--scale-pitch'), `calc(${pitchPx} * var(--pager-u))`)
+  assert.equal(rootDecl('--scale-pitch'), `${pitchPx}px`, 'the :root fallback (and the ≤768 tier) holds the fixed pitch')
+  // each rem token keeps its own rem number, now × the pager's rem
+  for (const t of ['--text-mono', '--text-link', '--text-secondary', '--lh-mono', '--space-1', '--space-2', '--space-3', '--space-4', '--space-5', '--space-6', '--scale-w', '--scale-num-h']) {
+    const n = parseFloat(rootDecl(t))
+    assert.ok(rootDecl(t).endsWith('rem'), `${t} is a rem token at :root`)
+    assert.equal(decl(desk, t), `calc(${n} * var(--pager-rem))`, t)
+  }
+  // the 2400px name cap scales too; the sel cap follows it
+  assert.equal(decl(desk, '--scale-name-max'), 'calc(2400 * var(--pager-u))')
+  assert.equal(decl(desk, '--scale-name-sel-max'), 'var(--scale-name-max)')
+  // the box height resolves against the pager's OWN pitch (it was a :root token, which would freeze at 48)
+  assert.equal(
+    decl(find(FP, '.fp .fp-scale')[0], '--scale-box-h'),
+    'calc(var(--scale-pitch) / (var(--scale-sel) * var(--scale-sel-bump)))'
+  )
+  // and no raw rem / sizeable px literal is left in any pager rule outside the ≤768 tier
+  // (hairlines 1px / 0.5px, the 2px outline and the -2px clip overdraw stay physical)
+  const physical = new Set(['0px', '0.5px', '1px', '2px', '-2px'])
+  for (const r of rules(FP).filter((r) => /\.fp-scale\b/.test(r.selector) && !r.media?.includes('max-width: 768px'))) {
+    for (const m of r.body.matchAll(/(?<![\w.-])(-?\d*\.?\d+)(rem|px)\b/g)) {
+      if (r.media?.includes(DESK) && /^--/.test(r.body.slice(Math.max(0, m.index - 40), m.index).split(';').pop().trim())) continue
+      assert.ok(m[2] === 'px' && physical.has(m[1] + 'px'), `${r.selector}: ${m[0]} should scale with --pager-u / --pager-rem`)
+    }
+  }
+})
+
+test('desktop scale: the pitch is READ from the CSS, and the wheel/box pad follow it', () => {
+  // registered <length> so the computed value is resolved px
+  const prop = stripComments(GLOBAL).match(/@property --scale-pitch\s*\{([\s\S]*?)\}/)
+  assert.ok(prop, '@property --scale-pitch is registered')
+  assert.match(prop[1], /syntax:\s*'<length>'/)
+  assert.match(prop[1], /initial-value:\s*48px/)
+  // the skin reads it back at mount, tier change and resize
+  assert.match(PAGER, /getComputedStyle\(rootRef\.current\)\.getPropertyValue\('--scale-pitch'\)/)
+  assert.match(PAGER, /window\.addEventListener\('resize', measure\)/)
+  assert.match(PAGER, /detentDial \?\? \(mobileTier\(\) \? SCALE_PITCH_MOBILE_PX : deskPitch\)/)
+  // desktop never writes the inline pitch (that would pin it); ≤768 and ?detent still do
+  assert.match(PAGER, /mobileTier\(\) \|\| detentDial !== null \? \{ '--scale-pitch': `\$\{detentPx\}px` \} : \{\}/)
+  // the wheel detent + the box pad ride the same factor; ?wheeldetent stays absolute
+  assert.match(PAGER, /const pitchK = mobileTier\(\) \|\| detentDial !== null \? 1 : deskPitch \/ SCALE_PITCH_PX/)
+  assert.match(PAGER, /PARAM\('wheeldetent', SCALE_WHEEL_DETENT_PX \* pitchK\)/)
+  assert.match(PAGER, /Math\.round\(6 \* pitchK\)/)
+  // choreography stays locked: usePagerGesture is untouched and no timing / spring constant moved
+  const gesture = read('src/components/work/pager/usePagerGesture.js')
+  assert.ok(!/pitchK|--pager-/.test(gesture))
+  for (const c of ['SCALE_END_RESIST', 'SCALE_MAGNET_EXP', 'SCALE_FLIP_TAU_S']) assert.ok(PAGER.includes(c))
+})
+
+test('?pagervw: the dial writes --pager-vw on the pager root (0 = the fixed pre-r12c size), and is documented', () => {
+  assert.match(PAGER, /const pagerVw = PARAM\('pagervw', -1\)/)
+  assert.match(PAGER, /pagerVw >= 0 \? \{ '--pager-vw': pagerVw \} : \{\}/)
+  // 0 → u = max(1px, 0) = 1px: every length is today's
+  assert.match(read('docs/tunables-guide.md'), /`\?pagervw`/)
 })
