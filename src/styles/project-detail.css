@@ -148,9 +148,11 @@ html:has(.project-detail) body {
 }
 
 .social-btn[data-platform="soundcloud"] .social-btn__icon {
-  width: 2.571rem;
-  /* viewBox is 400×290 (~1.38:1) — match height to eliminate bottom dead-space */
-  height: 1.74rem;
+  /* The viewBox is cropped to the cloud's ink (0 109.8 400 180.2, ~2.22:1;
+     Nathan 11-13: the file's top 38% was empty, so the cloud sat on the row's
+     bottom instead of its centre). Same ink size as before: 2.4 × 1.081rem. */
+  width: 2.4rem;
+  height: 1.081rem;
 }
 
 .social-btn[data-platform="spotify"] .social-btn__icon {
