@@ -149,3 +149,53 @@ export function sanitySrcSet(url, nativeWidth) {
 export function muxPosterSrcSet(playbackId) {
   return SRCSET_WIDTHS.map((w) => `${muxPoster(playbackId, w)} ${w}w`).join(', ');
 }
+
+/* — The deck wall's pages (SQ-79, Nathan 11-13): each page loads at its drawn
+   width × the screen's density, not one fixed width. The wall hands the img a
+   srcset over DECK_WIDTHS and a `sizes` of the page's measured width, so the
+   browser takes the smallest rung that covers it on this screen. — */
+
+/** The wall's width ladder (px): short and fixed, so the CDN and the HTTP cache stay warm. */
+export const DECK_WIDTHS = [480, 800, 1200, 1600, 2000, 2560, 3200, 3840];
+
+/** A Mux asset's source short side (px): the pipeline's top rung (unitSpan TOP_RUNG), which
+ *  every thumbnail of it is cut from. Mux scales a thumbnail past its source, so the wall caps it. */
+export const MUX_SOURCE_SHORT = 1080;
+
+/** The widest rendition a deck page's source can give: a still's own width (Sanity's
+ *  metadata, else the -WxH its CDN URL carries), a video's source short side stretched by
+ *  its ratio when it is landscape. null = a still of unknown size. */
+export function deckSourceWidth(page, ratio) {
+  if (page.imageUrl) {
+    return page.imageDimensions?.width || Number(page.imageUrl.match(/-(\d+)x\d+\.\w+$/)?.[1]) || null;
+  }
+  return Math.round(MUX_SOURCE_SHORT * Math.max(1, ratio || 1));
+}
+
+/** The ladder for a source `cap` px wide: every rung below it, then `cap` itself, so the set
+ *  never holds a width the source can't fill. No cap (unknown) = the whole ladder. */
+export function deckWidths(cap) {
+  const top = cap ? Math.min(cap, DECK_WIDTHS.at(-1)) : DECK_WIDTHS.at(-1);
+  return [...DECK_WIDTHS.filter((w) => w < top), top];
+}
+
+/** One deck page's `src` (the mid rung, for a browser that ignores srcset) and `srcSet`. A
+ *  Sanity URL carries fit=max: unlike Mux's, its CDN would otherwise stretch a width past the
+ *  original, and a source of unknown size must not be asked for more than it has. */
+export function deckPageImage(page, ratio) {
+  const widths = deckWidths(deckSourceWidth(page, ratio));
+  const at = page.imageUrl
+    ? (w) => `${page.imageUrl}?w=${w}&fit=max&${IMG_FORMAT}`
+    : (w) => muxPoster(page.playbackId, w);
+  return {
+    src: at(widths.find((w) => w >= 1200) ?? widths.at(-1)),
+    srcSet: widths.map((w) => `${at(w)} ${w}w`).join(', '),
+  };
+}
+
+/** The wall's page width for `sizes`, in px: the measure rounded up a step (so a window drag
+ *  doesn't rewrite every srcset) and never below the widest the wall has been, so a resize may
+ *  step a page up a rung but never drops one it already holds. */
+export function deckPageWidth(peak, measured) {
+  return Math.max(peak || 0, Math.ceil(measured / 16) * 16);
+}
