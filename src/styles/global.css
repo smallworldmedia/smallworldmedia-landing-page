@@ -168,6 +168,15 @@
     var(--color-white) calc(var(--ink-muted-l, 0.58) * 100%)
   );
 
+  /* Faint white ink (11-13, Nathan: the /work pager's roster reads "faint
+     white", not the 0.58 grey). The --ink-muted idiom as its OWN role, so
+     --ink-muted (the ticker lead line) does not move. ?inkfaint */
+  --ink-faint: color-mix(
+    in oklab,
+    var(--color-black),
+    var(--color-white) calc(var(--ink-faint-l, 0.9) * 100%)
+  );
+
   /* Typography — font stacks.
      ABC Areal is the main sans; PP Neue Montreal stays one step
      behind it in every chain, so a face that fails to load degrades to the
@@ -206,6 +215,10 @@
   /* 18px — the pill/chip line (nav info pill, site tagline + its copyright) */
   --lh-pill: 1.571rem;
   /* 22px */
+  --text-menu-item: clamp(2.286rem, 9vw, 3.429rem);
+  /* 11-13: the mobile menu's item size (32px → 9vw → 48px). One token, so
+     .mobile-menu__item and the /work pager's SELECTED name on phones
+     (featured-projects.css, .fp-scale__name ≤768) read the same number. */
   --text-link: 1.143rem;
   /* 16px — the LINK tier: nav links, footer links + copyright, and the
      corner pills' text line (08-27, Nathan: one type tier across the
@@ -471,15 +484,6 @@
   /* its ink as a fraction of the row's colour (an opacity — the row's
      colour already carries the proximity ink). Undimmed 09-07 (Nathan).
      ?subink. */
-  --scale-fill-pxs: 30;
-  /* 09-07: the FILL TICKER — the desktop selected name always rolls, the
-     copy repeated to fill the fixed box, at this many UNSCALED px/s,
-     phase-locked to the wall clock. Nathan's dial 30 (agent 44). ?fillpxs.
-     (A services readout that rolled under it was tried + dropped 09-07.) */
-  --scale-box-gap: 12px;
-  /* 09-07: the FIXED desktop box width = the widest client name, capped so
-     at least this gap stays between the box and the [select_project]
-     chip. Nathan's dial 12 (agent 2rem). ?boxgap (px). */
   --scale-ink-reach: 5;
   /* r11g: the INK curve is its own — continuous (per frame), not the
      detented size step: white at the lens → the floor at this many
@@ -1204,7 +1208,7 @@ html.fp-tint .mobile-menu__item {
   align-items: center;
   gap: 0.571rem;
   font-family: var(--font-headline);
-  font-size: clamp(2.286rem, 9vw, 3.429rem);
+  font-size: var(--text-menu-item);
   line-height: 1;
   letter-spacing: -0.02em;
   color: var(--color-white);

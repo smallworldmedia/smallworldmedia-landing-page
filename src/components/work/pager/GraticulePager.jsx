@@ -102,7 +102,7 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { usePagerGesture } from './usePagerGesture.js';
 import { PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
-import { SCRIM_GRAIN, SCRIM_GRAIN_MOBILE, noiseUri } from '../scrimNoise.js';
+import { SCRIM_GRAIN, noiseUri } from '../scrimNoise.js';
 import {
   SCALE_PITCH_PX,
   SCALE_PITCH_MOBILE_PX,
@@ -230,16 +230,11 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
   // copy so the cap, the ticker measure and the box width all include it.
   const subScale = PARAM('sub', 0);
   const subInk = PARAM('subink', -1);
-  // 09-07 (Nathan): the desktop selected row's FILL TICKER — ?fillpxs =
-  // its speed (unscaled px/s), ?boxgap = the min gap between the fixed
-  // box and the [select_project] chip in px. (The services readout that
-  // shared this box was tried and DROPPED the same day — spec doc.)
-  const fillPxs = PARAM('fillpxs', 0);
-  const boxGap = PARAM('boxgap', 0);
-  // 09-07: how long the OUTGOING row keeps its fill roll after the detent
-  // (ms). Nathan's dial 09-07: 0 — drop at once (1τ and 3τ both read as
-  // the roll hanging in the roster).
-  const unfillMs = PARAM('unfill', 0);
+  // 11-13 (Nathan): the faint-white roster ink — ?inkfaint = its lightness
+  // 0–1 (token --ink-faint-l .9, global.css). Written as --ink-faint itself
+  // on the pager root: the token resolves at :root, so a dial on a child
+  // has to redefine the whole mix, not just the lightness.
+  const inkFaint = PARAM('inkfaint', -1);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = PARAM('pause', 1) > 0;
@@ -374,8 +369,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     ...(nameMax > 0 ? { '--scale-name-max': `${nameMax}px`, '--scale-name-sel-max': `${nameMax}px` } : {}),
     ...(subScale > 0 ? { '--scale-sub': subScale } : {}),
     ...(subInk >= 0 ? { '--scale-sub-ink': subInk } : {}),
-    ...(fillPxs > 0 ? { '--scale-fill-pxs': fillPxs } : {}),
-    ...(boxGap > 0 ? { '--scale-box-gap': `${boxGap}px` } : {}),
+    ...(inkFaint >= 0
+      ? { '--ink-faint': `color-mix(in oklab, var(--color-black), var(--color-white) ${inkFaint * 100}%)` }
+      : {}),
   };
   const rootClass = `fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}`;
   // 09-07 (Nathan: "my tunables aren't working on localhost"): since the
@@ -435,7 +431,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
       put(
         '--scrim-noise',
         noiseUri({
-          ...(mobileTier() ? SCRIM_GRAIN_MOBILE : SCRIM_GRAIN),
+          ...SCRIM_GRAIN,
           ...(freq > 0 ? { freq } : {}),
           ...(amt >= 0 ? { amount: amt } : {}),
         })
@@ -604,7 +600,6 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     // row that changed role. Only the role attributes clear.
     if (selRef.current && selRef.current !== nameEl) {
       selRef.current.removeAttribute('data-sel');
-      unfillLater(selRef.current);
       selRef.current = null;
     }
     nearRef.current.forEach((el) => {
@@ -639,8 +634,9 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     let selW = 0;
     let selCap = Infinity;
     let selRolls = false;
-    // 09-07 (Nathan): on DESKTOP the selected row never wears the two-copy
-    // marquee — it gets the fill ticker below, whatever its width.
+    // 11-13 (Nathan): nothing rolls on DESKTOP — the selected row never
+    // wears the two-copy marquee (its name clips at the cap, which is
+    // effectively off there; the fill ticker that used to roll it is gone).
     const desk = !mobileTier();
     rows.forEach(({ el, cap, w }) => {
       const rolls = !PREFERS_REDUCED_MOTION && w > cap && !(desk && el === nameEl);
@@ -664,106 +660,11 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     });
     if (!nameEl) return;
     selRef.current = nameEl;
-    if (desk) {
-      // 09-07 (Nathan): the desktop box is a FIXED width, client to
-      // client — the widest client name (+ sub token), capped so at least
-      // --scale-box-gap stays between the painted box and the
-      // [select_project] chip. Inside it the name ALWAYS rolls, repeated
-      // to fill.
-      // 09-07 (Nathan): NO trailing pad — the rolling text hard-clips at
-      // the box edge (the r7 flush rule), so the box ends where the clip
-      // ends.
-      const pad = 0;
-      const cs = getComputedStyle(rootRef.current);
-      const selPaint =
-        (parseFloat(cs.getPropertyValue('--scale-sel')) || 1) *
-        (parseFloat(cs.getPropertyValue('--scale-sel-bump')) || 1);
-      const gapPx = boxGap > 0 ? boxGap : parseFloat(cs.getPropertyValue('--scale-box-gap')) || 0;
-      const widest = rows.reduce((m, r) => Math.max(m, r.w), 0);
-      let boxW = nameEl.offsetLeft + widest + pad;
-      const chip = freezeRef.current?.getBoundingClientRect();
-      const boxRect = boxRef.current?.getBoundingClientRect();
-      if (chip && boxRect && chip.width > 0) {
-        boxW = Math.min(boxW, (chip.left - gapPx - boxRect.left) / selPaint);
-      }
-      boxW = Math.max(boxW, nameEl.offsetLeft + 48);
-      const cap = boxW - nameEl.offsetLeft - pad;
-      const pxs = fillPxs > 0 ? fillPxs : parseFloat(cs.getPropertyValue('--scale-fill-pxs')) || 44;
-      fill(nameEl, selW, cap, pxs);
-      boxRef.current?.style.setProperty('width', `${Math.round(boxW)}px`);
-      return;
-    }
     boxRef.current?.style.setProperty(
       'width',
       `${nameEl.offsetLeft + Math.round(Math.min(selW, selCap)) + (selRolls ? 0 : 6)}px`
     );
   };
-  // 09-07: the FILL TICKER — enough copies of the text to span `cap`
-  // (cloned once, kept; CSS hides the extras off data-fill), rolling by
-  // exactly one copy + the track gap at `pxs` unscaled px/s, phase-locked
-  // to the wall clock (r11h). Never under RM (a static clipped line).
-  // The phase (animation-delay) is written ONLY when the roll ARMS: on a
-  // node already rolling, a fresh delay against its fixed start time
-  // JUMPS the phase (currentTime = elapsed − delay) — setStation re-runs
-  // on the same row at every Turn end / follow, and on a short name like
-  // COCO (a ~3s period) that read as the ticker "re-evaluating".
-  const fill = (el, w, cap, pxs) => {
-    const track = el.firstChild;
-    if (!track || !track.children.length) return;
-    cancelUnfill(el);
-    el.style.maxWidth = `${Math.max(0, Math.round(cap))}px`;
-    if (PREFERS_REDUCED_MOTION || !(w > 0)) return;
-    const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
-    const shift = w + gap;
-    const need = Math.max(2, Math.ceil(cap / shift) + 1);
-    while (track.children.length < need) track.appendChild(track.children[0].cloneNode(true));
-    const dur = shift / Math.max(pxs, 1);
-    if (el.hasAttribute('data-fill')) return; // already rolling — never re-phase
-    track.style.setProperty('--fill-shift', `${shift}px`);
-    track.style.setProperty('--fill-s', `${dur.toFixed(3)}s`);
-    track.style.animationDelay = `${-((performance.now() / 1000) % dur).toFixed(3)}s`;
-    el.setAttribute('data-fill', '');
-  };
-  const unfill = (el) => {
-    el.removeAttribute('data-fill');
-    el.style.maxWidth = '';
-  };
-  // 09-07 (Nathan: COCO snapped from the roll to a single name while still
-  // inside the box): the detent fires at the threshold, while the flipper
-  // is still deflected onto the OUTGOING row and springing across — so the
-  // outgoing row keeps rolling for ~one spring τ (?unfill ms) and drops
-  // to its single copy as the box clears it. Re-selection inside that
-  // window cancels the drop (fill() re-arms on the same clock).
-  const unfillTimers = useRef(new Map());
-  const cancelUnfill = (el) => {
-    const t = unfillTimers.current.get(el);
-    if (t) {
-      clearTimeout(t);
-      unfillTimers.current.delete(el);
-    }
-  };
-  const unfillLater = (el) => {
-    cancelUnfill(el);
-    const ms = unfillMs >= 0 ? unfillMs : Math.max(60, Math.round(flipTau * 1000));
-    if (ms === 0) {
-      unfill(el);
-      return;
-    }
-    unfillTimers.current.set(
-      el,
-      setTimeout(() => {
-        unfillTimers.current.delete(el);
-        unfill(el);
-      }, ms)
-    );
-  };
-  useEffect(
-    () => () => {
-      unfillTimers.current.forEach((t) => clearTimeout(t));
-      unfillTimers.current.clear();
-    },
-    []
-  );
   const setStation = (i, un = i) => {
     const w = worlds[i];
     if (!w) return;
@@ -838,11 +739,10 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
       cRef.current -= off;
       prevDetentRef.current -= off;
       rootRef.current?.style.setProperty('--scale-c', cRef.current);
-      // 09-07 (Nathan: scrolling UP from COCO #01 the roll stopped — a
-      // single COCO in the box until it left): the re-base swaps the DOM
-      // node under the lens for its CLONE (identical text, no data-fill /
-      // data-sel), so the roll has to move to that node. Its phase is the
-      // wall clock's, so the swap is seamless (the r11h idiom).
+      // The re-base swaps the DOM node under the lens for its CLONE
+      // (identical text, no data-sel), so the role (and a ≤768 marquee) has
+      // to move to that node. Its phase is the wall clock's, so the swap is
+      // seamless (the r11h idiom).
       setMarquee(cRef.current);
     },
     tuning: {
