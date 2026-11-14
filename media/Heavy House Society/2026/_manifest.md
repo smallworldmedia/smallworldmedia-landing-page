@@ -22,7 +22,6 @@ project: heavy-house-society-branding-2026
 | hhs_straight-from-the-underground_white-back.jpg | static_1x1 | Merch Design | hhs straight from the underground white back |  | heavy-house-society-2026-merch | mediaAsset-heavy-house-society-hhs-straight-from-the-underground-white-back |
 | HHS USA listing 2026.png | static_4x5 | Event / Tour Creative | HHS USA listing 2026 |  | heavy-house-society-2026-admats | mediaAsset-heavy-house-society-hhs-usa-listing-2026 |
 | pure-perfection_4x5.mp4 | motion_4x5 | Promo Video | Dennis Quin — Pure Perfection Preview |  | heavy-house-society-2026-track-previews | mediaAsset-heavy-house-society-pure-perfection-4x5 |
-| HHS047 SC Banner.png | static_16x9 | Branding | HHS047 SC Banner |  |  | mediaAsset-heavy-house-society-hhs047-sc-banner |
 | HHS059 Banner.png | static_other | Branding | HHS059 Banner |  | heavy-house-society-banners | mediaAsset-heavy-house-society-hhs059-banner |
 | HHS057 Banner.png | static_other | Branding, Release Packs | HHS057 Banner |  | heavy-house-society-banners | mediaAsset-85c49b91-5cbb-4394-97c9-830f9bc3a80d |
 | HHS060 Banner.png | static_other | Branding, Release Packs | HHS060 Banner |  | heavy-house-society-banners | mediaAsset-527e6811-492b-43c9-9b4a-eed21c4aec36 |
@@ -48,3 +47,4 @@ project: heavy-house-society-branding-2026
 | Album Art/HHS063-Burnski---Echo-Chamber-EP.jpg | album-art | Album Art | Burnski — Echo Chamber EP |  |  | mediaAsset-e5460497-3d97-49bf-abc1-a389ab3391f9 |
 | Album Art/HHS064-Ellis-Garner---Bells-n-Whistles-EP_purple.jpg | album-art | Album Art | Ellis Garner — Bells n' Whistles EP |  |  | mediaAsset-04e40619-4060-4e91-99c4-825a2a1e2eef |
 | Mint Festival 2027/Announcement 3x4.jpg | static_3x4 | Event / Tour Creative | HHS Mint Festival 2027 Announcement |  |  | mediaAsset-09e00528-44e0-4981-b3e2-254e529b4fbe |
+| Live Visuals 2026/HHS Visuals Loop - 3 Min Cut.mp4 | motion_16x9 | Live Visuals | HHS Visuals Loop 2026 |  |  | mediaAsset-9f51ee3f-a6a3-46cb-8128-a8bf40f58fd5 |
