@@ -139,7 +139,19 @@ const chipsReadout = (page) =>
         travel: roll ? +travel.toFixed(3) : null,
         wrapStepPx: roll ? +Math.abs(period - travel).toFixed(3) : null,
         frameTravelPx: roll ? +(pxs / 60).toFixed(3) : null,
-        anim: roll ? { s: getComputedStyle(track).animationDuration, delay: getComputedStyle(track).animationDelay } : null,
+        // phase-lock: the animation's own clock mod its period vs the wall clock mod it
+        anim: roll
+          ? (() => {
+              const a = track.getAnimations()[0];
+              const dur = parseFloat(getComputedStyle(track).animationDuration);
+              return {
+                s: getComputedStyle(track).animationDuration,
+                delay: getComputedStyle(track).animationDelay,
+                phaseS: a ? +(((a.currentTime / 1000) % dur)).toFixed(3) : null,
+                wallS: +(((performance.now() / 1000) % dur)).toFixed(3),
+              };
+            })()
+          : null,
       };
     };
     const pn = document.querySelector('.fp-scale__name');
