@@ -62,11 +62,11 @@ import { gsap } from 'gsap';
 import { getLenis } from '../../../lib/smoothScroll.js';
 import { userScrollVelocity } from '../../../lib/scrollKick.js';
 import {
-  IMG_FORMAT,
   DETAIL_MAX_SECONDS,
   DIRECTORY_PLAYERS,
   DIRECTORY_DWELL_MS,
-  muxPoster,
+  deckPageImage,
+  deckPageWidth,
 } from '../imageConfig.js';
 import { createPlayerGate } from '../directory/playerGate.js';
 import GatedVideo from './GatedVideo.jsx';
@@ -87,24 +87,25 @@ export const DECK_GAP_PX = GAP_PX; // the carousel socket sizes its slides throu
 const DRIFT_PX_S = num('deckdrift', 8); // idle rate — Nathan's 08-25 bake (was 12)
 const SCROLL_GEAR = num('deckgear', 0.08); // column px per scrolled px — Nathan's 08-25 bake (was 0.5 → 0.3 → 0.08)
 
-// Two visible rows render pages ~half the frame tall (retina columns can
-// exceed 700px) — the detail-slot width budget, not the grid-tile one.
-const IMG_WIDTH = 1400;
-const pageSrc = (p) =>
-  p.imageUrl
-    ? `${p.imageUrl}?w=${IMG_WIDTH}&${IMG_FORMAT}`
-    : `https://image.mux.com/${p.playbackId}/thumbnail.webp?width=${IMG_WIDTH}&fit_mode=preserve`;
-
 /* One page of the wall. Its own component so a page can grow more than a
    still: in play mode, a page with a playbackId is the media-slot
    directory face — its frame-0 poster, and a fresh keyed GatedVideo over it
    while the gate grants it play. The wrapper takes the wall's ratio, so the
-   strip's cycle height holds whatever the page is. */
-function DeckPage({ page, play, gate, own }) {
+   strip's cycle height holds whatever the page is.
+
+   Its image loads at the page's DRAWN width x the screen's density (SQ-79): a
+   srcset over the wall's width ladder and a `sizes` of the measured page
+   width (`wide`), so the browser picks the rung. The box crops its image to
+   the wall's ratio (object-fit: cover), so a page wider than the box is drawn
+   wider than it, and `sizes` says so. */
+function DeckPage({ page, play, gate, own, ratio, wide }) {
   const ref = useRef(null);
   const [canPlay, setCanPlay] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const live = !!play && !!page.playbackId; // the poster face from the first paint; the gate arrives after
+  const pageRatio = ratioOf(page);
+  const img = deckPageImage(page, pageRatio);
+  const sizes = `${Math.ceil(wide * Math.max(1, pageRatio / (own ?? ratio)))}px`;
 
   useEffect(() => {
     if (!live || !gate) return undefined;
@@ -115,7 +116,9 @@ function DeckPage({ page, play, gate, own }) {
     return (
       <img
         className="deck-scroller__page"
-        src={pageSrc(page)}
+        src={img.src}
+        srcSet={img.srcSet}
+        sizes={sizes}
         alt=""
         loading="lazy"
         draggable={false}
@@ -127,7 +130,9 @@ function DeckPage({ page, play, gate, own }) {
     <div ref={ref} className="media-slot" style={{ '--slot-ratio': own ?? 'var(--deck-ratio)' }}>
       <img
         className={`media-slot__media${loaded ? ' media-slot__media--loaded' : ''}`}
-        src={muxPoster(page.playbackId, IMG_WIDTH)}
+        src={img.src}
+        srcSet={img.srcSet}
+        sizes={sizes}
         alt=""
         loading="lazy"
         draggable={false}
@@ -194,10 +199,12 @@ export default function DeckScroller({
       let lines;
       let perLine;
       let reps = null;
+      let pageW; // the page's drawn width, for the images' `sizes`
       motionRef.current.cycles = null;
       if (columns) {
         lines = columns.length;
         const colW = (w - (lines - 1) * GAP_PX) / lines;
+        pageW = colW;
         const cyc = columns.map((col) => mixedCycle(col.map(ratioOf), { colW, h, gap: GAP_PX }));
         reps = cyc.map((c) => c.reps);
         perLine = 0;
@@ -206,11 +213,13 @@ export default function DeckScroller({
         lines = rows;
         const x = horizontalLayout({ w, h, lines, ratio, gap: GAP_PX, n: pages.length });
         perLine = x.perLine;
+        pageW = x.pageW;
         motionRef.current.cycle = x.cycle;
       } else {
         const idealPageH = h / VISIBLE_ROWS;
         lines = fixedCols ?? Math.max(2, Math.round(w / (idealPageH * ratio)));
         const colW = (w - (lines - 1) * GAP_PX) / lines;
+        pageW = colW;
         const pageH = colW / ratio;
         // Enough pages per strip cycle that TWO rendered copies cover the
         // frame at any wrap offset.
@@ -220,11 +229,16 @@ export default function DeckScroller({
           : framePerCol;
         motionRef.current.cycle = perLine * (pageH + GAP_PX);
       }
-      setLayout((cur) =>
-        cur && cur.lines === lines && cur.perLine === perLine && String(cur.reps) === String(reps)
+      setLayout((cur) => {
+        const wide = deckPageWidth(cur?.pageW, pageW);
+        return cur &&
+          cur.lines === lines &&
+          cur.perLine === perLine &&
+          cur.pageW === wide &&
+          String(cur.reps) === String(reps)
           ? cur
-          : { lines, perLine, reps }
-      );
+          : { lines, perLine, reps, pageW: wide };
+      });
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -317,7 +331,15 @@ export default function DeckScroller({
                 {/* the cycle twice — the wrap shows copy 2 while copy 1 rewinds */}
                 {[0, 1].map((copy) =>
                   cycle.map((p, n) => (
-                    <DeckPage key={`${copy}-${n}`} page={p} play={play} gate={gate} own={columns ? ratioOf(p) : undefined} />
+                    <DeckPage
+                      key={`${copy}-${n}`}
+                      page={p}
+                      play={play}
+                      gate={gate}
+                      own={columns ? ratioOf(p) : undefined}
+                      ratio={ratio}
+                      wide={layout.pageW}
+                    />
                   ))
                 )}
               </div>
