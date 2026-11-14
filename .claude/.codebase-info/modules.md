@@ -253,6 +253,11 @@ A tile's class is `tileClassOf(asset)` (SQ-66, 11-12). A ratio-bucketed asset ke
 (`classifyTile`). An `_other` asset (`isOtherAsset`) takes `leastCropTile`: the `TILE_RATIO` class
 (portrait 0.5, square 1, landscape 2) whose shape crops it least by `cropLoss`, which is now exported
 from `lib/mediaSequence.js` and shared with `sequenceRatio` and the aspect packer. A 1.3:1 still is a square.
+Square album art (`isSquareArt`: album-art whose class is square; SQ-78, Nathan 11-13) is RIGID.
+Neither flush stage stretches it, so a cover never becomes a 1×2. Instead, `computeFlushGrid` tries
+promoting 1 to 3 of the covers nearest the list's end to 2×2 (`combos`), and takes the first flat
+layout or else the one with the fewest open rows (`openRows`). Where nothing closes, the last row
+stays ragged: the square cover wins. `DirectoryGrid` gives a 2×2 cover `{span: 2, cell: 1}` sizes.
 Anchors `top`/`mid`/`bottom`, plus `break`: `opts.breaks` zero-height full-width cuts that
 no tile may straddle, pinned one at a time by `pinBreaks` on a tile-end row. The row that leaves the
 fewest hole rows after both stretch passes wins (`holeRows`), then the one nearest the target, because
