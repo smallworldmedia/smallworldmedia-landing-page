@@ -253,18 +253,34 @@ test('desktop scale: ONE unit anchored on the directory filter tag (2.4vw), floo
   }
 })
 
-test('desktop scale: every px / rem / text / space the pager paints is a multiple of the unit, in the units it had', () => {
+// the chip family — root width, lens + den, pointer, hint, the rest hit pad — stays at its pre-r12c size
+const CHIP_TOKENS = ['--scale-w', '--scale-num-h', '--text-link', '--lh-mono']
+const WHEEL_RULE = '.fp .fp-scale__window, .fp .fp-scale__freeze'
+const CHIP_RULES = [
+  '.fp .fp-scale::after',
+  '.fp .fp-scale__pointer',
+  '.fp .fp-scale__lens, .fp .fp-scale__den',
+  '.fp .fp-scale__hint',
+  '.fp .fp-scale__chip',
+]
+
+test('desktop scale: the WHEEL text is a multiple of the unit, in the units it had', () => {
   const desk = find(FP, '.fp .fp-scale', DESK)[0]
   // pitch: the CSS source of truth, = motion.js SCALE_PITCH_PX × u (the floor reproduces today's 48)
   const pitchPx = Number(motion.match(/SCALE_PITCH_PX = (\d+)/)[1])
   assert.equal(decl(desk, '--scale-pitch'), `calc(${pitchPx} * var(--pager-u))`)
   assert.equal(rootDecl('--scale-pitch'), `${pitchPx}px`, 'the :root fallback (and the ≤768 tier) holds the fixed pitch')
-  // each rem token keeps its own rem number, now × the pager's rem
-  for (const t of ['--text-mono', '--text-link', '--text-secondary', '--lh-mono', '--space-1', '--space-2', '--space-3', '--space-4', '--space-5', '--space-6', '--scale-w', '--scale-num-h']) {
+  // the rem tokens the wheel reads keep their own rem number, now × the pager's rem — declared on the
+  // wheel window and the [select_project] pause label ONLY (descendants inherit), never on the root
+  const wheel = find(FP, WHEEL_RULE, DESK)[0]
+  assert.ok(wheel, 'a desktop-only rule scales the wheel window and the pause label')
+  for (const t of ['--scale-w', '--text-mono', '--text-secondary', '--space-1', '--space-2', '--space-3', '--space-4', '--space-5', '--space-6']) {
     const n = parseFloat(rootDecl(t))
     assert.ok(rootDecl(t).endsWith('rem'), `${t} is a rem token at :root`)
-    assert.equal(decl(desk, t), `calc(${n} * var(--pager-rem))`, t)
+    assert.equal(decl(wheel, t), `calc(${n} * var(--pager-rem))`, t)
+    assert.equal(decl(desk, t), null, `${t} is not scaled on the pager root (it would scale the chip)`)
   }
+  assert.equal(decl(wheel, '--scale-pad'), 'var(--space-4)', 'the station pad follows the scaled --space-4')
   // the 2400px name cap scales too; the sel cap follows it
   assert.equal(decl(desk, '--scale-name-max'), 'calc(2400 * var(--pager-u))')
   assert.equal(decl(desk, '--scale-name-sel-max'), 'var(--scale-name-max)')
@@ -275,13 +291,50 @@ test('desktop scale: every px / rem / text / space the pager paints is a multipl
   )
   // and no raw rem / sizeable px literal is left in any pager rule outside the ≤768 tier
   // (hairlines 1px / 0.5px, the 2px outline and the -2px clip overdraw stay physical)
+  // — except the chip family, which keeps its raw pre-r12c rem on purpose (next test), and the open
+  // hit pad, whose right edge is asserted there too
   const physical = new Set(['0px', '0.5px', '1px', '2px', '-2px'])
-  for (const r of rules(FP).filter((r) => /\.fp-scale\b/.test(r.selector) && !r.media?.includes('max-width: 768px'))) {
+  const unscaled = new Set([...CHIP_RULES, '.fp .fp-scale[data-open]::after'])
+  for (const r of rules(FP).filter(
+    (r) => /\.fp-scale\b/.test(r.selector) && !r.media?.includes('max-width: 768px') && !unscaled.has(r.selector)
+  )) {
     for (const m of r.body.matchAll(/(?<![\w.-])(-?\d*\.?\d+)(rem|px)\b/g)) {
       if (r.media?.includes(DESK) && /^--/.test(r.body.slice(Math.max(0, m.index - 40), m.index).split(';').pop().trim())) continue
       assert.ok(m[2] === 'px' && physical.has(m[1] + 'px'), `${r.selector}: ${m[0]} should scale with --pager-u / --pager-rem`)
     }
   }
+})
+
+test('desktop scale: the CHIP keeps its pre-r12c size — the root width, lens + den, pointer, hint and rest hit pad read no pager unit', () => {
+  // no desktop-media rule re-declares a chip token anywhere but the wheel rule (and it carries only --scale-w there,
+  // the stations' number column, never the root's)
+  const wheel = find(FP, WHEEL_RULE, DESK)[0]
+  for (const r of rules(FP).filter((r) => r.media?.includes(DESK))) {
+    for (const t of [...CHIP_TOKENS, '--text-link']) {
+      if (decl(r, t) !== null) assert.equal(r.selector, WHEEL_RULE, `${t} is declared on ${r.selector}`)
+    }
+  }
+  assert.equal(decl(wheel, '--text-link'), null)
+  assert.equal(decl(wheel, '--scale-num-h'), null)
+  assert.equal(decl(wheel, '--lh-mono'), null)
+  // the root's own width is the UNSCALED --scale-w (the root rule never gets the wheel's re-declaration)
+  assert.equal(decl(find(FP, '.fp .fp-scale')[0], 'width'), 'var(--scale-w)')
+  assert.equal(decl(find(FP, '.fp .fp-scale', DESK)[0], '--scale-w'), null)
+  // every chip rule is pre-r12c: no --pager-u / --pager-rem in it
+  for (const sel of CHIP_RULES) {
+    const rs = find(FP, sel)
+    assert.ok(rs.length > 0, `${sel} exists`)
+    for (const r of rs) assert.ok(!/--pager-/.test(r.body), `${sel} reads a pager unit`)
+  }
+  // the rest hit pad and the pointer triangle are back on plain rem
+  assert.equal(decl(find(FP, '.fp .fp-scale::after')[0], 'inset'), '-0.75rem -1rem -0.75rem 0')
+  const ptr = find(FP, '.fp .fp-scale__pointer')[0]
+  assert.equal(decl(ptr, 'border-left'), '0.571rem solid currentColor')
+  assert.equal(decl(ptr, 'margin-top'), '-0.429rem')
+  // the engaged hit pad still reaches 4rem past the number column; the column (3 pager-rem) is wider than the
+  // chip root (3rem), so it spans the difference: 4rem at u = 1px, 7 pager-rem − 3rem in general
+  const open = find(FP, '.fp .fp-scale[data-open]::after')[0]
+  assert.equal(decl(open, 'right'), 'calc(3rem - 7 * var(--pager-rem))')
 })
 
 test('desktop scale: the pitch is READ from the CSS, and the wheel/box pad follow it', () => {

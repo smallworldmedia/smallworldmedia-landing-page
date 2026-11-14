@@ -530,13 +530,14 @@ body:has(.fp) {
      and stations share it so the digits line up under the lens). */
   --scale-lens-y: calc(var(--scale-num-h) / 2);
   --scale-pad: var(--space-4);
-  /* r12c (Nathan 11-13: the pager grows on desktop, cohesive with the
-     project directory's filter): ONE pager unit scales the whole
-     instrument. --pager-u is 1px — every length below at its pre-r12c size
-     — on the ≤768 tier (phones do not change) and under the desktop block
+  /* r12c / r13 (Nathan 11-13: the WHEEL TEXT grows on desktop, cohesive with
+     the project directory's filter; the chip does not): ONE pager unit
+     scales the wheel. --pager-u is 1px — every length at its pre-r12c size —
+     on the ≤768 tier (phones do not change) and under the desktop blocks
      right after this rule; --pager-rem is the pager's own rem (14 units,
-     the root's 14px at u = 1px). Every px / rem / --text-* / --space-* the
-     pager paints is a multiple of one of them. */
+     the root's 14px at u = 1px). The CHIP (root width, lens + den, pointer,
+     hint, the rest hit pad) never reads them: it keeps its pre-r12c rem /
+     --space-* sizes on every tier, flush left of the text. */
   --pager-u: 1px;
   --pager-rem: calc(14 * var(--pager-u));
   /* The flipper box's row-tall height: pitch back-divided by the selected
@@ -585,29 +586,37 @@ body:has(.fp) {
 
 /* r12c DESKTOP SCALE (Nathan 11-13: "increase the size of the pager overall
    on desktop — cohesive with the way the filter area scales on the project
-   directory"). The unit = the roster name's vw (--pager-vw 2.4, the
+   directory"), narrowed in r13 (Nathan 11-13: "i want just the wheel text
+   (client names) and select project to be this scaled up size. keep the
+   chip anchored to the left … the original scale"): the WHEEL TEXT scales,
+   the CHIP does not. The unit = the roster name's vw (--pager-vw 2.4, the
    directory filter tags' --text-drawer-name) over today's fixed 24.315px
    roster name (0.9141rem × 1.9 × 14px), floored at 1px so it never
-   shrinks: u = 1.42px at 1440, 1.90 at 1920, 2.53 at 2560. The tokens the
-   pager reads are RE-DECLARED here on the pager root (descendants inherit
-   them), in the units they had — rem → --pager-rem, px → --pager-u. The
-   selected name's ×sel×bump and every ratio hold, so the curves scale
-   proportionally and are never reshaped. The pitch is read back by the
-   skin (GraticulePager, @property --scale-pitch in global.css), so the
-   finger's detent, the wheel and the hover follow it. Hairlines (1px), the
-   2px outline and the −2px clip overdraw stay physical. ?pagervw dials
+   shrinks: u = 1.42px at 1440, 1.90 at 1920, 2.53 at 2560. The pitch, the
+   name caps and the flipper box live on the pager root (the skin reads the
+   pitch back: GraticulePager, @property --scale-pitch in global.css, so the
+   finger's detent, the wheel and the hover follow it). The rem / --text-* /
+   --space-* tokens are RE-DECLARED in the next rule, on the wheel window
+   and the [select_project] pause label only (descendants inherit them), in
+   the units they had — rem → --pager-rem, px → --pager-u — so the root's
+   own width and the chip, pointer and hint keep their pre-r12c sizes and
+   stay flush left. The selected name's ×sel×bump and every ratio hold, so
+   the curves scale proportionally and are never reshaped. Hairlines (1px),
+   the 2px outline and the −2px clip overdraw stay physical. ?pagervw dials
    --pager-vw (0 = the fixed pre-r12c size). */
 @media (min-width: 769px) {
   .fp .fp-scale {
     --pager-u: max(1px, calc(var(--pager-vw) * 1vw / 24.315));
     --scale-pitch: calc(48 * var(--pager-u));
-    --scale-w: calc(3 * var(--pager-rem));
-    --scale-num-h: calc(1.714 * var(--pager-rem));
     --scale-name-max: calc(2400 * var(--pager-u));
     --scale-name-sel-max: var(--scale-name-max);
+  }
+
+  .fp .fp-scale__window,
+  .fp .fp-scale__freeze {
+    --scale-w: calc(3 * var(--pager-rem));
+    --scale-pad: var(--space-4);
     --text-mono: calc(0.9141 * var(--pager-rem));
-    --lh-mono: calc(1.2 * var(--pager-rem));
-    --text-link: calc(1.143 * var(--pager-rem));
     --text-secondary: calc(1.543 * var(--pager-rem));
     --space-1: calc(0.143 * var(--pager-rem));
     --space-2: calc(0.286 * var(--pager-rem));
@@ -625,7 +634,7 @@ body:has(.fp) {
 .fp .fp-scale::after {
   content: '';
   position: absolute;
-  inset: calc(-0.75 * var(--pager-rem)) calc(-1 * var(--pager-rem)) calc(-0.75 * var(--pager-rem)) 0;
+  inset: -0.75rem -1rem -0.75rem 0;
   z-index: -1;
 }
 
@@ -639,7 +648,11 @@ body:has(.fp) {
 .fp .fp-scale[data-open]::after {
   top: calc((var(--scale-up) + 0.5) * var(--scale-pitch) * -1);
   bottom: calc((var(--scale-down) + 0.5) * var(--scale-pitch) * -1);
-  right: calc(-4 * var(--pager-rem));
+  /* 4rem past the number column's right edge — and the column (the stations'
+     --scale-w, 3 pager-rem) is wider than the chip root (3rem) on a scaled
+     desktop, so the pad also spans that difference: 4rem at u = 1px, and
+     7 pager-rem − 3rem generally. */
+  right: calc(3rem - 7 * var(--pager-rem));
 }
 
 /* The chip = lens row + fraction rule + denominator row. Decorative
@@ -821,10 +834,10 @@ body:has(.fp) {
   width: 0;
   height: 0;
   /* Round 7 (Nathan): bigger selection arrow — 12×8px (was 7×5). */
-  margin-top: calc(-0.429 * var(--pager-rem));
-  border-top: calc(0.429 * var(--pager-rem)) solid transparent;
-  border-bottom: calc(0.429 * var(--pager-rem)) solid transparent;
-  border-left: calc(0.571 * var(--pager-rem)) solid currentColor;
+  margin-top: -0.429rem;
+  border-top: 0.429rem solid transparent;
+  border-bottom: 0.429rem solid transparent;
+  border-left: 0.571rem solid currentColor;
   opacity: 0;
   /* r11f (Nathan): the pointer rides the FLIPPER'S spring — --box-dy is
      the box's screen-space deflection (the strip's own motion cancels

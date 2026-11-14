@@ -405,14 +405,18 @@
      length), so the wheel/hover detent follows it. */
   --pager-vw: 2.4;
   /* r12c (Nathan 11-13: "increase the size of the pager overall on desktop —
-     cohesive with the way the filter area scales on the project directory"):
-     the DESKTOP roster name in vw — the directory filter tags' own size,
+     cohesive with the way the filter area scales on the project directory"),
+     r13 narrowed it to the WHEEL TEXT ("just the wheel text (client names)
+     and select project … keep the chip … the original scale"): the DESKTOP
+     roster name in vw — the directory filter tags' own size,
      --text-drawer-name 2.4vw (34.6px at 1440, 61px at 2560). ONE factor
-     scales the whole pager: the unit --pager-u (featured-projects.css
+     scales the wheel (names, number column, pitch, caps) and the
+     [select_project] pause label: the unit --pager-u (featured-projects.css
      .fp-scale) = max(1px, this·1vw ÷ 24.315px), 24.315 = today's fixed
-     roster name (0.9141rem × 1.9 × 14px). Floored at today's size, so it
-     never shrinks (above ≈1012px wide it grows). ?pagervw dials it; 0 = the
-     fixed pre-r12c size. The ≤768 tier ignores it. */
+     roster name (0.9141rem × 1.9 × 14px). The chip (lens + den, pointer,
+     hint) stays at its pre-r12c size. Floored at today's size, so it never
+     shrinks (above ≈1012px wide it grows). ?pagervw dials it; 0 = the fixed
+     pre-r12c size. The ≤768 tier ignores it. */
   --scale-rows: 7;
   /* Deployed WINDOW reach, in stations each side of the lens (±336px here).
      Bounds the scale so 13 stations can't run under the fixed nav lockup or

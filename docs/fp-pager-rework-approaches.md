@@ -1389,3 +1389,40 @@ black scrim on every tier, the choreography lock). Phones (≤768) do not change
   insets −10.5 / −14 px). The probe's "leave" point is now 75 % of the width — at the old centre
   the 54 px selected name (≈620 px wide at 1440) reaches the pointer and, by design, keeps the
   pager engaged. Evidence: verification/SQ-75/r3/.
+
+### 11-13 round 13 — the scale-up narrows to the wheel text; the chip keeps its size
+
+Nathan, 11-13, verbatim, after reviewing r12c (06a20ef) on :4330: "i want just the wheel text
+(client names) and select project to be this scaled up size. keep the chip anchored to the left
+the text elements (the default state of the pager) the original scale before the scale up."
+Everything else stands (the phone look, clip edge, seamless marquee, black scrim, the choreography
+lock, the pitch and `?pagervw`, the wheel detent following the pitch, 7 rows).
+
+- **What scales** (unchanged from r12c): the wheel's roster rows and the selected name, the
+  number column, the pitch, the name caps, the box, the feather — and the `[select_project]`
+  pause label (the engaged label over the scrim, `.fp-scale__freeze`), which reads as the
+  "select project" text Nathan names.
+- **What went back to its pre-r12c size at every width** (the rest state, flush left, anchored
+  as the text grows): the root's width (the chip column, 3rem = 42 px), the lens + den (24 px
+  rows, `--text-link` digits, the 8 px pad), the lens pointer triangle, the vertical rest hint
+  above the chip, and the rest hit pad (`-0.75/-1rem`). Measured (probe `chipRect` / `hintRect`,
+  2 d.p.): chip 42 × 47.97 at (0, 426.02) at 1440×900, (0, 516.02) at 1920×1080, (0, 696.02) at
+  2560×1440; hint 17 × 101.72 — byte-identical to the stream (:4322) at the same widths.
+- **How.** The r12c rem / `--text-*` / `--space-*` re-declarations moved off the pager root onto
+  the two scaled subtrees, `.fp-scale__window` and `.fp-scale__freeze` (descendants inherit
+  them): `--scale-w` (the stations' number column; the root's own width is the unscaled
+  token), `--scale-pad`, `--text-mono`, `--text-secondary`, `--space-1…6`. `--scale-num-h`,
+  `--lh-mono` and `--text-link` are no longer re-declared at all. The root keeps `--pager-u`,
+  `--pager-rem`, the pitch, the name caps and `--scale-box-h` (every wheel-only; the skin still
+  reads the pitch off the root). `--scale-lens-y` stays the chip's own half-row, so the strip's
+  origin still sits on the unscaled lens row.
+- **Engaged hit pad.** The pad's right edge reached 4rem past the number column; the column is
+  now `3 × --pager-rem` against a `3rem` chip root, so `right` is `3rem − 7 × --pager-rem`
+  (= −4rem at u = 1px; the same reach past the column as r12c at every width).
+- **Not touched:** `usePagerGesture.js`, `motion.js`, every spring / timing / ease / detent
+  constant, the ≤768 tier, `--scale-fill-pxs`. The pointer triangle stays chip-sized (it sits in
+  the lens's left pad), so it reads smaller beside the scaled digits — Nathan's call if it should
+  scale with the text.
+- **Height check (unchanged, reported):** 7 × pitch vs half the viewport — 477.6 / 450 at
+  1440×900, 636.8 / 540 at 1920×1080, 849.0 / 720 at 2560×1440: none fit; 5 rows fit all three.
+  Rows are not cut.

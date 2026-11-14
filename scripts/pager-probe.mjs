@@ -102,6 +102,14 @@ const readout = (page) =>
       current: q('[aria-current="true"]')?.textContent?.trim() ?? null,
       slider: q('[role="slider"]') ? { now: q('[role="slider"]').getAttribute('aria-valuenow'), text: q('[role="slider"]').getAttribute('aria-valuetext') } : null,
       rootRect: rect ? { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) } : null,
+      // r13: the CHIP's own box (lens + den) and the rest hint's — they keep the pre-r12c size at every
+      // width (2 d.p.: it is compared against the stream's chip at the same width).
+      chipRect: ((c) => (c ? { x: +c.x.toFixed(2), y: +c.y.toFixed(2), w: +c.width.toFixed(2), h: +c.height.toFixed(2) } : null))(
+        q('.fp-scale__chip')?.getBoundingClientRect()
+      ),
+      hintRect: ((c) => (c ? { x: +c.x.toFixed(2), y: +c.y.toFixed(2), w: +c.width.toFixed(2), h: +c.height.toFixed(2) } : null))(
+        q('.fp-scale__hint')?.getBoundingClientRect()
+      ),
       // r12c: the pager's resolved pitch (px; @property-registered) — the
       // desktop readouts are compared NORMALISED by it against the base.
       pitch: r ? parseFloat(getComputedStyle(r).getPropertyValue('--scale-pitch')) || null : null,
