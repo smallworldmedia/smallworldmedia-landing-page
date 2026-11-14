@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-12*
+*Last Updated: 2026-11-13*
 
 ```
 .
@@ -34,7 +34,7 @@
 │   │                         #   settleResize, motion, touchTune, rubberBand, blurbHold(+Math), momentum,
 │   │                         #   navAccent, projectColor, projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
-│   │                         #   queries, siteCopy, directoryData, clientCoverage, *Tune
+│   │                         #   queries, siteCopy, directoryData, clientCoverage, scrollKick, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + per-route sheets (media-slot.css is shared by
@@ -52,9 +52,9 @@
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
-│   │                         #   globe-worlds, footer-reveal, flush-grid, directory)
+│   │                         #   globe-worlds, footer-reveal, flush-grid, directory, large-grid, scroll-kick)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
-│   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs   # docs + probe tooling
+│   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs   # docs + probe tooling
 │   ├── media-load-probe.mjs  # how long a media tile sits in view unpainted while a page scrolls (a measurement, not a gate)
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated
