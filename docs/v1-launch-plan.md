@@ -114,7 +114,7 @@ records (`docs/globe-worlds-plan.md`).
        Short Circuit 2023) applied and verified.
    - **The manifest's `groupType` column** (`b54bf9f`) types new rows at intake.
    - **Left:**
-     - redeploy the hosted Studio for the five new options;
+     - ~~redeploy the hosted Studio for the five new options~~ done 11-13, with SQ-83;
      - ~~retire `../swm-gate-us5`~~ done;
      - ~~CONTEXT.md for `mockups` and `flyer-progression`~~ done 11-12 (`9b69f97`);
      - Nathan's iPhone check;
@@ -135,10 +135,47 @@ records (`docs/globe-worlds-plan.md`).
      Logo Design); Character Design retired; Bedouin's Instagram mockups split into three 9:16
      phones.
    - **Left:**
-     - Nathan's Studio deletes of `client-house-hats` and `serviceTag-character-design` (approved
-       11-12; the runner can't delete those types);
+     - ~~Nathan's Studio deletes of `client-house-hats` and `serviceTag-character-design`~~ done
+       by Nathan in Studio, 11-12 evening;
      - `?npzoom` at 1 (SQ-65) and `?homefade` at 400 ms (SQ-64);
      - Nathan's iPhone check of SQ-68.
+6. **Done 11-13: Nathan's 11-12 evening and 11-13 rounds** (SQ-70…SQ-83 folded, pushed at
+   `59a3119`; `cms audit` 0 errors, 4 warnings):
+   - **11-12 evening** (pushed at `b8dad33`):
+     - SQ-70: the open info drawer pushes home down in lockstep, and `zoom_in` closes it first;
+       the drawer's blurb is `siteSettings.infoBlurb`;
+     - SQ-72: a split hero plays its first third;
+     - logo tiles fit their mark;
+     - the socket walls sit still;
+     - Studio's Featured Project Assets lists album art.
+   - **11-13 code:**
+     - SQ-73: a split video is three directory tiles;
+     - 2D/3D Animation renamed to 2D/3D Motion (slugs kept);
+     - SQ-76: per-piece `collaborators[]` count toward the Client Roster;
+     - the runner deletes a client (Panorama360);
+     - SQ-74: a large-screen tier at 1920 px and up;
+     - SQ-77: only a user scroll kicks the walls;
+     - SQ-78 and SQ-82: rigid square album art and flush-grid demotion;
+     - SQ-79: deck pages load from a width ladder;
+     - SQ-80: PREVIOUS / NEXT read the neighbour's client name;
+     - SQ-81: absolute logo ink;
+     - the SoundCloud icon centred on the social row;
+     - SQ-75: the /work pager simplified (skin only);
+     - SQ-83: "Hide from site" (schema `295f4c5`, hash `4df34a46`; hosted Studio redeployed).
+   - **Content:**
+     - COCO pre-2026 track previews; Kamino × Cristoph Falling;
+     - HHS 2026 release previews and rows;
+     - two Kamino covers;
+     - the manifests follow Nathan's 11-13 Studio deletes;
+     - the HHS 2026 visuals loop is the new hero, a 3-minute cut (`a06c8823`, `5ec51db3`);
+     - the HHS047 leftover is deleted (`cfa01e49`);
+     - the four Pacha NYC composites are hidden from the site (`d162e316`, found by SQ-84).
+     - Harvested: swm 1.109.10.
+   - **Left:**
+     - the three files Nathan's 11-13 Studio deletes left behind (two Kamino images, one Sidney
+       Charles Mux video), deleted by plan on his word;
+     - when the Pacha NYC pieces come back;
+     - the iPhone check of SQ-75 and SQ-80.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
@@ -240,7 +277,9 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
       client's work under the name, so this needs a per-piece field, `mediaAsset.collaborators[]` as
       client refs, which coverage counts. Nathan's go 11-13 ("let's go ahead and proceed with the
       affiliations"). It is a hashed-schema edit, so it goes schema, then data, then code, and the
-      schema lands alone.
+      schema lands alone. DONE 11-13: the field and the coverage code landed as SQ-76 (`0c5fac7`).
+      Panorama360 was deleted the same day (the runner's client delete, `2c73a76`). Re-count the
+      dead names with `clientCoverage` at the media session.
     - **Its own work uploaded:** Malóne's client folder is gone (Nathan, 11-13: "I've deleted the
       client folder for Malone so I'm going to have to pull our work from instagram"). He pulls the
       work from Instagram, then it goes up under `client-mal-ne`. Malóne is not linked to One Of Us's
