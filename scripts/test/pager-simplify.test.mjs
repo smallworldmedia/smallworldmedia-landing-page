@@ -114,7 +114,7 @@ test('.fp-scale__box paints no fill', () => {
   }
 })
 
-test('the desktop fill ticker is gone: no data-fill, ?fillpxs, ?unfill or --scale-fill-pxs in src', () => {
+test('the desktop fill ticker is gone, with no data-fill, ?fillpxs, ?unfill or --scale-fill-pxs in src', () => {
   const files = []
   ;(function walk(d) {
     for (const e of readdirSync(d)) {
