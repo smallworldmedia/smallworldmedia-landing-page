@@ -1613,7 +1613,8 @@ body:has(.fp) {
   /* vertical stack (08-31): the base .fp-cta column/center/0.1rem-gap IS
      the stepper read — arrows above the label on previous, below on next
      (markup order); only the small skin overrides live here */
-  padding: 0.25rem 0.4rem;
+  --cta-pad-x: 0.4rem; /* the name window bleeds through it (.fp-cta__name) */
+  padding: 0.25rem var(--cta-pad-x);
   font-size: var(--text-mono);
   letter-spacing: var(--tracking-tight);
   /* previous/next as equals — the "previous" box is the floor (global token) */
@@ -1696,6 +1697,11 @@ body:has(.fp) {
      room and the equal negative margin hands the chip its height back */
   padding-block: 0.12em;
   margin-block: -0.12em;
+  /* The window bleeds through the chip's side padding (Nathan 11-13: "just
+     like the breadcrumb buttons, the ticker should run all the way to the
+     edge" — .detail-next__window's idiom), so a rolling name enters and exits
+     AT the chip's edge. Symmetric, so a still name stays centred. */
+  margin-inline: calc(-1 * var(--cta-pad-x, 0px));
 }
 
 /* A name that fits: ONE copy, centred, still. */
