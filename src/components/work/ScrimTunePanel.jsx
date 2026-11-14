@@ -39,15 +39,19 @@
 import { useEffect, useState } from 'react';
 import { SCRIM_GRAIN, noiseUri } from './scrimNoise.js';
 
-// The BAKED recipe (Nathan's 09-04 dial — featured-projects.css scrim rule
-// + --pager-scrim in global.css; grain settings shared via scrimNoise.js):
-// defaults mirror the shipped scrim, so opening the bench (and ↺ reset)
-// starts from what visitors see.
+// The SHIPPED recipe, on every tier (11-13: plain black like .mobile-menu —
+// --pager-scrim 1 in global.css, no tint / blur / grain in the scrim rule in
+// featured-projects.css), so opening the bench (and ↺ reset) starts from
+// what visitors see. Set depth 0.4 / tint 0.75 / blur 7.5 / turbulence
+// amount 0.82 for the retired 09-04 grain recipe. (The other grain
+// settings are shared via scrimNoise.js.)
 const DEFAULTS = {
-  scrim: 0.4, // --pager-scrim token (global.css)
-  tint: 0.75, // 0–1 mix of the live --project-color into the flood (0 = black)
-  blur: 7.5, // px; 0 = no backdrop-filter at all
-  ...SCRIM_GRAIN, // type / freq / oct / amount / size / fps / mono
+  ...SCRIM_GRAIN, // type / freq / oct / amount / size / fps / mono …
+  scrim: 1, // --pager-scrim token (global.css)
+  tint: 0, // 0–1 mix of the live --project-color into the flood (0 = black)
+  blur: 0, // px; 0 = no backdrop-filter at all
+  type: 'none', // texture off …
+  amount: 0, // … and no grain alpha
   hold: true, // paint the scrim without engaging
 };
 

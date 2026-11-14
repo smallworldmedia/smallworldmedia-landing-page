@@ -4,7 +4,8 @@
  *
  * Usage:
  *   node pager-probe.mjs --variant=scale --root=.fp-scale [--vw=1440 --vh=900]
- *        [--mobile] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
+ *        [--mobile] [--dpr=3] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
+ *        (--scenario=edge [--want=NAME], --mobile only, never part of `all`: the phone clip edge + the marquee wrap step)
  *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
  *
  * Prints a JSON report to stdout (console errors, page errors, readouts per
@@ -51,6 +52,7 @@ const MOBILE = !!arg('mobile', false);
 const VW = Number(arg('vw', MOBILE ? 390 : 1440));
 const VH = Number(arg('vh', MOBILE ? 844 : 900));
 const RM = !!arg('rm', false);
+const DPR = Number(arg('dpr', MOBILE ? 2 : 1)); // --dpr=3 for the phone fidelity shots
 // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
 // mkdir a stray "Small%20World%20Media" tree beside the real one).
 const OUT = arg('out', path.join(path.dirname(fileURLToPath(import.meta.url)), 'shots', `${VARIANT}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}`));
@@ -136,7 +138,7 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
   });
   const ctx = await browser.newContext({
     viewport: { width: VW, height: VH },
-    deviceScaleFactor: MOBILE ? 2 : 1,
+    deviceScaleFactor: DPR,
     hasTouch: MOBILE,
     isMobile: MOBILE,
     reducedMotion: RM ? 'reduce' : 'no-preference',
@@ -222,6 +224,60 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       await step(page, 'touch-overtravel-released');
       await sleep(2200);
       await step(page, 'touch-overtravel-after');
+    }
+    // r12b (11-13): the phone clip edge + the marquee wrap. Hold, scrub detents
+    // until the selected row MARQUEES (any name; --want=TEXT picks one), then
+    //   edge: the selected name's painted right edge vs the viewport width
+    //         (Nathan: "extend to the actual edge" — gap must be 0);
+    //   wrap: both name copies' left edges every frame across >1 loop; at the
+    //         wrap, newA − oldB is the visual step. A seamless loop steps by no
+    //         more than one frame of travel; the pre-r12b track (gap/2 short)
+    //         stepped gap/2 × the row's paint scale (≈ 9.5 px at 390).
+    // `node pager-probe.mjs --mobile --scenario=edge --base=… [--want=Heavy]`
+    if (MOBILE && SCEN.includes('edge')) {
+      const c = await rootCenter(page);
+      const WANT = String(arg('want', '')).toUpperCase();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: c.x, y: c.y, id: 1 }] });
+      await sleep(HOLD);
+      const selRow = () =>
+        page.evaluate(() => {
+          const nm = document.querySelector('.fp-scale__name[data-sel]');
+          return nm && { text: nm.textContent, marquee: nm.hasAttribute('data-marquee'), right: nm.getBoundingClientRect().right, vw: innerWidth };
+        });
+      let row = null;
+      for (let k = 1; k <= 16 && !row; k++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: c.x, y: c.y - 48 * k, id: 1 }] });
+        await sleep(450);
+        const r = await selRow();
+        if (r?.marquee && r.text.toUpperCase().includes(WANT)) row = r;
+      }
+      if (row) {
+        await page.screenshot({ path: path.join(OUT, `edge-${VW}-engaged.png`) });
+        const frames = await page.evaluate(
+          () =>
+            new Promise((resolve) => {
+              const [a, b] = document.querySelector('.fp-scale__name[data-sel]').firstChild.children;
+              const out = [];
+              const t0 = performance.now();
+              const tick = () => {
+                const t = performance.now() - t0;
+                out.push([t, a.getBoundingClientRect().left, b.getBoundingClientRect().left]);
+                t < 14000 ? requestAnimationFrame(tick) : resolve(out);
+              };
+              requestAnimationFrame(tick);
+            })
+        );
+        const wraps = [];
+        for (let i = 2; i < frames.length; i++) {
+          if (frames[i][1] - frames[i - 1][1] > 10) {
+            const step = frames[i][1] - frames[i - 1][2]; // new copy-one left − old copy-two left
+            const perFrame = Math.abs(frames[i - 1][1] - frames[i - 2][1]);
+            wraps.push({ t: Math.round(frames[i][0]), stepPx: +step.toFixed(2), frameTravelPx: +perFrame.toFixed(2), seamless: Math.abs(step) <= perFrame * 1.5 + 0.5 });
+          }
+        }
+        report.edge = { name: row.text, right: row.right, vw: row.vw, gapToViewportPx: +(row.vw - row.right).toFixed(2), wraps };
+      } else report.edge = { found: false };
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     }
     if (want('keys')) {
       const el = page.locator(`${ROOT} button, ${ROOT} [tabindex="0"]`).first();
