@@ -40,6 +40,10 @@
  *      region — regions are inviolable and never stretch (the socket band
  *      must stay rigid).
  *
+ * Square album art (SQ-78) never stretches in either stage: where the bottom
+ * would need it, computeFlushGrid promotes covers to 2×2 instead (see
+ * isSquareArt), and a gap no promotion closes stays open.
+ *
  * Known ragged edge: a column whose final occupant is a region (no tile
  * below it while other columns run deeper) keeps a tail gap — nothing exists
  * to stretch. Curated content avoids this; the acceptance pass eyeballs it.
@@ -164,10 +168,23 @@ function occupy(segs, c0, colSpan, row, rowSpan) {
   }
 }
 
-/** Dense-place one asset at its earliest fit (leftmost on a tie). */
-function placeOne(segs, asset, cols, sizes) {
+/**
+ * Square album art (SQ-78, Nathan 11-13: "square album art always is
+ * displayed as square", every client's): a cover only ever sits in a square
+ * box, 1×1 or 2×2. Its placement is RIGID: neither flush stage stretches it
+ * (a 1×1 stretched over a short column is the 1 col × 2 sq box, the cover
+ * cropped to a strip). Where the bottom needs filling, computeFlushGrid
+ * promotes covers to 2×2 instead (promote). Rigidity rides a WeakSet so the
+ * placements themselves stay plain data.
+ */
+export const isSquareArt = (asset) => asset.mediaType === 'album-art' && tileClassOf(asset) === 'square';
+const RIGID = new WeakSet();
+
+/** Dense-place one asset at its earliest fit (leftmost on a tie). `big`: a
+ *  square promoted to 2×2 (two columns, two squares' rows). */
+function placeOne(segs, asset, cols, sizes, big = false) {
   const type = tileClassOf(asset);
-  const { colSpan, rowSpan } = sizes[type];
+  const { colSpan, rowSpan } = big ? { colSpan: 2, rowSpan: 2 * sizes.square.rowSpan } : sizes[type];
 
   let best = null;
   for (let c = 0; c <= cols - colSpan; c++) {
@@ -176,20 +193,24 @@ function placeOne(segs, asset, cols, sizes) {
   }
 
   occupy(segs, best.col, colSpan, best.row, rowSpan);
-  return {
+  const p = {
     col: best.col,
     colSpan,
     rowStart: best.row,
     rowEnd: best.row + rowSpan,
     type,
   };
+  if (isSquareArt(asset)) RIGID.add(p);
+  return p;
 }
 
-/** Dense-place every showcase asset around the blocked rects. */
-function placeAll(showcase, cols, blocked, sizes) {
+/** Dense-place every showcase asset around the blocked rects; `big` holds
+ *  the indexes promoted to 2×2. */
+function placeAll(showcase, cols, blocked, sizes, big = NONE) {
   const segs = freeSegments(cols, blocked);
-  return showcase.map((asset) => placeOne(segs, asset, cols, sizes));
+  return showcase.map((asset, i) => placeOne(segs, asset, cols, sizes, big.has(i)));
 }
+const NONE = new Set();
 
 /**
  * Stage 1 — guarded stretch: each tile extends down to the next occupied
@@ -200,6 +221,7 @@ function placeAll(showcase, cols, blocked, sizes) {
  */
 function guardedStretch(placements, regions, totalRows) {
   for (const p of placements) {
+    if (RIGID.has(p)) continue;
     let target = totalRows;
 
     for (const other of placements) {
@@ -259,7 +281,7 @@ function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDE
         const above = placements.find(
           (p) => covers(p, p.col, p.colSpan, c) && p.rowEnd === cursor
         );
-        if (above) {
+        if (above && !RIGID.has(above)) {
           let target = iv.start;
           for (const r of regions) {
             const sharesCol =
@@ -313,7 +335,7 @@ function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDE
  * the earlier row). With no tile below the last break, the rest share its
  * row — one band. No tiles at all → no breaks.
  */
-function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, every) {
+function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, every, big) {
   if (count <= 0 || placements.length === 0) return placements;
 
   const start = Math.min(...placements.map((p) => p.rowStart));
@@ -338,7 +360,7 @@ function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, e
     let best = { row: floor, holes: Infinity, dist: Infinity };
     for (const row of new Set(placements.map((p) => p.rowEnd))) {
       if (row < floor || inside(row)) continue;
-      const holes = holeRows(showcase, cols, [...resolved, cut(i, row)], sizes, sqRows);
+      const holes = holeRows(showcase, cols, [...resolved, cut(i, row)], sizes, sqRows, big);
       const dist = Math.abs(row - target);
       if (
         holes < best.holes ||
@@ -348,7 +370,7 @@ function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, e
       }
     }
     resolved.push(cut(i, best.row));
-    placements = placeAll(showcase, cols, resolved, sizes);
+    placements = placeAll(showcase, cols, resolved, sizes, big);
     floor = best.row;
   }
   return placements;
@@ -356,12 +378,16 @@ function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, e
 
 /** Rows no tile or region covers, summed over the columns, once both
  *  stretch passes have run on a trial layout: the open holes a cut leaves. */
-function holeRows(showcase, cols, resolved, sizes, sqRows) {
-  const placements = placeAll(showcase, cols, resolved, sizes);
+function holeRows(showcase, cols, resolved, sizes, sqRows, big) {
+  const placements = placeAll(showcase, cols, resolved, sizes, big);
   const end = Math.max(0, ...placements.map((p) => p.rowEnd), ...resolved.map((r) => r.rowEnd));
   guardedStretch(placements, resolved, end);
   forcedFill(placements, resolved, cols, end, sqRows / 2);
+  return openRows(placements, resolved, cols, end);
+}
 
+/** Rows no tile or region covers in [0, end), summed over the columns. */
+function openRows(placements, resolved, cols, end) {
   const spans = [
     ...placements.map((p) => [p.col, p.colSpan, p.rowStart, p.rowEnd]),
     ...resolved.map((r) => [r.colStart, r.colSpan, r.rowStart, r.rowEnd]),
@@ -401,11 +427,51 @@ function holeRows(showcase, cols, resolved, sizes, sqRows) {
  *   totalRows: number
  * }} placements align 1:1 with the showcase array. `underlay` tiles must
  *    paint beneath intact tiles. splitAtBreaks turns this into rendered
- *    segments.
+ *    segments. Square album art (isSquareArt) is 1×1 or, promoted, a
+ *    2-column `square` of 2 × sqRows rows; it never stretches.
  */
-export function computeFlushGrid(
+export function computeFlushGrid(showcase, opts = {}) {
+  const base = layoutFlush(showcase, opts, NONE);
+  const cols = opts.cols ?? 3;
+  const holes = (out) => openRows(out.placements, out.regions, cols, out.totalRows);
+  let best = { out: base, holes: holes(base) };
+  // Nothing open, or nothing to promote (one column has no 2×2): done.
+  const art = cols < 2 || best.holes === 0 ? [] : showcase.flatMap((a, i) => (isSquareArt(a) ? [i] : [])).reverse();
+  if (art.length === 0) return base;
+
+  // Promote covers to 2×2 (SQ-78): one 2×2 adds three squares of area, so a
+  // short last row closes with the right count. Fewest promotions first,
+  // the covers nearest the list's end first; the first flat layout wins.
+  // With none, the fewest open rows wins, and an unhelped grid keeps its
+  // ragged edge rather than a stretched cover.
+  const pools = [art.slice(0, 3 * cols), art.slice(0, 2 * cols), art.slice(0, 2 * cols)];
+  for (let k = 1; k <= pools.length; k++) {
+    for (const pick of combos(pools[k - 1], k)) {
+      const out = layoutFlush(showcase, opts, new Set(pick));
+      const h = holes(out);
+      if (h === 0) return out;
+      if (h < best.holes) best = { out, holes: h };
+    }
+  }
+  return best.out;
+}
+
+/** Every k-subset of `list`, in lexicographic order of its positions. */
+function* combos(list, k, from = 0) {
+  if (k === 0) {
+    yield [];
+    return;
+  }
+  for (let i = from; i <= list.length - k; i++) {
+    for (const rest of combos(list, k - 1, i + 1)) yield [list[i], ...rest];
+  }
+}
+
+/** computeFlushGrid's layout with the covers in `big` promoted to 2×2. */
+function layoutFlush(
   showcase,
-  { cols = 3, regions = [], sqRows = 24, lsRows = sqRows, breaks = 0, breakEvery = 2 } = {}
+  { cols = 3, regions = [], sqRows = 24, lsRows = sqRows, breaks = 0, breakEvery = 2 },
+  big
 ) {
   const sizes = tileSizes(sqRows, cols, lsRows);
 
@@ -427,10 +493,10 @@ export function computeFlushGrid(
 
   let placements;
   if (mids.length === 0) {
-    placements = placeAll(showcase, cols, resolved, sizes);
+    placements = placeAll(showcase, cols, resolved, sizes, big);
   } else {
     // Pass 1 — natural grid without the mid regions.
-    const natural = placeAll(showcase, cols, resolved, sizes);
+    const natural = placeAll(showcase, cols, resolved, sizes, big);
     const naturalEnd = Math.max(
       0,
       ...natural.map((p) => p.rowEnd),
@@ -453,10 +519,10 @@ export function computeFlushGrid(
     }
 
     // Pass 2 — re-place everything around the pinned regions.
-    placements = placeAll(showcase, cols, resolved, sizes);
+    placements = placeAll(showcase, cols, resolved, sizes, big);
   }
 
-  placements = pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, breaks, breakEvery * sqRows);
+  placements = pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, breaks, breakEvery * sqRows, big);
 
   // Bottom regions — pinned at the natural end AFTER placement (tiles can
   // never flow below them), stacking downward. Added to `resolved` before
