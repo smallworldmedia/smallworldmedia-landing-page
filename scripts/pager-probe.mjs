@@ -4,7 +4,8 @@
  *
  * Usage:
  *   node pager-probe.mjs --variant=scale --root=.fp-scale [--vw=1440 --vh=900]
- *        [--mobile] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
+ *        [--mobile] [--dpr=3] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
+ *        (--scenario=edge [--want=NAME], --mobile only, never part of `all`: the phone clip edge + the marquee wrap step)
  *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
  *
  * Prints a JSON report to stdout (console errors, page errors, readouts per
@@ -51,6 +52,7 @@ const MOBILE = !!arg('mobile', false);
 const VW = Number(arg('vw', MOBILE ? 390 : 1440));
 const VH = Number(arg('vh', MOBILE ? 844 : 900));
 const RM = !!arg('rm', false);
+const DPR = Number(arg('dpr', MOBILE ? 2 : 1)); // --dpr=3 for the phone fidelity shots
 // fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
 // mkdir a stray "Small%20World%20Media" tree beside the real one).
 const OUT = arg('out', path.join(path.dirname(fileURLToPath(import.meta.url)), 'shots', `${VARIANT}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}`));
@@ -61,6 +63,9 @@ const DETENTS = Number(arg('detents', 2));
 const BASE = arg('base', 'http://localhost:4321');
 const PEEKWAIT = Number(arg('peekwait', 250));
 const GPU = arg('gpu', 'swiftshader'); // swiftshader (default: ~30ms timer lag) | default (GPU path: ~250ms main-thread starvation)
+// r12c: where the pointer parks to LEAVE the pager. Was the viewport centre — but the scaled selected name
+// (≈620px wide at 1440) now reaches it and keeps the pager engaged (it is hoverable by design).
+const LEAVE_X = Math.round(VW * 0.75);
 const SETTLE = Number(arg('settle', 250)); // extra ms before every readout (headless render lag)
 const URL_ = `${BASE}/work?pager=${VARIANT}${EXTRA}`;
 const want = (s) => SCEN.includes('all') || SCEN.includes(s);
@@ -97,6 +102,17 @@ const readout = (page) =>
       current: q('[aria-current="true"]')?.textContent?.trim() ?? null,
       slider: q('[role="slider"]') ? { now: q('[role="slider"]').getAttribute('aria-valuenow'), text: q('[role="slider"]').getAttribute('aria-valuetext') } : null,
       rootRect: rect ? { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) } : null,
+      // r13: the CHIP's own box (lens + den) and the rest hint's — they keep the pre-r12c size at every
+      // width (2 d.p.: it is compared against the stream's chip at the same width).
+      chipRect: ((c) => (c ? { x: +c.x.toFixed(2), y: +c.y.toFixed(2), w: +c.width.toFixed(2), h: +c.height.toFixed(2) } : null))(
+        q('.fp-scale__chip')?.getBoundingClientRect()
+      ),
+      hintRect: ((c) => (c ? { x: +c.x.toFixed(2), y: +c.y.toFixed(2), w: +c.width.toFixed(2), h: +c.height.toFixed(2) } : null))(
+        q('.fp-scale__hint')?.getBoundingClientRect()
+      ),
+      // r12c: the pager's resolved pitch (px; @property-registered) — the
+      // desktop readouts are compared NORMALISED by it against the base.
+      pitch: r ? parseFloat(getComputedStyle(r).getPropertyValue('--scale-pitch')) || null : null,
       projectColor: document.querySelector('.fp')?.style.getPropertyValue('--project-color') || null,
       html: r ? r.outerHTML.replace(/\s+/g, ' ').slice(0, 900) : null,
     };
@@ -199,7 +215,7 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
   });
   const ctx = await browser.newContext({
     viewport: { width: VW, height: VH },
-    deviceScaleFactor: MOBILE ? 2 : 1,
+    deviceScaleFactor: DPR,
     hasTouch: MOBILE,
     isMobile: MOBILE,
     reducedMotion: RM ? 'reduce' : 'no-preference',
@@ -243,7 +259,39 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       await page.mouse.move(c.x, c.y);
       await sleep(400);
       await step(page, 'hover-engaged');
-      await page.mouse.move(VW / 2, VH / 2);
+      // r12c: the scaled geometry, engaged — pitch, the roster/selected name
+      // sizes, the window's reach vs the viewport (--scale-rows × pitch must
+      // fit the half-height; reported, never silently cut) and the project
+      // directory's filter-tag size (--text-drawer-name) it must match.
+      report.geometry = await page.evaluate((root) => {
+        const r = document.querySelector(root);
+        const cs = getComputedStyle(r);
+        const px = (v) => parseFloat(v) || null;
+        const rows = px(cs.getPropertyValue('--scale-rows'));
+        const pitch = px(cs.getPropertyValue('--scale-pitch'));
+        const roster = [...r.querySelectorAll('.fp-scale__name')].find((n) => !n.hasAttribute('data-sel'));
+        const sel = r.querySelector('.fp-scale__name[data-sel]');
+        const dummy = document.createElement('span');
+        dummy.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--text-drawer-name)';
+        document.body.appendChild(dummy);
+        const filterTag = px(getComputedStyle(dummy).fontSize);
+        dummy.remove();
+        return {
+          vw: innerWidth,
+          vh: innerHeight,
+          pitch,
+          rows,
+          windowHalfPx: rows && pitch ? +(rows * pitch).toFixed(1) : null,
+          halfViewportPx: innerHeight / 2,
+          fitsViewport: rows && pitch ? rows * pitch <= innerHeight / 2 : null,
+          rosterNameFontPx: roster ? px(getComputedStyle(roster).fontSize) : null,
+          selectedPaintedPx: sel ? +(px(getComputedStyle(sel).fontSize) * (px(cs.getPropertyValue('--scale-sel')) || 1.5) * (px(cs.getPropertyValue('--scale-sel-bump')) || 1.05)).toFixed(2) : null,
+          filterTagPx: filterTag,
+          scaleW: +r.getBoundingClientRect().width.toFixed(2), // = --scale-w (unregistered token: measured)
+          numH: r.querySelector('.fp-scale__lens') ? +r.querySelector('.fp-scale__lens').getBoundingClientRect().height.toFixed(2) : null,
+        };
+      }, ROOT);
+      await page.mouse.move(LEAVE_X, VH / 2);
       await sleep(700);
       await step(page, 'hover-left');
     }
@@ -251,15 +299,23 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       const c = await rootCenter(page);
       await page.mouse.move(c.x, c.y);
       await sleep(50);
+      // r12c: the wheel's deltaY per station scales with the desktop pitch
+      // (the skin's wheel detent = 100 × pitch/48), so a 90 notch is 90 ×
+      // pitch/48 here — the same fraction of a station at every width.
+      const pitchK = await page.evaluate(
+        (root) => (parseFloat(getComputedStyle(document.querySelector(root)).getPropertyValue('--scale-pitch')) || 48) / 48,
+        ROOT
+      );
+      report.pitchK = +pitchK.toFixed(4);
       for (let i = 0; i < DETENTS; i++) {
-        await page.mouse.wheel(0, 90);
+        await page.mouse.wheel(0, Math.round(90 * pitchK));
         await sleep(60);
       }
       await sleep(120);
       await step(page, 'wheel-mid');
       await sleep(900); // > stall commit
       await step(page, 'wheel-committed');
-      await page.mouse.move(VW / 2, VH / 2);
+      await page.mouse.move(LEAVE_X, VH / 2);
       await sleep(2200); // Turn + retract
       await step(page, 'wheel-after-turn');
     }
@@ -301,6 +357,60 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       await step(page, 'touch-overtravel-released');
       await sleep(2200);
       await step(page, 'touch-overtravel-after');
+    }
+    // r12b (11-13): the phone clip edge + the marquee wrap. Hold, scrub detents
+    // until the selected row MARQUEES (any name; --want=TEXT picks one), then
+    //   edge: the selected name's painted right edge vs the viewport width
+    //         (Nathan: "extend to the actual edge" — gap must be 0);
+    //   wrap: both name copies' left edges every frame across >1 loop; at the
+    //         wrap, newA − oldB is the visual step. A seamless loop steps by no
+    //         more than one frame of travel; the pre-r12b track (gap/2 short)
+    //         stepped gap/2 × the row's paint scale (≈ 9.5 px at 390).
+    // `node pager-probe.mjs --mobile --scenario=edge --base=… [--want=Heavy]`
+    if (MOBILE && SCEN.includes('edge')) {
+      const c = await rootCenter(page);
+      const WANT = String(arg('want', '')).toUpperCase();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: c.x, y: c.y, id: 1 }] });
+      await sleep(HOLD);
+      const selRow = () =>
+        page.evaluate(() => {
+          const nm = document.querySelector('.fp-scale__name[data-sel]');
+          return nm && { text: nm.textContent, marquee: nm.hasAttribute('data-marquee'), right: nm.getBoundingClientRect().right, vw: innerWidth };
+        });
+      let row = null;
+      for (let k = 1; k <= 16 && !row; k++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: c.x, y: c.y - 48 * k, id: 1 }] });
+        await sleep(450);
+        const r = await selRow();
+        if (r?.marquee && r.text.toUpperCase().includes(WANT)) row = r;
+      }
+      if (row) {
+        await page.screenshot({ path: path.join(OUT, `edge-${VW}-engaged.png`) });
+        const frames = await page.evaluate(
+          () =>
+            new Promise((resolve) => {
+              const [a, b] = document.querySelector('.fp-scale__name[data-sel]').firstChild.children;
+              const out = [];
+              const t0 = performance.now();
+              const tick = () => {
+                const t = performance.now() - t0;
+                out.push([t, a.getBoundingClientRect().left, b.getBoundingClientRect().left]);
+                t < 14000 ? requestAnimationFrame(tick) : resolve(out);
+              };
+              requestAnimationFrame(tick);
+            })
+        );
+        const wraps = [];
+        for (let i = 2; i < frames.length; i++) {
+          if (frames[i][1] - frames[i - 1][1] > 10) {
+            const step = frames[i][1] - frames[i - 1][2]; // new copy-one left − old copy-two left
+            const perFrame = Math.abs(frames[i - 1][1] - frames[i - 2][1]);
+            wraps.push({ t: Math.round(frames[i][0]), stepPx: +step.toFixed(2), frameTravelPx: +perFrame.toFixed(2), seamless: Math.abs(step) <= perFrame * 1.5 + 0.5 });
+          }
+        }
+        report.edge = { name: row.text, right: row.right, vw: row.vw, gapToViewportPx: +(row.vw - row.right).toFixed(2), wraps };
+      } else report.edge = { found: false };
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     }
     if (want('keys')) {
       const el = page.locator(`${ROOT} button, ${ROOT} [tabindex="0"]`).first();

@@ -388,34 +388,15 @@ body:has(.fp) {
   opacity: 1;
 }
 
-/* BAKED scrimtune recipe (09-04, Nathan's dial): depth 0.4
-   (--pager-scrim, global.css) over a 75% project-colour tint, 7.5px
-   backdrop blur, RGB turbulence grain (freq 0.84, 1 octave, amount 0.82)
-   on a 184px tile, dancing at 30fps via the fp-scrim-grain steps() driver
-   below. Declared on .fp (not the ::before) so the ?scrimtune bench's
-   inline writes still override every dial — the bench also stills the
-   shipped driver via --scrim-grain-anim while its own interval owns the
-   jitter. */
-.fp[data-pager='scale'] {
-  --scrim-tint: 0.75;
-  --scrim-bf: blur(7.5px);
-  --scrim-noise-size: 184px;
-  --scrim-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%20width%3D'100%25'%20height%3D'100%25'%3E%3CfeTurbulence%20type%3D'turbulence'%20baseFrequency%3D'0.84'%20numOctaves%3D'1'%20seed%3D'7'%20stitchTiles%3D'stitch'%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D'linear'%20slope%3D'0.82'%20intercept%3D'0'%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D'256'%20height%3D'256'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
-}
-
-/* ≤768 grain re-dial (09-04 r9, Nathan's device bake:
-   ?grainamt=.56&grainsize=90&grainfreq=.85): finer tile, lighter slope,
-   same turbulence/1-octave/rgb character. Regenerate with
-   scrimNoise.js noiseUri({...SCRIM_GRAIN, freq: 0.85, amount: 0.56}) —
-   the mirror lives there as SCRIM_GRAIN_MOBILE. URL dials still override
-   (inline beats the tier block). */
-@media (max-width: 768px) {
-  .fp[data-pager='scale'] {
-    --scrim-noise-size: 90px;
-    --scrim-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%20width%3D'100%25'%20height%3D'100%25'%3E%3CfeTurbulence%20type%3D'turbulence'%20baseFrequency%3D'0.85'%20numOctaves%3D'1'%20seed%3D'7'%20stitchTiles%3D'stitch'%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D'linear'%20slope%3D'0.56'%20intercept%3D'0'%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Crect%20width%3D'256'%20height%3D'256'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
-  }
-}
-
+/* The engaged SCRIM — plain --color-black on EVERY tier, like .mobile-menu
+   (11-13, Nathan: the black pager on desktop too): opaque (--pager-scrim 1,
+   global.css), no project tint, no backdrop blur, no grain. Rows far from
+   the lens recede into it through their feather + ink falloff. Nothing is
+   declared on .fp: the ::before's own fallbacks (tint 0, blur none, noise
+   none, grain driver none) ARE the shipped recipe, and the ?scrimtune bench
+   (and the ?grain* / ?scrimblur URL dials) write inline custom props that
+   override them. The 09-04 grain/tint/blur bake (depth 0.4, 75% tint, 7.5px
+   blur, RGB turbulence on a 184px tile) was retired with this. */
 .fp[data-pager='scale']::before {
   content: '';
   position: fixed;
@@ -442,10 +423,10 @@ body:has(.fp) {
   /* ?scrimtune hooks (09-04 round 7): the bench writes these inline on
      .fp — a tiled feTurbulence data-URI (grain), its display size, a
      per-frame jitter offset (the grain "fps"), a backdrop blur, and the
-     tint above. All default to no-ops, so the shipped scrim is visually
-     identical until a dial moves; blessed values get baked here. */
+     tint above. All default to no-ops (plain black), so the shipped scrim
+     is identical until a dial moves; blessed values get baked here. */
   background-image: var(--scrim-noise, none);
-  background-size: var(--scrim-noise-size, auto);
+  background-size: var(--scrim-noise-size, 184px); /* scrimNoise.js SCRIM_GRAIN.size */
   background-position: var(--scrim-noise-pos, 0 0);
   background-repeat: repeat;
   -webkit-backdrop-filter: var(--scrim-bf, none);
@@ -458,13 +439,14 @@ body:has(.fp) {
 .fp[data-pager='scale'].is-pager-engaged::before,
 .fp[data-pager='scale'].is-scrimtune-hold::before {
   opacity: 1;
-  /* The shipped grain driver: 8 held frames over 8/30s = the baked 30fps
-     jitter (keyframed background-position outranks the base var while
-     active). Runs only while the scrim shows; deliberately NOT stilled by
-     the pause freeze — the grain belongs to the scrim, not the page (the
-     projector idiom), matching what the bench previewed. The bench sets
-     --scrim-grain-anim: none and drives its own interval instead. */
-  animation: var(--scrim-grain-anim, fp-scrim-grain 0.2667s steps(1, end) infinite);
+  /* The grain driver — OFF by default (the scrim is plain black, so there
+     is nothing to dance): ?grainfps writes --scrim-grain-anim to run the
+     8 held frames of fp-scrim-grain below over 8/fps (keyframed
+     background-position outranks the base var while active). Runs only
+     while the scrim shows; deliberately NOT stilled by the pause freeze —
+     the grain belongs to the scrim, not the page (the projector idiom).
+     The bench sets --scrim-grain-anim: none and drives its own interval. */
+  animation: var(--scrim-grain-anim, none);
 }
 
 @keyframes fp-scrim-grain {
@@ -548,6 +530,21 @@ body:has(.fp) {
      and stations share it so the digits line up under the lens). */
   --scale-lens-y: calc(var(--scale-num-h) / 2);
   --scale-pad: var(--space-4);
+  /* r12c / r13 (Nathan 11-13: the WHEEL TEXT grows on desktop, cohesive with
+     the project directory's filter; the chip does not): ONE pager unit
+     scales the wheel. --pager-u is 1px — every length at its pre-r12c size —
+     on the ≤768 tier (phones do not change) and under the desktop blocks
+     right after this rule; --pager-rem is the pager's own rem (14 units,
+     the root's 14px at u = 1px). The CHIP (root width, lens + den, pointer,
+     hint, the rest hit pad) never reads them: it keeps its pre-r12c rem /
+     --space-* sizes on every tier, flush left of the text. */
+  --pager-u: 1px;
+  --pager-rem: calc(14 * var(--pager-u));
+  /* The flipper box's row-tall height: pitch back-divided by the selected
+     paint (the box scales ×sel×bump). Re-declared HERE (it was a :root
+     token) so it resolves against this element's own pitch — the
+     desktop-scaled one, or a ?detent inline override. */
+  --scale-box-h: calc(var(--scale-pitch) / (var(--scale-sel) * var(--scale-sel-bump)));
   /* The row under the lens RIGHT NOW. The skin writes --scale-c at every
      detent (--scale-q at every landing), so every derived distance below
      keys off the live instrument instead of React's `active` — a commit
@@ -587,6 +584,49 @@ body:has(.fp) {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* r12c DESKTOP SCALE (Nathan 11-13: "increase the size of the pager overall
+   on desktop — cohesive with the way the filter area scales on the project
+   directory"), narrowed in r13 (Nathan 11-13: "i want just the wheel text
+   (client names) and select project to be this scaled up size. keep the
+   chip anchored to the left … the original scale"): the WHEEL TEXT scales,
+   the CHIP does not. The unit = the roster name's vw (--pager-vw 2.4, the
+   directory filter tags' --text-drawer-name) over today's fixed 24.315px
+   roster name (0.9141rem × 1.9 × 14px), floored at 1px so it never
+   shrinks: u = 1.42px at 1440, 1.90 at 1920, 2.53 at 2560. The pitch, the
+   name caps and the flipper box live on the pager root (the skin reads the
+   pitch back: GraticulePager, @property --scale-pitch in global.css, so the
+   finger's detent, the wheel and the hover follow it). The rem / --text-* /
+   --space-* tokens are RE-DECLARED in the next rule, on the wheel window
+   and the [select_project] pause label only (descendants inherit them), in
+   the units they had — rem → --pager-rem, px → --pager-u — so the root's
+   own width and the chip, pointer and hint keep their pre-r12c sizes and
+   stay flush left. The selected name's ×sel×bump and every ratio hold, so
+   the curves scale proportionally and are never reshaped. Hairlines (1px),
+   the 2px outline and the −2px clip overdraw stay physical. ?pagervw dials
+   --pager-vw (0 = the fixed pre-r12c size). */
+@media (min-width: 769px) {
+  .fp .fp-scale {
+    --pager-u: max(1px, calc(var(--pager-vw) * 1vw / 24.315));
+    --scale-pitch: calc(48 * var(--pager-u));
+    --scale-name-max: calc(2400 * var(--pager-u));
+    --scale-name-sel-max: var(--scale-name-max);
+  }
+
+  .fp .fp-scale__window,
+  .fp .fp-scale__freeze {
+    --scale-w: calc(3 * var(--pager-rem));
+    --scale-pad: var(--space-4);
+    --text-mono: calc(0.9141 * var(--pager-rem));
+    --text-secondary: calc(1.543 * var(--pager-rem));
+    --space-1: calc(0.143 * var(--pager-rem));
+    --space-2: calc(0.286 * var(--pager-rem));
+    --space-3: calc(0.429 * var(--pager-rem));
+    --space-4: calc(0.571 * var(--pager-rem));
+    --space-5: calc(0.714 * var(--pager-rem));
+    --space-6: calc(0.857 * var(--pager-rem));
+  }
+}
+
 /* Press target inflated around the small chip — never leftward (the screen
    edge belongs to system gestures; flush seat = zero room anyway). z -1
    keeps the pad behind the strip so desktop station clicks land on their
@@ -608,7 +648,11 @@ body:has(.fp) {
 .fp .fp-scale[data-open]::after {
   top: calc((var(--scale-up) + 0.5) * var(--scale-pitch) * -1);
   bottom: calc((var(--scale-down) + 0.5) * var(--scale-pitch) * -1);
-  right: -4rem;
+  /* 4rem past the number column's right edge — and the column (the stations'
+     --scale-w, 3 pager-rem) is wider than the chip root (3rem) on a scaled
+     desktop, so the pad also spans that difference: 4rem at u = 1px, and
+     7 pager-rem − 3rem generally. */
+  right: calc(3rem - 7 * var(--pager-rem));
 }
 
 /* The chip = lens row + fraction rule + denominator row. Decorative
@@ -834,14 +878,16 @@ body:has(.fp) {
    holds the lens line in screen space with zero extra per-frame writes),
    then --box-dy deflects it; translateY leftmost applies AFTER the scale,
    so both stay screen px. Origin 0 50% = the row's own origin, so box and
-   row scale in lockstep. */
+   row scale in lockstep.
+   11-13 (Nathan: "no box fill"): the fill is OFF — the box paints nothing
+   now (the scaled digits cross the bare hairline; the number is white on
+   black either way). The element and its spring ride on untouched. */
 .fp .fp-scale__box {
   position: absolute;
   left: 0;
   top: calc(var(--scale-box-h) / -2);
   width: 0;
   height: var(--scale-box-h);
-  background: var(--color-near-black);
   opacity: 0;
   pointer-events: none;
   transform-origin: 0 50%;
@@ -1108,11 +1154,17 @@ body:has(.fp) {
   );
   /* r11g (Nathan: "much more gradual"): the ink rides its OWN continuous
      curve (--ndr, per frame) — white at the lens, --scale-ink-floor at
-     --scale-ink-reach stations — decoupled from the detented size step. */
+     --scale-ink-reach stations — decoupled from the detented size step.
+     11-13 (Nathan): the BASE ink is now two-tone — pure --color-white on
+     the selected row (--w1 is 1 only on the detented row, 0 on every other
+     integer station, the same step the size lands on), --ink-faint (the
+     faint-white role token, .9) on the rest. The falloff above rides on
+     top of that base unchanged. */
   --wi: pow(clamp(0, 1 - var(--ndr) / var(--scale-ink-reach), 1), var(--scale-ink-exp));
   color: color-mix(
     in srgb,
-    var(--color-white) calc((var(--scale-ink-floor) + (1 - var(--scale-ink-floor)) * var(--wi)) * 100%),
+    color-mix(in srgb, var(--color-white) calc(var(--w1) * 100%), var(--ink-faint))
+      calc((var(--scale-ink-floor) + (1 - var(--scale-ink-floor)) * var(--wi)) * 100%),
     transparent
   );
   opacity: 0;
@@ -1284,8 +1336,9 @@ body:has(.fp) {
 }
 
 .fp .fp-scale__name-track {
+  --marquee-gap: var(--space-6);
   display: inline-flex;
-  gap: var(--space-6);
+  gap: var(--marquee-gap);
 }
 
 /* 09-07 (Nathan): the project TITLE as a secondary token after the client
@@ -1302,28 +1355,8 @@ body:has(.fp) {
   opacity: var(--scale-sub-ink);
 }
 
-.fp .fp-scale__name:not([data-marquee]):not([data-fill]) .fp-scale__name-track > span + span {
+.fp .fp-scale__name:not([data-marquee]) .fp-scale__name-track > span + span {
   display: none;
-}
-
-/* 09-07: the FILL TICKER (desktop selected row): the copy repeats to fill
-   the fixed box and rolls by exactly one copy + gap (--fill-shift, px,
-   skin-measured) per --fill-s — the skin derives the duration from
-   --scale-fill-pxs, phase-locked to the wall clock (r11h idiom). Distinct
-   from data-marquee (the two-copy −50% roll the roster/≤768 rows keep).
-   (The services readout that rolled under it was dropped 09-07.) */
-.fp .fp-scale__name[data-fill] .fp-scale__name-track {
-  animation: fp-scale-fill var(--fill-s, 6s) linear infinite;
-}
-
-@keyframes fp-scale-fill {
-  from {
-    transform: translateX(0);
-  }
-
-  to {
-    transform: translateX(calc(-1 * var(--fill-shift, 50%)));
-  }
 }
 
 /* The SELECTED row's clipping name gets the next-project chip's ticker
@@ -1334,6 +1367,13 @@ body:has(.fp) {
    pad while marqueeing, so clip edge = box edge). Never under RM (the
    skin gates the animation; a static clipped name is fine). */
 .fp .fp-scale__name[data-marquee] .fp-scale__name-track {
+  /* 11-13 r12b (Nathan: the ticker "jumps" at the loop): the loop travels
+     -50% of the track. With two copies (w) and ONE gap between them the
+     track is 2w + gap, so -50% = w + gap/2 — gap/2 short of where copy two
+     starts, and the wrap snapped back by gap/2. The trailing pad (the same
+     --marquee-gap) makes the track 2(w + gap): -50% = w + gap, exactly one
+     copy plus one gap, so the wrap lands copy one where copy two stood. */
+  padding-right: var(--marquee-gap);
   animation: fp-scale-marquee var(--marquee-s, 6s) linear infinite;
 }
 
@@ -1489,6 +1529,18 @@ body:has(.fp) {
     );
   }
 
+  /* 11-13 (Nathan: the selected name at the mobile menu's size): the name's
+     base size is back-divided by the selected paint (--scale-sel ×
+     --scale-sel-bump, the same factor the row's transform lands on at the
+     lens), so the SELECTED name paints EXACTLY --text-menu-item at every
+     phone width. The proximity curve is untouched — every row's multiplier
+     (--sel) is as before, so the whole name curve just scales together:
+     roster rows paint at the token ÷ (sel × bump). The digits keep their
+     own size (the station's font-size). */
+  .fp .fp-scale__name {
+    font-size: calc(var(--text-menu-item) / (var(--scale-sel) * var(--scale-sel-bump)));
+  }
+
   .fp .fp-scale__seam {
     width: 100vw;
   }
@@ -1562,8 +1614,7 @@ body:has(.fp) {
     animation: none;
   }
 
-  .fp .fp-scale__name[data-marquee] .fp-scale__name-track,
-  .fp .fp-scale__name[data-fill] .fp-scale__name-track {
+  .fp .fp-scale__name[data-marquee] .fp-scale__name-track {
     animation: none;
   }
 
