@@ -491,7 +491,7 @@ test('square album art is never demoted or stretched, and a demotion is the swap
   assert.ok(demoted > 0, 'the mix does demote somewhere')
 })
 
-test('the promotions run first: where a 2×2 cover alone closes the bottom, the portrait keeps its class', () => {
+test('the promotions run first so a 2×2 cover that alone closes the bottom leaves the portrait in its class', () => {
   // a 4:5 portrait (2 squares) and 7 covers = 9 squares at 4 columns: one 2×2 makes 12, three whole rows
   const items = [motion45(), ...Array.from({ length: 7 }, (_, i) => cover(i))]
   const out = computeFlushGrid(items, { cols: 4, sqRows: SQ })
