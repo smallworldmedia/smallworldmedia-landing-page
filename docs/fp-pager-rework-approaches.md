@@ -1245,3 +1245,147 @@ or a knob away from changing.
 
 Full panel output (6 complete specs + 3 judge cards + 4 audits): session scratchpad
 `tasks/wil411eyg.output` (2026-08-31 session; ephemeral — this doc is the survivor).
+
+## 11-13 round 12 — the pager simplified toward the mobile menu (SQ-75)
+
+Nathan, 11-13: the /work pager should look like the mobile menu — the selected name at the
+menu item's size in white, the other rows faint white, a black scrim with no box fill, and on
+desktop no repeating client-name ticker; "apply these color updates to the desktop version as
+well". And, binding the whole round: "The dialed-in scrolling, interaction, and selection
+choreography that we have should remain the same." Skin only — the engine, detents, springs,
+wrap, warp, the chip and hint, and the scrim's fade are untouched (probe-verified, below).
+
+What changed:
+
+- **Phone selected name = the menu item's size.** `--text-menu-item` (global.css,
+  `clamp(2.286rem, 9vw, 3.429rem)`) is now THE number: `.mobile-menu__item` reads it (menu
+  unchanged) and the ≤768 `.fp-scale__name` base size is `token ÷ (--scale-sel ×
+  --scale-sel-bump)`, so the row's own ×sel×bump transform lands the selected name EXACTLY on
+  the token at any width (computed 35.10 px at 390, 38.70 px at 430 — the menu item's computed
+  size, 0 px apart). Only the END size moved: every row's multiplier (`--sel`, the falloff,
+  the hold, the bump, the timing) is as before, so the whole NAME curve scaled together —
+  name base 14 → 22.29 px at 390 (×1.59), roster rows 14 → 22.29 painted, selected 22.05 →
+  35.10. The digits keep their own size. Family (ABC Areal, weight 500, uppercase) stays the
+  pager's; the menu's is `--font-headline`, weight/case its own.
+- **Phone scrim = plain black.** ≤768: `--scrim-tint: 0`, `--scrim-bf: none`,
+  `--scrim-noise: none`, grain driver stilled, `--pager-scrim: 1` (opaque, the menu's own). The
+  desktop recipe (75 % tint, 7.5 px blur, RGB grain at 0.4) was untouched in 12a — **12b
+  (below) extends the black scrim to desktop**. The ≤768 grain tile
+  and `SCRIM_GRAIN_MOBILE` are deleted. **The depth is a proposal, not Nathan's number** —
+  `?scrimtune` opens on the phone values at ≤768; `shots/scrimtune-phone-engaged-depth-0.4.png`
+  vs `-1.png` is the comparison (0.4 lets the scene show through the rows).
+- **Ink.** Selected row `--color-white` (name and number, via `--w1`, the detent's own
+  step); other rows `--ink-faint` (new role token, `--ink-faint-l` .9, the `--ink-muted`
+  idiom in oklab ≈ sRGB 0.87; `?inkfaint`), with the `?inkfloor/?inkexp/?inkreach` falloff on
+  top unchanged. `--ink-muted` (.58) not moved.
+- **Box fill off.** `.fp-scale__box` paints nothing (was `--color-near-black`). The element
+  and its spring stay (choreography); the selected number reads clear of the hairline on both
+  tiers (screenshots). A follow-up could delete the now-invisible box + `--box-dy`.
+- **Desktop fill ticker removed.** It was live (`fill` armed on every desktop detent,
+  `data-fill` + `fp-scale-fill` rolling, `--scale-fill-pxs` 30 fallback). Deleted with its
+  `?fillpxs`, `?unfill` and `?boxgap` dials, `--scale-fill-pxs`, `--scale-box-gap` and the
+  `[data-fill]` rules; the desktop fixed-width box branch went with it. Nothing rolls on
+  desktop (name cap 2400 px — no name clips at 1440×900, widest 348 px). The ≤768 clip marquee
+  stays: at the new size 5 names marquee at 390 and 430 (Heavy House Society (Pre-2026),
+  Andhera Records, Imperfect Records, Heavy House Society, Hurry Up Slowly; was 1 — HHS
+  (Pre-2026) — before).
+
+Verification: `scripts/test/pager-simplify.test.mjs`; pager-probe touch/peek (phone, DPR 3)
+and hover/wheel (desktop) on the base (:4322) and this build read the same open/charged/engaged
+state, selected index and aria-live at every step.
+
+### 11-13 round 12b — Nathan's review of 12a: edge-to-edge clip, seamless ticker, black on desktop
+
+Nathan on 5c43954, verbatim: "for pager on mobile: looks good with the black background. id
+like the text on the selected client to extend to the actual edge on the right of the viewpoet
+and not get clipped leaving black space where the padding presumably is. im also noticing a bit
+of jerkiness in the ticker client names where it looks like it is "looping" to the client name's
+starting position, but it jumps and is not smooth. lets extend the updated black background
+pager to desktop as well". Everything in 12a stays (the phone look, the name curve, the opaque
+phone scrim, the choreography lock); this round is the three items.
+
+- **Clip edge = the viewport edge (≤768).** `--scale-name-sel-max` was
+  `(100vw − --space-4) / (sel × bump) − seat`, so every clipping row stopped 8 px (--space-4)
+  short of the edge. It is now `100vw / (sel × bump) − --scale-w − --space-2`: the selected
+  name's painted right edge = (seat + cap) × (sel × bump) = 100vw, derived from the same
+  tokens, no px constant. The roster cap IS the sel cap (r11d), so every clipping row shares
+  it; `setMarquee` still reads the computed cap, so the box-width write follows. Measured at
+  390 / 430 (Heavy House Society, marqueeing): right edge 381.99 → 389.98 and 421.98 → 429.98
+  (gap to the viewport 8.0 px → 0.02 px). Desktop caps unchanged (2400 px).
+- **Seamless marquee wrap.** Cause (the integrator's read, confirmed by measurement): the
+  track is two copies with ONE `gap` between them, `2w + gap` wide, and the loop ends at
+  `translateX(−50%)` = `w + gap/2` — gap/2 short of where copy two starts, so each wrap
+  snapped back by gap/2 × the row's paint scale. Fix: the marqueeing track gets a trailing
+  `padding-right` equal to the gap (one shared `--marquee-gap`), so the track is `2(w + gap)`
+  and −50% = `w + gap` exactly. Duration, linear ease, the wall-clock phase lock and the RM
+  gate are untouched. Measured per frame (both copies' left edges, across ≥1 wrap) at 390:
+  the step at the wrap was −10.0 px (5c43954, twice) and is now −0.59 / −0.63 / −0.59 px —
+  one frame of travel (0.55–0.59 px/frame). At 430: −10.1 / −10.05 → −0.64 / −0.65 px
+  (frame travel 0.64–0.71). `pager-probe.mjs --scenario=edge` repeats the measurement (and
+  reports `seamless` per wrap; it reads `false` on 5c43954 — the negative control).
+- **Black scrim on desktop too.** The 09-04 recipe is retired on every tier: the `.fp`
+  declarations (tint 0.75, 7.5 px blur, 184 px RGB turbulence data-URI, the ≤768 override)
+  are deleted, `--pager-scrim` is 1 in global.css, and the `::before`'s own fallbacks (tint 0,
+  blur none, noise none, grain driver none) are the recipe. The fade (`--pager-scrim-ms`) and
+  every motion constant are as before. `?scrimtune` opens on the black values at any width;
+  `?grainamt/?grainfreq/?grainfps/?scrimblur` still re-add grain/blur for comparison (the
+  keyframes stay for `?grainfps`). Nothing else desktop-specific blocks the look: no second
+  grain or tint layer sits outside the scrim (the stage dim is under the scrim).
+
+### 11-13 round 12c — the desktop pager scales with the viewport, cohesive with the directory filter
+
+Nathan, 11-13, verbatim, while reviewing 12b: "lets increase the size of the pager overall on
+desktop - we want it to feel cohesive with the way the filter area scales on the project
+directory." Everything in 12a/12b stays (the phone look, the clip edge, the seamless marquee, the
+black scrim on every tier, the choreography lock). Phones (≤768) do not change.
+
+- **The anchor.** The Project Directory's filter tags use `--text-drawer-name: 2.4vw` (34.6 px at
+  1440, 61 px at 2560). The desktop roster name was fixed at `--text-mono` 0.9141rem ×
+  `--scale-roster` 1.9 = 24.315 px. It is now `max(24.315 px, --pager-vw × 1vw)` with
+  `--pager-vw: 2.4` (global.css), so it equals the filter tag at every width above ≈1012 px and
+  never shrinks below today's size. Measured (probe `report.geometry`): roster name 34.56 /
+  46.08 / 61.44 px at 1440 / 1920 / 2560 = the filter tag's computed size exactly.
+- **One factor.** `--pager-u` (featured-projects.css, the `.fp-scale` root) = `max(1px,
+  --pager-vw·1vw ÷ 24.315px)`: 1.42 / 1.90 / 2.53 px at 1440 / 1920 / 2560, and 1 px on the ≤768
+  tier (the base rule; the desktop block is `min-width: 769px`). `--pager-rem` = 14 × the unit.
+  The tokens the pager reads are re-declared on the pager root in the units they had — rem →
+  `calc(N × --pager-rem)`, px → `calc(N × --pager-u)` — so every consumer follows without a
+  restyle and every ratio holds (selected = roster × 1.5 × 1.05; the curves scale, never
+  reshape): `--scale-pitch` 48, `--scale-w` 3rem, `--scale-num-h` 1.714rem, `--text-mono`,
+  `--text-link` (the chip + hint), `--text-secondary` (the pause chip), `--lh-mono`,
+  `--space-1…6` (gaps, seat, the marquee gap), the 2400 px name cap, the hit-pad insets
+  (`-0.75/-1/-4rem`) and the lens pointer triangle. `--scale-box-h` moved from `:root` to the
+  pager root (a `:root` token resolves against the root's own pitch). Feather stays `2 × pitch`.
+  Stays physical: the 1 px / 0.5 px hairlines, the 2 px outline, the −2 px clip overdraw.
+- **One source of truth for the pitch.** On desktop the CSS owns it (`48 × --pager-u`);
+  `@property --scale-pitch` (global.css, `<length>`, inherits) makes its computed value resolved
+  px, and GraticulePager reads it back (`getComputedStyle(...)`, at mount, on a tier change and on
+  `resize`) into `detentPx`, so the touch detent, the strip, the hairline, the hit test and the
+  wheel/hover all use the same number. ≤768 and `?detent` still write the inline px as before; the
+  desktop skin writes no inline pitch.
+- **Dial.** `?pagervw` = the roster name in vw (`0` = the fixed 24.3 px pager, u = 1 px). Guide row
+  added; `tunables-keys --check` passes.
+- **Every px-valued constant on desktop that moved** (all by the same factor): the station pitch
+  (= the touch detent); the wheel detent 100 → `100 × pitch/48` (a notch is the same fraction of a
+  station at every width; `?wheeldetent` is still an absolute override); the box-width pad 6 →
+  `6 × pitch/48` (JS, an invisible box); and the CSS lengths above. **Not touched:** every
+  duration, ease, spring (`SCALE_FLIP_TAU_S`), magnet, wrap, falloff / slice / warp / ink reach
+  (all in stations or unitless), the roster→selected handoff, the bump, the chip / hint
+  entrances, the scrim fade, `usePagerGesture.js` (incl. `PAGER_SLOP_PX` / `PAGER_HOLD_MS`,
+  finger-physical), the ≤768 tier, `--scale-fill-pxs` (kept at `:root` unscaled — the SQ-80
+  PREVIOUS/NEXT name ticker reads it, and those chips sit outside the pager).
+- **Height check (reported, rows not cut).** `--scale-rows` (7) × pitch vs half the viewport:
+  1440×900 — 477.6 vs 450 (does NOT fit); 1920×1080 — 636.8 vs 540 (does NOT fit); 2560×1440 —
+  849.0 vs 720 (does NOT fit). Before: 336 px at every width. The outermost station or two now
+  runs off the top and bottom edge of the viewport: at 1440×900 the window shows ≈ ±6.6 stations,
+  so the feather (2 pitches, deployed window) no longer lands inside the screen and the end rows
+  are cut by the viewport edge instead of fading. It fits only while pitch ≤ half the viewport height ÷ 7 (64 px at 900 tall).
+  Cutting `--scale-rows` on desktop (7 → 5 fits all three at 16:9 / 16:10)
+  is the one-line fix if Nathan wants the fade back — his call.
+- **Verification.** pager-probe desktop hover, wheel (notch scaled by pitch/48) and keys at
+  1440 / 1920 / 2560 read the same open / charged / engaged / aria-live / selected index as the
+  base (wheel → 03, key → 04); phone touch and peek at 390 (DPR 3) read the same nine steps and
+  the same computed pager geometry (pitch 48, root 44 px, lens 25.98 px, pointer 6 / 7 px, hit-pad
+  insets −10.5 / −14 px). The probe's "leave" point is now 75 % of the width — at the old centre
+  the 54 px selected name (≈620 px wide at 1440) reaches the pointer and, by design, keeps the
+  pager engaged. Evidence: verification/SQ-75/r3/.
