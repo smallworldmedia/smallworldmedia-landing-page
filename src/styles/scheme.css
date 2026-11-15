@@ -325,42 +325,42 @@ html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+10 of .her
   --sp-ink: var(--sp-navy-ink);
 }
 
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+1 of .privacy__section),
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+7 of .privacy__section),
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+11 of .privacy__section) {
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+1 of section.privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+7 of section.privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+11 of section.privacy__section) {
   --sp-bg: var(--sp-blue);
   --sp-ink: var(--sp-blue-ink);
 }
 
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+2 of .privacy__section),
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+8 of .privacy__section),
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+12 of .privacy__section) {
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+2 of section.privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+8 of section.privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+12 of section.privacy__section) {
   --sp-bg: var(--sp-red);
   --sp-ink: var(--sp-red-ink);
 }
 
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+3 of .privacy__section),
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+9 of .privacy__section) {
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+3 of section.privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+9 of section.privacy__section) {
   --sp-bg: var(--sp-green);
   --sp-ink: var(--sp-green-ink);
 }
 
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+4 of .privacy__section) {
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+4 of section.privacy__section) {
   --sp-bg: var(--sp-yellow);
   --sp-ink: var(--sp-yellow-ink);
 }
 
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+5 of .privacy__section) {
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+5 of section.privacy__section) {
   --sp-bg: var(--sp-periwinkle);
   --sp-ink: var(--sp-periwinkle-ink);
 }
 
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+6 of .privacy__section) {
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+6 of section.privacy__section) {
   --sp-bg: var(--sp-white);
   --sp-ink: var(--sp-white-ink);
 }
 
-html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+10 of .privacy__section) {
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+10 of section.privacy__section) {
   --sp-bg: var(--sp-navy);
   --sp-ink: var(--sp-navy-ink);
 }
@@ -530,12 +530,20 @@ html[data-scheme='spectrum'] body .site-privacy[aria-expanded='true'] {
 
 /* — S7. Footer and the logo band — */
 
-html[data-scheme='spectrum'] body .site-footer .site-footer__bar {
-  background: linear-gradient(to right, var(--swm-ramp-a)) left top / 100% 2px no-repeat, #1556e5;
-}
-
 html[data-scheme='spectrum'] body .site-footer--links {
   background: #000000;
+}
+
+/* The outline role on the links footer's top edge: a pseudo-element, not a sized background layer (a layer
+   reads as the whole backdrop to the contrast gate). z-index 1 draws it above .logo-ticker. */
+html[data-scheme='spectrum'] body .site-footer--links::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(to right, var(--swm-ramp-a));
 }
 
 html[data-scheme='spectrum'] body .site-footer__link {
@@ -631,7 +639,13 @@ html[data-scheme='spectrum'] body .fp .fp-cta.fp-next {
 
 /* Hover and keyboard focus take the white pair, as black's fp-cta does: a property rule beats the inline
    charge, so the state reads the same wherever the charge has got to. */
-html[data-scheme='spectrum'] body .fp .fp-cta:is(.fp-prev, .fp-next):hover,
+@media (hover: hover) {
+  html[data-scheme='spectrum'] body .fp .fp-cta:is(.fp-prev, .fp-next):hover {
+    background: var(--sp-white);
+    color: var(--sp-white-ink);
+  }
+}
+
 html[data-scheme='spectrum'] body .fp .fp-cta:is(.fp-prev, .fp-next):focus-visible {
   background: var(--sp-white);
   color: var(--sp-white-ink);

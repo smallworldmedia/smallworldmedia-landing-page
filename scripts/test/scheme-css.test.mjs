@@ -334,3 +334,35 @@ test('scheme.css: spectrum pages are black and the ramps ride on the consuming p
     for (const [prop] of r.decls) assert.ok(!prop.startsWith('--project-color'), `${r.selector}: ${prop} holds no gradient`);
   }
 });
+
+// ── SQ-96 return trip: footer, touch hover, privacy cycle ─────────────────────────────────────────
+
+test('scheme.css: the spectrum footer draws its ramp-A rule as a ::before on the links footer, not on .site-footer__bar', () => {
+  assert.ok(!spectrumRules.some((r) => r.selector.includes('.site-footer__bar')), 'no .site-footer__bar rule (no route mounts that variant)');
+  const rule = spectrumRules.find((r) => r.selector.includes('.site-footer--links::before'));
+  assert.ok(rule, 'a .site-footer--links::before rule');
+  const d = new Map(rule.decls);
+  assert.match(d.get('background'), /var\(--swm-ramp-a\)/, 'it paints ramp A');
+  assert.equal(d.get('height'), '2px');
+});
+
+test('scheme.css: the /work prev/next :hover is inside @media (hover: hover); :focus-visible stays outside', () => {
+  const css = stripComments(read('src/styles/scheme.css'));
+  const hover = ':is(.fp-prev, .fp-next):hover';
+  assert.equal(css.split(hover).length - 1, 1, 'the hover selector appears once');
+  const at = css.indexOf(hover);
+  const before = css.slice(0, at);
+  const open = before.lastIndexOf('@media (hover: hover) {');
+  assert.ok(open >= 0, 'an @media (hover: hover) block opens before it');
+  const depth = [...before.slice(open + '@media (hover: hover) {'.length)].reduce((n, ch) => n + (ch === '{' ? 1 : ch === '}' ? -1 : 0), 0);
+  assert.equal(depth, 0, 'that block is still open at the hover selector');
+  const focus = rulesOf(css).find((r) => r.selector.includes(':is(.fp-prev, .fp-next):focus-visible'));
+  assert.ok(focus && !/:hover/.test(focus.selector), 'a separate :focus-visible rule');
+  assert.deepEqual(focus.decls, [['background', 'var(--sp-white)'], ['color', 'var(--sp-white-ink)']]);
+});
+
+test('scheme.css: the privacy ribbon cycle counts only the headed sections (of section.privacy__section)', () => {
+  const parts = spectrumRules.flatMap((r) => splitList(r.selector)).filter((s) => s.includes('.privacy > .privacy__section'));
+  assert.ok(parts.length >= 12, 'the twelve cycle steps exist');
+  for (const part of parts) assert.match(part, /of section\.privacy__section\)$/, part);
+});
