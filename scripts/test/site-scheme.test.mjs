@@ -124,7 +124,18 @@ test('stripFills follows the keys and the strips it is given; no keys gives no f
 
 test('schemeParams: defaults, and ?schemeui ?schemeguard ?schemerows ?schemesize ?schemepitch', () => {
   const q = (s) => schemeParams(new URLSearchParams(s));
-  assert.deepEqual(q(''), { ui: true, guardMs: 200, rows: 3, size: null, pitch: null });
+  assert.deepEqual(q(''), {
+    ui: true,
+    guardMs: 200,
+    rows: 3,
+    size: null,
+    pitch: null,
+    lift: null,
+    near: null,
+    far: null,
+    inMs: null,
+    outMs: null,
+  });
   assert.equal(q('schemeui=0').ui, false);
   assert.equal(q('schemeui=1').ui, true);
   assert.equal(q('schemeguard=0').guardMs, 0);
@@ -140,6 +151,27 @@ test('schemeParams: defaults, and ?schemeui ?schemeguard ?schemerows ?schemesize
   assert.equal(q('schemesize=3').size, 8);
   assert.equal(q('schemepitch=56').pitch, 56);
   assert.equal(q('schemepitch=').pitch, null);
+});
+
+test('schemeParams: the engaged look, ?schemelift ?schemenear ?schemefar ?schemein ?schemeout (null = the CSS default)', () => {
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  assert.equal(q('schemelift=1.5').lift, 1.5);
+  assert.equal(q('schemelift=0.5').lift, 1, 'under 1 would shrink the eye: clamps to no lift');
+  assert.equal(q('schemelift=9').lift, 3);
+  assert.equal(q('schemelift=x').lift, null);
+  assert.equal(q('schemelift=').lift, null);
+  assert.equal(q('schemenear=0.7').near, 0.7);
+  assert.equal(q('schemenear=0').near, 0.2, 'a circle never vanishes');
+  assert.equal(q('schemenear=5').near, 1, 'and never outgrows the large one');
+  assert.equal(q('schemefar=0.5').far, 0.5);
+  assert.equal(q('schemefar=-1').far, 0.2);
+  assert.equal(q('schemefar=y').far, null);
+  assert.equal(q('schemein=400').inMs, 400);
+  assert.equal(q('schemein=0').inMs, 0, '0 is an instant entrance, not the default');
+  assert.equal(q('schemein=-5').inMs, 0);
+  assert.equal(q('schemein=99999').inMs, 5000);
+  assert.equal(q('schemeout=120').outMs, 120);
+  assert.equal(q('schemeout=z').outMs, null);
 });
 
 test('the swatch artwork is the only file in the widget that holds literal colours', () => {
@@ -183,10 +215,47 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
   for (const part of ['num', 'peak', 'den', 'pointer', 'seam', 'hair']) {
     assert.ok(css.includes(`.fp-scale__${part}`), `${part} is handled`);
   }
-  assert.ok(/--scheme-seat:[\s\S]*?--pill-pad-y[\s\S]*?--lh-link[\s\S]*?--space-6/.test(css), 'desktop seat clears the privacy pill');
+  assert.ok(/--scheme-seat:[\s\S]*?--pill-pad-y[\s\S]*?--lh-pill[\s\S]*?--space-6/.test(css), 'the seat clears the privacy pill at its desktop height, at every width');
   assert.ok(/z-index:\s*43/.test(css), 'z 43');
   assert.ok(/translate:[\s\S]*?--footer-reveal[\s\S]*?--footer-panel-h[\s\S]*?--scheme-seat/.test(css), 'rides above the rising links footer');
   assert.ok(/data-chrome-open/.test(css) && /data-menu-open/.test(css), 'yields to the overlays and the menu');
+});
+
+const skinCss = () => read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
+
+test('SQ-101 anchor: one seat, bottom and right, at every width', () => {
+  const css = skinCss();
+  assert.equal(css.split('--scheme-seat:').length - 1, 1, 'the seat is declared once: no per-breakpoint seat');
+  assert.ok(!/@media\s*\(max-width[^)]*\)\s*\{\s*\.swm-corner\s*\{[^}]*--scheme-seat/.test(css), 'no phone override of the seat');
+  const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
+  assert.ok(/right:\s*var\(--chrome-right-inset\)/.test(wrapper), 'right inset is the shared chrome inset');
+  assert.ok(/bottom:\s*var\(--scheme-seat\)/.test(wrapper), 'bottom is the one seat');
+});
+
+test('SQ-101 long press: no callout, selection, drag or image dialog on the widget or anything in it', () => {
+  const css = skinCss();
+  const rule = css.match(/\.swm-corner,\s*\.swm-corner \*\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/-webkit-touch-callout:\s*none/.test(rule), 'no touch callout');
+  assert.ok(/(^|[\s;])user-select:\s*none/.test(rule) && /-webkit-user-select:\s*none/.test(rule), 'no selection');
+  assert.ok(/-webkit-user-drag:\s*none/.test(rule), 'no drag');
+  assert.ok(/\.swm-corner svg\s*\{\s*pointer-events:\s*none/.test(css), 'no svg is a hit target');
+  const comp = read('src/components/SiteScheme.jsx');
+  assert.ok(/onContextMenu=\{\(e\) => e\.preventDefault\(\)\}/.test(comp), 'contextmenu is cancelled on the widget');
+  assert.ok(/onDragStart=\{\(e\) => e\.preventDefault\(\)\}/.test(comp), 'dragstart is cancelled on the widget');
+  const sw = read('src/components/schemeSwatches.jsx');
+  assert.equal(sw.split('draggable="false"').length - 1, 2, 'both svgs (the circle, the eye) are not draggable');
+});
+
+test('SQ-101 engaged look: the engine falloff ranks the circles, one --eye-t drives the entrance and exit', () => {
+  const css = skinCss();
+  assert.ok(!/--scale-sel:\s*1\s*;/.test(css) && !/--scale-sel-bump:\s*1\s*;/.test(css), 'the falloff is no longer forced off');
+  assert.ok(/--scale-falloff:\s*2;/.test(css) && /--scale-falloff-hold:\s*0;/.test(css) && /--scale-falloff-exp:\s*1;/.test(css), 'a straight line over two stations');
+  assert.ok(/--scale-sel:\s*calc\(2 \* max\(var\(--eye-near\), var\(--eye-far\)\) \/ var\(--eye-far\) - 1\)/.test(css), 'one out = near / far of the small');
+  assert.ok(/--scale-sel-bump:\s*calc\(1 \/ \(var\(--eye-far\) \* var\(--scale-sel\)\)\)/.test(css), 'the lens = 1 / far of the small');
+  assert.ok(/@property --eye-t\s*\{[^}]*<number>[^}]*inherits:\s*true/.test(css), '--eye-t is a registered, inherited number');
+  assert.ok(/--eye-t var\(--eye-out\) var\(--ease-draw\)/.test(css) && /--eye-t var\(--eye-in\) var\(--ease-draw\)/.test(css), 'eased in and out on the house curve');
+  assert.ok(/prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?transition:\s*z-index 0s;/.test(css), 'reduced motion is instant');
+  assert.ok(/\.scheme-swatch\s*\{[^}]*--eye-lift[^}]*--eye-far/.test(css), 'the circle is drawn at the small size and lifts with the eye');
 });
 
 test('the eye: the globe path is read from the public file once, the lid shape has one source, the project face is the strips of the globe', () => {

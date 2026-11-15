@@ -5,8 +5,9 @@
    .swm-corner host as /work's chip-and-names instrument; this sheet re-seats and
    re-draws it as an EYE: at rest two lids round an iris (the committed scheme); engaged,
    the column deploys and each circle slides into the eye and becomes its iris.
-   SKIN ONLY: no motion constant, easing, detent, magnet or timing is touched, so the
-   deploy / cascade / wipe / warp are exactly /work's.
+   SKIN ONLY: no motion constant, easing, detent, magnet or timing of the ENGINE is touched
+   (the strip, the magnet, the detents, the falloff curve's shape are /work's). The column's
+   entrance and exit are this skin's own (--eye-t, below), in place of /work's per-row cascade.
 
    THE EYE. All measures are in units where the iris width = --scheme-swatch = 26 (1 unit
    = 1px at the default size; ?schemesize scales the whole eye): the eye box is 48 x 28.
@@ -38,7 +39,18 @@
      tick / slice         hidden: the per-station ::before / ::after marks are the same ruler
      hint / freeze        not rendered (hintOn and pauseOn are false); no scrim, no pause screen
    Tunables (docs/tunables-guide.md): ?schemerows (the rows shown), ?schemesize,
-   ?schemepitch, all written as custom properties on .swm-corner by SiteScheme. */
+   ?schemepitch, ?schemelift, ?schemenear, ?schemefar, ?schemein, ?schemeout, all written
+   as custom properties on .swm-corner by SiteScheme. */
+
+/* The engage progress, 0 (the eye at rest) to 1 (the column deployed). The pager root eases it
+   (one transition, ?schemein / ?schemeout long) and every engaged measure derives from it: the
+   lift of the eye, each circle's opacity, travel and pop, the size of the lid mask. Registered so
+   it interpolates as a number, and inherited so the window and the stations read the live value. */
+@property --eye-t {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
 
 .swm-corner {
   /* Iris diameter = the pager's <=768 tier lens-row height (--scale-num-h 1.857rem,
@@ -59,16 +71,29 @@
   /* The rest press target: the WCAG / house 44px minimum. */
   --scheme-hit: 44px;
   /* The deployed window's bottom edge, above the privacy pill: footer inset + the pill's
-     two paddings + its line + a --space-6 gap (the pill is hidden at <=768, below). */
+     two paddings + its line + a --space-6 gap. ONE seat, bottom and right, at every width
+     (Nathan 11-15): on a phone, where the pill is hidden, the eye sits where it does on
+     desktop. The line is --lh-pill, the pill's 22px line at every width (--lh-link, which
+     the pill itself reads, steps down to 18px at <=768 and would move the seat 4px). */
   --scheme-seat: calc(
-    var(--footer-bottom-inset) + 2 * var(--pill-pad-y) + var(--lh-link) + var(--space-6)
+    var(--footer-bottom-inset) + 2 * var(--pill-pad-y) + var(--lh-pill) + var(--space-6)
   );
-}
-
-@media (max-width: 768px) {
-  .swm-corner {
-    --scheme-seat: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
-  }
+  /* Engaged (held, hovered, wheel- or drag-invoked): the whole eye scales up by --eye-engaged,
+     and the column's circles go large (the lens), medium (one station out), small (two out),
+     each as a fraction of the large: --eye-near, --eye-far. The engine's own proximity
+     falloff does the ranking (the pager root, below). All PROPOSALS: ?schemelift
+     ?schemenear ?schemefar. */
+  --eye-engaged: 1.35;
+  --eye-near: 0.78;
+  --eye-far: 0.6;
+  /* The column's entrance and exit (?schemein, ?schemeout), on --ease-draw: no overshoot, a
+     steep launch, a smooth deceleration. Reduced motion: instant (below). */
+  --eye-in: 260ms;
+  --eye-out: 200ms;
+  /* A circle enters from this fraction of its distance to the eye, at this fraction of its
+     size, and leaves the same way. */
+  --eye-travel: 0.5;
+  --eye-pop: 0.5;
 }
 
 /* — The wrapper is the widget's SEAT and its footprint: fixed lower right on the privacy pill's
@@ -120,9 +145,20 @@ html[data-menu-open] .swm-corner {
   --scale-num-h: var(--eye-h);
   --scale-pad: 0px;
   --scale-pitch: var(--scheme-pitch);
-  /* No selection lift: every circle is the same at every row. */
-  --scale-sel: 1;
-  --scale-sel-bump: 1;
+  /* The engine's own proximity falloff, re-enabled (SQ-101), ranks the circles by their
+     distance from the lens: one station out lands at --scale-sel, the lens at --scale-sel x
+     --scale-sel-bump, two out (the roster) at 1. Hold 0, radius 2 and exponent 1 make that a
+     straight line, so the three sizes in units of the smallest are 1, near / far, 1 / far.
+     --scale-sel and the bump solve for them (the lens circle is 1 / far, one out is (sel +
+     1) / 2). A circle's art is drawn at the SMALL size (.scheme-swatch, below) and grows by
+     its row's scale, so the lens circle is exactly the eye's iris at the lifted size. */
+  --scale-falloff: 2;
+  --scale-falloff-hold: 0;
+  --scale-falloff-exp: 1;
+  --scale-sel: calc(2 * max(var(--eye-near), var(--eye-far)) / var(--eye-far) - 1);
+  --scale-sel-bump: calc(1 / (var(--eye-far) * var(--scale-sel)));
+  /* The engage progress and the lift it gives the eye (1 at rest). */
+  --eye-lift: calc(1 + (var(--eye-engaged) - 1) * var(--eye-t));
   /* The window feather is the gap between a circle's edge and the window's: each outer
      circle is fully opaque at its edge and the window cuts clean beyond it. */
   --scale-feather: max(0px, calc((var(--scale-pitch) - var(--scheme-swatch)) / 2));
@@ -132,9 +168,30 @@ html[data-menu-open] .swm-corner {
   right: auto;
   bottom: auto;
   transform: none;
+  /* The eye grows leftward and keeps its right edge on the seat (its centre moves left by
+     half the growth), so the widget stays anchored in the corner. */
+  translate: calc((1 - var(--eye-lift)) * var(--eye-w) / 2) 0;
   width: var(--scale-w);
   height: var(--scale-num-h);
   pointer-events: auto;
+  --eye-t: 0;
+}
+
+/* The entrance and the exit: the one transition the whole engaged look rides, its length swapped
+   by the state. The class is doubled so it outranks pager-scale.css's engaged-state transition
+   (z-index only), whatever order the host class and data-open land in; the z-index hold is that
+   sheet's, kept. */
+.swm-corner .fp-scale.swm-corner__pager.swm-corner__pager {
+  transition:
+    --eye-t var(--eye-out) var(--ease-draw),
+    z-index 0s linear var(--pager-scrim-ms);
+}
+
+.swm-corner .fp-scale.swm-corner__pager.swm-corner__pager[data-open] {
+  --eye-t: 1;
+  transition:
+    --eye-t var(--eye-in) var(--ease-draw),
+    z-index 0s;
 }
 
 /* The rest press target, at least 44 x 44 and spanning the eye. Engaged: it spans the
@@ -148,8 +205,15 @@ html[data-menu-open] .swm-corner {
 .swm-corner .fp-scale.swm-corner__pager[data-open]::after {
   top: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
   bottom: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
-  left: min(0px, calc((var(--scale-w) - var(--scheme-hit)) / 2));
-  right: min(0px, calc((var(--scale-w) - var(--scheme-hit)) / 2));
+  /* The lifted eye outgrows the root by half its growth each side: the pad follows it. */
+  left: min(
+    calc((1 - var(--eye-lift)) * var(--scale-w) / 2),
+    calc((var(--scale-w) - var(--scheme-hit)) / 2)
+  );
+  right: min(
+    calc((1 - var(--eye-lift)) * var(--scale-w) / 2),
+    calc((var(--scale-w) - var(--scheme-hit)) / 2)
+  );
 }
 
 /* — Nothing with text, and nothing that belongs to /work's ruler, is painted. — */
@@ -187,7 +251,9 @@ html[data-menu-open] .swm-corner {
 /* Keyboard focus: the house white 2px ring around the WHOLE eye. */
 .swm-corner .fp-scale.swm-corner__pager:has(.fp-scale__station:focus-visible) .fp-scale__lens {
   outline: 2px solid var(--color-white);
-  outline-offset: 4px;
+  /* 4px round the eye at rest; engaged (keyboard focus engages it) the offset also takes up
+     the eye's lift. */
+  outline-offset: calc(4px + (var(--eye-lift) - 1) * var(--eye-h) / 2);
 }
 
 /* The lens art: the eye (lids + the committed iris), in the chip above the window. */
@@ -207,6 +273,9 @@ html[data-menu-open] .swm-corner {
   width: var(--eye-w);
   height: var(--eye-h);
   overflow: visible;
+  /* Lifted from its centre while engaged (a paint-only scale: the box, and so every hit
+     measure, stays the eye at rest). */
+  scale: var(--eye-lift);
 }
 
 /* The lids: white, the same white and weight as the globe's lines, so the eye and its
@@ -221,16 +290,18 @@ html[data-menu-open] .swm-corner {
   stroke: var(--color-white);
 }
 
-/* The rest iris. Hidden with OPACITY while the column is deployed: its twin, the column's
-   centre circle, sits on the same pixels (same art, same place), so the hand-over neither
-   jumps, doubles nor resizes. The lids stay, above the moving circles. */
+/* The rest iris. Hidden with OPACITY once the column is in: its twin, the column's centre
+   circle, sits on the same pixels (same art, same place, the same lift), so the hand-over
+   neither jumps, doubles nor resizes. It holds, opaque, through the entrance (the centre
+   circle comes up beneath it) and goes the moment the entrance ends; on the way out it is
+   back at once, over the circle that is fading. The lids stay, above the moving circles. */
 .swm-corner .fp-scale.swm-corner__pager .scheme-eye__iris {
   opacity: 1;
-  transition: opacity 0.2s var(--ease-micro);
 }
 
 .swm-corner .fp-scale.swm-corner__pager[data-open] .scheme-eye__iris {
   opacity: 0;
+  transition: opacity 0s linear var(--eye-in);
 }
 
 /* — The window and its column: as wide as the eye, circles centred on the lens axis.
@@ -241,7 +312,7 @@ html[data-menu-open] .swm-corner {
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__window {
   --scale-w: var(--eye-w);
   --scale-pad: 0px;
-  --eye-band: calc(var(--scheme-swatch) / 2);
+  --eye-band: calc(var(--scheme-swatch) * var(--eye-lift) / 2);
   width: var(--scale-w);
   -webkit-mask-image:
     linear-gradient(
@@ -275,8 +346,14 @@ html[data-menu-open] .swm-corner {
       transparent 100%
     ),
     var(--eye-lid-mask);
-  -webkit-mask-size: 100% 100%, 100% 100%, var(--eye-w) var(--eye-h);
-  mask-size: 100% 100%, 100% 100%, var(--eye-w) var(--eye-h);
+  -webkit-mask-size:
+    100% 100%,
+    100% 100%,
+    calc(var(--eye-w) * var(--eye-lift)) calc(var(--eye-h) * var(--eye-lift));
+  mask-size:
+    100% 100%,
+    100% 100%,
+    calc(var(--eye-w) * var(--eye-lift)) calc(var(--eye-h) * var(--eye-lift));
   -webkit-mask-position: 0 0, 0 0, 50% 50%;
   mask-position: 0 0, 0 0, 50% 50%;
   -webkit-mask-repeat: no-repeat;
@@ -289,12 +366,28 @@ html[data-menu-open] .swm-corner {
   width: var(--scale-w);
   height: var(--scale-pitch);
   padding: 0;
+  /* Each circle is scaled by its row (the engine's --sel, from the falloff above) about its
+     own centre, and the scale is held in every state, so the exit never snaps. */
+  transform-origin: 50% 50%;
+  transform: scale(var(--sel));
+  /* The entrance and the exit ride --eye-t: the circle fades in while it travels in from the
+     eye (its distance to the lens row, shrunk by --eye-travel) and grows from --eye-pop of its
+     size. The engine's own cascade (opacity, stagger) is replaced; its transitions are off. */
+  opacity: var(--eye-t);
+  translate: 0
+    calc(
+      (var(--scale-cur) - var(--k, 0)) * var(--scale-pitch) * var(--eye-travel) * (1 - var(--eye-t))
+    );
+  scale: calc(var(--eye-pop) + (1 - var(--eye-pop)) * var(--eye-t));
+  transition: none;
 }
 
+/* The circle is drawn at the SMALL size; its row scale grows it (the lens circle by 1 / far),
+   and the lift scales the whole eye: the lens circle is the iris at the lifted size. */
 .swm-corner .fp-scale.swm-corner__pager .scheme-swatch {
   display: block;
-  width: var(--scheme-swatch);
-  height: var(--scheme-swatch);
+  width: calc(var(--scheme-swatch) * var(--eye-lift) * var(--eye-far));
+  height: calc(var(--scheme-swatch) * var(--eye-lift) * var(--eye-far));
 }
 
 /* The shared defs svg (path + clips, rendered once): present for the references, never seen. */
@@ -304,6 +397,37 @@ html[data-menu-open] .swm-corner {
   height: 0;
   overflow: hidden;
   pointer-events: none;
+}
+
+/* Press and hold (SQ-101): the widget is drawn in svg, and a hold that does not slide at once
+   used to raise the OS image / save dialog (and a text-selection handle). None of that belongs
+   here, on iOS or Android: no callout, no selection, no drag on the widget or anything in it
+   (SiteScheme also cancels `contextmenu` and `dragstart` on it, and the svgs carry
+   draggable=false), and no svg is ever the hit target, so the press lands on the pager's own
+   button or root, which the engine handles. */
+.swm-corner,
+.swm-corner * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.swm-corner svg {
+  pointer-events: none;
+}
+
+/* Reduced motion: the eye's lift and the column's entrance and exit are instant. */
+@media (prefers-reduced-motion: reduce) {
+  .swm-corner .fp-scale.swm-corner__pager.swm-corner__pager,
+  .swm-corner .fp-scale.swm-corner__pager.swm-corner__pager[data-open] {
+    transition: z-index 0s;
+  }
+
+  .swm-corner .fp-scale.swm-corner__pager[data-open] .scheme-eye__iris {
+    transition: none;
+  }
 }
 
 /* Wheel guard (SiteScheme): while a page scroll that began outside is still going, the

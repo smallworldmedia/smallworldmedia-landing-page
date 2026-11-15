@@ -121,6 +121,7 @@ export function SchemeSwatch({ scheme }) {
       viewBox={`0 0 ${IRIS} ${IRIS}`}
       aria-hidden="true"
       focusable="false"
+      draggable="false"
       data-swatch={scheme}
       className="scheme-swatch"
     >
@@ -142,6 +143,7 @@ export function EyeArt({ scheme }) {
       viewBox={`0 0 ${EYE.w} ${EYE.h}`}
       aria-hidden="true"
       focusable="false"
+      draggable="false"
       data-swatch={scheme}
       className="scheme-eye"
     >

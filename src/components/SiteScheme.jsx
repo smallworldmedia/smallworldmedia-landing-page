@@ -29,7 +29,9 @@
  *
  * ?params (read once at mount; docs/tunables-guide.md "colour scheme"):
  *   ?schemeui=0 hides the widget; ?schemeguard=<ms> the wheel pass-through guard;
- *   ?schemerows ?schemesize ?schemepitch dial the deployed window (site-scheme.css).
+ *   ?schemerows ?schemesize ?schemepitch dial the deployed window (site-scheme.css);
+ *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout the
+ *   column's entrance and exit.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import GraticulePager from './work/pager/GraticulePager.jsx';
@@ -79,6 +81,12 @@ export default function SiteScheme() {
       el.style.setProperty('--eye-lid-mask', EYE_LID_MASK);
       if (p.size != null) el.style.setProperty('--scheme-swatch', `${p.size}px`);
       if (p.pitch != null) el.style.setProperty('--scheme-pitch', `${p.pitch}px`);
+      // The engaged look (site-scheme.css owns the defaults; a dial writes only what it was given).
+      if (p.lift != null) el.style.setProperty('--eye-engaged', String(p.lift));
+      if (p.near != null) el.style.setProperty('--eye-near', String(p.near));
+      if (p.far != null) el.style.setProperty('--eye-far', String(p.far));
+      if (p.inMs != null) el.style.setProperty('--eye-in', `${p.inMs}ms`);
+      if (p.outMs != null) el.style.setProperty('--eye-out', `${p.outMs}ms`);
     }
     setUi(p.ui);
     setActive(stationOf(getScheme()));
@@ -135,7 +143,15 @@ export default function SiteScheme() {
   if (!ui) return null;
 
   return (
-    <div className="swm-corner" ref={cornerRef}>
+    <div
+      className="swm-corner"
+      ref={cornerRef}
+      // A press-and-hold must never raise the OS image / save / copy dialog or start a drag
+      // (the widget's art is svg): the engine cancels contextmenu on its pager root; this
+      // covers the whole widget, the drag-start included (site-scheme.css does the rest).
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+    >
       {ready && <EyeDefs />}
       {ready && (
         <GraticulePager
