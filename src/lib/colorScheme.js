@@ -65,6 +65,11 @@ export function getCommittedScheme() {
  * Apply `name`. A preview changes only what the page shows; a commit also becomes
  * the stored choice. An invalid name, or a call that changes nothing (same applied
  * scheme, same preview-ness), writes and dispatches nothing. Returns the applied name.
+ *
+ * Storage is written only when the COMMITTED scheme changes. Restoring the committed
+ * scheme after a preview (the widget's Escape) fires the settled event and stores
+ * nothing, so a visitor who never picked a scheme leaves nothing behind: the privacy
+ * notice says the value is kept "if you change the site's color scheme".
  */
 export function setScheme(name, { preview = false } = {}) {
   const s = state();
@@ -75,11 +80,14 @@ export function setScheme(name, { preview = false } = {}) {
   s.applied = name;
   document.documentElement.dataset.scheme = name;
   if (!preview) {
+    const picked = getCommittedScheme() !== name;
     s.committed = name;
-    try {
-      window.localStorage.setItem(SCHEME_STORAGE_KEY, name);
-    } catch {
-      /* private window / storage blocked: the pick applies for this page only */
+    if (picked) {
+      try {
+        window.localStorage.setItem(SCHEME_STORAGE_KEY, name);
+      } catch {
+        /* private window / storage blocked: the pick applies for this page only */
+      }
     }
   }
   if (typeof CustomEvent === 'function') {

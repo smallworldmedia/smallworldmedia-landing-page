@@ -160,6 +160,34 @@ test('a call that changes nothing dispatches and writes nothing; Escape (commit 
   assert.deepEqual(seen[2], { scheme: 'blue', prev: 'spectrum', preview: false })
 })
 
+// The privacy notice keeps the value only "if you change the site's color scheme": a
+// restore of the committed scheme (the widget's Escape after a preview) is not a pick.
+test('storage is written only when the committed scheme changes', () => {
+  const { storage } = setup()
+  const seen = []
+  onScheme((d) => seen.push(d))
+  setScheme('black', { preview: true })
+  assert.equal(setScheme(getCommittedScheme()), 'project')
+  assert.deepEqual(seen[1], { scheme: 'project', prev: 'black', preview: false }, 'the settled event still fires')
+  assert.equal(storage.map.has('swm:scheme'), false, 'a visitor who never picked leaves nothing stored')
+
+  // A ?scheme= preview over a stored pick: committing the stored scheme again writes nothing.
+  let writes = 0
+  const counted = memStorage({ 'swm:scheme': 'black' })
+  const setItem = counted.setItem
+  counted.setItem = (k, v) => {
+    writes++
+    setItem(k, v)
+  }
+  const { win } = setup({ storage: counted })
+  win.__swmScheme = { applied: 'blue', committed: 'black' }
+  assert.equal(setScheme('black'), 'black')
+  assert.equal(writes, 0)
+  assert.equal(setScheme('spectrum'), 'spectrum')
+  assert.equal(writes, 1, 'a real pick is stored')
+  assert.equal(counted.map.get('swm:scheme'), 'spectrum')
+})
+
 test('onScheme unsubscribes', () => {
   setup()
   let n = 0
