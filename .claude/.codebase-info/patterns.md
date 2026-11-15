@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-14*
+*Last Updated: 2026-11-15*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -137,7 +137,9 @@ Colour scheme (US-7, 11-14): `lib/colorScheme.js` is the one authority and `html
 thing CSS reads. DOM colour is CSS only, so a scheme change never re-renders React; canvases listen
 to `swm:scheme` and ask `schemeAccent` / `schemeInk`. A preview (`?scheme=`, a picker's detent)
 changes what the page shows and is never stored; only a commit that changes the committed scheme
-writes `localStorage`. The latch is an inline head script because the attribute must exist before
+writes `localStorage`. Three schemes are active (`SCHEMES`: project, black, blue). `spectrum` is
+parked (`PARKED_SCHEMES`, 11-15): `isKnownScheme` lets it apply as a `?scheme=` preview, and neither
+the latch nor `setScheme` stores or commits it. The latch is an inline head script because the attribute must exist before
 first paint and ClientRouter wipes it on every swap.
 
 How a scheme reaches the DOM (`styles/scheme.css`, SQ-88): black and blue override the whole key set
@@ -148,26 +150,35 @@ carriers and an inline style beats any selector. Paints that named brand blue di
 tokens (`--scheme-page`, `--scheme-chip` / `--scheme-chip-ink`, `--scheme-accent-ink`; registered
 `<color>` in `global.css`, defaults = today's blue, faded on `--scheme-fade`). Black's affordance
 rule: a control whose rest fill would equal its container is a transparent fill with white ink, and
-its hover / active / selected state is a white fill with black ink. The spectrum scheme is dealt per
-project at build time (`lib/spectrumDeal.js` → a `spectrum` field on the page data → `data-spectrum`
-on each carrier, and on `<html>` through `navAccent.js`). Its DOM skin is the last section of
-`scheme.css` (SQ-93, 11-14). Pages are black. Each key has one carrier block, on
-`html[data-spectrum=key]` and on any descendant carrying the key: the same key set as black and
-blue, `!important`, with the pair's ink from `SPECTRUM[key].fg`; a carrier with no key takes the blue
-pair. Controls take fixed pairs by role: blue for primary actions, red for selected states, white
-with `--swm-green-deep` ink for information, yellow for keywords, periwinkle for secondary hovers and
-the client panel's chips. Linear surfaces (progress fill, the next-project rule, scrollbar thumbs,
-the home globe ring) carry ramp A, the horizons into black carry ramp B, and the 404 has a ramp-A
-band across its foot. The ramps are colour-stop lists in `global.css` (`--swm-ramp-a` / `-b` / `-c`,
-no direction baked in) and go on the consuming property, because `--project-color` is a registered
-`<color>` and cannot hold a gradient. Keyword ink is yellow with `mix-blend-mode: difference`, so one
-ink reads yellow on the page and black on its yellow box. The sheet selects the five keys by name,
-never a bare `[data-spectrum]` (`ClientLogoTicker` owns `data-spectrum="white"`).
+its hover / active / selected state is a white fill with black ink. The spectrum scheme (parked, previewed with
+`?scheme=spectrum`) is the last section of `scheme.css` (SQ-93, reworked keyless in wave 4, SQ-96,
+11-15). Pages are black, and nothing in the section reads a project: no selector names a palette key
+or `data-spectrum`, so an element paints the same colour on every project and every page of its
+kind. `html` and every `[style*='--project-color']` carrier take the blue pair (`:where()` keeps the
+descendants' specificity at the html's, so a wearer that re-points its own carrier values wins). The
+palette arrives inside each component three ways. Ground / ink pairs are tokens (`--sp-blue` /
+`--sp-blue-ink` and so on: blue, red, green, yellow, periwinkle, white, navy). Two cycles go by a
+wearer's own `:nth-child` among its siblings, never a count over the page: a 12-step chip cycle that
+sets `--sp-bg` / `--sp-ink`, and a 4-step ink cycle for text. Lines wear ramp A and ground gradients
+wear ramp B. The ramps are colour-stop lists in `global.css` (`--swm-ramp-a` / `-b` / `-c`, no
+direction baked in) and go on the consuming property, because `--project-color` is a registered
+`<color>` and cannot hold a gradient. A ground behind text with no box of its own is a background
+plus a spread shadow, and `.swm-corner` (the picker) is never recoloured. The build-time deal
+(`lib/spectrumDeal.js` → a `spectrum` field on the page data → `data-spectrum`) is still computed
+and stamped, but no CSS reads it; a rule that ever does selects the five keys by name, never a bare
+`[data-spectrum]` (`ClientLogoTicker` owns `data-spectrum="white"`).
 
 How a scheme reaches a canvas: one `onScheme` subscription per scene. A settled event must recolour;
 a preview may write uniforms only (no texture or slot rebuild, the pager fires one per detent). Under
 black every fill and border is `#000000`; the one exception is /work's shell grid line (and glow), a
-neutral grey at `?schemegrid` (0.12). `window.__swmSchemeDebug` reports what each scene painted, and
+neutral grey at `?schemegrid` (0.12). Under spectrum (wave 4, 11-15) both scenes draw ramp A over the
+flat colour through one shared uniform set, so a scheme change still writes uniforms only, and at mix
+0 a scene paints exactly what it painted before. The home globe's gaps, pole caps, corner fringe and
+surge continue the DOM ring's conic ramp about the ring's centre (`globe/panelMaterial.js`
+`uRampMix` / `uRampCenter`); every /work line (shell grid, FORME lattice, plate and wall borders, the
+glow) takes the ramp left to right across the drawing buffer (`work/world/worldRamp.js`). The stops
+are `lib/spectrumRamp.js` (`SPECTRUM_RAMP_A` = `--swm-ramp-a`, kept gamma-encoded and decoded to
+linear after the blend, the way CSS blends). `window.__swmSchemeDebug` reports what each scene painted, and
 `scripts/scheme-probe.mjs`'s `gl` gate reads it.
 
 Probe caveats (11-14). Headless Chrome refuses some tall full-page screenshots ("Unable to capture
@@ -193,7 +204,13 @@ and one INFO line per page prints that page's own shares, which is how a family'
 its source. Canvases and media are masked black, so home and /work add nothing to it. On the first
 skin (11-14) every family sat within the gate's 10 points of color-ref.png except yellow, which the
 keyword boxes on every project page push to more than twice its reference share: a look call for
-Nathan, not a defect the gate should hide.
+Nathan, not a defect the gate should hide. The keyless skin (wave 4, 11-15) has its own gates, which
+replace `carriers`, `deal` and `shares` in spectrum's defaults (those stay available by name).
+`uniform`: an element two pages of a kind share paints the same on both (keywords and social chips
+are matched by their own key). `density`: a page shows at least N of the palette's families (5 on
+home, /work, a project page and the directory, 3 on privacy and the 404; `--density` overrides the 5;
+both numbers are proposals). `outline`: the canvas ramp's centre sits on the DOM ring's, within 1.5
+CSS px.
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
@@ -505,7 +522,7 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   `streamClip`, `segmentsPerRendition`, `loops`, `audio`, judging every master by the clip its
   surface owes, imported from `work/imageConfig.js` rather than restated) take the probe's report and
   import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures.
-  `scripts/lib/scheme-gate.mjs` (the colour schemes' eleven gates, 11-14) follows the same rule under
+  `scripts/lib/scheme-gate.mjs` (the colour schemes' fourteen gates, 11-14 and 11-15) follows the same rule under
   `scripts/test/scheme-gate.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then

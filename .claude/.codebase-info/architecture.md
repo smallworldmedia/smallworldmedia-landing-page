@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-11-14*
+*Last Updated: 2026-11-15*
 
 ## Summary
 
@@ -16,7 +16,8 @@ pill + overlay) and `SiteScheme` (the colour-scheme corner pager, US-7, 11-14). 
 only through `window` CustomEvents (`swm:*`) and `<html>` data attributes, never through shared React
 state. See `communication.md`.
 
-The site wears one of four colour schemes (`project`, `black`, `blue`, `spectrum`; US-7). DOM colour
+The site wears one of three colour schemes (`project`, `black`, `blue`; US-7). A fourth, `spectrum`,
+is parked (11-15): no picker station, never stored, still a `?scheme=spectrum` preview. DOM colour
 is CSS keyed on `html[data-scheme]` (`styles/scheme.css`), the two live canvases (home globe, /work
 Worlds) recolour on the `swm:scheme` event, and `lib/colorScheme.js` is the one authority. See
 `patterns.md` § Colour scheme.

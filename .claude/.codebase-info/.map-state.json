@@ -3,7 +3,7 @@
   "tool": "codebase-mapper",
   "version": "2.15.10",
   "mappedAt": "2026-11-15",
-  "gitCommit": "a5aea8737f180469ef0c0a7cf14ef7708eb426da",
+  "gitCommit": "52d42bdb7dce6982456017345a3cc41738741230",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -19,16 +19,16 @@
   ],
   "hashes": {
     "INDEX.md": "5af876438dabdbf2aa1256edafb045c9b83035d595e165b9ff9d268937cf289b",
-    "architecture.md": "ebbc9aec93652d296de1137e7f046dc78a8d9c767b56d7b872ece939238d8067",
+    "architecture.md": "0f9bcca82764e8ca4873979601ca5d5217f36b2fed8e8005f28afff58eaf9585",
     "cms-pipeline.md": "e9bfcf4750ea3db1c62f09be7615c47e7187ea0aace441564e7802a882743eab",
     "coding-style.md": "856e2d0b893613d795e60ac41c216665b1b932f15dfbfd26b49620c21e04a05b",
-    "communication.md": "58940aacf38d5cd2b76bbb3aa72e7aca2c691eea252c40bef7877e4a97ef7a6f",
+    "communication.md": "fc068da64ac7e0e9c068a3fe8c0132810d984fa0080b9db9a0a761edf9ae3b56",
     "database.md": "ba79eedbd27e1638bba9ce2ab47a1588203210e055ef4f5850c18a12b6b7222f",
-    "directory-structure.md": "ddf315381cf1ca9923b6801c9323452ea454bd766d908ab9fd83ccbe40fa5648",
-    "entry-points.md": "b81a543561136704f041df8b285bfef1dbc90624aa3a1ab3db9714a32e1bd94b",
-    "modules.md": "a1a8ead091b9f74bfa8f0ac903390c7a234680f0ac7bf6ab4f74c3e543cdeaaf",
-    "onboarding.md": "8b74863e8b7244e09fdf5cb7a8f471eb47b522c65980cb0bde8c8b683b78c0d0",
-    "patterns.md": "4d93f4ee486ed71a11ee576f07e4503d99e0980d0cc6404d422d406fa5bc7ea5",
+    "directory-structure.md": "e2fcaee55633fb1860acd15049b7d8b525750cc2f2fadd202b3563adb77d5f20",
+    "entry-points.md": "7a5de9ce6ce9b7596683d187a3faa1c5b9a68cca08a172641a4f5e420ede5028",
+    "modules.md": "dfd641ec65119f346f100ed1993bcc0a1c16ea58467b349a4934572f01e13534",
+    "onboarding.md": "4de928652e2ad9d2625e7a360e9a5ff7d5cd3e5a36b286e448e9f43eabed3369",
+    "patterns.md": "471130ca2a25c84b364d296957c67135a6bf5e3c675bb36724ab2d369d4fad17",
     "tech-landscape.md": "c263d061931925ed76748241192c85af74fa449fcac254dd0bd9311f1927ee4f"
   }
 }

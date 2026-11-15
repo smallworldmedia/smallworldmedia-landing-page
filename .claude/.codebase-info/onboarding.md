@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-11-14*
+*Last Updated: 2026-11-15*
 
 ## Quick start
 ```bash
@@ -59,7 +59,7 @@ by scope.
 | Change how much video a surface streams | `src/components/work/imageConfig.js` (`PREVIEW_SECONDS`, `DETAIL_MAX_SECONDS`, `muxStream`), `useHls.js`'s `videoOnly`; gate with `scripts/globe-probe.mjs` (`report.net`, `--detail=SLUG` for a detail page, `--directory` for the Project Directory) |
 | Change when the home globe's videos load | `?pophandoff` (`globe/popConfig.js` `POP_HANDOFFS`, `fast` by default since 10-28, `today` the handoff before it); `globe/streamPrefetch.js` + `work/hlsPrimed.js` fetch ahead, `globe/LivePanelScheduler.js` (`predictStarts`, `landingClips`, the 0.1 s beat), `globe/PopulationDirector.js` (`nextWarm`, `planAhead` / `adoptAhead`) and `globe/MeridianScroll.js` (`predict`) time it; read `window.__swmPopStats.handoff` (`ahead`: planned / adopted / missed by reason, and the texture keys), `changedAt`, `landedAt` |
 | Pick or add a house colour | the `--swm-*` extended palette and the `--ink-muted` role token in `src/styles/global.css`'s `:root`; consume a role token, never a raw hue, and check the contrast on black (`--swm-navy` and the brand electric blue are below 2.5:1 there) |
-| Change the site colour scheme | `src/lib/colorScheme.js` (the four presets, the spectrum deal) and the inline latch in `src/layouts/BaseLayout.astro`; the DOM skin is `src/styles/scheme.css` (role tokens in `global.css`), the canvases are `globe/useGlobeScene.js` and `work/world/useWorldScene.js` (`?schemegrid`), the picker is `src/components/SiteScheme.jsx` + `src/styles/site-scheme.css` (`?schemeui=0` hides it; `?schemeguard`, `?schemerows`, `?schemesize`, `?schemepitch`); preview with `?scheme=black\|blue\|spectrum` (`?schemefade=<ms>`); gate with `scripts/scheme-probe.mjs` (add `--shots=DIR` and look at the pages; see `patterns.md` for what the gates cannot see) and the `scripts/test/*scheme*.test.mjs` suites |
+| Change the site colour scheme | `src/lib/colorScheme.js` (the three active presets, the parked `spectrum` and its deal) and the inline latch in `src/layouts/BaseLayout.astro`; the DOM skin is `src/styles/scheme.css` (role tokens in `global.css`), the canvases are `globe/useGlobeScene.js` and `work/world/useWorldScene.js` (`?schemegrid`), the picker (an eye; its art is `src/components/schemeSwatches.jsx`) is `src/components/SiteScheme.jsx` + `src/styles/site-scheme.css` (`?schemeui=0` hides it; `?schemeguard`, `?schemerows`, `?schemesize`, `?schemepitch`); preview with `?scheme=black\|blue\|spectrum` (`?schemefade=<ms>`); gate with `scripts/scheme-probe.mjs` (add `--shots=DIR` and look at the pages; see `patterns.md` for what the gates cannot see) and the `scripts/test/*scheme*.test.mjs` suites |
 | Add a client's media | write `_manifest.md` (`scripts/generate-manifests.mjs`), then `npm run cms -- plan` → `apply` → `verify` |
 | Make a sequence (one tile, many stills) | give the stills one `displayGroup` ending `-sequence` in the manifest (Studio order = frame order), then `npm run cms -- plan` → `apply` → `verify`; code in `src/lib/mediaSequence.js`, rate `?seqms`, glossary in `CONTEXT.md` |
 | Add client logos | drop into `Client Logos/`, run `node scripts/prep-client-logos.mjs`, check `--check` |

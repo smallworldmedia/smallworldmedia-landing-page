@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-14*
+*Last Updated: 2026-11-15*
 
 ```
 .
@@ -17,8 +17,8 @@
 │   │   ├── *.jsx             # site chrome: SiteShell, SiteNav, SiteFooter, SiteTagline, RouteFill,
 │   │   │                     #   InfoPanel, ProjectOverlay, PrivacyOverlay/Content, ClientLogoTicker,
 │   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels,
-│   │   │                     #   SiteScheme (the colour-scheme corner pager) + schemeSwatches.jsx (its swatch art)
-│   │   ├── siteSchemeLogic.js    # SiteScheme's pure half (stations, wheel guard, pie wedges, ?scheme* dials)
+│   │   │                     #   SiteScheme (the colour-scheme corner pager) + schemeSwatches.jsx (its art: the eye and its globe irises)
+│   │   ├── siteSchemeLogic.js    # SiteScheme's pure half (stations, wheel guard, the project iris's bar spans, ?scheme* dials)
 │   │   ├── globe/            # video globe: scene hook, geometry, shader material, schedulers,
 │   │   │                     #   textures, population modes (world pools, patterns, director, tile swaps,
 │   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass),
@@ -26,7 +26,7 @@
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
 │   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, video recipes (useHls, imageConfig)
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
-│   │   │   ├── world/        # three.js Worlds: useWorldScene, DRUM/ATLAS/FORME grids, bands, live video
+│   │   │   ├── world/        # three.js Worlds: useWorldScene, DRUM/ATLAS/FORME grids, bands, live video, worldRamp (spectrum's line ramp)
 │   │   │   ├── detail/       # detail page: content flow, tile units (tileGrid), flush grid, sockets, DeckScroller, viewers
 │   │   │   └── directory/    # /work/directory: DirectoryPage, grid, filter + FilterTag, serviceGroups, player gate, tiles, bench
 │   │   ├── process/          # /process stage machine, scroll driver, copy, debug panel, lockup globe
@@ -35,13 +35,13 @@
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, touchTune, rubberBand, blurbHold(+Math), momentum,
 │   │                         #   navAccent, projectColor, colorScheme (the site colour scheme), spectrumDeal
-│   │                         #   (the build-time spectrum deal), projectSlug,
+│   │                         #   (the build-time spectrum deal), spectrumRamp (ramp A for the WebGL scenes), projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
 │   │                         #   queries, buildMemo, siteCopy, directoryData, clientCoverage, scrollKick, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
-│   ├── styles/               # global.css (tokens + chrome) + pager-scale.css (the graticule pager's skin) + site-scheme.css (the corner pager's seat and swatches)
-│   │                         #   + scheme.css (the black, blue and spectrum colour schemes, every rule under html[data-scheme]), all four loaded by the layout in that order
+│   ├── styles/               # global.css (tokens + chrome) + pager-scale.css (the graticule pager's skin) + site-scheme.css (the corner pager's seat and its eye)
+│   │                         #   + scheme.css (the black and blue colour schemes and the parked spectrum, every rule under html[data-scheme]), all four loaded by the layout in that order
 │   │                         #   + per-route sheets (media-slot.css is shared by
 │   │                         #   the detail grid and the directory) + *-tune.css benches
 │   ├── data/                 # directory-logos/ (baked white marks) + directory-logos.json (11-05) and
@@ -54,12 +54,12 @@
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
-│   ├── lib/scheme-gate.mjs   # scheme-probe's pure gates (colour maths + the eleven gates)
+│   ├── lib/scheme-gate.mjs   # scheme-probe's pure gates (colour maths + the fourteen gates)
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
 │   │                         #   globe-worlds, footer-reveal, build-memo, flush-grid, directory, large-grid, scroll-kick, color-scheme, scheme-gate,
-│   │                         #   scheme-css, spectrum-deal, nav-accent, globe-scheme, world-scheme, site-scheme,
+│   │                         #   scheme-css, spectrum-deal, spectrum-ramp, nav-accent, globe-scheme, world-scheme, site-scheme,
 │   │                         #   set-order: a detail page's sets in Studio order)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs, scheme-probe.mjs   # docs + probe tooling
