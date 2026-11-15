@@ -150,9 +150,19 @@ tokens (`--scheme-page`, `--scheme-chip` / `--scheme-chip-ink`, `--scheme-accent
 rule: a control whose rest fill would equal its container is a transparent fill with white ink, and
 its hover / active / selected state is a white fill with black ink. The spectrum scheme is dealt per
 project at build time (`lib/spectrumDeal.js` → a `spectrum` field on the page data → `data-spectrum`
-on each carrier, and on `<html>` through `navAccent.js`). Its DOM skin is not written yet (wave 3,
-SQ-93): until then `?scheme=spectrum` recolours the two canvases only. That sheet must select the
-five keys by name, never a bare `[data-spectrum]` (`ClientLogoTicker` owns `data-spectrum="white"`).
+on each carrier, and on `<html>` through `navAccent.js`). Its DOM skin is the last section of
+`scheme.css` (SQ-93, 11-14). Pages are black. Each key has one carrier block, on
+`html[data-spectrum=key]` and on any descendant carrying the key: the same key set as black and
+blue, `!important`, with the pair's ink from `SPECTRUM[key].fg`; a carrier with no key takes the blue
+pair. Controls take fixed pairs by role: blue for primary actions, red for selected states, white
+with `--swm-green-deep` ink for information, yellow for keywords, periwinkle for secondary hovers and
+the client panel's chips. Linear surfaces (progress fill, the next-project rule, scrollbar thumbs,
+the home globe ring) carry ramp A, the horizons into black carry ramp B, and the 404 has a ramp-A
+band across its foot. The ramps are colour-stop lists in `global.css` (`--swm-ramp-a` / `-b` / `-c`,
+no direction baked in) and go on the consuming property, because `--project-color` is a registered
+`<color>` and cannot hold a gradient. Keyword ink is yellow with `mix-blend-mode: difference`, so one
+ink reads yellow on the page and black on its yellow box. The sheet selects the five keys by name,
+never a bare `[data-spectrum]` (`ClientLogoTicker` owns `data-spectrum="white"`).
 
 How a scheme reaches a canvas: one `onScheme` subscription per scene. A settled event must recolour;
 a preview may write uniforms only (no texture or slot rebuild, the pager fires one per detent). Under
@@ -175,7 +185,15 @@ dump flags `backdrop` (absolute, negative z-index, not flattened by a scale-0 tr
 directory filter's wipe box. Before it learned that, the checked filter was white on white under
 black and passed (fixed in `scheme.css`, pinned in `scheme-css.test.mjs` and `scheme-gate.test.mjs`).
 A box laid behind text any other way (a sibling element, a blend mode) is still invisible to it.
-Look at the contact sheet, not only the gate lines.
+Look at the contact sheet, not only the gate lines. The `shares` gate (spectrum) sums masked captures
+of the pages it is given, and a project's page carries only its own dealt colour, so it runs only
+with `--details=all` (every /work card's page; the default sample of cards 1 and 3 SKIPs it, with the
+reason). The masked page is read in 4000 px tiles, because one capture of a tall page is refused,
+and one INFO line per page prints that page's own shares, which is how a family's share is traced to
+its source. Canvases and media are masked black, so home and /work add nothing to it. On the first
+skin (11-14) every family sat within the gate's 10 points of color-ref.png except yellow, which the
+keyword boxes on every project page push to more than twice its reference share: a look call for
+Nathan, not a defect the gate should hide.
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.

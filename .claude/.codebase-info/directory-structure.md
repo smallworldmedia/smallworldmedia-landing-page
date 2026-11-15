@@ -41,7 +41,7 @@
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + pager-scale.css (the graticule pager's skin) + site-scheme.css (the corner pager's seat and swatches)
-│   │                         #   + scheme.css (the black and blue colour schemes, every rule under html[data-scheme]), all four loaded by the layout in that order
+│   │                         #   + scheme.css (the black, blue and spectrum colour schemes, every rule under html[data-scheme]), all four loaded by the layout in that order
 │   │                         #   + per-route sheets (media-slot.css is shared by
 │   │                         #   the detail grid and the directory) + *-tune.css benches
 │   ├── data/                 # directory-logos/ (baked white marks) + directory-logos.json (11-05) and
