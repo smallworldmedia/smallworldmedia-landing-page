@@ -132,7 +132,7 @@ export const POP_DEFAULTS = Object.freeze({
   shapes: 'wide', // ?popshapes — the span each picture takes (POP_SHAPES); wide = Nathan's 10-24 set, classic = the one before it
   unitLook: 'flat', // ?popunitlook — flat | rows (POP_UNIT_LOOKS): how a member crops its unit's picture (P9, 10-31; rows until then)
   portrait: 'fill', // ?popportrait — fill | pair (POP_PORTRAITS): fill = a world's sharp portraits grow to 2×3 with its budget's room (Nathan 10-31, item 8; pair until then)
-  seqQuad: 1, // ?popseqquad — 1 = a world's album-art sequence tries for its 2×2 quad first (Nathan 11-05: the cycling covers belong on the 2×2s); 0 = editorial order, as before
+  seqQuad: 1, // ?popseqquad — classic only: 1 = a world's album-art sequence stands first for the quad election (Nathan 11-05: the cycling covers belong on the 2×2s); 0 = editorial order. Under ?popunits the sequence takes its seat at its own rank (SQ-104)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
   equiv: 32, // ?popequiv — per-world tile-equivalent budget under ?popunits (pair 2, quad 4, 3×2 6, single 1); 0 = off, ?popcap alone. Nathan 10-24, 32 (the top; Q8 10-23 was 12, before that 0)

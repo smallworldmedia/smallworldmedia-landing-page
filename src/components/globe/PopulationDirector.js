@@ -94,6 +94,37 @@ import {
 const RELAYOUT_SPREAD = 0.6; // s — bench relayout stagger window
 const RELAYOUT_DUR = 0.45; // s — one tile's blink
 const GRID = 64; // tape grid key stride (lon < GRID)
+export const REPEAT_GAP = 2; // placements: an asset never recurs within this many along a row or a column (SQ-104)
+
+/**
+ * The spacing rule (SQ-104, Nathan 11-15: no A-B-A-B bricks). From each edge of a footprint (`cells`, [tapeS, lon]
+ * pairs), the nearest `R` placements along its row (wrapping at `L`) and down its column: a run of one key is one
+ * placement, and so is a run of undecided cells (no key in `grid`: a later pair or 3×2 may fill it as one). Returns the nearest of them that shows `key`
+ * (1…R), or Infinity when none does.
+ */
+export function repeatGap(grid, cells, key, L, R = REPEAT_GAP) {
+  const inside = new Set(cells.map(([s, lon]) => s * GRID + lon));
+  let gap = Infinity;
+  for (const [s, lon] of cells) {
+    for (const [ds, dl] of [[0, -1], [0, 1], [1, 0], [-1, 0]]) {
+      let runs = 0;
+      let prev;
+      for (let n = 1; n <= L; n++) {
+        const c = (s + ds * n) * GRID + (((lon + dl * n) % L) + L) % L;
+        if (inside.has(c)) break; // not an edge this way, or wrapped round to the footprint
+        const k = grid.get(c);
+        if (n === 1 || k !== prev) runs += 1;
+        if (runs > R || runs >= gap) break;
+        if (k === key) {
+          gap = runs;
+          break;
+        }
+        prev = k;
+      }
+    }
+  }
+  return gap;
+}
 const FACING = 0.05; // prominence floor for "visible" in the stats
 const RECENT = 4; // chaos never jumps back to one of the last RECENT worlds
 const TIDE_EASE = gsap.parseEase('power3.out');
@@ -220,10 +251,18 @@ export default class PopulationDirector {
 
   /** The pool a world places from: ?popmedia's kinds and ?popcap, and under
    *  units the ?popequiv budget. makeGrouping places from it, and decorate() elects quads
-   *  over it, so a candidate the selection leaves out is never elected. */
-  selectFor(list) {
+   *  over it, so a candidate the selection leaves out is never elected. A rank prefix (SQ-104): an asset the budget
+   *  can no longer hold at its own weight joins `shrunk` at its smaller shape's (shrinkWeight). */
+  selectFor(list, shrunk = null) {
     const budget = TUNING.units && this.L && TUNING.equiv > 0 ? TUNING.equiv : null;
-    return selectPool(list, { kinds: MEDIA_KINDS[TUNING.media] ?? null, cap: TUNING.cap, budget, weigh: (a) => this.weigh(a) });
+    const weigh = (a) => this.weigh(a);
+    return selectPool(list, { kinds: MEDIA_KINDS[TUNING.media] ?? null, cap: TUNING.cap, budget, weigh, shrink: (a) => this.shrinkWeight(a), shrunk });
+  }
+
+  /** The weight of the smaller shape a shrunk asset takes: a wide 3×2's fallback pair (2), else a single (1). */
+  shrinkWeight(a) {
+    const c = TUNING.shapes === 'classic' ? null : UNIT_FALLBACK[wideClass(a, GLOBE_T1, this.L)];
+    return c ? UNIT_SHAPE[c].cols * UNIT_SHAPE[c].rows : 1;
   }
 
   /** ?popequiv (units on): an asset's weight in its world's tile-equivalent budget. It weighs the class it COULD
@@ -287,9 +326,17 @@ export default class PopulationDirector {
     this.decorSig = this.sigOf();
     // Classic: each world elects its first ?popquads 'q' candidates (editorial order) in the pool it PLACES from
     // (selectFor) whose real source short side ≥ 0.9 × the quad texture side. Keyed by world (m9).
+    // SQ-104: an asset its world's selection shrank forms only its smaller shape there (its fallback pair, else
+    // singles), and never stands for a quad or a 2×3. Keyed by world, as the quads are.
+    const shrunk = this.worlds.map((w) => {
+      const s = new Set();
+      if (on) this.selectFor(w.assets, s);
+      return s;
+    });
+    const small = new Set(this.worlds.flatMap((w, wi) => [...shrunk[wi]].map((a) => `${wi}|${a.playbackId || a.imageUrl}`)));
     const elected = new Set();
     if (on && !wide && TUNING.quads > 0) this.worlds.forEach((w, wi) => {
-      const pool = this.selectFor(w.assets);
+      const pool = this.selectFor(w.assets).filter((a) => !shrunk[wi].has(a));
       // ?popseqquad: the album-art sequence stands first for the election (11-05)
       const ranked = TUNING.seqQuad ? [...pool.filter((a) => a.frames), ...pool.filter((a) => !a.frames)] : pool;
       for (const id of electQuads(ranked, TUNING.quads, GLOBE_T1, this.L)) elected.add(`${wi}|${id}`);
@@ -300,7 +347,8 @@ export default class PopulationDirector {
     this.grown = this.worlds.map(() => 0);
     if (on && wide && TUNING.portrait === 'fill' && TUNING.equiv > 0) this.worlds.forEach((w, wi) => {
       const pool = this.selectFor(w.assets);
-      const ids = growTall(pool, pool.reduce((n, a) => n + this.weigh(a), 0), TUNING.equiv, GLOBE_T1, this.L);
+      const used = pool.reduce((n, a) => n + (shrunk[wi].has(a) ? this.shrinkWeight(a) : this.weigh(a)), 0);
+      const ids = growTall(pool.filter((a) => !shrunk[wi].has(a)), used, TUNING.equiv, GLOBE_T1, this.L);
       for (const id of ids) tall.add(`${wi}|${id}`);
       this.grown[wi] = ids.size;
     });
@@ -322,7 +370,10 @@ export default class PopulationDirector {
           r.tex = texSpec(a, c, GLOBE_T1, this.L, { wide });
           // classic: a quad only where this world elected it; a 2×3 only where this world grew it (a world that
           // didn't forms the 1×2, from the same texture)
-          if (c === 't') r.unitCls = tall.has(`${wi}|${id}`) ? 't' : 'v';
+          if (small.has(`${wi}|${id}`)) {
+            const f = wide ? UNIT_FALLBACK[wideClass(a, GLOBE_T1, this.L)] : null; // the shape shrinkWeight weighed
+            if (f) r.unitCls = f;
+          } else if (c === 't') r.unitCls = tall.has(`${wi}|${id}`) ? 't' : 'v';
           else if (wide || c !== 'q' || elected.has(`${wi}|${id}`)) r.unitCls = c;
         }
         if (a.frames) this.sequenceFrames(r, c, wide);
@@ -359,9 +410,10 @@ export default class PopulationDirector {
   }
 
   /* — Assignment. grid: Map (s·GRID + lon) → texture key of the tiles
-     already decided, for the neighbour rule. The region's cursor walks its
-     pool in editorial order, skipping any asset already on a lon or row
-     neighbour (a pool of 1–2 can't always comply — it repeats). — */
+     already decided, for the spacing rule. The region's cursor walks its
+     pool in rank order and takes the first asset repeatGap spaces from its
+     own key; when none is (a small pool), the one whose nearest repeat is
+     farthest, the earliest of those. — */
   pick(panel, grid) {
     const g = this.grouping;
     const L = this.lon;
@@ -376,23 +428,16 @@ export default class PopulationDirector {
     }
     const r = g.pattern.owner(lon, s);
     const pool = g.pools[r];
-    const near = [
-      grid.get(s * GRID + ((lon + L - 1) % L)),
-      grid.get(s * GRID + ((lon + 1) % L)),
-      grid.get((s - 1) * GRID + lon),
-      grid.get((s + 1) * GRID + lon),
-    ];
-    let c = g.cursor[r];
-    let asset = pool[c % pool.length];
+    const c = g.cursor[r];
+    let best = 0;
+    let bestGap = -1;
     for (let t = 0; t < pool.length; t++) {
-      const a = pool[(c + t) % pool.length];
-      if (!near.includes(assetKey(a))) {
-        asset = a;
-        c += t;
-        break;
-      }
+      const gap = repeatGap(grid, [[s, lon]], assetKey(pool[(c + t) % pool.length]), L);
+      if (gap > bestGap) [best, bestGap] = [t, gap];
+      if (gap === Infinity) break;
     }
-    g.cursor[r] = (c + 1) % pool.length;
+    const asset = pool[(c + best) % pool.length];
+    g.cursor[r] = (c + best + 1) % pool.length;
     grid.set(s * GRID + lon, assetKey(asset));
     return asset;
   }
@@ -730,7 +775,7 @@ export default class PopulationDirector {
     const grid = new Map();
     for (const row of this.rows) {
       const rs = row[0].tapeS;
-      if (rs !== s - 1 && rs !== s + 1) continue;
+      if (rs === s || Math.abs(rs - s) > REPEAT_GAP) continue; // the rows the spacing rule reads (repeatGap)
       for (const p of row) grid.set(rs * GRID + p.lonIndex, assetKey(p.swapAsset || p.asset));
     }
     const picks = tiles.map((p) => this.pick(p, grid));
@@ -750,6 +795,7 @@ export default class PopulationDirector {
    *  ahead is a what-if, so their refresh waits for the change that adopts it. */
   planBoard(order, { land = 0, initial = false } = {}) {
     this.namePlan = this.planNames();
+    this.grouping.cursor.fill(0); // a fresh board's singles open at rank 1 too, most prominent first (SQ-104)
     const grid = new Map();
     const plan = new Map();
     const kept = [];
@@ -847,76 +893,111 @@ export default class PopulationDirector {
       else this.refreshKept([[P, rec]]);
       claim(P, P.members.map((m) => m.asset));
     }
-    // 2 — new units, most prominent lead first, walking the region pool in editorial order. An asset tries its
-    // own class, then its fallback at the same lead (a 3×2 that won't fit here forms the 2×1 pair: Nathan 10-24).
-    // — 10-24 — wide plans the two-row units in a pass of their own first: only leads inside [θN, θS] host one (a
-    // row band or two), and in one pass the pairs of the row below, as prominent, took the cells a 3×2 or a quad
-    // needs (T37's board: 0 of either). Classic keeps today's single pass. — 10-31 — the tallest first: a pass of
-    // 2×3s alone, from leads inside their band, then the two-row units, then the rest. A grown portrait forms its 2×3
-    // once a plan, in that pass; its other units are 1×2s. Planned with the two-row units, a grown portrait tried at a
-    // lead outside its band formed its 1×2 there, and the others took the rows a 2×3 needs: with the rows travelling
-    // (D 22°), Bedouin grew 5, showed 1. With ?popunitmax 2×3s a key, a world that grew one portrait showed four of it
-    // and lost its 3×2s.
-    g.ucursor ??= [];
-    for (const minRows of TUNING.shapes !== 'classic' ? [3, 2, 1] : [1]) for (const p of order) {
-      if (!free(p) || (minRows > 1 && !admissible(p, minRows > 2 ? 't' : 'v'))) continue;
+    // 2 — new units, seated in rank order (Nathan 11-15, SQ-104: the ranking decides what faces the viewer). Each
+    // region's rank 1 is seated first, on the most prominent free panel of its region (order): its own class there,
+    // else its fallback, else that panel as a single. Then the passes, tallest first (— 10-24 — wide plans the
+    // two-row units before the pairs of the row below, as prominent, take the cells a 3×2 or a quad needs; — 10-31 — a
+    // pass of 2×3s alone before them, a grown portrait forming its 2×3 once a plan, its other units 1×2s); classic
+    // keeps one pass. Each pass walks every region's pool from rank 1, round after round, one unit per asset per round,
+    // each at the free footprint nearest the front (the one holding the most prominent free panel, ties to the
+    // footprint nearer the front as a whole): own class, then its fallback (a 3×2 that won't fit forms the 2×1 pair:
+    // Nathan 10-24). The regions take their rounds together. Every footprint is spaced from its own key (repeatGap),
+    // so no two assets alternate along a row. This replaces the lead-major walk and its unit cursor carried across
+    // passes (which opened the 1-row pass mid-pool) and ?popseqquad's out-of-turn quad (11-05): a sequence takes its
+    // seat at its own rank.
+    const at = new Map(order.map((p, i) => [p, i]));
+    const leads = new Map(); // region → its panels, most prominent first
+    for (const p of order) {
       const r = ownerOf(p);
-      const pool = g.pools[r];
-      if (!pool?.length) continue;
-      const c0 = g.ucursor[r] ?? g.cursor[r];
-      // — 11-05 (Nathan: the cycling covers belong on the 2×2s) — ?popseqquad: a region's album-art sequence
-      // tries for its world's quad first, out of turn, until this plan holds one of it; then editorial order.
-      const sq = TUNING.seqQuad ? pool.findIndex((a) => a.frames && a.unitCls === 'q' && !count.get(assetKey(a))) : -1;
-      for (let t = sq < 0 ? 0 : -1; t < pool.length; t++) {
-        const i = t < 0 ? sq : (c0 + t) % pool.length;
-        const a = pool[i];
-        const own = a.unitCls; // the class THIS region's world may form (decorate)
-        if (!own || !UNIT_CLASSES.has(own) || UNIT_SHAPE[own].rows < minRows) continue;
-        const key = assetKey(a);
-        if ((count.get(key) || 0) >= TUNING.unitMax || (minRows > 2 && tall.has(key))) continue;
-        let cls = null;
-        let members = null;
-        for (const c of [own, UNIT_FALLBACK[own]]) {
-          if (!c || UNIT_SHAPE[c].rows < minRows || (c === 't' && minRows < 3) || !admissible(p, c)) continue;
-          members = footprint(p, c);
-          if (members && outerFree(members, key)) {
-            cls = c;
-            break;
-          }
+      if (!g.pools[r]?.length) continue;
+      if (!leads.has(r)) leads.set(r, []);
+      leads.get(r).push(p);
+    }
+    // The classes `a` may form in a pass of units `minRows` tall or more (0: rank 1's seat, any).
+    const classesFor = (a, key, minRows) =>
+      [a.unitCls, UNIT_FALLBACK[a.unitCls]].filter(
+        (c) => c && UNIT_SHAPE[c].rows >= minRows && (c !== 't' || ((minRows === 0 || minRows === 3) && !tall.has(key)))
+      );
+    // The footprint of class c holding panel q nearest the front, spaced from its key; null if none.
+    const holding = (q, c, key) => {
+      const { cols, rows } = UNIT_SHAPE[c];
+      let best = null;
+      let score = Infinity;
+      for (let ky = 0; ky < rows; ky++) for (let kx = 0; kx < cols; kx++) {
+        const lead = cell.get((q.tapeS + ky) * GRID + ((q.lonIndex - kx + L) % L));
+        if (!lead || !admissible(lead, c)) continue;
+        const members = footprint(lead, c);
+        if (!members || repeatGap(grid, members.map((m) => [m.tapeS, m.lonIndex]), key, L) !== Infinity) continue;
+        const sum = members.reduce((n, m) => n + (at.get(m) ?? order.length), 0); // a member off `order` ranks last
+        if (sum < score) [best, score] = [members, sum];
+      }
+      return best;
+    };
+    const form = (a, key, c, members) => {
+      const { cols, rows } = UNIT_SHAPE[c];
+      const P = { uid: `${c}:${members[0].lonIndex}:${members[0].tapeS}:${key}`, key, cls: c, cols, rows, n: members.length, S: unitAspect(cols, rows, this.L), L: this.L, members, born: false, look: unitLookFor(rows, TUNING.unitLook) };
+      claim(P, members.map((m, k) => ({ ...a, place: P, kx: k % cols, ky: Math.floor(k / cols) })));
+      this.placed[c] += 1;
+      if (initial && c !== 'h') this.initVQ += 1;
+    };
+    const canSeat = (a, key) => UNIT_CLASSES.has(a.unitCls) && (count.get(key) || 0) < TUNING.unitMax;
+    for (const [r, ps] of leads) {
+      const a = g.pools[r][0];
+      const key = assetKey(a);
+      const q = ps.find(free);
+      if (!q) continue;
+      const c = canSeat(a, key) ? classesFor(a, key, 0).find((k) => holding(q, k, key)) : null;
+      if (c) form(a, key, c, holding(q, c, key));
+      else if (repeatGap(grid, [[q.tapeS, q.lonIndex]], key, L) === Infinity) {
+        plan.set(q, a); // rank 1 as a single: the singles (planBoard) fill the rest
+        grid.set(q.tapeS * GRID + q.lonIndex, key);
+      }
+    }
+    const seat = (r, a, minRows) => {
+      const key = assetKey(a);
+      if (!canSeat(a, key)) return false;
+      for (const c of classesFor(a, key, minRows)) {
+        for (const q of leads.get(r)) {
+          const members = free(q) && holding(q, c, key);
+          if (!members) continue;
+          form(a, key, c, members);
+          return true;
         }
-        if (!cls) continue;
-        const { cols, rows } = UNIT_SHAPE[cls];
-        const P = { uid: `${cls}:${p.lonIndex}:${p.tapeS}:${key}`, key, cls, cols, rows, n: members.length, S: unitAspect(cols, rows, this.L), L: this.L, members, born: false, look: unitLookFor(rows, TUNING.unitLook) };
-        claim(P, members.map((m, k) => ({ ...a, place: P, kx: k % cols, ky: Math.floor(k / cols) })));
-        if (t >= 0) g.ucursor[r] = (i + 1) % pool.length; // the region's next unit takes the next classed asset
-        if (i === g.cursor[r] % pool.length) g.cursor[r] = (i + 1) % pool.length; // …and singles don't open on it
-        this.placed[cls] += 1;
-        if (initial && cls !== 'h') this.initVQ += 1;
-        break;
+      }
+      return false;
+    };
+    const depth = Math.max(0, ...[...leads.keys()].map((r) => g.pools[r].length));
+    for (const minRows of TUNING.shapes !== 'classic' ? [3, 2, 1] : [1]) {
+      for (let more = true; more; ) {
+        more = false;
+        for (let i = 0; i < depth; i++) for (const r of leads.keys()) if (g.pools[r][i] && seat(r, g.pools[r][i], minRows)) more = true;
       }
     }
   }
 
   /** H pairs inside a born row (MeridianScroll.recycle → assignRow): lon pairs
    *  never wrap; the pick must be an 'h' asset, or a 'w' one (its fallback pair);
-   *  same owner region; outer neighbours free of its key; within ?popunitmax on
+   *  same owner region; either pick's asset may take the pair, if spaced from its own
+   *  key (repeatGap: no recurrence within REPEAT_GAP, SQ-104); within ?popunitmax on
    *  the board. No V/Q/W: a born row sits in the north buffer (θ < 0), outside [θN, θS]. */
   birthPairs(tiles, picks, grid) {
     const g = this.grouping;
     const L = this.lon;
     const s = tiles[0].tapeS;
     const idx = new Map(tiles.map((p, i) => [p.lonIndex, i]));
-    const keyAt = (lon) => assetKey(picks[idx.get((lon + L) % L)]);
+    tiles.forEach((p, i) => grid.set(s * GRID + p.lonIndex, assetKey(picks[i]))); // the row as picked, for repeatGap
     const onBoard = this.unitCountByKey();
     for (let lon = 0; lon + 1 < L; lon++) {
       const i = idx.get(lon);
       const j = idx.get(lon + 1);
-      const a = picks[i];
-      if (i == null || j == null || !canForm(a?.unitCls, 'h') || a.place || picks[j]?.kind === 'name') continue;
+      if (i == null || j == null || picks[i]?.kind === 'name' || picks[j]?.kind === 'name' || g.pattern.owner(lon, s) !== g.pattern.owner(lon + 1, s)) continue;
+      // Either pick's asset may take the pair (SQ-104): spaced along the row and the columns (repeatGap), the cursor's
+      // diagonal (each row the last shifted by one) no longer rules out every left pick.
+      const a = [picks[i], picks[j]].find((b) => canForm(b?.unitCls, 'h') && !b.place && (onBoard.get(assetKey(b)) || 0) < TUNING.unitMax && repeatGap(grid, [[s, lon], [s, lon + 1]], assetKey(b), L) === Infinity);
+      if (!a) continue;
       const key = assetKey(a);
-      if ((onBoard.get(key) || 0) >= TUNING.unitMax || g.pattern.owner(lon, s) !== g.pattern.owner(lon + 1, s)) continue;
-      if (keyAt(lon - 1) === key || keyAt(lon + 2) === key) continue;
-      if ([s - 1, s + 1].some((r) => grid.get(r * GRID + lon) === key || grid.get(r * GRID + lon + 1) === key)) continue;
+      grid.set(s * GRID + lon, key);
+      grid.set(s * GRID + lon + 1, key);
       const P = { uid: `h:${lon}:${s}:${key}`, key, cls: 'h', cols: 2, rows: 1, n: 2, S: unitAspect(2, 1, this.L), L: this.L, members: [tiles[i], tiles[j]], born: true, look: TUNING.unitLook };
       picks[i] = { ...a, place: P, kx: 0, ky: 0 };
       picks[j] = { ...a, place: P, kx: 1, ky: 0 };
@@ -1059,7 +1140,7 @@ export default class PopulationDirector {
     const rot = new THREE.Euler(live.x, live.y + this.getSpin() * T, live.z, live.order);
     const { spread, dur } = this.changeSpan();
     const land = TUNING.units && this.L ? spread + dur : 0;
-    const was = { grouping: this.grouping, step: this.step, getRotation: this.getRotation, getHorizon: this.getHorizon, placed: { ...this.placed }, lastD: this.lastD, thetaH: this.W?.thetaH ?? null, namePlaced: this.namePlaced, namePlan: this.namePlan, cursor: [...g.cursor], ucursor: g.ucursor && [...g.ucursor] };
+    const was = { grouping: this.grouping, step: this.step, getRotation: this.getRotation, getHorizon: this.getHorizon, placed: { ...this.placed }, lastD: this.lastD, thetaH: this.W?.thetaH ?? null, namePlaced: this.namePlaced, namePlan: this.namePlan, cursor: [...g.cursor] };
     const tiles = this.panels.map((p) => ({ p, dir: p.centerDir.clone(), parked: p.parked, s: p.tapeS, asset: p.asset, shown: p.shownAsset, swap: p.swapAsset }));
     let A;
     try {
@@ -1083,7 +1164,6 @@ export default class PopulationDirector {
         namePlaced: this.namePlaced,
         placed: Object.fromEntries(Object.keys(was.placed).map((k) => [k, this.placed[k] - was.placed[k]])),
         cursor: [...g.cursor],
-        ucursor: g.ucursor && [...g.ucursor],
         poses: this.panels.map((p) => [p.centerDir.clone(), p.parked, p.tapeS]),
         tiles: tiles.map((t) => [t.asset, t.shown, t.swap]),
       };
@@ -1101,7 +1181,6 @@ export default class PopulationDirector {
       Object.assign(this.placed, was.placed);
       if (this.W) this.W.thetaH = was.thetaH;
       g.cursor = was.cursor;
-      g.ucursor = was.ucursor;
     }
     this.ahead.planned += 1;
     g.ahead = A;
@@ -1144,7 +1223,6 @@ export default class PopulationDirector {
       return null;
     }
     g.cursor = A.cursor;
-    g.ucursor = A.ucursor;
     this.refreshKept(A.kept);
     for (const k of Object.keys(A.placed)) this.placed[k] += A.placed[k];
     this.lastD = A.lastD;

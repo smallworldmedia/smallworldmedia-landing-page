@@ -18,7 +18,7 @@ import { makePattern, makeField, PATTERNS } from '../../src/components/globe/wor
 import MeridianScroll, { initialBirth, poseTile, posePanel, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
 import TextureManager, { assetKey, computeCoverUv } from '../../src/components/globe/TextureManager.js'
 import { loadTile, windowA, unitWindowOf, setWindowB, shownWindowA, offB, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
-import PopulationDirector from '../../src/components/globe/PopulationDirector.js'
+import PopulationDirector, { repeatGap, REPEAT_GAP } from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
 import { TUNING, POP_DEFAULTS, POP_TIERS, POP_SHAPES, POP_UNIT_LOOKS, POP_PORTRAITS, setPopTune } from '../../src/components/globe/popConfig.js'
 import {
@@ -230,15 +230,23 @@ test('buildWorldPools (US-5): a mockups set and a flyer-progression are one sequ
 
 const pool = (n, kind, tag = kind) => Array.from({ length: n }, (_, i) => ({ kind, playbackId: `${tag}${i}` }))
 
-test('selectPool caps round-robin across kinds, then restores editorial order', () => {
+// SQ-104 (Nathan 11-15): was a round-robin across kinds, which skipped ranks to keep every kind (HHS 2026 took
+// ranks 1-4, 6, 8-10, 17, 18). Now the rank prefix: Sanity rank order, none skipped.
+test('selectPool takes the rank prefix: none skipped, a shrunk asset at its smaller weight, the walk stopping at the first that fits neither way (SQ-104)', () => {
   const src = [...pool(30, 'video'), ...pool(4, 'still'), ...pool(2, 'art')]
   const picked = selectPool(src, { cap: 12 })
-  assert.equal(picked.length, 12)
-  assert.equal(picked.filter((a) => a.kind === 'still').length, 4) // never starved behind 30 videos
-  assert.equal(picked.filter((a) => a.kind === 'art').length, 2)
-  const order = picked.map((a) => src.indexOf(a))
-  assert.deepEqual(order, [...order].sort((a, b) => a - b))
+  assert.deepEqual(picked, src.slice(0, 12)) // ranks 1-12, whatever their kind
   assert.equal(selectPool(src).length, WORLD_POOL_CAP)
+  // Under a budget: weights 6, 6, 6, 2, 6, 4, 2; budget 22. Ranks 1-3 fit (18), rank 4 (20); rank 5 shrinks to its
+  // 2 (22); rank 6 fits neither way and ends the walk, so rank 7 (which would fit) never jumps it.
+  const w = [6, 6, 6, 2, 6, 4, 2]
+  const src2 = w.map((n, i) => ({ kind: 'video', playbackId: `r${i + 1}`, n }))
+  const shrunk = new Set()
+  const got = selectPool(src2, { budget: 22, weigh: (a) => a.n, shrink: (a) => (a.n === 6 ? 2 : 1), shrunk })
+  assert.deepEqual(got.map((a) => a.playbackId), ['r1', 'r2', 'r3', 'r4', 'r5'])
+  assert.deepEqual([...shrunk].map((a) => a.playbackId), ['r5'])
+  // no shrink: the walk stops at rank 5
+  assert.deepEqual(selectPool(src2, { budget: 22, weigh: (a) => a.n }).map((a) => a.playbackId), ['r1', 'r2', 'r3', 'r4'])
   // A kind filter that leaves fewer than 3 falls back to the whole pool.
   assert.equal(selectPool(src, { kinds: ['art'], cap: 40 }).length, src.length)
   assert.ok(selectPool(src, { kinds: ['still'] }).every((a) => a.kind === 'still'))
@@ -3049,7 +3057,9 @@ function recycleRows(director, panels, n) {
   }
 }
 
-test('spans: planUnits and birthPairs on crafted boards — the seam, outer neighbours, the walk and its cursors; the births’ guards and the board count (T13)', () => {
+// SQ-104: the walk was a unit cursor (g.ucursor) carried across plans; units now seat in rank order from rank 1
+// every plan, spaced from their own key by repeatGap (two placements, not only the outer neighbours).
+test('spans: planUnits and birthPairs on crafted boards — the seam, the spacing rule, the rank walk; the births’ guards and the board count (T13, SQ-104)', () => {
   const { director, panels } = unitDirector() // one world: one region owns every tile
   try {
     const g = director.grouping
@@ -3058,9 +3068,8 @@ test('spans: planUnits and birthPairs on crafted boards — the seam, outer neig
     assert.ok(classed.length >= 3, JSON.stringify(classed))
     const key = (i) => assetKey(pool[i])
     const at = (lon, row) => panels.find((p) => p.lonIndex === lon && p.row === row)
-    /** One lead through planUnits (still rows: D 0); the unit walk starts at `from`, singles' cursor at `cursor`. */
-    const unitAt = (lead, { grid = new Map(), from = classed[0], cursor = 0 } = {}) => {
-      g.ucursor = [from]
+    /** One lead through planUnits (still rows: D 0); singles' cursor at `cursor`, which the units never read. */
+    const unitAt = (lead, { grid = new Map(), cursor = 0 } = {}) => {
       g.cursor = [cursor]
       director.namePlan = new Map()
       const plan = new Map()
@@ -3070,12 +3079,12 @@ test('spans: planUnits and birthPairs on crafted boards — the seam, outer neig
     // A lead on the last meridian wraps the seam (a planned unit may; a born pair never does).
     const seam = unitAt(at(LON - 1, 3), { cursor: classed[0] })
     assert.deepEqual([seam?.members.map((m) => m.lonIndex), seam?.key], [[LON - 1, 0], key(classed[0])])
-    // The cursors: the region's next unit walks on from the asset after this one, and singles don't open on it.
-    assert.deepEqual([g.ucursor[0], g.cursor[0]], [classed[0] + 1, classed[0] + 1])
-    // The walk starts at the unit cursor (not the singles' cursor, nor the pool's head).
-    assert.equal(unitAt(at(4, 3), { from: classed[1] })?.key, key(classed[1]))
-    // A key just right of the seam (lon 0) is an outer neighbour of a unit on lon L−2, L−1: that key is ruled
-    // out, and the walk goes on to the next classed asset.
+    // The singles' cursor is the singles' own: planUnits leaves it where it was.
+    assert.equal(g.cursor[0], classed[0])
+    // The walk starts at rank 1 every plan, wherever the singles' cursor stands.
+    assert.equal(unitAt(at(4, 3), { cursor: classed[1] })?.key, key(classed[0]))
+    // A key just right of the seam (lon 0) is the outer neighbour of a unit on lon L−2, L−1, and two placements
+    // from one on L−3, L−2: that key is ruled out, and the walk goes on to the next classed asset.
     const lead = at(LON - 2, 3)
     const ruled = unitAt(lead, { grid: new Map([[lead.tapeS * GRID + 0, key(classed[0])]]) })
     assert.deepEqual([ruled?.members.map((m) => m.lonIndex), ruled?.key], [[LON - 2, LON - 1], key(classed[1])])
@@ -3093,6 +3102,8 @@ test('spans: planUnits and birthPairs on crafted boards — the seam, outer neig
     }
     assert.deepEqual(born({ 4: h('K'), 5: h('K') }), ['4:K'])
     assert.deepEqual(born({ 1: h('K'), 2: h('K'), 3: h('K') }), []) // a third K on either side of a pair
+    assert.deepEqual(born({ 4: h('K'), 5: h('K'), 7: h('K') }), []) // K two placements on: no K-x-K along the row (SQ-104)
+    assert.deepEqual(born({ 4: h('K'), 5: h('K') }, new Map([[(s + 2) * GRID + 4, 'K']])), []) // …nor two rows up the column
     assert.deepEqual(born({ 0: h('K'), 1: h('K'), [LON - 1]: h('K') }), []) // the left neighbour across the seam
     assert.deepEqual(born({ 4: h('K'), 5: h('K') }, new Map([[(s + 1) * GRID + 5, 'K']])), []) // K one row up from the second member
     assert.deepEqual(born({ 4: h('K'), 5: h('K') }, new Map([[(s - 1) * GRID + 4, 'K']])), []) // K one row down from the first
@@ -3100,7 +3111,8 @@ test('spans: planUnits and birthPairs on crafted boards — the seam, outer neig
     assert.deepEqual(born({ 4: h('V', 'v'), 5: h('V', 'v') }), []) // only an h pick pairs …
     assert.deepEqual(born({ 4: h('W', 'w'), 5: h('W', 'w') }), ['4:W']) // … or a 3×2's (— 10-24 — born as its 2×1)
     assert.deepEqual(born({ 4: h('Q', 'q'), 5: h('Q', 'q') }), []) // NC: a quad has no pair to fall back to
-    assert.deepEqual(born({ 4: h('K'), 5: { kind: 'name', nameKey: 'K-strip' } }), []) // a name strip never joins
+    assert.deepEqual(born({ 4: h('K'), 5: { kind: 'name', nameKey: 'K-strip' } }), ['3:K']) // a name strip never joins: K pairs leftward instead
+    assert.deepEqual(born({ 5: h('K') }), ['4:K']) // SQ-104: the right pick's asset may take the pair too
 
     // The births' cap reads the board: units planned or in flight (a swap's target leads what texA shows), each
     // unit once however many members it has.
@@ -3995,15 +4007,16 @@ test('spans: each world elects its ?popquads quads over the pool it places from,
   const pool = [q('low', { s: 480 }), qStill('small', 800), { kind: 'video', playbackId: 'wide', videoAspectRatio: '16:9', u: 'h' }, q('unknown', { s: 0 }), q('A'), qStill('B', 1200), q('C')]
   assert.deepEqual([0, 1, 2, 3].map((n) => [...electQuads(pool, n, THUMB_WIDTH, SPAN_L)]), [[], ['A'], ['A', pool[5].imageUrl], ['A', pool[5].imageUrl, 'C']])
 
-  // The cap case: world 0 is 12 stills, then an eligible 'q' still X, then an eligible 'q' clip Y. At ?popcap 13
-  // selectPool's round-robin over kinds keeps the 12 stills and Y, so Y is world 0's quad and X is nobody's. World
+  // The cap case: world 0 is 12 stills, then an eligible 'q' clip Y, then an eligible 'q' still X. At ?popcap 13
+  // selectPool's rank prefix keeps the 12 stills and Y, so Y is world 0's quad and X is nobody's (SQ-104: was a
+  // round-robin over kinds, with X ranked ahead of Y; a prefix never keeps a lower rank over a higher one). World
   // 1 carries Y too, behind its own first candidate Z, and opens with Zs, an 800² 'q' still too small to elect.
   const stills = (name, n) => Array.from({ length: n }, (_, i) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/${name}-s${i}-800x600.jpg` }))
   const X = qStill('X', 1200)
   const [Y, Z] = [q('Y'), q('Z')]
   const Zs = qStill('Zs', 800)
   const world = (name, assets) => ({ slug: name, clientName: name, title: null, services: [], assets })
-  const worlds = [world('zero', [...stills('zero', 12), X, Y]), world('one', [Zs, Z, ...stills('one', 4), Y])]
+  const worlds = [world('zero', [...stills('zero', 12), Y, X]), world('one', [Zs, Z, ...stills('one', 4), Y])]
   const { director } = unitDirector({}, { worlds })
   try {
     const idOf = (a) => a.playbackId || a.imageUrl
@@ -4024,11 +4037,11 @@ test('spans: each world elects its ?popquads quads over the pool it places from,
     const g0 = director.makeGrouping({ lead: 0 })
     assert.deepEqual(g0.pools[0].map(idOf), sel0.map(idOf))
     assert.equal(g0.pools[0].find((r) => idOf(r) === 'Y').unitCls, 'q')
-    // NC: electing over w.assets (before the selection, the old wording) elects X, which the cap leaves out: world 0
-    // would form no quad at all.
-    const raw = electQuads(worlds[0].assets, 1, THUMB_WIDTH, director.L)
-    assert.deepEqual([...raw], [X.imageUrl])
-    assert.equal(sel0.some((a) => raw.has(idOf(a))), false)
+    // NC: electing over w.assets (before the selection, the old wording) at ?popquads 2 elects X too, which the cap
+    // leaves out.
+    const raw = electQuads(worlds[0].assets, 2, THUMB_WIDTH, director.L)
+    assert.deepEqual([...raw], ['Y', X.imageUrl])
+    assert.equal(sel0.some((a) => idOf(a) === X.imageUrl), false)
     // NC: a class texture only where the id is elected (no pooling by id) gives Y two keys: the q crop, the legacy one.
     assert.notEqual(qTex.key, assetKey(Y))
 
@@ -4049,7 +4062,7 @@ test('spans: each world elects its ?popquads quads over the pool it places from,
     assert.deepEqual(tune('quads', 0), [[[], []], []])
     assert.deepEqual(tune('quads', 2), [[['Y'], ['Z', 'Y']], ['Y', 'Z']]) // world 0's selection holds one candidate
     assert.deepEqual(tune('quads', 1), [[['Y'], ['Z']], ['Y', 'Z']])
-    assert.deepEqual(tune('cap', 14), [[[X.imageUrl], ['Z']], [X.imageUrl, 'Z']]) // X now selected, ahead of Y
+    assert.deepEqual(tune('cap', 12), [[[], ['Z']], ['Z']]) // Y now past the cap: world 0 holds no candidate
     assert.deepEqual(tune('cap', 13), [[['Y'], ['Z']], ['Y', 'Z']])
     assert.deepEqual(tune('media', 'still'), [[[X.imageUrl], []], [X.imageUrl]]) // world 1's stills hold no candidate
     assert.deepEqual(tune('media', 'all'), [[['Y'], ['Z']], ['Y', 'Z']])
@@ -5754,10 +5767,22 @@ test('spans: phonehd — a phone rendering at 2.25 or more plans every unit at 7
 
 /* — Media spans, P7: globe-only ?globethumb and the ?popequiv tile budget (T26; T33's, T20's, T21's, T24's and
    T25's — P7 — lines are above). — */
-test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, quad 4, single 1), a null budget is today’s selection pick for pick; ?globethumb clamps T1 (T26)', async () => {
-  // — selectPool — with no budget, pick for pick the selection before P7 (cdcf25d's, verbatim below), over pools of
-  // every size around the caps, every ?popmedia kind set, and a weigh that would bite if it were read.
+// SQ-104 (Nathan 11-15): the selection is the rank prefix (was a round-robin across kinds, which skipped ranks), and
+// an asset the budget no longer holds at its own weight shrinks to its smaller shape, else ends the walk.
+test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, quad 4, single 1) as a rank prefix, a null budget is the plain prefix; ?globethumb clamps T1 (T26, SQ-104)', async () => {
+  // — selectPool — with no budget, the rank prefix after the ?popmedia filter, over pools of every size around the
+  // caps, every ?popmedia kind set, and a weigh that would bite if it were read. `robin` is the selection before
+  // SQ-104 (cdcf25d's, verbatim below), kept for the NC.
   const before = (pool, { kinds = null, cap = WORLD_POOL_CAP } = {}) => {
+    let src = pool
+    if (kinds) {
+      const want = new Set(kinds)
+      const filtered = pool.filter((a) => want.has(a.kind))
+      if (filtered.length >= MIN_KIND_POOL) src = filtered
+    }
+    return src.slice(0, cap)
+  }
+  const robin = (pool, { kinds = null, cap = WORLD_POOL_CAP } = {}) => {
     let src = pool
     if (kinds) {
       const want = new Set(kinds)
@@ -5795,12 +5820,12 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
     }
   }
   assert.equal(compared, 8 * 5 * 8)
-  // NC: the reference is no prefix: over the cap, the round-robin across kinds is what picks.
-  assert.notDeepEqual(at(pools[4], before(pools[4], { cap: 3 })), [0, 1, 2])
+  // NC: the old round-robin across kinds is no prefix: over the cap it skips ranks.
+  assert.notDeepEqual(at(pools[4], robin(pools[4], { cap: 3 })), at(pools[4], selectPool(pools[4], { cap: 3 })))
 
-  // — a budget bites — Σ weigh ≤ budget: each lane's next asset is taken while it fits, and a lane whose next asset
-  // doesn't fit skips it (a lighter one later in the lane still gets its turn); the cap still holds. This pool is
-  // under the cap, and is budgeted all the same. NC: without a budget it is the whole pool.
+  // — a budget bites — Σ weigh ≤ budget, in rank order: the walk takes each asset while it fits, shrinks one that
+  // doesn't (`shrink`, given), and stops at the first that fits neither way: a lighter one later never jumps it. The
+  // cap still holds. This pool is under the cap, and is budgeted all the same. NC: without a budget it is the whole pool.
   const weigh = (a) => ({ q: 4, h: 2, v: 2 })[a.u] ?? 1
   const mk = (id, kind, u) => ({ id, kind, ...(u ? { u } : {}) })
   const src = [mk('Q1', 'video', 'q'), mk('S1', 'still', 'h'), mk('H1', 'video', 'h'), mk('S2', 'still'), mk('Q2', 'video', 'q'), mk('S3', 'still', 'q'), mk('C1', 'video'), mk('S4', 'still')]
@@ -5808,15 +5833,17 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
   const pick = (opts) => ids(selectPool(src, { cap: 13, weigh, ...opts }))
   assert.deepEqual(pick({}), ids(src))
   assert.deepEqual(pick({ budget: 13 }), ['Q1', 'S1', 'H1', 'S2', 'Q2']) // Σ 13: S3 (4) no longer fits, nor C1 or S4
-  assert.deepEqual(pick({ budget: 12 }), ['Q1', 'S1', 'H1', 'S2', 'C1', 'S4']) // Q2 and S3 skipped; C1 and S4 fit (Σ 11)
+  assert.deepEqual(pick({ budget: 12 }), ['Q1', 'S1', 'H1', 'S2']) // Q2 (4) no longer fits: the walk stops, C1 and S4 never jump it
+  assert.deepEqual(pick({ budget: 12, shrink: () => 1 }), ['Q1', 'S1', 'H1', 'S2', 'Q2', 'S3', 'C1']) // Q2, S3 shrunk to 1 (Σ 12); S4 fits neither way
   assert.deepEqual(pick({ budget: 13, cap: 3 }), ['Q1', 'S1', 'H1'])
-  assert.deepEqual(ids(selectPool([src[0], src[3]], { budget: 3, weigh })), ['S2']) // the video lane's quad never fits; the still lane runs on
+  assert.deepEqual(ids(selectPool([src[0], src[3]], { budget: 3, weigh })), []) // rank 1's quad never fits, so nothing behind it is taken
+  assert.deepEqual(ids(selectPool([src[0], src[3]], { budget: 3, weigh, shrink: () => 1 })), ['Q1', 'S2']) // …unless it shrinks
   for (const budget of [4, 7, 12, 13, 19]) assert.ok(selectPool(src, { cap: 13, budget, weigh }).reduce((n, a) => n + weigh(a), 0) <= budget, `${budget}`)
 
   // — the director — under units, selectFor weighs the class each asset COULD form (h/v 2, a quad-eligible 'q' 4,
   // else 1: an s 480 'q' clip is no quad candidate), never its election; decorate's election and makeGrouping read
-  // that selection. At 13, world 0 keeps its quad candidate F; world 1's only candidate, X, is its last still and
-  // falls out.
+  // that selection. At 13, world 0 keeps its quad candidate F, its 'h' still G shrinks to a single and the walk stops at
+  // B; world 1's only candidate, X, is its last still and shrinks to a single, so it is elected nowhere.
   const vid = (id, u, extra = {}) => ({ kind: 'video', playbackId: id, videoAspectRatio: u === 'v' ? '9:16' : u === 'q' ? '1:1' : '16:9', u, ...extra })
   const still = (id, w, h, u) => ({ kind: 'still', imageUrl: `https://cdn.sanity.io/images/p/d/${id}-${w}x${h}.jpg`, ...(u ? { u } : {}) })
   const [F, X] = [still('F', 1200, 1200, 'q'), still('X', 1200, 1200, 'q')]
@@ -5832,12 +5859,20 @@ test('spans: ?popequiv spends a per-world tile budget under ?popcap (pair 2, qua
   try {
     assert.deepEqual([TUNING.equiv, sel(director, 0), sel(director, 1)], [0, ...all]) // 0: no budget, ?popcap alone (8 ≤ 13)
     TUNING.equiv = 13
-    assert.deepEqual([sel(director, 0), sel(director, 1)], [[0, 1, 2, 3, 4, 7].map((i) => all[0][i]), all[1].slice(0, 7)])
+    assert.deepEqual([sel(director, 0), sel(director, 1)], [all[0].slice(0, 6), all[1]])
+    const shrunkOf = (wi) => {
+      const s = new Set()
+      director.selectFor(worlds[wi].assets, s)
+      return [...s].map(idOf)
+    }
+    assert.deepEqual([shrunkOf(0), shrunkOf(1)], [[all[0][5]], [X.imageUrl]])
     assert.deepEqual(director.selectFor(director.pools[0]).map(idOf), sel(director, 0)) // the raw assets and the records select alike
     assert.deepEqual(director.makeGrouping({ lead: 0 }).pools[0].map(idOf), sel(director, 0))
-    // NC: every 'q' weighed 4, eligible or not (D, the s 480 clip), world 0 selects otherwise.
+    // NC: every 'q' weighed 4, eligible or not (D, the s 480 clip), world 0 shrinks otherwise (C too).
     const blind = (a) => (a.u === 'q' ? 4 : a.u ? 2 : 1)
-    assert.notDeepEqual(selectPool(worlds[0].assets, { cap: 13, budget: 13, weigh: blind }).map(idOf), sel(director, 0))
+    const blindShrunk = new Set()
+    selectPool(worlds[0].assets, { cap: 13, budget: 13, weigh: blind, shrink: () => 1, shrunk: blindShrunk })
+    assert.notDeepEqual([...blindShrunk].map(idOf), shrunkOf(0))
     // ?popequiv is in the signature (the election reads the selection): onTune re-decorates, then re-lays. At 13 world
     // 1 elects no quad; at 0, X again.
     let relayouts = 0
@@ -6035,9 +6070,12 @@ test('spans: ?popshapes=wide plans whole 3×2 units where one fits, else its 2×
     assertWholeUnits(director, panels, ['w', 'h', 'v', 'q'])
     const places = [...placesOf(panels).keys()]
     const of = (cls) => places.filter((P) => P.cls === cls)
-    // the two-row units are planned first (wide), so the band inside [θN, θS] holds a 3×2 and a quad beside the
-    // 1×2s; in one pass, the pairs of the row below took their cells (h 29 v 4 q 0 w 0 on this board, 10-24)
-    assert.ok(of('w').length >= 1 && of('q').length >= 1 && director.placed.w >= of('w').length, JSON.stringify(director.placed))
+    // the two-row units are planned first (wide), so the band inside [θN, θS] holds 3×2s beside the 1×2s; in one pass,
+    // the pairs of the row below took their cells (h 29 v 4 q 0 w 0 on this board, 10-24). SQ-104: the pass seats in
+    // rank order, so these worlds' 3×2s (ranks 1-3, 6) and portraits (8-10) take the band before their quads (11, 12)
+    // reach it (the old unit cursor handed the band out down the pool and seated a quad)
+    assert.ok(of('w').length >= 1 && director.placed.w >= of('w').length, JSON.stringify(director.placed))
+    assert.ok(director.grouping.pools.every((p) => p.some((a) => a.tag === 'q' && a.unitCls === 'q')), 'the quads keep their class')
     for (const P of of('w')) assert.ok(['w', 'f0'].includes(P.members[0].asset.tag), `${P.uid}: only a sharp 3×2 forms one`)
     for (const P of of('h')) assert.ok(['w', 'ws', 'f0', 'f1'].includes(P.members[0].asset.tag), `${P.uid}: a pair is a 3×2's`)
     for (const P of of('v')) assert.equal(P.members[0].asset.tag, 't', P.uid)
@@ -6264,7 +6302,8 @@ test('spans: ?popportrait=fill plans whole 2×3 units inside their band — from
     const show = places.map((P) => `${P.uid}@${degOf(thetaOf(P.members[0])).toFixed(1)}`).join(' ')
     const p0 = places.filter((P) => P.members[0].asset.tag === 'p0')
     assert.equal(p0.filter((P) => P.cls === 't').length, 1, show)
-    assert.ok(p0.length > 1 && p0.every((P) => P.cls === 't' || P.cls === 'v'), show)
+    // SQ-104: the spacing rule may leave this small pool's portrait no 1×2 clear of its own key (the singles fill)
+    assert.ok(p0.length >= 1 && p0.every((P) => P.cls === 't' || P.cls === 'v'), show)
   } finally {
     one.dispose()
     Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
@@ -6848,7 +6887,6 @@ test('plan ahead: a what-if — planAhead puts back every pose, birth, tile, cur
     const g = d.upcoming
     const tiles = panels.map((p) => ({ dir: p.centerDir.clone(), parked: p.parked, s: p.tapeS, asset: p.asset, shown: p.shownAsset, swap: p.swapAsset, world: p.asset.world, services: p.asset.services }))
     const was = { grouping: d.grouping, step: d.step, getRotation: d.getRotation, getHorizon: d.getHorizon, placed: { ...d.placed }, lastD: d.lastD, thetaH: d.W.thetaH, namePlaced: d.namePlaced, cursor: [...g.cursor] }
-    assert.equal(g.ucursor, undefined) // a fresh grouping: no unit cursor yet
     const A = d.planAhead(g)
     // put back: every tile, as it was and as it announces itself
     panels.forEach((p, i) => {
@@ -6859,7 +6897,7 @@ test('plan ahead: a what-if — planAhead puts back every pose, birth, tile, cur
     })
     // …and the director: its grouping, step, hooks, counters, budget, horizon and the planned grouping's cursors
     assert.ok(d.grouping === was.grouping && d.step === was.step && d.getRotation === was.getRotation && d.getHorizon === was.getHorizon && d.upcoming === g)
-    assert.deepEqual([d.placed, d.lastD, d.W.thetaH, d.namePlaced, d.namePlan.size, g.cursor, g.ucursor], [was.placed, was.lastD, was.thetaH, was.namePlaced, 0, was.cursor, undefined])
+    assert.deepEqual([d.placed, d.lastD, d.W.thetaH, d.namePlaced, d.namePlan.size, g.cursor], [was.placed, was.lastD, was.thetaH, was.namePlaced, 0, was.cursor])
     // the board it planned: every tile, units kept from the first board and two-row units new; no scheduler, no clips
     assert.equal(g.ahead, A)
     assert.equal(A.plan.size, panels.length)
@@ -6938,7 +6976,7 @@ test('plan ahead: a what-if — planAhead puts back every pose, birth, tile, cur
     const placed = Object.fromEntries(Object.keys(was.placed).map((k) => [k, was.placed[k] + A.placed[k]]))
     assert.equal(d.adoptAhead(A.land), A.plan)
     assert.equal(g.ahead, null)
-    assert.deepEqual([g.cursor, g.ucursor, d.placed, d.lastD], [A.cursor, A.ucursor, placed, A.lastD])
+    assert.deepEqual([g.cursor, d.placed, d.lastD], [A.cursor, placed, A.lastD])
     for (const [P, rec] of A.kept) for (const m of P.members) assert.deepEqual([m.asset.world, m.asset.services], [rec.world, rec.services])
     assert.deepEqual([d.ahead.planned, d.ahead.adopted, d.ahead.missed], [1, 1, 0])
     // a board planned for another step is never adopted: the miss is counted by its reason
@@ -6954,8 +6992,9 @@ test('plan ahead: a what-if — planAhead puts back every pose, birth, tile, cur
 /** The plan ahead's twin runs: a director on a live scroll (cascadeSpeed 2, 2°/s) under a −2°/s spin (Nathan's
  *  ?yawspeed) at a 0.35 rad tilt, a 35° camera at z 3 (the horizon and a real scheduler's viewport), frames of
  *  1/64 s in the scene's order until the first change lands. 'today' plans that change late; 'fast' plans it during
- *  the hold. `nudge`: the frame the yaw jumps 2°, off the predicted pose (1° leaves this board as it is; 2° moves
- *  it). `leak` (the negative control): a what-if that leaves its plan's cursors on the grouping. Returns the change's
+ *  the hold. `nudge`: the frame the yaw jumps 4°, off the predicted pose (SQ-104: the rank seating holds this board through 2°; 4° moves
+ *  it). `leak` (the negative control): a what-if that leaves its planned swaps on the tiles (SQ-104: was its cursors,
+ *  which a fresh board now resets, so they can no longer leak). Returns the change's
  *  board, the clips that board starts scored as it lands, the forecast's asks and the director. */
 async function aheadRun(handoff, { nudge = null, leak = false } = {}) {
   const STEP = 1 / 64 // hold 6 = 384 frames exactly: the change lands at the very instant the plan ahead predicted
@@ -7017,12 +7056,12 @@ async function aheadRun(handoff, { nudge = null, leak = false } = {}) {
     d.planAll = (order, opts) => land(late(order, opts))
     if (leak) d.planAhead = (g) => {
       const A = PopulationDirector.prototype.planAhead.call(d, g)
-      if (A) g.cursor = [...A.cursor]
+      if (A) for (const [p, a] of A.plan) p.swapAsset = a
       return A
     }
     while (!out.board && out.frames < 400) {
       out.frames += 1
-      if (out.frames === nudge) rot.y += THREE.MathUtils.degToRad(2)
+      if (out.frames === nudge) rot.y += THREE.MathUtils.degToRad(4)
       rot.y += spin * STEP
       d.update(STEP)
       scroller.update(STEP)
@@ -7055,7 +7094,7 @@ test('plan ahead: fast — the board planned during the hold is the board the ch
     assert.ok(fast.kept > 0 && fast.kept === today.kept, `${fast.kept} kept`)
     // …and what it leaves behind: the budget, the units placed, the horizon, the cursors, the row born in the hold
     assert.deepEqual([fast.d.lastD, fast.d.placed, fast.d.bornH, fast.d.W.thetaH], [today.d.lastD, today.d.placed, today.d.bornH, today.d.W.thetaH])
-    assert.deepEqual([fast.d.grouping.cursor, Array.from(fast.d.grouping.ucursor)], [today.d.grouping.cursor, Array.from(today.d.grouping.ucursor)])
+    assert.deepEqual(fast.d.grouping.cursor, today.d.grouping.cursor) // SQ-104: units seat by rank, no unit cursor
     assert.deepEqual(bornOf(fast), bornOf(today))
     assert.ok(bornOf(fast).every(([s]) => s === 8))
     // the clips fetched ahead (one ask, at the plan ahead) are the ones the landed board starts, at the class it starts them
@@ -7074,7 +7113,7 @@ test('plan ahead: fast — the board planned during the hold is the board the ch
     assert.deepEqual(boardOf(fastN), boardOf(todayN))
     assert.deepEqual(bornOf(fastN), bornOf(todayN))
     assert.notDeepEqual(boardOf(todayN), boardOf(today)) // the nudge moved the board: the late plan read the live pose
-    // NC: a what-if that kept its cursors — the late board would not be today's
+    // NC: a what-if that kept its swaps — the late board would not be today's
     const leaky = await aheadRun('fast', { nudge: 100, leak: true })
     assert.deepEqual(leaky.d.ahead.why, { pose: 1 })
     assert.notDeepEqual(boardOf(leaky), boardOf(todayN))
@@ -7345,12 +7384,12 @@ test('group types: a piece typed album-art joins the cover sequence whatever its
   assert.equal(plain.assets.find((a) => a.imageUrl === 'https://cdn.example/lineup.jpg').kind, 'still')
 })
 
-/** wideWorlds plus a square cover sequence at the END of each pool (editorial last): the quads' late-comer. */
+/** wideWorlds plus a square cover sequence ranked FIRST in each pool (SQ-104: was editorial last, the quads'
+ *  late-comer that ?popseqquad seated out of turn; the rank prefix now leaves rank 14 out at ?popcap 13). */
 const seqQuadWorlds = () =>
   wideWorlds().map((w) => ({
     ...w,
     assets: [
-      ...w.assets,
       {
         kind: 'art',
         imageUrl: SEQ_URL(`${w.clientName}-c0`, 3000, 3000),
@@ -7359,10 +7398,12 @@ const seqQuadWorlds = () =>
         u: 'q',
         uw: 'q',
       },
+      ...w.assets,
     ],
   }))
 
-test('sequences: ?popseqquad 1 seats a world’s cover sequence in its 2×2 first; every member cuts on the same beat, the picture whole, the ledger even (11-05)', () => {
+// SQ-104 (Nathan 11-15): a sequence takes its seat at its own rank; ?popseqquad (11-05) no longer seats it out of turn.
+test('sequences: a world’s cover sequence is seated at its own rank (rank 1: the front-most unit, its 2×2), ?popseqquad leaving the board as it is; every member cuts on the same beat, the picture whole, the ledger even (11-05, SQ-104)', () => {
   const quadsOf = (panels) => [...placesOf(panels).keys()].filter((P) => P.cls === 'q')
   const firstQuadIsSeq = (panels) => {
     const byWorld = new Map()
@@ -7373,13 +7414,13 @@ test('sequences: ?popseqquad 1 seats a world’s cover sequence in its 2×2 firs
     }
     return byWorld
   }
-  // 0 — editorial order: the 1:1 clips earlier in the pool take the quads, the sequence waits its turn
+  // ?popseqquad 0 and 1 plan the same board: placement reads the rank alone
   const { director: off, panels: offPanels } = unitDirector({ shapes: 'wide', unitMax: POP_DEFAULTS.unitMax, group: 2, seqQuad: 0 }, { worlds: seqQuadWorlds(), getHorizon: () => Math.PI })
-  let offSeq
+  const uids = (ps) => [...placesOf(ps).keys()].map((P) => P.uid).sort()
+  let offBoard
   try {
     off.initialLayout(off.byProminence())
-    offSeq = quadsOf(offPanels).filter((P) => P.members[0].asset.frames).length
-    assert.ok(quadsOf(offPanels).length >= 1, 'the board forms quads')
+    offBoard = uids(offPanels)
   } finally {
     off.dispose()
   }
@@ -7390,7 +7431,10 @@ test('sequences: ?popseqquad 1 seats a world’s cover sequence in its 2×2 firs
     const quads = quadsOf(panels)
     const seqQuads = quads.filter((P) => P.members[0].asset.frames)
     assert.ok(seqQuads.length >= 1, `sequence quads ${seqQuads.length} of ${quads.length}`)
-    assert.ok(seqQuads.length > offSeq, `seqquad 1: ${seqQuads.length} vs 0: ${offSeq}`)
+    assert.deepEqual(uids(panels), offBoard)
+    // rank 1 front-and-centre: the most prominent panel is a member of its world's sequence quad
+    const front = director.byProminence()[0].shownAsset
+    assert.ok(front.frames && front.place?.cls === 'q', front.place?.uid)
     // in every world that formed a quad, the sequence holds one
     for (const [, Ps] of firstQuadIsSeq(panels)) assert.ok(Ps.some((P) => P.members[0].asset.frames), Ps.map((P) => P.uid).join())
     // the class texture: every frame at the quad's size and one aspect, so one window serves each cut
@@ -7429,4 +7473,216 @@ test('sequences: ?popseqquad 1 seats a world’s cover sequence in its 2×2 firs
     director.dispose()
     Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
   }
+})
+
+/* — SQ-104 (Nathan 11-15): the home globe follows the Sanity rank — none skipped, rank 1 front-and-centre — and
+   spaces its repeats (no A-B-A-B bricks). Fixture worlds from the built props (dist/index.html, 11-15): each row
+   [kind, video ratio | still WxH.ext, u, uw, s?, ar?, frames?] in pool (rank) order; ids are synthetic. — */
+const SQ104_WORLDS = {
+  hhs26: [
+    ["v","16:9","h","w",0],
+    ["v","16:9","h","w"],
+    ["v","4:5","q","v"],
+    ["v","16:9","h","w"],
+    ["v","16:9","h","w"],
+    ["v","16:9","h","w",0],
+    ["v","16:9","h","w"],
+    ["v","16:9","h","w",0],
+    ["s","1500x1875.png","q","v",null,0.8,["1500x1875.png","1256x1570.png","1256x1570.png!"]],
+    ["s","1500x1500.jpg","q","q",null,1,["1500x1500.jpg","1500x1500.jpg"]],
+    ["v","4:5","q","v",0],
+    ["v","4:5","q","v"],
+    ["v","16:9","h","w"],
+    ["v","16:9","h","w"],
+    ["v","16:9","h","w"],
+    ["v","16:9","h","w"],
+    ["a","3000x3000.jpg","q","q",null,1,["3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg"]],
+    ["s","1080x1440.jpg","q","v"],
+    ["v","4:5","q","v"],
+    ["v","4:5","q","v",0],
+    ["v","4:5","q","v",0],
+    ["v","4:5","q","v",0],
+    ["v","4:5","q","v",0],
+    ["v","4:5","q","v",0],
+    ["v","16:9","h","w",0],
+    ["v","16:9","h","w"],
+    ["v","16:9","h","w"],
+    ["v","16:9","h","w",0],
+    ["v","16:9","h","w",0],
+    ["v","16:9","h","w",0],
+  ],
+  hhs2425: [
+    ["v","16:9","h","w"],
+    ["v","4:5","q","v"],
+    ["a","3000x3000.webp","q","q",null,1,["3000x3000.webp","1400x1400.webp","3000x3000.jpg","1280x1280.jpg","1600x1600.jpg","1600x1600.jpg","1280x1280.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","1280x1280.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg"]],
+    ["v","16:9","h","w"],
+    ["v","4:5","q","v",720],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["s","1500x1875.jpg","q","v",null,0.8,["1500x1875.jpg","1500x1875.jpg","2000x2500.jpg","1500x1875.jpg","1500x1875.jpg","1500x1875.jpg","1500x1920.png","1080x1350.jpg","1500x1875.jpg","1500x1875.jpg"]],
+    ["v","4:5","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["v","225:281","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["v","4:5","q","v"],
+    ["v","4:5","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["s","1500x1500.jpg","q","q",null,1,["1500x1500.jpg","1500x1500.jpg","1500x1500.jpg","1500x1500.jpg","1500x1500.jpg","1500x1500.jpg","1500x1500.jpg","1500x1500.jpg","1500x1500.jpg","1036x1036.jpg"]],
+    ["v","4:5","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["v","750:937","q","v"],
+    ["s","1080x1920.png","v","v"],
+    ["s","1080x1350.jpg","q","v"],
+    ["s","1080x1350.jpg","q","v"],
+    ["s","1080x1080.jpg","q","q"],
+    ["s","1500x1875.png","q","v"],
+  ],
+  coco26: [
+    ["v","16:9","h","w",0],
+    ["v","4:3","q","w"],
+    ["v","16:9","h","w"],
+    ["v","9:16","v","v"],
+    ["v","9:16","v","v",0],
+    ["v","9:16","v","v"],
+    ["v","9:16","v","v",0],
+    ["v","9:16","v","v",0],
+    ["v","9:16","v","v",0],
+    ["v","9:16","v","v",0],
+    ["v","4:3","q","w"],
+    ["v","4:3","q","w"],
+    ["v","9:16","v","v",0],
+    ["a","3000x3000.jpg","q","q",null,1,["3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","3000x3000.jpg","1080x1080.jpg","1080x1080.jpg","1080x1080.jpg","1080x1080.jpg","1080x1080.jpg","1080x1080.jpg","1080x1080.jpg","1080x1080.jpg","3000x3000.jpg"]],
+    ["s","4234x6351.jpg","","v"],
+    ["s","4640x6960.jpg","","v"],
+    ["s","1206x2144.jpg","v","v"],
+    ["s","1206x2144.jpg","v","v"],
+    ["s","1206x2144.jpg","v","v"],
+    ["s","810x1440.png","v","v"],
+    ["v","732:937","q","v",0],
+    ["s","1080x1440.png","q","v",null,0.75,["1080x1440.png!","1080x1440.png","1080x1440.png!"]],
+    ["v","4:1","","",240],
+    ["v","4:1","","",240],
+    ["v","4:1","","",240],
+    ["v","4:1","","",240],
+  ],
+  bedouin: [
+    ["v","9:16","v","v"],
+    ["v","9:16","v","v"],
+    ["v","9:16","v","v"],
+    ["v","9:16","v","v"],
+    ["v","9:16","v","v"],
+    ["v","9:16","v","v"],
+    ["s","1500x1875.jpg","q","v",null,0.8,["1500x1875.jpg","1500x1875.jpg","1080x1350.jpg"]],
+    ["s","810x1440.png","v","v",null,0.5625,["810x1440.png","810x1440.png","810x1440.png"]],
+  ],
+}
+const sq104Worlds = () =>
+  Object.entries(SQ104_WORLDS).map(([slug, list]) => ({
+    slug,
+    clientName: slug,
+    title: null,
+    services: [],
+    assets: list.map(([k, r, u, uw, s, ar, frames], i) => {
+      const url = (d, f = '') => `https://cdn.sanity.io/images/p/d/${slug}-r${i}${f}-${d.replace('!', '')}`
+      const kind = { v: 'video', s: 'still', a: 'art' }[k]
+      const a = kind === 'video' ? { kind, playbackId: `${slug}-v${i}`, videoAspectRatio: r } : { kind, imageUrl: url(r) }
+      if (u) a.u = u
+      if (uw) a.uw = uw
+      if (s != null) a.s = s
+      if (frames) Object.assign(a, { ar, frames: frames.map((d, j) => ({ imageUrl: url(d, `-f${j}`), ...(d.endsWith('!') ? { alpha: true } : {}) })) })
+      return a
+    }),
+  }))
+/** Repeats on a laid board, over the visible (unparked) tiles: each row and column read as placements (a run of one
+ *  key is one, a row wrapping at the seam), and for each placement the gap to the next of its key along the line.
+ *  near = recurrences within REPEAT_GAP placements (row + column); abab = rows where a placement equals the one
+ *  two on (period-2 alternation); minGap = the closest recurrence. */
+function repeatStats(panels) {
+  const live = panels.filter((p) => !p.parked && p.asset?.kind !== 'name')
+  const rows = new Map()
+  const cols = new Map()
+  for (const p of live) {
+    if (!rows.has(p.tapeS)) rows.set(p.tapeS, [])
+    rows.get(p.tapeS).push(p)
+    if (!cols.has(p.lonIndex)) cols.set(p.lonIndex, [])
+    cols.get(p.lonIndex).push(p)
+  }
+  const runs = (line, wrap) => {
+    const ks = line.map((p) => assetKey(p.asset))
+    const out = ks.filter((k, i) => i === 0 || k !== ks[i - 1])
+    if (wrap && out.length > 1 && out[0] === out[out.length - 1]) out.pop()
+    return out
+  }
+  let near = 0
+  let abab = 0
+  let minGap = Infinity
+  const scan = (seq, wrap) => {
+    let alt = false
+    for (let i = 0; i < seq.length; i++) {
+      for (let d = 1; d < seq.length && (wrap || i + d < seq.length); d++) {
+        if (seq[(i + d) % seq.length] !== seq[i]) continue
+        minGap = Math.min(minGap, d)
+        if (d <= REPEAT_GAP) near += 1
+        if (d === 2) alt = true
+        break
+      }
+    }
+    return alt
+  }
+  for (const line of rows.values()) if (scan(runs(line.sort((a, b) => a.lonIndex - b.lonIndex), true), true)) abab += 1
+  for (const line of cols.values()) scan(runs(line.sort((a, b) => b.tapeS - a.tapeS), false), false)
+  return { near, abab, minGap }
+}
+
+test('rank + spread (SQ-104): on the built worlds, the selection is a rank prefix, rank 1 holds the most prominent tile posed and pose-less, and no row alternates two assets', (t) => {
+  const tilt = new THREE.Euler(THREE.MathUtils.degToRad(40), 0, 0) // the recon's pose (board.mjs): 12×8 rows, 40° tilt
+  const report = []
+  for (const world of sq104Worlds()) {
+    for (const horizon of [null, 2.7]) {
+      const { director, panels } = unitDirector({ ...POP_DEFAULTS, mode: 'tides', seed: 42, chaos: 0, names: 0 }, { worlds: [world], getRotation: () => tilt, getHorizon: () => horizon })
+      try {
+        director.initialLayout(director.byProminence())
+        const pool = director.grouping.pools[0]
+        const id = (a) => a.playbackId || a.imageUrl // assetKey reads the class texture a record carries
+        // a rank prefix, none skipped: the pool's records are the world's first N assets, in order
+        assert.deepEqual(pool.map(id), world.assets.slice(0, pool.length).map(id), `${world.slug} ${horizon}`)
+        assert.ok(pool.length >= Math.min(world.assets.length, 6), `${world.slug}: ${pool.length} selected`)
+        // rank 1 front-and-centre: the most prominent tile shows rank 1 (posed: whatever the class; pose-less: H only)
+        const front = director.byProminence().find((p) => !p.parked)
+        assert.equal(id(front.asset), id(world.assets[0]), `${world.slug} ${horizon}: the front shows rank ${world.assets.findIndex((a) => id(a) === id(front.asset)) + 1}`)
+        // spread: with ≥ 3 assets, no row alternates A-B-A-B, and no repeat within REPEAT_GAP placements
+        const r = repeatStats(panels)
+        assert.ok(pool.length >= 3 && r.abab === 0 && r.near === 0, `${world.slug} ${horizon}: ${JSON.stringify(r)}`)
+        report.push(`${world.slug} θh ${horizon}: ranks 1-${pool.length} of ${world.assets.length}, front ${front.asset.place?.cls ?? 'single'}, ${JSON.stringify(r)}`)
+      } finally {
+        director.dispose()
+        Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
+      }
+    }
+  }
+  for (const line of report) t.diagnostic(line)
+})
+
+test('rank + spread (SQ-104): repeatGap counts placements, a run of one key as one, a run of undecided cells as one, across the seam and down a column', () => {
+  const G = 64
+  const grid = new Map([[0 * G + 3, 'A'], [0 * G + 4, 'B'], [0 * G + 5, 'B'], [0 * G + 6, 'A'], [1 * G + 1, 'A'], [-2 * G + 1, 'A']])
+  assert.equal(repeatGap(grid, [[0, 7]], 'A', 12), 1) // A just left
+  assert.equal(repeatGap(grid, [[0, 2]], 'A', 12), 1) // A just right
+  assert.equal(repeatGap(grid, [[0, 7]], 'B', 12), 2) // B B is one placement, behind A
+  assert.equal(repeatGap(grid, [[0, 8]], 'B', 12), Infinity) // undecided 7, then A: B is three placements away (a run of undecided cells is one)
+  assert.equal(repeatGap(new Map([[0 * G + 3, 'A']]), [[0, 0]], 'A', 12), 2) // undecided 1-2 may become one pair: A is two on
+  assert.equal(repeatGap(grid, [[0, 1]], 'A', 12), 1) // one row up
+  assert.equal(repeatGap(grid, [[0, 1]], 'A', 12, 1), 1)
+  assert.equal(repeatGap(new Map([[-2 * G + 1, 'A']]), [[0, 1]], 'A', 12), 2) // two rows down, an undecided row between
+  assert.equal(repeatGap(new Map([[0 * G + 11, 'C']]), [[0, 0], [0, 1]], 'C', 12), 1) // across the seam
+  assert.equal(repeatGap(new Map([[0 * G + 2, 'C']]), [[0, 0], [0, 1]], 'C', 12), 1) // a footprint looks out from its edges
+  assert.equal(repeatGap(new Map(), [[0, 0]], 'C', 12), Infinity)
 })

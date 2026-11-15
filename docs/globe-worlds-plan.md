@@ -1709,3 +1709,15 @@ one commit per knob default. The numbers are the contract's §13, and code comme
   - Independent: the fold's own check at `bb0addc` (a preview of the same page on :4330), re-judged
     offline against the new records, passes 17 of 17. Its peaks sat within 10% of these (u-thumb-phonehd
     104.7 against 115.8): the run-to-run spread that `texPeak`'s 15% allows for.
+- 2026-11-15 · rank + spread (SQ-104) · Nathan: "Rank + spread repeats". The rule change:
+  - Selection (`selectPool`) is a rank prefix: each world's assets from rank 1 in order, none skipped (was a
+    round-robin by class that skipped ranks). `?popcap` 13, `?popequiv` 32 and `?popunitmax` 4 unchanged: an asset
+    that no longer fits the budget shrinks (a 3×2 to its pair, 2; anything else to a single, 1), and the walk stops
+    at the first one that fits neither.
+  - Placement (`planUnits`) seats each region's rank 1 on its most prominent free panel (own class, its fallback,
+    else a single), then the tallest-first passes walk the pool from rank 1 round after round. No unit cursor
+    carried across passes; `?popseqquad` no longer seats a sequence out of turn (classic's quad election only).
+  - Spacing (`repeatGap`, `REPEAT_GAP` 2): no footprint, single or born pair recurs within 2 placements of its own
+    key along its row (wrapping) or column; a run of one key is one placement, and so is a run of undecided cells.
+    On the four fixture worlds (HHS 2026, HHS 2024-25, COCO 2026, Bedouin, θh null and 2.7) the recurrences within
+    2 go from 5–21 per board with 2–6 A-B-A rows to 0 and 0 (closest repeat 3 placements).
