@@ -91,6 +91,13 @@
 :root {
   /* Colors */
   --color-electric-blue: rgb(0, 0, 255);
+  /* Scheme role tokens (US-7): the four roles brand blue plays as a PAINT.
+     Registered below as <color>, so a scheme change fades them; the values
+     here are today's. scheme.css overrides them per html[data-scheme]. */
+  --scheme-page: var(--color-electric-blue);
+  --scheme-chip: var(--color-electric-blue);
+  --scheme-chip-ink: #ffffff;
+  --scheme-accent-ink: var(--color-electric-blue);
   --color-cream: rgb(250, 250, 250);
   --color-black: #000000;
   --color-blue-link: #0000EE;
@@ -309,7 +316,7 @@
      `var(--project-color, …)` fallback in this file is already dead code),
      and registering makes it interpolable, which re-opens the paint trap
      documented at --nav-ink. The fade belongs on the element, not here. */
-  --pill-ink-on-black: var(--project-color-on-black, var(--color-electric-blue));
+  --pill-ink-on-black: var(--project-color-on-black, var(--scheme-accent-ink));
   --pill-ink-on-white: var(--project-color-text, var(--color-electric-blue));
 
   /* Fixed privacy-pill keep-out — the horizontal reserve the footer nav row
@@ -761,8 +768,8 @@
 
 /* Brand selection — electric blue behind white, everywhere */
 ::selection {
-  background: var(--color-electric-blue);
-  color: var(--color-white);
+  background: var(--scheme-chip);
+  color: var(--scheme-chip-ink);
 }
 
 /* No scrollbar-gutter here: with the global overflow:hidden scroll-lock,
@@ -775,6 +782,11 @@
    padding-right. */
 html {
   font-size: 14px;
+  /* A scheme change fades the fills that read the role tokens (scheme.css);
+     the tint scope below restates this list with the project colours added. */
+  transition:
+    --scheme-page var(--scheme-fade, var(--project-color-fade)) var(--ease-panel),
+    --scheme-chip var(--scheme-fade, var(--project-color-fade)) var(--ease-panel);
 }
 
 html,
@@ -782,7 +794,7 @@ body {
   width: 100%;
   height: 100dvh;
   overflow: hidden;
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
 }
 
 body {
@@ -816,7 +828,7 @@ button {
   height: 100dvh;
   min-height: 100dvh;
   overflow: clip;
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
 }
 
 /* ============================================
@@ -837,7 +849,7 @@ button {
   /* extra right clearance — the shared scrollbar-aware right-edge token
      (see --chrome-right-inset for the full story) */
   padding-right: var(--chrome-right-inset);
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
   flex-shrink: 0;
 }
 
@@ -902,6 +914,33 @@ body.route-home .site-nav {
   initial-value: rgb(0, 0, 255);
 }
 
+/* Scheme role tokens (US-7). Registered <color> so a scheme change cross-fades
+   the fills that read them (--scheme-fade, default the project fade); inks that
+   read them snap (the custom-property paint trap). Initial = today's colour. */
+@property --scheme-page {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
+@property --scheme-chip {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
+@property --scheme-chip-ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255, 255, 255);
+}
+
+@property --scheme-accent-ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
 /* Scalar twin of the ink colour (1 = white ink, 0 = dark ink). Interpolating a
    NUMBER and feeding it through color-mix(in oklab) makes the nav text cross-fade
    perceptually evenly BOTH ways — the direct sRGB colour interpolation of
@@ -938,7 +977,9 @@ html.pop-tint,
     --project-color var(--project-color-fade) var(--accent-ease, var(--ease-panel)) var(--accent-delay, 0s),
     --project-color-2 var(--project-color-fade) var(--accent-ease, var(--ease-panel)) var(--accent-delay, 0s),
     --project-color-fg var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s),
-    --project-color-text var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s);
+    --project-color-text var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s),
+    --scheme-page var(--scheme-fade, var(--project-color-fade)) var(--ease-panel),
+    --scheme-chip var(--scheme-fade, var(--project-color-fade)) var(--ease-panel);
   /* Perceptually-even nav ink: oklab mix of near-black↔white from the
      (snapping) scalar. The color-mix() result is a NON-LEGACY colour, so
      the consumers' own color/fill transitions interpolate it in Oklab —
@@ -1015,7 +1056,7 @@ body.route-home .site-nav__pill {
 
 @media (hover: hover) {
   body.route-home .site-nav__pill:hover {
-    background: var(--color-electric-blue);
+    background: var(--scheme-chip);
   }
 
   /* Home under a population world (html.pop-tint): the bar stays clear and
@@ -1105,7 +1146,7 @@ body.route-home .site-nav__lockup svg * {
   border: 1px solid var(--color-white);
   border-radius: 1.714rem;
   /* 24px */
-  background: var(--color-electric-blue);
+  background: var(--scheme-chip);
   color: var(--color-white);
   font-family: var(--font-body);
   /* 08-27: the 18/22/−0.005 trio became tokens (--text-pill family) when the
@@ -2273,7 +2314,7 @@ a.clients__item:focus-visible {
       and playFooterEntrance winds it back to 0 with inline styles — which
       outrank these rules — on the paths where it does animate. */
 .site-footer__blurb {
-  --kw-bg: var(--color-electric-blue);
+  --kw-bg: var(--scheme-chip);
   --kw-ink: var(--color-white);
 }
 .site-footer__blurb .kw__box {
@@ -2775,7 +2816,7 @@ html[data-footer-settling] .logo-ticker__odo-col {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: var(--kw-bg, var(--color-electric-blue));
+  background: var(--kw-bg, var(--scheme-chip));
   transform: scaleX(0);
   transform-origin: 0 50%;
   will-change: transform;
@@ -2795,7 +2836,7 @@ html[data-footer-settling] .logo-ticker__odo-col {
 }
 .prose-link:hover,
 .prose-link:focus-visible {
-  color: var(--kw-bg, var(--color-electric-blue));
+  color: var(--kw-bg, var(--scheme-chip));
 }
 .kw-link:hover .kw__box,
 .kw-link:focus-visible .kw__box {
@@ -3946,7 +3987,7 @@ body:has(.privacy-page) {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4184,7 +4225,7 @@ body:has(.privacy-page) {
 
 .project-overlay__tag--active {
   background: var(--color-cream);
-  color: var(--color-electric-blue);
+  color: var(--scheme-page);
   border-color: var(--color-cream);
 }
 
@@ -4231,7 +4272,7 @@ body:has(.privacy-page) {
 /* Base layer — cream bg / blue text */
 .project-overlay__submit-base {
   background: var(--color-cream);
-  color: var(--color-electric-blue);
+  color: var(--scheme-page);
 }
 
 /* Hover wipe layer — blue bg / cream text, clipped from left */
@@ -4241,7 +4282,7 @@ body:has(.privacy-page) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
   color: var(--color-cream);
   border: 1px solid var(--color-cream);
   clip-path: inset(0 100% 0 0);

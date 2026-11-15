@@ -15,6 +15,9 @@ import '../styles/global.css';
 // GraticulePager can mount outside /work. Directly after global.css, which
 // owns its --scale-* tokens.
 import '../styles/pager-scale.css';
+// The black and blue colour schemes (US-7): every rule under html[data-scheme].
+// After global.css and the pager sheet so an equal-specificity tie goes to it.
+import '../styles/scheme.css';
 // A2b Lenis scroll-tuning bench styles — only the .lenis-tune tree, which
 // renders solely under ?lenistune=1 (LenisTunePanel), is styled; inert otherwise.
 import '../styles/lenis-tune.css';

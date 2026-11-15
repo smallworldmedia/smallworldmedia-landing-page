@@ -345,7 +345,7 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
   position: absolute;
   inset: -0.08em -0.12em -0.1em;
   z-index: -1;
-  background: var(--kw-bg, var(--color-electric-blue));
+  background: var(--kw-bg, var(--scheme-chip));
   transform: scaleX(0);
   transform-origin: 0 50%;
   transition: transform 0.2s var(--ease-micro);
