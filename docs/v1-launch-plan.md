@@ -211,6 +211,23 @@ records (`docs/globe-worlds-plan.md`).
        broaden the rule);
      - the old `blurb` field on Hurry Up Slowly, and the draft on client Sosa (his to publish);
      - a Netlify build hook at launch.
+8. **Open, on a candidate branch and not folded: Nathan's 11-15 round** (`integration/us7-wave2`
+   at `85a08fb`, in `/Users/nathangorey/swm-us7-w2-candidate`; it waits on Nathan's go):
+   - **Spectrum reworked (wave 4, SQ-94…SQ-97), then switched off** on Nathan's word ("for now"):
+     - the palette sits inside every component, with no colour key per project;
+     - the home globe and the /work canvas each draw one colour ramp;
+     - the probe gained the uniform, density and outline gates;
+     - spectrum is no longer a widget station and is never stored; `?scheme=spectrum` previews it.
+   - **Three active schemes:** project, black and blue.
+   - **The widget is an eye** (SQ-98, and a second pass on 11-15): lids round the lockup globe as
+     the iris, each circle slides into the eye, the globe and lids share one line weight, and the
+     project iris colours the globe's strips with the palette.
+   - **Left:**
+     - Nathan's look at the second pass (white lids, the dark edge outside the lids only, the
+       strip colour order, the line weight), then their go to fold;
+     - `/privacy/` and `/terms/` don't scroll by touch at 390 px when opened directly (found
+       11-15, older than US-7, not patched);
+     - this round replaces item 7's left calls on spectrum's look and the first-pass swatch art.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
