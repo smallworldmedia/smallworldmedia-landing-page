@@ -4,9 +4,11 @@
 // Run: node --test scripts/test/scheme-gate.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
+  uniform, density, densityMin, rampStopsFromCss, outline,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -221,6 +223,153 @@ test('shares: the reference itself passes; a blue-only page fails on the missing
   const flipped = shares({ ...px, green: px.red * 1.1 + 9000 }, REFERENCE_SHARES, 100);
   assert.deepEqual(flipped.offenders.map((o) => o.family), ['order']);
   assert.equal(shares({ black: 100 }).pass, false); // no chromatic pixels is vacuous
+});
+
+// ── wave 4: uniform, density, outline ───────────────────────────────────────────────────────
+
+const RAMP_A = ['#fe3720', '#ff7d01', '#ffb803', '#1858e2', '#5c53ba', '#7852a4', '#9f4f84', '#cd4962', '#f44041'];
+const rampGrad = (stops, base = 0) => Object.fromEntries(stops.map((h, i) => [`bg-grad#${base + i}`, h]));
+
+test('uniform: two project pages that agree on every shared path pass; paths one page lacks are counted, not compared', () => {
+  const chip = 'html > body > main > ul.tags > li.tag:nth-of-type(1)';
+  const page = (extra = {}) => ({
+    html: el({ 'background-color': 'rgb(0, 0, 0)' }),
+    [chip]: el({ 'background-color': 'rgb(21, 86, 229)', color: 'rgb(255, 255, 255)' }, { text: true }),
+    ...extra,
+  });
+  const a = page();
+  const b = page({ 'html > body > main > ul.tags > li.tag:nth-of-type(2)': el({ 'background-color': 'rgb(253, 54, 26)' }, { text: true }) });
+  const r = uniform([{ label: 'a', els: a }, { label: 'b', els: b }]);
+  assert.equal(r.pass, true, JSON.stringify(r));
+  assert.equal(r.n, 2);
+  assert.equal(r.skipped, 1); // the second tag only page b has
+  assert.deepEqual(r.offenders, []);
+});
+
+test('uniform (negative control): one shared path that paints two colours fails and names the path and both values', () => {
+  const chip = 'html > body > main > ul.tags > li.tag:nth-of-type(1)';
+  const mk = (bg) => ({ html: el({ 'background-color': 'rgb(0, 0, 0)' }), [chip]: el({ 'background-color': bg }, { text: true }) });
+  const r = uniform([{ label: 'one', els: mk('rgb(21, 86, 229)') }, { label: 'two', els: mk('rgb(253, 54, 26)') }]);
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.offenders, [{ path: chip, prop: 'background-color', a: 'rgb(21, 86, 229)', b: 'rgb(253, 54, 26)', pages: 'one vs two' }]);
+  assert.match(describeOffender(r.offenders[0]), /li\.tag.*background-color.*rgb\(21, 86, 229\).*rgb\(253, 54, 26\)/);
+  // a property one page paints and the other does not is a difference too
+  const none = uniform([{ label: 'one', els: mk('rgb(21, 86, 229)') }, { label: 'two', els: { html: el({ 'background-color': 'rgb(0, 0, 0)' }), [chip]: el({ color: 'rgb(255, 255, 255)' }) } }]);
+  assert.deepEqual(none.offenders.map((o) => [o.prop, o.a, o.b]), [['background-color', 'rgb(21, 86, 229)', null], ['color', null, 'rgb(255, 255, 255)']]);
+});
+
+test('uniform: three pages compare against the first; one page, or pages sharing no path, is vacuous; plain dump maps are accepted', () => {
+  const same = { html: el({ 'background-color': 'rgb(0, 0, 0)' }) };
+  const odd = { html: el({ 'background-color': 'rgb(0, 0, 255)' }) };
+  const r = uniform([{ label: 'a', els: same }, { label: 'b', els: structuredClone(same) }, { label: 'c', els: odd }]);
+  assert.deepEqual(r.offenders.map((o) => o.pages), ['a vs c']);
+  assert.equal(uniform([{ label: 'a', els: same }]).pass, false);
+  assert.match(uniform([{ label: 'a', els: same }]).note, /vacuous/);
+  const apart = uniform([{ label: 'a', els: { x: el({ color: 'rgb(1, 1, 1)' }) } }, { label: 'b', els: { y: el({ color: 'rgb(2, 2, 2)' }) } }]);
+  assert.equal(apart.pass, false);
+  assert.equal(apart.skipped, 2);
+  assert.equal(uniform([same, structuredClone(same)]).pass, true);
+});
+
+test('density: a page painting six families passes with them listed; one painting two fails with them listed and the threshold', () => {
+  const six = {
+    html: el({ 'background-color': 'rgb(0, 0, 0)' }),
+    'html > a.blue': el({ 'background-color': 'rgb(21, 86, 229)', color: 'rgb(255, 255, 255)' }, { text: true }),
+    'html > a.red': el({ 'background-color': 'rgb(253, 54, 26)', color: 'rgb(10, 10, 10)' }, { text: true }),
+    'html > a.green': el({ 'background-color': 'rgb(7, 123, 62)' }),
+    'html > a.yellow': el({ color: 'rgb(251, 183, 2)' }, { text: true }),
+    'html > a.peri': el({ 'border-top-color': 'rgb(166, 188, 218)' }),
+    'html > a.white': el({ 'background-color': 'rgb(255, 255, 255)' }),
+  };
+  const r = density(six);
+  assert.equal(r.pass, true, JSON.stringify(r));
+  assert.deepEqual(r.families, ['blue', 'red', 'green', 'yellow', 'periwinkle', 'white-ground']);
+  assert.match(r.note, /6\/8 families \(blue, red, green, yellow, periwinkle, white-ground\), need 5/);
+  const two = density({ html: el({ 'background-color': 'rgb(0, 0, 0)' }), 'html > a': el({ 'background-color': 'rgb(21, 86, 229)', color: 'rgb(253, 54, 26)' }, { text: true }) });
+  assert.equal(two.pass, false);
+  assert.deepEqual(two.offenders, [{ path: '(page)', families: ['blue', 'red'], count: 2, min: 5 }]);
+  assert.match(two.note, /2\/8 families \(blue, red\), need 5/);
+  assert.match(describeOffender(two.offenders[0]), /\(page\).*count=2.*min=5/);
+  assert.equal(density(six, { min: 6 }).pass, true);
+  assert.equal(density(six, { min: 7 }).pass, false);
+});
+
+test('density: white counts as a ground only; alpha below 1 and unrelated colours do not count', () => {
+  const dump = {
+    html: el({ 'background-color': 'rgb(0, 0, 0)' }),
+    'html > p.ink': el({ color: 'rgb(255, 255, 255)', 'border-top-color': 'rgb(255, 255, 255)' }, { text: true }), // white text and a hairline
+    'html > p.veil': el({ 'background-color': 'rgba(21, 86, 229, 0.5)' }), // blue at 50%
+    'html > p.near': el({ 'background-color': 'rgb(21, 86, 200)' }), // not the swatch
+  };
+  assert.deepEqual(density(dump).families, []);
+  const ground = { ...dump, 'html > span.pill': el({ 'background-color': 'rgb(255, 255, 255)' }) };
+  assert.deepEqual(density(ground).families, ['white-ground']);
+  const spread = { ...dump, 'html > span.kw': el({ 'shadow#0': 'rgb(255, 255, 255)' }, { text: true }) }; // a ground behind boxless text
+  assert.deepEqual(density(spread).families, ['white-ground']);
+  assert.equal(density({}).pass, false); // an empty dump is vacuous
+});
+
+test('density: a gradient carrying three ramp A stops is the ramp; two stops, or ramp B, is not', () => {
+  const page = (paint) => ({ html: el({ 'background-color': 'rgb(0, 0, 0)' }), 'html > div.ring': el(paint) });
+  const ramp = density(page(rampGrad(RAMP_A)), { rampStops: RAMP_A });
+  assert.deepEqual(ramp.families, ['ramp']);
+  assert.equal(density(page(rampGrad(RAMP_A.slice(0, 3))), { rampStops: RAMP_A }).families.includes('ramp'), true);
+  assert.equal(density(page(rampGrad(RAMP_A.slice(0, 2))), { rampStops: RAMP_A }).families.includes('ramp'), false);
+  // three stops spread over two different elements are not one gradient
+  const split = { html: el({ 'background-color': 'rgb(0, 0, 0)' }), 'html > i.a': el(rampGrad(RAMP_A.slice(0, 2))), 'html > i.b': el(rampGrad(RAMP_A.slice(2, 4))) };
+  assert.equal(density(split, { rampStops: RAMP_A }).families.includes('ramp'), false);
+  // ramp B (blue falling into black) is blue and navy, not the ramp
+  const b = density(page(rampGrad(['#1556e5', '#0c44cc', '#0c2c8c', '#0a2577', '#071249', '#000000'])), { rampStops: RAMP_A });
+  assert.deepEqual(b.families, ['blue', 'navy']);
+  assert.match(density(page({}), { rampStops: [] }).note, /ramp A stops unread/);
+});
+
+test('densityMin: 5 on home, work, detail and directory, 3 on privacy and 404; --density replaces the 5 only', () => {
+  assert.deepEqual(['home', 'work', 'detail', 'detail#3', 'directory', 'privacy', '404'].map((r) => densityMin(r)), [5, 5, 5, 5, 5, 3, 3]);
+  assert.deepEqual(['home', 'detail#3', 'privacy', '404'].map((r) => densityMin(r, 4)), [4, 4, 3, 3]);
+});
+
+test('rampStopsFromCss reads the nine stops of --swm-ramp-a and resolves a var() stop', () => {
+  const css = ':root { --swm-violet: #7852a4; --swm-ramp-a: #fe3720, #ff7d01, var(--swm-violet), #9f4f84; /* var(--swm-ramp-a) */ }';
+  assert.deepEqual(rampStopsFromCss(css), ['#fe3720', '#ff7d01', '#7852a4', '#9f4f84']);
+  assert.deepEqual(rampStopsFromCss('a { color: red }'), []);
+  // the stylesheet the probe reads: nine stops, the contract's (src/lib/spectrumRamp.js SPECTRUM_RAMP_A)
+  const real = fs.readFileSync(new URL('../../src/styles/global.css', import.meta.url), 'utf8');
+  assert.deepEqual(rampStopsFromCss(real), RAMP_A);
+});
+
+test('outline: mix 1 and a centre 0.4 px from the ring passes; 6 px away fails with both centres; no ramp field skips', () => {
+  const ring = [720, 450];
+  const near = outline({ accent: '#1556e5', ramp: { mix: 1, center: [720.3, 450.27] } }, { name: 'globe', ring });
+  assert.equal(near.pass, true, JSON.stringify(near));
+  assert.match(near.note, /globe ramp\.mix 1, centre 0\.4 px from the ring/);
+  assert.equal(near.n, 2);
+  const far = outline({ ramp: { mix: 1, center: [726, 450] } }, { name: 'globe', ring });
+  assert.equal(far.pass, false);
+  assert.deepEqual(far.offenders, [{ path: 'globe().ramp.center', got: [726, 450], want: [720, 450], dist: 6, tol: 1.5 }]);
+  assert.match(describeOffender(far.offenders[0]), /globe\(\)\.ramp\.center.*got=\[726,450\].*want=\[720,450\]/);
+  const none = outline({ accent: '#1556e5' }, { name: 'globe', ring });
+  assert.equal(none.skip, true);
+  assert.equal(none.pass, false);
+  assert.equal(none.note, 'skipped (hook has no ramp)');
+  // the edge of the tolerance
+  assert.equal(outline({ ramp: { mix: 1, center: [721.5, 450] } }, { ring }).pass, true);
+  assert.equal(outline({ ramp: { mix: 1, center: [721.6, 450] } }, { ring }).pass, false);
+});
+
+test('outline: the mix must be 1 under spectrum (the worlds hook has no centre) and 0 under any other scheme', () => {
+  const worlds = outline({ ramp: { mix: 1 } }, { name: 'worlds', mix: 1 });
+  assert.equal(worlds.pass, true);
+  assert.equal(worlds.n, 1);
+  const half = outline({ ramp: { mix: 0.5 } }, { name: 'worlds', mix: 1 });
+  assert.deepEqual(half.offenders, [{ path: 'worlds().ramp.mix', got: 0.5, want: 1 }]);
+  assert.equal(outline({ ramp: { mix: 0, center: [0, 0] } }, { name: 'globe', mix: 0 }).pass, true);
+  assert.deepEqual(outline({ ramp: { mix: 1 } }, { name: 'globe', mix: 0 }).offenders, [{ path: 'globe().ramp.mix', got: 1, want: 0 }]);
+  // a ring that was not found, a centre that is not a point, a missing or errored hook
+  assert.deepEqual(outline({ ramp: { mix: 1, center: [1, 2] } }, { ring: null }).offenders.map((o) => o.want), ['ring not found']);
+  assert.equal(outline({ ramp: { mix: 1 } }, { ring: [1, 2] }).pass, false);
+  assert.equal(outline(undefined, { name: 'globe' }).note, 'skipped (no globe hook)');
+  assert.equal(outline({ error: 'boom' }, { name: 'worlds' }).skip, true);
 });
 
 test('palette classifier names the swatches of color-ref.png', () => {

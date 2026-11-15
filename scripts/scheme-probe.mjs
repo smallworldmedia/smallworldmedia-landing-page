@@ -12,15 +12,19 @@
  *        [--capture=FILE] [--compare=FILE] [--shots=DIR] [--force-attr] [--ignore=CSS-SELECTOR]
  *   --scheme   project | black | blue | spectrum | all   (default project)
  *   --routes   default all. detail = the first /work card's slug, plus card 3's (the cross-route check).
- *   --details  sample (default: cards 1 and 3) | all (every /work card's detail page). The shares gate
- *              sums the pages it is given, and a project's page carries only its own dealt colour, so
- *              two pages can never show the deal's proportions: shares SKIPs unless --details=all, and
- *              then prints one INFO line per page (that page's own shares) above the verdict.
+ *   --details  sample (default: cards 1 and 3) | all (every /work card's detail page). The uniform gate
+ *              compares the detail pages it is given (two or more). The shares gate sums them: it SKIPs
+ *              unless --details=all (two pages cannot show the proportions of the whole), and then prints
+ *              one INFO line per page (that page's own shares) above the verdict.
  *   --width    1440 | 390 (default both)
- *   --gates    latch,identity,monochrome,singleHue,contrast,carriers,deal,hover,overlap,shares,gl
+ *   --gates    latch,identity,monochrome,singleHue,contrast,carriers,deal,hover,overlap,shares,uniform,
+ *              density,outline,gl
  *              default per scheme: project latch,overlap,gl | black latch,monochrome,contrast,
  *              carriers,hover,overlap,gl | blue latch,singleHue,contrast,carriers,hover,overlap,gl |
- *              spectrum latch,contrast,carriers,deal,hover,overlap,shares,gl. --compare adds identity.
+ *              spectrum latch,contrast,hover,overlap,uniform,density,outline,gl. --compare adds identity.
+ *              carriers, deal and shares (the first spectrum skin's per-project deal) stay available by name.
+ *   --density  the density gate's threshold, replacing the 5 of home, work, detail and directory (privacy
+ *              and 404 keep 3). Both numbers are PROPOSALS: Nathan sets them.
  *   --capture  write the dump JSON (every page's style dump, carriers, hover fingerprints, boxes)
  *   --compare  run identity of this run against a capture (same scheme, routes, widths)
  *   --shots    save a full-page screenshot per page under DIR (never commit them). When Chrome refuses
@@ -59,8 +63,23 @@
  * widget (.swm-corner, or --ignore) is left out of the dump so identity compares the page without it.
  * Elements are keyed by a stable path (tag.classes:nth-of-type chain).
  *
- * spectrum expectations (carriers, deal, shares) come from a dynamic import of ../src/lib/colorScheme.js;
- * when it is absent they print "skipped: colorScheme.js not present" and do not fail.
+ * The spectrum gates (wave 4: no colour per project; every component wears the palette inside itself):
+ *   uniform  the same element paints the same colour on every project. The dumps of the detail pages
+ *            (project pages: cards 1 and 3, or every card with --details=all) must agree on every element
+ *            path they all share, media aside; paths only some pages have are skipped and counted on an
+ *            INFO line. /work itself is not compared: it opens on its first card and no URL picks another
+ *            (the start card is read from sessionStorage, written by input), so only project pages are.
+ *   density  per page, how many palette families are painted: the six swatches, white-ground and the
+ *            ramp A gradient (>= 3 of its nine stops, read from src/lib/spectrumRamp.js, else
+ *            --swm-ramp-a in src/styles/global.css). Needs 5 on home, work, detail and directory, 3 on
+ *            privacy and 404 (PROPOSED). The families found print on every page, PASS or FAIL.
+ *   outline  the ring and the canvas agree: globe().ramp.mix is 1 on home, worlds().ramp.mix is 1 on
+ *            /work, and globe().ramp.center is within 1.5 px of the centre of .hero__globe-stroke
+ *            (measured in the page). A hook with no `ramp` field SKIPs ("skipped (hook has no ramp)").
+ *            Under any other scheme, when named, the mix must be 0.
+ * The old spectrum expectations (carriers, deal, shares) come from a dynamic import of
+ * ../src/lib/colorScheme.js, and only run when named; when it is absent they print
+ * "skipped: colorScheme.js not present" and do not fail.
  * gl reads window.__swmSchemeDebug (an object of functions, e.g. { globe(), worlds() }, each returning
  * { accent: '#rrggbb', ... }) and prints it; absent prints "gl: skipped (no debug hook)".
  * A measurement tool with a verdict: exits 1 when a gate fails.
@@ -89,13 +108,15 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 // home: ?popseed pins the globe population's start world, whose projectColor tints the whole home page (random per visit).
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'privacy', '404'];
-const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'gl'];
+const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl'];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl'], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
   black: ['latch', 'monochrome', 'contrast', 'carriers', 'hover', 'overlap', 'gl'],
   blue: ['latch', 'singleHue', 'contrast', 'carriers', 'hover', 'overlap', 'gl'],
-  spectrum: ['latch', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'gl'],
+  spectrum: ['latch', 'contrast', 'hover', 'overlap', 'uniform', 'density', 'outline', 'gl'], // carriers, deal and shares described the first skin's per-project deal: by name only
 };
+const RING = '.hero__globe-stroke'; // the DOM ring round the home globe: the outline gate's centre
+const OUTLINE_HOOK = { home: 'globe', work: 'worlds' }; // the debug hook whose canvas draws the outline on that route
 const HOVER_SELECTORS = ['.site-nav__pill', '.cta-primary', '.deck-tab', '.site-privacy', '.fp-cta', '.prose-link'];
 const ANCHOR = '.swm-corner';
 const OVERLAP_SELECTORS = [ANCHOR, '.site-privacy', '.fp .fp-scale', '.dir-filter', '.site-footer--links', '.fp-cta', '.np-band__title'];
@@ -121,6 +142,8 @@ const GATES_ARG = arg('gates') ? String(arg('gates')).split(',') : null;
 if (GATES_ARG?.some((g) => !GATE_NAMES.includes(g))) die(`--gates takes ${GATE_NAMES.join(',')}`);
 const CAPTURE = typeof arg('capture') === 'string' ? arg('capture') : null;
 const COMPARE = typeof arg('compare') === 'string' ? arg('compare') : null;
+const DENSITY = arg('density') === undefined ? undefined : Number(arg('density') === true ? NaN : arg('density'));
+if (DENSITY !== undefined && !(DENSITY > 0)) die('--density takes a positive number, e.g. --density=4');
 const SHOTS = typeof arg('shots') === 'string' ? arg('shots') : null;
 const FORCE = !!arg('force-attr', false);
 const IGNORE_SEL = typeof arg('ignore') === 'string' ? arg('ignore') : ANCHOR;
@@ -350,6 +373,16 @@ function pageBoxes(sels) {
   return out;
 }
 
+/** The centre [x, y] (viewport CSS px, y down) of the first visible match of a selector, or null. */
+function pageCentre(sel) {
+  for (const e of document.querySelectorAll(sel)) {
+    const r = e.getBoundingClientRect();
+    const cs = getComputedStyle(e);
+    if (r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility === 'visible') return [r.left + r.width / 2, r.top + r.height / 2];
+  }
+  return null;
+}
+
 /** window.__swmSchemeDebug: call each function, return their results (null when there is no hook). */
 async function pageGl() {
   const d = window.__swmSchemeDebug;
@@ -444,6 +477,23 @@ async function loadCore() {
   }
 }
 
+/** Ramp A's nine stops (hex): src/lib/spectrumRamp.js when it exists, else --swm-ramp-a in global.css; [] when neither reads. */
+async function loadRampStops() {
+  const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const js = path.join(root, 'src/lib/spectrumRamp.js');
+  if (fs.existsSync(js)) {
+    try {
+      const mod = await import(pathToFileURL(js).href);
+      if (Array.isArray(mod.SPECTRUM_RAMP_A) && mod.SPECTRUM_RAMP_A.length) return mod.SPECTRUM_RAMP_A;
+    } catch { /* fall through to the stylesheet */ }
+  }
+  try {
+    return gate.rampStopsFromCss(fs.readFileSync(path.join(root, 'src/styles/global.css'), 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
 const DUMP_OPTS = { ignoreSel: IGNORE_SEL, mediaSel: MEDIA_SEL };
 
 async function measureHover(ctx, page) {
@@ -514,6 +564,7 @@ async function measurePage(ctx, scheme, urlPath, width, needShares) {
     const out = { url, attr: dump.attr, committed, settled, reads, errors, vars: dump.vars, els: dump.els, carriers: dump.carriers };
     out.hover = width > 480 ? await measureHover(ctx, page) : []; // a phone has no hover: the site's hover rules sit behind (hover: hover)
     out.boxes = await measureBoxes(page);
+    out.ring = await page.evaluate(pageCentre, RING); // read beside the hooks: the outline gate compares the ramp's centre with it
     out.gl = await page.evaluate(pageGl);
     const name = `${scheme}-${urlPath.replace(/[/?=&]+/g, '_')}-${width}`;
     // Headless Chrome refuses some tall captures ("Unable to capture screenshot": the detail pages at
@@ -601,6 +652,7 @@ async function main() {
   // The shares gate needs every project's page: each page carries only its own dealt colour.
   const sharesReady = DETAILS === 'all' && ROUTES.includes('detail');
   const needShares = sharesReady && SCHEME_LIST.some((s) => wanted(s).has('shares')) && core.ok;
+  const rampStops = SCHEME_LIST.some((s) => wanted(s).has('density')) ? await loadRampStops() : [];
   const captured = { meta: { base: BASE, at: new Date().toISOString(), ignore: IGNORE_SEL, forced: FORCE, schemes: SCHEME_LIST, widths: WIDTHS }, pages: {} };
   const launch = () => chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   let browser = await launch();
@@ -623,6 +675,7 @@ async function main() {
         };
         let ctx = await makeCtx();
         const detailKeys = {};
+        const detailDumps = []; // the uniform gate's pages: every detail page of this scheme and width
         const familyTotals = {};
         for (const route of routeList) {
           const key = `${scheme}:${route.key}@${width}`;
@@ -673,18 +726,40 @@ async function main() {
             if (!m.boxes.some((b) => b.name === ANCHOR)) return emit('SKIP', scheme, route.key, width, 'overlap', `skipped: no ${ANCHOR} on this route`);
             emitResult(scheme, route.key, width, 'overlap', gate.overlap(m.boxes, { anchor: ANCHOR }));
           });
+          run('density', () => emitResult(scheme, route.key, width, 'density', gate.density(m.els, { min: gate.densityMin(route.key, DENSITY), rampStops })));
+          run('outline', () => {
+            const name = OUTLINE_HOOK[route.key];
+            if (!name) return emit('SKIP', scheme, route.key, width, 'outline', 'skipped (no canvas outline on this route)');
+            if (!m.gl) return emit('SKIP', scheme, route.key, width, 'outline', 'skipped (no debug hook)');
+            const spectrum = scheme === 'spectrum';
+            const res = gate.outline(m.gl[name], { name, mix: spectrum ? 1 : 0, ...(spectrum && name === 'globe' ? { ring: m.ring ?? null } : {}) });
+            if (res.skip) return emit('SKIP', scheme, route.key, width, 'outline', res.note);
+            emitResult(scheme, route.key, width, 'outline', res);
+          });
           run('gl', () => {
             if (!m.gl) return emit('SKIP', scheme, route.key, width, 'gl', 'skipped (no debug hook)');
             const bad = Object.entries(m.gl).filter(([, v]) => v && v.error).map(([k, v]) => ({ path: k, error: v.error }));
             emit(bad.length ? 'FAIL' : 'PASS', scheme, route.key, width, 'gl', `${bad.length} offenders — ${JSON.stringify(m.gl)}`, bad);
           });
-          if (route.slug) detailKeys[route.slug] = m.carriers.find((c) => c.spectrum)?.spectrum ?? null;
+          if (route.slug) {
+            detailKeys[route.slug] = m.carriers.find((c) => c.spectrum)?.spectrum ?? null;
+            detailDumps.push({ label: route.slug, els: m.els });
+          }
           for (const [f, n] of Object.entries(m.families ?? {})) familyTotals[f] = (familyTotals[f] || 0) + n;
           if (m.families && want.has('shares')) {
             // One line per page (not a gate, not counted): which page a family's share comes from.
             const page = gate.shares(m.families);
             console.log(`INFO  ${scheme.padEnd(8)} ${String(route.key).padEnd(10)} ${String(width).padStart(4)}  ${'shares'.padEnd(10)} ${page.n} chromatic px — ${page.note}`);
           }
+        }
+        if (want.has('uniform')) {
+          if (detailDumps.length < 2) emit('SKIP', scheme, 'detail*', width, 'uniform', `skipped: ${detailDumps.length} project page measured, it compares two or more (--routes with detail)`);
+          else {
+            const res = gate.uniform(detailDumps);
+            console.log(`INFO  ${scheme.padEnd(8)} ${'detail*'.padEnd(10)} ${String(width).padStart(4)}  ${'uniform'.padEnd(10)} ${res.skipped} element paths not on every page (skipped), ${detailDumps.length} pages: ${detailDumps.map((d) => d.label).join(', ')}`);
+            emitResult(scheme, 'detail*', width, 'uniform', res);
+          }
+          if (ROUTES.includes('work')) console.log(`INFO  ${scheme.padEnd(8)} ${'work'.padEnd(10)} ${String(width).padStart(4)}  ${'uniform'.padEnd(10)} /work is not compared: it opens on its first card and no URL picks another (the start card comes from sessionStorage), so project pages only`);
         }
         if (want.has('shares')) {
           if (!core.ok) emit('SKIP', scheme, '*', width, 'shares', `skipped: ${core.reason}`);

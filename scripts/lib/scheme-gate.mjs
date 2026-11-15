@@ -387,6 +387,122 @@ export function shares(counts, reference = REFERENCE_SHARES, tol = 10) {
   return result(offenders, total, line || 'no chromatic pixels');
 }
 
+/**
+ * uniform — the same element paints the same colour on every project. `pages` = [{ label, els }]
+ * (the style dumps of two or more pages of one kind, one run, one width). Every element path ALL the
+ * pages share is compared against the first page, property by property; a path only some pages have
+ * (a longer tag list, more keywords) is skipped and counted in `skipped`. An offender names the path,
+ * the property and both values (null = that page paints nothing there).
+ */
+export function uniform(pages) {
+  const list = (pages ?? []).map((p, i) => ({ label: p?.label ?? `page ${i + 1}`, els: elsOf(p) }));
+  if (list.length < 2) return { ...result([], 0, 'needs two pages', { vacuous: true }), skipped: 0 };
+  const [first, ...rest] = list;
+  const all = new Set(list.flatMap((p) => Object.keys(p.els)));
+  const shared = [...all].filter((path) => list.every((p) => path in p.els));
+  const offenders = [];
+  for (const path of shared) {
+    const a = first.els[path].paint ?? {};
+    for (const other of rest) {
+      const b = other.els[path].paint ?? {};
+      for (const prop of new Set([...Object.keys(a), ...Object.keys(b)])) {
+        if (!sameColour(a[prop], b[prop])) offenders.push({ path, prop, a: a[prop] ?? null, b: b[prop] ?? null, pages: `${first.label} vs ${other.label}` });
+      }
+    }
+  }
+  const skipped = all.size - shared.length;
+  return { ...result(offenders, shared.length, `${shared.length} shared elements over ${list.length} pages`), skipped };
+}
+
+/** The six swatch families of color-ref.png a page can wear, and the two a page can carry besides. */
+export const DENSITY_FAMILIES = { blue: '#1556e5', red: '#fd361a', green: '#077b3e', yellow: '#fbb702', periwinkle: '#a6bcda', navy: '#0a2577' };
+const DENSITY_ALL = [...Object.keys(DENSITY_FAMILIES), 'white-ground', 'ramp'];
+/** PROPOSED thresholds: how many families a page must paint, by route kind (a `detail#3` key is a detail). */
+export const DENSITY_DEFAULT = 5;
+export const DENSITY_MIN = { home: 5, work: 5, detail: 5, directory: 5, privacy: 3, 404: 3 };
+/** The threshold of a route key; `override` replaces the 5 (privacy and 404 keep their 3). */
+export function densityMin(route, override) {
+  const min = DENSITY_MIN[String(route).split('#')[0]] ?? DENSITY_DEFAULT;
+  return min === DENSITY_DEFAULT && override > 0 ? override : min;
+}
+
+/** The nine stops of `--swm-ramp-a` in a stylesheet's text (a `var(--x)` stop resolves to that custom property), or []. */
+export function rampStopsFromCss(css) {
+  const m = /--swm-ramp-a\s*:\s*([^;]+);/.exec(css ?? '');
+  if (!m) return [];
+  return m[1].split(',').map((s) => s.trim()).map((s) => {
+    const v = /^var\((--[\w-]+)\)$/.exec(s);
+    const d = v && new RegExp(`${v[1]}\\s*:\\s*([^;]+);`).exec(css);
+    return d ? d[1].trim() : s;
+  });
+}
+
+/**
+ * density — how much of the palette a page paints. Counts the families present among the dumped colours:
+ * the six swatches (any painted property, a gradient stop included), white-ground (#ffffff as a
+ * background-color or a box-shadow spread only: white text or a white hairline does not count), and
+ * ramp (one element's gradient carrying at least three of `rampStops`, ramp A's nine). A colour counts
+ * when it equals the family's value and its alpha is 1. Passes when the count reaches `min`; the
+ * families found are on the result (`families`) and in the note either way.
+ */
+export function density(dump, { min = DENSITY_DEFAULT, rampStops = [] } = {}) {
+  const wants = Object.entries(DENSITY_FAMILIES).map(([f, hex]) => [f, parseColour(hex)]);
+  const white = parseColour('#ffffff');
+  const stops = rampStops.map(parseColour).filter(Boolean);
+  const found = new Set();
+  const gradients = new Map(); // path -> the ramp stops its gradient carries
+  const { seen } = eachColour(dump, (path, prop, str, c) => {
+    if (c.a < 0.995) return;
+    const is = (w) => sameColour(str, toHex(w));
+    for (const [f, w] of wants) if (is(w)) found.add(f);
+    if ((prop === 'background-color' || prop.startsWith('shadow#')) && is(white)) found.add('white-ground');
+    if (prop.startsWith('bg-grad#')) {
+      const k = stops.findIndex((s) => is(s));
+      if (k >= 0) gradients.set(path, (gradients.get(path) ?? new Set()).add(k));
+    }
+  });
+  if ([...gradients.values()].some((s) => s.size >= 3)) found.add('ramp');
+  const families = DENSITY_ALL.filter((f) => found.has(f));
+  const note = `${families.length}/${DENSITY_ALL.length} families (${families.join(', ') || 'none'}), need ${min}${stops.length ? '' : '; ramp A stops unread'}`;
+  const offenders = families.length >= min ? [] : [{ path: '(page)', families, count: families.length, min }];
+  return { ...result(offenders, seen, note), families, min };
+}
+
+export const OUTLINE_TOL = 1.5; // CSS px: the ramp's centre against the DOM ring's
+
+/**
+ * outline — the ring and the canvas agree. `hook` is one debug hook's report (`__swmSchemeDebug.globe()`
+ * or `.worlds()`), `name` its name. Its `ramp.mix` must equal `mix` (1 under spectrum, 0 under any other
+ * scheme). With `ring` given (the [x, y] centre of the DOM ring in CSS px, or null when it was not
+ * found), `ramp.center` must sit within `tol` px of it. A hook without a `ramp` field, a missing hook or
+ * an errored one is a SKIP (`skip` true), so the gate can run before the canvas tickets merge.
+ */
+export function outline(hook, { name = 'globe', mix = 1, ring, tol = OUTLINE_TOL } = {}) {
+  const skip = (why) => ({ pass: false, offenders: [], note: `skipped (${why})`, n: 0, skip: true });
+  if (!hook) return skip(`no ${name} hook`);
+  if (hook.error) return skip(`${name} hook errored`);
+  if (!hook.ramp || typeof hook.ramp !== 'object') return skip('hook has no ramp');
+  const offenders = [];
+  const parts = [];
+  const got = hook.ramp.mix;
+  parts.push(`${name} ramp.mix ${got}`);
+  if (!(Math.abs(got - mix) <= 1e-3)) offenders.push({ path: `${name}().ramp.mix`, got: got ?? null, want: mix });
+  let n = 1;
+  if (ring !== undefined) {
+    n++;
+    const c = hook.ramp.center;
+    const ok = Array.isArray(c) && c.length === 2 && c.every(Number.isFinite);
+    if (!ring) offenders.push({ path: `${name}().ramp.center`, got: ok ? c.map((v) => fixed(v, 1)) : (c ?? null), want: 'ring not found' });
+    else if (!ok) offenders.push({ path: `${name}().ramp.center`, got: c ?? null, want: ring.map((v) => fixed(v, 1)) });
+    else {
+      const dist = Math.hypot(c[0] - ring[0], c[1] - ring[1]);
+      parts.push(`centre ${fixed(dist, 2)} px from the ring`);
+      if (!(dist <= tol)) offenders.push({ path: `${name}().ramp.center`, got: c.map((v) => fixed(v, 1)), want: ring.map((v) => fixed(v, 1)), dist: fixed(dist, 2), tol });
+    }
+  }
+  return result(offenders, n, parts.join(', '));
+}
+
 /** Short one-line text of an offender, for the probe's report. */
 export function describeOffender(o) {
   const { path, selector, slug, family, ...rest } = o;
