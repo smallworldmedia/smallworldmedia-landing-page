@@ -211,8 +211,9 @@ records (`docs/globe-worlds-plan.md`).
        broaden the rule);
      - the old `blurb` field on Hurry Up Slowly, and the draft on client Sosa (his to publish);
      - a Netlify build hook at launch.
-8. **Open, on a candidate branch and not folded: Nathan's 11-15 round** (`integration/us7-wave2`
-   at `85a08fb`, in `/Users/nathangorey/swm-us7-w2-candidate`; it waits on Nathan's go):
+8. **Done 11-15: Nathan's 11-15 round**, folded on their go and pushed at `130b2db`
+   (`integration/us7-wave2` merged with the stream; units 659/659, `test:cms` 121/121, tunables PASS,
+   the build OK at 27 pages, `cms audit` 0 errors; SQ-94…SQ-98 integrated):
    - **Spectrum reworked (wave 4, SQ-94…SQ-97), then switched off** on Nathan's word ("for now"):
      - the palette sits inside every component, with no colour key per project;
      - the home globe and the /work canvas each draw one colour ramp;
@@ -223,11 +224,25 @@ records (`docs/globe-worlds-plan.md`).
      the iris, each circle slides into the eye, the globe and lids share one line weight, and the
      project iris colours the globe's strips with the palette.
    - **Left:**
-     - Nathan's look at the second pass (white lids, the dark edge outside the lids only, the
-       strip colour order, the line weight), then their go to fold;
      - `/privacy/` and `/terms/` don't scroll by touch at 390 px when opened directly (found
        11-15, older than US-7, not patched);
      - this round replaces item 7's left calls on spectrum's look and the first-pass swatch art.
+9. **Open: Nathan's second 11-15 round** (US-8, on the board). Their calls, made 11-15:
+   - **Phone blurbs:** one text size on every page (HHS 2026's, 1.25 × `--text-blurb`); each
+     section is as tall as its text, and the 88% grow is retired.
+   - **Back navigation:** browser Back stays on the site, and returns to /work on the project you
+     left it from. Cause, measured: Chrome skips every page of a visit once the site adds a history
+     entry before the visitor's first click, tap or key, and a swipe or wheel page turn does exactly
+     that.
+   - **The scheme widget:** anchored bottom-right in the same place on every screen; no image
+     dialog on a long press; an in-and-out animation on hover or press; scaled large, medium,
+     small by distance while held, like the /work pager names.
+   - **The home globe's lines:** the outline and the lines between panels are one colour on every
+     scheme (black was the only split: black lines, a white ring; both go white).
+   - **/work client names on phones:** 64 px (from 84), so Munchietown and TOBEHONEST clear the
+     pager's hint.
+   - **The globe follows Sanity rank:** ranks in order with none skipped, rank 1 front and centre,
+     and repeats spaced so no two assets alternate along a row; the asset count stays the same.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
