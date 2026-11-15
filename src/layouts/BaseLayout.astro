@@ -245,6 +245,9 @@ const roster = await getDirectoryData()
     <script>
       import { syncRoute } from '../lib/smoothScroll.js';
       import { installHomeWarm } from './homeWarm.js';
+      // SQ-100: up from the first page, so a click before /work or a detail
+      // page loads still counts for their gesture page turns.
+      import '../lib/gestureHistory.js';
       document.addEventListener('astro:page-load', () => syncRoute());
 
       // SQ-33: the way home (nav lockup, menu, /work scroll-up) rides an
