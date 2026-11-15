@@ -154,3 +154,15 @@ test('no direct brand-blue paint remains outside the role-token assignments', ()
   assert.equal(notFound, null, '404.astro paints with a role token');
   assert.deepEqual(found, []);
 });
+
+// Found in the wave 2 contact sheet (11-14): the checked filter's wipe box is the chip, which turns
+// white under black, and the label kept its white ink. The contrast gate cannot see a ::before box.
+test("scheme.css: black inks the directory's checked filter with the chip ink, since its wipe box is the chip", () => {
+  const sel = "html[data-scheme='black'] .filter-tag[aria-checked='true'] .filter-tag__label";
+  const rule = schemeRules.find((r) => splitList(r.selector).includes(sel));
+  assert.ok(rule, `${sel} exists`);
+  assert.equal(new Map(rule.decls).get('color'), 'var(--scheme-chip-ink)');
+  const box = rulesOf(read('src/styles/directory.css')).find((r) => r.selector === '.filter-tag__label::before');
+  assert.ok(box, 'directory.css still paints the label through ::before');
+  assert.match(new Map(box.decls).get('background'), /var\(--scheme-chip\)/);
+});

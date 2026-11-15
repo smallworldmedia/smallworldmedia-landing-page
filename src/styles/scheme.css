@@ -105,6 +105,13 @@ html[data-scheme='black'] .deck-tab--active {
   color: var(--scheme-chip-ink);
 }
 
+/* The directory's checked filter: its wipe box (.filter-tag__label::before) is
+   the chip, white here, so the label takes the chip's ink or it is white on
+   white. The ink flips with the check and the box's wipe uncovers it. */
+html[data-scheme='black'] .filter-tag[aria-checked='true'] .filter-tag__label {
+  color: var(--scheme-chip-ink);
+}
+
 /* The keyword highlight: a white box with the word inked black as the box
    wipes over it (blurb boxes read the project accent, which is black here and
    would swallow the word). The ink layer stays white and BLENDS (difference):
