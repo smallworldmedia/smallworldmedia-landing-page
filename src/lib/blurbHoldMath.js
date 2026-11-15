@@ -16,9 +16,9 @@ export const PHONE_MQ = '(max-width: 768px)';
 export const HOLD_MQ = `${PHONE_MQ} and (pointer: coarse)`;
 /** The next media a seated section leaves showing below it, as a fraction of the
     viewport (Nathan 11-07: "retain the same percent of the upcoming media being
-    visible at the bottom"; ?blurbpeek re-dials it). A GROWN section is 1 - peek
-    tall: 0.12 is Nathan's 88% (SQ-30 11-08: "their vh grows to 88%"), of the
-    VISIBLE viewport, whatever state the toolbars are in. */
+    visible at the bottom"; ?blurbpeek re-dials it). A section taller than 1 - peek
+    of the viewport is read with native scroll, not held (seatWindow): 0.12 is
+    Nathan's 88% (SQ-30 11-08). */
 export const BLURB_PEEK = 0.12;
 /** px a seated page may drift before it stops counting as seated (NextProjectBand's atEnd tolerance). */
 export const SEAT_TOL_PX = 2;
@@ -33,14 +33,6 @@ export const MIN_V = 0.01;
     the house gain 5, where the house SCROLL_TRIGGER_WORK_PX 500 (100px) stays the World Turn's and the
     next-project band's. A proposal: Nathan bakes it on the phone; ?blurbscroll re-dials it. */
 export const BLURB_TRIGGER_PX = 300;
-/** The detail blurbs' text scale TARGET on a phone, a multiple of --text-blurb (SQ-28 11-07, Nathan:
-    "increase the size of the description text on mobile"). A proposal: Nathan bakes the number;
-    ?blurbtext re-dials it. The fit lowers it per page until every blurb sits inside its seat window. */
-export const BLURB_TEXT = 1.25;
-/** Measurements the fit may take (measure, guess, measure, guess, measure). */
-export const FIT_PASSES = 3;
-/** A re-guess aims this far under the fit: lines rewrap, so height is only roughly s². */
-export const FIT_MARGIN = 0.97;
 /** Share of the viewport a section must cover for a resting page to be eased onto its seat. */
 export const REST_COVER = 0.5;
 /** Share of a section (or the viewport, whichever is smaller) that must be on screen for its entrance to play at rest. */
@@ -55,83 +47,15 @@ export const seatY = (top, scrollY, max) => clamp(scrollY + top, 0, max);
 
 /**
  * Can the page hold on this section? Only a section that fits the seat window
- * the CSS gives it ((1 - peek) of the viewport, its top under the nav, the next
- * media peeking below). A taller one (long copy, a short phone) would trap copy
- * the hold does not let the page scroll to: it is seated at its top and read
- * with native scroll.
+ * ((1 - peek) of the viewport, its top under the nav, the next media peeking
+ * below). A section is as tall as its copy, so a taller one (long copy, a short
+ * phone) would trap copy the hold does not let the page scroll to: it is seated
+ * at its top and read with native scroll.
  */
 export const holdable = (h, vh, peek = BLURB_PEEK) => h <= seatWindow(vh, peek);
 
 /** The tallest a section may be and still be held: the seat window plus the seat tolerance. */
 export const seatWindow = (vh, peek = BLURB_PEEK) => (1 - peek) * vh + SEAT_TOL_PX;
-
-/**
- * The text scale one page's blurbs share (SQ-28): `target`, or the largest
- * scale under it at which the tallest blurb (content height, min-height
- * disregarded) still fits `win` (seatWindow of the SMALL viewport, so the hold
- * works in either iOS toolbar state). `heightAt(s)` measures that tallest
- * height at scale s. Height grows about with s² (lines rewrap), so each pass
- * re-guesses from its own measurement; at most `passes` measurements, and the
- * answer is a scale that measured as fitting. Floor 1, today's size (or the
- * target, when that is lower): a blurb that does not fit even there stays read
- * natively, as before.
- */
-export function fitTextScale(heightAt, win, target = BLURB_TEXT, passes = FIT_PASSES) {
-  const floor = Math.min(1, target);
-  let s = target;
-  for (let i = 0; i < passes; i++) {
-    const h = heightAt(s);
-    if (!Number.isFinite(h)) return floor;
-    if (h <= win) return s;
-    if (s <= floor) return floor;
-    s = Math.max(floor, s * Math.sqrt(win / h) * FIT_MARGIN);
-  }
-  return floor;
-}
-
-/* ── growth: a section is its content until it comes into view, then grows to its seat (SQ-30) ── */
-
-/**
- * The height a section grows to: (1 - peek) of the VISIBLE viewport (`innerH`,
- * window.innerHeight, so the toolbars' state counts: svh would read ~78% with
- * them collapsed), never under its own content `hc`.
- */
-export const grownHeight = (hc, innerH, peek = BLURB_PEEK) => Math.max(hc, (1 - peek) * innerH);
-
-/** The height at entry progress p (0 = compact, 1 = grown). */
-export const growHeight = (hc, gh, p) => hc + (gh - hc) * clamp(p, 0, 1);
-
-/**
- * Entry progress of a section from where it is: `top` its rect top, `hc` its
- * COMPACT height (so the mapping never moves with its own growth), `vh` the
- * viewport, `side` the edge it is entering from, +1 below (scrolling down),
- * -1 above (scrolling up).
- *   below: 0 with the top on the bottom edge, 1 with the top on the seat.
- *   above: 0 with the compact bottom on the top edge, 1 with the top on the seat.
- * Past the seat (the top beyond it) is 1 either way: it has been seated.
- */
-export function entryProgress(top, hc, vh, side) {
-  const tol = SEAT_TOL_PX; // a page within the seat tolerance IS seated: the browser's pixel snapping must not leave p at 0.9998
-  if (side > 0) return clamp((vh - top) / Math.max(vh - tol, 1), 0, 1);
-  return top >= -tol ? 1 : clamp((top + hc) / Math.max(hc - tol, 1), 0, 1);
-}
-
-/** Progress only increases within an entry: leaving, in either direction, keeps the height. */
-export const latchProgress = (prev, next) => Math.max(prev, next);
-
-/** Which edge a section is entirely off: +1 below the viewport, -1 above it, 0 = some of it is on screen. */
-export const offscreenSide = (top, h, vh) => (top >= vh ? 1 : top + h <= 0 ? -1 : 0);
-
-/**
- * May a grown section go back to compact now? Fully below the viewport: at
- * once, nothing visible moves (+1). Fully above: only with the page at rest,
- * and the page position compensated by the height lost (-1), because on iOS a
- * programmatic scrollTo ends native momentum. Otherwise 0.
- */
-export const resetSide = (top, h, vh, atRest) => {
-  const side = offscreenSide(top, h, vh);
-  return side > 0 || (side < 0 && atRest) ? side : 0;
-};
 
 /** Does a section's seat coincide with the document's end? (a seat clamps to the end when the section sits within the last viewport) */
 export const seatAtEnd = (seat, max) => Math.abs(seat - max) <= SEAT_TOL_PX;
@@ -222,16 +146,15 @@ export const emaVelocity = (avg, sample, alpha = 0.4) => (avg === 0 ? sample : a
 /**
  * The preview dials, read from a URL search string:
  *   ?blurbhold=0         the hold off (plain sections); default on
- *   ?blurbpeek=<f>       the media left showing below a seat, a fraction of the viewport; a grown section is 1 - this tall; default BLURB_PEEK
+ *   ?blurbpeek=<f>       the media left showing below a seat, a fraction of the viewport; a section taller than 1 - this is read natively, not held; default BLURB_PEEK
  *   ?blurbair=<rem>      the extra black above the copy, beyond the nav clearance (0 <= f <= 8); default 1.5 (project-detail.css)
- *   ?blurbgrow=0         no growth: the sections sit at their grown size; default on
- *   ?blurbtext=<f>       the detail blurbs' text scale target, a multiple of --text-blurb (0 < f <= 3); default BLURB_TEXT, lowered per page to fit
+ *   ?blurbtext=<f>       the detail blurbs' text scale on a phone, a multiple of --text-blurb (0 < f <= 3); default 1.25, HHS 2026's size (project-detail.css --blurb-text)
  *   ?blurbend=0          the page's end is not an arrival target (no slowdown onto it); default on
  *   ?blurbcatch=<lerp>   the arrival slowdown's lerp (0…1]; default LENIS_TUNING.lerp
  *   ?blurbdecel=<f>      the exit momentum's per-ms velocity factor (0…1); default MOMENTUM_DECAY
  *   ?blurbscroll=<px>    the gained delta that lets a held section go (finger px × the touch gain); default BLURB_TRIGGER_PX.
  *                        Its own key: ?scroll stays the World Turn's and the next-project band's
- * @returns {{ hold: boolean, end: boolean, grow: boolean, peek: number|null, air: number|null, text: number|null, catchLerp: number|null, decel: number|null, trigger: number|null }} null = unset
+ * @returns {{ hold: boolean, end: boolean, exit: boolean, peek: number|null, air: number|null, text: number|null, catchLerp: number|null, decel: number|null, trigger: number|null }} null = unset
  */
 export function readBlurbTune(search) {
   const q = new URLSearchParams(search);
@@ -249,7 +172,6 @@ export function readBlurbTune(search) {
     hold: num('blurbhold') !== 0,
     end: num('blurbend') !== 0,
     exit: (num('blurbexit') ?? 0) !== 0, // off unless asked: a seat is a stop (SQ-68)
-    grow: num('blurbgrow') !== 0,
     peek: within(peek, 0, 1),
     air: air != null && air >= 0 && air <= 8 ? air : null,
     text: text != null && text > 0 && text <= 3 ? text : null,

@@ -69,8 +69,8 @@ import {
 import { formatYearRange } from '../../../lib/formatYearRange.js';
 import { renderKeywords, KW_HIGHLIGHT_DETAIL } from '../../../lib/keywords.jsx';
 import useKeywordWipe from './useKeywordWipe.js';
-import { holdWanted, attachBlurbHold, attachBlurbFit, ARM_EVENT } from '../../../lib/blurbHold.js';
-import { HOLD_MQ, PHONE_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js';
+import { holdWanted, attachBlurbHold, ARM_EVENT } from '../../../lib/blurbHold.js';
+import { HOLD_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js';
 
 /* ── Socket region geometry (rows are 10px grid units, masonry.css) ──
    Px-fixed height (~65vh on a laptop) so the reserved region stays rigid.
@@ -221,31 +221,23 @@ function BlurbCopy({ paragraphs }) {
 /* The phone reading sections (SQ-26, SQ-27): each blurb is a CSS section
    (project-detail.css, ≤768px) and, for a finger, the page holds on it —
    lib/blurbHold.js. This owns the lifecycle: attach while the phone query
-   matches, detach when it stops (resize-aware), and the ?blurbpeek and
-   ?blurbair dials (the growth, ?blurbgrow, lives in the hold). The
-   text fit (SQ-28, attachBlurbFit) rides the phone query alone: the sections
-   are CSS on every phone, held or not, and it goes on first so the hold reads
-   the fitted heights. It waits for `ready` (the grid measured): at or under
-   1024px the grid re-places once after the measure (tileGrid.js
-   NARROW_PLACE_COLS), which re-cuts the sections, so both attach to the
-   settled page, once. */
+   matches, detach when it stops (resize-aware), and the ?blurbair and
+   ?blurbtext dials (?blurbpeek lives in the hold). The text size is one
+   number on every page (SQ-99, project-detail.css --blurb-text) and the
+   sections are as tall as their copy, so only the hold needs a script. It
+   waits for `ready` (the grid measured): at or under 1024px the grid
+   re-places once after the measure (tileGrid.js NARROW_PLACE_COLS), which
+   re-cuts the sections, so it attaches to the settled page, once. */
 function useBlurbHold(rootRef, ready) {
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !ready) return undefined;
-    const { peek, air } = readBlurbTune(window.location.search);
-    if (peek != null) root.style.setProperty('--blurb-peek', String(peek));
+    const { air, text } = readBlurbTune(window.location.search);
     if (air != null) root.style.setProperty('--blurb-air', `${air}rem`);
-    const phone = window.matchMedia(PHONE_MQ);
+    if (text != null) root.style.setProperty('--blurb-text', String(text));
     const mq = window.matchMedia(HOLD_MQ);
-    let detachFit = null;
     let detach = null;
     const sync = () => {
-      if (phone.matches) detachFit ??= attachBlurbFit(root);
-      else if (detachFit) {
-        detachFit();
-        detachFit = null;
-      }
       if (holdWanted()) detach ??= attachBlurbHold(root);
       else if (detach) {
         detach();
@@ -253,15 +245,12 @@ function useBlurbHold(rootRef, ready) {
       }
     };
     sync();
-    phone.addEventListener('change', sync);
     mq.addEventListener('change', sync);
     return () => {
-      phone.removeEventListener('change', sync);
       mq.removeEventListener('change', sync);
       detach?.();
-      detachFit?.();
-      root.style.removeProperty('--blurb-peek');
       root.style.removeProperty('--blurb-air');
+      root.style.removeProperty('--blurb-text');
     };
   }, [rootRef, ready]);
 }

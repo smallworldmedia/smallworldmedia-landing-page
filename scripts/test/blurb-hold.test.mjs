@@ -29,19 +29,10 @@ import {
   MIN_V,
   BLURB_TRIGGER_PX,
   seatY,
-  grownHeight,
-  growHeight,
-  entryProgress,
-  latchProgress,
-  offscreenSide,
-  resetSide,
   holdable,
   seatWindow,
-  fitTextScale,
   seatAtEnd,
   clampScroll,
-  BLURB_TEXT,
-  FIT_PASSES,
   shownPx,
   shownEnough,
   nextSeat,
@@ -81,7 +72,7 @@ test('a seat clamps to the page', () => {
 
 test('a seated section leaves the peek of the next media showing below it', () => {
   const vh = 844
-  const h = (1 - BLURB_PEEK) * vh // a GROWN section
+  const h = (1 - BLURB_PEEK) * vh // the tallest held section
   assert.equal(BLURB_PEEK, 0.12) // Nathan's 88% (SQ-30)
   // top at 0, so nothing above it, and the viewport below it is the peek
   assert.ok(Math.abs(vh - h - BLURB_PEEK * vh) < 1e-9)
@@ -89,7 +80,7 @@ test('a seated section leaves the peek of the next media showing below it', () =
 
 test('a section that fits its seat window is held, a taller one is read natively', () => {
   const g = 1 - BLURB_PEEK
-  assert.equal(holdable(g * 844, 844), true) // a grown section itself
+  assert.equal(holdable(g * 844, 844), true) // a section exactly the window tall
   assert.equal(holdable(g * 844 + SEAT_TOL_PX, 844), true) // rounding
   assert.equal(holdable(g * 667 + 1, 667), true)
   assert.equal(holdable(g * 667 + 40, 667), false) // long copy on a short phone
@@ -105,67 +96,6 @@ test('the seat window is what holdable measures against', () => {
     assert.equal(holdable(w, vh, peek), true)
     assert.equal(holdable(w + 0.01, vh, peek), false)
   }
-})
-
-/* — the text fit (SQ-28) — */
-
-// The measured model: padding that does not scale + copy that rewraps, so height ~ a·s² + b.
-const model = (a, b) => (s) => a * s * s + b
-const WIN = seatWindow(844) // 0.88 × 844 + 2
-
-test('a page whose tallest blurb fits at the target keeps the target in one measurement', () => {
-  let n = 0
-  const s = fitTextScale((x) => (n++, model(300, 100)(x)), WIN)
-  assert.equal(s, BLURB_TEXT)
-  assert.equal(n, 1)
-})
-
-test('a page with a long blurb takes the largest scale that measured as fitting', () => {
-  // bedouin-like at 393×660 (svh): 0.942 of the window at scale 1 → over at 1.25
-  const win = seatWindow(660)
-  const a = (0.942 * (1 - BLURB_PEEK) * 660 - 90) // height 0.942 of the window at s=1, 90px of padding
-  const h = model(a, 90)
-  const seen = []
-  const s = fitTextScale((x) => (seen.push(x), h(x)), win)
-  assert.ok(s >= 1 && s < BLURB_TEXT, `scale ${s}`)
-  assert.ok(h(s) <= win, 'the answer measured as fitting')
-  assert.ok(seen.includes(s), 'and it was measured')
-  assert.ok(seen.length <= FIT_PASSES)
-  assert.ok(s > 1.02, 'it is not needlessly small') // the model fits well above 1
-})
-
-test('the fit never measures more than its passes and never answers a scale it did not measure fitting except the floor', () => {
-  for (const a of [150, 300, 450, 600, 900, 1500]) {
-    for (const vh of [553, 660, 844, 932]) {
-      const win = seatWindow(vh)
-      const seen = []
-      const h = model(a, 120)
-      const s = fitTextScale((x) => (seen.push(x), h(x)), win)
-      assert.ok(seen.length <= FIT_PASSES)
-      assert.ok(s >= 1 && s <= BLURB_TEXT)
-      assert.ok(s === 1 || (h(s) <= win && seen.includes(s)), `a=${a} vh=${vh} s=${s}`)
-    }
-  }
-})
-
-test('a blurb that does not fit even at today’s size leaves the page at the floor', () => {
-  assert.equal(fitTextScale(model(900, 100), seatWindow(553)), 1) // h(1) = 1000 > 499
-  // and it stops measuring once it is at the floor
-  let n = 0
-  fitTextScale((x) => (n++, model(900, 100)(x)), seatWindow(553))
-  assert.ok(n <= FIT_PASSES)
-})
-
-test('the floor is 1, or the target when that is lower', () => {
-  assert.equal(fitTextScale(model(100, 50), WIN, 0.8), 0.8)
-  assert.equal(fitTextScale(model(2000, 50), WIN, 0.8), 0.8) // nothing smaller to try
-  assert.equal(fitTextScale(model(50, 50), WIN, 3), 3)
-  assert.ok(fitTextScale(model(500, 50), WIN, 3) < 3)
-})
-
-test('an unmeasurable page keeps today’s size', () => {
-  assert.equal(fitTextScale(() => NaN, WIN), 1)
-  assert.equal(fitTextScale(() => Infinity, WIN), 1)
 })
 
 test('the page end and an overscroll', () => {
@@ -389,14 +319,7 @@ test('the release velocity is an average that follows the finger', () => {
 /* — the dials — */
 
 test('the dials default to the hold on and the house numbers', () => {
-  assert.deepEqual(readBlurbTune(''), { hold: true, end: true, exit: false, grow: true, peek: null, air: null, text: null, catchLerp: null, decel: null, trigger: null })
-})
-
-test('?blurbgrow=0 turns the growth off and nothing else does', () => {
-  assert.equal(readBlurbTune('?blurbgrow=0').grow, false)
-  assert.equal(readBlurbTune('?blurbgrow=1').grow, true)
-  assert.equal(readBlurbTune('?blurbgrow=junk').grow, true)
-  assert.equal(readBlurbTune('?blurbhold=0').grow, true)
+  assert.deepEqual(readBlurbTune(''), { hold: true, end: true, exit: false, peek: null, air: null, text: null, catchLerp: null, decel: null, trigger: null })
 })
 
 test('?blurbair takes a rem from 0 to 8 and nothing else', () => {
@@ -558,10 +481,9 @@ test('the reading section rule lives only inside the phone query', () => {
     }
     outside += line + '\n'
   }
-  assert.ok(!/--blurb-peek/.test(outside), 'section height leaked outside the phone query')
-  assert.ok(!/--blurb-text|--blurb-clear|--blurb-air|data-blurb-fit|data-blurb-grow/.test(outside), 'the text fit, the air, the growth or the nav clearance leaked outside the phone query')
-  // the detail blurbs scale from the shared token, which itself stays untouched
-  assert.match(css, /font-size: calc\(var\(--text-blurb\) \* var\(--blurb-text, 1\)\)/)
+  assert.ok(!/--blurb-text|--blurb-clear|--blurb-air/.test(outside), 'the text scale, the air or the nav clearance leaked outside the phone query')
+  // the detail blurbs scale from the shared token, which itself stays untouched, by ONE number on every page: 1.25, Heavy House Society 2026's size (SQ-99)
+  assert.match(css, /font-size: calc\(var\(--text-blurb\) \* var\(--blurb-text, 1\.25\)\)/)
   // the copy clears the nav and the pinned breadcrumb chip: one custom property, derived, used by both section rules
   assert.match(css, /--blurb-clear: calc\(var\(--nav-height, 2\.929rem\) \+ 0\.857rem \+ 1\.857rem \+ 0\.571rem\)/)
   // …and a minimum extra gap (?blurbair) above the copy beyond it
@@ -569,126 +491,18 @@ test('the reading section rule lives only inside the phone query', () => {
   assert.match(css, /\.hero-band>\.project-blurb \{\s*justify-content: center;\s*padding-top: calc\(var\(--blurb-clear\) \+ var\(--blurb-air, 1\.5rem\)\)/)
   // the desktop rule's flex-basis 50vw is a HEIGHT in the phone column: a compact intro must size to its copy
   assert.match(css, /\.hero-band>\.project-blurb \{[^}]*flex: 0 0 auto;/)
-  // growing sections are compact until the script gives them a height; the fit measures them by their copy even then
-  assert.match(css, /\.project-detail\[data-blurb-grow\] \.project-blurb \{\s*min-height: 0;/)
-  assert.match(css, /\.project-detail\[data-blurb-fit\] \.project-blurb \{\s*min-height: 0 !important;/)
-  // the browser must not counter-scroll the growth
-  assert.match(css, /overflow-anchor: none;/)
+  // a section is its copy plus its padding (SQ-99): the phone section rule carries no min-height, and the per-page fit, the 88% growth and their hooks are gone
+  const section = css.match(/--blurb-clear: calc\([^}]*\}/)?.[0] ?? ''
+  assert.ok(/padding-block:/.test(section), 'found the phone section rule')
+  assert.ok(!/min-height/.test(section), 'the section rule has a floor again')
+  assert.ok(!/data-blurb-(fit|grow)|--blurb-peek|overflow-anchor/.test(css), 'a retired height hook is back in the stylesheet')
   // the chip really does pin at nav + 0.857rem and stand 1.857rem tall (what --blurb-clear is derived from)
   assert.match(css, /\.detail-breadcrumb \{\s*position: sticky;\s*top: calc\(2\.929rem \+ 0\.857rem\)/)
   assert.match(css, /margin: 0\.571rem 0 calc\(-1\.857rem - 0\.571rem\) 0\.571rem/)
   assert.ok(!/--blurb-sec/.test(css), 'the retired ?blurbsec variable is still styled')
-  // the grown size (what no-script, reduced motion and ?blurbgrow=0 sit at) is 88% of the small viewport
-  assert.match(css, /min-height: calc\(\(1 - var\(--blurb-peek, 0\.12\)\) \* 100svh\)/)
 })
 
-/* — growth (SQ-30) — */
-
-test('a section grows to 88% of the VISIBLE viewport, never under its own content', () => {
-  assert.equal(grownHeight(300, 844), 0.88 * 844)
-  assert.equal(grownHeight(300, 660), 0.88 * 660)
-  assert.equal(grownHeight(300, 844, 0.4), 0.6 * 844) // the peek dial
-  assert.equal(grownHeight(800, 844), 800) // a blurb that can never fit is its content
-  // the toolbars: the visible viewport is the taller one, so the same section grows further with them collapsed
-  assert.ok(grownHeight(300, 844) > grownHeight(300, 760))
-})
-
-test('the height lerps from compact to grown with progress, clamped', () => {
-  assert.equal(growHeight(300, 700, 0), 300)
-  assert.equal(growHeight(300, 700, 1), 700)
-  assert.equal(growHeight(300, 700, 0.25), 400)
-  assert.equal(growHeight(300, 700, -1), 300)
-  assert.equal(growHeight(300, 700, 2), 700)
-})
-
-test('entering from below, progress runs 0 to 1 as the top travels from the bottom edge to the seat', () => {
-  const vh = 844
-  assert.equal(entryProgress(vh, 300, vh, 1), 0) // top on the bottom edge
-  assert.equal(entryProgress(vh + 500, 300, vh, 1), 0) // still below: clamped
-  assert.equal(entryProgress(0, 300, vh, 1), 1) // on the seat
-  assert.equal(entryProgress(SEAT_TOL_PX, 300, vh, 1), 1) // within the seat tolerance IS the seat
-  assert.equal(entryProgress(-90, 300, vh, 1), 1) // past it: clamped
-  let prev = -1
-  for (let top = vh; top >= 0; top -= 20) {
-    const p = entryProgress(top, 300, vh, 1)
-    assert.ok(p >= prev, `monotone at top=${top}`)
-    prev = p
-  }
-  assert.ok(Math.abs(entryProgress(vh / 2, 300, vh, 1) - 0.5) < 0.01)
-})
-
-test('entering from above, progress runs 0 to 1 from the compact bottom reaching the top edge to the seat', () => {
-  const vh = 844
-  const hc = 300
-  assert.equal(entryProgress(-hc, hc, vh, -1), 0) // the bottom on the top edge
-  assert.equal(entryProgress(-hc - 400, hc, vh, -1), 0) // still above: clamped
-  assert.equal(entryProgress(0, hc, vh, -1), 1) // on the seat
-  assert.equal(entryProgress(-SEAT_TOL_PX, hc, vh, -1), 1)
-  assert.equal(entryProgress(120, hc, vh, -1), 1) // past it (its top below the seat): clamped
-  let prev = -1
-  for (let top = -hc; top <= 0; top += 10) {
-    const p = entryProgress(top, hc, vh, -1)
-    assert.ok(p >= prev, `monotone at top=${top}`)
-    prev = p
-  }
-  assert.ok(Math.abs(entryProgress(-hc / 2, hc, vh, -1) - 0.5) < 0.01)
-})
-
-test('the entry from below reads only the top, so a section growing at its bottom never feeds back into its progress', () => {
-  for (const top of [900, 700, 300, 40, 0]) assert.equal(entryProgress(top, 120, 844, 1), entryProgress(top, 900, 844, 1))
-  // and from above the compact height is the scale: halfway in is half of ITS height, whatever that is
-  for (const hc of [250, 600]) assert.ok(Math.abs(entryProgress(-hc / 2, hc, 844, -1) - 0.5) < 0.01)
-})
-
-test('progress is a latch: it only increases within an entry, so leaving keeps the height', () => {
-  assert.equal(latchProgress(0.4, 0.2), 0.4) // the page turned back, or the section is leaving
-  assert.equal(latchProgress(0.4, 0.7), 0.7)
-  assert.equal(latchProgress(1, 0), 1)
-  // an entry from below, then the page reverses and the section leaves below: height never shrinks
-  const vh = 844
-  let p = 0
-  const heights = []
-  for (const top of [844, 600, 400, 250, 400, 600, 800]) {
-    p = latchProgress(p, entryProgress(top, 300, vh, 1))
-    heights.push(growHeight(300, grownHeight(300, vh), p))
-  }
-  for (let i = 1; i < heights.length; i++) assert.ok(heights[i] >= heights[i - 1])
-  assert.ok(heights[3] > 300 && heights[3] === heights[6])
-})
-
-test('which edge a section is entirely off', () => {
-  assert.equal(offscreenSide(844, 300, 844), 1) // top exactly on the bottom edge
-  assert.equal(offscreenSide(1200, 300, 844), 1)
-  assert.equal(offscreenSide(-300, 300, 844), -1) // bottom exactly on the top edge
-  assert.equal(offscreenSide(-900, 300, 844), -1)
-  assert.equal(offscreenSide(843, 300, 844), 0) // a pixel of it on screen
-  assert.equal(offscreenSide(-299, 300, 844), 0)
-  assert.equal(offscreenSide(0, 742, 844), 0)
-})
-
-test('a grown section resets at once below the viewport and only at rest above it', () => {
-  const vh = 844
-  // fully below: nothing visible moves, so now, rest or not
-  assert.equal(resetSide(900, 742, vh, false), 1)
-  assert.equal(resetSide(900, 742, vh, true), 1)
-  // fully above: only with the page at rest (a programmatic scroll ends iOS's momentum)
-  assert.equal(resetSide(-900, 742, vh, false), 0)
-  assert.equal(resetSide(-900, 742, vh, true), -1)
-  // anything on screen never resets, at rest or not
-  for (const top of [-700, -300, 0, 400, 800]) {
-    assert.equal(resetSide(top, 742, vh, true), 0, `on screen at ${top}`)
-    assert.equal(resetSide(top, 742, vh, false), 0)
-  }
-})
-
-test('the fit window is the worst case the growth can reach', () => {
-  // the fit measures against the SMALL viewport, 0.88 × svh: what the section grows to when the toolbars are shown
-  for (const svh of [553, 660, 844]) {
-    assert.equal(seatWindow(svh), grownHeight(0, svh) + SEAT_TOL_PX)
-    assert.ok(grownHeight(0, svh + 90) > seatWindow(svh)) // collapsed toolbars: a taller viewport, so a bigger window than the fit needed
-  }
-  // a blurb whose content just fits that window is held at its grown height at the small viewport
-  const content = 0.88 * 660
-  assert.equal(grownHeight(content, 660), content)
-  assert.equal(holdable(grownHeight(content, 660), 660), true)
+test('the per-page fit and the growth are gone from the engine (SQ-99)', () => {
+  assert.ok(!/attachBlurbFit|fitTextScale|growFrame|initGrow|grownHeight|style\.minHeight|data-blurb-(fit|grow)|blurbgrow|RESET_EVENT/.test(blurbHoldSrc))
+  assert.ok(!/attachBlurbFit/.test(fs.readFileSync(`${root}src/components/work/detail/FeaturedProjectDetail.jsx`, 'utf8')))
 })
