@@ -33,21 +33,47 @@ export const shouldPassWheel = (now, lastOutsideAt, guardMs) =>
   now - lastOutsideAt < guardMs;
 
 /**
- * Vertical bars for the project iris: one per key of `shares`, left to right in the
- * key order (blue, red, green, yellow, periwinkle for the measured SPECTRUM_SHARES),
- * each `w` proportional to its share of `width`. Contiguous from `x0`; the last bar
- * ends at exactly x0 + width so float drift never leaves a sliver. Returns
- * [{ key, x, w }].
+ * The globe mark's STRIPS (public/icons/swm-globe-mark.svg): the mark is one path whose
+ * first subpath is the outline and whose 34 others are the cells its lines leave open.
+ * A strip is the run of cells between two neighbouring meridians, pole to edge. Listed
+ * round the globe from the far-left strip the viewer sees: six across the front (left
+ * to right), then the six on the far side that show over the pole (right to left).
+ * Each number is a cell's subpath index in the mark.
  */
-export function barSpans(shares, x0, width) {
-  const keys = Object.keys(shares);
-  const total = keys.reduce((a, k) => a + shares[k], 0);
-  let at = x0;
-  return keys.map((key, i) => {
-    const x = at;
-    at = i === keys.length - 1 ? x0 + width : at + (shares[key] / total) * width;
-    return { key, x, w: at - x };
+export const GLOBE_STRIPS = [
+  [21, 23, 24],
+  [14, 13, 26, 25],
+  [15, 12, 28, 27],
+  [5, 6, 30, 31],
+  [4, 7, 32, 33],
+  [2, 1, 34],
+  [3, 8],
+  [10, 9],
+  [29, 11],
+  [16, 17],
+  [18, 20],
+  [19, 22],
+];
+
+/** A path's subpaths, in order (the mark uses absolute M only). */
+export const splitSubpaths = (d) => String(d ?? '').split(/(?=M)/).filter(Boolean);
+
+/**
+ * The project iris: every strip one solid colour. The keys cycle round the globe strip
+ * by strip, and the cycle is seated so the FIRST key lands on the second strip: the four
+ * wide strips across the front then read keys 1 to 4 left to right (blue, red, green,
+ * yellow for SPECTRUM) and the last key takes the two edge strips. Returns one
+ * { key, d } per key, in key order, `d` being that key's cells joined into one path.
+ */
+export function stripFills(d, keys, strips = GLOBE_STRIPS) {
+  const subs = splitSubpaths(d);
+  const n = keys.length;
+  const out = keys.map((key) => ({ key, d: '' }));
+  if (!n) return out;
+  strips.forEach((cells, i) => {
+    out[(i + n - 1) % n].d += cells.map((c) => subs[c] ?? '').join('');
   });
+  return out;
 }
 
 const finiteNum = (raw) => {

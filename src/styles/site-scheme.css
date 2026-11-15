@@ -209,20 +209,15 @@ html[data-menu-open] .swm-corner {
   overflow: visible;
 }
 
-/* The lids: neutral white over a thin dark edge, so they read on black, brand blue,
-   white and over a photo. They brighten when the pager is charged or deployed (hover
-   intent, a press, the column open): the only hover tell a text-free eye has. */
+/* The lids: white, the same white and weight as the globe's lines, so the eye and its
+   iris read as one drawing (Nathan 11-15). The dark edge shows only OUTSIDE the lid shape
+   (the art clips it), so nothing dark sits between the iris and the lids; it keeps the
+   eye legible on white and over a photo. */
 .swm-corner .fp-scale.swm-corner__pager .scheme-eye__edge {
   stroke: color-mix(in srgb, var(--color-black) 50%, transparent);
 }
 
 .swm-corner .fp-scale.swm-corner__pager .scheme-eye__lid {
-  stroke: color-mix(in srgb, var(--color-white) 70%, transparent);
-  transition: stroke 0.16s var(--ease-micro);
-}
-
-.swm-corner .fp-scale.swm-corner__pager[data-charged] .scheme-eye__lid,
-.swm-corner .fp-scale.swm-corner__pager[data-open] .scheme-eye__lid {
   stroke: var(--color-white);
 }
 

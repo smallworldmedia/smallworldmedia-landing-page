@@ -6,12 +6,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { SCHEMES, SPECTRUM_SHARES } from '../../src/lib/colorScheme.js';
+import { SCHEMES, SPECTRUM } from '../../src/lib/colorScheme.js';
 import {
   stationOf,
   schemeAt,
   shouldPassWheel,
-  barSpans,
+  GLOBE_STRIPS,
+  splitSubpaths,
+  stripFills,
   schemeParams,
 } from '../../src/components/siteSchemeLogic.js';
 
@@ -63,36 +65,61 @@ test('shouldPassWheel: a guard of 0 (or less, or junk) is off; no outside wheel 
   assert.equal(shouldPassWheel(1000, undefined, 200), false);
 });
 
-test('barSpans(SPECTRUM_SHARES, 0, 26): five bars in key order, contiguous, proportional, ending at exactly 26', () => {
-  const b = barSpans(SPECTRUM_SHARES, 0, 26);
+const globeD = () => read('public/icons/swm-globe-mark.svg').match(/ d="([^"]+)"/)[1];
+
+test('GLOBE_STRIPS names every cell of the globe mark once: twelve strips over its 34 cells', () => {
+  const subs = splitSubpaths(globeD());
+  assert.equal(subs.length, 35, 'the mark is its outline plus 34 cells; a redrawn mark needs a new strip table');
+  assert.ok(subs.every((s) => s.startsWith('M')), 'every subpath starts at its own M');
+  assert.equal(subs.join(''), globeD(), 'splitting loses nothing');
+  assert.equal(GLOBE_STRIPS.length, 12);
+  const cells = GLOBE_STRIPS.flat();
   assert.deepEqual(
-    b.map((x) => x.key),
-    ['blue', 'red', 'green', 'yellow', 'periwinkle']
+    [...cells].sort((a, b) => a - b),
+    Array.from({ length: 34 }, (_, i) => i + 1),
+    'cells 1 to 34, each in exactly one strip, never the outline (0)'
   );
-  assert.equal(b[0].x, 0);
-  const end = (x) => x.x + x.w;
-  assert.equal(end(b.at(-1)), 26, 'the last bar ends at exactly x0 + width');
-  for (let i = 1; i < b.length; i++) assert.equal(b[i].x, end(b[i - 1]), `bar ${i} starts where ${i - 1} ends`);
-  const total = Object.values(SPECTRUM_SHARES).reduce((a, v) => a + v, 0);
-  for (const x of b) {
-    assert.ok(Math.abs(x.w - (SPECTRUM_SHARES[x.key] / total) * 26) < 1e-9, `${x.key} is as wide as its share`);
-  }
-  // The measured shares, restated: blue is the widest bar, periwinkle the narrowest.
-  const w = Object.fromEntries(b.map((x) => [x.key, x.w]));
-  assert.ok(w.blue > w.red && w.red > w.green && w.green > w.yellow && w.yellow > w.periwinkle);
 });
 
-test('barSpans follows the key order and the origin it is given; a one-key input fills the width', () => {
-  assert.deepEqual(barSpans({ a: 1, b: 1, c: 2 }, 10, 40), [
-    { key: 'a', x: 10, w: 10 },
-    { key: 'b', x: 20, w: 10 },
-    { key: 'c', x: 30, w: 20 },
+test('stripFills: one solid colour per strip; blue, red, green, yellow across the front, periwinkle on both edges', () => {
+  const keys = Object.keys(SPECTRUM);
+  assert.deepEqual(keys, ['blue', 'red', 'green', 'yellow', 'periwinkle']);
+  const d = globeD();
+  const subs = splitSubpaths(d);
+  const fills = stripFills(d, keys);
+  assert.deepEqual(
+    fills.map((f) => f.key),
+    keys,
+    'one path per key, in key order'
+  );
+  const keyOf = (strip) => fills.find((f) => f.d.includes(subs[GLOBE_STRIPS[strip][0]])).key;
+  // The six front strips, left to right.
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(keyOf), ['periwinkle', 'blue', 'red', 'green', 'yellow', 'periwinkle']);
+  // A strip is one colour: all its cells sit in the same key's path, and in no other.
+  GLOBE_STRIPS.forEach((cells, i) => {
+    const key = keyOf(i);
+    for (const c of cells) {
+      for (const f of fills) assert.equal(f.d.includes(subs[c]), f.key === key, `cell ${c} is ${key} only`);
+    }
+  });
+  // Round the globe, wrap included, no two neighbouring strips share a colour.
+  GLOBE_STRIPS.forEach((_, i) => {
+    assert.notEqual(keyOf(i), keyOf((i + 1) % GLOBE_STRIPS.length), `strips ${i} and ${i + 1} differ`);
+  });
+  assert.ok(!fills.some((f) => f.d.includes(subs[0])), 'the outline is never a fill');
+  assert.equal(fills.reduce((n, f) => n + f.d.length, 0), d.length - subs[0].length, 'every cell is filled once');
+});
+
+test('stripFills follows the keys and the strips it is given; no keys gives no fills', () => {
+  const d = 'M0 0ZM1 1ZM2 2ZM3 3Z';
+  assert.deepEqual(stripFills(d, ['a', 'b'], [[1], [2], [3]]), [
+    { key: 'a', d: 'M2 2Z' },
+    { key: 'b', d: 'M1 1ZM3 3Z' },
   ]);
-  assert.deepEqual(barSpans({ only: 3 }, 5, 26), [{ key: 'only', x: 5, w: 26 }]);
-  assert.deepEqual(barSpans({}, 0, 26), []);
-  // Float drift never leaves a sliver: thirds of 26 still end at exactly 26.
-  const t = barSpans({ a: 1, b: 1, c: 1 }, 0, 26);
-  assert.equal(t.at(-1).x + t.at(-1).w, 26);
+  assert.deepEqual(stripFills(d, ['only'], [[1, 2], [3]]), [{ key: 'only', d: 'M1 1ZM2 2ZM3 3Z' }]);
+  assert.deepEqual(stripFills(d, [], [[1]]), []);
+  assert.deepEqual(splitSubpaths(''), []);
+  assert.deepEqual(splitSubpaths(undefined), []);
 });
 
 test('schemeParams: defaults, and ?schemeui ?schemeguard ?schemerows ?schemesize ?schemepitch', () => {
@@ -162,15 +189,16 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
   assert.ok(/data-chrome-open/.test(css) && /data-menu-open/.test(css), 'yields to the overlays and the menu');
 });
 
-test('the eye: the globe path is read from the public file once, the lid shape has one source, the faces carry no orange or pie', () => {
+test('the eye: the globe path is read from the public file once, the lid shape has one source, the project face is the strips of the globe', () => {
   const sw = read('src/components/schemeSwatches.jsx');
-  const globe = read('public/icons/swm-globe-mark.svg').match(/ d="([^"]+)"/)[1];
+  const globe = globeD();
   assert.ok(!sw.includes(globe.slice(0, 24)), 'the globe path data is not retyped');
   assert.ok(/swm-globe-mark\.svg\?raw/.test(sw), 'the path comes from the public file');
   assert.equal(sw.split('id="swm-eye-globe"').length - 1, 1, 'one <path> in one <defs>');
   assert.ok(/href="#swm-eye-globe"/.test(sw), 'every circle <use>s it');
-  assert.ok(!/fe7701|orange|arcPoint|pieWedges/i.test(sw), 'no wedge, pie or orange face');
-  assert.ok(/barSpans\(SPECTRUM_SHARES/.test(sw), 'the project face is vertical bars in the share order');
+  assert.ok(!/fe7701|orange|arcPoint|pieWedges|barSpans/i.test(sw), 'no wedge, pie, bar or orange face');
+  assert.ok(/stripFills\(GLOBE_D, Object\.keys\(SPECTRUM\)\)/.test(sw), 'the project face colours the globe strip by strip');
+  assert.ok(/className="scheme-eye__edge"[\s\S]*?clipPath="url\(#swm-eye-out\)"/.test(sw), 'the dark edge is clipped to the outside of the lids');
   const css = read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(/mask-image:[\s\S]*?var\(--eye-lid-mask\)/.test(css), 'the window mask carries the lid opening');
   assert.ok(!/scheme-ring|scheme-halo/.test(css), 'the circular lens ring is gone');
