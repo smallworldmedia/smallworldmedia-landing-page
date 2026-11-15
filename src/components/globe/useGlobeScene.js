@@ -48,6 +48,8 @@ import { createPanelMaterial } from './panelMaterial.js';
 import TextureManager, { assetKey } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import { settleDebounce } from '../../lib/settleResize.js';
+import { getScheme, onScheme } from '../../lib/colorScheme.js';
+import { nameStripPaints } from './nameTicker.js';
 import LivePanelScheduler, { HANDOFF_BEAT_S } from './LivePanelScheduler.js';
 import { preloadHls } from '../work/useHls.js';
 import MeridianScroll, { initialBirth, poseTile, scrollZeroTheta } from './MeridianScroll.js';
@@ -69,6 +71,8 @@ import {
   globePixelRatio,
   PITCH_LIMIT_DEG,
   GAP_COLOR,
+  gapHex,
+  sceneAccent,
   IS_MOBILE,
   PANEL_FALLBACK_COLOR,
   PREFERS_REDUCED_MOTION,
@@ -752,24 +756,38 @@ export default function useGlobeScene(
        sRGB — how the browser interpolates the chrome's legacy colours — so
        the stroke ring and the home chrome change in lockstep. onWorldChange
        carries the change out to Hero. Idle without a director. — */
+    /* The colour scheme (swm:scheme, SQ-90) rides the same tween. A scheme
+       names the accent (schemeAccent: black and blue are constants, spectrum
+       the world's palette fill, project the world's own colour) and the
+       world-less gap colour, which is also the fog the distance recedes into.
+       The fog colour is ONE Color shared by every panel, so it fades with the
+       lattice on the accent's clock instead of snapping. Under 'project' the
+       gap is GAP_COLOR and nothing here moves. */
+    const fogColor = new THREE.Color(GAP_COLOR);
+    const fogFrom = { r: 0, g: 0, b: 0 };
+    const fogTo = { r: 0, g: 0, b: 0 };
+    const fogTarget = new THREE.Color(GAP_COLOR);
+    let popWorld = null; // the world on the globe, raw (onPopWorld)
     const accentFrom = { r: 0, g: 0, b: 0 };
     const accentTo = { r: 0, g: 0, b: 0 };
     const accentClock = { t: 1 };
-    const accentTarget = new THREE.Color();
+    const accentTarget = new THREE.Color(GAP_COLOR);
     let accentTween = null;
+    const lerpRGB = (color, a, b, k) =>
+      color.setRGB(a.r + (b.r - a.r) * k, a.g + (b.g - a.g) * k, a.b + (b.b - a.b) * k, THREE.SRGBColorSpace);
     const paintAccent = () => {
       const k = accentClock.t;
-      inkBlue.setRGB(
-        accentFrom.r + (accentTo.r - accentFrom.r) * k,
-        accentFrom.g + (accentTo.g - accentFrom.g) * k,
-        accentFrom.b + (accentTo.b - accentFrom.b) * k,
-        THREE.SRGBColorSpace
-      );
+      lerpRGB(inkBlue, accentFrom, accentTo, k);
+      lerpRGB(fogColor, fogFrom, fogTo, k);
       paintInk();
     };
-    const setAccent = (color, animate) => {
+    /** The accent `scheme` paints the globe with. ?popcolor 0 takes the world out of it. */
+    const accentFor = (scheme) => sceneAccent(POP_TUNING.color ? popWorld : null, scheme);
+    const setAccent = (color, animate, scheme = getScheme()) => {
       inkBlue.getRGB(accentFrom, THREE.SRGBColorSpace); // from where it is — mid-change included
-      accentTarget.set(color || GAP_COLOR).getRGB(accentTo, THREE.SRGBColorSpace);
+      fogColor.getRGB(fogFrom, THREE.SRGBColorSpace);
+      accentTarget.set(color).getRGB(accentTo, THREE.SRGBColorSpace);
+      fogTarget.set(gapHex(scheme)).getRGB(fogTo, THREE.SRGBColorSpace);
       if (accentTween) accentTween.kill();
       accentTween = null;
       accentClock.t = animate ? 0 : 1;
@@ -782,17 +800,40 @@ export default function useGlobeScene(
         });
       } else paintAccent();
     };
-    if (popAvailable) {
-      for (const p of panels) p.mesh.material.uniforms.uBlueColor.value = inkBlue;
+    for (const p of panels) {
+      const u = p.mesh.material.uniforms;
+      u.uBlueColor.value = inkBlue;
+      u.uFogColor.value = fogColor;
     }
+    // Hero tints the chrome with the world's RAW colour and palette key: the DOM
+    // takes the scheme from CSS (html[data-scheme]), the canvas from schemeAccent.
     const onPopWorld = (world, { animate }) => {
       if (disposed) return;
+      popWorld = world;
       const color = (POP_TUNING.color && world?.projectColor) || null;
-      setAccent(color, animate);
+      setAccent(accentFor(getScheme()), animate);
       const hub = worldHubRef.current;
-      hub.last = { slug: world?.slug ?? null, color, animate };
+      hub.last = { slug: world?.slug ?? null, color, spectrum: (POP_TUNING.color && world?.spectrum) || null, animate };
       hub.subs.forEach((cb) => cb(hub.last));
     };
+    // A scheme change: the accent, gap and fog ease to it (a PREVIEW writes
+    // nothing else); a settled one also repaints the name strips in place.
+    const unsubscribeScheme = onScheme(({ scheme, preview }) => {
+      if (disposed) return;
+      setAccent(accentFor(scheme), !PREFERS_REDUCED_MOTION, scheme);
+      if (!preview) textureManager.recolorNames(scheme);
+    });
+    if (getScheme() !== 'project') setAccent(accentFor(getScheme()), false); // the load's scheme, before the first frame
+    // The probe's read of what the scene paints (target colours, so a fade in flight reads settled) and how many strips it has drawn.
+    const hex = (c) => `#${c.getHexString()}`;
+    const schemeDebug = (window.__swmSchemeDebug = window.__swmSchemeDebug || {});
+    const globeDebug = () => ({
+      accent: hex(accentTarget),
+      gap: hex(new THREE.Color().lerpColors(inkWhite, accentTarget, inkT)),
+      fog: hex(fogTarget),
+      strips: nameStripPaints(),
+    });
+    schemeDebug.globe = globeDebug;
     // Reduced motion has no clock and no entrance to wait for — the first
     // world takes its colour at once.
     if (director && PREFERS_REDUCED_MOTION) director.greet(false);
@@ -1312,6 +1353,8 @@ export default function useGlobeScene(
       }
       if (window.__globeLens) delete window.__globeLens;
       if (unsubscribePop) unsubscribePop();
+      unsubscribeScheme();
+      if (window.__swmSchemeDebug?.globe === globeDebug) delete window.__swmSchemeDebug.globe;
       if (accentTween) accentTween.kill();
       intersectionObserver.disconnect();
       resizeObserver.disconnect();

@@ -132,6 +132,20 @@ export default class TextureManager {
     return { mib: mib(this.bytes), peak: mib(this.peakBytes), entries: this.cache.size, refs, pending, failed };
   }
 
+  /** A settled colour-scheme change: repaint every decoded name strip that does
+   *  not already show `scheme`, in place (nameTicker's userData.repaint). A strip
+   *  still decoding paints with the live scheme when it lands. Returns the count. */
+  recolorNames(scheme) {
+    let n = 0;
+    for (const { texture } of this.cache.values()) {
+      if (texture?.userData.repaint && texture.userData.scheme !== scheme) {
+        texture.userData.repaint(scheme);
+        n += 1;
+      }
+    }
+    return n;
+  }
+
   /** @param {string} key - a playbackId, or assetKey(asset) for a still */
   release(key) {
     const entry = this.cache.get(key);

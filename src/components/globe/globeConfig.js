@@ -1,4 +1,5 @@
 import { DRAG_CHOREO } from '../../lib/dragMomentum.js';
+import { schemeAccent } from '../../lib/colorScheme.js';
 /**
  * globeConfig.js — Every tunable constant for the CMS Video Globe.
  *
@@ -144,6 +145,14 @@ export const INERTIA_SECONDS = DRAG_CHOREO.inertiaSeconds;      // decay back to
 /* — Colors (match global.css custom properties) — */
 export const GAP_COLOR = 0x0000ff;            // electric blue — the lat/long lines + occluding inner sphere
 export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-texture state
+
+/** The colour-scheme face of GAP_COLOR (swm:scheme): the gap, and the fog the distance recedes into, when no world
+ *  tints. Brand blue under project and blue, black under black, the palette blue under spectrum. */
+export const gapHex = (scheme) => schemeAccent({ projectColor: `#${GAP_COLOR.toString(16).padStart(6, '0')}` }, scheme);
+/** What the globe paints a world with under `scheme` as #rrggbb: schemeAccent, else the gap. `world` = { projectColor,
+ *  spectrum } or null (no world, or ?popcolor 0). Under project it is the world's own colour, as always. */
+export const sceneAccent = (world, scheme) =>
+  schemeAccent({ projectColor: world?.projectColor, spectrum: world?.spectrum }, scheme) || gapHex(scheme);
 
 /* — VideoGlobe-only device knobs (10-09, the media spans round): the home
    globe and /lab, which share useGlobeScene, nameTicker, TextureManager and VideoSlotPool's

@@ -33,9 +33,16 @@
  * nameKey carries every input that changes the DRAWING (style, size, layout)
  * because TextureManager caches one texture per key — a variation left out of
  * the key would let the first-drawn variant stick for the session.
+ *
+ * The colour scheme (swm:scheme) is the one input the key leaves out ON
+ * PURPOSE: a scheme change repaints the cached canvas in place
+ * (texture.userData.repaint, driven by TextureManager.recolorNames), so every
+ * holder of the texture (a tile on screen, a board planned ahead, a warm
+ * set) shows the new colours at once, and no key can name a stale one.
  */
 import * as THREE from 'three';
 import { NAME_STRIP_H } from './globeConfig.js';
+import { getScheme, schemeAccent, schemeInk } from '../../lib/colorScheme.js';
 
 export const NAME_STYLES = ['ink', 'fill'];
 /** region = a run of tiles sized to the name; band = a whole latitude row. */
@@ -50,6 +57,7 @@ const TRACKING = -0.02; // em — the card's --tracking-tight
 const GAP = 0.42; // strip heights of clear space around the name
 const BLACK = '#000000';
 const BRAND_BLUE = '#0000ff'; // a world without a projectColor
+const WHITE = '#ffffff';
 const EM = 0.5; // em per glyph — the estimate when the face can't be measured
 
 const fontAt = (px) => `${WEIGHT} ${px}px ${FACE}`;
@@ -181,6 +189,22 @@ export function nameSpan(text, size, panelAspect, { min = 1, max = 1 } = {}) {
   return clamp(need, lo, Math.max(lo, Math.round(max)));
 }
 
+/** A strip's two colours under `scheme`: its ground and its lettering.
+ *  project (and blue, whose accent is brand blue): today's strips — 'ink' is the
+ *  accent on black, 'fill' black on the accent. black: white on black, whichever
+ *  the style (the accent IS black, so a strip drawn in it would vanish).
+ *  spectrum: 'ink' is the palette fill on black, 'fill' puts the pair's own ink
+ *  on the fill. `world` = { projectColor, spectrum }. */
+export function nameInks(world, style, scheme = getScheme()) {
+  if (scheme === 'black') return { ground: BLACK, text: WHITE };
+  const accent = schemeAccent(world, scheme) || BRAND_BLUE;
+  if (style === 'fill') return { ground: accent, text: scheme === 'spectrum' ? schemeInk(world, scheme) : BLACK };
+  return { ground: BLACK, text: accent };
+}
+
+let strips = 0; // strips painted since load (a repaint counts): the scheme debug hook's `strips`
+export const nameStripPaints = () => strips;
+
 /** The tile asset for a world's name strip (assetKey reads nameKey). */
 export function nameAsset(world, wi, { style, size, mode, span, panelAspect = 1 }) {
   const band = mode === 'band';
@@ -188,7 +212,8 @@ export function nameAsset(world, wi, { style, size, mode, span, panelAspect = 1 
     kind: 'name',
     nameKey: `name:${world.slug}:${style}:${size}:${band ? 'band' : `region${span}`}`,
     text: world.clientName || '',
-    color: world.projectColor || BRAND_BLUE,
+    projectColor: world.projectColor,
+    spectrum: world.spectrum,
     style,
     size,
     mode: band ? 'band' : 'region',
@@ -201,7 +226,7 @@ export function nameAsset(world, wi, { style, size, mode, span, panelAspect = 1 
 }
 
 /** Draw the strip → a CanvasTexture (resolves once the face has loaded). */
-export async function loadNameTexture({ text, color, style, size, mode, span, panelAspect = 1 }) {
+export async function loadNameTexture({ text, projectColor, spectrum, style, size, mode, span, panelAspect = 1 }) {
   const s = label(text);
   const band = mode === 'band';
   const canvas = document.createElement('canvas');
@@ -237,18 +262,32 @@ export async function loadNameTexture({ text, color, style, size, mode, span, pa
   canvas.width = w;
   canvas.height = STRIP_H;
   setFont(); // a resize resets the context
-  const ground = style === 'fill' ? color : BLACK;
-  ctx.fillStyle = ground;
-  ctx.fillRect(0, 0, w, STRIP_H);
-  ctx.fillStyle = style === 'fill' ? BLACK : color;
-  ctx.textBaseline = 'alphabetic';
   // The caps' own box, centred on the strip (optical, not em-box, centring).
   const y = (STRIP_H + m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-  ctx.fillText(s, band ? gap / 2 : Math.max(0, (w - m.width) / 2), y);
+  const x = band ? gap / 2 : Math.max(0, (w - m.width) / 2);
+  const paint = (scheme) => {
+    const { ground, text: ink } = nameInks({ projectColor, spectrum }, style, scheme);
+    ctx.fillStyle = ground;
+    ctx.fillRect(0, 0, w, STRIP_H);
+    ctx.fillStyle = ink;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(s, x, y);
+    strips += 1;
+  };
+  const scheme0 = getScheme();
+  paint(scheme0);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   if (band) tex.wrapS = THREE.RepeatWrapping; // the name repeats round the row
   tex.anisotropy = 4;
   tex.userData.aspect = w / STRIP_H;
+  // A settled scheme change repaints the same canvas (same size, so no storage
+  // to rebuild) and re-uploads it; userData.scheme says which scheme it shows.
+  tex.userData.scheme = scheme0;
+  tex.userData.repaint = (scheme = getScheme()) => {
+    paint(scheme);
+    tex.userData.scheme = scheme;
+    tex.needsUpdate = true;
+  };
   return tex;
 }
