@@ -6,7 +6,7 @@
  *   /work?lens=-0.5&tile=1.2&scatter=0.8&zjitter=0.8&sep=0.5&fov=40
  */
 import { HOME_X, VIEW_HOLD } from '../bandLayout.js';
-import { schemeAccent } from '../../../lib/colorScheme.js';
+import { schemeAccent, SPECTRUM } from '../../../lib/colorScheme.js';
 
 export const IS_MOBILE =
   typeof window !== 'undefined' &&
@@ -283,6 +283,9 @@ export const SHELL_RADIUS = 16;
 export const SHELL_MERIDIANS = 250; // longitude lines
 export const SHELL_PARALLELS = 230; // latitude lines
 export const SHELL_LINE_COLOR = 0x020098;
+// S2: how far to dim a project accent when it tints the background grid, so a bright accent (e.g. lime)
+// stays a faint field rather than a glaring wall. The spectrum ramp takes the same dim.
+export const GRID_TINT_DIM = 0.6;
 /* — Colour scheme (US-7): what the scene paints under each scheme. Pure, so the
    test covers it; `project` resolves to exactly today's value in every case. — */
 // ?schemegrid — grey level (0..1) of the shell grid line under the `black` scheme (Nathan 11-14: very faint, not gone). Default 0.12 (#1f1f1f) is Nathan's starting value of 11-14 ("that works to start"), still a live dial: read here, not baked
@@ -300,8 +303,14 @@ export const gridGrey = (level = SCHEME_GRID_LEVEL) => {
     .padStart(2, '0');
   return `#${v}${v}${v}`;
 };
+/**
+ * Spectrum (wave 4) is keyless: every World takes the SAME flat colour, SPECTRUM.blue.fill, and the
+ * scene's one screen-space ramp (worldRamp.js) is drawn over it. Nothing on the canvas differs per project.
+ */
+const SPECTRUM_FLAT = SPECTRUM.blue.fill;
 /** Plate and wall borders, spine tabs: schemeAccent, else today's deep-blue fallback (a colourless World). */
-export const drumAccentFor = (world, scheme) => schemeAccent(world, scheme) || SHELL_LINE_COLOR;
+export const drumAccentFor = (world, scheme) =>
+  scheme === 'spectrum' ? SPECTRUM_FLAT : schemeAccent(world, scheme) || SHELL_LINE_COLOR;
 /** The grid glow: the black scheme's grid grey, else the same accent as the borders. */
 export const glowColorFor = (world, scheme, level = SCHEME_GRID_LEVEL) =>
   scheme === 'black' ? gridGrey(level) : drumAccentFor(world, scheme);
@@ -312,9 +321,19 @@ export const glowColorFor = (world, scheme, level = SCHEME_GRID_LEVEL) =>
  */
 export const shellLineFor = (world, scheme, level = SCHEME_GRID_LEVEL) => {
   if (scheme === 'black') return { color: gridGrey(level), tinted: false };
+  if (scheme === 'spectrum') return { color: SPECTRUM_FLAT, tinted: true };
   const accent = schemeAccent(world, scheme);
   return accent ? { color: accent, tinted: true } : { color: SHELL_LINE_COLOR, tinted: false };
 };
+/** How far the ramp replaces the flat colour: 1 under spectrum, 0 (exactly today's output) under every other scheme. */
+export const rampMixFor = (scheme) => (scheme === 'spectrum' ? 1 : 0);
+/**
+ * The spine tab's fill and ink under spectrum: yellow with near-black ink on every plate. Null under the
+ * other schemes, which paint the tab as they always have (see paintTab in fpDrumTrim.js: it hands a hex
+ * string to a function that expects a number, so project, black and blue tabs paint #000000 with white ink).
+ */
+export const tabPairFor = (scheme) =>
+  scheme === 'spectrum' ? { fill: SPECTRUM.yellow.fill, ink: SPECTRUM.yellow.fg } : null;
 /** Slot work for a scheme event: colour writes always; the tab canvases only once settled. No slot rebuild either way. */
 export const schemePaintPlan = (preview) => ({ colors: true, tabs: !preview });
 export const SHELL_OPACITY = num('shellalpha', 0.55); // ?shellalpha — grid line opacity; 0.55 = 08-25 "more subtle" default (was 1.0)

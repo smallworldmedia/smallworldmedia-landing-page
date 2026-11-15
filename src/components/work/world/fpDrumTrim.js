@@ -54,6 +54,7 @@ import {
   PREFERS_REDUCED_MOTION,
 } from './worldConfig.js';
 import { HOUSE_PULSE_PERIOD_S } from '../../../lib/motion.js';
+import { rampUniforms, RAMP_FRAG_DECL, RAMP_AT_FRAG } from './worldRamp.js';
 
 const DEG2RAD = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -84,9 +85,15 @@ export function inkForAccent(accent) {
  */
 export const TAB_TEX_W = 64;
 export const TAB_TEX_H = 320;
-function paintTab(canvas, text, accent) {
+// `pair` ({ fill, ink } hex strings) is the spectrum scheme's yellow tab. Without it the tab paints as it
+// always has: `accent` is the hex STRING drumAccentFor returns, which num2hex and inkForAccent (both
+// expecting a NUMBER) read as 0, so project, black and blue tabs paint #000000 with white ink (a colourless
+// World's numeric 0x020098 fallback is the one case they get right). Returns what it painted.
+function paintTab(canvas, text, accent, pair) {
   const c = canvas.getContext('2d');
-  c.fillStyle = num2hex(accent);
+  const fill = pair ? pair.fill : num2hex(accent);
+  const ink = pair ? pair.ink : inkForAccent(accent);
+  c.fillStyle = fill;
   c.fillRect(0, 0, TAB_TEX_W, TAB_TEX_H);
   c.save();
   c.translate(TAB_TEX_W / 2, TAB_TEX_H / 2);
@@ -96,24 +103,26 @@ function paintTab(canvas, text, accent) {
   c.font = '500 26px "SFMono-Regular", Menlo, Consolas, monospace';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillStyle = inkForAccent(accent);
+  c.fillStyle = ink;
   c.fillText(shown, 0, 0);
   c.restore();
+  return { fill, ink };
 }
 
-export function makeTabTexture(text, accent) {
+export function makeTabTexture(text, accent, pair) {
   const canvas = document.createElement('canvas');
   canvas.width = TAB_TEX_W;
   canvas.height = TAB_TEX_H;
-  paintTab(canvas, text, accent);
+  const painted = paintTab(canvas, text, accent, pair);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.userData.tabPaint = painted; // the debug hook reads what the tab last painted
   return tex;
 }
 
 /** Redraw a tab's canvas in place (a scheme change): same size, so the CanvasTexture storage stays valid. */
-export function repaintTab(tex, text, accent) {
-  paintTab(tex.image, text, accent);
+export function repaintTab(tex, text, accent, pair) {
+  tex.userData.tabPaint = paintTab(tex.image, text, accent, pair);
   tex.needsUpdate = true;
 }
 
@@ -136,6 +145,7 @@ const GLOW_VERT = /* glsl */ `
 const GLOW_FRAG = /* glsl */ `
   #define TAU 6.28318530718
   #define PI 3.14159265359
+  ${RAMP_FRAG_DECL}
   uniform vec3 uColor;
   uniform float uOpacity;
   uniform float uAlpha;
@@ -211,7 +221,8 @@ const GLOW_FRAG = /* glsl */ `
       vec2 e = min(f, 1.0 - f);
       inset = smoothstep(0.0, 0.12, min(e.x, e.y));
     }
-    gl_FragColor = vec4(uColor, I * inset * uAlpha * uOpacity);
+    // The flat accent, or (spectrum, uRampMix 1) the scene's screen-space ramp: both linear rgb.
+    gl_FragColor = vec4(mix(uColor, ${RAMP_AT_FRAG}, uRampMix), I * inset * uAlpha * uOpacity);
   }
 `;
 
@@ -247,6 +258,7 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
   const radMax = Math.hypot(win.halfLon, win.halfLat) * RIPPLE_RADIUS;
   const uniforms = {
     uColor: { value: new THREE.Color(accent) },
+    ...rampUniforms, // uRamp, uRampMix, uRampW: shared by reference with every line material
     uOpacity: { value: 0 },
     // Ripple peaks at ?ripalpha (default = the grid lines' own opacity);
     // the trace keeps its harder ?fpglowa×3 basis — few cells lit at once.
