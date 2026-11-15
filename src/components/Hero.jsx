@@ -739,9 +739,9 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   useEffect(() => {
     const api = sceneApiRef.current;
     if (!api?.onWorldChange) return undefined;
-    const unsub = api.onWorldChange(({ slug, color, animate }) => {
+    const unsub = api.onWorldChange(({ slug, color, spectrum, animate }) => {
       worldRef.current = { slug, color };
-      applyNavAccent(color || undefined, undefined, animate, { tint: 'pop-tint' });
+      applyNavAccent(color || undefined, undefined, animate, { tint: 'pop-tint', spectrum });
     });
     return () => {
       unsub();

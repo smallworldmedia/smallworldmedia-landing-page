@@ -78,6 +78,7 @@ import { planUrl, prefetchClips, prefetchStats } from './streamPrefetch.js';
 import { primedPlaylistStats } from '../work/hlsPrimed.js';
 import { posePanel } from './MeridianScroll.js';
 import { sequenceFrame } from '../../lib/mediaSequence.js';
+import { schemeAccent } from '../../lib/colorScheme.js';
 import { lattice, texSpec, stillSpec, unitAspect, thetaBound, eligibleVQ, eligibleT, unitLookFor, unitSkewBound, rendered, electQuads, quadEligible, wideClass, growTall, canForm, coverWindow, frac, UNIT_EPS, UNIT_SHAPE, UNIT_CLASSES, UNIT_FALLBACK, T_ENTRANCE, liveB, pictureAspect } from './unitSpan.js';
 import {
   nameAsset,
@@ -1734,7 +1735,7 @@ export default class PopulationDirector {
       holdLeft: this.busy ? null : Math.max(0, Math.round(this.holdLeft * 10) / 10),
       changedAt: this.changedAt == null ? null : Math.round(this.changedAt),
       landedAt: this.landedAt == null ? null : Math.round(this.landedAt),
-      color: TUNING.color ? (this.worlds[this.lead]?.projectColor ?? null) : null,
+      color: TUNING.color ? (schemeAccent(this.worlds[this.lead]) ?? null) : null, // the accent the globe paints: the world's own colour under project
       pattern: g.name,
       seed: this.seed,
       step: this.step,
