@@ -15,7 +15,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { projectColorVars } from '../../src/lib/projectColor.js';
-import { SPECTRUM } from '../../src/lib/colorScheme.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
@@ -168,66 +167,126 @@ test("scheme.css: black inks the directory's checked filter with the chip ink, s
   assert.match(new Map(box.decls).get('background'), /var\(--scheme-chip\)/);
 });
 
-// ── spectrum (SQ-93) ──────────────────────────────────────────────────────────────────────────────
-// Each palette key is a carrier block on <html> and on any descendant that carries the key: the values
-// projectColorVars(fill) returns, except the ink (SPECTRUM[key].fg) and --nav-ink-l, which must agree with
-// that ink (1 = white ink, 0 = dark). A carrier with no key takes the blue pair.
+// ── spectrum (SQ-96): a keyless skin ──────────────────────────────────────────────────────────────
+// Nothing in the spectrum section reads a project. The palette arrives inside each component, so the same
+// element paints the same colour on every project. v1's per-key carrier blocks are gone.
 
-const whiteInk = (fg) => hex6(fg) === '#ffffff';
+const spectrumRules = schemeRules.filter((r) => r.selector.includes("'spectrum'"));
 
-for (const [key, { fill, fg }] of Object.entries(SPECTRUM)) {
-  test(`scheme.css: spectrum '${key}' carries projectColorVars('${fill}') with the pinned ink, !important, on html and its carriers`, () => {
-    const own = `html[data-scheme='spectrum'][data-spectrum='${key}']`;
-    const carrier = `html[data-scheme='spectrum'] [data-spectrum='${key}']`;
-    const rule = schemeRules.find((r) => {
-      const sels = splitList(r.selector);
-      return sels.includes(own) && sels.includes(carrier);
-    });
-    assert.ok(rule, `a rule on both ${own} and ${carrier}`);
-    const declared = new Map(rule.decls);
-    const want = { ...projectColorVars(fill), '--project-color-fg': fg, '--nav-ink-l': whiteInk(fg) ? 1 : 0 };
-    // projectColorVars leaves the secondary accent and a dark accent's globe filter undefined: the scheme
-    // declares them anyway, fixed, so an inline write cannot reach them.
-    want['--project-color-2'] ??= fill;
-    want['--project-globe-filter'] ??= 'none';
-    assert.deepEqual(
-      Object.keys(want).sort(),
-      Object.keys(projectColorVars(fill)).concat([]).sort(),
-      'the test covers every key projectColorVars writes',
-    );
-    for (const [prop, value] of Object.entries(want)) {
-      assert.ok(declared.has(prop), `${prop} is declared`);
-      const got = declared.get(prop);
-      assert.match(got, /\s!important$/, `${prop} is !important`);
-      assert.equal(hex6(got.replace(/\s*!important$/, '')), hex6(String(value)), `${prop} value`);
-    }
-    assert.ok(!rule.selector.replace(/\[[^\]]*\]/g, '').includes('*'), 'no universal selector');
-  });
-}
-
-test('scheme.css: a spectrum carrier with no key (and <html> before a project sets one) takes the blue pair', () => {
-  const own = "html[data-scheme='spectrum']:not([data-spectrum])";
-  const carrier = "html[data-scheme='spectrum'] [style*='--project-color']:not([data-spectrum])";
-  const rule = schemeRules.find((r) => {
-    const sels = splitList(r.selector);
-    return sels.includes(own) && sels.includes(carrier);
-  });
-  assert.ok(rule, 'a fallback rule on both selectors');
-  const declared = new Map(rule.decls);
-  const keyed = schemeRules.find((r) => splitList(r.selector).includes("html[data-scheme='spectrum'][data-spectrum='blue']"));
-  for (const [prop, value] of keyed.decls) assert.equal(declared.get(prop), value, `${prop} matches the blue block`);
-  assert.equal(declared.size, keyed.decls.length);
-});
-
-test('scheme.css: every spectrum key is matched by name, never a bare [data-spectrum]', () => {
-  // ClientLogoTicker's band carries data-spectrum='white' with another meaning.
-  const bare = [];
-  for (const r of schemeRules) {
+test('scheme.css: the spectrum section reads no per-project value (no [data-spectrum=blue|red|green|yellow|periwinkle])', () => {
+  assert.ok(spectrumRules.length > 50, 'the spectrum section has its rules');
+  const reads = [];
+  for (const r of spectrumRules) {
     for (const sel of splitList(r.selector)) {
-      if (/\[data-spectrum\](?!\))/.test(sel) && !/\[data-spectrum\]\)$/.test(sel)) bare.push(sel);
+      if (/data-spectrum|data-project/.test(sel)) reads.push(sel);
     }
   }
-  assert.deepEqual(bare, []);
+  assert.deepEqual(reads, []);
+  // the only attribute test besides data-scheme is the inline project-colour write, matched by its name
+  for (const r of spectrumRules) {
+    for (const [, inner] of r.selector.matchAll(/\[([^\]]+)\]/g)) {
+      assert.ok(/^(data-scheme='spectrum'|style\*='--project-color'|aria-[\w-]+(='[\w-]+')?|data-[\w-]+(='[\w-]+')?|type='[\w-]+'|href[\^$*]?='[^']*')$/.test(inner), `${r.selector}: [${inner}]`);
+    }
+  }
+});
+
+test("scheme.css: every spectrum rule starts from html[data-scheme='spectrum']", () => {
+  for (const r of spectrumRules) {
+    for (const sel of splitList(r.selector)) assert.ok(sel.startsWith("html[data-scheme='spectrum']"), sel);
+  }
+});
+
+/** A pair token's value, with var(--swm-*) resolved against global.css :root. */
+const globalRoot = new Map(rulesOf(read('src/styles/global.css')).find((r) => r.selector === ':root').decls);
+const spectrumRoot = new Map(
+  spectrumRules.filter((r) => splitList(r.selector).includes("html[data-scheme='spectrum']")).flatMap((r) => r.decls),
+);
+const resolve = (v) => {
+  const m = /^var\((--[\w-]+)\)$/.exec(String(v).trim());
+  return m ? resolve(spectrumRoot.get(m[1]) ?? globalRoot.get(m[1])) : hex6(v);
+};
+
+// The contract's seven ground / ink pairs, exactly.
+const PAIRS = {
+  blue: ['#1556e5', '#ffffff'],
+  red: ['#fd361a', '#0a0a0a'],
+  green: ['#077b3e', '#ffffff'],
+  yellow: ['#fbb702', '#0a0a0a'],
+  periwinkle: ['#a6bcda', '#0a2577'],
+  white: ['#ffffff', '#077b3e'],
+  navy: ['#0a2577', '#a6bcda'],
+};
+
+test('scheme.css: the seven spectrum ground / ink pairs hold the contract values', () => {
+  for (const [name, [ground, ink]] of Object.entries(PAIRS)) {
+    assert.equal(resolve(spectrumRoot.get(`--sp-${name}`)), ground, `--sp-${name}`);
+    assert.equal(resolve(spectrumRoot.get(`--sp-${name}-ink`)), ink, `--sp-${name}-ink`);
+  }
+});
+
+test('scheme.css: spectrum pages are black; the chip roles take the blue pair and the accent ink is yellow', () => {
+  assert.equal(resolve(spectrumRoot.get('--scheme-page')), '#000000');
+  assert.equal(resolve(spectrumRoot.get('--scheme-chip')), PAIRS.blue[0]);
+  assert.equal(resolve(spectrumRoot.get('--scheme-chip-ink')), PAIRS.blue[1]);
+  assert.equal(resolve(spectrumRoot.get('--scheme-accent-ink')), PAIRS.yellow[0]);
+});
+
+test('scheme.css: every project-colour carrier takes the blue pair from one !important block', () => {
+  const own = "html[data-scheme='spectrum']";
+  const carrier = "html[data-scheme='spectrum'] :where([style*='--project-color'])";
+  const blocks = spectrumRules.filter((r) => splitList(r.selector).includes(own) && new Map(r.decls).has('--project-color'));
+  assert.equal(blocks.length, 1, 'one block on <html>, no per-key block');
+  const rule = blocks[0];
+  assert.deepEqual(splitList(rule.selector), [own, carrier]);
+  const declared = new Map(rule.decls);
+  const want = { ...projectColorVars(PAIRS.blue[0]), '--project-color-fg': PAIRS.blue[1], '--nav-ink-l': 1 };
+  // projectColorVars leaves the secondary accent and a dark accent's globe filter undefined: the scheme
+  // declares them anyway, fixed, so an inline write cannot reach them.
+  want['--project-color-2'] ??= PAIRS.blue[0];
+  want['--project-globe-filter'] ??= 'none';
+  assert.deepEqual(Object.keys(want).sort(), Object.keys(projectColorVars(PAIRS.blue[0])).sort(), 'the test covers every key projectColorVars writes');
+  for (const [prop, value] of Object.entries(want)) {
+    assert.ok(declared.has(prop), `${prop} is declared`);
+    const got = declared.get(prop);
+    assert.match(got, /\s!important$/, `${prop} is !important`);
+    assert.equal(hex6(got.replace(/\s*!important$/, '')), hex6(String(value)), `${prop} value`);
+  }
+});
+
+/** step number → value of `prop`, read off the nth-child rules whose selector names `anchor`. */
+const cycle = (anchor, mod, prop) => {
+  const step = new Map();
+  for (const r of spectrumRules) {
+    const d = new Map(r.decls);
+    if (!d.has(prop)) continue;
+    for (const sel of splitList(r.selector)) {
+      const m = sel.includes(anchor) && new RegExp(`:nth-child\\(${mod}n\\+(\\d+)\\)$`).exec(sel);
+      if (m) step.set(Number(m[1]), resolve(d.get(prop)));
+    }
+  }
+  return step;
+};
+
+test('scheme.css: the chip cycle is twelve steps, B R G Y P W B R G N B R, on each tag run', () => {
+  const ORDER = ['blue', 'red', 'green', 'yellow', 'periwinkle', 'white', 'blue', 'red', 'green', 'navy', 'blue', 'red'];
+  const bg = cycle('.fp-card__tags > .fp-tag', 12, '--sp-bg');
+  const ink = cycle('.fp-card__tags > .fp-tag', 12, '--sp-ink');
+  assert.equal(bg.size, 12, 'all twelve steps set a ground');
+  ORDER.forEach((name, i) => {
+    assert.equal(bg.get(i + 1), PAIRS[name][0], `step ${i + 1} ground`);
+    assert.equal(ink.get(i + 1), PAIRS[name][1], `step ${i + 1} ink`);
+  });
+});
+
+test('scheme.css: the ink cycle is four steps, white yellow periwinkle red, ink only', () => {
+  const text = cycle('.site-nav__links > .site-nav__link', 4, '--sp-text');
+  assert.deepEqual([...text.keys()].sort(), [1, 2, 3, 4]);
+  assert.deepEqual([1, 2, 3, 4].map((k) => text.get(k)), ['#ffffff', PAIRS.yellow[0], PAIRS.periwinkle[0], PAIRS.red[0]]);
+  assert.equal(cycle('.site-nav__links > .site-nav__link', 4, '--sp-bg').size, 0, 'the ink cycle never sets a ground');
+});
+
+test('scheme.css: nothing targets .swm-corner (the scheme picker is never recoloured)', () => {
+  for (const r of schemeRules) assert.ok(!/swm-corner/.test(r.selector), r.selector);
 });
 
 // The tokens at the start of SQ-93 (global.css :root): none may move. The new ones sit beside them.

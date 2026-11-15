@@ -170,281 +170,919 @@ html[data-scheme='black'] .dir-filter__scrollbar-thumb {
 }
 
 /* ============================================================================
-   spectrum — ribbons on black (US-7, SQ-93)
+   spectrum — ribbons on black (US-7, SQ-93, reworked SQ-96)
 
-   The reference is color-ref.png: five saturated colours and white on a black
-   field, with three ribbons of gradient across it. The page is black; the
-   palette arrives in four ways, in the image's order of weight:
-     1. each PROJECT is dealt one palette pair (carriers, below), so a project's
-        own surfaces are one colour with one ink;
-     2. the site's CONTROLS take a fixed pair by role (blue = primary action,
-        red = selected, white = information, yellow = keyword, periwinkle =
-        secondary);
-     3. LINEAR surfaces (progress, rules, thumbs, the globe ring) carry ramp A;
-     4. the colour horizons into black carry ramp B.
-   Navy is ink and gradient only, never a fill on black (1.5:1).
-
-   Every selector keeps the html[data-scheme='spectrum'] prefix for the same
-   reason as above: it must out-specify global.css and the page sheets whatever
-   their order. The five keys are matched by name, never a bare [data-spectrum]:
-   ClientLogoTicker's band carries data-spectrum='white' with another meaning.
+   The reference is color-ref.png: five saturated colours and white on a black field, in dense ribbons of
+   solid colour with text, and ribbons of gradient. The page is black. NOTHING here reads a project: no
+   selector in this section names a palette key or a per-project attribute, so the same element paints the same
+   colour on every project and every page of its kind. The palette arrives inside each component:
+     1. GROUND / INK PAIRS (S1): blue, red, green, yellow, periwinkle, white, navy. A chip, pill, tag, bar,
+        label or keyword wears one pair.
+     2. TWO CYCLES (S3): a run of sibling chips takes a pair by position (12 steps); a run of sibling text
+        items takes an ink by position (4 steps). A wearer's own :nth-child, never a count over the page.
+     3. RAMPS: lines wear ramp A (the centre ribbon, 9 stops); ground gradients wear ramp B (blue falling
+        through navy into black). Gradients go on the consuming property: --project-color is a registered
+        <color> and cannot hold one.
+   Every rule starts from html[data-scheme='spectrum'] (and, for a wearer, a body after it: one type selector
+   more than a page sheet's class chain, because its order differs between dev and a build). DOM colour is
+   CSS only: colour properties, no layout. A ground behind text with no box of its own is a background plus a
+   spread shadow. A control that derives its states from --project-color keeps them by re-pointing the
+   carrier values on itself. .swm-corner (the scheme picker) is never recoloured.
    ========================================================================== */
 
-/* — S1. Carriers: one block per palette key, on <html> (navAccent writes the
-   key there, which the hero CTA and every inherited surface follow) and on any
-   descendant that carries the key. Values = projectColorVars(fill), except the
-   ink (SPECTRUM[key].fg: near-black on red and yellow, navy on periwinkle) and
-   --nav-ink-l, which agrees with it (1 white, 0 dark). A carrier with no key
-   takes the blue pair. */
-html[data-scheme='spectrum'][data-spectrum='blue'],
-html[data-scheme='spectrum'] [data-spectrum='blue'] {
-  --project-color: #1556e5 !important;
-  --project-color-2: #1556e5 !important;
-  --project-color-fg: #ffffff !important;
-  --project-color-text: #1556e5 !important;
-  --project-color-on-black: #ffffff !important;
-  --project-globe-filter: none !important;
-  --nav-ink-l: 1 !important;
-}
+/* — S1. The palette, as ground / ink pairs, and the role tokens — */
 
-html[data-scheme='spectrum'][data-spectrum='red'],
-html[data-scheme='spectrum'] [data-spectrum='red'] {
-  --project-color: #fd361a !important;
-  --project-color-2: #fd361a !important;
-  --project-color-fg: #0a0a0a !important;
-  --project-color-text: #fd361a !important;
-  --project-color-on-black: #ffffff !important;
-  --project-globe-filter: none !important;
-  --nav-ink-l: 0 !important;
-}
-
-html[data-scheme='spectrum'][data-spectrum='green'],
-html[data-scheme='spectrum'] [data-spectrum='green'] {
-  --project-color: #077b3e !important;
-  --project-color-2: #077b3e !important;
-  --project-color-fg: #ffffff !important;
-  --project-color-text: #077b3e !important;
-  --project-color-on-black: #ffffff !important;
-  --project-globe-filter: none !important;
-  --nav-ink-l: 1 !important;
-}
-
-html[data-scheme='spectrum'][data-spectrum='yellow'],
-html[data-scheme='spectrum'] [data-spectrum='yellow'] {
-  --project-color: #fbb702 !important;
-  --project-color-2: #fbb702 !important;
-  --project-color-fg: #0a0a0a !important;
-  --project-color-text: #0a0a0a !important;
-  --project-color-on-black: #fbb702 !important;
-  --project-globe-filter: brightness(0) !important;
-  --nav-ink-l: 0 !important;
-}
-
-html[data-scheme='spectrum'][data-spectrum='periwinkle'],
-html[data-scheme='spectrum'] [data-spectrum='periwinkle'] {
-  --project-color: #a6bcda !important;
-  --project-color-2: #a6bcda !important;
-  --project-color-fg: #0a2577 !important;
-  --project-color-text: #0a0a0a !important;
-  --project-color-on-black: #a6bcda !important;
-  --project-globe-filter: brightness(0) !important;
-  --nav-ink-l: 0 !important;
-}
-
-/* No key: <html> before a project has set one, and any inline carrier without
-   one (the directory, /privacy, the 404). The blue pair. */
-html[data-scheme='spectrum']:not([data-spectrum]),
-html[data-scheme='spectrum'] [style*='--project-color']:not([data-spectrum]) {
-  --project-color: #1556e5 !important;
-  --project-color-2: #1556e5 !important;
-  --project-color-fg: #ffffff !important;
-  --project-color-text: #1556e5 !important;
-  --project-color-on-black: #ffffff !important;
-  --project-globe-filter: none !important;
-  --nav-ink-l: 1 !important;
-}
-
-/* — S2. Role tokens: pages are black; the default chip is the primary action —
-   blue with white ink. kw: keyword boxes are yellow with near-black ink. — */
 html[data-scheme='spectrum'] {
+  --sp-blue: var(--swm-blue);
+  --sp-blue-ink: #ffffff;
+  --sp-red: var(--swm-red);
+  --sp-red-ink: #0a0a0a;
+  --sp-green: var(--swm-green-deep);
+  --sp-green-ink: #ffffff;
+  --sp-yellow: var(--swm-yellow);
+  --sp-yellow-ink: #0a0a0a;
+  --sp-periwinkle: var(--swm-periwinkle);
+  --sp-periwinkle-ink: #0a2577;
+  --sp-white: #ffffff;
+  --sp-white-ink: var(--swm-green-deep);
+  --sp-navy: var(--swm-navy);
+  --sp-navy-ink: var(--swm-periwinkle);
   --scheme-page: #000000;
   --scheme-chip: #1556e5;
   --scheme-chip-ink: #ffffff;
   --scheme-accent-ink: #fbb702;
-  --kw-bg: #fbb702;
 }
 
-/* — S3. Site controls, fixed pairs by role — */
+/* — S2. Carriers: html and every [style*=--project-color] element take the blue pair, whatever the project — */
+
+/* :where() keeps the descendants' specificity at the html's, so a wearer that re-points its own carrier
+   values (S5) wins without a fight. !important is for the inline write. */
+html[data-scheme='spectrum'],
+html[data-scheme='spectrum'] :where([style*='--project-color']) {
+  --project-color: #1556e5 !important;
+  --project-color-2: #1556e5 !important;
+  --project-color-fg: #ffffff !important;
+  --project-color-text: #1556e5 !important;
+  --project-color-on-black: #ffffff !important;
+  --project-globe-filter: none !important;
+  --nav-ink-l: 1 !important;
+}
 
 /* Selection: red with near-black ink (a selected state). */
 html[data-scheme='spectrum'] ::selection {
-  background: #fd361a;
-  color: #0a0a0a;
+  background: var(--sp-red);
+  color: var(--sp-red-ink);
 }
 
-/* PRIMARY (blue #1556e5, white ink): the nav pills' hover, the CTAs, the
-   overlay's submit. Where the surface under the control is already blue (a
-   blue-dealt project's bar and chips) the hover takes the secondary pair
-   instead, so it stays visible. */
-html[data-scheme='spectrum'] body:not(.route-home) .site-nav__pill:not([aria-expanded='true'], .mobile-menu__close) {
-  background: transparent;
+/* The prose links' hover took the keyword box's colour before; yellow keeps it readable on black. */
+html[data-scheme='spectrum'] body .prose-link:hover,
+html[data-scheme='spectrum'] body .prose-link:focus-visible {
+  color: var(--sp-yellow);
 }
 
-@media (hover: hover) {
-  html[data-scheme='spectrum'] .site-nav__pill:not([aria-expanded='true'], .mobile-menu__close):hover,
-  html[data-scheme='spectrum'] .cta-primary:hover,
-  html[data-scheme='spectrum'] .fp-cta:hover {
-    background: #1556e5;
-    color: #ffffff;
-  }
+/* — S3. The two cycles, as tokens on each wearer by position among its siblings (the wearers paint them in S4 to S12) — */
 
-  html[data-scheme='spectrum'][data-spectrum='blue'] .site-nav__pill:not([aria-expanded='true'], .mobile-menu__close):hover,
-  html[data-scheme='spectrum'][data-spectrum='blue'] .cta-primary:hover,
-  html[data-scheme='spectrum'][data-spectrum='blue'] .fp-cta:hover {
-    background: #a6bcda;
-    color: #0a2577;
-  }
+/* CHIP CYCLE, 12 steps: blue, red, green, yellow, periwinkle, white, blue, red, green, navy, blue, red.
+   Sets --sp-bg and --sp-ink. A run of siblings is each wearer's own :nth-child, never a count over the page. */
+
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+1),
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+7),
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+11) {
+  --sp-bg: var(--sp-blue);
+  --sp-ink: var(--sp-blue-ink);
 }
 
-/* The CTA chip at rest keeps a white fill (project-detail and 404) with the
-   primary blue as its ink, whatever project it sits on. */
-html[data-scheme='spectrum'] .cta-primary:not([style*='--cta-bg']) {
-  color: #1556e5;
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+2),
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+8),
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+12) {
+  --sp-bg: var(--sp-red);
+  --sp-ink: var(--sp-red-ink);
 }
 
-html[data-scheme='spectrum'] .project-overlay__submit-base {
-  background: #1556e5;
-  color: #ffffff;
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+3),
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+9) {
+  --sp-bg: var(--sp-green);
+  --sp-ink: var(--sp-green-ink);
 }
 
-/* SELECTED and ACTIVE (red #fd361a, near-black ink): the deck tab, the
-   overlay's chosen tags, the directory's checked filter (its wipe box reads
-   --kw-bg, its label flips ink with the check), aria-current clients. */
-html[data-scheme='spectrum'] .deck-tab--active,
-html[data-scheme='spectrum'] .project-overlay__tag--active {
-  background: #fd361a;
-  border-color: #fd361a;
-  color: #0a0a0a;
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+4) {
+  --sp-bg: var(--sp-yellow);
+  --sp-ink: var(--sp-yellow-ink);
 }
 
-html[data-scheme='spectrum'] .filter-tag {
-  --kw-bg: #fd361a;
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+5) {
+  --sp-bg: var(--sp-periwinkle);
+  --sp-ink: var(--sp-periwinkle-ink);
 }
 
-html[data-scheme='spectrum'] .filter-tag[aria-checked='true'] .filter-tag__label {
-  color: #0a0a0a;
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+6) {
+  --sp-bg: var(--sp-white);
+  --sp-ink: var(--sp-white-ink);
 }
 
-html[data-scheme='spectrum'] .clients__item[aria-current] {
-  color: #fd361a;
+html[data-scheme='spectrum'] :is(.fp-card__tags > .fp-tag, .project-blurb__tags > .stag, .np-band__tags > .stag, .project-overlay__tags > button, .dir-filter__tags > .filter-tag):nth-child(12n+10) {
+  --sp-bg: var(--sp-navy);
+  --sp-ink: var(--sp-navy-ink);
 }
 
-/* INFORMATION (white fill, --swm-green-deep ink): the privacy pill and its
-   mobile-menu twin. The open state (aria-expanded) keeps its own skin. */
-html[data-scheme='spectrum'] .site-privacy:not([aria-expanded='true']),
-html[data-scheme='spectrum'] .mobile-menu__privacy {
-  background: #ffffff;
-  color: var(--swm-green-deep);
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+1 of .hero-label),
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+7 of .hero-label),
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+11 of .hero-label) {
+  --sp-bg: var(--sp-blue);
+  --sp-ink: var(--sp-blue-ink);
 }
 
-/* KEYWORDS (yellow #fbb702 box, near-black ink): the highlight boxes inherit
-   --kw-bg from <html> above, and the blurbs that bind their own (the detail
-   page to the project colour, the footer to the chip) are re-bound here. The
-   ink layer is yellow and BLENDS (difference), as black's does: yellow over
-   the black page reads yellow, yellow over the yellow box reads black, so the
-   word is legible before and after the wipe with one ink, and the contrast
-   gate (which reads the ink against the page, not the sibling box) sees a
-   yellow ink on black. The info panel's inline keywords are yellow ink. */
-html[data-scheme='spectrum'] .project-blurb,
-html[data-scheme='spectrum'] .site-footer__blurb {
-  --kw-bg: #fbb702;
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+2 of .hero-label),
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+8 of .hero-label),
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+12 of .hero-label) {
+  --sp-bg: var(--sp-red);
+  --sp-ink: var(--sp-red-ink);
 }
 
-html[data-scheme='spectrum'] .kw__ink {
-  color: #fbb702;
-  mix-blend-mode: difference;
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+3 of .hero-label),
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+9 of .hero-label) {
+  --sp-bg: var(--sp-green);
+  --sp-ink: var(--sp-green-ink);
 }
 
-html[data-scheme='spectrum'] .description__text strong,
-html[data-scheme='spectrum'] .description__text .kw-em {
-  color: #fbb702;
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+4 of .hero-label) {
+  --sp-bg: var(--sp-yellow);
+  --sp-ink: var(--sp-yellow-ink);
 }
 
-/* SECONDARY (periwinkle #a6bcda, navy ink): the privacy pill's hover, and the
-   chips inside a project's client panel (a periwinkle project keeps the
-   near-black chips, which would otherwise vanish into its panel). */
-@media (hover: hover) {
-  html[data-scheme='spectrum'] .site-privacy:not([aria-expanded='true']):hover {
-    background: #a6bcda;
-    color: #0a2577;
-  }
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+5 of .hero-label) {
+  --sp-bg: var(--sp-periwinkle);
+  --sp-ink: var(--sp-periwinkle-ink);
 }
 
-html[data-scheme='spectrum'] .mobile-menu__privacy:hover,
-html[data-scheme='spectrum'] .mobile-menu__privacy:active {
-  background: #a6bcda;
-  color: #0a2577;
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+6 of .hero-label) {
+  --sp-bg: var(--sp-white);
+  --sp-ink: var(--sp-white-ink);
 }
 
-html[data-scheme='spectrum'] .client-panel:not([data-spectrum='periwinkle']) .client-chip {
-  background: #a6bcda;
-  color: #0a2577;
+html[data-scheme='spectrum'] .hero-labels > .hero-label:nth-child(12n+10 of .hero-label) {
+  --sp-bg: var(--sp-navy);
+  --sp-ink: var(--sp-navy-ink);
 }
 
-/* The home lockup's native #0000FF artwork would sit on black at 2.4:1. */
-html[data-scheme='spectrum'] body.route-home .site-nav__lockup svg * {
-  fill: var(--color-white);
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+1 of .privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+7 of .privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+11 of .privacy__section) {
+  --sp-bg: var(--sp-blue);
+  --sp-ink: var(--sp-blue-ink);
 }
 
-/* The cover NAV_BLACK envelops raise carries no key: it is black, not blue. */
-html[data-scheme='spectrum'] .route-fill:not([data-spectrum]) {
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+2 of .privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+8 of .privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+12 of .privacy__section) {
+  --sp-bg: var(--sp-red);
+  --sp-ink: var(--sp-red-ink);
+}
+
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+3 of .privacy__section),
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+9 of .privacy__section) {
+  --sp-bg: var(--sp-green);
+  --sp-ink: var(--sp-green-ink);
+}
+
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+4 of .privacy__section) {
+  --sp-bg: var(--sp-yellow);
+  --sp-ink: var(--sp-yellow-ink);
+}
+
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+5 of .privacy__section) {
+  --sp-bg: var(--sp-periwinkle);
+  --sp-ink: var(--sp-periwinkle-ink);
+}
+
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+6 of .privacy__section) {
+  --sp-bg: var(--sp-white);
+  --sp-ink: var(--sp-white-ink);
+}
+
+html[data-scheme='spectrum'] .privacy > .privacy__section:nth-child(12n+10 of .privacy__section) {
+  --sp-bg: var(--sp-navy);
+  --sp-ink: var(--sp-navy-ink);
+}
+
+/* INK CYCLE, 4 steps, ink only (blue, green and navy are never text on black): white, yellow, periwinkle, red.
+   Sets --sp-text. */
+
+html[data-scheme='spectrum'] :is(.site-nav__links > .site-nav__link, .mobile-menu__items > .mobile-menu__item, .site-footer__nav > .site-footer__link, .privacy__links > a, .dir-filter__tags > .filter-tag, .clients__col > .clients__item, .project-overlay__body > .project-overlay__field):nth-child(4n+1) {
+  --sp-text: #ffffff;
+}
+
+html[data-scheme='spectrum'] :is(.site-nav__links > .site-nav__link, .mobile-menu__items > .mobile-menu__item, .site-footer__nav > .site-footer__link, .privacy__links > a, .dir-filter__tags > .filter-tag, .clients__col > .clients__item, .project-overlay__body > .project-overlay__field):nth-child(4n+2) {
+  --sp-text: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] :is(.site-nav__links > .site-nav__link, .mobile-menu__items > .mobile-menu__item, .site-footer__nav > .site-footer__link, .privacy__links > a, .dir-filter__tags > .filter-tag, .clients__col > .clients__item, .project-overlay__body > .project-overlay__field):nth-child(4n+3) {
+  --sp-text: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] :is(.site-nav__links > .site-nav__link, .mobile-menu__items > .mobile-menu__item, .site-footer__nav > .site-footer__link, .privacy__links > a, .dir-filter__tags > .filter-tag, .clients__col > .clients__item, .project-overlay__body > .project-overlay__field):nth-child(4n+4) {
+  --sp-text: var(--sp-red);
+}
+
+/* — S4. Nav, every route — */
+
+/* The ribbon is the bar's own pseudo, not a sized background layer: the contrast gate reads a gradient
+   layer as the whole backdrop, and the nav's links are not on the ribbon. Absolute, so no layout shift. */
+html[data-scheme='spectrum'] body .site-nav {
+  position: relative;
   background: #000000;
 }
 
-/* — S4. Linear surfaces — ramp A along the length of a progress fill, a rule
-   or a thumb, round the globe ring; ramp B from a surface's own colour down
-   into black. Gradients go on the consuming property: --project-color is a
-   registered <color> and cannot hold one. — */
-html[data-scheme='spectrum'] .detail-progress__fill,
-html[data-scheme='spectrum'] .np-band.is-pinned .np-band__rule {
+html[data-scheme='spectrum'] body .site-nav::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  pointer-events: none;
   background: linear-gradient(to right, var(--swm-ramp-a));
 }
 
-html[data-scheme='spectrum'] .clients__scrollbar-thumb,
-html[data-scheme='spectrum'] .dir-filter__scrollbar-thumb {
-  background: linear-gradient(to bottom, var(--swm-ramp-a));
+/* The lockup is white on every route (home keeps its native blue artwork otherwise). */
+html[data-scheme='spectrum'] body .site-nav__lockup svg *,
+html[data-scheme='spectrum'] body .mobile-menu__bar .site-nav__lockup svg * {
+  fill: #ffffff;
 }
 
-html[data-scheme='spectrum'] .hero__globe-stroke {
+html[data-scheme='spectrum'] body .site-nav__links > .site-nav__link {
+  color: var(--sp-text);
+}
+
+/* The info pill is white; the menu pill is blue. Both go red on hover; the open state (and the menu's close)
+   is white with the deep-green ink. */
+html[data-scheme='spectrum'] body .site-nav__pill {
+  background: var(--sp-white);
+  border-color: var(--sp-white);
+  color: var(--sp-white-ink);
+}
+
+html[data-scheme='spectrum'] body .site-nav__menu-pill:not([aria-expanded='true']) {
+  background: var(--sp-blue);
+  border-color: var(--sp-blue);
+  color: var(--sp-blue-ink);
+}
+
+@media (hover: hover) {
+  html[data-scheme='spectrum'] body .site-nav__pill:not([aria-expanded='true'], .mobile-menu__close):hover {
+  background: var(--sp-red);
+  border-color: var(--sp-red);
+  color: var(--sp-red-ink);
+}
+}
+
+html[data-scheme='spectrum'] body .site-nav__pill[aria-expanded='true'],
+html[data-scheme='spectrum'] body .site-nav__pill.mobile-menu__close {
+  background: var(--sp-white);
+  border-color: var(--sp-white);
+  color: var(--sp-white-ink);
+}
+
+html[data-scheme='spectrum'] body .mobile-menu {
+  background: #000000;
+}
+
+html[data-scheme='spectrum'] body .mobile-menu__items > .mobile-menu__item {
+  color: var(--sp-text);
+}
+
+html[data-scheme='spectrum'] body .mobile-menu__privacy {
+  background: var(--sp-green);
+  color: var(--sp-green-ink);
+}
+
+html[data-scheme='spectrum'] body .mobile-menu__privacy:hover,
+html[data-scheme='spectrum'] body .mobile-menu__privacy:active {
+  background: var(--sp-red);
+  color: var(--sp-red-ink);
+}
+
+html[data-scheme='spectrum'] body .mobile-menu__copy,
+html[data-scheme='spectrum'] body .mobile-menu__tagline {
+  color: var(--sp-periwinkle);
+}
+
+/* — S5. The CTA role: every .cta-primary rests white with deep-green ink and goes red on hover — */
+
+/* enter_world carries inline --cta-bg / --cta-fg (a mix over --project-color): these two are !important so
+   the pair holds on every project. */
+html[data-scheme='spectrum'] body .cta-primary {
+  --cta-bg: var(--sp-white) !important;
+  --cta-fg: var(--sp-white-ink) !important;
+}
+
+html[data-scheme='spectrum'] body .cta-primary:hover {
+  --cta-bg: var(--sp-red) !important;
+  --cta-fg: var(--sp-red-ink) !important;
+}
+
+/* — S6. Home — */
+
+/* The horizon is ramp B (blue falling through navy into black) in the shape the hero always had: it
+   reaches black at 40% of the height, six stops evenly. Explicit stops, not a background-size, because
+   html[data-footer-rest] .hero sets its own background-size. */
+html[data-scheme='spectrum'] body .hero {
+  background: linear-gradient(to top, #1556e5 0%, #0c44cc 8%, #0c2c8c 16%, #0a2577 24%, #071249 32%, #000000 40%);
+}
+
+/* The globe's ring is ramp A, conic about the globe's centre from 12 o'clock, clockwise: the one
+   outline the canvas's gaps also wear (SQ-94). */
+html[data-scheme='spectrum'] body .hero__globe-stroke {
   background: conic-gradient(var(--swm-ramp-a));
 }
 
-html[data-scheme='spectrum'] .hero {
-  background: linear-gradient(to top, var(--project-color) 0%, #0c2c8c 12%, #0a2577 22%, #071249 31%, #000000 40%);
+/* The globe's labels are ribbons: each wears its chip-cycle pair behind the text, drawn as a background
+   plus a spread shadow so nothing moves. The leaders and dots stay white. */
+html[data-scheme='spectrum'] body .hero-label__line {
+  background: var(--sp-bg);
+  color: var(--sp-ink);
+  box-shadow: 0 0 0 0.18em var(--sp-bg);
 }
 
-html[data-scheme='spectrum'] .fp-canvas {
+html[data-scheme='spectrum'] body .site-tagline__pill {
+  background: var(--sp-periwinkle);
+  color: var(--sp-periwinkle-ink);
+}
+
+html[data-scheme='spectrum'] body .site-tagline__copy {
+  color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body .site-privacy {
+  background: var(--sp-green);
+  color: var(--sp-green-ink);
+}
+
+@media (hover: hover) {
+  html[data-scheme='spectrum'] body .site-privacy:hover {
+  background: var(--sp-red);
+  color: var(--sp-red-ink);
+}
+}
+
+html[data-scheme='spectrum'] body .site-privacy[aria-expanded='true'] {
+  background: var(--sp-white);
+  color: var(--sp-white-ink);
+}
+
+/* — S7. Footer and the logo band — */
+
+html[data-scheme='spectrum'] body .site-footer .site-footer__bar {
+  background: linear-gradient(to right, var(--swm-ramp-a)) left top / 100% 2px no-repeat, #1556e5;
+}
+
+html[data-scheme='spectrum'] body .site-footer--links {
+  background: #000000;
+}
+
+html[data-scheme='spectrum'] body .site-footer__link {
+  color: var(--sp-text);
+}
+
+html[data-scheme='spectrum'] body .site-footer--links .site-footer__copy {
+  color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body .logo-ticker__copy {
+  color: var(--sp-periwinkle);
+}
+
+/* The phrase's own colour animation is switched off by the ticker's own white bake (that
+   attribute is the ticker's, not the deal's): this rule outranks it by one class and does not re-enable
+   the animation. */
+html[data-scheme='spectrum'] body .logo-ticker .logo-ticker__spectrum {
+  color: var(--sp-yellow);
+}
+
+/* The odometer's five words, then the clone of the first (child 6 repeats child 1), and the hidden sizer. */
+html[data-scheme='spectrum'] body .logo-ticker__odo-word:nth-child(5n+1),
+html[data-scheme='spectrum'] body .logo-ticker__odo-sizer > span:nth-child(5n+1) {
+  color: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body .logo-ticker__odo-word:nth-child(5n+2),
+html[data-scheme='spectrum'] body .logo-ticker__odo-sizer > span:nth-child(5n+2) {
+  color: var(--sp-red);
+}
+
+html[data-scheme='spectrum'] body .logo-ticker__odo-word:nth-child(5n+3),
+html[data-scheme='spectrum'] body .logo-ticker__odo-sizer > span:nth-child(5n+3) {
+  color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body .logo-ticker__odo-word:nth-child(5n+4),
+html[data-scheme='spectrum'] body .logo-ticker__odo-sizer > span:nth-child(5n+4) {
+  color: var(--sp-white);
+}
+
+html[data-scheme='spectrum'] body .logo-ticker__odo-word:nth-child(5n+5),
+html[data-scheme='spectrum'] body .logo-ticker__odo-sizer > span:nth-child(5n+5) {
+  color: #ff7d01;
+}
+
+/* — S8. /work: every card, every project, the same — */
+
+/* The ground is ramp B, fixed: the same six stops as the hero, over the height --fp-fade-h climbs. */
+html[data-scheme='spectrum'] body .fp-canvas {
   background: linear-gradient(to top,
-      var(--project-color) 0%,
-      #0c2c8c calc(var(--fp-fade-h, 40%) * 0.3),
-      #0a2577 calc(var(--fp-fade-h, 40%) * 0.55),
-      #071249 calc(var(--fp-fade-h, 40%) * 0.78),
+      #1556e5 0%,
+      #0c44cc calc(var(--fp-fade-h, 40%) * 0.2),
+      #0c2c8c calc(var(--fp-fade-h, 40%) * 0.4),
+      #0a2577 calc(var(--fp-fade-h, 40%) * 0.6),
+      #071249 calc(var(--fp-fade-h, 40%) * 0.8),
       #000000 var(--fp-fade-h, 40%));
 }
 
-/* The 404 has no project, so no colour of its own to fade from: the horizon is
-   ramp B, blue through navy into black (the page-to-black fade it has today),
-   and the centre ribbon (ramp A) is a band across its foot. The band is a
-   surface of its own that the copy never sits on: the page reserves the
-   band's height under the copy (padding-bottom), so no line of text has a
-   yellow or orange stop behind it. */
-html[data-scheme='spectrum'] .notfound {
+html[data-scheme='spectrum'] body h2.fp-card__client {
+  color: #ffffff;
+}
+
+html[data-scheme='spectrum'] body p.fp-card__meta {
+  color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body span.fp-card__tab {
+  background: var(--sp-yellow);
+  color: var(--sp-yellow-ink);
+}
+
+html[data-scheme='spectrum'] body .fp-card__tags > .fp-tag {
+  background: var(--sp-bg);
+  color: var(--sp-ink);
+}
+
+/* previous and next mix their inline --cta-bg / --cta-fg from --project-color with a charge: re-pointing the
+   carrier values on each keeps the charged, turning and committed states as they are. --cta-ink is the
+   turning window's ink (a snap to --nav-ink), pinned to the pair's. */
+html[data-scheme='spectrum'] body .fp .fp-cta.fp-prev {
+  --project-color: var(--sp-periwinkle) !important;
+  --project-color-fg: var(--sp-periwinkle-ink) !important;
+  --cta-ink: var(--sp-periwinkle-ink);
+}
+
+html[data-scheme='spectrum'] body .fp .fp-cta.fp-next {
+  --project-color: var(--sp-red) !important;
+  --project-color-fg: var(--sp-red-ink) !important;
+  --cta-ink: var(--sp-red-ink);
+}
+
+/* Hover and keyboard focus take the white pair, as black's fp-cta does: a property rule beats the inline
+   charge, so the state reads the same wherever the charge has got to. */
+html[data-scheme='spectrum'] body .fp .fp-cta:is(.fp-prev, .fp-next):hover,
+html[data-scheme='spectrum'] body .fp .fp-cta:is(.fp-prev, .fp-next):focus-visible {
+  background: var(--sp-white);
+  color: var(--sp-white-ink);
+}
+
+/* The pager's fraction and the freeze chip. Scoped under .fp: the same rules seat the corner picker, which
+   is never recoloured. --nav-ink is the turning window's ink. */
+html[data-scheme='spectrum'] body .fp .fp-scale__lens {
+  --project-color: var(--sp-red);
+  --project-color-fg: var(--sp-red-ink);
+  --nav-ink: var(--sp-red-ink);
+}
+
+html[data-scheme='spectrum'] body .fp .fp-scale__den {
+  --project-color: var(--sp-periwinkle);
+  --project-color-fg: var(--sp-periwinkle-ink);
+  --nav-ink: var(--sp-periwinkle-ink);
+}
+
+html[data-scheme='spectrum'] body .fp .fp-scale__freeze {
+  --project-color: var(--sp-yellow);
+  --project-color-fg: var(--sp-yellow-ink);
+  --nav-ink: var(--sp-yellow-ink);
+}
+
+/* — S9. A project page: identical on every project — */
+
+html[data-scheme='spectrum'] body section.client-panel {
+  background: #1556e5;
+}
+
+html[data-scheme='spectrum'] body .client-panel__title {
+  color: #ffffff;
+}
+
+html[data-scheme='spectrum'] body .client-panel__chips > .client-chip:nth-child(1) {
+  background: var(--sp-yellow);
+  color: var(--sp-yellow-ink);
+}
+
+html[data-scheme='spectrum'] body .client-panel__chips > .client-chip:nth-child(2) {
+  background: var(--sp-white);
+  color: var(--sp-white-ink);
+}
+
+html[data-scheme='spectrum'] body .client-panel__chips > .client-chip:nth-child(n+3) {
+  background: var(--sp-periwinkle);
+  color: var(--sp-periwinkle-ink);
+}
+
+/* The social buttons are bare icons with no ground of their own: a chip per platform is a background and a
+   spread shadow round the icon (nothing moves), with the icon's filter giving it a dark mark on a light
+   ground and a white one on green. */
+html[data-scheme='spectrum'] body a.social-btn[data-platform] {
+  border-radius: 0.3rem;
+  box-shadow: 0 0 0 0.3rem var(--sp-bg);
+  background: var(--sp-bg);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='instagram'] {
+  --sp-bg: var(--sp-red);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='instagram'] .social-btn__icon {
+  filter: brightness(0);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='spotify'] {
+  --sp-bg: var(--sp-green);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='spotify'] .social-btn__icon {
+  filter: none;
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='beatport'] {
+  --sp-bg: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='beatport'] .social-btn__icon {
+  filter: brightness(0);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='soundcloud'] {
+  --sp-bg: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='soundcloud'] .social-btn__icon {
+  filter: brightness(0);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='website'] {
+  --sp-bg: var(--sp-white);
+}
+
+html[data-scheme='spectrum'] body a.social-btn[data-platform='website'] .social-btn__icon {
+  filter: brightness(0);
+}
+
+/* The two nav chips ride --project-color for their rest state and carry their own hover: re-point. */
+html[data-scheme='spectrum'] body .detail-breadcrumb {
+  --project-color: var(--sp-red) !important;
+  --project-color-fg: var(--sp-red-ink) !important;
+}
+
+html[data-scheme='spectrum'] body a.detail-next {
+  --project-color: var(--sp-green) !important;
+  --project-color-fg: var(--sp-green-ink) !important;
+}
+
+/* The ink layer carries its own ground (the pair's), clipped with the ink by the same wipe, so the word
+   is legible on its own and the contrast gate measures the real pair. It paints inside the mark's box. */
+html[data-scheme='spectrum'] body mark.kw .kw__ink {
+  background-color: var(--kw-bg);
+}
+
+/* Keywords: the pair by data-kw (words of one keyword share n), 0 to 23. The ink layer is the pair's ink,
+   so the wipe reads the same mid-way as at the end. */
+html[data-scheme='spectrum'] body mark.kw[data-kw='0'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='6'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='10'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='12'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='18'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='22'] {
+  --kw-bg: var(--sp-blue);
+  --kw-ink: var(--sp-blue-ink);
+}
+
+html[data-scheme='spectrum'] body mark.kw[data-kw='1'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='7'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='11'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='13'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='19'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='23'] {
+  --kw-bg: var(--sp-red);
+  --kw-ink: var(--sp-red-ink);
+}
+
+html[data-scheme='spectrum'] body mark.kw[data-kw='2'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='8'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='14'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='20'] {
+  --kw-bg: var(--sp-green);
+  --kw-ink: var(--sp-green-ink);
+}
+
+html[data-scheme='spectrum'] body mark.kw[data-kw='3'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='15'] {
+  --kw-bg: var(--sp-yellow);
+  --kw-ink: var(--sp-yellow-ink);
+}
+
+html[data-scheme='spectrum'] body mark.kw[data-kw='4'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='16'] {
+  --kw-bg: var(--sp-periwinkle);
+  --kw-ink: var(--sp-periwinkle-ink);
+}
+
+html[data-scheme='spectrum'] body mark.kw[data-kw='5'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='17'] {
+  --kw-bg: var(--sp-white);
+  --kw-ink: var(--sp-white-ink);
+}
+
+html[data-scheme='spectrum'] body mark.kw[data-kw='9'],
+html[data-scheme='spectrum'] body mark.kw[data-kw='21'] {
+  --kw-bg: var(--sp-navy);
+  --kw-ink: var(--sp-navy-ink);
+}
+
+html[data-scheme='spectrum'] body .detail-field__label {
+  color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body .detail-field__value {
+  color: #ffffff;
+}
+
+html[data-scheme='spectrum'] body .project-blurb__tags > .stag.service-tag,
+html[data-scheme='spectrum'] body .np-band__tags > .stag.service-tag,
+html[data-scheme='spectrum'] body .np-band__tags > .stag {
+  background: var(--sp-bg);
+  color: var(--sp-ink);
+  border-color: var(--sp-bg);
+}
+
+html[data-scheme='spectrum'] body .detail-progress {
+  background: var(--sp-navy);
+}
+
+html[data-scheme='spectrum'] body .detail-progress__fill {
+  background: linear-gradient(to right, var(--swm-ramp-a));
+}
+
+html[data-scheme='spectrum'] body button.deck-tab {
+  background: #000000;
+  color: var(--sp-periwinkle);
+  border-color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body button.deck-tab:hover {
+  border-color: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body button.deck-tab.deck-tab--active {
+  background: var(--sp-yellow);
+  color: var(--sp-yellow-ink);
+  border-color: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body .band-pager__counter {
+  background: var(--sp-periwinkle);
+  color: var(--sp-periwinkle-ink);
+}
+
+/* The next-project band: its carrier is the yellow pair (the cover, the pinned title), and its rule is
+   ramp A in every state. */
+html[data-scheme='spectrum'] body .np-band {
+  --project-color: var(--sp-yellow) !important;
+  --project-color-2: var(--sp-yellow) !important;
+  --project-color-fg: var(--sp-yellow-ink) !important;
+  --project-color-text: var(--sp-yellow-ink) !important;
+  --project-color-on-black: var(--sp-yellow) !important;
+  --project-globe-filter: brightness(0) !important;
+  --nav-ink-l: 0 !important;
+}
+
+html[data-scheme='spectrum'] body .np-band .np-band__rule,
+html[data-scheme='spectrum'] body .np-band.is-pinned .np-band__rule {
+  background: linear-gradient(to right, var(--swm-ramp-a));
+}
+
+/* — S10. The Project Directory — */
+
+/* The tabs: ink only (the label's ground and the skirt stay black, the lines follow currentColor). */
+html[data-scheme='spectrum'] body .dir-filter__tablist > .dir-filter__tab:nth-child(1) {
+  color: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body .dir-filter__tablist > .dir-filter__tab:nth-child(2) {
+  color: var(--sp-periwinkle);
+}
+
+/* A tag: ink by position in its pane. Checked, the wipe box and the label's ink take the chip-cycle pair. */
+html[data-scheme='spectrum'] body .dir-filter__tags > .filter-tag {
+  color: var(--sp-text);
+  --kw-bg: var(--sp-bg);
+}
+
+html[data-scheme='spectrum'] body .dir-filter__tags > .filter-tag[aria-checked='true'] .filter-tag__label {
+  color: var(--sp-ink);
+}
+
+html[data-scheme='spectrum'] body .dir-filter__scrollbar-thumb {
+  background: linear-gradient(to bottom, var(--swm-ramp-a));
+}
+
+html[data-scheme='spectrum'] body .dir-filter__bar .dir-filter__chip {
+  background: var(--sp-yellow);
+  border-color: var(--sp-yellow);
+  color: var(--sp-yellow-ink);
+}
+
+html[data-scheme='spectrum'] body .dir-filter__bar .dir-filter__chip:focus-visible {
+  outline-color: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body .dir-filter__bar .dir-filter__count,
+html[data-scheme='spectrum'] body .dir-filter__bar .dir-filter__active {
+  color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body .dir-tile:focus-visible::after {
+  border-color: var(--sp-yellow);
+}
+
+/* — S11. The info drawer — */
+
+html[data-scheme='spectrum'] body .info-panel {
+  background: #000000;
+}
+
+html[data-scheme='spectrum'] body .description__text b.kw-em:nth-of-type(3n+1),
+html[data-scheme='spectrum'] body .description__text strong:nth-of-type(3n+1) {
+  color: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body .description__text b.kw-em:nth-of-type(3n+2),
+html[data-scheme='spectrum'] body .description__text strong:nth-of-type(3n+2) {
+  color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body .description__text b.kw-em:nth-of-type(3n+3),
+html[data-scheme='spectrum'] body .description__text strong:nth-of-type(3n+3) {
+  color: var(--sp-red);
+}
+
+html[data-scheme='spectrum'] body .clients__header {
+  color: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body .clients__col > .clients__item {
+  color: var(--sp-text);
+}
+
+/* The client the directory is filtered to: white ground, deep-green ink (a spread shadow, so nothing moves);
+   the eye follows currentColor. */
+html[data-scheme='spectrum'] body .clients__col > .clients__item[aria-current] {
+  background: var(--sp-white);
+  color: var(--sp-white-ink);
+  box-shadow: 0 0 0 0.15em var(--sp-white);
+}
+
+html[data-scheme='spectrum'] body .clients__scrollbar-thumb {
+  background: linear-gradient(to bottom, var(--swm-ramp-a));
+}
+
+/* — S12. The start_project overlay — */
+
+html[data-scheme='spectrum'] body .project-overlay {
+  background: #000000;
+}
+
+html[data-scheme='spectrum'] body .project-overlay__close,
+html[data-scheme='spectrum'] body .project-overlay__header {
+  color: #ffffff;
+}
+
+html[data-scheme='spectrum'] body .project-overlay__close {
+  border-color: #ffffff;
+}
+
+/* Each field wears ONE ink (--sp-text, the ink cycle) for its label, its underline and its check, with the
+   default's dim, filled and focused steps kept as the ink's alpha. */
+html[data-scheme='spectrum'] body .project-overlay__label {
+  color: color-mix(in srgb, var(--sp-text) 50%, transparent);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__field--filled .project-overlay__label,
+html[data-scheme='spectrum'] body .project-overlay__field-content:has(.project-overlay__input:focus) .project-overlay__label,
+html[data-scheme='spectrum'] body .project-overlay__field--next .project-overlay__label {
+  color: var(--sp-text);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__input {
+  border-bottom-color: color-mix(in srgb, var(--sp-text) 35%, transparent);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__field--filled .project-overlay__input,
+html[data-scheme='spectrum'] body .project-overlay__input:focus {
+  border-bottom-color: var(--sp-text);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__input::placeholder {
+  color: color-mix(in srgb, var(--sp-text) 40%, transparent);
+}
+
+/* The check's circle takes its alpha from stroke-opacity (the form's tween writes the stroke inline). */
+html[data-scheme='spectrum'] body .project-overlay__check circle {
+  stroke: var(--sp-text) !important;
+  stroke-opacity: 0.35;
+  transition: stroke-opacity 0.2s;
+}
+
+html[data-scheme='spectrum'] body .project-overlay__field--filled .project-overlay__check circle {
+  stroke-opacity: 1;
+}
+
+html[data-scheme='spectrum'] body .project-overlay__check path {
+  stroke: var(--sp-text);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__hint {
+  color: var(--sp-periwinkle);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__tags > button {
+  color: #ffffff;
+  border-color: var(--sp-bg);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__tags > button.project-overlay__tag--active {
+  background: var(--sp-bg);
+  color: var(--sp-ink);
+  border-color: var(--sp-bg);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__submit-base {
+  background: var(--sp-white);
+  color: var(--sp-white-ink);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__submit-hover {
+  background: var(--sp-red);
+  color: var(--sp-red-ink);
+  border-color: var(--sp-red);
+}
+
+html[data-scheme='spectrum'] body .project-overlay__submit--disabled .project-overlay__submit-base {
+  background: var(--sp-white);
+  color: var(--sp-white-ink);
+  border: 0;
+  opacity: 0.5;
+}
+
+/* — S13. Privacy, terms and the 404 — */
+
+html[data-scheme='spectrum'] body .privacy-overlay,
+html[data-scheme='spectrum'] body .privacy-page {
+  background: #000000;
+  color: #ffffff;
+}
+
+html[data-scheme='spectrum'] body .privacy-overlay__close {
+  background: var(--sp-white);
+  color: var(--sp-white-ink);
+}
+
+html[data-scheme='spectrum'] body .privacy__updated {
+  color: var(--sp-periwinkle);
+}
+
+/* A section's heading is a ribbon: the section's chip-cycle pair behind its text, a background and a spread
+   shadow so nothing moves. */
+html[data-scheme='spectrum'] body .privacy__section h2 {
+  background: var(--sp-bg);
+  color: var(--sp-ink);
+  box-shadow: 0 0 0 0.2em var(--sp-bg);
+}
+
+html[data-scheme='spectrum'] body .privacy__section a {
+  color: var(--sp-yellow);
+}
+
+html[data-scheme='spectrum'] body .privacy__links > a {
+  color: var(--sp-text);
+}
+
+html[data-scheme='spectrum'] body .notfound__code {
+  color: var(--sp-yellow);
+}
+
+/* The 404 has no project, so no colour of its own to fade from: the horizon is ramp B into black, and ramp A
+   is a band across its foot that the copy never sits on (the page reserves the band's height under it). */
+html[data-scheme='spectrum'] body .notfound {
   position: relative;
   padding-bottom: calc(var(--space-6) + 26dvh);
   background: linear-gradient(to top, var(--swm-ramp-b)) center bottom 26dvh / 100% 40% no-repeat, #000000;
 }
 
-html[data-scheme='spectrum'] .notfound::after {
+html[data-scheme='spectrum'] body .notfound::after {
   content: '';
   position: absolute;
   inset: auto 0 0 0;
