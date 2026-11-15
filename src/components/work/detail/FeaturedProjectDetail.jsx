@@ -56,6 +56,7 @@ import { readLogoDials } from '../directory/directoryTune.js';
 import logoManifest from '../../../data/directory-logos.json';
 import {
   GRID_ROW_PX,
+  GRID_COLS,
   SQ_ROWS_FALLBACK,
   useTileShape,
   useGridMetrics,
@@ -88,7 +89,7 @@ const DECK_REGION_ROWS = 68;
    below; this is only the pre-measure fallback (≈ a 1200px grid). */
 const BANNER_REGION_ROWS_FALLBACK = 38;
 /* A full-width band: computeFlushGrid clamps a region's span to the grid's
-   columns (3, or the large tier's 4-6, tileGrid.js). */
+   columns (5, or the large tier's 3-6, tileGrid.js). */
 const FULL_BAND = Infinity;
 const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: FULL_BAND, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
 /* 11-10, Nathan — "Big flyers that play": an admat set gets one wall in the
@@ -100,9 +101,20 @@ const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: FULL_BAND, rowSpan: OR
    players at 8 desktop / 4 phone however many pages show. 11-11 (Nathan,
    US-4): the wall 1.5 flyers tall (ADMAT_PAGES_TALL), and the cover wall
    shares the same fixed columns. Rows come from the measured grid (admatRows
-   below); this is only the width they assume before it is measured. */
+   below); this is only the width they assume before it is measured.
+   11-14 (Nathan: "match the number of columns in the project directory…
+   media is getting scaled up too much with the current 4 column count"):
+   above 1024px the walls take the grid's own count (5, 6 at the large tier,
+   tileGrid.js), so a wall flyer is one grid column wide. The fixed 4 stays
+   for a tablet and the 2 for a phone. ?wallcols=<2-8> re-dials the count
+   above 1024px (4 = the fixed walls as they were). */
 const WALL_COLS = 4;
 const WALL_COLS_PHONE = 2;
+const readWallCols = () => {
+  const raw = new URLSearchParams(window.location.search).get('wallcols');
+  const n = raw === null || raw.trim() === '' ? NaN : Number(raw);
+  return Number.isInteger(n) && n >= 2 && n <= 8 ? n : null;
+};
 const ADMAT_PAGES_TALL = 1.5;
 const ADMAT_WIDTH_FALLBACK = 1440;
 const ADMAT_GAP_FALLBACK = 2;
@@ -114,7 +126,8 @@ const ADMAT_GAP_FALLBACK = 2;
 const CAROUSEL_REGION_ROWS_FALLBACK = 43;
 /* Text bands (11-03, Nathan): the description's first paragraph is the
    intro blurb; each later one is its own band down the grid, "after a few
-   pieces of media". One every BLURB_ROWS squares of the 3-col grid from the
+   pieces of media". One every BLURB_ROWS squares of the grid (the desktop
+   count: 5 columns since 11-14, 3 when the 2 was approved) from the
    top of the tile field, closed up to an even spread only when the grid is
    too short (flushGrid pinBreaks). Nathan 11-03: 2 approved ("the two
    paragraphs look great"), and 3+ go "every couple of rows" — not spread
@@ -423,6 +436,11 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   useEffect(() => setBlurbRows(readBlurbRows()), []);
   const [visualsRowsParam, setVisualsRowsParam] = useState(null);
   useEffect(() => setVisualsRowsParam(readVisualsRows()), []);
+  const [wallColsParam, setWallColsParam] = useState(null);
+  useEffect(() => setWallColsParam(readWallCols()), []);
+  // Above 1024px (the desktop and large tiers) the grid places by its own
+  // measured columns; before the measure it assumes the desktop count.
+  const wide = !gridMetrics || gridMetrics.tier === 'desktop' || gridMetrics.tier === 'large';
   // A span of N rows is N tracks plus N-1 row gaps tall, so convert the
   // wanted pixel height through the row PITCH (track + gap), not the track.
   const bannerRows = (group) => {
@@ -433,8 +451,12 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     return Math.max(8, Math.ceil((wantPx + gridMetrics.rowGap) / pitch));
   };
 
-  // The cover and flyer walls: fixed columns, 4 desktop / 2 phone.
-  const wallCols = gridMetrics?.cols === 1 ? WALL_COLS_PHONE : WALL_COLS;
+  // The cover and flyer walls: the grid's columns above 1024px (?wallcols
+  // re-dials them), a fixed 4 on a tablet and 2 on a phone. Before the
+  // measure they assume the desktop count, like the tiles.
+  const wallCols = !wide
+    ? gridMetrics.cols === 1 ? WALL_COLS_PHONE : WALL_COLS
+    : wallColsParam ?? gridMetrics?.cols ?? GRID_COLS.desktop;
   // An admat wall: rows 1.5 flyers tall (the same row-pitch conversion as the
   // banners, rounded up) at the shape that crops the set's flyers least — a
   // set can mix 4x5 and 9x16 motion with 3x4 stills, so not the first one's.
@@ -607,11 +629,12 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const asides = paragraphs.slice(1);
 
   // ── Compute flush grid placements around the reserved regions ──
-  // (≤ 1024 the CSS spans govern; the 3-col placement keeps the fallback
-  // there so the sockets' DOM order — and where the bands cut — matches the
-  // server render. At the large tier (SQ-74) it places in that tier's columns.)
-  // Each later paragraph cuts a break row.
-  const placeCols = Math.max(3, tileRows?.cols ?? 3);
+  // (≤ 1024 the CSS spans govern; the placement keeps the desktop count
+  // there, the server render's, so the sockets' DOM order — and where the
+  // bands cut — matches it. Above 1024 it places in the measured tier's
+  // columns: the desktop count, or the large tier's, which ?detaillargecols
+  // can dial below it.) Each later paragraph cuts a break row.
+  const placeCols = wide && tileRows ? tileRows.cols : GRID_COLS.desktop;
   const flush = computeFlushGrid(showcase, {
     regions,
     cols: placeCols,

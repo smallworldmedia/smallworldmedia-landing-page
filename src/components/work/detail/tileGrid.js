@@ -22,29 +22,30 @@ export const readTileShape = () => {
 };
 /* Rows whose span (N tracks + N-1 gaps) is closest to px. */
 export const rowsFor = (px, gap) => Math.max(8, Math.round((px + gap) / (GRID_ROW_PX + gap)));
-/* Square span before the grid is measured (server render, first client
-   frame): TILE_SHAPE on a 1440px grid with the 2px --space-1 gap, so a
-   laptop's first paint is already final. */
-export const SQ_ROWS_FALLBACK = rowsFor((1440 - 2 * 2) / 3 / TILE_SHAPE, 2);
 
 /* The large-screen tier (SQ-74): from this viewport width up (CSS px) the
-   detail grid gains columns (3 → DETAIL_LARGE_COLS, 4) and the directory gets
-   its large count (?dirlargecols, 6). ONE value shared by the grid's JS
+   detail grid takes DETAIL_LARGE_COLS and the directory its large count
+   (?dirlargecols), 6 each. ONE value shared by the grid's JS
    (gridTierFor, here), the directory's <img sizes> (buildDirectoryTiles.js
    sizesFor) and the CSS column count, which is NOT a media query: masonry.css
    reads --grid-cols, which FeaturedProjectDetail writes from the measured
-   tier, so the server render keeps today's 3 columns and the tier lands after
-   mount, and both dials (?gridlarge=<px>, ?detaillargecols=<n>) reach the CSS.
-   Both are read after mount, like ?tileshape. */
+   tier, so the server render places in the desktop count and the tier lands
+   after mount, and both dials (?gridlarge=<px>, ?detaillargecols=<n>) reach
+   the CSS. Both are read after mount, like ?tileshape. */
 export const GRID_LARGE_PX = 1920;
 export const readGridLargePx = (search = window.location.search) => {
   const v = parseFloat(new URLSearchParams(search).get('gridlarge'));
   return Number.isFinite(v) && v > 1024 ? v : GRID_LARGE_PX;
 };
 
-/* The detail grid's columns at the large tier (Nathan 11-13: compare 4 and 5);
-   ?detaillargecols=<3-6> re-dials it. */
-export const DETAIL_LARGE_COLS = 4;
+/* The detail grid's columns above 1024px match the Project Directory's
+   (Nathan 11-14: "match the number of columns in the project directory so its
+   consistent. media is getting scaled up too much with the current 4 column
+   count"): 5 on desktop and 6 at the large tier, directoryTune.js SSR_TUNE's
+   `cols` and `largeCols`. large-grid.test.mjs holds the two pairs equal. They
+   were 3 and 4 (SQ-74) until then. ?detaillargecols=<3-6> re-dials the large
+   count. */
+export const DETAIL_LARGE_COLS = 6;
 export const readDetailLargeCols = (search = window.location.search) => {
   const raw = new URLSearchParams(search).get('detaillargecols');
   const n = raw === null || raw.trim() === '' ? NaN : Number(raw);
@@ -53,8 +54,17 @@ export const readDetailLargeCols = (search = window.location.search) => {
 
 /* The grid's tier at a viewport width, by the masonry.css breakpoints
    (phone ≤ 768 · tablet ≤ 1024 · desktop · large from `largePx` up), and the
-   detail grid's columns in each (3 / 2 / 1 below the tier, `largeCols` at it). */
-export const GRID_COLS = { phone: 1, tablet: 2, desktop: 3 };
+   detail grid's columns in each (1 / 2 / 5 below the tier, `largeCols` at it).
+   Phone and tablet keep their own counts: the directory's 2 and 4 are not
+   taken there. */
+export const GRID_COLS = { phone: 1, tablet: 2, desktop: 5 };
+/* Square span before the grid is measured (server render, first client
+   frame): TILE_SHAPE on a 1440px grid in the desktop columns with the 2px
+   --space-1 gap, so a laptop's first paint is already final. */
+export const SQ_ROWS_FALLBACK = rowsFor(
+  (1440 - (GRID_COLS.desktop - 1) * 2) / GRID_COLS.desktop / TILE_SHAPE,
+  2
+);
 export const gridTierFor = (vw, largePx = GRID_LARGE_PX) =>
   vw <= 768 ? 'phone' : vw <= 1024 ? 'tablet' : vw >= largePx ? 'large' : 'desktop';
 export const gridColsFor = (vw, largePx = GRID_LARGE_PX, largeCols = DETAIL_LARGE_COLS) => {
@@ -80,8 +90,8 @@ export function useGridMetrics(flowRef, gridSelector = '.masonry-grid--detail') 
     const measure = () => {
       const grid = el.querySelector(gridSelector);
       const rowGap = grid ? parseFloat(getComputedStyle(grid).rowGap) || 0 : 0;
-      // Column count by the masonry.css breakpoints (3 / 2 ≤ 1024 / 1 ≤ 768)
-      // and the large tier (4 from GRID_LARGE_PX)
+      // Column count by the masonry.css breakpoints (5 / 2 ≤ 1024 / 1 ≤ 768)
+      // and the large tier (6 from GRID_LARGE_PX)
       const largePx = readGridLargePx();
       const tier = gridTierFor(window.innerWidth, largePx);
       const cols = tier === 'large' ? readDetailLargeCols() : GRID_COLS[tier];

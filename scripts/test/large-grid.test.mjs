@@ -8,6 +8,9 @@ import { readFileSync } from 'node:fs'
 import {
   GRID_LARGE_PX,
   DETAIL_LARGE_COLS,
+  GRID_COLS,
+  SQ_ROWS_FALLBACK,
+  rowsFor,
   gridTierFor,
   gridColsFor,
   readGridLargePx,
@@ -19,24 +22,24 @@ import { computeFlushGrid } from '../../src/components/work/detail/flushGrid.js'
 import { SSR_TUNE, PARAM_KEYS, readTune } from '../../src/components/work/directory/directoryTune.js'
 import { sizesFor } from '../../src/components/work/directory/buildDirectoryTiles.js'
 
-test('the breakpoint is 1920 CSS px and the columns step 1 / 2 / 3 below it, 4 at and above it', () => {
+test('the breakpoint is 1920 CSS px and the columns step 1 / 2 / 5 below it, 6 at and above it', () => {
   assert.equal(GRID_LARGE_PX, 1920)
-  assert.equal(DETAIL_LARGE_COLS, 4)
+  assert.equal(DETAIL_LARGE_COLS, 6)
   const at = (vw) => gridColsFor(vw)
   assert.deepEqual([320, 768].map(at), [1, 1], 'phone: one column up to 768')
   assert.deepEqual([769, 1024].map(at), [2, 2], 'tablet: two columns 769 to 1024')
-  assert.deepEqual([1025, 1440, 1728, 1919].map(at), [3, 3, 3, 3], 'desktop: three columns, a 1728 laptop unchanged')
-  assert.deepEqual([1920, 2560, 3840].map(at), [4, 4, 4], 'large: four from the breakpoint (min-width, inclusive)')
+  assert.deepEqual([1025, 1440, 1728, 1919].map(at), [5, 5, 5, 5], 'desktop: five columns, a 1728 laptop included')
+  assert.deepEqual([1920, 2560, 3840].map(at), [6, 6, 6], 'large: six from the breakpoint (min-width, inclusive)')
   assert.deepEqual([1919, 1920].map((vw) => gridTierFor(vw)), ['desktop', 'large'])
   assert.equal(gridTierFor(700), 'phone')
   assert.equal(gridTierFor(900), 'tablet')
 })
 
 test('the breakpoint and the large column count follow their dials', () => {
-  assert.equal(gridColsFor(2200, 2400), 3, 'a later breakpoint leaves 2200 on desktop')
-  assert.equal(gridColsFor(2200, 2000), 4)
-  assert.equal(gridColsFor(2560, GRID_LARGE_PX, 5), 5, 'the large count dials 4 vs 5')
-  assert.equal(gridColsFor(1728, GRID_LARGE_PX, 5), 3, 'below the tier the large count never applies')
+  assert.equal(gridColsFor(2200, 2400), 5, 'a later breakpoint leaves 2200 on desktop')
+  assert.equal(gridColsFor(2200, 2000), 6)
+  assert.equal(gridColsFor(2560, GRID_LARGE_PX, 4), 4, 'the large count dials down as well')
+  assert.equal(gridColsFor(1728, GRID_LARGE_PX, 4), 5, 'below the tier the large count never applies')
   assert.equal(gridColsFor(900, 800, 6), 2, 'a breakpoint dialed into the tablet band does not beat the tablet step')
 })
 
@@ -49,11 +52,18 @@ test('?gridlarge: the dial wins when it is a width above the tablet band, else t
   }
 })
 
-test('?detaillargecols: an integer 3 to 6, anything else falls back to 4', () => {
-  assert.equal(readDetailLargeCols(''), 4)
+test('the detail grid above 1024px holds the Project Directory\'s columns (Nathan 11-14)', () => {
+  assert.equal(GRID_COLS.desktop, SSR_TUNE.cols, 'desktop: the directory\'s ?dircols default')
+  assert.equal(DETAIL_LARGE_COLS, SSR_TUNE.largeCols, 'large: the directory\'s ?dirlargecols default')
+  assert.deepEqual([GRID_COLS.phone, GRID_COLS.tablet], [1, 2], 'phone and tablet keep their own counts')
+  assert.equal(SQ_ROWS_FALLBACK, rowsFor((1440 - 4 * 2) / 5, 2), 'the server render\'s square is a 1440px laptop\'s in 5 columns')
+})
+
+test('?detaillargecols: an integer 3 to 6, anything else falls back to 6', () => {
+  assert.equal(readDetailLargeCols(''), 6)
   for (const n of [3, 4, 5, 6]) assert.equal(readDetailLargeCols(`?detaillargecols=${n}`), n)
   for (const bad of ['2', '7', '4.5', '', 'abc', '-4', '0']) {
-    assert.equal(readDetailLargeCols(`?detaillargecols=${bad}`), 4, `?detaillargecols=${bad}`)
+    assert.equal(readDetailLargeCols(`?detaillargecols=${bad}`), 6, `?detaillargecols=${bad}`)
   }
 })
 
@@ -69,11 +79,11 @@ test('the directory: large cols 6 by default, ?dirlargecols re-dials it, ?dircol
   assert.deepEqual([t.cols, t.largeCols], [4, 6], '?dircols moves the desktop tier only')
 })
 
-test('sizesFor: the large clause leads, at the directory\'s 6 columns and the detail\'s 4, and follows ?gridlarge', () => {
+test('sizesFor: the large clause leads, at the directory\'s 6 columns and the detail\'s default spec, and follows ?gridlarge', () => {
   const dir = { phone: 2, tablet: 4, desktop: 5, large: 6 }
   assert.equal(sizesFor('square', 1, 'cover', dir), '(min-width: 1920px) 17vw, (max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw')
   assert.equal(sizesFor('landscape', 1.78, 'cover', dir), '(min-width: 1920px) 33vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw')
-  assert.match(sizesFor('square', 1, 'cover'), /^\(min-width: 1920px\) 25vw, /, 'the default spec is the detail grid\'s 4')
+  assert.equal(sizesFor('square', 1, 'cover'), '(min-width: 1920px) 17vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 20vw', 'the default spec is the detail grid\'s 1 / 2 / 5 / 6')
   assert.match(sizesFor('square', 1, 'cover', { ...dir, largeFrom: 2400 }), /^\(min-width: 2400px\) 17vw, /)
 })
 
@@ -86,9 +96,9 @@ test('tileRowsFor and tileRowVars carry the large count: a narrower tile in 4 co
   assert.equal(tileRowVars(null), undefined)
 })
 
-test('masonry.css takes its column count from --grid-cols (3 until the tier is measured) and keeps the ≤1024 / ≤768 steps', () => {
+test('masonry.css takes its column count from --grid-cols (5 until the tier is measured) and keeps the ≤1024 / ≤768 steps', () => {
   const css = readFileSync(new URL('../../src/styles/masonry.css', import.meta.url), 'utf8')
-  assert.match(css, /\.masonry-grid--detail \{[^}]*grid-template-columns: repeat\(var\(--grid-cols, 3\), 1fr\)/)
+  assert.match(css, /\.masonry-grid--detail \{[^}]*grid-template-columns: repeat\(var\(--grid-cols, 5\), 1fr\)/)
   assert.match(css, /@media \(max-width: 1024px\) \{\s*\.masonry-grid--detail \{\s*grid-template-columns: repeat\(2, 1fr\)/)
   assert.match(css, /@media \(max-width: 768px\) \{\s*\.masonry-grid--detail \{\s*grid-template-columns: 1fr/)
 })

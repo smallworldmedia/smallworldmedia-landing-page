@@ -48,7 +48,7 @@
  */
 import { assetLane, expandChunks, ratioOf } from '../detail/buildContentFlow.js';
 import { TILE_RATIO } from '../detail/flushGrid.js';
-import { GRID_LARGE_PX } from '../detail/tileGrid.js';
+import { DETAIL_LARGE_COLS, GRID_COLS, GRID_LARGE_PX } from '../detail/tileGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
 import { coverageOf, ownersOf, tileInCoverage } from '../../../lib/clientCoverage.js';
@@ -366,7 +366,13 @@ export function sizesFor(
   type,
   ratio,
   fit,
-  { phone = 1, tablet = 2, desktop = 3, large = 4, largeFrom = GRID_LARGE_PX } = {},
+  {
+    phone = GRID_COLS.phone,
+    tablet = GRID_COLS.tablet,
+    desktop = GRID_COLS.desktop,
+    large = DETAIL_LARGE_COLS,
+    largeFrom = GRID_LARGE_PX,
+  } = {},
   actual = null
 ) {
   const span = actual?.span ?? (type === 'landscape' ? 2 : 1);

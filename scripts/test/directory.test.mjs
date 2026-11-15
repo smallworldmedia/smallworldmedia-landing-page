@@ -516,10 +516,11 @@ test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio or
 })
 
 test('sizesFor — the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
-  assert.equal(sizesFor('square', 1, 'cover'), '(min-width: 1920px) 25vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
-  assert.equal(sizesFor('landscape', 1.78, 'cover'), '(min-width: 1920px) 50vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, 67vw')
-  assert.equal(sizesFor('portrait', 0.5625, 'cover', { phone: 2 }), '(min-width: 1920px) 28vw, (max-width: 768px) 56vw, (max-width: 1024px) 56vw, 38vw')
-  assert.equal(sizesFor('portrait', 0.5625, 'contain'), '(min-width: 1920px) 25vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw')
+  // the default spec is the detail grid's columns: 1 / 2 / 5, 6 at the large tier (11-14)
+  assert.equal(sizesFor('square', 1, 'cover'), '(min-width: 1920px) 17vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 20vw')
+  assert.equal(sizesFor('landscape', 1.78, 'cover'), '(min-width: 1920px) 33vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, 40vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'cover', { phone: 2 }), '(min-width: 1920px) 19vw, (max-width: 768px) 56vw, (max-width: 1024px) 56vw, 23vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'contain'), '(min-width: 1920px) 17vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 20vw')
   // the directory's bands: five wide, four on a tablet, two on a phone
   const dir = { phone: 2, tablet: 4, desktop: 5, large: 6 }
   assert.equal(sizesFor('square', 1, 'cover', dir), '(min-width: 1920px) 17vw, (max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw')
