@@ -95,7 +95,8 @@
  * (default ON) — the rotated select_project hint above the chip that wipes
  * downward on engage, ?feather=<px> — the window feather radius, ?pause
  * (default OFF) — the pause screen (scene loop + GSAP tweens + CSS chrome
- * animations hold, scrim goes input-solid, [select_project] at centre with
+ * animations hold, scrim goes input-solid, [select_project] at centre (on
+ * the selected row at the right edge since 11-14, pager-scale.css) with
  * the house random letter exit on release), and ?scalewarp (default OFF) —
  * rows wear a cylindrical lens projection of their continuous distance from
  * the lens (--scale-qf per frame; hitTest inverts the same math).

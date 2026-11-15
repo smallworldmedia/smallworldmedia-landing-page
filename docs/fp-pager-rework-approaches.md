@@ -1426,3 +1426,19 @@ lock, the pitch and `?pagervw`, the wheel detent following the pitch, 7 rows).
 - **Height check (unchanged, reported):** 7 × pitch vs half the viewport — 477.6 / 450 at
   1440×900, 636.8 / 540 at 1920×1080, 849.0 / 720 at 2560×1440: none fit; 5 rows fit all three.
   Rows are not cut.
+
+### 11-14 round 14 — `[select_project]` moves to the right edge on desktop
+
+Nathan, 11-14, with a screenshot of the engaged wheel at about 2000 px wide, the chip sitting over
+the end of "HEAVY HOUSE SOCIETY": "lets also move the select project chip to be anchored to the left
+side of the viewport", corrected in the same exchange to "oops i meant select project on the right,
+i misspoke".
+
+- **Why it collided.** The label sat at viewport centre (`left: 50vw`). Since r12c the selected
+  name scales with the viewport and is uncapped on desktop, so the longest names cross the centre
+  at every desktop width.
+- **The seat.** Still on the selected row (`top: --scale-lens-y`), its right edge on the right-hand
+  chrome line: `left: calc(100vw - var(--chrome-right-inset))`, `translate(-100%, -50%)`. That is
+  the inset the nav pill and the colour-scheme widget use, so the chip lines up with them.
+- **Not touched:** the ≤768 seat (rotated, right edge, top half), the fade-in, the letter cut, the
+  exit wipe and its timing, the chip's size and skin. Position only, so the choreography lock holds.

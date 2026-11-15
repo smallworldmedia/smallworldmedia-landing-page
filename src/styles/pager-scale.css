@@ -962,19 +962,25 @@
   transition: clip-path var(--scale-open-ms) var(--ease-draw);
 }
 
-/* [select_project] pause-screen label (?pause, default OFF — 09-02 round 2):
-   viewport centre over the scrim while everything else on the page holds
-   still. Fade-in only rides CSS ([data-show]); the EXIT is the house random
-   letter cut (the skin hides the char spans in shuffled order — the
-   textExit idiom), so the hide itself is instant. Same 50vw seat trick as
-   the retired zoom flight: the root is fixed at the viewport's vertical
-   centre, so lens-y ≈ centre. */
+/* [select_project] pause-screen label (?pause, baked ON 09-03): over the
+   scrim while everything else on the page holds still. Fade-in only rides
+   CSS ([data-show]); the EXIT is the house random letter cut (the skin
+   hides the char spans in shuffled order — the textExit idiom), so the
+   hide itself is instant.
+   SEAT (11-14, Nathan: "select project on the right"): on the selected
+   row, its right edge on the right-hand chrome line (--chrome-right-inset,
+   the nav pill's and the scheme widget's). It sat at viewport centre
+   (50vw) until then, where the selected name, uncapped and scaled with the
+   wheel text since r12c, ran under it. The root is fixed at the viewport's
+   left edge and vertical centre, so 100vw from it is the right edge and
+   lens-y the selected row. Position only: the fade, the letter cut and
+   the wipe are as they were. */
 :is(.fp, .swm-corner) .fp-scale__freeze {
   position: absolute;
-  left: 50vw;
+  left: calc(100vw - var(--chrome-right-inset));
   top: var(--scale-lens-y);
   z-index: 2;
-  transform: translate(-50%, -50%);
+  transform: translate(-100%, -50%);
   font-family: var(--font-body);
   font-weight: var(--weight-medium);
   font-size: var(--text-secondary);
