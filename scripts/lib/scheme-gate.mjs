@@ -389,19 +389,35 @@ export function shares(counts, reference = REFERENCE_SHARES, tol = 10) {
 
 /**
  * uniform — the same element paints the same colour on every project. `pages` = [{ label, els }]
- * (the style dumps of two or more pages of one kind, one run, one width). Every element path ALL the
- * pages share is compared against the first page, property by property; a path only some pages have
- * (a longer tag list, more keywords) is skipped and counted in `skipped`. An offender names the path,
- * the property and both values (null = that page paints nothing there).
+ * (the style dumps of two or more pages of one kind, one run, one width). Every element that TWO OR MORE
+ * pages have is compared, property by property, against the first page that has it; an element only one
+ * page has (the longest tag list's last tag) is skipped and counted in `skipped`. An offender names the
+ * element, the property and both values (null = that page paints nothing there).
+ *
+ * An element is matched across pages by its record's `u` where it has one, else by its path. The probe
+ * writes `u` for elements whose colour follows an attribute and not their sibling position (a keyword
+ * word's `data-kw`, a social button's `data-platform`): two projects' n-th such sibling can be different
+ * things, so nth-of-type would compare a red-slot keyword with a green-slot one and call it a per-project
+ * colour. The offender's `path` is that key.
  */
 export function uniform(pages) {
-  const list = (pages ?? []).map((p, i) => ({ label: p?.label ?? `page ${i + 1}`, els: elsOf(p) }));
+  const keyed = (els) => {
+    const out = {};
+    for (const [path, rec] of Object.entries(els)) {
+      const key = rec?.u ?? path;
+      if (!(key in out)) out[key] = rec;
+    }
+    return out;
+  };
+  const list = (pages ?? []).map((p, i) => ({ label: p?.label ?? `page ${i + 1}`, els: keyed(elsOf(p)) }));
   if (list.length < 2) return { ...result([], 0, 'needs two pages', { vacuous: true }), skipped: 0 };
-  const [first, ...rest] = list;
   const all = new Set(list.flatMap((p) => Object.keys(p.els)));
-  const shared = [...all].filter((path) => list.every((p) => path in p.els));
   const offenders = [];
-  for (const path of shared) {
+  let compared = 0;
+  for (const path of all) {
+    const [first, ...rest] = list.filter((p) => path in p.els);
+    if (!rest.length) continue;
+    compared += 1;
     const a = first.els[path].paint ?? {};
     for (const other of rest) {
       const b = other.els[path].paint ?? {};
@@ -410,8 +426,8 @@ export function uniform(pages) {
       }
     }
   }
-  const skipped = all.size - shared.length;
-  return { ...result(offenders, shared.length, `${shared.length} shared elements over ${list.length} pages`), skipped };
+  const skipped = all.size - compared;
+  return { ...result(offenders, compared, `${compared} elements on two or more of ${list.length} pages`), skipped };
 }
 
 /** The six swatch families of color-ref.png a page can wear, and the two a page can carry besides. */

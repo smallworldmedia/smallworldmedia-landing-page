@@ -66,8 +66,10 @@
  * The spectrum gates (wave 4: no colour per project; every component wears the palette inside itself):
  *   uniform  the same element paints the same colour on every project. The dumps of the detail pages
  *            (project pages: cards 1 and 3, or every card with --details=all) must agree on every element
- *            path they all share, media aside; paths only some pages have are skipped and counted on an
- *            INFO line. /work itself is not compared: it opens on its first card and no URL picks another
+ *            two or more of them have, media aside; an element only one page has is skipped and counted
+ *            on an INFO line. A keyword word and a social button are matched by data-kw / data-platform and
+ *            their count among the siblings sharing it, not by nth-of-type (their colour follows that
+ *            attribute, and two projects' n-th sibling can be different things). /work itself is not compared: it opens on its first card and no URL picks another
  *            (the start card is read from sessionStorage, written by input), so only project pages are.
  *   density  per page, how many palette families are painted: the six swatches, white-ground and the
  *            ramp A gradient (>= 3 of its nine stops, read from src/lib/spectrumRamp.js, else
@@ -249,10 +251,17 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
     if (cs.boxShadow && cs.boxShadow !== 'none') (cs.boxShadow.match(COLOUR_RE) || []).forEach((c, i) => put(`shadow#${i}`, c));
     return { p, urlBg };
   }
-  function record(key, paint, text, media, backdrop) {
+  // `ukey` is the uniform gate's key, stored as `u` only where it differs from the path (see UNIFORM_ATTRS).
+  function record(key, paint, text, media, backdrop, ukey) {
     if (!Object.keys(paint).length) return;
-    els[key] = { paint, ...(text ? { text: true } : {}), ...(media ? { media: true } : {}), ...(backdrop ? { backdrop: true } : {}) };
+    els[key] = { paint, ...(text ? { text: true } : {}), ...(media ? { media: true } : {}), ...(backdrop ? { backdrop: true } : {}), ...(ukey && ukey !== key ? { u: ukey } : {}) };
   }
+  // Elements whose colour follows an attribute and not their sibling position: a keyword word's data-kw
+  // slot (src/lib/keywords.jsx: the marked item's place in its paragraph, links and bold counted, shared
+  // by the words of one keyword) and a social button's data-platform. Two projects' n-th such sibling
+  // can be different things (one blurb opens with a link, one client has no website), so the uniform gate
+  // compares them by the attribute and their count among the siblings sharing it, not by nth-of-type.
+  const UNIFORM_ATTRS = ['data-kw', 'data-platform'];
   // A transform that flattens its box to nothing (the directory filter's wipe box rests at scaleX(0)).
   const collapsed = (t) => {
     const m = /^matrix\(([^)]+)\)$/.exec(t || '');
@@ -260,7 +269,7 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
     const [a, b, c, d] = m[1].split(',').map(Number);
     return a * d - b * c === 0;
   };
-  function visit(el, path, underUrl) {
+  function visit(el, path, underUrl, upath = path) {
     pathOf.set(el, path);
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.opacity === '0') return;
@@ -274,9 +283,9 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
     if (boxed) {
       const r = paintOf(cs, { svg: isSvg, graphic: isSvg && GRAPHIC.has(tag), text });
       urlBg = r.urlBg;
-      record(path, r.p, text, underUrl || urlBg || (text && onMedia(rect)));
+      record(path, r.p, text, underUrl || urlBg || (text && onMedia(rect)), false, upath);
     } else if (tag === 'stop' && cs.stopOpacity !== '0') {
-      record(path, { 'stop-color': cs.stopColor }, false, false);
+      record(path, { 'stop-color': cs.stopColor }, false, false, false, upath);
     }
     if (!isSvg && shown) {
       for (const ps of ['::before', '::after']) {
@@ -292,13 +301,14 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
         // A box painted BEHIND its element's own text (absolute, negative z-index, not flattened): the
         // contrast gate reads it as that text's nearest background, ahead of the element's own fill.
         const backdrop = !textual && pcs.position === 'absolute' && parseInt(pcs.zIndex, 10) < 0 && !collapsed(pcs.transform);
-        record(path + ps, r.p, textual, underUrl || urlBg || r.urlBg || (textual && onMedia(rect)), backdrop);
+        record(path + ps, r.p, textual, underUrl || urlBg || r.urlBg || (textual && onMedia(rect)), backdrop, upath + ps);
       }
     }
-    children(el, path, underUrl || urlBg);
+    children(el, path, underUrl || urlBg, upath);
   }
-  function children(parent, parentPath, underUrl) {
+  function children(parent, parentPath, underUrl, parentU = parentPath) {
     const counts = {};
+    const keyed = {};
     for (const el of parent.children) {
       const tag = el.localName;
       if (SKIP.has(tag.toUpperCase())) continue;
@@ -306,7 +316,16 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
       counts[tag] = (counts[tag] || 0) + 1;
       if (el.matches(mediaSel)) continue;
       const cls = clsOf(el);
-      visit(el, `${parentPath} > ${tag}${cls ? `.${cls}` : ''}:nth-of-type(${counts[tag]})`, underUrl);
+      const seg = `${tag}${cls ? `.${cls}` : ''}`;
+      const nth = `${seg}:nth-of-type(${counts[tag]})`;
+      let useg = nth;
+      const attr = UNIFORM_ATTRS.find((a) => el.hasAttribute(a));
+      if (attr) {
+        const k = `${seg}[${attr}="${el.getAttribute(attr)}"]`;
+        keyed[k] = (keyed[k] || 0) + 1;
+        useg = `${k}#${keyed[k]}`;
+      }
+      visit(el, `${parentPath} > ${nth}`, underUrl, `${parentU} > ${useg}`);
     }
   }
   if (scope) {
@@ -756,7 +775,7 @@ async function main() {
           if (detailDumps.length < 2) emit('SKIP', scheme, 'detail*', width, 'uniform', `skipped: ${detailDumps.length} project page measured, it compares two or more (--routes with detail)`);
           else {
             const res = gate.uniform(detailDumps);
-            console.log(`INFO  ${scheme.padEnd(8)} ${'detail*'.padEnd(10)} ${String(width).padStart(4)}  ${'uniform'.padEnd(10)} ${res.skipped} element paths not on every page (skipped), ${detailDumps.length} pages: ${detailDumps.map((d) => d.label).join(', ')}`);
+            console.log(`INFO  ${scheme.padEnd(8)} ${'detail*'.padEnd(10)} ${String(width).padStart(4)}  ${'uniform'.padEnd(10)} ${res.skipped} elements on one page only (skipped), ${detailDumps.length} pages: ${detailDumps.map((d) => d.label).join(', ')}`);
             emitResult(scheme, 'detail*', width, 'uniform', res);
           }
           if (ROUTES.includes('work')) console.log(`INFO  ${scheme.padEnd(8)} ${'work'.padEnd(10)} ${String(width).padStart(4)}  ${'uniform'.padEnd(10)} /work is not compared: it opens on its first card and no URL picks another (the start card comes from sessionStorage), so project pages only`);

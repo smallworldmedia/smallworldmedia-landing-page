@@ -271,6 +271,50 @@ test('uniform: three pages compare against the first; one page, or pages sharing
   assert.equal(uniform([same, structuredClone(same)]).pass, true);
 });
 
+test('uniform: an element only some of the pages have is still compared between the pages that have it', () => {
+  const tag7 = 'html > body > main > ul.tags > li.tag:nth-of-type(7)';
+  const base = { html: el({ 'background-color': 'rgb(0, 0, 0)' }) };
+  const withTag = (bg) => ({ ...base, [tag7]: el({ 'background-color': bg }, { text: true }) });
+  const ok = uniform([{ label: 'a', els: base }, { label: 'b', els: withTag('rgb(21, 86, 229)') }, { label: 'c', els: withTag('rgb(21, 86, 229)') }]);
+  assert.equal(ok.pass, true, JSON.stringify(ok));
+  assert.equal(ok.n, 2); // html on all three, the seventh tag on b and c
+  assert.equal(ok.skipped, 0);
+  // negative control: the two pages that have it disagree, and the offender names those two
+  const bad = uniform([{ label: 'a', els: base }, { label: 'b', els: withTag('rgb(21, 86, 229)') }, { label: 'c', els: withTag('rgb(253, 54, 26)') }]);
+  assert.equal(bad.pass, false);
+  assert.deepEqual(bad.offenders, [{ path: tag7, prop: 'background-color', a: 'rgb(21, 86, 229)', b: 'rgb(253, 54, 26)', pages: 'b vs c' }]);
+});
+
+test('uniform: elements the probe keys by attribute (`u`) are matched by it, not by sibling position; a colour that differs under one key still fails', () => {
+  const P = 'html > body > main > p.blurb:nth-of-type(1)';
+  const green = el({ 'background-color': 'rgb(7, 123, 62)', color: 'rgb(255, 255, 255)' }, { text: true });
+  const red = el({ 'background-color': 'rgb(253, 54, 26)', color: 'rgb(10, 10, 10)' }, { text: true });
+  const u = (rec, key) => ({ ...rec, u: `${P} > ${key}` });
+  // Page a's blurb opens with a link, so its first keyword sits in slot 2; page b's first is slot 1.
+  const a = {
+    [`${P} > mark.kw:nth-of-type(1)`]: u(green, 'mark.kw[data-kw="2"]#1'),
+    [`${P} > mark.kw:nth-of-type(2)`]: u(green, 'mark.kw[data-kw="2"]#2'),
+    [`${P} > mark.kw:nth-of-type(3)`]: u(red, 'mark.kw[data-kw="1"]#1'),
+  };
+  const b = {
+    [`${P} > mark.kw:nth-of-type(1)`]: u(red, 'mark.kw[data-kw="1"]#1'),
+    [`${P} > mark.kw:nth-of-type(2)`]: u(green, 'mark.kw[data-kw="2"]#1'),
+  };
+  const r = uniform([{ label: 'a', els: a }, { label: 'b', els: b }]);
+  assert.equal(r.pass, true, JSON.stringify(r));
+  assert.equal(r.n, 2); // slot 1 word 1, slot 2 word 1
+  assert.equal(r.skipped, 1); // slot 2's second word only page a has
+  // the same two pages keyed by sibling position are the false alarm this key removes
+  const strip = (els) => Object.fromEntries(Object.entries(els).map(([k, { u: _u, ...rec }]) => [k, rec]));
+  assert.equal(uniform([{ label: 'a', els: strip(a) }, { label: 'b', els: strip(b) }]).pass, false);
+  // negative control: one slot painted two colours fails, named by its key
+  const odd = { ...b, [`${P} > mark.kw:nth-of-type(2)`]: u(red, 'mark.kw[data-kw="2"]#1') };
+  const bad = uniform([{ label: 'a', els: a }, { label: 'c', els: odd }]);
+  assert.equal(bad.pass, false);
+  assert.deepEqual([...new Set(bad.offenders.map((o) => o.path))], [`${P} > mark.kw[data-kw="2"]#1`]);
+  assert.deepEqual(bad.offenders.map((o) => o.prop).sort(), ['background-color', 'color']);
+});
+
 test('density: a page painting six families passes with them listed; one painting two fails with them listed and the threshold', () => {
   const six = {
     html: el({ 'background-color': 'rgb(0, 0, 0)' }),
