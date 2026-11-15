@@ -56,7 +56,7 @@ import {
   PP_DRIFT,
   BREATHE,
 } from './fpForme.js';
-import { createDrum, buildDrumSlot } from './fpDrum.js';
+import { createDrum, buildDrumSlot, recolorDrumSlot, drumSlotColors } from './fpDrum.js';
 import { settleDebounce } from '../../../lib/settleResize.js';
 import { DRAG_TRACK_S, RELEASE_GLIDE_S, RELEASE_EASE } from '../../../lib/motion.js';
 import {
@@ -76,7 +76,6 @@ import {
   thumbForCount,
   DEPTH_TIERS,
   SHELL_RADIUS,
-  SHELL_LINE_COLOR,
   PARALLAX,
   PARALLAX_LERP,
   TILE_FALLBACK_COLOR,
@@ -107,7 +106,10 @@ import {
   FIELD_SPREAD_X,
   FIELD_SPREAD_Y,
   PREFERS_REDUCED_MOTION,
+  shellLineFor,
+  hex6,
 } from './worldConfig.js';
+import { getScheme, onScheme } from '../../../lib/colorScheme.js';
 import {
   FAN_X,
   FAN_Y,
@@ -173,7 +175,6 @@ function applyCover(material, texture, planeAspect, texAspect) {
 export default function useWorldScene(containerRef, world, index, poolRef, snapRef = null) {
   const apiRef = useRef(null);
   const prevIndexRef = useRef(null);
-  const shellRef = useRef(null);
   const formeLatticeRef = useRef(null); // FORME pane lattice material (S2 tint)
 
   // ── Setup: renderer / composer / scene / camera / shell / loop (mount once) ──
@@ -214,7 +215,6 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     // just inside the shell, draw last and win their shared cell lines.
     if (FPGRID > 0) shell.renderOrder = ORDER_SHELL;
     scene.add(shell);
-    shellRef.current = shell;
 
     // FORME: the pane lattice is scene-level and NEVER re-deals; the true
     // shell dims into deep atmosphere behind it.
@@ -484,6 +484,7 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
 
     // Build a World's Tiles into a slot (replacing whatever it held).
     const buildSlot = (slot, w) => {
+      if (inSchemeEvent) schemeRebuilds++; // the debug hook's proof that a scheme event never rebuilds a slot
       clearSlot(slot);
       // First time this World is shown → its tiles push out from center; on any
       // later visit they just resolve at rest (no re-run of the reveal).
@@ -830,9 +831,67 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
       tw.kill();
     };
 
+    // ── Colour scheme (US-7): the grid line, plate/wall borders, spine tabs and
+    // glow recolour live on `swm:scheme`. SETTLED events also redraw the tab
+    // canvases; PREVIEW events write colours only. Never a slot rebuild: no
+    // media reload, no HLS churn (direct writes, see fpDrum recolorDrumSlot).
+    let targetWorld = null; // the World the scene is on / turning to (the grid line follows it)
+    let lineHex = null; // the shell line's resolved colour, '#rrggbb' before today's tint dim
+    let inSchemeEvent = false;
+    let schemeRebuilds = 0;
+    let schemeRepaints = 0;
+    const tintShell = (w, duration = TURN_DURATION) => {
+      const { color, tinted } = shellLineFor(w, getScheme());
+      lineHex = hex6(color);
+      const target = new THREE.Color(color);
+      if (tinted) target.multiplyScalar(GRID_TINT_DIM);
+      // Cross-fade on the SAME house curve + duration as the World Turn, so
+      // the field recolours as the roll plays (duration 0 = snap, at mount).
+      const to = (col) => {
+        if (duration > 0)
+          gsap.to(col, {
+            r: target.r,
+            g: target.g,
+            b: target.b,
+            duration,
+            ease: turnRollEase,
+            overwrite: true,
+          });
+        else {
+          gsap.killTweensOf(col);
+          col.copy(target);
+        }
+      };
+      to(shell.material.color);
+      // FORME: the pane lattice ingests the same dimmed accent as the shell —
+      // the whole page recolours as the re-deal plays.
+      if (formeLatticeRef.current) to(formeLatticeRef.current.color);
+    };
+    tintShell(null, 0); // the first frame already wears the scheme's grid (black must not flash deep blue)
+    const offScheme = onScheme(({ preview }) => {
+      inSchemeEvent = true;
+      try {
+        tintShell(targetWorld);
+        if (FPGRID === 3) {
+          recolorDrumSlot(activeSlot, preview);
+          recolorDrumSlot(idleSlot, preview); // mid-Turn: the incoming World too
+          if (!preview) schemeRepaints++;
+        }
+      } finally {
+        inSchemeEvent = false;
+      }
+    });
+    const schemeDebug = (window.__swmSchemeDebug = window.__swmSchemeDebug || {});
+    const worldsHook = () => {
+      const { accent, glow } = drumSlotColors(activeSlot);
+      return { accent, line: lineHex, glow, rebuilds: schemeRebuilds, repaints: schemeRepaints };
+    };
+    schemeDebug.worlds = worldsHook;
+
     const goToWorld = (w, direction) => {
       // direction: +1 forward (roll up/out top), -1 back (roll down/out bottom),
       // 0 = initial/instant. Reduced motion always swaps instantly.
+      targetWorld = w;
       if (!currentSlug || direction === 0 || PREFERS_REDUCED_MOTION || !w) {
         finishTurnInstant();
         // DRUM: reduced-motion paging still advances the absolute drum angle
@@ -1186,11 +1245,13 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     ro.observe(container);
     syncTicker();
 
-    apiRef.current = { goToWorld };
+    apiRef.current = { goToWorld, tintShell };
 
     return () => {
       disposed = true;
       apiRef.current = null;
+      offScheme();
+      if (schemeDebug.worlds === worldsHook) delete schemeDebug.worlds;
       resumeAfterResize.cancel();
       gsap.killTweensOf(aspectLag);
       finishTurnInstant();
@@ -1233,33 +1294,8 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     apiRef.current.goToWorld(world, direction);
     // S2: the background grid ingests the focused project's accent (dimmed to
     // keep the lat/long lines a faint field rather than a bright wall); a
-    // colourless project restores the default deep-blue grid.
-    const shell = shellRef.current;
-    if (shell) {
-      const target = new THREE.Color(world?.projectColor || SHELL_LINE_COLOR);
-      if (world?.projectColor) target.multiplyScalar(GRID_TINT_DIM);
-      // Cross-fade the grid to the focused accent on the SAME house curve +
-      // duration as the World Turn, so the field recolours as the roll plays.
-      gsap.to(shell.material.color, {
-        r: target.r,
-        g: target.g,
-        b: target.b,
-        duration: TURN_DURATION,
-        ease: turnRollEase,
-        overwrite: true,
-      });
-      // FORME: the pane lattice ingests the same dimmed accent as the shell —
-      // the whole page recolours as the re-deal plays.
-      if (formeLatticeRef.current) {
-        gsap.to(formeLatticeRef.current.color, {
-          r: target.r,
-          g: target.g,
-          b: target.b,
-          duration: TURN_DURATION,
-          ease: turnRollEase,
-          overwrite: true,
-        });
-      }
-    }
+    // colourless project restores the default deep-blue grid. US-7: tintShell
+    // asks the scheme (black = one faint grey for every World).
+    apiRef.current.tintShell(world);
   }, [world?.slug, index]);
 }

@@ -417,6 +417,10 @@ export function createWallPlate({
       travel = (travel + (WALL_DRIFT * dt + kick) * (W / 640)) % cycle;
       uniforms.uWallTravel.value = travel * sigma;
     },
+    // A scheme change: the border's colour, no rebuild.
+    setAccent(color) {
+      borderMaterial.color.set(color);
+    },
     // Debug handle only (?debug → window.__fpDrum[slug].seekWalls): park the
     // travel at a fraction of the cycle — how a probe checks the Repeat wrap.
     seek(frac) {

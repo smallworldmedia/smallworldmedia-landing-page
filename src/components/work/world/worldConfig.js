@@ -6,6 +6,7 @@
  *   /work?lens=-0.5&tile=1.2&scatter=0.8&zjitter=0.8&sep=0.5&fov=40
  */
 import { HOME_X, VIEW_HOLD } from '../bandLayout.js';
+import { schemeAccent } from '../../../lib/colorScheme.js';
 
 export const IS_MOBILE =
   typeof window !== 'undefined' &&
@@ -282,6 +283,40 @@ export const SHELL_RADIUS = 16;
 export const SHELL_MERIDIANS = 250; // longitude lines
 export const SHELL_PARALLELS = 230; // latitude lines
 export const SHELL_LINE_COLOR = 0x020098;
+/* — Colour scheme (US-7): what the scene paints under each scheme. Pure, so the
+   test covers it; `project` resolves to exactly today's value in every case. — */
+// ?schemegrid — grey level (0..1) of the shell grid line under the `black` scheme (Nathan 11-14: very faint, not gone). PROPOSED 0.12 (#1f1f1f): only Nathan bakes
+export const SCHEME_GRID_LEVEL = Math.min(1, Math.max(0, num('schemegrid', 0.12)));
+const toHex6 = (c) =>
+  typeof c === 'number'
+    ? `#${(c & 0xffffff).toString(16).padStart(6, '0')}`
+    : String(c).toLowerCase();
+/** '#rrggbb' of a colour given as a hex string or a THREE-land hex number. */
+export const hex6 = toHex6;
+/** The neutral grey of the black scheme's grid: each channel = round(255 × level). */
+export const gridGrey = (level = SCHEME_GRID_LEVEL) => {
+  const v = Math.round(255 * Math.min(1, Math.max(0, level)))
+    .toString(16)
+    .padStart(2, '0');
+  return `#${v}${v}${v}`;
+};
+/** Plate and wall borders, spine tabs: schemeAccent, else today's deep-blue fallback (a colourless World). */
+export const drumAccentFor = (world, scheme) => schemeAccent(world, scheme) || SHELL_LINE_COLOR;
+/** The grid glow: the black scheme's grid grey, else the same accent as the borders. */
+export const glowColorFor = (world, scheme, level = SCHEME_GRID_LEVEL) =>
+  scheme === 'black' ? gridGrey(level) : drumAccentFor(world, scheme);
+/**
+ * The shell grid line: { color, tinted }. `tinted` = today's dim (GRID_TINT_DIM) applies on top, as it does
+ * to a World's colour. Black: the one grey for every World (nothing to tween between Worlds). Project: the
+ * World's projectColor (tinted) or the default deep blue.
+ */
+export const shellLineFor = (world, scheme, level = SCHEME_GRID_LEVEL) => {
+  if (scheme === 'black') return { color: gridGrey(level), tinted: false };
+  const accent = schemeAccent(world, scheme);
+  return accent ? { color: accent, tinted: true } : { color: SHELL_LINE_COLOR, tinted: false };
+};
+/** Slot work for a scheme event: colour writes always; the tab canvases only once settled. No slot rebuild either way. */
+export const schemePaintPlan = (preview) => ({ colors: true, tabs: !preview });
 export const SHELL_OPACITY = num('shellalpha', 0.55); // ?shellalpha — grid line opacity; 0.55 = 08-25 "more subtle" default (was 1.0)
 // Grid modes stop the spin: cell-locked media may not crawl off — the field
 // moves only as one body (each mode's own parallax/Turn). ?spin still overrides.
