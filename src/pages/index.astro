@@ -28,9 +28,10 @@ import LandingPage from '../components/LandingPage.jsx';
 // The footer blurb reaches SiteFooter through Hero, so this page needs the copy
 // too. Same memoized read BaseLayout does — one request for the build.
 import { getSiteCopy } from '../lib/siteCopy.js';
+import { getSpectrumDeal } from '../lib/spectrumDeal.js';
 
 const globeAssets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));
-const globeWorlds = buildWorldPools(await sanityFetch(FEATURED_WORLDS_QUERY));
+const globeWorlds = buildWorldPools(await sanityFetch(FEATURED_WORLDS_QUERY), await getSpectrumDeal());
 const siteCopy = await getSiteCopy();
 ---
 

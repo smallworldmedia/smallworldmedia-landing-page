@@ -458,7 +458,9 @@ export default function FeaturedProjects({ worlds = [] }) {
     // under the passage — the snap's own commit applies the entered one.
     if (snapRef.current != null && snapRef.current !== active) return;
     const fw = worlds[active];
-    applyNavAccent(fw?.projectColor, fw?.projectColorSecondary, !firstNavAccent.current);
+    applyNavAccent(fw?.projectColor, fw?.projectColorSecondary, !firstNavAccent.current, {
+      spectrum: fw?.spectrum,
+    });
     firstNavAccent.current = false;
   }, [worlds, active]);
 
@@ -938,6 +940,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       // (.fp-canvas gradient, nav bar, WebGL grid) still hardcode blue and are
       // unaffected by this var.
       style={projectColorVars(w?.projectColor, w?.projectColorSecondary)}
+      data-spectrum={w?.spectrum || undefined}
     >
       {Fp1TunePanel && <Fp1TunePanel />}
       {DeckDebugPanel && <DeckDebugPanel />}
@@ -1004,6 +1007,9 @@ export default function FeaturedProjects({ worlds = [] }) {
           className="fp-prev fp-cta"
           data-names={ctaNames && prevName ? '' : undefined}
           style={{ '--cta-scale': prevScale.toFixed(3), ...ctaVars, ...prevColor }}
+          // Its inline --cta-bg reads var(--project-color), so [style*='--project-color']
+          // matches it: it carries the active World's key like the wrapper above it.
+          data-spectrum={w?.spectrum || undefined}
           onClick={onPrev}
           onPointerEnter={() => setHoverPrev(true)}
           onPointerLeave={() => setHoverPrev(false)}
@@ -1035,6 +1041,7 @@ export default function FeaturedProjects({ worlds = [] }) {
           className="fp-next fp-cta"
           data-names={ctaNames && nextName ? '' : undefined}
           style={{ '--cta-scale': nextScale.toFixed(3), ...ctaVars, ...nextColor }}
+          data-spectrum={w?.spectrum || undefined}
           onClick={onNext}
           onPointerEnter={() => setHoverNext(true)}
           onPointerLeave={() => setHoverNext(false)}

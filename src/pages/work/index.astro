@@ -28,9 +28,11 @@ import {
   ratioOf,
 } from '../../components/work/detail/buildContentFlow.js';
 import { toProjectSlug } from '../../lib/projectSlug.js';
+import { getSpectrumDeal } from '../../lib/spectrumDeal.js';
 import FeaturedProjects from '../../components/work/FeaturedProjects.jsx';
 
 const projects = await sanityFetch(FEATURED_WORLDS_QUERY);
+const spectrumDeal = await getSpectrumDeal();
 
 // Composite-band page shape (the World mount needs only art + aspect).
 // 08-27: raised 5 → 12 for the DRUM wall plates (fpDrumWall cycles up to
@@ -91,16 +93,21 @@ const worlds = projects
     }),
   }));
 
+  // Authored doc slug is the route (Studio-editable, merge-proof);
+  // toProjectSlug stays as the fallback for docs without one.
+  const slug = p.slug || toProjectSlug(p.clientSlug, p.collection);
+
   return {
-    // Authored doc slug is the route (Studio-editable, merge-proof);
-    // toProjectSlug stays as the fallback for docs without one.
-    slug: p.slug || toProjectSlug(p.clientSlug, p.collection),
+    slug,
     clientName: p.clientName,
     title: p.title || null,
     // S2: optional per-project accent palette (blank → brand-blue fallback
     // everywhere the surfaces resolve --project-color).
     projectColor: p.projectColor || null,
     projectColorSecondary: p.projectColorSecondary || null,
+    // US-7: the spectrum scheme's palette key, dealt once per build by position in
+    // this very order (lib/spectrumDeal.js). It reaches the DOM as data-spectrum.
+    spectrum: spectrumDeal[slug] ?? null,
     // The union of the project's media tags (queries.js PROJECT_SERVICES).
     services: p.services || [],
     hero: hero

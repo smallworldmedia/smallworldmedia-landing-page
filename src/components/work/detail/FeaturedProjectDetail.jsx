@@ -282,6 +282,7 @@ function goNextProject(e, next) {
         duration: NEXT_COVER_SECONDS,
         color: next.color,
         color2: next.colorSecondary,
+        spectrum: next.spectrum,
         navSync: true,
       },
     })
@@ -297,7 +298,7 @@ function goNextProject(e, next) {
 // the project's accent and holds until that World's card is up (/work's
 // fillOnCardRef). RM keeps the plain navigation but still cuts the cover in,
 // so /work's first World never shows before the restored one.
-function goBackToWork(e, color) {
+function goBackToWork(e, color, spectrum) {
   try {
     sessionStorage.setItem('swm:returnToWork', '1');
   } catch {
@@ -305,14 +306,14 @@ function goBackToWork(e, color) {
   }
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // new tab/window
   if (PREFERS_REDUCED_MOTION) {
-    window.dispatchEvent(new CustomEvent('swm:envelop', { detail: { duration: 0, color } }));
+    window.dispatchEvent(new CustomEvent('swm:envelop', { detail: { duration: 0, color, spectrum } }));
     return;
   }
   e.preventDefault();
   if (departing) return;
   departing = true;
   window.dispatchEvent(
-    new CustomEvent('swm:envelop', { detail: { duration: NEXT_COVER_SECONDS, color } })
+    new CustomEvent('swm:envelop', { detail: { duration: NEXT_COVER_SECONDS, color, spectrum } })
   );
   setTimeout(() => {
     departing = false;
@@ -740,6 +741,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       data-nav-accent-page=""
       data-nav-accent={project?.projectColor || undefined}
       data-nav-accent-2={project?.projectColorSecondary || undefined}
+      data-nav-spectrum={project?.spectrum || undefined}
     >
       <ClientPanel
         client={client}
@@ -748,6 +750,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         services={services}
         projectColor={project?.projectColor}
         projectColorSecondary={project?.projectColorSecondary}
+        spectrum={project?.spectrum}
       />
 
       {/* Breadcrumb back to the Featured Projects experience. Sits under
@@ -758,7 +761,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       <a
         href="/work"
         className="detail-breadcrumb"
-        onClick={(e) => goBackToWork(e, project?.projectColor || undefined)}
+        onClick={(e) => goBackToWork(e, project?.projectColor || undefined, project?.spectrum || undefined)}
       >
         {/* Inline SVG return arrow (08-30 (3), Nathan): the ↩ codepoint
             carries an emoji presentation on iOS — a drawn glyph can't be
