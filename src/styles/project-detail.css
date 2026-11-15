@@ -501,11 +501,11 @@ html:has(.project-detail) body {
 }
 
 .deck-tab:hover {
-  border-color: var(--color-electric-blue);
+  border-color: var(--scheme-chip);
 }
 
 .deck-tab--active {
-  background: var(--color-electric-blue);
+  background: var(--scheme-chip);
   color: var(--color-white);
 }
 
@@ -556,7 +556,7 @@ html:has(.project-detail) body {
 }
 
 .band-pager__stage:focus-visible {
-  outline: 1px dashed var(--color-electric-blue);
+  outline: 1px dashed var(--scheme-accent-ink);
   outline-offset: 4px;
 }
 
