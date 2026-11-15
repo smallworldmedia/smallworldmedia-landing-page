@@ -259,12 +259,17 @@ Non-param constants: `SEQUENCE_MAX_FRAMES` 12 (authored groups; the globe's cove
 
 ## Site-wide — colour scheme
 
-Reader: the inline pre-paint latch in `BaseLayout.astro` (it runs before first paint and re-asserts on `astro:after-swap`), which seeds `window.__swmScheme`; `src/lib/colorScheme.js` is the one module that decides the scheme afterwards. CSS reads only `html[data-scheme]`. Both params are previews: `?scheme` is never stored and survives soft navigations for the life of the page.
+Reader: the inline pre-paint latch in `BaseLayout.astro` (it runs before first paint and re-asserts on `astro:after-swap`), which seeds `window.__swmScheme`; `src/lib/colorScheme.js` is the one module that decides the scheme afterwards. CSS reads only `html[data-scheme]`. `?scheme` is a preview: never stored, and it survives soft navigations for the life of the page. The corner widget (`src/components/SiteScheme.jsx`, skin `src/styles/site-scheme.css`, artwork `src/components/schemeSwatches.jsx`) is the /work graticule pager mounted a second time with a circular swatch per scheme; its five params are read once at mount (the widget is a persisted island) and every number behind them is a PROPOSAL until Nathan bakes it.
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
 | `?scheme` | previews a colour scheme on every route, over whatever the visitor stored (`localStorage` `swm:scheme`); the pick is never written | the stored pick, else `project` | `project`, `black`, `blue`, `spectrum`; anything else is ignored | `colorScheme.js DEFAULT_SCHEME` |
 | `?schemefade` | how long a scheme change fades the colour tokens (sets `--scheme-fade` on `<html>`, re-set after every soft navigation) | the project colour fade (`--project-color-fade`) | ms ≥ 0; anything else is ignored | `global.css --scheme-fade` |
+| `?schemeui` | hides the corner widget (`SiteScheme`, the circular-swatch pager, lower right on every route); the scheme itself still applies | shown | `0` hides; anything else shows | `SiteScheme.jsx` (read once at mount) |
+| `?schemeguard` | the wheel pass-through guard (PROPOSED): a wheel event seen OUTSIDE the widget makes it transparent to the pointer for this many ms (renewed by each further one), so a page scroll that passes under the corner keeps scrolling and cannot page the scheme; after a pause the wheel over the widget pages it | `200` ms | ms ≥ 0, `0` = guard off | `siteSchemeLogic.js schemeParams` |
+| `?schemerows` | rows SHOWN in the deployed column, centre included (PROPOSED; the pager's `--scale-rows` reach is half of it). Four schemes under the wrap show one swatch twice from five rows up, so three is the most that never repeats | `3` | 1–9; anything else is ignored | `site-scheme.css .swm-corner --scale-rows` / `siteSchemeLogic.js schemeParams` |
+| `?schemesize` | swatch diameter in px (PROPOSED); the same at every viewport width | the pager's ≤768 tier lens row, 1.857rem = 26px | px ≥ 8; anything else is ignored | `site-scheme.css .swm-corner --scheme-swatch` |
+| `?schemepitch` | row pitch in px (PROPOSED). Desktop only: at ≤768 the engine writes its own inline pitch (the same 48px), which a CSS dial cannot reach, and `?detent` (shared with `/work`) is the only dial there | the pager's tier pitch, 48px | px ≥ 8; anything else is ignored | `site-scheme.css .swm-corner --scheme-pitch` |
 
 ## Site-wide — Lenis scroll feel and footer reveal
 

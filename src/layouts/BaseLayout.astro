@@ -15,6 +15,10 @@ import '../styles/global.css';
 // GraticulePager can mount outside /work. Directly after global.css, which
 // owns its --scale-* tokens.
 import '../styles/pager-scale.css';
+// The colour-scheme widget's seat and swatch skin (SQ-92): scoped under
+// .swm-corner, so it must follow pager-scale.css (it overrides that sheet's
+// rules for the corner host and never touches /work's).
+import '../styles/site-scheme.css';
 // A2b Lenis scroll-tuning bench styles — only the .lenis-tune tree, which
 // renders solely under ?lenistune=1 (LenisTunePanel), is styled; inert otherwise.
 import '../styles/lenis-tune.css';
@@ -38,6 +42,7 @@ import '../styles/commit-tune.css';
 // JavaScript, not their styles.
 import SiteShell from '../components/SiteShell.jsx';
 import SiteTagline from '../components/SiteTagline.jsx';
+import SiteScheme from '../components/SiteScheme.jsx';
 import { getSiteCopy } from '../lib/siteCopy.js';
 import { getDirectoryData } from '../lib/directoryData.js';
 import { toDrawerRoster } from '../lib/clientCoverage.js';
@@ -218,6 +223,12 @@ const roster = await getDirectoryData()
       transition:animate="none"
       siteCopy={siteCopy}
     />
+
+    {/* The colour-scheme corner pager (SQ-92): the /work graticule pager mounted a
+        second time, lower right, its stations circular swatches. Persisted like
+        the shell, so a soft navigation keeps the same node (and an open gesture).
+        It precedes #main in DOM order — every .fp-scale query is scoped to its host. */}
+    <SiteScheme client:idle transition:persist="site-scheme" transition:animate="none" />
 
     <div id="main">
       <slot />
