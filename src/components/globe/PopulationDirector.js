@@ -1735,7 +1735,7 @@ export default class PopulationDirector {
       holdLeft: this.busy ? null : Math.max(0, Math.round(this.holdLeft * 10) / 10),
       changedAt: this.changedAt == null ? null : Math.round(this.changedAt),
       landedAt: this.landedAt == null ? null : Math.round(this.landedAt),
-      color: TUNING.color ? (schemeAccent(this.worlds[this.lead]) ?? null) : null, // the accent the globe paints: the world's own colour under project
+      color: TUNING.color ? (schemeAccent({ projectColor: this.worlds[this.lead]?.projectColor }) ?? null) : null, // the accent the globe paints: the world's own colour under project, the one palette blue under spectrum (keyless)
       pattern: g.name,
       seed: this.seed,
       step: this.step,

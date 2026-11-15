@@ -49,6 +49,7 @@ import TextureManager, { assetKey } from './TextureManager.js';
 import InteractionController from './InteractionController.js';
 import { settleDebounce } from '../../lib/settleResize.js';
 import { getScheme, onScheme } from '../../lib/colorScheme.js';
+import { RAMP_A_RGB, RAMP_GLSL } from '../../lib/spectrumRamp.js';
 import { nameStripPaints } from './nameTicker.js';
 import LivePanelScheduler, { HANDOFF_BEAT_S } from './LivePanelScheduler.js';
 import { preloadHls } from '../work/useHls.js';
@@ -306,6 +307,30 @@ export default function useGlobeScene(
     let viewW = 1;
     let viewH = 1;
 
+    /* — Spectrum ramp (wave 4) — everything the canvas draws as line or gap (the inner sphere between the
+       panels, the pole caps, the corner fringe, the surge) continues the DOM ring's conic gradient: ramp A,
+       0 at 12 o'clock, clockwise, about the ring's centre. ONE uniform object each, shared by reference by
+       every material: the stops, the mix (0 = the flat accent, today's output; 1 = the ramp) and the centre in
+       drawing-buffer px, y up (gl_FragCoord's frame). A scheme change writes uniforms only. — */
+    const rampStops = { value: RAMP_A_RGB };
+    const rampMix = { value: 0 };
+    const rampCenter = { value: new THREE.Vector2() };
+    const rampUniforms = { ramp: rampStops, mix: rampMix, center: rampCenter };
+    const rampBuf = new THREE.Vector2();
+    const rampCss = [0, 0]; // the same centre in CSS px, y down: what the debug hook reports
+    const rampNdc = new THREE.Vector3();
+    // The ring's centre is where Hero's overlay (heroOverlay.js) puts it: the globe group's origin (it never
+    // leaves the origin; only its rotation moves) projected through the camera, NDC to the canvas box.
+    // The camera changes only in applyRig, so this is written there, after its projection is final.
+    const placeRampCenter = (w, h) => {
+      camera.updateMatrixWorld();
+      rampNdc.set(0, 0, 0).project(camera);
+      renderer.getDrawingBufferSize(rampBuf);
+      rampCenter.value.set((rampNdc.x * 0.5 + 0.5) * rampBuf.x, (rampNdc.y * 0.5 + 0.5) * rampBuf.y);
+      rampCss[0] = (rampNdc.x * 0.5 + 0.5) * w;
+      rampCss[1] = (rampNdc.y * -0.5 + 0.5) * h;
+    };
+
     const applyRig = () => {
       if (disposed) return; // a stale handle post-teardown must be a no-op
       const w = viewW;
@@ -354,6 +379,7 @@ export default function useGlobeScene(
         camera.clearViewOffset();
       }
       camera.updateProjectionMatrix();
+      placeRampCenter(w, h);
     };
 
     // Read the container box into the cache and resize the drawing buffer —
@@ -588,6 +614,7 @@ export default function useGlobeScene(
         createPanelMaterial({
           fallbackColor: PANEL_FALLBACK_COLOR,
           cornerRadius,
+          ramp: rampUniforms,
         })
       );
       // Scroll globe: spread the rows into a proper sphere from the very first
@@ -616,6 +643,36 @@ export default function useGlobeScene(
     });
 
     const innerMaterial = new THREE.MeshBasicMaterial({ color: GAP_COLOR });
+    /* The gap and the pole caps (this one material) take the ring's ramp under spectrum. Its colour stays
+       lerp(white, accent, inkT), so the intro still starts white; the ramp replaces the ACCENT in that lerp:
+       colour += mix * inkT * (ramp - accent). At rampW 0 the term is +0 and the output is today's, bit for
+       bit. The accent is the shared inkBlue (below), linear like the material colour. */
+    const rampWeight = { value: 0 }; // rampMix * inkT, written by paintInk
+    const rampAccent = { value: null }; // inkBlue, linked where it is built
+    innerMaterial.onBeforeCompile = (shader) => {
+      shader.uniforms.uRamp = rampStops;
+      shader.uniforms.uRampCenter = rampCenter;
+      shader.uniforms.uRampWeight = rampWeight;
+      shader.uniforms.uRampAccent = rampAccent;
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+uniform vec2 uRampCenter;
+uniform float uRampWeight;
+uniform vec3 uRampAccent;
+${RAMP_GLSL}`
+        )
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+{
+  vec2 rampD = gl_FragCoord.xy - uRampCenter;
+  diffuseColor.rgb += uRampWeight * (spectrumRamp(atan(rampD.x, rampD.y) * 0.15915494309189535) - uRampAccent);
+}`
+        );
+    };
+    innerMaterial.customProgramCacheKey = () => 'swm-spectrum-ramp';
     const innerSphere = new THREE.Mesh(innerSphereGeometry, innerMaterial);
     innerSphere.scale.setScalar(INNER_SPHERE_SCALE);
     globeGroup.add(innerSphere);
@@ -740,8 +797,12 @@ export default function useGlobeScene(
        GAP_COLOR, and only a heroInk intro ever writes t < 1. — */
     const inkWhite = new THREE.Color(0xffffff);
     const inkBlue = new THREE.Color(GAP_COLOR);
+    rampAccent.value = inkBlue;
     let inkT = 1; // kept so a world accent change re-inks at the intro's point
-    const paintInk = () => innerMaterial.color.lerpColors(inkWhite, inkBlue, inkT);
+    const paintInk = () => {
+      innerMaterial.color.lerpColors(inkWhite, inkBlue, inkT);
+      rampWeight.value = rampMix.value * inkT; // the ramp enters on the intro's clock too: white until the ink arrives
+    };
     apiRef.current.setInk = (t) => {
       if (disposed) return;
       inkT = Math.min(Math.max(t, 0), 1);
@@ -758,7 +819,7 @@ export default function useGlobeScene(
        carries the change out to Hero. Idle without a director. — */
     /* The colour scheme (swm:scheme, SQ-90) rides the same tween. A scheme
        names the accent (schemeAccent: black and blue are constants, spectrum
-       the world's palette fill, project the world's own colour) and the
+       the one palette blue under the ramp (wave 4), project the world's own colour) and the
        world-less gap colour, which is also the fog the distance recedes into.
        The fog colour is ONE Color shared by every panel, so it fades with the
        lattice on the accent's clock instead of snapping. Under 'project' the
@@ -783,7 +844,33 @@ export default function useGlobeScene(
     };
     /** The accent `scheme` paints the globe with. ?popcolor 0 takes the world out of it. */
     const accentFor = (scheme) => sceneAccent(POP_TUNING.color ? popWorld : null, scheme);
+    /* The ramp mix rides the accent's clock (ACCENT_SECONDS, the same ease) and snaps where the accent does
+       (reduced motion, the load's scheme). It follows the SCHEME, not the world: a world change under spectrum
+       leaves it at 1, so the tween it already has in flight is not restarted. Uniform writes only. */
+    let rampTarget = 0;
+    let rampTween = null;
+    const setRampMix = (to, animate) => {
+      if (to === rampTarget && (rampTween || rampMix.value === to)) return;
+      rampTarget = to;
+      if (rampTween) rampTween.kill();
+      rampTween = null;
+      if (animate) {
+        rampTween = gsap.to(rampMix, {
+          value: to,
+          duration: ACCENT_SECONDS,
+          ease: accentEase(),
+          onUpdate: paintInk,
+          onComplete: () => {
+            rampTween = null;
+          },
+        });
+      } else {
+        rampMix.value = to;
+        paintInk();
+      }
+    };
     const setAccent = (color, animate, scheme = getScheme()) => {
+      setRampMix(scheme === 'spectrum' ? 1 : 0, animate);
       inkBlue.getRGB(accentFrom, THREE.SRGBColorSpace); // from where it is — mid-change included
       fogColor.getRGB(fogFrom, THREE.SRGBColorSpace);
       accentTarget.set(color).getRGB(accentTo, THREE.SRGBColorSpace);
@@ -832,6 +919,9 @@ export default function useGlobeScene(
       gap: hex(new THREE.Color().lerpColors(inkWhite, accentTarget, inkT)),
       fog: hex(fogTarget),
       strips: nameStripPaints(),
+      // the outline ramp (wave 4): the mix the scene is heading to (a fade in flight reads settled) and the centre
+      // the shaders measure the angle from, CSS px with y down, the DOM ring's centre
+      ramp: { mix: rampTarget, center: [rampCss[0], rampCss[1]] },
     });
     schemeDebug.globe = globeDebug;
     // Reduced motion has no clock and no entrance to wait for — the first
@@ -1356,6 +1446,7 @@ export default function useGlobeScene(
       unsubscribeScheme();
       if (window.__swmSchemeDebug?.globe === globeDebug) delete window.__swmSchemeDebug.globe;
       if (accentTween) accentTween.kill();
+      if (rampTween) rampTween.kill();
       intersectionObserver.disconnect();
       resizeObserver.disconnect();
       fadeBackIn.cancel();
