@@ -19,7 +19,9 @@
  *              spectrum latch,contrast,carriers,deal,hover,overlap,shares,gl. --compare adds identity.
  *   --capture  write the dump JSON (every page's style dump, carriers, hover fingerprints, boxes)
  *   --compare  run identity of this run against a capture (same scheme, routes, widths)
- *   --shots    save a full-page screenshot per page under DIR (never commit them)
+ *   --shots    save a full-page screenshot per page under DIR (never commit them). When Chrome refuses
+ *              a tall capture the viewport is saved instead, the page WARNs, its gates still run, and
+ *              the probe restarts its browser (a refusal blocks WebGL for the pages that follow).
  *   --force-attr  the probe sets html[data-scheme] itself in an init script instead of reading the
  *              site's, to validate the tool before the core lands; every line says "forced".
  *
@@ -497,15 +499,30 @@ async function measurePage(ctx, scheme, urlPath, width, needShares) {
     out.boxes = await measureBoxes(page);
     out.gl = await page.evaluate(pageGl);
     const name = `${scheme}-${urlPath.replace(/[/?=&]+/g, '_')}-${width}`;
+    // Headless Chrome refuses some tall captures ("Unable to capture screenshot": the detail pages at
+    // 1440, the directory at 390). A shot is evidence, not a gate, so a refusal keeps the page's gates:
+    // the viewport is saved instead, and `refused` tells the run loop to start a fresh browser.
     if (SHOTS) {
       fs.mkdirSync(SHOTS, { recursive: true });
-      await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage: true });
+      const file = path.join(SHOTS, `${name}.png`);
+      try {
+        await page.screenshot({ path: file, fullPage: true });
+      } catch {
+        out.refused = 'full-page screenshot refused, viewport saved';
+        await page.screenshot({ path: file, fullPage: false }).catch(() => {
+          out.refused = 'screenshot refused, none saved';
+        });
+      }
     }
     if (needShares) {
-      const buf = await page.screenshot({ fullPage: true, mask: [page.locator(MEDIA_SEL)], maskColor: '#000000' });
-      const { default: sharp } = await import('sharp');
-      const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-      out.families = countFamilies(data, info.channels);
+      try {
+        const buf = await page.screenshot({ fullPage: true, mask: [page.locator(MEDIA_SEL)], maskColor: '#000000' });
+        const { default: sharp } = await import('sharp');
+        const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+        out.families = countFamilies(data, info.channels);
+      } catch {
+        out.refused = [out.refused, 'masked full-page screenshot refused, page left out of shares'].filter(Boolean).join('; ');
+      }
     }
     return out;
   } catch (e) {
@@ -556,32 +573,47 @@ async function main() {
   };
   const needShares = SCHEME_LIST.some((s) => wanted(s).has('shares')) && core.ok;
   const captured = { meta: { base: BASE, at: new Date().toISOString(), ignore: IGNORE_SEL, forced: FORCE, schemes: SCHEME_LIST, widths: WIDTHS }, pages: {} };
-  const browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const launch = () => chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  let browser = await launch();
   try {
     for (const scheme of SCHEME_LIST) {
       const want = wanted(scheme);
       for (const width of WIDTHS) {
         const phone = width <= 480;
-        const ctx = await browser.newContext({
-          viewport: { width, height: phone ? 844 : 900 },
-          deviceScaleFactor: 1,
-          reducedMotion: 'reduce',
-          ...(phone ? { isMobile: true, hasTouch: true } : {}),
-        });
-        await installRoutes(ctx);
-        await ctx.addInitScript(hydrationHook);
-        if (FORCE) await ctx.addInitScript(forceAttr, scheme);
+        const makeCtx = async () => {
+          const c = await browser.newContext({
+            viewport: { width, height: phone ? 844 : 900 },
+            deviceScaleFactor: 1,
+            reducedMotion: 'reduce',
+            ...(phone ? { isMobile: true, hasTouch: true } : {}),
+          });
+          await installRoutes(c);
+          await c.addInitScript(hydrationHook);
+          if (FORCE) await c.addInitScript(forceAttr, scheme);
+          return c;
+        };
+        let ctx = await makeCtx();
         const detailKeys = {};
         const familyTotals = {};
         for (const route of routeList) {
           const key = `${scheme}:${route.key}@${width}`;
           const m = await measurePage(ctx, scheme, route.path, width, needShares && want.has('shares'));
           captured.pages[key] = m;
+          if (m.refused) {
+            // After a refused capture Chrome blocks WebGL for the origin ("Web page caused context loss
+            // and was blocked"): every canvas page loaded later in this browser throws at renderer
+            // creation and loses its debug hook (measured 11-14). Nothing is stored between pages, so
+            // a fresh browser and context cost nothing but the launch.
+            await ctx.close().catch(() => {});
+            await browser.close().catch(() => {});
+            browser = await launch();
+            ctx = await makeCtx();
+          }
           if (m.error) {
             emit('FAIL', scheme, route.key, width, 'load', m.error);
             continue;
           }
-          const warn = [!m.committed && 'islands never reported committed', !m.settled && `dump UNSETTLED after ${m.reads} reads`, m.errors.length && `${m.errors.length} page errors`].filter(Boolean);
+          const warn = [!m.committed && 'islands never reported committed', !m.settled && `dump UNSETTLED after ${m.reads} reads`, m.errors.length && `${m.errors.length} page errors (first: ${m.errors[0]})`, m.refused].filter(Boolean);
           if (warn.length) console.log(`WARN  ${scheme.padEnd(8)} ${route.key.padEnd(10)} ${String(width).padStart(4)}  ${warn.join('; ')}`);
           const run = (name, fn) => {
             if (want.has(name)) fn();
