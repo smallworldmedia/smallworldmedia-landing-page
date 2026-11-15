@@ -132,6 +132,23 @@
   --swm-navy: #0a2577;
   --swm-periwinkle: #a6bcda;
 
+  /* The `spectrum` colour scheme's remaining palette (US-7, SQ-93), measured
+     from the same reference image (color-ref.png, ribbons on black). The
+     image's dominant green is #077b3e, a deeper green than --swm-green
+     (which keeps its value for the logo ticker). --swm-violet is a stop of
+     ramp A, the centre ribbon's loop. The three ramps are colour-stop LISTS,
+     no direction baked in: a consumer writes linear-gradient(<angle>, var(--swm-ramp-a)).
+       A  the centre ribbon, a closed loop: red, orange, yellow, blue, then
+          through violet and rose back to red.
+       B  blue falling through navy into black (a surface's own colour takes
+          the head of it; scheme.css).
+       C  periwinkle rising to white (a periwinkle surface's hover). */
+  --swm-green-deep: #077b3e;
+  --swm-violet: #7852a4;
+  --swm-ramp-a: #fe3720, #ff7d01, #ffb803, #1858e2, #5c53ba, var(--swm-violet), #9f4f84, #cd4962, #f44041;
+  --swm-ramp-b: #1556e5, #0c44cc, #0c2c8c, #0a2577, #071249, #000000;
+  --swm-ramp-c: #9dc0e3, #ffffff;
+
   /* The spectrum walk, in hue order — indirected through these so swapping a
      frame is one line and the keyframes never name a colour directly.
      --swm-navy and the brand electric-blue are deliberately absent: at
