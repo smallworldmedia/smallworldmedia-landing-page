@@ -12,6 +12,10 @@
  *        [--capture=FILE] [--compare=FILE] [--shots=DIR] [--force-attr] [--ignore=CSS-SELECTOR]
  *   --scheme   project | black | blue | spectrum | all   (default project)
  *   --routes   default all. detail = the first /work card's slug, plus card 3's (the cross-route check).
+ *   --details  sample (default: cards 1 and 3) | all (every /work card's detail page). The shares gate
+ *              sums the pages it is given, and a project's page carries only its own dealt colour, so
+ *              two pages can never show the deal's proportions: shares SKIPs unless --details=all, and
+ *              then prints one INFO line per page (that page's own shares) above the verdict.
  *   --width    1440 | 390 (default both)
  *   --gates    latch,identity,monochrome,singleHue,contrast,carriers,deal,hover,overlap,shares,gl
  *              default per scheme: project latch,overlap,gl | black latch,monochrome,contrast,
@@ -108,6 +112,9 @@ const SCHEME_LIST = schemeArg === 'all' ? SCHEMES : schemeArg.split(',');
 if (SCHEME_LIST.some((s) => !SCHEMES.includes(s))) die(`--scheme takes ${SCHEMES.join('|')}|all`);
 const ROUTES = arg('routes', 'all') === 'all' ? ROUTE_NAMES : String(arg('routes')).split(',');
 if (ROUTES.some((r) => !ROUTE_NAMES.includes(r))) die(`--routes takes ${ROUTE_NAMES.join(',')}`);
+const SHARE_TILE = 4000; // CSS px of page height per masked capture (the shares gate)
+const DETAILS = String(arg('details', 'sample'));
+if (!['sample', 'all'].includes(DETAILS)) die('--details takes sample|all');
 const WIDTHS = arg('width') ? String(arg('width')).split(',').map(Number) : [1440, 390];
 if (WIDTHS.some((w) => !(w > 0))) die('--width takes numbers, e.g. 1440 or 390');
 const GATES_ARG = arg('gates') ? String(arg('gates')).split(',') : null;
@@ -525,11 +532,19 @@ async function measurePage(ctx, scheme, urlPath, width, needShares) {
       }
     }
     if (needShares) {
+      // Read in tiles: Chrome refuses one capture of a tall page (most detail pages at 390), and a
+      // refused page would drop out of the shares.
       try {
-        const buf = await page.screenshot({ fullPage: true, mask: [page.locator(MEDIA_SEL)], maskColor: '#000000' });
         const { default: sharp } = await import('sharp');
-        const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-        out.families = countFamilies(data, info.channels);
+        const size = await page.evaluate(() => ({ w: document.documentElement.clientWidth, h: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) }));
+        const families = {};
+        for (let y = 0; y < size.h; y += SHARE_TILE) {
+          const clip = { x: 0, y, width: size.w, height: Math.min(SHARE_TILE, size.h - y) };
+          const buf = await page.screenshot({ fullPage: true, clip, mask: [page.locator(MEDIA_SEL)], maskColor: '#000000' });
+          const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+          for (const [f, n] of Object.entries(countFamilies(data, info.channels))) families[f] = (families[f] || 0) + n;
+        }
+        out.families = families;
       } catch {
         out.refused = [out.refused, 'masked full-page screenshot refused, page left out of shares'].filter(Boolean).join('; ');
       }
@@ -568,8 +583,10 @@ async function main() {
   for (const r of ROUTES) {
     if (r !== 'detail') routeList.push({ key: r, path: ROUTE_PATHS[r] });
     else {
-      if (worlds[0]) routeList.push({ key: 'detail', path: `/work/${worlds[0].slug}/`, slug: worlds[0].slug });
-      if (worlds[2]) routeList.push({ key: 'detail#3', path: `/work/${worlds[2].slug}/`, slug: worlds[2].slug });
+      const picks = DETAILS === 'all' ? worlds.map((_, i) => i) : [0, 2];
+      for (const i of picks) {
+        if (worlds[i]) routeList.push({ key: i === 0 ? 'detail' : `detail#${i + 1}`, path: `/work/${worlds[i].slug}/`, slug: worlds[i].slug });
+      }
       if (!worlds[0]) emit('SKIP', schemeArg, 'detail', '*', 'detail', 'skipped: no /work card slug could be read');
     }
   }
@@ -581,7 +598,9 @@ async function main() {
     if (COMPARE && !GATES_ARG) set.add('identity');
     return set;
   };
-  const needShares = SCHEME_LIST.some((s) => wanted(s).has('shares')) && core.ok;
+  // The shares gate needs every project's page: each page carries only its own dealt colour.
+  const sharesReady = DETAILS === 'all' && ROUTES.includes('detail');
+  const needShares = sharesReady && SCHEME_LIST.some((s) => wanted(s).has('shares')) && core.ok;
   const captured = { meta: { base: BASE, at: new Date().toISOString(), ignore: IGNORE_SEL, forced: FORCE, schemes: SCHEME_LIST, widths: WIDTHS }, pages: {} };
   const launch = () => chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   let browser = await launch();
@@ -661,9 +680,15 @@ async function main() {
           });
           if (route.slug) detailKeys[route.slug] = m.carriers.find((c) => c.spectrum)?.spectrum ?? null;
           for (const [f, n] of Object.entries(m.families ?? {})) familyTotals[f] = (familyTotals[f] || 0) + n;
+          if (m.families && want.has('shares')) {
+            // One line per page (not a gate, not counted): which page a family's share comes from.
+            const page = gate.shares(m.families);
+            console.log(`INFO  ${scheme.padEnd(8)} ${String(route.key).padEnd(10)} ${String(width).padStart(4)}  ${'shares'.padEnd(10)} ${page.n} chromatic px — ${page.note}`);
+          }
         }
         if (want.has('shares')) {
           if (!core.ok) emit('SKIP', scheme, '*', width, 'shares', `skipped: ${core.reason}`);
+          else if (!sharesReady) emit('SKIP', scheme, '*', width, 'shares', 'skipped: run with --details=all (the sample of two project pages cannot show the proportions)');
           else emitResult(scheme, '*', width, 'shares', gate.shares(familyTotals));
         }
         if (want.has('deal')) {
