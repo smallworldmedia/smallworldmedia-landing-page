@@ -140,6 +140,43 @@ changes what the page shows and is never stored; only a commit that changes the 
 writes `localStorage`. The latch is an inline head script because the attribute must exist before
 first paint and ClientRouter wipes it on every swap.
 
+How a scheme reaches the DOM (`styles/scheme.css`, SQ-88): black and blue override the whole key set
+that `projectColorVars()` and `navAccent.js` write (`--project-color`, `-2`, `-fg`, `-text`,
+`-on-black`, `--project-globe-filter`, `--nav-ink-l`), with `!important`, on `html[data-scheme=X]` AND
+on `html[data-scheme=X] [style*='--project-color']`, because those keys arrive as inline styles on
+carriers and an inline style beats any selector. Paints that named brand blue directly now read role
+tokens (`--scheme-page`, `--scheme-chip` / `--scheme-chip-ink`, `--scheme-accent-ink`; registered
+`<color>` in `global.css`, defaults = today's blue, faded on `--scheme-fade`). Black's affordance
+rule: a control whose rest fill would equal its container is a transparent fill with white ink, and
+its hover / active / selected state is a white fill with black ink. The spectrum scheme is dealt per
+project at build time (`lib/spectrumDeal.js` → a `spectrum` field on the page data → `data-spectrum`
+on each carrier, and on `<html>` through `navAccent.js`). Its DOM skin is not written yet (wave 3,
+SQ-93): until then `?scheme=spectrum` recolours the two canvases only. That sheet must select the
+five keys by name, never a bare `[data-spectrum]` (`ClientLogoTicker` owns `data-spectrum="white"`).
+
+How a scheme reaches a canvas: one `onScheme` subscription per scene. A settled event must recolour;
+a preview may write uniforms only (no texture or slot rebuild, the pager fires one per detent). Under
+black every fill and border is `#000000`; the one exception is /work's shell grid line (and glow), a
+neutral grey at `?schemegrid` (0.12). `window.__swmSchemeDebug` reports what each scene painted, and
+`scripts/scheme-probe.mjs`'s `gl` gate reads it.
+
+Probe caveats (11-14). Headless Chrome refuses some tall full-page screenshots ("Unable to capture
+screenshot": the detail pages and the directory at 1440, the directory at 390), and after a refusal
+it blocks WebGL for the origin ("Web page caused context loss and was blocked"), so every canvas page
+loaded later in that browser throws at renderer creation. `scheme-probe.mjs` saves the viewport
+instead, WARNs, keeps the page's gates and restarts its browser; any probe that takes full-page
+shots and then loads a canvas route has to do the same. The `hover` gate forces `:hover` through
+CDP, so a control whose hover is a JS mix of `--cta-bg` (home's `zoom_in`, /work's [PREVIOUS] /
+[NEXT]) reads as "no painted property changed" unless a scheme adds a CSS `:hover` rule for it, as
+black does; the lower-right privacy pill's hover (ink to white) paints nothing wherever the accent's
+ink on black is already white, which is every page under blue. The `contrast` gate walks a text
+element's ancestors for the first opaque fill, plus one kind of box behind the text: a pseudo the
+dump flags `backdrop` (absolute, negative z-index, not flattened by a scale-0 transform), such as the
+directory filter's wipe box. Before it learned that, the checked filter was white on white under
+black and passed (fixed in `scheme.css`, pinned in `scheme-css.test.mjs` and `scheme-gate.test.mjs`).
+A box laid behind text any other way (a sibling element, a blend mode) is still invisible to it.
+Look at the contact sheet, not only the gate lines.
+
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
 A passage changes colour on the page background's clock, never on a timer of its own (SQ-64, 11-12).

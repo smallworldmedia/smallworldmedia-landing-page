@@ -10,10 +10,16 @@ Sanity data at build time and mounts one large React island (`client:only="react
 each own a route-scoped three.js canvas plus the route's wheel/touch model; Lenis smooth scroll is on
 only where the island does not own the wheel (detail pages, the Project Directory, /process).
 
-Two persistent islands in `src/layouts/BaseLayout.astro` survive `ClientRouter` soft navigations:
-`SiteShell` (nav, info drawer, inquiry overlay, `RouteFill`) and `SiteTagline` (tagline pill, privacy
-pill + overlay). Routes talk to them only through `window` CustomEvents (`swm:*`) and `<html>` data
-attributes, never through shared React state. See `communication.md`.
+Three persistent islands in `src/layouts/BaseLayout.astro` survive `ClientRouter` soft navigations:
+`SiteShell` (nav, info drawer, inquiry overlay, `RouteFill`), `SiteTagline` (tagline pill, privacy
+pill + overlay) and `SiteScheme` (the colour-scheme corner pager, US-7, 11-14). Routes talk to them
+only through `window` CustomEvents (`swm:*`) and `<html>` data attributes, never through shared React
+state. See `communication.md`.
+
+The site wears one of four colour schemes (`project`, `black`, `blue`, `spectrum`; US-7). DOM colour
+is CSS keyed on `html[data-scheme]` (`styles/scheme.css`), the two live canvases (home globe, /work
+Worlds) recolour on the `swm:scheme` event, and `lib/colorScheme.js` is the one authority. See
+`patterns.md` § Colour scheme.
 
 Cross-route transitions follow ADR-0002 "Envelopment": a route swap bridged by the persisted
 `RouteFill` blue panel and the globe loader (`ui/GlobeLoader.jsx`; it replaced the `overviews_loading`
@@ -30,7 +36,7 @@ media/**/_manifest.md + Mux uploads                    ├─ /work      Feature
                                                        ├─ /work/:slug FeaturedProjectDetail → flushGrid + DeckScroller
                                                        ├─ /work/directory DirectoryPage → DirectoryFilter + DirectoryGrid (chunkFlushGrid, playerGate)
                                                        └─ /process   ProcessPage → useProcessScene + scroll driver
-BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, ProjectOverlay) + SiteTagline
+BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, ProjectOverlay) + SiteTagline + SiteScheme
               ◀──── swm:* window events + <html data-*> latches ────▶ route islands
 ```
 
@@ -43,7 +49,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
 | Project Directory | `src/components/work/directory/`, `src/styles/directory.css` + `directory-grid.css` | `/work/directory` (11-03): every asset in one flush grid built on the detail grid's units (`tileGrid.js`, `chunkFlushGrid`, MediaSlot's directory mode) under a sticky filter (service tags OR together, the drawer's client narrows on top, the state in the URL); one player gate caps the videos playing at once |
 | /process | `src/components/process/` | Scroll narrative in seven stages (hero globe-O break → five Stages → CTA finale): a ScrollTrigger + quantizer driver over one scene that reuses the globe geometry/material, with project-colour chips in the scene |
-| Persistent chrome | `src/components/SiteShell.jsx`, `SiteNav.jsx`, `SiteFooter.jsx`, `SiteTagline.jsx`, `RouteFill.jsx`, overlays | Nav, drawer, inquiry form (Netlify Forms), privacy, footer reveal, route-fill bridge, logo ticker |
+| Persistent chrome | `src/components/SiteShell.jsx`, `SiteNav.jsx`, `SiteFooter.jsx`, `SiteTagline.jsx`, `SiteScheme.jsx`, `RouteFill.jsx`, overlays | Nav, drawer, inquiry form (Netlify Forms), privacy, footer reveal, route-fill bridge, logo ticker, the colour-scheme corner pager |
 | Shared motion libs | `src/lib/` | `dragMomentum`, `overlayWipe`, `scramble`, `charCut`, `mediaSequence` (the one clock every sequence tile cuts on), `smoothScroll`, `settleResize` — single sources of truth |
 | Data layer | `src/lib/sanityClient.js`, `src/lib/queries.js`, `src/lib/siteCopy.js`, `src/schemas/` | Build-time fetch, GROQ, the memoized site-copy read, Sanity schema for the Studio at `/studio` |
 | CMS toolchain | `scripts/cms.mjs`, `scripts/lib/cms/` | Preview-first ingest of manifests into Sanity + Mux; `node --test` suite |

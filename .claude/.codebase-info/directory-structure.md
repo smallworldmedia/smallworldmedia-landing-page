@@ -11,12 +11,14 @@
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
 ├── src/
 │   ├── pages/                # routes: index, process, privacy, terms, 404, work/{index,[slug],directory}, lab/{globe,loader}, specimen
-│   ├── layouts/BaseLayout.astro   # head, fonts, ClientRouter, persistent SiteShell + SiteTagline
+│   ├── layouts/BaseLayout.astro   # head, fonts, the colour-scheme latch, ClientRouter, persistent SiteShell + SiteTagline + SiteScheme
 │   ├── layouts/homeWarm.js        # the way home: warm copy of / for the router (SQ-33, ?homewarm)
 │   ├── components/
 │   │   ├── *.jsx             # site chrome: SiteShell, SiteNav, SiteFooter, SiteTagline, RouteFill,
 │   │   │                     #   InfoPanel, ProjectOverlay, PrivacyOverlay/Content, ClientLogoTicker,
-│   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels
+│   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels,
+│   │   │                     #   SiteScheme (the colour-scheme corner pager) + schemeSwatches.jsx (its swatch art)
+│   │   ├── siteSchemeLogic.js    # SiteScheme's pure half (stations, wheel guard, pie wedges, ?scheme* dials)
 │   │   ├── globe/            # video globe: scene hook, geometry, shader material, schedulers,
 │   │   │                     #   textures, population modes (world pools, patterns, director, tile swaps,
 │   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass),
@@ -32,12 +34,15 @@
 │   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb), GlobeLoader (the globe loader)
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, touchTune, rubberBand, blurbHold(+Math), momentum,
-│   │                         #   navAccent, projectColor, colorScheme (the site colour scheme), projectSlug,
+│   │                         #   navAccent, projectColor, colorScheme (the site colour scheme), spectrumDeal
+│   │                         #   (the build-time spectrum deal), projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
 │   │                         #   queries, siteCopy, directoryData, clientCoverage, scrollKick, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
-│   ├── styles/               # global.css (tokens + chrome) + pager-scale.css (the graticule pager's skin, loaded by the layout) + per-route sheets (media-slot.css is shared by
+│   ├── styles/               # global.css (tokens + chrome) + pager-scale.css (the graticule pager's skin) + site-scheme.css (the corner pager's seat and swatches)
+│   │                         #   + scheme.css (the black and blue colour schemes, every rule under html[data-scheme]), all four loaded by the layout in that order
+│   │                         #   + per-route sheets (media-slot.css is shared by
 │   │                         #   the detail grid and the directory) + *-tune.css benches
 │   ├── data/                 # directory-logos/ (baked white marks) + directory-logos.json (11-05) and
 │   │                         #   directory-alpha.json (measured transparency, SQ-20); all written by
@@ -53,7 +58,8 @@
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
-│   │                         #   globe-worlds, footer-reveal, flush-grid, directory, large-grid, scroll-kick, color-scheme, scheme-gate)
+│   │                         #   globe-worlds, footer-reveal, flush-grid, directory, large-grid, scroll-kick, color-scheme, scheme-gate,
+│   │                         #   scheme-css, spectrum-deal, nav-accent, globe-scheme, world-scheme, site-scheme)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs, scheme-probe.mjs   # docs + probe tooling
 │   ├── palette-measure.mjs   # colour-family shares of an image (OKLCH classifier; the scheme probe's shares gate imports it)
