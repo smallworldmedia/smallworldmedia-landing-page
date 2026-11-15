@@ -11,14 +11,12 @@ project: andhera-records-andhera-branding
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 4x5_v2.jpg | static_4x5 | Andhera Hero | true | 4:5 | 1 |  |  | mediaAsset-andhera-records-andhera-hero |
 | andhera-logo_white.png | logo | Andhera Logo (White) | false | 1.14:1 | 2 |  |  | mediaAsset-andhera-records-andhera-logo-white |
-| andhera_pattern.jpg | static_1x1 | Andhera Pattern | false | 1:1 | 4 |  |  | mediaAsset-andhera-records-andhera-pattern |
 | andhera_yellow-logo_sticker_2-75x2-75_trimmed.jpg | logo | Andhera Logo Sticker | false | 1:1 | 5 |  |  | mediaAsset-andhera-records-andhera-logo-sticker |
 | MMW 2025 4x5.mp4 | motion_4x5 | MMW 2025 Promo | false | 4:5 | 6 |  |  | mediaAsset-andhera-records-mmw-2025-promo |
 | Chase the Ace Loop with Audio.mov | motion_9x16 | Chase the Ace Loop | false | 9:16 | 7 | andhera-track-previews |  | mediaAsset-andhera-records-chase-the-ace-loop |
-| afterrr-tracklisting_square.png | static_1x1 | Afterrr Tracklisting | false | 1:1 | 9 |  |  | mediaAsset-andhera-records-afterrr-tracklisting |
-| black-friday_hero.png | static_1x1 | Black Friday Hero | false | 1:1 | 10 | andhera-records-mockups |  | mediaAsset-andhera-records-black-friday-hero |
+| black-friday_hero.png | static_1x1 | Black Friday Hero | false | 1:1 | 10 | andhera-merch-promos |  | mediaAsset-andhera-records-black-friday-hero |
 | elsewhere-promo_v2.mp4 | motion_9x16 | Elsewhere Promo | false | 9:16 | 13 |  |  | mediaAsset-andhera-records-elsewhere-promo |
-| makers-market.jpg | static_9x16 | Makers Market | false | 9:16 | 14 | andhera-records-mockups |  | mediaAsset-andhera-records-makers-market |
+| makers-market.jpg | static_9x16 | Makers Market | false | 9:16 | 14 | andhera-merch-promos |  | mediaAsset-andhera-records-makers-market |
 | alves kool aid promo.mp4 | motion_9x16 | Alves Kool Aid Promo | false | 9:16 | 15 |  |  | mediaAsset-andhera-records-alves-kool-aid-promo |
 | amnesia_preview_story.mp4 | motion_9x16 | Amnesia Preview | false | 9:16 | 16 | andhera-track-previews |  | mediaAsset-andhera-records-amnesia-preview |
 | baila-le-digo_montage-story.mp4 | motion_9x16 | Baila Le Digo Montage | false | 9:16 | 17 | andhera-track-previews |  | mediaAsset-andhera-records-baila-le-digo-montage |
@@ -26,18 +24,18 @@ project: andhera-records-andhera-branding
 | in-the-dark-preview_4x5.mp4 | motion_4x5 | In the Dark Preview | false | 4:5 | 19 | andhera-track-previews |  | mediaAsset-andhera-records-in-the-dark-preview |
 | maestro-preview.mp4 | motion_9x16 | Maestro Preview | false | 9:16 | 20 | andhera-track-previews |  | mediaAsset-andhera-records-maestro-preview |
 | mailer-bag-rising-ocean-1.mp4 | motion_9x16 | Mailer Bag Rising Ocean | false | 9:16 | 21 |  |  | mediaAsset-andhera-records-mailer-bag-rising-ocean |
-| teka-teka_preview_4x5.mp4 | motion_4x5 | Teka Teka Preview | false | 4:5 | 22 |  |  | mediaAsset-andhera-records-teka-teka-preview |
+| teka-teka_preview_4x5.mp4 | motion_4x5 | Teka Teka Preview | false | 4:5 | 22 | andhera-track-previews |  | mediaAsset-andhera-records-teka-teka-preview |
 | Apparel/Andhera Website - Homepage, Shop.mp4 | motion_1x1 | Andhera Website — Homepage & Shop | false | 1:1 | 23 |  |  | mediaAsset-andhera-records-andhera-website-homepage-shop |
-| Apparel/andhera shop item pages.mp4 | motion_4x3 | Andhera Shop Item Pages | false | 4:3 | 24 |  |  | mediaAsset-andhera-records-andhera-shop-item-pages |
-| Apparel/hear-no-evil_promo_v1.mp4 | motion_9x16 | Hear No Evil Promo | false | 9:16 | 25 |  |  | mediaAsset-andhera-records-hear-no-evil-promo |
-| Apparel/never-asleep_full-cut_for-audio.mp4 | motion_9x16 | Never Asleep Full Cut | false | 9:16 | 26 |  |  | mediaAsset-andhera-records-never-asleep-full-cut |
+| Apparel/andhera shop item pages.mp4 | motion_4x3 | Andhera Shop Item Pages | false | 4:3 | 24 | andhera-merch-promos |  | mediaAsset-andhera-records-andhera-shop-item-pages |
+| Apparel/hear-no-evil_promo_v1.mp4 | motion_9x16 | Hear No Evil Promo | false | 9:16 | 25 | andhera-merch-promos |  | mediaAsset-andhera-records-hear-no-evil-promo |
+| Apparel/never-asleep_full-cut_for-audio.mp4 | motion_9x16 | Never Asleep Full Cut | false | 9:16 | 26 | andhera-merch-promos |  | mediaAsset-andhera-records-never-asleep-full-cut |
 | Apparel/_0000_andhera never not awake 01.jpg | static_1x1 | Andhera Never Not Awake 01 | false | 1:1 | 27 | andhera-records-merch |  | mediaAsset-andhera-records-andhera-never-not-awake-01 |
 | Apparel/_0001_andhera never asleep 02.jpg | static_1x1 | Andhera Never Asleep 02 | false | 1:1 | 28 | andhera-records-merch |  | mediaAsset-andhera-records-andhera-never-asleep-02 |
 | Apparel/_0002_andhera never asleep 01.jpg | static_1x1 | Andhera Never Asleep 01 | false | 1:1 | 29 | andhera-records-merch |  | mediaAsset-andhera-records-andhera-never-asleep-01 |
 | Apparel/andhera-raw-cuts-robertas-pizza-shirt-back.jpg | static_1x1 | Roberta's Pizza Shirt Back | false | 1:1 | 30 | andhera-records-merch |  | mediaAsset-andhera-records-robertas-pizza-shirt-back |
 | Apparel/andhera-raw-cuts-robertas-pizza-shirt-front.jpg | static_1x1 | Roberta's Pizza Shirt Front | false | 1:1 | 31 | andhera-records-merch |  | mediaAsset-andhera-records-robertas-pizza-shirt-front |
-| Apparel/apparel_homepage-banner_16x9.jpg | static_16x9 | Apparel Homepage Banner 16x9 | false | 16:9 | 33 |  |  | mediaAsset-andhera-records-apparel-homepage-banner-16x9 |
-| Apparel/pizza-carousel_post.jpg | static_16x9 | Pizza Carousel Post | false | 16:9 | 34 |  |  | mediaAsset-andhera-records-pizza-carousel-post |
+| Apparel/apparel_homepage-banner_16x9.jpg | static_16x9 | Apparel Homepage Banner 16x9 | false | 16:9 | 33 | andhera-merch-promos |  | mediaAsset-andhera-records-apparel-homepage-banner-16x9 |
+| Apparel/pizza-carousel_post.jpg | static_16x9 | Pizza Carousel Post | false | 16:9 | 34 | andhera-merch-promos |  | mediaAsset-andhera-records-pizza-carousel-post |
 | Artwork/alves_koolaid.jpg | album-art | Alves — Kool Aid | false | 1:1 | 36 |  |  | mediaAsset-andhera-records-alves-kool-aid |
 | Artwork/anatta_galo_otherside.jpg | album-art | Anatta & Galo — Otherside | false | 1:1 | 37 |  |  | mediaAsset-andhera-records-anatta-galo-otherside |
 | Artwork/Andhera-Summer-VAcation.jpg | album-art | Andhera Summer Vacation VA | false | 1:1 | 38 |  |  | mediaAsset-andhera-records-andhera-summer-vacation-va |
@@ -68,4 +66,4 @@ project: andhera-records-andhera-branding
 | Women's Day Carousel/MAXINNE.jpg | carousel-slide | MAXINNE | false | 4:5 | 63 | womens-day-carousel |  | mediaAsset-andhera-records-maxinne |
 | Women's Day Carousel/MS MADA.jpg | carousel-slide | MS MADA | false | 4:5 | 64 | womens-day-carousel |  | mediaAsset-andhera-records-ms-mada |
 | Women's Day Carousel/OLIVIA MANCUSO.jpg | carousel-slide | OLIVIA MANCUSO | false | 4:5 | 65 | womens-day-carousel |  | mediaAsset-andhera-records-olivia-mancuso |
-| Fun Run 031825/4x5.jpg | static_4x5 | Andhera Fun Run 031825 |  |  |  |  | Event / Tour Creative | mediaAsset-a3de0e82-1370-4fbe-916b-c78cf748ae47 |
+| Fun Run 031825/4x5.jpg | static_4x5 | Andhera Fun Run 031825 |  |  |  | andhera-merch-promos | Event / Tour Creative | mediaAsset-a3de0e82-1370-4fbe-916b-c78cf748ae47 |
