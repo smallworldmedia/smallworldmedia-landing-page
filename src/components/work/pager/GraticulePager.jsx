@@ -144,9 +144,49 @@ const CLONE_ROWS = 8;
 const MOBILE_TIER = '(max-width: 768px)';
 const mobileTier = () => typeof window !== 'undefined' && window.matchMedia(MOBILE_TIER).matches;
 
+// The strings a host can swap (SQ-87). Indices are 0-based station indices —
+// the same i as onPreview and commit; the defaults are /work's wording.
+const DEFAULT_LABELS = {
+  nav: 'Featured project pager',
+  hint: 'select_project',
+  station: (i, n, name) => `Go to ${name} (project ${i + 1} of ${n})`,
+  live: (i, n, name) => `Project ${i + 1} of ${n} — ${name}`,
+};
+
 // snapRef — the arrival snap's index (FeaturedProjects: Enter World from the
 // home globe); that index change lands at once and silently.
-export default function GraticulePager({ worlds, active, commit, onEngaged, snapRef = null }) {
+//
+// SQ-87 — mountable outside .fp (the site-wide scheme widget mounts it in a
+// .swm-corner wrapper). Every prop below is additive and optional; an absent
+// prop reproduces /work exactly (FeaturedProjects passes none of them):
+//   pauseOn / hintOn / wrap — default to the ?pause / ?selectlabel / ?wrap
+//     reads; false turns the pause screen (globalTimeline pause, swm:fp-freeze,
+//     the [select_project] freeze chip), the rotated hint, or the wheel off.
+//   labels — { nav, hint, station(i, n, name), live(i, n, name) }, partial ok.
+//   onPreview(i) — every detent under the lens (the setStation path), wrapped
+//     station index; `commit` still fires only at release.
+//   className — appended to the root nav's class list.
+//   renderStation(item, i) — replaces each row's number + name track with its
+//     return value (real rows and wrap clones alike); the button, its aria and
+//     every per-frame var stay. A row without a name element skips the marquee.
+//   renderLens(item, i) — rendered in .fp-scale__lens-art inside the chip for
+//     the ACTIVE station (from the `active` prop: updates on commit).
+export default function GraticulePager({
+  worlds,
+  active,
+  commit,
+  onEngaged,
+  snapRef = null,
+  pauseOn: pauseOnProp,
+  hintOn: hintOnProp,
+  wrap: wrapProp,
+  labels: labelsProp,
+  onPreview,
+  className,
+  renderStation,
+  renderLens,
+}) {
+  const labels = labelsProp ? { ...DEFAULT_LABELS, ...labelsProp } : DEFAULT_LABELS;
   const rootRef = useRef(null);
   const stripRef = useRef(null);
   const stationsRef = useRef(null);
@@ -172,13 +212,13 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
   // ?wrap — the wheel (default ON, Nathan 09-02): the scale loops past both
   // ends, so project 01 shows the last project above it. ?chipzoom — the A/B
   // pair on the engaged label flight (default OFF = the plain variation).
-  const wrap = count > 1 && PARAM('wrap', 1) > 0;
+  const wrap = count > 1 && (wrapProp ?? PARAM('wrap', 1) > 0);
   const cloneOff = wrap ? CLONE_ROWS : 0;
   // Round-2 knobs (09-02): ?selectlabel — the rotated hint above the chip
   // (default ON); ?feather — window feather radius in px (0/absent = the
   // token's two-pitch default); ?pause — the pause-screen variant; ?scalewarp
   // — the cylindrical lens-warp variant (--scale-qf written per frame).
-  const hintOn = PARAM('selectlabel', 1) > 0;
+  const hintOn = hintOnProp ?? PARAM('selectlabel', 1) > 0;
   // ?magnet — the tension curve's exponent (round 5): higher = longer hang
   // on the current station + steeper snap across the threshold. Clamped:
   // below 1 the curve ANTI-magnetizes, past 8 the crossing aliases a frame.
@@ -239,7 +279,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
   const inkFaint = PARAM('inkfaint', -1);
   // Baked 09-03 (Nathan): pause screen + lens warp are the defaults; the
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
-  const pauseOn = PARAM('pause', 1) > 0;
+  const pauseOn = pauseOnProp ?? PARAM('pause', 1) > 0;
   const warpOn = PARAM('scalewarp', 1) > 0;
 
   // r12c (Nathan 11-13): the desktop pager scales with the viewport (the
@@ -391,7 +431,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
       ? { '--ink-faint': `color-mix(in oklab, var(--color-black), var(--color-white) ${inkFaint * 100}%)` }
       : {}),
   };
-  const rootClass = `fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}`;
+  const rootClass = `fp-scale${wrap ? ' fp-scale--wrap' : ''}${warpOn ? ' fp-scale--warp' : ''}${sliceOn ? ' fp-scale--slice' : ''}${className ? ` ${className}` : ''}`;
   // 09-07 (Nathan: "my tunables aren't working on localhost"): since the
   // arm is SSR'd (09-06) the server renders every dial at its FALLBACK
   // (PARAM has no window there) and React hydration KEEPS the server's
@@ -584,7 +624,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     const w = worlds[i];
     const el = liveRef.current;
     if (!w || !el) return;
-    const label = `Project ${i + 1} of ${count} — ${nameOf(w)}`;
+    const label = labels.live(i, count, nameOf(w));
     if (el.textContent !== label) el.textContent = label;
   };
 
@@ -717,6 +757,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
       announce(i);
     }
     prevDetentRef.current = un;
+    onPreview?.(i);
   };
 
   // Every landing goes through here. (Round 7: no close-origin write any
@@ -952,7 +993,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
     <nav
       className={rootClass}
       ref={rootRef}
-      aria-label="Featured project pager"
+      aria-label={labels.nav}
       data-open={open || undefined}
       data-charged={charged || undefined}
       style={rootStyle}
@@ -962,7 +1003,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
           the semantics + clicks; the root's own box carries hover/press. */}
       {hintOn && (
         <span className="fp-scale__hint" aria-hidden="true" ref={hintRef}>
-          select_project
+          {labels.hint}
         </span>
       )}
       <div className="fp-scale__chip" aria-hidden="true">
@@ -977,6 +1018,13 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
           </span>
         </span>
         <span className="fp-scale__den">{String(count).padStart(2, '0')}</span>
+        {renderLens && worlds[active] && (
+          // SQ-87: the host's art for the ACTIVE station (React-rendered from
+          // `active`, so it updates on commit, not per detent). The digit
+          // spans above stay and are still engine-written; the host's skin
+          // hides them.
+          <span className="fp-scale__lens-art">{renderLens(worlds[active], active)}</span>
+        )}
       </div>
       {/* The deployed window: --scale-rows pitches each side of the lens,
           feathered at both edges and overflow-clipped so the stations beyond
@@ -1039,7 +1087,7 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
                   type="button"
                   className="fp-scale__station"
                   aria-label={
-                    clone ? undefined : `Go to ${nameOf(w)} (project ${i + 1} of ${count})`
+                    clone ? undefined : labels.station(i, count, nameOf(w))
                   }
                   aria-hidden={clone || undefined}
                   aria-current={!clone && i === active ? 'true' : undefined}
@@ -1058,21 +1106,30 @@ export default function GraticulePager({ worlds, active, commit, onEngaged, snap
                     engine.close(i);
                   }}
                 >
-                  {pad2(i)}
-                  {/* Two copies, the tape idiom: the second participates
-                      only while the selected row marquees. */}
-                  <span className="fp-scale__name" aria-hidden="true">
-                    <span className="fp-scale__name-track">
-                      <span>
-                        {w.clientName}
-                        {subOf(w) && <span className="fp-scale__sub">{subOf(w)}</span>}
+                  {renderStation ? (
+                    // SQ-87: a host's own row art (the scheme widget's swatch)
+                    // replaces the number + name; no name element, so the
+                    // marquee pass finds nothing to measure in this row.
+                    renderStation(w, i)
+                  ) : (
+                    <>
+                      {pad2(i)}
+                      {/* Two copies, the tape idiom: the second participates
+                          only while the selected row marquees. */}
+                      <span className="fp-scale__name" aria-hidden="true">
+                        <span className="fp-scale__name-track">
+                          <span>
+                            {w.clientName}
+                            {subOf(w) && <span className="fp-scale__sub">{subOf(w)}</span>}
+                          </span>
+                          <span>
+                            {w.clientName}
+                            {subOf(w) && <span className="fp-scale__sub">{subOf(w)}</span>}
+                          </span>
+                        </span>
                       </span>
-                      <span>
-                        {w.clientName}
-                        {subOf(w) && <span className="fp-scale__sub">{subOf(w)}</span>}
-                      </span>
-                    </span>
-                  </span>
+                    </>
+                  )}
                 </button>
               );
             })}

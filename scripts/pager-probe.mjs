@@ -7,6 +7,8 @@
  *        [--mobile] [--dpr=3] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
  *        (--scenario=edge [--want=NAME], --mobile only, never part of `all`: the phone clip edge + the marquee wrap step)
  *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
+ *        [--path=/work] [--host=.fp]   (SQ-87: the route, and the element that wears
+ *        .is-pager-engaged — .swm-corner for the pager mounted outside /work)
  *
  * Prints a JSON report to stdout (console errors, page errors, readouts per
  * step) and writes PNG screenshots to --out. Touch gestures go through CDP
@@ -67,7 +69,11 @@ const GPU = arg('gpu', 'swiftshader'); // swiftshader (default: ~30ms timer lag)
 // (≈620px wide at 1440) now reaches it and keeps the pager engaged (it is hoverable by design).
 const LEAVE_X = Math.round(VW * 0.75);
 const SETTLE = Number(arg('settle', 250)); // extra ms before every readout (headless render lag)
-const URL_ = `${BASE}/work?pager=${VARIANT}${EXTRA}`;
+// SQ-87: the route and the pager's host element are parameters — the pager also mounts
+// outside /work, in a .swm-corner wrapper (--path=/lab/x --host=.swm-corner).
+const PATH_ = String(arg('path', '/work'));
+const HOST = String(arg('host', '.fp'));
+const URL_ = `${BASE}${PATH_}${PATH_.includes('?') ? '&' : '?'}pager=${VARIANT}${EXTRA}`;
 const want = (s) => SCEN.includes('all') || SCEN.includes(s);
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -78,7 +84,7 @@ async function waitServer() {
   const t0 = Date.now();
   while (Date.now() - t0 < 90000) {
     try {
-      const r = await fetch(`${BASE}/work`);
+      const r = await fetch(`${BASE}${PATH_}`);
       if (r.ok) return;
     } catch {}
     await sleep(1000);
@@ -87,16 +93,17 @@ async function waitServer() {
 }
 
 const readout = (page) =>
-  page.evaluate((root) => {
+  page.evaluate(([root, host]) => {
     const r = document.querySelector(root);
     const q = (s) => r?.querySelector(s);
+    const hostEl = document.querySelector(host);
     const rect = r?.getBoundingClientRect();
     return {
       rootPresent: !!r,
       legacyRailPresent: !!document.querySelector('.fp-pager'),
       open: r?.hasAttribute('data-open') ?? null,
       charged: r?.hasAttribute('data-charged') ?? null,
-      engagedClass: document.querySelector('.fp')?.classList.contains('is-pager-engaged') ?? null,
+      engagedClass: hostEl?.classList.contains('is-pager-engaged') ?? null,
       stageOpacity: document.querySelector('.fp-stage') ? getComputedStyle(document.querySelector('.fp-stage')).opacity : null,
       live: q('[aria-live]')?.textContent ?? null,
       current: q('[aria-current="true"]')?.textContent?.trim() ?? null,
@@ -113,10 +120,10 @@ const readout = (page) =>
       // r12c: the pager's resolved pitch (px; @property-registered) — the
       // desktop readouts are compared NORMALISED by it against the base.
       pitch: r ? parseFloat(getComputedStyle(r).getPropertyValue('--scale-pitch')) || null : null,
-      projectColor: document.querySelector('.fp')?.style.getPropertyValue('--project-color') || null,
+      projectColor: hostEl?.style.getPropertyValue('--project-color') || null,
       html: r ? r.outerHTML.replace(/\s+/g, ' ').slice(0, 900) : null,
     };
-  }, ROOT);
+  }, [ROOT, HOST]);
 
 // SQ-80: the /work [PREVIOUS] / [NEXT] chips — the label (a neighbour's client
 // name, or the words under ?ctanames=0), its box, the face it wears next to the
@@ -226,7 +233,8 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
   });
   page.on('pageerror', (e) => report.pageErrors.push(String(e).slice(0, 400)));
   await page.goto(URL_, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.fp', { timeout: 30000 });
+  // attached, not visible: a corner wrapper holds only a position:fixed pager, so its own box is empty
+  await page.waitForSelector(HOST, { state: 'attached', timeout: 30000 });
   try {
     await page.waitForSelector(ROOT, { timeout: 15000 });
   } catch {
