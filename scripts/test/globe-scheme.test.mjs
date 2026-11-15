@@ -24,11 +24,17 @@ test('gapHex: project and blue keep brand blue, black goes black, spectrum takes
   });
 });
 
-test('sceneAccent: a world with a projectColor and a spectrum key, under each scheme', () => {
+test('sceneAccent: a world with a projectColor and a spectrum key, under each scheme (spectrum is keyless: the blue pair)', () => {
   assert.equal(sceneAccent(WORLD, 'project'), '#fd361a'); // today's colour, untouched
   assert.equal(sceneAccent(WORLD, 'black'), '#000000');
   assert.equal(sceneAccent(WORLD, 'blue'), '#0000ff');
-  assert.equal(sceneAccent(WORLD, 'spectrum'), SPECTRUM.green.fill);
+  assert.equal(sceneAccent(WORLD, 'spectrum'), SPECTRUM.blue.fill); // the green key is not read
+});
+
+test('sceneAccent under spectrum is the same colour for EVERY world (wave 4, acceptance 3)', () => {
+  const worlds = [WORLD, BARE, null, undefined, { projectColor: '#abcdef' }, ...Object.keys(SPECTRUM).map((k) => ({ ...WORLD, spectrum: k }))];
+  for (const w of worlds) assert.equal(sceneAccent(w, 'spectrum'), SPECTRUM.blue.fill);
+  assert.equal(sceneAccent(WORLD, 'spectrum'), gapHex('spectrum'));
 });
 
 test('sceneAccent: a pool world with no projectColor and no spectrum key (acceptance 4)', () => {
@@ -42,8 +48,8 @@ test('sceneAccent: a projectColor without a spectrum key, and a spectrum key wit
   assert.equal(sceneAccent({ projectColor: '#abcdef' }, 'project'), '#abcdef');
   assert.equal(sceneAccent({ projectColor: '#abcdef' }, 'spectrum'), '#1556e5');
   assert.equal(sceneAccent({ spectrum: 'yellow' }, 'project'), '#0000ff');
-  assert.equal(sceneAccent({ spectrum: 'yellow' }, 'spectrum'), SPECTRUM.yellow.fill);
-  assert.equal(sceneAccent({ projectColor: '#abcdef', spectrum: 'nope' }, 'spectrum'), '#1556e5'); // an unknown key is blue
+  assert.equal(sceneAccent({ spectrum: 'yellow' }, 'spectrum'), SPECTRUM.blue.fill); // a key is ignored
+  assert.equal(sceneAccent({ projectColor: '#abcdef', spectrum: 'nope' }, 'spectrum'), '#1556e5');
 });
 
 test('sceneAccent: no world (the entrance, ?popcolor 0) is the scheme\'s gap colour', () => {
@@ -67,13 +73,13 @@ test('nameInks: black is white lettering on black, whichever the style (acceptan
   }
 });
 
-test('nameInks: blue is every world brand blue; spectrum is the world\'s palette pair', () => {
+test('nameInks: blue is every world brand blue; spectrum is the blue pair for every world (keyless)', () => {
   assert.deepEqual(nameInks(WORLD, 'ink', 'blue'), { ground: '#000000', text: '#0000ff' });
   assert.deepEqual(nameInks(WORLD, 'fill', 'blue'), { ground: '#0000ff', text: '#000000' });
-  assert.deepEqual(nameInks(WORLD, 'ink', 'spectrum'), { ground: '#000000', text: SPECTRUM.green.fill });
-  assert.deepEqual(nameInks(WORLD, 'fill', 'spectrum'), { ground: SPECTRUM.green.fill, text: SPECTRUM.green.fg });
-  assert.deepEqual(nameInks({ ...WORLD, spectrum: 'red' }, 'fill', 'spectrum'), { ground: SPECTRUM.red.fill, text: SPECTRUM.red.fg });
-  assert.deepEqual(nameInks(BARE, 'fill', 'spectrum'), { ground: SPECTRUM.blue.fill, text: SPECTRUM.blue.fg });
+  for (const w of [WORLD, { ...WORLD, spectrum: 'red' }, BARE]) {
+    assert.deepEqual(nameInks(w, 'ink', 'spectrum'), { ground: '#000000', text: SPECTRUM.blue.fill });
+    assert.deepEqual(nameInks(w, 'fill', 'spectrum'), { ground: SPECTRUM.blue.fill, text: SPECTRUM.blue.fg });
+  }
 });
 
 const LAYOUT = { style: 'ink', size: 0.5, mode: 'region', span: 3, panelAspect: 1 };

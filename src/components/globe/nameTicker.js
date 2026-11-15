@@ -193,12 +193,13 @@ export function nameSpan(text, size, panelAspect, { min = 1, max = 1 } = {}) {
  *  project (and blue, whose accent is brand blue): today's strips — 'ink' is the
  *  accent on black, 'fill' black on the accent. black: white on black, whichever
  *  the style (the accent IS black, so a strip drawn in it would vanish).
- *  spectrum: 'ink' is the palette fill on black, 'fill' puts the pair's own ink
- *  on the fill. `world` = { projectColor, spectrum }. */
+ *  spectrum: keyless (wave 4), the palette blue pair for every world: 'ink' is the
+ *  fill on black, 'fill' puts the pair's own ink on the fill. `world` = { projectColor }. */
 export function nameInks(world, style, scheme = getScheme()) {
   if (scheme === 'black') return { ground: BLACK, text: WHITE };
-  const accent = schemeAccent(world, scheme) || BRAND_BLUE;
-  if (style === 'fill') return { ground: accent, text: scheme === 'spectrum' ? schemeInk(world, scheme) : BLACK };
+  const keyless = { projectColor: world?.projectColor }; // no spectrum key: every world takes the blue pair
+  const accent = schemeAccent(keyless, scheme) || BRAND_BLUE;
+  if (style === 'fill') return { ground: accent, text: scheme === 'spectrum' ? schemeInk(keyless, scheme) : BLACK };
   return { ground: BLACK, text: accent };
 }
 

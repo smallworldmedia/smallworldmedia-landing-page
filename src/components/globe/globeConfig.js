@@ -149,10 +149,12 @@ export const PANEL_FALLBACK_COLOR = 0x121212; // --color-dark-gray — pre-textu
 /** The colour-scheme face of GAP_COLOR (swm:scheme): the gap, and the fog the distance recedes into, when no world
  *  tints. Brand blue under project and blue, black under black, the palette blue under spectrum. */
 export const gapHex = (scheme) => schemeAccent({ projectColor: `#${GAP_COLOR.toString(16).padStart(6, '0')}` }, scheme);
-/** What the globe paints a world with under `scheme` as #rrggbb: schemeAccent, else the gap. `world` = { projectColor,
- *  spectrum } or null (no world, or ?popcolor 0). Under project it is the world's own colour, as always. */
+/** What the globe paints a world with under `scheme` as #rrggbb: schemeAccent, else the gap. `world` = { projectColor }
+ *  or null (no world, or ?popcolor 0). Under project it is the world's own colour, as always. Under spectrum it is the
+ *  palette blue for EVERY world (keyless, wave 4): the flat colour under the ramp the shaders mix in, so the world's
+ *  spectrum key is never passed on. */
 export const sceneAccent = (world, scheme) =>
-  schemeAccent({ projectColor: world?.projectColor, spectrum: world?.spectrum }, scheme) || gapHex(scheme);
+  schemeAccent({ projectColor: world?.projectColor }, scheme) || gapHex(scheme);
 
 /* — VideoGlobe-only device knobs (10-09, the media spans round): the home
    globe and /lab, which share useGlobeScene, nameTicker, TextureManager and VideoSlotPool's

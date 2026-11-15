@@ -43,6 +43,7 @@ import {
   SCROLL_POLE_CORNER_START,
   SCROLL_POLE_TIP_LIFT,
 } from './globeConfig.js';
+import { RAMP_A_RGB, RAMP_GLSL } from '../../lib/spectrumRamp.js';
 
 // USE_INSTANCING: three defines it (and declares instanceMatrix) when the
 // material renders on an InstancedMesh — the /process decoy pool. Regular
@@ -158,6 +159,9 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uFogColor; // the field the distance recedes into
   uniform float uBlueMix;
   uniform vec3 uBlueColor;
+  uniform float uRampMix;   // spectrum: 0 = the flat blue above (today's output), 1 = ramp A about uRampCenter
+  uniform vec2 uRampCenter; // the DOM ring's centre, drawing-buffer px, y up (gl_FragCoord's frame)
+  ${RAMP_GLSL}
   uniform float uCornerR;
   uniform float uUsePolarScroll;  // 1 = scroll globe (gates pole softening)
   uniform float uPoleCornerTip;   // scroll globe: bottom-cap HORIZONTAL radius at the pole (round nose)
@@ -296,7 +300,15 @@ const fragmentShader = /* glsl */ `
     // Commit blue-fill (chunk 4): last mix before the colorspace output so
     // at uBlueMix 1 the panel is exactly the inner sphere's blue — stroke,
     // texture and power all submerged under the field.
-    color = mix(color, uBlueColor, uBlueMix);
+    // The blue field: the flat uBlueColor, or under spectrum (uRampMix 1) ramp A at this fragment's
+    // clockwise-from-top angle about the ring's centre, so the surge and the corner fringe continue the
+    // gap's colours. At uRampMix 0 the branch is skipped and the field IS uBlueColor, exactly as before.
+    vec3 blueField = uBlueColor;
+    if (uRampMix > 0.0) {
+      vec2 rampD = gl_FragCoord.xy - uRampCenter;
+      blueField = mix(uBlueColor, spectrumRamp(atan(rampD.x, rampD.y) * 0.15915494309189535), uRampMix);
+    }
+    color = mix(color, blueField, uBlueMix);
     // Anti-alias the rounded corner (only when rounding is enabled): the pass
     // is opaque (no alpha blend), so fade the innermost ~1px of the cut toward
     // the gap/inner-sphere blue the discard reveals, so the arc reads smooth
@@ -305,7 +317,7 @@ const fragmentShader = /* glsl */ `
     // and this resolves to a no-op.
     if (uCornerR > 0.0) {
       float cornerAA = max(fwidth(cornerD), 1e-6);
-      color = mix(color, uBlueColor, smoothstep(-cornerAA, 0.0, cornerD));
+      color = mix(color, blueField, smoothstep(-cornerAA, 0.0, cornerD));
     }
     gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
@@ -330,9 +342,12 @@ export function getPlaceholderTexture() {
  * @param {number} [opts.cornerRadius=0] - rounded-tile radius in UV units
  *        (0 = hard edges, the /process default; the home globe passes ~0.12
  *        for lockup fidelity). Must stay < 0.5.
+ * @param {{ ramp: {value: number[]}, mix: {value: number}, center: {value: THREE.Vector2} }} [opts.ramp]
+ *        the scene's SHARED spectrum-ramp uniforms (ramp stops, mix, ring centre), so one write
+ *        recolours every panel. Absent (/process, decoys) = mix 0: the flat blue, today's output.
  * @returns {THREE.ShaderMaterial}
  */
-export function createPanelMaterial({ fallbackColor, cornerRadius = 0 }) {
+export function createPanelMaterial({ fallbackColor, cornerRadius = 0, ramp = null }) {
   const placeholder = getPlaceholderTexture();
   return new THREE.ShaderMaterial({
     vertexShader,
@@ -368,6 +383,10 @@ export function createPanelMaterial({ fallbackColor, cornerRadius = 0 }) {
       uFogColor: { value: new THREE.Color(GAP_COLOR) },
       uBlueMix: { value: 0 }, // 0 = untouched — the commit blue-fill (useGlobeScene setBlueFill) drives it
       uBlueColor: { value: new THREE.Color(GAP_COLOR) }, // the inner sphere's blue, never a hand-picked hex
+      // Spectrum ramp (wave 4): the scene hands in ONE shared object per uniform; without it the mix is 0 (the flat blue).
+      uRamp: ramp?.ramp ?? { value: RAMP_A_RGB },
+      uRampMix: ramp?.mix ?? { value: 0 },
+      uRampCenter: ramp?.center ?? { value: new THREE.Vector2() },
       uCornerR: { value: cornerRadius }, // rounded-tile radius; 0 = hard edges (/process); branch skipped when 0
       // Pole softening — active only on the scroll globe (uUsePolarScroll=1) and
       // only where uCornerR>0; non-scroll tiles (vK=1) are unaffected.
