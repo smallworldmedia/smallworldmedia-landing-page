@@ -10,7 +10,8 @@
  * QuickBooks integration section is gone with QuickBooks (11-03); "Clients"
  * names only the services a client deals with (Postmark for invoices, Stripe
  * and Wise for payments), not the books behind them (Nathan). The site sets
- * no cookies and runs no analytics, so no consent banner is needed. Revisit
+ * no cookies and runs no analytics, so no consent banner is needed. The
+ * colour scheme pick is kept in local storage, the site's only use of it (11-14). Revisit
  * the copy, and move the date, if a service, a cookie or analytics is ever
  * added.
  */
@@ -20,7 +21,7 @@ export default function PrivacyContent({ home = true }) {
   return (
     <div className="privacy">
       <h1 className="privacy__title">Privacy Policy</h1>
-      <p className="privacy__updated">Last updated: November 3, 2026</p>
+      <p className="privacy__updated">Last updated: November 14, 2026</p>
 
       <div className="privacy__section">
         <p>
@@ -34,8 +35,10 @@ export default function PrivacyContent({ home = true }) {
         <h2>This website</h2>
         <p>
           We don’t use analytics, advertising trackers or cookies on this site. A few values are kept
-          in your browser’s session storage so animations and navigation behave. They never leave
-          your device and disappear when the tab closes.
+          in your browser’s session storage so animations and navigation behave, and they disappear
+          when the tab closes. If you change the site’s color scheme, that one choice is kept in your
+          browser’s local storage so it is still there on your next visit. None of this leaves your
+          device.
         </p>
         <ul>
           <li>
