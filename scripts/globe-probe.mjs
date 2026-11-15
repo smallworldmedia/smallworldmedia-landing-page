@@ -558,7 +558,7 @@ const armRecorder = () => {
         .map((c) => `${c.dataset.phase}:${(c.querySelector('.fp-card__cta')?.getAttribute('href') ?? '').slice(6)}`)
         .join(' ')
     );
-    note('qf', document.querySelector('.fp-scale')?.style.getPropertyValue('--scale-qf') || null);
+    note('qf', document.querySelector('.fp .fp-scale')?.style.getPropertyValue('--scale-qf') || null);
     note('accent', getComputedStyle(document.documentElement).getPropertyValue('--project-color').trim());
     const fill = document.querySelector('.route-fill');
     note('fill', fill ? Math.round(parseFloat(getComputedStyle(fill).opacity) * 100) / 100 : null);
@@ -583,7 +583,7 @@ const readWork = () => {
   const cards = [...document.querySelectorAll('.fp-card-wrap')];
   const enter = cards.find((c) => c.dataset.phase === 'enter');
   const href = enter?.querySelector('.fp-card__cta')?.getAttribute('href') ?? '';
-  const qf = parseFloat(document.querySelector('.fp-scale')?.style.getPropertyValue('--scale-qf'));
+  const qf = parseFloat(document.querySelector('.fp .fp-scale')?.style.getPropertyValue('--scale-qf'));
   let key = null;
   let index = NaN;
   try {

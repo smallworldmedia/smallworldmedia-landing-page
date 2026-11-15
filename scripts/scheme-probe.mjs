@@ -92,7 +92,7 @@ const DEFAULT_GATES = {
 };
 const HOVER_SELECTORS = ['.site-nav__pill', '.cta-primary', '.deck-tab', '.site-privacy', '.fp-cta', '.prose-link'];
 const ANCHOR = '.swm-corner';
-const OVERLAP_SELECTORS = [ANCHOR, '.site-privacy', '.fp-scale', '.dir-filter', '.site-footer--links', '.fp-cta', '.np-band__title'];
+const OVERLAP_SELECTORS = [ANCHOR, '.site-privacy', '.fp .fp-scale', '.dir-filter', '.site-footer--links', '.fp-cta', '.np-band__title'];
 const MEDIA_SEL = 'img, video, canvas, picture, iframe, object, embed, [data-logo], .logo-ticker svg';
 const HOVER_MS = 900;
 const MAX_READS = 10;

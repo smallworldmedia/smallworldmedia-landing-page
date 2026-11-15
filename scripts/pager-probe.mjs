@@ -49,7 +49,6 @@ const arg = (k, d) => {
   return process.argv.includes(`--${k}`) ? true : d;
 };
 const VARIANT = arg('variant', 'scale'); // tape/tuner arms deleted 09-05
-const ROOT = arg('root', '.fp-scale');
 const MOBILE = !!arg('mobile', false);
 const VW = Number(arg('vw', MOBILE ? 390 : 1440));
 const VH = Number(arg('vh', MOBILE ? 844 : 900));
@@ -73,6 +72,8 @@ const SETTLE = Number(arg('settle', 250)); // extra ms before every readout (hea
 // outside /work, in a .swm-corner wrapper (--path=/lab/x --host=.swm-corner).
 const PATH_ = String(arg('path', '/work'));
 const HOST = String(arg('host', '.fp'));
+// SQ-92: the corner widget gives every page a second .fp-scale root, so the default root is the pager INSIDE the host.
+const ROOT = arg('root', `${HOST} .fp-scale`);
 const URL_ = `${BASE}${PATH_}${PATH_.includes('?') ? '&' : '?'}pager=${VARIANT}${EXTRA}`;
 const want = (s) => SCEN.includes('all') || SCEN.includes(s);
 
@@ -132,7 +133,7 @@ const readout = (page) =>
 // chip's transform scale). The base (:4322) carries the words, so a chips
 // diff against it is expected; every OTHER readout field must match.
 const chipsReadout = (page) =>
-  page.evaluate(() => {
+  page.evaluate((root) => {
     const one = (sel) => {
       const el = document.querySelector(sel);
       if (!el) return null;
@@ -178,7 +179,7 @@ const chipsReadout = (page) =>
           : null,
       };
     };
-    const pn = document.querySelector('.fp-scale__name');
+    const pn = document.querySelector(`${root} .fp-scale__name`);
     const pcs = pn && getComputedStyle(pn.closest('.fp-scale__station') || pn);
     const pns = pn && getComputedStyle(pn);
     return {
@@ -186,7 +187,7 @@ const chipsReadout = (page) =>
       next: one('.fp-next'),
       pagerName: pcs && { family: pcs.fontFamily, weight: pcs.fontWeight, transform: pns.textTransform },
     };
-  });
+  }, ROOT);
 
 async function step(page, name, fn) {
   if (fn) await fn();
@@ -381,10 +382,10 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: c.x, y: c.y, id: 1 }] });
       await sleep(HOLD);
       const selRow = () =>
-        page.evaluate(() => {
-          const nm = document.querySelector('.fp-scale__name[data-sel]');
+        page.evaluate((root) => {
+          const nm = document.querySelector(`${root} .fp-scale__name[data-sel]`);
           return nm && { text: nm.textContent, marquee: nm.hasAttribute('data-marquee'), right: nm.getBoundingClientRect().right, vw: innerWidth };
-        });
+        }, ROOT);
       let row = null;
       for (let k = 1; k <= 16 && !row; k++) {
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: c.x, y: c.y - 48 * k, id: 1 }] });
@@ -395,9 +396,9 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       if (row) {
         await page.screenshot({ path: path.join(OUT, `edge-${VW}-engaged.png`) });
         const frames = await page.evaluate(
-          () =>
+          (root) =>
             new Promise((resolve) => {
-              const [a, b] = document.querySelector('.fp-scale__name[data-sel]').firstChild.children;
+              const [a, b] = document.querySelector(`${root} .fp-scale__name[data-sel]`).firstChild.children;
               const out = [];
               const t0 = performance.now();
               const tick = () => {
@@ -406,7 +407,8 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
                 t < 14000 ? requestAnimationFrame(tick) : resolve(out);
               };
               requestAnimationFrame(tick);
-            })
+            }),
+          ROOT
         );
         const wraps = [];
         for (let i = 2; i < frames.length; i++) {

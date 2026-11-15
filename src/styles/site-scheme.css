@@ -1,0 +1,248 @@
+/* The colour-scheme widget's skin and seat (SQ-92). The widget is the /work graticule
+   pager (GraticulePager) mounted a second time in the lower-right corner, inside a
+   .swm-corner wrapper, with every station drawn as a circular swatch and NO visible
+   text (Nathan 11-14). pager-scale.css already skins a .fp-scale for the .swm-corner
+   host as /work's chip-and-names instrument; this sheet re-seats and re-draws it as a
+   corner dot. SKIN ONLY: no motion constant, easing, detent, magnet or timing is
+   touched, so the deploy / cascade / wipe / warp are exactly /work's.
+
+   Every rule is scoped under .swm-corner. Imported after pager-scale.css (BaseLayout),
+   it out-specifies that sheet with the .swm-corner__pager class SiteScheme gives the
+   pager root: R below = .swm-corner .fp-scale.swm-corner__pager (0,3,0), one class
+   above pager-scale.css's :is(.fp[data-pager='scale'], .swm-corner) .fp-scale rules,
+   and R + one class (0,4,0) ties its state rules (data-open / data-charged), which it
+   then beats on source order.
+
+   What the pager skin keeps, and what this sheet does with each part:
+     root / chip / lens   kept: the lens becomes a circular ring (a ::after on .fp-scale__lens)
+                          holding the active swatch (.fp-scale__lens-art)
+     window / strip       kept: the column of swatches, three rows deep (see --scale-rows)
+     stations             kept: each is a button holding one swatch, centred on the lens axis
+     num / peak / den     hidden (display:none): digits, no text is painted
+     pulse                hidden: the rest pulse is a /work digit veil
+     pointer              hidden: the lens arrow points at a name column that is not here
+     box                  hidden: /work already ships it with no fill (11-13)
+     hairline / seams     hidden: the axis stroke and the wheel seams are /work's ruler
+     tick / slice         hidden: the per-station ::before / ::after marks are the same ruler
+     hint / freeze        not rendered (hintOn and pauseOn are false); no scrim, no pause screen
+   Tunables (docs/tunables-guide.md): ?schemerows (the rows shown), ?schemesize,
+   ?schemepitch, all written as custom properties on .swm-corner by SiteScheme. */
+
+.swm-corner {
+  /* Swatch diameter = the pager's <=768 tier lens-row height (--scale-num-h 1.857rem,
+     global.css): the same at every width, no viewport scale-up. (The whole chip, lens +
+     denominator, is 2 x that + 1px = 53px: wider than the 48px pitch, so the circles
+     would overlap in the column.) ?schemesize dials it. */
+  --scheme-swatch: 1.857rem;
+  /* Row pitch = the pager's existing tier token (48px on both tiers). ?schemepitch dials it.
+     Desktop reads it back as the engine's detent; at <=768 the engine writes its own
+     inline pitch (the same 48px), which a dial cannot reach. */
+  --scheme-pitch: var(--scale-pitch);
+  /* Rows shown deployed = 3: previous, current, next. --scale-rows is the engine's reach
+     in stations EACH side of the lens, so 3 rows shown = 1.5. A bare number: the engine
+     parses it. Four stations under wrap would show one swatch twice in a five-row window,
+     so three is the most that never repeats. ?schemerows dials it. */
+  --scale-rows: 1.5;
+  /* The lens ring sits this far outside the swatch; its border and outer edge add 2.5px. */
+  --scheme-ring: 4px;
+  /* The rest press target: the WCAG / house 44px minimum. */
+  --scheme-hit: 44px;
+  /* The deployed window's bottom edge, above the privacy pill: footer inset + the pill's
+     two paddings + its line + a --space-6 gap (the pill is hidden at <=768, below). */
+  --scheme-seat: calc(
+    var(--footer-bottom-inset) + 2 * var(--pill-pad-y) + var(--lh-link) + var(--space-6)
+  );
+}
+
+@media (max-width: 768px) {
+  .swm-corner {
+    --scheme-seat: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
+  }
+}
+
+/* — The wrapper is the widget's SEAT and its footprint: fixed lower right on the privacy pill's
+   right edge, as wide as the dot plus its ring and as tall as the deployed window, so one
+   box holds the widget at rest and deployed (the scheme probe's overlap gate measures it).
+   It paints nothing and takes no pointer; the pager inside is absolute, centred on the
+   window's middle, where the lens rests (the pager's own geometry). z 43: above the links
+   footer (40) and the directory filter (20); under the privacy overlay (44), the corner
+   pills (45), the project overlay (50) and the shell (100). Its stacking context also caps
+   the engaged lift pager-scale.css gives a .swm-corner pager (z 120) at 43. — */
+.swm-corner {
+  --scheme-halo: calc(var(--scheme-ring) + 2.5px);
+  position: fixed;
+  right: var(--chrome-right-inset);
+  bottom: var(--scheme-seat);
+  z-index: 43;
+  width: calc(var(--scheme-swatch) + 2 * var(--scheme-halo));
+  height: calc(2 * var(--scale-rows) * var(--scheme-pitch));
+  pointer-events: none;
+  /* The links footer rises through the bottom of the viewport (SiteFooter broadcasts the
+     visible height as --footer-reveal x --footer-panel-h, 0.40 of it at rest on home). The
+     widget rides above its top edge: it never moves until the footer would reach the seat's
+     bottom edge less a --space-6 gap, then it climbs with it. 0 without the broadcast. */
+  translate: 0
+    calc(
+      -1 * max(0px, var(--footer-reveal, 0) * var(--footer-panel-h, 0px) + var(--space-6) - var(--scheme-seat))
+    );
+  transition:
+    opacity 0.2s var(--ease-micro),
+    visibility 0s;
+}
+
+/* Yield: invisible and inert while the info drawer, the privacy notice or the project
+   overlay (SiteShell's data-chrome-open) or the mobile menu is open. visibility drops
+   after the fade, so the swatches cannot be focused or clicked behind the overlay. */
+html[data-chrome-open] .swm-corner,
+html[data-menu-open] .swm-corner {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s var(--ease-micro),
+    visibility 0s linear 0.2s;
+}
+
+/* — The pager: R = .swm-corner .fp-scale.swm-corner__pager. One swatch wide and tall (the
+   lens), seated so the lens sits at the wrapper's vertical middle. — */
+.swm-corner .fp-scale.swm-corner__pager {
+  --pager-u: 1px;
+  --scale-w: var(--scheme-swatch);
+  --scale-num-h: var(--scheme-swatch);
+  --scale-pad: 0px;
+  --scale-pitch: var(--scheme-pitch);
+  /* No selection lift: every swatch is the same circle at every row. */
+  --scale-sel: 1;
+  --scale-sel-bump: 1;
+  /* The window feather is the gap between a swatch's edge and the window's: each outer
+     swatch is fully opaque at its edge and the window cuts clean beyond it. */
+  --scale-feather: max(0px, calc((var(--scale-pitch) - var(--scale-num-h)) / 2));
+  position: absolute;
+  left: var(--scheme-halo);
+  top: calc(var(--scale-rows) * var(--scale-pitch) - var(--scale-lens-y));
+  right: auto;
+  bottom: auto;
+  transform: none;
+  width: var(--scale-w);
+  height: var(--scale-num-h);
+  pointer-events: auto;
+}
+
+/* The rest press target, at least 44 x 44 around the dot. Engaged: it spans the deployed
+   window (rows each side of the lens) so the gaps between swatches do not leak the pointer
+   out and commit mid-scrub. */
+.swm-corner .fp-scale.swm-corner__pager::after {
+  inset: min(0px, calc((var(--scale-num-h) - var(--scheme-hit)) / 2));
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-open]::after {
+  top: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
+  bottom: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
+  left: min(0px, calc((var(--scale-num-h) - var(--scheme-hit)) / 2));
+  right: min(0px, calc((var(--scale-num-h) - var(--scheme-hit)) / 2));
+}
+
+/* — Nothing with text, and nothing that belongs to /work's ruler, is painted. — */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__num,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__peak,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__den,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__pulse,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__box,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__hair,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__seam {
+  display: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__station::before,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__station::after {
+  display: none;
+}
+
+/* — The chip: just the lens ring (the denominator row is gone). — */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__chip {
+  height: var(--scale-num-h);
+}
+
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__lens {
+  width: var(--scale-w);
+  height: var(--scale-num-h);
+  padding: 0;
+  border-radius: 50%;
+  /* No accent fill, no white charge: the ring is the only chrome, and the swatch is the face. */
+  background: transparent;
+  transition: none;
+}
+
+/* The ring: neutral white with a thin dark outer edge, so it reads on black, brand blue,
+   white and over a photo. It brightens when the pager is charged or deployed (hover
+   intent, a press, the column open) — the only hover tell a text-free dot has. */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__lens::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--scheme-ring));
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--color-white) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-black) 45%, transparent);
+  pointer-events: none;
+  transition: border-color 0.16s var(--ease-micro);
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-charged] .fp-scale__lens::after,
+.swm-corner .fp-scale.swm-corner__pager[data-open] .fp-scale__lens::after {
+  border-color: var(--color-white);
+}
+
+/* Keyboard focus: the house white 2px ring, outside the lens ring. */
+.swm-corner .fp-scale.swm-corner__pager:has(.fp-scale__station:focus-visible) .fp-scale__lens {
+  outline: 2px solid var(--color-white);
+  outline-offset: calc(var(--scheme-ring) + 5px);
+}
+
+/* The lens art: the swatch in force, in the ring. Hidden with OPACITY (never display)
+   while the column is deployed, so the hand-over to the same swatch in the column is seamless. */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__lens-art {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--scale-w);
+  height: var(--scale-num-h);
+  display: grid;
+  place-items: center;
+  opacity: 1;
+  transition: opacity 0.2s var(--ease-micro);
+  pointer-events: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-open] .fp-scale__lens-art {
+  opacity: 0;
+}
+
+/* — The window and its column: one swatch wide, centred on the lens axis. Nothing is
+   mirrored (there is no text column), and the names' horizontal room is gone. — */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__window {
+  --scale-w: var(--scheme-swatch);
+  --scale-pad: 0px;
+  width: var(--scale-w);
+}
+
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__station {
+  display: grid;
+  place-items: center;
+  width: var(--scale-w);
+  height: var(--scale-pitch);
+  padding: 0;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .scheme-swatch {
+  display: block;
+  width: var(--scheme-swatch);
+  height: var(--scheme-swatch);
+}
+
+/* Wheel guard (SiteScheme): while a page scroll that began outside is still going, the
+   widget is transparent to the pointer, so the wheel is hit-tested to the page under
+   it and takes its normal path. Cleared ?schemeguard ms after the last outside wheel. */
+.swm-corner[data-wheel-guard],
+.swm-corner[data-wheel-guard] * {
+  pointer-events: none !important;
+}
