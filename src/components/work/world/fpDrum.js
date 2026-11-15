@@ -90,7 +90,9 @@ import {
   drumAccentFor,
   glowColorFor,
   schemePaintPlan,
+  tabPairFor,
 } from './worldConfig.js';
+import { applyRamp } from './worldRamp.js';
 import { getScheme } from '../../../lib/colorScheme.js';
 
 const DEG2RAD = Math.PI / 180;
@@ -774,6 +776,7 @@ export function buildDrumSlot(slot, w, ctx) {
       transparent: true,
       opacity: 0,
     });
+    applyRamp(material); // spectrum: the screen-space ramp over the flat accent
     const border = new THREE.LineSegments(
       blockBorderGeometry(block, SHELL_RADIUS - BORDER_R_IN),
       material
@@ -828,7 +831,7 @@ export function buildDrumSlot(slot, w, ctx) {
       tabText =
         tile.title ||
         `${String(block.j1).padStart(3, '0')}·${String(block.i1).padStart(3, '0')}`;
-      const tex = makeTabTexture(tabText, accent);
+      const tex = makeTabTexture(tabText, accent, tabPairFor(scheme));
       plateCover(tex, tabCover, TAB_TEX_W / TAB_TEX_H);
       const tabMaterial = new THREE.MeshBasicMaterial({
         map: tex,
@@ -1059,7 +1062,8 @@ export function recolorDrumSlot(slot, preview) {
   const plan = schemePaintPlan(preview);
   for (const t of slot.tiles) {
     if (plan.colors) t.borderMaterial?.color.set(accent);
-    if (plan.tabs && t.tabMaterial?.map) repaintTab(t.tabMaterial.map, t.tabText, accent);
+    if (plan.tabs && t.tabMaterial?.map)
+      repaintTab(t.tabMaterial.map, t.tabText, accent, tabPairFor(scheme));
   }
   if (!plan.colors) return;
   for (const b of slot.bands) {
@@ -1068,9 +1072,18 @@ export function recolorDrumSlot(slot, preview) {
   }
 }
 
-/** What a built slot paints now, read back from its materials: { accent, glow } as '#rrggbb' (null when absent). */
+/**
+ * What a built slot paints now, read back from its materials: { accent, glow, tab }. accent and glow are the
+ * FLAT colours as '#rrggbb' (the ramp lies over them); tab is { fill, ink } as last painted on a spine tab.
+ * Each is null when absent.
+ */
 export function drumSlotColors(slot) {
   const border = slot.tiles.find((t) => t.borderMaterial)?.borderMaterial;
   const glow = slot.bands.find((b) => b.glowHex)?.glowHex();
-  return { accent: border ? `#${border.color.getHexString()}` : null, glow: glow ?? null };
+  const tab = slot.tiles.find((t) => t.tabMaterial?.map)?.tabMaterial.map.userData.tabPaint;
+  return {
+    accent: border ? `#${border.color.getHexString()}` : null,
+    glow: glow ?? null,
+    tab: tab ?? null,
+  };
 }

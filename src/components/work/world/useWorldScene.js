@@ -107,8 +107,11 @@ import {
   FIELD_SPREAD_Y,
   PREFERS_REDUCED_MOTION,
   shellLineFor,
+  rampMixFor,
+  GRID_TINT_DIM,
   hex6,
 } from './worldConfig.js';
+import { rampUniforms } from './worldRamp.js';
 import { getScheme, onScheme } from '../../../lib/colorScheme.js';
 import {
   FAN_X,
@@ -131,10 +134,6 @@ const BAND_TAN_V = Math.tan((CAMERA_FOV * Math.PI) / 360);
 // re-derived here (it isn't exported) to size the band keep-out footprints.
 const cumSpread = (step, r, n) =>
   n > 0 ? (step * (1 - Math.pow(r, n))) / (1 - r) : 0;
-
-// S2: how far to dim a project accent when it tints the background grid, so a
-// bright accent (e.g. lime) stays a faint field rather than a glaring wall.
-const GRID_TINT_DIM = 0.6;
 
 gsap.registerPlugin(CustomEase);
 
@@ -432,6 +431,8 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
       viewH = h;
       renderer.setSize(w, h, false);
       composer.setSize(w, h);
+      // The spectrum ramp runs across the scene target's width in device pixels (gl_FragCoord.x / this).
+      rampUniforms.uRampW.value = Math.max(1, Math.floor(w * renderer.getPixelRatio()));
       const targetAspect = w / h;
       if (!aspectSeeded) {
         aspectSeeded = true;
@@ -866,6 +867,20 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
       // FORME: the pane lattice ingests the same dimmed accent as the shell —
       // the whole page recolours as the re-deal plays.
       if (formeLatticeRef.current) to(formeLatticeRef.current.color);
+      // Spectrum: the ramp fades in over the flat colour on the same curve (one uniform every line
+      // material and the glow share). Reduced motion snaps it; the flat colour's own fade is untouched.
+      const mix = rampMixFor(getScheme());
+      if (duration > 0 && !PREFERS_REDUCED_MOTION)
+        gsap.to(rampUniforms.uRampMix, {
+          value: mix,
+          duration,
+          ease: turnRollEase,
+          overwrite: true,
+        });
+      else {
+        gsap.killTweensOf(rampUniforms.uRampMix);
+        rampUniforms.uRampMix.value = mix;
+      }
     };
     tintShell(null, 0); // the first frame already wears the scheme's grid (black must not flash deep blue)
     const offScheme = onScheme(({ preview }) => {
@@ -883,8 +898,17 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
     });
     const schemeDebug = (window.__swmSchemeDebug = window.__swmSchemeDebug || {});
     const worldsHook = () => {
-      const { accent, glow } = drumSlotColors(activeSlot);
-      return { accent, line: lineHex, glow, rebuilds: schemeRebuilds, repaints: schemeRepaints };
+      // accent / line / glow stay the FLAT colours (under the ramp); ramp and tab report the spectrum layer
+      const { accent, glow, tab } = drumSlotColors(activeSlot);
+      return {
+        accent,
+        line: lineHex,
+        glow,
+        ramp: { mix: rampUniforms.uRampMix.value },
+        tab,
+        rebuilds: schemeRebuilds,
+        repaints: schemeRepaints,
+      };
     };
     schemeDebug.worlds = worldsHook;
 
@@ -1251,6 +1275,7 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
       disposed = true;
       apiRef.current = null;
       offScheme();
+      gsap.killTweensOf(rampUniforms.uRampMix);
       if (schemeDebug.worlds === worldsHook) delete schemeDebug.worlds;
       resumeAfterResize.cancel();
       gsap.killTweensOf(aspectLag);

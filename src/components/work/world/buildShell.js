@@ -9,7 +9,9 @@ import {
   SHELL_PARALLELS,
   SHELL_LINE_COLOR,
   SHELL_OPACITY,
+  GRID_TINT_DIM,
 } from './worldConfig.js';
+import { applyRamp } from './worldRamp.js';
 
 const SEG = 64;
 
@@ -58,5 +60,6 @@ export function buildShell() {
     transparent: true,
     opacity: SHELL_OPACITY,
   });
+  applyRamp(material, GRID_TINT_DIM); // spectrum: the screen-space ramp, dimmed like the flat tint
   return new THREE.LineSegments(geometry, material);
 }

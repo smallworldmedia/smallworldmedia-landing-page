@@ -34,6 +34,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { hashSeed, mulberry32 } from './seededLayout.js';
 import { D_LAT } from './fpGridCells.js';
+import { applyRamp } from './worldRamp.js';
 import {
   CAMERA_FOV,
   FPGRID_WINDOW,
@@ -61,6 +62,7 @@ import {
   FIELD_SPREAD_X,
   FIELD_SPREAD_Y,
   PREFERS_REDUCED_MOTION,
+  GRID_TINT_DIM,
 } from './worldConfig.js';
 
 const DEG2RAD = Math.PI / 180;
@@ -163,6 +165,7 @@ export function createFormeLattice(scene, aspect) {
     transparent: true,
     opacity: 0.5,
   });
+  applyRamp(material, GRID_TINT_DIM); // spectrum: rides the shell's ramp and dim
   const lattice = new THREE.LineSegments(geometry, material);
   lattice.renderOrder = ORDER_LATTICE;
   scene.add(lattice);

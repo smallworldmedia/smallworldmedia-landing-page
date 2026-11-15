@@ -40,6 +40,7 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { plateCover, spawnQuaternion } from './fpAtlas.js';
+import { applyRamp } from './worldRamp.js';
 import {
   WALL_DRIFT,
   WALL_GEAR,
@@ -374,6 +375,7 @@ export function createWallPlate({
     transparent: true,
     opacity: 0,
   });
+  applyRamp(borderMaterial); // spectrum: the screen-space ramp over the flat accent
   const border = new THREE.LineSegments(borderGeometryFor(block), borderMaterial);
   border.renderOrder = orders.border;
 
