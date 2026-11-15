@@ -5,7 +5,10 @@
  */
 import { SCHEMES, DEFAULT_SCHEME } from '../lib/colorScheme.js';
 
-/** Station index of a scheme in the pager; an unknown name sits on the default's station. */
+/**
+ * Station index of a scheme in the pager (the ACTIVE schemes only); an unknown or parked
+ * name (a `?scheme=spectrum` preview) sits on the default's station.
+ */
 export const stationOf = (scheme) => {
   const i = SCHEMES.indexOf(scheme);
   return i < 0 ? SCHEMES.indexOf(DEFAULT_SCHEME) : i;
@@ -30,27 +33,22 @@ export const shouldPassWheel = (now, lastOutsideAt, guardMs) =>
   now - lastOutsideAt < guardMs;
 
 /**
- * Pie wedges for the spectrum swatch, in DEGREES clockwise from 12 o'clock, in
- * the order of `shares`' keys (blue, red, green, yellow, periwinkle for the
- * measured SPECTRUM_SHARES). Contiguous from 0; proportional to the shares; the
- * last wedge ends at exactly 360 so float drift never leaves a sliver.
+ * Vertical bars for the project iris: one per key of `shares`, left to right in the
+ * key order (blue, red, green, yellow, periwinkle for the measured SPECTRUM_SHARES),
+ * each `w` proportional to its share of `width`. Contiguous from `x0`; the last bar
+ * ends at exactly x0 + width so float drift never leaves a sliver. Returns
+ * [{ key, x, w }].
  */
-export function pieWedges(shares) {
+export function barSpans(shares, x0, width) {
   const keys = Object.keys(shares);
   const total = keys.reduce((a, k) => a + shares[k], 0);
-  let at = 0;
+  let at = x0;
   return keys.map((key, i) => {
-    const start = at;
-    at = i === keys.length - 1 ? 360 : at + (shares[key] / total) * 360;
-    return { key, start, end: at };
+    const x = at;
+    at = i === keys.length - 1 ? x0 + width : at + (shares[key] / total) * width;
+    return { key, x, w: at - x };
   });
 }
-
-/** A point on a circle, `deg` clockwise from 12 o'clock (SVG y runs down). */
-export const arcPoint = (cx, cy, r, deg) => {
-  const a = (deg * Math.PI) / 180;
-  return [cx + r * Math.sin(a), cy - r * Math.cos(a)];
-};
 
 const finiteNum = (raw) => {
   if (raw == null || raw === '') return NaN;

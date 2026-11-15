@@ -1,14 +1,16 @@
 /**
  * SiteScheme — the corner pager that switches the site's colour scheme (US-7,
- * SQ-92). The /work graticule pager (GraticulePager) mounted a second time in
- * the lower-right corner, its four stations drawn as circular swatches
- * (schemeSwatches.jsx): NO visible text. The scheme names exist for screen
- * readers only (the stations' aria-labels and the pager's sr-only live region).
+ * SQ-92, SQ-98). The /work graticule pager (GraticulePager) mounted a second time
+ * in the lower-right corner, its three stations (project, black, blue; `spectrum` is
+ * parked) drawn as globe-iris circles (schemeSwatches.jsx): NO visible text. The
+ * scheme names exist for screen readers only (the stations' aria-labels and the
+ * pager's sr-only live region).
  *
- * At rest: one swatch inside the lens ring. Engaged (hover, drag, wheel, touch,
- * keyboard focus): a column of three swatches (previous, current, next) deploys
- * on the lens axis, exactly the /work choreography (that engine is LOCKED; this
- * file and site-scheme.css are skin and wiring only). Each detent previews the
+ * At rest: an EYE, two lids round an iris that is the committed scheme. Engaged
+ * (hover, drag, wheel, touch, keyboard focus): a column of three circles (previous,
+ * current, next) deploys on the lens axis, exactly the /work choreography (that engine
+ * is LOCKED; this file and site-scheme.css are skin and wiring only); each circle
+ * slides into the eye and becomes its iris. Each detent previews the
  * scheme under the lens across the site; release commits it; Escape, or any
  * disengage that commits nothing, restores the committed one.
  *
@@ -31,7 +33,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import GraticulePager from './work/pager/GraticulePager.jsx';
-import { SchemeSwatch } from './schemeSwatches.jsx';
+import { SchemeSwatch, EyeArt, EyeDefs, EYE_LID_MASK } from './schemeSwatches.jsx';
 import {
   SCHEMES,
   getScheme,
@@ -48,7 +50,9 @@ const LABELS = {
   station: (i, n, name) => `Color scheme: ${name}`,
   live: (i, n, name) => `Color scheme ${i + 1} of ${n}: ${name}`,
 };
+// The column's circles are whole irises; the lens art is the eye (lids + the committed iris).
 const renderSwatch = (item) => <SchemeSwatch scheme={item.scheme} />;
+const renderEye = (item) => <EyeArt scheme={item.scheme} />;
 
 // Layout effect on the client (the dials must land before the pager's own passive
 // effects read --scale-rows), a plain effect where there is no layout.
@@ -71,6 +75,8 @@ export default function SiteScheme() {
     if (el) {
       // The engine reads --scale-rows as a bare number: rows SHOWN = 2 x pitches each side + centre.
       el.style.setProperty('--scale-rows', String(p.rows / 2));
+      // The lid opening, as the window's mask (the one source of the lid shape: schemeSwatches.jsx).
+      el.style.setProperty('--eye-lid-mask', EYE_LID_MASK);
       if (p.size != null) el.style.setProperty('--scheme-swatch', `${p.size}px`);
       if (p.pitch != null) el.style.setProperty('--scheme-pitch', `${p.pitch}px`);
     }
@@ -130,6 +136,7 @@ export default function SiteScheme() {
 
   return (
     <div className="swm-corner" ref={cornerRef}>
+      {ready && <EyeDefs />}
       {ready && (
         <GraticulePager
           worlds={WORLDS}
@@ -153,7 +160,7 @@ export default function SiteScheme() {
           className="swm-corner__pager"
           labels={LABELS}
           renderStation={renderSwatch}
-          renderLens={renderSwatch}
+          renderLens={renderEye}
         />
       )}
     </div>

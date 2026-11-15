@@ -13,8 +13,8 @@ import { renderToString } from 'react-dom/server'
 assert.equal(typeof globalThis.window, 'undefined')
 const cs = await import('../../src/lib/colorScheme.js')
 const {
-  SCHEMES, DEFAULT_SCHEME, SCHEME_STORAGE_KEY, SCHEME_EVENT, SPECTRUM, SPECTRUM_SHARES,
-  isScheme, getScheme, getCommittedScheme, setScheme, onScheme, useScheme,
+  SCHEMES, PARKED_SCHEMES, DEFAULT_SCHEME, SCHEME_STORAGE_KEY, SCHEME_EVENT, SPECTRUM, SPECTRUM_SHARES,
+  isScheme, isKnownScheme, getScheme, getCommittedScheme, setScheme, onScheme, useScheme,
   spectrumKeyAt, spectrumDeal, schemeAccent, schemeInk,
 } = cs
 
@@ -94,13 +94,42 @@ function runLatch({ storage = memStorage(), search = '' } = {}) {
 // --- the scheme list, state and event -------------------------------------------------
 
 test('the scheme list, default, storage key and event name are the contract', () => {
-  assert.deepEqual(SCHEMES, ['project', 'black', 'blue', 'spectrum'])
+  assert.deepEqual(SCHEMES, ['project', 'black', 'blue'])
+  assert.deepEqual(PARKED_SCHEMES, ['spectrum'])
   assert.equal(DEFAULT_SCHEME, 'project')
   assert.equal(SCHEME_STORAGE_KEY, 'swm:scheme')
   assert.equal(SCHEME_EVENT, 'swm:scheme')
   assert.ok(SCHEMES.every(isScheme))
   assert.equal(isScheme('purple'), false)
   assert.equal(isScheme(undefined), false)
+  assert.equal(isScheme('spectrum'), false, 'a parked scheme is not active')
+  assert.ok([...SCHEMES, ...PARKED_SCHEMES].every(isKnownScheme))
+  assert.equal(isKnownScheme('purple'), false)
+})
+
+test('a parked scheme: a commit is refused, a preview applies and is never stored', () => {
+  const { root, storage } = setup()
+  const seen = []
+  onScheme((d) => seen.push(d))
+  assert.equal(setScheme('spectrum'), 'project', 'commit of a parked scheme: nothing applied')
+  assert.equal(root.dataset.scheme, undefined)
+  assert.equal(seen.length, 0, 'nothing dispatched')
+  assert.equal(storage.map.has('swm:scheme'), false, 'nothing stored')
+  assert.equal(setScheme('spectrum', { preview: true }), 'spectrum')
+  assert.equal(root.dataset.scheme, 'spectrum')
+  assert.equal(getScheme(), 'spectrum')
+  assert.equal(getCommittedScheme(), 'project')
+  assert.deepEqual(seen, [{ scheme: 'spectrum', prev: 'project', preview: true }])
+  assert.equal(storage.map.has('swm:scheme'), false, 'a preview is never stored')
+  // Escape: restoring the committed scheme settles it and stores nothing.
+  assert.equal(setScheme(getCommittedScheme()), 'project')
+  assert.equal(root.dataset.scheme, 'project')
+  assert.equal(storage.map.has('swm:scheme'), false)
+  // A parked scheme cannot be committed while it is the applied preview either.
+  setScheme('spectrum', { preview: true })
+  assert.equal(setScheme('spectrum'), 'spectrum', 'the applied preview stays, committed unchanged')
+  assert.equal(getCommittedScheme(), 'project')
+  assert.equal(storage.map.has('swm:scheme'), false)
 })
 
 test('importing with no window is safe and the pure helpers work', () => {
@@ -183,9 +212,9 @@ test('storage is written only when the committed scheme changes', () => {
   win.__swmScheme = { applied: 'blue', committed: 'black' }
   assert.equal(setScheme('black'), 'black')
   assert.equal(writes, 0)
-  assert.equal(setScheme('spectrum'), 'spectrum')
+  assert.equal(setScheme('project'), 'project')
   assert.equal(writes, 1, 'a real pick is stored')
-  assert.equal(counted.map.get('swm:scheme'), 'spectrum')
+  assert.equal(counted.map.get('swm:scheme'), 'project')
 })
 
 test('onScheme unsubscribes', () => {
@@ -281,13 +310,16 @@ test('schemeInk: the pair fg under spectrum, projectInk of the accent elsewhere'
 
 // --- the latch ----------------------------------------------------------------------------
 
-test('latch parity: it names all four schemes and the storage key, in the module order', () => {
+test('latch parity: it names the active and the parked schemes and the storage key, in the module order', () => {
   assert.ok(latchSrc, 'BaseLayout.astro carries an is:inline latch')
-  for (const name of SCHEMES) assert.ok(latchSrc.includes(`'${name}'`), name)
+  for (const name of [...SCHEMES, ...PARKED_SCHEMES]) assert.ok(latchSrc.includes(`'${name}'`), name)
   assert.ok(latchSrc.includes(`'${SCHEME_STORAGE_KEY}'`))
   const list = latchSrc.match(/names = \[([^\]]*)\]/)
-  assert.ok(list, 'the latch holds its scheme list as `names`')
+  assert.ok(list, 'the latch holds its active scheme list as `names`')
   assert.deepEqual([...list[1].matchAll(/'([^']+)'/g)].map((m) => m[1]), SCHEMES)
+  const parked = latchSrc.match(/parked = \[([^\]]*)\]/)
+  assert.ok(parked, 'the latch holds its parked scheme list as `parked`')
+  assert.deepEqual([...parked[1].matchAll(/'([^']+)'/g)].map((m) => m[1]), PARKED_SCHEMES)
 })
 
 test('latch order: data-scheme is set before any after-swap wiring, after theme-color, before ClientRouter', () => {
@@ -314,9 +346,25 @@ test('latch: ?scheme= beats storage as a preview, is never stored, and survives 
 })
 
 test('latch: the stored scheme applies without a param; nothing stored and no param is project', () => {
-  assert.equal(runLatch({ storage: memStorage({ 'swm:scheme': 'spectrum' }) }).root.dataset.scheme, 'spectrum')
+  assert.equal(runLatch({ storage: memStorage({ 'swm:scheme': 'blue' }) }).root.dataset.scheme, 'blue')
   assert.equal(runLatch().root.dataset.scheme, 'project')
   assert.equal(runLatch({ storage: memStorage({ 'swm:scheme': 'purple' }), search: '?scheme=green' }).root.dataset.scheme, 'project')
+})
+
+test('latch: a stored parked scheme is ignored (and not rewritten); ?scheme=spectrum applies as a preview', () => {
+  const stored = runLatch({ storage: memStorage({ 'swm:scheme': 'spectrum' }) })
+  assert.equal(stored.root.dataset.scheme, 'project', 'a stored spectrum from before latches project')
+  assert.deepEqual({ ...stored.win.__swmScheme }, { applied: 'project', committed: 'project' })
+  assert.equal(stored.storage.map.get('swm:scheme'), 'spectrum', 'the old value is left alone')
+  const preview = runLatch({ storage: memStorage({ 'swm:scheme': 'black' }), search: '?scheme=spectrum' })
+  assert.equal(preview.root.dataset.scheme, 'spectrum')
+  assert.deepEqual({ ...preview.win.__swmScheme }, { applied: 'spectrum', committed: 'black' })
+  assert.equal(getScheme(), 'spectrum')
+  assert.equal(getCommittedScheme(), 'black')
+  assert.equal(preview.storage.map.get('swm:scheme'), 'black', 'a preview is never stored')
+  const bare = runLatch({ search: '?scheme=spectrum' })
+  assert.deepEqual({ ...bare.win.__swmScheme }, { applied: 'spectrum', committed: 'project' })
+  assert.equal(bare.storage.map.has('swm:scheme'), false)
 })
 
 test('latch: a throwing localStorage does not throw and falls back to project on the next load', () => {
@@ -344,8 +392,8 @@ test('latch: ?schemefade sets --scheme-fade (finite, >= 0) and re-sets it after 
 test('latch: setScheme after the latch keeps the shared state in one place', () => {
   const { win, root } = runLatch({ storage: memStorage({ 'swm:scheme': 'blue' }) })
   const state = win.__swmScheme
-  setScheme('spectrum')
+  setScheme('black')
   assert.equal(win.__swmScheme, state, 'the module writes the latch\'s own object')
-  assert.deepEqual({ ...state }, { applied: 'spectrum', committed: 'spectrum' })
-  assert.equal(root.dataset.scheme, 'spectrum')
+  assert.deepEqual({ ...state }, { applied: 'black', committed: 'black' })
+  assert.equal(root.dataset.scheme, 'black')
 })
