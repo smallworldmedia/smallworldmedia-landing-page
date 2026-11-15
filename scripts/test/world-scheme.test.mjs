@@ -18,7 +18,7 @@ const red = { slug: 'a', projectColor: '#ff3300', spectrum: 'green' }
 const lime = { slug: 'b', projectColor: '#a3e635', spectrum: 'red' }
 const plain = { slug: 'c' } // a colourless World, no spectrum key
 
-test('the default grid level is the proposed 0.12', () => {
+test('the default grid level is the 0.12 starting value', () => {
   assert.equal(SCHEME_GRID_LEVEL, 0.12)
 })
 

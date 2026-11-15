@@ -464,7 +464,7 @@ Under DRUM only `?bandx` / `?bandy` are live-effective (build-time anchors, appl
 | `?spin` | shell Y-spin rad/s; grid modes default it to 0, an explicit value still applies; off under RM [all] | legacy `0.012`, grid `0` | any finite | `:271` |
 | `?fpfade` | bottom fade: % of the accent mixed over black → `--fp-fade` on `.fp-canvas` [all] | `0` | any finite | `:280` (the CSS fallback at `featured-projects.css:56` still says 65, never reached) |
 | `?fpfadeh` | gradient height, % viewport → `--fp-fade-h` [all] | `40` | any finite | `:281` |
-| `?schemegrid` | **PROPOSED, not baked.** Grey level of the shell grid line (and the grid glow, when on) under the `black` colour scheme: each channel = round(255 × level). The same grey for every World; plate borders, wall borders and tab fills stay `#000000`. Read once at load; no effect under the other schemes [all] | `0.12` (`#1f1f1f`) | 0..1, clamped; anything else is ignored | `worldConfig.js SCHEME_GRID_LEVEL` |
+| `?schemegrid` | **Default is Nathan's starting value of 11-14 ("that works to start"); still a live dial, not baked.** Grey level of the shell grid line (and the grid glow, when on) under the `black` colour scheme: each channel = round(255 × level). The same grey for every World; plate borders, wall borders and tab fills stay `#000000`. Read once at load; no effect under the other schemes [all] | `0.12` (`#1f1f1f`) | 0..1, clamped; anything else is ignored | `worldConfig.js SCHEME_GRID_LEVEL` |
 
 ## `/work` — enter-world passage (`?entertune`)
 

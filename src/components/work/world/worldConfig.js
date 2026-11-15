@@ -285,7 +285,7 @@ export const SHELL_PARALLELS = 230; // latitude lines
 export const SHELL_LINE_COLOR = 0x020098;
 /* — Colour scheme (US-7): what the scene paints under each scheme. Pure, so the
    test covers it; `project` resolves to exactly today's value in every case. — */
-// ?schemegrid — grey level (0..1) of the shell grid line under the `black` scheme (Nathan 11-14: very faint, not gone). PROPOSED 0.12 (#1f1f1f): only Nathan bakes
+// ?schemegrid — grey level (0..1) of the shell grid line under the `black` scheme (Nathan 11-14: very faint, not gone). Default 0.12 (#1f1f1f) is Nathan's starting value of 11-14 ("that works to start"), still a live dial: read here, not baked
 export const SCHEME_GRID_LEVEL = Math.min(1, Math.max(0, num('schemegrid', 0.12)));
 const toHex6 = (c) =>
   typeof c === 'number'
