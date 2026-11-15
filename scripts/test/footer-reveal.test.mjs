@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url'
 import {
   footerRise,
   footerSpan,
+  navSlide,
   footerDamp,
   footerBrakeStep,
   FOOTER_BRAKE_TAIL,
@@ -56,6 +57,31 @@ test('footerRise survives rest = 1 instead of dividing by zero', () => {
   assert.equal(footerRise(0.5, 1), 1)
   assert.ok(Number.isFinite(footerRise(0.5, 1)))
   assert.equal(footerSpan(1), 0)
+})
+
+test('navSlide keeps the nav bar at the top of a page shorter than the fold', () => {
+  // 11-14: a directory client with one tile. The page fits the viewport, the
+  // footer is fully in view before any scroll (floor 1), and the bar had slid
+  // a whole nav height off the top.
+  assert.equal(navSlide(1, 1), 0)
+  // Two tiles: the page scrolls a little, the reveal starts at 0.2963. The bar
+  // starts in place and is gone by the page's end.
+  assert.equal(navSlide(0.2963, 0.2963), 0)
+  assert.equal(navSlide(1, 0.2963), 1)
+  assert.ok(navSlide(0.6, 0.2963) > 0 && navSlide(0.6, 0.2963) < 0.6)
+  // Any page taller than the fold: the reveal itself, as before.
+  for (const p of [0, 0.37, 1]) assert.equal(navSlide(p, 0), footerRise(p, 0))
+})
+
+test('the nav slide and the directory filter read the nav progress, falling back to the reveal', () => {
+  // Negative control: on the raw reveal, a one-tile page loses its bar.
+  const shell = css.match(/html\[data-footer-revealed\]:not\(\[data-chrome-open\]\) \.site-shell \{[^}]*\}/)
+  assert.ok(shell, 'the nav slide rule exists')
+  assert.match(shell[0], /var\(--footer-nav-p, var\(--footer-reveal, 1\)\)/)
+  const dir = fs.readFileSync(`${root}src/styles/directory.css`, 'utf8')
+  const filter = dir.match(/html\[data-footer-revealed\][^{]*\.dir-filter \{[^}]*\}/)
+  assert.ok(filter, 'the filter follow rule exists')
+  assert.match(filter[0], /var\(--footer-nav-p, var\(--footer-reveal, 1\)\)/)
 })
 
 test('footerSpan is the travel the rise is normalized over', () => {

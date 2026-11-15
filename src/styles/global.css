@@ -2872,9 +2872,16 @@ html[data-footer-settling] .logo-ticker__odo-col {
    drawer or inquiry overlay is open; a transformed .site-shell becomes the
    containing block for the fixed overlay, so the slide backs off whenever
    either is open (dropping to this rule's absence re-enters the base
-   transition, so that back-off still animates). */
+   transition, so that back-off still animates).
+   11-14 (Nathan: the bar disappeared on a directory client with a tile or
+   two): the slide reads `--footer-nav-p`, the reveal measured from the
+   progress the page shows at the top of its scroll (footerTune.js navSlide).
+   On a page taller than the fold that is the reveal itself; on one whose
+   footer is in view before any scroll the bar stays until the page scrolls,
+   and stays for good where it cannot. The directory's filter follows on the
+   same var (directory.css). */
 html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
-  transform: translateY(calc(var(--footer-reveal, 1) * -1 * var(--nav-height)));
+  transform: translateY(calc(var(--footer-nav-p, var(--footer-reveal, 1)) * -1 * var(--nav-height)));
   transition: none;
 }
 

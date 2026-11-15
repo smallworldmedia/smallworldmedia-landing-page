@@ -76,9 +76,10 @@ html:has(.dir-page) body {
 /* The desktop footer reveal slides the nav up by one nav height (global.css,
    F1, same gates); the filter follows it on `top`, since a transform would
    drag an unstuck filter off the grid. ≤768px the nav stays, so the filter
-   does too. */
+   does too. It reads the nav's own progress (--footer-nav-p, 11-14), so on a
+   result too short to scroll both stay where they are. */
 html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-filter {
-  top: calc((1 - var(--footer-reveal, 1)) * var(--nav-height) - var(--dir-tuck));
+  top: calc((1 - var(--footer-nav-p, var(--footer-reveal, 1))) * var(--nav-height) - var(--dir-tuck));
   transition: none;
 }
 

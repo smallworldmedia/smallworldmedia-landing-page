@@ -26,7 +26,9 @@
  * `data-footer-revealed` (any progress > 0) on <html>. The consuming rule in
  * global.css translates the shell PROPORTIONALLY from the var, so nav slide
  * and footer rise are one scroll-linked motion (the old halfway attribute
- * flip + discrete 600ms transition was the mid-reveal "scoot").
+ * flip + discrete 600ms transition was the mid-reveal "scoot"). Since 11-14
+ * the shell reads `--footer-nav-p`, the same reveal measured from where the
+ * page's scroll starts, so a page shorter than the fold keeps its bar.
  *
  *  • DRIVEN (`driven` + `progress`, /work) — a third mode for routes with NO
  *    document scroll: the links panel with the reveal transform fed an
@@ -51,6 +53,7 @@ import {
   subscribeFooterTune,
   footerRise,
   footerSpan,
+  navSlide,
   footerDamp,
   footerBrakeStep,
   getFooterLerp,
@@ -301,10 +304,13 @@ const paintBand = () => {
   if (gate < 1 && bandRise > 0) bandRaf = requestAnimationFrame(paintBand);
 };
 
-const broadcastReveal = (progress, rest = 0) => {
+const broadcastReveal = (progress, rest = 0, floor = 0) => {
   const root = document.documentElement;
   revealPeak = progress <= rest + 0.001 ? rest : Math.max(revealPeak, progress);
   root.style.setProperty('--footer-reveal', progress.toFixed(4));
+  // The nav slide's own progress: the reveal from the page's scroll floor, so a
+  // page shorter than the fold keeps its bar at the top (footerTune.js navSlide).
+  root.style.setProperty('--footer-nav-p', navSlide(progress, floor).toFixed(4));
   root.style.setProperty('--footer-peak', revealPeak.toFixed(4));
   root.style.setProperty('--footer-rise', footerRise(progress, rest).toFixed(4));
   const risePeak = footerRise(revealPeak, rest);
@@ -325,6 +331,7 @@ const clearReveal = () => {
   bandRise = 0;
   bandRiseStart = 0;
   root.style.removeProperty('--footer-reveal');
+  root.style.removeProperty('--footer-nav-p');
   root.style.removeProperty('--footer-peak');
   root.style.removeProperty('--footer-rise');
   root.style.removeProperty('--footer-rise-peak');
@@ -705,12 +712,19 @@ export default function SiteFooter({
         inertFlag = wantInert;
         panel.inert = wantInert;
       }
-      broadcastReveal(p);
+      broadcastReveal(p, 0, floor);
     };
+    // `floor`: the progress this page shows at the top of its scroll. 0 on a
+    // page taller than the fold; above 0 on a short one (a directory filter
+    // that leaves a tile or two), whose footer is in view before any scroll.
+    // The nav slide is measured from it (broadcastReveal).
+    let floor = 0;
     const scrollProgress = () => {
       if (!travel) return 0;
       const top = spacer.getBoundingClientRect().top;
-      return Math.min(Math.max((window.innerHeight - top) / travel, 0), 1);
+      const at = (y) => Math.min(Math.max((window.innerHeight - y) / travel, 0), 1);
+      floor = at(top + window.scrollY);
+      return at(top);
     };
     const onRevealRequest = () => {
       if (invoked) return;

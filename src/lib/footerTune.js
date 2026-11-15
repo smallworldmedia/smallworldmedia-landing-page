@@ -75,6 +75,21 @@ export const footerRise = (progress, rest = 0) =>
     panel's own climb in px, so a consumer can convert the rise back to px. */
 export const footerSpan = (rest = 0) => Math.min(1, Math.max(0, 1 - rest));
 
+/* ── The nav slide's progress on a short page (11-14, Nathan: "when i select a
+   client from the filter area on the project directory, the nav bar
+   disappears") ─────────────────────────────────────────────────────────────
+   The nav bar leaves as the footer arrives (global.css, F1), on the raw
+   reveal. A page shorter than the fold has its footer in view before any
+   scroll, so its reveal starts above 0 (`floor`: the progress at the top of
+   the scroll) and the bar was gone on arrival: all of it on a page that fits
+   the viewport (a client with one tile), part of it on one that nearly does.
+   Measured from that floor the slide is 0 at the top of every page and 1 at
+   its end. floor = 0 (any page taller than the fold plus the footer's travel)
+   gives the reveal itself. floor = 1 is a page that cannot scroll: the bar
+   stays, where footerRise would call the reveal complete. */
+/** 0 at the top of the page's scroll, 1 at a full reveal. */
+export const navSlide = (progress, floor = 0) => (floor >= 1 ? 0 : footerRise(progress, floor));
+
 /* ── The driven reveal's weight (10-31, Nathan: "we need to implement some
    sort of weight to the scrolling when you reveal the full footer with the
    client logos. Right now, it's very sudden and slightly jarring. if there is
