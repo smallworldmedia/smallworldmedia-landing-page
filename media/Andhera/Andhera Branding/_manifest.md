@@ -14,18 +14,18 @@ project: andhera-records-andhera-branding
 | andhera_pattern.jpg | static_1x1 | Andhera Pattern | false | 1:1 | 4 |  |  | mediaAsset-andhera-records-andhera-pattern |
 | andhera_yellow-logo_sticker_2-75x2-75_trimmed.jpg | logo | Andhera Logo Sticker | false | 1:1 | 5 |  |  | mediaAsset-andhera-records-andhera-logo-sticker |
 | MMW 2025 4x5.mp4 | motion_4x5 | MMW 2025 Promo | false | 4:5 | 6 |  |  | mediaAsset-andhera-records-mmw-2025-promo |
-| Chase the Ace Loop with Audio.mov | motion_9x16 | Chase the Ace Loop | false | 9:16 | 7 |  |  | mediaAsset-andhera-records-chase-the-ace-loop |
+| Chase the Ace Loop with Audio.mov | motion_9x16 | Chase the Ace Loop | false | 9:16 | 7 | andhera-track-previews |  | mediaAsset-andhera-records-chase-the-ace-loop |
 | afterrr-tracklisting_square.png | static_1x1 | Afterrr Tracklisting | false | 1:1 | 9 |  |  | mediaAsset-andhera-records-afterrr-tracklisting |
 | black-friday_hero.png | static_1x1 | Black Friday Hero | false | 1:1 | 10 | andhera-records-mockups |  | mediaAsset-andhera-records-black-friday-hero |
 | elsewhere-promo_v2.mp4 | motion_9x16 | Elsewhere Promo | false | 9:16 | 13 |  |  | mediaAsset-andhera-records-elsewhere-promo |
 | makers-market.jpg | static_9x16 | Makers Market | false | 9:16 | 14 | andhera-records-mockups |  | mediaAsset-andhera-records-makers-market |
 | alves kool aid promo.mp4 | motion_9x16 | Alves Kool Aid Promo | false | 9:16 | 15 |  |  | mediaAsset-andhera-records-alves-kool-aid-promo |
-| amnesia_preview_story.mp4 | motion_9x16 | Amnesia Preview | false | 9:16 | 16 |  |  | mediaAsset-andhera-records-amnesia-preview |
-| baila-le-digo_montage-story.mp4 | motion_9x16 | Baila Le Digo Montage | false | 9:16 | 17 |  |  | mediaAsset-andhera-records-baila-le-digo-montage |
-| freak_reel.mp4 | motion_9x16 | Freak Reel | false | 9:16 | 18 |  |  | mediaAsset-andhera-records-freak-reel |
-| in-the-dark-preview_4x5.mp4 | motion_4x5 | In the Dark Preview | false | 4:5 | 19 |  |  | mediaAsset-andhera-records-in-the-dark-preview |
-| maestro-preview.mp4 | motion_9x16 | Maestro Preview | false | 9:16 | 20 |  |  | mediaAsset-andhera-records-maestro-preview |
-| mailer-bag-rising-ocean-1.mp4 | motion_9x16 | Mailer Bag Rising Ocean | false | 9:16 | 21 | andhera-records-mockups |  | mediaAsset-andhera-records-mailer-bag-rising-ocean |
+| amnesia_preview_story.mp4 | motion_9x16 | Amnesia Preview | false | 9:16 | 16 | andhera-track-previews |  | mediaAsset-andhera-records-amnesia-preview |
+| baila-le-digo_montage-story.mp4 | motion_9x16 | Baila Le Digo Montage | false | 9:16 | 17 | andhera-track-previews |  | mediaAsset-andhera-records-baila-le-digo-montage |
+| freak_reel.mp4 | motion_9x16 | Freak Reel | false | 9:16 | 18 | andhera-track-previews |  | mediaAsset-andhera-records-freak-reel |
+| in-the-dark-preview_4x5.mp4 | motion_4x5 | In the Dark Preview | false | 4:5 | 19 | andhera-track-previews |  | mediaAsset-andhera-records-in-the-dark-preview |
+| maestro-preview.mp4 | motion_9x16 | Maestro Preview | false | 9:16 | 20 | andhera-track-previews |  | mediaAsset-andhera-records-maestro-preview |
+| mailer-bag-rising-ocean-1.mp4 | motion_9x16 | Mailer Bag Rising Ocean | false | 9:16 | 21 |  |  | mediaAsset-andhera-records-mailer-bag-rising-ocean |
 | teka-teka_preview_4x5.mp4 | motion_4x5 | Teka Teka Preview | false | 4:5 | 22 |  |  | mediaAsset-andhera-records-teka-teka-preview |
 | Apparel/Andhera Website - Homepage, Shop.mp4 | motion_1x1 | Andhera Website — Homepage & Shop | false | 1:1 | 23 |  |  | mediaAsset-andhera-records-andhera-website-homepage-shop |
 | Apparel/andhera shop item pages.mp4 | motion_4x3 | Andhera Shop Item Pages | false | 4:3 | 24 |  |  | mediaAsset-andhera-records-andhera-shop-item-pages |
