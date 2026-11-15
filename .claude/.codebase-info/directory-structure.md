@@ -59,7 +59,8 @@
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
 │   │                         #   globe-worlds, footer-reveal, build-memo, flush-grid, directory, large-grid, scroll-kick, color-scheme, scheme-gate,
-│   │                         #   scheme-css, spectrum-deal, nav-accent, globe-scheme, world-scheme, site-scheme)
+│   │                         #   scheme-css, spectrum-deal, nav-accent, globe-scheme, world-scheme, site-scheme,
+│   │                         #   set-order: a detail page's sets in Studio order)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs, scheme-probe.mjs   # docs + probe tooling
 │   ├── palette-measure.mjs   # colour-family shares of an image (OKLCH classifier; the scheme probe's shares gate imports it)
