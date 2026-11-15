@@ -5637,7 +5637,7 @@ test('pool: the first-frame gate opens only on the src its assign() asked for �
   assert.ok(at[0] < at[1], JSON.stringify(at))
 })
 
-test('spans: phonehd — a phone rendering at 2.25 or more plans every unit at 720 and singles at 480 (Nathan 10-31) in the phone’s budget; ?globeres=720p moves the pin, and under 270p the tiers stand down (T34)', async () => {
+test('spans - phonehd — a phone rendering at 2.25 or more plans every unit at 720 and singles at 480 (Nathan 10-31) in the phone’s budget, ?globeres=720p moves the pin, and under 270p the tiers stand down (T34)', async () => {
   gsap.globalTimeline.pause()
   const boards = []
   try {
@@ -6062,7 +6062,7 @@ test('spans: ?popshapes=wide (Nathan 10-24, the default) — decorate classes ea
   assert.match(guide, /^\| `\?popshapes` \|.*\| `wide` \(Nathan 10-24\) \| `wide` \\\| `classic` \| `POP_DEFAULTS\.shapes` \|$/m)
 })
 
-test('spans: ?popshapes=wide plans whole 3×2 units where one fits, else its 2×1; a soft 3×2 only ever pairs; a 3×2 has two column seams a row (T37)', () => {
+test('spans - ?popshapes=wide plans whole 3×2 units where one fits, else its 2×1, a soft 3×2 only ever pairs, a 3×2 has two column seams a row (T37)', () => {
   // two worlds (two owner regions), posed (θh π), still rows: T13's V/Q board, at the shipped ?popunitmax
   const { director, panels } = unitDirector({ shapes: 'wide', unitMax: POP_DEFAULTS.unitMax, group: 2 }, { worlds: wideWorlds(), getHorizon: () => Math.PI })
   try {
@@ -6202,7 +6202,7 @@ test('spans: ?popportrait=fill (Nathan 10-31, item 8, the default) — a world g
   assert.match(guide, /^\| `\?popportrait` \|.*\| `fill` \(Nathan 10-31\) \| `fill` \\\| `pair` \| `POP_DEFAULTS\.portrait` \|$/m)
 })
 
-test('spans: ?popportrait=fill plans whole 2×3 units inside their band — from a lead no 1×2 may take, the tallest first — always on the flat crop, two row seams a column, every measure exact; pair plans none (T38)', () => {
+test('spans - ?popportrait=fill plans whole 2×3 units inside their band — from a lead no 1×2 may take, the tallest first — always on the flat crop, two row seams a column, every measure exact, pair plans none (T38)', () => {
   // The band: a 2×3's three rows inside [θT, π − θT] over its planned life (D), its bottom row above the horizon.
   const { Pth } = SPAN_L
   const W = (thetaH) => ({ thetaN: thetaBound((1 + UNIT_EPS) ** -2, Pth), thetaS: thetaBound((1 + UNIT_EPS) ** 2, Pth), Pth, thetaH: rad(thetaH) })
@@ -6876,7 +6876,7 @@ const aheadWorlds = () => {
   return ws.map((w) => ({ ...w, services: [w.clientName] }))
 }
 
-test('plan ahead: a what-if — planAhead puts back every pose, birth, tile, cursor and counter it borrows, its kept units still on their old world; the change adopts it only on the dials, step, pose, births, tiles and horizon it was planned on', async () => {
+test('plan ahead - a what-if — planAhead puts back every pose, birth, tile, cursor and counter it borrows, its kept units still on their old world, the change adopts it only on the dials, step, pose, births, tiles and horizon it was planned on', async () => {
   try {
     const { director: d, panels } = unitDirector(
       { shapes: 'wide', unitMax: POP_DEFAULTS.unitMax, equiv: POP_DEFAULTS.equiv, handoff: 'fast' },
@@ -7075,7 +7075,7 @@ async function aheadRun(handoff, { nudge = null, leak = false } = {}) {
   return out
 }
 
-test('plan ahead: fast — the board planned during the hold is the board the change would plan late, tile for tile, and the clips fetched ahead are the ones it starts; a pose off the prediction plans late, the what-if leaving no trace', async () => {
+test('plan ahead - fast — the board planned during the hold is the board the change would plan late, tile for tile, and the clips fetched ahead are the ones it starts, a pose off the prediction plans late, the what-if leaving no trace', async () => {
   const paused = gsap.globalTimeline.paused()
   gsap.globalTimeline.pause() // no swap lands on the wall clock
   try {
@@ -7403,7 +7403,7 @@ const seqQuadWorlds = () =>
   }))
 
 // SQ-104 (Nathan 11-15): a sequence takes its seat at its own rank; ?popseqquad (11-05) no longer seats it out of turn.
-test('sequences: a world’s cover sequence is seated at its own rank (rank 1: the front-most unit, its 2×2), ?popseqquad leaving the board as it is; every member cuts on the same beat, the picture whole, the ledger even (11-05, SQ-104)', () => {
+test('sequences - a world’s cover sequence is seated at its own rank (rank 1 - the front-most unit, its 2×2), ?popseqquad leaving the board as it is, every member cuts on the same beat, the picture whole, the ledger even (11-05, SQ-104)', () => {
   const quadsOf = (panels) => [...placesOf(panels).keys()].filter((P) => P.cls === 'q')
   const firstQuadIsSeq = (panels) => {
     const byWorld = new Map()
