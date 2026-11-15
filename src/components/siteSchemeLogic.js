@@ -82,6 +82,12 @@ const finiteNum = (raw) => {
   return Number.isFinite(n) ? n : NaN;
 };
 
+/** A dial that is null (the CSS default) when absent or unparseable, else clamped to [lo, hi]. */
+const dial = (raw, lo, hi) => {
+  const n = finiteNum(raw);
+  return Number.isNaN(n) ? null : Math.min(hi, Math.max(lo, n));
+};
+
 /**
  * The widget's ?params from a URLSearchParams (anything with .get):
  *   ?schemeui=0       hides the widget
@@ -89,7 +95,13 @@ const finiteNum = (raw) => {
  *   ?schemerows=<n>   deployed window rows (the rows SHOWN, centre included), default 3
  *   ?schemesize=<px>  swatch diameter; null = the CSS default
  *   ?schemepitch=<px> row pitch; null = the CSS default
- * Out-of-range values clamp; unparseable ones fall back to the default.
+ *   ?schemelift=<n>   the engaged eye's scale, 1 to 3; null = the CSS default (--eye-engaged)
+ *   ?schemenear=<n>   the medium circle (one station from the lens) as a fraction of the large
+ *                     one, 0.2 to 1; the CSS never lets it fall under the small one
+ *   ?schemefar=<n>    the small circle (two stations out), the same fraction
+ *   ?schemein=<ms>    the column's entrance, 0 = instant; null = the CSS default
+ *   ?schemeout=<ms>   the column's exit, 0 = instant; null = the CSS default
+ * Out-of-range values clamp; unparseable ones fall back to the default (null: the CSS owns it).
  */
 export function schemeParams(params) {
   const guard = finiteNum(params.get('schemeguard'));
@@ -102,5 +114,10 @@ export function schemeParams(params) {
     rows: Number.isNaN(rows) ? 3 : Math.min(9, Math.max(1, rows)),
     size: Number.isNaN(size) || size <= 0 ? null : Math.max(8, size),
     pitch: Number.isNaN(pitch) || pitch <= 0 ? null : Math.max(8, pitch),
+    lift: dial(params.get('schemelift'), 1, 3),
+    near: dial(params.get('schemenear'), 0.2, 1),
+    far: dial(params.get('schemefar'), 0.2, 1),
+    inMs: dial(params.get('schemein'), 0, 5000),
+    outMs: dial(params.get('schemeout'), 0, 5000),
   };
 }
