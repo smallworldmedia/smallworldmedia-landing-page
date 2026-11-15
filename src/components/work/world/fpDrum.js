@@ -43,6 +43,7 @@ import { createWallPlate } from './fpDrumWall.js';
 import { SEQUENCE_PAD_BG } from '../../../lib/mediaSequence.js';
 import {
   makeTabTexture,
+  repaintTab,
   TAB_TEX_W,
   TAB_TEX_H,
   createDrumGlow,
@@ -86,7 +87,11 @@ import {
   WALL_ALBUM_DOWN,
   WALL_CAROUSEL_VIS,
   PREFERS_REDUCED_MOTION,
+  drumAccentFor,
+  glowColorFor,
+  schemePaintPlan,
 } from './worldConfig.js';
+import { getScheme } from '../../../lib/colorScheme.js';
 
 const DEG2RAD = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -661,7 +666,11 @@ export function buildDrumSlot(slot, w, ctx) {
         : i % DEPTH_TIERS.length;
   const thumb = thumbForCount(chosen.length);
   const radius = SHELL_RADIUS - PLATE_R_IN - (slot.atlasBias || 0);
-  const accent = w?.projectColor || 0x020098;
+  // US-7: the scheme decides the accent (project = the World's own colour, else the deep-blue fallback)
+  const scheme = getScheme();
+  const accent = drumAccentFor(w, scheme);
+  const glowColor = glowColorFor(w, scheme);
+  slot.world = w; // recolorDrumSlot re-resolves from it on a scheme event
 
   const reserved = stripDefs.map((def, j) => {
     const ny = preset ? seatT1[j].ny : j === 0 ? anchorNy : -anchorNy;
@@ -800,6 +809,7 @@ export function buildDrumSlot(slot, w, ctx) {
     // nav rule (light accent → near-black ink, dark → white; inkForAccent =
     // projectInk's twin). Coordinates only as the no-title fallback.
     let tab = null;
+    let tabText = null;
     if (FPTAB) {
       const tabBlock = {
         i1: block.i1, // bottom-aligned with the plate's bottom edge
@@ -815,11 +825,10 @@ export function buildDrumSlot(slot, w, ctx) {
       const tabCover =
         (tabBlock.lat2 - tabBlock.lat1) /
         Math.max(1e-6, (tabBlock.lon2 - tabBlock.lon1) * Math.sin(latC));
-      const tex = makeTabTexture(
+      tabText =
         tile.title ||
-          `${String(block.j1).padStart(3, '0')}·${String(block.i1).padStart(3, '0')}`,
-        accent
-      );
+        `${String(block.j1).padStart(3, '0')}·${String(block.i1).padStart(3, '0')}`;
+      const tex = makeTabTexture(tabText, accent);
       plateCover(tex, tabCover, TAB_TEX_W / TAB_TEX_H);
       const tabMaterial = new THREE.MeshBasicMaterial({
         map: tex,
@@ -845,6 +854,7 @@ export function buildDrumSlot(slot, w, ctx) {
       borderMaterial: border.material,
       playbackId: tile.playbackId || null,
       tabMaterial: tab ? tab.material : null,
+      tabText,
       liveState: null,
       liveMix: 0,
       liveSlot: null,
@@ -986,7 +996,7 @@ export function buildDrumSlot(slot, w, ctx) {
         createDrumGlow(FPGLOW, {
           arcLon,
           aspect,
-          accent,
+          accent: glowColor,
           drum,
           lensPass: ctx.lensPass,
           pointer: ctx.pointer,
@@ -1034,4 +1044,33 @@ export function buildDrumSlot(slot, w, ctx) {
     else scheduleStrip(0);
   };
   runBatch(0);
+}
+
+/**
+ * A scheme event on a built slot (US-7): re-resolve the accent from the slot's World and write it into the
+ * live materials: plate borders, wall borders, the glow uniform. Settled events also redraw the spine-tab
+ * canvases in place (same size, so the texture storage stays valid). Never a slot rebuild: no media reload.
+ */
+export function recolorDrumSlot(slot, preview) {
+  if (!slot.world) return;
+  const scheme = getScheme();
+  const accent = drumAccentFor(slot.world, scheme);
+  const glow = glowColorFor(slot.world, scheme);
+  const plan = schemePaintPlan(preview);
+  for (const t of slot.tiles) {
+    if (plan.colors) t.borderMaterial?.color.set(accent);
+    if (plan.tabs && t.tabMaterial?.map) repaintTab(t.tabMaterial.map, t.tabText, accent);
+  }
+  if (!plan.colors) return;
+  for (const b of slot.bands) {
+    b.setAccent?.(accent);
+    b.setGlowColor?.(glow);
+  }
+}
+
+/** What a built slot paints now, read back from its materials: { accent, glow } as '#rrggbb' (null when absent). */
+export function drumSlotColors(slot) {
+  const border = slot.tiles.find((t) => t.borderMaterial)?.borderMaterial;
+  const glow = slot.bands.find((b) => b.glowHex)?.glowHex();
+  return { accent: border ? `#${border.color.getHexString()}` : null, glow: glow ?? null };
 }

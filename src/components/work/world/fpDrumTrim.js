@@ -84,10 +84,7 @@ export function inkForAccent(accent) {
  */
 export const TAB_TEX_W = 64;
 export const TAB_TEX_H = 320;
-export function makeTabTexture(text, accent) {
-  const canvas = document.createElement('canvas');
-  canvas.width = TAB_TEX_W;
-  canvas.height = TAB_TEX_H;
+function paintTab(canvas, text, accent) {
   const c = canvas.getContext('2d');
   c.fillStyle = num2hex(accent);
   c.fillRect(0, 0, TAB_TEX_W, TAB_TEX_H);
@@ -102,9 +99,22 @@ export function makeTabTexture(text, accent) {
   c.fillStyle = inkForAccent(accent);
   c.fillText(shown, 0, 0);
   c.restore();
+}
+
+export function makeTabTexture(text, accent) {
+  const canvas = document.createElement('canvas');
+  canvas.width = TAB_TEX_W;
+  canvas.height = TAB_TEX_H;
+  paintTab(canvas, text, accent);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+/** Redraw a tab's canvas in place (a scheme change): same size, so the CanvasTexture storage stays valid. */
+export function repaintTab(tex, text, accent) {
+  paintTab(tex.image, text, accent);
+  tex.needsUpdate = true;
 }
 
 /* ──────────────────────────── GRID GLOW ──────────────────────────── */
@@ -356,6 +366,11 @@ export function createDrumGlow(mode, { arcLon, aspect, accent, drum, lensPass, p
         uniforms.uTrailN.value = n;
       }
     },
+    // A scheme change: the shader's colour uniform, no rebuild.
+    setGlowColor(color) {
+      uniforms.uColor.value.set(color);
+    },
+    glowHex: () => `#${uniforms.uColor.value.getHexString()}`,
     dispose() {
       gsap.killTweensOf(record);
       parent.remove(group);
