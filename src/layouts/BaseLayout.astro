@@ -11,6 +11,10 @@
  */
 import { ClientRouter } from 'astro:transitions';
 import '../styles/global.css';
+// The graticule pager's skin (SQ-87): scoped to :is(.fp, .swm-corner) so
+// GraticulePager can mount outside /work. Directly after global.css, which
+// owns its --scale-* tokens.
+import '../styles/pager-scale.css';
 // A2b Lenis scroll-tuning bench styles — only the .lenis-tune tree, which
 // renders solely under ?lenistune=1 (LenisTunePanel), is styled; inert otherwise.
 import '../styles/lenis-tune.css';
