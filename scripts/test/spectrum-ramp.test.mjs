@@ -22,13 +22,13 @@ test('rampAt hits the stops at k/8, the last one as t reaches 1 (where the turn 
   assert.deepEqual(rampAt(1), rgb(SPECTRUM_RAMP_A[0]), 't = 1 is the turn complete: the first stop again');
 });
 
-test('rampAt blends in gamma sRGB, the way CSS does: the midpoint of two stops is their channel mean', () => {
+test('rampAt blends in gamma sRGB, the way CSS does, so the midpoint of two stops is their channel mean', () => {
   const close = (got, want) => got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) <= 1, `${got} vs ${want}`));
   const mean = (a, b) => a.map((v, i) => (v + b[i]) / 2);
   close(rampAt(2.5 / 8), mean(rgb(SPECTRUM_RAMP_A[2]), rgb(SPECTRUM_RAMP_A[3]))); // yellow to blue
   close(rampAt(7.5 / 8), mean(rgb(SPECTRUM_RAMP_A[7]), rgb(SPECTRUM_RAMP_A[8])));});
 
-test('rampAt wraps: t and t + n are the same colour, negative t included', () => {
+test('rampAt wraps so t and t + n are the same colour, negative t included', () => {
   for (const t of [0, 0.1, 0.37, 0.5, 0.83, 0.999]) {
     assert.deepEqual(rampAt(t + 1), rampAt(t), `t ${t} + 1`);
     assert.deepEqual(rampAt(t + 3), rampAt(t), `t ${t} + 3`);
@@ -37,7 +37,7 @@ test('rampAt wraps: t and t + n are the same colour, negative t included', () =>
   assert.deepEqual(rampAt(-0.25), rampAt(0.75));
 });
 
-test('RAMP_A_RGB is 27 floats in 0 to 1: nine stops, r g b each, in gamma sRGB', () => {
+test('RAMP_A_RGB is 27 floats in 0 to 1, nine stops of r g b each, in gamma sRGB', () => {
   assert.equal(SPECTRUM_RAMP_A.length, 9);
   assert.equal(RAMP_A_RGB.length, 27);
   assert.ok(RAMP_A_RGB.every((v) => Number.isFinite(v) && v >= 0 && v <= 1));
@@ -56,7 +56,7 @@ test('RAMP_GLSL declares the nine-stop uniform and the linear-returning function
   assert.ok(RAMP_GLSL.includes('pow((c + 0.055) / 1.055, vec3(2.4))'), 'it decodes the gamma blend to linear');
 });
 
-test('PARITY: SPECTRUM_RAMP_A is --swm-ramp-a in global.css, stop for stop', () => {
+test('PARITY SPECTRUM_RAMP_A is --swm-ramp-a in global.css, stop for stop', () => {
   const css = read('src/styles/global.css');
   const vars = new Map([...css.matchAll(/(--swm-[a-z-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
   const decl = vars.get('--swm-ramp-a');
