@@ -9,6 +9,7 @@ import {
   groupTypeOf,
   opensOn,
   assetLane,
+  isStaticLogo,
   buildContentFlow,
 } from '../../src/components/work/detail/buildContentFlow.js'
 
@@ -286,6 +287,31 @@ test('a surface drops the pieces of a set it does not open', () => {
   assert.equal(dir.banners.length, 1)
   assert.equal(dir.admats.length, 1)
   assert.equal(dir.brandDecks.length, 1)
+})
+
+test('static logos stay off /work (11-14): a still typed logo is dropped there, alone or in a sequence; a logo video and a ratio-typed still are not', () => {
+  const logo = still('logo-white', 'logo')
+  assert.equal(isStaticLogo(logo), true)
+  assert.deepEqual(SURFACES.map((s) => assetLane(logo, s)), ['showcase', null, 'showcase', 'showcase'])
+  assert.equal(assetLane(logo), 'showcase') // no surface: the legacy chain is untouched
+
+  // NC: what the rule must not catch.
+  const reveal = clip('logo-reveal', 'logo')
+  const wide = still('wide-logo', 'static_16x9')
+  assert.equal(isStaticLogo(reveal), false)
+  assert.equal(isStaticLogo(wide), false)
+  assert.equal(assetLane(reveal, 'work'), 'showcase')
+  assert.equal(assetLane(wide, 'work'), 'showcase')
+
+  // A logo-typed frame leaves a /work sequence; the other surfaces keep the whole set.
+  const frames = [still('f-1', 'static_16x9', { displayGroup: 'wide-logo-sequence' }), still('f-2', 'logo', { displayGroup: 'wide-logo-sequence' }), still('f-3', 'static_16x9', { displayGroup: 'wide-logo-sequence' })]
+  const assets = [clip('hero', 'motion_16x9'), logo, reveal, wide, ...frames]
+  const work = buildContentFlow(assets, { surface: 'work' }).showcase
+  assert.deepEqual(ids(work), ['logo-reveal', 'wide-logo', 'sequence:wide-logo-sequence'])
+  assert.deepEqual(ids(work[2].frames), ['f-1', 'f-3'])
+  const detail = buildContentFlow(assets, { surface: 'detail' }).showcase
+  assert.deepEqual(ids(detail), ['logo-white', 'logo-reveal', 'wide-logo', 'sequence:wide-logo-sequence'])
+  assert.deepEqual(ids(detail[3].frames), ['f-1', 'f-2', 'f-3'])
 })
 
 // ── US-4 (11-11): merch, visuals, live-footage ──

@@ -246,7 +246,7 @@ Assets within a Featured Project can be sub-grouped by setting the `displayGroup
 
 ### Group Type (which viewer a set opens, and where)
 
-A grouped asset's **group type** (`mediaAsset.groupType`, Nathan 11-10) names what kind of set it belongs to: `album-art`, `deck`, `banner`, `admat` or `carousel`, and since 11-11 `merch`, `visuals`, `live-footage`, `mockups` or `flyer-progression`. Every type except `album-art` also needs a `displayGroup` naming the set. Each type opens its viewer or cycler only on the surfaces it lists. On every other surface its pieces don't show, not even as ordinary tiles, except visuals and live footage, whose pieces stay ordinary pieces there. The table lives in site code (`GROUP_SURFACES` in `buildContentFlow.js`), not in Studio:
+A grouped asset's **group type** (`mediaAsset.groupType`, Nathan 11-10) names what kind of set it belongs to: `album-art`, `deck`, `banner`, `admat` or `carousel`, and since 11-11 `merch`, `visuals`, `live-footage`, `mockups` or `flyer-progression`. Every type except `album-art` also needs a `displayGroup` naming the set. Each type opens its viewer or cycler only on the surfaces it lists. On every other surface its pieces don't show, not even as ordinary tiles, except visuals and live footage, whose pieces stay ordinary pieces there. The table lives in site code (`GROUP_SURFACES` in `buildContentFlow.js`), not in Studio. One rule is by media type instead of group type (Nathan 11-14): a **static logo**, a still typed `logo`, never shows on /work, alone or as a frame of a sequence (`isStaticLogo`); an animated logo is a video and stays, and a logo still labelled with a ratio type is not caught until it is retyped Logo in Studio. The table:
 
 | Type | Opens on |
 |---|---|

@@ -73,6 +73,13 @@
  *     sequence an animated member joins as its poster still (posterStill)
  *     instead of keeping its own tile, so a mostly-animated progression still
  *     cycles; merch keeps its stills-only rule.
+ * 13. static logos (11-14, Nathan: "static logo files do not display on
+ *     /work"): a still typed `logo` is dropped on the 'work' surface, before
+ *     every other lane, so it is not a tile there and not a frame of a
+ *     sequence either (isStaticLogo). An animated logo is a video, so it
+ *     stays. Detail and the directory still show the logo (their logo
+ *     canvas); the globe already leaves the type out (buildWorldPools). The
+ *     hero is assets[0] whatever its type and never reaches this check.
  *
  * Which bucket an asset joins is assetLane's precedence (sequence first,
  * showcase last), exported so other grids sort assets the same way.
@@ -277,6 +284,16 @@ export function groupTypeOf(asset) {
   return null;
 }
 
+/**
+ * A static logo file: a still typed `logo` (the Logo media type in Studio). An
+ * animated logo is a video, typed by its ratio. /work shows none of these
+ * (Nathan 11-14); a logo still labelled with a ratio type is not one, so
+ * retype it Logo in Studio to keep it off /work.
+ */
+export function isStaticLogo(asset) {
+  return asset.mediaType === 'logo' && !!asset.imageUrl && !asset.playbackId;
+}
+
 /** Does this asset's set open its viewer on `surface`? false for an ungrouped asset. */
 export function opensOn(asset, surface) {
   const type = groupTypeOf(asset);
@@ -300,10 +317,12 @@ export function opensOn(asset, surface) {
  * open and ride 'role' / 'showcase' elsewhere, never null (OFF_SURFACE_ORDINARY).
  * `mockups` and `flyer-progression` follow SURFACE_LANE, motion members
  * included (a sequence shows a motion member as its poster); mockups on
- * 'work' is null.
+ * 'work' is null. A static logo (isStaticLogo) on 'work' is null before any
+ * of that, sequence membership included.
  */
 export function assetLane(asset, surface) {
   if (!asset.playbackId && !asset.imageUrl) return null;
+  if (surface === 'work' && isStaticLogo(asset)) return null;
   if (isSequenceGroup(asset.displayGroup) && asset.imageUrl && !asset.playbackId) return 'sequence';
   if (surface === undefined) {
     if (asset.mediaType === 'album-art') return 'album-art';
