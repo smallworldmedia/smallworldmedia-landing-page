@@ -71,7 +71,11 @@ const KEYS = [
 // swap) so a route that can't declare its accent statically — /work, whose
 // active project is client-only — can re-assert the colour it had before the
 // swap (astro wipes <html>'s inline style during the swap).
-let last = { primary: undefined, secondary: undefined };
+//
+// US-7: `spectrum` is the project's palette key for the spectrum colour scheme. It
+// rides with the colours and lands on <html> as data-spectrum in the SAME synchronous
+// step as the colour keys, so the instant and the faded commit treat both alike.
+let last = { primary: undefined, secondary: undefined, spectrum: undefined };
 
 // Suppress the accent cross-fades for a single instant application (page
 // arrivals must NOT animate up from the brand-blue initial value — that is
@@ -128,7 +132,7 @@ export function isNavAccentHeld() {
 export function releaseNavAccent(fade) {
   if (!held) return;
   held = false;
-  applyNavAccent(last.primary, last.secondary, !!fade, { fade });
+  applyNavAccent(last.primary, last.secondary, !!fade, { fade, spectrum: last.spectrum });
 }
 
 /**
@@ -137,10 +141,14 @@ export function releaseNavAccent(fade) {
  * Does nothing when the accent already is (or is held to) that colour. `fade`
  * null = cut. Returns true when it started a change.
  */
-export function retargetNavAccent(primary, secondary, fade) {
+export function retargetNavAccent(primary, secondary, fade, spectrum) {
   if (held) return false;
-  if ((primary ?? null) === (last.primary ?? null) && (secondary ?? null) === (last.secondary ?? null)) return false;
-  applyNavAccent(primary ?? undefined, secondary ?? undefined, !!fade, { fade });
+  if (
+    (primary ?? null) === (last.primary ?? null) &&
+    (secondary ?? null) === (last.secondary ?? null) &&
+    (spectrum ?? null) === (last.spectrum ?? null)
+  ) return false;
+  applyNavAccent(primary ?? undefined, secondary ?? undefined, !!fade, { fade, spectrum });
   return true;
 }
 
@@ -148,11 +156,12 @@ export function retargetNavAccent(primary, secondary, fade) {
  * Write the accent vars to <html>. `animate` false = instant (page arrivals);
  * true = ride the CSS cross-fade (in-page /work project changes), at `fade`'s
  * duration and curve when given. `tint` is the <html> class that scopes which
- * chrome takes it (pop-tint on home).
+ * chrome takes it (pop-tint on home). `spectrum` is the project's palette key
+ * (lib/spectrumDeal.js): <html> gets data-spectrum with the colours, or none when absent.
  */
-export function applyNavAccent(primary, secondary, animate = true, { tint = 'fp-tint', fade } = {}) {
+export function applyNavAccent(primary, secondary, animate = true, { tint = 'fp-tint', fade, spectrum } = {}) {
   if (typeof document === 'undefined') return;
-  last = { primary, secondary };
+  last = { primary, secondary, spectrum };
   const root = document.documentElement;
   const vars = held ? projectColorVars(NAV_BLACK) : projectColorVars(primary, secondary);
   const write = () => {
@@ -164,6 +173,10 @@ export function applyNavAccent(primary, secondary, animate = true, { tint = 'fp-
       if (v != null) root.style.setProperty(k, v);
       else root.style.removeProperty(k);
     }
+    // A held accent paints black, so it carries no project's key either (the same
+    // rule as the colours: the held look is not any project's).
+    if (spectrum && !held) root.dataset.spectrum = spectrum;
+    else delete root.dataset.spectrum;
     root.classList.add(tint);
   };
   if (!animate) commitInstant(root, write);
@@ -174,17 +187,18 @@ export function applyNavAccent(primary, secondary, animate = true, { tint = 'fp-
 /** Re-assert the last accent instantly (post-swap, for routes without a static
  *  declaration — i.e. /work after the breadcrumb back). */
 export function reapplyNavAccent() {
-  applyNavAccent(last.primary, last.secondary, false);
+  applyNavAccent(last.primary, last.secondary, false, { spectrum: last.spectrum });
 }
 
 /** Drop the accent (routes that never tint — home / process). Instant. */
 export function clearNavAccent() {
   if (typeof document === 'undefined') return;
-  last = { primary: undefined, secondary: undefined };
+  last = { primary: undefined, secondary: undefined, spectrum: undefined };
   held = false;
   const root = document.documentElement;
   commitInstant(root, () => {
     for (const k of KEYS) root.style.removeProperty(k);
+    delete root.dataset.spectrum;
     root.classList.remove('fp-tint', 'pop-tint');
   });
 }

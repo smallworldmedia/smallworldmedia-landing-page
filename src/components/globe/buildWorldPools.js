@@ -128,11 +128,12 @@ export function selectPool(pool, { kinds = null, cap = WORLD_POOL_CAP, budget = 
 
 /**
  * @param {Array} projects - FEATURED_WORLDS_QUERY rows (orderRank order)
- * @returns {Array<{slug, clientName, title, projectColor, services, assets}>}
+ * @param {Object} [deal] - { slug: palette key } from lib/spectrumDeal.js: the spectrum scheme's key
+ * @returns {Array<{slug, clientName, title, projectColor, spectrum, services, assets}>}
  *          one entry per featured project with at least one tile-able asset,
  *          in the /work World order
  */
-export default function buildWorldPools(projects = []) {
+export default function buildWorldPools(projects = [], deal = {}) {
   return (projects || [])
     .filter((p) => p.clientSlug && p.collection) // the /work World filter
     .map((p) => {
@@ -183,11 +184,13 @@ export default function buildWorldPools(projects = []) {
       // Service tags (the chips' bracketed line): p.services is already the
       // union of the project's media tags (queries.js PROJECT_SERVICES).
       const services = (p.services || []).filter((s) => s?.slug);
+      const slug = p.slug || toProjectSlug(p.clientSlug, p.collection);
       return {
-        slug: p.slug || toProjectSlug(p.clientSlug, p.collection),
+        slug,
         clientName: p.clientName,
         title: p.title || null,
         projectColor: p.projectColor || null,
+        spectrum: deal?.[slug] ?? null,
         services: services.map(({ name, slug }) => ({ name, slug })),
         assets: selectPool(pool, { cap: WORLD_POOL_CAP }),
       };

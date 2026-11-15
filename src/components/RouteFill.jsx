@@ -22,7 +22,8 @@
  *
  * The nav and every colour-tagged element ride the SAME clock as the cover
  * (navAccent, one control point): a `swm:envelop` with `detail.navSync` starts
- * the nav's cross-fade to `detail.color` (+ `color2`) on the cover's own
+ * the nav's cross-fade to `detail.color` (+ `color2`, + `spectrum`, the key the
+ * spectrum scheme reads as data-spectrum on html and on the fill) on the cover's own
  * duration and curve; a passage the hero HELD black (home → /work) lets the
  * project colour go when the cover starts to lift, on the lift's own duration
  * and curve. Same start, same duration, same ease: the nav never changes early
@@ -206,6 +207,10 @@ export default function RouteFill() {
       const color = e?.detail?.color;
       if (color) fill.style.setProperty('--project-color', color);
       else fill.style.removeProperty('--project-color');
+      // US-7: the destination's spectrum key rides with the colour on the same carrier.
+      const spectrum = e?.detail?.spectrum || undefined;
+      if (spectrum) fill.dataset.spectrum = spectrum;
+      else delete fill.dataset.spectrum;
       const coverS = e?.detail?.duration ?? COVER_SECONDS;
       // The nav's colour starts to change WITH the cover: same start, duration
       // and curve (a cut — RM or a zero-length cover — cuts the nav too). A cut
@@ -214,7 +219,7 @@ export default function RouteFill() {
       // frame behind the event, so a CSS fade started "now" would trail it).
       const navSync = !!e?.detail?.navSync;
       const cutNav = navSync && (reducedMotion || !(coverS > 0));
-      if (cutNav) retargetNavAccent(color || undefined, e.detail.color2 || undefined, null);
+      if (cutNav) retargetNavAccent(color || undefined, e.detail.color2 || undefined, null, spectrum);
       loaderTimer?.kill();
       if (LOADER_ON && e?.detail?.loader) {
         if (e.detail.loaderAfterCover) {
@@ -240,11 +245,16 @@ export default function RouteFill() {
         onStart:
           navSync && !cutNav
             ? function onCoverStart() {
-                retargetNavAccent(color || undefined, e.detail.color2 || undefined, {
-                  seconds: coverS,
-                  ease: gsap.parseEase(COVER_EASE),
-                  delay: -this.time(),
-                });
+                retargetNavAccent(
+                  color || undefined,
+                  e.detail.color2 || undefined,
+                  {
+                    seconds: coverS,
+                    ease: gsap.parseEase(COVER_EASE),
+                    delay: -this.time(),
+                  },
+                  spectrum
+                );
               }
             : undefined,
       });
@@ -284,7 +294,9 @@ export default function RouteFill() {
     const syncNavAccent = () => {
       const page = document.querySelector('[data-nav-accent-page]');
       if (page) {
-        applyNavAccent(page.dataset.navAccent || undefined, page.dataset.navAccent2 || undefined, false);
+        applyNavAccent(page.dataset.navAccent || undefined, page.dataset.navAccent2 || undefined, false, {
+          spectrum: page.dataset.navSpectrum || undefined,
+        });
         return;
       }
       const route = document.body.className;

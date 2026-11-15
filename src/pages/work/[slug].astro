@@ -17,6 +17,7 @@ import {
   FEATURED_PROJECT_DETAIL_QUERY,
 } from '../../lib/queries.js';
 import { featuredRoutes } from '../../lib/projectSlug.js';
+import { getSpectrumDeal } from '../../lib/spectrumDeal.js';
 import FeaturedProjectDetail from '../../components/work/detail/FeaturedProjectDetail.jsx';
 
 export async function getStaticPaths() {
@@ -29,6 +30,9 @@ export async function getStaticPaths() {
   // Row order == the /work World order (orderRank in the query), so
   // adjacency defines the next-project chain, wrapping last → first.
   const rows = featuredRoutes(featured);
+  // US-7: the spectrum scheme's palette key per project (one deal per build, by
+  // position in this same order), for the page's own project and the next one.
+  const deal = await getSpectrumDeal();
 
   return rows.map((h, i) => {
     const nextIndex = (i + 1) % rows.length;
@@ -39,6 +43,7 @@ export async function getStaticPaths() {
         projectId: h.projectId,
         collection: h.collection,
         clientName: h.clientName,
+        spectrum: deal[h.slug] ?? null,
         // NextProjectBand card — omitted when this is the only project
         // (a band pointing at the page it's on would be noise).
         nextProject:
@@ -53,6 +58,7 @@ export async function getStaticPaths() {
                 // pinned title/rule, the in-window cover, and the enter fill.
                 color: n.color ?? null,
                 colorSecondary: n.colorSecondary ?? null,
+                spectrum: deal[n.slug] ?? null,
                 index: nextIndex,
               }
             : null,
@@ -61,7 +67,7 @@ export async function getStaticPaths() {
   });
 }
 
-const { projectId, collection, clientName, nextProject } = Astro.props;
+const { projectId, collection, clientName, nextProject, spectrum } = Astro.props;
 
 const { assets, client, project } = await sanityFetch(
   FEATURED_PROJECT_DETAIL_QUERY,
@@ -85,7 +91,7 @@ const description =
     client:load
     assets={assets}
     client={client}
-    project={project}
+    project={project ? { ...project, spectrum } : project}
     collection={collection}
     nextProject={nextProject}
   />

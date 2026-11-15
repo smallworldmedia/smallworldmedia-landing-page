@@ -13,6 +13,20 @@ function fakeDom() {
   const log = []
   const classes = new Set()
   const root = {
+    // html[data-spectrum] (US-7), its writes logged among the style writes so a test can
+    // tell WHEN in the commit it landed (inside the mutate, before the flush).
+    dataset: new Proxy({}, {
+      set(t, k, v) {
+        log.push(['dataset', k, v])
+        t[k] = v
+        return true
+      },
+      deleteProperty(t, k) {
+        log.push(['dataset-remove', k])
+        delete t[k]
+        return true
+      },
+    }),
     style: {
       transition: '',
       setProperty(k, v) {
@@ -36,7 +50,7 @@ function fakeDom() {
   }
   globalThis.document = { documentElement: root }
   globalThis.CSS = { supports: () => true }
-  return { props, log, classes }
+  return { props, log, classes, root }
 }
 
 const nav = await import('../../src/lib/navAccent.js')
@@ -154,4 +168,82 @@ test('clearNavAccent drops a hold, so a route that never tints is never left bla
   holdNavAccent()
   clearNavAccent()
   assert.equal(isNavAccentHeld(), false)
+})
+
+// ── US-7 (SQ-89): the spectrum key rides with the colours onto <html> as data-spectrum ──
+
+test('apply with a spectrum key sets html[data-spectrum] in the same step as the colours, instant or faded', () => {
+  const { root, log } = fakeDom()
+  clearNavAccent()
+  applyNavAccent('#B63947', undefined, false, { spectrum: 'red' })
+  assert.equal(root.dataset.spectrum, 'red')
+  log.length = 0
+  applyNavAccent('#F99B2F', undefined, true, { fade, spectrum: 'yellow' })
+  assert.equal(root.dataset.spectrum, 'yellow')
+  const color = log.findIndex((l) => l[0] === 'set' && l[1] === '--project-color')
+  const key = log.findIndex((l) => l[0] === 'dataset' && l[1] === 'spectrum')
+  const flush = log.findIndex((l) => l[0] === 'flush')
+  assert.ok(color >= 0 && key >= 0 && key < flush, 'the key lands inside the same commit as the colour, before its flush')
+})
+
+test('apply without a key removes html[data-spectrum]', () => {
+  const { root } = fakeDom()
+  clearNavAccent()
+  applyNavAccent('#B63947', undefined, false, { spectrum: 'red' })
+  assert.equal(root.dataset.spectrum, 'red')
+  applyNavAccent('#F99B2F', undefined, false)
+  assert.equal('spectrum' in root.dataset, false)
+  applyNavAccent('#F99B2F', undefined, false, { spectrum: null })
+  assert.equal('spectrum' in root.dataset, false, 'null is no key')
+})
+
+test('clearNavAccent removes html[data-spectrum]', () => {
+  const { root } = fakeDom()
+  applyNavAccent('#B63947', undefined, false, { spectrum: 'green' })
+  clearNavAccent()
+  assert.equal('spectrum' in root.dataset, false)
+})
+
+test('reapplyNavAccent restores the key after the swap wiped <html>', () => {
+  const { root, props } = fakeDom()
+  clearNavAccent()
+  applyNavAccent('#B63947', undefined, false, { spectrum: 'periwinkle' })
+  // ClientRouter replaces every <html> attribute on a swap: the key and the colours go.
+  delete root.dataset.spectrum
+  props.clear()
+  reapplyNavAccent()
+  assert.equal(root.dataset.spectrum, 'periwinkle')
+  assert.equal(props.get('--project-color'), '#B63947')
+})
+
+test('retargetNavAccent takes the key as its 4th argument, and a new key alone is a change', () => {
+  const { root, log } = fakeDom()
+  clearNavAccent()
+  applyNavAccent('#B63947', undefined, false, { spectrum: 'red' })
+  assert.equal(retargetNavAccent('#F99B2F', undefined, fade, 'yellow'), true)
+  assert.equal(root.dataset.spectrum, 'yellow')
+  log.length = 0
+  assert.equal(retargetNavAccent('#F99B2F', undefined, fade, 'yellow'), false, 'same colours and key: already heading there')
+  assert.equal(log.length, 0)
+  assert.equal(retargetNavAccent('#F99B2F', undefined, fade, 'green'), true, 'same colours, new key')
+  assert.equal(root.dataset.spectrum, 'green')
+  assert.equal(retargetNavAccent('#F99B2F', undefined, null), true, 'no key is a change from a key')
+  assert.equal('spectrum' in root.dataset, false)
+})
+
+test('`last` round-trips the key: a held accent paints no project key, and the release brings it back', () => {
+  const { root } = fakeDom()
+  clearNavAccent()
+  holdNavAccent()
+  applyNavAccent('#B63947', undefined, false, { spectrum: 'red' }) // /work's first apply, under the cover
+  assert.equal('spectrum' in root.dataset, false, 'held = black, the key of no project')
+  reapplyNavAccent()
+  assert.equal('spectrum' in root.dataset, false)
+  releaseNavAccent(null)
+  assert.equal(root.dataset.spectrum, 'red', 'the remembered key rides the release')
+  // and a release remembered with no key leaves none
+  holdNavAccent()
+  applyNavAccent('#84F104', undefined, false)
+  releaseNavAccent(null)
+  assert.equal('spectrum' in root.dataset, false)
 })

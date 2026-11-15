@@ -555,11 +555,16 @@ export default function NextProjectBand({ next }) {
         duration: NP_SECONDS,
         ease,
         onStart() {
-          retargetNavAccent(next.color || undefined, next.colorSecondary || undefined, {
-            seconds: NP_SECONDS,
-            ease,
-            delay: -this.time(),
-          });
+          retargetNavAccent(
+            next.color || undefined,
+            next.colorSecondary || undefined,
+            {
+              seconds: NP_SECONDS,
+              ease,
+              delay: -this.time(),
+            },
+            next.spectrum || undefined
+          );
         },
       },
       0
@@ -575,7 +580,7 @@ export default function NextProjectBand({ next }) {
       window.dispatchEvent(
         // S2: the enter fill ingests the next project's accent (blank → blue).
         new CustomEvent('swm:envelop', {
-          detail: { duration: NP_COVER_SECONDS, color: next.color },
+          detail: { duration: NP_COVER_SECONDS, color: next.color, spectrum: next.spectrum },
         })
       );
     }, Math.max(0, NP_SECONDS - NP_COVER_SECONDS));
@@ -734,6 +739,7 @@ export default function NextProjectBand({ next }) {
         '--project-color': next.color || undefined,
         '--project-color-2': next.colorSecondary || undefined,
       }}
+      data-spectrum={next.spectrum || undefined}
       onClick={onClick}
       aria-label={`Next project: ${next.clientName} — ${next.title}`}
     >

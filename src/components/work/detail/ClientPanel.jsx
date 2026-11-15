@@ -23,6 +23,7 @@ export default function ClientPanel({
   displayTitle,
   projectColor,
   projectColorSecondary,
+  spectrum,
 }) {
   const basedIn = [client?.city, client?.country].filter(Boolean).join(', ');
   const socials = (client?.links ?? []).filter((l) => SOCIAL_ICONS[l.platform]);
@@ -34,6 +35,7 @@ export default function ClientPanel({
       // blue). Requires FeaturedProjectDetail to pass projectColor — until it
       // does, the prop is undefined and the CSS var falls back to blue.
       style={projectColorVars(projectColor, projectColorSecondary)}
+      data-spectrum={spectrum || undefined}
     >
       <h1 className="client-panel__title">
         {!displayTitle || client?.name?.toLowerCase() === displayTitle?.toLowerCase()

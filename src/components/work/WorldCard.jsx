@@ -64,7 +64,7 @@ const CARD_TRAVEL = 70; // yPercent the card rides in/out (mirrors the media rol
 // the ?entertune=1 bench; legacy ?entercover still seeds it), so a dialed
 // choreography drives the real commit, not just the bench's dry-run.
 let departing = false;
-function enterWorld(e, slug, color) {
+function enterWorld(e, slug, color, spectrum) {
   if (PREFERS_REDUCED_MOTION) return; // plain ClientRouter navigation
   e.preventDefault();
   if (departing) return;
@@ -74,7 +74,7 @@ function enterWorld(e, slug, color) {
     // S2: the enter fill ingests the project's accent (blank → blue in RouteFill).
     // SQ-32: loader + loaderAfterCover — the globe loader opens over the cover
     // once it is fully up (+ ?loaderlead), and not at all if the page is ready first.
-    new CustomEvent('swm:envelop', { detail: { duration: coverS, color, loader: true, loaderAfterCover: true } })
+    new CustomEvent('swm:envelop', { detail: { duration: coverS, color, spectrum, loader: true, loaderAfterCover: true } })
   );
   window.dispatchEvent(
     // Scene choreography: useWorldScene answers with the synced lens-deepen +
@@ -221,6 +221,7 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
       // outgoing (exit) and incoming (enter) cards keep their own colors
       // through a Turn; blank → the surfaces fall back to brand blue.
       style={projectColorVars(world.projectColor, world.projectColorSecondary)}
+      data-spectrum={world.spectrum || undefined}
     >
       <span className="fp-card__tab">{`PROJECT_${pad2(index)}`}</span>
       <div className="fp-card">
@@ -233,7 +234,7 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         <a
           className="fp-card__cta cta-primary"
           href={`/work/${world.slug}`}
-          onClick={(e) => enterWorld(e, world.slug, world.projectColor)}
+          onClick={(e) => enterWorld(e, world.slug, world.projectColor, world.spectrum)}
         >
           zoom_in
         </a>
