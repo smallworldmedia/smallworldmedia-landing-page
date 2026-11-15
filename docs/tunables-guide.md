@@ -257,6 +257,15 @@ Reader: `src/lib/mediaSequence.js` (`sequenceIntervalMs()`, re-read whenever `lo
 
 Non-param constants: `SEQUENCE_MAX_FRAMES` 12 (authored groups; the globe's cover sequence is uncapped because it loads one frame ahead), `SEQUENCE_PAD_BG` `0a0a0a` (the CDN fill behind a frame with transparency; restated as `unitSpan.PAD_BG`).
 
+## Site-wide — colour scheme
+
+Reader: the inline pre-paint latch in `BaseLayout.astro` (it runs before first paint and re-asserts on `astro:after-swap`), which seeds `window.__swmScheme`; `src/lib/colorScheme.js` is the one module that decides the scheme afterwards. CSS reads only `html[data-scheme]`. Both params are previews: `?scheme` is never stored and survives soft navigations for the life of the page.
+
+| param | what it does | default | values | bake |
+|---|---|---|---|---|
+| `?scheme` | previews a colour scheme on every route, over whatever the visitor stored (`localStorage` `swm:scheme`); the pick is never written | the stored pick, else `project` | `project`, `black`, `blue`, `spectrum`; anything else is ignored | `colorScheme.js DEFAULT_SCHEME` |
+| `?schemefade` | how long a scheme change fades the colour tokens (sets `--scheme-fade` on `<html>`, re-set after every soft navigation) | the project colour fade (`--project-color-fade`) | ms ≥ 0; anything else is ignored | `global.css --scheme-fade` |
+
 ## Site-wide — Lenis scroll feel and footer reveal
 
 Readers: `src/lib/smoothScroll.js` (raw params, per route), `src/lib/lenisTune.js` + `LenisTunePanel.jsx`, `src/lib/footerTune.js` + `FooterTunePanel.jsx`. Lenis is OFF on `/work` and under RM (`getLenis()` is null there).

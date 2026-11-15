@@ -99,7 +99,48 @@ const roster = await getDirectoryData()
     <title>{title}</title>
     <link rel="canonical" href={canonical} />
     <meta name="theme-color" content="#000000" />
-    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    {/* US-7 colour scheme, latched before first paint: ?scheme= (a preview, never stored)
+        > localStorage swm:scheme > project. html[data-scheme] is always set. The shared
+        state is window.__swmScheme (src/lib/colorScheme.js reads and writes it); the
+        names and key repeat that module's (scripts/test/color-scheme.test.mjs pins the
+        parity). ClientRouter replaces <html>'s attributes and inline style on every
+        swap and does not re-run this script, so the one listener below re-asserts. */}
+    <script is:inline>
+      (function () {
+        var w = window;
+        if (w.__swmScheme) return;
+        var d = document;
+        var names = ['project', 'black', 'blue', 'spectrum'];
+        var committed = 'project';
+        var applied;
+        var fade = '';
+        try {
+          var stored = w.localStorage.getItem('swm:scheme');
+          if (names.indexOf(stored) > -1) committed = stored;
+        } catch (e) {}
+        applied = committed;
+        try {
+          var q = new URLSearchParams(w.location.search);
+          var pick = q.get('scheme');
+          if (names.indexOf(pick) > -1) applied = pick;
+          var ms = q.get('schemefade');
+          if (ms !== null && ms.trim() !== '' && isFinite(Number(ms)) && Number(ms) >= 0) {
+            fade = Number(ms) + 'ms';
+          }
+        } catch (e) {}
+        w.__swmScheme = { applied: applied, committed: committed };
+        function assert() {
+          var root = d.documentElement;
+          root.setAttribute('data-scheme', w.__swmScheme.applied);
+          if (fade) root.style.setProperty('--scheme-fade', fade);
+        }
+        assert();
+        d.addEventListener('astro:after-swap', assert);
+      })();
+    </script>
+
+    <link rel="sitemap"href="/sitemap-index.xml" />
 
     {/* Social cards */}
     <meta property="og:type" content="website" />
