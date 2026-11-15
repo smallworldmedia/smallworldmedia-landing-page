@@ -721,9 +721,10 @@ body:has(.fp) {
   /* 09-04 r9 (Nathan's mobile dial bake: ?cardname=84 → 6rem fixed —
      replaces the old clamp; ?tagtext=12 → 0.857rem; ?taggap=6 → --space-3;
      ?tagpad=4 = the shipped --space-2, already true). The --fp-* dial vars
-     still override live. */
+     still override live. 11-15 (Nathan): names 84 → 64 px so Munchietown
+     clears the pager's select_project hint (64 / 14 = 4.5714rem). */
   .fp-card__client {
-    font-size: var(--fp-card-name-size, 6rem);
+    font-size: var(--fp-card-name-size, 4.5714rem);
   }
 
   .fp-tag {
