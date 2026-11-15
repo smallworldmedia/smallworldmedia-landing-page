@@ -172,10 +172,45 @@ records (`docs/globe-worlds-plan.md`).
      - the four Pacha NYC composites are hidden from the site (`d162e316`, found by SQ-84).
      - Harvested: swm 1.109.10.
    - **Left:**
-     - the three files Nathan's 11-13 Studio deletes left behind (two Kamino images, one Sidney
-       Charles Mux video), deleted by plan on his word;
+     - ~~the three files Nathan's 11-13 Studio deletes left behind (two Kamino images, one Sidney
+       Charles Mux video), deleted by plan on his word~~ deleted 11-14 with plan `0bb1b1ae`;
      - when the Pacha NYC pieces come back;
      - the iPhone check of SQ-75 and SQ-80.
+7. **Done 11-15: Nathan's 11-14 round** (US-7, SQ-85…SQ-93, and his 11-14 notes; pushed at
+   `d2815a9`; `cms audit` 0 errors, 2 warnings):
+   - **US-7, the colour schemes** (waves 1 and 2 pushed on 11-14, wave 3 with this push):
+     - SQ-85: `colorScheme.js` decides the scheme (project, black, blue, spectrum), latched on
+       `html[data-scheme]` before paint;
+     - SQ-86: the scheme probe (`scripts/scheme-probe.mjs`);
+     - SQ-87 and SQ-92: the corner pager that switches the scheme (circular swatches, no text);
+     - SQ-88: the black and blue schemes in `scheme.css`;
+     - SQ-89: the spectrum deal, a build-time colour key per featured project (`data-spectrum`);
+     - SQ-90 and SQ-91: the home globe and the /work Worlds recolour live; the /work grid under
+       black starts at `?schemegrid` 0.12;
+     - SQ-93: the spectrum skin, the color-ref.png palette as ribbons on black.
+   - **His 11-14 notes:**
+     - static logo stills stay off /work;
+     - the detail grid takes the Project Directory's columns above 1024 px (5, and 6 at the large
+       tier); tablet and phone keep the 3-column placement;
+     - `[select_project]` sits at the right edge of the viewport on desktop;
+     - a page shorter than the fold keeps its nav bar;
+     - the dev server reads the client list and site copy from Sanity on every reload;
+     - a set sits where its first member ranks in Studio (`8c97833`).
+   - **Content:**
+     - the manifests follow Nathan's 11-14 Studio pass (`0e4597a`, `ee7d3e0`, `ef978fe`);
+     - the nine files his Studio deletes left behind are deleted (`0bb1b1ae`).
+     - Harvested: swm 1.109.12.
+   - **Left:**
+     - Nathan's look calls on the schemes: spectrum's yellow keyword boxes (about 24% of the
+       coloured area on desktop and 30% on phone, against 10% in color-ref.png), the ribbon band
+       on the 404, the first-pass swatch art and the widget dials still PROPOSED, the white globe
+       ring on home under black, the swatch over body copy on phone project pages, the privacy
+       pill's hover under blue;
+     - the tablet and phone detail-grid counts (2 / 1 as now, or 4 / 2 like the directory);
+     - the logo stills typed by ratio that still show on /work (retype them Logo in Studio, or
+       broaden the rule);
+     - the old `blurb` field on Hurry Up Slowly, and the draft on client Sosa (his to publish);
+     - a Netlify build hook at launch.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
