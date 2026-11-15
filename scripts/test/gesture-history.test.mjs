@@ -51,7 +51,7 @@ test('a browser back/forward (popstate) drops the honour until the next activati
   assert.deepEqual(t.options(), PUSH)
 })
 
-test('server-side (no window): the shared gestureHistory() replaces', () => {
+test('server-side, with no window, the shared gestureHistory() replaces', () => {
   assert.deepEqual(gestureHistory(), REPLACE)
 })
 
@@ -63,7 +63,7 @@ test('no userActivation API: every gesture turn replaces', () => {
   assert.deepEqual(t.options(), REPLACE)
 })
 
-test('probe gate: skippable entries, push/replace and the /work restore', () => {
+test('probe gate judges skippable entries, push or replace, and the /work restore', () => {
   assert.equal(verdict({ id: 'A', skippable: 0, before: ['/work/a'], after: ['/work/b'] }).pass, true)
   assert.match(verdict({ id: 'A', skippable: 2, before: ['/a'], after: ['/a'] }).fails[0], new RegExp(SKIPPABLE))
   assert.equal(verdict({ id: 'A', skippable: 0, before: ['/a'], after: ['/a', '/b'] }).pass, false)
