@@ -57,7 +57,9 @@ import logoManifest from '../../../data/directory-logos.json';
 import {
   GRID_ROW_PX,
   GRID_COLS,
+  NARROW_PLACE_COLS,
   SQ_ROWS_FALLBACK,
+  SQ_ROWS_NARROW,
   useTileShape,
   useGridMetrics,
   tileRowsFor,
@@ -224,11 +226,14 @@ function BlurbCopy({ paragraphs }) {
    ?blurbair dials (the growth, ?blurbgrow, lives in the hold). The
    text fit (SQ-28, attachBlurbFit) rides the phone query alone: the sections
    are CSS on every phone, held or not, and it goes on first so the hold reads
-   the fitted heights. */
-function useBlurbHold(rootRef) {
+   the fitted heights. It waits for `ready` (the grid measured): at or under
+   1024px the grid re-places once after the measure (tileGrid.js
+   NARROW_PLACE_COLS), which re-cuts the sections, so both attach to the
+   settled page, once. */
+function useBlurbHold(rootRef, ready) {
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return undefined;
+    if (!root || !ready) return undefined;
     const { peek, air } = readBlurbTune(window.location.search);
     if (peek != null) root.style.setProperty('--blurb-peek', String(peek));
     if (air != null) root.style.setProperty('--blurb-air', `${air}rem`);
@@ -259,7 +264,7 @@ function useBlurbHold(rootRef) {
       root.style.removeProperty('--blurb-peek');
       root.style.removeProperty('--blurb-air');
     };
-  }, [rootRef]);
+  }, [rootRef, ready]);
 }
 
 /* ── next_project chip (08-30, Nathan — moved out of the ClientPanel meta
@@ -429,9 +434,9 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // --socket-rows and --tile-*-rows.
   const flowRef = useRef(null);
   const pageRef = useRef(null);
-  useBlurbHold(pageRef);
   const tileShape = useTileShape();
   const gridMetrics = useGridMetrics(flowRef);
+  useBlurbHold(pageRef, !!gridMetrics);
   const [blurbRows, setBlurbRows] = useState(BLURB_ROWS);
   useEffect(() => setBlurbRows(readBlurbRows()), []);
   const [visualsRowsParam, setVisualsRowsParam] = useState(null);
@@ -629,16 +634,19 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const asides = paragraphs.slice(1);
 
   // ── Compute flush grid placements around the reserved regions ──
-  // (≤ 1024 the CSS spans govern; the placement keeps the desktop count
-  // there, the server render's, so the sockets' DOM order — and where the
-  // bands cut — matches it. Above 1024 it places in the measured tier's
-  // columns: the desktop count, or the large tier's, which ?detaillargecols
-  // can dial below it.) Each later paragraph cuts a break row.
-  const placeCols = wide && tileRows ? tileRows.cols : GRID_COLS.desktop;
+  // (Above 1024 it places in the measured tier's columns: the desktop count,
+  // or the large tier's, which ?detaillargecols can dial below it; before the
+  // measure, and on the server, in the desktop count. ≤ 1024 the CSS spans
+  // govern the shapes and the placement gives the sockets' and tiles' DOM
+  // order, which pieces resize and where the bands cut: those pages keep the
+  // 3-column placement they were dialed against, tileGrid.js
+  // NARROW_PLACE_COLS, so they re-place once after the measure, as the large
+  // tier does.) Each later paragraph cuts a break row.
+  const placeCols = !wide ? NARROW_PLACE_COLS : tileRows ? tileRows.cols : GRID_COLS.desktop;
   const flush = computeFlushGrid(showcase, {
     regions,
     cols: placeCols,
-    sqRows: tileRows?.cols === placeCols ? tileRows.sq : SQ_ROWS_FALLBACK,
+    sqRows: !wide ? SQ_ROWS_NARROW : tileRows?.cols === placeCols ? tileRows.sq : SQ_ROWS_FALLBACK,
     breaks: asides.length,
     breakEvery: blurbRows,
   });

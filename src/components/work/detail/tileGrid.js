@@ -58,13 +58,24 @@ export const readDetailLargeCols = (search = window.location.search) => {
    Phone and tablet keep their own counts: the directory's 2 and 4 are not
    taken there. */
 export const GRID_COLS = { phone: 1, tablet: 2, desktop: 5 };
-/* Square span before the grid is measured (server render, first client
-   frame): TILE_SHAPE on a 1440px grid in the desktop columns with the 2px
-   --space-1 gap, so a laptop's first paint is already final. */
-export const SQ_ROWS_FALLBACK = rowsFor(
-  (1440 - (GRID_COLS.desktop - 1) * 2) / GRID_COLS.desktop / TILE_SHAPE,
-  2
-);
+/* The columns a tablet or phone page PLACES in. At or under 1024px the CSS
+   spans give the shapes (masonry.css), and the placement gives the rest: the
+   tiles' order, which pieces the packer resizes, and where the description
+   bands cut. Those pages were dialed against the 3-column placement the
+   desktop had until 11-14 and keep it. Nathan's column change named the
+   desktop count; placed at 5, a phone page put its second paragraph about two
+   screens further down, merged two paragraphs on one page and re-cropped
+   pieces. So FeaturedProjectDetail places here once the grid measures at or
+   under 1024px, and the server render stays in the desktop count. */
+export const NARROW_PLACE_COLS = 3;
+/* A square's span on a 1440px grid in `cols` columns (TILE_SHAPE, the 2px
+   --space-1 gap): what the placement uses where no measured span applies. */
+export const sqRowsFallbackFor = (cols) => rowsFor((1440 - (cols - 1) * 2) / cols / TILE_SHAPE, 2);
+/* Before the grid is measured (server render, first client frame): the
+   desktop columns, so a laptop's first paint is already final. */
+export const SQ_ROWS_FALLBACK = sqRowsFallbackFor(GRID_COLS.desktop);
+/* At or under 1024px: the narrow placement's square, as it was before 11-14. */
+export const SQ_ROWS_NARROW = sqRowsFallbackFor(NARROW_PLACE_COLS);
 export const gridTierFor = (vw, largePx = GRID_LARGE_PX) =>
   vw <= 768 ? 'phone' : vw <= 1024 ? 'tablet' : vw >= largePx ? 'large' : 'desktop';
 export const gridColsFor = (vw, largePx = GRID_LARGE_PX, largeCols = DETAIL_LARGE_COLS) => {

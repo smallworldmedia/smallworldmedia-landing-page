@@ -9,7 +9,10 @@ import {
   GRID_LARGE_PX,
   DETAIL_LARGE_COLS,
   GRID_COLS,
+  NARROW_PLACE_COLS,
   SQ_ROWS_FALLBACK,
+  SQ_ROWS_NARROW,
+  sqRowsFallbackFor,
   rowsFor,
   gridTierFor,
   gridColsFor,
@@ -57,6 +60,19 @@ test('the detail grid above 1024px holds the Project Directory\'s columns (Natha
   assert.equal(DETAIL_LARGE_COLS, SSR_TUNE.largeCols, 'large: the directory\'s ?dirlargecols default')
   assert.deepEqual([GRID_COLS.phone, GRID_COLS.tablet], [1, 2], 'phone and tablet keep their own counts')
   assert.equal(SQ_ROWS_FALLBACK, rowsFor((1440 - 4 * 2) / 5, 2), 'the server render\'s square is a 1440px laptop\'s in 5 columns')
+})
+
+test('a tablet or phone page keeps the 3-column placement it was dialed against, whatever the desktop count', () => {
+  assert.equal(NARROW_PLACE_COLS, 3)
+  assert.equal(SQ_ROWS_NARROW, rowsFor((1440 - 2 * 2) / 3, 2), 'the square the placement used before 11-14')
+  assert.equal(sqRowsFallbackFor(GRID_COLS.desktop), SQ_ROWS_FALLBACK)
+  assert.notEqual(SQ_ROWS_NARROW, SQ_ROWS_FALLBACK, 'the two placements are not the same grid')
+  const src = readFileSync(new URL('../../src/components/work/detail/FeaturedProjectDetail.jsx', import.meta.url), 'utf8')
+  assert.match(src, /const placeCols = !wide \? NARROW_PLACE_COLS : tileRows \? tileRows\.cols : GRID_COLS\.desktop;/)
+  assert.match(src, /sqRows: !wide \? SQ_ROWS_NARROW : /)
+  // The phone reading sections attach to the settled page: after the measure, never before the re-place.
+  assert.match(src, /useBlurbHold\(pageRef, !!gridMetrics\)/)
+  assert.match(src, /if \(!root \|\| !ready\) return undefined;/)
 })
 
 test('?detaillargecols: an integer 3 to 6, anything else falls back to 6', () => {
