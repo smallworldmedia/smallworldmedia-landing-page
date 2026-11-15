@@ -11,16 +11,15 @@ import {
   stationOf,
   schemeAt,
   shouldPassWheel,
-  pieWedges,
-  arcPoint,
+  barSpans,
   schemeParams,
 } from '../../src/components/siteSchemeLogic.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 
-test('stationOf and schemeAt map all four schemes both ways', () => {
-  assert.deepEqual(SCHEMES, ['project', 'black', 'blue', 'spectrum']);
+test('stationOf and schemeAt map the three active schemes both ways', () => {
+  assert.deepEqual(SCHEMES, ['project', 'black', 'blue']);
   SCHEMES.forEach((name, i) => {
     assert.equal(stationOf(name), i, `stationOf(${name})`);
     assert.equal(schemeAt(i), name, `schemeAt(${i})`);
@@ -28,7 +27,8 @@ test('stationOf and schemeAt map all four schemes both ways', () => {
   });
 });
 
-test('stationOf: an unknown name sits on the default (project) station', () => {
+test('stationOf: an unknown or parked name sits on the default (project) station', () => {
+  assert.equal(stationOf('spectrum'), 0, 'a ?scheme=spectrum preview leaves the widget on project');
   assert.equal(stationOf('purple'), 0);
   assert.equal(stationOf(undefined), 0);
   assert.equal(stationOf(null), 0);
@@ -36,10 +36,10 @@ test('stationOf: an unknown name sits on the default (project) station', () => {
 });
 
 test('schemeAt wraps like the pager does, and junk falls to the default', () => {
-  assert.equal(schemeAt(4), 'project');
-  assert.equal(schemeAt(-1), 'spectrum');
-  assert.equal(schemeAt(-5), 'spectrum');
-  assert.equal(schemeAt(5), 'black');
+  assert.equal(schemeAt(3), 'project');
+  assert.equal(schemeAt(-1), 'blue');
+  assert.equal(schemeAt(-4), 'blue');
+  assert.equal(schemeAt(4), 'black');
   assert.equal(schemeAt(2.9), 'blue');
   assert.equal(schemeAt(NaN), 'project');
   assert.equal(schemeAt(undefined), 'project');
@@ -63,35 +63,36 @@ test('shouldPassWheel: a guard of 0 (or less, or junk) is off; no outside wheel 
   assert.equal(shouldPassWheel(1000, undefined, 200), false);
 });
 
-test('pieWedges(SPECTRUM_SHARES): five wedges in the pinned order, contiguous, proportional, 0 to 360', () => {
-  const w = pieWedges(SPECTRUM_SHARES);
+test('barSpans(SPECTRUM_SHARES, 0, 26): five bars in key order, contiguous, proportional, ending at exactly 26', () => {
+  const b = barSpans(SPECTRUM_SHARES, 0, 26);
   assert.deepEqual(
-    w.map((x) => x.key),
+    b.map((x) => x.key),
     ['blue', 'red', 'green', 'yellow', 'periwinkle']
   );
-  assert.equal(w[0].start, 0);
-  assert.equal(w.at(-1).end, 360, 'the last wedge ends at exactly 360');
-  for (let i = 1; i < w.length; i++) assert.equal(w[i].start, w[i - 1].end, `wedge ${i} starts where ${i - 1} ends`);
-  const total = Object.values(SPECTRUM_SHARES).reduce((a, b) => a + b, 0);
-  for (const x of w) {
-    assert.ok(Math.abs(x.end - x.start - (SPECTRUM_SHARES[x.key] / total) * 360) < 1e-9, `${x.key} is proportional to its share`);
+  assert.equal(b[0].x, 0);
+  const end = (x) => x.x + x.w;
+  assert.equal(end(b.at(-1)), 26, 'the last bar ends at exactly x0 + width');
+  for (let i = 1; i < b.length; i++) assert.equal(b[i].x, end(b[i - 1]), `bar ${i} starts where ${i - 1} ends`);
+  const total = Object.values(SPECTRUM_SHARES).reduce((a, v) => a + v, 0);
+  for (const x of b) {
+    assert.ok(Math.abs(x.w - (SPECTRUM_SHARES[x.key] / total) * 26) < 1e-9, `${x.key} is as wide as its share`);
   }
-  // The measured shares, restated: blue is the biggest wedge, periwinkle the smallest.
-  const span = Object.fromEntries(w.map((x) => [x.key, x.end - x.start]));
-  assert.ok(span.blue > span.red && span.red > span.green && span.green > span.yellow && span.yellow > span.periwinkle);
+  // The measured shares, restated: blue is the widest bar, periwinkle the narrowest.
+  const w = Object.fromEntries(b.map((x) => [x.key, x.w]));
+  assert.ok(w.blue > w.red && w.red > w.green && w.green > w.yellow && w.yellow > w.periwinkle);
 });
 
-test('pieWedges follows the key order it is given, and arcPoint runs clockwise from 12 o\'clock', () => {
-  const w = pieWedges({ a: 1, b: 1, c: 2 });
-  assert.deepEqual(w, [
-    { key: 'a', start: 0, end: 90 },
-    { key: 'b', start: 90, end: 180 },
-    { key: 'c', start: 180, end: 360 },
+test('barSpans follows the key order and the origin it is given; a one-key input fills the width', () => {
+  assert.deepEqual(barSpans({ a: 1, b: 1, c: 2 }, 10, 40), [
+    { key: 'a', x: 10, w: 10 },
+    { key: 'b', x: 20, w: 10 },
+    { key: 'c', x: 30, w: 20 },
   ]);
-  const near = (p, q) => Math.abs(p[0] - q[0]) < 1e-9 && Math.abs(p[1] - q[1]) < 1e-9;
-  assert.ok(near(arcPoint(12, 12, 10, 0), [12, 2]), '0 deg is 12 o\'clock');
-  assert.ok(near(arcPoint(12, 12, 10, 90), [22, 12]), '90 deg is 3 o\'clock');
-  assert.ok(near(arcPoint(12, 12, 10, 180), [12, 22]), '180 deg is 6 o\'clock');
+  assert.deepEqual(barSpans({ only: 3 }, 5, 26), [{ key: 'only', x: 5, w: 26 }]);
+  assert.deepEqual(barSpans({}, 0, 26), []);
+  // Float drift never leaves a sliver: thirds of 26 still end at exactly 26.
+  const t = barSpans({ a: 1, b: 1, c: 1 }, 0, 26);
+  assert.equal(t.at(-1).x + t.at(-1).w, 26);
 });
 
 test('schemeParams: defaults, and ?schemeui ?schemeguard ?schemerows ?schemesize ?schemepitch', () => {
@@ -159,4 +160,18 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
   assert.ok(/z-index:\s*43/.test(css), 'z 43');
   assert.ok(/translate:[\s\S]*?--footer-reveal[\s\S]*?--footer-panel-h[\s\S]*?--scheme-seat/.test(css), 'rides above the rising links footer');
   assert.ok(/data-chrome-open/.test(css) && /data-menu-open/.test(css), 'yields to the overlays and the menu');
+});
+
+test('the eye: the globe path is read from the public file once, the lid shape has one source, the faces carry no orange or pie', () => {
+  const sw = read('src/components/schemeSwatches.jsx');
+  const globe = read('public/icons/swm-globe-mark.svg').match(/ d="([^"]+)"/)[1];
+  assert.ok(!sw.includes(globe.slice(0, 24)), 'the globe path data is not retyped');
+  assert.ok(/swm-globe-mark\.svg\?raw/.test(sw), 'the path comes from the public file');
+  assert.equal(sw.split('id="swm-eye-globe"').length - 1, 1, 'one <path> in one <defs>');
+  assert.ok(/href="#swm-eye-globe"/.test(sw), 'every circle <use>s it');
+  assert.ok(!/fe7701|orange|arcPoint|pieWedges/i.test(sw), 'no wedge, pie or orange face');
+  assert.ok(/barSpans\(SPECTRUM_SHARES/.test(sw), 'the project face is vertical bars in the share order');
+  const css = read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(/mask-image:[\s\S]*?var\(--eye-lid-mask\)/.test(css), 'the window mask carries the lid opening');
+  assert.ok(!/scheme-ring|scheme-halo/.test(css), 'the circular lens ring is gone');
 });

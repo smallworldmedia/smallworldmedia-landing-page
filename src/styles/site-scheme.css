@@ -1,10 +1,22 @@
-/* The colour-scheme widget's skin and seat (SQ-92). The widget is the /work graticule
-   pager (GraticulePager) mounted a second time in the lower-right corner, inside a
-   .swm-corner wrapper, with every station drawn as a circular swatch and NO visible
-   text (Nathan 11-14). pager-scale.css already skins a .fp-scale for the .swm-corner
-   host as /work's chip-and-names instrument; this sheet re-seats and re-draws it as a
-   corner dot. SKIN ONLY: no motion constant, easing, detent, magnet or timing is
-   touched, so the deploy / cascade / wipe / warp are exactly /work's.
+/* The colour-scheme widget's skin and seat (SQ-92, the eye SQ-98). The widget is the
+   /work graticule pager (GraticulePager) mounted a second time in the lower-right
+   corner, inside a .swm-corner wrapper, with every station drawn as a globe-iris circle
+   and NO visible text (Nathan 11-14). pager-scale.css already skins a .fp-scale for the
+   .swm-corner host as /work's chip-and-names instrument; this sheet re-seats and
+   re-draws it as an EYE: at rest two lids round an iris (the committed scheme); engaged,
+   the column deploys and each circle slides into the eye and becomes its iris.
+   SKIN ONLY: no motion constant, easing, detent, magnet or timing is touched, so the
+   deploy / cascade / wipe / warp are exactly /work's.
+
+   THE EYE. All measures are in units where the iris width = --scheme-swatch = 26 (1 unit
+   = 1px at the default size; ?schemesize scales the whole eye): the eye box is 48 x 28.
+   The lids (the lens art, schemeSwatches.jsx EyeArt) sit in the chip, above the window,
+   so they paint over the moving circles. The window's mask cuts every circle inside the
+   vertical band the settled iris occupies (the iris's own extent) to the lid OPENING
+   (--eye-lid-mask, set by SiteScheme from the same lid path), and leaves it whole above
+   and below the band; the feather of the pager's own window mask is folded into the
+   top and bottom layers. So a settled circle never paints outside the lids, and in
+   transit its shoulders disappear under them.
 
    Every rule is scoped under .swm-corner. Imported after pager-scale.css (BaseLayout),
    it out-specifies that sheet with the .swm-corner__pager class SiteScheme gives the
@@ -14,10 +26,10 @@
    then beats on source order.
 
    What the pager skin keeps, and what this sheet does with each part:
-     root / chip / lens   kept: the lens becomes a circular ring (a ::after on .fp-scale__lens)
-                          holding the active swatch (.fp-scale__lens-art)
-     window / strip       kept: the column of swatches, three rows deep (see --scale-rows)
-     stations             kept: each is a button holding one swatch, centred on the lens axis
+     root / chip / lens   kept: the lens is the eye's box, holding the eye art
+                          (.fp-scale__lens-art: lids + the committed iris)
+     window / strip       kept: the column of circles, three rows deep (see --scale-rows)
+     stations             kept: each is a button holding one circle, centred on the lens axis
      num / peak / den     hidden (display:none): digits, no text is painted
      pulse                hidden: the rest pulse is a /work digit veil
      pointer              hidden: the lens arrow points at a name column that is not here
@@ -29,11 +41,12 @@
    ?schemepitch, all written as custom properties on .swm-corner by SiteScheme. */
 
 .swm-corner {
-  /* Swatch diameter = the pager's <=768 tier lens-row height (--scale-num-h 1.857rem,
-     global.css): the same at every width, no viewport scale-up. (The whole chip, lens +
-     denominator, is 2 x that + 1px = 53px: wider than the 48px pitch, so the circles
-     would overlap in the column.) ?schemesize dials it. */
+  /* Iris diameter = the pager's <=768 tier lens-row height (--scale-num-h 1.857rem,
+     global.css): the same at every width, no viewport scale-up. ?schemesize dials it,
+     and the eye (48 x 28 in iris units 26) scales with it. */
   --scheme-swatch: 1.857rem;
+  --eye-w: calc(var(--scheme-swatch) * 48 / 26);
+  --eye-h: calc(var(--scheme-swatch) * 28 / 26);
   /* Row pitch = the pager's existing tier token (48px on both tiers). ?schemepitch dials it.
      Desktop reads it back as the engine's detent; at <=768 the engine writes its own
      inline pitch (the same 48px), which a dial cannot reach. */
@@ -43,8 +56,6 @@
      parses it. Four stations under wrap would show one swatch twice in a five-row window,
      so three is the most that never repeats. ?schemerows dials it. */
   --scale-rows: 1.5;
-  /* The lens ring sits this far outside the swatch; its border and outer edge add 2.5px. */
-  --scheme-ring: 4px;
   /* The rest press target: the WCAG / house 44px minimum. */
   --scheme-hit: 44px;
   /* The deployed window's bottom edge, above the privacy pill: footer inset + the pill's
@@ -61,7 +72,7 @@
 }
 
 /* — The wrapper is the widget's SEAT and its footprint: fixed lower right on the privacy pill's
-   right edge, as wide as the dot plus its ring and as tall as the deployed window, so one
+   right edge, as wide as the eye and as tall as the deployed window, so one
    box holds the widget at rest and deployed (the scheme probe's overlap gate measures it).
    It paints nothing and takes no pointer; the pager inside is absolute, centred on the
    window's middle, where the lens rests (the pager's own geometry). z 43: above the links
@@ -69,12 +80,11 @@
    pills (45), the project overlay (50) and the shell (100). Its stacking context also caps
    the engaged lift pager-scale.css gives a .swm-corner pager (z 120) at 43. — */
 .swm-corner {
-  --scheme-halo: calc(var(--scheme-ring) + 2.5px);
   position: fixed;
   right: var(--chrome-right-inset);
   bottom: var(--scheme-seat);
   z-index: 43;
-  width: calc(var(--scheme-swatch) + 2 * var(--scheme-halo));
+  width: var(--eye-w);
   height: calc(2 * var(--scale-rows) * var(--scheme-pitch));
   pointer-events: none;
   /* The links footer rises through the bottom of the viewport (SiteFooter broadcasts the
@@ -102,22 +112,22 @@ html[data-menu-open] .swm-corner {
     visibility 0s linear 0.2s;
 }
 
-/* — The pager: R = .swm-corner .fp-scale.swm-corner__pager. One swatch wide and tall (the
+/* — The pager: R = .swm-corner .fp-scale.swm-corner__pager. One eye wide and tall (the
    lens), seated so the lens sits at the wrapper's vertical middle. — */
 .swm-corner .fp-scale.swm-corner__pager {
   --pager-u: 1px;
-  --scale-w: var(--scheme-swatch);
-  --scale-num-h: var(--scheme-swatch);
+  --scale-w: var(--eye-w);
+  --scale-num-h: var(--eye-h);
   --scale-pad: 0px;
   --scale-pitch: var(--scheme-pitch);
-  /* No selection lift: every swatch is the same circle at every row. */
+  /* No selection lift: every circle is the same at every row. */
   --scale-sel: 1;
   --scale-sel-bump: 1;
-  /* The window feather is the gap between a swatch's edge and the window's: each outer
-     swatch is fully opaque at its edge and the window cuts clean beyond it. */
-  --scale-feather: max(0px, calc((var(--scale-pitch) - var(--scale-num-h)) / 2));
+  /* The window feather is the gap between a circle's edge and the window's: each outer
+     circle is fully opaque at its edge and the window cuts clean beyond it. */
+  --scale-feather: max(0px, calc((var(--scale-pitch) - var(--scheme-swatch)) / 2));
   position: absolute;
-  left: var(--scheme-halo);
+  left: 0;
   top: calc(var(--scale-rows) * var(--scale-pitch) - var(--scale-lens-y));
   right: auto;
   bottom: auto;
@@ -127,18 +137,19 @@ html[data-menu-open] .swm-corner {
   pointer-events: auto;
 }
 
-/* The rest press target, at least 44 x 44 around the dot. Engaged: it spans the deployed
-   window (rows each side of the lens) so the gaps between swatches do not leak the pointer
-   out and commit mid-scrub. */
+/* The rest press target, at least 44 x 44 and spanning the eye. Engaged: it spans the
+   deployed window (rows each side of the lens) so the gaps between circles do not leak the
+   pointer out and commit mid-scrub. */
 .swm-corner .fp-scale.swm-corner__pager::after {
-  inset: min(0px, calc((var(--scale-num-h) - var(--scheme-hit)) / 2));
+  inset: min(0px, calc((var(--scale-num-h) - var(--scheme-hit)) / 2))
+    min(0px, calc((var(--scale-w) - var(--scheme-hit)) / 2));
 }
 
 .swm-corner .fp-scale.swm-corner__pager[data-open]::after {
   top: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
   bottom: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
-  left: min(0px, calc((var(--scale-num-h) - var(--scheme-hit)) / 2));
-  right: min(0px, calc((var(--scale-num-h) - var(--scheme-hit)) / 2));
+  left: min(0px, calc((var(--scale-w) - var(--scheme-hit)) / 2));
+  right: min(0px, calc((var(--scale-w) - var(--scheme-hit)) / 2));
 }
 
 /* — Nothing with text, and nothing that belongs to /work's ruler, is painted. — */
@@ -158,7 +169,7 @@ html[data-menu-open] .swm-corner {
   display: none;
 }
 
-/* — The chip: just the lens ring (the denominator row is gone). — */
+/* — The chip: just the lens, the eye's box (the denominator row is gone). — */
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__chip {
   height: var(--scale-num-h);
 }
@@ -167,39 +178,19 @@ html[data-menu-open] .swm-corner {
   width: var(--scale-w);
   height: var(--scale-num-h);
   padding: 0;
-  border-radius: 50%;
-  /* No accent fill, no white charge: the ring is the only chrome, and the swatch is the face. */
+  border-radius: 999px;
+  /* No accent fill, no white charge: the lids are the only chrome, the iris is the face. */
   background: transparent;
   transition: none;
 }
 
-/* The ring: neutral white with a thin dark outer edge, so it reads on black, brand blue,
-   white and over a photo. It brightens when the pager is charged or deployed (hover
-   intent, a press, the column open) — the only hover tell a text-free dot has. */
-.swm-corner .fp-scale.swm-corner__pager .fp-scale__lens::after {
-  content: '';
-  position: absolute;
-  inset: calc(-1 * var(--scheme-ring));
-  border-radius: 50%;
-  border: 1.5px solid color-mix(in srgb, var(--color-white) 70%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-black) 45%, transparent);
-  pointer-events: none;
-  transition: border-color 0.16s var(--ease-micro);
-}
-
-.swm-corner .fp-scale.swm-corner__pager[data-charged] .fp-scale__lens::after,
-.swm-corner .fp-scale.swm-corner__pager[data-open] .fp-scale__lens::after {
-  border-color: var(--color-white);
-}
-
-/* Keyboard focus: the house white 2px ring, outside the lens ring. */
+/* Keyboard focus: the house white 2px ring around the WHOLE eye. */
 .swm-corner .fp-scale.swm-corner__pager:has(.fp-scale__station:focus-visible) .fp-scale__lens {
   outline: 2px solid var(--color-white);
-  outline-offset: calc(var(--scheme-ring) + 5px);
+  outline-offset: 4px;
 }
 
-/* The lens art: the swatch in force, in the ring. Hidden with OPACITY (never display)
-   while the column is deployed, so the hand-over to the same swatch in the column is seamless. */
+/* The lens art: the eye (lids + the committed iris), in the chip above the window. */
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__lens-art {
   position: absolute;
   top: 0;
@@ -208,21 +199,93 @@ html[data-menu-open] .swm-corner {
   height: var(--scale-num-h);
   display: grid;
   place-items: center;
-  opacity: 1;
-  transition: opacity 0.2s var(--ease-micro);
   pointer-events: none;
 }
 
-.swm-corner .fp-scale.swm-corner__pager[data-open] .fp-scale__lens-art {
+.swm-corner .fp-scale.swm-corner__pager .scheme-eye {
+  display: block;
+  width: var(--eye-w);
+  height: var(--eye-h);
+  overflow: visible;
+}
+
+/* The lids: neutral white over a thin dark edge, so they read on black, brand blue,
+   white and over a photo. They brighten when the pager is charged or deployed (hover
+   intent, a press, the column open): the only hover tell a text-free eye has. */
+.swm-corner .fp-scale.swm-corner__pager .scheme-eye__edge {
+  stroke: color-mix(in srgb, var(--color-black) 50%, transparent);
+}
+
+.swm-corner .fp-scale.swm-corner__pager .scheme-eye__lid {
+  stroke: color-mix(in srgb, var(--color-white) 70%, transparent);
+  transition: stroke 0.16s var(--ease-micro);
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-charged] .scheme-eye__lid,
+.swm-corner .fp-scale.swm-corner__pager[data-open] .scheme-eye__lid {
+  stroke: var(--color-white);
+}
+
+/* The rest iris. Hidden with OPACITY while the column is deployed: its twin, the column's
+   centre circle, sits on the same pixels (same art, same place), so the hand-over neither
+   jumps, doubles nor resizes. The lids stay, above the moving circles. */
+.swm-corner .fp-scale.swm-corner__pager .scheme-eye__iris {
+  opacity: 1;
+  transition: opacity 0.2s var(--ease-micro);
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-open] .scheme-eye__iris {
   opacity: 0;
 }
 
-/* — The window and its column: one swatch wide, centred on the lens axis. Nothing is
-   mirrored (there is no text column), and the names' horizontal room is gone. — */
+/* — The window and its column: as wide as the eye, circles centred on the lens axis.
+   Nothing is mirrored (there is no text column). The mask is the pager's feather folded
+   into a top and a bottom layer, plus the lid opening over the band the settled iris
+   occupies (centre +- half an iris): inside the band a circle shows only through the
+   lids, outside it whole. Layers add (the mask's default composite). — */
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__window {
-  --scale-w: var(--scheme-swatch);
+  --scale-w: var(--eye-w);
   --scale-pad: 0px;
+  --eye-band: calc(var(--scheme-swatch) / 2);
   width: var(--scale-w);
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      var(--color-black) var(--scale-feather),
+      var(--color-black) calc(50% - var(--eye-band)),
+      transparent calc(50% - var(--eye-band))
+    ),
+    linear-gradient(
+      to bottom,
+      transparent calc(50% + var(--eye-band)),
+      var(--color-black) calc(50% + var(--eye-band)),
+      var(--color-black) calc(100% - var(--scale-feather)),
+      transparent 100%
+    ),
+    var(--eye-lid-mask);
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      var(--color-black) var(--scale-feather),
+      var(--color-black) calc(50% - var(--eye-band)),
+      transparent calc(50% - var(--eye-band))
+    ),
+    linear-gradient(
+      to bottom,
+      transparent calc(50% + var(--eye-band)),
+      var(--color-black) calc(50% + var(--eye-band)),
+      var(--color-black) calc(100% - var(--scale-feather)),
+      transparent 100%
+    ),
+    var(--eye-lid-mask);
+  -webkit-mask-size: 100% 100%, 100% 100%, var(--eye-w) var(--eye-h);
+  mask-size: 100% 100%, 100% 100%, var(--eye-w) var(--eye-h);
+  -webkit-mask-position: 0 0, 0 0, 50% 50%;
+  mask-position: 0 0, 0 0, 50% 50%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__station {
@@ -237,6 +300,15 @@ html[data-menu-open] .swm-corner {
   display: block;
   width: var(--scheme-swatch);
   height: var(--scheme-swatch);
+}
+
+/* The shared defs svg (path + clips, rendered once): present for the references, never seen. */
+.swm-corner .scheme-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* Wheel guard (SiteScheme): while a page scroll that began outside is still going, the

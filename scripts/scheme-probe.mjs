@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
  * scheme-probe — the acceptance matrix of the US-7 colour schemes (project | black | blue | spectrum).
+ * spectrum is PARKED (SQ-98): not a widget station and never stored, but this probe loads
+ * `?scheme=spectrum` as a preview, which the latch still applies, so `--scheme=spectrum` runs unchanged.
  * For each scheme x route x width it loads `<path>?scheme=<name>`, waits for every client:load island
  * to commit, dumps the painted colours of every visible non-media element (and its ::before/::after),
  * and runs the gates of scripts/lib/scheme-gate.mjs over the dump (pure functions, unit-tested in

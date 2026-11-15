@@ -114,7 +114,9 @@ const roster = await getDirectoryData()
     <meta name="theme-color" content="#000000" />
 
     {/* US-7 colour scheme, latched before first paint: ?scheme= (a preview, never stored)
-        > localStorage swm:scheme > project. html[data-scheme] is always set. The shared
+        > localStorage swm:scheme > project. A stored value must be ACTIVE (a stored
+        spectrum, from before it was parked, is ignored); ?scheme= takes an active or a
+        parked name. html[data-scheme] is always set. The shared
         state is window.__swmScheme (src/lib/colorScheme.js reads and writes it); the
         names and key repeat that module's (scripts/test/color-scheme.test.mjs pins the
         parity). ClientRouter replaces <html>'s attributes and inline style on every
@@ -124,7 +126,8 @@ const roster = await getDirectoryData()
         var w = window;
         if (w.__swmScheme) return;
         var d = document;
-        var names = ['project', 'black', 'blue', 'spectrum'];
+        var names = ['project', 'black', 'blue'];
+        var parked = ['spectrum'];
         var committed = 'project';
         var applied;
         var fade = '';
@@ -136,7 +139,7 @@ const roster = await getDirectoryData()
         try {
           var q = new URLSearchParams(w.location.search);
           var pick = q.get('scheme');
-          if (names.indexOf(pick) > -1) applied = pick;
+          if (names.indexOf(pick) > -1 || parked.indexOf(pick) > -1) applied = pick;
           var ms = q.get('schemefade');
           if (ms !== null && ms.trim() !== '' && isFinite(Number(ms)) && Number(ms) >= 0) {
             fade = Number(ms) + 'ms';

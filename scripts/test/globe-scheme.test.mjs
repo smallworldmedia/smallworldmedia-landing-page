@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 import { sceneAccent, gapHex, GAP_COLOR } from '../../src/components/globe/globeConfig.js';
 import { nameAsset, nameInks, nameStripPaints, loadNameTexture } from '../../src/components/globe/nameTicker.js';
 import TextureManager, { assetKey } from '../../src/components/globe/TextureManager.js';
-import { SCHEMES, SPECTRUM } from '../../src/lib/colorScheme.js';
+import { SCHEMES as ACTIVE_SCHEMES, PARKED_SCHEMES, SPECTRUM } from '../../src/lib/colorScheme.js';
+// The canvases still serve the parked spectrum preview: every case runs over active and parked names.
+const SCHEMES = [...ACTIVE_SCHEMES, ...PARKED_SCHEMES];
 
 const WORLD = { slug: 'acme', clientName: 'Acme', projectColor: '#fd361a', spectrum: 'green' };
 const BARE = { slug: 'bare', clientName: 'Bare' }; // no projectColor, no spectrum key

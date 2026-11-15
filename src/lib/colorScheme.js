@@ -1,8 +1,9 @@
 /**
  * colorScheme — the ONE module that decides the site's colour scheme (US-7).
  *
- * Four presets: `project` (today's site), `black` (monochrome), `blue` (every
- * project colour is brand blue) and `spectrum` (ribbons on black). CSS reads
+ * Three active presets: `project` (today's site), `black` (monochrome) and `blue`
+ * (every project colour is brand blue). `spectrum` (ribbons on black) is PARKED: it
+ * stays in the code and applies as a `?scheme=spectrum` preview only. CSS reads
  * only `html[data-scheme]`; canvases listen only to the `swm:scheme` window
  * event; a scheme change never re-renders React and writes nothing but
  * `data-scheme`. `useScheme()` exists for the picker widget's label alone.
@@ -22,7 +23,13 @@
 import { useSyncExternalStore } from 'react';
 import { projectInk } from './projectColor.js';
 
-export const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
+/** The ACTIVE schemes: the widget's stations, and the only names that may be committed or stored. */
+export const SCHEMES = ['project', 'black', 'blue'];
+/**
+ * PARKED schemes stay in the code but are switched off (Nathan 11-15): not a widget
+ * station, never stored, applied only as a `?scheme=` preview (a `preview: true` call).
+ */
+export const PARKED_SCHEMES = ['spectrum'];
 export const DEFAULT_SCHEME = 'project';
 export const SCHEME_STORAGE_KEY = 'swm:scheme';
 export const SCHEME_EVENT = 'swm:scheme';
@@ -39,7 +46,10 @@ export const SPECTRUM = {
 /** Measured area shares of color-ref.png (ratios, not percentages of anything else). */
 export const SPECTRUM_SHARES = { blue: 13.0, red: 12.0, green: 10.6, yellow: 6.2, periwinkle: 5.0 };
 
+/** An ACTIVE scheme: a station, committable, storable. */
 export const isScheme = (v) => SCHEMES.includes(v);
+/** Active or parked: a name `data-scheme` may carry. */
+export const isKnownScheme = (v) => isScheme(v) || PARKED_SCHEMES.includes(v);
 
 /** The shared state, created on first touch when the latch did not run. null on the server. */
 function state() {
@@ -52,7 +62,7 @@ function state() {
 /** The applied scheme, a live preview included. */
 export function getScheme() {
   const s = state();
-  return s && isScheme(s.applied) ? s.applied : DEFAULT_SCHEME;
+  return s && isKnownScheme(s.applied) ? s.applied : DEFAULT_SCHEME;
 }
 
 /** The last non-preview scheme (what is stored, or `project`). */
@@ -73,7 +83,8 @@ export function getCommittedScheme() {
  */
 export function setScheme(name, { preview = false } = {}) {
   const s = state();
-  if (!s || !isScheme(name)) return getScheme();
+  // Unknown: no-op. Parked without `preview`: no-op (nothing applied, stored or dispatched).
+  if (!s || !isKnownScheme(name) || (!preview && !isScheme(name))) return getScheme();
   const prev = getScheme();
   const changed = preview ? prev !== name : prev !== name || getCommittedScheme() !== name;
   if (!changed) return prev;
