@@ -782,6 +782,11 @@
    padding-right. */
 html {
   font-size: 14px;
+  /* A scheme change fades the fills that read the role tokens (scheme.css);
+     the tint scope below restates this list with the project colours added. */
+  transition:
+    --scheme-page var(--scheme-fade, var(--project-color-fade)) var(--ease-panel),
+    --scheme-chip var(--scheme-fade, var(--project-color-fade)) var(--ease-panel);
 }
 
 html,
@@ -972,7 +977,9 @@ html.pop-tint,
     --project-color var(--project-color-fade) var(--accent-ease, var(--ease-panel)) var(--accent-delay, 0s),
     --project-color-2 var(--project-color-fade) var(--accent-ease, var(--ease-panel)) var(--accent-delay, 0s),
     --project-color-fg var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s),
-    --project-color-text var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s);
+    --project-color-text var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s),
+    --scheme-page var(--scheme-fade, var(--project-color-fade)) var(--ease-panel),
+    --scheme-chip var(--scheme-fade, var(--project-color-fade)) var(--ease-panel);
   /* Perceptually-even nav ink: oklab mix of near-black↔white from the
      (snapping) scalar. The color-mix() result is a NON-LEGACY colour, so
      the consumers' own color/fill transitions interpolate it in Oklab —
@@ -2308,7 +2315,7 @@ a.clients__item:focus-visible {
       outrank these rules — on the paths where it does animate. */
 .site-footer__blurb {
   --kw-bg: var(--scheme-chip);
-  --kw-ink: var(--scheme-chip-ink);
+  --kw-ink: var(--color-white);
 }
 .site-footer__blurb .kw__box {
   transform: scaleX(1);

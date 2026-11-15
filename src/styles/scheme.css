@@ -1,0 +1,163 @@
+/* ============================================================================
+   scheme.css — the `black` and `blue` colour schemes (US-7, SQ-88)
+
+   html[data-scheme] is the ONLY thing this sheet reads (colorScheme.js owns it;
+   the inline latch in BaseLayout sets it before first paint). Every rule below
+   sits under html[data-scheme='black'] or html[data-scheme='blue']: nothing
+   here may match under `project`, which is today's site to the computed style.
+   `spectrum` has its own ticket and is left unstyled here.
+
+   HOW A SCHEME REACHES THE PAGE
+   1. Role tokens (global.css, registered <color>): --scheme-page (containers
+      that are brand blue today), --scheme-chip / --scheme-chip-ink (small
+      controls and their ink), --scheme-accent-ink (accent ink on black).
+      Fills that read them fade on html (--scheme-fade); inks snap, because an
+      animating inherited custom property does not repaint text or SVG ink.
+   2. The carrier override: every colour the site paints from a project's
+      accent reads --project-color & co., which React and navAccent write
+      INLINE on <html> and on the cards/panels that carry a project. A rule
+      cannot beat an inline style without !important, so each scheme restates
+      the whole key set (the values projectColorVars(C) returns for its fixed
+      colour C) with !important, on html and on [style*='--project-color']
+      carriers. Never a universal selector: descendants must keep INHERITING
+      from the carrier so their fills ride the carrier's own transition.
+
+   Specificity: global.css and the page sheets rank equal and their order
+   differs between dev and a build, so every rule here carries the
+   html[data-scheme] attribute on top of what it overrides.
+   ========================================================================== */
+
+/* — 1. Carriers: the project-colour key set, fixed per scheme — */
+
+/* black: C = #000000 → projectColorVars('#000000'). A project has no secondary
+   accent here, so --project-color-2 follows the primary; the globe filter is
+   forced to none (a light accent's inline brightness(0) would turn the white
+   SWM globe black on black). */
+html[data-scheme='black'],
+html[data-scheme='black'] [style*='--project-color'] {
+  --project-color: #000000 !important;
+  --project-color-2: #000000 !important;
+  --project-color-fg: #ffffff !important;
+  --project-color-text: #000000 !important;
+  --project-color-on-black: #ffffff !important;
+  --project-globe-filter: none !important;
+  --nav-ink-l: 1 !important;
+}
+
+/* blue: C = #0000ff → projectColorVars('#0000ff'). */
+html[data-scheme='blue'],
+html[data-scheme='blue'] [style*='--project-color'] {
+  --project-color: #0000ff !important;
+  --project-color-2: #0000ff !important;
+  --project-color-fg: #ffffff !important;
+  --project-color-text: #0000ff !important;
+  --project-color-on-black: #ffffff !important;
+  --project-globe-filter: none !important;
+  --nav-ink-l: 1 !important;
+}
+
+/* — 2. Role tokens — blue keeps the project values (global.css :root) — */
+
+html[data-scheme='black'] {
+  --scheme-page: #000000;
+  --scheme-chip: #ffffff;
+  --scheme-chip-ink: #000000;
+  --scheme-accent-ink: #ffffff;
+}
+
+/* — 3. black: the affordance rule —
+   A control whose rest fill would equal its container is a transparent fill
+   with white ink; its hover, active and selected states are a white fill with
+   black ink (the inverted affordance, --scheme-chip / --scheme-chip-ink).
+   An accent used as a FILL that would vanish into black takes the chip white;
+   an accent used as INK takes --scheme-accent-ink. Each rule carries the
+   html[data-scheme] attribute on top of the selector it overrides, and the
+   nav/privacy pills keep their open state (aria-expanded: white fill, black
+   ink) by staying out of the :not() lists below. */
+
+/* The nav pills sit on the black bar: no fill of their own. */
+html[data-scheme='black'] .site-nav__pill:not([aria-expanded='true'], .mobile-menu__close) {
+  background: transparent;
+  color: var(--color-white);
+}
+
+@media (hover: hover) {
+  html[data-scheme='black'] .site-nav__pill:not([aria-expanded='true'], .mobile-menu__close):hover,
+  html[data-scheme='black'] .site-privacy:not([aria-expanded='true']):hover {
+    background: var(--scheme-chip);
+    color: var(--scheme-chip-ink);
+  }
+}
+
+html[data-scheme='black'] .mobile-menu__privacy:hover,
+html[data-scheme='black'] .mobile-menu__privacy:active {
+  background: var(--scheme-chip);
+  color: var(--scheme-chip-ink);
+}
+
+/* The home lockup keeps its native #0000FF artwork under `project`. */
+html[data-scheme='black'] body.route-home .site-nav__lockup svg * {
+  fill: var(--color-white);
+}
+
+/* The project detail's tabs: the active one is the chip. */
+html[data-scheme='black'] .deck-tab--active {
+  color: var(--scheme-chip-ink);
+}
+
+/* The keyword highlight: a white box with the word inked black as the box
+   wipes over it (blurb boxes read the project accent, which is black here and
+   would swallow the word). The ink layer stays white and BLENDS (difference):
+   white over the white box reads black, white over the page reads white, so
+   the word is legible both before and after the wipe without a second ink. */
+html[data-scheme='black'] .project-blurb {
+  --kw-bg: var(--scheme-chip);
+}
+
+html[data-scheme='black'] .kw__ink {
+  color: var(--color-white);
+  mix-blend-mode: difference;
+}
+
+/* Prose links: the inline control's hover is the inverted chip. */
+html[data-scheme='black'] .prose-link:hover,
+html[data-scheme='black'] .prose-link:focus-visible {
+  background: var(--scheme-chip);
+  color: var(--scheme-chip-ink);
+}
+
+/* The CTA chips: the home enter_world's charge is an inline --cta-bg (a
+   var, so a property rule beats it); /work's fp-cta charges from JS toward
+   the same white-on-black end state. */
+html[data-scheme='black'] .cta-primary[style*='--cta-bg']:hover,
+html[data-scheme='black'] .fp-cta:hover {
+  background: var(--scheme-chip);
+  color: var(--scheme-chip-ink);
+}
+
+/* Accent as ink. */
+html[data-scheme='black'] .description__text strong,
+html[data-scheme='black'] .description__text .kw-em,
+html[data-scheme='black'] .clients__item[aria-current],
+html[data-scheme='black'] .np-band.is-pinned .np-band__title {
+  color: var(--scheme-accent-ink);
+}
+
+/* blue: the same four sit on black surfaces, where brand blue is 2.4:1. The
+   accent-as-ink-on-black twin (projectColorVars: a dark accent flips to
+   white) is already the carrier's value. */
+html[data-scheme='blue'] .description__text strong,
+html[data-scheme='blue'] .description__text .kw-em,
+html[data-scheme='blue'] .clients__item[aria-current],
+html[data-scheme='blue'] .np-band.is-pinned .np-band__title {
+  color: var(--project-color-on-black);
+}
+
+/* Accent as a thin fill: progress, rules, thumbs, the globe ring. */
+html[data-scheme='black'] .detail-progress__fill,
+html[data-scheme='black'] .hero__globe-stroke,
+html[data-scheme='black'] .np-band.is-pinned .np-band__rule,
+html[data-scheme='black'] .clients__scrollbar-thumb,
+html[data-scheme='black'] .dir-filter__scrollbar-thumb {
+  background: var(--scheme-chip);
+}
