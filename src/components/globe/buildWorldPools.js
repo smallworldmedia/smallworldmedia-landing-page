@@ -16,9 +16,9 @@
  * poster still (posterStill).
  *
  * Client (PopulationDirector): selectPool() narrows a pool live for the
- * ?popmedia / ?popcap bench knobs. Both sides select round-robin across the
- * media kinds, then restore editorial (orderRank) order — so a cap never
- * starves a project's album art or stills behind a long run of videos.
+ * ?popmedia / ?popcap bench knobs. Both sides take the rank prefix: the pool in
+ * Sanity rank (orderRank) order, never a lower rank over a higher one (Nathan
+ * 11-15, SQ-104: the ranking is how he controls what faces the viewer).
  *
  * Globe asset shape: { kind: 'video'|'still'|'art', playbackId?, imageUrl?,
  * videoAspectRatio?, u?, s? } — no ids and no nulls: the pools ride the home
@@ -92,38 +92,33 @@ function toGlobeAsset(asset) {
 }
 
 /**
- * Round-robin across kinds (each kind in pool order) up to `cap`, then back
- * into pool order. `kinds` null = every kind. `budget` (?popequiv, units on):
- * Σ weigh(asset) may not exceed it — a lane whose next asset doesn't fit skips it.
+ * The pool's rank prefix, up to `cap` (Nathan 11-15, SQ-104: ranks in order, none skipped). `kinds` null = every
+ * kind. `budget` (?popequiv, units on): Σ weigh(asset) may not exceed it. An asset whose own weight no longer fits
+ * takes the smaller shape `shrink(asset)` weighs (its fallback pair, else a single) and joins `shrunk`; the walk
+ * stops at the first asset that fits neither way, so a lower rank never takes a higher one's room.
  */
-export function selectPool(pool, { kinds = null, cap = WORLD_POOL_CAP, budget = null, weigh = null } = {}) {
+export function selectPool(pool, { kinds = null, cap = WORLD_POOL_CAP, budget = null, weigh = null, shrink = null, shrunk = null } = {}) {
   let src = pool;
   if (kinds) {
     const want = new Set(kinds);
     const filtered = pool.filter((a) => want.has(a.kind));
     if (filtered.length >= MIN_KIND_POOL) src = filtered;
   }
-  if (budget == null && src.length <= cap) return src.slice();
-  const byKind = new Map();
-  src.forEach((a, i) => {
-    if (!byKind.has(a.kind)) byKind.set(a.kind, []);
-    byKind.get(a.kind).push(i);
-  });
-  const lanes = [...byKind.values()];
+  if (budget == null) return src.slice(0, cap);
   const picked = [];
   let used = 0;
-  for (let pass = 0, open = true; open && picked.length < cap; pass++) {
-    open = false;
-    for (const lane of lanes) {
-      if (pass >= lane.length || picked.length >= cap) continue;
-      open = true;
-      const w = budget == null ? 0 : weigh(src[lane[pass]]);
-      if (budget != null && used + w > budget) continue;
-      used += w;
-      picked.push(lane[pass]);
+  for (const a of src) {
+    if (picked.length >= cap) break;
+    let w = weigh(a);
+    if (used + w > budget) {
+      w = shrink ? shrink(a) : Infinity;
+      if (used + w > budget) break;
+      shrunk?.add(a);
     }
+    used += w;
+    picked.push(a);
   }
-  return picked.sort((a, b) => a - b).map((i) => src[i]);
+  return picked;
 }
 
 /**
