@@ -20,7 +20,7 @@ year: 2026
 | munchietown_gin-ling_la_072024_4x5.jpg | static_4x5 | event / tour creative | Munchietown Gin Ling LA 4x5 | false | 11 | mediaAsset-munchietown-munchietown-gin-ling-la-4x5 |
 | munchietown_puerto-rico_art-only.png | static_4x5 | illustration | Munchietown Puerto Rico Art Only | false | 12 | mediaAsset-munchietown-munchietown-puerto-rico-art-only |
 | CDMX 111324/MT_CDMX_timelapse.mp4 | motion_4x5 | Promo Video | Munchietown CDMX 111324 Timelapse |  |  | mediaAsset-24f6a0ce-0ec6-48f6-b881-3d380bf490ca |
-| Chinatown Block Party 062825/4x5.jpg | static_4x5 | Event / Tour Creative | DJ Tennis x Munchietown Chinatown Block Party 062825 |  |  | mediaAsset-de0553a3-8aa7-4cf0-920d-a06b8378be98 |
+| Chinatown Block Party 062825/4x5.jpg | static_4x5 | Event / Tour Creative | DJ Tennis Chinatown Block Party 062825 |  |  | mediaAsset-de0553a3-8aa7-4cf0-920d-a06b8378be98 |
 | Experts Only Recap 032526/mt_eo_01.jpg | static_3x4 | Event / Tour Creative | Munchietown x Experts Only Recap Photo 01 |  |  | mediaAsset-d4471249-e1dc-4552-9aea-1c385ddf9959 |
 | Experts Only Recap 032526/mt_eo_02.jpg | static_3x4 | Event / Tour Creative | Munchietown x Experts Only Recap Photo 02 |  |  | mediaAsset-53665c00-5732-45bf-bc9f-81f41def2cbe |
 | Experts Only Recap 032526/mt_eo_01.mp4 | motion_3x4 | Promo Video | Munchietown x Experts Only Recap Clip 01 |  |  | mediaAsset-5e8efb5d-4b8f-4ac8-9ba0-d0f33c1850be |
