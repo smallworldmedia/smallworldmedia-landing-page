@@ -44,6 +44,7 @@ import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 import { projectColorVars } from '../../lib/projectColor.js';
 import { applyNavAccent } from '../../lib/navAccent.js';
+import { gestureHistory } from '../../lib/gestureHistory.js';
 import {
   SCROLL_TRIGGER_WORK_PX,
   GLIDE_MS,
@@ -386,6 +387,11 @@ export default function FeaturedProjects({ worlds = [] }) {
   // effect boots the restored card (setting cards directly here raced that
   // effect and left the entrance reverted — the "card never loads" bug).
   // Since 10-06 the return is a snap like Enter World's, not a Turn.
+  // SQ-100: a browser Back reopens the World of THAT /work entry — its
+  // history state carries `swmWorld` (written below on every change), so
+  // /work → A → band → B, Back twice, lands on A's World, not B's. The
+  // sessionStorage `swm:worldIndex` stays the fallback (and the breadcrumb's
+  // source, a fresh entry with no state).
   //
   // Enter World from the home globe (globe-worlds P3) hands over the world
   // on the globe as `swm:enterWorld` (a slug — Hero) and /work opens INSIDE
@@ -416,8 +422,10 @@ export default function FeaturedProjects({ worlds = [] }) {
       }
       return;
     }
-    if (!armed || !Number.isFinite(saved)) return;
-    const idx = Math.max(0, Math.min(lastIndex, saved));
+    const kept = window.history.state?.swmWorld;
+    const from = Number.isInteger(kept) ? kept : saved;
+    if (!armed || !Number.isFinite(from)) return;
+    const idx = Math.max(0, Math.min(lastIndex, from));
     // 10-06 (Nathan): the detail-page return SNAPS too (continuity with Enter
     // World) — the breadcrumb's cover holds until this World's card is up.
     if (idx !== activeRef.current) {
@@ -444,6 +452,9 @@ export default function FeaturedProjects({ worlds = [] }) {
     } catch {
       /* storage unavailable — nothing to persist */
     }
+    // The same World on this /work history entry (ClientRouter spreads the
+    // state it keeps: index + scroll), read back by the restore above.
+    window.history.replaceState({ ...window.history.state, swmWorld: active }, '');
   }, [active]);
 
   // Drive the /work nav accent live as the active World changes, through the
@@ -526,14 +537,16 @@ export default function FeaturedProjects({ worlds = [] }) {
     pagerCommitRef.current = null;
     accumRef.current = 0;
     lockRef.current = Number.POSITIVE_INFINITY; // no Turns mid-departure
+    // A wheel/drag commit: push only under an honoured activation (SQ-100).
     if (PREFERS_REDUCED_MOTION) {
-      navigate('/'); // no theatrics — plain navigation home
+      navigate('/', gestureHistory()); // no theatrics — plain navigation home
       return;
     }
     window.dispatchEvent(
       new CustomEvent('swm:envelop', { detail: { duration: GLIDE_MS / 1000 } })
     );
-    setTimeout(() => navigate('/'), GLIDE_MS + 60); // cover ms + a settle beat
+    const opts = gestureHistory(); // judged at the gesture, not after the glide
+    setTimeout(() => navigate('/', opts), GLIDE_MS + 60); // cover ms + a settle beat
   };
 
   // Threshold crossed → fire the Turn and hold the triggering CTA at full, then

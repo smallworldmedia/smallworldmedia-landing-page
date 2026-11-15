@@ -97,6 +97,7 @@ import {
 import { TOUCH_GAIN } from '../../../lib/touchTune.js';
 import { createRubberBand } from '../../../lib/rubberBand.js';
 import { retargetNavAccent } from '../../../lib/navAccent.js';
+import { gestureHistory } from '../../../lib/gestureHistory.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 
@@ -498,8 +499,11 @@ export default function NextProjectBand({ next }) {
       /* storage unavailable */
     }
 
+    // A wheel/drag commit pushes only under an honoured activation, else it
+    // replaces (SQ-100); a click is honoured, so it pushes as before.
+    const opts = gestureHistory();
     if (PREFERS_REDUCED_MOTION) {
-      navigate(`/work/${next.slug}`);
+      navigate(`/work/${next.slug}`, opts);
       return;
     }
 
@@ -526,7 +530,7 @@ export default function NextProjectBand({ next }) {
     });
 
     const ease = CustomEase.create('swmNextBand', TURN_EASE_PATH);
-    const tl = gsap.timeline({ onComplete: () => navigate(`/work/${next.slug}`) });
+    const tl = gsap.timeline({ onComplete: () => navigate(`/work/${next.slug}`, opts) });
     // Finish the drag choreography — text completes its run to the left
     // edge, the media window opens fully off its pinned edge.
     tl.to(proxyRef.current, {
