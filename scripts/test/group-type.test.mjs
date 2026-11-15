@@ -159,7 +159,9 @@ test('NEGATIVE CONTROL buildContentFlow with no surface keeps the legacy output'
     bts: ['bts-1'],
   }
   const flow = buildContentFlow(mixed())
-  assert.deepEqual(Object.keys(flow), ['showcase', 'albumArt', 'brandDecks', 'carousels', 'banners', 'admats', 'visuals', 'liveFootage', 'mockups', 'bts'])
+  // 11-14: albumArtSeat joins (the cover wall's Studio seat); each set also carries rank + at.
+  assert.deepEqual(Object.keys(flow), ['showcase', 'albumArt', 'albumArtSeat', 'brandDecks', 'carousels', 'banners', 'admats', 'visuals', 'liveFootage', 'mockups', 'bts'])
+  assert.deepEqual(flow.albumArtSeat, { rank: 2, at: 1 }) // cover-1 is the third asset; reel-a is the first tile after it
   assert.deepEqual([flow.visuals, flow.liveFootage, flow.mockups], [[], [], []]) // US-4 / US-5: empty without a typed set
   assert.deepEqual(ids(flow.showcase), legacy.showcase)
   assert.deepEqual(ids(flow.albumArt), legacy.albumArt)

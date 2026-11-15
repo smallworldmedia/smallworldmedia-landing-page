@@ -408,6 +408,23 @@ export function splitHero(hero, { only = [] } = {}) {
 
 const sortByDeckOrder = (pages) => [...pages].sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0));
 
+/** The lanes whose members leave the tile flow as one set. */
+const SET_LANES = new Set(['album-art', 'deck', 'carousel', 'admat', 'visuals', 'live-footage', 'mockups', 'banner']);
+/** One key per set: the lane plus its group (the covers are one set, the wall). */
+const setKey = (lane, group) => `${lane}:${lane === 'album-art' ? '' : group}`;
+
+/**
+ * Every set carries its place in the Studio order (Nathan 11-14: "the order of
+ * the sets is based on the position of the first media asset in the studio
+ * ranking. Even if all of the set items were not together in order and one of
+ * them was higher up, the whole set would get pushed up to that position"):
+ *   rank  the index in `assets` of its first-ranked member. The hero counts,
+ *         so the set it belongs to has rank 0 and leads the grid.
+ *   at    the showcase index the set sits before: the first tile ranked after
+ *         that member, or the showcase's length when none is. A split hero's
+ *         thirds (unranked) and a split video's own thirds are never parted.
+ * `albumArtSeat` is the cover wall's `{rank, at}`, null without a wall.
+ */
 export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks } = {}) {
   const albumArt = [];
   const bts = [];
@@ -422,6 +439,15 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   const footageGroups = new Map();
   const mockupGroups = new Map();
   const sequenceGroups = new Map();
+  // A set's rank: its first member's index (the loop runs in rank order).
+  const firstRank = new Map();
+  const noteRank = (asset, lane, i) => {
+    if (!SET_LANES.has(lane)) return;
+    const key = setKey(lane, asset.displayGroup ?? lane);
+    if (!firstRank.has(key)) firstRank.set(key, i);
+  };
+  const rankOf = (lane, group) => firstRank.get(setKey(lane, group));
+  if (assets[0]) noteRank(assets[0], assetLane(assets[0], surface), 0);
 
   // assets[0] is the hero (first in drag-to-order ranking) — skip it.
   // showcase/albumArt entries carry their loop index so a gate fold-back
@@ -432,6 +458,7 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
 
     // Skip empty shells — assets with no uploaded media can't render
     if (!lane) continue;
+    noteRank(asset, lane, i);
 
     if (lane === 'sequence') {
       const key = asset.displayGroup ?? groupTypeOf(asset);
@@ -480,22 +507,22 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   const admats = [];
   for (const [group, members] of admatGroups) {
     if (members.length < 2) showcase.push(members[0]);
-    else admats.push({ group, items: sortByDeckOrder(members.map((e) => e.asset)) });
+    else admats.push({ group, items: sortByDeckOrder(members.map((e) => e.asset)), rank: rankOf('admat', group) });
   }
 
   // Visuals, live-footage and mockups sets: two members or more make a set (items in
   // input order); a set of one rides the showcase at its place, as admats do.
-  const setsOf = (groups) => {
+  const setsOf = (groups, lane) => {
     const sets = [];
     for (const [group, members] of groups) {
       if (members.length < 2) showcase.push(members[0]);
-      else sets.push({ group, items: members.map((e) => e.asset) });
+      else sets.push({ group, items: members.map((e) => e.asset), rank: rankOf(lane, group) });
     }
     return sets;
   };
-  const visuals = setsOf(visualsGroups);
-  const liveFootage = setsOf(footageGroups);
-  const mockups = setsOf(mockupGroups);
+  const visuals = setsOf(visualsGroups, 'visuals');
+  const liveFootage = setsOf(footageGroups, 'live-footage');
+  const mockups = setsOf(mockupGroups, 'mockups');
 
   // Carousels group like decks: group order = first appearance, slides keep
   // their incoming order (orderRank, set via drag-to-order) within a group. A
@@ -504,15 +531,13 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   const carousels = [];
   for (const [group, members] of carouselGroups) {
     if (members.length < 2 && groupTypeOf(members[0].asset) === 'flyer-progression') showcase.push(members[0]);
-    else carousels.push({ group, pages: members.map((e) => e.asset) });
+    else carousels.push({ group, pages: members.map((e) => e.asset), rank: rankOf('carousel', group) });
   }
 
   // ORBIT_MIN gate — below it, covers fold back into the showcase flow.
   const orbits = albumArt.length >= orbitMin;
-  const showcaseOut = expandChunks(
-    (orbits ? showcase : [...showcase, ...albumArt]).sort((a, b) => a.i - b.i).map((e) => e.asset),
-    chunks
-  );
+  const ranked = (orbits ? showcase : [...showcase, ...albumArt]).sort((a, b) => a.i - b.i);
+  const showcaseOut = expandChunks(ranked.map((e) => e.asset), chunks);
   const { rest: heroRest } = splitHero(assets[0], chunks);
   let heroAt = Math.min(HERO_SPLIT_AT, showcaseOut.length);
   // Never between another video's thirds: land right after the run it would cut.
@@ -525,10 +550,34 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   const brandDecks = [...deckGroups.entries()].map(([group, pages]) => ({
     group,
     pages: sortByDeckOrder(pages),
+    rank: rankOf('deck', group),
   }));
 
   // Banners keep incoming orderRank order within each group.
-  const banners = [...bannerGroups.entries()].map(([group, items]) => ({ group, items }));
+  const banners = [...bannerGroups.entries()].map(([group, items]) => ({ group, items, rank: rankOf('banner', group) }));
 
-  return { showcase: showcaseOut, albumArt: albumArtOut, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups, bts };
+  // Each set's seat in the final showcase (the hero's thirds are in it now, and
+  // carry no rank; a split video's thirds share their video's).
+  const tileRank = new Map(ranked.map((e) => [e.asset._id, e.i]));
+  const seatAt = (rank) => {
+    const k = showcaseOut.findIndex((tile) => tileRank.get(tile.chunk?.of ?? tile._id) > rank);
+    return k === -1 ? showcaseOut.length : k;
+  };
+  const seated = (sets) => sets.map((set) => ({ ...set, at: seatAt(set.rank) }));
+  const coverRank = rankOf('album-art');
+  const albumArtSeat = orbits ? { rank: coverRank, at: seatAt(coverRank) } : null;
+
+  return {
+    showcase: showcaseOut,
+    albumArt: albumArtOut,
+    albumArtSeat,
+    brandDecks: seated(brandDecks),
+    carousels: seated(carousels),
+    banners: seated(banners),
+    admats: seated(admats),
+    visuals: seated(visuals),
+    liveFootage: seated(liveFootage),
+    mockups: seated(mockups),
+    bts,
+  };
 }

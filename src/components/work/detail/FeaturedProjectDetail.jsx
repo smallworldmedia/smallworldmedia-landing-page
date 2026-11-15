@@ -8,15 +8,15 @@
  *   1. ClientPanel — blue info band (title, client meta, socials)
  *   2. Hero slot — the collection's first-ranked asset (assets[0]), full-bleed
  *   3. Project blurb — overview copy + client/date fields + ServiceTags
- *   4. Dense grid — remaining showcase assets in a flush 3-col grid,
+ *   4. Dense grid — remaining showcase assets in a flush grid,
  *      flowing around Grid Socket reserved regions (flushGrid.js) that
  *      float the composite occupants: AlbumArtViewer and BrandDeckViewer
- *      (both full-width — tiles flow above/below; deck takes the top
- *      anchor when alone, mid when an orbit outranks it) —
+ *      (both full-width — tiles flow above/below) —
  *      docs/orbit-deck-viewer-spec.md. A carousel is one horizontal strip in
- *      a socket of its own; an admat set gets its own flyer wall in the
- *      album-art slot; a visuals set gets a loop wall and a live-footage set a
- *      LiveFootageGrid, both mid-grid sockets (liveFootageLayout.js). The description's later
+ *      a socket of its own; an admat set gets its own flyer wall; a visuals
+ *      set gets a loop wall and a live-footage set a LiveFootageGrid
+ *      (liveFootageLayout.js). Every set sits where its first member ranks
+ *      in Studio (11-14, the `seat` anchor). The description's later
  *      paragraphs cut it into stacked grids, a text band between each.
  *   5. SiteFooter
  *
@@ -78,7 +78,7 @@ import { HOLD_MQ, PHONE_MQ, readBlurbTune } from '../../../lib/blurbHoldMath.js'
    re-choreographed left-anchored conveyor (bandLayout.js) spans the row,
    so tiles flow above/below it — not beside — and no shadowed page
    overhangs a left-column tile (the old "floating above the grid" bug).
-   Orbit still outranks deck for the top slot when a page has both.
+   Where a band sits is Studio order's call (the seats, below).
    11-11 (Nathan, US-4): the cover wall 1.5x taller (34 → 51 rows ≈ 609px; its
    ≤1024 band, 26 → 39, is in masonry.css), at a fixed 4 columns desktop / 2 phone. */
 const ORBIT_REGION_ROWS = 51;
@@ -93,7 +93,6 @@ const BANNER_REGION_ROWS_FALLBACK = 38;
 /* A full-width band: computeFlushGrid clamps a region's span to the grid's
    columns (5, or the large tier's 3-6, tileGrid.js). */
 const FULL_BAND = Infinity;
-const ORBIT_REGION = { id: 'orbit', colStart: 0, colSpan: FULL_BAND, rowSpan: ORBIT_REGION_ROWS, anchor: 'top' };
 /* 11-10, Nathan — "Big flyers that play": an admat set gets one wall in the
    album-art slot, at a FIXED column count (4 desktop, 2 phone ≤ 768) so the
    flyers read big, and a socket sized from one flyer's height at the set's
@@ -422,7 +421,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // `mockups` (US-5, SQ-58's lane) is absent until that lands: default it empty.
   const [logoDials, setLogoDials] = useState(LOGO_DIALS);
   useEffect(() => setLogoDials(readLogoDials(window.location.search)), []);
-  const { showcase: flowShowcase, albumArt, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups = [] } = buildContentFlow(assets, {
+  const { showcase: flowShowcase, albumArt, albumArtSeat, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups = [] } = buildContentFlow(assets, {
     surface: 'detail',
     chunks: chunkTune,
   });
@@ -537,81 +536,31 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   );
 
   // ── Socket regions from the content flow ──
-  // Orbit outranks deck: a lone deck takes the top anchor, a deck sharing
-  // the page with an orbit inserts mid-grid (spec § Placement). Poster
-  // decks sit BELOW the rest of the grid (08-25 (2), Nathan — the SA tour
-  // wall closes the tile field as a 'bottom' region).
-  const regions = [];
-  if (albumArt.length > 0) regions.push(ORBIT_REGION);
-  // Admat walls take the album-art slot (11-10): the first holds the top
-  // anchor when no cover wall does, the rest stack mid-grid after it. A deck
-  // yields the top anchor to any of them.
-  admats.forEach((set, i) => {
-    regions.push({
-      ...ORBIT_REGION,
-      id: `admat:${set.group}`,
-      rowSpan: admatRows(set),
-      anchor: albumArt.length === 0 && i === 0 ? 'top' : 'mid',
-    });
-  });
-  // Visuals walls and live-footage grids (US-4) stack mid-grid after the admats.
-  for (const set of visualsWalls) {
-    regions.push({ ...ORBIT_REGION, id: `visuals:${set.group}`, rowSpan: set.spanRows, anchor: 'mid' });
-  }
-  for (const set of mockupsWalls) {
-    regions.push({ ...ORBIT_REGION, id: `mockups:${set.group}`, rowSpan: set.spanRows, anchor: 'mid' });
-  }
-  for (const set of footageGrids) {
-    regions.push({ ...ORBIT_REGION, id: `footage:${set.group}`, rowSpan: set.plan.spanRows, anchor: 'mid' });
-  }
-  if (tabbedDecks.length > 0) {
-    regions.push({
-      id: 'deck',
-      colStart: 0,
-      colSpan: FULL_BAND,
-      rowSpan: DECK_REGION_ROWS,
-      anchor: albumArt.length > 0 || admats.length > 0 ? 'mid' : 'top',
-    });
-  }
-  // Carousel strips (11-11): one socket each, placed where the deck walls put
-  // them before — a portrait set (4x5 posts) closes the tile field like a
-  // poster deck; a landscape set takes the top anchor when nothing else holds
-  // it, else sits mid-grid.
-  let topFree = albumArt.length === 0 && admats.length === 0 && tabbedDecks.length === 0;
-  for (const set of carousels) {
-    let anchor = 'mid';
-    if (carouselRatio(set) < PORTRAIT_THRESHOLD) anchor = 'bottom';
-    else if (topFree) {
-      anchor = 'top';
-      topFree = false;
-    }
-    regions.push({
-      id: `carousel:${set.group}`,
-      colStart: 0,
-      colSpan: FULL_BAND,
-      rowSpan: carouselRegionRows(set),
-      anchor,
-    });
-  }
-  for (const d of posterDecks) {
-    regions.push({
-      id: `deck-solo:${d.group}`,
-      colStart: 0,
-      colSpan: FULL_BAND,
-      rowSpan: DECK_REGION_ROWS,
-      anchor: 'bottom',
-    });
-  }
-  // Banner walls close the tile field after any poster deck (09-10).
-  for (const b of banners) {
-    regions.push({
-      id: `banner:${b.group}`,
-      colStart: 0,
-      colSpan: FULL_BAND,
-      rowSpan: bannerRows(b),
-      anchor: 'bottom',
-    });
-  }
+  // Studio order seats every set (Nathan 11-14: "the order of the sets is
+  // based on the position of the first media asset in the studio ranking.
+  // Even if all of the set items were not together in order and one of them
+  // was higher up, the whole set would get pushed up to that position").
+  // Each band sits in the tile order where its first-ranked member would
+  // (`at`, buildContentFlow), whatever its type: the cover wall, a flyer
+  // wall, a visuals, mockups or live-footage set, a carousel strip, a deck
+  // or a banner wall. Sets with no tile between their first members stack in
+  // rank order. The tabbed decks share one socket, at the first of them
+  // (deck groups come in rank order). Until 11-14 the TYPE chose the place:
+  // covers and the first flyer wall on top, portrait carousels, poster decks
+  // and banners at the end, the rest mid-grid.
+  const seats = [];
+  const seat = (id, rowSpan, { rank, at }) =>
+    seats.push({ rank, region: { id, colStart: 0, colSpan: FULL_BAND, rowSpan, anchor: 'seat', at } });
+  if (albumArt.length > 0) seat('orbit', ORBIT_REGION_ROWS, albumArtSeat);
+  for (const set of admats) seat(`admat:${set.group}`, admatRows(set), set);
+  for (const set of visualsWalls) seat(`visuals:${set.group}`, set.spanRows, set);
+  for (const set of mockupsWalls) seat(`mockups:${set.group}`, set.spanRows, set);
+  for (const set of footageGrids) seat(`footage:${set.group}`, set.plan.spanRows, set);
+  if (tabbedDecks.length > 0) seat('deck', DECK_REGION_ROWS, tabbedDecks[0]);
+  for (const set of carousels) seat(`carousel:${set.group}`, carouselRegionRows(set), set);
+  for (const d of posterDecks) seat(`deck-solo:${d.group}`, DECK_REGION_ROWS, d);
+  for (const b of banners) seat(`banner:${b.group}`, bannerRows(b), b);
+  const regions = seats.sort((x, y) => x.rank - y.rank).map((x) => x.region);
 
   const isPortraitHero = hero && !heroIsDeck && ratioOf(hero) < PORTRAIT_THRESHOLD;
 

@@ -29,7 +29,7 @@ One 1D phase scalar with unified velocity state. All inputs write to a single an
 
 Extends `computeFlushGrid` with **reserved regions** — rectangular blocks `{colStart, colSpan, rowSpan, anchor}` that dense placement flows around and that participate in the flush-bottom pass (grid stays gapless).
 
-- **Anchors:** `top` (region starts at row 0, below the blurb) and `mid` (two-pass: compute the natural grid without the region, find the row boundary nearest the midpoint, insert the reservation, recompute — deterministic).
+- **Anchors:** `top` (region starts at row 0, below the blurb) and `mid` (two-pass: compute the natural grid without the region, find the row boundary nearest the midpoint, insert the reservation, recompute — deterministic). *Superseded on the detail page 11-14:* every set is seated by Studio order (the `seat` anchor in `flushGrid.js`, at the rank of the set's first member), so the Placement rules below are history.
 - **The socket layer:** positions its occupant absolutely over the region's px rect, on a higher z-index than the grid, with:
   - **Bounded overlap** — the occupant may overhang neighboring tiles by a tunable cap (~15–25% of a cover/page height). Enough to break the plane, never enough to bury showcase work. Overhang into blurb whitespace is free.
   - **Parallax** — the layer tracks scroll at a differential (~0.92×, tunable), driven by Lenis's smoothed scroll. The region carries padding margin so drift never collides with neighbors. Off under reduced motion.

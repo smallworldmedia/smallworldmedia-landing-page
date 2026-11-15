@@ -63,7 +63,9 @@ test('published scoped detail query preserves hero, deck/carousel order and rele
   const typeOf = (id) => detail.assets.find((a) => a._id === id).groupType
   assert.deepEqual([typeOf('page-1'), typeOf('slide-1'), typeOf('slide-2'), typeOf('cover')], ['deck', 'carousel', null, null])
   // Banner groups (09-10): routed by displayGroup, orderRank order kept, out of the showcase.
-  assert.deepEqual(flow.banners, [{ group: 'soundcloud-banners', items: flow.banners[0].items }])
+  // 11-14: a set carries its Studio seat. banner-2 is the 8th asset (rank 7) and no tile
+  // ranks after it, so the wall sits after both showcase tiles (cover, motion).
+  assert.deepEqual(flow.banners, [{ group: 'soundcloud-banners', items: flow.banners[0].items, rank: 7, at: 2 }])
   assert.deepEqual(flow.banners[0].items.map(({ _id }) => _id), ['banner-2', 'banner-1'])
   assert.ok(!flow.showcase.some(({ _id }) => _id.startsWith('banner-')))
   assert.equal(ratioOf(flow.brandDecks[0].pages[0]), 4 / 5)

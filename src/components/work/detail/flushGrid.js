@@ -23,6 +23,20 @@
  *              region starts at the grid's natural end (bottoms stack), no
  *              tile ever places below it, and the guarded stretch flushes
  *              the tile field down to its top edge.
+ *   `seat`   — Studio order (Nathan 11-14: a set sits where its first
+ *              member ranks). The region carries `at`, a showcase index, and
+ *              is pinned DURING placement, just before tile `at`: on the
+ *              first row at or below everything placed so far where its
+ *              columns are free. No earlier tile ever sits below it; later
+ *              tiles may back-fill the holes it leaves above, as dense
+ *              placement does everywhere. Seats with one `at` stack in the
+ *              caller's order; `at` 0 is the top of the grid, `at` past the
+ *              last tile its end. The detail page seats every set this way.
+ *              Two rules keep the back-fill near the seam: a split video's
+ *              tiles stay on one side of every seat (placeAll), and where a
+ *              piece must be cut to a square to close a hole, the search
+ *              takes the pieces nearest the seat before the least-cropped
+ *              ones (`pulled`, computeFlushGrid).
  *   `break`  — zero-height full-width cuts (11-03, the description's later
  *              paragraphs): `opts.breaks` of them, pinned last of the
  *              in-field regions (pinBreaks). splitAtBreaks cuts the grid
@@ -137,10 +151,10 @@ function freeSegments(cols, blocked) {
  * The optimum is always some covered column's segment start (skyline
  * argument), so those are the only candidates checked.
  */
-function earliestFit(segs, c0, colSpan, rowSpan) {
+function earliestFit(segs, c0, colSpan, rowSpan, from = 0) {
   const candidates = new Set();
   for (let j = 0; j < colSpan; j++) {
-    for (const s of segs[c0 + j]) candidates.add(s.start);
+    for (const s of segs[c0 + j]) if (s.end > from) candidates.add(Math.max(s.start, from));
   }
 
   for (const r of [...candidates].sort((a, b) => a - b)) {
@@ -185,13 +199,13 @@ const RIGID = new WeakSet();
 /** Dense-place one asset at its earliest fit (leftmost on a tie). `how`
  *  resizes it: 'big' a square cover promoted to 2×2 (two columns, two
  *  squares' rows), 'small' a piece demoted to one square cell (SQ-82). */
-function placeOne(segs, asset, cols, sizes, how) {
+function placeOne(segs, asset, cols, sizes, how, from = 0) {
   const type = how === 'small' ? 'square' : tileClassOf(asset);
   const { colSpan, rowSpan } = how === 'big' ? { colSpan: 2, rowSpan: 2 * sizes.square.rowSpan } : sizes[type];
 
   let best = null;
   for (let c = 0; c <= cols - colSpan; c++) {
-    const r = earliestFit(segs, c, colSpan, rowSpan);
+    const r = earliestFit(segs, c, colSpan, rowSpan, from);
     if (r != null && (best === null || r < best.row)) best = { row: r, col: c };
   }
 
@@ -207,13 +221,74 @@ function placeOne(segs, asset, cols, sizes, how) {
   return p;
 }
 
+/** The first row at or below `from` where columns c0..c0+colSpan-1 are all
+ *  free for `rowSpan` rows. A break cut splits every column's free rows, so
+ *  a band found here never straddles one. */
+function bandFit(segs, c0, colSpan, from, rowSpan) {
+  let row = from;
+  for (let j = 0; j < colSpan; j++) {
+    const s = segs[c0 + j].find((x) => x.end - Math.max(x.start, row) >= rowSpan);
+    if (s.start > row) {
+      row = s.start;
+      j = -1; // a column moved the row: check them all again
+    }
+  }
+  return row;
+}
+
 /** Dense-place every showcase asset around the blocked rects; `resize` maps
- *  an index to 'big' or 'small' (placeOne). */
-function placeAll(showcase, cols, blocked, sizes, resize = NONE) {
+ *  an index to 'big' or 'small' (placeOne). `seats` (anchor 'seat', sorted by
+ *  `at`) are pinned on the way, each just before tile `at`, below everything
+ *  placed so far (`floor`): the tiles before it and the seats before it.
+ *  Returns the placements and the seats with their rows. */
+function placeAll(showcase, cols, blocked, sizes, resize = NONE, seats = NO_SEATS) {
   const segs = freeSegments(cols, blocked);
-  return showcase.map((asset, i) => placeOne(segs, asset, cols, sizes, resize.get(i)));
+  const seated = [];
+  let next = 0;
+  let floor = 0;
+  const pin = () => {
+    const r = seats[next++];
+    const row = bandFit(segs, r.colStart, r.colSpan, floor, r.rowSpan);
+    occupy(segs, r.colStart, r.colSpan, row, r.rowSpan);
+    seated.push({ ...r, rowStart: row, rowEnd: row + r.rowSpan });
+    floor = row + r.rowSpan;
+  };
+  // A split video's tiles (its thirds, side by side in the list) stay on one
+  // side of every seat. Dense placement alone can drop one third into a hole
+  // above a band and the others below it; then they all start below it. The
+  // run is tried on a copy of the free segments first (occupy swaps a column's
+  // array, never edits one, so a shallow copy is a full snapshot).
+  const startRow = (i, of) => {
+    let end = i;
+    while (end < showcase.length && showcase[end].chunk?.of === of) end++;
+    let from = 0;
+    for (;;) {
+      const trial = segs.slice();
+      const rows = [];
+      for (let j = i; j < end; j++) rows.push(placeOne(trial, showcase[j], cols, sizes, resize.get(j), from).rowStart);
+      const parting = seated.filter((r) => rows.some((x) => x < r.rowStart) && rows.some((x) => x >= r.rowEnd));
+      if (parting.length === 0) return from;
+      from = Math.max(...parting.map((r) => r.rowEnd));
+    }
+  };
+  let run = null; // the split video being placed
+  let runFrom = 0; // the row its tiles may not start above
+  const placements = showcase.map((asset, i) => {
+    while (next < seats.length && seats[next].at <= i) pin();
+    const of = asset.chunk?.of ?? null;
+    if (of !== run) {
+      run = of;
+      runFrom = of !== null && seated.length > 0 ? startRow(i, of) : 0;
+    }
+    const p = placeOne(segs, asset, cols, sizes, resize.get(i), runFrom);
+    if (p.rowEnd > floor) floor = p.rowEnd;
+    return p;
+  });
+  while (next < seats.length) pin();
+  return { placements, seated };
 }
 const NONE = new Map();
+const NO_SEATS = [];
 
 /**
  * Stage 1 — guarded stretch: each tile extends down to the next occupied
@@ -338,15 +413,13 @@ function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDE
  * the earlier row). With no tile below the last break, the rest share its
  * row — one band. No tiles at all → no breaks.
  */
-function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, every, resize) {
-  if (count <= 0 || placements.length === 0) return placements;
+function pinBreaks(place, cols, resolved, sqRows, laid, count, every) {
+  if (count <= 0 || laid.placements.length === 0) return laid;
 
-  const start = Math.min(...placements.map((p) => p.rowStart));
-  const end = Math.max(...placements.map((p) => p.rowEnd));
+  const start = Math.min(...laid.placements.map((p) => p.rowStart));
+  const end = Math.max(...laid.placements.map((p) => p.rowEnd));
   const even = (end - start) / (count + 1);
   const step = Math.min(every, even);
-  // A full-width socket band is never cut.
-  const inside = (b) => resolved.some((r) => r.rowStart < b && b < r.rowEnd);
   const cut = (i, row) => ({
     id: `break:${i}`,
     colStart: 0,
@@ -360,10 +433,14 @@ function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, e
   let floor = start;
   for (let i = 0; i < count; i++) {
     const target = start + (i + 1) * step;
+    // A full-width socket band is never cut (a seat re-pins around the cut in
+    // the trial below; this skips the rows inside it as it stands).
+    const bands = [...resolved, ...laid.seated];
+    const inside = (b) => bands.some((r) => r.rowStart < b && b < r.rowEnd);
     let best = { row: floor, holes: Infinity, dist: Infinity };
-    for (const row of new Set(placements.map((p) => p.rowEnd))) {
+    for (const row of new Set(laid.placements.map((p) => p.rowEnd))) {
       if (row < floor || inside(row)) continue;
-      const holes = holeRows(showcase, cols, [...resolved, cut(i, row)], sizes, sqRows, resize);
+      const holes = holeRows(place, cols, [...resolved, cut(i, row)], sqRows);
       const dist = Math.abs(row - target);
       if (
         holes < best.holes ||
@@ -373,20 +450,21 @@ function pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, count, e
       }
     }
     resolved.push(cut(i, best.row));
-    placements = placeAll(showcase, cols, resolved, sizes, resize);
+    laid = place(resolved);
     floor = best.row;
   }
-  return placements;
+  return laid;
 }
 
 /** Rows no tile or region covers, summed over the columns, once both
  *  stretch passes have run on a trial layout: the open holes a cut leaves. */
-function holeRows(showcase, cols, resolved, sizes, sqRows, resize) {
-  const placements = placeAll(showcase, cols, resolved, sizes, resize);
-  const end = Math.max(0, ...placements.map((p) => p.rowEnd), ...resolved.map((r) => r.rowEnd));
-  guardedStretch(placements, resolved, end);
-  forcedFill(placements, resolved, cols, end, sqRows / 2);
-  return openRows(placements, resolved, cols, end);
+function holeRows(place, cols, resolved, sqRows) {
+  const { placements, seated } = place(resolved);
+  const all = [...resolved, ...seated];
+  const end = Math.max(0, ...placements.map((p) => p.rowEnd), ...all.map((r) => r.rowEnd));
+  guardedStretch(placements, all, end);
+  forcedFill(placements, all, cols, end, sqRows / 2);
+  return openRows(placements, all, cols, end);
 }
 
 /** Rows no tile or region covers in [0, end), summed over the columns. */
@@ -414,8 +492,10 @@ function openRows(placements, resolved, cols, end) {
  * @param {Array<Object>} showcase - showcase assets (orderRank order)
  * @param {Object} [opts]
  * @param {number} [opts.cols=3]
- * @param {Array<{id: string, colStart: number, colSpan: number, rowSpan: number, anchor: 'top'|'mid'|'bottom'}>} [opts.regions=[]]
- *        Caller guarantees same-anchor regions don't overlap.
+ * @param {Array<{id: string, colStart: number, colSpan: number, rowSpan: number, anchor: 'top'|'mid'|'bottom'|'seat', at?: number}>} [opts.regions=[]]
+ *        Caller guarantees same-anchor regions don't overlap. A 'seat'
+ *        region carries `at`, the showcase index it sits before (none = the
+ *        end), and seats with one `at` stack in the order given.
  * @param {number} [opts.sqRows=24] - a square tile's row span (tileSizes);
  *        the underlay bound scales with it (half a landscape).
  * @param {number} [opts.lsRows=sqRows] - a landscape's row span in a single
@@ -464,13 +544,28 @@ export function computeFlushGrid(showcase, opts = {}) {
   // Demote non-album pieces to one square cell (SQ-82), alone or beside
   // promotions (a demotion shifts the area count by one, a promotion by
   // three: only together do some counts close). Fewest swaps first; of the
-  // flat layouts at that count, the least crop, then the nearest the end.
+  // flat layouts at that count, the least pulled (below), then the least
+  // crop, then the nearest the end.
   // Up to three swaps, from the 2 × cols pieces and the `cols` covers nearest
   // the end: a wider pool closed no more of the live directory's views (11-13)
   // and costs layouts in proportion.
   const swaps = demotable(showcase, base, opts.sqRows ?? 24).slice(0, 2 * cols);
   const near = art.slice(0, cols);
   const cost = (small) => small.reduce((s, i) => s + cropLoss(ratioOf(showcase[i]), 1), 0);
+  // With seats (11-14) a demoted piece fits the one-cell holes a band leaves
+  // above it, so a piece from the page's end can land in the first rows, above
+  // every set it ranks after. `pulled` counts how far past each seat the tiles
+  // above it rank; with no seat it is 0 and the crop decides as before.
+  const pulled = (out) => {
+    let far = 0;
+    for (const r of out.regions) {
+      if (r.anchor !== 'seat') continue;
+      out.placements.forEach((p, j) => {
+        if (j >= r.at && p.rowStart < r.rowStart) far += 1 + j - r.at;
+      });
+    }
+    return far;
+  };
   for (let k = 1; k <= 3 && swaps.length > 0; k++) {
     let flat = null;
     for (let d = 1; d <= Math.min(k, swaps.length); d++) {
@@ -480,7 +575,8 @@ export function computeFlushGrid(showcase, opts = {}) {
           const h = holes(out);
           if (h === 0) {
             const c = cost(small);
-            if (!flat || c < flat.cost - 1e-9) flat = { out, cost: c };
+            const far = pulled(out);
+            if (!flat || far < flat.far || (far === flat.far && c < flat.cost - 1e-9)) flat = { out, cost: c, far };
           } else if (h < best.holes) best = { out, holes: h };
         }
       }
@@ -540,26 +636,35 @@ function layoutFlush(
   });
 
   const resolved = norm
-    .filter((r) => r.anchor !== 'mid' && r.anchor !== 'bottom')
+    .filter((r) => r.anchor !== 'mid' && r.anchor !== 'bottom' && r.anchor !== 'seat')
     .map((r) => ({ ...r, rowStart: 0, rowEnd: r.rowSpan }));
   const mids = norm.filter((r) => r.anchor === 'mid');
   const bottoms = norm.filter((r) => r.anchor === 'bottom');
+  // Seats ride every placement pass (placeAll), so a break cut above one
+  // moves it with the tiles it follows. The sort is stable: one `at`, the
+  // caller's order.
+  const seats = norm
+    .filter((r) => r.anchor === 'seat')
+    .map((r) => ({ ...r, at: Number.isFinite(r.at) ? r.at : showcase.length }))
+    .sort((a, b) => a.at - b.at);
+  const place = (blocked) => placeAll(showcase, cols, blocked, sizes, resize, seats);
 
-  let placements;
+  let laid;
   if (mids.length === 0) {
-    placements = placeAll(showcase, cols, resolved, sizes, resize);
+    laid = place(resolved);
   } else {
     // Pass 1 — natural grid without the mid regions.
-    const natural = placeAll(showcase, cols, resolved, sizes, resize);
+    const natural = place(resolved);
     const naturalEnd = Math.max(
       0,
-      ...natural.map((p) => p.rowEnd),
+      ...natural.placements.map((p) => p.rowEnd),
+      ...natural.seated.map((r) => r.rowEnd),
       ...resolved.map((r) => r.rowEnd)
     );
 
     // Row boundaries where a tile ends; nearest one to the midpoint wins
     // (ties → higher). Multiple mids stack downward from there.
-    const boundaries = [...new Set([0, ...natural.map((p) => p.rowEnd)])].sort(
+    const boundaries = [...new Set([0, ...natural.placements.map((p) => p.rowEnd)])].sort(
       (a, b) => a - b
     );
     const midpoint = naturalEnd / 2;
@@ -573,10 +678,12 @@ function layoutFlush(
     }
 
     // Pass 2 — re-place everything around the pinned regions.
-    placements = placeAll(showcase, cols, resolved, sizes, resize);
+    laid = place(resolved);
   }
 
-  placements = pinBreaks(showcase, cols, resolved, sizes, sqRows, placements, breaks, breakEvery * sqRows, resize);
+  laid = pinBreaks(place, cols, resolved, sqRows, laid, breaks, breakEvery * sqRows);
+  const { placements } = laid;
+  resolved.push(...laid.seated);
 
   // Bottom regions — pinned at the natural end AFTER placement (tiles can
   // never flow below them), stacking downward. Added to `resolved` before
