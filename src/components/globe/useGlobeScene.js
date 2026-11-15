@@ -797,10 +797,11 @@ ${RAMP_GLSL}`
        GAP_COLOR, and only a heroInk intro ever writes t < 1. — */
     const inkWhite = new THREE.Color(0xffffff);
     const inkBlue = new THREE.Color(GAP_COLOR);
-    rampAccent.value = inkBlue;
+    const lineInk = new THREE.Color(GAP_COLOR); // what the lines between panels draw: the ring's colour (the accent, white under black)
+    rampAccent.value = lineInk;
     let inkT = 1; // kept so a world accent change re-inks at the intro's point
     const paintInk = () => {
-      innerMaterial.color.lerpColors(inkWhite, inkBlue, inkT);
+      innerMaterial.color.lerpColors(inkWhite, lineInk, inkT);
       rampWeight.value = rampMix.value * inkT; // the ramp enters on the intro's clock too: white until the ink arrives
     };
     apiRef.current.setInk = (t) => {
@@ -833,12 +834,16 @@ ${RAMP_GLSL}`
     const accentTo = { r: 0, g: 0, b: 0 };
     const accentClock = { t: 1 };
     const accentTarget = new THREE.Color(GAP_COLOR);
+    const lineFrom = { r: 0, g: 0, b: 0 };
+    const lineTo = { r: 0, g: 0, b: 0 };
+    const lineTarget = new THREE.Color(GAP_COLOR);
     let accentTween = null;
     const lerpRGB = (color, a, b, k) =>
       color.setRGB(a.r + (b.r - a.r) * k, a.g + (b.g - a.g) * k, a.b + (b.b - a.b) * k, THREE.SRGBColorSpace);
     const paintAccent = () => {
       const k = accentClock.t;
       lerpRGB(inkBlue, accentFrom, accentTo, k);
+      lerpRGB(lineInk, lineFrom, lineTo, k);
       lerpRGB(fogColor, fogFrom, fogTo, k);
       paintInk();
     };
@@ -874,6 +879,10 @@ ${RAMP_GLSL}`
       inkBlue.getRGB(accentFrom, THREE.SRGBColorSpace); // from where it is — mid-change included
       fogColor.getRGB(fogFrom, THREE.SRGBColorSpace);
       accentTarget.set(color).getRGB(accentTo, THREE.SRGBColorSpace);
+      lineInk.getRGB(lineFrom, THREE.SRGBColorSpace);
+      // ONE entity with the outline ring: the panel lines draw the ring's colour, the accent everywhere but black (white).
+      // The accent itself stays the panel fill, the surge and the fringe.
+      lineTarget.set(scheme === 'black' ? 0xffffff : color).getRGB(lineTo, THREE.SRGBColorSpace);
       fogTarget.set(gapHex(scheme)).getRGB(fogTo, THREE.SRGBColorSpace);
       if (accentTween) accentTween.kill();
       accentTween = null;
@@ -916,7 +925,7 @@ ${RAMP_GLSL}`
     const schemeDebug = (window.__swmSchemeDebug = window.__swmSchemeDebug || {});
     const globeDebug = () => ({
       accent: hex(accentTarget),
-      gap: hex(new THREE.Color().lerpColors(inkWhite, accentTarget, inkT)),
+      gap: hex(new THREE.Color().lerpColors(inkWhite, lineTarget, inkT)),
       fog: hex(fogTarget),
       strips: nameStripPaints(),
       // the outline ramp (wave 4): the mix the scene is heading to (a fade in flight reads settled) and the centre
