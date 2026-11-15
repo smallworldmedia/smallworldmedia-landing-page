@@ -227,24 +227,32 @@ const parentPath = (p) => {
   return i < 0 ? null : p.slice(0, i);
 };
 
-/** The opaque colours a path may sit on: layers walked up to the first fully opaque one, composited down. */
+const isPseudo = (p) => /::(?:before|after)$/.test(p);
+
+/**
+ * The opaque colours a path may sit on: layers walked up to the first fully opaque one, composited down.
+ * An element's `backdrop` pseudo (the probe's flag: an absolute, negative-z box behind the element's own
+ * content, such as the directory filter's wipe box) is a layer nearer than the element's own fill.
+ */
 function backgroundsOf(els, path) {
   const layers = []; // nearest first; each layer = alternatives (a gradient is one alternative per stop)
-  for (let p = path; p != null; p = parentPath(p)) {
-    const paint = els[p]?.paint;
-    if (!paint) continue;
-    const stops = Object.entries(paint).filter(([k]) => k.startsWith('bg-grad#')).map(([, v]) => parseColour(v)).filter((c) => c && c.a > 0);
-    let opaque = false;
-    if (stops.length) {
-      layers.push(stops);
-      opaque = stops.every((c) => c.a >= 1);
+  walk: for (let p = path; p != null; p = parentPath(p)) {
+    const behind = isPseudo(p) ? [] : [`${p}::after`, `${p}::before`].map((k) => els[k]).filter((r) => r?.backdrop).map((r) => r.paint);
+    for (const paint of [...behind, els[p]?.paint]) {
+      if (!paint) continue;
+      const stops = Object.entries(paint).filter(([k]) => k.startsWith('bg-grad#')).map(([, v]) => parseColour(v)).filter((c) => c && c.a > 0);
+      let opaque = false;
+      if (stops.length) {
+        layers.push(stops);
+        opaque = stops.every((c) => c.a >= 1);
+      }
+      const bg = parseColour(paint['background-color']);
+      if (!opaque && bg && bg.a > 0) {
+        layers.push([bg]);
+        opaque = bg.a >= 1;
+      }
+      if (opaque) break walk;
     }
-    const bg = parseColour(paint['background-color']);
-    if (!opaque && bg && bg.a > 0) {
-      layers.push([bg]);
-      opaque = bg.a >= 1;
-    }
-    if (opaque) break;
   }
   let alts = [{ r: 255, g: 255, b: 255, a: 1 }]; // the canvas
   for (let i = layers.length - 1; i >= 0; i--) {

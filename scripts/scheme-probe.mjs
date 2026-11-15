@@ -219,10 +219,17 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
     if (cs.boxShadow && cs.boxShadow !== 'none') (cs.boxShadow.match(COLOUR_RE) || []).forEach((c, i) => put(`shadow#${i}`, c));
     return { p, urlBg };
   }
-  function record(key, paint, text, media) {
+  function record(key, paint, text, media, backdrop) {
     if (!Object.keys(paint).length) return;
-    els[key] = { paint, ...(text ? { text: true } : {}), ...(media ? { media: true } : {}) };
+    els[key] = { paint, ...(text ? { text: true } : {}), ...(media ? { media: true } : {}), ...(backdrop ? { backdrop: true } : {}) };
   }
+  // A transform that flattens its box to nothing (the directory filter's wipe box rests at scaleX(0)).
+  const collapsed = (t) => {
+    const m = /^matrix\(([^)]+)\)$/.exec(t || '');
+    if (!m) return false;
+    const [a, b, c, d] = m[1].split(',').map(Number);
+    return a * d - b * c === 0;
+  };
   function visit(el, path, underUrl) {
     pathOf.set(el, path);
     const cs = getComputedStyle(el);
@@ -252,7 +259,10 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
         if ((w === 0 || h === 0) && !bordered) continue;
         const textual = !/^(?:""|'')$/.test(content) && !/^url\(/.test(content);
         const r = paintOf(pcs, { svg: false, graphic: false, text: textual });
-        record(path + ps, r.p, textual, underUrl || urlBg || r.urlBg || (textual && onMedia(rect)));
+        // A box painted BEHIND its element's own text (absolute, negative z-index, not flattened): the
+        // contrast gate reads it as that text's nearest background, ahead of the element's own fill.
+        const backdrop = !textual && pcs.position === 'absolute' && parseInt(pcs.zIndex, 10) < 0 && !collapsed(pcs.transform);
+        record(path + ps, r.p, textual, underUrl || urlBg || r.urlBg || (textual && onMedia(rect)), backdrop);
       }
     }
     children(el, path, underUrl || urlBg);

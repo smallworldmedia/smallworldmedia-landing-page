@@ -119,6 +119,28 @@ test('contrast: white on black passes; blue on blue fails; a translucent layer c
   assert.equal(l.offenders[0].bg, '#808080');
 });
 
+test('contrast: a backdrop pseudo is the nearest background of its element’s text; an unflagged pseudo is not', () => {
+  // The directory's checked filter: a white wipe box (::before, behind the label) on a black page.
+  const page = (ink, flag) => ({
+    html: el({ 'background-color': 'rgb(0, 0, 0)' }),
+    'html > button > span.label': el({ color: ink }, { text: true }),
+    'html > button > span.label::before': el({ 'background-color': 'rgb(255, 255, 255)' }, flag ? { backdrop: true } : {}),
+  });
+  const white = contrast(page('rgb(255, 255, 255)', true)); // white ink on the white box: the 11-14 defect
+  assert.deepEqual(white.offenders.map((o) => [o.path, o.bg]), [['html > button > span.label', '#ffffff']]);
+  assert.equal(contrast(page('rgb(0, 0, 0)', true)).pass, true); // the chip's ink on the box
+  // A box that is not behind the text (a flattened wipe, a decorative dot) leaves the page as the background.
+  assert.equal(contrast(page('rgb(255, 255, 255)', false)).pass, true);
+  assert.equal(contrast(page('rgb(0, 0, 0)', false)).pass, false);
+  // A child's text sits on its parent's backdrop box too.
+  const child = {
+    html: el({ 'background-color': 'rgb(0, 0, 0)' }),
+    'html > span.label::before': el({ 'background-color': 'rgb(255, 255, 255)' }, { backdrop: true }),
+    'html > span.label > em': el({ color: 'rgb(255, 255, 255)' }, { text: true }),
+  };
+  assert.deepEqual(contrast(child).offenders.map((o) => o.path), ['html > span.label > em']);
+});
+
 test('contrast: text over media is not measured; a gradient is judged at its worst stop', () => {
   const media = {
     html: el({ 'background-color': 'rgb(255, 255, 255)' }),
