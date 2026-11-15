@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-11-03*
+*Last Updated: 2026-11-14*
 
 ## Quick start
 ```bash
@@ -51,7 +51,7 @@ by scope.
 |---|---|
 | Tune a motion value | find the `?param` in `docs/tunables-guide.md`, dial it live, bake on Nathan's number, run `node scripts/tunables-keys.mjs --check` |
 | Change home hero / globe | `src/components/Hero.jsx`, `hero/heroConfig.js`, `globe/useGlobeScene.js`, `globe/globeConfig.js`; population modes: `globe/PopulationDirector.js` + `popConfig.js`, bench `?poptune=1`, probe with `scripts/globe-probe.mjs` (the whole run matrix: `scripts/globe-matrix.mjs check`); media spans (`?popunits`): `docs/globe-worlds-plan.md` § Media spans, `globe/unitSpan.js` + `mediaClass.js`, gates in `scripts/lib/unitGates.mjs` |
-| Change /work Worlds or pager | `work/FeaturedProjects.jsx`, `work/world/useWorldScene.js` + `worldConfig.js`, `work/pager/*`; probe with `scripts/pager-probe.mjs` |
+| Change /work Worlds or pager | `work/FeaturedProjects.jsx`, `work/world/useWorldScene.js` + `worldConfig.js`, `work/pager/*` (skin: `src/styles/pager-scale.css`); probe with `scripts/pager-probe.mjs` |
 | Change a detail page | `work/detail/FeaturedProjectDetail.jsx`, `tileGrid.js`, `buildContentFlow.js`, `flushGrid.js`, `MediaSlot.jsx`, `src/styles/project-detail.css` + `media-slot.css` (all but `FeaturedProjectDetail.jsx` and `project-detail.css` are shared with the directory: check both) |
 | Change the Project Directory | `work/directory/DirectoryPage.jsx` (URL state, the drawer's event), `DirectoryGrid.jsx` + `playerGate.js`, `DirectoryFilter.jsx` + `FilterTag.jsx`, `buildDirectoryTiles.js`, `src/lib/clientCoverage.js`, `src/styles/directory.css` + `directory-grid.css`; bench `?dirtune=1`; `node --test scripts/test/directory.test.mjs` + `flush-grid.test.mjs`; probe `scripts/globe-probe.mjs --directory`; plan `docs/project-directory-plan.md` |
 | Change /process | `process/useProcessScene.js` (scene, chips, loops), `useProcessScrollDriver.js`, `useProcessCopy.js`, `processConfig.js`, `processContent.js`, `src/styles/process.css`; spec `docs/process-page-spec.md`; probe with `scripts/process-probe.mjs` (`--walk`, `--walk --break`, `--buried`) |
@@ -59,6 +59,7 @@ by scope.
 | Change how much video a surface streams | `src/components/work/imageConfig.js` (`PREVIEW_SECONDS`, `DETAIL_MAX_SECONDS`, `muxStream`), `useHls.js`'s `videoOnly`; gate with `scripts/globe-probe.mjs` (`report.net`, `--detail=SLUG` for a detail page, `--directory` for the Project Directory) |
 | Change when the home globe's videos load | `?pophandoff` (`globe/popConfig.js` `POP_HANDOFFS`, `fast` by default since 10-28, `today` the handoff before it); `globe/streamPrefetch.js` + `work/hlsPrimed.js` fetch ahead, `globe/LivePanelScheduler.js` (`predictStarts`, `landingClips`, the 0.1 s beat), `globe/PopulationDirector.js` (`nextWarm`, `planAhead` / `adoptAhead`) and `globe/MeridianScroll.js` (`predict`) time it; read `window.__swmPopStats.handoff` (`ahead`: planned / adopted / missed by reason, and the texture keys), `changedAt`, `landedAt` |
 | Pick or add a house colour | the `--swm-*` extended palette and the `--ink-muted` role token in `src/styles/global.css`'s `:root`; consume a role token, never a raw hue, and check the contrast on black (`--swm-navy` and the brand electric blue are below 2.5:1 there) |
+| Change the site colour scheme | `src/lib/colorScheme.js` (the four presets, the spectrum deal) and the inline latch in `src/layouts/BaseLayout.astro`; preview with `?scheme=black\|blue\|spectrum` (`?schemefade=<ms>`); gate with `scripts/scheme-probe.mjs` and `node --test scripts/test/color-scheme.test.mjs` |
 | Add a client's media | write `_manifest.md` (`scripts/generate-manifests.mjs`), then `npm run cms -- plan` → `apply` → `verify` |
 | Make a sequence (one tile, many stills) | give the stills one `displayGroup` ending `-sequence` in the manifest (Studio order = frame order), then `npm run cms -- plan` → `apply` → `verify`; code in `src/lib/mediaSequence.js`, rate `?seqms`, glossary in `CONTEXT.md` |
 | Add client logos | drop into `Client Logos/`, run `node scripts/prep-client-logos.mjs`, check `--check` |

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "tool": "codebase-mapper",
   "version": "2.15.10",
-  "mappedAt": "2026-11-14",
-  "gitCommit": "59a31199409779f85fe60c15b05d36925bb80982",
+  "mappedAt": "2026-11-15",
+  "gitCommit": "f55fbac3759d0bae29163ac659ec9c04d14eb33a",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -19,16 +19,16 @@
   ],
   "hashes": {
     "INDEX.md": "5af876438dabdbf2aa1256edafb045c9b83035d595e165b9ff9d268937cf289b",
-    "architecture.md": "86dcb6e64429ea08a86515468818790bbeea801e94b71f64ced9bdef304f1e5f",
+    "architecture.md": "0abee0783785659bbeaec175a6f04adeb8164e7b34a87230ea80b0c1b7f506cb",
     "cms-pipeline.md": "e9bfcf4750ea3db1c62f09be7615c47e7187ea0aace441564e7802a882743eab",
     "coding-style.md": "856e2d0b893613d795e60ac41c216665b1b932f15dfbfd26b49620c21e04a05b",
-    "communication.md": "83a54a5879abd9956b91a7dee1f00542f417ad7e614ec9499fb2dafc3345bda1",
+    "communication.md": "e94d4c2bcb88ee79628ffc0f49007e9f3248370d1d2bb60326d3b1b2a33427f7",
     "database.md": "ba79eedbd27e1638bba9ce2ab47a1588203210e055ef4f5850c18a12b6b7222f",
-    "directory-structure.md": "bd6778e16c3a113e860fc6732897dd3b861d70068691d3c8628b39ef357954ce",
-    "entry-points.md": "974001f6687d21359a42ff2b47e1d3f233408ac60168969597c0ec91f1f3472a",
-    "modules.md": "dd83fd7a0167b8bbe6f05dbb1cebfb3b04b28237bf265078aa4caea331686202",
-    "onboarding.md": "69c7f917509c26b3dd9332779c2df7851f8327cceabc8ea5190a4c31ff14d456",
-    "patterns.md": "a397d994074e995ff80e9ec280fada2b024e84b23615b50309567ea7595483a6",
+    "directory-structure.md": "2a731aa30445d205a3991675f0a291f3a9ed8151d742a94b8e745062eca1add2",
+    "entry-points.md": "af35d1d6fd6ff2715baa16167803a084bd85470e3aaff432a0d308c727d9d3d8",
+    "modules.md": "b34aefda95b29f82a51c792972c767f908c89f94a1faa739ee8ec8cc97c583f0",
+    "onboarding.md": "4862fccfab08eea382dabcdf626c694624d9444eda192e61e0c56c85373df24f",
+    "patterns.md": "03a9304e2531f1b5aa6b7173bfd1e3191fbf74619937763d6da2643c8880c23f",
     "tech-landscape.md": "c263d061931925ed76748241192c85af74fa449fcac254dd0bd9311f1927ee4f"
   }
 }

@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-13*
+*Last Updated: 2026-11-14*
 
 ```
 .
@@ -32,12 +32,12 @@
 │   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb), GlobeLoader (the globe loader)
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, touchTune, rubberBand, blurbHold(+Math), momentum,
-│   │                         #   navAccent, projectColor, projectSlug,
+│   │                         #   navAccent, projectColor, colorScheme (the site colour scheme), projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
 │   │                         #   queries, siteCopy, directoryData, clientCoverage, scrollKick, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
-│   ├── styles/               # global.css (tokens + chrome) + per-route sheets (media-slot.css is shared by
+│   ├── styles/               # global.css (tokens + chrome) + pager-scale.css (the graticule pager's skin, loaded by the layout) + per-route sheets (media-slot.css is shared by
 │   │                         #   the detail grid and the directory) + *-tune.css benches
 │   ├── data/                 # directory-logos/ (baked white marks) + directory-logos.json (11-05) and
 │   │                         #   directory-alpha.json (measured transparency, SQ-20); all written by
@@ -49,12 +49,14 @@
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
+│   ├── lib/scheme-gate.mjs   # scheme-probe's pure gates (colour maths + the eleven gates)
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
-│   │                         #   globe-worlds, footer-reveal, flush-grid, directory, large-grid, scroll-kick)
+│   │                         #   globe-worlds, footer-reveal, flush-grid, directory, large-grid, scroll-kick, color-scheme, scheme-gate)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
-│   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs   # docs + probe tooling
+│   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs, scheme-probe.mjs   # docs + probe tooling
+│   ├── palette-measure.mjs   # colour-family shares of an image (OKLCH classifier; the scheme probe's shares gate imports it)
 │   ├── media-load-probe.mjs  # how long a media tile sits in view unpainted while a page scrolls (a measurement, not a gate)
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated

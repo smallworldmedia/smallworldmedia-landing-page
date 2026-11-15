@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-12*
+*Last Updated: 2026-11-14*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -132,6 +132,13 @@ Grain is one recipe: the FP pager scrim's static is `work/scrimNoise.js`, and a 
 recipe for the same look would be a bug. (The globe's panel grain imported it, sampling
 `panelMaterial`'s compensated `mUv` rather than inventing a second correction, until Nathan had it
 removed on 10-31.)
+
+Colour scheme (US-7, 11-14): `lib/colorScheme.js` is the one authority and `html[data-scheme]` the one
+thing CSS reads. DOM colour is CSS only, so a scheme change never re-renders React; canvases listen
+to `swm:scheme` and ask `schemeAccent` / `schemeInk`. A preview (`?scheme=`, a picker's detent)
+changes what the page shows and is never stored; only a commit that changes the committed scheme
+writes `localStorage`. The latch is an inline head script because the attribute must exist before
+first paint and ClientRouter wipes it on every swap.
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
 world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
@@ -442,7 +449,9 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   (the media spans' gates, by `--level`) and `scripts/lib/netReport.mjs` (the video diet's four:
   `streamClip`, `segmentsPerRendition`, `loops`, `audio`, judging every master by the clip its
   surface owes, imported from `work/imageConfig.js` rather than restated) take the probe's report and
-  import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures. Every gate
+  import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures.
+  `scripts/lib/scheme-gate.mjs` (the colour schemes' eleven gates, 11-14) follows the same rule under
+  `scripts/test/scheme-gate.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
   `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named
