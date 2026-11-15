@@ -349,6 +349,8 @@ test('latch: the stored scheme applies without a param; nothing stored and no pa
   assert.equal(runLatch({ storage: memStorage({ 'swm:scheme': 'blue' }) }).root.dataset.scheme, 'blue')
   assert.equal(runLatch().root.dataset.scheme, 'project')
   assert.equal(runLatch({ storage: memStorage({ 'swm:scheme': 'purple' }), search: '?scheme=green' }).root.dataset.scheme, 'project')
+  // Only an ACTIVE stored scheme applies: a stored parked one is as unknown as purple.
+  assert.equal(runLatch({ storage: memStorage({ 'swm:scheme': 'spectrum' }) }).root.dataset.scheme, 'project')
 })
 
 test('latch: a stored parked scheme is ignored (and not rewritten); ?scheme=spectrum applies as a preview', () => {
@@ -396,4 +398,7 @@ test('latch: setScheme after the latch keeps the shared state in one place', () 
   assert.equal(win.__swmScheme, state, 'the module writes the latch\'s own object')
   assert.deepEqual({ ...state }, { applied: 'black', committed: 'black' })
   assert.equal(root.dataset.scheme, 'black')
+  // The same object refuses a parked commit and keeps the committed state untouched.
+  assert.equal(setScheme('spectrum'), 'black')
+  assert.deepEqual({ ...win.__swmScheme }, { applied: 'black', committed: 'black' })
 })
