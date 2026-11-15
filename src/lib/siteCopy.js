@@ -27,6 +27,7 @@
  */
 import { sanityFetch } from './sanityClient.js';
 import { SITE_COPY_QUERY } from './queries.js';
+import { buildMemo } from './buildMemo.js';
 
 /** The copy as of 10-08 — also the no-Sanity fallback. */
 export const SITE_COPY_FALLBACK = Object.freeze({
@@ -46,25 +47,21 @@ const clean = (v, fallback) => {
   return s || fallback;
 };
 
-let pending = null;
-
 /**
  * The site copy, shaped `{ footerBlurb, infoBlurb, tagline }` — marked strings, ready for
  * `keywordLines()`. Safe to await from any .astro frontmatter; only the first
- * caller in a build actually hits the network.
+ * caller in a build actually hits the network, and the dev server reads again
+ * on a reload (buildMemo.js).
  */
-export function getSiteCopy() {
-  if (!pending) {
-    pending = sanityFetch(SITE_COPY_QUERY)
-      .then((doc) => ({
-        footerBlurb: clean(doc?.footerBlurb, SITE_COPY_FALLBACK.footerBlurb),
-        infoBlurb: clean(doc?.infoBlurb, SITE_COPY_FALLBACK.infoBlurb),
-        tagline: clean(doc?.tagline, SITE_COPY_FALLBACK.tagline),
-      }))
-      .catch((err) => {
-        console.warn('[siteCopy] Sanity read failed, using the baked copy:', err?.message || err);
-        return { ...SITE_COPY_FALLBACK };
-      });
-  }
-  return pending;
-}
+export const getSiteCopy = buildMemo(() =>
+  sanityFetch(SITE_COPY_QUERY)
+    .then((doc) => ({
+      footerBlurb: clean(doc?.footerBlurb, SITE_COPY_FALLBACK.footerBlurb),
+      infoBlurb: clean(doc?.infoBlurb, SITE_COPY_FALLBACK.infoBlurb),
+      tagline: clean(doc?.tagline, SITE_COPY_FALLBACK.tagline),
+    }))
+    .catch((err) => {
+      console.warn('[siteCopy] Sanity read failed, using the baked copy:', err?.message || err);
+      return { ...SITE_COPY_FALLBACK };
+    })
+);

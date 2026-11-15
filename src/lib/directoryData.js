@@ -17,6 +17,7 @@
  */
 import { sanityFetch } from './sanityClient.js';
 import { DIRECTORY_QUERY } from './queries.js';
+import { buildMemo } from './buildMemo.js';
 import { buildDirectoryTiles } from '../components/work/directory/buildDirectoryTiles.js';
 import manifest from '../data/directory-logos.json';
 import alpha from '../data/directory-alpha.json';
@@ -36,27 +37,20 @@ const LOGOS = Object.fromEntries(
   })
 );
 
-let pending = null;
-
 /**
  * `{ tags, clients, tiles, shuffle }` — tags in Studio order, clients with
  * their `umbrellas` (clientCoverage.js), tiles in 'project' order (each with
  * its client and credited `collaborators`, [] while unset), and
  * `shuffle` (siteSettings.directoryShuffle: true only when the Studio set it;
  * a missing field or document reads false, today's order). Only the first
- * caller in a build hits the network.
+ * caller in a build hits the network; the dev server reads again on a reload
+ * (buildMemo.js).
  */
-export function getDirectoryData() {
-  if (!pending) {
-    pending = sanityFetch(DIRECTORY_QUERY).then((data) => ({
-      tags: data.tags ?? [],
-      clients: data.clients ?? [],
-      tiles: buildDirectoryTiles({ ...data, logos: LOGOS, alpha }),
-      shuffle: data.shuffle === true,
-    }));
-    pending.catch(() => {
-      pending = null;
-    });
-  }
-  return pending;
-}
+export const getDirectoryData = buildMemo(() =>
+  sanityFetch(DIRECTORY_QUERY).then((data) => ({
+    tags: data.tags ?? [],
+    clients: data.clients ?? [],
+    tiles: buildDirectoryTiles({ ...data, logos: LOGOS, alpha }),
+    shuffle: data.shuffle === true,
+  }))
+);
