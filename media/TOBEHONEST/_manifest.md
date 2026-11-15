@@ -19,7 +19,6 @@ year: 2026
 | menace_animation.mp4 | motion_4x3 | promo video | Menace Animation | false | 10 | mediaAsset-tobehonest-menace-animation |
 | no-lames.mp4 | motion_4x5 | promo video | No Lames | false | 11 | mediaAsset-tobehonest-no-lames |
 | tbh-font_1.jpg | static_3x4 | branding | TBH Font 1 | false | 12 | mediaAsset-tobehonest-tbh-font-1 |
-| tbh-font_2.jpg | static_3x4 | branding | TBH Font 2 | false | 13 | mediaAsset-tobehonest-tbh-font-2 |
 | tobehonest_menace_3000x3000.jpg | album-art | album art | TOBEHONEST — Menace | false | 14 | mediaAsset-tobehonest-tobehonest-menace |
 | No Lames/full-cats.jpg | album-art | Album Art | TOBEHONEST x Pedroz — No Lames |  |  | mediaAsset-38d42065-8331-46d3-9125-9c29fd8175e8 |
 | Spring Dates 2025/4x5.mp4 | motion_4x5 | Event / Tour Creative | TOBEHONEST Spring Dates 2025 |  |  | mediaAsset-b0fc46ef-f941-4998-ba7f-60ffc7d984d9 |
