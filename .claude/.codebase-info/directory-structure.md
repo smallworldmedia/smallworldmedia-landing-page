@@ -18,7 +18,7 @@
 │   │   │                     #   InfoPanel, ProjectOverlay, PrivacyOverlay/Content, ClientLogoTicker,
 │   │   │                     #   Hero, HeroText, LandingPage, Lenis/Footer tune panels,
 │   │   │                     #   SiteScheme (the colour-scheme corner pager) + schemeSwatches.jsx (its art: the eye and its globe irises)
-│   │   ├── siteSchemeLogic.js    # SiteScheme's pure half (stations, wheel guard, the project iris's bar spans, ?scheme* dials)
+│   │   ├── siteSchemeLogic.js    # SiteScheme's pure half (stations, wheel guard, the globe's strips for the project iris, ?scheme* dials)
 │   │   ├── globe/            # video globe: scene hook, geometry, shader material, schedulers,
 │   │   │                     #   textures, population modes (world pools, patterns, director, tile swaps,
 │   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass),
