@@ -62,7 +62,8 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
    the island. No client-side Sanity calls.
    **Site-wide copy is a special case of the same rule** (10-08): the footer blurb and the tagline
    live on the `siteSettings` singleton, and `src/lib/siteCopy.js` memoizes the PROMISE so the whole
-   build makes one request for them. `BaseLayout.astro` awaits it — the one file every route passes
+   build makes one request for them (`src/lib/buildMemo.js`; on the dev server the memo lapses two
+   seconds after it lands, so a reload reads Sanity again). `BaseLayout.astro` awaits it — the one file every route passes
    through, /privacy, /terms and /404 included — and hands it to the two persistent islands as a `siteCopy`
    prop (`SiteTagline`, and `SiteShell` → `InfoPanel` → `SiteNav`); `index.astro` awaits the same
    memo and threads it `LandingPage` → `Hero` → `SiteFooter`, because the footer blurb reaches the

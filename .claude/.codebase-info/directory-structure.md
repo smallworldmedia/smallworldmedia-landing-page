@@ -37,7 +37,7 @@
 │   │                         #   navAccent, projectColor, colorScheme (the site colour scheme), spectrumDeal
 │   │                         #   (the build-time spectrum deal), projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
-│   │                         #   queries, siteCopy, directoryData, clientCoverage, scrollKick, *Tune
+│   │                         #   queries, buildMemo, siteCopy, directoryData, clientCoverage, scrollKick, *Tune
 │   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + pager-scale.css (the graticule pager's skin) + site-scheme.css (the corner pager's seat and swatches)
@@ -58,7 +58,7 @@
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
-│   │                         #   globe-worlds, footer-reveal, flush-grid, directory, large-grid, scroll-kick, color-scheme, scheme-gate,
+│   │                         #   globe-worlds, footer-reveal, build-memo, flush-grid, directory, large-grid, scroll-kick, color-scheme, scheme-gate,
 │   │                         #   scheme-css, spectrum-deal, nav-accent, globe-scheme, world-scheme, site-scheme)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs, scheme-probe.mjs   # docs + probe tooling
