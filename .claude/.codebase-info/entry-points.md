@@ -14,7 +14,7 @@
 | `/privacy` | `src/pages/privacy.astro` | none (SSR `PrivacyContent.jsx`) | static | live; linked from the footer copy line (the privacy pill opens the same copy as an overlay). Billing copy names only the client-facing services (Postmark, Stripe, Wise), not the books (11-03) |
 | `/terms` | `src/pages/terms.astro` | none (static markup on the `.privacy*` styles) | static | live; linked from `/privacy` |
 | `/404` | `src/pages/404.astro` | none | static | live |
-| `/studio` | `@sanity/astro` integration | Sanity Studio | — | live, sitemap-excluded |
+| `/studio` | `@sanity/astro` integration (`sanity.config.ts`; custom panes in `src/studio/`) | Sanity Studio | — | live, sitemap-excluded |
 | `/lab/globe` | `src/pages/lab/globe.astro` | `lab/VideoGlobeLab.jsx` | globe pool | **redirected** → `/` |
 | `/lab/loader` | `src/pages/lab/loader.astro` | `ui/GlobeLoader.jsx` (`GlobeLoaderStage`) | static | live review page (11-08), unlinked, sitemap-excluded |
 | `/specimen` | `src/pages/specimen.astro` | `specimen/FontSpecimen.jsx` | static | **redirected** → `/` |
@@ -48,6 +48,8 @@ Client Roster (`getDirectoryData()` → `toDrawerRoster`, `src/lib/clientCoverag
 | `npm run preview` | serve `dist/` |
 | `npm run cms -- plan|apply|verify|audit …` | CMS ingest CLI (`scripts/cms.mjs`) and read-only dataset audit, see `cms-pipeline.md` |
 | `npm run test:cms` | `node --test` over the CMS suites (`scripts/test/cms/`, `cms-*`, `legacy-cms`) |
+| `node --env-file=.env.local scripts/cms-sets-migration.mjs --project-id b60h4u7o --dataset production --out DIR` | US-10: writes the sets migration's `--changes` request files; read-only (each file then goes through `cms plan`, Nathan's yes, `apply`) |
+| `node --test scripts/test/set-hero.test.mjs scripts/test/set-hero-flow.test.mjs scripts/test/studio-set-rows.test.mjs` | US-10: the hero rule (`src/lib/setHero.js`), a set as the detail hero (`buildContentFlow`), and the Studio's set rows and moves (`src/studio/setRows.js`); not in `test:cms` |
 | `node --test scripts/test/footer-reveal.test.mjs` | the footer reveal channel's pure pieces (`footerRise` / `footerSpan` normalization, the dial seeder incl. `ZERO_OK`, the marks window, the hero-lift maths, and the wheel's weight: `footerDamp` against Lenis's damp, the house lerp as its default, `footerBrakeStep`'s tail); 24 tests at `52ff2c2`; not in `test:cms` |
 | `node --test scripts/test/globe-worlds.test.mjs` | the home globe population modes' pure pieces (world pools, patterns, director ownership, the change clock, shared streams), the media spans' arithmetic, class rule, planner (the 2×3 growth too), per-frame windows (rows and flat) and tiers, and the probe's gate modules (`scripts/lib/unitGates.mjs`, `scripts/lib/netReport.mjs`) run on fixtures (the Project Directory's preview clip too); 100 tests at `5c66f49`; not in `test:cms` |
 | `node --test scripts/test/flush-grid.test.mjs` | `work/detail/flushGrid.js` at directory scale (11-03): `classifyTile`'s edges, `tileClassOf` / `leastCropTile` for `_other` assets (SQ-66), a 3-column call (the detail page's own until 11-14, when its grid went to 5 / 6 columns) held to a snapshot, the invariants (inside the grid, no overlaps, regions) at 1, 2 and 3 columns with a landscape spanning `min(2, cols)`, and `chunkFlushGrid` (in-order chunks under `maxRows`, natural cuts that stack into the single grid, forced cuts at or under 10% on the live mix); 7 tests at `5c66f49`; not in `test:cms` |

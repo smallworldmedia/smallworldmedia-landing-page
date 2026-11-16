@@ -6,7 +6,7 @@
 .
 ├── astro.config.mjs          # Astro 5 static build, React + Sanity + sitemap integrations
 ├── netlify.toml              # build + forced redirects (disabled routes, moved projects)
-├── sanity.config.ts / sanity.cli.ts   # Studio config (structure, orderable lists)
+├── sanity.config.ts / sanity.cli.ts   # Studio config (structure, orderable lists; the per-project asset lists are src/studio/ panes since US-10)
 ├── CONTEXT.md                # media-library domain glossary (read first for CMS work)
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
 ├── src/
@@ -38,8 +38,11 @@
 │   │                         #   navAccent, projectColor, colorScheme (the site colour scheme), spectrumDeal
 │   │                         #   (the build-time spectrum deal), spectrumRamp (ramp A for the WebGL scenes), projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
-│   │                         #   queries, buildMemo, siteCopy, directoryData, clientCoverage, scrollKick, *Tune
-│   ├── schemas/              # Sanity types: client, project, mediaAsset, serviceTag,
+│   │                         #   queries, buildMemo, siteCopy, directoryData, clientCoverage, scrollKick, *Tune,
+│   │                         #   setHero (which sets may lead a project page; the Studio reads it too)
+│   ├── studio/               # Studio-only (US-10): ProjectAssetsPane (one row per piece or set), ReorderList,
+│   │                         #   SetFormInput (a Set's media), setRows (pure ordering), useProjectRows (listen + write)
+│   ├── schemas/              # Sanity types: client, project, mediaAsset, mediaSet (a set, US-10), serviceTag,
 │   │                         #   globeSettings + siteSettings (two singletons)
 │   ├── styles/               # global.css (tokens + chrome) + pager-scale.css (the graticule pager's skin) + site-scheme.css (the corner pager's seat and its eye)
 │   │                         #   + scheme.css (the black and blue colour schemes and the parked spectrum, every rule under html[data-scheme]), all four loaded by the layout in that order
@@ -52,7 +55,8 @@
 ├── public/                   # favicons, og-image, robots, icons/ sprite + social marks
 ├── scripts/
 │   ├── cms.mjs               # npm run cms — plan / apply / verify
-│   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit
+│   ├── cms-sets-migration.mjs   # US-10: writes the sets migration's --changes request files (read-only)
+│   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit, sets (Set ids and keys)
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
 │   ├── lib/scheme-gate.mjs   # scheme-probe's pure gates (colour maths + the fourteen gates)
@@ -62,7 +66,8 @@
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
 │   │                         #   globe-worlds, footer-reveal, build-memo, flush-grid, directory, large-grid, scroll-kick, color-scheme, scheme-gate,
 │   │                         #   scheme-css, spectrum-deal, spectrum-ramp, nav-accent, globe-scheme, world-scheme, site-scheme,
-│   │                         #   set-order: a detail page's sets in Studio order)
+│   │                         #   set-order: a detail page's sets in Studio order; set-hero, set-hero-flow: a set as the hero;
+│   │                         #   studio-set-rows: the Studio's set rows and moves; cms/sets, cms/sets-migration)
 │   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs, scheme-probe.mjs   # docs + probe tooling
 │   ├── palette-measure.mjs   # colour-family shares of an image (OKLCH classifier; the scheme probe's shares gate imports it)

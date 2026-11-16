@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-13*
+*Last Updated: 2026-11-16*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -45,6 +45,10 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   it landed with the hash `b346ff27` (`8e99697`, `2cb87e1`).
   mediaAsset `hideFromSite` (SQ-83, 11-13) is allowlisted as a boolean; it landed alone with the
   hash `4df34a46` (`295f4c5`).
+  Sets (US-10, 11-16): `mediaSet` is a document type (`title`, `slug` = the key, `project`, `groupType`,
+  `allowAsHero`; required title, slug, project, groupType) and mediaAsset `set` a reference to one;
+  `references()` types it as a mediaSet. Schema and hash `205ffc6c` landed alone (`6695510`), the tool
+  after (`4b106b8`). `HASHED_SCHEMAS` includes mediaSet.
   Deletes: `DELETE_TYPES` (mediaAsset, client since 11-13 (`2c73a76`), mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
@@ -67,6 +71,12 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   A manifest service may name a tag by its current Studio name or by its slug's words (11-13,
   `419bdb5`: 2D Motion keeps the slug `2d-animation`); both resolve to one reference, and a
   misspelling is still refused.
+  Sets (US-10): a changes request's `creates` may hold a mediaSet; `requireFreeKey` refuses a key
+  any other set in the dataset or the plan holds (created or renamed), and a piece is never linked
+  to a set of another project. Intake: a new row with a displayGroup joins that key's set in its
+  project (or `<key>-<project slug>`), album art joins `<project slug>-album-art`; a set the project
+  lacks is created first with the row's groupType and "Can be the hero" off (no groupType: noted,
+  not linked). The legacy displayGroup / groupType are still written.
 - `adapters.mjs` — Sanity + Mux clients (lazy credentials, streaming uploads, Mux direct upload with
   passthrough = op id; `preparing` resumes; audit reads `sanity.snapshot()` — paged raw perspective, secrets excluded — and `mux.listAssets()`), sharp/ffprobe probes (rejects non-square SAR). `sanity.findTags(slugs, names)` also
   matches `lower(name)` (a renamed tag). Delete
@@ -84,6 +94,13 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   cover to retype or a supporting piece to retag Release Packs / Event / Tour Creative.
   `hidden-from-site` (info, SQ-83) lists each mediaAsset ticked `hideFromSite` (id, title); its
   files stay in use, so it never warns.
+  Sets (US-10): `set-project-mismatch` and `set-key-duplicate` (errors), `set-empty` (warning: a Set
+  no published piece points at), `set-drift` (info: a legacy displayGroup or groupType that differs
+  from its set's; the set wins on the site) and `set-missing` (info: a piece with a displayGroup, or
+  project album art, and no set). Sets are left out of `slug-collision`.
+- `sets.mjs` — the Set naming both the runner and the migration use: `setId(projectSlug, key)` =
+  `mediaSet-<project slug>-<key>`, `albumArtKey`, `projectKey` (a key another project shares becomes
+  `<key>-<project slug>`), `keyInWords` (the title), `isProjectAlbumArt`, `newSet`, `ref`, `baseId`.
 - `state.mjs` — owner-only 0700/0600 run store outside the Dropbox checkout (default
   `~/.local/state/swm-cms/<hash>/runs`).
 
@@ -96,8 +113,17 @@ Env (process env only, never `.env` loading): `SANITY_READ_TOKEN`, `SANITY_WRITE
 `scripts/generate-manifests.mjs "Client" [--dry-run]` (TBD-filled, with an empty `groupType`
 column after `displayGroup`; never uploads, never overwrites bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
 
+## Sets migration (US-10)
+`node --env-file=.env.local scripts/cms-sets-migration.mjs --project-id ID --dataset NAME --out DIR` reads
+the dataset and writes `--changes` request files (`_cms-request_sets-migration-2026-11-<n>.json`), never
+Sanity: one Set per (project, legacy displayGroup) plus one album-art set per project with album art;
+members get only `set`; decks start with `allowAsHero` true, every other set false. Each file keeps a
+set's create with all its member patches, at most 100 operations, and is never overwritten (`wx`).
+What it cannot place (no project, no type, mixed types, a draft twin) is reported, never guessed. Each
+file then goes through plan, Nathan's yes to that plan id, apply and verify.
+
 ## Tests — `npm run test:cms`
-`scripts/test/cms/{runner,adapters,safety,delete,audit}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
+`scripts/test/cms/{runner,adapters,safety,delete,audit,sets,sets-migration}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
 groq-js), `cms-generator.test.mjs`, `legacy-cms.test.mjs`. Covers parsing, zero-write previews,
 idempotent reruns, legacy-ID matching, tampered-plan rejection, Mux resume, replacement atomicity,
 lock refusal, schema-drift fail-closed, delete blockers/drift/resume/tamper, audit (clean-set negative control, every check seeded, secrets never reported, read-only CLI), and that retired scripts
