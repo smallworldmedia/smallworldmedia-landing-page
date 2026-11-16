@@ -14,6 +14,7 @@ const image = (id, width, height, sha1hash = id) => ({ _id: id, _type: 'sanity.i
 const muxDoc = (id, aspect = '9:16', status = 'ready') => ({ _id: id, _type: 'mux.videoAsset', assetId: `asset-${id}`, playbackId: `play-${id}`, status, data: { aspect_ratio: aspect } })
 const videoRef = id => ({ _type: 'mux.video', asset: { _type: 'reference', _ref: id, _weak: true } })
 const still = (id, fields = {}) => existingMedia(id, { title: id, slug: { _type: 'slug', current: id.toLowerCase() }, alt: 'A still.', description: 'A short description.', project: reference(project._id), image: { _type: 'image', asset: reference(`image-${id}`) }, ...fields })
+const setDoc = (id, key, fields = {}) => ({ _id: id, _type: 'mediaSet', title: key, slug: { _type: 'slug', current: key }, project: reference(project._id), groupType: 'admat', allowAsHero: false, ...fields })
 // A still plus its image file, so only the seeded problem shows.
 const framed = (doc, width = 1000, height = 1000) => [doc, image(`image-${doc._id}`, width, height)]
 const clip = (id, fields = {}) => still(id, { mediaType: 'motion_9x16', image: undefined, video: videoRef(`mux-${id}`), orderRank: '0|i00000:', ...fields })
@@ -77,6 +78,12 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
     ...framed(still('mediaAsset-rank', { orderRank: '0|hzzzzz:' })),
     // Hidden from the site: an info row only; its image stays in use (not an unused-image).
     ...framed(still('mediaAsset-hidden', { hideFromSite: true, orderRank: '0|p00000:' })),
+    // Sets: a member of a set in another project, a member whose legacy fields differ from its set, a loose displayGroup, two sets on one key, an empty set.
+    setDoc('mediaSet-admats', 'tour-admats'), setDoc('mediaSet-dup-a', 'shared-key'), setDoc('mediaSet-dup-b', 'shared-key'), setDoc('mediaSet-empty', 'nobody-here'),
+    ...framed(still('mediaAsset-fine', { set: reference('mediaSet-admats'), displayGroup: 'tour-admats', groupType: 'admat', orderRank: '0|q00000:' })),
+    ...framed(still('mediaAsset-crossed', { set: reference('mediaSet-admats'), project: reference('project-twin'), orderRank: '0|q10000:' })),
+    ...framed(still('mediaAsset-drifted', { set: reference('mediaSet-admats'), displayGroup: 'old-admats', groupType: 'merch', orderRank: '0|q20000:' })),
+    ...framed(still('mediaAsset-grouped', { displayGroup: 'loose-group', orderRank: '0|q30000:' })),
   ]
   const live = [...docs, ...seeded].filter(d => d._type === 'mux.videoAsset' && d._id !== 'mux-mediaAsset-gone')
     .map(d => ({ id: d.assetId, status: d._id === 'mux-mediaAsset-errored' ? 'errored' : d._id === 'mux-mediaAsset-preparing' ? 'preparing' : 'ready' }))
@@ -99,6 +106,13 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
   assert.deepEqual(items('unused-image').map(i => i.id), ['image-twin-a', 'image-twin-b'], 'a hidden piece keeps its image in use')
   assert.deepEqual(items('hidden-from-site').map(i => [i.id, i.title]), [['mediaAsset-hidden', 'mediaAsset-hidden']])
   assert.equal(report.findings.find(f => f.check === 'hidden-from-site').severity, 'info')
+  assert.deepEqual(items('set-project-mismatch').map(i => [i.id, i.set, i.project, i.setProject]), [['mediaAsset-crossed', 'mediaSet-admats', 'project-twin', 'project-example']])
+  assert.deepEqual(items('set-key-duplicate').map(i => [i.key, i.ids]), [['shared-key', ['mediaSet-dup-a', 'mediaSet-dup-b']]])
+  assert.deepEqual(items('set-empty').map(i => i.id), ['mediaSet-dup-a', 'mediaSet-dup-b', 'mediaSet-empty'])
+  assert.deepEqual(items('set-drift').map(i => [i.id, i.field, i.value, i.setValue]), [['mediaAsset-drifted', 'displayGroup', 'old-admats', 'tour-admats'], ['mediaAsset-drifted', 'groupType', 'merch', 'admat']])
+  assert.deepEqual(items('set-missing').map(i => i.id), ['mediaAsset-album', 'mediaAsset-grouped'], 'a displayGroup piece and project album art with no set')
+  assert.deepEqual(['set-project-mismatch', 'set-key-duplicate', 'set-empty', 'set-drift', 'set-missing'].map(c => report.findings.find(f => f.check === c).severity), ['error', 'error', 'warning', 'info', 'info'])
+  assert.ok(!report.findings.some(f => f.check === 'slug-collision' && f.items.some(i => i.type === 'mediaSet')), 'a shared set key is set-key-duplicate, not also slug-collision')
   assert.deepEqual(report.accepted.items.map(i => [i.check, i.id, i.reason]), [['unused-image', 'image-unused', 'Decided.']])
   assert.deepEqual(items('accepted-stale').map(i => [i.check, i.id]), [['alt-missing', 'mediaAsset-long-gone']])
   assert.equal(report.summary.errors, report.findings.filter(f => f.severity === 'error').reduce((n, f) => n + f.count, 0))
