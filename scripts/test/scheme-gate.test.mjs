@@ -419,7 +419,7 @@ test('outline: the mix must be 1 under spectrum (the worlds hook has no centre) 
 
 // ── SQ-107: the eye in its square badge. Each gate has a passing case and a negative control. ──
 
-test('badge: flush sits on the right and bottom edges, seat on the right edge and clear of the bottom; both are square', () => {
+test('badge gate flush sits on the right and bottom edges and seat on the right edge and clear of the bottom and both are square', () => {
   const vp = { w: 390, h: 844 };
   assert.equal(badge({ x: 318, y: 772, w: 72, h: 72 }, vp, 'flush').pass, true);
   assert.equal(badge({ x: 318, y: 640, w: 72, h: 72 }, vp, 'seat').pass, true);
@@ -436,7 +436,7 @@ test('badge: flush sits on the right and bottom edges, seat on the right edge an
   assert.equal(badge({ x: 318, y: 772, w: 72, h: 72 }, vp, 'elsewhere').pass, false);
 });
 
-test('badgeColour: blue is opaque brand blue, black opaque black, project (or any other) a translucent veil over a blur', () => {
+test('badgeColour gate blue is opaque brand blue and black opaque black and project or any other a translucent veil over a blur', () => {
   const glass = { bg: 'color(srgb 1 1 1 / 0.22)', blur: 'blur(12px)' };
   assert.equal(badgeColour('blue', { bg: 'rgb(0, 0, 255)', blur: 'blur(12px)' }).pass, true);
   assert.equal(badgeColour('black', { bg: 'rgb(0, 0, 0)', blur: 'blur(12px)' }).pass, true);
@@ -452,7 +452,7 @@ test('badgeColour: blue is opaque brand blue, black opaque black, project (or an
   assert.equal(badgeColour('blue', {}).pass, false);
 });
 
-test('eyeLines: white strokes (lids, globe lines) pass; a dark stroke names the shape', () => {
+test('eyeLines gate white strokes pass and a dark stroke names the shape', () => {
   const lids = { path: 'path.scheme-eye__lid', stroke: 'rgb(255, 255, 255)', width: 1.5 };
   const globe = { path: 'use', stroke: 'rgb(255, 255, 255)', width: 1.04 };
   assert.equal(eyeLines([lids, globe, { path: 'g', stroke: 'none', width: 0 }]).pass, true);
@@ -463,7 +463,7 @@ test('eyeLines: white strokes (lids, globe lines) pass; a dark stroke names the 
   assert.equal(eyeLines([]).pass, false, 'nothing measured proves nothing');
 });
 
-test('persist: one node, opacity 1, visible on every frame passes; a fade, a remount or a gap fails and says which frame', () => {
+test('persist gate one node at opacity 1 visible on every frame passes and a fade or a remount or a gap fails and says which frame', () => {
   const ok = Array.from({ length: 30 }, () => ({ same: true, op: '1', vis: 'visible' }));
   assert.equal(persist(ok).pass, true);
   const fade = ok.map((s, i) => (i >= 10 && i < 14 ? { ...s, op: '0.4' } : s));
@@ -477,7 +477,7 @@ test('persist: one node, opacity 1, visible on every frame passes; a fade, a rem
   assert.equal(persist([]).pass, false, 'no frames measured proves nothing');
 });
 
-test('bounds: a circle inside its window passes; one wider than the window names itself', () => {
+test('bounds gate a circle inside its window passes and one wider than the window names itself', () => {
   const box = { name: '.fp-scale__window', x: 100, y: 0, w: 89, h: 144 };
   assert.equal(bounds([{ name: 'lens', x: 120.4, y: 40, w: 48.1, h: 48.1 }], box).pass, true);
   // negative control: the old window (the resting eye, 48 wide, centred) under a lens circle lifted to 3 (78 wide)
@@ -488,7 +488,7 @@ test('bounds: a circle inside its window passes; one wider than the window names
   assert.equal(bounds([], box).pass, false);
 });
 
-test('strays: anti-alias noise passes; a station painted outside the shown rows fails', () => {
+test('strays gate anti-alias noise passes and a station painted outside the shown rows fails', () => {
   assert.equal(strays({ pixels: 0, total: 5000, at: 0.35 }).pass, true);
   // measured on the fixed column: 1-3 px of 134400 (layer-promotion rounding on the shown eye, delta <= 19)
   assert.equal(strays({ pixels: 3, total: 134400, at: 0.5, maxDelta: 19, box: '190,363..191,364' }).pass, true);

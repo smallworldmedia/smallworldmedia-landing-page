@@ -124,7 +124,7 @@ test('stripFills follows the keys and the strips it is given; no keys gives no f
   assert.deepEqual(splitSubpaths(undefined), []);
 });
 
-test('schemeParams: defaults, and ?schemeui ?schemeguard ?schemerows ?schemesize ?schemepitch', () => {
+test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesize ?schemepitch dials', () => {
   const q = (s) => schemeParams(new URLSearchParams(s));
   assert.deepEqual(q(''), {
     ui: true,
