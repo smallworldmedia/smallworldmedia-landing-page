@@ -42,10 +42,15 @@
  * during the hold, after its own videos have started, and a change's videos
  * start while it lands. The default since Nathan's 10-28 call;
  * ?pophandoff=today is the handoff before it.
+ * 11-16 (SQ-106, the iPhone reloaded the page after a few worlds): the phone's defaults are CAP_MOBILE assets a
+ * world and pair portraits. Nathan 10-07: "decrease the number of unique media elements that are pulled in for the
+ * globe on mobile, instead having them repeat"; shared streams and pooled textures make a repeat free. Desktop is
+ * unchanged.
  */
 import { PATTERNS } from './worldPatterns.js';
 import { WORLD_POOL_CAP } from './buildWorldPools.js';
 import { NAME_STYLES, NAME_MODES } from './nameTicker.js';
+import { IS_MOBILE } from './globeConfig.js';
 
 const search = () =>
   new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
@@ -99,6 +104,15 @@ export const MEDIA_KINDS = {
   art: ['art'],
 };
 
+/** The phone's pick of ?popcap and ?popportrait (SQ-106, PROPOSED: Nathan confirms them on his iPhone). A phone
+ *  holds the current world's textures and the next one's, decoded ahead, and the widest adjacent pair read 93.9 MiB
+ *  on the probe against its 73 ceiling, 11-16: the iPhone reloaded. Seven is the fewest distinct assets that still
+ *  keep REPEAT_GAP (the SQ-104 fixtures: six repeat inside it, seven none). Under 'fill' the room a smaller pick
+ *  leaves grows more portraits to 2×3 and the pair read 88.1 at seven; 'pair' keeps every 1×2 and read 67.
+ *  IS_MOBILE is the globe's frozen max-width 768 fact, so both are client-side. */
+export const CAP_MOBILE = 7;
+export const PORTRAIT_MOBILE = 'pair';
+
 // A fresh draw per visit unless ?popseed pins it (resolved once, at load).
 const randomSeed = () => Math.floor(Math.random() * 1e6);
 
@@ -106,7 +120,7 @@ export const POP_DEFAULTS = Object.freeze({
   mode: 'tides', // ?popmode — off | tides (POP_MODES). Nathan 10-06: tides is home's globe
   seed: 0, // ?popseed — the draw (start world, patterns, the change clock); resolved per visit below
   media: 'all', // ?popmedia — showcase | all | video | still | art (MEDIA_KINDS)
-  cap: 13, // ?popcap — assets per world, ≤ WORLD_POOL_CAP (bounds texture residency)
+  cap: IS_MOBILE ? CAP_MOBILE : 13, // ?popcap — assets per world, ≤ WORLD_POOL_CAP (bounds texture residency); a phone's CAP_MOBILE since SQ-106
   share: 'weighted', // ?popshare — equal | weighted (tape area ∝ each world's media count)
   group: 1, // ?popgroup — worlds on the globe at once, 1..3 (Nathan 09-26: one)
   layout: 'mix', // ?poplayout — one world: mix | facets (POP_LAYOUTS)
@@ -131,7 +145,7 @@ export const POP_DEFAULTS = Object.freeze({
   unitMax: 4, // ?popunitmax — units one asset may form per plan; 6 shows "a unit at every admissible spot" (Q7: Nathan 10-23, 4; was 1)
   shapes: 'wide', // ?popshapes — the span each picture takes (POP_SHAPES); wide = Nathan's 10-24 set, classic = the one before it
   unitLook: 'flat', // ?popunitlook — flat | rows (POP_UNIT_LOOKS): how a member crops its unit's picture (P9, 10-31; rows until then)
-  portrait: 'fill', // ?popportrait — fill | pair (POP_PORTRAITS): fill = a world's sharp portraits grow to 2×3 with its budget's room (Nathan 10-31, item 8; pair until then)
+  portrait: IS_MOBILE ? PORTRAIT_MOBILE : 'fill', // ?popportrait (a phone's PORTRAIT_MOBILE since SQ-106) — fill | pair (POP_PORTRAITS): fill = a world's sharp portraits grow to 2×3 with its budget's room (Nathan 10-31, item 8; pair until then)
   seqQuad: 1, // ?popseqquad — classic only: 1 = a world's album-art sequence stands first for the quad election (Nathan 11-05: the cycling covers belong on the 2×2s); 0 = editorial order. Under ?popunits the sequence takes its seat at its own rank (SQ-104)
   quads: 1, // ?popquads — 2×2 quads per world, elected from the 'q' candidates (unitSpan.electQuads); only with ?popunits and ?popshapes=classic (wide makes every sharp square a quad)
   tier: 'auto', // ?poptier — per-stream video tier under ?popunits; identical to today while units are off
