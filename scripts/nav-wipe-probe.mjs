@@ -14,8 +14,7 @@
  *   B  /work → a project, by its card (the CONTROL: no menu is open, so no hold may arm)
  *   C  / (home) → /work, by the nav menu
  *   D  a project → /work/directory, by the nav menu
- *   E  /process → home, by the menu's lockup (a plain swap: from /work, the directory or a project
- *      the lockup runs the black-cover passage instead, which has its own choreography)
+ *   E  /work/directory → home, by the menu’s start_project item (a route that is not /work)
  * (The menu has no project entry, so /work → a project is the card passage Nathan calls perfect;
  * the probe shows it never meets the hold.)
  *
@@ -77,6 +76,7 @@ function installRecorder() {
       paintedAt: null,
       uncoveredAt: null,
       endAt: 0,
+      stallMs: 0,
       menuOpen: cover() >= 0.98,
     });
     delete window.__swmNavHold;
@@ -99,6 +99,8 @@ function installRecorder() {
       if (rec.swapAt != null && rec.uncoveredAt == null && c < 0.98 && rec.samples.some(([, v]) => v >= 0.98)) {
         rec.uncoveredAt = t;
       }
+      // The longest gap between frames after the swap: a timer cannot fire inside a long task.
+      if (rec.swapAt != null && rec.endAt > rec.swapAt) rec.stallMs = Math.max(rec.stallMs, t - rec.endAt);
       rec.endAt = t;
     }
     requestAnimationFrame(frame);
@@ -170,8 +172,8 @@ async function main() {
   };
   const harvest = async (page, id, via, to) => {
     const r = await page.evaluate(() => {
-      const { samples, swapAt, readyAt, paintedAt, endAt, menuOpen } = window.__navRec;
-      return { samples, swapAt, readyAt, paintedAt, endAt, menuOpen, hold: window.__swmNavHold ?? null };
+      const { samples, swapAt, readyAt, paintedAt, endAt, stallMs, menuOpen } = window.__navRec;
+      return { samples, swapAt, readyAt, paintedAt, endAt, stallMs, menuOpen, hold: window.__swmNavHold ?? null };
     });
     return { id, via, signals: routeSignalsReady(to), ...r };
   };
@@ -230,7 +232,7 @@ async function main() {
     if (want('B')) records.push(await viaCard('B work>project (card)'));
     if (want('C')) records.push(await viaMenu('C home>work', '/', WITNESS.canvas, ITEM('/work'), '/work', WITNESS.canvas));
     if (want('D')) records.push(await viaMenu('D project>directory', '/work/bedouin/', WITNESS.project, ITEM('/work/directory'), '/work/directory', WITNESS.directory));
-    if (want('E')) records.push(await viaMenu('E process>home (logo)', '/process', WITNESS.canvas, '.mobile-menu .site-nav__logo', '/', WITNESS.canvas));
+    if (want('E')) records.push(await viaMenu('E directory>home (start_project)', '/work/directory/', WITNESS.directory, ITEM('/') + '.mobile-menu__item', '/', WITNESS.canvas));
     const out = summary(records, EXPECT);
     console.log(control ? '── control: ?navwipehold=0, the hold off ──' : '── the hold, as shipped ──');
     out.results.forEach((r, i) => {

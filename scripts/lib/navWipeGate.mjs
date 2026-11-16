@@ -14,6 +14,8 @@
  *             shown), or null when the route has none
  *   samples   [[t, cover], …] the menu's coverage per frame, 1 = full takeover, 0 = gone (change points)
  *   endAt     the last sampled time: how long the page was watched
+ *   stallMs   the longest gap between frames after the swap (a long task): the hold's timers cannot
+ *             fire inside one, so the cap is allowed that much late (absent = 0)
  *   menuOpen  the menu was open at the tap
  *   hold      window.__swmNavHold after the navigation, or null when none armed
  *
@@ -71,7 +73,10 @@ function menuVerdict(rec, expect) {
   if (isNum(rec.paintedAt) && at < Math.min(rec.paintedAt, cap) - SAMPLE_TOL_MS) {
     fails.push(`uncovered at ${fixed(at)} ms, before the destination first painted (${fixed(rec.paintedAt)} ms)`);
   }
-  if (at > cap + SLACK_MS) fails.push(`held to ${fixed(at)} ms, past the cap (${fixed(cap)} ms + ${SLACK_MS} ms slack)`);
+  const stall = isNum(rec.stallMs) ? rec.stallMs : 0;
+  if (at > cap + SLACK_MS + stall) {
+    fails.push(`held to ${fixed(at)} ms, past the cap (${fixed(cap)} ms + ${SLACK_MS} ms slack + ${fixed(stall)} ms stalled)`);
+  }
   if (rec.signals && !isNum(rec.readyAt)) fails.push('the destination never dispatched swm:route-ready: the hold ran to the cap');
   return fails;
 }

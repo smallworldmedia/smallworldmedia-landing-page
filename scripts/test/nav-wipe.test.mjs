@@ -284,6 +284,13 @@ test('gate: held past the cap, stranded, or never watched all fail', () => {
   assert.match(verdict({ ...good(), swapAt: null }).fails[0], /never landed/);
 });
 
+test('gate: a long task after the swap delays the cap timer, and the gate allows exactly that much', () => {
+  const late = { readyAt: null, signals: false, paintedAt: null, samples: rampDown(600 + 120 + SLACK_MS + 600) };
+  assert.ok(verdict(good(late)).fails.some((f) => /past the cap/.test(f)));
+  assert.equal(verdict(good({ ...late, stallMs: 900 })).pass, true);
+  assert.ok(verdict(good({ ...late, stallMs: 100 })).fails.some((f) => /past the cap/.test(f)));
+});
+
 test('gate: a menu that was not open covered nothing', () => {
   assert.ok(verdict(good({ menuOpen: false })).fails.some((f) => /not open at the tap/.test(f)));
 });
