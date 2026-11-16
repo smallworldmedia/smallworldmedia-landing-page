@@ -14,7 +14,9 @@
  *   B  /work → a project, by its card (the CONTROL: no menu is open, so no hold may arm)
  *   C  / (home) → /work, by the nav menu
  *   D  a project → /work/directory, by the nav menu
- *   E  /work/directory → home, by the menu’s start_project item (a route that is not /work)
+ *   E  /terms → home, by the menu’s lockup (a plain swap off a route with no canvas: from /work, the
+ *      directory or a project the lockup runs the black-cover passage instead, which has its own
+ *      choreography; start_project there opens the inquiry overlay and navigates nowhere)
  * (The menu has no project entry, so /work → a project is the card passage Nathan calls perfect;
  * the probe shows it never meets the hold.)
  *
@@ -232,7 +234,7 @@ async function main() {
     if (want('B')) records.push(await viaCard('B work>project (card)'));
     if (want('C')) records.push(await viaMenu('C home>work', '/', WITNESS.canvas, ITEM('/work'), '/work', WITNESS.canvas));
     if (want('D')) records.push(await viaMenu('D project>directory', '/work/bedouin/', WITNESS.project, ITEM('/work/directory'), '/work/directory', WITNESS.directory));
-    if (want('E')) records.push(await viaMenu('E directory>home (start_project)', '/work/directory/', WITNESS.directory, ITEM('/') + '.mobile-menu__item', '/', WITNESS.canvas));
+    if (want('E')) records.push(await viaMenu('E terms>home (logo)', '/terms', 'h1', '.mobile-menu .site-nav__logo', '/', WITNESS.canvas));
     const out = summary(records, EXPECT);
     console.log(control ? '── control: ?navwipehold=0, the hold off ──' : '── the hold, as shipped ──');
     out.results.forEach((r, i) => {

@@ -291,6 +291,13 @@ test('gate: a long task after the swap delays the cap timer, and the gate allows
   assert.ok(verdict(good({ ...late, stallMs: 100 })).fails.some((f) => /past the cap/.test(f)));
 });
 
+test('gate: the cap judges the release, so a wipe stretched by lag smoothing after an on-time release passes', () => {
+  const slow = { readyAt: null, signals: false, paintedAt: null, samples: rampDown(600 + 120 + SLACK_MS + 900), stallMs: 0 };
+  const released = (ms) => ({ pathname: '/work', armedAt: 1000, releasedAt: 1000 + ms, why: 'cap' });
+  assert.equal(verdict(good({ ...slow, hold: released(640) })).pass, true);
+  assert.ok(verdict(good({ ...slow, hold: released(600 + SLACK_MS + 50) })).fails.some((f) => /past the cap/.test(f)));
+});
+
 test('gate: a menu that was not open covered nothing', () => {
   assert.ok(verdict(good({ menuOpen: false })).fails.some((f) => /not open at the tap/.test(f)));
 });
