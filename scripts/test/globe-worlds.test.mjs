@@ -6145,7 +6145,7 @@ const TALL_WANT = Object.freeze([
 const TALL_TEX = TALL_WANT.map((w, wi) => (wi === 1 ? { ...w, p0: 't' } : w))
 const asPairs = (want) => want.map((w) => Object.fromEntries(Object.entries(w).map(([tag, c]) => [tag, c === 't' ? 'v' : c])))
 
-test('spans: ?popportrait=fill (Nathan 10-31, item 8, the default) — a world grows its sharp portraits to 2×3, in editorial order, with the room its ?popequiv budget left: fewer assets, bigger portraits; a world that fills its budget grows none, a shared id forming the 1×2 there from the same texture; pair, ?popequiv 0 and classic grow none (T38)', () => {
+test('spans - ?popportrait=fill (Nathan 10-31, item 8, the default) — a world grows its sharp portraits to 2×3, in editorial order, with the room its ?popequiv budget left, fewer assets and bigger portraits, a world that fills its budget grows none, a shared id forming the 1×2 there from the same texture, pair, ?popequiv 0 and classic grow none (T38)', () => {
   assert.equal(POP_DEFAULTS.portrait, 'fill')
   assert.deepEqual(POP_PORTRAITS, ['fill', 'pair'])
   assert.equal(TALL_GROW, 4) // a 2×3 takes 6 tiles where its 1×2 weighed 2
@@ -7642,7 +7642,7 @@ function repeatStats(panels) {
   return { near, abab, minGap }
 }
 
-test('rank + spread (SQ-104): on the built worlds, the selection is a rank prefix, rank 1 holds the most prominent tile posed and pose-less, and no row alternates two assets — at the desktop budget and at the phone budget (SQ-106)', (t) => {
+test('rank + spread (SQ-104) - on the built worlds, the selection is a rank prefix, rank 1 holds the most prominent tile posed and pose-less, and no row alternates two assets — at the desktop budget and at the phone budget (SQ-106)', (t) => {
   const tilt = new THREE.Euler(THREE.MathUtils.degToRad(40), 0, 0) // the recon's pose (board.mjs): 12×8 rows, 40° tilt
   const report = []
   for (const tune of [{ cap: POP_DEFAULTS.cap, portrait: POP_DEFAULTS.portrait }, { cap: CAP_MOBILE, portrait: PORTRAIT_MOBILE }]) for (const world of sq104Worlds()) {
