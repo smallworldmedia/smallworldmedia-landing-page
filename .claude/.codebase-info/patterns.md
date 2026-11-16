@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-15*
+*Last Updated: 2026-11-16*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -528,7 +528,10 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   surface owes, imported from `work/imageConfig.js` rather than restated) take the probe's report and
   import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures.
   `scripts/lib/scheme-gate.mjs` (the colour schemes' fourteen gates, 11-14 and 11-15) follows the same rule under
-  `scripts/test/scheme-gate.test.mjs`. Every gate
+  `scripts/test/scheme-gate.test.mjs`, as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
+  no uncover before the destination draws, none past `NAV_HOLD_MAX_MS`) under `scripts/test/nav-wipe.test.mjs`
+  and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
+  under `scripts/test/legal-scroll.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
   `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named

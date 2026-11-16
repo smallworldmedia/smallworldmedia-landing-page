@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-15*
+*Last Updated: 2026-11-16*
 
 ```
 .
@@ -34,6 +34,7 @@
 │   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb), GlobeLoader (the globe loader)
 │   ├── lib/                  # shared: dragMomentum, overlayWipe, scramble, charCut, smoothScroll,
 │   │                         #   settleResize, motion, touchTune, rubberBand, blurbHold(+Math), momentum,
+│   │                         #   gestureHistory, historyLog (the ?histlog=1 history HUD),
 │   │                         #   navAccent, projectColor, colorScheme (the site colour scheme), spectrumDeal
 │   │                         #   (the build-time spectrum deal), spectrumRamp (ramp A for the WebGL scenes), projectSlug,
 │   │                         #   mediaSequence, keywords, formatYearRange, constants, sanityClient,
@@ -55,6 +56,7 @@
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
 │   ├── lib/scheme-gate.mjs   # scheme-probe's pure gates (colour maths + the fourteen gates)
+│   ├── lib/navWipeGate.mjs, lib/legalScrollGate.mjs   # nav-wipe-probe's and legal-scroll-probe's pure gates
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,

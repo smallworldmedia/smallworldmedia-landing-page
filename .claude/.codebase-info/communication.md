@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-15*
+*Last Updated: 2026-11-16*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -17,6 +17,7 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:fp-freeze` | `pager/GraticulePager.jsx` | `useWorldScene` (halts render + decode while engaged) | `{on}` |
 | `swm:fp-drag` | `FeaturedProjects` (`setDragFollow`, on wheel AND touch building; deduped; skipped under RM. Release: a finger on lift (`touchend` / `touchcancel`, only when something is held), the wheel after the `RELEASE_MS` stall) | `WorldCard` (the entering card's wrap `y`), `useWorldScene` (the drum's `state.drag`) | `{value -1..1 (the fill), release}`: `release` picks the house release lane (`RELEASE_GLIDE_S`, `RELEASE_EASE`) over the drag lane (`DRAG_TRACK_S`). A commit sends nothing: the Turn carries on from the leaned pose (the scene folds `drag` into `adv`) |
 | `swm:footer-reveal` / `swm:footer-close` | tagline pill via `SiteFooter` consts | `Hero`, `FeaturedProjects` footer accumulator | progress |
+| `swm:route-ready` | `signalRouteReady()` (`lib/overlayWipe.js`, SQ-108, 11-16): `Hero` (globe canvas mounted), `FeaturedProjects` (the snapped World's card is up), `DirectoryPage` (the grid is shown), `FeaturedProjectDetail` (mounted); dispatched on the next frame | `holdForRoute` (`SiteNav`'s menu swap-close): the wipe uncovers once it fires plus a 100 ms beat, capped at 600 ms (`?navwipehold`); other routes count as ready at `astro:page-load` | — |
 | `swm:open-overlay` | Hero CTA, ProcessPage CTA | `SiteShell` | — |
 | `swm:open-privacy` / `swm:privacy-state` | privacy pill, mobile menu / `PrivacyOverlay` | `PrivacyOverlay` / `SiteShell` | `{open}` |
 | `swm:hero-chrome`, `swm:hero-lockup-done`, `swm:tagline-exit` | `Hero` | `SiteNav`, `HeroLabels`, `SiteTagline` | — |
@@ -95,7 +96,11 @@ writes `history.state.swmWorld` (the active World, spread over ClientRouter's st
 and restores from it first, with `swm:worldIndex` as the fallback, so /work → A → band → B, Back twice,
 lands on A's World. The two gesture page turns (the next-project band, /work's way home) navigate with
 `lib/gestureHistory.js`'s options: a push only under an honoured user activation, a replace otherwise,
-so Back never skips the visit. Gated by `scripts/history-probe.mjs`.
+so Back never skips the visit. Gated by `scripts/history-probe.mjs`. Since 11-16 (SQ-105) a Back the
+browser has already animated (`popstate.hasUAVisualTransition`, iOS's edge swipe) skips the router's own
+view transition (`viewTransition.skipTransition()` at `astro:before-swap`), and `?histlog=1`
+(`lib/historyLog.js`) logs every push / replace / popstate / swap on the device itself, because
+Playwright's WebKit can't reproduce Safari's back-list skipping.
 
 ## The Project Directory's URL state
 

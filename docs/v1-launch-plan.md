@@ -268,6 +268,33 @@ records (`docs/globe-worlds-plan.md`).
          their seat.
      - the eye's five dials are still PROPOSED: `?schemelift` 1.35, `?schemenear` 0.78,
        `?schemefar` 0.6, `?schemein` 260 ms, `?schemeout` 200 ms.
+10. **Four of five done 11-16: Nathan's iPhone round** (US-9, SQ-105…SQ-109), from his results on
+    the Phone Checks page. SQ-105, SQ-106, SQ-108 and SQ-109 were folded on their go and pushed at
+    `3801059` (the `integration/us9` merge). Gates on the merged tree:
+    - units 696/696, `test:cms` 121/121, tunables PASS, the build OK, `cms audit` 0 errors;
+    - `scripts/history-probe.mjs` 12/12 (the WebKit iPhone walks P1 and P2 added);
+    - `scripts/nav-wipe-probe.mjs` A–E pass, and its negative control fails as it must;
+    - `scripts/legal-scroll-probe.mjs` 16/16;
+    - globe-probe `u-mobile` and `u-phonehd` texPeak 60.7 MiB under the 73 MiB phone ceiling.
+
+    Settled by his results: the phone ceiling stays at 73 MiB and the phone fits under it; the
+    eye's dials are his numbers (`?schemelift` 1.85, `?schemenear` 0.6, `?schemefar` 0.3,
+    `?schemein` 260 ms, `?schemeout` 200 ms); `REST_COVER` 0.5 stays.
+    - **SQ-105, iPhone Back:** a Back the browser already animated skips the router's view
+      transition; `?histlog=1` shows an on-device history log for the next check.
+    - **SQ-106, phone globe memory:** phones hold seven distinct assets a world with paired
+      portraits (`CAP_MOBILE` 7, `PORTRAIT_MOBILE` 'pair'; `?popcap`, `?popportrait`). The old
+      texBudget ticket SQ-10 is archived as superseded.
+    - **SQ-108, the nav menu wipe:** it holds until the destination signals it has drawn
+      (`swm:route-ready`), at most 600 ms and at least 100 ms (`?navwipehold`, PROPOSED).
+    - **SQ-109, /terms and /privacy:** they scroll by touch at 390 px when opened directly.
+    - **Left:**
+      - SQ-107, the eye badge, is in rework from Nathan's 11-16 notes: no jitter on the scale-up,
+        a smaller horizontal badge with equal padding that grows with the eye, the home seat in
+        line with the privacy pill, the footer rest raised slightly. It folds on its own.
+      - Nathan's iPhone checks for the four (Phone Checks rows 130–170), which also settle
+        `?navwipehold` and the phone cap of seven.
+      - the links-footer logo ticker's slight stutter on the phone is not yet reproduced.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
