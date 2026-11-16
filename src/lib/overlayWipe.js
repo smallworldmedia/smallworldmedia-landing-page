@@ -106,7 +106,8 @@ export function holdForRoute(release, env = {}) {
     pathname = win.location.pathname,
     dials = NAV_HOLD,
     now = () => performance.now(),
-    timers = { set: setTimeout, clear: clearTimeout },
+    // Wrapped: the browser's setTimeout throws "Illegal invocation" as a method of another object.
+    timers = { set: (fn, ms) => setTimeout(fn, ms), clear: (id) => clearTimeout(id) },
     raf = requestAnimationFrame,
   } = env;
   const armedAt = now();

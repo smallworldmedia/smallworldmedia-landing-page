@@ -152,6 +152,24 @@ test('cancel (the menu closed another way) releases nothing and leaves nothing a
   assert.equal(w.pending.length, 0);
 });
 
+test('the default timers are safe in a browser: setTimeout/clearTimeout throw when called as a method of another object', () => {
+  const real = { set: globalThis.setTimeout, clear: globalThis.clearTimeout };
+  const guard = (f) =>
+    function (...a) {
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+      return f(...a);
+    };
+  globalThis.setTimeout = guard(real.set);
+  globalThis.clearTimeout = guard(real.clear);
+  try {
+    const w = world();
+    const cancel = holdForRoute(() => {}, { win: w.win, doc: w.doc, pathname: '/work', now: () => 0, raf: () => {} }); // default timers
+    cancel();
+  } finally {
+    Object.assign(globalThis, { setTimeout: real.set, clearTimeout: real.clear });
+  }
+});
+
 test('hold off (?navwipehold=0) releases at once: the old wipe, the negative control', () => {
   const w = world();
   const h = w.hold({ maxMs: 0, minMs: 0 });
