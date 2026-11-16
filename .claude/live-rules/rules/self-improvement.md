@@ -4,8 +4,8 @@ priority: 40
 ---
 At a natural pause, ask what would have made this round easier, and keep it to one evidenced
 improvement. Keep what works; never rework the workspace for novelty. Before proposing anything,
-check whether the repo, the installed plugins (codebase-mapper, live-rules, sidequest, context7,
-swm), the local skills (gsap-swm, webapp-testing), the memory notes, or the
+check whether the repo, the installed plugins (codebase-mapper, live-rules, sidequest, swm),
+the local skills (gsap-swm, webapp-testing), the memory notes, or the
 scripts under scripts/ already cover it, and improve that first.
 - A claim nobody could check (is the motion right? fast enough on a phone?) may need a measurement.
   Prefer extending scripts/pager-probe.mjs or the tunables bench over a new instrument.
