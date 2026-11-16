@@ -101,8 +101,9 @@ function installRecorder() {
       if (rec.swapAt != null && rec.uncoveredAt == null && c < 0.98 && rec.samples.some(([, v]) => v >= 0.98)) {
         rec.uncoveredAt = t;
       }
-      // The longest gap between frames after the swap: a timer cannot fire inside a long task.
-      if (rec.swapAt != null && rec.endAt > rec.swapAt) rec.stallMs = Math.max(rec.stallMs, t - rec.endAt);
+      // The longest gap between frames from the swap on (the gap that spans the swap included: the island's
+      // hydration is the long task): a timer cannot fire inside a long task.
+      if (rec.swapAt != null) rec.stallMs = Math.max(rec.stallMs, t - rec.endAt);
       rec.endAt = t;
     }
     requestAnimationFrame(frame);
