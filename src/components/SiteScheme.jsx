@@ -14,9 +14,13 @@
  * scheme under the lens across the site; release commits it; Escape, or any
  * disengage that commits nothing, restores the committed one.
  *
+ * The eye sits in a square badge (site-scheme.css, the wrapper's ::before): blue on `blue`,
+ * black on `black`, a glass overlay on `project`.
+ *
  * Authority: colorScheme.js alone decides the scheme. This component calls
  * setScheme / onScheme and writes nothing of its own to the DOM except the
- * `is-pager-engaged` class on its wrapper and the dials below. A scheme change
+ * `is-pager-engaged` class on its wrapper, the dials below and the wrapper's
+ * data-badge / data-ready. A scheme change
  * re-renders only this widget's lens art, never the page.
  *
  * It is a PERSISTED island (BaseLayout: transition:persist="site-scheme"), so its
@@ -31,7 +35,7 @@
  *   ?schemeui=0 hides the widget; ?schemeguard=<ms> the wheel pass-through guard;
  *   ?schemerows ?schemesize ?schemepitch dial the deployed window (site-scheme.css);
  *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout the
- *   column's entrance and exit.
+ *   column's entrance and exit; ?schemepad the badge's padding round the eye; ?schemebadge=flush|seat the badge's seat.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import GraticulePager from './work/pager/GraticulePager.jsx';
@@ -85,8 +89,13 @@ export default function SiteScheme() {
       if (p.lift != null) el.style.setProperty('--eye-engaged', String(p.lift));
       if (p.near != null) el.style.setProperty('--eye-near', String(p.near));
       if (p.far != null) el.style.setProperty('--eye-far', String(p.far));
+      if (p.pad != null) el.style.setProperty('--badge-pad', `${p.pad}px`);
       if (p.inMs != null) el.style.setProperty('--eye-in', `${p.inMs}ms`);
       if (p.outMs != null) el.style.setProperty('--eye-out', `${p.outMs}ms`);
+      // The badge's seat (site-scheme.css reads [data-badge]); [data-ready] lets the badge
+      // appear with the eye, never before it.
+      el.dataset.badge = p.badge;
+      el.dataset.ready = '';
     }
     setUi(p.ui);
     setActive(stationOf(getScheme()));
@@ -101,6 +110,50 @@ export default function SiteScheme() {
       }),
     []
   );
+
+  // Seat ease (SQ-107). The flush badge has two places, the corner and, on home, the corner row
+  // (site-scheme.css, --seat-t 0 to 1). The widget persists across soft navs, and the swap moves
+  // its node, so a CSS transition has no before-change style to run from: when the seat the sheet
+  // gives changes, animate --seat-t from what was last shown to the new value instead, on one short
+  // house curve (--seat-ease, --ease-draw): steep launch, smooth decel, no overshoot. Not on the
+  // first page's own settling, and not under reduced motion.
+  useEffect(() => {
+    const corner = cornerRef.current;
+    if (!corner || typeof corner.animate !== 'function') return undefined;
+    const root = document.documentElement;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const targetOf = () => (root.hasAttribute('data-footer-rest') && corner.dataset.badge !== 'seat' ? 1 : 0);
+    const shownNow = () => parseFloat(getComputedStyle(corner).getPropertyValue('--seat-t')) || 0;
+    let shown = targetOf();
+    let anim = null;
+    let armed = false;
+    const sync = () => {
+      const next = targetOf();
+      if (next === shown) return;
+      const from = anim ? shownNow() : shown;
+      anim?.cancel();
+      anim = null;
+      shown = next;
+      const ms = parseFloat(getComputedStyle(corner).getPropertyValue('--seat-ease')) || 0;
+      if (!armed || reduced.matches || !ms) return;
+      anim = corner.animate([{ '--seat-t': from }, { '--seat-t': next }], { duration: ms, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+      anim.onfinish = () => {
+        anim = null;
+      };
+    };
+    const mo = new MutationObserver(sync);
+    mo.observe(root, { attributes: true, attributeFilter: ['data-footer-rest'] });
+    document.addEventListener('astro:after-swap', sync);
+    const arm = window.setTimeout(() => {
+      armed = true;
+    }, 800);
+    return () => {
+      mo.disconnect();
+      document.removeEventListener('astro:after-swap', sync);
+      window.clearTimeout(arm);
+      anim?.cancel();
+    };
+  }, []);
 
   // Wheel guard. The pager captures the wheel while the pointer is over it, which
   // would stall a page scroll that happens to pass under the corner. A wheel event
