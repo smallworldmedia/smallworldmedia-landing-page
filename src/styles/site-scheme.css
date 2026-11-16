@@ -95,29 +95,39 @@
      size, and leaves the same way. */
   --eye-travel: 0.5;
   --eye-pop: 0.5;
-  /* THE BADGE (Nathan 11-16): the eye sits in a square tile, centred on the lens, as wide as the
-     eye plus the chrome's right inset each side, so the tile's right edge lands on the viewport's
-     right edge while the eye keeps today's x. Two seats (?schemebadge, [data-badge]):
-       flush (the default, PROPOSED)  the tile is flush with the viewport's right and bottom edges;
-       seat                           the eye stays where it was (above the privacy pill) and the
-                                      tile reaches the viewport's right edge.
-     --scheme-bottom is the wrapper's bottom edge: it puts the lens half a tile above the bottom
-     edge (flush) or above the privacy pill (seat). --badge-rise is how far the engaged eye and
-     column must climb so the lowest circle clears the viewport bottom (flush only: --badge-lift).
-     --badge-ride is how far the tile climbs with the links footer, on both seats (Nathan 11-15:
-     the eye keeps its rise above the footer): flush rests on the viewport's bottom edge and its
-     bottom edge then rides on the footer's top edge; seat keeps a --space-6 gap above it, from
-     the seat's own height. */
-  --badge-pad: var(--chrome-right-inset);
-  --badge-s: calc(var(--eye-w) + 2 * var(--badge-pad));
-  --scheme-bottom: calc(var(--badge-s) / 2 - var(--scale-rows) * var(--scheme-pitch));
+  /* THE BADGE (Nathan 11-16, pass 3): a horizontal rectangle hugging the eye with the SAME
+     padding on all four sides, --badge-pad (?schemepad; PROPOSED: half the chrome inset, so
+     about half of the first tile's): it is the eye plus --badge-pad each side, no size knob of
+     its own. It is part of the pager (its ::before, drawn behind the lids), so it grows with the
+     eye on the same --eye-t, from the same anchor, keeping the padding ratio. Two seats
+     (?schemebadge, [data-badge]):
+       flush (the default, PROPOSED)  against the viewport's right and bottom edges; on home
+                                      ([data-footer-rest]) in the true bottom-right corner, its
+                                      right inset the corner row's left inset (--nav-inset) and
+                                      centred on that row's height, and it no longer rides the
+                                      footer (the footer rises behind it);
+       seat                           the eye stays where it was (above the privacy pill), the
+                                      badge hugging it.
+     --badge-inset is the badge's right edge from the viewport's. --badge-cy is the lens centre's
+     height above the viewport's bottom edge, and --scheme-bottom (the wrapper's bottom) follows.
+     --badge-rise is how far the engaged eye and column must climb so the lowest circle clears
+     the viewport bottom by a padding (flush only: --badge-lift). --badge-ride is how far the
+     badge climbs with the links footer where it still rides (Nathan 11-15: the eye keeps its rise
+     above the footer): flush rests on the viewport's bottom edge and its bottom edge then rides
+     on the footer's top edge; seat keeps a --space-6 gap above it, from the seat's own height. */
+  --badge-pad: calc(var(--chrome-right-inset) / 2);
+  --badge-w: calc(var(--eye-w) + 2 * var(--badge-pad));
+  --badge-h: calc(var(--eye-h) + 2 * var(--badge-pad));
+  --badge-inset: 0px;
+  --badge-cy: calc(var(--badge-h) / 2);
+  --scheme-bottom: calc(var(--badge-cy) - var(--scale-rows) * var(--scheme-pitch));
   --badge-lift: 1;
   --badge-ride: max(0px, calc(var(--footer-reveal, 0) * var(--footer-panel-h, 0px)));
   --badge-reach: calc(
     (var(--scale-rows) - 0.5) * var(--scheme-pitch) + var(--scheme-swatch) * var(--eye-engaged) *
       max(var(--eye-near), var(--eye-far)) / 2
   );
-  --badge-rise: max(0px, calc(var(--badge-reach) + var(--badge-pad) - var(--badge-s) / 2));
+  --badge-rise: max(0px, calc(var(--badge-reach) + var(--badge-pad) - var(--badge-cy)));
   /* The glass: the page behind, blurred, under a veil of white. Never opacity (below 1 it would
      show the SHARP original through the blur): the veil is the background's alpha. */
   --badge-glass: color-mix(in srgb, var(--color-white) 22%, transparent);
@@ -127,7 +137,10 @@
 }
 
 .swm-corner[data-badge='seat'] {
-  --scheme-bottom: var(--scheme-seat);
+  /* The eye keeps today's seat: its right edge on the chrome inset, its lens a row and a half
+     above the wrapper's bottom, the wrapper's bottom on --scheme-seat. */
+  --badge-inset: max(0px, calc(var(--chrome-right-inset) - var(--badge-pad)));
+  --badge-cy: calc(var(--scheme-seat) + var(--scale-rows) * var(--scheme-pitch));
   --badge-lift: 0;
   --badge-ride: max(
     0px,
@@ -135,7 +148,32 @@
   );
 }
 
-/* A scheme with a solid page colour wears it on the tile: --scheme-page is blue under `blue`,
+/* HOME, the flush seat (Nathan 11-16): the badge sits in the true bottom-right corner, centred on
+   the height of the bottom-left corner row (the privacy pill's line at rest, the copyright's on
+   reveal: footer inset + the pill's padding + half its line), its right inset that row's left
+   inset (--nav-inset, PROPOSED). It replaces the footer ride: the footer rises behind the badge,
+   and the privacy pill and the copyright keep their own seats beside it. [data-footer-rest] is
+   Hero's latch, home only; /process and the other routes keep the flush corner and the ride. */
+html[data-footer-rest] .swm-corner:not([data-badge='seat']) {
+  --badge-inset: var(--nav-inset);
+  --badge-cy: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-pill) / 2);
+  --badge-ride: 0px;
+}
+
+/* Above 768px the row's left end is the copyright, a line shorter than the pill: as the footer
+   rises (--footer-rise, 0 at rest, 1 fully revealed) the badge eases from the pill's centre to the
+   copyright line's, so it is centred on what the row shows. A phone has no pill and no copyright
+   at rest, and keeps the one seat. */
+@media (min-width: 769px) {
+  html[data-footer-rest] .swm-corner:not([data-badge='seat']) {
+    --badge-cy: calc(
+      var(--footer-bottom-inset) + var(--lh-pill) / 2 + var(--pill-pad-y) - (var(--pill-pad-y) + (var(--lh-pill) - var(--lh-link)) / 2) *
+        var(--footer-rise, 0)
+    );
+  }
+}
+
+/* A scheme with a solid page colour wears it on the badge: --scheme-page is blue under `blue`,
    black under `black` (scheme.css / global.css role tokens, never a raw hue). Any other scheme
    (project, the parked spectrum preview) is glass. */
 html[data-scheme='black'] .swm-corner,
@@ -159,7 +197,7 @@ html[data-scheme='blue'] .swm-corner {
    the engaged lift pager-scale.css gives a .swm-corner pager (z 120) at 43. — */
 .swm-corner {
   position: fixed;
-  right: var(--chrome-right-inset);
+  right: calc(var(--badge-inset) + var(--badge-pad));
   bottom: var(--scheme-bottom);
   z-index: 43;
   width: var(--eye-w);
@@ -178,17 +216,24 @@ html[data-scheme='blue'] .swm-corner {
     --badge-solid var(--scheme-fade, var(--project-color-fade)) var(--ease-panel);
 }
 
-/* The badge: a square tile centred on the lens (the wrapper's vertical middle), its right edge on
-   the wrapper's right edge plus the chrome inset: the viewport's right edge. Glass over the page
-   on `project`, the scheme's page colour on `black` and `blue`: one background whose mix rides
-   --badge-solid. It appears with the eye (data-ready), never before it. */
-.swm-corner[data-ready]::before {
+/* The badge: the eye's box plus --badge-pad on all four sides, a rectangle with square corners,
+   drawn as the pager's ::before behind everything in it (z -1 in the pager's own stacking
+   context: its `translate` and `isolation`). It scales with --eye-lift about the eye's centre,
+   and the pager's translate (below) anchors its right edge, so rest and engaged are one
+   component on the one --eye-t. Glass over the page on `project`, the scheme's page colour on
+   `black` and `blue`: one background whose mix rides --badge-solid. It appears with the eye
+   (data-ready), never before it. */
+.swm-corner[data-ready] .fp-scale.swm-corner__pager::before {
   content: '';
   position: absolute;
+  z-index: -1;
+  pointer-events: none;
   left: calc(-1 * var(--badge-pad));
-  top: calc(50% - var(--badge-s) / 2);
-  width: var(--badge-s);
-  height: var(--badge-s);
+  top: calc(-1 * var(--badge-pad));
+  width: var(--badge-w);
+  height: var(--badge-h);
+  transform-origin: 50% 50%;
+  scale: var(--eye-lift);
   background-color: color-mix(
     in srgb,
     var(--scheme-page) calc(var(--badge-solid) * 100%),
@@ -241,17 +286,20 @@ html[data-chrome-open] .swm-corner {
   right: auto;
   bottom: auto;
   transform: none;
-  /* The eye grows leftward and keeps its right edge on the seat (its centre moves left by
-     half the growth), so the widget stays anchored in the corner. On the flush badge the
+  /* The badge and the eye grow together leftward and keep the BADGE's right edge on the seat
+     (the centre moves left by half the growth of the eye plus its padding), so the widget stays
+     anchored in the corner and the padding ratio holds. On the flush badge the
      lens is near the bottom edge, so the eye and its column also climb by --badge-rise as
      they deploy (the same --eye-t), and the lowest circle clears the viewport, less what the
      badge already climbed with the links footer (--badge-ride: there the lowest circle is
      above the footer's top edge, so the column does not climb twice). */
-  translate: calc((1 - var(--eye-lift)) * var(--eye-w) / 2)
+  translate: calc((1 - var(--eye-lift)) * (var(--eye-w) / 2 + var(--badge-pad)))
     calc(-1 * var(--badge-lift) * max(0px, var(--badge-rise) - var(--badge-ride)) * var(--eye-t));
   width: var(--scale-w);
   height: var(--scale-num-h);
   pointer-events: auto;
+  /* Its own stacking context (the badge sits at z -1 inside it), whatever the translate. */
+  isolation: isolate;
   --eye-t: 0;
 }
 
@@ -272,24 +320,24 @@ html[data-chrome-open] .swm-corner {
     z-index 0s;
 }
 
-/* The rest press target, at least 44 x 44 and spanning the eye. Engaged: it spans the
-   deployed window (rows each side of the lens) so the gaps between circles do not leak the
-   pointer out and commit mid-scrub. */
+/* The rest press target, at least 44 x 44 and spanning the badge (the eye and its padding). Engaged:
+   it spans the deployed window (rows each side of the lens) so the gaps between circles do not
+   leak the pointer out and commit mid-scrub. */
 .swm-corner .fp-scale.swm-corner__pager::after {
-  inset: min(0px, calc((var(--scale-num-h) - var(--scheme-hit)) / 2))
-    min(0px, calc((var(--scale-w) - var(--scheme-hit)) / 2));
+  inset: min(calc(-1 * var(--badge-pad)), calc((var(--scale-num-h) - var(--scheme-hit)) / 2))
+    min(calc(-1 * var(--badge-pad)), calc((var(--scale-w) - var(--scheme-hit)) / 2));
 }
 
 .swm-corner .fp-scale.swm-corner__pager[data-open]::after {
   top: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
   bottom: calc(var(--scale-lens-y) - var(--scale-rows) * var(--scale-pitch));
-  /* The lifted eye outgrows the root by half its growth each side: the pad follows it. */
+  /* The lifted badge outgrows the root by its own growth each side: the pad follows it. */
   left: min(
-    calc((1 - var(--eye-lift)) * var(--scale-w) / 2),
+    calc((1 - var(--eye-lift)) * var(--scale-w) / 2 - var(--eye-lift) * var(--badge-pad)),
     calc((var(--scale-w) - var(--scheme-hit)) / 2)
   );
   right: min(
-    calc((1 - var(--eye-lift)) * var(--scale-w) / 2),
+    calc((1 - var(--eye-lift)) * var(--scale-w) / 2 - var(--eye-lift) * var(--badge-pad)),
     calc((var(--scale-w) - var(--scheme-hit)) / 2)
   );
 }
@@ -463,7 +511,7 @@ html[data-chrome-open] .swm-corner {
   /* Each circle is scaled by its row (the engine's --sel, from the falloff above) about its
      own centre, and the scale is held in every state, so the exit never snaps. */
   transform-origin: 50% 50%;
-  transform: scale(var(--sel));
+  transform: scale(calc(var(--sel) * var(--eye-far)));
   /* The entrance and the exit ride --eye-t: the circle fades in while it travels in from the
      eye (its distance to the lens row, shrunk by --eye-travel) and grows from --eye-pop of its
      size. The engine's own cascade (opacity, stagger) is replaced; its transitions are off. */
@@ -476,12 +524,17 @@ html[data-chrome-open] .swm-corner {
   transition: none;
 }
 
-/* The circle is drawn at the SMALL size; its row scale grows it (the lens circle by 1 / far),
-   and the lift scales the whole eye: the lens circle is the iris at the lifted size. */
+/* The circle is drawn at the LARGE size (the lens circle, the iris at the lifted size) and its
+   row only ever scales it DOWN (--sel x --eye-far: 1 for the lens, near / far, 1 for the small
+   ones). SQ-107 pass 3, the jitter: an svg root's layout box is snapped to a device pixel before
+   any CSS transform, so drawing the circle small and scaling it up by 1 / far (about 3.3x)
+   multiplied that rounding into a 0.2 to 0.4 px offset, and the globe inside the eye stepped
+   down when the column's lens circle took over from the rest iris. Drawn large, the snap is
+   at most a fraction of a pixel and the row scale shrinks it. */
 .swm-corner .fp-scale.swm-corner__pager .scheme-swatch {
   display: block;
-  width: calc(var(--scheme-swatch) * var(--eye-lift) * var(--eye-far));
-  height: calc(var(--scheme-swatch) * var(--eye-lift) * var(--eye-far));
+  width: calc(var(--scheme-swatch) * var(--eye-lift));
+  height: calc(var(--scheme-swatch) * var(--eye-lift));
 }
 
 /* The shared defs svg (path + clips, rendered once): present for the references, never seen. */

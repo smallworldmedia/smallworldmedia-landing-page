@@ -35,7 +35,7 @@
  *   ?schemeui=0 hides the widget; ?schemeguard=<ms> the wheel pass-through guard;
  *   ?schemerows ?schemesize ?schemepitch dial the deployed window (site-scheme.css);
  *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout the
- *   column's entrance and exit; ?schemebadge=flush|seat the square badge's seat.
+ *   column's entrance and exit; ?schemepad the badge's padding round the eye; ?schemebadge=flush|seat the badge's seat.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import GraticulePager from './work/pager/GraticulePager.jsx';
@@ -89,6 +89,7 @@ export default function SiteScheme() {
       if (p.lift != null) el.style.setProperty('--eye-engaged', String(p.lift));
       if (p.near != null) el.style.setProperty('--eye-near', String(p.near));
       if (p.far != null) el.style.setProperty('--eye-far', String(p.far));
+      if (p.pad != null) el.style.setProperty('--badge-pad', `${p.pad}px`);
       if (p.inMs != null) el.style.setProperty('--eye-in', `${p.inMs}ms`);
       if (p.outMs != null) el.style.setProperty('--eye-out', `${p.outMs}ms`);
       // The badge's seat (site-scheme.css reads [data-badge]); [data-ready] lets the badge

@@ -105,7 +105,9 @@ export const BADGE_DEFAULT = BADGE_SEATS[0];
  *   ?schemefar=<n>    the small circle (two stations out), the same fraction
  *   ?schemein=<ms>    the column's entrance, 0 = instant; null = the CSS default
  *   ?schemeout=<ms>   the column's exit, 0 = instant; null = the CSS default
- *   ?schemebadge=<seat> the square badge's seat: `flush` (against the viewport's right and
+ *   ?schemepad=<px>   the badge's padding, the SAME on all four sides of the eye (the badge is the eye
+ *                     plus this each side), 0 to 40; null = the CSS default (--badge-pad, half the chrome inset)
+ *   ?schemebadge=<seat> the badge's seat: `flush` (against the viewport's right and
  *                     bottom edges) or `seat` (today's height above the privacy pill, the
  *                     badge reaching the right edge); anything else = BADGE_DEFAULT
  * Out-of-range values clamp; unparseable ones fall back to the default (null: the CSS owns it).
@@ -122,6 +124,7 @@ export function schemeParams(params) {
     size: Number.isNaN(size) || size <= 0 ? null : Math.max(8, size),
     pitch: Number.isNaN(pitch) || pitch <= 0 ? null : Math.max(8, pitch),
     lift: dial(params.get('schemelift'), 1, 3),
+    pad: dial(params.get('schemepad'), 0, 40),
     near: dial(params.get('schemenear'), 0.2, 1),
     far: dial(params.get('schemefar'), 0.2, 1),
     inMs: dial(params.get('schemein'), 0, 5000),
