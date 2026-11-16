@@ -3,7 +3,7 @@
   "tool": "codebase-mapper",
   "version": "2.15.10",
   "mappedAt": "2026-11-16",
-  "gitCommit": "6e65a5a090d2653a916778749cb0f36188821dc6",
+  "gitCommit": "673980cd40be31ad73afbb14347c2c3e2e08f405",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -27,7 +27,7 @@
     "directory-structure.md": "765823d9732608335a1ba28eb53364ea711016f32fc8364deb3bdb07fd8673da",
     "entry-points.md": "62e10742f0355a0f10e757b4483c9c56381114f302ee9f79b1aa8061021a7c89",
     "modules.md": "a7814fb0105d467c886c543826d1f23dc014f96f2db401090b9bbb08fa1cd3a3",
-    "onboarding.md": "05ccd424aaa1e5dfce43aafa1cee367ca903b3f55de78f64a97a6c765f64c8cd",
+    "onboarding.md": "0ac13ef221e9e4251ba906cfc0e5456a1f75ae2be9e7b8ae0df50dcc5fb76c9a",
     "patterns.md": "f08a07f5140a36fe101402a8e348fdca6619b14771c1c29cce0f205b05351eda",
     "tech-landscape.md": "c263d061931925ed76748241192c85af74fa449fcac254dd0bd9311f1927ee4f"
   }

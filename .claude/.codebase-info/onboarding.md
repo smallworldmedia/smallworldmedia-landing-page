@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-11-15*
+*Last Updated: 2026-11-16*
 
 ## Quick start
 ```bash
@@ -41,7 +41,9 @@ seeds), so a run passes only its own row's flags.
   `docs/.session-context.md`.
 
 ## Local skills (`.claude/skills/`)
-`gsap-swm` (the site's GSAP system), `webapp-testing` (Playwright driving);
+`webapp-testing` (Playwright driving). Motion, interaction and component work uses the
+`swm:web-motion` plugin skill (its knowledge tier is the website's Dropbox `knowledge/motion/`);
+the old local `gsap-swm` skill was retired 2026-11-16.
 `frontend-design` and `skill-creator` are present but switched
 off in `.claude/settings.local.json`. Live rules in `.claude/live-rules/rules/` inject conventions
 by scope.
