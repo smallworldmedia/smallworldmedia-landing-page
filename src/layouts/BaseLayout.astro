@@ -248,6 +248,7 @@ const roster = await getDirectoryData()
       // SQ-100: up from the first page, so a click before /work or a detail
       // page loads still counts for their gesture page turns.
       import '../lib/gestureHistory.js';
+      import '../lib/historyLog.js'; // SQ-105: ?histlog=1 on-device history HUD
       document.addEventListener('astro:page-load', () => syncRoute());
 
       // SQ-33: the way home (nav lockup, menu, /work scroll-up) rides an

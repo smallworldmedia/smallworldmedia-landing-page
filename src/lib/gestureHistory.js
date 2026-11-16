@@ -42,3 +42,30 @@ const tracker = typeof window !== 'undefined' ? trackActivation(window) : null;
 /** navigate() options for a gesture-committed page turn: push when the
  *  document holds an honoured activation, replace when it doesn't. */
 export const gestureHistory = () => (tracker ? tracker.options() : { history: 'replace' });
+
+// The browser's own Back animation (SQ-105). An iOS edge-swipe Back has
+// already animated to Safari's snapshot of the page behind; ClientRouter (5.x
+// reads no hasUAVisualTransition) would then run its view transition from the
+// OLD DOM still on screen, replaying the page being left over the snapshot.
+// A popstate the browser animated skips the router's animation for that one
+// traversal; every other navigation keeps it. (Unproven on a device until
+// Nathan's ?histlog=1 walk.)
+
+/** True when this popstate already played the browser's own transition. */
+export const browserAnimated = (popstate) => !!popstate?.hasUAVisualTransition;
+
+export function trackUAVisual(win, doc) {
+  let pending = false;
+  win.addEventListener('popstate', (e) => {
+    pending = browserAnimated(e);
+  });
+  doc.addEventListener('astro:before-preparation', (e) => {
+    if (e.navigationType !== 'traverse') pending = false; // a push/replace keeps its animation
+  });
+  doc.addEventListener('astro:before-swap', (e) => {
+    if (pending && e.navigationType === 'traverse') e.viewTransition?.skipTransition();
+    pending = false;
+  });
+}
+
+if (typeof window !== 'undefined') trackUAVisual(window, document);

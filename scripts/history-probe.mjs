@@ -26,6 +26,13 @@
  * /work, card → detail, band → next detail) then Back each step; W = scenario A's
  * wheel turn then Back. WebKit skips back items a script added without a user
  * gesture, so a Back that lands further back than one step is a skipped item.
+ * WebKit iPhone (SQ-105, an iPhone 17 Pro descriptor, touch taps, from an
+ * outside page): P1 = /work → card → Back → Back → Forward → Forward;
+ * P2 = /work World 2 → its card → band → Back → Back → Forward → Forward.
+ * Each step is judged on the URL, on the page the DOM shows (canonical), and
+ * on staying put for 5 s. --latency=ms delays ClientRouter's page fetches (a
+ * phone on a branch preview). Playwright's goBack is not iOS's edge swipe: no
+ * swipe snapshot, no touches during the gesture, no bfcache, no memory kills.
  *
  * Exit code: 0 when every judged scenario passes verdict(), 1 otherwise.
  */
@@ -47,7 +54,15 @@ export function verdict(rec) {
     if (!rec.activated && grew !== 0) fails.push(`unactivated turn should replace (entries ${rec.before.length}→${rec.after.length})`);
   }
   if ('left' in rec && rec.left !== rec.restored) fails.push(`restored ${rec.restored}, left from ${rec.left}`);
-  for (const b of rec.back ?? []) if (b.expect !== b.got) fails.push(`Back landed ${b.got}, expected ${b.expect}`);
+  for (const b of rec.back ?? []) {
+    const verb = b.dir === 'forward' ? 'Forward' : 'Back';
+    if (b.expect !== b.got) fails.push(`${verb} landed ${b.got}, expected ${b.expect}`);
+    else if (b.trail && b.trail.length > 1) fails.push(`${verb} moved on after landing: ${b.trail.join(' → ')}`);
+    // The page on screen (its canonical path) must be the entry's own; about:
+    // pages have no canonical. A mismatch = a popstate the router never acted on.
+    if (b.dom !== undefined && !b.expect.startsWith('about:') && b.dom !== b.expect)
+      fails.push(`${verb} to ${b.expect} still shows ${b.dom}`);
+  }
   return { id: rec.id, pass: fails.length === 0, fails };
 }
 
@@ -67,7 +82,7 @@ async function main() {
   const ENGINE = args.engine ?? 'all';
   const require = createRequire(import.meta.url);
   const PW = process.env.PLAYWRIGHT_PATH ?? '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright';
-  const { chromium, webkit } = require(PW);
+  const { chromium, webkit, devices } = require(PW);
   const results = [];
   const want = (id) => !ONLY || ONLY.has(id);
 
@@ -295,6 +310,85 @@ async function main() {
       });
     await scripted('W', false);
     await scripted('V', true);
+
+    // ── iPhone (SQ-105): an iPhone 17 Pro descriptor (isMobile, hasTouch),
+    // touch taps, Nathan's two sequences from an outside page, then Forward.
+    // Each step is judged on the URL AND on the page the DOM shows (its
+    // canonical link — a popstate ClientRouter never acts on leaves the old
+    // page up under the new URL), watched for 5 s so a snap forward shows. ──
+    const phone = async (id, fn) => {
+      if (!want(id)) return;
+      const ctx = await browser.newContext({ ...devices['iPhone 17 Pro'] });
+      const page = await ctx.newPage();
+      const rec = { id, skippable: 0, back: [], notes: [] };
+      const LATENCY = Number(args.latency ?? 0);
+      if (LATENCY > 0)
+        await page.route(/\/work(\/[^.?]*)?\/?(\?.*)?$/, async (route) => {
+          if (route.request().resourceType() !== 'document') await sleep(LATENCY);
+          await route.continue();
+        });
+      const shown = () =>
+        page.evaluate(() => {
+          const c = document.querySelector('link[rel=canonical]')?.getAttribute('href');
+          return c ? new URL(c).pathname.replace(/\/+$/, '') || '/' : null;
+        });
+      const step = async (dir, expect) => {
+        await (dir === 'back' ? page.goBack({ timeout: 8000 }) : page.goForward({ timeout: 8000 })).catch(() => {});
+        const trail = [];
+        for (let t = 0; t < 50; t++) {
+          const p = pathOf(page.url());
+          if (trail[trail.length - 1] !== p) trail.push(p);
+          await sleep(100);
+        }
+        rec.back.push({ dir, expect, got: pathOf(page.url()), dom: await shown(), trail });
+      };
+      try {
+        await page.goto('about:blank'); // the outside page he came from
+        await page.goto(BASE + '/work', { waitUntil: 'load' });
+        await sleep(4500);
+        await fn({ page, rec, step });
+      } catch (e) {
+        rec.notes.push('ERR ' + e.message);
+        rec.skippable += 1000;
+      }
+      results.push(rec);
+      await ctx.close();
+    };
+    const client = (page) => page.evaluate(() => document.querySelector('.fp-card__client')?.textContent);
+    // P1: /work → tap a card → Back (lands on /work, stays) → Forward.
+    await phone('P1', async ({ page, rec, step }) => {
+      rec.left = await client(page);
+      await page.tap('.fp-card__cta');
+      await waitPath(page, /^\/work\/.+/);
+      await sleep(3500);
+      const a = pathOf(page.url());
+      await step('back', '/work');
+      rec.restored = await client(page);
+      await step('back', 'about:blank');
+      await step('forward', '/work');
+      await step('forward', a);
+    });
+    // P2: /work World 2 → tap its card → tap the band → Back, Back (/work at
+    // World 2, never off the site) → Forward, Forward. (The World change is a
+    // tap on [NEXT]: WebKit here has no touch-drag input.)
+    await phone('P2', async ({ page, rec, step }) => {
+      await page.tap('.fp-next');
+      await sleep(3500);
+      rec.left = await client(page);
+      await page.tap('.fp-card__cta');
+      await waitPath(page, /^\/work\/.+/);
+      await sleep(3500);
+      const a = pathOf(page.url());
+      await page.tap('.np-band');
+      await waitPath(page, new RegExp(`^/work/(?!${a.slice(6)}$).+`));
+      await sleep(3500);
+      const b = pathOf(page.url());
+      await step('back', a);
+      await step('back', '/work');
+      rec.restored = await client(page);
+      await step('forward', a);
+      await step('forward', b);
+    });
     await browser.close();
   }
 

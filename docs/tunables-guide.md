@@ -71,6 +71,7 @@ value living only in a `copy_url` link.
 | `?deckdebug` | `/work` | bottom-right (collides with fp1tune); collapses to a `⌁ deck` chip ≤768px | deck viewer: cycle, spacing, home x, fan, pile, hold, album scale, deck x/y; `↺ reset` | **rebuilt from pathname**, other params dropped |
 | `?dirtune=1` | `/work/directory` | top-right | order (`project` / `mix`), players (the gate's cap), dwell ms, phone cols (`1` / `2`); typed fields commit on Enter or blur; `reset` | current URL + `dirtune=1`, non-defaults only (the filter's `?tag` / `?client` ride along) |
 | `?debug` | `/process` | bottom-left; chip on phones | stage buttons 01–05, `↻ replay`, fps/draws/stage, 23 sliders + 5 selects for the whole process scene | **rebuilt from pathname** + `?debug`, ms knobs as ms |
+| `?histlog=1` | every route (sticks for the tab via sessionStorage; `?histlog=0` turns it off) | bottom-left, over everything | no dials: a read-only log (SQ-105) of every pushState / replaceState / popstate / pageshow and ClientRouter PREP + SWAP, with path, `history.length`, state keys + `swmWorld` (`w`), `userActivation` isActive/hasBeenActive (`ua`), a popstate’s `hasUAVisualTransition` (`uav`); last 60 rows in sessionStorage `swm:histlog`, survive swaps + bfcache; double-tap clears | none — screenshot it |
 
 Corner map: top-left = texttune / footertune · top-right = herotune / entertune / dirtune · bottom-left = lenistune / globe debug / process debug · bottom-right = committune / poptune / fp1tune / deckdebug.
 
