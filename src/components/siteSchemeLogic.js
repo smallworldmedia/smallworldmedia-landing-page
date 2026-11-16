@@ -88,6 +88,10 @@ const dial = (raw, lo, hi) => {
   return Number.isNaN(n) ? null : Math.min(hi, Math.max(lo, n));
 };
 
+/** The badge's two seats, first named first. PROPOSED default: `flush` (Nathan picks the one to bake). */
+export const BADGE_SEATS = ['flush', 'seat'];
+export const BADGE_DEFAULT = BADGE_SEATS[0];
+
 /**
  * The widget's ?params from a URLSearchParams (anything with .get):
  *   ?schemeui=0       hides the widget
@@ -101,6 +105,9 @@ const dial = (raw, lo, hi) => {
  *   ?schemefar=<n>    the small circle (two stations out), the same fraction
  *   ?schemein=<ms>    the column's entrance, 0 = instant; null = the CSS default
  *   ?schemeout=<ms>   the column's exit, 0 = instant; null = the CSS default
+ *   ?schemebadge=<seat> the square badge's seat: `flush` (against the viewport's right and
+ *                     bottom edges) or `seat` (today's height above the privacy pill, the
+ *                     badge reaching the right edge); anything else = BADGE_DEFAULT
  * Out-of-range values clamp; unparseable ones fall back to the default (null: the CSS owns it).
  */
 export function schemeParams(params) {
@@ -119,5 +126,6 @@ export function schemeParams(params) {
     far: dial(params.get('schemefar'), 0.2, 1),
     inMs: dial(params.get('schemein'), 0, 5000),
     outMs: dial(params.get('schemeout'), 0, 5000),
+    badge: BADGE_SEATS.includes(params.get('schemebadge')) ? params.get('schemebadge') : BADGE_DEFAULT,
   };
 }
