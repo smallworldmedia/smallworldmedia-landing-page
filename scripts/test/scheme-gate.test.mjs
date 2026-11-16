@@ -9,6 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
+  badge, rightEdge, noClip, blurbClear, badgeColour, eyeLines, persist, bounds, strays, jitter,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -416,6 +417,197 @@ test('outline: the mix must be 1 under spectrum (the worlds hook has no centre) 
   assert.equal(outline({ error: 'boom' }, { name: 'worlds' }).skip, true);
 });
 
+// ── SQ-107: the eye in its rectangular badge. Each gate has a passing case and a negative control. ──
+
+// The eye is 48 x 28, the badge hugs it by 6 px on every side: 60 x 40.
+const eyeIn = (t) => ({ x: t.x + 6, y: t.y + 6, w: 48, h: 28 });
+
+test('badge gate the tile sits flush with its right edge on the viewport edge and is a horizontal rectangle', () => {
+  const vp = { w: 390, h: 844 };
+  const t = { x: 330, y: 804, w: 60, h: 40 };
+  assert.equal(badge(t, vp, { eye: eyeIn(t) }).pass, true);
+  // negative controls: an inset tile (the rejected pass 4 home seat, 4 px short), a square tile, no tile
+  const inset = { x: 326, y: 804, w: 60, h: 40 };
+  const bad = badge(inset, vp, { eye: eyeIn(inset) });
+  assert.equal(bad.pass, false);
+  assert.match(bad.offenders[0].note, /right edge is 4 from the viewport's, want 0/);
+  const square = { x: 340, y: 794, w: 50, h: 50 };
+  const sq = badge(square, vp, { eye: eyeIn(square) });
+  assert.equal(sq.pass, false);
+  assert.match(sq.offenders[0].note, /not a horizontal rectangle/);
+  assert.equal(badge(null, vp).pass, false);
+  // a tile 0.4 px short is inside the 0.5 px tolerance, 0.7 px is not
+  assert.equal(badge({ ...t, x: 329.6 }, vp, { eye: eyeIn({ ...t, x: 329.6 }) }).pass, true);
+  assert.equal(badge({ ...t, x: 329.3 }, vp).pass, false);
+});
+
+test('badge gate the padding is equal on all four sides and an unequal one names itself', () => {
+  const vp = { w: 1440, h: 900 };
+  const t = { x: 1380, y: 860, w: 60, h: 40 };
+  assert.equal(badge(t, vp, { eye: eyeIn(t) }).pass, true);
+  const tall = badge({ x: 1380, y: 850, w: 60, h: 50 }, vp, { eye: { x: 1386, y: 866, w: 48, h: 28 } });
+  assert.equal(tall.pass, false);
+  assert.match(tall.offenders[0].note, /padding is not equal on four sides/);
+  const wide = badge({ x: 1362, y: 860, w: 78, h: 40 }, vp, { eye: { x: 1386, y: 866, w: 48, h: 28 } });
+  assert.equal(wide.pass, false, 'a badge wider than the eye by more than its height is not hugging it');
+});
+
+test('badge gate home centres the flush badge on the corner row with its right edge on the viewport edge', () => {
+  const vp = { w: 1440, h: 900 };
+  // centred 31 px above the bottom: y + h / 2 = 900 - 31
+  const on = { x: 1380, y: 849, w: 60, h: 40 };
+  const ok = badge(on, vp, { eye: eyeIn(on), rowCy: 31, home: true, footerTop: 797 });
+  assert.equal(ok.pass, true);
+  assert.match(ok.note, /\(home\)/);
+  // negative controls: the corner-flush tile on home (the corner, not the row), the rejected pass 4 inset, riding the footer
+  const corner = { x: 1380, y: 860, w: 60, h: 40 };
+  const c = badge(corner, vp, { eye: eyeIn(corner), rowCy: 31, home: true, footerTop: 797 });
+  assert.equal(c.pass, false);
+  assert.ok(c.offenders.some((o) => /centre 20 above the bottom is not the corner row's 31/.test(o.note)));
+  const inset = { x: 1376, y: 849, w: 60, h: 40 };
+  const i = badge(inset, vp, { eye: eyeIn(inset), rowCy: 31, home: true, footerTop: 797 });
+  assert.equal(i.pass, false);
+  assert.ok(i.offenders.some((o) => /right edge is 4 from the viewport's, want 0/.test(o.note)));
+  const ride = { x: 1380, y: 757, w: 60, h: 40 };
+  assert.equal(badge(ride, vp, { eye: eyeIn(ride), rowCy: 31, home: true, footerTop: 797 }).pass, false, 'riding the footer is not the home seat');
+});
+
+test('badge gate flush rides the links footer so its bottom edge is on the footer top and the viewport bottom is not the floor there', () => {
+  const vp = { w: 1440, h: 900 };
+  const at = (y) => ({ x: 1380, y, w: 60, h: 40 });
+  const on = badge(at(757), vp, { footerTop: 797, eye: eyeIn(at(757)) });
+  assert.equal(on.pass, true);
+  assert.match(on.note, /footer top 797/);
+  // no footer in view (a footer top at or below the viewport's bottom edge): the corner is the floor
+  assert.equal(badge(at(860), vp, { footerTop: 1055 }).pass, true);
+  assert.equal(badge(at(860), vp).pass, true);
+  // negative controls: the corner-flush tile over a visible footer (the rejected 5163e2a), a tile floating above the footer
+  const over = badge(at(860), vp, { footerTop: 797 });
+  assert.equal(over.pass, false);
+  assert.match(over.offenders[0].note, /bottom edge 900 is not the links footer's top 797/);
+  assert.equal(badge(at(700), vp, { footerTop: 797 }).pass, false);
+});
+
+test('rightEdge gate every state on the viewport edge passes and a short or missing or unreadable one fails', () => {
+  const at = (right, vw, label = 'home@1440 rest') => ({ label, right, vw });
+  const ok = rightEdge([at(390, 390), at(1024, 1024, 'work@1024 engaged'), at(1440.3, 1440), at(1919.6, 1920, 'privacy@1920 rest')]);
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /4 states/);
+  // negative controls: the pass 4 home inset (4 px), a half pixel over, an unreadable sample, nothing measured
+  const inset = rightEdge([at(1436, 1440)]);
+  assert.equal(inset.pass, false);
+  assert.match(inset.offenders[0].note, /4 px short/);
+  assert.equal(rightEdge([at(1439.4, 1440)]).pass, false);
+  assert.equal(rightEdge([at(NaN, 1440)]).pass, false);
+  assert.equal(rightEdge([]).pass, false);
+  assert.equal(rightEdge(null).pass, false);
+});
+
+test('noClip gate circles whole inside a box or wholly outside it pass and a visible circle straddling a clip edge fails', () => {
+  const win = { name: 'div.fp-scale__window', x: 1380, y: 700, w: 60, h: 180 };
+  const frame = (label, circles) => ({ label, circles, clips: [win] });
+  const inside = { name: 'circle k=2', op: 1, x: 1390, y: 760, w: 30, h: 30 };
+  const outside = { name: 'circle k=5', op: 1, x: 1390, y: 960, w: 30, h: 30 };
+  assert.equal(noClip([frame('f0', [inside, outside])]).pass, true);
+  // negative controls: a visible circle cut by the window's bottom edge, then by its side edge
+  const cut = { name: 'circle k=3', op: 0.8, x: 1390, y: 860, w: 30, h: 30 };
+  const bad = noClip([frame('f7', [inside, cut])]);
+  assert.equal(bad.pass, false);
+  assert.match(bad.offenders[0].note, /visible circle cut by div.fp-scale__window: 10 px outside it/);
+  assert.equal(bad.offenders[0].frame, 'f7');
+  assert.equal(noClip([frame('f8', [{ ...inside, x: 1370 }])]).pass, false, 'cut by the side edge');
+  // the same cut circle faded out (opacity 0.02) is not shown, so it is not cut
+  assert.equal(noClip([frame('f9', [{ ...cut, op: 0.02 }])]).pass, true);
+  // no frames, and a frame with no clip box (nothing can cut)
+  assert.equal(noClip([]).pass, false);
+  assert.equal(noClip([{ label: 'f0', circles: [cut], clips: [] }]).pass, true);
+});
+
+test('blurbClear gate a badge above or beside the blurb text passes and one over its last words fails with the overlap', () => {
+  const blurb = { x: 4, y: 816, w: 1417, h: 27 }; // 1440 wide: the nowrap line ends 19 px short of the right edge
+  assert.equal(blurbClear({ x: 1368, y: 725, w: 72, h: 72 }, blurb).pass, true, 'above the footer text');
+  assert.equal(blurbClear({ x: 1368, y: 816, w: 72, h: 72 }, { ...blurb, w: 1300 }).pass, true, 'a shorter line ends before the tile');
+  // negative control: the flush tile on the corner (the rejected 5163e2a) covers the end of the line
+  const hit = blurbClear({ x: 1368, y: 828, w: 72, h: 72 }, blurb);
+  assert.equal(hit.pass, false);
+  assert.match(hit.offenders[0].note, /covers 53 x 15 px of the blurb/);
+  assert.equal(blurbClear(null, blurb).pass, false);
+  assert.equal(blurbClear({ x: 1368, y: 725, w: 72, h: 72 }, null).pass, false, 'no blurb measured proves nothing');
+});
+
+test('overlap gate the tile resting on the links footer top is touching and passes and one pixel into it fails', () => {
+  const footer = { name: '.site-footer--links', x: 0, y: 797, w: 1440, h: 258, at: 0 };
+  const tile = { name: '.swm-corner', x: 1368, y: 725, w: 72, h: 72, at: 0 };
+  assert.equal(overlap([tile, footer], { anchor: '.swm-corner' }).pass, true);
+  assert.equal(overlap([{ ...tile, y: 726 }, footer], { anchor: '.swm-corner' }).pass, false);
+});
+
+test('badgeColour gate blue is opaque brand blue and black opaque black and project or any other a translucent veil over a blur', () => {
+  const glass = { bg: 'color(srgb 1 1 1 / 0.22)', blur: 'blur(12px)' };
+  assert.equal(badgeColour('blue', { bg: 'rgb(0, 0, 255)', blur: 'blur(12px)' }).pass, true);
+  assert.equal(badgeColour('black', { bg: 'rgb(0, 0, 0)', blur: 'blur(12px)' }).pass, true);
+  assert.equal(badgeColour('project', glass).pass, true);
+  assert.equal(badgeColour('spectrum', glass).pass, true, 'the parked preview wears the glass');
+  // negative controls: the wrong colour for the scheme, glass where a solid is due, a solid where glass is due, glass without a blur
+  assert.equal(badgeColour('blue', { bg: 'rgb(0, 0, 0)', blur: 'blur(12px)' }).pass, false);
+  assert.equal(badgeColour('black', glass).pass, false);
+  assert.equal(badgeColour('blue', { bg: 'rgba(0, 0, 255, 0.5)', blur: 'blur(12px)' }).pass, false);
+  assert.equal(badgeColour('project', { bg: 'rgb(0, 0, 255)', blur: 'blur(12px)' }).pass, false);
+  assert.equal(badgeColour('project', { bg: glass.bg, blur: 'none' }).pass, false);
+  assert.equal(badgeColour('project', { bg: 'rgba(0, 0, 0, 0)', blur: 'blur(12px)' }).pass, false, 'a clear tile is no glass');
+  assert.equal(badgeColour('blue', {}).pass, false);
+});
+
+test('eyeLines gate white strokes pass and a dark stroke names the shape', () => {
+  const lids = { path: 'path.scheme-eye__lid', stroke: 'rgb(255, 255, 255)', width: 1.5 };
+  const globe = { path: 'use', stroke: 'rgb(255, 255, 255)', width: 1.04 };
+  assert.equal(eyeLines([lids, globe, { path: 'g', stroke: 'none', width: 0 }]).pass, true);
+  // negative control: the old 50% black edge round the lids
+  const old = eyeLines([lids, { path: 'path.scheme-eye__edge', stroke: 'color(srgb 0 0 0 / 0.5)', width: 3.1 }]);
+  assert.equal(old.pass, false);
+  assert.equal(old.offenders[0].path, 'path.scheme-eye__edge');
+  assert.equal(eyeLines([]).pass, false, 'nothing measured proves nothing');
+});
+
+test('persist gate one node at opacity 1 visible on every frame passes and a fade or a remount or a gap fails and says which frame', () => {
+  const ok = Array.from({ length: 30 }, () => ({ same: true, op: '1', vis: 'visible' }));
+  assert.equal(persist(ok).pass, true);
+  const fade = ok.map((s, i) => (i >= 10 && i < 14 ? { ...s, op: '0.4' } : s));
+  const f = persist(fade);
+  assert.equal(f.pass, false);
+  assert.equal(f.offenders[0].frame, 10);
+  assert.match(f.offenders[0].note, /opacity 0\.4/);
+  assert.equal(persist(ok.map((s, i) => (i === 5 ? { ...s, same: false } : s))).pass, false, 'a remount');
+  assert.equal(persist(ok.map((s, i) => (i === 5 ? { gone: true } : s))).pass, false, 'a gap');
+  assert.equal(persist(ok.map((s, i) => (i === 7 ? { ...s, vis: 'hidden' } : s))).pass, false, 'a hide');
+  assert.equal(persist([]).pass, false, 'no frames measured proves nothing');
+});
+
+test('bounds gate a circle inside its window passes and one wider than the window names itself', () => {
+  const box = { name: '.fp-scale__window', x: 100, y: 0, w: 89, h: 144 };
+  assert.equal(bounds([{ name: 'lens', x: 120.4, y: 40, w: 48.1, h: 48.1 }], box).pass, true);
+  // negative control: the old window (the resting eye, 48 wide, centred) under a lens circle lifted to 3 (78 wide)
+  const old = bounds([{ name: 'lens', x: 122, y: 40, w: 78, h: 78 }], { ...box, x: 144.5, w: 48 });
+  assert.equal(old.pass, false);
+  assert.equal(old.offenders[0].path, 'lens');
+  assert.equal(bounds([{ name: 'lens', x: 90, y: 40, w: 48, h: 48 }], box).pass, false, 'off the left edge');
+  assert.equal(bounds([{ name: 'far', op: 0, x: 90, y: 40, w: 48, h: 48 }], box).pass, true, 'a circle that is not shown cannot be out of bounds');
+  assert.equal(bounds([], box).pass, false);
+});
+
+test('strays gate anti-alias noise passes and a station painted outside the shown rows fails', () => {
+  assert.equal(strays({ pixels: 0, total: 5000, at: 0.35 }).pass, true);
+  // measured on the fixed column: 1-3 px of 134400 (layer-promotion rounding on the shown eye, delta <= 19)
+  assert.equal(strays({ pixels: 3, total: 134400, at: 0.5, maxDelta: 19, box: '190,363..191,364' }).pass, true);
+  // measured on the broken column (--eye-reach forced to 1): 50-105 px per scrub, delta up to 74
+  const bad = strays({ pixels: 50, total: 134400, at: 0.15, maxDelta: 33, box: '199,315..203,430' });
+  assert.equal(bad.pass, false);
+  assert.equal(bad.offenders[0].pixels, 50);
+  assert.equal(strays({ pixels: 9, total: 134400, at: 0.5 }).pass, false, 'just past the noise ceiling');
+  assert.equal(strays({ pixels: 9, total: 134400, at: 0.5 }, { tol: 9 }).pass, true, 'the ceiling is a parameter');
+  assert.equal(strays(undefined).pass, false, 'nothing measured proves nothing');
+});
+
 test('palette classifier names the swatches of color-ref.png', () => {
   const swatches = {
     '#0000ff': 'blue', '#fd361a': 'red', '#077b3e': 'green', '#a6bcda': 'periwinkle',
@@ -430,4 +622,45 @@ test('palette classifier names the swatches of color-ref.png', () => {
   assert.deepEqual(counts, { blue: 2, red: 1, black: 1 });
   const sh = chromaticShares(counts);
   assert.ok(Math.abs(sh.blue - 66.67) < 0.01 && Math.abs(sh.red - 33.33) < 0.01);
+});
+
+// ── SQ-107 pass 5: the globe's centre in the eye moves on one path in x and y (the jitter gate). ──
+
+// An ease from the rest pose (x 1419.3, y 888) to the engaged pose (x 1408.6, y 871.3), eight to a dozen real-time samples.
+const ease = (n, a, b) => Array.from({ length: n }, (_, i) => a + (b - a) * (1 - (1 - i / (n - 1)) ** 3));
+const path = (n, from, to) => { const xs = ease(n, from.x, to.x); const ys = ease(n, from.y, to.y); return xs.map((x, i) => ({ x: +x.toFixed(3), y: +ys[i].toFixed(3) })); };
+const REST = { x: 1419.3, y: 888 };
+const OUT = { x: 1408.6, y: 871.3 };
+
+test('jitter gate a steady ease in both axes with the settle on the last frame passes', () => {
+  const up = path(40, REST, OUT);
+  const down = path(40, OUT, REST);
+  const ok = jitter({ engage: up, release: down, settledUp: { x: 1408.6, y: 871.31 }, settledDown: { x: 1419.3, y: 888 } });
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /40 \+ 40 samples/);
+  // centroid noise (0.1 px, the measured floor) is not a reversal, and a 0.4 px settle is inside the 0.5 px bound
+  const noisy = up.map((q, i) => ({ x: q.x + (i % 2 ? 0.05 : -0.05), y: q.y }));
+  assert.equal(jitter({ engage: noisy, release: down, settledUp: { x: 1409, y: 871.3 }, settledDown: REST }).pass, true);
+});
+
+test('jitter gate a left jolt at settle and a reversal in either axis and a missing run all fail', () => {
+  const up = path(40, REST, OUT);
+  const down = path(40, OUT, REST);
+  // the left jolt: the settled pose 1.6 px left of the last animated frame (the iris hands over to a circle off by a px or two)
+  const jolt = jitter({ engage: up, release: down, settledUp: { x: 1407, y: 871.3 }, settledDown: REST });
+  assert.equal(jolt.pass, false);
+  assert.equal(jolt.offenders[0].axis, 'x');
+  assert.match(jolt.offenders[0].note, /snap of 1.6 px at settle/);
+  // the same jolt in y
+  const down1 = jitter({ engage: up, release: down, settledUp: OUT, settledDown: { x: 1419.3, y: 886.6 } });
+  assert.equal(down1.pass, false);
+  assert.equal(down1.offenders[0].axis, 'y');
+  // a reversal: the iris drifts back right by 1 px mid-flight
+  const back = up.map((q, i) => (i >= 20 && i < 30 ? { ...q, x: q.x + 1 } : q));
+  const r = jitter({ engage: back, release: down, settledUp: OUT, settledDown: REST });
+  assert.equal(r.pass, false);
+  assert.match(r.offenders[0].note, /gave back [01]\.\d\d px against its direction of travel/);
+  assert.equal(jitter(null).pass, false);
+  assert.equal(jitter({ engage: up.slice(0, 4), release: down, settledUp: OUT, settledDown: REST }).pass, false, 'too few samples proves nothing');
+  assert.equal(jitter({ engage: up, release: down, settledUp: OUT }).pass, false, 'a missing settled pose proves nothing');
 });
