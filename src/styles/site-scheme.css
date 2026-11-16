@@ -103,13 +103,16 @@
                                       tile reaches the viewport's right edge.
      --scheme-bottom is the wrapper's bottom edge: it puts the lens half a tile above the bottom
      edge (flush) or above the privacy pill (seat). --badge-rise is how far the engaged eye and
-     column must climb so the lowest circle clears the viewport bottom (flush only: --badge-lift),
-     --badge-ride lets the tile keep clear of the rising links footer (seat only). */
+     column must climb so the lowest circle clears the viewport bottom (flush only: --badge-lift).
+     --badge-ride is how far the tile climbs with the links footer, on both seats (Nathan 11-15:
+     the eye keeps its rise above the footer): flush rests on the viewport's bottom edge and its
+     bottom edge then rides on the footer's top edge; seat keeps a --space-6 gap above it, from
+     the seat's own height. */
   --badge-pad: var(--chrome-right-inset);
   --badge-s: calc(var(--eye-w) + 2 * var(--badge-pad));
   --scheme-bottom: calc(var(--badge-s) / 2 - var(--scale-rows) * var(--scheme-pitch));
   --badge-lift: 1;
-  --badge-ride: 0;
+  --badge-ride: max(0px, calc(var(--footer-reveal, 0) * var(--footer-panel-h, 0px)));
   --badge-reach: calc(
     (var(--scale-rows) - 0.5) * var(--scheme-pitch) + var(--scheme-swatch) * var(--eye-engaged) *
       max(var(--eye-near), var(--eye-far)) / 2
@@ -126,7 +129,10 @@
 .swm-corner[data-badge='seat'] {
   --scheme-bottom: var(--scheme-seat);
   --badge-lift: 0;
-  --badge-ride: 1;
+  --badge-ride: max(
+    0px,
+    calc(var(--footer-reveal, 0) * var(--footer-panel-h, 0px) + var(--space-6) - var(--scheme-seat))
+  );
 }
 
 /* A scheme with a solid page colour wears it on the tile: --scheme-page is blue under `blue`,
@@ -160,14 +166,12 @@ html[data-scheme='blue'] .swm-corner {
   height: calc(2 * var(--scale-rows) * var(--scheme-pitch));
   pointer-events: none;
   /* The links footer rises through the bottom of the viewport (SiteFooter broadcasts the
-     visible height as --footer-reveal x --footer-panel-h, 0.40 of it at rest on home). On the
-     `seat` seat the widget rides above its top edge: it never moves until the footer would
-     reach the seat's bottom edge less a --space-6 gap, then it climbs with it. 0 without the
-     broadcast. The flush badge (--badge-ride 0) stays on the corner. */
-  translate: 0
-    calc(
-      -1 * var(--badge-ride) * max(0px, var(--footer-reveal, 0) * var(--footer-panel-h, 0px) + var(--space-6) - var(--scheme-seat))
-    );
+     visible height as --footer-reveal x --footer-panel-h, 0.40 of it at rest on home). The
+     widget rides above its top edge (--badge-ride, per seat, above): `seat` never moves until
+     the footer would reach the seat's bottom edge less a --space-6 gap, then it climbs with
+     it; `flush` sits on the footer's top edge from the first pixel it shows (on the corner
+     itself where there is none). 0 without the broadcast. */
+  translate: 0 calc(-1 * var(--badge-ride));
   transition:
     opacity 0.2s var(--ease-micro),
     visibility 0s,
@@ -240,9 +244,11 @@ html[data-chrome-open] .swm-corner {
   /* The eye grows leftward and keeps its right edge on the seat (its centre moves left by
      half the growth), so the widget stays anchored in the corner. On the flush badge the
      lens is near the bottom edge, so the eye and its column also climb by --badge-rise as
-     they deploy (the same --eye-t), and the lowest circle clears the viewport. */
+     they deploy (the same --eye-t), and the lowest circle clears the viewport, less what the
+     badge already climbed with the links footer (--badge-ride: there the lowest circle is
+     above the footer's top edge, so the column does not climb twice). */
   translate: calc((1 - var(--eye-lift)) * var(--eye-w) / 2)
-    calc(-1 * var(--badge-lift) * var(--badge-rise) * var(--eye-t));
+    calc(-1 * var(--badge-lift) * max(0px, var(--badge-rise) - var(--badge-ride)) * var(--eye-t));
   width: var(--scale-w);
   height: var(--scale-num-h);
   pointer-events: auto;

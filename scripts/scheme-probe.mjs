@@ -10,13 +10,18 @@
  *
  * Usage:
  *   ~/swm-probe-lock.sh node scripts/scheme-probe.mjs --base=http://localhost:4330 --scheme=black
- *        [--routes=home,work,detail,directory,privacy,404] [--width=1440|390] [--gates=a,b,c]
+ *        [--routes=home,work,detail,directory,process,privacy,404] [--width=1440|390] [--gates=a,b,c]
  *        [--capture=FILE] [--compare=FILE] [--shots=DIR] [--force-attr] [--ignore=CSS-SELECTOR]
  *        [--seat=flush,seat] [--inject=CSS]
  *   --scheme   project | black | blue | spectrum | all   (default project)
- *   --routes   default all (none = only the widget pass). detail = the first /work card's slug, plus card 3's (the cross-route check).
- *   --seat     the badge seats the widget gates measure (?schemebadge): flush,seat (default both)
- *   --inject   CSS added to each widget page after load: a negative control for the widget gates
+ *   --routes   default all, except process, which is named only (none = only the widget pass). detail = the first /work card's slug, plus card 3's (the cross-route check).
+ *   --seat     the badge seats the overlap gate and the widget gates measure (?schemebadge): flush,seat
+ *              (default both). The overlap gate loads each route once per seat and tests the badge TILE
+ *              (the wrapper's ::before) against the page's boxes: both seats ride the links footer, so
+ *              the tile's bottom edge must not pass the footer's top edge on home, /work/directory/ or
+ *              /process/. The blurb gate (widget pass, home) fails when the tile meets the footer blurb's
+ *              text: run it with --width=1024,1280,1440,1920 for the desktop range.
+ *   --inject   CSS added to each overlap and widget page after load: a negative control for those gates
  *              (for example --inject='.swm-corner .fp-scale__window{--eye-reach:1 !important}' must FAIL strays)
  *   --details  sample (default: cards 1 and 3) | all (every /work card's detail page). The uniform gate
  *              compares the detail pages it is given (two or more). The shares gate sums them: it SKIPs
@@ -128,9 +133,10 @@ const die = (msg) => {
 
 const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 // home: ?popseed pins the globe population's start world, whose projectColor tints the whole home page (random per visit).
-const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', privacy: '/privacy/', 404: '/404/' };
-const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'privacy', '404'];
-const WIDGET_GATES = ['badge', 'badgeColour', 'eyeLines', 'bounds', 'strays', 'persist']; // the corner widget's own pass (SQ-107)
+const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
+const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
+const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
+const WIDGET_GATES = ['badge', 'blurb', 'badgeColour', 'eyeLines', 'bounds', 'strays', 'persist']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -158,7 +164,7 @@ if (!BASE || BASE === 'true') die('--base=http://localhost:4330 is required (or 
 const schemeArg = String(arg('scheme', 'project'));
 const SCHEME_LIST = schemeArg === 'all' ? SCHEMES : schemeArg.split(',');
 if (SCHEME_LIST.some((s) => !SCHEMES.includes(s))) die(`--scheme takes ${SCHEMES.join('|')}|all`);
-const ROUTES = arg('routes', 'all') === 'all' ? ROUTE_NAMES : arg('routes') === 'none' ? [] : String(arg('routes')).split(',');
+const ROUTES = arg('routes', 'all') === 'all' ? ROUTE_NAMES.filter((r) => !OPT_IN_ROUTES.includes(r)) :arg('routes') === 'none' ? [] : String(arg('routes')).split(',');
 if (ROUTES.some((r) => !ROUTE_NAMES.includes(r))) die(`--routes takes ${ROUTE_NAMES.join(',')}`);
 const SHARE_TILE = 4000; // CSS px of page height per masked capture (the shares gate)
 const DETAILS = String(arg('details', 'sample'));
@@ -405,14 +411,25 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
   return { els, carriers, vars, attr: document.documentElement.getAttribute('data-scheme') };
 }
 
-/** Boxes of every visible match of each selector that meets the viewport (viewport coordinates). */
+/**
+ * Boxes of every visible match of each selector that meets the viewport (viewport coordinates).
+ * The corner widget's box is its badge tile (the wrapper's ::before), the thing that is seen: the
+ * wrapper itself is a taller, empty footprint (the pager's rows) that hangs 36 px below the tile
+ * and past the viewport's bottom edge on the flush seat. The wrapper's box stands in until the
+ * tile is drawn (data-ready).
+ */
 function pageBoxes(sels) {
   const out = [];
   for (const sel of sels) {
     for (const e of document.querySelectorAll(sel)) {
       const cs = getComputedStyle(e);
-      const r = e.getBoundingClientRect();
+      let r = e.getBoundingClientRect();
       if (cs.display === 'none' || cs.visibility !== 'visible' || cs.opacity === '0' || r.width <= 0 || r.height <= 0) continue;
+      if (e.matches('.swm-corner')) {
+        const b = getComputedStyle(e, '::before');
+        const px = (v) => parseFloat(v) || 0;
+        if (b.content !== 'none') r = { left: r.left + px(b.left), top: r.top + px(b.top), width: px(b.width), height: px(b.height), right: r.left + px(b.left) + px(b.width), bottom: r.top + px(b.top) + px(b.height) };
+      }
       if (r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) continue;
       out.push({ name: sel, x: r.left, y: r.top, w: r.width, h: r.height });
     }
@@ -459,7 +476,20 @@ function pageWidgetRest() {
     strokes.push({ path: `${e.localName}${e.getAttribute('class') ? `.${e.getAttribute('class')}` : ''}`, stroke: cs.stroke, width: parseFloat(cs.strokeWidth) || 0 });
   });
   const eye = corner.querySelector('.scheme-eye')?.getBoundingClientRect();
+  // The links footer's top edge (the badge rides it) and the home blurb's text (the union of its
+  // text boxes, never the element's own full-width box): null when the route has none.
+  const footerTop = document.querySelector('.site-footer--links')?.getBoundingClientRect().top ?? null;
+  const blurbEl = document.querySelector('.site-footer__blurb');
+  let blurb = null;
+  if (blurbEl && getComputedStyle(blurbEl).display !== 'none') {
+    const range = document.createRange();
+    range.selectNodeContents(blurbEl);
+    const q = range.getBoundingClientRect();
+    if (q.width > 0 && q.height > 0) blurb = { x: q.left, y: q.top, w: q.width, h: q.height };
+  }
   return {
+    footerTop,
+    blurb,
     seat: corner.dataset.badge ?? null,
     ready: corner.hasAttribute('data-ready'),
     vp: { w: innerWidth, h: innerHeight },
@@ -655,6 +685,28 @@ async function measureBoxes(page) {
   return boxes;
 }
 
+/**
+ * The overlap gate's boxes for one seat of the corner widget (?schemebadge): a fresh load of the
+ * route, then every OVERLAP_SELECTORS box at five scroll stops. The widget rides the links footer
+ * on both seats, so each seat is its own measurement.
+ */
+async function measureOverlap(ctx, scheme, urlPath, seat) {
+  const page = await ctx.newPage();
+  try {
+    await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}&schemebadge=${seat}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForFunction(() => window.__swmCommitted && window.__swmCommitted(), null, { timeout: 40000 }).catch(() => {});
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 30000 }).catch(() => {});
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await page.evaluate(() => document.fonts.ready);
+    await sleep(1200);
+    return { boxes: await measureBoxes(page) };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 async function measurePage(ctx, scheme, urlPath, width, needShares) {
   const page = await ctx.newPage();
   const errors = [];
@@ -680,7 +732,6 @@ async function measurePage(ctx, scheme, urlPath, width, needShares) {
     }
     const out = { url, attr: dump.attr, committed, settled, reads, errors, vars: dump.vars, els: dump.els, carriers: dump.carriers };
     out.hover = width > 480 ? await measureHover(ctx, page) : []; // a phone has no hover: the site's hover rules sit behind (hover: hover)
-    out.boxes = await measureBoxes(page);
     out.ring = await page.evaluate(pageCentre, RING); // read beside the hooks: the outline gate compares the ramp's centre with it
     out.gl = await page.evaluate(pageGl);
     const name = `${scheme}-${urlPath.replace(/[/?=&]+/g, '_')}-${width}`;
@@ -902,7 +953,8 @@ async function widgetPass(ctx, browser, scheme, width, want) {
     const run = (name, fn) => {
       if (want.has(name)) emitResult(scheme, route, width, name, fn());
     };
-    run('badge', () => gate.badge(rest.tile, rest.vp, seat));
+    run('badge', () => gate.badge(rest.tile, rest.vp, seat, { footerTop: rest.footerTop }));
+    run('blurb', () => gate.blurbClear(rest.tile, rest.blurb));
     run('badgeColour', () => gate.badgeColour(scheme, rest.paint));
     run('eyeLines', () => gate.eyeLines(rest.strokes));
     run('bounds', () => {
@@ -1024,10 +1076,15 @@ async function main() {
             const res = gate.hover(m.hover);
             res.pass || m.hover.length ? emitResult(scheme, route.key, width, 'hover', res) : emit('SKIP', scheme, route.key, width, 'hover', `skipped: none of ${HOVER_SELECTORS.join(' ')} on this route`);
           });
-          run('overlap', () => {
-            if (!m.boxes.some((b) => b.name === ANCHOR)) return emit('SKIP', scheme, route.key, width, 'overlap', `skipped: no ${ANCHOR} on this route`);
-            emitResult(scheme, route.key, width, 'overlap', gate.overlap(m.boxes, { anchor: ANCHOR }));
-          });
+          if (want.has('overlap')) {
+            for (const seat of SEAT_LIST) {
+              const o = await measureOverlap(ctx, scheme, route.path, seat);
+              const where = `${route.key}:${seat}`;
+              if (o.error) emit('FAIL', scheme, where, width, 'overlap', o.error);
+              else if (!o.boxes.some((b) => b.name === ANCHOR)) emit('SKIP', scheme, where, width, 'overlap', `skipped: no ${ANCHOR} on this route`);
+              else emitResult(scheme, where, width, 'overlap', gate.overlap(o.boxes, { anchor: ANCHOR }));
+            }
+          }
           run('density', () => emitResult(scheme, route.key, width, 'density', gate.density(m.els, { min: gate.densityMin(route.key, DENSITY), rampStops })));
           run('outline', () => {
             const name = OUTLINE_HOOK[route.key];

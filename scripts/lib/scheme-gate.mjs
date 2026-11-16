@@ -526,10 +526,12 @@ const rectOf = (r) => [r.x, r.y, r.w, r.h].map((v) => fixed(v, 1)).join(',');
 /**
  * badge — the square tile sits where its seat says. `rect` {x, y, w, h} is the tile in viewport CSS
  * px, `vp` {w, h} the viewport. Always: square (to `tol` px) and its right edge on the viewport's.
- * `flush`: its bottom edge is on the viewport's bottom edge as well. `seat`: it is clear of that
- * edge (the eye keeps today's height above the privacy pill).
+ * `flush`: its bottom edge is on the viewport's bottom edge as well, or on the links footer's top
+ * edge when that is higher (`footerTop`, the footer's top in viewport px: the badge rides it, as
+ * the seat does). `seat`: it is clear of the viewport's bottom edge (the eye keeps today's height
+ * above the privacy pill).
  */
-export function badge(rect, vp, seat, tol = 1) {
+export function badge(rect, vp, seat, { tol = 1, footerTop = null } = {}) {
   const offenders = [];
   if (!rect || !vp) return result([{ path: '.swm-corner::before', note: 'no badge box measured' }], 0, 'no box');
   const right = rect.x + rect.w;
@@ -537,10 +539,29 @@ export function badge(rect, vp, seat, tol = 1) {
   const bad = (note) => offenders.push({ path: '.swm-corner::before', seat, note, rect: rectOf(rect), viewport: `${vp.w}x${vp.h}` });
   if (Math.abs(rect.w - rect.h) > tol) bad(`not square (${fixed(rect.w, 1)} x ${fixed(rect.h, 1)})`);
   if (Math.abs(right - vp.w) > tol) bad(`right edge ${fixed(right, 1)} is not the viewport's ${vp.w}`);
-  if (seat === 'flush' && Math.abs(bottom - vp.h) > tol) bad(`bottom edge ${fixed(bottom, 1)} is not the viewport's ${vp.h}`);
+  const floor = Number.isFinite(footerTop) ? Math.min(vp.h, footerTop) : vp.h;
+  if (seat === 'flush' && Math.abs(bottom - floor) > tol) bad(`bottom edge ${fixed(bottom, 1)} is not ${floor === vp.h ? `the viewport's ${vp.h}` : `the links footer's top ${fixed(floor, 1)}`}`);
   if (seat === 'seat' && !(bottom < vp.h - tol)) bad(`bottom edge ${fixed(bottom, 1)} touches the viewport's ${vp.h}`);
   if (seat !== 'flush' && seat !== 'seat') bad(`unknown seat ${seat}`);
-  return result(offenders, 1, `${seat}: tile ${rectOf(rect)} in ${vp.w}x${vp.h}`);
+  return result(offenders, 1, `${seat}: tile ${rectOf(rect)} in ${vp.w}x${vp.h}${Number.isFinite(footerTop) && footerTop < vp.h ? `, footer top ${fixed(footerTop, 1)}` : ''}`);
+}
+
+/**
+ * blurbClear — the badge tile and the home footer's blurb text do not meet. `tile` and `blurb` are
+ * { x, y, w, h } in viewport CSS px (the blurb is the union of its text boxes, never the element's
+ * own full-width box). The blurb is one nowrap line that fills the measure down to the right edge
+ * between about 1130 px and 1500 px, where a badge flush with the corner would otherwise sit over
+ * its last words. A missing box fails: a run that measured no blurb proves nothing.
+ */
+export function blurbClear(tile, blurb) {
+  const path = '.site-footer__blurb';
+  if (!tile) return result([{ path, note: 'no badge box measured' }], 0, 'no tile');
+  if (!blurb || !(blurb.w > 0 && blurb.h > 0)) return result([{ path, note: 'no blurb text measured' }], 0, 'no blurb');
+  const wide = Math.min(tile.x + tile.w, blurb.x + blurb.w) - Math.max(tile.x, blurb.x);
+  const high = Math.min(tile.y + tile.h, blurb.y + blurb.h) - Math.max(tile.y, blurb.y);
+  const hit = wide > 0.5 && high > 0.5;
+  const offenders = hit ? [{ path, tile: rectOf(tile), blurb: rectOf(blurb), note: `the badge covers ${fixed(wide, 1)} x ${fixed(high, 1)} px of the blurb` }] : [];
+  return result(offenders, 1, `tile ${rectOf(tile)}, blurb ${rectOf(blurb)}`);
 }
 
 /**

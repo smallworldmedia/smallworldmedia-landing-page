@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  badge, badgeColour, eyeLines, persist, bounds, strays,
+  badge, blurbClear, badgeColour, eyeLines, persist, bounds, strays,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -434,6 +434,41 @@ test('badge gate flush sits on the right and bottom edges and seat on the right 
   assert.equal(badge({ x: 318, y: 772, w: 72, h: 60 }, vp, 'flush').pass, false);
   assert.equal(badge(null, vp, 'flush').pass, false);
   assert.equal(badge({ x: 318, y: 772, w: 72, h: 72 }, vp, 'elsewhere').pass, false);
+});
+
+test('badge gate flush rides the links footer so its bottom edge is on the footer top and the viewport bottom is not the floor there', () => {
+  const vp = { w: 1440, h: 900 };
+  // home at rest: the footer's top sits 103 px up, and the tile rests on it
+  const on = badge({ x: 1368, y: 725, w: 72, h: 72 }, vp, 'flush', { footerTop: 797 });
+  assert.equal(on.pass, true);
+  assert.match(on.note, /footer top 797/);
+  // no footer in view (a footer top at or below the viewport's bottom edge): the corner is the floor
+  assert.equal(badge({ x: 1368, y: 828, w: 72, h: 72 }, vp, 'flush', { footerTop: 1055 }).pass, true);
+  assert.equal(badge({ x: 1368, y: 828, w: 72, h: 72 }, vp, 'flush').pass, true);
+  // negative controls: the corner-flush tile over a visible footer (the rejected 5163e2a), a tile floating above the footer
+  const over = badge({ x: 1368, y: 828, w: 72, h: 72 }, vp, 'flush', { footerTop: 797 });
+  assert.equal(over.pass, false);
+  assert.match(over.offenders[0].note, /bottom edge 900 is not the links footer's top 797/);
+  assert.equal(badge({ x: 1368, y: 700, w: 72, h: 72 }, vp, 'flush', { footerTop: 797 }).pass, false);
+});
+
+test('blurbClear gate a badge above or beside the blurb text passes and one over its last words fails with the overlap', () => {
+  const blurb = { x: 4, y: 816, w: 1417, h: 27 }; // 1440 wide: the nowrap line ends 19 px short of the right edge
+  assert.equal(blurbClear({ x: 1368, y: 725, w: 72, h: 72 }, blurb).pass, true, 'above the footer text');
+  assert.equal(blurbClear({ x: 1368, y: 816, w: 72, h: 72 }, { ...blurb, w: 1300 }).pass, true, 'a shorter line ends before the tile');
+  // negative control: the flush tile on the corner (the rejected 5163e2a) covers the end of the line
+  const hit = blurbClear({ x: 1368, y: 828, w: 72, h: 72 }, blurb);
+  assert.equal(hit.pass, false);
+  assert.match(hit.offenders[0].note, /covers 53 x 15 px of the blurb/);
+  assert.equal(blurbClear(null, blurb).pass, false);
+  assert.equal(blurbClear({ x: 1368, y: 725, w: 72, h: 72 }, null).pass, false, 'no blurb measured proves nothing');
+});
+
+test('overlap gate the tile resting on the links footer top is touching and passes and one pixel into it fails', () => {
+  const footer = { name: '.site-footer--links', x: 0, y: 797, w: 1440, h: 258, at: 0 };
+  const tile = { name: '.swm-corner', x: 1368, y: 725, w: 72, h: 72, at: 0 };
+  assert.equal(overlap([tile, footer], { anchor: '.swm-corner' }).pass, true);
+  assert.equal(overlap([{ ...tile, y: 726 }, footer], { anchor: '.swm-corner' }).pass, false);
 });
 
 test('badgeColour gate blue is opaque brand blue and black opaque black and project or any other a translucent veil over a blur', () => {
