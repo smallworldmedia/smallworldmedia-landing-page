@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, writeFile, rm, readFile, realpath } from 'node:fs/promi
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { clean, patched, refersTo } from '../../lib/cms/contract.mjs'
+import { HASHED_SCHEMAS, clean, patched, refersTo } from '../../lib/cms/contract.mjs'
 import { RunStore } from '../../lib/cms/state.mjs'
 import { planChanges, applyPlan } from '../../lib/cms/runner.mjs'
 
@@ -22,7 +22,7 @@ export async function harness(t, { docs = [], videoStatus = 'ready' } = {}) {
   const localCheckout = path.join(root, 'checkout')
   await mkdir(path.join(localCheckout, 'src/schemas'), { recursive: true })
   await mkdir(path.join(localCheckout, '.git'))
-  for (const name of ['mediaAsset','project','client','serviceTag','globeSettings']) await writeFile(path.join(localCheckout, 'src/schemas', `${name}.ts`), await readFile(path.join(checkout, 'src/schemas', `${name}.ts`)))
+  for (const name of HASHED_SCHEMAS) await writeFile(path.join(localCheckout, 'src/schemas', `${name}.ts`), await readFile(path.join(checkout, 'src/schemas', `${name}.ts`)))
   t.after(() => rm(root, { recursive: true, force: true }))
   const db = new Map([clientDoc, tagDoc, { _id: 'image-existing', _type: 'sanity.imageAsset', metadata: { dimensions: { width: 100, height: 100 } } }, ...docs].map(d => [d._id, clean(d)]))
   const stats = { commits: 0, images: 0, uploads: 0, puts: 0, reads: 0, muxDeletes: 0 }, uploads = new Map(), assets = new Map()

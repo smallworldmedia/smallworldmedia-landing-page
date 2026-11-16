@@ -5,7 +5,7 @@ import os from 'node:os'
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises'
 import { checkout, clientDoc, tagDoc, reference, existingMedia } from './helpers.mjs'
 import { CHECKS, ACCEPTED_FILE, auditDataset, expectedType, schemaFields } from '../../lib/cms/audit.mjs'
-import { validatePatch } from '../../lib/cms/contract.mjs'
+import { HASHED_SCHEMAS, validatePatch } from '../../lib/cms/contract.mjs'
 import { main } from '../../cms.mjs'
 
 const target = { projectId: 'offline123', dataset: 'test' }
@@ -154,7 +154,7 @@ test('cms audit: read-only adapters, Mux only with credentials, exit 1 only on e
   const root = await mkdtemp(path.join(await realpath(process.env.CMS_TEST_TMP || os.tmpdir()), 'swm-cms-audit-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   await mkdir(path.join(root, 'src/schemas'), { recursive: true }); await mkdir(path.join(root, 'media/Collection'), { recursive: true })
-  for (const name of ['mediaAsset', 'project', 'client', 'serviceTag', 'globeSettings', 'siteSettings']) await writeFile(path.join(root, 'src/schemas', `${name}.ts`), await readFile(path.join(checkout, 'src/schemas', `${name}.ts`)))
+  for (const name of [...HASHED_SCHEMAS, 'siteSettings']) await writeFile(path.join(root, 'src/schemas', `${name}.ts`), await readFile(path.join(checkout, 'src/schemas', `${name}.ts`)))
   const { docs, manifests, muxAssets } = clean()
   await writeFile(path.join(root, manifests[0].file), manifests[0].raw)
   const calls = { write: [], mux: 0 }

@@ -267,6 +267,20 @@ export const mediaAsset = defineType({
       },
     }),
     defineField({
+      name: 'set',
+      title: 'Set',
+      type: 'reference',
+      to: [{ type: 'mediaSet' }],
+      options: {
+        filter: ({ document }) => {
+          const project = (document?.project as { _ref?: string } | undefined)?._ref
+          return project ? { filter: 'project._ref == $project', params: { project } } : {}
+        },
+      },
+      description:
+        "The set this piece belongs to. The set holds its type, its key and whether it can be the project's hero. Leave empty for a standalone piece. While sets move to their own documents, Display Group and Group Type below are still read when this is empty.",
+    }),
+    defineField({
       name: 'displayGroup',
       title: 'Display Group',
       type: 'string',

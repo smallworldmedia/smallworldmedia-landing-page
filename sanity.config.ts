@@ -97,6 +97,7 @@ export default defineConfig({
 
             S.documentTypeListItem('project').title('All Projects'),
             S.documentTypeListItem('mediaAsset').title('Media Assets'),
+            S.documentTypeListItem('mediaSet').title('Sets'),
             S.documentTypeListItem('client').title('Clients'),
             S.documentTypeListItem('serviceTag').title('Service Tags'),
           ]),
