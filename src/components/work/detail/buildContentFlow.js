@@ -65,12 +65,13 @@
  *     pieces are dropped): a cycling sequence on the globe, and on detail a
  *     `mockups` bucket (one {group, items} per set of two or more, items in
  *     input order, a set of one riding the showcase at its place).
- *     `flyer-progression` opens everywhere: a cycling sequence on the globe
- *     and /work, and the carousel lane on detail (a set of one rides the
- *     showcase at its place, as every set of one does). On the directory both
- *     types ride the 'sequence' lane: one tile that flips through the set's
- *     members (Nathan 11-11). In a
- *     sequence an animated member joins as its poster still (posterStill)
+ *     `flyer-progression` opens on globe, /work and detail: a cycling
+ *     sequence on the globe and /work, and the carousel lane on detail (a set
+ *     of one rides the showcase at its place, as every set of one does). On
+ *     the directory a mockups set rides the 'sequence' lane, one tile that
+ *     flips through the set's members (Nathan 11-11); a flyer progression does
+ *     not open there, and each of its flyers is a tile of its own (Nathan
+ *     11-16, OFF_SURFACE_ORDINARY). In a sequence an animated member joins as its poster still (posterStill)
  *     instead of keeping its own tile, so a mostly-animated progression still
  *     cycles; merch keeps its stills-only rule.
  * 13. static logos (11-14, Nathan: "static logo files do not display on
@@ -259,22 +260,24 @@ export const GROUP_SURFACES = {
   visuals: ['detail', 'directory'],
   'live-footage': ['detail', 'directory'],
   mockups: ['globe', 'detail', 'directory'],
-  'flyer-progression': ['globe', 'work', 'detail', 'directory'],
+  'flyer-progression': ['globe', 'work', 'detail'],
 };
 
 /** The lane a type's piece rides on each surface it opens on, for the types
  *  whose lane differs by surface (US-5). A surface a type leaves out of
  *  GROUP_SURFACES never gets here: that piece is dropped. The directory tile
- *  flips through either set like a sequence (Nathan 11-11), so both ride the
- *  'sequence' lane there. */
+ *  flips through a mockups set like a sequence (Nathan 11-11), so it rides
+ *  the 'sequence' lane there. */
 const SURFACE_LANE = {
   mockups: { globe: 'sequence', detail: 'mockups', directory: 'sequence' },
-  'flyer-progression': { globe: 'sequence', work: 'sequence', detail: 'carousel', directory: 'sequence' },
+  'flyer-progression': { globe: 'sequence', work: 'sequence', detail: 'carousel' },
 };
 
 /** Types whose pieces are NOT dropped off their surfaces (US-4 decision): they
- *  ride the 'role' / 'showcase' lane there as ordinary pieces. */
-const OFF_SURFACE_ORDINARY = ['visuals', 'live-footage'];
+ *  ride the 'role' / 'showcase' lane there as ordinary pieces. A flyer
+ *  progression is off only the directory, where each flyer is its own tile
+ *  (Nathan 11-16: "display all assets as their own"). */
+const OFF_SURFACE_ORDINARY = ['visuals', 'live-footage', 'flyer-progression'];
 
 /** displayGroup convention that marks a brand-deck set as admats (flyers). */
 const ADMAT_GROUP_RE = /(^|-)admats?$/i;
@@ -323,9 +326,10 @@ export function opensOn(asset, surface) {
  * A `merch` still rides 'sequence' on every surface (a motion one is an
  * ordinary piece). `visuals` / `live-footage` take their own lane where they
  * open and ride 'role' / 'showcase' elsewhere, never null (OFF_SURFACE_ORDINARY).
- * `mockups` and `flyer-progression` follow SURFACE_LANE, motion members
- * included (a sequence shows a motion member as its poster); mockups on
- * 'work' is null. A static logo (isStaticLogo) on 'work' is null before any
+ * `mockups` and `flyer-progression` follow SURFACE_LANE where they open,
+ * motion members included (a sequence shows a motion member as its poster);
+ * mockups on 'work' is null, and a flyer progression on 'directory' is an
+ * ordinary piece. A static logo (isStaticLogo) on 'work' is null before any
  * of that, sequence membership included.
  */
 export function assetLane(asset, surface) {

@@ -699,9 +699,10 @@ test('US-4 sets - visuals and live-footage are one tile per set, merch stills on
 })
 
 // US-5 (11-11, Nathan): "the directory should flip through the contents of the set" — a
-// mockups set and a flyer-progression are ONE tile each that cycles its members in
-// orderRank (the sequence lane), a motion member among the frames; a set of one is plain.
-test('US-5 sets - a mockups set and a flyer-progression are one tile each that flips through its members', () => {
+// mockups set is ONE tile that cycles its members in orderRank (the sequence lane); a set
+// of one is plain. A flyer progression is not (Nathan 11-16: "display all assets as their
+// own"): each flyer is a tile of its own, an animated one playing as a video tile.
+test('US-5 sets - a mockups set is one tile that flips through its members; a flyer progression is one tile per flyer', () => {
   rank = 0
   const member = (id, groupType, displayGroup, extra = {}) => asset(id, 'jamback', { ...JAM, groupType, displayGroup, ...img(1080, 1350), ...extra })
   const ts = jamTiles([
@@ -713,11 +714,12 @@ test('US-5 sets - a mockups set and a flyer-progression are one tile each that f
     member('fp-3', 'flyer-progression', 'rollout'),
     member('mk-solo', 'mockups', 'solo-mock'),
   ])
-  assert.equal(ts.length, 3)
-  const [mk, fp, solo] = ts
+  assert.equal(ts.length, 5)
+  const [mk, fp1, fp2, fp3, solo] = ts
   assert.deepEqual(ids(mk.frames), ['mk-1', 'mk-2', 'mk-3'], 'the mockups set flips in orderRank')
-  assert.deepEqual(ids(fp.frames), ['fp-1', 'fp-2', 'fp-3'], 'the flyer-progression flips in orderRank')
-  assert.equal(fp.frames[1].playbackId, 'pb-fp-2', 'its motion member stays motion (it plays through, as in an admat set)')
+  assert.deepEqual(ids([fp1, fp2, fp3]), ['fp-1', 'fp-2', 'fp-3'], 'the flyers are tiles in orderRank')
+  for (const t of [fp1, fp2, fp3]) assert.equal(t.frames, undefined, 'a flyer tile is plain, no cycling')
+  assert.equal(fp2.playbackId, 'pb-fp-2', 'the animated flyer is a video tile')
   assert.equal(mk.sequenceRatio, 0.8, 'mixed aspects: the least-cropping member ratio (two 4:5 beat one 16:9)')
   assert.equal(mk.imageUrl, 'https://cdn.example.invalid/1080x1350.jpg') // the first frame shows first
   assert.equal(solo._id, 'mk-solo')
