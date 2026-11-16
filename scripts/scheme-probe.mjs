@@ -12,17 +12,18 @@
  *   ~/swm-probe-lock.sh node scripts/scheme-probe.mjs --base=http://localhost:4330 --scheme=black
  *        [--routes=home,work,detail,directory,process,privacy,404] [--width=1440|390] [--gates=a,b,c]
  *        [--capture=FILE] [--compare=FILE] [--shots=DIR] [--force-attr] [--ignore=CSS-SELECTOR]
- *        [--seat=flush,seat] [--inject=CSS]
+ *        [--inject=CSS]
  *   --scheme   project | black | blue | spectrum | all   (default project)
  *   --routes   default all, except process, which is named only (none = only the widget pass). detail = the first /work card's slug, plus card 3's (the cross-route check).
- *   --seat     the badge seats the overlap gate and the widget gates measure (?schemebadge): flush,seat
- *              (default both). The overlap gate loads each route once per seat and tests the badge TILE
- *              (the wrapper's ::before) against the page's boxes: both seats ride the links footer, so
- *              the tile's bottom edge must not pass the footer's top edge on home, /work/directory/ or
+ *   (the corner widget has one seat, flush: ?schemebadge is gone, SQ-107 pass 5.) The overlap gate loads
+ *              each route and tests the badge TILE (the wrapper's ::before) against the page's boxes: the
+ *              tile's bottom edge must not pass the links footer's top edge on /work/directory/ or
  *              /process/. The blurb gate (widget pass, home) fails when the tile meets the footer blurb's
  *              text: run it with --width=1024,1280,1440,1920 for the desktop range.
  *   --inject   CSS added to each overlap and widget page after load: a negative control for those gates
- *              (for example --inject='.swm-corner .fp-scale__window{--eye-reach:1 !important}' must FAIL strays)
+ *              (negative controls: noClip --inject='.swm-corner .fp-scale__window{height:40px !important}' must FAIL,
+ *              rightEdge --inject='.swm-corner{right:6px !important}' must FAIL, jitter
+ *              --inject='.swm-corner .fp-scale[data-open] .scheme-eye__iris{translate:1.6px 0}' must FAIL)
  *   --details  sample (default: cards 1 and 3) | all (every /work card's detail page). The uniform gate
  *              compares the detail pages it is given (two or more). The shares gate sums them: it SKIPs
  *              unless --details=all (two pages cannot show the proportions of the whole), and then prints
@@ -90,23 +91,26 @@
  *            /work, and globe().ramp.center is within 1.5 px of the centre of .hero__globe-stroke
  *            (measured in the page). A hook with no `ramp` field SKIPs ("skipped (hook has no ramp)").
  *            Under any other scheme, when named, the mix must be 0.
- * The corner widget gates (SQ-107; every scheme, run per width on the home page, once per --seat, a
- * fresh page each; the strays and bounds gates engage the pager by a mouse hover, or a held CDP touch
- * on a phone). Measured in viewport CSS px, with motion reduced except in persist:
+ * The corner widget gates (SQ-107; every scheme, run per width on the home page, a fresh page each; the
+ * strays and bounds gates engage the pager by a mouse hover, or a held CDP touch on a phone). Measured in
+ * viewport CSS px, with motion reduced except in noClip, jitter and persist:
  *   badge       the badge (the pager's ::before) is a horizontal rectangle hugging the eye with equal
- *               padding on all four sides. `flush`: its right edge on the viewport's and its bottom edge
- *               on the viewport's, or on the links footer's top edge where that is higher; on home
- *               ([data-footer-rest]) in the corner instead, its right inset the corner row's left inset
- *               and its centre the height of the privacy pill's line. `seat`: the eye on the chrome
- *               inset, the badge one padding short of it, clear of the viewport's bottom edge.
- *   jitter      the eye's globe on one path through the entrance and the exit (project only, per seat,
- *               DPR 3, on /privacy/): the centre never moves against its travel, decelerates steadily,
- *               and the settled pose is within 0.15 px of the last in-flight sample.
+ *               padding on all four sides, its right edge on the viewport's (home included, no inset) and
+ *               its bottom edge on the viewport's, or on the links footer's top edge where that is higher;
+ *               on home ([data-footer-rest]) its centre is the height of the privacy pill's line.
+ *   rightEdge   the tile's right edge equals the viewport's within 0.5 px on home, /work and /privacy at
+ *               390, 1024, 1440 and 1920, at rest and engaged (once per scheme, whatever --width).
+ *   noClip      frames of the entrance, the exit and a page through the stations (ArrowDown x2, ArrowUp x2):
+ *               no visible circle (effective opacity above 0.03) straddles the edge of a box that clips it.
+ *   jitter      the iris globe on one path through a REAL-TIME entrance and exit (slowed to 5 s, project
+ *               only, /privacy/): Chromium by pixel centroid at DPR 1 and 2, WebKit by box centres at DPR 1
+ *               and 2 (a WebKit screenshot settles a transition). Monotonic in x and y, and the settled pose
+ *               within 0.5 px of the last animated frame.
  *   badgeColour blue: opaque brand blue. black: opaque black. project (and the parked spectrum preview):
  *               a translucent veil over a backdrop blur.
  *   eyeLines    no dark stroke on any shape in the widget's svgs (the black outline is gone).
- *   bounds      engaged, every circle on the shown rows lies inside the clipping window, and inside the
- *               viewport on both axes (the left and right clipping at the baked lift 1.85).
+ *   bounds      engaged, every visible circle lies inside the window's and the viewport's x range (the
+ *               viewport's bottom edge is the one hard edge, so y is not held).
  *   strays      the column scrubbed through eye-t 0.15 to 0.85 (only the widget painted): a capture with
  *               every station is pixel-identical to one with the stations beyond the shown rows hidden.
  *   persist     soft navigations (home to /work to a project and back; by the menu on a phone) with
@@ -143,7 +147,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'blurb', 'badgeColour', 'eyeLines', 'bounds', 'strays', 'jitter', 'persist']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'rightEdge', 'blurb', 'badgeColour', 'eyeLines', 'bounds', 'strays', 'noClip', 'jitter', 'persist']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -151,7 +155,8 @@ const DEFAULT_GATES = {
   blue: ['latch', 'singleHue', 'contrast', 'carriers', 'hover', 'overlap', 'gl', ...WIDGET_GATES],
   spectrum: ['latch', 'contrast', 'hover', 'overlap', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES], // carriers, deal and shares described the first skin's per-project deal: by name only
 };
-const SEAT_NAMES = ['flush', 'seat'];
+const EDGE_WIDTHS = [390, 1024, 1440, 1920]; // the rightEdge gate's widths
+const EDGE_ROUTES = [['home', '/?popseed=1'], ['work', '/work/'], ['privacy', '/privacy/']];
 const STRAY_T = [0.15, 0.3, 0.4, 0.5, 0.6, 0.7, 0.85]; // eye-t values the strays gate scrubs the column to (mid-scale)
 const CLIP_W = 240; // the widget's screenshot clip (strays gate and --shots), CSS px up from the bottom-right corner
 const CLIP_H = 560;
@@ -188,13 +193,11 @@ if (DENSITY !== undefined && !(DENSITY > 0)) die('--density takes a positive num
 const SHOTS = typeof arg('shots') === 'string' ? arg('shots') : null;
 const FORCE = !!arg('force-attr', false);
 const IGNORE_SEL = typeof arg('ignore') === 'string' ? arg('ignore') : ANCHOR;
-const SEAT_LIST = String(arg('seat', SEAT_NAMES.join(','))).split(',');
-if (SEAT_LIST.some((s) => !SEAT_NAMES.includes(s))) die(`--seat takes ${SEAT_NAMES.join(',')}`);
 const INJECT = typeof arg('inject') === 'string' ? arg('inject') : null; // CSS added to the widget pass's pages: a negative control for the widget gates
 
 const require = createRequire(import.meta.url);
 const PW = process.env.PLAYWRIGHT_PATH || '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright';
-const { chromium } = require(PW);
+const { chromium, webkit } = require(PW);
 
 // ── in the page ─────────────────────────────────────────────────────────────────────────────
 
@@ -432,8 +435,7 @@ function pageBoxes(sels) {
   // empty corner (SQ-107 pass 3): the panel's box is no obstacle there, what is ON it is (the blurb, the
   // lead-in, the logo band and the links are tested by name, the text ones by their text, never their
   // full-width boxes).
-  const cornerEl = document.querySelector('.swm-corner');
-  const homeFlush = document.documentElement.hasAttribute('data-footer-rest') && cornerEl?.dataset.badge !== 'seat';
+  const homeFlush = document.documentElement.hasAttribute('data-footer-rest');
   const byText = new Set(['.site-footer__blurb', '.logo-ticker__copy']);
   for (const sel of sels) {
     if (sel === '.site-footer--links' && homeFlush) continue;
@@ -543,17 +545,12 @@ function pageWidgetRest() {
     return r;
   };
   const row = probeEl('bottom:var(--footer-bottom-inset);padding:var(--pill-pad-y) 0;box-sizing:content-box;width:1px;height:var(--lh-pill)');
-  const ref = {
-    navInset: probeEl('top:0;width:var(--nav-inset);height:1px').width,
-    chromeInset: probeEl('top:0;width:var(--chrome-right-inset);height:1px').width,
-    rowCy: innerHeight - (row.top + row.height / 2),
-  };
+  const ref = { rowCy: innerHeight - (row.top + row.height / 2) };
   return {
     footerTop,
     blurb,
     ref,
     home: document.documentElement.hasAttribute('data-footer-rest'),
-    seat: corner.dataset.badge ?? null,
     ready: corner.hasAttribute('data-ready'),
     vp: { w: innerWidth, h: innerHeight },
     tile,
@@ -582,7 +579,7 @@ function pageWidgetEngaged() {
     cur,
     rows,
     window: { name: '.fp-scale__window', ...rect(win) },
-    circles: shown.map((x) => ({ name: `circle k=${x.k}`, ...rect(x.s.querySelector('svg') ?? x.s) })),
+    circles: shown.map((x) => ({ name: `circle k=${x.k}`, op: parseFloat(getComputedStyle(x.s).opacity), ...rect(x.s.querySelector('svg') ?? x.s) })),
     outer: window.__swmStray.length,
   };
 }
@@ -749,14 +746,13 @@ async function measureBoxes(page) {
 }
 
 /**
- * The overlap gate's boxes for one seat of the corner widget (?schemebadge): a fresh load of the
- * route, then every OVERLAP_SELECTORS box at five scroll stops. The widget rides the links footer
- * on both seats, so each seat is its own measurement.
+ * The overlap gate's boxes for the corner widget: a fresh load of the
+ * route, then every OVERLAP_SELECTORS box at five scroll stops. The widget rides the links footer.
  */
-async function measureOverlap(ctx, scheme, urlPath, seat) {
+async function measureOverlap(ctx, scheme, urlPath) {
   const page = await ctx.newPage();
   try {
-    await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}&schemebadge=${seat}`, { waitUntil: 'load', timeout: 90000 });
+    await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForFunction(() => window.__swmCommitted && window.__swmCommitted(), null, { timeout: 40000 }).catch(() => {});
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 30000 }).catch(() => {});
     if (INJECT) await page.addStyleTag({ content: INJECT });
@@ -868,14 +864,14 @@ async function diffPixels(a, b) {
 }
 
 /**
- * One scheme at one width and seat, on a fresh home page: the badge at rest (rect, paint, strokes),
+ * One scheme at one width, on a fresh home page: the badge at rest (rect, paint, strokes),
  * then the pager engaged (a mouse hover on desktop, a held CDP touch on a phone): the circles against
  * the window and the viewport, then the column scrubbed to mid-scale for the strays gate.
  */
-async function measureWidget(ctx, scheme, seat, width) {
+async function measureWidget(ctx, scheme, width) {
   const page = await ctx.newPage();
   const phone = width <= 480;
-  const tag = `${scheme}-${seat}-${width}`;
+  const tag = `${scheme}-${width}`;
   const out = {};
   const shot = async (name, opts = {}) => {
     if (!SHOTS) return;
@@ -883,7 +879,7 @@ async function measureWidget(ctx, scheme, seat, width) {
     await page.screenshot({ path: path.join(SHOTS, `corner-${tag}-${name}.png`), ...opts }).catch(() => {});
   };
   try {
-    await page.goto(`${BASE}/?popseed=1&scheme=${scheme}&schemebadge=${seat}`, { waitUntil: 'load', timeout: 90000 });
+    await page.goto(`${BASE}/?popseed=1&scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForFunction(() => window.__swmCommitted && window.__swmCommitted(), null, { timeout: 40000 }).catch(() => {});
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 30000 });
     if (INJECT) await page.addStyleTag({ content: INJECT });
@@ -924,97 +920,204 @@ async function measureWidget(ctx, scheme, seat, width) {
 }
 
 /**
- * The jitter run (SQ-107 pass 3): the eye's globe through the entrance and the exit, one capture per
- * 20 ms step. A fresh page on /privacy/ (the widget is the same node on every route, and the page
- * behind it holds still), a device scale factor of 3 (the iPhone's), motion ON, everything but the
- * widget hidden over a flat ground and the badge's own fill hidden, so the only saturated pixels are the
- * globe's strips. The page's transitions are paused and scrubbed with Animation.currentTime (the
- * entrance is --eye-in long, the exit --eye-out); the globe's centre is the vertical centroid of the
- * saturated pixels (CSS px, to a hundredth). `engage` and `release` are the in-flight samples (the last
- * at the duration less 1 ms, the rest iris still painted), `settledUp` and `settledDown` the centre
- * once each leg's animations have finished and the page has settled.
+ * The jitter run (SQ-107 pass 5): the iris globe's centre in EVERY frame of a real-time engage and
+ * release, never a scrub of getAnimations(). The entrance and the exit are slowed by their own
+ * durations (--eye-in and --eye-out raised to JOLT_MS), so the browser runs the whole transition at
+ * its own pace while the probe samples it. A fresh page on /privacy/ (the widget is the same node on
+ * every route, and the page behind it holds still), everything but the widget hidden over a flat
+ * ground and the badge's own fill hidden. Two ways to read the globe's centre:
+ *   Chromium: the pixel centroid (saturation-weighted, both axes, CSS px) of a screenshot of just the
+ *     lens circle and the rest iris: what the eye sees, device-pixel snapping included.
+ *   WebKit: the box centre of the iris and the lens circle in a requestAnimationFrame loop. Playwright's
+ *     WebKit settles a running transition when it takes a screenshot (a registered-property transition
+ *     jumps to its end value on the first capture, measured), so pixels cannot be sampled there.
+ * \`engage\` and \`release\` are the in-flight samples ({x, y} each, the rest iris still painted),
+ * \`settledUp\` and \`settledDown\` the centre once each leg had settled (the iris gone at the end of the
+ * entrance, so the hand-over is in the last jump).
  */
-async function measureJitter(browser, scheme, seat, width) {
+const JOLT_MS = 5000;
+async function measureJitter(name, dpr, width) {
   const phone = width <= 480;
-  const ctx = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: 3, reducedMotion: 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+  const browser = await (name === 'webkit' ? webkit : chromium).launch({ headless: true, ...(name === 'chromium' ? { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } : {}) });
+  const ctx = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: dpr, reducedMotion: 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
   await ctx.route(/stream\.mux\.com/, (r) => r.abort());
   const page = await ctx.newPage();
   const { default: sharp } = await import('sharp');
   try {
-    await page.goto(`${BASE}/privacy/?scheme=${scheme}&schemebadge=${seat}`, { waitUntil: 'load', timeout: 90000 });
+    await page.goto(`${BASE}/privacy/?scheme=project`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
-    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await page.addStyleTag({ content: `.swm-corner{--eye-in:${JOLT_MS}ms !important;--eye-out:${JOLT_MS}ms !important}${INJECT ?? ''}` });
     await sleep(2500);
-    await page.addStyleTag({ content: 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before{display:none !important}' });
+    await page.evaluate(() => {
+      const root = document.querySelector('.swm-corner .fp-scale');
+      const cur = getComputedStyle(root).getPropertyValue('--scale-cur').trim();
+      document.querySelectorAll('.swm-corner .fp-scale__station').forEach((s) => { if (s.style.getPropertyValue('--k').trim() === cur) s.setAttribute('data-lens', ''); });
+    });
+    await page.addStyleTag({ content: 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .scheme-eye__lid{stroke:transparent !important}' });
     const vp = { w: width, h: phone ? 844 : 900 };
-    const clip = { x: vp.w - 200, y: vp.h - 380, width: 200, height: 380 };
-    const centre = async () => {
-      // Only the rows of the eye itself: the column's other circles (one station out each side, at
-      // 0.6 of the lens circle) are saturated too, and are no part of the globe in the eye.
-      const band = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; });
+    const clip = { x: vp.w - 160, y: vp.h - 160, width: 160, height: 160 };
+    const pixels = async () => {
       const buf = await page.screenshot({ clip });
       const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-      // Weighted by saturation, not thresholded: a hard cut flickers by a device pixel as an edge
-      // crosses it, which is noise the size of the jump this gate looks for.
       let n = 0;
+      let sx = 0;
       let sy = 0;
       for (let i = 0; i < data.length; i += 3) {
         const w = Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
         if (w < 8) continue;
-        const y = clip.y + (Math.floor(i / 3 / info.width) + 0.5) / 3;
-        if (y < band.top || y > band.bottom) continue;
-        sy += w * (Math.floor(i / 3 / info.width) + 0.5);
+        const p = i / 3;
+        sx += w * ((p % info.width) + 0.5);
+        sy += w * (Math.floor(p / info.width) + 0.5);
         n += w;
       }
-      return n ? clip.y + sy / n / 3 : NaN;
+      return n ? { x: clip.x + sx / n / dpr, y: clip.y + sy / n / dpr } : { x: NaN, y: NaN };
     };
+    const rects = () =>
+      page.evaluate(() => {
+        const root = document.querySelector('.swm-corner .fp-scale');
+        const iris = root.querySelector('.scheme-eye__iris');
+        const lens = root.querySelector('[data-lens] svg');
+        const pick = Number(getComputedStyle(iris).opacity) > 0.5 ? iris : lens;
+        const r = pick.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      });
+    const frame = () => page.evaluate(() => new Promise((res) => requestAnimationFrame(() => { const pg = document.querySelector('.swm-corner .fp-scale'); res({ open: pg.hasAttribute('data-open'), t: +getComputedStyle(pg).getPropertyValue('--eye-t') }); })));
     const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
     const cdp = phone ? await ctx.newCDPSession(page) : null;
+    const read = name === 'webkit' ? rects : pixels;
     const leg = async (engage) => {
       if (engage) {
         if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: eye.x, y: eye.y }] });
         else await page.mouse.move(eye.x, eye.y);
-        await page.waitForFunction(() => document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 });
-      } else {
-        if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-        else await page.mouse.move(40, 40);
-        await page.waitForFunction(() => !document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 });
+      } else if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      else await page.mouse.move(40, 40);
+      const pts = [];
+      const t0 = Date.now();
+      let still = 0;
+      while (Date.now() - t0 < 4 * JOLT_MS + 15000) {
+        const f = await frame();
+        const p = await read();
+        pts.push({ ...p, t: f.t, open: f.open });
+        if (Math.abs(f.t - (engage ? 1 : 0)) < 2e-3 && f.open === engage) { if (++still >= 3) break; } else still = 0;
       }
-      const dur = await page.evaluate(() => {
-        window.__anims = document.getAnimations({ subtree: true }).filter((a) => a.effect && a.transitionProperty !== undefined);
-        window.__anims.forEach((a) => a.pause());
-        return Math.max(...window.__anims.map((a) => a.effect.getTiming().duration + (a.effect.getTiming().delay || 0)), 0);
-      });
-      const ys = [];
-      for (let t = 0; t < dur - 1; t += 20) {
-        await page.evaluate((t) => window.__anims.forEach((a) => (a.currentTime = t)), t);
-        await sleep(60);
-        ys.push(await centre());
-      }
-      await page.evaluate((t) => window.__anims.forEach((a) => (a.currentTime = t)), dur - 1);
-      await sleep(60);
-      ys.push(await centre());
-      await page.evaluate(() => window.__anims.forEach((a) => a.finish()));
-      await sleep(400);
-      return { ys: ys.map((y) => +y.toFixed(3)), settled: +(await centre()).toFixed(3) };
+      const inflight = pts.filter((p) => p.t > 0.002 && p.t < 0.998);
+      await sleep(500);
+      const settled = await read();
+      return { pts: inflight.map((p) => ({ x: +p.x.toFixed(3), y: +p.y.toFixed(3) })), settled: { x: +settled.x.toFixed(3), y: +settled.y.toFixed(3) } };
     };
     const up = await leg(true);
-    // The hand-over, engaged and settled: the rest iris alone, then the column's lens circle alone
-    // (the window hidden, then the iris hidden). Where the entrance ends the iris goes and the circle
-    // stays, so any offset between them is the step the eye shows.
-    const only = async (css) => {
-      const st = await page.addStyleTag({ content: css });
-      await sleep(250);
-      const y = await centre();
-      await st.evaluate((e) => e.remove());
-      return +y.toFixed(3);
-    };
-    const handOver = {
-      iris: await only('.swm-corner .fp-scale__window{display:none !important} .swm-corner .scheme-eye__iris{opacity:1 !important;transition:none !important}'),
-      lens: await only('.swm-corner .scheme-eye__iris{opacity:0 !important;transition:none !important}'),
-    };
     const down = await leg(false);
-    return { engage: up.ys, settledUp: up.settled, release: down.ys, settledDown: down.settled, handOver };
+    return { engage: up.pts, settledUp: up.settled, release: down.pts, settledDown: down.settled, how: name === 'webkit' ? 'box centres per frame (WebKit: a screenshot settles a transition)' : 'pixel centroid per frame' };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+/**
+ * The tile's right edge on one route at one width, at rest and engaged (every route, home included):
+ * the badge tile is the pager's ::before grown by its own scale about its centre.
+ */
+function pageTile() {
+  const pager = document.querySelector('.swm-corner .fp-scale');
+  if (!pager) return null;
+  const b = getComputedStyle(pager, '::before');
+  const px = (v) => parseFloat(v) || 0;
+  const pr = pager.getBoundingClientRect();
+  const k = px(b.scale) || 1;
+  const cx = pr.left + px(b.left) + px(b.width) / 2;
+  return { right: cx + (px(b.width) * k) / 2, vw: document.documentElement.clientWidth, open: pager.hasAttribute('data-open') };
+}
+
+async function measureEdge(ctx, scheme, urlPath, width) {
+  const page = await ctx.newPage();
+  const phone = width <= 480;
+  try {
+    await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await sleep(1200);
+    const rest = await page.evaluate(pageTile);
+    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    if (phone) await (await ctx.newCDPSession(page)).send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: eye.x, y: eye.y }] });
+    else await page.mouse.move(eye.x, eye.y);
+    await page.waitForFunction(() => document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 }).catch(() => {});
+    await sleep(900);
+    const engaged = await page.evaluate(pageTile);
+    return { rest, engaged };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+/**
+ * The no-clip run: every frame of the entrance, the exit and a page through the stations (ArrowDown
+ * twice, ArrowUp twice, on a focused circle) with the circles' boxes and effective opacities and the
+ * boxes of every ancestor that clips (overflow other than visible, a mask, a clip-path).
+ */
+function pageFrameSampler() {
+  window.__frames = [];
+  const clipsOf = (el) => {
+    const out = [];
+    for (let e = el.parentElement; e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      const mask = cs.maskImage !== 'none' && cs.maskImage !== '' ? cs.maskImage : cs.webkitMaskImage !== 'none' && cs.webkitMaskImage ? cs.webkitMaskImage : null;
+      if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible' || mask || cs.clipPath !== 'none') {
+        const r = e.getBoundingClientRect();
+        out.push({ name: `${e.localName}.${[...e.classList].slice(0, 2).join('.')}`, x: r.left, y: r.top, w: r.width, h: r.height });
+      }
+    }
+    return out;
+  };
+  let n = 0;
+  const tick = () => {
+    const stations = [...document.querySelectorAll('.swm-corner .fp-scale__station')];
+    const circles = [];
+    let clips = null;
+    for (const s of stations) {
+      let op = 1;
+      for (let e = s; e && !e.matches('.swm-corner'); e = e.parentElement) op *= parseFloat(getComputedStyle(e).opacity);
+      if (!(op > 0.01)) continue;
+      const svg = s.querySelector('svg') ?? s;
+      const r = svg.getBoundingClientRect();
+      circles.push({ name: `circle k=${s.style.getPropertyValue('--k').trim()}`, op, x: r.left, y: r.top, w: r.width, h: r.height });
+      clips ??= clipsOf(s);
+    }
+    window.__frames.push({ label: `f${n++}`, circles, clips: clips ?? [] });
+    if (window.__frames.length < 900) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+async function measureClip(browser, scheme, width) {
+  const phone = width <= 480;
+  const ctx = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: 1, reducedMotion: 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+  await ctx.route(/stream\.mux\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  try {
+    await page.goto(`${BASE}/?popseed=1&scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await sleep(2500);
+    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    const cdp = phone ? await ctx.newCDPSession(page) : null;
+    await page.evaluate(pageFrameSampler);
+    if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: eye.x, y: eye.y }] });
+    else await page.mouse.move(eye.x, eye.y);
+    await sleep(1200);
+    await page.focus('.swm-corner .fp-scale__station').catch(() => {});
+    for (const key of ['ArrowDown', 'ArrowDown', 'ArrowUp', 'ArrowUp']) {
+      await page.keyboard.press(key);
+      await sleep(700);
+    }
+    if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    else await page.mouse.move(40, 40);
+    await page.evaluate(() => document.activeElement?.blur?.());
+    await sleep(1500);
+    return { frames: await page.evaluate(() => window.__frames) };
   } catch (e) {
     return { error: String(e.message).split('\n')[0].slice(0, 240) };
   } finally {
@@ -1099,58 +1202,86 @@ const emitResult = (scheme, route, width, name, res, tag = '') =>
 
 const merge = (rs) => ({ pass: rs.every((r) => r.pass), offenders: rs.flatMap((r) => r.offenders), note: rs.map((r) => r.note).join('; ') });
 
-/** The corner widget's gates for one scheme at one width: each seat at rest and engaged, then the soft navigations. */
+/** The corner widget's gates for one scheme at one width: at rest and engaged, then the soft navigations. */
 async function widgetPass(ctx, browser, scheme, width, want) {
   const asked = WIDGET_GATES.filter((g) => want.has(g));
   if (!asked.length) return;
-  const seats = asked.some((g) => g !== 'persist' && g !== 'jitter') ? SEAT_LIST : [];
-  for (const seat of seats) {
-    const route = `corner:${seat}`;
-    const w = await measureWidget(ctx, scheme, seat, width);
-    if (w.error || !w.rest) {
-      emit('FAIL', scheme, route, width, 'widget', w.error ?? 'no widget measured');
-      continue;
+  const route = 'corner';
+  if (asked.some((g) => ['badge', 'blurb', 'badgeColour', 'eyeLines', 'bounds', 'strays'].includes(g))) {
+    const w = await measureWidget(ctx, scheme, width);
+    if (w.error || !w.rest) emit('FAIL', scheme, route, width, 'widget', w.error ?? 'no widget measured');
+    else {
+      const { rest, engaged } = w;
+      const run = (name, fn) => {
+        if (want.has(name)) emitResult(scheme, route, width, name, fn());
+      };
+      run('badge', () => gate.badge(rest.tile, rest.vp, { footerTop: rest.footerTop, eye: rest.eye, rowCy: rest.ref.rowCy, home: rest.home }));
+      run('blurb', () => gate.blurbClear(rest.tile, rest.blurb));
+      run('badgeColour', () => gate.badgeColour(scheme, rest.paint));
+      run('eyeLines', () => gate.eyeLines(rest.strokes));
+      run('bounds', () => {
+        if (!engaged) return { pass: false, offenders: [{ path: '.swm-corner .fp-scale', note: 'the pager never engaged (data-open)' }], note: 'not engaged' };
+        // The viewport's edge is the one hard edge the design allows: x is held to it, y is not (the circle below the lens is cut by the bottom).
+        const vp = { name: 'viewport', x: 0, y: 0, w: rest.vp.w, h: rest.vp.h };
+        return merge([gate.bounds(engaged.circles, engaged.window, { axis: 'x' }), gate.bounds(engaged.circles, vp, { axis: 'x' })]);
+      });
+      run('strays', () => {
+        if (!w.strays?.length) return { pass: false, offenders: [{ path: '.fp-scale__station', note: 'the pager never engaged (data-open)' }], note: 'not engaged' };
+        return merge(w.strays.map((d) => gate.strays(d)));
+      });
     }
-    const { rest, engaged } = w;
-    const run = (name, fn) => {
-      if (want.has(name)) emitResult(scheme, route, width, name, fn());
-    };
-    run('badge', () => gate.badge(rest.tile, rest.vp, seat, { footerTop: rest.footerTop, eye: rest.eye, ref: rest.ref, home: rest.home }));
-    run('blurb', () => gate.blurbClear(rest.tile, rest.blurb));
-    run('badgeColour', () => gate.badgeColour(scheme, rest.paint));
-    run('eyeLines', () => gate.eyeLines(rest.strokes));
-    run('bounds', () => {
-      if (!engaged) return { pass: false, offenders: [{ path: '.swm-corner .fp-scale', note: 'the pager never engaged (data-open)' }], note: 'not engaged' };
-      const vp = { name: 'viewport', x: 0, y: 0, w: rest.vp.w, h: rest.vp.h };
-      return merge([gate.bounds(engaged.circles, engaged.window, { axis: 'x' }), gate.bounds(engaged.circles, vp, { axis: 'x' }), gate.bounds(engaged.circles, vp, { axis: 'y' })]);
-    });
-    run('strays', () => {
-      if (!w.strays?.length) return { pass: false, offenders: [{ path: '.fp-scale__station', note: 'the pager never engaged (data-open)' }], note: 'not engaged' };
-      return merge(w.strays.map((d) => gate.strays(d)));
-    });
+  }
+  if (want.has('noClip')) {
+    const c = await measureClip(browser, scheme, width);
+    if (c.error) emit('FAIL', scheme, route, width, 'noClip', c.error);
+    else emitResult(scheme, route, width, 'noClip', gate.noClip(c.frames));
   }
   if (want.has('jitter')) {
-    if (scheme !== 'project') emit('SKIP', scheme, 'corner', width, 'jitter', 'measured on project only (the globe strips it reads are the same in every scheme)');
+    if (scheme !== 'project') emit('SKIP', scheme, route, width, 'jitter', 'measured on project only (the globe strips it reads are the same in every scheme)');
     else {
-      for (const seat of SEAT_LIST) {
-        const j = await measureJitter(browser, scheme, seat, width);
-        if (j.error) emit('FAIL', scheme, `corner:${seat}`, width, 'jitter', j.error);
+      // Chromium at both pixel densities everywhere; WebKit at desktop widths (a held touch is a CDP event, Chromium only).
+      const legs = width <= 480 ? [['chromium', 1], ['chromium', 2]] : [['chromium', 1], ['chromium', 2], ['webkit', 1], ['webkit', 2]];
+      for (const [b, dpr] of legs) {
+        const j = await measureJitter(b, dpr, width);
+        const where = `${route}:${b}@${dpr}x`;
+        if (j.error) emit('FAIL', scheme, where, width, 'jitter', j.error);
         else {
           if (process.env.JITTER_DEBUG) console.log(JSON.stringify(j));
-          emitResult(scheme, `corner:${seat}`, width, 'jitter', gate.jitter(j));
+          emitResult(scheme, where, width, 'jitter', gate.jitter(j));
         }
       }
     }
   }
   if (want.has('persist')) {
     const p = await measurePersist(browser, scheme, width);
-    if (p.error) emit('FAIL', scheme, 'corner', width, 'persist', p.error);
+    if (p.error) emit('FAIL', scheme, route, width, 'persist', p.error);
     else {
       const res = gate.persist(p.samples);
       res.note += ` (${p.steps.join('; ')})`;
-      emitResult(scheme, 'corner', width, 'persist', res);
+      emitResult(scheme, route, width, 'persist', res);
     }
   }
+}
+
+/** The right-edge gate: every route at 390, 1024, 1440 and 1920, at rest and engaged (once per scheme). */
+async function edgePass(browser, scheme) {
+  const samples = [];
+  for (const width of EDGE_WIDTHS) {
+    const phone = width <= 480;
+    const ctx = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: 1, reducedMotion: 'reduce', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+    await installRoutes(ctx);
+    for (const [key, p] of EDGE_ROUTES) {
+      const m = await measureEdge(ctx, scheme, p, width);
+      if (m.error || !m.rest) {
+        samples.push({ label: `${key}@${width}`, right: NaN, vw: NaN });
+        continue;
+      }
+      samples.push({ label: `${key}@${width} rest`, right: m.rest.right, vw: m.rest.vw });
+      samples.push(m.engaged?.open ? { label: `${key}@${width} engaged`, right: m.engaged.right, vw: m.engaged.vw } : { label: `${key}@${width} engaged`, right: NaN, vw: NaN });
+    }
+    await ctx.close().catch(() => {});
+  }
+  emitResult(scheme, 'corner', EDGE_WIDTHS.join('/'), 'rightEdge', gate.rightEdge(samples));
 }
 
 // ── main ────────────────────────────────────────────────────────────────────────────────────
@@ -1252,13 +1383,10 @@ async function main() {
             res.pass || m.hover.length ? emitResult(scheme, route.key, width, 'hover', res) : emit('SKIP', scheme, route.key, width, 'hover', `skipped: none of ${HOVER_SELECTORS.join(' ')} on this route`);
           });
           if (want.has('overlap')) {
-            for (const seat of SEAT_LIST) {
-              const o = await measureOverlap(ctx, scheme, route.path, seat);
-              const where = `${route.key}:${seat}`;
-              if (o.error) emit('FAIL', scheme, where, width, 'overlap', o.error);
-              else if (!o.boxes.some((b) => b.name === ANCHOR)) emit('SKIP', scheme, where, width, 'overlap', `skipped: no ${ANCHOR} on this route`);
-              else emitResult(scheme, where, width, 'overlap', gate.overlap(o.boxes, { anchor: ANCHOR }));
-            }
+            const o = await measureOverlap(ctx, scheme, route.path);
+            if (o.error) emit('FAIL', scheme, route.key, width, 'overlap', o.error);
+            else if (!o.boxes.some((b) => b.name === ANCHOR)) emit('SKIP', scheme, route.key, width, 'overlap', `skipped: no ${ANCHOR} on this route`);
+            else emitResult(scheme, route.key, width, 'overlap', gate.overlap(o.boxes, { anchor: ANCHOR }));
           }
           run('density', () => emitResult(scheme, route.key, width, 'density', gate.density(m.els, { min: gate.densityMin(route.key, DENSITY), rampStops })));
           run('outline', () => {
@@ -1308,6 +1436,7 @@ async function main() {
         await widgetPass(ctx, browser, scheme, width, want);
         await ctx.close();
       }
+      if (want.has('rightEdge')) await edgePass(browser, scheme);
       if (want.has('deal')) {
         if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);
         else if (!worlds.length) emit('SKIP', scheme, '/work', '*', 'deal', 'skipped: no /work worlds read');

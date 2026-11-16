@@ -88,17 +88,17 @@ const dial = (raw, lo, hi) => {
   return Number.isNaN(n) ? null : Math.min(hi, Math.max(lo, n));
 };
 
-/** The badge's two seats, first named first. PROPOSED default: `flush` (Nathan picks the one to bake). */
-export const BADGE_SEATS = ['flush', 'seat'];
-export const BADGE_DEFAULT = BADGE_SEATS[0];
-
 /**
  * The widget's ?params from a URLSearchParams (anything with .get):
  *   ?schemeui=0       hides the widget
  *   ?schemeguard=<ms> wheel pass-through guard, default 200 (0 = off)
- *   ?schemerows=<n>   deployed window rows (the rows SHOWN, centre included), default 3
+ *   ?schemerows=<n>   the window's rows (centre included): how far the column reaches before the window
+ *                     ends, default 6 = three stations each side. The circles SHOWN are two above the
+ *                     lens and the one below it (the viewport's edge cuts that one): the sheet fades
+ *                     every other one, so the window's edge is never seen
  *   ?schemesize=<px>  swatch diameter; null = the CSS default
- *   ?schemepitch=<px> row pitch; null = the CSS default
+ *   ?schemegap=<px>   the edge-to-edge gap between the lens circle and the circle next to it, at EVERY
+ *                     width (the row pitch follows it), 0 to 60; null = the CSS default
  *   ?schemelift=<n>   the engaged eye's scale, 1 to 3; null = the CSS default (--eye-engaged)
  *   ?schemenear=<n>   the medium circle (one station from the lens) as a fraction of the large
  *                     one, 0.2 to 1; the CSS never lets it fall under the small one
@@ -106,29 +106,24 @@ export const BADGE_DEFAULT = BADGE_SEATS[0];
  *   ?schemein=<ms>    the column's entrance, 0 = instant; null = the CSS default
  *   ?schemeout=<ms>   the column's exit, 0 = instant; null = the CSS default
  *   ?schemepad=<px>   the badge's padding, the SAME on all four sides of the eye (the badge is the eye
- *                     plus this each side), 0 to 40; null = the CSS default (--badge-pad, half the chrome inset)
- *   ?schemebadge=<seat> the badge's seat: `flush` (against the viewport's right and
- *                     bottom edges) or `seat` (today's height above the privacy pill, the
- *                     badge reaching the right edge); anything else = BADGE_DEFAULT
+ *                     plus this each side), 0 to 40; null = the CSS default (--badge-pad)
  * Out-of-range values clamp; unparseable ones fall back to the default (null: the CSS owns it).
  */
 export function schemeParams(params) {
   const guard = finiteNum(params.get('schemeguard'));
   const rows = finiteNum(params.get('schemerows'));
   const size = finiteNum(params.get('schemesize'));
-  const pitch = finiteNum(params.get('schemepitch'));
   return {
     ui: params.get('schemeui') !== '0',
     guardMs: Number.isNaN(guard) ? 200 : Math.max(0, guard),
-    rows: Number.isNaN(rows) ? 3 : Math.min(9, Math.max(1, rows)),
+    rows: Number.isNaN(rows) ? 6 : Math.min(12, Math.max(1, rows)),
     size: Number.isNaN(size) || size <= 0 ? null : Math.max(8, size),
-    pitch: Number.isNaN(pitch) || pitch <= 0 ? null : Math.max(8, pitch),
+    gap: dial(params.get('schemegap'), 0, 60),
     lift: dial(params.get('schemelift'), 1, 3),
     pad: dial(params.get('schemepad'), 0, 40),
     near: dial(params.get('schemenear'), 0.2, 1),
     far: dial(params.get('schemefar'), 0.2, 1),
     inMs: dial(params.get('schemein'), 0, 5000),
     outMs: dial(params.get('schemeout'), 0, 5000),
-    badge: BADGE_SEATS.includes(params.get('schemebadge')) ? params.get('schemebadge') : BADGE_DEFAULT,
   };
 }

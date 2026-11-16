@@ -56,11 +56,6 @@ const STRIPS = stripFills(GLOBE_D, Object.keys(SPECTRUM));
 export const EYE = { w: 48, h: 28, lid: 'M2 14A27.5 27.5 0 0 1 46 14A27.5 27.5 0 0 1 2 14Z' };
 const EYE_C = [EYE.w / 2, EYE.h / 2];
 
-/** The lid opening as an image URL, for the window's CSS mask (site-scheme.css reads --eye-lid-mask). */
-export const EYE_LID_MASK = `url("data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${EYE.w} ${EYE.h}"><path d="${EYE.lid}"/></svg>`
-)}")`;
-
 /**
  * The shared defs, rendered ONCE: the globe path, the project face's strips (both in
  * the mark's own units), and the lid-opening clip.
