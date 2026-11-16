@@ -2,6 +2,7 @@ import path from 'node:path'
 import { readFile, readdir, realpath } from 'node:fs/promises'
 import { invariant, same, targetOf, isVideoType, closestType, FIELDS, CAPS, validateField, validateDocument, validatePatch, schemaHash, SUPPORTED_SCHEMA_HASH } from './contract.mjs'
 import { parseManifest, legacySlug } from './manifest.mjs'
+import { isProjectAlbumArt } from './sets.mjs'
 
 // `cms audit`: a read-only health check of one whole dataset, rerunnable any time. It codifies the
 // mechanical checks of the October 2026 media audit. It never writes, uploads or touches drafts, and
@@ -26,6 +27,8 @@ export const CHECKS = {
   'mux-errored': ['error', 'A Mux video errored; it will not play.'],
   'mux-asset-missing': ['error', 'A Mux document points at a Mux asset that no longer exists.'],
   'manifest-missing-document': ['error', 'A manifest row is bound (sanityId) to a document that does not exist.'],
+  'set-project-mismatch': ['error', "A piece's project differs from the project of the set it points at."],
+  'set-key-duplicate': ['error', 'Two Set documents share a key (slug); the site groups by key, so a key names one set.'],
   'schema-fingerprint': ['warning', 'src/schemas changed since the runner contract was reviewed; plan refuses until SUPPORTED_SCHEMA_HASH is refreshed.'],
   'draft-pending': ['warning', 'An unpublished draft or release version exists; CMS plans touching that document stop until it is resolved in Studio.'],
   'label-ratio': ['warning', 'The aspect label breaks the approved label policy for its native size (see expectedType); padded files and eye calls belong in media/_audit-accepted.json.'],
@@ -46,13 +49,16 @@ export const CHECKS = {
   'manifest-drift': ['warning', 'A manifest row disagrees with Sanity (Sanity is the editorial authority: fix the row, or plan the change).'],
   'manifest-duplicate-row': ['warning', 'Several manifest rows resolve to one document.'],
   'unbound-document': ['warning', 'A mediaAsset no manifest row resolves to.'],
+  'set-empty': ['warning', 'A Set document no published piece points at.'],
+  'set-drift': ['info', "A piece's legacy displayGroup (not album art) or groupType differs from its set's key or type; the set wins on the site once sets are live."],
+  'set-missing': ['info', 'A piece has a displayGroup, or is project album art, but points at no set (the sets migration or the next intake links it).'],
   'manifest-pending-row': ['info', 'A manifest row with no document yet (pending intake; a video intake is a paid upload).'],
   'description-missing': ['info', 'A mediaAsset has no description.'],
   'hidden-from-site': ['info', 'A mediaAsset has "Hide from site" ticked: the site skips it everywhere, and it stays published with its rank, set and files in use. Untick it in Studio, or set hideFromSite false in a changes request, to bring it back.'],
   'accepted-stale': ['info', 'An entry in media/_audit-accepted.json no longer matches a finding (the label changed or the problem is gone); remove it.'],
 }
 export const ACCEPTED_FILE = 'media/_audit-accepted.json'
-const SCHEMA_TYPES = ['mediaAsset', 'project', 'client', 'serviceTag', 'globeSettings', 'siteSettings']
+const SCHEMA_TYPES = ['mediaAsset', 'mediaSet', 'project', 'client', 'serviceTag', 'globeSettings', 'siteSettings']
 const STANDARD = { '1x1': 1, '3x4': 3 / 4, '4x5': 4 / 5, '9x16': 9 / 16, '16x9': 16 / 9, '4x3': 4 / 3 }
 const TOLERANCE = Math.log(1.1), EXTREME = Math.log(2.4)
 
@@ -132,6 +138,22 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
     if (doc.hideFromSite === true) add('hidden-from-site', { id: doc._id, title: doc.title ?? null })
     for (const field of ['alt', 'description']) if (typeof doc[field] === 'string' && doc[field].length > CAPS.mediaAsset[field]) add('text-too-long', { id: doc._id, field, length: doc[field].length, limit: CAPS.mediaAsset[field] })
   }
+  // Sets: a piece belongs to one set, of its own project; a set's key names one set. The legacy displayGroup/groupType stay on the pieces until a later schema commit retires them.
+  const setDocs = ofType('mediaSet'), setById = new Map(setDocs.map(s => [s._id, s])), linked = new Set()
+  for (const doc of media) {
+    if (!doc.set?._ref) {
+      if (doc.displayGroup || isProjectAlbumArt(doc) && doc.project?._ref) add('set-missing', { id: doc._id, title: doc.title ?? null, displayGroup: doc.displayGroup ?? null })
+      continue
+    }
+    linked.add(doc.set._ref)
+    const set = setById.get(doc.set._ref)
+    if (!set) continue // a dangling-reference finding already names it
+    if ((set.project?._ref ?? null) !== (doc.project?._ref ?? null)) add('set-project-mismatch', { id: doc._id, set: set._id, project: doc.project?._ref ?? null, setProject: set.project?._ref ?? null })
+    if (set.groupType !== 'album-art' && doc.displayGroup != null && doc.displayGroup !== set.slug?.current) add('set-drift', { id: doc._id, set: set._id, field: 'displayGroup', value: doc.displayGroup, setValue: set.slug?.current ?? null })
+    if (doc.groupType != null && doc.groupType !== set.groupType) add('set-drift', { id: doc._id, set: set._id, field: 'groupType', value: doc.groupType, setValue: set.groupType ?? null })
+  }
+  for (const set of setDocs) if (!linked.has(set._id)) add('set-empty', { id: set._id, title: set.title ?? null })
+  for (const [key, list] of group(setDocs, s => s.slug?.current)) if (list.length > 1) add('set-key-duplicate', { key, ids: list.map(s => s._id) })
   for (const [file, ids] of group(media, d => d.video?.asset?._ref || d.image?.asset?._ref)) if (ids.length > 1) add('shared-file', { file, ids: ids.map(d => d._id) })
   for (const [sha1hash, list] of group([...images.values()], d => d.sha1hash)) if (list.length > 1) add('duplicate-image', { sha1hash, ids: list.map(d => d._id) })
   for (const doc of images.values()) if (!referenced.has(doc._id)) add('unused-image', { id: doc._id, ...(doc.metadata?.dimensions ? { size: `${doc.metadata.dimensions.width}×${doc.metadata.dimensions.height}` } : {}) })
@@ -153,7 +175,8 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
     for (const field of FIELDS[doc._type]) if (doc[field] !== undefined) try { validateField(field, doc[field]) } catch (error) { if (!problems.has(error.message)) problems.set(error.message, field) }
     for (const [problem, field] of problems) add('invalid-value', { id: doc._id, ...(field ? { field } : {}), problem })
   }
-  for (const [key, list] of group(published, d => d.slug?.current ? `${d._type}:${d.slug.current}` : null)) if (list.length > 1) add('slug-collision', { type: list[0]._type, slug: key.slice(key.indexOf(':') + 1), ids: list.map(d => d._id) })
+  // A shared set key has its own finding (set-key-duplicate), so it is not counted twice here.
+  for (const [key, list] of group(published, d => d.slug?.current && d._type !== 'mediaSet' ? `${d._type}:${d.slug.current}` : null)) if (list.length > 1) add('slug-collision', { type: list[0]._type, slug: key.slice(key.indexOf(':') + 1), ids: list.map(d => d._id) })
   // Media order only matters inside one page: its project, or its client collection when it has none.
   const rankScope = d => d._type !== 'mediaAsset' ? d._type : `mediaAsset:${d.project?._ref || `${d.client?._ref}:${d.sourceManifest}`}`
   for (const list of group(published, d => d.orderRank ? `${rankScope(d)}|${d.orderRank}` : null).values()) if (list.length > 1) add('rank-collision', { type: list[0]._type, orderRank: list[0].orderRank, ids: list.map(d => d._id) })

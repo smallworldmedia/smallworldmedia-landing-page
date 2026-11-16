@@ -33,6 +33,7 @@ export async function harness(t, { docs = [], videoStatus = 'ready' } = {}) {
     async findClients(slug) { return clean([...db.values()].filter(d => d._type === 'client' && d.slug?.current === slug)) },
     async findTags(slugs, names = []) { return clean([...db.values()].filter(d => d._type === 'serviceTag' && (slugs.includes(d.slug?.current) || names.includes(d.name?.toLowerCase())))) },
     async findProjects({clientId,slug}) { return clean([...db.values()].filter(d => d._type === 'project' && d.client?._ref === clientId && d.slug?.current === slug)) },
+    async findSets() { return clean([...db.values()].filter(d => d._type === 'mediaSet')) },
     async findProjectOrder() { return clean([...db.values()].filter(d => d._type === 'project')) },
     async findDeleteBlockers(id) { return clean([...db.values()].filter(d => d._id !== id && refersTo(d, id) || d._id.startsWith('versions.') && d._id.endsWith(`.${id}`))) },
     async findMuxDocuments(assetId) { return clean([...db.values()].filter(d => d._type === 'mux.videoAsset' && d.assetId === assetId)) },

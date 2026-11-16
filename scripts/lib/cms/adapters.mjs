@@ -143,6 +143,8 @@ export async function createAdapters({target, env = process.env, write = false, 
       if (!slugs.length) return Promise.resolve([])
       return query('_type == "serviceTag" && (slug.current in $slugs || lower(name) in $names)', {slugs, names})
     },
+    // Every Set document, drafts included: a set's key is unique across the dataset, so intake and key checks read them all.
+    findSets() { return query('_type == "mediaSet"', {}) },
     // Explicit ordering snapshot only; not a general inventory query.
     findProjectOrder() { return query('_type == "project"', {}) },
     // Everything that would block deleting one document: any document (drafts and release
