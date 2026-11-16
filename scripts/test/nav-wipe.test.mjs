@@ -129,7 +129,7 @@ test('a ready signal late in the window is cut to the cap, the beat never pushes
   assert.equal(h.released.length, 1);
 });
 
-test('a second ready signal, and a cap after release, do nothing: it releases once', () => {
+test('a second ready signal, and a cap after release, do nothing, so it releases once', () => {
   const w = world();
   const h = w.hold();
   w.advance(100);
@@ -152,7 +152,7 @@ test('cancel (the menu closed another way) releases nothing and leaves nothing a
   assert.equal(w.pending.length, 0);
 });
 
-test('the default timers are safe in a browser: setTimeout/clearTimeout throw when called as a method of another object', () => {
+test('the default timers are safe in a browser, where setTimeout/clearTimeout throw when called as a method of another object', () => {
   const real = { set: globalThis.setTimeout, clear: globalThis.clearTimeout };
   const guard = (f) =>
     function (...a) {
@@ -170,7 +170,7 @@ test('the default timers are safe in a browser: setTimeout/clearTimeout throw wh
   }
 });
 
-test('hold off (?navwipehold=0) releases at once: the old wipe, the negative control', () => {
+test('hold off (?navwipehold=0) releases at once, the old wipe and the negative control', () => {
   const w = world();
   const h = w.hold({ maxMs: 0, minMs: 0 });
   w.advance(0);
