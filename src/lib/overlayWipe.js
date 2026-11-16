@@ -56,3 +56,86 @@ export function wipeOut(el, duration = WIPE_OUT_S, closed = CLIP_CLOSED) {
     .to(el, { clipPath: closed, duration, ease: ensureOverlayWipe(), overwrite: true })
     .set(el, { autoAlpha: 0 });
 }
+
+// ── The nav-menu hold (SQ-108, Nathan 11-16): the menu's wipe never uncovers a
+// page that is still loading. A menu tap swaps the route behind the open
+// takeover; the wipe-out used to start on `astro:after-swap`, uncovering an
+// island that had not hydrated, let alone drawn. Now the swap only STARTS a
+// hold, and the wipe plays — unchanged — once the destination has drawn its
+// first frame (`swm:route-ready`, one dispatch per route island) or the cap
+// runs out. One rule for every menu destination; a navigation made with the
+// menu closed never reaches it.
+
+export const ROUTE_READY_EVENT = 'swm:route-ready';
+/** The hold's dials, PROPOSED (Nathan dials them): the cap on the wait, and
+ *  the beat held after the ready signal so its frame is on screen first. */
+export const NAV_HOLD_MAX_MS = 600;
+export const NAV_HOLD_MIN_MS = 100;
+
+/** `?navwipehold=MAX[,MIN]` in ms. MAX caps the wait after the swap (0 turns the
+ *  hold off); MIN is the extra beat after the ready signal, held to the cap. */
+export function parseNavHold(search = '') {
+  const raw = new URLSearchParams(search).get('navwipehold');
+  const [max, min] = raw == null ? [] : raw.split(',').map(parseFloat);
+  const dial = (n, fallback) => (Number.isFinite(n) && n >= 0 ? n : fallback);
+  const maxMs = dial(max, NAV_HOLD_MAX_MS);
+  return { maxMs, minMs: Math.min(dial(min, NAV_HOLD_MIN_MS), maxMs) };
+}
+// Module-load class (docs/tunables-guide.md): put it on the URL you hard-load.
+const NAV_HOLD = parseNavHold(typeof window === 'undefined' ? '' : window.location.search);
+
+/** Routes whose island dispatches `swm:route-ready` itself (home, /work, the
+ *  directory, a project page). Any other route is ready at `astro:page-load`. */
+export const routeSignalsReady = (pathname) => /^\/(work(\/[^/]+)?)?\/?$/.test(pathname);
+
+/** The island's first meaningful frame is up. Two animation frames after the
+ *  call, so the frame the island just committed has been presented — and out
+ *  of the island's own gsap context (context inheritance would adopt, then
+ *  revert at unmount, the tweens the listener makes). */
+export function signalRouteReady(win = window, raf = requestAnimationFrame) {
+  raf(() => raf(() => win.dispatchEvent(new CustomEvent(ROUTE_READY_EVENT))));
+}
+
+/** Hold `release` until the route behind the swap has drawn: the first
+ *  `swm:route-ready` (+ MIN), at the latest MAX after this call. Returns the
+ *  cancel. `window.__swmNavHold` keeps the last hold's timings for the bench. */
+export function holdForRoute(release, env = {}) {
+  const {
+    win = window,
+    doc = document,
+    pathname = win.location.pathname,
+    dials = NAV_HOLD,
+    now = () => performance.now(),
+    timers = { set: setTimeout, clear: clearTimeout },
+    raf = requestAnimationFrame,
+  } = env;
+  const armedAt = now();
+  let readyAt = null;
+  let done = false;
+  let cap = null;
+  let afterReady = null;
+  const stop = () => {
+    done = true;
+    win.removeEventListener(ROUTE_READY_EVENT, onReady);
+    doc.removeEventListener('astro:page-load', onLoad);
+    timers.clear(cap);
+    timers.clear(afterReady);
+  };
+  const fire = (why) => {
+    if (done) return;
+    stop();
+    win.__swmNavHold = { pathname, ...dials, armedAt, readyAt, releasedAt: now(), why };
+    release(why);
+  };
+  const onReady = () => {
+    if (done || afterReady != null) return;
+    readyAt = now();
+    const room = dials.maxMs - (readyAt - armedAt);
+    afterReady = timers.set(() => fire('ready'), Math.max(0, Math.min(dials.minMs, room)));
+  };
+  const onLoad = () => raf(() => raf(onReady)); // a route with no canvas: its first paint
+  cap = timers.set(() => fire('cap'), dials.maxMs);
+  win.addEventListener(ROUTE_READY_EVENT, onReady);
+  if (!routeSignalsReady(pathname)) doc.addEventListener('astro:page-load', onLoad);
+  return stop;
+}
