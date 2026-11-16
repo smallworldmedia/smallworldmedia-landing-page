@@ -231,7 +231,7 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
 
 const skinCss = () => read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('SQ-101 anchor: one seat, bottom and right, at every width', () => {
+test('SQ-101 anchor, one seat, bottom and right, at every width', () => {
   const css = skinCss();
   assert.equal(css.split('--scheme-seat:').length - 1, 1, 'the seat is declared once: no per-breakpoint seat');
   assert.ok(!/@media\s*\(max-width[^)]*\)\s*\{\s*\.swm-corner\s*\{[^}]*--scheme-seat/.test(css), 'no phone override of the seat');
@@ -279,7 +279,7 @@ test('SQ-107 both seats ride the links footer, flush on its top edge and seat a 
   assert.ok(!/--badge-ride:\s*0;/.test(css) && !/--badge-ride:\s*1;/.test(css), 'no seat opts out of the ride');
 });
 
-test('SQ-107 baked dials: Nathan\'s 1.85 / 0.6 / 0.3 / 260 / 200 are the CSS defaults', () => {
+test('SQ-107 baked dials, Nathan\'s 1.85 / 0.6 / 0.3 / 260 / 200 are the CSS defaults', () => {
   const css = skinCss();
   for (const [prop, value] of [['--eye-engaged', '1.85'], ['--eye-near', '0.6'], ['--eye-far', '0.3'], ['--eye-in', '260ms'], ['--eye-out', '200ms']]) {
     assert.ok(new RegExp(`${prop}:\\s*${value.replace('.', '\\.')};`).test(css), `${prop} ${value}`);
@@ -335,7 +335,7 @@ test('SQ-101 long press: no callout, selection, drag or image dialog on the widg
   assert.equal(sw.split('draggable="false"').length - 1, 2, 'both svgs (the circle, the eye) are not draggable');
 });
 
-test('SQ-101 engaged look: the engine falloff ranks the circles, one --eye-t drives the entrance and exit', () => {
+test('SQ-101 engaged look, the engine falloff ranks the circles, one --eye-t drives the entrance and exit', () => {
   const css = skinCss();
   assert.ok(!/--scale-sel:\s*1\s*;/.test(css) && !/--scale-sel-bump:\s*1\s*;/.test(css), 'the falloff is no longer forced off');
   assert.ok(/--scale-falloff:\s*2;/.test(css) && /--scale-falloff-hold:\s*0;/.test(css) && /--scale-falloff-exp:\s*1;/.test(css), 'a straight line over two stations');
@@ -348,7 +348,7 @@ test('SQ-101 engaged look: the engine falloff ranks the circles, one --eye-t dri
   assert.ok(/\.fp-scale__station\s*\{[^}]*transform:\s*scale\(calc\(var\(--sel\) \* var\(--eye-far\)\)\)/.test(css), 'the row only ever scales the large circle down');
 });
 
-test('the eye: the globe path is read from the public file once, the lid shape has one source, the project face is the strips of the globe', () => {
+test('the eye, the globe path is read from the public file once, the lid shape has one source, the project face is the strips of the globe', () => {
   const sw = read('src/components/schemeSwatches.jsx');
   const globe = globeD();
   assert.ok(!sw.includes(globe.slice(0, 24)), 'the globe path data is not retyped');
@@ -364,7 +364,7 @@ test('the eye: the globe path is read from the public file once, the lid shape h
   assert.ok(!/scheme-ring|scheme-halo/.test(css), 'the circular lens ring is gone');
 });
 
-test('SQ-107 the flush badge owns the lower-right corner: above 768px the privacy pill and the footer link keep-out move left of it', () => {
+test('SQ-107 the flush badge owns the lower-right corner, above 768px the privacy pill and the footer link keep-out move left of it', () => {
   const g = read('src/styles/global.css').replace(/\/\*[\s\S]*?\*\//g, '');
   const reserve = /--badge-reserve:\s*calc\(([^;]+)\);/.exec(g);
   assert.ok(reserve, 'the badge reserve is a root token');
