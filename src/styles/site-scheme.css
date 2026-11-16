@@ -118,11 +118,22 @@
   --badge-pad: calc(var(--chrome-right-inset) / 2);
   --badge-w: calc(var(--eye-w) + 2 * var(--badge-pad));
   --badge-h: calc(var(--eye-h) + 2 * var(--badge-pad));
-  --badge-inset: 0px;
-  --badge-cy: calc(var(--badge-h) / 2);
+  /* The flush seat has two places and a blend between them (--seat-t, 0 to 1): the corner (flush
+     with the viewport's right and bottom edges, riding the links footer) and, on home, the corner
+     row (its right inset, the row's height, no ride). The widget persists across soft navs, so the
+     change of place is eased on one short curve (--seat-ease, --ease-draw) and never hops. A CSS
+     transition cannot do it: the swap MOVES the persisted node, which drops its before-change
+     style. SiteScheme animates --seat-t (Web Animations, registered below) from the value it
+     last showed to the one this sheet now gives. */
+  --seat-t: 0;
+  --seat-ease: 280ms;
+  --home-inset: var(--nav-inset);
+  --home-cy: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-pill) / 2);
+  --badge-inset: calc(var(--home-inset) * var(--seat-t));
+  --badge-cy: calc(var(--badge-h) / 2 + (var(--home-cy) - var(--badge-h) / 2) * var(--seat-t));
   --scheme-bottom: calc(var(--badge-cy) - var(--scale-rows) * var(--scheme-pitch));
   --badge-lift: 1;
-  --badge-ride: max(0px, calc(var(--footer-reveal, 0) * var(--footer-panel-h, 0px)));
+  --badge-ride: calc(max(0px, var(--footer-reveal, 0) * var(--footer-panel-h, 0px)) * (1 - var(--seat-t)));
   --badge-reach: calc(
     (var(--scale-rows) - 0.5) * var(--scheme-pitch) + var(--scheme-swatch) * var(--eye-engaged) *
       max(var(--eye-near), var(--eye-far)) / 2
@@ -155,9 +166,7 @@
    and the privacy pill and the copyright keep their own seats beside it. [data-footer-rest] is
    Hero's latch, home only; /process and the other routes keep the flush corner and the ride. */
 html[data-footer-rest] .swm-corner:not([data-badge='seat']) {
-  --badge-inset: var(--nav-inset);
-  --badge-cy: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-pill) / 2);
-  --badge-ride: 0px;
+  --seat-t: 1;
 }
 
 /* Above 768px the row's left end is the copyright, a line shorter than the pill: as the footer
@@ -165,12 +174,18 @@ html[data-footer-rest] .swm-corner:not([data-badge='seat']) {
    copyright line's, so it is centred on what the row shows. A phone has no pill and no copyright
    at rest, and keeps the one seat. */
 @media (min-width: 769px) {
-  html[data-footer-rest] .swm-corner:not([data-badge='seat']) {
-    --badge-cy: calc(
+  .swm-corner {
+    --home-cy: calc(
       var(--footer-bottom-inset) + var(--lh-pill) / 2 + var(--pill-pad-y) - (var(--pill-pad-y) + (var(--lh-pill) - var(--lh-link)) / 2) *
         var(--footer-rise, 0)
     );
   }
+}
+
+@property --seat-t {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
 }
 
 /* A scheme with a solid page colour wears it on the badge: --scheme-page is blue under `blue`,

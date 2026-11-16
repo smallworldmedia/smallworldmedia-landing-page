@@ -524,26 +524,47 @@ export function outline(hook, { name = 'globe', mix = 1, ring, tol = OUTLINE_TOL
 const rectOf = (r) => [r.x, r.y, r.w, r.h].map((v) => fixed(v, 1)).join(',');
 
 /**
- * badge — the square tile sits where its seat says. `rect` {x, y, w, h} is the tile in viewport CSS
- * px, `vp` {w, h} the viewport. Always: square (to `tol` px) and its right edge on the viewport's.
- * `flush`: its bottom edge is on the viewport's bottom edge as well, or on the links footer's top
- * edge when that is higher (`footerTop`, the footer's top in viewport px: the badge rides it, as
- * the seat does). `seat`: it is clear of the viewport's bottom edge (the eye keeps today's height
- * above the privacy pill).
+ * badge — the badge tile sits where its seat says (SQ-107 pass 3: a horizontal rectangle hugging the
+ * eye with the same padding on all four sides). `rect` {x, y, w, h} is the tile in viewport CSS px,
+ * `vp` {w, h} the viewport. Always: a horizontal rectangle (wider than tall); when `eye` {x, y, w, h}
+ * is given, the padding between it and the tile is equal on all four sides (to `tol` px); the right
+ * edge is where the seat puts it (`ref`: { navInset, chromeInset, rowCy } in CSS px, the tokens the
+ * stylesheet reads, measured on a reference element so the gate does not read the badge's own vars).
+ * `flush`: the right edge is on the viewport's (0), and its bottom edge on the viewport's bottom edge,
+ * or on the links footer's top edge when that is higher (`footerTop`, the badge rides it, as the seat
+ * does); on HOME (`home`, [data-footer-rest]) the right inset is `ref.navInset` and the tile's centre
+ * is `ref.rowCy` above the viewport's bottom, the height of the bottom-left corner row. `seat`: the
+ * eye keeps its place (its right edge on `ref.chromeInset`), so the tile's right edge is one padding
+ * short of it, and it is clear of the viewport's bottom edge.
  */
-export function badge(rect, vp, seat, { tol = 1, footerTop = null } = {}) {
+export function badge(rect, vp, seat, { tol = 1, footerTop = null, eye = null, ref = null, home = false } = {}) {
   const offenders = [];
-  if (!rect || !vp) return result([{ path: '.swm-corner::before', note: 'no badge box measured' }], 0, 'no box');
+  if (!rect || !vp) return result([{ path: '.swm-corner .fp-scale::before', note: 'no badge box measured' }], 0, 'no box');
   const right = rect.x + rect.w;
   const bottom = rect.y + rect.h;
-  const bad = (note) => offenders.push({ path: '.swm-corner::before', seat, note, rect: rectOf(rect), viewport: `${vp.w}x${vp.h}` });
-  if (Math.abs(rect.w - rect.h) > tol) bad(`not square (${fixed(rect.w, 1)} x ${fixed(rect.h, 1)})`);
-  if (Math.abs(right - vp.w) > tol) bad(`right edge ${fixed(right, 1)} is not the viewport's ${vp.w}`);
+  const bad = (note) => offenders.push({ path: '.swm-corner .fp-scale::before', seat, note, rect: rectOf(rect), viewport: `${vp.w}x${vp.h}` });
+  if (!(rect.w - rect.h > tol)) bad(`not a horizontal rectangle (${fixed(rect.w, 1)} x ${fixed(rect.h, 1)})`);
+  let pad = null;
+  if (eye) {
+    const pads = [eye.x - rect.x, right - (eye.x + eye.w), eye.y - rect.y, bottom - (eye.y + eye.h)];
+    pad = (pads[0] + pads[1]) / 2;
+    if (Math.max(...pads) - Math.min(...pads) > 1.5 * tol) bad(`padding is not equal on four sides (left ${fixed(pads[0], 1)}, right ${fixed(pads[1], 1)}, top ${fixed(pads[2], 1)}, bottom ${fixed(pads[3], 1)})`);
+  }
+  const inset = vp.w - right;
   const floor = Number.isFinite(footerTop) ? Math.min(vp.h, footerTop) : vp.h;
-  if (seat === 'flush' && Math.abs(bottom - floor) > tol) bad(`bottom edge ${fixed(bottom, 1)} is not ${floor === vp.h ? `the viewport's ${vp.h}` : `the links footer's top ${fixed(floor, 1)}`}`);
-  if (seat === 'seat' && !(bottom < vp.h - tol)) bad(`bottom edge ${fixed(bottom, 1)} touches the viewport's ${vp.h}`);
-  if (seat !== 'flush' && seat !== 'seat') bad(`unknown seat ${seat}`);
-  return result(offenders, 1, `${seat}: tile ${rectOf(rect)} in ${vp.w}x${vp.h}${Number.isFinite(footerTop) && footerTop < vp.h ? `, footer top ${fixed(footerTop, 1)}` : ''}`);
+  if (seat === 'flush') {
+    const want = home && ref ? ref.navInset : 0;
+    if (Math.abs(inset - want) > tol) bad(`right edge is ${fixed(inset, 1)} from the viewport's, want ${fixed(want, 1)}`);
+    if (home && ref) {
+      const cy = vp.h - (rect.y + rect.h / 2);
+      if (Math.abs(cy - ref.rowCy) > tol) bad(`centre ${fixed(cy, 1)} above the bottom is not the corner row's ${fixed(ref.rowCy, 1)}`);
+    } else if (Math.abs(bottom - floor) > tol) bad(`bottom edge ${fixed(bottom, 1)} is not ${floor === vp.h ? `the viewport's ${vp.h}` : `the links footer's top ${fixed(floor, 1)}`}`);
+  } else if (seat === 'seat') {
+    if (ref && pad != null && Math.abs(inset - (ref.chromeInset - pad)) > tol) bad(`right edge is ${fixed(inset, 1)} from the viewport's, want ${fixed(ref.chromeInset - pad, 1)} (the eye on the chrome inset ${fixed(ref.chromeInset, 1)})`);
+    if (!ref && inset < -tol) bad(`right edge ${fixed(inset, 1)} past the viewport's`);
+    if (!(bottom < vp.h - tol)) bad(`bottom edge ${fixed(bottom, 1)} touches the viewport's ${vp.h}`);
+  } else bad(`unknown seat ${seat}`);
+  return result(offenders, 1, `${seat}${home ? ' (home)' : ''}: tile ${rectOf(rect)} in ${vp.w}x${vp.h}${Number.isFinite(footerTop) && footerTop < vp.h ? `, footer top ${fixed(footerTop, 1)}` : ''}`);
 }
 
 /**
@@ -650,6 +671,49 @@ export function bounds(items, box, { axis = 'x', tol = 0.5 } = {}) {
 export function strays(diff, { tol = 8 } = {}) {
   const bad = diff && diff.pixels > tol ? [{ path: '.fp-scale__station', pixels: diff.pixels, at: diff.at, maxDelta: diff.maxDelta, box: diff.box, note: 'a station outside the shown rows painted' }] : [];
   return result(bad, diff?.total ?? 0, `${diff?.pixels ?? 0} of ${diff?.total ?? 0} px differ at eye-t ${diff?.at}${diff?.pixels ? ` (max channel delta ${diff.maxDelta}, box ${diff.box})` : ''}`);
+}
+
+/**
+ * jitter — the eye's globe moves along ONE path from rest to engaged and back (SQ-107 pass 3, Nathan:
+ * "the globe inside of the eye jitters slightly downward" once the scaled-up state lands). `run` =
+ * { engage: [cy...], release: [cy...], settledUp, settledDown }: the globe's rendered centre height
+ * (CSS px, y down) sampled each step while the entrance ran (engage) and the exit ran (release), and
+ * the centre once each had settled (the entrance's last in-flight sample against the settled pose is
+ * where the old build stepped: an svg root's box is pixel-snapped before its transform, which the
+ * rest iris to lens circle hand-over turned into a fraction of a px). `handOver` = { iris, lens }:
+ * the centre of the rest iris alone and of the column's lens circle alone, engaged and settled (the
+ * entrance ends by removing the one and keeping the other, so they must sit on the same pixels
+ * to `snap`). Per leg: the centre never
+ * moves against its direction of travel by more than `rev` px, no step in the tail (the last third)
+ * outgrows the one before it by more than `rev` (a steady deceleration), and the settled pose is
+ * within `snap` px of the last in-flight sample. Measured: ~0.01 to 0.05 px, the old build 0.2 to 0.4.
+ */
+export function jitter(run, { snap = 0.15, rev = 0.2 } = {}) {
+  const offenders = [];
+  let n = 0;
+  const leg = (name, ys, settled) => {
+    if (!Array.isArray(ys) || ys.length < 4 || !Number.isFinite(settled)) {
+      offenders.push({ path: '.swm-corner .scheme-eye', leg: name, note: 'too few samples measured' });
+      return;
+    }
+    n += ys.length;
+    const dir = Math.sign(ys[ys.length - 1] - ys[0]) || 0;
+    let back = 0;
+    for (let i = 1; i < ys.length; i++) back = Math.max(back, dir ? dir * -(ys[i] - ys[i - 1]) : Math.abs(ys[i] - ys[i - 1]));
+    if (back > rev) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, note: `the centre moved ${fixed(back, 2)} px against its direction of travel` });
+    const steps = ys.slice(1).map((y, i) => Math.abs(y - ys[i]));
+    for (let i = Math.floor((steps.length * 2) / 3) + 1; i < steps.length; i++) {
+      if (steps[i] > steps[i - 1] + rev) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, step: i, note: `a step of ${fixed(steps[i], 2)} px after one of ${fixed(steps[i - 1], 2)}: the centre stopped decelerating` });
+    }
+    const jump = Math.abs(settled - ys[ys.length - 1]);
+    if (jump > snap) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, note: `snap of ${fixed(jump, 2)} px at settle (last sample ${fixed(ys[ys.length - 1], 2)}, settled ${fixed(settled, 2)})` });
+  };
+  leg('engage', run?.engage, run?.settledUp);
+  leg('release', run?.release, run?.settledDown);
+  const h = run?.handOver;
+  if (!h || !Number.isFinite(h.iris) || !Number.isFinite(h.lens)) offenders.push({ path: '.swm-corner .scheme-eye', leg: 'hand-over', note: 'the rest iris and the lens circle were not both measured' });
+  else if (Math.abs(h.iris - h.lens) > snap) offenders.push({ path: '.swm-corner .scheme-eye', leg: 'hand-over', note: `the lens circle takes over from the rest iris ${fixed(Math.abs(h.iris - h.lens), 2)} px ${h.lens > h.iris ? 'lower' : 'higher'} (iris ${fixed(h.iris, 2)}, circle ${fixed(h.lens, 2)})` });
+  return result(offenders, n, `${run?.engage?.length ?? 0} + ${run?.release?.length ?? 0} samples${h ? `, hand-over iris ${fixed(h.iris, 2)} circle ${fixed(h.lens, 2)}` : ''}`);
 }
 
 /** Short one-line text of an offender, for the probe's report. */

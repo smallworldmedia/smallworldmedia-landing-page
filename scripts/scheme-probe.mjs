@@ -93,8 +93,15 @@
  * The corner widget gates (SQ-107; every scheme, run per width on the home page, once per --seat, a
  * fresh page each; the strays and bounds gates engage the pager by a mouse hover, or a held CDP touch
  * on a phone). Measured in viewport CSS px, with motion reduced except in persist:
- *   badge       the square tile (.swm-corner::before) is square, its right edge on the viewport's, and
- *               on `flush` its bottom edge on the viewport's too (`seat`: clear of it).
+ *   badge       the badge (the pager's ::before) is a horizontal rectangle hugging the eye with equal
+ *               padding on all four sides. `flush`: its right edge on the viewport's and its bottom edge
+ *               on the viewport's, or on the links footer's top edge where that is higher; on home
+ *               ([data-footer-rest]) in the corner instead, its right inset the corner row's left inset
+ *               and its centre the height of the privacy pill's line. `seat`: the eye on the chrome
+ *               inset, the badge one padding short of it, clear of the viewport's bottom edge.
+ *   jitter      the eye's globe on one path through the entrance and the exit (project only, per seat,
+ *               DPR 3, on /privacy/): the centre never moves against its travel, decelerates steadily,
+ *               and the settled pose is within 0.15 px of the last in-flight sample.
  *   badgeColour blue: opaque brand blue. black: opaque black. project (and the parked spectrum preview):
  *               a translucent veil over a backdrop blur.
  *   eyeLines    no dark stroke on any shape in the widget's svgs (the black outline is gone).
@@ -136,7 +143,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'blurb', 'badgeColour', 'eyeLines', 'bounds', 'strays', 'persist']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'blurb', 'badgeColour', 'eyeLines', 'bounds', 'strays', 'jitter', 'persist']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -152,7 +159,8 @@ const RING = '.hero__globe-stroke'; // the DOM ring round the home globe: the ou
 const OUTLINE_HOOK = { home: 'globe', work: 'worlds' }; // the debug hook whose canvas draws the outline on that route
 const HOVER_SELECTORS = ['.site-nav__pill', '.cta-primary', '.deck-tab', '.site-privacy', '.fp-cta', '.prose-link'];
 const ANCHOR = '.swm-corner';
-const OVERLAP_SELECTORS = [ANCHOR, '.site-privacy', '.fp .fp-scale', '.dir-filter', '.site-footer--links', '.fp-cta', '.np-band__title'];
+const FOOTER_CONTENT = ['.site-footer__blurb', '.logo-ticker__copy', '.logo-ticker__roll', '.site-footer--links a']; // what the home badge must not cover (SQ-107 pass 3)
+const OVERLAP_SELECTORS = [ANCHOR, '.site-privacy', '.fp .fp-scale', '.dir-filter', '.site-footer--links', ...FOOTER_CONTENT, '.fp-cta', '.np-band__title'];
 const MEDIA_SEL = 'img, video, canvas, picture, iframe, object, embed, [data-logo], .logo-ticker svg';
 const HOVER_MS = 900;
 const MAX_READS = 10;
@@ -413,22 +421,49 @@ function pageDump({ ignoreSel, mediaSel, scope, mark }) {
 
 /**
  * Boxes of every visible match of each selector that meets the viewport (viewport coordinates).
- * The corner widget's box is its badge tile (the wrapper's ::before), the thing that is seen: the
- * wrapper itself is a taller, empty footprint (the pager's rows) that hangs 36 px below the tile
- * and past the viewport's bottom edge on the flush seat. The wrapper's box stands in until the
- * tile is drawn (data-ready).
+ * The corner widget's box is its badge tile (the pager's ::before, scaled by its own --eye-lift
+ * about its centre), the thing that is seen: the wrapper itself is a taller, empty footprint (the
+ * pager's rows) that hangs below the tile and past the viewport's bottom edge on the flush seat.
+ * The wrapper's box stands in until the tile is drawn (data-ready).
  */
 function pageBoxes(sels) {
   const out = [];
+  // On home the flush badge sits in the true bottom-right corner, in front of the resting links footer's
+  // empty corner (SQ-107 pass 3): the panel's box is no obstacle there, what is ON it is (the blurb, the
+  // lead-in, the logo band and the links are tested by name, the text ones by their text, never their
+  // full-width boxes).
+  const cornerEl = document.querySelector('.swm-corner');
+  const homeFlush = document.documentElement.hasAttribute('data-footer-rest') && cornerEl?.dataset.badge !== 'seat';
+  const byText = new Set(['.site-footer__blurb', '.logo-ticker__copy']);
   for (const sel of sels) {
+    if (sel === '.site-footer--links' && homeFlush) continue;
     for (const e of document.querySelectorAll(sel)) {
       const cs = getComputedStyle(e);
       let r = e.getBoundingClientRect();
       if (cs.display === 'none' || cs.visibility !== 'visible' || cs.opacity === '0' || r.width <= 0 || r.height <= 0) continue;
+      if (byText.has(sel)) {
+        // One box per laid-out line: the range's union box spans the whole block, empty margins included.
+        const range = document.createRange();
+        range.selectNodeContents(e);
+        for (const q of range.getClientRects()) {
+          if (q.width <= 0 || q.height <= 0 || q.bottom <= 0 || q.top >= innerHeight || q.right <= 0 || q.left >= innerWidth) continue;
+          out.push({ name: sel, x: q.left, y: q.top, w: q.width, h: q.height });
+        }
+        continue;
+      }
       if (e.matches('.swm-corner')) {
-        const b = getComputedStyle(e, '::before');
+        const pager = e.querySelector('.fp-scale');
+        const b = pager ? getComputedStyle(pager, '::before') : null;
         const px = (v) => parseFloat(v) || 0;
-        if (b.content !== 'none') r = { left: r.left + px(b.left), top: r.top + px(b.top), width: px(b.width), height: px(b.height), right: r.left + px(b.left) + px(b.width), bottom: r.top + px(b.top) + px(b.height) };
+        if (b && b.content !== 'none') {
+          const pr = pager.getBoundingClientRect();
+          const k = px(b.scale) || 1;
+          const w = px(b.width) * k;
+          const h = px(b.height) * k;
+          const cx = pr.left + px(b.left) + px(b.width) / 2;
+          const cy = pr.top + px(b.top) + px(b.height) / 2;
+          r = { left: cx - w / 2, top: cy - h / 2, width: w, height: h, right: cx + w / 2, bottom: cy + h / 2 };
+        }
       }
       if (r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) continue;
       out.push({ name: sel, x: r.left, y: r.top, w: r.width, h: r.height });
@@ -460,15 +495,17 @@ async function pageGl() {
 }
 
 /**
- * The corner widget at rest (SQ-107): its square badge (the wrapper's ::before: size and offset are
- * computed px, the wrapper's own rect carries any translate), the badge's paint, every stroked shape
- * in its svgs, and the eye's centre. null when the route has no widget.
+ * The corner widget at rest (SQ-107): its badge tile (the pager's ::before: size and offset are
+ * computed px in the pager's box, which carries the translate; grown by its own scale about its
+ * centre), the badge's paint, every stroked shape in its svgs, the eye's box, and the tokens the
+ * seats read (measured on reference elements, never off the badge's own variables). null when the
+ * route has no widget.
  */
 function pageWidgetRest() {
   const corner = document.querySelector('.swm-corner');
   if (!corner) return null;
-  const wr = corner.getBoundingClientRect();
-  const b = getComputedStyle(corner, '::before');
+  const pager = corner.querySelector('.fp-scale');
+  const b = getComputedStyle(pager, '::before');
   const px = (v) => parseFloat(v) || 0;
   const strokes = [];
   corner.querySelectorAll('svg *').forEach((e) => {
@@ -487,16 +524,42 @@ function pageWidgetRest() {
     const q = range.getBoundingClientRect();
     if (q.width > 0 && q.height > 0) blurb = { x: q.left, y: q.top, w: q.width, h: q.height };
   }
+  let tile = null;
+  if (b.content !== 'none') {
+    const pr = pager.getBoundingClientRect();
+    const k = px(b.scale) || 1;
+    const w = px(b.width);
+    const h = px(b.height);
+    const cx = pr.left + px(b.left) + w / 2;
+    const cy = pr.top + px(b.top) + h / 2;
+    tile = { x: cx - (w * k) / 2, y: cy - (h * k) / 2, w: w * k, h: h * k };
+  }
+  const probeEl = (css) => {
+    const e = document.createElement('div');
+    e.style.cssText = `position:fixed;left:0;visibility:hidden;pointer-events:none;${css}`;
+    document.body.append(e);
+    const r = e.getBoundingClientRect();
+    e.remove();
+    return r;
+  };
+  const row = probeEl('bottom:var(--footer-bottom-inset);padding:var(--pill-pad-y) 0;box-sizing:content-box;width:1px;height:var(--lh-pill)');
+  const ref = {
+    navInset: probeEl('top:0;width:var(--nav-inset);height:1px').width,
+    chromeInset: probeEl('top:0;width:var(--chrome-right-inset);height:1px').width,
+    rowCy: innerHeight - (row.top + row.height / 2),
+  };
   return {
     footerTop,
     blurb,
+    ref,
+    home: document.documentElement.hasAttribute('data-footer-rest'),
     seat: corner.dataset.badge ?? null,
     ready: corner.hasAttribute('data-ready'),
     vp: { w: innerWidth, h: innerHeight },
-    tile: b.content === 'none' ? null : { x: wr.left + px(b.left), y: wr.top + px(b.top), w: px(b.width), h: px(b.height) },
+    tile,
     paint: { bg: b.backgroundColor, blur: b.backdropFilter || b.webkitBackdropFilter || 'none' },
     strokes,
-    eye: eye ? { cx: eye.left + eye.width / 2, cy: eye.top + eye.height / 2 } : null,
+    eye: eye ? { cx: eye.left + eye.width / 2, cy: eye.top + eye.height / 2, x: eye.left, y: eye.top, w: eye.width, h: eye.height } : null,
   };
 }
 
@@ -861,6 +924,105 @@ async function measureWidget(ctx, scheme, seat, width) {
 }
 
 /**
+ * The jitter run (SQ-107 pass 3): the eye's globe through the entrance and the exit, one capture per
+ * 20 ms step. A fresh page on /privacy/ (the widget is the same node on every route, and the page
+ * behind it holds still), a device scale factor of 3 (the iPhone's), motion ON, everything but the
+ * widget hidden over a flat ground and the badge's own fill hidden, so the only saturated pixels are the
+ * globe's strips. The page's transitions are paused and scrubbed with Animation.currentTime (the
+ * entrance is --eye-in long, the exit --eye-out); the globe's centre is the vertical centroid of the
+ * saturated pixels (CSS px, to a hundredth). `engage` and `release` are the in-flight samples (the last
+ * at the duration less 1 ms, the rest iris still painted), `settledUp` and `settledDown` the centre
+ * once each leg's animations have finished and the page has settled.
+ */
+async function measureJitter(browser, scheme, seat, width) {
+  const phone = width <= 480;
+  const ctx = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: 3, reducedMotion: 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+  await ctx.route(/stream\.mux\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  const { default: sharp } = await import('sharp');
+  try {
+    await page.goto(`${BASE}/privacy/?scheme=${scheme}&schemebadge=${seat}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await sleep(2500);
+    await page.addStyleTag({ content: 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before{display:none !important}' });
+    const vp = { w: width, h: phone ? 844 : 900 };
+    const clip = { x: vp.w - 200, y: vp.h - 380, width: 200, height: 380 };
+    const centre = async () => {
+      // Only the rows of the eye itself: the column's other circles (one station out each side, at
+      // 0.6 of the lens circle) are saturated too, and are no part of the globe in the eye.
+      const band = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; });
+      const buf = await page.screenshot({ clip });
+      const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      // Weighted by saturation, not thresholded: a hard cut flickers by a device pixel as an edge
+      // crosses it, which is noise the size of the jump this gate looks for.
+      let n = 0;
+      let sy = 0;
+      for (let i = 0; i < data.length; i += 3) {
+        const w = Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
+        if (w < 8) continue;
+        const y = clip.y + (Math.floor(i / 3 / info.width) + 0.5) / 3;
+        if (y < band.top || y > band.bottom) continue;
+        sy += w * (Math.floor(i / 3 / info.width) + 0.5);
+        n += w;
+      }
+      return n ? clip.y + sy / n / 3 : NaN;
+    };
+    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    const cdp = phone ? await ctx.newCDPSession(page) : null;
+    const leg = async (engage) => {
+      if (engage) {
+        if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: eye.x, y: eye.y }] });
+        else await page.mouse.move(eye.x, eye.y);
+        await page.waitForFunction(() => document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 });
+      } else {
+        if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        else await page.mouse.move(40, 40);
+        await page.waitForFunction(() => !document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 });
+      }
+      const dur = await page.evaluate(() => {
+        window.__anims = document.getAnimations({ subtree: true }).filter((a) => a.effect && a.transitionProperty !== undefined);
+        window.__anims.forEach((a) => a.pause());
+        return Math.max(...window.__anims.map((a) => a.effect.getTiming().duration + (a.effect.getTiming().delay || 0)), 0);
+      });
+      const ys = [];
+      for (let t = 0; t < dur - 1; t += 20) {
+        await page.evaluate((t) => window.__anims.forEach((a) => (a.currentTime = t)), t);
+        await sleep(60);
+        ys.push(await centre());
+      }
+      await page.evaluate((t) => window.__anims.forEach((a) => (a.currentTime = t)), dur - 1);
+      await sleep(60);
+      ys.push(await centre());
+      await page.evaluate(() => window.__anims.forEach((a) => a.finish()));
+      await sleep(400);
+      return { ys: ys.map((y) => +y.toFixed(3)), settled: +(await centre()).toFixed(3) };
+    };
+    const up = await leg(true);
+    // The hand-over, engaged and settled: the rest iris alone, then the column's lens circle alone
+    // (the window hidden, then the iris hidden). Where the entrance ends the iris goes and the circle
+    // stays, so any offset between them is the step the eye shows.
+    const only = async (css) => {
+      const st = await page.addStyleTag({ content: css });
+      await sleep(250);
+      const y = await centre();
+      await st.evaluate((e) => e.remove());
+      return +y.toFixed(3);
+    };
+    const handOver = {
+      iris: await only('.swm-corner .fp-scale__window{display:none !important} .swm-corner .scheme-eye__iris{opacity:1 !important;transition:none !important}'),
+      lens: await only('.swm-corner .scheme-eye__iris{opacity:0 !important;transition:none !important}'),
+    };
+    const down = await leg(false);
+    return { engage: up.ys, settledUp: up.settled, release: down.ys, settledDown: down.settled, handOver };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
+/**
  * Soft navigations with motion ON (a fade is a transition, and the probe's other contexts reduce
  * motion): home to /work to a project page and back, by the nav pill on desktop and by the menu on a
  * phone. Every frame samples the widget: the identity mark stamped on the node before the first click,
@@ -941,7 +1103,7 @@ const merge = (rs) => ({ pass: rs.every((r) => r.pass), offenders: rs.flatMap((r
 async function widgetPass(ctx, browser, scheme, width, want) {
   const asked = WIDGET_GATES.filter((g) => want.has(g));
   if (!asked.length) return;
-  const seats = asked.some((g) => g !== 'persist') ? SEAT_LIST : [];
+  const seats = asked.some((g) => g !== 'persist' && g !== 'jitter') ? SEAT_LIST : [];
   for (const seat of seats) {
     const route = `corner:${seat}`;
     const w = await measureWidget(ctx, scheme, seat, width);
@@ -953,7 +1115,7 @@ async function widgetPass(ctx, browser, scheme, width, want) {
     const run = (name, fn) => {
       if (want.has(name)) emitResult(scheme, route, width, name, fn());
     };
-    run('badge', () => gate.badge(rest.tile, rest.vp, seat, { footerTop: rest.footerTop }));
+    run('badge', () => gate.badge(rest.tile, rest.vp, seat, { footerTop: rest.footerTop, eye: rest.eye, ref: rest.ref, home: rest.home }));
     run('blurb', () => gate.blurbClear(rest.tile, rest.blurb));
     run('badgeColour', () => gate.badgeColour(scheme, rest.paint));
     run('eyeLines', () => gate.eyeLines(rest.strokes));
@@ -966,6 +1128,19 @@ async function widgetPass(ctx, browser, scheme, width, want) {
       if (!w.strays?.length) return { pass: false, offenders: [{ path: '.fp-scale__station', note: 'the pager never engaged (data-open)' }], note: 'not engaged' };
       return merge(w.strays.map((d) => gate.strays(d)));
     });
+  }
+  if (want.has('jitter')) {
+    if (scheme !== 'project') emit('SKIP', scheme, 'corner', width, 'jitter', 'measured on project only (the globe strips it reads are the same in every scheme)');
+    else {
+      for (const seat of SEAT_LIST) {
+        const j = await measureJitter(browser, scheme, seat, width);
+        if (j.error) emit('FAIL', scheme, `corner:${seat}`, width, 'jitter', j.error);
+        else {
+          if (process.env.JITTER_DEBUG) console.log(JSON.stringify(j));
+          emitResult(scheme, `corner:${seat}`, width, 'jitter', gate.jitter(j));
+        }
+      }
+    }
   }
   if (want.has('persist')) {
     const p = await measurePersist(browser, scheme, width);

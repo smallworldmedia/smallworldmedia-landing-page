@@ -271,13 +271,13 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    scripts/globe-probe.mjs is this number's gate twin — move both, or --footer
    fails.
 
-   RAISED 0.59 → 0.72 (SQ-107, Nathan 11-16): the lead-in ("utilized by…") shows
-   in full, both of its lines, and the logos stay below the fold. At 390×844
-   (DSF 1, ?footerslide=0, settled) the lead-in was 18.3px of its 53.6px; at
-   0.72 it is 53.6 of 53.6, the logo row 34.0px below the fold, the blurb
-   clearing by ~86px, and the lead-in's top 789px down. ?footerrest=0.59
+   RAISED 0.59 → 0.62 (SQ-107, Nathan 11-16, "just slightly"): the FIRST line of
+   the lead-in ("utilized by…") shows whole and nothing more. At 390×844 (DSF 1,
+   ?footerslide=0, settled) the lead-in was 18.3px of its two 26.8px lines; at
+   0.62 it is 26.8, the logo row 62.4px below the fold, the blurb clearing by
+   ~58px. A first try at 0.72 showed both lines (53.6px): too much. ?footerrest=0.59
    restores the old pose. — */
-const FOOTER_REST_MOBILE = 0.72;
+const FOOTER_REST_MOBILE = 0.62;
 /* The DESKTOP rest. Baked 0.62 on 10-09 (Nathan: "push the globe page footer
    work (visible when i define ?footerrest) to be live"), the pose every
    desktop look of the variant ran at on 10-08. RE-BAKED 0.62 → 0.40 on 10-31

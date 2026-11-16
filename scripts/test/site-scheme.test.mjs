@@ -255,7 +255,7 @@ test('SQ-107 ?schemebadge takes flush (the PROPOSED default) or seat and anythin
   const css = skinCss();
   const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
   assert.ok(/bottom:\s*var\(--scheme-bottom\)/.test(wrapper) && !/data-badge='flush'/.test(css), 'no rule is needed for the default seat');
-  assert.ok(/--badge-cy:\s*calc\(var\(--badge-h\) \/ 2\);/.test(css) && /--scheme-bottom:\s*calc\(var\(--badge-cy\) - var\(--scale-rows\) \* var\(--scheme-pitch\)\)/.test(css), 'default: the lens is half a badge above the bottom edge');
+  assert.ok(/--badge-cy:\s*calc\(var\(--badge-h\) \/ 2 \+ \(var\(--home-cy\) - var\(--badge-h\) \/ 2\) \* var\(--seat-t\)\);/.test(css) && /--scheme-bottom:\s*calc\(var\(--badge-cy\) - var\(--scale-rows\) \* var\(--scheme-pitch\)\)/.test(css), 'default: the lens is half a badge above the bottom edge');
   assert.ok(/--badge-lift:\s*1;/.test(css), 'default: climbs when engaged');
 });
 
@@ -271,9 +271,9 @@ test('SQ-107 pass 3 ?schemepad is the one padding dial, clamped 0 to 40, null is
 
 test('SQ-107 both seats ride the links footer, flush on its top edge and seat a --space-6 gap above its own seat height', () => {
   const css = skinCss();
-  const flush =css.match(/--badge-ride:\s*(max\(0px, calc\(var\(--footer-reveal, 0\) \* var\(--footer-panel-h, 0px\)\)\));/)?.[1];
+  const flush = css.match(/--badge-ride:\s*(calc\(max\(0px, var\(--footer-reveal, 0\) \* var\(--footer-panel-h, 0px\)\) \* \(1 - var\(--seat-t\)\)\));/)?.[1];
   const seat = css.match(/\[data-badge='seat'\]\s*\{[^}]*--badge-ride:\s*max\(\s*0px,\s*calc\(var\(--footer-reveal, 0\) \* var\(--footer-panel-h, 0px\) \+ var\(--space-6\) - var\(--scheme-seat\)\)\s*\);/)?.[0];
-  assert.ok(flush, 'the default (flush) rides the footer\'s visible height, no gap, so its bottom edge is on the footer\'s top edge');
+  assert.ok(flush, 'the default (flush) rides the footer\'s visible height, no gap, so its bottom edge is on the footer\'s top edge, less what home\'s seat takes off');
   assert.ok(seat, 'the seat keeps its --space-6 gap from its own height, as it did');
   assert.ok(/translate:\s*0 calc\(-1 \* var\(--badge-ride\)\)/.test(css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? ''), 'the wrapper translates by --badge-ride, one channel for both seats');
   assert.ok(!/--badge-ride:\s*0;/.test(css) && !/--badge-ride:\s*1;/.test(css), 'no seat opts out of the ride');
@@ -296,7 +296,8 @@ test('SQ-107 the badge: a rectangle hugging the eye with equal padding, one comp
   assert.ok(/scale:\s*var\(--eye-lift\)/.test(tile) && /transform-origin:\s*50% 50%/.test(tile), 'it grows with the eye, on the one --eye-t, about the eye\'s centre');
   assert.ok(!/border-radius/.test(tile), 'square corners, as the first tile');
   assert.ok(/translate:\s*calc\(\(1 - var\(--eye-lift\)\) \* \(var\(--eye-w\) \/ 2 \+ var\(--badge-pad\)\)\)/.test(css), 'the pager anchors the BADGE\'s right edge as it grows');
-  assert.ok(/html\[data-footer-rest\] \.swm-corner:not\(\[data-badge='seat'\]\)\s*\{[^}]*--badge-inset:\s*var\(--nav-inset\)[^}]*--badge-ride:\s*0px/.test(css), 'home flush: the corner row\'s left inset, no footer ride');
+  assert.ok(/--home-inset:\s*var\(--nav-inset\)/.test(css) && /--badge-inset:\s*calc\(var\(--home-inset\) \* var\(--seat-t\)\)/.test(css), 'home flush: the corner row\'s left inset, by the seat blend');
+  assert.ok(/html\[data-footer-rest\] \.swm-corner:not\(\[data-badge='seat'\]\)\s*\{\s*--seat-t:\s*1;\s*\}/.test(css), 'home latches the blend to its end, and only the flush seat takes it');
   assert.ok(/background-color:\s*color-mix\(\s*in srgb,\s*var\(--scheme-page\) calc\(var\(--badge-solid\) \* 100%\),\s*var\(--badge-glass\)\s*\)/.test(tile), 'the scheme\'s role token over the glass, by --badge-solid');
   assert.ok(/backdrop-filter:\s*blur\(var\(--badge-blur\)\)/.test(tile), 'the glass blurs what is behind it');
   assert.ok(!/(^|[\s;])opacity:/.test(tile), 'the tile never fades with opacity (below 1 the blur shows the sharp original): the alpha is the background\'s');
@@ -374,4 +375,23 @@ test('SQ-107 the flush badge owns the lower-right corner: above 768px the privac
   const seat = "html:has\\(\\.swm-corner:not\\(\\[data-badge='seat'\\]\\)\\)";
   const m = new RegExp(`@media \\(min-width: 769px\\)\\s*\\{\\s*${seat}\\s*\\{\\s*--privacy-clearance:[^}]*--badge-reserve[^}]*\\}\\s*${seat}\\s+\\.site-privacy\\s*\\{\\s*right:[^}]*--chrome-right-inset[^}]*--badge-reserve[^}]*\\}`).exec(g);
   assert.ok(m, 'desktop only, keyed on the default (not-seat) seat so it holds before hydration');
+});
+
+test('SQ-107 pass 4 the home seat is one blend and SiteScheme eases it across a soft nav on the house curve', () => {
+  const css = skinCss();
+  assert.ok(/@property --seat-t\s*\{[^}]*<number>[^}]*inherits:\s*true/.test(css), '--seat-t is registered, so Web Animations can interpolate it');
+  assert.ok(/--home-cy:\s*calc\(var\(--footer-bottom-inset\) \+ var\(--pill-pad-y\) \+ var\(--lh-pill\) \/ 2\)/.test(css), 'the corner row\'s centre at rest');
+  assert.ok(/--badge-cy:\s*calc\(var\(--badge-h\) \/ 2 \+ \(var\(--home-cy\) - var\(--badge-h\) \/ 2\) \* var\(--seat-t\)\)/.test(css), 'inset, centre and ride all follow --seat-t');
+  const comp = read('src/components/SiteScheme.jsx');
+  assert.ok(/corner\.animate\(\[\{ '--seat-t': from \}, \{ '--seat-t': next \}\]/.test(comp), 'the swap moves the persisted node, which drops a CSS transition\'s before-change style: animate from the last shown value');
+  assert.ok(/cubic-bezier\(0\.16, 1, 0\.3, 1\)/.test(comp) && /--seat-ease/.test(comp), 'the --ease-draw curve, a short duration from the sheet');
+  assert.ok(/prefers-reduced-motion: reduce/.test(comp) && /data-footer-rest/.test(comp), 'instant under reduced motion, keyed to home\'s latch');
+});
+
+test('SQ-107 pass 4 the jitter root cause, the circle is drawn at the large size and its row only scales it down', () => {
+  const css = skinCss();
+  const swatch = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager \.scheme-swatch\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/width:\s*calc\(var\(--scheme-swatch\) \* var\(--eye-lift\)\)/.test(swatch) && /height:\s*calc\(var\(--scheme-swatch\) \* var\(--eye-lift\)\)/.test(swatch), 'drawn at the lifted iris size, so an svg root\'s pixel snap is not multiplied by a scale-up');
+  const station = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__station\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/transform:\s*scale\(calc\(var\(--sel\) \* var\(--eye-far\)\)\)/.test(station), 'the row scale is --sel x --eye-far (at most 1 for the lens)');
 });

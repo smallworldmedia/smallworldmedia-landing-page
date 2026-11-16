@@ -111,6 +111,50 @@ export default function SiteScheme() {
     []
   );
 
+  // Seat ease (SQ-107). The flush badge has two places, the corner and, on home, the corner row
+  // (site-scheme.css, --seat-t 0 to 1). The widget persists across soft navs, and the swap moves
+  // its node, so a CSS transition has no before-change style to run from: when the seat the sheet
+  // gives changes, animate --seat-t from what was last shown to the new value instead, on one short
+  // house curve (--seat-ease, --ease-draw): steep launch, smooth decel, no overshoot. Not on the
+  // first page's own settling, and not under reduced motion.
+  useEffect(() => {
+    const corner = cornerRef.current;
+    if (!corner || typeof corner.animate !== 'function') return undefined;
+    const root = document.documentElement;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const targetOf = () => (root.hasAttribute('data-footer-rest') && corner.dataset.badge !== 'seat' ? 1 : 0);
+    const shownNow = () => parseFloat(getComputedStyle(corner).getPropertyValue('--seat-t')) || 0;
+    let shown = targetOf();
+    let anim = null;
+    let armed = false;
+    const sync = () => {
+      const next = targetOf();
+      if (next === shown) return;
+      const from = anim ? shownNow() : shown;
+      anim?.cancel();
+      anim = null;
+      shown = next;
+      const ms = parseFloat(getComputedStyle(corner).getPropertyValue('--seat-ease')) || 0;
+      if (!armed || reduced.matches || !ms) return;
+      anim = corner.animate([{ '--seat-t': from }, { '--seat-t': next }], { duration: ms, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+      anim.onfinish = () => {
+        anim = null;
+      };
+    };
+    const mo = new MutationObserver(sync);
+    mo.observe(root, { attributes: true, attributeFilter: ['data-footer-rest'] });
+    document.addEventListener('astro:after-swap', sync);
+    const arm = window.setTimeout(() => {
+      armed = true;
+    }, 800);
+    return () => {
+      mo.disconnect();
+      document.removeEventListener('astro:after-swap', sync);
+      window.clearTimeout(arm);
+      anim?.cancel();
+    };
+  }, []);
+
   // Wheel guard. The pager captures the wheel while the pointer is over it, which
   // would stall a page scroll that happens to pass under the corner. A wheel event
   // seen OUTSIDE the widget arms a guard of ?schemeguard ms (renewed by each further

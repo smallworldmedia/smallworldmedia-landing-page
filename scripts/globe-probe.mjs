@@ -360,7 +360,7 @@ if (DSF_ARG === true || !(DSF >= 1 && DSF <= 4)) {
 // way texbound mirrors the texture budget: Hero's FOOTER_REST_MOBILE and
 // footerTune's liftK. Pass the matching --footerrest / --footerlift when you
 // dial the page with ?footerrest / ?footerlift through --extra.
-const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.72));
+const FOOTER_REST_EXPECT = Number(arg('footerrest', 0.62));
 const LIFT_K_EXPECT = Number(arg('footerlift', 0.5));
 const MARKS_FROM_EXPECT = Number(arg('footermarksfrom', 0.6));
 const RUN = `globe-${MODE}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}${ENTER ? '-enter' : ''}${FOOTER ? '-footer' : ''}${DETAIL ? `-detail-${DETAIL}` : ''}${HOLD ? `-hold-${HOLD}` : ''}${DIRECTORY ? `-directory${DIR_QUERY ? `-${DIR_QUERY.replace(/\W+/g, '-')}` : ''}` : ''}${NOCLIP ? '-noclip' : ''}${KEYCTL ? `-keyctl-${KEYCTL}` : ''}`;
