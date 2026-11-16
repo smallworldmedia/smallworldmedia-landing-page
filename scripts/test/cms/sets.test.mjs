@@ -100,12 +100,15 @@ test('audit: a dataset with no sets has 0 errors and only info set-missing findi
   assert.deepEqual(report.findings.map(f => [f.check, f.severity, f.items.map(i => i.id)]), [['set-missing', 'info', ['mediaAsset-cover', 'mediaAsset-admat']]])
 })
 
-test('audit: once pieces point at matching sets, nothing is reported', async () => {
+test('matching sets audit clean, and the same dataset with a drifted member reports set-drift', async () => {
   const image = id => ({ _id: id, _type: 'sanity.imageAsset', sha1hash: id, metadata: { dimensions: { width: 1000, height: 1000 } } })
   const deck = setDoc('mediaSet-example-project-tour-admats', 'tour-admats')
   const member = piece('mediaAsset-admat', { title: 'x', slug: { _type: 'slug', current: 'x' }, alt: 'A.', description: 'D.', image: { _type: 'image', asset: reference('image-x') }, groupType: 'admat', displayGroup: 'tour-admats', set: reference(deck._id) })
-  const report = auditDataset({ target: { projectId: 'offline123', dataset: 'test' }, docs: [clientDoc, tagDoc, project(), deck, member, image('image-x')], schema: await schemaFields(checkout) })
-  assert.deepEqual(report.findings, [])
+  const audit = docs => auditDataset({ target: { projectId: 'offline123', dataset: 'test' }, docs: [clientDoc, tagDoc, project(), deck, image('image-x'), ...docs], schema })
+  const schema = await schemaFields(checkout)
+  assert.deepEqual(audit([member]).findings, [])
+  const drifted = audit([{ ...member, displayGroup: 'old-admats' }]).findings
+  assert.deepEqual(drifted.map(f => [f.check, f.severity, f.items.map(i => [i.field, i.value, i.setValue])]), [['set-drift', 'info', [['displayGroup', 'old-admats', 'tour-admats']]]])
 })
 
 test('adapter: findSets reads every Set document, drafts included, with a parameterised raw query', async () => {

@@ -76,7 +76,7 @@ test('planSetsMigration: files hold at most 100 operations, keep each set with i
   assert.deepEqual(first, [...first].sort((a, b) => docs.find(d => d._id === a).orderRank < docs.find(d => d._id === b).orderRank ? -1 : 1))
 })
 
-test('planSetsMigration: a rerun links only what is unlinked and never creates an existing set', () => {
+test('rerunning planSetsMigration links only what is unlinked and never creates an existing set', () => {
   next = 0
   const [a, b] = many(2, 'project-alpha', 'tour-admats', { groupType: 'admat' })
   const existing = { _id: 'mediaSet-alpha-tour-admats', _type: 'mediaSet', title: 'Tour admats', slug: { _type: 'slug', current: 'tour-admats' }, project: reference('project-alpha'), groupType: 'admat', allowAsHero: true }
