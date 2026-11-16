@@ -14,9 +14,13 @@
  * scheme under the lens across the site; release commits it; Escape, or any
  * disengage that commits nothing, restores the committed one.
  *
+ * The eye sits in a square badge (site-scheme.css, the wrapper's ::before): blue on `blue`,
+ * black on `black`, a glass overlay on `project`.
+ *
  * Authority: colorScheme.js alone decides the scheme. This component calls
  * setScheme / onScheme and writes nothing of its own to the DOM except the
- * `is-pager-engaged` class on its wrapper and the dials below. A scheme change
+ * `is-pager-engaged` class on its wrapper, the dials below and the wrapper's
+ * data-badge / data-ready. A scheme change
  * re-renders only this widget's lens art, never the page.
  *
  * It is a PERSISTED island (BaseLayout: transition:persist="site-scheme"), so its
@@ -31,7 +35,7 @@
  *   ?schemeui=0 hides the widget; ?schemeguard=<ms> the wheel pass-through guard;
  *   ?schemerows ?schemesize ?schemepitch dial the deployed window (site-scheme.css);
  *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout the
- *   column's entrance and exit.
+ *   column's entrance and exit; ?schemebadge=flush|seat the square badge's seat.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import GraticulePager from './work/pager/GraticulePager.jsx';
@@ -87,6 +91,10 @@ export default function SiteScheme() {
       if (p.far != null) el.style.setProperty('--eye-far', String(p.far));
       if (p.inMs != null) el.style.setProperty('--eye-in', `${p.inMs}ms`);
       if (p.outMs != null) el.style.setProperty('--eye-out', `${p.outMs}ms`);
+      // The badge's seat (site-scheme.css reads [data-badge]); [data-ready] lets the badge
+      // appear with the eye, never before it.
+      el.dataset.badge = p.badge;
+      el.dataset.ready = '';
     }
     setUi(p.ui);
     setActive(stationOf(getScheme()));
