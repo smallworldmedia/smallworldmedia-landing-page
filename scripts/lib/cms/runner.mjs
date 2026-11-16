@@ -5,8 +5,8 @@ import { toProjectSlug } from '../../../src/lib/projectSlug.js'
 import { VERSION, SUPPORTED_SCHEMA_HASH, PUBLICATION, NO_EDIT_WINDOW, DELETE_TYPES, IRREVERSIBLE, invariant, keys, targetOf, digest, clean, same, validId, validMuxId, validRank, validatePatch, validateDocument, references, refersTo, patched, withoutSystem, appendRanks, schemaHash, closestType, isVideoType } from './contract.mjs'
 import { checkoutLocked } from './state.mjs'
 import { parseManifest, legacySlug, inspectFile, scopedFile, fileHash, boundManifest, writeBindings } from './manifest.mjs'
+import { ref, setId, albumArtKey, projectKey, isProjectAlbumArt, newSet } from './sets.mjs'
 
-const ref = id => ({ _type: 'reference', _ref: id })
 const published = docs => docs.filter(d => !d._id.startsWith('drafts.') && !d._id.startsWith('versions.'))
 const byId = docs => new Map(docs.filter(Boolean).map(d => [d._id, d]))
 const allIds = ids => [...new Set(ids.flatMap(id => [id, `drafts.${id}`]))]
@@ -52,6 +52,11 @@ async function resolveReferences(operations, sanity) {
     const project = created.get(op.after.project._ref) || current.get(op.after.project._ref)
     invariant(project.client?._ref === op.after.client?._ref, `Project/client mismatch on ${op.id}`)
   }
+  // A piece belongs to one project and so does its set: refuse a link across projects, created or patched.
+  for (const op of operations) if (op.action !== 'unchanged' && op.after?._type === 'mediaAsset' && op.after.set?._ref) {
+    const set = created.get(op.after.set._ref) || current.get(op.after.set._ref)
+    invariant(set.project?._ref && set.project._ref === op.after.project?._ref, `Set/project mismatch on ${op.id}: its set belongs to another project`)
+  }
   return externalIds.map(id => ({ id, rev: current.get(id)._rev, type: current.get(id)._type }))
 }
 // Deletes run last, in request order. A target may still be referenced at plan time only by a
@@ -93,6 +98,12 @@ async function planDeletes(deletes, operations, collections, informational, sani
     if (c.snapshot.some(s => deleted.has(s.id)) && was !== now) informational.push(`${JSON.stringify(c.selector)}: first-ranked (hero) asset changes ${was} -> ${now ?? 'none'}`)
   }
 }
+// A set's key (slug.current) is what the site groups by, so it names one set: no other set in the dataset or in this plan may hold it.
+async function requireFreeKey(sanity, operations, key, selfId) {
+  const clash = [...(await sanity.findSets()).map(d => ({ id: d._id.replace(/^drafts\./, ''), key: d.slug?.current })), ...operations.filter(o => o.type === 'mediaSet').map(o => ({ id: o.id, key: o.after.slug.current }))]
+    .find(s => s.key === key && s.id !== selfId)
+  invariant(!clash, `Set key ${key} already belongs to ${clash?.id}; a key names one set`)
+}
 function diffOf(before, after, set, unset) { return [...new Set([...Object.keys(set), ...unset])].sort().map(field => ({ field, before: before?.[field] ?? null, after: after[field] ?? null })) }
 export async function planChanges({ checkout, target, manifest, changes, sanity, probe, mux }) {
   target = targetOf(target); invariant(same(sanity.target, target), 'Adapter target mismatch')
@@ -130,6 +141,30 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
     const existing = byId(collections.flatMap(c => c.docs).filter(d => d._type === 'mediaAsset' && d.client?._ref === client._id && d.sourceFolder === sourceFolder && d.sourceManifest === sourceManifest))
     for (const id of boundIds) existing.set(id, bound.get(id))
     const matched = new Set(), unboundRows = []
+    // A new row joins the set its displayGroup names (a key, within this project) or its project's album-art set;
+    // a set the project lacks is created first, with the row's groupType and "Can be the hero" off. Legacy fields still get written.
+    let datasetSets; const plannedSets = new Set()
+    const note = text => { if (!informational.includes(text)) informational.push(text) }
+    const linkSet = async row => {
+      const album = isProjectAlbumArt({ displayGroup: row.displaygroup, groupType: row.grouptype, mediaType: row.mediatype })
+      if (!project || !(row.displaygroup || album)) return null
+      const projectSlug = project.slug.current, group = row.displaygroup
+      datasetSets ||= (await sanity.findSets()).filter(d => !d._id.startsWith('drafts.') && !d._id.startsWith('versions.'))
+      const candidates = album ? [albumArtKey(projectSlug)] : [group, `${group}-${projectSlug}`]
+      const found = datasetSets.filter(d => d.project?._ref === project._id && candidates.includes(d.slug?.current))
+      invariant(found.length <= 1, `Project ${projectSlug} has several sets for ${candidates[0]}; resolve in Studio first`)
+      if (found.length) { if (row.grouptype && found[0].groupType !== row.grouptype) note(`${row.file}: its set ${found[0]._id} is type ${found[0].groupType}, the row says ${row.grouptype}; the set wins`); return found[0]._id }
+      const groupType = album ? 'album-art' : row.grouptype
+      if (!groupType) { note(`${row.file}: displayGroup ${group} has no set in ${projectSlug} and no groupType column to create one with; the piece is not linked to a set`); return null }
+      const key = album ? candidates[0] : projectKey(group, projectSlug, datasetSets.some(d => d.slug?.current === group)), id = setId(projectSlug, key)
+      if (!plannedSets.has(id)) {
+        plannedSets.add(id)
+        const doc = newSet({ projectSlug, projectId: project._id, key, groupType }), { _id, _type, ...fields } = doc
+        validateDocument(doc, { creation: true })
+        operations.push({ id: _id, action: 'create', type: _type, before: null, after: doc, set: fields, unset: [], upload: false, diff: diffOf(null, doc, fields, []) })
+      }
+      return id
+    }
     for (const row of assets) {
       let before = row.sanityid ? bound.get(row.sanityid) : undefined
       const legacyId = `mediaAsset-${legacySlug(header.client)}-${legacySlug(row.title || path.basename(row.file, path.extname(row.file)))}`
@@ -161,6 +196,7 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
       if (header.year) set.yearStart = +header.year
       for (const [col, field] of [['contentrole','contentRole'],['displaygroup','displayGroup'],['grouptype','groupType']]) if (row[col]) set[field] = row[col]
       if (row.branddeckorder) set.brandDeckOrder = +row.branddeckorder
+      const linked = await linkSet(row); if (linked) set.set = ref(linked)
       const after = { _id: id, _type: 'mediaAsset', ...set, sourceFolder, sourceManifest }
       operations.push({ id, action: 'create', type: 'mediaAsset', before: null, after, set, unset: [], source, upload: true, rowFile: row.file, diff: [] })
     }
@@ -168,7 +204,7 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
     invariant(!unboundRows.length || !unmatched.length, `Unbound new/renamed rows alongside unmatched legacy assets (${unmatched.join(', ')}); bind existing rows or use a separately reviewed explicit scope before adding`)
     const ranks = appendRanks([...byId(collections.flatMap(c => c.docs)).values()], unboundRows.length)
     let index = 0
-    for (const op of operations) if (op.action === 'create') { op.set.orderRank = ranks[index++]; op.after.orderRank = op.set.orderRank; validateDocument(op.after, { creation: true }); op.diff = diffOf(null, op.after, { ...op.set, sourceFolder, sourceManifest }, []) }
+    for (const op of operations) if (op.action === 'create' && op.type === 'mediaAsset') { op.set.orderRank = ranks[index++]; op.after.orderRank = op.set.orderRank; validateDocument(op.after, { creation: true }); op.diff = diffOf(null, op.after, { ...op.set, sourceFolder, sourceManifest }, []) }
     informational.push('Legacy isHero/sortOrder are not replayed. Existing media (including missing links) is unchanged; use an explicit upload patch for repair/replacement.')
   } else {
     const request = JSON.parse(original)
@@ -176,9 +212,10 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
     invariant(['patches','creates','inspect','deletes'].every(k => Array.isArray(request[k] || [])), 'Changes arrays required')
     invariant(['patches','creates','inspect','deletes'].some(k => request[k]?.length), 'Empty changes scope')
     for (const doc of request.creates || []) {
-      invariant(['client','project','serviceTag'].includes(doc._type), 'Only explicit minimal client/project/serviceTag creations supported outside manifest')
+      invariant(['client','project','serviceTag','mediaSet'].includes(doc._type), 'Only explicit minimal client/project/serviceTag/mediaSet creations supported outside manifest')
       validateDocument(doc, { creation: true })
       const current = await fresh(sanity, [doc._id]); noDraft(current, doc._id); invariant(!current.has(doc._id), `Strict create conflict: ${doc._id}`)
+      if (doc._type === 'mediaSet') await requireFreeKey(sanity, operations, doc.slug.current, doc._id)
       const { _id, _type, ...set } = doc
       operations.push({ id: _id, action: 'create', type: _type, before: null, after: clean(doc), set, unset: [], upload: false, diff: diffOf(null, doc, set, []) })
       if (_type === 'project' && doc.orderRank !== undefined) await addCollection(collections, sanity, { projectOrder: true })
@@ -189,6 +226,7 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
       const current = await fresh(sanity, [p.id]); noDraft(current, p.id)
       const before = current.get(p.id); invariant(before && before._type === p.type, `Patch target/type not found: ${p.id}`)
       const after = patched(before, p.set || {}, p.unset || []); validateDocument(after)
+      if (p.type === 'mediaSet' && Object.hasOwn(p.set || {}, 'slug')) await requireFreeKey(sanity, operations, after.slug.current, p.id)
       let source
       if (p.upload) { keys(p.upload, ['file'], 'upload'); invariant(p.type === 'mediaAsset', 'Uploads only attach to mediaAsset'); source = await inspectFile(scope.root, p.upload.file, after.mediaType, probe) }
       invariant(!Object.hasOwn(p.set || {}, 'mediaType') || isVideoType(before.mediaType) === isVideoType(after.mediaType), 'Image/video kind conversion requires editorial migration, not an ordinary patch')
@@ -269,10 +307,10 @@ export function validatePlan(plan) {
     const diffSet = op.action === 'create' && op.type === 'mediaAsset' ? { ...op.set, sourceFolder: op.after.sourceFolder, sourceManifest: op.after.sourceManifest } : op.set
     invariant(same(op.diff, diffOf(op.before, op.after, diffSet, op.unset)), 'Displayed diff differs from approved mutations')
     invariant(!op.upload || op.source, 'Upload missing source')
-    if (plan.scope.kind === 'manifest') invariant(typeof op.rowFile === 'string' && op.rowFile === op.source?.relative, 'Manifest row/source mismatch')
+    if (plan.scope.kind === 'manifest' && op.type === 'mediaAsset') invariant(typeof op.rowFile === 'string' && op.rowFile === op.source?.relative, 'Manifest row/source mismatch')
   }
   invariant(Array.isArray(plan.guards) && Array.isArray(plan.collections) && Array.isArray(plan.informational), 'Invalid guards/collections')
-  for (const g of plan.guards) { keys(g, ['id','rev','type'], 'reference guard'); invariant(validId(g.id) && typeof g.rev === 'string' && ['client','project','serviceTag','mux.videoAsset','mediaAsset'].includes(g.type), 'Invalid reference guard') }
+  for (const g of plan.guards) { keys(g, ['id','rev','type'], 'reference guard'); invariant(validId(g.id) && typeof g.rev === 'string' && ['client','project','serviceTag','mux.videoAsset','mediaAsset','mediaSet'].includes(g.type), 'Invalid reference guard') }
   const created = new Map(plan.operations.filter(o => o.action === 'create').map(o => [o.id,o.type]))
   for (const r of plan.operations.flatMap(opReferences)) invariant(created.get(r.id) === r.type || plan.guards.some(g => g.id === r.id && g.type === r.type), `Missing reference guard ${r.id}`)
   const deletedIds = plan.operations.filter(o => o.action === 'delete').map(o => o.id)
@@ -334,7 +372,7 @@ async function sourceGuards(plan, journal) {
   invariant(await realpath(plan.scope.path) === plan.scope.path && await realpath(plan.scope.root) === plan.scope.root, 'Scope path changed')
   const original = await readFile(plan.scope.path, 'utf8'), hash = digest(original)
   if (plan.scope.kind === 'manifest') {
-    const bindings = Object.fromEntries(plan.operations.filter(op => journal.operations[op.id]?.stage === 'done' || op.action === 'unchanged').map(op => [op.rowFile, op.id]))
+    const bindings = Object.fromEntries(plan.operations.filter(op => op.type === 'mediaAsset' && (journal.operations[op.id]?.stage === 'done' || op.action === 'unchanged')).map(op => [op.rowFile, op.id]))
     invariant(hash === (journal.manifestHash || plan.scope.sha256) || original === boundManifest(plan.scope.original, bindings), 'Manifest hash changed; refresh plan')
   } else invariant(hash === plan.scope.sha256, 'Changes request hash changed; refresh plan')
   for (const op of plan.operations) if (op.source) { invariant(await scopedFile(op.source.root, op.source.relative) === op.source.path, 'Source path changed'); invariant(await fileHash(op.source.path) === op.source.sha256, `Source hash changed: ${op.source.relative}`) }

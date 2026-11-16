@@ -88,7 +88,7 @@ export function boundManifest(raw, bindings) {
 // The engine holds its run lock. Reject concurrent editorial edits, including after rename.
 export async function writeBindings(plan, journal) {
   if (plan.scope.kind !== 'manifest') return
-  const bindings = Object.fromEntries(plan.operations.filter(op => journal.operations[op.id]?.stage === 'done' || op.action === 'unchanged').map(op => [op.rowFile, op.id]))
+  const bindings = Object.fromEntries(plan.operations.filter(op => op.type === 'mediaAsset' && (journal.operations[op.id]?.stage === 'done' || op.action === 'unchanged')).map(op => [op.rowFile, op.id]))
   if (!Object.keys(bindings).length) return
   const output = boundManifest(plan.scope.original, bindings)
   const file = plan.scope.path, st = await lstat(file)

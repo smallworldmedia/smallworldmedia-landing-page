@@ -37,14 +37,16 @@ export function appendRanks(docs, count) {
 export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']
 const common = ['slug','yearStart','yearEnd','isOngoing','services']
 export const FIELDS = {
-  mediaAsset: ['title',...common,'mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType','hideFromSite'],
+  mediaAsset: ['title',...common,'mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType','hideFromSite','set'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
   // A new tag shows in the directory filters; the inquiry form keeps its own list (src/lib/constants.js SERVICE_TAGS).
   serviceTag: ['name','slug','sortOrder'],
   globeSettings: ['picks'],
+  // A Set document (src/schemas/mediaSet.ts): the key the site groups by, its project and type. It has no orderRank; members order by theirs.
+  mediaSet: ['title','slug','project','groupType','allowAsHero'],
 }
-const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], serviceTag: ['name','slug'], globeSettings: [] }
+const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], serviceTag: ['name','slug'], globeSettings: [], mediaSet: ['title','slug','project','groupType'] }
 // Media descriptors match the Studio caps (src/schemas/mediaAsset.ts); a project description is a blurb and stays uncapped here.
 export const CAPS = { mediaAsset: { alt: 150, description: 300 } }
 const text = (v, label) => invariant(typeof v === 'string' && v.trim().length > 0, `Invalid ${label}`)
@@ -64,13 +66,13 @@ export function validateField(field, v) {
   if (['yearStart','yearEnd'].includes(field)) { number(v, field); invariant(Number.isInteger(v) && v >= 2015 && v <= 2030, `Invalid ${field}`); return }
   if (field === 'brandDeckOrder') { number(v, field); invariant(Number.isInteger(v) && v >= 1, 'Invalid brandDeckOrder'); return }
   if (field === 'sortOrder') { number(v, field); invariant(Number.isInteger(v) && v >= 0, 'Invalid sortOrder'); return }
-  if (['isOngoing','isFeatured','splitIntoThirds','hideFromSite'].includes(field)) { invariant(typeof v === 'boolean', `Invalid ${field}`); return }
+  if (['isOngoing','isFeatured','splitIntoThirds','hideFromSite','allowAsHero'].includes(field)) { invariant(typeof v === 'boolean', `Invalid ${field}`); return }
   if (field === 'mediaType') return enumValue(v, MEDIA_TYPES, field)
   if (field === 'contentRole') return enumValue(v, ['process','supporting'], field)
   if (field === 'groupType') return enumValue(v, GROUP_TYPES, field)
   if (field === 'clientType') return enumValue(v, ['artist','label','management','promoter-event'], field)
   if (field === 'orderRank') { invariant(validRank(v), 'Invalid orderRank'); return }
-  if (['client','project'].includes(field)) return reference(v)
+  if (['client','project','set'].includes(field)) return reference(v)
   // Other clients credited on a piece (a feature, co-artist, co-presenting promoter or label): published client refs, no repeats.
   if (field === 'collaborators') { array(v, field); for (const r of v) reference(r, true); invariant(new Set(v.map(r => r._ref)).size === v.length, 'Duplicate collaborator reference'); return }
   if (field === 'services') { array(v, field); for (const r of v) reference(r, true); invariant(new Set(v.map(r => r._ref)).size === v.length, 'Duplicate service reference'); return }
@@ -105,12 +107,13 @@ export function validateDocument(doc, { creation = false } = {}) {
     if (doc.mediaType === 'brand-deck') invariant(Number.isInteger(doc.brandDeckOrder) && doc.brandDeckOrder > 0 && !!doc.displayGroup, 'Deck pages require displayGroup and positive brandDeckOrder')
     if (doc.mediaType === 'carousel-slide') invariant(!!doc.displayGroup, 'Carousel slides require displayGroup')
     if (doc.splitIntoThirds) invariant(isVideoType(doc.mediaType), 'splitIntoThirds applies to video media only')
-    if (doc.groupType && doc.groupType !== 'album-art') invariant(!!doc.displayGroup, `A ${doc.groupType} piece requires displayGroup`)
+    if (doc.groupType && doc.groupType !== 'album-art') invariant(!!doc.displayGroup || !!doc.set, `A ${doc.groupType} piece requires displayGroup or a set`)
   }
 }
 export function references(doc) {
   const refs = []
   for (const field of ['client','project']) if (doc[field]) refs.push({ id: doc[field]._ref, type: field })
+  if (doc.set) refs.push({ id: doc.set._ref, type: 'mediaSet' })
   for (const r of doc.services || []) refs.push({ id: r._ref, type: 'serviceTag' })
   for (const r of doc.collaborators || []) refs.push({ id: r._ref, type: 'client' })
   for (const r of doc.affiliations || []) refs.push({ id: r.entity?._ref, type: 'client' })
