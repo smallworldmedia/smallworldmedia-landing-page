@@ -519,6 +519,139 @@ export function outline(hook, { name = 'globe', mix = 1, ring, tol = OUTLINE_TOL
   return result(offenders, n, parts.join(', '));
 }
 
+// ── the corner widget: the eye in its square badge (SQ-107) ─────────────────────────────────
+
+const rectOf = (r) => [r.x, r.y, r.w, r.h].map((v) => fixed(v, 1)).join(',');
+
+/**
+ * badge — the square tile sits where its seat says. `rect` {x, y, w, h} is the tile in viewport CSS
+ * px, `vp` {w, h} the viewport. Always: square (to `tol` px) and its right edge on the viewport's.
+ * `flush`: its bottom edge is on the viewport's bottom edge as well, or on the links footer's top
+ * edge when that is higher (`footerTop`, the footer's top in viewport px: the badge rides it, as
+ * the seat does). `seat`: it is clear of the viewport's bottom edge (the eye keeps today's height
+ * above the privacy pill).
+ */
+export function badge(rect, vp, seat, { tol = 1, footerTop = null } = {}) {
+  const offenders = [];
+  if (!rect || !vp) return result([{ path: '.swm-corner::before', note: 'no badge box measured' }], 0, 'no box');
+  const right = rect.x + rect.w;
+  const bottom = rect.y + rect.h;
+  const bad = (note) => offenders.push({ path: '.swm-corner::before', seat, note, rect: rectOf(rect), viewport: `${vp.w}x${vp.h}` });
+  if (Math.abs(rect.w - rect.h) > tol) bad(`not square (${fixed(rect.w, 1)} x ${fixed(rect.h, 1)})`);
+  if (Math.abs(right - vp.w) > tol) bad(`right edge ${fixed(right, 1)} is not the viewport's ${vp.w}`);
+  const floor = Number.isFinite(footerTop) ? Math.min(vp.h, footerTop) : vp.h;
+  if (seat === 'flush' && Math.abs(bottom - floor) > tol) bad(`bottom edge ${fixed(bottom, 1)} is not ${floor === vp.h ? `the viewport's ${vp.h}` : `the links footer's top ${fixed(floor, 1)}`}`);
+  if (seat === 'seat' && !(bottom < vp.h - tol)) bad(`bottom edge ${fixed(bottom, 1)} touches the viewport's ${vp.h}`);
+  if (seat !== 'flush' && seat !== 'seat') bad(`unknown seat ${seat}`);
+  return result(offenders, 1, `${seat}: tile ${rectOf(rect)} in ${vp.w}x${vp.h}${Number.isFinite(footerTop) && footerTop < vp.h ? `, footer top ${fixed(footerTop, 1)}` : ''}`);
+}
+
+/**
+ * blurbClear — the badge tile and the home footer's blurb text do not meet. `tile` and `blurb` are
+ * { x, y, w, h } in viewport CSS px (the blurb is the union of its text boxes, never the element's
+ * own full-width box). The blurb is one nowrap line that fills the measure down to the right edge
+ * between about 1130 px and 1500 px, where a badge flush with the corner would otherwise sit over
+ * its last words. A missing box fails: a run that measured no blurb proves nothing.
+ */
+export function blurbClear(tile, blurb) {
+  const path = '.site-footer__blurb';
+  if (!tile) return result([{ path, note: 'no badge box measured' }], 0, 'no tile');
+  if (!blurb || !(blurb.w > 0 && blurb.h > 0)) return result([{ path, note: 'no blurb text measured' }], 0, 'no blurb');
+  const wide = Math.min(tile.x + tile.w, blurb.x + blurb.w) - Math.max(tile.x, blurb.x);
+  const high = Math.min(tile.y + tile.h, blurb.y + blurb.h) - Math.max(tile.y, blurb.y);
+  const hit = wide > 0.5 && high > 0.5;
+  const offenders = hit ? [{ path, tile: rectOf(tile), blurb: rectOf(blurb), note: `the badge covers ${fixed(wide, 1)} x ${fixed(high, 1)} px of the blurb` }] : [];
+  return result(offenders, 1, `tile ${rectOf(tile)}, blurb ${rectOf(blurb)}`);
+}
+
+/**
+ * badgeColour — the tile follows the scheme. `paint` = { bg, blur }: the tile's computed background
+ * colour and backdrop-filter. blue: brand blue, opaque. black: black, opaque. Any other scheme
+ * (project; the parked spectrum preview): glass, i.e. a translucent veil (0 < alpha < 1) over a
+ * backdrop blur.
+ */
+export function badgeColour(scheme, paint) {
+  const c = parseColour(paint?.bg);
+  const off = (note) => [{ path: '.swm-corner::before', scheme, bg: paint?.bg ?? null, blur: paint?.blur ?? null, note }];
+  if (!c) return result(off('no background colour read'), 0, 'unreadable');
+  const solid = { blue: [0, 0, 255], black: [0, 0, 0] }[scheme];
+  if (solid) {
+    const ok = c.a > 0.99 && Math.abs(c.r - solid[0]) <= 1 && Math.abs(c.g - solid[1]) <= 1 && Math.abs(c.b - solid[2]) <= 1;
+    return result(ok ? [] : off(`want opaque rgb(${solid.join(', ')})`), 1, `${scheme}: ${paint.bg}`);
+  }
+  const glass = c.a > 0.02 && c.a < 0.98 && /blur\(/.test(paint?.blur ?? '');
+  return result(glass ? [] : off('want a translucent veil over a backdrop blur'), 1, `${scheme}: glass ${paint.bg}, ${paint.blur}`);
+}
+
+/**
+ * eyeLines — nothing dark outlines the eye. `shapes` = [{ path, stroke, width }]: every shape in
+ * the widget's svgs (stroke = the computed colour or 'none', width in px). A stroke must be white
+ * (the lids, the globe's lines); a dark one is the old outline.
+ */
+export function eyeLines(shapes) {
+  const offenders = [];
+  let stroked = 0;
+  for (const s of shapes ?? []) {
+    if (!s.stroke || s.stroke === 'none' || !(Number(s.width) > 0)) continue;
+    stroked++;
+    const c = parseColour(s.stroke);
+    if (!c || c.r < 250 || c.g < 250 || c.b < 250) offenders.push({ path: s.path, stroke: s.stroke, width: s.width, note: 'a stroke that is not white' });
+  }
+  return result(offenders, (shapes ?? []).length, `${stroked} stroked of ${(shapes ?? []).length} shapes`);
+}
+
+/**
+ * persist — the widget is the SAME node across a soft navigation and never leaves view. `samples`
+ * = [{ same, op, vis, gone? }], one per frame from the click to the settle: the node's identity
+ * mark survives (`same`), its computed opacity stays 1 and its visibility stays visible. A fade
+ * (opacity below 1, or visibility hidden, even for one frame) or a remount (`gone`, or a new
+ * node) is an offender.
+ */
+export function persist(samples) {
+  const offenders = [];
+  let first = null;
+  (samples ?? []).forEach((s, i) => {
+    const why = s.gone ? 'the widget was gone' : !s.same ? 'a different node (remounted)' : !(Number(s.op) >= 0.999) ? `opacity ${s.op}` : s.vis !== 'visible' ? `visibility ${s.vis}` : null;
+    if (why) {
+      first ??= i;
+      if (offenders.length < 5) offenders.push({ path: '.swm-corner', frame: i, note: why });
+    }
+  });
+  const n = (samples ?? []).length;
+  return result(offenders, n, `${n} frames${first == null ? '' : `, first bad frame ${first}`}`);
+}
+
+/**
+ * bounds — every item sits inside the box on the given axis ('x' = left and right). `items` and
+ * `box` are { name, x, y, w, h }. The engaged lens circle against the window that clips it: a box
+ * narrower than the circle cuts its edges.
+ */
+export function bounds(items, box, { axis = 'x', tol = 0.5 } = {}) {
+  const offenders = [];
+  const lo = axis === 'x' ? box?.x : box?.y;
+  const hi = axis === 'x' ? box?.x + box?.w : box?.y + box?.h;
+  for (const it of items ?? []) {
+    const a = axis === 'x' ? it.x : it.y;
+    const b = axis === 'x' ? it.x + it.w : it.y + it.h;
+    if (a < lo - tol || b > hi + tol) offenders.push({ path: it.name, got: `${fixed(a, 1)}..${fixed(b, 1)}`, want: `${fixed(lo, 1)}..${fixed(hi, 1)}`, note: `outside the ${axis} bounds` });
+  }
+  return result(offenders, (items ?? []).length, `${(items ?? []).length} circles in ${box?.name ?? 'box'} ${rectOf(box ?? { x: 0, y: 0, w: 0, h: 0 })}`);
+}
+
+/**
+ * strays — mid-animation, nothing paints but the stations the column is meant to show. `diff` =
+ * { pixels, total, at }: the number of differing pixels between a capture of the widget and a
+ * capture with every station outside the shown window hidden (scrubbed to eye-t `at`). More than
+ * `tol` differing pixels is a stray instance in an outer position. The ceiling (8) is a measured
+ * noise floor: hiding the outer stations demotes their compositing layers, which re-rounds a
+ * pixel or three of the SHOWN eye's anti-aliasing (1-3 px of 134400, channel delta <= 19, a 2x2
+ * box on the eye); with the window held open (--eye-reach forced to 1: the static edge) the strays are 50-105 px (delta 33-74, a 5x130 box).
+ */
+export function strays(diff, { tol = 8 } = {}) {
+  const bad = diff && diff.pixels > tol ? [{ path: '.fp-scale__station', pixels: diff.pixels, at: diff.at, maxDelta: diff.maxDelta, box: diff.box, note: 'a station outside the shown rows painted' }] : [];
+  return result(bad, diff?.total ?? 0, `${diff?.pixels ?? 0} of ${diff?.total ?? 0} px differ at eye-t ${diff?.at}${diff?.pixels ? ` (max channel delta ${diff.maxDelta}, box ${diff.box})` : ''}`);
+}
+
 /** Short one-line text of an offender, for the probe's report. */
 export function describeOffender(o) {
   const { path, selector, slug, family, ...rest } = o;

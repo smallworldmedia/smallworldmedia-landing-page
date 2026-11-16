@@ -342,6 +342,13 @@
      knob in process.css.) */
   --privacy-clearance: 7rem;
 
+  /* The corner widget's badge, at its default size (SQ-107): the eye (1.857rem x 48/26, the
+     --scheme-swatch of site-scheme.css) plus the default padding (half the chrome inset) each
+     side, plus its right inset on home (--nav-inset). On `flush` it owns the lower-right corner,
+     so above 768px (the pill is hidden below) the privacy pill and the footer link row's
+     clearance for it move left by this much (.site-privacy, below). */
+  --badge-reserve: calc(1.857rem * 48 / 26 + var(--chrome-right-inset) + var(--nav-inset));
+
   /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
      edge lands on the same left line as the detail-page client name (the
      --space-4 page padding of .client-panel / .project-blurb) — one global
@@ -3719,6 +3726,19 @@ html[data-footer-in] .logo-ticker__copy {
 
 .site-privacy:hover {
   color: var(--color-white);
+}
+
+/* SQ-107: the corner widget's flush badge (the default seat: any .swm-corner not on
+   [data-badge='seat'], so it holds before hydration) sits in the lower-right corner this pill
+   keeps. The pill, and the footer link row's keep-out for it, move left of the badge. */
+@media (min-width: 769px) {
+  html:has(.swm-corner:not([data-badge='seat'])) {
+    --privacy-clearance: calc(7rem + var(--badge-reserve));
+  }
+
+  html:has(.swm-corner:not([data-badge='seat'])) .site-privacy {
+    right: calc(var(--chrome-right-inset) + var(--badge-reserve));
+  }
 }
 
 .site-privacy:focus-visible {

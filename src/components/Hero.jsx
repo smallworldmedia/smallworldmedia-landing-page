@@ -269,8 +269,15 @@ const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
    full reading and the sweep table, including why the desktop variant needs
    its own (its panel is 258px at 1440×900). FOOTER_REST_EXPECT in
    scripts/globe-probe.mjs is this number's gate twin — move both, or --footer
-   fails. — */
-const FOOTER_REST_MOBILE = 0.59;
+   fails.
+
+   RAISED 0.59 → 0.72 (SQ-107, Nathan 11-16): the lead-in ("utilized by…") shows
+   in full, both of its lines, and the logos stay below the fold. At 390×844
+   (DSF 1, ?footerslide=0, settled) the lead-in was 18.3px of its 53.6px; at
+   0.72 it is 53.6 of 53.6, the logo row 34.0px below the fold, the blurb
+   clearing by ~86px, and the lead-in's top 789px down. ?footerrest=0.59
+   restores the old pose. — */
+const FOOTER_REST_MOBILE = 0.72;
 /* The DESKTOP rest. Baked 0.62 on 10-09 (Nathan: "push the globe page footer
    work (visible when i define ?footerrest) to be live"), the pose every
    desktop look of the variant ran at on 10-08. RE-BAKED 0.62 → 0.40 on 10-31
@@ -287,8 +294,15 @@ const FOOTER_REST_MOBILE = 0.59;
    still clearing by 43.5px. It is its own number, not the phone's: at 1440×900
    the panel is 258px against the phone's 281.2px, so the 0.59 sweep above does
    not transfer. The clipping floor is that two-line band's 0.2371, held by
-   scripts/test/footer-reveal.test.mjs. */
-const FOOTER_REST_DESKTOP = 0.4;
+   scripts/test/footer-reveal.test.mjs.
+
+   RAISED 0.40 → 0.47 (SQ-107, Nathan 11-16: "raise it slightly", the lead-in
+   line fully shown, the logos below the fold). Measured at DSF 1,
+   ?footerslide=0, settled; lead-in shown px / logo row below the fold px:
+   1440×900 0.40 → 19.0/54.3, 0.47 → 31.8 (all of it)/~36; 1280×800 0.40 →
+   19.5/50.2, 0.47 → 28.2 (all)/~33; 1024×768 (the two-line blurb) 0.40 → 6.6/
+   59.4, 0.47 → 24.5 (all)/~41. ?footerrest=0.40 restores the sliver. */
+const FOOTER_REST_DESKTOP = 0.47;
 const PARAM = (key, fallback) => {
   if (typeof window === 'undefined') return fallback;
   const n = parseFloat(new URLSearchParams(window.location.search).get(key));

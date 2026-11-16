@@ -15,6 +15,8 @@ import {
   splitSubpaths,
   stripFills,
   schemeParams,
+  BADGE_SEATS,
+  BADGE_DEFAULT,
 } from '../../src/components/siteSchemeLogic.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -122,7 +124,7 @@ test('stripFills follows the keys and the strips it is given; no keys gives no f
   assert.deepEqual(splitSubpaths(undefined), []);
 });
 
-test('schemeParams: defaults, and ?schemeui ?schemeguard ?schemerows ?schemesize ?schemepitch', () => {
+test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesize ?schemepitch dials', () => {
   const q = (s) => schemeParams(new URLSearchParams(s));
   assert.deepEqual(q(''), {
     ui: true,
@@ -131,10 +133,12 @@ test('schemeParams: defaults, and ?schemeui ?schemeguard ?schemerows ?schemesize
     size: null,
     pitch: null,
     lift: null,
+    pad: null,
     near: null,
     far: null,
     inMs: null,
     outMs: null,
+    badge: 'flush',
   });
   assert.equal(q('schemeui=0').ui, false);
   assert.equal(q('schemeui=1').ui, true);
@@ -217,8 +221,12 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
   }
   assert.ok(/--scheme-seat:[\s\S]*?--pill-pad-y[\s\S]*?--lh-pill[\s\S]*?--space-6/.test(css), 'the seat clears the privacy pill at its desktop height, at every width');
   assert.ok(/z-index:\s*43/.test(css), 'z 43');
-  assert.ok(/translate:[\s\S]*?--footer-reveal[\s\S]*?--footer-panel-h[\s\S]*?--scheme-seat/.test(css), 'rides above the rising links footer');
-  assert.ok(/data-chrome-open/.test(css) && /data-menu-open/.test(css), 'yields to the overlays and the menu');
+  assert.ok(/translate:\s*0 calc\(-1 \* var\(--badge-ride\)\)/.test(css) && /--badge-ride:[\s\S]*?--footer-reveal[\s\S]*?--footer-panel-h[\s\S]*?--scheme-seat/.test(css), 'rides above the rising links footer');
+  const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(/html\[data-chrome-open\]\s+\.swm-corner\s*\{/.test(live), 'yields to the overlays');
+  // SQ-107: the phone menu is how every page is reached; it covers the badge (z 100 over 43), so
+  // yielding to it faded the badge out and back in on every navigation.
+  assert.ok(!/data-menu-open/.test(live), 'does NOT yield to the menu: the badge persists across a menu navigation');
 });
 
 const skinCss = () => read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -228,8 +236,88 @@ test('SQ-101 anchor: one seat, bottom and right, at every width', () => {
   assert.equal(css.split('--scheme-seat:').length - 1, 1, 'the seat is declared once: no per-breakpoint seat');
   assert.ok(!/@media\s*\(max-width[^)]*\)\s*\{\s*\.swm-corner\s*\{[^}]*--scheme-seat/.test(css), 'no phone override of the seat');
   const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
-  assert.ok(/right:\s*var\(--chrome-right-inset\)/.test(wrapper), 'right inset is the shared chrome inset');
-  assert.ok(/bottom:\s*var\(--scheme-seat\)/.test(wrapper), 'bottom is the one seat');
+  assert.ok(/right:\s*calc\(var\(--badge-inset\) \+ var\(--badge-pad\)\)/.test(wrapper), 'right is the badge inset plus its padding (the eye keeps the chrome inset on `seat`)');
+  assert.ok(/bottom:\s*var\(--scheme-bottom\)/.test(wrapper), 'bottom is the badge seat (flush by default, --scheme-seat on `seat`)');
+  assert.ok(/\[data-badge='seat'\]\s*\{[^}]*--badge-inset:\s*max\(0px, calc\(var\(--chrome-right-inset\) - var\(--badge-pad\)\)\)/.test(css), 'the `seat` eye keeps the chrome inset, whatever the padding');
+  assert.ok(/\[data-badge='seat'\]\s*\{[^}]*--badge-cy:\s*calc\(var\(--scheme-seat\) \+ var\(--scale-rows\) \* var\(--scheme-pitch\)\)/.test(css), 'the `seat` lens is where it was: a row and a half above the seat');
+});
+
+test('SQ-107 ?schemebadge takes flush (the PROPOSED default) or seat and anything else is the default', () => {
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  assert.deepEqual(BADGE_SEATS, ['flush', 'seat']);
+  assert.equal(BADGE_DEFAULT, 'flush', 'the first named seat is the proposed default');
+  assert.equal(q('schemebadge=flush').badge, 'flush');
+  assert.equal(q('schemebadge=seat').badge, 'seat');
+  assert.equal(q('schemebadge=Seat').badge, 'flush', 'case-sensitive: an unknown value is the default');
+  assert.equal(q('schemebadge=').badge, 'flush');
+  assert.equal(q('schemebadge=corner').badge, 'flush');
+  // the CSS default (no data-badge: the server-rendered wrapper) is the same seat as the parser's default
+  const css = skinCss();
+  const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
+  assert.ok(/bottom:\s*var\(--scheme-bottom\)/.test(wrapper) && !/data-badge='flush'/.test(css), 'no rule is needed for the default seat');
+  assert.ok(/--badge-cy:\s*calc\(var\(--badge-h\) \/ 2\);/.test(css) && /--scheme-bottom:\s*calc\(var\(--badge-cy\) - var\(--scale-rows\) \* var\(--scheme-pitch\)\)/.test(css), 'default: the lens is half a badge above the bottom edge');
+  assert.ok(/--badge-lift:\s*1;/.test(css), 'default: climbs when engaged');
+});
+
+test('SQ-107 pass 3 ?schemepad is the one padding dial, clamped 0 to 40, null is the CSS default', () => {
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  assert.equal(q('').pad, null);
+  assert.equal(q('schemepad=8').pad, 8);
+  assert.equal(q('schemepad=0').pad, 0);
+  assert.equal(q('schemepad=99').pad, 40);
+  assert.equal(q('schemepad=-3').pad, 0);
+  assert.equal(q('schemepad=wide').pad, null);
+});
+
+test('SQ-107 both seats ride the links footer, flush on its top edge and seat a --space-6 gap above its own seat height', () => {
+  const css = skinCss();
+  const flush =css.match(/--badge-ride:\s*(max\(0px, calc\(var\(--footer-reveal, 0\) \* var\(--footer-panel-h, 0px\)\)\));/)?.[1];
+  const seat = css.match(/\[data-badge='seat'\]\s*\{[^}]*--badge-ride:\s*max\(\s*0px,\s*calc\(var\(--footer-reveal, 0\) \* var\(--footer-panel-h, 0px\) \+ var\(--space-6\) - var\(--scheme-seat\)\)\s*\);/)?.[0];
+  assert.ok(flush, 'the default (flush) rides the footer\'s visible height, no gap, so its bottom edge is on the footer\'s top edge');
+  assert.ok(seat, 'the seat keeps its --space-6 gap from its own height, as it did');
+  assert.ok(/translate:\s*0 calc\(-1 \* var\(--badge-ride\)\)/.test(css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? ''), 'the wrapper translates by --badge-ride, one channel for both seats');
+  assert.ok(!/--badge-ride:\s*0;/.test(css) && !/--badge-ride:\s*1;/.test(css), 'no seat opts out of the ride');
+});
+
+test('SQ-107 baked dials: Nathan\'s 1.85 / 0.6 / 0.3 / 260 / 200 are the CSS defaults', () => {
+  const css = skinCss();
+  for (const [prop, value] of [['--eye-engaged', '1.85'], ['--eye-near', '0.6'], ['--eye-far', '0.3'], ['--eye-in', '260ms'], ['--eye-out', '200ms']]) {
+    assert.ok(new RegExp(`${prop}:\\s*${value.replace('.', '\\.')};`).test(css), `${prop} ${value}`);
+  }
+});
+
+test('SQ-107 the badge: a rectangle hugging the eye with equal padding, one component with it, blue/black from the role token, glass on project, never opacity', () => {
+  const css = skinCss();
+  assert.ok(/--badge-pad:\s*calc\(var\(--chrome-right-inset\) \/ 2\)/.test(css), 'PROPOSED padding: half the chrome inset');
+  assert.ok(/--badge-w:\s*calc\(var\(--eye-w\) \+ 2 \* var\(--badge-pad\)\)/.test(css) && /--badge-h:\s*calc\(var\(--eye-h\) \+ 2 \* var\(--badge-pad\)\)/.test(css), 'the eye plus the padding each side, no size knob of its own');
+  const tile = css.match(/\.swm-corner\[data-ready\] \.fp-scale\.swm-corner__pager::before\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/width:\s*var\(--badge-w\)/.test(tile) && /height:\s*var\(--badge-h\)/.test(tile), 'width and height from the eye');
+  assert.ok(/left:\s*calc\(-1 \* var\(--badge-pad\)\)/.test(tile) && /top:\s*calc\(-1 \* var\(--badge-pad\)\)/.test(tile), 'the same padding on every side of the eye\'s box');
+  assert.ok(/scale:\s*var\(--eye-lift\)/.test(tile) && /transform-origin:\s*50% 50%/.test(tile), 'it grows with the eye, on the one --eye-t, about the eye\'s centre');
+  assert.ok(!/border-radius/.test(tile), 'square corners, as the first tile');
+  assert.ok(/translate:\s*calc\(\(1 - var\(--eye-lift\)\) \* \(var\(--eye-w\) \/ 2 \+ var\(--badge-pad\)\)\)/.test(css), 'the pager anchors the BADGE\'s right edge as it grows');
+  assert.ok(/html\[data-footer-rest\] \.swm-corner:not\(\[data-badge='seat'\]\)\s*\{[^}]*--badge-inset:\s*var\(--nav-inset\)[^}]*--badge-ride:\s*0px/.test(css), 'home flush: the corner row\'s left inset, no footer ride');
+  assert.ok(/background-color:\s*color-mix\(\s*in srgb,\s*var\(--scheme-page\) calc\(var\(--badge-solid\) \* 100%\),\s*var\(--badge-glass\)\s*\)/.test(tile), 'the scheme\'s role token over the glass, by --badge-solid');
+  assert.ok(/backdrop-filter:\s*blur\(var\(--badge-blur\)\)/.test(tile), 'the glass blurs what is behind it');
+  assert.ok(!/(^|[\s;])opacity:/.test(tile), 'the tile never fades with opacity (below 1 the blur shows the sharp original): the alpha is the background\'s');
+  assert.ok(/html\[data-scheme='black'\] \.swm-corner,\s*html\[data-scheme='blue'\] \.swm-corner\s*\{\s*--badge-solid:\s*1;/.test(css), 'black and blue are solid; project (and the parked spectrum) stay glass');
+  assert.ok(/@property --badge-solid\s*\{[^}]*<number>[^}]*inherits:\s*true/.test(css), '--badge-solid is registered, so the change eases');
+  assert.ok(/--badge-solid var\(--scheme-fade, var\(--project-color-fade\)\) var\(--ease-panel\)/.test(css), 'and eases with the page');
+});
+
+test('SQ-107 the engaged column fits, the window is as wide as the lifted eye and the flush eye climbs and the edge and the feather close in with the column', () => {
+  const css = skinCss();
+  const win = css.match(/\.fp-scale__window\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/--eye-wide:\s*calc\(var\(--eye-w\) \* max\(1, var\(--eye-engaged\)\)\)/.test(win), 'sized for --eye-engaged, so no lift up to the 3 cap is clipped');
+  assert.ok(/--scale-w:\s*var\(--eye-wide\)/.test(win) && /width:\s*var\(--scale-w\)/.test(win), 'the window and its stations are that wide');
+  assert.ok(/left:\s*calc\(\(var\(--eye-w\) - var\(--eye-wide\)\) \/ 2\)/.test(win), 'centred on the eye');
+  assert.ok(/--eye-reach:\s*calc\(1 - var\(--eye-travel\) \* \(1 - var\(--eye-t\)\)\)/.test(win), 'the circles\' own travel factor');
+  assert.ok(/--eye-edge:\s*calc\(\(1 - var\(--eye-reach\)\) \* var\(--scale-rows\) \* var\(--scale-pitch\)\)/.test(win), 'the edge closes in by it');
+  assert.ok(/--eye-feather:\s*calc\(\s*var\(--eye-reach\) \*/.test(win), 'and the feather scales by it');
+  assert.equal(win.split('transparent var(--eye-edge)').length - 1, 2, 'both mask copies start at the edge');
+  assert.ok(!/var\(--scale-feather\)/.test(win), 'no static feather left in the mask');
+  const pager = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/calc\(-1 \* var\(--badge-lift\) \* max\(0px, var\(--badge-rise\) - var\(--badge-ride\)\) \* var\(--eye-t\)\)/.test(pager), 'the flush eye climbs with the same --eye-t, less what the badge already rode up with the footer');
 });
 
 test('SQ-101 long press: no callout, selection, drag or image dialog on the widget or anything in it', () => {
@@ -255,7 +343,8 @@ test('SQ-101 engaged look: the engine falloff ranks the circles, one --eye-t dri
   assert.ok(/@property --eye-t\s*\{[^}]*<number>[^}]*inherits:\s*true/.test(css), '--eye-t is a registered, inherited number');
   assert.ok(/--eye-t var\(--eye-out\) var\(--ease-draw\)/.test(css) && /--eye-t var\(--eye-in\) var\(--ease-draw\)/.test(css), 'eased in and out on the house curve');
   assert.ok(/prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?transition:\s*z-index 0s;/.test(css), 'reduced motion is instant');
-  assert.ok(/\.scheme-swatch\s*\{[^}]*--eye-lift[^}]*--eye-far/.test(css), 'the circle is drawn at the small size and lifts with the eye');
+  assert.ok(/\.scheme-swatch\s*\{[^}]*calc\(var\(--scheme-swatch\) \* var\(--eye-lift\)\)/.test(css) && !/\.scheme-swatch\s*\{[^}]*--eye-far/.test(css), 'the circle is drawn at the LARGE size and lifts with the eye (SQ-107 jitter: never scaled up from a small, pixel-snapped svg)');
+  assert.ok(/\.fp-scale__station\s*\{[^}]*transform:\s*scale\(calc\(var\(--sel\) \* var\(--eye-far\)\)\)/.test(css), 'the row only ever scales the large circle down');
 });
 
 test('the eye: the globe path is read from the public file once, the lid shape has one source, the project face is the strips of the globe', () => {
@@ -267,8 +356,22 @@ test('the eye: the globe path is read from the public file once, the lid shape h
   assert.ok(/href="#swm-eye-globe"/.test(sw), 'every circle <use>s it');
   assert.ok(!/fe7701|orange|arcPoint|pieWedges|barSpans/i.test(sw), 'no wedge, pie, bar or orange face');
   assert.ok(/stripFills\(GLOBE_D, Object\.keys\(SPECTRUM\)\)/.test(sw), 'the project face colours the globe strip by strip');
-  assert.ok(/className="scheme-eye__edge"[\s\S]*?clipPath="url\(#swm-eye-out\)"/.test(sw), 'the dark edge is clipped to the outside of the lids');
+  assert.ok(!/scheme-eye__edge|swm-eye-out/.test(sw), 'no dark edge, no outline stroke round the eye (Nathan 11-16)');
+  assert.ok(!/scheme-eye__edge/.test(read('src/styles/site-scheme.css')), 'and no rule for one');
   const css = read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(/mask-image:[\s\S]*?var\(--eye-lid-mask\)/.test(css), 'the window mask carries the lid opening');
   assert.ok(!/scheme-ring|scheme-halo/.test(css), 'the circular lens ring is gone');
+});
+
+test('SQ-107 the flush badge owns the lower-right corner: above 768px the privacy pill and the footer link keep-out move left of it', () => {
+  const g = read('src/styles/global.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const reserve = /--badge-reserve:\s*calc\(([^;]+)\);/.exec(g);
+  assert.ok(reserve, 'the badge reserve is a root token');
+  const skin = skinCss();
+  const swatch = /--scheme-swatch:\s*([\d.]+rem)/.exec(skin)?.[1];
+  assert.ok(swatch && reserve[1].startsWith(`${swatch} * 48 / 26`), 'the reserve is built from the skin default swatch (one number, two files)');
+  assert.ok(/--eye-w:\s*calc\(var\(--scheme-swatch\)\s*\*\s*48\s*\/\s*26\)/.test(skin), 'and the eye width the skin derives from it');
+  const seat = "html:has\\(\\.swm-corner:not\\(\\[data-badge='seat'\\]\\)\\)";
+  const m = new RegExp(`@media \\(min-width: 769px\\)\\s*\\{\\s*${seat}\\s*\\{\\s*--privacy-clearance:[^}]*--badge-reserve[^}]*\\}\\s*${seat}\\s+\\.site-privacy\\s*\\{\\s*right:[^}]*--chrome-right-inset[^}]*--badge-reserve[^}]*\\}`).exec(g);
+  assert.ok(m, 'desktop only, keyed on the default (not-seat) seat so it holds before hydration');
 });
