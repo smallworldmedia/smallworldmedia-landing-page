@@ -91,6 +91,7 @@ function coverToWork(detail) {
 import { SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
 import { RELEASE_MS, TOUCH_GAIN } from '../lib/touchTune.js';
 import { requestInfoClose } from '../lib/infoPush.js';
+import { signalRouteReady } from '../lib/overlayWipe.js';
 import SiteFooter, {
   FOOTER_REVEAL_EVENT,
   FOOTER_CLOSE_EVENT,
@@ -790,6 +791,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   // fill is only ever up mid-passage.
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('swm:fill-release'));
+    signalRouteReady(); // the globe canvas is mounted (child effects ran first): the nav menu's wipe may uncover (SQ-108)
   }, []);
 
   const beginEnvelopment = ({ dryRun = false } = {}) => {
