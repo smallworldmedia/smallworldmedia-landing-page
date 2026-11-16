@@ -3808,7 +3808,23 @@ html[data-footer-in] .logo-ticker__copy {
 }
 
 /* /privacy and /terms: full-bleed black behind the measure; the route's own
-   scroll room */
+   scroll room. SQ-109: lift the global html,body overflow:hidden lock, as the
+   detail, directory, process and specimen routes do. Lenis' html.lenis
+   height:auto only lifted the height, so its wheel scroll worked while a
+   finger (and the keyboard) met a locked viewport — iPhone could not scroll
+   /terms or /privacy (the menu's privacy link opens the overlay, which
+   scrolls on its own, so the route went unnoticed). */
+html:has(.privacy-page) {
+  overflow: auto;
+  height: auto;
+  overscroll-behavior-y: none;
+}
+
+html:has(.privacy-page) body {
+  overflow: visible;
+  height: auto;
+}
+
 body:has(.privacy-page) {
   background: var(--color-black);
 }
