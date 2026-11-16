@@ -44,12 +44,13 @@ import BrandDeckViewer from './BrandDeckViewer.jsx';
 import AlbumArtViewer from './AlbumArtViewer.jsx';
 import { DECK_GAP_PX } from './DeckScroller.jsx';
 import { carouselVisible, carouselSlideH, carouselRows } from './horizontalStrip.js';
-import { sequenceRatio } from '../../../lib/mediaSequence.js';
+import { sequenceRatio, makeSequence, posterStill } from '../../../lib/mediaSequence.js';
+import HeroSet from './HeroSet.jsx';
 import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
 import LiveFootageGrid from './LiveFootageGrid.jsx';
 import { liveFootagePlan, visualsWall, mockupsWall } from './liveFootageLayout.js';
 import ServiceTag from '../ServiceTag.jsx';
-import { buildContentFlow, splitHero, groupTypeOf, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
+import { buildContentFlow, splitHero, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid, splitAtBreaks, classifyTile, TILE_RATIO } from './flushGrid.js';
 import { LOGO_DIALS, assetIdOfUrl, detailLogo } from '../directory/logoTile.js';
 import { readLogoDials } from '../directory/directoryTune.js';
@@ -166,6 +167,20 @@ const readChunkTune = () => {
     only: (q.get('chunks') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     gap: Number.isFinite(gap) && gap > 0 ? gap : 0,
   };
+};
+
+/* A set that leads the page (US-10, Nathan 11-16): the project's first piece belongs to a Set
+   document whose "Can be the hero" is on, so the whole set leads in its own viewer at hero
+   height (HeroSet.jsx, `.hero-set`), the blurb below it and the set nowhere else. Dev dials,
+   read after mount: ?heroset=1 treats every project's first piece's set as if its toggle were
+   on, legacy sets (no Set document yet) included, so a lead can be seen before the toggle or the
+   migration; ?herosetvh=<dvh> is the box's height (default HERO_SET_VH, PROPOSED). */
+const HERO_SET_VH = 70;
+const HERO_SET_NONE = { preview: false, vh: HERO_SET_VH };
+const readHeroSet = () => {
+  const q = new URLSearchParams(window.location.search);
+  const vh = parseFloat(q.get('herosetvh'));
+  return { preview: q.get('heroset') === '1', vh: Number.isFinite(vh) && vh > 0 ? vh : HERO_SET_VH };
 };
 
 /* A logo on the detail grid is laid out as it is on the directory's logo tiles
@@ -406,16 +421,24 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // post-hydration broadcast, no brand-blue flash.
 
   const [chunkTune, setChunkTune] = useState(CHUNKS_NONE);
-  // A flagged hero plays its first third here; the other two ride the showcase (buildContentFlow).
-  const hero = splitHero(assets[0], chunkTune).hero ?? null;
   useEffect(() => setChunkTune(readChunkTune()), []);
+  const [heroSetTune, setHeroSetTune] = useState(HERO_SET_NONE);
+  useEffect(() => setHeroSetTune(readHeroSet()), []);
   // `mockups` (US-5, SQ-58's lane) is absent until that lands: default it empty.
   const [logoDials, setLogoDials] = useState(LOGO_DIALS);
   useEffect(() => setLogoDials(readLogoDials(window.location.search)), []);
-  const { showcase: flowShowcase, albumArt, albumArtSeat, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups = [] } = buildContentFlow(assets, {
+  const { showcase: flowShowcase, albumArt, albumArtSeat, brandDecks, carousels, banners, admats, visuals, liveFootage, mockups = [], heroSet } = buildContentFlow(assets, {
     surface: 'detail',
     chunks: chunkTune,
+    heroSetPreview: heroSetTune.preview,
   });
+  // The hero slot: a leading merch set is ONE cycling sequence (posters for any motion piece);
+  // otherwise the first piece, a flagged video playing its first third here, the other two riding
+  // the showcase (buildContentFlow). Any other leading set has its own viewer, below.
+  const hero =
+    heroSet?.type === 'merch'
+      ? makeSequence(`sequence:${heroSet.group}`, heroSet.items.map(posterStill), heroSet.items.map(ratioOf))
+      : (splitHero(assets[0], chunkTune).hero ?? null);
   const showcase = flowShowcase.map((a) => withLogo(a, logoDials));
 
   // Banner sockets want a height in BANNERS, not rows, and tiles a shape:
@@ -487,29 +510,14 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // reach CSS as custom properties.
   const tileRows = tileRowsFor(gridMetrics, tileShape);
 
-  // ── Deck-as-featured (08-25, Nathan — bedouin/saga) ──
-  // When the collection's FIRST-RANKED asset is a brand-deck page, that
-  // page's WHOLE deck group is the featured media: the DeckScroller wall
-  // leads the flow where the hero slot would sit, and the group leaves the
-  // grid socket (any other decks keep it). buildContentFlow skipped the
-  // hero page (assets[0] convention), so it folds back into its group here.
-  // 11-10: by GROUP TYPE — an admat or carousel hero is a plain hero image.
-  const heroIsDeck = !!hero && groupTypeOf(hero) === 'deck';
-  let heroDecks = null;
-  let deckSets = brandDecks;
-  if (heroIsDeck) {
-    const key = hero.displayGroup ?? 'deck';
-    const rest = brandDecks.find((d) => d.group === key)?.pages ?? [];
-    heroDecks = [
-      {
-        group: key,
-        pages: [hero, ...rest].sort(
-          (a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0)
-        ),
-      },
-    ];
-    deckSets = brandDecks.filter((d) => d.group !== key);
-  }
+  // ── A set as the hero (08-25 deck-as-featured, Nathan — bedouin/saga; US-10 any set) ──
+  // When the collection's FIRST-RANKED asset belongs to a set that may lead
+  // (src/lib/setHero.js: a deck, or a Set document with "Can be the hero" on),
+  // the WHOLE set is the featured media: its own viewer leads the flow where the
+  // hero slot would sit (the DeckScroller wall for a deck), and the set leaves
+  // the grid (buildContentFlow's `heroSet` is in no bucket and has no seat).
+  // A merch set leads as one sequence in the ordinary hero slot (`hero`, above).
+  const heroWall = heroSet && heroSet.type !== 'merch' ? heroSet : null;
   // Carousels left the deck walls (11-11, Nathan — "carousels read like
   // socials"): each is a horizontal strip in a socket of its own (below), not
   // a tab or a poster column, so the decks lay out exactly as before.
@@ -519,10 +527,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // deck) each get their OWN dedicated socket instead of riding the tabbed
   // guidelines viewer — a 4:5 wall wants its own frame, and the flyers
   // read as a separate body of work. Landscape decks share the tab socket.
-  const tabbedDecks = deckSets.filter(
+  const tabbedDecks = brandDecks.filter(
     (d) => !(d.pages[0] && ratioOf(d.pages[0]) < PORTRAIT_THRESHOLD)
   );
-  const posterDecks = deckSets.filter(
+  const posterDecks = brandDecks.filter(
     (d) => d.pages[0] && ratioOf(d.pages[0]) < PORTRAIT_THRESHOLD
   );
 
@@ -553,7 +561,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   for (const b of banners) seat(`banner:${b.group}`, bannerRows(b), b);
   const regions = seats.sort((x, y) => x.rank - y.rank).map((x) => x.region);
 
-  const isPortraitHero = hero && !heroIsDeck && ratioOf(hero) < PORTRAIT_THRESHOLD;
+  const isPortraitHero = hero && !heroWall && ratioOf(hero) < PORTRAIT_THRESHOLD;
 
   // Service tags — the union of the media's tags (queries.js PROJECT_SERVICES)
   const services = project?.services ?? [];
@@ -764,12 +772,17 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
         ref={flowRef}
         style={tileRowVars(tileRows)}
       >
-        {/* Deck hero → the featured deck's wall leads the flow; portrait
-            hero → side-by-side band; landscape → stacked full-bleed */}
-        {heroDecks ? (
+        {/* A leading set (a deck, or any set with "Can be the hero" on) →
+            its own viewer at hero height, the blurb below; portrait hero →
+            side-by-side band; landscape → stacked full-bleed. The walls wait
+            for the grid's measure (a phone never flashes the desktop column
+            count); a deck's wall takes its columns from its own box. */}
+        {heroWall ? (
           <>
-            <div className="hero-deck">
-              <BrandDeckViewer decks={heroDecks} />
+            <div className="hero-deck" style={{ '--hero-set-vh': heroSetTune.vh }}>
+              {(gridMetrics || heroWall.type === 'deck') && (
+                <HeroSet set={heroWall} cols={wallCols} geo={setGeo} />
+              )}
             </div>
             {blurbSection}
           </>

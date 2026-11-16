@@ -80,17 +80,25 @@
  *     stays. Detail and the directory still show the logo (their logo
  *     canvas); the globe already leaves the type out (buildWorldPools). The
  *     hero is assets[0] whatever its type and never reaches this check.
+ * 14. US-10 (11-16, Nathan): a set can lead the project page. On `detail`, when the
+ *     hero's set may lead (leadsAsSet, src/lib/setHero.js: its Set document's "Can be
+ *     the hero", or a legacy deck), the output also carries `heroSet: {group, type,
+ *     items}`: every member, the hero included, in rank order. Those members are in no
+ *     bucket and the set has no rank seat, so it is never drawn twice. Without a
+ *     leading set the output has no `heroSet` key and is as it always was.
+ *     `heroSetPreview` (?heroset=1) lets any first piece's set lead.
  *
  * Which bucket an asset joins is assetLane's precedence (sequence first,
  * showcase last), exported so other grids sort assets the same way.
  *
  * @param {Array<Object>} assets - mediaAsset docs ordered by orderRank
- * @param {{surface?: 'globe'|'work'|'detail'|'directory', orbitMin?: number, chunks?: {only?: string[], gap?: number}}} [opts] - surface: the GROUP_SURFACES column to apply (none = every set opens); ORBIT_MIN override (live tuning); expandChunks' ?chunks / ?chunkgap
- * @returns {{showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<{group: string, pages: Array<Object>}>, banners: Array<{group: string, items: Array<Object>}>, admats: Array<{group: string, items: Array<Object>}>, visuals: Array<{group: string, items: Array<Object>}>, liveFootage: Array<{group: string, items: Array<Object>}>, mockups: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
+ * @param {{surface?: 'globe'|'work'|'detail'|'directory', orbitMin?: number, chunks?: {only?: string[], gap?: number}, heroSetPreview?: boolean}} [opts] - surface: the GROUP_SURFACES column to apply (none = every set opens); ORBIT_MIN override (live tuning); expandChunks' ?chunks / ?chunkgap; heroSetPreview: ?heroset=1 (detail only)
+ * @returns {{heroSet?: {group: string, type: string, items: Array<Object>}, showcase: Array<Object>, albumArt: Array<Object>, brandDecks: Array<{group: string, pages: Array<Object>}>, carousels: Array<{group: string, pages: Array<Object>}>, banners: Array<{group: string, items: Array<Object>}>, admats: Array<{group: string, items: Array<Object>}>, visuals: Array<{group: string, items: Array<Object>}>, liveFootage: Array<{group: string, items: Array<Object>}>, mockups: Array<{group: string, items: Array<Object>}>, bts: Array<Object>}}
  */
 
 import { isSequenceGroup, makeSequence, posterStill } from '../../../lib/mediaSequence.js';
 import { chunkRanges, chunkWindow } from '../imageConfig.js';
+import { setCanLead, leadsAsSet } from '../../../lib/setHero.js';
 
 /** Ratio below which an asset is considered portrait/square. */
 const PORTRAIT_THRESHOLD = 1.2;
@@ -408,6 +416,43 @@ export function splitHero(hero, { only = [] } = {}) {
 
 const sortByDeckOrder = (pages) => [...pages].sort((a, b) => (a.brandDeckOrder ?? 0) - (b.brandDeckOrder ?? 0));
 
+/** The lane a leading set's members ride on detail, by type (the types setHero.js lets lead). */
+const HERO_SET_LANE = {
+  'album-art': 'album-art',
+  deck: 'deck',
+  admat: 'admat',
+  carousel: 'carousel',
+  'flyer-progression': 'carousel',
+  visuals: 'visuals',
+  mockups: 'mockups',
+  merch: 'sequence',
+};
+
+/**
+ * The set that leads a project page in its own viewer (US-10, Nathan 11-16), or null. On `detail`
+ * only: when the hero (assets[0]) belongs to a set that may lead (leadsAsSet, setHero.js: its Set
+ * document's "Can be the hero", or a legacy deck), that set's every member, the hero included, in
+ * rank order (a deck's and an admat's pages in brandDeckOrder, as their walls always sat).
+ * `preview` (?heroset=1) treats any first piece's set as allowed, legacy sets included. A set of one
+ * is no set (a deck of one keeps leading, as it did): the piece leads on its own.
+ */
+function heroSetOf(assets, surface, preview) {
+  const first = assets[0];
+  if (surface !== 'detail' || !first) return null;
+  const type = groupTypeOf(first);
+  const leads = preview ? setCanLead({ groupType: type, allowAsHero: true }) : leadsAsSet(first, type);
+  if (!leads) return null;
+  const key = first.displayGroup ?? type;
+  const lane = HERO_SET_LANE[type];
+  const sameSet = (a) =>
+    first.setId
+      ? a.setId === first.setId
+      : groupTypeOf(a) === type && (type === 'album-art' || (a.displayGroup ?? type) === key);
+  const items = [first, ...assets.slice(1).filter((a) => sameSet(a) && assetLane(a, surface) === lane)];
+  if (items.length < 2 && type !== 'deck') return null;
+  return { group: key, type, items: type === 'deck' || type === 'admat' ? sortByDeckOrder(items) : items };
+}
+
 /** The lanes whose members leave the tile flow as one set. */
 const SET_LANES = new Set(['album-art', 'deck', 'carousel', 'admat', 'visuals', 'live-footage', 'mockups', 'banner']);
 /** One key per set: the lane plus its group (the covers are one set, the wall). */
@@ -425,7 +470,11 @@ const setKey = (lane, group) => `${lane}:${lane === 'album-art' ? '' : group}`;
  *         thirds (unranked) and a split video's own thirds are never parted.
  * `albumArtSeat` is the cover wall's `{rank, at}`, null without a wall.
  */
-export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks } = {}) {
+export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks, heroSetPreview = false } = {}) {
+  // A leading set is the hero as a whole: it is in no bucket and has no seat, and the hero's own
+  // thirds (a flagged video) do not split off it. Output without one is exactly as it always was.
+  const heroSet = heroSetOf(assets, surface, heroSetPreview);
+  const inHeroSet = new Set(heroSet?.items.map((a) => a._id));
   const albumArt = [];
   const bts = [];
   const showcase = [];
@@ -447,13 +496,14 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     if (!firstRank.has(key)) firstRank.set(key, i);
   };
   const rankOf = (lane, group) => firstRank.get(setKey(lane, group));
-  if (assets[0]) noteRank(assets[0], assetLane(assets[0], surface), 0);
+  if (assets[0] && !heroSet) noteRank(assets[0], assetLane(assets[0], surface), 0);
 
   // assets[0] is the hero (first in drag-to-order ranking) — skip it.
   // showcase/albumArt entries carry their loop index so a gate fold-back
   // can restore the original orderRank interleaving.
   for (let i = 1; i < assets.length; i++) {
     const asset = assets[i];
+    if (inHeroSet.has(asset._id)) continue;
     const lane = assetLane(asset, surface);
 
     // Skip empty shells — assets with no uploaded media can't render
@@ -538,7 +588,7 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
   const orbits = albumArt.length >= orbitMin;
   const ranked = (orbits ? showcase : [...showcase, ...albumArt]).sort((a, b) => a.i - b.i);
   const showcaseOut = expandChunks(ranked.map((e) => e.asset), chunks);
-  const { rest: heroRest } = splitHero(assets[0], chunks);
+  const { rest: heroRest } = heroSet ? { rest: [] } : splitHero(assets[0], chunks);
   let heroAt = Math.min(HERO_SPLIT_AT, showcaseOut.length);
   // Never between another video's thirds: land right after the run it would cut.
   while (showcaseOut[heroAt]?.chunk?.index > 0 && showcaseOut[heroAt - 1]?.chunk?.of === showcaseOut[heroAt].chunk.of) heroAt += 1;
@@ -579,5 +629,6 @@ export function buildContentFlow(assets, { surface, orbitMin = ORBIT_MIN, chunks
     liveFootage: seated(liveFootage),
     mockups: seated(mockups),
     bts,
+    ...(heroSet ? { heroSet } : {}),
   };
 }

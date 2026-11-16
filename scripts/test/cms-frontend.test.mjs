@@ -229,3 +229,40 @@ test('weighted beats: a still weighs 1, an animated flyer its clip (<= the previ
   const four = [20, 19, 20, 19].map((d) => frameBeats(flyer(d), 5))
   assert.deepEqual([0, 4999, 5000, 10000, 15000, 19999, 20000].map((t) => weightedFrame(four, t)), [0, 0, 1, 2, 3, 3, 0])
 })
+
+test('a piece in a Set document projects the set\'s type and key, and the hero rule inputs; a piece with no set projects as before (US-10)', async () => {
+  const setDocs = [
+    { _id: 'mediaSet-tour', _type: 'mediaSet', title: 'Tour', slug: { current: 'tour-admats' }, project: ref('project-fixture'), groupType: 'admat', allowAsHero: true },
+    { _id: 'mediaSet-covers', _type: 'mediaSet', title: 'Covers', slug: { current: 'fixture-album-art' }, project: ref('project-fixture'), groupType: 'album-art', allowAsHero: false },
+  ]
+  const piece = (id, rank, fields) => media(id, rank, { mediaType: 'static_4x5', image, ...fields })
+  const withSets = [
+    ...documents,
+    ...setDocs,
+    // the piece's own legacy fields say deck / legacy-group: the Set document wins
+    piece('set-flyer', '0|i0001k:', { set: ref('mediaSet-tour'), displayGroup: 'legacy-group', groupType: 'deck' }),
+    piece('set-flyer-2', '0|i0001l:', { set: ref('mediaSet-tour') }),
+    piece('set-cover', '0|i0001m:', { mediaType: 'album-art', set: ref('mediaSet-covers') }),
+  ]
+  const detail = await query(FEATURED_PROJECT_DETAIL_QUERY, withSets, { projectId: 'project-fixture' })
+  const get = (id) => detail.assets.find((a) => a._id === id)
+  const pick = (a) => [a.setId, a.setAllowsHero, a.groupType, a.displayGroup]
+  assert.deepEqual(pick(get('set-flyer')), ['mediaSet-tour', true, 'admat', 'tour-admats'])
+  assert.deepEqual(pick(get('set-flyer-2')), ['mediaSet-tour', true, 'admat', 'tour-admats'], 'a member with no legacy fields still reads the set')
+  assert.deepEqual(pick(get('set-cover')), ['mediaSet-covers', false, 'album-art', null], 'an album-art member keeps displayGroup null')
+  // Every piece with no set projects exactly as it did: setId null, the toggle null, its own fields.
+  for (const doc of documents.filter((d) => d._type === 'mediaAsset' && get(d._id))) {
+    assert.deepEqual(pick(get(doc._id)), [null, null, doc.groupType ?? null, doc.displayGroup ?? null], doc._id)
+  }
+  // The same columns reach the directory's pieces; /work's Worlds read the two coalesced fields only.
+  const dir = await query(DIRECTORY_QUERY, withSets)
+  assert.deepEqual(pick(dir.assets.find((a) => a._id === 'set-flyer')), ['mediaSet-tour', true, 'admat', 'tour-admats'])
+  const worlds = await query(FEATURED_WORLDS_QUERY, withSets)
+  const world = (id) => worlds[0].assets.find((a) => a._id === id)
+  assert.deepEqual([world('set-flyer').groupType, world('set-flyer').displayGroup], ['admat', 'tour-admats'])
+  assert.deepEqual([world('set-cover').groupType, world('set-cover').displayGroup], ['album-art', null])
+  assert.equal('setId' in world('set-flyer'), false)
+  // The page's flow groups the set by the projected key: a wall of two flyers, not the legacy deck.
+  const flow = buildContentFlow(detail.assets, { surface: 'detail' })
+  assert.deepEqual(flow.admats.map((s) => [s.group, s.items.map((a) => a._id)]), [['tour-admats', ['set-flyer', 'set-flyer-2']]])
+})

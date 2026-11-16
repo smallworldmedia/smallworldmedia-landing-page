@@ -622,11 +622,13 @@ html:has(.project-detail) body {
   overflow: hidden;
 }
 
-/* Deck-as-featured (08-25, bedouin/saga): when the top-ranked asset is a
-   brand-deck page, the wall leads the flow in the hero slot — a tall
-   full-width stage between the client panel and the blurb. */
+/* A set as the hero (08-25 deck-as-featured, bedouin/saga; US-10 any set that
+   may lead, HeroSet.jsx): the set's own wall leads the flow in the hero slot —
+   a tall full-width stage between the client panel and the blurb. The height
+   is ?herosetvh dvh (--hero-set-vh), 70 until it is dialed; the wall inside
+   measures this box, so every type fills it. */
 .hero-deck {
-  height: 70dvh;
+  height: calc(var(--hero-set-vh, 70) * 1dvh);
   background: var(--color-black);
 }
 
