@@ -14,6 +14,11 @@
 - Navigate across a swap with `setTimeout` + `navigate()`, never `gsap.delayedCall`; the island's
   gsap context dies with the swap and would take the call with it. Cross-island dispatches into
   persistent islands are rAF-deferred so their tweens are not adopted and reverted at unmount.
+- A page turn committed by a gesture (wheel, drag, swipe) navigates with `gestureHistory()`
+  (`src/lib/gestureHistory.js`, SQ-100), taken at the gesture: a push without an honoured user
+  activation makes Chromium skip the whole visit on Back. Click paths keep plain `navigate()` pushes.
+  Per-entry state goes in `history.state` spread over ClientRouter's (`{ ...history.state, … }`);
+  a null state breaks its Back.
 - `client:only` islands: element refs captured in mount effects go stale under dev hydration churn;
   query the DOM lazily at animation-fire time.
 - An SSR'd image in a `client:load` island that finishes before hydration never fires React's

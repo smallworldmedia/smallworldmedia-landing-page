@@ -227,7 +227,16 @@ records (`docs/globe-worlds-plan.md`).
      - `/privacy/` and `/terms/` don't scroll by touch at 390 px when opened directly (found
        11-15, older than US-7, not patched);
      - this round replaces item 7's left calls on spectrum's look and the first-pass swatch art.
-9. **Open: Nathan's second 11-15 round** (US-8, on the board). Their calls, made 11-15:
+9. **Done 11-15: Nathan's second 11-15 round** (US-8, SQ-99…SQ-104), folded on their go and pushed
+   at `6fbf790` (`integration/us8` fast-forwarded onto the stream). Gates on `6fbf790`:
+   - units 656/656, `test:cms` 121/121, tunables PASS (484 keys);
+   - the build OK at 27 pages, `cms audit` 0 errors;
+   - `scripts/history-probe.mjs` 10/10;
+   - `scripts/scheme-probe.mjs` 260 pass, 7 fail (the blue hover failures, also on base);
+   - `scripts/globe-matrix.mjs check` 7/17 as expected (base 2/17; the other ten are the
+     texBudget ceiling and stale texPeak records, both failing on base too).
+
+   Their calls, made 11-15:
    - **Phone blurbs:** one text size on every page (HHS 2026's, 1.25 × `--text-blurb`); each
      section is as tall as its text, and the 88% grow is retired.
    - **Back navigation:** browser Back stays on the site, and returns to /work on the project you
@@ -243,6 +252,22 @@ records (`docs/globe-worlds-plan.md`).
      pager's hint.
    - **The globe follows Sanity rank:** ranks in order with none skipped, rank 1 front and centre,
      and repeats spaced so no two assets alternate along a row; the asset count stays the same.
+   - **Decided at the fold (11-15):**
+     - the eye keeps its rise above the links footer on home and /process;
+     - the globe's texture ceiling waits for Nathan's iPhone check.
+   - **Left:**
+     - the texBudget ceiling, 131 MiB desktop and 73 MiB phone. The merged build measures 149.6
+       and 84.9; base was already at 143.6 on desktop. Raise it, or lower `?popequiv`, after
+       the iPhone check.
+     - iPhone and Android checks:
+       - a swipe back after a cold landing and a swipe turn;
+       - /work → A → band → B, then Back twice, landing on A;
+       - Android Back after a drag turn;
+       - the eye's long press (no save-image dialog);
+       - the blurbs: sections under half the viewport (`REST_COVER` 0.5) are no longer eased onto
+         their seat.
+     - the eye's five dials are still PROPOSED: `?schemelift` 1.35, `?schemenear` 0.78,
+       `?schemefar` 0.6, `?schemein` 260 ms, `?schemeout` 200 ms.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 

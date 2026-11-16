@@ -23,7 +23,6 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:process-step` / `-home` / `-index` | `ProcessStepCtas`, driver, `DetailProgressBar` | `useProcessScrollDriver`, `useProcessCopy` | step deltas / index |
 | `swm:process-cta-hover` | `ProcessPage` (CTA hover/focus, rAF-deferred) | `useProcessScene` (the freed shard pulses) | `{on}` |
 | `swm:blurb-arm` (`ARM_EVENT`; on the `.project-blurb` ELEMENT, not `window`) | `lib/blurbHold.js` (a section seats; a section is on screen when the page rests or the hold attaches; every section on detach) | `BlurbCopy` in `work/detail/FeaturedProjectDetail.jsx` (mounts its keyword wipe) | — |
-| `swm:blurb-reset` (`RESET_EVENT`; on the `.project-blurb` ELEMENT) | `lib/blurbHold.js` (a grown section goes back to compact off screen, SQ-30) | headless probes only (no in-app listener) | `{side, lost, busy}` |
 | `swm:info-close` (`INFO_CLOSE_EVENT`, `lib/infoPush.js`) | `requestInfoClose(go)`: `Hero` (zoom_in with the drawer open) | `SiteShell` (closes the drawer; runs `go` when the close lands, drops it if the drawer reopens; sets `detail.deferred`, otherwise the caller runs `go` at once) | `{done, deferred}` |
 | `swm:directory-client` | `InfoPanel` (a live client name clicked on `/work/directory`, inside the click) | `work/directory/DirectoryPage.jsx` (sets or clears the client in place; no navigation) | `{slug}`, `null` clears |
 | `swm:scheme` (`SCHEME_EVENT`, `lib/colorScheme.js`) | `setScheme(name, { preview })`, on every change of the applied scheme or of its preview-ness (US-7, 11-14). The one in-app caller is `SiteScheme.jsx` (a preview per detent while its pager is engaged, a commit on release, the committed scheme restored on a disengage that committed nothing) | `globe/useGlobeScene.js` and `work/world/useWorldScene.js` and `SiteScheme` (its active station only), all through `onScheme(fn)`; `useScheme()` has no in-app caller. The DOM never listens: its colour is CSS on `html[data-scheme]`. GL rule: a scene MUST recolour on a settled event (`preview` false); on a preview it MAY write uniforms only, never rebuild a texture or a slot | `{scheme, prev, preview}` |
@@ -90,6 +89,13 @@ The detail breadcrumb back (`FeaturedProjectDetail.jsx` `goBackToWork`) arms `sw
 covers in the project's colour for 0.6 s, then navigates; the restore arms `snapRef` too, so the
 return is the same snap (no Turn, the fill held until the card). Under RM it is an instant cover and
 a plain link.
+
+A browser Back to /work reads the entry's own history state (SQ-100, 11-15): `FeaturedProjects.jsx`
+writes `history.state.swmWorld` (the active World, spread over ClientRouter's state) on every change
+and restores from it first, with `swm:worldIndex` as the fallback, so /work → A → band → B, Back twice,
+lands on A's World. The two gesture page turns (the next-project band, /work's way home) navigate with
+`lib/gestureHistory.js`'s options: a push only under an honoured user activation, a replace otherwise,
+so Back never skips the visit. Gated by `scripts/history-probe.mjs`.
 
 ## The Project Directory's URL state
 
