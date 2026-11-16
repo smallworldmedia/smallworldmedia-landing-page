@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 import { navigate } from 'astro:transitions/client';
-import { wipeIn, wipeOut } from '../lib/overlayWipe.js';
+import { wipeIn, wipeOut, holdForRoute } from '../lib/overlayWipe.js';
 import { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
 import { NAV_BLACK } from '../lib/navAccent.js';
 // The brand lockup, inlined (footer precedent) — one source of truth in
@@ -188,18 +188,26 @@ export default function SiteNav({
     return undefined;
   }, [menuOpen, shellEl]);
 
-  // Escape closes; any route swap closes (navigation from a menu item).
+  // Escape closes; a route swap closes (navigation from a menu item), but only
+  // once the destination has drawn its first frame (SQ-108: overlayWipe's
+  // holdForRoute, capped by ?navwipehold), so the wipe never uncovers a page
+  // that is still loading. Any other close (the pill, Escape) is immediate.
   useEffect(() => {
     if (!menuOpen) return undefined;
     const onKeyDown = (e) => {
       if (e.key === 'Escape') setMenuOpen(false);
     };
-    const onSwap = () => setMenuOpen(false);
+    let cancelHold = null;
+    const onSwap = () => {
+      cancelHold?.(); // a second tap before the first landed: await the newest route
+      cancelHold = holdForRoute(() => setMenuOpen(false));
+    };
     window.addEventListener('keydown', onKeyDown);
     document.addEventListener('astro:after-swap', onSwap);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('astro:after-swap', onSwap);
+      cancelHold?.();
     };
   }, [menuOpen]);
 
@@ -442,8 +450,13 @@ export default function SiteNav({
                 className="site-nav__logo"
                 aria-label="Small World Media home"
                 onClick={(e) => {
-                  setMenuOpen(false);
                   handleHome(e);
+                  // The black-cover passage (handleHome) took the click over, and a tap
+                  // on "/" itself or a new-tab click never swaps: close now. A plain
+                  // swap home waits for the route like every menu item (SQ-108).
+                  if (e.defaultPrevented || window.location.pathname === '/' || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+                    setMenuOpen(false);
+                  }
                 }}
               >
                 <span

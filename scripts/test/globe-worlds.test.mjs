@@ -20,7 +20,7 @@ import TextureManager, { assetKey, computeCoverUv } from '../../src/components/g
 import { loadTile, windowA, unitWindowOf, setWindowB, shownWindowA, offB, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector, { repeatGap, REPEAT_GAP } from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
-import { TUNING, POP_DEFAULTS, POP_TIERS, POP_SHAPES, POP_UNIT_LOOKS, POP_PORTRAITS, setPopTune } from '../../src/components/globe/popConfig.js'
+import { TUNING, POP_DEFAULTS, CAP_MOBILE, PORTRAIT_MOBILE, POP_TIERS, POP_SHAPES, POP_UNIT_LOOKS, POP_PORTRAITS, setPopTune } from '../../src/components/globe/popConfig.js'
 import {
   measureNameAspect,
   nameSpan,
@@ -6145,7 +6145,7 @@ const TALL_WANT = Object.freeze([
 const TALL_TEX = TALL_WANT.map((w, wi) => (wi === 1 ? { ...w, p0: 't' } : w))
 const asPairs = (want) => want.map((w) => Object.fromEntries(Object.entries(w).map(([tag, c]) => [tag, c === 't' ? 'v' : c])))
 
-test('spans: ?popportrait=fill (Nathan 10-31, item 8, the default) — a world grows its sharp portraits to 2×3, in editorial order, with the room its ?popequiv budget left: fewer assets, bigger portraits; a world that fills its budget grows none, a shared id forming the 1×2 there from the same texture; pair, ?popequiv 0 and classic grow none (T38)', () => {
+test('spans - ?popportrait=fill (Nathan 10-31, item 8, the default) — a world grows its sharp portraits to 2×3, in editorial order, with the room its ?popequiv budget left, fewer assets and bigger portraits, a world that fills its budget grows none, a shared id forming the 1×2 there from the same texture, pair, ?popequiv 0 and classic grow none (T38)', () => {
   assert.equal(POP_DEFAULTS.portrait, 'fill')
   assert.deepEqual(POP_PORTRAITS, ['fill', 'pair'])
   assert.equal(TALL_GROW, 4) // a 2×3 takes 6 tiles where its 1×2 weighed 2
@@ -6199,7 +6199,7 @@ test('spans: ?popportrait=fill (Nathan 10-31, item 8, the default) — a world g
     Object.assign(TUNING, BOARD_DEFAULTS)
   }
   const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
-  assert.match(guide, /^\| `\?popportrait` \|.*\| `fill` \(Nathan 10-31\) \| `fill` \\\| `pair` \| `POP_DEFAULTS\.portrait` \|$/m)
+  assert.match(guide, /^\| `\?popportrait` \|.*\| `fill` \(Nathan 10-31\); `pair` on a phone .* \| `fill` \\\| `pair` \| `POP_DEFAULTS\.portrait` \|$/m)
 })
 
 test('spans - ?popportrait=fill plans whole 2×3 units inside their band — from a lead no 1×2 may take, the tallest first — always on the flat crop, two row seams a column, every measure exact, pair plans none (T38)', () => {
@@ -7642,26 +7642,27 @@ function repeatStats(panels) {
   return { near, abab, minGap }
 }
 
-test('rank + spread (SQ-104): on the built worlds, the selection is a rank prefix, rank 1 holds the most prominent tile posed and pose-less, and no row alternates two assets', (t) => {
+test('rank + spread (SQ-104) - on the built worlds, the selection is a rank prefix, rank 1 holds the most prominent tile posed and pose-less, and no row alternates two assets — at the desktop budget and at the phone budget (SQ-106)', (t) => {
   const tilt = new THREE.Euler(THREE.MathUtils.degToRad(40), 0, 0) // the recon's pose (board.mjs): 12×8 rows, 40° tilt
   const report = []
-  for (const world of sq104Worlds()) {
+  for (const tune of [{ cap: POP_DEFAULTS.cap, portrait: POP_DEFAULTS.portrait }, { cap: CAP_MOBILE, portrait: PORTRAIT_MOBILE }]) for (const world of sq104Worlds()) {
     for (const horizon of [null, 2.7]) {
-      const { director, panels } = unitDirector({ ...POP_DEFAULTS, mode: 'tides', seed: 42, chaos: 0, names: 0 }, { worlds: [world], getRotation: () => tilt, getHorizon: () => horizon })
+      const { director, panels } = unitDirector({ ...POP_DEFAULTS, ...tune, mode: 'tides', seed: 42, chaos: 0, names: 0 }, { worlds: [world], getRotation: () => tilt, getHorizon: () => horizon })
       try {
         director.initialLayout(director.byProminence())
         const pool = director.grouping.pools[0]
         const id = (a) => a.playbackId || a.imageUrl // assetKey reads the class texture a record carries
         // a rank prefix, none skipped: the pool's records are the world's first N assets, in order
         assert.deepEqual(pool.map(id), world.assets.slice(0, pool.length).map(id), `${world.slug} ${horizon}`)
-        assert.ok(pool.length >= Math.min(world.assets.length, 6), `${world.slug}: ${pool.length} selected`)
+        // the phone's cap keeps CAP_MOBILE of them at most
+        assert.ok(pool.length >= Math.min(world.assets.length, tune.cap === CAP_MOBILE ? CAP_MOBILE : 6), `${world.slug}: ${pool.length} selected at cap ${tune.cap}`)
         // rank 1 front-and-centre: the most prominent tile shows rank 1 (posed: whatever the class; pose-less: H only)
         const front = director.byProminence().find((p) => !p.parked)
         assert.equal(id(front.asset), id(world.assets[0]), `${world.slug} ${horizon}: the front shows rank ${world.assets.findIndex((a) => id(a) === id(front.asset)) + 1}`)
         // spread: with ≥ 3 assets, no row alternates A-B-A-B, and no repeat within REPEAT_GAP placements
         const r = repeatStats(panels)
         assert.ok(pool.length >= 3 && r.abab === 0 && r.near === 0, `${world.slug} ${horizon}: ${JSON.stringify(r)}`)
-        report.push(`${world.slug} θh ${horizon}: ranks 1-${pool.length} of ${world.assets.length}, front ${front.asset.place?.cls ?? 'single'}, ${JSON.stringify(r)}`)
+        report.push(`cap ${tune.cap} ${tune.portrait} ${world.slug} θh ${horizon}: ranks 1-${pool.length} of ${world.assets.length}, front ${front.asset.place?.cls ?? 'single'}, ${JSON.stringify(r)}`)
       } finally {
         director.dispose()
         Object.assign(TUNING, BOARD_DEFAULTS, { units: 0 })
@@ -7685,4 +7686,27 @@ test('rank + spread (SQ-104): repeatGap counts placements, a run of one key as o
   assert.equal(repeatGap(new Map([[0 * G + 11, 'C']]), [[0, 0], [0, 1]], 'C', 12), 1) // across the seam
   assert.equal(repeatGap(new Map([[0 * G + 2, 'C']]), [[0, 0], [0, 1]], 'C', 12), 1) // a footprint looks out from its edges
   assert.equal(repeatGap(new Map(), [[0, 0]], 'C', 12), Infinity)
+})
+
+test('phone defaults (SQ-106) - ?popcap and ?popportrait seed from the globe\'s frozen IS_MOBILE: the phone takes CAP_MOBILE and pair, desktop keeps 13 and fill, a typed param wins on either, and a reset returns to the device default', async () => {
+  // IS_MOBILE is frozen once per process (globeConfig), so each device is a child process under a stubbed window (the ?globethumb pattern).
+  const { execFileSync } = await import('node:child_process')
+  const href = new URL('../../src/components/globe/popConfig.js', import.meta.url).href
+  const run = (search, mobile) =>
+    JSON.parse(
+      execFileSync(process.execPath, ['--input-type=module', '-e',
+        `globalThis.window = { location: { search: ${JSON.stringify(search)} }, matchMedia: (q) => ({ matches: ${mobile} && q.includes('max-width') }), devicePixelRatio: 1 };` +
+        `const m = await import(${JSON.stringify(href)});` +
+        `const typed = [m.TUNING.cap, m.TUNING.portrait]; m.setPopTune('cap', 11); m.setPopTune('portrait', 'fill'); m.resetPopTune();` +
+        `process.stdout.write(JSON.stringify({ defaults: [m.POP_DEFAULTS.cap, m.POP_DEFAULTS.portrait], typed, reset: [m.TUNING.cap, m.TUNING.portrait] }), () => process.exit(0))`], { encoding: 'utf8' })
+    )
+  assert.deepEqual([CAP_MOBILE, PORTRAIT_MOBILE], [7, 'pair'])
+  assert.deepEqual(run('', true), { defaults: [CAP_MOBILE, PORTRAIT_MOBILE], typed: [CAP_MOBILE, PORTRAIT_MOBILE], reset: [CAP_MOBILE, PORTRAIT_MOBILE] })
+  assert.deepEqual(run('', false), { defaults: [13, 'fill'], typed: [13, 'fill'], reset: [13, 'fill'] })
+  assert.deepEqual(run('?popcap=13&popportrait=fill', true).typed, [13, 'fill']) // the phone is still dialled by the URL
+  assert.deepEqual(run('?popcap=5&popportrait=pair', false).typed, [5, 'pair'])
+  assert.deepEqual([POP_DEFAULTS.cap, POP_DEFAULTS.portrait], [13, 'fill']) // this process has no window: the desktop's
+  assert.ok(CAP_MOBILE <= WORLD_POOL_CAP)
+  const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
+  assert.match(guide, /^\| `\?popcap` \|.*\| `13` \(Nathan 10-06; was desktop 24 \/ mobile 16\); `7` on a phone \(`CAP_MOBILE`, SQ-106 .*\| 1–32 \(clamped\) \| `POP_DEFAULTS\.cap` \|$/m)
 })

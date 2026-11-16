@@ -44,6 +44,7 @@ import DirectoryFilter from './DirectoryFilter.jsx';
 import DirectoryGrid from './DirectoryGrid.jsx';
 import SiteFooter from '../../SiteFooter.jsx';
 import { getLenis } from '../../../lib/smoothScroll.js';
+import { signalRouteReady } from '../../../lib/overlayWipe.js';
 import { coverageOf, toDrawerRoster } from '../../../lib/clientCoverage.js';
 import {
   clientPresence,
@@ -215,6 +216,7 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
       scrollToY(place?.href === here() ? place.y : state.scrollY);
     }
     setPending(false);
+    signalRouteReady(); // the grid is shown: the nav menu's wipe may uncover (SQ-108)
   }, []);
 
   // The bench: after mount, only with ?dirtune (nothing in the server render).

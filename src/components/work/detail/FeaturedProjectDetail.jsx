@@ -67,6 +67,7 @@ import {
   placementStyle,
 } from './tileGrid.js';
 import { formatYearRange } from '../../../lib/formatYearRange.js';
+import { signalRouteReady } from '../../../lib/overlayWipe.js';
 import { renderKeywords, KW_HIGHLIGHT_DETAIL } from '../../../lib/keywords.jsx';
 import useKeywordWipe from './useKeywordWipe.js';
 import { holdWanted, attachBlurbHold, ARM_EVENT } from '../../../lib/blurbHold.js';
@@ -397,6 +398,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   // enter_world bridge (ADR-0002). No-op on direct loads.
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('swm:fill-release'));
+    signalRouteReady(); // the page is mounted: the nav menu's wipe may uncover (SQ-108)
   }, []);
   // The nav accent itself is applied by the persistent RouteFill route
   // controller (before paint, from the data-nav-accent-* attributes below) so

@@ -53,7 +53,7 @@ import {
   RELEASE_EASE_CSS,
 } from '../../lib/motion.js';
 import { TOUCH_GAIN, RELEASE_MS } from '../../lib/touchTune.js';
-import { wipeIn, wipeOut, WIPE_IN_S, WIPE_OUT_S, CLIP_OPEN_UP, CLIP_CLOSED_UP } from '../../lib/overlayWipe.js';
+import { wipeIn, wipeOut, signalRouteReady, WIPE_IN_S, WIPE_OUT_S, CLIP_OPEN_UP, CLIP_CLOSED_UP } from '../../lib/overlayWipe.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
 const falloff = (d, spread) => Math.max(0, 1 - d / spread);
@@ -443,7 +443,10 @@ export default function FeaturedProjects({ worlds = [] }) {
   const fillOnCardRef = useRef(null);
   useEffect(() => {
     if (snapRef.current != null) fillOnCardRef.current = snapRef.current;
-    else window.dispatchEvent(new CustomEvent('swm:fill-release'));
+    else {
+      window.dispatchEvent(new CustomEvent('swm:fill-release'));
+      signalRouteReady(); // the nav menu's wipe may uncover once this frame is up (SQ-108)
+    }
   }, []);
 
   useEffect(() => {
@@ -801,6 +804,7 @@ export default function FeaturedProjects({ worlds = [] }) {
     if (fillOnCardRef.current == null || cards[0]?.index !== fillOnCardRef.current) return;
     fillOnCardRef.current = null;
     window.dispatchEvent(new CustomEvent('swm:fill-release'));
+    signalRouteReady(); // SQ-108: the snapped World's card is up
   }, [cards]);
 
   // Pager marker: one triangle that eases to the active number instead of
