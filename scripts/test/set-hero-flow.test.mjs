@@ -53,7 +53,7 @@ test('members are the first piece\'s Set document, not whatever shares its key',
   assert.deepEqual(flow.admats.map((s) => ids(s.items)), [['x1', 'x2']])
 })
 
-test('toggle off: the output is exactly the output for the same pieces with no set fields', () => {
+test('toggle off leaves the output exactly the output for the same pieces with no set fields', () => {
   const off = admatRun(false)
   const flowOff = buildContentFlow(off, { surface: 'detail' })
   const plain = off.map(({ setId, setAllowsHero, ...rest }) => rest)
