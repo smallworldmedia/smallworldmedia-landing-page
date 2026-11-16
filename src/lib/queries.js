@@ -162,6 +162,12 @@ export const GLOBE_ASSETS_QUERY = `{
  * (buildContentFlow, ratioOf): FEATURED_PROJECT_DETAIL_QUERY's asset
  * projection, shared so every grid of slots reads the same fields. The field
  * order is the order of the island props' keys.
+ *
+ * Sets are `mediaSet` documents: a piece's `set` ref (US-10) says which one, and
+ * the set's type and key (slug) win over the piece's own legacy `groupType` /
+ * `displayGroup`, which stay as the fallback for a piece with no set. An
+ * album-art set's key is not a displayGroup (the covers keep it null, as ever).
+ * `setId` / `setAllowsHero` feed the hero rule (src/lib/setHero.js).
  */
 export const MEDIA_FIELDS = `
     _id,
@@ -170,8 +176,10 @@ export const MEDIA_FIELDS = `
     description,
     mediaType,
     contentRole,
-    displayGroup,
-    groupType,
+    "setId": set._ref,
+    "setAllowsHero": set->allowAsHero,
+    "groupType": coalesce(set->groupType, groupType),
+    "displayGroup": coalesce(select(set->groupType != "album-art" => set->slug.current), displayGroup),
     brandDeckOrder,
     "yearStart": coalesce(yearStart, year),
     yearEnd,
@@ -257,8 +265,8 @@ export const FEATURED_WORLDS_QUERY = `
       title,
       mediaType,
       contentRole,
-      displayGroup,
-      groupType,
+      "groupType": coalesce(set->groupType, groupType),
+      "displayGroup": coalesce(select(set->groupType != "album-art" => set->slug.current), displayGroup),
       brandDeckOrder,
       "imageUrl": image.asset->url,
       "imageDimensions": image.asset->metadata.dimensions,
