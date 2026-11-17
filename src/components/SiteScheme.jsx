@@ -20,8 +20,9 @@
  * `project`, black, blue) that rides the column's own position: one detent, one badge height.
  * Engaged, the badge, the eye and the iris scale about one point, the badge's right edge at its
  * vertical centre. It is z 101, above the shell and so above the route fill, and stays put through
- * every page change (the info drawer, the privacy notice, the inquiry overlay and the phone menu
- * hide it).
+ * every page change. The info drawer, the privacy notice and the inquiry overlay hide it; the phone
+ * menu's takeover does not: it is one level above (.site-menu-host, z 102), so its own wipe paints
+ * over the badge, and SiteNav makes the badge inert while the menu is up.
  *
  * Authority: colorScheme.js alone decides the scheme. This component calls
  * setScheme / onScheme and writes nothing of its own to the DOM except the

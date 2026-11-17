@@ -226,9 +226,8 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
   assert.ok(/z-index:\s*101/.test(css) && !/z-index:\s*43/.test(css), 'z 101: above the shell (100), so the route fill and the loader never cover it');
   const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(/html\[data-chrome-open\]\s+\.swm-corner\s*\{/.test(live), 'yields to the overlays');
-  // The phone menu's takeover is a full-bleed wipe over the shell: the badge is above the shell now,
-  // so it is HIDDEN under the takeover (visibility, never a fade), and returns when the wipe is down.
-  assert.ok(/html\[data-menu-open\]\s+\.swm-corner\s*\{\s*visibility:\s*hidden;\s*transition:\s*visibility 0s;/.test(live), 'the menu hides the badge at once, no fade');
+  // The phone menu's takeover is not a yield: it wipes over the badge (the pass 8 test below).
+  assert.ok(!/data-menu-open/.test(live), 'no rule hides or delays the badge for the phone menu');
   assert.ok(!/--seat-t|--badge-ride|--eye-foot|--home-cy|--footer-reveal|--footer-panel-h|data-footer-rest/.test(live), 'the flush corner, the footer ride and the seat blend are deleted');
 });
 
@@ -408,7 +407,30 @@ test('SQ-107 pass 7 the badge persists across a page change, above the passage f
   assert.ok(/\.site-shell\s*\{[^}]*z-index:\s*100/.test(g), 'the shell is the z 100 stacking context the claim rests on');
   const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(/html\[data-chrome-open\]\s+\.swm-corner\s*\{[^}]*visibility:\s*hidden/.test(live), 'the drawer, the privacy notice and the inquiry overlay still take it');
-  assert.ok(/transition-property|visibility 0s linear 0\.35s/.test(live), 'on a phone the badge returns when the menu wipe is down');
+  assert.ok(!/visibility 0s linear 0\.35s/.test(live), 'the 0.35 s visibility delay on a phone is gone with the hide it served');
+});
+
+test('SQ-107 pass 8 the phone menu wipes over the badge and never hides it, the takeover seated one level above', () => {
+  const css = skinCss();
+  const g = read('src/styles/global.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const badgeZ = Number(/\.swm-corner\s*\{[^}]*z-index:\s*(\d+)/.exec(css)?.[1]);
+  const hostZ = Number(/\.site-menu-host\s*\{[^}]*z-index:\s*(\d+)/.exec(g)?.[1]);
+  const shellZ = Number(/\.site-shell\s*\{[^}]*z-index:\s*(\d+)/.exec(g)?.[1]);
+  assert.ok(shellZ < badgeZ && badgeZ < hostZ, `shell ${shellZ} < badge ${badgeZ} < menu host ${hostZ}: RouteFill under the badge, the takeover over it`);
+  assert.ok(/\.site-menu-host\s*\{[^}]*position:\s*fixed[^}]*pointer-events:\s*none/.test(g), 'the host is a fixed click-through box');
+  assert.ok(!/data-menu-open/.test(css) && !/visibility 0s linear 0\.35s/.test(css), 'no menu rule in the badge skin: no visibility hide, no delay');
+  // SiteShell renders the host OUTSIDE the shell div (a sibling in the persisted island); SiteNav portals there.
+  const shell = read('src/components/SiteShell.jsx');
+  const shellDiv = shell.indexOf('<div className="site-shell"');
+  const hostDiv = shell.indexOf('<div className="site-menu-host"');
+  assert.ok(shellDiv > 0 && hostDiv > shellDiv, 'the host follows the shell');
+  assert.ok(/<\/div>\s*\{\/\*[\s\S]*?\*\/\}\s*<div className="site-menu-host" \/>/.test(shell), 'and sits outside it, not among its children');
+  const nav = read('src/components/SiteNav.jsx');
+  assert.ok(/setShellEl\(document\.querySelector\('\.site-menu-host'\)\)/.test(nav), 'the takeover is portaled into the host');
+  assert.ok(!/querySelector\('\.site-shell'\)/.test(nav), 'no longer into the shell');
+  // The swatches are unreachable under the takeover: inert from the open to the landed wipe out.
+  assert.ok(/setAttribute\('inert', ''\)/.test(nav) && /removeAttribute\('inert'\)/.test(nav), 'the badge is inert while the menu is up');
+  assert.ok(/wipeOut\(menu\)\.call\(/.test(nav) && /if \(!cancelled\)/.test(nav), 'released when the wipe out has landed, unless the menu reopened');
 });
 
 test('SQ-107 pass 4 the jitter root cause, the circle is drawn at the large size and its row only scales it down', () => {

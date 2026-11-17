@@ -770,6 +770,79 @@ export function persist(samples, { pixels = null, rest = null, minShare = 0.25 }
 }
 
 /**
+ * menuWipe — the phone menu's takeover wipes OVER the badge (SQ-107 pass 8), never hiding or fading it.
+ * `frames` are one per animation frame through the four phases, each
+ * { phase: open | hold | close | change-open | change, edge, up, zMenu, zBadge, op, vis, inert }:
+ * `edge` is the takeover's rendered top in px (the viewport height with the menu down, 0 with it up),
+ * `up` that the menu is rendered at all, `zMenu` and `zBadge` the root stacking level of each (the
+ * outermost ancestor's z-index), `op` / `vis` the badge's own computed opacity and visibility, `inert`
+ * its inert flag. `tile` is the badge rectangle { x, y, w, h } at rest.
+ * Every frame: the badge is there at opacity 1 and visible (never hidden or faded as a whole, whatever
+ * the edge does), sits BELOW the menu in paint order (so the part under the edge shows the menu and the
+ * part above it the badge), and is inert while the menu is up. The edge never reverses within a wipe
+ * (falls on the way in, rises on the way out), holds at the top through the hold and a page change, and
+ * the run must have seen it cross the badge's box on the way in and on the way out (`minPartial` frames
+ * each), or it proves nothing. `reduced`: the menu snaps, so the edge is only ever 0 or the height.
+ * `pixels` (optional, slow motion): { e0, e1, rows: [{ y, share }] } per screenshot, `share` the fraction
+ * of that tile row painted the menu's colour, the edge read just before (e0) and after (e1): a row below
+ * both must be the menu's, a row above both must not be.
+ */
+export function menuWipe(frames, tile, { pixels = null, reduced = false, minPartial = 3, tol = 1 } = {}) {
+  const offenders = [];
+  const list = frames ?? [];
+  const bad = (i, why) => {
+    if (offenders.length < 8) offenders.push({ path: '.swm-corner', frame: i, phase: list[i]?.phase, note: why });
+  };
+  const top = tile?.y ?? 0;
+  const bottom = top + (tile?.h ?? 0);
+  if (!tile || !(tile.h > 0)) offenders.push({ path: '.swm-corner', note: 'no badge rectangle measured' });
+  const height = Math.max(...list.map((f) => f.h ?? 0), 0);
+  const wipeIn = (f) => f.phase === 'open' || f.phase === 'change-open';
+  let partialIn = 0;
+  let partialOut = 0;
+  list.forEach((f, i) => {
+    if (f.gone) return bad(i, 'the badge was gone');
+    if (!(Number(f.op) >= 0.999)) bad(i, `the badge faded as a whole (opacity ${f.op}) with the edge at ${fixed(f.edge, 1)} px`);
+    else if (f.vis !== 'visible') bad(i, `the badge was hidden as a whole (visibility ${f.vis}) with the edge at ${fixed(f.edge, 1)} px, its box ${fixed(top, 1)}..${fixed(bottom, 1)}`);
+    if (f.up && !(f.zMenu > f.zBadge)) bad(i, `the badge paints over the menu (stacking level ${f.zBadge} against the menu's ${f.zMenu})`);
+    if (f.up && !f.inert) bad(i, 'the swatches can be reached under the menu (the badge is not inert)');
+    if (f.phase === 'hold' && f.edge > tol) bad(i, `the edge is at ${fixed(f.edge, 1)} px in the hold (the menu is not fully up)`);
+    if (reduced && f.edge > tol && f.edge < height - tol) bad(i, `the menu was between up and down (edge ${fixed(f.edge, 1)} px): reduced motion snaps it`);
+    const prev = list[i - 1];
+    if (prev && prev.phase === f.phase) {
+      const d = f.edge - prev.edge;
+      if (wipeIn(f) && d > tol) bad(i, `the edge went back down ${fixed(d, 1)} px on the way in`);
+      if ((f.phase === 'close' || f.phase === 'change') && d < -tol && prev.edge > tol) bad(i, `the edge went back up ${fixed(-d, 1)} px on the way out`);
+    }
+    if (f.edge > top + tol && f.edge < bottom - tol) {
+      if (wipeIn(f)) partialIn++;
+      else if (f.phase === 'close' || f.phase === 'change') partialOut++;
+    }
+  });
+  if (!list.length) offenders.push({ path: '.swm-corner', note: 'no frames measured proves nothing' });
+  else if (!reduced) {
+    if (partialIn < minPartial) offenders.push({ path: '.swm-corner', note: `only ${partialIn} frame(s) caught the edge inside the badge's box on the way in (need ${minPartial})` });
+    if (partialOut < minPartial) offenders.push({ path: '.swm-corner', note: `only ${partialOut} frame(s) caught the edge inside the badge's box on the way out (need ${minPartial})` });
+  }
+  let shots = '';
+  if (pixels) {
+    let across = 0;
+    for (const p of pixels) {
+      const lo = Math.min(p.e0, p.e1);
+      const hi = Math.max(p.e0, p.e1);
+      if ((lo > top && lo < bottom) || (hi > top && hi < bottom)) across++;
+      for (const r of p.rows ?? []) {
+        if (r.y >= hi + 2 && !(r.share >= 0.9)) offenders.push({ path: '.swm-corner', y: fixed(r.y, 0), note: `row below the edge (${fixed(lo, 0)}..${fixed(hi, 0)} px) paints the badge, not the menu (${fixed(r.share * 100, 0)}% menu)` });
+        else if (r.y + 1 <= lo - 2 && !(r.share <= 0.5)) offenders.push({ path: '.swm-corner', y: fixed(r.y, 0), note: `row above the edge (${fixed(lo, 0)}..${fixed(hi, 0)} px) paints the menu, not the badge (${fixed(r.share * 100, 0)}% menu)` });
+      }
+    }
+    if (across < 3) offenders.push({ path: '.swm-corner', note: `only ${across} screenshot(s) caught the edge inside the badge's box` });
+    shots = `, ${pixels.length} screenshots (${across} across the badge)`;
+  }
+  return result(offenders.slice(0, 15), list.length, `${list.length} frames, edge across the badge ${partialIn} in / ${partialOut} out${shots}`);
+}
+
+/**
  * bounds — every item sits inside the box on the given axis ('x' = left and right). `items` and
  * `box` are { name, x, y, w, h }. The engaged lens circle against the window that clips it: a box
  * narrower than the circle cuts its edges.

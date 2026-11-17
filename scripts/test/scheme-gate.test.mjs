@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  badge, seat, rightEdge, noClip, blurbClear, strip, stripClass, eyeLines, persist, bounds, strays, jitter,
+  badge, seat, rightEdge, noClip, blurbClear, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -712,4 +712,100 @@ test('jitter gate a left jolt at settle and a reversal in either axis and a miss
   assert.equal(jitter(null).pass, false);
   assert.equal(jitter({ engage: up.slice(0, 4), release: down, settledUp: OUT, settledDown: REST }).pass, false, 'too few samples proves nothing');
   assert.equal(jitter({ engage: up, release: down, settledUp: OUT }).pass, false, 'a missing settled pose proves nothing');
+});
+
+// SQ-107 pass 8: the phone menu wipes over the badge (menuWipe), the frames a 390 x 844 run samples
+const TILE = { x: 340, y: 760, w: 50, h: 40 }; // the badge's box, bottom 800 of 844
+const H = 844;
+const mf = (phase, edge, extra = {}) => ({ phase, edge, h: H, up: edge < H, zMenu: 102, zBadge: 101, op: '1', vis: 'visible', inert: edge < H, ...extra });
+const ramp = (phase, from, to, n) => Array.from({ length: n }, (_, i) => mf(phase, from + ((to - from) * (i + 1)) / n));
+// open: the edge rises through the badge's box (844 to 0), a hold, close: back down, then a page change from the menu
+const GOOD = [
+  mf('open', H),
+  ...ramp('open', H, 0, 120),
+  ...Array.from({ length: 10 }, () => mf('hold', 0)),
+  ...ramp('close', 0, H, 120),
+  mf('close', H, { up: false, inert: false }),
+  ...ramp('change-open', H, 0, 120),
+  ...Array.from({ length: 20 }, () => mf('change', 0)),
+  ...ramp('change', 0, H, 120),
+  mf('change', H, { up: false, inert: false }),
+];
+
+test('menuWipe gate the edge crosses the badge in, holds, and crosses it out with the badge drawn and under the menu every frame', () => {
+  const ok = menuWipe(GOOD, TILE);
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /edge across the badge \d+ in \/ \d+ out/);
+});
+
+test('menuWipe gate the old visibility hide fails on the first frame the whole badge goes', () => {
+  // negative control: html[data-menu-open] .swm-corner { visibility: hidden } restored, at once as the wipe starts
+  const hidden = GOOD.map((f) => (f.up ? { ...f, vis: 'hidden' } : f));
+  const r = menuWipe(hidden, TILE);
+  assert.equal(r.pass, false);
+  assert.match(r.offenders[0].note, /the badge was hidden as a whole \(visibility hidden\)/);
+  assert.equal(r.offenders[0].phase, 'open');
+  const one = menuWipe(GOOD.map((f, i) => (i === 30 ? { ...f, vis: 'hidden' } : f)), TILE);
+  assert.equal(one.pass, false, 'one frame of it is enough');
+});
+
+test('menuWipe gate a fade of the badge and a badge that paints over the menu both fail', () => {
+  const fade = menuWipe(GOOD.map((f, i) => (i >= 70 && i < 74 ? { ...f, op: '0.4' } : f)), TILE);
+  assert.equal(fade.pass, false);
+  assert.match(fade.offenders[0].note, /faded as a whole \(opacity 0\.4\)/);
+  // the old stacking: the menu inside the shell (z 100) under the badge (z 101)
+  const under = menuWipe(GOOD.map((f) => ({ ...f, zMenu: 100 })), TILE);
+  assert.equal(under.pass, false);
+  assert.match(under.offenders[0].note, /the badge paints over the menu \(stacking level 101 against the menu's 100\)/);
+  assert.equal(menuWipe(GOOD.map((f) => (f.up ? { ...f, inert: false } : f)), TILE).pass, false, 'swatches reachable under the menu');
+});
+
+test('menuWipe gate an edge that goes back, or a menu not fully up in the hold, fails', () => {
+  const back = GOOD.map((f, i) => (i === 20 ? { ...f, edge: f.edge + 40 } : f));
+  const r = menuWipe(back, TILE);
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /went back down/.test(o.note)));
+  const loose = menuWipe(GOOD.map((f) => (f.phase === 'hold' ? { ...f, edge: 30 } : f)), TILE);
+  assert.equal(loose.pass, false);
+  assert.match(loose.offenders[0].note, /not fully up/);
+  const out = GOOD.map((f, i) => (f.phase === 'close' && i === 200 ? { ...f, edge: f.edge - 30 } : f));
+  assert.ok(menuWipe(out, TILE).offenders.some((o) => /went back up/.test(o.note)));
+});
+
+test('menuWipe gate a run that never saw the edge cross the badge proves nothing', () => {
+  // real-time frames: the steep launch clears the 40 px box in one frame
+  const jump = [mf('open', H), mf('open', 300), mf('open', 0), mf('hold', 0), mf('close', 300), mf('close', H, { up: false, inert: false })];
+  const r = menuWipe(jump, TILE);
+  assert.equal(r.pass, false);
+  assert.match(r.offenders[0].note, /only 0 frame\(s\) caught the edge inside the badge's box on the way in/);
+  assert.equal(menuWipe([], TILE).pass, false);
+  assert.equal(menuWipe(GOOD, null).pass, false, 'no badge box');
+});
+
+test('menuWipe gate reduced motion snaps the menu, so the edge is only ever up or down', () => {
+  const snap = [mf('open', H), mf('open', 0), mf('hold', 0), mf('close', 0), mf('close', H, { up: false, inert: false })];
+  assert.equal(menuWipe(snap, TILE, { reduced: true }).pass, true);
+  const fade = menuWipe([mf('open', H), mf('open', 500), mf('open', 0), mf('hold', 0)], TILE, { reduced: true });
+  assert.equal(fade.pass, false);
+  assert.match(fade.offenders[0].note, /reduced motion snaps it/);
+});
+
+test('menuWipe gate the pixels below the edge are the menu and above it the badge', () => {
+  const rows = (e) => Array.from({ length: 40 }, (_, i) => ({ y: 760 + i, share: 760 + i >= e ? 1 : 0 }));
+  const shots = [770, 775, 780, 785].map((e) => ({ e0: e, e1: e + 0.4, rows: rows(e) }));
+  const ok = menuWipe(GOOD, TILE, { pixels: shots });
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /4 screenshots \(4 across the badge\)/);
+  // negative control: the badge hidden whole while the edge is still below its top: the rows under the edge show the page, not the menu
+  const gone = menuWipe(GOOD, TILE, { pixels: shots.map((s) => ({ ...s, rows: s.rows.map((r) => ({ ...r, share: 0 })) })) });
+  assert.equal(gone.pass, false);
+  assert.match(gone.offenders[0].note, /paints the badge, not the menu/);
+  // the badge over the menu: the rows below the edge stay the badge
+  const over = menuWipe(GOOD, TILE, { pixels: shots.map((s) => ({ ...s, rows: s.rows.map((r) => ({ ...r, share: r.y >= 790 ? 1 : 0 })) })) });
+  assert.equal(over.pass, false);
+  // the menu over the badge's top part: rows above the edge painted menu-coloured
+  const high = menuWipe(GOOD, TILE, { pixels: shots.map((s) => ({ ...s, rows: s.rows.map((r) => ({ ...r, share: 1 })) })) });
+  assert.equal(high.pass, false);
+  assert.ok(high.offenders.some((o) => /paints the menu, not the badge/.test(o.note)));
+  assert.equal(menuWipe(GOOD, TILE, { pixels: shots.slice(0, 2) }).pass, false, 'two screenshots across the box prove nothing');
 });

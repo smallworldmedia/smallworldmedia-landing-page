@@ -125,6 +125,14 @@
  *               fill laid over it is a layer above, so no computed style shows it). On a phone the menu
  *               takeover is allowed to cover it. Negative control: --inject='.swm-corner{z-index:43 !important}'
  *               (the old seat under the shell) must FAIL.
+ *   menu        390 x 844 only, Chromium and WebKit, motion on and reduced (SQ-107 pass 8): the phone menu's
+ *               takeover WIPES OVER the badge. Four phases (open, hold, close, a page change made from the
+ *               menu), sampled every animation frame (the takeover's rendered top against the badge's box;
+ *               the badge's opacity, visibility, inert flag and stacking level) and, with gsap slowed near
+ *               the badge, by screenshots of its box: the rows under the edge are the menu's colour, the rows
+ *               above it the badge's. The badge is never hidden or faded as a whole, never over the menu.
+ *               Negative controls: --inject='html[data-menu-open] .swm-corner{visibility:hidden !important}'
+ *               (the old hide) and --inject='.site-menu-host{z-index:101 !important}' (the old stacking) must FAIL.
  * The old spectrum expectations (carriers, deal, shares) come from a dynamic import of
  * ../src/lib/colorScheme.js, and only run when named; when it is absent they print
  * "skipped: colorScheme.js not present" and do not fail.
@@ -157,7 +165,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'strip', 'eyeLines', 'bounds', 'strays', 'noClip', 'jitter', 'persist']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'strip', 'eyeLines', 'bounds', 'strays', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -1429,6 +1437,179 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
       res.note += ` (${p.steps.join('; ')})`;
       emitResult(scheme, route, width, 'persist', res);
     }
+  }
+  if (want.has('menu')) {
+    if (width > 480) emit('SKIP', scheme, route, width, 'menu', 'the takeover is the phone menu (768 px and below): measured at 390');
+    else if (scheme !== 'project') emit('SKIP', scheme, route, width, 'menu', 'measured once, on the project run (the page loads blue itself for the pixels)');
+    else {
+      for (const [b, reduced] of [['chromium', false], ['webkit', false], ['chromium', true], ['webkit', true]]) {
+        const where = `${route}:${b}${reduced ? '-reduced' : ''}`;
+        const m = await measureMenuWipe(b, width, { reduced });
+        if (m.error) emit('FAIL', scheme, where, width, 'menu', m.error);
+        else {
+          const res = gate.menuWipe(m.frames, m.tile, { pixels: m.pixels, reduced });
+          res.note += `, ${m.slow ? 'slowed near the badge' : 'real time'}, ended on ${m.ended}`;
+          emitResult(scheme, where, width, 'menu', res);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * The phone menu wipes OVER the badge (SQ-107 pass 8): 390 x 844, Chromium and WebKit, through four phases,
+ * the menu open, a hold, the close, and a page change made from the menu. A requestAnimationFrame sampler in
+ * the page records, every frame, the takeover's rendered top (the edge: its inset clip-path read off the
+ * computed style, in px), the badge's opacity, visibility and inert flag, and the root stacking level of
+ * each (the outermost ancestor's z-index). The wipe is steep at its launch and the badge is in the bottom
+ * 50 px, so at real speed the edge crosses its box in a frame or two: while the edge is within 40 px of the
+ * box the sampler slows gsap's global timeline to MENU_SLOW (the same tween and ease, only slower), so
+ * several frames and screenshots land on it. The gsap module is found among the page's loaded resources
+ * (the dev server's /deps/gsap.js, the one instance the site uses): a build has no such file, the run then
+ * is real time and the gate says the edge was not caught. The pixel pass screenshots the badge's box (blue
+ * scheme: a blue badge against the black menu) with the edge read before and after each shot.
+ * `reduced`: reduced motion, the menu snaps, no slow motion and no pixels.
+ */
+const MENU_SLOW = 0.03;
+async function measureMenuWipe(name, width, { reduced = false } = {}) {
+  const browser = await (name === 'webkit' ? webkit : chromium).launch({ headless: true, ...(name === 'chromium' ? { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } : {}) });
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1, reducedMotion: reduced ? 'reduce' : 'no-preference', isMobile: true, hasTouch: true });
+  await ctx.route(/stream\.mux\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  const { default: sharp } = await import('sharp');
+  try {
+    await page.goto(`${BASE}/?popseed=1&scheme=blue`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 90000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await sleep(3000);
+    const tile = (await page.evaluate(pageWidgetRest))?.tile;
+    if (!tile) return { error: 'no badge rectangle' };
+    await page.waitForSelector('.mobile-menu', { state: 'attached', timeout: 30000 });
+    const slow = await page.evaluate(
+      async ({ k, lo, hi, on }) => {
+        const url = performance.getEntriesByType('resource').map((r) => r.name).find((n) => /\/deps\/gsap\.js/.test(n));
+        const gsap = on && url ? (await import(url)).gsap : null;
+        const level = (el) => {
+          let z = null;
+          for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+            const cs = getComputedStyle(n);
+            if (cs.position !== 'static' && cs.zIndex !== 'auto') z = Number(cs.zIndex);
+          }
+          return z;
+        };
+        const mw = (window.__mw = { frames: [], phase: 'idle' });
+        const tick = () => {
+          const menu = document.querySelector('.mobile-menu');
+          const badge = document.querySelector('.swm-corner');
+          if (!badge) mw.frames.push({ phase: mw.phase, gone: true });
+          else if (menu) {
+            const ms = getComputedStyle(menu);
+            const bs = getComputedStyle(badge);
+            const h = menu.getBoundingClientRect().height;
+            const op = Number(ms.opacity);
+            const up = ms.visibility !== 'hidden' && op > 0;
+            let edge = h;
+            if (up) {
+              const m = /inset\(\s*([-\d.]+)(%|px)/.exec(ms.clipPath);
+              edge = m ? (m[2] === '%' ? (parseFloat(m[1]) / 100) * h : parseFloat(m[1])) : h * (1 - op);
+            }
+            mw.frames.push({ phase: mw.phase, edge, h, up, zMenu: level(menu), zBadge: level(badge), op: bs.opacity, vis: bs.visibility, inert: badge.inert });
+            if (gsap) gsap.globalTimeline.timeScale(edge > lo && edge < hi ? k : 0.5);
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        return !!gsap;
+      },
+      { k: MENU_SLOW, lo: tile.y - 40, hi: tile.y + tile.h + 40, on: !reduced }
+    );
+    const phase = (p) => page.evaluate((v) => { window.__mw.phase = v; }, p);
+    const last = (key) => page.evaluate((k) => window.__mw.frames.at(-1)?.[k], key);
+    const waitFor = async (fn, ms, label) => {
+      const t = Date.now();
+      while (Date.now() - t < ms) {
+        if (await fn()) return;
+        await sleep(30);
+      }
+      throw new Error(`the menu never ${label}`);
+    };
+    const clip = { x: Math.floor(tile.x), y: Math.floor(tile.y), width: Math.ceil(tile.w) + 1, height: Math.ceil(tile.h) + 1 };
+    // What the menu itself paints in the badge's box (its privacy link sits there too), read in the hold
+    // with the menu fully up, is the reference: a row under the edge must equal it, a row above must not.
+    const decode = async (buf) => {
+      const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      return { data, width: info.width };
+    };
+    const raws = [];
+    let inPhase = 'idle';
+    const shoot = async () => {
+      if (inPhase === 'change') return; // the destination's own menu colour: the geometry gate covers it
+      const e0 = await last('edge');
+      const buf = await page.screenshot({ clip });
+      const e1 = await last('edge');
+      raws.push({ e0, e1, ...(await decode(buf)) });
+    };
+    const shares = (ref) => {
+      // Only the badge's own pixels: its box less one pixel of anti-aliasing all round.
+      const x0 = Math.ceil(tile.x) - clip.x + 1;
+      const x1 = Math.floor(tile.x + tile.w) - clip.x - 1;
+      const y0 = Math.ceil(tile.y) - clip.y + 1;
+      const y1 = Math.floor(tile.y + tile.h) - clip.y - 1;
+      return raws.map((r) => {
+        const rows = [];
+        for (let y = y0; y <= y1; y++) {
+          let n = 0;
+          for (let x = x0; x <= x1; x++) {
+            const i = (y * r.width + x) * 3;
+            if (Math.max(Math.abs(r.data[i] - ref.data[i]), Math.abs(r.data[i + 1] - ref.data[i + 1]), Math.abs(r.data[i + 2] - ref.data[i + 2])) <= 40) n++;
+          }
+          rows.push({ y: clip.y + y, share: n / (x1 - x0 + 1) });
+        }
+        return { e0: r.e0, e1: r.e1, rows };
+      });
+    };
+    const burger = () => page.locator('button[aria-label="Open menu"]').first().click({ timeout: 30000 });
+    const wipe = async (until, label) => {
+      const t = Date.now();
+      while (Date.now() - t < 90000) {
+        if (await until()) return;
+        if (!reduced && slow) await shoot();
+        else await sleep(30);
+      }
+      throw new Error(`the menu never ${label}`);
+    };
+    const isUp = async () => (await last('edge')) <= 1;
+    const isDown = async () => (await last('up')) === false;
+    const go = async (p) => {
+      inPhase = p;
+      await phase(p);
+    };
+    await go('open');
+    await burger();
+    await wipe(isUp, 'came up');
+    await go('hold');
+    await sleep(1500);
+    const ref = await decode(await page.screenshot({ clip }));
+    await go('close');
+    await page.locator('.mobile-menu__close').first().click({ timeout: 30000 });
+    await wipe(isDown, 'went down');
+    await sleep(400);
+    await go('change-open');
+    await burger();
+    await wipe(isUp, 'came up again');
+    await go('change');
+    await sleep(1200);
+    await page.locator('.mobile-menu a[href="/work"]').first().click({ timeout: 30000 });
+    await wipe(isDown, 'went down after the page change');
+    await sleep(500);
+    const ended = new URL(page.url()).pathname;
+    const frames = await page.evaluate(() => { const f = window.__mw.frames; window.__mw.frames = []; return f; });
+    return { frames, tile, pixels: reduced || !slow ? null : shares(ref), slow, ended };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await ctx.close().catch(() => {});
+    await browser.close().catch(() => {});
   }
 }
 

@@ -139,11 +139,14 @@
    z 101: ABOVE the shell (100), on purpose (SQ-107 pass 7). The route fill and the loader (RouteFill)
    are the shell's first children, so a passage covered the badge and uncovered it again: the fade
    Nathan saw on every page change. The shell is one stacking context, so nothing between the fill and
-   the nav can be seated from outside it: the badge goes above it, and gives way (below) to the three
-   things that must cover it, each by hiding it, never by fading it through a page change: the info
-   drawer, the privacy notice and the inquiry overlay (SiteShell's data-chrome-open), and the phone
-   menu's takeover (data-menu-open). Its stacking context also caps the engaged lift pager-scale.css
-   gives a .swm-corner pager (z 120) at 101. — */
+   the nav can be seated from outside it: the badge goes above it, and gives way (below) to what must
+   cover it. The info drawer, the privacy notice and the inquiry overlay (SiteShell's data-chrome-open)
+   hide it, never fading it through a page change. The phone menu's takeover does NOT hide it (SQ-107
+   pass 8): the takeover is portaled into SiteShell's .site-menu-host (global.css, z 102), one level
+   above this badge, so its own wipe paints over the badge as the edge passes, up and back down, and
+   holds over it through a page change made from the menu (SiteNav makes the badge inert meanwhile).
+   Its stacking context also caps the engaged lift pager-scale.css gives a .swm-corner pager (z 120)
+   at 101. — */
 .swm-corner {
   position: fixed;
   right: var(--badge-pad);
@@ -206,24 +209,8 @@ html[data-chrome-open] .swm-corner {
     visibility 0s linear 0.2s;
 }
 
-/* The phone menu (SiteNav's takeover, data-menu-open, <= 768px) is a full-bleed wipe that rises from
-   the bottom edge over everything in the shell. The badge is above the shell now, so it is hidden under
-   the takeover instead: at once as the wipe starts (the wipe covers the corner in its first frames), and
-   back when the wipe down has uncovered it (its length, 0.35s: WIPE_OUT_S in overlayWipe.js). Never a
-   fade: the menu COVERS the badge. A page change made from the menu holds the menu until the
-   destination has drawn, so the badge is under it for the whole passage. */
-@media (max-width: 768px) {
-  .swm-corner {
-    transition:
-      opacity 0.2s var(--ease-micro),
-      visibility 0s linear 0.35s;
-  }
-}
-
-html[data-menu-open] .swm-corner {
-  visibility: hidden;
-  transition: visibility 0s;
-}
+/* The phone menu (SiteNav's takeover, <= 768px) has no rule here: it wipes over the badge itself
+   (.site-menu-host, global.css, one level above this badge) and SiteNav makes the badge inert under it. */
 
 /* — The pager: R = .swm-corner .fp-scale.swm-corner__pager. One eye wide and tall (the
    lens), seated so the lens sits at the wrapper's vertical middle. — */
