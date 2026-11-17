@@ -477,13 +477,13 @@ test('footerBrakeStep: plain travel below the tail, a brake inside it, any delta
   assert.ok(footerBrakeStep(0.9, 0.05, 0, b) < 0.95)
 })
 
-/* — home's FINGER on the reveal (SQ-115, 11-17: "the footer reveal stops
-   slamming into its full reveal" on a phone) — Hero's touch branch used the
-   plain clamp at the HOUSE gain (5 since 11-03), so rest → full was ~41px of
-   finger. footerTensionStep is the wheel brake's tail made symmetric, so a
-   finger round-trips; the gain and the tension are two dials, defaulting to
-   today's feel. */
-test('footerTensionStep: b 0 is the plain clamp, byte for byte', () => {
+test('footerTensionStep — b 0 is the plain clamp, byte for byte', () => {
+  /* SQ-115, 11-17: home's FINGER on the reveal ("the footer reveal stops
+     slamming into its full reveal" on a phone). Hero's touch branch used the
+     plain clamp at the HOUSE gain (5 since 11-03), so rest → full was ~41px of
+     finger. footerTensionStep is the wheel brake's tail made symmetric, so a
+     finger round-trips; the gain and the tension are two dials, defaulting to
+     today's feel. The tests below hold the step and the dials' wiring. */
   for (const rest of [0, 0.4, 0.59]) {
     for (const p of [rest, (rest + 1) / 2, 0.95, 1]) {
       for (const dp of [-2, -0.3, -0.01, 0, 0.01, 0.3, 2]) {
@@ -498,7 +498,7 @@ test('footerTensionStep: b 0 is the plain clamp, byte for byte', () => {
 /** Up d, then down d, from p: where it ends. */
 const roundTrip = (step, p, d, rest, b) => step(step(p, d, rest, b), -d, rest, b)
 
-test('footerTensionStep: a finger up d px then down d px puts the panel back', () => {
+test('footerTensionStep — a finger up d px then down d px puts the panel back', () => {
   const near = (a, e, tol = 1e-9) => assert.ok(Math.abs(a - e) < tol, `${a} vs ${e}`)
   for (const [rest, b] of [[0.59, 0.5], [0.59, 0.7], [0.4, 0.5], [0, 0.9]]) {
     const span = footerSpan(rest)
@@ -518,7 +518,7 @@ test('footerTensionStep: a finger up d px then down d px puts the panel back', (
   assert.ok(Math.abs(roundTrip(footerBrakeStep, p, 0.02, rest, 0.5) - p) > 1e-3)
 })
 
-test('footerTensionStep: monotone in dp, inside [rest, 1], and it reaches exactly 1', () => {
+test('footerTensionStep — monotone in dp, inside [rest, 1], and it reaches exactly 1', () => {
   for (const [rest, b] of [[0.59, 0.5], [0.4, 0.9], [0, 0.3]]) {
     for (const p of [rest, rest + 0.5 * footerSpan(rest), 0.97, 1]) {
       let last = -Infinity
@@ -536,7 +536,7 @@ test('footerTensionStep: monotone in dp, inside [rest, 1], and it reaches exactl
   assert.equal(footerTensionStep(0.59, 10, 0.59, 5), 1)
 })
 
-test('footerTensionStep: the local rate falls to 1 − b at the end of the tail, either way', () => {
+test('footerTensionStep — the local rate falls to 1 − b at the end of the tail, either way', () => {
   const near = (a, e, tol) => assert.ok(Math.abs(a - e) < tol, `${a} vs ${e}`)
   for (const [rest, b] of [[0.59, 0.5], [0.59, 0.7], [0, 0.3]]) {
     const span = footerSpan(rest)
@@ -556,7 +556,7 @@ test('footerTensionStep: the local rate falls to 1 − b at the end of the tail,
   }
 })
 
-test('footerTensionStep: one large delta lands where many small ones of the same total do', () => {
+test('footerTensionStep — one large delta lands where many small ones of the same total do', () => {
   const near = (a, e, tol = 1e-6) => assert.ok(Math.abs(a - e) < tol, `${a} vs ${e}`)
   for (const [p0, total, rest, b] of [[0.59, 0.3, 0.59, 0.5], [0.85, 0.1, 0.59, 0.7], [0.95, -0.2, 0.59, 0.5], [0.4, 0.4, 0.4, 0.9]]) {
     const one = footerTensionStep(p0, total, rest, b)
@@ -566,7 +566,7 @@ test('footerTensionStep: one large delta lands where many small ones of the same
   }
 })
 
-test('footerBrakeStep is the forward half of footerTensionStep: the wheel keeps its curve', () => {
+test('footerBrakeStep is the forward half of footerTensionStep, so the wheel keeps its curve', () => {
   const near = (a, e) => assert.ok(Math.abs(a - e) < 1e-12, `${a} vs ${e}`)
   for (const dp of [0.001, 0.05, 0.2, 1]) {
     for (const p of [0.4, 0.8, 0.95]) near(footerBrakeStep(p, dp, 0.4, 0.5), footerTensionStep(p, dp, 0.4, 0.5))
