@@ -19,23 +19,22 @@
  * the globe is drawn filled AND stroked in white: the stroke adds LINE to every line,
  * which makes the globe's outer ring as heavy as the lids (LID_W) and its inner lines
  * a touch lighter. The globe is drawn smaller by the same amount, so the iris stays 26.
- * Inside the eye nothing dark separates the iris from the lids: the lids' dark edge is
- * clipped to the OUTSIDE of the lid shape, and the iris runs under the lid line.
+ * Nothing dark outlines the eye (Nathan 11-16: no black stroke round the eye shape): the
+ * lids are one white line, and the iris runs under it.
  *
  * Units: the iris is 26 wide = `--scheme-swatch` (site-scheme.css), so 1 unit = 1px at
  * the default size and the whole eye scales with the ?schemesize dial. The eye box is
- * 48 x 28, centred on (24, 14). The globe's path data is read from the public file and
+ * eyeGeometry(k) units (53.28 x 30.64 at the default lid scale, 48 x 28 at 1), the iris centred in it. The globe path is read from the public file and
  * written ONCE (EyeDefs, mounted once by SiteScheme); every circle `<use>`s it.
  */
 import { SPECTRUM } from '../lib/colorScheme.js';
-import { stripFills } from './siteSchemeLogic.js';
+import { stripFills, eyeGeometry, LIDS, IRIS_UNITS, LID_STROKE } from './siteSchemeLogic.js';
 import globeSvg from '../../public/icons/swm-globe-mark.svg?raw';
 
-const IRIS = 26; // iris width; the globe is scaled to it
+const IRIS = IRIS_UNITS; // iris width (26); the globe is scaled to it
 const GLOBE_W = 43; // the globe mark's viewBox is 0 0 43 41
 const GLOBE_H = 41;
-const LID_W = 1.5; // the lid line
-const EDGE_W = 3.1; // the dark edge under it; only its outer half shows
+const LID_W = LID_STROKE; // the lid line (1.5), never scaled with the lids
 const LINE = 1; // added to every globe line: its outer ring (about 0.5 as drawn) then weighs LID_W
 const GLOBE_S = (IRIS - LINE) / GLOBE_W; // the stroke grows the outline by LINE / 2 each side
 const GLOBE_T = `translate(${LINE / 2} ${(IRIS - GLOBE_H * GLOBE_S) / 2}) scale(${GLOBE_S})`;
@@ -53,20 +52,15 @@ const GLOBE_D = globeSvg.match(/ d="([^"]+)"/)?.[1] ?? '';
 /** The project face: one path per palette colour, holding that colour's strips. */
 const STRIPS = stripFills(GLOBE_D, Object.keys(SPECTRUM));
 
-/** The eye: 48 x 28, lids are two circular arcs through the corners (2,14) and (46,14). */
-export const EYE = { w: 48, h: 28, lid: 'M2 14A27.5 27.5 0 0 1 46 14A27.5 27.5 0 0 1 2 14Z' };
-const EYE_C = [EYE.w / 2, EYE.h / 2];
-
-/** The lid opening as an image URL, for the window's CSS mask (site-scheme.css reads --eye-lid-mask). */
-export const EYE_LID_MASK = `url("data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${EYE.w} ${EYE.h}"><path d="${EYE.lid}"/></svg>`
-)}")`;
+/** The eye (siteSchemeLogic.eyeGeometry, the one derivation): the lid arcs, the box, the centre the iris sits at. */
+export const EYE = eyeGeometry(LIDS);
 
 /**
  * The shared defs, rendered ONCE: the globe path, the project face's strips (both in
- * the mark's own units), the lid-opening clip and its inverse (everything outside it).
+ * the mark's own units), and the lid-opening clip (scaled with the lids).
  */
-export function EyeDefs() {
+export function EyeDefs({ lids = LIDS }) {
+  const eye = eyeGeometry(lids);
   return (
     <svg width="0" height="0" aria-hidden="true" focusable="false" className="scheme-defs">
       <defs>
@@ -77,10 +71,7 @@ export function EyeDefs() {
           ))}
         </g>
         <clipPath id="swm-eye-lid">
-          <path d={EYE.lid} />
-        </clipPath>
-        <clipPath id="swm-eye-out">
-          <path clipRule="evenodd" d={`M-4 -4H${EYE.w + 4}V${EYE.h + 4}H-4Z${EYE.lid}`} />
+          <path d={eye.lid} />
         </clipPath>
       </defs>
     </svg>
@@ -133,14 +124,15 @@ export function SchemeSwatch({ scheme }) {
 /**
  * The eye at rest, and the lids always: the iris of the committed scheme clipped to the
  * lid opening (so the lids cut it top and bottom, nothing paints outside them), then the
- * lid linework, whose dark edge shows only outside the lids. Engaged, CSS fades the iris
+ * lid linework (one white line, no outline). Engaged, CSS fades the iris
  * out (the column's centre circle is the same art in the same place) and the lids stay,
  * above the moving circles.
  */
-export function EyeArt({ scheme }) {
+export function EyeArt({ scheme, lids = LIDS }) {
+  const eye = eyeGeometry(lids);
   return (
     <svg
-      viewBox={`0 0 ${EYE.w} ${EYE.h}`}
+      viewBox={`0 0 ${eye.w} ${eye.h}`}
       aria-hidden="true"
       focusable="false"
       draggable="false"
@@ -148,19 +140,11 @@ export function EyeArt({ scheme }) {
       className="scheme-eye"
     >
       <g className="scheme-eye__iris" clipPath="url(#swm-eye-lid)">
-        <g transform={`translate(${EYE_C[0] - C} ${EYE_C[1] - C})`}>
+        <g transform={`translate(${eye.cx - C} ${eye.cy - C})`}>
           <Iris scheme={scheme} />
         </g>
       </g>
-      <path
-        className="scheme-eye__edge"
-        d={EYE.lid}
-        fill="none"
-        strokeWidth={EDGE_W}
-        strokeLinejoin="round"
-        clipPath="url(#swm-eye-out)"
-      />
-      <path className="scheme-eye__lid" d={EYE.lid} fill="none" strokeWidth={LID_W} strokeLinejoin="round" />
+      <path className="scheme-eye__lid" d={eye.lid} fill="none" strokeWidth={LID_W} strokeLinejoin="round" />
     </svg>
   );
 }
