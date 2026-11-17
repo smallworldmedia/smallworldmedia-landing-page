@@ -133,6 +133,7 @@ test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesi
     lift: null,
     pad: null,
     clear: null,
+    shift: null,
     near: null,
     far: null,
     inMs: null,
@@ -292,6 +293,45 @@ test('SQ-107 pass 9 on phones the badge is lifted clear of the screen corner (?s
   assert.ok(/--badge-clear',\s*`\$\{p\.clear\}px`/.test(read('src/components/SiteScheme.jsx')), 'SiteScheme writes the dial as a custom property on .swm-corner');
 });
 
+test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger taper, with a mirrored arrow (?schemeshift)', () => {
+  const css = skinCss();
+  const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  // The dial: one rest eye width by default, 0 = a straight column, ramped by the engage.
+  assert.ok(/--eye-shift: var\(--eye-w\);/.test(flat), 'default S is one rest eye width (PROPOSED)');
+  assert.ok(/--eye-s: calc\(var\(--eye-shift\) \* var\(--eye-t\)\);/.test(flat), 'S ramps with the engage: 0 at rest, full when deployed, on the one --eye-t');
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  assert.equal(q('').shift, null, 'absent: the CSS default');
+  assert.equal(q('schemeshift=20').shift, 20);
+  assert.equal(q('schemeshift=0').shift, 0, '0 = the straight column of today');
+  assert.equal(q('schemeshift=500').shift, 120);
+  assert.equal(q('schemeshift=-4').shift, 0);
+  assert.equal(q('schemeshift=far').shift, null);
+  assert.ok(/--eye-shift',\s*`\$\{p\.shift\}px`/.test(read('src/components/SiteScheme.jsx')), 'SiteScheme writes the dial as a custom property on .swm-corner');
+  // The taper is /work's own, never a copy: each circle moves left by --sw (pager-scale.css) x S, and the
+  // tokens behind --sw (reach 3, exponent 2) are the ones global.css gives /work.
+  assert.ok(/translate: calc\(-1 \* var\(--sw\) \* var\(--eye-s\)\) calc\(/.test(flat), 'each station steps left by the stagger taper --sw times the shift');
+  const pager = read('src/styles/pager-scale.css');
+  assert.ok(/--sw: pow\(clamp\(0, 1 - var\(--ndr\) \/ var\(--scale-slice-reach\), 1\), var\(--scale-slice-exp\)\);/.test(pager.replace(/\s+/g, ' ')), '--sw is /work\'s taper');
+  const g = read('src/styles/global.css');
+  assert.ok(/--scale-slice-reach: 3;/.test(g) && /--scale-slice-exp: 2;/.test(g), 'reach 3 and exponent 2: 1 at the lens, 0.444 one out, 0.111 two out');
+  assert.ok(!/--scale-slice-(reach|exp)/.test(css), 'the skin defines no taper of its own');
+  assert.ok(/\.fp-scale__chip \{ height: var\(--scale-num-h\); translate: calc\(-1 \* var\(--eye-s\)\) 0; \}/.test(flat), 'the lids, the iris, the focus ring and the arrow ride the selected eye left');
+  // The badge widens LEFT: its right edge holds, its left edge follows the shifted eye.
+  assert.ok(/left: calc\(-1 \* var\(--badge-pad\) - var\(--eye-s\) \* \(1 \+ 1 \/ var\(--eye-lift\)\) \/ 2\);/.test(flat), 'the badge box is drawn left of the eye by half the shift again');
+  assert.ok(/width: calc\(var\(--badge-w\) \+ var\(--eye-s\) \/ var\(--eye-lift\)\);/.test(flat), 'and wider by the shift, before the lift');
+  // The press surface reaches left by S, and the window is wide enough for the shifted circles.
+  assert.ok(/\[data-open\]::after \{[^}]*left: calc\(min\(.*\) - var\(--eye-s\)\);/.test(flat), 'a finger over the shifted eyes keeps the scrub');
+  assert.ok(/\.fp-scale__window \{[^}]*left: calc\(\(var\(--eye-w\) - var\(--eye-wide\)\) \/ 2 - var\(--eye-shift\)\);[^}]*width: calc\(var\(--eye-wide\) \+ var\(--eye-shift\)\);/.test(flat), 'the window is as wide as the shift');
+  assert.ok(/\.fp-scale__stations \{ left: var\(--eye-shift\); width: var\(--eye-wide\); \}/.test(flat), 'and the stations sit where they did');
+  // The arrow: /work's pointer, mirrored to point LEFT, on the lids' ink, never display:none.
+  const ptr = flat.match(/\.fp-scale__pointer \{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/border-right: 0\.571rem solid var\(--color-white\)/.test(ptr) && /border-left: 0 solid transparent/.test(ptr), 'a triangle with its point on the left, /work\'s 0.571rem wide, in the lid ink');
+  assert.ok(/transform: none/.test(ptr), 'no flipper-spring deflection: it stays on the lens line');
+  assert.ok(!/\.fp-scale__pointer[^{]*\{[^}]*display: none/.test(flat) && !/\.fp-scale__pointer,/.test(flat), 'the arrow is not hidden any more');
+  const work = pager.replace(/\s+/g, ' ');
+  assert.ok(/border-left: 0\.571rem solid currentColor;/.test(work) && /border-top: 0\.429rem solid transparent;/.test(work), '/work\'s own pointer is untouched');
+});
+
 test('SQ-107 pass 5 baked dials, Nathan\'s 18 / 4 / 1.5 / 0.8 / 0.5 and 260 / 200 are the CSS defaults', () => {
   const css = skinCss();
   for (const [prop, value] of [['--scheme-swatch', '18px'], ['--badge-pad', '4px'], ['--eye-engaged', '1.5'], ['--eye-near', '0.8'], ['--eye-far', '0.5'], ['--eye-in', '260ms'], ['--eye-out', '200ms']]) {
@@ -313,8 +353,9 @@ test('SQ-107 the badge: a rectangle hugging the eye with equal padding, one comp
   assert.ok(/--badge-pad:\s*4px/.test(css), 'Nathan\'s padding, 4 px');
   assert.ok(/--badge-w:\s*calc\(var\(--eye-w\) \+ 2 \* var\(--badge-pad\)\)/.test(css) && /--badge-h:\s*calc\(var\(--eye-h\) \+ 2 \* var\(--badge-pad\)\)/.test(css), 'the eye plus the padding each side, no size knob of its own');
   const tile = css.match(/\.swm-corner\[data-ready\] \.fp-scale\.swm-corner__pager::before\s*\{([^}]*)\}/)?.[1] ?? '';
-  assert.ok(/width:\s*var\(--badge-w\)/.test(tile) && /height:\s*var\(--badge-h\)/.test(tile), 'width and height from the eye');
-  assert.ok(/left:\s*calc\(-1 \* var\(--badge-pad\)\)/.test(tile) && /top:\s*calc\(-1 \* var\(--badge-pad\)\)/.test(tile), 'the same padding on every side of the eye\'s box');
+  // Pass 10 widens it LEFT by the shift (--eye-s is 0 at rest, so the rest box is the eye plus the padding each side).
+  assert.ok(/width:\s*calc\(var\(--badge-w\) \+ var\(--eye-s\) \/ var\(--eye-lift\)\)/.test(tile) && /height:\s*var\(--badge-h\)/.test(tile), 'width and height from the eye');
+  assert.ok(/left:\s*calc\(-1 \* var\(--badge-pad\) - var\(--eye-s\) \*/.test(tile) && /top:\s*calc\(-1 \* var\(--badge-pad\)\)/.test(tile), 'the same padding on every side of the eye\'s box');
   assert.ok(/scale:\s*var\(--eye-lift\)/.test(tile) && /transform-origin:\s*50% 50%/.test(tile), 'it grows with the eye, on the one --eye-t, about its own centre');
   assert.ok(!/border-radius/.test(tile), 'square corners');
   assert.ok(/(^|[\s;{])translate:\s*calc\(\(1 - var\(--eye-lift\)\) \* \(var\(--eye-w\) \/ 2 \+ var\(--badge-pad\)\)\) 0;/.test(css), 'ONE anchor: the pager moves in x only, so the badge\'s right edge at its vertical centre holds and nothing climbs');

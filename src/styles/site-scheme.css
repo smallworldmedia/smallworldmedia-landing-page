@@ -36,14 +36,15 @@
      stations             kept: each is a button holding one circle, centred on the lens axis
      num / peak / den     hidden (display:none): digits, no text is painted
      pulse                hidden: the rest pulse is a /work digit veil
-     pointer              hidden: the lens arrow points at a name column that is not here
+     pointer              kept (SQ-107 pass 10): /work's lens arrow, mirrored to point LEFT at the selected
+                          eye, in the gap the engaged shift opens between it and the viewport's edge
      box                  hidden: /work already ships it with no fill (11-13)
      hairline / seams     hidden: the axis stroke and the wheel seams are /work's ruler
      tick / slice         hidden: the per-station ::before / ::after marks are the same ruler
      hint / freeze        not rendered (hintOn and pauseOn are false); no scrim, no pause screen
    Tunables (docs/tunables-guide.md): ?schemerows (the window), ?schemesize, ?schemegap (the one
    spacing dial, at every width), ?schemepad, ?schemelift, ?schemenear, ?schemefar, ?schemein,
-   ?schemeout, all written as custom properties on .swm-corner by SiteScheme. */
+   ?schemeout, ?schemeshift, all written as custom properties on .swm-corner by SiteScheme. */
 
 /* The engage progress, 0 (the eye at rest) to 1 (the column deployed). The pager root eases it
    (one transition, ?schemein / ?schemeout long) and every engaged measure derives from it: the
@@ -100,6 +101,16 @@
   /* The stagger: the far circle (two stations out) starts this fraction of the entrance later
      than the near one (one out), on the same --eye-t; the exit runs it back. */
   --eye-stagger: 0.4;
+  /* THE SHIFT (SQ-107 pass 10, ?schemeshift, PROPOSED; Nathan 11-17: "account for your thumb covering
+     the selected eye when you are scrolling ... the same small arrow and x position offset utilized in
+     the /work pager"). Engaged, every circle steps LEFT, away from the viewport's right edge, by this
+     much times /work's own stagger taper --sw (1 at the lens, 0.444 one station out, 0.111 two out: the
+     engine's --scale-slice-reach 3 and --scale-slice-exp 2, global.css), so the farther a circle is from
+     the selected one the closer to the edge it sits, and it flows with the scrub exactly as /work's
+     slices do. The shift ramps with the engage (--eye-t): 0 at rest. The badge widens LEFT with the
+     selected eye and keeps its right edge on the viewport's. Default: one rest eye width. 0 = a straight
+     column. */
+  --eye-shift: var(--eye-w);
   /* THE BADGE (Nathan 11-16, pass 5): a horizontal rectangle hugging the eye with the SAME padding
      on all four sides, --badge-pad (?schemepad; Nathan's 4): the eye plus --badge-pad each side,
      no size knob of its own. Its RIGHT EDGE IS THE VIEWPORT'S RIGHT EDGE on every route at every
@@ -199,9 +210,13 @@
   position: absolute;
   z-index: -1;
   pointer-events: none;
-  left: calc(-1 * var(--badge-pad));
+  /* Pass 10: it widens LEFT with the selected eye. The box is drawn --eye-s / --eye-lift wider and its
+     centre sits half that much left of the eye's, so after the lift about its centre its right edge is
+     where it was (the pager's translate keeps that on the viewport's) and its left edge is one lifted
+     padding left of the shifted eye. At rest --eye-s is 0 and this is the pass-9 box. */
+  left: calc(-1 * var(--badge-pad) - var(--eye-s) * (1 + 1 / var(--eye-lift)) / 2);
   top: calc(-1 * var(--badge-pad));
-  width: var(--badge-w);
+  width: calc(var(--badge-w) + var(--eye-s) / var(--eye-lift));
   height: var(--badge-h);
   transform-origin: 50% 50%;
   scale: var(--eye-lift);
@@ -254,6 +269,9 @@ html[data-chrome-open] .swm-corner {
   --scale-sel-bump: calc(1 / (var(--eye-far) * var(--scale-sel)));
   /* The engage progress and the lift it gives the eye (1 at rest). */
   --eye-lift: calc(1 + (var(--eye-engaged) - 1) * var(--eye-t));
+  /* The selected eye's shift at this instant (pass 10): the dial times the engage. Everything that
+     steps off the edge reads it. */
+  --eye-s: calc(var(--eye-shift) * var(--eye-t));
   position: absolute;
   left: 0;
   top: calc(var(--scale-rows) * var(--scale-pitch) - var(--scale-lens-y));
@@ -300,10 +318,13 @@ html[data-chrome-open] .swm-corner {
 .swm-corner .fp-scale.swm-corner__pager[data-open]::after {
   top: calc(var(--scale-lens-y) - var(--eye-hit-up) * var(--scale-pitch));
   bottom: calc(var(--scale-lens-y) - var(--eye-hit-down) * var(--scale-pitch));
-  /* The lifted badge outgrows the root by its own growth each side: the pad follows it. */
-  left: min(
-    calc((1 - var(--eye-lift)) * var(--scale-w) / 2 - var(--eye-lift) * var(--badge-pad)),
-    calc((var(--scale-w) - var(--scheme-hit)) / 2)
+  /* The lifted badge outgrows the root by its own growth each side: the pad follows it. On the left it
+     also reaches the shift (pass 10), so a finger over the shifted eyes keeps the scrub. */
+  left: calc(
+    min(
+        calc((1 - var(--eye-lift)) * var(--scale-w) / 2 - var(--eye-lift) * var(--badge-pad)),
+        calc((var(--scale-w) - var(--scheme-hit)) / 2)
+      ) - var(--eye-s)
   );
   right: min(
     calc((1 - var(--eye-lift)) * var(--scale-w) / 2 - var(--eye-lift) * var(--badge-pad)),
@@ -316,7 +337,6 @@ html[data-chrome-open] .swm-corner {
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__peak,
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__den,
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__pulse,
-.swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer,
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__box,
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__hair,
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__seam {
@@ -328,9 +348,29 @@ html[data-chrome-open] .swm-corner {
   display: none;
 }
 
-/* — The chip: just the lens, the eye's box (the denominator row is gone). — */
+/* — The chip: just the lens, the eye's box (the denominator row is gone). Engaged it steps left by the
+   shift (pass 10): the lids, the rest iris, the focus ring and the arrow ride with it, on the same
+   --eye-t as the lift. A paint-only translate: the box, and so every hit measure, stays put. — */
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__chip {
   height: var(--scale-num-h);
+  translate: calc(-1 * var(--eye-s)) 0;
+}
+
+/* THE ARROW (pass 10). /work's lens pointer (pager-scale.css: the border triangle, 0.571rem x 0.858rem,
+   Round 7's size, opacity 0.2s --ease-micro, 80 ms later on open, instant under reduced motion: all of
+   that is /work's, untouched), MIRRORED to point LEFT at the selected eye. It sits in the gap the shift
+   opens between the eye and the viewport's right edge, centred on the lens line, on the lids' own ink so
+   it reads on every station's panel. The chip carries the shift, so it is put back here: its centre is
+   the middle of the eye's right edge and the viewport's (the badge's own lifted padding included), in
+   chip coordinates half the arrow's width (0.571rem) left of that. The pointer's flipper-spring
+   deflection (--box-dy) is /work's box, which is not here: the arrow stays on the lens line. */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer {
+  left: calc(
+    var(--eye-w) / 2 + var(--eye-lift) * (var(--eye-w) + var(--badge-pad)) / 2 + var(--eye-s) / 2 - 0.2855rem
+  );
+  border-left: 0 solid transparent;
+  border-right: 0.571rem solid var(--color-white);
+  transform: none;
 }
 
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__lens {
@@ -407,10 +447,18 @@ html[data-chrome-open] .swm-corner {
   --eye-wide: calc(var(--eye-w) * max(1, var(--eye-engaged)));
   --scale-w: var(--eye-wide);
   --scale-pad: 0px;
-  left: calc((var(--eye-w) - var(--eye-wide)) / 2);
-  width: var(--scale-w);
+  /* Pass 10: wide enough on the left for the shift, so the stepped-off circles are neither clipped nor
+     un-hittable; the stations container below takes the same offset back, so at no shift they sit where
+     they always did. */
+  left: calc((var(--eye-w) - var(--eye-wide)) / 2 - var(--eye-shift));
+  width: calc(var(--eye-wide) + var(--eye-shift));
   -webkit-mask-image: none;
   mask-image: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__stations {
+  left: var(--eye-shift);
+  width: var(--eye-wide);
 }
 
 /* THE LEFT JOLT (SQ-107 pass 5), root cause. pager-scale.css gives the strip `will-change: transform`,
@@ -453,7 +501,11 @@ html[data-chrome-open] .swm-corner {
      eye (its distance to the lens row, shrunk by --eye-travel) and grows from --eye-pop of its
      size. The engine's own cascade (opacity, stagger) is replaced; its transitions are off. */
   opacity: calc(var(--eye-p) * var(--eye-up) * var(--eye-down));
-  translate: 0
+  /* x (pass 10): /work's stagger taper --sw (pager-scale.css, from the continuous distance --ndr and
+     global.css's --scale-slice-reach / --scale-slice-exp: 1 at the lens, 0.444 one station out, 0.111
+     two out) times the engaged shift, to the LEFT. y: the entrance's travel. */
+  translate:
+    calc(-1 * var(--sw) * var(--eye-s))
     calc(
       (var(--scale-cur) - var(--k, 0)) * var(--scale-pitch) * var(--eye-travel) * (1 - var(--eye-p))
     );

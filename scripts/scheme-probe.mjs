@@ -122,6 +122,17 @@
  *   eyeLines    no dark stroke on any shape in the widget's svgs (the black outline is gone).
  *   bounds      engaged, every visible circle lies inside the window's and the viewport's x range (the
  *               viewport's bottom edge is the one hard edge, so y is not held).
+ *   shift       the engaged eye steps LEFT off the viewport's edge on /work's stagger taper (SQ-107 pass 10), at
+ *               390 and 1440, motion on and reduced: with the pager held settled, each circle's centre is the
+ *               rest eye's centre plus the lift's own anchor drift (the pager's translate) minus S x the taper
+ *               (1 at the lens, 0.444 one station out, 0.111 two out; S = one rest eye width, the default, never
+ *               read off the page), the badge's right edge is the viewport's and its left edge a padding left of the
+ *               shifted eye, and /work's lens arrow, mirrored, is shown in the gap, pointing left, on the lens
+ *               line; at rest it has opacity 0 and the badge is the eye plus a padding each side. --shots=DIR
+ *               saves shift-<scheme>-<width>-<motion|reduced>-{rest,engaged,mid,next}.png.
+ *               Negative controls: --inject='.swm-corner{--eye-shift:0px !important}' (a straight column) and
+ *               --inject='.swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer{display:none !important}'
+ *               (the arrow hidden again) must FAIL.
  *   strays      the column scrubbed through eye-t 0.15 to 0.85 (only the widget painted): a capture with
  *               every station is pixel-identical to one with the stations beyond the shown rows hidden.
  *   persist     soft navigations (home to /work to a project and back; by the menu on a phone) with
@@ -170,7 +181,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'strip', 'eyeLines', 'bounds', 'strays', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -1079,6 +1090,100 @@ async function measureEdge(ctx, scheme, urlPath, width) {
 }
 
 /**
+ * The shift run's page-side reader (SQ-107 pass 10): the widget's geometry as it is now, at rest or engaged
+ * (the pager has data-open). The badge tile is the pager's ::before grown by its own scale about its
+ * centre (as pageTile); the circles are each station's svg, with their distance from the lens; the arrow is
+ * /work's pointer (its box is its borders'), its direction read off which border is drawn.
+ */
+function pageShift() {
+  const corner = document.querySelector('.swm-corner');
+  const pager = corner?.querySelector('.fp-scale');
+  if (!pager) return null;
+  const px = (v) => parseFloat(v) || 0;
+  const b = getComputedStyle(pager, '::before');
+  const pr = pager.getBoundingClientRect();
+  const k = px(b.scale) || 1;
+  const w = px(b.width);
+  const cx = pr.left + px(b.left) + w / 2;
+  const tile = { x: cx - (w * k) / 2, w: w * k };
+  const er = corner.querySelector('.scheme-eye').getBoundingClientRect();
+  const pcs = getComputedStyle(pager);
+  const cur = px(pcs.getPropertyValue('--scale-cur'));
+  const circles = [...pager.querySelectorAll('.fp-scale__station')].map((s) => {
+    const r = (s.querySelector('svg') ?? s).getBoundingClientRect();
+    const kk = parseFloat(s.style.getPropertyValue('--k'));
+    return { name: `k=${kk}`, d: Math.abs(kk - cur), cx: r.left + r.width / 2 };
+  });
+  const ptr = corner.querySelector('.fp-scale__pointer');
+  const ps = getComputedStyle(ptr);
+  const pb = ptr.getBoundingClientRect();
+  const arrow = { x: pb.left, y: pb.top, w: ps.display === 'none' ? 0 : pb.width, h: ps.display === 'none' ? 0 : pb.height, opacity: px(ps.opacity), dir: px(ps.borderRightWidth) > 0 && px(ps.borderLeftWidth) === 0 ? 'left' : px(ps.borderLeftWidth) > 0 && px(ps.borderRightWidth) === 0 ? 'right' : 'none' };
+  const lens = corner.querySelector('.fp-scale__lens').getBoundingClientRect();
+  return {
+    open: pager.hasAttribute('data-open'),
+    vpw: document.documentElement.clientWidth,
+    tx0: px(getComputedStyle(pager).translate),
+    pad: px(getComputedStyle(corner).getPropertyValue('--badge-pad')),
+    reach: px(pcs.getPropertyValue('--scale-slice-reach')),
+    exp: px(pcs.getPropertyValue('--scale-slice-exp')),
+    eye: { x: er.left, w: er.width, cx: er.left + er.width / 2, cy: er.top + er.height / 2 },
+    tile,
+    lensCy: lens.top + lens.height / 2,
+    circles,
+    arrow,
+  };
+}
+
+/**
+ * The shift run: one home page, motion on or reduced, the badge at rest, then engaged (a mouse hover, or a held
+ * CDP touch on a phone) and settled: the geometry for gate.shift, with screenshots (engaged, then mid-scrub, a
+ * ArrowDown pressed a moment ago) under --shots. S is the DEFAULT shift, one rest eye width, never read back
+ * off the page.
+ */
+async function measureShift(browser, scheme, width, { reduced }) {
+  const phone = width <= 480;
+  const ctx = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: 1, reducedMotion: reduced ? 'reduce' : 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+  await ctx.route(/stream\.mux\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  const tag = `${scheme}-${width}-${reduced ? 'reduced' : 'motion'}`;
+  const shot = async (name) => {
+    if (!SHOTS) return;
+    fs.mkdirSync(SHOTS, { recursive: true });
+    const vp = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+    await page.screenshot({ path: path.join(SHOTS, `shift-${tag}-${name}.png`), clip: widgetClip(vp) }).catch(() => {});
+  };
+  try {
+    await page.goto(`${BASE}/?popseed=1&scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await page.evaluate(() => document.fonts.ready);
+    await sleep(1500);
+    const rest = await page.evaluate(pageShift);
+    await shot('rest');
+    const cdp = phone ? await ctx.newCDPSession(page) : null;
+    if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: rest.eye.cx, y: rest.eye.cy }] });
+    else await page.mouse.move(rest.eye.cx, rest.eye.cy);
+    await page.waitForFunction(() => document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 }).catch(() => {});
+    await sleep(1100);
+    const engaged = await page.evaluate(pageShift);
+    await shot('engaged');
+    if (SHOTS) {
+      await page.focus('.swm-corner .fp-scale__station').catch(() => {});
+      await page.keyboard.press('ArrowDown');
+      await sleep(reduced ? 60 : 90);
+      await shot('mid');
+      await sleep(900);
+      await shot('next');
+    }
+    return { rest, engaged, S: rest.eye.w };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
+/**
  * The no-clip run: every frame of the entrance, the exit and a page through the stations (ArrowDown
  * twice, ArrowUp twice, on a focused circle) with the circles' boxes and effective opacities and the
  * boxes of every ancestor that clips (overflow other than visible, a mask, a clip-path).
@@ -1397,6 +1502,20 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
         return merge(w.strays.map((d) => gate.strays(d)));
       });
     }
+  }
+  if (want.has('shift')) {
+    const parts = [];
+    for (const reduced of [true, false]) {
+      const m = await measureShift(browser, scheme, width, { reduced });
+      const label = reduced ? 'reduced' : 'motion';
+      if (m.error || !m.rest || !m.engaged) emit('FAIL', scheme, route, width, 'shift', `${label}: ${m.error ?? 'nothing measured'}`);
+      else {
+        const e = m.engaged;
+        const rest = m.rest;
+        parts.push(gate.shift({ vp: { w: e.vpw }, S: m.S, reach: e.reach, exp: e.exp, rest: { eye: rest.eye, tile: rest.tile, pad: rest.pad, arrow: rest.arrow }, engaged: e }, { label }));
+      }
+    }
+    if (parts.length) emitResult(scheme, route, width, 'shift', merge(parts));
   }
   if (want.has('noClip')) {
     const c = await measureClip(browser, scheme, width);

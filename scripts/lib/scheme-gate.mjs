@@ -930,6 +930,58 @@ export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
   );
 }
 
+/**
+ * shift — the engaged eye steps off the viewport's edge on /work's stagger taper (SQ-107 pass 10, Nathan
+ * 11-17: "account for your thumb covering the selected eye ... the same small arrow and x position
+ * offset utilized in the /work pager"). `s` = {
+ *   vp: {w}, S, reach, exp,                  the viewport, the shift in px (the DEFAULT, never read back off the
+ *                                            page: a page whose shift was forced to 0 must fail), /work's taper
+ *   rest:    { eye: {cx, w}, tile: {x, w}, pad, arrow: {opacity} },
+ *   engaged: { open, tx0, eye: {x, w}, tile: {x, w}, lensCy,
+ *              circles: [{ d, cx }],          d = the circle's distance from the lens in stations, cx its centre x
+ *              arrow: {x, y, w, h, opacity, dir} } }
+ * Settled, motion on or reduced. A circle d stations out sits at the rest eye's centre, plus the lift's own
+ * anchor drift (tx0, the pager's translate: the pass-9 geometry), minus S x (1 - d / reach) ^ exp: the lens
+ * the full S, one out 0.444 S, two out 0.111 S. The badge's right edge stays the viewport's (tol), its left
+ * edge is at least one padding left of the shifted eye. The arrow is visible, between the eye and the
+ * viewport's edge, centred on the lens line, pointing left. At rest the arrow is clear (opacity 0) and the
+ * badge is the eye plus a padding each side, flush with the edge: pass 9's rectangle.
+ */
+export function shift(s, { tol = 0.5, label = '' } = {}) {
+  const offenders = [];
+  const tag = label ? `${label} ` : '';
+  const bad = (path, note, extra = {}) => offenders.push({ path: `${tag}${path}`, note, ...extra });
+  const e = s?.engaged;
+  const r = s?.rest;
+  if (!s || !e || !e.open) return result([{ path: `${tag}.swm-corner .fp-scale`, note: 'the pager never engaged (data-open)' }], 0, 'not engaged');
+  if (!r?.eye || !r?.tile) return result([{ path: `${tag}.swm-corner .fp-scale`, note: 'no rest geometry measured' }], 0, 'no rest');
+  const taper = (d) => Math.pow(Math.min(1, Math.max(0, 1 - d / s.reach)), s.exp);
+  const got = [];
+  for (const c of e.circles ?? []) {
+    if (!(c.d <= 2.001)) continue;
+    const want = r.eye.cx + e.tx0 - s.S * taper(c.d);
+    got.push(`d${fixed(c.d, 0)} ${fixed(r.eye.cx + e.tx0 - c.cx, 2)}`);
+    if (!Number.isFinite(c.cx) || Math.abs(c.cx - want) > tol) bad(`circle ${c.name ?? `d=${c.d}`}`, `centre ${fixed(c.cx, 2)} is ${fixed(want - c.cx, 2)} px from ${fixed(want, 2)}: it should step left ${fixed(s.S * taper(c.d), 2)} px (${fixed(taper(c.d), 3)} of ${fixed(s.S, 2)})`);
+  }
+  if (!(e.circles ?? []).some((c) => c.d === 0)) bad('circle d=0', 'no lens circle measured');
+  if (!(e.circles ?? []).some((c) => c.d === 1)) bad('circle d=1', 'no circle one station out measured');
+  const right = e.tile.x + e.tile.w;
+  if (!Number.isFinite(right) || Math.abs(s.vp.w - right) > tol) bad('badge', `right edge ${fixed(right, 2)} is ${fixed(s.vp.w - right, 2)} px from the viewport's ${fixed(s.vp.w, 2)}`);
+  if (!(e.tile.x <= e.eye.x - r.pad + tol)) bad('badge', `left edge ${fixed(e.tile.x, 2)} is not a padding (${fixed(r.pad, 2)}) left of the shifted eye ${fixed(e.eye.x, 2)}`);
+  const a = e.arrow;
+  if (!a || !(a.w > 0 && a.h > 0)) bad('.fp-scale__pointer', 'the arrow has no box (not drawn)');
+  else {
+    if (!(a.opacity > 0.99)) bad('.fp-scale__pointer', `the arrow is at opacity ${fixed(a.opacity, 2)}, not shown`);
+    if (a.dir !== 'left') bad('.fp-scale__pointer', `the arrow points ${a.dir ?? '?'}, not left`);
+    if (!(a.x >= e.eye.x + e.eye.w - tol && a.x + a.w <= s.vp.w + tol)) bad('.fp-scale__pointer', `the arrow ${fixed(a.x, 1)}..${fixed(a.x + a.w, 1)} is not in the gap between the eye (right edge ${fixed(e.eye.x + e.eye.w, 1)}) and the viewport (${fixed(s.vp.w, 1)})`);
+    if (Math.abs(a.y + a.h / 2 - e.lensCy) > 1) bad('.fp-scale__pointer', `the arrow's centre ${fixed(a.y + a.h / 2, 1)} is off the lens line ${fixed(e.lensCy, 1)}`);
+  }
+  if (r.arrow?.opacity > 0.001) bad('.fp-scale__pointer', `the arrow is at opacity ${fixed(r.arrow.opacity, 2)} at rest, want 0`);
+  if (Math.abs(r.tile.w - (r.eye.w + 2 * r.pad)) > tol) bad('badge', `at rest it is ${fixed(r.tile.w, 2)} wide, not the eye ${fixed(r.eye.w, 2)} plus a padding each side (${fixed(r.eye.w + 2 * r.pad, 2)})`);
+  if (Math.abs(s.vp.w - (r.tile.x + r.tile.w)) > tol) bad('badge', `at rest its right edge is ${fixed(s.vp.w - (r.tile.x + r.tile.w), 2)} px from the viewport's`);
+  return result(offenders, (e.circles ?? []).length, `shift ${fixed(s.S, 2)} px, steps ${got.join(', ')}, badge ${fixed(r.tile.w, 1)} wide at rest, ${fixed(e.tile.w, 1)} engaged`);
+}
+
 /** Short one-line text of an offender, for the probe's report. */
 export function describeOffender(o) {
   const { path, selector, slug, family, ...rest } = o;

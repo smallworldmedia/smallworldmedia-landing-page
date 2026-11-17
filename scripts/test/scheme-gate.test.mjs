@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  badge, seat, rightEdge, noClip, blurbClear, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter,
+  badge, seat, rightEdge, noClip, blurbClear, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -837,4 +837,87 @@ test('menuWipe gate the pixels below the edge are the menu and above it the badg
   assert.equal(high.pass, false);
   assert.ok(high.offenders.some((o) => /paints the menu, not the badge/.test(o.note)));
   assert.equal(menuWipe(GOOD, TILE, { pixels: shots.slice(0, 2) }).pass, false, 'two screenshots across the box prove nothing');
+});
+
+// ── shift (SQ-107 pass 10): the engaged eye steps left off the edge on /work's stagger taper ────────────
+
+// 1440 wide, the eye 33.22 px, S = 33.22 (one eye width), tx0 = -(1.5 - 1) * (16.61 + 4) = -10.3 (the lift's anchor drift)
+const SHIFT_S = 33.22;
+const SHIFT_TX0 = -10.3;
+const taperOf = (d) => Math.pow(Math.max(0, 1 - d / 3), 2);
+const shiftSample = (over = {}) => {
+  const restCx = 1419.3;
+  const at = (d) => ({ d, cx: restCx + SHIFT_TX0 - SHIFT_S * taperOf(d) });
+  const base = {
+    vp: { w: 1440 },
+    S: SHIFT_S,
+    reach: 3,
+    exp: 2,
+    rest: { eye: { cx: restCx, w: SHIFT_S }, tile: { x: 1398.8, w: 41.22 }, pad: 4, arrow: { opacity: 0 } },
+    engaged: {
+      open: true,
+      tx0: SHIFT_TX0,
+      eye: { x: 1350.9, w: 49.8 },
+      tile: { x: 1344.9, w: 95.1 },
+      lensCy: 871.3,
+      circles: [at(2), at(1), at(0), at(1), at(2)],
+      arrow: { x: 1416, y: 866, w: 8, h: 11, opacity: 1, dir: 'left' },
+    },
+  };
+  return { ...base, ...over, engaged: { ...base.engaged, ...(over.engaged ?? {}) }, rest: { ...base.rest, ...(over.rest ?? {}) } };
+};
+
+test('shift gate the lens steps the full shift, one out 0.444 and two out 0.111, with the badge widened left and the arrow in the gap', () => {
+  const ok = shift(shiftSample());
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /shift 33\.22 px, steps d2 3\.69, d1 14\.76, d0 33\.22/, 'a pass prints the offsets it passed with');
+  assert.equal(taperOf(0), 1);
+  assert.ok(Math.abs(taperOf(1) - 0.4444) < 1e-3 && Math.abs(taperOf(2) - 0.1111) < 1e-3, '/work\'s taper at reach 3 exponent 2');
+});
+
+test('shift gate a straight column and a half-way shift and a wrong taper all fail', () => {
+  // S forced to 0 in the page: the circles sit on the lift's own position, but the gate expects the default S
+  const flat = shiftSample({ engaged: { circles: [0, 1, 2].map((d) => ({ d, cx: 1419.3 + SHIFT_TX0 })) } });
+  const bad = shift(flat);
+  assert.equal(bad.pass, false);
+  assert.match(bad.offenders[0].note, /should step left 33\.22 px/);
+  // every circle stepped the same (no taper): the neighbours are off
+  const same = shift(shiftSample({ engaged: { circles: [0, 1, 2].map((d) => ({ d, cx: 1419.3 + SHIFT_TX0 - SHIFT_S })) } }));
+  assert.equal(same.pass, false);
+  assert.ok(same.offenders.some((o) => /should step left 14\.76 px/.test(o.note)));
+  // half the shift
+  const half = shift(shiftSample({ engaged: { circles: [0, 1, 2].map((d) => ({ d, cx: 1419.3 + SHIFT_TX0 - (SHIFT_S / 2) * taperOf(d) })) } }));
+  assert.equal(half.pass, false);
+  // no lens circle measured is not a pass
+  assert.equal(shift(shiftSample({ engaged: { circles: [{ d: 1, cx: 1419.3 + SHIFT_TX0 - SHIFT_S * taperOf(1) }] } })).pass, false);
+  assert.equal(shift(shiftSample({ engaged: { open: false } })).pass, false, 'a pager that never engaged proves nothing');
+});
+
+test('shift gate the badge keeps the viewport edge and reaches left of the shifted eye', () => {
+  const edge = shift(shiftSample({ engaged: { tile: { x: 1344.9, w: 93.6 } } }));
+  assert.equal(edge.pass, false);
+  assert.match(edge.offenders[0].note, /right edge 1438\.5 is 1\.5 px from the viewport's 1440/);
+  const narrow = shift(shiftSample({ engaged: { tile: { x: 1348.9, w: 91.1 } } }));
+  assert.equal(narrow.pass, false);
+  assert.match(narrow.offenders[0].note, /not a padding \(4\) left of the shifted eye/);
+});
+
+test('shift gate the arrow is shown in the gap, centred on the lens line, pointing left, and clear at rest', () => {
+  const hidden = shift(shiftSample({ engaged: { arrow: { x: 0, y: 0, w: 0, h: 0, opacity: 1, dir: 'left' } } }));
+  assert.equal(hidden.pass, false);
+  assert.match(hidden.offenders[0].note, /no box/);
+  const faded = shift(shiftSample({ engaged: { arrow: { x: 1416, y: 866, w: 8, h: 11, opacity: 0.4, dir: 'left' } } }));
+  assert.match(faded.offenders[0].note, /not shown/);
+  const right = shift(shiftSample({ engaged: { arrow: { x: 1416, y: 866, w: 8, h: 11, opacity: 1, dir: 'right' } } }));
+  assert.match(right.offenders[0].note, /points right, not left/);
+  const out = shift(shiftSample({ engaged: { arrow: { x: 1300, y: 866, w: 8, h: 11, opacity: 1, dir: 'left' } } }));
+  assert.match(out.offenders[0].note, /not in the gap/);
+  const low = shift(shiftSample({ engaged: { arrow: { x: 1416, y: 880, w: 8, h: 11, opacity: 1, dir: 'left' } } }));
+  assert.match(low.offenders[0].note, /off the lens line/);
+  const lit = shift(shiftSample({ rest: { arrow: { opacity: 1 } } }));
+  assert.match(lit.offenders[0].note, /opacity 1 at rest, want 0/);
+  const wide = shift(shiftSample({ rest: { tile: { x: 1390, w: 50 } } }));
+  assert.match(wide.offenders[0].note, /at rest it is 50 wide/, 'at rest the badge is still pass 9\'s rectangle');
+  assert.match(shift(shiftSample(), { label: 'motion' }).note, /shift/);
+  assert.match(shift(shiftSample({ engaged: { open: false } }), { label: 'motion' }).offenders[0].path, /^motion /);
 });

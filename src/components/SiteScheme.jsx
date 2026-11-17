@@ -42,7 +42,8 @@
  *   ?schemeui=0 hides the widget; ?schemeguard=<ms> the wheel pass-through guard;
  *   ?schemerows ?schemesize ?schemegap dial the deployed window and its spacing (site-scheme.css);
  *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout the
- *   column's entrance and exit; ?schemepad the badge's padding round the eye.
+ *   column's entrance and exit; ?schemepad the badge's padding round the eye; ?schemeshift the
+ *   engaged eye's step left off the viewport's edge.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import GraticulePager from './work/pager/GraticulePager.jsx';
@@ -96,6 +97,7 @@ export default function SiteScheme() {
       if (p.far != null) el.style.setProperty('--eye-far', String(p.far));
       if (p.pad != null) el.style.setProperty('--badge-pad', `${p.pad}px`);
       if (p.clear != null) el.style.setProperty('--badge-clear', `${p.clear}px`);
+      if (p.shift != null) el.style.setProperty('--eye-shift', `${p.shift}px`);
       if (p.inMs != null) el.style.setProperty('--eye-in', `${p.inMs}ms`);
       if (p.outMs != null) el.style.setProperty('--eye-out', `${p.outMs}ms`);
       // [data-ready] lets the badge appear with the eye, never before it.

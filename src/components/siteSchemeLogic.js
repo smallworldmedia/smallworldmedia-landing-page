@@ -110,6 +110,9 @@ const dial = (raw, lo, hi) => {
  *   ?schemeclear=<px> the PHONE badge's bottom edge above the viewport's bottom at rest (<= 768px only: it
  *                     lifts the badge clear of the screen's rounded corner), 0 to 120; 0 = today's seat,
  *                     null = the CSS default (--badge-clear)
+ *   ?schemeshift=<px> the engaged eye's step LEFT, away from the viewport's right edge (SQ-107 pass 10), at
+ *                     /work's stagger taper (1 at the lens, 0.444 one station out, 0.111 two out), 0 to 120;
+ *                     0 = a straight column, null = the CSS default (--eye-shift, one rest eye width)
  * Out-of-range values clamp; unparseable ones fall back to the default (null: the CSS owns it).
  */
 export function schemeParams(params) {
@@ -125,6 +128,7 @@ export function schemeParams(params) {
     lift: dial(params.get('schemelift'), 1, 3),
     pad: dial(params.get('schemepad'), 0, 40),
     clear: dial(params.get('schemeclear'), 0, 120),
+    shift: dial(params.get('schemeshift'), 0, 120),
     near: dial(params.get('schemenear'), 0.2, 1),
     far: dial(params.get('schemefar'), 0.2, 1),
     inMs: dial(params.get('schemein'), 0, 5000),
