@@ -14,9 +14,20 @@
  * scheme under the lens across the site; release commits it; Escape, or any
  * disengage that commits nothing, restores the committed one.
  *
+ * The eye sits in a rectangular badge whose right edge is the viewport's (site-scheme.css, the
+ * pager's ::before), at ONE seat on every route (the corner row, a little off the bottom edge).
+ * The badge is a clipping window onto a strip of three background panels (a glass overlay for
+ * `project`, black, blue) that rides the column's own position: one detent, one badge height.
+ * Engaged, the badge, the eye and the iris scale about one point, the badge's right edge at its
+ * vertical centre. It is z 101, above the shell and so above the route fill, and stays put through
+ * every page change. The info drawer, the privacy notice and the inquiry overlay hide it; the phone
+ * menu's takeover does not: it is one level above (.site-menu-host, z 102), so its own wipe paints
+ * over the badge, and SiteNav makes the badge inert while the menu is up.
+ *
  * Authority: colorScheme.js alone decides the scheme. This component calls
  * setScheme / onScheme and writes nothing of its own to the DOM except the
- * `is-pager-engaged` class on its wrapper and the dials below. A scheme change
+ * `is-pager-engaged` class on its wrapper, the dials below and the wrapper's
+ * data-ready. A scheme change
  * re-renders only this widget's lens art, never the page.
  *
  * It is a PERSISTED island (BaseLayout: transition:persist="site-scheme"), so its
@@ -29,13 +40,13 @@
  *
  * ?params (read once at mount; docs/tunables-guide.md "colour scheme"):
  *   ?schemeui=0 hides the widget; ?schemeguard=<ms> the wheel pass-through guard;
- *   ?schemerows ?schemesize ?schemepitch dial the deployed window (site-scheme.css);
+ *   ?schemerows ?schemesize ?schemegap dial the deployed window and its spacing (site-scheme.css);
  *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout the
- *   column's entrance and exit.
+ *   column's entrance and exit; ?schemepad the badge's padding round the eye.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import GraticulePager from './work/pager/GraticulePager.jsx';
-import { SchemeSwatch, EyeArt, EyeDefs, EYE_LID_MASK } from './schemeSwatches.jsx';
+import { SchemeSwatch, EyeArt, EyeDefs } from './schemeSwatches.jsx';
 import {
   SCHEMES,
   getScheme,
@@ -77,16 +88,17 @@ export default function SiteScheme() {
     if (el) {
       // The engine reads --scale-rows as a bare number: rows SHOWN = 2 x pitches each side + centre.
       el.style.setProperty('--scale-rows', String(p.rows / 2));
-      // The lid opening, as the window's mask (the one source of the lid shape: schemeSwatches.jsx).
-      el.style.setProperty('--eye-lid-mask', EYE_LID_MASK);
       if (p.size != null) el.style.setProperty('--scheme-swatch', `${p.size}px`);
-      if (p.pitch != null) el.style.setProperty('--scheme-pitch', `${p.pitch}px`);
+      if (p.gap != null) el.style.setProperty('--scheme-gap', `${p.gap}px`);
       // The engaged look (site-scheme.css owns the defaults; a dial writes only what it was given).
       if (p.lift != null) el.style.setProperty('--eye-engaged', String(p.lift));
       if (p.near != null) el.style.setProperty('--eye-near', String(p.near));
       if (p.far != null) el.style.setProperty('--eye-far', String(p.far));
+      if (p.pad != null) el.style.setProperty('--badge-pad', `${p.pad}px`);
       if (p.inMs != null) el.style.setProperty('--eye-in', `${p.inMs}ms`);
       if (p.outMs != null) el.style.setProperty('--eye-out', `${p.outMs}ms`);
+      // [data-ready] lets the badge appear with the eye, never before it.
+      el.dataset.ready = '';
     }
     setUi(p.ui);
     setActive(stationOf(getScheme()));
@@ -174,6 +186,7 @@ export default function SiteScheme() {
           hintOn={false}
           wrap
           className="swm-corner__pager"
+          cssPitch
           labels={LABELS}
           renderStation={renderSwatch}
           renderLens={renderEye}
