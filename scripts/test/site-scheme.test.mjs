@@ -17,6 +17,7 @@ import {
   schemeParams,
   eyeDelays,
   eyeGeometry,
+  cssMs,
   LIDS,
   LIDS_MIN,
   IRIS_UNITS,
@@ -595,6 +596,21 @@ test('lid scale derivation the smallest k that covers the iris is 1.1136 and the
   const css = skinCss();
   assert.ok(/--eye-u-w:\s*53\.28;/.test(css) && /--eye-u-h:\s*30\.64;/.test(css), 'the CSS eye box is eyeGeometry(1.12), the dial writes both');
   assert.ok(/--eye-h: calc\(var\(--scheme-swatch\) \* var\(--eye-u-h\) \/ 26\)/.test(css.replace(/\s+/g, ' ')));
+});
+
+test('cssMs reads a duration token in either unit (the build minifies 160ms to .16s)', () => {
+  // The built CSS (astro build) rewrites `--eye-slide: 160ms` as `.16s`; the dev server keeps `160ms`. A bare
+  // parseFloat read 0.16 and planned the whole sequence in fractions of a ms (the sequence gate failed on a build).
+  assert.equal(cssMs('.16s', 0), 160);
+  assert.equal(cssMs(' 160ms', 0), 160);
+  assert.equal(cssMs('0.2s', 0), 200);
+  assert.equal(cssMs('70ms', 0), 70);
+  assert.equal(cssMs('0s', 9), 0);
+  assert.equal(cssMs('1', 2), 1, 'a bare number (--eye-up-shown) is taken as is');
+  assert.equal(cssMs('', 160), 160, 'an unset token falls back');
+  assert.equal(cssMs(undefined, 70), 70);
+  const sc = read('src/components/SiteScheme.jsx');
+  assert.ok(/const ms = \(name, d\) => cssMs\(cc\.getPropertyValue\(name\), d\);/.test(sc), 'planSequence reads every duration through cssMs');
 });
 
 test('eyeDelays engage the slide, then the grow, then the near ring, then the far ring', () => {

@@ -64,6 +64,7 @@ import {
   schemeParams,
   eyeDelays,
   eyeGeometry,
+  cssMs,
   LIDS,
 } from './siteSchemeLogic.js';
 
@@ -90,10 +91,7 @@ function planSequence(corner, dir) {
   const now = {};
   for (const k of GROUPS) now[k] = parseFloat(cs.getPropertyValue(`--eye-t${k}`)) || 0;
   const cc = getComputedStyle(corner);
-  const ms = (name, d) => {
-    const v = parseFloat(cc.getPropertyValue(name));
-    return Number.isFinite(v) ? v : d;
-  };
+  const ms = (name, d) => cssMs(cc.getPropertyValue(name), d);
   // Above 768px the far ring (two stations out) is never seen (--eye-up-shown 1: one circle above the lens, one
   // below), so it is counted as already arrived and no beat is spent on it: the release starts with the near ring.
   if (ms('--eye-up-shown', 2) < 2) now.f = dir === 'in' ? 1 : 0;

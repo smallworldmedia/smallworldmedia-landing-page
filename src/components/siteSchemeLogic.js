@@ -113,6 +113,17 @@ export function eyeGeometry(k = LIDS) {
   };
 }
 
+/**
+ * A CSS duration as resolved from a custom property, in ms. The build's CSS minifier rewrites `160ms` as `.16s`,
+ * so the unit is read, never assumed (the dev server keeps `160ms`). A bare number is taken as ms.
+ */
+export function cssMs(raw, fallback) {
+  const s = String(raw ?? '').trim();
+  const n = parseFloat(s);
+  if (!Number.isFinite(n)) return fallback;
+  return /\ds$/.test(s) && !/ms$/.test(s) ? n * 1000 : n;
+}
+
 /** The groups of the engage, in the order they start. s: the slide, g: the grow, n: the near ring, f: the far ring. */
 const ENGAGE_ORDER = ['s', 'g', 'n', 'f'];
 const RELEASE_ORDER = ['f', 'n', 'g', 's'];
