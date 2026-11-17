@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-16*
+*Last Updated: 2026-11-17*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -176,7 +176,7 @@ and stamped, but no CSS reads it; a rule that ever does selects the five keys by
 How a scheme reaches a canvas: one `onScheme` subscription per scene. A settled event must recolour;
 a preview may write uniforms only (no texture or slot rebuild, the pager fires one per detent). Under
 black every fill and border is `#000000`; the one exception is /work's shell grid line (and glow), a
-neutral grey at `?schemegrid` (0.12). Under spectrum (wave 4, 11-15) both scenes draw ramp A over the
+neutral grey at `?schemegrid` (0.16, `#292929`, since 11-17). Under spectrum (wave 4, 11-15) both scenes draw ramp A over the
 flat colour through one shared uniform set, so a scheme change still writes uniforms only, and at mix
 0 a scene paints exactly what it painted before. The home globe's gaps, pole caps, corner fringe and
 surge continue the DOM ring's conic ramp about the ring's centre (`globe/panelMaterial.js`
@@ -470,6 +470,11 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
 
 ## Verification
 - Motion/layout changes are verified on screen (Playwright at 1440 and 390), not by build success.
+- Gate CSS timing against a BUILD as well as the dev server: the build's CSS minifier rewrites `160ms` as
+  `.16s`, so a duration read back through `getComputedStyle` (a custom property's resolved value) changes
+  UNIT between the two. Never `parseFloat` one; read its unit (`cssMs()`, `siteSchemeLogic.js`). SQ-107
+  pass 11's `sequence` gate passed on dev and failed on `astro preview` (the grow started with the slide)
+  until `planSequence` read the unit (`413b515`, 11-17).
 - Headless Chromium starves `/work`'s main thread: launch with `--use-angle=swiftshader
   --enable-unsafe-swiftshader`, wait ~250 ms before reading state, treat `.fp.is-pager-engaged` as
   truth. Never click top-center to blur ([PREVIOUS] sits there). `scripts/pager-probe.mjs` embodies this;
@@ -527,8 +532,8 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   `streamClip`, `segmentsPerRendition`, `loops`, `audio`, judging every master by the clip its
   surface owes, imported from `work/imageConfig.js` rather than restated) take the probe's report and
   import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures.
-  `scripts/lib/scheme-gate.mjs` (the colour schemes' fourteen gates, 11-14 and 11-15) follows the same rule under
-  `scripts/test/scheme-gate.test.mjs`, as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
+  `scripts/lib/scheme-gate.mjs` (the colour schemes' page gates, 11-14 and 11-15, and the corner widget's sixteen,
+  SQ-107 through 11-17) follows the same rule under `scripts/test/scheme-gate.test.mjs` (72 tests at `413b515`), as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
   no uncover before the destination draws, none past `NAV_HOLD_MAX_MS`) under `scripts/test/nav-wipe.test.mjs`
   and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
   under `scripts/test/legal-scroll.test.mjs`. Every gate
