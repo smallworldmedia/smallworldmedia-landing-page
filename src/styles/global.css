@@ -342,12 +342,12 @@
      knob in process.css.) */
   --privacy-clearance: 7rem;
 
-  /* The corner widget's badge, at its default size (SQ-107): the eye (18px x 48/26, the
+  /* The corner widget's badge, at its default size (SQ-107): the eye (18px x 53.28/26 at the default lid scale, the
      --scheme-swatch of site-scheme.css) plus the default padding (4px) each side; its right edge is
      the viewport's. It owns the lower-right corner, so above 768px (the pill is hidden below) the
      privacy pill and the footer link row's clearance for it move left by this much (.site-privacy,
      below). */
-  --badge-reserve: calc(18px * 48 / 26 + 2 * 4px);
+  --badge-reserve: calc(18px * 53.28 / 26 + 2 * 4px);
 
   /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
      edge lands on the same left line as the detail-page client name (the

@@ -15,6 +15,12 @@ import {
   splitSubpaths,
   stripFills,
   schemeParams,
+  eyeDelays,
+  eyeGeometry,
+  LIDS,
+  LIDS_MIN,
+  IRIS_UNITS,
+  LID_STROKE,
 } from '../../src/components/siteSchemeLogic.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -138,6 +144,10 @@ test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesi
     far: null,
     inMs: null,
     outMs: null,
+    slideMs: null,
+    growMs: null,
+    stepMs: null,
+    lids: null,
   });
   assert.equal(q('schemeui=0').ui, false);
   assert.equal(q('schemeui=1').ui, true);
@@ -297,8 +307,8 @@ test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger
   const css = skinCss();
   const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   // The dial: one rest eye width by default, 0 = a straight column, ramped by the engage.
-  assert.ok(/--eye-shift: var\(--eye-w\);/.test(flat), 'default S is one rest eye width (PROPOSED)');
-  assert.ok(/--eye-s: calc\(var\(--eye-shift\) \* var\(--eye-t\)\);/.test(flat), 'S ramps with the engage: 0 at rest, full when deployed, on the one --eye-t');
+  assert.ok(/--eye-shift: calc\(var\(--scheme-swatch\) \* 48 \/ 26\);/.test(flat), 'default S is pass 10\'s 48 swatch units whatever the lids\' scale (the eye box grew with the lids in pass 11, the shift did not move)');
+  assert.ok(/--eye-s: calc\(var\(--eye-shift\) \* var\(--eye-ts\)\);/.test(flat), 'S ramps with the SLIDE: 0 at rest, full when the slide has ended, on --eye-ts (pass 11: the slide is its own progress)');
   const q = (s) => schemeParams(new URLSearchParams(s));
   assert.equal(q('').shift, null, 'absent: the CSS default');
   assert.equal(q('schemeshift=20').shift, 20);
@@ -332,9 +342,9 @@ test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger
   assert.ok(/border-left: 0\.571rem solid currentColor;/.test(work) && /border-top: 0\.429rem solid transparent;/.test(work), '/work\'s own pointer is untouched');
 });
 
-test('SQ-107 pass 5 baked dials, Nathan\'s 18 / 4 / 1.5 / 0.8 / 0.5 and 260 / 200 are the CSS defaults', () => {
+test('SQ-107 pass 5 baked dials, Nathan\'s 18 / 4 / 1.5 / 0.8 / 0.5, the circles\' own 200 / 200 and pass 11\'s 160 / 160 / 70 are the CSS defaults', () => {
   const css = skinCss();
-  for (const [prop, value] of [['--scheme-swatch', '18px'], ['--badge-pad', '4px'], ['--eye-engaged', '1.5'], ['--eye-near', '0.8'], ['--eye-far', '0.5'], ['--eye-in', '260ms'], ['--eye-out', '200ms']]) {
+  for (const [prop, value] of [['--scheme-swatch', '18px'], ['--badge-pad', '4px'], ['--eye-engaged', '1.5'], ['--eye-near', '0.8'], ['--eye-far', '0.5'], ['--eye-in', '200ms'], ['--eye-out', '200ms'], ['--eye-slide', '160ms'], ['--eye-grow', '160ms'], ['--eye-step', '70ms']]) {
     assert.ok(new RegExp(`${prop}:\\s*${value.replace('.', '\\.')};`).test(css), `${prop} ${value}`);
   }
   // the five dials stay readable
@@ -378,13 +388,12 @@ test('SQ-107 pass 5 nothing is cut by a straight edge, the window carries no mas
   assert.ok(!/eye-edge|eye-feather|eye-reach|eye-lid-mask/.test(css), 'no band, feather, reach or lid mask left anywhere in the skin (the one gradient is the badge\'s background strip, not a mask)');
   const station = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__station\s*\{([^}]*)\}/)?.[1] ?? '';
   const st = station.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
-  assert.ok(/--eye-delay: calc\(var\(--eye-stagger\) \* clamp\(0, calc\(var\(--ndr\) - 1\), 1\)\);/.test(st), 'the far circle (two stations out) starts later; the lens and the near circle (one out) start together');
-  assert.ok(/--eye-p: clamp\(0, calc\(\(var\(--eye-t\) - var\(--eye-delay\)\) \/ \(1 - var\(--eye-delay\)\)\), 1\);/.test(st), 'its own progress on the one --eye-t: it ends WITH the entrance, so the exit runs it back');
+  assert.ok(/--eye-p: calc\(var\(--eye-tg\) \+ \(var\(--eye-tn\) - var\(--eye-tg\)\) \* clamp\(0, var\(--ndr\), 1\) \+ \(var\(--eye-tf\) - var\(--eye-tn\)\) \* clamp\(0, calc\(var\(--ndr\) - 1\), 1\)\);/.test(st), 'its own progress: the lens rides the grow (--eye-tg), the near circles (one out) --eye-tn, the far (two out) --eye-tf, interpolated by the continuous distance --ndr');
+  assert.ok(!/--eye-delay|--eye-stagger/.test(css), 'the stagger and its delay are retired (pass 11: three groups on their own delays)');
   assert.ok(/opacity: calc\(var\(--eye-p\) \* var\(--eye-up\) \* var\(--eye-down\)\);/.test(st), 'opacity: entrance progress x the fade above x the fade below');
   assert.ok(!/--eye-foot|--badge-ride/.test(css), 'no footer ride, so no fade for it');
-  assert.ok(/--eye-stagger:\s*0\.4;/.test(css), 'the stagger, a share of the entrance');
   assert.ok(/--eye-hit-up:\s*2\.5;/.test(css) && /--eye-hit-down:\s*1\.5;/.test(css), 'the press target reaches the shown column');
-  assert.ok(/--eye-t var\(--eye-in\) var\(--ease-draw\)/.test(flat), 'on the existing timing: --eye-in, --eye-out, no overshoot');
+  assert.ok(/--eye-tn var\(--eye-in\) var\(--ease-draw\)/.test(flat) && /--eye-tf var\(--eye-out\) var\(--ease-draw\)/.test(flat), 'the rings on the existing timing: --eye-in, --eye-out, no overshoot');
   const pager = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager\s*\{([^}]*)\}/)?.[1] ?? '';
   assert.ok(!/--badge-lift|--badge-rise/.test(pager), 'no climb');
 });
@@ -415,14 +424,15 @@ test('SQ-101 long press: no callout, selection, drag or image dialog on the widg
   assert.equal(sw.split('draggable="false"').length - 1, 2, 'both svgs (the circle, the eye) are not draggable');
 });
 
-test('SQ-101 engaged look, the engine falloff ranks the circles, one --eye-t drives the entrance and exit', () => {
+test('SQ-101 engaged look, the engine falloff ranks the circles, four registered progress numbers drive the entrance and exit', () => {
   const css = skinCss();
   assert.ok(!/--scale-sel:\s*1\s*;/.test(css) && !/--scale-sel-bump:\s*1\s*;/.test(css), 'the falloff is no longer forced off');
   assert.ok(/--scale-falloff:\s*2;/.test(css) && /--scale-falloff-hold:\s*0;/.test(css) && /--scale-falloff-exp:\s*1;/.test(css), 'a straight line over two stations');
   assert.ok(/--scale-sel:\s*calc\(2 \* max\(var\(--eye-near\), var\(--eye-far\)\) \/ var\(--eye-far\) - 1\)/.test(css), 'one out = near / far of the small');
   assert.ok(/--scale-sel-bump:\s*calc\(1 \/ \(var\(--eye-far\) \* var\(--scale-sel\)\)\)/.test(css), 'the lens = 1 / far of the small');
-  assert.ok(/@property --eye-t\s*\{[^}]*<number>[^}]*inherits:\s*true/.test(css), '--eye-t is a registered, inherited number');
-  assert.ok(/--eye-t var\(--eye-out\) var\(--ease-draw\)/.test(css) && /--eye-t var\(--eye-in\) var\(--ease-draw\)/.test(css), 'eased in and out on the house curve');
+  for (const g of ['ts', 'tg', 'tn', 'tf']) assert.ok(new RegExp(`@property --eye-${g}\\s*\\{[^}]*<number>[^}]*inherits:\\s*true`).test(css), `--eye-${g} is a registered, inherited number`);
+  assert.ok(!/@property --eye-t\s*\{/.test(css), 'the single --eye-t is split');
+  assert.ok(/--eye-ts var\(--eye-slide\) var\(--ease-draw\)/.test(css) && /--eye-tg var\(--eye-grow\) var\(--ease-draw\)/.test(css) && /--eye-tn var\(--eye-in\) var\(--ease-draw\)/.test(css) && /--eye-tf var\(--eye-out\) var\(--ease-draw\)/.test(css), 'each group eased on the house curve, on its own duration');
   assert.ok(/prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?transition:\s*z-index 0s;/.test(css), 'reduced motion is instant');
   assert.ok(/\.scheme-swatch\s*\{[^}]*calc\(var\(--scheme-swatch\) \* var\(--eye-lift\)\)/.test(css) && !/\.scheme-swatch\s*\{[^}]*--eye-far/.test(css), 'the circle is drawn at the LARGE size and lifts with the eye (SQ-107 jitter: never scaled up from a small, pixel-snapped svg)');
   assert.ok(/\.fp-scale__station\s*\{[^}]*transform:\s*scale\(calc\(var\(--sel\) \* var\(--eye-far\)\)\)/.test(css), 'the row only ever scales the large circle down');
@@ -450,10 +460,10 @@ test('SQ-107 the flush badge owns the lower-right corner, above 768px the privac
   assert.ok(reserve, 'the badge reserve is a root token');
   const skin = skinCss();
   const swatch = /--scheme-swatch:\s*([\d.]+(?:rem|px))/.exec(skin)?.[1];
-  assert.ok(swatch && reserve[1].startsWith(`${swatch} * 48 / 26`), 'the reserve is built from the skin default swatch (one number, two files)');
+  assert.ok(swatch && reserve[1].startsWith(`${swatch} * 53.28 / 26`), 'the reserve is built from the skin default swatch and the default lids\' eye width (one number, two files)');
   const pad = /--badge-pad:\s*([\d.]+px)/.exec(skin)?.[1];
   assert.ok(pad && reserve[1].endsWith(`2 * ${pad}`), 'and its padding');
-  assert.ok(/--eye-w:\s*calc\(var\(--scheme-swatch\)\s*\*\s*48\s*\/\s*26\)/.test(skin), 'and the eye width the skin derives from it');
+  assert.ok(/--eye-u-w:\s*53\.28;/.test(skin) && /--eye-w:\s*calc\(var\(--scheme-swatch\)\s*\*\s*var\(--eye-u-w\)\s*\/\s*26\)/.test(skin), 'and the eye width the skin derives from it (units of 26 per swatch, the lid scale\'s box)');
   const seat = 'html:has\\(\\.swm-corner\\)';
   const m = new RegExp(`@media \\(min-width: 769px\\)\\s*\\{\\s*${seat}\\s*\\{\\s*--privacy-clearance:[^}]*--badge-reserve[^}]*\\}\\s*${seat}\\s+\\.site-privacy\\s*\\{\\s*right:[^}]*--chrome-right-inset[^}]*--badge-reserve[^}]*\\}`).exec(g);
   assert.ok(m, 'desktop only, keyed on the widget\'s presence so it holds before hydration');
@@ -507,4 +517,122 @@ test('SQ-107 pass 5 the left jolt root cause, the strip carries no compositing h
   const skin = skinCss().match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__scale\s*\{([^}]*)\}/)?.[1] ?? '';
   assert.ok(/will-change:\s*auto/.test(skin), 'the widget turns the hint off: a layer is rastered about a pixel off the rest iris under it, the step at the hand-over');
   assert.ok(!/will-change:\s*transform/.test(skinCss()), 'and nothing else in the skin puts the iris or the column on a layer of its own');
+});
+
+// ── SQ-107 pass 11: the sequence, the arrow's slide, the lids' scale ────────────────────────────────────────
+
+test('schemeParams the sequence dials ?schemeslide ?schemegrow ?schemestep ?schemelids parse and clamp (null = the CSS default)', () => {
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  for (const [key, field, hi] of [['schemeslide', 'slideMs', 600], ['schemegrow', 'growMs', 600], ['schemestep', 'stepMs', 300]]) {
+    assert.equal(q('')[field], null, `${key} absent`);
+    assert.equal(q(`${key}=120`)[field], 120);
+    assert.equal(q(`${key}=0`)[field], 0, `${key}=0 is instant, not the default`);
+    assert.equal(q(`${key}=-5`)[field], 0);
+    assert.equal(q(`${key}=${hi * 10}`)[field], hi);
+    assert.equal(q(`${key}=fast`)[field], null);
+    assert.equal(q(`${key}=`)[field], null);
+  }
+  assert.equal(q('schemelids=1.2').lids, 1.2);
+  assert.equal(q('schemelids=1').lids, 1, '1 = pass 10\'s lids');
+  assert.equal(q('schemelids=0.5').lids, 1, 'a smaller lid would cut the iris: clamps to 1');
+  assert.equal(q('schemelids=9').lids, 1.3);
+  assert.equal(q('schemelids=big').lids, null);
+  assert.equal(q('schemein=350').inMs, 350, 'the circles\' own entrance');
+  assert.equal(q('schemeout=0').outMs, 0);
+  const sc = read('src/components/SiteScheme.jsx');
+  for (const [field, prop] of [['slideMs', '--eye-slide'], ['growMs', '--eye-grow'], ['stepMs', '--eye-step']]) {
+    assert.ok(new RegExp(`p\\.${field} != null\\) el\\.style\\.setProperty\\('${prop}', \`\\$\\{p\\.${field}\\}ms\`\\)`).test(sc), `SiteScheme writes ${field} as ${prop}`);
+  }
+});
+
+test('lid scale derivation the smallest k that covers the iris is 1.1136 and the default 1.12 clears it', () => {
+  const k = LIDS_MIN;
+  assert.ok(Math.abs(k - 12.25 / 11) < 1e-12, 'k >= (13 - 0.75) / (27.5 - 16.5)');
+  assert.ok(Math.abs(k - 1.1136) < 1e-4);
+  assert.equal(LIDS, 1.12);
+  assert.ok(LIDS >= LIDS_MIN, 'the default covers');
+  // geometry: the lid arcs have radius 27.5k through +-22k, the apex 11k from the centre
+  for (const kk of [1, 1.12, 1.3]) {
+    const g = eyeGeometry(kk);
+    const apex = g.r - Math.sqrt(g.r * g.r - (22 * kk) ** 2);
+    assert.ok(Math.abs(apex - 11 * kk) < 1e-9, `the apex is 11k at k = ${kk}`);
+    // the circle (radius 13) at the centre against the lids' OUTER edge (arc centres 16.5k away, outer radius 27.5k + 0.75)
+    const covered = 16.5 * kk + IRIS_UNITS / 2 <= 27.5 * kk + LID_STROKE / 2 + 1e-9;
+    assert.equal(covered, kk >= LIDS_MIN - 1e-12, `the iris is inside the lids' outer outline exactly when k >= ${LIDS_MIN.toFixed(4)} (k = ${kk})`);
+  }
+  const one = eyeGeometry(1);
+  assert.deepEqual([one.w, one.h], [48, 28], 'k = 1 is pass 10\'s eye box');
+  const d = eyeGeometry(LIDS);
+  assert.deepEqual([+d.w.toFixed(2), +d.h.toFixed(2)], [53.28, 30.64], 'the default box keeps today\'s margins: 2 units at the sides, 3 above and below');
+  assert.ok(Math.abs((d.w - 2 * 22 * LIDS) / 2 - 2) < 1e-9 && Math.abs((d.h - 2 * 11 * LIDS) / 2 - 3) < 1e-9);
+  // the art: the stroke stays LID_STROKE and the iris stays 26 whatever k is
+  const sw = read('src/components/schemeSwatches.jsx');
+  assert.ok(/const LID_W = LID_STROKE;/.test(sw) && /const IRIS = IRIS_UNITS;/.test(sw), 'the stroke and the iris are constants, not scaled with the lids');
+  assert.ok(/<clipPath id="swm-eye-lid">\s*<path d=\{eye\.lid\} \/>/.test(sw), 'the lid-opening clip scales with the lids');
+  const css = skinCss();
+  assert.ok(/--eye-u-w:\s*53\.28;/.test(css) && /--eye-u-h:\s*30\.64;/.test(css), 'the CSS eye box is eyeGeometry(1.12), the dial writes both');
+  assert.ok(/--eye-h: calc\(var\(--scheme-swatch\) \* var\(--eye-u-h\) \/ 26\)/.test(css.replace(/\s+/g, ' ')));
+});
+
+test('eyeDelays engage the slide, then the grow, then the near ring, then the far ring', () => {
+  const rest = { s: 0, g: 0, n: 0, f: 0 };
+  assert.deepEqual(eyeDelays('in', rest), { s: 0, g: 160, n: 230, f: 300, h: 320 }, 'nominal: the grow when the slide has ended, a beat per ring, the rest iris at the end of the grow');
+  assert.deepEqual(eyeDelays('in', rest, { slide: 100, grow: 200, step: 40 }), { s: 0, g: 100, n: 140, f: 180, h: 300 }, 'every number is a dial');
+  assert.deepEqual(eyeDelays('in', rest, { slide: 0, grow: 0, step: 0 }), { s: 0, g: 0, n: 0, f: 0, h: 0 }, 'all zero = all together');
+});
+
+test('eyeDelays release the far ring, then the near, then the shrink, then the slide back', () => {
+  const full = { s: 1, g: 1, n: 1, f: 1 };
+  assert.deepEqual(eyeDelays('out', full), { f: 0, n: 70, g: 140, s: 300, h: 0 }, 'the exact reverse: far first, the slide back when the shrink has ended');
+  const o = eyeDelays('out', full);
+  assert.ok(o.f < o.n && o.n < o.g && o.g < o.s, 'the release order is the engage order reversed');
+  const e = eyeDelays('in', { s: 0, g: 0, n: 0, f: 0 });
+  assert.ok(e.s < e.g && e.g < e.n && e.n < e.f);
+});
+
+test('eyeDelays a quick tap never waits out a delay that belongs to a group that never started', () => {
+  // released 100 ms in: the slide is under way, nothing else started: it turns back at once
+  const at100 = eyeDelays('out', { s: 0.6, g: 0, n: 0, f: 0 });
+  assert.equal(at100.s, 0, 'the slide, the only group that moved, does not wait for a shrink that never began');
+  // released 250 ms in: the slide done, the grow half way, the near ring just begun, the far ring not started
+  const at250 = eyeDelays('out', { s: 1, g: 0.5, n: 0.1, f: 0 });
+  assert.equal(at250.n, 0, 'the near ring turns back at once: the far ring it would wait for never started');
+  assert.equal(at250.f, 0);
+  assert.equal(at250.g, 70, 'the grow a beat after the near ring');
+  assert.equal(at250.s, 70 + 160, 'and the slide when the grow has shrunk');
+  // engaged again mid-release: a group already home does not hold the others
+  const back = eyeDelays('in', { s: 1, g: 0.4, n: 0, f: 0 });
+  assert.equal(back.s, 0);
+  assert.equal(back.g, 0, 'the slide never left (home on the left) and does not hold the grow');
+  assert.equal(back.n, 70);
+  assert.equal(eyeDelays('in', { s: 1, g: 1, n: 1, f: 1 }).h, 0, 'nothing to hand over when the lens circle is in');
+});
+
+test('the CSS runs the four groups on their own delays and hands the rest iris over at the end of the grow', () => {
+  const css = skinCss();
+  const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  for (const k of ['s', 'g', 'n', 'f']) assert.ok(new RegExp(`--eye-t${k} var\\(--eye-(slide|grow|in|out)\\) var\\(--ease-draw\\) var\\(--eye-dl-${k},`).test(flat), `--eye-t${k} takes its delay from --eye-dl-${k}`);
+  assert.ok(/--eye-lift: calc\(1 \+ \(var\(--eye-engaged\) - 1\) \* var\(--eye-tg\)\);/.test(flat), 'the lift rides the GROW');
+  assert.ok(/\[data-open\] \.scheme-eye__iris \{ opacity: 0; transition: opacity 0s linear var\(--eye-dl-h,/.test(flat), 'the rest iris hands over at the end of the grow');
+  const sc = read('src/components/SiteScheme.jsx');
+  assert.ok(/planSequence\(cornerRef\.current, v \? 'in' : 'out'\);\s*engagedRef\.current = v;/.test(sc), 'the delays are written before the engine\'s state change lands');
+  assert.ok(/prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?transition:\s*z-index 0s;/.test(css), 'reduced motion is instant');
+});
+
+test('the arrow waits entirely beyond the right edge at opacity 1 and slides in on the slide, /work\'s own pointer untouched', () => {
+  const css = skinCss();
+  const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  const ptr = flat.match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__pointer \{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/--eye-arrow-off: calc\(\(1 - var\(--eye-ts\)\) \* \(var\(--badge-pad\) \/ 2 \+ 0\.2855rem \+ 1px\)\);/.test(ptr), 'the offset is the slide\'s remaining progress times the arrow\'s distance to the edge (+ 1 px)');
+  assert.ok(/var\(--eye-arrow-off\)/.test(ptr), 'and the left edge adds it');
+  assert.ok(/opacity: 1;/.test(ptr) && /transition: none;/.test(ptr), 'opacity 1 and no opacity transition at rest');
+  assert.ok(/\[data-open\] \.fp-scale__pointer \{ opacity: 1; transition: none;/.test(flat), 'engaged too: it slides, never fades');
+  const pager = read('src/styles/pager-scale.css').replace(/\s+/g, ' ');
+  assert.ok(/opacity 0\.2s/.test(pager), '/work\'s pointer still fades');
+});
+
+test('the retired stagger and single --eye-t are gone from every consumer', () => {
+  for (const p of ['src/styles/site-scheme.css', 'src/styles/global.css', 'src/components/SiteScheme.jsx', 'src/components/schemeSwatches.jsx']) {
+    assert.ok(!/--eye-stagger|--eye-delay|--eye-t(?![a-z$-])/.test(read(p)), `${p} has no --eye-t / --eye-stagger left`);
+  }
 });

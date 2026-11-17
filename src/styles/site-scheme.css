@@ -7,20 +7,22 @@
    the column deploys and each circle slides into the eye and becomes its iris.
    SKIN ONLY: no motion constant, easing, detent, magnet or timing of the ENGINE is touched
    (the strip, the magnet, the detents, the falloff curve's shape are /work's). The column's
-   entrance and exit are this skin's own (--eye-t, below), in place of /work's per-row cascade.
+   entrance and exit are this skin's own (the four progresses --eye-ts / -tg / -tn / -tf, below), in
+   place of /work's per-row cascade.
 
    THE EYE. All measures are in units where the iris width = --scheme-swatch = 26 (1 unit
    = 1px at size 26; ?schemesize scales the whole eye, Nathan's 18 is the default): the eye box
-   is 48 x 28 units. The lids (the lens art, schemeSwatches.jsx EyeArt) sit in the chip, above
-   the window, so they paint over the moving circles.
+   is --eye-u-w x --eye-u-h units (53.28 x 30.64 at the default ?schemelids 1.12, 48 x 28 at 1: the
+   lids' arcs scaled about the eye's centre, the box keeping today's margins round them, SQ-107
+   pass 11). The lids (the lens art, schemeSwatches.jsx EyeArt) sit in the chip, above the window,
+   so they paint over the moving circles.
 
    NO HARD CLIP (Nathan 11-16, pass 5). No circle is ever cut by a straight box edge: the window
    paints with no mask (the lid mask and the window's vertical feather are gone: they cut a circle
    flat where it crossed the iris's band) and every circle's OPACITY is its own fade, a function of
    its distance from the lens (--ndr, the engine's continuous one): the circles SHOWN are the two
    above the lens and the one below it, the viewport's bottom edge is the only hard edge, and any
-   other circle is faded out before it reaches the window's edge. The entrance staggers on the one
-   --eye-t: the near circle (one station out) fades in first, the far circle (two out) after it.
+   other circle is faded out before it reaches the window's edge.
 
    Every rule is scoped under .swm-corner. Imported after pager-scale.css (BaseLayout),
    it out-specifies that sheet with the .swm-corner__pager class SiteScheme gives the
@@ -37,20 +39,50 @@
      num / peak / den     hidden (display:none): digits, no text is painted
      pulse                hidden: the rest pulse is a /work digit veil
      pointer              kept (SQ-107 pass 10): /work's lens arrow, mirrored to point LEFT at the selected
-                          eye, in the gap the engaged shift opens between it and the viewport's edge
-     box                  hidden: /work already ships it with no fill (11-13)
+                          eye, in the gap the engaged shift opens between it and the viewport's edge;
+                          pass 11: it slides in from beyond the edge on the slide's timing, no fade
+     box                 hidden: /work already ships it with no fill (11-13)
      hairline / seams     hidden: the axis stroke and the wheel seams are /work's ruler
      tick / slice         hidden: the per-station ::before / ::after marks are the same ruler
      hint / freeze        not rendered (hintOn and pauseOn are false); no scrim, no pause screen
    Tunables (docs/tunables-guide.md): ?schemerows (the window), ?schemesize, ?schemegap (the one
    spacing dial, at every width), ?schemepad, ?schemelift, ?schemenear, ?schemefar, ?schemein,
-   ?schemeout, ?schemeshift, all written as custom properties on .swm-corner by SiteScheme. */
+   ?schemeout, ?schemeshift, ?schemeslide, ?schemegrow, ?schemestep, ?schemelids, all written as custom
+   properties on .swm-corner by SiteScheme. */
 
-/* The engage progress, 0 (the eye at rest) to 1 (the column deployed). The pager root eases it
-   (one transition, ?schemein / ?schemeout long) and every engaged measure derives from it: the
-   lift of the eye, each circle's opacity, travel and pop. Registered so it interpolates as a
-   number, and inherited so the window and the stations read the live value. */
-@property --eye-t {
+/* THE ENGAGE AS A SEQUENCE (SQ-107 pass 11, Nathan 11-17). Four progresses, each 0 (at rest) to 1
+   (engaged), each its own transition on the pager root, started one after the other:
+     --eye-ts  the SLIDE: the selected eye steps left off the edge (the shift, and the arrow riding in)
+     --eye-tg  the GROW: the eye's lift (?schemelift), once the slide has ended; the lens circle's own
+               entrance rides it, so the rest iris hands over to it when the grow is done
+     --eye-tn  the NEAR ring (one station out): a beat (?schemestep) after the grow starts
+     --eye-tf  the FAR ring (two stations out): a beat after the near ring
+   A circle's own progress reads them by its continuous distance from the lens (--ndr: the eye's at 0,
+   the near ring's at 1, the far ring's at 2, interpolated between, so a scrub mid-entrance stays
+   continuous). The release plays the cascade backwards: far, near, the eye shrinks, then it slides back.
+   Registered so each interpolates as a number, and inherited so the window, the chip and the stations
+   read the live value. The delays between the groups are the transition-delays below; SiteScheme
+   rewrites them at each engage and release (--eye-dl-*, siteSchemeLogic.eyeDelays) so a group that has
+   moved never waits out a delay that belongs to a group that never started. */
+@property --eye-ts {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-tg {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-tn {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-tf {
   syntax: '<number>';
   inherits: true;
   initial-value: 0;
@@ -58,10 +90,16 @@
 
 .swm-corner {
   /* Iris diameter at rest (Nathan 11-16: ?schemesize=18). ?schemesize dials it, and the eye
-     (48 x 28 in iris units 26) scales with it. */
+     (--eye-u-w x --eye-u-h in iris units of 26) scales with it. */
   --scheme-swatch: 18px;
-  --eye-w: calc(var(--scheme-swatch) * 48 / 26);
-  --eye-h: calc(var(--scheme-swatch) * 28 / 26);
+  /* The eye box in iris units (SQ-107 pass 11, ?schemelids): the lids scaled by k = 1.12 about the eye's centre
+     (arcs through (+-22k, 0) of radius 27.5k, apex 11k, stroke LID_W unscaled), the box keeping today's margins
+     round them (1.25 units at the sides, 2.25 above and below): 44k + 4 by 22k + 6, = 48 x 28 at k = 1.
+     schemeSwatches.eyeGeometry is the one derivation; SiteScheme writes these two when ?schemelids is given. */
+  --eye-u-w: 53.28;
+  --eye-u-h: 30.64;
+  --eye-w: calc(var(--scheme-swatch) * var(--eye-u-w) / 26);
+  --eye-h: calc(var(--scheme-swatch) * var(--eye-u-h) / 26);
   /* Engaged (held, hovered, wheel- or drag-invoked): the whole eye scales up by --eye-engaged,
      and the column's circles go large (the lens), medium (one station out), small (two out),
      each as a fraction of the large: --eye-near, --eye-far. The engine's own proximity
@@ -90,32 +128,38 @@
      beyond the shown circles should take it). */
   --eye-hit-up: 2.5;
   --eye-hit-down: 1.5;
-  /* The column's entrance and exit (?schemein, ?schemeout), on --ease-draw: no overshoot, a
-     steep launch, a smooth deceleration. Reduced motion: instant (below). */
-  --eye-in: 260ms;
+  /* THE SEQUENCE'S TIMINGS (SQ-107 pass 11, PROPOSED; each a ?param, all on --ease-draw: no overshoot, a steep
+     launch, a smooth deceleration; reduced motion: instant, below). Engage: the slide (--eye-slide, ?schemeslide)
+     from 0, the grow (--eye-grow, ?schemegrow) the moment the slide has ended, the near ring a beat
+     (--eye-step, ?schemestep) after the grow starts, the far ring a beat after that; each CIRCLE's own entrance
+     is --eye-in (?schemein) long, its exit --eye-out (?schemeout). Release, the cascade backwards: the far ring
+     leaves first, the near ring a beat later, a beat after that the eye shrinks (the grow's length), then it
+     slides back (the slide's length). At the defaults the engage runs 0 / 160 / 230 / 300 ms to 500 ms
+     (slide, grow, near, far) and the release 0 / 70 / 140 / 300 ms to 460 ms (far, near, shrink, slide back). */
+  --eye-slide: 160ms;
+  --eye-grow: 160ms;
+  --eye-step: 70ms;
+  --eye-in: 200ms;
   --eye-out: 200ms;
   /* A circle enters from this fraction of its distance to the eye, at this fraction of its
      size, and leaves the same way. */
   --eye-travel: 0.5;
   --eye-pop: 0.5;
-  /* The stagger: the far circle (two stations out) starts this fraction of the entrance later
-     than the near one (one out), on the same --eye-t; the exit runs it back. */
-  --eye-stagger: 0.4;
   /* THE SHIFT (SQ-107 pass 10, ?schemeshift, PROPOSED; Nathan 11-17: "account for your thumb covering
      the selected eye when you are scrolling ... the same small arrow and x position offset utilized in
      the /work pager"). Engaged, every circle steps LEFT, away from the viewport's right edge, by this
      much times /work's own stagger taper --sw (1 at the lens, 0.444 one station out, 0.111 two out: the
      engine's --scale-slice-reach 3 and --scale-slice-exp 2, global.css), so the farther a circle is from
      the selected one the closer to the edge it sits, and it flows with the scrub exactly as /work's
-     slices do. The shift ramps with the engage (--eye-t): 0 at rest. The badge widens LEFT with the
-     selected eye and keeps its right edge on the viewport's. Default: one rest eye width. 0 = a straight
-     column. */
-  --eye-shift: var(--eye-w);
+     slices do. The shift ramps with the slide (--eye-ts): 0 at rest. The badge widens LEFT with the
+     selected eye and keeps its right edge on the viewport's. Default: 48 iris units, pass 10's one rest eye
+     width (33.23 px at size 18), which the lids' growth (pass 11) does not move. 0 = a straight column. */
+  --eye-shift: calc(var(--scheme-swatch) * 48 / 26);
   /* THE BADGE (Nathan 11-16, pass 5): a horizontal rectangle hugging the eye with the SAME padding
      on all four sides, --badge-pad (?schemepad; Nathan's 4): the eye plus --badge-pad each side,
      no size knob of its own. Its RIGHT EDGE IS THE VIEWPORT'S RIGHT EDGE on every route at every
      width: no inset, no gap; its corners are square. It is part of the pager (its ::before, drawn
-     behind the lids), so it grows with the eye on the same --eye-t, and the eye, the iris and the
+     behind the lids), so it grows with the eye on the grow (--eye-tg), and the eye, the iris and the
      badge scale about ONE point: the badge's right edge at its vertical centre. Nothing climbs:
      the selected circle stays at its rest height.
      ONE SEAT, SITEWIDE (Nathan 11-16, pass 7: "I prefer the slight raise off of the bottom of the
@@ -195,7 +239,7 @@
    drawn as the pager's ::before behind everything in it (z -1 in the pager's own stacking
    context: its `translate` and `isolation`). It scales with --eye-lift about the eye's centre,
    and the pager's translate (below) anchors its right edge, so rest and engaged are one
-   component on the one --eye-t. It appears with the eye (data-ready), never before it.
+   component. It appears with the eye (data-ready), never before it.
    THE STRIP (pass 7): the rectangle is a clipping window, its background the panels of the three
    stations stacked in SCHEMES order (project's glass, black, blue) as three hard-stopped bands of one
    badge height each, repeating. The strip's offset is the engine's own continuous column position
@@ -267,11 +311,11 @@ html[data-chrome-open] .swm-corner {
   --scale-falloff-exp: 1;
   --scale-sel: calc(2 * max(var(--eye-near), var(--eye-far)) / var(--eye-far) - 1);
   --scale-sel-bump: calc(1 / (var(--eye-far) * var(--scale-sel)));
-  /* The engage progress and the lift it gives the eye (1 at rest). */
-  --eye-lift: calc(1 + (var(--eye-engaged) - 1) * var(--eye-t));
-  /* The selected eye's shift at this instant (pass 10): the dial times the engage. Everything that
+  /* The grow's progress and the lift it gives the eye (1 at rest). */
+  --eye-lift: calc(1 + (var(--eye-engaged) - 1) * var(--eye-tg));
+  /* The selected eye's shift at this instant (pass 10): the dial times the SLIDE's progress. Everything that
      steps off the edge reads it. */
-  --eye-s: calc(var(--eye-shift) * var(--eye-t));
+  --eye-s: calc(var(--eye-shift) * var(--eye-ts));
   position: absolute;
   left: 0;
   top: calc(var(--scale-rows) * var(--scale-pitch) - var(--scale-lens-y));
@@ -287,23 +331,35 @@ html[data-chrome-open] .swm-corner {
   pointer-events: auto;
   /* Its own stacking context (the badge sits at z -1 inside it), whatever the translate. */
   isolation: isolate;
-  --eye-t: 0;
 }
 
-/* The entrance and the exit: the one transition the whole engaged look rides, its length swapped
-   by the state. The class is doubled so it outranks pager-scale.css's engaged-state transition
-   (z-index only), whatever order the host class and data-open land in; the z-index hold is that
-   sheet's, kept. */
+/* The entrance and the exit: four transitions, one per group, the delays between them what makes it a
+   sequence. The class is doubled so it outranks pager-scale.css's engaged-state transition (z-index only),
+   whatever order the host class and data-open land in; the z-index hold is that sheet's, kept.
+   RELEASE (the base): far leaves first, the near ring a beat later, a beat after that the eye shrinks, then
+   it slides back. The --eye-dl-* fallbacks are the nominal delays; SiteScheme writes the live ones at each
+   release (a group that has moved never waits out a delay that belongs to a group that never started). */
 .swm-corner .fp-scale.swm-corner__pager.swm-corner__pager {
   transition:
-    --eye-t var(--eye-out) var(--ease-draw),
+    --eye-ts var(--eye-slide) var(--ease-draw) var(--eye-dl-s, calc(2 * var(--eye-step) + var(--eye-grow))),
+    --eye-tg var(--eye-grow) var(--ease-draw) var(--eye-dl-g, calc(2 * var(--eye-step))),
+    --eye-tn var(--eye-out) var(--ease-draw) var(--eye-dl-n, var(--eye-step)),
+    --eye-tf var(--eye-out) var(--ease-draw) var(--eye-dl-f, 0ms),
     z-index 0s linear var(--pager-scrim-ms);
 }
 
+/* ENGAGE: the slide first, the grow when it has ended, the near ring a beat after the grow starts, the far ring
+   a beat after that. */
 .swm-corner .fp-scale.swm-corner__pager.swm-corner__pager[data-open] {
-  --eye-t: 1;
+  --eye-ts: 1;
+  --eye-tg: 1;
+  --eye-tn: 1;
+  --eye-tf: 1;
   transition:
-    --eye-t var(--eye-in) var(--ease-draw),
+    --eye-ts var(--eye-slide) var(--ease-draw) var(--eye-dl-s, 0ms),
+    --eye-tg var(--eye-grow) var(--ease-draw) var(--eye-dl-g, var(--eye-slide)),
+    --eye-tn var(--eye-in) var(--ease-draw) var(--eye-dl-n, calc(var(--eye-slide) + var(--eye-step))),
+    --eye-tf var(--eye-in) var(--ease-draw) var(--eye-dl-f, calc(var(--eye-slide) + 2 * var(--eye-step))),
     z-index 0s;
 }
 
@@ -349,8 +405,8 @@ html[data-chrome-open] .swm-corner {
 }
 
 /* — The chip: just the lens, the eye's box (the denominator row is gone). Engaged it steps left by the
-   shift (pass 10): the lids, the rest iris, the focus ring and the arrow ride with it, on the same
-   --eye-t as the lift. A paint-only translate: the box, and so every hit measure, stays put. — */
+   shift (pass 10): the lids, the rest iris, the focus ring and the arrow ride with it, on
+   the slide (--eye-ts). A paint-only translate: the box, and so every hit measure, stays put. — */
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__chip {
   height: var(--scale-num-h);
   translate: calc(-1 * var(--eye-s)) 0;
@@ -363,14 +419,30 @@ html[data-chrome-open] .swm-corner {
    it reads on every station's panel. The chip carries the shift, so it is put back here: its centre is
    the middle of the eye's right edge and the viewport's (the badge's own lifted padding included), in
    chip coordinates half the arrow's width (0.571rem) left of that. The pointer's flipper-spring
-   deflection (--box-dy) is /work's box, which is not here: the arrow stays on the lens line. */
+   deflection (--box-dy) is /work's box, which is not here: the arrow stays on the lens line.
+   PASS 11, it SLIDES IN from the viewport's edge, never fading. At rest it sits entirely beyond the right edge
+   (--eye-arrow-off: the gap's centre's distance to the edge, plus the arrow's own width, plus 1 px, so not a
+   pixel shows at any width or padding), at opacity 1 throughout with no opacity transition (pager-scale.css's
+   fade is overridden here, /work's pointer untouched); engaged it is at its seat in the gap. The offset rides
+   the SLIDE's progress (--eye-ts), so it arrives as the gap finishes opening and goes back out past the edge
+   with the slide-back; during the grow it stays centred in the gap (the seat reads --eye-lift and --eye-s).
+   Reduced motion: --eye-ts snaps, so it snaps between off-screen and its seat. */
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer {
+  --eye-arrow-off: calc((1 - var(--eye-ts)) * (var(--badge-pad) / 2 + 0.2855rem + 1px));
   left: calc(
-    var(--eye-w) / 2 + var(--eye-lift) * (var(--eye-w) + var(--badge-pad)) / 2 + var(--eye-s) / 2 - 0.2855rem
+    var(--eye-w) / 2 + var(--eye-lift) * (var(--eye-w) + var(--badge-pad)) / 2 + var(--eye-s) / 2 - 0.2855rem +
+      var(--eye-arrow-off)
   );
   border-left: 0 solid transparent;
   border-right: 0.571rem solid var(--color-white);
   transform: none;
+  opacity: 1;
+  transition: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-open] .fp-scale__pointer {
+  opacity: 1;
+  transition: none;
 }
 
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__lens {
@@ -420,18 +492,19 @@ html[data-chrome-open] .swm-corner {
   stroke: var(--color-white);
 }
 
-/* The rest iris. Hidden with OPACITY once the column is in: its twin, the column's centre
-   circle, sits on the same pixels (same art, same place, the same lift), so the hand-over
-   neither jumps, doubles nor resizes. It holds, opaque, through the entrance (the centre
-   circle comes up beneath it) and goes the moment the entrance ends; on the way out it is
-   back at once, over the circle that is fading. The lids stay, above the moving circles. */
+/* The rest iris. Hidden with OPACITY once the column's centre circle has fully taken over: its twin sits on the
+   same pixels (same art, same place, the same lift), so the hand-over neither jumps, doubles nor resizes. It
+   holds, opaque, through the slide and the grow (the centre circle comes up beneath it on the grow's progress)
+   and goes the moment the grow ends (--eye-dl-h: the grow's delay plus its length; SiteScheme writes it, this is
+   the nominal); on the way out it is back at once, over the circle that is shrinking. The lids stay, above the
+   moving circles. */
 .swm-corner .fp-scale.swm-corner__pager .scheme-eye__iris {
   opacity: 1;
 }
 
 .swm-corner .fp-scale.swm-corner__pager[data-open] .scheme-eye__iris {
   opacity: 0;
-  transition: opacity 0s linear var(--eye-in);
+  transition: opacity 0s linear var(--eye-dl-h, calc(var(--eye-slide) + var(--eye-grow)));
 }
 
 /* — The window and its column: wide enough for the eye at its fullest lift (the engaged eye
@@ -486,11 +559,14 @@ html[data-chrome-open] .swm-corner {
      and below it. */
   --eye-above: max(0, calc(var(--scale-qf, var(--scale-cur)) - var(--k, 0)));
   --eye-below: max(0, calc(var(--k, 0) - var(--scale-qf, var(--scale-cur))));
-  /* This circle's own entrance progress (0 to 1 on the one --eye-t): the lens and the near circle
-     (a station out) ride --eye-t itself; the far circle (two out) starts --eye-stagger later and
-     ends with it, so the near fades in first and the exit runs it back. */
-  --eye-delay: calc(var(--eye-stagger) * clamp(0, calc(var(--ndr) - 1), 1));
-  --eye-p: clamp(0, calc((var(--eye-t) - var(--eye-delay)) / (1 - var(--eye-delay))), 1);
+  /* This circle's own entrance progress (0 to 1): its continuous distance from the lens (--ndr) picks between
+     the groups' progresses and interpolates, so a scrub mid-entrance stays continuous. At the lens it is the
+     grow's (--eye-tg: the lens circle rides the eye's group), at one station out the near ring's (--eye-tn), at
+     two or more the far ring's (--eye-tf). */
+  --eye-p: calc(
+    var(--eye-tg) + (var(--eye-tn) - var(--eye-tg)) * clamp(0, var(--ndr), 1) +
+      (var(--eye-tf) - var(--eye-tn)) * clamp(0, calc(var(--ndr) - 1), 1)
+  );
   /* The fade above the shown circles: whole through two stations out, gone before the window's
      edge (the far circle's rim included), so nothing is ever cut by it. */
   --eye-up: clamp(0, calc(1 - (var(--eye-above) - 2) / max(0.1, calc(var(--scale-rows) - 2.3))), 1);
@@ -570,6 +646,10 @@ html[data-chrome-open] .swm-corner {
     transition: none;
   }
 }
+
+/* Reduced motion (SQ-107 pass 11): the sequence is gone, every group snaps (the four progresses jump to their
+   targets with the state), so the arrow snaps between beyond the edge and its seat, the rest iris hands over
+   with the state, and nothing waits on a delay. */
 
 /* Wheel guard (SiteScheme): while a page scroll that began outside is still going, the
    widget is transparent to the pointer, so the wheel is hit-tested to the page under

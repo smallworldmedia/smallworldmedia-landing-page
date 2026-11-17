@@ -944,8 +944,9 @@ export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
  * anchor drift (tx0, the pager's translate: the pass-9 geometry), minus S x (1 - d / reach) ^ exp: the lens
  * the full S, one out 0.444 S, two out 0.111 S. The badge's right edge stays the viewport's (tol), its left
  * edge is at least one padding left of the shifted eye. The arrow is visible, between the eye and the
- * viewport's edge, centred on the lens line, pointing left. At rest the arrow is clear (opacity 0) and the
- * badge is the eye plus a padding each side, flush with the edge: pass 9's rectangle.
+ * viewport's edge, centred on the lens line, pointing left. At rest the arrow is entirely beyond the viewport's
+ * right edge (pass 11: it slides in from there, no opacity fade) and the badge is the eye plus a padding each
+ * side, flush with the edge: pass 9's rectangle.
  */
 export function shift(s, { tol = 0.5, label = '' } = {}) {
   const offenders = [];
@@ -976,10 +977,168 @@ export function shift(s, { tol = 0.5, label = '' } = {}) {
     if (!(a.x >= e.eye.x + e.eye.w - tol && a.x + a.w <= s.vp.w + tol)) bad('.fp-scale__pointer', `the arrow ${fixed(a.x, 1)}..${fixed(a.x + a.w, 1)} is not in the gap between the eye (right edge ${fixed(e.eye.x + e.eye.w, 1)}) and the viewport (${fixed(s.vp.w, 1)})`);
     if (Math.abs(a.y + a.h / 2 - e.lensCy) > 1) bad('.fp-scale__pointer', `the arrow's centre ${fixed(a.y + a.h / 2, 1)} is off the lens line ${fixed(e.lensCy, 1)}`);
   }
-  if (r.arrow?.opacity > 0.001) bad('.fp-scale__pointer', `the arrow is at opacity ${fixed(r.arrow.opacity, 2)} at rest, want 0`);
+  // SQ-107 pass 11: at rest the arrow waits entirely beyond the viewport's right edge (opacity stays 1, no fade).
+  if (!(r.arrow && r.arrow.x >= s.vp.w - tol)) bad('.fp-scale__pointer', `at rest the arrow is at x ${fixed(r.arrow?.x, 1)}, not entirely beyond the viewport's right edge (${fixed(s.vp.w, 1)})`);
   if (Math.abs(r.tile.w - (r.eye.w + 2 * r.pad)) > tol) bad('badge', `at rest it is ${fixed(r.tile.w, 2)} wide, not the eye ${fixed(r.eye.w, 2)} plus a padding each side (${fixed(r.eye.w + 2 * r.pad, 2)})`);
   if (Math.abs(s.vp.w - (r.tile.x + r.tile.w)) > tol) bad('badge', `at rest its right edge is ${fixed(s.vp.w - (r.tile.x + r.tile.w), 2)} px from the viewport's`);
   return result(offenders, (e.circles ?? []).length, `shift ${fixed(s.S, 2)} px, steps ${got.join(', ')}, badge ${fixed(r.tile.w, 1)} wide at rest, ${fixed(e.tile.w, 1)} engaged`);
+}
+
+/**
+ * sequence — the engage and the release run as a CHOREOGRAPHY (SQ-107 pass 11, Nathan 11-17: the eye slides, THEN
+ * grows, then the near circles (+-1) a beat later, then the far ones (+-2); the release backwards). `run` = {
+ *   vp: {w}, S (the slide in px), step (the beat in ms, the dial's value),
+ *   engage, release: [sample every 10 ms from the trigger, a SEEKED run (document.getAnimations()), never real time],
+ *   taps: [{ at, samples }]    a release `at` ms into the engage, sampled from the release,
+ *   settled: { a: {x}, h }     the engaged end state, read after every transition had finished
+ * }, a sample = { t, ts, tg, tn, tf (the four registered progress numbers), h (the lens eye's height, px: its scale),
+ *   n: {o, w}, f: {o, w} (the +-1 and +-2 circles' effective opacity and width), a: {x, w, o} (the arrow's box and
+ * opacity) }.
+ * A group's START is the first sample where its progress (its own measure, normalised between its first and last
+ * value) is over 2 %. Engage: slide (ts), grow (h: the lift), +-1 (n.o), +-2 (f.o): in that order, the three after the
+ * slide each at least step - 10 ms apart, the lift flat (0.5 px) until the slide has finished. Release: +-2, +-1,
+ * the shrink, the slide back, the slide waiting for the shrink to end. The arrow waits beyond the right edge at rest,
+ * is opaque wherever any of it shows, moves one way per phase and ends at its settled seat. A quick tap returns
+ * everything to rest, starts moving at once, and no group stands waiting more than one step with nothing moving.
+ */
+const SEQ_START = 0.02;
+export function sequence(run, { tol = 0.5, slack = 10 } = {}) {
+  const offenders = [];
+  const bad = (path, note, extra = {}) => offenders.push({ path, note, ...extra });
+  const vpw = run?.vp?.w;
+  const S = run?.S;
+  const step = run?.step;
+  const up = run?.engage ?? [];
+  const down = run?.release ?? [];
+  if (up.length < 20 || down.length < 20 || !Number.isFinite(S) || !Number.isFinite(step) || !Number.isFinite(vpw)) {
+    return result([{ path: '.swm-corner .fp-scale', note: `too few samples measured (${up.length} engage, ${down.length} release)` }], up.length + down.length, 'no run');
+  }
+  const h0 = up[0].h;
+  const quant = { s: (p) => p.ts, g: (p) => p.h, n: (p) => p.n?.o, f: (p) => p.f?.o };
+  const startOf = (series, k) => {
+    const v0 = quant[k](series[0]);
+    const v1 = quant[k](series[series.length - 1]);
+    if (!Number.isFinite(v0) || !Number.isFinite(v1) || Math.abs(v1 - v0) < 1e-6) return null;
+    for (const p of series) if ((quant[k](p) - v0) / (v1 - v0) > SEQ_START) return p.t;
+    return null;
+  };
+  const startsOf = (series, order, phase) => {
+    const st = {};
+    for (const k of order) {
+      st[k] = startOf(series, k);
+      if (st[k] == null) bad(`group ${k}`, `${phase}: the ${GROUP_NAME[k]} never moved`);
+    }
+    return st;
+  };
+  const GROUP_NAME = { s: 'slide', g: 'grow', n: 'near circles (+-1)', f: 'far circles (+-2)' };
+  const inOrder = (st, order, phase, first) => {
+    if (order.some((k) => st[k] == null)) return;
+    if (st[order[0]] > first) bad(`group ${order[0]}`, `${phase}: the ${GROUP_NAME[order[0]]} starts at ${st[order[0]]} ms, not at once (${first} ms)`);
+    for (let i = 1; i < order.length; i++) {
+      const a = order[i - 1];
+      const b = order[i];
+      const gap = st[b] - st[a];
+      if (!(gap > 0)) bad(`group ${b}`, `${phase}: the ${GROUP_NAME[b]} starts at ${st[b]} ms, not after the ${GROUP_NAME[a]} (${st[a]} ms)`);
+      // the beat sits between the eye's grow and the rings (grow, near, far; far, near, shrink): the slide's own
+      // neighbour (it waits for the whole grow) is not a beat
+      else if (a !== 's' && b !== 's' && gap < step - slack) bad(`group ${b}`, `${phase}: the ${GROUP_NAME[b]} starts ${gap} ms after the ${GROUP_NAME[a]}, want at least ${step - slack} (step ${step} - ${slack})`);
+    }
+  };
+  const upStart = startsOf(up, ['s', 'g', 'n', 'f'], 'engage');
+  inOrder(upStart, ['s', 'g', 'n', 'f'], 'engage', 20);
+  const downStart = startsOf(down, ['f', 'n', 'g', 's'], 'release');
+  inOrder(downStart, ['f', 'n', 'g', 's'], 'release', 20);
+  for (const p of up) {
+    if (S * (1 - p.ts) > tol && p.h - h0 > tol) {
+      bad('.scheme-eye', `engage: at ${p.t} ms the lift is ${fixed(p.h - h0, 2)} px while the slide still has ${fixed(S * (1 - p.ts), 2)} px to go (the lift starts only when the slide has ended)`);
+      break;
+    }
+  }
+  for (const p of down) {
+    if (p.h - h0 > tol && S * (1 - p.ts) > tol) {
+      bad('.scheme-eye', `release: at ${p.t} ms the slide has begun back (${fixed(S * (1 - p.ts), 2)} px) while the eye is still ${fixed(p.h - h0, 2)} px grown (the slide back starts only when the shrink has ended)`);
+      break;
+    }
+  }
+  const arrow = (series, phase, dir) => {
+    const first = series[0].a;
+    const last = series[series.length - 1].a;
+    let back = 0;
+    for (let i = 1; i < series.length; i++) back = Math.max(back, -dir * (series[i].a.x - series[i - 1].a.x));
+    if (back > 0.25) bad('.fp-scale__pointer', `${phase}: the arrow turned back (${fixed(back, 2)} px against its direction of travel)`);
+    for (const p of series) {
+      if (p.a.x < vpw - tol && !(p.a.o > 0.99)) {
+        bad('.fp-scale__pointer', `${phase}: at ${p.t} ms the arrow shows (x ${fixed(p.a.x, 1)}) at opacity ${fixed(p.a.o, 2)}: it must be 1 wherever any of it is on screen`);
+        break;
+      }
+    }
+    return { first, last };
+  };
+  const ua = arrow(up, 'engage', -1);
+  const da = arrow(down, 'release', 1);
+  if (!(ua.first.x >= vpw - tol)) bad('.fp-scale__pointer', `at rest the arrow is at x ${fixed(ua.first.x, 1)}, not entirely beyond the viewport's right edge (${fixed(vpw, 1)})`);
+  if (!(da.last.x >= vpw - tol)) bad('.fp-scale__pointer', `after the release the arrow is at x ${fixed(da.last.x, 1)}, not slid back out beyond the right edge (${fixed(vpw, 1)})`);
+  if (!Number.isFinite(run?.settled?.a?.x) || Math.abs(ua.last.x - run.settled.a.x) > tol) bad('.fp-scale__pointer', `the engage ends the arrow at x ${fixed(ua.last.x, 2)}, ${fixed(ua.last.x - run?.settled?.a?.x, 2)} px from its settled seat ${fixed(run?.settled?.a?.x, 2)}`);
+  if (!Number.isFinite(run?.settled?.h) || Math.abs(up[up.length - 1].h - run.settled.h) > tol) bad('.scheme-eye', `the engage ends the eye ${fixed(up[up.length - 1].h, 2)} px tall, settled ${fixed(run?.settled?.h, 2)}`);
+  // the arrow stays centred on the lens line through the grow
+  for (const p of up) {
+    if (p.a.x < vpw - tol && Number.isFinite(p.ay) && Number.isFinite(p.ly) && Math.abs(p.ay - p.ly) > 1) {
+      bad('.fp-scale__pointer', `engage: at ${p.t} ms the arrow's centre is ${fixed(p.ay - p.ly, 2)} px off the lens line`);
+      break;
+    }
+  }
+  const taps = run?.taps ?? [];
+  if (!taps.length) bad('taps', 'no quick tap measured');
+  const moved = (a, b) => Math.abs(a.ts - b.ts) + Math.abs(a.tg - b.tg) + Math.abs(a.tn - b.tn) + Math.abs(a.tf - b.tf) + Math.abs(a.a.x - b.a.x) / Math.max(1, S) > 1e-4;
+  for (const tap of taps) {
+    const s = tap.samples ?? [];
+    const name = `quick tap (released at ${tap.at} ms)`;
+    if (s.length < 20) {
+      bad(name, `too few samples (${s.length})`);
+      continue;
+    }
+    const e = s[s.length - 1];
+    if (Math.max(e.ts, e.tg, e.tn, e.tf) > 0.002) bad(name, `did not return to rest (progress ${fixed(e.ts, 3)} / ${fixed(e.tg, 3)} / ${fixed(e.tn, 3)} / ${fixed(e.tf, 3)})`);
+    if (!(e.a.x >= vpw - tol)) bad(name, `the arrow is at x ${fixed(e.a.x, 1)}, not back beyond the right edge`);
+    if (e.h - h0 > tol) bad(name, `the eye is still ${fixed(e.h - h0, 2)} px grown`);
+    // the intervals in which anything moved; a hold is a run of still intervals between two moving ones
+    const mv = [];
+    for (let i = 1; i < s.length; i++) mv.push(moved(s[i - 1], s[i]));
+    const i0 = mv.indexOf(true);
+    const i1 = mv.lastIndexOf(true);
+    const first = i0 < 0 ? null : s[i0 + 1].t;
+    let worstIdle = 0;
+    for (let i = i0, run = 0; i0 >= 0 && i <= i1; i++) {
+      run = mv[i] ? 0 : run + (s[i + 1].t - s[i].t);
+      worstIdle = Math.max(worstIdle, run);
+    }
+    if (first == null) bad(name, 'nothing moved after the release');
+    else if (first > 20) bad(name, `nothing moved until ${first} ms after the release (a group that has moved waited out a delay that belongs to a group that never started)`);
+    if (worstIdle > step + slack) bad(name, `everything stood still ${worstIdle} ms mid-release (more than one step, ${step} ms)`);
+  }
+  return result(
+    offenders,
+    up.length + down.length + taps.reduce((n, t) => n + (t.samples?.length ?? 0), 0),
+    `engage starts slide ${upStart.s} / grow ${upStart.g} / near ${upStart.n} / far ${upStart.f} ms, release starts far ${downStart.f} / near ${downStart.n} / shrink ${downStart.g} / slide back ${downStart.s} ms (step ${step}), arrow ${fixed(ua.first.x, 1)} -> ${fixed(ua.last.x, 1)}, ${taps.length} quick tap(s)`
+  );
+}
+
+/**
+ * lids — the lids cover the iris (SQ-107 pass 11, Nathan 11-17: "scale up the outer eye shape just slightly so that
+ * there is no upper and lower portion of the globe stroke peeking out past the outer eye shape"). `run.cases` =
+ * [{ name, leak, circle, lid }]: per scheme, width and state (rest, engaged), `leak` the pixels of the iris or lens
+ * circle that lie outside the lids' outer outline (a flood fill from the border over what is not lid, shrunk a device
+ * pixel off the stroke), `circle` the pixels the circle painted at all, `lid` the pixels of lid stroke. Zero is the
+ * bar; a case that saw no circle or no lid measured nothing and fails.
+ */
+export function lids(run, { max = 0, minCircle = 100, minLid = 50 } = {}) {
+  const cases = run?.cases ?? [];
+  const offenders = [];
+  for (const c of cases) {
+    if (!(c.circle >= minCircle) || !(c.lid >= minLid)) offenders.push({ path: c.name, note: `measured nothing (circle ${c.circle} px, lid ${c.lid} px)` });
+    else if (c.leak > max) offenders.push({ path: c.name, note: `${c.leak} px of the circle lie outside the lids' outer outline (of ${c.circle})` });
+  }
+  return result(offenders, cases.length, `${cases.length} case(s), worst leak ${cases.reduce((m, c) => Math.max(m, c.leak ?? 0), 0)} px`);
 }
 
 /** Short one-line text of an offender, for the probe's report. */

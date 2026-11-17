@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  badge, seat, rightEdge, noClip, blurbClear, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift,
+  badge, seat, rightEdge, noClip, blurbClear, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, lids,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -853,7 +853,7 @@ const shiftSample = (over = {}) => {
     S: SHIFT_S,
     reach: 3,
     exp: 2,
-    rest: { eye: { cx: restCx, w: SHIFT_S }, tile: { x: 1398.8, w: 41.22 }, pad: 4, arrow: { opacity: 0 } },
+    rest: { eye: { cx: restCx, w: SHIFT_S }, tile: { x: 1398.8, w: 41.22 }, pad: 4, arrow: { x: 1441, opacity: 1 } },
     engaged: {
       open: true,
       tx0: SHIFT_TX0,
@@ -902,7 +902,7 @@ test('shift gate the badge keeps the viewport edge and reaches left of the shift
   assert.match(narrow.offenders[0].note, /not a padding \(4\) left of the shifted eye/);
 });
 
-test('shift gate the arrow is shown in the gap, centred on the lens line, pointing left, and clear at rest', () => {
+test('shift gate the arrow is shown in the gap, centred on the lens line, pointing left, and off-screen at rest', () => {
   const hidden = shift(shiftSample({ engaged: { arrow: { x: 0, y: 0, w: 0, h: 0, opacity: 1, dir: 'left' } } }));
   assert.equal(hidden.pass, false);
   assert.match(hidden.offenders[0].note, /no box/);
@@ -914,10 +914,126 @@ test('shift gate the arrow is shown in the gap, centred on the lens line, pointi
   assert.match(out.offenders[0].note, /not in the gap/);
   const low = shift(shiftSample({ engaged: { arrow: { x: 1416, y: 880, w: 8, h: 11, opacity: 1, dir: 'left' } } }));
   assert.match(low.offenders[0].note, /off the lens line/);
-  const lit = shift(shiftSample({ rest: { arrow: { opacity: 1 } } }));
-  assert.match(lit.offenders[0].note, /opacity 1 at rest, want 0/);
+  const lit = shift(shiftSample({ rest: { arrow: { x: 1416, opacity: 1 } } }));
+  assert.match(lit.offenders[0].note, /not entirely beyond the viewport's right edge/, 'pass 11: the arrow waits off-screen at rest, it does not fade');
   const wide = shift(shiftSample({ rest: { tile: { x: 1390, w: 50 } } }));
   assert.match(wide.offenders[0].note, /at rest it is 50 wide/, 'at rest the badge is still pass 9\'s rectangle');
   assert.match(shift(shiftSample(), { label: 'motion' }).note, /shift/);
   assert.match(shift(shiftSample({ engaged: { open: false } }), { label: 'motion' }).offenders[0].path, /^motion /);
+});
+
+// ── sequence (SQ-107 pass 11): the engage and release as a choreography ─────────────────────────────────
+
+// A synthetic run: the four progress numbers on their own delays and the eye, the rings and the arrow read off them.
+const SEQ_S = 24.6; // the arrow's slide in px
+const easeOut = (x) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+const seqPoint = (t, { ts, tg, tn, tf }, fade = false) => ({
+  t,
+  ts,
+  tg,
+  tn,
+  tf,
+  h: 21.2 + 10.6 * tg,
+  l: 1400 - 33 * ts,
+  er: 1436 - 35 * ts,
+  n: { o: 0.8 * tn, w: 20 },
+  f: { o: 0.5 * tf, w: 12 },
+  a: fade ? { x: 1416.4, w: 7, o: ts } : { x: 1441 - SEQ_S * ts, w: 7, o: 1 },
+  ay: 870,
+  ly: 870,
+});
+const SEQ_TIMES = Array.from({ length: 71 }, (_, i) => i * 10);
+// a group: the progress from `from` to `to`, starting at `delay` for `dur`
+const grp = (t, delay, dur, from, to) => from + (to - from) * easeOut((t - delay) / dur);
+const seqEngage = ({ slide = 160, grow = 160, step = 70, flat = false, fade = false } = {}) => {
+  const d = flat ? { s: 0, g: 0, n: 0, f: 0 } : { s: 0, g: slide, n: slide + step, f: slide + 2 * step };
+  return SEQ_TIMES.map((t) => seqPoint(t, { ts: grp(t, d.s, slide, 0, 1), tg: grp(t, d.g, grow, 0, 1), tn: grp(t, d.n, 200, 0, 1), tf: grp(t, d.f, 200, 0, 1) }, fade));
+};
+const seqRelease = ({ slide = 160, grow = 160, step = 70, flat = false, fade = false, order = 'reverse' } = {}) => {
+  const d = flat ? { s: 0, g: 0, n: 0, f: 0 } : order === 'same' ? { s: 0, g: slide, n: slide + step, f: slide + 2 * step } : { f: 0, n: step, g: 2 * step, s: 2 * step + grow };
+  return SEQ_TIMES.map((t) => seqPoint(t, { ts: grp(t, d.s, slide, 1, 0), tg: grp(t, d.g, grow, 1, 0), tn: grp(t, d.n, 200, 1, 0), tf: grp(t, d.f, 200, 1, 0) }, fade));
+};
+// a quick tap: the groups that had moved go back on delays counted from the first of them, never from a group that never started
+const seqTap = (at, groups) => ({
+  at,
+  samples: SEQ_TIMES.map((t) => seqPoint(t, Object.fromEntries(['s', 'g', 'n', 'f'].map((k) => [`t${k}`, groups[k] ? grp(t, groups[k].delay, groups[k].dur, groups[k].from, 0) : 0]))),),
+});
+const seqRun = (over = {}) => {
+  const engage = seqEngage(over.engage);
+  return {
+    vp: { w: 1440 },
+    S: 33.23,
+    step: 70,
+    engage,
+    release: seqRelease(over.release),
+    settled: { a: { x: engage[engage.length - 1].a.x }, h: engage[engage.length - 1].h },
+    taps: over.taps ?? [
+      seqTap(100, { s: { delay: 0, dur: 160, from: 0.6 } }),
+      seqTap(250, { g: { delay: 0, dur: 160, from: 0.5 }, n: { delay: 0, dur: 200, from: 0.1 }, s: { delay: 160, dur: 160, from: 1 } }),
+    ],
+    ...(over.run ?? {}),
+  };
+};
+
+test('sequence gate the engage slides, then grows, then the near rings, then the far, and the release runs backwards', () => {
+  const ok = sequence(seqRun());
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /engage starts slide \d+ \/ grow 1[6-9]0 \/ near 2[3-4]0 \/ far 3[0-1]0/, 'the passing run prints the start times it passed with');
+  assert.match(ok.note, /release starts far \d+ \/ near \d+ \/ shrink \d+ \/ slide back \d+/);
+});
+
+test('sequence gate negative control: every delay 0 fails (the lift starts with the slide, no beat between the groups)', () => {
+  const r = sequence(seqRun({ engage: { flat: true }, release: { flat: true } }));
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /the lift starts only when the slide has ended/.test(o.note)), 'the lift starts during the slide');
+  assert.ok(r.offenders.some((o) => /not after the/.test(o.note) || /want at least/.test(o.note)), 'the groups start together');
+  assert.ok(r.offenders.some((o) => /^release:/.test(o.note)), 'and the release has no order either');
+});
+
+test('sequence gate the release in the SAME order as the engage fails', () => {
+  const r = sequence(seqRun({ release: { order: 'same' } }));
+  assert.equal(r.pass, false);
+});
+
+test('sequence gate negative control: an arrow that fades in place (no slide from the edge) fails', () => {
+  const r = sequence(seqRun({ engage: { fade: true }, release: { fade: true } }));
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /not entirely beyond the viewport's right edge/.test(o.note)), 'at rest it sits on screen');
+  assert.ok(r.offenders.some((o) => /at opacity/.test(o.note)), 'and it shows at a fractional opacity');
+});
+
+test('sequence gate the arrow must keep opacity 1 wherever any of it shows and move one way per phase', () => {
+  const run = seqRun();
+  run.engage[8] = { ...run.engage[8], a: { ...run.engage[8].a, o: 0.5 } };
+  assert.ok(sequence(run).offenders.some((o) => /must be 1 wherever any of it is on screen/.test(o.note)));
+  const back = seqRun();
+  back.engage[10] = { ...back.engage[10], a: { ...back.engage[10].a, x: back.engage[9].a.x + 4 } };
+  assert.ok(sequence(back).offenders.some((o) => /turned back/.test(o.note)));
+  const seat = seqRun({ run: { settled: { a: { x: 1400 }, h: 31.8 } } });
+  assert.ok(sequence(seat).offenders.some((o) => /from its settled seat/.test(o.note)), 'it ends on its seat to 0.5 px');
+});
+
+test('sequence gate a quick tap returns to rest at once, and a group that waits a delay of a group that never started fails', () => {
+  assert.equal(sequence(seqRun()).pass, true);
+  // the slide waited out a full step before it moved back, for a grow that never started: a hold
+  const held = seqTap(100, { s: { delay: 300, dur: 160, from: 0.6 } });
+  const r = sequence(seqRun({ taps: [held] }));
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /nothing moved until/.test(o.note) || /stood still/.test(o.note)), JSON.stringify(r.offenders));
+  // a tap that never got home
+  const stuck = seqTap(250, { g: { delay: 0, dur: 160, from: 0.5 } });
+  stuck.samples[stuck.samples.length - 1].tg = 0.3;
+  assert.ok(sequence(seqRun({ taps: [stuck] })).offenders.some((o) => /did not return to rest/.test(o.note)));
+  assert.equal(sequence(seqRun({ taps: [] })).pass, false, 'no quick tap measured is no proof');
+  assert.equal(sequence({ vp: { w: 1440 } }).pass, false, 'an empty run measured nothing');
+});
+
+test('lids gate no pixel of the circle outside the lids passes, a leak fails, a case that measured nothing fails', () => {
+  const ok = lids({ cases: [{ name: 'project 1440 rest', leak: 0, circle: 4000, lid: 436 }, { name: 'project 1440 engaged', leak: 0, circle: 2064, lid: 800 }] });
+  assert.equal(ok.pass, true);
+  const leak = lids({ cases: [{ name: 'project 1440 engaged', leak: 34, circle: 2064, lid: 800 }] });
+  assert.equal(leak.pass, false);
+  assert.match(leak.offenders[0].note, /34 px of the circle lie outside the lids/);
+  assert.equal(lids({ cases: [{ name: 'x', leak: 0, circle: 0, lid: 436 }] }).pass, false, 'no circle seen');
+  assert.equal(lids({ cases: [] }).pass, false, 'no case, no proof');
 });

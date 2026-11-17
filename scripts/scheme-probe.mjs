@@ -12,7 +12,7 @@
  *   ~/swm-probe-lock.sh node scripts/scheme-probe.mjs --base=http://localhost:4330 --scheme=black
  *        [--routes=home,work,detail,directory,process,privacy,404] [--width=1440|390] [--gates=a,b,c]
  *        [--capture=FILE] [--compare=FILE] [--shots=DIR] [--force-attr] [--ignore=CSS-SELECTOR]
- *        [--inject=CSS]
+ *        [--inject=CSS] [--query=schemelids=1]
  *   --scheme   project | black | blue | spectrum | all   (default project)
  *   --routes   default all, except process, which is named only (none = only the widget pass). detail = the first /work card's slug, plus card 3's (the cross-route check).
  *   (the corner widget has one seat, flush: ?schemebadge is gone, SQ-107 pass 5.) The overlap gate loads
@@ -125,14 +125,30 @@
  *   shift       the engaged eye steps LEFT off the viewport's edge on /work's stagger taper (SQ-107 pass 10), at
  *               390 and 1440, motion on and reduced: with the pager held settled, each circle's centre is the
  *               rest eye's centre plus the lift's own anchor drift (the pager's translate) minus S x the taper
- *               (1 at the lens, 0.444 one station out, 0.111 two out; S = one rest eye width, the default, never
+ *               (1 at the lens, 0.444 one station out, 0.111 two out; S = 48 swatch units, the default, never
  *               read off the page), the badge's right edge is the viewport's and its left edge a padding left of the
  *               shifted eye, and /work's lens arrow, mirrored, is shown in the gap, pointing left, on the lens
- *               line; at rest it has opacity 0 and the badge is the eye plus a padding each side. --shots=DIR
+ *               line; at rest the arrow waits ENTIRELY beyond the viewport's right edge (pass 11) and the badge is the
+ *               eye plus a padding each side. --shots=DIR
  *               saves shift-<scheme>-<width>-<motion|reduced>-{rest,engaged,mid,next}.png.
  *               Negative controls: --inject='.swm-corner{--eye-shift:0px !important}' (a straight column) and
  *               --inject='.swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer{display:none !important}'
  *               (the arrow hidden again) must FAIL.
+ *   sequence    SQ-107 pass 11: the engage and release as a choreography, a deterministic SEEK (document.getAnimations(),
+ *               never real time) sampled every 10 ms at 390 and 1440: the slide, then the grow (the lift stays at rest
+ *               until the slide has ended, 0.5 px), then the +-1 circles a beat after, then the +-2 (each start at
+ *               least step - 10 ms apart); the release exactly reversed; the arrow entirely off-screen at rest, opacity 1
+ *               wherever any of it shows, one way per phase, ending on its seat (0.5 px); a quick tap (released at 100
+ *               and 250 ms) returns to rest, starts moving at once and never stands still more than a step. Needs a
+ *               build or dev server (runs on either). Negative controls: --inject='.swm-corner .fp-scale,.swm-corner
+ *               .fp-scale[data-open]{transition-delay:0s !important}' (all delays 0) and --inject='.swm-corner
+ *               .fp-scale__pointer{--eye-arrow-off:0px !important;opacity:var(--eye-ts) !important}' (the arrow fades
+ *               in place) must FAIL. --shots=DIR saves filmstrip-<scheme>-<width>.png (a frame every 40 ms: engage,
+ *               release, the two quick taps); SWM_SEQ_DUMP=<file.json> writes each run's samples.
+ *   lids        SQ-107 pass 11 (?schemelids): at rest and engaged, no pixel of the iris or the lens circle lies outside
+ *               the lids' outer outline (device pixel ratio 2, lids recoloured, a flood fill from the border of a capture
+ *               without the circle, shrunk a device pixel, compared with a capture with it). --query=schemelids=1 (pass
+ *               10's lids) must FAIL. --shots=DIR saves lids-<scheme>-<width>[-k1]-{rest,engaged}.png at DPR 3.
  *   strays      the column scrubbed through eye-t 0.15 to 0.85 (only the widget painted): a capture with
  *               every station is pixel-identical to one with the stations beyond the shown rows hidden.
  *   persist     soft navigations (home to /work to a project and back; by the menu on a phone) with
@@ -181,7 +197,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -227,6 +243,7 @@ if (DENSITY !== undefined && !(DENSITY > 0)) die('--density takes a positive num
 const SHOTS = typeof arg('shots') === 'string' ? arg('shots') : null;
 const FORCE = !!arg('force-attr', false);
 const IGNORE_SEL = typeof arg('ignore') === 'string' ? arg('ignore') : ANCHOR;
+const QUERY = typeof arg('query') === 'string' ? `&${arg('query')}` : ''; // extra ?params for the sequence and lids runs (a negative control: --query=schemelids=1)
 const INJECT = typeof arg('inject') === 'string' ? arg('inject') : null; // CSS added to the widget pass's pages: a negative control for the widget gates
 
 const require = createRequire(import.meta.url);
@@ -634,7 +651,7 @@ function pageScrub({ t, hideOuter }) {
   }
   const pager = document.querySelector('.swm-corner .fp-scale');
   pager.style.transition = 'none';
-  pager.style.setProperty('--eye-t', String(t));
+  for (const k of ['s', 'g', 'n', 'f']) pager.style.setProperty(`--eye-t${k}`, String(t));
   for (const s of window.__swmStray || []) s.style.opacity = hideOuter ? '0' : '';
 }
 
@@ -971,7 +988,8 @@ async function measureWidget(ctx, scheme, width) {
  * \`settledUp\` and \`settledDown\` the centre once each leg had settled (the iris gone at the end of the
  * entrance, so the hand-over is in the last jump).
  */
-const JOLT_MS = 12000;
+const JOLT_MS = 4000;
+const JOLT_STEP_MS = 1500; // the beat between the groups, slowed by the same ~25x as the groups themselves
 async function measureJitter(name, dpr, width) {
   const phone = width <= 480;
   const browser = await (name === 'webkit' ? webkit : chromium).launch({ headless: true, ...(name === 'chromium' ? { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } : {}) });
@@ -982,7 +1000,7 @@ async function measureJitter(name, dpr, width) {
   try {
     await page.goto(`${BASE}/privacy/?scheme=project`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
-    await page.addStyleTag({ content: `.swm-corner{--eye-in:${JOLT_MS}ms !important;--eye-out:${JOLT_MS}ms !important}${INJECT ?? ''}` });
+    await page.addStyleTag({ content: `.swm-corner{--eye-in:${JOLT_MS}ms !important;--eye-out:${JOLT_MS}ms !important;--eye-slide:${JOLT_MS}ms !important;--eye-grow:${JOLT_MS}ms !important;--eye-step:${JOLT_STEP_MS}ms !important}${INJECT ?? ''}` });
     await sleep(2500);
     await page.evaluate(() => {
       const root = document.querySelector('.swm-corner .fp-scale');
@@ -1017,7 +1035,7 @@ async function measureJitter(name, dpr, width) {
         const r = pick.getBoundingClientRect();
         return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
       });
-    const frame = () => page.evaluate(() => new Promise((res) => requestAnimationFrame(() => { const pg = document.querySelector('.swm-corner .fp-scale'); res({ open: pg.hasAttribute('data-open'), t: +getComputedStyle(pg).getPropertyValue('--eye-t') }); })));
+    const frame = () => page.evaluate(() => new Promise((res) => requestAnimationFrame(() => { const pg = document.querySelector('.swm-corner .fp-scale'); const cs = getComputedStyle(pg); res({ open: pg.hasAttribute('data-open'), t: ['s', 'g', 'n', 'f'].reduce((a, k) => a + (+cs.getPropertyValue(`--eye-t${k}`) || 0), 0) / 4 }); })));
     const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
     const cdp = phone ? await ctx.newCDPSession(page) : null;
     const read = name === 'webkit' ? rects : pixels;
@@ -1030,7 +1048,7 @@ async function measureJitter(name, dpr, width) {
       const pts = [];
       const t0 = Date.now();
       let still = 0;
-      while (Date.now() - t0 < 4 * JOLT_MS + 15000) {
+      while (Date.now() - t0 < 5 * JOLT_MS + 15000) {
         const f = await frame();
         const p = await read();
         pts.push({ ...p, t: f.t, open: f.open });
@@ -1122,6 +1140,15 @@ function pageShift() {
   return {
     open: pager.hasAttribute('data-open'),
     vpw: document.documentElement.clientWidth,
+    // The swatch (the iris's width, 26 units): the default shift is 48 of those 26ths, whatever the lids' scale.
+    swatch: (() => {
+      const m = document.createElement('div');
+      m.style.cssText = 'position:absolute;visibility:hidden;height:0;width:var(--scheme-swatch)';
+      corner.append(m);
+      const w = m.getBoundingClientRect().width;
+      m.remove();
+      return w;
+    })(),
     tx0: px(getComputedStyle(pager).translate),
     pad: px(getComputedStyle(corner).getPropertyValue('--badge-pad')),
     reach: px(pcs.getPropertyValue('--scale-slice-reach')),
@@ -1175,7 +1202,298 @@ async function measureShift(browser, scheme, width, { reduced }) {
       await sleep(900);
       await shot('next');
     }
-    return { rest, engaged, S: rest.eye.w };
+    return { rest, engaged, S: (rest.swatch * 48) / 26 };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
+/**
+ * The sequence run's page-side harness (SQ-107 pass 11): a deterministic SEEK, never real time. A MutationObserver on
+ * the pager's data-open takes every CSS transition of the four progress numbers (--eye-ts|tg|tn|tf, registered
+ * numbers) and of the rest iris's hand-over the moment they are created, pauses them and rewinds to 0; `seek(t)`
+ * then sets every one's currentTime to `t` ms (the delays are part of the timeline) and reads the widget. Headless
+ * frames starve, so a real-time sampler would measure the machine, not the choreography.
+ */
+function pageSeqInstall() {
+  const corner = document.querySelector('.swm-corner');
+  const pager = corner.querySelector('.fp-scale');
+  const st = (window.__seq = { anims: [] });
+  const mine = (a) => a instanceof CSSTransition && (/^--eye-t[sgnf]$/.test(a.transitionProperty) || (a.transitionProperty === 'opacity' && a.effect?.target?.matches?.('.scheme-eye__iris')));
+  new MutationObserver(() => {
+    st.anims = document.getAnimations().filter(mine);
+    for (const a of st.anims) {
+      a.pause();
+      a.currentTime = 0;
+    }
+  }).observe(pager, { attributes: true, attributeFilter: ['data-open'] });
+  const eff = (el) => {
+    let o = 1;
+    for (let e = el; e && !e.matches('.swm-corner'); e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity);
+    return o;
+  };
+  st.sample = (t) => {
+    const cs = getComputedStyle(pager);
+    const num = (n) => parseFloat(cs.getPropertyValue(n)) || 0;
+    const cur = num('--scale-cur');
+    const stations = [...pager.querySelectorAll('.fp-scale__station')].map((s) => ({ s, d: Math.abs(parseFloat(s.style.getPropertyValue('--k')) - cur), r: (s.querySelector('svg') ?? s).getBoundingClientRect() }));
+    const pick = (d) => {
+      const c = stations.filter((x) => Math.abs(x.d - d) < 0.01).sort((a, b) => a.r.top - b.r.top)[0];
+      return c ? { o: eff(c.s), w: c.r.width } : { o: NaN, w: NaN };
+    };
+    const eye = corner.querySelector('.scheme-eye').getBoundingClientRect();
+    const pt = corner.querySelector('.fp-scale__pointer');
+    const pb = pt.getBoundingClientRect();
+    const lens = corner.querySelector('.fp-scale__lens').getBoundingClientRect();
+    return {
+      t,
+      ts: num('--eye-ts'),
+      tg: num('--eye-tg'),
+      tn: num('--eye-tn'),
+      tf: num('--eye-tf'),
+      h: eye.height,
+      l: eye.left,
+      er: eye.right,
+      n: pick(1),
+      f: pick(2),
+      a: { x: pb.left, w: pb.width, o: parseFloat(getComputedStyle(pt).opacity) },
+      ay: pb.top + pb.height / 2,
+      ly: lens.top + lens.height / 2,
+      open: pager.hasAttribute('data-open'),
+    };
+  };
+  st.seek = (times) => times.map((t) => {
+    for (const a of st.anims) a.currentTime = t;
+    return st.sample(t);
+  });
+  st.finish = () => {
+    for (const a of st.anims) a.finish();
+    st.anims = [];
+    return st.sample(-1);
+  };
+  st.seekTo = (t) => {
+    for (const a of st.anims) a.currentTime = t;
+  };
+}
+
+/**
+ * The sequence run: home, one load per width, motion on. Engage (a hover, or a held CDP touch on a phone), seek it
+ * every 10 ms for 700 ms; finish it and read the settled state; release, seek it the same way; then a quick tap at
+ * 100 ms and at 250 ms (engage, seek to that time, release, seek the release). With --shots (project scheme) a
+ * filmstrip, a frame every 40 ms of each phase, is composed into one contact sheet. The beat, the slide and the
+ * grow are read off the page's own CSS (--eye-step, --eye-slide, --eye-grow), never a literal.
+ */
+const SEQ_MS = 700;
+async function measureSequence(browser, scheme, width) {
+  const phone = width <= 480;
+  const vph = phone ? 844 : 900;
+  const ctx = await browser.newContext({ viewport: { width, height: vph }, deviceScaleFactor: SHOTS ? 2 : 1, reducedMotion: 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+  await ctx.route(/stream\.mux\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  const times = Array.from({ length: SEQ_MS / 10 + 1 }, (_, i) => i * 10);
+  const frameTimes = Array.from({ length: 11 }, (_, i) => i * 40);
+  const strips = [];
+  const clip = { x: Math.max(0, width - 230), y: Math.max(0, vph - 400), width: Math.min(230, width), height: 400 };
+  try {
+    await page.goto(`${BASE}/?popseed=1&scheme=${scheme}${QUERY}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await page.evaluate(() => document.fonts.ready);
+    await sleep(2500);
+    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    const dials = await page.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('.swm-corner'));
+      const ms = (n) => parseFloat(cs.getPropertyValue(n));
+      const m = document.createElement('div');
+      m.style.cssText = 'position:absolute;visibility:hidden;height:0;width:var(--scheme-swatch)';
+      document.querySelector('.swm-corner').append(m);
+      const swatch = m.getBoundingClientRect().width;
+      m.remove();
+      return { step: ms('--eye-step'), slide: ms('--eye-slide'), grow: ms('--eye-grow'), swatch };
+    });
+    await page.evaluate(pageSeqInstall);
+    const cdp = phone ? await ctx.newCDPSession(page) : null;
+    const trigger = async (engage) => {
+      await page.evaluate(() => { window.__seq.anims = []; });
+      if (engage) {
+        if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: eye.x, y: eye.y }] });
+        else await page.mouse.move(eye.x, eye.y);
+      } else if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      else await page.mouse.move(40, 40);
+      await page.waitForFunction((on) => window.__seq.anims.length > 0 && document.querySelector('.swm-corner .fp-scale').hasAttribute('data-open') === on, engage, { timeout: 8000 });
+    };
+    const seek = (ts) => page.evaluate((v) => window.__seq.seek(v), ts);
+    const film = async () => {
+      const bufs = [];
+      for (const t of frameTimes) {
+        await page.evaluate((v) => window.__seq.seekTo(v), t);
+        bufs.push(await page.screenshot({ clip }));
+      }
+      strips.push(bufs);
+    };
+    const settle = async () => {
+      const s = await page.evaluate(() => window.__seq.finish());
+      await sleep(700);
+      return s;
+    };
+    const run = { vp: { w: width }, step: dials.step, slide: dials.slide, grow: dials.grow, S: (dials.swatch * 48) / 26, taps: [] };
+    await trigger(true);
+    run.engage = await seek(times);
+    if (SHOTS) await film();
+    run.settled = await settle();
+    run.settled = await page.evaluate(() => window.__seq.sample(-1));
+    await trigger(false);
+    run.release = await seek(times);
+    if (SHOTS) await film();
+    await settle();
+    for (const at of [100, 250]) {
+      await trigger(true);
+      await seek([at]);
+      await trigger(false);
+      const samples = await seek(times);
+      run.taps.push({ at, samples });
+      if (SHOTS) await film();
+      await settle();
+    }
+    if (process.env.SWM_SEQ_DUMP) fs.writeFileSync(process.env.SWM_SEQ_DUMP.replace(/\.json$/, `-${scheme}-${width}.json`), JSON.stringify(run));
+    if (SHOTS && strips.length) {
+      const { default: sharp } = await import('sharp');
+      fs.mkdirSync(SHOTS, { recursive: true });
+      const img = await sharp(strips[0][0]).metadata();
+      const fw = img.width;
+      const fh = img.height;
+      const comps = [];
+      strips.forEach((row, r) => row.forEach((buf, c) => comps.push({ input: buf, left: c * fw, top: r * fh })));
+      await sharp({ create: { width: fw * frameTimes.length, height: fh * strips.length, channels: 3, background: '#808080' } }).composite(comps).png().toFile(path.join(SHOTS, `filmstrip-${scheme}-${width}.png`));
+    }
+    return run;
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
+/**
+ * The lids run (SQ-107 pass 11): is any pixel of the iris (at rest) or of the lens circle (engaged) outside the lids'
+ * outer outline? One page at device pixel ratio 2, everything but the widget hidden over a flat grey, the badge's
+ * own fill and every station but the lens hidden, the lids recoloured. Per state: capture A (the circle painted)
+ * and B (the iris and the lens circle hidden). The lids are the only paint in B; the OUTSIDE is a flood fill from
+ * the border over what is not lid, shrunk by a device pixel off the stroke (its anti-aliasing is not the circle's);
+ * the LEAK is every pixel of that outside where A differs from B. With --shots the natural widget is saved at DPR 3.
+ */
+async function measureLids(browser, scheme, width) {
+  const phone = width <= 480;
+  const vph = phone ? 844 : 900;
+  const ctx = await browser.newContext({ viewport: { width, height: vph }, deviceScaleFactor: SHOTS ? 3 : 2, reducedMotion: 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+  await ctx.route(/stream\.mux\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  const { default: sharp } = await import('sharp');
+  try {
+    await page.goto(`${BASE}/?popseed=1&scheme=${scheme}${QUERY}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
+    await page.evaluate(() => document.fonts.ready);
+    await sleep(2500);
+    await page.evaluate(() => {
+      const root = document.querySelector('.swm-corner .fp-scale');
+      const cur = getComputedStyle(root).getPropertyValue('--scale-cur').trim();
+      document.querySelectorAll('.swm-corner .fp-scale__station').forEach((s) => { if (s.style.getPropertyValue('--k').trim() === cur) s.setAttribute('data-lens', ''); });
+      const mk = (id, css, off) => {
+        const st = document.createElement('style');
+        st.id = id;
+        st.textContent = css;
+        document.head.append(st);
+        st.disabled = off;
+      };
+      mk('swm-lids-iso', 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .fp-scale__pointer{visibility:hidden !important}', false);
+      mk('swm-lids-magenta', '.swm-corner .scheme-eye__lid{stroke:#ff00ff !important}', true);
+      mk('swm-lids-hide', '.swm-corner .scheme-eye__iris,.swm-corner .scheme-eye__iris *,.swm-corner [data-lens],.swm-corner [data-lens] *{visibility:hidden !important}', true);
+    });
+    const toggle = (id, off) => page.evaluate(([i, o]) => { document.getElementById(i).disabled = o; }, [id, off]);
+    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    const cdp = phone ? await ctx.newCDPSession(page) : null;
+    const grab = async (clipBox) => {
+      const { data, info } = await sharp(await page.screenshot({ clip: clipBox })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      return { data, w: info.width, h: info.height };
+    };
+    const analyse = (A, B) => {
+      const { w, h } = B;
+      const stroke = new Uint8Array(w * h);
+      let lid = 0;
+      const [r0, g0, b0] = [B.data[0], B.data[1], B.data[2]]; // the ground, read off B's corner (the page's own fill shows through)
+      for (let p = 0; p < w * h; p++) {
+        const i = p * 3;
+        if (Math.max(Math.abs(B.data[i] - r0), Math.abs(B.data[i + 1] - g0), Math.abs(B.data[i + 2] - b0)) > 6) {
+          stroke[p] = 1;
+          lid++;
+        }
+      }
+      const out = new Uint8Array(w * h);
+      const stack = [];
+      const push = (x, y) => {
+        const p = y * w + x;
+        if (!stroke[p] && !out[p]) {
+          out[p] = 1;
+          stack.push(p);
+        }
+      };
+      for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+      for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+      while (stack.length) {
+        const p = stack.pop();
+        const x = p % w;
+        const y = (p - x) / w;
+        if (x > 0) push(x - 1, y);
+        if (x < w - 1) push(x + 1, y);
+        if (y > 0) push(x, y - 1);
+        if (y < h - 1) push(x, y + 1);
+      }
+      let leak = 0;
+      let circle = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const p = y * w + x;
+          const i = p * 3;
+          const differs = Math.max(Math.abs(A.data[i] - B.data[i]), Math.abs(A.data[i + 1] - B.data[i + 1]), Math.abs(A.data[i + 2] - B.data[i + 2])) > 6;
+          if (differs) circle++;
+          if (!differs || !out[p]) continue;
+          // shrunk by one device pixel off the stroke: every pixel of the 3 x 3 around it is outside too
+          let near = false;
+          for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) { const qx = x + dx; const qy = y + dy; if (qx < 0 || qy < 0 || qx >= w || qy >= h || !out[qy * w + qx]) { near = true; break; } }
+          if (!near) leak++;
+        }
+      }
+      return { leak, circle, lid };
+    };
+    const cases = [];
+    const tag = `${scheme}-${width}`;
+    const state = async (name) => {
+      const vp = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+      const box = { x: Math.max(0, vp.w - 140), y: Math.max(0, vp.h - 200), width: Math.min(140, vp.w), height: 200 };
+      if (SHOTS) {
+        fs.mkdirSync(SHOTS, { recursive: true });
+        await page.screenshot({ path: path.join(SHOTS, `lids-${tag}${QUERY ? '-k1' : ''}-${name}.png`), clip: box });
+      }
+      await toggle('swm-lids-magenta', false);
+      const A = await grab(box);
+      await toggle('swm-lids-hide', false);
+      const B = await grab(box);
+      await toggle('swm-lids-hide', true);
+      await toggle('swm-lids-magenta', true);
+      if (process.env.SWM_LIDS_DUMP) {
+        for (const [k, im] of [['A', A], ['B', B]]) await sharp(im.data, { raw: { width: im.w, height: im.h, channels: 3 } }).png().toFile(`${process.env.SWM_LIDS_DUMP}-${tag}-${name}-${k}.png`);
+      }
+      cases.push({ name: `${scheme} ${width} ${name}`, ...analyse(A, B) });
+    };
+    await state('rest');
+    if (phone) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: eye.x, y: eye.y }] });
+    else await page.mouse.move(eye.x, eye.y);
+    await page.waitForFunction(() => document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 });
+    await sleep(1400);
+    await state('engaged');
+    return { cases };
   } catch (e) {
     return { error: String(e.message).split('\n')[0].slice(0, 240) };
   } finally {
@@ -1516,6 +1834,16 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
       }
     }
     if (parts.length) emitResult(scheme, route, width, 'shift', merge(parts));
+  }
+  if (want.has('sequence')) {
+    const m = await measureSequence(browser, scheme, width);
+    if (m.error) emit('FAIL', scheme, route, width, 'sequence', m.error);
+    else emitResult(scheme, route, width, 'sequence', gate.sequence(m));
+  }
+  if (want.has('lids')) {
+    const m = await measureLids(browser, scheme, width);
+    if (m.error) emit('FAIL', scheme, route, width, 'lids', m.error);
+    else emitResult(scheme, route, width, 'lids', gate.lids(m));
   }
   if (want.has('noClip')) {
     const c = await measureClip(browser, scheme, width);
