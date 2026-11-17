@@ -1245,12 +1245,12 @@ async function footerTailScrub(cdp, page, x) {
  *  takes a Chromium trace of the same 2 s and reports the main thread's
  *  Recalculate Style / Layout / Paint ms per frame. */
 const FRAME_SCRUB = { fromY: 640, stepPx: 0.48, everyMs: 8, ms: 2000, cpu: 4 };
-async function timedScrub(cdp, x) {
+async function timedScrub(cdp, x, stepPx) {
   // Sends are NOT awaited one by one: a throttled renderer acks slowly, and an awaited
   // loop would stretch the finger's 2 s into 10+ and hand the page fewer touchmoves than
   // frames. A real finger does not wait for the page, so the schedule is wall-clock and
   // the browser coalesces whatever the renderer cannot take.
-  const { fromY, stepPx, everyMs, ms } = FRAME_SCRUB;
+  const { fromY, everyMs, ms } = FRAME_SCRUB;
   const pt = (y) => [{ x, y, radiusX: 2, radiusY: 2, force: 1 }];
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(fromY) });
   const sent = [];
@@ -1285,6 +1285,10 @@ async function footerFrameScrub(cdp, page, ctx, x, rest, panelH) {
     await touchScrub(cdp, page, { x, from: 80, to: 560, steps: 48 });
     await sleep(1500); // the release carry (and any follow) settles
   };
+  // The finger's px/s is quoted at the probe's pinned gain 2; at another gain the step scales so the
+  // PANEL moves at the same speed and the rise still spans enough frames to read.
+  const gain = extraNum('footertouchgain') ?? extraNum('touchgain') ?? 2;
+  const stepPx = (FRAME_SCRUB.stepPx * 2) / gain;
   await page.evaluate(FRAME_REC);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: FRAME_SCRUB.cpu });
   await walkToRest();
@@ -1294,7 +1298,7 @@ async function footerFrameScrub(cdp, page, ctx, x, rest, panelH) {
     r.frames.length = 0;
     r.moves = 0;
   });
-  await timedScrub(cdp, x);
+  await timedScrub(cdp, x, stepPx);
   await sleep(300);
   const rec = await page.evaluate(() => window.__swmFrameRec.frames);
   const span = 1 - rest;
@@ -1307,7 +1311,7 @@ async function footerFrameScrub(cdp, page, ctx, x, rest, panelH) {
   }
   // The touch slop's first jump is one big step, not a rate: skip the engaged frame itself.
   const win = body.slice(1);
-  const out = { cpu: FRAME_SCRUB.cpu, fingerPxPerSec: Math.round((FRAME_SCRUB.stepPx / FRAME_SCRUB.everyMs) * 1000), frames: win.length };
+  const out = { cpu: FRAME_SCRUB.cpu, gain, fingerPxPerSec: Math.round((stepPx / FRAME_SCRUB.everyMs) * 1000), frames: win.length };
   if (win.length >= 5) {
     const st = stats(win.map((f) => f.dpx));
     const ev = stats(win.map((f) => f.ev));
@@ -1346,7 +1350,7 @@ async function footerFrameScrub(cdp, page, ctx, x, rest, panelH) {
     };
   };
   await walkToRest();
-  out.trace = await traced(() => timedScrub(cdp, x));
+  out.trace = await traced(() => timedScrub(cdp, x, stepPx));
   await walkToRest();
   out.traceIdle = await traced(() => sleep(2000));
   await page.evaluate(() => (window.__swmFrameRec.on = false));
