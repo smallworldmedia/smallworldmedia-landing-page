@@ -19,8 +19,12 @@
  *              the panel's climb, the client marks' own reveal window,
  *              and the on-load word fade.
  *
+ *   touch gain, touch brake — home's FINGER on that reveal (SQ-115): the
+ *              finger's own gain (starts at the house TOUCH_GAIN) and the tail's
+ *              tension under it (footerTensionStep). Touch-only, home-only.
+ *
  * copy_url emits only non-default knobs (?footerlockup / ?footertravel /
- * ?footerlerp / ?footerbrake / ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
+ * ?footerlerp / ?footerbrake / ?footertouchgain / ?footertouchbrake / ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
  * ?footerintro). Dial the first two on /process or a /work/[slug] page
  * (document-scroll routes); on /work the driven footer shows lockup size live
  * at the last World. The last five need a phone-width home, where the panel
@@ -37,6 +41,7 @@ import {
   footerTuneUrl,
   FOOTER_TUNE_DEFAULTS,
 } from '../lib/footerTune.js';
+import { TOUCH_GAIN } from '../lib/touchTune.js';
 
 function Row({ label, param, value, min, max, step, fmt, onChange }) {
   return (
@@ -151,6 +156,36 @@ export default function FooterTunePanel() {
         lerp = how fast the panel catches the wheel, Lenis&apos;s own (the house&apos;s baked 0.165); 0 = the raw
         delta. tail brake = over the last third of the reveal a wheel delta moves the panel less, down to 1 −
         brake at the top, so it slows into the full reveal; 0 = off.
+      </p>
+
+      {/* SQ-115 — home's FINGER on that reveal. Touch-only and home-only; the
+          house gain (/work, /process) is not touched. Live on the next
+          touchmove (Hero reads both per event). */}
+      <div className="footer-tune__group">finger · home</div>
+      <Row
+        label={`touch gain (px→px · def house ${TOUCH_GAIN})`}
+        param="touchGain"
+        value={s.touchGain ?? TOUCH_GAIN}
+        min={1}
+        max={8}
+        step={0.25}
+        fmt={num2}
+        onChange={set}
+      />
+      <Row
+        label={`touch brake (def ${FOOTER_TUNE_DEFAULTS.touchBrake})`}
+        param="touchBrake"
+        value={s.touchBrake}
+        min={0}
+        max={0.9}
+        step={0.05}
+        fmt={num2}
+        onChange={set}
+      />
+      <p className="footer-tune__note">
+        touch gain = finger px to gesture px on the home footer alone; it starts at the house gain. touch
+        brake = over the last third of the rise the panel moves less per finger px, tightening into the full
+        reveal, and gives it back when the finger returns; 0 = off, today&apos;s feel.
       </p>
 
       {/* HOME ([data-footer-rest]) — these four only do anything where the

@@ -23,6 +23,7 @@ import {
   navSlide,
   footerDamp,
   footerBrakeStep,
+  footerTensionStep,
   FOOTER_BRAKE_TAIL,
   FOOTER_TUNE_DEFAULTS,
 } from '../../src/lib/footerTune.js'
@@ -474,4 +475,127 @@ test('footerBrakeStep: plain travel below the tail, a brake inside it, any delta
   // rest 0 is /work's footer: the same law over the whole travel.
   near(footerBrakeStep(0, 0.5, 0, b), 0.5)
   assert.ok(footerBrakeStep(0.9, 0.05, 0, b) < 0.95)
+})
+
+test('footerTensionStep — b 0 is the plain clamp, byte for byte', () => {
+  /* SQ-115, 11-17: home's FINGER on the reveal ("the footer reveal stops
+     slamming into its full reveal" on a phone). Hero's touch branch used the
+     plain clamp at the HOUSE gain (5 since 11-03), so rest → full was ~41px of
+     finger. footerTensionStep is the wheel brake's tail made symmetric, so a
+     finger round-trips; the gain and the tension are two dials, defaulting to
+     today's feel. The tests below hold the step and the dials' wiring. */
+  for (const rest of [0, 0.4, 0.59]) {
+    for (const p of [rest, (rest + 1) / 2, 0.95, 1]) {
+      for (const dp of [-2, -0.3, -0.01, 0, 0.01, 0.3, 2]) {
+        const plain = Math.min(1, Math.max(rest, p + dp))
+        assert.equal(footerTensionStep(p, dp, rest, 0), plain)
+        assert.equal(footerTensionStep(p, dp, rest), plain) // the default is off
+      }
+    }
+  }
+})
+
+/** Up d, then down d, from p: where it ends. */
+const roundTrip = (step, p, d, rest, b) => step(step(p, d, rest, b), -d, rest, b)
+
+test('footerTensionStep — a finger up d px then down d px puts the panel back', () => {
+  const near = (a, e, tol = 1e-9) => assert.ok(Math.abs(a - e) < tol, `${a} vs ${e}`)
+  for (const [rest, b] of [[0.59, 0.5], [0.59, 0.7], [0.4, 0.5], [0, 0.9]]) {
+    const span = footerSpan(rest)
+    const tail = rest + (1 - FOOTER_BRAKE_TAIL) * span
+    // A start in the tail, and one below it; d stays short of the clamp at 1.
+    for (const p of [tail + 0.02 * span, tail + 0.1 * span, tail - 0.05 * span, rest + 0.02 * span]) {
+      for (const d of [0.001, 0.01, 0.04]) {
+        if (footerTensionStep(p, d, rest, b) >= 1) continue
+        near(roundTrip(footerTensionStep, p, d, rest, b), p)
+      }
+    }
+  }
+  // The control the round trip is judged by: the WHEEL's brake brakes only the
+  // revealing direction, so the same walk through footerBrakeStep does not come back.
+  const rest = 0.59
+  const p = rest + 0.9 * footerSpan(rest)
+  assert.ok(Math.abs(roundTrip(footerBrakeStep, p, 0.02, rest, 0.5) - p) > 1e-3)
+})
+
+test('footerTensionStep — monotone in dp, inside [rest, 1], and it reaches exactly 1', () => {
+  for (const [rest, b] of [[0.59, 0.5], [0.4, 0.9], [0, 0.3]]) {
+    for (const p of [rest, rest + 0.5 * footerSpan(rest), 0.97, 1]) {
+      let last = -Infinity
+      for (let dp = -1.5; dp <= 1.5; dp += 0.005) {
+        const q = footerTensionStep(p, dp, rest, b)
+        assert.ok(q >= last, `not monotone at p ${p}, dp ${dp}`)
+        assert.ok(q >= rest && q <= 1, `${q} left [${rest}, 1]`)
+        last = q
+      }
+      assert.equal(last, 1, 'a big enough delta must land exactly on the full reveal')
+      assert.equal(footerTensionStep(p, -1.5, rest, b), rest)
+    }
+  }
+  // A tension past 0.9 is held there, so the top is still reached.
+  assert.equal(footerTensionStep(0.59, 10, 0.59, 5), 1)
+})
+
+test('footerTensionStep — the local rate falls to 1 − b at the end of the tail, either way', () => {
+  const near = (a, e, tol) => assert.ok(Math.abs(a - e) < tol, `${a} vs ${e}`)
+  for (const [rest, b] of [[0.59, 0.5], [0.59, 0.7], [0, 0.3]]) {
+    const span = footerSpan(rest)
+    const tail = rest + (1 - FOOTER_BRAKE_TAIL) * span
+    const d = 1e-8
+    // Plain at the tail's start and below it.
+    near((footerTensionStep(tail, d, rest, b) - tail) / d, 1, 1e-4)
+    near((footerTensionStep(tail - 0.05, d, rest, b) - (tail - 0.05)) / d, 1, 1e-6)
+    // At the top: up from just under it, and down from the full reveal itself.
+    const top = 1 - 1e-5
+    near((footerTensionStep(top, d, rest, b) - top) / d, 1 - b, 2e-3)
+    near((1 - footerTensionStep(1, -d, rest, b)) / d, 1 - b, 2e-3)
+    // And it falls through the tail.
+    const mid = tail + 0.5 * (1 - tail)
+    const r1 = (footerTensionStep(mid, d, rest, b) - mid) / d
+    assert.ok(r1 < 1 && r1 > 1 - b)
+  }
+})
+
+test('footerTensionStep — one large delta lands where many small ones of the same total do', () => {
+  const near = (a, e, tol = 1e-6) => assert.ok(Math.abs(a - e) < tol, `${a} vs ${e}`)
+  for (const [p0, total, rest, b] of [[0.59, 0.3, 0.59, 0.5], [0.85, 0.1, 0.59, 0.7], [0.95, -0.2, 0.59, 0.5], [0.4, 0.4, 0.4, 0.9]]) {
+    const one = footerTensionStep(p0, total, rest, b)
+    let many = p0
+    for (let i = 0; i < 5000; i++) many = footerTensionStep(many, total / 5000, rest, b)
+    near(one, many)
+  }
+})
+
+test('footerBrakeStep is the forward half of footerTensionStep, so the wheel keeps its curve', () => {
+  const near = (a, e) => assert.ok(Math.abs(a - e) < 1e-12, `${a} vs ${e}`)
+  for (const dp of [0.001, 0.05, 0.2, 1]) {
+    for (const p of [0.4, 0.8, 0.95]) near(footerBrakeStep(p, dp, 0.4, 0.5), footerTensionStep(p, dp, 0.4, 0.5))
+  }
+  // Retracting stays plain, tension or not.
+  near(footerBrakeStep(0.95, -0.1, 0.4, 0.5), 0.85)
+})
+
+test('?footertouchgain is unset by default, 0 is refused, and ?footertouchbrake=0 is honoured', async () => {
+  const plain = await freshTune('')
+  assert.equal(plain.state.touchGain, null, 'the gain follows the house TOUCH_GAIN unless dialed')
+  assert.equal(plain.state.touchBrake, 0, 'the default is today’s feel')
+  const dialed = await freshTune('?footertouchgain=2&footertouchbrake=0.5')
+  assert.equal(dialed.state.touchGain, 2)
+  assert.equal(dialed.state.touchBrake, 0.5)
+  assert.equal(dialed.props.size, 0, 'the finger dials are JS reads, never CSS')
+  const zero = await freshTune('?footertouchgain=0&footertouchbrake=0')
+  assert.equal(zero.state.touchGain, null, 'a gain of 0 would pin the panel')
+  assert.equal(zero.state.touchBrake, 0)
+})
+
+test('Hero’s touch path reads the finger dials and rides footerTensionStep, the wheel path does not', () => {
+  const src = fs.readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
+  assert.match(src, /\(touchY - y\) \* \(getFooterTouchGain\(\) \?\? TOUCH_GAIN\)/, 'the finger lost its own gain')
+  assert.match(
+    src,
+    /footerTensionStep\(footerPRef\.current, dy \/ SCROLL_TRIGGER_HOME_PX, FOOTER_REST, getFooterTouchBrake\(\)\)/,
+    'addDelta’s touch branch lost the tension',
+  )
+  assert.match(src, /const to = footerTensionStep\(p, vel \* RELEASE_MS, FOOTER_REST, getFooterTouchBrake\(\)\)/, 'the release carry skips the tension')
+  assert.match(src, /drive\.add\(dy \/ SCROLL_TRIGGER_HOME_PX, footerPRef\.current\)/, 'the wheel path changed')
 })

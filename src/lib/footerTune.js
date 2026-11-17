@@ -26,6 +26,11 @@
  *   brake     — the tail's brake on that target (footerBrakeStep below): over
  *               the last third of the rise a revealing delta's share falls,
  *               quadratically, to 1 − brake at the full reveal; 0 = off.
+ *   touchGain /
+ *   touchBrake — home's FINGER on that reveal (SQ-115; touch-only, home-only,
+ *               nothing baked): the finger px → gesture px (null = the house
+ *               TOUCH_GAIN, so /work and /process keep theirs) and the same
+ *               tail made symmetric for a finger (footerTensionStep); 0 = off.
  *
  * HOME ([data-footer-rest], 10-07; desktop too since 10-09) — the resting
  * footer's own four.
@@ -44,7 +49,7 @@
  *               ?logofrom/?logoto shape, one tier in from the band's.
  *
  * URL params (`?footerlockup=<rem>`, `?footertravel=<K>`, `?footerlerp=<lerp>`,
- * `?footerbrake=<b>`, `?footerlift=<k>`,
+ * `?footerbrake=<b>`, `?footertouchgain=<g>`, `?footertouchbrake=<b>`, `?footerlift=<k>`,
  * `?footermarksfrom`, `?footermarksto`, `?footermarkslift=<rem>`,
  * `?footerintro=<s>`) seed the state on load — with or without the bench
  * open, so a copied link previews the dialed values. copy_url emits only
@@ -111,24 +116,28 @@ export const FOOTER_BRAKE_TAIL = 1 / 3;
     mouse notch brakes as a trackpad's stream of deltas does. At b 0.5 the
     tail asks 1.25× its distance, about 8% more wheel for the whole reveal. */
 export function footerBrakeStep(p, dp, rest = 0, brake = 0) {
+  return dp > 0 ? footerTensionStep(p, dp, rest, brake) : Math.min(1, Math.max(rest, p + dp));
+}
+
+/** The same tail, symmetric: a finger's version of footerBrakeStep (SQ-115,
+    home's touch path). A finger must round-trip (up d px, down d px puts the
+    panel back), so a delta of either sign moves a coordinate U that is plain
+    below the tail and the brake's own stretch inside it: U = r0 + T·atanh(k·
+    (rise − r0)/T)/k, k = √b, r0 = 1 − T. The panel reads U back through tanh,
+    so the tail asks the finger for more going up and hands it back going down.
+    Clamped to [rest, 1]; b 0 is exactly that clamp. Closed form, like the
+    brake: one big delta lands where many small ones of the same total do. */
+export function footerTensionStep(p, dp, rest = 0, tension = 0) {
   const span = footerSpan(rest);
-  const b = Math.min(0.9, Math.max(0, brake));
-  if (!(dp > 0) || !(b > 0) || !(span > 0)) return Math.min(1, Math.max(rest, p + dp));
+  const b = Math.min(0.9, Math.max(0, tension));
+  if (!(b > 0) || !(span > 0)) return Math.min(1, Math.max(rest, p + dp));
   const T = FOOTER_BRAKE_TAIL;
   const k = Math.sqrt(b);
   const r0 = 1 - T;
-  let rise = footerRise(p, rest);
-  let du = dp / span;
-  if (rise < r0) {
-    const take = Math.min(du, r0 - rise);
-    rise += take;
-    du -= take;
-  }
-  if (du > 0) {
-    const u = (T * Math.atanh((k * (rise - r0)) / T)) / k + du;
-    rise = Math.min(1, r0 + (T * Math.tanh((k * u) / T)) / k);
-  }
-  return rest + rise * span;
+  const rise = footerRise(p, rest);
+  const u = (rise > r0 ? r0 + (T * Math.atanh((k * (rise - r0)) / T)) / k : rise) + dp / span;
+  const out = u > r0 ? Math.min(1, r0 + (T * Math.tanh((k * (u - r0)) / T)) / k) : Math.max(0, u);
+  return rest + out * span;
 }
 
 export const FOOTER_TUNE_ACTIVE =
@@ -141,6 +150,9 @@ export const FOOTER_TUNE_DEFAULTS = Object.freeze({
   // ── the driven hosts' wheel (home, /work's last World; 10-31, Nathan) ──
   lerp: 0.165, // mirrors LENIS_TUNING.lerp (motion.js): the house's baked Lenis feel (the test holds the two equal); 0 = the raw delta
   brake: 0.5, // the tail brake's strength, b (footerBrakeStep); 0 = off. A pick, flagged for Nathan 10-31
+  // ── home's FINGER on that reveal (SQ-115; touch-only, home-only) ──
+  touchGain: null, // finger px → gesture px; null = follow the house TOUCH_GAIN (touchTune.js)
+  touchBrake: 0, // the same tail, symmetric (footerTensionStep), under the finger; 0 = today's clamp
   // ── home rest ([data-footer-rest], both tiers since 10-09) ──
   liftK: 0.5, // mirrors the global.css `--footer-lift-k` fallback
   marksFrom: 0.6, // mirrors `--footer-marks-from` — MEASURED, see the guide
@@ -214,6 +226,8 @@ const PARAM_KEYS = {
   travelK: 'footertravel',
   lerp: 'footerlerp',
   brake: 'footerbrake',
+  touchGain: 'footertouchgain',
+  touchBrake: 'footertouchbrake',
   liftK: 'footerlift',
   marksFrom: 'footermarksfrom',
   marksTo: 'footermarksto',
@@ -251,6 +265,7 @@ const PARAM_KEYS = {
 const ZERO_OK = new Set([
   'lerp',
   'brake',
+  'touchBrake', // 0 = the finger's plain clamp, today's feel (touchGain stays out: 0 would pin the panel)
   'liftK',
   'marksFrom',
   'marksLift',
@@ -285,6 +300,13 @@ export const getFooterTravelK = () => state.travelK;
     frame and per delta, so the bench's sliders act on the next wheel event. */
 export const getFooterLerp = () => state.lerp;
 export const getFooterBrake = () => state.brake;
+
+/** Home's finger on the reveal (SQ-115), read per touch event so the bench's
+    sliders act on the next touchmove. The gain is null while undialed: Hero
+    then follows the house TOUCH_GAIN (this module cannot import touchTune,
+    which pulls gsap in). The brake is footerTensionStep's b; 0 = today's feel. */
+export const getFooterTouchGain = () => state.touchGain;
+export const getFooterTouchBrake = () => state.touchBrake;
 
 /** The resting footer's on-load word fade — duration AND stagger budget, s.
     The slide used to borrow this; it carries its own `slideS` since 10-08,
