@@ -27,8 +27,8 @@ const red = { slug: 'a', projectColor: '#ff3300', spectrum: 'green' }
 const lime = { slug: 'b', projectColor: '#a3e635', spectrum: 'red' }
 const plain = { slug: 'c' } // a colourless World, no spectrum key
 
-test('the default grid level is the 0.12 starting value', () => {
-  assert.equal(SCHEME_GRID_LEVEL, 0.12)
+test('the default grid level is 0.16 (11-17: lightened slightly from the 0.12 starting value)', () => {
+  assert.equal(SCHEME_GRID_LEVEL, 0.16)
 })
 
 test('project scheme paints the World colour, or today deep blue when it has none', () => {
@@ -104,12 +104,13 @@ test('applyRamp wires a material to the SHARED uniforms by reference, one progra
   assert.equal(rampUniforms.uRampMix.value, 0) // a fresh scene starts on the flat colour
 })
 
-test('black shell grid level 0.12 is #1f1f1f, 0 is #000000, 1 is #ffffff, 0.3 is #4d4d4d', () => {
+test('black shell grid level 0.12 is #1f1f1f, 0.16 is #292929, 0 is #000000, 1 is #ffffff, 0.3 is #4d4d4d', () => {
   assert.equal(shellLineFor(red, 'black', 0.12).color, '#1f1f1f')
   assert.equal(shellLineFor(red, 'black', 0).color, '#000000')
   assert.equal(shellLineFor(red, 'black', 1).color, '#ffffff')
   assert.equal(shellLineFor(red, 'black', 0.3).color, '#4d4d4d')
-  assert.equal(shellLineFor(red, 'black').color, '#1f1f1f') // the default level
+  assert.equal(shellLineFor(red, 'black', 0.16).color, '#292929')
+  assert.equal(shellLineFor(red, 'black').color, '#292929') // the default level
 })
 
 test('black shell grid out-of-range levels clamp, and no World tint applies', () => {

@@ -186,7 +186,7 @@ records (`docs/globe-worlds-plan.md`).
      - SQ-88: the black and blue schemes in `scheme.css`;
      - SQ-89: the spectrum deal, a build-time colour key per featured project (`data-spectrum`);
      - SQ-90 and SQ-91: the home globe and the /work Worlds recolour live; the /work grid under
-       black starts at `?schemegrid` 0.12;
+       black starts at `?schemegrid` 0.12 (lightened to 0.16 on 11-17);
      - SQ-93: the spectrum skin, the color-ref.png palette as ribbons on black.
    - **His 11-14 notes:**
      - static logo stills stay off /work;

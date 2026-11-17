@@ -288,8 +288,8 @@ export const SHELL_LINE_COLOR = 0x020098;
 export const GRID_TINT_DIM = 0.6;
 /* — Colour scheme (US-7): what the scene paints under each scheme. Pure, so the
    test covers it; `project` resolves to exactly today's value in every case. — */
-// ?schemegrid — grey level (0..1) of the shell grid line under the `black` scheme (Nathan 11-14: very faint, not gone). Default 0.12 (#1f1f1f) is Nathan's starting value of 11-14 ("that works to start"), still a live dial: read here, not baked
-export const SCHEME_GRID_LEVEL = Math.min(1, Math.max(0, num('schemegrid', 0.12)));
+// ?schemegrid — grey level (0..1) of the shell grid line under the `black` scheme (Nathan 11-14: very faint, not gone). Default 0.16 (#292929), PROPOSED 11-17 (Nathan: "lighten the grid lines on black color scheme of /work slightly"; was his 11-14 starting value 0.12, #1f1f1f), still a live dial: read here, not baked
+export const SCHEME_GRID_LEVEL = Math.min(1, Math.max(0, num('schemegrid', 0.16)));
 const toHex6 = (c) =>
   typeof c === 'number'
     ? `#${(c & 0xffffff).toString(16).padStart(6, '0')}`
