@@ -90,6 +90,14 @@ function coverToWork(detail) {
 }
 import { SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
 import { RELEASE_MS, TOUCH_GAIN } from '../lib/touchTune.js';
+import {
+  footerTensionStep,
+  getFooterTouchBrake,
+  getFooterTouchGain,
+  getFooterTouchLerp,
+  FOOTER_FINGER,
+} from '../lib/footerTune.js';
+import { FOOTER_HUD_ACTIVE, createFooterHud } from '../lib/footerHud.js';
 import { requestInfoClose } from '../lib/infoPush.js';
 import { signalRouteReady } from '../lib/overlayWipe.js';
 import SiteFooter, {
@@ -362,8 +370,15 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : FOOTER_REST);
       else if (wheel) drive.add(dy / SCROLL_TRIGGER_HOME_PX, footerPRef.current);
       else {
-        drive.stop(); // the finger owns the panel: it tracks, unsmoothed
-        setFooterReveal(Math.min(1, Math.max(FOOTER_REST, footerPRef.current + dy / SCROLL_TRIGGER_HOME_PX)));
+        // SQ-115: the finger rides the wheel's drive on its own lane, FOOTER_FINGER:
+        // the tail's tension (?footertouchbrake, symmetric, so up d px then down d px
+        // is a round trip) and the follow (?footertouchlerp). At lerp 0 (the default)
+        // the finger owns the panel as before: the drive stops, steps from the painted
+        // progress and paints on the touchmove. Above 0 the finger moves a TARGET and
+        // the ticker paints one even step a frame, whatever cadence iOS delivers the
+        // touchmoves at.
+        if (!(getFooterTouchLerp() > 0)) drive.stop();
+        drive.add(dy / SCROLL_TRIGGER_HOME_PX, footerPRef.current, FOOTER_FINGER);
       }
     };
     const onWheel = (e) => {
@@ -383,11 +398,17 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     // glide. A finger already at rest when it lifts gets no carry.
     let vel = 0; // progress per ms, smoothed
     let moveAt = 0;
+    // ?footerhud=1 (SQ-115): a read-only readout of the drag's cadence, phone only.
+    const hud = FOOTER_HUD_ACTIVE && IS_MOBILE ? createFooterHud(() => footerPRef.current, FOOTER_REST) : null;
     const onTouchStart = (e) => {
       touchY = e.touches[0].clientY;
       touchX = e.touches[0].clientX;
       vel = 0;
       moveAt = 0;
+      // A new finger takes the panel from where it IS: a followed glide (still
+      // running toward its target) stops at the painted progress, no jump.
+      if (getFooterTouchLerp() > 0) drive.stop();
+      hud?.start();
     };
     const onTouchMove = (e) => {
       if (touchY === null) return;
@@ -408,7 +429,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       ) {
         return;
       }
-      const dy = (touchY - y) * TOUCH_GAIN;
+      // SQ-115: home's own copy of the gain (?footertouchgain); undialed it IS the house one.
+      const dy = (touchY - y) * (getFooterTouchGain() ?? TOUCH_GAIN);
       const now = performance.now();
       if (moveAt) {
         // dt floored at one frame so a two-event burst cannot read as an
@@ -417,6 +439,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
         vel = vel === 0 ? dp : vel * 0.6 + dp * 0.4;
       }
       moveAt = now;
+      hud?.move();
       addDelta(dy);
       touchY = y;
       touchX = x;
@@ -425,15 +448,30 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     const onTouchEnd = () => {
       touchY = null;
       touchX = null;
+      hud?.end();
       // RM snaps progress 0↔1 with no in-betweens, so there is nothing to
       // carry there (and a glide would contradict the preference).
       if (PREFERS_REDUCED_MOTION || departingRef.current) return;
       const stalled = !moveAt || performance.now() - moveAt > RELEASE_MS;
-      const p = footerPRef.current;
-      const to = Math.min(1, Math.max(FOOTER_REST, p + vel * RELEASE_MS));
+      // ?footertouchlerp > 0: the panel is following a target, so the carry goes
+      // THERE (the drive's goal), through the same tension step, and the glide
+      // decelerates on the damp. Velocity-continuous where a fresh wipeReveal is
+      // not: the follower already moves at the finger's pace, and the carry only
+      // lengthens its lead in proportion to that pace (a slow release adds almost
+      // nothing). A wipe would restart from the glide curve's own steep launch,
+      // whatever the finger was doing. Lerp 0 keeps the wipe, as it was.
+      const follow = getFooterTouchLerp() > 0;
+      const p = follow ? drive.goal(footerPRef.current) : footerPRef.current;
+      const carry = vel * RELEASE_MS;
+      // The carry rides the same tension, so a flick cannot coast past it.
+      const to = footerTensionStep(p, carry, FOOTER_REST, getFooterTouchBrake());
       vel = 0;
       if (stalled || Math.abs(to - p) < 0.002) return;
       footerWipeRef.current?.kill();
+      if (follow) {
+        drive.add(carry, footerPRef.current, FOOTER_FINGER);
+        return;
+      }
       drive.stop();
       footerWipeRef.current = wipeReveal(p, setFooterReveal, to);
     };
@@ -487,6 +525,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       window.removeEventListener(FOOTER_CLOSE_EVENT, onClose);
       footerWipeRef.current?.kill();
       drive.stop();
+      hud?.destroy();
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
