@@ -235,7 +235,7 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
 
 const skinCss = () => read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('SQ-107 pass 5 one seat, flush: the right edge is the viewport\'s on every route and the badge has no seat option', () => {
+test('SQ-107 pass 5 one seat, flush, the right edge is the viewport\'s on every route and the badge has no seat option', () => {
   const css = skinCss();
   const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
   assert.ok(/right:\s*var\(--badge-pad\)/.test(wrapper), 'the eye is one padding in, so the badge\'s own padding takes its right edge to the viewport\'s: no inset, home included');
