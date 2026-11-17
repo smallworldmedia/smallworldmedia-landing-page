@@ -214,6 +214,21 @@
  * genuinely runs rather than the blurb being final on its first drawn frame
  * (blurbNotFinalOnFirstFrame / blurbSettles). report.measured carries the
  * observed px — nothing in the design round could measure any of it.
+ * SQ-115 adds report.measured.tail (report-only; the dials live in the URL): a
+ * constant-speed scrub in 0.5px steps from the resting footer to the full
+ * reveal, reading the finger px it took (fingerPx) and the panel's px per
+ * touchmove over the last 10% of the rise against the middle of it
+ * (panelPxPerStepLast10 / Body). Its one gate is tailScrubReachedFull. Read the
+ * home footer's finger at the baked numbers (Nathan 11-17: gain 2, brake 0.5, lerp
+ * 0.35) with no --extra, the old feel with
+ * --extra="&footertouchgain=5&footertouchbrake=0&footertouchlerp=0", and any other
+ * dial the same way.
+ * SQ-115 pass 2 adds report.measured.cadence (relative only; never a device number):
+ * a constant-speed scrub (60 finger px/s, a touchmove per 8 ms) under CPU throttle 4
+ * with a per-rAF recorder, giving the CV of the panel's per-frame steps, frames where
+ * it did not move, and touchmoves per frame, plus a Chromium trace of 2 s of it with
+ * the main thread's Recalculate Style / Layout / Paint ms per frame. Compare
+ * --extra="&footertouchlerp=0" (raw) with 0.35 and 0.5. Gate: cadenceRan.
  *
  * Failed image requests land in report.imageFailures (the noise filter hides
  * them from the console list) with a hint on stderr: a still the Sanity CDN
@@ -377,15 +392,14 @@ const OUT = arg(
 // and would swallow the touch scrub. --detail loads the detail page itself,
 // --directory the directory.
 // --extra before &popunits: the page reads a param's first value, so an &popunits in --extra wins (nc-sneak).
-// --footer pins &touchgain=2 AFTER --extra (so --extra can still override it): footerScenario's finger
-// distances and step counts were calibrated at gain 2, and motion.js bakes 5 since 11-03 — unpinned,
-// the up-scrub would hit the clamp in ~13 of its 32 steps and coarsen every number read off the grid.
+// --footer needs no gain pin since 11-17: home's finger has its own baked gain (?footertouchgain, 2), which is
+// what footerScenario's finger distances and step counts were calibrated at; the house ?touchgain no longer reaches it.
 const URL_ = DIRECTORY
   ? `${BASE}/work/directory/${DIR_QUERY ? `?${DIR_QUERY}` : ''}`
   : DETAIL
     ? `${BASE}/work/${DETAIL}`
     : FOOTER
-      ? `${BASE}/?intro=${INTRO}${EXTRA}&touchgain=2`
+      ? `${BASE}/?intro=${INTRO}${EXTRA}`
       : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}${UNITS === null ? '' : `&popunits=${UNITS}`}`;
 // The gates' context. Every value mirrors what the page will read, so a gate never guesses.
 const BASELINE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'baselines', 'globe-units.json');
@@ -1159,6 +1173,193 @@ async function touchScrub(cdp, page, { x, from, to, steps }) {
   return trail;
 }
 
+/** SQ-115 — the finger's TAIL, read off a constant-speed scrub: how many finger
+ *  px take the panel from rest to a full reveal, and how far the panel moves per
+ *  touchmove (one step ≈ one frame at constant finger speed) over the last 10%
+ *  of the rise, against the middle of it. Report-only: the numbers depend on the
+ *  dials in the URL (?footertouchgain / ?footertouchbrake / ?footertouchlerp), so there
+ *  is no gate to hold them to; the vacuity check is that the scrub reached 1.
+ *  First it walks the panel back to rest with a finger far longer than any gain
+ *  needs. STEP_PX is fractional on purpose: at 1px a gain-5 reveal is ~41 steps
+ *  and the last 10% would be 4 samples. */
+async function footerTailScrub(cdp, page, x) {
+  const STEP_PX = 0.5;
+  const MAX_STEPS = 700;
+  await touchScrub(cdp, page, { x, from: 80, to: 560, steps: 48 }); // → rest, at any gain
+  await sleep(1200); // its release carry settles
+  const start = await footerRead(page);
+  const rest = start.reveal;
+  const pts = [];
+  const pt = (y) => [{ x, y, radiusX: 2, radiusY: 2, force: 1 }];
+  const from = 640;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(from) });
+  for (let i = 1; i <= MAX_STEPS; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(from - i * STEP_PX) });
+    const r = await footerRead(page);
+    pts.push({ finger: i * STEP_PX, reveal: r.reveal, panelH: r.panelH });
+    if (r.reveal >= 1 - 1e-6) break;
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  const last = pts[pts.length - 1];
+  const reached = last.reveal >= 1 - 1e-6;
+  const span = 1 - rest;
+  const panelH = last.panelH;
+  const rise = (p) => (p - rest) / span;
+  // Panel px per step, off the reveal the page itself published each step.
+  const px = (a, b) => (rise(b.reveal) - rise(a.reveal)) * span * panelH;
+  const all = pts.map((p, i) => ({ rise: rise(p.reveal), px: px(i ? pts[i - 1] : { reveal: rest }, p) }));
+  // Chrome holds back the first ~15px of a drag as touch slop and delivers it as ONE
+  // touchmove (the panel jumps ~15px of finger at once). That jump is real finger
+  // travel (it stays in fingerPx) but it is not a rate, so the per-step means skip it.
+  const engaged = all.findIndex((s) => s.px > 0);
+  const steps = engaged < 0 ? [] : all.slice(engaged + 1);
+  const mean = (arr) => (arr.length ? arr.reduce((s, v) => s + v.px, 0) / arr.length : null);
+  // The step that lands on the clamp only spends part of its finger; keep it out.
+  const body = steps.filter((s) => s.rise >= 0.3 && s.rise <= 0.6);
+  const tail = steps.filter((s) => s.rise >= 0.9 && s.rise < 1 - 1e-6);
+  const r2 = (n) => (n == null ? null : Math.round(n * 100) / 100);
+  return {
+    stepPx: STEP_PX,
+    reached,
+    fingerPx: reached ? last.finger : null,
+    slopPx: engaged < 0 ? null : pts[engaged].finger, // the finger px the first move delivered at once
+    panelPxPerStepBody: r2(mean(body)),
+    panelPxPerStepLast10: r2(mean(tail)),
+    last10Steps: tail.length,
+    lastStepsPx: steps.slice(-8).map((s) => r2(s.px)),
+    trace: pts.map((p) => [p.finger, p.reveal]),
+    ratioLast10ToBody: mean(body) && mean(tail) != null ? r2(mean(tail) / mean(body)) : null,
+  };
+}
+
+/** SQ-115 pass 2 — is the finger's stepping the INPUT CADENCE or the FRAME COST?
+ *  A constant-speed scrub (60 finger px/s, one touchmove every 8 ms) under
+ *  Emulation.setCPUThrottlingRate 4, with a per-rAF recorder in the page that
+ *  reads the panel's published progress (--footer-reveal on <html>, a cheap
+ *  inline read) and the touchmove count each frame. Read per-frame panel steps
+ *  over the rise's body (rise 0.05 to 0.90, before the clamp): the coefficient
+ *  of variation (even = 0), frames where the panel did not move, touchmoves
+ *  per frame (and the share of frames with none / two or more). RELATIVE ONLY:
+ *  headless Chromium aligns touchmoves to frames and the CPU throttle is a
+ *  stand-in, so compare ?footertouchlerp=0 against 0.35 and 0.5 here, never
+ *  read an absolute off a phone from it. A second pass, with no probe reads,
+ *  takes a Chromium trace of the same 2 s and reports the main thread's
+ *  Recalculate Style / Layout / Paint ms per frame. */
+const FRAME_SCRUB = { fromY: 640, stepPx: 0.48, everyMs: 8, ms: 2000, cpu: 4 };
+async function timedScrub(cdp, x, stepPx) {
+  // Sends are NOT awaited one by one: a throttled renderer acks slowly, and an awaited
+  // loop would stretch the finger's 2 s into 10+ and hand the page fewer touchmoves than
+  // frames. A real finger does not wait for the page, so the schedule is wall-clock and
+  // the browser coalesces whatever the renderer cannot take.
+  const { fromY, everyMs, ms } = FRAME_SCRUB;
+  const pt = (y) => [{ x, y, radiusX: 2, radiusY: 2, force: 1 }];
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(fromY) });
+  const sent = [];
+  const t0 = performance.now();
+  for (let i = 1; (i - 1) * everyMs < ms; i++) {
+    sent.push(cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(fromY - i * stepPx) }));
+    const wait = t0 + i * everyMs - performance.now();
+    if (wait > 0) await sleep(wait);
+  }
+  await Promise.all(sent);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+const FRAME_REC = () => {
+  const rec = { frames: [], moves: 0, on: true };
+  window.__swmFrameRec = rec;
+  window.addEventListener('touchmove', () => rec.moves++, { capture: true, passive: true });
+  const root = document.documentElement.style;
+  const tick = (t) => {
+    if (!rec.on) return;
+    rec.frames.push([t, parseFloat(root.getPropertyValue('--footer-reveal')), rec.moves]);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+async function footerFrameScrub(cdp, page, ctx, x, rest, panelH) {
+  const r4 = (n) => (n == null ? null : Math.round(n * 1e4) / 1e4);
+  const stats = (a) => {
+    const m = a.reduce((s, v) => s + v, 0) / a.length;
+    return { mean: m, sd: Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length) };
+  };
+  const walkToRest = async () => {
+    await touchScrub(cdp, page, { x, from: 80, to: 560, steps: 48 });
+    await sleep(1500); // the release carry (and any follow) settles
+  };
+  // The finger's px/s is quoted at the baked gain 2; at another gain the step scales so the
+  // PANEL moves at the same speed and the rise still spans enough frames to read.
+  const gain = extraNum('footertouchgain') ?? 2;
+  const stepPx = (FRAME_SCRUB.stepPx * 2) / gain;
+  await page.evaluate(FRAME_REC);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: FRAME_SCRUB.cpu });
+  await walkToRest();
+  // PASS 1: the per-frame readout
+  await page.evaluate(() => {
+    const r = window.__swmFrameRec;
+    r.frames.length = 0;
+    r.moves = 0;
+  });
+  await timedScrub(cdp, x, stepPx);
+  await sleep(300);
+  const rec = await page.evaluate(() => window.__swmFrameRec.frames);
+  const span = 1 - rest;
+  const rise = (p) => (p - rest) / span;
+  const engaged = rec.findIndex((f) => f[1] > rest + 1e-4);
+  const body = [];
+  for (let i = Math.max(engaged, 1); i < rec.length; i++) {
+    if (rise(rec[i][1]) > 0.9) break;
+    body.push({ dpx: (rec[i][1] - rec[i - 1][1]) * panelH, ev: rec[i][2] - rec[i - 1][2], dt: rec[i][0] - rec[i - 1][0] });
+  }
+  // The touch slop's first jump is one big step, not a rate: skip the engaged frame itself.
+  const win = body.slice(1);
+  const out = { cpu: FRAME_SCRUB.cpu, gain, fingerPxPerSec: Math.round((stepPx / FRAME_SCRUB.everyMs) * 1000), frames: win.length };
+  if (win.length >= 5) {
+    const st = stats(win.map((f) => f.dpx));
+    const ev = stats(win.map((f) => f.ev));
+    out.panelPxPerFrame = { mean: r4(st.mean), sd: r4(st.sd), cv: r4(st.sd / st.mean) };
+    out.noMoveFrames = win.filter((f) => f.dpx === 0).length;
+    out.noMoveShare = r4(out.noMoveFrames / win.length);
+    out.touchEventsPerFrame = { mean: r4(ev.mean), sd: r4(ev.sd), none: win.filter((f) => f.ev === 0).length, twoPlus: win.filter((f) => f.ev >= 2).length };
+    out.frameMs = { mean: r4(win.reduce((s, f) => s + f.dt, 0) / win.length), max: r4(Math.max(...win.map((f) => f.dt))), over20Share: r4(win.filter((f) => f.dt > 20).length / win.length) };
+  }
+  // PASS 2: Chromium traces of 2 s, scrubbing and idle (the baseline the scrub is read against).
+  // No page reads of ours run inside either.
+  const browser = ctx.browser();
+  const traced = async (run) => {
+    await page.evaluate(() => {
+      window.__swmFrameRec.frames.length = 0;
+    });
+    await browser.startTracing(page, { categories: ['devtools.timeline', 'disabled-by-default-devtools.timeline'], screenshots: false });
+    await run();
+    const trace = JSON.parse((await browser.stopTracing()).toString());
+    const n = await page.evaluate(() => window.__swmFrameRec.frames.length);
+    const dur = { UpdateLayoutTree: 0, Layout: 0, Paint: 0, PrePaint: 0, RunTask: 0 };
+    const cnt = { UpdateLayoutTree: 0, Layout: 0, Paint: 0 };
+    const main = new Set();
+    for (const e of trace.traceEvents) if (e.ph === 'M' && e.name === 'thread_name' && e.args?.name === 'CrRendererMain') main.add(`${e.pid}:${e.tid}`);
+    for (const e of trace.traceEvents) {
+      if (e.ph !== 'X' || !(e.name in dur) || !main.has(`${e.pid}:${e.tid}`)) continue;
+      dur[e.name] += e.dur / 1000;
+      if (e.name in cnt) cnt[e.name]++;
+    }
+    const per = (k) => (n ? r4(dur[k] / n) : null);
+    return {
+      tracedFrames: n,
+      msPerFrame: { recalcStyle: per('UpdateLayoutTree'), layout: per('Layout'), paint: per('Paint'), prePaint: per('PrePaint'), mainThreadBusy: per('RunTask') },
+      perFrame: { recalcStyleCount: n ? r4(cnt.UpdateLayoutTree / n) : null, layoutCount: n ? r4(cnt.Layout / n) : null, paintCount: n ? r4(cnt.Paint / n) : null },
+      recalcShareOfBusy: dur.RunTask ? r4(dur.UpdateLayoutTree / dur.RunTask) : null,
+    };
+  };
+  await walkToRest();
+  out.trace = await traced(() => timedScrub(cdp, x, stepPx));
+  await walkToRest();
+  out.traceIdle = await traced(() => sleep(2000));
+  await page.evaluate(() => (window.__swmFrameRec.on = false));
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  await sleep(1500);
+  return out;
+}
+
 async function footerScenario(page, ctx) {
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Input.setIgnoreInputEvents', { ignore: false }).catch(() => {});
@@ -1183,7 +1384,7 @@ async function footerScenario(page, ctx) {
   const rest = await footerRead(page);
   await shot(page, 'footer-rest');
 
-  // UP — the reveal. 120px of finger × the pinned ?touchgain=2 (URL_) ÷ SCROLL_TRIGGER_HOME_PX
+  // UP — the reveal. 120px of finger × the baked ?footertouchgain=2 ÷ SCROLL_TRIGGER_HOME_PX
   // 500 = 0.48 of progress, which clears the 1.0 clamp from the 0.59 floor
   // (1.07, so the clamp absorbs the last 0.07) and the scrub ENDS at a full
   // reveal rather than at a number that depends on the gain. The re-bake
@@ -1208,7 +1409,10 @@ async function footerScenario(page, ctx) {
   const parked = await footerRead(page);
 
   const watch = await page.evaluate(() => window.__swmFooterWatch || []);
-  return { rest, up, full, down, afterRetreat, parked, watch };
+  // After `watch` is read: this scrub moves the panel, and nothing above reads it again.
+  const tail = await footerTailScrub(cdp, page, x);
+  const cadence = await footerFrameScrub(cdp, page, ctx, x, rest.reveal, rest.panelH);
+  return { rest, up, full, down, afterRetreat, parked, watch, tail, cadence };
 }
 
 /** The gates, from the measurements above. */
@@ -1231,6 +1435,10 @@ function footerPass(f) {
         ? Math.round((rest.strokeTop - full.strokeTop) * 100) / 100
         : null,
     fold: VH,
+    // SQ-115: the finger's tail (report-only, the dials are in the URL)
+    tail: f.tail,
+    // SQ-115 pass 2: per-frame cadence + a trace under CPU throttle 4 (relative only)
+    cadence: f.cadence,
   };
   // The marks' arrival: the first scrub step at which the roll is fully in,
   // and the roll's top edge there. The fade must COMPLETE on screen — a
@@ -1294,6 +1502,10 @@ function footerPass(f) {
     // the entrance genuinely RUNS — the gate that would have caught ask 3
     blurbNotFinalOnFirstFrame: !!firstDrawn && firstDrawn.ink < 0.5,
     blurbSettles: maxInk != null && maxInk >= 0.99,
+    // the tail scrub (SQ-115) actually reached the full reveal, so its numbers are a rise and not a stall
+    tailScrubReachedFull: f.tail?.reached === true && (f.tail.last10Steps ?? 0) >= 2,
+    // the frame readout had enough body frames to be a rate, and the trace saw main-thread work
+    cadenceRan: (f.cadence?.frames ?? 0) >= 10 && (f.cadence?.trace?.msPerFrame?.mainThreadBusy ?? 0) > 0,
   };
 }
 

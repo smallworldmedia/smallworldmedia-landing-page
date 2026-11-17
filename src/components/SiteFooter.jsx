@@ -54,10 +54,7 @@ import {
   footerRise,
   footerSpan,
   navSlide,
-  footerDamp,
-  footerBrakeStep,
-  getFooterLerp,
-  getFooterBrake,
+  makeFooterDrive,
 } from '../lib/footerTune.js';
 // The house resize doctrine (08-28): cheap work per event, the expensive
 // re-measure after the gesture SETTLES.
@@ -103,46 +100,17 @@ export function wipeReveal(from, set, to = 1) {
    house's baked lerp (footerDamp, ?footerlerp). The target brakes in the
    reveal's tail (footerBrakeStep, ?footerbrake), so the panel slows into the
    full reveal instead of stopping dead on it. Touch keeps its finger tracking
-   and its release carry (Lenis leaves touch native too), and reduced motion
-   keeps its snap. Whatever else writes the progress (a wipe, a close, a
-   touch, a departure) stops the drive first, and so does the host's unmount. */
-export function createFooterDrive(set, rest = 0) {
-  let value = rest;
-  let target = rest;
-  let running = false;
-  const stop = () => {
-    if (running) gsap.ticker.remove(tick);
-    running = false;
-  };
-  function tick(_time, deltaMs) {
-    value = footerDamp(value, target, getFooterLerp(), Math.min(deltaMs, 100) / 1000);
-    if (Math.abs(target - value) < 1e-4) {
-      value = target;
-      stop();
-    }
-    set(value);
-  }
-  return {
-    /** A wheel delta in progress units (deltaY / the host's trigger px), taken
-        from the painted progress `from` when the drive is at rest. */
-    add(dp, from) {
-      if (!running) value = target = from;
-      target = footerBrakeStep(target, dp, rest, getFooterBrake());
-      if (!(getFooterLerp() > 0)) {
-        // ?footerlerp=0: the raw delta, painted with it, as before 10-31
-        stop();
-        value = target;
-        set(value);
-      } else if (!running && target !== value) {
-        running = true;
-        gsap.ticker.add(tick);
-      }
-    },
-    stop,
-    /** Where the reveal is headed: the target while the drive runs, else `from`. */
-    goal: (from) => (running ? target : from),
-  };
-}
+   (Lenis leaves touch native too; home's finger may opt into the follow with
+   ?footertouchlerp, below), and reduced motion keeps its snap. Whatever else
+   writes the progress (a wipe, a close, a departure) stops the drive first,
+   and so does the host's unmount. The loop itself lives in footerTune.js
+   (makeFooterDrive), where a test can drive it with a fake ticker. */
+export const createFooterDrive = (set, rest = 0) => makeFooterDrive(set, rest, gsap.ticker);
+/* SQ-115 pass 2: home's FINGER rides this same drive on its own lane
+   (FOOTER_FINGER: footerTensionStep + ?footertouchlerp). At lerp 0 it paints
+   on the touchmove as before; above 0 a slowed finger moves a target and the
+   panel steps once a frame, whatever cadence iOS delivers the touchmoves at.
+   `drive.add(dp, from, lane)` — the lane defaults to the wheel's. */
 
 /* INVOKED footer (09-08, Nathan): the tagline pill raises the footer AS AN
    OVERLAY wherever the page is — no scroll. A pointerdown anywhere outside
