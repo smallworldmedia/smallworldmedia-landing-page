@@ -342,6 +342,13 @@
      knob in process.css.) */
   --privacy-clearance: 7rem;
 
+  /* The corner widget's badge, at its default size (SQ-107): the eye (18px x 53.28/26 at the default lid scale, the
+     --scheme-swatch of site-scheme.css) plus the default padding (4px) each side; its right edge is
+     the viewport's. It owns the lower-right corner, so above 768px (the pill is hidden below) the
+     privacy pill and the footer link row's clearance for it move left by this much (.site-privacy,
+     below). */
+  --badge-reserve: calc(18px * 53.28 / 26 + 2 * 4px);
+
   /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
      edge lands on the same left line as the detail-page client name (the
      --space-4 page padding of .client-panel / .project-blurb) — one global
@@ -1506,6 +1513,19 @@ html.fp-tint .mobile-menu__item {
      transform on .site-shell itself — the drawer transform lives on the child
      .info-wrapper — so this is safe. */
   transition: transform var(--duration-panel) var(--ease-panel);
+}
+
+/* The phone menu's seat (SQ-107 pass 8, Nathan 11-17: "have the phone menu wipe over the badge instead of
+   it hard disappearing then reappearing"). SiteShell renders it beside .site-shell and SiteNav portals the
+   takeover in. The colour-scheme badge (.swm-corner, site-scheme.css) is z 101: above the shell, so the
+   route fill and loader never cover it, and below this host, so the takeover's own wipe covers it as its
+   edge passes: one paint, the edge matching for free. A fixed, empty, click-through box: the menu inside
+   is fixed to the viewport itself and takes the pointer only while open (.mobile-menu[data-open]). */
+.site-menu-host {
+  position: fixed;
+  inset: 0;
+  z-index: 102;
+  pointer-events: none;
 }
 
 /* Prevent Astro View Transitions from fading the persisted shell */
@@ -3719,6 +3739,18 @@ html[data-footer-in] .logo-ticker__copy {
 
 .site-privacy:hover {
   color: var(--color-white);
+}
+
+/* SQ-107: the corner widget's badge sits in the lower-right corner this pill keeps. The pill, and
+   the footer link row's keep-out for it, move left of the badge. */
+@media (min-width: 769px) {
+  html:has(.swm-corner) {
+    --privacy-clearance: calc(7rem + var(--badge-reserve));
+  }
+
+  html:has(.swm-corner) .site-privacy {
+    right: calc(var(--chrome-right-inset) + var(--badge-reserve));
+  }
 }
 
 .site-privacy:focus-visible {

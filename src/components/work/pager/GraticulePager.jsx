@@ -143,7 +143,7 @@ const MIN_DETENT_PX = 8;
 // --scale-clones, written inline, so the two can never drift).
 const CLONE_ROWS = 8;
 const MOBILE_TIER = '(max-width: 768px)';
-const mobileTier = () => typeof window !== 'undefined' && window.matchMedia(MOBILE_TIER).matches;
+const inMobileTier = () => typeof window !== 'undefined' && window.matchMedia(MOBILE_TIER).matches;
 
 // The strings a host can swap (SQ-87). Indices are 0-based station indices —
 // the same i as onPreview and commit; the defaults are /work's wording.
@@ -172,6 +172,10 @@ const DEFAULT_LABELS = {
 //     every per-frame var stay. A row without a name element skips the marquee.
 //   renderLens(item, i) — rendered in .fp-scale__lens-art inside the chip for
 //     the ACTIVE station (from the `active` prop: updates on commit).
+//   cssPitch (SQ-107) — the row pitch is the CSS's at EVERY width: the <=768 tier
+//     does not write its fixed 48px, the skin's own --scale-pitch is read back as on
+//     desktop (the corner widget dials its gap with one knob at every width). Absent:
+//     /work keeps its tier pitch, detent and motion exactly.
 export default function GraticulePager({
   worlds,
   active,
@@ -186,6 +190,7 @@ export default function GraticulePager({
   className,
   renderStation,
   renderLens,
+  cssPitch = false,
 }) {
   const labels = labelsProp ? { ...DEFAULT_LABELS, ...labelsProp } : DEFAULT_LABELS;
   const rootRef = useRef(null);
@@ -295,6 +300,8 @@ export default function GraticulePager({
   // and the finger's detent, the wheel and the scale share that one number.
   // ?detent overrides either tier with a fixed px, as before.
   const detentDial = PARAM('detent', null);
+  // The <=768 tier, except under cssPitch (SQ-107): there the CSS pitch is authoritative at every width, so the tier reads as off.
+  const mobileTier = () => !cssPitch && inMobileTier();
   const [deskPitch, setDeskPitch] = useState(SCALE_PITCH_PX);
   const detentPx = Math.max(
     MIN_DETENT_PX,
