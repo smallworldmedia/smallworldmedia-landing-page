@@ -19,12 +19,13 @@
  *              the panel's climb, the client marks' own reveal window,
  *              and the on-load word fade.
  *
- *   touch gain, touch brake — home's FINGER on that reveal (SQ-115): the
- *              finger's own gain (starts at the house TOUCH_GAIN) and the tail's
- *              tension under it (footerTensionStep). Touch-only, home-only.
+ *   touch gain, touch brake, touch lerp — home's FINGER on that reveal (SQ-115):
+ *              the finger's own gain (starts at the house TOUCH_GAIN), the
+ *              tail's tension under it (footerTensionStep) and the follow that
+ *              paints it once a frame. Touch-only, home-only.
  *
  * copy_url emits only non-default knobs (?footerlockup / ?footertravel /
- * ?footerlerp / ?footerbrake / ?footertouchgain / ?footertouchbrake / ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
+ * ?footerlerp / ?footerbrake / ?footertouchgain / ?footertouchbrake / ?footertouchlerp / ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
  * ?footerintro). Dial the first two on /process or a /work/[slug] page
  * (document-scroll routes); on /work the driven footer shows lockup size live
  * at the last World. The last five need a phone-width home, where the panel
@@ -182,10 +183,22 @@ export default function FooterTunePanel() {
         fmt={num2}
         onChange={set}
       />
+      <Row
+        label={`touch lerp (per frame · def ${FOOTER_TUNE_DEFAULTS.touchLerp})`}
+        param="touchLerp"
+        value={s.touchLerp}
+        min={0}
+        max={0.8}
+        step={0.01}
+        fmt={(n) => n.toFixed(2)}
+        onChange={set}
+      />
       <p className="footer-tune__note">
         touch gain = finger px to gesture px on the home footer alone; it starts at the house gain. touch
         brake = over the last third of the rise the panel moves less per finger px, tightening into the full
-        reveal, and gives it back when the finger returns; 0 = off, today&apos;s feel.
+        reveal, and gives it back when the finger returns; 0 = off, today&apos;s feel. touch lerp = the panel
+        follows the finger&apos;s target once a frame instead of jumping on each touchmove, so a slowed
+        finger steps evenly; 0 = the raw finger, today&apos;s feel.
       </p>
 
       {/* HOME ([data-footer-rest]) — these four only do anything where the

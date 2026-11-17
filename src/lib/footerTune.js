@@ -31,6 +31,10 @@
  *               nothing baked): the finger px → gesture px (null = the house
  *               TOUCH_GAIN, so /work and /process keep theirs) and the same
  *               tail made symmetric for a finger (footerTensionStep); 0 = off.
+ *   touchLerp — the finger's follow (SQ-115 pass 2): > 0 and the finger moves
+ *               a TARGET, the panel following on the ticker once per frame by
+ *               the wheel's own damp, so a slowed finger paints one even step
+ *               a frame instead of one per touchmove; 0 = the raw finger.
  *
  * HOME ([data-footer-rest], 10-07; desktop too since 10-09) — the resting
  * footer's own four.
@@ -49,7 +53,7 @@
  *               ?logofrom/?logoto shape, one tier in from the band's.
  *
  * URL params (`?footerlockup=<rem>`, `?footertravel=<K>`, `?footerlerp=<lerp>`,
- * `?footerbrake=<b>`, `?footertouchgain=<g>`, `?footertouchbrake=<b>`, `?footerlift=<k>`,
+ * `?footerbrake=<b>`, `?footertouchgain=<g>`, `?footertouchbrake=<b>`, `?footertouchlerp=<l>`, `?footerlift=<k>`,
  * `?footermarksfrom`, `?footermarksto`, `?footermarkslift=<rem>`,
  * `?footerintro=<s>`) seed the state on load — with or without the bench
  * open, so a copied link previews the dialed values. copy_url emits only
@@ -140,6 +144,62 @@ export function footerTensionStep(p, dp, rest = 0, tension = 0) {
   return rest + out * span;
 }
 
+/* ── The driven reveal's follower (10-31 wheel; SQ-115 pass 2 adds the finger) ──
+   The ticker loop createFooterDrive (SiteFooter) runs, here so a test can hold
+   it with a fake ticker. A delta moves a TARGET through its lane's step, and the
+   painted progress follows on the ticker by footerDamp at the lane's lerp, once
+   per frame. A lane is that pair: the WHEEL's (footerBrakeStep, ?footerlerp) and
+   home's FINGER's (footerTensionStep, ?footertouchlerp, default 0 = the raw
+   finger, painted on the touchmove as before). */
+export const FOOTER_WHEEL = {
+  step: (p, dp, rest) => footerBrakeStep(p, dp, rest, getFooterBrake()),
+  lerp: () => getFooterLerp(),
+};
+export const FOOTER_FINGER = {
+  step: (p, dp, rest) => footerTensionStep(p, dp, rest, getFooterTouchBrake()),
+  lerp: () => getFooterTouchLerp(),
+};
+/** `ticker` is gsap's: add(fn) / remove(fn), fn(time, deltaMs). */
+export function makeFooterDrive(set, rest, ticker) {
+  let value = rest;
+  let target = rest;
+  let running = false;
+  let lane = FOOTER_WHEEL;
+  const stop = () => {
+    if (running) ticker.remove(tick);
+    running = false;
+  };
+  function tick(_time, deltaMs) {
+    value = footerDamp(value, target, lane.lerp(), Math.min(deltaMs, 100) / 1000);
+    if (Math.abs(target - value) < 1e-4) {
+      value = target;
+      stop();
+    }
+    set(value);
+  }
+  return {
+    /** A delta in progress units (px / the host's trigger px), taken from the
+        painted progress `from` when the drive is at rest. */
+    add(dp, from, nextLane = FOOTER_WHEEL) {
+      lane = nextLane;
+      if (!running) value = target = from;
+      target = lane.step(target, dp, rest);
+      if (!(lane.lerp() > 0)) {
+        // lerp 0: the raw delta, painted with it (the wheel before 10-31; the finger today)
+        stop();
+        value = target;
+        set(value);
+      } else if (!running && target !== value) {
+        running = true;
+        ticker.add(tick);
+      }
+    },
+    stop,
+    /** Where the reveal is headed: the target while the drive runs, else `from`. */
+    goal: (from) => (running ? target : from),
+  };
+}
+
 export const FOOTER_TUNE_ACTIVE =
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).get('footertune') === '1';
@@ -153,6 +213,7 @@ export const FOOTER_TUNE_DEFAULTS = Object.freeze({
   // ── home's FINGER on that reveal (SQ-115; touch-only, home-only) ──
   touchGain: null, // finger px → gesture px; null = follow the house TOUCH_GAIN (touchTune.js)
   touchBrake: 0, // the same tail, symmetric (footerTensionStep), under the finger; 0 = today's clamp
+  touchLerp: 0, // the finger moves a target and the panel follows on the ticker (footerDamp), once per frame; 0 = the raw finger, today's feel
   // ── home rest ([data-footer-rest], both tiers since 10-09) ──
   liftK: 0.5, // mirrors the global.css `--footer-lift-k` fallback
   marksFrom: 0.6, // mirrors `--footer-marks-from` — MEASURED, see the guide
@@ -228,6 +289,7 @@ const PARAM_KEYS = {
   brake: 'footerbrake',
   touchGain: 'footertouchgain',
   touchBrake: 'footertouchbrake',
+  touchLerp: 'footertouchlerp',
   liftK: 'footerlift',
   marksFrom: 'footermarksfrom',
   marksTo: 'footermarksto',
@@ -266,6 +328,7 @@ const ZERO_OK = new Set([
   'lerp',
   'brake',
   'touchBrake', // 0 = the finger's plain clamp, today's feel (touchGain stays out: 0 would pin the panel)
+  'touchLerp', // 0 = the raw finger painted on the touchmove, today's feel
   'liftK',
   'marksFrom',
   'marksLift',
@@ -307,6 +370,8 @@ export const getFooterBrake = () => state.brake;
     which pulls gsap in). The brake is footerTensionStep's b; 0 = today's feel. */
 export const getFooterTouchGain = () => state.touchGain;
 export const getFooterTouchBrake = () => state.touchBrake;
+/** The finger's follow, a lerp as ?footerlerp is (the lane's `lerp`, read per frame). */
+export const getFooterTouchLerp = () => state.touchLerp;
 
 /** The resting footer's on-load word fade — duration AND stagger budget, s.
     The slide used to borrow this; it carries its own `slideS` since 10-08,

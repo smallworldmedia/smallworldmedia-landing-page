@@ -24,6 +24,9 @@ import {
   footerDamp,
   footerBrakeStep,
   footerTensionStep,
+  makeFooterDrive,
+  FOOTER_WHEEL,
+  FOOTER_FINGER,
   FOOTER_BRAKE_TAIL,
   FOOTER_TUNE_DEFAULTS,
 } from '../../src/lib/footerTune.js'
@@ -593,9 +596,202 @@ test('Hero’s touch path reads the finger dials and rides footerTensionStep, th
   assert.match(src, /\(touchY - y\) \* \(getFooterTouchGain\(\) \?\? TOUCH_GAIN\)/, 'the finger lost its own gain')
   assert.match(
     src,
-    /footerTensionStep\(footerPRef\.current, dy \/ SCROLL_TRIGGER_HOME_PX, FOOTER_REST, getFooterTouchBrake\(\)\)/,
-    'addDelta’s touch branch lost the tension',
+    /drive\.add\(dy \/ SCROLL_TRIGGER_HOME_PX, footerPRef\.current, FOOTER_FINGER\)/,
+    'addDelta’s touch branch no longer rides the drive on the finger lane (tension + follow)',
   )
-  assert.match(src, /const to = footerTensionStep\(p, vel \* RELEASE_MS, FOOTER_REST, getFooterTouchBrake\(\)\)/, 'the release carry skips the tension')
-  assert.match(src, /drive\.add\(dy \/ SCROLL_TRIGGER_HOME_PX, footerPRef\.current\)/, 'the wheel path changed')
+  assert.match(src, /const to = footerTensionStep\(p, carry, FOOTER_REST, getFooterTouchBrake\(\)\)/, 'the release carry skips the tension')
+  assert.match(src, /const carry = vel \* RELEASE_MS/, 'the carry is no longer the finger’s velocity × RELEASE_MS')
+  assert.match(src, /else if \(wheel\) drive\.add\(dy \/ SCROLL_TRIGGER_HOME_PX, footerPRef\.current\);/, 'the wheel path changed')
+})
+
+/* — the finger's follow (SQ-115 pass 2): the wheel's drive on a second lane — */
+
+/** A ticker that runs by hand: add / remove / frame(ms). */
+const fakeTicker = () => {
+  const fns = new Set()
+  return {
+    add: (fn) => fns.add(fn),
+    remove: (fn) => fns.delete(fn),
+    frame: (ms = 1000 / 60) => [...fns].forEach((fn) => fn(0, ms)),
+    get running() {
+      return fns.size > 0
+    },
+  }
+}
+const lane = (brake, lerp) => ({
+  step: (p, dp, rest) => footerTensionStep(p, dp, rest, brake),
+  lerp: () => lerp,
+})
+const near = (a, e, tol = 1e-9) => assert.ok(Math.abs(a - e) < tol, `${a} vs ${e}`)
+
+test('the drive at lerp 0 is the raw finger, as it was: painted on the touchmove, no ticker', () => {
+  for (const brake of [0, 0.5, 0.7]) {
+    const t = fakeTicker()
+    const painted = []
+    const d = makeFooterDrive((v) => painted.push(v), 0.59, t)
+    let p = 0.59
+    let want = 0.59
+    for (const dp of [0.05, 0.1, 0.2, 0.05, -0.08, 0.3, 0.4]) {
+      d.add(dp, p, lane(brake, 0))
+      want = footerTensionStep(want, dp, 0.59, brake)
+      p = painted[painted.length - 1] ?? p
+      assert.equal(p, want, 'one touchmove painted one step of footerTensionStep')
+    }
+    assert.equal(t.running, false, 'a raw finger never starts the ticker')
+    assert.equal(d.goal(p), p, 'at rest the goal is the panel')
+  }
+})
+
+test('the damped target converges: a frame at a time, never past it, one paint a frame', () => {
+  const t = fakeTicker()
+  const painted = []
+  const d = makeFooterDrive((v) => painted.push(v), 0.59, t)
+  const L = lane(0.5, 0.35)
+  // A burst of touchmoves inside ONE frame: three deltas, no paint yet.
+  d.add(0.02, 0.59, L)
+  d.add(0.02, 0.59, L)
+  d.add(0.02, 0.59, L)
+  assert.equal(painted.length, 0, 'a touchmove does not paint under a follow')
+  assert.ok(t.running)
+  const target = d.goal(0.59)
+  near(target, footerTensionStep(footerTensionStep(footerTensionStep(0.59, 0.02, 0.59, 0.5), 0.02, 0.59, 0.5), 0.02, 0.59, 0.5))
+  let prev = 0.59
+  let frames = 0
+  while (t.running && frames < 600) {
+    t.frame()
+    frames++
+    assert.equal(painted.length, frames, 'one paint per ticker frame')
+    const v = painted[painted.length - 1]
+    assert.ok(v > prev && v <= target, `${v} must climb toward ${target}`)
+    prev = v
+  }
+  assert.ok(!t.running, 'the ticker stops once it lands')
+  assert.equal(prev, target, 'and lands exactly on the target')
+  assert.ok(frames > 3 && frames < 120, `a believable glide, ${frames} frames`)
+  // The same glide at 30 Hz lands in about half the frames (the damp is dt-aware).
+  const t2 = fakeTicker()
+  const d2 = makeFooterDrive(() => {}, 0.59, t2)
+  d2.add(0.06, 0.59, L)
+  let f2 = 0
+  while (t2.running && f2 < 600) {
+    t2.frame(1000 / 30)
+    f2++
+  }
+  assert.ok(Math.abs(f2 - frames / 2) <= 2, `${f2} frames at 30 Hz vs ${frames} at 60`)
+})
+
+test('the follower is a round trip too: up d then down d returns the TARGET', () => {
+  const d = makeFooterDrive(() => {}, 0.59, fakeTicker())
+  const L = lane(0.7, 0.35)
+  d.add(0.1, 0.59, L)
+  const mid = d.goal(0.59)
+  d.add(0.15, 0.59, L)
+  d.add(-0.15, 0.59, L)
+  near(d.goal(0.59), mid)
+})
+
+test('the carry lands on the tension-stepped target, and never past 1', () => {
+  for (const [brake, carry] of [[0.5, 0.04], [0.7, 0.2], [0.5, 5]]) {
+    const t = fakeTicker()
+    const painted = []
+    const d = makeFooterDrive((v) => painted.push(v), 0.59, t)
+    const L = lane(brake, 0.35)
+    d.add(0.25, 0.59, L) // the drag
+    t.frame()
+    t.frame() // the panel still lags its target when the finger lifts
+    const lead = d.goal(0.59)
+    assert.ok(lead > painted[painted.length - 1])
+    d.add(carry, painted[painted.length - 1], L) // what Hero's onTouchEnd pushes
+    const landing = d.goal(0.59)
+    near(landing, footerTensionStep(lead, carry, 0.59, brake), 1e-12)
+    assert.ok(landing <= 1)
+    let frames = 0
+    while (t.running && frames < 900) {
+      t.frame()
+      frames++
+    }
+    assert.equal(painted[painted.length - 1], landing, 'the glide ends on the carried target')
+    assert.ok(painted.every((v) => v <= 1), 'the glide never passes the full reveal')
+    for (let i = 1; i < painted.length; i++) assert.ok(painted[i] >= painted[i - 1], 'and never turns back')
+  }
+})
+
+test('the drive’s default lane is the wheel: the same steps and the same glide as before the finger shared it', () => {
+  // The pre-SQ-115 createFooterDrive, kept as the reference.
+  const refDrive = (set, rest, ticker, lerp, brake) => {
+    let value = rest
+    let target = rest
+    let running = false
+    const stop = () => {
+      if (running) ticker.remove(tick)
+      running = false
+    }
+    function tick(_t, ms) {
+      value = footerDamp(value, target, lerp, Math.min(ms, 100) / 1000)
+      if (Math.abs(target - value) < 1e-4) {
+        value = target
+        stop()
+      }
+      set(value)
+    }
+    return {
+      add(dp, from) {
+        if (!running) value = target = from
+        target = footerBrakeStep(target, dp, rest, brake)
+        if (!(lerp > 0)) {
+          stop()
+          value = target
+          set(value)
+        } else if (!running && target !== value) {
+          running = true
+          ticker.add(tick)
+        }
+      },
+      goal: (from) => (running ? target : from),
+    }
+  }
+  const { lerp, brake } = FOOTER_TUNE_DEFAULTS
+  assert.equal(FOOTER_WHEEL.lerp(), lerp)
+  const ta = fakeTicker()
+  const tb = fakeTicker()
+  const a = []
+  const b = []
+  const live = makeFooterDrive((v) => a.push(v), 0.4, ta)
+  const ref = refDrive((v) => b.push(v), 0.4, tb, lerp, brake)
+  const script = [['add', 0.03], ['add', 0.03], ['frame'], ['frame'], ['add', 0.1], ['frame'], ['add', -0.05], ['frame', 40], ['add', 0.4], ['frame'], ['frame'], ['frame'], ['frame']]
+  for (const [op, v] of script) {
+    if (op === 'add') {
+      live.add(v, a[a.length - 1] ?? 0.4) // no lane argument: the wheel's
+      ref.add(v, b[b.length - 1] ?? 0.4)
+    } else {
+      ta.frame(v)
+      tb.frame(v)
+    }
+    assert.equal(live.goal(0.4), ref.goal(0.4))
+  }
+  for (let i = 0; i < 400 && (ta.running || tb.running); i++) {
+    ta.frame()
+    tb.frame()
+  }
+  assert.deepEqual(a, b, 'the wheel’s painted frames drifted')
+})
+
+test('?footertouchlerp defaults to 0, 0 is legal, a dial reaches the follower and never the cascade', async () => {
+  const plain = await freshTune('')
+  assert.equal(plain.state.touchLerp, 0, 'today’s feel is the raw finger')
+  const dialed = await freshTune('?footertouchlerp=0.35')
+  assert.equal(dialed.state.touchLerp, 0.35)
+  assert.equal(dialed.props.size, 0, 'the follow is a JS read, never CSS')
+  const zero = await freshTune('?footertouchlerp=0')
+  assert.equal(zero.state.touchLerp, 0)
+  assert.equal(FOOTER_FINGER.lerp(), FOOTER_TUNE_DEFAULTS.touchLerp, 'the finger lane reads the state')
+})
+
+test('Hero stops a followed glide on a new finger, carries a release into the drive, and mounts the HUD read-only', () => {
+  const src = fs.readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
+  assert.match(src, /if \(getFooterTouchLerp\(\) > 0\) drive\.stop\(\);\n\s+hud\?\.start\(\)/, 'touchstart no longer takes the panel from where it is')
+  assert.match(src, /if \(follow\) \{\n\s+drive\.add\(carry, footerPRef\.current, FOOTER_FINGER\);/, 'the release no longer carries into the drive')
+  assert.match(src, /FOOTER_HUD_ACTIVE && IS_MOBILE \? createFooterHud\(\(\) => footerPRef\.current, FOOTER_REST\)/, 'the HUD mount changed')
+  const hud = fs.readFileSync(`${root}src/lib/footerHud.js`, 'utf8')
+  assert.doesNotMatch(hud, /localStorage|sessionStorage|fetch\(|sendBeacon|setProperty/, 'the HUD must write nothing anywhere')
 })
