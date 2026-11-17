@@ -222,14 +222,14 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
   for (const part of ['num', 'peak', 'den', 'pointer', 'seam', 'hair']) {
     assert.ok(css.includes(`.fp-scale__${part}`), `${part} is handled`);
   }
-  assert.ok(/--home-cy:[\s\S]*?--pill-pad-y[\s\S]*?--lh-pill/.test(css), 'home centres the badge on the privacy pill\'s line at its desktop height, at every width');
-  assert.ok(/z-index:\s*43/.test(css), 'z 43');
-  assert.ok(/translate:\s*0 calc\(-1 \* var\(--badge-ride\)\)/.test(css) && /--badge-ride:[\s\S]*?--footer-reveal[\s\S]*?--footer-panel-h/.test(css), 'rides above the rising links footer');
+  assert.ok(/--badge-cy:\s*calc\(var\(--footer-bottom-inset\) \+ var\(--pill-pad-y\) \+ var\(--lh-pill\) \/ 2\)/.test(css), 'the one seat centres the badge on the privacy pill\'s line at its desktop height, at every width');
+  assert.ok(/z-index:\s*101/.test(css) && !/z-index:\s*43/.test(css), 'z 101: above the shell (100), so the route fill and the loader never cover it');
   const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(/html\[data-chrome-open\]\s+\.swm-corner\s*\{/.test(live), 'yields to the overlays');
-  // SQ-107: the phone menu is how every page is reached; it covers the badge (z 100 over 43), so
-  // yielding to it faded the badge out and back in on every navigation.
-  assert.ok(!/data-menu-open/.test(live), 'does NOT yield to the menu: the badge persists across a menu navigation');
+  // The phone menu's takeover is a full-bleed wipe over the shell: the badge is above the shell now,
+  // so it is HIDDEN under the takeover (visibility, never a fade), and returns when the wipe is down.
+  assert.ok(/html\[data-menu-open\]\s+\.swm-corner\s*\{\s*visibility:\s*hidden;\s*transition:\s*visibility 0s;/.test(live), 'the menu hides the badge at once, no fade');
+  assert.ok(!/--seat-t|--badge-ride|--eye-foot|--home-cy|--footer-reveal|--footer-panel-h|data-footer-rest/.test(live), 'the flush corner, the footer ride and the seat blend are deleted');
 });
 
 const skinCss = () => read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -263,12 +263,15 @@ test('SQ-107 pass 3 ?schemepad is the one padding dial, clamped 0 to 40, null is
   assert.equal(q('schemepad=wide').pad, null);
 });
 
-test('SQ-107 the badge rides the links footer, its bottom edge on the footer\'s top edge, less what home\'s seat takes off', () => {
+test('SQ-107 pass 7 one seat sitewide, the footer rises behind the badge and does not carry it', () => {
   const css = skinCss();
   const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
-  assert.ok(/--badge-ride: calc\(max\(0px, var\(--footer-reveal, 0\) \* var\(--footer-panel-h, 0px\)\) \* \(1 - var\(--seat-t\)\)\);/.test(flat), 'the footer\'s visible height, no gap');
-  assert.ok(/translate:\s*0 calc\(-1 \* var\(--badge-ride\)\)/.test(css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? ''), 'the wrapper translates by --badge-ride');
-  assert.ok(!/--badge-ride:\s*0;/.test(css) && !/--badge-ride:\s*1;/.test(css), 'nothing opts out of the ride');
+  assert.ok(/--scheme-bottom: calc\(var\(--badge-cy\) - var\(--scale-rows\) \* var\(--scheme-pitch\)\);/.test(flat), 'the wrapper\'s bottom follows the one seat');
+  const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
+  assert.ok(!/translate:/.test(wrapper), 'the wrapper does not ride anything');
+  assert.ok(!/@media \(min-width: 769px\)\s*\{\s*\.swm-corner\s*\{\s*--badge-cy/.test(css) && !/footer-rise/.test(css.replace(/\/\*[\s\S]*?\*\//g, '')), 'one number at every width and scroll stop: no easing onto the copyright line');
+  const comp = read('src/components/SiteScheme.jsx');
+  assert.ok(!/--seat-t|--seat-ease|data-footer-rest|corner\.animate/.test(comp), 'SiteScheme has no seat blend');
 });
 
 test('SQ-107 pass 5 baked dials, Nathan\'s 18 / 4 / 1.5 / 0.8 / 0.5 and 260 / 200 are the CSS defaults', () => {
@@ -287,7 +290,7 @@ test('SQ-107 pass 5 baked dials, Nathan\'s 18 / 4 / 1.5 / 0.8 / 0.5 and 260 / 20
   assert.ok(/--scale-pitch: var\(--scheme-pitch\);/.test(flat), 'the engine reads it');
 });
 
-test('SQ-107 the badge: a rectangle hugging the eye with equal padding, one component with it, blue/black from the role token, glass on project, never opacity', () => {
+test('SQ-107 the badge: a rectangle hugging the eye with equal padding, one component with it, a window onto the strip of three panels, never opacity', () => {
   const css = skinCss();
   assert.ok(/--badge-pad:\s*4px/.test(css), 'Nathan\'s padding, 4 px');
   assert.ok(/--badge-w:\s*calc\(var\(--eye-w\) \+ 2 \* var\(--badge-pad\)\)/.test(css) && /--badge-h:\s*calc\(var\(--eye-h\) \+ 2 \* var\(--badge-pad\)\)/.test(css), 'the eye plus the padding each side, no size knob of its own');
@@ -297,13 +300,14 @@ test('SQ-107 the badge: a rectangle hugging the eye with equal padding, one comp
   assert.ok(/scale:\s*var\(--eye-lift\)/.test(tile) && /transform-origin:\s*50% 50%/.test(tile), 'it grows with the eye, on the one --eye-t, about its own centre');
   assert.ok(!/border-radius/.test(tile), 'square corners');
   assert.ok(/(^|[\s;{])translate:\s*calc\(\(1 - var\(--eye-lift\)\) \* \(var\(--eye-w\) \/ 2 \+ var\(--badge-pad\)\)\) 0;/.test(css), 'ONE anchor: the pager moves in x only, so the badge\'s right edge at its vertical centre holds and nothing climbs');
-  assert.ok(/html\[data-footer-rest\] \.swm-corner\s*\{\s*--seat-t:\s*1;\s*\}/.test(css), 'home latches the blend to its end');
-  assert.ok(/background-color:\s*color-mix\(\s*in srgb,\s*var\(--scheme-page\) calc\(var\(--badge-solid\) \* 100%\),\s*var\(--badge-glass\)\s*\)/.test(tile), 'the scheme\'s role token over the glass, by --badge-solid');
-  assert.ok(/backdrop-filter:\s*blur\(var\(--badge-blur\)\)/.test(tile), 'the glass blurs what is behind it');
-  assert.ok(!/(^|[\s;])opacity:/.test(tile), 'the tile never fades with opacity (below 1 the blur shows the sharp original): the alpha is the background\'s');
-  assert.ok(/html\[data-scheme='black'\] \.swm-corner,\s*html\[data-scheme='blue'\] \.swm-corner\s*\{\s*--badge-solid:\s*1;/.test(css), 'black and blue are solid; project (and the parked spectrum) stay glass');
-  assert.ok(/@property --badge-solid\s*\{[^}]*<number>[^}]*inherits:\s*true/.test(css), '--badge-solid is registered, so the change eases');
-  assert.ok(/--badge-solid var\(--scheme-fade, var\(--project-color-fade\)\) var\(--ease-panel\)/.test(css), 'and eases with the page');
+  assert.ok(/background-image:\s*linear-gradient\(\s*to bottom,\s*var\(--badge-glass\) 0 33\.3333%,\s*var\(--color-black\) 33\.3333% 66\.6667%,\s*var\(--color-electric-blue\) 66\.6667% 100%\s*\)/.test(tile), 'the strip: project glass, black, blue, in SCHEMES order, hard stops');
+  assert.ok(/background-size:\s*100% calc\(3 \* var\(--badge-h\)\)/.test(tile) && /background-repeat:\s*repeat-y/.test(tile), 'three badge heights tall, repeating, so the wrap is the strip\'s own');
+  assert.ok(/background-position:\s*0 calc\(-1 \* var\(--scale-qf, var\(--scale-cur\)\) \* var\(--badge-h\)\)/.test(tile), 'locked to the engine\'s continuous column position, one detent = one badge height');
+  assert.ok(!/--scheme-page|--badge-solid|color-mix/.test(tile), 'no crossfade and never the current scheme\'s page colour');
+  assert.ok(!/--badge-solid/.test(css), 'the --badge-solid crossfade is removed');
+  assert.ok(/backdrop-filter:\s*blur\(var\(--badge-blur\)\)/.test(tile), 'the glass panel blurs what is behind it');
+  assert.ok(!/(^|[\s;])opacity:/.test(tile), 'the tile never fades with opacity (below 1 the blur shows the sharp original): the alpha is the glass colour\'s');
+  assert.ok(/round\(var\(--scale-qf, var\(--scale-cur\)\), 1\)/.test(css), 'reduced motion snaps the strip to the whole detent');
 });
 
 test('SQ-107 pass 5 nothing is cut by a straight edge, the window carries no mask and each circle fades by its own distance', () => {
@@ -312,13 +316,13 @@ test('SQ-107 pass 5 nothing is cut by a straight edge, the window carries no mas
   const win = css.match(/\.fp-scale__window\s*\{([^}]*)\}/)?.[1] ?? '';
   assert.ok(/--eye-wide:\s*calc\(var\(--eye-w\) \* max\(1, var\(--eye-engaged\)\)\)/.test(win), 'sized for --eye-engaged, so no lift up to the 3 cap is clipped');
   assert.ok(/mask-image:\s*none/.test(win) && /-webkit-mask-image:\s*none/.test(win), 'the pager\'s feather mask and the iris-band masks are gone: a circle in transit was cut flat where it crossed them (the cut top circle)');
-  assert.ok(!/linear-gradient|eye-edge|eye-feather|eye-reach|eye-lid-mask/.test(css), 'no band, feather, reach or lid mask left anywhere in the skin');
+  assert.ok(!/eye-edge|eye-feather|eye-reach|eye-lid-mask/.test(css), 'no band, feather, reach or lid mask left anywhere in the skin (the one gradient is the badge\'s background strip, not a mask)');
   const station = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__station\s*\{([^}]*)\}/)?.[1] ?? '';
   const st = station.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   assert.ok(/--eye-delay: calc\(var\(--eye-stagger\) \* clamp\(0, calc\(var\(--ndr\) - 1\), 1\)\);/.test(st), 'the far circle (two stations out) starts later; the lens and the near circle (one out) start together');
   assert.ok(/--eye-p: clamp\(0, calc\(\(var\(--eye-t\) - var\(--eye-delay\)\) \/ \(1 - var\(--eye-delay\)\)\), 1\);/.test(st), 'its own progress on the one --eye-t: it ends WITH the entrance, so the exit runs it back');
-  assert.ok(/opacity: calc\(var\(--eye-p\) \* var\(--eye-up\) \* var\(--eye-down\) \* \(1 - clamp\(0, var\(--eye-below\), 1\) \* \(1 - var\(--eye-foot\)\)\)\);/.test(st), 'opacity: entrance progress x the fade above x the fade below x the fade where the footer rides');
-  assert.ok(/--eye-foot: clamp\(0, calc\(1 - tan\(atan2\(var\(--badge-ride, 0px\), var\(--scale-pitch\)\)\)\), 1\);/.test(st), 'the circle below fades as the badge rides the footer, instead of being cut by its top edge');
+  assert.ok(/opacity: calc\(var\(--eye-p\) \* var\(--eye-up\) \* var\(--eye-down\)\);/.test(st), 'opacity: entrance progress x the fade above x the fade below');
+  assert.ok(!/--eye-foot|--badge-ride/.test(css), 'no footer ride, so no fade for it');
   assert.ok(/--eye-stagger:\s*0\.4;/.test(css), 'the stagger, a share of the entrance');
   assert.ok(/--eye-hit-up:\s*2\.5;/.test(css) && /--eye-hit-down:\s*1\.5;/.test(css), 'the press target reaches the shown column');
   assert.ok(/--eye-t var\(--eye-in\) var\(--ease-draw\)/.test(flat), 'on the existing timing: --eye-in, --eye-out, no overshoot');
@@ -396,15 +400,15 @@ test('SQ-107 the flush badge owns the lower-right corner, above 768px the privac
   assert.ok(m, 'desktop only, keyed on the widget\'s presence so it holds before hydration');
 });
 
-test('SQ-107 pass 4 the home seat is one blend and SiteScheme eases it across a soft nav on the house curve', () => {
+test('SQ-107 pass 7 the badge persists across a page change, above the passage fill and the loader', () => {
   const css = skinCss();
-  assert.ok(/@property --seat-t\s*\{[^}]*<number>[^}]*inherits:\s*true/.test(css), '--seat-t is registered, so Web Animations can interpolate it');
-  assert.ok(/--home-cy:\s*calc\(var\(--footer-bottom-inset\) \+ var\(--pill-pad-y\) \+ var\(--lh-pill\) \/ 2\)/.test(css), 'the corner row\'s centre at rest');
-  assert.ok(/--badge-cy:\s*calc\(var\(--badge-h\) \/ 2 \+ \(var\(--home-cy\) - var\(--badge-h\) \/ 2\) \* var\(--seat-t\)\)/.test(css), 'inset, centre and ride all follow --seat-t');
-  const comp = read('src/components/SiteScheme.jsx');
-  assert.ok(/corner\.animate\(\[\{ '--seat-t': from \}, \{ '--seat-t': next \}\]/.test(comp), 'the swap moves the persisted node, which drops a CSS transition\'s before-change style: animate from the last shown value');
-  assert.ok(/cubic-bezier\(0\.16, 1, 0\.3, 1\)/.test(comp) && /--seat-ease/.test(comp), 'the --ease-draw curve, a short duration from the sheet');
-  assert.ok(/prefers-reduced-motion: reduce/.test(comp) && /data-footer-rest/.test(comp), 'instant under reduced motion, keyed to home\'s latch');
+  const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
+  assert.ok(/z-index:\s*101/.test(wrapper), 'one level above the shell\'s z 100, which holds RouteFill as its first child');
+  const g = read('src/styles/global.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(/\.site-shell\s*\{[^}]*z-index:\s*100/.test(g), 'the shell is the z 100 stacking context the claim rests on');
+  const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(/html\[data-chrome-open\]\s+\.swm-corner\s*\{[^}]*visibility:\s*hidden/.test(live), 'the drawer, the privacy notice and the inquiry overlay still take it');
+  assert.ok(/transition-property|visibility 0s linear 0\.35s/.test(live), 'on a phone the badge returns when the menu wipe is down');
 });
 
 test('SQ-107 pass 4 the jitter root cause, the circle is drawn at the large size and its row only scales it down', () => {

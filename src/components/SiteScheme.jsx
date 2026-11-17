@@ -15,8 +15,13 @@
  * disengage that commits nothing, restores the committed one.
  *
  * The eye sits in a rectangular badge whose right edge is the viewport's (site-scheme.css, the
- * pager's ::before): blue on `blue`, black on `black`, a glass overlay on `project`. Engaged, the
- * badge, the eye and the iris scale about one point, the badge's right edge at its vertical centre.
+ * pager's ::before), at ONE seat on every route (the corner row, a little off the bottom edge).
+ * The badge is a clipping window onto a strip of three background panels (a glass overlay for
+ * `project`, black, blue) that rides the column's own position: one detent, one badge height.
+ * Engaged, the badge, the eye and the iris scale about one point, the badge's right edge at its
+ * vertical centre. It is z 101, above the shell and so above the route fill, and stays put through
+ * every page change (the info drawer, the privacy notice, the inquiry overlay and the phone menu
+ * hide it).
  *
  * Authority: colorScheme.js alone decides the scheme. This component calls
  * setScheme / onScheme and writes nothing of its own to the DOM except the
@@ -107,50 +112,6 @@ export default function SiteScheme() {
       }),
     []
   );
-
-  // Seat ease (SQ-107). The badge has two heights, the corner and, on home, the corner row
-  // (site-scheme.css, --seat-t 0 to 1). The widget persists across soft navs, and the swap moves
-  // its node, so a CSS transition has no before-change style to run from: when the seat the sheet
-  // gives changes, animate --seat-t from what was last shown to the new value instead, on one short
-  // house curve (--seat-ease, --ease-draw): steep launch, smooth decel, no overshoot. Not on the
-  // first page's own settling, and not under reduced motion.
-  useEffect(() => {
-    const corner = cornerRef.current;
-    if (!corner || typeof corner.animate !== 'function') return undefined;
-    const root = document.documentElement;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const targetOf = () => (root.hasAttribute('data-footer-rest') ? 1 : 0);
-    const shownNow = () => parseFloat(getComputedStyle(corner).getPropertyValue('--seat-t')) || 0;
-    let shown = targetOf();
-    let anim = null;
-    let armed = false;
-    const sync = () => {
-      const next = targetOf();
-      if (next === shown) return;
-      const from = anim ? shownNow() : shown;
-      anim?.cancel();
-      anim = null;
-      shown = next;
-      const ms = parseFloat(getComputedStyle(corner).getPropertyValue('--seat-ease')) || 0;
-      if (!armed || reduced.matches || !ms) return;
-      anim = corner.animate([{ '--seat-t': from }, { '--seat-t': next }], { duration: ms, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
-      anim.onfinish = () => {
-        anim = null;
-      };
-    };
-    const mo = new MutationObserver(sync);
-    mo.observe(root, { attributes: true, attributeFilter: ['data-footer-rest'] });
-    document.addEventListener('astro:after-swap', sync);
-    const arm = window.setTimeout(() => {
-      armed = true;
-    }, 800);
-    return () => {
-      mo.disconnect();
-      document.removeEventListener('astro:after-swap', sync);
-      window.clearTimeout(arm);
-      anim?.cancel();
-    };
-  }, []);
 
   // Wheel guard. The pager captures the wheel while the pointer is over it, which
   // would stall a page scroll that happens to pass under the corner. A wheel event
