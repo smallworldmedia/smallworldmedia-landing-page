@@ -300,7 +300,10 @@ export const SITE_COPY_QUERY = `
  *             affiliations name (labels, managers, parents), for Client
  *             Coverage (src/lib/clientCoverage.js);
  *   worlds  — FEATURED_PROJECT_PATHS_QUERY: the World order and the routes;
- *   assets  — every published asset with media, as MEDIA_FIELDS plus its
+ *   assets  — every published asset with media, except one whose "Hide from
+ *             Project Directory" box is ticked (`hideFromDirectory != true`;
+ *             only this read skips it: its project page, /work and the globe
+ *             keep it), as MEDIA_FIELDS plus its
  *             rank, client, collaborators (the other credited clients'
  *             slugs; null while unset), project and project rank
  *             (buildDirectoryTiles),
@@ -322,7 +325,7 @@ export const DIRECTORY_QUERY = `{
     "umbrellas": affiliations[].entity->slug.current
   },
   "worlds": ${FEATURED_PROJECT_PATHS_QUERY},
-  "assets": *[_type == "mediaAsset" && !(_id in path("drafts.**")) && hideFromSite != true && (defined(image.asset) || defined(video.asset))] {${MEDIA_FIELDS},
+  "assets": *[_type == "mediaAsset" && !(_id in path("drafts.**")) && hideFromSite != true && hideFromDirectory != true && (defined(image.asset) || defined(video.asset))] {${MEDIA_FIELDS},
     "imageIsOpaque": image.asset->metadata.isOpaque,
     splitIntoThirds,
     "videoDuration": video.asset->data.duration,

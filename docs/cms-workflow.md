@@ -158,6 +158,12 @@ visible piece by rank becomes the hero. The plan prints the before/after; a non-
 no error or warning, and its image or video still counts as in use. The site reads this at build
 time, so a toggle reaches a deployed page with the next build.
 
+`hideFromDirectory` (a boolean on a `mediaAsset`, off when missing; "Hide from Project Directory"
+in Studio) makes the Project Directory alone skip that piece: its project page, `/work` and the
+home globe keep it, and its service tags still count for its project. `{"set": {"hideFromDirectory":
+true}}` ticks it; `false` (or `unset`) puts the tile back. A non-boolean is refused. `cms audit` does
+not list it. Like every toggle, it reaches a deployed page with the next build.
+
 A replacement/repair mediaAsset patch can add
 `"upload": {"file": "relative/file.mp4"}`. That source is relative to the changes
 JSON's directory. Existing media remains attached until its approved replacement

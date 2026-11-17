@@ -55,6 +55,10 @@ A classification on `mediaAsset` documents that controls frontend visibility. Th
 
 A checkbox on a `mediaAsset` (`hideFromSite`, off when missing). On, the whole site skips the piece: project pages, the `/work` heroes and pager, the Project Directory, and the home globe (auto-fill and `globeSettings.picks`). It stays published in Sanity and keeps its `orderRank` and set membership, so unticking it puts it back exactly where it was. Every `mediaAsset` selection in `src/lib/queries.js` carries `hideFromSite != true`; the next visible piece by `orderRank` becomes a hero. For work that is not announced yet. Unlike Content Role it hides the piece from every page, not one section.
 
+## Hide from Project Directory
+
+A checkbox on a `mediaAsset` (`hideFromDirectory`, off when missing). On, the Project Directory skips the piece and nothing else does: its project page, the `/work` worlds and the home globe still show it, and its service tags still count for its project. For pieces that belong in a featured project but don't stand alone as a directory tile under a service tag, such as event photos (Munchietown's, the first use). Only `DIRECTORY_QUERY` in `src/lib/queries.js` carries `hideFromDirectory != true`. Unlike Content Role `supporting`, which also takes the piece off its project page and the globe.
+
 ## Media Descriptors
 
 The per-asset accessibility and search text on a `mediaAsset`, one pair for images and videos alike: `alt` (one line of what it shows, ≤150 characters) and `description` (fuller, ≤300, read only by screen readers and search, never shown on the page). Names people and brands the references name; never a ratio.
