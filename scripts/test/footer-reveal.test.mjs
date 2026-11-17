@@ -578,22 +578,36 @@ test('footerBrakeStep is the forward half of footerTensionStep, so the wheel kee
   near(footerBrakeStep(0.95, -0.1, 0.4, 0.5), 0.85)
 })
 
-test('?footertouchgain is unset by default, 0 is refused, and ?footertouchbrake=0 is honoured', async () => {
+test('SQ-115 Nathan’s bake 11-17: the finger’s gain, tension and follow, and the gain no longer follows the house', async () => {
+  assert.equal(FOOTER_TUNE_DEFAULTS.touchGain, 2, 'Nathan 11-17: the home finger’s own gain')
+  assert.equal(FOOTER_TUNE_DEFAULTS.touchBrake, 0.5, 'Nathan 11-17: the tail’s tension')
+  assert.equal(FOOTER_TUNE_DEFAULTS.touchLerp, 0.35, 'Nathan 11-17: the follow')
   const plain = await freshTune('')
-  assert.equal(plain.state.touchGain, null, 'the gain follows the house TOUCH_GAIN unless dialed')
-  assert.equal(plain.state.touchBrake, 0, 'the default is today’s feel')
-  const dialed = await freshTune('?footertouchgain=2&footertouchbrake=0.5')
-  assert.equal(dialed.state.touchGain, 2)
-  assert.equal(dialed.state.touchBrake, 0.5)
+  assert.equal(plain.state.touchGain, 2)
+  assert.equal(plain.state.touchBrake, 0.5)
+  assert.equal(plain.state.touchLerp, 0.35)
+  // The house gain (?touchgain, /work and /process) is read by touchTune.js and never reaches this state.
+  const house = await freshTune('?touchgain=7')
+  assert.equal(house.state.touchGain, 2, 'a house ?touchgain must not move the home footer’s finger')
+  // The gain is a plain number now: Hero reads no house constant.
+  const src = fs.readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
+  assert.doesNotMatch(src, /TOUCH_GAIN/, 'Hero still reads the house TOUCH_GAIN')
+  assert.doesNotMatch(src, /\?\? TOUCH_GAIN/, 'the null-follows-house path is back')
+})
+
+test('?footertouchgain and ?footertouchbrake dial the baked pair, 0 is refused for the gain and honoured for the brake', async () => {
+  const dialed = await freshTune('?footertouchgain=3&footertouchbrake=0.7')
+  assert.equal(dialed.state.touchGain, 3)
+  assert.equal(dialed.state.touchBrake, 0.7)
   assert.equal(dialed.props.size, 0, 'the finger dials are JS reads, never CSS')
   const zero = await freshTune('?footertouchgain=0&footertouchbrake=0')
-  assert.equal(zero.state.touchGain, null, 'a gain of 0 would pin the panel')
-  assert.equal(zero.state.touchBrake, 0)
+  assert.equal(zero.state.touchGain, 2, 'a gain of 0 would pin the panel, so the bake stays')
+  assert.equal(zero.state.touchBrake, 0, '?footertouchbrake=0 is the plain clamp')
 })
 
 test('Hero’s touch path reads the finger dials and rides footerTensionStep, the wheel path does not', () => {
   const src = fs.readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
-  assert.match(src, /\(touchY - y\) \* \(getFooterTouchGain\(\) \?\? TOUCH_GAIN\)/, 'the finger lost its own gain')
+  assert.match(src, /\(touchY - y\) \* getFooterTouchGain\(\)/, 'the finger lost its own gain')
   assert.match(
     src,
     /drive\.add\(dy \/ SCROLL_TRIGGER_HOME_PX, footerPRef\.current, FOOTER_FINGER\)/,
@@ -776,22 +790,19 @@ test('the drive’s default lane is the wheel: the same steps and the same glide
   assert.deepEqual(a, b, 'the wheel’s painted frames drifted')
 })
 
-test('?footertouchlerp defaults to 0, 0 is legal, a dial reaches the follower and never the cascade', async () => {
-  const plain = await freshTune('')
-  assert.equal(plain.state.touchLerp, 0, 'today’s feel is the raw finger')
-  const dialed = await freshTune('?footertouchlerp=0.35')
-  assert.equal(dialed.state.touchLerp, 0.35)
+test('?footertouchlerp dials the baked follow, 0 is legal (the raw finger), a dial reaches the follower and never the cascade', async () => {
+  const dialed = await freshTune('?footertouchlerp=0.5')
+  assert.equal(dialed.state.touchLerp, 0.5)
   assert.equal(dialed.props.size, 0, 'the follow is a JS read, never CSS')
   const zero = await freshTune('?footertouchlerp=0')
-  assert.equal(zero.state.touchLerp, 0)
+  assert.equal(zero.state.touchLerp, 0, '?footertouchlerp=0 is the raw finger, painted on the touchmove')
   assert.equal(FOOTER_FINGER.lerp(), FOOTER_TUNE_DEFAULTS.touchLerp, 'the finger lane reads the state')
 })
 
-test('Hero stops a followed glide on a new finger, carries a release into the drive, and mounts the HUD read-only', () => {
+test('Hero stops a followed glide on a new finger and carries a release into the drive; no readout is mounted', () => {
   const src = fs.readFileSync(`${root}src/components/Hero.jsx`, 'utf8')
-  assert.match(src, /if \(getFooterTouchLerp\(\) > 0\) drive\.stop\(\);\n\s+hud\?\.start\(\)/, 'touchstart no longer takes the panel from where it is')
+  assert.match(src, /if \(getFooterTouchLerp\(\) > 0\) drive\.stop\(\);\n\s+\};/, 'touchstart no longer takes the panel from where it is')
   assert.match(src, /if \(follow\) \{\n\s+drive\.add\(carry, footerPRef\.current, FOOTER_FINGER\);/, 'the release no longer carries into the drive')
-  assert.match(src, /FOOTER_HUD_ACTIVE && IS_MOBILE \? createFooterHud\(\(\) => footerPRef\.current, FOOTER_REST\)/, 'the HUD mount changed')
-  const hud = fs.readFileSync(`${root}src/lib/footerHud.js`, 'utf8')
-  assert.doesNotMatch(hud, /localStorage|sessionStorage|fetch\(|sendBeacon|setProperty/, 'the HUD must write nothing anywhere')
+  assert.doesNotMatch(src, /footerHud|FOOTER_HUD|hud\?\./, 'the cadence readout is retired')
+  assert.equal(fs.existsSync(`${root}src/lib/footerHud.js`), false, 'the cadence readout module is retired')
 })

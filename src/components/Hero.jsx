@@ -89,7 +89,7 @@ function coverToWork(detail) {
   window.dispatchEvent(new CustomEvent('swm:envelop', { detail: { ...detail, color: NAV_BLACK } }));
 }
 import { SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
-import { RELEASE_MS, TOUCH_GAIN } from '../lib/touchTune.js';
+import { RELEASE_MS } from '../lib/touchTune.js';
 import {
   footerTensionStep,
   getFooterTouchBrake,
@@ -97,7 +97,6 @@ import {
   getFooterTouchLerp,
   FOOTER_FINGER,
 } from '../lib/footerTune.js';
-import { FOOTER_HUD_ACTIVE, createFooterHud } from '../lib/footerHud.js';
 import { requestInfoClose } from '../lib/infoPush.js';
 import { signalRouteReady } from '../lib/overlayWipe.js';
 import SiteFooter, {
@@ -398,8 +397,6 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     // glide. A finger already at rest when it lifts gets no carry.
     let vel = 0; // progress per ms, smoothed
     let moveAt = 0;
-    // ?footerhud=1 (SQ-115): a read-only readout of the drag's cadence, phone only.
-    const hud = FOOTER_HUD_ACTIVE && IS_MOBILE ? createFooterHud(() => footerPRef.current, FOOTER_REST) : null;
     const onTouchStart = (e) => {
       touchY = e.touches[0].clientY;
       touchX = e.touches[0].clientX;
@@ -408,7 +405,6 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       // A new finger takes the panel from where it IS: a followed glide (still
       // running toward its target) stops at the painted progress, no jump.
       if (getFooterTouchLerp() > 0) drive.stop();
-      hud?.start();
     };
     const onTouchMove = (e) => {
       if (touchY === null) return;
@@ -429,8 +425,9 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       ) {
         return;
       }
-      // SQ-115: home's own copy of the gain (?footertouchgain); undialed it IS the house one.
-      const dy = (touchY - y) * (getFooterTouchGain() ?? TOUCH_GAIN);
+      // SQ-115: home's own finger gain (?footertouchgain, 2 since 11-17, Nathan);
+      // the house ?touchgain belongs to /work and /process and no longer reaches here.
+      const dy = (touchY - y) * getFooterTouchGain();
       const now = performance.now();
       if (moveAt) {
         // dt floored at one frame so a two-event burst cannot read as an
@@ -439,7 +436,6 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
         vel = vel === 0 ? dp : vel * 0.6 + dp * 0.4;
       }
       moveAt = now;
-      hud?.move();
       addDelta(dy);
       touchY = y;
       touchX = x;
@@ -448,7 +444,6 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     const onTouchEnd = () => {
       touchY = null;
       touchX = null;
-      hud?.end();
       // RM snaps progress 0↔1 with no in-betweens, so there is nothing to
       // carry there (and a glide would contradict the preference).
       if (PREFERS_REDUCED_MOTION || departingRef.current) return;
@@ -525,7 +520,6 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       window.removeEventListener(FOOTER_CLOSE_EVENT, onClose);
       footerWipeRef.current?.kill();
       drive.stop();
-      hud?.destroy();
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);

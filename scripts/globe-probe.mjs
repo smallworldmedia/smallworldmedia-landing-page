@@ -219,8 +219,10 @@
  * reveal, reading the finger px it took (fingerPx) and the panel's px per
  * touchmove over the last 10% of the rise against the middle of it
  * (panelPxPerStepLast10 / Body). Its one gate is tailScrubReachedFull. Read the
- * home footer's finger at the house feel with --extra="&touchgain=5" (~41px),
- * and a dial with --extra="&footertouchgain=2&footertouchbrake=0.5".
+ * home footer's finger at the baked numbers (Nathan 11-17: gain 2, brake 0.5, lerp
+ * 0.35) with no --extra, the old feel with
+ * --extra="&footertouchgain=5&footertouchbrake=0&footertouchlerp=0", and any other
+ * dial the same way.
  * SQ-115 pass 2 adds report.measured.cadence (relative only; never a device number):
  * a constant-speed scrub (60 finger px/s, a touchmove per 8 ms) under CPU throttle 4
  * with a per-rAF recorder, giving the CV of the panel's per-frame steps, frames where
@@ -390,15 +392,14 @@ const OUT = arg(
 // and would swallow the touch scrub. --detail loads the detail page itself,
 // --directory the directory.
 // --extra before &popunits: the page reads a param's first value, so an &popunits in --extra wins (nc-sneak).
-// --footer pins &touchgain=2 AFTER --extra (so --extra can still override it): footerScenario's finger
-// distances and step counts were calibrated at gain 2, and motion.js bakes 5 since 11-03 — unpinned,
-// the up-scrub would hit the clamp in ~13 of its 32 steps and coarsen every number read off the grid.
+// --footer needs no gain pin since 11-17: home's finger has its own baked gain (?footertouchgain, 2), which is
+// what footerScenario's finger distances and step counts were calibrated at; the house ?touchgain no longer reaches it.
 const URL_ = DIRECTORY
   ? `${BASE}/work/directory/${DIR_QUERY ? `?${DIR_QUERY}` : ''}`
   : DETAIL
     ? `${BASE}/work/${DETAIL}`
     : FOOTER
-      ? `${BASE}/?intro=${INTRO}${EXTRA}&touchgain=2`
+      ? `${BASE}/?intro=${INTRO}${EXTRA}`
       : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}${UNITS === null ? '' : `&popunits=${UNITS}`}`;
 // The gates' context. Every value mirrors what the page will read, so a gate never guesses.
 const BASELINE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'baselines', 'globe-units.json');
@@ -1176,7 +1177,7 @@ async function touchScrub(cdp, page, { x, from, to, steps }) {
  *  px take the panel from rest to a full reveal, and how far the panel moves per
  *  touchmove (one step ≈ one frame at constant finger speed) over the last 10%
  *  of the rise, against the middle of it. Report-only: the numbers depend on the
- *  dials in the URL (?footertouchgain / ?footertouchbrake / ?touchgain), so there
+ *  dials in the URL (?footertouchgain / ?footertouchbrake / ?footertouchlerp), so there
  *  is no gate to hold them to; the vacuity check is that the scrub reached 1.
  *  First it walks the panel back to rest with a finger far longer than any gain
  *  needs. STEP_PX is fractional on purpose: at 1px a gain-5 reveal is ~41 steps
@@ -1285,9 +1286,9 @@ async function footerFrameScrub(cdp, page, ctx, x, rest, panelH) {
     await touchScrub(cdp, page, { x, from: 80, to: 560, steps: 48 });
     await sleep(1500); // the release carry (and any follow) settles
   };
-  // The finger's px/s is quoted at the probe's pinned gain 2; at another gain the step scales so the
+  // The finger's px/s is quoted at the baked gain 2; at another gain the step scales so the
   // PANEL moves at the same speed and the rise still spans enough frames to read.
-  const gain = extraNum('footertouchgain') ?? extraNum('touchgain') ?? 2;
+  const gain = extraNum('footertouchgain') ?? 2;
   const stepPx = (FRAME_SCRUB.stepPx * 2) / gain;
   await page.evaluate(FRAME_REC);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: FRAME_SCRUB.cpu });
@@ -1383,7 +1384,7 @@ async function footerScenario(page, ctx) {
   const rest = await footerRead(page);
   await shot(page, 'footer-rest');
 
-  // UP — the reveal. 120px of finger × the pinned ?touchgain=2 (URL_) ÷ SCROLL_TRIGGER_HOME_PX
+  // UP — the reveal. 120px of finger × the baked ?footertouchgain=2 ÷ SCROLL_TRIGGER_HOME_PX
   // 500 = 0.48 of progress, which clears the 1.0 clamp from the 0.59 floor
   // (1.07, so the clamp absorbs the last 0.07) and the scrub ENDS at a full
   // reveal rather than at a number that depends on the gain. The re-bake

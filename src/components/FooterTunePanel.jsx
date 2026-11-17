@@ -20,9 +20,9 @@
  *              and the on-load word fade.
  *
  *   touch gain, touch brake, touch lerp — home's FINGER on that reveal (SQ-115):
- *              the finger's own gain (starts at the house TOUCH_GAIN), the
- *              tail's tension under it (footerTensionStep) and the follow that
- *              paints it once a frame. Touch-only, home-only.
+ *              the finger's own gain (baked 2, Nathan 11-17), the tail's
+ *              tension under it (footerTensionStep, 0.5) and the follow that
+ *              paints it once a frame (0.35). Touch-only, home-only.
  *
  * copy_url emits only non-default knobs (?footerlockup / ?footertravel /
  * ?footerlerp / ?footerbrake / ?footertouchgain / ?footertouchbrake / ?footertouchlerp / ?footerlift / ?footermarksfrom / ?footermarksto / ?footermarkslift /
@@ -42,7 +42,6 @@ import {
   footerTuneUrl,
   FOOTER_TUNE_DEFAULTS,
 } from '../lib/footerTune.js';
-import { TOUCH_GAIN } from '../lib/touchTune.js';
 
 function Row({ label, param, value, min, max, step, fmt, onChange }) {
   return (
@@ -164,9 +163,9 @@ export default function FooterTunePanel() {
           touchmove (Hero reads both per event). */}
       <div className="footer-tune__group">finger · home</div>
       <Row
-        label={`touch gain (px→px · def house ${TOUCH_GAIN})`}
+        label={`touch gain (px→px · def ${FOOTER_TUNE_DEFAULTS.touchGain})`}
         param="touchGain"
-        value={s.touchGain ?? TOUCH_GAIN}
+        value={s.touchGain}
         min={1}
         max={8}
         step={0.25}
@@ -194,11 +193,11 @@ export default function FooterTunePanel() {
         onChange={set}
       />
       <p className="footer-tune__note">
-        touch gain = finger px to gesture px on the home footer alone; it starts at the house gain. touch
-        brake = over the last third of the rise the panel moves less per finger px, tightening into the full
-        reveal, and gives it back when the finger returns; 0 = off, today&apos;s feel. touch lerp = the panel
-        follows the finger&apos;s target once a frame instead of jumping on each touchmove, so a slowed
-        finger steps evenly; 0 = the raw finger, today&apos;s feel.
+        touch gain = finger px to gesture px on the home footer alone (Nathan 11-17: 2; the house gain stays
+        5 for /work and /process). touch brake = over the last third of the rise the panel moves less per
+        finger px, tightening into the full reveal, and gives it back when the finger returns; baked 0.5, 0 =
+        the plain clamp. touch lerp = the panel follows the finger&apos;s target once a frame instead of
+        jumping on each touchmove, so a slowed finger steps evenly; baked 0.35, 0 = the raw finger.
       </p>
 
       {/* HOME ([data-footer-rest]) — these four only do anything where the

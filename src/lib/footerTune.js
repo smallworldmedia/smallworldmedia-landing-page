@@ -28,13 +28,15 @@
  *               quadratically, to 1 − brake at the full reveal; 0 = off.
  *   touchGain /
  *   touchBrake — home's FINGER on that reveal (SQ-115; touch-only, home-only,
- *               nothing baked): the finger px → gesture px (null = the house
- *               TOUCH_GAIN, so /work and /process keep theirs) and the same
- *               tail made symmetric for a finger (footerTensionStep); 0 = off.
- *   touchLerp — the finger's follow (SQ-115 pass 2): > 0 and the finger moves
- *               a TARGET, the panel following on the ticker once per frame by
- *               the wheel's own damp, so a slowed finger paints one even step
- *               a frame instead of one per touchmove; 0 = the raw finger.
+ *               baked 11-17, Nathan): the finger px → gesture px (its own
+ *               number, 2, apart from the house TOUCH_GAIN that /work and
+ *               /process keep) and the same tail made symmetric for a finger
+ *               (footerTensionStep); touchBrake 0 = the plain clamp.
+ *   touchLerp — the finger's follow (SQ-115 pass 2; baked 11-17, Nathan): the
+ *               finger moves a TARGET, the panel following on the ticker once
+ *               per frame by the wheel's own damp, so a slowed finger paints
+ *               one even step a frame instead of one per touchmove; 0 = the
+ *               raw finger painted on the touchmove.
  *
  * HOME ([data-footer-rest], 10-07; desktop too since 10-09) — the resting
  * footer's own four.
@@ -211,9 +213,9 @@ export const FOOTER_TUNE_DEFAULTS = Object.freeze({
   lerp: 0.165, // mirrors LENIS_TUNING.lerp (motion.js): the house's baked Lenis feel (the test holds the two equal); 0 = the raw delta
   brake: 0.5, // the tail brake's strength, b (footerBrakeStep); 0 = off. A pick, flagged for Nathan 10-31
   // ── home's FINGER on that reveal (SQ-115; touch-only, home-only) ──
-  touchGain: null, // finger px → gesture px; null = follow the house TOUCH_GAIN (touchTune.js)
-  touchBrake: 0, // the same tail, symmetric (footerTensionStep), under the finger; 0 = today's clamp
-  touchLerp: 0, // the finger moves a target and the panel follows on the ticker (footerDamp), once per frame; 0 = the raw finger, today's feel
+  touchGain: 2, // finger px → gesture px, home's own (the house TOUCH_GAIN is 5). Nathan 11-17
+  touchBrake: 0.5, // the same tail, symmetric (footerTensionStep), under the finger; 0 = the plain clamp. Nathan 11-17
+  touchLerp: 0.35, // the finger moves a target and the panel follows on the ticker (footerDamp), once per frame; 0 = the raw finger. Nathan 11-17
   // ── home rest ([data-footer-rest], both tiers since 10-09) ──
   liftK: 0.5, // mirrors the global.css `--footer-lift-k` fallback
   marksFrom: 0.6, // mirrors `--footer-marks-from` — MEASURED, see the guide
@@ -327,8 +329,8 @@ const PARAM_KEYS = {
 const ZERO_OK = new Set([
   'lerp',
   'brake',
-  'touchBrake', // 0 = the finger's plain clamp, today's feel (touchGain stays out: 0 would pin the panel)
-  'touchLerp', // 0 = the raw finger painted on the touchmove, today's feel
+  'touchBrake', // 0 = the finger's plain clamp (touchGain stays out: 0 would pin the panel)
+  'touchLerp', // 0 = the raw finger painted on the touchmove
   'liftK',
   'marksFrom',
   'marksLift',
@@ -365,9 +367,9 @@ export const getFooterLerp = () => state.lerp;
 export const getFooterBrake = () => state.brake;
 
 /** Home's finger on the reveal (SQ-115), read per touch event so the bench's
-    sliders act on the next touchmove. The gain is null while undialed: Hero
-    then follows the house TOUCH_GAIN (this module cannot import touchTune,
-    which pulls gsap in). The brake is footerTensionStep's b; 0 = today's feel. */
+    sliders act on the next touchmove. The gain is home's own number (2); the
+    house TOUCH_GAIN no longer reaches the home footer. The brake is
+    footerTensionStep's b; 0 = the plain clamp. */
 export const getFooterTouchGain = () => state.touchGain;
 export const getFooterTouchBrake = () => state.touchBrake;
 /** The finger's follow, a lerp as ?footerlerp is (the lane's `lerp`, read per frame). */
