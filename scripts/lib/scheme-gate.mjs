@@ -519,6 +519,469 @@ export function outline(hook, { name = 'globe', mix = 1, ring, tol = OUTLINE_TOL
   return result(offenders, n, parts.join(', '));
 }
 
+// ── the corner widget: the eye in its square badge (SQ-107) ─────────────────────────────────
+
+const rectOf = (r) => [r.x, r.y, r.w, r.h].map((v) => fixed(v, 1)).join(',');
+
+/**
+ * badge — the badge tile at its ONE seat (SQ-107 pass 7: the flush corner and the footer ride are gone,
+ * Nathan 11-16: "the slight raise off of the bottom of the viewport, sitewide"). `rect` {x, y, w, h} is
+ * the tile in viewport CSS px, `vp` {w, h} the viewport. Always: a horizontal rectangle (wider than
+ * tall); when `eye` {x, y, w, h} is given, the padding between it and the tile is equal on all four
+ * sides (to `tol` px). Its right edge is the viewport's, with no inset (to `tol`). Vertically its
+ * centre is `rowCy` above the viewport's bottom on EVERY route: the height of the bottom-left corner
+ * row (the privacy pill's line at rest). A run that measured no row fails.
+ * PHONE TIER (SQ-107 pass 9, <= 768px): the corner-row rule is a desktop rule. When `clear` is a number
+ * (the phone's --badge-clear, ?schemeclear) the badge's bottom edge must sit at least `clear` above the
+ * viewport's bottom (to `tol`) instead, so the screen's rounded corner cannot cut it; no row is needed.
+ */
+export function badge(rect, vp, { tol = 0.5, eye = null, rowCy = null, clear = null } = {}) {
+  const offenders = [];
+  if (!rect || !vp) return result([{ path: '.swm-corner .fp-scale::before', note: 'no badge box measured' }], 0, 'no box');
+  const right = rect.x + rect.w;
+  const bottom = rect.y + rect.h;
+  const bad = (note) => offenders.push({ path: '.swm-corner .fp-scale::before', note, rect: rectOf(rect), viewport: `${vp.w}x${vp.h}` });
+  if (!(rect.w - rect.h > tol)) bad(`not a horizontal rectangle (${fixed(rect.w, 1)} x ${fixed(rect.h, 1)})`);
+  if (eye) {
+    const pads = [eye.x - rect.x, right - (eye.x + eye.w), eye.y - rect.y, bottom - (eye.y + eye.h)];
+    if (Math.max(...pads) - Math.min(...pads) > 3 * tol) bad(`padding is not equal on four sides (left ${fixed(pads[0], 1)}, right ${fixed(pads[1], 1)}, top ${fixed(pads[2], 1)}, bottom ${fixed(pads[3], 1)})`);
+  }
+  if (Math.abs(vp.w - right) > tol) bad(`right edge is ${fixed(vp.w - right, 1)} from the viewport's, want 0`);
+  if (Number.isFinite(clear)) {
+    const gap = vp.h - bottom;
+    if (gap < clear - tol) bad(`bottom edge is ${fixed(gap, 2)} above the viewport's bottom, under the phone clearance ${fixed(clear, 2)} (the screen corner cuts it)`);
+  } else if (!Number.isFinite(rowCy)) bad('no corner row measured to seat against');
+  else {
+    const cy = vp.h - (rect.y + rect.h / 2);
+    if (Math.abs(cy - rowCy) > 1) bad(`centre ${fixed(cy, 1)} above the bottom is not the corner row's ${fixed(rowCy, 1)}`);
+  }
+  return result(offenders, 1, Number.isFinite(clear) ? `seated: tile ${rectOf(rect)} in ${vp.w}x${vp.h}, bottom ${fixed(vp.h - bottom, 2)} above the viewport's, clearance ${fixed(clear, 2)}` : `seated: tile ${rectOf(rect)} in ${vp.w}x${vp.h}, row centre ${Number.isFinite(rowCy) ? fixed(rowCy, 1) : '?'} above the bottom`);
+}
+
+/**
+ * seat — the badge's gap above the viewport's bottom edge is the SAME everywhere (SQ-107 pass 7: one seat,
+ * sitewide). `samples` = [{ label, gap }], one per route, width, scroll stop (footer at rest and at its
+ * end state): gap = viewport height minus the tile's bottom edge, CSS px. All within `tol` of one another
+ * (0.5). A missing gap, or fewer than two samples, fails: one measurement compares to nothing.
+ * PHONE TIER (pass 9): a sample may carry `clear` (the phone's --badge-clear, null above 768px); its gap
+ * must then be at least that (to `tol`), so the raise cannot be lost on any route or scroll stop.
+ */
+export function seat(samples, { tol = 0.5 } = {}) {
+  const list = samples ?? [];
+  const offenders = [];
+  const ok = list.filter((x) => Number.isFinite(x.gap));
+  for (const x of list) if (!Number.isFinite(x.gap)) offenders.push({ path: x.label, note: 'no gap measured' });
+  if (ok.length < 2) offenders.push({ path: '.swm-corner', note: `${ok.length} gap measured: nothing to compare` });
+  else {
+    const lo = Math.min(...ok.map((x) => x.gap));
+    const hi = Math.max(...ok.map((x) => x.gap));
+    if (hi - lo > tol) for (const x of ok) if (Math.abs(x.gap - lo) > tol) offenders.push({ path: x.label, gap: fixed(x.gap, 2), note: `${fixed(x.gap - lo, 2)} px off the lowest seat (${fixed(lo, 2)})` });
+  }
+  for (const x of ok) if (Number.isFinite(x.clear) && x.gap < x.clear - tol) offenders.push({ path: x.label, gap: fixed(x.gap, 2), clear: fixed(x.clear, 2), note: `gap ${fixed(x.gap, 2)} is under the phone clearance ${fixed(x.clear, 2)}` });
+  const gaps = ok.map((x) => x.gap);
+  return result(offenders, list.length, `${list.length} seats, gap ${gaps.length ? fixed(Math.min(...gaps), 2) : '?'} to ${gaps.length ? fixed(Math.max(...gaps), 2) : '?'} px`);
+}
+
+/**
+ * rightEdge — the badge's right edge is the viewport's right edge, at rest and engaged, on every route
+ * and width (Nathan 11-16: "all the way to the right edge of the viewport"). `samples` = [{ label, right,
+ * vw }]: the badge tile's right edge and the viewport's width in CSS px, one per route, width and
+ * state. Within `tol` px (0.5). No sample, or a missing number, fails: a run that measured nothing
+ * proves nothing.
+ */
+export function rightEdge(samples, { tol = 0.5 } = {}) {
+  const offenders = [];
+  const list = samples ?? [];
+  if (!list.length) offenders.push({ path: '.swm-corner .fp-scale::before', note: 'no right edge measured' });
+  for (const x of list) {
+    if (!Number.isFinite(x.right) || !Number.isFinite(x.vw)) offenders.push({ path: x.label, note: 'right edge or viewport width unreadable' });
+    else if (Math.abs(x.vw - x.right) > tol) offenders.push({ path: x.label, note: `right edge ${fixed(x.right, 2)} is ${fixed(x.vw - x.right, 2)} px short of the viewport's ${fixed(x.vw, 2)}` });
+  }
+  return result(offenders, list.length, `${list.length} states, each within ${tol} px of the viewport's right edge`);
+}
+
+/**
+ * noClip — no circle is ever cut by a straight box edge (Nathan 11-16: "weird clipping when the globe
+ * is at an intermediate position"). `frames` = [{ label, circles: [{ name, op, x, y, w, h }], clips:
+ * [{ name, x, y, w, h }] }]: each sampled frame of the entrance, the exit and a page through the
+ * stations carries every circle's box and effective opacity, and the box of every ancestor that clips
+ * (overflow other than visible, a mask, a clip-path). A circle is CUT where it is visible (`op` above
+ * `minOp`), reaches into a clip box (overlap above `tol` on both axes) and leaves it by more than
+ * `tol` on some side. A circle wholly outside is simply not shown, wholly inside is whole. The
+ * viewport's edge is the one hard edge the design allows, and is not a clip box here. No frame fails.
+ */
+export function noClip(frames, { minOp = 0.03, tol = 0.75 } = {}) {
+  const offenders = [];
+  const list = frames ?? [];
+  if (!list.length) offenders.push({ path: '.fp-scale__station', note: 'no frames sampled' });
+  let circles = 0;
+  const seen = new Set();
+  for (const f of list) {
+    for (const c of f.circles ?? []) {
+      circles++;
+      if (!(c.op > minOp)) continue;
+      for (const k of f.clips ?? []) {
+        const wide = Math.min(c.x + c.w, k.x + k.w) - Math.max(c.x, k.x);
+        const high = Math.min(c.y + c.h, k.y + k.h) - Math.max(c.y, k.y);
+        if (!(wide > tol && high > tol)) continue;
+        const out = Math.max(k.x - c.x, c.x + c.w - (k.x + k.w), k.y - c.y, c.y + c.h - (k.y + k.h));
+        const key = `${c.name}|${k.name}`;
+        if (out > tol && !seen.has(key) && offenders.length < 8) {
+          seen.add(key);
+          offenders.push({ path: c.name, clip: k.name, frame: f.label, opacity: fixed(c.op, 2), note: `visible circle cut by ${k.name}: ${fixed(out, 1)} px outside it` });
+        }
+      }
+    }
+  }
+  return result(offenders, list.length, `${list.length} frames, ${circles} circle samples`);
+}
+
+/**
+ * blurbClear — the badge tile and the home footer's blurb text do not meet. `tile` and `blurb` are
+ * { x, y, w, h } in viewport CSS px (the blurb is the union of its text boxes, never the element's
+ * own full-width box). The blurb is one nowrap line that fills the measure down to the right edge
+ * between about 1130 px and 1500 px, where a badge flush with the corner would otherwise sit over
+ * its last words. A missing box fails: a run that measured no blurb proves nothing.
+ */
+export function blurbClear(tile, blurb) {
+  const path = '.site-footer__blurb';
+  if (!tile) return result([{ path, note: 'no badge box measured' }], 0, 'no tile');
+  if (!blurb || !(blurb.w > 0 && blurb.h > 0)) return result([{ path, note: 'no blurb text measured' }], 0, 'no blurb');
+  const wide = Math.min(tile.x + tile.w, blurb.x + blurb.w) - Math.max(tile.x, blurb.x);
+  const high = Math.min(tile.y + tile.h, blurb.y + blurb.h) - Math.max(tile.y, blurb.y);
+  const hit = wide > 0.5 && high > 0.5;
+  const offenders = hit ? [{ path, tile: rectOf(tile), blurb: rectOf(blurb), note: `the badge covers ${fixed(wide, 1)} x ${fixed(high, 1)} px of the blurb` }] : [];
+  return result(offenders, 1, `tile ${rectOf(tile)}, blurb ${rectOf(blurb)}`);
+}
+
+/** The strip's panels in SCHEMES order (colorScheme.js): project's glass, black, blue. */
+export const STRIP_ORDER = ['glass', 'black', 'blue'];
+
+/** The class of one badge pixel: blue (opaque brand blue), black, or glass (anything else: a veil over the page). */
+export function stripClass(rgb) {
+  const [r, g, b] = rgb ?? [];
+  if (![r, g, b].every(Number.isFinite)) return null;
+  if (b >= 200 && r <= 40 && g <= 40) return 'blue';
+  if (Math.max(r, g, b) <= 40) return 'black';
+  return 'glass';
+}
+
+/**
+ * strip — the badge is a clipping window onto the strip of the three background panels, and the
+ * strip rides the column's position (SQ-107 pass 7): ONE DETENT = ONE BADGE HEIGHT. `frames` = [{ q,
+ * rows, col }]: the column position q (the engine's --scale-qf), the height of the tile in sampled rows
+ * and the pixels of its middle column, top to bottom ([r, g, b] each; the art is hidden so only the
+ * background shows, over a flat page). At a whole q exactly ONE class fills the badge and it is the
+ * station's (q mod 3 in STRIP_ORDER). Between detents the current panel (floor(q)) is the top
+ * run, the next one the bottom run, and the one straight seam sits at (1 - fraction) x the height,
+ * within `tol` of it (rows, the larger of 2 and 4% of the height). Anything else is an offender: a
+ * third colour, a second seam, a strip that does not move with q. No frames fails.
+ */
+export function strip(frames, { order = STRIP_ORDER, tol = 2 } = {}) {
+  const offenders = [];
+  const list = frames ?? [];
+  const n = order.length;
+  const at = (i) => order[((Math.floor(i) % n) + n) % n];
+  for (const f of list) {
+    const col = (f.col ?? []).map(stripClass);
+    const rows = col.length || f.rows || 0;
+    const path = `.swm-corner .fp-scale::before q=${fixed(f.q, 2)}`;
+    if (!rows || col.some((c) => c == null)) {
+      offenders.push({ path, note: 'no pixels read' });
+      continue;
+    }
+    // Runs of one class; a one- or two-row run is the seam's anti-aliasing, not a panel.
+    const runs = [];
+    for (const c of col) {
+      if (runs.length && runs[runs.length - 1].c === c) runs[runs.length - 1].n++;
+      else runs.push({ c, n: 1 });
+    }
+    const real = runs.filter((r) => r.n > 2 || runs.length === 1);
+    const merged = [];
+    for (const r of real) {
+      if (merged.length && merged[merged.length - 1].c === r.c) merged[merged.length - 1].n += r.n;
+      else merged.push({ ...r });
+    }
+    const frac = f.q - Math.floor(f.q);
+    const whole = frac < 0.02 || frac > 0.98;
+    const topIdx = whole && frac > 0.98 ? Math.floor(f.q) + 1 : Math.floor(f.q);
+    const seq = merged.map((r) => `${r.c} x${r.n}`).join(', ');
+    if (whole) {
+      if (merged.length !== 1 || merged[0].c !== at(topIdx)) offenders.push({ path, note: `want one ${at(topIdx)} panel filling the badge, got ${seq}` });
+      continue;
+    }
+    if (merged.length !== 2 || merged[0].c !== at(topIdx) || merged[1].c !== at(topIdx + 1)) {
+      offenders.push({ path, note: `want ${at(topIdx)} above ${at(topIdx + 1)}, got ${seq}` });
+      continue;
+    }
+    const seam = merged[0].n;
+    const want = (1 - frac) * rows;
+    if (Math.abs(seam - want) > Math.max(tol, 0.04 * rows)) offenders.push({ path, note: `seam at row ${seam} of ${rows}, want ${fixed(want, 1)} ((1 - ${fixed(frac, 2)}) x the height)` });
+  }
+  return result(offenders, list.length, `${list.length} frames, one detent = one badge height`);
+}
+
+/**
+ * eyeLines — nothing dark outlines the eye. `shapes` = [{ path, stroke, width }]: every shape in
+ * the widget's svgs (stroke = the computed colour or 'none', width in px). A stroke must be white
+ * (the lids, the globe's lines); a dark one is the old outline.
+ */
+export function eyeLines(shapes) {
+  const offenders = [];
+  let stroked = 0;
+  for (const s of shapes ?? []) {
+    if (!s.stroke || s.stroke === 'none' || !(Number(s.width) > 0)) continue;
+    stroked++;
+    const c = parseColour(s.stroke);
+    if (!c || c.r < 250 || c.g < 250 || c.b < 250) offenders.push({ path: s.path, stroke: s.stroke, width: s.width, note: 'a stroke that is not white' });
+  }
+  return result(offenders, (shapes ?? []).length, `${stroked} stroked of ${(shapes ?? []).length} shapes`);
+}
+
+/**
+ * persist — the widget is the SAME node across a soft navigation, never fades and is never COVERED
+ * (SQ-107 pass 7). `samples` = [{ same, op, vis, gone? }], one per frame from the click to the
+ * settle: the node's identity mark survives (`same`), its computed opacity stays 1 and its visibility
+ * stays visible (a frame flagged `menu` is under the phone menu's takeover, which covers the badge by design: skipped). A fade (opacity below 1, or visibility hidden, even for one frame) or a remount
+ * (`gone`, or a new node) is an offender. The computed style cannot see the route fill laid over the
+ * badge (the fill is a layer above it), so `pixels` = [{ t, n }] reads the PAINT: n is the count of
+ * the badge's art pixels (iris and lids against the clip's most common colour: how many depends on what shows behind the glass, so the bar is low) (red, green, yellow: the page behind and a blue or black fill
+ * have none) in a screenshot of the badge at time t, and `rest` the count before the click. A frame
+ * under `minShare` of rest is covered. With `pixels` given, none at all fails (nothing was seen).
+ */
+export function persist(samples, { pixels = null, rest = null, minShare = 0.25 } = {}) {
+  const offenders = [];
+  let first = null;
+  let underMenu = 0;
+  (samples ?? []).forEach((s, i) => {
+    if (s.menu) {
+      underMenu++;
+      return;
+    }
+    const why = s.gone ? 'the widget was gone' : !s.same ? 'a different node (remounted)' : !(Number(s.op) >= 0.999) ? `opacity ${s.op}` : s.vis !== 'visible' ? `visibility ${s.vis}` : null;
+    if (why) {
+      first ??= i;
+      if (offenders.length < 5) offenders.push({ path: '.swm-corner', frame: i, note: why });
+    }
+  });
+  const n = (samples ?? []).length;
+  let seen = '';
+  if (pixels) {
+    const ok = Number(rest) > 0 && pixels.length > 0;
+    if (!ok) offenders.push({ path: '.swm-corner', note: 'no badge pixels read before and during the passage' });
+    else {
+      const covered = pixels.filter((p) => !(p.n >= minShare * rest));
+      for (const p of covered.slice(0, 5)) offenders.push({ path: '.swm-corner', t: Math.round(p.t), note: `covered: ${p.n} iris pixels of ${rest} at rest` });
+      seen = `, ${pixels.length} paints (${covered.length} covered)`;
+    }
+  }
+  return result(offenders, n, `${n} frames${underMenu ? ` (${underMenu} under the phone menu's takeover, which covers the badge by design)` : ''}${first == null ? '' : `, first bad frame ${first}`}${seen}`);
+}
+
+/**
+ * menuWipe — the phone menu's takeover wipes OVER the badge (SQ-107 pass 8), never hiding or fading it.
+ * `frames` are one per animation frame through the four phases, each
+ * { phase: open | hold | close | change-open | change, edge, up, zMenu, zBadge, op, vis, inert }:
+ * `edge` is the takeover's rendered top in px (the viewport height with the menu down, 0 with it up),
+ * `up` that the menu is rendered at all, `zMenu` and `zBadge` the root stacking level of each (the
+ * outermost ancestor's z-index), `op` / `vis` the badge's own computed opacity and visibility, `inert`
+ * its inert flag. `tile` is the badge rectangle { x, y, w, h } at rest.
+ * Every frame: the badge is there at opacity 1 and visible (never hidden or faded as a whole, whatever
+ * the edge does), sits BELOW the menu in paint order (so the part under the edge shows the menu and the
+ * part above it the badge), and is inert while the menu is up. The edge never reverses within a wipe
+ * (falls on the way in, rises on the way out), holds at the top through the hold and a page change, and
+ * the run must have seen it cross the badge's box on the way in and on the way out (`minPartial` frames
+ * each), or it proves nothing. `reduced`: the menu snaps, so the edge is only ever 0 or the height.
+ * `pixels` (optional, slow motion): { e0, e1, rows: [{ y, share }] } per screenshot, `share` the fraction
+ * of that tile row painted the menu's colour, the edge read just before (e0) and after (e1): a row below
+ * both must be the menu's, a row above both must not be.
+ */
+export function menuWipe(frames, tile, { pixels = null, reduced = false, minPartial = 3, tol = 1 } = {}) {
+  const offenders = [];
+  const list = frames ?? [];
+  const bad = (i, why) => {
+    if (offenders.length < 8) offenders.push({ path: '.swm-corner', frame: i, phase: list[i]?.phase, note: why });
+  };
+  const top = tile?.y ?? 0;
+  const bottom = top + (tile?.h ?? 0);
+  if (!tile || !(tile.h > 0)) offenders.push({ path: '.swm-corner', note: 'no badge rectangle measured' });
+  const height = Math.max(...list.map((f) => f.h ?? 0), 0);
+  const wipeIn = (f) => f.phase === 'open' || f.phase === 'change-open';
+  let partialIn = 0;
+  let partialOut = 0;
+  list.forEach((f, i) => {
+    if (f.gone) return bad(i, 'the badge was gone');
+    if (!(Number(f.op) >= 0.999)) bad(i, `the badge faded as a whole (opacity ${f.op}) with the edge at ${fixed(f.edge, 1)} px`);
+    else if (f.vis !== 'visible') bad(i, `the badge was hidden as a whole (visibility ${f.vis}) with the edge at ${fixed(f.edge, 1)} px, its box ${fixed(top, 1)}..${fixed(bottom, 1)}`);
+    if (f.up && !(f.zMenu > f.zBadge)) bad(i, `the badge paints over the menu (stacking level ${f.zBadge} against the menu's ${f.zMenu})`);
+    if (f.up && !f.inert) bad(i, 'the swatches can be reached under the menu (the badge is not inert)');
+    if (f.phase === 'hold' && f.edge > tol) bad(i, `the edge is at ${fixed(f.edge, 1)} px in the hold (the menu is not fully up)`);
+    if (reduced && f.edge > tol && f.edge < height - tol) bad(i, `the menu was between up and down (edge ${fixed(f.edge, 1)} px): reduced motion snaps it`);
+    const prev = list[i - 1];
+    if (prev && prev.phase === f.phase) {
+      const d = f.edge - prev.edge;
+      if (wipeIn(f) && d > tol) bad(i, `the edge went back down ${fixed(d, 1)} px on the way in`);
+      if ((f.phase === 'close' || f.phase === 'change') && d < -tol && prev.edge > tol) bad(i, `the edge went back up ${fixed(-d, 1)} px on the way out`);
+    }
+    if (f.edge > top + tol && f.edge < bottom - tol) {
+      if (wipeIn(f)) partialIn++;
+      else if (f.phase === 'close' || f.phase === 'change') partialOut++;
+    }
+  });
+  if (!list.length) offenders.push({ path: '.swm-corner', note: 'no frames measured proves nothing' });
+  else if (!reduced) {
+    if (partialIn < minPartial) offenders.push({ path: '.swm-corner', note: `only ${partialIn} frame(s) caught the edge inside the badge's box on the way in (need ${minPartial})` });
+    if (partialOut < minPartial) offenders.push({ path: '.swm-corner', note: `only ${partialOut} frame(s) caught the edge inside the badge's box on the way out (need ${minPartial})` });
+  }
+  let shots = '';
+  if (pixels) {
+    let across = 0;
+    for (const p of pixels) {
+      const lo = Math.min(p.e0, p.e1);
+      const hi = Math.max(p.e0, p.e1);
+      if ((lo > top && lo < bottom) || (hi > top && hi < bottom)) across++;
+      for (const r of p.rows ?? []) {
+        if (r.y >= hi + 2 && !(r.share >= 0.9)) offenders.push({ path: '.swm-corner', y: fixed(r.y, 0), note: `row below the edge (${fixed(lo, 0)}..${fixed(hi, 0)} px) paints the badge, not the menu (${fixed(r.share * 100, 0)}% menu)` });
+        else if (r.y + 1 <= lo - 2 && !(r.share <= 0.5)) offenders.push({ path: '.swm-corner', y: fixed(r.y, 0), note: `row above the edge (${fixed(lo, 0)}..${fixed(hi, 0)} px) paints the menu, not the badge (${fixed(r.share * 100, 0)}% menu)` });
+      }
+    }
+    if (across < 3) offenders.push({ path: '.swm-corner', note: `only ${across} screenshot(s) caught the edge inside the badge's box` });
+    shots = `, ${pixels.length} screenshots (${across} across the badge)`;
+  }
+  return result(offenders.slice(0, 15), list.length, `${list.length} frames, edge across the badge ${partialIn} in / ${partialOut} out${shots}`);
+}
+
+/**
+ * bounds — every item sits inside the box on the given axis ('x' = left and right). `items` and
+ * `box` are { name, x, y, w, h }. The engaged lens circle against the window that clips it: a box
+ * narrower than the circle cuts its edges.
+ */
+export function bounds(items, box, { axis = 'x', tol = 0.5 } = {}) {
+  const offenders = [];
+  const lo = axis === 'x' ? box?.x : box?.y;
+  const hi = axis === 'x' ? box?.x + box?.w : box?.y + box?.h;
+  for (const it of items ?? []) {
+    if (it.op != null && !(it.op > 0.03)) continue; // a circle that is not shown cannot be out of bounds
+    const a = axis === 'x' ? it.x : it.y;
+    const b = axis === 'x' ? it.x + it.w : it.y + it.h;
+    if (a < lo - tol || b > hi + tol) offenders.push({ path: it.name, got: `${fixed(a, 1)}..${fixed(b, 1)}`, want: `${fixed(lo, 1)}..${fixed(hi, 1)}`, note: `outside the ${axis} bounds` });
+  }
+  return result(offenders, (items ?? []).length, `${(items ?? []).length} circles in ${box?.name ?? 'box'} ${rectOf(box ?? { x: 0, y: 0, w: 0, h: 0 })}`);
+}
+
+/**
+ * strays — mid-animation, nothing paints but the stations the column is meant to show. `diff` =
+ * { pixels, total, at }: the number of differing pixels between a capture of the widget and a
+ * capture with every station outside the shown window hidden (scrubbed to eye-t `at`). More than
+ * `tol` differing pixels is a stray instance in an outer position. The ceiling (8) is a measured
+ * noise floor: hiding the outer stations demotes their compositing layers, which re-rounds a
+ * pixel or three of the SHOWN eye's anti-aliasing (1-3 px of 134400, channel delta <= 19, a 2x2
+ * box on the eye); with the outer stations left painted the strays are 50-105 px (delta 33-74, a 5x130 box).
+ */
+export function strays(diff, { tol = 8 } = {}) {
+  const bad = diff && diff.pixels > tol ? [{ path: '.fp-scale__station', pixels: diff.pixels, at: diff.at, maxDelta: diff.maxDelta, box: diff.box, note: 'a station outside the shown rows painted' }] : [];
+  return result(bad, diff?.total ?? 0, `${diff?.pixels ?? 0} of ${diff?.total ?? 0} px differ at eye-t ${diff?.at}${diff?.pixels ? ` (max channel delta ${diff.maxDelta}, box ${diff.box})` : ''}`);
+}
+
+/**
+ * jitter — the eye's globe moves along ONE smooth path from rest to engaged and back (SQ-107 pass 5,
+ * Nathan: "a slight sudden left jolt that moves the iris a px or two from animation to scaled up").
+ * `run` = { engage: [{x, y}...], release: [{x, y}...], settledUp: {x, y}, settledDown: {x, y} }: the
+ * globe's centre (CSS px) in each frame of a REAL-TIME run (the entrance and exit slowed by their own
+ * durations, never scrubbed with getAnimations), and the centre once each leg had settled. Per leg and
+ * per axis: the centre is monotonic in the direction it travels (never gives back more than `rev` px
+ * from its furthest point: a centroid's own noise is about 0.1), and the settled pose is within `snap`
+ * px (0.5) of the last animated frame, the iris still painted then and gone at the settle, so the
+ * hand-over of the rest iris to the column's lens circle is in it.
+ */
+export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
+  const offenders = [];
+  let n = 0;
+  let worstJump = 0;
+  let worstBack = 0;
+  const leg = (name, pts, settled) => {
+    if (!Array.isArray(pts) || pts.length < 8 || !settled || !Number.isFinite(settled.x) || !Number.isFinite(settled.y)) {
+      offenders.push({ path: '.swm-corner .scheme-eye', leg: name, note: 'too few samples measured' });
+      return;
+    }
+    n += pts.length;
+    for (const ax of ['x', 'y']) {
+      const v = pts.map((q) => q[ax]);
+      const dir = Math.sign(v[v.length - 1] - v[0]) || 1;
+      let far = -Infinity;
+      let back = 0;
+      for (const val of v) {
+        far = Math.max(far, dir * val);
+        back = Math.max(back, far - dir * val);
+      }
+      if (back > rev) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, axis: ax, note: `the centre gave back ${fixed(back, 2)} px against its direction of travel` });
+      const jump = Math.abs(settled[ax] - v[v.length - 1]);
+      worstJump = Math.max(worstJump, jump);
+      worstBack = Math.max(worstBack, back);
+      if (jump > snap) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, axis: ax, note: `snap of ${fixed(jump, 2)} px at settle (last animated frame ${fixed(v[v.length - 1], 2)}, settled ${fixed(settled[ax], 2)})` });
+    }
+  };
+  leg('engage', run?.engage, run?.settledUp);
+  leg('release', run?.release, run?.settledDown);
+  return result(
+    offenders,
+    n,
+    `${run?.engage?.length ?? 0} + ${run?.release?.length ?? 0} samples, ${run?.how ?? 'pixel centroid'}, worst settle step ${fixed(worstJump, 2)} px (limit ${snap}), worst reversal ${fixed(worstBack, 2)} px (limit ${rev})`
+  );
+}
+
+/**
+ * shift — the engaged eye steps off the viewport's edge on /work's stagger taper (SQ-107 pass 10, Nathan
+ * 11-17: "account for your thumb covering the selected eye ... the same small arrow and x position
+ * offset utilized in the /work pager"). `s` = {
+ *   vp: {w}, S, reach, exp,                  the viewport, the shift in px (the DEFAULT, never read back off the
+ *                                            page: a page whose shift was forced to 0 must fail), /work's taper
+ *   rest:    { eye: {cx, w}, tile: {x, w}, pad, arrow: {opacity} },
+ *   engaged: { open, tx0, eye: {x, w}, tile: {x, w}, lensCy,
+ *              circles: [{ d, cx }],          d = the circle's distance from the lens in stations, cx its centre x
+ *              arrow: {x, y, w, h, opacity, dir} } }
+ * Settled, motion on or reduced. A circle d stations out sits at the rest eye's centre, plus the lift's own
+ * anchor drift (tx0, the pager's translate: the pass-9 geometry), minus S x (1 - d / reach) ^ exp: the lens
+ * the full S, one out 0.444 S, two out 0.111 S. The badge's right edge stays the viewport's (tol), its left
+ * edge is at least one padding left of the shifted eye. The arrow is visible, between the eye and the
+ * viewport's edge, centred on the lens line, pointing left. At rest the arrow is clear (opacity 0) and the
+ * badge is the eye plus a padding each side, flush with the edge: pass 9's rectangle.
+ */
+export function shift(s, { tol = 0.5, label = '' } = {}) {
+  const offenders = [];
+  const tag = label ? `${label} ` : '';
+  const bad = (path, note, extra = {}) => offenders.push({ path: `${tag}${path}`, note, ...extra });
+  const e = s?.engaged;
+  const r = s?.rest;
+  if (!s || !e || !e.open) return result([{ path: `${tag}.swm-corner .fp-scale`, note: 'the pager never engaged (data-open)' }], 0, 'not engaged');
+  if (!r?.eye || !r?.tile) return result([{ path: `${tag}.swm-corner .fp-scale`, note: 'no rest geometry measured' }], 0, 'no rest');
+  const taper = (d) => Math.pow(Math.min(1, Math.max(0, 1 - d / s.reach)), s.exp);
+  const got = [];
+  for (const c of e.circles ?? []) {
+    if (!(c.d <= 2.001)) continue;
+    const want = r.eye.cx + e.tx0 - s.S * taper(c.d);
+    got.push(`d${fixed(c.d, 0)} ${fixed(r.eye.cx + e.tx0 - c.cx, 2)}`);
+    if (!Number.isFinite(c.cx) || Math.abs(c.cx - want) > tol) bad(`circle ${c.name ?? `d=${c.d}`}`, `centre ${fixed(c.cx, 2)} is ${fixed(want - c.cx, 2)} px from ${fixed(want, 2)}: it should step left ${fixed(s.S * taper(c.d), 2)} px (${fixed(taper(c.d), 3)} of ${fixed(s.S, 2)})`);
+  }
+  if (!(e.circles ?? []).some((c) => c.d === 0)) bad('circle d=0', 'no lens circle measured');
+  if (!(e.circles ?? []).some((c) => c.d === 1)) bad('circle d=1', 'no circle one station out measured');
+  const right = e.tile.x + e.tile.w;
+  if (!Number.isFinite(right) || Math.abs(s.vp.w - right) > tol) bad('badge', `right edge ${fixed(right, 2)} is ${fixed(s.vp.w - right, 2)} px from the viewport's ${fixed(s.vp.w, 2)}`);
+  if (!(e.tile.x <= e.eye.x - r.pad + tol)) bad('badge', `left edge ${fixed(e.tile.x, 2)} is not a padding (${fixed(r.pad, 2)}) left of the shifted eye ${fixed(e.eye.x, 2)}`);
+  const a = e.arrow;
+  if (!a || !(a.w > 0 && a.h > 0)) bad('.fp-scale__pointer', 'the arrow has no box (not drawn)');
+  else {
+    if (!(a.opacity > 0.99)) bad('.fp-scale__pointer', `the arrow is at opacity ${fixed(a.opacity, 2)}, not shown`);
+    if (a.dir !== 'left') bad('.fp-scale__pointer', `the arrow points ${a.dir ?? '?'}, not left`);
+    if (!(a.x >= e.eye.x + e.eye.w - tol && a.x + a.w <= s.vp.w + tol)) bad('.fp-scale__pointer', `the arrow ${fixed(a.x, 1)}..${fixed(a.x + a.w, 1)} is not in the gap between the eye (right edge ${fixed(e.eye.x + e.eye.w, 1)}) and the viewport (${fixed(s.vp.w, 1)})`);
+    if (Math.abs(a.y + a.h / 2 - e.lensCy) > 1) bad('.fp-scale__pointer', `the arrow's centre ${fixed(a.y + a.h / 2, 1)} is off the lens line ${fixed(e.lensCy, 1)}`);
+  }
+  if (r.arrow?.opacity > 0.001) bad('.fp-scale__pointer', `the arrow is at opacity ${fixed(r.arrow.opacity, 2)} at rest, want 0`);
+  if (Math.abs(r.tile.w - (r.eye.w + 2 * r.pad)) > tol) bad('badge', `at rest it is ${fixed(r.tile.w, 2)} wide, not the eye ${fixed(r.eye.w, 2)} plus a padding each side (${fixed(r.eye.w + 2 * r.pad, 2)})`);
+  if (Math.abs(s.vp.w - (r.tile.x + r.tile.w)) > tol) bad('badge', `at rest its right edge is ${fixed(s.vp.w - (r.tile.x + r.tile.w), 2)} px from the viewport's`);
+  return result(offenders, (e.circles ?? []).length, `shift ${fixed(s.S, 2)} px, steps ${got.join(', ')}, badge ${fixed(r.tile.w, 1)} wide at rest, ${fixed(e.tile.w, 1)} engaged`);
+}
+
 /** Short one-line text of an offender, for the probe's report. */
 export function describeOffender(o) {
   const { path, selector, slug, family, ...rest } = o;

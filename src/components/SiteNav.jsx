@@ -121,10 +121,12 @@ export default function SiteNav({
   const linksRef = useRef(null);
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Portal target for the mobile menu — client-only (island is SSR'd)
+  // Portal target for the mobile menu — client-only (island is SSR'd). SiteShell's menu host: a
+  // persisted sibling of .site-shell, one stacking level ABOVE the colour-scheme badge (101), so
+  // the takeover's wipe paints over the badge instead of the badge hiding (SQ-107 pass 8).
   const [shellEl, setShellEl] = useState(null);
   useEffect(() => {
-    setShellEl(document.querySelector('.site-shell'));
+    setShellEl(document.querySelector('.site-menu-host'));
   }, []);
 
   // The lockup goes HOME: the page background and the nav leave the page's colour
@@ -164,7 +166,14 @@ export default function SiteNav({
     // 10-06: a latch for SiteTagline — the blurb abbreviates while the menu is up.
     document.documentElement.toggleAttribute('data-menu-open', menuOpen);
 
+    // The takeover paints over the badge, whatever its edge: the badge's swatches must not take focus
+    // or a tap while the menu is up. inert from the first frame of the wipe in until the wipe out has
+    // landed (`cancelled`: a reopen mid-wipe keeps it inert).
+    const badge = () => document.querySelector('.swm-corner');
+    let cancelled = false;
+
     if (menuOpen) {
+      badge()?.setAttribute('inert', '');
       if (reducedMotion) {
         gsap.set(menu, { autoAlpha: 1 });
         gsap.set(menu.querySelectorAll('.mobile-menu__item'), { clearProps: 'all' });
@@ -182,10 +191,15 @@ export default function SiteNav({
       }
     } else if (reducedMotion) {
       gsap.set(menu, { autoAlpha: 0 });
+      badge()?.removeAttribute('inert');
     } else {
-      wipeOut(menu);
+      wipeOut(menu).call(() => {
+        if (!cancelled) badge()?.removeAttribute('inert');
+      });
     }
-    return undefined;
+    return () => {
+      cancelled = true;
+    };
   }, [menuOpen, shellEl]);
 
   // Escape closes; a route swap closes (navigation from a menu item), but only

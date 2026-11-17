@@ -274,6 +274,7 @@ export default function SiteShell({ siteCopy, roster }) {
   }, { scope: shellRef, dependencies: [isInfoOpen] });
 
   return (
+    <>
     <div className="site-shell" ref={shellRef}>
       {/* Envelopment bridge — persists across route swaps (ADR-0002).
           First in the shell so the nav chrome paints above the fill. */}
@@ -296,5 +297,12 @@ export default function SiteShell({ siteCopy, roster }) {
       {LenisTunePanel && <LenisTunePanel />}
       {FooterTunePanel && <FooterTunePanel />}
     </div>
+    {/* The phone menu's seat (SiteNav portals the takeover here). Outside .site-shell on purpose: the
+        shell is one stacking context (z 100) that holds RouteFill, and the colour-scheme badge (z 101)
+        has to paint above the fill and below the menu, so the menu sits one level above the badge
+        (global.css .site-menu-host, z 102) and its wipe covers the badge in one paint. It persists
+        with this island. */}
+    <div className="site-menu-host" />
+    </>
   );
 }
