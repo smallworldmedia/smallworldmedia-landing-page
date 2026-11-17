@@ -358,7 +358,7 @@ test('SQ-107 pass 5 baked dials, Nathan\'s 18 / 4 / 1.5 / 0.8 / 0.5, the circles
   assert.ok(/--scale-pitch: var\(--scheme-pitch\);/.test(flat), 'the engine reads it');
 });
 
-test('SQ-107 the badge: a rectangle hugging the eye with equal padding, one component with it, a window onto the strip of three panels, never opacity', () => {
+test('SQ-107 the badge is a rectangle hugging the eye with equal padding, one component with it, a window onto the strip of three panels, never opacity', () => {
   const css = skinCss();
   assert.ok(/--badge-pad:\s*4px/.test(css), 'Nathan\'s padding, 4 px');
   assert.ok(/--badge-w:\s*calc\(var\(--eye-w\) \+ 2 \* var\(--badge-pad\)\)/.test(css) && /--badge-h:\s*calc\(var\(--eye-h\) \+ 2 \* var\(--badge-pad\)\)/.test(css), 'the eye plus the padding each side, no size knob of its own');

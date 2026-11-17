@@ -982,7 +982,7 @@ test('sequence gate the engage slides, then grows, then the near rings, then the
   assert.match(ok.note, /release starts far \d+ \/ near \d+ \/ shrink \d+ \/ slide back \d+/);
 });
 
-test('sequence gate negative control: every delay 0 fails (the lift starts with the slide, no beat between the groups)', () => {
+test('sequence gate negative control, every delay 0 fails (the lift starts with the slide, no beat between the groups)', () => {
   const r = sequence(seqRun({ engage: { flat: true }, release: { flat: true } }));
   assert.equal(r.pass, false);
   assert.ok(r.offenders.some((o) => /the lift starts only when the slide has ended/.test(o.note)), 'the lift starts during the slide');
@@ -995,7 +995,7 @@ test('sequence gate the release in the SAME order as the engage fails', () => {
   assert.equal(r.pass, false);
 });
 
-test('sequence gate negative control: an arrow that fades in place (no slide from the edge) fails', () => {
+test('sequence gate negative control, an arrow that fades in place (no slide from the edge) fails', () => {
   const r = sequence(seqRun({ engage: { fade: true }, release: { fade: true } }));
   assert.equal(r.pass, false);
   assert.ok(r.offenders.some((o) => /not entirely beyond the viewport's right edge/.test(o.note)), 'at rest it sits on screen');
@@ -1049,7 +1049,7 @@ test('circlesAbove gate desktop shows the near circle above the lens and nothing
   assert.match(ok.note, /1 above the lens/);
 });
 
-test('circlesAbove gate negative control: the far circle shown on desktop fails twice, a second one above and over the blurb', () => {
+test('circlesAbove gate negative control, the far circle shown on desktop fails twice, a second one above and over the blurb', () => {
   const r = circlesAbove(aboveCol([1, 0.5]));
   assert.equal(r.pass, false);
   assert.ok(r.offenders.some((o) => /2 circle\(s\) show above the lens at 1440 px .*want 1/.test(o.note)));
@@ -1080,7 +1080,7 @@ test('circlesAbove gate a desktop run that measured no column or no blurb proves
   assert.match(r.offenders[0].note, /no blurb text measured/);
 });
 
-test('sequence gate above 768px the far ring is never seen: its start is not checked, and the release starts with the near ring', () => {
+test('sequence gate above 768px the far ring is never seen, its start is not checked, and the release starts with the near ring', () => {
   const flatFar = (series) => series.map((p) => ({ ...p, f: { o: 0, w: 12 } }));
   const run = seqRun();
   const desk = { ...run, farShown: false, engage: flatFar(run.engage), release: flatFar(run.release) };
