@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-16*
+*Last Updated: 2026-11-17*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -45,6 +45,8 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   it landed with the hash `b346ff27` (`8e99697`, `2cb87e1`).
   mediaAsset `hideFromSite` (SQ-83, 11-13) is allowlisted as a boolean; it landed alone with the
   hash `4df34a46` (`295f4c5`).
+  mediaAsset `hideFromDirectory` (11-17) is allowlisted as a boolean; it landed alone with the
+  hash `8e2eb765` (`ea07e99`).
   Sets (US-10, 11-16): `mediaSet` is a document type (`title`, `slug` = the key, `project`, `groupType`,
   `allowAsHero`; required title, slug, project, groupType) and mediaAsset `set` a reference to one;
   `references()` types it as a mediaSet. Schema and hash `205ffc6c` landed alone (`6695510`), the tool
