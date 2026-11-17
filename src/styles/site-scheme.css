@@ -426,6 +426,17 @@ html[data-chrome-open] .swm-corner {
   mask-image: none;
 }
 
+/* THE LEFT JOLT (SQ-107 pass 5), root cause. pager-scale.css gives the strip `will-change: transform`,
+   which puts the column's circles on a compositor layer. A layer is rastered at its own pixel
+   offset, up to a pixel off from the same box painted in the page's layer, and the rest iris (the
+   eye, in the page's layer) sits under the column's lens circle on the same box: when the iris
+   handed over to the circle at the end of the entrance, the globe stepped about 1 px left
+   (measured: the two renders' pixel centroids 1.0 px apart at DPR 1 and 2, 0.00 to 0.14 px apart
+   with the hint off). One raster path for the eye and its column: no hint here. /work keeps its own. */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__scale {
+  will-change: auto;
+}
+
 .swm-corner .fp-scale.swm-corner__pager .fp-scale__station {
   display: grid;
   place-items: center;

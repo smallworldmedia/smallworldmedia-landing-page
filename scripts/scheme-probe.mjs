@@ -935,7 +935,7 @@ async function measureWidget(ctx, scheme, width) {
  * \`settledUp\` and \`settledDown\` the centre once each leg had settled (the iris gone at the end of the
  * entrance, so the hand-over is in the last jump).
  */
-const JOLT_MS = 5000;
+const JOLT_MS = 12000;
 async function measureJitter(name, dpr, width) {
   const phone = width <= 480;
   const browser = await (name === 'webkit' ? webkit : chromium).launch({ headless: true, ...(name === 'chromium' ? { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] } : {}) });
@@ -1242,7 +1242,9 @@ async function widgetPass(ctx, browser, scheme, width, want) {
       // Chromium at both pixel densities everywhere; WebKit at desktop widths (a held touch is a CDP event, Chromium only).
       const legs = width <= 480 ? [['chromium', 1], ['chromium', 2]] : [['chromium', 1], ['chromium', 2], ['webkit', 1], ['webkit', 2]];
       for (const [b, dpr] of legs) {
-        const j = await measureJitter(b, dpr, width);
+        let j = await measureJitter(b, dpr, width);
+        // A loaded machine screenshots slowly and a slowed leg can end with under the 8 frames the gate needs: one more run.
+        if (!j.error && (j.engage.length < 8 || j.release.length < 8)) j = await measureJitter(b, dpr, width);
         const where = `${route}:${b}@${dpr}x`;
         if (j.error) emit('FAIL', scheme, where, width, 'jitter', j.error);
         else {

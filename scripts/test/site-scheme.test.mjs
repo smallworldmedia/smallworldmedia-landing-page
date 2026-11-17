@@ -414,3 +414,11 @@ test('SQ-107 pass 4 the jitter root cause, the circle is drawn at the large size
   const station = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__station\s*\{([^}]*)\}/)?.[1] ?? '';
   assert.ok(/transform:\s*scale\(calc\(var\(--sel\) \* var\(--eye-far\)\)\)/.test(station), 'the row scale is --sel x --eye-far (at most 1 for the lens)');
 });
+
+test('SQ-107 pass 5 the left jolt root cause, the strip carries no compositing hint so the eye and its column share one raster path', () => {
+  const pagerScale = read('src/styles/pager-scale.css');
+  assert.ok(/\.fp-scale__scale\s*\{[^}]*will-change:\s*transform/.test(pagerScale), '/work\'s pager still hints the strip, which is what put the column on its own compositor layer');
+  const skin = skinCss().match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__scale\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/will-change:\s*auto/.test(skin), 'the widget turns the hint off: a layer is rastered about a pixel off the rest iris under it, the step at the hand-over');
+  assert.ok(!/will-change:\s*transform/.test(skinCss()), 'and nothing else in the skin puts the iris or the column on a layer of its own');
+});

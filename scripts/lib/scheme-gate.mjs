@@ -727,6 +727,8 @@ export function strays(diff, { tol = 8 } = {}) {
 export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
   const offenders = [];
   let n = 0;
+  let worstJump = 0;
+  let worstBack = 0;
   const leg = (name, pts, settled) => {
     if (!Array.isArray(pts) || pts.length < 8 || !settled || !Number.isFinite(settled.x) || !Number.isFinite(settled.y)) {
       offenders.push({ path: '.swm-corner .scheme-eye', leg: name, note: 'too few samples measured' });
@@ -744,12 +746,18 @@ export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
       }
       if (back > rev) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, axis: ax, note: `the centre gave back ${fixed(back, 2)} px against its direction of travel` });
       const jump = Math.abs(settled[ax] - v[v.length - 1]);
+      worstJump = Math.max(worstJump, jump);
+      worstBack = Math.max(worstBack, back);
       if (jump > snap) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, axis: ax, note: `snap of ${fixed(jump, 2)} px at settle (last animated frame ${fixed(v[v.length - 1], 2)}, settled ${fixed(settled[ax], 2)})` });
     }
   };
   leg('engage', run?.engage, run?.settledUp);
   leg('release', run?.release, run?.settledDown);
-  return result(offenders, n, `${run?.engage?.length ?? 0} + ${run?.release?.length ?? 0} samples, ${run?.how ?? 'pixel centroid'}`);
+  return result(
+    offenders,
+    n,
+    `${run?.engage?.length ?? 0} + ${run?.release?.length ?? 0} samples, ${run?.how ?? 'pixel centroid'}, worst settle step ${fixed(worstJump, 2)} px (limit ${snap}), worst reversal ${fixed(worstBack, 2)} px (limit ${rev})`
+  );
 }
 
 /** Short one-line text of an offender, for the probe's report. */

@@ -638,6 +638,7 @@ test('jitter gate a steady ease in both axes with the settle on the last frame p
   const ok = jitter({ engage: up, release: down, settledUp: { x: 1408.6, y: 871.31 }, settledDown: { x: 1419.3, y: 888 } });
   assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
   assert.match(ok.note, /40 \+ 40 samples/);
+  assert.match(ok.note, /worst settle step [\d.]+ px \(limit 0\.5\), worst reversal [\d.]+ px \(limit 0\.25\)/, 'a pass prints the numbers it passed with');
   // centroid noise (0.1 px, the measured floor) is not a reversal, and a 0.4 px settle is inside the 0.5 px bound
   const noisy = up.map((q, i) => ({ x: q.x + (i % 2 ? 0.05 : -0.05), y: q.y }));
   assert.equal(jitter({ engage: noisy, release: down, settledUp: { x: 1409, y: 871.3 }, settledDown: REST }).pass, true);
