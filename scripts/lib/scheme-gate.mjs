@@ -654,6 +654,42 @@ export function blurbClear(tile, blurb) {
   return result(offenders, 1, `tile ${rectOf(tile)}, blurb ${rectOf(blurb)}`);
 }
 
+/**
+ * circlesAbove — how many circles show above the lens once the engaged column has settled (SQ-107 pass 11, Nathan
+ * 11-17: "on desktop lets have the fade on the top outer globe not show that second smaller one since it overlaps
+ * with the text blurb"). `c` = { vpw, lensCy (the lens line, viewport y), circles: [{ name, op (effective opacity), x,
+ * y, w, h }], blurb: { x, y, w, h } | null }. A circle SHOWS above the lens when its effective opacity is over
+ * `visible` and its centre is above the lens line. Above 768px exactly ONE shows (the near one); at 768px and below
+ * two (the near and the far). Above 768px no shown circle's box meets the home blurb's text box by more than `tol`,
+ * with the blurb measured (a run that found none fails: it proves nothing about the overlap); at 768px and below the
+ * overlap is reported on the note, not failed (the phone's pager column and the blurb are Nathan's to call there).
+ * `tol` is 1.5 px, not the 0.5 of the other overlap gates: the blurb's box is the font's content area, whose bottom
+ * band is descender room (about a fifth of the font size, 5 px at 1440 px) that carries ink only for g, j, p, q, y, and
+ * the near circle's top tip lies 0.9 to 1.1 px inside it at 1280 and 1440 (measured). The far circle, the one this gate
+ * exists for, overlaps by its whole height, and a near circle 3 px higher fails.
+ */
+export function circlesAbove(c, { visible = 0.01, tol = 1.5 } = {}) {
+  const offenders = [];
+  const circles = c?.circles ?? [];
+  const vpw = c?.vpw;
+  if (!circles.length || !Number.isFinite(c?.lensCy) || !Number.isFinite(vpw)) {
+    return result([{ path: '.swm-corner .fp-scale__station', note: 'no engaged column measured' }], 0, 'no column');
+  }
+  const desktop = vpw > 768;
+  const want = desktop ? 1 : 2;
+  const shown = circles.filter((x) => x.op > visible);
+  const above = shown.filter((x) => x.y + x.h / 2 < c.lensCy - 1);
+  if (above.length !== want) {
+    offenders.push({ path: '.swm-corner .fp-scale__station', note: `${above.length} circle(s) show above the lens at ${vpw} px (opacity over ${visible}), want ${want}: ${above.map((x) => `${x.name} ${fixed(x.op, 2)}`).join(', ') || 'none'}` });
+  }
+  const blurb = c?.blurb;
+  const meets = blurb ? shown.filter((x) => Math.min(x.x + x.w, blurb.x + blurb.w) - Math.max(x.x, blurb.x) > tol && Math.min(x.y + x.h, blurb.y + blurb.h) - Math.max(x.y, blurb.y) > tol) : [];
+  if (desktop && !blurb) offenders.push({ path: '.site-footer__blurb', note: 'no blurb text measured: the overlap with it is unproven' });
+  if (desktop) for (const x of meets) offenders.push({ path: '.site-footer__blurb', note: `${x.name} (opacity ${fixed(x.op, 2)}) at ${rectOf(x)} meets the blurb text ${rectOf(blurb)}` });
+  const note = `${above.length} above the lens (${above.map((x) => fixed(x.op, 2)).join(', ') || 'none'}), ${shown.length - above.length} at or below${blurb ? `, ${meets.length} meeting the blurb${desktop ? '' : ' (not failed on a phone)'}` : ', no blurb'}`;
+  return result(offenders, shown.length, note);
+}
+
 /** The strip's panels in SCHEMES order (colorScheme.js): project's glass, black, blue. */
 export const STRIP_ORDER = ['glass', 'black', 'blue'];
 
@@ -990,7 +1026,8 @@ export function shift(s, { tol = 0.5, label = '' } = {}) {
  *   vp: {w}, S (the slide in px), step (the beat in ms, the dial's value),
  *   engage, release: [sample every 10 ms from the trigger, a SEEKED run (document.getAnimations()), never real time],
  *   taps: [{ at, samples }]    a release `at` ms into the engage, sampled from the release,
- *   settled: { a: {x}, h }     the engaged end state, read after every transition had finished
+ *   settled: { a: {x}, h }     the engaged end state, read after every transition had finished,
+ *   farShown                   false where the far ring (+-2) is never seen (above 768px): its own start is not checked
  * }, a sample = { t, ts, tg, tn, tf (the four registered progress numbers), h (the lens eye's height, px: its scale),
  *   n: {o, w}, f: {o, w} (the +-1 and +-2 circles' effective opacity and width), a: {x, w, o} (the arrow's box and
  * opacity) }.
@@ -1044,10 +1081,15 @@ export function sequence(run, { tol = 0.5, slack = 10 } = {}) {
       else if (a !== 's' && b !== 's' && gap < step - slack) bad(`group ${b}`, `${phase}: the ${GROUP_NAME[b]} starts ${gap} ms after the ${GROUP_NAME[a]}, want at least ${step - slack} (step ${step} - ${slack})`);
     }
   };
-  const upStart = startsOf(up, ['s', 'g', 'n', 'f'], 'engage');
-  inOrder(upStart, ['s', 'g', 'n', 'f'], 'engage', 20);
-  const downStart = startsOf(down, ['f', 'n', 'g', 's'], 'release');
-  inOrder(downStart, ['f', 'n', 'g', 's'], 'release', 20);
+  // The far ring (+-2) is checked only where it is ever shown: above 768px one circle shows above the lens and one
+  // below, so its opacity never moves and there is no start to find (run.farShown false).
+  const farShown = run?.farShown !== false;
+  const upOrder = farShown ? ['s', 'g', 'n', 'f'] : ['s', 'g', 'n'];
+  const downOrder = farShown ? ['f', 'n', 'g', 's'] : ['n', 'g', 's'];
+  const upStart = startsOf(up, upOrder, 'engage');
+  inOrder(upStart, upOrder, 'engage', 20);
+  const downStart = startsOf(down, downOrder, 'release');
+  inOrder(downStart, downOrder, 'release', 20);
   for (const p of up) {
     if (S * (1 - p.ts) > tol && p.h - h0 > tol) {
       bad('.scheme-eye', `engage: at ${p.t} ms the lift is ${fixed(p.h - h0, 2)} px while the slide still has ${fixed(S * (1 - p.ts), 2)} px to go (the lift starts only when the slide has ended)`);
@@ -1119,7 +1161,7 @@ export function sequence(run, { tol = 0.5, slack = 10 } = {}) {
   return result(
     offenders,
     up.length + down.length + taps.reduce((n, t) => n + (t.samples?.length ?? 0), 0),
-    `engage starts slide ${upStart.s} / grow ${upStart.g} / near ${upStart.n} / far ${upStart.f} ms, release starts far ${downStart.f} / near ${downStart.n} / shrink ${downStart.g} / slide back ${downStart.s} ms (step ${step}), arrow ${fixed(ua.first.x, 1)} -> ${fixed(ua.last.x, 1)}, ${taps.length} quick tap(s)`
+    `engage starts slide ${upStart.s} / grow ${upStart.g} / near ${upStart.n} / far ${farShown ? upStart.f : 'not shown'} ms, release starts far ${farShown ? downStart.f : 'not shown'} / near ${downStart.n} / shrink ${downStart.g} / slide back ${downStart.s} ms (step ${step}), arrow ${fixed(ua.first.x, 1)} -> ${fixed(ua.last.x, 1)}, ${taps.length} quick tap(s)`
   );
 }
 

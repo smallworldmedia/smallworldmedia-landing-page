@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  badge, seat, rightEdge, noClip, blurbClear, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, lids,
+  badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, lids,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -1026,6 +1026,75 @@ test('sequence gate a quick tap returns to rest at once, and a group that waits 
   assert.ok(sequence(seqRun({ taps: [stuck] })).offenders.some((o) => /did not return to rest/.test(o.note)));
   assert.equal(sequence(seqRun({ taps: [] })).pass, false, 'no quick tap measured is no proof');
   assert.equal(sequence({ vp: { w: 1440 } }).pass, false, 'an empty run measured nothing');
+});
+
+// ── circlesAbove (SQ-107 pass 11): one circle above the lens on desktop, two on a phone ───────────────────────
+// 1440 x 900, the lens at y 869, the engaged column at its baked sizes: the near circles 21.6 px, the far ones 13.5.
+const aboveCol = (up, o = {}) => ({
+  vpw: 1440,
+  lensCy: 869,
+  blurb: { x: 4, y: 797.8, w: 1417, h: 27 },
+  circles: [
+    { name: 'circle k=-2', op: up[1], x: 1397, y: 801.6, w: 13.5, h: 13.5 },
+    { name: 'circle k=-1', op: up[0], x: 1380.8, y: 823.9, w: 21.6, h: 21.6 },
+    { name: 'circle k=0', op: 1, x: 1370, y: 850, w: 36, h: 36 },
+    { name: 'circle k=1', op: 0.6, x: 1380.8, y: 884, w: 21.6, h: 21.6 },
+  ],
+  ...o,
+});
+
+test('circlesAbove gate desktop shows the near circle above the lens and nothing further, clear of the blurb', () => {
+  const ok = circlesAbove(aboveCol([1, 0]));
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /1 above the lens/);
+});
+
+test('circlesAbove gate negative control: the far circle shown on desktop fails twice, a second one above and over the blurb', () => {
+  const r = circlesAbove(aboveCol([1, 0.5]));
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /2 circle\(s\) show above the lens at 1440 px .*want 1/.test(o.note)));
+  assert.ok(r.offenders.some((o) => /circle k=-2 .* meets the blurb text/.test(o.note)));
+});
+
+test('circlesAbove gate a near circle that rode up 3 px into the blurb fails, the 1 px of descender room does not', () => {
+  const up3 = aboveCol([1, 0]);
+  up3.circles[1].y -= 3;
+  assert.equal(circlesAbove(up3).pass, false);
+  assert.equal(circlesAbove(aboveCol([1, 0])).pass, true, 'today: 0.9 px of the content area\'s descender band');
+});
+
+test('circlesAbove gate a phone shows two above the lens, one is a failure, and the blurb overlap is a note there', () => {
+  const phone = aboveCol([1, 1], { vpw: 390, blurb: { x: 4, y: 672, w: 301, h: 122 } });
+  phone.circles.forEach((c) => (c.x -= 1050));
+  const ok = circlesAbove(phone);
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  const one = circlesAbove({ ...phone, circles: phone.circles.map((c) => (c.name === 'circle k=-2' ? { ...c, op: 0 } : c)) });
+  assert.equal(one.pass, false);
+  assert.match(one.offenders[0].note, /1 circle\(s\) show above the lens at 390 px .*want 2/);
+});
+
+test('circlesAbove gate a desktop run that measured no column or no blurb proves nothing', () => {
+  assert.equal(circlesAbove({ vpw: 1440, lensCy: 869, circles: [], blurb: null }).pass, false);
+  const r = circlesAbove(aboveCol([1, 0], { blurb: null }));
+  assert.equal(r.pass, false);
+  assert.match(r.offenders[0].note, /no blurb text measured/);
+});
+
+test('sequence gate above 768px the far ring is never seen: its start is not checked, and the release starts with the near ring', () => {
+  const flatFar = (series) => series.map((p) => ({ ...p, f: { o: 0, w: 12 } }));
+  const run = seqRun();
+  const desk = { ...run, farShown: false, engage: flatFar(run.engage), release: flatFar(run.release) };
+  const ok = sequence(desk);
+  assert.equal(ok.pass, false, 'with the far ring still on the release delay the near ring waits a beat: not at once');
+  assert.ok(ok.offenders.some((o) => /near circles \(\+-1\) starts at 80 ms, not at once/.test(o.note)));
+  // the plan with no beat spent on the far ring: far (invisible) on 0, the near ring first
+  const rel = SEQ_TIMES.map((t) => seqPoint(t, { ts: grp(t, 230, 160, 1, 0), tg: grp(t, 70, 160, 1, 0), tn: grp(t, 0, 200, 1, 0), tf: grp(t, 0, 200, 1, 0) }));
+  rel.forEach((p) => (p.f = { o: 0, w: 12 }));
+  const ok2 = sequence({ ...desk, release: rel, taps: run.taps });
+  assert.equal(ok2.pass, true, JSON.stringify(ok2.offenders));
+  assert.match(ok2.note, /far not shown/);
+  const farMissing = sequence({ ...run, engage: flatFar(run.engage), release: flatFar(run.release) });
+  assert.equal(farMissing.pass, false, 'where the far ring IS shown a flat far opacity is still a failure: it never moved');
 });
 
 test('lids gate no pixel of the circle outside the lids passes, a leak fails, a case that measured nothing fails', () => {

@@ -128,6 +128,14 @@
      beyond the shown circles should take it). */
   --eye-hit-up: 2.5;
   --eye-hit-down: 1.5;
+  /* HOW MANY CIRCLES SHOW ABOVE THE LENS, per tier (SQ-107 pass 11, Nathan 11-17: "on desktop lets have the fade
+     on the top outer globe not show that second smaller one since it overlaps with the text blurb"). BAKED, no
+     ?param. --eye-up-shown is how many stay whole above the lens (2 here, the phone's; 1 above 768px, below), and
+     --eye-up-span the stations over which the next one fades away after that, each a continuous function of
+     --eye-above (the circle's own station distance above the lens). SiteScheme reads --eye-up-shown to know
+     whether the far ring (two stations out) is ever seen. Below the lens one shows at every width (--eye-down). */
+  --eye-up-shown: 2;
+  --eye-up-span: max(0.1, calc(var(--scale-rows) - 2.3));
   /* THE SEQUENCE'S TIMINGS (SQ-107 pass 11, PROPOSED; each a ?param, all on --ease-draw: no overshoot, a steep
      launch, a smooth deceleration; reduced motion: instant, below). Engage: the slide (--eye-slide, ?schemeslide)
      from 0, the grow (--eye-grow, ?schemegrow) the moment the slide has ended, the near ring a beat
@@ -203,6 +211,18 @@
 @media (max-width: 768px) {
   .swm-corner {
     --badge-cy: max(var(--badge-cy-floor), calc(var(--badge-clear) + var(--badge-h) / 2));
+  }
+}
+
+/* Above the phone tier only ONE circle shows above the lens (--eye-up-shown, above): the near one stays whole,
+   the far one (two stations out, over the home blurb's last line at 1440) has faded to nothing by its own
+   station, one station after the near one's. The press target above the lens shrinks with it, to the near
+   circle and a half (2.5 to 1.5 stations); below the lens it is unchanged. */
+@media (min-width: 769px) {
+  .swm-corner {
+    --eye-up-shown: 1;
+    --eye-up-span: 1;
+    --eye-hit-up: 1.5;
   }
 }
 
@@ -567,9 +587,9 @@ html[data-chrome-open] .swm-corner {
     var(--eye-tg) + (var(--eye-tn) - var(--eye-tg)) * clamp(0, var(--ndr), 1) +
       (var(--eye-tf) - var(--eye-tn)) * clamp(0, calc(var(--ndr) - 1), 1)
   );
-  /* The fade above the shown circles: whole through two stations out, gone before the window's
-     edge (the far circle's rim included), so nothing is ever cut by it. */
-  --eye-up: clamp(0, calc(1 - (var(--eye-above) - 2) / max(0.1, calc(var(--scale-rows) - 2.3))), 1);
+  /* The fade above the shown circles: whole through --eye-up-shown stations out (2 on a phone, 1 above 768px),
+     gone before the window's edge (the far circle's rim included), so nothing is ever cut by it. */
+  --eye-up: clamp(0, calc(1 - (var(--eye-above) - var(--eye-up-shown)) / var(--eye-up-span)), 1);
   /* Below the lens one circle is shown (the viewport's edge cuts it): the ones past it fade out
      within half a station, so a tall viewport never shows them. */
   --eye-down: clamp(0, calc(1 - (var(--eye-below) - 1) / 0.5), 1);

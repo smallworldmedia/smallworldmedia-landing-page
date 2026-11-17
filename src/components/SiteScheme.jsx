@@ -94,6 +94,9 @@ function planSequence(corner, dir) {
     const v = parseFloat(cc.getPropertyValue(name));
     return Number.isFinite(v) ? v : d;
   };
+  // Above 768px the far ring (two stations out) is never seen (--eye-up-shown 1: one circle above the lens, one
+  // below), so it is counted as already arrived and no beat is spent on it: the release starts with the near ring.
+  if (ms('--eye-up-shown', 2) < 2) now.f = dir === 'in' ? 1 : 0;
   const d = eyeDelays(dir, now, {
     slide: ms('--eye-slide', 160),
     grow: ms('--eye-grow', 160),
@@ -101,6 +104,18 @@ function planSequence(corner, dir) {
   });
   for (const k of GROUPS) corner.style.setProperty(`--eye-dl-${k}`, `${d[k]}ms`);
   corner.style.setProperty('--eye-dl-h', `${d.h}ms`);
+}
+
+// The badge's width, onto <html> as --badge-reserve (global.css), for what keeps clear of the badge (the privacy pill,
+// the footer link row, a phone's home blurb). global.css holds the defaults; a dial that changes the width (size, pad,
+// lids) rewrites it from the corner's own resolved tokens, the same sum site-scheme.css makes (--badge-w). ClientRouter
+// replaces every <html> attribute on a swap, the inline style included, so the caller re-asserts it after one.
+function writeBadgeReserve(corner) {
+  if (!corner) return;
+  const cs = getComputedStyle(corner);
+  const n = (name) => parseFloat(cs.getPropertyValue(name));
+  const w = (n('--scheme-swatch') * n('--eye-u-w')) / 26 + 2 * n('--badge-pad');
+  if (Number.isFinite(w)) document.documentElement.style.setProperty('--badge-reserve', `${+w.toFixed(3)}px`);
 }
 
 // Layout effect on the client (the dials must land before the pager's own passive
@@ -122,6 +137,7 @@ export default function SiteScheme() {
   useBeforePaint(() => {
     const p = schemeParams(new URLSearchParams(window.location.search));
     paramsRef.current = p;
+    let stopReserve = () => {};
     const el = cornerRef.current;
     if (el) {
       // The engine reads --scale-rows as a bare number: rows SHOWN = 2 x pitches each side + centre.
@@ -148,10 +164,18 @@ export default function SiteScheme() {
       }
       // [data-ready] lets the badge appear with the eye, never before it.
       el.dataset.ready = '';
+      // The badge's width for the things that keep clear of it, only when a dial moved it.
+      if (p.size != null || p.pad != null || p.lids != null) {
+        const reserve = () => writeBadgeReserve(cornerRef.current);
+        reserve();
+        document.addEventListener('astro:after-swap', reserve);
+        stopReserve = () => document.removeEventListener('astro:after-swap', reserve);
+      }
     }
     setUi(p.ui);
     setActive(stationOf(getScheme()));
     setReady(true);
+    return () => stopReserve();
   }, []);
 
   // The lens follows SETTLED changes only (a preview moves the page, never the lens art).

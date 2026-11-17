@@ -342,11 +342,14 @@
      knob in process.css.) */
   --privacy-clearance: 7rem;
 
-  /* The corner widget's badge, at its default size (SQ-107): the eye (18px x 53.28/26 at the default lid scale, the
+  /* The corner widget's badge WIDTH (SQ-107): the eye (18px x 53.28/26 at the default lid scale, the
      --scheme-swatch of site-scheme.css) plus the default padding (4px) each side; its right edge is
-     the viewport's. It owns the lower-right corner, so above 768px (the pill is hidden below) the
-     privacy pill and the footer link row's clearance for it move left by this much (.site-privacy,
-     below). */
+     the viewport's. These are the defaults: SiteScheme rewrites this token on <html> from the badge's
+     own resolved size, padding and lid scale when ?schemesize, ?schemepad or ?schemelids is given, so
+     everything that keeps clear of the badge follows the dials. It owns the lower-right corner, so
+     above 768px the privacy pill and the footer link row's clearance for it move left by this much
+     (.site-privacy, below), and at 768px and below the home footer blurb's right inset is this
+     (.site-footer__inner, below). */
   --badge-reserve: calc(18px * 53.28 / 26 + 2 * 4px);
 
   /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
@@ -3750,6 +3753,17 @@ html[data-footer-in] .logo-ticker__copy {
 
   html:has(.swm-corner) .site-privacy {
     right: calc(var(--chrome-right-inset) + var(--badge-reserve));
+  }
+}
+
+/* The home footer's blurb on a phone: its measure ends where the badge begins (SQ-107 pass 11, the
+   integrator's blurb regression at 390). The badge sits at the lower-right corner, a little off the bottom
+   edge, in the rows the blurb's last line lands on, so the blurb's right inset is the badge's own width plus
+   the page's inset (--nav-inset) again: the same air as the blurb's left edge. The token follows
+   ?schemesize, ?schemepad and ?schemelids. Only home carries the blurb ([data-footer-rest]). */
+@media (max-width: 768px) {
+  html[data-footer-rest]:has(.swm-corner) .site-footer__inner {
+    padding-right: calc(var(--badge-reserve) + var(--nav-inset));
   }
 }
 

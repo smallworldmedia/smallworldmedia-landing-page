@@ -197,7 +197,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -622,6 +622,8 @@ function pageWidgetEngaged() {
   const pager = document.querySelector('.swm-corner .fp-scale');
   if (!pager || !pager.hasAttribute('data-open')) return null;
   const rect = (e) => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
+  // effective opacity: the circle's own times every ancestor's up to the widget
+  const eff = (el) => { let o = 1; for (let e = el; e && !e.matches('.swm-corner'); e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity); return o; };
   const cur = parseFloat(getComputedStyle(pager).getPropertyValue('--scale-cur')) || 0;
   const rows = parseFloat(getComputedStyle(pager.closest('.swm-corner')).getPropertyValue('--scale-rows')) || 1.5;
   const stations = [...pager.querySelectorAll('.fp-scale__station')].map((s) => ({ k: parseFloat(s.style.getPropertyValue('--k')), s }));
@@ -632,7 +634,7 @@ function pageWidgetEngaged() {
     cur,
     rows,
     window: { name: '.fp-scale__window', ...rect(win) },
-    circles: shown.map((x) => ({ name: `circle k=${x.k}`, op: parseFloat(getComputedStyle(x.s).opacity), ...rect(x.s.querySelector('svg') ?? x.s) })),
+    circles: shown.map((x) => ({ name: `circle k=${x.k}`, op: parseFloat(getComputedStyle(x.s).opacity), eop: eff(x.s), ...rect(x.s.querySelector('svg') ?? x.s) })),
     outer: window.__swmStray.length,
   };
 }
@@ -950,6 +952,8 @@ async function measureWidget(ctx, scheme, width) {
     await sleep(900);
     out.engaged = await page.evaluate(pageWidgetEngaged);
     await shot('engaged');
+    // the corner, wide enough to hold the home blurb with the engaged column (the one-circle-above call)
+    await shot('engaged-closeup', { clip: { x: Math.max(0, out.rest.vp.w - 760), y: Math.max(0, out.rest.vp.h - 420), width: Math.min(760, out.rest.vp.w), height: Math.min(420, out.rest.vp.h) } });
     if (out.engaged) {
       out.strays = [];
       const clip = widgetClip(out.rest.vp);
@@ -1311,7 +1315,7 @@ async function measureSequence(browser, scheme, width) {
       document.querySelector('.swm-corner').append(m);
       const swatch = m.getBoundingClientRect().width;
       m.remove();
-      return { step: ms('--eye-step'), slide: ms('--eye-slide'), grow: ms('--eye-grow'), swatch };
+      return { step: ms('--eye-step'), slide: ms('--eye-slide'), grow: ms('--eye-grow'), swatch, farShown: ms('--eye-up-shown') >= 2 };
     });
     await page.evaluate(pageSeqInstall);
     const cdp = phone ? await ctx.newCDPSession(page) : null;
@@ -1338,7 +1342,7 @@ async function measureSequence(browser, scheme, width) {
       await sleep(700);
       return s;
     };
-    const run = { vp: { w: width }, step: dials.step, slide: dials.slide, grow: dials.grow, S: (dials.swatch * 48) / 26, taps: [] };
+    const run = { vp: { w: width }, step: dials.step, slide: dials.slide, grow: dials.grow, farShown: dials.farShown, S: (dials.swatch * 48) / 26, taps: [] };
     await trigger(true);
     run.engage = await seek(times);
     if (SHOTS) await film();
@@ -1798,7 +1802,7 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
   const asked = WIDGET_GATES.filter((g) => want.has(g));
   if (!asked.length) return;
   const route = 'corner';
-  if (asked.some((g) => ['badge', 'blurb', 'eyeLines', 'bounds', 'strays'].includes(g))) {
+  if (asked.some((g) => ['badge', 'blurb', 'above', 'eyeLines', 'bounds', 'strays'].includes(g))) {
     const w = await measureWidget(ctx, scheme, width);
     if (w.error || !w.rest) emit('FAIL', scheme, route, width, 'widget', w.error ?? 'no widget measured');
     else {
@@ -1808,6 +1812,7 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
       };
       run('badge', () => gate.badge(rest.tile, rest.vp, { eye: rest.eye, rowCy: rest.ref.rowCy, clear: rest.ref.clear }));
       run('blurb', () => gate.blurbClear(rest.tile, rest.blurb));
+      run('above', () => gate.circlesAbove({ vpw: rest.vp.w, lensCy: rest.eye?.cy, circles: (engaged?.circles ?? []).map((x) => ({ ...x, op: x.eop })), blurb: rest.blurb }));
       run('eyeLines', () => gate.eyeLines(rest.strokes));
       run('bounds', () => {
         if (!engaged) return { pass: false, offenders: [{ path: '.swm-corner .fp-scale', note: 'the pager never engaged (data-open)' }], note: 'not engaged' };

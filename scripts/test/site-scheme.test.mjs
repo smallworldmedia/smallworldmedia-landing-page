@@ -469,6 +469,29 @@ test('SQ-107 the flush badge owns the lower-right corner, above 768px the privac
   assert.ok(m, 'desktop only, keyed on the widget\'s presence so it holds before hydration');
 });
 
+test('SQ-107 pass 11 the home phone blurb\'s right inset is the badge\'s own width, and a dial that moves the width rewrites it', () => {
+  const g = read('src/styles/global.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const m = /@media \(max-width: 768px\)\s*\{\s*html\[data-footer-rest\]:has\(\.swm-corner\) \.site-footer__inner\s*\{\s*padding-right:\s*calc\(var\(--badge-reserve\) \+ var\(--nav-inset\)\);\s*\}\s*\}/.exec(g);
+  assert.ok(m, 'at 768px and below the blurb\'s panel keeps the badge\'s width plus the page inset clear on its right, the token that follows the dials and no fixed number');
+  const sc = read('src/components/SiteScheme.jsx');
+  assert.ok(/--eye-u-w/.test(sc) && /--badge-pad/.test(sc) && /--scheme-swatch/.test(sc) && /setProperty\('--badge-reserve'/.test(sc), 'SiteScheme sums the badge width from its own resolved size, lid box and padding (site-scheme.css\'s --badge-w) onto <html>');
+  assert.ok(/p\.size != null \|\| p\.pad != null \|\| p\.lids != null/.test(sc) && /astro:after-swap/.test(sc), 'only when a dial moved it, and again after a swap (ClientRouter replaces the html style)');
+});
+
+test('SQ-107 pass 11 above 768px only one circle shows above the lens, baked per tier with no param, the phone keeps two', () => {
+  const css = skinCss();
+  const flat = css.replace(/\s+/g, ' ');
+  const base = css.match(/\.swm-corner\s*\{[^}]*--eye-up-shown:\s*2;[^}]*\}/)?.[0] ?? '';
+  assert.ok(/--eye-up-shown:\s*2;/.test(base) && /--eye-up-span:\s*max\(0\.1, calc\(var\(--scale-rows\) - 2\.3\)\);/.test(base), 'the phone tier\'s two circles above fade over rows - 2.3 stations, as before');
+  const desk = /@media \(min-width: 769px\)\s*\{\s*\.swm-corner\s*\{([^}]*)\}\s*\}/.exec(css)?.[1] ?? '';
+  assert.ok(/--eye-up-shown:\s*1;/.test(desk) && /--eye-up-span:\s*1;/.test(desk), 'above 768px one whole circle above, the next gone one station after it (the far circle, two out, is at nothing)');
+  assert.ok(/--eye-hit-up:\s*1\.5;/.test(desk), 'the press target above the lens: 1.5 stations on desktop');
+  assert.ok(/--eye-up: clamp\(0, calc\(1 - \(var\(--eye-above\) - var\(--eye-up-shown\)\) \/ var\(--eye-up-span\)\), 1\);/.test(flat), 'a continuous function of the circle\'s station distance above the lens (--eye-above)');
+  assert.ok(!/schemeup|eyeup/i.test(read('src/components/siteSchemeLogic.js')), 'no ?param for it');
+  const sc = read('src/components/SiteScheme.jsx');
+  assert.ok(/--eye-up-shown/.test(sc) && /now\.f = dir === 'in' \? 1 : 0/.test(sc), 'the far ring, never seen above 768px, takes no beat in the sequence plan');
+});
+
 test('SQ-107 pass 7 the badge persists across a page change, above the passage fill and the loader', () => {
   const css = skinCss();
   const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
