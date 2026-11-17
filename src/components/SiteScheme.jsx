@@ -95,6 +95,7 @@ export default function SiteScheme() {
       if (p.near != null) el.style.setProperty('--eye-near', String(p.near));
       if (p.far != null) el.style.setProperty('--eye-far', String(p.far));
       if (p.pad != null) el.style.setProperty('--badge-pad', `${p.pad}px`);
+      if (p.clear != null) el.style.setProperty('--badge-clear', `${p.clear}px`);
       if (p.inMs != null) el.style.setProperty('--eye-in', `${p.inMs}ms`);
       if (p.outMs != null) el.style.setProperty('--eye-out', `${p.outMs}ms`);
       // [data-ready] lets the badge appear with the eye, never before it.

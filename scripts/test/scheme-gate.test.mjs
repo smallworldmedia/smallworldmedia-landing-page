@@ -486,6 +486,35 @@ test('seat gate the same gap above the bottom on every route and stop passes and
   assert.equal(seat(null).pass, false);
 });
 
+test('badge gate and seat gate at 768 and under the bottom edge clears the screen corner and a badge left at the sitewide seat fails', () => {
+  const vp = { w: 390, h: 844 };
+  const raised = { x: 348.77, y: 760.62, w: 41.23, h: 27.38 }; // bottom 56 above the viewport's bottom
+  const eye = { x: 352.77, y: 764.62, w: 33.23, h: 19.38 };
+  const ok = badge(raised, vp, { eye, clear: 56 });
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /clearance 56/);
+  // the corner-row rule is a desktop rule: on a phone no row is needed and the row's 31 does not fail the raise
+  assert.equal(badge(raised, vp, { eye, clear: 56, rowCy: 31 }).pass, true);
+  // negative control: the phone rule removed leaves the sitewide seat, 17.31 above the bottom, and the gate FAILS
+  const sitewide = { ...raised, y: 844 - 17.31 - 27.38 };
+  const low = badge(sitewide, vp, { eye: { ...eye, y: sitewide.y + 4 }, clear: 56, rowCy: 31 });
+  assert.equal(low.pass, false);
+  assert.match(low.offenders[0].note, /bottom edge is 17\.31 above the viewport's bottom, under the phone clearance 56 /);
+  // half a pixel short is inside the tolerance, a pixel is not
+  assert.equal(badge({ ...raised, y: raised.y + 0.4 }, vp, { clear: 56 }).pass, true);
+  assert.equal(badge({ ...raised, y: raised.y + 1 }, vp, { clear: 56 }).pass, false);
+  // 0 (?schemeclear=0) means today's seat: any non-negative gap passes, so the dial is not forced
+  assert.equal(badge(sitewide, vp, { eye: { ...eye, y: sitewide.y + 4 }, clear: 0 }).pass, true);
+  // the seat gate: one gap everywhere AND every gap at the clearance
+  const at = (label, gap, clear = 56) => ({ label, gap, clear });
+  const seated = seat([at('home rest', 56), at('work end', 56), at('process rest', 56.2)]);
+  assert.equal(seated.pass, true, JSON.stringify(seated.offenders));
+  const lost = seat([at('home rest', 17.31), at('work rest', 17.31)]);
+  assert.equal(lost.pass, false, 'one seat everywhere but under the clearance is still a fail');
+  assert.ok(lost.offenders.every((o) => /under the phone clearance 56$/.test(o.note)));
+  assert.equal(seat([at('home rest', 17.31, null), at('work rest', 17.31, null)]).pass, true, 'above 768px no clearance applies: the seat is unchanged');
+});
+
 test('rightEdge gate every state on the viewport edge passes and a short or missing or unreadable one fails', () => {
   const at = (right, vw, label = 'home@1440 rest') => ({ label, right, vw });
   const ok = rightEdge([at(390, 390), at(1024, 1024, 'work@1024 engaged'), at(1440.3, 1440), at(1919.6, 1920, 'privacy@1920 rest')]);

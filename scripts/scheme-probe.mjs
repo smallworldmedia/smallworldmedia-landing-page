@@ -95,11 +95,16 @@
  * strays and bounds gates engage the pager by a mouse hover, or a held CDP touch on a phone). Measured in
  * viewport CSS px, with motion reduced except in noClip, jitter and persist:
  *   badge       the badge (the pager's ::before) is a horizontal rectangle hugging the eye with equal
- *               padding on all four sides, its right edge on the viewport's (no inset) and its centre the
- *               height of the privacy pill's line (ONE seat on every route, SQ-107 pass 7).
+ *               padding on all four sides, its right edge on the viewport's (no inset) and, above 768px, its
+ *               centre the height of the privacy pill's line (ONE seat on every route, SQ-107 pass 7). At
+ *               <= 768px (pass 9) that row rule gives way to the phone clearance: its bottom edge at least
+ *               --badge-clear (?schemeclear, 56) above the viewport's bottom, clear of the screen's corner.
+ *               Negative control: --inject='.swm-corner{--badge-cy:var(--badge-cy-floor) !important}' (the phone
+ *               rule removed) must FAIL at 390.
  *   seat        the badge's gap above the viewport's bottom edge is the same on every route (home, /work,
  *               a detail page, the directory, /process, /privacy), at rest and at the footer's end state
- *               (scrolled to the end, a wheel on home to reveal it), at this width.
+ *               (scrolled to the end, a wheel on home to reveal it), at this width; on a phone every gap is
+ *               also at least the clearance.
  *   rightEdge   the tile's right edge equals the viewport's within 0.5 px on home, /work and /privacy at
  *               390, 1024, 1440 and 1920, at rest and engaged (once per scheme, whatever --width).
  *   noClip      frames of the entrance, the exit and a page through the stations (ArrowDown x2, ArrowUp x2):
@@ -563,7 +568,9 @@ function pageWidgetRest() {
     return r;
   };
   const row = probeEl('bottom:var(--footer-bottom-inset);padding:var(--pill-pad-y) 0;box-sizing:content-box;width:1px;height:var(--lh-pill)');
-  const ref = { rowCy: innerHeight - (row.top + row.height / 2) };
+  // The phone tier (pass 9): <= 768px the badge is raised to --badge-clear above the viewport's bottom.
+  const phone = matchMedia('(max-width: 768px)').matches;
+  const ref = { rowCy: innerHeight - (row.top + row.height / 2), phone, clear: phone ? parseFloat(getComputedStyle(corner).getPropertyValue('--badge-clear')) : null };
   return {
     footerTop,
     blurb,
@@ -1255,19 +1262,19 @@ async function measureSeat(ctx, scheme, urlPath, label) {
   const page = await ctx.newPage();
   const gapOf = async () => {
     const r = await page.evaluate(pageWidgetRest);
-    return r?.tile ? r.vp.h - (r.tile.y + r.tile.h) : NaN;
+    return r?.tile ? { gap: r.vp.h - (r.tile.y + r.tile.h), clear: r.ref.clear } : { gap: NaN, clear: null };
   };
   try {
     await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 30000 });
     if (INJECT) await page.addStyleTag({ content: INJECT });
     await sleep(1500);
-    const out = [{ label: `${label} rest`, gap: await gapOf() }];
+    const out = [{ label: `${label} rest`, ...(await gapOf()) }];
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await page.mouse.move(200, 300);
     await page.mouse.wheel(0, 4000);
     await sleep(2200);
-    out.push({ label: `${label} end`, gap: await gapOf() });
+    out.push({ label: `${label} end`, ...(await gapOf()) });
     return out;
   } catch (e) {
     return [{ label: `${label}`, gap: NaN, error: String(e.message).split('\n')[0].slice(0, 160) }];
@@ -1376,7 +1383,7 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
       const run = (name, fn) => {
         if (want.has(name)) emitResult(scheme, route, width, name, fn());
       };
-      run('badge', () => gate.badge(rest.tile, rest.vp, { eye: rest.eye, rowCy: rest.ref.rowCy }));
+      run('badge', () => gate.badge(rest.tile, rest.vp, { eye: rest.eye, rowCy: rest.ref.rowCy, clear: rest.ref.clear }));
       run('blurb', () => gate.blurbClear(rest.tile, rest.blurb));
       run('eyeLines', () => gate.eyeLines(rest.strokes));
       run('bounds', () => {

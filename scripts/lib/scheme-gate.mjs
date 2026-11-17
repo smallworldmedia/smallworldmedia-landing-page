@@ -531,8 +531,11 @@ const rectOf = (r) => [r.x, r.y, r.w, r.h].map((v) => fixed(v, 1)).join(',');
  * sides (to `tol` px). Its right edge is the viewport's, with no inset (to `tol`). Vertically its
  * centre is `rowCy` above the viewport's bottom on EVERY route: the height of the bottom-left corner
  * row (the privacy pill's line at rest). A run that measured no row fails.
+ * PHONE TIER (SQ-107 pass 9, <= 768px): the corner-row rule is a desktop rule. When `clear` is a number
+ * (the phone's --badge-clear, ?schemeclear) the badge's bottom edge must sit at least `clear` above the
+ * viewport's bottom (to `tol`) instead, so the screen's rounded corner cannot cut it; no row is needed.
  */
-export function badge(rect, vp, { tol = 0.5, eye = null, rowCy = null } = {}) {
+export function badge(rect, vp, { tol = 0.5, eye = null, rowCy = null, clear = null } = {}) {
   const offenders = [];
   if (!rect || !vp) return result([{ path: '.swm-corner .fp-scale::before', note: 'no badge box measured' }], 0, 'no box');
   const right = rect.x + rect.w;
@@ -544,12 +547,15 @@ export function badge(rect, vp, { tol = 0.5, eye = null, rowCy = null } = {}) {
     if (Math.max(...pads) - Math.min(...pads) > 3 * tol) bad(`padding is not equal on four sides (left ${fixed(pads[0], 1)}, right ${fixed(pads[1], 1)}, top ${fixed(pads[2], 1)}, bottom ${fixed(pads[3], 1)})`);
   }
   if (Math.abs(vp.w - right) > tol) bad(`right edge is ${fixed(vp.w - right, 1)} from the viewport's, want 0`);
-  if (!Number.isFinite(rowCy)) bad('no corner row measured to seat against');
+  if (Number.isFinite(clear)) {
+    const gap = vp.h - bottom;
+    if (gap < clear - tol) bad(`bottom edge is ${fixed(gap, 2)} above the viewport's bottom, under the phone clearance ${fixed(clear, 2)} (the screen corner cuts it)`);
+  } else if (!Number.isFinite(rowCy)) bad('no corner row measured to seat against');
   else {
     const cy = vp.h - (rect.y + rect.h / 2);
     if (Math.abs(cy - rowCy) > 1) bad(`centre ${fixed(cy, 1)} above the bottom is not the corner row's ${fixed(rowCy, 1)}`);
   }
-  return result(offenders, 1, `seated: tile ${rectOf(rect)} in ${vp.w}x${vp.h}, row centre ${Number.isFinite(rowCy) ? fixed(rowCy, 1) : '?'} above the bottom`);
+  return result(offenders, 1, Number.isFinite(clear) ? `seated: tile ${rectOf(rect)} in ${vp.w}x${vp.h}, bottom ${fixed(vp.h - bottom, 2)} above the viewport's, clearance ${fixed(clear, 2)}` : `seated: tile ${rectOf(rect)} in ${vp.w}x${vp.h}, row centre ${Number.isFinite(rowCy) ? fixed(rowCy, 1) : '?'} above the bottom`);
 }
 
 /**
@@ -557,6 +563,8 @@ export function badge(rect, vp, { tol = 0.5, eye = null, rowCy = null } = {}) {
  * sitewide). `samples` = [{ label, gap }], one per route, width, scroll stop (footer at rest and at its
  * end state): gap = viewport height minus the tile's bottom edge, CSS px. All within `tol` of one another
  * (0.5). A missing gap, or fewer than two samples, fails: one measurement compares to nothing.
+ * PHONE TIER (pass 9): a sample may carry `clear` (the phone's --badge-clear, null above 768px); its gap
+ * must then be at least that (to `tol`), so the raise cannot be lost on any route or scroll stop.
  */
 export function seat(samples, { tol = 0.5 } = {}) {
   const list = samples ?? [];
@@ -569,6 +577,7 @@ export function seat(samples, { tol = 0.5 } = {}) {
     const hi = Math.max(...ok.map((x) => x.gap));
     if (hi - lo > tol) for (const x of ok) if (Math.abs(x.gap - lo) > tol) offenders.push({ path: x.label, gap: fixed(x.gap, 2), note: `${fixed(x.gap - lo, 2)} px off the lowest seat (${fixed(lo, 2)})` });
   }
+  for (const x of ok) if (Number.isFinite(x.clear) && x.gap < x.clear - tol) offenders.push({ path: x.label, gap: fixed(x.gap, 2), clear: fixed(x.clear, 2), note: `gap ${fixed(x.gap, 2)} is under the phone clearance ${fixed(x.clear, 2)}` });
   const gaps = ok.map((x) => x.gap);
   return result(offenders, list.length, `${list.length} seats, gap ${gaps.length ? fixed(Math.min(...gaps), 2) : '?'} to ${gaps.length ? fixed(Math.max(...gaps), 2) : '?'} px`);
 }

@@ -132,6 +132,7 @@ test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesi
     gap: null,
     lift: null,
     pad: null,
+    clear: null,
     near: null,
     far: null,
     inMs: null,
@@ -222,7 +223,7 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
   for (const part of ['num', 'peak', 'den', 'pointer', 'seam', 'hair']) {
     assert.ok(css.includes(`.fp-scale__${part}`), `${part} is handled`);
   }
-  assert.ok(/--badge-cy:\s*calc\(var\(--footer-bottom-inset\) \+ var\(--pill-pad-y\) \+ var\(--lh-pill\) \/ 2\)/.test(css), 'the one seat centres the badge on the privacy pill\'s line at its desktop height, at every width');
+  assert.ok(/--badge-cy-floor:\s*calc\(var\(--footer-bottom-inset\) \+ var\(--pill-pad-y\) \+ var\(--lh-pill\) \/ 2\)/.test(css) && /--badge-cy:\s*var\(--badge-cy-floor\)/.test(css), 'the one seat centres the badge on the privacy pill\'s line at its desktop height (the floor), above 768px');
   assert.ok(/z-index:\s*101/.test(css) && !/z-index:\s*43/.test(css), 'z 101: above the shell (100), so the route fill and the loader never cover it');
   const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(/html\[data-chrome-open\]\s+\.swm-corner\s*\{/.test(live), 'yields to the overlays');
@@ -271,6 +272,24 @@ test('SQ-107 pass 7 one seat sitewide, the footer rises behind the badge and doe
   assert.ok(!/@media \(min-width: 769px\)\s*\{\s*\.swm-corner\s*\{\s*--badge-cy/.test(css) && !/footer-rise/.test(css.replace(/\/\*[\s\S]*?\*\//g, '')), 'one number at every width and scroll stop: no easing onto the copyright line');
   const comp = read('src/components/SiteScheme.jsx');
   assert.ok(!/--seat-t|--seat-ease|data-footer-rest|corner\.animate/.test(comp), 'SiteScheme has no seat blend');
+});
+
+test('SQ-107 pass 9 on phones the badge is lifted clear of the screen corner (?schemeclear), never below the sitewide seat', () => {
+  const css = skinCss();
+  const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  assert.ok(/--badge-clear: 56px;/.test(flat), 'default 56: the 55 px display radius plus 1 (PROPOSED)');
+  const phone = /@media \(max-width: 768px\) \{ \.swm-corner \{ --badge-cy: max\(var\(--badge-cy-floor\), calc\(var\(--badge-clear\) \+ var\(--badge-h\) \/ 2\)\); \} \}/;
+  assert.ok(phone.test(flat), 'at <= 768px the lens centre is clear + half the badge height, floored at the sitewide seat');
+  assert.equal(flat.split('--badge-clear)').length - 1, 1, 'the dial is read in the phone rule alone: above 768px the seat is the floor, byte for byte');
+  assert.ok(!/viewport-fit|safe-area-inset/.test(flat), 'no safe-area reach: viewport-fit is not set');
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  assert.equal(q('').clear, null, 'absent: the CSS default');
+  assert.equal(q('schemeclear=48').clear, 48);
+  assert.equal(q('schemeclear=0').clear, 0, '0 is today\'s seat (the max floor)');
+  assert.equal(q('schemeclear=500').clear, 120);
+  assert.equal(q('schemeclear=-9').clear, 0);
+  assert.equal(q('schemeclear=high').clear, null);
+  assert.ok(/--badge-clear',\s*`\$\{p\.clear\}px`/.test(read('src/components/SiteScheme.jsx')), 'SiteScheme writes the dial as a custom property on .swm-corner');
 });
 
 test('SQ-107 pass 5 baked dials, Nathan\'s 18 / 4 / 1.5 / 0.8 / 0.5 and 260 / 200 are the CSS defaults', () => {

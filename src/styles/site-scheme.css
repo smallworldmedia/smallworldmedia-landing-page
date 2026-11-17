@@ -118,7 +118,8 @@
   --badge-pad: 4px;
   --badge-w: calc(var(--eye-w) + 2 * var(--badge-pad));
   --badge-h: calc(var(--eye-h) + 2 * var(--badge-pad));
-  --badge-cy: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-pill) / 2);
+  --badge-cy-floor: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-pill) / 2);
+  --badge-cy: var(--badge-cy-floor);
   --scheme-bottom: calc(var(--badge-cy) - var(--scale-rows) * var(--scheme-pitch));
   /* THE BACKGROUND STRIP (pass 7). Each station has its own background panel: project's glass (the
      page behind, blurred, under a veil of white: never opacity, which below 1 would show the SHARP
@@ -129,6 +130,25 @@
      one badge height (the ::before, below). */
   --badge-glass: color-mix(in srgb, var(--color-white) 22%, transparent);
   --badge-blur: 12px;
+  /* THE PHONE'S RAISE (pass 9, ?schemeclear, PROPOSED): a square-cornered box flush with the right edge
+     clears a screen corner of radius R only when its bottom edge is at least R above the viewport's
+     bottom (the arc meets the right edge at height R). Nathan's phone is 393 px wide with a 55 px
+     display radius, and Chrome iOS slides its toolbar away on a scroll so the viewport reaches the
+     physical bottom. --badge-clear is where the badge's BOTTOM edge sits above the viewport's bottom at
+     rest, at <= 768px only: 55 + 1. An iPhone 16 Pro Max has a larger radius, a 13 / 14 a smaller one
+     (about 47). viewport-fit=cover is NOT set (BaseLayout), so env(safe-area-inset-*) is 0 and cannot
+     do this. 0 is today's seat (the max() floor below). */
+  --badge-clear: 56px;
+}
+
+/* Phones only (the house breakpoint): lift the seat so the badge's bottom edge sits --badge-clear above
+   the viewport's bottom, never lower than the sitewide seat. The lens centre is then clear + half the
+   badge's height; everything that rides --badge-cy (the wrapper, the engaged column, the strip, the
+   pager, the menu wipe) rides it. Above 768px the seat is unchanged. */
+@media (max-width: 768px) {
+  .swm-corner {
+    --badge-cy: max(var(--badge-cy-floor), calc(var(--badge-clear) + var(--badge-h) / 2));
+  }
 }
 
 /* — The wrapper is the widget's SEAT and its footprint: fixed, its eye one padding off the viewport's

@@ -107,6 +107,9 @@ const dial = (raw, lo, hi) => {
  *   ?schemeout=<ms>   the column's exit, 0 = instant; null = the CSS default
  *   ?schemepad=<px>   the badge's padding, the SAME on all four sides of the eye (the badge is the eye
  *                     plus this each side), 0 to 40; null = the CSS default (--badge-pad)
+ *   ?schemeclear=<px> the PHONE badge's bottom edge above the viewport's bottom at rest (<= 768px only: it
+ *                     lifts the badge clear of the screen's rounded corner), 0 to 120; 0 = today's seat,
+ *                     null = the CSS default (--badge-clear)
  * Out-of-range values clamp; unparseable ones fall back to the default (null: the CSS owns it).
  */
 export function schemeParams(params) {
@@ -121,6 +124,7 @@ export function schemeParams(params) {
     gap: dial(params.get('schemegap'), 0, 60),
     lift: dial(params.get('schemelift'), 1, 3),
     pad: dial(params.get('schemepad'), 0, 40),
+    clear: dial(params.get('schemeclear'), 0, 120),
     near: dial(params.get('schemenear'), 0.2, 1),
     far: dial(params.get('schemefar'), 0.2, 1),
     inMs: dial(params.get('schemein'), 0, 5000),
