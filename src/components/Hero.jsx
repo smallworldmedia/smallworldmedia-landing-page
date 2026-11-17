@@ -90,6 +90,7 @@ function coverToWork(detail) {
 }
 import { SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
 import { RELEASE_MS, TOUCH_GAIN } from '../lib/touchTune.js';
+import { footerTensionStep, getFooterTouchBrake, getFooterTouchGain } from '../lib/footerTune.js';
 import { requestInfoClose } from '../lib/infoPush.js';
 import { signalRouteReady } from '../lib/overlayWipe.js';
 import SiteFooter, {
@@ -363,7 +364,11 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       else if (wheel) drive.add(dy / SCROLL_TRIGGER_HOME_PX, footerPRef.current);
       else {
         drive.stop(); // the finger owns the panel: it tracks, unsmoothed
-        setFooterReveal(Math.min(1, Math.max(FOOTER_REST, footerPRef.current + dy / SCROLL_TRIGGER_HOME_PX)));
+        // SQ-115: the tail's tension under the finger (?footertouchbrake), the
+        // symmetric step so up d px then down d px is a round trip. 0 = the clamp.
+        setFooterReveal(
+          footerTensionStep(footerPRef.current, dy / SCROLL_TRIGGER_HOME_PX, FOOTER_REST, getFooterTouchBrake()),
+        );
       }
     };
     const onWheel = (e) => {
@@ -408,7 +413,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       ) {
         return;
       }
-      const dy = (touchY - y) * TOUCH_GAIN;
+      // SQ-115: home's own copy of the gain (?footertouchgain); undialed it IS the house one.
+      const dy = (touchY - y) * (getFooterTouchGain() ?? TOUCH_GAIN);
       const now = performance.now();
       if (moveAt) {
         // dt floored at one frame so a two-event burst cannot read as an
@@ -430,7 +436,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       if (PREFERS_REDUCED_MOTION || departingRef.current) return;
       const stalled = !moveAt || performance.now() - moveAt > RELEASE_MS;
       const p = footerPRef.current;
-      const to = Math.min(1, Math.max(FOOTER_REST, p + vel * RELEASE_MS));
+      // The carry rides the same tension, so a flick cannot coast past it.
+      const to = footerTensionStep(p, vel * RELEASE_MS, FOOTER_REST, getFooterTouchBrake());
       vel = 0;
       if (stalled || Math.abs(to - p) < 0.002) return;
       footerWipeRef.current?.kill();
