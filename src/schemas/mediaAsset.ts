@@ -34,6 +34,14 @@ export const mediaAsset = defineType({
       description:
         "On: the site skips this piece everywhere until you turn it off. Use it for work that isn't announced yet.",
     }),
+    defineField({
+      name: 'hideFromDirectory',
+      title: 'Hide from Project Directory',
+      type: 'boolean',
+      initialValue: false,
+      description:
+        "On: the Project Directory skips this piece; its project page, /work and the home globe still show it. Use it for pieces that belong in a featured project but don't stand alone under a service tag, such as event photos.",
+    }),
 
     // ── MEDIA TYPE: Format + Layout Purpose (select first) ──
     defineField({
