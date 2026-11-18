@@ -1023,7 +1023,7 @@ async function measureJitter(name, dpr, width) {
       const cur = getComputedStyle(root).getPropertyValue('--scale-cur').trim();
       document.querySelectorAll('.swm-corner .fp-scale__station').forEach((s) => { if (s.style.getPropertyValue('--k').trim() === cur) s.setAttribute('data-lens', ''); });
     });
-    await page.addStyleTag({ content: 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .scheme-eye__lid{stroke:transparent !important}' });
+    await page.addStyleTag({ content: 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before,.swm-corner .scheme-badge{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .scheme-eye__lid{stroke:transparent !important}' });
     const vp = { w: width, h: phone ? 844 : 900 };
     const clip = { x: vp.w - 160, y: vp.h - 160, width: 160, height: 160 };
     const pixels = async () => {
@@ -1442,7 +1442,7 @@ async function measureLids(browser, scheme, width) {
         document.head.append(st);
         st.disabled = off;
       };
-      mk('swm-lids-iso', 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .fp-scale__pointer{visibility:hidden !important}', false);
+      mk('swm-lids-iso', 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before,.swm-corner .scheme-badge{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .fp-scale__pointer{visibility:hidden !important}', false);
       mk('swm-lids-magenta', '.swm-corner .scheme-eye__lid{stroke:#ff00ff !important}', true);
       mk('swm-lids-hide', '.swm-corner .scheme-eye__iris,.swm-corner .scheme-eye__iris *,.swm-corner [data-lens],.swm-corner [data-lens] *{visibility:hidden !important}', true);
     });
