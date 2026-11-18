@@ -51,7 +51,7 @@ import LiveFootageGrid from './LiveFootageGrid.jsx';
 import { liveFootagePlan, visualsWall, mockupsWall } from './liveFootageLayout.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, splitHero, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
-import { computeFlushGrid, splitAtBreaks, classifyTile, TILE_RATIO } from './flushGrid.js';
+import { computeFlushGrid, splitAtBreaks, classifyTile, TILE_RATIO, PORTRAIT_CROP } from './flushGrid.js';
 import { LOGO_DIALS, assetIdOfUrl, detailLogo } from '../directory/logoTile.js';
 import { readLogoDials } from '../directory/directoryTune.js';
 import logoManifest from '../../../data/directory-logos.json';
@@ -61,6 +61,7 @@ import {
   NARROW_PLACE_COLS,
   SQ_ROWS_FALLBACK,
   SQ_ROWS_NARROW,
+  readPortraitCrop,
   useTileShape,
   useGridMetrics,
   tileRowsFor,
@@ -452,6 +453,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   useBlurbHold(pageRef, !!gridMetrics);
   const [blurbRows, setBlurbRows] = useState(BLURB_ROWS);
   useEffect(() => setBlurbRows(readBlurbRows()), []);
+  const [portraitCrop, setPortraitCrop] = useState(PORTRAIT_CROP);
+  useEffect(() => setPortraitCrop(readPortraitCrop()), []);
   const [visualsRowsParam, setVisualsRowsParam] = useState(null);
   useEffect(() => setVisualsRowsParam(readVisualsRows()), []);
   const [wallColsParam, setWallColsParam] = useState(null);
@@ -597,6 +600,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     sqRows: !wide ? SQ_ROWS_NARROW : tileRows?.cols === placeCols ? tileRows.sq : SQ_ROWS_FALLBACK,
     breaks: asides.length,
     breakEvery: blurbRows,
+    // The cap holds a stretch the grid draws: above 1024px only (readPortraitCrop).
+    portraitCrop: wide ? portraitCrop : 1,
   });
   const segments = splitAtBreaks(flush);
   // No tiles to break up → no breaks; the intro keeps every paragraph.
