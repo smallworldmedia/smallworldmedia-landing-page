@@ -186,9 +186,9 @@ const dial = (raw, lo, hi) => {
  *   ?schemenear=<n>   the medium circle (one station from the lens) as a fraction of the large
  *                     one, 0.2 to 1; the CSS never lets it fall under the small one
  *   ?schemefar=<n>    the small circle (two stations out), the same fraction
- *   ?schemein=<ms>    each circle's own entrance (the near and far rings; SQ-107 pass 11: not the whole engage any more),
- *                     0 = instant; null = the CSS default (200)
- *   ?schemeout=<ms>   each circle's own exit, 0 = instant; null = the CSS default (200)
+ *   ?schemein=<ms>    each ring circle's own slide out from behind the centre eye (SQ-116: it was a fade-in; the near and far
+ *                     rings, not the whole engage), 0 = instant; null = the CSS default (200)
+ *   ?schemeout=<ms>   each ring circle's slide back in behind the centre eye, 0 = instant; null = the CSS default (200)
  *   ?schemeslide=<ms> the engaged eye's slide off the edge, 0 to 600 (160); the release's slide-back is as long
  *   ?schemegrow=<ms>  the eye's grow once the slide has ended, 0 to 600 (160); the release's shrink is as long
  *   ?schemestep=<ms>  the beat between the eye's grow, the near ring and the far ring, 0 to 300 (70);

@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, lids,
+  badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -1095,6 +1095,120 @@ test('sequence gate above 768px the far ring is never seen, its start is not che
   assert.match(ok2.note, /far not shown/);
   const farMissing = sequence({ ...run, engage: flatFar(run.engage), release: flatFar(run.release) });
   assert.equal(farMissing.pass, false, 'where the far ring IS shown a flat far opacity is still a failure: it never moved');
+});
+
+// ── fanout (SQ-116): a badge window behind every shown ring circle, and the ring fans out from behind the lens ──
+// 1440 x 900: the lens circle at y 869 (27 px wide, its window 100.5 x 43.8), the near circles 21.6 px (0.8) in windows 80.4 x 35.
+const FAN_LENS_BIG = { x: 1339.5, y: 847.1, w: 100.5, h: 43.8 };
+const FAN_LENS_REST = { x: 1360, y: 850, w: 80, h: 38 };
+const FAN_REST_H = 21.2;
+const fanPoint = (t, { g, r, fade = false, over = {} }) => {
+  const ring = (id, scheme, dir) => ({
+    o: fade ? r : r > 0 ? 1 : 0,
+    w: 21.6,
+    cx: 1391.6,
+    cy: 869 + dir * 34.3 * r,
+    scheme,
+    b: { x: 1359.6, y: dir < 0 ? 817.2 : 885.8, w: 80.4, h: 35 },
+    ...(over[id] ?? {}),
+  });
+  return { t, h: FAN_REST_H + 10.6 * g, lens: { w: 27, cy: 869, b: g > 0 ? FAN_LENS_BIG : FAN_LENS_REST }, ring: { u1: ring('u1', 'blue', -1), d1: ring('d1', 'black', 1) } };
+};
+const fanRun = ({ fade = false, over = {}, engage, release, panels } = {}) => {
+  const mk = (gf, rf) => SEQ_TIMES.map((t) => fanPoint(t, { g: gf(t), r: rf(t), fade, over }));
+  return {
+    engage: engage ?? mk((t) => grp(t, 160, 160, 0, 1), (t) => grp(t, 230, 200, 0, 1)),
+    release: release ?? mk((t) => grp(t, 70, 160, 1, 0), (t) => grp(t, 0, 200, 1, 0)),
+    taps: [{ at: 250, samples: SEQ_TIMES.map((t) => fanPoint(t, { g: grp(t, 0, 160, 0.5, 0), r: grp(t, 0, 200, 0.1, 0), fade, over })) }],
+    settled: fanPoint(-1, { g: 1, r: 1, over }),
+    panels: panels ?? [{ id: 'u1', rgb: [0, 0, 255] }, { id: 'd1', rgb: [0, 0, 0] }],
+  };
+};
+
+test('fanout gate each shown ring circle in a window of its own, its own panel, sliding out at full opacity passes', () => {
+  const ok = fanout(fanRun());
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /u1, d1 each in a window of its own, panels u1 blue, d1 black/);
+});
+
+test('fanout gate negative control (a), a circle with no window, a window of the wrong size, a circle outside its window fail', () => {
+  const none = fanout(fanRun({ over: { u1: { b: null } } }));
+  assert.equal(none.pass, false);
+  assert.ok(none.offenders.some((o) => /circle u1: no badge window of its own/.test(`${o.path}: ${o.note}`)));
+  // 0.9 of the lens window (a full-size badge) behind a circle that is 0.8 of the lens circle
+  const wide = fanout(fanRun({ over: { d1: { b: { x: 1349, y: 885.8, w: 90.5, h: 39.4 } } } }));
+  assert.equal(wide.pass, false);
+  assert.ok(wide.offenders.some((o) => /circle d1: its window is 0\.9 of the lens window wide, the circle is 0\.8 /.test(`${o.path}: ${o.note}`)), JSON.stringify(wide.offenders));
+  assert.ok(wide.offenders.some((o) => /circle d1: its window is 0\.9 of the lens window tall/.test(`${o.path}: ${o.note}`)));
+  const off = fanout(fanRun({ over: { u1: { b: { x: 1359.6, y: 760, w: 80.4, h: 35 } } } }));
+  assert.ok(off.offenders.some((o) => /circle u1: the circle's centre .* is outside its own window/.test(`${o.path}: ${o.note}`)));
+  // within 2 % passes
+  assert.equal(fanout(fanRun({ over: { u1: { b: { x: 1359.6, y: 817.2, w: 81.0, h: 35.2 } } } })).pass, true);
+});
+
+test('fanout gate negative control (b), the wrong scheme\'s panel under a window, or no pixel read, fails', () => {
+  const wrong = fanout(fanRun({ panels: [{ id: 'u1', rgb: [0, 0, 0] }, { id: 'd1', rgb: [0, 0, 0] }] }));
+  assert.equal(wrong.pass, false);
+  assert.ok(wrong.offenders.some((o) => /circle u1: the panel under its window is black, a blue circle's is blue/.test(`${o.path}: ${o.note}`)), JSON.stringify(wrong.offenders));
+  const glassForBlack = fanout(fanRun({ panels: [{ id: 'u1', rgb: [0, 0, 255] }, { id: 'd1', rgb: [200, 205, 210] }] }));
+  assert.ok(glassForBlack.offenders.some((o) => /circle d1: the panel under its window is glass, a black circle's is black/.test(`${o.path}: ${o.note}`)));
+  const missing = fanout(fanRun({ panels: [{ id: 'u1', rgb: [0, 0, 255] }] }));
+  assert.ok(missing.offenders.some((o) => /circle d1: no pixel read inside its window/.test(`${o.path}: ${o.note}`)));
+});
+
+test('fanout gate negative control (c), the old fade-in (opacity ramps while it slides) fails in the engage and the release', () => {
+  const r = fanout(fanRun({ fade: true }));
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /^engage: at \d+ ms it has moved .* at opacity 0\.\d+, want its settled 1 \(a fade, not a slide\)/.test(o.note)), JSON.stringify(r.offenders.slice(0, 3)));
+  assert.ok(r.offenders.some((o) => /^release: .*a fade, not a slide/.test(o.note)));
+  assert.ok(r.offenders.some((o) => /^quick tap .*a fade, not a slide/.test(o.note)));
+});
+
+test('fanout gate negative control (c), a circle that overshoots its station, goes the wrong way, or turns back fails', () => {
+  const run = fanRun();
+  const over = run.engage.map((p, i) => (i === 35 ? { ...p, ring: { ...p.ring, u1: { ...p.ring.u1, cy: 869 - 50 } } } : p));
+  assert.ok(fanout({ ...run, engage: over }).offenders.some((o) => /circle u1: engage: at 350 ms its centre is -50 px from the lens circle's, not between it and its station/.test(`${o.path}: ${o.note}`)));
+  const wrong = run.engage.map((p, i) => (i === 35 ? { ...p, ring: { ...p.ring, d1: { ...p.ring.d1, cy: 869 - 12 } } } : p));
+  assert.ok(fanout({ ...run, engage: wrong }).offenders.some((o) => /circle d1: engage: at 350 ms its centre is -12 px/.test(`${o.path}: ${o.note}`)));
+  const back = run.engage.map((p, i) => (i === 40 ? { ...p, ring: { ...p.ring, u1: { ...p.ring.u1, cy: p.ring.u1.cy + 6 } } } : p));
+  assert.ok(fanout({ ...run, engage: back }).offenders.some((o) => /circle u1: engage: its distance from the lens circle turned back by/.test(`${o.path}: ${o.note}`)));
+  // the release going OUT instead of back in
+  const out = fanout({ ...run, release: run.engage });
+  assert.ok(out.offenders.some((o) => /release: its distance from the lens circle turned back/.test(o.note)) || out.pass === false);
+});
+
+test('fanout gate negative control (d), a ring circle visible outside the lens window before the grow starts fails', () => {
+  // the circles out at their stations from the first frame (the slide waited for the grow, the circles did not)
+  const early = SEQ_TIMES.map((t) => fanPoint(t, { g: grp(t, 160, 160, 0, 1), r: 1 }));
+  const r = fanout(fanRun({ engage: early }));
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /^engage: at 0 ms \(the grow not started\) the circle shows outside the lens window/.test(o.note)), JSON.stringify(r.offenders.slice(0, 2)));
+  // the same circles at the lens centre and at opacity 1 (inside the window) are fine: the rule is about showing outside
+  const inside = SEQ_TIMES.map((t) => fanPoint(t, { g: grp(t, 160, 160, 0, 1), r: grp(t, 230, 200, 0, 1) }));
+  inside.forEach((p) => { if (p.h - FAN_REST_H <= 0.5) p.ring.u1.o = 1; });
+  assert.equal(fanout(fanRun({ engage: inside })).pass, true);
+});
+
+test('fanout gate a run that measured no ring circle, or too few samples, proves nothing', () => {
+  assert.equal(fanout({}).pass, false);
+  const hidden = fanRun();
+  hidden.settled.ring.u1.o = 0;
+  hidden.settled.ring.d1.o = 0;
+  assert.equal(fanout(hidden).pass, false, 'no shown circle');
+  assert.equal(fanout({ ...fanRun(), engage: fanRun().engage.slice(0, 5) }).pass, false);
+});
+
+test('sequence gate times a ring circle by its travel, not its opacity (opacity is 1 from its first frame)', () => {
+  const run = seqRun();
+  const travel = (series) => series.map((p) => ({ ...p, n: { o: p.tn > 0 ? 1 : 0, w: 20, dist: 34 * p.tn }, f: { o: p.tf > 0 ? 1 : 0, w: 12, dist: 68 * p.tf } }));
+  const ok = sequence({ ...run, engage: travel(run.engage), release: travel(run.release) });
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /near 2[3-4]0 \/ far 3[0-1]0/, 'the start is read off dist: the same times as the opacity run');
+  // negative control: the travel begins with the slide (the circles slide out before the grow, a beat missing) while opacity is a step
+  const early = (series) => series.map((p) => ({ ...p, n: { o: 1, w: 20, dist: 34 * p.ts }, f: { o: 1, w: 12, dist: 68 * p.ts } }));
+  const bad = sequence({ ...run, engage: early(run.engage), release: early(run.release) });
+  assert.equal(bad.pass, false);
+  assert.ok(bad.offenders.some((o) => /near circles \(\+-1\) starts at \d+ ms, not after the grow/.test(o.note)), JSON.stringify(bad.offenders));
 });
 
 test('lids gate no pixel of the circle outside the lids passes, a leak fails, a case that measured nothing fails', () => {

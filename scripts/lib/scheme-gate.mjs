@@ -1029,10 +1029,10 @@ export function shift(s, { tol = 0.5, label = '' } = {}) {
  *   settled: { a: {x}, h }     the engaged end state, read after every transition had finished,
  *   farShown                   false where the far ring (+-2) is never seen (above 768px): its own start is not checked
  * }, a sample = { t, ts, tg, tn, tf (the four registered progress numbers), h (the lens eye's height, px: its scale),
- *   n: {o, w}, f: {o, w} (the +-1 and +-2 circles' effective opacity and width), a: {x, w, o} (the arrow's box and
- * opacity) }.
+ *   n: {o, w, dist}, f: {o, w, dist} (the +-1 and +-2 circles' effective opacity, width and travel from the lens
+ * circle's centre, px), a: {x, w, o} (the arrow's box and opacity) }.
  * A group's START is the first sample where its progress (its own measure, normalised between its first and last
- * value) is over 2 %. Engage: slide (ts), grow (h: the lift), +-1 (n.o), +-2 (f.o): in that order, the three after the
+ * value) is over 2 %. Engage: slide (ts), grow (h: the lift), +-1 (n.dist), +-2 (f.dist): in that order, the three after the
  * slide each at least step - 10 ms apart, the lift flat (0.5 px) until the slide has finished. Release: +-2, +-1,
  * the shrink, the slide back, the slide waiting for the shrink to end. The arrow waits beyond the right edge at rest,
  * is opaque wherever any of it shows, moves one way per phase and ends at its settled seat. A quick tap returns
@@ -1051,7 +1051,10 @@ export function sequence(run, { tol = 0.5, slack = 10 } = {}) {
     return result([{ path: '.swm-corner .fp-scale', note: `too few samples measured (${up.length} engage, ${down.length} release)` }], up.length + down.length, 'no run');
   }
   const h0 = up[0].h;
-  const quant = { s: (p) => p.ts, g: (p) => p.h, n: (p) => p.n?.o, f: (p) => p.f?.o };
+  // SQ-116: a ring circle's start is its TRAVEL out from behind the lens circle (dist, px): its opacity is 1 from its
+  // first frame and no longer ramps. A run without dist (older captures) reads opacity.
+  const ringQ = (c) => (Number.isFinite(c?.dist) ? c.dist : c?.o);
+  const quant = { s: (p) => p.ts, g: (p) => p.h, n: (p) => ringQ(p.n), f: (p) => ringQ(p.f) };
   const startOf = (series, k) => {
     const v0 = quant[k](series[0]);
     const v1 = quant[k](series[series.length - 1]);
@@ -1163,6 +1166,105 @@ export function sequence(run, { tol = 0.5, slack = 10 } = {}) {
     up.length + down.length + taps.reduce((n, t) => n + (t.samples?.length ?? 0), 0),
     `engage starts slide ${upStart.s} / grow ${upStart.g} / near ${upStart.n} / far ${farShown ? upStart.f : 'not shown'} ms, release starts far ${farShown ? downStart.f : 'not shown'} / near ${downStart.n} / shrink ${downStart.g} / slide back ${downStart.s} ms (step ${step}), arrow ${fixed(ua.first.x, 1)} -> ${fixed(ua.last.x, 1)}, ${taps.length} quick tap(s)`
   );
+}
+
+/** The strip panel each scheme paints (colorScheme.js SCHEMES: project is the glass, then black, then blue). */
+const PANEL_OF = { project: 'glass', black: 'black', blue: 'blue' };
+
+/**
+ * fanout — every shown ring circle has a badge window of its own, and the ring fans out from behind the lens circle
+ * (SQ-116, Nathan 11-17). `run` = {
+ *   engage, release: [sample every 10 ms, SEEKED (see `sequence`)],  taps: [{ at, samples }],
+ *   settled: the engaged end state (a sample),
+ *   panels: [{ id, scheme, rgb }]   one pixel read inside each shown circle's window, off the circle, on a flat page
+ * }, a sample = { t, h (the lens eye's height, px),
+ *   lens: { w, cy, b: {x, y, w, h} } (the lens circle's width, centre y and badge window),
+ *   ring: { u1, d1, u2, d2: { o, w, cx, cy, scheme, b: {x, y, w, h} } }   the circles one and two stations above and
+ *   below: effective opacity, width, centre, scheme and the window of their own badge }.
+ * A circle is SHOWN where it is at opacity over 0.05 once settled. Four checks:
+ *  (a) settled, each shown circle's window exists, the circle sits inside it, and its width and height over the lens
+ *      window's are within `ratio` (2 %, relative) of the circle's width over the lens circle's;
+ *  (b) the pixel read inside each window is that circle's own scheme's panel (glass, black or blue);
+ *  (c) through the engage and the release each shown circle is at its settled opacity from its first moving frame (a
+ *      ramp is a fade), its centre stays between the lens circle's and its station (to `tol` px) and its distance
+ *      from the lens moves one way (out in the engage, back in the release); a quick tap's release is held to the
+ *      first two but not the direction;
+ *  (d) before the grow starts (the eye still at its rest height) no shown circle that is visible (opacity over 0.01)
+ *      lies outside the lens window.
+ * A run that measured nothing fails.
+ */
+export function fanout(run, { ratio = 0.02, tol = 1, ids = ['u1', 'd1', 'u2', 'd2'] } = {}) {
+  const offenders = [];
+  const bad = (path, note) => offenders.push({ path, note });
+  const up = run?.engage ?? [];
+  const down = run?.release ?? [];
+  const set = run?.settled;
+  const shown = set?.lens ? ids.filter((id) => set.ring?.[id]?.o > 0.05) : [];
+  if (!shown.length || up.length < 20 || down.length < 20) {
+    return result([{ path: '.swm-corner .fp-scale__station', note: `no ring circle measured (${shown.length} shown, ${up.length} engage, ${down.length} release samples)` }], 0, 'no run');
+  }
+  let checks = 0;
+  const name = (id) => `circle ${id}`;
+  // (a)
+  const lb = set.lens.b;
+  for (const id of shown) {
+    const c = set.ring[id];
+    const b = c.b;
+    checks++;
+    if (!b || !(b.w > 0 && b.h > 0) || !lb) {
+      bad(name(id), 'no badge window of its own');
+      continue;
+    }
+    const cr = c.w / set.lens.w;
+    const rw = b.w / lb.w / cr;
+    const rh = b.h / lb.h / cr;
+    if (Math.abs(rw - 1) > ratio) bad(name(id), `its window is ${fixed(b.w / lb.w, 3)} of the lens window wide, the circle is ${fixed(cr, 3)} of the lens circle (off by ${fixed((rw - 1) * 100, 1)} %)`);
+    if (Math.abs(rh - 1) > ratio) bad(name(id), `its window is ${fixed(b.h / lb.h, 3)} of the lens window tall, the circle is ${fixed(cr, 3)} of the lens circle (off by ${fixed((rh - 1) * 100, 1)} %)`);
+    if (!(c.cx >= b.x - tol && c.cx <= b.x + b.w + tol && c.cy >= b.y - tol && c.cy <= b.y + b.h + tol)) bad(name(id), `the circle's centre (${fixed(c.cx, 1)}, ${fixed(c.cy, 1)}) is outside its own window ${rectOf(b)}`);
+  }
+  // (b)
+  for (const id of shown) {
+    const c = set.ring[id];
+    const p = (run.panels ?? []).find((x) => x.id === id);
+    checks++;
+    const got = stripClass(p?.rgb);
+    if (got == null) bad(name(id), 'no pixel read inside its window');
+    else if (got !== PANEL_OF[c.scheme]) bad(name(id), `the panel under its window is ${got}, a ${c.scheme} circle's is ${PANEL_OF[c.scheme] ?? '?'}`);
+  }
+  // (c) and (d)
+  const rest = up[0].h;
+  const through = (series, label, dir) => {
+    for (const id of shown) {
+      const target = set.ring[id].cy - set.lens.cy;
+      let prev = null;
+      let worse = 0;
+      for (const p of series) {
+        const c = p.ring?.[id];
+        if (!c || !p.lens) {
+          bad(name(id), `${label}: no measure at ${p.t} ms`);
+          return;
+        }
+        checks++;
+        const off = c.cy - p.lens.cy;
+        const dist = Math.abs(off);
+        if (dist > tol && Math.abs(c.o - set.ring[id].o) > 0.02) bad(name(id), `${label}: at ${p.t} ms it has moved ${fixed(dist, 1)} px at opacity ${fixed(c.o, 2)}, want its settled ${fixed(set.ring[id].o, 2)} (a fade, not a slide)`);
+        if (off * target < -tol * Math.abs(target) || dist > Math.abs(target) + tol) bad(name(id), `${label}: at ${p.t} ms its centre is ${fixed(off, 1)} px from the lens circle's, not between it and its station (${fixed(target, 1)} px)`);
+        if (dir && prev != null) worse = Math.max(worse, -dir * (dist - prev));
+        prev = dist;
+        // (d) before the grow starts
+        if (p.h - rest <= 0.5 && c.o > 0.01 && p.lens.b) {
+          const r = p.lens.b;
+          const half = c.w / 2;
+          if (c.cx - half < r.x - tol || c.cx + half > r.x + r.w + tol || c.cy - half < r.y - tol || c.cy + half > r.y + r.h + tol) bad(name(id), `${label}: at ${p.t} ms (the grow not started) the circle shows outside the lens window ${rectOf(r)}, at (${fixed(c.cx, 1)}, ${fixed(c.cy, 1)})`);
+        }
+      }
+      if (worse > 0.25) bad(name(id), `${label}: its distance from the lens circle turned back by ${fixed(worse, 2)} px (it must only go ${dir > 0 ? 'out' : 'in'})`);
+    }
+  };
+  through(up, 'engage', 1);
+  through(down, 'release', -1);
+  for (const tap of run.taps ?? []) through(tap.samples ?? [], `quick tap (released at ${tap.at} ms)`, 0);
+  return result(offenders, checks, `${shown.join(', ')} each in a window of its own, panels ${(run.panels ?? []).map((p) => `${p.id} ${stripClass(p.rgb)}`).join(', ')}, ${checks} checks across the engage, release and quick taps`);
 }
 
 /**
