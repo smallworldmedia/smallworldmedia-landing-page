@@ -197,5 +197,14 @@ export const GLOBE_STREAM_PARAMS = /^(270|480|720|1080)p$/.test(GLOBE_RES ?? '')
     : 'min_resolution=720p&max_resolution=720p';
 /** ?globethumb — T1: the legacy square texture side, and the base every class texture size derives from (unitSpan.texSpec). */
 export const GLOBE_T1 = Math.round(clampTo(PARAM('globethumb', THUMB_WIDTH), 256, 1024));
+/** ?globefpstol — ms of slack in the globe's FPS_CAP render gate (useGlobeScene's tick), the World's
+ *  ?fpstol (worldConfig.js) for the home and /lab globe. gsap's ticker reports whole-ms deltas, so on a
+ *  120 Hz screen two frames (8 + 8 = 16 ms) fall short of a strict 1/60 s and the gate waits for a third:
+ *  a 17/25 ms rhythm, 44-47 renders a second, uneven (SQ-120). 2 gives an even 60. 0 is the strict gate.
+ *  Clamped to 0-2.5 for the World's reason: from 1000/60 - 14 = 2.7 ms on, two 144 Hz frames (14 ms of
+ *  whole-ms deltas) pass the gate and a 144 Hz screen would render above the cap. */
+export const GLOBE_FPS_TOL_MS = clampTo(PARAM('globefpstol', 2), 0, 2.5);
+/** The tick's render gate in SECONDS (GLOBE_FPS_TOL_MS is ms, hence /1000). */
+export const GLOBE_FPS_GATE_S = 1 / FPS_CAP - GLOBE_FPS_TOL_MS / 1000;
 /** The VideoGlobe renderer's pixel ratio (useGlobeScene): the screen's own, capped by GLOBE_DPR_MAX. */
 export const globePixelRatio = (dpr) => Math.min(dpr, GLOBE_DPR_MAX);
