@@ -1102,26 +1102,33 @@ test('sequence gate above 768px the far ring is never seen, its start is not che
 const FAN_LENS_BIG = { x: 1339.5, y: 847.1, w: 100.5, h: 43.8 };
 const FAN_LENS_REST = { x: 1360, y: 850, w: 80, h: 38 };
 const FAN_REST_H = 21.2;
-const fanPoint = (t, { g, r, fade = false, over = {} }) => {
-  const ring = (id, scheme, dir) => ({
-    o: fade ? r : r > 0 ? 1 : 0,
-    w: 21.6,
-    cx: 1391.6,
-    cy: 869 + dir * 34.3 * r,
-    scheme,
-    b: { x: 1359.6, y: dir < 0 ? 817.2 : 885.8, w: 80.4, h: 35 },
-    ...(over[id] ?? {}),
-  });
-  return { t, h: FAN_REST_H + 10.6 * g, lens: { w: 27, cy: 869, b: g > 0 ? FAN_LENS_BIG : FAN_LENS_REST }, ring: { u1: ring('u1', 'blue', -1), d1: ring('d1', 'black', 1) } };
+// far: the phone's second circle above (u2, 0.5 of the lens circle, 13.5 px), its window 50.25 wide; grown (11-17) its
+// bottom edge reaches down to u1's top, so settled it is 27.75 tall (10.95 above its centre), else 21.9. slant: the
+// circles start at the lens circle's x and drift out to their own on the way (the pre-11-17 x).
+const FAN_X = 1391.6;
+const fanPoint = (t, { g, r, fade = false, over = {}, far = false, grow = true, slant = false }) => {
+  const ring = (id, scheme, dir) => {
+    const cy = 869 + dir * 34.3 * r;
+    return { o: fade ? r : r > 0 ? 1 : 0, w: 21.6, cx: slant ? FAN_X + (1 - r) * 8.4 : FAN_X, cy, scheme, b: { x: 1359.6, y: cy - 17.5, w: 80.4, h: 35 }, ...(over[id] ?? {}) };
+  };
+  const rings = { u1: ring('u1', 'blue', -1), d1: ring('d1', 'black', 1) };
+  if (far) {
+    const cy = 869 - 68.6 * r;
+    const top = cy - 10.95;
+    const bottom = grow ? Math.max(cy + 10.95, 869 - 34.3 * r - 17.5) : cy + 10.95;
+    rings.u2 = { o: fade ? r : r > 0 ? 1 : 0, w: 13.5, cx: slant ? 1405 + (1 - r) * 8 : 1405, cy, scheme: 'black', b: { x: 1389.75, y: top, w: 50.25, h: bottom - top }, ...(over.u2 ?? {}) };
+  }
+  return { t, h: FAN_REST_H + 10.6 * g, lens: { w: 27, cy: 869, b: g > 0 ? FAN_LENS_BIG : FAN_LENS_REST }, ring: rings };
 };
-const fanRun = ({ fade = false, over = {}, engage, release, panels } = {}) => {
-  const mk = (gf, rf) => SEQ_TIMES.map((t) => fanPoint(t, { g: gf(t), r: rf(t), fade, over }));
+const fanRun = ({ fade = false, over = {}, engage, release, panels, far = false, grow = true, slant = false } = {}) => {
+  const o = { fade, over, far, grow, slant };
+  const mk = (gf, rf) => SEQ_TIMES.map((t) => fanPoint(t, { g: gf(t), r: rf(t), ...o }));
   return {
     engage: engage ?? mk((t) => grp(t, 160, 160, 0, 1), (t) => grp(t, 230, 200, 0, 1)),
     release: release ?? mk((t) => grp(t, 70, 160, 1, 0), (t) => grp(t, 0, 200, 1, 0)),
-    taps: [{ at: 250, samples: SEQ_TIMES.map((t) => fanPoint(t, { g: grp(t, 0, 160, 0.5, 0), r: grp(t, 0, 200, 0.1, 0), fade, over })) }],
-    settled: fanPoint(-1, { g: 1, r: 1, over }),
-    panels: panels ?? [{ id: 'u1', rgb: [0, 0, 255] }, { id: 'd1', rgb: [0, 0, 0] }],
+    taps: [{ at: 250, samples: SEQ_TIMES.map((t) => fanPoint(t, { g: grp(t, 0, 160, 0.5, 0), r: grp(t, 0, 200, 0.1, 0), ...o })) }],
+    settled: fanPoint(-1, { g: 1, r: 1, ...o }),
+    panels: panels ?? [{ id: 'u1', rgb: [0, 0, 255] }, { id: 'd1', rgb: [0, 0, 0] }, ...(far ? [{ id: 'u2', rgb: [0, 0, 0] }] : [])],
   };
 };
 
@@ -1187,6 +1194,46 @@ test('fanout gate negative control (d), a ring circle visible outside the lens w
   const inside = SEQ_TIMES.map((t) => fanPoint(t, { g: grp(t, 160, 160, 0, 1), r: grp(t, 230, 200, 0, 1) }));
   inside.forEach((p) => { if (p.h - FAN_REST_H <= 0.5) p.ring.u1.o = 1; });
   assert.equal(fanout(fanRun({ engage: inside })).pass, true);
+});
+
+test('fanout gate (e) the far circle\'s window meets its inner neighbour\'s with no gap (Nathan 11-17), and (a) holds its outer half', () => {
+  const ok = fanout(fanRun({ far: true }));
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders.slice(0, 3)));
+  assert.match(ok.note, /u1, d1, u2 each in a window of its own, panels u1 blue, d1 black, u2 black, seams u2\/u1 0 px/);
+  // negative control: the pre-11-17 window, the circle's own size only, leaves a 5.85 px gap settled (and on the way)
+  const gap = fanout(fanRun({ far: true, grow: false }));
+  assert.equal(gap.pass, false);
+  assert.ok(gap.offenders.some((o) => /circle u2: settled: a gap of 5\.9 px between its window and circle u1's/.test(`${o.path}: ${o.note}`)), JSON.stringify(gap.offenders));
+  assert.ok(gap.offenders.some((o) => /circle u2: engage: a gap of 5\.9 px .* at \d+ ms \(the worst frame\)/.test(`${o.path}: ${o.note}`)));
+  assert.ok(gap.offenders.some((o) => /circle u2: release: a gap of/.test(`${o.path}: ${o.note}`)));
+  // the grown window is held by its OUTER half: grown on the wrong side (outward) it fails (a)
+  const set = fanRun({ far: true }).settled.ring.u2.b;
+  const outward = fanout(fanRun({ far: true, over: { u2: { b: { ...set, y: set.y - 5.85 } } } }));
+  assert.ok(outward.offenders.some((o) => /circle u2: its window's outer half is 0\.76\d of the lens window's half height, the circle is 0\.5 /.test(`${o.path}: ${o.note}`)), JSON.stringify(outward.offenders));
+  // and the full-height ratio is not applied to it (27.75 / 43.8 = 0.634, which (a) used to fail)
+  assert.ok(!ok.offenders.length);
+});
+
+test('fanout gate (f) negative control, ring circles that start at the lens circle\'s x and drift out to their own on the way fail (Nathan 11-17: straight up and down)', () => {
+  const r = fanout(fanRun({ slant: true, far: true }));
+  assert.equal(r.pass, false);
+  for (const id of ['u1', 'd1', 'u2']) {
+    assert.ok(r.offenders.some((o) => new RegExp(`circle ${id}: engage: at \\d+ ms, -?[\\d.]+ px off the lens line, its centre is [\\d.]+ px sideways of its settled x \\(a slide on a slant`).test(`${o.path}: ${o.note}`)), `${id}: ${JSON.stringify(r.offenders.slice(0, 4))}`);
+    assert.ok(r.offenders.some((o) => new RegExp(`circle ${id}: release: at`).test(`${o.path}: ${o.note}`)));
+  }
+  // inside the lens window the clip hides the circle, so it may sit anywhere there: only frames where some of it shows
+  // past the window's edge count (the probe's 11-17 release: the near ring 1.4 px off the line as the shrink starts)
+  const hidden = fanRun({ far: true });
+  for (const p of [...hidden.engage, ...hidden.release]) {
+    const c = p.ring.u1;
+    const lw = p.lens.b;
+    if (c.cy - c.w / 2 >= lw.y - 1 && c.cy + c.w / 2 <= lw.y + lw.h + 1) c.cx = FAN_X - 6.5;
+  }
+  assert.equal(fanout(hidden).pass, true, JSON.stringify(fanout(hidden).offenders.slice(0, 2)));
+  // past the edge by a few px, the same drift fails
+  const peek = fanRun({ far: true });
+  peek.engage.forEach((p) => { if (Math.abs(p.ring.u1.cy - p.lens.cy) > 14 && Math.abs(p.ring.u1.cy - p.lens.cy) < 20) p.ring.u1.cx = FAN_X - 6.5; });
+  assert.ok(fanout(peek).offenders.some((o) => /circle u1: engage: .* -6\.5 px sideways/.test(`${o.path}: ${o.note}`)), JSON.stringify(fanout(peek).offenders));
 });
 
 test('fanout gate a run that measured no ring circle, or too few samples, proves nothing', () => {

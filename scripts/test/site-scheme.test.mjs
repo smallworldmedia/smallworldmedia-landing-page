@@ -323,7 +323,7 @@ test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger
   // The taper is /work's own, never a copy: each circle moves left by --sw (pager-scale.css) x S, and the
   // tokens behind --sw (reach 3, exponent 2) are the ones global.css gives /work.
   assert.ok(/translate: calc\(-1 \* var\(--eye-sx\) \* var\(--eye-s\)\) calc\(/.test(flat), 'each station steps left by the stagger taper times the shift');
-  assert.ok(/--eye-sx: calc\(var\(--sw\) \+ \(1 - var\(--sw\)\) \* \(1 - var\(--eye-p\)\)\);/.test(flat), 'the taper is --sw once the circle has arrived, and the lens\'s (1) while it is still behind the centre eye');
+  assert.ok(/--eye-sx: var\(--sw\);/.test(flat), 'the taper is the circle\'s own --sw the whole way through its slide: straight up and down (Nathan 11-17), never eased in from the centre eye\'s x');
   const pager = read('src/styles/pager-scale.css');
   assert.ok(/--sw: pow\(clamp\(0, 1 - var\(--ndr\) \/ var\(--scale-slice-reach\), 1\), var\(--scale-slice-exp\)\);/.test(pager.replace(/\s+/g, ' ')), '--sw is /work\'s taper');
   const g = read('src/styles/global.css');
@@ -416,11 +416,12 @@ test('SQ-116 every station carries a badge of its own scheme, the lens badge\'s 
   assert.ok(/--eye-r: calc\(var\(--sel\) \* var\(--eye-far\)\);/.test(rule), 'the station\'s own scale, the one its transform applies');
   // right edge on the viewport\'s: the lens-to-edge distance (lifted padding, the shift) in the station\'s own px
   assert.ok(/--badge-edge: calc\(\(var\(--eye-lift\) \* \(var\(--eye-w\) \/ 2 \+ var\(--badge-pad\)\) \+ var\(--eye-sx\) \* var\(--eye-s\)\) \/ var\(--eye-r\)\);/.test(rule), 'flush with the viewport\'s edge');
-  assert.ok(/left: calc\(50% \+ var\(--badge-edge\) - var\(--badge-bw\)\);/.test(rule) && /top: calc\(50% - var\(--badge-bh\) \/ 2\);/.test(rule), 'seated on the station\'s centre, right edge on the viewport\'s');
+  assert.ok(/left: calc\(50% \+ var\(--badge-edge\) - var\(--badge-bw\)\);/.test(rule) && /top: calc\(50% - var\(--badge-o\)\);/.test(rule), 'seated on the station\'s centre (less any growth toward the lens, below), right edge on the viewport\'s');
   assert.ok(/z-index: -1;/.test(rule) && /pointer-events: none;/.test(rule), 'behind its own circle, never a press target');
   // clipped off the lens badge\'s window: that window\'s edges in this badge\'s coordinates, off the station\'s distance
   assert.ok(/--badge-yc: calc\(\(var\(--k, 0\) - var\(--scale-qf, var\(--scale-cur\)\)\) \* var\(--scale-pitch\) \* var\(--eye-p\)\);/.test(rule), 'the station\'s distance from the lens row, at this instant of its slide');
-  assert.ok(/--badge-yt: calc\(var\(--badge-bh\) \/ 2 \* \(1 - 1 \/ var\(--eye-r\)\) - var\(--badge-yc\) \/ var\(--eye-r\)\);/.test(rule) && /--badge-yb: calc\(var\(--badge-bh\) \/ 2 \* \(1 \+ 1 \/ var\(--eye-r\)\) - var\(--badge-yc\) \/ var\(--eye-r\)\);/.test(rule), 'the lens window\'s top and bottom');
+  assert.ok(/--badge-o: calc\(var\(--badge-bh\) \/ 2 \+ var\(--badge-xt\) \/ var\(--eye-r\)\);/.test(rule), 'screen px from the lens centre map into the box as --badge-o + (y - yc) / r');
+  assert.ok(/--badge-yt: calc\(var\(--badge-o\) \+ \(var\(--badge-bt\) - var\(--badge-yc\)\) \/ var\(--eye-r\)\);/.test(rule) && /--badge-yb: calc\(var\(--badge-o\) \+ \(var\(--badge-bb\) - var\(--badge-yc\)\) \/ var\(--eye-r\)\);/.test(rule), 'the band\'s top and bottom: the lens window\'s, reaching out to the inner neighbour two or more stations out');
   assert.ok(/clip-path: polygon\(-999px -999px, 999px -999px, 999px var\(--badge-yt\), -999px var\(--badge-yt\), -999px var\(--badge-yb\), 999px var\(--badge-yb\), 999px 999px, -999px 999px\);/.test(rule), 'what lies inside the lens window is not painted a second time');
   // the three panels: the glass rule (alpha on the background, never opacity), black, brand blue
   assert.ok(/background: var\(--badge-glass\);/.test(rule) && /backdrop-filter: blur\(var\(--badge-blur\)\);/.test(rule), 'project is the lens badge\'s glass');
@@ -433,6 +434,43 @@ test('SQ-116 every station carries a badge of its own scheme, the lens badge\'s 
   assert.ok(/const renderSwatch = \(item\) => <StationArt scheme=\{item\.scheme\} \/>;/.test(read('src/components/SiteScheme.jsx')), 'every station renders it');
   // /work\'s pager is not touched: nothing here edits it
   assert.ok(!/scheme-badge/.test(read('src/styles/pager-scale.css')), '/work\'s pager skin knows nothing of it');
+});
+
+test('11-17 the far ring\'s badge meets its inner neighbour\'s with no gap, and the ring circles slide straight up and down, cut by the central badge while they pass it', () => {
+  const css = skinCss();
+  const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  const rule = flat.match(/\.swm-corner__pager \.scheme-badge \{([^}]*)\}/)?.[1] ?? '';
+  // Nathan 11-17: "the eye badge farthest away from the currently selected also does not have a gap between it
+  // and the one next closest". Two or more stations out (--badge-g), the badge reaches toward the lens until it
+  // meets its inner neighbour's box: up for a station above the lens, down for one below.
+  assert.ok(/--badge-s: calc\(\(var\(--k, 0\) - var\(--scale-cur\)\) \/ max\(var\(--ndd\), 1\)\);/.test(rule), 'the side of the lens, -1 above and +1 below');
+  assert.ok(/--badge-g: clamp\(0, calc\(var\(--ndd\) - 1\), 1\);/.test(rule), 'only a station two or more out grows (one out already sits on the lens badge)');
+  assert.ok(/--badge-up: calc\(var\(--badge-g\) \* max\(0, -1 \* var\(--badge-s\)\)\);/.test(rule) && /--badge-dn: calc\(var\(--badge-g\) \* max\(0, var\(--badge-s\)\)\);/.test(rule), 'one side at a time');
+  // The neighbour's box is computed the way the engine places it: its own entrance progress and its own falloff scale.
+  assert.ok(/--badge-pn: calc\(var\(--eye-tg\) \+ \(var\(--eye-tn\) - var\(--eye-tg\)\) \* clamp\(0, calc\(var\(--ndr\) - 1\), 1\) \+ \(var\(--eye-tf\) - var\(--eye-tn\)\) \* clamp\(0, calc\(var\(--ndr\) - 2\), 1\)\);/.test(rule), 'the neighbour\'s --eye-p, one station nearer');
+  assert.ok(/--badge-wn: clamp\(0, calc\(1 - max\(calc\(var\(--ndd\) - 1 - var\(--scale-falloff-hold\)\), 0\) \/ max\(calc\(var\(--scale-falloff\) - var\(--scale-falloff-hold\)\), 0\.001\)\), 1\);/.test(rule) && /--badge-w1n: clamp\(0, calc\(2 - var\(--ndd\)\), 1\);/.test(rule), 'the engine\'s falloff weights at --ndd - 1');
+  assert.ok(/--badge-rn: calc\(\(1 \+ \(var\(--scale-sel\) - 1\) \* pow\(var\(--badge-wn\), var\(--scale-falloff-exp\)\) \+ \(var\(--scale-sel\) \* var\(--scale-sel-bump\) - var\(--scale-sel\)\) \* var\(--badge-w1n\) \* var\(--badge-w1n\)\) \* var\(--eye-far\)\);/.test(rule), 'the neighbour\'s scale: --sel\'s formula times --eye-far');
+  const pager = read('src/styles/pager-scale.css').replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  assert.ok(/--sel: calc\(1 \+ \(var\(--scale-sel\) - 1\) \* var\(--wd\) \+ \(var\(--scale-sel\) \* var\(--scale-sel-bump\) - var\(--scale-sel\)\) \* var\(--w1\) \* var\(--w1\)\);/.test(pager), 'the engine --sel the mirror follows (change one, change both)');
+  assert.ok(/--badge-yn: calc\(\(var\(--k, 0\) - var\(--badge-s\) - var\(--scale-qf, var\(--scale-cur\)\)\) \* var\(--scale-pitch\) \* var\(--badge-pn\)\);/.test(rule), 'the neighbour\'s centre, from the lens');
+  assert.ok(/--badge-nt: calc\(var\(--badge-yn\) - var\(--badge-rn\) \* var\(--badge-bh\) \/ 2\);/.test(rule) && /--badge-nb: calc\(var\(--badge-yn\) \+ var\(--badge-rn\) \* var\(--badge-bh\) \/ 2\);/.test(rule), 'the neighbour\'s top and bottom edges');
+  // The growth: the gap between this box and the neighbour's, never negative, in this station's own px.
+  assert.ok(/--badge-xb: calc\(var\(--badge-up\) \* max\(0px, calc\(var\(--badge-nt\) - var\(--badge-yc\) - var\(--eye-r\) \* var\(--badge-bh\) \/ 2\)\)\);/.test(rule), 'above the lens: the bottom edge grows down to the neighbour\'s top');
+  assert.ok(/--badge-xt: calc\(var\(--badge-dn\) \* max\(0px, calc\(var\(--badge-yc\) - var\(--eye-r\) \* var\(--badge-bh\) \/ 2 - var\(--badge-nb\)\)\)\);/.test(rule), 'below the lens: the top edge grows up to the neighbour\'s bottom');
+  assert.ok(/height: calc\(var\(--badge-bh\) \+ \(var\(--badge-xt\) \+ var\(--badge-xb\)\) \/ var\(--eye-r\)\);/.test(rule), 'the box is taller by the growth');
+  // The clipped band reaches out to the neighbour too, so the grown part never paints inside it.
+  assert.ok(/--badge-bt: calc\(-1 \* var\(--badge-bh\) \/ 2 - var\(--badge-up\) \* max\(0px, calc\(-1 \* var\(--badge-bh\) \/ 2 - var\(--badge-nt\)\)\)\);/.test(rule) && /--badge-bb: calc\(var\(--badge-bh\) \/ 2 \+ var\(--badge-dn\) \* max\(0px, calc\(var\(--badge-nb\) - var\(--badge-bh\) \/ 2\)\)\);/.test(rule), 'the lens window, widened to the inner neighbour\'s far edge');
+  // Nathan 11-17: the ring eyes move "directly vertically upward and downward ... anchored to the center of the
+  // expanded central badge". Each circle keeps its own x through the slide, and while it slides the part of it
+  // inside the central badge's window is not painted: it appears from behind the badge's edge.
+  const station = flat.match(/\.fp-scale__station \{([^}]*--eye-cyt[^}]*)\}/)?.[1] ?? '';
+  assert.ok(/--eye-cr: calc\(var\(--sel\) \* var\(--eye-far\)\);/.test(station), 'the station\'s scale');
+  assert.ok(/--eye-con: calc\(clamp\(0, var\(--ndd\), 1\) \* min\(1, \(1 - var\(--eye-p\)\) \* 1000\)\);/.test(station), 'a band only for a ring circle still on its way: never the lens circle, never a settled or scrubbed one');
+  assert.ok(/--eye-cyc: calc\(\(var\(--k, 0\) - var\(--scale-qf, var\(--scale-cur\)\)\) \* var\(--scale-pitch\) \* var\(--eye-p\)\);/.test(station), 'the circle\'s distance from the lens at this instant');
+  assert.ok(/--eye-cband: calc\(var\(--eye-con\) \* var\(--eye-lift\) \* var\(--badge-h\) \/ 2\);/.test(station), 'half the central badge\'s height');
+  assert.ok(/--eye-cyt: calc\(var\(--scheme-swatch\) \* var\(--eye-lift\) \/ 2 \+ \(-1 \* var\(--eye-cband\) - var\(--eye-cyc\)\) \/ var\(--eye-cr\)\);/.test(station) && /--eye-cyb: calc\(var\(--scheme-swatch\) \* var\(--eye-lift\) \/ 2 \+ \(var\(--eye-cband\) - var\(--eye-cyc\)\) \/ var\(--eye-cr\)\);/.test(station), 'the central badge\'s top and bottom in the circle\'s own px');
+  const swatch = flat.match(/\.scheme-swatch \{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/clip-path: polygon\(-999px -999px, 999px -999px, 999px var\(--eye-cyt\), -999px var\(--eye-cyt\), -999px var\(--eye-cyb\), 999px var\(--eye-cyb\), 999px 999px, -999px 999px\);/.test(swatch), 'the circle is cut by the band, the badge\'s shape');
 });
 
 test('SQ-107 pass 5 one spacing dial at every width, GraticulePager takes cssPitch and /work keeps its pitch', () => {

@@ -152,11 +152,16 @@
  *               the engage, the release and the quick taps each circle is at its settled opacity (1) from its first
  *               moving frame, its centre between the lens circle's and its station, its distance one way per phase
  *               (taps: not the direction); (d) before the grow starts no visible ring circle lies outside the lens
- *               window. Negative controls: --inject='.swm-corner .fp-scale__station .scheme-badge{display:none
+ *               window; (e) 11-17, the far circle's window (two out, the phone's u2) meets its inner neighbour's with
+ *               no gap, settled and on every engage and release frame (a holds its outer half); (f) 11-17, wherever any
+ *               of a ring circle shows past the lens window's edge it is at its settled x: straight up and down.
+ *               Negative controls: --inject='.swm-corner .fp-scale__station .scheme-badge{display:none
  *               !important}' (a), --inject='.swm-corner .fp-scale__station .scheme-badge{background:#f0f !important;
  *               backdrop-filter:none !important}' (b), --inject='.swm-corner .fp-scale__station{opacity:var(--eye-p)
- *               !important}' (c: the old fade) and --inject='.swm-corner .fp-scale__station{--eye-p:1 !important}' (d:
- *               circles out before the grow) must FAIL.
+ *               !important}' (c: the old fade), --inject='.swm-corner .fp-scale__station{--eye-p:1 !important}' (d:
+ *               circles out before the grow), --inject='.swm-corner .fp-scale__station .scheme-badge{--badge-g:0
+ *               !important}' (e: the old 5.8 px gap at 390) and --inject='.swm-corner .fp-scale__station{--eye-sx:calc(
+ *               var(--sw) + (1 - var(--sw)) * (1 - var(--eye-p))) !important}' (f: the old slant) must FAIL.
  *   lids        SQ-107 pass 11 (?schemelids): at rest and engaged, no pixel of the iris or the lens circle lies outside
  *               the lids' outer outline (device pixel ratio 2, lids recoloured, a flood fill from the border of a capture
  *               without the circle, shrunk a device pixel, compared with a capture with it). --query=schemelids=1 (pass

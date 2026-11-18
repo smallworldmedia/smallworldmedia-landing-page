@@ -268,6 +268,9 @@ const CHIP_RULES = [
   '.fp .fp-scale__lens, .fp .fp-scale__den',
   '.fp .fp-scale__hint',
   '.fp .fp-scale__chip',
+  // 11-17: /work's pointer slide (the arrow's own rules, scoped off the corner's eye); raw rem like the triangle
+  ':is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager) .fp-scale__pointer',
+  ':is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager)[data-open] .fp-scale__pointer',
 ]
 
 test('desktop scale: the WHEEL text is a multiple of the unit, in the units it had', () => {
@@ -341,6 +344,32 @@ test('desktop scale: the CHIP keeps its pre-r12c size — the root width, lens +
   // chip root (3rem), so it spans the difference: 4rem at u = 1px, 7 pager-rem − 3rem in general
   const open = findPS('.fp .fp-scale[data-open]::after')[0]
   assert.equal(decl(open, 'right'), 'calc(3rem - 7 * var(--pager-rem))')
+})
+
+test('11-17 /work\'s pointer slides in from the viewport\'s left edge instead of fading, on the eye\'s curve, and snaps under reduced motion', () => {
+  // Nathan 11-17: "yes lets update the pager with the updated arrow choreography" (the scheme eye's SQ-107 pass 11)
+  const W = ':is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager)'
+  const rest = findPS(`${W} .fp-scale__pointer`)[0]
+  const open = findPS(`${W}[data-open] .fp-scale__pointer`)[0]
+  assert.ok(rest && open, 'both rules exist, scoped off the corner\'s eye')
+  // at rest: beyond the edge by its seat (--space-1) + its own width (0.571rem) + 1px, fully opaque
+  assert.equal(decl(rest, '--pointer-off'), 'calc(-1 * (var(--space-1) + 0.571rem + 1px))')
+  assert.equal(decl(rest, 'translate'), 'var(--pointer-off) 0')
+  assert.equal(decl(rest, 'opacity'), '1')
+  assert.equal(decl(rest, 'transition'), 'translate 0.2s var(--ease-draw)')
+  // deployed: at its seat, after the fade's old 80 ms, on --ease-draw (no overshoot)
+  assert.equal(decl(open, 'translate'), '0 0')
+  assert.equal(decl(open, 'opacity'), '1')
+  assert.equal(decl(open, 'transition'), 'translate 0.2s var(--ease-draw) 80ms')
+  // the spring on `transform` is untouched: the slide is the separate `translate` property
+  const base = findPS('.fp .fp-scale__pointer')[0]
+  assert.equal(decl(base, 'transform'), 'translateY(var(--box-dy, 0px))')
+  // reduced motion names both selectors (equal specificity, later in the sheet), so it snaps
+  const rm = rules(PS).filter((r) => r.media?.includes('prefers-reduced-motion') && /transition: none/.test(r.body))
+  const rmSel = rm.map((r) => r.selector).join(', ')
+  for (const sel of [`${W} .fp-scale__pointer`, `${W}[data-open] .fp-scale__pointer`]) assert.ok(rmSel.includes(sel), `reduced motion snaps ${sel}`)
+  // the corner's eye sets no translate of its own, so the scope is what keeps the slide off it
+  assert.ok(!/translate:/.test(read('src/styles/site-scheme.css').match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__pointer \{([^}]*)\}/)?.[1] ?? 'x'), 'the eye\'s arrow rule has no translate')
 })
 
 test('desktop scale: the pitch is READ from the CSS, and the wheel/box pad follow it', () => {

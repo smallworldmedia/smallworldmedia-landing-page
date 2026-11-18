@@ -377,6 +377,28 @@
   transition: opacity 0.2s var(--ease-micro) 80ms;
 }
 
+/* 11-17 (Nathan, after the scheme eye's arrow, SQ-107 pass 11: "yes lets update the pager with the updated arrow
+   choreography"): /work's pointer SLIDES IN from the viewport's left edge instead of fading. At rest it sits
+   entirely beyond the edge (--pointer-off: its seat's distance from the lens's left edge, plus its own width, plus
+   1 px), at opacity 1 throughout; deployed it rides to its seat on the same 200 ms and 80 ms beat the fade had, on
+   --ease-draw (the eye's curve: no overshoot), and goes back out on the retract. The x rides the separate
+   `translate` property, so the per-frame --box-dy spring on `transform` is never transitioned. Reduced motion:
+   the block at the end of this file names these two selectors too, so it snaps. The eye's own arrow
+   (site-scheme.css) is untouched: :not(.swm-corner__pager) keeps this to /work's pager, the corner skin sets no
+   `translate` of its own. */
+:is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager) .fp-scale__pointer {
+  --pointer-off: calc(-1 * (var(--space-1) + 0.571rem + 1px));
+  opacity: 1;
+  translate: var(--pointer-off) 0;
+  transition: translate 0.2s var(--ease-draw);
+}
+
+:is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager)[data-open] .fp-scale__pointer {
+  opacity: 1;
+  translate: 0 0;
+  transition: translate 0.2s var(--ease-draw) 80ms;
+}
+
 /* The deployed WINDOW — the instrument's aperture, --scale-rows pitches
    each side of the lens. Fixed (never transformed): the strip slides under
    it, so far stations scrub into view instead of running under the fixed
@@ -1094,7 +1116,9 @@
   :is(.fp, .swm-corner) .fp-scale[data-open] .fp-scale__num,
   :is(.fp, .swm-corner) .fp-scale[data-open] .fp-scale__pointer,
   :is(.fp, .swm-corner) .fp-scale[data-open] .fp-scale__hair,
-  :is(.fp, .swm-corner) .fp-scale[data-open] .fp-scale__station {
+  :is(.fp, .swm-corner) .fp-scale[data-open] .fp-scale__station,
+  :is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager) .fp-scale__pointer,
+  :is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager)[data-open] .fp-scale__pointer {
     transition: none;
   }
 

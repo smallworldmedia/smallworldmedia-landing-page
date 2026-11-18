@@ -606,20 +606,35 @@ html[data-chrome-open] .swm-corner {
   /* THE FAN-OUT (SQ-116, Nathan 11-17: "the upper eye slides upward into position, and the lower eye slides
      downward from behind the center selected eye, almost like they are revealing and fanning outward"). The
      entrance and the exit ride --eye-p as a SLIDE and nothing else: at --eye-p 0 the circle, and the badge it
-     carries (.scheme-badge, below), sit on the lens, centre on the lens's own centre (the translate undoes the
-     station's distance from the lens and its taper); at 1 they are at their own station. The circle stays at
+     carries (.scheme-badge, below), sit on the lens LINE (the centre line of the expanded central badge) at the
+     station's own x (the translate undoes only the station's distance from the lens); at 1 they are at their own
+     station. Straight up or down (Nathan 11-17: "translating directly vertically upward and downward ... anchored to
+     the center of the expanded central badge"; until then the circle also eased in from the centre eye's x, a
+     diagonal). The circle stays at
      opacity 1 the whole way: the opacity here is the distance fade (--eye-up, --eye-down) times a hard switch that
      keeps the column invisible at rest (--eye-p exactly 0, never a ramp). It is painted UNDER the lens circle
      (z-index by the DETENTED distance --ndd, the one the sizes step on) and its badge is clipped off the lens
      badge's own window, so it is revealed as it leaves the centre eye, never drawn over it. The engine's own
      cascade (opacity, stagger) is replaced; its transitions are off. */
-  --eye-sx: calc(var(--sw) + (1 - var(--sw)) * (1 - var(--eye-p)));
+  --eye-sx: var(--sw);
+  /* The circle's own clip while it slides (.scheme-swatch, below): the central badge's window in the circle's own
+     coordinates, the same mapping as its badge's (--eye-cyc: the station's distance from the lens at this instant).
+     The band is the window only while a ring circle is on its way (--eye-con: 1 at --ndd 1 or more with --eye-p
+     below 1, else 0), so a settled circle, the lens circle and every circle in a scrub are never cut. */
+  --eye-cr: calc(var(--sel) * var(--eye-far));
+  --eye-con: calc(clamp(0, var(--ndd), 1) * min(1, (1 - var(--eye-p)) * 1000));
+  --eye-cyc: calc((var(--k, 0) - var(--scale-qf, var(--scale-cur))) * var(--scale-pitch) * var(--eye-p));
+  --eye-cband: calc(var(--eye-con) * var(--eye-lift) * var(--badge-h) / 2);
+  --eye-cyt: calc(
+    var(--scheme-swatch) * var(--eye-lift) / 2 + (-1 * var(--eye-cband) - var(--eye-cyc)) / var(--eye-cr)
+  );
+  --eye-cyb: calc(var(--scheme-swatch) * var(--eye-lift) / 2 + (var(--eye-cband) - var(--eye-cyc)) / var(--eye-cr));
   z-index: calc(20 - min(var(--ndd), 19));
   opacity: calc(var(--eye-up) * var(--eye-down) * min(1, var(--eye-p) * 1000));
   /* x (pass 10): /work's stagger taper --sw (pager-scale.css, from the continuous distance --ndr and
      global.css's --scale-slice-reach / --scale-slice-exp: 1 at the lens, 0.444 one station out, 0.111
-     two out) times the engaged shift, to the LEFT; mid-slide the taper eases from 1 (the lens's) to its own
-     (--eye-sx). y: the slide, from the lens row (the column's own distance --scale-qf - --k undone) to its own. */
+     two out) times the engaged shift, to the LEFT, its own the whole way through the slide (--eye-sx, 11-17).
+     y: the slide, from the lens row (the column's own distance --scale-qf - --k undone) to its own. */
   translate:
     calc(-1 * var(--eye-sx) * var(--eye-s))
     calc((var(--scale-qf, var(--scale-cur)) - var(--k, 0)) * var(--scale-pitch) * (1 - var(--eye-p)));
@@ -650,14 +665,64 @@ html[data-chrome-open] .swm-corner {
     (var(--eye-lift) * (var(--eye-w) / 2 + var(--badge-pad)) + var(--eye-sx) * var(--eye-s)) / var(--eye-r)
   );
   --badge-yc: calc((var(--k, 0) - var(--scale-qf, var(--scale-cur))) * var(--scale-pitch) * var(--eye-p));
-  --badge-yt: calc(var(--badge-bh) / 2 * (1 - 1 / var(--eye-r)) - var(--badge-yc) / var(--eye-r));
-  --badge-yb: calc(var(--badge-bh) / 2 * (1 + 1 / var(--eye-r)) - var(--badge-yc) / var(--eye-r));
+  /* THE FAR RING'S SEAM (Nathan 11-17: "the eye badge farthest away from the currently selected also does not have a
+     gap between it and the one next closest"). The stations sit one pitch apart but the badges shrink with distance,
+     so two stations out a badge's lens-side edge fell short of the next badge in (5.8 px at the defaults: a pitch of
+     34.3 against half of 35.0 + 21.9). A badge at --ndd 2 or more now ends exactly on the outer edge of the badge one
+     station closer, the way the near ring's ends on the central badge: its box grows toward the lens by any gap
+     (--badge-xt below the lens, --badge-xb above it), and the clip band reaches out to that neighbour's outer edge
+     (--badge-bt, --badge-bb), so an overlap is cut instead of painted twice. The neighbour's place and size are the
+     engine's own: its centre off its own entrance progress (--badge-pn, the --eye-p cascade one station in), its
+     scale off --ndd - 1 through pager-scale.css's falloff (--badge-rn), so the seam holds through the entrance, a
+     scrub and the release. At --ndd 0 and 1 (--badge-g 0) the box and the band are the lens window's, as before.
+     Screen px from the lens centre map into this box's own as --badge-o + (y - --badge-yc) / --eye-r. */
+  --badge-s: calc((var(--k, 0) - var(--scale-cur)) / max(var(--ndd), 1));
+  --badge-g: clamp(0, calc(var(--ndd) - 1), 1);
+  --badge-up: calc(var(--badge-g) * max(0, -1 * var(--badge-s)));
+  --badge-dn: calc(var(--badge-g) * max(0, var(--badge-s)));
+  --badge-pn: calc(
+    var(--eye-tg) + (var(--eye-tn) - var(--eye-tg)) * clamp(0, calc(var(--ndr) - 1), 1) +
+      (var(--eye-tf) - var(--eye-tn)) * clamp(0, calc(var(--ndr) - 2), 1)
+  );
+  --badge-wn: clamp(
+    0,
+    calc(
+      1 - max(calc(var(--ndd) - 1 - var(--scale-falloff-hold)), 0) /
+        max(calc(var(--scale-falloff) - var(--scale-falloff-hold)), 0.001)
+    ),
+    1
+  );
+  --badge-w1n: clamp(0, calc(2 - var(--ndd)), 1);
+  --badge-rn: calc(
+    (
+        1 + (var(--scale-sel) - 1) * pow(var(--badge-wn), var(--scale-falloff-exp)) +
+          (var(--scale-sel) * var(--scale-sel-bump) - var(--scale-sel)) * var(--badge-w1n) * var(--badge-w1n)
+      ) * var(--eye-far)
+  );
+  --badge-yn: calc(
+    (var(--k, 0) - var(--badge-s) - var(--scale-qf, var(--scale-cur))) * var(--scale-pitch) * var(--badge-pn)
+  );
+  --badge-nt: calc(var(--badge-yn) - var(--badge-rn) * var(--badge-bh) / 2);
+  --badge-nb: calc(var(--badge-yn) + var(--badge-rn) * var(--badge-bh) / 2);
+  --badge-xb: calc(
+    var(--badge-up) * max(0px, calc(var(--badge-nt) - var(--badge-yc) - var(--eye-r) * var(--badge-bh) / 2))
+  );
+  --badge-xt: calc(
+    var(--badge-dn) * max(0px, calc(var(--badge-yc) - var(--eye-r) * var(--badge-bh) / 2 - var(--badge-nb)))
+  );
+  --badge-bt: calc(
+    -1 * var(--badge-bh) / 2 - var(--badge-up) * max(0px, calc(-1 * var(--badge-bh) / 2 - var(--badge-nt)))
+  );
+  --badge-bb: calc(var(--badge-bh) / 2 + var(--badge-dn) * max(0px, calc(var(--badge-nb) - var(--badge-bh) / 2)));
+  --badge-o: calc(var(--badge-bh) / 2 + var(--badge-xt) / var(--eye-r));
+  --badge-yt: calc(var(--badge-o) + (var(--badge-bt) - var(--badge-yc)) / var(--eye-r));
+  --badge-yb: calc(var(--badge-o) + (var(--badge-bb) - var(--badge-yc)) / var(--eye-r));
   position: absolute;
   z-index: -1;
   left: calc(50% + var(--badge-edge) - var(--badge-bw));
-  top: calc(50% - var(--badge-bh) / 2);
+  top: calc(50% - var(--badge-o));
   width: var(--badge-bw);
-  height: var(--badge-bh);
+  height: calc(var(--badge-bh) + (var(--badge-xt) + var(--badge-xb)) / var(--eye-r));
   pointer-events: none;
   background: var(--badge-glass);
   -webkit-backdrop-filter: blur(var(--badge-blur));
@@ -699,6 +764,20 @@ html[data-chrome-open] .swm-corner {
   display: block;
   width: calc(var(--scheme-swatch) * var(--eye-lift));
   height: calc(var(--scheme-swatch) * var(--eye-lift));
+  /* 11-17: a ring circle slides straight up or down at its own x (--eye-sx, the station rule), so on its way out it
+     would cross the central badge beside the lens circle. Like its badge, the part of it inside the central badge's
+     window is not painted while it slides (--eye-cyt, --eye-cyb, the station rule): it is revealed as it leaves the
+     badge's edge. Settled, on the lens and in a scrub the band is empty and nothing is cut. */
+  clip-path: polygon(
+    -999px -999px,
+    999px -999px,
+    999px var(--eye-cyt),
+    -999px var(--eye-cyt),
+    -999px var(--eye-cyb),
+    999px var(--eye-cyb),
+    999px 999px,
+    -999px 999px
+  );
 }
 
 /* The shared defs svg (path + clips, rendered once): present for the references, never seen. */

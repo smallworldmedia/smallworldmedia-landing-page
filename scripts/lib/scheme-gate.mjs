@@ -1181,16 +1181,27 @@ const PANEL_OF = { project: 'glass', black: 'black', blue: 'blue' };
  *   lens: { w, cy, b: {x, y, w, h} } (the lens circle's width, centre y and badge window),
  *   ring: { u1, d1, u2, d2: { o, w, cx, cy, scheme, b: {x, y, w, h} } }   the circles one and two stations above and
  *   below: effective opacity, width, centre, scheme and the window of their own badge }.
- * A circle is SHOWN where it is at opacity over 0.05 once settled. Four checks:
+ * A circle is SHOWN where it is at opacity over 0.05 once settled. Six checks:
  *  (a) settled, each shown circle's window exists, the circle sits inside it, and its width and height over the lens
- *      window's are within `ratio` (2 %, relative) of the circle's width over the lens circle's;
+ *      window's are within `ratio` (2 %, relative) of the circle's width over the lens circle's. Two stations out (u2,
+ *      d2) the window reaches in to its inner neighbour's (Nathan 11-17, check (e)), so there the height held to the
+ *      ratio is the OUTER half: from the circle's centre to the window's outer edge, over half the lens window's;
  *  (b) the pixel read inside each window is that circle's own scheme's panel (glass, black or blue);
  *  (c) through the engage and the release each shown circle is at its settled opacity from its first moving frame (a
  *      ramp is a fade), its centre stays between the lens circle's and its station (to `tol` px) and its distance
  *      from the lens moves one way (out in the engage, back in the release); a quick tap's release is held to the
  *      first two but not the direction;
  *  (d) before the grow starts (the eye still at its rest height) no shown circle that is visible (opacity over 0.01)
- *      lies outside the lens window.
+ *      lies outside the lens window;
+ *  (e) THE SEAM (Nathan 11-17: "the eye badge farthest away from the currently selected also does not have a gap
+ *      between it and the one next closest"): settled and on every engage and release frame, a shown two-out circle's
+ *      window meets its inner neighbour's, u2's bottom edge on u1's top and d2's top on d1's bottom, with no gap
+ *      over `tol` (an overlap is the clipped band, never painted twice);
+ *  (f) STRAIGHT UP AND DOWN (Nathan 11-17: the ring eyes move "directly vertically upward and downward ... anchored
+ *      to the center of the expanded central badge"): on every engage and release frame where any of a shown circle
+ *      shows past the lens window's edge (over `tol`; inside the window the clip hides it), its centre's x is its
+ *      settled x (to `tol`). Quick taps are not held to it (the slide back may start while a tapped ring is still on
+ *      its way in).
  * A run that measured nothing fails.
  */
 export function fanout(run, { ratio = 0.02, tol = 1, ids = ['u1', 'd1', 'u2', 'd2'] } = {}) {
@@ -1205,6 +1216,14 @@ export function fanout(run, { ratio = 0.02, tol = 1, ids = ['u1', 'd1', 'u2', 'd
   }
   let checks = 0;
   const name = (id) => `circle ${id}`;
+  // the inner ring neighbour a two-out window reaches in to (e)
+  const INNER = { u2: 'u1', d2: 'd1' };
+  const gapOf = (id, ring) => {
+    const b = ring?.[id]?.b;
+    const n = ring?.[INNER[id]]?.b;
+    if (!b || !n) return null;
+    return id[0] === 'u' ? n.y - (b.y + b.h) : b.y - (n.y + n.h);
+  };
   // (a)
   const lb = set.lens.b;
   for (const id of shown) {
@@ -1219,7 +1238,11 @@ export function fanout(run, { ratio = 0.02, tol = 1, ids = ['u1', 'd1', 'u2', 'd
     const rw = b.w / lb.w / cr;
     const rh = b.h / lb.h / cr;
     if (Math.abs(rw - 1) > ratio) bad(name(id), `its window is ${fixed(b.w / lb.w, 3)} of the lens window wide, the circle is ${fixed(cr, 3)} of the lens circle (off by ${fixed((rw - 1) * 100, 1)} %)`);
-    if (Math.abs(rh - 1) > ratio) bad(name(id), `its window is ${fixed(b.h / lb.h, 3)} of the lens window tall, the circle is ${fixed(cr, 3)} of the lens circle (off by ${fixed((rh - 1) * 100, 1)} %)`);
+    if (INNER[id]) {
+      const outer = id[0] === 'u' ? c.cy - b.y : b.y + b.h - c.cy;
+      const ro = outer / (lb.h / 2) / cr;
+      if (Math.abs(ro - 1) > ratio) bad(name(id), `its window's outer half is ${fixed(outer / (lb.h / 2), 3)} of the lens window's half height, the circle is ${fixed(cr, 3)} of the lens circle (off by ${fixed((ro - 1) * 100, 1)} %)`);
+    } else if (Math.abs(rh - 1) > ratio) bad(name(id), `its window is ${fixed(b.h / lb.h, 3)} of the lens window tall, the circle is ${fixed(cr, 3)} of the lens circle (off by ${fixed((rh - 1) * 100, 1)} %)`);
     if (!(c.cx >= b.x - tol && c.cx <= b.x + b.w + tol && c.cy >= b.y - tol && c.cy <= b.y + b.h + tol)) bad(name(id), `the circle's centre (${fixed(c.cx, 1)}, ${fixed(c.cy, 1)}) is outside its own window ${rectOf(b)}`);
   }
   // (b)
@@ -1264,7 +1287,41 @@ export function fanout(run, { ratio = 0.02, tol = 1, ids = ['u1', 'd1', 'u2', 'd
   through(up, 'engage', 1);
   through(down, 'release', -1);
   for (const tap of run.taps ?? []) through(tap.samples ?? [], `quick tap (released at ${tap.at} ms)`, 0);
-  return result(offenders, checks, `${shown.join(', ')} each in a window of its own, panels ${(run.panels ?? []).map((p) => `${p.id} ${stripClass(p.rgb)}`).join(', ')}, ${checks} checks across the engage, release and quick taps`);
+  // (e) the seam, settled and through the engage and the release
+  const seamed = shown.filter((id) => INNER[id] && shown.includes(INNER[id]));
+  for (const id of seamed) {
+    checks++;
+    const g = gapOf(id, set.ring);
+    if (g == null) bad(name(id), `settled: no window to meet circle ${INNER[id]}'s`);
+    else if (g > tol) bad(name(id), `settled: a gap of ${fixed(g, 1)} px between its window and circle ${INNER[id]}'s`);
+    for (const [label, series] of [['engage', up], ['release', down]]) {
+      let worst = null;
+      for (const p of series) {
+        const gp = gapOf(id, p.ring);
+        if (gp == null) continue;
+        checks++;
+        if (gp > tol && (worst == null || gp > worst.g)) worst = { g: gp, t: p.t };
+      }
+      if (worst) bad(name(id), `${label}: a gap of ${fixed(worst.g, 1)} px between its window and circle ${INNER[id]}'s at ${worst.t} ms (the worst frame)`);
+    }
+  }
+  // (f) straight up and down, through the engage and the release
+  for (const id of shown) {
+    const x0 = set.ring[id].cx;
+    for (const [label, series] of [['engage', up], ['release', down]]) {
+      let worst = null;
+      for (const p of series) {
+        const c = p.ring?.[id];
+        const lw = p.lens?.b;
+        if (!c || !lw || (c.cy - c.w / 2 >= lw.y - tol && c.cy + c.w / 2 <= lw.y + lw.h + tol)) continue;
+        checks++;
+        const dx = c.cx - x0;
+        if (Math.abs(dx) > tol && (worst == null || Math.abs(dx) > Math.abs(worst.dx))) worst = { dx, t: p.t, dy: c.cy - p.lens.cy };
+      }
+      if (worst) bad(name(id), `${label}: at ${worst.t} ms, ${fixed(worst.dy, 1)} px off the lens line, its centre is ${fixed(worst.dx, 1)} px sideways of its settled x (a slide on a slant, not straight up or down)`);
+    }
+  }
+  return result(offenders, checks, `${shown.join(', ')} each in a window of its own, panels ${(run.panels ?? []).map((p) => `${p.id} ${stripClass(p.rgb)}`).join(', ')}${seamed.length ? `, seams ${seamed.map((id) => `${id}/${INNER[id]} ${fixed(gapOf(id, set.ring), 1)} px`).join(', ')}` : ''}, ${checks} checks across the engage, release and quick taps`);
 }
 
 /**
