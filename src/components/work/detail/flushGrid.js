@@ -196,6 +196,33 @@ function occupy(segs, c0, colSpan, row, rowSpan) {
 export const isSquareArt = (asset) => asset.mediaType === 'album-art' && tileClassOf(asset) === 'square';
 const RIGID = new WeakSet();
 
+/**
+ * The portrait crop cap (SQ-117, Nathan 11-17: "a max amount that we can
+ * tolerate cropping, instead favoring using a square asset when present to
+ * fill the grid out to have the 9x16 content stay truer to its aspect ratio").
+ * A portrait-class tile (a 9:16 or any other tall piece, still or video) may
+ * not be STRETCHED by either flush stage to a box that crops it more than
+ * this (cropLoss, the house's one cost), unless the stretch crops it no more
+ * than the box it has: a 9:16 is cropped 0.11 in its 1 × 2 and 0.41 stretched
+ * to 1 × 3, 0.56 to 1 × 4. The hole the refused stretch leaves is closed the
+ * way any hole is, by computeFlushGrid's search (a cover promoted, a piece
+ * demoted to one square cell); a hole that search cannot close is stretched
+ * after all (`finishOpen`), the page's behaviour before the cap. 1 = off: no
+ * stretch is refused and the layout is exactly the one before the cap.
+ * PROPOSED; ?portraitcrop=<0-1> re-dials it (tileGrid.js readPortraitCrop).
+ */
+export const PORTRAIT_CROP = 0.2;
+/** A portrait-class placement → its picture's ratio, so a stretch can price the new box. */
+const TALL = new WeakMap();
+/** May `p` stretch down to `rowEnd`? `lim` = { sqRows, cap }; null = no cap. */
+function mayStretch(p, rowEnd, lim) {
+  const ratio = TALL.get(p);
+  if (!lim || ratio === undefined) return true;
+  const loss = (end) => cropLoss(ratio, p.colSpan / ((end - p.rowStart) / lim.sqRows));
+  const after = loss(rowEnd);
+  return after <= lim.cap + 1e-9 || after <= loss(p.rowEnd) + 1e-9;
+}
+
 /** Dense-place one asset at its earliest fit (leftmost on a tie). `how`
  *  resizes it: 'big' a square cover promoted to 2×2 (two columns, two
  *  squares' rows), 'small' a piece demoted to one square cell (SQ-82). */
@@ -218,6 +245,7 @@ function placeOne(segs, asset, cols, sizes, how, from = 0) {
     type,
   };
   if (how === 'small' || isSquareArt(asset)) RIGID.add(p);
+  else if (type === 'portrait') TALL.set(p, ratioOf(asset));
   return p;
 }
 
@@ -295,9 +323,10 @@ const NO_SEATS = [];
  * thing in every column it spans (other tiles, regions, or the grid
  * bottom). Closes interior gaps and flushes the bottom edge without ever
  * creating an overlap. Targets derive from immutable rowStarts, so the
- * pass is order-independent.
+ * pass is order-independent. A portrait stays put where the stretch would
+ * crop it past the cap (mayStretch).
  */
-function guardedStretch(placements, regions, totalRows) {
+function guardedStretch(placements, regions, totalRows, lim = null) {
   for (const p of placements) {
     if (RIGID.has(p)) continue;
     let target = totalRows;
@@ -315,7 +344,7 @@ function guardedStretch(placements, regions, totalRows) {
       if (sharesCol) target = Math.min(target, r.rowStart);
     }
 
-    if (target > p.rowEnd) p.rowEnd = target;
+    if (target > p.rowEnd && mayStretch(p, target, lim)) p.rowEnd = target;
   }
 }
 
@@ -338,7 +367,7 @@ function guardedStretch(placements, regions, totalRows) {
  */
 const MAX_UNDERLAY_ROWS = 12; // half a landscape — a peek, never a second tile
 
-function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDERLAY_ROWS) {
+function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDERLAY_ROWS, lim = null) {
   const covers = (x, xStart, xSpan, c) => xStart <= c && c < xStart + xSpan;
 
   for (let c = 0; c < cols; c++) {
@@ -384,7 +413,7 @@ function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDE
               );
             }
           }
-          if (target > above.rowEnd && collateral <= maxUnderlay) {
+          if (target > above.rowEnd && collateral <= maxUnderlay && mayStretch(above, target, lim)) {
             above.rowEnd = target;
             above.underlay = true;
           }
@@ -413,7 +442,7 @@ function forcedFill(placements, regions, cols, totalRows, maxUnderlay = MAX_UNDE
  * the earlier row). With no tile below the last break, the rest share its
  * row — one band. No tiles at all → no breaks.
  */
-function pinBreaks(place, cols, resolved, sqRows, laid, count, every) {
+function pinBreaks(place, cols, resolved, sqRows, laid, count, every, lim) {
   if (count <= 0 || laid.placements.length === 0) return laid;
 
   const start = Math.min(...laid.placements.map((p) => p.rowStart));
@@ -440,7 +469,7 @@ function pinBreaks(place, cols, resolved, sqRows, laid, count, every) {
     let best = { row: floor, holes: Infinity, dist: Infinity };
     for (const row of new Set(laid.placements.map((p) => p.rowEnd))) {
       if (row < floor || inside(row)) continue;
-      const holes = holeRows(place, cols, [...resolved, cut(i, row)], sqRows);
+      const holes = holeRows(place, cols, [...resolved, cut(i, row)], sqRows, lim);
       const dist = Math.abs(row - target);
       if (
         holes < best.holes ||
@@ -458,12 +487,12 @@ function pinBreaks(place, cols, resolved, sqRows, laid, count, every) {
 
 /** Rows no tile or region covers, summed over the columns, once both
  *  stretch passes have run on a trial layout: the open holes a cut leaves. */
-function holeRows(place, cols, resolved, sqRows) {
+function holeRows(place, cols, resolved, sqRows, lim) {
   const { placements, seated } = place(resolved);
   const all = [...resolved, ...seated];
   const end = Math.max(0, ...placements.map((p) => p.rowEnd), ...all.map((r) => r.rowEnd));
-  guardedStretch(placements, all, end);
-  forcedFill(placements, all, cols, end, sqRows / 2);
+  guardedStretch(placements, all, end, lim);
+  forcedFill(placements, all, cols, end, sqRows / 2, lim);
   return openRows(placements, all, cols, end);
 }
 
@@ -504,6 +533,9 @@ function openRows(placements, resolved, cols, end) {
  *        `break:0`…; anchor `'break'`, zero rows.
  * @param {number} [opts.breakEvery=2] - break pitch in SQUARES (× sqRows),
  *        > 0.
+ * @param {number} [opts.portraitCrop=1] - the portrait crop cap (PORTRAIT_CROP):
+ *        1 = off, the layout before it. The detail page passes the dial;
+ *        chunkFlushGrid (the directory) leaves it off.
  * @returns {{
  *   placements: Array<{col: number, colSpan: number, rowStart: number, rowEnd: number, type: string, underlay?: boolean}>,
  *   regions: Array<{id: string, colStart: number, colSpan: number, rowStart: number, rowEnd: number, anchor: string}>,
@@ -516,6 +548,32 @@ function openRows(placements, resolved, cols, end) {
  *    `type` the cell it fills rather than its class, and rigid the same way.
  */
 export function computeFlushGrid(showcase, opts = {}) {
+  return finishOpen(showcase, opts, findFlat(showcase, opts));
+}
+
+/**
+ * What a hole the cap left open becomes. The portrait cap (PORTRAIT_CROP)
+ * refuses the stretches that closed holes before it, and findFlat then looks
+ * for a layout whose pieces close them without one. A layout it cannot close
+ * flat has its holes stretched shut after all, by both flush stages with no
+ * cap, and where even that leaves more open than the page had before the cap
+ * (a rigid cover over a hole only a stretched portrait closed) the page keeps
+ * its layout from before it. Either way: today's behaviour for a hole no
+ * square can fill.
+ */
+function finishOpen(showcase, opts, out) {
+  const { cols = 3, sqRows = 24, portraitCrop = 1 } = opts;
+  const open = (o) => openRows(o.placements, o.regions, cols, o.totalRows);
+  if (portraitCrop >= 1 || open(out) === 0) return out;
+  guardedStretch(out.placements, out.regions, out.totalRows);
+  forcedFill(out.placements, out.regions, cols, out.totalRows, sqRows / 2);
+  if (open(out) === 0) return out;
+  const before = findFlat(showcase, { ...opts, portraitCrop: 1 });
+  return open(before) < open(out) ? before : out;
+}
+
+/** The first layout with nothing open: the base, else covers promoted, else pieces demoted (below); failing that, the one with the fewest open rows. */
+function findFlat(showcase, opts) {
   const base = layoutFlush(showcase, opts, NONE);
   const cols = opts.cols ?? 3;
   const holes = (out) => openRows(out.placements, out.regions, cols, out.totalRows);
@@ -620,7 +678,7 @@ function* combos(list, k, from = 0) {
 /** computeFlushGrid's layout with the pieces in `resize` promoted (2×2) or demoted (1×1). */
 function layoutFlush(
   showcase,
-  { cols = 3, regions = [], sqRows = 24, lsRows = sqRows, breaks = 0, breakEvery = 2 },
+  { cols = 3, regions = [], sqRows = 24, lsRows = sqRows, breaks = 0, breakEvery = 2, portraitCrop = 1 },
   resize
 ) {
   const sizes = tileSizes(sqRows, cols, lsRows);
@@ -681,7 +739,8 @@ function layoutFlush(
     laid = place(resolved);
   }
 
-  laid = pinBreaks(place, cols, resolved, sqRows, laid, breaks, breakEvery * sqRows);
+  const lim = { sqRows, cap: portraitCrop };
+  laid = pinBreaks(place, cols, resolved, sqRows, laid, breaks, breakEvery * sqRows, lim);
   const { placements } = laid;
   resolved.push(...laid.seated);
 
@@ -705,8 +764,8 @@ function layoutFlush(
     ...resolved.map((r) => r.rowEnd)
   );
 
-  guardedStretch(placements, resolved, totalRows);
-  forcedFill(placements, resolved, cols, totalRows, sqRows / 2);
+  guardedStretch(placements, resolved, totalRows, lim);
+  forcedFill(placements, resolved, cols, totalRows, sqRows / 2, lim);
 
   return { placements, regions: resolved, totalRows };
 }

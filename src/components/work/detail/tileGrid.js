@@ -5,6 +5,7 @@
  * the tiles in the rows they produce.
  */
 import { useEffect, useState } from 'react';
+import { PORTRAIT_CROP } from './flushGrid.js';
 
 export const GRID_ROW_PX = 10;
 /* Tile shape (10-27, the square-tiles round): a square tile's cell width ÷
@@ -19,6 +20,17 @@ export const TILE_SHAPE = 1;
 export const readTileShape = () => {
   const v = parseFloat(new URLSearchParams(window.location.search).get('tileshape'));
   return Number.isFinite(v) && v > 0 ? v : TILE_SHAPE;
+};
+/* The portrait crop cap (SQ-117, Nathan 11-17): how far a flush stage may
+   stretch a 9:16 or any other tall tile, as a cropLoss (flushGrid.js
+   PORTRAIT_CROP, PROPOSED 0.2: a 9:16 holds its 1 × 2, where it was stretched
+   to 1 × 3 and 1 × 4). Above 1024px only: there the CSS spans give every tile
+   its class's shape, so no stretch is drawn and the cap has nothing to hold.
+   ?portraitcrop=<0-1> re-dials it, 1 = off (the grid as it was before). */
+export const readPortraitCrop = (search = window.location.search) => {
+  const raw = new URLSearchParams(search).get('portraitcrop');
+  const v = raw === null || raw.trim() === '' ? NaN : Number(raw);
+  return Number.isFinite(v) && v >= 0 && v <= 1 ? v : PORTRAIT_CROP;
 };
 /* Rows whose span (N tracks + N-1 gaps) is closest to px. */
 export const rowsFor = (px, gap) => Math.max(8, Math.round((px + gap) / (GRID_ROW_PX + gap)));

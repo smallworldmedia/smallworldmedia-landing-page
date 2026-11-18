@@ -12,6 +12,7 @@ import {
   tileClassOf,
   TILE_RATIO,
   splitAtBreaks,
+  PORTRAIT_CROP,
 } from '../../src/components/work/detail/flushGrid.js'
 import { cropLoss, sequenceRatio } from '../../src/lib/mediaSequence.js'
 
@@ -499,4 +500,105 @@ test('the promotions run first so a 2×2 cover that alone closes the bottom leav
   assert.ok(out.placements.every((p, i) => !isDemoted(p, items[i])))
   assert.equal(out.placements.filter((p) => p.colSpan === 2).length, 1)
   assert.equal(out.placements[0].rowEnd - out.placements[0].rowStart, 2 * SQ, 'the portrait keeps its 1 × 2')
+})
+
+// ── The portrait crop cap (SQ-117, Nathan 11-17) ──
+// Nusonido (project-nusonido-nusonido), as the live page lists it (11-17): the MMW Promo and Promo 1 thirds,
+// the 8-Bit Visualizer's thirds 2 and 3 (16:9; its first rides the hero), Promo 2, the Wynwood Teaser's three
+// thirds (all 9:16), Pixel Diffuse (1:1) and two 4:5 pieces (Pixel Loop Metallic 750:937, The Power Preview).
+const NUSONIDO = [9 / 16, 9 / 16, 9 / 16, 9 / 16, 9 / 16, 9 / 16, 16 / 9, 16 / 9, 9 / 16, 9 / 16, 9 / 16, 9 / 16, 1, 750 / 937, 0.8]
+const nusonido = () => NUSONIDO.map((r, i) => tile(i, r))
+/** cropLoss of a placed tile: its picture against the box it was drawn in. */
+const boxCrop = (p, ratio, sqRows) => cropLoss(ratio, p.colSpan / ((p.rowEnd - p.rowStart) / sqRows))
+/** The 9:16 tiles (portrait class, ratio 0.5625) drawn past the cap. */
+const over = (out, sqRows, cap) =>
+  out.placements.flatMap((p, i) => (NUSONIDO[i] === 9 / 16 && boxCrop(p, NUSONIDO[i], sqRows) > cap + 1e-9 ? [i] : []))
+
+test('Nusonido at 1440: the flush stretch drew the Wynwood thirds 1 × 4; with the cap no 9:16 crops past 0.2, nothing is left open, and squares fill the hole', () => {
+  const w = { cols: 5, sqRows: 24, breaks: 1, breakEvery: 2 }
+  const today = computeFlushGrid(nusonido(), { ...w, portraitCrop: 1 })
+  // The cause: the 4:5 pair falls into cols 0-1, leaving 3 columns × 2 squares open under the Wynwood thirds.
+  assert.deepEqual(over(today, 24, PORTRAIT_CROP), [9, 10, 11], 'before: the three Wynwood thirds are stretched past the cap')
+  assert.ok(boxCrop(today.placements[9], 9 / 16, 24) > 0.55, 'before: a 1 × 4, 0.556')
+
+  const out = computeFlushGrid(nusonido(), { ...w, portraitCrop: PORTRAIT_CROP })
+  assertValid(out, { cols: 5, sqRows: 24 }, 'capped')
+  assert.deepEqual(over(out, 24, PORTRAIT_CROP), [], 'no 9:16 past the cap')
+  assert.equal(openRows(out, 5), 0, 'no hole')
+  // The holes now hold square cells: Pixel Diffuse and the 4:5 piece the search turned into one (SQ-82), both rigid 1 × 1.
+  const cells = out.placements.flatMap((p, i) => (p.type === 'square' ? [i] : []))
+  assert.deepEqual(cells, [12, 14], 'the two square-class pieces')
+  for (const i of cells) assert.equal(out.placements[i].rowEnd - out.placements[i].rowStart, 24, `tile ${i} is one square cell`)
+  assert.ok(out.placements[14].rowStart < today.placements[14].rowStart, 'the 4:5 piece moved up from the end into a hole')
+  assert.deepEqual(computeFlushGrid(nusonido(), { ...w, portraitCrop: PORTRAIT_CROP }), out, 'deterministic')
+})
+
+test('Nusonido at 1920 (6 columns): the cap leaves fewer 9:16 stretched; the one hole no square closes keeps its stretch', () => {
+  const w = { cols: 6, sqRows: 20, breaks: 1, breakEvery: 2 }
+  const today = over(computeFlushGrid(nusonido(), { ...w, portraitCrop: 1 }), 20, PORTRAIT_CROP)
+  const out = computeFlushGrid(nusonido(), { ...w, portraitCrop: PORTRAIT_CROP })
+  assertValid(out, { cols: 6, sqRows: 20 }, 'capped')
+  assert.ok(today.length >= 4, `before: ${today.length} stretched 9:16 tiles`)
+  assert.equal(openRows(out, 6), 0, 'no hole')
+  assert.deepEqual(over(out, 20, PORTRAIT_CROP), [5], 'one third is still stretched, 1 × 3: the last open cell has no square left to take it')
+})
+
+test('portraitCrop 1 is the layout before the cap, byte for byte (Nusonido at 5, 6, 3, 2 and 1 columns, with and without a break)', () => {
+  // sha256 prefixes recorded from flushGrid.js before the cap (0e3b29b).
+  const WANT = {
+    '5 0': '07ab8e55dd1c4038', '5 1': 'f55779461a135b0c',
+    '6 0': '2c8a5b7be8105e08', '6 1': '13eb22320a39338e',
+    '3 0': '1486cc56a0f1b37c', '3 1': 'fe106b77267b3ac3',
+    '2 0': '1215a2f0a0491209', '2 1': '0475be1bfda64472',
+    '1 0': '189326ba22a08747', '1 1': 'ad8e02dde3e6115c',
+  }
+  for (const w of [{ cols: 5, sqRows: 24 }, { cols: 6, sqRows: 20 }, { cols: 3, sqRows: 40 }, { cols: 2, sqRows: 43 }, { cols: 1, sqRows: 33, lsRows: 16 }]) {
+    for (const breaks of [0, 1]) {
+      const out = computeFlushGrid(nusonido(), { ...w, breaks, breakEvery: 2, portraitCrop: 1 })
+      const got = createHash('sha256').update(JSON.stringify(out)).digest('hex').slice(0, 16)
+      assert.equal(got, WANT[`${w.cols} ${breaks}`], `${w.cols} cols, ${breaks} breaks`)
+    }
+  }
+})
+
+test('a page with no square candidate is unchanged: nothing for the search to use, so every hole stretches as before', () => {
+  const sq = 24
+  for (const items of [
+    Array.from({ length: 7 }, (_, i) => tile(i, 9 / 16)), // one 9:16 alone on the last row
+    Array.from({ length: 8 }, (_, i) => tile(i, i % 4 === 3 ? 16 / 9 : 9 / 16)),
+    Array.from({ length: 11 }, (_, i) => tile(i, 0.5)),
+  ]) {
+    for (const cols of [3, 4, 5, 6]) {
+      const capped = computeFlushGrid(items, { cols, sqRows: sq, portraitCrop: PORTRAIT_CROP })
+      assert.deepEqual(capped, computeFlushGrid(items, { cols, sqRows: sq, portraitCrop: 1 }), `${items.length} tiles @ ${cols}`)
+    }
+  }
+})
+
+test('a stretch that crops a tall piece LESS is not refused (1 × 2 → 1 × 4 for a 1:4 strip)', () => {
+  // A 1:4 strip is cropped 0.5 in its 1 × 2 and 0 in a 1 × 4: the cap holds back a stretch that costs crop, not one that saves it.
+  const strips = [tile(0, 0.25), tile(1, 0.25), tile(2, 0.25), tile(3, 0.25)]
+  const out = computeFlushGrid(strips, { cols: 3, sqRows: 24, portraitCrop: PORTRAIT_CROP })
+  assert.deepEqual(out, computeFlushGrid(strips, { cols: 3, sqRows: 24, portraitCrop: 1 }))
+  assert.equal(out.placements.filter((p) => p.rowEnd - p.rowStart === 4 * 24).length, 2, 'the two over the open cells stretch to 1 × 4')
+})
+
+test('with the cap on, covers stay square and rigid, and grids stay valid and deterministic', () => {
+  const kind = { A: cover, P: (i) => tile(i, 9 / 16), Q: (i) => tile(i, 0.8), L: (i) => tile(i, 16 / 9), S: (i) => tile(i, 1) }
+  for (const cols of [5, 6]) {
+    for (let seed = 1; seed <= 6; seed++) {
+      for (let n = 3; n <= 19; n += 2) {
+        const r = rng(seed * 1000 + n)
+        const items = Array.from({ length: n }, (_, i) => kind['AAPPQLS'[Math.floor(r() * 7)]](i))
+        const opts = { cols, sqRows: SQ, portraitCrop: PORTRAIT_CROP }
+        const out = computeFlushGrid(items, opts)
+        const where = `${n} mixed @ ${cols}, seed ${seed}`
+        assertCoversSquare(out.placements, items, where)
+        assertValid(out, { cols, sqRows: SQ }, where)
+        assert.deepEqual(computeFlushGrid(items, opts), out, `${where}: deterministic`)
+        // A cap never leaves more open rows than the page had before it.
+        assert.ok(openRows(out, cols) <= openRows(computeFlushGrid(items, { ...opts, portraitCrop: 1 }), cols), `${where}: open rows`)
+      }
+    }
+  }
 })
