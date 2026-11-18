@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-17*
+*Last Updated: 2026-11-18*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -79,10 +79,12 @@ rule, so a 5 Hz text repaint cannot run beside the `/work` WebGL world or while 
 parked. `prefers-reduced-motion` resolves to `animation: none` plus the flat resting ink.
 
 The GSAP house pulse (`housePulseLoop`) is phase-locked to the wall clock when it is built. A
-`pause()` then `play()` resumes from wherever it stopped, so the beat drifts off the clock. To
-start a loop on the beat, build it paused and hand it to `joinHousePulse(tl)`: it seeks to
-`now mod period` when the clock is in the rest, otherwise it waits for the next downbeat, and it
-returns a cancel (call it before `kill()`). The /work pager's rest pulse arms this way. A pulse
+`pause()` then `play()` resumes from wherever it stopped, so the beat drifts off the clock. An
+endless pulse that only fades opacity can leave GSAP: `housePulseKeyframes(ease, from, to)` samples
+the house curve into web-animation keyframes and `housePulseStartMs(now, period, hit)` gives the
+next downbeat to start them on, so the beat stays on the metronome with nothing ticking on the main
+thread (SQ-124, 11-18: the /work pager's rest pulse and the scheme eye; `joinHousePulse` is gone).
+Skip targets that are not painted: Blink restyles an animated `display:none` element every frame. A pulse
 that must survive a recolour cannot tween a colour FROM the accent, because GSAP records the start
 once; the pager fades a white twin of its number on opacity instead (`.fp-scale__peak`).
 
