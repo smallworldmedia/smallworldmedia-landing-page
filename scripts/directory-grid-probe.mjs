@@ -21,6 +21,8 @@
  * class gives it (SQ-122): flush views end with `logo off-cell`, the logo pieces drawn
  * taller or wider, and any makes the run exit 1 (FLUSHGRID=<a copy from before> shows it).
  * `open/col [...]` lists the uncovered cells by column in squares: the tail a view ends on.
+ * The logo pieces are dealt by width at odd column counts (dealLogoPieces, as the page does
+ * after its shuffle); `--deal 0` keeps list order to compare against.
  *
  * Per view: n, contain (how many are really transparent), black>10% (contain
  * tiles showing over 10% ground) and how many of those have NO measured
@@ -36,7 +38,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const imp = (p) => import(pathToFileURL(join(ROOT, p)).href);
 const { createClient } = await imp('node_modules/@sanity/client/dist/index.js');
 const { DIRECTORY_QUERY } = await imp('src/lib/queries.js');
-const { buildDirectoryTiles, orderTiles, logoFirst, matchesFilter, isLogoPiece, DEFAULT_TAG } = await imp('src/components/work/directory/buildDirectoryTiles.js');
+const { buildDirectoryTiles, orderTiles, logoFirst, matchesFilter, isLogoPiece, dealLogoPieces, DEFAULT_TAG } = await imp('src/components/work/directory/buildDirectoryTiles.js');
 const { chunkFlushGrid, tileClassOf } = await imp(process.env.FLUSHGRID ?? 'src/components/work/detail/flushGrid.js');
 const { coverageOf } = await imp('src/lib/clientCoverage.js');
 const { chunkAspectGrid, LOOK } = await imp('src/components/work/directory/aspectGrid.js');
@@ -50,6 +52,7 @@ const arg = (k, d) => {
 };
 const PACK = arg('pack', 'flush');
 const LOOK_N = Number(arg('look', LOOK));
+const DEAL = arg('deal', '1') !== '0'; // --deal 0: the logo pieces in plain list order (before SQ-122's deal)
 if (!['flush', 'aspect'].includes(PACK)) throw new Error(`--pack flush|aspect, not ${PACK}`);
 
 const json = (p) => JSON.parse(readFileSync(join(ROOT, p), 'utf8'));
@@ -86,8 +89,10 @@ function pack(list, { width, cols }) {
   return chunkFlushGrid(list, { cols, sqRows: rows.sq, lsRows: rows.ls });
 }
 
-function measure(list, view) {
+function measure(listIn, view) {
   const { width, cols } = VIEWS[view];
+  // the page deals the logo pieces by the column count, after any shuffle (DirectoryGrid)
+  const list = PACK === 'flush' && DEAL ? dealLogoPieces(listIn, cols) : listIn;
   const colW = (width - (cols - 1) * GAP) / cols;
   const chunks = pack(list, VIEWS[view]);
   const out = [];

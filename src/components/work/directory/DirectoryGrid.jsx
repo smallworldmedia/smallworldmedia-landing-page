@@ -47,7 +47,7 @@ import {
   useTileShape,
 } from '../detail/tileGrid.js';
 import { createPlayerGate } from './playerGate.js';
-import { sizesFor } from './buildDirectoryTiles.js';
+import { dealLogoPieces, sizesFor } from './buildDirectoryTiles.js';
 import { PREVIEW_SECONDS } from '../imageConfig.js';
 
 /* Before the gate mounts (the server render, the first client frame): the
@@ -139,7 +139,7 @@ export default function DirectoryGrid({
   const aspect = pack === 'aspect';
   // A logo tile's canvas (a square, or a landscape for a wide mark) is its
   // shape in the flush grid: tileRatio is what ratioOf reads (logoTile.js).
-  const tiles = useMemo(
+  const canvased = useMemo(
     () =>
       shown.map((t) => (t.logo ? { ...t, tileRatio: CANVAS_RATIO[canvasOf(t.logo, logoDials)] } : t)),
     [shown, logoDials]
@@ -155,6 +155,8 @@ export default function DirectoryGrid({
     [phoneCols, tabletCols, deskCols, largeCols, largeFrom]
   );
   const cols = metrics ? colSpec[metrics.tier] : deskCols;
+  // The logo pieces' order by width (SQ-122), after any shuffle: the column count decides it.
+  const tiles = useMemo(() => (aspect ? canvased : dealLogoPieces(canvased, cols)), [aspect, canvased, cols]);
   const rows = metrics ? tileRowsFor({ ...metrics, cols }, tileShape) : null;
   const sqRows = rows?.sq ?? fallbackRows(deskCols);
   const lsRows = rows?.ls ?? sqRows;

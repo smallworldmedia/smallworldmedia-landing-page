@@ -15,6 +15,7 @@ import {
   PORTRAIT_CROP,
   LANDSCAPE_CROP,
 } from '../../src/components/work/detail/flushGrid.js'
+import { dealLogoPieces } from '../../src/components/work/directory/buildDirectoryTiles.js'
 import { cropLoss, sequenceRatio } from '../../src/lib/mediaSequence.js'
 
 const rng = (seed) => () => {
@@ -846,4 +847,63 @@ test('a list with no flagged piece lays out as it did, and flagging a stretched 
     }
   }
   assert.ok(stretches > 10, `the mixes stretch pieces to hold (${stretches})`)
+})
+
+/* ── SQ-122, the logo pieces' deal (dealLogoPieces): the order that ends the Logo Design view flat ── */
+/** A logo piece tagged logo-design, as buildDirectoryTiles makes one: flagged, with its `services`. */
+const logoPiece = (i, ratio) => ({ ...logo(tile(i, ratio)), services: ['logo-design'] })
+/** A tile that is not a logo piece. */
+const plainPiece = (i, ratio) => ({ ...tile(i, ratio), services: ['branding'] })
+/** The live Logo Design view's project order (11-18): 22 landscapes and 8 squares, the squares up front. */
+const LOGO_VIEW = 'LSLSLSLSLSLSLSLSLLLLLLLLLLLLLL'
+const logoView = () => [...LOGO_VIEW].map((c, i) => logoPiece(i, c === 'L' ? 16 / 9 : 1))
+/** Open squares at `cols` columns (SQ rows each), over every chunk. */
+const openSquares = (items, cols) =>
+  chunkFlushGrid(items, { cols, sqRows: SQ }).reduce((n, ch) => n + openRows(ch, cols), 0) / SQ
+const shapes = (items) => items.map((a) => (tileClassOf(a) === 'landscape' ? 'L' : 'S')).join('')
+
+test('dealing the logo pieces by width ends the Logo Design view with 3 open squares at 5 columns where list order leaves 8', () => {
+  const items = logoView()
+  assert.equal(openSquares(items, 5), 8, 'list order leaves 8 open (the negative control, more than 3)')
+  const dealt = dealLogoPieces(items, 5)
+  assert.equal(shapes(dealt).slice(0, 12), 'LLSLLSLLSLLS', 'two landscapes to a square')
+  assert.equal(openSquares(dealt, 5), 3, 'the least 22 landscapes and 8 squares can leave in 5 columns')
+  assert.deepEqual([...dealt].sort((a, b) => a._id.localeCompare(b._id)), [...items].sort((a, b) => a._id.localeCompare(b._id)), 'the same pieces')
+  assert.deepEqual(dealLogoPieces(items, 5), dealt, 'deterministic')
+  assert.deepEqual(stretchedLogos(chunkFlushGrid(dealt, { cols: 5, sqRows: SQ })[0].placements, dealt, SQ, 5), [], 'and none is stretched to get there')
+})
+
+test('even column counts and one column keep list order, and they stay flat with it', () => {
+  const items = logoView()
+  for (const cols of [1, 2, 4, 6]) assert.equal(dealLogoPieces(items, cols), items, `${cols} columns`)
+  for (const cols of [2, 4]) assert.equal(openSquares(items, cols), 0, `${cols} columns end flat`)
+  assert.ok(openSquares(items, 6) <= 2, 'and 6 columns end with 2 open or fewer')
+})
+
+test('every other column count deals a square after its landscape pairs', () => {
+  const items = logoView()
+  assert.equal(shapes(dealLogoPieces(items, 3)).slice(0, 8), 'LSLSLSLS')
+  assert.equal(shapes(dealLogoPieces(items, 7)).slice(0, 8), 'LLLSLLLS')
+  // the landscapes run out first or the squares do: the rest follows in order
+  assert.equal(shapes(dealLogoPieces([...'SSSSL'].map((c, i) => logoPiece(i, c === 'L' ? 2 : 1)), 5)), 'LSSSS')
+  assert.equal(shapes(dealLogoPieces([...'LLLLLS'].map((c, i) => logoPiece(i, c === 'L' ? 2 : 1)), 5)), 'LLSLLL')
+})
+
+test('only logo pieces move, each run is dealt among its own places and each class keeps its order', () => {
+  const kinds = 'LSLLPSLLS' // P is a tile that is not a logo piece
+  const items = [...kinds].map((c, i) => (c === 'P' ? plainPiece(i, 1) : logoPiece(i, c === 'L' ? 16 / 9 : 1)))
+  const dealt = dealLogoPieces(items, 5)
+  assert.equal(dealt.length, items.length)
+  assert.equal(dealt[4], items[4], 'the plain tile keeps its place')
+  assert.deepEqual(dealt.slice(0, 4).map((a) => a._id), ['a0', 'a2', 'a1', 'a3'], 'the first run, LSLL, dealt L L S L')
+  assert.deepEqual(dealt.slice(5).map((a) => a._id), ['a6', 'a7', 'a5', 'a8'], 'the second run, SLLS, dealt L L S S')
+  // a list with no logo piece is the list
+  const none = [...'LSLLSL'].map((c, i) => plainPiece(i, c === 'L' ? 16 / 9 : 1))
+  assert.deepEqual(dealLogoPieces(none, 5), none)
+  // a baked mark counts as a logo piece with no tag
+  const marks = [...'SSLL'].map((c, i) => ({ ...tile(i, c === 'L' ? 2 : 1), logo: { aspect: 1 }, services: [] }))
+  assert.deepEqual(shapes(dealLogoPieces(marks, 5)), 'LLSS')
+  // a run holding a split video's chunk is left as it is
+  const chunked = [logoPiece(0, 1), { ...logoPiece(1, 1), chunk: 1 }, logoPiece(2, 2), logoPiece(3, 2)]
+  assert.deepEqual(dealLogoPieces(chunked, 5), chunked)
 })
