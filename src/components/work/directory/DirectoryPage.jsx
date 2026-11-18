@@ -269,7 +269,7 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
       data-nav-accent-page=""
       data-pending={pending || undefined}
     >
-      <h1 className="sr-only">Project Directory</h1>
+      <h1 className="sr-only">Services</h1>
       <div className="dir-page__seat" ref={seatRef} aria-hidden="true" />
       <DirectoryFilter
         tags={filterTags}

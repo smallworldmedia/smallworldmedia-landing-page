@@ -4417,8 +4417,9 @@ body:has(.privacy-page) {
 
 /* 11-03: below the tablet breakpoint the five links run past the bar's
    right edge (measured), so the row keeps the four it shipped with and
-   project_directory waits for the wider bar; the phone menu lists all
-   five. */
+   the directory link waits for the wider bar; the phone menu lists all
+   five. Measured with the label project_directory; services (11-18) is
+   half as long and may fit now (unmeasured). */
 @media (max-width: 991px) {
   .site-nav__links .site-nav__link--directory {
     display: none;

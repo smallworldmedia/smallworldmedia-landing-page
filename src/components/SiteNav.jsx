@@ -71,14 +71,17 @@ function HeartIcon() {
   );
 }
 
-/** project_directory's mark: a folder, drawn like the heart (11-03, Nathan). */
-function FolderIcon() {
+/** The services link's mark: an open hand, drawn like the heart (Nathan 11-18: the
+    page shows what the services are and the past work in each; it was a folder,
+    11-03, as project_directory). */
+function HandIcon() {
   return (
     <svg className="site-nav__icon site-nav__icon--sm" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path
-        d="M2.5 4.5a1 1 0 0 1 1-1h2.8l1.4 1.6h4.8a1 1 0 0 1 1 1v5.4a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1Z"
+        d="M5.5 9.9V4.2a1 1 0 0 1 2 0V7.5M7.5 7.5V3a1 1 0 0 1 2 0v4.5M9.5 7.5V3.8a1 1 0 0 1 2 0V8M11.5 8V5.3a1 1 0 0 1 2 0V10a4 4 0 0 1-4 4H8.6c-1.3 0-2.2-.4-3-1.2L3.2 10.4a1 1 0 0 1 1.4-1.4l.9.9"
         stroke="currentColor"
         strokeWidth="1.2"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
@@ -255,7 +258,7 @@ export default function SiteNav({
   // (the island never remounts). Href-keyed by construction: start_project
   // is an interception (never current) and follow_us is external (never
   // current) — only featured_projects (/work and its detail pages)
-  // and project_directory (/work/directory) can
+  // and services (/work/directory) can
   // match. The attributes survive the route-swap hygiene
   // wipe (killTweensOf + clearProps strips inline STYLES only, never
   // attributes). UNCONDITIONAL: aria-current is a strict a11y win and
@@ -416,8 +419,8 @@ export default function SiteNav({
             <span className="site-nav__label">featured_projects</span>
           </a>
           <a href="/work/directory" className="site-nav__link site-nav__link--directory">
-            <FolderIcon />
-            <span className="site-nav__label">project_directory</span>
+            <HandIcon />
+            <span className="site-nav__label">services</span>
           </a>
           <a
             href="https://instagram.com/smallworldmedia"
@@ -498,8 +501,8 @@ export default function SiteNav({
                 <span className="site-nav__label">featured_projects</span>
               </a>
               <a href="/work/directory" className="mobile-menu__item">
-                <FolderIcon />
-                <span className="site-nav__label">project_directory</span>
+                <HandIcon />
+                <span className="site-nav__label">services</span>
               </a>
               <a
                 href="https://instagram.com/smallworldmedia"
