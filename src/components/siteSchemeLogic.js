@@ -227,5 +227,7 @@ export function schemeParams(params) {
     growMs: dial(params.get('schemegrow'), 0, 600),
     stepMs: dial(params.get('schemestep'), 0, 300),
     lids: dial(params.get('schemelids'), 1, 1.3),
+    glass: dial(params.get('schemeglass'), 0, 100),
+    black: dial(params.get('schemeblack'), 0, 40),
   };
 }

@@ -187,8 +187,17 @@
      colour. Read off the role tokens each scheme sets, never a raw hue and never --scheme-page
      (the CURRENT scheme's). The badge rectangle is a clipping window onto the vertical strip of the
      panels, in SCHEMES order; the strip rides the engine's continuous column position, one detent =
-     one badge height (the ::before, below). */
-  --badge-glass: color-mix(in srgb, var(--color-white) 22%, transparent);
+     one badge height (the ::before, below).
+     Nathan 11-17: "lighten the hue or the shade of the glass effect background on the multicolor so it's
+     not as dark of a gray, and then make the black background be a light black so it reads as just off
+     of if it is sitting on top of a black container / page element". --badge-veil is the glass's white
+     (?schemeglass, PROPOSED 35%; it was 22%), --badge-black-mix the white mixed into black's panel
+     (?schemeblack, PROPOSED 10%, #1a1a1a; it was the page black itself). Both panels, the lens strip's and
+     each ring station's, read these two tokens. */
+  --badge-veil: 35%;
+  --badge-black-mix: 10%;
+  --badge-glass: color-mix(in srgb, var(--color-white) var(--badge-veil), transparent);
+  --badge-black: color-mix(in srgb, var(--color-white) var(--badge-black-mix), var(--color-black));
   --badge-blur: 12px;
   /* THE PHONE'S RAISE (pass 9, ?schemeclear, PROPOSED): a square-cornered box flush with the right edge
      clears a screen corner of radius R only when its bottom edge is at least R above the viewport's
@@ -284,7 +293,7 @@
   background-image: linear-gradient(
     to bottom,
     var(--badge-glass) 0 33.3333%,
-    var(--color-black) 33.3333% 66.6667%,
+    var(--badge-black) 33.3333% 66.6667%,
     var(--color-electric-blue) 66.6667% 100%
   );
   background-size: 100% calc(3 * var(--badge-h));
@@ -668,7 +677,7 @@ html[data-chrome-open] .swm-corner {
 /* The other two panels (the strip's own colours, drawn whole: a band of the strip would bleed its neighbour's colour
    along a fractional edge). Opaque, so no blur under them. */
 .swm-corner .fp-scale.swm-corner__pager .scheme-badge[data-scheme='black'] {
-  background: var(--color-black);
+  background: var(--badge-black);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }

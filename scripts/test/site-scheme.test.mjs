@@ -149,6 +149,8 @@ test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesi
     growMs: null,
     stepMs: null,
     lids: null,
+    glass: null,
+    black: null,
   });
   assert.equal(q('schemeui=0').ui, false);
   assert.equal(q('schemeui=1').ui, true);
@@ -372,7 +374,7 @@ test('SQ-107 the badge is a rectangle hugging the eye with equal padding, one co
   assert.ok(/scale:\s*var\(--eye-lift\)/.test(tile) && /transform-origin:\s*50% 50%/.test(tile), 'it grows with the eye, on the one --eye-t, about its own centre');
   assert.ok(!/border-radius/.test(tile), 'square corners');
   assert.ok(/(^|[\s;{])translate:\s*calc\(\(1 - var\(--eye-lift\)\) \* \(var\(--eye-w\) \/ 2 \+ var\(--badge-pad\)\)\) 0;/.test(css), 'ONE anchor: the pager moves in x only, so the badge\'s right edge at its vertical centre holds and nothing climbs');
-  assert.ok(/background-image:\s*linear-gradient\(\s*to bottom,\s*var\(--badge-glass\) 0 33\.3333%,\s*var\(--color-black\) 33\.3333% 66\.6667%,\s*var\(--color-electric-blue\) 66\.6667% 100%\s*\)/.test(tile), 'the strip: project glass, black, blue, in SCHEMES order, hard stops');
+  assert.ok(/background-image:\s*linear-gradient\(\s*to bottom,\s*var\(--badge-glass\) 0 33\.3333%,\s*var\(--badge-black\) 33\.3333% 66\.6667%,\s*var\(--color-electric-blue\) 66\.6667% 100%\s*\)/.test(tile), 'the strip: project glass, black, blue, in SCHEMES order, hard stops');
   assert.ok(/background-size:\s*100% calc\(3 \* var\(--badge-h\)\)/.test(tile) && /background-repeat:\s*repeat-y/.test(tile), 'three badge heights tall, repeating, so the wrap is the strip\'s own');
   assert.ok(/background-position:\s*0 calc\(-1 \* var\(--scale-qf, var\(--scale-cur\)\) \* var\(--badge-h\)\)/.test(tile), 'locked to the engine\'s continuous column position, one detent = one badge height');
   assert.ok(!/--scheme-page|--badge-solid|color-mix/.test(tile), 'no crossfade and never the current scheme\'s page colour');
@@ -423,7 +425,7 @@ test('SQ-116 every station carries a badge of its own scheme, the lens badge\'s 
   // the three panels: the glass rule (alpha on the background, never opacity), black, brand blue
   assert.ok(/background: var\(--badge-glass\);/.test(rule) && /backdrop-filter: blur\(var\(--badge-blur\)\);/.test(rule), 'project is the lens badge\'s glass');
   assert.ok(!/(^|[\s;])opacity:/.test(rule), 'a badge never fades with opacity (the blur would show the sharp original)');
-  assert.ok(/\.scheme-badge\[data-scheme='black'\] \{ background: var\(--color-black\);/.test(flat), 'black is the page black');
+  assert.ok(/\.scheme-badge\[data-scheme='black'\] \{ background: var\(--badge-black\);/.test(flat), 'black is the light black (?schemeblack), one token with the strip');
   assert.ok(/\.scheme-badge\[data-scheme='blue'\] \{ background: linear-gradient\(to bottom, var\(--color-electric-blue\) 0 100%\);/.test(flat), 'blue is the brand blue');
   // the markup: StationArt renders the badge with the station's scheme beside the circle, SiteScheme uses it
   const sw = read('src/components/schemeSwatches.jsx');
@@ -578,6 +580,26 @@ test('SQ-107 pass 5 the left jolt root cause, the strip carries no compositing h
 });
 
 // ── SQ-107 pass 11: the sequence, the arrow's slide, the lids' scale ────────────────────────────────────────
+
+test('the badge colours ?schemeglass ?schemeblack: parse and clamp, one token each for the strip and the stations (Nathan 11-17)', () => {
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  assert.equal(q('').glass, null, 'absent = the CSS default');
+  assert.equal(q('schemeglass=40').glass, 40);
+  assert.equal(q('schemeglass=0').glass, 0, '0 = bare blur, not the default');
+  assert.equal(q('schemeglass=200').glass, 100);
+  assert.equal(q('schemeglass=light').glass, null);
+  assert.equal(q('').black, null);
+  assert.equal(q('schemeblack=12').black, 12);
+  assert.equal(q('schemeblack=0').black, 0, '0 = the page black');
+  assert.equal(q('schemeblack=90').black, 40);
+  const css = read('src/styles/site-scheme.css');
+  assert.ok(/--badge-veil: 35%;/.test(css) && /--badge-black-mix: 10%;/.test(css), 'the PROPOSED defaults');
+  assert.ok(/--badge-glass: color-mix\(in srgb, var\(--color-white\) var\(--badge-veil\), transparent\);/.test(css), 'the glass is white at --badge-veil (alpha, never opacity)');
+  assert.ok(/--badge-black: color-mix\(in srgb, var\(--color-white\) var\(--badge-black-mix\), var\(--color-black\)\);/.test(css), 'the light black is opaque');
+  assert.ok(!/var\(--color-black\) 33\.3333%/.test(css), 'the strip no longer paints the page black');
+  const sc = read('src/components/SiteScheme.jsx');
+  assert.ok(/setProperty\('--badge-veil', `\$\{p\.glass\}%`\)/.test(sc) && /setProperty\('--badge-black-mix', `\$\{p\.black\}%`\)/.test(sc), 'SiteScheme writes both onto the corner');
+});
 
 test('schemeParams the sequence dials ?schemeslide ?schemegrow ?schemestep ?schemelids parse and clamp (null = the CSS default)', () => {
   const q = (s) => schemeParams(new URLSearchParams(s));

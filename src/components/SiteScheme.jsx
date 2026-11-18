@@ -154,6 +154,8 @@ export default function SiteScheme() {
       if (p.slideMs != null) el.style.setProperty('--eye-slide', `${p.slideMs}ms`);
       if (p.growMs != null) el.style.setProperty('--eye-grow', `${p.growMs}ms`);
       if (p.stepMs != null) el.style.setProperty('--eye-step', `${p.stepMs}ms`);
+      if (p.glass != null) el.style.setProperty('--badge-veil', `${p.glass}%`);
+      if (p.black != null) el.style.setProperty('--badge-black-mix', `${p.black}%`);
       if (p.lids != null) {
         const g = eyeGeometry(p.lids);
         el.style.setProperty('--eye-u-w', String(+g.w.toFixed(4)));
