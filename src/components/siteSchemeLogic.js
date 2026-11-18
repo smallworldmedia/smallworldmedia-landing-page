@@ -203,6 +203,10 @@ const dial = (raw, lo, hi) => {
  *   ?schemeshift=<px> the engaged eye's step LEFT, away from the viewport's right edge (SQ-107 pass 10), at
  *                     /work's stagger taper (1 at the lens, 0.444 one station out, 0.111 two out), 0 to 120;
  *                     0 = a straight column, null = the CSS default (--eye-shift, one rest eye width)
+ *   ?schemeblurbgap=<px> the DESKTOP seat (above 768px only, SQ-121): the gap between the engaged lens badge's bottom edge
+ *                     and the top of the footer blurb's text, 0 to 60, null = the CSS default (--badge-blurb-gap, 8)
+ *   ?schemedown=<0|1> the DESKTOP column's ring below the lens (above 768px only, SQ-121): 0 = none (the default), the
+ *                     seat sits as low as the lens badge clears the blurb; 1 = shown, the seat rises to clear it too
  * Out-of-range values clamp; unparseable ones fall back to the default (null: the CSS owns it).
  */
 export function schemeParams(params) {
@@ -219,6 +223,8 @@ export function schemeParams(params) {
     pad: dial(params.get('schemepad'), 0, 40),
     clear: dial(params.get('schemeclear'), 0, 120),
     shift: dial(params.get('schemeshift'), 0, 120),
+    blurbGap: dial(params.get('schemeblurbgap'), 0, 60),
+    down: params.get('schemedown') === '1' ? 1 : params.get('schemedown') === '0' ? 0 : null,
     near: dial(params.get('schemenear'), 0.2, 1),
     far: dial(params.get('schemefar'), 0.2, 1),
     inMs: dial(params.get('schemein'), 0, 5000),

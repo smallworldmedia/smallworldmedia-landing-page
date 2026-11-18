@@ -20,6 +20,18 @@
  *              tile's bottom edge must not pass the links footer's top edge on /work/directory/ or
  *              /process/. The blurb gate (widget pass, home) fails when the tile meets the footer blurb's
  *              text: run it with --width=1024,1280,1440,1920 for the desktop range.
+ *   --base     default http://localhost:4330 (the worktree's build; a Sanity CORS origin), so the bare command is the
+ *              SQ-121 verifier. GLOBE_PROBE_BASE overrides it.
+ *   The `clear` widget gate (SQ-121, default for the widget gates; the scheme x 2 viewport matrix runs apart from
+ *              the width loop at 1440 x 900 and 1024 x 768): home at rest the badge sits wholly above the footer
+ *              blurb's text and off the privacy pill, and with the eye held (the column fully engaged) no part of
+ *              the grown badge, the ring or the shifted circle meets the blurb text or the pill.
+ *              Negative control: --inject='.swm-corner{--badge-cy:20px !important}' must FAIL.
+ *   The `phone` gate (SQ-121, by name only, --width=390): the badge, eye and every ring part's rects on every
+ *              route at rest and held, compared to a capture of the BASE build. Phones are unchanged byte for
+ *              byte: serve the base build on :3333, run
+ *              `--base=http://localhost:3333 --gates=phone --width=390 --capture=FILE`, then the candidate on :4330
+ *              with `--gates=phone --width=390 --compare=FILE`.
  *   --inject   CSS added to each overlap and widget page after load: a negative control for those gates
  *              (negative controls: noClip --inject='.swm-corner .fp-scale__window{height:40px !important}' must FAIL,
  *              rightEdge --inject='.swm-corner{right:6px !important}' must FAIL, jitter
@@ -214,8 +226,8 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
-const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', 'phone', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
   black: ['latch', 'monochrome', 'contrast', 'carriers', 'hover', 'overlap', 'gl', ...WIDGET_GATES],
@@ -239,8 +251,9 @@ const MAX_READS = 10;
 const READ_MS = 700;
 const BAD_CORE = 'colorScheme.js not present';
 
-const BASE = String(arg('base', process.env.GLOBE_PROBE_BASE) || '').replace(/\/$/, '');
-if (!BASE || BASE === 'true') die('--base=http://localhost:4330 is required (or GLOBE_PROBE_BASE)');
+// The default is the worktree's build on localhost:4330 (a Sanity CORS origin): the bare command is the SQ-121 verifier.
+const BASE = String(arg('base', process.env.GLOBE_PROBE_BASE) || 'http://localhost:4330').replace(/\/$/, '');
+if (BASE === 'true') die('--base=http://localhost:4330 takes a URL');
 const schemeArg = String(arg('scheme', 'project'));
 const SCHEME_LIST = schemeArg === 'all' ? SCHEMES : schemeArg.split(',');
 if (SCHEME_LIST.some((s) => !SCHEMES.includes(s))) die(`--scheme takes ${SCHEMES.join('|')}|all`);
@@ -615,7 +628,12 @@ function pageWidgetRest() {
   const row = probeEl('bottom:var(--footer-bottom-inset);padding:var(--pill-pad-y) 0;box-sizing:content-box;width:1px;height:var(--lh-pill)');
   // The phone tier (pass 9): <= 768px the badge is raised to --badge-clear above the viewport's bottom.
   const phone = matchMedia('(max-width: 768px)').matches;
-  const ref = { rowCy: innerHeight - (row.top + row.height / 2), phone, clear: phone ? parseFloat(getComputedStyle(corner).getPropertyValue('--badge-clear')) : null };
+  const seatEl = document.createElement('div');
+  seatEl.style.cssText = 'position:fixed;right:0;width:1px;height:0;visibility:hidden;pointer-events:none;bottom:var(--badge-cy)';
+  corner.append(seatEl);
+  const seatCy = innerHeight - seatEl.getBoundingClientRect().top;
+  seatEl.remove();
+  const ref = { rowCy: innerHeight - (row.top + row.height / 2), seatCy, phone, clear: phone ? parseFloat(getComputedStyle(corner).getPropertyValue('--badge-clear')) : null };
   return {
     footerTop,
     blurb,
@@ -654,6 +672,60 @@ function pageWidgetEngaged() {
     circles: shown.map((x) => ({ name: `circle k=${x.k}`, op: parseFloat(getComputedStyle(x.s).opacity), eop: eff(x.s), ...rect(x.s.querySelector('svg') ?? x.s) })),
     outer: window.__swmStray.length,
   };
+}
+
+/**
+ * Every painted rect of the widget in the state it is in now, for the clear and phone gates (SQ-121): the lens badge
+ * (the pager's ::before at its lifted size), the eye, each station's circle and its own badge (effective opacity: the
+ * station's times every ancestor's up to the widget; a hidden station reads 0), the footer blurb's text rect (the
+ * union of its text boxes) and the privacy pill. All viewport CSS px, as painted: shifted and lifted.
+ */
+function pageClear() {
+  const corner = document.querySelector('.swm-corner');
+  const pager = corner?.querySelector('.fp-scale');
+  if (!pager) return null;
+  const px = (v) => parseFloat(v) || 0;
+  const rect = (r) => ({ x: r.left, y: r.top, w: r.width, h: r.height });
+  const eff = (el) => { let o = 1; for (let e = el; e && !e.matches('.swm-corner'); e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity); return o; };
+  const b = getComputedStyle(pager, '::before');
+  let tile = null;
+  if (b.content !== 'none') {
+    const pr = pager.getBoundingClientRect();
+    const k = px(b.scale) || 1;
+    const w = px(b.width);
+    const h = px(b.height);
+    const cx = pr.left + px(b.left) + w / 2;
+    const cy = pr.top + px(b.top) + h / 2;
+    tile = { x: cx - (w * k) / 2, y: cy - (h * k) / 2, w: w * k, h: h * k };
+  }
+  let blurb = null;
+  const blurbEl = document.querySelector('.site-footer__blurb');
+  if (blurbEl && getComputedStyle(blurbEl).display !== 'none') {
+    const range = document.createRange();
+    range.selectNodeContents(blurbEl);
+    const q = range.getBoundingClientRect();
+    if (q.width > 0 && q.height > 0) blurb = rect(q);
+  }
+  const pillEl = document.querySelector('.site-privacy');
+  const pill = pillEl && getComputedStyle(pillEl).display !== 'none' ? rect(pillEl.getBoundingClientRect()) : null;
+  const eye = corner.querySelector('.scheme-eye');
+  const parts = [];
+  for (const s of pager.querySelectorAll('.fp-scale__station')) {
+    const op = eff(s);
+    const k = s.style.getPropertyValue('--k');
+    const svg = s.querySelector('svg');
+    const bd = s.querySelector('.scheme-badge');
+    if (svg) parts.push({ name: `circle k=${k}`, op, ...rect(svg.getBoundingClientRect()) });
+    if (bd) parts.push({ name: `badge k=${k}`, op, ...rect(bd.getBoundingClientRect()) });
+  }
+  if (eye) parts.push({ name: 'eye', op: 1, ...rect(eye.getBoundingClientRect()) });
+  // The seat the stylesheet declares (--badge-cy above the viewport's bottom), for the badge gate's desktop rule.
+  const seat = document.createElement('div');
+  seat.style.cssText = 'position:fixed;right:0;width:1px;height:0;visibility:hidden;pointer-events:none;bottom:var(--badge-cy)';
+  corner.append(seat);
+  const seatCy = innerHeight - seat.getBoundingClientRect().top;
+  seat.remove();
+  return { vp: { w: innerWidth, h: innerHeight }, open: pager.hasAttribute('data-open'), tile, blurb, pill, parts, seatCy, eye: eye ? rect(eye.getBoundingClientRect()) : null };
 }
 
 /**
@@ -1889,7 +1961,8 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
       const run = (name, fn) => {
         if (want.has(name)) emitResult(scheme, route, width, name, fn());
       };
-      run('badge', () => gate.badge(rest.tile, rest.vp, { eye: rest.eye, rowCy: rest.ref.rowCy, clear: rest.ref.clear }));
+      // Above 768px the expected centre is the desktop seat the stylesheet declares (SQ-121: on the blurb, one height on every route); the clear gate holds it against the blurb.
+      run('badge', () => gate.badge(rest.tile, rest.vp, { eye: rest.eye, rowCy: rest.ref.phone ? rest.ref.rowCy : rest.ref.seatCy, clear: rest.ref.clear }));
       run('blurb', () => gate.blurbClear(rest.tile, rest.blurb));
       run('above', () => gate.circlesAbove({ vpw: rest.vp.w, lensCy: rest.eye?.cy, circles: (engaged?.circles ?? []).map((x) => ({ ...x, op: x.eop })), blurb: rest.blurb }));
       run('eyeLines', () => gate.eyeLines(rest.strokes));
@@ -2181,6 +2254,81 @@ async function edgePass(browser, scheme) {
   emitResult(scheme, 'corner', EDGE_WIDTHS.join('/'), 'rightEdge', gate.rightEdge(samples));
 }
 
+/**
+ * The widget at rest, then engaged and settled (a hover on a desktop, a held CDP touch on a phone), on one page of one
+ * route, as pageClear measures it (SQ-121). `path` carries its own query; the scheme is appended. Motion is reduced, so
+ * the engaged state is the settled one.
+ */
+async function measureStates(ctx, scheme, urlPath) {
+  const page = await ctx.newPage();
+  try {
+    await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}${QUERY}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForFunction(() => window.__swmCommitted && window.__swmCommitted(), null, { timeout: 40000 }).catch(() => {});
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 30000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await page.evaluate(() => document.fonts.ready);
+    await sleep(1200);
+    const rest = await page.evaluate(pageClear);
+    const eye = rest?.eye;
+    if (!eye) return { error: 'no .scheme-eye to engage' };
+    const cx = eye.x + eye.w / 2;
+    const cy = eye.y + eye.h / 2;
+    if (rest.vp.w <= 480) await (await ctx.newCDPSession(page)).send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx, y: cy }] });
+    else await page.mouse.move(cx, cy);
+    await page.waitForFunction(() => document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 }).catch(() => {});
+    await sleep(900);
+    return { rest, engaged: await page.evaluate(pageClear) };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+/**
+ * The clear gate (SQ-121): on home, above 768px, at rest and engaged, nothing of the widget meets the footer blurb's
+ * text or the privacy pill, and at rest the badge is wholly above the text. 1440 x 900 and 1024 x 768 (the probe's
+ * other widgets run 1440 x 900 and 390 x 844), once per scheme whatever --width is. Phones are the phone gate's.
+ */
+const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768]];
+async function clearPass(browser, scheme) {
+  for (const [width, height] of CLEAR_VIEWPORTS) {
+    const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
+    await installRoutes(ctx);
+    await ctx.addInitScript(hydrationHook);
+    const m = await measureStates(ctx, scheme, '/?popseed=1');
+    await ctx.close().catch(() => {});
+    const where = `${width}x${height}`;
+    if (m.error || !m.rest?.tile || !m.engaged?.open) emit('FAIL', scheme, 'home', where, 'clear', m.error ?? 'the pager never engaged (data-open)');
+    else emitResult(scheme, 'home', where, 'clear', gate.clearOfBlurb(m));
+  }
+}
+
+/**
+ * The phone gate (SQ-121): every route's widget rects at 390 x 844, at rest and engaged, against a capture of the base
+ * build (--capture on that build's run, --compare on this one). Nothing above 768px may move a phone's badge or rings.
+ */
+const PHONE_ROUTES = [['home', ROUTE_PATHS.home], ['work', ROUTE_PATHS.work], ['directory', ROUTE_PATHS.directory], ['privacy', ROUTE_PATHS.privacy], ['404', ROUTE_PATHS[404]]];
+async function phonePass(browser, scheme, width, baseline, captured) {
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
+  await installRoutes(ctx);
+  await ctx.addInitScript(hydrationHook);
+  const now = {};
+  for (const [key, p] of PHONE_ROUTES) {
+    const m = await measureStates(ctx, scheme, p);
+    if (m.error || !m.engaged?.open) {
+      emit('FAIL', scheme, key, width, 'phone', m.error ?? 'the pager never engaged (data-open)');
+      continue;
+    }
+    for (const state of ['rest', 'engaged']) now[`${key}:${state}`] = { tile: m[state].tile, eye: m[state].eye, parts: m[state].parts.filter((x) => x.op > 0.01) };
+  }
+  await ctx.close().catch(() => {});
+  captured.phone[`${scheme}@${width}`] = now;
+  const base = baseline?.phone?.[`${scheme}@${width}`];
+  if (!baseline) emit('SKIP', scheme, 'phone*', width, 'phone', 'skipped: no --compare capture (--capture the base build with --gates=phone first)');
+  else emitResult(scheme, 'phone*', width, 'phone', gate.phoneRects(base, now));
+}
+
 // ── main ────────────────────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -2210,7 +2358,7 @@ async function main() {
   const sharesReady = DETAILS === 'all' && ROUTES.includes('detail');
   const needShares = sharesReady && SCHEME_LIST.some((s) => wanted(s).has('shares')) && core.ok;
   const rampStops = SCHEME_LIST.some((s) => wanted(s).has('density')) ? await loadRampStops() : [];
-  const captured = { meta: { base: BASE, at: new Date().toISOString(), ignore: IGNORE_SEL, forced: FORCE, schemes: SCHEME_LIST, widths: WIDTHS }, pages: {} };
+  const captured = { meta: { base: BASE, at: new Date().toISOString(), ignore: IGNORE_SEL, forced: FORCE, schemes: SCHEME_LIST, widths: WIDTHS }, pages: {}, phone: {} };
   const launch = () => chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   let browser = await launch();
   try {
@@ -2331,9 +2479,14 @@ async function main() {
           else emitResult(scheme, '*', width, 'crossRoute', gate.crossRoute(worlds, detailKeys));
         }
         await widgetPass(ctx, browser, scheme, width, want, routeList.filter((r) => r.slug).slice(0, 1).map((r) => [r.key, r.path]));
+        if (want.has('phone')) {
+          if (phone) await phonePass(browser, scheme, width, baseline, captured);
+          else emit('SKIP', scheme, 'phone*', width, 'phone', 'skipped: the phone gate measures 390 (--width=390)');
+        }
         await ctx.close();
       }
       if (want.has('rightEdge')) await edgePass(browser, scheme);
+      if (want.has('clear')) await clearPass(browser, scheme);
       if (want.has('deal')) {
         if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);
         else if (!worlds.length) emit('SKIP', scheme, '/work', '*', 'deal', 'skipped: no /work worlds read');
