@@ -583,6 +583,21 @@ test('a stretch that crops a tall piece LESS is not refused (1 × 2 → 1 × 4 f
   assert.equal(out.placements.filter((p) => p.rowEnd - p.rowStart === 4 * 24).length, 2, 'the two over the open cells stretch to 1 × 4')
 })
 
+test('a hole only a stretch closes is never closed with a portrait cropped harder than the page had before the cap', () => {
+  // 7 tiles around a 46-row seat at tile 5 (5 columns, 24 rows a square). The capped search leaves a hole no square
+  // closes, the uncapped finish used to close it with a 9:16 stretched 1 × 4 (0.583); the layout from before the cap
+  // worst-crops a portrait 0.408 (a 1 × 3), so that page keeps it.
+  const ratios = [9 / 16, 0.8, 16 / 9, 9 / 16, 9 / 16, 0.75, 0.75]
+  const items = ratios.map((r, i) => tile(i, r))
+  const regions = [{ id: 'carousel:k', colStart: 0, colSpan: 5, rowSpan: 46, anchor: 'seat', at: 5 }]
+  const worst = (out) => Math.max(...out.placements.flatMap((p, i) => (p.type === 'portrait' ? [boxCrop(p, ratios[i], 24)] : [])))
+  const capped = computeFlushGrid(items, { cols: 5, sqRows: 24, regions, portraitCrop: PORTRAIT_CROP })
+  const today = computeFlushGrid(items, { cols: 5, sqRows: 24, regions, portraitCrop: 1 })
+  assert.equal(openRows(capped, 5), 0)
+  assert.ok(worst(capped) <= worst(today) + 1e-9, `${worst(capped)} > ${worst(today)}`)
+  assert.ok(worst(capped) < 0.42)
+})
+
 test('with the cap on, covers stay square and rigid, and grids stay valid and deterministic', () => {
   const kind = { A: cover, P: (i) => tile(i, 9 / 16), Q: (i) => tile(i, 0.8), L: (i) => tile(i, 16 / 9), S: (i) => tile(i, 1) }
   for (const cols of [5, 6]) {

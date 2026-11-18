@@ -60,6 +60,11 @@
  * alone cannot close it, a non-album portrait or landscape may take a single
  * 1×1 cell instead (SQ-82, demotable), rigid like a cover.
  *
+ * A portrait (a 9:16 or any tall piece) stretches in neither stage past the
+ * crop cap (SQ-117, PORTRAIT_CROP, mayStretch): the hole it leaves goes to the
+ * same promotions and demotions, and one they cannot close is stretched after
+ * all (finishOpen), so the cap never leaves a page more open than before it.
+ *
  * Known ragged edge: a column whose final occupant is a region (no tile
  * below it while other columns run deeper) keeps a tail gap — nothing exists
  * to stretch. Curated content avoids this; the acceptance pass eyeballs it.
@@ -207,7 +212,8 @@ const RIGID = new WeakSet();
  * to 1 × 3, 0.56 to 1 × 4. The hole the refused stretch leaves is closed the
  * way any hole is, by computeFlushGrid's search (a cover promoted, a piece
  * demoted to one square cell); a hole that search cannot close is stretched
- * after all (`finishOpen`), the page's behaviour before the cap. 1 = off: no
+ * after all (`finishOpen`), and a page that would still be more open than before
+ * the cap keeps its layout from before it. 1 = off: no
  * stretch is refused and the layout is exactly the one before the cap.
  * PROPOSED; ?portraitcrop=<0-1> re-dials it (tileGrid.js readPortraitCrop).
  */
@@ -557,9 +563,10 @@ export function computeFlushGrid(showcase, opts = {}) {
  * for a layout whose pieces close them without one. A layout it cannot close
  * flat has its holes stretched shut after all, by both flush stages with no
  * cap, and where even that leaves more open than the page had before the cap
- * (a rigid cover over a hole only a stretched portrait closed) the page keeps
- * its layout from before it. Either way: today's behaviour for a hole no
- * square can fill.
+ * (a rigid cover over a hole only a stretched portrait closed), or closes it
+ * with a portrait cropped harder than any the page had before the cap, the
+ * page keeps its layout from before it. Either way: today's behaviour for a
+ * hole no square can fill.
  */
 function finishOpen(showcase, opts, out) {
   const { cols = 3, sqRows = 24, portraitCrop = 1 } = opts;
@@ -567,9 +574,16 @@ function finishOpen(showcase, opts, out) {
   if (portraitCrop >= 1 || open(out) === 0) return out;
   guardedStretch(out.placements, out.regions, out.totalRows);
   forcedFill(out.placements, out.regions, cols, out.totalRows, sqRows / 2);
-  if (open(out) === 0) return out;
   const before = findFlat(showcase, { ...opts, portraitCrop: 1 });
-  return open(before) < open(out) ? before : out;
+  if (open(out) > 0) return open(before) < open(out) ? before : out;
+  // Closed, but a portrait stretched past the worst the page had before the cap
+  // would defeat the cap's point: that page keeps its layout from before it.
+  const worst = (o) =>
+    o.placements.reduce((m, p) => {
+      const ratio = TALL.get(p);
+      return ratio === undefined ? m : Math.max(m, cropLoss(ratio, p.colSpan / ((p.rowEnd - p.rowStart) / sqRows)));
+    }, 0);
+  return worst(out) > worst(before) + 1e-9 && open(before) === 0 ? before : out;
 }
 
 /** The first layout with nothing open: the base, else covers promoted, else pieces demoted (below); failing that, the one with the fewest open rows. */
