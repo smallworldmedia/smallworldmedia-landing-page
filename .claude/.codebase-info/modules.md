@@ -1,6 +1,6 @@
 # Modules
 
-*Last Updated: 2026-11-17*
+*Last Updated: 2026-11-18*
 
 ## Site chrome (`src/components/*.jsx`)
 
@@ -307,6 +307,16 @@ promotion by three), only if the square crops it less than its base box does; fe
 then (with seats) the layout that pulls the fewest later tiles above a seat (`pulled`), then least
 crop, then nearest the list's end. `computeFlushGrid` and `chunkFlushGrid` share it, and
 the directory's sizes follow the placement's type.
+The portrait crop cap (SQ-117, folded 11-18 `2c6770d`): `PORTRAIT_CROP` (0.2, PROPOSED; `?portraitcrop`,
+read by `tileGrid.js` `readPortraitCrop` in `FeaturedProjectDetail`'s mount effect, above 1024px only, 1 off)
+is how far a flush stretch (`guardedStretch`, `forcedFill`, the break and hole choice, through `mayStretch`)
+may crop a portrait-class tile by `cropLoss`; a stretch past it is refused unless the tile's own box crops
+it as much. The hole goes to the search above (a cover promoted, a piece demoted to one square cell);
+`finishOpen` stretches what no flat layout closes, and the page keeps its pre-cap layout when that finish
+would crop a portrait harder than any it had or leave more open rows. Cap 1 is the pre-cap layout byte for
+byte (a sha256 in flush-grid.test.mjs). At 1440 it changes nusonido, munchietown and tobehonest only; the
+directory is unchanged. A wide (16:9) piece can crop harder where a portrait gave way (nusonido, tobehonest:
+0.116 to 0.437), Nathan's follow-up guard.
 Anchors `top`/`mid`/`bottom`, and since 11-14 `seat` (Nathan: "the order of the sets is based on the
 position of the first media asset in the studio ranking"): a region carrying `at`, a showcase index,
 pinned DURING placement just before tile `at` (`placeAll`, `bandFit`), on the first row at or below
