@@ -630,7 +630,7 @@ const tobehonest = () => TBH.map((r, i) => tile(i, r))
 const TBH_SEAT = [{ id: 'set', colStart: 0, colSpan: 5, rowSpan: 51, anchor: 'seat', at: 5 }]
 const sha = (o) => createHash('sha256').update(JSON.stringify(o)).digest('hex').slice(0, 16)
 
-test('landscapeCrop 1 is the layout the portrait cap drew (2c6770d), byte for byte: Nusonido, TOBEHONEST and a mixed corpus', () => {
+test('landscapeCrop 1 is the layout the portrait cap drew (2c6770d), byte for byte, for Nusonido, TOBEHONEST and a mixed corpus', () => {
   // sha256 prefixes recorded from flushGrid.js at 2c6770d (portraitCrop 0.2, no landscape cap).
   const WANT = {
     'nuso 5 0': 'a244fc9b7b117554', 'nuso 5 1': '9867fb76a83b50d3', 'nuso 6 0': '620b8fe019680cd1', 'nuso 6 1': '083ef3d910762978',
@@ -694,7 +694,7 @@ test('a landscape is never stretched past the cap: the 4:3 and the 16:9 that the
   assert.deepEqual(computeFlushGrid(items, { ...w, portraitCrop: PORTRAIT_CROP, landscapeCrop: 1 }), prior, 'landscapeCrop 1: the layout from before the cap')
 })
 
-test('Nusonido and TOBEHONEST at 1440: no layout closes the hole without a 16:9 drawn 2 × 2, so each keeps the portrait cap layout (the page is never left worse)', () => {
+test('Nusonido and TOBEHONEST at 1440, no layout closes the hole without a 16:9 drawn 2 × 2, so each keeps the portrait cap layout (the page is never left worse)', () => {
   // Nusonido's tiles cover 29 squares, 28 with a 4:5 turned into one cell (SQ-82), and a 5-column grid is flat at a multiple of 5.
   // Only a stretch adds area; the portrait cap refuses the 9:16 and 4:5 ones, so the one that fits is the 16:9's (+2). TOBEHONEST's
   // second grid is the same problem. The landscape cap finds no flat layout without that stretch, the stretch after all crops the
