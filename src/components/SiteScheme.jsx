@@ -149,6 +149,9 @@ export default function SiteScheme() {
       if (p.pad != null) el.style.setProperty('--badge-pad', `${p.pad}px`);
       if (p.clear != null) el.style.setProperty('--badge-clear', `${p.clear}px`);
       if (p.shift != null) el.style.setProperty('--eye-shift', `${p.shift}px`);
+      // The desktop seat (SQ-121): read above 768px only (the phone tier never reads either token).
+      if (p.blurbGap != null) el.style.setProperty('--badge-blurb-gap', `${p.blurbGap}px`);
+      if (p.down != null) el.style.setProperty('--eye-down-desk', String(p.down));
       if (p.inMs != null) el.style.setProperty('--eye-in', `${p.inMs}ms`);
       if (p.outMs != null) el.style.setProperty('--eye-out', `${p.outMs}ms`);
       if (p.slideMs != null) el.style.setProperty('--eye-slide', `${p.slideMs}ms`);

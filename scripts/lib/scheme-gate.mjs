@@ -529,8 +529,9 @@ const rectOf = (r) => [r.x, r.y, r.w, r.h].map((v) => fixed(v, 1)).join(',');
  * the tile in viewport CSS px, `vp` {w, h} the viewport. Always: a horizontal rectangle (wider than
  * tall); when `eye` {x, y, w, h} is given, the padding between it and the tile is equal on all four
  * sides (to `tol` px). Its right edge is the viewport's, with no inset (to `tol`). Vertically its
- * centre is `rowCy` above the viewport's bottom on EVERY route: the height of the bottom-left corner
- * row (the privacy pill's line at rest). A run that measured no row fails.
+ * centre is `rowCy` above the viewport's bottom on EVERY route. Since SQ-121 the probe passes the desktop seat the stylesheet
+ * declares (var(--badge-cy): the footer blurb's top plus a gap, one height on every route) above 768px, and the corner row's
+ * centre on a phone; the `clear` gate holds the desktop seat against the blurb. A run that measured none fails.
  * PHONE TIER (SQ-107 pass 9, <= 768px): the corner-row rule is a desktop rule. When `clear` is a number
  * (the phone's --badge-clear, ?schemeclear) the badge's bottom edge must sit at least `clear` above the
  * viewport's bottom (to `tol`) instead, so the screen's rounded corner cannot cut it; no row is needed.
@@ -688,6 +689,67 @@ export function circlesAbove(c, { visible = 0.01, tol = 1.5 } = {}) {
   if (desktop) for (const x of meets) offenders.push({ path: '.site-footer__blurb', note: `${x.name} (opacity ${fixed(x.op, 2)}) at ${rectOf(x)} meets the blurb text ${rectOf(blurb)}` });
   const note = `${above.length} above the lens (${above.map((x) => fixed(x.op, 2)).join(', ') || 'none'}), ${shown.length - above.length} at or below${blurb ? `, ${meets.length} meeting the blurb${desktop ? '' : ' (not failed on a phone)'}` : ', no blurb'}`;
   return result(offenders, shown.length, note);
+}
+
+/**
+ * clearOfBlurb — the desktop seat sits ABOVE the home footer's blurb, at rest and engaged (SQ-121, Nathan 11-18: the
+ * engaged eyes covered the blurb's text and the privacy pill on home at rest). `c` = { rest, engaged }, each a measurement
+ * of the page in that state: { tile {x,y,w,h} (the lens badge, the pager's ::before at its lifted size), blurb {x,y,w,h}
+ * (the union of the blurb's text boxes), pill {x,y,w,h} | null (the privacy pill), parts: [{ name, op, x, y, w, h }]
+ * (the eye, every station's circle and its own badge: op is the effective opacity, rects as painted, shifted and lifted) }.
+ * AT REST the tile's bottom edge is above the blurb text's top edge (`tol` 0.5 px) and the tile does not meet the pill.
+ * ENGAGED no visible part (op over `visible`), and not the lens badge, meets the blurb text or the pill by more than `tol`
+ * on both axes. A state with no blurb measured fails: a run that found none proves nothing about the overlap. The pill is
+ * allowed to be absent (a route or width with none), the blurb is not: this is the home page's gate.
+ */
+export function clearOfBlurb(c, { tol = 0.5, visible = 0.01 } = {}) {
+  const offenders = [];
+  const meets = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > tol && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > tol;
+  const rest = c?.rest;
+  const eng = c?.engaged;
+  if (!rest?.tile || !rest?.blurb) return result([{ path: '.site-footer__blurb', note: 'no rest tile or blurb text measured' }], 0, 'no rest');
+  if (!eng?.tile || !eng?.blurb) return result([{ path: '.site-footer__blurb', note: 'the pager never engaged: no engaged tile or blurb text measured' }], 0, 'no engaged');
+  if (rest.tile.y + rest.tile.h > rest.blurb.y + tol) {
+    offenders.push({ path: '.swm-corner .fp-scale::before', state: 'rest', tile: rectOf(rest.tile), blurb: rectOf(rest.blurb), note: `the resting badge's bottom edge (${fixed(rest.tile.y + rest.tile.h, 1)}) is ${fixed(rest.tile.y + rest.tile.h - rest.blurb.y, 1)} px below the blurb text's top edge (${fixed(rest.blurb.y, 1)})` });
+  }
+  if (rest.pill && meets(rest.tile, rest.pill)) offenders.push({ path: '.site-privacy', state: 'rest', tile: rectOf(rest.tile), pill: rectOf(rest.pill), note: 'the resting badge meets the privacy pill' });
+  const shown = [{ name: 'lens badge', op: 1, ...eng.tile }, ...(eng.parts ?? []).filter((p) => p.op > visible)];
+  for (const p of shown) {
+    if (meets(p, eng.blurb)) offenders.push({ path: '.site-footer__blurb', state: 'engaged', part: p.name, rect: rectOf(p), blurb: rectOf(eng.blurb), note: `${p.name} (opacity ${fixed(p.op, 2)}) at ${rectOf(p)} meets the blurb text ${rectOf(eng.blurb)}` });
+    if (eng.pill && meets(p, eng.pill)) offenders.push({ path: '.site-privacy', state: 'engaged', part: p.name, rect: rectOf(p), pill: rectOf(eng.pill), note: `${p.name} (opacity ${fixed(p.op, 2)}) at ${rectOf(p)} meets the privacy pill ${rectOf(eng.pill)}` });
+  }
+  const gap = eng.blurb.y - (eng.tile.y + eng.tile.h);
+  return result(offenders, shown.length, `${shown.length} engaged parts, lens badge ${rectOf(eng.tile)} ${fixed(gap, 1)} px above the blurb text ${rectOf(eng.blurb)}${eng.pill ? `, pill ${rectOf(eng.pill)}` : ', no pill'}; resting badge ${fixed(rest.blurb.y - (rest.tile.y + rest.tile.h), 1)} px above it`);
+}
+
+/**
+ * phoneRects — the phone's rects are the base build's, to the pixel (SQ-121: nothing at 768px and under moves). `base` and
+ * `now` are { <label>: { tile, eye, parts: [{ name, op, x, y, w, h }] } } from two builds of the same routes at 390 x 844,
+ * the base build's from a `--capture`. Every rect of every label must agree within `tol` (0.01 px), and neither side may be
+ * empty: a comparison of nothing proves nothing.
+ */
+export function phoneRects(base, now, { tol = 0.01 } = {}) {
+  const offenders = [];
+  const labels = Object.keys(now ?? {});
+  if (!labels.length || !base || !Object.keys(base).length) return result([{ path: '.swm-corner', note: 'no phone rects to compare' }], 0, 'nothing compared');
+  const flat = (m) => [['tile', m?.tile], ['eye', m?.eye], ...(m?.parts ?? []).map((p) => [p.name, p])];
+  let n = 0;
+  for (const label of labels) {
+    const a = new Map(flat(base[label]));
+    const b = new Map(flat(now[label]));
+    for (const key of new Set([...a.keys(), ...b.keys()])) {
+      n++;
+      const r = a.get(key);
+      const s = b.get(key);
+      if (!r || !s) {
+        offenders.push({ path: label, part: key, note: `${key} is ${r ? 'gone from' : 'new in'} the candidate` });
+        continue;
+      }
+      const d = Math.max(Math.abs(r.x - s.x), Math.abs(r.y - s.y), Math.abs(r.w - s.w), Math.abs(r.h - s.h), 100 * Math.abs((r.op ?? 1) - (s.op ?? 1)));
+      if (d > tol) offenders.push({ path: label, part: key, note: `${key} moved ${fixed(d, 3)} px: base ${rectOf(r)}, now ${rectOf(s)}` });
+    }
+  }
+  return result(offenders, n, `${labels.length} phone states, ${n} rects, within ${tol} px of the base build`);
 }
 
 /** The strip's panels in SCHEMES order (colorScheme.js): project's glass, black, blue. */

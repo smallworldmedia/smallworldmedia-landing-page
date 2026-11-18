@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
+  clearOfBlurb, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -1266,4 +1266,62 @@ test('lids gate no pixel of the circle outside the lids passes, a leak fails, a 
   assert.match(leak.offenders[0].note, /34 px of the circle lie outside the lids/);
   assert.equal(lids({ cases: [{ name: 'x', leak: 0, circle: 0, lid: 436 }] }).pass, false, 'no circle seen');
   assert.equal(lids({ cases: [] }).pass, false, 'no case, no proof');
+});
+
+// ── clearOfBlurb and phoneRects (SQ-121): the desktop seat above the blurb, the phone unchanged ───────────────
+const clearMeasure = () => ({
+  rest: { tile: { x: 1395, y: 748, w: 45, h: 29 }, blurb: { x: 4, y: 797.8, w: 1417, h: 27 }, pill: { x: 1306, y: 850, w: 77, h: 38 }, parts: [] },
+  engaged: {
+    tile: { x: 1339.5, y: 741, w: 100.5, h: 43.8 },
+    blurb: { x: 4, y: 797.8, w: 1417, h: 27 },
+    pill: { x: 1306, y: 850, w: 77, h: 38 },
+    parts: [
+      { name: 'eye', op: 1, x: 1360, y: 745, w: 55, h: 36 },
+      { name: 'circle k=-1', op: 1, x: 1375, y: 700, w: 21.6, h: 21.6 },
+      { name: 'circle k=1', op: 0, x: 1375, y: 808, w: 21.6, h: 21.6 },
+    ],
+  },
+});
+
+test('clearOfBlurb gate: the seat above the blurb passes resting and engaged, a hidden ring under the lens does not count', () => {
+  const r = clearOfBlurb(clearMeasure());
+  assert.equal(r.pass, true, JSON.stringify(r.offenders));
+});
+
+test('clearOfBlurb gate negative control: the old seat (on the privacy pill line) fails resting and engaged', () => {
+  const m = clearMeasure();
+  m.rest.tile = { x: 1395, y: 854, w: 45, h: 29 };
+  m.engaged.tile = { x: 1339.5, y: 847, w: 100.5, h: 43.8 };
+  const r = clearOfBlurb(m);
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /rest/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
+  assert.ok(r.offenders.some((o) => /engaged/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
+});
+
+test('clearOfBlurb gate: a visible ring under the lens that reaches the blurb fails by name, a missing blurb or state proves nothing', () => {
+  const m = clearMeasure();
+  m.engaged.parts.find((p) => p.name === 'circle k=1').op = 1;
+  const r = clearOfBlurb(m);
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /circle k=1/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
+  const noBlurb = clearMeasure();
+  noBlurb.rest.blurb = null;
+  assert.equal(clearOfBlurb(noBlurb).pass, false);
+  assert.equal(clearOfBlurb({ ...clearMeasure(), engaged: null }).pass, false);
+  assert.equal(clearOfBlurb(null).pass, false);
+});
+
+test('phoneRects gate: identical rects pass, a moved part fails naming it, nothing to compare proves nothing', () => {
+  const state = () => ({
+    'home:rest': { tile: { x: 334, y: 760, w: 56, h: 29 }, eye: { x: 340, y: 765, w: 46, h: 19 }, parts: [] },
+    'home:engaged': { tile: { x: 300, y: 750, w: 90, h: 44 }, eye: { x: 330, y: 760, w: 50, h: 28 }, parts: [{ name: 'circle k=1', op: 1, x: 340, y: 800, w: 21, h: 21 }] },
+  });
+  assert.equal(phoneRects(state(), state()).pass, true);
+  const moved = state();
+  moved['home:engaged'].parts[0].y += 0.5;
+  const r = phoneRects(state(), moved);
+  assert.equal(r.pass, false);
+  assert.ok(/circle k=1/.test(JSON.stringify(r.offenders)), JSON.stringify(r.offenders));
+  assert.equal(phoneRects({}, state()).pass, false);
+  assert.equal(phoneRects(state(), {}).pass, false);
 });
