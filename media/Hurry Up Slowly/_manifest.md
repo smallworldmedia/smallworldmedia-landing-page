@@ -27,7 +27,6 @@ year: 2026
 | HUS-SC-Banner-05.jpg | static_other | branding | HUS SC Banner 05 | false | 17 | hurry-up-slowly-banners |  | mediaAsset-hurry-up-slowly-hus-sc-banner-05 |
 | HUS-SC-Mockup.jpg | static_1x1 | branding | HUS SC Mockup | false | 18 | hurry-up-slowly-mockups |  | mediaAsset-hurry-up-slowly-hus-sc-mockup |
 | HUS-frames.jpg | static_9x16 | branding | HUS Frames | false | 19 |  |  | mediaAsset-hurry-up-slowly-hus-frames |
-| HUS_logo-sheet.jpg | static_9x16 | branding | HUS Logo Sheet | false | 20 |  |  | mediaAsset-hurry-up-slowly-hus-logo-sheet |
 | front.jpg | static_1x1 | branding | Front | false | 21 | hurry-up-slowly-merch |  | mediaAsset-hurry-up-slowly-front |
 | back-2-color_20x24.jpg | static_1x1 | branding | Back 2 Color 20x24 | false | 22 | hurry-up-slowly-merch |  | mediaAsset-hurry-up-slowly-back-2-color-20x24 |
 | back-3-color_1_20x24.jpg | static_1x1 | branding | Back 3 Color 1 20x24 | false | 23 | hurry-up-slowly-merch |  | mediaAsset-hurry-up-slowly-back-3-color-1-20x24 |
