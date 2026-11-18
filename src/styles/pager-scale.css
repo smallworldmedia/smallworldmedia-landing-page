@@ -289,8 +289,8 @@
 }
 
 /* FP-1 house pulse at REST (09-02 round 2): a dim-gray veil inside the
-   lens swells on the canonical envelope (GSAP housePulseLoop — the skin
-   owns the timeline and kills it for the whole gesture), the number
+   lens swells on the canonical envelope (web animations on opacity, SQ-124 —
+   the skin owns them and cancels them for the whole gesture), the number
    riding above it and flipping white at the peak. A dedicated span, never
    the lens bg: the accent/charged colour transitions on the row must keep
    their element-local CSS lanes (the paint-trap doctrine). */
