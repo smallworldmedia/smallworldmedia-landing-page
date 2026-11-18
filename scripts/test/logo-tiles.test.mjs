@@ -8,6 +8,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
+  DENSITY_REF,
   INK,
   LOGO_DIALS,
   assetIdOfUrl,
@@ -27,14 +28,24 @@ const mark = (aspect, density = 0.3, cx = 0.5, cy = 0.5) => ({ aspect, density, 
 
 // The ink a layout gives a mark, in square cells (a canvas is 1 tall, `ratio` wide).
 const inkOf = (lay, density) => ((lay.width / 100) * lay.ratio * (lay.height / 100)) * density
+// The box a layout gives a mark, in square cells.
+const boxOf = (lay) => (lay.width / 100) * lay.ratio * (lay.height / 100)
+// The 11-13 law (the ink evened out), which ?dirlogoink=1 brings back.
+const OLD = { ink: 1, ratioPow: 0.5, pad: 0.13 } // the 11-13 law, at SQ-81's pad
+/** The first pass of the box law (11-18): the dials the references were calibrated at. */
+const FIRST = { ink: 0, ratioPow: 0.5, pad: 0.13, size: 0.5 }
 
 test('the canvas follows the balanced size, not the raw aspect: a mark takes a square when its balanced box fits one', () => {
-  // the same 2:1 shape: a dense mark balances small and fits a square, a thin one needs the landscape
-  assert.equal(canvasOf(mark(2, 0.8)), 'square')
-  assert.equal(canvasOf(mark(2, 0.2)), 'landscape')
-  // the P icon (1.68:1) and Sidney Charles (2.12:1), wide by aspect, are square at their balanced size
-  assert.equal(canvasOf(mark(1.68, 0.48)), 'square')
-  assert.equal(canvasOf(mark(2.12, 0.43)), 'square')
+  // the 11-13 law: the same 2:1 shape, a dense mark balances small and fits a square, a thin one needs the landscape
+  assert.equal(canvasOf(mark(2, 0.8), OLD), 'square')
+  assert.equal(canvasOf(mark(2, 0.2), OLD), 'landscape')
+  // the P icon (1.68:1) and Sidney Charles (2.12:1), wide by aspect, were square at their balanced size
+  assert.equal(canvasOf(mark(1.68, 0.48), OLD), 'square')
+  assert.equal(canvasOf(mark(2.12, 0.43), OLD), 'square')
+  // the box law (11-18): the shape decides, not the ink, and both now take landscapes
+  assert.equal(canvasOf(mark(2, 0.8)), canvasOf(mark(2, 0.2)))
+  assert.equal(canvasOf(mark(1.68, 0.48)), 'landscape')
+  assert.equal(canvasOf(mark(2.12, 0.43)), 'landscape')
   // a thin wordmark is landscape however it is shaped, a square badge a square
   assert.equal(canvasOf(mark(8.8, 0.5)), 'landscape')
   assert.equal(canvasOf(mark(1, 0.25)), 'square')
@@ -48,47 +59,78 @@ test('the shrink dial: how much smaller than it wants a mark may go to take a sq
   assert.equal(canvasOf(near, { shrink: 0 }), 'landscape')
 })
 
-test('at weight 1 every mark gets the same ink, on a landscape canvas as on a square (the target is absolute, not a share of the canvas)', () => {
+test('ink 1 is the 11-13 law: every mark gets the same ink, on a landscape canvas as on a square (the target is absolute, not a share of the canvas)', () => {
+  assert.ok(Math.abs(LOGO_DIALS.size * DENSITY_REF - INK) < 1e-12, 'size × DENSITY_REF = INK')
   const marks = [mark(1, 0.3), mark(1.3, 0.5), mark(3, 0.3), mark(4.2, 0.33), mark(7, 0.74), mark(8.8, 0.5)]
   const canvases = new Set()
   for (const m of marks) {
-    const lay = logoLayout(m, { weight: 1 })
+    const lay = logoLayout(m, { weight: 1, ...OLD })
     canvases.add(lay.canvas)
     assert.ok(Math.abs(inkOf(lay, m.density) - INK) < 1e-9, `aspect ${m.aspect}: ink ${inkOf(lay, m.density)}`)
   }
   assert.equal(canvases.size, 2, 'the set covers both canvases')
   // a landscape mark's ink equals a square mark's of the same density
-  const wide = logoLayout(mark(3, 0.3), { weight: 1 })
-  const sq = logoLayout(mark(1, 0.3), { weight: 1 })
+  const wide = logoLayout(mark(3, 0.3), { weight: 1, ...OLD })
+  const sq = logoLayout(mark(1, 0.3), { weight: 1, ...OLD })
   assert.equal(wide.canvas, 'landscape')
   assert.equal(sq.canvas, 'square')
   assert.ok(Math.abs(inkOf(wide, 0.3) - inkOf(sq, 0.3)) < 1e-9)
 })
 
-test('the calibration: the references (HHS, Cheetah Print) keep the boxes they had, within 5%', () => {
+test('the calibration: at the first pass the references (HHS, Cheetah Print) keep the boxes they had, within 5%; the default takes them a little smaller', () => {
   // The heights the references had before SQ-81, in cell units (the old law, default dials).
   const BEFORE = { 'heavy house society logo white': 0.74, 'Cheetah Print Primary Logo — Gold': 0.679 }
   const manifest = JSON.parse(readFileSync(join(ROOT, 'src/data/directory-logos.json'), 'utf8'))
   for (const [title, h0] of Object.entries(BEFORE)) {
     const m = Object.values(manifest).find((x) => x.file && x.title === title)
     assert.ok(m, `${title} is in the set`)
-    const lay = logoLayout(m)
+    const lay = logoLayout(m, FIRST)
     assert.equal(lay.canvas, 'square', `${title}: a square`)
     assert.ok(Math.abs(lay.height / 100 / h0 - 1) <= 0.05, `${title}: height ${lay.height / 100} vs ${h0}`)
+    // Nathan's second pass (11-18): "the overall scale of the logos reduced just a bit"
+    const now = logoLayout(m).height / lay.height
+    assert.ok(now < 0.99 && now > 0.85, `${title}: ${now} of the first pass's height`)
   }
 })
 
-test('every baked mark balances to one optical size: at the ink target, or held by its padded box; none above it', () => {
+test('every baked mark balances to its box: size × aspect^(1 − 2·ratio), or held by its padded box; none above it', () => {
   const manifest = JSON.parse(readFileSync(join(ROOT, 'src/data/directory-logos.json'), 'utf8'))
   const inner = 1 - 2 * LOGO_DIALS.pad
   for (const m of Object.values(manifest).filter((x) => x.file && !x.twinOf)) {
     const lay = logoLayout(m)
-    const ink = inkOf(lay, m.density)
-    // before SQ-81 the spread was 0.108 to 0.494 (4.6×), the wide marks the largest
+    const box = boxOf(lay)
+    const want = LOGO_DIALS.size * m.aspect ** (1 - 2 * LOGO_DIALS.ratioPow) // 0.5 = one box for all
+    // before SQ-81 the ink spread was 0.108 to 0.494 (4.6×); under the 11-13 law the boxes ran 0.17 to 0.66 (3.9×)
     const held = lay.height / 100 >= inner - 1e-9 || ((lay.width / 100) * lay.ratio) >= lay.ratio - 2 * LOGO_DIALS.pad - 1e-9
-    assert.ok(ink <= INK + 1e-9, `${m.title}: ink ${ink} is over the target`)
-    assert.ok(held || Math.abs(ink - INK) < 1e-9, `${m.title}: ink ${ink}, neither at the target nor held by its box`)
+    assert.ok(box <= want + 1e-9, `${m.title}: box ${box} is over the law's ${want}`)
+    assert.ok(held || Math.abs(box - want) < 1e-9, `${m.title}: box ${box}, neither the law's ${want} nor held by its box`)
   }
+})
+
+test('the box law (Nathan 11-18): a mark\'s height follows its width ÷ height, not its ink', () => {
+  const free = { pad: 0, size: 0.05, shrink: 0 } // no mark below is held by its canvas, at any ratio
+  for (const [ratioPow, same] of [[0, (l) => l.height], [0.5, boxOf], [1, (l) => (l.width / 100) * l.ratio]]) {
+    const v = [mark(1, 0.8), mark(1.5, 0.1), mark(3, 0.4), mark(4.8, 0.23)].map((m) => {
+      const lay = logoLayout(m, { ...free, ratioPow })
+      return ratioPow === 0 ? lay.height / 100 : same(lay)
+    })
+    for (const x of v) assert.ok(Math.abs(x - v[0]) < 1e-9, `ratio ${ratioPow}: ${v.join(', ')}`)
+  }
+  // ink 0: a solid badge and a thin script of one shape get one box
+  assert.ok(Math.abs(boxOf(logoLayout(mark(1, 0.8))) - boxOf(logoLayout(mark(1, 0.2)))) < 1e-9)
+})
+
+test('the baked set: Sunday Brunch and RozálesD get one box (the 11-13 law gave RozálesD 2.8× the badge\'s)', () => {
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'src/data/directory-logos.json'), 'utf8'))
+  const by = (t) => Object.values(manifest).find((x) => x.file && x.title.startsWith(t))
+  const sb = by('SB Logo Single Stack White')
+  const rd = by('RozálesD')
+  assert.ok(sb && rd, 'both are in the set')
+  assert.ok(boxOf(logoLayout(rd, OLD)) / boxOf(logoLayout(sb, OLD)) > 2.5, 'the old gap')
+  assert.ok(Math.abs(boxOf(logoLayout(rd, { ratioPow: 0.5 })) / boxOf(logoLayout(sb, { ratioPow: 0.5 })) - 1) < 0.01, 'one box at ratio 0.5')
+  // Nathan's second pass (11-18): the wider mark gives up a little box to the squarer one.
+  const r = boxOf(logoLayout(rd)) / boxOf(logoLayout(sb))
+  assert.ok(r < 0.95 && r > 0.6, `the wide mark a bit smaller at the default ratio: ${r}`)
 })
 
 test('every mark sits inside its canvas minus the padding, on both shapes', () => {
@@ -114,25 +156,25 @@ test('the box keeps the mark\'s own aspect on its canvas', () => {
   }
 })
 
-test('weight 0 fills the padded box; weight 1 gives a dense badge less box than a thin script', () => {
+test('weight 0 fills the padded box; at ink 1, weight 1 gives a dense badge less box than a thin script', () => {
   const fill = logoLayout(mark(1, 0.8), { weight: 0 })
   assert.ok(Math.abs(fill.height - (1 - 2 * LOGO_DIALS.pad) * 100) < 1e-9, 'fills the padded height')
-  const dense = logoLayout(mark(1, 0.8), { weight: 1 })
-  const thin = logoLayout(mark(1, 0.2), { weight: 1 })
+  const dense = logoLayout(mark(1, 0.8), { weight: 1, ...OLD })
+  const thin = logoLayout(mark(1, 0.2), { weight: 1, ...OLD })
   assert.ok(dense.height < thin.height, 'the dense mark is smaller')
   // at weight 1 the ink areas are equal wherever neither is capped by its box
-  const a = logoLayout(mark(1, 0.7), { weight: 1 })
-  const b = logoLayout(mark(1.2, 0.6), { weight: 1 })
+  const a = logoLayout(mark(1, 0.7), { weight: 1, ...OLD })
+  const b = logoLayout(mark(1.2, 0.6), { weight: 1, ...OLD })
   const ink = (lay, d) => d * lay.width * lay.height * lay.ratio
   assert.ok(Math.abs(ink(a, 0.7) - ink(b, 0.6)) / ink(a, 0.7) < 1e-9, 'equal ink area')
 })
 
 test('centre 1 moves the mark so its centre of mass lands on the canvas centre, 0 leaves the box centred', () => {
-  // dense, so weight 1 sizes it well under its box and there is room to move
+  // sized well under its box, so there is room to move
   const heavyRight = mark(1, 0.8, 0.6, 0.5)
-  const box = logoLayout(heavyRight, { center: 0, weight: 1, pad: 0.1 })
+  const box = logoLayout(heavyRight, { center: 0, weight: 1, pad: 0.1, size: 0.3 })
   assert.ok(Math.abs(box.left + box.width / 2 - 50) < 1e-9, 'box centred')
-  const mass = logoLayout(heavyRight, { center: 1, weight: 1, pad: 0.1 })
+  const mass = logoLayout(heavyRight, { center: 1, weight: 1, pad: 0.1, size: 0.3 })
   assert.ok(mass.width < 80, 'smaller than its padded box')
   const massAt = mass.left + mass.width * 0.6 // in percent of the canvas's width
   assert.ok(Math.abs(massAt - 50) < 1e-9, 'mass centred')
@@ -155,10 +197,11 @@ test('placeOriginal maps the file\'s trim rect onto the layout box (the ink land
 
 test('a baked mark on the detail page takes the directory\'s canvas and box, and its file is placed by its ink', () => {
   const m = { file: 'a.png', aspect: 2.1, density: 0.43, cx: 0.5, cy: 0.5, trim: [0.05, 0.1, 0.9, 0.8] }
-  const plan = detailLogo(m, { hasAlpha: true, own: 2 })
+  const plan = detailLogo(m, { hasAlpha: true, own: 1 })
   const lay = logoLayout(m)
   assert.equal(plan.ratio, lay.ratio, 'one canvas rule, whatever tile shape the file had before')
-  assert.equal(plan.ratio, 1, 'Sidney Charles-like: a square, not the 2:1 it used to be')
+  assert.equal(plan.ratio, 2, 'Sidney Charles-like: a landscape under the box law, not the square tile it had')
+  assert.equal(detailLogo(m, { hasAlpha: true, own: 2 }, OLD).ratio, 1, 'and the dials reach it: a square under the 11-13 law')
   assert.deepEqual(plan.box, lay)
   assert.ok(Math.abs(plan.img.left + 0.05 * plan.img.width - lay.left) < 1e-9)
   assert.ok(Math.abs(0.8 * plan.img.height - lay.height) < 1e-9)

@@ -59,7 +59,7 @@ import {
   sanitizeFilter,
   tagPresence,
 } from './buildDirectoryTiles.js';
-import { SSR_TUNE, readTune, tuneDefaults } from './directoryTune.js';
+import { SSR_TUNE, logoDialsOf, readTune, tuneDefaults } from './directoryTune.js';
 import { effectiveTags, toggleTag, withGroups } from './serviceGroups.js';
 
 /* Sent by the drawer's client names (InfoPanel). A literal, not an import
@@ -256,8 +256,9 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
   // The filter's tags: motion/video as a parent, its children behind it.
   const filterTags = useMemo(() => withGroups(tags), [tags]);
   const logoDials = useMemo(
-    () => ({ pad: tune.logoPad, weight: tune.logoWeight, shrink: tune.logoShrink, center: tune.logoCenter }),
-    [tune.logoPad, tune.logoWeight, tune.logoShrink, tune.logoCenter]
+    () => logoDialsOf(tune),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the logo knobs only, not the whole bench
+    [tune.logoPad, tune.logoWeight, tune.logoShrink, tune.logoCenter, tune.logoRatio, tune.logoInk, tune.logoSize]
   );
   const clientEntry = filter.client ? clients.find((c) => c.slug === filter.client) : null;
 

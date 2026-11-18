@@ -15,7 +15,10 @@
  *   ?dirtabletcols grid columns from 769 to 1024px (4, so a cell stays 190-260px wide)
  *   ?dirphonecols  grid columns at ≤768px (Nathan, 11-05: 2)
  *   ?dirlogopad    a logo tile's margin, a share of the canvas's height (logoTile.js)
- *   ?dirlogoweight 0 = every mark fills its box … 1 = every mark has the same ink area
+ *   ?dirlogoweight 0 = every mark fills its box … 1 = every mark takes the law's size (below)
+ *   ?dirlogoratio  how a mark's height gives way to its width: 0 = one height, 0.5 = one box area, 1 = one width
+ *   ?dirlogoink    how far a mark's ink density counts: 0 = the box alone … 1 = the ink evened out (the 11-13 law)
+ *   ?dirlogosize   the box area the law brings a mark to, in square cells
  *   ?dirlogoshrink how much smaller than it wants a mark may go to take a square, not a landscape canvas
  *   ?dirlogocenter 0 = centre the mark's box … 1 = centre its centre of mass
  *   ?dirpack       'flush' (three cell classes, chunkFlushGrid) | 'aspect' (each tile its
@@ -43,6 +46,9 @@ export const PARAM_KEYS = {
   logoWeight: 'dirlogoweight',
   logoShrink: 'dirlogoshrink',
   logoCenter: 'dirlogocenter',
+  logoRatio: 'dirlogoratio',
+  logoInk: 'dirlogoink',
+  logoSize: 'dirlogosize',
   pack: 'dirpack',
   look: 'dirlook',
   tabClear: 'dirtabclear',
@@ -67,6 +73,9 @@ export const SSR_TUNE = {
   logoWeight: LOGO_DIALS.weight,
   logoShrink: LOGO_DIALS.shrink,
   logoCenter: LOGO_DIALS.center,
+  logoRatio: LOGO_DIALS.ratioPow,
+  logoInk: LOGO_DIALS.ink,
+  logoSize: LOGO_DIALS.size,
   pack: 'flush',
   look: LOOK,
   tabClear: 4,
@@ -84,6 +93,9 @@ export const TUNE_OK = {
   logoWeight: (n) => n >= 0 && n <= 1,
   logoShrink: (n) => n >= 0 && n < 1,
   logoCenter: (n) => n >= 0 && n <= 1,
+  logoRatio: (n) => n >= 0 && n <= 1,
+  logoInk: (n) => n >= 0 && n <= 1,
+  logoSize: (n) => n >= 0.05 && n <= 1,
   look: (n) => Number.isInteger(n) && n >= 1 && n <= 32,
   tabClear: (n) => n >= 0 && n <= 16,
 };
@@ -198,6 +210,9 @@ export function readTune(search, defaults) {
     logoWeight: numberAt('logoWeight'),
     logoShrink: numberAt('logoShrink'),
     logoCenter: numberAt('logoCenter'),
+    logoRatio: numberAt('logoRatio'),
+    logoInk: numberAt('logoInk'),
+    logoSize: numberAt('logoSize'),
     pack: PACKS.includes(params.get(PARAM_KEYS.pack)) ? params.get(PARAM_KEYS.pack) : defaults.pack,
     look: numberAt('look'),
     tabClear: numberAt('tabClear'),
@@ -210,7 +225,20 @@ export function readTune(search, defaults) {
  */
 export function readLogoDials(search) {
   const t = readTune(search, SSR_TUNE);
-  return { pad: t.logoPad, weight: t.logoWeight, shrink: t.logoShrink, center: t.logoCenter };
+  return logoDialsOf(t);
+}
+
+/** The bench's logo knobs as logoTile.js's dials (the directory and the detail page share them). */
+export function logoDialsOf(t) {
+  return {
+    pad: t.logoPad,
+    weight: t.logoWeight,
+    shrink: t.logoShrink,
+    center: t.logoCenter,
+    ratioPow: t.logoRatio,
+    ink: t.logoInk,
+    size: t.logoSize,
+  };
 }
 
 /** The current URL with the bench gate and only the off-default values. */

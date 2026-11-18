@@ -19,12 +19,19 @@
  * linear size of a square mark of the same density, because the target was a
  * share of the canvas's area):
  *   fit    — the largest size that fits the padded canvas;
- *   equal  — the size at which the mark has ink area INK, the same for every
- *            mark (a dense badge comes out smaller than a thin script);
- *   size   = fit^(1 − weight) × equal^weight, never past `fit`
- * so weight 0 fills every box (a bounding-box fit) and weight 1 evens the ink
- * out (the ticker's balance(), src/components/ClientLogoTicker.jsx, is the
- * same law on the box alone).
+ *   want   — the height the law asks for, from the mark's width ÷ height
+ *            (11-18, Nathan: "scaling of the logo based on the length to
+ *            height ratio"):
+ *              want = √(size × (DENSITY_REF ÷ density)^ink) × aspect^−ratioPow
+ *            ratioPow 0 = every mark the same height, 0.5 = the same box
+ *            area, 1 = the same width; ink 0 = the box alone, 1 = the ink
+ *            evened out (at ratioPow 0.5 and the default size, exactly the
+ *            11-13 law, where a solid badge like Sunday Brunch came out with
+ *            a third of RozálesD's box);
+ *   height = fit^(1 − weight) × want^weight, never past `fit`
+ * so weight 0 fills every box (a bounding-box fit) and weight 1 is the law
+ * (the ticker's balance(), src/components/ClientLogoTicker.jsx, is the
+ * equal-box law on its own).
  *
  * The canvas follows that balanced size, not the mark's raw aspect: a mark
  * takes a square when its balanced box in one is at most `shrink` smaller than
@@ -35,18 +42,31 @@
 
 /** The dials' defaults: the ?dirlogo* params (directoryTune.js; they steer the detail grid too). */
 export const LOGO_DIALS = {
-  pad: 0.13,
+  /** PROPOSED 0.15 (11-18, Nathan: "a touch more inner padding"); it was 0.13 (SQ-81). */
+  pad: 0.15,
   weight: 1,
   shrink: 0.12,
   center: 0.5,
+  /** PROPOSED (11-18): how the height gives way to width; 0.5 = every mark the same box area.
+      0.6 (second pass, Nathan: "the scaling of horizontal logos could be reduced a bit in relation
+      to the squarer logos"): a mark 3 wide gets 0.9 of a square mark's box area, one 5 wide 0.85. */
+  ratioPow: 0.6,
+  /** PROPOSED (11-18): how far a mark's ink density counts; 0 = not at all (the box alone). */
+  ink: 0,
+  /** PROPOSED (11-18): the box area the law brings a mark to, in square cells. 0.5 kept Nathan's
+      references, HHS and Cheetah Print, within 2% of their 11-13 boxes; 0.45 (second pass, "the
+      overall scale of the logos reduced just a bit") takes every mark the law sizes 5% smaller. */
+  size: 0.45,
 };
 
 /**
- * The ink area every mark is brought to at weight 1, in square cells. Calibrated on
- * Nathan's references (11-13), HHS and Cheetah Print (ink 0.138 and 0.118 in a
- * square before): 0.13 keeps their boxes within a few percent of what they were.
+ * The 11-13 law's ink area, in square cells: the size every mark's ink came to
+ * (calibrated on HHS and Cheetah Print, ink 0.138 and 0.118 in a square before).
  */
 export const INK = 0.13;
+
+/** The density `ink` scales against: size × DENSITY_REF = INK, so ?dirlogoink=1 at the default size is the 11-13 law. */
+export const DENSITY_REF = INK / LOGO_DIALS.size;
 
 /** A landscape canvas is this many times as wide as it is tall; a square, 1. */
 export const CANVAS_RATIO = { square: 1, landscape: 2 };
@@ -55,11 +75,11 @@ export const CANVAS_RATIO = { square: 1, landscape: 2 };
 const inner = (ratio, pad) => ({ h: Math.max(0.1, 1 - 2 * pad), w: Math.max(0.1, ratio - 2 * pad) });
 
 /** The balanced height on a canvas of `ratio`: `want` is what the law asks for, `h` what fits. */
-function sizeOn(logo, ratio, { pad, weight }) {
+function sizeOn(logo, ratio, { pad, weight, ratioPow, ink, size }) {
   const { h: innerH, w: innerW } = inner(ratio, pad);
   const fit = Math.min(innerH, innerW / logo.aspect);
-  const equal = Math.sqrt(INK / (logo.density * logo.aspect));
-  const want = fit ** (1 - weight) * equal ** weight;
+  const law = Math.sqrt(size * (DENSITY_REF / logo.density) ** ink) * logo.aspect ** -ratioPow;
+  const want = fit ** (1 - weight) * law ** weight;
   return { innerH, innerW, want, h: Math.min(fit, want) };
 }
 

@@ -29,8 +29,11 @@ const FIELDS = [
   {
     key: 'logoWeight',
     label: 'logo weight',
-    hint: '0 = every mark fills its box; 1 = every mark gets the same ink area (0 to 1)',
+    hint: "0 = every mark fills its box; 1 = every mark takes the law's size (0 to 1)",
   },
+  { key: 'logoRatio', label: 'logo ratio', hint: "how a mark's height gives way to its width: 0 = one height, 0.5 = one box area, 1 = one width" },
+  { key: 'logoInk', label: 'logo ink', hint: "how far ink density counts: 0 = the box alone, 1 = the ink evened out (the 11-13 law)" },
+  { key: 'logoSize', label: 'logo size', hint: 'the box area every mark is brought to, in square cells (0.05 to 1)' },
   { key: 'logoShrink', label: 'logo shrink', hint: 'how much smaller than it wants a mark may go to take a square, not a landscape (0 to 1)' },
   { key: 'logoCenter', label: 'logo centre', hint: "0 = centre the mark's box; 1 = centre its centre of mass (0 to 1)" },
   { key: 'tabClear', label: 'tab clear px', hint: "room under a filter tab's word, so its underline clears the bottom stroke (0 to 16)" },
