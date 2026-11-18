@@ -51,7 +51,7 @@ import LiveFootageGrid from './LiveFootageGrid.jsx';
 import { liveFootagePlan, visualsWall, mockupsWall } from './liveFootageLayout.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, splitHero, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
-import { computeFlushGrid, splitAtBreaks, classifyTile, TILE_RATIO, PORTRAIT_CROP } from './flushGrid.js';
+import { computeFlushGrid, splitAtBreaks, classifyTile, TILE_RATIO, PORTRAIT_CROP, LANDSCAPE_CROP } from './flushGrid.js';
 import { LOGO_DIALS, assetIdOfUrl, detailLogo } from '../directory/logoTile.js';
 import { readLogoDials } from '../directory/directoryTune.js';
 import logoManifest from '../../../data/directory-logos.json';
@@ -62,6 +62,7 @@ import {
   SQ_ROWS_FALLBACK,
   SQ_ROWS_NARROW,
   readPortraitCrop,
+  readLandscapeCrop,
   useTileShape,
   useGridMetrics,
   tileRowsFor,
@@ -455,6 +456,8 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   useEffect(() => setBlurbRows(readBlurbRows()), []);
   const [portraitCrop, setPortraitCrop] = useState(PORTRAIT_CROP);
   useEffect(() => setPortraitCrop(readPortraitCrop()), []);
+  const [landscapeCrop, setLandscapeCrop] = useState(LANDSCAPE_CROP);
+  useEffect(() => setLandscapeCrop(readLandscapeCrop()), []);
   const [visualsRowsParam, setVisualsRowsParam] = useState(null);
   useEffect(() => setVisualsRowsParam(readVisualsRows()), []);
   const [wallColsParam, setWallColsParam] = useState(null);
@@ -600,8 +603,9 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     sqRows: !wide ? SQ_ROWS_NARROW : tileRows?.cols === placeCols ? tileRows.sq : SQ_ROWS_FALLBACK,
     breaks: asides.length,
     breakEvery: blurbRows,
-    // The cap holds a stretch the grid draws: above 1024px only (readPortraitCrop).
+    // The caps hold a stretch the grid draws: above 1024px only (readPortraitCrop, readLandscapeCrop).
     portraitCrop: wide ? portraitCrop : 1,
+    landscapeCrop: wide ? landscapeCrop : 1,
   });
   const segments = splitAtBreaks(flush);
   // No tiles to break up → no breaks; the intro keeps every paragraph.

@@ -64,6 +64,10 @@
  * crop cap (SQ-117, PORTRAIT_CROP, mayStretch): the hole it leaves goes to the
  * same promotions and demotions, and one they cannot close is stretched after
  * all (finishOpen), so the cap never leaves a page more open than before it.
+ * A landscape is held the same way (SQ-119, LANDSCAPE_CROP): the hole the
+ * portrait cap leaves is no longer closed by a 16:9 drawn 2 × 2, and a page
+ * the two caps leave worse than the portrait cap alone kept it is given that
+ * layout back (computeFlushGrid).
  *
  * Known ragged edge: a column whose final occupant is a region (no tile
  * below it while other columns run deeper) keeps a tail gap — nothing exists
@@ -218,15 +222,39 @@ const RIGID = new WeakSet();
  * PROPOSED; ?portraitcrop=<0-1> re-dials it (tileGrid.js readPortraitCrop).
  */
 export const PORTRAIT_CROP = 0.2;
+/**
+ * The landscape crop cap (SQ-119): the same guard for a LANDSCAPE-class tile
+ * (16:9, 4:3, 2:1, any wide piece, still or video). The portrait cap leaves a
+ * hole, findFlat counts a layout flat once both stretch passes have run, and a
+ * landscape over the hole used to close it unchecked: a 16:9 drawn 2 × 2 is
+ * cropped 0.437 where its 2 × 1 crops it 0.111 (Nusonido and TOBEHONEST at
+ * 1440). A landscape stretches in neither stage past this cap (mayStretch)
+ * unless the stretch crops it no more than the box it has, and the hole goes
+ * to the same search; one it cannot close is stretched after all, and a page
+ * the cap would leave worse than before it, in open rows or in the worst crop
+ * of either class, keeps its layout from before it (computeFlushGrid).
+ * 1 = off: the layout the portrait cap drew (2c6770d). PROPOSED;
+ * ?landscapecrop=<0-1> re-dials it (tileGrid.js readLandscapeCrop).
+ */
+export const LANDSCAPE_CROP = 0.2;
 /** A portrait-class placement → its picture's ratio, so a stretch can price the new box. */
 const TALL = new WeakMap();
-/** May `p` stretch down to `rowEnd`? `lim` = { sqRows, cap }; null = no cap. */
+/** The same for a landscape-class placement (LANDSCAPE_CROP). */
+const WIDE = new WeakMap();
+/** Stretches mayStretch has refused a landscape: computeFlushGrid reads it to know the landscape cap changed anything. */
+let wideRefused = 0;
+/** May `p` stretch down to `rowEnd`? `lim` = { sqRows, cap, wide }, the portrait and landscape caps; null = no cap. */
 function mayStretch(p, rowEnd, lim) {
-  const ratio = TALL.get(p);
+  const tall = TALL.get(p);
+  const ratio = tall ?? WIDE.get(p);
   if (!lim || ratio === undefined) return true;
+  const cap = tall === undefined ? lim.wide : lim.cap;
+  if (cap >= 1) return true; // off: no crop reaches 1
   const loss = (end) => cropLoss(ratio, p.colSpan / ((end - p.rowStart) / lim.sqRows));
   const after = loss(rowEnd);
-  return after <= lim.cap + 1e-9 || after <= loss(p.rowEnd) + 1e-9;
+  const ok = after <= cap + 1e-9 || after <= loss(p.rowEnd) + 1e-9;
+  if (!ok && tall === undefined) wideRefused++;
+  return ok;
 }
 
 /** Dense-place one asset at its earliest fit (leftmost on a tie). `how`
@@ -252,6 +280,7 @@ function placeOne(segs, asset, cols, sizes, how, from = 0) {
   };
   if (how === 'small' || isSquareArt(asset)) RIGID.add(p);
   else if (type === 'portrait') TALL.set(p, ratioOf(asset));
+  else if (type === 'landscape') WIDE.set(p, ratioOf(asset));
   return p;
 }
 
@@ -542,6 +571,10 @@ function openRows(placements, resolved, cols, end) {
  * @param {number} [opts.portraitCrop=1] - the portrait crop cap (PORTRAIT_CROP):
  *        1 = off, the layout before it. The detail page passes the dial;
  *        chunkFlushGrid (the directory) leaves it off.
+ * @param {number} [opts.landscapeCrop=1] - the landscape crop cap (LANDSCAPE_CROP),
+ *        the same dial for a landscape-class tile: 1 = off, the layout the
+ *        portrait cap drew. Never leaves a page worse than that layout in open
+ *        rows or in the worst crop of either class.
  * @returns {{
  *   placements: Array<{col: number, colSpan: number, rowStart: number, rowEnd: number, type: string, underlay?: boolean}>,
  *   regions: Array<{id: string, colStart: number, colSpan: number, rowStart: number, rowEnd: number, anchor: string}>,
@@ -554,36 +587,64 @@ function openRows(placements, resolved, cols, end) {
  *    `type` the cell it fills rather than its class, and rigid the same way.
  */
 export function computeFlushGrid(showcase, opts = {}) {
-  return finishOpen(showcase, opts, findFlat(showcase, opts));
+  const { cols = 3, sqRows = 24, portraitCrop = 1, landscapeCrop = 1 } = opts;
+  const refused = wideRefused;
+  const out = finishOpen(showcase, opts, findFlat(showcase, opts));
+  // The landscape cap changed nothing unless it refused a stretch somewhere in the search.
+  if (landscapeCrop >= 1 || wideRefused === refused) return out;
+  // The layout the page had before this cap (2c6770d's, the portrait cap alone) is the floor: another
+  // stands only where it is no worse in open rows or in the worst crop of either class, and better in one.
+  // The others: this one, and the landscape cap beside no portrait cap, whose search the portrait cap's
+  // refusals can lead away from a layout that suits both.
+  const prior = computeFlushGrid(showcase, { ...opts, landscapeCrop: 1 });
+  // By each piece's own class, so a piece turned into one square cell counts at the crop it has there.
+  const classes = showcase.map(tileClassOf);
+  const worst = (o, cls) =>
+    o.placements.reduce((m, p, i) => {
+      const crop = classes[i] === cls ? cropLoss(ratioOf(showcase[i]), p.colSpan / ((p.rowEnd - p.rowStart) / sqRows)) : 0;
+      return Math.max(m, crop);
+    }, 0);
+  const score = (o) => [openRows(o.placements, o.regions, cols, o.totalRows), worst(o, 'portrait'), worst(o, 'landscape')];
+  const better = (o, than) => {
+    const [now, was] = [score(o), score(than)];
+    return now.every((v, i) => v <= was[i] + 1e-9) && now.some((v, i) => v < was[i] - 1e-9);
+  };
+  let best = prior;
+  const others = portraitCrop < 1 ? [out, computeFlushGrid(showcase, { ...opts, portraitCrop: 1 })] : [out];
+  for (const o of others) if (better(o, best)) best = o;
+  return best;
+}
+
+/** The worst crop in a layout among the placements `map` prices (TALL: portraits, WIDE: landscapes), each against its drawn box. */
+function worstCrop(o, map, sqRows) {
+  return o.placements.reduce((m, p) => {
+    const ratio = map.get(p);
+    return ratio === undefined ? m : Math.max(m, cropLoss(ratio, p.colSpan / ((p.rowEnd - p.rowStart) / sqRows)));
+  }, 0);
 }
 
 /**
- * What a hole the cap left open becomes. The portrait cap (PORTRAIT_CROP)
- * refuses the stretches that closed holes before it, and findFlat then looks
- * for a layout whose pieces close them without one. A layout it cannot close
- * flat has its holes stretched shut after all, by both flush stages with no
- * cap, and where even that leaves more open than the page had before the cap
- * (a rigid cover over a hole only a stretched portrait closed), or closes it
- * with a portrait cropped harder than any the page had before the cap, the
- * page keeps its layout from before it. Either way: today's behaviour for a
- * hole no square can fill.
+ * What a hole the caps left open becomes. The portrait cap (PORTRAIT_CROP) and
+ * the landscape cap (LANDSCAPE_CROP) refuse the stretches that closed holes
+ * before them, and findFlat then looks for a layout whose pieces close them
+ * without one. A layout it cannot close flat has its holes stretched shut
+ * after all, by both flush stages with no cap, and where even that leaves more
+ * open than the page had before the caps (a rigid cover over a hole only a
+ * stretched portrait closed), or closes it with a portrait cropped harder than
+ * any the page had before them, the page keeps its layout from before them.
+ * Either way: today's behaviour for a hole no square can fill.
  */
 function finishOpen(showcase, opts, out) {
-  const { cols = 3, sqRows = 24, portraitCrop = 1 } = opts;
+  const { cols = 3, sqRows = 24, portraitCrop = 1, landscapeCrop = 1 } = opts;
   const open = (o) => openRows(o.placements, o.regions, cols, o.totalRows);
-  if (portraitCrop >= 1 || open(out) === 0) return out;
+  if ((portraitCrop >= 1 && landscapeCrop >= 1) || open(out) === 0) return out;
   guardedStretch(out.placements, out.regions, out.totalRows);
   forcedFill(out.placements, out.regions, cols, out.totalRows, sqRows / 2);
-  const before = findFlat(showcase, { ...opts, portraitCrop: 1 });
+  const before = findFlat(showcase, { ...opts, portraitCrop: 1, landscapeCrop: 1 });
   if (open(out) > 0) return open(before) < open(out) ? before : out;
   // Closed, but a portrait stretched past the worst the page had before the cap
   // would defeat the cap's point: that page keeps its layout from before it.
-  const worst = (o) =>
-    o.placements.reduce((m, p) => {
-      const ratio = TALL.get(p);
-      return ratio === undefined ? m : Math.max(m, cropLoss(ratio, p.colSpan / ((p.rowEnd - p.rowStart) / sqRows)));
-    }, 0);
-  return worst(out) > worst(before) + 1e-9 && open(before) === 0 ? before : out;
+  return worstCrop(out, TALL, sqRows) > worstCrop(before, TALL, sqRows) + 1e-9 && open(before) === 0 ? before : out;
 }
 
 /** The first layout with nothing open: the base, else covers promoted, else pieces demoted (below); failing that, the one with the fewest open rows. */
@@ -692,7 +753,7 @@ function* combos(list, k, from = 0) {
 /** computeFlushGrid's layout with the pieces in `resize` promoted (2×2) or demoted (1×1). */
 function layoutFlush(
   showcase,
-  { cols = 3, regions = [], sqRows = 24, lsRows = sqRows, breaks = 0, breakEvery = 2, portraitCrop = 1 },
+  { cols = 3, regions = [], sqRows = 24, lsRows = sqRows, breaks = 0, breakEvery = 2, portraitCrop = 1, landscapeCrop = 1 },
   resize
 ) {
   const sizes = tileSizes(sqRows, cols, lsRows);
@@ -753,7 +814,7 @@ function layoutFlush(
     laid = place(resolved);
   }
 
-  const lim = { sqRows, cap: portraitCrop };
+  const lim = { sqRows, cap: portraitCrop, wide: landscapeCrop };
   laid = pinBreaks(place, cols, resolved, sqRows, laid, breaks, breakEvery * sqRows, lim);
   const { placements } = laid;
   resolved.push(...laid.seated);
