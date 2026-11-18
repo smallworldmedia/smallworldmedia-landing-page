@@ -122,6 +122,20 @@ export function SchemeSwatch({ scheme }) {
 }
 
 /**
+ * One station of the column (SQ-116): the circle and the BADGE behind it, the panel of its own scheme
+ * (site-scheme.css .scheme-badge: sized by the station's scale off the lens badge's, flush with the viewport's edge,
+ * carried with the circle). The badge paints nothing of its own here; every measure and colour is CSS.
+ */
+export function StationArt({ scheme }) {
+  return (
+    <>
+      <span className="scheme-badge" data-scheme={scheme} aria-hidden="true" />
+      <SchemeSwatch scheme={scheme} />
+    </>
+  );
+}
+
+/**
  * The eye at rest, and the lids always: the iris of the committed scheme clipped to the
  * lid opening (so the lids cut it top and bottom, nothing paints outside them), then the
  * lid linework (one white line, no outline). Engaged, CSS fades the iris

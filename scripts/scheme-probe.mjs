@@ -145,6 +145,18 @@
  *               .fp-scale__pointer{--eye-arrow-off:0px !important;opacity:var(--eye-ts) !important}' (the arrow fades
  *               in place) must FAIL. --shots=DIR saves filmstrip-<scheme>-<width>.png (a frame every 40 ms: engage,
  *               release, the two quick taps); SWM_SEQ_DUMP=<file.json> writes each run's samples.
+ *   fan         SQ-116: the ring circles' own badges and the fan-out, off the sequence run's seeked frames (every 10 ms,
+ *               390 and 1440): (a) settled, each shown ring circle sits in a badge window of its own, whose width and
+ *               height over the lens window's are within 2 % of the circle's over the lens circle's; (b) one pixel
+ *               read inside each window (a flat page, the art hidden) is that circle's own scheme's panel; (c) through
+ *               the engage, the release and the quick taps each circle is at its settled opacity (1) from its first
+ *               moving frame, its centre between the lens circle's and its station, its distance one way per phase
+ *               (taps: not the direction); (d) before the grow starts no visible ring circle lies outside the lens
+ *               window. Negative controls: --inject='.swm-corner .fp-scale__station .scheme-badge{display:none
+ *               !important}' (a), --inject='.swm-corner .fp-scale__station .scheme-badge{background:#f0f !important;
+ *               backdrop-filter:none !important}' (b), --inject='.swm-corner .fp-scale__station{opacity:var(--eye-p)
+ *               !important}' (c: the old fade) and --inject='.swm-corner .fp-scale__station{--eye-p:1 !important}' (d:
+ *               circles out before the grow) must FAIL.
  *   lids        SQ-107 pass 11 (?schemelids): at rest and engaged, no pixel of the iris or the lens circle lies outside
  *               the lids' outer outline (device pixel ratio 2, lids recoloured, a flood fill from the border of a capture
  *               without the circle, shrunk a device pixel, compared with a capture with it). --query=schemelids=1 (pass
@@ -197,7 +209,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -1011,7 +1023,7 @@ async function measureJitter(name, dpr, width) {
       const cur = getComputedStyle(root).getPropertyValue('--scale-cur').trim();
       document.querySelectorAll('.swm-corner .fp-scale__station').forEach((s) => { if (s.style.getPropertyValue('--k').trim() === cur) s.setAttribute('data-lens', ''); });
     });
-    await page.addStyleTag({ content: 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .scheme-eye__lid{stroke:transparent !important}' });
+    await page.addStyleTag({ content: 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before,.swm-corner .scheme-badge{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .scheme-eye__lid{stroke:transparent !important}' });
     const vp = { w: width, h: phone ? 844 : 900 };
     const clip = { x: vp.w - 160, y: vp.h - 160, width: 160, height: 160 };
     const pixels = async () => {
@@ -1242,10 +1254,27 @@ function pageSeqInstall() {
     const cs = getComputedStyle(pager);
     const num = (n) => parseFloat(cs.getPropertyValue(n)) || 0;
     const cur = num('--scale-cur');
-    const stations = [...pager.querySelectorAll('.fp-scale__station')].map((s) => ({ s, d: Math.abs(parseFloat(s.style.getPropertyValue('--k')) - cur), r: (s.querySelector('svg') ?? s).getBoundingClientRect() }));
+    const stations = [...pager.querySelectorAll('.fp-scale__station')].map((s) => {
+      const dk = parseFloat(s.style.getPropertyValue('--k')) - cur;
+      return { s, dk, d: Math.abs(dk), r: (s.querySelector('svg') ?? s).getBoundingClientRect() };
+    });
+    // SQ-116: every circle's centre, width and badge window (its own .scheme-badge, a box, so it can be measured),
+    // keyed by its station relative to the lens: u1 / u2 the first and second above, d1 / d2 below.
+    const rc = (r) => ({ x: r.left, y: r.top, w: r.width, h: r.height });
+    const info = (x) => {
+      const bd = x.s.querySelector('.scheme-badge');
+      return { o: eff(x.s), w: x.r.width, cx: x.r.left + x.r.width / 2, cy: x.r.top + x.r.height / 2, scheme: bd?.dataset.scheme ?? null, b: bd ? rc(bd.getBoundingClientRect()) : null };
+    };
+    const ring = {};
+    let lensInfo = null;
+    for (const x of stations) {
+      if (x.d < 0.01) lensInfo = info(x);
+      else if (x.d < 2.01) ring[(x.dk < 0 ? 'u' : 'd') + Math.round(x.d)] = info(x);
+    }
     const pick = (d) => {
       const c = stations.filter((x) => Math.abs(x.d - d) < 0.01).sort((a, b) => a.r.top - b.r.top)[0];
-      return c ? { o: eff(c.s), w: c.r.width } : { o: NaN, w: NaN };
+      // dist: how far the circle's centre has travelled from the lens circle's (the slide, which opacity no longer shows)
+      return c ? { o: eff(c.s), w: c.r.width, dist: lensInfo ? Math.abs(c.r.top + c.r.height / 2 - lensInfo.cy) : NaN } : { o: NaN, w: NaN, dist: NaN };
     };
     const eye = corner.querySelector('.scheme-eye').getBoundingClientRect();
     const pt = corner.querySelector('.fp-scale__pointer');
@@ -1262,6 +1291,8 @@ function pageSeqInstall() {
       er: eye.right,
       n: pick(1),
       f: pick(2),
+      ring,
+      lens: lensInfo,
       a: { x: pb.left, w: pb.width, o: parseFloat(getComputedStyle(pt).opacity) },
       ay: pb.top + pb.height / 2,
       ly: lens.top + lens.height / 2,
@@ -1411,7 +1442,7 @@ async function measureLids(browser, scheme, width) {
         document.head.append(st);
         st.disabled = off;
       };
-      mk('swm-lids-iso', 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .fp-scale__pointer{visibility:hidden !important}', false);
+      mk('swm-lids-iso', 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before,.swm-corner .scheme-badge{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .fp-scale__pointer{visibility:hidden !important}', false);
       mk('swm-lids-magenta', '.swm-corner .scheme-eye__lid{stroke:#ff00ff !important}', true);
       mk('swm-lids-hide', '.swm-corner .scheme-eye__iris,.swm-corner .scheme-eye__iris *,.swm-corner [data-lens],.swm-corner [data-lens] *{visibility:hidden !important}', true);
     });
@@ -1711,6 +1742,49 @@ async function measureSeat(ctx, scheme, urlPath, label) {
 }
 
 /**
+ * The fan gate's panel pixels (SQ-116): the engaged column settled, over a flat page with only the widget's boxes
+ * painted (the art hidden), one pixel read inside each shown ring circle's own window, in the strip of padding between
+ * the window's left edge and its circle. The colour under it is that circle's scheme's panel, whatever the page is.
+ */
+async function measureFan(browser, scheme, width) {
+  const phone = width <= 480;
+  const ctx = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: 1, reducedMotion: 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+  await ctx.route(/stream\.mux\.com/, (r) => r.abort());
+  const { default: sharp } = await import('sharp');
+  const page = await ctx.newPage();
+  try {
+    await page.goto(`${BASE}/privacy/?scheme=${scheme}${QUERY}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await sleep(2000);
+    await page.addStyleTag({ content: 'html{background:#e0e0e0 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner svg,.swm-corner svg *{visibility:hidden !important}' });
+    await page.evaluate(pageSeqInstall);
+    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    if (phone) await (await ctx.newCDPSession(page)).send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: eye.x, y: eye.y }] });
+    else await page.mouse.move(eye.x, eye.y);
+    await page.waitForFunction(() => window.__seq.anims.length > 0, null, { timeout: 8000 });
+    await page.evaluate(() => window.__seq.finish());
+    await sleep(900);
+    const settled = await page.evaluate(() => window.__seq.sample(-1));
+    const panels = [];
+    for (const [id, c] of Object.entries(settled.ring ?? {})) {
+      if (!(c.o > 0.05) || !c.b) continue;
+      const x = Math.floor(c.b.x + 0.25 * (c.cx - c.w / 2 - c.b.x));
+      // on its centre line, kept inside the viewport (the circle below the lens hangs past the bottom edge at 1440 x 900)
+      const y = Math.floor(Math.min(Math.max(c.cy, c.b.y + 1), c.b.y + c.b.h - 1, (phone ? 844 : 900) - 3));
+      const buf = await page.screenshot({ clip: { x, y, width: 2, height: 2 } });
+      const { data } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      panels.push({ id, scheme: c.scheme, rgb: [data[0], data[1], data[2]], at: [x, y] });
+    }
+    return { panels };
+  } catch (e) {
+    return { error: String(e.message).split('\n')[0].slice(0, 240) };
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
+/**
  * The strip gate's frames: only the badge painted, over a flat page; the middle column of a screenshot of its
  * tile, for the real engine (ArrowDown x3, each detent settled) and for --scale-qf set by hand (whole and
  * fractional values, the way the engine writes it per frame).
@@ -1840,10 +1914,19 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
     }
     if (parts.length) emitResult(scheme, route, width, 'shift', merge(parts));
   }
+  // the sequence and the fan gates read the same seeked run: measure it once per scheme and width
+  let seqRun = null;
+  const seqOnce = async () => (seqRun ??= await measureSequence(browser, scheme, width));
   if (want.has('sequence')) {
-    const m = await measureSequence(browser, scheme, width);
+    const m = await seqOnce();
     if (m.error) emit('FAIL', scheme, route, width, 'sequence', m.error);
     else emitResult(scheme, route, width, 'sequence', gate.sequence(m));
+  }
+  if (want.has('fan')) {
+    const m = await seqOnce();
+    const f = m.error ? m : await measureFan(browser, scheme, width);
+    if (f.error) emit('FAIL', scheme, route, width, 'fan', f.error);
+    else emitResult(scheme, route, width, 'fan', gate.fanout({ ...m, panels: f.panels }));
   }
   if (want.has('lids')) {
     const m = await measureLids(browser, scheme, width);
