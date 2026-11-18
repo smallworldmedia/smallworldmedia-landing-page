@@ -19,6 +19,7 @@ project: cheetah-print
 | Venue/cheetah-print_venue_booth-previs.jpg | static_16x9 | Cheetah Print Booth — Venue Pre-Vis | Branding |  |  |  | mediaAsset-826c5f81-de0c-4f8e-a64c-45c0193a6635 |
 | Cheetah-Print_Primary_Red.png | logo | Cheetah Print Primary Logo — Red | Logo Design |  |  |  | mediaAsset-3ea3229e-49b0-4ddf-afd7-3ca0127b8f6c |
 | Cheetah-Print_Primary_Gold.png | logo | Cheetah Print Primary Logo — Gold | Logo Design |  |  |  | mediaAsset-b5ce1a5e-d7eb-444d-adfc-44ed2f3103eb |
+| Rafael-Wordmark_White.png | logo | Rafael Wordmark — White | Logo Design |  |  |  | mediaAsset-46f7be72-506d-48f8-abb0-756d11694698 |
 | Venue/cheetah-print_venue_rafael-booth.jpg | static_16x9 | Rafael at the Cheetah Print Booth — Pre-Vis | Branding |  |  |  | mediaAsset-540bc1ce-f20d-4d1a-a857-3e416b13beb9 |
 | cheetah-print_miami_teaser_3x4.png | static_3x4 | Cheetah Print Miami — Teaser | Event / Tour Creative |  | cheetah-print-miami-flyer-progression |  | mediaAsset-d1bfd9e3-3b3a-45ec-9644-fc7f7787497c |
 | cheetah-print_miami_venue-details_3x4.png | static_3x4 | Cheetah Print Miami — Venue Details | Event / Tour Creative |  | cheetah-print-miami-flyer-progression |  | mediaAsset-3a01426b-54b2-4638-ad5e-699b555f6f4d |
