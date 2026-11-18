@@ -191,8 +191,8 @@
      Nathan 11-17: "lighten the hue or the shade of the glass effect background on the multicolor so it's
      not as dark of a gray, and then make the black background be a light black so it reads as just off
      of if it is sitting on top of a black container / page element". --badge-veil is the glass's white
-     (?schemeglass, PROPOSED 35%; it was 22%), --badge-black-mix the white mixed into black's panel
-     (?schemeblack, PROPOSED 10%, #1a1a1a; it was the page black itself). Both panels, the lens strip's and
+     (?schemeglass, 35%, Nathan 11-18; it was 22%), --badge-black-mix the white mixed into black's panel
+     (?schemeblack, 10%, #1a1a1a, Nathan 11-18; it was the page black itself). Both panels, the lens strip's and
      each ring station's, read these two tokens. */
   --badge-veil: 35%;
   --badge-black-mix: 10%;
