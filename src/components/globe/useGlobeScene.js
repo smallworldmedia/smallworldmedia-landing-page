@@ -3,7 +3,7 @@
  *
  * Owns the renderer/scene/camera, builds the panelized globe, assigns CMS
  * thumbnails, and runs the render loop on gsap.ticker with an internal
- * 60fps gate (FPS_CAP; never gsap.ticker.fps() — the ticker is shared
+ * 60fps gate (FPS_CAP less ?globefpstol's slack; never gsap.ticker.fps() — the ticker is shared
  * with the persistent SiteShell).
  *
  * Lifecycle: the whole scene rebuilds when assets/gapDeg/capDeg change
@@ -68,7 +68,7 @@ import {
   FIT_COVER,
   FILL_FRACTION,
   INITIAL_PITCH_DEG,
-  FPS_CAP,
+  GLOBE_FPS_GATE_S,
   globePixelRatio,
   PITCH_LIMIT_DEG,
   GAP_COLOR,
@@ -686,7 +686,7 @@ ${RAMP_GLSL}`
     );
     const initialScore = (p) => p.centerDir.clone().applyEuler(initialRotation).z;
     const byProminence = [...panels].sort((a, b) => initialScore(b) - initialScore(a));
-    const textureManager = new TextureManager();
+    const textureManager = new TextureManager(renderer); // a decoded still reaches the GPU from the tick, one a frame
     // Declared ahead of their section (the live tier below) — the population
     // director's hooks read them.
     let scheduler = null;
@@ -1286,7 +1286,12 @@ ${RAMP_GLSL}`
     const tick = (_time, deltaMs) => {
       const dt = deltaMs / 1000;
       accumulated += dt;
-      if (accumulated < 1 / FPS_CAP) return;
+      // gsap's ticker reports whole-ms deltas, so a strict 1/FPS_CAP gate skips
+      // a 120 Hz screen's 8 + 8 = 16 ms pair and waits for a third frame: 44-47
+      // renders a second in a 17/25 ms rhythm (SQ-120). ?globefpstol (2 ms of
+      // slack by default; 0 = the strict gate) gives an even 60, the World's
+      // ?fpstol pattern. GLOBE_FPS_GATE_S is 1/FPS_CAP − the slack, in seconds.
+      if (accumulated < GLOBE_FPS_GATE_S) return;
       // Clamp the step: gsap.ticker runs lagSmoothing(0) globally, so a tab-hidden
       // → visible resume (tick removed while hidden, re-added on resume) delivers
       // one deltaMs spanning the whole hidden span. Unclamped that snaps the yaw
@@ -1343,6 +1348,9 @@ ${RAMP_GLSL}`
 
       const texBefore = renderer.info.memory.textures;
       const r0 = performance.now();
+      // One decoded still onto the GPU per rendered frame (SQ-123): the upload is
+      // here, timed with the render, instead of inside a draw that binds ten at once.
+      textureManager.pump();
       if (lensRouted) {
         enterLens.composer.render(step); // the Enter World dive only
       } else {

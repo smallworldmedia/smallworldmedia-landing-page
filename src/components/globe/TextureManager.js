@@ -15,6 +15,15 @@
  * its playbackId, so the default (video-only) pool keys exactly as before.
  * A client-name ticker tile (nameTicker.js, 10-06) keys on its nameKey and
  * draws its strip locally — same refcount, no network beyond the face.
+ *
+ * Decode and upload stay off the frame (SQ-123): an image decodes to an
+ * ImageBitmap (made from the <img> the browser fetched, so the bytes are the
+ * <img> path's own) off the main thread, and with a renderer attached a decoded
+ * texture waits in a queue that pump() puts on the GPU, ONE per rendered frame
+ * (renderer.initTexture). A texture's promise settles, and peek() returns it,
+ * only once it is on the GPU, so no consumer binds one that would upload at its
+ * first draw — three's first-draw upload of a decoded-at-upload <img> stalled
+ * a world change's frame by up to 83 ms.
  */
 import * as THREE from 'three';
 import { GLOBE_T1 } from './globeConfig.js';
@@ -25,8 +34,47 @@ import { loadNameTexture } from './nameTicker.js';
  *  playbackId, else the still URL, else a name strip. */
 export const assetKey = (asset) => asset?.tex?.key || asset?.playbackId || asset?.imageUrl || asset?.nameKey || null;
 
+/** What the <img> path uploaded, as createImageBitmap options. three skips its
+ *  UNPACK_* pixelStorei calls for an ImageBitmap, so the flip, the alpha and the
+ *  colour handling are the bitmap's own: flipped (the Texture's flipY), straight
+ *  alpha (premultiplyAlpha false), and NO colour conversion (an sRGB texture on
+ *  an sRGB working space uploads with UNPACK_COLORSPACE_CONVERSION_WEBGL = NONE). */
+const BITMAP_OPTIONS = { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' };
+let bitmapOk = null;
+/** Does this browser's createImageBitmap honour imageOrientation: 'flipY'? (Safari's
+ *  options support has lagged; a flipped globe is worse than a slow one.) Checked once,
+ *  on a 1x2 canvas. False sends loads down the <img> path, decoded before upload. */
+const bitmapSupported = () =>
+  (bitmapOk ??= (async () => {
+    try {
+      if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return false;
+      const src = document.createElement('canvas');
+      src.width = 1;
+      src.height = 2;
+      const sg = src.getContext('2d');
+      sg.fillStyle = '#fff';
+      sg.fillRect(0, 0, 1, 1);
+      sg.fillStyle = '#000';
+      sg.fillRect(0, 1, 1, 1);
+      const bitmap = await createImageBitmap(src, BITMAP_OPTIONS);
+      const out = document.createElement('canvas');
+      out.width = 1;
+      out.height = 2;
+      const og = out.getContext('2d');
+      og.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return og.getImageData(0, 0, 1, 1).data[0] === 0; // flipped: the black row is on top
+    } catch {
+      return false;
+    }
+  })());
+
 export default class TextureManager {
-  constructor() {
+  /** @param {THREE.WebGLRenderer|null} [renderer] — attached, a decoded texture queues for pump(); absent (the unit tests), it is ready the moment it decodes */
+  constructor(renderer = null) {
+    this.renderer = renderer;
+    /** Decoded, not yet on the GPU: { key, entry, texture, ready } in arrival order. */
+    this.queue = [];
     this.loader = new THREE.TextureLoader();
     this.loader.setCrossOrigin('anonymous');
     /** @type {Map<string, { texture: THREE.Texture|null, refs: number, promise: Promise, bytes?: number, failed?: boolean }>} */
@@ -68,10 +116,9 @@ export default class TextureManager {
               this.account(key, entry, texture);
               return texture;
             })
-          : new Promise((resolve, reject) => {
-              this.loader.load(
-                asset.tex ? asset.tex.url : asset.playbackId ? this.thumbnailUrl(asset.playbackId) : this.stillUrl(asset.imageUrl),
-                (texture) => {
+          : this.decode(asset.tex ? asset.tex.url : asset.playbackId ? this.thumbnailUrl(asset.playbackId) : this.stillUrl(asset.imageUrl)).then(
+              (texture) =>
+                new Promise((resolve) => {
                   texture.colorSpace = THREE.SRGBColorSpace;
                   texture.anisotropy = 4;
                   // A class texture carries its MEASURED aspect: the CDN rounds,
@@ -80,14 +127,15 @@ export default class TextureManager {
                     const img = texture.image;
                     texture.userData.aspect = (img.naturalWidth || img.width) / (img.naturalHeight || img.height);
                   }
-                  entry.texture = texture;
                   this.account(key, entry, texture);
-                  resolve(texture);
-                },
-                undefined,
-                reject
-              );
-            });
+                  const ready = () => {
+                    entry.texture = texture;
+                    resolve(texture);
+                  };
+                  if (this.renderer) this.queue.push({ key, entry, texture, ready });
+                  else ready();
+                })
+            );
       // A rejected load is FAILED, never pending: stats() reports it apart, so
       // the ledger can go quiet. The entry keeps its refs; release() still frees it.
       entry.promise = entry.promise.catch((e) => {
@@ -98,6 +146,45 @@ export default class TextureManager {
     }
     entry.refs += 1;
     return entry.promise;
+  }
+
+  /** A still's texture, decoded before anything uploads it: an ImageBitmap built off the
+   *  main thread, else (a browser whose createImageBitmap does not flip) the <img>
+   *  loader's image after image.decode(). Same Texture settings either way. */
+  async decode(url) {
+    if (await bitmapSupported()) {
+      // The <img> fetches, so the browser's own image Accept applies (the Sanity CDN's auto=format
+      // keys on it, Vary: Accept: fetch() would get a different encoding, so different pixels);
+      // the bitmap is then made from it off the main thread, with the <img> path's pixel handling.
+      const img = (await new Promise((resolve, reject) => this.loader.load(url, resolve, undefined, reject))).image;
+      const bitmap = await createImageBitmap(img, BITMAP_OPTIONS);
+      const texture = new THREE.Texture(bitmap);
+      texture.flipY = false; // the bitmap is already flipped (BITMAP_OPTIONS); three ignores flipY for an ImageBitmap
+      texture.needsUpdate = true;
+      // Once on the GPU the bitmap's pixels are dead weight: an <img>'s decoded pixels are
+      // the browser's to discard, a bitmap's stay until closed (about 1 MB per 512² still).
+      texture.onUpdate = (t) => {
+        t.onUpdate = null;
+        t.image.close?.();
+      };
+      return texture;
+    }
+    const texture = await new Promise((resolve, reject) => this.loader.load(url, resolve, undefined, reject));
+    await texture.image.decode?.().catch(() => {}); // best effort: a failed decode still uploads, as before
+    return texture;
+  }
+
+  /** Per rendered frame (useGlobeScene's tick, before the render): put ONE queued texture on
+   *  the GPU. A texture released before its turn is settled without an upload and does not
+   *  spend the frame's one. Returns the key uploaded, or null. */
+  pump() {
+    for (let job = this.queue.shift(); job; job = this.queue.shift()) {
+      const wanted = this.cache.get(job.key) === job.entry;
+      if (wanted) this.renderer.initTexture(job.texture);
+      job.ready();
+      if (wanted) return job.key;
+    }
+    return null;
   }
 
   /** The already-decoded texture for a key, or null (no ref taken). */
@@ -164,6 +251,7 @@ export default class TextureManager {
     }
     this.cache.clear();
     this.bytes = 0;
+    for (const job of this.queue.splice(0)) job.ready(); // settle what never reached the GPU: its dispose chain above still runs
   }
 }
 

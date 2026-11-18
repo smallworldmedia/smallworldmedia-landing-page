@@ -1069,6 +1069,80 @@ test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pi
   for (const bad of ['1720p', '540p', '720P', '720px']) {
     assert.equal((await load('globe/globeConfig.js', `?globeres=${bad}`, true)).GLOBE_STREAM_PARAMS, STREAM_PARAMS)
   }
+  // ?globefpstol (SQ-123): the World's ?fpstol pattern for the globe's own 60 fps gate
+  const tol = async (search, mobile = false) => load('globe/globeConfig.js', search, mobile)
+  assert.equal((await tol('')).GLOBE_FPS_TOL_MS, 2) // PROPOSED default: an even 60 on a 120 Hz screen
+  assert.equal((await tol('', true)).GLOBE_FPS_TOL_MS, 2) // both tiers
+  assert.equal((await tol('?globefpstol=0')).GLOBE_FPS_TOL_MS, 0) // the strict gate, today's cadence
+  assert.equal((await tol('?globefpstol=-1')).GLOBE_FPS_TOL_MS, 0) // the clamp's ends
+  assert.equal((await tol('?globefpstol=9')).GLOBE_FPS_TOL_MS, 2.5) // past 2.7 ms a 144 Hz screen renders above 60
+  assert.equal((await tol('?globefpstol=big')).GLOBE_FPS_TOL_MS, 2) // not a number: the default
+  assert.equal((await tol('?globefpstol=0')).GLOBE_FPS_GATE_S, 1 / 60) // the tick's gate in seconds: the strict 1/FPS_CAP
+  assert.equal((await tol('')).GLOBE_FPS_GATE_S, 1 / 60 - 0.002) // 2 ms of slack = 0.002 s (pins the ms → s units)
+  // the 120 Hz case that motivates it: gsap's whole-ms deltas of 8 and 9 ms. Strictly, two 8 ms frames (16 ms) miss the
+  // gate and wait for a third (a 25 ms render); with the slack every second frame renders, near 60 a second.
+  const rate = (gate) => {
+    let acc = 0
+    let renders = 0
+    for (let i = 0; i < 1200; i++) {
+      acc += (i % 3 === 1 ? 9 : 8) / 1000 // 8.33 ms on average
+      if (acc < gate) continue
+      acc = 0
+      renders++
+    }
+    return renders / 10 // 1200 frames = 10 s
+  }
+  assert.ok(rate((await tol('?globefpstol=0')).GLOBE_FPS_GATE_S) < 50, 'strict: 3 of 4 frames wait for a third')
+  assert.ok(Math.abs(rate((await tol('')).GLOBE_FPS_GATE_S) - 60) < 1.5, 'tolerant: an even 60')
+  // the tick reads the tolerant gate, not 1 / FPS_CAP
+  const scene = fs.readFileSync(new URL('../../src/components/globe/useGlobeScene.js', import.meta.url), 'utf8')
+  assert.match(scene, /if \(accumulated < GLOBE_FPS_GATE_S\) return;/)
+  assert.doesNotMatch(scene, /accumulated < 1 \/ FPS_CAP/)
+})
+
+test('textures: a decoded still reaches the GPU one per pump, and only then settles (SQ-123)', async () => {
+  const uploaded = []
+  const renderer = { initTexture: (t) => uploaded.push(t.name) }
+  const tm = new TextureManager(renderer)
+  tm.decode = async (url) => Object.assign(new THREE.Texture({ width: 512, height: 512 }), { name: url }) // the decode itself needs a browser
+  const settled = []
+  const decoded = new Map()
+  const ask = (n) => {
+    const asset = { imageUrl: `still-${n}` }
+    decoded.set(n, tm.loadAsset(asset).then((t) => settled.push(n) && t))
+    return assetKey(asset)
+  }
+  const keys = [1, 2, 3].map(ask)
+  await new Promise((r) => setTimeout(r, 5))
+  assert.deepEqual(uploaded, []) // decoded, queued: nothing on the GPU, nothing settled
+  assert.deepEqual(settled, [])
+  assert.equal(keys.map((k) => tm.peek(k)).filter(Boolean).length, 0) // no consumer can bind one early
+  assert.equal(tm.stats().pending, 3) // still in flight: the quiet gates wait for the queue
+  assert.equal(tm.pump(), keys[0])
+  await new Promise((r) => setTimeout(r, 0))
+  assert.equal(uploaded.length, 1) // one per pump
+  assert.deepEqual(settled, [1])
+  assert.ok(tm.peek(keys[0]))
+  // a texture released before its turn settles without an upload and does not spend the frame's one
+  tm.release(keys[1])
+  assert.equal(tm.pump(), keys[2])
+  await new Promise((r) => setTimeout(r, 0))
+  assert.equal(uploaded.length, 2)
+  assert.ok(!uploaded.some((n) => n.includes('still-2')))
+  assert.deepEqual(settled, [1, 2, 3])
+  assert.equal(tm.pump(), null) // an empty queue
+  // disposeAll settles what never reached the GPU
+  const late = ask(4)
+  await new Promise((r) => setTimeout(r, 5))
+  tm.disposeAll()
+  await decoded.get(4)
+  assert.equal(tm.queue.length, 0)
+  // no renderer (these unit tests, nothing to upload to): ready the moment it decodes, as before
+  const bare = new TextureManager()
+  bare.decode = async () => new THREE.Texture({ width: 8, height: 8 })
+  const t = await bare.loadAsset({ imageUrl: 'bare' })
+  assert.equal(bare.peek('bare'), t)
+  assert.equal(late, 'still-4')
 })
 
 test('wall canvas: desktop keeps the 08-27 texel ratio above pixel ratio 1.5, phones stay 896; ?fpstol clamps (PF)', async () => {
