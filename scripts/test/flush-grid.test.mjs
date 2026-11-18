@@ -561,7 +561,7 @@ test('portraitCrop 1 is the layout before the cap, byte for byte (Nusonido at 5,
   }
 })
 
-test('a page with no square candidate is unchanged: nothing for the search to use, so every hole stretches as before', () => {
+test('a page with no square candidate is unchanged, as there is nothing for the search to use and every hole stretches as before', () => {
   const sq = 24
   for (const items of [
     Array.from({ length: 7 }, (_, i) => tile(i, 9 / 16)), // one 9:16 alone on the last row
