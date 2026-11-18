@@ -532,8 +532,8 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   `streamClip`, `segmentsPerRendition`, `loops`, `audio`, judging every master by the clip its
   surface owes, imported from `work/imageConfig.js` rather than restated) take the probe's report and
   import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures.
-  `scripts/lib/scheme-gate.mjs` (the colour schemes' page gates, 11-14 and 11-15, and the corner widget's sixteen,
-  SQ-107 through 11-17) follows the same rule under `scripts/test/scheme-gate.test.mjs` (72 tests at `413b515`), as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
+  `scripts/lib/scheme-gate.mjs` (the colour schemes' page gates, 11-14 and 11-15, and the corner widget's seventeen,
+  SQ-107 through 11-17, SQ-116 adding the ring fan-out gate `fan`) follows the same rule under `scripts/test/scheme-gate.test.mjs` (80 tests at `6b40f2e`), as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
   no uncover before the destination draws, none past `NAV_HOLD_MAX_MS`) under `scripts/test/nav-wipe.test.mjs`
   and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
   under `scripts/test/legal-scroll.test.mjs`. Every gate
