@@ -692,17 +692,23 @@ export function circlesAbove(c, { visible = 0.01, tol = 1.5 } = {}) {
 }
 
 /**
- * clearOfBlurb — the desktop seat sits ABOVE the home footer's blurb, at rest and engaged (SQ-121, Nathan 11-18: the
- * engaged eyes covered the blurb's text and the privacy pill on home at rest). `c` = { rest, engaged }, each a measurement
- * of the page in that state: { tile {x,y,w,h} (the lens badge, the pager's ::before at its lifted size), blurb {x,y,w,h}
- * (the union of the blurb's text boxes), pill {x,y,w,h} | null (the privacy pill), parts: [{ name, op, x, y, w, h }]
- * (the eye, every station's circle and its own badge: op is the effective opacity, rects as painted, shifted and lifted) }.
+ * clearOfBlurb — the desktop seat sits ABOVE the home footer's black panel (and so its blurb), at rest and engaged (SQ-121,
+ * Nathan 11-18: the engaged eyes covered the blurb's text and the privacy pill on home at rest; SQ-125, Nathan 11-18: "move the
+ * eye badge up higher on desktop so that the lower badge clears the black footer blurb container with 2 px of gap"). `c` =
+ * { rest, engaged }, each a measurement of the page in that state: { tile {x,y,w,h} (the lens badge, the pager's ::before at
+ * its lifted size), blurb {x,y,w,h} (the union of the blurb's text boxes), panel {x,y,w,h} (`.site-footer--links`, the black
+ * panel, as painted), pill {x,y,w,h} | null (the privacy pill), parts: [{ name, op, x, y, w, h }] (the eye, every station's
+ * circle and its own badge: op is the effective opacity, rects as painted, shifted and lifted) }.
+ * THE SEAT IS EXACT (SQ-125): ENGAGED the lens badge's bottom edge is the option `gap` (2 px, Nathan's number, not whatever
+ * ?schemeblurbgap dialed) above the panel's top edge, within `tol` (0.5 px) EITHER WAY (a seat too high fails as surely as
+ * one too low). AT REST the smaller badge shares the lens centre, so its bottom edge is at least `gap` above the panel's
+ * top edge (`tol`). A state with no panel fails: a run that found none proves nothing.
  * AT REST the tile's bottom edge is above the blurb text's top edge (`tol` 0.5 px) and the tile does not meet the pill.
  * ENGAGED no visible part (op over `visible`), and not the lens badge, meets the blurb text or the pill by more than `tol`
  * on both axes. A state with no blurb measured fails: a run that found none proves nothing about the overlap. The pill is
  * allowed to be absent (a route or width with none), the blurb is not: this is the home page's gate.
  */
-export function clearOfBlurb(c, { tol = 0.5, visible = 0.01 } = {}) {
+export function clearOfBlurb(c, { tol = 0.5, visible = 0.01, gap: want = 2 } = {}) {
   const offenders = [];
   const meets = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > tol && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > tol;
   const rest = c?.rest;
@@ -718,8 +724,21 @@ export function clearOfBlurb(c, { tol = 0.5, visible = 0.01 } = {}) {
     if (meets(p, eng.blurb)) offenders.push({ path: '.site-footer__blurb', state: 'engaged', part: p.name, rect: rectOf(p), blurb: rectOf(eng.blurb), note: `${p.name} (opacity ${fixed(p.op, 2)}) at ${rectOf(p)} meets the blurb text ${rectOf(eng.blurb)}` });
     if (eng.pill && meets(p, eng.pill)) offenders.push({ path: '.site-privacy', state: 'engaged', part: p.name, rect: rectOf(p), pill: rectOf(eng.pill), note: `${p.name} (opacity ${fixed(p.op, 2)}) at ${rectOf(p)} meets the privacy pill ${rectOf(eng.pill)}` });
   }
+  if (!eng.panel || !rest.panel) {
+    offenders.push({ path: '.site-footer--links', note: 'no black panel rect measured: the seat against the panel is unproven' });
+  } else {
+    const engGap = eng.panel.y - (eng.tile.y + eng.tile.h);
+    const restGap = rest.panel.y - (rest.tile.y + rest.tile.h);
+    if (Math.abs(engGap - want) > tol) {
+      offenders.push({ path: '.swm-corner .fp-scale::before', state: 'engaged', tile: rectOf(eng.tile), panel: rectOf(eng.panel), note: `the engaged lens badge's bottom edge (${fixed(eng.tile.y + eng.tile.h, 1)}) is ${fixed(engGap, 2)} px above the black panel's top edge (${fixed(eng.panel.y, 1)}), want ${fixed(want, 2)} (within ${tol} px, either way)` });
+    }
+    if (restGap < want - tol) {
+      offenders.push({ path: '.swm-corner .fp-scale::before', state: 'rest', tile: rectOf(rest.tile), panel: rectOf(rest.panel), note: `the resting badge's bottom edge (${fixed(rest.tile.y + rest.tile.h, 1)}) is ${fixed(restGap, 2)} px above the black panel's top edge (${fixed(rest.panel.y, 1)}), want at least ${fixed(want, 2)}` });
+    }
+  }
   const gap = eng.blurb.y - (eng.tile.y + eng.tile.h);
-  return result(offenders, shown.length, `${shown.length} engaged parts, lens badge ${rectOf(eng.tile)} ${fixed(gap, 1)} px above the blurb text ${rectOf(eng.blurb)}${eng.pill ? `, pill ${rectOf(eng.pill)}` : ', no pill'}; resting badge ${fixed(rest.blurb.y - (rest.tile.y + rest.tile.h), 1)} px above it`);
+  const panelGap = eng.panel ? eng.panel.y - (eng.tile.y + eng.tile.h) : NaN;
+  return result(offenders, shown.length, `${shown.length} engaged parts, lens badge ${rectOf(eng.tile)} ${fixed(panelGap, 2)} px above the black panel (dialed ${fixed(want, 2)}) and ${fixed(gap, 1)} px above the blurb text ${rectOf(eng.blurb)}${eng.pill ? `, pill ${rectOf(eng.pill)}` : ', no pill'}; resting badge ${fixed(rest.blurb.y - (rest.tile.y + rest.tile.h), 1)} px above the text`);
 }
 
 /**
