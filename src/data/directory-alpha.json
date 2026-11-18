@@ -119,11 +119,6 @@
     "lum": 1,
     "title": "Munchietown Logo — White"
   },
-  "image-89507e725a105cf179e43fc774feb3b68be5719a-4146x857-png": {
-    "clear": 0.729,
-    "lum": 1,
-    "title": "The Fingerprint Masthead — White"
-  },
   "image-93d120cb4b70a886aaec69a6790ab1d50738a935-830x762-png": {
     "clear": 0.795,
     "lum": 0.62,
@@ -168,6 +163,11 @@
     "clear": 0.724,
     "lum": 1,
     "title": "Kamino Logo 2026 — White"
+  },
+  "image-b9c8b793cb5c88d805fa64390ae7af272eddeddb-3034x521-png": {
+    "clear": 0.652,
+    "lum": 1,
+    "title": "The Fingerprint Masthead — White"
   },
   "image-c50feccec8de87b64976de481338418ce39ec9c7-1368x318-png": {
     "clear": 0.498,

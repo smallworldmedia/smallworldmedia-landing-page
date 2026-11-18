@@ -282,24 +282,6 @@
     "client": "Munchietown",
     "doc": "mediaAsset-82490c0f-5a49-40f4-9953-5c02b3d4b3b7"
   },
-  "image-89507e725a105cf179e43fc774feb3b68be5719a-4146x857-png": {
-    "file": "89507e725a10.png",
-    "w": 956,
-    "h": 164,
-    "aspect": 5.8293,
-    "density": 0.469,
-    "cx": 0.5029,
-    "cy": 0.4551,
-    "trim": [
-      0.023,
-      0.0825,
-      0.956,
-      0.7961
-    ],
-    "title": "The Fingerprint Masthead — White",
-    "client": "EDM Identity",
-    "doc": "mediaAsset-3c857c28-6cb7-4289-9b4b-f51ecec6af9f"
-  },
   "image-93d120cb4b70a886aaec69a6790ab1d50738a935-830x762-png": {
     "file": "93d120cb4b70.png",
     "w": 830,
@@ -383,6 +365,24 @@
     "title": "Kamino Logo 2026 — White",
     "client": "Kamino",
     "doc": "mediaAsset-1c78bab4-42cd-4556-85b6-2fd14ae0fa1c"
+  },
+  "image-b9c8b793cb5c88d805fa64390ae7af272eddeddb-3034x521-png": {
+    "file": "b9c8b793cb5c.png",
+    "w": 1000,
+    "h": 171,
+    "aspect": 5.848,
+    "density": 0.466,
+    "cx": 0.5005,
+    "cy": 0.4546,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "The Fingerprint Masthead — White",
+    "client": "EDM Identity",
+    "doc": "mediaAsset-3c857c28-6cb7-4289-9b4b-f51ecec6af9f"
   },
   "image-bdce4208f097507539a418d7a8129fb8bb6d7f9e-1500x1080-png": {
     "hold": "busy-ground",
