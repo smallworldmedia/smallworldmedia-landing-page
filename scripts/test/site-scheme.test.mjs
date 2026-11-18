@@ -784,6 +784,7 @@ test('SQ-121 the desktop seat is the blurb top plus the gap plus what the column
   assert.ok(/--seat-blurb-size: var\(--footer-blurb-size, max\(var\(--text-blurb, 1\.4rem\), /.test(desk), "the blurb's size: global.css's token where home publishes it, its own expression elsewhere");
   assert.ok(/--seat-blurb-top: calc\(75px \+ max\(1\.09 \* var\(--seat-blurb-size\), 1\.64 \* var\(--text-blurb, 1\.4rem\)\)\);/.test(desk), 'one line: 75px + 1.09 x the size; two lines: the floor block; max() picks, no breakpoint');
   assert.ok(/--eye-down-shown: var\(--eye-down-desk, 0\);/.test(desk) && /--eye-hit-down: calc\(0\.75 \+ 0\.75 \* var\(--eye-down-desk, 0\)\);/.test(desk), 'no ring under the lens by default, the press target follows it');
+  assert.ok(/@supports \(width: round\(1px, 1px\)\) \{ @media \(min-width: 769px\) \{ \.swm-corner \{ --badge-cy: round\(calc\(var\(--seat-blurb-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\), 1px\); \} \} \}/.test(flat), 'the seat rounds to whole pixels where round() exists (a fractional lens centre shimmers in the jitter gate)');
   // Phones: the seat is declared in the desktop block alone, and the base block keeps the old fade numbers.
   assert.equal(flat.split('--seat-blurb-top:').length - 1, 1, 'the blurb seat is declared once, in the desktop block');
   assert.ok(/--eye-down-shown: 1;/.test(flat) && /--eye-down-span: 0\.5;/.test(flat), 'the base (the phone) shows one circle below the lens and fades the next within half a station, as before');

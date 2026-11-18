@@ -289,6 +289,18 @@
   }
 }
 
+/* The seat on whole pixels. The blurb's size is fractional, so the seat is too, and a lens centred on a fraction
+   of a pixel shimmers by a quarter pixel as the engaged badge grows (the jitter gate's reversal limit, 0.25, was hit
+   at 1440 x 900 without this). round() where the browser has it (Chrome 125, Safari 15.4, Firefox 118); older ones
+   keep the fractional seat above. */
+@supports (width: round(1px, 1px)) {
+  @media (min-width: 769px) {
+    .swm-corner {
+      --badge-cy: round(calc(var(--seat-blurb-top) + var(--badge-blurb-gap) + var(--seat-below)), 1px);
+    }
+  }
+}
+
 /* — The wrapper is the widget's SEAT and its footprint: fixed, its eye one padding off the viewport's
    right edge (the badge's own padding takes it to the edge), as wide as the eye and as tall as the
    window, so one box holds the widget at rest and deployed. It paints nothing and takes no pointer;
