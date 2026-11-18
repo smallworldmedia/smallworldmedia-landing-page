@@ -385,11 +385,11 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       else {
         // SQ-115: the finger rides the wheel's drive on its own lane, FOOTER_FINGER:
         // the tail's tension (?footertouchbrake, symmetric, so up d px then down d px
-        // is a round trip) and the follow (?footertouchlerp). At lerp 0 (the default)
-        // the finger owns the panel as before: the drive stops, steps from the painted
-        // progress and paints on the touchmove. Above 0 the finger moves a TARGET and
-        // the ticker paints one even step a frame, whatever cadence iOS delivers the
-        // touchmoves at.
+        // is a round trip) and the follow (?footertouchlerp, baked 0.35). Above 0, the
+        // default, the finger moves a TARGET and the ticker paints one even step a
+        // frame, whatever cadence iOS delivers the touchmoves at. At lerp 0 the finger
+        // owns the panel as before: the drive stops, steps from the painted progress
+        // and paints on the touchmove.
         if (!(getFooterTouchLerp() > 0)) drive.stop();
         drive.add(dy / SCROLL_TRIGGER_HOME_PX, footerPRef.current, FOOTER_FINGER);
       }

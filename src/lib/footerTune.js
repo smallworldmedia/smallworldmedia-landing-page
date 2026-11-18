@@ -151,7 +151,7 @@ export function footerTensionStep(p, dp, rest = 0, tension = 0) {
    it with a fake ticker. A delta moves a TARGET through its lane's step, and the
    painted progress follows on the ticker by footerDamp at the lane's lerp, once
    per frame. A lane is that pair: the WHEEL's (footerBrakeStep, ?footerlerp) and
-   home's FINGER's (footerTensionStep, ?footertouchlerp, default 0 = the raw
+   home's FINGER's (footerTensionStep, ?footertouchlerp, baked 0.35; 0 = the raw
    finger, painted on the touchmove as before). */
 export const FOOTER_WHEEL = {
   step: (p, dp, rest) => footerBrakeStep(p, dp, rest, getFooterBrake()),
