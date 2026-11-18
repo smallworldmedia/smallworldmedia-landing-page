@@ -68,33 +68,49 @@ export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PER
   // the shared wall clock, so surfaces that arm at different moments
   // (enter_world, the pager's number cell + select_project hint, the
   // inquiry next-field) beat TOGETHER instead of drifting per arm time.
-  // Manual pulse timelines (GraticulePager's armPulse) seek the same way.
+  // GraticulePager's rest pulse keeps the beat on the compositor instead
+  // (housePulseStartMs).
   tl.totalTime((performance.now() / 1000) % periodS);
   return tl;
 }
 
 /**
- * Play a PAUSED pulse loop ON the metronome (11-03; GraticulePager's rest
- * pulse). A loop armed later — paused at creation, played after a delay — has
- * drifted off the clock by the pause; play() alone resumes from that stale
- * phase. This re-seeks first.
- * The loop's own shape gives the period (hit = duration, rest = repeatDelay).
- * Inside the rest the target sits at its rest value, so the seek is invisible
- * and it plays now; inside a hit a seek would jump it mid-swell, so it waits
- * for the next downbeat. Returns a cancel — call it before killing the loop:
- * a late totalTime() on a killed timeline re-attaches it.
+ * The house pulse as WEB ANIMATIONS keyframes (SQ-124): the envelope the GSAP
+ * loop tweens, sampled off the registered ease, for a pulse that must beat at
+ * rest without waking the main thread (GraticulePager's rest pulse). One
+ * cycle: the hit (HOUSE_PULSE_ON_RATIO of it) walks `from` → `to` → `from` on
+ * `ease`, then holds `from` for the rest. Run it as
+ *   el.animate(housePulseKeyframes(ease, 0, 1),
+ *     { duration: periodMs, iterations: Infinity, easing: 'linear' })
+ * (the ease is already in the keyframes, so the segments between them are
+ * linear). `ease` is the progress → value function, e.g.
+ * gsap.parseEase(ensureHousePulse()). 60 steps put a sample on the 0.45 crest
+ * (27/60) and keep a segment under 1/60 of a hit, so the straight-line error
+ * against the curve stays under the 8-bit opacity step.
  */
-export function joinHousePulse(tl) {
-  const on = tl.duration();
-  const periodS = on + tl.repeatDelay();
-  const seek = () => tl.totalTime((performance.now() / 1000) % periodS).play();
-  const phase = (performance.now() / 1000) % periodS;
-  if (phase >= on) {
-    seek();
-    return () => {};
+export const HOUSE_PULSE_STEPS = 60;
+export function housePulseKeyframes(ease, from, to, steps = HOUSE_PULSE_STEPS) {
+  const frames = [];
+  for (let i = 0; i <= steps; i++) {
+    const x = i / steps;
+    frames.push({ offset: x * HOUSE_PULSE_ON_RATIO, opacity: from + (to - from) * ease(x) });
   }
-  const id = setTimeout(seek, (periodS - phase) * 1000);
-  return () => clearTimeout(id);
+  frames.push({ offset: 1, opacity: from }); // the rest, held
+  return frames;
+}
+
+/**
+ * The startTime (ms on the document timeline) that puts a compositor pulse ON
+ * the metronome. The GSAP loops seek performance.now() mod the period; the
+ * document timeline counts from the same origin, so an animation whose
+ * startTime is 0 is at that phase by construction and stays there (no seek, no
+ * drift). In the rest span the target sits at its rest value, so it plays now
+ * (0). Inside a hit that would join mid-swell and jump, so it starts at the
+ * next downbeat instead (the rule joinHousePulse kept, 11-03).
+ */
+export function housePulseStartMs(nowMs, periodMs, hitMs) {
+  const phase = nowMs % periodMs;
+  return phase >= hitMs ? 0 : nowMs - phase + periodMs;
 }
 
 /* ── House scroll gesture ─────────────────────────────────────────────────

@@ -116,7 +116,8 @@ import {
   ensureHousePulse,
   HOUSE_PULSE_PERIOD_S,
   HOUSE_PULSE_ON_RATIO,
-  joinHousePulse,
+  housePulseKeyframes,
+  housePulseStartMs,
 } from '../../../lib/motion.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
@@ -536,39 +537,43 @@ export default function GraticulePager({
   // FP-1 house pulse at REST (09-02 round 2): the canonical envelope on a
   // dim-gray veil inside the lens + the number flipping white at the peak —
   // the enter_world pulse, re-seated on the number cell as the interaction
-  // hint. GSAP owns ONLY opacities and the hint's inline colour (none carries
-  // a CSS transition, so no lane fight with the accent / charged flips);
-  // killed the moment intent lands (charge, engage), re-armed 500ms after
-  // rest. Never under RM.
-  // 09-04 (Nathan): the rotated select_project HINT rides the same
-  // timeline with the INVERSE ink — white while the cell shows the
-  // project colour, dipping to its 55% rest ink exactly when the veil
-  // greys the cell (enter_world's dim polarity) — and the timeline seeks
-  // the house METRONOME (shared wall clock, see housePulseLoop).
+  // hint. Killed the moment intent lands (charge, engage), re-armed 500ms
+  // after rest. Never under RM.
+  // 09-04 (Nathan): the rotated select_project HINT rides the same beat with
+  // the INVERSE ink — white while the cell shows the project colour, dipping
+  // to its 55% rest ink exactly when the veil greys the cell (enter_world's
+  // dim polarity) — on the house METRONOME (the shared wall clock).
   // 11-03 (Nathan: the pager's pulse "recounts its timer" as each project
   // settles): ONE beat for the pager's life, which a Turn never touches. A
   // Turn used to kill it and rebuild it 500ms later, because the number's
   // flip tweened its colour FROM the accent ink, a value GSAP records once.
-  // The flip is now a white twin of the number (.fp-scale__peak) faded on
-  // opacity, so nothing in the loop reads the accent: the veil and the twin
-  // are opacity, the hint's two inks are constants. A (re-)arm joins the
-  // clock at the next rest or downbeat (joinHousePulse), never mid-swell.
+  // The flip is a white twin of the number (.fp-scale__peak) faded on
+  // opacity, so nothing in the beat reads the accent.
+  // SQ-124: the beat runs as WEB ANIMATIONS on opacity, not a repeat:-1 GSAP
+  // timeline. GSAP rewrote inline styles every frame for as long as the pager
+  // rested (SQ-120: hiding the eye cut the home globe's main-thread time by a
+  // third); the browser now runs the same keyframes (the house curve sampled
+  // off the registered ease, housePulseKeyframes) off the main thread. The
+  // hint's colour tween is the same envelope as an opacity: white at 55% alpha
+  // is white at 0.55 opacity, and the armed ink is a constant white, so there
+  // is no colour left to tween. The metronome is the animations' startTime
+  // (housePulseStartMs): a (re-)arm lands on the clock at the next rest or
+  // downbeat, never mid-swell. An element the skin doesn't paint gets no
+  // animation: the scheme eye hides the veil and the twin and renders no hint,
+  // and the browser restyles an animated display:none element every frame
+  // all the same (measured, SQ-124).
   const chargedRef = useRef(false);
-  const pulseTlRef = useRef(null);
+  const pulseAnimsRef = useRef(null);
   const pulseElRef = useRef(null);
   const peakRef = useRef(null);
   const hintRef = useRef(null);
   const pulseTimerRef = useRef(0);
-  const unjoinPulseRef = useRef(null);
   const killPulse = () => {
     clearTimeout(pulseTimerRef.current);
     pulseTimerRef.current = 0;
-    unjoinPulseRef.current?.(); // first: a late seek re-attaches a killed timeline
-    unjoinPulseRef.current = null;
-    pulseTlRef.current?.kill();
-    pulseTlRef.current = null;
-    const targets = [pulseElRef.current, peakRef.current, hintRef.current].filter(Boolean);
-    if (targets.length) gsap.set(targets, { clearProps: 'opacity,color' });
+    pulseAnimsRef.current?.forEach((a) => a.cancel());
+    pulseAnimsRef.current = null;
+    hintRef.current?.style.removeProperty('color');
   };
   const armPulse = () => {
     killPulse();
@@ -579,27 +584,36 @@ export default function GraticulePager({
       const veil = pulseElRef.current;
       const peak = peakRef.current;
       if (!veil || !peak) return;
-      const on = HOUSE_PULSE_PERIOD_S * HOUSE_PULSE_ON_RATIO;
-      const tl = gsap
-        .timeline({ repeat: -1, repeatDelay: HOUSE_PULSE_PERIOD_S - on, paused: true })
-        .to([veil, peak], { opacity: 1, duration: on, ease: ensureHousePulse() }, 0);
+      const periodMs = HOUSE_PULSE_PERIOD_S * 1000;
+      const ease = gsap.parseEase(ensureHousePulse());
+      const startTime = housePulseStartMs(
+        document.timeline.currentTime ?? performance.now(),
+        periodMs,
+        periodMs * HOUSE_PULSE_ON_RATIO
+      );
+      const beat = (el, from, to) => {
+        if (!el.getClientRects().length) return null; // not painted: nothing to beat
+        const a = el.animate(housePulseKeyframes(ease, from, to), {
+          duration: periodMs,
+          iterations: Infinity,
+          easing: 'linear',
+        });
+        a.startTime = startTime;
+        return a;
+      };
+      const anims = [beat(veil, 0, 1), beat(peak, 0, 1)];
       if (hintRef.current) {
-        gsap.set(hintRef.current, { color: '#ffffff' }); // armed base = white (accent phase)
-        tl.to(
-          hintRef.current,
-          { color: 'rgba(255, 255, 255, 0.55)', duration: on, ease: ensureHousePulse() },
-          0
-        );
+        hintRef.current.style.color = '#ffffff'; // armed base = white (accent phase)
+        anims.push(beat(hintRef.current, 1, 0.55));
       }
-      pulseTlRef.current = tl;
-      unjoinPulseRef.current = joinHousePulse(tl);
+      pulseAnimsRef.current = anims.filter(Boolean); // [] still counts as armed
     }, 500);
   };
   // Intent kills the beat; rest arms it once and then leaves it running, so
   // a Turn (which calls this too) finds it beating and lets it be.
   const syncPulse = () => {
     if (openRef.current || chargedRef.current) killPulse();
-    else if (!pulseTlRef.current && !pulseTimerRef.current) armPulse();
+    else if (!pulseAnimsRef.current && !pulseTimerRef.current) armPulse();
   };
   useEffect(() => {
     armPulse();
