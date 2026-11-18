@@ -141,6 +141,8 @@ test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesi
     pad: null,
     clear: null,
     shift: null,
+    blurbGap: null,
+    down: null,
     near: null,
     far: null,
     inMs: null,
@@ -253,7 +255,10 @@ test('SQ-107 pass 5 one seat, flush, the right edge is the viewport\'s on every 
   const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
   assert.ok(/right:\s*var\(--badge-pad\)/.test(wrapper), 'the eye is one padding in, so the badge\'s own padding takes its right edge to the viewport\'s: no inset, home included');
   assert.ok(/bottom:\s*var\(--scheme-bottom\)/.test(wrapper), 'bottom is the badge seat');
-  assert.ok(!/--badge-inset|--home-inset|--nav-inset/.test(css), 'no inset token: pass 4\'s --nav-inset on home is replaced');
+  assert.ok(!/--badge-inset|--home-inset/.test(css), 'no inset token: pass 4\'s --nav-inset on home is replaced');
+  // SQ-121: the desktop seat reads --nav-inset once, to size the blurb it clears (global.css's own expression); the badge never insets by it.
+  assert.equal(css.split('--nav-inset').length - 1, 1, '--nav-inset is read only in --seat-blurb-size');
+  assert.ok(/--seat-blurb-size:[^;]*--nav-inset/.test(css.replace(/\s+/g, ' ')), 'and that read is the blurb size\'s');
   assert.ok(!/data-badge|--scheme-seat|--badge-lift|--badge-rise|--badge-reach/.test(css), 'the seat option and the climb tokens are deleted');
   assert.ok(!/border-radius/.test(css.match(/::before\s*\{([^}]*)\}/)?.[1] ?? ''), 'every corner square, the right ones against the edge');
   for (const f of ['src/components/SiteScheme.jsx', 'src/components/siteSchemeLogic.js']) {
@@ -283,7 +288,7 @@ test('SQ-107 pass 7 one seat sitewide, the footer rises behind the badge and doe
   assert.ok(/--scheme-bottom: calc\(var\(--badge-cy\) - var\(--scale-rows\) \* var\(--scheme-pitch\)\);/.test(flat), 'the wrapper\'s bottom follows the one seat');
   const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
   assert.ok(!/translate:/.test(wrapper), 'the wrapper does not ride anything');
-  assert.ok(!/@media \(min-width: 769px\)\s*\{\s*\.swm-corner\s*\{\s*--badge-cy/.test(css) && !/footer-rise/.test(css.replace(/\/\*[\s\S]*?\*\//g, '')), 'one number at every width and scroll stop: no easing onto the copyright line');
+  assert.ok(!/footer-rise|--footer-reveal|--footer-panel-h/.test(css), 'one seat at every scroll stop: nothing eases it with the footer (SQ-121: above 768px its height is the blurb\'s, a function of the width alone)');
   const comp = read('src/components/SiteScheme.jsx');
   assert.ok(!/--seat-t|--seat-ease|data-footer-rest|corner\.animate/.test(comp), 'SiteScheme has no seat blend');
 });
@@ -768,4 +773,35 @@ test('the retired stagger and single --eye-t are gone from every consumer', () =
   for (const p of ['src/styles/site-scheme.css', 'src/styles/global.css', 'src/components/SiteScheme.jsx', 'src/components/schemeSwatches.jsx']) {
     assert.ok(!/--eye-stagger|--eye-delay|--eye-t(?![a-z$-])/.test(read(p)), `${p} has no --eye-t / --eye-stagger left`);
   }
+});
+
+// SQ-121: above 768px the seat sits on the footer blurb, one height on every route; phones keep theirs.
+test('SQ-121 the desktop seat is the blurb top plus the gap plus what the column reaches below the lens, above 768px only', () => {
+  const flat = skinCss().replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  const desk = /@media \(min-width: 769px\) \{ \.swm-corner \{([^}]*)\} \}/.exec(flat)?.[1] ?? '';
+  assert.ok(/--badge-cy: calc\(var\(--seat-blurb-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\);/.test(desk), 'the lens centre: the blurb top, the gap, the column below the lens');
+  assert.ok(/--badge-blurb-gap: 8px;/.test(desk), 'the gap, PROPOSED 8 (?schemeblurbgap)');
+  assert.ok(/--seat-blurb-size: var\(--footer-blurb-size, max\(var\(--text-blurb, 1\.4rem\), /.test(desk), "the blurb's size: global.css's token where home publishes it, its own expression elsewhere");
+  assert.ok(/--seat-blurb-top: calc\(75px \+ max\(1\.09 \* var\(--seat-blurb-size\), 1\.64 \* var\(--text-blurb, 1\.4rem\)\)\);/.test(desk), 'one line: 75px + 1.09 x the size; two lines: the floor block; max() picks, no breakpoint');
+  assert.ok(/--eye-down-shown: var\(--eye-down-desk, 0\);/.test(desk) && /--eye-hit-down: calc\(0\.75 \+ 0\.75 \* var\(--eye-down-desk, 0\)\);/.test(desk), 'no ring under the lens by default, the press target follows it');
+  assert.ok(/@supports \(width: round\(1px, 1px\)\) \{ @media \(min-width: 769px\) \{ \.swm-corner \{ --badge-cy: round\(calc\(var\(--seat-blurb-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\), 1px\); \} \} \}/.test(flat), 'the seat rounds to whole pixels where round() exists (a fractional lens centre shimmers in the jitter gate)');
+  // Phones: the seat is declared in the desktop block alone, and the base block keeps the old fade numbers.
+  assert.equal(flat.split('--seat-blurb-top:').length - 1, 1, 'the blurb seat is declared once, in the desktop block');
+  assert.ok(/--eye-down-shown: 1;/.test(flat) && /--eye-down-span: 0\.5;/.test(flat), 'the base (the phone) shows one circle below the lens and fades the next within half a station, as before');
+  assert.ok(/--eye-down: clamp\(0, calc\(1 - \(var\(--eye-below\) - var\(--eye-down-shown\)\) \/ var\(--eye-down-span\)\), 1\);/.test(flat), 'the fade below reads the base tokens');
+});
+
+test('SQ-121 ?schemeblurbgap is a 0 to 60 px dial and ?schemedown is 0 or 1, both null (the CSS default) when absent or unreadable', () => {
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  assert.equal(q('').blurbGap, null);
+  assert.equal(q('schemeblurbgap=12').blurbGap, 12);
+  assert.equal(q('schemeblurbgap=0').blurbGap, 0);
+  assert.equal(q('schemeblurbgap=99').blurbGap, 60);
+  assert.equal(q('schemeblurbgap=wide').blurbGap, null);
+  assert.equal(q('').down, null);
+  assert.equal(q('schemedown=1').down, 1);
+  assert.equal(q('schemedown=0').down, 0);
+  assert.equal(q('schemedown=2').down, null);
+  const sc = read('src/components/SiteScheme.jsx');
+  assert.ok(/--badge-blurb-gap', `\$\{p\.blurbGap\}px`/.test(sc) && /--eye-down-desk', String\(p\.down\)/.test(sc), 'SiteScheme writes both as custom properties on .swm-corner');
 });
