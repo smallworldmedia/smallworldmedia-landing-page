@@ -784,7 +784,7 @@ test('a square logo over a short column keeps its one cell (Imperfect Square Log
   assert.equal(openRows(kept, 2), SQ)
 })
 
-test('another tile still closes the hole beside a logo: only the flagged piece holds its cell', () => {
+test('another tile still closes the hole beside a logo and only the flagged piece holds its cell', () => {
   // Three columns: a 9:16 and a flagged landscape leave two columns open under the landscape, and the squares after it back-fill them.
   const w = { cols: 3, sqRows: SQ }
   const items = [tile(0, 9 / 16), logo(tile(1, 16 / 9)), tile(2, 1), tile(3, 1)]

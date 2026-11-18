@@ -292,7 +292,7 @@ test('with no logo set the directory builds as it always did', () => {
   assert.ok(tiles.every((t) => !t.logo))
 })
 
-test('a logo piece holds its shape in the flush grid (SQ-122): a baked mark, a tagged loop, a tagged still outside the set; no other tile', () => {
+test('a logo piece holds its shape in the flush grid (SQ-122) for a baked mark, a tagged loop and a tagged still outside the set, and no other tile', () => {
   const motion = (id, mediaType, services = [{ name: 'Logo Design', slug: 'logo-design' }]) =>
     asset(id, { mediaType, services, playbackId: `pb-${id}`, imageUrl: undefined, imageDimensions: undefined, imageHasAlpha: undefined, imageAssetId: undefined })
   const tiles = build([
