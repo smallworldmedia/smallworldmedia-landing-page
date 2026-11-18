@@ -5,7 +5,7 @@
  * the tiles in the rows they produce.
  */
 import { useEffect, useState } from 'react';
-import { PORTRAIT_CROP } from './flushGrid.js';
+import { PORTRAIT_CROP, LANDSCAPE_CROP } from './flushGrid.js';
 
 export const GRID_ROW_PX = 10;
 /* Tile shape (10-27, the square-tiles round): a square tile's cell width ÷
@@ -27,11 +27,18 @@ export const readTileShape = () => {
    to 1 × 3 and 1 × 4). Above 1024px only: there the CSS spans give every tile
    its class's shape, so no stretch is drawn and the cap has nothing to hold.
    ?portraitcrop=<0-1> re-dials it, 1 = off (the grid as it was before). */
-export const readPortraitCrop = (search = window.location.search) => {
-  const raw = new URLSearchParams(search).get('portraitcrop');
+const cropOr = (raw, fallback) => {
   const v = raw === null || raw.trim() === '' ? NaN : Number(raw);
-  return Number.isFinite(v) && v >= 0 && v <= 1 ? v : PORTRAIT_CROP;
+  return Number.isFinite(v) && v >= 0 && v <= 1 ? v : fallback;
 };
+export const readPortraitCrop = (search = window.location.search) =>
+  cropOr(new URLSearchParams(search).get('portraitcrop'), PORTRAIT_CROP);
+/* The same cap for a landscape tile (SQ-119, flushGrid.js LANDSCAPE_CROP,
+   PROPOSED 0.2): a 16:9 holds its 2 × 1 where the hole the portrait cap leaves
+   stretched it to 2 × 2 (0.111 → 0.437). Above 1024px only, as above.
+   ?landscapecrop=<0-1> re-dials it, 1 = off (the grid as the portrait cap drew it). */
+export const readLandscapeCrop = (search = window.location.search) =>
+  cropOr(new URLSearchParams(search).get('landscapecrop'), LANDSCAPE_CROP);
 /* Rows whose span (N tracks + N-1 gaps) is closest to px. */
 export const rowsFor = (px, gap) => Math.max(8, Math.round((px + gap) / (GRID_ROW_PX + gap)));
 

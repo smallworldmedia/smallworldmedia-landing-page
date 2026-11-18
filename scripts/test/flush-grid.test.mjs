@@ -13,6 +13,7 @@ import {
   TILE_RATIO,
   splitAtBreaks,
   PORTRAIT_CROP,
+  LANDSCAPE_CROP,
 } from '../../src/components/work/detail/flushGrid.js'
 import { cropLoss, sequenceRatio } from '../../src/lib/mediaSequence.js'
 
@@ -557,6 +558,9 @@ test('portraitCrop 1 is the layout before the cap, byte for byte (Nusonido at 5,
       const out = computeFlushGrid(nusonido(), { ...w, breaks, breakEvery: 2, portraitCrop: 1 })
       const got = createHash('sha256').update(JSON.stringify(out)).digest('hex').slice(0, 16)
       assert.equal(got, WANT[`${w.cols} ${breaks}`], `${w.cols} cols, ${breaks} breaks`)
+      // and with both caps dialled off (?portraitcrop=1&landscapecrop=1), the same bytes
+      const both = computeFlushGrid(nusonido(), { ...w, breaks, breakEvery: 2, portraitCrop: 1, landscapeCrop: 1 })
+      assert.equal(createHash('sha256').update(JSON.stringify(both)).digest('hex').slice(0, 16), WANT[`${w.cols} ${breaks}`], `${w.cols} cols, ${breaks} breaks, both off`)
     }
   }
 })
@@ -616,4 +620,122 @@ test('with the cap on, covers stay square and rigid, and grids stay valid and de
       }
     }
   }
+})
+
+// ── The landscape crop cap (SQ-119) ──
+// TOBEHONEST (project-tobehonest), as the live page lists it (11-18): five portraits, the set's seat after them, two 4:3
+// landscape-class pieces, a 9:16, a 2:1, a 3:4, a 16:9 and a 4:5, one break. Rebuilt from the page's layout-probe record.
+const TBH = [0.75, 0.8, 0.8, 0.75, 9 / 16, 4 / 3, 4 / 3, 9 / 16, 2, 0.75, 16 / 9, 0.8]
+const tobehonest = () => TBH.map((r, i) => tile(i, r))
+const TBH_SEAT = [{ id: 'set', colStart: 0, colSpan: 5, rowSpan: 51, anchor: 'seat', at: 5 }]
+const sha = (o) => createHash('sha256').update(JSON.stringify(o)).digest('hex').slice(0, 16)
+
+test('landscapeCrop 1 is the layout the portrait cap drew (2c6770d), byte for byte: Nusonido, TOBEHONEST and a mixed corpus', () => {
+  // sha256 prefixes recorded from flushGrid.js at 2c6770d (portraitCrop 0.2, no landscape cap).
+  const WANT = {
+    'nuso 5 0': 'a244fc9b7b117554', 'nuso 5 1': '9867fb76a83b50d3', 'nuso 6 0': '620b8fe019680cd1', 'nuso 6 1': '083ef3d910762978',
+    'nuso 3 0': '1486cc56a0f1b37c', 'nuso 3 1': 'fe106b77267b3ac3', 'nuso 2 0': '8963b78303fee5f2', 'nuso 2 1': 'f5ce150394a31790',
+    'nuso 1 0': '189326ba22a08747', 'nuso 1 1': 'ad8e02dde3e6115c', 'tbh 5': '47f11484b0895231', 'tbh 6': '30b224b4ad09c458',
+    mixed: '6f39e6ffd55813e9',
+  }
+  const got = {}
+  for (const w of [{ cols: 5, sqRows: 24 }, { cols: 6, sqRows: 20 }, { cols: 3, sqRows: 40 }, { cols: 2, sqRows: 43 }, { cols: 1, sqRows: 33, lsRows: 16 }]) {
+    for (const breaks of [0, 1]) {
+      got[`nuso ${w.cols} ${breaks}`] = sha(computeFlushGrid(nusonido(), { ...w, breaks, breakEvery: 2, portraitCrop: PORTRAIT_CROP, landscapeCrop: 1 }))
+    }
+  }
+  for (const w of [{ cols: 5, sqRows: 24 }, { cols: 6, sqRows: 20 }]) {
+    got[`tbh ${w.cols}`] = sha(computeFlushGrid(tobehonest(), { ...w, regions: TBH_SEAT, breaks: 1, breakEvery: 2, portraitCrop: PORTRAIT_CROP, landscapeCrop: 1 }))
+  }
+  const kind = { A: cover, P: (i) => tile(i, 9 / 16), Q: (i) => tile(i, 0.8), L: (i) => tile(i, 16 / 9), S: (i) => tile(i, 1), W: (i) => tile(i, 4 / 3) }
+  const mixed = []
+  for (const cols of [5, 6]) {
+    for (let seed = 1; seed <= 6; seed++) {
+      for (let n = 3; n <= 19; n += 2) {
+        const r = rng(seed * 1000 + n)
+        const items = Array.from({ length: n }, (_, i) => kind['AAPPQLSW'[Math.floor(r() * 8)]](i))
+        mixed.push(computeFlushGrid(items, { cols, sqRows: SQ, portraitCrop: PORTRAIT_CROP, landscapeCrop: 1 }))
+      }
+    }
+  }
+  got.mixed = sha(mixed)
+  assert.deepEqual(got, WANT)
+})
+
+/** The landscape-class tiles of a layout that were STRETCHED past the cap: cropped more than the cap and more than their own 2 × 1. */
+const stretchedWide = (out, ratios, sqRows, cap) =>
+  out.placements.flatMap((p, i) => {
+    if (classifyTile(ratios[i]) !== 'landscape' || p.type !== 'landscape') return []
+    const crop = boxCrop(p, ratios[i], sqRows)
+    return crop > cap + 1e-9 && crop > cropLoss(ratios[i], TILE_RATIO.landscape) + 1e-9 ? [i] : []
+  })
+/** The worst cropLoss among the tiles of one class (`classes` picks them by the picture's own ratio), against the box each is drawn in. */
+const worstOf = (out, ratios, sqRows, is) => Math.max(0, ...out.placements.map((p, i) => (is(ratios[i]) ? boxCrop(p, ratios[i], sqRows) : 0)))
+const isTall = (r) => classifyTile(r) === 'portrait'
+const isWide = (r) => classifyTile(r) === 'landscape'
+
+test('a landscape is never stretched past the cap: the 4:3 and the 16:9 that the portrait cap left over holes hold their boxes, the 4:5 takes a square cell', () => {
+  // 2:1, 3:4, 4:3, 16:9 and a 4:5 at 5 columns. At 2c6770d the 4:3 is drawn 2 × 3 (0.500) and the 16:9 2 × 2 (0.438) over the hole the
+  // 4:5 leaves; the cap sends the 4:5 into one square cell (0.200) and both wide pieces keep a box that crops less.
+  const ratios = [2, 0.75, 4 / 3, 16 / 9, 0.8]
+  const items = ratios.map((r, i) => tile(i, r))
+  const w = { cols: 5, sqRows: 24 }
+  const prior = computeFlushGrid(items, { ...w, portraitCrop: PORTRAIT_CROP, landscapeCrop: 1 })
+  const out = computeFlushGrid(items, { ...w, portraitCrop: PORTRAIT_CROP, landscapeCrop: LANDSCAPE_CROP })
+  assertValid(out, w, 'capped')
+  assert.deepEqual(stretchedWide(prior, ratios, 24, LANDSCAPE_CROP), [2, 3], 'before: the 4:3 and the 16:9 are stretched past the cap')
+  assert.deepEqual(stretchedWide(out, ratios, 24, LANDSCAPE_CROP), [], 'no landscape stretched past the cap')
+  assert.ok(worstOf(out, ratios, 24, isWide) <= 0.25 + 1e-9, `worst landscape ${worstOf(out, ratios, 24, isWide)}`)
+  assert.equal(openRows(out, 5), 0, 'no hole')
+  assert.ok(out.totalRows < prior.totalRows, 'and the page is shorter')
+  assert.ok(worstOf(out, ratios, 24, isTall) <= worstOf(prior, ratios, 24, isTall) + 1e-9, 'no portrait cropped harder')
+  assert.deepEqual(out, computeFlushGrid(items, { ...w, portraitCrop: 1, landscapeCrop: LANDSCAPE_CROP }), 'the landscape cap alone reaches the same layout')
+  assert.deepEqual(out, computeFlushGrid(items, { ...w, portraitCrop: PORTRAIT_CROP, landscapeCrop: LANDSCAPE_CROP }), 'deterministic')
+  assert.deepEqual(computeFlushGrid(items, { ...w, portraitCrop: PORTRAIT_CROP, landscapeCrop: 1 }), prior, 'landscapeCrop 1: the layout from before the cap')
+})
+
+test('Nusonido and TOBEHONEST at 1440: no layout closes the hole without a 16:9 drawn 2 × 2, so each keeps the portrait cap layout (the page is never left worse)', () => {
+  // Nusonido's tiles cover 29 squares, 28 with a 4:5 turned into one cell (SQ-82), and a 5-column grid is flat at a multiple of 5.
+  // Only a stretch adds area; the portrait cap refuses the 9:16 and 4:5 ones, so the one that fits is the 16:9's (+2). TOBEHONEST's
+  // second grid is the same problem. The landscape cap finds no flat layout without that stretch, the stretch after all crops the
+  // 16:9 exactly as it did, and the page keeps the layout from before the cap rather than a worse one.
+  const w = { cols: 5, sqRows: 24, breaks: 1, breakEvery: 2, portraitCrop: PORTRAIT_CROP }
+  for (const [name, ratios, items, extra] of [
+    ['Nusonido', NUSONIDO, nusonido(), {}],
+    ['TOBEHONEST', TBH, tobehonest(), { regions: TBH_SEAT }],
+  ]) {
+    const prior = computeFlushGrid(items, { ...w, ...extra, landscapeCrop: 1 })
+    const out = computeFlushGrid(items, { ...w, ...extra, landscapeCrop: LANDSCAPE_CROP })
+    assertValid(out, w, name)
+    assert.equal(openRows(out, 5), 0, `${name}: no hole`)
+    assert.deepEqual(out, prior, `${name}: the portrait cap's layout`)
+    assert.ok(Math.abs(worstOf(out, ratios, 24, isWide) - cropLoss(16 / 9, 1)) < 1e-9, `${name}: the 16:9 is 2 × 2, ${worstOf(out, ratios, 24, isWide)}`)
+  }
+})
+
+test('with the landscape cap on, no page is left worse than the portrait cap drew it, and grids stay valid, rigid and deterministic', () => {
+  const kind = { A: cover, P: (i) => tile(i, 9 / 16), Q: (i) => tile(i, 0.8), L: (i) => tile(i, 16 / 9), S: (i) => tile(i, 1), W: (i) => tile(i, 4 / 3), T: (i) => tile(i, 2) }
+  let better = 0
+  for (const cols of [5, 6]) {
+    for (let seed = 1; seed <= 6; seed++) {
+      for (let n = 3; n <= 19; n += 2) {
+        const r = rng(seed * 1000 + n)
+        const items = Array.from({ length: n }, (_, i) => kind['AAPPQLSWT'[Math.floor(r() * 9)]](i))
+        const ratios = items.map((a) => (a.imageDimensions ? a.imageDimensions.width / a.imageDimensions.height : 1))
+        const opts = { cols, sqRows: SQ, portraitCrop: PORTRAIT_CROP }
+        const out = computeFlushGrid(items, { ...opts, landscapeCrop: LANDSCAPE_CROP })
+        const prior = computeFlushGrid(items, { ...opts, landscapeCrop: 1 })
+        const where = `${n} mixed @ ${cols}, seed ${seed}`
+        assertCoversSquare(out.placements, items, where)
+        assertValid(out, { cols, sqRows: SQ }, where)
+        assert.deepEqual(computeFlushGrid(items, { ...opts, landscapeCrop: LANDSCAPE_CROP }), out, `${where}: deterministic`)
+        assert.ok(openRows(out, cols) <= openRows(prior, cols), `${where}: open rows`)
+        assert.ok(worstOf(out, ratios, SQ, isTall) <= worstOf(prior, ratios, SQ, isTall) + 1e-9, `${where}: worst portrait`)
+        const [was, now] = [worstOf(prior, ratios, SQ, isWide), worstOf(out, ratios, SQ, isWide)]
+        assert.ok(now <= was + 1e-9, `${where}: worst landscape ${now} > ${was}`)
+        if (now < was - 1e-9) better++
+      }
+    }
+  }
+  assert.ok(better > 0, 'the cap improves some page of the mix')
 })
