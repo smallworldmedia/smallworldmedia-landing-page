@@ -61,7 +61,7 @@
     },
     {
       "path": "rules/sanity-one-writer.md",
-      "hash": "b40b4e103ae90ce23adcc6b786d4541a7827f6b82a26827fd47b9459fc35cda7",
+      "hash": "f32125fb20053b2b0d7e7ef79dbaab921a1b9b8781b990a487aaac9f5ca734da",
       "description": "Sanity: one live dataset, one writer at a time",
       "globs": [],
       "dirs": [],
@@ -83,7 +83,7 @@
     },
     {
       "path": "rules/tunables-url-params.md",
-      "hash": "05c1c4168e886724238f8406a4dd7cbaba4aca62dd7a54ae68f65a05e4ada7c9",
+      "hash": "7758c2eee883fcc5e8e3eaca690b4208aa8a6af363edc73588b4e2c533151224",
       "description": "Tunables land as ?param first, bake only on Nathan's values",
       "globs": [
         "src/**"

@@ -17,5 +17,5 @@ priority: 85
 - New content goes in this order: schema, then content, then the code that reads it. That code tolerates
   the field being missing.
 - Content reaches a deployed site only through a build. Right before every deploy build,
-  `node --env-file=.env.local scripts/cms.mjs audit` must report 0 errors. Build the two sides of an A/B
-  back to back.
+  `node --env-file=.env.local scripts/cms.mjs audit --project-id b60h4u7o --dataset production` must report
+  0 errors. Build the two sides of an A/B back to back.
