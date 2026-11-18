@@ -47,7 +47,7 @@
  * sizesFor (a tile's <img sizes>).
  */
 import { assetLane, expandChunks, ratioOf } from '../detail/buildContentFlow.js';
-import { TILE_RATIO } from '../detail/flushGrid.js';
+import { TILE_RATIO, tileClassOf } from '../detail/flushGrid.js';
 import { DETAIL_LARGE_COLS, GRID_COLS, GRID_LARGE_PX } from '../detail/tileGrid.js';
 import { makeSequence } from '../../../lib/mediaSequence.js';
 import { featuredRoutes } from '../../../lib/projectSlug.js';
@@ -134,6 +134,17 @@ function logoVerdict(asset, logos) {
   if (m.hold) return asset.mediaType === 'logo' || asset.services?.some((s) => s.slug === 'logo-design') ? 'drop' : null;
   return 'mark';
 }
+
+/** The service tag a logo piece carries (the Studio's slug). */
+export const LOGO_TAG = 'logo-design';
+
+/**
+ * A logo piece: a baked mark (`logo`) or any tile tagged logo-design, its motion
+ * and still files too. The flush grid never stretches one past the cell its
+ * class gives it (`keepShape`, flushGrid.js placeOne): a mark floats between
+ * rows in a taller cell and a 16:9 loop crops in one.
+ */
+export const isLogoPiece = (tile) => !!tile.logo || tile.services.includes(LOGO_TAG);
 
 /**
  * @param {{assets: Array<Object>, worlds: Array<Object>, clients?: Array<{name: string, slug: string}>, logos?: Object}} data
@@ -226,6 +237,7 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
       tile.fit = 'contain';
       delete tile.ground;
     }
+    if (isLogoPiece(tile)) tile.keepShape = true;
     const route = routes.get(members[0].projectId);
     if (route) {
       tile.href = route.href;
@@ -302,8 +314,56 @@ export function orderTiles(tiles, mode = 'project', seed = 0) {
  */
 export function logoFirst(tiles, tags) {
   const [only] = tags ?? [];
-  if (tags?.size !== 1 || only !== 'logo-design') return tiles;
+  if (tags?.size !== 1 || only !== LOGO_TAG) return tiles;
   return [...tiles.filter((t) => t.logo), ...tiles.filter((t) => !t.logo)];
+}
+
+/**
+ * The logo pieces' order at an ODD column count (SQ-122, Nathan 11-18: "yes to
+ * change the order the logos come in"). A logo piece never stretches past its
+ * own cell, so a run of them can only end flat if the widths pair up: a
+ * landscape takes two columns and a square one, so at 5 columns two landscapes
+ * and a square make a row (L L S), at 3 one of each, at 7 three and a square.
+ * Project order has the squares first and a block of landscapes last, which
+ * left 8 squares open down the right edge at 1440; dealt, 3 (the least 22
+ * landscapes and 8 squares can leave in 5 columns).
+ *
+ * Each RUN of consecutive logo pieces is dealt among its own slots, wide ones
+ * first within their pattern, each class keeping its own order; every tile
+ * that is not a logo piece keeps its place, and a run holding a split video's
+ * chunks is left alone (orderTiles keeps those thirds together). Even column
+ * counts (4, 6) are returned as they are: landscape pairs fill their rows, and
+ * the project order already ends flat at 4 and 2 columns and with 2 open at 6
+ * (3 landscapes to a square there left 9).
+ *
+ * A pure function of the list and the column count, so a shuffled page deals
+ * the same for a seed: it runs after the shuffle, in the grid, which is the
+ * one place the column count is known.
+ *
+ * @param {Array<Object>} tiles - display order, logo tiles carrying their canvas as `tileRatio`
+ * @param {number} cols
+ */
+export function dealLogoPieces(tiles, cols) {
+  if (cols < 3 || cols % 2 === 0) return tiles;
+  const per = (cols - 1) / 2; // landscapes before each square
+  const out = tiles.slice();
+  for (let from = 0; from < tiles.length; ) {
+    let to = from;
+    while (to < tiles.length && isLogoPiece(tiles[to])) to++;
+    const run = tiles.slice(from, to);
+    if (run.length > 1 && !run.some((t) => t.chunk)) {
+      const wide = run.filter((t) => tileClassOf(t) === 'landscape');
+      const narrow = run.filter((t) => tileClassOf(t) !== 'landscape');
+      let w = 0;
+      let n = 0;
+      for (let k = 0; k < run.length; k++) {
+        const wantWide = k % (per + 1) < per;
+        out[from + k] = n >= narrow.length || (wantWide && w < wide.length) ? wide[w++] : narrow[n++];
+      }
+    }
+    from = Math.max(to, from + 1);
+  }
+  return out;
 }
 
 /**
