@@ -126,6 +126,13 @@
     "src": "HUS_logo_stacked_white.png"
   },
   {
+    "file": "insomniac-music-group.svg",
+    "name": "Insomniac Music Group",
+    "w": 152.77,
+    "h": 46.77,
+    "src": "insomniac-music-group.svg"
+  },
+  {
     "file": "kdis.png",
     "name": "KDIS",
     "w": 296,
@@ -278,5 +285,12 @@
     "w": 895,
     "h": 208,
     "src": "white hbd logo long no background.png"
+  },
+  {
+    "file": "wikka-logo-white.png",
+    "name": "WIKKA",
+    "w": 887,
+    "h": 240,
+    "src": "wikka_logo_white.png"
   }
 ]

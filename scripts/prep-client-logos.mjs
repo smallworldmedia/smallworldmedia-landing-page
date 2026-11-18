@@ -49,6 +49,7 @@ const NAMES = {
   kdis: 'KDIS',
   oou: 'OOU',
   smwp: 'SMWP',
+  wikka: 'WIKKA',
 };
 
 /** Filename noise that says nothing about the client. */
