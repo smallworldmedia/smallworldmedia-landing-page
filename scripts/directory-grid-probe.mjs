@@ -17,6 +17,11 @@
  * uncovered cell and the pieces demoted over them. FLUSHGRID=<path> swaps in
  * another copy of flushGrid.js (from the repo root) to compare against.
  *
+ * A logo piece (a baked mark or any tile tagged logo-design, keepShape) keeps the cell its
+ * class gives it (SQ-122): flush views end with `logo off-cell`, the logo pieces drawn
+ * taller or wider, and any makes the run exit 1 (FLUSHGRID=<a copy from before> shows it).
+ * `open/col [...]` lists the uncovered cells by column in squares: the tail a view ends on.
+ *
  * Per view: n, contain (how many are really transparent), black>10% (contain
  * tiles showing over 10% ground) and how many of those have NO measured
  * transparency (`opaque-black`: should be 0), crop>25% / >50%, mean loss
@@ -31,7 +36,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const imp = (p) => import(pathToFileURL(join(ROOT, p)).href);
 const { createClient } = await imp('node_modules/@sanity/client/dist/index.js');
 const { DIRECTORY_QUERY } = await imp('src/lib/queries.js');
-const { buildDirectoryTiles, orderTiles, logoFirst, matchesFilter, DEFAULT_TAG } = await imp('src/components/work/directory/buildDirectoryTiles.js');
+const { buildDirectoryTiles, orderTiles, logoFirst, matchesFilter, isLogoPiece, DEFAULT_TAG } = await imp('src/components/work/directory/buildDirectoryTiles.js');
 const { chunkFlushGrid, tileClassOf } = await imp(process.env.FLUSHGRID ?? 'src/components/work/detail/flushGrid.js');
 const { coverageOf } = await imp('src/lib/clientCoverage.js');
 const { chunkAspectGrid, LOOK } = await imp('src/components/work/directory/aspectGrid.js');
@@ -73,6 +78,7 @@ const VIEWS = {
   large: { width: 2000, cols: 6 },
 };
 const lossOf = (a, b) => 1 - Math.min(a, b) / Math.max(a, b);
+const offCell = []; // every view's logo pieces drawn past their cell (the run fails on any, flush only)
 
 function pack(list, { width, cols }) {
   if (PACK === 'aspect') return chunkAspectGrid(list, { cols, width, gap: GAP, look: LOOK_N });
@@ -90,6 +96,9 @@ function measure(list, view) {
   let moved = 0;
   let pos = 0;
   let demoted = 0; // flush pieces placed in a square cell their class is not (SQ-82)
+  const logoOff = []; // flush logo pieces drawn past the cell their class gives them (SQ-122: always none)
+  const rowsOf = tileRowsFor({ width, rowGap: GAP, cols }, 1);
+  const holesByCol = new Array(cols).fill(0);
   for (const ch of chunks) {
     const cover = Array.from({ length: cols }, () => new Array(ch.totalRows).fill(0));
     ch.placements.forEach((p, k) => {
@@ -97,6 +106,14 @@ function measure(list, view) {
       moved = Math.max(moved, Math.abs(pos++ - index));
       const t = list[index];
       if (PACK === 'flush' && p.type !== tileClassOf(t)) demoted++;
+      if (PACK === 'flush' && isLogoPiece(t)) {
+        const cls = tileClassOf(t);
+        const cellCols = cls === 'landscape' ? Math.min(2, cols) : 1;
+        const cellRows = cls === 'portrait' ? 2 * rowsOf.sq : cls === 'landscape' && cols === 1 ? rowsOf.ls : rowsOf.sq;
+        if (p.colSpan > cellCols || p.rowEnd - p.rowStart > cellRows || p.underlay) {
+          logoOff.push(`${t.title} ${p.colSpan}x${((p.rowEnd - p.rowStart) / rowsOf.sq).toFixed(1)}sq`);
+        }
+      }
       const w = p.colSpan * colW + (p.colSpan - 1) * GAP;
       const n = p.rowEnd - p.rowStart;
       const h = n * 10 + (n - 1) * GAP;
@@ -117,12 +134,20 @@ function measure(list, view) {
       });
       for (let c = p.col; c < p.col + p.colSpan; c++) for (let r = p.rowStart; r < p.rowEnd; r++) cover[c][r] = 1;
     });
-    for (const col of cover) for (const v of col) {
-      cells++;
-      if (!v) holes++;
-    }
+    cover.forEach((col, c) => {
+      for (const v of col) {
+        cells++;
+        if (!v) {
+          holes++;
+          holesByCol[c]++;
+        }
+      }
+    });
   }
-  return { tiles: out, chunks: chunks.length, holeFrac: cells ? holes / cells : 0, holes, moved, demoted };
+  // the open cells by column, in squares (a column that ends short of the others is the tail)
+  const tail = holesByCol.map((n) => +(n / rowsOf.sq).toFixed(1));
+  if (logoOff.length) offCell.push(`${view}: ${logoOff.join('; ')}`);
+  return { tiles: out, chunks: chunks.length, holeFrac: cells ? holes / cells : 0, holes, moved, demoted, logoOff, tail };
 }
 
 const pct = (x) => `${(100 * x).toFixed(1)}%`;
@@ -139,7 +164,8 @@ function summary(label, m) {
   return (
     `${label.padEnd(24)} n=${String(m.tiles.length).padStart(3)} contain=${String(contain.length).padStart(2)} (clear ${contain.filter((x) => x.clear).length})` +
     ` black>10%=${String(black.length).padStart(2)} opaque-black=${opaqueBlack.length} | crop>25%=${String(crop25.length).padStart(3)} >50%=${crop50.length}` +
-    ` | mean ${pct(mean).padStart(5)} | holes ${pct(m.holeFrac)} | moved ${m.moved} | demoted ${m.demoted} | worst ${w}`
+    ` | mean ${pct(mean).padStart(5)} | holes ${pct(m.holeFrac)}${m.holes ? ` open/col [${m.tail}] sq` : ''} | moved ${m.moved} | demoted ${m.demoted}` +
+    `${PACK === 'flush' ? ` | logo off-cell ${m.logoOff.length}` : ''} | worst ${w}`
   );
 }
 
@@ -174,5 +200,9 @@ for (const view of Object.keys(VIEWS)) {
   for (const seed of [1, 2, 3]) lines.push(summary(`shuffle ${seed}`, measure(orderTiles(tiles, 'shuffle', seed), view)));
 }
 console.log(lines.join('\n'));
+if (offCell.length) {
+  console.error(`\nFAIL: ${offCell.length} views draw a logo piece past its own cell (SQ-122):\n${offCell.join('\n')}`);
+  process.exitCode = 1;
+}
 const out = arg('json');
 if (out) writeFileSync(out, JSON.stringify(report, null, 1));

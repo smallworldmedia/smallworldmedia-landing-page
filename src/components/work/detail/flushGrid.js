@@ -60,6 +60,13 @@
  * alone cannot close it, a non-album portrait or landscape may take a single
  * 1×1 cell instead (SQ-82, demotable), rigid like a cover.
  *
+ * An asset flagged `keepShape` (SQ-122: the directory's logo pieces, a baked
+ * mark or anything tagged logo-design, buildDirectoryTiles isLogoPiece) is held
+ * the same way: rigid at the cell its class gives it, so a mark never floats
+ * between two rows and a 16:9 loop never crops in a cell taller than 2 × 1. The
+ * hole it leaves is closed by the other tiles' stretch or the promotions and
+ * demotions, else it stays open. No detail asset carries the flag.
+ *
  * A portrait (a 9:16 or any tall piece) stretches in neither stage past the
  * crop cap (SQ-117, PORTRAIT_CROP, mayStretch): the hole it leaves goes to the
  * same promotions and demotions, and one they cannot close is stretched after
@@ -200,7 +207,8 @@ function occupy(segs, c0, colSpan, row, rowSpan) {
  * (a 1×1 stretched over a short column is the 1 col × 2 sq box, the cover
  * cropped to a strip). Where the bottom needs filling, computeFlushGrid
  * promotes covers to 2×2 instead (promote). Rigidity rides a WeakSet so the
- * placements themselves stay plain data.
+ * placements themselves stay plain data. An asset flagged `keepShape` (SQ-122,
+ * a directory logo piece) is rigid too, at its class cell.
  */
 export const isSquareArt = (asset) => asset.mediaType === 'album-art' && tileClassOf(asset) === 'square';
 const RIGID = new WeakSet();
@@ -278,7 +286,7 @@ function placeOne(segs, asset, cols, sizes, how, from = 0) {
     rowEnd: best.row + rowSpan,
     type,
   };
-  if (how === 'small' || isSquareArt(asset)) RIGID.add(p);
+  if (how === 'small' || isSquareArt(asset) || asset.keepShape) RIGID.add(p);
   else if (type === 'portrait') TALL.set(p, ratioOf(asset));
   else if (type === 'landscape') WIDE.set(p, ratioOf(asset));
   return p;

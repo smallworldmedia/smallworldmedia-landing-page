@@ -135,6 +135,17 @@ function logoVerdict(asset, logos) {
   return 'mark';
 }
 
+/** The service tag a logo piece carries (the Studio's slug). */
+export const LOGO_TAG = 'logo-design';
+
+/**
+ * A logo piece: a baked mark (`logo`) or any tile tagged logo-design, its motion
+ * and still files too. The flush grid never stretches one past the cell its
+ * class gives it (`keepShape`, flushGrid.js placeOne): a mark floats between
+ * rows in a taller cell and a 16:9 loop crops in one.
+ */
+export const isLogoPiece = (tile) => !!tile.logo || tile.services.includes(LOGO_TAG);
+
 /**
  * @param {{assets: Array<Object>, worlds: Array<Object>, clients?: Array<{name: string, slug: string}>, logos?: Object}} data
  *        DIRECTORY_QUERY's result; `logos` is the prep manifest by image asset
@@ -226,6 +237,7 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
       tile.fit = 'contain';
       delete tile.ground;
     }
+    if (isLogoPiece(tile)) tile.keepShape = true;
     const route = routes.get(members[0].projectId);
     if (route) {
       tile.href = route.href;
@@ -302,7 +314,7 @@ export function orderTiles(tiles, mode = 'project', seed = 0) {
  */
 export function logoFirst(tiles, tags) {
   const [only] = tags ?? [];
-  if (tags?.size !== 1 || only !== 'logo-design') return tiles;
+  if (tags?.size !== 1 || only !== LOGO_TAG) return tiles;
   return [...tiles.filter((t) => t.logo), ...tiles.filter((t) => !t.logo)];
 }
 
