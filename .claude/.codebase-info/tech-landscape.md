@@ -1,6 +1,6 @@
 # Tech Landscape
 
-*Last Updated: 2026-10-16*
+*Last Updated: 2026-11-17*
 
 ## Languages & Runtimes
 - JavaScript (ESM, `"type": "module"`); React components are `.jsx`, helpers `.js`/`.mjs`.
@@ -23,7 +23,7 @@
 | Styling | `styled-components` is installed but plain CSS files under `src/styles/` are the system |
 
 ## Infrastructure
-- **Hosting:** Netlify site `smallworldmedia-landingpage`, `netlify.toml` (build `npm run build`, publish `dist`, forced redirects). Production branch `main`; branch deploy for `feature/v1-launch`. Netlify Forms handles the inquiry form (hidden mirror form in `BaseLayout.astro`).
+- **Hosting:** Netlify site `smallworldmedia-landingpage`, `netlify.toml` (build `npm run build`, publish `dist`, `Cache-Control: public, max-age=31536000, immutable` on the content-hashed `/_astro/*` while HTML keeps Netlify's default revalidation, forced redirects). Production branch `main`; branch deploy for `feature/v1-launch`. Netlify Forms handles the inquiry form (hidden mirror form in `BaseLayout.astro`).
 - **CMS:** Sanity project `b60h4u7o`, dataset `production`, CDN reads. Studio served by the Astro integration.
 - **Video:** Mux (public playback), Sanity CDN for images.
 - **Fonts:** self-hosted PP Neue Montreal + others in `src/assets/fonts/` (woff2 tracked); Inter from Google Fonts.
@@ -33,7 +33,7 @@
 | Concern | File |
 |---|---|
 | Build + integrations | `astro.config.mjs` |
-| Hosting, redirects | `netlify.toml` |
+| Hosting, cache headers, redirects | `netlify.toml` |
 | Scripts, deps | `package.json` |
 | Sanity schema + Studio structure | `src/schemas/index.ts`, `sanity.config.ts` |
 | GROQ | `src/lib/queries.js` |

@@ -124,6 +124,13 @@ set's create with all its member patches, at most 100 operations, and is never o
 What it cannot place (no project, no type, mixed types, a draft twin) is reported, never guessed. Each
 file then goes through plan, Nathan's yes to that plan id, apply and verify.
 
+Before a file's plan, `node --env-file=.env.local scripts/cms-sets-migration-oracle.mjs media/_sets-migration
+--only N` (read-only) applies that file in memory over a live snapshot (published perspective, drafts
+dropped) and reports (1) a field-level diff of the set-aware projections (`MEDIA_FIELDS`,
+`FEATURED_WORLDS_QUERY`) for every piece and (2) each touched project's `FEATURED_PROJECT_DETAIL_QUERY` +
+`buildContentFlow` result (detail, work, globe). It reads `SANITY_READ_TOKEN` or `SANITY_WRITE_TOKEN` and
+throws without one; snapshots never include `secrets.*` or `mux.apiKey`.
+
 ## Tests — `npm run test:cms`
 `scripts/test/cms/{runner,adapters,safety,delete,audit,sets,sets-migration}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
 groq-js), `cms-generator.test.mjs`, `legacy-cms.test.mjs`. Covers parsing, zero-write previews,

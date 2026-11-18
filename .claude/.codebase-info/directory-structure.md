@@ -5,7 +5,7 @@
 ```
 .
 ├── astro.config.mjs          # Astro 5 static build, React + Sanity + sitemap integrations
-├── netlify.toml              # build + forced redirects (disabled routes, moved projects)
+├── netlify.toml              # build, immutable cache on hashed /_astro/*, forced redirects (disabled routes, moved projects)
 ├── sanity.config.ts / sanity.cli.ts   # Studio config (structure, orderable lists; the per-project asset lists are src/studio/ panes since US-10)
 ├── CONTEXT.md                # media-library domain glossary (read first for CMS work)
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
@@ -56,6 +56,7 @@
 ├── scripts/
 │   ├── cms.mjs               # npm run cms — plan / apply / verify
 │   ├── cms-sets-migration.mjs   # US-10: writes the sets migration's --changes request files (read-only)
+│   ├── cms-sets-migration-oracle.mjs   # US-10: pre-apply oracle, one migration file over a live snapshot (read-only)
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit, sets (Set ids and keys)
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
