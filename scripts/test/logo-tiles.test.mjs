@@ -19,7 +19,7 @@ import {
 } from '../../src/components/work/directory/logoTile.js'
 import { buildDirectoryTiles } from '../../src/components/work/directory/buildDirectoryTiles.js'
 import { ratioOf } from '../../src/components/work/detail/buildContentFlow.js'
-import { classifyTile } from '../../src/components/work/detail/flushGrid.js'
+import { chunkFlushGrid, classifyTile } from '../../src/components/work/detail/flushGrid.js'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -290,6 +290,43 @@ test('with no logo set the directory builds as it always did', () => {
   const tiles = buildDirectoryTiles({ assets: [asset('mark'), asset('twin')], worlds: [], clients: [] })
   assert.deepEqual(ids(tiles), ['mark', 'twin'])
   assert.ok(tiles.every((t) => !t.logo))
+})
+
+test('a logo piece holds its shape in the flush grid (SQ-122): a baked mark, a tagged loop, a tagged still outside the set; no other tile', () => {
+  const motion = (id, mediaType, services = [{ name: 'Logo Design', slug: 'logo-design' }]) =>
+    asset(id, { mediaType, services, playbackId: `pb-${id}`, imageUrl: undefined, imageDimensions: undefined, imageHasAlpha: undefined, imageAssetId: undefined })
+  const tiles = build([
+    asset('mark'),
+    asset('new-upload', { imageAssetId: 'image-new' }),
+    motion('loop', 'motion_16x9'),
+    motion('sting', 'motion_1x1'),
+    motion('reel', 'motion_16x9', [{ name: 'Promo Video', slug: 'promo-video' }]),
+    asset('held-static', { mediaType: 'static_16x9', services: [{ name: 'Branding', slug: 'branding' }] }),
+  ])
+  const held = Object.fromEntries(tiles.map((t) => [t._id, t.keepShape === true]))
+  assert.deepEqual(held, { mark: true, 'new-upload': true, loop: true, sting: true, reel: false, 'held-static': false })
+})
+
+test('in the directory grid the logo loop and the square sting keep their cells beside a tall piece, and an untagged 16:9 is stretched as before', () => {
+  const motion = (id, mediaType, slug) =>
+    asset(id, { mediaType, services: [{ name: slug, slug }], playbackId: `pb-${id}`, imageUrl: undefined, imageDimensions: undefined, imageHasAlpha: undefined, imageAssetId: undefined })
+  const tall = (id) => ({ ...motion(id, 'motion_9x16', 'promo-video') })
+  const sq = 24
+  // the cell (columns, squares of rows) the grid gives the piece `id` among `assets` (build sorts them, so find it by id)
+  const cellOf = (assets, id, cols) => {
+    const tiles = build(assets)
+    const [chunk] = chunkFlushGrid(tiles, { cols, sqRows: sq })
+    const p = chunk.placements[tiles.findIndex((t) => t._id === id)]
+    return [p.colSpan, (p.rowEnd - p.rowStart) / sq]
+  }
+  for (const [slug, want] of [['logo-design', [2, 1]], ['promo-video', [2, 2]]]) {
+    // three columns: the 16:9 beside a 9:16 leaves a square-high hole under it
+    assert.deepEqual(cellOf([motion('loop', 'motion_16x9', slug), tall('tall')], 'loop', 3), want, `${slug}: the loop's cell`)
+  }
+  for (const [slug, want] of [['logo-design', [1, 1]], ['promo-video', [1, 2]]]) {
+    // two columns: the square beside a 9:16, the hole under it a square high
+    assert.deepEqual(cellOf([tall('tall'), motion('sting', 'motion_1x1', slug)], 'sting', 2), want, `${slug}: the square's cell`)
+  }
 })
 
 // ── the baked set ────────────────────────────────────────────────────────────

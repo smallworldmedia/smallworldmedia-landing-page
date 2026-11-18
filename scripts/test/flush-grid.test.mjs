@@ -744,3 +744,106 @@ test('with the landscape cap on, no page is left worse than the portrait cap dre
   assert.ok(better > 0, 'the cap improves some page of the mix')
   assert.ok(viaAlone > 0, 'and some page takes the layout the landscape cap alone draws')
 })
+
+/* ── SQ-122: a logo piece keeps the cell its class gives it (keepShape, set by buildDirectoryTiles) ── */
+const logo = (a) => ({ ...a, keepShape: true })
+/** A piece's cell: [columns, squares of rows]. */
+const cellOf = (p, sq) => [p.colSpan, (p.rowEnd - p.rowStart) / sq]
+/** The cell the class gives a piece at `cols` columns: a landscape spans min(2, cols), a portrait is two squares tall. */
+const classCell = (a, cols) => ({ portrait: [1, 2], square: [1, 1], landscape: [Math.min(2, cols), 1] })[tileClassOf(a)]
+/** The flagged pieces drawn larger than their class cell, or as an underlay, as 'index: cols × squares'. */
+const stretchedLogos = (placements, items, sq, cols) =>
+  items.flatMap((a, i) => {
+    if (!a.keepShape) return []
+    const [c, r] = cellOf(placements[i], sq)
+    const [wantC, wantR] = classCell(a, cols)
+    return c <= wantC && r <= wantR && !placements[i].underlay ? [] : [`${i}: ${c} × ${r}`]
+  })
+
+test('a 16:9 loop over the hole a portrait leaves keeps its 2 × 1 box, and the hole stays open', () => {
+  // A landscape beside a 9:16 two squares tall: unflagged, the stretch draws the landscape 2 × 2, cropped 0.44.
+  const w = { cols: 3, sqRows: SQ }
+  const plain = chunkFlushGrid([tile(0, 16 / 9), tile(1, 9 / 16)], w)[0]
+  assert.deepEqual(cellOf(plain.placements[0], SQ), [2, 2], 'unflagged: stretched 2 × 2 (as before)')
+  assert.equal(openRows(plain, 3), 0)
+  const items = [logo(tile(0, 16 / 9)), tile(1, 9 / 16)]
+  const kept = chunkFlushGrid(items, w)[0]
+  assert.deepEqual(cellOf(kept.placements[0], SQ), [2, 1], 'flagged: its own 2 × 1')
+  assert.ok(!kept.placements[0].underlay, 'and not an underlay')
+  assert.equal(openRows(kept, 3), 2 * SQ, 'the hole under it is left, not closed with the logo')
+  assert.deepEqual(computeFlushGrid(items, w).placements, kept.placements, 'the detail call places it the same')
+})
+
+test('a square logo over a short column keeps its one cell (Imperfect Square Logo Sting was drawn seven rows tall)', () => {
+  // Two columns: a 9:16 beside a square leaves a square-high hole under the square, which stretches down it unflagged.
+  const w = { cols: 2, sqRows: SQ }
+  const plain = chunkFlushGrid([tile(0, 9 / 16), tile(1, 1)], w)[0]
+  assert.deepEqual(cellOf(plain.placements[1], SQ), [1, 2], 'unflagged: stretched 1 × 2 (as before)')
+  const kept = chunkFlushGrid([tile(0, 9 / 16), logo(tile(1, 1))], w)[0]
+  assert.deepEqual(cellOf(kept.placements[1], SQ), [1, 1], 'flagged: one cell')
+  assert.equal(openRows(kept, 2), SQ)
+})
+
+test('another tile still closes the hole beside a logo: only the flagged piece holds its cell', () => {
+  // Three columns: a 9:16 and a flagged landscape leave two columns open under the landscape, and the squares after it back-fill them.
+  const w = { cols: 3, sqRows: SQ }
+  const items = [tile(0, 9 / 16), logo(tile(1, 16 / 9)), tile(2, 1), tile(3, 1)]
+  const out = chunkFlushGrid(items, w)[0]
+  assert.deepEqual(stretchedLogos(out.placements, items, SQ, 3), [])
+  assert.equal(openRows(out, 3), 0, 'flat: the squares fill the landscape\'s row')
+})
+
+test('flagged pieces never exceed their class cell, in any mix at any width; the grids stay valid and deterministic', () => {
+  const kind = { P: (i) => tile(i, 9 / 16), Q: (i) => tile(i, 0.8), L: (i) => tile(i, 16 / 9), S: (i) => tile(i, 1), W: (i) => tile(i, 4 / 3), T: (i) => tile(i, 2), O: (i) => otherTile(i, 3), A: cover }
+  let flagged = 0
+  let flat = 0
+  for (const cols of [1, 2, 4, 5, 6]) {
+    for (let seed = 1; seed <= 6; seed++) {
+      for (let n = 3; n <= 31; n += 4) {
+        const r = rng(seed * 997 + n * 13 + cols)
+        const items = Array.from({ length: n }, (_, i) => {
+          const k = 'PQLSWTOA'[Math.floor(r() * 8)]
+          const a = kind[k](i)
+          return k !== 'A' && r() < 0.35 ? logo(a) : a // a cover is the album-art rule's, not this one
+        })
+        const w = { cols, sqRows: SQ, lsRows: cols === 1 ? SQ / 2 : SQ }
+        const where = `${n} mixed @ ${cols}, seed ${seed}`
+        const out = computeFlushGrid(items, w)
+        assertValid(out, w, where)
+        assert.deepEqual(computeFlushGrid(items, w), out, `${where}: deterministic`)
+        assert.deepEqual(stretchedLogos(out.placements, items, SQ, cols), [], `${where}: a flagged piece over its cell`)
+        for (const ch of chunkFlushGrid(items, w)) {
+          assertValid(ch, w, `${where}, chunk ${ch.start}`)
+          assert.deepEqual(stretchedLogos(ch.placements, items.slice(ch.start, ch.end), SQ, cols), [], `${where}, chunk ${ch.start}: a flagged piece over its cell`)
+        }
+        flagged += items.filter((a) => a.keepShape).length
+        if (items.some((a) => a.keepShape) && openRows(out, cols) === 0) flat++
+      }
+    }
+  }
+  assert.ok(flagged > 100, 'the sweep flags pieces of every kind')
+  assert.ok(flat > 0, 'and some pages still close flat around them')
+})
+
+test('a list with no flagged piece lays out as it did, and flagging a stretched piece holds it to its cell', () => {
+  let stretches = 0
+  const kind = { P: (i) => tile(i, 9 / 16), L: (i) => tile(i, 16 / 9), S: (i) => tile(i, 1), A: cover, Q: (i) => tile(i, 0.8) }
+  for (const cols of [2, 4, 5, 6]) {
+    for (let seed = 1; seed <= 4; seed++) {
+      const r = rng(seed * 31 + cols)
+      const items = Array.from({ length: 23 }, (_, i) => kind['PLSAQ'[Math.floor(r() * 5)]](i))
+      const w = { cols, sqRows: SQ }
+      const flagless = computeFlushGrid(items.map((a) => ({ ...a, keepShape: false })), w)
+      assert.deepEqual(flagless, computeFlushGrid(items, w), `${cols} columns, seed ${seed}: a false flag is no flag`)
+      // flagging a piece the plain layout stretched holds it to its cell
+      flagless.placements.forEach((p, i) => {
+        if (items[i].mediaType || cellOf(p, SQ)[1] <= classCell(items[i], cols)[1]) return
+        stretches++
+        const flagged = items.map((a, k) => (k === i ? logo(a) : a))
+        const held = computeFlushGrid(flagged, w)
+        assert.deepEqual(stretchedLogos(held.placements, flagged, SQ, cols), [], `${cols} columns, seed ${seed}: piece ${i} is held`)
+      })
+    }
+  }
+  assert.ok(stretches > 10, `the mixes stretch pieces to hold (${stretches})`)
+})
