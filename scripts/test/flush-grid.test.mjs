@@ -716,6 +716,7 @@ test('Nusonido and TOBEHONEST at 1440: no layout closes the hole without a 16:9 
 test('with the landscape cap on, no page is left worse than the portrait cap drew it, and grids stay valid, rigid and deterministic', () => {
   const kind = { A: cover, P: (i) => tile(i, 9 / 16), Q: (i) => tile(i, 0.8), L: (i) => tile(i, 16 / 9), S: (i) => tile(i, 1), W: (i) => tile(i, 4 / 3), T: (i) => tile(i, 2) }
   let better = 0
+  let viaAlone = 0
   for (const cols of [5, 6]) {
     for (let seed = 1; seed <= 6; seed++) {
       for (let n = 3; n <= 19; n += 2) {
@@ -734,8 +735,12 @@ test('with the landscape cap on, no page is left worse than the portrait cap dre
         const [was, now] = [worstOf(prior, ratios, SQ, isWide), worstOf(out, ratios, SQ, isWide)]
         assert.ok(now <= was + 1e-9, `${where}: worst landscape ${now} > ${was}`)
         if (now < was - 1e-9) better++
+        // a page the portrait cap's search led away from a layout that suits both gets the landscape cap's own
+        const alone = computeFlushGrid(items, { ...opts, portraitCrop: 1, landscapeCrop: LANDSCAPE_CROP })
+        if (JSON.stringify(out) === JSON.stringify(alone) && JSON.stringify(out) !== JSON.stringify(prior)) viaAlone++
       }
     }
   }
   assert.ok(better > 0, 'the cap improves some page of the mix')
+  assert.ok(viaAlone > 0, 'and some page takes the layout the landscape cap alone draws')
 })

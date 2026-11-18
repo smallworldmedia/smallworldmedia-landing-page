@@ -587,22 +587,32 @@ function openRows(placements, resolved, cols, end) {
  *    `type` the cell it fills rather than its class, and rigid the same way.
  */
 export function computeFlushGrid(showcase, opts = {}) {
-  const { cols = 3, sqRows = 24, landscapeCrop = 1 } = opts;
+  const { cols = 3, sqRows = 24, portraitCrop = 1, landscapeCrop = 1 } = opts;
   const refused = wideRefused;
   const out = finishOpen(showcase, opts, findFlat(showcase, opts));
   // The landscape cap changed nothing unless it refused a stretch somewhere in the search.
   if (landscapeCrop >= 1 || wideRefused === refused) return out;
-  // The layout the page had before this cap (2c6770d's, the portrait cap alone) is the floor: this one
+  // The layout the page had before this cap (2c6770d's, the portrait cap alone) is the floor: another
   // stands only where it is no worse in open rows or in the worst crop of either class, and better in one.
+  // The others: this one, and the landscape cap beside no portrait cap, whose search the portrait cap's
+  // refusals can lead away from a layout that suits both.
   const prior = computeFlushGrid(showcase, { ...opts, landscapeCrop: 1 });
-  const score = (o) => [
-    openRows(o.placements, o.regions, cols, o.totalRows),
-    worstCrop(o, TALL, sqRows),
-    worstCrop(o, WIDE, sqRows),
-  ];
-  const [now, was] = [score(out), score(prior)];
-  const noWorse = now.every((v, i) => v <= was[i] + 1e-9);
-  return noWorse && now.some((v, i) => v < was[i] - 1e-9) ? out : prior;
+  // By each piece's own class, so a piece turned into one square cell counts at the crop it has there.
+  const classes = showcase.map(tileClassOf);
+  const worst = (o, cls) =>
+    o.placements.reduce((m, p, i) => {
+      const crop = classes[i] === cls ? cropLoss(ratioOf(showcase[i]), p.colSpan / ((p.rowEnd - p.rowStart) / sqRows)) : 0;
+      return Math.max(m, crop);
+    }, 0);
+  const score = (o) => [openRows(o.placements, o.regions, cols, o.totalRows), worst(o, 'portrait'), worst(o, 'landscape')];
+  const better = (o, than) => {
+    const [now, was] = [score(o), score(than)];
+    return now.every((v, i) => v <= was[i] + 1e-9) && now.some((v, i) => v < was[i] - 1e-9);
+  };
+  let best = prior;
+  const others = portraitCrop < 1 ? [out, computeFlushGrid(showcase, { ...opts, portraitCrop: 1 })] : [out];
+  for (const o of others) if (better(o, best)) best = o;
+  return best;
 }
 
 /** The worst crop in a layout among the placements `map` prices (TALL: portraits, WIDE: landscapes), each against its drawn box. */
