@@ -41,15 +41,15 @@
  * ?params (read once at mount; docs/tunables-guide.md "colour scheme"):
  *   ?schemeui=0 hides the widget; ?schemeguard=<ms> the wheel pass-through guard;
  *   ?schemerows ?schemesize ?schemegap dial the deployed window and its spacing (site-scheme.css);
- *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout each circle's own
- *   entrance and exit; ?schemepad the badge's padding round the eye; ?schemeshift the engaged eye's
+ *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout each ring circle's
+ *   slide out from behind the centre eye and back (SQ-116); ?schemepad the badge's padding round the eye; ?schemeshift the engaged eye's
  *   step left off the viewport's edge; ?schemeslide ?schemegrow ?schemestep the engage's sequence (the
  *   slide, then the grow, a beat between the eye and the near and the far rings; the release backwards);
  *   ?schemelids the lids' scale.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import GraticulePager from './work/pager/GraticulePager.jsx';
-import { SchemeSwatch, EyeArt, EyeDefs } from './schemeSwatches.jsx';
+import { StationArt, EyeArt, EyeDefs } from './schemeSwatches.jsx';
 import {
   SCHEMES,
   getScheme,
@@ -75,8 +75,8 @@ const LABELS = {
   station: (i, n, name) => `Color scheme: ${name}`,
   live: (i, n, name) => `Color scheme ${i + 1} of ${n}: ${name}`,
 };
-// The column's circles are whole irises; the lens art is the eye (lids + the committed iris).
-const renderSwatch = (item) => <SchemeSwatch scheme={item.scheme} />;
+// The column's stations are a whole iris and its badge (SQ-116); the lens art is the eye (lids + the committed iris).
+const renderSwatch = (item) => <StationArt scheme={item.scheme} />;
 
 // The sequence (SQ-107 pass 11): at each engage and release, write the delays between the four groups of the
 // engage (the slide, the grow, the near ring, the far ring; site-scheme.css) from where each one is NOW, so a

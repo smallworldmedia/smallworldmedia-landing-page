@@ -320,7 +320,8 @@ test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger
   assert.ok(/--eye-shift',\s*`\$\{p\.shift\}px`/.test(read('src/components/SiteScheme.jsx')), 'SiteScheme writes the dial as a custom property on .swm-corner');
   // The taper is /work's own, never a copy: each circle moves left by --sw (pager-scale.css) x S, and the
   // tokens behind --sw (reach 3, exponent 2) are the ones global.css gives /work.
-  assert.ok(/translate: calc\(-1 \* var\(--sw\) \* var\(--eye-s\)\) calc\(/.test(flat), 'each station steps left by the stagger taper --sw times the shift');
+  assert.ok(/translate: calc\(-1 \* var\(--eye-sx\) \* var\(--eye-s\)\) calc\(/.test(flat), 'each station steps left by the stagger taper times the shift');
+  assert.ok(/--eye-sx: calc\(var\(--sw\) \+ \(1 - var\(--sw\)\) \* \(1 - var\(--eye-p\)\)\);/.test(flat), 'the taper is --sw once the circle has arrived, and the lens\'s (1) while it is still behind the centre eye');
   const pager = read('src/styles/pager-scale.css');
   assert.ok(/--sw: pow\(clamp\(0, 1 - var\(--ndr\) \/ var\(--scale-slice-reach\), 1\), var\(--scale-slice-exp\)\);/.test(pager.replace(/\s+/g, ' ')), '--sw is /work\'s taper');
   const g = read('src/styles/global.css');
@@ -332,8 +333,9 @@ test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger
   assert.ok(/width: calc\(var\(--badge-w\) \+ var\(--eye-s\) \/ var\(--eye-lift\)\);/.test(flat), 'and wider by the shift, before the lift');
   // The press surface reaches left by S, and the window is wide enough for the shifted circles.
   assert.ok(/\[data-open\]::after \{[^}]*left: calc\(min\(.*\) - var\(--eye-s\)\);/.test(flat), 'a finger over the shifted eyes keeps the scrub');
-  assert.ok(/\.fp-scale__window \{[^}]*left: calc\(\(var\(--eye-w\) - var\(--eye-wide\)\) \/ 2 - var\(--eye-shift\)\);[^}]*width: calc\(var\(--eye-wide\) \+ var\(--eye-shift\)\);/.test(flat), 'the window is as wide as the shift');
-  assert.ok(/\.fp-scale__stations \{ left: var\(--eye-shift\); width: var\(--eye-wide\); \}/.test(flat), 'and the stations sit where they did');
+  assert.ok(/\.fp-scale__window \{[^}]*left: calc\(\(var\(--eye-w\) - var\(--eye-wide\)\) \/ 2 - var\(--eye-shift\) - var\(--eye-bleed\)\);[^}]*width: calc\(var\(--eye-wide\) \+ var\(--eye-shift\) \+ 2 \* var\(--eye-bleed\)\);/.test(flat), 'the window is as wide as the shift, and bleeds a lifted padding each side for the circles\' badges (SQ-116)');
+  assert.ok(/--eye-bleed: calc\(var\(--eye-engaged\) \* var\(--badge-pad\)\);/.test(flat), 'the bleed is the lifted padding');
+  assert.ok(/\.fp-scale__stations \{ left: calc\(var\(--eye-shift\) \+ var\(--eye-bleed\)\); width: var\(--eye-wide\); \}/.test(flat), 'and the stations sit where they did');
   // The arrow: /work's pointer, mirrored to point LEFT, on the lids' ink, never display:none.
   const ptr = flat.match(/\.fp-scale__pointer \{([^}]*)\}/)?.[1] ?? '';
   assert.ok(/border-right: 0\.571rem solid var\(--color-white\)/.test(ptr) && /border-left: 0 solid transparent/.test(ptr), 'a triangle with its point on the left, /work\'s 0.571rem wide, in the lid ink');
@@ -391,12 +393,44 @@ test('SQ-107 pass 5 nothing is cut by a straight edge, the window carries no mas
   const st = station.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   assert.ok(/--eye-p: calc\(var\(--eye-tg\) \+ \(var\(--eye-tn\) - var\(--eye-tg\)\) \* clamp\(0, var\(--ndr\), 1\) \+ \(var\(--eye-tf\) - var\(--eye-tn\)\) \* clamp\(0, calc\(var\(--ndr\) - 1\), 1\)\);/.test(st), 'its own progress: the lens rides the grow (--eye-tg), the near circles (one out) --eye-tn, the far (two out) --eye-tf, interpolated by the continuous distance --ndr');
   assert.ok(!/--eye-delay|--eye-stagger/.test(css), 'the stagger and its delay are retired (pass 11: three groups on their own delays)');
-  assert.ok(/opacity: calc\(var\(--eye-p\) \* var\(--eye-up\) \* var\(--eye-down\)\);/.test(st), 'opacity: entrance progress x the fade above x the fade below');
+  assert.ok(/opacity: calc\(var\(--eye-up\) \* var\(--eye-down\) \* min\(1, var\(--eye-p\) \* 1000\)\);/.test(st), 'opacity: the fade above x the fade below x a hard on/off at --eye-p 0 (SQ-116: the entrance is a slide, never an opacity ramp)');
+  assert.ok(!/(^|[\s;])scale:/.test(st) && !/--eye-travel|--eye-pop/.test(css), 'no pop and no half-way travel: the circle slides from the lens row at full size');
+  assert.ok(/z-index: calc\(20 - min\(var\(--ndd\), 19\)\);/.test(st), 'the lens circle paints over the ring circles (by the detented distance)');
   assert.ok(!/--eye-foot|--badge-ride/.test(css), 'no footer ride, so no fade for it');
   assert.ok(/--eye-hit-up:\s*2\.5;/.test(css) && /--eye-hit-down:\s*1\.5;/.test(css), 'the press target reaches the shown column');
   assert.ok(/--eye-tn var\(--eye-in\) var\(--ease-draw\)/.test(flat) && /--eye-tf var\(--eye-out\) var\(--ease-draw\)/.test(flat), 'the rings on the existing timing: --eye-in, --eye-out, no overshoot');
   const pager = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager\s*\{([^}]*)\}/)?.[1] ?? '';
   assert.ok(!/--badge-lift|--badge-rise/.test(pager), 'no climb');
+});
+
+test('SQ-116 every station carries a badge of its own scheme, the lens badge\'s build at the station\'s scale, flush with the edge, clipped off the lens badge', () => {
+  const css = skinCss();
+  const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  const rule = flat.match(/\.swm-corner__pager \.scheme-badge \{([^}]*)\}/)?.[1] ?? '';
+  // the lens badge's own width and height (the lifted eye and its padding, the width and the shift to the left of it)
+  assert.ok(/--badge-bw: calc\(var\(--eye-lift\) \* var\(--badge-w\) \+ var\(--eye-s\)\);/.test(rule), 'as wide as the lens badge');
+  assert.ok(/--badge-bh: calc\(var\(--eye-lift\) \* var\(--badge-h\)\);/.test(rule), 'as tall as the lens badge');
+  // the station scales it: at --eye-near its box is 0.8 of the lens badge\'s, at --eye-far 0.5
+  assert.ok(/--eye-r: calc\(var\(--sel\) \* var\(--eye-far\)\);/.test(rule), 'the station\'s own scale, the one its transform applies');
+  // right edge on the viewport\'s: the lens-to-edge distance (lifted padding, the shift) in the station\'s own px
+  assert.ok(/--badge-edge: calc\(\(var\(--eye-lift\) \* \(var\(--eye-w\) \/ 2 \+ var\(--badge-pad\)\) \+ var\(--eye-sx\) \* var\(--eye-s\)\) \/ var\(--eye-r\)\);/.test(rule), 'flush with the viewport\'s edge');
+  assert.ok(/left: calc\(50% \+ var\(--badge-edge\) - var\(--badge-bw\)\);/.test(rule) && /top: calc\(50% - var\(--badge-bh\) \/ 2\);/.test(rule), 'seated on the station\'s centre, right edge on the viewport\'s');
+  assert.ok(/z-index: -1;/.test(rule) && /pointer-events: none;/.test(rule), 'behind its own circle, never a press target');
+  // clipped off the lens badge\'s window: that window\'s edges in this badge\'s coordinates, off the station\'s distance
+  assert.ok(/--badge-yc: calc\(\(var\(--k, 0\) - var\(--scale-qf, var\(--scale-cur\)\)\) \* var\(--scale-pitch\) \* var\(--eye-p\)\);/.test(rule), 'the station\'s distance from the lens row, at this instant of its slide');
+  assert.ok(/--badge-yt: calc\(var\(--badge-bh\) \/ 2 \* \(1 - 1 \/ var\(--eye-r\)\) - var\(--badge-yc\) \/ var\(--eye-r\)\);/.test(rule) && /--badge-yb: calc\(var\(--badge-bh\) \/ 2 \* \(1 \+ 1 \/ var\(--eye-r\)\) - var\(--badge-yc\) \/ var\(--eye-r\)\);/.test(rule), 'the lens window\'s top and bottom');
+  assert.ok(/clip-path: polygon\(-999px -999px, 999px -999px, 999px var\(--badge-yt\), -999px var\(--badge-yt\), -999px var\(--badge-yb\), 999px var\(--badge-yb\), 999px 999px, -999px 999px\);/.test(rule), 'what lies inside the lens window is not painted a second time');
+  // the three panels: the glass rule (alpha on the background, never opacity), black, brand blue
+  assert.ok(/background: var\(--badge-glass\);/.test(rule) && /backdrop-filter: blur\(var\(--badge-blur\)\);/.test(rule), 'project is the lens badge\'s glass');
+  assert.ok(!/(^|[\s;])opacity:/.test(rule), 'a badge never fades with opacity (the blur would show the sharp original)');
+  assert.ok(/\.scheme-badge\[data-scheme='black'\] \{ background: var\(--color-black\);/.test(flat), 'black is the page black');
+  assert.ok(/\.scheme-badge\[data-scheme='blue'\] \{ background: linear-gradient\(to bottom, var\(--color-electric-blue\) 0 100%\);/.test(flat), 'blue is the brand blue');
+  // the markup: StationArt renders the badge with the station's scheme beside the circle, SiteScheme uses it
+  const sw = read('src/components/schemeSwatches.jsx');
+  assert.ok(/export function StationArt\(\{ scheme \}\)/.test(sw) && /<span className="scheme-badge" data-scheme=\{scheme\} aria-hidden="true" \/>/.test(sw) && /<SchemeSwatch scheme=\{scheme\} \/>/.test(sw), 'StationArt: the badge, then the circle');
+  assert.ok(/const renderSwatch = \(item\) => <StationArt scheme=\{item\.scheme\} \/>;/.test(read('src/components/SiteScheme.jsx')), 'every station renders it');
+  // /work\'s pager is not touched: nothing here edits it
+  assert.ok(!/scheme-badge/.test(read('src/styles/pager-scale.css')), '/work\'s pager skin knows nothing of it');
 });
 
 test('SQ-107 pass 5 one spacing dial at every width, GraticulePager takes cssPitch and /work keeps its pitch', () => {
