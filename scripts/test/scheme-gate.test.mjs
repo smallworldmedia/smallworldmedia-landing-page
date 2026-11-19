@@ -1392,7 +1392,7 @@ test('clearOfBlurb gate (SQ-125): the engaged column\'s lowest part sits the dia
   assert.equal(clearOfBlurb(eight, { gap: 8 }).pass, true, 'and passes when the gate follows the re-dial (--gap=8)');
 });
 
-test('clearOfBlurb gate (SQ-125, Nathan 11-18): the ring below the lens must show, the lens badge alone at the gap is not the column (?schemedown=0 fails)', () => {
+test('clearOfBlurb gate (SQ-125, Nathan 11-18), the ring below the lens must show, the lens badge alone at the gap is not the column (?schemedown=0 fails)', () => {
   // ?schemedown=0: the ring below is hidden (op 0) and the seat is the one for the lens badge alone: the lens badge's own bottom
   // edge is 4 px above the panel (29.9 px lower than the column now), so the gap alone would pass; the gate fails it by name.
   const m = clearMeasure();
@@ -1405,7 +1405,7 @@ test('clearOfBlurb gate (SQ-125, Nathan 11-18): the ring below the lens must sho
   assert.ok(!r.offenders.some((o) => /want 4 \(within/.test(o.note)), 'the gap itself is exact: it is the missing ring that fails');
 });
 
-test('clearOfBlurb gate (SQ-125): the resting eye and badge must also clear the panel by the gap, and no panel measured proves nothing', () => {
+test('clearOfBlurb gate (SQ-125), the resting eye and badge must also clear the panel by the gap, and no panel measured proves nothing', () => {
   const m = clearMeasure();
   m.rest.tile = { ...m.rest.tile, y: 780 };
   const r = clearOfBlurb(m);
