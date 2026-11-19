@@ -299,7 +299,7 @@ test('SQ-107 pass 9 on phones the badge is lifted clear of the screen corner (?s
   assert.ok(/--badge-clear: 56px;/.test(flat), 'default 56: the 55 px display radius plus 1 (PROPOSED)');
   const phone = /@media \(max-width: 768px\) \{ \.swm-corner \{ --badge-cy: max\(var\(--badge-cy-floor\), calc\(var\(--badge-clear\) \+ var\(--badge-h\) \/ 2\)\); \} \}/;
   assert.ok(phone.test(flat), 'at <= 768px the lens centre is clear + half the badge height, floored at the sitewide seat');
-  assert.equal(flat.split('--badge-clear)').length - 1, 1, 'the dial is read in the phone rule alone: above 768px the seat is the floor, byte for byte');
+  assert.equal(flat.split('--badge-clear)').length - 1, 2, 'the dial is read in the phone rules alone (the seat and SQ-127\'s whole-pixel seat): above 768px the seat is the floor, byte for byte');
   assert.ok(!/viewport-fit|safe-area-inset/.test(flat), 'no safe-area reach: viewport-fit is not set');
   const q = (s) => schemeParams(new URLSearchParams(s));
   assert.equal(q('').clear, null, 'absent: the CSS default');
@@ -800,8 +800,13 @@ test('SQ-125 the desktop seat is the black panel top plus the gap plus what the 
   assert.ok(new RegExp(`--seat-rest: ${rest.replace('.', '\\.')};`).test(desk), "--seat-rest is Hero's FOOTER_REST_DESKTOP: the seat follows the footer's resting share");
   assert.ok(/--eye-down-shown: var\(--eye-down-desk, 1\);/.test(desk) && /--eye-down-span: calc\(1 - 0\.5 \* var\(--eye-down-desk, 1\)\);/.test(desk) && /--eye-hit-down: calc\(0\.75 \+ 0\.75 \* var\(--eye-down-desk, 1\)\);/.test(desk), 'the near ring shows under the lens by default (SQ-125, Nathan 11-18; ?schemedown=0 hides it), the fade and the press target follow it');
   assert.ok(/--seat-below: max\(calc\(var\(--eye-engaged\) \* var\(--badge-h\) \/ 2\), calc\(var\(--eye-down-shown\) \* \(var\(--scheme-pitch\) \+ var\(--eye-near\) \* var\(--eye-engaged\) \* var\(--badge-h\) \/ 2\)\)\);/.test(desk), 'the seat clears the column below the lens by the ring under it, the lens badge alone when none shows');
-  const whole = /@supports \(width: round\(1px, 1px\)\) \{ @media \(min-width: 769px\) \{ \.swm-corner \{ ([^}]*)\} (\/\*[^*]*\*\/ )?\.swm-corner\[data-ready\] \.fp-scale\.swm-corner__pager\.swm-corner__pager::before \{ ([^}]*)\}/.exec(flat.replace(/\/\*(?:[^*]|\*(?!\/))*\*\//g, (c) => (c.length < 120 ? c : "")));
-  assert.ok(whole, "SQ-126: the whole-pixel block (round() browsers, above 768px) sets the seat, the badge height and the pitch, and centres the lens badge on the eye");
+  const whole = /@supports \(width: round\(1px, 1px\)\) \{ @media \(min-width: 769px\) \{ \.swm-corner \{ ([^}]*)\} \} (?:\/\*[^*]*\*\/ )?@media \(max-width: 768px\) \{ \.swm-corner \{ ([^}]*)\} \} (?:\/\*[^*]*\*\/ )?\.swm-corner\[data-ready\] \.fp-scale\.swm-corner__pager\.swm-corner__pager::before \{ ([^}]*)\}/.exec(flat.replace(/\/\*(?:[^*]|\*(?!\/))*\*\//g, (c) => (c.length < 120 ? c : "")));
+  assert.ok(whole, "SQ-126: the whole-pixel block (round() browsers) sets the seat, the badge height and the pitch above 768px, then (SQ-127) at 768px and under, and centres the lens badge on the eye on both tiers");
+  // SQ-127: phones round the badge and the pitch exactly as the desktop does, and their own seat (?schemeclear + half the badge) to a whole pixel.
+  assert.ok(/--badge-h: round\(calc\(var\(--eye-h\) \+ 2 \* var\(--badge-pad\)\), 4px\);/.test(whole[2]), 'SQ-127: the phone badge a multiple of 4px tall (28 at the defaults)');
+  assert.ok(/--scheme-pitch: round\(calc\(var\(--scheme-swatch\) \* var\(--eye-engaged\) \* \(1 \+ max\(var\(--eye-near\), var\(--eye-far\)\)\) \/ 2 \+ var\(--scheme-gap\)\), 2px\);/.test(whole[2]), 'SQ-127: an even phone pitch (34 at the defaults)');
+  assert.ok(/--badge-cy: round\(max\(var\(--badge-cy-floor\), calc\(var\(--badge-clear\) \+ var\(--badge-h\) \/ 2\)\), 1px\);/.test(whole[2]), 'SQ-127: the phone seat (?schemeclear under the badge, floored at the sitewide seat) on a whole pixel (70 at the defaults)');
+  assert.ok(!/--seat-|--eye-shift|--eye-down|--eye-up/.test(whole[2]), 'SQ-127: the phone block moves nothing else (no desktop seat, shift or fade numbers)');
   assert.ok(/--badge-cy: round\(calc\(var\(--seat-panel-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\), 1px\);/.test(whole[1]), "SQ-126: the lens centre on a whole pixel (a half pixel put the lens and each neighbour on different pixel lattices)");
   assert.ok(/--badge-h: round\(calc\(var\(--eye-h\) \+ 2 \* var\(--badge-pad\)\), 4px\);/.test(whole[1]), "SQ-126: the badge a multiple of 4px tall, so its 1.5x edges are whole pixels");
   assert.ok(/--scheme-pitch: round\(calc\(var\(--scheme-swatch\) \* var\(--eye-engaged\) \* \(1 \+ max\(var\(--eye-near\), var\(--eye-far\)\)\) \/ 2 \+ var\(--scheme-gap\)\), 2px\);/.test(whole[1]), "SQ-126: an even pitch, so every station top is a whole pixel off the lens centre");

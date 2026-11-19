@@ -45,7 +45,8 @@
  *   The `seams` gate (SQ-126): at a settled engaged station the badge above the lens and the one below end within 0.25 px of the lens
  *              badge's painted edges (seamEdges), and the `layer` gate: inside the lens badge the pixels with every station's badge
  *              painted equal the lens badge's alone (lensLayer: one ?schemeglass veil, never two). Both run with `clear` (five
- *              desktop viewports, every scheme); the phone pass reports its seams at --phone-dpr (default 3), not gated.
+ *              desktop viewports, every scheme) and with the phone pass (390 x 844 home, held, at --phone-dpr, default 3; SQ-127:
+ *              a gate there too, run at 3 and at 2). Negative control for the phone seams: the SQ-126 fold 0860822 FAILS.
  *              Negative control for `layer`: b05b8ad (its inset() clip kept the lens station's own glass badge) FAILS on project.
  *   The `phone` gate (SQ-121, by name only, --width=390): the badge, eye and every ring part's rects on every
  *              route at rest and held, compared to a capture of the BASE build. Phones are unchanged byte for
@@ -2438,9 +2439,10 @@ async function clearPass(browser, scheme, want) {
 /**
  * The bands gate on a phone (SQ-125): 390 x 844 home, rest and held (the CDP touch), every scheme: the badge is its settled band to
  * the first and last pixel row. The strip's paint is the one thing the desktop seat change leaves on a phone; its rects are the phone gate's.
- * SQ-126: the pass runs at the iPhone this width stands for, DPR 3 (--phone-dpr overrides; --dpr is the desktop bands'), and its seams are REPORTED, not gated: the
- * whole-pixel seams are a desktop build (above 768px), phones keep their rects byte for byte (the phone gate), and a phone seam
- * can only close by moving them. The INFO line carries each seam's numbers; the desktop seams (the clear pass) stay a gate.
+ * SQ-126: the pass runs at the iPhone this width stands for, DPR 3 (--phone-dpr overrides; --dpr is the desktop bands').
+ * SQ-127: its seams are a GATE (seamEdges, 0.25 px, top and bottom, held) and so is the layer (lensLayer: nothing paints under the lens
+ * badge), at whatever --phone-dpr the run asks for (the pinned verify runs 3 and 2). The INFO line above each carries the seam numbers.
+ * Negative control: the SQ-126 fold (0860822, phones fractional) FAILS the seams on project and black at DPR 3.
  */
 async function bandsPhonePass(browser, scheme, width) {
   const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: PHONE_DPR, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
@@ -2453,7 +2455,9 @@ async function bandsPhonePass(browser, scheme, width) {
     emitResult(scheme, 'home', width, 'bands', gate.bandEdges(bandStates(scheme, `${width}x844`, m)));
     const st = [{ label: `${scheme} ${width}x844@${PHONE_DPR}x engaged`, ...m.seams }];
     const read = gate.seamEdges(st, { tol: -1 }).offenders.map((o) => (o.seam ? `${o.seam} ${o.overlap}` : o.note)).join(', ');
-    console.log(`INFO  ${scheme.padEnd(8)} ${'home'.padEnd(10)} ${String(width).padStart(4)}  ${'seams'.padEnd(10)} @${PHONE_DPR}x ${gate.seamEdges(st).pass ? 'within' : 'OVER'} 0.25 px (reported, not gated: phones are unchanged): ${read} (+ = into the lens, - = a gap)`);
+    console.log(`INFO  ${scheme.padEnd(8)} ${'home'.padEnd(10)} ${String(width).padStart(4)}  ${'seams'.padEnd(10)} @${PHONE_DPR}x ${read} (+ = into the lens, - = a gap)`);
+    emitResult(scheme, 'home', `${width}@${PHONE_DPR}x`, 'seams', gate.seamEdges(st));
+    emitResult(scheme, 'home', `${width}@${PHONE_DPR}x`, 'layer', gate.lensLayer(st));
   }
 }
 
