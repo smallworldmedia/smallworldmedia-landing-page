@@ -234,26 +234,29 @@
    station, one station after the near one's. The press target above the lens shrinks with it, to the near
    circle and a half (2.5 to 1.5 stations).
 
-   THE DESKTOP SEAT (SQ-121, Nathan 11-18: the engaged eyes cover the footer blurb's text and the privacy pill on home at rest).
-   DECIDED: ONE desktop seat on every route. The blurb belongs to the links footer, which every route reveals, so the seat
-   stays put across routes and scroll stops (the 11-16 "one seat, sitewide" holds above 768px too; only its height
-   moves). It is DERIVED from the blurb's own size, so it tracks the width: the lens centre is the blurb text's top
-   edge at the footer's resting pose, plus --badge-blurb-gap (?schemeblurbgap, PROPOSED 8), plus how far the engaged
-   column reaches BELOW the lens (--seat-below). The lens never moves between rest and engaged, so ONE height has to
-   clear the blurb for both: the engaged badge's bottom edge sits --badge-blurb-gap above the text and, at rest, the
-   smaller badge sits higher still.
-   THE BLURB'S TOP, from home's resting footer (Hero FOOTER_REST_DESKTOP 0.47 of a panel whose height is a straight
-   line of the blurb's size): measured at 1130, 1280, 1440, 1920 and 2560 wide, the one-line blurb's text rect ends 75px
-   above the viewport's bottom and is about 1.06 to 1.09 x the blurb's size tall (the seat takes 1.09, the taller end); wrapped to two lines (under
-   about 1130 wide, where the size sits at its --text-blurb floor) it reaches 1.64 x the floor above those 75px (one
-   line's height plus a second line at the resting share). max() takes whichever applies, so no breakpoint is written
-   here. It is an envelope, so between about 1130 and 1500 wide the one-line case sits 5 to 10px higher than its
-   gap asks (measured 12.9px, not 8, at 1440 x 900): the cost of one expression without a breakpoint, over-clearing
-   and never under. --seat-blurb-size is global.css's --footer-blurb-size where home publishes it, and the same expression
-   where it does not (every other route), so the seat is the same everywhere. scripts/scheme-probe.mjs's `clear` gate
-   measures it on the real page at 1440 x 900 and 1024 x 768, so a copy or panel change that moves the blurb fails there.
+   THE DESKTOP SEAT (SQ-121, Nathan 11-18: the engaged eyes cover the footer blurb's text and the privacy pill on home at rest;
+   SQ-125, Nathan 11-18: "move the eye badge up higher on desktop so that the lower badge clears the black footer blurb container
+   with 2 px of gap"). DECIDED: ONE desktop seat on every route. The blurb belongs to the links footer, which every route reveals,
+   so the seat stays put across routes and scroll stops (the 11-16 "one seat, sitewide" holds above 768px too; only its height
+   moves). It is DERIVED from the black panel's own height, which is a straight line of the blurb's size, so it tracks the width:
+   the lens centre is the panel's top edge at the footer's resting pose, plus --badge-blurb-gap (?schemeblurbgap, 2, Nathan's
+   number), plus how far the engaged column reaches BELOW the lens (--seat-below). The lens never moves between rest and engaged,
+   so ONE height has to clear the panel for both: the engaged badge's bottom edge sits --badge-blurb-gap above the panel and, at
+   rest, the smaller badge sits higher still.
+   THE PANEL'S TOP, from home's resting footer: Hero's FOOTER_REST_DESKTOP (0.47, --seat-rest here, held equal by a test) of the
+   panel's height shows above the viewport's bottom, so the top edge is 0.47 x H above it. H, measured on the real page at 1024,
+   1100, 1130, 1160, 1280, 1440, 1600, 1920 and 2560 wide (to 0.01 px of a straight line through all of them): 196.91 px of
+   fixed pad, rows and clearance (html{font-size:14px} pins the rem chain above 768px) plus 2.4 x the blurb's size (the blurb's
+   line at 1.15 and the odometer line under it at 1.25, both riding the size), plus ONE MORE blurb line (1.15 x the size) when the
+   copy wraps. It wraps exactly when the size has been held up at its floor over the fill's own size (--seat-blurb-fill is the
+   size that would fill the measure, global.css's expression: the line is wider than the measure when the size exceeds that over
+   --footer-blurb-fill), so min() and max() with a steep slope make the step with no breakpoint and no typed division. That is
+   exact where the old envelope over-cleared by 5 to 10 px between about 1130 and 1500 wide. --seat-blurb-size is global.css's
+   --footer-blurb-size where home publishes it, and the same expression where it does not (every other route), so the seat is
+   the same everywhere. scripts/scheme-probe.mjs's `clear` gate measures the gap on the real page at 1440 x 900, 1024 x 768,
+   1280 x 800, 1920 x 1080 and 2560 x 1440, so a copy or panel change that moves the panel fails there.
    THE RINGS BELOW THE LENS (decided with numbers in the ticket's report): a ring under the lens would need the seat
-   above the blurb's top by the whole column (the lens badge, the pitch and the near ring, 51.8px at the defaults) instead
+   above the panel's top by the whole column (the lens badge, the pitch and the near ring, 51.8px at the defaults) instead
    of the lens badge's half (21.9px): the eye 29.9px higher in the corner, for a circle the viewport's bottom edge
    used to cut. So above 768px none shows under the lens (--eye-down-shown 0, limited the way --eye-up-shown limits
    the ones above) and the press target under it shrinks to the lens badge's half and a bit (0.75 of a station).
@@ -266,18 +269,21 @@
     --eye-down-shown: var(--eye-down-desk, 0);
     --eye-down-span: calc(1 - 0.5 * var(--eye-down-desk, 0));
     --eye-hit-down: calc(0.75 + 0.75 * var(--eye-down-desk, 0));
-    --badge-blurb-gap: 8px;
-    --seat-blurb-size: var(
-      --footer-blurb-size,
-      max(
-        var(--text-blurb, 1.4rem),
-        calc(
-          var(--footer-blurb-fill, 0.995) * (100vw - var(--nav-inset) - var(--chrome-right-inset)) /
-            var(--footer-blurb-em, 55.722)
-        )
-      )
+    --badge-blurb-gap: 2px;
+    --seat-blurb-fill: calc(
+      var(--footer-blurb-fill, 0.995) * (100vw - var(--nav-inset) - var(--chrome-right-inset)) /
+        var(--footer-blurb-em, 55.722)
     );
-    --seat-blurb-top: calc(75px + max(1.09 * var(--seat-blurb-size), 1.64 * var(--text-blurb, 1.4rem)));
+    --seat-blurb-size: var(--footer-blurb-size, max(var(--text-blurb, 1.4rem), var(--seat-blurb-fill)));
+    --seat-rest: 0.47;
+    --seat-panel-h: calc(
+      196.91px + 2.4 * var(--seat-blurb-size) +
+        min(
+          1.15 * var(--seat-blurb-size),
+          max(0px, 1000 * (var(--seat-blurb-size) - var(--seat-blurb-fill) / var(--footer-blurb-fill, 0.995)))
+        )
+    );
+    --seat-panel-top: calc(var(--seat-rest) * var(--seat-panel-h));
     --seat-below: max(
       calc(var(--eye-engaged) * var(--badge-h) / 2),
       calc(
@@ -285,18 +291,20 @@
           (var(--scheme-pitch) + var(--eye-near) * var(--eye-engaged) * var(--badge-h) / 2)
       )
     );
-    --badge-cy: calc(var(--seat-blurb-top) + var(--badge-blurb-gap) + var(--seat-below));
+    --badge-cy: calc(var(--seat-panel-top) + var(--badge-blurb-gap) + var(--seat-below));
   }
 }
 
-/* The seat on whole pixels. The blurb's size is fractional, so the seat is too, and a lens centred on a fraction
+/* The seat on half pixels. The blurb's size is fractional, so the seat is too, and a lens centred on a fraction
    of a pixel shimmers by a quarter pixel as the engaged badge grows (the jitter gate's reversal limit, 0.25, was hit
-   at 1440 x 900 without this). round() where the browser has it (Chrome 125, Safari 15.4, Firefox 118); older ones
-   keep the fractional seat above. */
+   at 1440 x 900 without this). Half a pixel (SQ-125; it was a whole one): the 2px gap is held to 0.5, and rounding the
+   centre to a whole pixel alone spends up to all of that (measured 1.86 to 2.29), while half a pixel spends at most
+   a quarter and the jitter gate reads the same (worst reversal 0.17, limit 0.25). round() where the browser has it
+   (Chrome 125, Safari 15.4, Firefox 118); older ones keep the fractional seat above, exact to the line. */
 @supports (width: round(1px, 1px)) {
   @media (min-width: 769px) {
     .swm-corner {
-      --badge-cy: round(calc(var(--seat-blurb-top) + var(--badge-blurb-gap) + var(--seat-below)), 1px);
+      --badge-cy: round(calc(var(--seat-panel-top) + var(--badge-blurb-gap) + var(--seat-below)), 0.5px);
     }
   }
 }

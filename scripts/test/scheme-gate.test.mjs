@@ -1269,10 +1269,13 @@ test('lids gate no pixel of the circle outside the lids passes, a leak fails, a 
 });
 
 // ── clearOfBlurb and phoneRects (SQ-121): the desktop seat above the blurb, the phone unchanged ───────────────
+// SQ-125: the black panel's top edge is 786.8, 2 px under the engaged badge's bottom edge (741 + 43.8 = 784.8); its blurb text starts 11 px into it.
+const PANEL = { x: 0, y: 786.8, w: 1440, h: 120 };
 const clearMeasure = () => ({
-  rest: { tile: { x: 1395, y: 748, w: 45, h: 29 }, blurb: { x: 4, y: 797.8, w: 1417, h: 27 }, pill: { x: 1306, y: 850, w: 77, h: 38 }, parts: [] },
+  rest: { tile: { x: 1395, y: 748, w: 45, h: 29 }, blurb: { x: 4, y: 797.8, w: 1417, h: 27 }, panel: { ...PANEL }, pill: { x: 1306, y: 850, w: 77, h: 38 }, parts: [] },
   engaged: {
     tile: { x: 1339.5, y: 741, w: 100.5, h: 43.8 },
+    panel: { ...PANEL },
     blurb: { x: 4, y: 797.8, w: 1417, h: 27 },
     pill: { x: 1306, y: 850, w: 77, h: 38 },
     parts: [
@@ -1286,6 +1289,41 @@ const clearMeasure = () => ({
 test('clearOfBlurb gate: the seat above the blurb passes resting and engaged, a hidden ring under the lens does not count', () => {
   const r = clearOfBlurb(clearMeasure());
   assert.equal(r.pass, true, JSON.stringify(r.offenders));
+});
+
+test('clearOfBlurb gate (SQ-125): the engaged badge sits the dialed gap above the black panel, 0.5 px either way, 2 by default', () => {
+  const lens = (dy) => {
+    const m = clearMeasure();
+    m.engaged.tile = { ...m.engaged.tile, y: m.engaged.tile.y + dy };
+    return m;
+  };
+  assert.equal(clearOfBlurb(lens(0.4)).pass, true, 'exactly on the gap, within the half pixel (0.4 px low)');
+  assert.equal(clearOfBlurb(lens(-0.4)).pass, true, 'and 0.4 px high');
+  const low = clearOfBlurb(lens(4));
+  assert.equal(low.pass, false, 'the seat 4 px lower');
+  assert.ok(/engaged lens badge's bottom edge.*is -?[\d.]+ px above the black panel's top edge.*want 2 \(within 0\.5 px/.test(JSON.stringify(low.offenders[0].note)), JSON.stringify(low.offenders));
+  const high = clearOfBlurb(lens(-6));
+  assert.equal(high.pass, false, 'the seat 6 px higher: the old over-clearing envelope fails too, it is no slack');
+  assert.equal(clearOfBlurb(lens(0), { gap: 8 }).pass, false, 'a gap of 8 is not the default (--query=schemeblurbgap=8 fails)');
+  const eight = clearMeasure();
+  eight.engaged.tile = { ...eight.engaged.tile, y: eight.engaged.tile.y - 6 };
+  eight.rest.tile = { ...eight.rest.tile, y: eight.rest.tile.y - 6 };
+  assert.equal(clearOfBlurb(eight).pass, false, 'the seat an 8 px gap makes fails against 2');
+  assert.equal(clearOfBlurb(eight, { gap: 8 }).pass, true, 'and passes when the gate follows the re-dial (--gap=8)');
+});
+
+test('clearOfBlurb gate (SQ-125): the resting badge must also clear the panel by the gap, and no panel measured proves nothing', () => {
+  const m = clearMeasure();
+  m.rest.tile = { ...m.rest.tile, y: 780 };
+  const r = clearOfBlurb(m);
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => o.state === 'rest' && /black panel/.test(o.note)), JSON.stringify(r.offenders));
+  const none = clearMeasure();
+  none.engaged.panel = null;
+  assert.equal(clearOfBlurb(none).pass, false);
+  const noRest = clearMeasure();
+  delete noRest.rest.panel;
+  assert.equal(clearOfBlurb(noRest).pass, false);
 });
 
 test('clearOfBlurb gate negative control: the old seat (on the privacy pill line) fails resting and engaged', () => {
