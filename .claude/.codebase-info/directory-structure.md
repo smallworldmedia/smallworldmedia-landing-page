@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-17*
+*Last Updated: 2026-11-19*
 
 ```
 .
@@ -60,7 +60,7 @@
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit, sets (Set ids and keys)
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
-│   ├── lib/scheme-gate.mjs   # scheme-probe's pure gates (colour maths, the page gates, the corner widget's sixteen)
+│   ├── lib/scheme-gate.mjs   # scheme-probe's pure gates (colour maths, the page gates, the corner widget's nineteen)
 │   ├── lib/scheme-leak-probe.mjs   # SQ-113's scheme-flip memory probe (one arm per fresh browser; measurement only)
 │   ├── lib/navWipeGate.mjs, lib/legalScrollGate.mjs   # nav-wipe-probe's and legal-scroll-probe's pure gates
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
