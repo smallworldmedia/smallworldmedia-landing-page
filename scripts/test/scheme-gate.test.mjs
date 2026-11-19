@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  clearOfBlurb, bandEdges, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
+  clearOfBlurb, bandEdges, seamEdges, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -678,6 +678,62 @@ test('bandEdges gate the top edge is read too, and so is the row beside the last
   const inner = badgeRows('glass');
   inner[4 + 30 - 4] = BANDS.blue;
   assert.equal(bandEdges([{ label: 'three in', rows: inner, palette: BANDS }]).pass, true, 'only the edge rows are this gate\'s: a seam inside is the strip gate\'s');
+});
+
+// ── seamEdges (SQ-125, Nathan 11-18: "the blue badge at the top is clipping into the central badge") ──
+// Profiles of a flat grey page (128) over rows 690..760 at DPR 1: a band covering [from, to) in CSS px is its colour over the page by the
+// fraction of each row it covers (the way the browser anti-aliases an edge at a fractional position).
+const spanRows = (colour, from, to, { top = 690, n = 70, scale = 1 } = {}) => Array.from({ length: n * scale }, (_, i) => {
+  const a = top + i / scale;
+  const cov = Math.max(0, Math.min(a + 1 / scale, to) - Math.max(a, from)) * scale;
+  return PAGE_G.map((p, c) => p * (1 - cov) + colour[c] * cov);
+});
+const seamState = ({ lensTop = 701.09, lensBottom = 744.89, above = lensTop, below = lensBottom, scale = 1, label = 'project 1440x900 engaged' } = {}) => ({
+  label,
+  lens: spanRows(BANDS.glass, lensTop, lensBottom, { scale }),
+  nbs: spanRows(BANDS.blue, 660, above, { scale }).map((r, i) => {
+    const b = spanRows(BANDS.black, below, 800, { scale })[i];
+    return b.some((v, c) => v !== PAGE_G[c]) ? b : r;
+  }),
+  top: 690, scale, y0: 701.09, y1: 744.89,
+});
+
+test('seamEdges gate neighbours that end exactly where the lens badge does pass, at any fractional edge and at DPR 2', () => {
+  for (const edge of [701.09, 700.68, 701.5, 701.0]) {
+    const ok = seamEdges([seamState({ lensTop: edge, above: edge, lensBottom: edge + 43.8, below: edge + 43.8 })]);
+    assert.equal(ok.pass, true, `${edge}: ${JSON.stringify(ok.offenders)}`);
+    assert.equal(ok.n, 2, 'the top seam and the bottom seam');
+  }
+  const retina = seamEdges([seamState({ scale: 2 })]);
+  assert.equal(retina.pass, true, JSON.stringify(retina.offenders));
+});
+
+test('seamEdges gate a neighbour that paints into the lens fails and says by how much, the c5fd35e blue badge at 1440 x 900 (0.82 px)', () => {
+  const into = seamEdges([seamState({ lensTop: 700.68, above: 701.5, lensBottom: 744.18, below: 744.18 })]);
+  assert.equal(into.pass, false);
+  assert.equal(into.offenders.length, 1, JSON.stringify(into.offenders));
+  assert.equal(into.offenders[0].seam, 'top');
+  assert.ok(Math.abs(into.offenders[0].overlap - 0.82) < 0.02, JSON.stringify(into.offenders[0]));
+  assert.match(into.offenders[0].note, /paints 0\.8\d px into the lens/);
+  const bottom = seamEdges([seamState({ lensBottom: 744.4, below: 744.0 })]);
+  assert.equal(bottom.offenders[0].seam, 'bottom');
+  assert.match(bottom.offenders[0].note, /paints 0\.4\d? px into the lens/);
+});
+
+test('seamEdges gate a neighbour that stops short of the lens leaves a gap and fails', () => {
+  const gap = seamEdges([seamState({ lensTop: 701.09, above: 700.3, lensBottom: 744.89, below: 745.6 })]);
+  assert.equal(gap.pass, false);
+  assert.equal(gap.offenders.length, 2, JSON.stringify(gap.offenders));
+  assert.match(gap.offenders[0].note, /stops 0\.7\d px short of it \(a gap the page shows through\)/);
+  assert.equal(seamEdges([seamState({ lensTop: 701.09, above: 700.95 })], { tol: 0.25 }).pass, true, 'a seam within the tolerance is flush');
+});
+
+test('seamEdges gate a run that read nothing proves nothing', () => {
+  assert.equal(seamEdges([]).pass, false, 'no state');
+  assert.equal(seamEdges([{ label: 'x', lens: [], nbs: [], top: 690, y0: 701, y1: 745 }]).pass, false, 'no rows');
+  const blank = Array(70).fill(PAGE_G);
+  assert.equal(seamEdges([{ ...seamState(), nbs: blank }]).pass, false, 'no neighbour on the page');
+  assert.equal(seamEdges([{ ...seamState(), lens: blank }]).pass, false, 'no lens on the page');
 });
 
 test('bandEdges gate a run that read nothing proves nothing', () => {
