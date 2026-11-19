@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  clearOfBlurb, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
+  clearOfBlurb, bandEdges, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -612,6 +612,79 @@ test('strip gate between detents the current panel leaves by the top and the nex
   assert.equal(strip([{ q: 0.5, col: col([GLASS, 20], [BLACK, 16], [BLUE, 16]) }]).pass, false, 'three panels at once');
   assert.equal(strip([]).pass, false, 'no frames proves nothing');
   assert.equal(strip([{ q: 1, col: [] }]).pass, false);
+});
+
+test('strip gate (SQ-125) a band wider than the badge by a margin a side puts the seam at (1 - fraction) x (height + 2 margin) - margin, and holds one band near a whole q', () => {
+  const h = 52;
+  const m = 4; // 2 px a side at DPR 2
+  const between = (q, top, bottom, seam) => ({ q, col: col([top, seam], [bottom, h - seam]) });
+  // q 0.5: (0.5 x 60) - 4 = 26 (the same as the bare window's, by symmetry); q 0.25: 0.75 x 60 - 4 = 41, 2 rows past the bare window's 39; q 0.75: 0.25 x 60 - 4 = 11
+  const ok = strip([between(0.5, GLASS, BLACK, 26), between(0.25, GLASS, BLACK, 41), between(1.75, BLACK, BLUE, 11)], { margin: m });
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  // negative control: the bare window's seam (39 at q 0.25) is 2 rows off a margin build's, and the wrong one fails past the tolerance at 3 rows
+  const bare = strip([between(0.25, GLASS, BLACK, 44)], { margin: m });
+  assert.equal(bare.pass, false);
+  assert.match(bare.offenders[0].note, /seam at row 44 of 52, want 41 .*a band 4 rows wider a side/);
+  // near a whole q the seam is still inside the margin: q 0.03 and 0.97 are one band, where a bare window would have a seam in it
+  const near = strip([{ q: 1.03, col: px(BLACK, h) }, { q: 1.97, col: px(BLUE, h) }], { margin: m });
+  assert.equal(near.pass, true, JSON.stringify(near.offenders));
+  assert.equal(strip([between(1.03, BLACK, BLUE, 50)]).pass, false, 'and the bare window wants the seam where it is, so it never reads a margin build as one band');
+});
+
+// ── bandEdges (SQ-125, Nathan 11-18: "whats the thin color strip at the bottom of the rest and engaged chips") ──
+// A flat grey page (128), the badge painted over it: glass is 35% white over the page (172), black 25, blue 0,0,255.
+const PAGE_G = [128, 128, 128];
+const BANDS = { glass: [172, 172, 172], black: [25, 25, 25], blue: [0, 0, 255] };
+const badgeRows = (band, { h = 30, pad = 4, top, bottom } = {}) => {
+  const rows = [...Array(pad).fill(PAGE_G), ...Array(h).fill(BANDS[band]), ...Array(pad).fill(PAGE_G)];
+  if (top) rows[pad] = top;
+  if (bottom) rows[pad + h - 1] = bottom;
+  return rows;
+};
+const settled = (label, band, opts) => ({ label, rows: badgeRows(band, opts), palette: BANDS });
+const mixRgb = (a, b, t) => a.map((v, i) => v * (1 - t) + b[i] * t);
+
+test('bandEdges gate a settled badge of one band to its first and last row passes in every band, and a partly covered edge row is the band over the page', () => {
+  const ok = bandEdges(['glass', 'black', 'blue'].map((b) => settled(`${b} rest`, b)));
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.equal(ok.n, 12, 'two edge rows at each end of three badges');
+  for (const band of ['glass', 'black', 'blue']) {
+    const aa = bandEdges([settled(`${band} half-covered`, band, { bottom: mixRgb(PAGE_G, BANDS[band], 0.5), top: mixRgb(PAGE_G, BANDS[band], 0.4) })]);
+    assert.equal(aa.pass, true, `${band}: ${JSON.stringify(aa.offenders)}`);
+  }
+});
+
+test('bandEdges gate a last row of the NEXT band fails and names the band it is (the strip on the bottom of the rest and engaged chips)', () => {
+  // the measured fault: the rest badge of project is glass with its last row black (25,25,25); black's is blue (0,0,255); blue's is glass
+  const proj = bandEdges([settled('project rest', 'glass', { bottom: BANDS.black })]);
+  assert.equal(proj.pass, false);
+  assert.equal(proj.offenders.length, 1, JSON.stringify(proj.offenders));
+  assert.match(proj.offenders[0].note, /the bottom row of the glass badge is black/);
+  assert.equal(proj.offenders[0].row, 'bottom row 0 of 30');
+  const blk = bandEdges([settled('black rest', 'black', { bottom: BANDS.blue })]);
+  assert.match(blk.offenders[0].note, /the bottom row of the black badge is blue/);
+  const blue = bandEdges([settled('blue engaged', 'blue', { bottom: BANDS.glass })]);
+  assert.match(blue.offenders[0].note, /the bottom row of the blue badge is glass/);
+});
+
+test('bandEdges gate the top edge is read too, and so is the row beside the last one', () => {
+  const top = bandEdges([settled('top', 'black', { top: BANDS.glass })]);
+  assert.equal(top.pass, false);
+  assert.match(top.offenders[0].note, /the top row of the black badge is glass/);
+  const rows = badgeRows('glass');
+  rows[4 + 30 - 2] = BANDS.blue;
+  const second = bandEdges([{ label: 'two in', rows, palette: BANDS }]);
+  assert.equal(second.pass, false, 'the second row from the bottom is read as well');
+  const inner = badgeRows('glass');
+  inner[4 + 30 - 4] = BANDS.blue;
+  assert.equal(bandEdges([{ label: 'three in', rows: inner, palette: BANDS }]).pass, true, 'only the edge rows are this gate\'s: a seam inside is the strip gate\'s');
+});
+
+test('bandEdges gate a run that read nothing proves nothing', () => {
+  assert.equal(bandEdges([]).pass, false, 'no state');
+  assert.equal(bandEdges([{ label: 'x', rows: [], palette: BANDS }]).pass, false, 'no rows');
+  assert.equal(bandEdges([{ label: 'x', rows: badgeRows('glass'), palette: {} }]).pass, false, 'no palette');
+  assert.equal(bandEdges([{ label: 'x', rows: Array(20).fill(PAGE_G), palette: BANDS }]).pass, false, 'no badge on the page');
 });
 
 test('eyeLines gate white strokes pass and a dark stroke names the shape', () => {
@@ -1269,23 +1342,86 @@ test('lids gate no pixel of the circle outside the lids passes, a leak fails, a 
 });
 
 // ── clearOfBlurb and phoneRects (SQ-121): the desktop seat above the blurb, the phone unchanged ───────────────
+// SQ-125: the black panel's top edge is 788.8, 4 px under the engaged column's lowest part, the near ring's badge under the lens
+// (757 + 27.8 = 784.8; Nathan 11-18 wants that ring shown and counted); its blurb text starts 11 px into the panel.
+const PANEL = { x: 0, y: 788.8, w: 1440, h: 120 };
 const clearMeasure = () => ({
-  rest: { tile: { x: 1395, y: 748, w: 45, h: 29 }, blurb: { x: 4, y: 797.8, w: 1417, h: 27 }, pill: { x: 1306, y: 850, w: 77, h: 38 }, parts: [] },
+  rest: { tile: { x: 1395, y: 744, w: 45, h: 29 }, eye: { x: 1400, y: 750, w: 35, h: 19 }, blurb: { x: 4, y: 797.8, w: 1417, h: 27 }, panel: { ...PANEL }, pill: { x: 1306, y: 850, w: 77, h: 38 }, parts: [] },
   engaged: {
-    tile: { x: 1339.5, y: 741, w: 100.5, h: 43.8 },
+    tile: { x: 1339.5, y: 733, w: 100.5, h: 43.8 },
+    panel: { ...PANEL },
     blurb: { x: 4, y: 797.8, w: 1417, h: 27 },
     pill: { x: 1306, y: 850, w: 77, h: 38 },
     parts: [
-      { name: 'eye', op: 1, x: 1360, y: 745, w: 55, h: 36 },
-      { name: 'circle k=-1', op: 1, x: 1375, y: 700, w: 21.6, h: 21.6 },
-      { name: 'circle k=1', op: 0, x: 1375, y: 808, w: 21.6, h: 21.6 },
+      { name: 'eye', op: 1, x: 1360, y: 737, w: 55, h: 36 },
+      { name: 'circle k=-1', op: 1, x: 1375, y: 692, w: 21.6, h: 21.6 },
+      { name: 'circle k=1', op: 1, x: 1375, y: 760, w: 21.6, h: 21.6 },
+      { name: 'badge k=1', op: 1, x: 1360, y: 757, w: 50, h: 27.8 },
+      { name: 'circle k=2', op: 0, x: 1375, y: 800, w: 21.6, h: 21.6 },
     ],
   },
 });
 
-test('clearOfBlurb gate: the seat above the blurb passes resting and engaged, a hidden ring under the lens does not count', () => {
+test('clearOfBlurb gate: the seat above the blurb passes resting and engaged, the ring under the lens counted and a hidden further ring not', () => {
   const r = clearOfBlurb(clearMeasure());
   assert.equal(r.pass, true, JSON.stringify(r.offenders));
+  assert.ok(/lowest part badge k=1 4 px above the black panel/.test(r.note), r.note);
+});
+
+test('clearOfBlurb gate (SQ-125): the engaged column\'s lowest part sits the dialed gap above the black panel, 0.5 px either way, 4 by default (Nathan 11-18)', () => {
+  const seat = (dy) => {
+    const m = clearMeasure();
+    m.engaged.tile = { ...m.engaged.tile, y: m.engaged.tile.y + dy };
+    m.engaged.parts = m.engaged.parts.map((p) => ({ ...p, y: p.y + dy }));
+    return m;
+  };
+  assert.equal(clearOfBlurb(seat(0.4)).pass, true, 'exactly on the gap, within the half pixel (0.4 px low)');
+  assert.equal(clearOfBlurb(seat(-0.4)).pass, true, 'and 0.4 px high');
+  const low = clearOfBlurb(seat(4));
+  assert.equal(low.pass, false, 'the seat 4 px lower');
+  assert.ok(/lowest part \(badge k=1\) bottom edge.*is -?[\d.]+ px above the black panel's top edge.*want 4 \(within 0\.5 px/.test(JSON.stringify(low.offenders[0].note)), JSON.stringify(low.offenders));
+  const high = clearOfBlurb(seat(-6));
+  assert.equal(high.pass, false, 'the seat 6 px higher: the old over-clearing envelope fails too, it is no slack');
+  assert.equal(clearOfBlurb(seat(0), { gap: 8 }).pass, false, 'a gap of 8 is not the default (--query=schemeblurbgap=8 fails)');
+  assert.equal(clearOfBlurb(seat(2)).pass, false, 'the 2 px of the first SQ-125 round is no longer the gap (--query=schemeblurbgap=2 fails: 2 px low)');
+  assert.equal(clearOfBlurb(seat(2), { gap: 2 }).pass, true, 'and passes when the gate follows that re-dial (--gap=2)');
+  const eight = seat(-4);
+  eight.rest.tile = { ...eight.rest.tile, y: eight.rest.tile.y - 4 };
+  eight.rest.eye = { ...eight.rest.eye, y: eight.rest.eye.y - 4 };
+  assert.equal(clearOfBlurb(eight).pass, false, 'the seat an 8 px gap makes fails against 4');
+  assert.equal(clearOfBlurb(eight, { gap: 8 }).pass, true, 'and passes when the gate follows the re-dial (--gap=8)');
+});
+
+test('clearOfBlurb gate (SQ-125, Nathan 11-18), the ring below the lens must show, the lens badge alone at the gap is not the column (?schemedown=0 fails)', () => {
+  // ?schemedown=0: the ring below is hidden (op 0) and the seat is the one for the lens badge alone: the lens badge's own bottom
+  // edge is 4 px above the panel (29.9 px lower than the column now), so the gap alone would pass; the gate fails it by name.
+  const m = clearMeasure();
+  for (const p of m.engaged.parts) if (/ k=1$/.test(p.name)) p.op = 0;
+  m.engaged.tile = { ...m.engaged.tile, y: 741 };
+  m.engaged.parts = m.engaged.parts.map((p) => (p.name === 'eye' ? { ...p, y: 745 } : p));
+  const r = clearOfBlurb(m);
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /no ring shows below the lens/.test(o.note) && /lens badge/.test(o.note)), JSON.stringify(r.offenders));
+  assert.ok(!r.offenders.some((o) => /want 4 \(within/.test(o.note)), 'the gap itself is exact: it is the missing ring that fails');
+});
+
+test('clearOfBlurb gate (SQ-125), the resting eye and badge must also clear the panel by the gap, and no panel measured proves nothing', () => {
+  const m = clearMeasure();
+  m.rest.tile = { ...m.rest.tile, y: 780 };
+  const r = clearOfBlurb(m);
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => o.state === 'rest' && /black panel/.test(o.note)), JSON.stringify(r.offenders));
+  const eyeLow = clearMeasure();
+  eyeLow.rest.eye = { ...eyeLow.rest.eye, y: 770 };
+  const e = clearOfBlurb(eyeLow);
+  assert.equal(e.pass, false, 'the resting eye lower than the badge fails alone');
+  assert.ok(e.offenders.some((o) => o.state === 'rest' && o.part === 'eye'), JSON.stringify(e.offenders));
+  const none = clearMeasure();
+  none.engaged.panel = null;
+  assert.equal(clearOfBlurb(none).pass, false);
+  const noRest = clearMeasure();
+  delete noRest.rest.panel;
+  assert.equal(clearOfBlurb(noRest).pass, false);
 });
 
 test('clearOfBlurb gate negative control: the old seat (on the privacy pill line) fails resting and engaged', () => {
@@ -1298,12 +1434,12 @@ test('clearOfBlurb gate negative control: the old seat (on the privacy pill line
   assert.ok(r.offenders.some((o) => /engaged/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
 });
 
-test('clearOfBlurb gate: a visible ring under the lens that reaches the blurb fails by name, a missing blurb or state proves nothing', () => {
+test('clearOfBlurb gate, a visible ring under the lens that reaches the blurb fails by name, a missing blurb or state proves nothing', () => {
   const m = clearMeasure();
-  m.engaged.parts.find((p) => p.name === 'circle k=1').op = 1;
+  m.engaged.parts.find((p) => p.name === 'circle k=2').op = 1;
   const r = clearOfBlurb(m);
   assert.equal(r.pass, false);
-  assert.ok(r.offenders.some((o) => /circle k=1/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
+  assert.ok(r.offenders.some((o) => /circle k=2/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
   const noBlurb = clearMeasure();
   noBlurb.rest.blurb = null;
   assert.equal(clearOfBlurb(noBlurb).pass, false);
