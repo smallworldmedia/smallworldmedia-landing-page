@@ -241,7 +241,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', 'phone', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -2316,6 +2316,50 @@ async function bandPalette(page, tile) {
   return palette;
 }
 
+/**
+ * The seams gate's pixels (SQ-125): the engaged badges over a flat grey page with every circle and the eye hidden (visibility, so the
+ * hover that engaged the pager holds), read twice: the lens badge alone and the neighbours' badges alone (the ring above and below it,
+ * each station's own), as the mean of each device pixel row over a few columns at the badge's right edge, which every neighbour covers,
+ * from 14 CSS px above the lens to 14 below.
+ */
+const SEAM_ISOLATE = 'html,body{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner svg,.swm-corner svg *{visibility:hidden !important}';
+async function seamProfile(page, tile) {
+  const { default: sharp } = await import('sharp');
+  await page.evaluate((css) => {
+    document.getElementById('swm-probe-bands')?.remove();
+    if (document.getElementById('swm-probe-seams')) return;
+    const st = document.createElement('style');
+    st.id = 'swm-probe-seams';
+    st.textContent = css;
+    document.head.append(st);
+  }, SEAM_ISOLATE);
+  await sleep(250);
+  const top = Math.floor(tile.y) - 14;
+  const clip = { x: Math.floor(tile.x + tile.w) - 13, y: top, width: 10, height: Math.ceil(tile.h) + 30 };
+  const read = async () => {
+    const { data, info } = await sharp(await page.screenshot({ clip })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const rows = [];
+    for (let y = 0; y < info.height; y++) {
+      const sum = [0, 0, 0];
+      for (let x = 0; x < info.width; x++) for (let c = 0; c < 3; c++) sum[c] += data[(y * info.width + x) * 3 + c];
+      rows.push(sum.map((v) => v / info.width));
+    }
+    return { rows, scale: info.height / clip.height };
+  };
+  // the lens badge alone (the neighbours' badges hidden), then the neighbours' badges alone (the lens badge, the pager's ::before, hidden)
+  const only = async (id, css) => {
+    await page.evaluate(([i, c]) => { const st = document.createElement('style'); st.id = i; st.textContent = c; document.head.append(st); }, [id, css]);
+    await sleep(150);
+    const r = await read();
+    await page.evaluate((i) => document.getElementById(i)?.remove(), id);
+    return r;
+  };
+  const lens = await only('swm-probe-seams-lens', '.swm-corner .scheme-badge{visibility:hidden !important}');
+  const nbs = await only('swm-probe-seams-nbs', '.swm-corner .fp-scale.swm-corner__pager::before{visibility:hidden !important}');
+  await page.evaluate(() => document.getElementById('swm-probe-seams')?.remove());
+  return { lens: lens.rows, nbs: nbs.rows, top, scale: lens.scale, y0: tile.y, y1: tile.y + tile.h };
+}
+
 /** The bands gate over one measureStates run: the rest badge and the engaged one. */
 const bandStates = (scheme, where, m) => ['rest', 'engaged'].map((state) => ({ label: `${scheme} ${where} ${state}`, rows: m.bands[state], palette: m.bands.palette }));
 
@@ -2346,7 +2390,8 @@ async function measureStates(ctx, scheme, urlPath, { bands = false } = {}) {
     const engaged = await page.evaluate(pageClear);
     if (!bands || !engaged?.tile) return { rest, engaged };
     const engagedRows = await bandRows(page, engaged.tile, { keep: true });
-    return { rest, engaged, bands: { rest: restRows, engaged: engagedRows, palette: await bandPalette(page, engaged.tile) } };
+    const palette = await bandPalette(page, engaged.tile);
+    return { rest, engaged, bands: { rest: restRows, engaged: engagedRows, palette }, seams: await seamProfile(page, engaged.tile) };
   } catch (e) {
     return { error: String(e.message).split('\n')[0].slice(0, 240) };
   } finally {
@@ -2372,11 +2417,12 @@ async function clearPass(browser, scheme, want) {
     await ctx.close().catch(() => {});
     const where = `${width}x${height}`;
     if (m.error || !m.rest?.tile || !m.engaged?.open) {
-      for (const g of ['clear', 'bands']) if (want.has(g) || g === 'bands') emit('FAIL', scheme, 'home', where, g, m.error ?? 'the pager never engaged (data-open)');
+      for (const g of ['clear', 'bands', 'seams']) if (want.has(g) || g !== 'clear') emit('FAIL', scheme, 'home', where, g, m.error ?? 'the pager never engaged (data-open)');
       continue;
     }
     if (want.has('clear')) emitResult(scheme, 'home', where, 'clear', gate.clearOfBlurb(m, { gap: CLEAR_GAP }));
     emitResult(scheme, 'home', where, 'bands', gate.bandEdges(bandStates(scheme, where, m)));
+    emitResult(scheme, 'home', where, 'seams', gate.seamEdges([{ label: `${scheme} ${where} engaged`, ...m.seams }]));
   }
 }
 
@@ -2391,7 +2437,10 @@ async function bandsPhonePass(browser, scheme, width) {
   const m = await measureStates(ctx, scheme, ROUTE_PATHS.home, { bands: true });
   await ctx.close().catch(() => {});
   if (m.error || !m.engaged?.open || !m.bands) emit('FAIL', scheme, 'home', width, 'bands', m.error ?? 'the pager never engaged (data-open)');
-  else emitResult(scheme, 'home', width, 'bands', gate.bandEdges(bandStates(scheme, `${width}x844`, m)));
+  else {
+    emitResult(scheme, 'home', width, 'bands', gate.bandEdges(bandStates(scheme, `${width}x844`, m)));
+    emitResult(scheme, 'home', width, 'seams', gate.seamEdges([{ label: `${scheme} ${width}x844 engaged`, ...m.seams }]));
+  }
 }
 
 /**
@@ -2573,11 +2622,11 @@ async function main() {
           if (phone) await phonePass(browser, scheme, width, baseline, captured);
           else emit('SKIP', scheme, 'phone*', width, 'phone', 'skipped: the phone gate measures 390 (--width=390)');
         }
-        if (phone && (want.has('phone') || want.has('bands'))) await bandsPhonePass(browser, scheme, width);
+        if (phone && (want.has('phone') || want.has('bands') || want.has('seams'))) await bandsPhonePass(browser, scheme, width);
         await ctx.close();
       }
       if (want.has('rightEdge')) await edgePass(browser, scheme);
-      if (want.has('clear') || want.has('bands')) await clearPass(browser, scheme, want);
+      if (want.has('clear') || want.has('bands') || want.has('seams')) await clearPass(browser, scheme, want);
       if (want.has('deal')) {
         if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);
         else if (!worlds.length) emit('SKIP', scheme, '/work', '*', 'deal', 'skipped: no /work worlds read');
