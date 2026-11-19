@@ -342,12 +342,16 @@
        rather than the polygon: Chrome draws a polygon clip on a backdrop-filter element through a mask whose edge landed
        0.75px off the lens's (measured, every width; the opaque black and blue badges keep the polygon, exact). A ring badge
        is shorter than the lens badge, so what shows of it is always one piece, above the window (top to --badge-yt) or
-       below it (--badge-yb to the bottom); inside it nothing shows. The 1000x terms pick the side. */
+       below it (--badge-yb to the bottom); inside it nothing shows. The 1e5x terms pick the side off --badge-yt alone: a window
+       that starts above the badge's top (yt <= 0.01px, the settled lens station's yt is exactly 0) insets the top to --badge-yb
+       clamped to the box, so the lens station itself (yb = its height) is cut away whole and its veil never paints under the
+       lens badge's (SQ-126 rework: two 35% layers read as ~58% white); a window that starts inside or below it insets the
+       bottom to show 0..yt. */
     .swm-corner .fp-scale.swm-corner__pager .scheme-badge[data-scheme='project'] {
       --badge-hh: calc(var(--badge-bh) + (var(--badge-xt) + var(--badge-xb)) / var(--eye-r));
       clip-path: inset(
-        min(max(0px, var(--badge-yb)), max(0px, -1000 * var(--badge-yt))) 0
-          min(max(0px, var(--badge-hh) - var(--badge-yt)), max(0px, 1000 * (var(--badge-yb) - var(--badge-hh)))) 0
+        min(clamp(0px, var(--badge-yb), var(--badge-hh)), max(0px, 100000 * (0.01px - var(--badge-yt)))) 0
+          min(max(0px, var(--badge-hh) - var(--badge-yt)), max(0px, 100000 * (var(--badge-yt) - 0.01px))) 0
       );
     }
   }

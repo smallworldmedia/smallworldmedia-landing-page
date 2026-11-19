@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  clearOfBlurb, bandEdges, seamEdges, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
+  clearOfBlurb, bandEdges, seamEdges, lensLayer, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -734,6 +734,37 @@ test('seamEdges gate a run that read nothing proves nothing', () => {
   const blank = Array(70).fill(PAGE_G);
   assert.equal(seamEdges([{ ...seamState(), nbs: blank }]).pass, false, 'no neighbour on the page');
   assert.equal(seamEdges([{ ...seamState(), lens: blank }]).pass, false, 'no lens on the page');
+});
+
+// ── lensLayer (SQ-126 rework: the project station's own glass badge painted under the lens, two 35% veils) ──
+// A 35% white veil over the flat page, once or twice; the neighbours' badges outside the lens window either way.
+const veil = (rgb, a = 0.35) => rgb.map((v) => v + (255 - v) * a);
+const layerState = ({ twice = false, scale = 1, label = 'project 1440x900 engaged' } = {}) => {
+  const lens = spanRows(veil(PAGE_G), 703, 745, { scale });
+  const nbs = seamState({ lensTop: 703, lensBottom: 745, scale }).nbs;
+  const both = lens.map((r, i) => (nbs[i].some((v, c) => v !== PAGE_G[c]) ? nbs[i] : twice ? veil(r) : r));
+  return { label, lens, both, top: 690, scale, y0: 703, y1: 745 };
+};
+
+test('lensLayer gate the lens badge alone and with the stations badges read the same inside it, at DPR 1 and 2', () => {
+  const one = lensLayer([layerState()]);
+  assert.equal(one.pass, true, JSON.stringify(one.offenders));
+  assert.ok(one.n >= 38, `rows read inside the lens: ${one.n}`);
+  assert.equal(lensLayer([layerState({ scale: 2 })]).pass, true);
+});
+
+test('lensLayer gate negative control, the b05b8ad doubled glass (the lens station\'s own badge under the lens) fails and says by how much', () => {
+  const r = lensLayer([layerState({ twice: true })]);
+  assert.equal(r.pass, false);
+  assert.equal(r.offenders.length, 1, JSON.stringify(r.offenders));
+  assert.ok(r.offenders[0].delta > 20, JSON.stringify(r.offenders[0]));
+  assert.match(r.offenders[0].note, /two layers, not one/);
+});
+
+test('lensLayer gate a run that read nothing proves nothing', () => {
+  assert.equal(lensLayer([]).pass, false, 'no state');
+  assert.equal(lensLayer([{ label: 'x', lens: [], both: [], top: 690, y0: 703, y1: 745 }]).pass, false, 'no rows');
+  assert.equal(lensLayer([{ ...layerState(), y1: 704 }]).pass, false, 'no rows inside the margins');
 });
 
 test('bandEdges gate a run that read nothing proves nothing', () => {

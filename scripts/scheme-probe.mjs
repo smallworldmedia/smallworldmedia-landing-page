@@ -42,6 +42,11 @@
  *              at 390 x 844 (rest and held), or by name (--gates=bands). --dpr=2|3 reads the retina rows (a hand run).
  *              Negative control: --inject='.swm-corner[data-ready] .fp-scale.swm-corner__pager::before{background-size:100% calc(3 * var(--badge-h)) !important;background-position:0 calc(-1 * round(var(--scale-qf, var(--scale-cur)), 1) * var(--badge-h)) !important}'
  *              (the pre-SQ-125 strip, bands exactly one badge height) must FAIL.
+ *   The `seams` gate (SQ-126): at a settled engaged station the badge above the lens and the one below end within 0.25 px of the lens
+ *              badge's painted edges (seamEdges), and the `layer` gate: inside the lens badge the pixels with every station's badge
+ *              painted equal the lens badge's alone (lensLayer: one ?schemeglass veil, never two). Both run with `clear` (five
+ *              desktop viewports, every scheme); the phone pass reports its seams at --phone-dpr (default 3), not gated.
+ *              Negative control for `layer`: b05b8ad (its inset() clip kept the lens station's own glass badge) FAILS on project.
  *   The `phone` gate (SQ-121, by name only, --width=390): the badge, eye and every ring part's rects on every
  *              route at rest and held, compared to a capture of the BASE build. Phones are unchanged byte for
  *              byte: serve the base build on :3333, run
@@ -241,7 +246,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'layer', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', 'phone', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -2356,8 +2361,10 @@ async function seamProfile(page, tile) {
   };
   const lens = await only('swm-probe-seams-lens', '.swm-corner .scheme-badge{visibility:hidden !important}');
   const nbs = await only('swm-probe-seams-nbs', '.swm-corner .fp-scale.swm-corner__pager::before{visibility:hidden !important}');
+  await sleep(150);
+  const both = await read(); // the lens badge and every station's badge (the lensLayer gate, SQ-126: one veil, not two)
   await page.evaluate(() => document.getElementById('swm-probe-seams')?.remove());
-  return { lens: lens.rows, nbs: nbs.rows, top, scale: lens.scale, y0: tile.y, y1: tile.y + tile.h };
+  return { lens: lens.rows, nbs: nbs.rows, both: both.rows, top, scale: lens.scale, y0: tile.y, y1: tile.y + tile.h };
 }
 
 /** The bands gate over one measureStates run: the rest badge and the engaged one. */
@@ -2407,8 +2414,8 @@ async function measureStates(ctx, scheme, urlPath, { bands = false } = {}) {
  */
 const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768], [1280, 800], [1920, 1080], [2560, 1440]];
 const CLEAR_GAP = Number(arg('gap', 4)); // Nathan's number (SQ-125, 11-18: 2, then "lets bump the gap to 4 px"), the gate's own: a ?schemeblurbgap re-dial fails it unless this follows (--gap=8)
-const BAND_DPR = Number(arg('dpr', 1));
-const PHONE_DPR = Number(arg('dpr', 3)); // the phone pass (bands, seams): the iPhone 390 stands for (SQ-126) // the bands gate's device pixel ratio (a hand run at 2 or 3 reads the retina rows)
+const BAND_DPR = Number(arg('dpr', 1)); // the bands gate's device pixel ratio (a hand run at 2 or 3 reads the retina rows)
+const PHONE_DPR = Number(arg('phone-dpr', 3)); // the phone pass (bands, seams): the iPhone 390 stands for (SQ-126)
 async function clearPass(browser, scheme, want) {
   for (const [width, height] of CLEAR_VIEWPORTS) {
     const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: BAND_DPR, reducedMotion: 'reduce' });
@@ -2418,19 +2425,20 @@ async function clearPass(browser, scheme, want) {
     await ctx.close().catch(() => {});
     const where = `${width}x${height}`;
     if (m.error || !m.rest?.tile || !m.engaged?.open) {
-      for (const g of ['clear', 'bands', 'seams']) if (want.has(g) || g !== 'clear') emit('FAIL', scheme, 'home', where, g, m.error ?? 'the pager never engaged (data-open)');
+      for (const g of ['clear', 'bands', 'seams', 'layer']) if (want.has(g) || g !== 'clear') emit('FAIL', scheme, 'home', where, g, m.error ?? 'the pager never engaged (data-open)');
       continue;
     }
     if (want.has('clear')) emitResult(scheme, 'home', where, 'clear', gate.clearOfBlurb(m, { gap: CLEAR_GAP }));
     emitResult(scheme, 'home', where, 'bands', gate.bandEdges(bandStates(scheme, where, m)));
     emitResult(scheme, 'home', where, 'seams', gate.seamEdges([{ label: `${scheme} ${where} engaged`, ...m.seams }]));
+    emitResult(scheme, 'home', where, 'layer', gate.lensLayer([{ label: `${scheme} ${where} engaged`, ...m.seams }]));
   }
 }
 
 /**
  * The bands gate on a phone (SQ-125): 390 x 844 home, rest and held (the CDP touch), every scheme: the badge is its settled band to
  * the first and last pixel row. The strip's paint is the one thing the desktop seat change leaves on a phone; its rects are the phone gate's.
- * SQ-126: the pass runs at the iPhone this width stands for, DPR 3 (--dpr overrides), and its seams are REPORTED, not gated: the
+ * SQ-126: the pass runs at the iPhone this width stands for, DPR 3 (--phone-dpr overrides; --dpr is the desktop bands'), and its seams are REPORTED, not gated: the
  * whole-pixel seams are a desktop build (above 768px), phones keep their rects byte for byte (the phone gate), and a phone seam
  * can only close by moving them. The INFO line carries each seam's numbers; the desktop seams (the clear pass) stay a gate.
  */
@@ -2632,7 +2640,7 @@ async function main() {
         await ctx.close();
       }
       if (want.has('rightEdge')) await edgePass(browser, scheme);
-      if (want.has('clear') || want.has('bands') || want.has('seams')) await clearPass(browser, scheme, want);
+      if (want.has('clear') || want.has('bands') || want.has('seams') || want.has('layer')) await clearPass(browser, scheme, want);
       if (want.has('deal')) {
         if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);
         else if (!worlds.length) emit('SKIP', scheme, '/work', '*', 'deal', 'skipped: no /work worlds read');

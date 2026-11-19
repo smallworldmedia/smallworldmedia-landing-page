@@ -986,6 +986,39 @@ export function seamEdges(states, { tol = 0.25, page = [128, 128, 128] } = {}) {
 }
 
 /**
+ * lensLayer — the lens badge reads as ONE layer of its panel: no neighbour badge paints inside its window, the station that is the lens
+ * included (SQ-126 rework, the integrator on b05b8ad: the project station's own glass badge painted under the lens, two 35% veils reading
+ * as one denser one, ~58% white, so ?schemeglass 35 broke). `states` = [{ label, lens, both, top, scale, y0, y1 }]: `lens` the vertical
+ * profile of a flat-grey page with ONLY the lens badge painted, `both` the same with the lens AND every station's badge painted, rows and
+ * coordinates as seamEdges reads them. Every device row strictly inside the lens badge (`margin` CSS px in from y0 and y1, away from the
+ * seams, which seamEdges owns) must read the same in both, within `tol` levels per channel. No state or no rows inside fails.
+ */
+export function lensLayer(states, { tol = 4, margin = 2 } = {}) {
+  const offenders = [];
+  let n = 0;
+  for (const s of states ?? []) {
+    const k = s.scale ?? 1;
+    const from = Math.ceil((s.y0 + margin - s.top) * k);
+    const to = Math.floor((s.y1 - margin - s.top) * k) - 1;
+    if (!s.lens?.length || !s.both?.length || !Number.isFinite(s.y0) || !Number.isFinite(s.y1) || !Number.isFinite(s.top) || to < from || !s.lens[to] || !s.both[to] || from < 0) {
+      offenders.push({ path: s.label, note: 'no rows inside the lens badge to read' });
+      continue;
+    }
+    let worst = { d: 0, i: from };
+    for (let i = from; i <= to; i++) {
+      n++;
+      const d = Math.max(...s.lens[i].map((v, c) => Math.abs(v - s.both[i][c])));
+      if (d > worst.d) worst = { d, i };
+    }
+    if (worst.d > tol) {
+      const y = fixed(s.top + worst.i / k, 2);
+      offenders.push({ path: s.label, y, delta: fixed(worst.d, 1), lens: s.lens[worst.i].map((v) => Math.round(v)), both: s.both[worst.i].map((v) => Math.round(v)), note: `inside the lens badge at y ${y} a neighbour's badge paints under it: ${s.lens[worst.i].map((v) => Math.round(v)).join(',')} alone vs ${s.both[worst.i].map((v) => Math.round(v)).join(',')} with the stations' badges (${fixed(worst.d, 1)} levels, over ${tol}): two layers, not one` });
+    }
+  }
+  return result(offenders, n, `${(states ?? []).length} engaged lens badges, ${n} rows inside, each the lens badge's alone within ${tol} levels`);
+}
+
+/**
  * eyeLines — nothing dark outlines the eye. `shapes` = [{ path, stroke, width }]: every shape in
  * the widget's svgs (stroke = the computed colour or 'none', width in px). A stroke must be white
  * (the lids, the globe's lines); a dark one is the old outline.
