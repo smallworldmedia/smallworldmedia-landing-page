@@ -257,8 +257,8 @@ test('SQ-107 pass 5 one seat, flush, the right edge is the viewport\'s on every 
   assert.ok(/bottom:\s*var\(--scheme-bottom\)/.test(wrapper), 'bottom is the badge seat');
   assert.ok(!/--badge-inset|--home-inset/.test(css), 'no inset token: pass 4\'s --nav-inset on home is replaced');
   // SQ-121: the desktop seat reads --nav-inset once, to size the blurb it clears (global.css's own expression); the badge never insets by it.
-  assert.equal(css.split('--nav-inset').length - 1, 1, '--nav-inset is read only in --seat-blurb-size');
-  assert.ok(/--seat-blurb-size:[^;]*--nav-inset/.test(css.replace(/\s+/g, ' ')), 'and that read is the blurb size\'s');
+  assert.equal(css.split('--nav-inset').length - 1, 1, '--nav-inset is read only in --seat-blurb-fill');
+  assert.ok(/--seat-blurb-fill:[^;]*--nav-inset/.test(css.replace(/\s+/g, ' ')), 'and that read is the blurb size\'s fill (the size that fills the measure)');
   assert.ok(!/data-badge|--scheme-seat|--badge-lift|--badge-rise|--badge-reach/.test(css), 'the seat option and the climb tokens are deleted');
   assert.ok(!/border-radius/.test(css.match(/::before\s*\{([^}]*)\}/)?.[1] ?? ''), 'every corner square, the right ones against the edge');
   for (const f of ['src/components/SiteScheme.jsx', 'src/components/siteSchemeLogic.js']) {
@@ -776,17 +776,23 @@ test('the retired stagger and single --eye-t are gone from every consumer', () =
 });
 
 // SQ-121: above 768px the seat sits on the footer blurb, one height on every route; phones keep theirs.
-test('SQ-121 the desktop seat is the blurb top plus the gap plus what the column reaches below the lens, above 768px only', () => {
+test('SQ-125 the desktop seat is the black panel top plus the gap plus what the column reaches below the lens, above 768px only', () => {
   const flat = skinCss().replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   const desk = /@media \(min-width: 769px\) \{ \.swm-corner \{([^}]*)\} \}/.exec(flat)?.[1] ?? '';
-  assert.ok(/--badge-cy: calc\(var\(--seat-blurb-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\);/.test(desk), 'the lens centre: the blurb top, the gap, the column below the lens');
-  assert.ok(/--badge-blurb-gap: 8px;/.test(desk), 'the gap, PROPOSED 8 (?schemeblurbgap)');
-  assert.ok(/--seat-blurb-size: var\(--footer-blurb-size, max\(var\(--text-blurb, 1\.4rem\), /.test(desk), "the blurb's size: global.css's token where home publishes it, its own expression elsewhere");
-  assert.ok(/--seat-blurb-top: calc\(75px \+ max\(1\.09 \* var\(--seat-blurb-size\), 1\.64 \* var\(--text-blurb, 1\.4rem\)\)\);/.test(desk), 'one line: 75px + 1.09 x the size; two lines: the floor block; max() picks, no breakpoint');
-  assert.ok(/--eye-down-shown: var\(--eye-down-desk, 0\);/.test(desk) && /--eye-hit-down: calc\(0\.75 \+ 0\.75 \* var\(--eye-down-desk, 0\)\);/.test(desk), 'no ring under the lens by default, the press target follows it');
-  assert.ok(/@supports \(width: round\(1px, 1px\)\) \{ @media \(min-width: 769px\) \{ \.swm-corner \{ --badge-cy: round\(calc\(var\(--seat-blurb-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\), 1px\); \} \} \}/.test(flat), 'the seat rounds to whole pixels where round() exists (a fractional lens centre shimmers in the jitter gate)');
+  assert.ok(/--badge-cy: calc\(var\(--seat-panel-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\);/.test(desk), 'the lens centre: the panel top, the gap, the column below the lens');
+  assert.ok(/--badge-blurb-gap: 2px;/.test(desk), "the gap, Nathan's 2 (?schemeblurbgap, 11-18)");
+  assert.ok(/--seat-blurb-size: var\(--footer-blurb-size, max\(var\(--text-blurb, 1\.4rem\), var\(--seat-blurb-fill\)\)\);/.test(desk), "the blurb's size: global.css's token where home publishes it, its own expression elsewhere");
+  assert.ok(/--seat-panel-top: calc\(var\(--seat-rest\) \* var\(--seat-panel-h\)\);/.test(desk), "the panel's top edge is the resting share of its height above the viewport's bottom");
+  assert.ok(/--seat-panel-h: calc\(196\.91px \+ 2\.4 \* var\(--seat-blurb-size\) \+ min\(1\.15 \* var\(--seat-blurb-size\), max\(0px, 1000 \* /.test(desk), "the panel's height: a straight line of the blurb's size, plus one blurb line when the copy wraps (a steep min/max step, no breakpoint)");
+  const hero = read('src/components/Hero.jsx');
+  const rest = /const FOOTER_REST_DESKTOP = ([\d.]+);/.exec(hero)?.[1];
+  assert.ok(rest, "Hero's FOOTER_REST_DESKTOP is found");
+  assert.ok(new RegExp(`--seat-rest: ${rest.replace('.', '\\.')};`).test(desk), "--seat-rest is Hero's FOOTER_REST_DESKTOP: the seat follows the footer's resting share");
+  assert.ok(/--eye-down-shown: var\(--eye-down-desk, 1\);/.test(desk) && /--eye-down-span: calc\(1 - 0\.5 \* var\(--eye-down-desk, 1\)\);/.test(desk) && /--eye-hit-down: calc\(0\.75 \+ 0\.75 \* var\(--eye-down-desk, 1\)\);/.test(desk), 'the near ring shows under the lens by default (SQ-125, Nathan 11-18; ?schemedown=0 hides it), the fade and the press target follow it');
+  assert.ok(/--seat-below: max\(calc\(var\(--eye-engaged\) \* var\(--badge-h\) \/ 2\), calc\(var\(--eye-down-shown\) \* \(var\(--scheme-pitch\) \+ var\(--eye-near\) \* var\(--eye-engaged\) \* var\(--badge-h\) \/ 2\)\)\);/.test(desk), 'the seat clears the column below the lens by the ring under it, the lens badge alone when none shows');
+  assert.ok(/@supports \(width: round\(1px, 1px\)\) \{ @media \(min-width: 769px\) \{ \.swm-corner \{ --badge-cy: round\(calc\(var\(--seat-panel-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\), 0\.5px\); \} \} \}/.test(flat), 'the seat rounds to half pixels where round() exists (a fractional lens centre shimmers in the jitter gate; a whole pixel would spend the 2px gap\'s half-pixel tolerance)');
   // Phones: the seat is declared in the desktop block alone, and the base block keeps the old fade numbers.
-  assert.equal(flat.split('--seat-blurb-top:').length - 1, 1, 'the blurb seat is declared once, in the desktop block');
+  assert.equal(flat.split('--seat-panel-top:').length - 1, 1, 'the panel seat is declared once, in the desktop block');
   assert.ok(/--eye-down-shown: 1;/.test(flat) && /--eye-down-span: 0\.5;/.test(flat), 'the base (the phone) shows one circle below the lens and fades the next within half a station, as before');
   assert.ok(/--eye-down: clamp\(0, calc\(1 - \(var\(--eye-below\) - var\(--eye-down-shown\)\) \/ var\(--eye-down-span\)\), 1\);/.test(flat), 'the fade below reads the base tokens');
 });

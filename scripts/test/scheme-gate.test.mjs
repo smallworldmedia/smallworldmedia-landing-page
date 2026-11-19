@@ -1269,23 +1269,84 @@ test('lids gate no pixel of the circle outside the lids passes, a leak fails, a 
 });
 
 // ── clearOfBlurb and phoneRects (SQ-121): the desktop seat above the blurb, the phone unchanged ───────────────
+// SQ-125: the black panel's top edge is 786.8, 2 px under the engaged column's lowest part, the near ring's badge under the lens
+// (757 + 27.8 = 784.8; Nathan 11-18 wants that ring shown and counted); its blurb text starts 11 px into the panel.
+const PANEL = { x: 0, y: 786.8, w: 1440, h: 120 };
 const clearMeasure = () => ({
-  rest: { tile: { x: 1395, y: 748, w: 45, h: 29 }, blurb: { x: 4, y: 797.8, w: 1417, h: 27 }, pill: { x: 1306, y: 850, w: 77, h: 38 }, parts: [] },
+  rest: { tile: { x: 1395, y: 744, w: 45, h: 29 }, eye: { x: 1400, y: 750, w: 35, h: 19 }, blurb: { x: 4, y: 797.8, w: 1417, h: 27 }, panel: { ...PANEL }, pill: { x: 1306, y: 850, w: 77, h: 38 }, parts: [] },
   engaged: {
-    tile: { x: 1339.5, y: 741, w: 100.5, h: 43.8 },
+    tile: { x: 1339.5, y: 733, w: 100.5, h: 43.8 },
+    panel: { ...PANEL },
     blurb: { x: 4, y: 797.8, w: 1417, h: 27 },
     pill: { x: 1306, y: 850, w: 77, h: 38 },
     parts: [
-      { name: 'eye', op: 1, x: 1360, y: 745, w: 55, h: 36 },
-      { name: 'circle k=-1', op: 1, x: 1375, y: 700, w: 21.6, h: 21.6 },
-      { name: 'circle k=1', op: 0, x: 1375, y: 808, w: 21.6, h: 21.6 },
+      { name: 'eye', op: 1, x: 1360, y: 737, w: 55, h: 36 },
+      { name: 'circle k=-1', op: 1, x: 1375, y: 692, w: 21.6, h: 21.6 },
+      { name: 'circle k=1', op: 1, x: 1375, y: 760, w: 21.6, h: 21.6 },
+      { name: 'badge k=1', op: 1, x: 1360, y: 757, w: 50, h: 27.8 },
+      { name: 'circle k=2', op: 0, x: 1375, y: 800, w: 21.6, h: 21.6 },
     ],
   },
 });
 
-test('clearOfBlurb gate: the seat above the blurb passes resting and engaged, a hidden ring under the lens does not count', () => {
+test('clearOfBlurb gate: the seat above the blurb passes resting and engaged, the ring under the lens counted and a hidden further ring not', () => {
   const r = clearOfBlurb(clearMeasure());
   assert.equal(r.pass, true, JSON.stringify(r.offenders));
+  assert.ok(/lowest part badge k=1 2 px above the black panel/.test(r.note), r.note);
+});
+
+test('clearOfBlurb gate (SQ-125): the engaged column\'s lowest part sits the dialed gap above the black panel, 0.5 px either way, 2 by default', () => {
+  const seat = (dy) => {
+    const m = clearMeasure();
+    m.engaged.tile = { ...m.engaged.tile, y: m.engaged.tile.y + dy };
+    m.engaged.parts = m.engaged.parts.map((p) => ({ ...p, y: p.y + dy }));
+    return m;
+  };
+  assert.equal(clearOfBlurb(seat(0.4)).pass, true, 'exactly on the gap, within the half pixel (0.4 px low)');
+  assert.equal(clearOfBlurb(seat(-0.4)).pass, true, 'and 0.4 px high');
+  const low = clearOfBlurb(seat(4));
+  assert.equal(low.pass, false, 'the seat 4 px lower');
+  assert.ok(/lowest part \(badge k=1\) bottom edge.*is -?[\d.]+ px above the black panel's top edge.*want 2 \(within 0\.5 px/.test(JSON.stringify(low.offenders[0].note)), JSON.stringify(low.offenders));
+  const high = clearOfBlurb(seat(-6));
+  assert.equal(high.pass, false, 'the seat 6 px higher: the old over-clearing envelope fails too, it is no slack');
+  assert.equal(clearOfBlurb(seat(0), { gap: 8 }).pass, false, 'a gap of 8 is not the default (--query=schemeblurbgap=8 fails)');
+  const eight = seat(-6);
+  eight.rest.tile = { ...eight.rest.tile, y: eight.rest.tile.y - 6 };
+  eight.rest.eye = { ...eight.rest.eye, y: eight.rest.eye.y - 6 };
+  assert.equal(clearOfBlurb(eight).pass, false, 'the seat an 8 px gap makes fails against 2');
+  assert.equal(clearOfBlurb(eight, { gap: 8 }).pass, true, 'and passes when the gate follows the re-dial (--gap=8)');
+});
+
+test('clearOfBlurb gate (SQ-125, Nathan 11-18): the ring below the lens must show, the lens badge alone at the gap is not the column (?schemedown=0 fails)', () => {
+  // ?schemedown=0: the ring below is hidden (op 0) and the seat is the one for the lens badge alone: the lens badge's own bottom
+  // edge is 2 px above the panel (29.9 px lower than the column now), so the gap alone would pass; the gate fails it by name.
+  const m = clearMeasure();
+  for (const p of m.engaged.parts) if (/ k=1$/.test(p.name)) p.op = 0;
+  m.engaged.tile = { ...m.engaged.tile, y: 741 };
+  m.engaged.parts = m.engaged.parts.map((p) => (p.name === 'eye' ? { ...p, y: 745 } : p));
+  const r = clearOfBlurb(m);
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => /no ring shows below the lens/.test(o.note) && /lens badge/.test(o.note)), JSON.stringify(r.offenders));
+  assert.ok(!r.offenders.some((o) => /want 2 \(within/.test(o.note)), 'the gap itself is exact: it is the missing ring that fails');
+});
+
+test('clearOfBlurb gate (SQ-125): the resting eye and badge must also clear the panel by the gap, and no panel measured proves nothing', () => {
+  const m = clearMeasure();
+  m.rest.tile = { ...m.rest.tile, y: 780 };
+  const r = clearOfBlurb(m);
+  assert.equal(r.pass, false);
+  assert.ok(r.offenders.some((o) => o.state === 'rest' && /black panel/.test(o.note)), JSON.stringify(r.offenders));
+  const eyeLow = clearMeasure();
+  eyeLow.rest.eye = { ...eyeLow.rest.eye, y: 770 };
+  const e = clearOfBlurb(eyeLow);
+  assert.equal(e.pass, false, 'the resting eye lower than the badge fails alone');
+  assert.ok(e.offenders.some((o) => o.state === 'rest' && o.part === 'eye'), JSON.stringify(e.offenders));
+  const none = clearMeasure();
+  none.engaged.panel = null;
+  assert.equal(clearOfBlurb(none).pass, false);
+  const noRest = clearMeasure();
+  delete noRest.rest.panel;
+  assert.equal(clearOfBlurb(noRest).pass, false);
 });
 
 test('clearOfBlurb gate negative control: the old seat (on the privacy pill line) fails resting and engaged', () => {
@@ -1298,12 +1359,12 @@ test('clearOfBlurb gate negative control: the old seat (on the privacy pill line
   assert.ok(r.offenders.some((o) => /engaged/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
 });
 
-test('clearOfBlurb gate: a visible ring under the lens that reaches the blurb fails by name, a missing blurb or state proves nothing', () => {
+test('clearOfBlurb gate, a visible ring under the lens that reaches the blurb fails by name, a missing blurb or state proves nothing', () => {
   const m = clearMeasure();
-  m.engaged.parts.find((p) => p.name === 'circle k=1').op = 1;
+  m.engaged.parts.find((p) => p.name === 'circle k=2').op = 1;
   const r = clearOfBlurb(m);
   assert.equal(r.pass, false);
-  assert.ok(r.offenders.some((o) => /circle k=1/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
+  assert.ok(r.offenders.some((o) => /circle k=2/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
   const noBlurb = clearMeasure();
   noBlurb.rest.blurb = null;
   assert.equal(clearOfBlurb(noBlurb).pass, false);

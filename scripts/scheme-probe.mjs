@@ -22,11 +22,18 @@
  *              text: run it with --width=1024,1280,1440,1920 for the desktop range.
  *   --base     default http://localhost:4330 (the worktree's build; a Sanity CORS origin), so the bare command is the
  *              SQ-121 verifier. GLOBE_PROBE_BASE overrides it.
- *   The `clear` widget gate (SQ-121, default for the widget gates; the scheme x 2 viewport matrix runs apart from
- *              the width loop at 1440 x 900 and 1024 x 768): home at rest the badge sits wholly above the footer
- *              blurb's text and off the privacy pill, and with the eye held (the column fully engaged) no part of
- *              the grown badge, the ring or the shifted circle meets the blurb text or the pill.
- *              Negative control: --inject='.swm-corner{--badge-cy:20px !important}' must FAIL.
+ *   The `clear` widget gate (SQ-121, default for the widget gates; the scheme x 5 viewport matrix runs apart from
+ *              the width loop at 1440 x 900, 1024 x 768, 1280 x 800, 1920 x 1080 and 2560 x 1440): home at rest the badge
+ *              sits wholly above the footer blurb's text and off the privacy pill, and with the eye held (the column fully
+ *              engaged) no part of the grown badge, the ring or the shifted circle meets the blurb text or the pill.
+ *              SQ-125: the bottom edge of the engaged column's LOWEST VISIBLE PART (on desktop the near ring under the
+ *              lens, with its own badge; Nathan 11-18) sits --gap (default 2, Nathan's number) above the top edge of
+ *              the black panel (.site-footer--links), within 0.5 px, too high or too low, and a column with no ring
+ *              shown under the lens fails by name. At rest the eye and the smaller badge clear the panel by --gap too.
+ *              A ?schemeblurbgap re-dial fails it unless --gap follows.
+ *              Negative controls: --inject='.swm-corner{--badge-cy:20px !important}' must FAIL, and so must
+ *              --inject='.swm-corner{translate:0 4px}' (the seat 4 px lower), --query=schemeblurbgap=8 and
+ *              --query=schemedown=0 (no ring under the lens, the seat 30 px too low for the column).
  *   The `phone` gate (SQ-121, by name only, --width=390): the badge, eye and every ring part's rects on every
  *              route at rest and held, compared to a capture of the BASE build. Phones are unchanged byte for
  *              byte: serve the base build on :3333, run
@@ -708,6 +715,9 @@ function pageClear() {
   }
   const pillEl = document.querySelector('.site-privacy');
   const pill = pillEl && getComputedStyle(pillEl).display !== 'none' ? rect(pillEl.getBoundingClientRect()) : null;
+  // The black panel the seat clears (SQ-125): the links footer as painted.
+  const panelEl = document.querySelector('.site-footer--links');
+  const panel = panelEl ? rect(panelEl.getBoundingClientRect()) : null;
   const eye = corner.querySelector('.scheme-eye');
   const parts = [];
   for (const s of pager.querySelectorAll('.fp-scale__station')) {
@@ -725,7 +735,7 @@ function pageClear() {
   corner.append(seat);
   const seatCy = innerHeight - seat.getBoundingClientRect().top;
   seat.remove();
-  return { vp: { w: innerWidth, h: innerHeight }, open: pager.hasAttribute('data-open'), tile, blurb, pill, parts, seatCy, eye: eye ? rect(eye.getBoundingClientRect()) : null };
+  return { vp: { w: innerWidth, h: innerHeight }, open: pager.hasAttribute('data-open'), tile, blurb, pill, panel, parts, seatCy, eye: eye ? rect(eye.getBoundingClientRect()) : null };
 }
 
 /**
@@ -2287,10 +2297,12 @@ async function measureStates(ctx, scheme, urlPath) {
 
 /**
  * The clear gate (SQ-121): on home, above 768px, at rest and engaged, nothing of the widget meets the footer blurb's
- * text or the privacy pill, and at rest the badge is wholly above the text. 1440 x 900 and 1024 x 768 (the probe's
- * other widgets run 1440 x 900 and 390 x 844), once per scheme whatever --width is. Phones are the phone gate's.
+ * text or the privacy pill, and at rest the badge is wholly above the text. SQ-125: the bottom edge of the engaged column's
+ * lowest visible part (the ring under the lens) is the dialed gap (2 px, ?schemeblurbgap) above the black panel's top edge, within 0.5 px, at five viewports (the
+ * probe's other widgets run 1440 x 900 and 390 x 844), once per scheme whatever --width is. Phones are the phone gate's.
  */
-const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768]];
+const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768], [1280, 800], [1920, 1080], [2560, 1440]];
+const CLEAR_GAP = Number(arg('gap', 2)); // Nathan's number (SQ-125, 11-18), the gate's own: a ?schemeblurbgap re-dial fails it unless this follows (--gap=8)
 async function clearPass(browser, scheme) {
   for (const [width, height] of CLEAR_VIEWPORTS) {
     const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
@@ -2300,7 +2312,7 @@ async function clearPass(browser, scheme) {
     await ctx.close().catch(() => {});
     const where = `${width}x${height}`;
     if (m.error || !m.rest?.tile || !m.engaged?.open) emit('FAIL', scheme, 'home', where, 'clear', m.error ?? 'the pager never engaged (data-open)');
-    else emitResult(scheme, 'home', where, 'clear', gate.clearOfBlurb(m));
+    else emitResult(scheme, 'home', where, 'clear', gate.clearOfBlurb(m, { gap: CLEAR_GAP }));
   }
 }
 
