@@ -22,11 +22,26 @@
  *              text: run it with --width=1024,1280,1440,1920 for the desktop range.
  *   --base     default http://localhost:4330 (the worktree's build; a Sanity CORS origin), so the bare command is the
  *              SQ-121 verifier. GLOBE_PROBE_BASE overrides it.
- *   The `clear` widget gate (SQ-121, default for the widget gates; the scheme x 2 viewport matrix runs apart from
- *              the width loop at 1440 x 900 and 1024 x 768): home at rest the badge sits wholly above the footer
- *              blurb's text and off the privacy pill, and with the eye held (the column fully engaged) no part of
- *              the grown badge, the ring or the shifted circle meets the blurb text or the pill.
- *              Negative control: --inject='.swm-corner{--badge-cy:20px !important}' must FAIL.
+ *   The `clear` widget gate (SQ-121, default for the widget gates; the scheme x 5 viewport matrix runs apart from
+ *              the width loop at 1440 x 900, 1024 x 768, 1280 x 800, 1920 x 1080 and 2560 x 1440): home at rest the badge
+ *              sits wholly above the footer blurb's text and off the privacy pill, and with the eye held (the column fully
+ *              engaged) no part of the grown badge, the ring or the shifted circle meets the blurb text or the pill.
+ *              SQ-125: the bottom edge of the engaged column's LOWEST VISIBLE PART (on desktop the near ring under the
+ *              lens, with its own badge; Nathan 11-18) sits --gap (default 4, Nathan's number) above the top edge of
+ *              the black panel (.site-footer--links), within 0.5 px, too high or too low, and a column with no ring
+ *              shown under the lens fails by name. At rest the eye and the smaller badge clear the panel by --gap too.
+ *              A ?schemeblurbgap re-dial fails it unless --gap follows.
+ *              Negative controls: --inject='.swm-corner{--badge-cy:20px !important}' must FAIL, and so must
+ *              --inject='.swm-corner{translate:0 4px}' (the seat 4 px lower), --query=schemeblurbgap=2 (2 px low, the first round's gap), --query=schemeblurbgap=8 and
+ *              --query=schemedown=0 (no ring under the lens, the seat 30 px too low for the column).
+ *   The `bands` gate (SQ-125, Nathan 11-18: "whats the thin color strip at the bottom of the rest and engaged chips"): the badge's
+ *              first and last two pixel rows at a SETTLED station are its own band (glass, black or blue), never the next band's
+ *              colour. Only the badge is painted over a flat grey page, a screenshot of its width is read row by row, and each edge row
+ *              must be a blend of its own band with the page (an edge row may be partly covered), never nearer another band. It runs
+ *              with the `clear` gate (same pages: five desktop viewports, rest and engaged, every scheme) and with the `phone` gate
+ *              at 390 x 844 (rest and held), or by name (--gates=bands). --dpr=2|3 reads the retina rows (a hand run).
+ *              Negative control: --inject='.swm-corner[data-ready] .fp-scale.swm-corner__pager::before{background-size:100% calc(3 * var(--badge-h)) !important;background-position:0 calc(-1 * round(var(--scale-qf, var(--scale-cur)), 1) * var(--badge-h)) !important}'
+ *              (the pre-SQ-125 strip, bands exactly one badge height) must FAIL.
  *   The `phone` gate (SQ-121, by name only, --width=390): the badge, eye and every ring part's rects on every
  *              route at rest and held, compared to a capture of the BASE build. Phones are unchanged byte for
  *              byte: serve the base build on :3333, run
@@ -226,7 +241,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', 'phone', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -708,6 +723,9 @@ function pageClear() {
   }
   const pillEl = document.querySelector('.site-privacy');
   const pill = pillEl && getComputedStyle(pillEl).display !== 'none' ? rect(pillEl.getBoundingClientRect()) : null;
+  // The black panel the seat clears (SQ-125): the links footer as painted.
+  const panelEl = document.querySelector('.site-footer--links');
+  const panel = panelEl ? rect(panelEl.getBoundingClientRect()) : null;
   const eye = corner.querySelector('.scheme-eye');
   const parts = [];
   for (const s of pager.querySelectorAll('.fp-scale__station')) {
@@ -725,7 +743,7 @@ function pageClear() {
   corner.append(seat);
   const seatCy = innerHeight - seat.getBoundingClientRect().top;
   seat.remove();
-  return { vp: { w: innerWidth, h: innerHeight }, open: pager.hasAttribute('data-open'), tile, blurb, pill, parts, seatCy, eye: eye ? rect(eye.getBoundingClientRect()) : null };
+  return { vp: { w: innerWidth, h: innerHeight }, open: pager.hasAttribute('data-open'), tile, blurb, pill, panel, parts, seatCy, eye: eye ? rect(eye.getBoundingClientRect()) : null };
 }
 
 /**
@@ -1922,7 +1940,9 @@ async function measureStrip(browser, width) {
       await sleep(150);
       frames.push({ q, col: await column(page) });
     }
-    return { frames };
+    // SQ-125: a band is the badge plus --badge-strip-pad a side (0 on a build without it); the frames are read at DPR 2.
+    const pad = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.swm-corner')).getPropertyValue('--badge-strip-pad')) || 0);
+    return { frames, margin: pad * 2 };
   } catch (e) {
     return { error: String(e.message).split('\n')[0].slice(0, 240) };
   } finally {
@@ -2039,7 +2059,7 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
     else {
       const st = await measureStrip(browser, width);
       if (st.error) emit('FAIL', scheme, route, width, 'strip', st.error);
-      else emitResult(scheme, route, width, 'strip', gate.strip(st.frames));
+      else emitResult(scheme, route, width, 'strip', gate.strip(st.frames, { margin: st.margin }));
     }
   }
   if (want.has('seat')) {
@@ -2255,11 +2275,56 @@ async function edgePass(browser, scheme) {
 }
 
 /**
+ * The bands gate's pixels (SQ-125, Nathan 11-18: "whats the thin color strip at the bottom of the rest and engaged chips"): the
+ * badge alone over a flat grey page (everything else hidden; the pager's children at opacity 0, never visibility, so the hover that
+ * engaged it holds), the mean colour of each pixel row of a screenshot of the tile's width, from 4 device-independent px above it to 4
+ * below. `keep` leaves the isolating style on for the next read.
+ */
+const BAND_ISOLATE = 'html,body{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale *{opacity:0 !important}';
+async function bandRows(page, tile, { keep }) {
+  const { default: sharp } = await import('sharp');
+  await page.evaluate((css) => {
+    if (document.getElementById('swm-probe-bands')) return;
+    const st = document.createElement('style');
+    st.id = 'swm-probe-bands';
+    st.textContent = css;
+    document.head.append(st);
+  }, BAND_ISOLATE);
+  await sleep(250);
+  const clip = { x: Math.floor(tile.x) + 3, y: Math.floor(tile.y) - 4, width: Math.max(4, Math.floor(tile.w) - 6), height: Math.ceil(tile.h) + 8 };
+  const { data, info } = await sharp(await page.screenshot({ clip })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const rows = [];
+  for (let y = 0; y < info.height; y++) {
+    const sum = [0, 0, 0];
+    for (let x = 0; x < info.width; x++) for (let c = 0; c < 3; c++) sum[c] += data[(y * info.width + x) * 3 + c];
+    rows.push(sum.map((v) => v / info.width));
+  }
+  if (!keep) await page.evaluate(() => document.getElementById('swm-probe-bands')?.remove());
+  return rows;
+}
+
+/** Each band's colour over that flat page: the tile's middle row with --scale-qf held at 0, 1 and 2 (glass, black, blue). */
+async function bandPalette(page, tile) {
+  const palette = {};
+  for (const [name, q] of [['glass', 0], ['black', 1], ['blue', 2]]) {
+    await page.evaluate((v) => document.querySelector('.swm-corner .fp-scale').style.setProperty('--scale-qf', v), q);
+    await sleep(150);
+    const rows = await bandRows(page, tile, { keep: true });
+    palette[name] = rows[Math.floor(rows.length / 2)];
+  }
+  await page.evaluate(() => document.querySelector('.swm-corner .fp-scale').style.removeProperty('--scale-qf'));
+  return palette;
+}
+
+/** The bands gate over one measureStates run: the rest badge and the engaged one. */
+const bandStates = (scheme, where, m) => ['rest', 'engaged'].map((state) => ({ label: `${scheme} ${where} ${state}`, rows: m.bands[state], palette: m.bands.palette }));
+
+/**
  * The widget at rest, then engaged and settled (a hover on a desktop, a held CDP touch on a phone), on one page of one
  * route, as pageClear measures it (SQ-121). `path` carries its own query; the scheme is appended. Motion is reduced, so
  * the engaged state is the settled one.
  */
-async function measureStates(ctx, scheme, urlPath) {
+async function measureStates(ctx, scheme, urlPath, { bands = false } = {}) {
   const page = await ctx.newPage();
   try {
     await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}${QUERY}`, { waitUntil: 'load', timeout: 90000 });
@@ -2271,13 +2336,17 @@ async function measureStates(ctx, scheme, urlPath) {
     const rest = await page.evaluate(pageClear);
     const eye = rest?.eye;
     if (!eye) return { error: 'no .scheme-eye to engage' };
+    const restRows = bands && rest.tile ? await bandRows(page, rest.tile, { keep: false }) : null;
     const cx = eye.x + eye.w / 2;
     const cy = eye.y + eye.h / 2;
     if (rest.vp.w <= 480) await (await ctx.newCDPSession(page)).send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx, y: cy }] });
     else await page.mouse.move(cx, cy);
     await page.waitForFunction(() => document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'), null, { timeout: 8000 }).catch(() => {});
     await sleep(900);
-    return { rest, engaged: await page.evaluate(pageClear) };
+    const engaged = await page.evaluate(pageClear);
+    if (!bands || !engaged?.tile) return { rest, engaged };
+    const engagedRows = await bandRows(page, engaged.tile, { keep: true });
+    return { rest, engaged, bands: { rest: restRows, engaged: engagedRows, palette: await bandPalette(page, engaged.tile) } };
   } catch (e) {
     return { error: String(e.message).split('\n')[0].slice(0, 240) };
   } finally {
@@ -2287,21 +2356,42 @@ async function measureStates(ctx, scheme, urlPath) {
 
 /**
  * The clear gate (SQ-121): on home, above 768px, at rest and engaged, nothing of the widget meets the footer blurb's
- * text or the privacy pill, and at rest the badge is wholly above the text. 1440 x 900 and 1024 x 768 (the probe's
- * other widgets run 1440 x 900 and 390 x 844), once per scheme whatever --width is. Phones are the phone gate's.
+ * text or the privacy pill, and at rest the badge is wholly above the text. SQ-125: the bottom edge of the engaged column's
+ * lowest visible part (the ring under the lens) is the dialed gap (4 px, ?schemeblurbgap) above the black panel's top edge, within 0.5 px, at five viewports (the
+ * probe's other widgets run 1440 x 900 and 390 x 844), once per scheme whatever --width is. Phones are the phone gate's.
  */
-const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768]];
-async function clearPass(browser, scheme) {
+const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768], [1280, 800], [1920, 1080], [2560, 1440]];
+const CLEAR_GAP = Number(arg('gap', 4)); // Nathan's number (SQ-125, 11-18: 2, then "lets bump the gap to 4 px"), the gate's own: a ?schemeblurbgap re-dial fails it unless this follows (--gap=8)
+const BAND_DPR = Number(arg('dpr', 1)); // the bands gate's device pixel ratio (a hand run at 2 or 3 reads the retina rows)
+async function clearPass(browser, scheme, want) {
   for (const [width, height] of CLEAR_VIEWPORTS) {
-    const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
+    const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: BAND_DPR, reducedMotion: 'reduce' });
     await installRoutes(ctx);
     await ctx.addInitScript(hydrationHook);
-    const m = await measureStates(ctx, scheme, '/?popseed=1');
+    const m = await measureStates(ctx, scheme, '/?popseed=1', { bands: true });
     await ctx.close().catch(() => {});
     const where = `${width}x${height}`;
-    if (m.error || !m.rest?.tile || !m.engaged?.open) emit('FAIL', scheme, 'home', where, 'clear', m.error ?? 'the pager never engaged (data-open)');
-    else emitResult(scheme, 'home', where, 'clear', gate.clearOfBlurb(m));
+    if (m.error || !m.rest?.tile || !m.engaged?.open) {
+      for (const g of ['clear', 'bands']) if (want.has(g) || g === 'bands') emit('FAIL', scheme, 'home', where, g, m.error ?? 'the pager never engaged (data-open)');
+      continue;
+    }
+    if (want.has('clear')) emitResult(scheme, 'home', where, 'clear', gate.clearOfBlurb(m, { gap: CLEAR_GAP }));
+    emitResult(scheme, 'home', where, 'bands', gate.bandEdges(bandStates(scheme, where, m)));
   }
+}
+
+/**
+ * The bands gate on a phone (SQ-125): 390 x 844 home, rest and held (the CDP touch), every scheme: the badge is its settled band to
+ * the first and last pixel row. The strip's paint is the one thing the desktop seat change leaves on a phone; its rects are the phone gate's.
+ */
+async function bandsPhonePass(browser, scheme, width) {
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: BAND_DPR, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
+  await installRoutes(ctx);
+  await ctx.addInitScript(hydrationHook);
+  const m = await measureStates(ctx, scheme, ROUTE_PATHS.home, { bands: true });
+  await ctx.close().catch(() => {});
+  if (m.error || !m.engaged?.open || !m.bands) emit('FAIL', scheme, 'home', width, 'bands', m.error ?? 'the pager never engaged (data-open)');
+  else emitResult(scheme, 'home', width, 'bands', gate.bandEdges(bandStates(scheme, `${width}x844`, m)));
 }
 
 /**
@@ -2483,10 +2573,11 @@ async function main() {
           if (phone) await phonePass(browser, scheme, width, baseline, captured);
           else emit('SKIP', scheme, 'phone*', width, 'phone', 'skipped: the phone gate measures 390 (--width=390)');
         }
+        if (phone && (want.has('phone') || want.has('bands'))) await bandsPhonePass(browser, scheme, width);
         await ctx.close();
       }
       if (want.has('rightEdge')) await edgePass(browser, scheme);
-      if (want.has('clear')) await clearPass(browser, scheme);
+      if (want.has('clear') || want.has('bands')) await clearPass(browser, scheme, want);
       if (want.has('deal')) {
         if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);
         else if (!worlds.length) emit('SKIP', scheme, '/work', '*', 'deal', 'skipped: no /work worlds read');

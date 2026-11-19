@@ -692,17 +692,27 @@ export function circlesAbove(c, { visible = 0.01, tol = 1.5 } = {}) {
 }
 
 /**
- * clearOfBlurb — the desktop seat sits ABOVE the home footer's blurb, at rest and engaged (SQ-121, Nathan 11-18: the
- * engaged eyes covered the blurb's text and the privacy pill on home at rest). `c` = { rest, engaged }, each a measurement
- * of the page in that state: { tile {x,y,w,h} (the lens badge, the pager's ::before at its lifted size), blurb {x,y,w,h}
- * (the union of the blurb's text boxes), pill {x,y,w,h} | null (the privacy pill), parts: [{ name, op, x, y, w, h }]
- * (the eye, every station's circle and its own badge: op is the effective opacity, rects as painted, shifted and lifted) }.
+ * clearOfBlurb — the desktop seat sits ABOVE the home footer's black panel (and so its blurb), at rest and engaged (SQ-121,
+ * Nathan 11-18: the engaged eyes covered the blurb's text and the privacy pill on home at rest; SQ-125, Nathan 11-18: "move the
+ * eye badge up higher on desktop so that the lower badge clears the black footer blurb container with 2 px of gap", then "lets bump the gap to 4 px for engaged and footer blurb container"). `c` =
+ * { rest, engaged }, each a measurement of the page in that state: { tile {x,y,w,h} (the lens badge, the pager's ::before at
+ * its lifted size), blurb {x,y,w,h} (the union of the blurb's text boxes), panel {x,y,w,h} (`.site-footer--links`, the black
+ * panel, as painted), pill {x,y,w,h} | null (the privacy pill), parts: [{ name, op, x, y, w, h }] (the eye, every station's
+ * circle and its own badge: op is the effective opacity, rects as painted, shifted and lifted) }.
+ * THE SEAT IS EXACT (SQ-125): ENGAGED the bottom edge of the LOWEST VISIBLE PART of the column (the lens badge, the eye, every
+ * station circle and its own badge over `visible`: on desktop the near ring below the lens, Nathan 11-18: "why aren't i seeing
+ * the black scheme below the currently selected? that one needs to be accounted for in the vertical positioning") is the option
+ * `gap` (4 px, Nathan's number, not whatever ?schemeblurbgap dialed) above the panel's top edge, within `tol` (0.5 px) EITHER WAY
+ * (a seat too high fails as surely as one too low). The ring below must SHOW: an engaged column with no visible part centred
+ * below the lens fails (?schemedown=0 is that column, its seat 30 px too low for the ring it hides). AT REST the lowest of the
+ * smaller badge and the eye (they share the lens centre) is at least `gap` above the panel's top edge (`tol`). A state with no
+ * panel fails: a run that found none proves nothing.
  * AT REST the tile's bottom edge is above the blurb text's top edge (`tol` 0.5 px) and the tile does not meet the pill.
  * ENGAGED no visible part (op over `visible`), and not the lens badge, meets the blurb text or the pill by more than `tol`
  * on both axes. A state with no blurb measured fails: a run that found none proves nothing about the overlap. The pill is
  * allowed to be absent (a route or width with none), the blurb is not: this is the home page's gate.
  */
-export function clearOfBlurb(c, { tol = 0.5, visible = 0.01 } = {}) {
+export function clearOfBlurb(c, { tol = 0.5, visible = 0.01, gap: want = 4 } = {}) {
   const offenders = [];
   const meets = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > tol && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > tol;
   const rest = c?.rest;
@@ -718,8 +728,36 @@ export function clearOfBlurb(c, { tol = 0.5, visible = 0.01 } = {}) {
     if (meets(p, eng.blurb)) offenders.push({ path: '.site-footer__blurb', state: 'engaged', part: p.name, rect: rectOf(p), blurb: rectOf(eng.blurb), note: `${p.name} (opacity ${fixed(p.op, 2)}) at ${rectOf(p)} meets the blurb text ${rectOf(eng.blurb)}` });
     if (eng.pill && meets(p, eng.pill)) offenders.push({ path: '.site-privacy', state: 'engaged', part: p.name, rect: rectOf(p), pill: rectOf(eng.pill), note: `${p.name} (opacity ${fixed(p.op, 2)}) at ${rectOf(p)} meets the privacy pill ${rectOf(eng.pill)}` });
   }
+  if (!eng.panel || !rest.panel) {
+    offenders.push({ path: '.site-footer--links', note: 'no black panel rect measured: the seat against the panel is unproven' });
+  } else {
+    const low = lowest(shown);
+    const restLow = lowest([{ name: 'resting badge', ...rest.tile }, ...(rest.eye ? [{ name: 'eye', ...rest.eye }] : []), ...(rest.parts ?? []).filter((p) => p.op > visible)]);
+    const engGap = eng.panel.y - low.bottom;
+    const restGap = rest.panel.y - restLow.bottom;
+    const lensCy = eng.tile.y + eng.tile.h / 2;
+    const below = shown.filter((p) => p.y + p.h / 2 > lensCy + 1);
+    if (!below.length) {
+      offenders.push({ path: '.swm-corner .fp-scale__station', state: 'engaged', note: `no ring shows below the lens (${shown.length} visible parts, none centred under the lens badge's centre ${fixed(lensCy, 1)}): the column's lowest part is the ${low.name}, ${fixed(engGap, 2)} px above the panel, the seat sized for a ring that is hidden` });
+    }
+    if (Math.abs(engGap - want) > tol) {
+      offenders.push({ path: '.swm-corner .fp-scale', state: 'engaged', part: low.name, panel: rectOf(eng.panel), note: `the engaged column's lowest part (${low.name}) bottom edge (${fixed(low.bottom, 1)}) is ${fixed(engGap, 2)} px above the black panel's top edge (${fixed(eng.panel.y, 1)}), want ${fixed(want, 2)} (within ${tol} px, either way)` });
+    }
+    if (restGap < want - tol) {
+      offenders.push({ path: '.swm-corner .fp-scale::before', state: 'rest', part: restLow.name, panel: rectOf(rest.panel), note: `the resting ${restLow.name}'s bottom edge (${fixed(restLow.bottom, 1)}) is ${fixed(restGap, 2)} px above the black panel's top edge (${fixed(rest.panel.y, 1)}), want at least ${fixed(want, 2)}` });
+    }
+  }
   const gap = eng.blurb.y - (eng.tile.y + eng.tile.h);
-  return result(offenders, shown.length, `${shown.length} engaged parts, lens badge ${rectOf(eng.tile)} ${fixed(gap, 1)} px above the blurb text ${rectOf(eng.blurb)}${eng.pill ? `, pill ${rectOf(eng.pill)}` : ', no pill'}; resting badge ${fixed(rest.blurb.y - (rest.tile.y + rest.tile.h), 1)} px above it`);
+  const lowOf = lowest(shown);
+  const panelGap = eng.panel ? eng.panel.y - lowOf.bottom : NaN;
+  return result(offenders, shown.length, `${shown.length} engaged parts, lens badge ${rectOf(eng.tile)}, lowest part ${lowOf.name} ${fixed(panelGap, 2)} px above the black panel (dialed ${fixed(want, 2)}) and the lens badge ${fixed(gap, 1)} px above the blurb text ${rectOf(eng.blurb)}${eng.pill ? `, pill ${rectOf(eng.pill)}` : ', no pill'}; resting badge ${fixed(rest.blurb.y - (rest.tile.y + rest.tile.h), 1)} px above the text`);
+}
+
+/** The part whose bottom edge is lowest on the page (the highest y + h): { name, bottom }. */
+function lowest(parts) {
+  let low = { name: 'nothing', bottom: -Infinity };
+  for (const p of parts) if (Number.isFinite(p.y + p.h) && p.y + p.h > low.bottom) low = { name: p.name, bottom: p.y + p.h };
+  return low;
 }
 
 /**
@@ -774,8 +812,11 @@ export function stripClass(rgb) {
  * run, the next one the bottom run, and the one straight seam sits at (1 - fraction) x the height,
  * within `tol` of it (rows, the larger of 2 and 4% of the height). Anything else is an offender: a
  * third colour, a second seam, a strip that does not move with q. No frames fails.
+ * SQ-125: each band is the badge plus `margin` rows on each side (--badge-strip-pad, in device rows; 0 for a build without it): the
+ * window sits that far into its band, so the seam is at (1 - fraction) x (height + 2 x margin) - margin, and a q within
+ * margin / (height + 2 x margin) of a whole one still shows one band.
  */
-export function strip(frames, { order = STRIP_ORDER, tol = 2 } = {}) {
+export function strip(frames, { order = STRIP_ORDER, tol = 2, margin = 0 } = {}) {
   const offenders = [];
   const list = frames ?? [];
   const n = order.length;
@@ -801,8 +842,12 @@ export function strip(frames, { order = STRIP_ORDER, tol = 2 } = {}) {
       else merged.push({ ...r });
     }
     const frac = f.q - Math.floor(f.q);
-    const whole = frac < 0.02 || frac > 0.98;
-    const topIdx = whole && frac > 0.98 ? Math.floor(f.q) + 1 : Math.floor(f.q);
+    // SQ-125: a band is the badge plus `margin` rows a side (--badge-strip-pad), so the seam is that far into the next detent's travel
+    // before it enters the window: at a q this close to a whole one the window still holds one band.
+    const edge = margin / (rows + 2 * margin);
+    const nearUp = frac > 0.98 - edge;
+    const whole = frac < 0.02 + edge || nearUp;
+    const topIdx = nearUp ? Math.floor(f.q) + 1 : Math.floor(f.q);
     const seq = merged.map((r) => `${r.c} x${r.n}`).join(', ');
     if (whole) {
       if (merged.length !== 1 || merged[0].c !== at(topIdx)) offenders.push({ path, note: `want one ${at(topIdx)} panel filling the badge, got ${seq}` });
@@ -813,10 +858,70 @@ export function strip(frames, { order = STRIP_ORDER, tol = 2 } = {}) {
       continue;
     }
     const seam = merged[0].n;
-    const want = (1 - frac) * rows;
-    if (Math.abs(seam - want) > Math.max(tol, 0.04 * rows)) offenders.push({ path, note: `seam at row ${seam} of ${rows}, want ${fixed(want, 1)} ((1 - ${fixed(frac, 2)}) x the height)` });
+    const want = (1 - frac) * (rows + 2 * margin) - margin;
+    if (Math.abs(seam - want) > Math.max(tol, 0.04 * rows)) offenders.push({ path, note: `seam at row ${seam} of ${rows}, want ${fixed(want, 1)} ((1 - ${fixed(frac, 2)}) x the height${margin ? `, a band ${margin} rows wider a side` : ''})` });
   }
   return result(offenders, list.length, `${list.length} frames, one detent = one badge height`);
+}
+
+/**
+ * bandEdges — at a SETTLED station the badge is ONE band (glass, black or blue) right to its first and last pixel row (SQ-125,
+ * Nathan 11-18: "whats the thin color strip at the bottom of the rest and engaged chips im seeing in your screenshots?"). The
+ * `strip` gate above reads the middle column and calls a one- or two-row run the seam's anti-aliasing, so a row of the NEXT
+ * band's colour on the box's edge got past it. `states` = [{ label, rows, palette }]: `rows` the vertical profile of a flat-grey page
+ * with only the badge painted, [r, g, b] per pixel row top to bottom (the mean across the tile's width), padded with page rows above
+ * and below (the first row is the page's own colour); `palette` = { glass, black, blue }, each band's [r, g, b] at its interior, read
+ * from the same tile at --scale-qf 0, 1 and 2. The tile is the run of rows that differ from the page; its own band is the palette
+ * entry nearest its middle row. Each of its first and last `edge` rows is a band over the page (an edge row may be partly covered,
+ * so a row is the page blended with a band at some coverage 0..1): for every band the best coverage and what is left unexplained.
+ * A row FAILS when it is closer to another band than to its own: its own band leaves more than `tol` unexplained and another leaves
+ * less. A blend of the own band with the page passes. No state, no palette or no tile found fails: a run that read nothing proves nothing.
+ */
+export function bandEdges(states, { tol = 12, edge = 2 } = {}) {
+  const offenders = [];
+  let n = 0;
+  const sub = (a, b) => a.map((v, i) => v - b[i]);
+  const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
+  const explain = (row, page, band) => {
+    const d = sub(band, page);
+    const len = dot(d, d);
+    const a = len > 0 ? Math.min(1, Math.max(0, dot(sub(row, page), d) / len)) : 0;
+    const left = sub(row, page.map((v, i) => v + a * d[i]));
+    return { a, res: Math.sqrt(dot(left, left)) };
+  };
+  for (const s of states ?? []) {
+    const rows = s.rows ?? [];
+    const names = Object.keys(s.palette ?? {});
+    if (rows.length < 3 || names.length < 2) {
+      offenders.push({ path: s.label, note: 'no pixel rows or no band palette read' });
+      continue;
+    }
+    const page = rows[0];
+    const differs = (r) => r.some((v, i) => Math.abs(v - page[i]) > 2);
+    const first = rows.findIndex(differs);
+    const last = rows.length - 1 - [...rows].reverse().findIndex(differs);
+    if (first < 0 || last - first < 2 * edge) {
+      offenders.push({ path: s.label, note: 'no badge found in the pixel rows (nothing differs from the flat page)' });
+      continue;
+    }
+    const tile = rows.slice(first, last + 1);
+    const mid = tile[Math.floor(tile.length / 2)];
+    const dist = (a, b) => Math.sqrt(dot(sub(a, b), sub(a, b)));
+    const own = names.reduce((best, k) => (dist(mid, s.palette[k]) < dist(mid, s.palette[best]) ? k : best), names[0]);
+    const check = (side, i) => {
+      n++;
+      const row = tile[i];
+      const mine = explain(row, page, s.palette[own]);
+      if (mine.res <= tol) return;
+      const rival = names.filter((k) => k !== own).map((k) => ({ k, ...explain(row, page, s.palette[k]) })).sort((x, y) => x.res - y.res)[0];
+      if (rival.res < mine.res) {
+        offenders.push({ path: s.label, row: `${side} row ${side === 'top' ? i : tile.length - 1 - i} of ${tile.length}`, rgb: row.map((v) => fixed(v, 0)), own, closer: rival.k, note: `the ${side} row of the ${own} badge is ${rival.k} (rgb ${row.map((v) => fixed(v, 0)).join(',')}; ${own} leaves ${fixed(mine.res, 0)} unexplained, ${rival.k} ${fixed(rival.res, 0)}): a strip of the next band on the edge of a settled badge` });
+      }
+    };
+    for (let i = 0; i < edge; i++) check('top', i);
+    for (let i = tile.length - edge; i < tile.length; i++) check('bottom', i);
+  }
+  return result(offenders, n, `${(states ?? []).length} settled badges, ${n} edge rows, none the colour of another band`);
 }
 
 /**
