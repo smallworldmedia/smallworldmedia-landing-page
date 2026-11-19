@@ -205,7 +205,7 @@ const dial = (raw, lo, hi) => {
  *                     0 = a straight column, null = the CSS default (--eye-shift, one rest eye width)
  *   ?schemeblurbgap=<px> the DESKTOP seat (above 768px only, SQ-121, SQ-125): the gap between the engaged lens badge's bottom
  *                     edge and the top edge of the black footer panel at home's resting pose, 0 to 60, null = the CSS
- *                     default (--badge-blurb-gap, 2)
+ *                     default (--badge-blurb-gap, 4)
  *   ?schemedown=<0|1> the DESKTOP column's ring below the lens (above 768px only, SQ-121, SQ-125): 1 = shown (the default,
  *                     Nathan 11-18), the seat rises so the ring's bottom edge clears the panel; 0 = none, the seat sits as
  *                     low as the lens badge clears the panel, to compare

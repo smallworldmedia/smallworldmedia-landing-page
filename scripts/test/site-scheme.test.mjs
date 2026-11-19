@@ -380,13 +380,23 @@ test('SQ-107 the badge is a rectangle hugging the eye with equal padding, one co
   assert.ok(!/border-radius/.test(tile), 'square corners');
   assert.ok(/(^|[\s;{])translate:\s*calc\(\(1 - var\(--eye-lift\)\) \* \(var\(--eye-w\) \/ 2 \+ var\(--badge-pad\)\)\) 0;/.test(css), 'ONE anchor: the pager moves in x only, so the badge\'s right edge at its vertical centre holds and nothing climbs');
   assert.ok(/background-image:\s*linear-gradient\(\s*to bottom,\s*var\(--badge-glass\) 0 33\.3333%,\s*var\(--badge-black\) 33\.3333% 66\.6667%,\s*var\(--color-electric-blue\) 66\.6667% 100%\s*\)/.test(tile), 'the strip: project glass, black, blue, in SCHEMES order, hard stops');
-  assert.ok(/background-size:\s*100% calc\(3 \* var\(--badge-h\)\)/.test(tile) && /background-repeat:\s*repeat-y/.test(tile), 'three badge heights tall, repeating, so the wrap is the strip\'s own');
-  assert.ok(/background-position:\s*0 calc\(-1 \* var\(--scale-qf, var\(--scale-cur\)\) \* var\(--badge-h\)\)/.test(tile), 'locked to the engine\'s continuous column position, one detent = one badge height');
+  assert.ok(/background-size:\s*100% calc\(3 \* var\(--badge-strip-h\)\)/.test(tile) && /background-repeat:\s*repeat-y/.test(tile), 'three bands tall, repeating, so the wrap is the strip\'s own');
+  assert.ok(/background-position:\s*0 calc\(-1 \* \(var\(--scale-qf, var\(--scale-cur\)\) \* var\(--badge-strip-h\) \+ var\(--badge-strip-pad\)\)\)/.test(tile), 'locked to the engine\'s continuous column position, one detent = one band, the window inset by the pad (SQ-125)');
   assert.ok(!/--scheme-page|--badge-solid|color-mix/.test(tile), 'no crossfade and never the current scheme\'s page colour');
   assert.ok(!/--badge-solid/.test(css), 'the --badge-solid crossfade is removed');
   assert.ok(/backdrop-filter:\s*blur\(var\(--badge-blur\)\)/.test(tile), 'the glass panel blurs what is behind it');
   assert.ok(!/(^|[\s;])opacity:/.test(tile), 'the tile never fades with opacity (below 1 the blur shows the sharp original): the alpha is the glass colour\'s');
   assert.ok(/round\(var\(--scale-qf, var\(--scale-cur\)\), 1\)/.test(css), 'reduced motion snaps the strip to the whole detent');
+});
+
+test('SQ-125 each band of the strip is wider than the badge by a pad a side, in the animated rule and the reduced-motion snap alike (the thin colour strip, Nathan 11-18)', () => {
+  const css = skinCss();
+  assert.ok(/--badge-strip-pad:\s*2px;/.test(css), 'the pad: 2 px, the most the browser snaps a fractional box out on one side');
+  assert.ok(/--badge-strip-h:\s*calc\(var\(--badge-h\) \+ 2 \* var\(--badge-strip-pad\)\)/.test(css), 'a band is the badge plus the pad on both sides');
+  const tile = css.match(/\.swm-corner\[data-ready\] \.fp-scale\.swm-corner__pager::before\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(!/background-(?:size|position):[^;]*var\(--badge-h\)/.test(tile), 'the strip no longer rides the bare badge height: a hard stop on the window\'s own edge is the strip');
+  const snap = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.swm-corner\[data-ready\] \.fp-scale\.swm-corner__pager::before\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/background-position:\s*0 calc\(-1 \* \(round\(var\(--scale-qf, var\(--scale-cur\)\), 1\) \* var\(--badge-strip-h\) \+ var\(--badge-strip-pad\)\)\)/.test(snap), 'the snap uses the same pitch and pad: a whole detent shows one band to its last row');
 });
 
 test('SQ-107 pass 5 nothing is cut by a straight edge, the window carries no mask and each circle fades by its own distance', () => {
@@ -780,7 +790,7 @@ test('SQ-125 the desktop seat is the black panel top plus the gap plus what the 
   const flat = skinCss().replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   const desk = /@media \(min-width: 769px\) \{ \.swm-corner \{([^}]*)\} \}/.exec(flat)?.[1] ?? '';
   assert.ok(/--badge-cy: calc\(var\(--seat-panel-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\);/.test(desk), 'the lens centre: the panel top, the gap, the column below the lens');
-  assert.ok(/--badge-blurb-gap: 2px;/.test(desk), "the gap, Nathan's 2 (?schemeblurbgap, 11-18)");
+  assert.ok(/--badge-blurb-gap: 4px;/.test(desk), "the gap, Nathan's 4 (?schemeblurbgap, 11-18)");
   assert.ok(/--seat-blurb-size: var\(--footer-blurb-size, max\(var\(--text-blurb, 1\.4rem\), var\(--seat-blurb-fill\)\)\);/.test(desk), "the blurb's size: global.css's token where home publishes it, its own expression elsewhere");
   assert.ok(/--seat-panel-top: calc\(var\(--seat-rest\) \* var\(--seat-panel-h\)\);/.test(desk), "the panel's top edge is the resting share of its height above the viewport's bottom");
   assert.ok(/--seat-panel-h: calc\(196\.91px \+ 2\.4 \* var\(--seat-blurb-size\) \+ min\(1\.15 \* var\(--seat-blurb-size\), max\(0px, 1000 \* /.test(desk), "the panel's height: a straight line of the blurb's size, plus one blurb line when the copy wraps (a steep min/max step, no breakpoint)");

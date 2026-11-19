@@ -187,6 +187,13 @@
   --badge-pad: 4px;
   --badge-w: calc(var(--eye-w) + 2 * var(--badge-pad));
   --badge-h: calc(var(--eye-h) + 2 * var(--badge-pad));
+  /* The background strip's band pitch: the badge's height plus this much to spare on EACH side of the window (SQ-125, the thin
+     colour strip on the bottom of the rest and engaged chips). --badge-h is fractional, so the browser paints the box on whole
+     pixels (snapped OUT by up to a pixel an edge) and the hard stop between two bands, which sat exactly on the window's
+     edge, then fell a pixel inside it: the last row showed the NEXT station's colour. A band wider than the window by
+     2px a side covers every snapped row, and a settled station shows its own band to the edge. */
+  --badge-strip-pad: 2px;
+  --badge-strip-h: calc(var(--badge-h) + 2 * var(--badge-strip-pad));
   --badge-cy-floor: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-pill) / 2);
   --badge-cy: var(--badge-cy-floor);
   --scheme-bottom: calc(var(--badge-cy) - var(--scale-rows) * var(--scheme-pitch));
@@ -236,10 +243,10 @@
 
    THE DESKTOP SEAT (SQ-121, Nathan 11-18: the engaged eyes cover the footer blurb's text and the privacy pill on home at rest;
    SQ-125, Nathan 11-18: "move the eye badge up higher on desktop so that the lower badge clears the black footer blurb container
-   with 2 px of gap"). DECIDED: ONE desktop seat on every route. The blurb belongs to the links footer, which every route reveals,
+   with 2 px of gap", then 11-18: "lets bump the gap to 4 px for engaged and footer blurb container"). DECIDED: ONE desktop seat on every route. The blurb belongs to the links footer, which every route reveals,
    so the seat stays put across routes and scroll stops (the 11-16 "one seat, sitewide" holds above 768px too; only its height
    moves). It is DERIVED from the black panel's own height, which is a straight line of the blurb's size, so it tracks the width:
-   the lens centre is the panel's top edge at the footer's resting pose, plus --badge-blurb-gap (?schemeblurbgap, 2, Nathan's
+   the lens centre is the panel's top edge at the footer's resting pose, plus --badge-blurb-gap (?schemeblurbgap, 4, Nathan's
    number), plus how far the engaged column reaches BELOW the lens (--seat-below). The lens never moves between rest and engaged,
    so ONE height has to clear the panel for both: the engaged column's lowest visible part (the near ring under the lens, with its
    own badge) has its bottom edge --badge-blurb-gap above the panel and, at rest, the smaller badge and the eye sit higher still.
@@ -272,7 +279,7 @@
     --eye-down-shown: var(--eye-down-desk, 1);
     --eye-down-span: calc(1 - 0.5 * var(--eye-down-desk, 1));
     --eye-hit-down: calc(0.75 + 0.75 * var(--eye-down-desk, 1));
-    --badge-blurb-gap: 2px;
+    --badge-blurb-gap: 4px;
     --seat-blurb-fill: calc(
       var(--footer-blurb-fill, 0.995) * (100vw - var(--nav-inset) - var(--chrome-right-inset)) /
         var(--footer-blurb-em, 55.722)
@@ -300,7 +307,7 @@
 
 /* The seat on half pixels. The blurb's size is fractional, so the seat is too, and a lens centred on a fraction
    of a pixel shimmers by a quarter pixel as the engaged badge grows (the jitter gate's reversal limit, 0.25, was hit
-   at 1440 x 900 without this). Half a pixel (SQ-125; it was a whole one): the 2px gap is held to 0.5, and rounding the
+   at 1440 x 900 without this). Half a pixel (SQ-125; it was a whole one): the 4px gap is held to 0.5, and rounding the
    centre to a whole pixel alone spends up to all of that (measured 1.86 to 2.29), while half a pixel spends at most
    a quarter and the jitter gate reads the same (worst reversal 0.17, limit 0.25). round() where the browser has it
    (Chrome 125, Safari 15.4, Firefox 118); older ones keep the fractional seat above, exact to the line. */
@@ -348,9 +355,10 @@
    component. It appears with the eye (data-ready), never before it.
    THE STRIP (pass 7): the rectangle is a clipping window, its background the panels of the three
    stations stacked in SCHEMES order (project's glass, black, blue) as three hard-stopped bands of one
-   badge height each, repeating. The strip's offset is the engine's own continuous column position
-   (--scale-qf, the value the circles ride; --scale-cur until its first frame) times one badge height:
-   one detent = one badge height of travel, in the column's direction (to the next scheme the current
+   badge height plus --badge-strip-pad a side each (--badge-strip-h, SQ-125: so a settled station fills the window to its
+   last pixel row whatever the browser snaps the fractional box to), repeating. The strip's offset is the engine's own
+   continuous column position (--scale-qf, the value the circles ride; --scale-cur until its first frame) times one band
+   pitch, less the pad: one detent = one band of travel, in the column's direction (to the next scheme the current
    panel leaves by the top edge as the next rises from the bottom). At rest and at every detent exactly
    one panel fills the badge; between detents one straight seam crosses it. background-repeat
    follows the column's wrap. Only the backgrounds are clipped: the circles are the window's, never
@@ -376,9 +384,9 @@
     var(--badge-black) 33.3333% 66.6667%,
     var(--color-electric-blue) 66.6667% 100%
   );
-  background-size: 100% calc(3 * var(--badge-h));
+  background-size: 100% calc(3 * var(--badge-strip-h));
   background-repeat: repeat-y;
-  background-position: 0 calc(-1 * var(--scale-qf, var(--scale-cur)) * var(--badge-h));
+  background-position: 0 calc(-1 * (var(--scale-qf, var(--scale-cur)) * var(--badge-strip-h) + var(--badge-strip-pad)));
   -webkit-backdrop-filter: blur(var(--badge-blur));
   backdrop-filter: blur(var(--badge-blur));
 }
@@ -892,7 +900,7 @@ html[data-chrome-open] .swm-corner {
    strip snaps: it shows the whole panel of the nearest station, never a seam. */
 @media (prefers-reduced-motion: reduce) {
   .swm-corner[data-ready] .fp-scale.swm-corner__pager::before {
-    background-position: 0 calc(-1 * round(var(--scale-qf, var(--scale-cur)), 1) * var(--badge-h));
+    background-position: 0 calc(-1 * (round(var(--scale-qf, var(--scale-cur)), 1) * var(--badge-strip-h) + var(--badge-strip-pad)));
   }
 
   .swm-corner .fp-scale.swm-corner__pager.swm-corner__pager,
