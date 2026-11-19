@@ -382,7 +382,10 @@ function inCollection(doc, selector) {
   if (selector.projectId) return doc._type === 'mediaAsset' && doc.project?._ref === selector.projectId
   return doc._type === 'mediaAsset' && doc.client?._ref === selector.clientId && doc.sourceManifest === selector.sourceManifest
 }
-async function remoteGuards(plan, journal, sanity) {
+// An op touches a collection when its snapshot lists the op (it is or was a member: deletes, moves out) or the op's resulting document belongs to it (creates, moves in, rank patches).
+const touches = (c, op, journal) => c.snapshot.some(s => s.id === op.id) || [journal.operations[op.id]?.expected || op.after].some(doc => doc && inCollection(doc, c.selector))
+// `only` (an op) narrows the membership pass to the collections that op touches; the pre-loop and verify passes leave it off and read every collection.
+async function remoteGuards(plan, journal, sanity, only) {
   invariant(same(sanity.target, plan.target), 'Adapter target mismatch')
   // A Mux-only delete has no Sanity document; its Mux checks run once, at its own write.
   const documentOps = plan.operations.filter(o => o.type !== 'mux.asset')
@@ -407,6 +410,7 @@ async function remoteGuards(plan, journal, sanity) {
     invariant(project?.client?._ref === op.after.client?._ref, `Project/client mismatch on ${op.id}`)
   }
   for (const c of plan.collections) {
+    if (only && !touches(c, only, journal)) continue
     const expected = new Map(c.snapshot.map(s => [s.id, s]))
     for (const op of plan.operations) if (journal.operations[op.id]?.stage === 'done' || removed(op, journal.operations[op.id])) {
       expected.delete(op.id)
@@ -582,12 +586,12 @@ export async function applyPlan({ plan, confirm, checkout, store, sanity, mux, .
       if (op.action === 'unchanged') { state.stage = 'done'; state.expected = op.after; await store.saveJournal(plan.id, journal); continue }
       delete state.failure
       try {
-        await sourceGuards(plan, journal); await remoteGuards(plan, journal, sanity)
+        await sourceGuards(plan, journal); await remoteGuards(plan, journal, sanity, op)
         if (op.action === 'delete') { await applyDelete(plan, op, state, journal, store, sanity, mux, options); await options.onStage?.('done', op); continue }
         if (op.upload && !await uploadMedia(plan, op, state, journal, store, { sanity, mux }, options)) continue
         state.expected ||= op.after
-        // Uploads may take minutes: repeat source, references, drafts, revisions and membership before committing.
-        await sourceGuards(plan, journal); await remoteGuards(plan, journal, sanity)
+        // Uploads may take minutes: repeat source, references, drafts, revisions and membership before committing. Without one, the pass above is the only gap.
+        if (op.upload) { await sourceGuards(plan, journal); await remoteGuards(plan, journal, sanity, op) }
         journalCheck(plan, journal)
         await readyMediaGuard(op, state, sanity, mux)
         const mutations = []

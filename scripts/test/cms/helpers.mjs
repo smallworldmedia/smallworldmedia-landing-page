@@ -25,7 +25,7 @@ export async function harness(t, { docs = [], videoStatus = 'ready' } = {}) {
   for (const name of HASHED_SCHEMAS) await writeFile(path.join(localCheckout, 'src/schemas', `${name}.ts`), await readFile(path.join(checkout, 'src/schemas', `${name}.ts`)))
   t.after(() => rm(root, { recursive: true, force: true }))
   const db = new Map([clientDoc, tagDoc, { _id: 'image-existing', _type: 'sanity.imageAsset', metadata: { dimensions: { width: 100, height: 100 } } }, ...docs].map(d => [d._id, clean(d)]))
-  const stats = { commits: 0, images: 0, uploads: 0, puts: 0, reads: 0, muxDeletes: 0 }, uploads = new Map(), assets = new Map()
+  const stats = { commits: 0, images: 0, uploads: 0, puts: 0, reads: 0, muxDeletes: 0, collections: 0 }, uploads = new Map(), assets = new Map()
   let revision = 0
   const sanity = {
     target,
@@ -34,10 +34,10 @@ export async function harness(t, { docs = [], videoStatus = 'ready' } = {}) {
     async findTags(slugs, names = []) { return clean([...db.values()].filter(d => d._type === 'serviceTag' && (slugs.includes(d.slug?.current) || names.includes(d.name?.toLowerCase())))) },
     async findProjects({clientId,slug}) { return clean([...db.values()].filter(d => d._type === 'project' && d.client?._ref === clientId && d.slug?.current === slug)) },
     async findSets() { return clean([...db.values()].filter(d => d._type === 'mediaSet')) },
-    async findProjectOrder() { return clean([...db.values()].filter(d => d._type === 'project')) },
+    async findProjectOrder() { stats.collections++; return clean([...db.values()].filter(d => d._type === 'project')) },
     async findDeleteBlockers(id) { return clean([...db.values()].filter(d => d._id !== id && refersTo(d, id) || d._id.startsWith('versions.') && d._id.endsWith(`.${id}`))) },
     async findMuxDocuments(assetId) { return clean([...db.values()].filter(d => d._type === 'mux.videoAsset' && d.assetId === assetId)) },
-    async findCollection({clientId,sourceManifest,projectId}) { return clean([...db.values()].filter(d => d._type === 'mediaAsset' && (projectId ? d.project?._ref === projectId : d.client?._ref === clientId && d.sourceManifest === sourceManifest))) },
+    async findCollection({clientId,sourceManifest,projectId}) { stats.collections++; return clean([...db.values()].filter(d => d._type === 'mediaAsset' && (projectId ? d.project?._ref === projectId : d.client?._ref === clientId && d.sourceManifest === sourceManifest))) },
     async uploadImage({path: file}) { stats.images++; await readFile(file); const asset = { _id: `image-upload-${stats.images}`, _type: 'sanity.imageAsset', metadata: { dimensions: { width: 100, height: 100 } } }; db.set(asset._id, asset); return clean(asset) },
     async commit(mutations) {
       const next = new Map([...db].map(([id,d]) => [id,clean(d)]))

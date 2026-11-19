@@ -244,6 +244,9 @@ Before apply, request a brief **no-edit window for the affected Studio collectio
 The runner checks revisions, source hashes, drafts and ordering snapshots before
 uploads and before document writes, then verifies afterward. Those checks cannot
 atomically lock the absence of new drafts/collection members across editors.
+Apply reads every collection once before the first write and once at verify; each
+write re-reads only the collections it touches (and again after an upload), so a
+change to a collection no remaining write touches is reported by verify, not by a stop.
 
 ## Upload completion, recovery and verification
 
