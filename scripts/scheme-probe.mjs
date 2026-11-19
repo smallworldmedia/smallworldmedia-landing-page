@@ -26,11 +26,14 @@
  *              the width loop at 1440 x 900, 1024 x 768, 1280 x 800, 1920 x 1080 and 2560 x 1440): home at rest the badge
  *              sits wholly above the footer blurb's text and off the privacy pill, and with the eye held (the column fully
  *              engaged) no part of the grown badge, the ring or the shifted circle meets the blurb text or the pill.
- *              SQ-125: the engaged lens badge's bottom edge sits --gap (default 2, Nathan's number) above the top edge of
- *              the black panel (.site-footer--links), within 0.5 px, too high or too low. A ?schemeblurbgap re-dial
- *              fails it unless --gap follows.
+ *              SQ-125: the bottom edge of the engaged column's LOWEST VISIBLE PART (on desktop the near ring under the
+ *              lens, with its own badge; Nathan 11-18) sits --gap (default 2, Nathan's number) above the top edge of
+ *              the black panel (.site-footer--links), within 0.5 px, too high or too low, and a column with no ring
+ *              shown under the lens fails by name. At rest the eye and the smaller badge clear the panel by --gap too.
+ *              A ?schemeblurbgap re-dial fails it unless --gap follows.
  *              Negative controls: --inject='.swm-corner{--badge-cy:20px !important}' must FAIL, and so must
- *              --inject='.swm-corner{translate:0 4px}' (the seat 4 px lower) and --query=schemeblurbgap=8.
+ *              --inject='.swm-corner{translate:0 4px}' (the seat 4 px lower), --query=schemeblurbgap=8 and
+ *              --query=schemedown=0 (no ring under the lens, the seat 30 px too low for the column).
  *   The `phone` gate (SQ-121, by name only, --width=390): the badge, eye and every ring part's rects on every
  *              route at rest and held, compared to a capture of the BASE build. Phones are unchanged byte for
  *              byte: serve the base build on :3333, run
@@ -2294,8 +2297,8 @@ async function measureStates(ctx, scheme, urlPath) {
 
 /**
  * The clear gate (SQ-121): on home, above 768px, at rest and engaged, nothing of the widget meets the footer blurb's
- * text or the privacy pill, and at rest the badge is wholly above the text. SQ-125: the engaged lens badge's bottom edge
- * is the dialed gap (2 px, ?schemeblurbgap) above the black panel's top edge, within 0.5 px, at five viewports (the
+ * text or the privacy pill, and at rest the badge is wholly above the text. SQ-125: the bottom edge of the engaged column's
+ * lowest visible part (the ring under the lens) is the dialed gap (2 px, ?schemeblurbgap) above the black panel's top edge, within 0.5 px, at five viewports (the
  * probe's other widgets run 1440 x 900 and 390 x 844), once per scheme whatever --width is. Phones are the phone gate's.
  */
 const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768], [1280, 800], [1920, 1080], [2560, 1440]];

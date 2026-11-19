@@ -241,8 +241,8 @@
    moves). It is DERIVED from the black panel's own height, which is a straight line of the blurb's size, so it tracks the width:
    the lens centre is the panel's top edge at the footer's resting pose, plus --badge-blurb-gap (?schemeblurbgap, 2, Nathan's
    number), plus how far the engaged column reaches BELOW the lens (--seat-below). The lens never moves between rest and engaged,
-   so ONE height has to clear the panel for both: the engaged badge's bottom edge sits --badge-blurb-gap above the panel and, at
-   rest, the smaller badge sits higher still.
+   so ONE height has to clear the panel for both: the engaged column's lowest visible part (the near ring under the lens, with its
+   own badge) has its bottom edge --badge-blurb-gap above the panel and, at rest, the smaller badge and the eye sit higher still.
    THE PANEL'S TOP, from home's resting footer: Hero's FOOTER_REST_DESKTOP (0.47, --seat-rest here, held equal by a test) of the
    panel's height shows above the viewport's bottom, so the top edge is 0.47 x H above it. H, measured on the real page at 1024,
    1100, 1130, 1160, 1280, 1440, 1600, 1920 and 2560 wide (to 0.01 px of a straight line through all of them): 196.91 px of
@@ -255,20 +255,23 @@
    --footer-blurb-size where home publishes it, and the same expression where it does not (every other route), so the seat is
    the same everywhere. scripts/scheme-probe.mjs's `clear` gate measures the gap on the real page at 1440 x 900, 1024 x 768,
    1280 x 800, 1920 x 1080 and 2560 x 1440, so a copy or panel change that moves the panel fails there.
-   THE RINGS BELOW THE LENS (decided with numbers in the ticket's report): a ring under the lens would need the seat
-   above the panel's top by the whole column (the lens badge, the pitch and the near ring, 51.8px at the defaults) instead
-   of the lens badge's half (21.9px): the eye 29.9px higher in the corner, for a circle the viewport's bottom edge
-   used to cut. So above 768px none shows under the lens (--eye-down-shown 0, limited the way --eye-up-shown limits
-   the ones above) and the press target under it shrinks to the lens badge's half and a bit (0.75 of a station).
-   ?schemedown=1 (--eye-down-desk) restores the ring below and raises the seat to clear it, to compare. */
+   THE RING BELOW THE LENS (Nathan 11-18, on the first SQ-125 seat, which hid it: "why aren't i seeing the black scheme below
+   the currently selected? that one needs to be accounted for in the vertical positioning"): ONE circle shows under the lens
+   (--eye-down-shown 1, the phone's own number; the next fades within half a station), and the seat is raised to clear it. The
+   column under the lens is then the pitch plus the near ring's half (--seat-below, 51.8px at the defaults), not the lens
+   badge's half (21.9px): the eye sits 29.9px higher in the corner than the ring-less seat. The LOWEST VISIBLE PART of the
+   engaged column, the near ring's own badge, is then --badge-blurb-gap above the panel's top edge (the clear gate measures
+   that part, and fails a column with no ring under the lens). ?schemedown=0 (--eye-down-desk) hides it again, with the
+   seat for the lens badge alone (the press target under the lens shrinks to the lens badge's half and a bit, 0.75 of a
+   station), to compare. */
 @media (min-width: 769px) {
   .swm-corner {
     --eye-up-shown: 1;
     --eye-up-span: 1;
     --eye-hit-up: 1.5;
-    --eye-down-shown: var(--eye-down-desk, 0);
-    --eye-down-span: calc(1 - 0.5 * var(--eye-down-desk, 0));
-    --eye-hit-down: calc(0.75 + 0.75 * var(--eye-down-desk, 0));
+    --eye-down-shown: var(--eye-down-desk, 1);
+    --eye-down-span: calc(1 - 0.5 * var(--eye-down-desk, 1));
+    --eye-hit-down: calc(0.75 + 0.75 * var(--eye-down-desk, 1));
     --badge-blurb-gap: 2px;
     --seat-blurb-fill: calc(
       var(--footer-blurb-fill, 0.995) * (100vw - var(--nav-inset) - var(--chrome-right-inset)) /

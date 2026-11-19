@@ -788,7 +788,8 @@ test('SQ-125 the desktop seat is the black panel top plus the gap plus what the 
   const rest = /const FOOTER_REST_DESKTOP = ([\d.]+);/.exec(hero)?.[1];
   assert.ok(rest, "Hero's FOOTER_REST_DESKTOP is found");
   assert.ok(new RegExp(`--seat-rest: ${rest.replace('.', '\\.')};`).test(desk), "--seat-rest is Hero's FOOTER_REST_DESKTOP: the seat follows the footer's resting share");
-  assert.ok(/--eye-down-shown: var\(--eye-down-desk, 0\);/.test(desk) && /--eye-hit-down: calc\(0\.75 \+ 0\.75 \* var\(--eye-down-desk, 0\)\);/.test(desk), 'no ring under the lens by default, the press target follows it');
+  assert.ok(/--eye-down-shown: var\(--eye-down-desk, 1\);/.test(desk) && /--eye-down-span: calc\(1 - 0\.5 \* var\(--eye-down-desk, 1\)\);/.test(desk) && /--eye-hit-down: calc\(0\.75 \+ 0\.75 \* var\(--eye-down-desk, 1\)\);/.test(desk), 'the near ring shows under the lens by default (SQ-125, Nathan 11-18; ?schemedown=0 hides it), the fade and the press target follow it');
+  assert.ok(/--seat-below: max\(calc\(var\(--eye-engaged\) \* var\(--badge-h\) \/ 2\), calc\(var\(--eye-down-shown\) \* \(var\(--scheme-pitch\) \+ var\(--eye-near\) \* var\(--eye-engaged\) \* var\(--badge-h\) \/ 2\)\)\);/.test(desk), 'the seat clears the column below the lens by the ring under it, the lens badge alone when none shows');
   assert.ok(/@supports \(width: round\(1px, 1px\)\) \{ @media \(min-width: 769px\) \{ \.swm-corner \{ --badge-cy: round\(calc\(var\(--seat-panel-top\) \+ var\(--badge-blurb-gap\) \+ var\(--seat-below\)\), 0\.5px\); \} \} \}/.test(flat), 'the seat rounds to half pixels where round() exists (a fractional lens centre shimmers in the jitter gate; a whole pixel would spend the 2px gap\'s half-pixel tolerance)');
   // Phones: the seat is declared in the desktop block alone, and the base block keeps the old fade numbers.
   assert.equal(flat.split('--seat-panel-top:').length - 1, 1, 'the panel seat is declared once, in the desktop block');

@@ -699,10 +699,14 @@ export function circlesAbove(c, { visible = 0.01, tol = 1.5 } = {}) {
  * its lifted size), blurb {x,y,w,h} (the union of the blurb's text boxes), panel {x,y,w,h} (`.site-footer--links`, the black
  * panel, as painted), pill {x,y,w,h} | null (the privacy pill), parts: [{ name, op, x, y, w, h }] (the eye, every station's
  * circle and its own badge: op is the effective opacity, rects as painted, shifted and lifted) }.
- * THE SEAT IS EXACT (SQ-125): ENGAGED the lens badge's bottom edge is the option `gap` (2 px, Nathan's number, not whatever
- * ?schemeblurbgap dialed) above the panel's top edge, within `tol` (0.5 px) EITHER WAY (a seat too high fails as surely as
- * one too low). AT REST the smaller badge shares the lens centre, so its bottom edge is at least `gap` above the panel's
- * top edge (`tol`). A state with no panel fails: a run that found none proves nothing.
+ * THE SEAT IS EXACT (SQ-125): ENGAGED the bottom edge of the LOWEST VISIBLE PART of the column (the lens badge, the eye, every
+ * station circle and its own badge over `visible`: on desktop the near ring below the lens, Nathan 11-18: "why aren't i seeing
+ * the black scheme below the currently selected? that one needs to be accounted for in the vertical positioning") is the option
+ * `gap` (2 px, Nathan's number, not whatever ?schemeblurbgap dialed) above the panel's top edge, within `tol` (0.5 px) EITHER WAY
+ * (a seat too high fails as surely as one too low). The ring below must SHOW: an engaged column with no visible part centred
+ * below the lens fails (?schemedown=0 is that column, its seat 30 px too low for the ring it hides). AT REST the lowest of the
+ * smaller badge and the eye (they share the lens centre) is at least `gap` above the panel's top edge (`tol`). A state with no
+ * panel fails: a run that found none proves nothing.
  * AT REST the tile's bottom edge is above the blurb text's top edge (`tol` 0.5 px) and the tile does not meet the pill.
  * ENGAGED no visible part (op over `visible`), and not the lens badge, meets the blurb text or the pill by more than `tol`
  * on both axes. A state with no blurb measured fails: a run that found none proves nothing about the overlap. The pill is
@@ -727,18 +731,33 @@ export function clearOfBlurb(c, { tol = 0.5, visible = 0.01, gap: want = 2 } = {
   if (!eng.panel || !rest.panel) {
     offenders.push({ path: '.site-footer--links', note: 'no black panel rect measured: the seat against the panel is unproven' });
   } else {
-    const engGap = eng.panel.y - (eng.tile.y + eng.tile.h);
-    const restGap = rest.panel.y - (rest.tile.y + rest.tile.h);
+    const low = lowest(shown);
+    const restLow = lowest([{ name: 'resting badge', ...rest.tile }, ...(rest.eye ? [{ name: 'eye', ...rest.eye }] : []), ...(rest.parts ?? []).filter((p) => p.op > visible)]);
+    const engGap = eng.panel.y - low.bottom;
+    const restGap = rest.panel.y - restLow.bottom;
+    const lensCy = eng.tile.y + eng.tile.h / 2;
+    const below = shown.filter((p) => p.y + p.h / 2 > lensCy + 1);
+    if (!below.length) {
+      offenders.push({ path: '.swm-corner .fp-scale__station', state: 'engaged', note: `no ring shows below the lens (${shown.length} visible parts, none centred under the lens badge's centre ${fixed(lensCy, 1)}): the column's lowest part is the ${low.name}, ${fixed(engGap, 2)} px above the panel, the seat sized for a ring that is hidden` });
+    }
     if (Math.abs(engGap - want) > tol) {
-      offenders.push({ path: '.swm-corner .fp-scale::before', state: 'engaged', tile: rectOf(eng.tile), panel: rectOf(eng.panel), note: `the engaged lens badge's bottom edge (${fixed(eng.tile.y + eng.tile.h, 1)}) is ${fixed(engGap, 2)} px above the black panel's top edge (${fixed(eng.panel.y, 1)}), want ${fixed(want, 2)} (within ${tol} px, either way)` });
+      offenders.push({ path: '.swm-corner .fp-scale', state: 'engaged', part: low.name, panel: rectOf(eng.panel), note: `the engaged column's lowest part (${low.name}) bottom edge (${fixed(low.bottom, 1)}) is ${fixed(engGap, 2)} px above the black panel's top edge (${fixed(eng.panel.y, 1)}), want ${fixed(want, 2)} (within ${tol} px, either way)` });
     }
     if (restGap < want - tol) {
-      offenders.push({ path: '.swm-corner .fp-scale::before', state: 'rest', tile: rectOf(rest.tile), panel: rectOf(rest.panel), note: `the resting badge's bottom edge (${fixed(rest.tile.y + rest.tile.h, 1)}) is ${fixed(restGap, 2)} px above the black panel's top edge (${fixed(rest.panel.y, 1)}), want at least ${fixed(want, 2)}` });
+      offenders.push({ path: '.swm-corner .fp-scale::before', state: 'rest', part: restLow.name, panel: rectOf(rest.panel), note: `the resting ${restLow.name}'s bottom edge (${fixed(restLow.bottom, 1)}) is ${fixed(restGap, 2)} px above the black panel's top edge (${fixed(rest.panel.y, 1)}), want at least ${fixed(want, 2)}` });
     }
   }
   const gap = eng.blurb.y - (eng.tile.y + eng.tile.h);
-  const panelGap = eng.panel ? eng.panel.y - (eng.tile.y + eng.tile.h) : NaN;
-  return result(offenders, shown.length, `${shown.length} engaged parts, lens badge ${rectOf(eng.tile)} ${fixed(panelGap, 2)} px above the black panel (dialed ${fixed(want, 2)}) and ${fixed(gap, 1)} px above the blurb text ${rectOf(eng.blurb)}${eng.pill ? `, pill ${rectOf(eng.pill)}` : ', no pill'}; resting badge ${fixed(rest.blurb.y - (rest.tile.y + rest.tile.h), 1)} px above the text`);
+  const lowOf = lowest(shown);
+  const panelGap = eng.panel ? eng.panel.y - lowOf.bottom : NaN;
+  return result(offenders, shown.length, `${shown.length} engaged parts, lens badge ${rectOf(eng.tile)}, lowest part ${lowOf.name} ${fixed(panelGap, 2)} px above the black panel (dialed ${fixed(want, 2)}) and the lens badge ${fixed(gap, 1)} px above the blurb text ${rectOf(eng.blurb)}${eng.pill ? `, pill ${rectOf(eng.pill)}` : ', no pill'}; resting badge ${fixed(rest.blurb.y - (rest.tile.y + rest.tile.h), 1)} px above the text`);
+}
+
+/** The part whose bottom edge is lowest on the page (the highest y + h): { name, bottom }. */
+function lowest(parts) {
+  let low = { name: 'nothing', bottom: -Infinity };
+  for (const p of parts) if (Number.isFinite(p.y + p.h) && p.y + p.h > low.bottom) low = { name: p.name, bottom: p.y + p.h };
+  return low;
 }
 
 /**
