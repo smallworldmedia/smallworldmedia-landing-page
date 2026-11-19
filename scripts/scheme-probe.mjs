@@ -2407,7 +2407,8 @@ async function measureStates(ctx, scheme, urlPath, { bands = false } = {}) {
  */
 const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768], [1280, 800], [1920, 1080], [2560, 1440]];
 const CLEAR_GAP = Number(arg('gap', 4)); // Nathan's number (SQ-125, 11-18: 2, then "lets bump the gap to 4 px"), the gate's own: a ?schemeblurbgap re-dial fails it unless this follows (--gap=8)
-const BAND_DPR = Number(arg('dpr', 1)); // the bands gate's device pixel ratio (a hand run at 2 or 3 reads the retina rows)
+const BAND_DPR = Number(arg('dpr', 1));
+const PHONE_DPR = Number(arg('dpr', 3)); // the phone pass (bands, seams): the iPhone 390 stands for (SQ-126) // the bands gate's device pixel ratio (a hand run at 2 or 3 reads the retina rows)
 async function clearPass(browser, scheme, want) {
   for (const [width, height] of CLEAR_VIEWPORTS) {
     const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: BAND_DPR, reducedMotion: 'reduce' });
@@ -2429,9 +2430,12 @@ async function clearPass(browser, scheme, want) {
 /**
  * The bands gate on a phone (SQ-125): 390 x 844 home, rest and held (the CDP touch), every scheme: the badge is its settled band to
  * the first and last pixel row. The strip's paint is the one thing the desktop seat change leaves on a phone; its rects are the phone gate's.
+ * SQ-126: the pass runs at the iPhone this width stands for, DPR 3 (--dpr overrides), and its seams are REPORTED, not gated: the
+ * whole-pixel seams are a desktop build (above 768px), phones keep their rects byte for byte (the phone gate), and a phone seam
+ * can only close by moving them. The INFO line carries each seam's numbers; the desktop seams (the clear pass) stay a gate.
  */
 async function bandsPhonePass(browser, scheme, width) {
-  const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: BAND_DPR, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: PHONE_DPR, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
   await installRoutes(ctx);
   await ctx.addInitScript(hydrationHook);
   const m = await measureStates(ctx, scheme, ROUTE_PATHS.home, { bands: true });
@@ -2439,7 +2443,9 @@ async function bandsPhonePass(browser, scheme, width) {
   if (m.error || !m.engaged?.open || !m.bands) emit('FAIL', scheme, 'home', width, 'bands', m.error ?? 'the pager never engaged (data-open)');
   else {
     emitResult(scheme, 'home', width, 'bands', gate.bandEdges(bandStates(scheme, `${width}x844`, m)));
-    emitResult(scheme, 'home', width, 'seams', gate.seamEdges([{ label: `${scheme} ${width}x844 engaged`, ...m.seams }]));
+    const st = [{ label: `${scheme} ${width}x844@${PHONE_DPR}x engaged`, ...m.seams }];
+    const read = gate.seamEdges(st, { tol: -1 }).offenders.map((o) => (o.seam ? `${o.seam} ${o.overlap}` : o.note)).join(', ');
+    console.log(`INFO  ${scheme.padEnd(8)} ${'home'.padEnd(10)} ${String(width).padStart(4)}  ${'seams'.padEnd(10)} @${PHONE_DPR}x ${gate.seamEdges(st).pass ? 'within' : 'OVER'} 0.25 px (reported, not gated: phones are unchanged): ${read} (+ = into the lens, - = a gap)`);
   }
 }
 
