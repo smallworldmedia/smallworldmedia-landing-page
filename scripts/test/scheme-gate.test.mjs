@@ -1359,7 +1359,7 @@ test('clearOfBlurb gate negative control: the old seat (on the privacy pill line
   assert.ok(r.offenders.some((o) => /engaged/.test(JSON.stringify(o))), JSON.stringify(r.offenders));
 });
 
-test('clearOfBlurb gate: a visible ring under the lens that reaches the blurb fails by name, a missing blurb or state proves nothing', () => {
+test('clearOfBlurb gate, a visible ring under the lens that reaches the blurb fails by name, a missing blurb or state proves nothing', () => {
   const m = clearMeasure();
   m.engaged.parts.find((p) => p.name === 'circle k=2').op = 1;
   const r = clearOfBlurb(m);
