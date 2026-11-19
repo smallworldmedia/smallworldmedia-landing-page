@@ -42,6 +42,11 @@
  *              at 390 x 844 (rest and held), or by name (--gates=bands). --dpr=2|3 reads the retina rows (a hand run).
  *              Negative control: --inject='.swm-corner[data-ready] .fp-scale.swm-corner__pager::before{background-size:100% calc(3 * var(--badge-h)) !important;background-position:0 calc(-1 * round(var(--scale-qf, var(--scale-cur)), 1) * var(--badge-h)) !important}'
  *              (the pre-SQ-125 strip, bands exactly one badge height) must FAIL.
+ *   The `seams` gate (SQ-126): at a settled engaged station the badge above the lens and the one below end within 0.25 px of the lens
+ *              badge's painted edges (seamEdges), and the `layer` gate: inside the lens badge the pixels with every station's badge
+ *              painted equal the lens badge's alone (lensLayer: one ?schemeglass veil, never two). Both run with `clear` (five
+ *              desktop viewports, every scheme); the phone pass reports its seams at --phone-dpr (default 3), not gated.
+ *              Negative control for `layer`: b05b8ad (its inset() clip kept the lens station's own glass badge) FAILS on project.
  *   The `phone` gate (SQ-121, by name only, --width=390): the badge, eye and every ring part's rects on every
  *              route at rest and held, compared to a capture of the BASE build. Phones are unchanged byte for
  *              byte: serve the base build on :3333, run
@@ -241,7 +246,7 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'layer', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', 'phone', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -2316,6 +2321,52 @@ async function bandPalette(page, tile) {
   return palette;
 }
 
+/**
+ * The seams gate's pixels (SQ-125): the engaged badges over a flat grey page with every circle and the eye hidden (visibility, so the
+ * hover that engaged the pager holds), read twice: the lens badge alone and the neighbours' badges alone (the ring above and below it,
+ * each station's own), as the mean of each device pixel row over a few columns at the badge's right edge, which every neighbour covers,
+ * from 14 CSS px above the lens to 14 below.
+ */
+const SEAM_ISOLATE = 'html,body{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner svg,.swm-corner svg *{visibility:hidden !important}';
+async function seamProfile(page, tile) {
+  const { default: sharp } = await import('sharp');
+  await page.evaluate((css) => {
+    document.getElementById('swm-probe-bands')?.remove();
+    if (document.getElementById('swm-probe-seams')) return;
+    const st = document.createElement('style');
+    st.id = 'swm-probe-seams';
+    st.textContent = css;
+    document.head.append(st);
+  }, SEAM_ISOLATE);
+  await sleep(250);
+  const top = Math.floor(tile.y) - 14;
+  const clip = { x: Math.floor(tile.x + tile.w) - 13, y: top, width: 10, height: Math.ceil(tile.h) + 30 };
+  const read = async () => {
+    const { data, info } = await sharp(await page.screenshot({ clip })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const rows = [];
+    for (let y = 0; y < info.height; y++) {
+      const sum = [0, 0, 0];
+      for (let x = 0; x < info.width; x++) for (let c = 0; c < 3; c++) sum[c] += data[(y * info.width + x) * 3 + c];
+      rows.push(sum.map((v) => v / info.width));
+    }
+    return { rows, scale: info.height / clip.height };
+  };
+  // the lens badge alone (the neighbours' badges hidden), then the neighbours' badges alone (the lens badge, the pager's ::before, hidden)
+  const only = async (id, css) => {
+    await page.evaluate(([i, c]) => { const st = document.createElement('style'); st.id = i; st.textContent = c; document.head.append(st); }, [id, css]);
+    await sleep(150);
+    const r = await read();
+    await page.evaluate((i) => document.getElementById(i)?.remove(), id);
+    return r;
+  };
+  const lens = await only('swm-probe-seams-lens', '.swm-corner .scheme-badge{visibility:hidden !important}');
+  const nbs = await only('swm-probe-seams-nbs', '.swm-corner .fp-scale.swm-corner__pager::before{visibility:hidden !important}');
+  await sleep(150);
+  const both = await read(); // the lens badge and every station's badge (the lensLayer gate, SQ-126: one veil, not two)
+  await page.evaluate(() => document.getElementById('swm-probe-seams')?.remove());
+  return { lens: lens.rows, nbs: nbs.rows, both: both.rows, top, scale: lens.scale, y0: tile.y, y1: tile.y + tile.h };
+}
+
 /** The bands gate over one measureStates run: the rest badge and the engaged one. */
 const bandStates = (scheme, where, m) => ['rest', 'engaged'].map((state) => ({ label: `${scheme} ${where} ${state}`, rows: m.bands[state], palette: m.bands.palette }));
 
@@ -2346,7 +2397,8 @@ async function measureStates(ctx, scheme, urlPath, { bands = false } = {}) {
     const engaged = await page.evaluate(pageClear);
     if (!bands || !engaged?.tile) return { rest, engaged };
     const engagedRows = await bandRows(page, engaged.tile, { keep: true });
-    return { rest, engaged, bands: { rest: restRows, engaged: engagedRows, palette: await bandPalette(page, engaged.tile) } };
+    const palette = await bandPalette(page, engaged.tile);
+    return { rest, engaged, bands: { rest: restRows, engaged: engagedRows, palette }, seams: await seamProfile(page, engaged.tile) };
   } catch (e) {
     return { error: String(e.message).split('\n')[0].slice(0, 240) };
   } finally {
@@ -2363,6 +2415,7 @@ async function measureStates(ctx, scheme, urlPath, { bands = false } = {}) {
 const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768], [1280, 800], [1920, 1080], [2560, 1440]];
 const CLEAR_GAP = Number(arg('gap', 4)); // Nathan's number (SQ-125, 11-18: 2, then "lets bump the gap to 4 px"), the gate's own: a ?schemeblurbgap re-dial fails it unless this follows (--gap=8)
 const BAND_DPR = Number(arg('dpr', 1)); // the bands gate's device pixel ratio (a hand run at 2 or 3 reads the retina rows)
+const PHONE_DPR = Number(arg('phone-dpr', 3)); // the phone pass (bands, seams): the iPhone 390 stands for (SQ-126)
 async function clearPass(browser, scheme, want) {
   for (const [width, height] of CLEAR_VIEWPORTS) {
     const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: BAND_DPR, reducedMotion: 'reduce' });
@@ -2372,26 +2425,36 @@ async function clearPass(browser, scheme, want) {
     await ctx.close().catch(() => {});
     const where = `${width}x${height}`;
     if (m.error || !m.rest?.tile || !m.engaged?.open) {
-      for (const g of ['clear', 'bands']) if (want.has(g) || g === 'bands') emit('FAIL', scheme, 'home', where, g, m.error ?? 'the pager never engaged (data-open)');
+      for (const g of ['clear', 'bands', 'seams', 'layer']) if (want.has(g) || g !== 'clear') emit('FAIL', scheme, 'home', where, g, m.error ?? 'the pager never engaged (data-open)');
       continue;
     }
     if (want.has('clear')) emitResult(scheme, 'home', where, 'clear', gate.clearOfBlurb(m, { gap: CLEAR_GAP }));
     emitResult(scheme, 'home', where, 'bands', gate.bandEdges(bandStates(scheme, where, m)));
+    emitResult(scheme, 'home', where, 'seams', gate.seamEdges([{ label: `${scheme} ${where} engaged`, ...m.seams }]));
+    emitResult(scheme, 'home', where, 'layer', gate.lensLayer([{ label: `${scheme} ${where} engaged`, ...m.seams }]));
   }
 }
 
 /**
  * The bands gate on a phone (SQ-125): 390 x 844 home, rest and held (the CDP touch), every scheme: the badge is its settled band to
  * the first and last pixel row. The strip's paint is the one thing the desktop seat change leaves on a phone; its rects are the phone gate's.
+ * SQ-126: the pass runs at the iPhone this width stands for, DPR 3 (--phone-dpr overrides; --dpr is the desktop bands'), and its seams are REPORTED, not gated: the
+ * whole-pixel seams are a desktop build (above 768px), phones keep their rects byte for byte (the phone gate), and a phone seam
+ * can only close by moving them. The INFO line carries each seam's numbers; the desktop seams (the clear pass) stay a gate.
  */
 async function bandsPhonePass(browser, scheme, width) {
-  const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: BAND_DPR, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: PHONE_DPR, reducedMotion: 'reduce', isMobile: true, hasTouch: true });
   await installRoutes(ctx);
   await ctx.addInitScript(hydrationHook);
   const m = await measureStates(ctx, scheme, ROUTE_PATHS.home, { bands: true });
   await ctx.close().catch(() => {});
   if (m.error || !m.engaged?.open || !m.bands) emit('FAIL', scheme, 'home', width, 'bands', m.error ?? 'the pager never engaged (data-open)');
-  else emitResult(scheme, 'home', width, 'bands', gate.bandEdges(bandStates(scheme, `${width}x844`, m)));
+  else {
+    emitResult(scheme, 'home', width, 'bands', gate.bandEdges(bandStates(scheme, `${width}x844`, m)));
+    const st = [{ label: `${scheme} ${width}x844@${PHONE_DPR}x engaged`, ...m.seams }];
+    const read = gate.seamEdges(st, { tol: -1 }).offenders.map((o) => (o.seam ? `${o.seam} ${o.overlap}` : o.note)).join(', ');
+    console.log(`INFO  ${scheme.padEnd(8)} ${'home'.padEnd(10)} ${String(width).padStart(4)}  ${'seams'.padEnd(10)} @${PHONE_DPR}x ${gate.seamEdges(st).pass ? 'within' : 'OVER'} 0.25 px (reported, not gated: phones are unchanged): ${read} (+ = into the lens, - = a gap)`);
+  }
 }
 
 /**
@@ -2573,11 +2636,11 @@ async function main() {
           if (phone) await phonePass(browser, scheme, width, baseline, captured);
           else emit('SKIP', scheme, 'phone*', width, 'phone', 'skipped: the phone gate measures 390 (--width=390)');
         }
-        if (phone && (want.has('phone') || want.has('bands'))) await bandsPhonePass(browser, scheme, width);
+        if (phone && (want.has('phone') || want.has('bands') || want.has('seams'))) await bandsPhonePass(browser, scheme, width);
         await ctx.close();
       }
       if (want.has('rightEdge')) await edgePass(browser, scheme);
-      if (want.has('clear') || want.has('bands')) await clearPass(browser, scheme, want);
+      if (want.has('clear') || want.has('bands') || want.has('seams') || want.has('layer')) await clearPass(browser, scheme, want);
       if (want.has('deal')) {
         if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);
         else if (!worlds.length) emit('SKIP', scheme, '/work', '*', 'deal', 'skipped: no /work worlds read');

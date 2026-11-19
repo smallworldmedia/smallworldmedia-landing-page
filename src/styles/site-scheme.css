@@ -310,11 +310,49 @@
    at 1440 x 900 without this). Half a pixel (SQ-125; it was a whole one): the 4px gap is held to 0.5, and rounding the
    centre to a whole pixel alone spends up to all of that (measured 1.86 to 2.29), while half a pixel spends at most
    a quarter and the jitter gate reads the same (worst reversal 0.17, limit 0.25). round() where the browser has it
-   (Chrome 125, Safari 15.4, Firefox 118); older ones keep the fractional seat above, exact to the line. */
+   (Chrome 125, Safari 15.4, Firefox 118); older ones keep the fractional seat above, exact to the line.
+   THE SEAMS ON WHOLE PIXELS (SQ-126, Nathan 11-18: the badge above the lens clipped into it, the one below stopped short).
+   The lens badge (the pager's ::before, scaled 1.5) and each neighbour's station (scaled 0.8) are laid out at fractional
+   positions, and the browser snaps each one's box to the device pixel grid on its own before scaling it, so the neighbour's
+   clip edge, exactly the lens's edge in the maths, painted up to a pixel off it, by an amount that moved with the seat's
+   fraction at each width. Here every one of those snaps is a no-op: the lens centre on a whole pixel (the seat rounds to
+   1px, not 0.5), the badge a multiple of 4px tall (round(29.21, 4px) = 28: its top, centre and both 1.5x edges whole
+   pixels; the eye is not resized, the padding above and below it is 3.39 instead of 4) and the pitch an even number of
+   px (round(34.3, 2px) = 34: every station's top a whole pixel from the lens centre). The lens badge's box is then
+   centred on the eye by its own height. Phones keep the fractional build (no change at 768px and under). */
 @supports (width: round(1px, 1px)) {
   @media (min-width: 769px) {
     .swm-corner {
-      --badge-cy: round(calc(var(--seat-panel-top) + var(--badge-blurb-gap) + var(--seat-below)), 0.5px);
+      --badge-h: round(calc(var(--eye-h) + 2 * var(--badge-pad)), 4px);
+      --scheme-pitch: round(
+        calc(
+          var(--scheme-swatch) * var(--eye-engaged) * (1 + max(var(--eye-near), var(--eye-far))) / 2 + var(--scheme-gap)
+        ),
+        2px
+      );
+      --badge-cy: round(calc(var(--seat-panel-top) + var(--badge-blurb-gap) + var(--seat-below)), 1px);
+    }
+
+    /* The class doubled: this block sits above the badge's own rule, which it must outrank. */
+    .swm-corner[data-ready] .fp-scale.swm-corner__pager.swm-corner__pager::before {
+      top: calc((var(--eye-h) - var(--badge-h)) / 2);
+    }
+
+    /* The glass neighbour (the one badge with a backdrop-filter) is cut by the same window as a single rectangle, inset()
+       rather than the polygon: Chrome draws a polygon clip on a backdrop-filter element through a mask whose edge landed
+       0.75px off the lens's (measured, every width; the opaque black and blue badges keep the polygon, exact). A ring badge
+       is shorter than the lens badge, so what shows of it is always one piece, above the window (top to --badge-yt) or
+       below it (--badge-yb to the bottom); inside it nothing shows. The 1e5x terms pick the side off --badge-yt alone: a window
+       that starts above the badge's top (yt <= 0.01px, the settled lens station's yt is exactly 0) insets the top to --badge-yb
+       clamped to the box, so the lens station itself (yb = its height) is cut away whole and its veil never paints under the
+       lens badge's (SQ-126 rework: two 35% layers read as ~58% white); a window that starts inside or below it insets the
+       bottom to show 0..yt. */
+    .swm-corner .fp-scale.swm-corner__pager .scheme-badge[data-scheme='project'] {
+      --badge-hh: calc(var(--badge-bh) + (var(--badge-xt) + var(--badge-xb)) / var(--eye-r));
+      clip-path: inset(
+        min(clamp(0px, var(--badge-yb), var(--badge-hh)), max(0px, 100000 * (0.01px - var(--badge-yt)))) 0
+          min(max(0px, var(--badge-hh) - var(--badge-yt)), max(0px, 100000 * (var(--badge-yt) - 0.01px))) 0
+      );
     }
   }
 }

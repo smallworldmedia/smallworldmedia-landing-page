@@ -925,6 +925,100 @@ export function bandEdges(states, { tol = 12, edge = 2 } = {}) {
 }
 
 /**
+ * seamEdges — at a settled engaged station the badge ABOVE the lens and the badge BELOW it end exactly where the lens badge does (SQ-125,
+ * Nathan 11-18 on the round-3 crops: "the blue badge at the top is clipping into the central badge"). Each neighbour is clipped off the
+ * lens badge's window, but the lens box and the neighbour's clip each land on the device pixel grid their own way, so a neighbour could paint
+ * into the lens's first or last rows (an overlap) or stop short of them (a gap the page shows through). `states` = [{ label, lens, nbs, top,
+ * scale, y0, y1 }]: `lens` the vertical profile of a flat-grey page with ONLY the lens badge painted, `nbs` the same with only the
+ * neighbours' badges painted, each [r, g, b] per DEVICE pixel row top to bottom (the mean across a few columns inside the neighbours'
+ * width), the first row at CSS y `top` (an integer), `scale` the device pixel ratio (default 1); `y0` and `y1` the lens badge's laid-out top
+ * and bottom edge in CSS px, only to say where to look. An edge is read as sub-pixel position: the full rows' end plus the coverage of the
+ * partly covered rows past it (a row's coverage = how far it is from the page's colour toward the badge's, 0..1). Top seam: the neighbour
+ * above ends at N0 and the lens starts at L0; bottom seam: the lens ends at L1 and the neighbour below starts at N1. A seam FAILS when the
+ * two edges are more than `tol` CSS px apart: a neighbour past the lens's edge paints into its rows, one short of it leaves a gap. No state,
+ * no lens or no neighbour found fails: a run that read nothing proves nothing.
+ */
+export function seamEdges(states, { tol = 0.25, page = [128, 128, 128] } = {}) {
+  const offenders = [];
+  let n = 0;
+  const sub = (a, b) => a.map((v, i) => v - b[i]);
+  const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
+  const cover = (row, colour) => {
+    const d = sub(colour, page);
+    return Math.min(1, Math.max(0, dot(sub(row, page), d) / dot(d, d)));
+  };
+  const FULL = 0.97;
+  for (const s of states ?? []) {
+    const k = s.scale ?? 1;
+    const at = (rows, y) => rows?.[Math.floor((y - s.top) * k)];
+    const lensMid = at(s.lens, (s.y0 + s.y1) / 2);
+    const above = at(s.nbs, s.y0 - 8);
+    const below = at(s.nbs, s.y1 + 8);
+    const far = (c) => !c || Math.sqrt(dot(sub(c, page), sub(c, page))) < 12;
+    if (!s.lens?.length || !s.nbs?.length || !Number.isFinite(s.y0) || !Number.isFinite(s.y1) || !Number.isFinite(s.top) || far(lensMid) || far(above) || far(below)) {
+      offenders.push({ path: s.label, note: 'no lens badge or no neighbour badge found in the pixel rows (nothing differs from the flat page)' });
+      continue;
+    }
+    const y = (i) => s.top + i / k;
+    const i0 = Math.floor((s.y0 - s.top) * k);
+    const i1 = Math.floor((s.y1 - s.top) * k);
+    const sum = (rows, colour, from, to) => { let t = 0; for (let i = from; i <= to; i++) t += rows[i] ? cover(rows[i], colour) : 0; return t / k; };
+    // the lens's top: its first full row (scanning down from 4 rows above the laid-out edge) less the coverage of the 3 rows before it
+    let f = i0 - 4;
+    while (f < i0 + 5 && cover(s.lens[f] ?? page, lensMid) < FULL) f++;
+    const L0 = y(f) - sum(s.lens, lensMid, f - 3, f - 1);
+    let l = i1 + 4;
+    while (l > i1 - 5 && cover(s.lens[l] ?? page, lensMid) < FULL) l--;
+    const L1 = y(l + 1) + sum(s.lens, lensMid, l + 1, l + 3);
+    // the neighbour above ends where its full rows end plus the coverage of the 3 rows after; the one below starts the same way from below
+    let a = i0 - 4;
+    while (a < i0 + 5 && cover(s.nbs[a + 1] ?? page, above) >= FULL) a++;
+    const N0 = y(a + 1) + sum(s.nbs, above, a + 1, a + 3);
+    let b = i1 + 4;
+    while (b > i1 - 5 && cover(s.nbs[b - 1] ?? page, below) >= FULL) b--;
+    const N1 = y(b) - sum(s.nbs, below, b - 3, b - 1);
+    for (const [seam, over] of [['top', N0 - L0], ['bottom', L1 - N1]]) {
+      n++;
+      if (Math.abs(over) > tol) offenders.push({ path: s.label, seam, overlap: fixed(over, 2), lens: fixed(seam === 'top' ? L0 : L1, 2), neighbour: fixed(seam === 'top' ? N0 : N1, 2), note: `the ${seam === 'top' ? 'neighbour above ends at' : 'neighbour below starts at'} y ${fixed(seam === 'top' ? N0 : N1, 2)} but the lens badge ${seam === 'top' ? 'starts' : 'ends'} at ${fixed(seam === 'top' ? L0 : L1, 2)}: it ${over > 0 ? `paints ${fixed(over, 2)} px into the lens` : `stops ${fixed(-over, 2)} px short of it (a gap the page shows through)`}, over ${tol} px` });
+    }
+  }
+  return result(offenders, n, `${(states ?? []).length} engaged lens badges, ${n} seams, each neighbour ends within ${tol} px of the lens's edge`);
+}
+
+/**
+ * lensLayer — the lens badge reads as ONE layer of its panel: no neighbour badge paints inside its window, the station that is the lens
+ * included (SQ-126 rework, the integrator on b05b8ad: the project station's own glass badge painted under the lens, two 35% veils reading
+ * as one denser one, ~58% white, so ?schemeglass 35 broke). `states` = [{ label, lens, both, top, scale, y0, y1 }]: `lens` the vertical
+ * profile of a flat-grey page with ONLY the lens badge painted, `both` the same with the lens AND every station's badge painted, rows and
+ * coordinates as seamEdges reads them. Every device row strictly inside the lens badge (`margin` CSS px in from y0 and y1, away from the
+ * seams, which seamEdges owns) must read the same in both, within `tol` levels per channel. No state or no rows inside fails.
+ */
+export function lensLayer(states, { tol = 4, margin = 2 } = {}) {
+  const offenders = [];
+  let n = 0;
+  for (const s of states ?? []) {
+    const k = s.scale ?? 1;
+    const from = Math.ceil((s.y0 + margin - s.top) * k);
+    const to = Math.floor((s.y1 - margin - s.top) * k) - 1;
+    if (!s.lens?.length || !s.both?.length || !Number.isFinite(s.y0) || !Number.isFinite(s.y1) || !Number.isFinite(s.top) || to < from || !s.lens[to] || !s.both[to] || from < 0) {
+      offenders.push({ path: s.label, note: 'no rows inside the lens badge to read' });
+      continue;
+    }
+    let worst = { d: 0, i: from };
+    for (let i = from; i <= to; i++) {
+      n++;
+      const d = Math.max(...s.lens[i].map((v, c) => Math.abs(v - s.both[i][c])));
+      if (d > worst.d) worst = { d, i };
+    }
+    if (worst.d > tol) {
+      const y = fixed(s.top + worst.i / k, 2);
+      offenders.push({ path: s.label, y, delta: fixed(worst.d, 1), lens: s.lens[worst.i].map((v) => Math.round(v)), both: s.both[worst.i].map((v) => Math.round(v)), note: `inside the lens badge at y ${y} a neighbour's badge paints under it: ${s.lens[worst.i].map((v) => Math.round(v)).join(',')} alone vs ${s.both[worst.i].map((v) => Math.round(v)).join(',')} with the stations' badges (${fixed(worst.d, 1)} levels, over ${tol}): two layers, not one` });
+    }
+  }
+  return result(offenders, n, `${(states ?? []).length} engaged lens badges, ${n} rows inside, each the lens badge's alone within ${tol} levels`);
+}
+
+/**
  * eyeLines — nothing dark outlines the eye. `shapes` = [{ path, stroke, width }]: every shape in
  * the widget's svgs (stroke = the computed colour or 'none', width in px). A stroke must be white
  * (the lids, the globe's lines); a dark one is the old outline.
