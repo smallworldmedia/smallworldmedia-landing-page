@@ -73,12 +73,14 @@ function HeartIcon() {
 
 /** The services link's mark: an open hand, drawn like the heart (Nathan 11-18: the
     page shows what the services are and the past work in each; it was a folder,
-    11-03, as project_directory). */
+    11-03, as project_directory). Nathan 11-20: redrawn in the pose of the old SWM
+    logo hand (Brand/Logos 2026/Old): upright, five parallel digits, the middle
+    tallest, the thumb set low, a U palm. */
 function HandIcon() {
   return (
     <svg className="site-nav__icon site-nav__icon--sm" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path
-        d="M5.5 9.9V4.2a1 1 0 0 1 2 0V7.5M7.5 7.5V3a1 1 0 0 1 2 0v4.5M9.5 7.5V3.8a1 1 0 0 1 2 0V8M11.5 8V5.3a1 1 0 0 1 2 0V10a4 4 0 0 1-4 4H8.6c-1.3 0-2.2-.4-3-1.2L3.2 10.4a1 1 0 0 1 1.4-1.4l.9.9"
+        d="M3.5 11.55V7.7a0.9 0.9 0 0 1 1.8 0V2.8a0.9 0.9 0 0 1 1.8 0V2.15a0.9 0.9 0 0 1 1.8 0V2.65a0.9 0.9 0 0 1 1.8 0V4.8a0.9 0.9 0 0 1 1.8 0V11.55a3.2 3.2 0 0 1 -3.2 3.2H6.7a3.2 3.2 0 0 1 -3.2 -3.2ZM5.3 7.7V10.8M7.1 2.8V8.9M8.9 2.65V8.9M10.7 4.8V8.9"
         stroke="currentColor"
         strokeWidth="1.2"
         strokeLinecap="round"
