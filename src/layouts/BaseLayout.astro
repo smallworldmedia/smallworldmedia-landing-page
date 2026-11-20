@@ -279,6 +279,24 @@ const roster = await getDirectoryData()
           }
         }
       });
+      // SQ-131 (Nathan 11-20, iPhone: Back "briefly shows the first project
+      // begin to populate (coco)"): the swapped-in /work is the server's
+      // first-World markup, and WebKit paints it before the island hydrates.
+      // On an armed return to a later World, hide that card before the first
+      // paint; the restore's pre-paint snap replaces it (and WorldCard's own
+      // entrance sets autoAlpha 1 should the first World stay).
+      document.addEventListener('astro:after-swap', () => {
+        if (window.location.pathname.replace(/\/+$/, '') !== '/work') return;
+        try {
+          if (sessionStorage.getItem('swm:returnToWork') !== '1') return;
+          const kept = window.history.state?.swmWorld;
+          const at = Number.isInteger(kept) ? kept : parseInt(sessionStorage.getItem('swm:worldIndex') ?? '', 10);
+          if (!(at > 0)) return;
+        } catch {
+          return;
+        }
+        for (const el of document.querySelectorAll('.fp-card-wrap')) el.style.visibility = 'hidden';
+      });
     </script>
   </body>
 </html>

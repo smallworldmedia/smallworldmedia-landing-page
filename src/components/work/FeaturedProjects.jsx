@@ -400,8 +400,12 @@ export default function FeaturedProjects({ worlds = [] }) {
   // children (WorldScene: an instant build; the pager: a jump, no glide) read
   // it in their effects, which run before this component's, and the
   // card-staging effect below clears it once it has booted the card fresh.
+  // SQ-131 (Nathan 11-20: Back "briefly shows the first project begin to
+  // populate (coco)"): a LAYOUT effect, so the snap re-renders before the
+  // hydrated first World is ever painted, and snapRef is set before any
+  // passive effect — WorldScene skips building the first World's media.
   const snapRef = useRef(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     let armed = false;
     let saved = NaN;
     let entered = null;
