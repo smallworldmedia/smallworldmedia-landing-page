@@ -19,6 +19,14 @@
  *                  then press-scrub-release cycles for --minute seconds; a sample every 2 flips
  *   --engine       webkit (default: iOS is WebKit for every browser) or chromium (CDP: forced GC
  *                  before each sample, so "alive" counts are exact, plus Performance.getMetrics)
+ *   --run=eye also samples `engaged` (held, before any preview) and, under WebKit, gates the opening STEP
+ *                  (stepGate: the footprint's peak through `released` over the baseline, <= --stepmax MiB,
+ *                  default 160; SQ-133 measured +251..+278 on the base build, +85..+103 with the chains registered)
+ *   Bisect arms (SQ-133), each in a fresh browser:
+ *   --css="..."    a stylesheet in force from the first paint (hide a part, drop a property, register one)
+ *   --drive=api    flip the scheme with no widget gesture (the writes setScheme makes for a preview);
+ *                  --api=attr only html[data-scheme], --api=event only the swm:scheme event. Pair with
+ *                  --extra="&schemeui=0" or --css to take the widget out. Not step-gated.
  *
  * Per sample (window.__mem, installed before any page script):
  *   glContexts     WebGL contexts ever created, and glLive (canvases holding one, not lost)
@@ -42,7 +50,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
-import { plateauGate } from './lib/plateauGate.mjs';
+import { plateauGate, stepGate } from './lib/plateauGate.mjs';
 
 const require = createRequire(import.meta.url);
 const pw = require(process.env.PLAYWRIGHT_PATH || '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright');
@@ -59,6 +67,10 @@ const WORLDS = +arg('worlds', 8);
 const FLIPS = +arg('flips', 12);
 const MINUTE = +arg('minute', 60);
 const EXTRA = arg('extra', '');
+const CSS = arg('css', '');
+const DRIVE = arg('drive', 'eye');
+const API = arg('api', 'full');
+const STEP_MAX = +arg('stepmax', 160);
 const GPU = arg('gpu', 'metal');
 const VW = +arg('vw', 402);
 const VH = +arg('vh', 874);
@@ -326,6 +338,15 @@ const launchArgs =
 const browser = await pw[ENGINE].launch(launchArgs);
 const ctx = await browser.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true });
 await ctx.addInitScript(init);
+// --css: a bisect arm's stylesheet, in force from the first paint (appended once <head> exists).
+if (CSS)
+  await ctx.addInitScript((css) => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const s = document.createElement('style');
+      s.textContent = css;
+      document.head.append(s);
+    });
+  }, CSS);
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
@@ -364,7 +385,38 @@ try {
   await page.waitForFunction(() => window.__swmPopStats && window.__swmPopStats.step != null, null, { timeout: 90000 });
   await sleep(4000);
   await sample('baseline');
-  if (RUN === 'worlds') {
+  if (RUN === 'eye' && DRIVE === 'api') {
+    // The scheme flipped with no widget gesture (a bisect arm: pair with ?schemeui=0 or --css): the
+    // same writes colorScheme.setScheme makes for a preview, or only one half of them (--api=attr|event).
+    const order = ['blue', 'black', 'blue', 'project'];
+    let n = 0;
+    const flip = () =>
+      page.evaluate(
+        ({ name, api }) => {
+          const prev = document.documentElement.dataset.scheme;
+          if (window.__swmScheme) window.__swmScheme.applied = name;
+          if (api !== 'event') document.documentElement.dataset.scheme = name;
+          if (api !== 'attr') window.dispatchEvent(new CustomEvent('swm:scheme', { detail: { scheme: name, prev, preview: true } }));
+        },
+        { name: order[n++ % order.length], api: API }
+      );
+    while (n < FLIPS) {
+      await flip();
+      await sleep(350);
+      if (n % 2 === 0) await sample(`held ${n}`);
+    }
+    await sleep(1500);
+    await sample('released');
+    const end = Date.now() + MINUTE * 1000;
+    while (Date.now() < end) {
+      await flip();
+      await sleep(700);
+      if (n % 6 === 0) await sample(`minute ${n}`);
+    }
+    await sleep(2000);
+    await sample('end');
+    report.flips = n;
+  } else if (RUN === 'worlds') {
     let last = await page.evaluate(() => window.__swmPopStats.step);
     let changes = 0;
     const deadline = Date.now() + (WORLDS + 3) * 15000;
@@ -421,6 +473,7 @@ try {
     const base = await flips();
     await fire('pointerdown', geo.y);
     await sleep(700);
+    await sample('engaged'); // held, no preview yet: what the engage alone costs
     await scrub(async () => (await flips()) - base >= FLIPS, (f) => sample(`held ${f - base}`));
     await fire('pointerup', geo.y);
     await sleep(1500);
@@ -459,9 +512,18 @@ report.gate = plateauGate(samples, {
   rel: 0.1,
   abs: { glTexMiB: 8, canvasMiB: 8, bufferedS: 10, footMiB: 64, heapMiB: 4, nodes: 20, glBuffers: 4, glTextures: 4 },
 });
+// The eye's opening step (SQ-133): the footprint's peak over the engage and the held previews, above the
+// baseline. The base build stepped +251 to +278 MiB here (WebKit, 402x874 @3: the widget's unregistered var()
+// chains re-substituted at every restyle); with them registered (site-scheme.css) +85 to +103. Bound between the two.
+// The minute of press-scrub-release cycles still climbs about 1.5 MiB/s on BOTH builds (3-minute A/B, SQ-133): on the
+// base the step's own peak hid it from footMiB's plateau; with the step gone the plateau gate reports it.
+// Only the eye gesture is gated (--drive=api arms are bisect controls) and only under WebKit, where it was measured.
+const gateStep = RUN === 'eye' && DRIVE === 'eye' && ENGINE === 'webkit';
+if (gateStep) report.stepGate = stepGate(samples, { key: 'footMiB', max: STEP_MAX, until: 'released' });
 fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
 console.log(`\nplateau gate: ${report.gate.pass ? 'PASS' : 'FAIL'}${report.gate.failed.length ? ` (${report.gate.failed.join(', ')})` : ''}`);
 for (const k of report.gate.failed) console.log(`  ${k}: ${JSON.stringify(report.gate.results[k])}`);
+if (gateStep) console.log(`step gate: ${report.stepGate.pass ? 'PASS' : 'FAIL'} ${JSON.stringify(report.stepGate)}`);
 if (errors.length) console.log(`errors: ${errors.join(' | ')}`);
 await browser.close();
-process.exit(report.gate.pass ? 0 : 1);
+process.exit(report.gate.pass && (!gateStep || report.stepGate.pass) ? 0 : 1);
