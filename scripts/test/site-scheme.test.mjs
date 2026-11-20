@@ -296,7 +296,7 @@ test('SQ-107 pass 7 one seat sitewide, the footer rises behind the badge and doe
 test('SQ-107 pass 9 on phones the badge is lifted clear of the screen corner (?schemeclear), never below the sitewide seat', () => {
   const css = skinCss();
   const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
-  assert.ok(/--badge-clear: 56px;/.test(flat), 'default 56: the 55 px display radius plus 1 (PROPOSED)');
+  assert.ok(/--badge-clear: 64px;/.test(flat), 'default 64: Nathan\'s bake (11-20, Phone Checks row 190; it was 56, the 55 px display radius plus 1)');
   const phone = /@media \(max-width: 768px\) \{ \.swm-corner \{ --badge-cy: max\(var\(--badge-cy-floor\), calc\(var\(--badge-clear\) \+ var\(--badge-h\) \/ 2\)\); \} \}/;
   assert.ok(phone.test(flat), 'at <= 768px the lens centre is clear + half the badge height, floored at the sitewide seat');
   assert.equal(flat.split('--badge-clear)').length - 1, 2, 'the dial is read in the phone rules alone (the seat and SQ-127\'s whole-pixel seat): above 768px the seat is the floor, byte for byte');
@@ -315,7 +315,7 @@ test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger
   const css = skinCss();
   const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   // The dial: one rest eye width by default, 0 = a straight column, ramped by the engage.
-  assert.ok(/--eye-shift: calc\(var\(--scheme-swatch\) \* 48 \/ 26\);/.test(flat), 'default S is pass 10\'s 48 swatch units whatever the lids\' scale (the eye box grew with the lids in pass 11, the shift did not move)');
+  assert.ok(/--eye-shift: calc\(var\(--scheme-swatch\) \* 78 \/ 26\);/.test(flat), 'default S is Nathan\'s 54 px at size 18 (11-20 bake: 78 swatch units; pass 10\'s 48), whatever the lids\' scale (the eye box grew with the lids in pass 11, the shift did not move)');
   assert.ok(/--eye-s: calc\(var\(--eye-shift\) \* var\(--eye-ts\)\);/.test(flat), 'S ramps with the SLIDE: 0 at rest, full when the slide has ended, on --eye-ts (pass 11: the slide is its own progress)');
   const q = (s) => schemeParams(new URLSearchParams(s));
   assert.equal(q('').shift, null, 'absent: the CSS default');
@@ -414,7 +414,7 @@ test('SQ-107 pass 5 nothing is cut by a straight edge, the window carries no mas
   assert.ok(!/(^|[\s;])scale:/.test(st) && !/--eye-travel|--eye-pop/.test(css), 'no pop and no half-way travel: the circle slides from the lens row at full size');
   assert.ok(/z-index: calc\(20 - min\(var\(--ndd\), 19\)\);/.test(st), 'the lens circle paints over the ring circles (by the detented distance)');
   assert.ok(!/--eye-foot|--badge-ride/.test(css), 'no footer ride, so no fade for it');
-  assert.ok(/--eye-hit-up:\s*2\.5;/.test(css) && /--eye-hit-down:\s*1\.5;/.test(css), 'the press target reaches the shown column');
+  assert.ok(/--eye-hit-up:\s*1\.5;/.test(css) && /--eye-hit-down:\s*1\.5;/.test(css), 'the press target reaches the shown column (one circle above on every tier since 11-20)');
   assert.ok(/--eye-tn var\(--eye-in\) var\(--ease-draw\)/.test(flat) && /--eye-tf var\(--eye-out\) var\(--ease-draw\)/.test(flat), 'the rings on the existing timing: --eye-in, --eye-out, no overshoot');
   const pager = css.match(/\.swm-corner \.fp-scale\.swm-corner__pager\s*\{([^}]*)\}/)?.[1] ?? '';
   assert.ok(!/--badge-lift|--badge-rise/.test(pager), 'no climb');
@@ -568,18 +568,18 @@ test('SQ-107 pass 11 the home phone blurb\'s right inset is the badge\'s own wid
   assert.ok(/p\.size != null \|\| p\.pad != null \|\| p\.lids != null/.test(sc) && /astro:after-swap/.test(sc), 'only when a dial moved it, and again after a swap (ClientRouter replaces the html style)');
 });
 
-test('SQ-107 pass 11 above 768px only one circle shows above the lens, baked per tier with no param, the phone keeps two', () => {
+test('SQ-107 pass 11 + 11-20: only one circle shows above the lens on every tier, baked with no param', () => {
   const css = skinCss();
   const flat = css.replace(/\s+/g, ' ');
-  const base = css.match(/\.swm-corner\s*\{[^}]*--eye-up-shown:\s*2;[^}]*\}/)?.[0] ?? '';
-  assert.ok(/--eye-up-shown:\s*2;/.test(base) && /--eye-up-span:\s*max\(0\.1, calc\(var\(--scale-rows\) - 2\.3\)\);/.test(base), 'the phone tier\'s two circles above fade over rows - 2.3 stations, as before');
-  const desk = /@media \(min-width: 769px\)\s*\{\s*\.swm-corner\s*\{([^}]*)\}\s*\}/.exec(css)?.[1] ?? '';
-  assert.ok(/--eye-up-shown:\s*1;/.test(desk) && /--eye-up-span:\s*1;/.test(desk), 'above 768px one whole circle above, the next gone one station after it (the far circle, two out, is at nothing)');
-  assert.ok(/--eye-hit-up:\s*1\.5;/.test(desk), 'the press target above the lens: 1.5 stations on desktop');
+  const base = css.match(/\.swm-corner\s*\{[^}]*--eye-up-shown:\s*1;[^}]*\}/)?.[0] ?? '';
+  assert.ok(/--eye-up-shown:\s*1;/.test(base) && /--eye-up-span:\s*1;/.test(base), 'one whole circle above, the next gone one station after it (the far circle, two out, is at nothing): desktop since pass 11, phones since Nathan 11-20');
+  assert.ok(/--eye-hit-up:\s*1\.5;/.test(base), 'the press target above the lens: 1.5 stations, every tier');
+  assert.equal(css.split('--eye-up-shown:').length - 1, 1, 'declared once, in the base: no tier re-declares it (phones kept two before 11-20)');
+  assert.equal(css.split('--eye-hit-up:').length - 1, 1, 'the press target too');
   assert.ok(/--eye-up: clamp\(0, calc\(1 - \(var\(--eye-above\) - var\(--eye-up-shown\)\) \/ var\(--eye-up-span\)\), 1\);/.test(flat), 'a continuous function of the circle\'s station distance above the lens (--eye-above)');
   assert.ok(!/schemeup|eyeup/i.test(read('src/components/siteSchemeLogic.js')), 'no ?param for it');
   const sc = read('src/components/SiteScheme.jsx');
-  assert.ok(/--eye-up-shown/.test(sc) && /now\.f = dir === 'in' \? 1 : 0/.test(sc), 'the far ring, never seen above 768px, takes no beat in the sequence plan');
+  assert.ok(/--eye-up-shown/.test(sc) && /now\.f = dir === 'in' \? 1 : 0/.test(sc), 'the far ring, never seen on any tier, takes no beat in the sequence plan');
 });
 
 test('SQ-107 pass 7 the badge persists across a page change, above the passage fill and the loader', () => {
@@ -613,7 +613,7 @@ test('SQ-107 pass 8 the phone menu wipes over the badge and never hides it, the 
   assert.ok(!/querySelector\('\.site-shell'\)/.test(nav), 'no longer into the shell');
   // The swatches are unreachable under the takeover: inert from the open to the landed wipe out.
   assert.ok(/setAttribute\('inert', ''\)/.test(nav) && /removeAttribute\('inert'\)/.test(nav), 'the badge is inert while the menu is up');
-  assert.ok(/wipeOut\(menu\)\.call\(/.test(nav) && /if \(!cancelled\)/.test(nav), 'released when the wipe out has landed, unless the menu reopened');
+  assert.ok(/wipeOut\(menu, NAV_WIPE_OUT_S\)\.call\(/.test(nav) && /if \(!cancelled\)/.test(nav), 'released when the wipe out (?navwipeout\'s length) has landed, unless the menu reopened');
 });
 
 test('SQ-107 pass 4 the jitter root cause, the circle is drawn at the large size and its row only scales it down', () => {

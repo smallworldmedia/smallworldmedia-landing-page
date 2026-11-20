@@ -9,11 +9,13 @@ import { fileURLToPath } from 'node:url';
 import {
   holdForRoute,
   parseNavHold,
+  parseNavWipeOut,
   routeSignalsReady,
   signalRouteReady,
   ROUTE_READY_EVENT,
   NAV_HOLD_MAX_MS,
   NAV_HOLD_MIN_MS,
+  WIPE_OUT_S,
 } from '../../src/lib/overlayWipe.js';
 import { verdict, summary, uncoverAt, earliestUncover, EXPECT, SAMPLE_TOL_MS, SLACK_MS } from '../lib/navWipeGate.mjs';
 
@@ -34,6 +36,17 @@ test('?navwipehold: MAX[,MIN] in ms, the proposed 600 / 100 by default', () => {
   assert.deepEqual(parseNavHold('?navwipehold=abc'), { maxMs: 600, minMs: 100 });
   assert.deepEqual(parseNavHold('?navwipehold=-5'), { maxMs: 600, minMs: 100 });
   assert.deepEqual(parseNavHold('?other=1'), { maxMs: 600, minMs: 100 });
+});
+
+test('?navwipeout: the menu\'s wipe back down in ms (seconds out), WIPE_OUT_S by default, the menu alone reads it', () => {
+  assert.equal(parseNavWipeOut(''), WIPE_OUT_S);
+  assert.equal(parseNavWipeOut('?navwipeout=450'), 0.45);
+  assert.equal(parseNavWipeOut('?navwipeout=0'), 0);
+  for (const junk of ['abc', '-5', '2500']) assert.equal(parseNavWipeOut(`?navwipeout=${junk}`), WIPE_OUT_S, junk);
+  assert.match(src('src/components/SiteNav.jsx'), /wipeOut\(menu, NAV_WIPE_OUT_S\)/, 'the menu\'s close uses the dial');
+  for (const f of ['src/components/PrivacyOverlay.jsx', 'src/components/ProjectOverlay.jsx']) {
+    assert.doesNotMatch(src(f), /NAV_WIPE_OUT_S/, `${f} keeps the house WIPE_OUT_S`);
+  }
 });
 
 test('routeSignalsReady: home, /work, the directory and a project signal themselves; the rest fall back', () => {

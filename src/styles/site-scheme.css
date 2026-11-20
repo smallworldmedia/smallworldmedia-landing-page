@@ -118,24 +118,27 @@
     var(--scheme-swatch) * var(--eye-engaged) * (1 + max(var(--eye-near), var(--eye-far))) / 2 + var(--scheme-gap)
   );
   /* The window's reach in stations EACH side of the lens: the engine's --scale-rows, a bare number
-     (it parses it). ?schemerows dials it (rows / 2). The circles SHOWN are two above the lens and
-     the one below it; the window only has to reach past the faded ones. */
+     (it parses it). ?schemerows dials it (rows / 2). The circles SHOWN are one above the lens and
+     the one below it (every tier since 11-20); the window only has to reach past the faded ones. */
   --scale-rows: 3;
   /* The rest press target: the WCAG / house 44px minimum. */
   --scheme-hit: 44px;
   /* The engaged press target reaches this many stations above the lens and below it (the gaps
      between circles must not leak the pointer out and commit mid-scrub, and nothing invisible
      beyond the shown circles should take it). */
-  --eye-hit-up: 2.5;
+  --eye-hit-up: 1.5;
   --eye-hit-down: 1.5;
-  /* HOW MANY CIRCLES SHOW ABOVE THE LENS, per tier (SQ-107 pass 11, Nathan 11-17: "on desktop lets have the fade
-     on the top outer globe not show that second smaller one since it overlaps with the text blurb"). BAKED, no
-     ?param. --eye-up-shown is how many stay whole above the lens (2 here, the phone's; 1 above 768px, below), and
-     --eye-up-span the stations over which the next one fades away after that, each a continuous function of
-     --eye-above (the circle's own station distance above the lens). SiteScheme reads --eye-up-shown to know
-     whether the far ring (two stations out) is ever seen. Below the lens one shows at every width (--eye-down). */
-  --eye-up-shown: 2;
-  --eye-up-span: max(0.1, calc(var(--scale-rows) - 2.3));
+  /* HOW MANY CIRCLES SHOW ABOVE THE LENS: ONE, on every tier (SQ-107 pass 11, Nathan 11-17, desktop: "on desktop lets
+     have the fade on the top outer globe not show that second smaller one since it overlaps with the text blurb";
+     phones too since 11-20: "remove that second smaller globe that is at the top on the engaged stage of the eye
+     badge ... let's also remove it for mobile"; phones kept two, fading over rows - 2.3 stations, before). BAKED, no
+     ?param. --eye-up-shown is how many stay whole above the lens and --eye-up-span the stations over which the next
+     one fades away after that (the far circle, two out, is at nothing by its own station), each a continuous
+     function of --eye-above (the circle's own station distance above the lens). SiteScheme reads --eye-up-shown to
+     know whether the far ring (two stations out) is ever seen. Below the lens one shows at every width (--eye-down).
+     The press target above the lens (--eye-hit-up) reaches the near circle and a half. */
+  --eye-up-shown: 1;
+  --eye-up-span: 1;
   /* HOW MANY CIRCLES SHOW BELOW THE LENS (SQ-121): the same pair, for the stations under it. 1 and half a station
      is the whole fade at 768px and under (the viewport's edge cuts that circle there). Above 768px the seat block
      below sets 0 and 1: no ring under the lens, so the engaged column ends at the lens badge's own bottom edge
@@ -163,9 +166,10 @@
      engine's --scale-slice-reach 3 and --scale-slice-exp 2, global.css), so the farther a circle is from
      the selected one the closer to the edge it sits, and it flows with the scrub exactly as /work's
      slices do. The shift ramps with the slide (--eye-ts): 0 at rest. The badge widens LEFT with the
-     selected eye and keeps its right edge on the viewport's. Default: 48 iris units, pass 10's one rest eye
-     width (33.23 px at size 18), which the lids' growth (pass 11) does not move. 0 = a straight column. */
-  --eye-shift: calc(var(--scheme-swatch) * 48 / 26);
+     selected eye and keeps its right edge on the viewport's. Default: 78 iris units, Nathan's 54 px at size 18
+     (11-20, Phone Checks row 190; it was pass 10's 48 units, one rest eye width, 33.23 px), which the lids'
+     growth (pass 11) does not move. 0 = a straight column. */
+  --eye-shift: calc(var(--scheme-swatch) * 78 / 26);
   /* THE BADGE (Nathan 11-16, pass 5): a horizontal rectangle hugging the eye with the SAME padding
      on all four sides, --badge-pad (?schemepad; Nathan's 4): the eye plus --badge-pad each side,
      no size knob of its own. Its RIGHT EDGE IS THE VIEWPORT'S RIGHT EDGE on every route at every
@@ -215,15 +219,16 @@
   --badge-glass: color-mix(in srgb, var(--color-white) var(--badge-veil), transparent);
   --badge-black: color-mix(in srgb, var(--color-white) var(--badge-black-mix), var(--color-black));
   --badge-blur: 12px;
-  /* THE PHONE'S RAISE (pass 9, ?schemeclear, PROPOSED): a square-cornered box flush with the right edge
+  /* THE PHONE'S RAISE (pass 9, ?schemeclear; Nathan's 64, 11-20): a square-cornered box flush with the right edge
      clears a screen corner of radius R only when its bottom edge is at least R above the viewport's
      bottom (the arc meets the right edge at height R). Nathan's phone is 393 px wide with a 55 px
      display radius, and Chrome iOS slides its toolbar away on a scroll so the viewport reaches the
      physical bottom. --badge-clear is where the badge's BOTTOM edge sits above the viewport's bottom at
-     rest, at <= 768px only: 55 + 1. An iPhone 16 Pro Max has a larger radius, a 13 / 14 a smaller one
-     (about 47). viewport-fit=cover is NOT set (BaseLayout), so env(safe-area-inset-*) is 0 and cannot
-     do this. 0 is today's seat (the max() floor below). */
-  --badge-clear: 56px;
+     rest, at <= 768px only: Nathan's 64 (11-20, Phone Checks row 190; it was 55 + 1 = 56). An iPhone 16
+     Pro Max has a larger radius, a 13 / 14 a smaller one (about 47). viewport-fit=cover is NOT set
+     (BaseLayout), so env(safe-area-inset-*) is 0 and cannot do this. 0 is today's seat (the max() floor
+     below). */
+  --badge-clear: 64px;
 }
 
 /* Phones only (the house breakpoint): lift the seat so the badge's bottom edge sits --badge-clear above
@@ -236,12 +241,7 @@
   }
 }
 
-/* Above the phone tier only ONE circle shows above the lens (--eye-up-shown, above): the near one stays whole,
-   the far one (two stations out, over the home blurb's last line at 1440) has faded to nothing by its own
-   station, one station after the near one's. The press target above the lens shrinks with it, to the near
-   circle and a half (2.5 to 1.5 stations).
-
-   THE DESKTOP SEAT (SQ-121, Nathan 11-18: the engaged eyes cover the footer blurb's text and the privacy pill on home at rest;
+/* THE DESKTOP SEAT (SQ-121, Nathan 11-18: the engaged eyes cover the footer blurb's text and the privacy pill on home at rest;
    SQ-125, Nathan 11-18: "move the eye badge up higher on desktop so that the lower badge clears the black footer blurb container
    with 2 px of gap", then 11-18: "lets bump the gap to 4 px for engaged and footer blurb container"). DECIDED: ONE desktop seat on every route. The blurb belongs to the links footer, which every route reveals,
    so the seat stays put across routes and scroll stops (the 11-16 "one seat, sitewide" holds above 768px too; only its height
@@ -273,9 +273,6 @@
    station), to compare. */
 @media (min-width: 769px) {
   .swm-corner {
-    --eye-up-shown: 1;
-    --eye-up-span: 1;
-    --eye-hit-up: 1.5;
     --eye-down-shown: var(--eye-down-desk, 1);
     --eye-down-span: calc(1 - 0.5 * var(--eye-down-desk, 1));
     --eye-hit-down: calc(0.75 + 0.75 * var(--eye-down-desk, 1));
@@ -336,9 +333,9 @@
   }
 
   /* Phones (SQ-127): the same whole pixels at 768px and under. The badge, the pitch and the seat round exactly as above
-     (28 px, 34 px), and the seat is the phone's own: ?schemeclear 56 under the badge's bottom edge, plus half the badge,
-     on a whole pixel (70 at the defaults: 56 + 14). Nothing else of the phone moves: the shift, the fade numbers and the
-     two circles above the lens are the base block's. */
+     (28 px, 34 px), and the seat is the phone's own: ?schemeclear 64 under the badge's bottom edge, plus half the badge,
+     on a whole pixel (78 at the defaults: 64 + 14). Nothing else of the phone moves: the shift, the fade numbers and the
+     one circle above the lens are the base block's. */
   @media (max-width: 768px) {
     .swm-corner {
       --badge-h: round(calc(var(--eye-h) + 2 * var(--badge-pad)), 4px);
@@ -741,7 +738,7 @@ html[data-chrome-open] .swm-corner {
     var(--eye-tg) + (var(--eye-tn) - var(--eye-tg)) * clamp(0, var(--ndr), 1) +
       (var(--eye-tf) - var(--eye-tn)) * clamp(0, calc(var(--ndr) - 1), 1)
   );
-  /* The fade above the shown circles: whole through --eye-up-shown stations out (2 on a phone, 1 above 768px),
+  /* The fade above the shown circles: whole through --eye-up-shown stations out (1, every tier since 11-20),
      gone before the window's edge (the far circle's rim included), so nothing is ever cut by it. */
   --eye-up: clamp(0, calc(1 - (var(--eye-above) - var(--eye-up-shown)) / var(--eye-up-span)), 1);
   /* Below the lens --eye-down-shown circles stay whole (1 at 768px and under, where the viewport's edge cuts it; 0

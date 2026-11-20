@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 import { navigate } from 'astro:transitions/client';
-import { wipeIn, wipeOut, holdForRoute } from '../lib/overlayWipe.js';
+import { wipeIn, wipeOut, holdForRoute, NAV_WIPE_OUT_S } from '../lib/overlayWipe.js';
 import { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
 import { NAV_BLACK } from '../lib/navAccent.js';
 // The brand lockup, inlined (footer precedent) — one source of truth in
@@ -196,7 +196,7 @@ export default function SiteNav({
       gsap.set(menu, { autoAlpha: 0 });
       badge()?.removeAttribute('inert');
     } else {
-      wipeOut(menu).call(() => {
+      wipeOut(menu, NAV_WIPE_OUT_S).call(() => {
         if (!cancelled) badge()?.removeAttribute('inert');
       });
     }

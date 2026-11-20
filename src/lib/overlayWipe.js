@@ -84,6 +84,15 @@ export function parseNavHold(search = '') {
 // Module-load class (docs/tunables-guide.md): put it on the URL you hard-load.
 const NAV_HOLD = parseNavHold(typeof window === 'undefined' ? '' : window.location.search);
 
+/** `?navwipeout=<ms>`: the MENU's wipe back down (Nathan 11-20, Phone Checks row 160: "a touch
+ *  slower"), in seconds for wipeOut. The menu only; every other overlay keeps WIPE_OUT_S. Junk,
+ *  negative or over 2000 falls back to WIPE_OUT_S. PROPOSED until Nathan dials it. */
+export function parseNavWipeOut(search = '') {
+  const ms = parseFloat(new URLSearchParams(search).get('navwipeout'));
+  return Number.isFinite(ms) && ms >= 0 && ms <= 2000 ? ms / 1000 : WIPE_OUT_S;
+}
+export const NAV_WIPE_OUT_S = parseNavWipeOut(typeof window === 'undefined' ? '' : window.location.search);
+
 /** Routes whose island dispatches `swm:route-ready` itself (home, /work, the
  *  directory, a project page). Any other route is ready at `astro:page-load`. */
 export const routeSignalsReady = (pathname) => /^\/(work(\/[^/]+)?)?\/?$/.test(pathname);
