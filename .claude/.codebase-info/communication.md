@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-17*
+*Last Updated: 2026-11-20*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -102,6 +102,15 @@ browser has already animated (`popstate.hasUAVisualTransition`, iOS's edge swipe
 view transition (`viewTransition.skipTransition()` at `astro:before-swap`), and `?histlog=1`
 (`lib/historyLog.js`) logs every push / replace / popstate / swap on the device itself, because
 Playwright's WebKit can't reproduce Safari's back-list skipping.
+
+Since 11-20 (SQ-131) a return opens /work straight on the World it left: the restore runs in a
+`useLayoutEffect`, so the snap re-renders before the hydrated first World paints; `useWorldScene.js`
+skips building a World a pending `snapRef` replaces, so the first World's media is never requested;
+and `BaseLayout.astro`'s `astro:after-swap` listener hides the server's `.fp-card-wrap` when
+`swm:returnToWork` is armed for a World past the first (WebKit paints the swapped-in markup before the
+island hydrates; the card's own entrance restores it). Gated by history-probe's RF / RB / RC / RE
+scenarios (Back, breadcrumb, cold load, Enter World; `c` Chromium, `w` WebKit) through
+`scripts/lib/restoreFlashGate.mjs`.
 
 ## The Project Directory's URL state
 

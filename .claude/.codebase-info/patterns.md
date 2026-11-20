@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-19*
+*Last Updated: 2026-11-20*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -538,7 +538,9 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   SQ-107 through 11-17, SQ-116 adding the ring fan-out gate `fan`, which since `c66c8b6` also holds the far badge's seam (e) and the straight up-and-down slide (f), each with a live `--inject` control, and SQ-126 adding `seamEdges` and `lensLayer`) follows the same rule under `scripts/test/scheme-gate.test.mjs` (101 tests at `94a3310`), as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
   no uncover before the destination draws, none past `NAV_HOLD_MAX_MS`) under `scripts/test/nav-wipe.test.mjs`
   and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
-  under `scripts/test/legal-scroll.test.mjs`. Every gate
+  under `scripts/test/legal-scroll.test.mjs`, `scripts/lib/plateauGate.mjs` (memory-probe: a count
+  plateaus or climbs, SQ-129) under `scripts/test/plateau-gate.test.mjs`, and `scripts/lib/restoreFlashGate.mjs`
+  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
   `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named

@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-19*
+*Last Updated: 2026-11-20*
 
 ```
 .
@@ -62,7 +62,9 @@
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
 │   ├── lib/scheme-gate.mjs   # scheme-probe's pure gates (colour maths, the page gates, the corner widget's twenty-one)
 │   ├── lib/scheme-leak-probe.mjs   # SQ-113's scheme-flip memory probe (one arm per fresh browser; measurement only)
+│   ├── lib/plateauGate.mjs   # memory-probe's pure gate: a sampled count plateaus or climbs (SQ-129)
 │   ├── lib/navWipeGate.mjs, lib/legalScrollGate.mjs   # nav-wipe-probe's and legal-scroll-probe's pure gates
+│   ├── lib/restoreFlashGate.mjs   # history-probe's /work return gate: no first-World frame or media before the restored card (SQ-131)
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
@@ -74,6 +76,7 @@
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs, scheme-probe.mjs   # docs + probe tooling
 │   ├── palette-measure.mjs   # colour-family shares of an image (OKLCH classifier; the scheme probe's shares gate imports it)
 │   ├── media-load-probe.mjs  # how long a media tile sits in view unpainted while a page scrolls (a measurement, not a gate)
+│   ├── memory-probe.mjs      # does any resource count climb per globe world or scheme flip (SQ-129, the iPhone tab-kill hunt)
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated
 │   └── shots/                # probe screenshot dumps (untracked noise)
