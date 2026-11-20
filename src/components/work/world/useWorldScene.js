@@ -1311,6 +1311,9 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
   // ── Drive the World Turn when the active World changes ──
   useEffect(() => {
     if (!apiRef.current) return;
+    // A pending arrival snap to another World (FeaturedProjects' restore, a
+    // layout effect) replaces this one before paint: never request its media.
+    if (snapRef?.current != null && snapRef.current !== index) return;
     const prev = prevIndexRef.current;
     // The arrival snap is the page landing inside a World, not a Turn.
     const snap = snapRef?.current === index;

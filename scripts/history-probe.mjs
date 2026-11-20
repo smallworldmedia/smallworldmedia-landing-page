@@ -39,6 +39,7 @@
 import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { astroProps, mediaTokens, restoreFlashVerdict } from './lib/restoreFlashGate.mjs';
 
 export const SKIPPABLE = 'NavigationEntryMarkedSkippable';
 
@@ -54,6 +55,7 @@ export function verdict(rec) {
     if (!rec.activated && grew !== 0) fails.push(`unactivated turn should replace (entries ${rec.before.length}→${rec.after.length})`);
   }
   if ('left' in rec && rec.left !== rec.restored) fails.push(`restored ${rec.restored}, left from ${rec.left}`);
+  if (rec.flash) fails.push(...restoreFlashVerdict(rec.flash).fails);
   for (const b of rec.back ?? []) {
     const verb = b.dir === 'forward' ? 'Forward' : 'Back';
     if (b.expect !== b.got) fails.push(`${verb} landed ${b.got}, expected ${b.expect}`);
@@ -390,6 +392,135 @@ async function main() {
       await step('forward', b);
     });
     await browser.close();
+  }
+
+  // ── Return-restore first frame (SQ-131, Nathan 11-20 row 130: Back to /work
+  // "briefly shows the first project begin to populate (coco)"). iPhone 17 Pro
+  // geometry (402x874 @3, touch) in BOTH engines. From the swap, every frame's
+  // visible cards (client names; nothing counts under the full passage cover)
+  // and every request are kept, then judged by scripts/lib/restoreFlashGate.mjs:
+  // the first card shown is the World left, World 1's card never shows and its
+  // media is never requested. RF* = Back, RB* = the detail breadcrumb, RC* = a
+  // cold /work load (World 1), RE* = Enter World from the home globe (the
+  // globe's World). Suffix c = Chromium, w = WebKit. ──
+  const FLASH = ['RFc', 'RBc', 'RCc', 'REc', 'RFw', 'RBw', 'RCw', 'REw'];
+  if (FLASH.some(want)) {
+    const sampler = () => {
+      const s = (window.__rf = { on: false, frames: [], t0: 0 });
+      const vis = (el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1 || r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) return false;
+        return el.checkVisibility ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true, checkOpacity: true, checkVisibilityCSS: true }) : true;
+      };
+      const tick = () => {
+        if (s.on) {
+          const fill = document.querySelector('.route-fill');
+          const cs = fill && getComputedStyle(fill);
+          s.frames.push({
+            t: Math.round(performance.now() - s.t0),
+            path: location.pathname,
+            covered: !!cs && cs.visibility !== 'hidden' && parseFloat(cs.opacity) >= 0.99,
+            cards: [...document.querySelectorAll('.fp-card__client')].filter(vis).map((el) => el.textContent),
+          });
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      s.start = () => {
+        s.t0 = performance.now();
+        s.on = true;
+      };
+      // The globe's handover (Hero writes it; /work reads and drops it).
+      const set = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k, v) {
+        if (k === 'swm:enterWorld') window.__enterWorld = v;
+        return set.call(this, k, v);
+      };
+    };
+    const worldsOf = async (page) =>
+      astroProps(
+        JSON.parse(
+          await page.evaluate(() => document.querySelector('astro-island[component-url*="FeaturedProjects"]')?.getAttribute('props') ?? '{}')
+        )
+      ).worlds ?? [];
+    for (const [engine, type] of [['c', chromium], ['w', webkit]]) {
+      if (ENGINE !== 'all' && ENGINE !== (engine === 'c' ? 'chromium' : 'webkit')) continue;
+      if (!FLASH.some((id) => id.endsWith(engine) && want(id))) continue;
+      const browser = await type.launch({ headless: true });
+      const flash = async (id, fn) => {
+        if (!want(id + engine)) return;
+        const { defaultBrowserType, ...phone } = devices['iPhone 17 Pro'];
+        const ctx = await browser.newContext(phone);
+        await ctx.addInitScript(sampler);
+        const page = await ctx.newPage();
+        const rec = { id: id + engine, skippable: 0, notes: [] };
+        let requests = null;
+        page.on('request', (r) => requests?.push(r.url()));
+        const reset = () => {
+          requests = [];
+        };
+        const begin = async () => {
+          reset();
+          await page.evaluate(() => window.__rf.start());
+        };
+        try {
+          const { expectIndex } = await fn({ page, begin, reset, rec });
+          await sleep(5000);
+          const frames = await page.evaluate(() => window.__rf.frames.filter((f) => f.path.replace(/\/+$/, '') === '/work'));
+          const worlds = await worldsOf(page);
+          const expect = worlds[expectIndex]?.clientName;
+          const forbid = worlds[0]?.clientName;
+          const keep = new Set(mediaTokens(worlds[expectIndex]));
+          rec.flash = { expect, forbid, frames, requests, forbidTokens: mediaTokens(worlds[0]).filter((t) => !keep.has(t)) };
+          const first = frames.find((f) => !f.covered && f.cards.length);
+          rec.notes.push(`expect=${expect} frames=${frames.length} firstCard=${first?.cards.join('+')}@${first?.t}ms requests=${requests.length}`);
+        } catch (e) {
+          rec.notes.push('ERR ' + e.message);
+          rec.skippable += 1000;
+        }
+        results.push(rec);
+        await ctx.close();
+      };
+      // /work World 3 → its card → back to /work by `back` (browser Back or the breadcrumb).
+      const leaveWorld3 = (back) => async ({ page, begin, rec }) => {
+        await page.goto('about:blank');
+        await page.goto(BASE + '/work', { waitUntil: 'load' });
+        await sleep(4500);
+        for (let i = 0; i < 2; i++) {
+          await page.tap('.fp-next');
+          await sleep(3000);
+        }
+        rec.notes.push('left=' + (await page.evaluate(() => document.querySelector('.fp-card__client')?.textContent)));
+        await page.tap('.fp-card__cta');
+        await waitPath(page, /^\/work\/.+/);
+        await sleep(3500);
+        await begin();
+        await back(page);
+        await waitPath(page, /^\/work$/);
+        return { expectIndex: 2 };
+      };
+      await flash('RF', leaveWorld3((page) => page.goBack({ timeout: 8000 }).catch(() => {})));
+      await flash('RB', leaveWorld3((page) => page.tap('.detail-breadcrumb')));
+      await flash('RC', async ({ page, reset }) => {
+        await page.goto('about:blank');
+        await page.addInitScript(() => window.__rf?.start()); // after the sampler's: frames from the first one
+        reset();
+        await page.goto(BASE + '/work', { waitUntil: 'load' });
+        return { expectIndex: 0 };
+      });
+      await flash('RE', async ({ page, begin }) => {
+        await page.goto(BASE + '/', { waitUntil: 'load' });
+        await sleep(3000);
+        await begin();
+        await page.tap('.hero__enter');
+        await waitPath(page, /^\/work$/);
+        await sleep(500);
+        const slug = await page.evaluate(() => window.__enterWorld ?? null);
+        const worlds = await worldsOf(page);
+        return { expectIndex: Math.max(0, worlds.findIndex((w) => w.slug === slug)) };
+      });
+      await browser.close();
+    }
   }
 
   const verdicts = results.map(verdict);
