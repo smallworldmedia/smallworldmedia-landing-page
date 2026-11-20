@@ -13,6 +13,7 @@ test('a flat series passes', () => {
 test('a series that churns under one ceiling passes (textures per world)', () => {
   const r = plateauGate(series('glTextures', [80, 120, 95, 131, 88, 126, 101, 129, 92, 130]), { rel: 0.1 });
   assert.equal(r.pass, true, JSON.stringify(r.results));
+  assert.equal(r.results.glTextures.firstMax, 131);
 });
 
 test('negative control: a series that grows per sample fails', () => {
@@ -27,9 +28,11 @@ test('negative control: a slow climb of one per world fails at the default toler
   assert.equal(r.pass, false);
 });
 
-test('warm samples are skipped: a one-time step before the plateau passes', () => {
+test('warm samples are skipped, so a one-time step before the plateau passes', () => {
   const r = plateauGate(series('mib', [100, 300, 310, 305, 312, 308, 311, 309]), { warm: 2, abs: { mib: 16 } });
   assert.equal(r.pass, true, JSON.stringify(r.results));
+  assert.equal(r.results.mib.n, 6);
+  assert.equal(r.results.mib.first, 310);
 });
 
 test('per-key absolute tolerance', () => {
