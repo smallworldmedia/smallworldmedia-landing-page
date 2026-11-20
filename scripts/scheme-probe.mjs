@@ -151,7 +151,8 @@
  *               badge painted over a flat page, --scale-qf is set to whole and fractional values and the
  *               middle column's colours read: one panel at a whole q (the station's), the seam at
  *               (1 - fraction) x the height between (project only). Then the real engine: ArrowDown x3,
- *               each settled detent one colour, the station's.
+ *               each settled detent one colour, the station's. SQ-132: the by-hand frames load ?lenswipe=1 (the
+ *               wipe is that A/B now; the default lens is one colour, gated by midChange), the engine frames the default.
  *   eyeLines    no dark stroke on any shape in the widget's svgs (the black outline is gone).
  *   bounds      engaged, every visible circle lies inside the window's and the viewport's x range (the
  *               viewport's bottom edge is the one hard edge, so y is not held).
@@ -1930,9 +1931,11 @@ async function measureStrip(browser, width) {
     return col;
   };
   const flat = 'html{background:#e0e0e0 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner svg,.swm-corner svg *{visibility:hidden !important}';
-  const open = async () => {
+  // SQ-132: the default lens paints one station's panel (it follows --scale-cur, not a hand-set --scale-qf), so the
+  // hand frames read the strip wipe where it still lives, ?lenswipe=1; the live frames run the default.
+  const open = async (query = '') => {
     const page = await ctx.newPage();
-    await page.goto(`${BASE}/privacy/?scheme=project`, { waitUntil: 'load', timeout: 90000 });
+    await page.goto(`${BASE}/privacy/?scheme=project${query}`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
     if (INJECT) await page.addStyleTag({ content: INJECT });
     await sleep(2000);
@@ -1951,8 +1954,8 @@ async function measureStrip(browser, width) {
       frames.push({ q, col: await column(live), live: true });
     }
     await live.close();
-    // The strip by hand: --scale-qf as the engine writes it each frame.
-    const page = await open();
+    // The strip by hand: --scale-qf as the engine writes it each frame (the ?lenswipe=1 A/B; SQ-132).
+    const page = await open('&lenswipe=1');
     for (const q of [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 2.75, 3, 3.5]) {
       await page.evaluate((v) => document.querySelector('.swm-corner .fp-scale').style.setProperty('--scale-qf', v), q);
       await sleep(150);

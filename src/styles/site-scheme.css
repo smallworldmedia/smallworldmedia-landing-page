@@ -922,14 +922,15 @@ html[data-chrome-open] .swm-corner {
   /* 1 = trimmed (the near ring, out), 0 = today's band; --badge-ab 1 above the lens, 0 below */
   --badge-m: calc(clamp(0, var(--ndd), 1) * (1 - var(--badge-g)) * (1 - var(--eye-con)));
   --badge-ab: clamp(0, calc(var(--scale-cur) - var(--k, 0)), 1);
+  /* --badge-yt / --badge-yb once each (WebKit substitutes var() chains as text on every style pass, and the two are
+     the longest chains here: written twice, the menu's first frame over the badge ran long; SQ-132) */
   --badge-ct: calc(
-    var(--badge-yt) +
-      var(--badge-m) *
-      (var(--badge-ab) * (var(--badge-bh) - var(--badge-trim)) - (1 - var(--badge-ab)) * 999px - var(--badge-yt))
+    (1 - var(--badge-m)) * var(--badge-yt) +
+      var(--badge-m) * (var(--badge-ab) * (var(--badge-bh) - var(--badge-trim)) - (1 - var(--badge-ab)) * 999px)
   );
   --badge-cb: calc(
-    var(--badge-yb) +
-      var(--badge-m) * (var(--badge-ab) * 999px + (1 - var(--badge-ab)) * var(--badge-trim) - var(--badge-yb))
+    (1 - var(--badge-m)) * var(--badge-yb) +
+      var(--badge-m) * (var(--badge-ab) * 999px + (1 - var(--badge-ab)) * var(--badge-trim))
   );
   clip-path: polygon(
     -999px -999px,
