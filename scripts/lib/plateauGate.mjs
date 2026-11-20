@@ -48,3 +48,29 @@ export function plateauGate(samples, opts = {}) {
   const failed = Object.keys(results).filter((k) => !results[k].pass);
   return { pass: failed.length === 0 && keys.length > 0, failed, results };
 }
+
+/**
+ * stepGate — how far one reading STEPS above its first sample in the opening stretch of a run
+ * (SQ-133). The plateau gate cannot see a one-time step: a count that jumps on the first eye
+ * previews and then holds or drifts back is flat after the jump. iOS kills a tab on its peak, so
+ * the peak over the opening matters on its own:
+ *
+ *   step = max(samples[1..until]) − samples[0]     pass when step <= max
+ *
+ * `until` is the label of the last sample counted (inclusive; the whole run when absent or not
+ * found). A missing first reading or no reading after it is VACUOUS, which fails.
+ *
+ * @param {Array<Record<string, any>>} samples - in order, the first is the baseline
+ * @param {{ key?: string, max: number, until?: string }} opts */
+export function stepGate(samples, { key = 'footMiB', max, until } = {}) {
+  const at = until ? samples.findIndex((s) => s.label === until) : -1;
+  const window = samples.slice(1, at > 0 ? at + 1 : samples.length);
+  const num = (v) => typeof v === 'number' && Number.isFinite(v);
+  const base = samples[0]?.[key];
+  const after = window.map((s) => s[key]).filter(num);
+  if (!num(base) || after.length === 0 || !num(max)) return { pass: false, vacuous: true, key, n: after.length };
+  const peak = Math.max(...after);
+  const step = Math.round((peak - base) * 10) / 10;
+  const peakAt = window.find((s) => s[key] === peak)?.label ?? null;
+  return { pass: step <= max, key, base, peak, peakAt, step, max, n: after.length };
+}
