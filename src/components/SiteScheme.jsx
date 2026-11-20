@@ -160,6 +160,8 @@ export default function SiteScheme() {
       if (p.stepMs != null) el.style.setProperty('--eye-step', `${p.stepMs}ms`);
       if (p.glass != null) el.style.setProperty('--badge-veil', `${p.glass}%`);
       if (p.black != null) el.style.setProperty('--badge-black-mix', `${p.black}%`);
+      // ?lenswipe=1 (SQ-132 A/B): the strip wipe through the lens instead of the one-colour lens.
+      if (p.lensWipe) el.dataset.lensWipe = '';
       if (p.lids != null) {
         const g = eyeGeometry(p.lids);
         el.style.setProperty('--eye-u-w', String(+g.w.toFixed(4)));

@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  clearOfBlurb, bandEdges, seamEdges, lensLayer, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids,
+  clearOfBlurb, bandEdges, seamEdges, lensLayer, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids, midChange,
 } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
@@ -1559,4 +1559,25 @@ test('phoneRects gate: identical rects pass, a moved part fails naming it, nothi
   assert.ok(/circle k=1/.test(JSON.stringify(r.offenders)), JSON.stringify(r.offenders));
   assert.equal(phoneRects({}, state()).pass, false);
   assert.equal(phoneRects(state(), {}).pass, false);
+});
+
+test('midChange gate (SQ-132): a column of whole badges passes; the strip wipe lens-wide band and the glass sliver fail by name; nothing measured fails', () => {
+  const P = [128, 128, 128], B = [0, 0, 255], G = [172, 172, 172], K = [26, 26, 26], S = [186, 186, 186];
+  const col = (...runs) => runs.flatMap(([c, n]) => Array.from({ length: n }, () => c));
+  // one colour-lens frame: blue badge above, the glass lens, the black badge below; the lens-only scanline sees the lens alone
+  const good = { label: 'good', cols: [col([P, 40], [G, 126], [P, 40]), col([P, 10], [B, 30], [G, 126], [K, 40]), col([P, 10], [B, 30], [G, 126], [K, 40])] };
+  // an anti-aliased edge (one blended row) is not a line
+  const aa = { label: 'aa', cols: [good.cols[0], good.cols[1], col([P, 10], [B, 30], [[86, 86, 213], 1], [G, 125], [K, 40])] };
+  const ok = midChange([good, aa]);
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  // the wipe at q 2.875 (verification/SQ-132 frames-lenswipe.json, d22): a lens-wide blue band on the lens-only scanline that no
+  // badge edge matches at the right edge, and an 11-row lighter glass sliver below the lens over the black badge
+  const band = { label: 'band', cols: [col([P, 40], [B, 24], [G, 102], [P, 40]), good.cols[1], good.cols[2]] };
+  const sliver = { label: 'sliver', cols: [good.cols[0], good.cols[1], col([P, 10], [B, 30], [G, 126], [S, 11], [K, 29])] };
+  const bad = midChange([band, sliver]);
+  assert.equal(bad.pass, false);
+  assert.ok(bad.offenders.some((o) => o.path === 'band lens-only' && /no badge edge/.test(o.note)), JSON.stringify(bad.offenders));
+  assert.ok(bad.offenders.some((o) => o.path === 'sliver right edge' && /11-row sliver/.test(o.note)), JSON.stringify(bad.offenders));
+  assert.equal(midChange([]).pass, false, 'no frames: vacuous');
+  assert.equal(midChange([{ label: 'x', cols: [good.cols[0]] }]).pass, false, 'a frame without three scanlines fails');
 });

@@ -1609,6 +1609,58 @@ export function lids(run, { max = 0, minCircle = 100, minLid = 50 } = {}) {
   return result(offenders, cases.length, `${cases.length} case(s), worst leak ${cases.reduce((m, c) => Math.max(m, c.leak ?? 0), 0)} px`);
 }
 
+/**
+ * midChange — while the selection moves between two stations, every colour edge in the badge column belongs to a whole badge and no
+ * badge leaves a sliver (SQ-132, Phone Checks row 230, 402 x 874 @3: the old strip wipe disagreed with the carried badges between
+ * detents and left a lens-wide band of the leaving colour under a narrower badge, the stepped corner, and a sliver of the arriving
+ * glass below the lens). `frames` = [{ label, cols: [lensOnly, middle, edge] }]: per frame three vertical scanlines through the
+ * column with the art hidden over a flat page, each [[r, g, b], ...] per device-px row top to bottom: one through the lens badge
+ * left of every neighbour's badge, one through its middle, one at the viewport's right edge (inside every badge). A scanline splits
+ * into runs where a row differs from the one above by more than `tol` on any channel (a blur's smooth gradient stays one run); a
+ * run of under `blend` rows is an edge's anti-aliasing and is folded away. Offenders:
+ *  - an ORPHAN EDGE: an edge between two painted runs on the lens-only scanline with no edge within `slack` rows on the right-edge
+ *    one (every badge reaches the right edge, so a real badge edge shows on both; the wipe's lens-wide band does not);
+ *  - a SLIVER: a painted run under `minRun` rows between two other painted runs on the right-edge scanline.
+ * The page is the colour of each scanline's first row. No frames, or a frame without three scanlines, fails.
+ */
+export function midChange(frames, { tol = 12, blend = 4, minRun = 18, slack = 3 } = {}) {
+  const list = frames ?? [];
+  const offenders = [];
+  const near = (a, b) => Math.max(...[0, 1, 2].map((i) => Math.abs(a[i] - b[i]))) <= tol;
+  const runsOf = (col) => {
+    const runs = [];
+    col.forEach((c, y) => {
+      const last = runs[runs.length - 1];
+      if (last && near(c, col[y - 1])) last.n++;
+      else runs.push({ y, n: 1, c });
+    });
+    const page = col[0];
+    return runs.filter((r) => r.n >= blend).map((r) => ({ ...r, page: near(r.c, page) }));
+  };
+  let n = 0;
+  for (const f of list) {
+    const cols = f.cols ?? [];
+    if (cols.length < 3) {
+      offenders.push({ path: f.label, note: 'want three scanlines (lens only, middle, right edge)' });
+      continue;
+    }
+    n++;
+    const lens = runsOf(cols[0]);
+    const edge = runsOf(cols[cols.length - 1]);
+    const edgeYs = edge.slice(1).map((r) => r.y);
+    for (let i = 1; i < lens.length; i++) {
+      if (lens[i - 1].page || lens[i].page) continue;
+      const y = lens[i].y;
+      if (!edgeYs.some((e) => Math.abs(e - y) <= slack + blend)) offenders.push({ path: `${f.label} lens-only`, note: `an edge at row ${y} (${lens[i - 1].c.map(Math.round)} over ${lens[i].c.map(Math.round)}) that no badge edge at the right edge matches` });
+    }
+    for (let i = 1; i < edge.length - 1; i++) {
+      const r = edge[i];
+      if (!r.page && !edge[i - 1].page && !edge[i + 1].page && r.n < minRun) offenders.push({ path: `${f.label} right edge`, note: `a ${r.n}-row sliver at row ${r.y} (${r.c.map(Math.round)}) between ${edge[i - 1].c.map(Math.round)} and ${edge[i + 1].c.map(Math.round)}` });
+    }
+  }
+  return result(offenders, n, `${list.length} frames: every lens-only edge matched at the right edge, no painted run under ${minRun} rows`);
+}
+
 /** Short one-line text of an offender, for the probe's report. */
 export function describeOffender(o) {
   const { path, selector, slug, family, ...rest } = o;
