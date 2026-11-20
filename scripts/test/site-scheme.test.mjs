@@ -153,6 +153,7 @@ test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesi
     lids: null,
     glass: null,
     black: null,
+    lensWipe: false,
   });
   assert.equal(q('schemeui=0').ui, false);
   assert.equal(q('schemeui=1').ui, true);
@@ -831,4 +832,25 @@ test('SQ-121 ?schemeblurbgap is a 0 to 60 px dial and ?schemedown is 0 or 1, bot
   assert.equal(q('schemedown=2').down, null);
   const sc = read('src/components/SiteScheme.jsx');
   assert.ok(/--badge-blurb-gap', `\$\{p\.blurbGap\}px`/.test(sc) && /--eye-down-desk', String\(p\.down\)/.test(sc), 'SiteScheme writes both as custom properties on .swm-corner');
+});
+
+test('SQ-132 the one-colour lens (Nathan 11-20, option A): the lens paints the current station only and rides its lag, the near ring is trimmed, not windowed; ?lenswipe=1 keeps the wipe', () => {
+  const q = (s) => schemeParams(new URLSearchParams(s));
+  assert.equal(q('').lensWipe, false, 'default: the one-colour lens');
+  assert.equal(q('lenswipe=1').lensWipe, true);
+  assert.equal(q('lenswipe=0').lensWipe, false);
+  assert.equal(q('lenswipe=yes').lensWipe, false, 'a strict =1 gate');
+  const jsx = read('src/components/SiteScheme.jsx');
+  assert.ok(/if \(p\.lensWipe\) el\.dataset\.lensWipe = '';/.test(jsx), 'read at mount onto the corner as data-lens-wipe');
+  const css = skinCss();
+  const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  const lens = flat.match(/\.swm-corner\[data-ready\]:not\(\[data-lens-wipe\]\) \.fp-scale\.swm-corner__pager::before \{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/background-position: 0 calc\(-1 \* \(var\(--scale-cur\) \* var\(--badge-strip-h\) \+ var\(--badge-strip-pad\)\)\);/.test(lens), 'one whole band, the detented station, never a seam');
+  assert.ok(/translate: 0 calc\(\(var\(--scale-cur\) - var\(--scale-qf, var\(--scale-cur\)\)\) \* var\(--scale-pitch\)\);/.test(lens), 'it rides the current station lag, one pitch per detent like the carried badges, 0 settled');
+  const nb = flat.match(/\.swm-corner:not\(\[data-lens-wipe\]\) \.fp-scale\.swm-corner__pager \.scheme-badge \{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(/opacity: clamp\(0, var\(--ndd\), 1\);/.test(nb), 'the current station carried copy is not drawn (the lens is it)');
+  assert.ok(/--badge-trim: max\(0px, calc\(var\(--badge-bh\) \/ 2 \+ \(var\(--badge-bh\) \/ 2 - var\(--scale-pitch\)\) \/ var\(--eye-r\)\)\);/.test(nb), 'the trim is the settled overlap with the lens badge, so settled nothing differs');
+  assert.ok(/--badge-m: calc\(clamp\(0, var\(--ndd\), 1\) \* \(1 - var\(--badge-g\)\) \* \(1 - var\(--eye-con\)\)\);/.test(nb), 'the near ring only, and never while it slides out from behind the lens');
+  assert.ok(/clip-path: polygon\(-999px -999px, 999px -999px, 999px var\(--badge-ct\), -999px var\(--badge-ct\), -999px var\(--badge-cb\), 999px var\(--badge-cb\), 999px 999px, -999px 999px\);/.test(nb), 'the band is the trimmed one');
+  assert.ok(/\.swm-corner:not\(\[data-lens-wipe\]\) \.fp-scale\.swm-corner__pager \.scheme-badge\[data-scheme='project'\] \{[^}]*clip-path: inset\(/.test(flat), 'the glass neighbour inset() is trimmed the same way');
 });
