@@ -27,6 +27,11 @@
  *   --drive=api    flip the scheme with no widget gesture (the writes setScheme makes for a preview);
  *                  --api=attr only html[data-scheme], --api=event only the swm:scheme event. Pair with
  *                  --extra="&schemeui=0" or --css to take the widget out. Not step-gated.
+ *   Is the growth reclaimable (SQ-134)? After the run, untouched, reported in report.after and never gated:
+ *   --idle=S       a sample every 15 s for S seconds
+ *   --churn        ~320 MB of short-lived JS arrays, then a sample: what falls was waiting on the collector
+ *   --pressure     WebKit only: `notifyutil -p org.WebKit.lowMemory` twice (WebKit's simulated critical
+ *                  memory pressure: a full GC plus cache and allocator release, no sudo), a sample after each
  *
  * Per sample (window.__mem, installed before any page script):
  *   glContexts     WebGL contexts ever created, and glLive (canvases holding one, not lost)
@@ -75,6 +80,9 @@ const GPU = arg('gpu', 'metal');
 const VW = +arg('vw', 402);
 const VH = +arg('vh', 874);
 const DPR = +arg('dpr', 3);
+const IDLE = +arg('idle', 0);
+const PRESSURE = arg('pressure', false);
+const CHURN = arg('churn', false);
 if (!OUT) {
   console.error('need --out=DIR (see the usage header)');
   process.exit(1);
@@ -495,6 +503,34 @@ try {
     await sample('end');
     report.flips = (await flips()) - base;
   }
+  // After the run, untouched (SQ-134): is what it grew reclaimable? Idle samples, then WebKit's own
+  // simulated critical memory pressure (WTF's MemoryPressureHandler listens for org.WebKit.lowMemory:
+  // a full GC plus cache and allocator release, no sudo). Reported in report.after, never gated.
+  const ran = samples.length;
+  for (let s = 15; s <= IDLE; s += 15) {
+    await sleep(15000);
+    await sample(`idle ${s}s`);
+  }
+  if (CHURN) {
+    // short-lived JS garbage, enough to drive the collector's full cycles: what falls here was JS garbage
+    await page.evaluate(async () => {
+      for (let i = 0; i < 40; i += 1) {
+        let a = new Array(1 << 20).fill(i);
+        a = null;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    });
+    await sleep(8000);
+    await sample('churn');
+  }
+  if (PRESSURE && ENGINE === 'webkit') {
+    for (let k = 1; k <= 2; k += 1) {
+      execSync('notifyutil -p org.WebKit.lowMemory');
+      await sleep(8000);
+      await sample(`pressure ${k}`);
+    }
+  }
+  report.after = samples.splice(ran);
 } catch (e) {
   errors.push(`probe: ${String(e).slice(0, 300)}`);
 }
@@ -517,6 +553,11 @@ report.gate = plateauGate(samples, {
 // chains re-substituted at every restyle); with them registered (site-scheme.css) +85 to +103. Bound between the two.
 // The minute of press-scrub-release cycles still climbs about 1.5 MiB/s on BOTH builds (3-minute A/B, SQ-133): on the
 // base the step's own peak hid it from footMiB's plateau; with the step gone the plateau gate reports it.
+// SQ-134: that climb is reclaimable, not a leak. It is all "WebKit malloc"; idle does not return it and JS churn
+// (--churn) does not either, but WebKit's simulated pressure (--pressure) takes the footprint back to `released`
+// or below (3 min: peak 666, after pressure 316, released 336; 1 min: 430 -> 212, under the 244 baseline). So
+// footMiB's plateau FAILS a 3-minute eye run on garbage; how the gate should read it is Nathan's call (SQ-134 report).
+// A run past ?pophold's 60 s clamp also changes worlds, so glTexMiB then fails on the globe's own churn.
 // Only the eye gesture is gated (--drive=api arms are bisect controls) and only under WebKit, where it was measured.
 const gateStep = RUN === 'eye' && DRIVE === 'eye' && ENGINE === 'webkit';
 if (gateStep) report.stepGate = stepGate(samples, { key: 'footMiB', max: STEP_MAX, until: 'released' });
