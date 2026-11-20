@@ -949,6 +949,16 @@ test('menuWipe gate a fade of the badge and a badge that paints over the menu bo
   assert.equal(menuWipe(GOOD.map((f) => (f.up ? { ...f, inert: false } : f)), TILE).pass, false, 'swatches reachable under the menu');
 });
 
+test('menuWipe gate the step from a menu that is not up to the wipe\'s first drawn frame is no reversal, a reversal once it is up still is', () => {
+  // 11-20, measured: the not-up frame reads the viewport's height (844) and the first drawn frame 844.55 to 844.89, once 1.0x
+  const first = (d) => GOOD.map((f, i) => (i === 1 ? { ...f, edge: H + d, up: true, inert: true } : i === 0 ? { ...f, up: false, inert: false } : f));
+  for (const d of [0.87, 1.05, 3]) assert.equal(menuWipe(first(d), TILE).pass, true, `a first drawn frame ${d} px past the not-up reading`);
+  const upBack = GOOD.map((f, i) => (i === 2 ? { ...f, edge: GOOD[1].edge + 1.2 } : f));
+  const r = menuWipe(upBack, TILE);
+  assert.equal(r.pass, false, 'between two drawn frames 1.2 px back is still a reversal');
+  assert.match(r.offenders[0].note, /went back down 1\.2 px on the way in/);
+});
+
 test('menuWipe gate an edge that goes back, or a menu not fully up in the hold, fails', () => {
   const back = GOOD.map((f, i) => (i === 20 ? { ...f, edge: f.edge + 40 } : f));
   const r = menuWipe(back, TILE);
@@ -1188,7 +1198,7 @@ test('sequence gate a quick tap returns to rest at once, and a group that waits 
   assert.equal(sequence({ vp: { w: 1440 } }).pass, false, 'an empty run measured nothing');
 });
 
-// ── circlesAbove (SQ-107 pass 11): one circle above the lens on desktop, two on a phone ───────────────────────
+// ── circlesAbove (SQ-107 pass 11, phones 11-20): one circle above the lens at every width ─────────────────────
 // 1440 x 900, the lens at y 869, the engaged column at its baked sizes: the near circles 21.6 px, the far ones 13.5.
 const aboveCol = (up, o = {}) => ({
   vpw: 1440,
@@ -1223,14 +1233,16 @@ test('circlesAbove gate a near circle that rode up 3 px into the blurb fails, th
   assert.equal(circlesAbove(aboveCol([1, 0])).pass, true, 'today: 0.9 px of the content area\'s descender band');
 });
 
-test('circlesAbove gate a phone shows two above the lens, one is a failure, and the blurb overlap is a note there', () => {
-  const phone = aboveCol([1, 1], { vpw: 390, blurb: { x: 4, y: 672, w: 301, h: 122 } });
+test('circlesAbove gate a phone shows one above the lens since 11-20, the old two is a failure, and the blurb overlap is a note there', () => {
+  const phone = aboveCol([1, 0], { vpw: 390, blurb: { x: 4, y: 672, w: 301, h: 122 } });
   phone.circles.forEach((c) => (c.x -= 1050));
   const ok = circlesAbove(phone);
   assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
-  const one = circlesAbove({ ...phone, circles: phone.circles.map((c) => (c.name === 'circle k=-2' ? { ...c, op: 0 } : c)) });
-  assert.equal(one.pass, false);
-  assert.match(one.offenders[0].note, /1 circle\(s\) show above the lens at 390 px .*want 2/);
+  // negative control: the phone before 11-20, the far circle (k=-2) whole above the near one
+  const two = circlesAbove({ ...phone, circles: phone.circles.map((c) => (c.name === 'circle k=-2' ? { ...c, op: 1 } : c)) });
+  assert.equal(two.pass, false);
+  assert.match(two.offenders[0].note, /2 circle\(s\) show above the lens at 390 px .*want 1/);
+  assert.ok(!two.offenders.some((o) => /meets the blurb text/.test(o.note)), 'the blurb overlap is a note on a phone, never a failure');
 });
 
 test('circlesAbove gate a desktop run that measured no column or no blurb proves nothing', () => {

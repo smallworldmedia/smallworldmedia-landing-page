@@ -131,7 +131,7 @@
  *               padding on all four sides, its right edge on the viewport's (no inset) and, above 768px, its
  *               centre the height of the privacy pill's line (ONE seat on every route, SQ-107 pass 7). At
  *               <= 768px (pass 9) that row rule gives way to the phone clearance: its bottom edge at least
- *               --badge-clear (?schemeclear, 56) above the viewport's bottom, clear of the screen's corner.
+ *               --badge-clear (?schemeclear, 64, Nathan 11-20) above the viewport's bottom, clear of the screen's corner.
  *               Negative control: --inject='.swm-corner{--badge-cy:var(--badge-cy-floor) !important}' (the phone
  *               rule removed) must FAIL at 390.
  *   seat        the badge's gap above the viewport's bottom edge is the same on every route (home, /work,
@@ -158,7 +158,7 @@
  *   shift       the engaged eye steps LEFT off the viewport's edge on /work's stagger taper (SQ-107 pass 10), at
  *               390 and 1440, motion on and reduced: with the pager held settled, each circle's centre is the
  *               rest eye's centre plus the lift's own anchor drift (the pager's translate) minus S x the taper
- *               (1 at the lens, 0.444 one station out, 0.111 two out; S = 48 swatch units, the default, never
+ *               (1 at the lens, 0.444 one station out, 0.111 two out; S = SHIFT_UNITS swatch units, 78 = Nathan's 54 px, the default, never
  *               read off the page), the badge's right edge is the viewport's and its left edge a padding left of the
  *               shifted eye, and /work's lens arrow, mirrored, is shown in the gap, pointing left, on the lens
  *               line; at rest the arrow waits ENTIRELY beyond the viewport's right edge (pass 11) and the badge is the
@@ -186,7 +186,9 @@
  *               moving frame, its centre between the lens circle's and its station, its distance one way per phase
  *               (taps: not the direction); (d) before the grow starts no visible ring circle lies outside the lens
  *               window; (e) 11-17, the far circle's window (two out, the phone's u2) meets its inner neighbour's with
- *               no gap, settled and on every engage and release frame (a holds its outer half); (f) 11-17, wherever any
+ *               no gap, settled and on every engage and release frame (a holds its outer half); held only where a
+ *               two-out circle is shown, which since 11-20 (one circle above the lens on phones too) is no tier, so
+ *               (e) and its --badge-g:0 control below check nothing today; (f) 11-17, wherever any
  *               of a ring circle shows past the lens window's edge it is at its settled x: straight up and down.
  *               Negative controls: --inject='.swm-corner .fp-scale__station .scheme-badge{display:none
  *               !important}' (a), --inject='.swm-corner .fp-scale__station .scheme-badge{background:#f0f !important;
@@ -247,6 +249,9 @@ const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
+// The engaged eye's step left, PINNED here in swatch units (never read off the page, so a CSS regression fails the
+// shift and sequence gates): Nathan's 54 px at size 18 (11-20, Phone Checks row 190; 48 before, one rest eye width).
+const SHIFT_UNITS = 78;
 const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'layer', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', 'phone', ...WIDGET_GATES];
 const DEFAULT_GATES = {
@@ -294,7 +299,7 @@ if (DENSITY !== undefined && !(DENSITY > 0)) die('--density takes a positive num
 const SHOTS = typeof arg('shots') === 'string' ? arg('shots') : null;
 const FORCE = !!arg('force-attr', false);
 const IGNORE_SEL = typeof arg('ignore') === 'string' ? arg('ignore') : ANCHOR;
-const QUERY = typeof arg('query') === 'string' ? `&${arg('query')}` : ''; // extra ?params for the sequence and lids runs (a negative control: --query=schemelids=1)
+const QUERY = typeof arg('query') === 'string' ? `&${arg('query')}` : ''; // extra ?params for the sequence, lids, fan, states and menu runs (a negative control: --query=schemelids=1; an A/B of a seat: --query=schemeclear=56)
 const INJECT = typeof arg('inject') === 'string' ? arg('inject') : null; // CSS added to the widget pass's pages: a negative control for the widget gates
 
 const require = createRequire(import.meta.url);
@@ -1126,7 +1131,12 @@ async function measureJitter(name, dpr, width) {
     });
     await page.addStyleTag({ content: 'html{background:#808080 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner .fp-scale::before,.swm-corner .scheme-badge{display:none !important} .swm-corner .fp-scale__station:not([data-lens]),.swm-corner .fp-scale__station:not([data-lens]) *{visibility:hidden !important} .swm-corner .scheme-eye__lid{stroke:transparent !important}' });
     const vp = { w: width, h: phone ? 844 : 900 };
-    const clip = { x: vp.w - 160, y: vp.h - 160, width: 160, height: 160 };
+    // The rest eye's centre. The clip is 160 px at the right edge, centred on the eye's height: the eye, the iris and the
+    // badge scale about the badge's right edge at its vertical centre, so the engaged lens stays on this line. (It was the
+    // viewport's bottom-right 160, which the desktop seat left behind when SQ-121 / SQ-125 raised it over the footer
+    // panel: the lens 176 px above the bottom at 1440 x 900, outside the clip, so Chromium measured nothing.)
+    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    const clip = { x: vp.w - 160, y: Math.max(0, Math.min(vp.h - 160, Math.round(eye.y - 80))), width: 160, height: 160 };
     const pixels = async () => {
       const buf = await page.screenshot({ clip });
       const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -1153,7 +1163,6 @@ async function measureJitter(name, dpr, width) {
         return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
       });
     const frame = () => page.evaluate(() => new Promise((res) => requestAnimationFrame(() => { const pg = document.querySelector('.swm-corner .fp-scale'); const cs = getComputedStyle(pg); res({ open: pg.hasAttribute('data-open'), t: ['s', 'g', 'n', 'f'].reduce((a, k) => a + (+cs.getPropertyValue(`--eye-t${k}`) || 0), 0) / 4 }); })));
-    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
     const cdp = phone ? await ctx.newCDPSession(page) : null;
     const read = name === 'webkit' ? rects : pixels;
     const leg = async (engage) => {
@@ -1257,7 +1266,7 @@ function pageShift() {
   return {
     open: pager.hasAttribute('data-open'),
     vpw: document.documentElement.clientWidth,
-    // The swatch (the iris's width, 26 units): the default shift is 48 of those 26ths, whatever the lids' scale.
+    // The swatch (the iris's width, 26 units): the default shift is SHIFT_UNITS of those 26ths, whatever the lids' scale.
     swatch: (() => {
       const m = document.createElement('div');
       m.style.cssText = 'position:absolute;visibility:hidden;height:0;width:var(--scheme-swatch)';
@@ -1319,7 +1328,7 @@ async function measureShift(browser, scheme, width, { reduced }) {
       await sleep(900);
       await shot('next');
     }
-    return { rest, engaged, S: (rest.swatch * 48) / 26 };
+    return { rest, engaged, S: (rest.swatch * SHIFT_UNITS) / 26 };
   } catch (e) {
     return { error: String(e.message).split('\n')[0].slice(0, 240) };
   } finally {
@@ -1474,7 +1483,7 @@ async function measureSequence(browser, scheme, width) {
       await sleep(700);
       return s;
     };
-    const run = { vp: { w: width }, step: dials.step, slide: dials.slide, grow: dials.grow, farShown: dials.farShown, S: (dials.swatch * 48) / 26, taps: [] };
+    const run = { vp: { w: width }, step: dials.step, slide: dials.slide, grow: dials.grow, farShown: dials.farShown, S: (dials.swatch * SHIFT_UNITS) / 26, taps: [] };
     await trigger(true);
     run.engage = await seek(times);
     if (SHOTS) await film();
@@ -2091,6 +2100,7 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
       for (const [b, reduced] of [['chromium', false], ['webkit', false], ['chromium', true], ['webkit', true]]) {
         const where = `${route}:${b}${reduced ? '-reduced' : ''}`;
         const m = await measureMenuWipe(b, width, { reduced });
+        if (process.env.SWM_MENU_DUMP && !m.error) fs.writeFileSync(process.env.SWM_MENU_DUMP.replace(/\.json$/, `-${b}${reduced ? '-reduced' : ''}.json`), JSON.stringify({ tile: m.tile, frames: m.frames }));
         if (m.error) emit('FAIL', scheme, where, width, 'menu', m.error);
         else {
           const res = gate.menuWipe(m.frames, m.tile, { pixels: m.pixels, reduced });
@@ -2108,13 +2118,15 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
  * the page records, every frame, the takeover's rendered top (the edge: its inset clip-path read off the
  * computed style, in px), the badge's opacity, visibility and inert flag, and the root stacking level of
  * each (the outermost ancestor's z-index). The wipe is steep at its launch and the badge is in the bottom
- * 50 px, so at real speed the edge crosses its box in a frame or two: while the edge is within 40 px of the
- * box the sampler slows gsap's global timeline to MENU_SLOW (the same tween and ease, only slower), so
+ * 100 px, so at real speed the edge crosses its box in a frame or two: while the edge is from 120 px above the
+ * box to 40 px below it, and while the menu is down (so a wipe in is slow from its launch frame), the sampler slows gsap's
+ * global timeline to MENU_SLOW (the same tween and ease, only slower), so
  * several frames and screenshots land on it. The gsap module is found among the page's loaded resources
  * (the dev server's /deps/gsap.js, the one instance the site uses): a build has no such file, the run then
  * is real time and the gate says the edge was not caught. The pixel pass screenshots the badge's box (blue
  * scheme: a blue badge against the black menu) with the edge read before and after each shot.
  * `reduced`: reduced motion, the menu snaps, no slow motion and no pixels.
+ * SWM_MENU_DUMP=<file.json> writes each run's tile and frames (one file per browser and motion setting).
  */
 const MENU_SLOW = 0.03;
 async function measureMenuWipe(name, width, { reduced = false } = {}) {
@@ -2124,7 +2136,7 @@ async function measureMenuWipe(name, width, { reduced = false } = {}) {
   const page = await ctx.newPage();
   const { default: sharp } = await import('sharp');
   try {
-    await page.goto(`${BASE}/?popseed=1&scheme=blue`, { waitUntil: 'load', timeout: 90000 });
+    await page.goto(`${BASE}/?popseed=1&scheme=blue${QUERY}`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 90000 });
     if (INJECT) await page.addStyleTag({ content: INJECT });
     await sleep(3000);
@@ -2160,14 +2172,18 @@ async function measureMenuWipe(name, width, { reduced = false } = {}) {
               edge = m ? (m[2] === '%' ? (parseFloat(m[1]) / 100) * h : parseFloat(m[1])) : h * (1 - op);
             }
             mw.frames.push({ phase: mw.phase, edge, h, up, zMenu: level(menu), zBadge: level(badge), op: bs.opacity, vis: bs.visibility, inert: badge.inert });
-            if (gsap) gsap.globalTimeline.timeScale(edge > lo && edge < hi ? k : 0.5);
+            // Slow near the box, and while the menu is down, so a wipe in is slowed from its first frame (11-20: from
+            // the 78 px phone seat WebKit's launch frame jumped the whole 40 px window and caught 0 frames on the way in).
+            if (gsap) gsap.globalTimeline.timeScale((edge > lo && edge < hi) || !up ? k : 0.5);
           }
           requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
         return !!gsap;
       },
-      { k: MENU_SLOW, lo: tile.y - 40, hi: tile.y + tile.h + 40, on: !reduced }
+      // lo reaches 120 px above the box: a frame a screenshot stalled lets gsap catch up in one step, and the wipe out's
+      // steep end at 0.5 travels about 80 px in a 33 ms step, past a 40 px lead-in (Chromium caught 0 on the way out, 11-20)
+      { k: MENU_SLOW, lo: tile.y - 120, hi: tile.y + tile.h + 40, on: !reduced }
     );
     const phase = (p) => page.evaluate((v) => { window.__mw.phase = v; }, p);
     const last = (key) => page.evaluate((k) => window.__mw.frames.at(-1)?.[k], key);

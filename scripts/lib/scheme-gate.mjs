@@ -658,10 +658,12 @@ export function blurbClear(tile, blurb) {
 /**
  * circlesAbove — how many circles show above the lens once the engaged column has settled (SQ-107 pass 11, Nathan
  * 11-17: "on desktop lets have the fade on the top outer globe not show that second smaller one since it overlaps
- * with the text blurb"). `c` = { vpw, lensCy (the lens line, viewport y), circles: [{ name, op (effective opacity), x,
- * y, w, h }], blurb: { x, y, w, h } | null }. A circle SHOWS above the lens when its effective opacity is over
- * `visible` and its centre is above the lens line. Above 768px exactly ONE shows (the near one); at 768px and below
- * two (the near and the far). Above 768px no shown circle's box meets the home blurb's text box by more than `tol`,
+ * with the text blurb"; phones too since 11-20: "remove that second smaller globe that is at the top on the engaged
+ * stage of the eye badge ... let's also remove it for mobile"). `c` = { vpw, lensCy (the lens line, viewport y),
+ * circles: [{ name, op (effective opacity), x, y, w, h }], blurb: { x, y, w, h } | null }. A circle SHOWS above the
+ * lens when its effective opacity is over `visible` and its centre is above the lens line. Exactly ONE shows (the near
+ * one) at every width (at 768px and below it was two, the near and the far, before 11-20). Above 768px no shown
+ * circle's box meets the home blurb's text box by more than `tol`,
  * with the blurb measured (a run that found none fails: it proves nothing about the overlap); at 768px and below the
  * overlap is reported on the note, not failed (the phone's pager column and the blurb are Nathan's to call there).
  * `tol` is 1.5 px, not the 0.5 of the other overlap gates: the blurb's box is the font's content area, whose bottom
@@ -677,7 +679,7 @@ export function circlesAbove(c, { visible = 0.01, tol = 1.5 } = {}) {
     return result([{ path: '.swm-corner .fp-scale__station', note: 'no engaged column measured' }], 0, 'no column');
   }
   const desktop = vpw > 768;
-  const want = desktop ? 1 : 2;
+  const want = 1;
   const shown = circles.filter((x) => x.op > visible);
   const above = shown.filter((x) => x.y + x.h / 2 < c.lensCy - 1);
   if (above.length !== want) {
@@ -1115,7 +1117,10 @@ export function menuWipe(frames, tile, { pixels = null, reduced = false, minPart
     if (f.phase === 'hold' && f.edge > tol) bad(i, `the edge is at ${fixed(f.edge, 1)} px in the hold (the menu is not fully up)`);
     if (reduced && f.edge > tol && f.edge < height - tol) bad(i, `the menu was between up and down (edge ${fixed(f.edge, 1)} px): reduced motion snaps it`);
     const prev = list[i - 1];
-    if (prev && prev.phase === f.phase) {
+    // A menu that is not up has no rendered edge: the sampler writes the viewport's height for it, and the wipe's first
+    // drawn frame can sit a fraction past that (inset 100% of a sub-pixel taller box: 844.55 to 844.89 at 844, measured
+    // 11-20), so the step from a not-up frame is no reversal and is not held to `tol`.
+    if (prev && prev.phase === f.phase && prev.up !== false) {
       const d = f.edge - prev.edge;
       if (wipeIn(f) && d > tol) bad(i, `the edge went back down ${fixed(d, 1)} px on the way in`);
       if ((f.phase === 'close' || f.phase === 'change') && d < -tol && prev.edge > tol) bad(i, `the edge went back up ${fixed(-d, 1)} px on the way out`);
@@ -1288,7 +1293,8 @@ export function shift(s, { tol = 0.5, label = '' } = {}) {
  *   engage, release: [sample every 10 ms from the trigger, a SEEKED run (document.getAnimations()), never real time],
  *   taps: [{ at, samples }]    a release `at` ms into the engage, sampled from the release,
  *   settled: { a: {x}, h }     the engaged end state, read after every transition had finished,
- *   farShown                   false where the far ring (+-2) is never seen (above 768px): its own start is not checked
+ *   farShown                   false where the far ring (+-2) is never seen (every tier since 11-20; above 768px only
+ *                              before): its own start is not checked
  * }, a sample = { t, ts, tg, tn, tf (the four registered progress numbers), h (the lens eye's height, px: its scale),
  *   n: {o, w, dist}, f: {o, w, dist} (the +-1 and +-2 circles' effective opacity, width and travel from the lens
  * circle's centre, px), a: {x, w, o} (the arrow's box and opacity) }.
@@ -1345,8 +1351,8 @@ export function sequence(run, { tol = 0.5, slack = 10 } = {}) {
       else if (a !== 's' && b !== 's' && gap < step - slack) bad(`group ${b}`, `${phase}: the ${GROUP_NAME[b]} starts ${gap} ms after the ${GROUP_NAME[a]}, want at least ${step - slack} (step ${step} - ${slack})`);
     }
   };
-  // The far ring (+-2) is checked only where it is ever shown: above 768px one circle shows above the lens and one
-  // below, so its opacity never moves and there is no start to find (run.farShown false).
+  // The far ring (+-2) is checked only where it is ever shown: one circle shows above the lens and one below (every
+  // tier since 11-20), so its opacity never moves and there is no start to find (run.farShown false).
   const farShown = run?.farShown !== false;
   const upOrder = farShown ? ['s', 'g', 'n', 'f'] : ['s', 'g', 'n'];
   const downOrder = farShown ? ['f', 'n', 'g', 's'] : ['n', 'g', 's'];
