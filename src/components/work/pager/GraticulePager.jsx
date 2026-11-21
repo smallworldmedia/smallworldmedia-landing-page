@@ -288,6 +288,10 @@ export default function GraticulePager({
   // knobs stay live (?pause=0 / ?scalewarp=0) per the guide doctrine.
   const pauseOn = pauseOnProp ?? PARAM('pause', 1) > 0;
   const warpOn = PARAM('scalewarp', 1) > 0;
+  // Nathan 11-20: the rest pulse (the veil + white twin on the current
+  // number, the select_project hint's swell) is off by default;
+  // ?scalepulse=1 previews it.
+  const pulseOn = PARAM('scalepulse', 0) !== 0;
 
   // r12c (Nathan 11-13): the desktop pager scales with the viewport (the
   // directory filter's vw, global.css --pager-vw) — ?pagervw is its dial
@@ -577,7 +581,7 @@ export default function GraticulePager({
   };
   const armPulse = () => {
     killPulse();
-    if (PREFERS_REDUCED_MOTION) return;
+    if (PREFERS_REDUCED_MOTION || !pulseOn) return;
     pulseTimerRef.current = setTimeout(() => {
       pulseTimerRef.current = 0;
       if (openRef.current || chargedRef.current) return; // intent landed meanwhile

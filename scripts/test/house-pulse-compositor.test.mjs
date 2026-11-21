@@ -104,7 +104,9 @@ test('skin: GraticulePager runs the rest pulse as web animations on the metronom
   assert.match(arm, /iterations: Infinity/)
   assert.match(arm, /a\.cancel\(\)/, 'killPulse cancels the animations')
   assert.match(arm, /removeProperty\('color'\)/, 'killPulse clears the hint ink')
-  assert.match(arm, /PREFERS_REDUCED_MOTION\) return/, 'no beat under reduced motion')
+  assert.match(arm, /PREFERS_REDUCED_MOTION \|\| !pulseOn\) return/, 'no beat under reduced motion, nor unless ?scalepulse asks for it')
+  // Nathan 11-20: the rest pulse is off by default; ?scalepulse=1 previews it.
+  assert.match(src, /const pulseOn = PARAM\('scalepulse', 0\) !== 0;/, 'off by default, ?scalepulse=1 previews it')
   assert.doesNotMatch(arm, /gsap\.(timeline|set|to)\(/, 'no per-frame GSAP tween in the pulse')
   assert.doesNotMatch(src, /joinHousePulse/)
   const sync = src.slice(src.indexOf('const syncPulse'), src.indexOf('const syncPulse') + 300)
