@@ -549,8 +549,8 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   no uncover before the destination draws, none past `NAV_HOLD_MAX_MS`) under `scripts/test/nav-wipe.test.mjs`
   and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
   under `scripts/test/legal-scroll.test.mjs`, `scripts/lib/plateauGate.mjs` (memory-probe: a count
-  plateaus or climbs, SQ-129; `stepGate`, the opening step's cap, SQ-133; `roundGate`, the resting footprint over hold rounds, SQ-136) under `scripts/test/plateau-gate.test.mjs`, `scripts/test/step-gate.test.mjs` and `scripts/test/round-gate.test.mjs`, and `scripts/lib/restoreFlashGate.mjs`
-  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`. Every gate
+  plateaus or climbs, SQ-129; `stepGate`, the opening step's cap, SQ-133; `roundGate`, the resting footprint over hold rounds, SQ-136) under `scripts/test/plateau-gate.test.mjs`, `scripts/test/step-gate.test.mjs` and `scripts/test/round-gate.test.mjs`, `scripts/lib/restoreFlashGate.mjs`
+  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`, and `scripts/lib/footerRowGate.mjs` (footer-probe: the links row clears the left stack, SQ-138) under `scripts/test/footer-row.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
   `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named
