@@ -2410,6 +2410,14 @@ a.clients__item:focus-visible {
   gap: var(--space-4) var(--space-6);
   justify-content: flex-end;
   margin-bottom: var(--pill-pad-y);
+  /* 11-20 (SQ-138): keep clear of the left stack. The lockup and the ©line are SiteTagline's,
+     fixed over this band, so the row cannot know where they end: at 769-~990px its first links
+     printed over "All rights reserved". SiteTagline writes the stack's width as
+     --footer-stack-w; the margin takes the row's room down to what is right of the stack, and
+     the row wraps onto a second right-aligned line instead of running under it. The clearance
+     is the stack's own run-on gap (lockup → ©line). Wide enough for one line (1024+), the
+     margin changes nothing: the row stays hugged right. */
+  margin-left: calc(var(--footer-stack-w, 0px) + 1.5rem);
 }
 
 /* 08-29: hidden ground for the link-row stagger (SiteFooter.jsx animates
