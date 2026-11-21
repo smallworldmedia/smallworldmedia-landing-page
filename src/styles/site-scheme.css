@@ -88,6 +88,118 @@
   initial-value: 0;
 }
 
+/* THE CHAINS, REGISTERED (SQ-133, the iPhone tab kill). An unregistered custom property computes to its var()-
+   substituted TOKENS, so a chain that names another several times over grows at every link: --badge-yt reached 3272
+   characters on each of the 19 badges, --eye-cyt 793 on each of 114 elements, 1.34M characters of computed custom
+   properties across the widget's 155 elements. WebKit re-substitutes and re-parses all of it at every style recalc,
+   and a scheme preview restyles the whole widget for the length of the ink fade: memory-probe --run=eye (WebKit, 402
+   x 874 @3) measured the page process stepping 350 -> 602 MiB on the engage and the first two previews, all of it
+   WebKit malloc, and ~170 MiB of the 350 is this same style at rest (the stations display:none: 190 -> 205). Registered,
+   each link computes to ONE number or length at its own element, so the next link reads a number. The values, and so
+   the look, are the same; inherits: true keeps the unregistered inheritance; no rule transitions any of them. Only the
+   widget's own links: --sel, --sdx and --fs are the /work engine's (pager-scale.css, LOCKED) and stay as they are. */
+@property --eye-r {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-cr {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --badge-rn {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-cband {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --eye-cyt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --eye-cyb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-yt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-yb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-o {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-xt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-xb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-hh {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-bt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-bb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-nt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-nb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-edge {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
 .swm-corner {
   /* Iris diameter at rest (Nathan 11-16: ?schemesize=18). ?schemesize dials it, and the eye
      (--eye-u-w x --eye-u-h in iris units of 26) scales with it. */
