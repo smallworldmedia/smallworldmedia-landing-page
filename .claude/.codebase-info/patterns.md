@@ -346,6 +346,16 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   alpha, hold opacity 1.
 - Animating an inherited `@property` custom property does not repaint text/SVG consumers: snap the
   var and transition color/fill element-locally.
+- An unregistered custom property computes to its `var()`-substituted TOKENS, so a chain whose links
+  name each other several times grows at every link, and WebKit re-substitutes and re-parses all of it
+  at every style recalc. The scheme eye's chains reached 1.34M characters across the widget's 155
+  elements (`--badge-yt` 3272 on each badge), and a held preview restyles the widget for the whole ink
+  fade: WebKit's page process stepped ~250 MiB at 402 x 874 @3 (SQ-133, 11-20). Registering each link with `@property`
+  (`inherits: true`, `<number>` or `<length>`, no transition) makes it compute to ONE value at its own
+  element; the look is the same and the step fell to +85..+103 MiB. The 17 links sit in
+  `site-scheme.css` beside the sequence's `--eye-ts/tg/tn/tf`; the /work engine's `--sel`, `--sdx` and
+  `--fs` (`pager-scale.css`, locked) stay unregistered. Measure with `memory-probe.mjs --run=eye`
+  (`stepGate`).
 - An element-local transition on a property that already follows the inherited 1.7 s
   `--project-color` fade CHASES it: the transition restarts every frame and lands about its own
   duration late (the /work pager chip, 11-03). For the fade window, give the background no
@@ -535,11 +545,11 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   surface owes, imported from `work/imageConfig.js` rather than restated) take the probe's report and
   import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures.
   `scripts/lib/scheme-gate.mjs` (the colour schemes' page gates, 11-14 and 11-15, and the corner widget's twenty-one,
-  SQ-107 through 11-17, SQ-116 adding the ring fan-out gate `fan`, which since `c66c8b6` also holds the far badge's seam (e) and the straight up-and-down slide (f), each with a live `--inject` control, and SQ-126 adding `seamEdges` and `lensLayer`) follows the same rule under `scripts/test/scheme-gate.test.mjs` (101 tests at `94a3310`), as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
+  SQ-107 through 11-17, SQ-116 adding the ring fan-out gate `fan`, which since `c66c8b6` also holds the far badge's seam (e) and the straight up-and-down slide (f), each with a live `--inject` control, SQ-126 adding `seamEdges` and `lensLayer`, and SQ-132 adding `midChange`, the one-colour lens's mid-slide edges) follows the same rule under `scripts/test/scheme-gate.test.mjs` (103 tests at `58a7ee2`), as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
   no uncover before the destination draws, none past `NAV_HOLD_MAX_MS`) under `scripts/test/nav-wipe.test.mjs`
   and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
   under `scripts/test/legal-scroll.test.mjs`, `scripts/lib/plateauGate.mjs` (memory-probe: a count
-  plateaus or climbs, SQ-129) under `scripts/test/plateau-gate.test.mjs`, and `scripts/lib/restoreFlashGate.mjs`
+  plateaus or climbs, SQ-129; `stepGate`, the opening step's cap, SQ-133) under `scripts/test/plateau-gate.test.mjs` and `scripts/test/step-gate.test.mjs`, and `scripts/lib/restoreFlashGate.mjs`
   (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
