@@ -45,7 +45,8 @@
  *                  resource caching off, so the memory cache's share drops out), --init="js" (a script before any
  *                  page script, after the counters: wrap an API, stub Worker), --softpressure (org.WebKit.lowMemory.begin,
  *                  WebKit's NON-critical pressure: caches and free allocator pages, no forced collection; run before
- *                  --pressure it splits allocator retention from garbage)
+ *                  --pressure it splits allocator retention from garbage), --midsoft=K (the same soft pressure
+ *                  after round K's rest, sampled as `rK soft` and in report.midsoft, then the rounds go on)
  *   --pressure     WebKit only: `notifyutil -p org.WebKit.lowMemory` twice (WebKit's simulated critical
  *                  memory pressure: a full GC plus cache and allocator release, no sudo), a sample after each
  *
@@ -100,6 +101,7 @@ const IDLE = +arg('idle', 0);
 const PRESSURE = arg('pressure', false);
 const CHURN = arg('churn', false);
 const SOFT = arg('softpressure', false);
+const MIDSOFT = +arg('midsoft', 0);
 const ROUNDS = +arg('rounds', 6);
 const HOLD = +arg('hold', 3);
 const REST = +arg('rest', 5);
@@ -531,6 +533,14 @@ try {
       const rest = await sample(`r${k} rest`);
       const pick = (r) => ({ footMiB: r.footMiB, glTexMiB: r.glTexMiB, glTextures: r.glTextures, canvasMiB: r.canvasMiB, nodes: r.nodes, videos: r.videos, mse: r.mse, footCats: r.footCats, world: r.world });
       report.rounds.push({ round: k, flips: eye ? (await eye.flips()) - f0 : 0, held: pick(held), rest: pick(rest) });
+      if (k === MIDSOFT && ENGINE === 'webkit') {
+        // --midsoft=K (SQ-137): soft pressure after round K, then the rounds go on. A climb that restarts from
+        // the low floor is allocator retention refilling; one that resumes from the old height would be live.
+        execSync('notifyutil -p org.WebKit.lowMemory.begin');
+        await sleep(8000);
+        report.midsoft = pick(await sample(`r${k} soft`));
+        execSync('notifyutil -p org.WebKit.lowMemory.end');
+      }
     }
   } else {
     const { geo, fire, flips, scrub } = await eyeKit();
