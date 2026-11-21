@@ -11,7 +11,7 @@
 | `/work` | `src/pages/work/index.astro` | `work/FeaturedProjects.jsx` (`client:load`) | `FEATURED_WORLDS_QUERY` → `work/detail/buildContentFlow.js` | live |
 | `/work/[slug]` | `src/pages/work/[slug].astro` | `work/detail/FeaturedProjectDetail.jsx` (`client:load`) | `FEATURED_PROJECT_PATHS_QUERY` (paths + next chain), `FEATURED_PROJECT_DETAIL_QUERY` | live |
 | `/work/directory` | `src/pages/work/directory.astro` | `work/directory/DirectoryPage.jsx` (`client:load`) | `getDirectoryData()` (`src/lib/directoryData.js`: `DIRECTORY_QUERY` → `work/directory/buildDirectoryTiles.js`, one fetch per build, shared with the drawer's Client Roster; a failed read fails the build) | live since 11-03 (`251e7b3`); the filter in the URL (`?tag=a,b&client=slug`); bench `?dirtune=1` |
-| `/privacy` | `src/pages/privacy.astro` | none (SSR `PrivacyContent.jsx`) | static | live; linked from the footer copy line (the privacy pill opens the same copy as an overlay). Billing copy names only the client-facing services (Postmark, Stripe, Wise), not the books (11-03) |
+| `/privacy` | `src/pages/privacy.astro` | none (SSR `PrivacyContent.jsx`) | static | live; linked from the footer row's last link above 768px off home and from home's fixed pill (11-20); both open the same copy in place as an overlay (`swm:open-privacy`), as the phone menu's link does. Billing copy names only the client-facing services (Postmark, Stripe, Wise), not the books (11-03) |
 | `/terms` | `src/pages/terms.astro` | none (static markup on the `.privacy*` styles) | static | live; linked from `/privacy` |
 | `/404` | `src/pages/404.astro` | none | static | live |
 | `/studio` | `@sanity/astro` integration (`sanity.config.ts`; custom panes in `src/studio/`) | Sanity Studio | — | live, sitemap-excluded |

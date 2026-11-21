@@ -83,7 +83,7 @@ The GSAP house pulse (`housePulseLoop`) is phase-locked to the wall clock when i
 endless pulse that only fades opacity can leave GSAP: `housePulseKeyframes(ease, from, to)` samples
 the house curve into web-animation keyframes and `housePulseStartMs(now, period, hit)` gives the
 next downbeat to start them on, so the beat stays on the metronome with nothing ticking on the main
-thread (SQ-124, 11-18: the /work pager's rest pulse and the scheme eye; `joinHousePulse` is gone).
+thread (SQ-124, 11-18: the /work pager's rest pulse, off by default since 11-20 behind `?scalepulse=1`, and the scheme eye; `joinHousePulse` is gone).
 Skip targets that are not painted: Blink restyles an animated `display:none` element every frame. A pulse
 that must survive a recolour cannot tween a colour FROM the accent, because GSAP records the start
 once; the pager fades a white twin of its number on opacity instead (`.fp-scale__peak`).
