@@ -381,7 +381,7 @@ Mode tags: **[all]** every field mode · **[DRUM]** `fpgrid=3` (the shipped defa
 | `?camlook` | pointer head-turn amplitude (DRUM ×0.8); a mouse or pen only since 11-03 (a finger is the Turn gesture on a phone) [ATLAS][DRUM] | `0.025` rad | any finite | `:41` |
 | `?fpbal` | 3×3-zone semi-balance pass over the seeded placement; `0` = raw ring for A/B [DRUM] | `1` | `0` off, else on | `:44` |
 | `?fpvis` | fraction of the frustum the lens crop shows; balance judges occupancy against it [DRUM] | `0.85` | any finite | `:45` |
-| `?fptab` | plate spine tabs (accent tab, −90° mono title/coordinates) [DRUM] | `1` | `0` off, else on | `:59` |
+| `?fptab` | plate spine tabs (accent tab, −90° mono title/coordinates) [DRUM]; Nathan 11-20: off by default (was `1`), `?fptab=1` previews | `0` | `0` off, else on | `:60` |
 | `?fpfurn` | drum furniture: registration crosses / captions / cell floods in empty cells [DRUM] | `0` | `0` off, else on | `:60` |
 | `?creep` | idle whole-drum creep outside a Turn (not under RM) [DRUM] | `0` deg/s | any finite | `:64` |
 | `?dragfollow` | drag-follow (11-03): the share of a Turn a finger or the wheel previews at full fill — the drum leans this × `?arcdeg`, the resting card this × its 70% travel (WorldCard `y`) — and a release springs both home on the CTA's release lane (`motion.js` `RELEASE_GLIDE_S` / `RELEASE_EASE`): on lift for a finger, after the `?releasems` stall for the wheel; a commit continues from the leaned pose. Off under RM. Module-load. 0.1 read "a little too strong" (Nathan, 11-03) | `0.06` | clamp 0–1 (`0` = off) | `worldConfig.js DRAG_FOLLOW` |

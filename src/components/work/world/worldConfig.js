@@ -57,7 +57,7 @@ export const RIPPLE_FALLOFF = num('ripfall', 0.13); // distance decay length, ×
 export const RIPPLE_RADIUS = num('riprad', 1); // ripple extent, × the visible window's half-diagonal
 export const RIPPLE_WIDTH = num('ripw', 5); // crest half-width, in lat cells (var 3's crest spacing rides it ×4) — 08-27 (5) bake 5 (was 6)
 export const RIPPLE_ALPHA = num('ripalpha', 1); // ripple peak alpha — 08-27 (5) bake: FULL ink (was coupled to ?shellalpha); with the tight ?ripfall the falloff does the dimming
-export const FPTAB = num('fptab', 1) !== 0; // plate spine tabs: small accent tab, −90° mono cell-coordinates, bottom-left of each plate
+export const FPTAB = num('fptab', 0) !== 0; // plate spine tabs: small accent tab, −90° mono cell-coordinates, bottom-left of each plate — Nathan 11-20: OFF by default (was 1); ?fptab=1 previews
 export const FPFURN = num('fpfurn', 0) !== 0; // drum furniture: seeded registration crosses / coordinate captions / cell floods in empty cells (FORME's furniture language riding the drum)
 export const WALL_DRIFT = num('walldrift', 9); // deck/album wall plates: idle column drift, canvas px/s (DeckScroller's ?deckdrift idiom)
 export const WALL_GEAR = num('wallgear', 12); // wall px of column travel per DEGREE of drum roll — the Turn accelerates the wall the way Lenis scroll does on the detail page. 08-28 bake 12 (was 5): Nathan's call from the taste pass
