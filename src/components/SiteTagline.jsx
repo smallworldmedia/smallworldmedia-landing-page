@@ -171,6 +171,21 @@ export default function SiteTagline({ siteCopy }) {
     };
     document.addEventListener('astro:after-swap', onSwapLatch);
 
+    // The left stack's width (lockup + ©line), onto <html> as --footer-stack-w, for the links
+    // footer's nav row to keep clear of it (global.css `.site-footer__nav`): the row belongs to
+    // another island and cannot know how wide this one is. The root is fixed and shrink-to-fit, so
+    // its box IS the run; it lays out while the lockup and copy are still hidden. A ResizeObserver
+    // follows the copy's font loading in. ClientRouter replaces every <html> attribute on a swap,
+    // the inline style included, so it is re-asserted after one (the --badge-reserve idiom).
+    const writeStackW = () => {
+      const w = root.getBoundingClientRect().width;
+      if (w > 0) document.documentElement.style.setProperty('--footer-stack-w', `${+w.toFixed(2)}px`);
+    };
+    writeStackW();
+    const stackRo = new ResizeObserver(writeStackW);
+    stackRo.observe(root);
+    document.addEventListener('astro:after-swap', writeStackW);
+
     // ── Long ⇄ short (10-06) ── `long` is what the DOM shows. The resting
     // layer sits in flow and sizes the capsule; the other waits out of flow,
     // unseen (global.css, keyed on data-tagline).
@@ -611,6 +626,8 @@ export default function SiteTagline({ siteCopy }) {
     return () => {
       window.removeEventListener('swm:hero-lockup-done', onChrome);
       document.removeEventListener('astro:after-swap', onSwapLatch);
+      document.removeEventListener('astro:after-swap', writeStackW);
+      stackRo.disconnect();
       window.removeEventListener('swm:tagline-exit', onTaglineExit);
       document.removeEventListener('astro:after-swap', restoreExit);
       document.removeEventListener('astro:after-swap', evaluate);
