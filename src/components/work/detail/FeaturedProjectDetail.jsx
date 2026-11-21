@@ -33,6 +33,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { navigate } from 'astro:transitions/client';
 import ClientPanel from './ClientPanel.jsx';
+import { projectColorVars } from '../../../lib/projectColor.js';
 import CtaArrows from '../CtaArrows.jsx';
 import { PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 import MediaSlot from './MediaSlot.jsx';
@@ -345,7 +346,7 @@ function goBackToWork(e, color, spectrum) {
   }, NEXT_COVER_SECONDS * 1000 + 60);
 }
 
-function DetailNextChip({ next }) {
+function DetailNextChip({ next, accentVars }) {
   const windowRef = useRef(null);
   const copyRef = useRef(null);
   const [marquee, setMarquee] = useState(false);
@@ -389,6 +390,7 @@ function DetailNextChip({ next }) {
       style={
         marquee
           ? {
+              ...accentVars,
               '--marquee-s': `${loopSeconds.toFixed(2)}s`,
               // 09-05: phase-locked to the wall clock (the pager-ticker
               // finding) — a re-arm (resize re-measure, a soft nav to the
@@ -396,7 +398,7 @@ function DetailNextChip({ next }) {
               // never from zero.
               '--marquee-phase': `${(-((performance.now() / 1000) % loopSeconds)).toFixed(3)}s`,
             }
-          : undefined
+          : accentVars
       }
     >
       <span className="detail-next__window" ref={windowRef} aria-hidden="true">
@@ -719,6 +721,14 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     </section>
   );
 
+  // The two nav chips (breadcrumb, next_project) carry the accent INLINE, the
+  // ClientPanel's way (Nathan 11-20): they used to inherit it from <html>,
+  // which the route controller only writes once the page hydrates, so a hard
+  // reload painted them brand blue first. Inline, the server-rendered HTML
+  // already has the colour; the schemes re-point inline carriers
+  // ([style*='--project-color'], scheme.css) the same as <html>.
+  const accentVars = projectColorVars(project?.projectColor, project?.projectColorSecondary);
+
   return (
     // S2: declares this project's accent for the RouteFill route controller to
     // apply to the shell nav BEFORE paint on arrival (data-nav-accent absent →
@@ -749,6 +759,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       <a
         href="/work"
         className="detail-breadcrumb"
+        style={accentVars}
         onClick={(e) => goBackToWork(e, project?.projectColor || undefined, project?.spectrum || undefined)}
       >
         {/* Inline SVG return arrow (08-30 (3), Nathan): the ↩ codepoint
@@ -774,7 +785,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
       {/* next_project chip — INLINE with the breadcrumb (08-30, Nathan):
           right-anchored, same height-neutral row, deliberately NOT sticky
           (only the breadcrumb pins; this scrolls up with the content). */}
-      {nextProject && <DetailNextChip next={nextProject} />}
+      {nextProject && <DetailNextChip next={nextProject} accentVars={accentVars} />}
 
       <main
         className="project-detail__flow"
