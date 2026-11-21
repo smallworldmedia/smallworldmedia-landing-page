@@ -41,6 +41,11 @@
  *   Is the growth reclaimable (SQ-134)? After the run, untouched, reported in report.after and never gated:
  *   --idle=S       a sample every 15 s for S seconds
  *   --churn        ~320 MB of short-lived JS arrays, then a sample: what falls was waiting on the collector
+ *   SQ-137 arms (the globe's per-world climb): --nocache (a pass-through route: Playwright turns WebKit's
+ *                  resource caching off, so the memory cache's share drops out), --init="js" (a script before any
+ *                  page script, after the counters: wrap an API, stub Worker), --softpressure (org.WebKit.lowMemory.begin,
+ *                  WebKit's NON-critical pressure: caches and free allocator pages, no forced collection; run before
+ *                  --pressure it splits allocator retention from garbage)
  *   --pressure     WebKit only: `notifyutil -p org.WebKit.lowMemory` twice (WebKit's simulated critical
  *                  memory pressure: a full GC plus cache and allocator release, no sudo), a sample after each
  *
@@ -94,10 +99,13 @@ const DPR = +arg('dpr', 3);
 const IDLE = +arg('idle', 0);
 const PRESSURE = arg('pressure', false);
 const CHURN = arg('churn', false);
+const SOFT = arg('softpressure', false);
 const ROUNDS = +arg('rounds', 6);
 const HOLD = +arg('hold', 3);
 const REST = +arg('rest', 5);
 const NOEYE = arg('noeye', false);
+const NOCACHE = arg('nocache', false);
+const INIT = arg('init', '');
 const POPHOLD = +arg('pophold', 0);
 const ROUND_ABS = +arg('roundabs', 24);
 if (!OUT) {
@@ -372,7 +380,12 @@ if (CSS)
       document.head.append(s);
     });
   }, CSS);
+// --init="js" (SQ-137): a bisect arm's script, run before any page script (after the counters, so it can wrap them).
+if (INIT) await ctx.addInitScript({ content: INIT });
 const page = await ctx.newPage();
+// --nocache (SQ-137): a pass-through route. Under WebKit, Playwright turns resource caching off for an
+// intercepted page (Network.setResourceCachingDisabled), so this arm reads the memory cache's share.
+if (NOCACHE) await page.route('**/*', (r) => r.continue());
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
 page.on('crash', () => errors.push('PAGE CRASHED'));
@@ -567,6 +580,14 @@ try {
     });
     await sleep(8000);
     await sample('churn');
+  }
+  if (SOFT && ENGINE === 'webkit') {
+    // --softpressure (SQ-137): WebKit's simulated NON-critical pressure (org.WebKit.lowMemory.begin: caches
+    // released, no forced collection), held 8 s, then ended. Run before --pressure, it splits caches from GC.
+    execSync('notifyutil -p org.WebKit.lowMemory.begin');
+    await sleep(8000);
+    await sample('soft pressure');
+    execSync('notifyutil -p org.WebKit.lowMemory.end');
   }
   if (PRESSURE && ENGINE === 'webkit') {
     for (let k = 1; k <= 2; k += 1) {
