@@ -47,6 +47,20 @@
  *                  WebKit's NON-critical pressure: caches and free allocator pages, no forced collection; run before
  *                  --pressure it splits allocator retention from garbage), --midsoft=K (the same soft pressure
  *                  after round K's rest, sampled as `rK soft` and in report.midsoft, then the rounds go on)
+ *   SQ-139 arms (committed scheme picks, row 360): --picks=K (after the run's rounds; --run=picks is a fresh page with
+ *                  the picks alone, K=3): K commits, each to the station after the committed one, a sample before each
+ *                  gesture and --pickrest=5 s after it; report.picks has each step, and `landed`. --pickdrive=eye
+ *                  (Nathan's gesture: press, hold, slide up to the target's preview, stand still, release) or api
+ *                  (setScheme's commit writes, no gesture: a control). --lead=S: S s of worlds before the first round
+ *                  (Nathan's walk: --run=rounds --lead=60 --rounds=6 --picks=3). --mute=globe,lens: a commit reaches
+ *                  that swm:scheme listener as a preview (globe: recolorNames; lens: SiteScheme's setActive).
+ *                  --pickmax=M gates every pick's step <= M MiB (pickGate). Rounds now record `committed` too:
+ *                  a round's release lands where the scrub stood, so rounds COMMIT new schemes (11-21, 6-round
+ *                  walks on 6feac4f: 2 to 6 of the 6 did). Measured 11-21 (verification/SQ-139): home's default
+ *                  places no name strips (popConfig names: 0), so recolorNames repaints nothing; after the rounds a
+ *                  pick steps +7..+18 MiB, the globe's own churn over its 6.5 s, and soft pressure returns it all;
+ *                  a fresh page's FIRST change steps once (+110..+123 api commit, +49..+62 api preview, +61..+97
+ *                  eye), the commit's extra over a preview being the lens re-render (--mute=lens: +36..+64).
  *   --pressure     WebKit only: `notifyutil -p org.WebKit.lowMemory` twice (WebKit's simulated critical
  *                  memory pressure: a full GC plus cache and allocator release, no sudo), a sample after each
  *
@@ -72,7 +86,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
-import { plateauGate, roundGate, stepGate } from './lib/plateauGate.mjs';
+import { pickGate, plateauGate, roundGate, stepGate } from './lib/plateauGate.mjs';
 
 const require = createRequire(import.meta.url);
 const pw = require(process.env.PLAYWRIGHT_PATH || '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright');
@@ -110,6 +124,14 @@ const NOCACHE = arg('nocache', false);
 const INIT = arg('init', '');
 const POPHOLD = +arg('pophold', 0);
 const ROUND_ABS = +arg('roundabs', 24);
+const LEAD = +arg('lead', 0);
+const PICKS = +arg('picks', RUN === 'picks' ? 3 : 0);
+const PICK_DRIVE = arg('pickdrive', 'eye');
+const PICK_REST = +arg('pickrest', 5);
+const PICK_MAX = +arg('pickmax', 0);
+const MUTE = String(arg('mute', '') || '')
+  .split(',')
+  .filter(Boolean);
 if (!OUT) {
   console.error('need --out=DIR (see the usage header)');
   process.exit(1);
@@ -360,6 +382,13 @@ const init = () => {
       step: pop?.step ?? null,
       world: pop?.world ?? null,
       scheme: document.documentElement.dataset.scheme,
+      committed: window.__swmScheme?.committed ?? null,
+      // the cycling sequence tiles (SQ-139 seq arm): tiles bound, on screen, frame refs, cuts since load
+      seqTiles: pop?.seq?.tiles ?? null,
+      seqFront: pop?.seq?.front ?? null,
+      seqRefs: pop?.seq?.refs ?? null,
+      seqCuts: pop?.seq?.cuts ?? null,
+      strips: window.__swmSchemeDebug?.globe?.().strips ?? null,
     };
   };
 };
@@ -384,6 +413,39 @@ if (CSS)
   }, CSS);
 // --init="js" (SQ-137): a bisect arm's script, run before any page script (after the counters, so it can wrap them).
 if (INIT) await ctx.addInitScript({ content: INIT });
+// --mute=globe,lens (SQ-139): a COMMIT reaches the named swm:scheme listeners as a preview, so the commit-only
+// work behind them is skipped and nothing else changes. Each listener is told apart by the chunk that added it
+// (its stack at addEventListener): globe = useGlobeScene's onScheme (the name strips' recolorNames), lens =
+// SiteScheme's (setActive: the lens art re-renders). A bisect control, never a fix.
+if (MUTE.length)
+  await ctx.addInitScript((mute) => {
+    // JSC elides the tail call `() => onScheme(fn)` in SiteScheme's effect, so its listener's stack reads
+    // onScheme <- React's commit with no SiteScheme frame; on home it is the only such listener (measured).
+    const GLOBE = /VideoGlobe\.|useGlobeScene/;
+    const RX = { globe: GLOBE, lens: { test: (s) => /SiteScheme\./.test(s) || (!GLOBE.test(s) && /client\.[\w-]+\.js|react-dom/.test(s)) } };
+    const wraps = new WeakMap();
+    const add = window.addEventListener;
+    const remove = window.removeEventListener;
+    window.__memMuted = Object.fromEntries(mute.map((m) => [m, 0]));
+    window.addEventListener = function (type, fn, ...rest) {
+      const stack = type === 'swm:scheme' ? new Error().stack || '' : '';
+      if (stack) (window.__memMuted.stacks = window.__memMuted.stacks || []).push(stack.split('\n').slice(1, 4).join(' | ').slice(0, 300));
+      const which = stack && typeof fn === 'function' ? mute.find((m) => RX[m]?.test(stack)) : null;
+      if (!which) return add.call(this, type, fn, ...rest);
+      const w = function (e) {
+        if (e.detail && !e.detail.preview) {
+          window.__memMuted[which] += 1;
+          return fn.call(this, new CustomEvent(e.type, { detail: { ...e.detail, preview: true } }));
+        }
+        return fn.call(this, e);
+      };
+      wraps.set(fn, w);
+      return add.call(this, type, w, ...rest);
+    };
+    window.removeEventListener = function (type, fn, ...rest) {
+      return remove.call(this, type, wraps.get(fn) || fn, ...rest);
+    };
+  }, MUTE);
 const page = await ctx.newPage();
 // --nocache (SQ-137): a pass-through route. Under WebKit, Playwright turns resource caching off for an
 // intercepted page (Network.setResourceCachingDisabled), so this arm reads the memory cache's share.
@@ -518,6 +580,11 @@ try {
     // times. A sample at the end of each hold (the round's peak, still held) and after each rest. --noeye
     // is the control arm: the same clock with no gesture, so the globe's share is read on its own.
     const eye = NOEYE ? null : await eyeKit();
+    if (LEAD) {
+      // --lead=S (SQ-139): Nathan's walk opens with S seconds of worlds before the first round
+      await sleep(LEAD * 1000);
+      await sample('lead');
+    }
     report.rounds = [];
     for (let k = 1; k <= ROUNDS; k += 1) {
       const f0 = eye ? await eye.flips() : 0;
@@ -531,8 +598,9 @@ try {
       if (eye) await eye.fire('pointerup', eye.geo.y);
       await sleep(REST * 1000);
       const rest = await sample(`r${k} rest`);
-      const pick = (r) => ({ footMiB: r.footMiB, glTexMiB: r.glTexMiB, glTextures: r.glTextures, canvasMiB: r.canvasMiB, nodes: r.nodes, videos: r.videos, mse: r.mse, footCats: r.footCats, world: r.world });
-      report.rounds.push({ round: k, flips: eye ? (await eye.flips()) - f0 : 0, held: pick(held), rest: pick(rest) });
+      const pick = (r) => ({ footMiB: r.footMiB, glTexMiB: r.glTexMiB, glTextures: r.glTextures, canvasMiB: r.canvasMiB, nodes: r.nodes, videos: r.videos, mse: r.mse, footCats: r.footCats, world: r.world, committed: r.committed, strips: r.strips, seqTiles: r.seqTiles, seqFront: r.seqFront, seqRefs: r.seqRefs, seqCuts: r.seqCuts });
+      // `committed` (SQ-139): the release lands wherever the scrub stood, so a round can COMMIT a new scheme
+      report.rounds.push({ round: k, flips: eye ? (await eye.flips()) - f0 : 0, held: pick(held), rest: pick(rest), committedNew: rest.committed !== held.committed });
       if (k === MIDSOFT && ENGINE === 'webkit') {
         // --midsoft=K (SQ-137): soft pressure after round K, then the rounds go on. A climb that restarts from
         // the low floor is allocator retention refilling; one that resumes from the old height would be live.
@@ -542,6 +610,8 @@ try {
         execSync('notifyutil -p org.WebKit.lowMemory.end');
       }
     }
+  } else if (RUN === 'picks') {
+    // a fresh page: the baseline, then only the picks below (a commit's own step)
   } else {
     const { geo, fire, flips, scrub } = await eyeKit();
     report.eye = geo;
@@ -570,6 +640,66 @@ try {
     await sleep(2000);
     await sample('end');
     report.flips = (await flips()) - base;
+  }
+  if (PICKS > 0) {
+    // --picks=K (SQ-139, row 360): K committed scheme changes, each to the station after the committed one
+    // (project -> black -> blue -> project ...). --pickdrive=eye (default) is Nathan's gesture: press, hold,
+    // slide up until the page previews the target, stand still (no flick carry), release there.
+    // --pickdrive=api is the bisect control: setScheme's commit writes with no widget gesture. A sample just
+    // before each pick and one --pickrest s after it; the pick's step is the difference (report.picks).
+    const SCHEMES = ['project', 'black', 'blue'];
+    const read = () => page.evaluate(() => ({ applied: document.documentElement.dataset.scheme, committed: window.__swmScheme?.committed }));
+    const eye = PICK_DRIVE === 'eye' ? await eyeKit() : null;
+    report.picks = [];
+    for (let k = 1; k <= PICKS; k += 1) {
+      const from = (await read()).committed || 'project';
+      const target = SCHEMES[(SCHEMES.indexOf(from) + 1) % SCHEMES.length];
+      const pre = await sample(`pick ${k} pre`);
+      if (eye) {
+        let y = eye.geo.y;
+        await eye.fire('pointerdown', y);
+        await sleep(450);
+        for (let n = 0; n < 200 && (await read()).applied !== target; n += 1) {
+          y -= 4;
+          await eye.fire('pointermove', y);
+          await sleep(16);
+        }
+        for (let n = 0; n < 3; n += 1) {
+          y -= 4; // a little past the crossing, so the landing rounds onto the target
+          await eye.fire('pointermove', y);
+          await sleep(16);
+        }
+        await sleep(150);
+        await eye.fire('pointerup', y);
+      } else {
+        // api: the commit's writes. preview: a preview's writes only (applied + attribute + event), held, the
+        // control that splits what a COMMIT adds from what any scheme change costs (`committed` is also moved,
+        // probe-side only, so the next pick advances).
+        await page.evaluate(
+          ({ name, preview }) => {
+            const s = window.__swmScheme;
+            const prev = document.documentElement.dataset.scheme;
+            if (s) s.applied = s.committed = name;
+            document.documentElement.dataset.scheme = name;
+            if (!preview) {
+              try {
+                localStorage.setItem('swm:scheme', name);
+              } catch {
+                /* blocked */
+              }
+            }
+            window.dispatchEvent(new CustomEvent('swm:scheme', { detail: { scheme: name, prev, preview } }));
+          },
+          { name: target, preview: PICK_DRIVE === 'preview' }
+        );
+      }
+      await sleep(PICK_REST * 1000);
+      const post = await sample(`pick ${k}`);
+      const keep = (r) => ({ footMiB: r.footMiB, glTexMiB: r.glTexMiB, glTextures: r.glTextures, canvasMiB: r.canvasMiB, canvases: r.canvases, nodes: r.nodes, strips: r.strips, seqFront: r.seqFront, seqCuts: r.seqCuts, footCats: r.footCats, world: r.world });
+      const d = (key) => (typeof post[key] === 'number' && typeof pre[key] === 'number' ? Math.round((post[key] - pre[key]) * 10) / 10 : null);
+      report.picks.push({ pick: k, from, target, committed: post.committed, landed: post.committed === target, step: d('footMiB'), stripsRepainted: d('strips'), glTexStep: d('glTexMiB'), canvasStep: d('canvasMiB'), pre: keep(pre), post: keep(post) });
+    }
+    report.muted = MUTE.length ? await page.evaluate(() => window.__memMuted) : null;
   }
   // After the run, untouched (SQ-134): is what it grew reclaimable? Idle samples, then WebKit's own
   // simulated critical memory pressure (WTF's MemoryPressureHandler listens for org.WebKit.lowMemory:
@@ -641,15 +771,23 @@ if (gateStep) report.stepGate = stepGate(samples, { key: 'footMiB', max: STEP_MA
 // a climb of k MiB a round shows as about k x rounds/2, so --roundabs (default 24) catches ~8 MiB a round over 6.
 const gateRounds = RUN === 'rounds' && report.rounds?.length;
 if (gateRounds) report.roundGate = roundGate(report.rounds, { footAbs: ROUND_ABS });
+// --picks with --pickmax=M (SQ-139): every pick lands on its target and steps <= M MiB over its pre-pick sample.
+const gatePicks = PICK_MAX > 0 && PICKS > 0;
+if (gatePicks) report.pickGate = pickGate(report.picks, { max: PICK_MAX });
 fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
 console.log(`\nplateau gate: ${report.gate.pass ? 'PASS' : 'FAIL'}${report.gate.failed.length ? ` (${report.gate.failed.join(', ')})` : ''}`);
 for (const k of report.gate.failed) console.log(`  ${k}: ${JSON.stringify(report.gate.results[k])}`);
 if (gateStep) console.log(`step gate: ${report.stepGate.pass ? 'PASS' : 'FAIL'} ${JSON.stringify(report.stepGate)}`);
 if (gateRounds) {
-  for (const r of report.rounds) console.log(`round ${r.round}: flips ${r.flips} · held ${r.held.footMiB} · rest ${r.rest.footMiB} MiB · tex ${r.rest.glTexMiB} · ${r.rest.world ?? ''}`);
+  for (const r of report.rounds) console.log(`round ${r.round}: flips ${r.flips} · held ${r.held.footMiB} · rest ${r.rest.footMiB} MiB · tex ${r.rest.glTexMiB} · seq ${r.rest.seqFront}/${r.rest.seqCuts} · ${r.rest.world ?? ''}`);
   console.log(`round gate: ${report.roundGate.pass ? 'PASS' : 'FAIL'} ${JSON.stringify(report.roundGate.results.footMiB)}`);
 }
+for (const p of report.picks || [])
+  console.log(`pick ${p.pick}: ${p.from} -> ${p.target} (${p.landed ? 'landed' : `MISSED: ${p.committed}`}) · step ${p.step} MiB · strips +${p.stripsRepainted} · tex ${p.glTexStep} · canvas ${p.canvasStep} · ${p.post.world ?? ''}`);
+if (gatePicks) console.log(`pick gate: ${report.pickGate.pass ? 'PASS' : 'FAIL'} ${JSON.stringify(report.pickGate)}`);
 if (errors.length) console.log(`errors: ${errors.join(' | ')}`);
 await browser.close();
 // --run=rounds exits on its round gate: its run-wide plateau also reads the globe's world churn (glTexMiB).
-process.exit((gateRounds ? report.roundGate.pass : report.gate.pass) && (!gateStep || report.stepGate.pass) ? 0 : 1);
+// --run=picks exits on its pick gate (with --pickmax; else on the plateau gate, like every other run).
+const runPass = gateRounds ? report.roundGate.pass : RUN === 'picks' && gatePicks ? true : report.gate.pass;
+process.exit(runPass && (!gateStep || report.stepGate.pass) && (!gatePicks || report.pickGate.pass) ? 0 : 1);

@@ -76,6 +76,23 @@ export function stepGate(samples, { key = 'footMiB', max, until } = {}) {
 }
 
 /**
+ * pickGate — what one COMMITTED scheme change costs (SQ-139, memory-probe --picks). Each pick carries the
+ * sample taken just before its gesture (`pre`) and the one after its settle (`post`); its step is
+ * post − pre. Every pick must land on its target (a pick that missed measured a different gesture) and
+ * no step may exceed `max` MiB. No picks, or a pick without both readings, is VACUOUS, which fails.
+ *
+ * @param {Array<{ target?: string, landed?: boolean, pre: Record<string, any>, post: Record<string, any> }>} picks
+ * @param {{ key?: string, max: number }} opts */
+export function pickGate(picks, { key = 'footMiB', max } = {}) {
+  const num = (v) => typeof v === 'number' && Number.isFinite(v);
+  const steps = (picks || []).map((p) => (num(p?.pre?.[key]) && num(p?.post?.[key]) ? Math.round((p.post[key] - p.pre[key]) * 10) / 10 : null));
+  if (!steps.length || steps.some((s) => s === null) || !num(max)) return { pass: false, vacuous: true, key, n: steps.length };
+  const missed = picks.filter((p) => p.landed === false).length;
+  const worst = Math.max(...steps);
+  return { pass: missed === 0 && worst <= max, key, steps, worst, worstAt: steps.indexOf(worst) + 1, missed, max, n: steps.length };
+}
+
+/**
  * roundGate — does the RESTING footprint plateau over hold-and-cycle rounds (SQ-136, memory-probe
  * --run=rounds)? plateauGate over each round's rest sample, the first round as warm-up (it carries the
  * eye's one-time opening step, which stepGate bounds), with an absolute tolerance only: a climb of k MiB
