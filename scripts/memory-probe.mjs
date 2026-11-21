@@ -17,6 +17,17 @@
  *   --run=eye      home, ?pophold=60 (one world holds, so the globe's churn is out of the count):
  *                  the eye held and scrubbed across the stations for --flips previews, released,
  *                  then press-scrub-release cycles for --minute seconds; a sample every 2 flips
+ *   --run=rounds   Nathan's walk (SQ-136, row 300): home with the globe running, --rounds=6 times: hold the
+ *                  eye --hold=3 s scrubbing every station, release, rest --rest=5 s; a sample at the end of
+ *                  each hold and after each rest, per-round series in report.rounds, roundGate on the rests
+ *                  (--roundabs=24 MiB). --noeye: the same clock with no gesture (the globe's share alone);
+ *                  --pophold=60: one world holds (the eye's share alone; popConfig clamps it at 60 s).
+ *                  Exits on the round gate. Measured 11-20 on f8a5cf1 (12 rounds, ~8.5 s each, rest MiB
+ *                  r2 -> r12): eye + globe 366 -> 522 (+15.6 a round), globe only 333 -> 439 (+10.6; 24
+ *                  rounds 334 -> 478, no plateau in 3.5 min), world held r2 -> r8 355 -> 375 (+3.3, about
+ *                  0.3 a preview, until the 60 s clamp changes the world); all of it WebKit malloc, and
+ *                  --pressure returns both 12-round arms to ~220-270. The eye's one-time opening step
+ *                  (+90..+104) is r1's. So the per-round climb is mostly the globe's own world churn.
  *   --engine       webkit (default: iOS is WebKit for every browser) or chromium (CDP: forced GC
  *                  before each sample, so "alive" counts are exact, plus Performance.getMetrics)
  *   --run=eye also samples `engaged` (held, before any preview) and, under WebKit, gates the opening STEP
@@ -55,7 +66,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
-import { plateauGate, stepGate } from './lib/plateauGate.mjs';
+import { plateauGate, roundGate, stepGate } from './lib/plateauGate.mjs';
 
 const require = createRequire(import.meta.url);
 const pw = require(process.env.PLAYWRIGHT_PATH || '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright');
@@ -83,6 +94,12 @@ const DPR = +arg('dpr', 3);
 const IDLE = +arg('idle', 0);
 const PRESSURE = arg('pressure', false);
 const CHURN = arg('churn', false);
+const ROUNDS = +arg('rounds', 6);
+const HOLD = +arg('hold', 3);
+const REST = +arg('rest', 5);
+const NOEYE = arg('noeye', false);
+const POPHOLD = +arg('pophold', 0);
+const ROUND_ABS = +arg('roundabs', 24);
 if (!OUT) {
   console.error('need --out=DIR (see the usage header)');
   process.exit(1);
@@ -386,9 +403,51 @@ const sample = async (label) => {
   return row;
 };
 
+/* ── the eye gesture: its geometry, synthetic touch pointers, and the scrub across its stations ── */
+const eyeKit = async () => {
+  await page.waitForSelector('.swm-corner[data-ready] .fp-scale', { timeout: 30000 });
+  const geo = await page.evaluate(() => {
+    const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect();
+    const cs = getComputedStyle(document.querySelector('.swm-corner'));
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, step: parseFloat(cs.getPropertyValue('--eye-step')) || 40 };
+  });
+  // Synthetic touch pointers on the pager root (usePagerGesture listens for pointer events; the
+  // capture call throws for a synthetic id and the engine carries on uncaptured, by design).
+  const fire = (type, y) =>
+    page.evaluate(
+      ({ type, x, y }) => {
+        const root = document.querySelector('.swm-corner .fp-scale');
+        root.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y }));
+      },
+      { type, x: geo.x, y }
+    );
+  const flips = () => page.evaluate(() => window.__mem.schemeEvents);
+  const scrub = async (until, onEvery) => {
+    // up two detents then down two, in 4 px steps a frame apart, until `until()` says stop
+    let y = geo.y;
+    let dir = -1;
+    const span = geo.step * 2.2;
+    let lastSample = await flips();
+    while (!(await until())) {
+      y += dir * 4;
+      if (y < geo.y - span) dir = 1;
+      if (y > geo.y) dir = -1;
+      await fire('pointermove', y);
+      await sleep(16);
+      const f = await flips();
+      if (f - lastSample >= 2) {
+        lastSample = f;
+        await onEvery(f);
+      }
+    }
+  };
+  return { geo, fire, flips, scrub };
+};
+
 const report = { argv: process.argv.slice(2), engine: ENGINE, run: RUN, viewport: [VW, VH, DPR], base: BASE };
 try {
-  const url = RUN === 'eye' ? `${BASE}/?popseed=42&pophold=60${EXTRA}` : `${BASE}/?popseed=42${EXTRA}`;
+  const hold = RUN === 'eye' || (RUN === 'rounds' && POPHOLD) ? `&pophold=${RUN === 'eye' ? 60 : POPHOLD}` : '';
+  const url = `${BASE}/?popseed=42${hold}${EXTRA}`;
   await page.goto(url, { waitUntil: 'load', timeout: 90000 });
   await page.waitForFunction(() => window.__swmPopStats && window.__swmPopStats.step != null, null, { timeout: 90000 });
   await sleep(4000);
@@ -439,44 +498,30 @@ try {
       }
     }
     report.worldChanges = changes;
+  } else if (RUN === 'rounds') {
+    // Nathan's walk (row 300): hold the eye ~HOLD s scrubbing through every station, let go, rest; ROUNDS
+    // times. A sample at the end of each hold (the round's peak, still held) and after each rest. --noeye
+    // is the control arm: the same clock with no gesture, so the globe's share is read on its own.
+    const eye = NOEYE ? null : await eyeKit();
+    report.rounds = [];
+    for (let k = 1; k <= ROUNDS; k += 1) {
+      const f0 = eye ? await eye.flips() : 0;
+      if (eye) {
+        await eye.fire('pointerdown', eye.geo.y);
+        await sleep(450);
+        const stopAt = Date.now() + HOLD * 1000;
+        await eye.scrub(async () => Date.now() > stopAt, async () => {});
+      } else await sleep(450 + HOLD * 1000);
+      const held = await sample(`r${k} held`);
+      if (eye) await eye.fire('pointerup', eye.geo.y);
+      await sleep(REST * 1000);
+      const rest = await sample(`r${k} rest`);
+      const pick = (r) => ({ footMiB: r.footMiB, glTexMiB: r.glTexMiB, glTextures: r.glTextures, canvasMiB: r.canvasMiB, nodes: r.nodes, videos: r.videos, mse: r.mse, footCats: r.footCats, world: r.world });
+      report.rounds.push({ round: k, flips: eye ? (await eye.flips()) - f0 : 0, held: pick(held), rest: pick(rest) });
+    }
   } else {
-    await page.waitForSelector('.swm-corner[data-ready] .fp-scale', { timeout: 30000 });
-    const geo = await page.evaluate(() => {
-      const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect();
-      const cs = getComputedStyle(document.querySelector('.swm-corner'));
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, step: parseFloat(cs.getPropertyValue('--eye-step')) || 40 };
-    });
+    const { geo, fire, flips, scrub } = await eyeKit();
     report.eye = geo;
-    // Synthetic touch pointers on the pager root (usePagerGesture listens for pointer events; the
-    // capture call throws for a synthetic id and the engine carries on uncaptured, by design).
-    const fire = (type, y) =>
-      page.evaluate(
-        ({ type, x, y }) => {
-          const root = document.querySelector('.swm-corner .fp-scale');
-          root.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y }));
-        },
-        { type, x: geo.x, y }
-      );
-    const flips = () => page.evaluate(() => window.__mem.schemeEvents);
-    const scrub = async (until, onEvery) => {
-      // up two detents then down two, in 4 px steps a frame apart, until `until()` says stop
-      let y = geo.y;
-      let dir = -1;
-      const span = geo.step * 2.2;
-      let lastSample = await flips();
-      while (!(await until())) {
-        y += dir * 4;
-        if (y < geo.y - span) dir = 1;
-        if (y > geo.y) dir = -1;
-        await fire('pointermove', y);
-        await sleep(16);
-        const f = await flips();
-        if (f - lastSample >= 2) {
-          lastSample = f;
-          await onEvery(f);
-        }
-      }
-    };
     // 1) held: press, wait out the hold, scrub for FLIPS previews
     const base = await flips();
     await fire('pointerdown', geo.y);
@@ -561,10 +606,19 @@ report.gate = plateauGate(samples, {
 // Only the eye gesture is gated (--drive=api arms are bisect controls) and only under WebKit, where it was measured.
 const gateStep = RUN === 'eye' && DRIVE === 'eye' && ENGINE === 'webkit';
 if (gateStep) report.stepGate = stepGate(samples, { key: 'footMiB', max: STEP_MAX, until: 'released' });
+// --run=rounds (SQ-136): the resting footprint after each round must plateau. Tighter than the run gate's 64:
+// a climb of k MiB a round shows as about k x rounds/2, so --roundabs (default 24) catches ~8 MiB a round over 6.
+const gateRounds = RUN === 'rounds' && report.rounds?.length;
+if (gateRounds) report.roundGate = roundGate(report.rounds, { footAbs: ROUND_ABS });
 fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
 console.log(`\nplateau gate: ${report.gate.pass ? 'PASS' : 'FAIL'}${report.gate.failed.length ? ` (${report.gate.failed.join(', ')})` : ''}`);
 for (const k of report.gate.failed) console.log(`  ${k}: ${JSON.stringify(report.gate.results[k])}`);
 if (gateStep) console.log(`step gate: ${report.stepGate.pass ? 'PASS' : 'FAIL'} ${JSON.stringify(report.stepGate)}`);
+if (gateRounds) {
+  for (const r of report.rounds) console.log(`round ${r.round}: flips ${r.flips} · held ${r.held.footMiB} · rest ${r.rest.footMiB} MiB · tex ${r.rest.glTexMiB} · ${r.rest.world ?? ''}`);
+  console.log(`round gate: ${report.roundGate.pass ? 'PASS' : 'FAIL'} ${JSON.stringify(report.roundGate.results.footMiB)}`);
+}
 if (errors.length) console.log(`errors: ${errors.join(' | ')}`);
 await browser.close();
-process.exit(report.gate.pass && (!gateStep || report.stepGate.pass) ? 0 : 1);
+// --run=rounds exits on its round gate: its run-wide plateau also reads the globe's world churn (glTexMiB).
+process.exit((gateRounds ? report.roundGate.pass : report.gate.pass) && (!gateStep || report.stepGate.pass) ? 0 : 1);
