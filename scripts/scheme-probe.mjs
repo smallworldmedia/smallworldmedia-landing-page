@@ -145,7 +145,10 @@
  *   jitter      the iris globe on one path through a REAL-TIME entrance and exit (slowed to 5 s, project
  *               only, /privacy/): Chromium by pixel centroid at DPR 1 and 2, WebKit by box centres at DPR 1
  *               and 2 (a WebKit screenshot settles a transition). Monotonic in x and y, and the settled pose
- *               within 0.5 px of the last animated frame.
+ *               within 0.5 px of the last animated frame. SQ-135: each leg's window runs to the end of its OWN
+ *               transitions (every --eye-ts/tg/tn/tf within 1e-5 of its end, gate.inFlightWindow), not to the
+ *               mean progress passing 0.998 / 0.002, which cut the exit's slide short by ~0.4 px and made the
+ *               settle step read sample cadence. The report gives each leg's frame count and settle step.
  *   strip       the badge is a clipping window onto the strip of the three background panels (glass,
  *               black, blue), riding the column position, one detent = one badge height: with only the
  *               badge painted over a flat page, --scale-qf is set to whole and fractional values and the
@@ -1166,7 +1169,7 @@ async function measureJitter(name, dpr, width) {
         const r = pick.getBoundingClientRect();
         return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
       });
-    const frame = () => page.evaluate(() => new Promise((res) => requestAnimationFrame(() => { const pg = document.querySelector('.swm-corner .fp-scale'); const cs = getComputedStyle(pg); res({ open: pg.hasAttribute('data-open'), t: ['s', 'g', 'n', 'f'].reduce((a, k) => a + (+cs.getPropertyValue(`--eye-t${k}`) || 0), 0) / 4 }); })));
+    const frame = () => page.evaluate(() => new Promise((res) => requestAnimationFrame(() => { const pg = document.querySelector('.swm-corner .fp-scale'); const cs = getComputedStyle(pg); res({ open: pg.hasAttribute('data-open'), ps: ['s', 'g', 'n', 'f'].map((k) => parseFloat(cs.getPropertyValue(`--eye-t${k}`))) }); })));
     const cdp = phone ? await ctx.newCDPSession(page) : null;
     const read = name === 'webkit' ? rects : pixels;
     const leg = async (engage) => {
@@ -1181,10 +1184,11 @@ async function measureJitter(name, dpr, width) {
       while (Date.now() - t0 < 5 * JOLT_MS + 15000) {
         const f = await frame();
         const p = await read();
-        pts.push({ ...p, t: f.t, open: f.open });
-        if (Math.abs(f.t - (engage ? 1 : 0)) < 2e-3 && f.open === engage) { if (++still >= 3) break; } else still = 0;
+        pts.push({ ...p, ps: f.ps, open: f.open });
+        // the leg is over when EVERY group's own progress is at its end value (SQ-135), not when their mean is near it
+        if (f.ps.every((v) => Math.abs(v - (engage ? 1 : 0)) <= 1e-5) && f.open === engage) { if (++still >= 3) break; } else still = 0;
       }
-      const inflight = pts.filter((p) => p.t > 0.002 && p.t < 0.998);
+      const inflight = gate.inFlightWindow(pts, engage);
       await sleep(500);
       const settled = await read();
       return { pts: inflight.map((p) => ({ x: +p.x.toFixed(3), y: +p.y.toFixed(3) })), settled: { x: +settled.x.toFixed(3), y: +settled.y.toFixed(3) } };

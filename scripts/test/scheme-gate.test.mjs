@@ -11,6 +11,7 @@ import {
   uniform, density, densityMin, rampStopsFromCss, outline,
   clearOfBlurb, bandEdges, seamEdges, lensLayer, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids, midChange,
 } from '../lib/scheme-gate.mjs';
+import { inFlightWindow } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
 
 const el = (paint, extra = {}) => ({ paint, ...extra });
@@ -879,6 +880,62 @@ test('jitter gate a steady ease in both axes with the settle on the last frame p
   // centroid noise (0.1 px, the measured floor) is not a reversal, and a 0.4 px settle is inside the 0.5 px bound
   const noisy = up.map((q, i) => ({ x: q.x + (i % 2 ? 0.05 : -0.05), y: q.y }));
   assert.equal(jitter({ engage: noisy, release: down, settledUp: { x: 1409, y: 871.3 }, settledDown: REST }).pass, true);
+});
+
+// ── SQ-135: a leg's window runs to the end of its OWN transitions, not to the mean progress passing 0.998 / 0.002. ──
+
+// The exit's last group is the slide: ts runs 1 -> 0 while the other three progresses are already 0, and the iris rides
+// x = SETTLED + 50 * ts (the shift S ~ 50 px, measured on 1440@1x and 390@1x). Frame times follow the ~190 ms sample cadence.
+const SETTLED_X = 1417.12;
+const SLIDE_TS = [0.6, 0.3, 0.12, 0.06, 0.03, 0.0105, 0.0077, 0.006, 0.0041, 0.0027, 0.0018, 0.0011, 0.0007];
+const slideFrame = (ts, x = SETTLED_X + 50 * ts) => ({ x, y: 888, ps: [ts, 0, 0, 0] });
+const slide = (ts = SLIDE_TS) => ts.map((v) => slideFrame(v));
+// the lead-in of the leg (the first groups still running, the slide not yet) and the static frames before and after
+const lead = Array.from({ length: 10 }, (_, i) => ({ x: SETTLED_X + 60 - i, y: 888, ps: [1, 1 - (i + 1) / 10, 1 - (i + 1) / 10, 1 - (i + 1) / 10] }));
+const idleBefore = { x: SETTLED_X + 60, y: 888, ps: [1, 1, 1, 1] };
+const idleAfter = { x: SETTLED_X, y: 888, ps: [0, 0, 0, 0] };
+// the mean-progress cut SQ-107 pass 5 used (t > 0.002 && t < 0.998), kept here only as the control
+const meanCut = (pts) => pts.filter((p) => { const t = p.ps.reduce((a, v) => a + v, 0) / 4; return t > 0.002 && t < 0.998; });
+
+test('inFlightWindow keeps every frame up to the last still moving, and drops the static frames around the leg', () => {
+  const run = [idleBefore, ...lead, ...slide(), idleAfter, idleAfter];
+  const w = inFlightWindow(run, false);
+  assert.equal(w[0], lead[0], 'the first frame in which any progress left its start value');
+  assert.equal(w.at(-1).ps[0], 0.0007, 'the last frame whose own transitions had not ended');
+  assert.equal(w.length, lead.length + SLIDE_TS.length);
+  // engage runs 0 -> 1: the window is read the other way round
+  const up = [{ x: 1, y: 1, ps: [0, 0, 0, 0] }, { x: 2, y: 1, ps: [0.3, 0, 0, 0] }, { x: 3, y: 1, ps: [1, 1, 1, 0.99999] }, { x: 4, y: 1, ps: [1, 1, 0.9999, 1] }, { x: 5, y: 1, ps: [1, 1, 1, 1] }];
+  assert.deepEqual(inFlightWindow(up, true).map((p) => p.x), [2, 3, 4], 'a progress 1e-5 or closer to its end has ended, 1e-4 away has not');
+  // a frame that did not read all four progresses is not part of any window, and a leg that never moved has no window
+  assert.deepEqual(inFlightWindow([{ x: 1, y: 1, ps: [NaN, 0.5, 0.5, 0.5] }, { x: 2, y: 1 }], true), []);
+  assert.deepEqual(inFlightWindow([idleAfter, idleAfter], true), []);
+  assert.deepEqual(inFlightWindow(null, true), []);
+});
+
+test('jitter gate on the exit counts the slide to its end: the settle step no longer reads the sample cadence (negative control: the mean cut)', () => {
+  const run = [idleBefore, ...lead, ...slide(), idleAfter, idleAfter];
+  const settledDown = { x: SETTLED_X, y: 888 };
+  const up = path(40, REST, OUT);
+  // the old window ends at ts 0.0105 (mean 0.0026): 0.52 px of the slide uncounted, so the continuous slide reads as a snap
+  const old = meanCut(run);
+  assert.equal(old.at(-1).ps[0], 0.0105);
+  const before = jitter({ engage: up, release: old, settledUp: OUT, settledDown });
+  assert.equal(before.pass, false, 'the control: the old window flags a continuous slide');
+  assert.match(before.offenders[0].note, /snap of 0\.5\d px at settle/);
+  // the new window ends at the last frame still moving (ts 0.0007, 0.035 px short of the settled pose)
+  const ok = jitter({ engage: up, release: inFlightWindow(run, false), settledUp: OUT, settledDown });
+  assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
+  assert.match(ok.note, /settle step engage [\d.]+ px, release 0\.0[34] px/, 'a pass prints each leg\'s own settle step');
+});
+
+test('jitter gate on the longer window still fails a real step at the end of the exit', () => {
+  // the same slide, but the iris jumps 1.4 px as the slide ends (the hand-over lands off the settled pose)
+  const run = [idleBefore, ...lead, ...slide(), idleAfter];
+  const settledDown = { x: SETTLED_X - 1.4, y: 888 };
+  const r = jitter({ engage: path(40, REST, OUT), release: inFlightWindow(run, false), settledUp: OUT, settledDown });
+  assert.equal(r.pass, false);
+  assert.equal(r.offenders[0].leg, 'release');
+  assert.match(r.offenders[0].note, /snap of 1\.4\d px at settle/);
 });
 
 test('jitter gate a left jolt at settle and a reversal in either axis and a missing run all fail', () => {

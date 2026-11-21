@@ -1186,6 +1186,30 @@ export function strays(diff, { tol = 8 } = {}) {
 }
 
 /**
+ * inFlightWindow — the frames of one jitter leg that are part of its transitions (SQ-135). `pts` = [{x, y, ps}] in time
+ * order, `ps` the four group progresses (--eye-ts/tg/tn/tf) read in that frame, `engage` the leg's direction (the
+ * progresses run 0 -> 1 on the entrance, 1 -> 0 on the exit). The window runs from the first frame in which ANY progress
+ * has left its start value to the LAST frame in which any progress is still more than `eps` from its end value, both
+ * ends inclusive: a frame is in flight while its own transitions are. SQ-107 pass 5 cut at the MEAN progress (t > 0.002),
+ * which on the exit (the slide runs last, so t = ts / 4) dropped every frame once --eye-ts fell below 0.008: the last
+ * 0.4 px of a ~50 px slide, plus up to a sample interval of tail, so the settle step flipped with sample cadence
+ * (0.37 - 0.67 px against the 0.5 limit) while the paint was continuous. A frame without all four progresses is not
+ * read: it stays out of the window.
+ */
+export function inFlightWindow(pts, engage, { eps = 1e-5 } = {}) {
+  const [from, to] = engage ? [0, 1] : [1, 0];
+  const read = (p) => Array.isArray(p?.ps) && p.ps.length === 4 && p.ps.every((v) => Number.isFinite(v));
+  let first = -1;
+  let last = -1;
+  (pts ?? []).forEach((p, i) => {
+    if (!read(p)) return;
+    if (first < 0 && p.ps.some((v) => Math.abs(v - from) > eps)) first = i;
+    if (p.ps.some((v) => Math.abs(v - to) > eps)) last = i;
+  });
+  return first < 0 || last < first ? [] : pts.slice(first, last + 1);
+}
+
+/**
  * jitter — the eye's globe moves along ONE smooth path from rest to engaged and back (SQ-107 pass 5,
  * Nathan: "a slight sudden left jolt that moves the iris a px or two from animation to scaled up").
  * `run` = { engage: [{x, y}...], release: [{x, y}...], settledUp: {x, y}, settledDown: {x, y} }: the
@@ -1201,6 +1225,7 @@ export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
   let n = 0;
   let worstJump = 0;
   let worstBack = 0;
+  const steps = {};
   const leg = (name, pts, settled) => {
     if (!Array.isArray(pts) || pts.length < 8 || !settled || !Number.isFinite(settled.x) || !Number.isFinite(settled.y)) {
       offenders.push({ path: '.swm-corner .scheme-eye', leg: name, note: 'too few samples measured' });
@@ -1219,6 +1244,7 @@ export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
       if (back > rev) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, axis: ax, note: `the centre gave back ${fixed(back, 2)} px against its direction of travel` });
       const jump = Math.abs(settled[ax] - v[v.length - 1]);
       worstJump = Math.max(worstJump, jump);
+      steps[name] = Math.max(steps[name] ?? 0, jump);
       worstBack = Math.max(worstBack, back);
       if (jump > snap) offenders.push({ path: '.swm-corner .scheme-eye', leg: name, axis: ax, note: `snap of ${fixed(jump, 2)} px at settle (last animated frame ${fixed(v[v.length - 1], 2)}, settled ${fixed(settled[ax], 2)})` });
     }
@@ -1228,7 +1254,7 @@ export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
   return result(
     offenders,
     n,
-    `${run?.engage?.length ?? 0} + ${run?.release?.length ?? 0} samples, ${run?.how ?? 'pixel centroid'}, worst settle step ${fixed(worstJump, 2)} px (limit ${snap}), worst reversal ${fixed(worstBack, 2)} px (limit ${rev})`
+    `${run?.engage?.length ?? 0} + ${run?.release?.length ?? 0} samples, ${run?.how ?? 'pixel centroid'}, worst settle step ${fixed(worstJump, 2)} px (limit ${snap}), worst reversal ${fixed(worstBack, 2)} px (limit ${rev}); settle step engage ${fixed(steps.engage ?? NaN, 2)} px, release ${fixed(steps.release ?? NaN, 2)} px`
   );
 }
 
