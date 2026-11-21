@@ -1006,6 +1006,75 @@ html[data-chrome-open] .swm-corner {
   backdrop-filter: none;
 }
 
+/* THE ONE-COLOUR LENS (SQ-132, Nathan 11-20: option A, "Lens shows one colour"; the default, ?lenswipe=1 keeps the
+   strip wipe above to compare). Between two detents the wipe's strip moved one band (48 px) per detent while each
+   carried badge moved one pitch (34 px), so the two agreed only at a whole detent: the in-between frames left a stepped
+   corner, a 1 px line of the leaving colour on the lens's top edge and a sliver of the arriving glass over the black
+   badge below it (402 @3, Phone Checks row 230). Now the lens badge paints only the CURRENT station's panel
+   (--scale-cur, the detented row the size curve and --ndd key off), so it never wipes, and the carried badges make one
+   column that slides through it: the lens badge rides with the current station (the lag between its row and the
+   engine's continuous one, --scale-cur - --scale-qf, one pitch per detent like every carried badge; 0 settled), so it
+   IS that station's badge and the station's own carried copy is not drawn (two glass veils, and its lagging sliver
+   was the grey line); a near-ring badge (--ndd 1), once the ring is out (--eye-con
+   0: a scrub and a settle, never the slide out from behind the lens), is no longer cut by the window but trimmed by its
+   own settled overlap with the lens badge (--badge-trim, 3.8 px at the phone defaults) on its lens side. The trimmed
+   edge rides with the badge, so the column stays edge to edge at every q (the riding lens badge's edge meets the
+   neighbour's trimmed one: lens half + trim = pitch), and the arriving badge slides into the lens in its own shape.
+   Settled, nothing differs: the trim is exactly the window's cut there, and one panel fills the lens. The far ring
+   (--ndd 2 and more) keeps its seam band. */
+.swm-corner[data-ready]:not([data-lens-wipe]) .fp-scale.swm-corner__pager::before {
+  background-position: 0 calc(-1 * (var(--scale-cur) * var(--badge-strip-h) + var(--badge-strip-pad)));
+  translate: 0 calc((var(--scale-cur) - var(--scale-qf, var(--scale-cur))) * var(--scale-pitch));
+}
+
+.swm-corner:not([data-lens-wipe]) .fp-scale.swm-corner__pager .scheme-badge {
+  opacity: clamp(0, var(--ndd), 1);
+  /* own px: the lens badge's half height less the gap from its edge to this station's centre, over this badge's scale */
+  --badge-trim: max(0px, calc(var(--badge-bh) / 2 + (var(--badge-bh) / 2 - var(--scale-pitch)) / var(--eye-r)));
+  /* 1 = trimmed (the near ring, out), 0 = today's band; --badge-ab 1 above the lens, 0 below */
+  --badge-m: calc(clamp(0, var(--ndd), 1) * (1 - var(--badge-g)) * (1 - var(--eye-con)));
+  --badge-ab: clamp(0, calc(var(--scale-cur) - var(--k, 0)), 1);
+  /* --badge-yt / --badge-yb once each (WebKit substitutes var() chains as text on every style pass, and the two are
+     the longest chains here: written twice, the menu's first frame over the badge ran long; SQ-132) */
+  --badge-ct: calc(
+    (1 - var(--badge-m)) * var(--badge-yt) +
+      var(--badge-m) * (var(--badge-ab) * (var(--badge-bh) - var(--badge-trim)) - (1 - var(--badge-ab)) * 999px)
+  );
+  --badge-cb: calc(
+    (1 - var(--badge-m)) * var(--badge-yb) +
+      var(--badge-m) * (var(--badge-ab) * 999px + (1 - var(--badge-ab)) * var(--badge-trim))
+  );
+  clip-path: polygon(
+    -999px -999px,
+    999px -999px,
+    999px var(--badge-ct),
+    -999px var(--badge-ct),
+    -999px var(--badge-cb),
+    999px var(--badge-cb),
+    999px 999px,
+    -999px 999px
+  );
+}
+
+/* The glass neighbour's inset() cut (the @supports block above), trimmed the same way: its lens-side edge only. */
+.swm-corner:not([data-lens-wipe]) .fp-scale.swm-corner__pager .scheme-badge[data-scheme='project'] {
+  --badge-hh: calc(var(--badge-bh) + (var(--badge-xt) + var(--badge-xb)) / var(--eye-r));
+  clip-path: inset(
+    calc(
+        (1 - var(--badge-m)) *
+          min(clamp(0px, var(--badge-yb), var(--badge-hh)), max(0px, 100000 * (0.01px - var(--badge-yt)))) +
+          var(--badge-m) * (1 - var(--badge-ab)) * var(--badge-trim)
+      )
+      0
+      calc(
+        (1 - var(--badge-m)) *
+          min(max(0px, var(--badge-hh) - var(--badge-yt)), max(0px, 100000 * (var(--badge-yt) - 0.01px))) +
+          var(--badge-m) * var(--badge-ab) * var(--badge-trim)
+      )
+      0
+  );
+}
+
 /* The circle is drawn at the LARGE size (the lens circle, the iris at the lifted size) and its
    row only ever scales it DOWN (--sel x --eye-far: 1 for the lens, near / far, 1 for the small
    ones). SQ-107 pass 3, the jitter: an svg root's layout box is snapped to a device pixel before

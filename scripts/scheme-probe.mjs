@@ -151,7 +151,8 @@
  *               badge painted over a flat page, --scale-qf is set to whole and fractional values and the
  *               middle column's colours read: one panel at a whole q (the station's), the seam at
  *               (1 - fraction) x the height between (project only). Then the real engine: ArrowDown x3,
- *               each settled detent one colour, the station's.
+ *               each settled detent one colour, the station's. SQ-132: the by-hand frames load ?lenswipe=1 (the
+ *               wipe is that A/B now; the default lens is one colour, gated by midChange), the engine frames the default.
  *   eyeLines    no dark stroke on any shape in the widget's svgs (the black outline is gone).
  *   bounds      engaged, every visible circle lies inside the window's and the viewport's x range (the
  *               viewport's bottom edge is the one hard edge, so y is not held).
@@ -209,6 +210,9 @@
  *               fill laid over it is a layer above, so no computed style shows it). On a phone the menu
  *               takeover is allowed to cover it. Negative control: --inject='.swm-corner{z-index:43 !important}'
  *               (the old seat under the shell) must FAIL.
+ *   midChange   402 x 874 @3, Chromium, blue only (SQ-132): a held touch slid through blue -> multi colour 2 px at a time; every
+ *               lens-only colour edge must match a badge edge at the right edge and no painted run is a sliver (gate.midChange).
+ *               Negative control: --query=lenswipe=1 FAILS. SWM_MIDCHANGE_DUMP=<file> writes the frames.
  *   menu        390 x 844 only, Chromium and WebKit, motion on and reduced (SQ-107 pass 8): the phone menu's
  *               takeover WIPES OVER the badge. Four phases (open, hold, close, a page change made from the
  *               menu), sampled every animation frame (the takeover's rendered top against the badge's box;
@@ -252,7 +256,7 @@ const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves t
 // The engaged eye's step left, PINNED here in swatch units (never read off the page, so a CSS regression fails the
 // shift and sequence gates): Nathan's 54 px at size 18 (11-20, Phone Checks row 190; 48 before, one rest eye width).
 const SHIFT_UNITS = 78;
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'layer', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu']; // the corner widget's own pass (SQ-107)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'layer', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu', 'midChange']; // the corner widget's own pass (SQ-107; midChange SQ-132)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', 'phone', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -1927,9 +1931,11 @@ async function measureStrip(browser, width) {
     return col;
   };
   const flat = 'html{background:#e0e0e0 !important} body *{visibility:hidden !important} .swm-corner,.swm-corner *{visibility:visible !important} .swm-corner svg,.swm-corner svg *{visibility:hidden !important}';
-  const open = async () => {
+  // SQ-132: the default lens paints one station's panel (it follows --scale-cur, not a hand-set --scale-qf), so the
+  // hand frames read the strip wipe where it still lives, ?lenswipe=1; the live frames run the default.
+  const open = async (query = '') => {
     const page = await ctx.newPage();
-    await page.goto(`${BASE}/privacy/?scheme=project`, { waitUntil: 'load', timeout: 90000 });
+    await page.goto(`${BASE}/privacy/?scheme=project${query}`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
     if (INJECT) await page.addStyleTag({ content: INJECT });
     await sleep(2000);
@@ -1948,8 +1954,8 @@ async function measureStrip(browser, width) {
       frames.push({ q, col: await column(live), live: true });
     }
     await live.close();
-    // The strip by hand: --scale-qf as the engine writes it each frame.
-    const page = await open();
+    // The strip by hand: --scale-qf as the engine writes it each frame (the ?lenswipe=1 A/B; SQ-132).
+    const page = await open('&lenswipe=1');
     for (const q of [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 2.75, 3, 3.5]) {
       await page.evaluate((v) => document.querySelector('.swm-corner .fp-scale').style.setProperty('--scale-qf', v), q);
       await sleep(150);
@@ -2478,6 +2484,63 @@ async function bandsPhonePass(browser, scheme, width) {
 }
 
 /**
+ * The midChange gate (SQ-132, Phone Checks row 230): 402 x 874 @3 (the iPhone 17 Pro), Chromium with a CDP touch held on the eye at
+ * ?scheme=blue, the finger slid up 2 px at a time through blue -> multi colour and on past the wrap (48 px), the art hidden over a
+ * flat grey page; at each step three device-px scanlines through the column (the lens badge's own left part, its middle, the
+ * viewport's right edge) go to gate.midChange: no thin line of colour that is not an edge's blend. WebKit cannot hold a touch-move
+ * headless (it commits in one frame), so Chromium stands in; the marks were CSS geometry, not the engine. Run on the blue scheme only
+ * (it starts there). Negative control: --query=lenswipe=1 (the old strip wipe) FAILS.
+ */
+async function midChangePass(scheme) {
+  if (scheme !== 'blue') return emit('SKIP', scheme, 'privacy', 402, 'midChange', 'skipped: the scrub starts at blue (--scheme=blue)');
+  const { default: sharp } = await import('sharp');
+  const browser = await chromium.launch();
+  const W = 402, H = 874;
+  try {
+    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 3, hasTouch: true, isMobile: true });
+    const page = await ctx.newPage();
+    await page.goto(`${BASE}/privacy/?scheme=blue${QUERY}`, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForSelector('.swm-corner[data-ready]', { timeout: 30000 });
+    if (INJECT) await page.addStyleTag({ content: INJECT });
+    await page.addStyleTag({ content: SEAM_ISOLATE });
+    await sleep(1500);
+    const eye0 = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: eye0.x, y: eye0.y }] });
+    await sleep(1200);
+    const open = await page.evaluate(() => document.querySelector('.swm-corner .fp-scale')?.hasAttribute('data-open'));
+    if (!open) return emit('FAIL', scheme, 'privacy', 402, 'midChange', 'the pager never engaged (data-open)');
+    const eye = await page.evaluate(() => { const r = document.querySelector('.swm-corner .scheme-eye').getBoundingClientRect(); return { l: r.left, r: r.right }; });
+    const clip = { x: W - 150, y: H - 180, width: 150, height: 180 };
+    const xs = [eye.l + 2, (eye.l + W) / 2, W - 3].map((x) => Math.round((x - clip.x) * 3));
+    const frames = [];
+    for (let d = 2; d <= 48; d += 2) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: eye0.x, y: eye0.y - d }] });
+      await sleep(250);
+      const q = await page.evaluate(() => document.querySelector('.swm-corner .fp-scale').style.getPropertyValue('--scale-qf'));
+      const { data, info } = await sharp(await page.screenshot({ clip })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+      const cols = xs.map((x0) => {
+        const col = [];
+        for (let y = 0; y < info.height; y++) {
+          const c = [0, 0, 0];
+          for (let x = x0 - 1; x <= x0 + 1; x++) for (let i = 0; i < 3; i++) c[i] += data[(y * info.width + x) * 3 + i] / 3;
+          col.push(c);
+        }
+        return col;
+      });
+      frames.push({ label: `d${d} q${Number(q).toFixed(3)}`, cols });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    if (process.env.SWM_MIDCHANGE_DUMP) fs.writeFileSync(process.env.SWM_MIDCHANGE_DUMP, JSON.stringify(frames.map((f) => ({ ...f, cols: f.cols.map((c) => c.map((p) => p.map((v) => +v.toFixed(1)))) }))));
+    emitResult(scheme, 'privacy', '402@3x', 'midChange', gate.midChange(frames));
+  } catch (e) {
+    emit('FAIL', scheme, 'privacy', 402, 'midChange', String(e.message).split('\n')[0].slice(0, 240));
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+/**
  * The phone gate (SQ-121): every route's widget rects at 390 x 844, at rest and engaged, against a capture of the base
  * build (--capture on that build's run, --compare on this one). Nothing above 768px may move a phone's badge or rings.
  */
@@ -2660,6 +2723,7 @@ async function main() {
         await ctx.close();
       }
       if (want.has('rightEdge')) await edgePass(browser, scheme);
+      if (want.has('midChange')) await midChangePass(scheme);
       if (want.has('clear') || want.has('bands') || want.has('seams') || want.has('layer')) await clearPass(browser, scheme, want);
       if (want.has('deal')) {
         if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);

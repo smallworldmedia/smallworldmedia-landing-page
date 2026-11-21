@@ -209,6 +209,9 @@ const dial = (raw, lo, hi) => {
  *   ?schemedown=<0|1> the DESKTOP column's ring below the lens (above 768px only, SQ-121, SQ-125): 1 = shown (the default,
  *                     Nathan 11-18), the seat rises so the ring's bottom edge clears the panel; 0 = none, the seat sits as
  *                     low as the lens badge clears the panel, to compare
+ *   ?lenswipe=1      the lens badge's old wipe between detents (SQ-132, PROPOSED A/B): the strip of three panels slides
+ *                     through the lens and the ring badges are cut by it; absent or anything else = the one-colour lens
+ *                     (the current station's panel only, the ring badges slide in through it)
  * Out-of-range values clamp; unparseable ones fall back to the default (null: the CSS owns it).
  */
 export function schemeParams(params) {
@@ -237,5 +240,6 @@ export function schemeParams(params) {
     lids: dial(params.get('schemelids'), 1, 1.3),
     glass: dial(params.get('schemeglass'), 0, 100),
     black: dial(params.get('schemeblack'), 0, 40),
+    lensWipe: params.get('lenswipe') === '1',
   };
 }
