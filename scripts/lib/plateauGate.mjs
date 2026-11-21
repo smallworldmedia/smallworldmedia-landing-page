@@ -74,3 +74,20 @@ export function stepGate(samples, { key = 'footMiB', max, until } = {}) {
   const peakAt = window.find((s) => s[key] === peak)?.label ?? null;
   return { pass: step <= max, key, base, peak, peakAt, step, max, n: after.length };
 }
+
+/**
+ * roundGate — does the RESTING footprint plateau over hold-and-cycle rounds (SQ-136, memory-probe
+ * --run=rounds)? plateauGate over each round's rest sample, the first round as warm-up (it carries the
+ * eye's one-time opening step, which stepGate bounds), with an absolute tolerance only: a climb of k MiB
+ * a round shows as about k x rounds/2 between the halves' maxima, so `footAbs` 24 fails more than 8 MiB a
+ * round over 6 rounds and more than 4 over 12. GL bytes churn with the globe's worlds; the run-wide
+ * plateauGate reads them. Nodes are held to 20.
+ *
+ * @param {Array<{ rest: Record<string, number|null> }>} rounds
+ * @param {{ footAbs?: number }} [opts] */
+export function roundGate(rounds, { footAbs = 24 } = {}) {
+  return plateauGate(
+    rounds.map((r) => r.rest),
+    { keys: ['footMiB', 'nodes'], warm: 1, rel: 0, abs: { footMiB: footAbs, nodes: 20 } }
+  );
+}
