@@ -336,20 +336,14 @@
   --pill-ink-on-black: var(--project-color-on-black, var(--scheme-accent-ink));
   --pill-ink-on-white: var(--project-color-text, var(--color-electric-blue));
 
-  /* Fixed privacy-pill keep-out — the horizontal reserve the footer nav row
-     leaves for the lower-right .site-privacy capsule (~5.3rem) + row air.
-     (The /process caption carries its own tighter reserve — page-local
-     knob in process.css.) */
-  --privacy-clearance: 7rem;
-
   /* The corner widget's badge WIDTH (SQ-107): the eye (18px x 53.28/26 at the default lid scale, the
      --scheme-swatch of site-scheme.css) plus the default padding (4px) each side; its right edge is
      the viewport's. These are the defaults: SiteScheme rewrites this token on <html> from the badge's
      own resolved size, padding and lid scale when ?schemesize, ?schemepad or ?schemelids is given, so
-     everything that keeps clear of the badge follows the dials. It owns the lower-right corner, so
-     above 768px the privacy pill and the footer link row's clearance for it move left by this much
-     (.site-privacy, below), and at 768px and below the home footer blurb's right inset is this
-     (.site-footer__inner, below). */
+     everything that keeps clear of the badge follows the dials. At 768px and below the home footer
+     blurb's right inset is this (.site-footer__inner, below). Above 768px nothing reserves it any more
+     (Nathan 11-20): the badge seats above the footer panel there, so the privacy pill is back in the
+     corner. */
   --badge-reserve: calc(18px * 53.28 / 26 + 2 * 4px);
 
   /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
@@ -2404,17 +2398,17 @@ a.clients__item:focus-visible {
 }
 
 /* RIGHT — nav links restyled for the footer (the .site-nav__link idiom).
-   08-29: the row clears the fixed lower-right privacy pill (margin-right =
-   --privacy-clearance, pill width + a row gap) and lifts by the pill's own
-   vertical padding so the link text line sits flush with the pill's text
-   line — the tagline row's align-center reading, mirrored. */
+   08-29: the row lifts by the pill's vertical padding so the link text line
+   sits flush with the tagline pill's text line — the tagline row's
+   align-center reading, mirrored. 11-20 (Nathan): privacy closes the row in
+   the right corner (.site-footer__link--privacy, below), so there is no
+   fixed pill left to keep clear of. */
 .site-footer__nav {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-4) var(--space-6);
   justify-content: flex-end;
-  margin-right: var(--privacy-clearance);
   margin-bottom: var(--pill-pad-y);
 }
 
@@ -2457,18 +2451,16 @@ a.clients__item:focus-visible {
   display: inline-block;
 }
 
-/* 08-27 (4), Nathan: privacy closes the row one weight up, brand blue at
-   rest, white on hover (the old 0.6-opacity whisper retired).
-   08-29: DESKTOP-HIDDEN — privacy lives in the persistent lower-right
-   .site-privacy pill (SiteTagline island).
-   08-30 (mobile pass): the ≤768px in-row fallback retired too — the
-   mobile menu's lower-corner link carries /privacy on phones now, so this
-   stays hidden at EVERY breakpoint (kept for any future footer return). */
+/* 08-27 (4), Nathan: privacy closes the row one weight up, in the pill
+   ink at rest, white on hover (the old 0.6-opacity whisper retired).
+   11-20 (Nathan: "move the privacy button to just being in the footer and
+   not fixed"): BACK in the row above 768px, as its last link, in the right
+   corner; it opens the notice in place (SiteFooter). The fixed
+   .site-privacy pill stays on home only, where this row is hidden and the
+   pill sits in the resting footer. At 768px and below the whole row is
+   hidden and the mobile menu's link carries privacy (10-07). */
 .site-footer__link--privacy {
-  display: none;
   font-weight: var(--weight-medium);
-  /* display:none at every breakpoint, but kept in step with the live pills so
-     a future footer return doesn't ship the one privacy link still on blue. */
   color: var(--pill-ink-on-black);
 }
 
@@ -3234,8 +3226,8 @@ html[data-footer-rest] .site-tagline__lockup {
    variant let's remove the footer links"). THE WHOLE FIX IS HERE: the row was
    only ever killed inside @media (max-width: 768px), and this variant is
    viewport-ungated — desktop home rests too (by default since 10-09) — so
-   above 769px the resting footer was still showing all five links. display:none takes the row,
-   its --privacy-clearance reserve and its --pill-pad-y lift out together, and
+   above 769px the resting footer was still showing all five links. display:none takes the row
+   and its --pill-pad-y lift out together, and
    drops the links from the tab order and the accessibility tree in one move.
    The nav stays reachable: the F1 shell slide is explicitly OFF under this
    variant (just below), so the main nav bar never leaves the viewport here;
@@ -3744,16 +3736,13 @@ html[data-footer-in] .logo-ticker__copy {
   color: var(--color-white);
 }
 
-/* SQ-107: the corner widget's badge sits in the lower-right corner this pill keeps. The pill, and
-   the footer link row's keep-out for it, move left of the badge. */
-@media (min-width: 769px) {
-  html:has(.swm-corner) {
-    --privacy-clearance: calc(7rem + var(--badge-reserve));
-  }
-
-  html:has(.swm-corner) .site-privacy {
-    right: calc(var(--chrome-right-inset) + var(--badge-reserve));
-  }
+/* 11-20 (Nathan): the fixed pill is HOME's only. Everywhere else privacy is the footer row's last link
+   (.site-footer__link--privacy), so nothing floats in the lower-right corner while the page scrolls. Home
+   hides that row ([data-footer-rest]) and its footer rests open, so the pill, seated in that resting band,
+   is the homepage's privacy link. body.route-home is server-rendered, so a reload never flashes it. The
+   SQ-107 shift left of the badge is gone: the badge seats above the footer panel now (SQ-121/125). */
+body:not(.route-home) .site-privacy {
+  display: none;
 }
 
 /* The home footer's blurb on a phone: its measure ends where the badge begins (SQ-107 pass 11, the
@@ -3813,8 +3802,10 @@ html[data-footer-in] .logo-ticker__copy {
   pointer-events: auto;
 }
 
-/* ≤768px (10-07, Nathan) the overlay's OWN way out — the privacy pill that
-   closes it on desktop does not exist on phones, and nothing else did: no
+/* The overlay's OWN way out wherever the pill is absent: on phones (10-07,
+   below) and, since 11-20, on every desktop route but home (the pill is
+   home's only; the footer row's link opens the notice there). Phones: the
+   privacy pill that closes it on desktop does not exist, and nothing else did: no
    Escape key, and the notice never changes route. This is that pill's OPEN
    state (white fill, blue ink, `close ×`) in the exact corner it held, so
    menu → notice → close reads as one persistent element. `fixed` INSIDE the
@@ -3851,6 +3842,12 @@ html[data-footer-in] .logo-ticker__copy {
 .privacy-overlay__close:focus-visible {
   outline: 1px solid currentColor;
   outline-offset: 3px;
+}
+
+@media (min-width: 769px) {
+  body:not(.route-home) .privacy-overlay__close {
+    display: flex;
+  }
 }
 
 /* /privacy and /terms: full-bleed black behind the measure; the route's own
@@ -3983,7 +3980,7 @@ body:has(.privacy-page) {
      menu, remove from globe page and any other occurrence on mobile
      breakpoint". The 08-30 note above this section already CLAIMED this
      arrangement — the rule was never written, so the pill stayed on phones
-     and ate --privacy-clearance out of the blurb's measure. The mobile
+     and ate the pill's clearance out of the blurb's measure. The mobile
      menu's .mobile-menu__privacy is the one opener now; since this pill was
      also the overlay's CLOSE, the overlay carries its own (above). */
   .site-privacy {

@@ -12,8 +12,10 @@
  * lives ONLY in the mobile menu there, and the menu link merely OPENS this.
  * With no pill, no Escape key and no route change, a phone had no way out of
  * this overlay at all. So the surface carries its OWN close capsule now (the
- * same `close ×` mark, the same lower-right seat the pill held), shown at
- * ≤768px where the pill is hidden. Desktop keeps the pill as the close.
+ * same `close ×` mark, the same lower-right seat the pill held), shown
+ * wherever the pill is absent: at ≤768px, and since 11-20 on every desktop
+ * route but home (the pill is home's only; elsewhere the footer row's
+ * privacy link opens this). Desktop home keeps the pill as the close.
  *
  * Cross-island: SiteShell folds `swm:privacy-state` into its
  * data-chrome-open latch (the footer shell-slide gate).

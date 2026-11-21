@@ -134,6 +134,8 @@ import { wordStagger } from './SiteTagline.jsx';
 // words, one renderer for the mark markup, one driver for the wipe.
 import { keywordLines, renderWordTokens, kwWipe, kwSet, stripKeywords } from '../lib/keywords.jsx';
 import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
+import { HandIcon } from './SiteNav.jsx';
+import { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
 
 // ── Link-row stagger (08-29, Nathan) ──
 // The footer nav links animate in on the same reveal beat the left corner's
@@ -1145,6 +1147,11 @@ export default function SiteFooter({
               <span className="site-footer__glyph">⁕</span>
               <span className="site-footer__label">featured_projects</span>
             </a>
+            {/* 11-20 (Nathan): the nav bar's services link, in the same order. */}
+            <a href="/work/directory" className="site-footer__link">
+              <HandIcon />
+              <span className="site-footer__label">services</span>
+            </a>
             <a
               href="https://instagram.com/smallworldmedia"
               className="site-footer__link"
@@ -1154,13 +1161,18 @@ export default function SiteFooter({
               <span className="site-footer__glyph">♡</span>
               <span className="site-footer__label">follow_us</span>
             </a>
-            {/* ≤768px ONLY (global.css gates): desktop privacy moved to the
-                persistent lower-right .site-privacy pill (SiteTagline island,
-                08-29) — this in-row link is the mobile fallback until the
-                deferred mobile pass. */}
+            {/* 11-20 (Nathan): privacy closes the row in the right corner
+                instead of a fixed pill (global.css keeps the pill on home
+                only, where this row is hidden). It opens the notice in place,
+                as the pill and the mobile menu's link do; the overlay carries
+                its own close where the pill is absent. Phones hide the row. */}
             <a
               href="/privacy"
               className="site-footer__link site-footer__link--privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                window.dispatchEvent(new Event(PRIVACY_OPEN_EVENT));
+              }}
             >
               <span className="site-footer__label">privacy</span>
             </a>

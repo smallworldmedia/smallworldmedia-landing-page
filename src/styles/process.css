@@ -896,21 +896,6 @@ body.route-process .site-nav {
   box-shadow: inset 0 0 0 1px var(--color-white);
 }
 
-/* 10-10 (w9c fix, scr-3): the privacy pill's black capsule (SiteTagline's;
-   its look is global.css's) vanishes on the black opening (1.00:1 — only
-   its blue word stayed, 2.44:1), so on /process it takes the steppers'
-   keyline while the field is black — the capsule reads again. An inset
-   ring, so the pill's own clip-path wipe carries it; never on the open
-   state (white face). On blue and the gradient's blue foot the black face
-   reads by itself. */
-body.route-process .site-privacy {
-  transition: box-shadow 0.4s ease;
-}
-
-body.route-process:has(.process-page[data-bg='black']) .site-privacy:not([aria-expanded='true']) {
-  box-shadow: inset 0 0 0 1px var(--color-white);
-}
-
 /* 10-07 (w5, stepper-tease): [next] names the next section (`next:
    core_assembly`) — one line, whatever its words measure (10-09 (w9):
    plain text now, no scramble). */

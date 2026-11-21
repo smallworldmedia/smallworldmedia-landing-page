@@ -391,6 +391,13 @@ export default function SiteTagline({ siteCopy }) {
       return Math.abs(b.top - top) < 1 ? b : null;
     };
     const maskToPanel = () => {
+      // 11-20: a drawer or overlay up ([data-chrome-open]) covers the footer, so the stack it seats
+      // goes with it, as the tagline pill comes back (maskPill, below). Opened at the footer's end
+      // (the desktop privacy link lives there now), the pill and the ©line drew over each other.
+      if (document.documentElement.hasAttribute('data-chrome-open')) {
+        for (const el of [copy, lockup]) if (el) el.style.clipPath = 'inset(100% 0 0 0)';
+        return;
+      }
       const band = bandBox();
       const edge = band ? band.bottom : panelEdge();
       if (!Number.isFinite(edge)) return;

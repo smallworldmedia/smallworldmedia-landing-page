@@ -75,8 +75,8 @@ function HeartIcon() {
     page shows what the services are and the past work in each; it was a folder,
     11-03, as project_directory). Nathan 11-20: redrawn in the pose of the old SWM
     logo hand (Brand/Logos 2026/Old): upright, five parallel digits, the middle
-    tallest, the thumb set low, a U palm. */
-function HandIcon() {
+    tallest, the thumb set low, a U palm. The footer's services link wears it too (11-20). */
+export function HandIcon() {
   return (
     <svg className="site-nav__icon site-nav__icon--sm" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path

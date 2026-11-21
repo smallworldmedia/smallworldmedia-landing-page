@@ -545,7 +545,7 @@ test('the eye, the globe path is read from the public file once, the project fac
   assert.ok(!/scheme-ring|scheme-halo/.test(css), 'the circular lens ring is gone');
 });
 
-test('SQ-107 the flush badge owns the lower-right corner, above 768px the privacy pill and the footer link keep-out move left of it', () => {
+test('SQ-107 the badge reserve is built from the skin; since 11-20 the desktop privacy pill no longer moves left of it', () => {
   const g = read('src/styles/global.css').replace(/\/\*[\s\S]*?\*\//g, '');
   const reserve = /--badge-reserve:\s*calc\(([^;]+)\);/.exec(g);
   assert.ok(reserve, 'the badge reserve is a root token');
@@ -555,9 +555,11 @@ test('SQ-107 the flush badge owns the lower-right corner, above 768px the privac
   const pad = /--badge-pad:\s*([\d.]+px)/.exec(skin)?.[1];
   assert.ok(pad && reserve[1].endsWith(`2 * ${pad}`), 'and its padding');
   assert.ok(/--eye-u-w:\s*53\.28;/.test(skin) && /--eye-w:\s*calc\(var\(--scheme-swatch\)\s*\*\s*var\(--eye-u-w\)\s*\/\s*26\)/.test(skin), 'and the eye width the skin derives from it (units of 26 per swatch, the lid scale\'s box)');
-  const seat = 'html:has\\(\\.swm-corner\\)';
-  const m = new RegExp(`@media \\(min-width: 769px\\)\\s*\\{\\s*${seat}\\s*\\{\\s*--privacy-clearance:[^}]*--badge-reserve[^}]*\\}\\s*${seat}\\s+\\.site-privacy\\s*\\{\\s*right:[^}]*--chrome-right-inset[^}]*--badge-reserve[^}]*\\}`).exec(g);
-  assert.ok(m, 'desktop only, keyed on the widget\'s presence so it holds before hydration');
+  // Nathan 11-20: the badge seats above the footer panel on desktop (SQ-121/125), so nothing on desktop
+  // keeps clear of it any more: the pill is back at the corner inset and the footer row reserves nothing.
+  assert.doesNotMatch(g, /--privacy-clearance/, 'the footer row\'s keep-out for a fixed pill is gone');
+  assert.doesNotMatch(g, /\.site-privacy\s*\{[^}]*--badge-reserve/, 'the pill no longer shifts left of the badge');
+  assert.match(g, /\.site-privacy\s*\{[^}]*right:\s*var\(--chrome-right-inset\);/, 'it sits at the corner inset');
 });
 
 test('SQ-107 pass 11 the home phone blurb\'s right inset is the badge\'s own width, and a dial that moves the width rewrites it', () => {
