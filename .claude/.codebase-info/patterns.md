@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-20*
+*Last Updated: 2026-11-21*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -147,7 +147,9 @@ changes what the page shows and is never stored; only a commit that changes the 
 writes `localStorage`. Three schemes are active (`SCHEMES`: project, black, blue). `spectrum` is
 parked (`PARKED_SCHEMES`, 11-15): `isKnownScheme` lets it apply as a `?scheme=` preview, and neither
 the latch nor `setScheme` stores or commits it. The latch is an inline head script because the attribute must exist before
-first paint and ClientRouter wipes it on every swap.
+first paint and ClientRouter wipes it on every swap. Phones (`PHONE_QUERY`, 11-21, Nathan) get no picker
+and the latch ignores their stored pick, so they stay on `project`: an iPhone holds ~110 MB per page
+recolour and never frees it. `?schemeui=1` restores both for an A/B or a probe at phone width.
 
 How a scheme reaches the DOM (`styles/scheme.css`, SQ-88): black and blue override the whole key set
 that `projectColorVars()` and `navAccent.js` write (`--project-color`, `-2`, `-fg`, `-text`,
