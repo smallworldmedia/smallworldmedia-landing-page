@@ -36,7 +36,10 @@
  * as each later world takes the globe — the scene tints the lattice and the
  * home chrome with its projectColor. ⏭ on the bench runs the next change now.
  * Enter World holds the clock (hold) so the world you dive into is the world
- * /work opens on.
+ * /work opens on. ?popworlds (a phone's 4, Nathan 11-21) stops it for good
+ * once that many worlds have taken the globe, the first included: the last
+ * world plans and warms no successor (lastWorld). Each change retints the
+ * page, and an iPhone keeps the memory of every retint.
  *
  * Tile assets are decorated once with their world (stats/focus) and the chip
  * copy HeroLabels reads (clientName, services).
@@ -1095,6 +1098,12 @@ export default class PopulationDirector {
   }
 
   planNext() {
+    // ?popworlds: the last world has no successor, so nothing warms for a change that never comes.
+    if (this.lastWorld()) {
+      this.upcoming = null;
+      this.nextWarm = null;
+      return;
+    }
     const step = this.step + 1;
     this.upcoming = this.makeGrouping({ step, lead: this.nextLead(step) });
     this.upcomingKind = this.nextKind(step);
@@ -1284,6 +1293,11 @@ export default class PopulationDirector {
     return (this.grouping.incoming ??= new Set(this.grouping.members));
   }
 
+  /** ?popworlds: this many worlds have taken the globe (the first is step 0), so the clock has stopped for good. */
+  lastWorld() {
+    return TUNING.worlds > 0 && this.step + 1 >= TUNING.worlds;
+  }
+
   beginHold() {
     const r = mulberry32(hashSeed(`${this.seed}:${this.step}:hold`))();
     this.holdLeft = TUNING.hold * (1 + TUNING.holdJit * (2 * r - 1));
@@ -1301,7 +1315,7 @@ export default class PopulationDirector {
       return;
     }
     if (this.nextWarm && !this.busy && !this.held) this.waitNextWarm(dt);
-    if (this.held || this.busy || this.worlds.length < 2) return;
+    if (this.held || this.busy || this.worlds.length < 2 || this.lastWorld()) return;
     this.holdLeft -= dt;
     if (this.holdLeft <= 0) this.advance();
   }
@@ -1457,6 +1471,8 @@ export default class PopulationDirector {
     } else if (key === 'layout') {
       if (this.grouping.members.length === 1) this.relayout();
       else if (!this.busy) this.planNext();
+    } else if (key === 'worlds') {
+      if (!this.busy) this.planNext(); // a raised cap plans the next world again and the clock runs on; a lower one stops it
     } else if (key === 'hold' || key === 'holdJit') {
       if (!this.busy) this.beginHold(); // a new hold starts now, on the new dial
     } else if (key === 'transitions' || key === 'chaos') {
@@ -1626,7 +1642,7 @@ export default class PopulationDirector {
       orphans,
       orphansFront,
       repeats: Math.max(0, ...perKey.values()),
-      clock: !(pace > 0) ? 'static' : this.frozen || this.held || this.worlds.length < 2 || !this.canAnimate() ? 'stopped' : 'running',
+      clock: !(pace > 0) ? 'static' : this.frozen || this.held || this.worlds.length < 2 || this.lastWorld() || !this.canAnimate() ? 'stopped' : 'running',
       D: deg(this.lastD),
       thetaH: deg(this.W.thetaH),
       initVQ: this.initVQ,
@@ -1808,6 +1824,7 @@ export default class PopulationDirector {
       world: label(this.lead),
       slug: this.worlds[this.lead]?.slug ?? null, // what Enter World hands /work
       held: this.held,
+      lastWorld: this.lastWorld(), // ?popworlds reached: the clock has stopped for the visit
       next: this.upcoming ? label(this.upcoming.members[0]) : null,
       transition: this.changing ?? this.upcomingKind,
       holdLeft: this.busy ? null : Math.max(0, Math.round(this.holdLeft * 10) / 10),

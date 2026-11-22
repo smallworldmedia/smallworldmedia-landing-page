@@ -20,7 +20,7 @@ import TextureManager, { assetKey, computeCoverUv } from '../../src/components/g
 import { loadTile, windowA, unitWindowOf, setWindowB, shownWindowA, offB, applyPlan, cancelSwap, placeKey, sharedDelays } from '../../src/components/globe/tileSwap.js'
 import PopulationDirector, { repeatGap, REPEAT_GAP } from '../../src/components/globe/PopulationDirector.js'
 import LivePanelScheduler from '../../src/components/globe/LivePanelScheduler.js'
-import { TUNING, POP_DEFAULTS, CAP_MOBILE, PORTRAIT_MOBILE, POP_TIERS, POP_SHAPES, POP_UNIT_LOOKS, POP_PORTRAITS, setPopTune } from '../../src/components/globe/popConfig.js'
+import { TUNING, POP_DEFAULTS, CAP_MOBILE, PORTRAIT_MOBILE, WORLDS_MOBILE, POP_TIERS, POP_SHAPES, POP_UNIT_LOOKS, POP_PORTRAITS, setPopTune } from '../../src/components/globe/popConfig.js'
 import {
   measureNameAspect,
   nameSpan,
@@ -591,6 +591,44 @@ test('director: a world holds, then the next pours in on a tide — one full spa
   assert.equal(stats.world, director.worlds[director.lead].clientName)
   assert.equal(stats.holdLeft, 2)
   director.dispose()
+})
+
+test('director: ?popworlds stops the clock for good once that many worlds have taken the globe, and the last plans no successor (Nathan 11-21)', () => {
+  const run = (worlds, after) => {
+    const seen = []
+    const scroller = { span: 10, steps: [], advance(d) { this.steps.push(d) } }
+    const { director } = makeDirector(
+      { seed: 3, chaos: 0, hold: 2, holdJit: 0, trans: 1, transitions: ['tide'], worlds },
+      { getScroller: () => scroller, canAnimate: () => true, onWorld: (w) => seen.push(w.slug) },
+    )
+    for (let i = 0; i < 600; i++) director.update(0.1) // 60 s; a change every 3 s (hold 2 + tide 1) would make 19
+    const out = { seen: seen.length, upcoming: director.upcoming, nextWarm: director.nextWarm, stats: director.sample(new THREE.Euler()) }
+    if (after) after(director, out)
+    director.dispose()
+    return out
+  }
+  const four = run(4, (director, out) => {
+    // ⏭ still moves it (a cold change), and a raised cap plans the next world again
+    director.next()
+    while (director.tide) director.update(1 / 60)
+    out.afterNext = director.step + 1
+    TUNING.worlds = 8
+    director.onTune('worlds')
+    out.replanned = !!director.upcoming
+  })
+  assert.equal(four.seen, 4) // the greeting + three changes
+  assert.equal(four.upcoming, null) // nothing warms for a change that never comes
+  assert.equal(four.nextWarm, null)
+  assert.equal(four.stats.lastWorld, true)
+  assert.equal(four.stats.next, null)
+  assert.equal(four.stats.phase, 'hold')
+  assert.equal(four.afterNext, 5)
+  assert.equal(four.replanned, true)
+  assert.equal(run(1).seen, 1) // the first world holds
+  const free = run(0)
+  assert.ok(free.seen >= 15, `desktop: ${free.seen} worlds in 60 s`)
+  assert.equal(free.stats.lastWorld, false)
+  assert.ok(free.upcoming)
 })
 
 test('director: chaos 0 walks the /work order and the set in turn; chaos 1 never revisits a recent world', () => {
@@ -7783,4 +7821,25 @@ test('phone defaults (SQ-106) - ?popcap and ?popportrait seed from the globe\'s 
   assert.ok(CAP_MOBILE <= WORLD_POOL_CAP)
   const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
   assert.match(guide, /^\| `\?popcap` \|.*\| `13` \(Nathan 10-06; was desktop 24 \/ mobile 16\); `7` on a phone \(`CAP_MOBILE`, SQ-106 .*\| 1–32 \(clamped\) \| `POP_DEFAULTS\.cap` \|$/m)
+})
+
+test('phone defaults (11-21) - ?popworlds seeds from IS_MOBILE: a phone stops after WORLDS_MOBILE (4) worlds, desktop never (0), a typed param wins on either', async () => {
+  const { execFileSync } = await import('node:child_process')
+  const href = new URL('../../src/components/globe/popConfig.js', import.meta.url).href
+  const run = (search, mobile) =>
+    JSON.parse(
+      execFileSync(process.execPath, ['--input-type=module', '-e',
+        `globalThis.window = { location: { search: ${JSON.stringify(search)} }, matchMedia: (q) => ({ matches: ${mobile} && q.includes('max-width') }), devicePixelRatio: 1 };` +
+        `const m = await import(${JSON.stringify(href)});` +
+        `process.stdout.write(JSON.stringify({ d: m.POP_DEFAULTS.worlds, t: m.TUNING.worlds }), () => process.exit(0))`], { encoding: 'utf8' })
+    )
+  assert.equal(WORLDS_MOBILE, 4) // Nathan's number: "a hold after the 4th world"
+  assert.deepEqual(run('', true), { d: 4, t: 4 })
+  assert.deepEqual(run('', false), { d: 0, t: 0 })
+  assert.deepEqual(run('?popworlds=0', true), { d: 4, t: 0 }) // the probes' endless clock on a phone
+  assert.deepEqual(run('?popworlds=6', false), { d: 0, t: 6 }) // a desktop preview of the hold
+  assert.deepEqual(run('?popworlds=-3', true).t, 0)
+  assert.equal(POP_DEFAULTS.worlds, 0) // this process has no window: the desktop's
+  const guide = fs.readFileSync(new URL('../../docs/tunables-guide.md', import.meta.url), 'utf8')
+  assert.match(guide, /^\| `\?popworlds` \|.*\| `4` on a phone \(`WORLDS_MOBILE`, Nathan 11-21\); `0` \(never\) on desktop .*\| `POP_DEFAULTS\.worlds` \|$/m)
 })

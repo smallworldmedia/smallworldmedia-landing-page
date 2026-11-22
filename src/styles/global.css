@@ -3757,7 +3757,9 @@ body:not(.route-home) .site-privacy {
    integrator's blurb regression at 390). The badge sits at the lower-right corner, a little off the bottom
    edge, in the rows the blurb's last line lands on, so the blurb's right inset is the badge's own width plus
    the page's inset (--nav-inset) again: the same air as the blurb's left edge. The token follows
-   ?schemesize, ?schemepad and ?schemelids. Only home carries the blurb ([data-footer-rest]). */
+   ?schemesize, ?schemepad and ?schemelids. Only home carries the blurb ([data-footer-rest]). Phones have no
+   badge since 11-21 (colorScheme.js PHONE_QUERY), so :has(.swm-corner) drops this and the blurb runs to
+   --chrome-right-inset as it did before SQ-107; ?schemeui=1 brings the badge and this inset back. */
 @media (max-width: 768px) {
   html[data-footer-rest]:has(.swm-corner) .site-footer__inner {
     padding-right: calc(var(--badge-reserve) + var(--nav-inset));

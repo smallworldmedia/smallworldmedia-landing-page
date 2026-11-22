@@ -46,6 +46,9 @@
  * world and pair portraits. Nathan 10-07: "decrease the number of unique media elements that are pulled in for the
  * globe on mobile, instead having them repeat"; shared streams and pooled textures make a repeat free. Desktop is
  * unchanged.
+ * 11-21 (Nathan): a phone's clock stops for the visit once WORLDS_MOBILE worlds have taken the globe (worlds). Every
+ * change retints the page with the new world's colour, and an iPhone keeps ~100 MB of each retint (Phone Checks row
+ * 380). Desktop never stops (0).
  */
 import { PATTERNS } from './worldPatterns.js';
 import { WORLD_POOL_CAP } from './buildWorldPools.js';
@@ -113,6 +116,11 @@ export const MEDIA_KINDS = {
 export const CAP_MOBILE = 7;
 export const PORTRAIT_MOBILE = 'pair';
 
+/** The phone's ?popworlds (Nathan 11-21: "a hold after the 4th world"): the first world plus three changes, then the
+ *  fourth holds until the page goes. Each change retints the page and the iPhone never gives a retint's memory back,
+ *  so an endless clock walked the tab to its ~2.1 GB reload. */
+export const WORLDS_MOBILE = 4;
+
 // A fresh draw per visit unless ?popseed pins it (resolved once, at load).
 const randomSeed = () => Math.floor(Math.random() * 1e6);
 
@@ -127,6 +135,7 @@ export const POP_DEFAULTS = Object.freeze({
   patterns: Object.freeze(['continents', 'archipelago', 'spiral']), // ?poppattern — 2–3 worlds: the set each grouping draws from (comma list)
   hold: 7, // ?pophold — seconds a world holds before the next (Nathan 10-28; 6 from 10-06)
   holdJit: 0.4, // ?popholdjit — ± fraction of the hold, drawn per change (Nathan 10-23; 0.2 from 10-06)
+  worlds: IS_MOBILE ? WORLDS_MOBILE : 0, // ?popworlds — the clock stops for good once this many worlds have taken the globe, the first included; 0 = never (desktop). A phone's WORLDS_MOBILE since 11-21 (Nathan)
   trans: 0.6, // ?poptrans — seconds a change takes (a tide rolls a full span in it); Nathan 10-23, 0.9 from 10-06
   transitions: Object.freeze(['surge']), // ?poptransset — the set changes draw from (comma list, POP_TRANSITIONS)
   chaos: 1, // ?popchaos — 0 = editorial order + the set in turn; 1 = a random next world + transition every change
@@ -162,6 +171,7 @@ const NUMERIC = {
   group: ['popgroup', (n) => clamp(Math.round(n), 1, 3)],
   hold: ['pophold', (n) => clamp(n, 2, 60)],
   holdJit: ['popholdjit', (n) => clamp(n, 0, 0.9)],
+  worlds: ['popworlds', (n) => (Math.round(n) <= 0 ? 0 : Math.min(Math.round(n), 99))],
   trans: ['poptrans', (n) => clamp(n, 0.3, 8)],
   chaos: ['popchaos', (n) => clamp(n, 0, 1)],
   color: ['popcolor', (n) => (n > 0 ? 1 : 0)],

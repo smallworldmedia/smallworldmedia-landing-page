@@ -48,7 +48,9 @@ if (!out || out.startsWith('--')) {
 const arg = (k, d) => process.argv.find((a) => a.startsWith(`--${k}=`))?.split('=').slice(1).join('=') ?? d;
 const MOBILE = process.argv.includes('--mobile');
 const SECS = Number(arg('secs', 45));
-const URL_ = arg('url', 'http://localhost:4322/');
+// A phone's world clock stops after ?popworlds' 4 worlds (11-21); the timing log wants every change of the run, so
+// --mobile adds &popworlds=0 unless --url names its own ?popworlds.
+const URL_ = ((u) => (MOBILE && !/[?&]popworlds=/.test(u) ? `${u}${u.includes('?') ? '&' : '?'}popworlds=0` : u))(arg('url', 'http://localhost:4322/'));
 const THR = arg('throttle', ''); // down_mbps,rtt_ms
 const bucket = (u) => {
   try {

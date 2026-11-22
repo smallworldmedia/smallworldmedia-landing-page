@@ -524,7 +524,10 @@ const eyeKit = async () => {
 const report = { argv: process.argv.slice(2), engine: ENGINE, run: RUN, viewport: [VW, VH, DPR], base: BASE };
 try {
   const hold = RUN === 'eye' || (RUN === 'rounds' && POPHOLD) ? `&pophold=${RUN === 'eye' ? 60 : POPHOLD}` : '';
-  const url = `${BASE}/?popseed=42${hold}${EXTRA}`;
+  // A phone's world clock stops after ?popworlds' 4 worlds (11-21); every arm here counts an endless clock, so it
+  // runs with 0 unless --extra names its own ?popworlds.
+  const worlds = /[?&]popworlds=/.test(EXTRA) ? '' : '&popworlds=0';
+  const url = `${BASE}/?popseed=42${hold}${worlds}${EXTRA}`;
   await page.goto(url, { waitUntil: 'load', timeout: 90000 });
   await page.waitForFunction(() => window.__swmPopStats && window.__swmPopStats.step != null, null, { timeout: 90000 });
   await sleep(4000);
