@@ -157,7 +157,10 @@ its centre. Eight `?pop*` knobs (`units`, `shapes`, `unitMax`, `quads`, `tier`, 
 `unitLook` = `?popunitlook` flat | rows and `portrait` = `?popportrait` fill | pair) sit in `popConfig.js`
 with a spans group on the bench. Since 11-16 (SQ-106) the phone has its own defaults, `CAP_MOBILE` 7 distinct
 assets a world (`?popcap`; desktop 13) and `PORTRAIT_MOBILE` `'pair'` (desktop `'fill'`), so the home tab fits
-the 73 MiB mobile texture ceiling (texPeak 60.7 MiB; iOS reloaded the tab above it).
+the 73 MiB mobile texture ceiling (texPeak 60.7 MiB; iOS reloaded the tab above it). Since 11-21 (Nathan,
+`50c82e7`) a phone's world clock also stops for the visit after `WORLDS_MOBILE` 4 worlds (`?popworlds`; desktop
+0 = never): `PopulationDirector.lastWorld()` stops `update()` and `planNext()` plans and warms no successor (the
+bench's ⏭ still moves it), because each change retints the page and an iPhone keeps ~100 MB of every retint.
 
 **Panel grain is gone** (10-31, `f2916d1`, Nathan's item 16): `panelGrain.js`, the shader's grain term,
 the 8 `?popgrain*` knobs and the scheduler's grain-band gate were removed. The FP pager scrim's grain
