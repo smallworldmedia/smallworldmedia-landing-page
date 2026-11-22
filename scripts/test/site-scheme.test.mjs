@@ -133,6 +133,7 @@ test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesi
   const q = (s) => schemeParams(new URLSearchParams(s));
   assert.deepEqual(q(''), {
     ui: true,
+    force: false,
     guardMs: 200,
     rows: 6,
     size: null,
@@ -157,6 +158,9 @@ test('schemeParams defaults and the ?schemeui ?schemeguard ?schemerows ?schemesi
   });
   assert.equal(q('schemeui=0').ui, false);
   assert.equal(q('schemeui=1').ui, true);
+  assert.equal(q('schemeui=0').force, false);
+  assert.equal(q('schemeui=1').force, true, 'schemeui=1 forces the widget on a phone');
+  assert.equal(q('schemeui=yes').force, false, 'only 1 forces');
   assert.equal(q('schemeguard=0').guardMs, 0);
   assert.equal(q('schemeguard=350').guardMs, 350);
   assert.equal(q('schemeguard=-5').guardMs, 0);

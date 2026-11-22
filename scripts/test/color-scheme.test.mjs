@@ -15,7 +15,7 @@ const cs = await import('../../src/lib/colorScheme.js')
 const {
   SCHEMES, PARKED_SCHEMES, DEFAULT_SCHEME, SCHEME_STORAGE_KEY, SCHEME_EVENT, SPECTRUM, SPECTRUM_SHARES,
   isScheme, isKnownScheme, getScheme, getCommittedScheme, setScheme, onScheme, useScheme,
-  spectrumKeyAt, spectrumDeal, schemeAccent, schemeInk,
+  spectrumKeyAt, spectrumDeal, schemeAccent, schemeInk, PHONE_QUERY, isPhone,
 } = cs
 
 const define = (k, value) => Object.defineProperty(globalThis, k, { value, configurable: true, writable: true })
@@ -57,10 +57,15 @@ const throwingStorage = () => ({
 })
 
 // A window + document the module can run against; `search` is the page's query string.
-function setup({ storage = memStorage(), search = '' } = {}) {
+function setup({ storage = memStorage(), search = '', phone } = {}) {
   const win = new EventTarget()
   win.localStorage = storage
   win.location = { search }
+  // `phone` given: a matchMedia that answers it and records every query it was asked (the latch and isPhone)
+  if (phone !== undefined) {
+    win.queries = []
+    win.matchMedia = (q) => (win.queries.push(q), { matches: phone })
+  }
   const doc = new EventTarget()
   doc.documentElement = fakeRoot()
   define('window', win)
@@ -83,8 +88,8 @@ const latchSrc = (() => {
   return ''
 })()
 
-function runLatch({ storage = memStorage(), search = '' } = {}) {
-  const env = setup({ storage, search })
+function runLatch({ storage = memStorage(), search = '', phone } = {}) {
+  const env = setup({ storage, search, phone })
   const sandbox = { window: env.win, document: env.doc, URLSearchParams }
   vm.createContext(sandbox)
   vm.runInContext(latchSrc, sandbox)
@@ -401,4 +406,48 @@ test('latch: setScheme after the latch keeps the shared state in one place', () 
   // The same object refuses a parked commit and keeps the committed state untouched.
   assert.equal(setScheme('spectrum'), 'black')
   assert.deepEqual({ ...win.__swmScheme }, { applied: 'black', committed: 'black' })
+})
+
+// --- phones: no picker, no stored pick (Nathan 11-21, Phone Checks row 380) ----------------
+
+test('PHONE_QUERY: the phone tier plus a phone in landscape, and the latch repeats it verbatim', () => {
+  assert.equal(PHONE_QUERY, '(max-width: 768px), (pointer: coarse) and (max-height: 500px)')
+  assert.ok(latchSrc.includes(`'${PHONE_QUERY}'`), 'the latch asks matchMedia the module query')
+})
+
+test('isPhone: answers matchMedia(PHONE_QUERY), and is false with no window or no matchMedia', () => {
+  assert.equal(isPhone(), false, 'no window (SSR)')
+  setup()
+  assert.equal(isPhone(), false, 'no matchMedia')
+  const { win } = setup({ phone: true })
+  assert.equal(isPhone(), true)
+  assert.deepEqual(win.queries, [PHONE_QUERY])
+  setup({ phone: false })
+  assert.equal(isPhone(), false)
+})
+
+test('latch on a phone: a stored pick is ignored and project applies', () => {
+  const { root, win, storage } = runLatch({ storage: memStorage({ 'swm:scheme': 'black' }), phone: true })
+  assert.equal(root.dataset.scheme, 'project')
+  assert.equal(win.__swmScheme.committed, 'project')
+  assert.equal(getCommittedScheme(), 'project')
+  assert.equal(storage.map.get('swm:scheme'), 'black', 'the stored value is left alone, only ignored')
+  assert.deepEqual(win.queries, [PHONE_QUERY])
+})
+
+test('latch on a phone: ?schemeui=1 honours the stored pick; ?scheme= still previews', () => {
+  let env = runLatch({ storage: memStorage({ 'swm:scheme': 'blue' }), search: '?schemeui=1', phone: true })
+  assert.equal(env.root.dataset.scheme, 'blue')
+  assert.equal(env.win.__swmScheme.committed, 'blue')
+  delete globalThis.window
+  delete globalThis.document
+  env = runLatch({ storage: memStorage({ 'swm:scheme': 'blue' }), search: '?scheme=black', phone: true })
+  assert.equal(env.root.dataset.scheme, 'black', 'the preview applies')
+  assert.equal(env.win.__swmScheme.committed, 'project', 'the stored pick still is not')
+})
+
+test('latch above the phone tier: the stored pick applies as before', () => {
+  const { root, win } = runLatch({ storage: memStorage({ 'swm:scheme': 'black' }), phone: false })
+  assert.equal(root.dataset.scheme, 'black')
+  assert.equal(win.__swmScheme.committed, 'black')
 })

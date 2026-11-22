@@ -39,7 +39,8 @@
  * and the pager's live region never announces the scheme unprompted on load.
  *
  * ?params (read once at mount; docs/tunables-guide.md "colour scheme"):
- *   ?schemeui=0 hides the widget; ?schemeguard=<ms> the wheel pass-through guard;
+ *   ?schemeui=0 hides the widget, ?schemeui=1 shows it on a phone too (phones have none by default,
+ *   Nathan 11-21: colorScheme.js PHONE_QUERY); ?schemeguard=<ms> the wheel pass-through guard;
  *   ?schemerows ?schemesize ?schemegap dial the deployed window and its spacing (site-scheme.css);
  *   ?schemelift ?schemenear ?schemefar the engaged sizes; ?schemein ?schemeout each ring circle's
  *   slide out from behind the centre eye and back (SQ-116); ?schemepad the badge's padding round the eye; ?schemeshift the engaged eye's
@@ -54,6 +55,7 @@ import {
   SCHEMES,
   getScheme,
   getCommittedScheme,
+  isPhone,
   onScheme,
   setScheme,
 } from '../lib/colorScheme.js';
@@ -178,7 +180,8 @@ export default function SiteScheme() {
         stopReserve = () => document.removeEventListener('astro:after-swap', reserve);
       }
     }
-    setUi(p.ui);
+    // No picker on a phone (Nathan 11-21, colorScheme.js PHONE_QUERY) unless ?schemeui=1 forces it.
+    setUi(p.ui && (p.force || !isPhone()));
     setActive(stationOf(getScheme()));
     setReady(true);
     return () => stopReserve();

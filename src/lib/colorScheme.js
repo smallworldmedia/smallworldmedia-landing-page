@@ -34,6 +34,19 @@ export const DEFAULT_SCHEME = 'project';
 export const SCHEME_STORAGE_KEY = 'swm:scheme';
 export const SCHEME_EVENT = 'swm:scheme';
 
+/**
+ * Phones get no scheme picker and ignore a stored pick: they stay on `project` (Nathan 11-21). On an
+ * iPhone every page recolour holds memory that is never given back (Phone Checks row 380: ~110 MB a
+ * change, the tab reloads near 2.1 GB), and the picker is an extra not worth tuning for phones. The
+ * width clause is the site's phone tier; the coarse-pointer, short-height clause catches a phone in
+ * landscape, which is wider than 768px. `?schemeui=1` brings the widget and the stored pick back on a
+ * phone (an A/B and the probes). BaseLayout's latch repeats this string (color-scheme.test.mjs pins it).
+ */
+export const PHONE_QUERY = '(max-width: 768px), (pointer: coarse) and (max-height: 500px)';
+/** True on a phone (PHONE_QUERY); false on the server or where matchMedia is missing. */
+export const isPhone = () =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(PHONE_QUERY).matches;
+
 /** The five dealt palette colours of color-ref.png and the ink each one carries. */
 export const SPECTRUM = {
   blue: { fill: '#1556e5', fg: '#ffffff' },

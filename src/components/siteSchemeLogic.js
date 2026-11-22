@@ -173,7 +173,8 @@ const dial = (raw, lo, hi) => {
 
 /**
  * The widget's ?params from a URLSearchParams (anything with .get):
- *   ?schemeui=0       hides the widget
+ *   ?schemeui=0       hides the widget; ?schemeui=1 forces it on a phone (phones have none by default, Nathan
+ *                     11-21: colorScheme.js PHONE_QUERY), `force`
  *   ?schemeguard=<ms> wheel pass-through guard, default 200 (0 = off)
  *   ?schemerows=<n>   the window's rows (centre included): how far the column reaches before the window
  *                     ends, default 6 = three stations each side. The circles SHOWN are two above the
@@ -220,6 +221,7 @@ export function schemeParams(params) {
   const size = finiteNum(params.get('schemesize'));
   return {
     ui: params.get('schemeui') !== '0',
+    force: params.get('schemeui') === '1',
     guardMs: Number.isNaN(guard) ? 200 : Math.max(0, guard),
     rows: Number.isNaN(rows) ? 6 : Math.min(12, Math.max(1, rows)),
     size: Number.isNaN(size) || size <= 0 ? null : Math.max(8, size),
