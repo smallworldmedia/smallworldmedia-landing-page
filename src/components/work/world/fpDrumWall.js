@@ -462,13 +462,22 @@ export function createWallPlate({
     dispose() {
       record.disposed = true;
       gsap.killTweensOf(record);
-      for (const { img } of images.values()) img.onload = null;
+      // Drop the page images too (aborts any still in flight, frees the
+      // decoded bitmaps) and zero the atlas canvas: WebKit holds a detached
+      // canvas's backing store until GC, so every Turn away from a deck or
+      // carousel World would otherwise park one full atlas (11-23).
+      for (const { img } of images.values()) {
+        img.onload = null;
+        img.removeAttribute('src');
+      }
       canvas.removeEventListener('contextrestored', onRestored);
       images.clear();
       parent.remove(group);
       mesh.geometry.dispose();
       material.dispose();
       texture.dispose();
+      canvas.width = 0;
+      canvas.height = 0;
       border.geometry.dispose();
       borderMaterial.dispose();
     },
