@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-19*
+*Last Updated: 2026-11-23*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -12,7 +12,7 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
 | `plan` | `--manifest PATH` xor `--changes PATH`, `--project-id`, `--dataset`, `--checkout?`, `--state-dir?` | Read-only. Parses scope, resolves client/project/serviceTag refs, hashes + probes every file, computes create/patch/unchanged/delete ops and appended LexoRanks, saves a credential-free `plan.json` (id = sha256) and prints the exact resume command |
 | `apply` | `--plan PATH --confirm PLAN_ID` | Requires exact plan-id + matching checkout/target; per-checkout git mutex + per-run lock; uploads media, journals each op, writes docs, publishes only when no draft exists, runs approved deletes last, writes `sanityId` bindings back into the manifest. Guards (`remoteGuards` in `lib/cms/runner.mjs`): every pinned collection is re-captured before the first write and at verify; each op's own pass re-captures only the collections it touches (`touches`: its id is in the snapshot, or its resulting doc is `inCollection`), and the second pass before the commit runs only after an upload (SQ-128, 11-19: a 99-op × 37-collection plan went from ~17.6k Sanity requests to ~0.9k) |
 | `verify` | `--run PLAN_ID` | Read-only reconciliation of the journal against Sanity/Mux (readiness, aspect, corruption; deleted docs, drafts and Mux assets absent) |
-| `audit` | `--project-id`, `--dataset`, `--checkout?` | Read-only whole-dataset health check (`lib/cms/audit.mjs`): Sanity snapshot + live Mux list (optional) + every `media/**/_manifest.md` + local schema → JSON report of `CHECKS` (error/warning/info) and a draft `suggestedChanges` request (labels, legacy video shapes; never drafted docs). Exit 1 on errors; no run store |
+| `audit` | `--project-id`, `--dataset`, `--checkout?` | Read-only whole-dataset health check (`lib/cms/audit.mjs`): Sanity snapshot + live Mux list (optional) + every `media/**/_manifest.md` + local schema → JSON report of `CHECKS` (error/warning/info) and a draft `suggestedChanges` request (labels, legacy video shapes; never drafted docs). Exit 1 on errors; no run store. Since 11-23 it gates every Netlify deploy build: `scripts/audit-gate.mjs` (the `netlify.toml` build command, before `astro build`) runs it through `main()`, prints the summary and each error's items (≤ 10 per check, never the full report, never a provider message with a URL) and stops the build on any error, so the last good deploy stays live. Needs `SANITY_READ_TOKEN` (Viewer) in the Netlify site env; no Mux credentials there on purpose (Mux statuses come from Sanity) |
 
 ## Modules (`scripts/lib/cms/`)
 - `manifest.mjs` — `parseManifest()` (headers client/services/year/project; columns file, mediaType,
@@ -133,7 +133,7 @@ throws without one; snapshots never include `secrets.*` or `mux.apiKey`.
 
 ## Tests — `npm run test:cms`
 `scripts/test/cms/{runner,adapters,safety,delete,audit,sets,sets-migration,guard-scope}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
-groq-js), `cms-generator.test.mjs`, `legacy-cms.test.mjs`. Covers parsing, zero-write previews,
+groq-js), `cms-generator.test.mjs`, `legacy-cms.test.mjs`, `cms-audit-gate.test.mjs` (the deploy gate: clean → 0, an error → 1 with the items capped, no token → 1, a provider URL never echoed). Covers parsing, zero-write previews,
 idempotent reruns, legacy-ID matching, tampered-plan rejection, Mux resume, replacement atomicity,
 lock refusal, schema-drift fail-closed, delete blockers/drift/resume/tamper, audit (clean-set negative control, every check seeded, secrets never reported, read-only CLI), the apply guard scope (exact collection-capture counts via `stats.collections`; drift in the next op's collection or during an upload still stops; drift elsewhere is reported by verify), and that retired scripts
 stay guidance-only.

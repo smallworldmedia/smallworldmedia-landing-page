@@ -1,6 +1,6 @@
 # Entry Points
 
-*Last Updated: 2026-11-21*
+*Last Updated: 2026-11-23*
 
 ## Routes
 
@@ -90,5 +90,8 @@ Client Roster (`getDirectoryData()` → `toDrawerRoster`, `src/lib/clientCoverag
 | `node scripts/generate-manifests.mjs "Client" [--dry-run]` | scaffold TBD manifests |
 
 Deploy: push to `feature/v1-launch` rebuilds the Netlify branch preview; a merge to `main` is the
-launch. Draft deploy without touching production: `npm run build` then
+launch. Every Netlify build runs `node scripts/audit-gate.mjs && npm run build` (11-23): an audit error
+stops the build and the last good deploy stays live (`cms-pipeline.md`). Content reaches the site only
+through a build (no build hooks): Nathan publishes text edits in Studio, then triggers a deploy; media
+goes through a session. Draft deploy without touching production: `npm run build` then
 `npx netlify-cli deploy --dir=dist --no-build --site <site-id>` (no `--prod`).
