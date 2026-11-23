@@ -40,7 +40,7 @@ import { FP1_TUNE_ACTIVE } from './fp1Tune.js';
 // enter_world commit, riding the scene's enter ramp (textExit.js). The tiny
 // runner is static; its ?texttune=1 bench is lazy like the others below.
 import { runTextExit, cancelTextExit } from './textExit.js';
-import { TURN_DURATION, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
+import { TURN_DURATION, WORLD_TURN_S, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
 import { formatYearRange } from '../../lib/formatYearRange.js';
 import { projectColorVars } from '../../lib/projectColor.js';
 import { applyNavAccent } from '../../lib/navAccent.js';
@@ -482,7 +482,8 @@ export default function FeaturedProjects({ worlds = [] }) {
     firstNavAccent.current = false;
   }, [worlds, active]);
 
-  const TURN_MS = TURN_DURATION * 1000;
+  // The Turn as the scene runs it (DRUM-stretched): the lock below waits it out.
+  const TURN_MS = WORLD_TURN_S * 1000;
   const clearIdle = () => {
     if (idleRef.current) {
       clearTimeout(idleRef.current);

@@ -188,6 +188,10 @@ export const LENS_DISTORTION_Y = num('lensy', LENS_DISTORTION * 1.1); // vertica
    opposite edge, both crossfading while the lens distortion spikes. Two Worlds
    are briefly co-present (one per render slot). */
 export const TURN_DURATION = num('turnms', 1700) / 1000; // seconds for the full roll
+// The World Turn as it actually runs: the DRUM stretches the roll ×?drumturn.
+// useWorldScene's roll and /work's one-Turn-at-a-time lock both read this, so a
+// pick waiting on the lock never cuts the roll's settle short (Nathan 11-23).
+export const WORLD_TURN_S = TURN_DURATION * (FPGRID === 3 ? DRUM_TURN_MUL : 1);
 export const TURN_EXIT_ANGLE = num('exit', 0.88); // radians the outgoing World rolls past center
 export const TURN_ENTER_ANGLE = num('enter', 0.88); // radians the incoming World starts off-center
 export const TURN_LENS_SPIKE = num('spike', 0.08); // extra (negative) distortion added at the turn's midpoint

@@ -387,7 +387,7 @@ Mode tags: **[all]** every field mode · **[DRUM]** `fpgrid=3` (the shipped defa
 | `?creep` | idle whole-drum creep outside a Turn (not under RM) [DRUM] | `0` deg/s | any finite | `:64` |
 | `?dragfollow` | drag-follow (11-03): the share of a Turn a finger or the wheel previews at full fill — the drum leans this × `?arcdeg`, the resting card this × its 70% travel (WorldCard `y`) — and a release springs both home on the CTA's release lane (`motion.js` `RELEASE_GLIDE_S` / `RELEASE_EASE`): on lift for a finger, after the `?releasems` stall for the wheel; a commit continues from the leaned pose. Off under RM. Module-load. 0.1 read "a little too strong" (Nathan, 11-03) | `0.06` | clamp 0–1 (`0` = off) | `worldConfig.js DRAG_FOLLOW` |
 | `?arcdeg` | arc per project on the drum; Turn target = index × arc [DRUM] | `60` deg | any finite | `:65` |
-| `?drumturn` | Turn duration multiplier, DRUM only (× `?turnms`) [DRUM] | `1.15` | any finite | `:66` |
+| `?drumturn` | Turn duration multiplier, DRUM only (× `?turnms`); /work's next-Turn lock waits the same stretched Turn (`WORLD_TURN_S`) [DRUM] | `1.15` | any finite | `:66` |
 | `?panepitch` | FORME macro-cell pitch as a multiple of the shell's fine pitch [FORME] | `3` | any finite | `:67` |
 
 ### Grid glow and ripple (DRUM; the `rip*` family needs `fpglow=1`, `fpglowa` needs `fpglow=2`)
@@ -465,7 +465,7 @@ Mode tags: **[all]** every field mode · **[DRUM]** `fpgrid=3` (the shipped defa
 
 | param | what it does | default | values | bake |
 |---|---|---|---|---|
-| `?turnms` | World Turn duration (DRUM × `?drumturn`); also the register-plate wipe, bands, WorldCard roll, and the detail BandPager [all] | `1700` ms | any finite | `:172` |
+| `?turnms` | World Turn duration (DRUM × `?drumturn`, which /work's next-Turn lock also waits out); also the register-plate wipe, bands, WorldCard roll, and the detail BandPager [all] | `1700` ms | any finite | `:172` |
 | `?ease` | CustomEase SVG path shaping the Turn, appear, grid recolour, card roll; by import also the next-project commit curve and the /process swipe glide [all] | path at `:183-185` | any valid CustomEase path (unvalidated) | `:183-185` |
 | `?exit` / `?enter` | outgoing roll past center / incoming start angle [legacy] | `0.88` / `0.88` rad | any finite | `:173-174` |
 | `?recede` | Z push-back of both Worlds during the cross [legacy] | `0.5` | any finite | `:176` |

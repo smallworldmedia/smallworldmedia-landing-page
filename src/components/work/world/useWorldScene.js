@@ -64,7 +64,6 @@ import {
   CAM_LOOK,
   ARC_DEG,
   DRAG_FOLLOW,
-  DRUM_TURN_MUL,
   DRUM_CREEP,
   CAMERA_FOV,
   DPR_MAX,
@@ -87,6 +86,7 @@ import {
   LENS_DISTORTION_X,
   LENS_DISTORTION_Y,
   TURN_DURATION,
+  WORLD_TURN_S,
   TURN_EXIT_ANGLE,
   TURN_ENTER_ANGLE,
   TURN_LENS_SPIKE,
@@ -1032,7 +1032,7 @@ export default function useWorldScene(containerRef, world, index, poolRef, snapR
         p: 1,
         // DRUM: 120° at the stock 1.7s sweeps ~2× today's apparent Turn
         // speed — the mode stretches the same house curve (?drumturn).
-        duration: TURN_DURATION * (FPGRID === 3 ? DRUM_TURN_MUL : 1),
+        duration: WORLD_TURN_S,
         ease: turnRollEase, // the CustomEase shapes the whole gesture
         onUpdate: () => apply(prog.p),
         onComplete: () => {
