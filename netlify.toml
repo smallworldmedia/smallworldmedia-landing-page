@@ -1,5 +1,7 @@
 [build]
-  command = "npm run build"
+  # The CMS audit gates every deploy build (scripts/audit-gate.mjs): an error finding stops the build and
+  # the last good deploy stays live. Needs SANITY_READ_TOKEN (a Viewer token) in the site's environment.
+  command = "node scripts/audit-gate.mjs && npm run build"
   publish = "dist"
 
 # The build content-hashes every file under /_astro/, so a name never changes content:
