@@ -47,6 +47,20 @@ const ROW_900 = [
 ];
 const SQ138_900 = { width: 900, copy, lockup, band, links: ROW_900 };
 
+// A wrapped row as SQ-138 hand-built it (kept for the band test, which is about the row's rise only).
+const WRAPPED = {
+  width: 900,
+  copy,
+  lockup,
+  band,
+  links: [
+    link('↳start_project', 540, 649, 836, 858),
+    link('⁕featured_projects', 661, 801, 836, 858),
+    link('♡follow_us', 700, 790, 858, 880),
+    link('privacy', 840, 888, 858, 880),
+  ],
+};
+
 // 900, with SQ-140: the ©line stays on the row's last line [858–880], seated on the lockup's optical
 // left; the lockup box rises one line pitch to [820–858], its centre (839) on the row's first line.
 const STACKED_900 = {
@@ -87,7 +101,7 @@ test('a wrapped row whose ©line floats above the last line fails', () => {
   assert.match(v.fails.join('\n'), /©line's bottom 858 is not on the row's last line bottom 880/);
 });
 
-test('a one-line row with the ©line stacked under the lockup fails: 1024+ stays run-on', () => {
+test('a one-line row with the ©line stacked under the lockup fails, so 1024+ stays run-on', () => {
   const v = verdict({ ...WIDE, copy: STACKED_900.copy, lockup: STACKED_900.lockup });
   assert.equal(v.pass, false);
   assert.match(v.fails.join('\n'), /one line but the ©line .* do not share a centre line/);
@@ -128,7 +142,7 @@ test('a link closer than the clearance fails, one at exactly the clearance passe
 });
 
 test('a row taller than the band fails: a wrap must not poke out of the top', () => {
-  const v = verdict({ ...STACKED_900, band: box(0, 850, 900, 900) });
+  const v = verdict({ ...WRAPPED, band: box(0, 850, 900, 900) });
   assert.equal(v.pass, false);
   assert.match(v.fails.join('\n'), /leaves the band/);
 });
