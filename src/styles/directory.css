@@ -305,7 +305,9 @@ html[data-footer-revealed]:not([data-chrome-open]):not([data-footer-rest]) .dir-
      and dropped mid-open inside the sticky filter (SQ-23, as the caret) */
   will-change: transform;
   border-radius: var(--radius-pill);
-  background: var(--project-color, var(--color-electric-blue));
+  /* White on every scheme (SQ-146, Nathan 11-24): it wore the project's
+     accent, blue under `blue`. scheme.css no longer recolours it. */
+  background: var(--color-white);
 }
 
 /* --- A tag: the drawer's client-name type, the eye check before it --- */
