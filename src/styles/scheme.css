@@ -164,8 +164,7 @@ html[data-scheme='blue'] .np-band.is-pinned .np-band__title {
 html[data-scheme='black'] .detail-progress__fill,
 html[data-scheme='black'] .hero__globe-stroke,
 html[data-scheme='black'] .np-band.is-pinned .np-band__rule,
-html[data-scheme='black'] .clients__scrollbar-thumb,
-html[data-scheme='black'] .dir-filter__scrollbar-thumb {
+html[data-scheme='black'] .clients__scrollbar-thumb {
   background: var(--scheme-chip);
 }
 
@@ -897,10 +896,6 @@ html[data-scheme='spectrum'] body .dir-filter__tags > .filter-tag {
 
 html[data-scheme='spectrum'] body .dir-filter__tags > .filter-tag[aria-checked='true'] .filter-tag__label {
   color: var(--sp-ink);
-}
-
-html[data-scheme='spectrum'] body .dir-filter__scrollbar-thumb {
-  background: linear-gradient(to bottom, var(--swm-ramp-a));
 }
 
 html[data-scheme='spectrum'] body .dir-filter__bar .dir-filter__chip {

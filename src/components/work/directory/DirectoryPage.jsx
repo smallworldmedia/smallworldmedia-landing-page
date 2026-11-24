@@ -17,7 +17,10 @@
  * and `clear` writes `?tag=`, which reads back as every work. The drawer's
  * names set or clear the client in place through `swm:directory-client`
  * ({ slug | null }); the filter's clients tab picks one the same way, one at
- * a time.
+ * a time. A click on a link to this page (the nav's, the menu's, the footer's
+ * "services") is taken the same way, in place: the filter it names, the default
+ * for a bare link, applied with no route swap, so the filter never re-enters
+ * (SQ-146).
  *
  * The order is the build's ('project'), or a shuffle drawn once per load
  * when the Studio's directoryShuffle is on (the `shuffle` prop; ?dirorder
@@ -196,6 +199,31 @@ export default function DirectoryPage({ tags, clients, tiles, shuffle = false })
     window.addEventListener(CLIENT_EVENT, onClient);
     return () => window.removeEventListener(CLIENT_EVENT, onClient);
   }, [apply]);
+
+  // A link to this very page (SQ-146, Nathan 11-24): the nav's, the menu's and the footer's
+  // "services". Astro's router swaps the whole page for any URL that differs from this one, so
+  // the filter and its list re-entered as if the page had reloaded. Taken in place instead,
+  // like a tag pick: the filter the link names (the default when it names none) is applied,
+  // nothing remounts. Capture phase, so it settles before Astro's own click listener, which
+  // leaves a click that is already defaultPrevented. A modified click, a new-tab or download
+  // link and a hash stay the browser's.
+  useEffect(() => {
+    const onLink = (e) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
+      if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download') || a.dataset.astroReload !== undefined) return;
+      const url = new URL(a.href, window.location.href);
+      const bare = (p) => p.replace(/\/$/, '');
+      if (url.origin !== window.location.origin || bare(url.pathname) !== bare(window.location.pathname) || url.hash) return;
+      e.preventDefault();
+      const want = hasFilterParams(url.search) ? readFilter(url.search) : base;
+      apply(want.tags, want.client);
+      // The menu's takeover closes on a route swap, and this link makes none.
+      if (a.closest('.mobile-menu')) document.querySelector('.mobile-menu__close')?.click();
+    };
+    document.addEventListener('click', onLink, true);
+    return () => document.removeEventListener('click', onLink, true);
+  }, [apply, base]);
 
   // Keep the place on the way out (a soft nav, a reload, a closed tab).
   useEffect(() => {
