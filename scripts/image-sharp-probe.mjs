@@ -47,8 +47,11 @@ const MUX_SOURCE_SHORT = 1080; // imageConfig.js; the pipeline's top rung
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Runs in the page: every Mux thumbnail and raster logo <img>, with the numbers the gate needs.
-function readImages() {
-  return [...document.images]
+// img.naturalWidth is the file's pixels divided by the density its srcset gave it (a w descriptor
+// against `sizes`, or an x descriptor), so the file's own width is read off a fresh <img> that has
+// the chosen URL alone (a cache hit, no srcset, no CORS).
+async function readImages() {
+  const rows = [...document.images]
     .map((img) => {
       const src = img.currentSrc || img.src;
       const mux = /^https:\/\/image\.mux\.com\//.test(src);
@@ -61,14 +64,29 @@ function readImages() {
         src,
         hasSrcset: img.hasAttribute('srcset'),
         eager: img.loading === 'eager',
-        naturalWidth: img.naturalWidth,
-        naturalHeight: img.naturalHeight,
         renderedWidth: r.width,
         manifestWidth: li ? Number(li.dataset.w) : null,
-        complete: img.complete,
+        complete: img.complete && img.naturalWidth > 0,
       };
     })
     .filter(Boolean);
+  await Promise.all(
+    rows.map(async (row) => {
+      row.naturalWidth = 0;
+      row.naturalHeight = 0;
+      if (!row.complete) return;
+      const probe = new Image();
+      probe.src = row.src;
+      try {
+        await probe.decode();
+        row.naturalWidth = probe.naturalWidth;
+        row.naturalHeight = probe.naturalHeight;
+      } catch {
+        /* left at 0: not sharp */
+      }
+    })
+  );
+  return rows;
 }
 
 const main = async () => {
