@@ -289,12 +289,55 @@ records (`docs/globe-worlds-plan.md`).
       (`swm:route-ready`), at most 600 ms and at least 100 ms (`?navwipehold`, PROPOSED).
     - **SQ-109, /terms and /privacy:** they scroll by touch at 390 px when opened directly.
     - **Left:**
-      - SQ-107, the eye badge, is in rework from Nathan's 11-16 notes: no jitter on the scale-up,
-        a smaller horizontal badge with equal padding that grows with the eye, the home seat in
-        line with the privacy pill, the footer rest raised slightly. It folds on its own.
+      - DONE 11-17: SQ-107, the eye badge, folded on its own (item 11).
       - Nathan's iPhone checks for the four (Phone Checks rows 130–170), which also settle
         `?navwipehold` and the phone cap of seven.
       - the links-footer logo ticker's slight stutter on the phone is not yet reproduced.
+
+11. **Done 11-16…11-19: the eye badge rounds, sets as documents, the logo law, and the CMS API
+    cut.** Every piece was folded on Nathan's go and pushed; origin is at `8147701`. Each fold
+    passed units, `test:cms`, `tunables-keys --check`, an export build, its probes and `cms audit` at
+    0 errors. Checks for a real iPhone are on the Phone Checks page (rows 180–240, open).
+    - **The scheme eye and the home footer:**
+      - SQ-107 (the badge on two seats, his dials), SQ-115 (the footer follows the finger) and
+        SQ-113 (the flip probe), folded at `413b515`, map `8fc492b`.
+      - SQ-116 (the far badge seam, the straight ring slide, the /work arrow), pushed at `a92c245`.
+        `?schemeglass` 35 and `?schemeblack` 10 baked (`b931ff4`).
+      - SQ-121 (the eye's seat on the footer blurb, `3b103a0`) and SQ-124 (the house pulse as web
+        animations, `9ecb294`, folded as is).
+      - SQ-125 (the lowest ring 4 px over the black blurb panel, and no strip of the next band,
+        `c23c8ce`), SQ-126 (whole-pixel desktop seams, badge 28 px, `94a3310`) and SQ-127 (the
+        same roundings on phones, seat 70 = `?schemeclear` 56 + 14, `22f1535`).
+    - **The grid and the logos:**
+      - SQ-117 (`2c6770d`) and the wide-piece guard SQ-119 (`?landscapecrop` 0.2, PROPOSED,
+        `52ae83e`).
+      - The logo law by width-to-height ratio (`2ecf4f6`, its dials PROPOSED) and the logo bake
+        (`d60b6a0`). Re-run `prep-directory-logos` with `--alpha` after every logo intake.
+      - SQ-122, motion logo pieces keep their shape (`0898472`).
+      - The ticker gained Insomniac and WIKKA (`8eba146`). The nav reads "services", with a hand
+        icon (`ea548bd`; the URL is unchanged).
+    - **The globe:** SQ-123, `?globefpstol` 2 (PROPOSED), with stills decoded off the main thread
+      (`ffded76`).
+    - **Sets as documents (US-10):**
+      - The `mediaSet` schema landed alone (hash `205ffc6c`, `6695510`); the code (SQ-110…SQ-112)
+        followed in `cb68dd7`.
+      - `hideFromDirectory` also landed alone (hash `8e2eb765`, `ea07e99`).
+      - The hosted Studio was redeployed on 11-17.
+      - Migration files 1–7 are applied and verified. File 8 (2 operations) is next, then the
+        Display Group / Group Type retirement.
+    - **Content:**
+      - five logo plans applied on 11-18;
+      - the HUS Logo Sheet row dropped (it was deleted on purpose, `0081a3c`);
+      - Fletch's two Hold Me pieces hidden from the site (plan `40ba214b`, 11-19).
+    - **SQ-128, the CMS runner:** after the Sanity usage email (80% of November's API requests),
+      `cms apply` re-checks only the collections each change touches (`de78003`, map `8147701`). A
+      100-change plan now costs about 1k requests instead of 12–18k.
+    - **Left, Nathan's calls:**
+      - SQ-114, the globe set cycler's hitch: accept `a8fefa0`, or sub-1x textures;
+      - the globe probe's texBudget bound (the default run is at 149.1 MiB against 131, on the
+        base too);
+      - an optional pop-tint ticket;
+      - the Sanity plan when the Growth trial ends (about 11-26).
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
