@@ -18,12 +18,10 @@ year: 2026
 | Imperfect Records Logo Color Black Box.png | static_16x9 | branding | Imperfect Records Logo Color Black Box | false | 8 | imperfect-records-wide-logo-sequence |  | mediaAsset-imperfect-records-imperfect-records-logo-color-black-box |
 | Imperfect Records Logo Color.png | static_16x9 | branding | Imperfect Records Logo Color | false | 9 | imperfect-records-wide-logo-sequence |  | mediaAsset-imperfect-records-imperfect-records-logo-color |
 | Imperfect Records Logo White Fill.png | static_16x9 | branding | Imperfect Records Logo White Fill | false | 10 | imperfect-records-wide-logo-sequence |  | mediaAsset-imperfect-records-imperfect-records-logo-white-fill |
-| Imperfect Stacked Black.png | static_1x1 | branding | Imperfect Stacked Black | false | 11 |  |  | mediaAsset-imperfect-records-imperfect-stacked-black |
 | Imperfect Stacked Color.png | logo | branding | Imperfect Stacked Color | false | 12 |  |  | mediaAsset-imperfect-records-imperfect-stacked-color |
 | Imperfect Stacked Logo COLORED.gif | static_1x1 | branding | Imperfect Stacked Logo Colored | false | 13 |  |  | mediaAsset-imperfect-records-imperfect-stacked-logo-colored |
 | Imperfect Stacked Logo.gif | static_1x1 | branding | Imperfect Stacked Logo | false | 14 |  |  | mediaAsset-imperfect-records-imperfect-stacked-logo |
 | Imperfect Inline Logo COLORED.gif | static_16x9 | branding | Imperfect Inline Logo Colored | false | 15 |  |  | mediaAsset-imperfect-records-imperfect-inline-logo-colored |
-| Imperfect Inline Logo.gif | static_16x9 | branding | Imperfect Inline Logo | false | 16 |  |  | mediaAsset-imperfect-records-imperfect-inline-logo |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_01.jpg | brand-deck | branding | Imperfect Brand Guidelines Page 01 | false | 17 | brand-guidelines-deck | 1 | mediaAsset-imperfect-records-branding-phase-1-page-01 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_02.jpg | brand-deck | branding | Imperfect Brand Guidelines Page 02 | false | 18 | brand-guidelines-deck | 2 | mediaAsset-imperfect-records-branding-phase-1-page-02 |
 | Brand Guidelines Deck/Brand Guidelines Deck_page_03.jpg | brand-deck | branding | Imperfect Brand Guidelines Page 03 | false | 19 | brand-guidelines-deck | 3 | mediaAsset-imperfect-records-branding-phase-1-page-03 |
