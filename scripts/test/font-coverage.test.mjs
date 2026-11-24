@@ -26,7 +26,7 @@ const IOSEVKA = 'src/assets/fonts/IosevkaTermMedium.woff2';
 
 // ── the pure gate ─────────────────────────────────────────────────────────────────────────────
 
-test('missingCodepoints: what the font lacks, ascending, once', () => {
+test('missingCodepoints returns what the font lacks, ascending, once', () => {
   assert.deepEqual(missingCodepoints(new Set([1, 2, 3]), [3, 2, 1]), []);
   assert.deepEqual(missingCodepoints(new Set([1, 3]), [3, 2, 1, 2, 5]), [2, 5]);
   assert.deepEqual(missingCodepoints([65, 66], [66, 67]), [67]);
@@ -72,7 +72,7 @@ test('the Iosevka file stays a subset (the full family was 1.5 MB)', () => {
   assert.ok(read(IOSEVKA).length < 300 * 1024, `${read(IOSEVKA).length} bytes`);
 });
 
-test('the optional dist scan: no non-ASCII glyph in built HTML falls outside the subset', (t) => {
+test('the optional dist scan finds no non-ASCII glyph in built HTML outside the subset', (t) => {
   const dist = process.env.FONT_GATE_DIST;
   if (!dist) return t.skip('set FONT_GATE_DIST=<dir> to scan built HTML');
   const cmap = woff2Cmap(read(IOSEVKA));
@@ -90,7 +90,7 @@ test('the optional dist scan: no non-ASCII glyph in built HTML falls outside the
 
 // ── Inter, self-hosted ────────────────────────────────────────────────────────────────────────
 
-test('Inter is declared from the origin: family, weights, swap, files, license', () => {
+test('Inter is declared from the origin with family, weights, swap, files and license', () => {
   const css = text('src/styles/global.css');
   const faces = [...css.matchAll(/@font-face\s*{[^}]*font-family:\s*'Inter'[^}]*}/g)].map((m) => m[0]);
   assert.equal(faces.length, 2, 'a latin and a latin-ext face');
