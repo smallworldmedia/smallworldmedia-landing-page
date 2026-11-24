@@ -3502,6 +3502,28 @@ html[data-footer-in] .logo-ticker__copy {
   gap: 1.5rem; /* lockup → copyright run-on (Figma: 21px, pill → copyright) */
 }
 
+/* SQ-140 (11-24): where the links footer's nav row wraps onto a second line (769-~1000px: SiteTagline
+   sets <html data-footer-wrap> from the row's own layout, see writeStackW), the ©line drops under the
+   lockup so the left stack is two lines like the row's. The lockup's box is one row-height tall and
+   its art centres in it, so lockup-over-©line lands on the row's two lines (measured 11-24: row
+   lines [828–850] and [858–880], lockup box [820–858] centred on the first, ©line [858–880] on the
+   second). The ©line's bottom margin is the --pill-pad-y the row-height centring gave it in the
+   run-on, which is also the nav's own lift. The ©line seats on the lockup's optical left
+   (--pill-pad-x, the pill's text inset). The gap that ran lockup → ©line sideways is gone
+   (row-gap 0); --footer-stack-w stays the RUN-ON width, so the row's wrap does not change with
+   this. At 1024px+ the row is one line, the attribute is off and the run-on stack is untouched;
+   ≤768px the ©line and the lockup are hidden. */
+html[data-footer-wrap] .site-tagline__row {
+  flex-direction: column;
+  align-items: flex-start;
+  row-gap: 0;
+}
+
+html[data-footer-wrap] .site-tagline__copy {
+  margin-left: var(--pill-pad-x);
+  margin-bottom: var(--pill-pad-y);
+}
+
 /* The pill — the shared black capsule skin (--pill-pad-* / --radius-capsule).
    08-27 (4), Nathan: the pill line + copyright ride the FOOTER NAV LINK text
    style (--text-link/--lh-link, --tracking-body) so the whole revealed
