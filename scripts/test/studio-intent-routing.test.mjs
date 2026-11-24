@@ -19,7 +19,7 @@ const member = { id: 'mediaAsset-coco-visuals-1', type: 'mediaAsset' } // a Set 
 const project = { id: 'project-coco-pre-2026', type: 'project' }
 const set = { id: 'mediaSet-coco-visuals-2024-live', type: 'mediaSet' }
 
-test('negative control: the shipped orderable checker routes a set member to the Project form', () => {
+test('before the fix the shipped orderable checker routes a set member to the Project form', () => {
   assert.equal(intentSchemaType(structure(claimsAll), 'edit', member), 'project')
 })
 
