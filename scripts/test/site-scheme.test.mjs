@@ -250,7 +250,10 @@ test('the skin is scoped under .swm-corner, hides the text, and seats the lens a
   assert.ok(/html\[data-chrome-open\]\s+\.swm-corner\s*\{/.test(live), 'yields to the overlays');
   // The phone menu's takeover is not a yield: it wipes over the badge (the pass 8 test below).
   assert.ok(!/data-menu-open/.test(live), 'no rule hides or delays the badge for the phone menu');
-  assert.ok(!/--seat-t|--badge-ride|--eye-foot|--home-cy|--footer-reveal|--footer-panel-h|data-footer-rest/.test(live), 'the flush corner, the footer ride and the seat blend are deleted');
+  // SQ-144 brings ONE footer ride back, on home alone (the html[data-footer-rest] rule, pinned by its own test below): every
+  // other rule of the skin stays free of the footer's variables and of the home latch.
+  const withoutHomeRide = live.replace(/html\[data-footer-rest\]\s+\.swm-corner\s*\{[^}]*\}/, '');
+  assert.ok(!/--seat-t|--badge-ride|--eye-foot|--home-cy|--footer-reveal|--footer-panel-h|data-footer-rest/.test(withoutHomeRide), 'the flush corner and the seat blend are deleted, and the footer ride lives in the one home rule alone');
 });
 
 const skinCss = () => read('src/styles/site-scheme.css').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -293,7 +296,10 @@ test('SQ-107 pass 7 one seat sitewide, the footer rises behind the badge and doe
   assert.ok(/--scheme-bottom: calc\(var\(--badge-cy\) - var\(--scale-rows\) \* var\(--scheme-pitch\)\);/.test(flat), 'the wrapper\'s bottom follows the one seat');
   const wrapper = css.match(/\.swm-corner\s*\{[^}]*position:\s*fixed[^}]*\}/)?.[0] ?? '';
   assert.ok(!/translate:/.test(wrapper), 'the wrapper does not ride anything');
-  assert.ok(!/footer-rise|--footer-reveal|--footer-panel-h/.test(css), 'one seat at every scroll stop: nothing eases it with the footer (SQ-121: above 768px its height is the blurb\'s, a function of the width alone)');
+  // One seat at every scroll stop on every route but home (SQ-121: above 768px its height is the blurb's, a function of the
+  // width alone). SQ-144: home's seat rides the panel's top, in the one html[data-footer-rest] rule; nothing else reads the footer.
+  const withoutHomeRide = css.replace(/html\[data-footer-rest\]\s+\.swm-corner\s*\{[^}]*\}/, '');
+  assert.ok(!/footer-rise|--footer-reveal|--footer-panel-h|--footer-slide|--info-push/.test(withoutHomeRide), 'nothing eases the seat with the footer but the home ride');
   const comp = read('src/components/SiteScheme.jsx');
   assert.ok(!/--seat-t|--seat-ease|data-footer-rest|corner\.animate/.test(comp), 'SiteScheme has no seat blend');
 });
@@ -820,9 +826,29 @@ test('SQ-125 the desktop seat is the black panel top plus the gap plus what the 
   assert.ok(/top: calc\(\(var\(--eye-h\) - var\(--badge-h\)\) \/ 2\);/.test(whole[3]), "SQ-126: the lens badge is centred on the eye by its own (rounded) height");
   assert.ok(/\.swm-corner \.fp-scale\.swm-corner__pager \.scheme-badge\[data-scheme='project'\] \{ --badge-hh: [^}]*clip-path: inset\(min\(clamp\(0px, var\(--badge-yb\), var\(--badge-hh\)\), max\(0px, 100000 \* \(0\.01px - var\(--badge-yt\)\)\)\) 0 min\(max\(0px, var\(--badge-hh\) - var\(--badge-yt\)\), max\(0px, 100000 \* \(var\(--badge-yt\) - 0\.01px\)\)\) 0\);/.test(flat), "SQ-126: the glass ring badge (backdrop-filter) is cut by the lens window as one inset() rectangle, not the polygon whose mask landed 0.75px off, and the lens station's own badge (yt 0, yb its height) is cut away whole, so the lens glass is one veil (the b05b8ad min/max picks kept it whole at yt == 0)");
   // Phones: the seat is declared in the desktop block alone, and the base block keeps the old fade numbers.
-  assert.equal(flat.split('--seat-panel-top:').length - 1, 1, 'the panel seat is declared once, in the desktop block');
+  assert.equal(flat.split('--seat-panel-top:').length - 1, 2, 'the panel seat is declared in the desktop block, and once more in the desktop-only home ride (SQ-144)');
   assert.ok(/--eye-down-shown: 1;/.test(flat) && /--eye-down-span: 0\.5;/.test(flat), 'the base (the phone) shows one circle below the lens and fades the next within half a station, as before');
   assert.ok(/--eye-down: clamp\(0, calc\(1 - \(var\(--eye-below\) - var\(--eye-down-shown\)\) \/ var\(--eye-down-span\)\), 1\);/.test(flat), 'the fade below reads the base tokens');
+});
+
+// SQ-144 (Nathan 11-24): on home the eye keeps one gap above the black panel's top, parked below the fold, rising and back.
+test('SQ-144 the desktop seat rides the home footer: the panel top is its live progress less the slide and the drawer push, home only', () => {
+  const flat = skinCss().replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  const ride = /@media \(min-width: 769px\) \{ html\[data-footer-rest\] \.swm-corner \{([^}]*)\} \}/.exec(flat)?.[1] ?? '';
+  assert.ok(
+    /--seat-panel-top: max\(0px, calc\(var\(--footer-reveal, var\(--seat-rest\)\) \* var\(--seat-panel-h\) - var\(--footer-slide, 0px\) - var\(--info-push, 0px\)\)\);/.test(ride),
+    "the panel's top: the footer's live reveal (the resting share where it is unpublished) of its height, less the two px translates global.css adds",
+  );
+  // the same per-frame writer, never a transition or a second seat: nothing else reads the footer, the seat's other terms are the static block's
+  assert.ok(!/transition/.test(ride) && !/--badge-cy|--seat-below|--badge-blurb-gap/.test(ride), 'the ride moves the panel top alone; the gap and the column below the lens stay the static seat\'s');
+  // desktop only, and gated on Hero's home latch: one declaration of the footer's channels outside the comments
+  assert.equal(flat.split('--footer-reveal').length - 1, 1, 'the footer progress is read once, in the home ride');
+  assert.ok(/@property --badge-cy \{ syntax: '<length>'; inherits: true; initial-value: 0px; \}/.test(flat), "the seat is one registered length: the per-frame ride never re-substitutes the seat's token chain at each of the widget's elements");
+  // the channels it reads are the ones the panel's own motion writes
+  const footer = read('src/components/SiteFooter.jsx');
+  assert.ok(/setProperty\('--footer-reveal', progress\.toFixed\(4\)\)/.test(footer), 'SiteFooter publishes --footer-reveal in the paint that sets the panel transform');
+  const global = read('src/styles/global.css');
+  assert.ok(/html\[data-footer-rest\] \.site-footer--links \{[^}]*translate: 0 calc\(var\(--footer-slide, 0px\) \+ var\(--info-push, 0px\)\);/.test(global), "the panel's translate is the slide plus the drawer's push, the two the ride subtracts");
 });
 
 test('SQ-121 ?schemeblurbgap is a 0 to 60 px dial and ?schemedown is 0 or 1, both null (the CSS default) when absent or unreadable', () => {
