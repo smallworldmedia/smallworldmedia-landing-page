@@ -8,6 +8,12 @@ import sitemap from '@astrojs/sitemap';
 // /work/directory 11-03.)
 const SITEMAP_EXCLUDE = ['/lab/globe', '/lab/loader', '/specimen', '/process'];
 
+// The embedded Studio is local-dev only: a production build emits no /studio, so
+// the live site's /studio and /studio/* serve the 404 page (the hosted Studio,
+// `sanity deploy`, is the editor). Astro's config can't see the command, but the
+// CLI's argv names it.
+const IS_DEV = process.argv.includes('dev');
+
 // https://astro.build/config
 export default defineConfig({
   site: 'https://smallworld.media',
@@ -18,7 +24,7 @@ export default defineConfig({
       projectId: 'b60h4u7o',
       dataset: 'production',
       useCdn: true,
-      studioBasePath: '/studio',
+      ...(IS_DEV ? { studioBasePath: '/studio' } : {}),
     }),
     sitemap({
       filter: (page) => {
