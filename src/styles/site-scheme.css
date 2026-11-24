@@ -98,6 +98,15 @@
    each link computes to ONE number or length at its own element, so the next link reads a number. The values, and so
    the look, are the same; inherits: true keeps the unregistered inheritance; no rule transitions any of them. Only the
    widget's own links: --sel, --sdx and --fs are the /work engine's (pager-scale.css, LOCKED) and stay as they are. */
+/* The seat's own link (SQ-144): on home the lens centre follows the footer panel every frame, and an unregistered --badge-cy would
+   carry the whole seat chain's tokens to each of the widget's elements, re-substituted at each restyle (the cost above). One
+   length, computed once at .swm-corner. */
+@property --badge-cy {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
 @property --eye-r {
   syntax: '<number>';
   inherits: true;
@@ -411,6 +420,28 @@
       )
     );
     --badge-cy: calc(var(--seat-panel-top) + var(--badge-blurb-gap) + var(--seat-below));
+  }
+}
+
+/* THE EYE RIDES THE HOME FOOTER (SQ-144, Nathan 11-24: "the eye keeps the same gap above the black footer panel, riding up with
+   it"). On home the panel is not parked at its resting pose: the wheel, the finger, the on-load slide and the info drawer's push
+   all move it, and the seat above held still while it did. Here the panel's top is read where it is live: its progress
+   --footer-reveal (the share of the panel's height above the viewport's bottom, written to <html> in the SAME per-frame paint
+   that sets the panel's transform, so there is no transition and no second seat), less the on-load slide (--footer-slide, px,
+   down) and the drawer's push (--info-push, px, down), the two `translate`s global.css adds to the panel. Everything else of the
+   seat is the block above: at the resting pose this is --seat-rest x --seat-panel-h again, byte for byte, so the gap G between
+   the eye badge's bottom and the panel's top (40.8 px at the defaults) is the one Nathan sees today, and it is held at every
+   frame, parked below the fold (the eye sits G above the viewport's bottom) through the full reveal and back. The rule is
+   gated on Hero's home latch (data-footer-rest), so every other route and the first paint before it keep the static seat; the
+   fallbacks make a missing --footer-reveal the resting pose. Phones have no ride: the media query is the desktop's. */
+@media (min-width: 769px) {
+  html[data-footer-rest] .swm-corner {
+    --seat-panel-top: max(
+      0px,
+      calc(
+        var(--footer-reveal, var(--seat-rest)) * var(--seat-panel-h) - var(--footer-slide, 0px) - var(--info-push, 0px)
+      )
+    );
   }
 }
 

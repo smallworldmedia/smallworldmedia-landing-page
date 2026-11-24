@@ -34,6 +34,12 @@
  *              Negative controls: --inject='.swm-corner{--badge-cy:20px !important}' must FAIL, and so must
  *              --inject='.swm-corner{translate:0 4px}' (the seat 4 px lower), --query=schemeblurbgap=2 (2 px low, the first round's gap), --query=schemeblurbgap=8 and
  *              --query=schemedown=0 (no ring under the lens, the seat 30 px too low for the column).
+ *   The `ride` gate (SQ-144, Nathan 11-24; by default with the widget gates; --shots=DIR saves its frames and rest / mid / full /
+ *              back screenshots): home at 1440 x 900 and 1024 x 768, the real wheel drives the footer from its resting pose to a full
+ *              reveal and back (after the on-load slide); every animation frame records the lens badge's bottom and the black panel's
+ *              top, and the gap from min(the panel's top, the viewport's bottom) to the badge stays within 1 px of its resting value
+ *              at every frame, both ways (scripts/lib/eyeRideGate.mjs, unit-tested). --ride-gap=N pins G (40.8 at the defaults).
+ *              Negative control: the base build (1244f4a) FAILS, the eye holding one seat while the panel moves (141 px of drift).
  *   The `bands` gate (SQ-125, Nathan 11-18: "whats the thin color strip at the bottom of the rest and engaged chips"): the badge's
  *              first and last two pixel rows at a SETTLED station are its own band (glass, black or blue), never the next band's
  *              colour. Only the badge is painted over a flat grey page, a screenshot of its width is read row by row, and each edge row
@@ -238,6 +244,7 @@ import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as gate from './lib/scheme-gate.mjs';
+import * as eyeRide from './lib/eyeRideGate.mjs';
 import { countFamilies } from './palette-measure.mjs';
 
 const arg = (k, d) => {
@@ -259,7 +266,7 @@ const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves t
 // The engaged eye's step left, PINNED here in swatch units (never read off the page, so a CSS regression fails the
 // shift and sequence gates): Nathan's 54 px at size 18 (11-20, Phone Checks row 190; 48 before, one rest eye width).
 const SHIFT_UNITS = 78;
-const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'layer', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu', 'midChange']; // the corner widget's own pass (SQ-107; midChange SQ-132)
+const WIDGET_GATES = ['badge', 'seat', 'rightEdge', 'blurb', 'above', 'clear', 'bands', 'seams', 'layer', 'strip', 'eyeLines', 'bounds', 'strays', 'shift', 'sequence', 'fan', 'lids', 'noClip', 'jitter', 'persist', 'menu', 'midChange', 'ride']; // the corner widget's own pass (SQ-107; midChange SQ-132; ride SQ-144)
 const GATE_NAMES = ['latch', 'identity', 'monochrome', 'singleHue', 'contrast', 'carriers', 'deal', 'hover', 'overlap', 'shares', 'uniform', 'density', 'outline', 'gl', 'phone', ...WIDGET_GATES];
 const DEFAULT_GATES = {
   project: ['latch', 'overlap', 'gl', ...WIDGET_GATES], // hover is not a project gate: today's site has hover states that paint nothing (the nav pill's is hover:hover only)
@@ -2442,6 +2449,7 @@ async function measureStates(ctx, scheme, urlPath, { bands = false } = {}) {
 const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768], [1280, 800], [1920, 1080], [2560, 1440]];
 const CLEAR_GAP = Number(arg('gap', 4)); // Nathan's number (SQ-125, 11-18: 2, then "lets bump the gap to 4 px"), the gate's own: a ?schemeblurbgap re-dial fails it unless this follows (--gap=8)
 const BAND_DPR = Number(arg('dpr', 1)); // the bands gate's device pixel ratio (a hand run at 2 or 3 reads the retina rows)
+const RIDE_GAP = Number(arg('ride-gap', 0)); // the ride gate's G in px, pinned (default 0: the run's own settled rest median)
 const PHONE_DPR = Number(arg('phone-dpr', 3)); // the phone pass (bands, seams): the iPhone 390 stands for (SQ-126)
 async function clearPass(browser, scheme, want) {
   for (const [width, height] of CLEAR_VIEWPORTS) {
@@ -2459,6 +2467,101 @@ async function clearPass(browser, scheme, want) {
     emitResult(scheme, 'home', where, 'bands', gate.bandEdges(bandStates(scheme, where, m)));
     emitResult(scheme, 'home', where, 'seams', gate.seamEdges([{ label: `${scheme} ${where} engaged`, ...m.seams }]));
     emitResult(scheme, 'home', where, 'layer', gate.lensLayer([{ label: `${scheme} ${where} engaged`, ...m.seams }]));
+  }
+}
+
+/**
+ * Init script of the ride gate (SQ-144): from the first frame, one row per animation frame with the lens badge's bottom edge, the
+ * black panel's top edge and the footer's published progress, all read in the SAME frame (the eye and the panel follow one
+ * per-frame writer, so a row is one instant). The badge is the pager's ::before as pageClear reads it. window.__swmRide.phase
+ * names what the driver is doing ('load' | 'rest' | 'up' | 'down').
+ */
+function rideRecorder() {
+  const rec = (window.__swmRide = { phase: 'load', frames: [] });
+  const px = (v) => parseFloat(v) || 0;
+  const tick = () => {
+    const corner = document.querySelector('.swm-corner[data-ready]');
+    const pager = corner?.querySelector('.fp-scale');
+    const panel = document.querySelector('.site-footer--links');
+    if (pager && panel) {
+      const b = getComputedStyle(pager, '::before');
+      if (b.content !== 'none') {
+        const pr = pager.getBoundingClientRect();
+        const k = px(b.scale) || 1;
+        const cy = pr.top + px(b.top) + px(b.height) / 2;
+        rec.frames.push({
+          phase: rec.phase,
+          t: Math.round(performance.now()),
+          reveal: parseFloat(document.documentElement.style.getPropertyValue('--footer-reveal')),
+          vh: innerHeight,
+          panelTop: panel.getBoundingClientRect().top,
+          eyeBottom: cy + (px(b.height) * k) / 2,
+        });
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/**
+ * The ride gate (SQ-144): home above 768px, the footer driven by the real wheel from its resting pose to a full reveal and back
+ * (the glide Lenis-style, frame after frame), after the on-load slide (the panel parked at the fold, riding up to rest). Per frame
+ * the gap between the viewport's bottom or the panel's top (whichever is higher) and the lens badge's bottom must not move from
+ * its resting value, beyond 1 px (eyeRideGate). Two viewports, once per scheme. Negative control: the base build (the eye holds
+ * one seat while the panel moves) FAILS, and so does --inject='.swm-corner{--badge-cy:200px !important}' stuck on a seat.
+ */
+const RIDE_VIEWPORTS = [[1440, 900], [1024, 768]];
+async function ridePass(browser, scheme) {
+  for (const [width, height] of RIDE_VIEWPORTS) {
+    const where = `${width}x${height}`;
+    const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+    try {
+      await installRoutes(ctx);
+      await ctx.addInitScript(hydrationHook);
+      await ctx.addInitScript(rideRecorder);
+      const page = await ctx.newPage();
+      await page.goto(`${BASE}/?popseed=1&scheme=${scheme}${QUERY}`, { waitUntil: 'load', timeout: 90000 });
+      await page.waitForFunction(() => window.__swmCommitted && window.__swmCommitted(), null, { timeout: 40000 }).catch(() => {});
+      await page.waitForSelector('.swm-corner[data-ready]', { timeout: 30000 });
+      if (INJECT) await page.addStyleTag({ content: INJECT });
+      await page.evaluate(() => document.fonts.ready);
+      // the on-load slide is done when --footer-slide is gone, the panel settled on its resting floor
+      await page.waitForFunction(() => !document.documentElement.style.getPropertyValue('--footer-slide'), null, { timeout: 15000 }).catch(() => {});
+      await sleep(1500);
+      await page.evaluate(() => { window.__swmRide.phase = 'rest'; });
+      await sleep(600);
+      await page.mouse.move(width / 2, height / 3);
+      const reveal = () => page.evaluate(() => parseFloat(document.documentElement.style.getPropertyValue('--footer-reveal')));
+      const drive = async (phase, dy, done) => {
+        await page.evaluate((ph) => { window.__swmRide.phase = ph; }, phase);
+        let mid = false;
+        for (let i = 0; i < 40 && !done(await reveal()); i++) {
+          await page.mouse.wheel(0, dy);
+          await sleep(60);
+          if (SHOTS && phase === 'up' && !mid && (await reveal()) >= 0.72) {
+            mid = true;
+            await page.screenshot({ path: path.join(SHOTS, `ride-${scheme}-${where}-mid.png`) });
+          }
+        }
+        await sleep(1500); // the glide's tail settles inside the same phase
+        if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `ride-${scheme}-${where}-${phase === 'up' ? 'full' : 'back'}.png`) });
+      };
+      if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `ride-${scheme}-${where}-rest.png`) });
+      const restP = await reveal();
+      await drive('up', 90, (p) => p >= 0.999);
+      await drive('down', -90, (p) => p <= restP + 0.001);
+      await page.evaluate(() => { window.__swmRide.phase = 'rest'; });
+      await sleep(400);
+      const frames = await page.evaluate(() => window.__swmRide.frames);
+      const res = eyeRide.verdict({ frames, ...(RIDE_GAP > 0 ? { gap: RIDE_GAP } : {}) });
+      emitResult(scheme, 'home', where, 'ride', res);
+      if (SHOTS) fs.writeFileSync(path.join(SHOTS, `ride-${scheme}-${where}.json`), JSON.stringify(frames));
+    } catch (e) {
+      emit('FAIL', scheme, 'home', where, 'ride', String(e.message).split('\n')[0].slice(0, 240));
+    } finally {
+      await ctx.close().catch(() => {});
+    }
   }
 }
 
@@ -2729,6 +2832,7 @@ async function main() {
       if (want.has('rightEdge')) await edgePass(browser, scheme);
       if (want.has('midChange')) await midChangePass(scheme);
       if (want.has('clear') || want.has('bands') || want.has('seams') || want.has('layer')) await clearPass(browser, scheme, want);
+      if (want.has('ride')) await ridePass(browser, scheme);
       if (want.has('deal')) {
         if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);
         else if (!worlds.length) emit('SKIP', scheme, '/work', '*', 'deal', 'skipped: no /work worlds read');
