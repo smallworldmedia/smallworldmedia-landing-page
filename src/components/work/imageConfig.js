@@ -181,17 +181,24 @@ export function deckWidths(cap) {
 
 /** One deck page's `src` (the mid rung, for a browser that ignores srcset) and `srcSet`. A
  *  Sanity URL carries fit=max: unlike Mux's, its CDN would otherwise stretch a width past the
- *  original, and a source of unknown size must not be asked for more than it has. */
-export function deckPageImage(page, ratio) {
+ *  original, and a source of unknown size must not be asked for more than it has. A Mux
+ *  thumbnail is cut at `time` seconds (a chunk's poster is its own first frame). */
+export function deckPageImage(page, ratio, time = 0) {
   const widths = deckWidths(deckSourceWidth(page, ratio));
   const at = page.imageUrl
     ? (w) => `${page.imageUrl}?w=${w}&fit=max&${IMG_FORMAT}`
-    : (w) => muxPoster(page.playbackId, w);
+    : (w) => muxPoster(page.playbackId, w, time);
   return {
     src: at(widths.find((w) => w >= 1200) ?? widths.at(-1)),
     srcSet: widths.map((w) => `${at(w)} ${w}w`).join(', '),
   };
 }
+
+/** `sizes` for a lazy <img> whose box CSS lays out (a detail-grid tile, SQ-150): `auto` has the
+ *  browser take the image's own laid-out width, so it picks the smallest rung that covers drawn
+ *  width x the screen's density. A browser without it (before Safari 26) reads the fallback, the
+ *  full viewport: a phone's single column exactly, and never an undershoot. */
+export const AUTO_SIZES = 'auto, 100vw';
 
 /** The wall's page width for `sizes`, in px: the measure rounded up a step (so a window drag
  *  doesn't rewrite every srcset) and never below the widest the wall has been, so a resize may

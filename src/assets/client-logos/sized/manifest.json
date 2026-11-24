@@ -1,0 +1,622 @@
+{
+  "armada-logo.png": [
+    {
+      "x": 1,
+      "h": 26,
+      "w": 95,
+      "file": "armada-logo-26.webp"
+    },
+    {
+      "x": 2,
+      "h": 51,
+      "w": 186,
+      "file": "armada-logo-51.webp"
+    },
+    {
+      "x": 3,
+      "h": 77,
+      "w": 281,
+      "file": "armada-logo-77.webp"
+    }
+  ],
+  "ayita.png": [
+    {
+      "x": 1,
+      "h": 21,
+      "w": 113,
+      "file": "ayita-21.webp"
+    },
+    {
+      "x": 2,
+      "h": 42,
+      "w": 225,
+      "file": "ayita-42.webp"
+    },
+    {
+      "x": 3,
+      "h": 63,
+      "w": 337,
+      "file": "ayita-63.webp"
+    }
+  ],
+  "bedouin-presents-saga-pure-white.png": [
+    {
+      "x": 1,
+      "h": 43,
+      "w": 56,
+      "file": "bedouin-presents-saga-pure-white-43.webp"
+    },
+    {
+      "x": 2,
+      "h": 86,
+      "w": 112,
+      "file": "bedouin-presents-saga-pure-white-86.webp"
+    },
+    {
+      "x": 3,
+      "h": 128,
+      "w": 166,
+      "file": "bedouin-presents-saga-pure-white-128.webp"
+    }
+  ],
+  "casablanca-white.png": [
+    {
+      "x": 1,
+      "h": 23,
+      "w": 110,
+      "file": "casablanca-white-23.webp"
+    },
+    {
+      "x": 2,
+      "h": 45,
+      "w": 215,
+      "file": "casablanca-white-45.webp"
+    },
+    {
+      "x": 3,
+      "h": 67,
+      "w": 320,
+      "file": "casablanca-white-67.webp"
+    }
+  ],
+  "cheetah-print.png": [
+    {
+      "x": 1,
+      "h": 48,
+      "w": 51,
+      "file": "cheetah-print-48.webp"
+    },
+    {
+      "x": 2,
+      "h": 95,
+      "w": 101,
+      "file": "cheetah-print-95.webp"
+    },
+    {
+      "x": 3,
+      "h": 142,
+      "w": 151,
+      "file": "cheetah-print-142.webp"
+    }
+  ],
+  "circuit-group.png": [
+    {
+      "x": 1,
+      "h": 25,
+      "w": 99,
+      "file": "circuit-group-25.webp"
+    },
+    {
+      "x": 2,
+      "h": 49,
+      "w": 194,
+      "file": "circuit-group-49.webp"
+    },
+    {
+      "x": 3,
+      "h": 74,
+      "w": 293,
+      "file": "circuit-group-74.webp"
+    }
+  ],
+  "coco-logo-oval-black.png": [
+    {
+      "x": 1,
+      "h": 56,
+      "w": 42,
+      "file": "coco-logo-oval-black-56.webp"
+    },
+    {
+      "x": 2,
+      "h": 112,
+      "w": 84,
+      "file": "coco-logo-oval-black-112.webp"
+    },
+    {
+      "x": 3,
+      "h": 168,
+      "w": 126,
+      "file": "coco-logo-oval-black-168.webp"
+    }
+  ],
+  "electric-ibiza-white.png": [
+    {
+      "x": 1,
+      "h": 26,
+      "w": 97,
+      "file": "electric-ibiza-white-26.webp"
+    },
+    {
+      "x": 2,
+      "h": 51,
+      "w": 190,
+      "file": "electric-ibiza-white-51.webp"
+    },
+    {
+      "x": 3,
+      "h": 76,
+      "w": 283,
+      "file": "electric-ibiza-white-76.webp"
+    }
+  ],
+  "framework-logo-askew-sm3.png": [
+    {
+      "x": 1,
+      "h": 22,
+      "w": 113,
+      "file": "framework-logo-askew-sm3-22.webp"
+    },
+    {
+      "x": 2,
+      "h": 43,
+      "w": 219,
+      "file": null
+    },
+    {
+      "x": 3,
+      "h": 43,
+      "w": 219,
+      "file": null
+    }
+  ],
+  "front-left-logo-white.png": [
+    {
+      "x": 1,
+      "h": 34,
+      "w": 71,
+      "file": "front-left-logo-white-34.webp"
+    },
+    {
+      "x": 2,
+      "h": 68,
+      "w": 141,
+      "file": "front-left-logo-white-68.webp"
+    },
+    {
+      "x": 3,
+      "h": 102,
+      "w": 211,
+      "file": "front-left-logo-white-102.webp"
+    }
+  ],
+  "gruuv-logo-nocircle-rev.png": [
+    {
+      "x": 1,
+      "h": 41,
+      "w": 60,
+      "file": "gruuv-logo-nocircle-rev-41.webp"
+    },
+    {
+      "x": 2,
+      "h": 81,
+      "w": 117,
+      "file": "gruuv-logo-nocircle-rev-81.webp"
+    },
+    {
+      "x": 3,
+      "h": 122,
+      "w": 176,
+      "file": "gruuv-logo-nocircle-rev-122.webp"
+    }
+  ],
+  "helixrecords.png": [
+    {
+      "x": 1,
+      "h": 47,
+      "w": 51,
+      "file": "helixrecords-47.webp"
+    },
+    {
+      "x": 2,
+      "h": 92,
+      "w": 98,
+      "file": null
+    },
+    {
+      "x": 3,
+      "h": 92,
+      "w": 98,
+      "file": null
+    }
+  ],
+  "hus-logo-stacked-white.png": [
+    {
+      "x": 1,
+      "h": 36,
+      "w": 69,
+      "file": "hus-logo-stacked-white-36.webp"
+    },
+    {
+      "x": 2,
+      "h": 71,
+      "w": 135,
+      "file": "hus-logo-stacked-white-71.webp"
+    },
+    {
+      "x": 3,
+      "h": 106,
+      "w": 201,
+      "file": "hus-logo-stacked-white-106.webp"
+    }
+  ],
+  "kdis.png": [
+    {
+      "x": 1,
+      "h": 44,
+      "w": 55,
+      "file": "kdis-44.webp"
+    },
+    {
+      "x": 2,
+      "h": 88,
+      "w": 109,
+      "file": "kdis-88.webp"
+    },
+    {
+      "x": 3,
+      "h": 132,
+      "w": 163,
+      "file": "kdis-132.webp"
+    }
+  ],
+  "kollective-logo-white.png": [
+    {
+      "x": 1,
+      "h": 19,
+      "w": 129,
+      "file": "kollective-logo-white-19.webp"
+    },
+    {
+      "x": 2,
+      "h": 38,
+      "w": 258,
+      "file": "kollective-logo-white-38.webp"
+    },
+    {
+      "x": 3,
+      "h": 56,
+      "w": 380,
+      "file": "kollective-logo-white-56.webp"
+    }
+  ],
+  "logo-solidgrooves.png": [
+    {
+      "x": 1,
+      "h": 52,
+      "w": 47,
+      "file": "logo-solidgrooves-52.webp"
+    },
+    {
+      "x": 2,
+      "h": 103,
+      "w": 92,
+      "file": "logo-solidgrooves-103.webp"
+    },
+    {
+      "x": 3,
+      "h": 155,
+      "w": 138,
+      "file": "logo-solidgrooves-155.webp"
+    }
+  ],
+  "louder-than-silence.png": [
+    {
+      "x": 1,
+      "h": 34,
+      "w": 72,
+      "file": "louder-than-silence-34.webp"
+    },
+    {
+      "x": 2,
+      "h": 67,
+      "w": 142,
+      "file": "louder-than-silence-67.webp"
+    },
+    {
+      "x": 3,
+      "h": 101,
+      "w": 213,
+      "file": "louder-than-silence-101.webp"
+    }
+  ],
+  "momentum-logo-outline-white.png": [
+    {
+      "x": 1,
+      "h": 51,
+      "w": 47,
+      "file": "momentum-logo-outline-white-51.webp"
+    },
+    {
+      "x": 2,
+      "h": 102,
+      "w": 94,
+      "file": "momentum-logo-outline-white-102.webp"
+    },
+    {
+      "x": 3,
+      "h": 153,
+      "w": 140,
+      "file": "momentum-logo-outline-white-153.webp"
+    }
+  ],
+  "night-service-only.png": [
+    {
+      "x": 1,
+      "h": 19,
+      "w": 133,
+      "file": "night-service-only-19.webp"
+    },
+    {
+      "x": 2,
+      "h": 37,
+      "w": 259,
+      "file": "night-service-only-37.webp"
+    },
+    {
+      "x": 3,
+      "h": 56,
+      "w": 392,
+      "file": "night-service-only-56.webp"
+    }
+  ],
+  "nusonido-logo-white.png": [
+    {
+      "x": 1,
+      "h": 44,
+      "w": 56,
+      "file": "nusonido-logo-white-44.webp"
+    },
+    {
+      "x": 2,
+      "h": 87,
+      "w": 111,
+      "file": "nusonido-logo-white-87.webp"
+    },
+    {
+      "x": 3,
+      "h": 130,
+      "w": 166,
+      "file": "nusonido-logo-white-130.webp"
+    }
+  ],
+  "offstage-logo-white.png": [
+    {
+      "x": 1,
+      "h": 35,
+      "w": 70,
+      "file": "offstage-logo-white-35.webp"
+    },
+    {
+      "x": 2,
+      "h": 69,
+      "w": 138,
+      "file": "offstage-logo-white-69.webp"
+    },
+    {
+      "x": 3,
+      "h": 103,
+      "w": 206,
+      "file": "offstage-logo-white-103.webp"
+    }
+  ],
+  "prime-culture.png": [
+    {
+      "x": 1,
+      "h": 30,
+      "w": 83,
+      "file": "prime-culture-30.webp"
+    },
+    {
+      "x": 2,
+      "h": 59,
+      "w": 162,
+      "file": "prime-culture-59.webp"
+    },
+    {
+      "x": 3,
+      "h": 88,
+      "w": 242,
+      "file": "prime-culture-88.webp"
+    }
+  ],
+  "repop-white.png": [
+    {
+      "x": 1,
+      "h": 47,
+      "w": 52,
+      "file": "repop-white-47.webp"
+    },
+    {
+      "x": 2,
+      "h": 94,
+      "w": 103,
+      "file": "repop-white-94.webp"
+    },
+    {
+      "x": 3,
+      "h": 140,
+      "w": 153,
+      "file": "repop-white-140.webp"
+    }
+  ],
+  "reprieve-records.png": [
+    {
+      "x": 1,
+      "h": 34,
+      "w": 72,
+      "file": "reprieve-records-34.webp"
+    },
+    {
+      "x": 2,
+      "h": 68,
+      "w": 143,
+      "file": "reprieve-records-68.webp"
+    },
+    {
+      "x": 3,
+      "h": 101,
+      "w": 212,
+      "file": "reprieve-records-101.webp"
+    }
+  ],
+  "shortcircuit-white.png": [
+    {
+      "x": 1,
+      "h": 18,
+      "w": 146,
+      "file": "shortcircuit-white-18.webp"
+    },
+    {
+      "x": 2,
+      "h": 35,
+      "w": 284,
+      "file": "shortcircuit-white-35.webp"
+    },
+    {
+      "x": 3,
+      "h": 52,
+      "w": 422,
+      "file": "shortcircuit-white-52.webp"
+    }
+  ],
+  "sound-logo-web-sm.png": [
+    {
+      "x": 1,
+      "h": 22,
+      "w": 108,
+      "file": "sound-logo-web-sm-22.webp"
+    },
+    {
+      "x": 2,
+      "h": 44,
+      "w": 215,
+      "file": "sound-logo-web-sm-44.webp"
+    },
+    {
+      "x": 3,
+      "h": 66,
+      "w": 323,
+      "file": "sound-logo-web-sm-66.webp"
+    }
+  ],
+  "tomorrowland.png": [
+    {
+      "x": 1,
+      "h": 39,
+      "w": 63,
+      "file": "tomorrowland-39.webp"
+    },
+    {
+      "x": 2,
+      "h": 77,
+      "w": 123,
+      "file": "tomorrowland-77.webp"
+    },
+    {
+      "x": 3,
+      "h": 116,
+      "w": 186,
+      "file": "tomorrowland-116.webp"
+    }
+  ],
+  "ultra-records.png": [
+    {
+      "x": 1,
+      "h": 22,
+      "w": 111,
+      "file": "ultra-records-22.webp"
+    },
+    {
+      "x": 2,
+      "h": 44,
+      "w": 222,
+      "file": "ultra-records-44.webp"
+    },
+    {
+      "x": 3,
+      "h": 65,
+      "w": 328,
+      "file": "ultra-records-65.webp"
+    }
+  ],
+  "universal-music-group-logo.png": [
+    {
+      "x": 1,
+      "h": 30,
+      "w": 80,
+      "file": "universal-music-group-logo-30.webp"
+    },
+    {
+      "x": 2,
+      "h": 60,
+      "w": 160,
+      "file": "universal-music-group-logo-60.webp"
+    },
+    {
+      "x": 3,
+      "h": 90,
+      "w": 239,
+      "file": "universal-music-group-logo-90.webp"
+    }
+  ],
+  "white-hbd-logo-long-no-background.png": [
+    {
+      "x": 1,
+      "h": 24,
+      "w": 104,
+      "file": "white-hbd-logo-long-no-background-24.webp"
+    },
+    {
+      "x": 2,
+      "h": 47,
+      "w": 203,
+      "file": "white-hbd-logo-long-no-background-47.webp"
+    },
+    {
+      "x": 3,
+      "h": 71,
+      "w": 306,
+      "file": "white-hbd-logo-long-no-background-71.webp"
+    }
+  ],
+  "wikka-logo-white.png": [
+    {
+      "x": 1,
+      "h": 26,
+      "w": 97,
+      "file": "wikka-logo-white-26.webp"
+    },
+    {
+      "x": 2,
+      "h": 51,
+      "w": 189,
+      "file": "wikka-logo-white-51.webp"
+    },
+    {
+      "x": 3,
+      "h": 76,
+      "w": 281,
+      "file": "wikka-logo-white-76.webp"
+    }
+  ]
+}
