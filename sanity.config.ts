@@ -7,6 +7,7 @@ import { SortIcon, StackIcon } from '@sanity/icons'
 import { schemaTypes } from './src/schemas'
 import ProjectAssetsPane from './src/studio/ProjectAssetsPane.jsx'
 import SetFormInput from './src/studio/SetFormInput.jsx'
+import { typeOnlyIntent } from './src/studio/intentRouting.js'
 
 /**
  * Singleton editor — prevents the globe-settings document from appearing
@@ -31,6 +32,14 @@ const fetchFeaturedProjects = (client: {
   )
 
 const projectLabel = (project: FeaturedProject) => project.title || project.clientName || 'Untitled'
+
+/**
+ * The orderable list claims every intent for every type (canHandleIntent(() => true)), so an edit
+ * link to a media asset (a Set page's members) opened it under that list with the Project form
+ * (SQ-143). Narrow its pane to its own type; any other type falls to the list that owns it.
+ */
+const ownTypeIntentsOnly = (item: ReturnType<typeof orderableDocumentListDeskItem>, typeName: string) =>
+  item.child({ ...(item.getChild() as object), canHandleIntent: typeOnlyIntent(typeName) } as never)
 
 export default defineConfig({
   name: 'swm-portfolio',
@@ -68,13 +77,16 @@ export default defineConfig({
             S.divider(),
 
             // ── Featured Projects: drag-to-order projects ──
-            orderableDocumentListDeskItem({
-              type: 'project',
-              filter: 'isFeatured == true',
-              title: 'Featured Projects (drag to order)',
-              S,
-              context,
-            }),
+            ownTypeIntentsOnly(
+              orderableDocumentListDeskItem({
+                type: 'project',
+                filter: 'isFeatured == true',
+                title: 'Featured Projects (drag to order)',
+                S,
+                context,
+              }),
+              'project'
+            ),
 
             // ── Per-project asset ordering ──
             // One list per project (src/studio/ProjectAssetsPane.jsx): a loose piece is a
