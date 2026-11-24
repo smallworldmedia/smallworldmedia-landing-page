@@ -93,6 +93,13 @@ const LABEL_SUFFIX = ' — open the footer';
 /** Marked copy → the pill's aria-label: prose, no markers, no line breaks. */
 const taglineLabel = (marked) =>
   `${stripKeywords(marked || '').replace(/\s*\n\s*/g, ' ').trim()}${LABEL_SUFFIX}`;
+/** The short layer's words are spaced by CSS, so its text has no spaces and a
+    reader of the DOM text sees "VISUALWORLDSfor…" — which an accessible name
+    with real spaces cannot contain (WCAG 2.5.3). A trailing space INSIDE each
+    inline-block word is dropped by layout (line-end whitespace), so the look
+    is unchanged while the text gains its word breaks. */
+const spaceWords = (line, more) =>
+  line.map((tok, i) => (tok.kw || (i === line.length - 1 && !more) ? tok : { ...tok, text: `${tok.text} ` }));
 // ?tagmorph — the long ⇄ short morph, ms (the capsule's resize clock).
 const TAG_MORPH_MS = 600;
 // Word fade-ins share one total budget (s), so the 21-word blurb arrives on
@@ -727,7 +734,7 @@ export default function SiteTagline({ siteCopy }) {
             <span className="site-tagline__text site-tagline__text--short" aria-hidden="true">
               {shortLines.map((line, li) => (
                 <span className="site-tagline__line" key={`short-${li}`}>
-                  {renderWordTokens(line, {
+                  {renderWordTokens(spaceWords(line, li < shortLines.length - 1), {
                     wordClass: 'site-tagline__word',
                     emClass: 'site-tagline__word--em',
                     keyPrefix: `short-${li}`,

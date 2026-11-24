@@ -126,7 +126,9 @@ export function CtaName({ name }) {
         <span className="fp-cta__name-copy">
           <span ref={textRef}>{name}</span>
         </span>
-        <span className="fp-cta__name-copy">{name}</span>
+        {/* 2nd copy painted from data-copy (::before): the DOM text holds the
+            name once, so the button's accessible name contains it (WCAG 2.5.3). */}
+        <span className="fp-cta__name-copy" data-copy={name} />
       </span>
     </span>
   );
