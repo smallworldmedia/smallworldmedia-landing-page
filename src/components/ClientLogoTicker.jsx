@@ -39,6 +39,7 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import manifest from '../assets/client-logos/manifest.json';
+import sized from '../assets/client-logos/sized/manifest.json';
 import DragMomentum, { PX_MAX_SPEED } from '../lib/dragMomentum.js';
 import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
 
@@ -48,12 +49,29 @@ const URLS = import.meta.glob('../assets/client-logos/*.{svg,png}', {
   import: 'default',
 });
 
-/** {id, name, src, w, h} — the shape a later Sanity loader must return. */
+/* SQ-150: a PNG mark is drawn at 12-56 CSS px but ships 240 px tall. sized/ holds it at the
+   pixels it is drawn at x 1, 2 and 3 (DPR is capped at 3; lossless WebP, never past the
+   original's own height), so the browser's density pick fetches only what renders sharp.
+   scripts/prep-client-logo-sizes.mjs writes it; an SVG has no sized form and stays whole. */
+const SIZED_URLS = import.meta.glob('../assets/client-logos/sized/*.webp', {
+  eager: true,
+  query: { url: true, 'no-inline': true },
+  import: 'default',
+});
+
+/** The srcset of one logo file over its densities (a density at the original's own height is the original). */
+const srcSetOf = (file, src) =>
+  sized[file]
+    ?.map((r) => `${r.file ? SIZED_URLS[`../assets/client-logos/sized/${r.file}`] : src} ${r.x}x`)
+    .join(', ');
+
+/** {id, name, src, srcSet, w, h} — the shape a later Sanity loader must return. */
 export const LOGOS = manifest
   .map((m) => ({
     id: m.file.replace(/\.(svg|png)$/, ''),
     name: m.name,
     src: URLS[`../assets/client-logos/${m.file}`],
+    srcSet: srcSetOf(m.file, URLS[`../assets/client-logos/${m.file}`]),
     w: m.w,
     h: m.h,
   }))
@@ -231,6 +249,7 @@ export default function ClientLogoTicker() {
           <img
             className="logo-ticker__img"
             src={l.src}
+            srcSet={l.srcSet}
             alt={hidden ? '' : l.name}
             width={Math.round(l.w)}
             height={Math.round(l.h)}

@@ -76,6 +76,8 @@ import {
   muxStream,
   muxPoster,
   muxPosterSrcSet,
+  deckPageImage,
+  AUTO_SIZES,
   sanitySrcSet,
   windowLoop,
   wrapAt,
@@ -173,10 +175,23 @@ export default function MediaSlot({
   // time=0: playback starts at frame 0 and every wrap returns there (the
   // native loop, or the cap's seek), so the frame-0 poster is the aligned
   // one — no poster→playback jump. A chunk's poster is its own first frame.
-  const posterUrl = isVideo ? muxPoster(asset.playbackId, SLOT_IMG_WIDTH, chunk ? chunk.start : 0) : null;
-
   const ratio = ratioOf(asset);
   const isPortrait = ratio < PORTRAIT_THRESHOLD;
+
+  // A lazy detail tile's Mux thumbnails (SQ-150) load at the width CSS draws
+  // them x the screen's density, never past the source's own width: a srcset
+  // over the deck ladder and `sizes=auto`. The hero (eager) and the directory
+  // (which hands in its own `sizes`) keep the fixed width.
+  const tileAuto = !sizes && !eager && !gate;
+  const muxFace = (playbackId, time) =>
+    tileAuto
+      ? { ...deckPageImage({ playbackId }, ratio, time), sizes: AUTO_SIZES }
+      : {
+          src: muxPoster(playbackId, SLOT_IMG_WIDTH, time),
+          srcSet: sizes ? muxPosterSrcSet(playbackId) : undefined,
+          sizes,
+        };
+  const poster = isVideo ? muxFace(asset.playbackId, chunk ? chunk.start : 0) : null;
 
   // An SSR'd image that loaded before hydration never fires onLoad: Astro
   // hydrates in a transition, and React attaches the handler only at its
@@ -257,18 +272,18 @@ export default function MediaSlot({
         <div
           className={`media-slot__media media-slot__sequence${isLoaded ? ' media-slot__media--loaded' : ''}`}
         >
-          {frames.map((f, k) => (
+          {frames.map((f, k) => {
+            const face = f.playbackId ? muxFace(f.playbackId, 0) : null;
+            return (
             <Fragment key={f._id}>
               <img
                 ref={k === 0 ? flagIfLoaded : undefined}
                 className="media-slot__frame"
                 data-fit={f.imageHasAlpha ? 'contain' : undefined}
                 data-on={k === frame || undefined}
-                src={f.playbackId ? muxPoster(f.playbackId, SLOT_IMG_WIDTH, 0) : `${f.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
-                srcSet={
-                  !sizes ? undefined : f.playbackId ? muxPosterSrcSet(f.playbackId) : sanitySrcSet(f.imageUrl, f.imageDimensions?.width)
-                }
-                sizes={sizes}
+                src={face ? face.src : `${f.imageUrl}?w=${SLOT_IMG_WIDTH}&${IMG_FORMAT}`}
+                srcSet={face ? face.srcSet : sizes ? sanitySrcSet(f.imageUrl, f.imageDimensions?.width) : undefined}
+                sizes={face ? face.sizes : sizes}
                 alt={f.alt || f.title || ''}
                 loading="lazy"
                 decoding={gate ? 'async' : undefined}
@@ -281,7 +296,8 @@ export default function MediaSlot({
                 </div>
               )}
             </Fragment>
-          ))}
+            );
+          })}
         </div>
       ) : isVideo ? (
         <>
@@ -291,9 +307,9 @@ export default function MediaSlot({
           <img
             ref={flagIfLoaded}
             className={`media-slot__media${isLoaded ? ' media-slot__media--loaded' : ''}`}
-            src={posterUrl}
-            srcSet={sizes ? muxPosterSrcSet(asset.playbackId) : undefined}
-            sizes={sizes}
+            src={poster.src}
+            srcSet={poster.srcSet}
+            sizes={poster.sizes}
             alt={gate ? asset.alt || asset.title || '' : ''}
             loading={eager ? 'eager' : 'lazy'}
             fetchPriority={eager ? 'high' : undefined}
