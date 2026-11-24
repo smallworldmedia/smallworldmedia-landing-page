@@ -11,7 +11,8 @@
  * names only the services a client deals with (Postmark for invoices, Stripe
  * and Wise for payments), not the books behind them (Nathan). The site sets
  * no cookies and runs no analytics, so no consent banner is needed. The
- * colour scheme pick is kept in local storage, the site's only use of it (11-14). Revisit
+ * colour scheme pick is kept in local storage, the site's only use of it (11-14). Google
+ * Fonts is gone from the services: Inter is self-hosted since SQ-148 (11-24). Revisit
  * the copy, and move the date, if a service, a cookie or analytics is ever
  * added.
  */
@@ -21,7 +22,7 @@ export default function PrivacyContent({ home = true }) {
   return (
     <div className="privacy">
       <h1 className="privacy__title">Privacy Policy</h1>
-      <p className="privacy__updated">Last updated: November 14, 2026</p>
+      <p className="privacy__updated">Last updated: November 24, 2026</p>
 
       <div className="privacy__section">
         <p>
@@ -50,7 +51,7 @@ export default function PrivacyContent({ home = true }) {
           <li>
             <strong>Hosting and delivery.</strong> Like any website, the services that deliver these
             pages receive your IP address and basic request details (browser, time, page requested).
-            These are Netlify (hosting), Google Fonts (typefaces), Sanity (images) and Mux (video).
+            These are Netlify (hosting), Sanity (images) and Mux (video).
             Their own privacy policies govern that data.
           </li>
         </ul>
