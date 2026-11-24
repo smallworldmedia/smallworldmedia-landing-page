@@ -98,7 +98,7 @@ const SCROLL_GEAR = num('deckgear', 0.08); // column px per scrolled px — Nath
    width (`wide`), so the browser picks the rung. The box crops its image to
    the wall's ratio (object-fit: cover), so a page wider than the box is drawn
    wider than it, and `sizes` says so. */
-function DeckPage({ page, play, gate, own, ratio, wide }) {
+function DeckPage({ page, play, gate, own, ratio, wide, eager }) {
   const ref = useRef(null);
   const [canPlay, setCanPlay] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -106,6 +106,14 @@ function DeckPage({ page, play, gate, own, ratio, wide }) {
   const pageRatio = ratioOf(page);
   const img = deckPageImage(page, pageRatio);
   const sizes = `${Math.ceil(wide * Math.max(1, pageRatio / (own ?? ratio)))}px`;
+  // The pages in the frame at first paint are the LCP candidates: eager, and
+  // each line's first page high priority (more would crowd each other out);
+  // every page past them stays lazy. The play-mode poster (media-slot) keeps
+  // loading lazy: eager there delayed its LCP in the SQ-149 runs. (Odd lines drift the
+  // other way, so their first screen is the SECOND copy's head.)
+  const load = eager
+    ? { loading: 'eager', ...(eager === 'first' && { fetchPriority: 'high' }) }
+    : { loading: 'lazy' };
 
   useEffect(() => {
     if (!live || !gate) return undefined;
@@ -120,7 +128,7 @@ function DeckPage({ page, play, gate, own, ratio, wide }) {
         srcSet={img.srcSet}
         sizes={sizes}
         alt=""
-        loading="lazy"
+        {...load}
         draggable={false}
         style={own ? { aspectRatio: own } : undefined}
       />
@@ -200,6 +208,7 @@ export default function DeckScroller({
       let perLine;
       let reps = null;
       let pageW; // the page's drawn width, for the images' `sizes`
+      let seen = 1; // pages per line inside the frame at first paint (loaded eagerly)
       motionRef.current.cycles = null;
       if (columns) {
         lines = columns.length;
@@ -214,6 +223,7 @@ export default function DeckScroller({
         const x = horizontalLayout({ w, h, lines, ratio, gap: GAP_PX, n: pages.length });
         perLine = x.perLine;
         pageW = x.pageW;
+        seen = Math.ceil(w / (x.pageW + GAP_PX));
         motionRef.current.cycle = x.cycle;
       } else {
         const idealPageH = h / VISIBLE_ROWS;
@@ -221,6 +231,7 @@ export default function DeckScroller({
         const colW = (w - (lines - 1) * GAP_PX) / lines;
         pageW = colW;
         const pageH = colW / ratio;
+        seen = Math.ceil(h / (pageH + GAP_PX));
         // Enough pages per strip cycle that TWO rendered copies cover the
         // frame at any wrap offset.
         const framePerCol = Math.max(2, Math.ceil((h + pageH) / (pageH + GAP_PX)));
@@ -235,9 +246,10 @@ export default function DeckScroller({
           cur.lines === lines &&
           cur.perLine === perLine &&
           cur.pageW === wide &&
+          cur.seen === seen &&
           String(cur.reps) === String(reps)
           ? cur
-          : { lines, perLine, reps, pageW: wide };
+          : { lines, perLine, reps, pageW: wide, seen };
       });
     };
     measure();
@@ -339,6 +351,9 @@ export default function DeckScroller({
                       own={columns ? ratioOf(p) : undefined}
                       ratio={ratio}
                       wide={layout.pageW}
+                      eager={
+                        n < layout.seen && (copy === 0) === (line % 2 === 0) && (n === 0 ? 'first' : true)
+                      }
                     />
                   ))
                 )}
