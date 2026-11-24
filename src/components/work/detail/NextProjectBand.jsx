@@ -745,7 +745,8 @@ export default function NextProjectBand({ next }) {
       }}
       data-spectrum={next.spectrum || undefined}
       onClick={onClick}
-      aria-label={`Next project: ${next.clientName} — ${next.title}`}
+      // No aria-label (WCAG 2.5.3): the name comes from the visible label,
+      // client name and service tags, which is what the band shows.
     >
       <div className="np-band__text">
         <div className="np-band__label-wrap" ref={labelWrapRef}>

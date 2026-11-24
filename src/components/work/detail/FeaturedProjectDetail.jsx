@@ -385,7 +385,8 @@ function DetailNextChip({ next, accentVars }) {
       className="detail-next"
       href={`/work/${next.slug}`}
       onClick={(e) => goNextProject(e, next)}
-      aria-label={`Next project: ${next.clientName}`}
+      // WCAG 2.5.3: the name must contain the visible "next_project: name" line.
+      aria-label={label}
       data-marquee={marquee || undefined}
       style={
         marquee
@@ -404,7 +405,10 @@ function DetailNextChip({ next, accentVars }) {
       <span className="detail-next__window" ref={windowRef} aria-hidden="true">
         <span className="detail-next__track">
           <span className="detail-next__copy" ref={copyRef}>{label}</span>
-          {marquee && <span className="detail-next__copy">{label}</span>}
+          {/* The loop's second copy is painted from data-copy (CSS ::before), so
+              the DOM text — what a screen reader's name must contain, WCAG
+              2.5.3 — holds the label once. */}
+          {marquee && <span className="detail-next__copy" data-copy={label} />}
         </span>
       </span>
       <CtaArrows direction="right" />

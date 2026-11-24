@@ -648,6 +648,11 @@ body:has(.fp) {
   display: none;
 }
 
+/* The second copy is an empty span painted from data-copy. */
+.fp-cta__name-copy[data-copy]::before {
+  content: attr(data-copy);
+}
+
 /* A name that overflows (CtaName arms data-roll): two copies, each carrying
    its own trailing gap as padding, so the track is 2 × (copy + gap) and its
    -50% travel is EXACTLY one copy + one gap — the wrap lands on the same
