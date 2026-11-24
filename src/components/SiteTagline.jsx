@@ -171,19 +171,55 @@ export default function SiteTagline({ siteCopy }) {
     };
     document.addEventListener('astro:after-swap', onSwapLatch);
 
-    // The left stack's width (lockup + ©line), onto <html> as --footer-stack-w, for the links
-    // footer's nav row to keep clear of it (global.css `.site-footer__nav`): the row belongs to
-    // another island and cannot know how wide this one is. The root is fixed and shrink-to-fit, so
-    // its box IS the run; it lays out while the lockup and copy are still hidden. A ResizeObserver
-    // follows the copy's font loading in. ClientRouter replaces every <html> attribute on a swap,
+    // The left stack's RUN-ON width (lockup + gap + ©line), onto <html> as --footer-stack-w, for
+    // the links footer's nav row to keep clear of it (global.css `.site-footer__nav`): the row
+    // belongs to another island and cannot know how wide this one is. It lays out while the
+    // lockup and copy are still hidden. ClientRouter replaces every <html> attribute on a swap,
     // the inline style included, so it is re-asserted after one (the --badge-reserve idiom).
-    const writeStackW = () => {
-      const w = root.getBoundingClientRect().width;
-      if (w > 0) document.documentElement.style.setProperty('--footer-stack-w', `${+w.toFixed(2)}px`);
+    //
+    // SQ-140: where that margin makes the row wrap onto a second line, the ©line drops under the
+    // lockup too (<html data-footer-wrap>, global.css), so the left stack is two lines like the
+    // row's. The width is the SUM of the pieces, never the root's box, so it is the same whether
+    // the stack is stacked or run-on: stacking the ©line narrows the root, and a margin read
+    // from that would un-wrap the row, which would un-stack the ©line (a flicker at the
+    // threshold). The row's wrap is then a pure function of the viewport and the run-on width.
+    const row = root.querySelector('.site-tagline__row');
+    const px = (v) => parseFloat(v) || 0;
+    const stackRunW = () =>
+      px(getComputedStyle(lockup).marginLeft) +
+      lockup.offsetWidth +
+      px(getComputedStyle(row).columnGap) +
+      copy.offsetWidth;
+    // Wrapped = the row's first and last links sit on different lines (layout boxes, so the link
+    // stagger's transforms don't count; bottoms, because the row is flex-end aligned and a glyph
+    // link is shorter than an icon one). Hidden (phones, the resting home footer) = no.
+    let navEl = null;
+    const rowWraps = () => {
+      const nav = document.querySelector('.site-footer__nav');
+      if (nav !== navEl) {
+        if (navEl) stackRo.unobserve(navEl);
+        navEl = nav;
+        if (nav) stackRo.observe(nav);
+      }
+      if (!nav || !nav.offsetHeight) return false;
+      const links = nav.querySelectorAll('.site-footer__link');
+      if (links.length < 2) return false;
+      const bottom = (l) => l.offsetTop + l.offsetHeight;
+      return Math.abs(bottom(links[0]) - bottom(links[links.length - 1])) > 1;
     };
-    writeStackW();
+    const writeStackW = () => {
+      const html = document.documentElement;
+      const w = stackRunW();
+      if (w > 0) html.style.setProperty('--footer-stack-w', `${+w.toFixed(2)}px`);
+      const wrapped = rowWraps(); // after the margin above has taken effect
+      if (html.hasAttribute('data-footer-wrap') !== wrapped) html.toggleAttribute('data-footer-wrap', wrapped);
+    };
+    // The root and the copy (a font loading in moves the run), then the row itself: its height
+    // changes exactly when it starts or stops wrapping.
     const stackRo = new ResizeObserver(writeStackW);
     stackRo.observe(root);
+    if (copy) stackRo.observe(copy);
+    writeStackW();
     document.addEventListener('astro:after-swap', writeStackW);
 
     // ── Long ⇄ short (10-06) ── `long` is what the DOM shows. The resting
