@@ -310,3 +310,30 @@ test('collaborators refuses a service tag, a missing id, a duplicate key or ref,
   assert.throws(() => validatePatch('mediaAsset', { collaborators: [{ ...reference(clientDoc._id) }] }, []), /collaborators\._key/)
   assert.throws(() => validatePatch('project', { collaborators: [] }, []), /Rejected set field: collaborators/)
 })
+
+// Nathan 11-24: a type change between an image type and a video type is allowed only as the repair
+// that matches the one file the document already carries; every real conversion still stops.
+test('a media type may cross image/video only to match the file the document carries', async t => {
+  const mux = { _id: 'muxAsset-old', _type: 'mux.videoAsset', assetId: 'asset-old', playbackId: 'play-old', status: 'ready', data: { aspect_ratio: '3:1' } }
+  const sting = existingMedia('mediaAsset-sting', { mediaType: 'logo', image: undefined, video: { _type: 'mux.video', asset: reference('muxAsset-old') } })
+  const still = existingMedia('mediaAsset-still', { mediaType: 'motion_1x1' })
+  const photo = existingMedia('mediaAsset-photo')
+  const both = existingMedia('mediaAsset-both', { video: { _type: 'mux.video', asset: reference('muxAsset-old') } })
+  const h = await harness(t, { docs: [mux, sting, still, photo, both] })
+  const patch = (id, set, extra = {}) => h.changes({ patches: [{ id, type: 'mediaAsset', set, ...extra }] })
+
+  // The repair, both ways: a video typed `logo` back to a motion type, an image typed motion back to static.
+  const toVideo = await h.plan({ changes: await patch(sting._id, { mediaType: 'motion_other' }) })
+  assert.equal(toVideo.operations[0].after.mediaType, 'motion_other')
+  const toImage = await h.plan({ changes: await patch(still._id, { mediaType: 'static_1x1' }) })
+  await h.apply(toImage)
+  assert.equal(h.db.get(still._id).mediaType, 'static_1x1')
+
+  // Still refused: a type the file can't play, a document with both files, and a change that also touches a file.
+  const refused = /kind conversion requires editorial migration/
+  await assert.rejects(h.plan({ changes: await patch(photo._id, { mediaType: 'motion_1x1' }) }), refused)
+  await assert.rejects(h.plan({ changes: await patch(both._id, { mediaType: 'motion_1x1' }) }), refused)
+  await assert.rejects(h.plan({ changes: await patch(sting._id, { mediaType: 'motion_other', video: { _type: 'mux.video', asset: { ...reference('muxAsset-old'), _weak: true } } }) }), refused)
+  await h.file('new.mp4')
+  await assert.rejects(h.plan({ changes: await patch(photo._id, { mediaType: 'motion_1x1' }, { upload: { file: 'new.mp4' } }) }), refused)
+})

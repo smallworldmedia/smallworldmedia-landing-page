@@ -31,6 +31,8 @@ function mediaGrouping(doc) { invariant(doc.client?._ref && doc.sourceManifest &
 async function addCollection(collections, sanity, selector) { const old = collections.find(c => same(c.selector, selector)); if (old) return old; const c = await captureCollection(sanity, selector); collections.push(c); return c }
 // A video rebind (set.video) also pins the Mux document it points at, like any other reference.
 const opReferences = op => op.after ? [...references(op.after), ...(Object.hasOwn(op.set || {}, 'video') ? [{ id: op.after.video.asset._ref, type: 'mux.videoAsset' }] : [])] : []
+// The one kind of file a mediaAsset carries ('image' or 'video'); null for none or both.
+const fileKind = doc => doc.video?.asset?._ref ? (doc.image?.asset?._ref ? null : 'video') : doc.image?.asset?._ref ? 'image' : null
 // A delete's Sanity half is done from these stages on; its Mux half may still be pending.
 const removed = (op, state) => op.action === 'delete' && ['deleted','mux-deleting','done'].includes(state?.stage)
 // Sanity has no ifRevisionID on delete; an unset of this never-written field carries the guard in the same transaction.
@@ -229,7 +231,12 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
       if (p.type === 'mediaSet' && Object.hasOwn(p.set || {}, 'slug')) await requireFreeKey(sanity, operations, after.slug.current, p.id)
       let source
       if (p.upload) { keys(p.upload, ['file'], 'upload'); invariant(p.type === 'mediaAsset', 'Uploads only attach to mediaAsset'); source = await inspectFile(scope.root, p.upload.file, after.mediaType, probe) }
-      invariant(!Object.hasOwn(p.set || {}, 'mediaType') || isVideoType(before.mediaType) === isVideoType(after.mediaType), 'Image/video kind conversion requires editorial migration, not an ordinary patch')
+      // An image type ↔ video type change is an editorial migration, except the repair that brings the
+      // type back to the one file the document already carries, its files untouched (Nathan 11-24: two
+      // video logo stings given `logo` in the Studio, a file-kind-mismatch the audit stops a deploy on).
+      const kindChange = Object.hasOwn(p.set || {}, 'mediaType') && isVideoType(before.mediaType) !== isVideoType(after.mediaType)
+      const filesUntouched = !p.upload && !['image', 'video'].some(k => Object.hasOwn(p.set || {}, k) || (p.unset || []).includes(k))
+      invariant(!kindChange || filesUntouched && fileKind(before) === (isVideoType(after.mediaType) ? 'video' : 'image'), 'Image/video kind conversion requires editorial migration, not an ordinary patch (a type change may only match the one file the document carries)')
       if (Object.hasOwn(p.set || {}, 'video')) {
         invariant(!p.upload && isVideoType(after.mediaType), 'A video rebind needs a video mediaType and no upload')
         const id = after.video.asset._ref, target = await fresh(sanity, [id]); noDraft(target, id); readyMuxDocument(target.get(id))
