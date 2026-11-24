@@ -98,7 +98,7 @@ test('a run with no frames, or no up leg, proves nothing', () => {
   assert.match(v.note, /up: 0 frames/);
 });
 
-test('G can be pinned: a ride held at the wrong gap fails the pinned number, not its own median', () => {
+test('a pinned G fails a ride held at the wrong gap, where its own median would pass it', () => {
   const frames = run((phase, p, slide = 0) => frame(phase, p, Math.min(panelTopAt(p, slide), VH) - (G + 6), slide));
   assert.equal(verdict({ frames }).pass, true, 'its own median is happy');
   assert.equal(verdict({ frames, gap: G }).pass, false, 'the pinned G is not');
