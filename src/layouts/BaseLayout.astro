@@ -196,13 +196,8 @@ const roster = await getDirectoryData()
     <link rel="preconnect" href="https://stream.mux.com" crossorigin />
     <link rel="preconnect" href="https://image.mux.com" crossorigin />
 
-    {/* Google Fonts: Inter (UI font stack) */}
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    {/* Inter (the UI stack's fallback behind ABC Areal) is self-hosted: its @font-face lives in
+        global.css, so no Google Fonts stylesheet or preconnect. */}
 
     {/* Favicons */}
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />

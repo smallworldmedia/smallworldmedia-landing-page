@@ -60,13 +60,54 @@
   font-display: swap;
 }
 
-/* Iosevka Term Medium — monospace UI text, tag pills, form labels */
+/* Iosevka Term Medium — monospace UI text, tag pills, form labels.
+   A SUBSET of the full family: Basic Latin, Latin-1, Latin Extended-A/B and
+   Additional, combining marks, Greek, general punctuation, super/subscripts,
+   currency, letterlike (™), arrows, math operators, misc technical, box and
+   block drawing, geometric shapes, misc symbols and dingbats — plus the
+   `calt` `ccmp` `locl` `mark` `mkmk` `kern` `liga` `clig` `rlig` `rclt`
+   features and the hinting the original carried (the page sets no
+   font-feature-settings; the only variant is tabular-nums, which the
+   monospace face does not need). ~125 KB against the 1.5 MB full file, so the
+   VeryHigh request on every page is cheap. A codepoint outside the subset
+   falls through --font-mono to Geist Mono / ui-monospace, the same path any
+   missing glyph took before. scripts/test/font-coverage.test.mjs holds the
+   required set. Re-subset from the full file at git 1244f4a:
+     pyftsubset IosevkaTermMedium.woff2 --unicodes=<ranges above> --flavor=woff2 \
+       --layout-features=calt,ccmp,locl,mark,mkmk,kern,liga,clig,rlig,rclt \
+       --desubroutinize --notdef-glyph --notdef-outline --name-IDs='*' */
 @font-face {
   font-family: 'Iosevka Term';
   src: url('../assets/fonts/IosevkaTermMedium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
+}
+
+/* Inter — the UI-stack fallback behind ABC Areal (--font-ui / --font-body),
+   self-hosted (SIL OFL, Inter-OFL.txt beside the files) so no request leaves
+   the origin and no render-blocking stylesheet waits on Google. The two files
+   are the variable latin and latin-ext subsets Google served for
+   `Inter:wght@400;500`; unicode-range loads latin-ext only when a glyph needs
+   it. One variable file carries both weights, declared as the 400-500 range. */
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Variable-latin.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 /* ABC Areal (Dinamo) — THE MAIN SANS, licensed. One variable file carries

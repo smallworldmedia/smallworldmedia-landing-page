@@ -1023,8 +1023,9 @@ export default function SiteFooter({
      painted in — its own computed font-family, first entry, never a name
      hard-coded here — and `document.fonts.ready` stays only as the backstop.
      It is deliberately NOT the primary trigger: ready waits on every
-     REQUESTED face, including the ~1.5 MB Iosevka the island asks for after
-     hydration, so it can resolve long after the blurb has already swapped.
+     REQUESTED face, including the Iosevka the island asks for after
+     hydration (a subset now, but still its own request), so it can resolve
+     after the blurb has already swapped.
      A face that never loads (a 404 on the untracked woff2) rejects, and we
      publish anyway — measuring whatever is painted is always right.
 
