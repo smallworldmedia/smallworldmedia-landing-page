@@ -1,6 +1,6 @@
 # Onboarding
 
-*Last Updated: 2026-11-16*
+*Last Updated: 2026-11-24*
 
 ## Quick start
 ```bash
@@ -65,7 +65,7 @@ by scope.
 | Change how a page turn lands in browser history | a gesture commit (wheel, drag) navigates with `src/lib/gestureHistory.js`'s `gestureHistory()`, a click with plain `navigate()`; /work's per-entry World is `history.state.swmWorld` in `work/FeaturedProjects.jsx`; gate with `~/swm-probe-lock.sh node scripts/history-probe.mjs --base=URL` and `node --test scripts/test/gesture-history.test.mjs` |
 | Add a client's media | write `_manifest.md` (`scripts/generate-manifests.mjs`), then `npm run cms -- plan` → `apply` → `verify` |
 | Make a sequence (one tile, many stills) | give the stills one `displayGroup` ending `-sequence` in the manifest (Studio order = frame order), then `npm run cms -- plan` → `apply` → `verify`; code in `src/lib/mediaSequence.js`, rate `?seqms`, glossary in `CONTEXT.md` |
-| Add client logos | drop into `Client Logos/`, run `node scripts/prep-client-logos.mjs`, check `--check` |
+| Add client logos | drop into `Client Logos/`, run `node scripts/prep-client-logos.mjs`, then `node scripts/prep-client-logo-sizes.mjs` (the ticker's width rungs, SQ-150); check both with `--check` |
 | Edit Sanity schema | `src/schemas/*.ts`; CMS contract hash in `scripts/lib/cms/contract.mjs` must be updated or `plan` fails closed |
 | Preview a build without touching production | `npm run build` then `npx netlify-cli deploy --dir=dist --no-build --site <id>` (no `--prod`) |
 

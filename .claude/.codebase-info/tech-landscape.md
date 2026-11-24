@@ -1,6 +1,6 @@
 # Tech Landscape
 
-*Last Updated: 2026-11-17*
+*Last Updated: 2026-11-24*
 
 ## Languages & Runtimes
 - JavaScript (ESM, `"type": "module"`); React components are `.jsx`, helpers `.js`/`.mjs`.
@@ -16,7 +16,7 @@
 | 3D | `three` 0.184 | Globe, Worlds, process stage; EffectComposer + vendored lens-distortion pass |
 | Scroll | `lenis` | Single instance in `src/lib/smoothScroll.js`, ticked by `gsap.ticker` |
 | Video | `hls.js`, Mux (`@mux/mux-node`, `sanity-plugin-mux-input`) | HLS playback pools; Mux uploads from the CMS CLI |
-| CMS | `sanity` 5, `@sanity/astro`, `@sanity/client`, `@sanity/orderable-document-list`, `@sanity/vision`, `lexorank` | Studio at `/studio`, build-time queries, drag ordering |
+| CMS | `sanity` 5, `@sanity/astro`, `@sanity/client`, `@sanity/orderable-document-list`, `@sanity/vision`, `lexorank` | Studio at `/studio` in local dev only (production builds drop it, SQ-145; editors use the hosted Studio), build-time queries, drag ordering |
 | Images | `sharp` | CMS probe/dimension checks, client-logo prep, and `globe-probe`'s report-only `darkThumbs` (luma read from raw pixels) |
 | SEO | `@astrojs/sitemap` | Sitemap with disabled-route exclusions |
 | Dev | `groq-js` (only devDependency) | Evaluates real GROQ against fixtures in tests |
@@ -26,7 +26,7 @@
 - **Hosting:** Netlify site `smallworldmedia-landingpage`, `netlify.toml` (build `npm run build`, publish `dist`, `Cache-Control: public, max-age=31536000, immutable` on the content-hashed `/_astro/*` while HTML keeps Netlify's default revalidation, forced redirects). Production branch `main`; branch deploy for `feature/v1-launch`. Netlify Forms handles the inquiry form (hidden mirror form in `BaseLayout.astro`).
 - **CMS:** Sanity project `b60h4u7o`, dataset `production`, CDN reads. Studio served by the Astro integration.
 - **Video:** Mux (public playback), Sanity CDN for images.
-- **Fonts:** self-hosted PP Neue Montreal + others in `src/assets/fonts/` (woff2 tracked); Inter from Google Fonts.
+- **Fonts:** self-hosted PP Neue Montreal + others in `src/assets/fonts/` (woff2 tracked); Inter self-hosted since SQ-148 (11-24: `Inter-Variable-latin` + `-latin-ext` woff2, two `@font-face` rules with `unicode-range` in `global.css`; no Google request). `IosevkaTermMedium.woff2` is a subset (1.5 MB → 128 KB) whose coverage of every character the site prints is pinned by `scripts/lib/fontCoverageGate.mjs` under `scripts/test/font-coverage.test.mjs`.
 
 ## Source-of-Truth Files
 

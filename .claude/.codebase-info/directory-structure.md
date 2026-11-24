@@ -1,12 +1,12 @@
 # Directory Structure
 
-*Last Updated: 2026-11-23*
+*Last Updated: 2026-11-24*
 
 ```
 .
 ├── astro.config.mjs          # Astro 5 static build, React + Sanity + sitemap integrations
 ├── netlify.toml              # build (scripts/audit-gate.mjs, then astro build), immutable cache on hashed /_astro/*, forced redirects (disabled routes, moved projects)
-├── sanity.config.ts / sanity.cli.ts   # Studio config (structure, orderable lists; the per-project asset lists are src/studio/ panes since US-10)
+├── sanity.config.ts / sanity.cli.ts   # Studio config (structure, orderable lists; the per-project asset lists are src/studio/ panes since US-10; `src/studio/intentRouting.js` keeps a set member opening as its own type, SQ-143)
 ├── CONTEXT.md                # media-library domain glossary (read first for CMS work)
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
 ├── src/
@@ -51,7 +51,7 @@
 │   ├── data/                 # directory-logos/ (baked white marks) + directory-logos.json (11-05) and
 │   │                         #   directory-alpha.json (measured transparency, SQ-20); all written by
 │   │                         #   scripts/prep-directory-logos.mjs only
-│   └── assets/               # fonts/ (woff2), client-logos/ (normalized + manifest.json), lockup svg
+│   └── assets/               # fonts/ (woff2: Inter self-hosted + its OFL, Iosevka Term subset), client-logos/ (normalized + manifest.json; sized/ = the ticker's width rungs + manifest, written by scripts/prep-client-logo-sizes.mjs, SQ-150), lockup svg
 ├── public/                   # favicons, og-image, robots, icons/ sprite + social marks
 ├── scripts/
 │   ├── cms.mjs               # npm run cms — plan / apply / verify
@@ -66,7 +66,8 @@
 │   ├── lib/plateauGate.mjs   # memory-probe's pure gates: a sampled count plateaus or climbs (SQ-129); the opening step stays under a cap (`stepGate`, SQ-133); the resting footprint plateaus over hold rounds (`roundGate`, SQ-136)
 │   ├── lib/navWipeGate.mjs, lib/legalScrollGate.mjs   # nav-wipe-probe's and legal-scroll-probe's pure gates
 │   ├── lib/restoreFlashGate.mjs   # history-probe's /work return gate: no first-World frame or media before the restored card (SQ-131)
-│   ├── lib/footerRowGate.mjs   # footer-probe's gate: the links row clears the ©line and lockup by 12 px, stays in the band, privacy last (SQ-138)
+│   ├── lib/footerRowGate.mjs   # footer-probe's gate: the links row clears the ©line and lockup by 12 px, stays in the band, privacy last (SQ-138); the wrapped mode drops the ©line under the lockup (SQ-140)
+│   ├── lib/eyeRideGate.mjs, dirFilterResetGate.mjs, fontCoverageGate.mjs, imageSharpGate.mjs   # gates: the eye rides the footer panel in lockstep (scheme-probe `ride`, SQ-144), a same-path directory link resets in place (SQ-146), every printed character is in the subset fonts (SQ-148), images fetched at rendered width × DPR (SQ-150)
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)
 │   ├── baselines/globe-units.json             # globe-probe's per-key records (written by --record-baseline only)
 │   ├── test/                 # node --test suites (cms/, cms-frontend, cms-generator, legacy-cms,
@@ -74,12 +75,13 @@
 │   │                         #   scheme-css, spectrum-deal, spectrum-ramp, nav-accent, globe-scheme, world-scheme, site-scheme,
 │   │                         #   set-order: a detail page's sets in Studio order; set-hero, set-hero-flow: a set as the hero;
 │   │                         #   studio-set-rows: the Studio's set rows and moves; cms/sets, cms/sets-migration)
-│   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
+│   ├── generate-manifests.mjs, prep-client-logos.mjs, prep-client-logo-sizes.mjs (`--check`), prep-directory-logos.mjs, prepare-compress.mjs   # live utilities
 │   ├── tunables-keys.mjs, tunables-guide-html.mjs, pager-probe.mjs, process-probe.mjs, globe-probe.mjs, layout-probe.mjs, scroll-kick-probe.mjs, scheme-probe.mjs   # docs + probe tooling
 │   ├── palette-measure.mjs   # colour-family shares of an image (OKLCH classifier; the scheme probe's shares gate imports it)
 │   ├── media-load-probe.mjs  # how long a media tile sits in view unpainted while a page scrolls (a measurement, not a gate)
 │   ├── memory-probe.mjs      # does any resource count climb per globe world or scheme flip (SQ-129, the iPhone tab-kill hunt); bisect arms (SQ-133), reclaim readings (SQ-134) and hold-and-cycle rounds with a globe-only arm (SQ-136)
 │   ├── footer-probe.mjs      # the links footer's row vs the left stack at 769-1440 px, scrolled to the end of /work/directory/?tag=all (SQ-138)
+│   ├── directory-filter-probe.mjs, image-sharp-probe.mjs   # the services/clients link resets the filter in place + white scroll thumbs (SQ-146); DOM images sharp at their rendered width × DPR on phone and desktop (SQ-150)
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated
 │   └── shots/                # probe screenshot dumps (untracked noise)
