@@ -70,7 +70,7 @@ test('a run with too few frames or an unstamped node proves nothing', () => {
   assert.match(verdict(rec({ stamps: { ...stamps, tags: null } })).fails[0], /proves nothing/);
 });
 
-test('the first load keeps its entrance: the thumb scales in and rests', () => {
+test('the first load keeps its entrance, the thumb scales in and rests', () => {
   const run = Array.from({ length: 40 }, (_, i) => frame(i * 16, { thumbMin: i < 10 ? 0 : Math.min(1, (i - 10) / 10) }));
   assert.equal(firstLoadVerdict(run).pass, true);
   // negative control: a thumb that is already at rest from the first frame shows no entrance
