@@ -36,7 +36,7 @@ test('a multi-frame wipe passes', () => {
   assert.ok(v.wipeMs > 400);
 });
 
-test('negative control, painted → gone in one frame fails as a cut', () => {
+test('negative control: painted → gone in one frame fails as a cut', () => {
   const v = verdict(CUT);
   assert.equal(v.pass, false);
   assert.match(v.fails[0], /cut, not a wipe: 0 partial-clip frame/);
@@ -89,7 +89,7 @@ function stalledWipe(cap) {
   return out;
 }
 
-test('negative control, a 600 ms stall on the wall clock eats the wipe (a cut)', () => {
+test('negative control: a 600 ms stall on the wall clock eats the wipe (a cut)', () => {
   const v = verdict({ samples: [...letters, ...stalledWipe(Infinity)] });
   assert.equal(v.pass, false);
   assert.match(v.fails[0], /cut, not a wipe/);
@@ -101,7 +101,7 @@ test('the stall-capped clock keeps the full multi-frame wipe through a 600 ms st
   assert.ok(v.wipeFrames > 20, `wipeFrames ${v.wipeFrames}`);
 });
 
-test('capTransitionStep plays smooth frames at wall clock and a stall costs one capped step', () => {
+test('capTransitionStep: smooth frames play at wall clock, a stall costs one capped step', () => {
   assert.equal(capTransitionStep(100, 16, WIPE_MS), 116);
   assert.equal(capTransitionStep(100, 600, WIPE_MS), 100 + TRANSITION_STEP_CAP_MS);
   assert.equal(capTransitionStep(500, 40, WIPE_MS), WIPE_MS);
