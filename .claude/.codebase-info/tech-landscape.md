@@ -23,7 +23,7 @@
 | Styling | `styled-components` is installed but plain CSS files under `src/styles/` are the system |
 
 ## Infrastructure
-- **Hosting:** Netlify site `smallworldmedia-landingpage`, `netlify.toml` (build `npm run build`, publish `dist`, `Cache-Control: public, max-age=31536000, immutable` on the content-hashed `/_astro/*` while HTML keeps Netlify's default revalidation, forced redirects). Production branch `main`; branch deploy for `feature/v1-launch`. Netlify Forms handles the inquiry form (hidden mirror form in `BaseLayout.astro`).
+- **Hosting:** Netlify site `smallworldmedia-landingpage`, `netlify.toml` (build `node scripts/audit-gate.mjs && npm run build`, publish `dist`, `Cache-Control: public, max-age=31536000, immutable` on the content-hashed `/_astro/*` while HTML keeps Netlify's default revalidation, forced redirects). Production branch `main`; branch deploy for `feature/v1-launch`. Netlify Forms handles the inquiry form (hidden mirror form in `BaseLayout.astro`). Plausible analytics loads on production builds only (`CONTEXT === 'production'`, see communication.md).
 - **CMS:** Sanity project `b60h4u7o`, dataset `production`, CDN reads. Studio served by the Astro integration.
 - **Video:** Mux (public playback), Sanity CDN for images.
 - **Fonts:** self-hosted PP Neue Montreal + others in `src/assets/fonts/` (woff2 tracked); Inter self-hosted since SQ-148 (11-24: `Inter-Variable-latin` + `-latin-ext` woff2, two `@font-face` rules with `unicode-range` in `global.css`; no Google request). `IosevkaTermMedium.woff2` is a subset (1.5 MB → 128 KB) whose coverage of every character the site prints is pinned by `scripts/lib/fontCoverageGate.mjs` under `scripts/test/font-coverage.test.mjs`.
