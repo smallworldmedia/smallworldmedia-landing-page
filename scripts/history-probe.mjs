@@ -320,9 +320,11 @@ async function main() {
       }
       return [];
     });
-    // XEr: Enter, wheel up home at World 1, Enter again; Back walks it all.
+    // XEr: Enter, wheel up home at World 1, Enter again; Back walks it all. Enter lands on the
+    // globe's World, often a late one, so the wheel needs room to Turn back to World 1 first: 40
+    // wheels (~9 s) ran out on Imperfect Records before and after SQ-141; 300 reach home.
     await fromHome('XEr', false, reachOf('XE'), async ({ page, rec }) => {
-      rec.notes.push(`home=${await wheelUntil(page, -400, /^\/$/, 40)}`);
+      rec.notes.push(`home=${await wheelUntil(page, -400, /^\/$/, 300)}`);
       await sleep(3500);
       await page.locator('.hero__enter').click();
       rec.notes.push(`again=${await waitPath(page, /^\/work$/)}`);
