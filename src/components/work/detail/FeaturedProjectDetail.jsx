@@ -13,7 +13,8 @@
  *      float the composite occupants: AlbumArtViewer and BrandDeckViewer
  *      (both full-width — tiles flow above/below) —
  *      docs/orbit-deck-viewer-spec.md. A carousel is one horizontal strip in
- *      a socket of its own; an admat set gets its own flyer wall; a visuals
+ *      a socket of its own, and so is a mockups set (the same strip, every piece
+ *      at its own aspect); an admat set gets its own flyer wall; a visuals
  *      set gets a loop wall and a live-footage set a LiveFootageGrid
  *      (liveFootageLayout.js). Every set sits where its first member ranks
  *      in Studio (11-14, the `seat` anchor). The description's later
@@ -49,7 +50,7 @@ import { sequenceRatio, makeSequence, posterStill } from '../../../lib/mediaSequ
 import HeroSet from './HeroSet.jsx';
 import BannerViewer, { BANNER_VISIBLE } from './BannerViewer.jsx';
 import LiveFootageGrid from './LiveFootageGrid.jsx';
-import { liveFootagePlan, visualsWall, mockupsWall } from './liveFootageLayout.js';
+import { liveFootagePlan, visualsWall } from './liveFootageLayout.js';
 import ServiceTag from '../ServiceTag.jsx';
 import { buildContentFlow, splitHero, ratioOf, PORTRAIT_THRESHOLD } from './buildContentFlow.js';
 import { computeFlushGrid, splitAtBreaks, classifyTile, TILE_RATIO, PORTRAIT_CROP, LANDSCAPE_CROP } from './flushGrid.js';
@@ -127,8 +128,9 @@ const ADMAT_GAP_FALLBACK = 2;
 /* 11-11, Nathan (US-4): a carousel is ONE row of slides travelling sideways
    (DeckScroller axis 'x'), in a socket of its own one slide tall at the
    width ?carouselvis slides share (horizontalStrip.js) — the rows come from
-   the measured grid (carouselRegionRows below); this is the 1440px-grid
-   fallback before it is measured (3.5 slides of 4x5 across). */
+   the measured grid (stripRows below; a mockups strip is sized the same way);
+   this is the 1440px-grid fallback before it is measured (3.5 slides of 4x5
+   across). */
 const CAROUSEL_REGION_ROWS_FALLBACK = 43;
 /* Text bands (11-03, Nathan): the description's first paragraph is the
    intro blurb; each later one is its own band down the grid, "after a few
@@ -497,13 +499,15 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     const pageH = width / wallCols / admatRatio(set);
     return Math.max(8, Math.ceil((ADMAT_PAGES_TALL * pageH + gap) / (GRID_ROW_PX + gap)));
   };
-  // A carousel: one slide tall at ?carouselvis slides across (the set's
-  // least-crop shape again, since the strip holds one shape).
-  const carouselRatio = (set) => sequenceRatio(set.pages.map(ratioOf));
-  const carouselRegionRows = (set) => {
+  // A horizontal strip (a carousel, and a mockups set, US-5): one slide tall at
+  // ?carouselvis slides across, at the set's least-crop shape. A carousel holds
+  // that one shape; a mockups strip draws every piece at its own aspect, at
+  // this height.
+  const stripRatio = (items) => sequenceRatio(items.map(ratioOf));
+  const stripRows = (items) => {
     if (!gridMetrics?.width) return CAROUSEL_REGION_ROWS_FALLBACK;
     const vis = carouselVisible(gridMetrics.cols === 1, window.location.search);
-    const slideH = carouselSlideH(gridMetrics.width, vis, DECK_GAP_PX, carouselRatio(set));
+    const slideH = carouselSlideH(gridMetrics.width, vis, DECK_GAP_PX, stripRatio(items));
     return carouselRows(slideH, gridMetrics.rowGap, GRID_ROW_PX);
   };
 
@@ -513,9 +517,6 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   const setGeo = { phone: gridMetrics?.cols === 1, width: gridMetrics?.width, gap: gridMetrics?.rowGap };
   const visualsMaxRows = visualsRowsParam ?? (setGeo.phone ? VISUALS_ROWS_PHONE : DECK_REGION_ROWS);
   const visualsWalls = visuals.map((set) => ({ ...set, ...visualsWall(set.items, { ...setGeo, maxRows: visualsMaxRows }) }));
-  // A mockups wall (US-5): masonry columns, every piece at its own aspect, the
-  // same height cap as a visuals wall.
-  const mockupsWalls = mockups.map((set) => ({ ...set, ...mockupsWall(set.items, { ...setGeo, maxRows: visualsMaxRows }) }));
   const footageGrids = liveFootage.map((set) => ({ ...set, plan: liveFootagePlan(set.items, setGeo) }));
 
   // Tile spans, through the same pitch (tileGrid.js). ≤ 1024 the spans
@@ -565,10 +566,10 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
   if (albumArt.length > 0) seat('orbit', ORBIT_REGION_ROWS, albumArtSeat);
   for (const set of admats) seat(`admat:${set.group}`, admatRows(set), set);
   for (const set of visualsWalls) seat(`visuals:${set.group}`, set.spanRows, set);
-  for (const set of mockupsWalls) seat(`mockups:${set.group}`, set.spanRows, set);
+  for (const set of mockups) seat(`mockups:${set.group}`, stripRows(set.items), set);
   for (const set of footageGrids) seat(`footage:${set.group}`, set.plan.spanRows, set);
   if (tabbedDecks.length > 0) seat('deck', DECK_REGION_ROWS, tabbedDecks[0]);
-  for (const set of carousels) seat(`carousel:${set.group}`, carouselRegionRows(set), set);
+  for (const set of carousels) seat(`carousel:${set.group}`, stripRows(set.pages), set);
   for (const d of posterDecks) seat(`deck-solo:${d.group}`, DECK_REGION_ROWS, d);
   for (const b of banners) seat(`banner:${b.group}`, bannerRows(b), b);
   const regions = seats.sort((x, y) => x.rank - y.rank).map((x) => x.region);
@@ -644,10 +645,11 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     return <AlbumArtViewer covers={set.items} ratio={set.ratio} cols={set.cols} showAll play ariaLabel="visuals" />;
   };
 
-  // A mockups set's wall (US-5): the same wall, each piece at its own aspect.
+  // A mockups set's strip (US-5): ONE full-width row travelling sideways like a
+  // carousel, every piece at its own aspect (no crop), one shared row height.
   const mockupsWallNode = (id) => {
-    const set = mockupsWalls.find((m) => `mockups:${m.group}` === id);
-    return <AlbumArtViewer covers={set.items} ratio={set.ratio} columns={set.columns} showAll play ariaLabel="mockups" />;
+    const set = mockups.find((m) => `mockups:${m.group}` === id);
+    return <AlbumArtViewer covers={set.items} axis="x" rows={1} columns={[set.items]} showAll play ariaLabel="mockups" />;
   };
 
   // A carousel's strip: ONE row of slides in reading order travelling left.
@@ -657,7 +659,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
     return (
       <AlbumArtViewer
         covers={set.pages}
-        ratio={carouselRatio(set)}
+        ratio={stripRatio(set.pages)}
         axis="x"
         rows={1}
         play

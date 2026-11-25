@@ -25,7 +25,7 @@
  * @param {boolean} [props.play] - an animated flyer plays in the wall (DeckScroller `play`)
  * @param {'y'|'x'} [props.axis] - 'x' = a horizontal strip (the carousel; DeckScroller `axis`)
  * @param {number} [props.rows] - horizontal strips (axis 'x')
- * @param {Array<Array<Object>>} [props.columns] - a mockups set already packed into columns,
+ * @param {Array<Array<Object>>} [props.columns] - a mockups set as ONE row (`[items]`, with axis 'x'),
  *        every piece at its own aspect (DeckScroller `columns`; `ratio` and `cols` unused)
  * @param {string} [props.ariaLabel]
  */

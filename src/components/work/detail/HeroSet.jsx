@@ -13,7 +13,7 @@
  *   carousel,          one row of slides at the box's height, travelling left
  *   flyer-progression
  *   visuals            the loop wall, 2 columns (1 on a phone)
- *   mockups            the masonry columns, every piece at its own aspect
+ *   mockups            one row of every piece at its own aspect, filling the box's height, travelling left
  *
  * A merch set leads as one cycling sequence in the ordinary hero slot, so it is not drawn here
  * (the page makes the sequence and the existing hero layouts hold it).
@@ -26,7 +26,7 @@
 import BrandDeckViewer from './BrandDeckViewer.jsx';
 import AlbumArtViewer from './AlbumArtViewer.jsx';
 import { ratioOf } from './buildContentFlow.js';
-import { visualsWall, mockupsWall } from './liveFootageLayout.js';
+import { visualsWall } from './liveFootageLayout.js';
 import { sequenceRatio } from '../../../lib/mediaSequence.js';
 
 export default function HeroSet({ set, cols, geo }) {
@@ -47,10 +47,8 @@ export default function HeroSet({ set, cols, geo }) {
       const wall = visualsWall(items, geo);
       return <AlbumArtViewer covers={items} ratio={wall.ratio} cols={wall.cols} showAll play ariaLabel="visuals" />;
     }
-    case 'mockups': {
-      const wall = mockupsWall(items, geo);
-      return <AlbumArtViewer covers={items} ratio={wall.ratio} columns={wall.columns} showAll play ariaLabel="mockups" />;
-    }
+    case 'mockups':
+      return <AlbumArtViewer covers={items} axis="x" rows={1} columns={[items]} showAll play ariaLabel="mockups" />;
     default:
       return null;
   }
