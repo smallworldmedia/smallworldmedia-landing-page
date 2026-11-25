@@ -113,6 +113,47 @@ export function housePulseStartMs(nowMs, periodMs, hitMs) {
   return phase >= hitMs ? 0 : nowMs - phase + periodMs;
 }
 
+/* ── Stall-proof CSS transition ───────────────────────────────────────────
+   SQ-142: a CSS transition runs on wall-clock time from the frame it starts,
+   so a main-thread long task right after it starts (a phone's World Turn
+   landing on the next world) lets it finish unseen: the next painted frame
+   is already the end value, a one-frame cut. playTransitionThroughStalls
+   keeps the CSS (look, duration, easing) and only owns the CLOCK: it pauses
+   the element's running transition of `property` and advances it each
+   animation frame by the frame's dt, capped at TRANSITION_STEP_CAP_MS, so a
+   stall costs at most one capped step (GSAP's lagSmoothing idea). Smooth
+   frames (dt under the cap) play exactly as before. `onDone` runs once the
+   transition has reached its end; with no transition to drive (none
+   declared, no getAnimations) it runs after `fallbackMs`. Returns a kill
+   (no onDone). */
+export const TRANSITION_STEP_CAP_MS = 50;
+
+export const capTransitionStep = (currentMs, dtMs, durationMs, capMs = TRANSITION_STEP_CAP_MS) =>
+  Math.min(durationMs, currentMs + Math.min(Math.max(0, dtMs), capMs));
+
+export function playTransitionThroughStalls(el, property, onDone, fallbackMs) {
+  const anim = el.getAnimations?.().find((a) => a.transitionProperty === property);
+  const duration = anim ? Number(anim.effect?.getComputedTiming().duration) : 0;
+  if (!anim || !(duration > 0)) {
+    const id = setTimeout(onDone, fallbackMs);
+    return () => clearTimeout(id);
+  }
+  anim.pause();
+  let last = performance.now();
+  let raf = requestAnimationFrame(function step(t) {
+    const next = capTransitionStep(Number(anim.currentTime) || 0, t - last, duration);
+    last = t;
+    if (next >= duration) {
+      anim.finish();
+      onDone();
+      return;
+    }
+    anim.currentTime = next;
+    raf = requestAnimationFrame(step);
+  });
+  return () => cancelAnimationFrame(raf);
+}
+
 /* ── House scroll gesture ─────────────────────────────────────────────────
    The accumulator idiom: wheel/touch px fill toward a commit threshold,
    touch deltas gain ×TOUCH_GAIN, and a stall of RELEASE_MS rubber-bands

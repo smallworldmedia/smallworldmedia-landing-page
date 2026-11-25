@@ -118,6 +118,7 @@ import {
   HOUSE_PULSE_ON_RATIO,
   housePulseKeyframes,
   housePulseStartMs,
+  playTransitionThroughStalls,
 } from '../../../lib/motion.js';
 
 const pad2 = (n) => String(n + 1).padStart(2, '0');
@@ -997,16 +998,27 @@ export default function GraticulePager({
         const wipeS =
           (parseFloat(getComputedStyle(el).getPropertyValue('--scale-chip-wipe-ms')) || 520) /
           1000;
+        // SQ-142 round 2: data-show drops when the wipe itself has run, not
+        // on a timer. A phone's long task as the Turn lands on the next
+        // world let the wall-clock CSS wipe finish unseen (a one-frame cut);
+        // playTransitionThroughStalls drives the same transition on a
+        // stall-capped clock (lib/motion.js).
         freezeCallsRef.current.push(
-          gsap.delayedCall(chars.length * 0.035 + 0.05, () => el.setAttribute('data-exit', ''))
-        );
-        freezeCallsRef.current.push(
-          gsap.delayedCall(chars.length * 0.035 + 0.05 + wipeS + 0.02, () => {
-            el.removeAttribute('data-show');
-            el.removeAttribute('data-exit');
-            chars.forEach((s) => {
-              s.style.visibility = '';
-            });
+          gsap.delayedCall(chars.length * 0.035 + 0.05, () => {
+            el.setAttribute('data-exit', '');
+            const kill = playTransitionThroughStalls(
+              el,
+              'clip-path',
+              () => {
+                el.removeAttribute('data-show');
+                el.removeAttribute('data-exit');
+                chars.forEach((s) => {
+                  s.style.visibility = '';
+                });
+              },
+              (wipeS + 0.02) * 1000
+            );
+            freezeCallsRef.current.push({ kill });
           })
         );
       }

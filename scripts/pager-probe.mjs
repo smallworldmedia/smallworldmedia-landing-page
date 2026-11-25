@@ -8,7 +8,8 @@
  *        (--scenario=edge [--want=NAME], --mobile only, never part of `all`: the phone clip edge + the marquee wrap step)
  *        (--scenario=chipwipe [--browser=webkit], never part of `all`: the [select_project] chip sampled every
  *         frame through a release — touch scrub + lift with --mobile, hover + wheel + leave without; judged
- *         by scripts/lib/chipWipeGate.mjs, SQ-142. WebKit has no CDP, so its touch is synthetic PointerEvents.)
+ *         by scripts/lib/chipWipeGate.mjs, SQ-142. WebKit has no CDP, so its touch is synthetic PointerEvents.
+ *         [--stall=MS]: a main-thread busy-wait the instant data-exit lands, the phone's Turn-landing long task.)
  *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
  *        [--path=/work] [--host=.fp]   (SQ-87: the route, and the element that wears
  *        .is-pager-engaged — .swm-corner for the pager mounted outside /work)
@@ -250,6 +251,23 @@ async function chipWipe(page) {
     };
     requestAnimationFrame(tick);
   });
+  // --stall=MS (round 2): busy-wait the main thread MS ms the instant data-exit lands, before the
+  // browser can start the wipe's transition — the device's long task as the Turn lands on the
+  // next world. gsap.ticker runs lagSmoothing(0) (smoothScroll.js), so GSAP's clock counts the
+  // stall while the CSS transition only starts after it.
+  const STALL = Number(arg('stall', 0));
+  if (STALL > 0) {
+    await page.evaluate((ms) => {
+      const el = document.querySelector('.fp .fp-scale__freeze');
+      if (!el) return;
+      new MutationObserver(() => {
+        if (!el.hasAttribute('data-exit') || window.__chipStalled) return;
+        window.__chipStalled = true;
+        const t0 = performance.now();
+        while (performance.now() - t0 < ms);
+      }).observe(el, { attributes: true, attributeFilter: ['data-exit'] });
+    }, STALL);
+  }
   // --cpu=N (Chromium only): CDP CPU throttling, a slower phone's main thread.
   const CPU = Number(arg('cpu', 1));
   if (CPU > 1 && BROWSER === 'chromium') {
@@ -312,6 +330,8 @@ async function chipWipe(page) {
   const win = samples.slice(Math.max(0, firstCut), lastShow + 2);
   report.chipWipe = {
     ...v,
+    stallMs: STALL,
+    stalled: await page.evaluate(() => !!window.__chipStalled),
     frames: samples.length,
     // the longest frame through the exit: a main-thread stall here eats the clip-path transition
     maxGapMs: +win.reduce((m, s, i) => (i ? Math.max(m, s.t - win[i - 1].t) : m), 0).toFixed(1),
