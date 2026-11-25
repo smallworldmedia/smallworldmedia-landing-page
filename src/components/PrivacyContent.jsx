@@ -10,11 +10,12 @@
  * QuickBooks integration section is gone with QuickBooks (11-03); "Clients"
  * names only the services a client deals with (Postmark for invoices, Stripe
  * and Wise for payments), not the books behind them (Nathan). The site sets
- * no cookies and runs no analytics, so no consent banner is needed. The
+ * no cookies, and its one analytics service, Plausible (production builds only,
+ * BaseLayout.astro, 11-24), is cookieless, so no consent banner is needed. The
  * colour scheme pick is kept in local storage, the site's only use of it (11-14). Google
  * Fonts is gone from the services: Inter is self-hosted since SQ-148 (11-24). Revisit
- * the copy, and move the date, if a service, a cookie or analytics is ever
- * added.
+ * the copy, and move the date, if a service, a cookie or another analytics tool is
+ * ever added.
  */
 const EMAIL = 'hello@smallworld.media';
 
@@ -35,7 +36,7 @@ export default function PrivacyContent({ home = true }) {
       <section className="privacy__section">
         <h2>This website</h2>
         <p>
-          We don’t use analytics, advertising trackers or cookies on this site. A few values are kept
+          We don’t use advertising trackers or cookies on this site. A few values are kept
           in your browser’s session storage so animations and navigation behave, and they disappear
           when the tab closes. If you change the site’s color scheme, that one choice is kept in your
           browser’s local storage so it is still there on your next visit. None of this leaves your
@@ -47,6 +48,15 @@ export default function PrivacyContent({ home = true }) {
             address, project details and message you enter. Our host, Netlify, processes the form and
             delivers it to us by email. We use it only to reply to you and to discuss the project you
             asked about.
+          </li>
+          <li>
+            <strong>Visit counts.</strong> We count visits with Plausible Analytics, which sets no
+            cookies, stores nothing on your device and never stores your IP address. Visitors are
+            counted with a code made from the IP address and browser, and the key behind it is
+            deleted every 24 hours, so a visit can’t be followed from one day to the next. We see
+            totals only: pages viewed, the site that sent you, your country, region and city, and
+            your browser, operating system and device type. Plausible keeps this data in the EU, on
+            servers in Germany.
           </li>
           <li>
             <strong>Hosting and delivery.</strong> Like any website, the services that deliver these
