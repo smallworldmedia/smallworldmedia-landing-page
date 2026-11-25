@@ -9,7 +9,7 @@ import {
   parseColour, sameColour, contrastRatio, latch, identity, monochrome, singleHue, contrast,
   carriers, deal, crossRoute, hover, overlap, shares, REFERENCE_SHARES, describeOffender,
   uniform, density, densityMin, rampStopsFromCss, outline,
-  clearOfBlurb, bandEdges, seamEdges, lensLayer, phoneRects, badge, seat, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids, midChange,
+  clearOfBlurb, bandEdges, seamEdges, lensLayer, phoneRects, badge, seat, seatGap, rightEdge, noClip, blurbClear, circlesAbove, strip, stripClass, eyeLines, persist, menuWipe, bounds, strays, jitter, shift, sequence, fanout, lids, midChange,
 } from '../lib/scheme-gate.mjs';
 import { inFlightWindow } from '../lib/scheme-gate.mjs';
 import { classify, countFamilies, chromaticShares } from '../palette-measure.mjs';
@@ -485,6 +485,35 @@ test('seat gate the same gap above the bottom on every route and stop passes and
   assert.equal(seat([at('home rest', 17.31)]).pass, false, 'one measurement compares to nothing');
   assert.equal(seat([]).pass, false);
   assert.equal(seat(null).pass, false);
+});
+
+test('seat gate after the ride (SQ-153, SQ-144) the end sample on a riding route equals the rest seat and so does a route that holds the viewport seat; 4 px off and NaN fail', () => {
+  // home at 1440 x 900 (measured): tile bottom 738 at rest, 162 above the viewport, the panel's top at its resting floor 778.8.
+  // At the footer's end the eye has ridden up 136.7 px with the panel (top 642.1): 40.8 to the panel at both, so one seat.
+  const at = (label, tileBottom, panelTop, restPanelTop, vh = 900) => ({ label, gap: seatGap({ tileBottom, panelTop, restPanelTop, vh }) });
+  assert.equal(seatGap({ tileBottom: 738, panelTop: 778.8, restPanelTop: 778.8, vh: 900 }), 162, 'rest: the viewport seat');
+  assert.equal(seatGap({ tileBottom: 601.3, panelTop: 642.1, restPanelTop: 778.8, vh: 900 }).toFixed(1), '162.0', 'end: the same seat, lifted with the panel');
+  assert.equal(seatGap({ tileBottom: 738, panelTop: 1200, restPanelTop: 1500, vh: 900 }), 162, 'a footer resting below the fold: the viewport bottom is the line');
+  assert.equal(seatGap({ tileBottom: 738, panelTop: 676, restPanelTop: 1500, vh: 900 }), 162, 'a route whose eye does not ride (directory): the panel coming into view moves nothing');
+  assert.equal(seatGap({ tileBottom: 738, panelTop: null, restPanelTop: null, vh: 900 }), 162, 'no panel on the route: the viewport bottom');
+  assert.ok(Number.isNaN(seatGap({ tileBottom: NaN, panelTop: 778.8, restPanelTop: 778.8, vh: 900 })), 'no tile measured: no gap');
+  assert.ok(Number.isNaN(seatGap({ tileBottom: 601.3, panelTop: NaN, restPanelTop: 778.8, vh: 900 })), 'a riding route with no panel read: no gap');
+  const ride = seat([at('home rest', 738, 778.8, 778.8), at('home end', 601.3, 642.1, 778.8), at('work rest', 738, 1500, 1500), at('work end', 738, 1100, 1500)]);
+  assert.equal(ride.pass, true, JSON.stringify(ride.offenders));
+  // the pre-ride gate read the viewport's bottom alone: the same end sample is 137 px off (the 11-24 merged-build failure)
+  assert.equal(seat([{ label: 'home rest', gap: 900 - 738 }, { label: 'home end', gap: 900 - 601.3 }]).pass, false);
+  // negative controls: the eye 4 px off its ride at the end (named against the lowest seat), and an end sample with no tile
+  const off = seat([at('home rest', 738, 778.8, 778.8), at('home end', 597.3, 642.1, 778.8)]);
+  assert.equal(off.pass, false);
+  assert.ok(off.offenders.some((o) => o.path === 'home end'), JSON.stringify(off.offenders));
+  assert.equal(seat([at('home rest', 738, 778.8, 778.8), at('home end', NaN, 642.1, 778.8)]).pass, false);
+  // the declared seat: all samples agreeing but 4 px low (the whole corner moved, --inject translate 0 4px) fails, on the seat itself
+  const lowAll = [at('home rest', 742, 778.8, 778.8), at('home end', 605.3, 642.1, 778.8), at('work rest', 742, 1500, 1500)].map((s) => ({ ...s, expect: 162 }));
+  assert.equal(seat(lowAll.map(({ expect, ...s }) => s)).pass, true, 'without the declared seat the relative gate cannot see it');
+  const declared = seat(lowAll);
+  assert.equal(declared.pass, false);
+  assert.ok(declared.offenders.every((o) => /declared seat/.test(o.note)), JSON.stringify(declared.offenders));
+  assert.equal(seat(lowAll.map((s) => ({ ...s, gap: s.gap + 4 }))).pass, true, 'on the declared seat it passes');
 });
 
 test('badge gate and seat gate at 768 and under the bottom edge clears the screen corner and a badge left at the sitewide seat fails', () => {

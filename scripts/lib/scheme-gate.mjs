@@ -560,10 +560,28 @@ export function badge(rect, vp, { tol = 0.5, eye = null, rowCy = null, clear = n
 }
 
 /**
- * seat — the badge's gap above the viewport's bottom edge is the SAME everywhere (SQ-107 pass 7: one seat,
- * sitewide). `samples` = [{ label, gap }], one per route, width, scroll stop (footer at rest and at its
- * end state): gap = viewport height minus the tile's bottom edge, CSS px. All within `tol` of one another
- * (0.5). A missing gap, or fewer than two samples, fails: one measurement compares to nothing.
+ * seatGap — one seat sample's gap: the badge tile's bottom edge below its reference line, CSS px, so the seat reads
+ * the same at rest and at the footer's end (SQ-153, the ride of SQ-144). The line is the ride gate's, min(the links
+ * panel's top, the viewport's bottom) (eyeRideGate), taken relative to the route's own rest pose: where the footer
+ * RESTS above the fold (`restPanelTop` < vh: home and process, whose eye rides the panel) the line is the viewport's
+ * bottom lifted by how far the panel has risen past that rest top, min(panelTop + (vh - restPanelTop), vh), which is
+ * the viewport's bottom itself at rest and the panel's top plus its resting lift at the end. Elsewhere (the footer
+ * parked below the fold at rest, the eye holding the sitewide seat) the line is the viewport's bottom. NaN when the
+ * tile is unmeasured, or the panel is on a riding route but unmeasured.
+ */
+export function seatGap({ tileBottom, panelTop, restPanelTop, vh }) {
+  const rides = Number.isFinite(restPanelTop) && restPanelTop < vh;
+  const line = !rides ? vh : Number.isFinite(panelTop) ? Math.min(panelTop + (vh - restPanelTop), vh) : NaN;
+  return line - tileBottom;
+}
+
+/**
+ * seat — the badge's gap above its reference line is the SAME everywhere (SQ-107 pass 7: one seat, sitewide;
+ * restated for the ride, SQ-144, see seatGap: at the footer's end on home or process the eye has ridden up with the
+ * panel and keeps the rest gap to it). `samples` = [{ label, gap }], one per route, width, scroll stop (footer at
+ * rest and at its end state), gap from seatGap. All within `tol` of one another
+ * (0.5), and on `expect` (the declared desktop seat) where a sample carries one. A missing gap, or fewer than two
+ * samples, fails: one measurement compares to nothing.
  * PHONE TIER (pass 9): a sample may carry `clear` (the phone's --badge-clear, null above 768px); its gap
  * must then be at least that (to `tol`), so the raise cannot be lost on any route or scroll stop.
  */
@@ -578,6 +596,9 @@ export function seat(samples, { tol = 0.5 } = {}) {
     const hi = Math.max(...ok.map((x) => x.gap));
     if (hi - lo > tol) for (const x of ok) if (Math.abs(x.gap - lo) > tol) offenders.push({ path: x.label, gap: fixed(x.gap, 2), note: `${fixed(x.gap - lo, 2)} px off the lowest seat (${fixed(lo, 2)})` });
   }
+  // DECLARED SEAT: a sample may carry `expect` (the stylesheet's seat above 768px, --badge-cy less half the tile, in the gap's own terms), the one
+  // absolute anchor, so every sample moved together (the whole corner 4 px low) still fails.
+  for (const x of ok) if (Number.isFinite(x.expect) && Math.abs(x.gap - x.expect) > tol) offenders.push({ path: x.label, gap: fixed(x.gap, 2), expect: fixed(x.expect, 2), note: `gap ${fixed(x.gap, 2)} is ${fixed(x.gap - x.expect, 2)} px off the declared seat (${fixed(x.expect, 2)})` });
   for (const x of ok) if (Number.isFinite(x.clear) && x.gap < x.clear - tol) offenders.push({ path: x.label, gap: fixed(x.gap, 2), clear: fixed(x.clear, 2), note: `gap ${fixed(x.gap, 2)} is under the phone clearance ${fixed(x.clear, 2)}` });
   const gaps = ok.map((x) => x.gap);
   return result(offenders, list.length, `${list.length} seats, gap ${gaps.length ? fixed(Math.min(...gaps), 2) : '?'} to ${gaps.length ? fixed(Math.max(...gaps), 2) : '?'} px`);
