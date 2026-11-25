@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-24*
+*Last Updated: 2026-11-25*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -98,7 +98,9 @@ writes `history.state.swmWorld` (the active World, spread over ClientRouter's st
 and restores from it first, with `swm:worldIndex` as the fallback, so /work → A → band → B, Back twice,
 lands on A's World. The two gesture page turns (the next-project band, /work's way home) navigate with
 `lib/gestureHistory.js`'s options: a push only under an honoured user activation, a replace otherwise,
-so Back never skips the visit. Gated by `scripts/history-probe.mjs`. Since 11-16 (SQ-105) a Back the
+so Back never skips the visit. Click-started passages (home's Enter, a World's zoom_in, the logo home, the
+detail chips, the band click) push their entry in the tap with `holdEntry()` and replace it on arrival
+(SQ-141, 11-25). Gated by `scripts/history-probe.mjs`. Since 11-16 (SQ-105) a Back the
 browser has already animated (`popstate.hasUAVisualTransition`, iOS's edge swipe) skips the router's own
 view transition (`viewTransition.skipTransition()` at `astro:before-swap`), and `?histlog=1`
 (`lib/historyLog.js`) logs every push / replace / popstate / swap on the device itself, because

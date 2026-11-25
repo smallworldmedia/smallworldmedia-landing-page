@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-24*
+*Last Updated: 2026-11-25*
 
 ```
 .
@@ -66,6 +66,7 @@
 │   ├── lib/plateauGate.mjs   # memory-probe's pure gates: a sampled count plateaus or climbs (SQ-129); the opening step stays under a cap (`stepGate`, SQ-133); the resting footprint plateaus over hold rounds (`roundGate`, SQ-136)
 │   ├── lib/navWipeGate.mjs, lib/legalScrollGate.mjs   # nav-wipe-probe's and legal-scroll-probe's pure gates
 │   ├── lib/restoreFlashGate.mjs   # history-probe's /work return gate: no first-World frame or media before the restored card (SQ-131)
+│   ├── lib/pushTimingGate.mjs   # history-probe's T* gate: a click-started push lands within 1000 ms of its input, activation live (SQ-141)
 │   ├── lib/footerRowGate.mjs   # footer-probe's gate: the links row clears the ©line and lockup by 12 px, stays in the band, privacy last (SQ-138); the wrapped mode drops the ©line under the lockup (SQ-140)
 │   ├── lib/eyeRideGate.mjs, dirFilterResetGate.mjs, fontCoverageGate.mjs, imageSharpGate.mjs   # gates: the eye rides the footer panel in lockstep (scheme-probe `ride`, SQ-144), a same-path directory link resets in place (SQ-146), every printed character is in the subset fonts (SQ-148), images fetched at rendered width × DPR (SQ-150)
 │   ├── lib/logoInk.mjs       # sharp logo analysis for prep-directory-logos (key, trim, hold, twins)

@@ -16,7 +16,11 @@
   persistent islands are rAF-deferred so their tweens are not adopted and reverted at unmount.
 - A page turn committed by a gesture (wheel, drag, swipe) navigates with `gestureHistory()`
   (`src/lib/gestureHistory.js`, SQ-100), taken at the gesture: a push without an honoured user
-  activation makes Chromium skip the whole visit on Back. Click paths keep plain `navigate()` pushes.
+  activation makes Chromium skip the whole visit on Back. A click that plays a cover or a dive before
+  the swap pushes its entry in the tap with `holdEntry(href)` (SQ-141: WebKit carries a tap's gesture
+  through a timer for about 1 s only, so a push from the passage's end let iPhone Back skip the page),
+  and the passage's end navigates with its `arrive()` options: a replace, or nothing after a Back
+  mid-passage. Plain links keep ClientRouter's own push.
   Per-entry state goes in `history.state` spread over ClientRouter's (`{ ...history.state, … }`);
   a null state breaks its Back.
 - `client:only` islands: element refs captured in mount effects go stale under dev hydration churn;
@@ -559,7 +563,7 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
   under `scripts/test/legal-scroll.test.mjs`, `scripts/lib/plateauGate.mjs` (memory-probe: a count
   plateaus or climbs, SQ-129; `stepGate`, the opening step's cap, SQ-133; `roundGate`, the resting footprint over hold rounds, SQ-136) under `scripts/test/plateau-gate.test.mjs`, `scripts/test/step-gate.test.mjs` and `scripts/test/round-gate.test.mjs`, `scripts/lib/restoreFlashGate.mjs`
-  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`, and `scripts/lib/footerRowGate.mjs` (footer-probe: the links row clears the left stack, SQ-138; the wrapped mode, SQ-140) under `scripts/test/footer-row.test.mjs`. The 11-24 wave added `eyeRideGate.mjs` (`eye-ride.test.mjs`), `dirFilterResetGate.mjs` (`dir-filter-reset.test.mjs`), `fontCoverageGate.mjs` (`font-coverage.test.mjs`) and `imageSharpGate.mjs` (`image-sharp.test.mjs`); SQ-142 added `chipWipeGate.mjs` (pager-probe `--scenario=chipwipe`, the chip's exit wipe sampled every frame, `--browser=webkit`, `--stall=MS` busy-waits as `data-exit` lands) under `chip-wipe.test.mjs`. Every gate
+  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`, `scripts/lib/pushTimingGate.mjs` (history-probe's T*: a click-started push lands within 1000 ms of its input with an active user activation, SQ-141) under `scripts/test/push-timing.test.mjs`, and `scripts/lib/footerRowGate.mjs` (footer-probe: the links row clears the left stack, SQ-138; the wrapped mode, SQ-140) under `scripts/test/footer-row.test.mjs`. The 11-24 wave added `eyeRideGate.mjs` (`eye-ride.test.mjs`), `dirFilterResetGate.mjs` (`dir-filter-reset.test.mjs`), `fontCoverageGate.mjs` (`font-coverage.test.mjs`) and `imageSharpGate.mjs` (`image-sharp.test.mjs`); SQ-142 added `chipWipeGate.mjs` (pager-probe `--scenario=chipwipe`, the chip's exit wipe sampled every frame, `--browser=webkit`, `--stall=MS` busy-waits as `data-exit` lands) under `chip-wipe.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
   `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named
