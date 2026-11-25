@@ -362,9 +362,45 @@ records (`docs/globe-worlds-plan.md`).
     - **Left:**
       - SQ-153 (filed, not dispatched): the widget sweep's seat and shift gates predate SQ-144's
         ride and fail at 1440 on a correct site;
-      - Plausible (Nathan's sign-up, then the snippet, gated to production, with the privacy copy);
-      - SQ-141 (the `?histlog=1` Back walk) and SQ-142 (Reduce Motion);
-      - the SOSA draft.
+      - SQ-141 (the `?histlog=1` Back walk) and SQ-142 (Reduce Motion).
+      - Since done: Plausible (`98ab6c9`, privacy copy `6df4e05`, pushed 11-24) and the SOSA draft
+        (Nathan published it 11-24).
+
+13. **Done 11-24/25: the integrator's CMS round and SQ-154 (origin `6fd0fe1`).**
+    - **Code:** the Studio structure-tool crash from SQ-143 fixed (`f59c0c2`); album art leads as
+      its whole set, toggle or not (`a35ff1b`, Nathan 11-24); SQ-154, a mockups set on a detail page
+      is a full-width horizontal strip (folded `737fc33`, docs `5abec78`). The hosted Studio was
+      redeployed from `5abec78`.
+    - **Content, each on Nathan's yes to the plan id:** Framework client + 7 Sosa Framework LA
+      collaborators (`4dfa1f2d`); the Kamino RHRN promo replaced by the 1:1 crop (`5cceb71d`) and the
+      old 9:16 Mux asset deleted (`c7ec310f`); the COCO sticker + billboard into coco-mockups
+      (`420939e6`, manifest `8a3f2db`) and their alt (`c5795291`); the billboard's `static_other`
+      accepted (`6fd0fe1`). `cms audit` 0 errors / 30 warnings on 11-25.
+    - **Sets:** file 8 DROPPED (Nathan 11-25); Instagram Mockup 1 stays loose. A set may exist
+      without a project (Nathan 11-24, schema change pending in the retirement below).
+    - **Nathan's answers to the 11-24 pre-launch list (settled):**
+      - F9 form: working; Gmail shows steady submissions (one real one from the new site after launch).
+      - `/studio`: not on the live site (SQ-145). Analytics: Plausible. Lighthouse: run (SQ-147), and
+        its fixes folded (SQ-148/149/150/152; SQ-151 needed none). Entry paths: waived.
+      - Media session: logo cleanup, the album-art untags, Bedouin's `splitIntoThirds`, the client
+        roster names and Malóne's work are done. Release covers: 15 of 16 up; WIKKA "WIK002 Dwitches —
+        Tic Tac" goes with the Kamino discs. `project.services` can retire (right after launch).
+      - Sanity plan: Free is fine; the trial drops to Free on its own (~11-26). Watch bandwidth
+        monthly (Free hard cap 100 GB; 22.7 GB on 11-24). The old project td5i23h5 is deleted.
+      - Phone Checks 330/340/350/370/390 settled; 400, 410, 430 open (420 passed).
+    - **Done 11-25 (pushed through `10a12e4`):** the Kamino 9 discs + their album-art Set
+      (`53ee44f3`), WIKKA's D'Witches — Tic Tac (`a690796c`), their alt (`9e46d41b`); SQ-142 (`8fb30b2`)
+      and SQ-141 (`36670b3`, probe `cea9749`) folded; Phone Checks 400, 410, 420, 430 passed; the
+      retirement's steps 1–2 (schema `a78be23`, runner `5cea820`, plan `b9f95559`: 4 project-less
+      Sets); the Cheetah Print rank tie (`c536f5a5`) and its cause, the Studio list's drag
+      (`67aee92`, runner `e9b3fda`; Nathan: order is the Studio list's alone).
+    - **Left before `main`:**
+      - the hosted Studio redeploy (the 11-25 run was blocked by Claude Code's permission check;
+        Nathan runs it or allows it), which also carries the optional Set project;
+      - the retirement's steps 3–7 (intake writes `set`, the site drops its `displayGroup` fallback,
+        clearing plans, the schema commit alone, a Studio redeploy);
+      - Phone Checks 440 (SQ-142) and 450 (SQ-141) on his iPhone; SQ-153;
+      - the launch itself: freeze, retire worktrees, gates + `cms audit` 0, then `main` on his go.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
@@ -380,13 +416,13 @@ Full implementation notes in the session plan; this is the tracking list. Order:
 | F6 | Globe video cue tuning | ✅ `8fe42e8` | Promote at the rim (0.03) not near-center (0.12); jittered max-dwell rotation + re-live cooldown ends pole-panel slot monopoly. Knobs `?promote ?demote ?dwellmax ?cooldown`. |
 | F7 | Progressive scroll-to-enter | ✅ `f99be98` | Globe lean (`?envlean`) + RouteFill pre-cover (`?envpre`, f² curve) ride the accumulator; rubber-band release; commit continues from the drag. New `swm:fill-progress` channel. |
 | F8 | Home nav pills + envelopment nav choreography | ✅ `f99be98` | Pills per spec (follow_us portaled to the shell); exit + link-stagger on envelop; reverse on back-nav; steady states via `body.route-home` CSS. |
-| F9 | Inquiry overlay pass | ✅ `f99be98` | Fade both ways; Flip stripped; globe mark persistent; Escape closes; wheel-under-overlay guard; hidden-form field parity (subject/replyto). **Real submission test on a deploy preview still owed.** |
+| F9 | Inquiry overlay pass | ✅ `f99be98` | Fade both ways; Flip stripped; globe mark persistent; Escape closes; wheel-under-overlay guard; hidden-form field parity (subject/replyto). **11-24 (Nathan):** submissions arrive steadily (Gmail); one real submission from the new site after launch. |
 | F10 | Mobile menu | ✅ `68d9a35` | Full-screen brand-black takeover off a `menu` pill at ≤768px; start_project routes through the overlay. |
 | F11 | Type-token breakpoint pass | ✅ `68d9a35` | `--text-mono` 12.8→14px at ≤768px; `.fp-pager__label` lifted to 16px. |
 | F12 | SEO/social baseline | ✅ `9277e27` | OG/Twitter + canonical + theme-color sitewide; brand og-image; homepage title/description; `@astrojs/sitemap` (redirect stubs + /studio filtered); robots.txt. |
 | F13 | 404 page | ✅ `9277e27` | Brand gradient, return_home primary CTA. |
 | F14 | Privacy page | ✅ `9277e27` + legal fold `08cb617` | `/privacy` plain-language notice; linked from the footer copy line. **11-02:** the overlay scrolls on Lenis routes (`8f3f8cf`). **11-03 (Nathan approved):** `main`'s 10-13 legal pages (PR #42) are ported as `/privacy` and the new `/terms` (`08cb617`). The studio is off QuickBooks, so both lose the QuickBooks integration copy; privacy gains a short Clients section naming only the client-facing services (Postmark invoices, Stripe and Wise payments); the contact is `hello@smallworld.media`; both are dated November 3, 2026. `origin/main` is merged in (`919f4af`: ours on both pages, LegalLayout removed), so the launch PR into `main` can't conflict. Pushed (`4504078`). |
-| F15 | Pageview analytics | ☐ | Cookieless only (Netlify Analytics or Plausible) — keeps F14 true. Dashboard toggle / one script; **decide at deploy** (no code in repo yet). |
+| F15 | Pageview analytics | ✅ `98ab6c9` + `6df4e05` | Plausible (Nathan 11-24): cookieless, loaded in BaseLayout's head on production builds only (`CONTEXT === 'production'`); the privacy page names it. |
 | F16 | Hygiene | ✅ `9277e27` | Skip link + `#main`, brand-font preloads (hashed via `?url` imports), `.env.example`. Focus-visible sweep rides ws6. |
 | F17 | World-side deck/album mounts | ✅ `c9f15f3` | Pulled into v1 (was a cut): shared `bandLayout` geometry brain (ADR-0003) + `worldBands` WebGL consumer — display-only stacks among the Tiles, idle-cycling on the Turn curve; placeholder card badges removed. Knobs `?bands ?bandh ?bandcycle ?bandpages`. |
 | F18 | Next-project band (detail continuation) | ✅ | `NextProjectBand` at the detail-page bottom (Figma "next project card" 15:385/401/417): next project's identity + first-order media (live HLS, poster-first), the house resistance accumulator gated to the document end (arming beat `?nparm` guards a wheel's flick tail — unlike / and /work the gesture arrives mid-flight; a finger skips it since `964cf42`), the page-turn entrance (`a625165`: scrubbed from the label reaching `?npinstart`, the label slides in from the right, the window pushes out `?nplag` behind, then the client name and `?npstep` later the tags; the window hangs one grid gutter below the last row; the 11-04 sticky runway is gone), a `[Keep Scrolling]` rest hint on the house tempo (`89b75f5`), the gesture on /work's drag and release lanes, commit = Envelopment passage (`swm:envelop` → navigate → arriving mount releases) + `swm:worldIndex` sync so the breadcrumb returns to the World you rode into. Chain = /work World order, wraps last→first. Knobs `?scroll ?npms ?npcover ?nppre ?npzoom ?nparm`, the entrance's `?npinstart ?nplag ?npstep ?npbig ?nplabel` and the hint's `?nphint ?nphintin ?nphold ?npblink ?npbeat` (`?npsplit ?npfrom ?nprun ?npinsplit` retired). 21-check Playwright suite (desktop drag/release/commit, wraparound, RM, mobile stacked). |
@@ -401,6 +437,11 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
 - Full year-field retirement (`mediaAsset.year` behind `coalesce`, 716 docs) — only the 5 featured projects are launch-relevant.
 
 ## Launch gate
+
+**Status 11-25 (Nathan's answers of 11-24, item 13):** Lighthouse DONE (SQ-147, fixes folded);
+entry paths WAIVED; the media session's items below are DONE (the Kamino discs and the Tic Tac cover
+on 11-25) except `project.services` (right after launch). What's left is in item 13's "Left before
+`main`".
 
 - Orbit/deck acceptance checklist (spec) passes.
 - `/work` live tier + Turn suspend verified on device.
